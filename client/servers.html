@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EmpireStreets - Servery</title>
+    <meta name="description" content="Výběr herního serveru pro režim FREE nebo WAR." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="EmpireStreets" />
+    <meta property="og:title" content="EmpireStreets" />
+    <meta property="og:description" content="Gangy. Distrikty. Kontrola." />
+    <meta property="og:image" content="/img/og-cover-safe.jpg?v=2" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="EmpireStreets - gangy, distrikty a kontrola města" />
+    <meta property="og:locale" content="cs_CZ" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="EmpireStreets" />
+    <meta name="twitter:description" content="Gangy. Distrikty. Kontrola." />
+    <meta name="twitter:image" content="/img/og-cover-safe.jpg?v=2" />
+    <meta name="twitter:image:alt" content="EmpireStreets - gangy, distrikty a kontrola města" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="auth-body auth-body--login auth-body--war servers-page">
+    <div class="rain-drops rain-drops--slow" aria-hidden="true"></div>
+    <div class="rain-drops rain-drops--fast" aria-hidden="true"></div>
+    <div class="smoke-layer smoke-layer--low" aria-hidden="true"></div>
+    <div class="smoke-layer smoke-layer--high" aria-hidden="true"></div>
+    <div class="vortex-graffiti" aria-hidden="true">
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--one">VORTEX CITY</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--two">namísto AtuDéšť nikdy nepřestává.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--three">Neony svítí na špinavé ulice.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--four">Informace. Přístup. Cena.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--five">Gangy už začaly.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--six">A teď jsi na řadě ty.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--seven">Vezmi si první území.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--eight">Ovládni Vortex City.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--nine">Pod světly stojí šlapky.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--ten">Prodávají tělo. Informace. Přístup.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--fourteen">Rozjeď prachy.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--sixteen">Tvoje ulice. Tvoje pravidla.</div>
+    </div>
+    <div class="auth-mobile-fit-frame">
+      <div class="auth-mobile-fit-stack">
+        <main class="auth-shell">
+          <div class="auth-headline">
+            <h1>Výběr serveru</h1>
+            <h2 class="auth-subtitle">Zvol lobby pro aktuální režim</h2>
+          </div>
+          <div class="auth-card auth-panel--right auth-card--wide">
+            <div class="auth-mode-tabs" id="auth-mode-tabs" role="tablist" aria-label="Výběr režimu">
+              <button class="auth-mode-tab is-active" type="button" data-mode="war" role="tab" aria-selected="true">WAR</button>
+              <button class="auth-mode-tab" type="button" data-mode="free" role="tab" aria-selected="false">FREE</button>
+            </div>
+            <p id="mode-lock-message" class="auth-mode-lock-note hidden" aria-live="polite"></p>
+            <div id="servers-list" class="auth-servers" aria-live="polite"></div>
+          </div>
+        </main>
+
+        <footer class="auth-footer auth-footer--fixed">
+          <div class="auth-footer__inner">
+            <div class="auth-footer__brand">
+              <div class="auth-footer__logo auth-footer__logo--img" aria-label="EmpireStreets logo"></div>
+              <div>
+                <div class="auth-footer__title">EmpireStreets</div>
+                <div class="auth-footer__subtitle">Neonová metropole nikdy nespí.</div>
+              </div>
+            </div>
+            <div class="auth-footer__links">
+              <a class="auth-footer__link" href="https://facebook.com" target="_blank" rel="noopener" aria-label="Facebook">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M13.5 8.5h2.7V5.9h-2.7c-2.6 0-4.2 1.5-4.2 4.1v2H7v2.7h2.3V22h3v-7.3h2.7l.4-2.7h-3.1V9.9c0-.9.4-1.4 1.2-1.4z" />
+                </svg>
+              </a>
+              <a class="auth-footer__link" href="https://x.com" target="_blank" rel="noopener" aria-label="X">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M18.2 3H21l-6.4 7.3L22 21h-5.6l-4.4-5.5L6.7 21H4l6.9-7.8L2 3h5.7l4 5.1L18.2 3z" />
+                </svg>
+              </a>
+              <a class="auth-footer__link auth-footer__link--instagram" href="https://instagram.com" target="_blank" rel="noopener" aria-label="Instagram">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zm10 2H7a2 2 0 0 0-2 2v10c0 1.1.9 2 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-5 3.2a4.8 4.8 0 1 1 0 9.6 4.8 4.8 0 0 1 0-9.6zm0 2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6zm5.6-.9a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" />
+                </svg>
+              </a>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <div class="server-detail-modal hidden" id="server-detail-modal" aria-hidden="true">
+      <div class="server-detail-modal__backdrop" data-server-modal-close></div>
+      <section class="server-detail-modal__card" role="dialog" aria-modal="true" aria-labelledby="server-detail-title">
+        <button class="server-detail-modal__close" type="button" aria-label="Zavřít" data-server-modal-close>&times;</button>
+        <div class="server-detail-modal__title-row">
+          <h3 class="server-detail-modal__title" id="server-detail-title">Server detail</h3>
+          <span class="server-detail-modal__spawn-hint" id="server-detail-spawn-hint">Vyber district</span>
+        </div>
+        <p class="server-detail-modal__subtitle" id="server-detail-subtitle"></p>
+        <div class="server-detail-modal__meta">
+          <span id="server-detail-mode"></span>
+          <span id="server-detail-capacity"></span>
+          <span id="server-detail-start"></span>
+          <span id="server-detail-countdown"></span>
+        </div>
+        <div class="server-detail-modal__map-wrap">
+          <img class="server-detail-modal__map" id="server-detail-map" alt="Náhled mapy serveru" />
+          <div class="server-detail-modal__map-overlay" id="server-detail-map-overlay" aria-label="District overlay"></div>
+          <div class="server-map-scale-controls">
+            <button class="server-map-scale-btn" type="button" id="server-detail-map-zoom-out" aria-label="Oddálit mapu">−</button>
+            <button class="server-map-scale-btn" type="button" id="server-detail-map-zoom-in" aria-label="Přiblížit mapu">+</button>
+          </div>
+          <button class="btn btn--ghost server-detail-modal__map-zoom-btn" type="button" id="server-detail-map-zoom-btn">Zvětšit mapu</button>
+        </div>
+        <div class="server-detail-modal__type-counts" id="server-detail-type-counts" aria-label="Počty typů districtů"></div>
+        <div class="server-detail-modal__materials">
+          <h4>Start materiály</h4>
+          <ul id="server-detail-materials"></ul>
+        </div>
+        <div class="server-detail-modal__actions">
+          <button class="btn server-detail-modal__btn server-detail-modal__btn--close" type="button" data-server-modal-close>Zavřít</button>
+          <button class="btn server-detail-modal__btn server-detail-modal__btn--join" type="button" id="server-detail-join">Vstoupit na server</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="server-map-zoom-modal hidden" id="server-map-zoom-modal" aria-hidden="true">
+      <div class="server-map-zoom-modal__backdrop" data-server-map-zoom-close></div>
+      <section class="server-map-zoom-modal__card" role="dialog" aria-modal="true" aria-labelledby="server-map-zoom-title">
+        <button class="server-map-zoom-modal__close" type="button" aria-label="Zavřít" data-server-map-zoom-close>&times;</button>
+        <h3 class="server-map-zoom-modal__title" id="server-map-zoom-title">Náhled mapy serveru</h3>
+        <div class="server-map-zoom-modal__map-wrap">
+          <img class="server-map-zoom-modal__map" id="server-map-zoom-image" alt="Zvětšený náhled mapy serveru" />
+          <div class="server-map-zoom-modal__overlay" id="server-map-zoom-overlay" aria-label="District overlay"></div>
+          <div class="server-map-scale-controls server-map-scale-controls--zoom">
+            <button class="server-map-scale-btn" type="button" id="server-map-zoom-out" aria-label="Oddálit mapu">−</button>
+            <button class="server-map-scale-btn" type="button" id="server-map-zoom-in" aria-label="Přiblížit mapu">+</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script src="game-modes.js"></script>
+    <script src="mode.js"></script>
+    <script src="gen/rng.js"></script>
+    <script src="gen/noise.js"></script>
+    <script src="gen/voronoi.js"></script>
+    <script src="gen/city.js"></script>
+    <script src="servers.js"></script>
+  </body>
+</html>

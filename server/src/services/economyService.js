@@ -26,6 +26,7 @@ async function getEconomyStatus(playerId) {
   const balanceRes = await pool.query(
     `SELECT money, clean_money, dirty_money, influence_points, alliance_id, heat, drugs,
             weapons, defense, materials, data_shards,
+            game_mode,
             drug_neon_dust, drug_pulse_shot, drug_velvet_smoke, drug_ghost_serum, drug_overdrive_x,
             drug_neon_dust_active_until, drug_pulse_shot_active_until, drug_velvet_smoke_active_until, drug_ghost_serum_active_until, drug_overdrive_x_active_until,
             drug_neon_dust_active_dose, drug_pulse_shot_active_dose, drug_velvet_smoke_active_dose, drug_ghost_serum_active_dose, drug_overdrive_x_active_dose
@@ -44,7 +45,7 @@ async function getEconomyStatus(playerId) {
   const drugStatus = serializeDrugStatus(drugRuntime);
 
   const districtRes = await pool.query(
-    `SELECT COALESCE(SUM(base_income), 0) AS income,
+      `SELECT COALESCE(SUM(base_income), 0) AS income,
             COUNT(*) FILTER (WHERE LOWER(COALESCE(type, '')) = 'commercial') AS commercial_count,
             COUNT(*) FILTER (WHERE LOWER(COALESCE(type, '')) = 'residential') AS residential_count,
             COUNT(*) FILTER (WHERE LOWER(COALESCE(type, '')) = 'downtown') AS downtown_count,
@@ -52,8 +53,9 @@ async function getEconomyStatus(playerId) {
             COUNT(*) FILTER (WHERE LOWER(COALESCE(type, '')) = 'industrial') AS industrial_count
        FROM districts
       WHERE owner_player_id = $1
-        AND COALESCE(is_destroyed, false) = false`,
-    [playerId]
+        AND COALESCE(is_destroyed, false) = false
+        AND game_mode = $2`,
+    [playerId, player.game_mode || "war"]
   );
 
   let income = Number(districtRes.rows[0].income);

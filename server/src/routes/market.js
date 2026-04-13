@@ -12,7 +12,7 @@ const router = express.Router();
 
 router.get("/", auth, async (req, res) => {
   try {
-    const market = await getMarketState(req.user.id);
+    const market = await getMarketState(req.user.id, req.gameMode);
     res.json(market);
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message || "market_failed" });
@@ -31,6 +31,7 @@ router.post("/orders", auth, async (req, res) => {
     });
     broadcastMarketUpdate({
       rooms: getRoomRegistry(),
+      gameMode: req.gameMode,
       update: { resourceKey, ts: Date.now() }
     });
     res.json(result);
@@ -47,6 +48,7 @@ router.post("/orders/:id/cancel", auth, async (req, res) => {
     });
     broadcastMarketUpdate({
       rooms: getRoomRegistry(),
+      gameMode: req.gameMode,
       update: { orderId: req.params.id, ts: Date.now() }
     });
     res.json(result);

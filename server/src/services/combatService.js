@@ -1,5 +1,6 @@
 const { pool } = require("../config/db");
-const { ATTACK_COOLDOWN_SECONDS, ATTACK_ACTION_DURATION_SECONDS, MAX_INFLUENCE } = require("../config/constants");
+const { MAX_INFLUENCE } = require("../config/constants");
+const { getGameModeConfig, normalizeGameMode } = require("../config/gameModes");
 const { ensureMoneySchema, spendPlayerMoney } = require("./moneyService");
 const { HEAT_BALANCE } = require("../config/drugs");
 const { ensureDistrictDestructionSchema } = require("./districtService");
@@ -10,6 +11,7 @@ const {
 } = require("./drugService");
 
 const DISTRICT_DESTROY_CHANCE = 0.08;
+const DISTRICT_RAID_LOCK_MS = 2 * 60 * 60 * 1000;
 const COMBAT_WEAPON_TIERS = Object.freeze({
   attack: [
     { name: "Baseballová pálka", requiredMembers: 50, power: 10 },
@@ -34,6 +36,8 @@ const DISTRICT_POPULATION_WEIGHTS = Object.freeze({
   park: 1300
 });
 let attackTargetCooldownSchemaEnsured = false;
+let raidSchemaEnsured = false;
+let raidMemberLossSchemaEnsured = false;
 
 async function ensureAttackTargetCooldownSchema(client) {
   if (attackTargetCooldownSchemaEnsured) return;
@@ -48,7 +52,45 @@ async function ensureAttackTargetCooldownSchema(client) {
   attackTargetCooldownSchemaEnsured = true;
 }
 
-async function attackDistrict({ playerId, districtId }) {
+async function ensureRaidMemberLossSchema(client) {
+  if (raidMemberLossSchemaEnsured) return;
+  await client.query(`
+    ALTER TABLE players
+      ADD COLUMN IF NOT EXISTS raid_member_losses INT NOT NULL DEFAULT 0
+  `);
+  raidMemberLossSchemaEnsured = true;
+}
+
+async function ensureRaidSchema(client) {
+  if (raidSchemaEnsured) return;
+  await ensureRaidMemberLossSchema(client);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS raid_player_cooldowns (
+      player_id UUID PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
+      next_raid_at TIMESTAMP NOT NULL
+    )
+  `);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS district_raid_locks (
+      district_id UUID PRIMARY KEY REFERENCES districts(id) ON DELETE CASCADE,
+      locked_until TIMESTAMP NOT NULL
+    )
+  `);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS district_raid_stashes (
+      district_id UUID PRIMARY KEY REFERENCES districts(id) ON DELETE CASCADE,
+      materials INT NOT NULL DEFAULT 0,
+      drugs INT NOT NULL DEFAULT 0,
+      weapons INT NOT NULL DEFAULT 0,
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+  raidSchemaEnsured = true;
+}
+
+async function attackDistrict({ playerId, districtId, gameMode = "war" }) {
+  const mode = normalizeGameMode(gameMode);
+  const modeConfig = getGameModeConfig(mode);
   await ensureMoneySchema();
   await ensureDrugSchema();
   await ensureDistrictDestructionSchema();
@@ -56,6 +98,7 @@ async function attackDistrict({ playerId, districtId }) {
 
   try {
     await client.query("BEGIN");
+    await ensureRaidMemberLossSchema(client);
     await ensureAttackTargetCooldownSchema(client);
 
     const districtRes = await client.query(
@@ -83,8 +126,9 @@ async function attackDistrict({ playerId, districtId }) {
        FROM districts d
        LEFT JOIN players p ON p.id = d.owner_player_id
        WHERE d.id = $1
+         AND d.game_mode = $2
        FOR UPDATE`,
-      [districtId]
+      [districtId, mode]
     );
 
     if (districtRes.rowCount === 0) {
@@ -173,7 +217,8 @@ async function attackDistrict({ playerId, districtId }) {
     }
 
     const mapRes = await client.query(
-      "SELECT id, owner_player_id, polygon FROM districts"
+      "SELECT id, owner_player_id, polygon FROM districts WHERE game_mode = $1",
+      [mode]
     );
 
     const sourceDistrictId = resolveOwnedAdjacentDistrictId({
@@ -308,7 +353,7 @@ async function attackDistrict({ playerId, districtId }) {
 
     if (targetPlayerId) {
       const nextAttackAt = new Date(
-        Date.now() + ((ATTACK_ACTION_DURATION_SECONDS + ATTACK_COOLDOWN_SECONDS) * 1000)
+        Date.now() + ((modeConfig.attackActionDurationSeconds + modeConfig.attackCooldownSeconds) * 1000)
       );
       await client.query(
         `INSERT INTO attack_target_cooldowns (attacker_player_id, target_player_id, next_attack_at)
@@ -349,6 +394,365 @@ async function attackDistrict({ playerId, districtId }) {
   }
 }
 
+function resolveRaidOutcomeByOwner(hasOwner) {
+  const cleanChance = hasOwner ? 70 : 78;
+  const dirtyChance = hasOwner ? 20 : 18;
+  const roll = Math.random() * 100;
+  if (roll < cleanChance) return "clean_success";
+  if (roll < cleanChance + dirtyChance) return "dirty_fail";
+  return "disaster";
+}
+
+function clampInt(value) {
+  const parsed = Number(value || 0);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.max(0, Math.floor(parsed));
+}
+
+function calculateRaidLoot(baseLoot, factor = 1) {
+  return {
+    materials: clampInt(clampInt(baseLoot.materials) * factor),
+    drugs: clampInt(clampInt(baseLoot.drugs) * factor),
+    weapons: clampInt(clampInt(baseLoot.weapons) * factor)
+  };
+}
+
+function buildRaidLootLabel(loot) {
+  const safeLoot = loot && typeof loot === "object" ? loot : {};
+  return {
+    materials: clampInt(safeLoot.materials),
+    drugs: clampInt(safeLoot.drugs),
+    weapons: clampInt(safeLoot.weapons)
+  };
+}
+
+function resolveOwnedAdjacentDistrictIds({ districts, playerId }) {
+  const safeDistricts = Array.isArray(districts) ? districts : [];
+  const playerKey = String(playerId || "");
+  if (!playerKey) return new Set();
+  return new Set(
+    safeDistricts
+      .filter((district) => String(district?.owner_player_id || "") === playerKey)
+      .map((district) => String(district.id))
+  );
+}
+
+function resolveRaidSourceDistrictId({
+  districts,
+  targetDistrictId,
+  playerId,
+  playerAllianceId
+}) {
+  const safeDistricts = Array.isArray(districts) ? districts : [];
+  const targetKey = String(targetDistrictId || "");
+  const playerKey = String(playerId || "");
+  if (!safeDistricts.length || !targetKey || !playerKey) return null;
+
+  const byId = new Map(safeDistricts.map((district) => [String(district.id), district]));
+  if (!byId.has(targetKey)) return null;
+
+  const adjacency = buildDistrictAdjacency(safeDistricts);
+  const targetNeighbors = adjacency.get(targetKey);
+  if (!targetNeighbors || !targetNeighbors.size) return null;
+
+  const directOwned = Array.from(targetNeighbors)
+    .filter((neighborId) => String(byId.get(String(neighborId))?.owner_player_id || "") === playerKey)
+    .sort((a, b) => String(a).localeCompare(String(b)));
+  if (directOwned.length) return String(directOwned[0]);
+
+  const allianceKey = String(playerAllianceId || "");
+  if (!allianceKey) return null;
+
+  const playerOwnedDistrictIds = resolveOwnedAdjacentDistrictIds({ districts: safeDistricts, playerId });
+  if (!playerOwnedDistrictIds.size) return null;
+
+  const allyOwners = new Set(
+    safeDistricts
+      .filter((district) => {
+        const districtOwner = String(district?.owner_player_id || "");
+        if (!districtOwner || districtOwner === playerKey) return false;
+        const districtAlliance = String(district?.owner_alliance_id || "");
+        return districtAlliance && districtAlliance === allianceKey;
+      })
+      .map((district) => String(district.owner_player_id))
+  );
+  if (!allyOwners.size) return null;
+
+  const qualifiedAllyOwners = new Set();
+  allyOwners.forEach((ownerId) => {
+    let adjacentCount = 0;
+    safeDistricts.forEach((district) => {
+      if (String(district?.owner_player_id || "") !== ownerId) return;
+      const districtNeighbors = adjacency.get(String(district.id));
+      if (!districtNeighbors || !districtNeighbors.size) return;
+      const hasPlayerNeighbor = Array.from(districtNeighbors).some((neighborId) => playerOwnedDistrictIds.has(String(neighborId)));
+      if (hasPlayerNeighbor) adjacentCount += 1;
+    });
+    if (adjacentCount >= 2) {
+      qualifiedAllyOwners.add(ownerId);
+    }
+  });
+
+  if (!qualifiedAllyOwners.size) return null;
+
+  const alliedSource = Array.from(targetNeighbors)
+    .filter((neighborId) => qualifiedAllyOwners.has(String(byId.get(String(neighborId))?.owner_player_id || "")))
+    .sort((a, b) => String(a).localeCompare(String(b)));
+  if (!alliedSource.length) return null;
+  return String(alliedSource[0]);
+}
+
+async function ensureDistrictRaidStash(client, districtId) {
+  const current = await client.query(
+    `SELECT district_id, materials, drugs, weapons
+       FROM district_raid_stashes
+      WHERE district_id = $1
+      FOR UPDATE`,
+    [districtId]
+  );
+  if (current.rowCount > 0) return current.rows[0];
+
+  const seededMaterials = 120 + Math.floor(Math.random() * 81);
+  const seededDrugs = 80 + Math.floor(Math.random() * 61);
+  const seededWeapons = 50 + Math.floor(Math.random() * 41);
+  const inserted = await client.query(
+    `INSERT INTO district_raid_stashes (district_id, materials, drugs, weapons, updated_at)
+     VALUES ($1, $2, $3, $4, NOW())
+     RETURNING district_id, materials, drugs, weapons`,
+    [districtId, seededMaterials, seededDrugs, seededWeapons]
+  );
+  return inserted.rows[0];
+}
+
+async function raidDistrict({ playerId, districtId, gameMode = "war" }) {
+  const mode = normalizeGameMode(gameMode);
+  const modeConfig = getGameModeConfig(mode);
+  await ensureMoneySchema();
+  await ensureDistrictDestructionSchema();
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+    await ensureRaidSchema(client);
+
+    const districtRes = await client.query(
+      `SELECT d.id, d.owner_player_id, d.is_destroyed,
+              p.alliance_id AS owner_alliance_id,
+              p.materials AS owner_materials,
+              p.drugs AS owner_drugs,
+              p.weapons AS owner_weapons
+         FROM districts d
+         LEFT JOIN players p ON p.id = d.owner_player_id AND p.game_mode = d.game_mode
+        WHERE d.id = $1
+          AND d.game_mode = $2
+        FOR UPDATE`,
+      [districtId, mode]
+    );
+    if (districtRes.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return { ok: false, error: "not_found" };
+    }
+
+    const attackerRes = await client.query(
+      `SELECT alliance_id, materials, drugs, weapons
+         FROM players
+        WHERE id = $1
+        FOR UPDATE`,
+      [playerId]
+    );
+    if (attackerRes.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return { ok: false, error: "not_found" };
+    }
+
+    const district = districtRes.rows[0];
+    const attacker = attackerRes.rows[0];
+
+    if (district.is_destroyed) {
+      await client.query("ROLLBACK");
+      return { ok: false, error: "destroyed_district" };
+    }
+
+    if (String(district.owner_player_id || "") === String(playerId)) {
+      await client.query("ROLLBACK");
+      return { ok: false, error: "own_district" };
+    }
+
+    if (
+      attacker.alliance_id
+      && district.owner_alliance_id
+      && String(attacker.alliance_id) === String(district.owner_alliance_id)
+    ) {
+      await client.query("ROLLBACK");
+      return { ok: false, error: "allied_district" };
+    }
+
+    const nowMs = Date.now();
+    const raidCooldownRes = await client.query(
+      `SELECT next_raid_at
+         FROM raid_player_cooldowns
+        WHERE player_id = $1`,
+      [playerId]
+    );
+    if (raidCooldownRes.rowCount > 0) {
+      const nextRaidMs = new Date(raidCooldownRes.rows[0].next_raid_at).getTime();
+      if (Number.isFinite(nextRaidMs) && nextRaidMs > nowMs) {
+        await client.query("ROLLBACK");
+        return { ok: false, error: "cooldown", cooldownMs: Math.max(0, nextRaidMs - nowMs) };
+      }
+    }
+
+    const districtLockRes = await client.query(
+      `SELECT locked_until
+         FROM district_raid_locks
+        WHERE district_id = $1`,
+      [districtId]
+    );
+    if (districtLockRes.rowCount > 0) {
+      const lockUntilMs = new Date(districtLockRes.rows[0].locked_until).getTime();
+      if (Number.isFinite(lockUntilMs) && lockUntilMs > nowMs) {
+        await client.query("ROLLBACK");
+        return { ok: false, error: "district_locked", districtLockMs: Math.max(0, lockUntilMs - nowMs) };
+      }
+    }
+
+    const mapRes = await client.query(
+      `SELECT d.id, d.owner_player_id, d.polygon, p.alliance_id AS owner_alliance_id
+         FROM districts d
+         LEFT JOIN players p ON p.id = d.owner_player_id AND p.game_mode = d.game_mode
+        WHERE d.game_mode = $1`,
+      [mode]
+    );
+    const sourceDistrictId = resolveRaidSourceDistrictId({
+      districts: mapRes.rows,
+      targetDistrictId: district.id,
+      playerId,
+      playerAllianceId: attacker.alliance_id
+    });
+    if (sourceDistrictId == null) {
+      await client.query("ROLLBACK");
+      return { ok: false, error: "not_adjacent" };
+    }
+
+    const hasOwner = Boolean(district.owner_player_id);
+    const stealPct = 0.02 + Math.random() * 0.04;
+
+    let sourceInventory = {
+      materials: clampInt(district.owner_materials),
+      drugs: clampInt(district.owner_drugs),
+      weapons: clampInt(district.owner_weapons)
+    };
+    if (!hasOwner) {
+      const stash = await ensureDistrictRaidStash(client, district.id);
+      sourceInventory = {
+        materials: clampInt(stash.materials),
+        drugs: clampInt(stash.drugs),
+        weapons: clampInt(stash.weapons)
+      };
+    }
+
+    const baseLoot = {
+      materials: Math.min(sourceInventory.materials, Math.max(0, Math.floor(sourceInventory.materials * stealPct))),
+      drugs: Math.min(sourceInventory.drugs, Math.max(0, Math.floor(sourceInventory.drugs * stealPct))),
+      weapons: Math.min(sourceInventory.weapons, Math.max(0, Math.floor(sourceInventory.weapons * stealPct)))
+    };
+
+    const outcomeKey = resolveRaidOutcomeByOwner(hasOwner);
+    const gangLossPct = outcomeKey === "dirty_fail" ? 2.5 : (outcomeKey === "disaster" ? 5 : 0);
+    const currentGangMembers = await estimateGangMembers(client, playerId);
+    const gangLoss = Math.max(0, Math.floor(currentGangMembers * gangLossPct / 100));
+    const dirtyLootMultiplier = (20 + Math.floor(Math.random() * 11)) / 100;
+    const gainedLoot = outcomeKey === "clean_success"
+      ? calculateRaidLoot(baseLoot, 1)
+      : (outcomeKey === "dirty_fail" ? calculateRaidLoot(baseLoot, dirtyLootMultiplier) : { materials: 0, drugs: 0, weapons: 0 });
+
+    if (hasOwner) {
+      await client.query(
+        `UPDATE players
+            SET materials = GREATEST(0, materials - $1),
+                drugs = GREATEST(0, drugs - $2),
+                weapons = GREATEST(0, weapons - $3),
+                updated_at = NOW()
+          WHERE id = $4`,
+        [baseLoot.materials, baseLoot.drugs, baseLoot.weapons, district.owner_player_id]
+      );
+    } else {
+      await client.query(
+        `UPDATE district_raid_stashes
+            SET materials = GREATEST(0, materials - $1),
+                drugs = GREATEST(0, drugs - $2),
+                weapons = GREATEST(0, weapons - $3),
+                updated_at = NOW()
+          WHERE district_id = $4`,
+        [baseLoot.materials, baseLoot.drugs, baseLoot.weapons, district.id]
+      );
+    }
+
+    if (gainedLoot.materials > 0 || gainedLoot.drugs > 0 || gainedLoot.weapons > 0) {
+      await client.query(
+        `UPDATE players
+            SET materials = materials + $1,
+                drugs = drugs + $2,
+                weapons = weapons + $3,
+                updated_at = NOW()
+          WHERE id = $4`,
+        [gainedLoot.materials, gainedLoot.drugs, gainedLoot.weapons, playerId]
+      );
+    }
+
+    if (gangLoss > 0) {
+      await client.query(
+        `UPDATE players
+            SET raid_member_losses = GREATEST(0, raid_member_losses + $1),
+                updated_at = NOW()
+          WHERE id = $2`,
+        [gangLoss, playerId]
+      );
+    }
+
+    const postActionCooldownMs = outcomeKey === "clean_success"
+      ? (modeConfig.raidCooldownSeconds * 1000)
+      : (outcomeKey === "dirty_fail" ? Math.round(modeConfig.raidCooldownSeconds * 1.2 * 1000) : Math.round(modeConfig.raidCooldownSeconds * 1.5 * 1000));
+    const nextRaidAt = new Date(nowMs + (modeConfig.raidActionDurationSeconds * 1000) + postActionCooldownMs);
+    const districtLockUntil = new Date(nowMs + DISTRICT_RAID_LOCK_MS);
+
+    await client.query(
+      `INSERT INTO raid_player_cooldowns (player_id, next_raid_at)
+       VALUES ($1, $2)
+       ON CONFLICT (player_id)
+       DO UPDATE SET next_raid_at = EXCLUDED.next_raid_at`,
+      [playerId, nextRaidAt]
+    );
+    await client.query(
+      `INSERT INTO district_raid_locks (district_id, locked_until)
+       VALUES ($1, $2)
+       ON CONFLICT (district_id)
+       DO UPDATE SET locked_until = EXCLUDED.locked_until`,
+      [district.id, districtLockUntil]
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      ok: true,
+      outcomeKey,
+      loot: buildRaidLootLabel(gainedLoot),
+      gangLoss,
+      targetAlerted: hasOwner && outcomeKey === "disaster",
+      sourceDistrictId,
+      durationMs: modeConfig.raidActionDurationSeconds * 1000,
+      cooldownMs: (modeConfig.raidActionDurationSeconds * 1000) + postActionCooldownMs,
+      postActionCooldownMs,
+      districtLockMs: DISTRICT_RAID_LOCK_MS
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 function formatAttackOutcomeMessage({ outcomeKey, destroyed }) {
   if (destroyed || outcomeKey === "catastrophe") {
     return "Všechno shořelo do prdele. Baráky, lidi, zásoby. Jen popel a smrad. Tady už není co brát, jen prázdná díra.";
@@ -363,11 +767,20 @@ function formatAttackOutcomeMessage({ outcomeKey, destroyed }) {
 }
 
 async function estimateGangMembers(client, playerId) {
-  const result = await client.query(
+  const districtResult = await client.query(
     "SELECT type FROM districts WHERE owner_player_id = $1",
     [playerId]
   );
-  return result.rows.reduce((sum, row) => sum + (DISTRICT_POPULATION_WEIGHTS[String(row.type || "").trim().toLowerCase()] || 2200), 0);
+  const baseMembers = districtResult.rows.reduce(
+    (sum, row) => sum + (DISTRICT_POPULATION_WEIGHTS[String(row.type || "").trim().toLowerCase()] || 2200),
+    0
+  );
+  const playerResult = await client.query(
+    "SELECT raid_member_losses FROM players WHERE id = $1",
+    [playerId]
+  );
+  const persistentLosses = Math.max(0, Math.floor(Number(playerResult.rows[0]?.raid_member_losses || 0)));
+  return Math.max(0, baseMembers - persistentLosses);
 }
 
 function resolveCombatWeaponTier(category, gangMembers) {
@@ -515,4 +928,4 @@ function normalizePointKey(point) {
   return `${x},${y}`;
 }
 
-module.exports = { attackDistrict };
+module.exports = { attackDistrict, raidDistrict };

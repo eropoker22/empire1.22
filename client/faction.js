@@ -62,6 +62,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const API_BASE = "http://localhost:3000";
+  const currentMode = window.Empire?.mode || "war";
+  const resolveGameEntryHref = (mode) => {
+    const normalizedMode = window.Empire?.GameModes?.normalizeMode?.(mode) || "war";
+    return `index.html?mode=${normalizedMode}`;
+  };
+  const backToLogin = document.querySelector('.faction-link--secondary[href="login.html"]');
   let authToken = localStorage.getItem("empire_token");
 
   const grid = document.getElementById("structure-grid");
@@ -102,6 +108,11 @@ document.addEventListener("DOMContentLoaded", () => {
   let mobileStructureTapState = {
     structure: null,
     at: 0
+  };
+  const selectionConfirmed = {
+    structure: false,
+    avatar: false,
+    gangColor: false
   };
   const MOBILE_STRUCTURE_DOUBLE_TAP_MS = 360;
 
@@ -463,7 +474,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function updateContinueState() {
     if (!goGame) return;
-    if (selectedStructure && selectedAvatar && selectedGangColor) {
+    if (
+      selectedStructure
+      && selectedAvatar
+      && selectedGangColor
+      && selectionConfirmed.structure
+      && selectionConfirmed.avatar
+      && selectionConfirmed.gangColor
+    ) {
       goGame.classList.remove("faction-link--disabled");
       goGame.setAttribute("aria-disabled", "false");
       goGame.tabIndex = 0;
@@ -476,14 +494,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function updateNote() {
     if (!note) return;
-    if (selectedStructure && selectedAvatar && selectedGangColor) {
+    if (
+      selectedStructure
+      && selectedAvatar
+      && selectedGangColor
+      && selectionConfirmed.structure
+      && selectionConfirmed.avatar
+      && selectionConfirmed.gangColor
+    ) {
       note.textContent = `Vybráno: ${selectedStructure} • ${resolveGangColorName(selectedGangColor)} • avatar.`;
       return;
     }
     const missing = [];
-    if (!selectedStructure) missing.push("frakci");
-    if (!selectedGangColor) missing.push("barvu gangu");
-    if (!selectedAvatar) missing.push("avatara");
+    if (!selectedStructure || !selectionConfirmed.structure) missing.push("frakci");
+    if (!selectedGangColor || !selectionConfirmed.gangColor) missing.push("barvu gangu");
+    if (!selectedAvatar || !selectionConfirmed.avatar) missing.push("avatara");
     note.textContent = `Chybí vybrat: ${missing.join(", ")}.`;
   }
 
@@ -614,8 +639,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const normalized = normalizeHexColor(color);
     if (!normalized || !gangColorValueSet.has(normalized)) return false;
     const previousColor = normalizeHexColor(selectedGangColor);
+    const previousGangColorConfirmed = selectionConfirmed.gangColor;
+    const shouldConfirmSelection = options?.confirm !== false;
     const shouldSyncServer = Boolean(authToken) && !options?.skipServerSync;
     const isSameAsPrevious = previousColor === normalized;
+
+    if (shouldConfirmSelection) {
+      selectionConfirmed.gangColor = true;
+    }
 
     if (!isSameAsPrevious) {
       selectedGangColor = normalized;
@@ -656,6 +687,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         clearGangColorSelection();
       }
+      selectionConfirmed.gangColor = previousGangColorConfirmed;
       updateContinueState();
       if (!options?.silent && note) {
         if (result?.error === "gang_color_taken") {
@@ -670,8 +702,9 @@ document.addEventListener("DOMContentLoaded", () => {
     return true;
   }
 
-  function applyStructureSelection(choice) {
+  function applyStructureSelection(choice, options = {}) {
     if (!choice || !grid) return;
+    const shouldConfirmSelection = options?.confirm !== false;
     grid.querySelectorAll(".structure-card").forEach((btn) => {
       btn.classList.toggle("structure-card--active", btn.dataset.structure === choice);
     });
@@ -696,10 +729,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     selectedStructure = choice;
     localStorage.setItem("empire_structure", choice);
+    if (shouldConfirmSelection) {
+      selectionConfirmed.structure = true;
+    }
 
     const availableAvatars = getAvailableAvatars();
     if (!availableAvatars.includes(selectedAvatar)) {
       selectedAvatar = null;
+      selectionConfirmed.avatar = false;
       localStorage.removeItem("empire_avatar");
     }
 
@@ -742,6 +779,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function applyAvatarSelection(src, options = {}) {
     if (!src || !avatarGrid) return;
+    const shouldConfirmSelection = options?.confirm !== false;
     const availableAvatars = getAvailableAvatars();
     if (!availableAvatars.includes(src)) return;
     avatarGrid.querySelectorAll(".avatar-item").forEach((btn) => {
@@ -749,6 +787,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     selectedAvatar = src;
     localStorage.setItem("empire_avatar", src);
+    if (shouldConfirmSelection) {
+      selectionConfirmed.avatar = true;
+    }
     updateContinueState();
     updateNote();
     if (options.openPreview) {
@@ -796,7 +837,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (src && src === selectedAvatar) item.classList.add("is-selected");
       if (!isCoarsePointer) {
         item.addEventListener("mouseenter", () => {
-          hoverPause = true;
           if (src) {
             const existing = document.getElementById("avatar-hover-preview");
             if (existing) existing.remove();
@@ -811,7 +851,6 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         });
         item.addEventListener("mouseleave", () => {
-          hoverPause = false;
           const existing = document.getElementById("avatar-hover-preview");
           if (existing) existing.remove();
         });
@@ -939,6 +978,14 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("resize", updateMarqueeLoopWidth);
 
     if (!isCoarsePointer) {
+      marquee.addEventListener("mouseenter", () => {
+        hoverPause = true;
+      });
+      marquee.addEventListener("mouseleave", () => {
+        hoverPause = false;
+        const existing = document.getElementById("avatar-hover-preview");
+        if (existing) existing.remove();
+      });
       avatarLeft.addEventListener("mousedown", () => startHold(-1));
       avatarRight.addEventListener("mousedown", () => startHold(1));
       document.addEventListener("mouseup", stopHold);
@@ -979,15 +1026,16 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (selectedStructure) {
-    applyStructureSelection(selectedStructure);
+    applyStructureSelection(selectedStructure, { confirm: false });
   }
 
   if (selectedAvatar) {
-    applyAvatarSelection(selectedAvatar);
+    applyAvatarSelection(selectedAvatar, { confirm: false });
   }
 
   if (selectedGangColor) {
     void applyGangColorSelection(selectedGangColor, {
+      confirm: false,
       silent: true,
       forceServerSync: Boolean(authToken)
     });
@@ -1073,20 +1121,33 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   if (goGame) {
+    goGame.href = resolveGameEntryHref(currentMode);
     goGame.addEventListener("click", async (event) => {
-      if (!selectedStructure || !selectedAvatar || !selectedGangColor) {
+      if (
+        !selectedStructure
+        || !selectedAvatar
+        || !selectedGangColor
+        || !selectionConfirmed.structure
+        || !selectionConfirmed.avatar
+        || !selectionConfirmed.gangColor
+      ) {
         event.preventDefault();
+        updateNote();
         return;
       }
-      if (!authToken) return;
       event.preventDefault();
-      const ok = await applyGangColorSelection(selectedGangColor, {
-        forceServerSync: true
-      });
-      if (!ok) return;
-      const targetHref = String(goGame.getAttribute("href") || "index.html");
+      if (authToken) {
+        await applyGangColorSelection(selectedGangColor, {
+          forceServerSync: true
+        });
+      }
+      const targetHref = String(goGame.getAttribute("href") || resolveGameEntryHref(currentMode));
       window.location.href = targetHref;
     });
+  }
+
+  if (backToLogin) {
+    backToLogin.href = window.Empire?.getGameModeUrl?.("login", currentMode) || `/login.html?mode=${currentMode}`;
   }
 });
 

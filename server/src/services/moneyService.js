@@ -6,6 +6,7 @@ async function ensureMoneySchema() {
   if (moneySchemaReady) return;
   await pool.query(`
     ALTER TABLE players
+      ADD COLUMN IF NOT EXISTS game_mode TEXT NOT NULL DEFAULT 'war',
       ADD COLUMN IF NOT EXISTS clean_money BIGINT NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS dirty_money BIGINT NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS district_income_dirty_remainder NUMERIC(10,2) NOT NULL DEFAULT 0

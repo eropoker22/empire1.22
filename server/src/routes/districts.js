@@ -5,7 +5,7 @@ const { listDistricts } = require("../services/districtService");
 const router = express.Router();
 
 router.get("/", auth, async (req, res) => {
-  const districts = await listDistricts();
+  const districts = await listDistricts(req.gameMode);
   res.json({ districts });
 });
 

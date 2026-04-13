@@ -1,0 +1,29 @@
+{
+  "mode": "free",
+  "sessionLengthMinutes": 105,
+  "maxPlayers": 20,
+  "allianceCap": 8,
+  "districtCount": 161,
+  "incomeTickMinutes": 15,
+  "attackCooldownSeconds": 8,
+  "raidCooldownSeconds": 8,
+  "heatDecayMultiplier": 1.25,
+  "dominanceThreshold": 0.55,
+  "economy": {
+    "cleanCashPerHourPerActivePlayer": {
+      "min": 7000,
+      "max": 11000
+    },
+    "dirtyCashPerHourPerActivePlayer": {
+      "min": 3000,
+      "max": 6000
+    }
+  },
+  "zones": {
+    "Commercial": 34,
+    "Industrial": 29,
+    "Park": 21,
+    "Residential": 46,
+    "Downtown": 31
+  }
+}

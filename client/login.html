@@ -22,7 +22,7 @@
     <meta name="twitter:image:alt" content="EmpireStreets - gangy, distrikty a kontrola města" />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body class="auth-body auth-body--login">
+  <body class="auth-body auth-body--login auth-body--war">
     <div class="rain-drops rain-drops--slow" aria-hidden="true"></div>
     <div class="rain-drops rain-drops--fast" aria-hidden="true"></div>
     <div class="smoke-layer smoke-layer--low" aria-hidden="true"></div>
@@ -35,7 +35,7 @@
       <div class="vortex-graffiti__tag vortex-graffiti__tag--five">Gangy už začaly.</div>
       <div class="vortex-graffiti__tag vortex-graffiti__tag--six">A teď jsi na řadě ty.</div>
       <div class="vortex-graffiti__tag vortex-graffiti__tag--seven">Vezmi si první území.</div>
-      <div class="vortex-graffiti__tag vortex-graffiti__tag--eight">Ovládni Vortex City.</div>
+      <div class="vortex-graffiti__tag vortex-grffiti__tag--eight">Ovládni Vortex City.</div>
       <div class="vortex-graffiti__tag vortex-graffiti__tag--nine">Pod světly stojí šlapky.</div>
       <div class="vortex-graffiti__tag vortex-graffiti__tag--ten">Prodávají tělo. Informace. Přístup.</div>
       <div class="vortex-graffiti__tag vortex-graffiti__tag--fourteen">Rozjeď prachy.</div>
@@ -48,40 +48,51 @@
             <h1>Vstup do města</h1>
             <h2 class="auth-subtitle">Založ gang a ovládni ulice</h2>
           </div>
-          <div class="auth-card auth-panel--right">
-
-            <div class="auth-tabs">
-              <button class="tab-btn tab-btn--active" data-tab="login">Přihlášení</button>
-              <button class="tab-btn" data-tab="register">Registrace</button>
+          <div class="auth-mode-tabs" id="auth-mode-tabs" role="tablist" aria-label="Výběr režimu">
+            <button class="auth-mode-tab is-active" type="button" data-mode="war" role="tab" aria-selected="true">WAR</button>
+            <button class="auth-mode-tab" type="button" data-mode="free" role="tab" aria-selected="false">FREE</button>
+            <button class="auth-mode-tab auth-mode-tab--about" type="button" id="about-game-btn">O hře</button>
+          </div>
+          <div class="auth-login-row">
+            <div class="auth-side-panel">
+              <div class="auth-tabs auth-tabs--detached">
+                <button class="tab-btn tab-btn--active" data-tab="login">Přihlášení</button>
+                <button class="tab-btn" data-tab="register">Registrace</button>
+              </div>
+              <p id="about-game-copy" class="about-game-copy about-game-copy--detached hidden">
+                EmpireStreets je neonová gang válka o distrikty.
+                <a class="about-game-copy__link" href="/about-game.html">viz.</a>
+              </p>
             </div>
+            <div class="auth-card auth-panel--right">
+              <form id="login-form" class="auth-form">
+                <label>Uživatelské jméno</label>
+                <input type="text" id="login-username" placeholder="streetboss" />
+                <label>Heslo</label>
+                <input type="password" id="login-password" placeholder="******" />
+                <button type="submit" class="btn btn--primary">Přihlásit</button>
+              </form>
 
-            <form id="login-form" class="auth-form">
-              <label>Uživatelské jméno</label>
-              <input type="text" id="login-username" placeholder="streetboss" />
-              <label>Heslo</label>
-              <input type="password" id="login-password" placeholder="******" />
-              <button type="submit" class="btn btn--primary">Přihlásit</button>
-            </form>
+              <form id="register-form" class="auth-form hidden">
+                <label>Uživatelské jméno</label>
+                <input type="text" id="register-username" placeholder="newblood" />
+                <label>Název gangu</label>
+                <input type="text" id="register-gang" placeholder="Crimson Street" />
+                <label>Heslo</label>
+                <input type="password" id="register-password" placeholder="******" />
+                <button type="submit" class="btn btn--primary">Registrovat</button>
+              </form>
 
-            <form id="register-form" class="auth-form hidden">
-              <label>Uživatelské jméno</label>
-              <input type="text" id="register-username" placeholder="newblood" />
-              <label>Název gangu</label>
-              <input type="text" id="register-gang" placeholder="Crimson Street" />
-              <label>Heslo</label>
-              <input type="password" id="register-password" placeholder="******" />
-              <button type="submit" class="btn btn--primary">Registrovat</button>
-            </form>
+              <div class="auth-form auth-form--guest">
+                <label for="guest-username">Nick hosta</label>
+                <input type="text" id="guest-username" placeholder="streetguest" maxlength="24" autocomplete="nickname" />
+                <label for="guest-gang">Název gangu</label>
+                <input type="text" id="guest-gang" placeholder="Ghost Crew" maxlength="32" autocomplete="organization" />
+                <button type="button" class="btn btn--ghost" id="guest-btn">Pokračovat jako host</button>
+              </div>
 
-            <div class="auth-form auth-form--guest">
-              <label for="guest-username">Nick hosta</label>
-              <input type="text" id="guest-username" placeholder="streetguest" maxlength="24" autocomplete="nickname" />
-              <label for="guest-gang">Název gangu</label>
-              <input type="text" id="guest-gang" placeholder="Ghost Crew" maxlength="32" autocomplete="organization" />
-              <button type="button" class="btn btn--ghost" id="guest-btn">Pokračovat jako host</button>
+              <p id="auth-error" class="auth-error hidden"></p>
             </div>
-
-            <p id="auth-error" class="auth-error hidden"></p>
           </div>
         </main>
 
@@ -116,6 +127,8 @@
       </div>
     </div>
 
+    <script src="game-modes.js"></script>
+    <script src="mode.js"></script>
     <script src="login.js"></script>
   </body>
 </html>

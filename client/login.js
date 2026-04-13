@@ -3,20 +3,110 @@ const GUEST_USERNAME_KEY = "empire_guest_username";
 const GUEST_GANG_KEY = "empire_gang_name";
 
 const state = {
-  activeTab: "login"
+  activeTab: "login",
+  activeMode: window.Empire?.mode || "war"
 };
 
-document.addEventListener("DOMContentLoaded", () => {
-  if (localStorage.getItem("empire_token")) {
-    window.location.href = "faction.html";
-    return;
-  }
+function getModeServersUrl(mode) {
+  const normalizedMode = window.Empire?.GameModes?.normalizeMode?.(mode) || "war";
+  return `servers.html?mode=${normalizedMode}`;
+}
 
+document.addEventListener("DOMContentLoaded", () => {
+  bindModeTabs();
   bindTabs();
   bindForms();
   bindGuest();
+  bindAboutGameLink();
   initMobileLoginFit();
+
+  if (localStorage.getItem("empire_token")) {
+    window.location.href = window.Empire?.getGameModeUrl?.("faction", state.activeMode) || "/faction.html?mode=war";
+    return;
+  }
 });
+
+function getAboutGameUrl() {
+  const path = String(window.location.pathname || "").toLowerCase();
+  if (path.includes("/war/") || path.includes("/free/")) {
+    return "../about-game.html";
+  }
+  return "about-game.html";
+}
+
+function bindAboutGameLink() {
+  const aboutLink = document.querySelector(".about-game-copy__link");
+  if (!(aboutLink instanceof HTMLAnchorElement)) return;
+  const targetUrl = getAboutGameUrl();
+  aboutLink.setAttribute("href", targetUrl);
+  aboutLink.setAttribute("target", "_blank");
+  aboutLink.setAttribute("rel", "noopener noreferrer");
+  aboutLink.addEventListener("click", (event) => {
+    event.preventDefault();
+    window.open(targetUrl, "_blank", "noopener,noreferrer");
+  });
+}
+
+function bindModeTabs() {
+  const tabs = document.querySelectorAll(".auth-mode-tab");
+  const aboutCopy = document.getElementById("about-game-copy");
+  const authTabsDetached = document.querySelector(".auth-tabs--detached");
+  tabs.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const modeRaw = btn.dataset.mode;
+      if (!modeRaw) return;
+      const mode = String(modeRaw).toLowerCase();
+      if (mode === state.activeMode) return;
+      state.activeMode = mode;
+      if (aboutCopy) {
+        aboutCopy.classList.add("hidden");
+      }
+      if (authTabsDetached) {
+        authTabsDetached.classList.remove("hidden");
+      }
+      document.body.classList.remove("about-view-active");
+      updateModeTabs();
+    });
+  });
+
+  const aboutButton = document.getElementById("about-game-btn");
+  if (aboutButton) {
+    aboutButton.addEventListener("click", () => {
+      if (!aboutCopy) return;
+      const shouldShow = aboutCopy.classList.contains("hidden");
+      aboutCopy.classList.toggle("hidden", !shouldShow);
+      if (authTabsDetached) {
+        authTabsDetached.classList.toggle("hidden", shouldShow);
+      }
+      document.body.classList.toggle("about-view-active", shouldShow);
+    });
+  }
+
+  updateModeTabs();
+}
+
+function updateModeTabs() {
+  document.querySelectorAll(".auth-mode-tab").forEach((btn) => {
+    const modeRaw = btn.dataset.mode;
+    if (!modeRaw) {
+      btn.classList.remove("is-active");
+      btn.removeAttribute("aria-selected");
+      return;
+    }
+    const isActive = String(modeRaw) === state.activeMode;
+    btn.classList.toggle("is-active", isActive);
+    btn.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+  const serversLink = document.getElementById("servers-link");
+  if (serversLink) {
+    serversLink.href = getModeServersUrl(state.activeMode);
+  }
+  try {
+    window.Empire?.applyGameMode?.(state.activeMode);
+  } catch (error) {
+    console.error("Mode switch UI sync failed:", error);
+  }
+}
 
 function bindTabs() {
   document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -42,13 +132,14 @@ function bindForms() {
     const username = document.getElementById("login-username").value.trim();
     const password = document.getElementById("login-password").value.trim();
 
-    const result = await post(`${API_BASE}/auth/login`, { username, password });
+    const result = await post(`${API_BASE}/auth/login`, { username, password, mode: state.activeMode });
     if (result?.token) {
       hideError();
       localStorage.removeItem(GUEST_USERNAME_KEY);
       localStorage.removeItem(GUEST_GANG_KEY);
       localStorage.setItem("empire_token", result.token);
-      window.location.href = "faction.html";
+      window.Empire?.__storagePatch?.setItem?.("empire:active_auth_mode", state.activeMode);
+      window.location.href = window.Empire?.getGameModeUrl?.("faction", state.activeMode) || `/faction.html?mode=${state.activeMode}`;
     } else {
       showError("Přihlášení se nezdařilo. Zkontroluj údaje.");
     }
@@ -60,13 +151,14 @@ function bindForms() {
     const gangName = document.getElementById("register-gang").value.trim();
     const password = document.getElementById("register-password").value.trim();
 
-    const result = await post(`${API_BASE}/auth/register`, { username, gangName, password });
+    const result = await post(`${API_BASE}/auth/register`, { username, gangName, password, mode: state.activeMode });
     if (result?.token) {
       hideError();
       localStorage.removeItem(GUEST_USERNAME_KEY);
       localStorage.setItem(GUEST_GANG_KEY, gangName);
       localStorage.setItem("empire_token", result.token);
-      window.location.href = "faction.html";
+      window.Empire?.__storagePatch?.setItem?.("empire:active_auth_mode", state.activeMode);
+      window.location.href = window.Empire?.getGameModeUrl?.("faction", state.activeMode) || `/faction.html?mode=${state.activeMode}`;
     } else {
       showError("Registrace se nezdařila. Zkus jiné jméno.");
     }
@@ -93,7 +185,8 @@ function bindGuest() {
     localStorage.removeItem("empire_structure");
     localStorage.setItem(GUEST_USERNAME_KEY, username);
     localStorage.setItem(GUEST_GANG_KEY, gangName);
-    window.location.href = "faction.html";
+    window.Empire?.__storagePatch?.setItem?.("empire:active_guest_mode", state.activeMode);
+    window.location.href = getModeServersUrl(state.activeMode);
   };
 
   btn.addEventListener("click", () => {
@@ -115,7 +208,10 @@ function sanitizeGuestValue(value, maxLength) {
 async function post(url, body) {
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Game-Mode": state.activeMode
+    },
     body: JSON.stringify(body)
   });
   return res.json();

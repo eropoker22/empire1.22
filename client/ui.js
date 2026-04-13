@@ -54,7 +54,18 @@ window.Empire.UI = (() => {
     Pistole: "Pouliční pistole",
     "Samopal (SMG)": "Samopal",
     "Útočná puška": "Samopal",
-    "Explozivní nálož": "Granát"
+    "Explozivní nálož": "Granát",
+    Granat: "Granát",
+    grenade: "Granát",
+    Grenade: "Granát",
+    bazooka: "Bazuka",
+    Bazooka: "Bazuka",
+    smg: "Samopal",
+    SMG: "Samopal",
+    street_pistol: "Pouliční pistole",
+    streetPistol: "Pouliční pistole",
+    baseball_bat: "Baseballová pálka",
+    baseballBat: "Baseballová pálka"
   });
 
   const defenseCatalog = [
@@ -118,6 +129,25 @@ window.Empire.UI = (() => {
       });
       return acc;
     }, {});
+  }
+
+  function formatDecimalValue(value, maxFractions = 2) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return "0";
+    const safeFractions = Math.max(0, Math.floor(Number(maxFractions) || 0));
+    return parsed.toLocaleString("cs-CZ", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: safeFractions
+    });
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
   }
 
   function resolveDistrictDefenseSpecialModifiers(districtId) {
@@ -334,6 +364,8 @@ window.Empire.UI = (() => {
   const DISTRICT_RAID_LOCK_STORAGE_KEY = "empire_district_raid_lock_until_v1";
   const HEAT_JOURNAL_STORAGE_KEY = "empire_heat_journal_v1";
   const HEAT_DIRTY_REDUCTION_STORAGE_KEY = "empire_heat_dirty_reduction_v1";
+  const INFO_WINDOWS_HISTORY_STORAGE_KEY = "empire_info_windows_history_v1";
+  const INFO_WINDOWS_HISTORY_LIMIT = 80;
   const MARKET_SERVER_RESOURCES = Object.freeze([
     { resourceKey: "neon_dust", name: "Neon Dust" },
     { resourceKey: "pulse_shot", name: "Pulse Shot" },
@@ -402,6 +434,7 @@ window.Empire.UI = (() => {
   const ATTACK_TARGET_COOLDOWN_STORAGE_KEY = "empire_attack_target_cooldown_state_v1";
   const ATTACK_TARGET_COOLDOWN_MS = 30 * 1000;
   const ATTACK_ACTION_DURATION_MS = 20 * 1000;
+  const ATTACK_REQUEST_TIMEOUT_MS = 15000;
   const ATTACK_ACTION_LOCK_STORAGE_KEY = "empire_attack_action_lock_until_v1";
   const DISTRICT_TRAP_STORAGE_KEY = "empire_district_trap_state_v1";
   const ATTACK_TARGET_LOCK_STORAGE_KEY = "empire_attack_target_lock_state_v1";
@@ -1095,7 +1128,9 @@ window.Empire.UI = (() => {
     "DeadDrop Finance",
     "Parallax Exchange",
     "Ghost Ledger",
-    "Black Circuit Exchange"
+    "Black Circuit Exchange",
+    "Silver Pulse Desk",
+    "Midnight Convertor"
   ];
 
   const namedCommercialArcades = [
@@ -1111,7 +1146,8 @@ window.Empire.UI = (() => {
   const namedCommercialCasinos = [
     "Dominion Prime Casino",
     "High Rollers Sanctum",
-    "Velvet Eric XxX"
+    "Velvet Eclipse Casino",
+    "Neon Crown Palace"
   ];
 
   const namedIndustrialDataCenters = [
@@ -1926,7 +1962,9 @@ window.Empire.UI = (() => {
   let cachedEconomy = null;
   let cachedMarket = null;
   let marketRefreshHandler = null;
+  let marketModalOpenHandler = null;
   let marketBuildingShortcutRefreshHandler = null;
+  let characterEventsRotationIntervalId = null;
   let allianceRefreshHandler = null;
   let allianceCountdownIntervalId = null;
   let scenarioIncomeTimer = null;
@@ -1975,6 +2013,7 @@ window.Empire.UI = (() => {
   let scenarioUniqueOwnerColors = false;
   let scenarioProfileAvatarOverride = null;
   let activePlayerScenarioKey = "";
+  const BLACKOUT_LIKE_SCENARIO_KEYS = new Set(["alliance-ten-blackout", "night-20-war"]);
   let activeScenarioOwnerName = "";
   let lastValidBlackoutSources = null;
   let selectedMapBorderMode = MAP_BORDER_MODE_PLAYER;
@@ -2029,8 +2068,12 @@ window.Empire.UI = (() => {
   let policeRaidProtectionTimer = null;
   let roundStatusState = null;
   let roundStatusOverride = null;
+  function isBlackoutLikeScenario(scenarioKey = activePlayerScenarioKey) {
+    return BLACKOUT_LIKE_SCENARIO_KEYS.has(String(scenarioKey || "").trim().toLowerCase());
+  }
   let spyRecoveryIntervalId = null;
   let districtAttackWarningTimer = null;
+  let infoWindowHistoryEntries = [];
   const spyActionResultTimeouts = new Set();
   const occupyActionResultTimeouts = new Set();
   const pendingResultModalQueue = [];
@@ -2060,6 +2103,7 @@ window.Empire.UI = (() => {
     selectedMapBorderMode = resolveStoredMapBorderMode();
     localStorage.setItem(MAP_UNKNOWN_NEUTRAL_FILL_STORAGE_KEY, "0");
     unknownNeutralFillEnabled = false;
+    loadInfoWindowHistory();
     readStoredDistrictSpyIntel();
     applyOneTimeDistrictSpyIntelReset();
     processSpyRecoveryQueue({ notify: false });
@@ -2078,6 +2122,7 @@ window.Empire.UI = (() => {
     initMapModeControls();
     startPoliceRaidProtectionTicker();
     startScenarioIncomeTicker();
+    renderInfoWindowHistory();
     if (!window.Empire.token) {
       enforceLocalGuestStorageDefaults();
       syncGuestEconomyFromMarket();
@@ -2298,7 +2343,7 @@ window.Empire.UI = (() => {
       roundEnds.textContent = roundStatusState?.roundEndsAt || "-";
     }
     if (roundDays) {
-      roundDays.textContent = roundStatusState?.daysRemaining != null ? roundStatusState.daysRemaining : "-";
+      roundDays.textContent = roundStatusState?.roundRemainingLabel || (roundStatusState?.daysRemaining != null ? roundStatusState.daysRemaining : "-");
     }
     if (roundGameDay) {
       if (phaseSnapshot || override) {
@@ -2316,6 +2361,16 @@ window.Empire.UI = (() => {
     if (displayPhaseKey) {
       window.Empire.Map?.setMapMode?.(displayPhaseKey);
     }
+    updateFreeCtaVisibility();
+  }
+
+  function updateFreeCtaVisibility() {
+    const banner = document.getElementById("free-cta-banner");
+    if (!banner) return;
+    const isFreeMode = String(window.Empire?.mode || "war") === "free";
+    const daysRemaining = Number(roundStatusState?.daysRemaining);
+    const shouldShow = isFreeMode && Number.isFinite(daysRemaining) && daysRemaining <= 0;
+    banner.classList.toggle("hidden", !shouldShow);
   }
 
   function startRoundPhaseTicker() {
@@ -2398,13 +2453,13 @@ window.Empire.UI = (() => {
   const BLACKOUT_BUILDING_MINUTE_INCOME_RULES = Object.freeze({
     "Autosalon": Object.freeze({ clean: 5, dirty: 1 }),
     "Fitness Club": Object.freeze({ clean: 6, dirty: 0.5 }),
-    "Herna": Object.freeze({ clean: 6, dirty: 1.2 }),
+    "Herna": Object.freeze({ clean: 3, dirty: 3 }),
     "Kancelářský blok": Object.freeze({ clean: 6, dirty: 1 }),
-    "Kasino": Object.freeze({ clean: 8, dirty: 2.2 }),
+    "Kasino": Object.freeze({ clean: 5, dirty: 4 }),
     "Lékárna": Object.freeze({ clean: 3, dirty: 0.4 }),
     "Obchodní centrum": Object.freeze({ clean: 8, dirty: 1 }),
-    "Restaurace": Object.freeze({ clean: 5, dirty: 0.5 }),
-    "Směnárna": Object.freeze({ clean: 5.5, dirty: 1.3 }),
+    "Restaurace": Object.freeze({ clean: 3, dirty: 2 }),
+    "Směnárna": Object.freeze({ clean: 3.3333, dirty: 1.6667 }),
     "Datové centrum": Object.freeze({ clean: 5, dirty: 0.4 }),
     "Energetická stanice": Object.freeze({ clean: 4, dirty: 0.3 }),
     "Sklad": Object.freeze({ clean: 2, dirty: 0.2 }),
@@ -2629,7 +2684,7 @@ window.Empire.UI = (() => {
   }
 
   function syncBlackoutScenarioDistrictIncome(now = Date.now()) {
-    if (window.Empire.token || activePlayerScenarioKey !== "alliance-ten-blackout") return;
+    if (window.Empire.token || !isBlackoutLikeScenario()) return;
     const marketState = getLocalMarketState();
     if (!marketState || typeof marketState !== "object") return;
 
@@ -2836,7 +2891,7 @@ window.Empire.UI = (() => {
 
     const syncState = () => {
       const activeMode = String(window.Empire.Map?.getMapMode?.() || "night").trim().toLowerCase();
-      if (!activePlayerScenarioKey || activePlayerScenarioKey === "alliance-ten-blackout") {
+      if (!activePlayerScenarioKey || isBlackoutLikeScenario()) {
         roundStatusOverride = buildRoundStatusPresetForMode(activeMode);
         renderRoundStatusState();
       }
@@ -3604,6 +3659,12 @@ window.Empire.UI = (() => {
     writeSpyRecoveryQueue(pending);
     if (recovered > 0) {
       setSpyCount(getSpyCount() + recovered, { persist: true, animate: isSpyCountShownInTopbar });
+      pushInfoWindowHistoryEntry({
+        title: recovered === 1 ? "Špeh je znovu dostupný" : "Špehové jsou znovu dostupní",
+        text: recovered === 1
+          ? "1 špeh se vrátil a je připraven k akci."
+          : `${recovered} špehové se vrátili a jsou připraveni k akci.`
+      });
       if (notify) {
         pushEvent(
           recovered === 1
@@ -3670,11 +3731,15 @@ window.Empire.UI = (() => {
   }
 
   function bindActions() {
-    initEventsModal();
+    initMarketModal();
+    try {
+      initEventsModal();
+    } catch (error) {
+      console.error("initEventsModal failed", error);
+    }
     initBountyModal();
     initBuildingsModal();
     initAllianceModal();
-    initMarketModal();
     initBoostModal();
     initMapBorderModeControls();
     initMarketBuildingShortcuts();
@@ -3698,6 +3763,7 @@ window.Empire.UI = (() => {
     initSpyDetectionAlertModal();
     initGangHeatModal();
     initEventFeedControls();
+    initInfoWindowHistoryControls();
     initPlayerScenarioButtons();
     document.getElementById("attack-btn").addEventListener("click", async () => {
       if (!window.Empire.selectedDistrict) return;
@@ -3819,7 +3885,10 @@ window.Empire.UI = (() => {
       button.addEventListener("click", () => {
         localStorage.removeItem("empire_token");
         localStorage.removeItem("empire_structure");
-        window.location.href = "login.html";
+        window.Empire?.__storagePatch?.removeItem?.("empire:active_auth_mode");
+        window.Empire?.__storagePatch?.removeItem?.("empire:active_guest_mode");
+        const mode = window.Empire?.mode || "war";
+        window.location.href = window.Empire?.getGameModeUrl?.("login", mode) || `login.html?mode=${mode}`;
       });
     });
 
@@ -4180,6 +4249,27 @@ window.Empire.UI = (() => {
         return "Útok se nepodařilo zpracovat.";
       default:
         return "Útok se nepodařilo provést.";
+    }
+  }
+
+  function formatRaidError(errorCode) {
+    switch (String(errorCode || "").trim().toLowerCase()) {
+      case "cooldown":
+        return "Krádež je na cooldownu.";
+      case "district_locked":
+        return "Tento distrikt je po krádeži dočasně zamčený.";
+      case "not_adjacent":
+        return "Vykrást můžeš jen sousední distrikt podle pravidel území.";
+      case "own_district":
+        return "Vlastní distrikt nelze vykrást.";
+      case "allied_district":
+        return "Alianční distrikt nelze vykrást.";
+      case "destroyed_district":
+        return "Distrikt je zničený a nepoužitelný.";
+      case "raid_failed":
+        return "Krádež se nepodařilo zpracovat.";
+      default:
+        return "Krádež se nepodařilo provést.";
     }
   }
 
@@ -6071,6 +6161,14 @@ window.Empire.UI = (() => {
     };
     attackResultModalState = nextState;
     renderAttackResultModal(attackResultModalState);
+    pushInfoWindowHistoryEntry({
+      title: String(nextState?.title || "Výsledek útoku").trim() || "Výsledek útoku",
+      text: [
+        String(nextState?.summary || "").trim(),
+        `Cíl: ${String(nextState?.districtName || `Distrikt #${nextState?.districtId ?? "-"}`)}`,
+        `Stav: ${String(nextState?.districtStateValue || "-")}`
+      ].filter(Boolean).join(" • ")
+    });
     root.classList.remove("hidden");
   }
 
@@ -6255,7 +6353,14 @@ window.Empire.UI = (() => {
       });
     } else {
       try {
-        const result = await window.Empire.API.attackDistrict(district.id);
+        const result = await Promise.race([
+          window.Empire.API.attackDistrict(district.id),
+          new Promise((_, reject) => {
+            window.setTimeout(() => {
+              reject(new Error("Server neodpověděl na útok včas. Zkus to prosím znovu."));
+            }, ATTACK_REQUEST_TIMEOUT_MS);
+          })
+        ]);
         if (result?.error) {
           const errorMessage = result.error === "cooldown" && Number(result?.cooldownMs || 0) > 0
             ? `Na stejného hráče můžeš znovu zaútočit za ${formatAttackCooldownLabel(Number(result.cooldownMs || 0))}.`
@@ -6285,51 +6390,66 @@ window.Empire.UI = (() => {
       }
     }
 
-    showActionConfirmPopup({
-      tone: "attack",
-      title: "ÚTOK POTVRZEN",
-      subtitle: district?.name || `Distrikt #${district?.id ?? "-"}`
-    });
+    try {
+      showActionConfirmPopup({
+        tone: "attack",
+        title: "ÚTOK POTVRZEN",
+        subtitle: district?.name || `Distrikt #${district?.id ?? "-"}`
+      });
 
-    const markerResult = window.Empire.Map?.markDistrictUnderAttack?.(district.id, {
-      attackerDistrictId: sourceDistrictId,
-      durationMs: actionDurationMs,
-      source: demoMode ? "scenario-attack" : "player-attack"
-    });
-    if (markerResult && markerResult.ok === false) {
-      const message = "Útok se nepodařilo spustit. Zkus to znovu.";
+      const markerResult = window.Empire.Map?.markDistrictUnderAttack?.(district.id, {
+        attackerDistrictId: sourceDistrictId,
+        durationMs: actionDurationMs,
+        source: demoMode ? "scenario-attack" : "player-attack"
+      });
+      if (markerResult && markerResult.ok === false) {
+        const message = "Útok se nepodařilo spustit. Zkus to znovu.";
+        if (noteEl) noteEl.textContent = message;
+        if (confirmBtn) confirmBtn.disabled = false;
+        pushEvent(message);
+        return;
+      }
+
+      closeAllPopupWindows();
+      setActiveAttackCooldownUntil(Date.now() + actionDurationMs);
+      const isAttackOnOtherPlayer =
+        Boolean(district)
+        && !isDistrictUnownedForSpyOutcome(district)
+        && !isDistrictOwnedByPlayer(district);
+      if (isAttackOnOtherPlayer) {
+        const currentHeat = resolveWantedLevel(window.Empire.player);
+        setPlayerWantedHeat(currentHeat + 5, "Spuštěný útok na jiného hráče", "rise");
+      }
+      document.dispatchEvent(new CustomEvent("empire:attack-started", {
+        detail: {
+          districtId: district?.id ?? null,
+          district: district || null,
+          durationMs: actionDurationMs
+        }
+      }));
+      setAttackTargetCooldownUntil(
+        district?.owner,
+        Date.now() + actionDurationMs + ATTACK_TARGET_COOLDOWN_MS
+      );
+
+      pushEvent(`${details.title}: ${details.summary}`);
+      recordVerifiedIntelEvent({
+        type: "attack_outcome",
+        districtId: district.id,
+        message: details.summary
+      });
+      try {
+        consumeAttackWeaponCounts(selectionSummary?.selection || {});
+      } catch (error) {
+        console.error("Attack weapon consume failed", error);
+      }
+      scheduleAttackResultModal(details, selectionSummary);
+    } catch (error) {
+      const message = error?.message || "Útok se nepodařilo dokončit.";
       if (noteEl) noteEl.textContent = message;
       if (confirmBtn) confirmBtn.disabled = false;
       pushEvent(message);
-      return;
     }
-
-    closeAllPopupWindows();
-    setActiveAttackCooldownUntil(Date.now() + actionDurationMs);
-    document.dispatchEvent(new CustomEvent("empire:attack-started", {
-      detail: {
-        districtId: district?.id ?? null,
-        district: district || null,
-        durationMs: actionDurationMs
-      }
-    }));
-    setAttackTargetCooldownUntil(
-      district?.owner,
-      Date.now() + actionDurationMs + ATTACK_TARGET_COOLDOWN_MS
-    );
-
-    pushEvent(`${details.title}: ${details.summary}`);
-    recordVerifiedIntelEvent({
-      type: "attack_outcome",
-      districtId: district.id,
-      message: details.summary
-    });
-    try {
-      consumeAttackWeaponCounts(selectionSummary?.selection || {});
-    } catch (error) {
-      console.error("Attack weapon consume failed", error);
-    }
-    scheduleAttackResultModal(details, selectionSummary);
   }
 
   function initAttackConfirmModal() {
@@ -6619,6 +6739,11 @@ window.Empire.UI = (() => {
         <strong>${row.value}</strong>
       </div>
     `).join("");
+    pushInfoWindowHistoryEntry({
+      title: title.textContent || "Výsledek krádeže",
+      text: summaryText,
+      rows
+    });
     root.classList.remove("hidden");
   }
 
@@ -6695,6 +6820,11 @@ window.Empire.UI = (() => {
         <strong>${row.value}</strong>
       </div>
     `).join("");
+    pushInfoWindowHistoryEntry({
+      title: title.textContent || "Policejní akce",
+      text: summaryText,
+      rows
+    });
     root.style.zIndex = "9999";
     root.classList.remove("hidden");
     clearDistrictAttackWarningTimer();
@@ -8303,6 +8433,104 @@ window.Empire.UI = (() => {
     if (districtModal) districtModal.classList.add("hidden");
   }
 
+  function startRaidActionFromServerResult(district, result = {}) {
+    if (!district) return;
+    const durationMs = Math.max(1000, Math.floor(Number(result?.durationMs || RAID_ACTION_DURATION_MS)));
+    const cooldownMs = Math.max(0, Math.floor(Number(result?.cooldownMs || 0)));
+    const postActionCooldownMs = Math.max(0, Math.floor(Number(result?.postActionCooldownMs || 0)));
+    const districtLockMs = Math.max(0, Math.floor(Number(result?.districtLockMs || DISTRICT_RAID_LOCK_MS)));
+    const outcomeKey = String(result?.outcomeKey || "disaster").trim().toLowerCase();
+    const loot = result?.loot && typeof result.loot === "object" ? result.loot : {};
+    const gangLoss = Math.max(0, Math.floor(Number(result?.gangLoss || 0)));
+    const targetAlerted = Boolean(result?.targetAlerted);
+
+    raidActionState = {
+      districtId: district.id,
+      startedAt: Date.now(),
+      endsAt: Date.now() + durationMs
+    };
+    if (raidActionTimeoutId) {
+      clearTimeout(raidActionTimeoutId);
+      raidActionTimeoutId = null;
+    }
+
+    window.Empire.Map?.markDistrictRaidAction?.(district.id, {
+      durationMs,
+      source: "raid-action"
+    });
+    document.dispatchEvent(new CustomEvent("empire:raid-started", {
+      detail: {
+        districtId: district.id,
+        district,
+        durationMs
+      }
+    }));
+    recordVerifiedIntelEvent({
+      type: "raid_started",
+      districtId: district.id
+    });
+    pushEvent(`Krádež v districtu ${district.name || `#${district.id}`} byla spuštěna. Trvání ${formatAttackDurationLabel(durationMs)}.`);
+
+    if (gangLoss > 0) {
+      const currentLosses = Math.max(
+        0,
+        Math.floor(
+          Number(
+            cachedProfile?.raidMemberLosses
+            ?? cachedProfile?.raid_member_losses
+            ?? window.Empire.player?.raidMemberLosses
+            ?? window.Empire.player?.raid_member_losses
+            ?? 0
+          ) || 0
+        )
+      );
+      const nextLosses = currentLosses + gangLoss;
+      if (cachedProfile && typeof cachedProfile === "object") {
+        cachedProfile.raidMemberLosses = nextLosses;
+        cachedProfile.raid_member_losses = nextLosses;
+      }
+      window.Empire.player = {
+        ...(window.Empire.player || {}),
+        raidMemberLosses: nextLosses,
+        raid_member_losses: nextLosses
+      };
+      refreshProfilePopulation();
+    }
+
+    setRaidCooldownUntil(Date.now() + cooldownMs);
+    setDistrictRaidLockUntil(district.id, Date.now() + districtLockMs);
+
+    raidActionTimeoutId = setTimeout(() => {
+      raidActionTimeoutId = null;
+      raidActionState = { districtId: null, startedAt: 0, endsAt: 0 };
+      window.Empire.Map?.clearRaidActions?.();
+      openRaidResultModal(buildRaidResultPayload({
+        district,
+        outcomeKey,
+        loot,
+        cooldownMs: postActionCooldownMs || cooldownMs,
+        gangLoss,
+        targetAlerted
+      }));
+      document.dispatchEvent(new CustomEvent("empire:raid-resolved", {
+        detail: {
+          districtId: district.id,
+          outcomeKey,
+          loot,
+          cooldownMs,
+          postActionCooldownMs,
+          districtLockMs,
+          gangLoss,
+          targetAlerted,
+          durationMs
+        }
+      }));
+    }, durationMs);
+
+    const districtModal = document.getElementById("district-modal");
+    if (districtModal) districtModal.classList.add("hidden");
+  }
+
   function resolveOccupationTierRarityWeight(tierValue) {
     const tier = String(tierValue || "").trim().toLowerCase();
     const weights = {
@@ -8735,6 +8963,13 @@ window.Empire.UI = (() => {
       `;
     }
 
+    pushInfoWindowHistoryEntry({
+      title: title.textContent || "Výsledek špehování",
+      text: [
+        summary.textContent || "",
+        `Cíl: ${districtName}`
+      ].filter(Boolean).join(" • ")
+    });
     root.classList.remove("hidden");
   }
 
@@ -8798,6 +9033,14 @@ window.Empire.UI = (() => {
       </div>
     `;
 
+    pushInfoWindowHistoryEntry({
+      title: title.textContent || "Upozornění na špehování",
+      text: [
+        summaryEl.textContent || "",
+        `Cíl: ${districtName}`,
+        `Útočník: ${attackerNick}`
+      ].filter(Boolean).join(" • ")
+    });
     root.classList.remove("hidden");
   }
 
@@ -9092,8 +9335,10 @@ window.Empire.UI = (() => {
     renderRaidConfirmModal();
   }
 
-  function startRaidActionFromModal() {
+  async function startRaidActionFromModal() {
     const district = resolveDistrictById(raidConfirmModalState.districtId);
+    const noteEl = document.getElementById("raid-confirm-modal-note");
+    const confirmBtn = document.getElementById("raid-confirm-modal-confirm");
     if (!district) {
       renderRaidConfirmModal();
       return;
@@ -9115,13 +9360,48 @@ window.Empire.UI = (() => {
       renderRaidConfirmModal();
       return;
     }
-    closeRaidConfirmModal();
-    startRaidAction(district);
-    showActionConfirmPopup({
-      tone: "raid",
-      title: "KRÁDEŽ POTVRZENA",
-      subtitle: district?.name || `Distrikt #${district?.id ?? "-"}`
-    });
+
+    const demoMode = scenarioVisionEnabled && !window.Empire.token;
+    if (demoMode || !window.Empire.token) {
+      closeRaidConfirmModal();
+      startRaidAction(district);
+      showActionConfirmPopup({
+        tone: "raid",
+        title: "KRÁDEŽ POTVRZENA",
+        subtitle: district?.name || `Distrikt #${district?.id ?? "-"}`
+      });
+      return;
+    }
+
+    if (confirmBtn) confirmBtn.disabled = true;
+    if (noteEl) noteEl.textContent = "Po potvrzení se krádež spouští...";
+    try {
+      const result = await window.Empire.API.raidDistrict(district.id);
+      if (result?.error) {
+        const errorMessage = result.error === "cooldown" && Number(result?.cooldownMs || 0) > 0
+          ? `Krádež je na cooldownu ještě ${formatRaidCooldownLabel(Number(result.cooldownMs || 0))}.`
+          : (result.error === "district_locked" && Number(result?.districtLockMs || 0) > 0
+            ? `Distrikt je po krádeži zamčený ještě ${formatAttackDurationLabel(Number(result.districtLockMs || 0))}.`
+            : formatRaidError(result.error));
+        if (noteEl) noteEl.textContent = errorMessage;
+        if (confirmBtn) confirmBtn.disabled = false;
+        pushEvent(errorMessage);
+        return;
+      }
+
+      closeRaidConfirmModal();
+      startRaidActionFromServerResult(district, result);
+      showActionConfirmPopup({
+        tone: "raid",
+        title: "KRÁDEŽ POTVRZENA",
+        subtitle: district?.name || `Distrikt #${district?.id ?? "-"}`
+      });
+    } catch (error) {
+      const message = error?.message || "Krádež se nepodařilo spustit.";
+      if (noteEl) noteEl.textContent = message;
+      if (confirmBtn) confirmBtn.disabled = false;
+      pushEvent(message);
+    }
   }
 
   function initRaidConfirmModal() {
@@ -10519,6 +10799,8 @@ window.Empire.UI = (() => {
     };
     let scenarioAttackIncident = null;
     let scenarioPoliceIncident = null;
+    let scenarioAttackIncidents = [];
+    let scenarioPoliceIncidents = [];
     let scenarioPoliceIncidentIds = [];
     let scenarioDestroyedDistrictId = null;
     roundStatusOverride = null;
@@ -10739,7 +11021,7 @@ window.Empire.UI = (() => {
       setScenarioEnemyOwners(scenario.enemyOwners);
       nextDistricts = scenario.districts;
       baseProfile.districts = scenario.ownDistrictCount;
-      baseProfile.alliance = `${scenario.ownAllianceName} (${scenario.ownAllianceMemberCount}/4 • ${scenario.ownAllianceDistrictCount} sektorů)`;
+      baseProfile.alliance = `${scenario.ownAllianceName} (${scenario.ownAllianceMemberCount}/${scenario.allianceMemberCap || 2} • ${scenario.ownAllianceDistrictCount} sektorů)`;
       scenarioAttackIncident = scenario.attackIncident || null;
       scenarioPoliceIncident = scenario.policeIncident || null;
       scenarioDestroyedDistrictId = scenario.destroyedDistrictId ?? null;
@@ -10759,6 +11041,28 @@ window.Empire.UI = (() => {
       if (scenarioDestroyedDistrictId != null) {
         pushEvent(`Katastrofa: distrikt ${scenarioDestroyedDistrictId} je vypálený a nepoužitelný.`);
       }
+    } else if (normalizedScenarioKey === "night-20-war") {
+      const scenario = buildNightTwentyWarScenario(districts, ownerName);
+      if (!scenario.districts.length) {
+        pushEvent("Noční stav 20 hráčů se nepodařilo připravit.");
+        return;
+      }
+      setScenarioVisionMode(true);
+      scenarioUniqueOwnerColors = true;
+      setScenarioAllianceIcons(Array.isArray(scenario.allianceIconEntries) ? scenario.allianceIconEntries : []);
+      syncMapVisionContext();
+      setScenarioAllianceOwners(scenario.alliedOwners);
+      setScenarioEnemyOwners(scenario.enemyOwners);
+      nextDistricts = scenario.districts;
+      baseProfile.districts = scenario.ownDistrictCount;
+      baseProfile.alliance = `${scenario.ownAllianceName} (${scenario.ownAllianceMemberCount}/4 • ${scenario.ownAllianceDistrictCount} sektorů)`;
+      roundStatusOverride = buildRoundStatusPresetForMode("night");
+      scenarioAttackIncidents = Array.isArray(scenario.attackIncidents) ? scenario.attackIncidents : [];
+      scenarioPoliceIncidents = Array.isArray(scenario.policeIncidents) ? scenario.policeIncidents : [];
+      pushEvent(
+        `Noční stav: ${scenario.playerCount} hráčů ve ${scenario.allianceCount} aliancích. Každý má ${scenario.minPerPlayer}-${scenario.maxPerPlayer} sektorů.`
+      );
+      pushEvent(`Mapa je plně obsazená. Aktivní útoky: ${scenarioAttackIncidents.length}. Policejní razie: ${scenarioPoliceIncidents.length}.`);
     } else if (normalizedScenarioKey === "onboarding-20-edge") {
       const scenario = buildTwentyPlayerEdgeOnboardingScenario(districts, ownerName);
       if (!scenario.districts.length) {
@@ -10927,27 +11231,56 @@ window.Empire.UI = (() => {
       window.Empire.Map.setMapMode?.(overrideMode || roundStatusOverride.phaseKey);
     }
     window.Empire.Map.setDistricts(nextDistricts);
+    const attackMarkers = [];
     if (scenarioAttackIncident?.targetDistrictId != null) {
-      window.Empire.Map.markDistrictUnderAttack?.(scenarioAttackIncident.targetDistrictId, {
+      attackMarkers.push({
+        districtId: scenarioAttackIncident.targetDistrictId,
         attackerDistrictId: scenarioAttackIncident.sourceDistrictId,
         durationMs: scenarioAttackIncident.durationMs,
         source: "scenario-alliance-20"
       });
     }
+    if (scenarioAttackIncidents.length) {
+      scenarioAttackIncidents.forEach((incident, index) => {
+        if (incident?.targetDistrictId == null) return;
+        attackMarkers.push({
+          districtId: incident.targetDistrictId,
+          attackerDistrictId: incident.sourceDistrictId,
+          durationMs: Number(incident.durationMs || 10 * 60 * 1000),
+          source: `scenario-night-20-attack-${index + 1}`
+        });
+      });
+    }
+    window.Empire.Map.setUnderAttackDistricts?.(attackMarkers, { replace: true });
+
+    const policeMarkers = [];
     if (scenarioPoliceIncident?.targetDistrictId != null) {
-      window.Empire.Map.markDistrictPoliceAction?.(scenarioPoliceIncident.targetDistrictId, {
+      policeMarkers.push({
+        districtId: scenarioPoliceIncident.targetDistrictId,
         durationMs: scenarioPoliceIncident.durationMs,
         source: "scenario-alliance-20-police"
       });
     }
+    if (scenarioPoliceIncidents.length) {
+      scenarioPoliceIncidents.forEach((incident, index) => {
+        if (incident?.targetDistrictId == null) return;
+        policeMarkers.push({
+          districtId: incident.targetDistrictId,
+          durationMs: Number(incident.durationMs || 14 * 60 * 1000),
+          source: `scenario-night-20-police-${index + 1}`
+        });
+      });
+    }
     if (scenarioPoliceIncidentIds.length) {
       scenarioPoliceIncidentIds.forEach((districtId) => {
-        window.Empire.Map.markDistrictPoliceAction?.(districtId, {
+        policeMarkers.push({
+          districtId,
           durationMs: 60000,
           source: "scenario-alliance-ten-blackout-police"
         });
       });
     }
+    window.Empire.Map.setPoliceActionDistricts?.(policeMarkers, { replace: true });
     if (normalizedScenarioKey === "onboarding-20-edge") {
       clearDistrictSpyIntel(ONBOARDING_TUTORIAL_SPY_DISTRICT_ID);
       clearDistrictSpyIntel(ONBOARDING_TUTORIAL_ATTACK_DISTRICT_ID);
@@ -10958,8 +11291,10 @@ window.Empire.UI = (() => {
     } else {
       stopOnboardingGrowthTicker();
     }
-    if (!window.Empire.token && activePlayerScenarioKey === "alliance-ten-blackout") {
-      const allianceState = buildAllianceTenBlackoutLocalAllianceState(ownerName, "Knedlík");
+    if (!window.Empire.token && isBlackoutLikeScenario()) {
+      const allianceState = String(activePlayerScenarioKey || "").trim() === "night-20-war"
+        ? buildNightTwentyWarLocalAllianceState(ownerName, nextDistricts)
+        : buildAllianceTenBlackoutLocalAllianceState(ownerName, "Knedlík");
       saveLocalAllianceState(allianceState);
       const marketState = getLocalMarketState();
       marketState.scenarioIncome = {
@@ -11738,6 +12073,279 @@ window.Empire.UI = (() => {
     };
   }
 
+  function buildNightTwentyWarScenario(districts, ownerName) {
+    const safeDistricts = Array.isArray(districts) ? [...districts] : [];
+    const emptyResult = {
+      districts: [],
+      alliedOwners: [],
+      enemyOwners: [],
+      attackIncidents: [],
+      policeIncidents: [],
+      ownDistrictCount: 0,
+      ownAllianceName: "Žádná",
+      ownAllianceMemberCount: 0,
+      ownAllianceDistrictCount: 0,
+      playerCount: 0,
+      allianceCount: 0,
+      minPerPlayer: 0,
+      maxPerPlayer: 0
+    };
+    if (!safeDistricts.length) return emptyResult;
+
+    const playerCount = Math.min(20, safeDistricts.length);
+    if (playerCount < 1) return emptyResult;
+    const maxAllianceSize = 2;
+    const allianceCount = Math.max(1, Math.ceil(playerCount / maxAllianceSize));
+    const allianceNames = [
+      "Neon Syndicate",
+      "Iron Wolves",
+      "Black Harbor",
+      "Vortex Pact",
+      "Shadow Cartel",
+      "Chrome Saints",
+      "Ghost Ledger",
+      "Riot Dividend",
+      "Velvet Crown",
+      "Night Blades"
+    ];
+    const nickPool = [
+      "Knedlík", "Poltergeist", "Mariah", "Willy", "Ledovec",
+      "Razor Vex", "Ghost Mara", "Nyx Prime", "Iron Shade", "Vortex Kane",
+      "Black Comet", "Neon Riot", "Cobra Unit", "Urban Hex", "Steel Drift",
+      "Zero Pulse", "Night Cipher", "Crimson Dot", "Volt Raven", "Silent Brick",
+      "Alpha Dock", "Chrome Lynx", "Delta Wolf", "Shadow Mint", "Metro Hawk"
+    ];
+    const usedNames = new Set();
+    const claimUniqueNick = (value, fallbackIndex = 1) => {
+      const base = String(value || "").trim() || `Hráč ${fallbackIndex}`;
+      let candidate = base;
+      let suffix = 2;
+      while (usedNames.has(normalizeOwnerName(candidate))) {
+        candidate = `${base} ${suffix}`;
+        suffix += 1;
+      }
+      usedNames.add(normalizeOwnerName(candidate));
+      return candidate;
+    };
+
+    const players = Array.from({ length: playerCount }, (_, index) => {
+      const allianceIndex = Math.floor(index / maxAllianceSize);
+      return {
+        owner: index === 0 ? claimUniqueNick(ownerName || "Ty", 1) : claimUniqueNick(nickPool[index - 1], index + 1),
+        allianceName: allianceNames[allianceIndex % allianceNames.length],
+        allianceIndex,
+        districtCount: 6,
+        structure: null,
+        avatar: null
+      };
+    }).map((player) => ({
+      ...player,
+      structure: resolveDemoOwnerFaction(player.owner),
+      avatar: resolveDemoOwnerAvatar(player.owner),
+      ...createDemoWeaponLoadout()
+    }));
+
+    const minTargetPerPlayer = 6;
+    const maxTargetPerPlayer = 9;
+    let remaining = Math.max(0, safeDistricts.length - (minTargetPerPlayer * playerCount));
+    players.forEach((player, index) => {
+      if (remaining <= 0) return;
+      const add = Math.min(maxTargetPerPlayer - player.districtCount, (index % 3 === 0 ? 2 : 1), remaining);
+      player.districtCount += add;
+      remaining -= add;
+    });
+    let guard = 0;
+    while (remaining > 0 && guard < 10000) {
+      let progressed = false;
+      for (let index = 0; index < players.length; index += 1) {
+        if (remaining <= 0) break;
+        const player = players[index];
+        if (player.districtCount >= maxTargetPerPlayer) continue;
+        player.districtCount += 1;
+        remaining -= 1;
+        progressed = true;
+      }
+      if (!progressed) break;
+      guard += 1;
+    }
+    if (remaining > 0) {
+      let cursor = 0;
+      while (remaining > 0) {
+        const player = players[cursor % players.length];
+        player.districtCount += 1;
+        remaining -= 1;
+        cursor += 1;
+      }
+    }
+
+    const allocations = players.map((player) => ({ owner: player.owner, count: player.districtCount }));
+    let nextDistricts = assignOwnersToNeighborClusters(safeDistricts, allocations, {
+      excludeTypes: []
+    }).map((district) => ({ ...district, isDestroyed: false, destroyedAt: null }));
+
+    const fallbackOwners = players.map((player) => player.owner);
+    let fallbackCursor = 0;
+    nextDistricts = nextDistricts.map((district) => {
+      if (district?.owner) return district;
+      const owner = fallbackOwners[fallbackCursor % fallbackOwners.length] || null;
+      fallbackCursor += 1;
+      return {
+        ...district,
+        owner,
+        ownerNick: owner,
+        ...buildDemoDistrictOwnerMeta(owner, district)
+      };
+    });
+
+    const ownerAllianceByKey = new Map(players.map((player) => [normalizeOwnerName(player.owner), player.allianceName]));
+    const allianceIconCycle = (Array.isArray(ALLIANCE_ICON_OPTIONS) ? ALLIANCE_ICON_OPTIONS : [])
+      .map((icon) => String(icon?.key || "").trim())
+      .filter(Boolean);
+    const allianceIconByName = new Map(
+      Array.from(new Set(players.map((player) => player.allianceName))).map((allianceName, index) => [
+        allianceName,
+        allianceIconCycle[index % allianceIconCycle.length]
+      ])
+    );
+    nextDistricts = nextDistricts.map((district) => {
+      const ownerKey = normalizeOwnerName(district?.owner);
+      const allianceName = ownerAllianceByKey.get(ownerKey) || null;
+      return {
+        ...district,
+        ownerNick: district?.owner || null,
+        ownerAllianceName: allianceName,
+        ownerAllianceIconKey: allianceName ? (allianceIconByName.get(allianceName) || null) : null,
+        ...buildDemoDistrictOwnerMeta(district?.owner, district)
+      };
+    });
+
+    const adjacency = buildDistrictAdjacency(nextDistricts);
+    const boundaryPairs = [];
+    const seenPairs = new Set();
+    nextDistricts.forEach((district) => {
+      const sourceId = district?.id;
+      const sourceOwner = normalizeOwnerName(district?.owner);
+      if (!sourceOwner) return;
+      const neighbors = adjacency.get(sourceId) || new Set();
+      neighbors.forEach((targetId) => {
+        const targetDistrict = nextDistricts.find((entry) => String(entry?.id) === String(targetId));
+        const targetOwner = normalizeOwnerName(targetDistrict?.owner);
+        if (!targetOwner || targetOwner === sourceOwner) return;
+        const key = String(sourceId) < String(targetId) ? `${sourceId}|${targetId}` : `${targetId}|${sourceId}`;
+        if (seenPairs.has(key)) return;
+        seenPairs.add(key);
+        boundaryPairs.push({
+          sourceDistrictId: sourceId,
+          targetDistrictId: targetId,
+          durationMs: 10 * 60 * 1000
+        });
+      });
+    });
+
+    const occupied = nextDistricts.filter((district) => district?.owner);
+    const policeIncidents = [];
+    const policeTargets = new Set();
+    occupied
+      .slice()
+      .sort((left, right) => Number(right?.id || 0) - Number(left?.id || 0))
+      .forEach((district) => {
+        if (policeIncidents.length >= 2) return;
+        const districtId = Number(district?.id);
+        if (!Number.isFinite(districtId) || policeTargets.has(districtId)) return;
+        policeTargets.add(districtId);
+        policeIncidents.push({
+          targetDistrictId: districtId,
+          durationMs: 16 * 60 * 1000
+        });
+      });
+
+    const attackIncidents = [];
+    const attackerLoadByOwner = new Map();
+    const sortedPairs = boundaryPairs
+      .filter((pair) => {
+        const sourceId = Number(pair?.sourceDistrictId);
+        const targetId = Number(pair?.targetDistrictId);
+        if (!Number.isFinite(sourceId) || !Number.isFinite(targetId)) return false;
+        return !policeTargets.has(sourceId) && !policeTargets.has(targetId);
+      })
+      .sort((left, right) => Number(left.sourceDistrictId || 0) - Number(right.sourceDistrictId || 0));
+    for (let index = 0; index < sortedPairs.length && attackIncidents.length < 20; index += 1) {
+      const pair = sortedPairs[index];
+      const sourceDistrict = nextDistricts.find((district) => String(district?.id) === String(pair?.sourceDistrictId));
+      const attackerKey = normalizeOwnerName(sourceDistrict?.owner);
+      if (!attackerKey) continue;
+      const currentLoad = Number(attackerLoadByOwner.get(attackerKey) || 0);
+      if (currentLoad >= 2) continue;
+      attackIncidents.push(pair);
+      attackerLoadByOwner.set(attackerKey, currentLoad + 1);
+    }
+    if (attackIncidents.length < 20) {
+      const occupied = nextDistricts.filter((district) => district?.owner);
+      for (let index = 0; index < occupied.length && attackIncidents.length < 20; index += 1) {
+        const source = occupied[index];
+        const target = occupied[(index + 3) % occupied.length];
+        if (!source || !target || String(source.id) === String(target.id)) continue;
+        if (normalizeOwnerName(source.owner) === normalizeOwnerName(target.owner)) continue;
+        const sourceId = Number(source.id);
+        const targetId = Number(target.id);
+        if (!Number.isFinite(sourceId) || !Number.isFinite(targetId)) continue;
+        if (policeTargets.has(sourceId) || policeTargets.has(targetId)) continue;
+        const attackerKey = normalizeOwnerName(source.owner);
+        if (!attackerKey) continue;
+        const currentLoad = Number(attackerLoadByOwner.get(attackerKey) || 0);
+        if (currentLoad >= 2) continue;
+        const duplicate = attackIncidents.some((incident) =>
+          String(incident?.sourceDistrictId) === String(source.id)
+          && String(incident?.targetDistrictId) === String(target.id)
+        );
+        if (duplicate) continue;
+        attackIncidents.push({
+          sourceDistrictId: source.id,
+          targetDistrictId: target.id,
+          durationMs: 10 * 60 * 1000
+        });
+        attackerLoadByOwner.set(attackerKey, currentLoad + 1);
+      }
+    }
+
+    const ownOwner = players[0]?.owner || String(ownerName || "Ty");
+    const ownOwnerKey = normalizeOwnerName(ownOwner);
+    const ownAllianceName = ownerAllianceByKey.get(ownOwnerKey) || "Žádná";
+    const ownAllianceMembers = players.filter((player) => player.allianceName === ownAllianceName);
+    const alliedOwners = ownAllianceMembers
+      .map((player) => player.owner)
+      .filter((playerOwner) => normalizeOwnerName(playerOwner) !== ownOwnerKey);
+    const enemyOwners = players
+      .filter((player) => player.allianceName !== ownAllianceName)
+      .map((player) => player.owner);
+    const ownDistrictCount = countOwnedDistrictsForOwner(nextDistricts, ownOwner);
+    const ownAllianceDistrictCount = nextDistricts.reduce((sum, district) => {
+      const ownerKey = normalizeOwnerName(district?.owner);
+      if (!ownerKey) return sum;
+      return ownerAllianceByKey.get(ownerKey) === ownAllianceName ? sum + 1 : sum;
+    }, 0);
+    const minPerPlayer = players.reduce((min, player) => Math.min(min, player.districtCount), Infinity);
+    const maxPerPlayer = players.reduce((max, player) => Math.max(max, player.districtCount), 0);
+
+    return {
+      districts: nextDistricts,
+      alliedOwners,
+      enemyOwners,
+      attackIncidents,
+      policeIncidents,
+      allianceIconEntries: Array.from(allianceIconByName.entries()),
+      ownDistrictCount,
+      ownAllianceName,
+      ownAllianceMemberCount: ownAllianceMembers.length,
+      ownAllianceDistrictCount,
+      allianceMemberCap: maxAllianceSize,
+      playerCount: players.length,
+      allianceCount,
+      minPerPlayer: Number.isFinite(minPerPlayer) ? minPerPlayer : 0,
+      maxPerPlayer
+    };
+  }
+
   function countOwnedDistrictsForOwner(districts, ownerName) {
     const normalizedOwner = normalizeOwnerName(ownerName);
     if (!normalizedOwner) return 0;
@@ -12078,6 +12686,313 @@ window.Empire.UI = (() => {
     };
   }
 
+  const victorGraveEvents = [
+    { id: "victor_01", title: "Rozbitá dodávka", giver: "Victor Grave Kadeř", text: "Jedna dodávka zůstala viset v cizím bloku. Dojeď tam, seber bedny a zmiz dřív, než si toho někdo všimne.", reward: { metalParts: 5, cash: 800, influence: 2 }, risk: { heat: 3 }, successRate: 82, durationMin: 18 },
+    { id: "victor_02", title: "Tvrdé vyjednávání", giver: "Victor Grave Kadeř", text: "Jeden obchodník zapomněl, komu má platit. Připomeň mu to po mém.", reward: { cash: 1400, influence: 4 }, risk: { heat: 4 }, successRate: 78, durationMin: 22 },
+    { id: "victor_03", title: "Sklad bez majitele", giver: "Victor Grave Kadeř", text: "Ve skladu leží materiál a nikdo ho zrovna nehlídá dost dobře. Udělej to rychle.", reward: { chemical: 4, metalParts: 4, cash: 500 }, risk: { heat: 3 }, successRate: 80, durationMin: 20 },
+    { id: "victor_04", title: "Noční výběr", giver: "Victor Grave Kadeř", text: "Po zavíračce bývá město měkký. Vytáhni z toho maximum, než se vzpamatuje.", reward: { dirtyCash: 1800, influence: 3 }, risk: { heat: 5 }, successRate: 74, durationMin: 25 },
+    { id: "victor_05", title: "Převoz pod tlakem", giver: "Victor Grave Kadeř", text: "Materiál musí projít přes horkou zónu. Když to zvládneš, lidi si tě začnou pamatovat.", reward: { techCore: 2, cash: 900, influence: 3 }, risk: { heat: 4 }, successRate: 73, durationMin: 24 },
+    { id: "victor_06", title: "Rozkopané dveře", giver: "Victor Grave Kadeř", text: "Za těma dveřma je schovaná zásoba. Otevři je po svém, já se ptát nebudu.", reward: { streetPistol: 1, metalParts: 3, influence: 2 }, risk: { heat: 4 }, successRate: 76, durationMin: 19 },
+    { id: "victor_07", title: "Tichá lekce", giver: "Victor Grave Kadeř", text: "Jeden malej hráč moc mluví. Nemusí zmizet, stačí aby začal šeptat.", reward: { influence: 6, cash: 700 }, risk: { heat: 3 }, successRate: 84, durationMin: 17 },
+    { id: "victor_08", title: "Neonový kufr", giver: "Victor Grave Kadeř", text: "Na rohu čeká kufr, kterej nemá dlouho zůstat bez majitele. Buď rychlej.", reward: { neonViper: 3, cash: 600, influence: 2 }, risk: { heat: 4 }, successRate: 77, durationMin: 16 },
+    { id: "victor_09", title: "Smrad z lékárny", giver: "Victor Grave Kadeř", text: "Z jedný lékárny odtéká víc chemie, než je zdravý. Jdi po tom.", reward: { chemical: 6, cash: 500 }, risk: { heat: 3 }, successRate: 83, durationMin: 15 },
+    { id: "victor_10", title: "Ochlazení konkurence", giver: "Victor Grave Kadeř", text: "Někdo vedle nás roste moc rychle. Ukaž mu, že asfalt má vždycky poslední slovo.", reward: { influence: 7, dirtyCash: 900 }, risk: { heat: 6 }, successRate: 70, durationMin: 28 },
+    { id: "victor_11", title: "Pouliční test loajality", giver: "Victor Grave Kadeř", text: "Ne každej pod tlakem drží hubu. Ověř, kdo je pevnej a kdo je hadr.", reward: { influence: 5, cash: 750 }, risk: { heat: 2 }, successRate: 86, durationMin: 14 },
+    { id: "victor_12", title: "Dvě minuty po půlnoci", giver: "Victor Grave Kadeř", text: "V noci mizí kamery, svědci i zábrany. Přesně proto jdeme teď.", reward: { smg: 1, ammo: 20, influence: 3 }, risk: { heat: 5 }, successRate: 68, durationMin: 26 },
+    { id: "victor_13", title: "Balík pro špatnou adresu", giver: "Victor Grave Kadeř", text: "Někdo čeká zásilku. Jen škoda, že ji čeká marně.", reward: { overdriveX: 2, cash: 850, influence: 2 }, risk: { heat: 4 }, successRate: 79, durationMin: 18 },
+    { id: "victor_14", title: "Krev na parkovišti", giver: "Victor Grave Kadeř", text: "Na parkovišti se má uzavřít obchod. Udělej z toho náš obchod.", reward: { dirtyCash: 2000, metalParts: 2 }, risk: { heat: 6 }, successRate: 66, durationMin: 27 },
+    { id: "victor_15", title: "Kdo stojí, ten bere", giver: "Victor Grave Kadeř", text: "Některý rajóny patří těm, co v nich vydrží stát nejdýl. Dneska tam budeš stát ty.", reward: { influence: 8, cash: 1000 }, risk: { heat: 5 }, successRate: 72, durationMin: 30 },
+    { id: "victor_16", title: "Rozebraná zbrojnice", giver: "Victor Grave Kadeř", text: "Mám tip na rozebranou dílnu. Posbírej všechno, co ještě střílí nebo se dá prodat.", reward: { streetPistol: 1, metalParts: 5, techCore: 1 }, risk: { heat: 4 }, successRate: 75, durationMin: 23 },
+    { id: "victor_17", title: "Uražená hrdost", giver: "Victor Grave Kadeř", text: "Jeden blbec se chtěl zviditelnit na cizím jménu. Teď mu vysvětli, že to byl drahej nápad.", reward: { influence: 6, dirtyCash: 1100 }, risk: { heat: 5 }, successRate: 74, durationMin: 21 },
+    { id: "victor_18", title: "Pád z nákladní rampy", giver: "Victor Grave Kadeř", text: "Na rampě stojí zboží, co má změnit majitele. Vezmi ho a nic neřeš.", reward: { metalParts: 6, chemical: 3, cash: 600 }, risk: { heat: 4 }, successRate: 81, durationMin: 19 },
+    { id: "victor_19", title: "Hlasitý vzkaz", giver: "Victor Grave Kadeř", text: "Někdy nestačí někoho okrást. Někdy musí celej blok vědět, kdo to udělal.", reward: { influence: 9, cash: 900 }, risk: { heat: 7 }, successRate: 64, durationMin: 24 },
+    { id: "victor_20", title: "Mokrý prachy", giver: "Victor Grave Kadeř", text: "U vody čeká malej přesun peněz. Když se zdržíš, někdo jiný si namočí ruce místo tebe.", reward: { dirtyCash: 2200, influence: 2 }, risk: { heat: 5 }, successRate: 71, durationMin: 22 },
+    { id: "victor_21", title: "Starý dluh, nová bolest", giver: "Victor Grave Kadeř", text: "Starej dluh se dnes zavře. Otázka je jen, jestli penězma nebo zubama.", reward: { cash: 1600, influence: 4 }, risk: { heat: 4 }, successRate: 79, durationMin: 20 },
+    { id: "victor_22", title: "Kontejner číslo 9", giver: "Victor Grave Kadeř", text: "V kontejneru číslo 9 leží věci, co nemají vidět ráno. Otevři ho dřív než ostatní.", reward: { techCore: 3, metalParts: 3, cash: 700 }, risk: { heat: 4 }, successRate: 76, durationMin: 18 },
+    { id: "victor_23", title: "Měkký cíl", giver: "Victor Grave Kadeř", text: "Slabej článek řetězu bývá nejlevnější cesta dovnitř. Využij to.", reward: { influence: 5, spyGear: 1, cash: 500 }, risk: { heat: 3 }, successRate: 85, durationMin: 16 },
+    { id: "victor_24", title: "Velvet Smoke v kufru", giver: "Victor Grave Kadeř", text: "V kufru čeká pár balení Velvet Smoke. Převezmi to, než se z toho stane cizí zisk.", reward: { velvetSmoke: 5, cash: 500, influence: 2 }, risk: { heat: 3 }, successRate: 84, durationMin: 15 },
+    { id: "victor_25", title: "Křik v zadní uličce", giver: "Victor Grave Kadeř", text: "Zadní uličky jsou moje kancelář. Dneska tam někomu zrušíš pracovní poměr.", reward: { dirtyCash: 1200, influence: 5 }, risk: { heat: 5 }, successRate: 73, durationMin: 19 },
+    { id: "victor_26", title: "Rychlý výkup", giver: "Victor Grave Kadeř", text: "Jeden zoufalec prodává materiál hluboko pod cenou. Seber to všechno, než dostane rozum.", reward: { chemical: 5, metalParts: 5, cash: 300 }, risk: { heat: 2 }, successRate: 88, durationMin: 12 },
+    { id: "victor_27", title: "Tlak na rohu", giver: "Victor Grave Kadeř", text: "Na jednom rohu se rozdává respekt zadarmo. To je chyba, kterou dnes opravíš.", reward: { influence: 7, cash: 800 }, risk: { heat: 4 }, successRate: 80, durationMin: 17 },
+    { id: "victor_28", title: "Spadlá bedna", giver: "Victor Grave Kadeř", text: "Někde spadla bedna z transportu. Kdo ji najde první, ten určuje pravidla.", reward: { grenade: 2, metalParts: 2, cash: 400 }, risk: { heat: 4 }, successRate: 77, durationMin: 14 },
+    { id: "victor_29", title: "Přepálená dávka", giver: "Victor Grave Kadeř", text: "Někdo vaří moc nahlas a moc blízko. Vlez tam, seber vzorek a zbytek nech rozpadnout.", reward: { ghostSerum: 2, chemical: 3, influence: 3 }, risk: { heat: 5 }, successRate: 69, durationMin: 23 },
+    { id: "victor_30", title: "Drobní, ale naši", giver: "Victor Grave Kadeř", text: "Malí dealeři se začínají dívat jinam. Připomeň jim, kde končí každá ulice.", reward: { cash: 1300, influence: 6 }, risk: { heat: 4 }, successRate: 78, durationMin: 20 },
+    { id: "victor_31", title: "Tichá zbroj", giver: "Victor Grave Kadeř", text: "Mám kontakt na vybavení, co nechodí přes papíry. Vyber to a neotáčej se.", reward: { bulletproofVest: 1, streetPistol: 1, cash: 300 }, risk: { heat: 3 }, successRate: 82, durationMin: 16 },
+    { id: "victor_32", title: "Vyděšený účetní", giver: "Victor Grave Kadeř", text: "Jeden účetní ví, kam tečou peníze. A dneska bude chtít mluvit rychle.", reward: { dirtyCash: 1700, influence: 4, intel: 1 }, risk: { heat: 5 }, successRate: 72, durationMin: 21 },
+    { id: "victor_33", title: "První rána zdarma", giver: "Victor Grave Kadeř", text: "Dneska nejde o kořist. Dneska jde o to, kdo dá první ránu a kdo si ji zapamatuje.", reward: { influence: 8, cash: 600 }, risk: { heat: 6 }, successRate: 67, durationMin: 18 },
+    { id: "victor_34", title: "Rozbitý automat", giver: "Victor Grave Kadeř", text: "Někdo schovává peníze tam, kde si myslí, že vypadají nevinně. Rozbij to a vezmi obsah.", reward: { cash: 1500, dirtyCash: 500 }, risk: { heat: 3 }, successRate: 85, durationMin: 13 },
+    { id: "victor_35", title: "Krátká návštěva v docku", giver: "Victor Grave Kadeř", text: "V doku kotví něco, co tam nemá vydržet do rána. Přesuneme to dřív.", reward: { techCore: 2, chemical: 4, cash: 700 }, risk: { heat: 5 }, successRate: 74, durationMin: 24 },
+    { id: "victor_36", title: "Neonový nátlak", giver: "Victor Grave Kadeř", text: "Jeden klub má dneska přinést víc než hudbu. Vlez tam, zatlač a vytáhni z toho hodnotu.", reward: { dirtyCash: 1900, neonViper: 2, influence: 3 }, risk: { heat: 6 }, successRate: 68, durationMin: 25 },
+    { id: "victor_37", title: "Kov a krev", giver: "Victor Grave Kadeř", text: "Tam, kde je kov, bývá i zisk. Tam, kde je zisk, bývá i problém. Dneska si vezmeš oboje.", reward: { metalParts: 7, cash: 600, influence: 2 }, risk: { heat: 4 }, successRate: 80, durationMin: 18 },
+    { id: "victor_38", title: "Tlačenice u zadního vstupu", giver: "Victor Grave Kadeř", text: "Zadní vstup je vždycky levnější než fronta. A mnohem výnosnější.", reward: { smg: 1, cash: 500, influence: 3 }, risk: { heat: 5 }, successRate: 71, durationMin: 20 },
+    { id: "victor_39", title: "Stůl pro dva, problém pro jednoho", giver: "Victor Grave Kadeř", text: "V restauraci proběhne schůzka. Ty se postaráš, aby domů neodnesli všechno, co přinesli.", reward: { cash: 1800, intel: 1, influence: 2 }, risk: { heat: 4 }, successRate: 77, durationMin: 22 },
+    { id: "victor_40", title: "Zkušební tlak", giver: "Victor Grave Kadeř", text: "Chci vidět, jak makáš, když tě někdo tlačí do zdi. Tahle práce je přesně na to.", reward: { influence: 6, techCore: 1, cash: 400 }, risk: { heat: 3 }, successRate: 83, durationMin: 15 },
+    { id: "victor_41", title: "Bazuka ve stínu", giver: "Victor Grave Kadeř", text: "Někdo schoval těžší kus železa tam, kde se bojí pro něj vrátit. To není náš problém.", reward: { bazooka: 1, ammo: 4, influence: 4 }, risk: { heat: 7 }, successRate: 58, durationMin: 30 },
+    { id: "victor_42", title: "Hluk před bouří", giver: "Victor Grave Kadeř", text: "Celý blok je nervózní. To je nejlepší chvíle sebrat to, co není přibitý.", reward: { cash: 1100, metalParts: 4, influence: 2 }, risk: { heat: 4 }, successRate: 79, durationMin: 18 },
+    { id: "victor_43", title: "Ztracený kamerový záznam", giver: "Victor Grave Kadeř", text: "Někdo si myslí, že ho chrání záznam. Zmizí záznam, zmizí i jeho jistota.", reward: { securityCameras: 1, intel: 1, cash: 500 }, risk: { heat: 3 }, successRate: 84, durationMin: 14 },
+    { id: "victor_44", title: "Převzetí směny", giver: "Victor Grave Kadeř", text: "Končí směna, začíná chaos. Přesně v tom chaosu vyděláš nejvíc.", reward: { dirtyCash: 1600, chemical: 2, influence: 3 }, risk: { heat: 4 }, successRate: 81, durationMin: 17 },
+    { id: "victor_45", title: "Když se nikdo neptá", giver: "Victor Grave Kadeř", text: "Tohle je ten druh práce, kde nikdo nic neviděl a nikdo nic neví. Mám tyhle práce rád.", reward: { ghostSerum: 3, cash: 600, influence: 2 }, risk: { heat: 2 }, successRate: 87, durationMin: 13 },
+    { id: "victor_46", title: "Rozpal ulici", giver: "Victor Grave Kadeř", text: "Dneska nechci čistou práci. Dneska chci, aby se o tom mluvilo ještě zítra ráno.", reward: { influence: 10, dirtyCash: 800 }, risk: { heat: 8 }, successRate: 60, durationMin: 26 },
+    { id: "victor_47", title: "Pod pultem", giver: "Victor Grave Kadeř", text: "Jeden obchod má vzadu něco lepšího než ve výloze. Jdi si pro to.", reward: { overdriveX: 2, velvetSmoke: 3, cash: 400 }, risk: { heat: 3 }, successRate: 85, durationMin: 14 },
+    { id: "victor_48", title: "Zlomený alarm", giver: "Victor Grave Kadeř", text: "Alarm se dá vypnout dvěma způsoby. Já mám radši ten hlučnější.", reward: { alarm: 1, metalParts: 3, cash: 500 }, risk: { heat: 5 }, successRate: 73, durationMin: 19 },
+    { id: "victor_49", title: "Síla bez omluvy", giver: "Victor Grave Kadeř", text: "Někdy je plán přeceňovanej. Vleť tam, udělej tlak a odejdi silnější než jsi přišel.", reward: { influence: 9, cash: 900, streetPistol: 1 }, risk: { heat: 6 }, successRate: 69, durationMin: 21 },
+    { id: "victor_50", title: "Ulice si pamatuje", giver: "Victor Grave Kadeř", text: "Tohle není jen práce. Tohle je podpis. Udělej to tak, aby si město zapamatovalo, kdo tady určuje rytmus.", reward: { influence: 12, dirtyCash: 1400, techCore: 2 }, risk: { heat: 7 }, successRate: 63, durationMin: 29 },
+    { id: "victor_51", title: "Rozkopnutý sklad", giver: "Victor Grave Kadeř", text: "Někdo si myslí, že plechové dveře znamenají bezpečí. Dneska zjistí, že jsou to jen dražší třísky.", reward: { metalParts: 6, cash: 900, influence: 3 }, risk: { heat: 4 }, successRate: 79, durationMin: 19 },
+    { id: "victor_52", title: "Cizí roh", giver: "Victor Grave Kadeř", text: "Na našem území si někdo staví vlastní jméno. Sejmi tu pohádku dřív, než jí někdo uvěří.", reward: { influence: 7, dirtyCash: 1000 }, risk: { heat: 5 }, successRate: 75, durationMin: 21 },
+    { id: "victor_53", title: "Závora dolů", giver: "Victor Grave Kadeř", text: "Jeden vjezd se dnes na chvíli zavře. A všechno, co zůstane uvnitř, bude naše.", reward: { chemical: 4, metalParts: 4, cash: 700 }, risk: { heat: 4 }, successRate: 81, durationMin: 18 },
+    { id: "victor_54", title: "Ruce na kapotu", giver: "Victor Grave Kadeř", text: "Na parkovišti stojí auto, co veze víc než plech. Otevři ho a vyber, co se hodí.", reward: { techCore: 2, cash: 800, influence: 2 }, risk: { heat: 4 }, successRate: 77, durationMin: 17 },
+    { id: "victor_55", title: "Krátká porada", giver: "Victor Grave Kadeř", text: "Jeden chytrák potřebuje vysvětlit realitu. Ty budeš ten výukový materiál.", reward: { influence: 6, cash: 900 }, risk: { heat: 3 }, successRate: 84, durationMin: 15 },
+    { id: "victor_56", title: "Prachy v mrazáku", giver: "Victor Grave Kadeř", text: "Někteří lidi schovávají peníze vedle masa. Dneska rozmrazíš jejich jistoty.", reward: { dirtyCash: 1800, influence: 2 }, risk: { heat: 4 }, successRate: 80, durationMin: 16 },
+    { id: "victor_57", title: "Přeložená zásilka", giver: "Victor Grave Kadeř", text: "Jedna bedna má změnit adresu dřív, než změří teplotu skladu. Nezdržuj se.", reward: { chemical: 5, cash: 600, influence: 2 }, risk: { heat: 3 }, successRate: 85, durationMin: 14 },
+    { id: "victor_58", title: "Těžká pěst", giver: "Victor Grave Kadeř", text: "Někde nestačí mluvit. Někde musíš nechat odpověď otisknutou ve zdi.", reward: { influence: 8, dirtyCash: 700 }, risk: { heat: 5 }, successRate: 72, durationMin: 20 },
+    { id: "victor_59", title: "Chybná směna", giver: "Victor Grave Kadeř", text: "Ve směnárně mají dneska špatný kurz. Pro ně. Pro nás je to výdělek.", reward: { cash: 1600, dirtyCash: 600 }, risk: { heat: 4 }, successRate: 78, durationMin: 18 },
+    { id: "victor_60", title: "Noční inventura", giver: "Victor Grave Kadeř", text: "V noci se nejlíp počítá cizí majetek. Zvlášť když si ho ráno už nikdo nespočítá.", reward: { metalParts: 5, techCore: 1, cash: 700 }, risk: { heat: 4 }, successRate: 79, durationMin: 19 },
+    { id: "victor_61", title: "Rozlitá krev, čistý zisk", giver: "Victor Grave Kadeř", text: "Někdo si chtěl hrát na tvrdýho. Nech mu tvrdou lekci a měkký kolena.", reward: { influence: 9, cash: 1000 }, risk: { heat: 6 }, successRate: 68, durationMin: 23 },
+    { id: "victor_62", title: "Balík pod mostem", giver: "Victor Grave Kadeř", text: "Pod mostem čeká balík bez majitele. A když ho nevezmeš ty, vezme ho někdo rychlejší.", reward: { velvetSmoke: 4, cash: 500, influence: 2 }, risk: { heat: 3 }, successRate: 86, durationMin: 13 },
+    { id: "victor_63", title: "Vymáhání po staru", giver: "Victor Grave Kadeř", text: "Ten dluh je malej jen na papíře. Udělej z něj velkej problém, dokud nebude splacenej.", reward: { cash: 1500, influence: 5 }, risk: { heat: 4 }, successRate: 80, durationMin: 17 },
+    { id: "victor_64", title: "Přístup jen pro tvrdé", giver: "Victor Grave Kadeř", text: "Za zadním vstupem leží věci pro lidi bez skrupulí. Tak tam běž jako domů.", reward: { streetPistol: 1, metalParts: 3, cash: 500 }, risk: { heat: 4 }, successRate: 76, durationMin: 16 },
+    { id: "victor_65", title: "Vybitý kamerový dohled", giver: "Victor Grave Kadeř", text: "Někdo se spoléhá na kamery. Dneska mu ukážeš, že kabely křičí míň než lidi.", reward: { securityCameras: 1, influence: 3, cash: 400 }, risk: { heat: 3 }, successRate: 83, durationMin: 14 },
+    { id: "victor_66", title: "Tři minuty strachu", giver: "Victor Grave Kadeř", text: "Stačí tři minuty a celej blok začne šeptat. Udělej z nich dlouhý tři minuty.", reward: { influence: 8, dirtyCash: 900 }, risk: { heat: 6 }, successRate: 69, durationMin: 18 },
+    { id: "victor_67", title: "Lékárna po zavíračce", giver: "Victor Grave Kadeř", text: "Po zavíračce zůstává uvnitř víc než jen světla. Posbírej to, co má cenu.", reward: { chemical: 6, ghostSerum: 1, cash: 500 }, risk: { heat: 4 }, successRate: 81, durationMin: 18 },
+    { id: "victor_68", title: "Narušený deal", giver: "Victor Grave Kadeř", text: "Dva lidi se chtějí domluvit bez nás. To je chyba, kterou je potřeba zpeněžit.", reward: { dirtyCash: 1700, influence: 3 }, risk: { heat: 5 }, successRate: 74, durationMin: 20 },
+    { id: "victor_69", title: "Otevřený kufr", giver: "Victor Grave Kadeř", text: "Kufr je otevřenej, nervy taky. Vezmi všechno, co uneseš, a zmiz dřív než cvakne zámek.", reward: { overdriveX: 2, cash: 700, influence: 2 }, risk: { heat: 4 }, successRate: 78, durationMin: 15 },
+    { id: "victor_70", title: "Směna skončila", giver: "Victor Grave Kadeř", text: "Když lidi končí směnu, dělají chyby. Ty na těch chybách dneska vyděláš.", reward: { cash: 1300, metalParts: 4 }, risk: { heat: 3 }, successRate: 85, durationMin: 14 },
+    { id: "victor_71", title: "Přetlačená ulice", giver: "Victor Grave Kadeř", text: "Na tý ulici je moc cizích ramen a málo našeho jména. Vyrovnej to.", reward: { influence: 7, cash: 900 }, risk: { heat: 5 }, successRate: 76, durationMin: 19 },
+    { id: "victor_72", title: "Náklad bez pojištění", giver: "Victor Grave Kadeř", text: "Jeden převoz nemá ochranu ani štěstí. Přesně takový věci mám rád.", reward: { techCore: 2, chemical: 3, cash: 600 }, risk: { heat: 4 }, successRate: 80, durationMin: 18 },
+    { id: "victor_73", title: "Páka na účetního", giver: "Victor Grave Kadeř", text: "Účetní nejsou tvrdí. Jen vypadají draze. Stlač ho a pustí víc, než čekáš.", reward: { dirtyCash: 1500, influence: 4 }, risk: { heat: 4 }, successRate: 79, durationMin: 17 },
+    { id: "victor_74", title: "Betonová lekce", giver: "Victor Grave Kadeř", text: "Dneska někdo pochopí, že beton je tvrdší než jeho ego. Ty budeš ten překlad.", reward: { influence: 9, cash: 800 }, risk: { heat: 6 }, successRate: 67, durationMin: 21 },
+    { id: "victor_75", title: "Špinavý schody", giver: "Victor Grave Kadeř", text: "Ve vchodu se schází lidi, co zapomněli platit za klid. Připomeň jim sazebník.", reward: { cash: 1400, dirtyCash: 400, influence: 3 }, risk: { heat: 4 }, successRate: 82, durationMin: 16 },
+    { id: "victor_76", title: "Nedodaná bedna", giver: "Victor Grave Kadeř", text: "Jeden zákazník dneska nic nedostane. Protože všechno skončí v tvých rukách.", reward: { grenade: 2, metalParts: 2, cash: 500 }, risk: { heat: 5 }, successRate: 73, durationMin: 19 },
+    { id: "victor_77", title: "Přesun pod tlakem", giver: "Victor Grave Kadeř", text: "Musíš dostat zásobu přes místo, kde všichni čumí. To je přesně chvíle, kdy se pozná, kdo má nervy.", reward: { velvetSmoke: 5, cash: 600, influence: 3 }, risk: { heat: 5 }, successRate: 71, durationMin: 22 },
+    { id: "victor_78", title: "Vyrvaná jistota", giver: "Victor Grave Kadeř", text: "Jeden člověk je moc v pohodě. A pohodlí na ulici bývá dočasná věc.", reward: { influence: 6, dirtyCash: 1000 }, risk: { heat: 4 }, successRate: 81, durationMin: 15 },
+    { id: "victor_79", title: "Nabouraný převoz", giver: "Victor Grave Kadeř", text: "Nehoda se dá zařídit různě. Hlavní je, aby po ní zůstalo něco použitelného.", reward: { metalParts: 6, cash: 700, influence: 2 }, risk: { heat: 5 }, successRate: 72, durationMin: 20 },
+    { id: "victor_80", title: "Půlnoční výběrčí", giver: "Victor Grave Kadeř", text: "Po půlnoci bývají lidi štědřejší. Hlavně když mají důvod se bát odmítnout.", reward: { cash: 1700, influence: 4 }, risk: { heat: 5 }, successRate: 75, durationMin: 18 },
+    { id: "victor_81", title: "Cizí železo", giver: "Victor Grave Kadeř", text: "V dílně zůstalo pár kusů železa bez dozoru. Tak tam nechoď pro dovolení.", reward: { metalParts: 7, techCore: 1, cash: 400 }, risk: { heat: 3 }, successRate: 84, durationMin: 14 },
+    { id: "victor_82", title: "Vysoký tlak, nízký hlas", giver: "Victor Grave Kadeř", text: "Někdo mluví moc nahlas o věcech, co by měly zůstat pod stolem. Ztiš ho.", reward: { influence: 8, dirtyCash: 800 }, risk: { heat: 5 }, successRate: 74, durationMin: 17 },
+    { id: "victor_83", title: "Slepý roh", giver: "Victor Grave Kadeř", text: "Na slepým rohu se dneska ztratí jedna zásilka a několik iluzí.", reward: { ghostSerum: 2, cash: 600, influence: 2 }, risk: { heat: 4 }, successRate: 80, durationMin: 16 },
+    { id: "victor_84", title: "Rozjetej motor", giver: "Victor Grave Kadeř", text: "Motor běží, řidič je nervózní a náklad je cennej. Stačí být rychlejší než panika.", reward: { cash: 1200, chemical: 4, influence: 2 }, risk: { heat: 4 }, successRate: 79, durationMin: 18 },
+    { id: "victor_85", title: "Pevná ruka", giver: "Victor Grave Kadeř", text: "Někdy je rozdíl mezi chaosem a respektem jen v tom, kdo drží situaci za krk.", reward: { influence: 10, cash: 700 }, risk: { heat: 6 }, successRate: 66, durationMin: 22 },
+    { id: "victor_86", title: "Podlomený obchod", giver: "Victor Grave Kadeř", text: "Jeden podnik dneska vydělá míň, než čekal. Protože část zisku půjde domů s tebou.", reward: { dirtyCash: 1600, cash: 500, influence: 2 }, risk: { heat: 4 }, successRate: 81, durationMin: 17 },
+    { id: "victor_87", title: "Špatně zamčený box", giver: "Victor Grave Kadeř", text: "Box je zamčenej jen pro slušný lidi. Ty tam nejdeš slušně.", reward: { streetPistol: 1, overdriveX: 1, cash: 400 }, risk: { heat: 4 }, successRate: 77, durationMin: 15 },
+    { id: "victor_88", title: "Řeči z okna", giver: "Victor Grave Kadeř", text: "Někdo se dívá z okna a myslí si, že je mimo hru. Připomeň mu, že ulice sahá výš.", reward: { influence: 7, cash: 800 }, risk: { heat: 5 }, successRate: 73, durationMin: 18 },
+    { id: "victor_89", title: "Kyselý náklad", giver: "Victor Grave Kadeř", text: "Jedna várka chemie se má ztratit cestou. Tak jí pomoz zmizet správným směrem.", reward: { chemical: 7, cash: 500, influence: 2 }, risk: { heat: 4 }, successRate: 82, durationMin: 16 },
+    { id: "victor_90", title: "Příliš klidný klub", giver: "Victor Grave Kadeř", text: "Ten klub je dneska až moc v klidu. Udělej tam takovej tlak, aby se začalo platit za ticho.", reward: { dirtyCash: 1900, influence: 4 }, risk: { heat: 6 }, successRate: 70, durationMin: 23 },
+    { id: "victor_91", title: "Rozbitý stůl", giver: "Victor Grave Kadeř", text: "Když se rozbije stůl, často se otevřou i kapsy. Využij obojí.", reward: { cash: 1400, influence: 3 }, risk: { heat: 4 }, successRate: 80, durationMin: 16 },
+    { id: "victor_92", title: "Přeseknutá dohoda", giver: "Victor Grave Kadeř", text: "Někdo si myslí, že může obchodovat bez povolení. Dneska zjistí, že povolení vypadá jako ty.", reward: { influence: 8, dirtyCash: 900 }, risk: { heat: 5 }, successRate: 75, durationMin: 19 },
+    { id: "victor_93", title: "Kufr plný problémů", giver: "Victor Grave Kadeř", text: "V kufru je víc problémů než oblečení. Otevři ho a změň problémy na zásoby.", reward: { smg: 1, ammo: 20, influence: 3 }, risk: { heat: 6 }, successRate: 65, durationMin: 24 },
+    { id: "victor_94", title: "Kroky ve skladu", giver: "Victor Grave Kadeř", text: "Sklad dneska nebude tichej. A po tvým odchodu nebude ani plnej.", reward: { metalParts: 5, chemical: 3, cash: 700 }, risk: { heat: 4 }, successRate: 81, durationMin: 18 },
+    { id: "victor_95", title: "Poslední varování", giver: "Victor Grave Kadeř", text: "Někdo už jedno varování dostal. Teď dostane takový, co se nedá přeslechnout.", reward: { influence: 9, cash: 900 }, risk: { heat: 6 }, successRate: 68, durationMin: 20 },
+    { id: "victor_96", title: "Vlhký bankovky", giver: "Victor Grave Kadeř", text: "U přístavu se dneska lepí bankovky na špatný ruce. Ty máš zařídit, aby se lepily na správný.", reward: { dirtyCash: 2100, influence: 3 }, risk: { heat: 5 }, successRate: 72, durationMin: 21 },
+    { id: "victor_97", title: "Odtržená směna", giver: "Victor Grave Kadeř", text: "Jedna parta dneska nedokončí směnu v pohodě. A ty z toho vytáhneš, co půjde.", reward: { cash: 1200, metalParts: 4, influence: 2 }, risk: { heat: 4 }, successRate: 82, durationMin: 17 },
+    { id: "victor_98", title: "Tvrdý přepočet", giver: "Victor Grave Kadeř", text: "Když se špatně přepočítáš na ulici, někdo jiný si to spočítá za tebe. Jdi jim pomoct s matematikou.", reward: { cash: 1500, influence: 5 }, risk: { heat: 5 }, successRate: 76, durationMin: 18 },
+    { id: "victor_99", title: "Díra v plotě", giver: "Victor Grave Kadeř", text: "Každý plot má slabý místo. A za každým slabým místem bývá něco, co se dá odnést.", reward: { techCore: 2, chemical: 2, cash: 600 }, risk: { heat: 3 }, successRate: 84, durationMin: 15 },
+    { id: "victor_100", title: "Victorův podpis", giver: "Victor Grave Kadeř", text: "Tohle není jen další práce. Tohle je připomínka všem v okolí, kdo má v ulicích poslední slovo.", reward: { influence: 12, dirtyCash: 1500, metalParts: 3 }, risk: { heat: 7 }, successRate: 62, durationMin: 27 }
+  ];
+  const leonSwitchVargaEvents = [
+    { id: "leon_01", title: "Kšeft z kufru", giver: "Leon Switch Varga", text: "Na parkovišti stojí kufr plnej věcí, co oficiálně neexistujou. Přijeď, zaplať správně a zmiz dřív, než se někdo začne ptát.", reward: { metalParts: 4, chemical: 3, cash: 500 }, risk: { heat: 3 }, successRate: 85, durationMin: 14 },
+    { id: "leon_02", title: "Levný zboží, drahý následky", giver: "Leon Switch Varga", text: "Mám deal, kterej smrdí už z dálky. Ale marže je krásná. Vem to, než to někdo vyžere před tebou.", reward: { cash: 1400, dirtyCash: 600 }, risk: { heat: 4 }, successRate: 80, durationMin: 16 },
+    { id: "leon_03", title: "Kontakt ze zadní uličky", giver: "Leon Switch Varga", text: "Jeden můj kontakt chce mluvit jen venku, mezi odpadkama a špínou. Což většinou znamená, že nabídka stojí za to.", reward: { influence: 4, chemical: 4, cash: 400 }, risk: { heat: 3 }, successRate: 84, durationMin: 15 },
+    { id: "leon_04", title: "Přeprodej bez otázek", giver: "Leon Switch Varga", text: "Dostaneš zboží. Neptáš se odkud je. Jen ho otočíš rychle a draze. Přesně tak se vydělává ve městě.", reward: { cash: 1700, influence: 3 }, risk: { heat: 3 }, successRate: 87, durationMin: 13 },
+    { id: "leon_05", title: "Špinavý kontakt", giver: "Leon Switch Varga", text: "Jeden kontakt je nervózní a chce se něčeho zbavit. Ty budeš ten, kdo mu uleví od nákladu i od peněz.", reward: { overdriveX: 2, cash: 700, influence: 2 }, risk: { heat: 4 }, successRate: 79, durationMin: 17 },
+    { id: "leon_06", title: "Zboží pod pultem", giver: "Leon Switch Varga", text: "Ve výloze nic není. Ale pod pultem leží věci, kvůli kterým se vyplatí přijít zadním vchodem.", reward: { streetPistol: 1, cash: 500, influence: 2 }, risk: { heat: 4 }, successRate: 78, durationMin: 16 },
+    { id: "leon_07", title: "Rychlá otočka", giver: "Leon Switch Varga", text: "Koupíš levně, prodáš rychle, zmizíš dřív, než někdo zjistí, že byl právě obranej. Klasika.", reward: { cash: 1500, dirtyCash: 400 }, risk: { heat: 2 }, successRate: 89, durationMin: 12 },
+    { id: "leon_08", title: "Zásilka bez jména", giver: "Leon Switch Varga", text: "Přijde bedna bez jména, bez papírů a bez výmluv. To bývají ty nejlepší obchody.", reward: { chemical: 5, metalParts: 3, cash: 500 }, risk: { heat: 3 }, successRate: 86, durationMin: 14 },
+    { id: "leon_09", title: "Přehazovačka", giver: "Leon Switch Varga", text: "Dvě party si mají předat zboží. Ty zařídíš, aby po cestě změnilo majitele i cenu.", reward: { dirtyCash: 1600, influence: 3 }, risk: { heat: 4 }, successRate: 77, durationMin: 18 },
+    { id: "leon_10", title: "Sleva za ticho", giver: "Leon Switch Varga", text: "Jeden prodejce udělá hezkou cenu. Protože ví, že když ji neudělá, může přestat prodávat úplně.", reward: { velvetSmoke: 5, cash: 400, influence: 3 }, risk: { heat: 3 }, successRate: 85, durationMin: 15 },
+    { id: "leon_11", title: "Noční burza", giver: "Leon Switch Varga", text: "Po půlnoci se otevírá trh pro lidi, co nechtějí účtenky. Tam chodí skutečný peníze.", reward: { cash: 1800, dirtyCash: 500 }, risk: { heat: 4 }, successRate: 81, durationMin: 17 },
+    { id: "leon_12", title: "Falešný prostředník", giver: "Leon Switch Varga", text: "Jedna schůzka potřebuje prostředníka. Ty budeš ten prostředník. A taky ten, kdo si ukousne největší část.", reward: { influence: 5, cash: 1200 }, risk: { heat: 3 }, successRate: 86, durationMin: 14 },
+    { id: "leon_13", title: "Drahá adresa", giver: "Leon Switch Varga", text: "Někdy neprodáváš zboží. Někdy prodáváš jen to, že víš, kam jít a na koho zatlačit.", reward: { influence: 6, dirtyCash: 700 }, risk: { heat: 3 }, successRate: 84, durationMin: 13 },
+    { id: "leon_14", title: "Kradený kov", giver: "Leon Switch Varga", text: "Mám partu, co tahá kov z míst, kde už ho nikdo nebude postrádat. Otoč to na trhu, než vystydne stopa.", reward: { metalParts: 7, cash: 600 }, risk: { heat: 4 }, successRate: 82, durationMin: 16 },
+    { id: "leon_15", title: "Kapsy plný marže", giver: "Leon Switch Varga", text: "Dneska nejde o sílu. Dneska jde o to, kdo vytěží víc z cizí blbosti. A to jsi ty.", reward: { cash: 1600, influence: 4 }, risk: { heat: 2 }, successRate: 90, durationMin: 12 },
+    { id: "leon_16", title: "Podivný léky", giver: "Leon Switch Varga", text: "Někdo prodává farmaceutický zásoby bokem. Kvalita pochybná, zisk krásnej. Takže to bereme.", reward: { chemical: 6, ghostSerum: 1, cash: 400 }, risk: { heat: 4 }, successRate: 80, durationMin: 18 },
+    { id: "leon_17", title: "Překupník v běhu", giver: "Leon Switch Varga", text: "Jeden malej překupník panikaří a chce všechno střelit hned. Vezmi mu to za směšnou cenu.", reward: { cash: 1300, metalParts: 3, influence: 2 }, risk: { heat: 2 }, successRate: 91, durationMin: 11 },
+    { id: "leon_18", title: "Druhá ruka, první zisk", giver: "Leon Switch Varga", text: "Tohle zboží už někdo vlastnil. A teď ho budeš vlastnit ty. Krátce. Než ho prodáš ještě dráž.", reward: { streetPistol: 1, dirtyCash: 900, influence: 2 }, risk: { heat: 4 }, successRate: 78, durationMin: 16 },
+    { id: "leon_19", title: "Směna ve tmě", giver: "Leon Switch Varga", text: "Žádný světla, žádný jména, žádný potvrzení. Jen deal a rychlý ruce.", reward: { overdriveX: 2, velvetSmoke: 3, cash: 500 }, risk: { heat: 3 }, successRate: 85, durationMin: 14 },
+    { id: "leon_20", title: "Kontakt z druhý strany města", giver: "Leon Switch Varga", text: "Mám tip z části města, kam normálně nechodíš. Což je přesně důvod, proč tam leží prachy.", reward: { influence: 5, cash: 1100 }, risk: { heat: 3 }, successRate: 83, durationMin: 15 },
+    { id: "leon_21", title: "Nadupaná přirážka", giver: "Leon Switch Varga", text: "Někdo něco zoufale potřebuje. A zoufalství je jen jiný slovo pro vyšší cenu.", reward: { cash: 1900, influence: 3 }, risk: { heat: 2 }, successRate: 88, durationMin: 13 },
+    { id: "leon_22", title: "Kšeft mezi popelnicema", giver: "Leon Switch Varga", text: "Když se velký peníze řeší mezi popelnicema, většinou z toho něco kápne i bokem. Dneska hodně.", reward: { dirtyCash: 1700, chemical: 2 }, risk: { heat: 4 }, successRate: 79, durationMin: 17 },
+    { id: "leon_23", title: "Dveře bez cedule", giver: "Leon Switch Varga", text: "Za jedněma neoznačenýma dveřma čeká nabídka, co se nebude opakovat. Buď první uvnitř.", reward: { techCore: 2, cash: 700, influence: 2 }, risk: { heat: 4 }, successRate: 77, durationMin: 18 },
+    { id: "leon_24", title: "Tichý přepočet", giver: "Leon Switch Varga", text: "Někdo se přepočítal v náš prospěch. A ty mu teď pomůžeš tu chybu už nenapravit.", reward: { cash: 1500, dirtyCash: 500 }, risk: { heat: 2 }, successRate: 89, durationMin: 12 },
+    { id: "leon_25", title: "Otoč to, než to shnije", giver: "Leon Switch Varga", text: "Jedna várka je horká, jedna špinavá a jedna se kazí. Neřeš která je která. Prostě to otoč.", reward: { chemical: 4, velvetSmoke: 4, cash: 600 }, risk: { heat: 4 }, successRate: 81, durationMin: 16 },
+    { id: "leon_26", title: "Fix za fixem", giver: "Leon Switch Varga", text: "Dneska neprodáváš věc. Dneska prodáváš řešení. A řešení ve městě bývají dražší než kulky.", reward: { influence: 6, cash: 1200 }, risk: { heat: 3 }, successRate: 85, durationMin: 14 },
+    { id: "leon_27", title: "Sektorovej překup", giver: "Leon Switch Varga", text: "Co je levný v jednom sektoru, je drahý v druhým. A ty budeš ten most mezi chamtivostí a nouzí.", reward: { cash: 1750, influence: 3 }, risk: { heat: 3 }, successRate: 86, durationMin: 15 },
+    { id: "leon_28", title: "Balíček pro nervózního klienta", giver: "Leon Switch Varga", text: "Klient chce diskrétnost. To znamená vyšší cenu a rychlejší nohy. Obojí máš.", reward: { ghostSerum: 2, cash: 800, influence: 2 }, risk: { heat: 4 }, successRate: 80, durationMin: 17 },
+    { id: "leon_29", title: "Cizí problém, náš zisk", giver: "Leon Switch Varga", text: "Někdo má moc zboží, málo času a nulovou páteř. Přesně z takových se žije nejlíp.", reward: { metalParts: 5, cash: 900, influence: 3 }, risk: { heat: 3 }, successRate: 84, durationMin: 14 },
+    { id: "leon_30", title: "Pouliční licence", giver: "Leon Switch Varga", text: "Na tomhle bloku nikdo neprodává bez toho, aby něco neodvedl. Dneska vybíráš ty.", reward: { cash: 1400, dirtyCash: 600, influence: 4 }, risk: { heat: 4 }, successRate: 82, durationMin: 16 },
+    { id: "leon_31", title: "Zlomený řetězec", giver: "Leon Switch Varga", text: "Jeden dodavatelský řetězec právě praskl. A ty posbíráš, co z něj vypadne na zem.", reward: { chemical: 5, techCore: 1, cash: 600 }, risk: { heat: 3 }, successRate: 85, durationMin: 15 },
+    { id: "leon_32", title: "Přestřelená cena", giver: "Leon Switch Varga", text: "Někdo chce moc. Ty mu zaplatíš málo. A ještě na tom vyděláš. Tomu říkám obchod.", reward: { cash: 1600, influence: 3 }, risk: { heat: 2 }, successRate: 90, durationMin: 11 },
+    { id: "leon_33", title: "Tichý runner", giver: "Leon Switch Varga", text: "Potřebuju, aby něco přešlo přes tři bloky a nikdo to nezastavil. Žádná sláva, jen čistý profit.", reward: { overdriveX: 1, cash: 1000, influence: 2 }, risk: { heat: 3 }, successRate: 86, durationMin: 13 },
+    { id: "leon_34", title: "Výprodej strachu", giver: "Leon Switch Varga", text: "Když začne někdo panikařit, prodává hluboko pod cenou. A my jsme přesně ti, co to umí využít.", reward: { metalParts: 6, chemical: 3, cash: 400 }, risk: { heat: 2 }, successRate: 91, durationMin: 12 },
+    { id: "leon_35", title: "Spodní police", giver: "Leon Switch Varga", text: "To nejlepší zboží nebývá na očích. Bývá dole, za plentou, mezi věcma bez původu.", reward: { streetPistol: 1, velvetSmoke: 3, cash: 500 }, risk: { heat: 4 }, successRate: 79, durationMin: 16 },
+    { id: "leon_36", title: "Dohoda na rohu", giver: "Leon Switch Varga", text: "Na rohu čeká deal. Malej stůl, špinavý ruce, velký peníze. Nezvor to.", reward: { dirtyCash: 1800, influence: 3 }, risk: { heat: 4 }, successRate: 80, durationMin: 17 },
+    { id: "leon_37", title: "Sběrač marže", giver: "Leon Switch Varga", text: "Dva blbci se hádají o cenu. Ty přijdeš mezi ně a odejdeš s největším kusem.", reward: { cash: 1700, influence: 4 }, risk: { heat: 3 }, successRate: 87, durationMin: 13 },
+    { id: "leon_38", title: "Krabice bez původu", giver: "Leon Switch Varga", text: "Mám tři krabice. Jedna je legální, druhá ne a třetí je nejlepší neotvírat. Vezmi všechny.", reward: { chemical: 3, metalParts: 3, ghostSerum: 1, cash: 400 }, risk: { heat: 4 }, successRate: 78, durationMin: 18 },
+    { id: "leon_39", title: "Pouliční arbitráž", giver: "Leon Switch Varga", text: "Jedna strana má zboží, druhá peníze a obě mají málo mozku. Ty z toho vytěžíš nejvíc.", reward: { cash: 1800, dirtyCash: 400 }, risk: { heat: 3 }, successRate: 88, durationMin: 12 },
+    { id: "leon_40", title: "Tlačenice o bedny", giver: "Leon Switch Varga", text: "Došlo pár beden a pár lidí po nich skočí. Ty skočíš rychlejc a prodáš je s přirážkou.", reward: { techCore: 2, cash: 900, influence: 2 }, risk: { heat: 4 }, successRate: 79, durationMin: 16 },
+    { id: "leon_41", title: "Klient bez nervů", giver: "Leon Switch Varga", text: "Můj klient se sype a chce všechno hned. Tak mu to dej. Ale draho.", reward: { overdriveX: 2, cash: 900, dirtyCash: 300 }, risk: { heat: 3 }, successRate: 86, durationMin: 13 },
+    { id: "leon_42", title: "Zadní schodiště", giver: "Leon Switch Varga", text: "Na zadním schodišti se dneska budou měnit ruce, kapsy a loajalita. Buď u toho první.", reward: { influence: 5, cash: 1000 }, risk: { heat: 3 }, successRate: 84, durationMin: 14 },
+    { id: "leon_43", title: "Přeskládání trhu", giver: "Leon Switch Varga", text: "Jedna várka zmizí z trhu a jiná se objeví za dvojnásobek. Krása volný ulice.", reward: { cash: 1900, influence: 3 }, risk: { heat: 4 }, successRate: 81, durationMin: 17 },
+    { id: "leon_44", title: "Vypůjčený sklad", giver: "Leon Switch Varga", text: "Na pár minut si půjčíš cizí sklad. Na pár hodin z něj budeš žít.", reward: { metalParts: 6, chemical: 4, cash: 500 }, risk: { heat: 4 }, successRate: 80, durationMin: 18 },
+    { id: "leon_45", title: "Nelegální přirážka", giver: "Leon Switch Varga", text: "Některý věci jsou drahý proto, že jsou vzácný. Jiný proto, že za ně můžeš skončit v problému. Tohle je ten druhý případ.", reward: { streetPistol: 1, cash: 800, influence: 3 }, risk: { heat: 5 }, successRate: 74, durationMin: 19 },
+    { id: "leon_46", title: "Šeptaná nabídka", giver: "Leon Switch Varga", text: "Když někdo šeptá cenu, většinou ví, že je buď moc dobrá, nebo moc špinavá. Mně jsou sympatický obě možnosti.", reward: { dirtyCash: 1500, ghostSerum: 1, influence: 2 }, risk: { heat: 4 }, successRate: 80, durationMin: 15 },
+    { id: "leon_47", title: "Pouliční broker", giver: "Leon Switch Varga", text: "Dneska seš prostředník mezi hladovejma rukama a plným bednama. A prostředník bere vždycky první kus.", reward: { cash: 1750, influence: 4 }, risk: { heat: 3 }, successRate: 87, durationMin: 13 },
+    { id: "leon_48", title: "Přepálený zájem", giver: "Leon Switch Varga", text: "Když někdo něco chce až moc, přestává řešit cenu. A přesně v tu chvíli přicházíš ty.", reward: { cash: 2000, influence: 3 }, risk: { heat: 2 }, successRate: 89, durationMin: 12 },
+    { id: "leon_49", title: "Černý seznam kontaktů", giver: "Leon Switch Varga", text: "Mám seznam jmen, adres a slabin. Nechci ho celý. Stačí mi, když z něj vytěžíš maximum.", reward: { influence: 7, dirtyCash: 900 }, risk: { heat: 4 }, successRate: 82, durationMin: 16 },
+    { id: "leon_50", title: "Leonův řez", giver: "Leon Switch Varga", text: "Pamatuj si to. V tomhle městě nevyhrává ten, kdo něco má. Vyhrává ten, kdo si z každýho kšeftu ukousne největší kus. Dneska to budeš ty.", reward: { cash: 2200, influence: 5, techCore: 2 }, risk: { heat: 5 }, successRate: 76, durationMin: 20 },
+    { id: "leon_51", title: "Krabice od špíny", giver: "Leon Switch Varga", text: "Na kraji sektoru čeká pár beden, co už prošly moc rukama. Smrdí, jsou kradený a přesně proto na nich vyděláš nejvíc.", reward: { metalParts: 5, chemical: 3, dirtyCash: 700 }, risk: { heat: 4 }, successRate: 82, durationMin: 16 },
+    { id: "leon_52", title: "Obchod se strachem", giver: "Leon Switch Varga", text: "Jeden malej dealer se bojí, že ho někdo obere. Nabídni mu ochranu. Drahou, špinavou a povinnou.", reward: { cash: 1500, influence: 4 }, risk: { heat: 4 }, successRate: 81, durationMin: 15 },
+    { id: "leon_53", title: "Přesunutá zásilka", giver: "Leon Switch Varga", text: "Jedna zásilka má dojet jinam. Ty zařídíš, že skončí u nás. Bez hluku, bez výčitek, se ziskem.", reward: { chemical: 5, techCore: 1, cash: 800 }, risk: { heat: 4 }, successRate: 80, durationMin: 17 },
+    { id: "leon_54", title: "Vysátý sklad", giver: "Leon Switch Varga", text: "Ve skladu zůstalo víc, než měl majitel přiznat. Tak mu pomůžeme s inventurou po svým.", reward: { metalParts: 7, cash: 700, influence: 2 }, risk: { heat: 5 }, successRate: 76, durationMin: 19 },
+    { id: "leon_55", title: "Cena za mlčení", giver: "Leon Switch Varga", text: "Někdo viděl víc, než měl. Nech ho pochopit, že ticho je levnější než nemocnice.", reward: { dirtyCash: 1400, influence: 5 }, risk: { heat: 5 }, successRate: 78, durationMin: 16 },
+    { id: "leon_56", title: "Přeprodej krve", giver: "Leon Switch Varga", text: "Po jednom špinavým střetu zůstalo na zemi vybavení. Posbírej to a otoč to, než zaschne krev.", reward: { streetPistol: 1, metalParts: 3, cash: 600 }, risk: { heat: 5 }, successRate: 74, durationMin: 18 },
+    { id: "leon_57", title: "Mokrej deal u kanálu", giver: "Leon Switch Varga", text: "U kanálu se mají měnit ruce, peníze a loajalita. Dohlídni, aby všechno skončilo v našich kapsách.", reward: { dirtyCash: 1700, influence: 3 }, risk: { heat: 4 }, successRate: 80, durationMin: 17 },
+    { id: "leon_58", title: "Špatná adresa, dobrý zisk", giver: "Leon Switch Varga", text: "Jedna zásilka půjde na špatnou adresu. A ta adresa bude naše. Někdy je logistika krásná věc.", reward: { velvetSmoke: 5, chemical: 2, cash: 500 }, risk: { heat: 3 }, successRate: 86, durationMin: 14 },
+    { id: "leon_59", title: "Rozprodej paniky", giver: "Leon Switch Varga", text: "Když se někdo začne bát razie, prodá i vlastní boty. Kup levně všechno, co pustí z ruky.", reward: { metalParts: 4, overdriveX: 1, cash: 700 }, risk: { heat: 3 }, successRate: 88, durationMin: 13 },
+    { id: "leon_60", title: "Špinavé procento", giver: "Leon Switch Varga", text: "Dva idioti chtějí udělat obchod. Ty jim ho umožníš. A ukousneš si takovej podíl, že je to bude bolet až doma.", reward: { cash: 1800, influence: 4 }, risk: { heat: 3 }, successRate: 87, durationMin: 14 },
+    { id: "leon_61", title: "Bedny z rozbité dodávky", giver: "Leon Switch Varga", text: "Na krajnici stojí dodávka, co nedojela. Někdo brečí nad plechem, ty vyděláš na obsahu.", reward: { chemical: 4, metalParts: 5, cash: 600 }, risk: { heat: 4 }, successRate: 83, durationMin: 16 },
+    { id: "leon_62", title: "Šelma mezi překupníky", giver: "Leon Switch Varga", text: "Na trhu je moc hladových krys. Buď největší z nich a stáhni jim nejlepší kusy přímo před nosem.", reward: { cash: 1600, dirtyCash: 500, influence: 3 }, risk: { heat: 4 }, successRate: 82, durationMin: 15 },
+    { id: "leon_63", title: "Kontakty v bordelu", giver: "Leon Switch Varga", text: "Nejlepší informace neleží v kanceláři. Leží v zakouřeným bordelu mezi lidma, co mluví, když si myslí, že jsou v bezpečí.", reward: { influence: 6, dirtyCash: 800 }, risk: { heat: 4 }, successRate: 81, durationMin: 17 },
+    { id: "leon_64", title: "Levný kulky, drahá noc", giver: "Leon Switch Varga", text: "Někdo se chce zbavit železa, než přijde kontrola. Seber to levně a pošli dál ještě před svítáním.", reward: { smg: 1, cash: 700, influence: 2 }, risk: { heat: 5 }, successRate: 73, durationMin: 19 },
+    { id: "leon_65", title: "Kapsářský velkoobchod", giver: "Leon Switch Varga", text: "Malej zloděj ukradl víc, než zvládne prodat. Tak ho odlehči. Klidně i od iluzí.", reward: { cash: 1400, metalParts: 3, influence: 2 }, risk: { heat: 3 }, successRate: 89, durationMin: 12 },
+    { id: "leon_66", title: "Přehoz přes sektor", giver: "Leon Switch Varga", text: "V jednom sektoru je bída, v druhým hlad. Ty propojíš jedno s druhým a zbytek shrábneš.", reward: { cash: 1750, influence: 4 }, risk: { heat: 3 }, successRate: 86, durationMin: 14 },
+    { id: "leon_67", title: "Ostrá přirážka", giver: "Leon Switch Varga", text: "Klient chce zboží hned. To znamená jediný: zvedni cenu, usměj se a nech ho krvácet do peněženky.", reward: { cash: 1900, dirtyCash: 300 }, risk: { heat: 2 }, successRate: 90, durationMin: 11 },
+    { id: "leon_68", title: "Zadní pokoj", giver: "Leon Switch Varga", text: "V zadním pokoji se dneska budou přehazovat věci, co neměly opustit sklad. Dohlídni, aby opustily i majitele.", reward: { techCore: 2, chemical: 3, cash: 500 }, risk: { heat: 4 }, successRate: 80, durationMin: 16 },
+    { id: "leon_69", title: "Srážka zájmů", giver: "Leon Switch Varga", text: "Dvě party chtějí to samý zboží. Ty jim prodáš naději, chaos a nakonec to zinkasuješ celý.", reward: { cash: 1800, influence: 5 }, risk: { heat: 4 }, successRate: 79, durationMin: 17 },
+    { id: "leon_70", title: "Oškrabaná marže", giver: "Leon Switch Varga", text: "Na dealu už si ukousli jiní. Ty z toho seškrábneš poslední vrstvu. A ta bývá nejtučnější.", reward: { dirtyCash: 1500, cash: 500 }, risk: { heat: 3 }, successRate: 86, durationMin: 13 },
+    { id: "leon_71", title: "Výprodej slabosti", giver: "Leon Switch Varga", text: "Někdo potřebuje rychle cash a prodá všechno pod cenou. Ty potřebuješ jen přijít včas a bejt bez slitování.", reward: { metalParts: 6, chemical: 2, cash: 400 }, risk: { heat: 2 }, successRate: 92, durationMin: 12 },
+    { id: "leon_72", title: "Rozsypaný lékárenský zboží", giver: "Leon Switch Varga", text: "Po jedný hádce zůstalo pár beden z lékárny bez dozoru. Posbírej to a prodej to dřív, než se majitel probere.", reward: { chemical: 7, ghostSerum: 1, cash: 400 }, risk: { heat: 4 }, successRate: 82, durationMin: 16 },
+    { id: "leon_73", title: "Prašivej broker", giver: "Leon Switch Varga", text: "Dneska nebudeš obchodník. Dneska budeš hyena s kontakty. A hyeny se v tomhle městě nají nejlíp.", reward: { cash: 1700, influence: 4 }, risk: { heat: 3 }, successRate: 88, durationMin: 13 },
+    { id: "leon_74", title: "Dohoda v dešti", giver: "Leon Switch Varga", text: "Když prší, lidi méně koukají. To je ideální chvíle poslat špinavý zboží přes půl bloku.", reward: { velvetSmoke: 4, overdriveX: 2, cash: 500 }, risk: { heat: 3 }, successRate: 85, durationMin: 14 },
+    { id: "leon_75", title: "Výběr od zoufalců", giver: "Leon Switch Varga", text: "Dneska neokradeš bohatý. Dneska vytěžíš zoufalý. A zoufalí platí nejrychlejc.", reward: { dirtyCash: 1600, influence: 4 }, risk: { heat: 4 }, successRate: 84, durationMin: 15 },
+    { id: "leon_76", title: "Překup za rozbitým barem", giver: "Leon Switch Varga", text: "Za jedním rozbitým barem čeká týpek s věcma, co by oficiálně měly být zamčený jinde. Tak je oficiálně přesuň k nám.", reward: { streetPistol: 1, chemical: 2, cash: 600 }, risk: { heat: 4 }, successRate: 79, durationMin: 17 },
+    { id: "leon_77", title: "Křivá směnka", giver: "Leon Switch Varga", text: "Někdo se upsál špatným lidem. Ty od něj koupíš dluh za drobný a vybereš ho jako plnou cenu.", reward: { cash: 1800, dirtyCash: 400, influence: 3 }, risk: { heat: 4 }, successRate: 81, durationMin: 16 },
+    { id: "leon_78", title: "Špinavý přepočet beden", giver: "Leon Switch Varga", text: "Na papíře jich je deset. Ve skutečnosti jich může zmizet dvanáct. Takovej účetnictví já respektuju.", reward: { metalParts: 5, techCore: 1, cash: 700 }, risk: { heat: 4 }, successRate: 80, durationMin: 16 },
+    { id: "leon_79", title: "Přepálený zájemce", giver: "Leon Switch Varga", text: "Jeden kupec chce zboží tak moc, že už necítí pach podrazu. Přesně takový mám nejradši.", reward: { cash: 2000, influence: 3 }, risk: { heat: 2 }, successRate: 89, durationMin: 11 },
+    { id: "leon_80", title: "Rozřezaná trasa", giver: "Leon Switch Varga", text: "Běžná přepravní trasa je dneska mrtvá. Vezmeš náklad bokem a z marže uděláš malý svinstvo.", reward: { chemical: 4, metalParts: 4, cash: 600 }, risk: { heat: 3 }, successRate: 87, durationMin: 14 },
+    { id: "leon_81", title: "Sektorový pijavice", giver: "Leon Switch Varga", text: "Na každým sektoru visí někdo, kdo už saje moc dlouho. Dneska ho odsajeme my.", reward: { dirtyCash: 1700, influence: 4 }, risk: { heat: 5 }, successRate: 77, durationMin: 18 },
+    { id: "leon_82", title: "Levná bolest, drahý zisk", giver: "Leon Switch Varga", text: "Někdo prodá cennej materiál jen proto, aby přežil noc. Ty si z jeho bolesti uděláš obchodní model.", reward: { techCore: 2, cash: 800, influence: 2 }, risk: { heat: 3 }, successRate: 86, durationMin: 14 },
+    { id: "leon_83", title: "Kufr po mrtvým dealu", giver: "Leon Switch Varga", text: "Po jednom zpackaným setkání zůstal kufr bez dozoru. Otevři ho a udělej z cizího průseru náš profit.", reward: { overdriveX: 2, dirtyCash: 900, influence: 2 }, risk: { heat: 5 }, successRate: 75, durationMin: 18 },
+    { id: "leon_84", title: "Prodej přes bolest", giver: "Leon Switch Varga", text: "Někdy nestačí nabídnout cenu. Někdy musíš nabídnout i důvod, proč ji mají přijmout bez keců.", reward: { cash: 1600, influence: 5 }, risk: { heat: 4 }, successRate: 82, durationMin: 15 },
+    { id: "leon_85", title: "Rozebranej kontejner", giver: "Leon Switch Varga", text: "V přístavu někdo otevřel, co otevřít neměl. Posbírej zbytky a pošli je dál, než přijdou uniformy.", reward: { metalParts: 6, chemical: 3, cash: 600 }, risk: { heat: 5 }, successRate: 76, durationMin: 19 },
+    { id: "leon_86", title: "Pobodaná nabídka", giver: "Leon Switch Varga", text: "Jeden obchod skončil nožem ve stole. To znamená dvě věci: méně zájemců a víc prostoru pro nás.", reward: { streetPistol: 1, cash: 700, dirtyCash: 400 }, risk: { heat: 5 }, successRate: 74, durationMin: 18 },
+    { id: "leon_87", title: "Otočka přes špínu", giver: "Leon Switch Varga", text: "Tohle zboží je tak špinavý, že by si zasloužilo vlastní kanalizaci. Přesně proto má krásnou marži.", reward: { velvetSmoke: 5, chemical: 3, cash: 500 }, risk: { heat: 4 }, successRate: 83, durationMin: 15 },
+    { id: "leon_88", title: "Rozšlapaný kontakt", giver: "Leon Switch Varga", text: "Jeden kontakt dostal přes hubu a chce zmizet. Nech ho zmizet. Ale nejdřív z něj vytáhni všechno cenný.", reward: { influence: 7, dirtyCash: 800 }, risk: { heat: 4 }, successRate: 84, durationMin: 15 },
+    { id: "leon_89", title: "Přesun černé várky", giver: "Leon Switch Varga", text: "Várka je horká, sektor nervózní a čas krátkej. Přesuň to, než se někdo začne zajímat moc.", reward: { ghostSerum: 2, chemical: 4, cash: 500 }, risk: { heat: 4 }, successRate: 82, durationMin: 16 },
+    { id: "leon_90", title: "Drahý mlčení u stolu", giver: "Leon Switch Varga", text: "U jednoho stolu sedí lidi, co by spolu normálně nemluvili. Ty jim pomůžeš najít společnou řeč. Za velmi nepříjemnou cenu.", reward: { cash: 1900, influence: 4 }, risk: { heat: 4 }, successRate: 80, durationMin: 17 },
+    { id: "leon_91", title: "Prohnilý deal", giver: "Leon Switch Varga", text: "Ten kšeft je prohnilej od základu. Ale i z prohnilýho dřeva se dá postavit pěkně hnusnej zisk.", reward: { dirtyCash: 1600, cash: 400 }, risk: { heat: 3 }, successRate: 86, durationMin: 13 },
+    { id: "leon_92", title: "Tahání za nitky", giver: "Leon Switch Varga", text: "Dneska nebudeš tahat bedny. Dneska budeš tahat lidi. A lidi se prodávají ještě líp než zboží.", reward: { influence: 8, cash: 1000 }, risk: { heat: 4 }, successRate: 83, durationMin: 16 },
+    { id: "leon_93", title: "Sklad pro krysy", giver: "Leon Switch Varga", text: "Jeden sklad je tak děravej, že si z něj bere každej. Dneska si z něj vezmeme nejvíc my.", reward: { metalParts: 7, cash: 600, influence: 2 }, risk: { heat: 4 }, successRate: 84, durationMin: 15 },
+    { id: "leon_94", title: "Zuby trhu", giver: "Leon Switch Varga", text: "Trh není místo pro obchodníky. Je to místo pro predátory. Tak koukej kousat.", reward: { cash: 1800, influence: 5 }, risk: { heat: 3 }, successRate: 88, durationMin: 13 },
+    { id: "leon_95", title: "Rozkradený papíry", giver: "Leon Switch Varga", text: "Některý zásilky cestují díky razítku. Dneska se postaráš, aby papíry zmizely a zboží zůstalo nám.", reward: { techCore: 2, dirtyCash: 700, influence: 3 }, risk: { heat: 4 }, successRate: 81, durationMin: 16 },
+    { id: "leon_96", title: "Překupnický masakr", giver: "Leon Switch Varga", text: "Na jednom rohu se dneska roztrhá několik překupníků o stejnou věc. Ty to vezmeš první a prodáš jim to zpátky dráž.", reward: { cash: 2100, influence: 4 }, risk: { heat: 4 }, successRate: 79, durationMin: 17 },
+    { id: "leon_97", title: "Vydřená marže", giver: "Leon Switch Varga", text: "Tohle nebude hezkej obchod. Tohle bude špinavý, tvrdý a přesně tak výdělečný, jak to mám rád.", reward: { dirtyCash: 1700, influence: 4 }, risk: { heat: 5 }, successRate: 78, durationMin: 18 },
+    { id: "leon_98", title: "Dodávka z pekla", giver: "Leon Switch Varga", text: "Jedna dodávka veze tolik bordelu, že by ji nikdo neměl vidět. Postarej se, aby ji nikdo ani nedopočítal.", reward: { chemical: 5, metalParts: 5, cash: 700 }, risk: { heat: 5 }, successRate: 77, durationMin: 19 },
+    { id: "leon_99", title: "Řez z každý kapsy", giver: "Leon Switch Varga", text: "Dneska nebudeš brát jen z jednoho zdroje. Dneska si ukousneš z každý kapsy, co se v sektoru pohne.", reward: { cash: 2000, dirtyCash: 500, influence: 4 }, risk: { heat: 4 }, successRate: 82, durationMin: 16 },
+    { id: "leon_100", title: "Leonova špinavá škola", giver: "Leon Switch Varga", text: "Zapamatuj si to. Ulice nepatří tomu, kdo má čistý ruce. Patří tomu, kdo umí z každýho svinstva udělat zisk. Dneska budeš učit ostatní.", reward: { cash: 2300, influence: 6, techCore: 2 }, risk: { heat: 5 }, successRate: 77, durationMin: 20 }
+  ];
+  const nyraValeEvents = [
+    { id: "nyra_01", title: "Špatně zamčený telefon", giver: "Nyra Vale", text: "Jeden idiot nechal telefon bez dozoru a bez zámku. Vezmi z něj všechno, co se dá prodat, zneužít nebo poslat správným lidem.", reward: { influence: 5, dirtyCash: 700 }, risk: { heat: 3 }, successRate: 86, durationMin: 14 },
+    { id: "nyra_02", title: "Šeptaná slabina", giver: "Nyra Vale", text: "V každém sektoru je někdo, kdo ví příliš moc a pije příliš levně. Sedni si k němu a nech ho mluvit.", reward: { influence: 6, cash: 800 }, risk: { heat: 2 }, successRate: 88, durationMin: 13 },
+    { id: "nyra_03", title: "První lež zdarma", giver: "Nyra Vale", text: "Rozšiř mezi správné uši malou lež. Když se chytne, ostatní udělají zbytek práce za tebe.", reward: { influence: 7, dirtyCash: 500 }, risk: { heat: 3 }, successRate: 84, durationMin: 12 },
+    { id: "nyra_04", title: "Fotka, která bolí", giver: "Nyra Vale", text: "Jedna fotka má větší váhu než zásobník. Získej ji a pak sleduj, jak rychle se mění loajalita za ticho.", reward: { influence: 8, cash: 900 }, risk: { heat: 3 }, successRate: 82, durationMin: 15 },
+    { id: "nyra_05", title: "Odcizený seznam", giver: "Nyra Vale", text: "Někdo si vede seznam jmen, adres a dluhů. Ten seznam dnes změní majitele. A s ním i půlku města.", reward: { influence: 7, dirtyCash: 700 }, risk: { heat: 4 }, successRate: 80, durationMin: 17 },
+    { id: "nyra_06", title: "Cizí paranoia", giver: "Nyra Vale", text: "Není třeba někoho zničit. Stačí, aby začal pochybovat o lidech kolem sebe. To už zvládne rozebrat zbytek sám.", reward: { influence: 9, cash: 600 }, risk: { heat: 3 }, successRate: 85, durationMin: 14 },
+    { id: "nyra_07", title: "Ztracený přístup", giver: "Nyra Vale", text: "Jeden přístupový kód se má ztratit. Ty se postaráš, aby se ztratil správnému člověku do kapsy.", reward: { techCore: 1, influence: 4, cash: 500 }, risk: { heat: 3 }, successRate: 83, durationMin: 15 },
+    { id: "nyra_08", title: "Vydírání bez hlasu", giver: "Nyra Vale", text: "Někdy není potřeba říct ani slovo. Jen poslat správný důkaz na správné místo a počkat, kdo přijde platit první.", reward: { dirtyCash: 1200, influence: 6 }, risk: { heat: 4 }, successRate: 79, durationMin: 16 },
+    { id: "nyra_09", title: "Nastražená zpráva", giver: "Nyra Vale", text: "Pošli jednu zprávu tak, aby vypadala, že přišla od někoho jiného. Lidi jsou překvapivě ochotní si ničit životy sami.", reward: { influence: 8, cash: 700 }, risk: { heat: 4 }, successRate: 78, durationMin: 17 },
+    { id: "nyra_10", title: "Tichá výměna", giver: "Nyra Vale", text: "Na střeše proběhne výměna informací. Ty se neukážeš. Jen zajistíš, že jedna strana odejde chudší a druhá vyděšená.", reward: { influence: 5, dirtyCash: 900 }, risk: { heat: 3 }, successRate: 84, durationMin: 14 },
+    { id: "nyra_11", title: "Rozbitá důvěra", giver: "Nyra Vale", text: "Dva lidi si ještě pořád věří. To je chyba, kterou dnes opravíš.", reward: { influence: 9, cash: 800 }, risk: { heat: 3 }, successRate: 83, durationMin: 13 },
+    { id: "nyra_12", title: "Záznam z chodby", giver: "Nyra Vale", text: "Na jedné chodbě visí kamera, která viděla víc, než by měla. Stáhni záznam dřív, než ho smaže někdo jiný.", reward: { influence: 6, cash: 700, dirtyCash: 300 }, risk: { heat: 3 }, successRate: 85, durationMin: 15 },
+    { id: "nyra_13", title: "Toxický drb", giver: "Nyra Vale", text: "Jedna dobře vypuštěná informace dokáže otrávit celý sektor. Vypusť ji jemně a sleduj, kdo se začne dusit první.", reward: { influence: 10, dirtyCash: 500 }, risk: { heat: 4 }, successRate: 77, durationMin: 18 },
+    { id: "nyra_14", title: "Dívka u baru", giver: "Nyra Vale", text: "Některé dveře neotevře páčidlo, ale úsměv a dvě správné otázky. Dnes otevřeš právě takové.", reward: { influence: 5, cash: 900 }, risk: { heat: 2 }, successRate: 89, durationMin: 12 },
+    { id: "nyra_15", title: "Složka bez jména", giver: "Nyra Vale", text: "V jedné zásuvce leží složka, která nemá existovat. Vezmi ji a připomeň městu, že papír někdy řeže hlouběji než nůž.", reward: { influence: 7, dirtyCash: 800 }, risk: { heat: 4 }, successRate: 80, durationMin: 16 },
+    { id: "nyra_16", title: "Podvržený podpis", giver: "Nyra Vale", text: "Stačí jeden podpis na špatném místě a někdo se probudí s hodně drahým problémem.", reward: { cash: 1000, influence: 6 }, risk: { heat: 4 }, successRate: 79, durationMin: 17 },
+    { id: "nyra_17", title: "Noční odposlech", giver: "Nyra Vale", text: "Na jednu noc zapojíš uši tam, kam nepatří. To, co zachytíš, prodáš třikrát různým lidem.", reward: { dirtyCash: 1100, influence: 6 }, risk: { heat: 4 }, successRate: 81, durationMin: 18 },
+    { id: "nyra_18", title: "Jméno na seznamu", giver: "Nyra Vale", text: "Jedno jméno se objeví na špatném seznamu. A pak už jen sleduj, jak rychle začne jeho majitel panikařit.", reward: { influence: 8, cash: 700 }, risk: { heat: 3 }, successRate: 84, durationMin: 13 },
+    { id: "nyra_19", title: "Špína v archivu", giver: "Nyra Vale", text: "Nejlepší tajemství nejsou na ulici. Jsou uložená, seřazená a čekají, až je někdo použije správným způsobem.", reward: { influence: 7, dirtyCash: 900 }, risk: { heat: 3 }, successRate: 82, durationMin: 15 },
+    { id: "nyra_20", title: "Falešná stopa", giver: "Nyra Vale", text: "Naveď lovce na špatnou adresu a kořist zůstane bez dozoru. Krása manipulace je v tom, že nikdo neví, kdo začal.", reward: { cash: 900, influence: 6 }, risk: { heat: 3 }, successRate: 86, durationMin: 14 },
+    { id: "nyra_21", title: "Cizí heslo", giver: "Nyra Vale", text: "Někdo používá stejné heslo všude. Smutné. Ale výdělečné.", reward: { influence: 5, cash: 800, dirtyCash: 300 }, risk: { heat: 2 }, successRate: 90, durationMin: 11 },
+    { id: "nyra_22", title: "Přítelkyně problému", giver: "Nyra Vale", text: "Dnes se nebudeš prát. Dnes někomu nabídneš řešení, které ho udělá závislým na další schůzce s námi.", reward: { influence: 7, dirtyCash: 700 }, risk: { heat: 3 }, successRate: 85, durationMin: 12 },
+    { id: "nyra_23", title: "Šepot na schodišti", giver: "Nyra Vale", text: "Na schodišti se dnes řekne něco, co nemělo nikdy zaznít nahlas. Ty budeš stát dost blízko, aby to mělo cenu.", reward: { influence: 6, cash: 700 }, risk: { heat: 2 }, successRate: 88, durationMin: 12 },
+    { id: "nyra_24", title: "Zkažený deal", giver: "Nyra Vale", text: "Není třeba obchod zastavit. Stačí ho jen trochu pokazit, aby se obě strany začaly navzájem podezírat.", reward: { influence: 9, dirtyCash: 600 }, risk: { heat: 4 }, successRate: 79, durationMin: 16 },
+    { id: "nyra_25", title: "Sklenička navíc", giver: "Nyra Vale", text: "Lidi po třetí skleničce říkají věci, za které by ráno platili. Ty jim tu šanci dáš.", reward: { cash: 1000, influence: 5 }, risk: { heat: 2 }, successRate: 91, durationMin: 11 },
+    { id: "nyra_26", title: "Zamčená minulost", giver: "Nyra Vale", text: "Každý má minulost, kterou by nejradši utopil. Ty ji jen vytáhneš na hladinu a nabídneš ručník za správnou cenu.", reward: { dirtyCash: 1300, influence: 7 }, risk: { heat: 4 }, successRate: 78, durationMin: 17 },
+    { id: "nyra_27", title: "Slabé místo aliance", giver: "Nyra Vale", text: "Každá aliance má člena, co drží hubu jen do chvíle, než dostane správnou nabídku. Najdi ho.", reward: { influence: 8, cash: 900 }, risk: { heat: 4 }, successRate: 80, durationMin: 18 },
+    { id: "nyra_28", title: "Cizí deník", giver: "Nyra Vale", text: "Papír snese všechno. A některé papíry snesou dost na to, aby někdo začal platit pravidelně.", reward: { influence: 7, dirtyCash: 800 }, risk: { heat: 3 }, successRate: 84, durationMin: 14 },
+    { id: "nyra_29", title: "Otrávené podezření", giver: "Nyra Vale", text: "Stačí zasít malou pochybnost a sledovat, jak si ji lidi zalijí vlastní panikou.", reward: { influence: 10, cash: 600 }, risk: { heat: 4 }, successRate: 77, durationMin: 17 },
+    { id: "nyra_30", title: "Tichá výstraha", giver: "Nyra Vale", text: "Ne všichni potřebují dostat přes hubu. Některým stačí obálka bez odesílatele a špatný spánek na týden dopředu.", reward: { influence: 6, dirtyCash: 900 }, risk: { heat: 3 }, successRate: 85, durationMin: 13 },
+    { id: "nyra_31", title: "Přesměrovaná nenávist", giver: "Nyra Vale", text: "Dneska někoho nenasměruješ k cíli. Nasměruješ ho k omylu. A omyly v našem městě bývají smrtelně drahé.", reward: { influence: 8, cash: 800 }, risk: { heat: 4 }, successRate: 79, durationMin: 16 },
+    { id: "nyra_32", title: "Stará hlasová schránka", giver: "Nyra Vale", text: "Někdo zapomněl smazat hlasovky. Ty zapomeneš mít slitování.", reward: { dirtyCash: 1000, influence: 6 }, risk: { heat: 3 }, successRate: 86, durationMin: 12 },
+    { id: "nyra_33", title: "Zblízka a bez otisků", giver: "Nyra Vale", text: "Potřebuju, abys byl dost blízko na to slyšet pravdu a dost chytrej na to, abys po sobě nic nenechal.", reward: { influence: 7, cash: 700 }, risk: { heat: 3 }, successRate: 84, durationMin: 15 },
+    { id: "nyra_34", title: "Lehký dotek chaosu", giver: "Nyra Vale", text: "Nebudeme rozbíjet dveře. Jen jemně zatlačíme na správné lidi a zbytek město rozebere samo.", reward: { influence: 9, dirtyCash: 700 }, risk: { heat: 4 }, successRate: 78, durationMin: 16 },
+    { id: "nyra_35", title: "Smazaná kamera", giver: "Nyra Vale", text: "Někde chybí pár minut záznamu. Postarej se, aby chyběly přesně ty, které potřebujeme.", reward: { cash: 900, influence: 5 }, risk: { heat: 3 }, successRate: 87, durationMin: 12 },
+    { id: "nyra_36", title: "Noční návštěva", giver: "Nyra Vale", text: "Dnes někomu necháš za dveřmi důkaz, který tam neměl nikdy být. A pak počkáš, kdo začne křičet první.", reward: { influence: 8, dirtyCash: 800 }, risk: { heat: 4 }, successRate: 80, durationMin: 15 },
+    { id: "nyra_37", title: "Dva kroky od zrady", giver: "Nyra Vale", text: "Zrada nezačíná nožem do zad. Začíná jednou pochybností a správně položenou otázkou.", reward: { influence: 10, cash: 700 }, risk: { heat: 4 }, successRate: 76, durationMin: 18 },
+    { id: "nyra_38", title: "Kapesní tajemství", giver: "Nyra Vale", text: "Malé USB, velké problémy. Najdi ho a pak rozhodneme, kdo si za jeho návrat zaplatí nejvíc.", reward: { dirtyCash: 1200, influence: 5 }, risk: { heat: 3 }, successRate: 85, durationMin: 14 },
+    { id: "nyra_39", title: "Rozhovor za plentou", giver: "Nyra Vale", text: "Za jednou tenkou stěnou se dnes probere něco, co může rozpárat celý sektor. Naslouchej.", reward: { influence: 7, cash: 800 }, risk: { heat: 2 }, successRate: 89, durationMin: 12 },
+    { id: "nyra_40", title: "Podvržená účast", giver: "Nyra Vale", text: "Někdo bude vypadat, jako že byl na místě, kde nikdy nestál. A někdo jiný za to zaplatí, aby to zmizelo.", reward: { dirtyCash: 1100, influence: 7 }, risk: { heat: 4 }, successRate: 79, durationMin: 17 },
+    { id: "nyra_41", title: "Zaměněná obálka", giver: "Nyra Vale", text: "Stačí jedna obálka v nesprávných rukách a celý večer dostane nový směr.", reward: { cash: 900, influence: 6 }, risk: { heat: 3 }, successRate: 86, durationMin: 13 },
+    { id: "nyra_42", title: "Přepnutá loajalita", giver: "Nyra Vale", text: "Někteří lidé nejsou věrní. Jen ještě nedostali lepší nabídku. Dnes ji dostanou.", reward: { influence: 8, dirtyCash: 700 }, risk: { heat: 4 }, successRate: 81, durationMin: 16 },
+    { id: "nyra_43", title: "Křehká pověst", giver: "Nyra Vale", text: "Pověst je sklo. Jedna prasklina a zbytek už udělá tlak okolí. Ty uděláš tu prasklinu.", reward: { influence: 9, cash: 700 }, risk: { heat: 3 }, successRate: 83, durationMin: 14 },
+    { id: "nyra_44", title: "Vzkaz bez podpisu", giver: "Nyra Vale", text: "Pošli vzkaz, který nebude znít jako hrozba. Jen jako něco, co by si chytrý člověk neměl dovolit ignorovat.", reward: { dirtyCash: 1000, influence: 6 }, risk: { heat: 3 }, successRate: 87, durationMin: 12 },
+    { id: "nyra_45", title: "Druhé dno šuplíku", giver: "Nyra Vale", text: "Vždycky mě zajímá, co lidi schovávají pod tím, co schovávají. Tam bývá skutečná cena.", reward: { influence: 7, cash: 900, dirtyCash: 300 }, risk: { heat: 3 }, successRate: 85, durationMin: 15 },
+    { id: "nyra_46", title: "Zlá kombinace", giver: "Nyra Vale", text: "Spoj dvě pravdy s jednou lží a dostaneš příběh, který rozbije víc vztahů než pistole kolen.", reward: { influence: 10, dirtyCash: 600 }, risk: { heat: 4 }, successRate: 78, durationMin: 17 },
+    { id: "nyra_47", title: "Stín za zády", giver: "Nyra Vale", text: "Někdo musí mít pocit, že ho někdo sleduje. A ten pocit ho má stát peníze.", reward: { cash: 1000, influence: 6 }, risk: { heat: 3 }, successRate: 86, durationMin: 13 },
+    { id: "nyra_48", title: "Šepot v síti", giver: "Nyra Vale", text: "Dnes nevypustíš zprávu do ulic. Dnes ji pustíš do správných kanálů a necháš ji udělat ošklivější práci tiše.", reward: { influence: 8, dirtyCash: 800 }, risk: { heat: 4 }, successRate: 80, durationMin: 16 },
+    { id: "nyra_49", title: "Pád masky", giver: "Nyra Vale", text: "Každý někde hraje roli. Najdi místo, kde se zapomněl převléct zpátky do své lži.", reward: { influence: 9, cash: 800 }, risk: { heat: 4 }, successRate: 79, durationMin: 16 },
+    { id: "nyra_50", title: "Nyřin tah", giver: "Nyra Vale", text: "Pamatuj si to. Kulka udělá díru. Tajemství udělá prázdno. Dneska v tom prázdnu vyděláme víc než ostatní za celou noc.", reward: { influence: 12, dirtyCash: 1400, cash: 900 }, risk: { heat: 5 }, successRate: 75, durationMin: 19 },
+    { id: "nyra_51", title: "Druhá obálka", giver: "Nyra Vale", text: "První obálka člověka znervózní. Druhá ho připraví o spánek. Doruč tu druhou a nech ho přemýšlet, co všechno ještě víme.", reward: { influence: 8, dirtyCash: 900 }, risk: { heat: 3 }, successRate: 86, durationMin: 14 },
+    { id: "nyra_52", title: "Prasklina v hlavě", giver: "Nyra Vale", text: "Někdy není potřeba někoho zlomit. Stačí mu do hlavy zasadit jednu otázku, která tam začne hnít.", reward: { influence: 10, cash: 700 }, risk: { heat: 3 }, successRate: 84, durationMin: 13 },
+    { id: "nyra_53", title: "Cizí hlas ve tmě", giver: "Nyra Vale", text: "Jedna zpráva přehraná správným hlasem dokáže rozebrat víc než zbraň. Pošli ji a nech jejich jistoty umřít potichu.", reward: { influence: 9, dirtyCash: 800 }, risk: { heat: 4 }, successRate: 81, durationMin: 16 },
+    { id: "nyra_54", title: "Ztráta jistoty", giver: "Nyra Vale", text: "Dnes nikomu nevezmeš peníze. Dnes mu vezmeš pocit bezpečí. A ten bývá dražší.", reward: { influence: 11, cash: 600 }, risk: { heat: 4 }, successRate: 79, durationMin: 17 },
+    { id: "nyra_55", title: "Nespolehlivá vzpomínka", giver: "Nyra Vale", text: "Přesvědč někoho, že si pamatuje věc, která se nikdy nestala. Lidi si zbytek lži dopíšou sami.", reward: { influence: 10, dirtyCash: 700 }, risk: { heat: 4 }, successRate: 78, durationMin: 18 },
+    { id: "nyra_56", title: "Ztracený klid", giver: "Nyra Vale", text: "Jedna maličkost zmizí z bytu, druhá se objeví na špatném místě. A najednou začne mít někdo pocit, že už není sám.", reward: { influence: 9, cash: 800 }, risk: { heat: 3 }, successRate: 85, durationMin: 14 },
+    { id: "nyra_57", title: "Zrcadlo bez odrazu", giver: "Nyra Vale", text: "Každý má obraz sám o sobě. Ty ho dnes rozbiješ a necháš střepy, aby řezaly ještě dlouho potom.", reward: { influence: 12, dirtyCash: 600 }, risk: { heat: 4 }, successRate: 76, durationMin: 19 },
+    { id: "nyra_58", title: "Špatná hodina", giver: "Nyra Vale", text: "Vzbuď někoho uprostřed noci zprávou, která nedává smysl. Ráno už ho bude rozkládat vlastní představivost.", reward: { influence: 8, cash: 700 }, risk: { heat: 2 }, successRate: 90, durationMin: 11 },
+    { id: "nyra_59", title: "Tenká nitka loajality", giver: "Nyra Vale", text: "Důvěra není zeď. Je to nit. A dnes ji stačí jen lehce naříznout.", reward: { influence: 11, dirtyCash: 700 }, risk: { heat: 4 }, successRate: 80, durationMin: 16 },
+    { id: "nyra_60", title: "Zapomenutý klíč", giver: "Nyra Vale", text: "Někdo najde klíč, který nikdy nevlastnil. Přesně od chvíle, kdy ho vezme do ruky, začne přemýšlet, co všechno už někdo otevřel před ním.", reward: { influence: 9, cash: 800, dirtyCash: 300 }, risk: { heat: 3 }, successRate: 86, durationMin: 13 },
+    { id: "nyra_61", title: "Úsměv a jed", giver: "Nyra Vale", text: "Nejhorší rány nepřicházejí v hněvu. Přicházejí s klidem, úsměvem a přesně zvolenou větou.", reward: { influence: 10, dirtyCash: 800 }, risk: { heat: 3 }, successRate: 87, durationMin: 12 },
+    { id: "nyra_62", title: "Hlas na druhém konci", giver: "Nyra Vale", text: "Jedno anonymní zavolání. Jeden správný tón. Jeden večer, který už nikdy nebude normální.", reward: { influence: 8, cash: 900 }, risk: { heat: 3 }, successRate: 85, durationMin: 13 },
+    { id: "nyra_63", title: "Návštěva bez svědků", giver: "Nyra Vale", text: "Někdy stačí, aby někdo zahlédl stín za dveřmi a už si nikdy nebude jistý, jestli byl sám.", reward: { influence: 9, dirtyCash: 900 }, risk: { heat: 4 }, successRate: 81, durationMin: 15 },
+    { id: "nyra_64", title: "Zpožděná pravda", giver: "Nyra Vale", text: "Pravda je nejjedovatější, když přijde pozdě. Doruč ji přesně ve chvíli, kdy už nikdo nebude věřit vysvětlení.", reward: { influence: 11, cash: 700 }, risk: { heat: 4 }, successRate: 79, durationMin: 17 },
+    { id: "nyra_65", title: "Křehký dech", giver: "Nyra Vale", text: "Připomeň někomu, jak moc snadno se může zlomit jeho svět. Ne silou. Jen přesností.", reward: { influence: 10, dirtyCash: 700 }, risk: { heat: 4 }, successRate: 80, durationMin: 16 },
+    { id: "nyra_66", title: "Prázdná židle", giver: "Nyra Vale", text: "Na schůzce nech jednu židli prázdnou a jednu informaci navíc. Paranoia pak zaplní zbytek místnosti sama.", reward: { influence: 9, cash: 800 }, risk: { heat: 3 }, successRate: 86, durationMin: 13 },
+    { id: "nyra_67", title: "Kroky za zády", giver: "Nyra Vale", text: "Nech někoho slyšet kroky tam, kde nikdo není. To, co si domyslí, bude horší než skutečnost.", reward: { influence: 12, dirtyCash: 600 }, risk: { heat: 4 }, successRate: 77, durationMin: 18 },
+    { id: "nyra_68", title: "Rozladěné nervy", giver: "Nyra Vale", text: "Rozbij někomu rytmus dne. Jeden telefon ráno, jeden vzkaz večer, jedna cizí věc doma. Pak už se rozbije sám.", reward: { influence: 10, cash: 700 }, risk: { heat: 3 }, successRate: 88, durationMin: 12 },
+    { id: "nyra_69", title: "Otevřená rána", giver: "Nyra Vale", text: "Každý má místo, kam se nevrací. Ty ho tam dnes pošleš zpátky, aniž bys se ho dotkla.", reward: { influence: 11, dirtyCash: 800 }, risk: { heat: 4 }, successRate: 78, durationMin: 17 },
+    { id: "nyra_70", title: "Cizí oči", giver: "Nyra Vale", text: "Někdo musí uvěřit, že je sledovaný. Ne proto, že to je pravda. Ale protože strach platí rychleji než důkazy.", reward: { influence: 9, cash: 900 }, risk: { heat: 3 }, successRate: 85, durationMin: 14 },
+    { id: "nyra_71", title: "Jemné rozvrácení", giver: "Nyra Vale", text: "Nezničíš skupinu útokem. Zničíš ji tím, že si každý začne myslet, že ostatní něco skrývají.", reward: { influence: 12, dirtyCash: 700 }, risk: { heat: 4 }, successRate: 79, durationMin: 18 },
+    { id: "nyra_72", title: "Jed v tichu", giver: "Nyra Vale", text: "Některé věci není třeba říkat nahlas. Stačí je nechat v hlavě správného člověka dost dlouho.", reward: { influence: 10, cash: 800 }, risk: { heat: 3 }, successRate: 87, durationMin: 12 },
+    { id: "nyra_73", title: "Noc bez odpovědí", giver: "Nyra Vale", text: "Pošli sérii náznaků a pak zmiz. Nejhorší nejsou odpovědi. Nejhorší je, když žádné nepřijdou.", reward: { influence: 9, dirtyCash: 900 }, risk: { heat: 3 }, successRate: 86, durationMin: 13 },
+    { id: "nyra_74", title: "Přesná slabost", giver: "Nyra Vale", text: "Síla je hlučná. Slabost je tichá. Najdi ji, stiskni ji a sleduj, jak se celý člověk ohne kolem ní.", reward: { influence: 11, cash: 800 }, risk: { heat: 4 }, successRate: 80, durationMin: 16 },
+    { id: "nyra_75", title: "Porušený rytmus", giver: "Nyra Vale", text: "Lidé přežívají díky rutině. Znič ji a zbytek jejich jistot se začne sypat sám.", reward: { influence: 8, dirtyCash: 1000 }, risk: { heat: 3 }, successRate: 88, durationMin: 12 },
+    { id: "nyra_76", title: "Místnost bez vzduchu", giver: "Nyra Vale", text: "Zaveď někoho do rozhovoru, kde nebude moct lhát ani utéct. To bývá nejčistší forma násilí.", reward: { influence: 10, cash: 900 }, risk: { heat: 4 }, successRate: 81, durationMin: 15 },
+    { id: "nyra_77", title: "Vzkaz pod kůži", giver: "Nyra Vale", text: "Nech zprávu tam, kde ji najde jen ten správný člověk. A kde se jí nebude umět zbavit ani po přečtení.", reward: { influence: 9, dirtyCash: 900 }, risk: { heat: 3 }, successRate: 86, durationMin: 13 },
+    { id: "nyra_78", title: "Vina bez svědků", giver: "Nyra Vale", text: "Dnes nevyvoláš strach. Dnes vyvoláš vinu. A vina člověka rozloží zevnitř mnohem pomaleji a důkladněji.", reward: { influence: 12, cash: 700 }, risk: { heat: 4 }, successRate: 78, durationMin: 18 },
+    { id: "nyra_79", title: "Pocit cizí přítomnosti", giver: "Nyra Vale", text: "Uprav pár detailů a nech někoho dojít domů do prostoru, který už nebude působit jako jeho vlastní.", reward: { influence: 10, dirtyCash: 800 }, risk: { heat: 4 }, successRate: 82, durationMin: 15 },
+    { id: "nyra_80", title: "Tichý nátlak", giver: "Nyra Vale", text: "Nátlak nemusí křičet. Stačí, když se usadí vedle člověka a dýchá mu na krk celé odpoledne.", reward: { influence: 9, cash: 900 }, risk: { heat: 3 }, successRate: 87, durationMin: 12 },
+    { id: "nyra_81", title: "Narušený spánek", giver: "Nyra Vale", text: "Vyčerpaný člověk se láme snáz. Připrav ho o klidnou noc a ráno už udělá chybu sám.", reward: { influence: 11, dirtyCash: 700 }, risk: { heat: 3 }, successRate: 89, durationMin: 11 },
+    { id: "nyra_82", title: "Jméno ve špatných ústech", giver: "Nyra Vale", text: "Dnes rozšíříš jedno jméno přesně tam, kde ho nikdo nechce slyšet. Škody pak udělá sama jeho ozvěna.", reward: { influence: 10, cash: 800 }, risk: { heat: 4 }, successRate: 81, durationMin: 16 },
+    { id: "nyra_83", title: "Dům plný ticha", giver: "Nyra Vale", text: "Některá ticha nejsou klidná. Jsou nemocná. Ujisti se, že jedno takové dnes někoho doma počká.", reward: { influence: 9, dirtyCash: 900 }, risk: { heat: 3 }, successRate: 85, durationMin: 14 },
+    { id: "nyra_84", title: "Úhel pohledu", giver: "Nyra Vale", text: "Nepotřebuješ měnit fakta. Stačí změnit pořadí, ve kterém je někdo uslyší. A najednou z pravdy začne téct jed.", reward: { influence: 11, cash: 700 }, risk: { heat: 4 }, successRate: 80, durationMin: 17 },
+    { id: "nyra_85", title: "Cizí otisk", giver: "Nyra Vale", text: "Nech na místě něco, co tam nepatří. Člověk si pak zbytek scénáře dopíše sám a většinou mnohem hůř, než bychom vymysleli my.", reward: { influence: 8, dirtyCash: 1000 }, risk: { heat: 3 }, successRate: 87, durationMin: 12 },
+    { id: "nyra_86", title: "Dvě verze noci", giver: "Nyra Vale", text: "Stejný večer, dvě různé verze, tři různí svědci. Až se to začne srážet, nezůstane nikomu pevná půda pod nohama.", reward: { influence: 12, cash: 800 }, risk: { heat: 4 }, successRate: 78, durationMin: 18 },
+    { id: "nyra_87", title: "Rozklad jistoty", giver: "Nyra Vale", text: "Něčí sebevědomí stojí na jedné představě. Dnes mu ji vezmeš a necháš ho sledovat, jak se rozsype všechno okolo.", reward: { influence: 10, dirtyCash: 900 }, risk: { heat: 4 }, successRate: 80, durationMin: 16 },
+    { id: "nyra_88", title: "Přesně načasované ticho", giver: "Nyra Vale", text: "Někdy je nejkrutější neodpovědět. Dnes necháš ticho pracovat déle, než je pro někoho zdravé.", reward: { influence: 9, cash: 900 }, risk: { heat: 2 }, successRate: 91, durationMin: 11 },
+    { id: "nyra_89", title: "Neviditelná trhlina", giver: "Nyra Vale", text: "Na povrchu nebude vidět nic. Ale uvnitř už začne všechno praskat. To jsou moje oblíbené práce.", reward: { influence: 11, dirtyCash: 800 }, risk: { heat: 4 }, successRate: 79, durationMin: 17 },
+    { id: "nyra_90", title: "Přítomnost bez tváře", giver: "Nyra Vale", text: "Postarej se, aby někdo cítil něčí blízkost, aniž by kdy zahlédl tvář. Lidská představivost je levná a smrtelně účinná zbraň.", reward: { influence: 10, cash: 800 }, risk: { heat: 3 }, successRate: 86, durationMin: 13 },
+    { id: "nyra_91", title: "Sběr slabých míst", giver: "Nyra Vale", text: "Dnes neřešíš velké tajemství. Dnes posbíráš deset malých. A z těch malých se staví nejhorší klece.", reward: { influence: 8, dirtyCash: 1100 }, risk: { heat: 3 }, successRate: 88, durationMin: 12 },
+    { id: "nyra_92", title: "Pod kůží města", giver: "Nyra Vale", text: "V každém sektoru pulzuje strach, jen ho nikdo nechce pojmenovat. Dnes mu dáš tvar a cenu.", reward: { influence: 12, cash: 700 }, risk: { heat: 4 }, successRate: 78, durationMin: 18 },
+    { id: "nyra_93", title: "Slovo, které zůstane", giver: "Nyra Vale", text: "Vyber jednu větu, která se člověku usadí v hlavě jako střep. A pak ji řekni přesně jednou.", reward: { influence: 9, dirtyCash: 900 }, risk: { heat: 3 }, successRate: 87, durationMin: 12 },
+    { id: "nyra_94", title: "Cizí dotek v prostoru", giver: "Nyra Vale", text: "Přesuň pár věcí, nech pár stop a jednu nejasnost. Nic víc. To úplně stačí na dlouhou noc bez dechu.", reward: { influence: 10, cash: 800 }, risk: { heat: 3 }, successRate: 86, durationMin: 13 },
+    { id: "nyra_95", title: "Hlad po odpovědi", giver: "Nyra Vale", text: "Dnes někomu nedáš důkaz. Dáš mu jen dost na to, aby po zbytku začal šílet toužit.", reward: { influence: 11, dirtyCash: 800 }, risk: { heat: 4 }, successRate: 80, durationMin: 16 },
+    { id: "nyra_96", title: "Jedovatá blízkost", giver: "Nyra Vale", text: "Nejhorší hrozby nejsou daleko. Jsou těsně vedle člověka, ve stejné místnosti, v obyčejném tónu hlasu.", reward: { influence: 10, cash: 900 }, risk: { heat: 3 }, successRate: 85, durationMin: 14 },
+    { id: "nyra_97", title: "Vnitřní pád", giver: "Nyra Vale", text: "Některé lidi není třeba srazit. Stačí jim odebrat poslední oporu a oni se zřítí sami.", reward: { influence: 12, dirtyCash: 900 }, risk: { heat: 4 }, successRate: 77, durationMin: 18 },
+    { id: "nyra_98", title: "Tři náznaky", giver: "Nyra Vale", text: "První náznak znejistí. Druhý rozhodí. Třetí zlomí. Doruč všechny tři ve správném pořadí.", reward: { influence: 11, cash: 800 }, risk: { heat: 4 }, successRate: 81, durationMin: 16 },
+    { id: "nyra_99", title: "Tma mezi lidmi", giver: "Nyra Vale", text: "Největší temnota není v ulicích. Je mezi lidmi, kteří si přestali věřit. Rozšiř ji.", reward: { influence: 13, dirtyCash: 800 }, risk: { heat: 5 }, successRate: 75, durationMin: 19 },
+    { id: "nyra_100", title: "Nyřin jed", giver: "Nyra Vale", text: "Zapamatuj si to. Strach je hlasitý jen na začátku. Pak ztichne, usadí se v člověku a začne ho požírat zevnitř. Dnes ten hlad nakrmíme.", reward: { influence: 14, dirtyCash: 1500, cash: 900 }, risk: { heat: 5 }, successRate: 74, durationMin: 20 }
+  ];
+
   function initEventsModal() {
     const openBtn = document.getElementById("city-events-open");
     const modal = document.getElementById("events-modal");
@@ -12088,9 +13003,71 @@ window.Empire.UI = (() => {
     const agentType = document.getElementById("events-agent-type");
     const agentDesc = document.getElementById("events-agent-desc");
     const agentQuote = document.getElementById("events-agent-quote");
+    const eventsRefreshCountdown = document.getElementById("events-refresh-countdown");
     const agentButtons = Array.from(document.querySelectorAll(".events-agent"));
 
     if (!modal || !openBtn) return;
+
+    const rewardLabels = {
+      cash: "clean cash",
+      dirtyCash: "dirty cash",
+      influence: "influence",
+      metalParts: "metal parts",
+      chemical: "chemicals",
+      techCore: "tech core",
+      streetPistol: "street pistol",
+      neonViper: "Neon Viper",
+      overdriveX: "Overdrive X",
+      velvetSmoke: "Velvet Smoke",
+      ghostSerum: "Ghost Serum",
+      smg: "SMG",
+      ammo: "ammo",
+      grenade: "grenade",
+      spyGear: "spy gear",
+      intel: "intel",
+      bulletproofVest: "bulletproof vest",
+      bazooka: "bazooka",
+      securityCameras: "security camera",
+      alarm: "alarm module"
+    };
+
+    const formatRewardEntry = (resourceKey, amount) => {
+      const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
+      if (!safeAmount) return "";
+      const label = rewardLabels[resourceKey] || resourceKey;
+      if (resourceKey === "cash" || resourceKey === "dirtyCash") {
+        return `+${safeAmount.toLocaleString("cs-CZ")} ${label}`;
+      }
+      return `+${safeAmount} ${label}`;
+    };
+
+    const mapCityEventsToTasks = (eventPool, agentKey) => (Array.isArray(eventPool) ? eventPool : []).map((event) => {
+      const rewardEntries = Object.entries(event.reward || {})
+        .map(([key, value]) => formatRewardEntry(key, value))
+        .filter(Boolean);
+      const heatRisk = Math.max(0, Math.floor(Number(event?.risk?.heat || 0)));
+      return {
+        id: event.id,
+        agentKey,
+        giver: String(event.giver || "").trim(),
+        title: event.title,
+        desc: event.text,
+        reward: { ...(event.reward || {}) },
+        gains: rewardEntries,
+        risk: heatRisk > 0 ? `Heat +${heatRisk}` : "",
+        successRate: Math.max(0, Math.min(100, Math.floor(Number(event.successRate || 0)))),
+        durationSec: Math.max(1, Math.floor(Number(event.durationMin || 1)))
+      };
+    });
+    const resolveEventDifficultyMeta = (successRate) => {
+      const value = Math.max(0, Math.min(100, Math.floor(Number(successRate || 0))));
+      if (value >= 86) return { key: "easy", label: "Easy" };
+      if (value >= 73) return { key: "medium", label: "Medium" };
+      return { key: "hard", label: "Hard" };
+    };
+    const victorTasks = mapCityEventsToTasks(victorGraveEvents, "victor");
+    const leonTasks = mapCityEventsToTasks(leonSwitchVargaEvents, "leon");
+    const nyraTasks = mapCityEventsToTasks(nyraValeEvents, "nira");
 
     const agents = {
       victor: {
@@ -12099,11 +13076,7 @@ window.Empire.UI = (() => {
         desc:
           "Bývalý vyhazovač, co si vymlátil vlastní teritorium. Neřeší kecy, jen výsledky. Respekt si bere silou.",
         quote: "Buď to vezmeš nebo to vezme někdo jinej.",
-        tasks: [
-          { title: "Útok na sektor", desc: "Prolom obranu rivala v průmyslovém pásmu." },
-          { title: "Likvidace nepřítele", desc: "Zlikviduj vůdce pouličního gangu v Docklands." },
-          { title: "Obsazení území", desc: "Zabrat neutralní blok a držet ho 24 hodin." }
-        ]
+        tasks: victorTasks
       },
       leon: {
         name: "Leon Switch Varga",
@@ -12111,50 +13084,533 @@ window.Empire.UI = (() => {
         desc:
           "Všechno ví, všechno zařídí. Má kontakty v každém sektoru a nikdy nepracuje zadarmo.",
         quote: "Nejde o to, co máš. Jde o to, co z toho vytěžíš.",
-        tasks: [
-          { title: "Černý obchod", desc: "Vyjednej výměnu drog za zbraně s konkurenční frakcí." },
-          { title: "Získání zdrojů", desc: "Získej $50k a 120 drog z bočních operací." },
-          { title: "Tichá dohoda", desc: "Uzavři dohodu s dvěma sektory pro pasivní příjem." }
-        ]
+        tasks: leonTasks
       },
-      nina: {
-        name: "Nina Velvet Rojas",
+      nira: {
+        name: "Nyra Vale",
         type: "Informační síť / vliv",
         desc:
           "Vlastní několik klubů a ví o každém všechno. Usmívá se ale tahá za nitky v pozadí.",
         quote: "Informace jsou dražší než krev. A já jich mám dost.",
-        tasks: [
-          { title: "Sběr informací", desc: "Získej přístup k databázi metra a odposlechům." },
-          { title: "Infiltrace sektoru", desc: "Pošli agenta do finanční zóny a získej kompromitující data." },
-          { title: "Zvýšení vlivu", desc: "Vytvoř skandál a posuň reputaci o 15 bodů." }
-        ]
+        tasks: nyraTasks
       }
     };
+
+    const taskLookup = new Map();
+    [victorTasks, leonTasks, nyraTasks].forEach((pool) => {
+      pool.forEach((task) => {
+        if (!task?.id) return;
+        taskLookup.set(String(task.id), task);
+      });
+    });
+
+    const ensureEventDetailModalShell = () => {
+      let root = document.getElementById("event-detail-modal");
+      if (!root) {
+        const shell = document.createElement("div");
+        shell.id = "event-detail-modal";
+        shell.className = "modal hidden";
+        shell.innerHTML = `
+          <div id="event-detail-modal-backdrop" class="modal__backdrop"></div>
+          <div class="modal__content modal__content--profile event-detail-modal__content">
+            <div class="modal__header">
+              <h3 id="event-detail-title">Detail eventu</h3>
+              <button class="modal__close" id="event-detail-modal-close" aria-label="Zavřít">✕</button>
+            </div>
+            <div class="modal__body event-detail-modal__body">
+              <div class="event-detail-modal__meta">
+                <span id="event-detail-giver">-</span>
+                <span id="event-detail-stats">Úspěšnost 0% • 0 min</span>
+              </div>
+              <p class="event-detail-modal__desc" id="event-detail-desc"></p>
+              <div class="event-detail-modal__section">
+                <div class="event-detail-modal__label">Co hráč může získat</div>
+                <div class="event-detail-modal__chips" id="event-detail-gains"></div>
+              </div>
+              <div class="event-detail-modal__section">
+                <div class="event-detail-modal__label">Riziko</div>
+                <div class="event-detail-modal__chips" id="event-detail-risk"></div>
+              </div>
+              <div class="event-detail-modal__actions">
+                <button class="btn btn--primary" id="event-detail-accept">Accept</button>
+                <button class="btn btn--ghost" id="event-detail-decline">Decline</button>
+              </div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(shell);
+        root = shell;
+      }
+      return {
+        root,
+        backdrop: document.getElementById("event-detail-modal-backdrop"),
+        closeBtn: document.getElementById("event-detail-modal-close"),
+        title: document.getElementById("event-detail-title"),
+        giver: document.getElementById("event-detail-giver"),
+        stats: document.getElementById("event-detail-stats"),
+        desc: document.getElementById("event-detail-desc"),
+        gains: document.getElementById("event-detail-gains"),
+        risk: document.getElementById("event-detail-risk"),
+        acceptBtn: document.getElementById("event-detail-accept"),
+        declineBtn: document.getElementById("event-detail-decline")
+      };
+    };
+
+    const detailShell = ensureEventDetailModalShell();
+    const detailModal = detailShell.root;
+    const detailBackdrop = detailShell.backdrop;
+    const detailCloseBtn = detailShell.closeBtn;
+    const detailTitle = detailShell.title;
+    const detailGiver = detailShell.giver;
+    const detailStats = detailShell.stats;
+    const detailDesc = detailShell.desc;
+    const detailGains = detailShell.gains;
+    const detailRisk = detailShell.risk;
+    const detailAcceptBtn = detailShell.acceptBtn;
+    const detailDeclineBtn = detailShell.declineBtn;
+
+    const renderDetailChips = (container, values, variant = "gain") => {
+      if (!container) return;
+      const list = Array.isArray(values) ? values.filter(Boolean) : [];
+      if (!list.length) {
+        container.innerHTML = variant === "risk"
+          ? '<span class="events-task__gain-chip events-task__gain-chip--muted">Nízké</span>'
+          : '<span class="events-task__gain-chip events-task__gain-chip--muted">Bez garantované odměny</span>';
+        return;
+      }
+      container.innerHTML = list.map((value) => {
+        const className = variant === "risk" ? "events-task__risk-chip" : "events-task__gain-chip";
+        return `<span class="${className}">${escapeHtml(String(value))}</span>`;
+      }).join("");
+    };
+
+    const rewardToResourceKeyMap = {
+      chemical: "chemicals",
+      chemicals: "chemicals",
+      ammo: "materials",
+      alarm: "alarmSystem",
+      intel: "dataShards",
+      spyGear: "dataShards",
+      neonViper: "neonDust"
+    };
+
+    const normalizeRewardResourceKey = (key) => {
+      const rawKey = String(key || "").trim();
+      if (!rawKey) return "";
+      return rewardToResourceKeyMap[rawKey] || rawKey;
+    };
+
+    const applyEventRewardsToPlayerState = (task) => {
+      const rewardEntries = Object.entries(task?.reward || {});
+      if (!rewardEntries.length) return [];
+      const appliedLabels = [];
+
+      rewardEntries.forEach(([key, rawAmount]) => {
+        const amount = Math.max(0, Math.floor(Number(rawAmount || 0)));
+        if (!amount) return;
+        if (key === "cash") {
+          addCleanCash(amount);
+          appliedLabels.push(`+${amount.toLocaleString("cs-CZ")} clean cash`);
+          return;
+        }
+        if (key === "dirtyCash") {
+          addDirtyCash(amount);
+          appliedLabels.push(`+${amount.toLocaleString("cs-CZ")} dirty cash`);
+          return;
+        }
+        if (key === "influence") {
+          addInfluence(amount);
+          if (cachedProfile && typeof cachedProfile === "object") {
+            cachedProfile.influence = Math.max(0, Math.floor(Number(cachedProfile.influence || 0) + amount));
+            window.Empire.player = {
+              ...(window.Empire.player || {}),
+              influence: cachedProfile.influence
+            };
+          }
+          appliedLabels.push(`+${amount} influence`);
+          return;
+        }
+        const normalizedResource = normalizeRewardResourceKey(key);
+        const added = addEconomyResource(normalizedResource, amount);
+        if (added > 0) {
+          appliedLabels.push(formatRewardEntry(normalizedResource, added));
+        }
+      });
+
+      return appliedLabels;
+    };
+
+    const activeCityEventRuns = new Map();
+    const getCityEventRunState = (taskId) => {
+      const run = activeCityEventRuns.get(String(taskId || "").trim());
+      if (!run) return { active: false, remainingSec: 0 };
+      const remainingMs = Math.max(0, Number(run.endsAt || 0) - Date.now());
+      return {
+        active: remainingMs > 0,
+        remainingSec: Math.max(0, Math.ceil(remainingMs / 1000))
+      };
+    };
+    const writeCityEventsInfo = (message) => {
+      if (!agentDesc) return;
+      const text = String(message || "").trim();
+      if (!text) return;
+      agentDesc.textContent = text;
+    };
+
+    const resolveEventOutcomePool = (task, wasSuccess) => {
+      const title = String(task?.title || "Event").trim();
+      const risk = String(task?.risk || "Heat +0").trim();
+      const durationSec = Math.max(1, Math.floor(Number(task?.durationSec || 1)));
+      if (wasSuccess) {
+        return [
+          `${title}: operace proběhla čistě. Výsledek dorazil do skladu.`,
+          `${title}: cíl splněn za ${durationSec}s. Trasa byla tichá a bez úniku.`,
+          `${title}: úspěch. ${risk} zůstalo pod kontrolou.`
+        ];
+      }
+      return [
+        `${title}: akce se rozpadla během přesunu. Bez zisku.`,
+        `${title}: operace selhala. Kontakt zmizel ještě před dokončením.`,
+        `${title}: průser. ${risk} vystřelilo nahoru a zisk je nulový.`
+      ];
+    };
+
+    const resolveRandomOutcomeLine = (task, wasSuccess) => {
+      const pool = resolveEventOutcomePool(task, wasSuccess);
+      if (!pool.length) return wasSuccess ? "Event dokončen úspěšně." : "Event selhal.";
+      const index = Math.max(0, Math.floor(Math.random() * pool.length)) % pool.length;
+      return String(pool[index] || pool[0] || "").trim();
+    };
+
+    const finalizeCityEventRun = (runId) => {
+      const run = activeCityEventRuns.get(runId);
+      if (!run) return;
+      activeCityEventRuns.delete(runId);
+
+      const task = run.task;
+      const successRoll = Math.random() * 100;
+      const wasSuccess = successRoll <= Math.max(0, Math.min(100, Number(task?.successRate || 0)));
+      const outcomeLine = resolveRandomOutcomeLine(task, wasSuccess);
+
+      if (wasSuccess) {
+        const appliedRewards = applyEventRewardsToPlayerState(task);
+        const gainInfo = appliedRewards.length
+          ? ` • Zisk: ${appliedRewards.join(", ")}`
+          : "";
+        const infoMessage = `${outcomeLine}${gainInfo}`;
+        writeCityEventsInfo(infoMessage);
+        pushInfoWindowHistoryEntry({
+          title: `Event dokončen • ${String(task?.title || "City Event")}`,
+          text: infoMessage
+        });
+        pushEvent(`${outcomeLine}${gainInfo}`);
+        showActionConfirmPopup({
+          tone: "spy",
+          title: "EVENT DOKONČEN",
+          subtitle: infoMessage
+        });
+        if (selectedAgentKey) renderTasks(selectedAgentKey);
+        renderPlayerCharacterEvents();
+        return;
+      }
+
+      writeCityEventsInfo(outcomeLine);
+      pushInfoWindowHistoryEntry({
+        title: `Event selhal • ${String(task?.title || "City Event")}`,
+        text: outcomeLine
+      });
+      pushEvent(outcomeLine);
+      showActionConfirmPopup({
+        tone: "attack",
+        title: "EVENT SELHAL",
+        subtitle: outcomeLine
+      });
+      if (selectedAgentKey) renderTasks(selectedAgentKey);
+      renderPlayerCharacterEvents();
+    };
+
+    const startCityEventRun = (task) => {
+      const taskId = String(task?.id || "").trim();
+      if (!taskId) return false;
+      if (activeCityEventRuns.has(taskId)) {
+        pushEvent(`Event ${task.title} už běží.`);
+        showActionConfirmPopup({
+          tone: "spy",
+          title: "EVENT UŽ BĚŽÍ",
+          subtitle: `${task.title} je právě aktivní.`
+        });
+        return false;
+      }
+      const durationSec = Math.max(1, Math.floor(Number(task?.durationSec || 1)));
+      const run = {
+        id: taskId,
+        task,
+        startedAt: Date.now(),
+        endsAt: Date.now() + (durationSec * 1000),
+        timeoutId: null
+      };
+      run.timeoutId = window.setTimeout(() => {
+        finalizeCityEventRun(taskId);
+      }, durationSec * 1000);
+      activeCityEventRuns.set(taskId, run);
+      writeCityEventsInfo(`Event běží: ${task.title} • dokončení za ${durationSec}s`);
+      pushEvent(`Spuštěno: ${task.title} • trvání ${durationSec}s`);
+      showActionConfirmPopup({
+        tone: "attack",
+        title: "EVENT SPUŠTĚN",
+        subtitle: `${task.title} • ${durationSec}s`
+      });
+      if (selectedAgentKey) renderTasks(selectedAgentKey);
+      renderPlayerCharacterEvents();
+      return true;
+    };
+
+    let selectedEventTask = null;
+    const openEventDetailModal = (task) => {
+      if (!task || !detailModal) return;
+      selectedEventTask = task;
+      const difficulty = resolveEventDifficultyMeta(task.successRate);
+      if (detailTitle) detailTitle.textContent = String(task.title || "Detail eventu");
+      if (detailGiver) detailGiver.textContent = String(task.giver || agents[task.agentKey || ""]?.name || "-");
+      if (detailStats) {
+        const runState = getCityEventRunState(task.id);
+        detailStats.innerHTML = `
+          <span>Úspěšnost ${Math.max(0, Math.floor(Number(task.successRate || 0)))}% • ${Math.max(1, Math.floor(Number(task.durationSec || 1)))} s${runState.active ? ` • Zamčeno ${runState.remainingSec}s` : ""}</span>
+          <span class="event-detail-modal__difficulty event-difficulty event-difficulty--${difficulty.key}">${difficulty.label}</span>
+        `;
+      }
+      if (detailDesc) detailDesc.textContent = String(task.desc || "");
+      renderDetailChips(detailGains, task.gains, "gain");
+      renderDetailChips(detailRisk, task.risk ? [task.risk] : [], "risk");
+      const runState = getCityEventRunState(task.id);
+      if (detailAcceptBtn) {
+        detailAcceptBtn.disabled = runState.active;
+        detailAcceptBtn.textContent = runState.active ? `Probíhá (${runState.remainingSec}s)` : "Accept";
+      }
+      detailModal.classList.remove("hidden");
+    };
+
+    const closeEventDetailModal = () => {
+      if (!detailModal) return;
+      detailModal.classList.add("hidden");
+      selectedEventTask = null;
+    };
+
+    if (detailBackdrop) detailBackdrop.addEventListener("click", closeEventDetailModal);
+    if (detailCloseBtn) detailCloseBtn.addEventListener("click", closeEventDetailModal);
+    if (detailAcceptBtn) {
+      detailAcceptBtn.addEventListener("click", () => {
+        if (!selectedEventTask) return;
+        startCityEventRun(selectedEventTask);
+        closeEventDetailModal();
+      });
+    }
+    if (detailDeclineBtn) {
+      detailDeclineBtn.addEventListener("click", () => {
+        if (!selectedEventTask) return;
+        pushEvent(`Odmítnuto: ${selectedEventTask.title}`);
+        closeEventDetailModal();
+      });
+    }
 
     const renderTasks = (agentKey) => {
       const agent = agents[agentKey];
       if (!agent || !tasklist) return;
+      selectedAgentKey = agentKey;
       agentButtons.forEach((btn) => btn.classList.toggle("is-active", btn.dataset.agent === agentKey));
       if (agentName) agentName.textContent = agent.name;
       if (agentType) agentType.textContent = agent.type;
       if (agentDesc) agentDesc.textContent = agent.desc;
       if (agentQuote) agentQuote.textContent = agent.quote;
-      tasklist.innerHTML = agent.tasks
+      const visibleTasks = resolveVisibleCharacterTasks(agentKey, agent.tasks);
+      tasklist.innerHTML = visibleTasks
         .map(
-          (task) => `
-          <div class="events-task">
+          (task) => {
+            const hasOperationalMeta = Number.isFinite(Number(task?.successRate)) || Number.isFinite(Number(task?.durationSec));
+            const successRate = Math.max(0, Math.min(100, Math.floor(Number(task?.successRate || 0))));
+            const durationSec = Math.max(1, Math.floor(Number(task?.durationSec || 1)));
+            const difficulty = resolveEventDifficultyMeta(successRate);
+            const runState = getCityEventRunState(task?.id);
+            const metaLabel = hasOperationalMeta
+              ? `Úspěšnost ${successRate}% • ${durationSec}s${runState.active ? ` • Zamčeno ${runState.remainingSec}s` : ""}`
+              : "Dynamická operace";
+            return `
+          <div class="events-task${runState.active ? " events-task--locked" : ""}" data-event-open="${task.id || ""}" data-event-locked="${runState.active ? "1" : "0"}">
             <div class="events-task__title">${task.title}</div>
             <div class="events-task__desc">${task.desc}</div>
-            <div class="events-task__actions">
-              <button class="btn btn--primary" data-action="accept" data-title="${task.title}">Accept</button>
-              <button class="btn btn--ghost" data-action="decline" data-title="${task.title}">Decline</button>
+            <div class="events-task__meta">
+              <span>${metaLabel}</span>
+              <span class="event-difficulty event-difficulty--${difficulty.key}">${difficulty.label}</span>
             </div>
           </div>
-        `
+        `;
+          }
         )
         .join("");
+      tasklist.querySelectorAll("[data-event-open]").forEach((row) => {
+        if (!(row instanceof HTMLElement) || row.dataset.bound === "1") return;
+        row.dataset.bound = "1";
+        const openFromRow = (event) => {
+          if (event) event.preventDefault();
+          const taskId = String(row.dataset.eventOpen || "").trim();
+          if (!taskId) return;
+          const selectedTask = taskLookup.get(taskId);
+          if (!selectedTask) return;
+          openEventDetailModal(selectedTask);
+        };
+        row.addEventListener("pointerdown", openFromRow);
+        row.addEventListener("click", openFromRow);
+      });
       modal.classList.remove("events-modal--compact");
     };
+
+    const playerCharacterEventsList = document.getElementById("player-character-events-list");
+    const playerCharacterEventsNext = document.getElementById("player-character-events-next");
+    const characterEventPools = [
+      { key: "victor", name: "Victor", tasks: victorTasks },
+      { key: "leon", name: "Leon", tasks: leonTasks },
+      { key: "nira", name: "Nyra", tasks: nyraTasks }
+    ];
+    const poolIndexes = {
+      victor: 0,
+      leon: 0,
+      nira: 0
+    };
+    const MAX_VISIBLE_EVENTS_PER_CHARACTER = 3;
+    let selectedAgentKey = null;
+    const CHARACTER_EVENTS_REFRESH_SECONDS = 30;
+    let secondsToNextCharacterRefresh = CHARACTER_EVENTS_REFRESH_SECONDS;
+
+    const updateEventsRefreshCountdownLabel = () => {
+      if (!eventsRefreshCountdown) return;
+      if (!isBlackoutLikeScenario()) {
+        eventsRefreshCountdown.textContent = "refresh paused";
+        return;
+      }
+      eventsRefreshCountdown.textContent = `refresh ${Math.max(0, Math.floor(Number(secondsToNextCharacterRefresh || 0)))}s`;
+    };
+
+    const resolveVisibleCharacterTasks = (poolKey, tasks) => {
+      const safeTasks = Array.isArray(tasks) ? tasks : [];
+      if (!safeTasks.length) return [];
+      const activePinned = safeTasks
+        .filter((task) => getCityEventRunState(task?.id).active)
+        .slice(0, MAX_VISIBLE_EVENTS_PER_CHARACTER);
+      const remainingSlots = Math.max(0, MAX_VISIBLE_EVENTS_PER_CHARACTER - activePinned.length);
+      if (remainingSlots <= 0) return activePinned;
+
+      const rotatingPool = safeTasks.filter((task) => {
+        const taskId = String(task?.id || "").trim();
+        return !activePinned.some((activeTask) => String(activeTask?.id || "").trim() === taskId);
+      });
+      if (!rotatingPool.length) return activePinned;
+      if (rotatingPool.length <= remainingSlots) return [...activePinned, ...rotatingPool];
+
+      const offset = Math.max(0, Math.floor(Number(poolIndexes[poolKey] || 0))) % rotatingPool.length;
+      const rotated = [];
+      for (let index = 0; index < remainingSlots; index += 1) {
+        rotated.push(rotatingPool[(offset + index) % rotatingPool.length]);
+      }
+      return [...activePinned, ...rotated];
+    };
+
+    const renderPlayerCharacterEvents = () => {
+      if (!playerCharacterEventsList) return;
+      if (!isBlackoutLikeScenario()) {
+        playerCharacterEventsList.innerHTML = '<button class="player-character-event" type="button" disabled>Eventy jsou aktivní ve stavu HRA.</button>';
+        if (playerCharacterEventsNext) playerCharacterEventsNext.textContent = "stav: mimo HRA";
+        return;
+      }
+      const groupedItems = characterEventPools.map((pool) => ({
+        key: pool.key,
+        name: pool.name,
+        tasks: resolveVisibleCharacterTasks(pool.key, pool.tasks)
+      })).filter((group) => Array.isArray(group.tasks) && group.tasks.length);
+      if (!groupedItems.length) {
+        playerCharacterEventsList.innerHTML = '<button class="player-character-event" type="button" disabled>Žádné eventy</button>';
+        return;
+      }
+      playerCharacterEventsList.innerHTML = groupedItems.map((group) => `
+        <div class="player-character-group">
+          <div class="player-character-group__title">${escapeHtml(group.name)} • ${group.tasks.length} eventy</div>
+          ${group.tasks.map((task) => `
+            <button class="player-character-event${getCityEventRunState(task.id).active ? " player-character-event--locked" : ""}" type="button" data-character-event-id="${task.id}">
+              <span class="player-character-event__agent">${escapeHtml(group.name)}</span>
+              <span class="player-character-event__meta">Úspěšnost ${task.successRate}% • ${task.durationSec}s${getCityEventRunState(task.id).active ? ` • Zamčeno ${getCityEventRunState(task.id).remainingSec}s` : ""}</span>
+              <span class="player-character-event__difficulty event-difficulty event-difficulty--${resolveEventDifficultyMeta(task.successRate).key}">${resolveEventDifficultyMeta(task.successRate).label}</span>
+              <span class="player-character-event__title">${escapeHtml(task.title)}</span>
+            </button>
+          `).join("")}
+        </div>
+      `).join("");
+      playerCharacterEventsList.querySelectorAll("[data-character-event-id]").forEach((row) => {
+        if (!(row instanceof HTMLElement) || row.dataset.bound === "1") return;
+        row.dataset.bound = "1";
+        const openFromRow = (event) => {
+          if (event) event.preventDefault();
+          const taskId = String(row.dataset.characterEventId || "").trim();
+          if (!taskId) return;
+          const selectedTask = taskLookup.get(taskId);
+          if (!selectedTask) return;
+          openEventDetailModal(selectedTask);
+        };
+        row.addEventListener("pointerdown", openFromRow);
+        row.addEventListener("click", openFromRow);
+      });
+    };
+
+    const rotateCharacterEvents = () => {
+      Object.keys(poolIndexes).forEach((key) => {
+        const pool = characterEventPools.find((entry) => entry.key === key);
+        const size = Array.isArray(pool?.tasks) ? pool.tasks.length : 0;
+        if (!size) return;
+        poolIndexes[key] = (Math.max(0, Math.floor(Number(poolIndexes[key] || 0))) + 1) % size;
+      });
+      secondsToNextCharacterRefresh = CHARACTER_EVENTS_REFRESH_SECONDS;
+      renderPlayerCharacterEvents();
+      updateEventsRefreshCountdownLabel();
+      if (selectedAgentKey) {
+        renderTasks(selectedAgentKey);
+      }
+    };
+
+    let lastKnownScenarioKey = activePlayerScenarioKey;
+    renderPlayerCharacterEvents();
+    updateEventsRefreshCountdownLabel();
+    if (playerCharacterEventsNext) {
+      playerCharacterEventsNext.textContent = isBlackoutLikeScenario()
+        ? `refresh za ${CHARACTER_EVENTS_REFRESH_SECONDS} s`
+        : "stav: mimo HRA";
+    }
+    if (characterEventsRotationIntervalId) {
+      clearInterval(characterEventsRotationIntervalId);
+      characterEventsRotationIntervalId = null;
+    }
+    characterEventsRotationIntervalId = setInterval(() => {
+      if (selectedAgentKey && modal && !modal.classList.contains("hidden")) {
+        renderTasks(selectedAgentKey);
+      }
+      if (detailModal && !detailModal.classList.contains("hidden") && selectedEventTask) {
+        const refreshedTask = taskLookup.get(String(selectedEventTask.id || "").trim()) || selectedEventTask;
+        openEventDetailModal(refreshedTask);
+      }
+      if (lastKnownScenarioKey !== activePlayerScenarioKey) {
+        lastKnownScenarioKey = activePlayerScenarioKey;
+        secondsToNextCharacterRefresh = CHARACTER_EVENTS_REFRESH_SECONDS;
+        renderPlayerCharacterEvents();
+        updateEventsRefreshCountdownLabel();
+      }
+      if (!isBlackoutLikeScenario()) return;
+      secondsToNextCharacterRefresh -= 1;
+      if (secondsToNextCharacterRefresh <= 0) {
+        rotateCharacterEvents();
+        return;
+      }
+      updateEventsRefreshCountdownLabel();
+      if (playerCharacterEventsNext) {
+        playerCharacterEventsNext.textContent = `refresh za ${secondsToNextCharacterRefresh} s`;
+      }
+    }, 1000);
 
     const resetToCompactState = () => {
       agentButtons.forEach((btn) => btn.classList.remove("is-active"));
@@ -12191,6 +13647,9 @@ window.Empire.UI = (() => {
       if (event.key === "Escape" && !modal.classList.contains("hidden")) {
         closeModal();
       }
+      if (event.key === "Escape" && detailModal && !detailModal.classList.contains("hidden")) {
+        closeEventDetailModal();
+      }
     });
 
     agentButtons.forEach((btn) => {
@@ -12209,11 +13668,51 @@ window.Empire.UI = (() => {
       tasklist.addEventListener("click", (event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
-        const action = target.dataset.action;
-        const title = target.dataset.title;
-        if (!action || !title) return;
-        if (action === "accept") pushEvent(`Přijato: ${title}`);
-        if (action === "decline") pushEvent(`Odmítnuto: ${title}`);
+        const row = target.closest("[data-event-open]");
+        if (!(row instanceof HTMLElement)) return;
+        const taskId = String(row.dataset.eventOpen || "").trim();
+        if (!taskId) return;
+        const selectedTask = taskLookup.get(taskId);
+        if (!selectedTask) return;
+        openEventDetailModal(selectedTask);
+      });
+      tasklist.addEventListener("pointerdown", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const row = target.closest("[data-event-open]");
+        if (!(row instanceof HTMLElement)) return;
+        event.preventDefault();
+        const taskId = String(row.dataset.eventOpen || "").trim();
+        if (!taskId) return;
+        const selectedTask = taskLookup.get(taskId);
+        if (!selectedTask) return;
+        openEventDetailModal(selectedTask);
+      });
+    }
+
+    if (playerCharacterEventsList) {
+      playerCharacterEventsList.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const row = target.closest("[data-character-event-id]");
+        if (!(row instanceof HTMLElement)) return;
+        const taskId = String(row.dataset.characterEventId || "").trim();
+        if (!taskId) return;
+        const selectedTask = taskLookup.get(taskId);
+        if (!selectedTask) return;
+        openEventDetailModal(selectedTask);
+      });
+      playerCharacterEventsList.addEventListener("pointerdown", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const row = target.closest("[data-character-event-id]");
+        if (!(row instanceof HTMLElement)) return;
+        event.preventDefault();
+        const taskId = String(row.dataset.characterEventId || "").trim();
+        if (!taskId) return;
+        const selectedTask = taskLookup.get(taskId);
+        if (!selectedTask) return;
+        openEventDetailModal(selectedTask);
       });
     }
   }
@@ -12355,7 +13854,7 @@ window.Empire.UI = (() => {
 
     const renderTargetOptions = (players) => {
       let safePlayers = Array.isArray(players) ? players : [];
-      if (!safePlayers.length && (activePlayerScenarioKey === "alliance-ten-blackout" || scenarioVisionEnabled)) {
+      if (!safePlayers.length && (isBlackoutLikeScenario() || scenarioVisionEnabled)) {
         const byName = new Map();
         (Array.isArray(window.Empire.districts) ? window.Empire.districts : []).forEach((district) => {
           const ownerName = String(
@@ -13095,7 +14594,7 @@ window.Empire.UI = (() => {
       .filter((entry) => Math.max(0, Math.floor(Number(entry?.districtCount || 0))) > 0)
       .sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || ""), "cs"));
 
-    if (!result.length && activePlayerScenarioKey === "alliance-ten-blackout") {
+    if (!result.length && isBlackoutLikeScenario()) {
       result = [{
         name: "Mariah",
         allianceName: "Bez aliance",
@@ -14148,6 +15647,9 @@ window.Empire.UI = (() => {
       ratios: { low: 0.4, high: 0.25 }
     });
     rebalanceCommercialArcades(nextDistricts, 7);
+    rebalanceCommercialCasinos(nextDistricts, 4);
+    rebalanceCommercialExchanges(nextDistricts, 12);
+    rebalanceCommercialRestaurants(nextDistricts, 18);
     rebalanceResidentialTaxi(nextDistricts, {
       removeBrainwash: 11,
       addTaxi: 11
@@ -14190,23 +15692,27 @@ window.Empire.UI = (() => {
         onlyTiers: ["mid", "late"]
       }
     ]);
-    swapDistrictMetadataByIds(nextDistricts, 112, 80);
-    swapDistrictMetadataByIds(nextDistricts, 157, 80);
-    swapDistrictMetadataByIds(nextDistricts, 68, 114);
-    swapDistrictTypeByIds(nextDistricts, 112, 68);
-    swapDistrictTypeByIds(nextDistricts, 161, 26);
-    swapDistrictTypeByIds(nextDistricts, 161, 68);
-    swapDistrictTypeByIds(nextDistricts, 121, 27);
-    swapDistrictTypeByIds(nextDistricts, 20, 3);
-    swapDistrictTypeByIds(nextDistricts, 3, 27);
-    swapDistrictTypeByIds(nextDistricts, 20, 3);
-    swapDistrictTypeByIds(nextDistricts, 95, 3);
-    swapDistrictTypeByIds(nextDistricts, 95, 27);
-    swapDistrictTypeByIds(nextDistricts, 143, 161);
-    swapDistrictTypeByIds(nextDistricts, 21, 152);
-    swapDistrictTypeByIds(nextDistricts, 19, 149);
-    setDistrictTypeByIdWithPreservedCounts(nextDistricts, 2, "industrial", [19]);
-    setDistrictTypeByIdWithPreservedCounts(nextDistricts, 19, "industrial", [2]);
+    if (shouldApplyLegacyDistrictIdTypeOverrides(nextDistricts)) {
+      swapDistrictMetadataByIds(nextDistricts, 112, 80);
+      swapDistrictMetadataByIds(nextDistricts, 157, 80);
+      swapDistrictMetadataByIds(nextDistricts, 68, 114);
+      swapDistrictTypeByIds(nextDistricts, 112, 68);
+      swapDistrictTypeByIds(nextDistricts, 161, 26);
+      swapDistrictTypeByIds(nextDistricts, 161, 68);
+      swapDistrictTypeByIds(nextDistricts, 121, 27);
+      swapDistrictTypeByIds(nextDistricts, 20, 3);
+      swapDistrictTypeByIds(nextDistricts, 3, 27);
+      swapDistrictTypeByIds(nextDistricts, 20, 3);
+      swapDistrictTypeByIds(nextDistricts, 95, 3);
+      swapDistrictTypeByIds(nextDistricts, 95, 27);
+      swapDistrictTypeByIds(nextDistricts, 143, 161);
+      swapDistrictTypeByIds(nextDistricts, 21, 152);
+      swapDistrictTypeByIds(nextDistricts, 19, 149);
+      setDistrictTypeByIdWithPreservedCounts(nextDistricts, 2, "industrial", [19]);
+      setDistrictTypeByIdWithPreservedCounts(nextDistricts, 19, "industrial", [2]);
+    }
+    setDistrictTypeByIdWithPreservedCounts(nextDistricts, 3, "downtown", [26]);
+    setDistrictTypeByIdWithPreservedCounts(nextDistricts, 26, "downtown", [3]);
     assignDowntownExchangeNames(nextDistricts);
     assignDowntownCentralBankNames(nextDistricts);
     assignDowntownAirportNames(nextDistricts);
@@ -14252,6 +15758,41 @@ window.Empire.UI = (() => {
     });
 
     return nextDistricts;
+  }
+
+  function shouldApplyLegacyDistrictIdTypeOverrides(districts) {
+    const safeDistricts = Array.isArray(districts) ? districts : [];
+    if (safeDistricts.length < 150) return false;
+    let hasMapId161 = false;
+    let legacyCount = 0;
+    for (let i = 0; i < safeDistricts.length; i += 1) {
+      const legacyId = resolveLegacyDistrictId(safeDistricts[i]);
+      if (!Number.isFinite(legacyId)) continue;
+      legacyCount += 1;
+      if (legacyId === 161) hasMapId161 = true;
+    }
+    return hasMapId161 && legacyCount >= 150;
+  }
+
+  function resolveLegacyDistrictId(district) {
+    const directMapId = Number(district?.mapId ?? district?.map_id);
+    if (Number.isFinite(directMapId)) return Math.max(1, Math.floor(directMapId));
+    const numericId = Number(district?.id);
+    if (Number.isFinite(numericId)) return Math.max(1, Math.floor(numericId));
+    const name = String(district?.name || "").trim();
+    if (!name) return NaN;
+    const match = name.match(/(\d+)\s*$/);
+    if (!match) return NaN;
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) ? Math.max(1, Math.floor(parsed)) : NaN;
+  }
+
+  function findDistrictByLegacyId(districts, legacyId) {
+    const safeDistricts = Array.isArray(districts) ? districts : [];
+    const target = Number(legacyId);
+    if (!Number.isFinite(target)) return null;
+    const safeTarget = Math.max(1, Math.floor(target));
+    return safeDistricts.find((district) => resolveLegacyDistrictId(district) === safeTarget) || null;
   }
 
   function assignDowntownExchangeNames(districts) {
@@ -14546,6 +16087,122 @@ window.Empire.UI = (() => {
     }
   }
 
+  function rebalanceCommercialCasinos(districts, targetCasinos = 4) {
+    if (!Array.isArray(districts) || !districts.length) return;
+    const desired = Math.max(0, Math.floor(Number(targetCasinos) || 0));
+    const commercialDistricts = districts
+      .filter((district) => district.type === "commercial" && Array.isArray(district.buildings))
+      .sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+
+    const casinoSlots = [];
+    const restaurantSlots = [];
+    commercialDistricts.forEach((district) => {
+      district.buildings.forEach((building, index) => {
+        if (building === "Kasino") casinoSlots.push({ district, index });
+        if (building === "Restaurace") restaurantSlots.push({ district, index });
+      });
+    });
+
+    if (casinoSlots.length < desired) {
+      const needed = desired - casinoSlots.length;
+      for (let i = 0; i < needed && i < restaurantSlots.length; i += 1) {
+        const slot = restaurantSlots[i];
+        slot.district.buildings[slot.index] = "Kasino";
+      }
+      return;
+    }
+
+    if (casinoSlots.length > desired) {
+      const extra = casinoSlots.length - desired;
+      for (let i = 0; i < extra; i += 1) {
+        const slot = casinoSlots[casinoSlots.length - 1 - i];
+        if (!slot) continue;
+        slot.district.buildings[slot.index] = "Restaurace";
+      }
+    }
+  }
+
+  function rebalanceCommercialExchanges(districts, targetExchanges = 12) {
+    if (!Array.isArray(districts) || !districts.length) return;
+    const desired = Math.max(0, Math.floor(Number(targetExchanges) || 0));
+    const commercialDistricts = districts
+      .filter((district) => district.type === "commercial" && Array.isArray(district.buildings))
+      .sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+
+    const exchangeSlots = [];
+    const restaurantSlots = [];
+    commercialDistricts.forEach((district) => {
+      district.buildings.forEach((building, index) => {
+        if (building === "Směnárna") exchangeSlots.push({ district, index });
+        if (building === "Restaurace") restaurantSlots.push({ district, index });
+      });
+    });
+
+    if (exchangeSlots.length < desired) {
+      const needed = desired - exchangeSlots.length;
+      for (let i = 0; i < needed && i < restaurantSlots.length; i += 1) {
+        const slot = restaurantSlots[i];
+        slot.district.buildings[slot.index] = "Směnárna";
+      }
+      return;
+    }
+
+    if (exchangeSlots.length > desired) {
+      const extra = exchangeSlots.length - desired;
+      for (let i = 0; i < extra; i += 1) {
+        const slot = exchangeSlots[exchangeSlots.length - 1 - i];
+        if (!slot) continue;
+        slot.district.buildings[slot.index] = "Restaurace";
+      }
+    }
+  }
+
+  function rebalanceCommercialRestaurants(districts, targetRestaurants = 18) {
+    if (!Array.isArray(districts) || !districts.length) return;
+    const desired = Math.max(0, Math.floor(Number(targetRestaurants) || 0));
+    const commercialDistricts = districts
+      .filter((district) => district.type === "commercial" && Array.isArray(district.buildings))
+      .sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+
+    const restaurantSlots = [];
+    const convertibleToRestaurant = [];
+    commercialDistricts.forEach((district) => {
+      district.buildings.forEach((building, index) => {
+        if (building === "Restaurace") {
+          restaurantSlots.push({ district, index });
+          return;
+        }
+        if (
+          building === "Kancelářský blok"
+          || building === "Autosalon"
+          || building === "Fitness Club"
+          || building === "Lékárna"
+          || building === "Obchodní centrum"
+        ) {
+          convertibleToRestaurant.push({ district, index });
+        }
+      });
+    });
+
+    if (restaurantSlots.length < desired) {
+      const needed = desired - restaurantSlots.length;
+      for (let i = 0; i < needed && i < convertibleToRestaurant.length; i += 1) {
+        const slot = convertibleToRestaurant[i];
+        slot.district.buildings[slot.index] = "Restaurace";
+      }
+      return;
+    }
+
+    if (restaurantSlots.length > desired) {
+      const extra = restaurantSlots.length - desired;
+      for (let i = 0; i < extra; i += 1) {
+        const slot = restaurantSlots[restaurantSlots.length - 1 - i];
+        if (!slot) continue;
+        slot.district.buildings[slot.index] = "Kancelářský blok";
+      }
+    }
+  }
+
   function rebalanceIndustrialStorage(
     districts,
     { removeStorage = 12, addArmories = 6, addFactories = 6 } = {}
@@ -14826,8 +16483,8 @@ window.Empire.UI = (() => {
 
   function swapDistrictMetadataByIds(districts, firstId, secondId) {
     if (!Array.isArray(districts) || !districts.length) return;
-    const first = districts.find((district) => Number(district?.id) === Number(firstId));
-    const second = districts.find((district) => Number(district?.id) === Number(secondId));
+    const first = findDistrictByLegacyId(districts, firstId);
+    const second = findDistrictByLegacyId(districts, secondId);
     if (!first || !second) return;
 
     const firstSnapshot = {
@@ -14872,8 +16529,8 @@ window.Empire.UI = (() => {
 
   function swapDistrictTypeByIds(districts, firstId, secondId) {
     if (!Array.isArray(districts) || !districts.length) return;
-    const first = districts.find((district) => Number(district?.id) === Number(firstId));
-    const second = districts.find((district) => Number(district?.id) === Number(secondId));
+    const first = findDistrictByLegacyId(districts, firstId);
+    const second = findDistrictByLegacyId(districts, secondId);
     if (!first || !second) return;
 
     const firstType = first.type;
@@ -14885,16 +16542,19 @@ window.Empire.UI = (() => {
     if (!Array.isArray(districts) || !districts.length) return false;
     const safeType = String(nextType || "").trim().toLowerCase();
     if (!safeType) return false;
-    const target = districts.find((entry) => Number(entry?.id) === Number(districtId));
+    const target = findDistrictByLegacyId(districts, districtId);
     if (!target) return false;
     const currentType = String(target?.type || "").trim().toLowerCase();
     if (!currentType || currentType === safeType) return true;
 
-    const protectedSet = new Set((Array.isArray(protectedIds) ? protectedIds : []).map((id) => Number(id)));
-    protectedSet.add(Number(districtId));
+    const protectedSet = new Set((Array.isArray(protectedIds) ? protectedIds : [])
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id))
+      .map((id) => Math.max(1, Math.floor(id))));
+    protectedSet.add(Math.max(1, Math.floor(Number(districtId) || 0)));
 
     const donor = districts.find((entry) => {
-      const entryId = Number(entry?.id);
+      const entryId = resolveLegacyDistrictId(entry);
       if (!Number.isFinite(entryId) || protectedSet.has(entryId)) return false;
       return String(entry?.type || "").trim().toLowerCase() === safeType;
     });
@@ -15264,8 +16924,22 @@ window.Empire.UI = (() => {
   function countPlayerControlledPopulation(profile) {
     const bonusMembers = getLocalGangMembersBonus();
     const spentMembers = getLocalGangMembersSpent();
+    const persistedRaidLosses = Math.max(
+      0,
+      Math.floor(
+        Number(
+          profile?.raidMemberLosses
+          ?? profile?.raid_member_losses
+          ?? window.Empire.player?.raidMemberLosses
+          ?? window.Empire.player?.raid_member_losses
+          ?? 0
+        ) || 0
+      )
+    );
     const districts = Array.isArray(window.Empire.districts) ? window.Empire.districts : [];
-    if (!districts.length) return Math.max(0, Number(profile?.population || 0) + bonusMembers - spentMembers);
+    if (!districts.length) {
+      return Math.max(0, Number(profile?.population || 0) + bonusMembers - spentMembers - persistedRaidLosses);
+    }
 
     const weights = {
       downtown: 3600,
@@ -15275,7 +16949,9 @@ window.Empire.UI = (() => {
       park: 1300
     };
     const playerOwners = getPlayerOwnerNameSet();
-    if (!playerOwners.size) return Math.max(0, Number(profile?.population || 0) + bonusMembers - spentMembers);
+    if (!playerOwners.size) {
+      return Math.max(0, Number(profile?.population || 0) + bonusMembers - spentMembers - persistedRaidLosses);
+    }
 
     const total = districts.reduce((sum, district) => {
       const owner = normalizeOwnerName(district?.owner);
@@ -15289,8 +16965,8 @@ window.Empire.UI = (() => {
       return sum + (weights[typeKey] || fallback);
     }, 0);
 
-    if (total > 0) return Math.max(0, total + bonusMembers - spentMembers);
-    return Math.max(0, Number(profile?.population || 0) + bonusMembers - spentMembers);
+    if (total > 0) return Math.max(0, total + bonusMembers - spentMembers - persistedRaidLosses);
+    return Math.max(0, Number(profile?.population || 0) + bonusMembers - spentMembers - persistedRaidLosses);
   }
 
   function formatFactionLabel(value) {
@@ -15407,13 +17083,13 @@ window.Empire.UI = (() => {
     ownedDistricts.forEach((district) => {
       byId.set(Number(district?.id), district);
     });
-    if (!ownedDistricts.length && activePlayerScenarioKey === "alliance-ten-blackout") {
+    if (!ownedDistricts.length && isBlackoutLikeScenario()) {
       districts.forEach((district) => {
         const districtId = Number(district?.id);
         if (!BLACKOUT_PLAYER_FALLBACK_DISTRICT_IDS.includes(districtId)) return;
         byId.set(districtId, district);
       });
-    } else if (activePlayerScenarioKey === "alliance-ten-blackout") {
+    } else if (isBlackoutLikeScenario()) {
       districts.forEach((district) => {
         const districtId = Number(district?.id);
         if (!BLACKOUT_PLAYER_FALLBACK_DISTRICT_IDS.includes(districtId)) return;
@@ -16167,7 +17843,7 @@ window.Empire.UI = (() => {
       if (!window.Empire.token) {
         const localState = getLocalAllianceState();
         const activeAllianceId = String(localState.activeAllianceId || "").trim();
-        if (activePlayerScenarioKey !== "alliance-ten-blackout" && activeAllianceId.startsWith("scenario-")) {
+        if (!isBlackoutLikeScenario() && activeAllianceId.startsWith("scenario-")) {
           localState.activeAllianceId = null;
           saveLocalAllianceState(localState);
         }
@@ -17397,8 +19073,62 @@ window.Empire.UI = (() => {
     };
   }
 
+  function buildNightTwentyWarLocalAllianceState(ownerName, districts) {
+    const nowIso = new Date().toISOString();
+    const safeDistricts = Array.isArray(districts) ? districts : [];
+    const playerName = String(ownerName || "Ty").trim() || "Ty";
+    const playerAllianceName = safeDistricts.find((district) => normalizeOwnerName(district?.owner) === normalizeOwnerName(playerName))?.ownerAllianceName || "Neon Syndicate";
+    const alliedOwners = Array.from(new Set(
+      safeDistricts
+        .filter((district) => String(district?.ownerAllianceName || "").trim() === String(playerAllianceName).trim())
+        .map((district) => String(district?.owner || "").trim())
+        .filter(Boolean)
+    )).slice(0, 2);
+    if (!alliedOwners.some((name) => normalizeOwnerName(name) === normalizeOwnerName(playerName))) {
+      alliedOwners.unshift(playerName);
+    }
+    const members = alliedOwners.slice(0, 2).map((name, index) => ({
+      id: index === 0 ? LOCAL_ALLIANCE_REQUEST_PLAYER_ID : `scenario-night-war-member-${index}`,
+      username: name,
+      gang_name: index === 0 ? (cachedProfile?.gangName || name) : `${name} Crew`,
+      alliance_ready_at: nowIso
+    }));
+    return {
+      activeAllianceId: "scenario-night-war-alliance",
+      alliances: [
+        {
+          id: "scenario-night-war-alliance",
+          name: playerAllianceName,
+          description: "Noční válka 20 hráčů. Plně obsazená mapa a vysoký tlak útoků.",
+          icon_key: "lightning",
+          owner_player_id: LOCAL_ALLIANCE_REQUEST_PLAYER_ID,
+          bonus_income_pct: 5,
+          bonus_influence_pct: 4,
+          heat_control_text: "-4% heat",
+          members
+        }
+      ],
+      requests: [],
+      memberInvites: [],
+      kickVotes: [],
+      notifications: [],
+      auditLogs: [
+        {
+          id: "scenario-night-war-audit-1",
+          alliance_id: "scenario-night-war-alliance",
+          message: "Noční server stav aktivován: 20 hráčů, 20 útoků, 2 policejní razie.",
+          created_at: nowIso
+        }
+      ],
+      chat: [
+        { time: "20:26", author: "System", text: "Noční režim aktivní. Mapa plně obsazená." },
+        { time: "20:27", author: "System", text: "Aktivních útoků: 20. Policejní razie: 2." }
+      ]
+    };
+  }
+
   function syncBlackoutScenarioAllianceDistrictState(activeAlliance) {
-    if (window.Empire.token || activePlayerScenarioKey !== "alliance-ten-blackout" || !window.Empire.Map?.setDistricts) return;
+    if (window.Empire.token || !isBlackoutLikeScenario() || !window.Empire.Map?.setDistricts) return;
     const districts = Array.isArray(window.Empire.districts) ? window.Empire.districts : [];
     if (!districts.length) return;
     const allianceName = String(activeAlliance?.name || "").trim();
@@ -17852,22 +19582,49 @@ window.Empire.UI = (() => {
     setAllianceButtonState(allianceName || "Žádná");
   }
 
+  function renderAllianceButtonLabel(button, label) {
+    if (!button) return;
+    const nextLabel = String(label || "Aliance").trim() || "Aliance";
+    let iconEl = button.querySelector(".alliance-btn__icon");
+    let labelEl = button.querySelector(".alliance-btn__label");
+    if (!(iconEl instanceof HTMLElement) || !(labelEl instanceof HTMLElement)) {
+      button.textContent = "";
+      iconEl = document.createElement("span");
+      iconEl.className = "alliance-btn__icon";
+      iconEl.setAttribute("aria-hidden", "true");
+      iconEl.innerHTML = `
+        <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+          <circle cx="12" cy="12" r="7"></circle>
+          <circle cx="12" cy="12" r="2.2"></circle>
+          <path d="M12 2v3.5"></path>
+          <path d="M12 18.5V22"></path>
+          <path d="M2 12h3.5"></path>
+          <path d="M18.5 12H22"></path>
+        </svg>
+      `;
+      labelEl = document.createElement("span");
+      labelEl.className = "alliance-btn__label";
+      button.append(iconEl, labelEl);
+    }
+    labelEl.textContent = nextLabel;
+  }
+
   function setAllianceButtonState(allianceName) {
     const allianceBtn = document.getElementById("alliance-btn");
     if (!allianceBtn) return;
 
     const normalized = extractAllianceDisplayName(allianceName);
     if (!normalized || normalized === "Žádná") {
-      allianceBtn.textContent = "Aliance";
+      renderAllianceButtonLabel(allianceBtn, "Aliance");
       return;
     }
 
     if (normalized === "Zabijáci") {
-      allianceBtn.textContent = "Zabijáci";
+      renderAllianceButtonLabel(allianceBtn, "Zabijáci");
       return;
     }
 
-    allianceBtn.textContent = `Aliance: ${normalized}`;
+    renderAllianceButtonLabel(allianceBtn, `Aliance: ${normalized}`);
   }
 
   function initSettingsModal() {
@@ -18035,10 +19792,9 @@ window.Empire.UI = (() => {
     const quantityInput = document.getElementById("market-quantity-input");
     const priceInput = document.getElementById("market-price-input");
     const createBtn = document.getElementById("market-create-order");
+    if (!root || !openBtn || !resourceSelect || !sideSelect || !quantityInput || !priceInput || !createBtn) return;
     const heroTitle = root.querySelector(".market-modal__hero-title");
     const heroCopy = root.querySelector(".market-modal__hero-copy");
-
-    if (!root || !openBtn || !resourceSelect || !sideSelect || !quantityInput || !priceInput || !createBtn) return;
     const state = { tab: "server" };
 
     const getResourcesForActiveTab = () =>
@@ -18111,8 +19867,8 @@ window.Empire.UI = (() => {
     };
     marketRefreshHandler = refreshMarket;
 
-    openBtn.addEventListener("click", async () => {
-      state.tab = "server";
+    const openMarketModal = async (tab = "server") => {
+      state.tab = tab === "black" ? "black" : "server";
       setMobileTopbarCoveredByPrimaryModal(false);
       root.classList.remove("hidden");
       document.dispatchEvent(new CustomEvent("empire:market-modal-opened", {
@@ -18121,6 +19877,11 @@ window.Empire.UI = (() => {
         }
       }));
       await refreshMarket();
+    };
+
+    marketModalOpenHandler = openMarketModal;
+    openBtn.addEventListener("click", async () => {
+      await openMarketModal("server");
     });
     resourceSelect.addEventListener("change", () => renderMarketState(resourceSelect.value, state.tab));
     createBtn.addEventListener("click", async () => {
@@ -18243,6 +20004,20 @@ window.Empire.UI = (() => {
         setMobileTopbarCoveredByPrimaryModal(false);
       }
     });
+  }
+
+  async function openMarketModal(preferredTab = "server") {
+    if (typeof marketModalOpenHandler === "function") {
+      await marketModalOpenHandler(preferredTab);
+      return true;
+    }
+
+    const fallbackRoot = document.getElementById("market-modal");
+    if (fallbackRoot) {
+      fallbackRoot.classList.remove("hidden");
+      return true;
+    }
+    return false;
   }
 
   function refreshMarketBuildingShortcuts() {
@@ -18925,6 +20700,21 @@ window.Empire.UI = (() => {
     return value;
   }
 
+  function trySpendMaterials(amount) {
+    const required = Number.isFinite(Number(amount)) ? Math.max(0, Math.floor(Number(amount))) : 0;
+    if (required <= 0) return { ok: true, spent: 0 };
+    const removed = removeEconomyResource("materials", required);
+    if (removed < required) {
+      if (removed > 0) addEconomyResource("materials", removed);
+      return { ok: false, reason: "insufficient_materials", available: removed };
+    }
+    return { ok: true, spent: required };
+  }
+
+  function addMaterials(amount) {
+    return addEconomyResource("materials", amount);
+  }
+
   function addInfluence(amount) {
     const value = Number.isFinite(Number(amount)) ? Math.max(0, Math.floor(Number(amount))) : 0;
     if (value <= 0) return 0;
@@ -18999,7 +20789,7 @@ window.Empire.UI = (() => {
   }
 
   function isGuestBlackoutScenarioActive() {
-    return !window.Empire.token && activePlayerScenarioKey === "alliance-ten-blackout";
+    return !window.Empire.token && isBlackoutLikeScenario();
   }
 
   function syncGuestBlackoutMarketBalancesFromEconomy() {
@@ -19533,7 +21323,7 @@ window.Empire.UI = (() => {
       );
     });
 
-    if (activePlayerScenarioKey === "alliance-ten-blackout" || scenarioVisionEnabled) {
+    if (isBlackoutLikeScenario() || scenarioVisionEnabled) {
       Array.from(getActiveEnemyOwnerNames()).forEach((enemyOwner) => {
         const normalizedEnemy = normalizeOwnerName(enemyOwner);
         if (!normalizedEnemy || alliedPlayers.has(normalizedEnemy)) return;
@@ -19572,7 +21362,7 @@ window.Empire.UI = (() => {
       .filter((player) => Math.max(0, Math.floor(Number(player?.districtCount || 0))) > 0 || !scenarioVisionEnabled)
       .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "cs"));
 
-    if (!result.length && (activePlayerScenarioKey === "alliance-ten-blackout" || scenarioVisionEnabled)) {
+    if (!result.length && (isBlackoutLikeScenario() || scenarioVisionEnabled)) {
       const fallback = [];
       const seen = new Set();
       (Array.isArray(window.Empire.districts) ? window.Empire.districts : []).forEach((district) => {
@@ -19602,7 +21392,7 @@ window.Empire.UI = (() => {
       result = fallback.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "cs"));
     }
 
-    if (!result.length && activePlayerScenarioKey === "alliance-ten-blackout") {
+    if (!result.length && isBlackoutLikeScenario()) {
       result = [{
         name: "Mariah",
         allianceName: "Bez aliance",
@@ -19920,7 +21710,7 @@ window.Empire.UI = (() => {
     if (currentProfile && typeof currentProfile === "object") {
       const nextProfile = applyMoneyToProfileSnapshot(currentProfile, money);
       nextProfile.influence = currentInfluence;
-      if (activePlayerScenarioKey === "alliance-ten-blackout") {
+      if (isBlackoutLikeScenario()) {
         nextProfile.sources = buildBlackoutPlayerSourcesSnapshot(window.Empire.districts, resolveActiveScenarioOwnerName());
         nextProfile.source = nextProfile.sources;
       }
@@ -20100,7 +21890,7 @@ window.Empire.UI = (() => {
     const blackoutPlayersRow = document.getElementById("profile-modal-blackout-players-row");
     const blackoutPlayersValue = document.getElementById("profile-modal-blackout-players");
     try {
-      const rawBlackoutSources = activePlayerScenarioKey === "alliance-ten-blackout"
+      const rawBlackoutSources = isBlackoutLikeScenario()
         ? buildBlackoutPlayerSourcesSnapshot(window.Empire.districts, resolveActiveScenarioOwnerName())
         : null;
       const liveBlackoutSources = hasMeaningfulBlackoutSources(rawBlackoutSources)
@@ -20113,7 +21903,7 @@ window.Empire.UI = (() => {
       const districtMinuteIncome = blackoutSources?.districtIncomePerMinute || {};
       const buildingMinuteIncome = blackoutSources?.buildingIncomePerMinute || {};
       const showBlackoutSource =
-        activePlayerScenarioKey === "alliance-ten-blackout"
+        isBlackoutLikeScenario()
         && blackoutSources
         && typeof blackoutSources === "object";
       if (blackoutSourceRow) {
@@ -20363,7 +22153,32 @@ window.Empire.UI = (() => {
   function normalizeAttackWeaponLabel(name) {
     const raw = String(name || "").trim();
     if (!raw) return "";
-    return LEGACY_ATTACK_WEAPON_ALIASES[raw] || raw;
+    const mapped = LEGACY_ATTACK_WEAPON_ALIASES[raw];
+    if (mapped) return mapped;
+    const compactKey = raw
+      .toLowerCase()
+      .replace(/[\s_-]+/g, "");
+    switch (compactKey) {
+      case "baseballovapalka":
+      case "baseballbat":
+        return "Baseballová pálka";
+      case "poulicnipistole":
+      case "streetpistol":
+      case "pistole":
+        return "Pouliční pistole";
+      case "granat":
+      case "grenade":
+        return "Granát";
+      case "samopal":
+      case "smg":
+      case "utocnapuska":
+        return "Samopal";
+      case "bazuka":
+      case "bazooka":
+        return "Bazuka";
+      default:
+        return raw;
+    }
   }
 
   function readLocalWeaponCounts() {
@@ -20483,7 +22298,16 @@ window.Empire.UI = (() => {
     const fromProfile = cachedProfile?.weaponsDetail;
     const fromEconomy = cachedEconomy?.weaponsDetail;
     const fromStorage = readLocalWeaponCounts();
-    const sources = [fromProfile, fromEconomy, fromStorage].filter((source) => source && typeof source === "object");
+    const fromEconomyBalances = cachedEconomy && typeof cachedEconomy === "object"
+      ? {
+          baseballBat: cachedEconomy.baseballBat,
+          streetPistol: cachedEconomy.streetPistol,
+          grenade: cachedEconomy.grenade,
+          smg: cachedEconomy.smg,
+          bazooka: cachedEconomy.bazooka
+        }
+      : null;
+    const sources = [fromProfile, fromEconomy, fromStorage, fromEconomyBalances].filter((source) => source && typeof source === "object");
     const normalized = {};
 
     sources.forEach((source) => {
@@ -20606,7 +22430,16 @@ window.Empire.UI = (() => {
     const fromProfile = cachedProfile?.defenseDetail;
     const fromEconomy = cachedEconomy?.defenseDetail;
     const fromStorage = readLocalDefenseCounts();
-    const sources = [fromProfile, fromEconomy, fromStorage].filter((source) => source && typeof source === "object");
+    const fromEconomyBalances = cachedEconomy && typeof cachedEconomy === "object"
+      ? {
+          "Neprůstřelná vesta": cachedEconomy.bulletproofVest,
+          "Ocelové barikády": cachedEconomy.steelBarricades,
+          "Bezpečnostní kamery": cachedEconomy.securityCameras,
+          "Automatické kulometné stanoviště": cachedEconomy.autoMgNest,
+          Alarm: cachedEconomy.alarmSystem
+        }
+      : null;
+    const sources = [fromProfile, fromEconomy, fromStorage, fromEconomyBalances].filter((source) => source && typeof source === "object");
     const normalized = {};
 
     sources.forEach((source) => {
@@ -20673,6 +22506,176 @@ window.Empire.UI = (() => {
     roundStatusState = { ...round };
     renderRoundStatusState();
     startRoundPhaseTicker();
+  }
+
+  function normalizeInfoWindowHistoryEntries(entries) {
+    if (!Array.isArray(entries)) return [];
+    return entries
+      .map((entry) => {
+        if (!entry || typeof entry !== "object") return null;
+        const title = String(entry.title || "").trim();
+        const text = String(entry.text || "").trim();
+        const createdAtRaw = Number(entry.createdAt || entry.timestamp || Date.now());
+        const createdAt = Number.isFinite(createdAtRaw) ? Math.max(0, Math.floor(createdAtRaw)) : Date.now();
+        if (!title || !text) return null;
+        const id = String(entry.id || `${createdAt}-${Math.random().toString(36).slice(2, 8)}`).trim();
+        if (!id) return null;
+        return {
+          id,
+          title: title.slice(0, 160),
+          text: text.slice(0, 420),
+          createdAt
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
+      .slice(0, INFO_WINDOWS_HISTORY_LIMIT);
+  }
+
+  function loadInfoWindowHistory() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(INFO_WINDOWS_HISTORY_STORAGE_KEY) || "[]");
+      infoWindowHistoryEntries = normalizeInfoWindowHistoryEntries(parsed);
+    } catch {
+      infoWindowHistoryEntries = [];
+    }
+  }
+
+  function persistInfoWindowHistory() {
+    localStorage.setItem(INFO_WINDOWS_HISTORY_STORAGE_KEY, JSON.stringify(infoWindowHistoryEntries));
+  }
+
+  function formatInfoWindowHistoryTime(timestamp) {
+    const date = new Date(Number(timestamp || Date.now()));
+    if (Number.isNaN(date.getTime())) return "--:--";
+    return date.toLocaleTimeString("cs-CZ", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    });
+  }
+
+  function renderInfoWindowHistory() {
+    const container = document.getElementById("info-history-items");
+    if (!container) return;
+    container.innerHTML = "";
+
+    if (!infoWindowHistoryEntries.length) {
+      const empty = document.createElement("div");
+      empty.className = "info-history__empty";
+      empty.textContent = "Zatím žádná informační okna.";
+      container.appendChild(empty);
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    infoWindowHistoryEntries.forEach((entry) => {
+      const item = document.createElement("article");
+      item.className = "info-history__item";
+      item.dataset.entryId = String(entry.id);
+
+      const meta = document.createElement("div");
+      meta.className = "info-history__item-meta";
+
+      const time = document.createElement("span");
+      time.className = "info-history__item-time";
+      time.textContent = formatInfoWindowHistoryTime(entry.createdAt);
+
+      const title = document.createElement("strong");
+      title.className = "info-history__item-title";
+      title.textContent = entry.title;
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "info-history__item-delete-btn";
+      deleteBtn.dataset.infoHistoryDelete = String(entry.id);
+      deleteBtn.setAttribute("aria-label", "Smazat informační okno");
+      deleteBtn.title = "Smazat";
+      deleteBtn.textContent = "×";
+
+      const text = document.createElement("p");
+      text.className = "info-history__item-text";
+      text.textContent = entry.text;
+
+      meta.append(time, title, deleteBtn);
+      item.append(meta, text);
+      fragment.appendChild(item);
+    });
+
+    container.appendChild(fragment);
+  }
+
+  function pushInfoWindowHistoryEntry({ title, text, rows } = {}) {
+    const safeTitle = String(title || "").trim();
+    const summaryText = String(text || "").trim();
+    const fallbackText = Array.isArray(rows)
+      ? rows
+        .map((row) => {
+          const label = String(row?.label || "").trim();
+          const value = String(row?.value || "").trim();
+          if (!label || !value) return "";
+          return `${label}: ${value}`;
+        })
+        .filter(Boolean)
+        .join(" • ")
+      : "";
+    const safeText = summaryText || fallbackText;
+    if (!safeTitle || !safeText) return;
+
+    const now = Date.now();
+    const entry = {
+      id: `${now}-${Math.random().toString(36).slice(2, 8)}`,
+      title: safeTitle.slice(0, 160),
+      text: safeText.slice(0, 420),
+      createdAt: now
+    };
+
+    const lastEntry = infoWindowHistoryEntries[0];
+    if (
+      lastEntry
+      && lastEntry.title === entry.title
+      && lastEntry.text === entry.text
+      && Math.abs(Number(lastEntry.createdAt || 0) - now) < 1500
+    ) {
+      return;
+    }
+
+    infoWindowHistoryEntries = [entry, ...infoWindowHistoryEntries].slice(0, INFO_WINDOWS_HISTORY_LIMIT);
+    persistInfoWindowHistory();
+    renderInfoWindowHistory();
+  }
+
+  function removeInfoWindowHistoryEntry(entryId) {
+    const safeId = String(entryId || "").trim();
+    if (!safeId) return;
+    infoWindowHistoryEntries = infoWindowHistoryEntries.filter((entry) => String(entry?.id) !== safeId);
+    persistInfoWindowHistory();
+    renderInfoWindowHistory();
+  }
+
+  function clearInfoWindowHistory() {
+    infoWindowHistoryEntries = [];
+    persistInfoWindowHistory();
+    renderInfoWindowHistory();
+  }
+
+  function initInfoWindowHistoryControls() {
+    const clearBtn = document.getElementById("info-history-clear-btn");
+    const items = document.getElementById("info-history-items");
+    if (clearBtn && clearBtn.dataset.bound !== "1") {
+      clearBtn.dataset.bound = "1";
+      clearBtn.addEventListener("click", clearInfoWindowHistory);
+    }
+    if (items && items.dataset.bound !== "1") {
+      items.dataset.bound = "1";
+      items.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const removeBtn = target.closest("[data-info-history-delete]");
+        if (!(removeBtn instanceof HTMLElement)) return;
+        removeInfoWindowHistoryEntry(removeBtn.dataset.infoHistoryDelete || "");
+      });
+    }
   }
 
   function getRoundStatusSnapshot() {
@@ -20746,6 +22749,7 @@ window.Empire.UI = (() => {
     pushEvent,
     collectBountyEligiblePlayers,
     refreshMarketBuildingShortcuts,
+    openMarketModal,
     handleMarketUpdate,
     getDistrictRaidLockRemainingMs,
     getRaidCooldownRemainingMs,
@@ -20759,8 +22763,10 @@ window.Empire.UI = (() => {
     getEconomySnapshot,
     trySpendCash,
     trySpendCleanCash,
+    trySpendMaterials,
     addCleanCash,
     addDirtyCash,
+    addMaterials,
     addInfluence,
     launderDirtyCash,
     refreshProfilePopulation,

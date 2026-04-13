@@ -1,9 +1,11 @@
-window.Empire = {
+window.Empire = window.Empire || {};
+Object.assign(window.Empire, {
   token: null,
   player: null,
   districts: [],
-  selectedDistrict: null
-};
+  selectedDistrict: null,
+  mode: window.Empire?.mode || "war"
+});
 
 document.addEventListener("DOMContentLoaded", () => {
   const token = localStorage.getItem("empire_token");
@@ -34,4 +36,30 @@ document.addEventListener("DOMContentLoaded", () => {
       influence: 0
     });
   }
+
+  document.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const cityEventsBtn = target.closest("#city-events-open");
+    if (cityEventsBtn) {
+      event.preventDefault();
+      const eventsModal = document.getElementById("events-modal");
+      if (eventsModal) {
+        eventsModal.classList.remove("hidden");
+        eventsModal.classList.add("events-modal--compact");
+      }
+      return;
+    }
+    const cityEventsClose = target.closest("#events-modal-close, #events-modal-backdrop");
+    if (cityEventsClose) {
+      event.preventDefault();
+      const eventsModal = document.getElementById("events-modal");
+      if (eventsModal) eventsModal.classList.add("hidden");
+      return;
+    }
+    const marketBtn = target.closest("#market-open");
+    if (!marketBtn) return;
+    event.preventDefault();
+    await window.Empire.UI.openMarketModal("server");
+  });
 });

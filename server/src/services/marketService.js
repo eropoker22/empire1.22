@@ -1,4 +1,5 @@
 const { pool } = require("../config/db");
+const { normalizeGameMode } = require("../config/gameModes");
 const {
   ensureMoneySchema,
   normalizeMoneyRow,
@@ -96,7 +97,8 @@ function isSpecificDrugResource(resourceKey) {
   return Boolean(DRUG_RESOURCE_COLUMN_MAP[resourceKey]);
 }
 
-async function getMarketState(playerId) {
+async function getMarketState(playerId, gameMode = "war") {
+  const mode = normalizeGameMode(gameMode);
   await ensureMarketSchema();
 
   const balancesRes = await pool.query(
@@ -111,14 +113,15 @@ async function getMarketState(playerId) {
     `SELECT mo.id, mo.resource_key, mo.side, mo.remaining_quantity, mo.price_per_unit,
             mo.created_at, p.username
        FROM market_orders mo
-       JOIN players p ON p.id = mo.player_id
+       JOIN players p ON p.id = mo.player_id AND p.game_mode = $1
       WHERE mo.status = 'open'
       ORDER BY mo.resource_key ASC,
                CASE WHEN mo.side = 'buy' THEN 0 ELSE 1 END ASC,
                CASE WHEN mo.side = 'buy' THEN mo.price_per_unit END DESC,
                CASE WHEN mo.side = 'sell' THEN mo.price_per_unit END ASC,
                mo.created_at ASC
-      LIMIT 120`
+      LIMIT 120`,
+    [mode]
   );
 
   const myOrdersRes = await pool.query(
@@ -132,10 +135,13 @@ async function getMarketState(playerId) {
   );
 
   const recentTradesRes = await pool.query(
-    `SELECT resource_key, quantity, price_per_unit, fee_paid, created_at
-       FROM market_trades
-      ORDER BY created_at DESC
-      LIMIT 40`
+    `SELECT mt.resource_key, mt.quantity, mt.price_per_unit, mt.fee_paid, mt.created_at
+       FROM market_trades mt
+       INNER JOIN players buyer ON buyer.id = mt.buyer_player_id AND buyer.game_mode = $1
+       INNER JOIN players seller ON seller.id = mt.seller_player_id AND seller.game_mode = $1
+      ORDER BY mt.created_at DESC
+      LIMIT 40`,
+    [mode]
   );
 
   const balances = balancesRes.rows[0] || {};

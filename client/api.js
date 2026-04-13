@@ -10,8 +10,11 @@ window.Empire.API = (() => {
   async function login(username, password) {
     const res = await fetch(`${baseUrl}/auth/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password })
+      headers: {
+        "Content-Type": "application/json",
+        "X-Game-Mode": window.Empire.mode || "war"
+      },
+      body: JSON.stringify({ username, password, mode: window.Empire.mode || "war" })
     });
     return res.json();
   }
@@ -19,8 +22,11 @@ window.Empire.API = (() => {
   async function register(username, gangName, password) {
     const res = await fetch(`${baseUrl}/auth/register`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, gangName, password })
+      headers: {
+        "Content-Type": "application/json",
+        "X-Game-Mode": window.Empire.mode || "war"
+      },
+      body: JSON.stringify({ username, gangName, password, mode: window.Empire.mode || "war" })
     });
     return res.json();
   }
@@ -219,6 +225,18 @@ window.Empire.API = (() => {
     return res.json();
   }
 
+  async function raidDistrict(districtId) {
+    const res = await fetch(`${baseUrl}/combat/raid`, {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ districtId })
+    });
+    return res.json();
+  }
+
   async function getMarket() {
     const res = await fetch(`${baseUrl}/market`, {
       headers: authHeaders()
@@ -298,9 +316,10 @@ window.Empire.API = (() => {
   }
 
   function authHeaders() {
-    return window.Empire.token
-      ? { Authorization: `Bearer ${window.Empire.token}` }
-      : {};
+    return {
+      ...(window.Empire.token ? { Authorization: `Bearer ${window.Empire.token}` } : {}),
+      "X-Game-Mode": window.Empire.mode || "war"
+    };
   }
 
   return {
@@ -330,6 +349,7 @@ window.Empire.API = (() => {
     createMarketOrder,
     cancelMarketOrder,
     attackDistrict,
+    raidDistrict,
     refreshRound,
     getBounties,
     createBounty,

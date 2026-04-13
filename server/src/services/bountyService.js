@@ -1,4 +1,5 @@
 const { pool } = require("../config/db");
+const { normalizeGameMode } = require("../config/gameModes");
 const { normalizeDrugKey, DRUG_DEFINITIONS } = require("../config/drugs");
 
 const HUNT_MODE_THRESHOLD = 10000;
@@ -111,6 +112,10 @@ function parseRewards(rewards) {
 async function ensureBountySchema() {
   if (bountySchemaEnsured) return;
   await pool.query(`
+    ALTER TABLE players
+      ADD COLUMN IF NOT EXISTS game_mode TEXT NOT NULL DEFAULT 'war'
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS bounties (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       created_by_player_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
@@ -191,7 +196,8 @@ function mapBountyRow(row) {
   };
 }
 
-async function listBounties() {
+async function listBounties(gameMode = "war") {
+  const mode = normalizeGameMode(gameMode);
   await ensureBountySchema();
   await expireBounties();
   const result = await pool.query(`
@@ -216,15 +222,16 @@ async function listBounties() {
            claimant.username AS claimed_by_username,
            district.name AS target_district_name
       FROM bounties b
-      INNER JOIN players creator ON creator.id = b.created_by_player_id
-      INNER JOIN players target ON target.id = b.target_player_id
+      INNER JOIN players creator ON creator.id = b.created_by_player_id AND creator.game_mode = $1
+      INNER JOIN players target ON target.id = b.target_player_id AND target.game_mode = $1
       LEFT JOIN alliances target_alliance ON target_alliance.id = target.alliance_id
-      LEFT JOIN players claimant ON claimant.id = b.claimed_by_player_id
-      LEFT JOIN districts district ON district.id = b.target_district_id
+      LEFT JOIN players claimant ON claimant.id = b.claimed_by_player_id AND claimant.game_mode = $1
+      LEFT JOIN districts district ON district.id = b.target_district_id AND district.game_mode = $1
+     WHERE creator.game_mode = $1
      ORDER BY
        CASE WHEN b.status = 'active' THEN 0 ELSE 1 END ASC,
        b.created_at DESC
-  `);
+  `, [mode]);
   return result.rows.map(mapBountyRow);
 }
 
@@ -382,8 +389,10 @@ async function createBounty({
   rewardMaterialType = "metalParts",
   bountyType = "capture_district",
   isAnonymous = true,
-  durationHours = 12
+  durationHours = 12,
+  gameMode = "war"
 }) {
+  const mode = normalizeGameMode(gameMode);
   await ensureBountySchema();
   const client = await pool.connect();
 
@@ -395,8 +404,9 @@ async function createBounty({
               drug_neon_dust, drug_pulse_shot, drug_velvet_smoke, drug_ghost_serum, drug_overdrive_x
          FROM players
         WHERE id = $1
+          AND game_mode = $2
         FOR UPDATE`,
-      [playerId]
+      [playerId, mode]
     );
     const actor = actorRes.rows[0];
     if (!actor) throw createServiceError("missing_actor", 404);
@@ -405,8 +415,9 @@ async function createBounty({
       `SELECT id, username, alliance_id
          FROM players
         WHERE LOWER(username) = LOWER($1)
+          AND game_mode = $2
         FOR UPDATE`,
-      [String(targetUsername || "").trim()]
+      [String(targetUsername || "").trim(), mode]
     );
     const target = targetRes.rows[0];
     if (!target) throw createServiceError("missing_target", 404);
@@ -421,8 +432,9 @@ async function createBounty({
         `SELECT id
            FROM districts
           WHERE id = $1
-            AND owner_player_id = $2`,
-        [targetDistrictId, target.id]
+            AND owner_player_id = $2
+            AND game_mode = $3`,
+        [targetDistrictId, target.id, mode]
       );
       if (!districtRes.rows[0]?.id) throw createServiceError("invalid_target_district", 400);
       safeDistrictId = districtRes.rows[0].id;
@@ -536,8 +548,10 @@ async function resolveBounties({
   resolutionType = "occupation",
   contributionValue = 0,
   attackSucceeded = false,
-  capturedDistrict = false
+  capturedDistrict = false,
+  gameMode = "war"
 }) {
+  const mode = normalizeGameMode(gameMode);
   await ensureBountySchema();
   const client = await pool.connect();
 
@@ -548,8 +562,9 @@ async function resolveBounties({
     const targetRes = await client.query(
       `SELECT id
          FROM players
-        WHERE LOWER(username) = LOWER($1)`,
-      [String(targetUsername || "").trim()]
+        WHERE LOWER(username) = LOWER($1)
+          AND game_mode = $2`,
+      [String(targetUsername || "").trim(), mode]
     );
     const target = targetRes.rows[0];
     if (!target?.id) {
@@ -673,11 +688,12 @@ async function resolveBounties({
   }
 }
 
-async function claimBountiesForOccupation({ playerId, targetUsername, districtId }) {
+async function claimBountiesForOccupation({ playerId, targetUsername, districtId, gameMode = "war" }) {
   return resolveBounties({
     playerId,
     targetUsername,
     districtId,
+    gameMode,
     resolutionType: "occupation",
     contributionValue: 100,
     capturedDistrict: true,

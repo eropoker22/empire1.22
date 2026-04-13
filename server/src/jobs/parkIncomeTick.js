@@ -1,4 +1,5 @@
 const { pool } = require("../config/db");
+const { normalizeGameMode } = require("../config/gameModes");
 const {
   ensureMoneySchema,
   addCleanMoney,
@@ -39,9 +40,14 @@ const DISTRICT_MINUTE_INCOME_RULES = {
   }
 };
 
-async function runParkIncomeTick() {
+async function runParkIncomeTick(gameMode = "war") {
+  const mode = normalizeGameMode(gameMode);
   await ensureMoneySchema();
   await ensureDistrictDestructionSchema();
+  await pool.query(`
+    ALTER TABLE players
+      ADD COLUMN IF NOT EXISTS game_mode TEXT NOT NULL DEFAULT 'war'
+  `);
 
   const client = await pool.connect();
   try {
@@ -55,9 +61,12 @@ async function runParkIncomeTick() {
               COUNT(*) FILTER (WHERE LOWER(COALESCE(d.type, '')) = 'park') AS park_count,
               COUNT(*) FILTER (WHERE LOWER(COALESCE(d.type, '')) = 'industrial') AS industrial_count
          FROM districts d
-        WHERE d.owner_player_id IS NOT NULL
+       WHERE d.owner_player_id IS NOT NULL
           AND COALESCE(d.is_destroyed, false) = false
+          AND d.game_mode = $1
         GROUP BY d.owner_player_id`
+      ,
+      [mode]
     );
 
     for (const row of parkOwners.rows) {

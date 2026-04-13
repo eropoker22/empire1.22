@@ -9,6 +9,10 @@ async function ensureAllianceSchema() {
       ADD COLUMN IF NOT EXISTS icon_key TEXT NOT NULL DEFAULT 'crown_skull'
   `);
   await pool.query(`
+    ALTER TABLE players
+      ADD COLUMN IF NOT EXISTS game_mode TEXT NOT NULL DEFAULT 'war'
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS alliance_join_requests (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       alliance_id UUID NOT NULL REFERENCES alliances(id) ON DELETE CASCADE,
@@ -837,8 +841,10 @@ async function leaveAlliance(playerId) {
   await pool.query("UPDATE players SET alliance_id = NULL WHERE id = $1", [playerId]);
 }
 
-async function listAlliances(playerId = null) {
+async function listAlliances(playerId = null, gameMode = "war") {
   await ensureAllianceSchema();
+  const { normalizeGameMode } = require("../config/gameModes");
+  const mode = normalizeGameMode(gameMode);
   const res = await pool.query(
     `SELECT a.id, a.name, a.owner_player_id, a.description, a.icon_key, a.bonus_income_pct, a.bonus_influence_pct,
             COUNT(p.id)::int AS member_count,
@@ -850,9 +856,10 @@ async function listAlliances(playerId = null) {
             ) AS has_pending_request
        FROM alliances a
        LEFT JOIN players p ON p.alliance_id = a.id
+       INNER JOIN players owner ON owner.id = a.owner_player_id AND owner.game_mode = $2
       GROUP BY a.id
       ORDER BY member_count DESC, a.name ASC`,
-    [playerId]
+    [playerId, mode]
   );
   return res.rows;
 }

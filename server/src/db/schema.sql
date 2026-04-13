@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS players (
   defense INT NOT NULL DEFAULT 0,
   materials INT NOT NULL DEFAULT 0,
   data_shards INT NOT NULL DEFAULT 0,
+  raid_member_losses INT NOT NULL DEFAULT 0,
   alliance_id UUID NULL,
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP NOT NULL DEFAULT NOW()

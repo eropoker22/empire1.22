@@ -14,6 +14,7 @@ async function getPlayerProfile(playerId) {
   const result = await pool.query(
     `SELECT p.id, p.username, p.gang_name, p.money, p.clean_money, p.dirty_money, p.influence_points,
             p.heat, p.drugs,
+            p.raid_member_losses,
             p.drug_neon_dust, p.drug_pulse_shot, p.drug_velvet_smoke, p.drug_ghost_serum, p.drug_overdrive_x,
             p.drug_neon_dust_active_until, p.drug_pulse_shot_active_until, p.drug_velvet_smoke_active_until, p.drug_ghost_serum_active_until, p.drug_overdrive_x_active_until,
             p.drug_neon_dust_active_dose, p.drug_pulse_shot_active_dose, p.drug_velvet_smoke_active_dose, p.drug_ghost_serum_active_dose, p.drug_overdrive_x_active_dose,

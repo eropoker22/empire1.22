@@ -9,7 +9,7 @@ window.Empire.WS = (() => {
 
   function connect() {
     if (!window.Empire.token) return;
-    const url = `ws://localhost:3000?token=${window.Empire.token}`;
+    const url = `ws://localhost:3000?token=${window.Empire.token}&mode=${encodeURIComponent(window.Empire.mode || "war")}`;
     socket = new WebSocket(url);
 
     socket.addEventListener("open", () => {
@@ -36,13 +36,13 @@ window.Empire.WS = (() => {
 
   function subscribeMap() {
     if (socket && socket.readyState === 1) {
-      socket.send(JSON.stringify({ type: "map:subscribe" }));
+      socket.send(JSON.stringify({ type: "map:subscribe", mode: window.Empire.mode || "war" }));
     }
   }
 
   function subscribeMarket() {
     if (socket && socket.readyState === 1) {
-      socket.send(JSON.stringify({ type: "market:subscribe" }));
+      socket.send(JSON.stringify({ type: "market:subscribe", mode: window.Empire.mode || "war" }));
     }
   }
 

@@ -5,9 +5,11 @@ function handleMessage({ socket, payload, rooms }) {
     return;
   }
 
+  const roomMode = String(socket.user?.gameMode || "war").toLowerCase();
+
   switch (payload.type) {
     case "map:subscribe": {
-      const key = "map";
+      const key = `map:${roomMode}`;
       if (!rooms.has(key)) {
         rooms.set(key, new Set());
       }
@@ -16,7 +18,7 @@ function handleMessage({ socket, payload, rooms }) {
       break;
     }
     case "map:unsubscribe": {
-      const key = "map";
+      const key = `map:${roomMode}`;
       if (rooms.has(key)) {
         rooms.get(key).delete(socket);
       }
@@ -24,7 +26,7 @@ function handleMessage({ socket, payload, rooms }) {
       break;
     }
     case "market:subscribe": {
-      const key = "market";
+      const key = `market:${roomMode}`;
       if (!rooms.has(key)) {
         rooms.set(key, new Set());
       }
@@ -33,7 +35,7 @@ function handleMessage({ socket, payload, rooms }) {
       break;
     }
     case "market:unsubscribe": {
-      const key = "market";
+      const key = `market:${roomMode}`;
       if (rooms.has(key)) {
         rooms.get(key).delete(socket);
       }
@@ -54,12 +56,12 @@ function handleMessage({ socket, payload, rooms }) {
   }
 }
 
-function broadcastMapUpdate({ rooms, update }) {
-  broadcastToRoom(rooms, "map", { type: "map:update", data: update });
+function broadcastMapUpdate({ rooms, update, gameMode = "war" }) {
+  broadcastToRoom(rooms, `map:${String(gameMode || "war").toLowerCase()}`, { type: "map:update", data: update });
 }
 
-function broadcastMarketUpdate({ rooms, update }) {
-  broadcastToRoom(rooms, "market", { type: "market:update", data: update });
+function broadcastMarketUpdate({ rooms, update, gameMode = "war" }) {
+  broadcastToRoom(rooms, `market:${String(gameMode || "war").toLowerCase()}`, { type: "market:update", data: update });
 }
 
 module.exports = { handleMessage, broadcastMapUpdate, broadcastMarketUpdate };

@@ -19,6 +19,7 @@ router.get("/me", auth, async (req, res) => {
     cleanMoney: Number(profile.clean_money || 0),
     dirtyMoney: Number(profile.dirty_money || 0),
     influence: Number(profile.influence_points),
+    raidMemberLosses: Math.max(0, Math.floor(Number(profile.raid_member_losses || 0))),
     heat: Number(profile.heat || 0),
     drugs: Number(profile.drugs || 0),
     drugInventory: profile.drugInventory || {},
@@ -34,7 +35,7 @@ router.post("/structure", auth, async (req, res) => {
 
   const saved = await setPlayerStructure(req.user.id, structure);
   const profile = await getPlayerProfile(req.user.id);
-  const token = createToken(profile);
+  const token = createToken({ ...profile, game_mode: req.user.gameMode || req.gameMode || "war" });
   res.json({ structure: saved, token });
 });
 
@@ -48,7 +49,7 @@ router.post("/gang-color", auth, async (req, res) => {
     return res.status(400).json({ error: "gang_color_update_failed" });
   }
   const profile = await getPlayerProfile(req.user.id);
-  const token = createToken(profile);
+  const token = createToken({ ...profile, game_mode: req.user.gameMode || req.gameMode || "war" });
   res.json({ gangColor: result.gangColor, token });
 });
 

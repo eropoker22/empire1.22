@@ -22,7 +22,7 @@
     <meta name="twitter:image:alt" content="EmpireStreets - Gangy. Distrikty. Kontrola." />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body class="auth-body auth-body--matrix auth-body--faction">
+  <body class="auth-body auth-body--matrix auth-body--faction auth-body--war">
     <canvas id="matrix-canvas" class="matrix-canvas" aria-hidden="true"></canvas>
     <main class="auth-shell">
       <div class="auth-card auth-card--wide auth-card--faction">
@@ -99,7 +99,7 @@
 
         <div class="faction-links">
           <a class="faction-link faction-link--secondary" href="login.html">Zpět na přihlášení</a>
-          <a class="faction-link faction-link--disabled" id="go-game" href="index.html">Pokračovat do hry</a>
+          <a class="faction-link faction-link--disabled" id="go-game" href="index.html?mode=war">Pokračovat do hry</a>
         </div>
 
         <p id="structure-note" class="muted faction-note">Vyber frakci, barvu a avatara pro pokračování.</p>
@@ -144,6 +144,8 @@
       </div>
     </div>
 
+    <script src="game-modes.js"></script>
+    <script src="mode.js"></script>
     <script src="faction.js"></script>
   </body>
 </html>
