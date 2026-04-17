@@ -35,11 +35,6 @@
             <button class="nav-btn nav-btn--profile" id="nav-profile">Profil hráče</button>
           </nav>
         </div>
-        <div class="topbar__scenarios" aria-label="Ukázkové stavy hráče">
-          <button class="topbar__scenario-btn" data-player-scenario="full-map">ALL</button>
-          <button class="topbar__scenario-btn" data-player-scenario="night-20-war">NOC 20</button>
-          <button class="topbar__scenario-btn" data-player-scenario="onboarding-20-edge">ONBOARDING</button>
-        </div>
         <div class="topbar__right">
           <div class="topbar__stats">
             <div class="stat" id="stat-clean-wrap">
@@ -249,13 +244,6 @@
                   aria-label="Denní mapa"
                 >DEN</button>
                 <button
-                  class="map-mode-switch__btn map-view-switch__btn hidden"
-                  id="map-view-toggle"
-                  type="button"
-                  aria-label="Přepnout mezi index mapou a HRA mapou"
-                  aria-pressed="false"
-                >HRA</button>
-                <button
                   class="map-mode-switch__btn"
                   id="map-mode-night"
                   type="button"
@@ -384,22 +372,6 @@
             </div>
           </div>
           <div id="mobile-market-shortcuts-anchor" class="hidden" aria-hidden="true"></div>
-          <div id="scenario-card-anchor" class="hidden" aria-hidden="true"></div>
-          <div class="card" id="scenario-card">
-            <h2>Ukázkové stavy hráče</h2>
-            <p class="muted">Index teď přímo běží v HRA stavu. Tady zůstávají jen další ukázkové varianty.</p>
-            <div class="scenario-preview">
-              <button class="btn btn--ghost scenario-preview__btn" data-player-scenario="full-map">
-                ALL
-              </button>
-              <button class="btn btn--ghost scenario-preview__btn" data-player-scenario="night-20-war">
-                NOC 20
-              </button>
-              <button class="btn btn--ghost scenario-preview__btn" data-player-scenario="onboarding-20-edge">
-                ONBOARDING!!
-              </button>
-            </div>
-          </div>
           <div class="card" id="alliance-chat-card">
             <button class="btn btn--primary" id="alliance-btn">
               <span class="alliance-btn__icon" aria-hidden="true">
@@ -1618,6 +1590,7 @@
     <script src="gen/city.js"></script>
     <script src="api.js"></script>
     <script src="ws.js"></script>
+    <script src="map/state/cash-building-state.js"></script>
     <script src="map/core/map-mode.js"></script>
     <script src="map/core/viewport.js"></script>
     <script src="map/core/tooltip.js"></script>
@@ -1642,6 +1615,8 @@
     <script src="map/selection/building-catalog.js"></script>
     <script src="map/selection/fitness-details.js"></script>
     <script src="map/selection/population-details.js"></script>
+    <script src="map/selection/district-economy.js"></script>
+    <script src="map/selection/police-effects.js"></script>
     <script src="map/selection/leisure-details.js"></script>
     <script src="map/selection/commerce-details.js"></script>
     <script src="map/selection/modal-visuals.js"></script>
@@ -1662,6 +1637,7 @@
     <script src="ui/alliance/vision.js"></script>
     <script src="ui/alliance/modal.js"></script>
     <script src="ui/alliance/facade.js"></script>
+    <script src="ui/scenarios/index-war.js"></script>
     <script src="ui/auth/session.js"></script>
     <script src="ui/round/status.js"></script>
     <script src="ui/notifications/event-feed.js"></script>
@@ -1669,6 +1645,7 @@
     <script src="ui/notifications/facade.js"></script>
     <script src="ui/history/info-window-history.js"></script>
     <script src="ui/settings/modal.js"></script>
+    <script src="ui/layout/mobile.js"></script>
     <script src="ui/combat/spy-intel.js"></script>
     <script src="ui/combat/helpers.js"></script>
     <script src="ui/combat/facade.js"></script>
@@ -1678,6 +1655,7 @@
     <script src="ui/profile/modal.js"></script>
     <script src="ui/profile/state.js"></script>
     <script src="ui/player/labels.js"></script>
+    <script src="ui/player/blackout-income.js"></script>
     <script src="ui/player/identity.js"></script>
     <script src="ui/player/owner-meta.js"></script>
     <script src="ui/player/defense-storage.js"></script>

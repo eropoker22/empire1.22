@@ -191,7 +191,6 @@ window.Empire.UI = (() => {
     "../img/avatars/Hacker/grok_image_1773621797044.jpg",
     "../img/avatars/Korporat/e4286e80-0587-4e0e-afe4-70c348ee59dd.jpg"
   ]);
-  const ONBOARDING_PROFILE_AVATAR = "../img/onboarding.jpg";
   const DEMO_OWNER_FACTIONS = Object.freeze([
     "Mafián",
     "Kartel",
@@ -265,6 +264,7 @@ window.Empire.UI = (() => {
     { key: "broken_mask", label: "Maska", symbol: "🎭" }
   ]);
   const DEFAULT_ALLIANCE_ICON_KEY = "crown_skull";
+  const INDEX_WAR_SCENARIO_KEY = "index-war";
   const ALLIANCE_MAX_MEMBERS = 4;
   const LOCAL_ALLIANCE_REQUEST_PLAYER_ID = "guest-player";
   const LOCAL_SCENARIO_DISTRICT_INCOME_RULES = Object.freeze({
@@ -279,7 +279,6 @@ window.Empire.UI = (() => {
   const ALLIANCE_READY_WINDOW_MS = 6 * 60 * 60 * 1000;
   const ALLIANCE_TRAP_GRACE_MS = 20 * 1000;
   const DEFAULT_ALLIANCE_DESCRIPTION = "Aliance která všechny zabije";
-  const PLAYER_SCENARIO_STORAGE_KEY = "empire_active_player_scenario";
   const DISTRICT_RAID_LOCK_STORAGE_KEY = "empire_district_raid_lock_until_v1";
   const HEAT_JOURNAL_STORAGE_KEY = "empire_heat_journal_v1";
   const HEAT_DIRTY_REDUCTION_STORAGE_KEY = "empire_heat_dirty_reduction_v1";
@@ -2106,19 +2105,11 @@ window.Empire.UI = (() => {
     });
     return policeHeatController;
   }
-  const ONBOARDING_TUTORIAL_DRUG_LAB_DISTRICT_ID = 18;
-  const ONBOARDING_TUTORIAL_ATTACK_DISTRICT_ID = 6;
-  const ONBOARDING_TUTORIAL_RAID_DISTRICT_ID = 38;
   let scenarioVisionEnabled = false;
   let scenarioUniqueOwnerColors = false;
   let scenarioProfileAvatarOverride = null;
   let activePlayerScenarioKey = "";
-  const DEFAULT_INDEX_MAP_VIEW = "hra";
-  const INTERNAL_INDEX_HRA_SCENARIO_KEY = "alliance-ten-blackout";
-  let guestIndexMapViewBootstrapped = false;
-  let guestIndexBaseSnapshot = null;
-  let activeIndexMapView = "";
-  const BLACKOUT_LIKE_SCENARIO_KEYS = new Set(["alliance-ten-blackout", "night-20-war"]);
+  const BLACKOUT_LIKE_SCENARIO_KEYS = new Set([INDEX_WAR_SCENARIO_KEY]);
   let activeScenarioOwnerName = "";
   let lastValidBlackoutSources = null;
   let selectedMapBorderMode = MAP_BORDER_MODE_PLAYER;
@@ -2165,6 +2156,7 @@ window.Empire.UI = (() => {
   let marketEconomyController = null;
   let marketModalController = null;
   let policeHeatController = null;
+  let indexWarScenarioHelpers = null;
   const GANG_HEAT_LEVELS = Object.freeze([
     { stars: 1, label: "Stupeň 1", title: "Základní dohled", description: "Jsi skoro pod radarem. Jen lehké sledování a občasná pozornost." },
     { stars: 2, label: "Stupeň 2", title: "Podezřelý", description: "Policie tě začíná vnímat. Přibývají kontroly a drobný tlak." },
@@ -2223,6 +2215,8 @@ window.Empire.UI = (() => {
   let allianceStateHelpers = null;
   let allianceVisionHelpers = null;
   let allianceFacade = null;
+  let mobileLayoutHelpers = null;
+  let blackoutIncomeHelpers = null;
 
   function getSpyIntelHelpers() {
     if (spyIntelHelpers) return spyIntelHelpers;
@@ -2411,6 +2405,60 @@ window.Empire.UI = (() => {
       setExternalHeat: (heat, profile) => window.Empire.PoliceHeat?.setExternalHeat?.(heat, profile)
     });
     return playerHeatHelpers;
+  }
+
+  function getMobileLayoutHelpers() {
+    if (mobileLayoutHelpers) return mobileLayoutHelpers;
+    const factory = window.Empire.UILayout?.createMobileLayoutHelpers;
+    if (typeof factory !== "function") return null;
+    mobileLayoutHelpers = factory({
+      windowObj: window,
+      documentObj: document
+    });
+    return mobileLayoutHelpers;
+  }
+
+  function getBlackoutIncomeHelpers() {
+    if (blackoutIncomeHelpers) return blackoutIncomeHelpers;
+    const factory = window.Empire.UIPlayer?.createBlackoutIncomeHelpers;
+    if (typeof factory !== "function") return null;
+    blackoutIncomeHelpers = factory({
+      hasToken: () => Boolean(window.Empire.token),
+      isBlackoutLikeScenario,
+      getLocalMarketState,
+      saveLocalMarketState,
+      blackoutScenarioIncomeStorageKey: BLACKOUT_SCENARIO_INCOME_STORAGE_KEY,
+      syncGuestEconomyFromMarket,
+      getDistricts: () => Array.isArray(window.Empire.districts) ? window.Empire.districts : [],
+      resolveActiveScenarioOwnerName,
+      getBlackoutIncomeDistricts,
+      computeDistrictMinuteIncomeFromOwnedDistricts,
+      computeOwnedDistrictMinuteIncome,
+      computeBuildingMinuteIncomeFromOwnedDistricts,
+      computeOwnedBuildingMinuteIncome,
+      computeBuildingMinuteHeatFromOwnedDistricts,
+      computeOwnedBuildingMinuteHeat,
+      computeBuildingMinuteInfluenceFromOwnedDistricts,
+      computeOwnedBuildingMinuteInfluence,
+      getLastValidBlackoutSources: () => lastValidBlackoutSources,
+      setLastValidBlackoutSources: (value) => {
+        lastValidBlackoutSources = value ?? null;
+      },
+      addLocalMoney,
+      addInfluence,
+      getCachedProfile: () => cachedProfile,
+      setCachedProfile: (value) => {
+        cachedProfile = value ?? null;
+      },
+      getPlayer: () => window.Empire.player || null,
+      setPlayer: (value) => {
+        window.Empire.player = value ?? null;
+      },
+      renderInfluenceSpyTopbarStat,
+      resolveWantedLevel,
+      setPlayerWantedHeat
+    });
+    return blackoutIncomeHelpers;
   }
 
   function getPlayerFacade() {
@@ -2815,6 +2863,26 @@ window.Empire.UI = (() => {
     return allianceVisionHelpers;
   }
 
+  function getIndexWarScenarioHelpers() {
+    if (indexWarScenarioHelpers) return indexWarScenarioHelpers;
+    const factory = window.Empire.UIScenarios?.createIndexWarScenarioHelpers;
+    if (typeof factory !== "function") return null;
+    indexWarScenarioHelpers = factory({
+      scenarioKey: "index-war",
+      resolveScenarioSourceDistricts,
+      normalizeOwnerName,
+      buildDemoDistrictOwnerMeta,
+      getDistrictBounds,
+      distanceFromMapCenter,
+      getPlayer: () => window.Empire.player || null,
+      getCachedProfile: () => cachedProfile,
+      readStoredGuestUsername,
+      readStoredGangName,
+      resolveMapBorderPlayerColor
+    });
+    return indexWarScenarioHelpers;
+  }
+
   function getAllianceFacade() {
     if (allianceFacade) return allianceFacade;
     const factory = window.Empire.UIAlliance?.createFacade;
@@ -2909,7 +2977,6 @@ window.Empire.UI = (() => {
     bindActions();
     initMobileViewportLayoutLock();
     initMobileTopbarScrollState();
-    initMobileScenarioCardPlacement();
     initMobileLeaderboardCardPlacement();
     initMobileMarketBuildingShortcutsPlacement();
     initMobilePrimaryActionCardsPlacement();
@@ -2918,7 +2985,6 @@ window.Empire.UI = (() => {
     initGlobalModalScrollLock();
     initDoubleTapZoomLock();
     initMapModeControls();
-    initIndexMapToggleButton();
     startPoliceRaidProtectionTicker();
     startScenarioIncomeTicker();
     renderInfoWindowHistory();
@@ -2937,7 +3003,7 @@ window.Empire.UI = (() => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
       const interactive = target.closest(
-        "button, .btn, .nav-btn, .events-hero, .market-building-shortcut, .scenario-preview__btn, .ticker__clear-btn"
+        "button, .btn, .nav-btn, .events-hero, .market-building-shortcut, .ticker__clear-btn"
       );
       if (!(interactive instanceof HTMLElement)) return;
       window.setTimeout(() => {
@@ -3075,30 +3141,6 @@ window.Empire.UI = (() => {
     if (!scenarioIncomeTimer) return;
     clearInterval(scenarioIncomeTimer);
     scenarioIncomeTimer = null;
-  }
-
-  function stopOnboardingGrowthTicker() {
-    if (!onboardingGrowthTimer) return;
-    clearInterval(onboardingGrowthTimer);
-    onboardingGrowthTimer = null;
-  }
-
-  function startOnboardingGrowthTicker() {
-    stopOnboardingGrowthTicker();
-    if (activePlayerScenarioKey !== "onboarding-20-edge") return;
-    onboardingGrowthTimer = setInterval(() => {
-      if (activePlayerScenarioKey !== "onboarding-20-edge") {
-        stopOnboardingGrowthTicker();
-        return;
-      }
-      if (window.Empire.token) {
-        stopOnboardingGrowthTicker();
-        return;
-      }
-      addCleanCash(10);
-      addDirtyCash(4);
-      addInfluence(1);
-    }, 12000);
   }
 
   function isDistrictOwnedByScenarioPlayer(district, ownerName) {
@@ -3318,209 +3360,22 @@ window.Empire.UI = (() => {
   }
 
   function buildBlackoutPlayerSourcesSnapshot(districts, ownerName) {
-    const districtSource = getBlackoutIncomeDistricts(districts);
-    const districtIncome = districtSource.length
-      ? computeDistrictMinuteIncomeFromOwnedDistricts(districtSource)
-      : computeOwnedDistrictMinuteIncome(districts, ownerName);
-    const districtInfluencePerMinute = districtSource.reduce((sum, district) => {
-      return sum + (String(district?.type || "").trim().toLowerCase() === "park" ? 10 : 0);
-    }, 0);
-    const buildingIncome = districtSource.length
-      ? computeBuildingMinuteIncomeFromOwnedDistricts(districtSource)
-      : computeOwnedBuildingMinuteIncome(districts, ownerName);
-    const buildingHeat = districtSource.length
-      ? computeBuildingMinuteHeatFromOwnedDistricts(districtSource)
-      : computeOwnedBuildingMinuteHeat(districts, ownerName);
-    const buildingInfluence = districtSource.length
-      ? computeBuildingMinuteInfluenceFromOwnedDistricts(districtSource)
-      : computeOwnedBuildingMinuteInfluence(districts, ownerName);
-    return {
-      districtIncomePerMinute: districtIncome,
-      districtInfluencePerMinute,
-      buildingIncomePerMinute: {
-        clean: buildingIncome.clean,
-        dirty: buildingIncome.dirty,
-        byBuilding: buildingIncome.byBuilding
-      },
-      buildingHeatPerMinute: {
-        total: buildingHeat.total,
-        byBuilding: buildingHeat.byBuilding
-      },
-      buildingInfluencePerMinute: {
-        total: buildingInfluence.total,
-        byBuilding: buildingInfluence.byBuilding
-      },
-      totalPerMinute: {
-        clean: districtIncome.clean + buildingIncome.clean,
-        dirty: districtIncome.dirty + buildingIncome.dirty,
-        influence: districtInfluencePerMinute + buildingInfluence.total,
-        heat: buildingHeat.total
-      }
+    return getBlackoutIncomeHelpers()?.buildBlackoutPlayerSourcesSnapshot?.(districts, ownerName) || {
+      districtIncomePerMinute: { clean: 0, dirty: 0 },
+      districtInfluencePerMinute: 0,
+      buildingIncomePerMinute: { clean: 0, dirty: 0, byBuilding: {} },
+      buildingHeatPerMinute: { total: 0, byBuilding: {} },
+      buildingInfluencePerMinute: { total: 0, byBuilding: {} },
+      totalPerMinute: { clean: 0, dirty: 0, influence: 0, heat: 0 }
     };
   }
 
   function hasMeaningfulBlackoutSources(snapshot) {
-    if (!snapshot || typeof snapshot !== "object") return false;
-    const district = snapshot.districtIncomePerMinute || {};
-    const building = snapshot.buildingIncomePerMinute || {};
-    return Number(district.clean || 0) > 0
-      || Number(district.dirty || 0) > 0
-      || Number(snapshot.districtInfluencePerMinute || 0) > 0
-      || Number(building.clean || 0) > 0
-      || Number(building.dirty || 0) > 0
-      || Number(snapshot?.buildingHeatPerMinute?.total || 0) > 0
-      || Number(snapshot?.buildingInfluencePerMinute?.total || 0) > 0;
+    return Boolean(getBlackoutIncomeHelpers()?.hasMeaningfulBlackoutSources?.(snapshot));
   }
 
   function syncBlackoutScenarioDistrictIncome(now = Date.now()) {
-    if (window.Empire.token || !isBlackoutLikeScenario()) return;
-    const marketState = getLocalMarketState();
-    if (!marketState || typeof marketState !== "object") return;
-
-    const scenarioIncomeState = marketState.scenarioIncome && typeof marketState.scenarioIncome === "object"
-      ? marketState.scenarioIncome
-      : {};
-    let lastAppliedAt = Number(scenarioIncomeState[BLACKOUT_SCENARIO_INCOME_STORAGE_KEY] || now);
-    let cleanRemainder = Number(scenarioIncomeState.cleanRemainder || 0);
-    let dirtyRemainder = Number(scenarioIncomeState.dirtyRemainder || 0);
-    let buildingCleanRemainder = Number(scenarioIncomeState.buildingCleanRemainder || 0);
-    let buildingDirtyRemainder = Number(scenarioIncomeState.buildingDirtyRemainder || 0);
-    let buildingHeatRemainder = Number(scenarioIncomeState.buildingHeatRemainder || 0);
-    if (!Number.isFinite(lastAppliedAt) || lastAppliedAt > now) {
-      lastAppliedAt = now;
-    }
-    if (!Number.isFinite(cleanRemainder) || cleanRemainder < 0) {
-      cleanRemainder = 0;
-    }
-    if (!Number.isFinite(dirtyRemainder) || dirtyRemainder < 0) {
-      dirtyRemainder = 0;
-    }
-    if (!Number.isFinite(buildingCleanRemainder) || buildingCleanRemainder < 0) {
-      buildingCleanRemainder = 0;
-    }
-    if (!Number.isFinite(buildingDirtyRemainder) || buildingDirtyRemainder < 0) {
-      buildingDirtyRemainder = 0;
-    }
-    if (!Number.isFinite(buildingHeatRemainder) || buildingHeatRemainder < 0) {
-      buildingHeatRemainder = 0;
-    }
-
-    const elapsedMs = Math.max(0, now - lastAppliedAt);
-    if (elapsedMs <= 0) {
-      if (scenarioIncomeState[BLACKOUT_SCENARIO_INCOME_STORAGE_KEY] == null) {
-        marketState.scenarioIncome = {
-          ...scenarioIncomeState,
-          [BLACKOUT_SCENARIO_INCOME_STORAGE_KEY]: now
-        };
-        saveLocalMarketState(marketState);
-      }
-      syncGuestEconomyFromMarket();
-      return;
-    }
-
-    const liveBlackoutSources = buildBlackoutPlayerSourcesSnapshot(window.Empire.districts, resolveActiveScenarioOwnerName());
-    if (hasMeaningfulBlackoutSources(liveBlackoutSources)) {
-      lastValidBlackoutSources = liveBlackoutSources;
-    }
-    const activeBlackoutSources = hasMeaningfulBlackoutSources(liveBlackoutSources)
-      ? liveBlackoutSources
-      : lastValidBlackoutSources || liveBlackoutSources;
-    const incomePerMinute = activeBlackoutSources.districtIncomePerMinute || { clean: 0, dirty: 0 };
-    const influencePerMinute =
-      Math.max(0, Number(activeBlackoutSources.districtInfluencePerMinute || 0))
-      + Math.max(0, Number(activeBlackoutSources?.buildingInfluencePerMinute?.total || 0));
-    const buildingIncomePerMinute = activeBlackoutSources.buildingIncomePerMinute || { clean: 0, dirty: 0, byBuilding: {} };
-    const buildingHeatPerMinute = Math.max(0, Number(activeBlackoutSources?.buildingHeatPerMinute?.total || 0));
-    let influenceRemainder = Math.max(0, Number(scenarioIncomeState.influenceRemainder || 0));
-    let influenceTickRemainderMs = Math.max(0, Number(scenarioIncomeState.influenceTickRemainderMs || 0));
-    const elapsedMinutes = elapsedMs / 60000;
-    if (incomePerMinute.clean > 0) {
-      const cleanRaw = incomePerMinute.clean * elapsedMinutes + cleanRemainder;
-      const cleanWhole = Math.floor(cleanRaw);
-      cleanRemainder = Math.max(0, cleanRaw - cleanWhole);
-      if (cleanWhole > 0) {
-        addLocalMoney(marketState.balances, cleanWhole, "clean");
-      }
-    }
-    if (incomePerMinute.dirty > 0) {
-      const dirtyRaw = incomePerMinute.dirty * elapsedMinutes + dirtyRemainder;
-      const dirtyWhole = Math.floor(dirtyRaw);
-      dirtyRemainder = Math.max(0, dirtyRaw - dirtyWhole);
-      if (dirtyWhole > 0) {
-        addLocalMoney(marketState.balances, dirtyWhole, "dirty");
-      }
-    }
-    if (buildingIncomePerMinute.clean > 0) {
-      const cleanRaw = buildingIncomePerMinute.clean * elapsedMinutes + buildingCleanRemainder;
-      const cleanWhole = Math.floor(cleanRaw);
-      buildingCleanRemainder = Math.max(0, cleanRaw - cleanWhole);
-      if (cleanWhole > 0) {
-        addLocalMoney(marketState.balances, cleanWhole, "clean");
-      }
-    }
-    if (buildingIncomePerMinute.dirty > 0) {
-      const dirtyRaw = buildingIncomePerMinute.dirty * elapsedMinutes + buildingDirtyRemainder;
-      const dirtyWhole = Math.floor(dirtyRaw);
-      buildingDirtyRemainder = Math.max(0, dirtyRaw - dirtyWhole);
-      if (dirtyWhole > 0) {
-        addLocalMoney(marketState.balances, dirtyWhole, "dirty");
-      }
-    }
-    if (influencePerMinute > 0) {
-      const influenceElapsedMs = elapsedMs + influenceTickRemainderMs;
-      const influenceTicks = Math.floor(influenceElapsedMs / 10000);
-      influenceTickRemainderMs = Math.max(0, influenceElapsedMs - influenceTicks * 10000);
-      const influenceRaw = (influenceTicks * (influencePerMinute / 6)) + influenceRemainder;
-      const influenceWhole = Math.floor(influenceRaw);
-      influenceRemainder = Math.max(0, influenceRaw - influenceWhole);
-      if (influenceWhole > 0) {
-        addInfluence(influenceWhole);
-        const currentProfile = cachedProfile || window.Empire.player || null;
-        if (currentProfile && typeof currentProfile === "object") {
-          const nextInfluence = Math.max(0, Math.floor(Number(currentProfile.influence || 0)) + influenceWhole);
-          cachedProfile = { ...currentProfile, influence: nextInfluence };
-          window.Empire.player = {
-            ...(window.Empire.player || {}),
-            influence: nextInfluence
-          };
-        }
-        renderInfluenceSpyTopbarStat({ animate: true });
-      }
-    } else {
-      influenceTickRemainderMs = 0;
-    }
-    if (buildingHeatPerMinute > 0) {
-      const heatRaw = buildingHeatPerMinute * elapsedMinutes + buildingHeatRemainder;
-      const heatTenths = Math.floor((heatRaw + Number.EPSILON) * 10);
-      const heatDelta = heatTenths / 10;
-      buildingHeatRemainder = Math.max(0, heatRaw - heatDelta);
-      if (heatDelta > 0) {
-        const currentHeat = resolveWantedLevel(cachedProfile || window.Empire.player || {});
-        setPlayerWantedHeat(currentHeat + heatDelta);
-      }
-    }
-
-    marketState.scenarioIncome = {
-      ...scenarioIncomeState,
-      [BLACKOUT_SCENARIO_INCOME_STORAGE_KEY]: now,
-      cleanRemainder,
-      dirtyRemainder,
-      buildingCleanRemainder,
-      buildingDirtyRemainder,
-      buildingHeatRemainder,
-      influenceRemainder,
-      influenceTickRemainderMs,
-      buildingIncome: {
-        cleanPerMinute: buildingIncomePerMinute.clean,
-        dirtyPerMinute: buildingIncomePerMinute.dirty,
-        byBuilding: buildingIncomePerMinute.byBuilding
-      },
-      buildingHeat: {
-        perMinute: buildingHeatPerMinute
-      }
-    };
-    saveLocalMarketState(marketState);
-    syncGuestEconomyFromMarket();
+    return getBlackoutIncomeHelpers()?.syncBlackoutScenarioDistrictIncome?.(now);
   }
 
   function startScenarioIncomeTicker() {
@@ -3608,501 +3463,32 @@ window.Empire.UI = (() => {
     syncVisibility();
   }
 
-  function cloneIndexMapSnapshotValue(value) {
-    try {
-      return JSON.parse(JSON.stringify(value ?? null));
-    } catch {
-      return value ?? null;
-    }
-  }
-
-  function captureGuestIndexBaseSnapshot() {
-    const districts = Array.isArray(window.Empire.districts) ? window.Empire.districts : [];
-    return {
-      profile: cloneIndexMapSnapshotValue(window.Empire.player || {}),
-      districts: cloneIndexMapSnapshotValue(districts),
-      mapMode: String(window.Empire.Map?.getMapMode?.() || "night").trim().toLowerCase() || "night"
-    };
-  }
-
-  function syncIndexMapToggleButton() {
-    const toggleButton = document.getElementById("map-view-toggle");
-    if (!toggleButton) return;
-    const shouldShow = !window.Empire.token && guestIndexMapViewBootstrapped && guestIndexBaseSnapshot?.districts?.length;
-    toggleButton.classList.toggle("hidden", !shouldShow);
-    if (!shouldShow) return;
-    const hraActive = activeIndexMapView === "hra" || activePlayerScenarioKey === INTERNAL_INDEX_HRA_SCENARIO_KEY;
-    toggleButton.classList.toggle("is-active", hraActive);
-    toggleButton.setAttribute("aria-pressed", hraActive ? "true" : "false");
-    toggleButton.textContent = hraActive ? "INDEX" : "HRA";
-    toggleButton.title = hraActive
-      ? "Přepnout na původní index mapu"
-      : "Přepnout na HRA mapu";
-  }
-
-  function applyGuestIndexBaseSnapshot(options = {}) {
-    const snapshot = guestIndexBaseSnapshot;
-    if (!snapshot?.districts?.length) return;
-    const preferredMode = String(options?.mapMode || window.Empire.Map?.getMapMode?.() || snapshot.mapMode || "night").trim().toLowerCase();
-    activePlayerScenarioKey = "";
-    activeScenarioOwnerName = "";
-    scenarioUniqueOwnerColors = false;
-    scenarioProfileAvatarOverride = null;
-    setScenarioVisionMode(false);
-    setScenarioAllianceOwners([]);
-    setScenarioEnemyOwners([]);
-    setScenarioAllianceIcons([]);
-    syncMapVisionContext();
-    roundStatusOverride = buildRoundStatusPresetForMode(preferredMode);
-    stopOnboardingGrowthTicker();
-    window.Empire.player = cloneIndexMapSnapshotValue(snapshot.profile || {});
-    window.Empire.Map?.clearUnderAttackDistricts?.();
-    window.Empire.Map?.clearPoliceActions?.();
-    window.Empire.Map?.clearSpyActions?.();
-    window.Empire.Map?.clearRaidActions?.();
-    window.Empire.Map?.clearBountyDistrictMarkers?.();
-    window.Empire.Map?.setDistricts?.(cloneIndexMapSnapshotValue(snapshot.districts || []));
-    window.Empire.Map?.setMapMode?.(preferredMode || snapshot.mapMode || "night");
-    updateProfile(window.Empire.player || {});
-    renderRoundStatusState();
-    activeIndexMapView = "index";
-    syncIndexMapToggleButton();
-  }
-
-  function applyIndexMapView(viewKey, options = {}) {
-    const normalizedView = String(viewKey || "").trim().toLowerCase() === "index" ? "index" : "hra";
-    const preferredMode = String(options?.mapMode || window.Empire.Map?.getMapMode?.() || "night").trim().toLowerCase() || "night";
-    if (normalizedView === "index") {
-      applyGuestIndexBaseSnapshot({ mapMode: preferredMode });
-      return;
-    }
-    applyPlayerScenario(INTERNAL_INDEX_HRA_SCENARIO_KEY);
-    if (preferredMode) {
-      roundStatusOverride = buildRoundStatusPresetForMode(preferredMode);
-      window.Empire.Map?.setMapMode?.(preferredMode);
-      renderRoundStatusState();
-    }
-    activeIndexMapView = "hra";
-    syncIndexMapToggleButton();
-  }
-
-  function initIndexMapToggleButton() {
-    const toggleButton = document.getElementById("map-view-toggle");
-    if (!toggleButton || toggleButton.dataset.bound === "1") {
-      syncIndexMapToggleButton();
-      return;
-    }
-    toggleButton.dataset.bound = "1";
-    toggleButton.addEventListener("click", () => {
-      if (window.Empire.token || !guestIndexMapViewBootstrapped) return;
-      const nextView = activeIndexMapView === "hra" || activePlayerScenarioKey === INTERNAL_INDEX_HRA_SCENARIO_KEY
-        ? "index"
-        : "hra";
-      applyIndexMapView(nextView, {
-        mapMode: window.Empire.Map?.getMapMode?.() || "night"
-      });
-    });
-    syncIndexMapToggleButton();
-  }
-
-  function bootstrapGuestIndexMapView() {
-    if (window.Empire.token || guestIndexMapViewBootstrapped) {
-      syncIndexMapToggleButton();
-      return;
-    }
-    const districts = Array.isArray(window.Empire.districts) ? window.Empire.districts : [];
-    if (!districts.length || !window.Empire.Map?.setDistricts) {
-      syncIndexMapToggleButton();
-      return;
-    }
-    guestIndexBaseSnapshot = captureGuestIndexBaseSnapshot();
-    guestIndexMapViewBootstrapped = true;
-    initIndexMapToggleButton();
-    applyIndexMapView(DEFAULT_INDEX_MAP_VIEW, {
-      mapMode: guestIndexBaseSnapshot?.mapMode || "night"
-    });
-  }
-
   function initMobileViewportLayoutLock() {
-    const media = window.matchMedia("(max-width: 720px)");
-    const root = document.documentElement;
-    let lastWidth = window.innerWidth;
-
-    const apply = () => {
-      if (!media.matches) {
-        root.style.removeProperty("--mobile-locked-vh");
-        return;
-      }
-      const vh = Math.max(
-        0,
-        Math.floor(window.innerHeight || window.visualViewport?.height || document.documentElement.clientHeight || 0)
-      );
-      if (vh > 0) {
-        root.style.setProperty("--mobile-locked-vh", `${vh}px`);
-      }
-      lastWidth = window.innerWidth;
-    };
-
-    apply();
-    window.addEventListener("orientationchange", () => {
-      window.setTimeout(apply, 140);
-    });
-    window.addEventListener("resize", () => {
-      if (!media.matches) {
-        apply();
-        return;
-      }
-      const widthDelta = Math.abs(window.innerWidth - lastWidth);
-      if (widthDelta > 40) {
-        apply();
-      }
-    });
-    if (typeof media.addEventListener === "function") {
-      media.addEventListener("change", apply);
-    } else if (typeof media.addListener === "function") {
-      media.addListener(apply);
-    }
+    return getMobileLayoutHelpers()?.initMobileViewportLayoutLock?.();
   }
 
   function initMobileTopbarScrollState() {
-    const media = window.matchMedia("(max-width: 720px)");
-    const topbar = document.querySelector(".topbar");
-    let ticking = false;
-    let condensed = false;
-
-    const applyState = () => {
-      ticking = false;
-      if (media.matches) {
-        const scrollY = Math.max(0, window.scrollY || 0);
-        if (!condensed && scrollY > 44) {
-          condensed = true;
-        } else if (condensed && scrollY < 18) {
-          condensed = false;
-        }
-      } else {
-        condensed = false;
-      }
-      document.body.classList.toggle("is-mobile-topbar-condensed", condensed);
-      if (topbar && media.matches) {
-        document.documentElement.style.setProperty("--mobile-topbar-offset", `${Math.ceil(topbar.offsetHeight)}px`);
-      } else {
-        document.documentElement.style.removeProperty("--mobile-topbar-offset");
-      }
-      if (topbar && !media.matches) {
-        document.documentElement.style.setProperty("--desktop-topbar-offset", `${Math.ceil(topbar.offsetHeight)}px`);
-      } else {
-        document.documentElement.style.removeProperty("--desktop-topbar-offset");
-      }
-    };
-
-    const requestApply = () => {
-      if (ticking) return;
-      ticking = true;
-      window.requestAnimationFrame(applyState);
-    };
-
-    applyState();
-    window.addEventListener("scroll", requestApply, { passive: true });
-    window.addEventListener("resize", requestApply);
-    if (window.visualViewport && !media.matches) {
-      window.visualViewport.addEventListener("resize", requestApply);
-      window.visualViewport.addEventListener("scroll", requestApply);
-    }
-    if (typeof media.addEventListener === "function") {
-      media.addEventListener("change", requestApply);
-    } else if (typeof media.addListener === "function") {
-      media.addListener(requestApply);
-    }
+    return getMobileLayoutHelpers()?.initMobileTopbarScrollState?.();
   }
 
   function setMobileTopbarCoveredByPrimaryModal(covered) {
-    const media = window.matchMedia("(max-width: 720px)");
-    document.body.classList.toggle("mobile-primary-modal-covers-topbar", Boolean(covered) && media.matches);
-  }
-
-  function initMobileScenarioCardPlacement() {
-    const scenarioCard = document.getElementById("scenario-card");
-    const scenarioAnchor = document.getElementById("scenario-card-anchor");
-    const profileGangCard = document.getElementById("profile-gang-card");
-    const main = document.querySelector(".main");
-    if (!scenarioCard || !scenarioAnchor || !profileGangCard || !main) return;
-
-    let profileAnchor = document.getElementById("profile-gang-card-anchor");
-    if (!profileAnchor) {
-      profileAnchor = document.createElement("div");
-      profileAnchor.id = "profile-gang-card-anchor";
-      profileAnchor.className = "hidden";
-      profileAnchor.setAttribute("aria-hidden", "true");
-      profileGangCard.insertAdjacentElement("beforebegin", profileAnchor);
-    }
-
-    const media = window.matchMedia("(max-width: 720px)");
-    const restoreToPanel = () => {
-      if (scenarioCard.parentElement === scenarioAnchor.parentElement && scenarioCard.previousElementSibling === scenarioAnchor) {
-        return;
-      }
-      scenarioAnchor.insertAdjacentElement("afterend", scenarioCard);
-    };
-
-    const restoreProfileToPanel = () => {
-      if (profileGangCard.parentElement === profileAnchor.parentElement && profileGangCard.previousElementSibling === profileAnchor) {
-        return;
-      }
-      profileAnchor.insertAdjacentElement("afterend", profileGangCard);
-    };
-
-    const moveProfileUnderResources = () => {
-      if (profileGangCard.parentElement === main && profileGangCard === main.firstElementChild) {
-        return;
-      }
-      main.insertAdjacentElement("afterbegin", profileGangCard);
-    };
-
-    const moveScenarioToProfileSlot = () => {
-      if (scenarioCard.parentElement === profileAnchor.parentElement && scenarioCard.previousElementSibling === profileAnchor) {
-        return;
-      }
-      profileAnchor.insertAdjacentElement("afterend", scenarioCard);
-    };
-
-    const applyPlacement = () => {
-      if (media.matches) {
-        moveProfileUnderResources();
-        moveScenarioToProfileSlot();
-        return;
-      }
-      restoreProfileToPanel();
-      restoreToPanel();
-    };
-
-    applyPlacement();
-    if (typeof media.addEventListener === "function") {
-      media.addEventListener("change", applyPlacement);
-    } else if (typeof media.addListener === "function") {
-      media.addListener(applyPlacement);
-    }
-    window.addEventListener("resize", applyPlacement);
+    return getMobileLayoutHelpers()?.setMobileTopbarCoveredByPrimaryModal?.(covered);
   }
 
   function initMobileLeaderboardCardPlacement() {
-    const leaderboardCard = document.getElementById("leaderboard-card");
-    const leaderboardAnchor = document.getElementById("leaderboard-card-anchor");
-    const allianceChatCard = document.getElementById("alliance-chat-card");
-    if (!leaderboardCard || !leaderboardAnchor || !allianceChatCard) return;
-
-    const media = window.matchMedia("(max-width: 1200px)");
-
-    const restoreToLeftPanel = () => {
-      if (
-        leaderboardCard.parentElement === leaderboardAnchor.parentElement
-        && leaderboardCard.previousElementSibling === leaderboardAnchor
-      ) {
-        return;
-      }
-      leaderboardAnchor.insertAdjacentElement("afterend", leaderboardCard);
-    };
-
-    const moveUnderAllianceChat = () => {
-      if (
-        leaderboardCard.parentElement === allianceChatCard.parentElement
-        && leaderboardCard.previousElementSibling === allianceChatCard
-      ) {
-        return;
-      }
-      allianceChatCard.insertAdjacentElement("afterend", leaderboardCard);
-    };
-
-    const applyPlacement = () => {
-      if (media.matches) {
-        moveUnderAllianceChat();
-        return;
-      }
-      restoreToLeftPanel();
-    };
-
-    applyPlacement();
-    if (typeof media.addEventListener === "function") {
-      media.addEventListener("change", applyPlacement);
-    } else if (typeof media.addListener === "function") {
-      media.addListener(applyPlacement);
-    }
-    window.addEventListener("resize", applyPlacement);
+    return getMobileLayoutHelpers()?.initMobileLeaderboardCardPlacement?.();
   }
 
   function initMobileMarketBuildingShortcutsPlacement() {
-    const shortcuts = document.getElementById("market-building-shortcuts");
-    const homeAnchor = document.getElementById("market-building-shortcuts-anchor");
-    const mobileAnchor = document.getElementById("mobile-market-shortcuts-anchor");
-    if (!shortcuts || !homeAnchor || !mobileAnchor) return;
-
-    const media = window.matchMedia("(max-width: 720px)");
-
-    const restoreToLeftPanel = () => {
-      if (
-        shortcuts.parentElement === homeAnchor.parentElement
-        && shortcuts.previousElementSibling === homeAnchor
-      ) {
-        return;
-      }
-      homeAnchor.insertAdjacentElement("afterend", shortcuts);
-    };
-
-    const moveUnderProfile = () => {
-      if (
-        shortcuts.parentElement === mobileAnchor.parentElement
-        && shortcuts.previousElementSibling === mobileAnchor
-      ) {
-        return;
-      }
-      mobileAnchor.insertAdjacentElement("afterend", shortcuts);
-    };
-
-    const applyPlacement = () => {
-      if (media.matches) {
-        moveUnderProfile();
-        return;
-      }
-      restoreToLeftPanel();
-    };
-
-    applyPlacement();
-    if (typeof media.addEventListener === "function") {
-      media.addEventListener("change", applyPlacement);
-    } else if (typeof media.addListener === "function") {
-      media.addListener(applyPlacement);
-    }
-    window.addEventListener("resize", applyPlacement);
+    return getMobileLayoutHelpers()?.initMobileMarketBuildingShortcutsPlacement?.();
   }
 
   function initMobilePrimaryActionCardsPlacement() {
-    const shortcuts = document.getElementById("market-building-shortcuts");
-    const cityEventsCard = document.getElementById("city-events-open")?.closest(".card");
-    const buildingsCard = document.getElementById("buildings-open")?.closest(".card");
-    const marketCard = document.getElementById("market-open")?.closest(".card");
-    const cityEventsAnchor = document.getElementById("city-events-card-anchor");
-    const buildingsAnchor = document.getElementById("buildings-card-anchor");
-    const marketAnchor = document.getElementById("market-card-anchor");
-    if (
-      !shortcuts
-      || !cityEventsCard
-      || !buildingsCard
-      || !marketCard
-      || !cityEventsAnchor
-      || !buildingsAnchor
-      || !marketAnchor
-    ) {
-      return;
-    }
-
-    const media = window.matchMedia("(max-width: 720px)");
-
-    const restoreToLeftPanel = () => {
-      cityEventsAnchor.insertAdjacentElement("afterend", cityEventsCard);
-      buildingsAnchor.insertAdjacentElement("afterend", buildingsCard);
-      marketAnchor.insertAdjacentElement("afterend", marketCard);
-    };
-
-    const moveUnderShortcuts = () => {
-      let insertAfter = shortcuts;
-      [cityEventsCard, buildingsCard, marketCard].forEach((card) => {
-        insertAfter.insertAdjacentElement("afterend", card);
-        insertAfter = card;
-      });
-    };
-
-    const applyPlacement = () => {
-      if (media.matches) {
-        moveUnderShortcuts();
-        return;
-      }
-      restoreToLeftPanel();
-    };
-
-    applyPlacement();
-    if (typeof media.addEventListener === "function") {
-      media.addEventListener("change", applyPlacement);
-    } else if (typeof media.addListener === "function") {
-      media.addListener(applyPlacement);
-    }
-    window.addEventListener("resize", applyPlacement);
+    return getMobileLayoutHelpers()?.initMobilePrimaryActionCardsPlacement?.();
   }
 
   function initMobileModalTopbarResourceVisibility() {
-    const media = window.matchMedia("(max-width: 720px)");
-    const modalNodes = Array.from(document.querySelectorAll(".modal"));
-    const topbarVisibleBuildingTypes = new Set(["building-detail-modal:drug-lab", "building-detail-modal:pharmacy", "building-detail-modal:factory", "building-detail-modal:armory"]);
-    const topbarHiddenModalIds = new Set([
-      "events-modal",
-      "buildings-modal",
-      "bounty-modal",
-      "storage-modal",
-      "leaderboard-modal",
-      "profile-modal",
-      "gang-heat-modal",
-      "alliance-modal",
-      "alliance-create-modal",
-      "alliance-management-modal",
-      "settings-modal",
-      "district-modal",
-      "district-defense-modal",
-      "spy-confirm-modal",
-      "raid-confirm-modal",
-      "occupy-confirm-modal",
-      "spy-result-modal",
-      "spy-warning-modal",
-      "raid-result-modal",
-      "police-action-result-modal",
-      "boost-modal",
-      "attack-modal",
-      "attack-confirm-modal",
-      "attack-result-modal"
-    ]);
-    if (!modalNodes.length) return;
-
-    const applyState = () => {
-      if (!media.matches) {
-        document.body.classList.remove("mobile-hide-topbar");
-        document.body.classList.remove("mobile-hide-topbar-stats");
-        document.body.classList.remove("mobile-police-modal-open");
-        document.body.classList.remove("mobile-boost-modal-open");
-        return;
-      }
-
-      const openModals = modalNodes.filter((modal) => !modal.classList.contains("hidden"));
-      const hasNonSpecialBuildingDetailOpen = openModals.some((modal) => (
-        modal.id === "building-detail-modal"
-        && !topbarVisibleBuildingTypes.has(`${modal.id}:${String(modal.dataset.buildingMechanicsType || "").trim()}`)
-      ));
-      const hasSpecialBuildingDetailOpen = openModals.some((modal) => (
-        modal.id === "building-detail-modal"
-        && topbarVisibleBuildingTypes.has(`${modal.id}:${String(modal.dataset.buildingMechanicsType || "").trim()}`)
-      ));
-      const shouldHideTopbar = openModals.some((modal) => topbarHiddenModalIds.has(modal.id)) || hasNonSpecialBuildingDetailOpen;
-      const policeModalOpen = openModals.some((modal) => modal.id === "police-action-result-modal");
-      const boostModalOpen = openModals.some((modal) => modal.id === "boost-modal");
-      const shouldHideStats = false;
-      document.body.classList.toggle("mobile-hide-topbar", shouldHideTopbar);
-      document.body.classList.toggle("mobile-hide-topbar-stats", shouldHideStats);
-      document.body.classList.toggle("mobile-police-modal-open", policeModalOpen);
-      document.body.classList.toggle("mobile-boost-modal-open", boostModalOpen);
-    };
-
-    const observer = new MutationObserver((mutations) => {
-      if (!mutations?.length) return;
-      applyState();
-    });
-
-    modalNodes.forEach((modal) => {
-      observer.observe(modal, { attributes: true, attributeFilter: ["class"] });
-    });
-
-    if (typeof media.addEventListener === "function") {
-      media.addEventListener("change", applyState);
-    } else if (typeof media.addListener === "function") {
-      media.addListener(applyState);
-    }
-    window.addEventListener("resize", applyState);
-    applyState();
+    return getMobileLayoutHelpers()?.initMobileModalTopbarResourceVisibility?.();
   }
 
   function recordVerifiedIntelEvent(payload = {}) {
@@ -4505,7 +3891,6 @@ window.Empire.UI = (() => {
     safeInit("initGangHeatModal", initGangHeatModal);
     safeInit("initEventFeedControls", initEventFeedControls);
     safeInit("initInfoWindowHistoryControls", initInfoWindowHistoryControls);
-    safeInit("initPlayerScenarioButtons", initPlayerScenarioButtons);
     document.getElementById("attack-btn").addEventListener("click", async () => {
       if (!window.Empire.selectedDistrict) return;
       const attackBtn = document.getElementById("attack-btn");
@@ -6555,16 +5940,6 @@ window.Empire.UI = (() => {
         destroyed: false
       };
     }
-    if (activePlayerScenarioKey === INTERNAL_INDEX_HRA_SCENARIO_KEY && districtId === 89) {
-      return {
-        outcomeKey: "catastrophe",
-        winChancePct: 100,
-        attackerLossPct: 100,
-        defenderLossPct: 100,
-        districtLossPct: 100,
-        destroyed: true
-      };
-    }
     const catastrophe = Math.random() < ((8 + bonusCatastropheChancePct) / 100);
     const winChancePct = calculateAttackWinChancePct(attack, defense);
     if (catastrophe) {
@@ -6663,7 +6038,7 @@ window.Empire.UI = (() => {
   }
 
   function isOnboardingDemoScenarioActive() {
-    return activePlayerScenarioKey === "onboarding-20-edge" && scenarioVisionEnabled && !window.Empire.token;
+    return false;
   }
 
   function shouldLockOnboardingResultModal() {
@@ -10062,7 +9437,6 @@ window.Empire.UI = (() => {
       return { allowed: false, reason: "Nejprve vyber distrikt." };
     }
     const districtId = Number(district?.id);
-    const onboardingDemoActive = activePlayerScenarioKey === "onboarding-20-edge" && scenarioVisionEnabled && !window.Empire.token;
     if (isDistrictDestroyed(district)) {
       return { allowed: false, reason: "Distrikt je zničený a nepoužitelný." };
     }
@@ -10091,9 +9465,6 @@ window.Empire.UI = (() => {
     }
 
     if (action === "attack") {
-      if (onboardingDemoActive && districtId === ONBOARDING_TUTORIAL_ATTACK_DISTRICT_ID) {
-        return { allowed: true, reason: "" };
-      }
       const activeAttackCooldownMs = getActiveAttackCooldownRemainingMs();
       if (activeAttackCooldownMs > 0) {
         return {
@@ -10122,12 +9493,6 @@ window.Empire.UI = (() => {
     }
 
     if (action === "occupy") {
-      if (onboardingDemoActive && districtId === ONBOARDING_TUTORIAL_SPY_DISTRICT_ID) {
-        if (!resolveCompleteSpyIntel(district?.id)) {
-          return { allowed: false, reason: "Nejdřív musí proběhnout úspěšné špehování tohoto distriktu." };
-        }
-        return { allowed: true, reason: "" };
-      }
       if (!isDistrictUnownedForSpyOutcome(district)) {
         return { allowed: false, reason: "Obsadit lze jen neobsazený distrikt." };
       }
@@ -10147,13 +9512,7 @@ window.Empire.UI = (() => {
       if (action === "raid" && hasActivePoliceRaidImpactLock("raidBlocked")) {
         return { allowed: false, reason: "Během policejní razie je vykrádání dočasně zakázáno." };
       }
-      if (onboardingDemoActive && districtId === ONBOARDING_TUTORIAL_SPY_DISTRICT_ID) {
-        return { allowed: true, reason: "" };
-      }
       if (action === "raid") {
-        if (onboardingDemoActive && districtId === ONBOARDING_TUTORIAL_RAID_DISTRICT_ID) {
-          return { allowed: true, reason: "" };
-        }
         const globalRaidCooldownMs = getRaidCooldownRemainingMs();
         if (globalRaidCooldownMs > 0) {
           return {
@@ -10214,29 +9573,6 @@ window.Empire.UI = (() => {
       defenseDetail,
       weapons: getAttackWeaponTotal(attackDetail),
       defense: getDefenseWeaponTotal(defenseDetail)
-    };
-  }
-
-  function createOnboardingDemoEconomy() {
-    const loadout = createDemoWeaponLoadout(1);
-    return {
-      cleanMoney: 1200,
-      dirtyMoney: 2000,
-      balance: 3200,
-      drugs: 6,
-      materials: 12,
-      influence: 8,
-      spyCount: 2,
-      spies: 2,
-      drugInventory: {
-        neonDust: 3,
-        pulseShot: 1,
-        velvetSmoke: 1,
-        ghostSerum: 1,
-        overdriveX: 0
-      },
-      activeDrugs: {},
-      ...loadout
     };
   }
 
@@ -10364,7 +9700,6 @@ window.Empire.UI = (() => {
       body.classList.contains("onboarding-active")
       || body.classList.contains("onboarding-ui-locked")
       || hasOnboardingStepClass
-      || activePlayerScenarioKey === "onboarding-20-edge"
     );
     const shouldHide = isMobileViewport && onboardingActive;
     neutralToggle.style.display = shouldHide ? "none" : "";
@@ -10608,31 +9943,6 @@ window.Empire.UI = (() => {
     applyMapBorderSwitchVisuals();
   }
 
-  function initPlayerScenarioButtons() {
-    const scenarioButtons = Array.from(document.querySelectorAll("[data-player-scenario]"));
-    if (!scenarioButtons.length) return;
-    try {
-      localStorage.removeItem(PLAYER_SCENARIO_STORAGE_KEY);
-    } catch {}
-
-    const setActiveScenarioButton = (scenarioKey) => {
-      scenarioButtons.forEach((candidate) => {
-        candidate.classList.toggle("is-active", candidate.dataset.playerScenario === scenarioKey);
-      });
-    };
-
-    scenarioButtons.forEach((button) => {
-      button.addEventListener("click", () => {
-        const scenarioKey = button.dataset.playerScenario;
-        applyPlayerScenario(scenarioKey);
-        setActiveScenarioButton(String(scenarioKey || ""));
-        activeIndexMapView = String(scenarioKey || "").trim() === INTERNAL_INDEX_HRA_SCENARIO_KEY ? "hra" : "";
-        syncIndexMapToggleButton();
-        refreshGuestBannerVisibility();
-      });
-    });
-  }
-
   function cloneScenarioPolygon(polygon) {
     return (Array.isArray(polygon) ? polygon : []).map((point) => [
       Number(point?.[0] || 0),
@@ -10657,592 +9967,53 @@ window.Empire.UI = (() => {
   }
 
   function applyPlayerScenario(scenarioKey) {
-    const districts = resolveScenarioSourceDistricts();
-    if (!districts.length || !window.Empire.Map?.setDistricts) {
-      pushEvent("Mapa ještě není připravená.");
-      return;
-    }
-    activePlayerScenarioKey = String(scenarioKey || "");
-    activeScenarioOwnerName = "";
-    const normalizedScenarioKey = activePlayerScenarioKey === INTERNAL_INDEX_HRA_SCENARIO_KEY
-        ? "alliance-ten"
-        : activePlayerScenarioKey;
-    document.body.classList.toggle("scenario-onboarding-20-edge", normalizedScenarioKey === "onboarding-20-edge");
-    const forcedMapMode = activePlayerScenarioKey === INTERNAL_INDEX_HRA_SCENARIO_KEY
-      ? "blackout"
-      : "";
-
-    const ownerName = resolveScenarioOwnerName();
-    activeScenarioOwnerName = ownerName;
-    const allyName = "Chavi_Cz";
-    scenarioUniqueOwnerColors = false;
-    scenarioProfileAvatarOverride = normalizedScenarioKey === "onboarding-20-edge" ? ONBOARDING_PROFILE_AVATAR : null;
+    setScenarioVisionMode(false);
+    setScenarioAllianceOwners([]);
+    setScenarioEnemyOwners([]);
     setScenarioAllianceIcons([]);
+    activePlayerScenarioKey = "";
+    activeScenarioOwnerName = "";
+    scenarioUniqueOwnerColors = false;
+    scenarioProfileAvatarOverride = null;
+    roundStatusOverride = null;
     syncMapVisionContext();
-    const mapScenarioDistrictOwner = (district, owner = null) => ({
-      ...district,
-      owner: owner || null,
-      ownerPlayerId: null,
-      ownerNick: null,
-      ownerAllianceName: null,
-      ownerStructure: owner ? resolveDemoOwnerFaction(owner) : null,
-      ownerFaction: owner ? resolveDemoOwnerFaction(owner) : null,
-      ownerAvatar: owner ? resolveDemoOwnerAvatar(owner) : null,
-      ownerAtmosphere: owner ? resolveDemoDistrictAtmosphere(district, owner) : null,
-      isDestroyed: false,
-      destroyedAt: null
-    });
-    let nextDistricts = districts.map((district) => mapScenarioDistrictOwner(district));
+
+    const normalizedScenarioKey = String(scenarioKey || "").trim().toLowerCase();
+    if (!normalizedScenarioKey) return false;
+
+    const scenarioState = getIndexWarScenarioHelpers()?.resolveScenarioState?.(normalizedScenarioKey);
+    if (!scenarioState) return false;
+
+    activePlayerScenarioKey = String(scenarioState.key || normalizedScenarioKey).trim();
+    activeScenarioOwnerName = String(scenarioState.ownerName || "").trim();
+    scenarioUniqueOwnerColors = Boolean(scenarioState.uniqueOwnerColors);
+    scenarioProfileAvatarOverride = scenarioState.profileAvatarOverride || null;
+    roundStatusOverride = scenarioState.roundStatusOverride || null;
 
     const baseProfile = {
-      ...(window.Empire.player || {}),
-      ...(cachedProfile || {}),
-      username: ownerName,
-      name: ownerName,
-      gangName: cachedProfile?.gangName || ownerName,
-      structure: cachedProfile?.structure || readStoredStructure() || "-",
-      alliance: "Žádná",
-      districts: 0,
-      structure: cachedProfile?.structure || readStoredStructure() || resolveDemoOwnerFaction(ownerName),
-      ...createDemoWeaponLoadout()
+      ...(cachedProfile && typeof cachedProfile === "object" ? cachedProfile : {}),
+      ...(window.Empire.player && typeof window.Empire.player === "object" ? window.Empire.player : {})
     };
-    let scenarioAttackIncident = null;
-    let scenarioPoliceIncident = null;
-    let scenarioAttackIncidents = [];
-    let scenarioPoliceIncidents = [];
-    let scenarioPoliceIncidentIds = [];
-    let scenarioDestroyedDistrictId = null;
-    roundStatusOverride = null;
+    const nextProfile = {
+      ...baseProfile,
+      ...(scenarioState.playerProfilePatch && typeof scenarioState.playerProfilePatch === "object"
+        ? scenarioState.playerProfilePatch
+        : {})
+    };
 
-    if (normalizedScenarioKey === "full-map") {
-      setScenarioVisionMode(true);
-      setScenarioAllianceOwners([]);
-      setScenarioEnemyOwners([]);
-      nextDistricts = districts.map((district) => mapScenarioDistrictOwner(district, ownerName));
-      baseProfile.districts = districts.length;
-      baseProfile.alliance = "Žádná";
-      pushEvent(`Ukázka: ${ownerName} ovládá celou mapu (${districts.length} sektorů).`);
-    } else if (normalizedScenarioKey === "single-district") {
-      setScenarioVisionMode(true);
-      setScenarioAllianceOwners([]);
-      setScenarioEnemyOwners([]);
-      const bounds = getDistrictBounds(districts);
-      const selected = [...districts].sort(
-        (a, b) => distanceFromMapCenter(a, bounds) - distanceFromMapCenter(b, bounds)
-      )[0];
-      if (selected) {
-        nextDistricts = districts.map((district) => ({
-          ...mapScenarioDistrictOwner(district),
-          owner: district.id === selected.id ? ownerName : null
-        }));
-        baseProfile.districts = 1;
-      }
-      baseProfile.alliance = "Žádná";
-      pushEvent("Ukázka: hráč drží pouze jeden distrikt.");
-    } else if (normalizedScenarioKey === "alliance-ten") {
-      const enemyOneName = "Mariah";
-      const enemyTwoName = "Willy";
-      const enemyOwners = [enemyOneName, enemyTwoName];
-      const ownAllianceName = "Zabijáci";
-      const blackoutAllyName = "Knedlík";
-      const enemyAllianceName = "Stínoví vlci";
-      const blackoutAllianceName = "Zabijáci";
-      const blackoutEnemyAllianceName = "Ledová aliance";
-      const blackoutSecondEnemyName = "Ledovec";
-      const blackoutThirdEnemyName = "Poltergeist";
-      const blackoutFourthEnemyName = "Sněhulák";
-      const blackoutFifthEnemyName = "Pepek";
-      setScenarioAllianceIcons([
-        [ownAllianceName, "lightning"],
-        [enemyAllianceName, "wolf_head"],
-        [blackoutAllianceName, "lightning"],
-        [blackoutEnemyAllianceName, "broken_shield"]
-      ]);
-      setScenarioVisionMode(true);
-      scenarioUniqueOwnerColors = true;
-      setScenarioAllianceOwners([allyName]);
-      setScenarioEnemyOwners(enemyOwners);
-      nextDistricts = assignAllianceTenScenarioOwnership(districts, ownerName, allyName, {
-        ownAllianceName,
-        enemyOwners,
-        enemyAllianceName
-      });
-      const ownDistrictCount = countOwnedDistrictsForOwner(nextDistricts, ownerName);
-      const allyDistrictCount = countOwnedDistrictsForOwner(nextDistricts, allyName);
-      const enemyDistrictCount = enemyOwners.reduce(
-        (sum, enemyOwner) => sum + countOwnedDistrictsForOwner(nextDistricts, enemyOwner),
-        0
-      );
-      const totalOwned = ownDistrictCount + allyDistrictCount;
-      baseProfile.districts = ownDistrictCount;
-      baseProfile.alliance = `${ownAllianceName} (2/4 • ${totalOwned} sektorů)`;
-      roundStatusOverride = buildRoundStatusPresetForMode(
-        activePlayerScenarioKey === INTERNAL_INDEX_HRA_SCENARIO_KEY ? "blackout" : "night"
-      );
-      nextDistricts = nextDistricts.map((district) => {
-        if (normalizeOwnerName(district?.owner) !== normalizeOwnerName(allyName)) return district;
-        return {
-          ...district,
-          ownerAllianceName: blackoutEnemyAllianceName
-        };
-      });
-      {
-        const blackoutPlayerDistrictIds = new Set([84, 95, 92, 120, 126]);
-        setScenarioAllianceOwners([blackoutAllyName]);
-        nextDistricts = nextDistricts.map((district) => {
-          const districtId = Number(district?.id);
-          if (blackoutPlayerDistrictIds.has(districtId)) {
-            return {
-              ...district,
-              owner: ownerName,
-              ownerNick: ownerName,
-              ownerAllianceName: blackoutAllianceName,
-              ...buildDemoDistrictOwnerMeta(ownerName, district)
-            };
-          }
-          if (districtId === 143 || districtId === 121) {
-            return {
-              ...district,
-              owner: blackoutThirdEnemyName,
-              ownerNick: blackoutThirdEnemyName,
-              ownerAllianceName: null,
-              ...buildDemoDistrictOwnerMeta(blackoutThirdEnemyName, district)
-            };
-          }
-          if (districtId === 38 || districtId === 25) {
-            return {
-              ...district,
-              owner: blackoutFourthEnemyName,
-              ownerNick: blackoutFourthEnemyName,
-              ownerAllianceName: blackoutEnemyAllianceName,
-              ...buildDemoDistrictOwnerMeta(blackoutFourthEnemyName, district)
-            };
-          }
-          if (districtId === 82) {
-            return {
-              ...district,
-              owner: blackoutSecondEnemyName,
-              ownerNick: blackoutSecondEnemyName,
-              ownerAllianceName: blackoutEnemyAllianceName,
-              ...buildDemoDistrictOwnerMeta(blackoutSecondEnemyName, district)
-            };
-          }
-          if (districtId === 108 || districtId === 103 || districtId === 89) {
-            return {
-              ...district,
-              owner: blackoutFifthEnemyName,
-              ownerNick: blackoutFifthEnemyName,
-              ownerAllianceName: null,
-              ...buildDemoDistrictOwnerMeta(blackoutFifthEnemyName, district)
-            };
-          }
-          if (districtId === 102) {
-            return {
-              ...district,
-              owner: blackoutAllyName,
-              ownerNick: blackoutAllyName,
-              ownerAllianceName: blackoutAllianceName,
-              ...buildDemoDistrictOwnerMeta(blackoutAllyName, district)
-            };
-          }
-          if (districtId === 109) {
-            return {
-              ...district,
-              owner: blackoutAllyName,
-              ownerNick: blackoutAllyName,
-              ownerAllianceName: blackoutAllianceName,
-              ...buildDemoDistrictOwnerMeta(blackoutAllyName, district)
-            };
-          }
-          if (normalizeOwnerName(district?.owner) === normalizeOwnerName(ownerName)) {
-            return {
-              ...district,
-              ownerAllianceName: blackoutAllianceName
-            };
-          }
-          if (normalizeOwnerName(district?.owner) === normalizeOwnerName(allyName)) {
-            return {
-              ...district,
-              ownerAllianceName: blackoutEnemyAllianceName
-            };
-          }
-          return district;
-        });
-        setScenarioEnemyOwners([enemyOneName, enemyTwoName, blackoutSecondEnemyName, blackoutThirdEnemyName, blackoutFourthEnemyName, blackoutFifthEnemyName]);
-        baseProfile.alliance = blackoutAllianceName;
-        baseProfile.districts = countOwnedDistrictsForOwner(nextDistricts, ownerName);
-      }
-      if (activePlayerScenarioKey === INTERNAL_INDEX_HRA_SCENARIO_KEY) {
-        scenarioPoliceIncidentIds = [143, 38];
-      }
-      pushEvent(`Ukázka: ${ownerName} drží ${ownDistrictCount} sektorů, Chavi_Cz ${allyDistrictCount}.`);
-      pushEvent(`Hrozba: nepřátelská aliance (${enemyOneName} + ${enemyTwoName}) drží ${enemyDistrictCount} sousedních sektorů.`);
-    } else if (normalizedScenarioKey === "alliance-war") {
-      const allyOneName = `${ownerName} - spojenec A`;
-      const allyTwoName = "Chavi_Cz";
-      const allyTwoAllianceName = "Ledovec";
-      const enemyAllianceOne = ["Stínoví vlci 1", "Stínoví vlci 2", "Stínoví vlci 3"];
-      const enemyAllianceTwo = ["Neonové kobry 1", "Neonové kobry 2", "Neonové kobry 3"];
-      const enemyOwners = [...enemyAllianceOne, ...enemyAllianceTwo];
+    updateProfile(nextProfile);
+    setScenarioVisionMode(true);
+    setScenarioAllianceOwners(Array.isArray(scenarioState.alliedOwners) ? scenarioState.alliedOwners : []);
+    setScenarioEnemyOwners(Array.isArray(scenarioState.enemyOwners) ? scenarioState.enemyOwners : []);
+    setScenarioAllianceIcons(Array.isArray(scenarioState.allianceIcons) ? scenarioState.allianceIcons : []);
 
-      setScenarioVisionMode(true);
-      setScenarioAllianceOwners([allyOneName, allyTwoName]);
-      setScenarioEnemyOwners(enemyOwners);
-
-      const allocations = [
-        { owner: ownerName, count: 3 },
-        { owner: allyOneName, count: 4 },
-        { owner: allyTwoName, count: 4 },
-        ...enemyOwners.map((enemyOwner) => ({ owner: enemyOwner, count: 3 }))
-      ];
-      nextDistricts = assignOwnersToNeighborClusters(districts, allocations, {
-        excludeTypes: ["downtown"]
-      });
-      nextDistricts = nextDistricts.map((district) => {
-        if (normalizeOwnerName(district?.owner) !== normalizeOwnerName(allyTwoName)) return district;
-        return {
-          ...district,
-          ownerAllianceName: allyTwoAllianceName
-        };
-      });
-      const ownDistrictCount = countOwnedDistrictsForOwner(nextDistricts, ownerName);
-      const allyTotal = countOwnedDistrictsForOwner(nextDistricts, allyOneName)
-        + countOwnedDistrictsForOwner(nextDistricts, allyTwoName);
-      const enemyTotal = enemyOwners.reduce(
-        (sum, enemyOwner) => sum + countOwnedDistrictsForOwner(nextDistricts, enemyOwner),
-        0
-      );
-      baseProfile.districts = ownDistrictCount;
-      baseProfile.alliance = `${ownerName} + 2 spojenci (3/4 • ${ownDistrictCount + allyTotal} sektorů)`;
-      pushEvent(
-        `Ukázka: ty držíš ${ownDistrictCount} sektory, 2 spojenci drží ${allyTotal} a 2 nepřátelské aliance drží ${enemyTotal} sektorů.`
-      );
-    } else if (normalizedScenarioKey === "alliance-20") {
-      const scenario = buildTwentyPlayerAllianceScenario(districts, ownerName);
-      if (!scenario.districts.length) {
-        pushEvent("Ukázka 20 hráčů se nepodařila připravit.");
-        return;
-      }
-      setScenarioVisionMode(true);
-      scenarioUniqueOwnerColors = true;
-      syncMapVisionContext();
-      setScenarioAllianceOwners(scenario.alliedOwners);
-      setScenarioEnemyOwners(scenario.enemyOwners);
-      nextDistricts = scenario.districts;
-      baseProfile.districts = scenario.ownDistrictCount;
-      baseProfile.alliance = `${scenario.ownAllianceName} (${scenario.ownAllianceMemberCount}/${scenario.allianceMemberCap || 2} • ${scenario.ownAllianceDistrictCount} sektorů)`;
-      scenarioAttackIncident = scenario.attackIncident || null;
-      scenarioPoliceIncident = scenario.policeIncident || null;
-      scenarioDestroyedDistrictId = scenario.destroyedDistrictId ?? null;
-      pushEvent(
-        `Ukázka: ${scenario.playerCount} hráčů ve ${scenario.allianceCount} aliancích. Každý má ${scenario.minPerPlayer}-${scenario.maxPerPlayer} sektorů.`
-      );
-      if (scenarioAttackIncident?.targetDistrictId != null) {
-        pushEvent(
-          `Incident: distrikt ${scenarioAttackIncident.sourceDistrictId} zaútočil na distrikt ${scenarioAttackIncident.targetDistrictId}.`
-        );
-      }
-      if (scenarioPoliceIncident?.targetDistrictId != null) {
-        pushEvent(
-          `Bezpečnost: velká policejní akce probíhá v distriktu ${scenarioPoliceIncident.targetDistrictId}.`
-        );
-      }
-      if (scenarioDestroyedDistrictId != null) {
-        pushEvent(`Katastrofa: distrikt ${scenarioDestroyedDistrictId} je vypálený a nepoužitelný.`);
-      }
-    } else if (normalizedScenarioKey === "night-20-war") {
-      const scenario = buildNightTwentyWarScenario(districts, ownerName);
-      if (!scenario.districts.length) {
-        pushEvent("Noční stav 20 hráčů se nepodařilo připravit.");
-        return;
-      }
-      setScenarioVisionMode(true);
-      scenarioUniqueOwnerColors = true;
-      setScenarioAllianceIcons(Array.isArray(scenario.allianceIconEntries) ? scenario.allianceIconEntries : []);
-      syncMapVisionContext();
-      setScenarioAllianceOwners(scenario.alliedOwners);
-      setScenarioEnemyOwners(scenario.enemyOwners);
-      nextDistricts = scenario.districts;
-      baseProfile.districts = scenario.ownDistrictCount;
-      baseProfile.alliance = `${scenario.ownAllianceName} (${scenario.ownAllianceMemberCount}/4 • ${scenario.ownAllianceDistrictCount} sektorů)`;
-      roundStatusOverride = buildRoundStatusPresetForMode("night");
-      scenarioAttackIncidents = Array.isArray(scenario.attackIncidents) ? scenario.attackIncidents : [];
-      scenarioPoliceIncidents = Array.isArray(scenario.policeIncidents) ? scenario.policeIncidents : [];
-      pushEvent(
-        `Noční stav: ${scenario.playerCount} hráčů ve ${scenario.allianceCount} aliancích. Každý má ${scenario.minPerPlayer}-${scenario.maxPerPlayer} sektorů.`
-      );
-      pushEvent(`Mapa je plně obsazená. Aktivní útoky: ${scenarioAttackIncidents.length}. Policejní razie: ${scenarioPoliceIncidents.length}.`);
-    } else if (normalizedScenarioKey === "onboarding-20-edge") {
-      const scenario = buildTwentyPlayerEdgeOnboardingScenario(districts, ownerName);
-      if (!scenario.districts.length) {
-        pushEvent("Onboarding scénář 20 hráčů se nepodařilo připravit.");
-        return;
-      }
-      const onboardingAllianceName = "Vortex Crew";
-      setScenarioVisionMode(true);
-      scenarioUniqueOwnerColors = true;
-      setScenarioAllianceIcons([[onboardingAllianceName, "lightning"]]);
-      syncMapVisionContext();
-      setScenarioAllianceOwners([]);
-      setScenarioEnemyOwners(scenario.enemyOwners);
-      nextDistricts = scenario.districts;
-      const tutorialEnemyOwner = String(scenario.enemyOwners?.[0] || "Vortex Hounds").trim() || "Vortex Hounds";
-      nextDistricts = nextDistricts.map((district) => {
-        if (Number(district?.id) === ONBOARDING_TUTORIAL_SPY_DISTRICT_ID) {
-          const existingBuildings = Array.isArray(district?.buildings) ? [...district.buildings] : [];
-          const normalizedBuildings = existingBuildings.map((building) => normalizeOwnerName(building));
-          const filteredBuildings = existingBuildings.filter((building) => {
-            const normalized = normalizeOwnerName(building);
-            return normalized !== "pouliční dealeři" && normalized !== "poulicni dealeri";
-          });
-          if (!normalizedBuildings.includes("drug lab") && !normalizedBuildings.includes("druglab")) {
-            filteredBuildings.push("Drug lab");
-          }
-          return {
-            ...district,
-            owner: null,
-            ownerPlayerId: null,
-            ownerNick: null,
-            ownerAllianceName: null,
-            ownerStructure: null,
-            ownerFaction: null,
-            ownerAvatar: null,
-            ownerAtmosphere: null,
-            buildings: filteredBuildings
-          };
-        }
-        if (Number(district?.id) === ONBOARDING_TUTORIAL_DRUG_LAB_DISTRICT_ID) {
-          const existingBuildings = Array.isArray(district?.buildings) ? [...district.buildings] : [];
-          const normalizedBuildings = existingBuildings.map((building) => normalizeOwnerName(building));
-          const filteredBuildings = existingBuildings.filter((building) => {
-            const normalized = normalizeOwnerName(building);
-            return normalized !== "drug lab" && normalized !== "druglab";
-          });
-          if (!normalizedBuildings.includes("pouliční dealeři") && !normalizedBuildings.includes("poulicni dealeri")) {
-            filteredBuildings.push("Pouliční dealeři");
-          }
-          return {
-            ...district,
-            buildings: filteredBuildings
-          };
-        }
-        if (Number(district?.id) === ONBOARDING_TUTORIAL_ATTACK_DISTRICT_ID) {
-          return {
-            ...district,
-            owner: tutorialEnemyOwner,
-            ownerPlayerId: null,
-            ownerNick: tutorialEnemyOwner,
-            ownerAllianceName: null,
-            ...buildDemoDistrictOwnerMeta(tutorialEnemyOwner, district)
-          };
-        }
-        if (Number(district?.id) === ONBOARDING_TUTORIAL_RAID_DISTRICT_ID) {
-          return {
-            ...district,
-            owner: tutorialEnemyOwner,
-            ownerPlayerId: null,
-            ownerNick: tutorialEnemyOwner,
-            ownerAllianceName: null,
-            ...buildDemoDistrictOwnerMeta(tutorialEnemyOwner, district)
-          };
-        }
-        if (Number(district?.id) === 16) {
-          return {
-            ...district,
-            ownerAllianceName: onboardingAllianceName,
-            ownerAllianceIconKey: "lightning"
-          };
-        }
-        return district;
-      });
-      baseProfile.districts = scenario.ownDistrictCount;
-      baseProfile.alliance = "Žádná";
-      baseProfile.username = "Onboarding Runner";
-      baseProfile.cleanMoney = 1200;
-      baseProfile.dirtyMoney = 2000;
-      baseProfile.drugs = 6;
-      baseProfile.materials = 12;
-      baseProfile.influence = 8;
-      baseProfile.heat = 45;
-      baseProfile.wantedLevel = 45;
-      baseProfile.wanted = 45;
-      baseProfile.policeHeat = 45;
-      baseProfile.police_heat = 45;
-      const localAllianceState = getLocalAllianceState();
-      if (!window.Empire.token) {
-        const onboardingAllianceId = "alliance-onboarding-vortex";
-        let onboardingAlliance = (localAllianceState.alliances || []).find((alliance) => alliance.id === onboardingAllianceId) || null;
-        if (!onboardingAlliance) {
-          onboardingAlliance = createLocalAlliance(localAllianceState, {
-            name: "Vortex Crew",
-            description: "Onboarding aliance pro ukázku READY, členů a odchodu.",
-            iconKey: "lightning"
-          });
-          onboardingAlliance.id = onboardingAllianceId;
-          onboardingAlliance.members = Array.isArray(onboardingAlliance.members) ? onboardingAlliance.members : [];
-          onboardingAlliance.members[0] = {
-            ...(onboardingAlliance.members[0] || {}),
-            id: LOCAL_ALLIANCE_REQUEST_PLAYER_ID,
-            username: "Ty",
-            gang_name: readStoredGangName() || "Guest Crew",
-            alliance_ready_at: null
-          };
-          onboardingAlliance.members.push(
-            {
-              id: "alliance-onboarding-member-1",
-              username: "Rook",
-              gang_name: "Vortex Crew",
-              alliance_ready_at: new Date().toISOString()
-            },
-            {
-              id: "alliance-onboarding-member-2",
-              username: "Nova",
-              gang_name: "Vortex Crew",
-              alliance_ready_at: new Date(Date.now() - 10 * 60 * 1000).toISOString()
-            }
-          );
-          localAllianceState.activeAllianceId = onboardingAllianceId;
-          saveLocalAllianceState(localAllianceState);
-        } else {
-          onboardingAlliance.members = Array.isArray(onboardingAlliance.members) ? onboardingAlliance.members : [];
-          const playerMember = onboardingAlliance.members.find((member) => String(member.id || "") === LOCAL_ALLIANCE_REQUEST_PLAYER_ID);
-          if (playerMember) {
-            playerMember.alliance_ready_at = null;
-            playerMember.username = "Ty";
-            playerMember.gang_name = readStoredGangName() || "Guest Crew";
-          } else {
-            onboardingAlliance.members.unshift({
-              id: LOCAL_ALLIANCE_REQUEST_PLAYER_ID,
-              username: "Ty",
-              gang_name: readStoredGangName() || "Guest Crew",
-              alliance_ready_at: null
-            });
-          }
-          localAllianceState.activeAllianceId = onboardingAllianceId;
-          saveLocalAllianceState(localAllianceState);
-        }
-        baseProfile.alliance = `${onboardingAlliance.name} (${Math.min(4, onboardingAlliance.members.length)}/4)`;
-      }
-      pushEvent(
-        `Onboarding: ${scenario.playerCount} hráčů, každý drží 1 okrajový distrikt. Tvůj distrikt přímo sousedí s nepřítelem.`
-      );
-    } else {
-      return;
+    if (Array.isArray(scenarioState.districts) && scenarioState.districts.length) {
+      window.Empire.Map?.setDistricts?.(scenarioState.districts);
     }
-
-    window.Empire.player = baseProfile;
-    window.Empire.Map.clearUnderAttackDistricts?.();
-    window.Empire.Map.clearPoliceActions?.();
-    if (forcedMapMode) {
-      window.Empire.Map.setMapMode?.(forcedMapMode);
-    } else if (roundStatusOverride?.phaseKey) {
-      const overrideMode = resolveEffectiveRoundMode(roundStatusOverride.phaseKey, roundStatusOverride.subPhaseKey).mapMode;
-      window.Empire.Map.setMapMode?.(overrideMode || roundStatusOverride.phaseKey);
-    }
-    window.Empire.Map.setDistricts(nextDistricts);
-    const attackMarkers = [];
-    if (scenarioAttackIncident?.targetDistrictId != null) {
-      attackMarkers.push({
-        districtId: scenarioAttackIncident.targetDistrictId,
-        attackerDistrictId: scenarioAttackIncident.sourceDistrictId,
-        durationMs: scenarioAttackIncident.durationMs,
-        source: "scenario-alliance-20"
-      });
-    }
-    if (scenarioAttackIncidents.length) {
-      scenarioAttackIncidents.forEach((incident, index) => {
-        if (incident?.targetDistrictId == null) return;
-        attackMarkers.push({
-          districtId: incident.targetDistrictId,
-          attackerDistrictId: incident.sourceDistrictId,
-          durationMs: Number(incident.durationMs || 10 * 60 * 1000),
-          source: `scenario-night-20-attack-${index + 1}`
-        });
-      });
-    }
-    window.Empire.Map.setUnderAttackDistricts?.(attackMarkers, { replace: true });
-
-    const policeMarkers = [];
-    if (scenarioPoliceIncident?.targetDistrictId != null) {
-      policeMarkers.push({
-        districtId: scenarioPoliceIncident.targetDistrictId,
-        durationMs: scenarioPoliceIncident.durationMs,
-        source: "scenario-alliance-20-police"
-      });
-    }
-    if (scenarioPoliceIncidents.length) {
-      scenarioPoliceIncidents.forEach((incident, index) => {
-        if (incident?.targetDistrictId == null) return;
-        policeMarkers.push({
-          districtId: incident.targetDistrictId,
-          durationMs: Number(incident.durationMs || 14 * 60 * 1000),
-          source: `scenario-night-20-police-${index + 1}`
-        });
-      });
-    }
-    if (scenarioPoliceIncidentIds.length) {
-      scenarioPoliceIncidentIds.forEach((districtId) => {
-        policeMarkers.push({
-          districtId,
-          durationMs: 60000,
-          source: "scenario-alliance-ten-blackout-police"
-        });
-      });
-    }
-    window.Empire.Map.setPoliceActionDistricts?.(policeMarkers, { replace: true });
-    if (normalizedScenarioKey === "onboarding-20-edge") {
-      clearDistrictSpyIntel(ONBOARDING_TUTORIAL_SPY_DISTRICT_ID);
-      clearDistrictSpyIntel(ONBOARDING_TUTORIAL_ATTACK_DISTRICT_ID);
-      setLocalGangMembersBonus(0);
-      setLocalGangMembersSpent(0);
-      updateEconomy(createOnboardingDemoEconomy(), { instant: true });
-      startOnboardingGrowthTicker();
-    } else {
-      stopOnboardingGrowthTicker();
-    }
-    if (!window.Empire.token && isBlackoutLikeScenario()) {
-      const allianceState = String(activePlayerScenarioKey || "").trim() === "night-20-war"
-        ? buildNightTwentyWarLocalAllianceState(ownerName, nextDistricts)
-        : buildAllianceTenBlackoutLocalAllianceState(ownerName, "Knedlík");
-      saveLocalAllianceState(allianceState);
-      const marketState = getLocalMarketState();
-      marketState.scenarioIncome = {
-        ...(marketState.scenarioIncome && typeof marketState.scenarioIncome === "object" ? marketState.scenarioIncome : {}),
-        [BLACKOUT_SCENARIO_INCOME_STORAGE_KEY]: Date.now(),
-        dirtyRemainder: 0
-      };
-      saveLocalMarketState(marketState);
-      const blackoutSources = buildBlackoutPlayerSourcesSnapshot(nextDistricts, ownerName);
-      if (hasMeaningfulBlackoutSources(blackoutSources)) {
-        lastValidBlackoutSources = blackoutSources;
-      }
-      baseProfile.sources = blackoutSources;
-      baseProfile.source = blackoutSources;
-      Object.assign(baseProfile, applyMoneyToProfileSnapshot(baseProfile, marketState.balances || {}));
-      baseProfile.sources = blackoutSources;
-      baseProfile.source = blackoutSources;
-      syncGuestEconomyFromMarket();
-      syncGuestAllianceLabel(allianceState.alliances[0]?.name || "Žádná");
-    }
-    updateProfile(baseProfile);
-    renderRoundStatusState();
-    activeIndexMapView = activePlayerScenarioKey === INTERNAL_INDEX_HRA_SCENARIO_KEY ? "hra" : activeIndexMapView;
-    syncIndexMapToggleButton();
-    document.dispatchEvent(new CustomEvent("empire:scenario-applied", {
-      detail: {
-        scenarioKey: activePlayerScenarioKey,
-        scenarioBaseKey: normalizedScenarioKey,
-        ownerName,
-        profile: baseProfile,
-        districts: nextDistricts
-      }
-    }));
-    if (normalizedScenarioKey === "onboarding-20-edge") {
-      window.Empire.Onboarding?.start?.({
-        ownerName,
-        districts: nextDistricts
-      });
-    }
+    syncBlackoutScenarioDistrictIncome(Date.now());
+    syncGuestEconomyFromMarket();
+    refreshProfilePopulation();
+    return true;
   }
 
   function assignAllianceTenScenarioOwnership(districts, ownerName, allyName, options = {}) {
@@ -11440,1021 +10211,6 @@ window.Empire.UI = (() => {
         ...buildDemoDistrictOwnerMeta(owner, district)
       };
     });
-  }
-
-  function assignOwnersToNeighborClusters(districts, allocations, options = {}) {
-    const safeAllocations = Array.isArray(allocations) ? allocations : [];
-    const excludedTypes = new Set(
-      (Array.isArray(options?.excludeTypes) ? options.excludeTypes : [])
-        .map((value) => String(value || "").trim().toLowerCase())
-        .filter(Boolean)
-    );
-    const allocatableDistricts = excludedTypes.size
-      ? (districts || []).filter(
-        (district) => !excludedTypes.has(String(district?.type || "").trim().toLowerCase())
-      )
-      : (districts || []);
-    const districtCenters = new Map(
-      (districts || []).map((district) => [district.id, polygonCentroid(district.polygon || [])])
-    );
-    const neighborsByDistrict = buildDistrictAdjacency(districts || []);
-    const available = new Set(allocatableDistricts.map((district) => district.id));
-    const ownersByDistrict = new Map();
-    const ownerCount = safeAllocations.length;
-
-    safeAllocations.forEach((item, ownerIndex) => {
-      const owner = String(item?.owner || "").trim();
-      const count = Math.min(Math.max(0, Number(item?.count) || 0), available.size);
-      if (!owner || count < 1) return;
-      const seedId = pickClusterSeed(available, districtCenters, ownerIndex, ownerCount);
-      const clusterIds = growDistrictCluster({
-        seedId,
-        targetSize: count,
-        available,
-        neighborsByDistrict,
-        districtCenters
-      });
-      clusterIds.forEach((districtId) => {
-        ownersByDistrict.set(districtId, owner);
-        available.delete(districtId);
-      });
-    });
-
-    return districts.map((district) => ({
-      ...district,
-      owner: ownersByDistrict.get(district.id) || null,
-      ownerPlayerId: null,
-      ownerNick: null,
-      ownerAllianceName: null,
-      ...buildDemoDistrictOwnerMeta(ownersByDistrict.get(district.id), district)
-    }));
-  }
-
-  function buildTwentyPlayerAllianceScenario(districts, ownerName) {
-    const safeDistricts = Array.isArray(districts) ? districts : [];
-    const emptyResult = {
-      districts: [],
-      alliedOwners: [],
-      enemyOwners: [],
-      attackIncident: null,
-      policeIncident: null,
-      destroyedDistrictId: null,
-      ownDistrictCount: 0,
-      ownAllianceName: "Žádná",
-      ownAllianceMemberCount: 0,
-      ownAllianceDistrictCount: 0,
-      playerCount: 0,
-      allianceCount: 0,
-      minPerPlayer: 0,
-      maxPerPlayer: 0
-    };
-    if (!safeDistricts.length) return emptyResult;
-
-    const maxAllianceSize = 4;
-    const maxPlayersByDistricts = Math.max(1, Math.floor(safeDistricts.length / 4));
-    const playerCount = Math.max(1, Math.min(20, maxPlayersByDistricts));
-    const allianceCount = Math.ceil(playerCount / maxAllianceSize);
-
-    const allianceNamePool = [
-      "Neon Syndicate",
-      "Iron Wolves",
-      "Black Harbor",
-      "Vortex Pact",
-      "Shadow Cartel",
-      "Chrome Circuit",
-      "Night Crown",
-      "Urban Serpents"
-    ];
-    const nickPool = [
-      "Razor Vex", "Ghost Mara", "Nyx Prime", "Iron Shade", "Vortex Kane",
-      "Black Comet", "Neon Riot", "Cobra Unit", "Urban Hex", "Steel Drift",
-      "Zero Pulse", "Night Cipher", "Crimson Dot", "Volt Raven", "Silent Brick",
-      "Alpha Dock", "Chrome Lynx", "Delta Wolf", "Shadow Mint", "Metro Hawk",
-      "Apex Nova", "Toxic Ray", "Retro Kane", "Frost Mamba", "Street Rune",
-      "Kilo Ghost", "Rust Queen", "Nova Pilot", "Beta Venom", "Pixel Vandal"
-    ];
-
-    const usedNames = new Set();
-    const claimUniqueNick = (value, fallbackIndex = 1) => {
-      const base = String(value || "").trim() || `Hráč ${fallbackIndex}`;
-      let candidate = base;
-      let suffix = 2;
-      while (usedNames.has(normalizeOwnerName(candidate))) {
-        candidate = `${base} ${suffix}`;
-        suffix += 1;
-      }
-      usedNames.add(normalizeOwnerName(candidate));
-      return candidate;
-    };
-
-    const players = [];
-    for (let i = 0; i < playerCount; i += 1) {
-      const allianceIndex = Math.floor(i / maxAllianceSize);
-      const allianceName = allianceNamePool[allianceIndex % allianceNamePool.length];
-      const owner = i === 0
-        ? claimUniqueNick(ownerName || "Ty", 1)
-        : claimUniqueNick(nickPool[(i - 1) % nickPool.length], i + 1);
-      const structure = resolveDemoOwnerFaction(owner);
-      players.push({
-        owner,
-        allianceName,
-        allianceIndex,
-        districtCount: 4 + ((i * 11 + 3) % 4),
-        structure,
-        avatar: resolveDemoOwnerAvatar(owner),
-        ...createDemoWeaponLoadout()
-      });
-    }
-
-    let totalTarget = players.reduce((sum, player) => sum + player.districtCount, 0);
-    if (totalTarget > safeDistricts.length) {
-      let guard = 0;
-      while (totalTarget > safeDistricts.length && guard < 10000) {
-        let reduced = false;
-        for (let i = players.length - 1; i >= 0; i -= 1) {
-          if (players[i].districtCount <= 4) continue;
-          players[i].districtCount -= 1;
-          totalTarget -= 1;
-          reduced = true;
-          if (totalTarget <= safeDistricts.length) break;
-        }
-        if (!reduced) break;
-        guard += 1;
-      }
-    }
-
-    const alliances = Array.from({ length: allianceCount }, (_, index) => {
-      const members = players.filter((player) => player.allianceIndex === index);
-      return {
-        index,
-        name: allianceNamePool[index % allianceNamePool.length],
-        members,
-        targetDistricts: members.reduce((sum, member) => sum + member.districtCount, 0)
-      };
-    });
-
-    const districtCenters = new Map(
-      safeDistricts.map((district) => [district.id, polygonCentroid(district.polygon || [])])
-    );
-    const neighborsByDistrict = buildDistrictAdjacency(safeDistricts);
-    const available = new Set(safeDistricts.map((district) => district.id));
-    const ownersByDistrict = new Map();
-
-    alliances.forEach((alliance, allianceIndex) => {
-      const targetDistricts = Math.min(alliance.targetDistricts, available.size);
-      if (targetDistricts < 1) return;
-      const seedId = pickClusterSeed(available, districtCenters, allianceIndex, alliances.length);
-      if (!seedId) return;
-
-      const allianceCluster = growDistrictCluster({
-        seedId,
-        targetSize: targetDistricts,
-        available,
-        neighborsByDistrict,
-        districtCenters
-      });
-      if (!allianceCluster.length) return;
-      allianceCluster.forEach((districtId) => {
-        available.delete(districtId);
-      });
-
-      const allianceAvailable = new Set(allianceCluster);
-      alliance.members.forEach((member, memberIndex) => {
-        const memberTarget = Math.min(member.districtCount, allianceAvailable.size);
-        if (memberTarget < 1) return;
-        let memberSeed = pickClusterSeed(allianceAvailable, districtCenters, memberIndex, alliance.members.length);
-        if (!memberSeed && allianceAvailable.size) {
-          memberSeed = Array.from(allianceAvailable)[0];
-        }
-        if (!memberSeed) return;
-        const memberCluster = growDistrictCluster({
-          seedId: memberSeed,
-          targetSize: memberTarget,
-          available: allianceAvailable,
-          neighborsByDistrict,
-          districtCenters
-        });
-        memberCluster.forEach((districtId) => {
-          ownersByDistrict.set(districtId, member.owner);
-          allianceAvailable.delete(districtId);
-        });
-      });
-
-      if (allianceAvailable.size) {
-        const memberOwners = alliance.members.map((member) => member.owner);
-        let ownerIndex = 0;
-        allianceAvailable.forEach((districtId) => {
-          ownersByDistrict.set(districtId, memberOwners[ownerIndex % memberOwners.length]);
-          ownerIndex += 1;
-        });
-      }
-    });
-
-    const ownerAllianceByKey = new Map(
-      players.map((player) => [normalizeOwnerName(player.owner), player.allianceName])
-    );
-
-    const nextDistricts = safeDistricts.map((district) => {
-      const owner = ownersByDistrict.get(district.id) || null;
-      const ownerKey = normalizeOwnerName(owner);
-      const allianceName = ownerKey ? ownerAllianceByKey.get(ownerKey) || null : null;
-      const ownerMeta = owner ? buildDemoDistrictOwnerMeta(owner, district) : {
-        ownerStructure: null,
-        ownerFaction: null,
-        ownerAvatar: null,
-        ownerAtmosphere: null
-      };
-      return {
-        ...district,
-        owner,
-        ownerPlayerId: null,
-        ownerNick: owner || null,
-        ownerAllianceName: allianceName,
-        ...ownerMeta
-      };
-    });
-
-    const applyOwnerToDistrict = (district, player) => {
-      if (!district || !player) return;
-      district.owner = player.owner || null;
-      district.ownerNick = player.owner || null;
-      district.ownerAllianceName = player.allianceName || null;
-      district.ownerStructure = player.structure || null;
-      district.ownerFaction = player.structure || null;
-      district.ownerAvatar = player.avatar || null;
-      district.ownerAtmosphere = resolveDemoDistrictAtmosphere(district, player.owner);
-    };
-    const findDistrictById = (districtId) => {
-      const key = String(districtId);
-      return nextDistricts.find((district) => String(district?.id) === key) || null;
-    };
-    const sourceDistrict = findDistrictById(62)
-      || nextDistricts.find((district) => district?.owner) || null;
-    if (sourceDistrict && !sourceDistrict.owner) {
-      const fallbackSourcePlayer = players[1] || players[0] || null;
-      applyOwnerToDistrict(sourceDistrict, fallbackSourcePlayer);
-    }
-    const sourceOwnerKey = normalizeOwnerName(sourceDistrict?.owner);
-    const sourceAllianceName = sourceOwnerKey ? ownerAllianceByKey.get(sourceOwnerKey) || null : null;
-    const sourceDistrictId = sourceDistrict?.id ?? null;
-
-    let targetDistrict = findDistrictById(107)
-      || nextDistricts.find((district) => String(district?.id) !== String(sourceDistrictId)) || null;
-    if (targetDistrict && !targetDistrict.owner) {
-      const fallbackTargetPlayer = players.find((player) => normalizeOwnerName(player.owner) !== sourceOwnerKey)
-        || players[0]
-        || null;
-      applyOwnerToDistrict(targetDistrict, fallbackTargetPlayer);
-    }
-
-    if (targetDistrict && sourceOwnerKey && normalizeOwnerName(targetDistrict.owner) === sourceOwnerKey) {
-      const forcedTargetPlayer = players.find((player) => {
-        const playerOwnerKey = normalizeOwnerName(player.owner);
-        if (!playerOwnerKey || playerOwnerKey === sourceOwnerKey) return false;
-        if (!sourceAllianceName) return true;
-        return player.allianceName !== sourceAllianceName;
-      }) || players.find((player) => normalizeOwnerName(player.owner) !== sourceOwnerKey) || null;
-      applyOwnerToDistrict(targetDistrict, forcedTargetPlayer);
-    }
-
-    const targetDistrictId = targetDistrict?.id ?? null;
-    const attackIncident = sourceDistrictId != null && targetDistrictId != null
-      ? {
-        sourceDistrictId,
-        targetDistrictId,
-        durationMs: 12 * 60 * 1000
-      }
-      : null;
-    const policeTargetDistrict = findDistrictById(150)
-      || nextDistricts.find((district) => String(district?.id) !== String(targetDistrictId))
-      || null;
-    const policeIncident = policeTargetDistrict?.id != null
-      ? {
-        targetDistrictId: policeTargetDistrict.id,
-        durationMs: 14 * 60 * 1000
-      }
-      : null;
-    const destroyedDistrict = findDistrictById(69)
-      || nextDistricts.find((district) => {
-        const name = String(district?.name || "");
-        const match = name.match(/(^|[^0-9])69([^0-9]|$)/);
-        return Boolean(match);
-      })
-      || null;
-    if (destroyedDistrict) {
-      destroyedDistrict.owner = null;
-      destroyedDistrict.ownerNick = null;
-      destroyedDistrict.ownerAllianceName = null;
-      destroyedDistrict.ownerPlayerId = null;
-      destroyedDistrict.influence = 0;
-      destroyedDistrict.isDestroyed = true;
-      destroyedDistrict.destroyedAt = Date.now() - (40 * 60 * 1000);
-    }
-
-    const ownOwner = players[0]?.owner || String(ownerName || "Ty");
-    const ownOwnerKey = normalizeOwnerName(ownOwner);
-    const ownAllianceName = ownerAllianceByKey.get(ownOwnerKey) || "Žádná";
-    const ownAllianceMembers = players.filter((player) => player.allianceName === ownAllianceName);
-    const alliedOwners = ownAllianceMembers
-      .map((player) => player.owner)
-      .filter((playerOwner) => normalizeOwnerName(playerOwner) !== ownOwnerKey);
-    const enemyOwners = players
-      .filter((player) => player.allianceName !== ownAllianceName)
-      .map((player) => player.owner);
-    const ownDistrictCount = countOwnedDistrictsForOwner(nextDistricts, ownOwner);
-    const ownAllianceDistrictCount = nextDistricts.reduce((sum, district) => {
-      const districtOwnerKey = normalizeOwnerName(district.owner);
-      if (!districtOwnerKey) return sum;
-      return ownerAllianceByKey.get(districtOwnerKey) === ownAllianceName ? sum + 1 : sum;
-    }, 0);
-
-    const minPerPlayer = players.reduce((min, player) => Math.min(min, player.districtCount), Infinity);
-    const maxPerPlayer = players.reduce((max, player) => Math.max(max, player.districtCount), 0);
-
-    return {
-      districts: nextDistricts,
-      alliedOwners,
-      enemyOwners,
-      attackIncident,
-      policeIncident,
-      destroyedDistrictId: destroyedDistrict?.id ?? null,
-      ownDistrictCount,
-      ownAllianceName,
-      ownAllianceMemberCount: ownAllianceMembers.length,
-      ownAllianceDistrictCount,
-      playerCount: players.length,
-      allianceCount: alliances.length,
-      minPerPlayer: Number.isFinite(minPerPlayer) ? minPerPlayer : 0,
-      maxPerPlayer
-    };
-  }
-
-  function buildTwentyPlayerEdgeOnboardingScenario(districts, ownerName) {
-    const safeDistricts = Array.isArray(districts) ? districts : [];
-    const emptyResult = {
-      districts: [],
-      enemyOwners: [],
-      ownDistrictCount: 0,
-      playerCount: 0
-    };
-    if (!safeDistricts.length) return emptyResult;
-
-    const playerCount = 20;
-    const bounds = getDistrictBounds(safeDistricts);
-    const width = Math.max(1, Number(bounds.maxX || 0) - Number(bounds.minX || 0));
-    const height = Math.max(1, Number(bounds.maxY || 0) - Number(bounds.minY || 0));
-    const leftThreshold = bounds.minX + width * 0.2;
-    const rightThreshold = bounds.maxX - width * 0.2;
-    const bottomThreshold = bounds.maxY - height * 0.2;
-    const adjacency = buildDistrictAdjacency(safeDistricts);
-    const targetCounts = { left: 7, bottom: 7, right: 6 };
-
-    const edgeCandidates = safeDistricts
-      .filter((district) => String(district?.type || "").trim().toLowerCase() !== "downtown")
-      .map((district) => {
-        const center = polygonCentroid(district.polygon || []);
-        const onLeft = center.x <= leftThreshold;
-        const onRight = center.x >= rightThreshold;
-        const onBottom = center.y >= bottomThreshold;
-        if (!onLeft && !onRight && !onBottom) return null;
-        let edge = "left";
-        if (onBottom) edge = "bottom";
-        if (onRight && !onBottom) edge = "right";
-        return {
-          district,
-          center,
-          edge,
-          sortValue: edge === "bottom" ? center.x : center.y
-        };
-      })
-      .filter(Boolean);
-
-    const groupCandidates = {
-      left: edgeCandidates
-        .filter((entry) => entry.edge === "left")
-        .sort((a, b) => a.sortValue - b.sortValue || Number(a.district?.id || 0) - Number(b.district?.id || 0)),
-      bottom: edgeCandidates
-        .filter((entry) => entry.edge === "bottom")
-        .sort((a, b) => a.sortValue - b.sortValue || Number(a.district?.id || 0) - Number(b.district?.id || 0)),
-      right: edgeCandidates
-        .filter((entry) => entry.edge === "right")
-        .sort((a, b) => a.sortValue - b.sortValue || Number(a.district?.id || 0) - Number(b.district?.id || 0))
-    };
-
-    const allCandidates = [...groupCandidates.left, ...groupCandidates.bottom, ...groupCandidates.right];
-    const candidateById = new Map(allCandidates.map((entry) => [String(entry?.district?.id ?? ""), entry]));
-    const edgeKeys = ["left", "bottom", "right"];
-    const pairCandidates = [];
-
-    allCandidates.forEach((entry) => {
-      const entryId = String(entry?.district?.id ?? "");
-      if (!entryId) return;
-      const neighbors = adjacency.get(entry.district.id) || new Set();
-      neighbors.forEach((neighborId) => {
-        const neighborEntry = candidateById.get(String(neighborId));
-        if (!neighborEntry) return;
-        const neighborEntryId = String(neighborEntry?.district?.id ?? "");
-        if (!neighborEntryId || entryId >= neighborEntryId) return;
-        pairCandidates.push([entry, neighborEntry]);
-      });
-    });
-
-    const canPlaceEntry = (entry, selectedIds) => {
-      const neighbors = adjacency.get(entry.district.id) || new Set();
-      for (const neighborId of neighbors) {
-        if (selectedIds.has(String(neighborId))) return false;
-      }
-      return true;
-    };
-
-    const fillEdgeEntries = (edgeIndex, selectedEntries, selectedIds, countsByEdge) => {
-      if (edgeIndex >= edgeKeys.length) return selectedEntries;
-      const edgeKey = edgeKeys[edgeIndex];
-      const needed = targetCounts[edgeKey] - (countsByEdge[edgeKey] || 0);
-      if (needed < 0) return null;
-      if (needed === 0) return fillEdgeEntries(edgeIndex + 1, selectedEntries, selectedIds, countsByEdge);
-
-      const candidates = (groupCandidates[edgeKey] || []).filter((entry) => !selectedIds.has(String(entry?.district?.id ?? "")));
-      const chooseEntries = (startIndex, remaining, nextEntries, nextIds) => {
-        if (remaining === 0) {
-          return fillEdgeEntries(edgeIndex + 1, nextEntries, nextIds, {
-            ...countsByEdge,
-            [edgeKey]: targetCounts[edgeKey]
-          });
-        }
-        for (let i = startIndex; i <= candidates.length - remaining; i += 1) {
-          const entry = candidates[i];
-          const districtId = String(entry?.district?.id ?? "");
-          if (!districtId || nextIds.has(districtId)) continue;
-          if (!canPlaceEntry(entry, nextIds)) continue;
-          nextIds.add(districtId);
-          const result = chooseEntries(i + 1, remaining - 1, [...nextEntries, entry], nextIds);
-          nextIds.delete(districtId);
-          if (result) return result;
-        }
-        return null;
-      };
-
-      return chooseEntries(0, needed, selectedEntries, new Set(selectedIds));
-    };
-
-    let selected = null;
-    let adjacentPair = null;
-    let adjacentNeighbor = null;
-
-    for (let i = 0; i < pairCandidates.length; i += 1) {
-      const [firstEntry, secondEntry] = pairCandidates[i];
-      const initialCounts = { left: 0, bottom: 0, right: 0 };
-      initialCounts[firstEntry.edge] += 1;
-      initialCounts[secondEntry.edge] += 1;
-      if (edgeKeys.some((edgeKey) => initialCounts[edgeKey] > targetCounts[edgeKey])) continue;
-
-      const seededEntries = [firstEntry, secondEntry];
-      const seededIds = new Set(seededEntries.map((entry) => String(entry?.district?.id ?? "")));
-      const completedSelection = fillEdgeEntries(0, seededEntries, seededIds, initialCounts);
-      if (!completedSelection) continue;
-
-      selected = completedSelection;
-      adjacentPair = firstEntry;
-      adjacentNeighbor = secondEntry;
-      break;
-    }
-
-    if (!selected || !adjacentPair || !adjacentNeighbor) return emptyResult;
-
-    const nickPool = [
-      "Razor Vex", "Ghost Mara", "Nyx Prime", "Iron Shade", "Vortex Kane",
-      "Black Comet", "Neon Riot", "Cobra Unit", "Urban Hex", "Steel Drift",
-      "Zero Pulse", "Night Cipher", "Crimson Dot", "Volt Raven", "Silent Brick",
-      "Alpha Dock", "Chrome Lynx", "Delta Wolf", "Shadow Mint", "Metro Hawk",
-      "Apex Nova", "Toxic Ray", "Retro Kane", "Frost Mamba", "Street Rune"
-    ];
-    const usedNames = new Set();
-    const claimUniqueNick = (value, fallbackIndex = 1) => {
-      const base = String(value || "").trim() || `Hráč ${fallbackIndex}`;
-      let candidate = base;
-      let suffix = 2;
-      while (usedNames.has(normalizeOwnerName(candidate))) {
-        candidate = `${base} ${suffix}`;
-        suffix += 1;
-      }
-      usedNames.add(normalizeOwnerName(candidate));
-      return candidate;
-    };
-
-    const players = [
-      claimUniqueNick(ownerName || "Ty", 1),
-      ...Array.from({ length: playerCount - 1 }, (_, index) => claimUniqueNick(nickPool[index % nickPool.length], index + 2))
-    ];
-
-    const ownerByDistrictId = new Map();
-    ownerByDistrictId.set(adjacentPair.district.id, players[0]);
-    ownerByDistrictId.set(adjacentNeighbor.district.id, players[1]);
-
-    let playerIndex = 2;
-    selected.forEach((entry) => {
-      if (ownerByDistrictId.has(entry.district.id)) return;
-      ownerByDistrictId.set(entry.district.id, players[playerIndex]);
-      playerIndex += 1;
-    });
-
-    const nextDistricts = safeDistricts.map((district) => {
-      const owner = ownerByDistrictId.get(district.id) || null;
-      const ownerMeta = owner ? buildDemoDistrictOwnerMeta(owner, district) : {
-        ownerStructure: null,
-        ownerFaction: null,
-        ownerAvatar: null,
-        ownerAtmosphere: null
-      };
-      return {
-        ...district,
-        owner,
-        ownerPlayerId: null,
-        ownerNick: owner || null,
-        ownerAllianceName: null,
-        ...ownerMeta
-      };
-    });
-
-    return {
-      districts: nextDistricts,
-      enemyOwners: players.slice(1),
-      ownDistrictCount: 1,
-      playerCount
-    };
-  }
-
-  function buildNightTwentyWarScenario(districts, ownerName) {
-    const safeDistricts = Array.isArray(districts) ? [...districts] : [];
-    const emptyResult = {
-      districts: [],
-      alliedOwners: [],
-      enemyOwners: [],
-      attackIncidents: [],
-      policeIncidents: [],
-      ownDistrictCount: 0,
-      ownAllianceName: "Žádná",
-      ownAllianceMemberCount: 0,
-      ownAllianceDistrictCount: 0,
-      playerCount: 0,
-      allianceCount: 0,
-      minPerPlayer: 0,
-      maxPerPlayer: 0
-    };
-    if (!safeDistricts.length) return emptyResult;
-
-    const playerCount = Math.min(20, safeDistricts.length);
-    if (playerCount < 1) return emptyResult;
-    const maxAllianceSize = 2;
-    const allianceCount = Math.max(1, Math.ceil(playerCount / maxAllianceSize));
-    const allianceNames = [
-      "Neon Syndicate",
-      "Iron Wolves",
-      "Black Harbor",
-      "Vortex Pact",
-      "Shadow Cartel",
-      "Chrome Saints",
-      "Ghost Ledger",
-      "Riot Dividend",
-      "Velvet Crown",
-      "Night Blades"
-    ];
-    const nickPool = [
-      "Knedlík", "Poltergeist", "Mariah", "Willy", "Ledovec",
-      "Razor Vex", "Ghost Mara", "Nyx Prime", "Iron Shade", "Vortex Kane",
-      "Black Comet", "Neon Riot", "Cobra Unit", "Urban Hex", "Steel Drift",
-      "Zero Pulse", "Night Cipher", "Crimson Dot", "Volt Raven", "Silent Brick",
-      "Alpha Dock", "Chrome Lynx", "Delta Wolf", "Shadow Mint", "Metro Hawk"
-    ];
-    const usedNames = new Set();
-    const claimUniqueNick = (value, fallbackIndex = 1) => {
-      const base = String(value || "").trim() || `Hráč ${fallbackIndex}`;
-      let candidate = base;
-      let suffix = 2;
-      while (usedNames.has(normalizeOwnerName(candidate))) {
-        candidate = `${base} ${suffix}`;
-        suffix += 1;
-      }
-      usedNames.add(normalizeOwnerName(candidate));
-      return candidate;
-    };
-
-    const players = Array.from({ length: playerCount }, (_, index) => {
-      const allianceIndex = Math.floor(index / maxAllianceSize);
-      return {
-        owner: index === 0 ? claimUniqueNick(ownerName || "Ty", 1) : claimUniqueNick(nickPool[index - 1], index + 1),
-        allianceName: allianceNames[allianceIndex % allianceNames.length],
-        allianceIndex,
-        districtCount: 6,
-        structure: null,
-        avatar: null
-      };
-    }).map((player) => ({
-      ...player,
-      structure: resolveDemoOwnerFaction(player.owner),
-      avatar: resolveDemoOwnerAvatar(player.owner),
-      ...createDemoWeaponLoadout()
-    }));
-
-    const minTargetPerPlayer = 6;
-    const maxTargetPerPlayer = 9;
-    let remaining = Math.max(0, safeDistricts.length - (minTargetPerPlayer * playerCount));
-    players.forEach((player, index) => {
-      if (remaining <= 0) return;
-      const add = Math.min(maxTargetPerPlayer - player.districtCount, (index % 3 === 0 ? 2 : 1), remaining);
-      player.districtCount += add;
-      remaining -= add;
-    });
-    let guard = 0;
-    while (remaining > 0 && guard < 10000) {
-      let progressed = false;
-      for (let index = 0; index < players.length; index += 1) {
-        if (remaining <= 0) break;
-        const player = players[index];
-        if (player.districtCount >= maxTargetPerPlayer) continue;
-        player.districtCount += 1;
-        remaining -= 1;
-        progressed = true;
-      }
-      if (!progressed) break;
-      guard += 1;
-    }
-    if (remaining > 0) {
-      let cursor = 0;
-      while (remaining > 0) {
-        const player = players[cursor % players.length];
-        player.districtCount += 1;
-        remaining -= 1;
-        cursor += 1;
-      }
-    }
-
-    const allocations = players.map((player) => ({ owner: player.owner, count: player.districtCount }));
-    let nextDistricts = assignOwnersToNeighborClusters(safeDistricts, allocations, {
-      excludeTypes: []
-    }).map((district) => ({ ...district, isDestroyed: false, destroyedAt: null }));
-
-    const fallbackOwners = players.map((player) => player.owner);
-    let fallbackCursor = 0;
-    nextDistricts = nextDistricts.map((district) => {
-      if (district?.owner) return district;
-      const owner = fallbackOwners[fallbackCursor % fallbackOwners.length] || null;
-      fallbackCursor += 1;
-      return {
-        ...district,
-        owner,
-        ownerNick: owner,
-        ...buildDemoDistrictOwnerMeta(owner, district)
-      };
-    });
-
-    const ownerAllianceByKey = new Map(players.map((player) => [normalizeOwnerName(player.owner), player.allianceName]));
-    const allianceIconCycle = (Array.isArray(ALLIANCE_ICON_OPTIONS) ? ALLIANCE_ICON_OPTIONS : [])
-      .map((icon) => String(icon?.key || "").trim())
-      .filter(Boolean);
-    const allianceIconByName = new Map(
-      Array.from(new Set(players.map((player) => player.allianceName))).map((allianceName, index) => [
-        allianceName,
-        allianceIconCycle[index % allianceIconCycle.length]
-      ])
-    );
-    nextDistricts = nextDistricts.map((district) => {
-      const ownerKey = normalizeOwnerName(district?.owner);
-      const allianceName = ownerAllianceByKey.get(ownerKey) || null;
-      return {
-        ...district,
-        ownerNick: district?.owner || null,
-        ownerAllianceName: allianceName,
-        ownerAllianceIconKey: allianceName ? (allianceIconByName.get(allianceName) || null) : null,
-        ...buildDemoDistrictOwnerMeta(district?.owner, district)
-      };
-    });
-
-    const adjacency = buildDistrictAdjacency(nextDistricts);
-    const boundaryPairs = [];
-    const seenPairs = new Set();
-    nextDistricts.forEach((district) => {
-      const sourceId = district?.id;
-      const sourceOwner = normalizeOwnerName(district?.owner);
-      if (!sourceOwner) return;
-      const neighbors = adjacency.get(sourceId) || new Set();
-      neighbors.forEach((targetId) => {
-        const targetDistrict = nextDistricts.find((entry) => String(entry?.id) === String(targetId));
-        const targetOwner = normalizeOwnerName(targetDistrict?.owner);
-        if (!targetOwner || targetOwner === sourceOwner) return;
-        const key = String(sourceId) < String(targetId) ? `${sourceId}|${targetId}` : `${targetId}|${sourceId}`;
-        if (seenPairs.has(key)) return;
-        seenPairs.add(key);
-        boundaryPairs.push({
-          sourceDistrictId: sourceId,
-          targetDistrictId: targetId,
-          durationMs: 10 * 60 * 1000
-        });
-      });
-    });
-
-    const occupied = nextDistricts.filter((district) => district?.owner);
-    const policeIncidents = [];
-    const policeTargets = new Set();
-    occupied
-      .slice()
-      .sort((left, right) => Number(right?.id || 0) - Number(left?.id || 0))
-      .forEach((district) => {
-        if (policeIncidents.length >= 2) return;
-        const districtId = Number(district?.id);
-        if (!Number.isFinite(districtId) || policeTargets.has(districtId)) return;
-        policeTargets.add(districtId);
-        policeIncidents.push({
-          targetDistrictId: districtId,
-          durationMs: 16 * 60 * 1000
-        });
-      });
-
-    const attackIncidents = [];
-    const attackerLoadByOwner = new Map();
-    const sortedPairs = boundaryPairs
-      .filter((pair) => {
-        const sourceId = Number(pair?.sourceDistrictId);
-        const targetId = Number(pair?.targetDistrictId);
-        if (!Number.isFinite(sourceId) || !Number.isFinite(targetId)) return false;
-        return !policeTargets.has(sourceId) && !policeTargets.has(targetId);
-      })
-      .sort((left, right) => Number(left.sourceDistrictId || 0) - Number(right.sourceDistrictId || 0));
-    for (let index = 0; index < sortedPairs.length && attackIncidents.length < 20; index += 1) {
-      const pair = sortedPairs[index];
-      const sourceDistrict = nextDistricts.find((district) => String(district?.id) === String(pair?.sourceDistrictId));
-      const attackerKey = normalizeOwnerName(sourceDistrict?.owner);
-      if (!attackerKey) continue;
-      const currentLoad = Number(attackerLoadByOwner.get(attackerKey) || 0);
-      if (currentLoad >= 2) continue;
-      attackIncidents.push(pair);
-      attackerLoadByOwner.set(attackerKey, currentLoad + 1);
-    }
-    if (attackIncidents.length < 20) {
-      const occupied = nextDistricts.filter((district) => district?.owner);
-      for (let index = 0; index < occupied.length && attackIncidents.length < 20; index += 1) {
-        const source = occupied[index];
-        const target = occupied[(index + 3) % occupied.length];
-        if (!source || !target || String(source.id) === String(target.id)) continue;
-        if (normalizeOwnerName(source.owner) === normalizeOwnerName(target.owner)) continue;
-        const sourceId = Number(source.id);
-        const targetId = Number(target.id);
-        if (!Number.isFinite(sourceId) || !Number.isFinite(targetId)) continue;
-        if (policeTargets.has(sourceId) || policeTargets.has(targetId)) continue;
-        const attackerKey = normalizeOwnerName(source.owner);
-        if (!attackerKey) continue;
-        const currentLoad = Number(attackerLoadByOwner.get(attackerKey) || 0);
-        if (currentLoad >= 2) continue;
-        const duplicate = attackIncidents.some((incident) =>
-          String(incident?.sourceDistrictId) === String(source.id)
-          && String(incident?.targetDistrictId) === String(target.id)
-        );
-        if (duplicate) continue;
-        attackIncidents.push({
-          sourceDistrictId: source.id,
-          targetDistrictId: target.id,
-          durationMs: 10 * 60 * 1000
-        });
-        attackerLoadByOwner.set(attackerKey, currentLoad + 1);
-      }
-    }
-
-    const ownOwner = players[0]?.owner || String(ownerName || "Ty");
-    const ownOwnerKey = normalizeOwnerName(ownOwner);
-    const ownAllianceName = ownerAllianceByKey.get(ownOwnerKey) || "Žádná";
-    const ownAllianceMembers = players.filter((player) => player.allianceName === ownAllianceName);
-    const alliedOwners = ownAllianceMembers
-      .map((player) => player.owner)
-      .filter((playerOwner) => normalizeOwnerName(playerOwner) !== ownOwnerKey);
-    const enemyOwners = players
-      .filter((player) => player.allianceName !== ownAllianceName)
-      .map((player) => player.owner);
-    const ownDistrictCount = countOwnedDistrictsForOwner(nextDistricts, ownOwner);
-    const ownAllianceDistrictCount = nextDistricts.reduce((sum, district) => {
-      const ownerKey = normalizeOwnerName(district?.owner);
-      if (!ownerKey) return sum;
-      return ownerAllianceByKey.get(ownerKey) === ownAllianceName ? sum + 1 : sum;
-    }, 0);
-    const minPerPlayer = players.reduce((min, player) => Math.min(min, player.districtCount), Infinity);
-    const maxPerPlayer = players.reduce((max, player) => Math.max(max, player.districtCount), 0);
-
-    return {
-      districts: nextDistricts,
-      alliedOwners,
-      enemyOwners,
-      attackIncidents,
-      policeIncidents,
-      allianceIconEntries: Array.from(allianceIconByName.entries()),
-      ownDistrictCount,
-      ownAllianceName,
-      ownAllianceMemberCount: ownAllianceMembers.length,
-      ownAllianceDistrictCount,
-      allianceMemberCap: maxAllianceSize,
-      playerCount: players.length,
-      allianceCount,
-      minPerPlayer: Number.isFinite(minPerPlayer) ? minPerPlayer : 0,
-      maxPerPlayer
-    };
-  }
-
-  function countOwnedDistrictsForOwner(districts, ownerName) {
-    const normalizedOwner = normalizeOwnerName(ownerName);
-    if (!normalizedOwner) return 0;
-    return (districts || []).reduce((sum, district) => {
-      if (normalizeOwnerName(district.owner) === normalizedOwner) return sum + 1;
-      return sum;
-    }, 0);
-  }
-
-  function pickClusterSeed(available, districtCenters, ownerIndex, ownerCount) {
-    const ranked = Array.from(available).sort((a, b) => {
-      const centerA = districtCenters.get(a) || { x: 0, y: 0 };
-      const centerB = districtCenters.get(b) || { x: 0, y: 0 };
-      if (centerA.x === centerB.x) return centerA.y - centerB.y;
-      return centerA.x - centerB.x;
-    });
-    if (!ranked.length) return null;
-    if (ranked.length === 1) return ranked[0];
-    const ratio = (ownerIndex + 0.5) / Math.max(ownerCount, 1);
-    const index = Math.min(ranked.length - 1, Math.max(0, Math.round(ratio * (ranked.length - 1))));
-    return ranked[index];
-  }
-
-  function growDistrictCluster({ seedId, targetSize, available, neighborsByDistrict, districtCenters }) {
-    if (!seedId || !available.has(seedId) || targetSize < 1) return [];
-    const cluster = [seedId];
-    const clusterSet = new Set(cluster);
-    const frontier = new Set();
-
-    const pushNeighbors = (districtId) => {
-      const neighbors = neighborsByDistrict.get(districtId) || new Set();
-      neighbors.forEach((neighborId) => {
-        if (!available.has(neighborId)) return;
-        if (clusterSet.has(neighborId)) return;
-        frontier.add(neighborId);
-      });
-    };
-
-    pushNeighbors(seedId);
-
-    while (cluster.length < targetSize) {
-      const nextFromFrontier = pickNearestToCluster(frontier, cluster, districtCenters, clusterSet);
-      let nextId = nextFromFrontier;
-      if (!nextId) {
-        nextId = pickNearestToCluster(available, cluster, districtCenters, clusterSet);
-      }
-      if (!nextId) break;
-      cluster.push(nextId);
-      clusterSet.add(nextId);
-      frontier.delete(nextId);
-      pushNeighbors(nextId);
-    }
-
-    return cluster;
-  }
-
-  function pickNearestToCluster(candidates, cluster, districtCenters, clusterSet) {
-    let bestId = null;
-    let bestDistance = Infinity;
-    candidates.forEach((candidateId) => {
-      if (clusterSet.has(candidateId)) return;
-      const distance = distanceToCluster(candidateId, cluster, districtCenters);
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestId = candidateId;
-      }
-    });
-    return bestId;
-  }
-
-  function distanceToCluster(candidateId, cluster, districtCenters) {
-    const from = districtCenters.get(candidateId) || { x: 0, y: 0 };
-    let best = Infinity;
-    for (let i = 0; i < cluster.length; i += 1) {
-      const to = districtCenters.get(cluster[i]) || { x: 0, y: 0 };
-      const distance = Math.hypot(from.x - to.x, from.y - to.y);
-      if (distance < best) best = distance;
-    }
-    return best;
-  }
-
-  function buildDistrictAdjacency(districts) {
-    const adjacency = new Map((districts || []).map((district) => [district.id, new Set()]));
-    const edgeOwners = new Map();
-
-    (districts || []).forEach((district) => {
-      const polygon = Array.isArray(district.polygon) ? district.polygon : [];
-      if (polygon.length < 2) return;
-      for (let i = 0; i < polygon.length; i += 1) {
-        const from = polygon[i];
-        const to = polygon[(i + 1) % polygon.length];
-        const edgeKey = normalizeEdgeKey(from, to);
-        if (!edgeOwners.has(edgeKey)) edgeOwners.set(edgeKey, []);
-        edgeOwners.get(edgeKey).push(district.id);
-      }
-    });
-
-    edgeOwners.forEach((ownerIds) => {
-      const unique = Array.from(new Set(ownerIds));
-      for (let i = 0; i < unique.length; i += 1) {
-        for (let j = i + 1; j < unique.length; j += 1) {
-          const a = unique[i];
-          const b = unique[j];
-          adjacency.get(a)?.add(b);
-          adjacency.get(b)?.add(a);
-        }
-      }
-    });
-
-    return adjacency;
-  }
-
-  function normalizeEdgeKey(from, to) {
-    const a = normalizePointKey(from);
-    const b = normalizePointKey(to);
-    return a < b ? `${a}|${b}` : `${b}|${a}`;
-  }
-
-  function normalizePointKey(point) {
-    const x = Number(point?.[0] || 0).toFixed(3);
-    const y = Number(point?.[1] || 0).toFixed(3);
-    return `${x},${y}`;
-  }
-
-  function resolveScenarioOwnerName() {
-    return getPlayerIdentityHelpers()?.resolveScenarioOwnerName?.()
-      || (
-        cachedProfile?.gangName
-        || cachedProfile?.username
-        || readStoredGangName()
-        || readStoredGuestUsername()
-        || "Tvůj gang"
-      );
-  }
-
-  function resolveCurrentPlayerOwnerLabel() {
-    return getPlayerIdentityHelpers()?.resolveCurrentPlayerOwnerLabel?.()
-      || String(resolveScenarioOwnerName() || "Ty");
-  }
-
-  function resolveCurrentPlayerNick() {
-    return getPlayerIdentityHelpers()?.resolveCurrentPlayerNick?.()
-      || String(
-        cachedProfile?.username
-        || cachedProfile?.name
-        || window.Empire.player?.username
-        || window.Empire.player?.name
-        || readStoredGuestUsername()
-        || "Neznámý hráč"
-      ).trim()
-      || "Neznámý hráč";
-  }
-
-  function resolveCurrentPlayerGangName() {
-    return getPlayerIdentityHelpers()?.resolveCurrentPlayerGangName?.()
-      || String(
-        cachedProfile?.gangName
-        || cachedProfile?.gang_name
-        || window.Empire.player?.gangName
-        || window.Empire.player?.gang_name
-        || readStoredGangName()
-        || resolveScenarioOwnerName()
-        || "Neznámý gang"
-      ).trim()
-      || "Neznámý gang";
-  }
-
-  function resolveCurrentPlayerAllianceName() {
-    return getPlayerIdentityHelpers()?.resolveCurrentPlayerAllianceName?.()
-      || String(
-        resolvePlayerAllianceVisualMeta()?.name
-        || cachedProfile?.alliance
-        || window.Empire.player?.alliance
-        || "Bez aliance"
-      ).trim()
-      || "Bez aliance";
-  }
-
-  function formatSpyDetectionAlertTime(timestamp) {
-    return getPlayerIdentityHelpers()?.formatSpyDetectionAlertTime?.(timestamp) || "";
-  }
-
-  function resolveCurrentPlayerOwnerKey() {
-    return getPlayerIdentityHelpers()?.resolveCurrentPlayerOwnerKey?.()
-      || normalizeOwnerName(resolveCurrentPlayerOwnerLabel())
-      || "player";
-  }
-
-  function readLocalDistrictDefenseAssignments() {
-    return getPlayerDefenseStorageHelpers()?.readLocalDistrictDefenseAssignments?.() || {};
-  }
-
-  function writeLocalDistrictDefenseAssignments(store) {
-    return getPlayerDefenseStorageHelpers()?.writeLocalDistrictDefenseAssignments?.(store);
-  }
-
-  function countSelectedDefenseWeapons(selection = {}) {
-    return getPlayerDefenseStorageHelpers()?.countSelectedDefenseWeapons?.(selection) || 0;
   }
 
   function sanitizeDefenseSelection(selection = {}) {
@@ -13311,8 +11067,8 @@ window.Empire.UI = (() => {
     const renderPlayerCharacterEvents = () => {
       if (!playerCharacterEventsList) return;
       if (!isBlackoutLikeScenario()) {
-        playerCharacterEventsList.innerHTML = '<button class="player-character-event" type="button" disabled>Eventy jsou aktivní ve stavu HRA.</button>';
-        if (playerCharacterEventsNext) playerCharacterEventsNext.textContent = "stav: mimo HRA";
+        playerCharacterEventsList.innerHTML = '<button class="player-character-event" type="button" disabled>Eventy jsou aktuálně vypnuté.</button>';
+        if (playerCharacterEventsNext) playerCharacterEventsNext.textContent = "stav: vypnuto";
         return;
       }
       const groupedItems = characterEventPools.map((pool) => ({
@@ -13374,7 +11130,7 @@ window.Empire.UI = (() => {
     if (playerCharacterEventsNext) {
       playerCharacterEventsNext.textContent = isBlackoutLikeScenario()
         ? `refresh za ${CHARACTER_EVENTS_REFRESH_SECONDS} s`
-        : "stav: mimo HRA";
+        : "stav: vypnuto";
     }
     if (characterEventsRotationIntervalId) {
       clearInterval(characterEventsRotationIntervalId);
@@ -16801,14 +14557,6 @@ window.Empire.UI = (() => {
     return getAllianceChatHelpers()?.renderAllianceChat?.(messages);
   }
 
-  function buildAllianceTenBlackoutLocalAllianceState(ownerName, allyName) {
-    return getAllianceStateHelpers()?.buildAllianceTenBlackoutLocalAllianceState?.(ownerName, allyName) || null;
-  }
-
-  function buildNightTwentyWarLocalAllianceState(ownerName, districts) {
-    return getAllianceStateHelpers()?.buildNightTwentyWarLocalAllianceState?.(ownerName, districts) || null;
-  }
-
   function syncBlackoutScenarioAllianceDistrictState(activeAlliance) {
     return getAllianceStateHelpers()?.syncBlackoutScenarioAllianceDistrictState?.(activeAlliance);
   }
@@ -18114,7 +15862,6 @@ window.Empire.UI = (() => {
 
   return {
     assignDistrictMetadata,
-    bootstrapGuestIndexMapView,
     evaluateDistrictActionAvailability,
     init,
     hydrateAfterAuth,
@@ -18130,7 +15877,10 @@ window.Empire.UI = (() => {
     getDistrictRaidLockRemainingMs,
     getRaidCooldownRemainingMs,
     getRoundStatusSnapshot,
+    getActivePlayerScenarioKey: () => activePlayerScenarioKey,
+    isScenarioVisionEnabled: () => scenarioVisionEnabled,
     setGuestMode,
+    applyPlayerScenario,
     initProfileModal,
     initSettingsModal,
     addGangMembers,

@@ -29,15 +29,22 @@ document.addEventListener("DOMContentLoaded", () => {
     window.Empire.UI.setGuestMode(true);
     const guestUsername = String(empireStorage?.getItem("guestUsername") || "").trim();
     const guestGangName = String(empireStorage?.getItem("gangName") || "").trim();
-    window.Empire.UI.updateProfile({
+    const guestProfile = {
       username: guestUsername || "Host",
       gangName: guestGangName || "Guest Crew",
       structure: empireStorage?.getItem("structure") || "-",
       alliance: "Žádná",
       districts: 0,
       influence: 0
-    });
-    window.Empire.UI.bootstrapGuestIndexMapView?.();
+    };
+    window.Empire.player = {
+      ...(window.Empire.player && typeof window.Empire.player === "object" ? window.Empire.player : {}),
+      ...guestProfile
+    };
+    const scenarioApplied = window.Empire.UI.applyPlayerScenario?.("index-war");
+    if (!scenarioApplied) {
+      window.Empire.UI.updateProfile(guestProfile);
+    }
   }
 
   document.addEventListener("click", async (event) => {

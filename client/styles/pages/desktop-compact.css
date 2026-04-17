@@ -473,6 +473,16 @@
     padding: 18px !important;
   }
 
+  #building-detail-modal[data-building-mechanics-type="factory"] .modal__content,
+  #building-detail-modal[data-building-mechanics-type="factory"] .building-detail-modal__content,
+  #building-detail-modal[data-building-mechanics-type="armory"] .modal__content,
+  #building-detail-modal[data-building-mechanics-type="armory"] .building-detail-modal__content {
+    width: min(880px, 96vw) !important;
+    max-width: min(880px, 96vw) !important;
+    height: min(calc(100vh - 100px), 760px) !important;
+    max-height: min(calc(100vh - 100px), 760px) !important;
+  }
+
   #building-detail-modal .modal__body,
   #building-detail-modal .building-detail-panel {
     gap: 8px;

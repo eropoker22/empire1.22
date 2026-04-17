@@ -63,8 +63,10 @@
   }
 
   function isGuestBlackoutScenarioActive() {
-    const activeScenario = String(localStorage.getItem("empire_active_player_scenario") || "").trim().toLowerCase();
-    return !window.Empire?.token && activeScenario === "alliance-ten-blackout";
+    if (window.Empire.token) return false;
+    const activeScenarioKey = String(window.Empire.UI?.getActivePlayerScenarioKey?.() || "").trim().toLowerCase();
+    if (activeScenarioKey === "index-war") return true;
+    return Boolean(window.Empire.UI?.isScenarioVisionEnabled?.());
   }
 
   function applyGuestBlackoutMarketCleanCashDelta(delta) {
