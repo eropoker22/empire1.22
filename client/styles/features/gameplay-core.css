@@ -40,6 +40,15 @@
   .app {
     padding-top: var(--desktop-topbar-offset, 88px);
   }
+
+  .topbar__scenarios {
+    display: inline-flex;
+  }
+
+  #scenario-card,
+  #scenario-card-anchor {
+    display: none !important;
+  }
 }
 
 .brand {
@@ -82,6 +91,34 @@
   gap: 8px;
   align-items: center;
   justify-self: center;
+}
+
+.topbar__scenarios {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  justify-self: center;
+}
+
+.topbar__scenario-btn {
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 211, 238, 0.36);
+  background: rgba(8, 14, 26, 0.72);
+  color: #dbeafe;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.topbar__scenario-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(125, 250, 255, 0.86);
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.24);
 }
 
 .nav-btn {
@@ -744,6 +781,21 @@
   outline-offset: 1px;
 }
 
+.map-view-switch__btn {
+  min-width: 72px;
+}
+
+.map-view-switch__btn.is-active {
+  border-color: rgba(255, 74, 201, 0.48);
+  background:
+    linear-gradient(180deg, rgba(255, 74, 201, 0.26), rgba(255, 74, 201, 0.1)),
+    rgba(18, 10, 24, 0.92);
+  color: #ffd8f4;
+  box-shadow:
+    0 0 0 1px rgba(255, 74, 201, 0.08),
+    0 0 18px rgba(255, 74, 201, 0.22);
+}
+
 .map-header h1 {
   margin: 0;
   font-size: 24px;
@@ -756,6 +808,10 @@
 }
 
 @media (max-width: 720px) {
+  .map-view-switch__btn {
+    display: none;
+  }
+
   .map-title-desktop {
     display: none;
   }
@@ -1410,4 +1466,35 @@
   box-shadow: 0 0 16px rgba(250, 204, 21, 0.5);
 }
 
+.scenario-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.scenario-preview__btn {
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  background: rgba(8, 14, 26, 0.8);
+  color: #e2e8f0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.scenario-preview__btn:hover {
+  border-color: rgba(34, 211, 238, 0.6);
+}
+
+.scenario-preview__btn.is-active {
+  border-color: rgba(34, 211, 238, 0.85);
+  background: rgba(34, 211, 238, 0.14);
+  color: #cffafe;
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.35);
+}
+
+.scenario-preview__btn[data-player-scenario="onboarding-20-edge"] {
+  text-align: center;
+  color: #ef4444;
+}
 

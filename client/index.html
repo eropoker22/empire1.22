@@ -37,7 +37,6 @@
         </div>
         <div class="topbar__scenarios" aria-label="Ukázkové stavy hráče">
           <button class="topbar__scenario-btn" data-player-scenario="full-map">ALL</button>
-          <button class="topbar__scenario-btn" data-player-scenario="alliance-ten-blackout">HRA</button>
           <button class="topbar__scenario-btn" data-player-scenario="night-20-war">NOC 20</button>
           <button class="topbar__scenario-btn" data-player-scenario="onboarding-20-edge">ONBOARDING</button>
         </div>
@@ -250,6 +249,13 @@
                   aria-label="Denní mapa"
                 >DEN</button>
                 <button
+                  class="map-mode-switch__btn map-view-switch__btn hidden"
+                  id="map-view-toggle"
+                  type="button"
+                  aria-label="Přepnout mezi index mapou a HRA mapou"
+                  aria-pressed="false"
+                >HRA</button>
+                <button
                   class="map-mode-switch__btn"
                   id="map-mode-night"
                   type="button"
@@ -381,13 +387,10 @@
           <div id="scenario-card-anchor" class="hidden" aria-hidden="true"></div>
           <div class="card" id="scenario-card">
             <h2>Ukázkové stavy hráče</h2>
-            <p class="muted">Klikni a zobrazí se, jak vypadá profil a mapa v dané situaci.</p>
+            <p class="muted">Index teď přímo běží v HRA stavu. Tady zůstávají jen další ukázkové varianty.</p>
             <div class="scenario-preview">
               <button class="btn btn--ghost scenario-preview__btn" data-player-scenario="full-map">
                 ALL
-              </button>
-              <button class="btn btn--ghost scenario-preview__btn" data-player-scenario="alliance-ten-blackout">
-                HRA
               </button>
               <button class="btn btn--ghost scenario-preview__btn" data-player-scenario="night-20-war">
                 NOC 20
@@ -1603,8 +1606,11 @@
       </div>
     </div>
 
+    <script src="runtime-config.js"></script>
+    <script src="game-mode-config.js"></script>
     <script src="game-modes.js"></script>
     <script src="mode.js"></script>
+    <script src="storage/index.js"></script>
     <script src="app.js"></script>
     <script src="gen/rng.js"></script>
     <script src="gen/noise.js"></script>
@@ -1612,6 +1618,74 @@
     <script src="gen/city.js"></script>
     <script src="api.js"></script>
     <script src="ws.js"></script>
+    <script src="map/core/map-mode.js"></script>
+    <script src="map/core/viewport.js"></script>
+    <script src="map/core/tooltip.js"></script>
+    <script src="map/core/district-detail.js"></script>
+    <script src="map/overlays/tooltip-intel.js"></script>
+    <script src="map/overlays/owner-profile.js"></script>
+    <script src="map/selection/modal-actions.js"></script>
+    <script src="map/selection/building-detail.js"></script>
+    <script src="map/selection/park-specials.js"></script>
+    <script src="map/selection/boost-effects.js"></script>
+    <script src="map/selection/recovery-effects.js"></script>
+    <script src="map/selection/data-center.js"></script>
+    <script src="map/selection/action-economy.js"></script>
+    <script src="map/selection/info-actions.js"></script>
+    <script src="map/selection/park-details.js"></script>
+    <script src="map/selection/factory-details.js"></script>
+    <script src="map/selection/pharmacy-details.js"></script>
+    <script src="map/selection/armory-details.js"></script>
+    <script src="map/selection/local-service-details.js"></script>
+    <script src="map/selection/drug-lab-details.js"></script>
+    <script src="map/selection/simple-cash-details.js"></script>
+    <script src="map/selection/building-catalog.js"></script>
+    <script src="map/selection/fitness-details.js"></script>
+    <script src="map/selection/population-details.js"></script>
+    <script src="map/selection/leisure-details.js"></script>
+    <script src="map/selection/commerce-details.js"></script>
+    <script src="map/selection/modal-visuals.js"></script>
+    <script src="map/selection/modal-lifecycle.js"></script>
+    <script src="ui/core/dom.js"></script>
+    <script src="ui/helpers/format.js"></script>
+    <script src="ui/helpers/money.js"></script>
+    <script src="ui/market/render.js"></script>
+    <script src="ui/market/economy.js"></script>
+    <script src="ui/market/modal.js"></script>
+    <script src="ui/market/facade.js"></script>
+    <script src="ui/modals/action-confirm.js"></script>
+    <script src="ui/modals/district-actions.js"></script>
+    <script src="ui/modals/facade.js"></script>
+    <script src="ui/alliance/chat.js"></script>
+    <script src="ui/alliance/button.js"></script>
+    <script src="ui/alliance/state.js"></script>
+    <script src="ui/alliance/vision.js"></script>
+    <script src="ui/alliance/modal.js"></script>
+    <script src="ui/alliance/facade.js"></script>
+    <script src="ui/auth/session.js"></script>
+    <script src="ui/round/status.js"></script>
+    <script src="ui/notifications/event-feed.js"></script>
+    <script src="ui/notifications/center.js"></script>
+    <script src="ui/notifications/facade.js"></script>
+    <script src="ui/history/info-window-history.js"></script>
+    <script src="ui/settings/modal.js"></script>
+    <script src="ui/combat/spy-intel.js"></script>
+    <script src="ui/combat/helpers.js"></script>
+    <script src="ui/combat/facade.js"></script>
+    <script src="ui/combat/inventory.js"></script>
+    <script src="ui/buildings/shortcuts.js"></script>
+    <script src="ui/police/heat.js"></script>
+    <script src="ui/profile/modal.js"></script>
+    <script src="ui/profile/state.js"></script>
+    <script src="ui/player/labels.js"></script>
+    <script src="ui/player/identity.js"></script>
+    <script src="ui/player/owner-meta.js"></script>
+    <script src="ui/player/defense-storage.js"></script>
+    <script src="ui/player/defense-snapshot.js"></script>
+    <script src="ui/player/heat.js"></script>
+    <script src="ui/player/population.js"></script>
+    <script src="ui/player/facade.js"></script>
+    <script src="ui/alliance/display.js"></script>
     <script src="map.js"></script>
     <script src="police-heat.js"></script>
     <script src="ui.js"></script>

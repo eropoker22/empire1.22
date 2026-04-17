@@ -84,169 +84,88 @@ window.Empire.UI = (() => {
     { name: "Alarm", power: BASE_WEAPON_POWER.defense.Alarm, requiredMembers: BASE_WEAPON_POPULATION_REQUIREMENTS.defense.Alarm }
   ];
 
+  const weaponSpecialMeta = Object.freeze({
+    attack: Object.freeze({
+      "Granát": Object.freeze({ specialText: "Ignoruje 0.3 % obrany za ks" }),
+      "Samopal": Object.freeze({ specialText: "+0.2 power za ks při použití všech 5 attack zbraní" }),
+      "Bazuka": Object.freeze({ specialText: "+0.5 % šance na totální destrukci districtu za ks" })
+    }),
+    defense: Object.freeze({
+      "Neprůstřelná vesta": Object.freeze({ specialText: "-0.5 % ztráty obránců za ks" }),
+      "Bezpečnostní kamery": Object.freeze({ specialText: "5+ ks = velká šance odhalit špeha" }),
+      "Automatické kulometné stanoviště": Object.freeze({ specialText: "-0.3 % síla útoku útočníka za ks" }),
+      Alarm: Object.freeze({ specialText: "5+ ks = velká šance selhání vykradení" })
+    })
+  });
+  const uiFormatHelpers = window.Empire.UIHelpers?.createFormatHelpers?.() || null;
+  const uiMoneyHelpers = window.Empire.UIHelpers?.createMoneyHelpers?.() || null;
+
   function resolveAttackWeaponSpecialText(name) {
-    switch (String(name || "").trim()) {
-      case "Granát":
-        return "Ignoruje 0.3 % obrany za ks";
-      case "Samopal":
-        return "+0.2 power za ks při použití všech 5 attack zbraní";
-      case "Bazuka":
-        return "+0.5 % šance na totální destrukci districtu za ks";
-      default:
-        return "";
-    }
+    return getCombatHelperController()?.resolveAttackWeaponSpecialText?.(name) || "";
   }
 
   function resolveDefenseWeaponSpecialText(name) {
-    switch (String(name || "").trim()) {
-      case "Neprůstřelná vesta":
-        return "-0.5 % ztráty obránců za ks";
-      case "Bezpečnostní kamery":
-        return "5+ ks = velká šance odhalit špeha";
-      case "Automatické kulometné stanoviště":
-        return "-0.3 % síla útoku útočníka za ks";
-      case "Alarm":
-        return "5+ ks = velká šance selhání vykradení";
-      default:
-        return "";
-    }
+    return getCombatHelperController()?.resolveDefenseWeaponSpecialText?.(name) || "";
   }
 
   function getDistrictDefenseWeaponCounts(districtId) {
-    const districtKey = String(Number(districtId));
-    if (!districtKey || districtKey === "NaN") return {};
-    const store = readLocalDistrictDefenseAssignments();
-    const districtStore = store[districtKey] && typeof store[districtKey] === "object"
-      ? store[districtKey]
-      : {};
-    return Object.values(districtStore).reduce((acc, entry) => {
-      const weaponCounts = entry?.weaponCounts && typeof entry.weaponCounts === "object"
-        ? entry.weaponCounts
-        : {};
-      Object.entries(weaponCounts).forEach(([weaponName, amount]) => {
-        const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
-        if (safeAmount > 0) acc[weaponName] = Math.max(0, Math.floor(Number(acc[weaponName] || 0) + safeAmount));
-      });
-      return acc;
-    }, {});
+    return getCombatHelperController()?.getDistrictDefenseWeaponCounts?.(districtId) || {};
   }
 
   function formatDecimalValue(value, maxFractions = 2) {
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed)) return "0";
-    const safeFractions = Math.max(0, Math.floor(Number(maxFractions) || 0));
-    return parsed.toLocaleString("cs-CZ", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: safeFractions
-    });
+    return uiFormatHelpers?.formatDecimalValue?.(value, maxFractions) || "0";
   }
 
   function escapeHtml(value) {
-    return String(value ?? "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#39;");
+    return uiFormatHelpers?.escapeHtml?.(value) || "";
   }
 
   function resolveDistrictDefenseSpecialModifiers(districtId) {
-    const weaponCounts = getDistrictDefenseWeaponCounts(districtId);
-    const vestCount = Math.max(0, Math.floor(Number(weaponCounts["Neprůstřelná vesta"] || 0)));
-    const barricadeCount = Math.max(0, Math.floor(Number(weaponCounts["Ocelové barikády"] || 0)));
-    const cameraCount = Math.max(0, Math.floor(Number(weaponCounts["Bezpečnostní kamery"] || 0)));
-    const mgNestCount = Math.max(0, Math.floor(Number(weaponCounts["Automatické kulometné stanoviště"] || 0)));
-    const alarmCount = Math.max(0, Math.floor(Number(weaponCounts.Alarm || 0)));
-    return {
-      weaponCounts,
-      vestCount,
-      barricadeCount,
-      cameraCount,
-      mgNestCount,
-      alarmCount,
-      defenderMemberLossReductionPct: vestCount * 0.5,
-      attackDurationIncreasePct: barricadeCount * 0.02,
-      attackerAttackPenaltyPct: mgNestCount * 0.3,
-      spyDetectionBoostActive: cameraCount >= 5,
-      raidAlarmBoostActive: alarmCount >= 5
+    return getCombatHelperController()?.resolveDistrictDefenseSpecialModifiers?.(districtId) || {
+      weaponCounts: {},
+      vestCount: 0,
+      barricadeCount: 0,
+      cameraCount: 0,
+      mgNestCount: 0,
+      alarmCount: 0,
+      defenderMemberLossReductionPct: 0,
+      attackDurationIncreasePct: 0,
+      attackerAttackPenaltyPct: 0,
+      spyDetectionBoostActive: false,
+      raidAlarmBoostActive: false
     };
   }
 
   function resolveAttackDurationMsForDistrict(district) {
-    if (isOnboardingDemoScenarioActive()) {
-      return ONBOARDING_ACTION_DURATION_MS;
-    }
-    const defenseSpecial = resolveDistrictDefenseSpecialModifiers(district?.id);
-    const durationMultiplier = 1 + Math.max(0, Number(defenseSpecial.attackDurationIncreasePct || 0)) / 100;
-    return Math.max(1000, Math.round(ATTACK_ACTION_DURATION_MS * durationMultiplier));
+    return getCombatHelperController()?.resolveAttackDurationMsForDistrict?.(district) || ATTACK_ACTION_DURATION_MS;
   }
 
   function resolveActivatedAttackSpecialEffects(selection, district) {
-    const attackSpecial = getAttackSpecialModifiers(selection);
-    const defenseSpecial = resolveDistrictDefenseSpecialModifiers(district?.id);
-    const fitnessSnapshot = window.Empire.Map?.getFitnessCombatSnapshot?.() || null;
-    const fitnessAttackBoostPct = Math.max(0, Number(fitnessSnapshot?.attackBoostPct || 0));
-    const effects = [];
-    if (Number(attackSpecial.grenadeDefenseIgnorePct || 0) > 0) {
-      effects.push(`Granát ignoroval ${formatDecimalValue(attackSpecial.grenadeDefenseIgnorePct, 2)} % obrany`);
-    }
-    if (Number(attackSpecial.smgBonusPower || 0) > 0 && attackSpecial.fullSetUsed) {
-      effects.push(`Samopal přidal +${formatDecimalValue(attackSpecial.smgBonusPower, 2)} power za full set`);
-    }
-    if (Number(attackSpecial.bazookaCatastropheChancePct || 0) > 0) {
-      effects.push(`Bazuka přidala +${formatDecimalValue(attackSpecial.bazookaCatastropheChancePct, 2)} % šance na totální destrukci`);
-    }
-    if (Number(defenseSpecial.attackerAttackPenaltyPct || 0) > 0) {
-      effects.push(`Kulometná stanoviště snížila sílu útoku o ${formatDecimalValue(defenseSpecial.attackerAttackPenaltyPct, 2)} %`);
-    }
-    if (Number(defenseSpecial.attackDurationIncreasePct || 0) > 0) {
-      effects.push(`Barikády prodloužily útok o ${formatDecimalValue(defenseSpecial.attackDurationIncreasePct, 2)} %`);
-    }
-    if (Number(defenseSpecial.defenderMemberLossReductionPct || 0) > 0) {
-      effects.push(`Vesty snížily ztráty obránců o ${formatDecimalValue(defenseSpecial.defenderMemberLossReductionPct, 2)} %`);
-    }
-    if (fitnessAttackBoostPct > 0) {
-      effects.push(`Fitness Club boost přidal +${formatDecimalValue(fitnessAttackBoostPct, 2)} % síly útoku`);
-    }
-    return effects;
+    return getCombatHelperController()?.resolveActivatedAttackSpecialEffects?.(selection, district) || [];
   }
 
   function getSelectedAttackWeaponCount(selection, weaponName) {
-    return Math.max(0, Math.floor(Number(selection?.[weaponName] || 0)));
+    return getCombatHelperController()?.getSelectedAttackWeaponCount?.(selection, weaponName) || 0;
   }
 
   function hasFullAttackWeaponSet(selection) {
-    return attackWeaponStats.every((item) => getSelectedAttackWeaponCount(selection, item.name) > 0);
+    return Boolean(getCombatHelperController()?.hasFullAttackWeaponSet?.(selection));
   }
 
   function getAttackSpecialModifiers(selection) {
-    const safeSelection = selection && typeof selection === "object" ? selection : {};
-    const grenadeCount = getSelectedAttackWeaponCount(safeSelection, "Granát");
-    const smgCount = getSelectedAttackWeaponCount(safeSelection, "Samopal");
-    const bazookaCount = getSelectedAttackWeaponCount(safeSelection, "Bazuka");
-    const fullSetUsed = hasFullAttackWeaponSet(safeSelection);
-    return {
-      grenadeDefenseIgnorePct: grenadeCount * 0.3,
-      smgBonusPower: fullSetUsed ? smgCount * 0.2 : 0,
-      bazookaCatastropheChancePct: bazookaCount * 0.5,
-      fullSetUsed
+    return getCombatHelperController()?.getAttackSpecialModifiers?.(selection) || {
+      grenadeDefenseIgnorePct: 0,
+      smgBonusPower: 0,
+      bazookaCatastropheChancePct: 0,
+      fullSetUsed: false
     };
   }
 
   function calculateAttackPowerFromSelection(selection) {
-    const safeSelection = selection && typeof selection === "object" ? selection : {};
-    const special = getAttackSpecialModifiers(safeSelection);
-    const basePower = attackWeaponStats.reduce((sum, item) => {
-      const count = getSelectedAttackWeaponCount(safeSelection, item.name);
-      return sum + (count * Number(item.power || 0));
-    }, 0) + special.smgBonusPower;
-    const fitnessSnapshot = window.Empire.Map?.getFitnessCombatSnapshot?.() || null;
-    const fitnessAttackBoostPct = Math.max(0, Number(fitnessSnapshot?.attackBoostPct || 0));
-    const rawPower = basePower * Math.max(0, 1 + fitnessAttackBoostPct / 100);
-    return {
-      rawPower,
-      special,
-      fitnessAttackBoostPct
+    return getCombatHelperController()?.calculateAttackPowerFromSelection?.(selection) || {
+      rawPower: 0,
+      special: getAttackSpecialModifiers(selection),
+      fitnessAttackBoostPct: 0
     };
   }
   const DEMO_WEAPON_STACK_SIZE = 10;
@@ -1964,6 +1883,7 @@ window.Empire.UI = (() => {
   let marketRefreshHandler = null;
   let marketModalOpenHandler = null;
   let marketBuildingShortcutRefreshHandler = null;
+  let marketRenderer = null;
   let characterEventsRotationIntervalId = null;
   let allianceRefreshHandler = null;
   let allianceCountdownIntervalId = null;
@@ -2006,6 +1926,186 @@ window.Empire.UI = (() => {
   const MAP_BORDER_MODE_WHITE = "white";
   const MAP_BORDER_MODE_BLACK = "black";
   const ONBOARDING_TUTORIAL_SPY_DISTRICT_ID = 25;
+  const uiDom = window.Empire.UIDom || {
+    byId: (id) => document.getElementById(id),
+    query: (root, selector) => root?.querySelector(selector) || null,
+    queryAll: (root, selector) => Array.from(root?.querySelectorAll(selector) || [])
+  };
+  const uiStorage = window.Empire?.Storage || null;
+
+  function readStoredValue(key) {
+    if (uiStorage?.getItem) {
+      return uiStorage.getItem(key);
+    }
+    return localStorage.getItem(key);
+  }
+
+  function writeStoredValue(key, value) {
+    if (value == null) {
+      removeStoredValue(key);
+      return;
+    }
+    if (uiStorage?.setItem) {
+      uiStorage.setItem(key, value);
+      return;
+    }
+    localStorage.setItem(key, value);
+  }
+
+  function removeStoredValue(key) {
+    if (uiStorage?.removeItem) {
+      uiStorage.removeItem(key);
+      return;
+    }
+    localStorage.removeItem(key);
+  }
+
+  function readStoredGuestUsername() {
+    return readStoredValue("empire_guest_username");
+  }
+
+  function readStoredGangName() {
+    return readStoredValue("empire_gang_name");
+  }
+
+  function readStoredStructure() {
+    return readStoredValue("empire_structure");
+  }
+
+  function readStoredGangColor() {
+    return readStoredValue("empire_gang_color");
+  }
+
+  function writeStoredGangColor(value) {
+    writeStoredValue("empire_gang_color", value);
+  }
+
+  function readStoredAvatar() {
+    return readStoredValue("empire_avatar");
+  }
+
+  function readStoredObject(key) {
+    try {
+      const parsed = JSON.parse(readStoredValue(key) || "null");
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch {}
+    return {};
+  }
+
+  function writeStoredObject(key, value) {
+    writeStoredValue(key, JSON.stringify(value || {}));
+  }
+
+  function getMarketRenderer() {
+    return getMarketFacade()?.getMarketRenderer?.() || null;
+  }
+
+  function getNotificationCenter() {
+    return getNotificationsFacade()?.getNotificationCenter?.() || null;
+  }
+
+  function getProfileModalController() {
+    return getPlayerFacade()?.getProfileModalController?.() || null;
+  }
+
+  function getProfileStateController() {
+    return getPlayerFacade()?.getProfileStateController?.() || null;
+  }
+
+  function getAuthSessionController() {
+    return getPlayerFacade()?.getAuthSessionController?.() || null;
+  }
+
+  function getRoundStatusController() {
+    if (roundStatusController) return roundStatusController;
+    const factory = window.Empire.UIRound?.createStatusController;
+    if (typeof factory !== "function") return null;
+    roundStatusController = factory({
+      getRoundPhaseTimer: () => roundPhaseTimer,
+      setRoundPhaseTimer: (value) => {
+        roundPhaseTimer = value ?? null;
+      },
+      getRoundStatusState: () => roundStatusState,
+      setRoundStatusState: (value) => {
+        roundStatusState = value && typeof value === "object" ? value : null;
+      },
+      getRoundStatusOverride: () => roundStatusOverride,
+      updateFreeCtaVisibility
+    });
+    return roundStatusController;
+  }
+
+  function getSettingsModalController() {
+    if (settingsModalController) return settingsModalController;
+    const factory = window.Empire.UISettings?.createModalController;
+    if (typeof factory !== "function") return null;
+    settingsModalController = factory({
+      SETTINGS_STORAGE_KEY,
+      DEFAULT_SETTINGS,
+      resolveStoredUnknownNeutralFillEnabled,
+      setUnknownNeutralFillEnabled: (value) => {
+        unknownNeutralFillEnabled = Boolean(value);
+      },
+      writeStoredValue,
+      MAP_UNKNOWN_NEUTRAL_FILL_STORAGE_KEY,
+      applyMapBorderSwitchVisuals,
+      syncMapVisionContext,
+      pushEvent
+    });
+    return settingsModalController;
+  }
+
+  function getInventoryController() {
+    return getCombatFacade()?.getInventoryController?.() || null;
+  }
+
+  function getMarketEconomyController() {
+    return getMarketFacade()?.getMarketEconomyController?.() || null;
+  }
+
+  function getMarketModalController() {
+    return getMarketFacade()?.getMarketModalController?.() || null;
+  }
+
+  function getPoliceHeatController() {
+    if (policeHeatController) return policeHeatController;
+    const factory = window.Empire.UIPolice?.createHeatController;
+    if (typeof factory !== "function") return null;
+    policeHeatController = factory({
+      getCachedProfile: () => cachedProfile,
+      resolveWantedLevel,
+      resolveWantedStars,
+      formatDurationLabel,
+      buildPoliceRaidImpactKey,
+      getPoliceRaidImpactMap,
+      resolveStoredPoliceRaidSpecialty,
+      resolvePoliceRaidSpecialtyFromOperationType,
+      resolvePoliceRaidSpecialty,
+      openPoliceActionResultModal,
+      spendDirtyCash,
+      trySpendCleanCash,
+      setPlayerWantedHeat,
+      pushEvent,
+      registerDirtyHeatReductionAndMaybeTriggerPolice,
+      renderGangHeatModal,
+      clearGangHeatJournal,
+      closeGangHeatModal,
+      GANG_HEAT_DIRTY_COST,
+      GANG_HEAT_DIRTY_REDUCTION,
+      GANG_HEAT_CLEAN_COST,
+      GANG_HEAT_CLEAN_REDUCTION,
+      GANG_HEAT_DIRTY_TRIGGER_COUNT,
+      POLICE_RAID_TIER1,
+      POLICE_RAID_TIER2,
+      POLICE_RAID_TIER3,
+      POLICE_RAID_TIER4,
+      POLICE_RAID_TIER5,
+      POLICE_RAID_TIER6
+    });
+    return policeHeatController;
+  }
   const ONBOARDING_TUTORIAL_DRUG_LAB_DISTRICT_ID = 18;
   const ONBOARDING_TUTORIAL_ATTACK_DISTRICT_ID = 6;
   const ONBOARDING_TUTORIAL_RAID_DISTRICT_ID = 38;
@@ -2013,6 +2113,11 @@ window.Empire.UI = (() => {
   let scenarioUniqueOwnerColors = false;
   let scenarioProfileAvatarOverride = null;
   let activePlayerScenarioKey = "";
+  const DEFAULT_INDEX_MAP_VIEW = "hra";
+  const INTERNAL_INDEX_HRA_SCENARIO_KEY = "alliance-ten-blackout";
+  let guestIndexMapViewBootstrapped = false;
+  let guestIndexBaseSnapshot = null;
+  let activeIndexMapView = "";
   const BLACKOUT_LIKE_SCENARIO_KEYS = new Set(["alliance-ten-blackout", "night-20-war"]);
   let activeScenarioOwnerName = "";
   let lastValidBlackoutSources = null;
@@ -2048,10 +2153,18 @@ window.Empire.UI = (() => {
     initialAssignmentSelection: {},
     hasInitialAssignment: false
   };
-  let spyConfirmModalState = { districtId: null };
-  let raidConfirmModalState = { districtId: null };
-  let occupyConfirmModalState = { districtId: null };
-  let trapConfirmModalState = { districtId: null };
+  let districtActionsController = null;
+  let allianceModalController = null;
+  let profileModalController = null;
+  let profileStateController = null;
+  let notificationCenter = null;
+  let authSessionController = null;
+  let roundStatusController = null;
+  let settingsModalController = null;
+  let inventoryController = null;
+  let marketEconomyController = null;
+  let marketModalController = null;
+  let policeHeatController = null;
   const GANG_HEAT_LEVELS = Object.freeze([
     { stars: 1, label: "Stupeň 1", title: "Základní dohled", description: "Jsi skoro pod radarem. Jen lehké sledování a občasná pozornost." },
     { stars: 2, label: "Stupeň 2", title: "Podezřelý", description: "Policie tě začíná vnímat. Přibývají kontroly a drobný tlak." },
@@ -2062,7 +2175,12 @@ window.Empire.UI = (() => {
   ]);
   let cachedSpyCount = null;
   let isSpyCountShownInTopbar = false;
-  let actionConfirmPopupTimeoutId = null;
+  const actionConfirmPopupController = window.Empire.UIModals?.createActionConfirmPopupController?.({
+    rootId: "empire-action-confirm-popup",
+    titleId: "empire-action-confirm-popup-title",
+    subtitleId: "empire-action-confirm-popup-subtitle",
+    durationMs: 2600
+  }) || null;
   let topbarStatSwitchTimer = null;
   let roundPhaseTimer = null;
   let policeRaidProtectionTimer = null;
@@ -2073,7 +2191,687 @@ window.Empire.UI = (() => {
   }
   let spyRecoveryIntervalId = null;
   let districtAttackWarningTimer = null;
-  let infoWindowHistoryEntries = [];
+  const infoWindowHistoryModule = window.Empire.UIHistory?.createInfoWindowHistory?.({
+    storageKey: INFO_WINDOWS_HISTORY_STORAGE_KEY,
+    limit: INFO_WINDOWS_HISTORY_LIMIT,
+    itemsContainerId: "info-history-items",
+    clearButtonId: "info-history-clear-btn"
+  }) || null;
+  const eventFeedModule = window.Empire.UINotifications?.createEventFeed?.({
+    containerId: "event-items",
+    clearButtonId: "event-clear-btn",
+    emptyMessage: "Čekám na rozkazy..."
+  }) || null;
+  let combatHelperController = null;
+  let spyIntelHelpers = null;
+  let combatFacade = null;
+  let notificationsFacade = null;
+  let playerLabelHelpers = null;
+  let playerIdentityHelpers = null;
+  let playerOwnerMetaHelpers = null;
+  let playerDefenseStorageHelpers = null;
+  let playerDefenseSnapshotHelpers = null;
+  let playerHeatHelpers = null;
+  let playerFacade = null;
+  let playerPopulationController = null;
+  let marketShortcutController = null;
+  let marketFacade = null;
+  let modalsFacade = null;
+  let allianceChatHelpers = null;
+  let allianceButtonHelpers = null;
+  let allianceDisplayHelpers = null;
+  let allianceStateHelpers = null;
+  let allianceVisionHelpers = null;
+  let allianceFacade = null;
+
+  function getSpyIntelHelpers() {
+    if (spyIntelHelpers) return spyIntelHelpers;
+    const factory = window.Empire.UICombat?.createSpyIntelHelpers;
+    if (typeof factory !== "function") return null;
+    spyIntelHelpers = factory();
+    return spyIntelHelpers;
+  }
+
+  function getCombatHelperController() {
+    if (combatHelperController) return combatHelperController;
+    const factory = window.Empire.UICombat?.createHelperController;
+    if (typeof factory !== "function") return null;
+    combatHelperController = factory({
+      attackWeaponStats,
+      weaponMeta: weaponSpecialMeta,
+      readLocalDistrictDefenseAssignments,
+      formatDecimalValue,
+      isOnboardingDemoScenarioActive,
+      isDistrictUnownedForSpyOutcome,
+      getDistrictDefenseSnapshot,
+      formatDistrictType,
+      normalizeSpyIntelKnownFields,
+      spySuccessEmptyDistrictQuotes: SPY_SUCCESS_EMPTY_DISTRICT_QUOTES,
+      spySuccessOccupiedDistrictQuotes: SPY_SUCCESS_OCCUPIED_DISTRICT_QUOTES,
+      spyMediumFailEmptyDistrictQuotes: SPY_MEDIUM_FAIL_EMPTY_DISTRICT_QUOTES,
+      spyMediumFailOccupiedDistrictQuotes: SPY_MEDIUM_FAIL_OCCUPIED_DISTRICT_QUOTES,
+      spyMajorFailEmptyDistrictQuotes: SPY_MAJOR_FAIL_EMPTY_DISTRICT_QUOTES,
+      spyMajorFailOccupiedDistrictQuotes: SPY_MAJOR_FAIL_OCCUPIED_DISTRICT_QUOTES,
+      ONBOARDING_ACTION_DURATION_MS,
+      ATTACK_ACTION_DURATION_MS,
+      getFitnessCombatSnapshot: () => window.Empire.Map?.getFitnessCombatSnapshot?.() || null
+    });
+    return combatHelperController;
+  }
+
+  function getCombatFacade() {
+    if (combatFacade) return combatFacade;
+    const factory = window.Empire.UICombat?.createFacade;
+    if (typeof factory !== "function") return null;
+    combatFacade = factory({
+      createInventoryController: window.Empire.UICombat?.createInventoryController,
+      inventoryDeps: {
+        attackWeaponStats,
+        defenseWeaponStats,
+        weaponCatalog,
+        defenseCatalog,
+        LEGACY_ATTACK_WEAPON_ALIASES,
+        readStoredObject,
+        writeStoredObject,
+        getCachedProfile: () => cachedProfile,
+        getCachedEconomy: () => cachedEconomy,
+        updateEconomy: (economy, options) => updateEconomy(economy, options),
+        hydrateStorageModalValues,
+        countPlayerControlledPopulation
+      }
+    });
+    return combatFacade;
+  }
+
+  function getNotificationsFacade() {
+    if (notificationsFacade) return notificationsFacade;
+    const factory = window.Empire.UINotifications?.createFacade;
+    if (typeof factory !== "function") return null;
+    notificationsFacade = factory({
+      createCenter: window.Empire.UINotifications?.createCenter,
+      infoWindowHistoryModule,
+      eventFeedModule
+    });
+    return notificationsFacade;
+  }
+
+  function getPlayerLabelHelpers() {
+    if (playerLabelHelpers) return playerLabelHelpers;
+    const factory = window.Empire.UIPlayer?.createLabelHelpers;
+    if (typeof factory !== "function") return null;
+    playerLabelHelpers = factory({
+      normalizeOwnerName
+    });
+    return playerLabelHelpers;
+  }
+
+  function getPlayerIdentityHelpers() {
+    if (playerIdentityHelpers) return playerIdentityHelpers;
+    const factory = window.Empire.UIPlayer?.createIdentityHelpers;
+    if (typeof factory !== "function") return null;
+    playerIdentityHelpers = factory({
+      getCachedProfile: () => cachedProfile,
+      getPlayer: () => window.Empire.player || null,
+      readStoredGangName,
+      readStoredGuestUsername,
+      resolvePlayerAllianceVisualMeta,
+      normalizeOwnerName
+    });
+    return playerIdentityHelpers;
+  }
+
+  function getPlayerOwnerMetaHelpers() {
+    if (playerOwnerMetaHelpers) return playerOwnerMetaHelpers;
+    const factory = window.Empire.UIPlayer?.createOwnerMetaHelpers;
+    if (typeof factory !== "function") return null;
+    playerOwnerMetaHelpers = factory({
+      getPlayerOwnerNameSet,
+      getDistricts: () => Array.isArray(window.Empire.districts) ? window.Empire.districts : [],
+      normalizeOwnerName,
+      getCachedProfile: () => cachedProfile,
+      getPlayer: () => window.Empire.player || null,
+      readStoredGangName,
+      readStoredGuestUsername,
+      resolvePlayerAllianceVisualMeta,
+      refreshSelectedDistrictModal: () => window.Empire.Map?.refreshSelectedDistrictModal?.(),
+      renderMap: () => window.Empire.Map?.render?.(),
+      updateDistrict,
+      refreshProfilePopulation,
+      resolveDemoOwnerFaction,
+      resolveDemoOwnerAvatar,
+      demoDistrictAtmospheres: DEMO_DISTRICT_ATMOSPHERES,
+      hashDistrictSeed
+    });
+    return playerOwnerMetaHelpers;
+  }
+
+  function getPlayerDefenseStorageHelpers() {
+    if (playerDefenseStorageHelpers) return playerDefenseStorageHelpers;
+    const factory = window.Empire.UIPlayer?.createDefenseStorageHelpers;
+    if (typeof factory !== "function") return null;
+    playerDefenseStorageHelpers = factory({
+      localDistrictDefenseAssignmentsKey: LOCAL_DISTRICT_DEFENSE_ASSIGNMENTS_KEY,
+      defenseWeaponStats,
+      normalizeOwnerName,
+      resolveCurrentPlayerOwnerKey,
+      resolveCurrentPlayerOwnerLabel
+    });
+    return playerDefenseStorageHelpers;
+  }
+
+  function getPlayerDefenseSnapshotHelpers() {
+    if (playerDefenseSnapshotHelpers) return playerDefenseSnapshotHelpers;
+    const factory = window.Empire.UIPlayer?.createDefenseSnapshotHelpers;
+    if (typeof factory !== "function") return null;
+    playerDefenseSnapshotHelpers = factory({
+      readLocalDistrictDefenseAssignments,
+      countSelectedDefenseWeapons,
+      getPlayerOwnerNameSet,
+      resolveCurrentPlayerOwnerKey,
+      getActiveAllianceOwnerNames,
+      resolveDistrictDefenseEntryByKeys,
+      getFitnessCombatSnapshot: () => window.Empire.Map?.getFitnessCombatSnapshot?.() || null
+    });
+    return playerDefenseSnapshotHelpers;
+  }
+
+  function getPlayerHeatHelpers() {
+    if (playerHeatHelpers) return playerHeatHelpers;
+    const factory = window.Empire.UIPlayer?.createHeatHelpers;
+    if (typeof factory !== "function") return null;
+    playerHeatHelpers = factory({
+      wantedHeatMax: WANTED_HEAT_MAX,
+      heatJournalStorageKey: HEAT_JOURNAL_STORAGE_KEY,
+      heatDirtyReductionStorageKey: HEAT_DIRTY_REDUCTION_STORAGE_KEY,
+      dirtyReductionTriggerWindowMs: GANG_HEAT_DIRTY_TRIGGER_WINDOW_MS,
+      dirtyReductionTriggerCount: GANG_HEAT_DIRTY_TRIGGER_COUNT,
+      policeDurationMs: GANG_HEAT_POLICE_DURATION_MS,
+      wantedHeatTiers: WANTED_HEAT_TIERS,
+      gangHeatLevels: GANG_HEAT_LEVELS,
+      resolveMoneyBreakdown,
+      ensureEconomyCache,
+      updateEconomy: (economy, options) => updateEconomy(economy, options),
+      updateProfile,
+      countPlayerControlledPopulation,
+      extractAllianceDisplayName,
+      extractAllianceSectorCountHint,
+      countAllianceControlledSectors,
+      formatSectorCountLabel,
+      formatDurationLabel,
+      getCachedEconomy: () => cachedEconomy,
+      getCachedProfile: () => cachedProfile,
+      getPlayer: () => window.Empire.player || null,
+      getDistricts: () => Array.isArray(window.Empire.districts) ? window.Empire.districts : [],
+      isDistrictOwnedByPlayer,
+      isBlackoutLikeScenario,
+      blackoutPlayerFallbackDistrictIds: BLACKOUT_PLAYER_FALLBACK_DISTRICT_IDS,
+      isOnboardingDemoScenarioActive,
+      pushEvent,
+      markDistrictPoliceAction: (districtId, payload) => window.Empire.Map?.markDistrictPoliceAction?.(districtId, payload),
+      setExternalHeat: (heat, profile) => window.Empire.PoliceHeat?.setExternalHeat?.(heat, profile)
+    });
+    return playerHeatHelpers;
+  }
+
+  function getPlayerFacade() {
+    if (playerFacade) return playerFacade;
+    const factory = window.Empire.UIPlayer?.createFacade;
+    if (typeof factory !== "function") return null;
+    playerFacade = factory({
+      createProfileModalController: window.Empire.UIProfile?.createProfileModalController,
+      createProfileStateController: window.Empire.UIProfile?.createProfileStateController,
+      createSessionController: window.Empire.UIAuth?.createSessionController,
+      profileModalDeps: {
+        getCachedEconomy: () => cachedEconomy,
+        getCachedProfile: () => cachedProfile,
+        getLastValidBlackoutSources: () => lastValidBlackoutSources,
+        setLastValidBlackoutSources: (value) => {
+          lastValidBlackoutSources = value ?? null;
+        },
+        resolveMoneyBreakdown,
+        readStoredGuestUsername,
+        readStoredGangName,
+        readStoredStructure,
+        formatFactionLabel,
+        resolveWantedLevel,
+        resolveActiveProfileAvatar,
+        applyProfileModalVisuals,
+        formatPoliceRaidProtectionLabel,
+        resolvePoliceRaidProtectionUntil,
+        formatDurationLabel,
+        extractAllianceDisplayName,
+        isBlackoutLikeScenario,
+        buildBlackoutPlayerSourcesSnapshot,
+        resolveActiveScenarioOwnerName,
+        hasMeaningfulBlackoutSources,
+        collectBlackoutMapPlayerSummaries,
+        refreshGangColorDisplays,
+        formatWantedHeat,
+        formatDecimalValue
+      },
+      profileStateDeps: {
+        getCachedProfile: () => cachedProfile,
+        setCachedProfile: (value) => {
+          cachedProfile = value ?? null;
+        },
+        getCachedEconomy: () => cachedEconomy,
+        setCachedEconomy: (value) => {
+          cachedEconomy = value ?? null;
+        },
+        getCachedSpyCount: () => cachedSpyCount,
+        resolveSpyCountFromPayload,
+        setSpyCount,
+        resolveFactionBaseSpyCount,
+        readStoredStructure,
+        renderInfluenceSpyTopbarStat,
+        normalizeHexColor,
+        writeStoredGangColor,
+        formatFactionLabel,
+        formatWantedHeat,
+        resolveWantedLevel,
+        countPlayerControlledPopulation,
+        formatAllianceProfileSummary,
+        setAllianceButtonState,
+        updateProfileWantedStars,
+        refreshGangColorDisplays,
+        updateWeaponsPopover,
+        updateDefensePopover,
+        renderGangHeatModal,
+        syncMapVisionContext,
+        refreshMarketBuildingShortcuts,
+        storageDrugTypes,
+        normalizeSpyCount,
+        getSpyCount,
+        resolveMoneyBreakdown,
+        syncMoneyStatToCachedValue,
+        animateMoneyStatCounter,
+        animateMoneyStatValue,
+        getLastRenderedCleanMoney: () => lastRenderedCleanMoney,
+        setLastRenderedCleanMoney: (value) => {
+          lastRenderedCleanMoney = value;
+        },
+        getLastRenderedDirtyMoney: () => lastRenderedDirtyMoney,
+        setLastRenderedDirtyMoney: (value) => {
+          lastRenderedDirtyMoney = value;
+        },
+        syncWeaponStatCounter,
+        syncDefenseStatCounter,
+        hydrateStorageModalValues
+      },
+      authSessionDeps: {
+        getGuestModeActive: () => guestModeActive,
+        setGuestModeActive: (value) => {
+          guestModeActive = Boolean(value);
+        },
+        setScenarioVisionMode,
+        setScenarioAllianceOwners,
+        setScenarioEnemyOwners,
+        updateEconomy: (economy, options) => updateEconomy(economy, options),
+        setLiveAllianceOwnersFromAlliance,
+        updateProfile,
+        resolveFactionBaseSpyCount,
+        getCachedProfile: () => cachedProfile,
+        readStoredStructure,
+        writeSpyRecoveryQueue,
+        syncSpyRecoveryTicker,
+        setSpyCount,
+        getLocalAllianceState,
+        renderAllianceChat,
+        renderGlobalServerChat,
+        syncGuestAllianceLabel,
+        syncGuestEconomyFromMarket,
+        clearLiveAllianceOwners
+      }
+    });
+    return playerFacade;
+  }
+
+  function getPlayerPopulationController() {
+    if (playerPopulationController) return playerPopulationController;
+    const factory = window.Empire.UIPlayer?.createPopulationController;
+    if (typeof factory !== "function") return null;
+    playerPopulationController = factory({
+      localGangMembersKey: LOCAL_GANG_MEMBERS_KEY,
+      localGangMembersSpentKey: LOCAL_GANG_MEMBERS_SPENT_KEY,
+      getProfileStateController,
+      getCachedProfile: () => cachedProfile,
+      getPlayer: () => window.Empire.player || null,
+      getDistricts: () => Array.isArray(window.Empire.districts) ? window.Empire.districts : [],
+      getPlayerOwnerNameSet,
+      getActiveAllianceOwnerNames,
+      normalizeOwnerName
+    });
+    return playerPopulationController;
+  }
+
+  function getMarketShortcutController() {
+    if (marketShortcutController) return marketShortcutController;
+    const factory = window.Empire.UIBuildings?.createShortcutController;
+    if (typeof factory !== "function") return null;
+    marketShortcutController = factory({
+      getMarketModalController
+    });
+    return marketShortcutController;
+  }
+
+  function getMarketFacade() {
+    if (marketFacade) return marketFacade;
+    const factory = window.Empire.UIMarket?.createFacade;
+    if (typeof factory !== "function") return null;
+    marketFacade = factory({
+      createRenderer: window.Empire.UIMarket?.createRenderer,
+      createEconomyController: window.Empire.UIMarket?.createEconomyController,
+      createModalController: window.Empire.UIMarket?.createModalController,
+      getShortcutController: getMarketShortcutController,
+      uiDom,
+      marketResourceLabels: MARKET_RESOURCE_LABELS,
+      resolveMoneyBreakdown,
+      resourceKeyToBalanceKey,
+      getCachedMarket: () => cachedMarket,
+      setCachedMarket: (value) => {
+        cachedMarket = value ?? null;
+      },
+      economyControllerDeps: {
+        LOCAL_MARKET_KEY,
+        GUEST_DEFAULT_DIRTY_MONEY,
+        storageDrugTypes,
+        resolveMoneyBreakdown,
+        normalizeSpyCount,
+        getSpyCount,
+        resolveSpyCountFromPayload,
+        setSpyCount,
+        updateEconomy: (economy, options) => updateEconomy(economy, options),
+        getCachedEconomy: () => cachedEconomy,
+        setCachedEconomy: (value) => { cachedEconomy = value ?? null; },
+        getCachedProfile: () => cachedProfile,
+        setCachedProfile: (value) => { cachedProfile = value ?? null; },
+        applyMoneyToProfileSnapshot,
+        isBlackoutLikeScenario,
+        buildBlackoutPlayerSourcesSnapshot,
+        resolveActiveScenarioOwnerName,
+        updateProfile,
+        makeSeedOrder,
+        resourceKeyToBalanceKey
+      },
+      modalControllerDeps: {
+        uiDom,
+        MARKET_BLACK_RESOURCES,
+        MARKET_SERVER_RESOURCES,
+        MARKET_BLACK_RESOURCE_GROUPS,
+        getCachedMarket: () => cachedMarket,
+        setCachedMarket: (value) => { cachedMarket = value ?? null; },
+        getLocalMarketState: () => getLocalMarketState(),
+        renderMarketState: (resourceKey, marketTab) => renderMarketState(resourceKey, marketTab),
+        pushEvent,
+        createLocalMarketOrder: (payload) => createLocalMarketOrder(payload),
+        cancelLocalMarketOrder: (orderId) => cancelLocalMarketOrder(orderId),
+        recordVerifiedIntelEvent,
+        syncGuestEconomyFromMarket,
+        updateEconomy: (economy, options) => updateEconomy(economy, options),
+        setMobileTopbarCoveredByPrimaryModal,
+        normalizeOwnerName,
+        isDistrictOwnedByPlayer,
+        isOnboardingDemoScenarioActive,
+        resolveDistrictById
+      },
+      getMarketRefreshHandler: () => marketRefreshHandler,
+      setMarketRefreshHandler: (handler) => {
+        marketRefreshHandler = typeof handler === "function" ? handler : null;
+      },
+      getMarketModalOpenHandler: () => marketModalOpenHandler,
+      setMarketModalOpenHandler: (handler) => {
+        marketModalOpenHandler = typeof handler === "function" ? handler : null;
+      },
+      getMarketBuildingShortcutRefreshHandler: () => marketBuildingShortcutRefreshHandler,
+      setMarketBuildingShortcutRefreshHandler: (handler) => {
+        marketBuildingShortcutRefreshHandler = typeof handler === "function" ? handler : null;
+      }
+    });
+    return marketFacade;
+  }
+
+  function getModalsFacade() {
+    if (modalsFacade) return modalsFacade;
+    const factory = window.Empire.UIModals?.createFacade;
+    if (typeof factory !== "function") return null;
+    modalsFacade = factory({
+      createDistrictActionsController: window.Empire.UIModals?.createDistrictActionsController,
+      districtActionsDeps: {
+        bindConfirmModal: window.Empire.UIModals?.bindConfirmModal,
+        resolveDistrictById,
+        processSpyRecoveryQueue,
+        getSpyCount,
+        evaluateDistrictActionAvailability,
+        scenarioVisionEnabled: () => scenarioVisionEnabled,
+        hasToken: () => Boolean(window.Empire.token),
+        resolveOnboardingActionDurationMs,
+        spyActionDurationMs: SPY_ACTION_DURATION_MS,
+        spyRecoveryCooldownMs: SPY_RECOVERY_COOLDOWN_MS,
+        resolveRaidDurationWithBoosts,
+        formatAttackDurationLabel,
+        isRaidActionRunning,
+        getRaidCooldownRemainingMs,
+        formatRaidCooldownLabel,
+        pushEvent,
+        startRaidAction,
+        raidDistrictApi: (districtId) => window.Empire.API.raidDistrict(districtId),
+        formatRaidError,
+        startRaidActionFromServerResult,
+        showActionConfirmPopup,
+        consumeSpyAgents,
+        recordVerifiedIntelEvent,
+        scheduleSpyActionResult,
+        resolveCompleteSpyIntel,
+        resolveOccupationRequiredMembers,
+        countPlayerControlledPopulation,
+        getProfileSnapshot: () => cachedProfile || window.Empire.player || {},
+        occupyActionDurationMs: OCCUPY_ACTION_DURATION_MS,
+        consumeGangMembers,
+        scheduleOccupationActionResult,
+        getDistrictTrapControlState,
+        getCurrentPlayerTrapPlacement,
+        trapMoveCooldownMs: TRAP_MOVE_COOLDOWN_MS,
+        isDistrictDefendableByPlayer,
+        isDistrictDestroyed,
+        setCurrentPlayerTrapDistrict,
+        formatTrapMoveCooldownLabel
+      },
+      actionConfirmPopupController
+    });
+    return modalsFacade;
+  }
+
+  function getAllianceChatHelpers() {
+    if (allianceChatHelpers) return allianceChatHelpers;
+    const factory = window.Empire.UIAlliance?.createChatHelpers;
+    if (typeof factory !== "function") return null;
+    allianceChatHelpers = factory({
+      localServerChatKey: LOCAL_SERVER_CHAT_KEY,
+      normalizeOwnerName,
+      resolveActiveScenarioOwnerName,
+      getPlayer: () => window.Empire.player || null,
+      getCachedProfile: () => cachedProfile,
+      readStoredGuestUsername,
+      readStoredGangName,
+      getDistricts: () => Array.isArray(window.Empire.districts) ? window.Empire.districts : [],
+      getLeaderboardServerPlayers: () => Array.isArray(window.Empire.leaderboardServerPlayers) ? window.Empire.leaderboardServerPlayers : []
+    });
+    return allianceChatHelpers;
+  }
+
+  function getAllianceDisplayHelpers() {
+    if (allianceDisplayHelpers) return allianceDisplayHelpers;
+    const factory = window.Empire.UIAlliance?.createDisplayHelpers;
+    if (typeof factory !== "function") return null;
+    allianceDisplayHelpers = factory({
+      defaultAllianceIconKey: DEFAULT_ALLIANCE_ICON_KEY,
+      allianceIconOptions: ALLIANCE_ICON_OPTIONS,
+      normalizeOwnerName,
+      getScenarioAllianceIconByName: () => scenarioAllianceIconByName,
+      getLiveAllianceIconByName: () => liveAllianceIconByName,
+      allianceReadyWindowMs: ALLIANCE_READY_WINDOW_MS,
+      getDistricts: () => Array.isArray(window.Empire.districts) ? window.Empire.districts : [],
+      formatFactionLabel,
+      formatSectorCountLabel,
+      resolveDemoOwnerFaction,
+      resolveDemoOwnerAvatar,
+      normalizeHexColor
+    });
+    return allianceDisplayHelpers;
+  }
+
+  function getAllianceButtonHelpers() {
+    if (allianceButtonHelpers) return allianceButtonHelpers;
+    const factory = window.Empire.UIAlliance?.createButtonHelpers;
+    if (typeof factory !== "function") return null;
+    allianceButtonHelpers = factory({
+      getPlayer: () => window.Empire.player || null,
+      formatAllianceProfileSummary,
+      extractAllianceDisplayName
+    });
+    return allianceButtonHelpers;
+  }
+
+  function getAllianceStateHelpers() {
+    if (allianceStateHelpers) return allianceStateHelpers;
+    const factory = window.Empire.UIAlliance?.createStateHelpers;
+    if (typeof factory !== "function") return null;
+    allianceStateHelpers = factory({
+      localAllianceKey: LOCAL_ALLIANCE_KEY,
+      localAllianceRequestPlayerId: LOCAL_ALLIANCE_REQUEST_PLAYER_ID,
+      defaultAllianceDescription: DEFAULT_ALLIANCE_DESCRIPTION,
+      defaultAllianceIconKey: DEFAULT_ALLIANCE_ICON_KEY,
+      allianceMaxMembers: ALLIANCE_MAX_MEMBERS,
+      normalizeOwnerName,
+      getCachedProfile: () => cachedProfile,
+      readStoredGangName,
+      isBlackoutLikeScenario,
+      getPlayerOwnerNameSet,
+      setScenarioAllianceOwners,
+      getDistricts: () => Array.isArray(window.Empire.districts) ? window.Empire.districts : [],
+      setDistricts: (districts) => window.Empire.Map?.setDistricts?.(districts),
+      computeLocalAllianceReadyState
+    });
+    return allianceStateHelpers;
+  }
+
+  function getAllianceVisionHelpers() {
+    if (allianceVisionHelpers) return allianceVisionHelpers;
+    const factory = window.Empire.UIAlliance?.createVisionHelpers;
+    if (typeof factory !== "function") return null;
+    allianceVisionHelpers = factory({
+      scenarioVisionEnabled: () => scenarioVisionEnabled,
+      setScenarioVisionEnabled: (value) => {
+        scenarioVisionEnabled = Boolean(value);
+      },
+      scenarioUniqueOwnerColors: () => scenarioUniqueOwnerColors,
+      setScenarioUniqueOwnerColors: (value) => {
+        scenarioUniqueOwnerColors = Boolean(value);
+      },
+      getScenarioAllianceOwnerNames: () => scenarioAllianceOwnerNames,
+      setScenarioAllianceOwnerNames: (value) => {
+        scenarioAllianceOwnerNames = value instanceof Set ? value : new Set();
+      },
+      getScenarioEnemyOwnerNames: () => scenarioEnemyOwnerNames,
+      setScenarioEnemyOwnerNames: (value) => {
+        scenarioEnemyOwnerNames = value instanceof Set ? value : new Set();
+      },
+      getLiveAllianceOwnerNames: () => liveAllianceOwnerNames,
+      setLiveAllianceOwnerNames: (value) => {
+        liveAllianceOwnerNames = value instanceof Set ? value : new Set();
+      },
+      setLiveAllianceTrapGraceByOwnerName: (value) => {
+        liveAllianceTrapGraceByOwnerName = value instanceof Map ? value : new Map();
+      },
+      setLiveAllianceIconByName: (value) => {
+        liveAllianceIconByName = value instanceof Map ? value : new Map();
+      },
+      getScenarioAllianceIconByName: () => scenarioAllianceIconByName,
+      allianceTrapGraceMs: ALLIANCE_TRAP_GRACE_MS,
+      defaultAllianceIconKey: DEFAULT_ALLIANCE_ICON_KEY,
+      emptyOwnerNames: EMPTY_OWNER_NAMES,
+      getLocalAllianceState,
+      getPlayerOwnerNameSet,
+      getDistricts: () => Array.isArray(window.Empire.districts) ? window.Empire.districts : [],
+      normalizeOwnerName,
+      resolveAllianceIconKeyByName,
+      setAllianceIconMap,
+      processSpyRecoveryQueue,
+      resolveFactionBaseSpyCount,
+      getCachedProfile: () => cachedProfile,
+      readStoredStructure,
+      readStoredSpyCount,
+      readSpyRecoveryQueue,
+      getSpyCount,
+      setSpyCount,
+      renderInfluenceSpyTopbarStat,
+      syncSpyRecoveryTicker,
+      getSettingsState,
+      selectedMapBorderMode: () => selectedMapBorderMode,
+      unknownNeutralFillEnabled: () => unknownNeutralFillEnabled,
+      normalizeMapVisibilityMode,
+      setVisionContext: (context) => window.Empire.Map?.setVisionContext?.(context)
+    });
+    return allianceVisionHelpers;
+  }
+
+  function getAllianceFacade() {
+    if (allianceFacade) return allianceFacade;
+    const factory = window.Empire.UIAlliance?.createFacade;
+    if (typeof factory !== "function") return null;
+    allianceFacade = factory({
+      createAllianceModalController: window.Empire.UIAlliance?.createAllianceModalController,
+      allianceModalDeps: {
+        DEFAULT_ALLIANCE_ICON_KEY,
+        DEFAULT_ALLIANCE_DESCRIPTION,
+        ALLIANCE_ICON_OPTIONS,
+        ALLIANCE_MAX_MEMBERS,
+        getAllianceRefreshHandler: () => allianceRefreshHandler,
+        setAllianceRefreshHandler: (handler) => {
+          allianceRefreshHandler = typeof handler === "function" ? handler : null;
+        },
+        getAllianceCountdownIntervalId: () => allianceCountdownIntervalId,
+        setAllianceCountdownIntervalId: (id) => {
+          allianceCountdownIntervalId = id ?? null;
+        },
+        setMobileTopbarCoveredByPrimaryModal,
+        isBlackoutLikeScenario,
+        getLocalAllianceState,
+        saveLocalAllianceState,
+        withActiveAlliance,
+        renderAllianceChat,
+        renderGlobalServerChat,
+        setLiveAllianceOwnersFromAlliance,
+        syncBlackoutScenarioAllianceDistrictState,
+        syncGuestAllianceLabel,
+        pushEvent,
+        appendLocalAllianceChat,
+        resolveCurrentServerChatAuthorName,
+        appendLocalServerChatMessage,
+        createLocalAlliance,
+        leaveLocalAlliance,
+        sendLocalAllianceManagementInvite,
+        formatAllianceError,
+        updateProfile,
+        computeLocalAllianceReadyState,
+        formatAllianceDueLabelSeconds,
+        renderAllianceIdentityMarkup,
+        renderAllianceMemberCard,
+        bindAllianceMemberAvatarLightbox,
+        getAllianceMemberVisualData,
+        escapeAllianceMarkup,
+        formatAllianceRelativeTime,
+        markLocalAllianceReady,
+        respondToLocalAllianceMemberInvite,
+        requestLocalAllianceInvite,
+        respondToLocalAllianceRequest,
+        removeLocalAllianceMember,
+        startLocalAllianceKickVote,
+        castLocalAllianceKickVote
+      }
+    });
+    return allianceFacade;
+  }
   const spyActionResultTimeouts = new Set();
   const occupyActionResultTimeouts = new Set();
   const pendingResultModalQueue = [];
@@ -2101,7 +2899,7 @@ window.Empire.UI = (() => {
 
   function init() {
     selectedMapBorderMode = resolveStoredMapBorderMode();
-    localStorage.setItem(MAP_UNKNOWN_NEUTRAL_FILL_STORAGE_KEY, "0");
+    writeStoredValue(MAP_UNKNOWN_NEUTRAL_FILL_STORAGE_KEY, "0");
     unknownNeutralFillEnabled = false;
     loadInfoWindowHistory();
     readStoredDistrictSpyIntel();
@@ -2120,6 +2918,7 @@ window.Empire.UI = (() => {
     initGlobalModalScrollLock();
     initDoubleTapZoomLock();
     initMapModeControls();
+    initIndexMapToggleButton();
     startPoliceRaidProtectionTicker();
     startScenarioIncomeTicker();
     renderInfoWindowHistory();
@@ -2229,139 +3028,34 @@ window.Empire.UI = (() => {
   }
 
   function stopRoundPhaseTicker() {
-    if (!roundPhaseTimer) return;
-    clearInterval(roundPhaseTimer);
-    roundPhaseTimer = null;
+    return getRoundStatusController()?.stopRoundPhaseTicker?.();
   }
 
   function resolveRoundPhaseSnapshot(round) {
-    if (!round?.roundStartedAt || !round?.phaseDurationMs) return null;
-    const startedAtMs = new Date(round.roundStartedAt).getTime();
-    const phaseDurationMs = Math.max(1, Math.floor(Number(round.phaseDurationMs) || 0));
-    if (!Number.isFinite(startedAtMs) || !Number.isFinite(phaseDurationMs)) return null;
-    const nowMs = Date.now();
-    const elapsedMs = Math.max(0, nowMs - startedAtMs);
-    const phaseIndex = Math.floor(elapsedMs / phaseDurationMs);
-    const phaseKey = phaseIndex % 2 === 0 ? "day" : "night";
-    const phaseLabel = phaseKey === "day" ? "DEN" : "NOC";
-    const currentGameDay = Math.max(1, Math.floor(elapsedMs / (phaseDurationMs * 2)) + 1);
-    const totalGameDays = Math.max(1, Math.floor(Number(round.totalGameDays) || 0));
-    return {
-      phaseKey,
-      phaseLabel,
-      currentGameDay: Math.min(totalGameDays, currentGameDay)
-    };
+    return getRoundStatusController()?.resolveRoundPhaseSnapshot?.(round) || null;
   }
 
   function buildRoundStatusPresetForMode(mode) {
-    const normalizedMode = String(mode || "").trim().toLowerCase();
-    if (normalizedMode === "day") {
-      return {
-        currentGameDay: 1,
-        timeLabel: "09:15",
-        phaseKey: "day",
-        phaseLabel: "DEN",
-        phaseStartedAt: Date.now()
-      };
-    }
-    if (normalizedMode === "blackout") {
-      return {
-        currentGameDay: 3,
-        timeLabel: "20:30",
-        phaseKey: "night",
-        subPhaseKey: "blackout",
-        phaseLabel: "NOC-BLACKOUT",
-        phaseStartedAt: Date.now()
-      };
-    }
-    return {
-      currentGameDay: 3,
-      timeLabel: "20:30",
-      phaseKey: "night",
-      phaseLabel: "NOC",
-      phaseStartedAt: Date.now()
-    };
+    return getRoundStatusController()?.buildRoundStatusPresetForMode?.(mode) || null;
   }
 
   function resolveEffectiveRoundMode(phaseKey, subPhaseKey = "") {
-    const normalizedPhaseKey = String(phaseKey || "").trim().toLowerCase();
-    const normalizedSubPhaseKey = String(subPhaseKey || "").trim().toLowerCase();
-    if (normalizedSubPhaseKey === "blackout" && normalizedPhaseKey === "night") {
-      return {
-        mapMode: "blackout",
-        phaseLabel: "NOC-BLACKOUT"
-      };
-    }
-    return {
-      mapMode: normalizedPhaseKey === "day" ? "day" : "night",
-      phaseLabel: normalizedPhaseKey === "day" ? "DEN" : "NOC"
+    return getRoundStatusController()?.resolveEffectiveRoundMode?.(phaseKey, subPhaseKey) || {
+      mapMode: "night",
+      phaseLabel: "NOC"
     };
   }
 
   function formatRoundClockLabel(minutesInDay) {
-    const safeMinutes = ((Math.floor(Number(minutesInDay) || 0) % 1440) + 1440) % 1440;
-    const hours = Math.floor(safeMinutes / 60);
-    const minutes = safeMinutes % 60;
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+    return getRoundStatusController()?.formatRoundClockLabel?.(minutesInDay) || "00:00";
   }
 
   function resolveRoundClockSnapshot(round) {
-    if (!round?.roundStartedAt) return null;
-    const startedAtMs = new Date(round.roundStartedAt).getTime();
-    const gameClockStartHour = Math.max(0, Math.floor(Number(round.gameClockStartHour) || 6));
-    const gameMinutesPerRealMinute = Math.max(1, Number(round.gameMinutesPerRealMinute) || 3);
-    if (!Number.isFinite(startedAtMs)) return null;
-    const elapsedMs = Math.max(0, Date.now() - startedAtMs);
-    const elapsedGameMinutes = Math.floor((elapsedMs / (60 * 1000)) * gameMinutesPerRealMinute);
-    const minutesInDay = (gameClockStartHour * 60 + elapsedGameMinutes) % 1440;
-    return {
-      minutesInDay,
-      label: formatRoundClockLabel(minutesInDay)
-    };
+    return getRoundStatusController()?.resolveRoundClockSnapshot?.(round) || null;
   }
 
   function renderRoundStatusState() {
-    const override = roundStatusOverride && typeof roundStatusOverride === "object" ? roundStatusOverride : null;
-    const fallbackTotalGameDays = 30;
-    if (!roundStatusState && !override) return;
-    const roundEnds = document.getElementById("round-ends");
-    const roundDays = document.getElementById("round-days");
-    const roundGameDay = document.getElementById("round-game-day");
-    const roundGameTime = document.getElementById("round-game-time");
-    const roundPhase = document.getElementById("round-phase");
-    const phaseSnapshot = roundStatusState ? resolveRoundPhaseSnapshot(roundStatusState) : null;
-    const clockSnapshot = roundStatusState ? resolveRoundClockSnapshot(roundStatusState) : null;
-    const basePhaseKey = override?.phaseKey || phaseSnapshot?.phaseKey || roundStatusState?.currentPhaseKey || "";
-    const activeSubPhaseKey = override?.subPhaseKey || roundStatusState?.currentSubPhaseKey || "";
-    const effectiveMode = resolveEffectiveRoundMode(basePhaseKey, activeSubPhaseKey);
-    const displayPhaseKey = effectiveMode.mapMode || "";
-    const displayPhaseLabel = override?.phaseLabel || roundStatusState?.currentSubPhaseLabel || effectiveMode.phaseLabel || "-";
-    const displayGameDay = override?.currentGameDay || phaseSnapshot?.currentGameDay || 1;
-    const displayClockLabel = override?.timeLabel || clockSnapshot?.label || roundStatusState?.currentGameTimeLabel || "09:15";
-    const totalGameDays = Math.max(1, Math.floor(Number(roundStatusState?.totalGameDays) || fallbackTotalGameDays));
-    if (roundEnds) {
-      roundEnds.textContent = roundStatusState?.roundEndsAt || "-";
-    }
-    if (roundDays) {
-      roundDays.textContent = roundStatusState?.roundRemainingLabel || (roundStatusState?.daysRemaining != null ? roundStatusState.daysRemaining : "-");
-    }
-    if (roundGameDay) {
-      if (phaseSnapshot || override) {
-        roundGameDay.textContent = `${displayGameDay}/${totalGameDays}`;
-      } else {
-        roundGameDay.textContent = "-";
-      }
-    }
-    if (roundGameTime) {
-      roundGameTime.textContent = displayClockLabel;
-    }
-    if (roundPhase) {
-      roundPhase.textContent = displayPhaseLabel;
-    }
-    if (displayPhaseKey) {
-      window.Empire.Map?.setMapMode?.(displayPhaseKey);
-    }
-    updateFreeCtaVisibility();
+    return getRoundStatusController()?.renderRoundStatusState?.();
   }
 
   function updateFreeCtaVisibility() {
@@ -2374,12 +3068,7 @@ window.Empire.UI = (() => {
   }
 
   function startRoundPhaseTicker() {
-    stopRoundPhaseTicker();
-    if (!roundStatusState?.roundStartedAt || !roundStatusState?.phaseDurationMs) return;
-    renderRoundStatusState();
-    roundPhaseTimer = setInterval(() => {
-      renderRoundStatusState();
-    }, 1000);
+    return getRoundStatusController()?.startRoundPhaseTicker?.();
   }
 
   function stopScenarioIncomeTicker() {
@@ -2468,7 +3157,7 @@ window.Empire.UI = (() => {
     "Brainwash centrum": Object.freeze({ clean: 8, dirty: 1.5 }),
     "Bytový blok": Object.freeze({ clean: 1.5, dirty: 0.5 }),
     Garage: Object.freeze({ clean: 3, dirty: 0.5 }),
-    Klinika: Object.freeze({ clean: 2.5, dirty: 0.3 }),
+    Klinika: Object.freeze({ clean: 2.6667, dirty: 1.3333 }),
     "Rekrutační centrum": Object.freeze({ clean: 2, dirty: 0.3 }),
     "Škola": Object.freeze({ clean: 4.4, dirty: 1 }),
     "Drug lab": Object.freeze({ clean: 1.5, dirty: 2 }),
@@ -2919,6 +3608,121 @@ window.Empire.UI = (() => {
     syncVisibility();
   }
 
+  function cloneIndexMapSnapshotValue(value) {
+    try {
+      return JSON.parse(JSON.stringify(value ?? null));
+    } catch {
+      return value ?? null;
+    }
+  }
+
+  function captureGuestIndexBaseSnapshot() {
+    const districts = Array.isArray(window.Empire.districts) ? window.Empire.districts : [];
+    return {
+      profile: cloneIndexMapSnapshotValue(window.Empire.player || {}),
+      districts: cloneIndexMapSnapshotValue(districts),
+      mapMode: String(window.Empire.Map?.getMapMode?.() || "night").trim().toLowerCase() || "night"
+    };
+  }
+
+  function syncIndexMapToggleButton() {
+    const toggleButton = document.getElementById("map-view-toggle");
+    if (!toggleButton) return;
+    const shouldShow = !window.Empire.token && guestIndexMapViewBootstrapped && guestIndexBaseSnapshot?.districts?.length;
+    toggleButton.classList.toggle("hidden", !shouldShow);
+    if (!shouldShow) return;
+    const hraActive = activeIndexMapView === "hra" || activePlayerScenarioKey === INTERNAL_INDEX_HRA_SCENARIO_KEY;
+    toggleButton.classList.toggle("is-active", hraActive);
+    toggleButton.setAttribute("aria-pressed", hraActive ? "true" : "false");
+    toggleButton.textContent = hraActive ? "INDEX" : "HRA";
+    toggleButton.title = hraActive
+      ? "Přepnout na původní index mapu"
+      : "Přepnout na HRA mapu";
+  }
+
+  function applyGuestIndexBaseSnapshot(options = {}) {
+    const snapshot = guestIndexBaseSnapshot;
+    if (!snapshot?.districts?.length) return;
+    const preferredMode = String(options?.mapMode || window.Empire.Map?.getMapMode?.() || snapshot.mapMode || "night").trim().toLowerCase();
+    activePlayerScenarioKey = "";
+    activeScenarioOwnerName = "";
+    scenarioUniqueOwnerColors = false;
+    scenarioProfileAvatarOverride = null;
+    setScenarioVisionMode(false);
+    setScenarioAllianceOwners([]);
+    setScenarioEnemyOwners([]);
+    setScenarioAllianceIcons([]);
+    syncMapVisionContext();
+    roundStatusOverride = buildRoundStatusPresetForMode(preferredMode);
+    stopOnboardingGrowthTicker();
+    window.Empire.player = cloneIndexMapSnapshotValue(snapshot.profile || {});
+    window.Empire.Map?.clearUnderAttackDistricts?.();
+    window.Empire.Map?.clearPoliceActions?.();
+    window.Empire.Map?.clearSpyActions?.();
+    window.Empire.Map?.clearRaidActions?.();
+    window.Empire.Map?.clearBountyDistrictMarkers?.();
+    window.Empire.Map?.setDistricts?.(cloneIndexMapSnapshotValue(snapshot.districts || []));
+    window.Empire.Map?.setMapMode?.(preferredMode || snapshot.mapMode || "night");
+    updateProfile(window.Empire.player || {});
+    renderRoundStatusState();
+    activeIndexMapView = "index";
+    syncIndexMapToggleButton();
+  }
+
+  function applyIndexMapView(viewKey, options = {}) {
+    const normalizedView = String(viewKey || "").trim().toLowerCase() === "index" ? "index" : "hra";
+    const preferredMode = String(options?.mapMode || window.Empire.Map?.getMapMode?.() || "night").trim().toLowerCase() || "night";
+    if (normalizedView === "index") {
+      applyGuestIndexBaseSnapshot({ mapMode: preferredMode });
+      return;
+    }
+    applyPlayerScenario(INTERNAL_INDEX_HRA_SCENARIO_KEY);
+    if (preferredMode) {
+      roundStatusOverride = buildRoundStatusPresetForMode(preferredMode);
+      window.Empire.Map?.setMapMode?.(preferredMode);
+      renderRoundStatusState();
+    }
+    activeIndexMapView = "hra";
+    syncIndexMapToggleButton();
+  }
+
+  function initIndexMapToggleButton() {
+    const toggleButton = document.getElementById("map-view-toggle");
+    if (!toggleButton || toggleButton.dataset.bound === "1") {
+      syncIndexMapToggleButton();
+      return;
+    }
+    toggleButton.dataset.bound = "1";
+    toggleButton.addEventListener("click", () => {
+      if (window.Empire.token || !guestIndexMapViewBootstrapped) return;
+      const nextView = activeIndexMapView === "hra" || activePlayerScenarioKey === INTERNAL_INDEX_HRA_SCENARIO_KEY
+        ? "index"
+        : "hra";
+      applyIndexMapView(nextView, {
+        mapMode: window.Empire.Map?.getMapMode?.() || "night"
+      });
+    });
+    syncIndexMapToggleButton();
+  }
+
+  function bootstrapGuestIndexMapView() {
+    if (window.Empire.token || guestIndexMapViewBootstrapped) {
+      syncIndexMapToggleButton();
+      return;
+    }
+    const districts = Array.isArray(window.Empire.districts) ? window.Empire.districts : [];
+    if (!districts.length || !window.Empire.Map?.setDistricts) {
+      syncIndexMapToggleButton();
+      return;
+    }
+    guestIndexBaseSnapshot = captureGuestIndexBaseSnapshot();
+    guestIndexMapViewBootstrapped = true;
+    initIndexMapToggleButton();
+    applyIndexMapView(DEFAULT_INDEX_MAP_VIEW, {
+      mapMode: guestIndexBaseSnapshot?.mapMode || "night"
+    });
+  }
+
   function initMobileViewportLayoutLock() {
     const media = window.matchMedia("(max-width: 720px)");
     const root = document.documentElement;
@@ -3313,95 +4117,28 @@ window.Empire.UI = (() => {
   }
 
   function normalizeSpyIntelKnownFields(rawEntry) {
-    const rawKnownFields = rawEntry?.knownFields && typeof rawEntry.knownFields === "object"
-      ? rawEntry.knownFields
-      : null;
-    return {
-      weapons: rawKnownFields
-        ? rawKnownFields.weapons !== false
-        : rawEntry?.weapons !== null && rawEntry?.weapons !== undefined && rawEntry?.weapons !== "",
-      powerRangeLabel: rawKnownFields
-        ? rawKnownFields.powerRangeLabel !== false
-        : Boolean(String(rawEntry?.powerRangeLabel || "").trim()),
-      districtType: rawKnownFields
-        ? rawKnownFields.districtType !== false
-        : Boolean(String(rawEntry?.districtType || "").trim()),
-      atmosphere: rawKnownFields
-        ? rawKnownFields.atmosphere !== false
-        : Boolean(String(rawEntry?.atmosphere || "").trim()),
-      buildings: rawKnownFields
-        ? rawKnownFields.buildings !== false
-        : Array.isArray(rawEntry?.buildings)
+    return getSpyIntelHelpers()?.normalizeSpyIntelKnownFields?.(rawEntry) || {
+      weapons: rawEntry?.weapons !== null && rawEntry?.weapons !== undefined && rawEntry?.weapons !== "",
+      powerRangeLabel: Boolean(String(rawEntry?.powerRangeLabel || "").trim()),
+      districtType: Boolean(String(rawEntry?.districtType || "").trim()),
+      atmosphere: Boolean(String(rawEntry?.atmosphere || "").trim()),
+      buildings: Array.isArray(rawEntry?.buildings)
     };
   }
 
   function hasCompleteSpyIntel(rawEntry) {
-    if (!rawEntry || typeof rawEntry !== "object") return false;
-    const knownFields = normalizeSpyIntelKnownFields(rawEntry);
-    return Object.values(knownFields).every(Boolean);
+    return getSpyIntelHelpers()?.hasCompleteSpyIntel?.(rawEntry) || false;
   }
 
   function mergeDistrictSpyIntelEntries(previousEntry, nextEntry) {
-    if (!previousEntry) return nextEntry;
-    if (!nextEntry) return previousEntry;
-    const previousKnownFields = normalizeSpyIntelKnownFields(previousEntry);
-    const nextKnownFields = normalizeSpyIntelKnownFields(nextEntry);
-    const mergedKnownFields = {
-      weapons: previousKnownFields.weapons || nextKnownFields.weapons,
-      powerRangeLabel: previousKnownFields.powerRangeLabel || nextKnownFields.powerRangeLabel,
-      districtType: previousKnownFields.districtType || nextKnownFields.districtType,
-      atmosphere: previousKnownFields.atmosphere || nextKnownFields.atmosphere,
-      buildings: previousKnownFields.buildings || nextKnownFields.buildings
-    };
-    return normalizeDistrictSpyIntelEntry(nextEntry.districtId, {
-      weapons: mergedKnownFields.weapons ? (nextEntry.weapons ?? previousEntry.weapons) : null,
-      powerRangeLabel: mergedKnownFields.powerRangeLabel ? (nextEntry.powerRangeLabel ?? previousEntry.powerRangeLabel) : null,
-      districtType: mergedKnownFields.districtType ? (nextEntry.districtType ?? previousEntry.districtType) : null,
-      atmosphere: mergedKnownFields.atmosphere ? (nextEntry.atmosphere ?? previousEntry.atmosphere) : null,
-      buildings: mergedKnownFields.buildings
-        ? ((Array.isArray(nextEntry.buildings) && nextEntry.buildings.length) ? nextEntry.buildings : previousEntry.buildings)
-        : [],
-      knownFields: mergedKnownFields,
-      createdAt: Math.max(Number(previousEntry.createdAt || 0), Number(nextEntry.createdAt || 0), Date.now())
-    });
+    return getSpyIntelHelpers()?.mergeDistrictSpyIntelEntries?.(previousEntry, nextEntry)
+      || nextEntry
+      || previousEntry
+      || null;
   }
 
   function normalizeDistrictSpyIntelEntry(districtId, rawEntry) {
-    const id = Number(districtId);
-    if (!Number.isFinite(id)) return null;
-    if (!rawEntry || typeof rawEntry !== "object") return null;
-
-    const knownFields = normalizeSpyIntelKnownFields(rawEntry);
-    const rawWeapons = Number(rawEntry.weapons);
-    const weapons = knownFields.weapons && Number.isFinite(rawWeapons)
-      ? Math.max(0, Math.floor(rawWeapons))
-      : null;
-    const powerRangeLabel = knownFields.powerRangeLabel
-      ? (String(rawEntry.powerRangeLabel || "").trim() || "Neznámá")
-      : null;
-    const buildings = knownFields.buildings && Array.isArray(rawEntry.buildings)
-      ? rawEntry.buildings
-        .map((item) => String(item || "").trim())
-        .filter(Boolean)
-      : [];
-    const districtType = knownFields.districtType
-      ? (String(rawEntry.districtType || "").trim() || "Neznámý")
-      : null;
-    const atmosphere = knownFields.atmosphere
-      ? (String(rawEntry.atmosphere || "").trim() || "Neznámá")
-      : null;
-    const createdAt = Number(rawEntry.createdAt);
-
-    return {
-      districtId: id,
-      weapons,
-      powerRangeLabel,
-      buildings,
-      districtType,
-      atmosphere,
-      knownFields,
-      createdAt: Number.isFinite(createdAt) ? Math.floor(createdAt) : Date.now()
-    };
+    return getSpyIntelHelpers()?.normalizeDistrictSpyIntelEntry?.(districtId, rawEntry) || null;
   }
 
   function readStoredDistrictSpyIntel() {
@@ -3515,7 +4252,7 @@ window.Empire.UI = (() => {
       cachedSpyCount = fromStorage;
       return cachedSpyCount;
     }
-    const fallbackFaction = cachedProfile?.structure || localStorage.getItem("empire_structure");
+    const fallbackFaction = cachedProfile?.structure || readStoredStructure();
     cachedSpyCount = resolveFactionBaseSpyCount(fallbackFaction);
     localStorage.setItem(LOCAL_SPY_COUNT_KEY, String(cachedSpyCount));
     return cachedSpyCount;
@@ -3731,40 +4468,44 @@ window.Empire.UI = (() => {
   }
 
   function bindActions() {
-    initMarketModal();
-    try {
-      initEventsModal();
-    } catch (error) {
-      console.error("initEventsModal failed", error);
-    }
-    initBountyModal();
-    initBuildingsModal();
-    initAllianceModal();
-    initBoostModal();
-    initMapBorderModeControls();
-    initMarketBuildingShortcuts();
-    initLeaderboardModal();
-    initStorageModal();
-    initMoneyStatSkipControls();
-    initInfluenceSpyToggle();
-    initWeaponsModal();
-    initWeaponsPopover();
-    initDistrictDefenseModal();
-    initAttackModal();
-    initAttackConfirmModal();
-    initAttackResultModal();
-    initRaidResultModal();
-    initPoliceActionResultModal();
-    initSpyConfirmModal();
-    initRaidConfirmModal();
-    initOccupyConfirmModal();
-    initTrapConfirmModal();
-    initSpyResultModal();
-    initSpyDetectionAlertModal();
-    initGangHeatModal();
-    initEventFeedControls();
-    initInfoWindowHistoryControls();
-    initPlayerScenarioButtons();
+    const safeInit = (name, fn) => {
+      try {
+        fn();
+      } catch (error) {
+        console.error(`${name} failed`, error);
+      }
+    };
+
+    safeInit("initMarketModal", initMarketModal);
+    safeInit("initEventsModal", initEventsModal);
+    safeInit("initBountyModal", initBountyModal);
+    safeInit("initBuildingsModal", initBuildingsModal);
+    safeInit("initAllianceModal", initAllianceModal);
+    safeInit("initBoostModal", initBoostModal);
+    safeInit("initMapBorderModeControls", initMapBorderModeControls);
+    safeInit("initMarketBuildingShortcuts", initMarketBuildingShortcuts);
+    safeInit("initLeaderboardModal", initLeaderboardModal);
+    safeInit("initStorageModal", initStorageModal);
+    safeInit("initMoneyStatSkipControls", initMoneyStatSkipControls);
+    safeInit("initInfluenceSpyToggle", initInfluenceSpyToggle);
+    safeInit("initWeaponsModal", initWeaponsModal);
+    safeInit("initWeaponsPopover", initWeaponsPopover);
+    safeInit("initDistrictDefenseModal", initDistrictDefenseModal);
+    safeInit("initAttackModal", initAttackModal);
+    safeInit("initAttackConfirmModal", initAttackConfirmModal);
+    safeInit("initAttackResultModal", initAttackResultModal);
+    safeInit("initRaidResultModal", initRaidResultModal);
+    safeInit("initPoliceActionResultModal", initPoliceActionResultModal);
+    safeInit("initSpyConfirmModal", initSpyConfirmModal);
+    safeInit("initRaidConfirmModal", initRaidConfirmModal);
+    safeInit("initOccupyConfirmModal", initOccupyConfirmModal);
+    safeInit("initTrapConfirmModal", initTrapConfirmModal);
+    safeInit("initSpyResultModal", initSpyResultModal);
+    safeInit("initSpyDetectionAlertModal", initSpyDetectionAlertModal);
+    safeInit("initGangHeatModal", initGangHeatModal);
+    safeInit("initEventFeedControls", initEventFeedControls);
+    safeInit("initInfoWindowHistoryControls", initInfoWindowHistoryControls);
+    safeInit("initPlayerScenarioButtons", initPlayerScenarioButtons);
     document.getElementById("attack-btn").addEventListener("click", async () => {
       if (!window.Empire.selectedDistrict) return;
       const attackBtn = document.getElementById("attack-btn");
@@ -3884,7 +4625,7 @@ window.Empire.UI = (() => {
     document.querySelectorAll("[data-nav-logout]").forEach((button) => {
       button.addEventListener("click", () => {
         localStorage.removeItem("empire_token");
-        localStorage.removeItem("empire_structure");
+        removeStoredValue("empire_structure");
         window.Empire?.__storagePatch?.removeItem?.("empire:active_auth_mode");
         window.Empire?.__storagePatch?.removeItem?.("empire:active_guest_mode");
         const mode = window.Empire?.mode || "war";
@@ -5814,7 +6555,7 @@ window.Empire.UI = (() => {
         destroyed: false
       };
     }
-    if (activePlayerScenarioKey === "alliance-ten-blackout" && districtId === 89) {
+    if (activePlayerScenarioKey === INTERNAL_INDEX_HRA_SCENARIO_KEY && districtId === 89) {
       return {
         outcomeKey: "catastrophe",
         winChancePct: 100,
@@ -5890,13 +6631,35 @@ window.Empire.UI = (() => {
       : key === "total_success"
         ? 0
         : Math.max(0, Math.floor(Number(selectionSummary?.totalUsedMembers || 0)));
+    let redirectedToInjured = 0;
+    let injuryQueueAfter = null;
+    let directLostMembers = lostMembers;
     if (Object.keys(returnedWeapons).length > 0) {
       restoreAttackWeaponCounts(returnedWeapons);
     }
     if (lostMembers > 0) {
-      consumeGangMembers(lostMembers);
+      const clinicResult = window.Empire.Map?.registerClinicCasualties?.(lostMembers, {
+        source: "attack",
+        outcomeKey: key
+      }) || null;
+      if (clinicResult && typeof clinicResult === "object") {
+        redirectedToInjured = Math.max(0, Math.floor(Number(clinicResult.toInjuredQueue || 0)));
+        directLostMembers = Math.max(0, Math.floor(Number(clinicResult.directDeaths || 0)));
+        injuryQueueAfter = Number.isFinite(Number(clinicResult.injuredQueue))
+          ? Math.max(0, Math.floor(Number(clinicResult.injuredQueue)))
+          : null;
+      }
+      if (directLostMembers > 0) {
+        consumeGangMembers(directLostMembers);
+      }
     }
-    return { weaponLosses, returnedWeapons, lostMembers };
+    return {
+      weaponLosses,
+      returnedWeapons,
+      lostMembers: directLostMembers,
+      redirectedToInjured,
+      injuryQueueAfter
+    };
   }
 
   function isOnboardingDemoScenarioActive() {
@@ -8532,338 +9295,104 @@ window.Empire.UI = (() => {
   }
 
   function resolveOccupationTierRarityWeight(tierValue) {
-    const tier = String(tierValue || "").trim().toLowerCase();
-    const weights = {
-      early: 0.15,
-      mid: 0.38,
-      late: 0.64,
-      top: 0.72,
-      high: 0.78,
-      core: 0.9
-    };
-    return Number.isFinite(weights[tier]) ? weights[tier] : 0.4;
+    return getCombatHelperController()?.resolveOccupationTierRarityWeight?.(tierValue) || 0.4;
   }
 
   function resolveOccupationRequiredMembers(district, spyIntel = null) {
-    const tierWeight = resolveOccupationTierRarityWeight(district?.buildingTier);
-    const districtBuildings = Array.isArray(district?.buildings) ? district.buildings : [];
-    const intelBuildings = Array.isArray(spyIntel?.buildings) ? spyIntel.buildings : [];
-    const buildingCount = Math.max(districtBuildings.length, intelBuildings.length);
-    const buildingWeight = Math.min(1, buildingCount / 4);
-    const rarityWeight = Math.min(1, tierWeight * 0.7 + buildingWeight * 0.3);
-    const required = Math.round(50 + rarityWeight * 150);
-    return Math.max(50, Math.min(200, required));
+    return getCombatHelperController()?.resolveOccupationRequiredMembers?.(district, spyIntel) || 50;
   }
 
   function resolvePlayerDistrictOwnerLabel() {
-    const playerOwners = getPlayerOwnerNameSet();
-    const districts = Array.isArray(window.Empire.districts) ? window.Empire.districts : [];
-    const owned = districts.find((entry) => {
-      const ownerName = normalizeOwnerName(entry?.owner);
-      return ownerName && playerOwners.has(ownerName);
-    });
-    if (owned?.owner) return String(owned.owner);
-    const fallback = cachedProfile?.gangName
-      || cachedProfile?.gang_name
-      || cachedProfile?.gang
-      || window.Empire.player?.gangName
-      || window.Empire.player?.gang_name
-      || window.Empire.player?.gang
-      || localStorage.getItem("empire_gang_name")
-      || localStorage.getItem("empire_guest_username");
-    return String(fallback || "Tvůj gang").trim() || "Tvůj gang";
+    return getPlayerOwnerMetaHelpers()?.resolvePlayerDistrictOwnerLabel?.()
+      || "Tvůj gang";
   }
 
   function resolvePlayerDistrictOwnerColor() {
-    const playerOwners = getPlayerOwnerNameSet();
-    const districts = Array.isArray(window.Empire.districts) ? window.Empire.districts : [];
-    const owned = districts.find((entry) => {
-      const ownerName = normalizeOwnerName(entry?.owner);
-      const hasColor = String(entry?.ownerColor || "").trim().length > 0;
-      return ownerName && hasColor && playerOwners.has(ownerName);
-    });
-    return String(owned?.ownerColor || "").trim();
+    return getPlayerOwnerMetaHelpers()?.resolvePlayerDistrictOwnerColor?.() || "";
   }
 
   function resolvePlayerAllianceVisualMeta() {
-    const localState = !window.Empire.token ? getLocalAllianceState() : null;
-    const activeAlliance = window.Empire.token
-      ? null
-      : ((localState?.alliances || []).find((item) => item.id === localState?.activeAllianceId) || null);
-    const playerOwners = getPlayerOwnerNameSet();
-    const ownedDistrict = (Array.isArray(window.Empire.districts) ? window.Empire.districts : []).find((entry) => {
-      const ownerName = normalizeOwnerName(entry?.owner);
-      return ownerName && playerOwners.has(ownerName) && String(entry?.ownerAllianceName || "").trim();
-    });
-    const allianceName = String(
-      activeAlliance?.name
-      || ownedDistrict?.ownerAllianceName
-      || ""
-    ).trim();
-    if (!allianceName) {
-      return { name: null, iconKey: null };
-    }
-    return {
-      name: allianceName,
-      iconKey: resolveAllianceIconKeyByName(allianceName)
-    };
+    return getAllianceVisionHelpers()?.resolvePlayerAllianceVisualMeta?.() || { name: null, iconKey: null };
   }
 
   function claimDistrictForPlayer(district) {
-    if (!district || typeof district !== "object") return;
-    const ownerLabel = resolvePlayerDistrictOwnerLabel();
-    const ownerColor = resolvePlayerDistrictOwnerColor();
-    const allianceMeta = resolvePlayerAllianceVisualMeta();
-    const ownerNick = String(
-      cachedProfile?.username
-      || cachedProfile?.name
-      || window.Empire.player?.username
-      || window.Empire.player?.name
-      || "Ty"
-    ).trim() || "Ty";
-    const ownerFaction = String(
-      cachedProfile?.structure
-      || window.Empire.player?.structure
-      || district?.ownerFaction
-      || district?.ownerStructure
-      || "Neznámá"
-    ).trim() || "Neznámá";
-
-    district.owner = ownerLabel;
-    district.ownerNick = ownerNick;
-    district.ownerAllianceName = allianceMeta.name || null;
-    district.ownerAllianceIconKey = allianceMeta.iconKey || null;
-    district.ownerFaction = ownerFaction;
-    district.ownerStructure = ownerFaction;
-    district.owner_structure = ownerFaction;
-    district.ownerPlayerId = window.Empire.player?.id || district.ownerPlayerId || null;
-    if (ownerColor) district.ownerColor = ownerColor;
-
-    window.Empire.Map?.refreshSelectedDistrictModal?.();
-    window.Empire.Map?.render?.();
-    updateDistrict(district);
-    refreshProfilePopulation();
+    return getPlayerOwnerMetaHelpers()?.claimDistrictForPlayer?.(district);
   }
 
   function rollSpyOutcome(district) {
-    if (isOnboardingDemoScenarioActive()) {
-      return {
-        key: "success",
-        chances: { success: 100, mediumFail: 0, majorFail: 0 }
-      };
-    }
-    const isUnowned = isDistrictUnownedForSpyOutcome(district);
-    const baseChances = isUnowned
-      ? { success: 70, mediumFail: 20, majorFail: 10 }
-      : { success: 52, mediumFail: 28, majorFail: 20 };
-    const spyDefensePenalty = resolveSpyDefensePenalty(district?.id);
-    const successPenalty = Math.max(0, Math.min(baseChances.success - 5, Number(spyDefensePenalty.successPenalty || 0)));
-    const majorShift = Math.max(0, Math.min(successPenalty, Number(spyDefensePenalty.majorShift || 0)));
-    const mediumShift = Math.max(0, successPenalty - majorShift);
-    const chances = {
-      success: Math.max(5, baseChances.success - successPenalty),
-      mediumFail: baseChances.mediumFail + mediumShift,
-      majorFail: baseChances.majorFail + majorShift
+    return getCombatHelperController()?.rollSpyOutcome?.(district) || {
+      key: "major_fail",
+      chances: { success: 0, mediumFail: 0, majorFail: 100 }
     };
-    const roll = Math.random() * 100;
-    if (roll < chances.success) return { key: "success", chances };
-    if (roll < chances.success + chances.mediumFail) return { key: "medium_fail", chances };
-    return { key: "major_fail", chances };
   }
 
   function resolveSpyDefensePenalty(districtId) {
-    const modifiers = resolveDistrictDefenseSpecialModifiers(districtId);
-    const counts = {
-      securityCameraCount: modifiers.cameraCount,
-      alarmSystemCount: modifiers.alarmCount
-    };
-    let successPenalty = 0;
-    let majorShift = 0;
-    if (counts.securityCameraCount >= 5) {
-      successPenalty += 8;
-      majorShift += 3;
-    }
-    if (counts.alarmSystemCount >= 5) {
-      successPenalty += 8;
-      majorShift += 3;
-    }
-    return {
-      ...counts,
-      successPenalty,
-      majorShift
+    return getCombatHelperController()?.resolveSpyDefensePenalty?.(districtId) || {
+      securityCameraCount: 0,
+      alarmSystemCount: 0,
+      successPenalty: 0,
+      majorShift: 0
     };
   }
 
   function estimateSpyDefenseIntel(district) {
-    const snapshot = getDistrictDefenseSnapshot(district?.id);
-    const candidates = [snapshot?.self, snapshot?.ally].filter((entry) => entry?.hasData);
-    const knownWeapons = candidates.reduce((max, entry) => Math.max(max, Number(entry?.weapons || 0)), 0);
-    const knownPower = candidates.reduce((max, entry) => Math.max(max, Number(entry?.power || 0)), 0);
-    const buildings = Array.isArray(district?.buildings) ? district.buildings : [];
-    const influence = Math.max(0, Math.floor(Number(district?.influence || 0)));
-    const fallbackPower = Math.max(26, Math.floor(influence * 1.5 + buildings.length * 26 + (district?.owner ? 48 : 12)));
-    const basePower = knownPower > 0 ? knownPower : fallbackPower;
-    const baseWeapons = knownWeapons > 0 ? knownWeapons : Math.max(0, Math.round(basePower / 36));
-    const lowerPower = Math.max(0, Math.floor(basePower * 0.8));
-    const upperPower = Math.max(lowerPower, Math.ceil(basePower * 1.2));
-    return {
-      weapons: baseWeapons,
-      powerEstimate: basePower,
-      powerRangeLabel: `${lowerPower} až ${upperPower}`
+    return getCombatHelperController()?.estimateSpyDefenseIntel?.(district) || {
+      weapons: 0,
+      powerEstimate: 0,
+      powerRangeLabel: "0 až 0"
     };
   }
 
   function resolveDistrictAtmosphereForSpy(district) {
-    const candidates = [
-      district?.ownerAtmosphere,
-      district?.atmosphere,
-      district?.districtAtmosphere,
-      district?.vibe
-    ];
-    for (let i = 0; i < candidates.length; i += 1) {
-      const value = String(candidates[i] || "").trim();
-      if (value) return value;
-    }
-    return "Neznámá";
+    return getCombatHelperController()?.resolveDistrictAtmosphereForSpy?.(district) || "Neznámá";
   }
 
   function buildSpyIntelPayload(district) {
-    const defenseIntel = estimateSpyDefenseIntel(district);
-    const buildings = Array.isArray(district?.buildings)
-      ? district.buildings
-        .map((building) => String(building || "").trim())
-        .filter((building) => {
-          const normalized = String(building || "").trim().toLowerCase();
-          return normalized && normalized !== "past";
-        })
-      : [];
-    const districtType = formatDistrictType(String(district?.type || ""));
-    const atmosphere = resolveDistrictAtmosphereForSpy(district);
-    return {
-      weapons: defenseIntel.weapons,
-      powerRangeLabel: defenseIntel.powerRangeLabel,
-      buildings,
-      districtType: districtType || "Neznámý",
-      atmosphere,
+    return getCombatHelperController()?.buildSpyIntelPayload?.(district) || {
+      weapons: 0,
+      powerRangeLabel: "0 až 0",
+      buildings: [],
+      districtType: "Neznámý",
+      atmosphere: "Neznámá",
       createdAt: Date.now()
     };
   }
 
   function buildPartialSpyIntelPayload(district) {
-    const fullIntel = buildSpyIntelPayload(district);
-    const revealableFields = ["weapons", "powerRangeLabel", "districtType", "atmosphere", "buildings"];
-    const shuffledFields = [...revealableFields].sort(() => Math.random() - 0.5);
-    const revealedFields = new Set(shuffledFields.slice(0, 2));
-    return {
-      weapons: revealedFields.has("weapons") ? fullIntel.weapons : null,
-      powerRangeLabel: revealedFields.has("powerRangeLabel") ? fullIntel.powerRangeLabel : null,
-      districtType: revealedFields.has("districtType") ? fullIntel.districtType : null,
-      atmosphere: revealedFields.has("atmosphere") ? fullIntel.atmosphere : null,
-      buildings: revealedFields.has("buildings") ? [...fullIntel.buildings] : [],
+    return getCombatHelperController()?.buildPartialSpyIntelPayload?.(district) || {
+      weapons: null,
+      powerRangeLabel: null,
+      districtType: null,
+      atmosphere: null,
+      buildings: [],
       knownFields: {
-        weapons: revealedFields.has("weapons"),
-        powerRangeLabel: revealedFields.has("powerRangeLabel"),
-        districtType: revealedFields.has("districtType"),
-        atmosphere: revealedFields.has("atmosphere"),
-        buildings: revealedFields.has("buildings")
+        weapons: false,
+        powerRangeLabel: false,
+        districtType: false,
+        atmosphere: false,
+        buildings: false
       },
       createdAt: Date.now()
     };
   }
 
   function buildSpySuccessDetailsMarkup(intel) {
-    const knownFields = normalizeSpyIntelKnownFields(intel || {});
-    const buildingLabel = knownFields.buildings
-      ? ((Array.isArray(intel?.buildings) && intel.buildings.length)
-        ? intel.buildings.join(", ")
-        : "Bez významných budov")
-      : "Nezjištěno";
-    const weapons = knownFields.weapons
-      ? `${Math.max(0, Math.floor(Number(intel?.weapons) || 0))} ks`
-      : "Nezjištěno";
-    const powerRangeLabel = knownFields.powerRangeLabel
-      ? (String(intel?.powerRangeLabel || "").trim() || "Neznámá")
-      : "Nezjištěno";
-    const districtType = knownFields.districtType
-      ? (String(intel?.districtType || "").trim() || "Neznámý")
-      : "Nezjištěno";
-    const atmosphere = knownFields.atmosphere
-      ? (String(intel?.atmosphere || "").trim() || "Neznámá")
-      : "Nezjištěno";
-    const atmosphereClass = /^(neznámá|nezjištěno)$/iu.test(atmosphere) ? "modal__nowrap-value" : "";
-    return `
-      <div class="modal__row">
-        <span>Odhad zbraní v districtu</span>
-        <strong>${weapons}</strong>
-      </div>
-      <div class="modal__row">
-        <span>Odhad síly obrany</span>
-        <strong>${powerRangeLabel}</strong>
-      </div>
-      <div class="modal__row">
-        <span>Typ distriktu</span>
-        <strong>${districtType}</strong>
-      </div>
-      <div class="modal__row">
-        <span>Atmosféra</span>
-        <strong class="${atmosphereClass}">${atmosphere}</strong>
-      </div>
-      <div class="modal__row">
-        <span>Budovy</span>
-        <strong>${buildingLabel}</strong>
-      </div>
-    `;
+    return getCombatHelperController()?.buildSpySuccessDetailsMarkup?.(intel) || "";
   }
 
   function resolveSpySuccessSummary(district) {
-    if (isDistrictUnownedForSpyOutcome(district)) {
-      const quotes = SPY_SUCCESS_EMPTY_DISTRICT_QUOTES;
-      if (quotes.length) {
-        return String(quotes[Math.floor(Math.random() * quotes.length)] || "").trim();
-      }
-    }
-    if (district?.owner) {
-      const quotes = SPY_SUCCESS_OCCUPIED_DISTRICT_QUOTES;
-      if (quotes.length) {
-        return String(quotes[Math.floor(Math.random() * quotes.length)] || "").trim();
-      }
-    }
-    const districtName = district?.name || `Distrikt #${district?.id ?? "-"}`;
-    return `Špehování distriktu ${districtName} dopadlo úspěšně.`;
+    return getCombatHelperController()?.resolveSpySuccessSummary?.(district)
+      || `Špehování distriktu ${district?.name || `Distrikt #${district?.id ?? "-"}`} dopadlo úspěšně.`;
   }
 
   function resolveSpyMediumFailSummary(district) {
-    if (isDistrictUnownedForSpyOutcome(district)) {
-      const quotes = SPY_MEDIUM_FAIL_EMPTY_DISTRICT_QUOTES;
-      if (quotes.length) {
-        return String(quotes[Math.floor(Math.random() * quotes.length)] || "").trim();
-      }
-    }
-    if (district?.owner) {
-      const quotes = SPY_MEDIUM_FAIL_OCCUPIED_DISTRICT_QUOTES;
-      if (quotes.length) {
-        return String(quotes[Math.floor(Math.random() * quotes.length)] || "").trim();
-      }
-    }
-    const districtName = district?.name || `Distrikt #${district?.id ?? "-"}`;
-    return `Akce v ${districtName} nedopadla dobře, ale tvůj špeh se vrátil.`;
+    return getCombatHelperController()?.resolveSpyMediumFailSummary?.(district)
+      || `Akce v ${district?.name || `Distrikt #${district?.id ?? "-"}`} nedopadla dobře, ale tvůj špeh se vrátil.`;
   }
 
   function resolveSpyMajorFailSummary(district) {
-    if (isDistrictUnownedForSpyOutcome(district)) {
-      const quotes = SPY_MAJOR_FAIL_EMPTY_DISTRICT_QUOTES;
-      if (quotes.length) {
-        return String(quotes[Math.floor(Math.random() * quotes.length)] || "").trim();
-      }
-    }
-    if (district?.owner) {
-      const quotes = SPY_MAJOR_FAIL_OCCUPIED_DISTRICT_QUOTES;
-      if (quotes.length) {
-        return String(quotes[Math.floor(Math.random() * quotes.length)] || "").trim();
-      }
-    }
-    const districtName = district?.name || `Distrikt #${district?.id ?? "-"}`;
-    return `Špeh byl v districtu ${districtName} zajat. Ve zdroji je zamčen na 60 sekund.`;
+    return getCombatHelperController()?.resolveSpyMajorFailSummary?.(district)
+      || `Špeh byl v districtu ${district?.name || `Distrikt #${district?.id ?? "-"}`} zajat. Ve zdroji je zamčen na 60 sekund.`;
   }
 
   function isResultModalVisible() {
@@ -9178,694 +9707,162 @@ window.Empire.UI = (() => {
     spyActionResultTimeouts.add(timeoutId);
   }
 
-  function closeSpyConfirmModal() {
-    const root = document.getElementById("spy-confirm-modal");
-    if (root) root.classList.add("hidden");
-    spyConfirmModalState = { districtId: null };
+  function renderOccupationResultModal(details) {
+    openAttackResultModal(details);
   }
 
-  function closeRaidConfirmModal() {
-    const root = document.getElementById("raid-confirm-modal");
-    if (root) root.classList.add("hidden");
-    raidConfirmModalState = { districtId: null };
-  }
-
-  function ensureActionConfirmPopup() {
-    let root = document.getElementById("empire-action-confirm-popup");
-    if (root) return root;
-    root = document.createElement("div");
-    root.id = "empire-action-confirm-popup";
-    root.className = "empire-action-confirm-popup hidden";
-    root.setAttribute("aria-hidden", "true");
-    root.innerHTML = `
-      <div class="empire-action-confirm-popup__card" data-tone="attack">
-        <div id="empire-action-confirm-popup-title" class="empire-action-confirm-popup__title">AKCE POTVRZENA</div>
-        <div id="empire-action-confirm-popup-subtitle" class="empire-action-confirm-popup__subtitle">District: -</div>
-      </div>
-    `;
-    root.addEventListener("click", () => {
-      root.classList.add("hidden");
-      root.setAttribute("aria-hidden", "true");
-    });
-    document.body.appendChild(root);
-    return root;
-  }
-
-  function showActionConfirmPopup({ tone = "attack", title = "AKCE POTVRZENA", subtitle = "" } = {}) {
-    const root = ensureActionConfirmPopup();
-    const card = root.querySelector(".empire-action-confirm-popup__card");
-    const titleEl = document.getElementById("empire-action-confirm-popup-title");
-    const subtitleEl = document.getElementById("empire-action-confirm-popup-subtitle");
-    if (card) {
-      card.dataset.tone = String(tone || "attack").trim().toLowerCase();
-    }
-    if (titleEl) titleEl.textContent = String(title || "AKCE POTVRZENA").trim() || "AKCE POTVRZENA";
-    if (subtitleEl) subtitleEl.textContent = String(subtitle || "").trim();
-    root.classList.remove("hidden");
-    root.setAttribute("aria-hidden", "false");
-    if (actionConfirmPopupTimeoutId) {
-      clearTimeout(actionConfirmPopupTimeoutId);
-    }
-    actionConfirmPopupTimeoutId = setTimeout(() => {
-      root.classList.add("hidden");
-      root.setAttribute("aria-hidden", "true");
-    }, 2600);
-  }
-
-  function renderSpyConfirmModal() {
-    const root = document.getElementById("spy-confirm-modal");
-    const districtEl = document.getElementById("spy-confirm-modal-district");
-    const countEl = document.getElementById("spy-confirm-modal-count");
-    const noteEl = document.getElementById("spy-confirm-modal-note");
-    const confirmBtn = document.getElementById("spy-confirm-modal-confirm");
-    if (!root || root.classList.contains("hidden")) return;
-    if (!districtEl || !countEl || !noteEl || !confirmBtn) return;
-
-    const district = resolveDistrictById(spyConfirmModalState.districtId);
-    processSpyRecoveryQueue({ notify: true });
-    const availableSpies = getSpyCount();
-    const availability = evaluateDistrictActionAvailability(district, "spy");
-    const demoMode = scenarioVisionEnabled && !window.Empire.token;
-    countEl.textContent = String(availableSpies);
-    districtEl.textContent = district?.name || `Distrikt #${district?.id ?? "-"}`;
-
-    let noteText = "Každé špehování spotřebuje 1 špeha.";
-    let canConfirm = true;
-
-    if (!district) {
-      noteText = "Nejprve vyber distrikt.";
-      canConfirm = false;
-    } else if (!availability.allowed) {
-      noteText = availability.reason;
-      canConfirm = false;
-    } else if (!window.Empire.token && !demoMode) {
-      noteText = "Pro špehování je nutné přihlášení.";
-      canConfirm = false;
-    } else if (availableSpies <= 0) {
-      noteText = "Nemáš žádné dostupné špehy.";
-      canConfirm = false;
-    } else {
-      const durationMs = resolveOnboardingActionDurationMs(SPY_ACTION_DURATION_MS);
-      noteText = `Akce potrvá ${Math.floor(durationMs / 1000)}s. Po ${Math.floor(SPY_RECOVERY_COOLDOWN_MS / 1000)}s se 1 špeh vrátí zpět.`;
-    }
-
-    noteEl.textContent = noteText;
-    confirmBtn.disabled = !canConfirm;
-  }
-
-  function openSpyConfirmModal(district) {
-    const root = document.getElementById("spy-confirm-modal");
-    if (!root) return;
-    spyConfirmModalState = { districtId: district?.id ?? null };
-    root.classList.remove("hidden");
-    renderSpyConfirmModal();
-    document.dispatchEvent(new CustomEvent("empire:spy-modal-opened", {
-      detail: {
-        districtId: district?.id ?? null,
-        district: district || null
-      }
-    }));
-  }
-
-  function renderRaidConfirmModal() {
-    const root = document.getElementById("raid-confirm-modal");
-    const districtEl = document.getElementById("raid-confirm-modal-district");
-    const durationEl = document.getElementById("raid-confirm-modal-duration");
-    const noteEl = document.getElementById("raid-confirm-modal-note");
-    const confirmBtn = document.getElementById("raid-confirm-modal-confirm");
-    if (!root || root.classList.contains("hidden")) return;
-    if (!districtEl || !durationEl || !noteEl || !confirmBtn) return;
-
-    const district = resolveDistrictById(raidConfirmModalState.districtId);
-    const availability = evaluateDistrictActionAvailability(district, "raid");
-    const durationMs = resolveRaidDurationWithBoosts();
-    districtEl.textContent = district?.name || `Distrikt #${district?.id ?? "-"}`;
-    durationEl.textContent = formatAttackDurationLabel(durationMs);
-
-    let noteText = "Opravdu chceš spustit krádež tohoto distriktu?";
-    let canConfirm = true;
-    if (!district) {
-      noteText = "Nejprve vyber distrikt.";
-      canConfirm = false;
-    } else if (!availability.allowed) {
-      noteText = availability.reason;
-      canConfirm = false;
-    } else if (isRaidActionRunning()) {
-      noteText = "Krádež už právě probíhá. Současně může běžet jen jedna.";
-      canConfirm = false;
-    } else {
-      const cooldownMs = getRaidCooldownRemainingMs();
-      if (cooldownMs > 0) {
-        noteText = `Krádež je na cooldownu ještě ${formatRaidCooldownLabel(cooldownMs)}.`;
-        canConfirm = false;
-      } else {
-        noteText = `Akce potrvá ${formatAttackDurationLabel(durationMs)}. Po dokončení se district zamkne na 2h pro další krádež.`;
-      }
-    }
-
-    noteEl.textContent = noteText;
-    confirmBtn.disabled = !canConfirm;
-  }
-
-  function openRaidConfirmModal(district) {
-    const root = document.getElementById("raid-confirm-modal");
-    if (!root) return;
-    raidConfirmModalState = { districtId: district?.id ?? null };
-    root.classList.remove("hidden");
-    renderRaidConfirmModal();
-  }
-
-  async function startRaidActionFromModal() {
-    const district = resolveDistrictById(raidConfirmModalState.districtId);
-    const noteEl = document.getElementById("raid-confirm-modal-note");
-    const confirmBtn = document.getElementById("raid-confirm-modal-confirm");
-    if (!district) {
-      renderRaidConfirmModal();
-      return;
-    }
-    const availability = evaluateDistrictActionAvailability(district, "raid");
-    if (!availability.allowed) {
-      pushEvent(availability.reason);
-      renderRaidConfirmModal();
-      return;
-    }
-    if (isRaidActionRunning()) {
-      pushEvent("Krádež už právě probíhá. Současně může běžet jen jedna.");
-      renderRaidConfirmModal();
-      return;
-    }
-    const cooldownMs = getRaidCooldownRemainingMs();
-    if (cooldownMs > 0) {
-      pushEvent(`Krádež je na cooldownu ještě ${formatRaidCooldownLabel(cooldownMs)}.`);
-      renderRaidConfirmModal();
-      return;
-    }
-
-    const demoMode = scenarioVisionEnabled && !window.Empire.token;
-    if (demoMode || !window.Empire.token) {
-      closeRaidConfirmModal();
-      startRaidAction(district);
-      showActionConfirmPopup({
-        tone: "raid",
-        title: "KRÁDEŽ POTVRZENA",
-        subtitle: district?.name || `Distrikt #${district?.id ?? "-"}`
-      });
-      return;
-    }
-
-    if (confirmBtn) confirmBtn.disabled = true;
-    if (noteEl) noteEl.textContent = "Po potvrzení se krádež spouští...";
-    try {
-      const result = await window.Empire.API.raidDistrict(district.id);
-      if (result?.error) {
-        const errorMessage = result.error === "cooldown" && Number(result?.cooldownMs || 0) > 0
-          ? `Krádež je na cooldownu ještě ${formatRaidCooldownLabel(Number(result.cooldownMs || 0))}.`
-          : (result.error === "district_locked" && Number(result?.districtLockMs || 0) > 0
-            ? `Distrikt je po krádeži zamčený ještě ${formatAttackDurationLabel(Number(result.districtLockMs || 0))}.`
-            : formatRaidError(result.error));
-        if (noteEl) noteEl.textContent = errorMessage;
-        if (confirmBtn) confirmBtn.disabled = false;
-        pushEvent(errorMessage);
-        return;
-      }
-
-      closeRaidConfirmModal();
-      startRaidActionFromServerResult(district, result);
-      showActionConfirmPopup({
-        tone: "raid",
-        title: "KRÁDEŽ POTVRZENA",
-        subtitle: district?.name || `Distrikt #${district?.id ?? "-"}`
-      });
-    } catch (error) {
-      const message = error?.message || "Krádež se nepodařilo spustit.";
-      if (noteEl) noteEl.textContent = message;
-      if (confirmBtn) confirmBtn.disabled = false;
-      pushEvent(message);
-    }
-  }
-
-  function initRaidConfirmModal() {
-    const root = document.getElementById("raid-confirm-modal");
-    const backdrop = document.getElementById("raid-confirm-modal-backdrop");
-    const closeBtn = document.getElementById("raid-confirm-modal-close");
-    const cancelBtn = document.getElementById("raid-confirm-modal-cancel");
-    const confirmBtn = document.getElementById("raid-confirm-modal-confirm");
-    if (!root) return;
-
-    if (backdrop) backdrop.addEventListener("click", closeRaidConfirmModal);
-    if (closeBtn) closeBtn.addEventListener("click", closeRaidConfirmModal);
-    if (cancelBtn) cancelBtn.addEventListener("click", closeRaidConfirmModal);
-    if (confirmBtn) confirmBtn.addEventListener("click", startRaidActionFromModal);
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !root.classList.contains("hidden")) {
-        closeRaidConfirmModal();
-      }
-    });
-  }
-
-  function startSpyActionFromModal() {
-    const district = resolveDistrictById(spyConfirmModalState.districtId);
-    if (!district) {
-      renderSpyConfirmModal();
-      return;
-    }
-
-    const availability = evaluateDistrictActionAvailability(district, "spy");
-    if (!availability.allowed) {
-      pushEvent(availability.reason);
-      renderSpyConfirmModal();
-      return;
-    }
-    const demoMode = scenarioVisionEnabled && !window.Empire.token;
-    if (!window.Empire.token && !demoMode) {
-      pushEvent("Pro špehování je nutné přihlášení.");
-      renderSpyConfirmModal();
-      return;
-    }
-    processSpyRecoveryQueue({ notify: true });
-    if (!consumeSpyAgents(1)) {
-      pushEvent("Nemáš žádné dostupné špehy.");
-      renderSpyConfirmModal();
-      return;
-    }
-
-    const durationMs = resolveOnboardingActionDurationMs(SPY_ACTION_DURATION_MS);
-    pushEvent(`Špehování distriktu ${district.name || `#${district.id}`} bylo zahájeno na ${Math.floor(durationMs / 1000)}s.`);
-    window.Empire.Map?.markDistrictSpyAction?.(district.id, {
-      durationMs,
-      source: demoMode ? "scenario-spy" : "player-spy"
-    });
-    recordVerifiedIntelEvent({
-      type: "spy_started",
-      districtId: district.id
-    });
-    document.dispatchEvent(new CustomEvent("empire:spy-started", {
-      detail: {
-        districtId: district.id,
-        district
-      }
-    }));
-    scheduleSpyActionResult(district.id);
-    closeSpyConfirmModal();
-    const districtModal = document.getElementById("district-modal");
-    if (districtModal) districtModal.classList.add("hidden");
-    showActionConfirmPopup({
-      tone: "spy",
-      title: "ŠPEHOVÁNÍ POTVRZENO",
-      subtitle: district?.name || `Distrikt #${district?.id ?? "-"}`
-    });
-  }
-
-  function initSpyConfirmModal() {
-    const root = document.getElementById("spy-confirm-modal");
-    const backdrop = document.getElementById("spy-confirm-modal-backdrop");
-    const closeBtn = document.getElementById("spy-confirm-modal-close");
-    const cancelBtn = document.getElementById("spy-confirm-modal-cancel");
-    const confirmBtn = document.getElementById("spy-confirm-modal-confirm");
-    if (!root) return;
-
-    if (backdrop) backdrop.addEventListener("click", closeSpyConfirmModal);
-    if (closeBtn) closeBtn.addEventListener("click", closeSpyConfirmModal);
-    if (cancelBtn) cancelBtn.addEventListener("click", closeSpyConfirmModal);
-    if (confirmBtn) confirmBtn.addEventListener("click", startSpyActionFromModal);
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !root.classList.contains("hidden")) {
-        closeSpyConfirmModal();
-      }
-    });
-  }
-
-  function closeOccupyConfirmModal() {
-    const root = document.getElementById("occupy-confirm-modal");
-    if (root) root.classList.add("hidden");
-    occupyConfirmModalState = { districtId: null };
-  }
-
-  function renderOccupyConfirmModal() {
-    const root = document.getElementById("occupy-confirm-modal");
-    const districtEl = document.getElementById("occupy-confirm-modal-district");
-    const availableEl = document.getElementById("occupy-confirm-modal-members-available");
-    const requiredEl = document.getElementById("occupy-confirm-modal-members-required");
-    const noteEl = document.getElementById("occupy-confirm-modal-note");
-    const confirmBtn = document.getElementById("occupy-confirm-modal-confirm");
-    if (!root || root.classList.contains("hidden")) return;
-    if (!districtEl || !availableEl || !requiredEl || !noteEl || !confirmBtn) return;
-
-    const district = resolveDistrictById(occupyConfirmModalState.districtId);
-    const spyIntel = resolveCompleteSpyIntel(district?.id);
-    const requiredMembers = resolveOccupationRequiredMembers(district, spyIntel);
-    const availableMembers = countPlayerControlledPopulation(cachedProfile || window.Empire.player || {});
-    const availability = evaluateDistrictActionAvailability(district, "occupy");
-    const demoMode = scenarioVisionEnabled && !window.Empire.token;
-
-    districtEl.textContent = district?.name || `Distrikt #${district?.id ?? "-"}`;
-    availableEl.textContent = String(availableMembers);
-    requiredEl.textContent = String(requiredMembers);
-
-    let canConfirm = true;
+  function scheduleOccupationActionResult(districtId, requiredMembers = 0) {
     const durationMs = resolveOnboardingActionDurationMs(OCCUPY_ACTION_DURATION_MS);
-    let noteText = `Akce potrvá ${Math.floor(durationMs / 1000)}s.`;
-    if (!district) {
-      canConfirm = false;
-      noteText = "Nejprve vyber distrikt.";
-    } else if (!availability.allowed) {
-      canConfirm = false;
-      noteText = availability.reason;
-    } else if (!window.Empire.token && !demoMode) {
-      canConfirm = false;
-      noteText = "Pro obsazení je nutné přihlášení.";
-    } else if (availableMembers < requiredMembers) {
-      canConfirm = false;
-      noteText = `Na obsazení chybí ${requiredMembers - availableMembers} členů gangu.`;
-    }
-
-    noteEl.textContent = noteText;
-    confirmBtn.disabled = !canConfirm;
-  }
-
-  function openOccupyConfirmModal(district) {
-    const root = document.getElementById("occupy-confirm-modal");
-    if (!root) return;
-    occupyConfirmModalState = { districtId: district?.id ?? null };
-    root.classList.remove("hidden");
-    renderOccupyConfirmModal();
-    document.dispatchEvent(new CustomEvent("empire:occupy-modal-opened", {
-      detail: {
-        districtId: district?.id ?? null,
-        district: district || null
-      }
-    }));
-  }
-
-  function renderOccupationResultModal({ outcomeKey, district, requiredMembers, returnedMembers, bountySummary = "" }) {
-    const root = document.getElementById("spy-result-modal");
-    const content = document.getElementById("spy-result-modal-content");
-    const title = document.getElementById("spy-result-modal-title");
-    const summary = document.getElementById("spy-result-modal-summary");
-    const details = document.getElementById("spy-result-modal-details");
-    if (!root || !content || !title || !summary || !details) return;
-
-    const districtName = district?.name || `Distrikt #${district?.id ?? "-"}`;
-    content.classList.remove("is-success", "is-medium-fail", "is-major-fail");
-
-    if (outcomeKey === "success") {
-      content.classList.add("is-success");
-      title.textContent = "Obsazení: Úspěch";
-      summary.textContent = `District ${districtName} byl úspěšně obsazen a připadl tvému gangu.`;
-      details.innerHTML = `
-        <div class="modal__row"><span>Nasazeno členů</span><strong>${requiredMembers}</strong></div>
-        <div class="modal__row"><span>Vráceno do profilu</span><strong>${returnedMembers}</strong></div>
-        ${bountySummary ? `<div class="modal__row"><span>Bounty vyplacena</span><strong>${escapeHtml(bountySummary)}</strong></div>` : ""}
-      `;
-      root.classList.remove("hidden");
-      return;
-    }
-
-    if (outcomeKey === "medium_fail") {
-      content.classList.add("is-medium-fail");
-      title.textContent = "Obsazení: Střední neúspěch";
-      summary.textContent = "Obsazení nedopadlo dobře, vrátila se pouze polovina členů gangu.";
-      details.innerHTML = `
-        <div class="modal__row"><span>Nasazeno členů</span><strong>${requiredMembers}</strong></div>
-        <div class="modal__row"><span>Vráceno do profilu</span><strong>${returnedMembers}</strong></div>
-      `;
-      root.classList.remove("hidden");
-      return;
-    }
-
-    content.classList.add("is-major-fail");
-    title.textContent = "Obsazení: Velký neúspěch";
-    summary.textContent = "Členové gangu zmizeli neznámo kam a nevrátili se zpět do zdrojů.";
-    details.innerHTML = `
-      <div class="modal__row"><span>Nasazeno členů</span><strong>${requiredMembers}</strong></div>
-      <div class="modal__row"><span>Vráceno do profilu</span><strong>0</strong></div>
-    `;
-    root.classList.remove("hidden");
-  }
-
-  function openOccupationResultModal(payload) {
-    if (isResultModalVisible()) {
-      pendingResultModalQueue.push({ kind: "occupy", payload });
-      return;
-    }
-    renderOccupationResultModal(payload);
-  }
-
-  async function finalizeOccupationActionResult({ districtId, requiredMembers }) {
-    const district = resolveDistrictById(districtId);
-    if (!district) return;
-    const previousOwnerName = String(district?.ownerNick || district?.owner || "").trim();
-    const rolled = rollSpyOutcome(district);
-    const outcomeKey = rolled.key;
-    const safeRequiredMembers = Math.max(0, Math.floor(Number(requiredMembers) || 0));
-    let returnedMembers = 0;
-    let bountySummary = "";
-
-    if (outcomeKey === "success") {
-      const lossPct = 10 + Math.floor(Math.random() * 16);
-      const lostMembers = Math.floor(safeRequiredMembers * (lossPct / 100));
-      returnedMembers = Math.max(0, safeRequiredMembers - lostMembers);
-      if (returnedMembers > 0) addGangMembers(returnedMembers);
-      claimDistrictForPlayer(district);
-      const bountyResult = await claimMatchingBountiesForOccupation(district, previousOwnerName);
-      bountySummary = bountyResult.rewardSummary || "";
-      pushEvent(`Obsazení distriktu ${district.name || `#${district.id}`} bylo úspěšné.`);
-      pushEvent(`Při obsazení jsi ztratil ${lossPct}% nasazených členů gangu.`);
-      if (bountySummary) {
-        pushEvent(`Bounty vyplacena: ${bountySummary}.`);
-      }
-      recordVerifiedIntelEvent({ type: "attack_success", districtId: district.id });
-    } else if (outcomeKey === "medium_fail") {
-      returnedMembers = Math.floor(safeRequiredMembers / 2);
-      if (returnedMembers > 0) addGangMembers(returnedMembers);
-      pushEvent("Obsazení se nepodařilo. Vrátila se pouze polovina členů gangu.");
-    } else {
-      returnedMembers = 0;
-      pushEvent("Obsazení selhalo. Členové gangu zmizeli neznámo kam.");
-    }
-
-    openOccupationResultModal({
-      outcomeKey,
-      district,
-      requiredMembers: safeRequiredMembers,
-      returnedMembers,
-      bountySummary
-    });
-    document.dispatchEvent(new CustomEvent("empire:occupy-resolved", {
-      detail: {
-        districtId: district.id,
-        outcomeKey,
-        requiredMembers: safeRequiredMembers,
-        returnedMembers
-      }
-    }));
-  }
-
-  function scheduleOccupationActionResult(districtId, requiredMembers) {
     const timeoutId = setTimeout(() => {
       occupyActionResultTimeouts.delete(timeoutId);
-      void finalizeOccupationActionResult({ districtId, requiredMembers });
-    }, resolveOnboardingActionDurationMs(OCCUPY_ACTION_DURATION_MS));
+      const district = resolveDistrictById(districtId);
+      if (!district) return;
+
+      claimDistrictForPlayer(district);
+
+      const districtName = district?.name || `Distrikt #${district?.id ?? "-"}`;
+      const payload = {
+        districtId: district?.id ?? null,
+        districtName,
+        title: "Distrikt obsazen",
+        outcomeBadge: "Obsazení dokončeno",
+        outcomeTone: "total_success",
+        outcomeKey: "total_success",
+        summary: `Distrikt ${districtName} je teď pod tvou kontrolou.`,
+        attackPower: Math.max(0, Math.floor(Number(requiredMembers || 0))),
+        defensePower: 0,
+        attackerLossPct: 0,
+        defenderLossPct: 100,
+        districtStateValue: "Obsazený",
+        durationValue: formatAttackDurationLabel(durationMs),
+        activatedSpecialEffects: []
+      };
+
+      pushEvent(`Distrikt ${districtName} byl úspěšně obsazen.`);
+      if (isResultModalVisible()) {
+        pendingResultModalQueue.push({ kind: "occupy", payload });
+      } else {
+        renderOccupationResultModal(payload);
+      }
+      document.dispatchEvent(new CustomEvent("empire:occupy-resolved", {
+        detail: {
+          districtId: district?.id ?? null,
+          district: district || null,
+          requiredMembers: Math.max(0, Math.floor(Number(requiredMembers || 0))),
+          durationMs
+        }
+      }));
+    }, durationMs);
     occupyActionResultTimeouts.add(timeoutId);
   }
 
+  function getDistrictActionsController() {
+    return getModalsFacade()?.getDistrictActionsController?.() || null;
+  }
+
+  function closeSpyConfirmModal() {
+    const controller = getDistrictActionsController();
+    if (controller?.closeSpyConfirmModal) return controller.closeSpyConfirmModal();
+  }
+
+  function closeRaidConfirmModal() {
+    const controller = getDistrictActionsController();
+    if (controller?.closeRaidConfirmModal) return controller.closeRaidConfirmModal();
+  }
+
+  function showActionConfirmPopup({ tone = "attack", title = "AKCE POTVRZENA", subtitle = "" } = {}) {
+    return getModalsFacade()?.showActionConfirmPopup?.({ tone, title, subtitle });
+  }
+
+  function renderSpyConfirmModal() {
+    const controller = getDistrictActionsController();
+    if (controller?.renderSpyConfirmModal) return controller.renderSpyConfirmModal();
+  }
+
+  function openSpyConfirmModal(district) {
+    const controller = getDistrictActionsController();
+    if (controller?.openSpyConfirmModal) return controller.openSpyConfirmModal(district);
+  }
+
+  function renderRaidConfirmModal() {
+    const controller = getDistrictActionsController();
+    if (controller?.renderRaidConfirmModal) return controller.renderRaidConfirmModal();
+  }
+
+  function openRaidConfirmModal(district) {
+    const controller = getDistrictActionsController();
+    if (controller?.openRaidConfirmModal) return controller.openRaidConfirmModal(district);
+  }
+
+  async function startRaidActionFromModal() {
+    const controller = getDistrictActionsController();
+    if (controller?.startRaidActionFromModal) return controller.startRaidActionFromModal();
+  }
+
+  function initRaidConfirmModal() {
+    const controller = getDistrictActionsController();
+    if (controller?.initRaidConfirmModal) return controller.initRaidConfirmModal();
+  }
+
+  function startSpyActionFromModal() {
+    const controller = getDistrictActionsController();
+    if (controller?.startSpyActionFromModal) return controller.startSpyActionFromModal();
+  }
+
+  function initSpyConfirmModal() {
+    const controller = getDistrictActionsController();
+    if (controller?.initSpyConfirmModal) return controller.initSpyConfirmModal();
+  }
+
+  function closeOccupyConfirmModal() {
+    const controller = getDistrictActionsController();
+    if (controller?.closeOccupyConfirmModal) return controller.closeOccupyConfirmModal();
+  }
+
+  function renderOccupyConfirmModal() {
+    const controller = getDistrictActionsController();
+    if (controller?.renderOccupyConfirmModal) return controller.renderOccupyConfirmModal();
+  }
+
+  function openOccupyConfirmModal(district) {
+    const controller = getDistrictActionsController();
+    if (controller?.openOccupyConfirmModal) return controller.openOccupyConfirmModal(district);
+  }
+
   function startOccupyActionFromModal() {
-    const district = resolveDistrictById(occupyConfirmModalState.districtId);
-    if (!district) {
-      renderOccupyConfirmModal();
-      return;
-    }
-
-    const availability = evaluateDistrictActionAvailability(district, "occupy");
-    if (!availability.allowed) {
-      pushEvent(availability.reason);
-      renderOccupyConfirmModal();
-      return;
-    }
-
-    const demoMode = scenarioVisionEnabled && !window.Empire.token;
-    if (!window.Empire.token && !demoMode) {
-      pushEvent("Pro obsazení je nutné přihlášení.");
-      renderOccupyConfirmModal();
-      return;
-    }
-
-    const requiredMembers = resolveOccupationRequiredMembers(district, resolveCompleteSpyIntel(district.id));
-    const availableMembers = countPlayerControlledPopulation(cachedProfile || window.Empire.player || {});
-    if (availableMembers < requiredMembers) {
-      pushEvent(`Na obsazení chybí ${requiredMembers - availableMembers} členů gangu.`);
-      renderOccupyConfirmModal();
-      return;
-    }
-
-    consumeGangMembers(requiredMembers);
-    const durationMs = resolveOnboardingActionDurationMs(OCCUPY_ACTION_DURATION_MS);
-    window.Empire.Map?.markDistrictUnderAttack?.(district.id, {
-      durationMs,
-      source: demoMode ? "scenario-occupy" : "player-occupy"
-    });
-    pushEvent(`Obsazení distriktu ${district.name || `#${district.id}`} bylo zahájeno na ${Math.floor(durationMs / 1000)}s.`);
-    document.dispatchEvent(new CustomEvent("empire:occupy-started", {
-      detail: {
-        districtId: district.id,
-        district,
-        requiredMembers
-      }
-    }));
-    scheduleOccupationActionResult(district.id, requiredMembers);
-    closeOccupyConfirmModal();
-    const districtModal = document.getElementById("district-modal");
-    if (districtModal) districtModal.classList.add("hidden");
+    const controller = getDistrictActionsController();
+    if (controller?.startOccupyActionFromModal) return controller.startOccupyActionFromModal();
   }
 
   function initOccupyConfirmModal() {
-    const root = document.getElementById("occupy-confirm-modal");
-    const backdrop = document.getElementById("occupy-confirm-modal-backdrop");
-    const closeBtn = document.getElementById("occupy-confirm-modal-close");
-    const cancelBtn = document.getElementById("occupy-confirm-modal-cancel");
-    const confirmBtn = document.getElementById("occupy-confirm-modal-confirm");
-    if (!root) return;
-
-    if (backdrop) backdrop.addEventListener("click", closeOccupyConfirmModal);
-    if (closeBtn) closeBtn.addEventListener("click", closeOccupyConfirmModal);
-    if (cancelBtn) cancelBtn.addEventListener("click", closeOccupyConfirmModal);
-    if (confirmBtn) confirmBtn.addEventListener("click", startOccupyActionFromModal);
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !root.classList.contains("hidden")) {
-        closeOccupyConfirmModal();
-      }
-    });
+    const controller = getDistrictActionsController();
+    if (controller?.initOccupyConfirmModal) return controller.initOccupyConfirmModal();
   }
 
   function closeTrapConfirmModal() {
-    const root = document.getElementById("trap-confirm-modal");
-    if (root) root.classList.add("hidden");
-    trapConfirmModalState = { districtId: null };
+    const controller = getDistrictActionsController();
+    if (controller?.closeTrapConfirmModal) return controller.closeTrapConfirmModal();
   }
 
   function renderTrapConfirmModal() {
-    const root = document.getElementById("trap-confirm-modal");
-    const districtEl = document.getElementById("trap-confirm-modal-district");
-    const cooldownEl = document.getElementById("trap-confirm-modal-cooldown");
-    const noteEl = document.getElementById("trap-confirm-modal-note");
-    const confirmBtn = document.getElementById("trap-confirm-modal-confirm");
-    if (!root || root.classList.contains("hidden")) return;
-    if (!districtEl || !cooldownEl || !noteEl || !confirmBtn) return;
-
-    const district = resolveDistrictById(trapConfirmModalState.districtId);
-    const trapState = getDistrictTrapControlState(district);
-    const currentPlacement = getCurrentPlayerTrapPlacement();
-    districtEl.textContent = district?.name || `Distrikt #${district?.id ?? "-"}`;
-    cooldownEl.textContent = `${Math.floor(TRAP_MOVE_COOLDOWN_MS / 1000)}s`;
-
-    let canConfirm = true;
-    let noteText = "Opravdu chceš vložit past do tohoto districtu? Po nastražení ji nebude možné 20s přesunout.";
-    if (!district) {
-      canConfirm = false;
-      noteText = "Nejprve vyber distrikt.";
-    } else if (!isDistrictDefendableByPlayer(district)) {
-      canConfirm = false;
-      noteText = "Past lze nastražit jen do vlastního nebo aliančního districtu.";
-    } else if (isDistrictDestroyed(district)) {
-      canConfirm = false;
-      noteText = "Do zničeného districtu nelze nastražit past.";
-    } else if (trapState?.isActiveHere) {
-      canConfirm = false;
-      noteText = trapState.moveLocked
-        ? `Past už v tomto districtu běží. Přesun bude možný za ${trapState.countdownLabel}.`
-        : "Past už je v tomto districtu aktivní.";
-    } else if (trapState?.moveLocked) {
-      canConfirm = false;
-      noteText = `Past je zamčená v ${currentPlacement?.districtName || `distriktu #${currentPlacement?.districtId ?? "-"}`}. Přesun bude možný za ${trapState.countdownLabel}.`;
-    } else if (trapState?.hasTrapElsewhere) {
-      noteText = `Přesuneš svou jedinou past z ${currentPlacement?.districtName || `distriktu #${currentPlacement?.districtId ?? "-"}`} do tohoto districtu. Po potvrzení poběží nový cooldown 20s.`;
-    }
-
-    noteEl.textContent = noteText;
-    confirmBtn.disabled = !canConfirm;
+    const controller = getDistrictActionsController();
+    if (controller?.renderTrapConfirmModal) return controller.renderTrapConfirmModal();
   }
 
   function openTrapConfirmModal(district) {
-    const root = document.getElementById("trap-confirm-modal");
-    if (!root) return;
-    trapConfirmModalState = { districtId: district?.id ?? null };
-    root.classList.remove("hidden");
-    renderTrapConfirmModal();
-    document.dispatchEvent(new CustomEvent("empire:trap-modal-opened", {
-      detail: {
-        districtId: district?.id ?? null,
-        district: district || null
-      }
-    }));
+    const controller = getDistrictActionsController();
+    if (controller?.openTrapConfirmModal) return controller.openTrapConfirmModal(district);
   }
 
   function placeTrapFromModal() {
-    const district = resolveDistrictById(trapConfirmModalState.districtId);
-    if (!district) {
-      renderTrapConfirmModal();
-      return;
-    }
-    if (!isDistrictDefendableByPlayer(district)) {
-      pushEvent("Past lze nastražit jen do vlastního nebo aliančního districtu.");
-      renderTrapConfirmModal();
-      return;
-    }
-    if (isDistrictDestroyed(district)) {
-      pushEvent("Do zničeného districtu nelze nastražit past.");
-      renderTrapConfirmModal();
-      return;
-    }
-    const result = setCurrentPlayerTrapDistrict(district);
-    if (!result?.ok) {
-      if (result?.reason === "move_locked") {
-        pushEvent(`Past nelze přesunout ještě ${formatTrapMoveCooldownLabel(result.moveCooldownRemainingMs)}.`);
-      } else {
-        pushEvent("Past se nepodařilo nastražit.");
-      }
-      renderTrapConfirmModal();
-      return;
-    }
-    const districtLabel = district?.name || `Distrikt #${district?.id ?? "-"}`;
-    pushEvent(
-      result.moved
-        ? `Past přesunuta do districtu ${districtLabel}. Přesun bude znovu možný za 20s.`
-        : `Past nastražena do districtu ${districtLabel}. Přesun bude znovu možný za 20s.`
-    );
-    showActionConfirmPopup({
-      tone: "trap",
-      title: result.moved ? "PAST PŘESUNUTA" : "PAST POTVRZENA",
-      subtitle: districtLabel
-    });
-    document.dispatchEvent(new CustomEvent("empire:trap-placed", {
-      detail: {
-        districtId: district?.id ?? null,
-        district: district || null,
-        moved: Boolean(result.moved)
-      }
-    }));
-    closeTrapConfirmModal();
-    window.Empire.Map?.closeSelectedDistrictModal?.();
+    const controller = getDistrictActionsController();
+    if (controller?.placeTrapFromModal) return controller.placeTrapFromModal();
   }
 
   function initTrapConfirmModal() {
-    const root = document.getElementById("trap-confirm-modal");
-    const backdrop = document.getElementById("trap-confirm-modal-backdrop");
-    const closeBtn = document.getElementById("trap-confirm-modal-close");
-    const cancelBtn = document.getElementById("trap-confirm-modal-cancel");
-    const confirmBtn = document.getElementById("trap-confirm-modal-confirm");
-    if (!root) return;
-
-    if (backdrop) backdrop.addEventListener("click", closeTrapConfirmModal);
-    if (closeBtn) closeBtn.addEventListener("click", closeTrapConfirmModal);
-    if (cancelBtn) cancelBtn.addEventListener("click", closeTrapConfirmModal);
-    if (confirmBtn) confirmBtn.addEventListener("click", placeTrapFromModal);
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !root.classList.contains("hidden")) {
-        closeTrapConfirmModal();
-      }
-    });
+    const controller = getDistrictActionsController();
+    if (controller?.initTrapConfirmModal) return controller.initTrapConfirmModal();
   }
-
   function normalizeOwnerName(value) {
     return String(value || "").trim().toLowerCase();
   }
@@ -9884,8 +9881,8 @@ window.Empire.UI = (() => {
       cachedProfile?.gang,
       cachedProfile?.username,
       cachedProfile?.name,
-      localStorage.getItem("empire_guest_username"),
-      localStorage.getItem("empire_gang_name")
+      readStoredGuestUsername(),
+      readStoredGangName()
     ]
       .map((value) => normalizeOwnerName(value))
       .filter(Boolean);
@@ -9906,8 +9903,8 @@ window.Empire.UI = (() => {
       cachedProfile?.gangName,
       cachedProfile?.gang_name,
       cachedProfile?.gang,
-      localStorage.getItem("empire_guest_username"),
-      localStorage.getItem("empire_gang_name")
+      readStoredGuestUsername(),
+      readStoredGangName()
     ];
     return candidates.map((value) => normalizeOwnerName(value)).find(Boolean) || "guest-player";
   }
@@ -10171,7 +10168,13 @@ window.Empire.UI = (() => {
             reason: `Distrikt je po krádeži zamčený ještě ${formatAttackDurationLabel(districtRaidLockMs)}.`
           };
         }
+        if (!window.Empire.token) {
+          return { allowed: true, reason: "" };
+        }
         return evaluateRaidAdjacencyAvailability(district);
+      }
+      if (!window.Empire.token) {
+        return { allowed: true, reason: "" };
       }
       const adjacent = isDistrictAdjacentToOwnedTerritory(district, { includeAllianceTerritory: true });
       return adjacent
@@ -10252,129 +10255,54 @@ window.Empire.UI = (() => {
   }
 
   function resolveDemoOwnerColor(ownerName) {
-    const normalized = normalizeOwnerName(ownerName);
-    if (!normalized) return null;
-    if (normalized === normalizeOwnerName("Ledovec")) return "#60a5fa";
-    if (normalized === normalizeOwnerName("Mariah")) return "#f97316";
-    if (normalized === normalizeOwnerName("Sněhulák")) return "#14b8a6";
-    return null;
+    return getPlayerOwnerMetaHelpers()?.resolveDemoOwnerColor?.(ownerName) || null;
   }
 
   function resolveDemoDistrictAtmosphere(district, ownerName) {
-    const safeType = String(district?.type || "").trim().toLowerCase();
-    const pool = DEMO_DISTRICT_ATMOSPHERES[safeType] || DEMO_DISTRICT_ATMOSPHERES.default;
-    const safeOwner = String(ownerName || district?.owner || "").trim();
-    const index = hashDistrictSeed(`${safeOwner}:${district?.id ?? ""}:${safeType}`, pool.length) % pool.length;
-    return pool[index];
+    return getPlayerOwnerMetaHelpers()?.resolveDemoDistrictAtmosphere?.(district, ownerName) || null;
   }
 
   function buildDemoDistrictOwnerMeta(ownerName, district) {
-    const safeOwner = String(ownerName || "").trim();
-    if (!safeOwner) {
-      return {
-        ownerStructure: null,
-        ownerFaction: null,
-        ownerAvatar: null,
-        ownerAtmosphere: null
-      };
-    }
-    const faction = resolveDemoOwnerFaction(safeOwner);
-    return {
-      ownerStructure: faction,
-      ownerFaction: faction,
-      ownerAvatar: resolveDemoOwnerAvatar(safeOwner),
-      ownerAtmosphere: resolveDemoDistrictAtmosphere(district, safeOwner),
-      ownerColor: resolveDemoOwnerColor(safeOwner)
+    return getPlayerOwnerMetaHelpers()?.buildDemoDistrictOwnerMeta?.(ownerName, district) || {
+      ownerStructure: null,
+      ownerFaction: null,
+      ownerAvatar: null,
+      ownerAtmosphere: null
     };
   }
 
   function getActiveAllianceOwnerNames() {
-    return scenarioVisionEnabled ? scenarioAllianceOwnerNames : liveAllianceOwnerNames;
+    return getAllianceVisionHelpers()?.getActiveAllianceOwnerNames?.()
+      || (scenarioVisionEnabled ? scenarioAllianceOwnerNames : liveAllianceOwnerNames);
   }
 
   function getActiveEnemyOwnerNames() {
-    return scenarioVisionEnabled ? scenarioEnemyOwnerNames : EMPTY_OWNER_NAMES;
+    return getAllianceVisionHelpers()?.getActiveEnemyOwnerNames?.()
+      || (scenarioVisionEnabled ? scenarioEnemyOwnerNames : EMPTY_OWNER_NAMES);
   }
 
   function setScenarioVisionMode(enabled) {
-    scenarioVisionEnabled = Boolean(enabled);
-    if (!scenarioVisionEnabled) {
-      scenarioUniqueOwnerColors = false;
-    } else if (!window.Empire.token) {
-      processSpyRecoveryQueue({ notify: false });
-      const baseSpies = resolveFactionBaseSpyCount(cachedProfile?.structure || localStorage.getItem("empire_structure"));
-      const storedSpyCount = readStoredSpyCount();
-      const hasPendingRecoveries = readSpyRecoveryQueue().length > 0;
-      if (storedSpyCount == null || (getSpyCount() <= 0 && !hasPendingRecoveries)) {
-        setSpyCount(baseSpies, { persist: true });
-      } else {
-        renderInfluenceSpyTopbarStat();
-      }
-      syncSpyRecoveryTicker();
-    }
-    syncMapVisionContext();
+    return getAllianceVisionHelpers()?.setScenarioVisionMode?.(enabled);
   }
 
   function setScenarioAllianceOwners(ownerNames) {
-    const normalized = Array.isArray(ownerNames)
-      ? ownerNames.map((value) => normalizeOwnerName(value)).filter(Boolean)
-      : [];
-    scenarioAllianceOwnerNames = new Set(normalized);
-    syncMapVisionContext();
+    return getAllianceVisionHelpers()?.setScenarioAllianceOwners?.(ownerNames);
   }
 
   function setScenarioEnemyOwners(ownerNames) {
-    const normalized = Array.isArray(ownerNames)
-      ? ownerNames.map((value) => normalizeOwnerName(value)).filter(Boolean)
-      : [];
-    scenarioEnemyOwnerNames = new Set(normalized);
-    syncMapVisionContext();
+    return getAllianceVisionHelpers()?.setScenarioEnemyOwners?.(ownerNames);
   }
 
   function setScenarioAllianceIcons(entries) {
-    setAllianceIconMap(scenarioAllianceIconByName, entries);
+    return getAllianceVisionHelpers()?.setScenarioAllianceIcons?.(entries);
   }
 
   function setLiveAllianceOwnersFromAlliance(alliance) {
-    const playerNames = getPlayerOwnerNameSet();
-    const names = new Set();
-    const trapGraceByOwnerName = new Map();
-    const members = Array.isArray(alliance?.members) ? alliance.members : [];
-    members.forEach((member) => {
-      const candidates = [member?.gang_name, member?.gangName, member?.username];
-      const readyAtMs = new Date(member?.alliance_ready_at || member?.allianceReadyAt || 0).getTime();
-      const trapGraceUntil = Number.isFinite(readyAtMs) && readyAtMs > 0
-        ? readyAtMs + ALLIANCE_TRAP_GRACE_MS
-        : 0;
-      candidates.forEach((candidate) => {
-        const normalized = normalizeOwnerName(candidate);
-        if (!normalized) return;
-        if (playerNames.has(normalized)) return;
-        names.add(normalized);
-        if (trapGraceUntil > Date.now()) {
-          trapGraceByOwnerName.set(normalized, trapGraceUntil);
-        }
-      });
-    });
-    liveAllianceOwnerNames = names;
-    liveAllianceTrapGraceByOwnerName = trapGraceByOwnerName;
-    const iconEntries = [];
-    const allianceName = String(alliance?.name || "").trim();
-    if (allianceName) {
-      iconEntries.push([
-        allianceName,
-        String(alliance?.icon_key || alliance?.iconKey || DEFAULT_ALLIANCE_ICON_KEY).trim() || DEFAULT_ALLIANCE_ICON_KEY
-      ]);
-    }
-    setAllianceIconMap(liveAllianceIconByName, iconEntries);
-    syncMapVisionContext();
+    return getAllianceVisionHelpers()?.setLiveAllianceOwnersFromAlliance?.(alliance);
   }
 
   function clearLiveAllianceOwners() {
-    liveAllianceOwnerNames = new Set();
-    liveAllianceTrapGraceByOwnerName = new Map();
-    liveAllianceIconByName = new Map();
-    syncMapVisionContext();
+    return getAllianceVisionHelpers()?.clearLiveAllianceOwners?.();
   }
 
   function normalizeMapBorderMode(value) {
@@ -10386,15 +10314,15 @@ window.Empire.UI = (() => {
   }
 
   function resolveStoredMapBorderMode() {
-    return normalizeMapBorderMode(localStorage.getItem(MAP_BORDER_MODE_STORAGE_KEY));
+    return normalizeMapBorderMode(readStoredValue(MAP_BORDER_MODE_STORAGE_KEY));
   }
 
   function resolveMapBorderPlayerColor() {
-    return normalizeHexColor(localStorage.getItem("empire_gang_color")) || "#22d3ee";
+    return normalizeHexColor(readStoredGangColor()) || "#22d3ee";
   }
 
   function resolveStoredUnknownNeutralFillEnabled() {
-    return localStorage.getItem(MAP_UNKNOWN_NEUTRAL_FILL_STORAGE_KEY) === "1";
+    return readStoredValue(MAP_UNKNOWN_NEUTRAL_FILL_STORAGE_KEY) === "1";
   }
 
   function applyMapBorderSwitchVisuals() {
@@ -10420,7 +10348,7 @@ window.Empire.UI = (() => {
     const nextMode = normalizeMapBorderMode(mode);
     selectedMapBorderMode = nextMode;
     if (options.persist !== false) {
-      localStorage.setItem(MAP_BORDER_MODE_STORAGE_KEY, nextMode);
+      writeStoredValue(MAP_BORDER_MODE_STORAGE_KEY, nextMode);
     }
     applyMapBorderSwitchVisuals();
     syncMapVisionContext();
@@ -10461,7 +10389,7 @@ window.Empire.UI = (() => {
     if (neutralToggle) {
       neutralToggle.addEventListener("click", () => {
         unknownNeutralFillEnabled = !unknownNeutralFillEnabled;
-        localStorage.setItem(
+        writeStoredValue(
           MAP_UNKNOWN_NEUTRAL_FILL_STORAGE_KEY,
           unknownNeutralFillEnabled ? "1" : "0"
         );
@@ -10481,42 +10409,21 @@ window.Empire.UI = (() => {
   }
 
   function syncMapVisionContext() {
-    if (!window.Empire.Map?.setVisionContext) return;
-    const settings = getSettingsState();
-    window.Empire.Map.setVisionContext({
-      fogPreviewMode: scenarioVisionEnabled,
-      alliedOwnerNames: Array.from(getActiveAllianceOwnerNames()),
-      enemyOwnerNames: Array.from(getActiveEnemyOwnerNames()),
-      allowEnemyModalIntelInFog: scenarioVisionEnabled,
-      uniqueOwnerColors: scenarioVisionEnabled && scenarioUniqueOwnerColors,
-      districtBorderMode: selectedMapBorderMode,
-      unknownNeutralFillEnabled,
-      showDistrictBorders: Boolean(settings.mapDistrictBorders),
-      showAllianceSymbols: Boolean(settings.mapAllianceSymbols),
-      districtVisibilityMode: normalizeMapVisibilityMode(settings.mapVisibilityMode)
-    });
+    return getAllianceVisionHelpers()?.syncMapVisionContext?.();
   }
 
   function resolveMoneyBreakdown(source) {
-    const fromClean = Number(source?.cleanMoney ?? source?.clean_money ?? 0);
-    const fromDirty = Number(source?.dirtyMoney ?? source?.dirty_money ?? 0);
-    const fromTotal = Number(source?.balance ?? source?.money ?? 0);
-    let cleanMoney = Number.isFinite(fromClean) ? fromClean : 0;
-    let dirtyMoney = Number.isFinite(fromDirty) ? fromDirty : 0;
-    let totalMoney = cleanMoney + dirtyMoney;
-
-    if (totalMoney === 0 && fromTotal > 0) {
-      cleanMoney = fromTotal;
-      totalMoney = fromTotal;
-    } else if (fromTotal > totalMoney) {
-      cleanMoney += fromTotal - totalMoney;
-      totalMoney = fromTotal;
-    }
-
-    return { cleanMoney, dirtyMoney, totalMoney };
+    return uiMoneyHelpers?.resolveMoneyBreakdown?.(source) || {
+      cleanMoney: 0,
+      dirtyMoney: 0,
+      totalMoney: 0
+    };
   }
 
   function applyMoneyToProfileSnapshot(profile, moneySource) {
+    if (uiMoneyHelpers?.applyMoneyToProfileSnapshot) {
+      return uiMoneyHelpers.applyMoneyToProfileSnapshot(profile, moneySource);
+    }
     const baseProfile = profile && typeof profile === "object" ? profile : {};
     const money = resolveMoneyBreakdown(moneySource);
     return {
@@ -10658,11 +10565,11 @@ window.Empire.UI = (() => {
   }
 
   function resolveStoredGangColor() {
-    return normalizeHexColor(localStorage.getItem("empire_gang_color"));
+    return normalizeHexColor(readStoredGangColor());
   }
 
   function resolveActiveProfileAvatar() {
-    return scenarioProfileAvatarOverride || localStorage.getItem("empire_avatar") || null;
+    return scenarioProfileAvatarOverride || readStoredAvatar() || null;
   }
 
   function applyProfileModalVisuals(avatarSrc = null) {
@@ -10719,6 +10626,8 @@ window.Empire.UI = (() => {
         const scenarioKey = button.dataset.playerScenario;
         applyPlayerScenario(scenarioKey);
         setActiveScenarioButton(String(scenarioKey || ""));
+        activeIndexMapView = String(scenarioKey || "").trim() === INTERNAL_INDEX_HRA_SCENARIO_KEY ? "hra" : "";
+        syncIndexMapToggleButton();
         refreshGuestBannerVisibility();
       });
     });
@@ -10755,11 +10664,11 @@ window.Empire.UI = (() => {
     }
     activePlayerScenarioKey = String(scenarioKey || "");
     activeScenarioOwnerName = "";
-    const normalizedScenarioKey = activePlayerScenarioKey === "alliance-ten-blackout"
+    const normalizedScenarioKey = activePlayerScenarioKey === INTERNAL_INDEX_HRA_SCENARIO_KEY
         ? "alliance-ten"
         : activePlayerScenarioKey;
     document.body.classList.toggle("scenario-onboarding-20-edge", normalizedScenarioKey === "onboarding-20-edge");
-    const forcedMapMode = activePlayerScenarioKey === "alliance-ten-blackout"
+    const forcedMapMode = activePlayerScenarioKey === INTERNAL_INDEX_HRA_SCENARIO_KEY
       ? "blackout"
       : "";
 
@@ -10791,10 +10700,10 @@ window.Empire.UI = (() => {
       username: ownerName,
       name: ownerName,
       gangName: cachedProfile?.gangName || ownerName,
-      structure: cachedProfile?.structure || localStorage.getItem("empire_structure") || "-",
+      structure: cachedProfile?.structure || readStoredStructure() || "-",
       alliance: "Žádná",
       districts: 0,
-      structure: cachedProfile?.structure || localStorage.getItem("empire_structure") || resolveDemoOwnerFaction(ownerName),
+      structure: cachedProfile?.structure || readStoredStructure() || resolveDemoOwnerFaction(ownerName),
       ...createDemoWeaponLoadout()
     };
     let scenarioAttackIncident = null;
@@ -10868,7 +10777,7 @@ window.Empire.UI = (() => {
       baseProfile.districts = ownDistrictCount;
       baseProfile.alliance = `${ownAllianceName} (2/4 • ${totalOwned} sektorů)`;
       roundStatusOverride = buildRoundStatusPresetForMode(
-        activePlayerScenarioKey === "alliance-ten-blackout" ? "blackout" : "night"
+        activePlayerScenarioKey === INTERNAL_INDEX_HRA_SCENARIO_KEY ? "blackout" : "night"
       );
       nextDistricts = nextDistricts.map((district) => {
         if (normalizeOwnerName(district?.owner) !== normalizeOwnerName(allyName)) return district;
@@ -10963,7 +10872,7 @@ window.Empire.UI = (() => {
         baseProfile.alliance = blackoutAllianceName;
         baseProfile.districts = countOwnedDistrictsForOwner(nextDistricts, ownerName);
       }
-      if (activePlayerScenarioKey === "alliance-ten-blackout") {
+      if (activePlayerScenarioKey === INTERNAL_INDEX_HRA_SCENARIO_KEY) {
         scenarioPoliceIncidentIds = [143, 38];
       }
       pushEvent(`Ukázka: ${ownerName} drží ${ownDistrictCount} sektorů, Chavi_Cz ${allyDistrictCount}.`);
@@ -11175,7 +11084,7 @@ window.Empire.UI = (() => {
             ...(onboardingAlliance.members[0] || {}),
             id: LOCAL_ALLIANCE_REQUEST_PLAYER_ID,
             username: "Ty",
-            gang_name: localStorage.getItem("empire_gang_name") || "Guest Crew",
+            gang_name: readStoredGangName() || "Guest Crew",
             alliance_ready_at: null
           };
           onboardingAlliance.members.push(
@@ -11200,12 +11109,12 @@ window.Empire.UI = (() => {
           if (playerMember) {
             playerMember.alliance_ready_at = null;
             playerMember.username = "Ty";
-            playerMember.gang_name = localStorage.getItem("empire_gang_name") || "Guest Crew";
+            playerMember.gang_name = readStoredGangName() || "Guest Crew";
           } else {
             onboardingAlliance.members.unshift({
               id: LOCAL_ALLIANCE_REQUEST_PLAYER_ID,
               username: "Ty",
-              gang_name: localStorage.getItem("empire_gang_name") || "Guest Crew",
+              gang_name: readStoredGangName() || "Guest Crew",
               alliance_ready_at: null
             });
           }
@@ -11317,6 +11226,8 @@ window.Empire.UI = (() => {
     }
     updateProfile(baseProfile);
     renderRoundStatusState();
+    activeIndexMapView = activePlayerScenarioKey === INTERNAL_INDEX_HRA_SCENARIO_KEY ? "hra" : activeIndexMapView;
+    syncIndexMapToggleButton();
     document.dispatchEvent(new CustomEvent("empire:scenario-applied", {
       detail: {
         scenarioKey: activePlayerScenarioKey,
@@ -12471,218 +12382,101 @@ window.Empire.UI = (() => {
   }
 
   function resolveScenarioOwnerName() {
-    return (
-      cachedProfile?.gangName
-      || cachedProfile?.username
-      || localStorage.getItem("empire_gang_name")
-      || localStorage.getItem("empire_guest_username")
-      || "Tvůj gang"
-    );
+    return getPlayerIdentityHelpers()?.resolveScenarioOwnerName?.()
+      || (
+        cachedProfile?.gangName
+        || cachedProfile?.username
+        || readStoredGangName()
+        || readStoredGuestUsername()
+        || "Tvůj gang"
+      );
   }
 
   function resolveCurrentPlayerOwnerLabel() {
-    return String(resolveScenarioOwnerName() || "Ty");
+    return getPlayerIdentityHelpers()?.resolveCurrentPlayerOwnerLabel?.()
+      || String(resolveScenarioOwnerName() || "Ty");
   }
 
   function resolveCurrentPlayerNick() {
-    return String(
-      cachedProfile?.username
-      || cachedProfile?.name
-      || window.Empire.player?.username
-      || window.Empire.player?.name
-      || localStorage.getItem("empire_guest_username")
-      || "Neznámý hráč"
-    ).trim() || "Neznámý hráč";
+    return getPlayerIdentityHelpers()?.resolveCurrentPlayerNick?.()
+      || String(
+        cachedProfile?.username
+        || cachedProfile?.name
+        || window.Empire.player?.username
+        || window.Empire.player?.name
+        || readStoredGuestUsername()
+        || "Neznámý hráč"
+      ).trim()
+      || "Neznámý hráč";
   }
 
   function resolveCurrentPlayerGangName() {
-    return String(
-      cachedProfile?.gangName
-      || cachedProfile?.gang_name
-      || window.Empire.player?.gangName
-      || window.Empire.player?.gang_name
-      || localStorage.getItem("empire_gang_name")
-      || resolveScenarioOwnerName()
-      || "Neznámý gang"
-    ).trim() || "Neznámý gang";
+    return getPlayerIdentityHelpers()?.resolveCurrentPlayerGangName?.()
+      || String(
+        cachedProfile?.gangName
+        || cachedProfile?.gang_name
+        || window.Empire.player?.gangName
+        || window.Empire.player?.gang_name
+        || readStoredGangName()
+        || resolveScenarioOwnerName()
+        || "Neznámý gang"
+      ).trim()
+      || "Neznámý gang";
   }
 
   function resolveCurrentPlayerAllianceName() {
-    return String(
-      resolvePlayerAllianceVisualMeta()?.name
-      || cachedProfile?.alliance
-      || window.Empire.player?.alliance
-      || "Bez aliance"
-    ).trim() || "Bez aliance";
+    return getPlayerIdentityHelpers()?.resolveCurrentPlayerAllianceName?.()
+      || String(
+        resolvePlayerAllianceVisualMeta()?.name
+        || cachedProfile?.alliance
+        || window.Empire.player?.alliance
+        || "Bez aliance"
+      ).trim()
+      || "Bez aliance";
   }
 
   function formatSpyDetectionAlertTime(timestamp) {
-    const safeTimestamp = Math.max(0, Math.floor(Number(timestamp) || Date.now()));
-    try {
-      return new Intl.DateTimeFormat("cs-SK", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit"
-      }).format(new Date(safeTimestamp));
-    } catch {
-      const date = new Date(safeTimestamp);
-      return date.toLocaleTimeString();
-    }
+    return getPlayerIdentityHelpers()?.formatSpyDetectionAlertTime?.(timestamp) || "";
   }
 
   function resolveCurrentPlayerOwnerKey() {
-    const normalized = normalizeOwnerName(resolveCurrentPlayerOwnerLabel());
-    return normalized || "player";
+    return getPlayerIdentityHelpers()?.resolveCurrentPlayerOwnerKey?.()
+      || normalizeOwnerName(resolveCurrentPlayerOwnerLabel())
+      || "player";
   }
 
   function readLocalDistrictDefenseAssignments() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(LOCAL_DISTRICT_DEFENSE_ASSIGNMENTS_KEY) || "null");
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return parsed;
-      }
-    } catch {}
-    return {};
+    return getPlayerDefenseStorageHelpers()?.readLocalDistrictDefenseAssignments?.() || {};
   }
 
   function writeLocalDistrictDefenseAssignments(store) {
-    localStorage.setItem(LOCAL_DISTRICT_DEFENSE_ASSIGNMENTS_KEY, JSON.stringify(store || {}));
+    return getPlayerDefenseStorageHelpers()?.writeLocalDistrictDefenseAssignments?.(store);
   }
 
   function countSelectedDefenseWeapons(selection = {}) {
-    return defenseWeaponStats.reduce((sum, item) => {
-      const count = Math.max(0, Math.floor(Number(selection?.[item.name] || 0)));
-      return sum + count;
-    }, 0);
+    return getPlayerDefenseStorageHelpers()?.countSelectedDefenseWeapons?.(selection) || 0;
   }
 
   function sanitizeDefenseSelection(selection = {}) {
-    return defenseWeaponStats.reduce((acc, item) => {
-      const count = Math.max(0, Math.floor(Number(selection?.[item.name] || 0)));
-      if (count > 0) acc[item.name] = count;
-      return acc;
-    }, {});
+    return getPlayerDefenseStorageHelpers()?.sanitizeDefenseSelection?.(selection) || {};
   }
 
   function getDistrictDefenseAssignmentForCurrentPlayer(districtId) {
-    if (districtId == null) return null;
-    const store = readLocalDistrictDefenseAssignments();
-    const districtStore = store[String(districtId)];
-    if (!districtStore || typeof districtStore !== "object") return null;
-    const ownerKey = resolveCurrentPlayerOwnerKey();
-    const rawEntry = districtStore[ownerKey];
-    if (!rawEntry || typeof rawEntry !== "object") return null;
-    const selection = sanitizeDefenseSelection(rawEntry.weaponCounts || {});
-    const totalWeapons = countSelectedDefenseWeapons(selection);
-    const members = Math.max(0, Math.floor(Number(rawEntry.members || 0)));
-    const power = Math.max(0, Math.floor(Number(rawEntry.power || 0)));
-    return {
-      selection,
-      totalWeapons,
-      members,
-      power,
-      hasDefense: totalWeapons > 0 || members > 0 || power > 0
-    };
+    return getPlayerDefenseStorageHelpers()?.getDistrictDefenseAssignmentForCurrentPlayer?.(districtId) || null;
   }
 
   function saveDistrictDefenseAssignment(district, selection = {}, members = 0, power = 0) {
-    if (!district?.id) return null;
-    const districtKey = String(district.id);
-    const ownerKey = resolveCurrentPlayerOwnerKey();
-    const ownerLabel = resolveCurrentPlayerOwnerLabel();
-    const safeMembers = Math.max(0, Math.floor(Number(members) || 0));
-    const safePower = Math.max(0, Math.floor(Number(power) || 0));
-    const safeSelection = sanitizeDefenseSelection(selection);
-    const totalWeapons = countSelectedDefenseWeapons(safeSelection);
-
-    const store = readLocalDistrictDefenseAssignments();
-    const districtStore = store[districtKey] && typeof store[districtKey] === "object"
-      ? { ...store[districtKey] }
-      : {};
-    if (totalWeapons <= 0 && safeMembers <= 0 && safePower <= 0) {
-      delete districtStore[ownerKey];
-      if (Object.keys(districtStore).length > 0) {
-        store[districtKey] = districtStore;
-      } else {
-        delete store[districtKey];
-      }
-      writeLocalDistrictDefenseAssignments(store);
-      return null;
-    }
-    const savedEntry = {
-      ownerLabel,
-      weaponCounts: safeSelection,
-      totalWeapons,
-      members: safeMembers,
-      power: safePower,
-      updatedAt: Date.now()
-    };
-    districtStore[ownerKey] = savedEntry;
-    store[districtKey] = districtStore;
-    writeLocalDistrictDefenseAssignments(store);
-    return savedEntry;
+    return getPlayerDefenseStorageHelpers()?.saveDistrictDefenseAssignment?.(district, selection, members, power) || null;
   }
 
   function resolveDistrictDefenseEntryByKeys(districtStore, ownerKeys = new Set()) {
-    if (!districtStore || typeof districtStore !== "object") return null;
-    for (const key of ownerKeys) {
-      const normalized = normalizeOwnerName(key);
-      if (!normalized) continue;
-      if (districtStore[normalized]) return districtStore[normalized];
-    }
-    return null;
+    return getPlayerDefenseStorageHelpers()?.resolveDistrictDefenseEntryByKeys?.(districtStore, ownerKeys) || null;
   }
 
   function getDistrictDefenseSnapshot(districtId) {
-    if (districtId == null) {
-      return {
-        self: { label: "Ty", weapons: null, members: null, power: null, hasData: false },
-        ally: { label: "Spojenec", weapons: null, members: null, power: null, hasData: false }
-      };
-    }
-    const store = readLocalDistrictDefenseAssignments();
-    const districtStore = store[String(districtId)] && typeof store[String(districtId)] === "object"
-      ? store[String(districtId)]
-      : {};
-    const selfKeys = new Set(getPlayerOwnerNameSet());
-    selfKeys.add(resolveCurrentPlayerOwnerKey());
-    const allyKeys = getActiveAllianceOwnerNames();
-
-    const selfEntry = resolveDistrictDefenseEntryByKeys(districtStore, selfKeys);
-    const allyEntry = resolveDistrictDefenseEntryByKeys(districtStore, allyKeys);
-
-    const mapEntry = (entry, fallbackLabel, options = {}) => {
-      if (!entry || typeof entry !== "object") {
-        return {
-          label: fallbackLabel,
-          weapons: null,
-          members: null,
-          power: null,
-          hasData: false
-        };
-      }
-      const weapons = Number.isFinite(Number(entry.totalWeapons))
-        ? Math.max(0, Math.floor(Number(entry.totalWeapons)))
-        : countSelectedDefenseWeapons(entry.weaponCounts || {});
-      const members = Math.max(0, Math.floor(Number(entry.members) || 0));
-      const basePower = Math.max(0, Math.floor(Number(entry.power) || 0));
-      const defenseBoostPct = Math.max(0, Number(options?.defenseBoostPct || 0));
-      const power = Math.max(0, Math.floor(basePower * (1 + defenseBoostPct / 100)));
-      return {
-        label: fallbackLabel,
-        weapons,
-        members,
-        power,
-        hasData: weapons > 0 || members > 0 || power > 0
-      };
-    };
-
-    const fitnessSnapshot = window.Empire.Map?.getFitnessCombatSnapshot?.() || null;
-    const selfDefenseBoostPct = Math.max(0, Number(fitnessSnapshot?.defenseBoostPct || 0));
-
-    return {
-      self: mapEntry(selfEntry, "Ty", { defenseBoostPct: selfDefenseBoostPct }),
-      ally: mapEntry(allyEntry, "Spojenec")
+    return getPlayerDefenseSnapshotHelpers()?.getDistrictDefenseSnapshot?.(districtId) || {
+      self: { label: "Ty", weapons: null, members: null, power: null, hasData: false },
+      ally: { label: "Spojenec", weapons: null, members: null, power: null, hasData: false }
     };
   }
 
@@ -14308,232 +14102,6 @@ window.Empire.UI = (() => {
 
   function ensureBountyModalShell() {
     return ensureBountyModalShellV2();
-    let root = document.getElementById("bounty-modal");
-    if (root) {
-      const requiredIds = [
-        "bounty-modal-target",
-        "bounty-target-avatar",
-        "bounty-target-activity",
-        "bounty-drug-type",
-        "bounty-material-type",
-        "bounty-preview-value",
-        "bounty-hunt-progress-fill"
-      ];
-      const missingRequiredNode = requiredIds.some((id) => !root.querySelector(`#${id}`));
-      if (missingRequiredNode) {
-        root.remove();
-        root = null;
-      }
-    }
-
-    if (!root) {
-      const wrapper = document.createElement("div");
-      wrapper.innerHTML = `
-        <div id="bounty-modal" class="modal hidden bounty-modal">
-          <div id="bounty-modal-backdrop" class="modal__backdrop"></div>
-          <div class="modal__content bounty-modal__content">
-            <div class="bounty-modal__header">
-              <div class="bounty-modal__header-copy">
-                <div class="bounty-modal__eyebrow">Bounty board</div>
-                <h3>VYPSAT ODMĚNU</h3>
-                <div class="bounty-modal__header-note">Označ hráče a vystav ho celému městu.</div>
-              </div>
-              <button id="bounty-modal-close" class="modal__close" type="button" aria-label="Zavřít">×</button>
-            </div>
-            <div class="bounty-modal__body">
-              <section class="storage-modal__section bounty-modal__column bounty-modal__column--left">
-                <div class="bounty-modal__block">
-                  <div class="bounty-modal__block-head">
-                    <div class="bounty-modal__block-kicker">Target</div>
-                    <div class="bounty-modal__block-title">Koho jdeš označit</div>
-                  </div>
-                  <label class="bounty-modal__field">
-                    <span>Hráč</span>
-                    <select id="bounty-modal-target" class="bounty-modal__input">
-                      <option value="Mariah">Mariah • 1 district</option>
-                    </select>
-                  </label>
-                  <div class="bounty-modal__target-card">
-                    <div class="bounty-modal__target-avatar-wrap">
-                      <img id="bounty-target-avatar" class="bounty-modal__target-avatar is-empty" alt="Target avatar" />
-                      <span id="bounty-target-avatar-fallback" class="bounty-modal__target-avatar-fallback">??</span>
-                    </div>
-                    <div class="bounty-modal__target-copy">
-                      <div id="bounty-target-name" class="bounty-modal__target-name">Nevybrán cíl</div>
-                      <div id="bounty-target-alliance" class="bounty-modal__target-alliance">Bez aliance</div>
-                      <div id="bounty-target-districts" class="bounty-modal__target-stat">Districtů: 0</div>
-                      <div id="bounty-target-activity" class="bounty-modal__target-stat">Poslední aktivita: -</div>
-                    </div>
-                    <div id="bounty-target-threat" class="bounty-modal__threat-badge" data-tone="low">Low threat</div>
-                  </div>
-                </div>
-
-                <div class="bounty-modal__block">
-                  <div class="bounty-modal__block-head">
-                    <div class="bounty-modal__block-kicker">Nastavení odměny</div>
-                    <div class="bounty-modal__block-title">Co za něj vypisuješ</div>
-                  </div>
-                  <div class="bounty-modal__resource-stack">
-                    <div class="bounty-modal__resource-row">
-                      <div class="bounty-modal__resource-meta">
-                        <span class="bounty-modal__resource-icon">💊</span>
-                        <div class="bounty-modal__resource-copy">
-                          <div class="bounty-modal__resource-name">Drogy</div>
-                          <div id="bounty-drugs-available" class="bounty-modal__resource-have">máš: 0 ks</div>
-                        </div>
-                      </div>
-                      <div class="bounty-modal__typed-resource">
-                        <select id="bounty-drug-type" class="bounty-modal__input"></select>
-                        <input id="bounty-drugs-input" class="bounty-modal__input bounty-modal__number-input" type="number" min="0" max="0" step="1" value="0" />
-                      </div>
-                    </div>
-                    <div class="bounty-modal__resource-row">
-                      <div class="bounty-modal__resource-meta">
-                        <span class="bounty-modal__resource-icon">🧱</span>
-                        <div class="bounty-modal__resource-copy">
-                          <div class="bounty-modal__resource-name">Materiály</div>
-                          <div id="bounty-materials-available" class="bounty-modal__resource-have">máš: 0 ks</div>
-                        </div>
-                      </div>
-                      <div class="bounty-modal__typed-resource">
-                        <select id="bounty-material-type" class="bounty-modal__input"></select>
-                        <input id="bounty-materials-input" class="bounty-modal__input bounty-modal__number-input" type="number" min="0" max="0" step="1" value="0" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="bounty-modal__block">
-                  <div class="bounty-modal__block-head">
-                    <div class="bounty-modal__block-kicker">Typ bounty</div>
-                    <div class="bounty-modal__block-title">Co má město splnit</div>
-                  </div>
-                  <div class="bounty-modal__card-choice-grid">
-                    <label class="bounty-modal__choice-card">
-                      <input type="radio" name="bounty-objective" value="occupy-sector" checked />
-                      <span>Za obsazení districtu</span>
-                    </label>
-                    <label class="bounty-modal__choice-card">
-                      <input type="radio" name="bounty-objective" value="successful-attack" />
-                      <span>Za úspěšný útok</span>
-                    </label>
-                    <label class="bounty-modal__choice-card">
-                      <input type="radio" name="bounty-objective" value="destroy-units" />
-                      <span>Za zničení jednotek</span>
-                    </label>
-                  </div>
-                  <label id="bounty-district-field" class="bounty-modal__field bounty-modal__field--district">
-                    <span>Konkrétní district</span>
-                    <select id="bounty-modal-district" class="bounty-modal__input"></select>
-                  </label>
-                </div>
-
-                <div class="bounty-modal__settings-grid">
-                  <div class="bounty-modal__block bounty-modal__block--compact">
-                    <div class="bounty-modal__block-head">
-                      <div class="bounty-modal__block-kicker">Trvání</div>
-                    </div>
-                    <div class="bounty-modal__segmented">
-                      <label class="bounty-modal__segment">
-                        <input type="radio" name="bounty-duration" value="6" />
-                        <span>6h</span>
-                      </label>
-                      <label class="bounty-modal__segment">
-                        <input type="radio" name="bounty-duration" value="12" checked />
-                        <span>12h</span>
-                      </label>
-                      <label class="bounty-modal__segment">
-                        <input type="radio" name="bounty-duration" value="24" />
-                        <span>24h</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div class="bounty-modal__block bounty-modal__block--compact">
-                    <div class="bounty-modal__block-head">
-                      <div class="bounty-modal__block-kicker">Anonymita</div>
-                    </div>
-                    <label class="bounty-modal__toggle-card">
-                      <input id="bounty-anonymous-input" type="checkbox" checked />
-                      <span>Anonymní vypsání odměny</span>
-                      <small>OFF = target vidí, kdo ho označil</small>
-                    </label>
-                  </div>
-                </div>
-              </section>
-
-              <section class="storage-modal__section bounty-modal__column bounty-modal__column--right">
-                <div class="bounty-modal__preview-card">
-                  <div id="bounty-preview-target" class="bounty-modal__preview-target">Nevybrán cíl</div>
-                  <div id="bounty-preview-value" class="bounty-modal__preview-value">$0</div>
-                  <div class="bounty-modal__preview-meta">
-                    <div><span>Typ</span><strong id="bounty-preview-type">Za obsazení districtu</strong></div>
-                    <div><span>Trvání</span><strong id="bounty-preview-duration">12h</strong></div>
-                    <div><span>Anonymita</span><strong id="bounty-preview-anonymous">Anonymní vypsání</strong></div>
-                  </div>
-                </div>
-
-                <div class="bounty-modal__hunt-box">
-                  <div id="bounty-hunt-state" class="bounty-modal__hunt-state" data-mode="charging">Hunt mode se plní</div>
-                  <div class="bounty-modal__hunt-progress">
-                    <div id="bounty-hunt-progress-fill" class="bounty-modal__hunt-progress-fill"></div>
-                  </div>
-                  <div id="bounty-hunt-progress-label" class="bounty-modal__hunt-progress-label">Do HUNT MODE zbývá $10,000.</div>
-                </div>
-
-                <div class="bounty-modal__warning-box">
-                  <div>Ta akce upozorní celé město.</div>
-                  <div>Po potvrzení nelze bounty zrušit.</div>
-                  <div>Target může reagovat protiakcí.</div>
-                </div>
-
-                <div class="bounty-modal__actions">
-                  <button id="bounty-modal-cancel" class="btn bounty-modal__cancel" type="button">Zrušit</button>
-                  <button id="bounty-modal-submit" class="btn bounty-modal__submit" type="button">VYPSAT ODMĚNU</button>
-                </div>
-              </section>
-            </div>
-          </div>
-        </div>
-      `;
-      root = wrapper.firstElementChild;
-      document.body.appendChild(root);
-    }
-
-    return {
-      root,
-      backdrop: document.getElementById("bounty-modal-backdrop"),
-      closeBtn: document.getElementById("bounty-modal-close"),
-      cancelBtn: document.getElementById("bounty-modal-cancel"),
-      targetSelect: document.getElementById("bounty-modal-target"),
-      districtSelect: document.getElementById("bounty-modal-district"),
-      submitBtn: document.getElementById("bounty-modal-submit"),
-      targetName: document.getElementById("bounty-target-name"),
-      targetAlliance: document.getElementById("bounty-target-alliance"),
-      targetDistricts: document.getElementById("bounty-target-districts"),
-      targetActivity: document.getElementById("bounty-target-activity"),
-      targetThreat: document.getElementById("bounty-target-threat"),
-      targetAvatar: document.getElementById("bounty-target-avatar"),
-      targetAvatarFallback: document.getElementById("bounty-target-avatar-fallback"),
-      cashRange: document.getElementById("bounty-cash-range"),
-      cashInput: document.getElementById("bounty-cash-input"),
-      cashAvailable: document.getElementById("bounty-cash-available"),
-      drugTypeSelect: document.getElementById("bounty-drug-type"),
-      drugsInput: document.getElementById("bounty-drugs-input"),
-      drugsAvailable: document.getElementById("bounty-drugs-available"),
-      materialTypeSelect: document.getElementById("bounty-material-type"),
-      materialsInput: document.getElementById("bounty-materials-input"),
-      materialsAvailable: document.getElementById("bounty-materials-available"),
-      anonymousInput: document.getElementById("bounty-anonymous-input"),
-      previewTarget: document.getElementById("bounty-preview-target"),
-      previewValue: document.getElementById("bounty-preview-value"),
-      previewType: document.getElementById("bounty-preview-type"),
-      previewDuration: document.getElementById("bounty-preview-duration"),
-      previewAnonymous: document.getElementById("bounty-preview-anonymous"),
-      huntModeState: document.getElementById("bounty-hunt-state"),
-      huntModeProgressFill: document.getElementById("bounty-hunt-progress-fill"),
-      huntModeProgressLabel: document.getElementById("bounty-hunt-progress-label"),
-      districtField: document.getElementById("bounty-district-field")
-    };
   }
 
   function collectBountyEligiblePlayersV2() {
@@ -14936,6 +14504,53 @@ window.Empire.UI = (() => {
     };
     root.__bountyV2State = modalState;
 
+    const syncBountyModalLayout = () => {
+      const content = root.querySelector(".bounty-board__content");
+      const layout = root.querySelector(".bounty-board__layout");
+      if (!(content instanceof HTMLElement) || !(layout instanceof HTMLElement)) return;
+
+      const viewportWidth = Math.max(
+        Number(window.innerWidth || 0),
+        Number(document.documentElement?.clientWidth || 0)
+      );
+      const viewportHeight = Math.max(
+        Number(window.innerHeight || 0),
+        Number(document.documentElement?.clientHeight || 0)
+      );
+
+      if (viewportWidth <= 640) {
+        root.style.paddingTop = "max(12px, env(safe-area-inset-top))";
+        root.style.paddingRight = "5px";
+        root.style.paddingLeft = "5px";
+        root.style.paddingBottom = "12px";
+        content.style.width = `calc(${Math.max(320, viewportWidth)}px - 10px)`;
+        content.style.maxWidth = `calc(${Math.max(320, viewportWidth)}px - 10px)`;
+        content.style.maxHeight = `${Math.max(320, viewportHeight - 24)}px`;
+        layout.style.gridTemplateColumns = "1fr";
+        return;
+      }
+
+      root.style.paddingRight = "";
+      root.style.paddingLeft = "";
+
+      if (viewportWidth <= 980) {
+        root.style.paddingTop = "96px";
+        root.style.paddingBottom = "18px";
+        content.style.width = `${Math.min(920, Math.max(640, viewportWidth - 24))}px`;
+        content.style.maxWidth = `${Math.min(920, Math.max(640, viewportWidth - 24))}px`;
+        content.style.maxHeight = `${Math.max(420, viewportHeight - 124)}px`;
+        layout.style.gridTemplateColumns = "minmax(0, 1fr) minmax(380px, 0.86fr)";
+        return;
+      }
+
+      root.style.paddingTop = "16px";
+      root.style.paddingBottom = "8px";
+      content.style.width = `${Math.min(1060, Math.max(780, viewportWidth - 48))}px`;
+      content.style.maxWidth = `${Math.min(1060, Math.max(780, viewportWidth - 48))}px`;
+      content.style.maxHeight = `${Math.max(520, viewportHeight - 24)}px`;
+      layout.style.gridTemplateColumns = "minmax(0, 1fr) minmax(290px, 0.76fr)";
+    };
+
     const getSelectedObjectiveType = () => {
       const selected = objectiveInputs.find((input) => input.checked);
       return String(selected?.value || "occupy-sector").trim() || "occupy-sector";
@@ -15130,6 +14745,8 @@ window.Empire.UI = (() => {
       try {
         refreshView();
         await reloadBoard();
+        syncBountyModalLayout();
+        requestAnimationFrame(() => syncBountyModalLayout());
       } catch (error) {
         console.error("Bounty open failed", error);
         pushEvent("Bounty kartu se nepodařilo načíst.");
@@ -15171,6 +14788,9 @@ window.Empire.UI = (() => {
       durationInputs.forEach((input) => input.addEventListener("change", syncPreview));
       document.addEventListener("keydown", (event) => {
         if (event.key === "Escape" && !root.classList.contains("hidden")) closeModal();
+      });
+      window.addEventListener("resize", () => {
+        if (!root.classList.contains("hidden")) syncBountyModalLayout();
       });
 
       submitBtn.addEventListener("click", async () => {
@@ -16789,646 +16409,198 @@ window.Empire.UI = (() => {
   }
 
   async function hydrateAfterAuth() {
-    setScenarioVisionMode(false);
-    setScenarioAllianceOwners([]);
-    setScenarioEnemyOwners([]);
-    const [profile, economy, districtData, allianceData] = await Promise.all([
-      window.Empire.API.getProfile(),
-      window.Empire.API.getEconomy(),
-      window.Empire.API.getDistricts(),
-      window.Empire.API.getAlliance().catch(() => ({ alliance: null }))
-    ]);
-
-    window.Empire.player = profile;
-    updateEconomy(economy);
-    setLiveAllianceOwnersFromAlliance(allianceData?.alliance || null);
-
-    if (districtData && districtData.districts) {
-      window.Empire.Map.clearUnderAttackDistricts?.();
-      window.Empire.Map.clearPoliceActions?.();
-      window.Empire.Map.setDistricts(districtData.districts);
-    }
-
-    updateProfile(profile);
-
-    window.Empire.WS.connect();
+    return getAuthSessionController()?.hydrateAfterAuth?.();
   }
 
   function extractAllianceDisplayName(allianceValue) {
-    const raw = String(allianceValue || "").trim();
-    if (!raw) return "";
-    if (normalizeOwnerName(raw) === "žádná") return "";
-    let cleaned = raw.replace(/\(\s*[^)]*sektor[^)]*\)\s*$/i, "").trim();
-    cleaned = cleaned.replace(/\s*\+\s*\d*\s*spojen[a-z]*.*$/i, "").trim();
-    if (cleaned.includes("•")) {
-      cleaned = cleaned.split("•")[0].trim();
-    }
-    return cleaned || raw;
+    return getPlayerLabelHelpers()?.extractAllianceDisplayName?.(allianceValue) || "";
   }
 
   function extractAllianceSectorCountHint(allianceValue) {
-    const raw = String(allianceValue || "").trim();
-    const match = raw.match(/(\d+)\s*sektor/i);
-    if (!match) return 0;
-    const parsed = Number(match[1]);
-    return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
+    return getPlayerLabelHelpers()?.extractAllianceSectorCountHint?.(allianceValue) || 0;
   }
 
   function formatSectorCountLabel(value) {
-    const amount = Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
-    if (amount === 1) return "1 sektor";
-    if (amount >= 2 && amount <= 4) return `${amount} sektory`;
-    return `${amount} sektorů`;
+    return getPlayerLabelHelpers()?.formatSectorCountLabel?.(value) || "0 sektorů";
   }
 
   function formatPopulationLabel(value) {
-    const amount = Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
-    return amount.toLocaleString("cs-CZ");
+    return getPlayerLabelHelpers()?.formatPopulationLabel?.(value) || "0";
   }
 
   function getLocalGangMembersBonus() {
-    const parsed = Number(localStorage.getItem(LOCAL_GANG_MEMBERS_KEY) || 0);
-    if (!Number.isFinite(parsed)) return 0;
-    return Math.max(0, Math.floor(parsed));
+    return getPlayerPopulationController()?.getLocalGangMembersBonus?.() || 0;
   }
 
   function setLocalGangMembersBonus(value) {
-    const safeValue = Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
-    localStorage.setItem(LOCAL_GANG_MEMBERS_KEY, String(safeValue));
-    return safeValue;
+    return getPlayerPopulationController()?.setLocalGangMembersBonus?.(value) || 0;
   }
 
   function getLocalGangMembersSpent() {
-    const parsed = Number(localStorage.getItem(LOCAL_GANG_MEMBERS_SPENT_KEY) || 0);
-    if (!Number.isFinite(parsed)) return 0;
-    return Math.max(0, Math.floor(parsed));
+    return getPlayerPopulationController()?.getLocalGangMembersSpent?.() || 0;
   }
 
   function setLocalGangMembersSpent(value) {
-    const safeValue = Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
-    localStorage.setItem(LOCAL_GANG_MEMBERS_SPENT_KEY, String(safeValue));
-    return safeValue;
+    return getPlayerPopulationController()?.setLocalGangMembersSpent?.(value) || 0;
   }
 
   function consumeGangMembers(amount) {
-    const delta = Number.isFinite(Number(amount)) ? Math.max(0, Math.floor(Number(amount))) : 0;
-    if (delta <= 0) return countPlayerControlledPopulation(cachedProfile || window.Empire.player || {});
-    const spent = getLocalGangMembersSpent();
-    const nextSpent = setLocalGangMembersSpent(spent + delta);
-    refreshProfilePopulation();
-    return nextSpent;
+    const controller = getPlayerPopulationController();
+    if (controller?.consumeGangMembers) {
+      return controller.consumeGangMembers(amount);
+    }
+    return countPlayerControlledPopulation(cachedProfile || window.Empire.player || {});
   }
 
   function refreshProfilePopulation() {
-    const profileSource = cachedProfile || window.Empire.player || {};
-    updateProfile(profileSource);
-    return countPlayerControlledPopulation(profileSource);
+    const controller = getPlayerPopulationController();
+    if (controller?.refreshProfilePopulation) {
+      return controller.refreshProfilePopulation();
+    }
+    return countPlayerControlledPopulation(cachedProfile || window.Empire.player || {});
   }
 
   function addGangMembers(amount) {
-    const delta = Number.isFinite(Number(amount)) ? Math.max(0, Math.floor(Number(amount))) : 0;
-    if (delta <= 0) {
-      return refreshProfilePopulation();
+    const controller = getPlayerPopulationController();
+    if (controller?.addGangMembers) {
+      return controller.addGangMembers(amount);
     }
-    const spent = getLocalGangMembersSpent();
-    if (spent > 0) {
-      const recovered = Math.min(spent, delta);
-      setLocalGangMembersSpent(spent - recovered);
-      const leftover = delta - recovered;
-      if (leftover > 0) {
-        setLocalGangMembersBonus(getLocalGangMembersBonus() + leftover);
-      }
-    } else {
-      setLocalGangMembersBonus(getLocalGangMembersBonus() + delta);
-    }
-    refreshProfilePopulation();
     return countPlayerControlledPopulation(cachedProfile || window.Empire.player || {});
   }
 
   function getCurrentGangMembers() {
-    return getLocalGangMembersBonus();
+    return getPlayerPopulationController()?.getCurrentGangMembers?.() || 0;
   }
 
   function countAllianceControlledSectors() {
-    const districts = Array.isArray(window.Empire.districts) ? window.Empire.districts : [];
-    if (!districts.length) return 0;
-    const ownerNames = new Set(getPlayerOwnerNameSet());
-    getActiveAllianceOwnerNames().forEach((owner) => ownerNames.add(owner));
-    if (!ownerNames.size) return 0;
-    return districts.reduce((sum, district) => {
-      const owner = normalizeOwnerName(district?.owner);
-      return owner && ownerNames.has(owner) ? sum + 1 : sum;
-    }, 0);
+    return getPlayerPopulationController()?.countAllianceControlledSectors?.() || 0;
   }
 
   function countPlayerControlledPopulation(profile) {
-    const bonusMembers = getLocalGangMembersBonus();
-    const spentMembers = getLocalGangMembersSpent();
-    const persistedRaidLosses = Math.max(
-      0,
-      Math.floor(
-        Number(
-          profile?.raidMemberLosses
-          ?? profile?.raid_member_losses
-          ?? window.Empire.player?.raidMemberLosses
-          ?? window.Empire.player?.raid_member_losses
-          ?? 0
-        ) || 0
-      )
-    );
-    const districts = Array.isArray(window.Empire.districts) ? window.Empire.districts : [];
-    if (!districts.length) {
-      return Math.max(0, Number(profile?.population || 0) + bonusMembers - spentMembers - persistedRaidLosses);
+    const controller = getPlayerPopulationController();
+    if (controller?.countPlayerControlledPopulation) {
+      return controller.countPlayerControlledPopulation(profile);
     }
-
-    const weights = {
-      downtown: 3600,
-      commercial: 2600,
-      residential: 5400,
-      industrial: 1900,
-      park: 1300
-    };
-    const playerOwners = getPlayerOwnerNameSet();
-    if (!playerOwners.size) {
-      return Math.max(0, Number(profile?.population || 0) + bonusMembers - spentMembers - persistedRaidLosses);
-    }
-
-    const total = districts.reduce((sum, district) => {
-      const owner = normalizeOwnerName(district?.owner);
-      if (!owner || !playerOwners.has(owner)) return sum;
-      const typeKey = String(district?.type || "").trim().toLowerCase();
-      const fallback = 2200;
-      const population = Number(district?.population);
-      if (Number.isFinite(population) && population > 0) {
-        return sum + Math.floor(population);
-      }
-      return sum + (weights[typeKey] || fallback);
-    }, 0);
-
-    if (total > 0) return Math.max(0, total + bonusMembers - spentMembers - persistedRaidLosses);
-    return Math.max(0, Number(profile?.population || 0) + bonusMembers - spentMembers - persistedRaidLosses);
+    return Math.max(0, Number(profile?.population || 0));
   }
 
   function formatFactionLabel(value) {
-    const raw = String(value || "").trim();
-    if (!raw) return "-";
-    const normalized = raw.toLowerCase();
-    const labels = {
-      "mafián": "Mafián",
-      "kartel": "Kartel",
-      "pouliční gang": "Pouliční gang",
-      "tajná organizace": "Tajná organizace",
-      "hackeři": "Hackeři",
-      "motorkářský gang": "Motorkářský gang",
-      "soukromá armáda": "Soukromá armáda",
-      "korporace": "Korporace"
-    };
-    return labels[normalized] || raw;
+    return getPlayerLabelHelpers()?.formatFactionLabel?.(value) || "-";
   }
 
   function clampWantedHeat(value) {
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed)) return 0;
-    return Math.max(0, Math.min(WANTED_HEAT_MAX, Math.round(parsed * 10) / 10));
+    return getPlayerHeatHelpers()?.clampWantedHeat?.(value) || 0;
   }
 
   function resolveStealthHeatMultiplier(profile) {
-    const safeProfile = profile && typeof profile === "object" ? profile : {};
-    const candidates = [
-      safeProfile.stealthBuild,
-      safeProfile.stealth_build,
-      safeProfile.buildType,
-      safeProfile.build_type,
-      safeProfile.specialBuild,
-      safeProfile.special_build,
-      safeProfile.playStyle,
-      safeProfile.play_style,
-      safeProfile.strategy,
-      safeProfile.style
-    ];
-    for (let i = 0; i < candidates.length; i += 1) {
-      const value = candidates[i];
-      if (value === true) return 0.8;
-      if (typeof value === "string" && value.trim().toLowerCase().includes("stealth")) return 0.8;
-    }
-    return 1;
+    return getPlayerHeatHelpers()?.resolveStealthHeatMultiplier?.(profile) || 1;
   }
 
   function formatWantedHeat(value) {
-    const heat = clampWantedHeat(value);
-    if (Math.abs(heat - Math.round(heat)) < 0.001) {
-      return `${Math.round(heat)}`;
-    }
-    return heat.toFixed(1).replace(/\.0$/, "");
+    return getPlayerHeatHelpers()?.formatWantedHeat?.(value) || "0";
   }
 
   function readGangHeatJournal() {
-    try {
-      const raw = localStorage.getItem(HEAT_JOURNAL_STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (_) {
-      return [];
-    }
+    return getPlayerHeatHelpers()?.readGangHeatJournal?.() || [];
   }
 
   function saveGangHeatJournal(entries) {
-    const safeEntries = Array.isArray(entries) ? entries.slice(0, 40) : [];
-    localStorage.setItem(HEAT_JOURNAL_STORAGE_KEY, JSON.stringify(safeEntries));
-    return safeEntries;
+    return getPlayerHeatHelpers()?.saveGangHeatJournal?.(entries) || [];
   }
 
   function clearGangHeatJournal() {
-    localStorage.setItem(HEAT_JOURNAL_STORAGE_KEY, JSON.stringify([]));
+    return getPlayerHeatHelpers()?.clearGangHeatJournal?.();
   }
 
   function appendGangHeatJournalEntry(type, amount, reason, createdAt = Date.now()) {
-    const safeType = String(type || "").trim().toLowerCase();
-    if (safeType !== "rise" && safeType !== "fall") return null;
-    const safeAmount = Math.max(0, Number(amount) || 0);
-    const safeReason = String(reason || "").trim();
-    if (!safeAmount || !safeReason) return null;
-    const current = readGangHeatJournal();
-    current.unshift({
-      type: safeType,
-      amount: Math.round(safeAmount * 10) / 10,
-      reason: safeReason,
-      createdAt: Math.max(0, Math.floor(Number(createdAt) || Date.now()))
-    });
-    saveGangHeatJournal(current);
-    return current[0];
+    return getPlayerHeatHelpers()?.appendGangHeatJournalEntry?.(type, amount, reason, createdAt) || null;
   }
 
   function formatRelativeHeatTime(timestamp) {
-    const diffMs = Math.max(0, Date.now() - Math.max(0, Number(timestamp) || 0));
-    const diffMinutes = Math.floor(diffMs / 60000);
-    if (diffMinutes < 1) return "právě teď";
-    if (diffMinutes < 60) return `před ${diffMinutes} min`;
-    const diffHours = Math.floor(diffMinutes / 60);
-    if (diffHours < 24) return `před ${diffHours} h`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `před ${diffDays} d`;
+    return getPlayerHeatHelpers()?.formatRelativeHeatTime?.(timestamp) || "právě teď";
   }
 
   function getOwnedPlayerDistricts() {
-    const districts = Array.isArray(window.Empire.districts) ? window.Empire.districts : [];
-    return districts.filter((district) => isDistrictOwnedByPlayer(district));
+    return getPlayerHeatHelpers()?.getOwnedPlayerDistricts?.() || [];
   }
 
   function getBlackoutIncomeDistricts(districtsInput = window.Empire.districts) {
-    const districts = Array.isArray(districtsInput) ? districtsInput : [];
-    const ownedDistricts = districts.filter((district) => isDistrictOwnedByPlayer(district));
-    const byId = new Map();
-    ownedDistricts.forEach((district) => {
-      byId.set(Number(district?.id), district);
-    });
-    if (!ownedDistricts.length && isBlackoutLikeScenario()) {
-      districts.forEach((district) => {
-        const districtId = Number(district?.id);
-        if (!BLACKOUT_PLAYER_FALLBACK_DISTRICT_IDS.includes(districtId)) return;
-        byId.set(districtId, district);
-      });
-    } else if (isBlackoutLikeScenario()) {
-      districts.forEach((district) => {
-        const districtId = Number(district?.id);
-        if (!BLACKOUT_PLAYER_FALLBACK_DISTRICT_IDS.includes(districtId)) return;
-        byId.set(districtId, district);
-      });
-    }
-    return Array.from(byId.values()).filter((district) => !Boolean(district?.isDestroyed));
+    return getPlayerHeatHelpers()?.getBlackoutIncomeDistricts?.(districtsInput) || [];
   }
 
   function spendDirtyCash(amount) {
-    const required = Number.isFinite(Number(amount)) ? Math.max(0, Math.floor(Number(amount))) : 0;
-    if (required <= 0) return { ok: true, spent: 0 };
-    const economy = ensureEconomyCache();
-    const money = resolveMoneyBreakdown(economy);
-    if (money.dirtyMoney < required) {
-      return { ok: false, reason: "insufficient_dirty_cash", available: money.dirtyMoney };
+    const helper = getPlayerHeatHelpers();
+    if (helper?.spendDirtyCash) {
+      return helper.spendDirtyCash(amount);
     }
-    money.dirtyMoney -= required;
-    economy.cleanMoney = money.cleanMoney;
-    economy.dirtyMoney = money.dirtyMoney;
-    economy.balance = money.cleanMoney + money.dirtyMoney;
-    updateEconomy(economy);
-    return { ok: true, spent: required };
+    return { ok: false, reason: "unavailable", available: 0 };
   }
 
   function setPlayerWantedHeat(nextHeat, reason = "", type = "fall") {
-    const safeHeat = clampWantedHeat(nextHeat);
-    const currentProfile = window.Empire.player && typeof window.Empire.player === "object"
-      ? window.Empire.player
-      : {};
-    const previousHeat = resolveWantedLevel(currentProfile);
-    const updatedProfile = {
-      ...currentProfile,
-      heat: safeHeat,
-      wantedLevel: safeHeat,
-      wanted: safeHeat,
-      policeHeat: safeHeat,
-      police_heat: safeHeat
-    };
-    updateProfile(updatedProfile);
-    window.Empire.PoliceHeat?.setExternalHeat?.(safeHeat, updatedProfile);
-    if (reason) {
-      appendGangHeatJournalEntry(type, Math.abs(safeHeat - previousHeat), reason);
-    }
-    return safeHeat;
+    return getPlayerHeatHelpers()?.setPlayerWantedHeat?.(nextHeat, reason, type) || 0;
   }
 
   function readDirtyHeatReductionTimestamps() {
-    try {
-      const raw = localStorage.getItem(HEAT_DIRTY_REDUCTION_STORAGE_KEY);
-      const parsed = JSON.parse(raw || "[]");
-      return Array.isArray(parsed) ? parsed.map((value) => Number(value)).filter(Number.isFinite) : [];
-    } catch (_) {
-      return [];
-    }
+    return getPlayerHeatHelpers()?.readDirtyHeatReductionTimestamps?.() || [];
   }
 
   function saveDirtyHeatReductionTimestamps(entries) {
-    const safeEntries = Array.isArray(entries) ? entries.filter((value) => Number.isFinite(Number(value))) : [];
-    localStorage.setItem(HEAT_DIRTY_REDUCTION_STORAGE_KEY, JSON.stringify(safeEntries));
-    return safeEntries;
+    return getPlayerHeatHelpers()?.saveDirtyHeatReductionTimestamps?.(entries) || [];
   }
 
   function registerDirtyHeatReductionAndMaybeTriggerPolice() {
-    const now = Date.now();
-    const recent = readDirtyHeatReductionTimestamps()
-      .filter((timestamp) => now - Number(timestamp) <= GANG_HEAT_DIRTY_TRIGGER_WINDOW_MS);
-    recent.push(now);
-    saveDirtyHeatReductionTimestamps(recent);
-    if (recent.length < GANG_HEAT_DIRTY_TRIGGER_COUNT) {
-      return {
-        triggered: false,
-        count: recent.length,
-        districtId: null
-      };
-    }
-    saveDirtyHeatReductionTimestamps([]);
-    const ownedDistricts = getOwnedPlayerDistricts();
-    if (!ownedDistricts.length) {
-      return {
-        triggered: false,
-        count: recent.length,
-        districtId: null
-      };
-    }
-    const target = isOnboardingDemoScenarioActive()
-      ? ownedDistricts[0]
-      : ownedDistricts[Math.floor(Math.random() * ownedDistricts.length)];
-    if (!target?.id) {
-      return {
-        triggered: false,
-        count: recent.length,
-        districtId: null
-      };
-    }
-    window.Empire.Map?.markDistrictPoliceAction?.(target.id, {
-      durationMs: GANG_HEAT_POLICE_DURATION_MS,
-      source: "heat-dirty-reduction"
-    });
-    pushEvent(`Podezřelé praní heatu přitáhlo policii do distriktu ${target.name || `#${target.id}`}.`);
-    return {
-      triggered: true,
-      count: recent.length,
-      districtId: target.id
+    return getPlayerHeatHelpers()?.registerDirtyHeatReductionAndMaybeTriggerPolice?.() || {
+      triggered: false,
+      count: 0,
+      districtId: null
     };
   }
 
   function resolveWantedStars(heatValue) {
-    const heat = clampWantedHeat(heatValue);
-    const tier = WANTED_HEAT_TIERS.find((entry) => heat >= entry.min && heat <= entry.max);
-    return tier ? tier.stars : 6;
+    return getPlayerHeatHelpers()?.resolveWantedStars?.(heatValue) || 6;
   }
 
   function updateProfileWantedStars(heatValue) {
-    const root = document.getElementById("profile-wanted-stars");
-    if (!root) return;
-    const stars = Array.from(root.querySelectorAll("[data-profile-wanted-star]"));
-    if (!stars.length) return;
-    const activeStars = resolveWantedStars(heatValue);
-    stars.forEach((star, index) => {
-      star.classList.toggle("is-active", index < activeStars);
-    });
-    const heat = clampWantedHeat(heatValue);
-    const heatLabel = formatWantedHeat(heat);
-    root.setAttribute("aria-label", `Stupeň hledanosti ${activeStars}/6 (${heatLabel} heat)`);
-    root.title = `Hledanost: ${activeStars}/6 (${heatLabel} heat)`;
+    return getPlayerHeatHelpers()?.updateProfileWantedStars?.(heatValue);
   }
 
   function resolveWantedLevel(profile) {
-    const stealthMultiplier = resolveStealthHeatMultiplier(profile || window.Empire?.player || {});
-    const explicitCandidates = [
-      profile?.wantedLevel,
-      profile?.wanted_level,
-      profile?.wanted,
-      profile?.heat,
-      profile?.notoriety,
-      profile?.policeHeat,
-      profile?.police_heat,
-      window.Empire?.PoliceHeat?.state?.player?.totalHeat
-    ];
-    for (let i = 0; i < explicitCandidates.length; i += 1) {
-      const parsed = Number(explicitCandidates[i]);
-      if (Number.isFinite(parsed)) {
-        return clampWantedHeat(parsed * stealthMultiplier);
-      }
-    }
-
-    const economy = cachedEconomy || {};
-    const moneyProfile = resolveMoneyBreakdown(profile || {});
-    const moneyEconomy = resolveMoneyBreakdown(economy || {});
-    const dirtyMoney = Math.max(moneyProfile.dirtyMoney || 0, moneyEconomy.dirtyMoney || 0);
-    const districts = Math.max(0, Math.floor(Number(profile?.districts || 0)));
-    const influence = Math.max(0, Number(profile?.influence || 0));
-    const population = countPlayerControlledPopulation(profile);
-
-    const score = Math.round(
-      districts * 4
-      + influence * 0.08
-      + dirtyMoney / 12000
-      + population / 25000
-    );
-    return clampWantedHeat(score * 10 * stealthMultiplier);
+    return getPlayerHeatHelpers()?.resolveWantedLevel?.(profile) || 0;
   }
 
   function resolvePoliceRaidProtectionUntil(profile) {
-    const explicitCandidates = [
-      profile?.policeRaidProtectionUntil,
-      profile?.police_raid_protection_until,
-      window.Empire?.PoliceHeat?.state?.player?.policeRaidProtectionUntil,
-      window.Empire?.PoliceHeat?.state?.player?.police_raid_protection_until
-    ];
-    for (let i = 0; i < explicitCandidates.length; i += 1) {
-      const parsed = Number(explicitCandidates[i]);
-      if (Number.isFinite(parsed) && parsed > 0) return parsed;
-    }
-    return 0;
+    return getPlayerHeatHelpers()?.resolvePoliceRaidProtectionUntil?.(profile) || 0;
   }
 
   function formatPoliceRaidProtectionLabel(profile) {
-    const until = resolvePoliceRaidProtectionUntil(profile);
-    if (!until) return "Bez ochrany";
-    const remaining = until - Date.now();
-    if (remaining <= 0) return "Bez ochrany";
-    return `Aktivní ${formatDurationLabel(remaining)}`;
+    return getPlayerHeatHelpers()?.formatPoliceRaidProtectionLabel?.(profile) || "Bez ochrany";
   }
 
   function formatAllianceProfileSummary(profile) {
-    const name = extractAllianceDisplayName(profile?.alliance);
-    if (!name) return "Žádná";
-
-    let totalSectors = countAllianceControlledSectors();
-    if (!totalSectors) {
-      totalSectors = extractAllianceSectorCountHint(profile?.alliance);
-    }
-
-    return totalSectors > 0
-      ? `${name} • ${formatSectorCountLabel(totalSectors)}`
-      : name;
+    return getPlayerHeatHelpers()?.formatAllianceProfileSummary?.(profile) || "Žádná";
   }
 
   function updateProfile(profile) {
-    cachedProfile = profile;
-    const profileSpyCount = resolveSpyCountFromPayload(profile);
-    if (profileSpyCount != null) {
-      setSpyCount(profileSpyCount, { persist: true });
-    } else if (cachedSpyCount == null) {
-      const defaultSpies = resolveFactionBaseSpyCount(profile?.structure || localStorage.getItem("empire_structure"));
-      setSpyCount(defaultSpies, { persist: true });
-    } else {
-      renderInfluenceSpyTopbarStat();
+    const controller = getProfileStateController();
+    if (controller?.updateProfile) {
+      return controller.updateProfile(profile);
     }
-    const profileGangColor = normalizeHexColor(profile?.gangColor || profile?.gang_color);
-    if (profileGangColor) {
-      localStorage.setItem("empire_gang_color", profileGangColor);
-    }
-    window.Empire.player = {
-      ...(window.Empire.player || {}),
-      ...(profile || {})
-    };
-    const factionLabel = formatFactionLabel(profile.structure || localStorage.getItem("empire_structure"));
-    const wantedLevel = resolveWantedLevel(profile);
-    document.getElementById("profile-gang").textContent = formatPopulationLabel(countPlayerControlledPopulation(profile));
-    document.getElementById("profile-districts").textContent = profile.districts || 0;
-    document.getElementById("profile-alliance").textContent = formatAllianceProfileSummary(profile);
-    setAllianceButtonState(profile.alliance || "Žádná");
-    const structure = document.getElementById("profile-structure");
-    const statStructure = document.getElementById("stat-structure");
-    const faction = document.getElementById("profile-faction");
-    if (structure) {
-      structure.textContent = formatWantedHeat(wantedLevel);
-    }
-    if (statStructure) {
-      statStructure.textContent = formatWantedHeat(wantedLevel);
-    }
-    updateProfileWantedStars(wantedLevel);
-    if (faction) {
-      faction.textContent = factionLabel;
-    }
-    refreshGangColorDisplays();
-    hydrateProfileModal(profile);
-    updateWeaponsPopover();
-    updateDefensePopover();
-    renderGangHeatModal();
-    syncMapVisionContext();
-    refreshMarketBuildingShortcuts();
-    window.Empire.Map?.render?.();
   }
 
   function closeGangHeatModal() {
-    const root = document.getElementById("gang-heat-modal");
-    if (root) root.classList.add("hidden");
+    return getPlayerHeatHelpers()?.closeGangHeatModal?.();
   }
 
   function renderGangHeatModal() {
-    const root = document.getElementById("gang-heat-modal");
-    if (!root || root.classList.contains("hidden")) return;
-    const valueEl = document.getElementById("gang-heat-modal-value");
-    const tierEl = document.getElementById("gang-heat-modal-tier");
-    const descEl = document.getElementById("gang-heat-modal-desc");
-    const protectionEl = document.getElementById("gang-heat-modal-protection");
-    const levelsEl = document.getElementById("gang-heat-modal-levels");
-    const riseListEl = document.getElementById("gang-heat-rise-list");
-    const fallListEl = document.getElementById("gang-heat-fall-list");
-    const currentHeat = resolveWantedLevel(cachedProfile || window.Empire.player || {});
-    const currentStars = resolveWantedStars(currentHeat);
-    const currentLevel = GANG_HEAT_LEVELS.find((entry) => entry.stars === currentStars) || GANG_HEAT_LEVELS[0];
-    if (valueEl) valueEl.textContent = formatWantedHeat(currentHeat);
-    if (tierEl) tierEl.textContent = `${currentLevel.label} • ${currentLevel.title}`;
-    if (descEl) descEl.textContent = currentLevel.description;
-    if (protectionEl) {
-      protectionEl.textContent = `Ochrana po razii: ${formatPoliceRaidProtectionLabel(cachedProfile || window.Empire.player || {})}`;
-    }
-
-    if (levelsEl) {
-      levelsEl.innerHTML = GANG_HEAT_LEVELS.map((entry) => `
-        <div class="gang-heat-modal__level ${entry.stars === currentStars ? "is-active" : ""}">
-          <strong>${entry.label}</strong>
-          <span>${entry.title}</span>
-        </div>
-      `).join("");
-    }
-
-    const entries = readGangHeatJournal();
-    const rising = entries.filter((entry) => entry?.type === "rise").slice(0, 6);
-    const falling = entries.filter((entry) => entry?.type === "fall").slice(0, 6);
-    const renderList = (items, emptyText) => items.length
-      ? items.map((entry) => `
-          <div class="gang-heat-modal__item">
-            <strong>${entry.reason}</strong>
-            <span class="gang-heat-modal__delta-row">
-              <em class="gang-heat-modal__delta-badge ${entry.type === "rise" ? "is-rise" : "is-fall"}">${entry.type === "rise" ? "+heat" : "-heat"}</em>
-              <span>${entry.amount > 0 ? `${entry.type === "rise" ? "+" : "-"}${entry.amount} heat` : ""}</span>
-            </span>
-            <small>${formatRelativeHeatTime(entry.createdAt)}</small>
-          </div>
-        `).join("")
-      : `<div class="gang-heat-modal__empty">${emptyText}</div>`;
-    if (riseListEl) riseListEl.innerHTML = renderList(rising, "Zatím bez nových důvodů růstu.");
-    if (fallListEl) fallListEl.innerHTML = renderList(falling, "Zatím bez nových důvodů poklesu.");
+    return getPlayerHeatHelpers()?.renderGangHeatModal?.();
   }
 
   function openGangHeatModal() {
-    const root = document.getElementById("gang-heat-modal");
-    if (!root) return;
-    root.classList.remove("hidden");
-    renderGangHeatModal();
+    return getPlayerHeatHelpers()?.openGangHeatModal?.();
   }
 
   function getActiveOwnedPoliceRaidContext() {
-    const snapshot = window.Empire.Map?.getPoliceActionSnapshot?.();
-    if (!snapshot || !Array.isArray(snapshot.actions) || !snapshot.actions.length) return null;
-    const nowMs = Math.max(0, Math.floor(Number(snapshot.now) || Date.now()));
-    const impactMap = getPoliceRaidImpactMap();
-    impactMap.forEach((value, key) => {
-      if (!value || Number(value.expiresAt || 0) <= nowMs) {
-        impactMap.delete(key);
-      }
-    });
-    const districts = Array.isArray(window.Empire.districts) ? window.Empire.districts : [];
-    const actions = snapshot.actions
-      .map((action) => {
-        const districtId = Number(action?.districtId);
-        if (!Number.isFinite(districtId)) return null;
-        const district = districts.find((entry) => Number(entry?.id) === districtId);
-        if (!district || !isDistrictOwnedByPlayer(district)) return null;
-        return {
-          ...action,
-          district
-        };
-      })
-      .filter(Boolean);
-    if (!actions.length) return null;
-    actions.sort((a, b) => Number(b.remainingMs || 0) - Number(a.remainingMs || 0));
-    return {
-      action: actions[0],
-      actions,
-      activeCount: actions.length,
-      incomePenaltyPct: Math.max(0, Math.floor(Number(snapshot.incomePenaltyPct || 0)))
-    };
+    return getPoliceHeatController()?.getActiveOwnedPoliceRaidContext?.() || null;
   }
 
   function hasActivePoliceRaidImpactLock(fieldName) {
@@ -17469,3264 +16641,362 @@ window.Empire.UI = (() => {
   }
 
   function openGangHeatPanelOrRaidImpactModal() {
-    const raidContext = getActiveOwnedPoliceRaidContext();
-    if (!raidContext) {
-      openGangHeatModal();
-      return;
-    }
-    const wantedHeat = resolveWantedLevel(cachedProfile || window.Empire.player || {});
-    const wantedTier = resolveWantedStars(wantedHeat);
-    const district = raidContext.action?.district || null;
-    const districtName = String(district?.name || "").trim() || `District #${raidContext.action?.districtId || "-"}`;
-    const remainingMs = Math.max(0, Math.floor(Number(raidContext.action?.remainingMs || 0)));
-    const activeCount = Math.max(1, Math.floor(Number(raidContext.activeCount || 1)));
-    const affectedLabel = activeCount === 1 ? "1 district" : `${activeCount} districty`;
-    const impactKey = buildPoliceRaidImpactKey(raidContext.action || {});
-    const impact = impactKey ? getPoliceRaidImpactMap().get(impactKey) : null;
-    const tier = Math.max(1, Math.floor(Number(impact?.tier || wantedTier)));
-    const specialty =
-      resolveStoredPoliceRaidSpecialty(raidContext?.action || {})
-      || resolveStoredPoliceRaidSpecialty(impact || {})
-      || resolvePoliceRaidSpecialtyFromOperationType(raidContext?.action?.operationType, impact)
-      || resolvePoliceRaidSpecialty(tier, impact || {});
-    const incomePenaltyPct = Math.max(0, Math.floor(Number(impact?.incomePenaltyPct || raidContext.incomePenaltyPct || POLICE_RAID_TIER1.incomePenaltyPct)));
-    const summary = tier === 1
-      ? "Razia 1. stupně probíhá. Aktivní dopady: income -10%, zabavení peněz, zatčení obyvatel, vliv -5% a zákaz špehování."
-      : tier === 2
-        ? "Razia 2. stupně probíhá. Aktivní dopady: income -20%, zabavení peněz, drogy -5%, zatčení 3-7%, út. zbraně -3%, vliv -6 až -8%, zákaz špehování i krádeže, výroba Lékárna/Drug Lab -10%."
-      : tier === 3
-        ? "Razia 3. stupně probíhá. Aktivní dopady: income -21 až -26%, zabavení peněz, drogy -6 až -9%, zatčení 7-12%, ztráty útočných i obranných zbraní, vliv -8 až -12%, zákaz špehování/vykradení/útoku a výrobní postihy."
-      : tier === 4
-        ? "Razia 4. stupně probíhá. Aktivní dopady: income -26 až -33%, výrazné zabavení skladu, ztráty lidí i zbraní, síla obrany -10%, síla útoku -8%, zákaz špehování/vykradení/útoku/obsazení, blok speciálních akcí Lékárna/Továrna a silnější výrobní postihy."
-      : tier === 5
-        ? "Razia 5. stupně probíhá. Aktivní dopady: income -32 až -40%, masivní zabavení clean/dirty i materiálů, silné ztráty lidí a zbraní, síla útoku/obrany -15%, zákaz hlavních akcí i speciálních akcí ve 4 budovách, výroba je zmražená."
-      : tier === 6
-              ? "Razia 6. stupně probíhá. Aktivní dopady: income zastaveno, zabavení clean/dirty, materiálů i drog, velké ztráty obyvatel a zbraní, síla útoku/obrany -30% a všechny akce včetně budov jsou zakázané."
-            : "Razia právě probíhá. Dopady podle stupně doplníme v dalších krocích.";
-    const tierRows = tier === 1
-      ? [
-        { label: "Zabavení clean", value: `${Math.max(0, Math.floor(Number(impact?.cleanLoss || 0)))}$ (${Math.max(0, Math.floor(Number(impact?.cleanLossPct || POLICE_RAID_TIER1.cleanConfiscationPct)))}%)` },
-        { label: "Zabavení dirty", value: `${Math.max(0, Math.floor(Number(impact?.dirtyLoss || 0)))}$ (${Math.max(0, Math.floor(Number(impact?.dirtyLossPct || POLICE_RAID_TIER1.dirtyConfiscationPctMin)))}%)` },
-        { label: "Zatčení obyvatel", value: `${Math.max(0, Math.floor(Number(impact?.arrested || 0)))} (${Math.max(0, Math.floor(Number(impact?.arrestsPct || POLICE_RAID_TIER1.arrestsPct)))}%)` },
-        { label: "Pokles vlivu", value: `-${Math.max(0, Math.floor(Number(impact?.influenceLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.influenceLossPct || POLICE_RAID_TIER1.influencePenaltyPct)))}%)` },
-        { label: "Špehování", value: "ZAKÁZÁNO" }
-      ]
-      : tier === 2
-        ? [
-          { label: "Zabavení clean", value: `${Math.max(0, Math.floor(Number(impact?.cleanLoss || 0)))}$ (${Math.max(0, Math.floor(Number(impact?.cleanLossPct || POLICE_RAID_TIER2.cleanConfiscationPctMin)))}%)` },
-          { label: "Zabavení dirty", value: `${Math.max(0, Math.floor(Number(impact?.dirtyLoss || 0)))}$ (${Math.max(0, Math.floor(Number(impact?.dirtyLossPct || POLICE_RAID_TIER2.dirtyConfiscationPctMin)))}%)` },
-          { label: "Drogy", value: `-${Math.max(0, Math.floor(Number(impact?.drugLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.drugLossPct || POLICE_RAID_TIER2.drugLossPct)))}%)` },
-          { label: "Zatčení obyvatel", value: `${Math.max(0, Math.floor(Number(impact?.arrested || 0)))} (${Math.max(0, Math.floor(Number(impact?.arrestsPct || POLICE_RAID_TIER2.arrestsPctMin)))}%)` },
-          { label: "Útočné zbraně", value: `-${Math.max(0, Math.floor(Number(impact?.attackWeaponLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.attackWeaponLossPct || POLICE_RAID_TIER2.attackWeaponLossPct)))}%)` },
-          { label: "Pokles vlivu", value: `-${Math.max(0, Math.floor(Number(impact?.influenceLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.influenceLossPct || POLICE_RAID_TIER2.influencePenaltyPctMin)))}%)` },
-          { label: "Špehování", value: "ZAKÁZÁNO" },
-          { label: "Vykrást", value: "ZAKÁZÁNO" },
-          { label: "Výroba Lékárna / Drug Lab", value: `-${Math.max(0, Math.floor(Number(impact?.productionPenaltyPct || POLICE_RAID_TIER2.productionPenaltyPct)))}%` }
-        ]
-        : tier === 3
-          ? [
-            { label: "Zabavení clean", value: `${Math.max(0, Math.floor(Number(impact?.cleanLoss || 0)))}$ (${Math.max(0, Math.floor(Number(impact?.cleanLossPct || POLICE_RAID_TIER3.cleanConfiscationPctMin)))}%)` },
-            { label: "Zabavení dirty", value: `${Math.max(0, Math.floor(Number(impact?.dirtyLoss || 0)))}$ (${Math.max(0, Math.floor(Number(impact?.dirtyLossPct || POLICE_RAID_TIER3.dirtyConfiscationPctMin)))}%)` },
-            { label: "Drogy", value: `-${Math.max(0, Math.floor(Number(impact?.drugLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.drugLossPct || POLICE_RAID_TIER3.drugLossPctMin)))}%)` },
-            { label: "Zatčení obyvatel", value: `${Math.max(0, Math.floor(Number(impact?.arrested || 0)))} (${Math.max(0, Math.floor(Number(impact?.arrestsPct || POLICE_RAID_TIER3.arrestsPctMin)))}%)` },
-            { label: "Útočné zbraně", value: `-${Math.max(0, Math.floor(Number(impact?.attackWeaponLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.attackWeaponLossPct || POLICE_RAID_TIER3.attackWeaponLossPctMin)))}%)` },
-            { label: "Obranné zbraně", value: `-${Math.max(0, Math.floor(Number(impact?.defenseWeaponLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.defenseWeaponLossPct || POLICE_RAID_TIER3.defenseWeaponLossPctMin)))}%)` },
-            { label: "Pokles vlivu", value: `-${Math.max(0, Math.floor(Number(impact?.influenceLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.influenceLossPct || POLICE_RAID_TIER3.influencePenaltyPctMin)))}%)` },
-            { label: "Špehování", value: "ZAKÁZÁNO" },
-            { label: "Vykrást", value: "ZAKÁZÁNO" },
-            { label: "Útok", value: "ZAKÁZÁNO" },
-            { label: "Výroba Lékárna / Drug Lab", value: `-${Math.max(0, Math.floor(Number(impact?.labProductionPenaltyPct || POLICE_RAID_TIER3.labProductionPenaltyPctMin)))}%` },
-            { label: "Výroba Zbrojovka", value: `-${Math.max(0, Math.floor(Number(impact?.armoryProductionPenaltyPct || POLICE_RAID_TIER3.armoryProductionPenaltyPctMin)))}%` }
-          ]
-          : tier === 4
-            ? [
-              { label: "Zabavení clean", value: `${Math.max(0, Math.floor(Number(impact?.cleanLoss || 0)))}$ (${Math.max(0, Math.floor(Number(impact?.cleanLossPct || POLICE_RAID_TIER4.cleanConfiscationPctMin)))}%)` },
-              { label: "Zabavení dirty", value: `${Math.max(0, Math.floor(Number(impact?.dirtyLoss || 0)))}$ (${Math.max(0, Math.floor(Number(impact?.dirtyLossPct || POLICE_RAID_TIER4.dirtyConfiscationPctMin)))}%)` },
-              { label: "Drogy", value: `-${Math.max(0, Math.floor(Number(impact?.drugLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.drugLossPct || POLICE_RAID_TIER4.drugLossPctMin)))}%)` },
-              { label: "Zatčení obyvatel", value: `${Math.max(0, Math.floor(Number(impact?.arrested || 0)))} (${Math.max(0, Math.floor(Number(impact?.arrestsPct || POLICE_RAID_TIER4.arrestsPctMin)))}%)` },
-              { label: "Útočné zbraně", value: `-${Math.max(0, Math.floor(Number(impact?.attackWeaponLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.attackWeaponLossPct || POLICE_RAID_TIER4.attackWeaponLossPct)))}%)` },
-              { label: "Obranné zbraně", value: `-${Math.max(0, Math.floor(Number(impact?.defenseWeaponLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.defenseWeaponLossPct || POLICE_RAID_TIER4.defenseWeaponLossPct)))}%)` },
-              { label: "Síla Obrana", value: `-${Math.max(0, Math.floor(Number(impact?.defensePowerPenaltyPct || POLICE_RAID_TIER4.defensePowerPenaltyPct)))}%` },
-              { label: "Síla Útok", value: `-${Math.max(0, Math.floor(Number(impact?.attackPowerPenaltyPct || POLICE_RAID_TIER4.attackPowerPenaltyPct)))}%` },
-              { label: "Pokles vlivu", value: `-${Math.max(0, Math.floor(Number(impact?.influenceLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.influenceLossPct || POLICE_RAID_TIER4.influencePenaltyPctMin)))}%)` },
-              { label: "Špehování", value: "ZAKÁZÁNO" },
-              { label: "Vykrást", value: "ZAKÁZÁNO" },
-              { label: "Útok", value: "ZAKÁZÁNO" },
-              { label: "Obsadit", value: "ZAKÁZÁNO" },
-              { label: "Spec. akce Lékárna/Továrna", value: "ZAKÁZÁNO" },
-              { label: "Výroba Lékárna / Drug Lab", value: `-${Math.max(0, Math.floor(Number(impact?.labProductionPenaltyPct || POLICE_RAID_TIER4.labProductionPenaltyPctMin)))}%` },
-              { label: "Výroba Zbrojovka", value: `-${Math.max(0, Math.floor(Number(impact?.armoryProductionPenaltyPct || POLICE_RAID_TIER4.armoryProductionPenaltyPctMin)))}%` }
-            ]
-          : tier === 5
-              ? [
-                { label: "Zabavení clean", value: `${Math.max(0, Math.floor(Number(impact?.cleanLoss || 0)))}$ (${Math.max(0, Math.floor(Number(impact?.cleanLossPct || POLICE_RAID_TIER5.cleanConfiscationPctMin)))}%)` },
-                { label: "Zabavení dirty", value: `${Math.max(0, Math.floor(Number(impact?.dirtyLoss || 0)))}$ (${Math.max(0, Math.floor(Number(impact?.dirtyLossPct || POLICE_RAID_TIER5.dirtyConfiscationPctMin)))}%)` },
-                { label: "Materiály", value: `-${Math.max(0, Math.floor(Number(impact?.materialLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.materialLossPct || POLICE_RAID_TIER5.materialLossPct)))}%)` },
-                { label: "Drogy", value: `-${Math.max(0, Math.floor(Number(impact?.drugLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.drugLossPct || POLICE_RAID_TIER5.drugLossPctMin)))}%)` },
-                { label: "Zatčení obyvatel", value: `${Math.max(0, Math.floor(Number(impact?.arrested || 0)))} (${Math.max(0, Math.floor(Number(impact?.arrestsPct || POLICE_RAID_TIER5.arrestsPctMin)))}%)` },
-                { label: "Útočné zbraně", value: `-${Math.max(0, Math.floor(Number(impact?.attackWeaponLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.attackWeaponLossPct || POLICE_RAID_TIER5.attackWeaponLossPct)))}%)` },
-                { label: "Obranné zbraně", value: `-${Math.max(0, Math.floor(Number(impact?.defenseWeaponLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.defenseWeaponLossPct || POLICE_RAID_TIER5.defenseWeaponLossPct)))}%)` },
-                { label: "Síla Obrana", value: `-${Math.max(0, Math.floor(Number(impact?.defensePowerPenaltyPct || POLICE_RAID_TIER5.defensePowerPenaltyPct)))}%` },
-                { label: "Síla Útok", value: `-${Math.max(0, Math.floor(Number(impact?.attackPowerPenaltyPct || POLICE_RAID_TIER5.attackPowerPenaltyPct)))}%` },
-                { label: "Pokles vlivu", value: `-${Math.max(0, Math.floor(Number(impact?.influenceLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.influenceLossPct || POLICE_RAID_TIER5.influencePenaltyPctMin)))}%)` },
-                { label: "Špehování", value: "ZAKÁZÁNO" },
-                { label: "Vykrást", value: "ZAKÁZÁNO" },
-                { label: "Útok", value: "ZAKÁZÁNO" },
-                { label: "Obsadit", value: "ZAKÁZÁNO" },
-                { label: "Spec. akce Lékárna/Továrna", value: "ZAKÁZÁNO" },
-                { label: "Spec. akce Drug Lab/Zbrojovka", value: "ZAKÁZÁNO" },
-                { label: "Výroba budov", value: "ZMRAŽENO (1h)" }
-              ]
-            : tier === 6
-              ? [
-                { label: "Zabavení clean", value: `${Math.max(0, Math.floor(Number(impact?.cleanLoss || 0)))}$ (${Math.max(0, Math.floor(Number(impact?.cleanLossPct || POLICE_RAID_TIER6.cleanConfiscationPct)))}%)` },
-                { label: "Zabavení dirty", value: `${Math.max(0, Math.floor(Number(impact?.dirtyLoss || 0)))}$ (${Math.max(0, Math.floor(Number(impact?.dirtyLossPct || POLICE_RAID_TIER6.dirtyConfiscationPct)))}%)` },
-                { label: "Materiály", value: `-${Math.max(0, Math.floor(Number(impact?.materialLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.materialLossPct || POLICE_RAID_TIER6.materialLossPct)))}%)` },
-                { label: "Drogy", value: `-${Math.max(0, Math.floor(Number(impact?.drugLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.drugLossPct || POLICE_RAID_TIER6.drugLossPct)))}%)` },
-                { label: "Zatčení obyvatel", value: `${Math.max(0, Math.floor(Number(impact?.arrested || 0)))} (${Math.max(0, Math.floor(Number(impact?.arrestsPct || POLICE_RAID_TIER6.arrestsPct)))}%)` },
-                { label: "Útočné zbraně", value: `-${Math.max(0, Math.floor(Number(impact?.attackWeaponLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.attackWeaponLossPct || POLICE_RAID_TIER6.attackWeaponLossPct)))}%)` },
-                { label: "Obranné zbraně", value: `-${Math.max(0, Math.floor(Number(impact?.defenseWeaponLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.defenseWeaponLossPct || POLICE_RAID_TIER6.defenseWeaponLossPct)))}%)` },
-                { label: "Síla Obrana", value: `-${Math.max(0, Math.floor(Number(impact?.defensePowerPenaltyPct || POLICE_RAID_TIER6.defensePowerPenaltyPct)))}%` },
-                { label: "Síla Útok", value: `-${Math.max(0, Math.floor(Number(impact?.attackPowerPenaltyPct || POLICE_RAID_TIER6.attackPowerPenaltyPct)))}%` },
-                { label: "Pokles vlivu", value: `-${Math.max(0, Math.floor(Number(impact?.influenceLoss || 0)))} (${Math.max(0, Math.floor(Number(impact?.influenceLossPct || POLICE_RAID_TIER6.influencePenaltyPct)))}%)` },
-                { label: "Špehování", value: "ZAKÁZÁNO" },
-                { label: "Vykrást", value: "ZAKÁZÁNO" },
-                { label: "Útok", value: "ZAKÁZÁNO" },
-                { label: "Obsadit", value: "ZAKÁZÁNO" },
-                { label: "Spec. akce budov", value: "ZAKÁZÁNO" },
-                { label: "Výroba budov", value: "ZASTAVENA" }
-              ]
-        : [];
-    const toneClass = tier >= 6
-      ? "is-tier-6"
-      : tier === 5
-        ? "is-tier-5"
-        : tier === 4
-          ? "is-tier-4"
-          : tier === 3
-            ? "is-tier-3"
-            : tier === 2
-              ? "is-tier-2"
-              : "is-tier-1";
-    openPoliceActionResultModal({
-      title: "Dopady razie",
-      badge: `Razia aktivní • ${specialty.label} • Stupeň ${wantedTier}/6 • Tier ${tier}`,
-      tone: toneClass,
-      summary: "",
-      rows: [
-        { label: "Zasažený district", value: districtName },
-        { label: "Aktivně zasaženo", value: affectedLabel },
-        { label: "Typ razie", value: `${specialty.icon} ${specialty.label}` },
-        { label: "Snížení income", value: `-${incomePenaltyPct}% (1h)` },
-        ...tierRows,
-        { label: "Zbývající čas", value: formatDurationLabel(remainingMs) }
-      ]
-    });
+    return getPoliceHeatController()?.openGangHeatPanelOrRaidImpactModal?.();
   }
 
   function handleGangHeatReduction(mode) {
-    const currentHeat = resolveWantedLevel(cachedProfile || window.Empire.player || {});
-    if (mode === "dirty") {
-      const spendResult = spendDirtyCash(GANG_HEAT_DIRTY_COST);
-      if (!spendResult.ok) {
-        pushEvent("Nemáš dost špinavých peněz na snížení heatu.");
-        renderGangHeatModal();
-        return;
-      }
-      const nextHeat = Math.max(0, currentHeat - GANG_HEAT_DIRTY_REDUCTION);
-      setPlayerWantedHeat(nextHeat, "Uplacení tlaku špinavými penězi", "fall");
-      pushEvent(`Heat snížen o ${GANG_HEAT_DIRTY_REDUCTION} za $${GANG_HEAT_DIRTY_COST} dirty.`);
-      const reductionState = registerDirtyHeatReductionAndMaybeTriggerPolice();
-      document.dispatchEvent(new CustomEvent("empire:gang-heat-dirty-reduced", {
-        detail: {
-          count: Math.max(0, Number(reductionState?.count || 0)),
-          required: GANG_HEAT_DIRTY_TRIGGER_COUNT,
-          triggered: Boolean(reductionState?.triggered),
-          districtId: reductionState?.districtId ?? null
-        }
-      }));
-      renderGangHeatModal();
-      return;
-    }
-    const spendResult = trySpendCleanCash(GANG_HEAT_CLEAN_COST);
-    if (!spendResult.ok) {
-      pushEvent("Nemáš dost čistých peněz na snížení heatu.");
-      renderGangHeatModal();
-      return;
-    }
-    const nextHeat = Math.max(0, currentHeat - GANG_HEAT_CLEAN_REDUCTION);
-    setPlayerWantedHeat(nextHeat, "Legální krytí a zahlazení stop", "fall");
-    pushEvent(`Heat snížen o ${GANG_HEAT_CLEAN_REDUCTION} za $${GANG_HEAT_CLEAN_COST} clean.`);
-    renderGangHeatModal();
+    return getPoliceHeatController()?.handleGangHeatReduction?.(mode);
   }
 
   function initGangHeatModal() {
-    const trigger = document.getElementById("profile-heat-panel");
-    const root = document.getElementById("gang-heat-modal");
-    const backdrop = document.getElementById("gang-heat-modal-backdrop");
-    const closeBtn = document.getElementById("gang-heat-modal-close");
-    const dirtyBtn = document.getElementById("gang-heat-dirty-btn");
-    const cleanBtn = document.getElementById("gang-heat-clean-btn");
-    const clearLogBtn = document.getElementById("gang-heat-clear-log-btn");
-    if (trigger) {
-      trigger.addEventListener("click", () => {
-        document.dispatchEvent(new CustomEvent("empire:wanted-row-clicked", {
-          detail: { source: "click" }
-        }));
-        openGangHeatPanelOrRaidImpactModal();
-      });
-      trigger.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        document.dispatchEvent(new CustomEvent("empire:wanted-row-clicked", {
-          detail: { source: event.key === " " ? "space" : "enter" }
-        }));
-        openGangHeatPanelOrRaidImpactModal();
-      });
-    }
-    if (!root) return;
-    if (backdrop) backdrop.addEventListener("click", closeGangHeatModal);
-    if (closeBtn) closeBtn.addEventListener("click", closeGangHeatModal);
-    if (dirtyBtn) dirtyBtn.addEventListener("click", () => handleGangHeatReduction("dirty"));
-    if (cleanBtn) cleanBtn.addEventListener("click", () => handleGangHeatReduction("clean"));
-    if (clearLogBtn) {
-      clearLogBtn.addEventListener("click", () => {
-        clearGangHeatJournal();
-        renderGangHeatModal();
-      });
-    }
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !root.classList.contains("hidden")) {
-        closeGangHeatModal();
-      }
-    });
+    return getPoliceHeatController()?.initGangHeatModal?.();
   }
 
   function setGuestMode(isGuest) {
-    guestModeActive = Boolean(isGuest);
-    refreshGuestBannerVisibility();
-    if (isGuest) {
-      const baseSpies = resolveFactionBaseSpyCount(cachedProfile?.structure || localStorage.getItem("empire_structure"));
-      writeSpyRecoveryQueue([]);
-      syncSpyRecoveryTicker();
-      setSpyCount(baseSpies, { persist: true });
-      const state = getLocalAllianceState();
-      renderAllianceChat(state.chat);
-      renderGlobalServerChat();
-      syncGuestAllianceLabel(state.activeAlliance?.name || "Žádná");
-      setLiveAllianceOwnersFromAlliance(state.activeAlliance || null);
-      syncGuestEconomyFromMarket();
-    } else {
-      clearLiveAllianceOwners();
-    }
+    return getAuthSessionController()?.setGuestMode?.(isGuest);
   }
 
   function refreshGuestBannerVisibility() {
-    const banner = document.getElementById("guest-banner");
-    if (!banner) return;
-    const hasSelectedScenario = Boolean(document.querySelector("[data-player-scenario].is-active"));
-    banner.classList.toggle("hidden", !guestModeActive || hasSelectedScenario);
+    return getAuthSessionController()?.refreshGuestBannerVisibility?.();
   }
 
   function initProfileModal() {
-    const root = document.getElementById("profile-modal");
-    const backdrop = document.getElementById("profile-modal-backdrop");
-    const closeBtn = document.getElementById("profile-modal-close");
-    if (!root) return;
-    if (backdrop) backdrop.addEventListener("click", () => root.classList.add("hidden"));
-    if (closeBtn) closeBtn.addEventListener("click", () => root.classList.add("hidden"));
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") root.classList.add("hidden");
-    });
+    const controller = getProfileModalController();
+    if (controller?.initProfileModal) {
+      return controller.initProfileModal();
+    }
+  }
+
+  function getAllianceModalController() {
+    return getAllianceFacade()?.getAllianceModalController?.() || null;
   }
 
   function initAllianceModal() {
-    const openBtn = document.getElementById("alliance-btn");
-    const root = document.getElementById("alliance-modal");
-    const backdrop = document.getElementById("alliance-modal-backdrop");
-    const closeBtn = document.getElementById("alliance-modal-close");
-    const createToggleBtn = document.getElementById("alliance-create-toggle-btn");
-    const leaveModal = document.getElementById("alliance-leave-modal");
-    const leaveModalBackdrop = document.getElementById("alliance-leave-modal-backdrop");
-    const leaveModalCloseBtn = document.getElementById("alliance-leave-modal-close");
-    const leaveCancelBtn = document.getElementById("alliance-leave-cancel-btn");
-    const leaveConfirmBtn = document.getElementById("alliance-leave-confirm-btn");
-    const createModal = document.getElementById("alliance-create-modal");
-    const createModalBackdrop = document.getElementById("alliance-create-modal-backdrop");
-    const createModalCloseBtn = document.getElementById("alliance-create-modal-close");
-    const managementModal = document.getElementById("alliance-management-modal");
-    const managementModalBackdrop = document.getElementById("alliance-management-modal-backdrop");
-    const managementModalCloseBtn = document.getElementById("alliance-management-modal-close");
-    const managementInviteName = document.getElementById("alliance-management-invite-name");
-    const managementInviteBtn = document.getElementById("alliance-management-invite-btn");
-    const createBtn = document.getElementById("alliance-create-btn");
-    const leaveBtn = document.getElementById("alliance-leave-btn");
-    const createName = document.getElementById("alliance-create-name");
-    const createDescription = document.getElementById("alliance-create-description");
-    const iconPicker = document.getElementById("alliance-icon-picker");
-    const chatInput = document.getElementById("alliance-chat-input");
-    const chatSend = document.getElementById("alliance-chat-send");
-    const activePanel = document.getElementById("alliance-active-panel");
-    if (!root || !openBtn || !createToggleBtn || !leaveModal || !leaveConfirmBtn || !createModal || !managementModal || !managementInviteName || !managementInviteBtn || !createBtn || !leaveBtn || !createName || !createDescription || !iconPicker || !chatInput || !chatSend) return;
-
-    let selectedAllianceIconKey = DEFAULT_ALLIANCE_ICON_KEY;
-
-    const resetCreateAllianceForm = () => {
-      createName.value = "";
-      createDescription.value = DEFAULT_ALLIANCE_DESCRIPTION;
-      selectedAllianceIconKey = DEFAULT_ALLIANCE_ICON_KEY;
-      renderAllianceIconPicker();
-    };
-
-    const setCreateAllianceModalVisible = (visible) => {
-      createModal.classList.toggle("hidden", !visible);
-      if (visible) {
-        window.requestAnimationFrame(() => createName.focus());
-      }
-    };
-
-    const setAllianceManagementModalVisible = (visible) => {
-      managementModal.classList.toggle("hidden", !visible);
-      if (visible) {
-        window.requestAnimationFrame(() => managementInviteName.focus());
-      }
-    };
-
-    const setAllianceLeaveModalVisible = (visible) => {
-      leaveModal.classList.toggle("hidden", !visible);
-      if (visible) {
-        window.requestAnimationFrame(() => leaveConfirmBtn.focus());
-      }
-    };
-
-    const captureAllianceScrollState = () => ({
-      modalBody: root.querySelector(".alliance-modal__body")?.scrollTop || 0,
-      members: document.querySelector("#alliance-active-panel .alliance-members")?.scrollTop || 0,
-      managementBody: managementModal.querySelector(".alliance-management-modal__body")?.scrollTop || 0,
-      managementPanel: document.getElementById("alliance-management-panel")?.scrollTop || 0
-    });
-
-    const restoreAllianceScrollState = (scrollState) => {
-      if (!scrollState) return;
-      const modalBody = root.querySelector(".alliance-modal__body");
-      const members = document.querySelector("#alliance-active-panel .alliance-members");
-      const managementBody = managementModal.querySelector(".alliance-management-modal__body");
-      const managementPanel = document.getElementById("alliance-management-panel");
-      if (modalBody) modalBody.scrollTop = Number(scrollState.modalBody || 0);
-      if (members) members.scrollTop = Number(scrollState.members || 0);
-      if (managementBody) managementBody.scrollTop = Number(scrollState.managementBody || 0);
-      if (managementPanel) managementPanel.scrollTop = Number(scrollState.managementPanel || 0);
-    };
-
-    const renderAllianceIconPicker = () => {
-      iconPicker.innerHTML = ALLIANCE_ICON_OPTIONS.map((icon) => `
-        <button
-          type="button"
-          class="alliance-icon-option${icon.key === selectedAllianceIconKey ? " is-selected" : ""}"
-          data-alliance-icon-key="${icon.key}"
-          title="${icon.label}"
-          aria-label="${icon.label}"
-        >
-          <span class="alliance-icon-option__symbol">${icon.symbol}</span>
-        </button>
-      `).join("");
-      iconPicker.querySelectorAll("[data-alliance-icon-key]").forEach((button) => {
-        button.addEventListener("click", () => {
-          selectedAllianceIconKey = button.getAttribute("data-alliance-icon-key") || DEFAULT_ALLIANCE_ICON_KEY;
-          renderAllianceIconPicker();
-        });
-      });
-    };
-
-    const refreshAlliance = async () => {
-      const scrollState = captureAllianceScrollState();
-      if (!window.Empire.token) {
-        const localState = getLocalAllianceState();
-        const activeAllianceId = String(localState.activeAllianceId || "").trim();
-        if (!isBlackoutLikeScenario() && activeAllianceId.startsWith("scenario-")) {
-          localState.activeAllianceId = null;
-          saveLocalAllianceState(localState);
-        }
-        const resolvedLocalState = withActiveAlliance(localState);
-        renderAllianceState(resolvedLocalState.activeAlliance, resolvedLocalState.alliances, resolvedLocalState.incomingInvites || []);
-        renderAllianceManagementState(resolvedLocalState.activeAlliance);
-        renderAllianceChat(resolvedLocalState.chat);
-        renderGlobalServerChat();
-        setLiveAllianceOwnersFromAlliance(resolvedLocalState.activeAlliance || null);
-        syncBlackoutScenarioAllianceDistrictState(resolvedLocalState.activeAlliance || null);
-        syncGuestAllianceLabel(resolvedLocalState.activeAlliance?.name || "Žádná");
-        restoreAllianceScrollState(scrollState);
-        (resolvedLocalState.notifications || []).forEach((notification) => {
-          pushEvent(`Aliance: ${notification.message}`);
-        });
-        if ((resolvedLocalState.notifications || []).length) {
-          resolvedLocalState.notifications = [];
-          saveLocalAllianceState(resolvedLocalState);
-        }
-        return;
-      }
-      const [mine, listing] = await Promise.all([
-        window.Empire.API.getAlliance(),
-        window.Empire.API.listAlliances()
-      ]);
-      renderAllianceState(mine.alliance || null, listing.alliances || [], mine.incomingInvites || []);
-      renderAllianceManagementState(mine.alliance || null);
-      renderAllianceChat([]);
-      renderGlobalServerChat();
-      setLiveAllianceOwnersFromAlliance(mine.alliance || null);
-      restoreAllianceScrollState(scrollState);
-      (mine.notifications || []).forEach((notification) => {
-        pushEvent(`Aliance: ${notification.message}`);
-      });
-    };
-    allianceRefreshHandler = refreshAlliance;
-
-    const sendAllianceChatMessage = async (input) => {
-      const targetInput = input instanceof HTMLInputElement ? input : null;
-      const text = String(targetInput?.value || "").trim();
-      if (!text) return;
-      if (window.Empire.token) {
-        pushEvent("Alliance chat backend zatím není napojený.");
-        return;
-      }
-      const state = getLocalAllianceState();
-      appendLocalAllianceChat(state, {
-        author: "Ty",
-        text
-      });
-      saveLocalAllianceState(state);
-      document.querySelectorAll("[data-alliance-chat-input]").forEach((field) => {
-        if (field instanceof HTMLInputElement) {
-          field.value = "";
-        }
-      });
-      renderAllianceChat(state.chat);
-    };
-
-    const sendGlobalChatMessage = async (input) => {
-      const targetInput = input instanceof HTMLInputElement ? input : null;
-      const text = String(targetInput?.value || "").trim();
-      if (!text) return;
-      appendLocalServerChatMessage({
-        author: resolveCurrentServerChatAuthorName(),
-        text
-      });
-      document.querySelectorAll("[data-global-chat-input]").forEach((field) => {
-        if (field instanceof HTMLInputElement) {
-          field.value = "";
-        }
-      });
-      renderGlobalServerChat();
-    };
-
-    openBtn.addEventListener("click", async () => {
-      setMobileTopbarCoveredByPrimaryModal(false);
-      root.classList.remove("hidden");
-      setCreateAllianceModalVisible(false);
-      setAllianceManagementModalVisible(false);
-      document.dispatchEvent(new CustomEvent("empire:alliance-modal-opened", {
-        detail: {
-          open: true
-        }
-      }));
-      resetCreateAllianceForm();
-      await refreshAlliance();
-      if (allianceCountdownIntervalId) window.clearInterval(allianceCountdownIntervalId);
-      allianceCountdownIntervalId = window.setInterval(() => {
-        if (!root.classList.contains("hidden") && allianceRefreshHandler) {
-          allianceRefreshHandler().catch(() => {});
-        }
-      }, 10000);
-    });
-    createToggleBtn.addEventListener("click", () => {
-      setCreateAllianceModalVisible(true);
-    });
-    createBtn.addEventListener("click", async () => {
-      const name = String(createName.value || "").trim();
-      const description = String(createDescription.value || "").trim();
-      if (!name) {
-        pushEvent("Zadej název aliance.");
-        return;
-      }
-      if (!window.Empire.token) {
-        const state = getLocalAllianceState();
-        const newAlliance = createLocalAlliance(state, {
-          name,
-          description,
-          iconKey: selectedAllianceIconKey
-        });
-        saveLocalAllianceState(state);
-        pushEvent(`Aliance ${newAlliance.name} byla vytvořena.`);
-        await refreshAlliance();
-        syncGuestAllianceLabel(newAlliance.name);
-        setCreateAllianceModalVisible(false);
-        resetCreateAllianceForm();
-        return;
-      }
-      const result = await window.Empire.API.createAlliance(name, description, selectedAllianceIconKey);
-      if (result.error) {
-        pushEvent(`Aliance: ${result.error}`);
-        return;
-      }
-      pushEvent("Aliance byla vytvořena.");
-      await refreshAlliance();
-      setCreateAllianceModalVisible(false);
-      resetCreateAllianceForm();
-      const profile = await window.Empire.API.getProfile();
-      updateProfile(profile);
-    });
-    leaveBtn.addEventListener("click", async () => {
-      setAllianceLeaveModalVisible(true);
-    });
-    leaveConfirmBtn.addEventListener("click", async () => {
-      if (!window.Empire.token) {
-        const state = getLocalAllianceState();
-        leaveLocalAlliance(state);
-        saveLocalAllianceState(state);
-        pushEvent("Alianci jsi opustil.");
-        await refreshAlliance();
-        syncGuestAllianceLabel("Žádná");
-        setAllianceLeaveModalVisible(false);
-        return;
-      }
-      const result = await window.Empire.API.leaveAlliance();
-      if (result.error) {
-        pushEvent(`Aliance: ${result.error}`);
-        return;
-      }
-      pushEvent("Alianci jsi opustil.");
-      await refreshAlliance();
-      setAllianceLeaveModalVisible(false);
-      const profile = await window.Empire.API.getProfile();
-      updateProfile(profile);
-    });
-    if (leaveModalBackdrop) leaveModalBackdrop.addEventListener("click", () => setAllianceLeaveModalVisible(false));
-    if (leaveModalCloseBtn) leaveModalCloseBtn.addEventListener("click", () => setAllianceLeaveModalVisible(false));
-    if (leaveCancelBtn) leaveCancelBtn.addEventListener("click", () => setAllianceLeaveModalVisible(false));
-    if (backdrop) backdrop.addEventListener("click", () => {
-      root.classList.add("hidden");
-      setAllianceLeaveModalVisible(false);
-      setCreateAllianceModalVisible(false);
-      setAllianceManagementModalVisible(false);
-      if (allianceCountdownIntervalId) {
-        window.clearInterval(allianceCountdownIntervalId);
-        allianceCountdownIntervalId = null;
-      }
-      setMobileTopbarCoveredByPrimaryModal(false);
-    });
-    if (closeBtn) closeBtn.addEventListener("click", () => {
-      root.classList.add("hidden");
-      setAllianceLeaveModalVisible(false);
-      setCreateAllianceModalVisible(false);
-      setAllianceManagementModalVisible(false);
-      if (allianceCountdownIntervalId) {
-        window.clearInterval(allianceCountdownIntervalId);
-        allianceCountdownIntervalId = null;
-      }
-      setMobileTopbarCoveredByPrimaryModal(false);
-    });
-    if (createModalBackdrop) createModalBackdrop.addEventListener("click", () => {
-      setCreateAllianceModalVisible(false);
-    });
-    if (createModalCloseBtn) createModalCloseBtn.addEventListener("click", () => {
-      setCreateAllianceModalVisible(false);
-    });
-    if (managementModalBackdrop) managementModalBackdrop.addEventListener("click", () => {
-      setAllianceManagementModalVisible(false);
-    });
-    if (managementModalCloseBtn) managementModalCloseBtn.addEventListener("click", () => {
-      setAllianceManagementModalVisible(false);
-    });
-    managementInviteBtn.addEventListener("click", async () => {
-      const username = String(managementInviteName.value || "").trim();
-      if (!username) {
-        pushEvent("Zadej jméno hráče pro pozvánku.");
-        return;
-      }
-      if (!window.Empire.token) {
-        const state = getLocalAllianceState();
-        const result = sendLocalAllianceManagementInvite(state, username);
-        if (result.error) {
-          pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-          return;
-        }
-        saveLocalAllianceState(state);
-        managementInviteName.value = "";
-        pushEvent("Přímá pozvánka byla odeslána.");
-        if (allianceRefreshHandler) await allianceRefreshHandler();
-        return;
-      }
-      const result = await window.Empire.API.sendAllianceManagementInvite(username);
-      if (result.error) {
-        pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-        return;
-      }
-      managementInviteName.value = "";
-      pushEvent("Přímá pozvánka byla odeslána.");
-      if (allianceRefreshHandler) await allianceRefreshHandler();
-    });
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        if (!createModal.classList.contains("hidden")) {
-          setCreateAllianceModalVisible(false);
-        } else if (!managementModal.classList.contains("hidden")) {
-          setAllianceManagementModalVisible(false);
-        } else {
-          root.classList.add("hidden");
-          if (allianceCountdownIntervalId) {
-            window.clearInterval(allianceCountdownIntervalId);
-            allianceCountdownIntervalId = null;
-          }
-          setMobileTopbarCoveredByPrimaryModal(false);
-        }
-      }
-    });
-    chatInput.setAttribute("data-global-chat-input", "");
-    chatSend.setAttribute("data-global-chat-send", "");
-    chatSend.addEventListener("click", async () => {
-      await sendGlobalChatMessage(chatInput);
-    });
-    chatInput.addEventListener("keydown", async (event) => {
-      if (event.key !== "Enter") return;
-      event.preventDefault();
-      await sendGlobalChatMessage(chatInput);
-    });
-    if (activePanel) {
-      activePanel.addEventListener("click", async (event) => {
-        const trigger = event.target instanceof HTMLElement
-          ? event.target.closest("[data-alliance-chat-send]")
-          : null;
-        if (!(trigger instanceof HTMLElement)) return;
-        const input = activePanel.querySelector("[data-alliance-chat-input]");
-        if (input instanceof HTMLInputElement) {
-          await sendAllianceChatMessage(input);
-        }
-      });
-      activePanel.addEventListener("keydown", async (event) => {
-        const target = event.target;
-        if (!(target instanceof HTMLInputElement) || !target.hasAttribute("data-alliance-chat-input")) return;
-        if (event.key !== "Enter") return;
-        event.preventDefault();
-        await sendAllianceChatMessage(target);
-      });
-    }
-    renderAllianceIconPicker();
-    setCreateAllianceModalVisible(false);
-    setAllianceManagementModalVisible(false);
-    const localState = !window.Empire.token ? getLocalAllianceState() : null;
-    renderAllianceChat(localState?.chat || []);
-    renderGlobalServerChat();
+    return getAllianceFacade()?.initAllianceModal?.();
   }
 
   function getAllianceIconOption(iconKey) {
-    const normalized = String(iconKey || "").trim() || DEFAULT_ALLIANCE_ICON_KEY;
-    return ALLIANCE_ICON_OPTIONS.find((icon) => icon.key === normalized)
+    return getAllianceDisplayHelpers()?.getAllianceIconOption?.(iconKey)
       || ALLIANCE_ICON_OPTIONS[0];
   }
 
   function normalizeAllianceNameKey(value) {
-    return normalizeOwnerName(value);
+    return getAllianceDisplayHelpers()?.normalizeAllianceNameKey?.(value) || normalizeOwnerName(value);
   }
 
   function normalizeAllianceIconKey(value) {
-    return getAllianceIconOption(value).key;
+    return getAllianceDisplayHelpers()?.normalizeAllianceIconKey?.(value) || getAllianceIconOption(value).key;
   }
 
   function setAllianceIconMap(targetMap, entries) {
-    targetMap.clear();
-    const safeEntries = entries instanceof Map
-      ? Array.from(entries.entries())
-      : Array.isArray(entries) ? entries : [];
-    safeEntries.forEach(([allianceName, iconKey]) => {
-      const nameKey = normalizeAllianceNameKey(allianceName);
-      if (!nameKey) return;
-      targetMap.set(nameKey, normalizeAllianceIconKey(iconKey));
-    });
+    return getAllianceDisplayHelpers()?.setAllianceIconMap?.(targetMap, entries);
   }
 
   function resolveAllianceIconKeyByName(allianceName) {
-    const nameKey = normalizeAllianceNameKey(allianceName);
-    if (!nameKey) return null;
-    return scenarioAllianceIconByName.get(nameKey)
-      || liveAllianceIconByName.get(nameKey)
-      || null;
+    return getAllianceDisplayHelpers()?.resolveAllianceIconKeyByName?.(allianceName) || null;
   }
 
   function escapeAllianceMarkup(value) {
-    return String(value || "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll("\"", "&quot;")
-      .replaceAll("'", "&#39;");
+    return getAllianceDisplayHelpers()?.escapeAllianceMarkup?.(value) || "";
   }
 
   function renderAllianceIdentityMarkup(alliance) {
-    const icon = getAllianceIconOption(alliance?.icon_key || alliance?.iconKey);
-    const name = escapeAllianceMarkup(alliance?.name || "Aliance");
-    const label = escapeAllianceMarkup(icon.label);
-    const symbol = escapeAllianceMarkup(icon.symbol);
-    return `
-      <span class="alliance-badge-markup" title="${label}">
-        <span class="alliance-badge-markup__icon" aria-hidden="true">${symbol}</span>
-        <span class="alliance-badge-markup__name">${name}</span>
-      </span>
-    `;
+    return getAllianceDisplayHelpers()?.renderAllianceIdentityMarkup?.(alliance) || "";
   }
 
   function formatAllianceError(errorKey) {
-    switch (String(errorKey || "").trim()) {
-      case "alliance_full":
-        return "Aliance je plná.";
-      case "member_exists":
-        return "Tento člen už v alianci je.";
-      case "no_active_alliance":
-        return "Nejsi v žádné aktivní alianci.";
-      case "already_in_alliance":
-        return "Už jsi v alianci.";
-      case "request_pending":
-        return "Pozvánka už byla odeslána.";
-      case "missing_request":
-        return "Pozvánka nebyla nalezena.";
-      case "not_alliance_owner":
-        return "Tuto pozvánku může řešit jen vlastník aliance.";
-      case "cannot_invite_self":
-        return "Do vlastní aliance si pozvánku neposíláš.";
-      case "missing_player":
-        return "Tento hráč nebyl nalezen.";
-      case "player_has_alliance":
-        return "Hráč už je v jiné alianci.";
-      case "invite_pending":
-        return "Tomuto hráči už čeká přímá pozvánka.";
-      case "missing_invite":
-        return "Pozvání nebylo nalezeno.";
-      case "not_invite_target":
-        return "Tohle pozvání není určené tobě.";
-      case "cannot_remove_leader":
-        return "Leadera nelze vyhodit.";
-      case "missing_member":
-        return "Člen aliance nebyl nalezen.";
-      case "member_ready_active":
-        return "Tento člen je stále v READY okně.";
-      case "vote_already_open":
-        return "Pro tohoto člena už běží hlasování.";
-      case "missing_vote":
-        return "Hlasování nebylo nalezeno.";
-      case "vote_already_cast":
-        return "V tomto hlasování už jsi hlasoval.";
-      case "cannot_vote_self":
-        return "O vlastním vyhození hlasování nespustíš.";
-      case "cannot_vote_target":
-        return "Cílový člen o svém vyhození hlasovat nemůže.";
-      default:
-        return String(errorKey || "Neznámá chyba.");
-    }
+    return getAllianceDisplayHelpers()?.formatAllianceError?.(errorKey) || String(errorKey || "Neznámá chyba.");
   }
 
   function computeLocalAllianceReadyState(readyAt) {
-    const readyTimestamp = readyAt ? new Date(readyAt).getTime() : 0;
-    const dueAt = readyTimestamp ? readyTimestamp + ALLIANCE_READY_WINDOW_MS : 0;
-    const now = Date.now();
-    return {
+    return getAllianceDisplayHelpers()?.computeLocalAllianceReadyState?.(readyAt) || {
       readyAt: readyAt || null,
-      readyDueAt: dueAt ? new Date(dueAt).toISOString() : null,
-      isReadyWindowActive: Boolean(dueAt && dueAt > now),
-      isReadyOverdue: !dueAt || dueAt <= now
+      readyDueAt: null,
+      isReadyWindowActive: false,
+      isReadyOverdue: true
     };
   }
 
   function formatAllianceDueLabel(isoValue) {
-    if (!isoValue) return "READY chybí";
-    const dueMs = new Date(isoValue).getTime();
-    if (!Number.isFinite(dueMs)) return "READY chybí";
-    const delta = Math.max(0, dueMs - Date.now());
-    const totalMinutes = Math.ceil(delta / 60000);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+    return getAllianceDisplayHelpers()?.formatAllianceDueLabel?.(isoValue) || "READY chybí";
   }
 
   function formatAllianceDueLabelSeconds(isoValue) {
-    if (!isoValue) return "00:00:00";
-    const dueMs = new Date(isoValue).getTime();
-    if (!Number.isFinite(dueMs)) return "00:00:00";
-    const deltaSeconds = Math.max(0, Math.floor((dueMs - Date.now()) / 1000));
-    const hours = Math.floor(deltaSeconds / 3600);
-    const minutes = Math.floor((deltaSeconds % 3600) / 60);
-    const seconds = deltaSeconds % 60;
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    return getAllianceDisplayHelpers()?.formatAllianceDueLabelSeconds?.(isoValue) || "00:00:00";
   }
 
   function formatAllianceRelativeTime(isoValue) {
-    const timestamp = new Date(isoValue).getTime();
-    if (!Number.isFinite(timestamp)) return "-";
-    const diffMs = Math.max(0, Date.now() - timestamp);
-    const diffMinutes = Math.floor(diffMs / 60000);
-    if (diffMinutes < 1) return "právě teď";
-    if (diffMinutes < 60) return `před ${diffMinutes} min`;
-    const diffHours = Math.floor(diffMinutes / 60);
-    if (diffHours < 24) return `před ${diffHours} h`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `před ${diffDays} d`;
+    return getAllianceDisplayHelpers()?.formatAllianceRelativeTime?.(isoValue) || "-";
   }
 
   function countOwnedDistrictsForAllianceMember(memberName) {
-    const normalizedMemberName = normalizeOwnerName(memberName);
-    if (!normalizedMemberName) return 0;
-    const districts = Array.isArray(window.Empire.districts) ? window.Empire.districts : [];
-    return districts.reduce((sum, district) => {
-      return sum + (normalizeOwnerName(district?.owner) === normalizedMemberName ? 1 : 0);
-    }, 0);
+    return getAllianceDisplayHelpers()?.countOwnedDistrictsForAllianceMember?.(memberName) || 0;
   }
 
   function getAllianceMemberVisualData(member) {
-    const districts = Array.isArray(window.Empire.districts) ? window.Empire.districts : [];
-    const ownedDistrict = districts.find((district) => normalizeOwnerName(district?.owner) === normalizeOwnerName(member?.username));
-    const sectorCount = countOwnedDistrictsForAllianceMember(member?.username);
-    const faction = formatFactionLabel(
-      member?.gang_structure
-      || member?.gangStructure
-      || ownedDistrict?.ownerFaction
-      || ownedDistrict?.ownerStructure
-      || resolveDemoOwnerFaction(member?.username || "")
-    );
-    const avatar = String(
-      member?.avatar
-      || member?.ownerAvatar
-      || ownedDistrict?.ownerAvatar
-      || resolveDemoOwnerAvatar(member?.username || "")
-    ).trim();
-    const color = normalizeHexColor(
-      member?.gang_color
-      || member?.gangColor
-      || ownedDistrict?.ownerColor
-      || null
-    );
-    return {
-      sectorCount,
-      sectorLabel: formatSectorCountLabel(sectorCount),
-      faction,
-      avatar,
-      color
+    return getAllianceDisplayHelpers()?.getAllianceMemberVisualData?.(member) || {
+      sectorCount: 0,
+      sectorLabel: "0 sektorů",
+      faction: "-",
+      avatar: "",
+      color: null
     };
   }
 
   function renderAllianceMemberCard(member, kickVotes = []) {
-    const openVote = (kickVotes || []).find((vote) => String(vote.target_player_id) === String(member.id));
-    const memberStatus = member.role === "leader"
-      ? `<span class="alliance-ready-state alliance-ready-state--leader">Leader</span>`
-      : member.isReadyWindowActive
-        ? `<span class="alliance-ready-state alliance-ready-state--ok">READY ${formatAllianceDueLabelSeconds(member.readyDueAt)}</span>`
-        : `<span class="alliance-ready-state alliance-ready-state--bad">READY chybí</span>`;
-    const voteStatus = openVote ? `<span class="alliance-member__vote">Hlasování ${openVote.yes_votes}/${openVote.required_votes}</span>` : "";
-    const visual = getAllianceMemberVisualData(member);
-    const avatarMarkup = visual.avatar
-      ? `<button class="alliance-member__avatar-btn" type="button" data-alliance-member-avatar="${escapeAllianceMarkup(member.username || "Hráč")}" data-alliance-member-avatar-src="${escapeAllianceMarkup(visual.avatar)}" data-alliance-member-avatar-meta="${escapeAllianceMarkup(`${visual.faction} • ${visual.sectorLabel}`)}"><img class="alliance-member__avatar" src="${escapeAllianceMarkup(visual.avatar)}" alt="Avatar ${escapeAllianceMarkup(member.username || "Hráč")}" loading="lazy" /></button>`
-      : `<div class="alliance-member__avatar alliance-member__avatar--empty">${escapeAllianceMarkup(String(member?.username || "?").slice(0, 1).toUpperCase())}</div>`;
-    const colorMarkup = visual.color
-      ? `<span class="alliance-member__color"><span class="alliance-member__color-dot" style="background:${visual.color}"></span>${visual.color.toUpperCase()}</span>`
-      : `<span class="alliance-member__color alliance-member__color--empty">Bez barvy</span>`;
-    return `
-      <div class="alliance-member">
-        <div class="alliance-member__top">
-          ${avatarMarkup}
-          <div class="alliance-member__identity">
-            <strong>${escapeAllianceMarkup(member.username || "Hráč")} <span class="alliance-member__sector-count">(${visual.sectorLabel})</span></strong>
-            <span>${escapeAllianceMarkup(member.gang_name || "Gang")}</span>
-          </div>
-        </div>
-        <div class="alliance-member__meta">
-          <span>${escapeAllianceMarkup(visual.faction)}</span>
-          ${colorMarkup}
-        </div>
-        <div class="alliance-member__status">
-          ${memberStatus}
-          ${voteStatus}
-        </div>
-      </div>
-    `;
+    return getAllianceDisplayHelpers()?.renderAllianceMemberCard?.(member, kickVotes) || "";
   }
 
   function bindAllianceMemberAvatarLightbox(root = document) {
-    const lightbox = document.getElementById("alliance-member-lightbox");
-    const image = document.getElementById("alliance-member-lightbox-image");
-    const title = document.getElementById("alliance-member-lightbox-title");
-    const meta = document.getElementById("alliance-member-lightbox-meta");
-    const closeBtn = document.getElementById("alliance-member-lightbox-close");
-    const backdrop = document.getElementById("alliance-member-lightbox-backdrop");
-    if (!lightbox || !image || !title || !meta) return;
-
-    const close = () => lightbox.classList.add("hidden");
-    if (closeBtn && !closeBtn.dataset.boundAllianceLightbox) {
-      closeBtn.dataset.boundAllianceLightbox = "1";
-      closeBtn.addEventListener("click", close);
-    }
-    if (backdrop && !backdrop.dataset.boundAllianceLightbox) {
-      backdrop.dataset.boundAllianceLightbox = "1";
-      backdrop.addEventListener("click", close);
-    }
-
-    root.querySelectorAll("[data-alliance-member-avatar]").forEach((button) => {
-      if (button.dataset.boundAllianceLightbox) return;
-      button.dataset.boundAllianceLightbox = "1";
-      button.addEventListener("click", () => {
-        const src = String(button.getAttribute("data-alliance-member-avatar-src") || "").trim();
-        if (!src) return;
-        image.src = src;
-        title.textContent = String(button.getAttribute("data-alliance-member-avatar") || "Člen aliance").trim() || "Člen aliance";
-        meta.textContent = String(button.getAttribute("data-alliance-member-avatar-meta") || "").trim();
-        lightbox.classList.remove("hidden");
-      });
-    });
+    return getAllianceDisplayHelpers()?.bindAllianceMemberAvatarLightbox?.(root);
   }
 
   function renderAllianceState(activeAlliance, alliances, incomingInvites = []) {
-    const activePanel = document.getElementById("alliance-active-panel");
-    const playerInvitesPanel = document.getElementById("alliance-player-invites-panel");
-    const listPanel = document.getElementById("alliance-list-panel");
-    const leaveBtn = document.getElementById("alliance-leave-btn");
-    const createToggleBtn = document.getElementById("alliance-create-toggle-btn");
-    const createEntry = document.getElementById("alliance-create-entry");
-    if (!activePanel || !playerInvitesPanel || !listPanel || !leaveBtn || !createToggleBtn) return;
-
-    leaveBtn.classList.toggle("hidden", !activeAlliance);
-    createToggleBtn.classList.toggle("hidden", Boolean(activeAlliance));
-    if (createEntry) createEntry.classList.toggle("hidden", Boolean(activeAlliance));
-    activePanel.classList.toggle("alliance-active-panel--occupied", Boolean(activeAlliance));
-    listPanel.classList.toggle("hidden", Boolean(activeAlliance));
-
-    if (activeAlliance) {
-      const currentPlayerReady = activeAlliance.current_player_ready || computeLocalAllianceReadyState(null);
-      const readyStateClass = currentPlayerReady.isReadyWindowActive
-        ? "alliance-ready-state alliance-ready-state--ok"
-        : "alliance-ready-state alliance-ready-state--bad";
-      const readyTimerClass = currentPlayerReady.isReadyWindowActive
-        ? "alliance-ready-panel__timer alliance-ready-panel__timer--ok"
-        : "alliance-ready-panel__timer alliance-ready-panel__timer--bad";
-      activePanel.innerHTML = `
-        <div class="alliance-active-card">
-          <div class="alliance-active-card__top">
-            <div class="alliance-active-card__badge-wrap">
-              <div class="alliance-active-card__badge-line">
-                <div class="alliance-active-card__badge">${renderAllianceIdentityMarkup(activeAlliance)}</div>
-                <div class="alliance-active-card__badges">
-                  <span class="${readyStateClass}">${currentPlayerReady.isReadyWindowActive ? "READY aktivní" : "READY vypršelo"}</span>
-                  <div class="alliance-ready-inline">
-                    <button class="btn btn--primary alliance-ready-btn alliance-ready-btn--inline" id="alliance-ready-btn">READY</button>
-                    <strong class="${readyTimerClass}">${formatAllianceDueLabelSeconds(currentPlayerReady.readyDueAt)}</strong>
-                  </div>
-                </div>
-              </div>
-              <div class="alliance-active-card__description">
-                <span>Popisek</span>
-                <strong>${escapeAllianceMarkup(DEFAULT_ALLIANCE_DESCRIPTION)}</strong>
-              </div>
-            </div>
-          </div>
-          <div class="alliance-active-card__overview">
-            <div class="alliance-active-card__stats-column">
-              <div class="alliance-active-card__stat">
-                <span>Členové</span>
-                <strong>${activeAlliance.member_count || 0}/${ALLIANCE_MAX_MEMBERS}</strong>
-              </div>
-              <div class="alliance-active-card__stat">
-                <span>Income</span>
-                <strong>+${activeAlliance.bonus_income_pct || 0}%</strong>
-              </div>
-              <div class="alliance-active-card__stat">
-                <span>Influence</span>
-                <strong>+${activeAlliance.bonus_influence_pct || 0}%</strong>
-              </div>
-              <div class="alliance-active-card__stat">
-                <span>Heat control</span>
-                <strong>${activeAlliance.heat_control_text || "-8% heat"}</strong>
-              </div>
-            </div>
-            <div class="alliance-active-card__chat-pane">
-              <div class="alliance-chat alliance-chat--modal">
-                <div class="alliance-chat__title">Chat aliance</div>
-                <div class="alliance-chat__log" data-alliance-chat-log></div>
-              </div>
-            </div>
-          </div>
-          <div class="alliance-active-card__chat-compose">
-            <div class="alliance-chat__input alliance-chat__input--modal">
-              <input type="text" placeholder="Napiš zprávu do aliance..." data-alliance-chat-input />
-              <button class="btn btn--ghost" type="button" data-alliance-chat-send>Odeslat</button>
-            </div>
-          </div>
-          <div class="alliance-members">
-            ${(activeAlliance.members || [])
-              .map((member) => renderAllianceMemberCard(member, activeAlliance.kick_votes || []))
-              .join("")}
-          </div>
-        </div>
-      `;
-    } else {
-      activePanel.innerHTML = `
-        <div class="modal__row">
-          <span>Aktivní aliance</span>
-          <strong>Žádná</strong>
-        </div>
-      `;
+    const controller = getAllianceModalController();
+    if (controller?.renderAllianceState) {
+      return controller.renderAllianceState(activeAlliance, alliances, incomingInvites);
     }
-
-    playerInvitesPanel.innerHTML = !activeAlliance && incomingInvites.length ? `
-      <div class="alliance-pending-panel">
-        <div class="alliance-pending-panel__title">Příchozí pozvání do aliance</div>
-        ${incomingInvites.map((invite) => `
-          <div class="alliance-request-item">
-            <div class="alliance-request-item__copy">
-              <strong>${escapeAllianceMarkup(invite.alliance_name || "Aliance")}</strong>
-              <span>${escapeAllianceMarkup(invite.inviter_username || "Hráč")} tě zve do aliance.</span>
-            </div>
-            <div class="alliance-request-item__actions">
-              <button class="btn btn--primary" data-player-invite-accept="${invite.id}">Přijmout</button>
-              <button class="btn btn--ghost" data-player-invite-reject="${invite.id}">Odmítnout</button>
-            </div>
-          </div>
-        `).join("")}
-      </div>
-    ` : "";
-
-    listPanel.innerHTML = `
-      <div class="alliance-list">
-        ${(alliances || [])
-          .map(
-            (alliance) => `
-              <div class="alliance-list__item">
-                <div>
-                  <div class="alliance-list__name">${renderAllianceIdentityMarkup(alliance)}</div>
-                  <div class="alliance-list__description">${escapeAllianceMarkup(alliance.description || "Bez popisku")}</div>
-                  <div class="alliance-list__meta">${alliance.member_count || 0}/${ALLIANCE_MAX_MEMBERS} členů • +${alliance.bonus_income_pct || 0}% income • +${alliance.bonus_influence_pct || 0}% influence</div>
-                </div>
-                <button class="btn btn--ghost" data-alliance-request="${alliance.id}" ${Number(alliance.member_count || 0) >= ALLIANCE_MAX_MEMBERS || alliance.has_pending_request || activeAlliance ? "disabled" : ""}>
-                  ${alliance.has_pending_request ? "Pozvánka odeslána" : "Poslat pozvánku"}
-                </button>
-              </div>
-            `
-          )
-          .join("")}
-      </div>
-    `;
-
-    const managementOpenBtn = document.getElementById("alliance-management-open-btn");
-    const managementFooterBtn = document.getElementById("alliance-management-footer-btn");
-    const readyBtn = document.getElementById("alliance-ready-btn");
-    if (managementFooterBtn) managementFooterBtn.classList.toggle("hidden", !activeAlliance);
-    bindAllianceMemberAvatarLightbox(activePanel);
-    if (managementOpenBtn) {
-      managementOpenBtn.addEventListener("click", () => {
-        document.getElementById("alliance-management-modal")?.classList.remove("hidden");
-      });
-    }
-    if (managementFooterBtn) {
-      managementFooterBtn.addEventListener("click", () => {
-        document.getElementById("alliance-management-modal")?.classList.remove("hidden");
-      });
-    }
-    if (readyBtn) {
-      readyBtn.addEventListener("click", async () => {
-        document.dispatchEvent(new CustomEvent("empire:alliance-ready-clicked", {
-          detail: {
-            source: "alliance-panel"
-          }
-        }));
-        if (!window.Empire.token) {
-          const state = getLocalAllianceState();
-          const result = markLocalAllianceReady(state);
-          if (result.error) {
-            pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-            return;
-          }
-          saveLocalAllianceState(state);
-          pushEvent("READY potvrzen.");
-          if (allianceRefreshHandler) await allianceRefreshHandler();
-          return;
-        }
-        const result = await window.Empire.API.markAllianceReady();
-        if (result.error) {
-          pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-          return;
-        }
-        pushEvent("READY potvrzen.");
-        if (allianceRefreshHandler) await allianceRefreshHandler();
-      });
-    }
-
-    playerInvitesPanel.querySelectorAll("[data-player-invite-accept]").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const inviteId = button.getAttribute("data-player-invite-accept");
-        if (!inviteId) return;
-        if (!window.Empire.token) {
-          const state = getLocalAllianceState();
-          const result = respondToLocalAllianceMemberInvite(state, inviteId, true);
-          if (result.error) {
-            pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-            return;
-          }
-          saveLocalAllianceState(state);
-          pushEvent("Pozvání do aliance bylo přijato.");
-          if (allianceRefreshHandler) await allianceRefreshHandler();
-          syncGuestAllianceLabel(result.allianceName || "Žádná");
-          return;
-        }
-        const result = await window.Empire.API.respondToAllianceMemberInvite(inviteId, true);
-        if (result.error) {
-          pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-          return;
-        }
-        pushEvent("Pozvání do aliance bylo přijato.");
-        if (allianceRefreshHandler) await allianceRefreshHandler();
-        const profile = await window.Empire.API.getProfile();
-        updateProfile(profile);
-      });
-    });
-
-    playerInvitesPanel.querySelectorAll("[data-player-invite-reject]").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const inviteId = button.getAttribute("data-player-invite-reject");
-        if (!inviteId) return;
-        if (!window.Empire.token) {
-          const state = getLocalAllianceState();
-          const result = respondToLocalAllianceMemberInvite(state, inviteId, false);
-          if (result.error) {
-            pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-            return;
-          }
-          saveLocalAllianceState(state);
-          pushEvent("Pozvání do aliance bylo odmítnuto.");
-          if (allianceRefreshHandler) await allianceRefreshHandler();
-          return;
-        }
-        const result = await window.Empire.API.respondToAllianceMemberInvite(inviteId, false);
-        if (result.error) {
-          pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-          return;
-        }
-        pushEvent("Pozvání do aliance bylo odmítnuto.");
-        if (allianceRefreshHandler) await allianceRefreshHandler();
-      });
-    });
-
-    listPanel.querySelectorAll("[data-alliance-request]").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const allianceId = button.getAttribute("data-alliance-request");
-        if (!allianceId) return;
-        if (!window.Empire.token) {
-          const state = getLocalAllianceState();
-          const request = requestLocalAllianceInvite(state, allianceId);
-          if (request?.error) {
-            pushEvent(`Aliance: ${formatAllianceError(request.error)}`);
-            return;
-          }
-          saveLocalAllianceState(state);
-          pushEvent("Pozvánka byla odeslána.");
-          if (allianceRefreshHandler) await allianceRefreshHandler();
-          return;
-        }
-        const result = await window.Empire.API.requestAllianceInvite(allianceId);
-        if (result.error) {
-          pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-          return;
-        }
-        pushEvent("Pozvánka byla odeslána.");
-        if (allianceRefreshHandler) await allianceRefreshHandler();
-      });
-    });
   }
 
   function renderAllianceManagementState(activeAlliance) {
-    const panel = document.getElementById("alliance-management-panel");
-    const inviteInput = document.getElementById("alliance-management-invite-name");
-    const inviteBtn = document.getElementById("alliance-management-invite-btn");
-    if (!panel) return;
-    if (!activeAlliance) {
-      if (inviteInput) inviteInput.disabled = true;
-      if (inviteBtn) inviteBtn.disabled = true;
-      panel.innerHTML = `
-        <div class="alliance-pending-panel">
-          <div class="alliance-request-item alliance-request-item--empty">Nejsi ve vlastní alianci.</div>
-        </div>
-      `;
-      return;
+    const controller = getAllianceModalController();
+    if (controller?.renderAllianceManagementState) {
+      return controller.renderAllianceManagementState(activeAlliance);
     }
-    const isLeader = activeAlliance.current_player_role === "leader";
-    if (inviteInput) inviteInput.disabled = !isLeader;
-    if (inviteBtn) inviteBtn.disabled = !isLeader;
-
-    const pendingRequests = Array.isArray(activeAlliance.pending_requests) ? activeAlliance.pending_requests : [];
-    const outgoingInvites = Array.isArray(activeAlliance.outgoing_invites) ? activeAlliance.outgoing_invites : [];
-    const kickVotes = Array.isArray(activeAlliance.kick_votes) ? activeAlliance.kick_votes : [];
-    const members = Array.isArray(activeAlliance.members) ? activeAlliance.members : [];
-    const auditLogs = Array.isArray(activeAlliance.audit_logs) ? activeAlliance.audit_logs : [];
-    panel.innerHTML = `
-      <div class="alliance-pending-panel">
-        <div class="alliance-pending-panel__title">Členové aliance</div>
-        ${members.map((member) => {
-          const openVote = kickVotes.find((vote) => String(vote.target_player_id) === String(member.id));
-          const canStartVote = member.role !== "leader" && member.isReadyOverdue;
-          const visual = getAllianceMemberVisualData(member);
-          const avatarMarkup = visual.avatar
-            ? `<button class="alliance-member__avatar-btn alliance-member__avatar-btn--management" type="button" data-alliance-member-avatar="${escapeAllianceMarkup(member.username || "Hráč")}" data-alliance-member-avatar-src="${escapeAllianceMarkup(visual.avatar)}" data-alliance-member-avatar-meta="${escapeAllianceMarkup(`${visual.faction} • ${visual.sectorLabel}`)}"><img class="alliance-member__avatar" src="${escapeAllianceMarkup(visual.avatar)}" alt="Avatar ${escapeAllianceMarkup(member.username || "Hráč")}" loading="lazy" /></button>`
-            : `<div class="alliance-member__avatar alliance-member__avatar--empty">${escapeAllianceMarkup(String(member?.username || "?").slice(0, 1).toUpperCase())}</div>`;
-          return `
-            <div class="alliance-request-item">
-              ${avatarMarkup}
-              <div class="alliance-request-item__copy">
-                <strong>${escapeAllianceMarkup(member.username || "Hráč")} (${visual.sectorLabel}) • ${member.role === "leader" ? "Leader" : "Člen"}</strong>
-                <span>${escapeAllianceMarkup(member.gang_name || "Gang")} • ${escapeAllianceMarkup(visual.faction)} • ${visual.color ? visual.color.toUpperCase() : "Bez barvy"}</span>
-                <span>${member.isReadyWindowActive ? `READY aktivní ještě ${formatAllianceDueLabelSeconds(member.readyDueAt)}` : "READY chybí, lze řešit vyhození."}</span>
-              </div>
-              <div class="alliance-request-item__actions">
-                ${isLeader && member.role !== "leader" ? `<button class="btn btn--ghost" data-alliance-member-remove="${member.id}">Vyhodit</button>` : ""}
-                ${canStartVote && !openVote ? `<button class="btn btn--primary" data-alliance-kick-start="${member.id}">Spustit hlasování</button>` : ""}
-                ${openVote ? `<button class="btn btn--primary" data-alliance-kick-cast="${openVote.id}">Hlasovat (${openVote.yes_votes}/${openVote.required_votes})</button>` : ""}
-              </div>
-            </div>
-          `;
-        }).join("")}
-      </div>
-      ${isLeader ? `<div class="alliance-pending-panel">
-        <div class="alliance-pending-panel__title">Žádosti o vstup</div>
-        ${pendingRequests.length ? pendingRequests.map((request) => `
-          <div class="alliance-request-item">
-            <div class="alliance-request-item__copy">
-              <strong>${escapeAllianceMarkup(request.username || "Hráč")}</strong>
-              <span>${escapeAllianceMarkup(request.gang_name || "Gang")} chce vstoupit do aliance.</span>
-            </div>
-            <div class="alliance-request-item__actions">
-              <button class="btn btn--primary" data-alliance-request-accept="${request.id}">Potvrdit</button>
-              <button class="btn btn--ghost" data-alliance-request-reject="${request.id}">Odmítnout</button>
-            </div>
-          </div>
-        `).join("") : `<div class="alliance-request-item alliance-request-item--empty">Žádné čekající žádosti.</div>`}
-      </div>
-      <div class="alliance-pending-panel">
-        <div class="alliance-pending-panel__title">Odeslané přímé pozvánky</div>
-        ${outgoingInvites.length ? outgoingInvites.map((invite) => `
-          <div class="alliance-request-item">
-            <div class="alliance-request-item__copy">
-              <strong>${escapeAllianceMarkup(invite.username || "Hráč")}</strong>
-              <span>${escapeAllianceMarkup(invite.gang_name || "Gang")} čeká na odpověď.</span>
-            </div>
-          </div>
-        `).join("") : `<div class="alliance-request-item alliance-request-item--empty">Žádné aktivní přímé pozvánky.</div>`}
-      </div>` : ""}
-      <div class="alliance-pending-panel">
-        <div class="alliance-pending-panel__title">Audit log aliance</div>
-        ${auditLogs.length ? auditLogs.map((entry) => `
-          <div class="alliance-request-item alliance-request-item--log">
-            <div class="alliance-request-item__copy">
-              <strong>${escapeAllianceMarkup(entry.message || "Aliance akce")}</strong>
-              <span>${escapeAllianceMarkup(formatAllianceRelativeTime(entry.created_at))}</span>
-            </div>
-          </div>
-        `).join("") : `<div class="alliance-request-item alliance-request-item--empty">Audit log je zatím prázdný.</div>`}
-      </div>
-    `;
-
-    const managementReadyBtn = document.getElementById("alliance-management-ready-btn");
-    bindAllianceMemberAvatarLightbox(panel);
-    if (managementReadyBtn) {
-      managementReadyBtn.addEventListener("click", async () => {
-        document.dispatchEvent(new CustomEvent("empire:alliance-ready-clicked", {
-          detail: {
-            source: "alliance-management"
-          }
-        }));
-        if (!window.Empire.token) {
-          const state = getLocalAllianceState();
-          const result = markLocalAllianceReady(state);
-          if (result.error) {
-            pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-            return;
-          }
-          saveLocalAllianceState(state);
-          pushEvent("READY potvrzen.");
-          if (allianceRefreshHandler) await allianceRefreshHandler();
-          return;
-        }
-        const result = await window.Empire.API.markAllianceReady();
-        if (result.error) {
-          pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-          return;
-        }
-        pushEvent("READY potvrzen.");
-        if (allianceRefreshHandler) await allianceRefreshHandler();
-      });
-    }
-
-    panel.querySelectorAll("[data-alliance-request-accept]").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const requestId = button.getAttribute("data-alliance-request-accept");
-        if (!requestId) return;
-        if (!window.Empire.token) {
-          const state = getLocalAllianceState();
-          const result = respondToLocalAllianceRequest(state, requestId, true);
-          if (result.error) {
-            pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-            return;
-          }
-          saveLocalAllianceState(state);
-          pushEvent("Žádost byla potvrzena.");
-          if (allianceRefreshHandler) await allianceRefreshHandler();
-          return;
-        }
-        const result = await window.Empire.API.respondToAllianceInvite(requestId, true);
-        if (result.error) {
-          pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-          return;
-        }
-        pushEvent("Žádost byla potvrzena.");
-        if (allianceRefreshHandler) await allianceRefreshHandler();
-      });
-    });
-
-    panel.querySelectorAll("[data-alliance-request-reject]").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const requestId = button.getAttribute("data-alliance-request-reject");
-        if (!requestId) return;
-        if (!window.Empire.token) {
-          const state = getLocalAllianceState();
-          const result = respondToLocalAllianceRequest(state, requestId, false);
-          if (result.error) {
-            pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-            return;
-          }
-          saveLocalAllianceState(state);
-          pushEvent("Žádost byla odmítnuta.");
-          if (allianceRefreshHandler) await allianceRefreshHandler();
-          return;
-        }
-        const result = await window.Empire.API.respondToAllianceInvite(requestId, false);
-        if (result.error) {
-          pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-          return;
-        }
-        pushEvent("Žádost byla odmítnuta.");
-        if (allianceRefreshHandler) await allianceRefreshHandler();
-      });
-    });
-
-    panel.querySelectorAll("[data-alliance-member-remove]").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const memberId = button.getAttribute("data-alliance-member-remove");
-        if (!memberId) return;
-        if (!window.Empire.token) {
-          const state = getLocalAllianceState();
-          const result = removeLocalAllianceMember(state, memberId);
-          if (result.error) {
-            pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-            return;
-          }
-          saveLocalAllianceState(state);
-          pushEvent("Člen byl vyhozen z aliance.");
-          if (allianceRefreshHandler) await allianceRefreshHandler();
-          return;
-        }
-        const result = await window.Empire.API.removeAllianceMember(memberId);
-        if (result.error) {
-          pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-          return;
-        }
-        pushEvent("Člen byl vyhozen z aliance.");
-        if (allianceRefreshHandler) await allianceRefreshHandler();
-      });
-    });
-
-    panel.querySelectorAll("[data-alliance-kick-start]").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const memberId = button.getAttribute("data-alliance-kick-start");
-        if (!memberId) return;
-        if (!window.Empire.token) {
-          const state = getLocalAllianceState();
-          const result = startLocalAllianceKickVote(state, memberId);
-          if (result.error) {
-            pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-            return;
-          }
-          saveLocalAllianceState(state);
-          pushEvent("Hlasování o vyhození bylo zahájeno.");
-          if (allianceRefreshHandler) await allianceRefreshHandler();
-          return;
-        }
-        const result = await window.Empire.API.startAllianceKickVote(memberId);
-        if (result.error) {
-          pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-          return;
-        }
-        pushEvent("Hlasování o vyhození bylo zahájeno.");
-        if (allianceRefreshHandler) await allianceRefreshHandler();
-      });
-    });
-
-    panel.querySelectorAll("[data-alliance-kick-cast]").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const voteId = button.getAttribute("data-alliance-kick-cast");
-        if (!voteId) return;
-        if (!window.Empire.token) {
-          const state = getLocalAllianceState();
-          const result = castLocalAllianceKickVote(state, voteId);
-          if (result.error) {
-            pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-            return;
-          }
-          saveLocalAllianceState(state);
-          pushEvent("Hlas pro vyhození byl zaznamenán.");
-          if (allianceRefreshHandler) await allianceRefreshHandler();
-          return;
-        }
-        const result = await window.Empire.API.castAllianceKickVote(voteId);
-        if (result.error) {
-          pushEvent(`Aliance: ${formatAllianceError(result.error)}`);
-          return;
-        }
-        pushEvent("Hlas pro vyhození byl zaznamenán.");
-        if (allianceRefreshHandler) await allianceRefreshHandler();
-      });
-    });
   }
 
   function resolveCurrentServerChatAuthorName() {
-    return String(
-      resolveActiveScenarioOwnerName()
-      || window.Empire.player?.username
-      || window.Empire.player?.name
-      || cachedProfile?.username
-      || cachedProfile?.name
-      || cachedProfile?.gangName
-      || cachedProfile?.gang_name
-      || localStorage.getItem("empire_guest_username")
-      || localStorage.getItem("empire_gang_name")
-      || "Ty"
-    ).trim() || "Ty";
+    return getAllianceChatHelpers()?.resolveCurrentServerChatAuthorName?.() || "Ty";
   }
 
   function collectServerChatParticipants(limit = 10) {
-    const byName = new Map();
-    const pushParticipant = (name) => {
-      const safeName = String(name || "").trim();
-      const normalized = normalizeOwnerName(safeName);
-      if (!normalized || byName.has(normalized)) return;
-      byName.set(normalized, safeName);
-    };
-    pushParticipant(resolveCurrentServerChatAuthorName());
-    (Array.isArray(window.Empire.districts) ? window.Empire.districts : []).forEach((district) => {
-      pushParticipant(
-        district?.ownerNick
-        || district?.owner_username
-        || district?.ownerUsername
-        || district?.owner
-      );
-    });
-    (Array.isArray(window.Empire.leaderboardServerPlayers) ? window.Empire.leaderboardServerPlayers : []).forEach((player) => {
-      const safeId = String(player?.id || "");
-      if (safeId.startsWith("leaderboard-")) return;
-      pushParticipant(player?.name || player?.nick);
-    });
-    return Array.from(byName.values())
-      .filter(Boolean)
-      .sort((a, b) => String(a).localeCompare(String(b), "cs"))
-      .slice(0, Math.max(1, Math.floor(Number(limit || 10))));
+    return getAllianceChatHelpers()?.collectServerChatParticipants?.(limit) || [];
   }
 
   function normalizeServerChatMessages(rawMessages) {
-    return (Array.isArray(rawMessages) ? rawMessages : [])
-      .map((entry) => ({
-        time: String(entry?.time || "").trim().slice(0, 5),
-        author: String(entry?.author || "").trim().slice(0, 48),
-        text: String(entry?.text || "").trim().slice(0, 300)
-      }))
-      .filter((entry) => entry.time && entry.author && entry.text)
-      .slice(0, 30);
+    return getAllianceChatHelpers()?.normalizeServerChatMessages?.(rawMessages) || [];
   }
 
   function buildDefaultServerChatMessages() {
-    const names = collectServerChatParticipants(4);
-    const first = names[0] || "Mariah";
-    const second = names[1] || "Willy";
-    return [
-      { time: "09:10", author: first, text: "Kdo drží severní sektor?" },
-      { time: "09:12", author: second, text: "Jdu na útok za 5 minut." },
-      { time: "09:15", author: "System", text: "Server chat je aktivní pro všechny hráče." }
-    ];
+    return getAllianceChatHelpers()?.buildDefaultServerChatMessages?.() || [];
   }
 
   function getLocalServerChatMessages() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(LOCAL_SERVER_CHAT_KEY) || "[]");
-      const normalized = normalizeServerChatMessages(parsed);
-      if (normalized.length) return normalized;
-    } catch {}
-    const fallback = buildDefaultServerChatMessages();
-    localStorage.setItem(LOCAL_SERVER_CHAT_KEY, JSON.stringify(fallback));
-    return fallback;
+    return getAllianceChatHelpers()?.getLocalServerChatMessages?.() || [];
   }
 
   function saveLocalServerChatMessages(messages) {
-    localStorage.setItem(
-      LOCAL_SERVER_CHAT_KEY,
-      JSON.stringify(normalizeServerChatMessages(messages))
-    );
+    return getAllianceChatHelpers()?.saveLocalServerChatMessages?.(messages);
   }
 
   function appendLocalServerChatMessage(message) {
-    const now = new Date();
-    const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    const nextMessages = normalizeServerChatMessages([
-      {
-        time,
-        author: String(message?.author || "Ty").trim() || "Ty",
-        text: String(message?.text || "").trim()
-      },
-      ...getLocalServerChatMessages()
-    ]).slice(0, 30);
-    saveLocalServerChatMessages(nextMessages);
-    return nextMessages;
+    return getAllianceChatHelpers()?.appendLocalServerChatMessage?.(message) || [];
   }
 
   function renderGlobalServerChat(messages) {
-    const logs = Array.from(document.querySelectorAll("[data-global-chat-log]"));
-    if (!logs.length) return;
-    const safeMessages = normalizeServerChatMessages(messages);
-    const renderedMessages = safeMessages.length ? safeMessages : getLocalServerChatMessages();
-    const markup = renderedMessages
-      .map((message) => `<div class="alliance-chat__item">[${message.time}] ${message.author}: ${message.text}</div>`)
-      .join("");
-    logs.forEach((log) => {
-      log.innerHTML = markup;
-    });
+    return getAllianceChatHelpers()?.renderGlobalServerChat?.(messages);
   }
 
   function renderAllianceChat(messages) {
-    const logs = Array.from(document.querySelectorAll("[data-alliance-chat-log]"));
-    if (!logs.length) return;
-    const safeMessages = Array.isArray(messages) && messages.length ? messages : [
-      { time: "09:12", author: "Raven", text: "Potřebujeme posily na sever." },
-      { time: "09:14", author: "Lira", text: "Posílám tým, 5 minut." }
-    ];
-    const markup = safeMessages
-      .map((message) => `<div class="alliance-chat__item">[${message.time}] ${message.author}: ${message.text}</div>`)
-      .join("");
-    logs.forEach((log) => {
-      log.innerHTML = markup;
-    });
+    return getAllianceChatHelpers()?.renderAllianceChat?.(messages);
   }
 
   function buildAllianceTenBlackoutLocalAllianceState(ownerName, allyName) {
-    const allianceId = "scenario-blackout-alliance";
-    const allianceName = "Zabijáci";
-    const nowIso = new Date().toISOString();
-    return {
-      activeAllianceId: allianceId,
-      alliances: [
-        {
-          id: allianceId,
-          name: allianceName,
-          description: "Blackout dvojice drzi sektor 102 a vede nocni kontrolu mesta.",
-          icon_key: "lightning",
-          owner_player_id: LOCAL_ALLIANCE_REQUEST_PLAYER_ID,
-          bonus_income_pct: 6,
-          bonus_influence_pct: 5,
-          heat_control_text: "-8% heat",
-          members: [
-            {
-              id: LOCAL_ALLIANCE_REQUEST_PLAYER_ID,
-              username: ownerName,
-              gang_name: cachedProfile?.gangName || ownerName,
-              alliance_ready_at: nowIso
-            },
-            {
-              id: "scenario-blackout-ally",
-              username: allyName,
-              gang_name: "Piškoti",
-              alliance_ready_at: null
-            }
-          ]
-        }
-      ],
-      requests: [
-        {
-          id: "scenario-blackout-poltergeist-request",
-          alliance_id: allianceId,
-          player_id: "scenario-blackout-poltergeist",
-          username: "Poltergeist",
-          gang_name: "District 143 + 121"
-        }
-      ],
-      memberInvites: [],
-      kickVotes: [],
-      notifications: [],
-      auditLogs: [
-        {
-          id: "scenario-blackout-audit-1",
-          alliance_id: allianceId,
-          message: "Poltergeist poslal zadost o vstup do aliance.",
-          created_at: nowIso
-        }
-      ],
-      chat: [
-        { time: "20:12", author: allyName, text: "Drzim district 102. Blackout jede." },
-        { time: "20:18", author: "System", text: "Poltergeist zadal o vstup do aliance." }
-      ]
-    };
+    return getAllianceStateHelpers()?.buildAllianceTenBlackoutLocalAllianceState?.(ownerName, allyName) || null;
   }
 
   function buildNightTwentyWarLocalAllianceState(ownerName, districts) {
-    const nowIso = new Date().toISOString();
-    const safeDistricts = Array.isArray(districts) ? districts : [];
-    const playerName = String(ownerName || "Ty").trim() || "Ty";
-    const playerAllianceName = safeDistricts.find((district) => normalizeOwnerName(district?.owner) === normalizeOwnerName(playerName))?.ownerAllianceName || "Neon Syndicate";
-    const alliedOwners = Array.from(new Set(
-      safeDistricts
-        .filter((district) => String(district?.ownerAllianceName || "").trim() === String(playerAllianceName).trim())
-        .map((district) => String(district?.owner || "").trim())
-        .filter(Boolean)
-    )).slice(0, 2);
-    if (!alliedOwners.some((name) => normalizeOwnerName(name) === normalizeOwnerName(playerName))) {
-      alliedOwners.unshift(playerName);
-    }
-    const members = alliedOwners.slice(0, 2).map((name, index) => ({
-      id: index === 0 ? LOCAL_ALLIANCE_REQUEST_PLAYER_ID : `scenario-night-war-member-${index}`,
-      username: name,
-      gang_name: index === 0 ? (cachedProfile?.gangName || name) : `${name} Crew`,
-      alliance_ready_at: nowIso
-    }));
-    return {
-      activeAllianceId: "scenario-night-war-alliance",
-      alliances: [
-        {
-          id: "scenario-night-war-alliance",
-          name: playerAllianceName,
-          description: "Noční válka 20 hráčů. Plně obsazená mapa a vysoký tlak útoků.",
-          icon_key: "lightning",
-          owner_player_id: LOCAL_ALLIANCE_REQUEST_PLAYER_ID,
-          bonus_income_pct: 5,
-          bonus_influence_pct: 4,
-          heat_control_text: "-4% heat",
-          members
-        }
-      ],
-      requests: [],
-      memberInvites: [],
-      kickVotes: [],
-      notifications: [],
-      auditLogs: [
-        {
-          id: "scenario-night-war-audit-1",
-          alliance_id: "scenario-night-war-alliance",
-          message: "Noční server stav aktivován: 20 hráčů, 20 útoků, 2 policejní razie.",
-          created_at: nowIso
-        }
-      ],
-      chat: [
-        { time: "20:26", author: "System", text: "Noční režim aktivní. Mapa plně obsazená." },
-        { time: "20:27", author: "System", text: "Aktivních útoků: 20. Policejní razie: 2." }
-      ]
-    };
+    return getAllianceStateHelpers()?.buildNightTwentyWarLocalAllianceState?.(ownerName, districts) || null;
   }
 
   function syncBlackoutScenarioAllianceDistrictState(activeAlliance) {
-    if (window.Empire.token || !isBlackoutLikeScenario() || !window.Empire.Map?.setDistricts) return;
-    const districts = Array.isArray(window.Empire.districts) ? window.Empire.districts : [];
-    if (!districts.length) return;
-    const allianceName = String(activeAlliance?.name || "").trim();
-    const allianceIconKey = String(activeAlliance?.icon_key || activeAlliance?.iconKey || DEFAULT_ALLIANCE_ICON_KEY).trim() || DEFAULT_ALLIANCE_ICON_KEY;
-    const playerNames = getPlayerOwnerNameSet();
-    const memberNames = new Set(
-      (Array.isArray(activeAlliance?.members) ? activeAlliance.members : [])
-        .map((member) => normalizeOwnerName(member?.username))
-        .filter(Boolean)
-    );
-    const alliedScenarioOwners = Array.from(memberNames).filter((ownerKey) => ownerKey && !playerNames.has(ownerKey));
-    setScenarioAllianceOwners(alliedScenarioOwners);
-    const nextDistricts = districts.map((district) => {
-      const ownerKey = normalizeOwnerName(district?.owner);
-      const isAccepted = memberNames.has(ownerKey) && allianceName;
-      if (!isAccepted && ownerKey !== normalizeOwnerName("Poltergeist")) return district;
-      return {
-        ...district,
-        ownerAllianceName: isAccepted ? allianceName : null,
-        ownerAllianceIconKey: isAccepted ? allianceIconKey : null
-      };
-    });
-    window.Empire.Map.setDistricts(nextDistricts);
+    return getAllianceStateHelpers()?.syncBlackoutScenarioAllianceDistrictState?.(activeAlliance);
   }
 
   function getLocalAllianceState() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(LOCAL_ALLIANCE_KEY) || "null");
-      if (parsed && Array.isArray(parsed.alliances) && Array.isArray(parsed.chat)) {
-        return withActiveAlliance(parsed);
-      }
-    } catch {}
-    const seeded = {
+    return getAllianceStateHelpers()?.getLocalAllianceState?.() || {
       activeAllianceId: null,
-      alliances: [
-        {
-          id: "alliance-neon-vipers",
-          name: "Neon Vipers",
-          description: "Rychlé přesuny, tlak na periferii a čisté vpády pod neonem.",
-          icon_key: "lightning",
-          owner_player_id: "owner-neon-vipers",
-          bonus_income_pct: 8,
-          bonus_influence_pct: 4,
-          heat_control_text: "-6% heat",
-          members: [
-            { id: "owner-neon-vipers", username: "Raven", gang_name: "North Vultures", alliance_ready_at: new Date().toISOString() },
-            { id: "member-neon-lira", username: "Lira", gang_name: "Chrome Echo", alliance_ready_at: null }
-          ]
-        },
-        {
-          id: "alliance-black-sun",
-          name: "Black Sun Pact",
-          description: "Tichá infiltrace, vydírání a chirurgické zásahy proti rivalům.",
-          icon_key: "eye_triangle",
-          owner_player_id: "owner-black-sun",
-          bonus_income_pct: 5,
-          bonus_influence_pct: 7,
-          heat_control_text: "-10% heat",
-          members: [
-            { id: "owner-black-sun", username: "Hex", gang_name: "Dusk Syndicate", alliance_ready_at: new Date().toISOString() }
-          ]
-        }
-      ],
+      alliances: [],
       requests: [],
       memberInvites: [],
       kickVotes: [],
       notifications: [],
       auditLogs: [],
-      chat: [
-        { time: "09:12", author: "Raven", text: "Potřebujeme posily na sever." },
-        { time: "09:14", author: "Lira", text: "Posílám tým, 5 minut." }
-      ]
+      chat: [],
+      activeAlliance: null,
+      incomingInvites: []
     };
-    saveLocalAllianceState(seeded);
-    return withActiveAlliance(seeded);
   }
 
   function saveLocalAllianceState(state) {
-    localStorage.setItem(
-      LOCAL_ALLIANCE_KEY,
-      JSON.stringify({
-        activeAllianceId: state.activeAllianceId || null,
-        alliances: state.alliances || [],
-        requests: state.requests || [],
-        memberInvites: state.memberInvites || [],
-        kickVotes: state.kickVotes || [],
-        notifications: state.notifications || [],
-        auditLogs: state.auditLogs || [],
-        chat: state.chat || []
-      })
-    );
+    return getAllianceStateHelpers()?.saveLocalAllianceState?.(state);
   }
 
   function withActiveAlliance(state) {
-    const activeAlliance = (state.alliances || []).find((item) => item.id === state.activeAllianceId) || null;
-    const requests = Array.isArray(state.requests) ? state.requests : [];
-    const memberInvites = Array.isArray(state.memberInvites) ? state.memberInvites : [];
-    const kickVotes = Array.isArray(state.kickVotes) ? state.kickVotes : [];
-    return {
-      ...state,
-      activeAlliance: activeAlliance
-        ? {
-            ...activeAlliance,
-            owner_player_id: activeAlliance.owner_player_id || LOCAL_ALLIANCE_REQUEST_PLAYER_ID,
-            description: String(activeAlliance.description || "").trim(),
-            icon_key: String(activeAlliance.icon_key || activeAlliance.iconKey || DEFAULT_ALLIANCE_ICON_KEY).trim() || DEFAULT_ALLIANCE_ICON_KEY,
-            current_player_role: String(activeAlliance.owner_player_id || "") === LOCAL_ALLIANCE_REQUEST_PLAYER_ID ? "leader" : "member",
-            current_player_ready: computeLocalAllianceReadyState(
-              (activeAlliance.members || []).find((member) => String(member.id || "") === LOCAL_ALLIANCE_REQUEST_PLAYER_ID)?.alliance_ready_at || null
-            ),
-            member_count: (activeAlliance.members || []).length,
-            members: (activeAlliance.members || []).map((member) => ({
-              ...member,
-              role: String(member.id || "") === String(activeAlliance.owner_player_id || "") ? "leader" : "member",
-              ...computeLocalAllianceReadyState(member.alliance_ready_at || null)
-            })),
-            pending_requests: requests.filter((request) => request.alliance_id === activeAlliance.id),
-            outgoing_invites: memberInvites.filter((invite) => invite.alliance_id === activeAlliance.id),
-            kick_votes: kickVotes.filter((vote) => vote.alliance_id === activeAlliance.id && vote.status === "open"),
-            audit_logs: (state.auditLogs || []).filter((entry) => entry.alliance_id === activeAlliance.id).slice(-20).reverse()
-          }
-        : null,
-      alliances: (state.alliances || []).map((alliance) => ({
-        ...alliance,
-        owner_player_id: alliance.owner_player_id || "guest-owner",
-        description: String(alliance.description || "").trim() || DEFAULT_ALLIANCE_DESCRIPTION,
-        icon_key: String(alliance.icon_key || alliance.iconKey || DEFAULT_ALLIANCE_ICON_KEY).trim() || DEFAULT_ALLIANCE_ICON_KEY,
-        member_count: (alliance.members || []).length,
-        has_pending_request: requests.some((request) => request.alliance_id === alliance.id && request.player_id === LOCAL_ALLIANCE_REQUEST_PLAYER_ID)
-      })),
-      incomingInvites: memberInvites.filter((invite) => invite.target_player_id === LOCAL_ALLIANCE_REQUEST_PLAYER_ID)
-    };
-  }
-
-  function appendLocalAllianceAuditLog(state, allianceId, message) {
-    state.auditLogs = state.auditLogs || [];
-    state.auditLogs.push({
-      id: `audit-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-      alliance_id: allianceId,
-      message,
-      created_at: new Date().toISOString()
-    });
-    state.auditLogs = state.auditLogs.slice(-40);
-  }
-
-  function createLocalAlliance(state, options) {
-    const name = String(options?.name || "").trim();
-    const description = String(options?.description || "").trim() || DEFAULT_ALLIANCE_DESCRIPTION;
-    const iconKey = String(options?.iconKey || DEFAULT_ALLIANCE_ICON_KEY).trim() || DEFAULT_ALLIANCE_ICON_KEY;
-    const alliance = {
-      id: `alliance-${Date.now()}`,
-      name,
-      description,
-      icon_key: iconKey,
-      owner_player_id: LOCAL_ALLIANCE_REQUEST_PLAYER_ID,
-      bonus_income_pct: 6,
-      bonus_influence_pct: 5,
-      heat_control_text: "-8% heat",
-      members: [{ id: LOCAL_ALLIANCE_REQUEST_PLAYER_ID, username: "Ty", gang_name: localStorage.getItem("empire_gang_name") || "Guest Crew", alliance_ready_at: new Date().toISOString() }]
-    };
-    state.alliances.unshift(alliance);
-    state.activeAllianceId = alliance.id;
-    appendLocalAllianceAuditLog(state, alliance.id, "Aliance byla založena.");
-    appendLocalAllianceChat(state, {
-      author: "System",
-      text: `Aliance ${name} byla založena.`
-    });
-    return alliance;
-  }
-
-  function requestLocalAllianceInvite(state, allianceId) {
-    const alliance = (state.alliances || []).find((item) => item.id === allianceId);
-    if (!alliance) return null;
-    if (state.activeAllianceId) {
-      return { error: "already_in_alliance" };
-    }
-    const currentMembers = Array.isArray(alliance.members) ? alliance.members.length : 0;
-    if (currentMembers >= ALLIANCE_MAX_MEMBERS) {
-      return { error: "alliance_full" };
-    }
-    state.requests = state.requests || [];
-    if (state.requests.some((request) => request.alliance_id === alliance.id && request.player_id === LOCAL_ALLIANCE_REQUEST_PLAYER_ID)) {
-      return { error: "request_pending" };
-    }
-    state.requests.push({
-      id: `alliance-request-${Date.now()}`,
-      alliance_id: alliance.id,
-      player_id: LOCAL_ALLIANCE_REQUEST_PLAYER_ID,
-      username: "Ty",
-      gang_name: localStorage.getItem("empire_gang_name") || "Guest Crew"
-    });
-    appendLocalAllianceChat(state, {
-      author: "System",
-      text: `Poslal jsi pozvánku do aliance ${alliance.name}.`
-    });
-    appendLocalAllianceAuditLog(state, alliance.id, "Byla odeslána žádost o vstup do aliance.");
-    return { ok: true };
-  }
-
-  function sendLocalAllianceManagementInvite(state, username) {
-    const active = (state.alliances || []).find((item) => item.id === state.activeAllianceId);
-    if (!active) {
-      return { error: "no_active_alliance" };
-    }
-    if (String(active.owner_player_id || "") !== LOCAL_ALLIANCE_REQUEST_PLAYER_ID) {
-      return { error: "not_alliance_owner" };
-    }
-    if (active.members.length >= ALLIANCE_MAX_MEMBERS) {
-      return { error: "alliance_full" };
-    }
-    const normalized = String(username || "").trim();
-    if (!normalized) {
-      return { error: "missing_player" };
-    }
-    if (normalized.toLowerCase() === "ty") {
-      return { error: "cannot_invite_self" };
-    }
-    const normalizedTarget = normalized.toLowerCase();
-    const playerAlreadyInAlliance = (state.alliances || []).some((alliance) =>
-      Array.isArray(alliance.members) && alliance.members.some((member) => String(member?.username || "").trim().toLowerCase() === normalizedTarget)
-    );
-    if (playerAlreadyInAlliance) {
-      return { error: "player_has_alliance" };
-    }
-    state.memberInvites = state.memberInvites || [];
-    if (state.memberInvites.some((invite) => invite.alliance_id === active.id && invite.username.toLowerCase() === normalized.toLowerCase())) {
-      return { error: "invite_pending" };
-    }
-    state.memberInvites.push({
-      id: `alliance-member-invite-${Date.now()}`,
-      alliance_id: active.id,
-      target_player_id: LOCAL_ALLIANCE_REQUEST_PLAYER_ID,
-      inviter_player_id: LOCAL_ALLIANCE_REQUEST_PLAYER_ID,
-      username: normalized,
-      gang_name: "Nezávislý gang",
-      alliance_name: active.name,
-      inviter_username: "Ty"
-    });
-    appendLocalAllianceChat(state, {
-      author: "System",
-      text: `Byla odeslána přímá pozvánka hráči ${normalized}.`
-    });
-    appendLocalAllianceAuditLog(state, active.id, `Byla odeslána přímá pozvánka hráči ${normalized}.`);
-    return { ok: true };
-  }
-
-  function leaveLocalAlliance(state) {
-    const active = (state.alliances || []).find((item) => item.id === state.activeAllianceId);
-    if (active) {
-      active.members = (active.members || []).filter((member) => member.username !== "Ty");
-      appendLocalAllianceChat(state, {
-        author: "System",
-        text: `Opustil jsi alianci ${active.name}.`
-      });
-    }
-    state.activeAllianceId = null;
-  }
-
-  function respondToLocalAllianceRequest(state, requestId, accept) {
-    state.requests = state.requests || [];
-    const requestIndex = state.requests.findIndex((request) => request.id === requestId);
-    if (requestIndex === -1) {
-      return { error: "missing_request" };
-    }
-    const request = state.requests[requestIndex];
-    const active = (state.alliances || []).find((item) => item.id === state.activeAllianceId);
-    if (!active || active.id !== request.alliance_id) {
-      return { error: "not_alliance_owner" };
-    }
-    if (accept) {
-      active.members = active.members || [];
-      if (active.members.length >= ALLIANCE_MAX_MEMBERS) {
-        return { error: "alliance_full" };
-      }
-      if (!active.members.some((member) => member.username === request.username)) {
-        active.members.push({
-          id: request.player_id,
-          username: request.username,
-          gang_name: request.gang_name || "Guest Crew",
-          alliance_ready_at: new Date().toISOString()
-        });
-      }
-      appendLocalAllianceChat(state, {
-        author: "System",
-        text: `${request.username} byl přijat do aliance ${active.name}.`
-      });
-      state.notifications = state.notifications || [];
-      state.notifications.push({
-        id: `alliance-note-${Date.now()}`,
-        message: "Tva zadost o vstup do aliance byla prijata."
-      });
-    } else {
-      appendLocalAllianceChat(state, {
-        author: "System",
-        text: `${request.username} byl odmítnut z aliance ${active.name}.`
-      });
-      state.notifications = state.notifications || [];
-      state.notifications.push({
-        id: `alliance-note-${Date.now()}`,
-        message: "Tva zadost o vstup do aliance byla odmitnuta."
-      });
-    }
-    state.requests.splice(requestIndex, 1);
-    return { ok: true };
-  }
-
-  function respondToLocalAllianceMemberInvite(state, inviteId, accept) {
-    state.memberInvites = state.memberInvites || [];
-    const inviteIndex = state.memberInvites.findIndex((invite) => invite.id === inviteId);
-    if (inviteIndex === -1) {
-      return { error: "missing_invite" };
-    }
-    const invite = state.memberInvites[inviteIndex];
-    if (accept) {
-      if (state.activeAllianceId) {
-        return { error: "already_in_alliance" };
-      }
-      const alliance = (state.alliances || []).find((item) => item.id === invite.alliance_id);
-      if (!alliance) {
-        return { error: "missing_alliance" };
-      }
-      if ((alliance.members || []).length >= ALLIANCE_MAX_MEMBERS) {
-        return { error: "alliance_full" };
-      }
-      alliance.members = alliance.members || [];
-      alliance.members.push({
-        id: LOCAL_ALLIANCE_REQUEST_PLAYER_ID,
-        username: "Ty",
-        gang_name: localStorage.getItem("empire_gang_name") || "Guest Crew",
-        alliance_ready_at: new Date().toISOString()
-      });
-      state.activeAllianceId = alliance.id;
-      state.notifications = state.notifications || [];
-      state.notifications.push({
-        id: `alliance-note-${Date.now()}`,
-        message: "Hrac prijal tvoji pozvanku do aliance."
-      });
-      state.memberInvites.splice(inviteIndex, 1);
-      return { ok: true, allianceName: alliance.name };
-    }
-
-    state.notifications = state.notifications || [];
-    state.notifications.push({
-      id: `alliance-note-${Date.now()}`,
-      message: "Hrac odmitl tvoji pozvanku do aliance."
-    });
-    state.memberInvites.splice(inviteIndex, 1);
-    return { ok: true };
-  }
-
-  function markLocalAllianceReady(state) {
-    const active = (state.alliances || []).find((item) => item.id === state.activeAllianceId);
-    if (!active) return { error: "no_active_alliance" };
-    const member = (active.members || []).find((item) => String(item.id || "") === LOCAL_ALLIANCE_REQUEST_PLAYER_ID);
-    if (!member) return { error: "missing_member" };
-    member.alliance_ready_at = new Date().toISOString();
-    appendLocalAllianceAuditLog(state, active.id, "Člen potvrdil READY.");
-    return { ok: true };
-  }
-
-  function removeLocalAllianceMember(state, memberId) {
-    const active = (state.alliances || []).find((item) => item.id === state.activeAllianceId);
-    if (!active) return { error: "no_active_alliance" };
-    if (String(active.owner_player_id || "") !== LOCAL_ALLIANCE_REQUEST_PLAYER_ID) return { error: "not_alliance_owner" };
-    if (String(memberId || "") === LOCAL_ALLIANCE_REQUEST_PLAYER_ID) return { error: "cannot_remove_leader" };
-    const nextMembers = (active.members || []).filter((member) => String(member.id || "") !== String(memberId || ""));
-    if (nextMembers.length === (active.members || []).length) return { error: "missing_member" };
-    active.members = nextMembers;
-    state.kickVotes = (state.kickVotes || []).filter((vote) => String(vote.target_player_id || "") !== String(memberId || ""));
-    appendLocalAllianceAuditLog(state, active.id, "Leader vyhodil člena z aliance.");
-    return { ok: true };
-  }
-
-  function startLocalAllianceKickVote(state, memberId) {
-    const active = (state.alliances || []).find((item) => item.id === state.activeAllianceId);
-    if (!active) return { error: "no_active_alliance" };
-    const target = (active.members || []).find((member) => String(member.id || "") === String(memberId || ""));
-    if (!target) return { error: "missing_member" };
-    if (String(target.id || "") === String(active.owner_player_id || "")) return { error: "cannot_remove_leader" };
-    if (!computeLocalAllianceReadyState(target.alliance_ready_at || null).isReadyOverdue) return { error: "member_ready_active" };
-    state.kickVotes = state.kickVotes || [];
-    if (state.kickVotes.some((vote) => vote.alliance_id === active.id && vote.target_player_id === target.id && vote.status === "open")) {
-      return { error: "vote_already_open" };
-    }
-    const eligibleVoters = Math.max((active.members || []).length - 1, 0);
-    const vote = {
-      id: `kick-vote-${Date.now()}`,
-      alliance_id: active.id,
-      target_player_id: target.id,
-      target_username: target.username,
-      started_by_player_id: LOCAL_ALLIANCE_REQUEST_PLAYER_ID,
-      eligible_voters: eligibleVoters,
-      required_votes: Math.floor(eligibleVoters / 2) + 1,
-      yes_votes: 1,
-      voters: [LOCAL_ALLIANCE_REQUEST_PLAYER_ID],
-      status: "open"
-    };
-    state.kickVotes.push(vote);
-    appendLocalAllianceAuditLog(state, active.id, `Bylo zahájeno hlasování o vyhození člena ${target.username}.`);
-    return resolveLocalAllianceKickVote(state, vote.id);
-  }
-
-  function castLocalAllianceKickVote(state, voteId) {
-    state.kickVotes = state.kickVotes || [];
-    const vote = state.kickVotes.find((item) => item.id === voteId && item.status === "open");
-    if (!vote) return { error: "missing_vote" };
-    if (String(vote.target_player_id || "") === LOCAL_ALLIANCE_REQUEST_PLAYER_ID) return { error: "cannot_vote_target" };
-    vote.voters = vote.voters || [];
-    if (vote.voters.includes(LOCAL_ALLIANCE_REQUEST_PLAYER_ID)) return { error: "vote_already_cast" };
-    vote.voters.push(LOCAL_ALLIANCE_REQUEST_PLAYER_ID);
-    vote.yes_votes = Number(vote.yes_votes || 0) + 1;
-    appendLocalAllianceAuditLog(state, vote.alliance_id, "Byl odevzdán hlas pro vyhození člena.");
-    return resolveLocalAllianceKickVote(state, voteId);
-  }
-
-  function resolveLocalAllianceKickVote(state, voteId) {
-    const vote = (state.kickVotes || []).find((item) => item.id === voteId && item.status === "open");
-    if (!vote) return { error: "missing_vote" };
-    if (Number(vote.yes_votes || 0) >= Number(vote.required_votes || 1)) {
-      const active = (state.alliances || []).find((item) => item.id === vote.alliance_id);
-      if (active) {
-        active.members = (active.members || []).filter((member) => String(member.id || "") !== String(vote.target_player_id || ""));
-      }
-      vote.status = "passed";
-      appendLocalAllianceAuditLog(state, vote.alliance_id, "Aliance odhlasovala vyhození člena.");
-      return { ok: true, removed: true };
-    }
-    return { ok: true, removed: false };
+    return getAllianceStateHelpers()?.withActiveAlliance?.(state) || state;
   }
 
   function appendLocalAllianceChat(state, message) {
-    const now = new Date();
-    const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    state.chat = state.chat || [];
-    state.chat.unshift({
-      time,
-      author: message.author,
-      text: message.text
-    });
-    state.chat = state.chat.slice(0, 20);
+    return getAllianceStateHelpers()?.appendLocalAllianceChat?.(state, message);
+  }
+
+  function createLocalAlliance(state, options) {
+    return getAllianceStateHelpers()?.createLocalAlliance?.(state, options) || null;
+  }
+
+  function requestLocalAllianceInvite(state, allianceId) {
+    return getAllianceStateHelpers()?.requestLocalAllianceInvite?.(state, allianceId) || null;
+  }
+
+  function sendLocalAllianceManagementInvite(state, username) {
+    return getAllianceStateHelpers()?.sendLocalAllianceManagementInvite?.(state, username) || null;
+  }
+
+  function leaveLocalAlliance(state) {
+    return getAllianceStateHelpers()?.leaveLocalAlliance?.(state);
+  }
+
+  function respondToLocalAllianceRequest(state, requestId, accept) {
+    return getAllianceStateHelpers()?.respondToLocalAllianceRequest?.(state, requestId, accept) || null;
+  }
+
+  function respondToLocalAllianceMemberInvite(state, inviteId, accept) {
+    return getAllianceStateHelpers()?.respondToLocalAllianceMemberInvite?.(state, inviteId, accept) || null;
+  }
+
+  function markLocalAllianceReady(state) {
+    return getAllianceStateHelpers()?.markLocalAllianceReady?.(state) || null;
+  }
+
+  function removeLocalAllianceMember(state, memberId) {
+    return getAllianceStateHelpers()?.removeLocalAllianceMember?.(state, memberId) || null;
+  }
+
+  function startLocalAllianceKickVote(state, memberId) {
+    return getAllianceStateHelpers()?.startLocalAllianceKickVote?.(state, memberId) || null;
+  }
+
+  function castLocalAllianceKickVote(state, voteId) {
+    return getAllianceStateHelpers()?.castLocalAllianceKickVote?.(state, voteId) || null;
   }
 
   function syncGuestAllianceLabel(allianceName) {
-    const profileAlliance = document.getElementById("profile-alliance");
-    if (profileAlliance && !window.Empire.token) {
-      profileAlliance.textContent = formatAllianceProfileSummary({
-        ...(window.Empire.player || {}),
-        alliance: allianceName || "Žádná"
-      });
-    }
-    setAllianceButtonState(allianceName || "Žádná");
+    return getAllianceButtonHelpers()?.syncGuestAllianceLabel?.(allianceName);
   }
 
   function renderAllianceButtonLabel(button, label) {
-    if (!button) return;
-    const nextLabel = String(label || "Aliance").trim() || "Aliance";
-    let iconEl = button.querySelector(".alliance-btn__icon");
-    let labelEl = button.querySelector(".alliance-btn__label");
-    if (!(iconEl instanceof HTMLElement) || !(labelEl instanceof HTMLElement)) {
-      button.textContent = "";
-      iconEl = document.createElement("span");
-      iconEl.className = "alliance-btn__icon";
-      iconEl.setAttribute("aria-hidden", "true");
-      iconEl.innerHTML = `
-        <svg viewBox="0 0 24 24" role="presentation" focusable="false">
-          <circle cx="12" cy="12" r="7"></circle>
-          <circle cx="12" cy="12" r="2.2"></circle>
-          <path d="M12 2v3.5"></path>
-          <path d="M12 18.5V22"></path>
-          <path d="M2 12h3.5"></path>
-          <path d="M18.5 12H22"></path>
-        </svg>
-      `;
-      labelEl = document.createElement("span");
-      labelEl.className = "alliance-btn__label";
-      button.append(iconEl, labelEl);
-    }
-    labelEl.textContent = nextLabel;
+    return getAllianceButtonHelpers()?.renderAllianceButtonLabel?.(button, label);
   }
 
   function setAllianceButtonState(allianceName) {
-    const allianceBtn = document.getElementById("alliance-btn");
-    if (!allianceBtn) return;
-
-    const normalized = extractAllianceDisplayName(allianceName);
-    if (!normalized || normalized === "Žádná") {
-      renderAllianceButtonLabel(allianceBtn, "Aliance");
-      return;
-    }
-
-    if (normalized === "Zabijáci") {
-      renderAllianceButtonLabel(allianceBtn, "Zabijáci");
-      return;
-    }
-
-    renderAllianceButtonLabel(allianceBtn, `Aliance: ${normalized}`);
+    return getAllianceButtonHelpers()?.setAllianceButtonState?.(allianceName);
   }
 
   function initSettingsModal() {
-    const root = document.getElementById("settings-modal");
-    const backdrop = document.getElementById("settings-modal-backdrop");
-    const closeBtn = document.getElementById("settings-modal-close");
-    const saveBtn = document.getElementById("settings-save-btn");
-    const soundInput = document.getElementById("settings-sound");
-    const musicInput = document.getElementById("settings-music");
-    const effectsQualitySelect = document.getElementById("settings-effects-quality");
-    const languageSelect = document.getElementById("settings-language");
-    const mapDistrictBordersInput = document.getElementById("settings-map-district-borders");
-    const mapAllianceSymbolsInput = document.getElementById("settings-map-alliance-symbols");
-    const mapUnknownNeutralFillBtn = document.getElementById("settings-map-unknown-neutral-fill-btn");
-    const mapVisibilitySelect = document.getElementById("settings-map-visibility");
-    if (!root) return;
-    const mobileMedia = window.matchMedia("(max-width: 720px)");
-    let settingsSnapshot = null;
-    let unknownNeutralFillSnapshot = null;
-
-    const syncMobileSettingsBackdropState = (open) => {
-      document.body.classList.toggle("mobile-settings-modal-open", Boolean(open) && mobileMedia.matches);
-    };
-
-    const renderUnknownNeutralFillButton = () => {
-      if (!mapUnknownNeutralFillBtn) return;
-      const active = resolveStoredUnknownNeutralFillEnabled();
-      mapUnknownNeutralFillBtn.dataset.active = active ? "true" : "false";
-      mapUnknownNeutralFillBtn.setAttribute("aria-pressed", active ? "true" : "false");
-      mapUnknownNeutralFillBtn.textContent = active ? "Zapnuto" : "Vypnuto";
-    };
-
-    const applySettingsToForm = () => {
-      const settings = getSettingsState();
-      if (soundInput) soundInput.checked = settings.sound;
-      if (musicInput) musicInput.checked = settings.music;
-      if (effectsQualitySelect) effectsQualitySelect.value = settings.effectsQuality;
-      if (languageSelect) languageSelect.value = settings.language;
-      if (mapDistrictBordersInput) mapDistrictBordersInput.checked = Boolean(settings.mapDistrictBorders);
-      if (mapAllianceSymbolsInput) mapAllianceSymbolsInput.checked = Boolean(settings.mapAllianceSymbols);
-      renderUnknownNeutralFillButton();
-      if (mapVisibilitySelect) mapVisibilitySelect.value = normalizeMapVisibilityMode(settings.mapVisibilityMode);
-    };
-
-    const applyUnknownNeutralFillFromSettings = (nextEnabled) => {
-      const enabled = typeof nextEnabled === "boolean"
-        ? nextEnabled
-        : resolveStoredUnknownNeutralFillEnabled();
-      unknownNeutralFillEnabled = Boolean(enabled);
-      localStorage.setItem(
-        MAP_UNKNOWN_NEUTRAL_FILL_STORAGE_KEY,
-        unknownNeutralFillEnabled ? "1" : "0"
-      );
-      applyMapBorderSwitchVisuals();
-      syncMapVisionContext();
-      renderUnknownNeutralFillButton();
-    };
-
-    const captureFormSettings = () => ({
-      sound: soundInput ? Boolean(soundInput.checked) : Boolean(getSettingsState().sound),
-      music: musicInput ? Boolean(musicInput.checked) : Boolean(getSettingsState().music),
-      notifications: Boolean(getSettingsState().notifications),
-      effectsQuality: effectsQualitySelect?.value || getSettingsState().effectsQuality || DEFAULT_SETTINGS.effectsQuality,
-      language: languageSelect?.value || getSettingsState().language || DEFAULT_SETTINGS.language,
-      mapDistrictBorders: Boolean(mapDistrictBordersInput?.checked),
-      mapAllianceSymbols: true,
-      mapVisibilityMode: "all"
-    });
-
-    const writeFormSettings = () => {
-      const settings = captureFormSettings();
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-      applyUnknownNeutralFillFromSettings();
-      syncMapVisionContext();
-    };
-
-    const revertSettingsPreview = () => {
-      if (!settingsSnapshot) return;
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settingsSnapshot));
-      if (typeof unknownNeutralFillSnapshot === "boolean") {
-        applyUnknownNeutralFillFromSettings(unknownNeutralFillSnapshot);
-      }
-      syncMapVisionContext();
-      applySettingsToForm();
-    };
-
-    const closeSettingsModal = (options = {}) => {
-      const shouldRevert = Boolean(options.revert);
-      if (shouldRevert) {
-        revertSettingsPreview();
-      }
-      settingsSnapshot = null;
-      unknownNeutralFillSnapshot = null;
-      root.classList.add("hidden");
-      syncMobileSettingsBackdropState(false);
-    };
-
-    const saveSettings = () => {
-      const settings = {
-        ...captureFormSettings()
-      };
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-      applyUnknownNeutralFillFromSettings(resolveStoredUnknownNeutralFillEnabled());
-      syncMapVisionContext();
-      settingsSnapshot = settings;
-      unknownNeutralFillSnapshot = resolveStoredUnknownNeutralFillEnabled();
-      root.classList.add("hidden");
-      syncMobileSettingsBackdropState(false);
-      pushEvent("Nastavení bylo uloženo.");
-    };
-
-    const onLiveChange = () => {
-      writeFormSettings();
-    };
-
-    applySettingsToForm();
-    if (soundInput) soundInput.addEventListener("change", onLiveChange);
-    if (musicInput) musicInput.addEventListener("change", onLiveChange);
-    if (effectsQualitySelect) effectsQualitySelect.addEventListener("change", onLiveChange);
-    if (languageSelect) languageSelect.addEventListener("change", onLiveChange);
-    if (mapDistrictBordersInput) mapDistrictBordersInput.addEventListener("change", onLiveChange);
-    if (mapAllianceSymbolsInput) mapAllianceSymbolsInput.addEventListener("change", onLiveChange);
-    if (mapUnknownNeutralFillBtn) {
-      mapUnknownNeutralFillBtn.addEventListener("click", () => {
-        const current = resolveStoredUnknownNeutralFillEnabled();
-        applyUnknownNeutralFillFromSettings(!current);
-      });
-    }
-    if (mapVisibilitySelect) mapVisibilitySelect.addEventListener("change", onLiveChange);
-    if (backdrop) backdrop.addEventListener("click", () => closeSettingsModal({ revert: true }));
-    if (closeBtn) closeBtn.addEventListener("click", () => closeSettingsModal({ revert: true }));
-    if (saveBtn) saveBtn.addEventListener("click", saveSettings);
-    root.addEventListener("settings:open", () => {
-      settingsSnapshot = getSettingsState();
-      unknownNeutralFillSnapshot = resolveStoredUnknownNeutralFillEnabled();
-      applySettingsToForm();
-      syncMobileSettingsBackdropState(true);
-    });
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !root.classList.contains("hidden")) {
-        closeSettingsModal({ revert: true });
-      }
-    });
+    return getSettingsModalController()?.initSettingsModal?.();
   }
 
   function initWeaponsModal() {
-    const root = document.getElementById("weapons-modal");
-    const backdrop = document.getElementById("weapons-modal-backdrop");
-    const closeBtn = document.getElementById("weapons-modal-close");
-    if (!root) return;
-    if (backdrop) backdrop.addEventListener("click", () => root.classList.add("hidden"));
-    if (closeBtn) closeBtn.addEventListener("click", () => root.classList.add("hidden"));
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") root.classList.add("hidden");
-    });
+    return getInventoryController()?.initWeaponsModal?.();
   }
 
   function initMarketModal() {
-    const openBtn = document.getElementById("market-open");
-    const root = document.getElementById("market-modal");
-    const backdrop = document.getElementById("market-modal-backdrop");
-    const closeBtn = document.getElementById("market-modal-close");
-    const resourceSelect = document.getElementById("market-resource-select");
-    const sideSelect = document.getElementById("market-side-select");
-    const quantityInput = document.getElementById("market-quantity-input");
-    const priceInput = document.getElementById("market-price-input");
-    const createBtn = document.getElementById("market-create-order");
-    if (!root || !openBtn || !resourceSelect || !sideSelect || !quantityInput || !priceInput || !createBtn) return;
-    const heroTitle = root.querySelector(".market-modal__hero-title");
-    const heroCopy = root.querySelector(".market-modal__hero-copy");
-    const state = { tab: "server" };
-
-    const getResourcesForActiveTab = () =>
-      state.tab === "black" ? MARKET_BLACK_RESOURCES : MARKET_SERVER_RESOURCES;
-
-    const ensureSelectedResource = () => {
-      const resources = getResourcesForActiveTab();
-      const selected = String(resourceSelect.value || "").trim();
-      if (resources.some((item) => item.resourceKey === selected)) return selected;
-      return resources[0]?.resourceKey || "";
-    };
-
-    const renderResourceOptions = () => {
-      if (state.tab === "black") {
-        resourceSelect.innerHTML = MARKET_BLACK_RESOURCE_GROUPS
-          .map((group) => `
-            <optgroup label="${group.label}">
-              ${group.options
-                .map((item) => `<option value="${item.resourceKey}">${item.name}</option>`)
-                .join("")}
-            </optgroup>
-          `)
-          .join("");
-      } else {
-        resourceSelect.innerHTML = MARKET_SERVER_RESOURCES
-          .map((item) => `<option value="${item.resourceKey}">${item.name}</option>`)
-          .join("");
-      }
-      resourceSelect.value = ensureSelectedResource();
-      root.dataset.marketTab = state.tab;
-      createBtn.textContent = state.tab === "black" ? "Vložit kontrakt" : "Vložit příkaz";
-      root.querySelectorAll("[data-market-tab]").forEach((button) => {
-        button.classList.toggle("is-active", button.getAttribute("data-market-tab") === state.tab);
-      });
-      if (heroTitle) {
-        heroTitle.textContent = state.tab === "black"
-          ? "Black Market kontrakty"
-          : "Server Exchange";
-      }
-      if (heroCopy) {
-        heroCopy.textContent = state.tab === "black"
-          ? "Podpultové obchody s látkami, továrními díly a jednotlivými kusy výzbroje. Vyšší riziko, rychlejší marže."
-          : "Sleduj serverovou nabídku, poptávku a poslední obchody. Vlož příkaz dřív, než tě ostatní předběhnou.";
-      }
-    };
-
-    const refreshMarket = async () => {
-      const marketBody = root.querySelector(".market-modal__body");
-      const marketScrollTop = marketBody?.scrollTop || 0;
-      if (!window.Empire.token) {
-        cachedMarket = getLocalMarketState();
-        renderResourceOptions();
-        renderMarketState(resourceSelect.value, state.tab);
-        requestAnimationFrame(() => {
-          if (marketBody) marketBody.scrollTop = marketScrollTop;
-        });
-        return;
-      }
-      const market = await window.Empire.API.getMarket();
-      if (market.error) {
-        pushEvent(`Market: ${market.error}`);
-        return;
-      }
-      cachedMarket = market;
-      renderResourceOptions();
-      renderMarketState(resourceSelect.value, state.tab);
-      requestAnimationFrame(() => {
-        if (marketBody) marketBody.scrollTop = marketScrollTop;
-      });
-    };
-    marketRefreshHandler = refreshMarket;
-
-    const openMarketModal = async (tab = "server") => {
-      state.tab = tab === "black" ? "black" : "server";
-      setMobileTopbarCoveredByPrimaryModal(false);
-      root.classList.remove("hidden");
-      document.dispatchEvent(new CustomEvent("empire:market-modal-opened", {
-        detail: {
-          open: true
-        }
-      }));
-      await refreshMarket();
-    };
-
-    marketModalOpenHandler = openMarketModal;
-    openBtn.addEventListener("click", async () => {
-      await openMarketModal("server");
-    });
-    resourceSelect.addEventListener("change", () => renderMarketState(resourceSelect.value, state.tab));
-    createBtn.addEventListener("click", async () => {
-      if (!window.Empire.token) {
-        const result = createLocalMarketOrder({
-          resourceKey: resourceSelect.value,
-          side: sideSelect.value,
-          quantity: Number(quantityInput.value),
-          pricePerUnit: Number(priceInput.value)
-        });
-        if (result.error) {
-          pushEvent(`Market: ${result.error}`);
-          return;
-        }
-        pushEvent("Lokální market příkaz byl vložen.");
-        recordVerifiedIntelEvent({
-          type: "market_order_created",
-          districtId: window.Empire.selectedDistrict?.id ?? null,
-          resourceKey: resourceSelect.value,
-          side: sideSelect.value,
-          quantity: Number(quantityInput.value),
-          pricePerUnit: Number(priceInput.value)
-        });
-        await refreshMarket();
-        syncGuestEconomyFromMarket();
-        return;
-      }
-      const result = await window.Empire.API.createMarketOrder({
-        resourceKey: resourceSelect.value,
-        side: sideSelect.value,
-        quantity: Number(quantityInput.value),
-        pricePerUnit: Number(priceInput.value)
-      });
-      if (result.error) {
-        pushEvent(`Market: ${result.error}`);
-        return;
-      }
-      pushEvent("Příkaz byl vložen na trh.");
-      recordVerifiedIntelEvent({
-        type: "market_order_created",
-        districtId: window.Empire.selectedDistrict?.id ?? null,
-        resourceKey: resourceSelect.value,
-        side: sideSelect.value,
-        quantity: Number(quantityInput.value),
-        pricePerUnit: Number(priceInput.value)
-      });
-      await refreshMarket();
-      const economy = await window.Empire.API.getEconomy();
-      updateEconomy(economy);
-    });
-    root.addEventListener("click", async (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-      const tabButton = target.closest("[data-market-tab]");
-      if (tabButton instanceof HTMLElement) {
-        const nextTab = String(tabButton.dataset.marketTab || "").trim();
-        if ((nextTab === "server" || nextTab === "black") && nextTab !== state.tab) {
-          state.tab = nextTab;
-          renderResourceOptions();
-          renderMarketState(resourceSelect.value, state.tab);
-        }
-        return;
-      }
-      const cancelButton = target.closest("[data-market-cancel]");
-      if (!(cancelButton instanceof HTMLElement)) return;
-      const orderId = cancelButton.dataset.marketCancel;
-      if (!orderId) return;
-      if (!window.Empire.token) {
-        const result = cancelLocalMarketOrder(orderId);
-        if (result.error) {
-          pushEvent(`Market: ${result.error}`);
-          return;
-        }
-        if (cachedMarket) {
-          cachedMarket.myOrders = (cachedMarket.myOrders || []).filter((order) => order.id !== orderId);
-          cachedMarket.orderBook = (cachedMarket.orderBook || []).filter((order) => order.id !== orderId);
-          renderMarketState(resourceSelect.value, state.tab);
-        }
-        pushEvent("Lokální market příkaz byl zrušen.");
-        recordVerifiedIntelEvent({
-          type: "market_order_cancelled",
-          districtId: window.Empire.selectedDistrict?.id ?? null,
-          resourceKey: resourceSelect.value
-        });
-        await refreshMarket();
-        syncGuestEconomyFromMarket();
-        return;
-      }
-      const result = await window.Empire.API.cancelMarketOrder(orderId);
-      if (result.error) {
-        pushEvent(`Market: ${result.error}`);
-        return;
-      }
-      if (cachedMarket) {
-        cachedMarket.myOrders = (cachedMarket.myOrders || []).filter((order) => order.id !== orderId);
-        cachedMarket.orderBook = (cachedMarket.orderBook || []).filter((order) => order.id !== orderId);
-        renderMarketState(resourceSelect.value, state.tab);
-      }
-      pushEvent("Příkaz byl zrušen.");
-      recordVerifiedIntelEvent({
-        type: "market_order_cancelled",
-        districtId: window.Empire.selectedDistrict?.id ?? null,
-        resourceKey: resourceSelect.value
-      });
-      await refreshMarket();
-      const economy = await window.Empire.API.getEconomy();
-      updateEconomy(economy);
-    });
-    if (backdrop) backdrop.addEventListener("click", () => {
-      root.classList.add("hidden");
-      setMobileTopbarCoveredByPrimaryModal(false);
-    });
-    if (closeBtn) closeBtn.addEventListener("click", () => {
-      root.classList.add("hidden");
-      setMobileTopbarCoveredByPrimaryModal(false);
-    });
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        root.classList.add("hidden");
-        setMobileTopbarCoveredByPrimaryModal(false);
-      }
-    });
+    return getMarketFacade()?.initMarketModal?.();
   }
 
   async function openMarketModal(preferredTab = "server") {
-    if (typeof marketModalOpenHandler === "function") {
-      await marketModalOpenHandler(preferredTab);
-      return true;
-    }
-
-    const fallbackRoot = document.getElementById("market-modal");
-    if (fallbackRoot) {
-      fallbackRoot.classList.remove("hidden");
-      return true;
-    }
-    return false;
+    return getMarketFacade()?.openMarketModal?.(preferredTab);
   }
 
   function refreshMarketBuildingShortcuts() {
-    if (typeof marketBuildingShortcutRefreshHandler === "function") {
-      marketBuildingShortcutRefreshHandler();
-    }
+    return getMarketFacade()?.refreshMarketBuildingShortcuts?.();
   }
 
   function initMarketBuildingShortcuts() {
-    const root = document.getElementById("market-building-shortcuts");
-    if (!root) return;
-
-    const buttons = Array.from(root.querySelectorAll("[data-market-building-base-name]"));
-    if (!buttons.length) return;
-    const lockFlashTimers = new WeakMap();
-    const onboardingShortcutNames = new Set([
-      "lekarna",
-      "drug lab",
-      "druglab",
-      "tovarna",
-      "zbrojovka",
-      "fitness club",
-      "fitness centrum",
-      "kasino",
-      "casino",
-      "herna",
-      "arcade",
-      "autosalon",
-      "auto salon",
-      "smenarna",
-      "exchange",
-      "restaurace",
-      "restaurant",
-      "vecerka",
-      "convenience store"
-    ]);
-
-    const normalizeBuildingName = (value) => normalizeOwnerName(String(value || "").replace(/\s+/g, " ").trim());
-
-    const findBuildingIndexInDistrict = (district, baseName) => {
-      const buildings = Array.isArray(district?.buildings) ? district.buildings : [];
-      const target = normalizeBuildingName(baseName);
-      if (!target) return -1;
-      for (let index = 0; index < buildings.length; index += 1) {
-        if (normalizeBuildingName(buildings[index]) === target) {
-          return index;
-        }
-      }
-      return -1;
-    };
-
-    const getOwnedDistricts = () => {
-      const districts = Array.isArray(window.Empire.districts) ? window.Empire.districts : [];
-      return districts.filter((district) => isDistrictOwnedByPlayer(district));
-    };
-
-    const resolveOnboardingShortcutFallback = (baseName, options = {}) => {
-      if (!isOnboardingDemoScenarioActive()) return null;
-      const normalizedBaseName = normalizeBuildingName(baseName);
-      if (!onboardingShortcutNames.has(normalizedBaseName)) return null;
-      const ownedDistricts = Array.isArray(options.ownedDistricts) ? options.ownedDistricts : getOwnedDistricts();
-      const district = ownedDistricts[0] || null;
-      if (!district) return null;
-      return {
-        district,
-        buildingIndex: -1,
-        onboardingFallback: true
-      };
-    };
-
-    const resolveOwnedBuildingInstance = (baseName, options = {}) => {
-      const ownedDistricts = Array.isArray(options.ownedDistricts) ? options.ownedDistricts : getOwnedDistricts();
-      if (!ownedDistricts.length) return null;
-      const targetBaseName = normalizeBuildingName(baseName);
-      const forceFirstOwnedMatch =
-        targetBaseName === "drug lab"
-        || targetBaseName === "druglab"
-        || targetBaseName === "lekarna"
-        || targetBaseName === "tovarna"
-        || targetBaseName === "zbrojovka";
-
-      const selectedRaw = window.Empire.selectedDistrict;
-      const selected = selectedRaw?.id != null
-        ? resolveDistrictById(selectedRaw.id, window.Empire.districts) || selectedRaw
-        : selectedRaw;
-      const preferredDistricts = [];
-      const preferredIds = new Set();
-      if (!forceFirstOwnedMatch && selected && isDistrictOwnedByPlayer(selected)) {
-        preferredDistricts.push(selected);
-        preferredIds.add(String(selected.id));
-      }
-      const scanDistricts = [
-        ...preferredDistricts,
-        ...ownedDistricts.filter((district) => !preferredIds.has(String(district?.id)))
-      ];
-
-      for (let i = 0; i < scanDistricts.length; i += 1) {
-        const district = scanDistricts[i];
-        const buildingIndex = findBuildingIndexInDistrict(district, baseName);
-        if (buildingIndex >= 0) {
-          return { district, buildingIndex };
-        }
-      }
-      return null;
-    };
-
-    const refreshState = () => {
-      const ownedDistricts = getOwnedDistricts();
-      const hasOwnedTerritory = ownedDistricts.length > 0;
-
-      buttons.forEach((button) => {
-        const label = String(
-          button.dataset.marketBuildingLabel
-          || button.dataset.marketBuildingBaseName
-          || "Budova"
-        );
-        const baseName = String(button.dataset.marketBuildingBaseName || "").trim();
-        const instance = resolveOwnedBuildingInstance(baseName, { ownedDistricts })
-          || resolveOnboardingShortcutFallback(baseName, { ownedDistricts });
-        const unlocked = Boolean(instance);
-        const buildingIndex = unlocked ? Number(instance.buildingIndex) : -1;
-        const usesOnboardingFallback = Boolean(instance?.onboardingFallback);
-
-        button.disabled = false;
-        button.setAttribute("aria-disabled", unlocked ? "false" : "true");
-        button.classList.toggle("is-unlocked", unlocked);
-        button.classList.toggle("is-locked", !unlocked);
-        button.dataset.marketBuildingUnlocked = unlocked ? "1" : "0";
-        button.dataset.marketBuildingIndex = unlocked && buildingIndex >= 0 ? String(buildingIndex) : "";
-        button.dataset.marketBuildingDistrictId = unlocked ? String(instance.district?.id ?? "") : "";
-        button.dataset.marketBuildingOnboardingFallback = usesOnboardingFallback ? "1" : "0";
-
-        if (unlocked) {
-          button.title = usesOnboardingFallback
-            ? `${label}: Otevřít onboarding detail budovy`
-            : `${label}: Otevřít detail budovy z tvého území`;
-        } else if (!hasOwnedTerritory) {
-          button.title = `${label}: Neovládáš žádný distrikt`;
-        } else {
-          button.title = `${label}: Tuto budovu ve svém území nevlastníš`;
-        }
-      });
-    };
-
-    marketBuildingShortcutRefreshHandler = refreshState;
-    refreshState();
-
-    const flashLockedShortcut = (button) => {
-      if (!button) return;
-      const existingTimer = lockFlashTimers.get(button);
-      if (existingTimer) {
-        window.clearTimeout(existingTimer);
-      }
-      button.classList.add("is-lock-flash");
-      const timer = window.setTimeout(() => {
-        button.classList.remove("is-lock-flash");
-        lockFlashTimers.delete(button);
-      }, 2000);
-      lockFlashTimers.set(button, timer);
-    };
-
-    buttons.forEach((button) => {
-      button.addEventListener("click", () => {
-        refreshState();
-        if (button.dataset.marketBuildingUnlocked !== "1") {
-          flashLockedShortcut(button);
-          return;
-        }
-
-        const baseName = String(button.dataset.marketBuildingBaseName || "").trim();
-        const cachedDistrictId = String(button.dataset.marketBuildingDistrictId || "").trim();
-        const cachedIndexText = String(button.dataset.marketBuildingIndex || "").trim();
-        const cachedIndexRaw = cachedIndexText === "" ? Number.NaN : Number(cachedIndexText);
-        const cachedBuildingIndex = Number.isFinite(cachedIndexRaw)
-          ? Math.max(0, Math.floor(cachedIndexRaw))
-          : -1;
-        let district = cachedDistrictId ? resolveDistrictById(cachedDistrictId, window.Empire.districts) : null;
-        let buildingIndex = cachedBuildingIndex;
-        const onboardingFallbackActive = button.dataset.marketBuildingOnboardingFallback === "1";
-
-        if (!district || buildingIndex < 0) {
-          const instance = resolveOwnedBuildingInstance(baseName)
-            || resolveOnboardingShortcutFallback(baseName);
-          if (instance?.district) {
-            district = instance.district;
-          }
-          if (Number.isFinite(Number(instance?.buildingIndex))) {
-            buildingIndex = Math.max(0, Math.floor(Number(instance.buildingIndex)));
-          }
-        }
-
-        const buildings = Array.isArray(district?.buildings) ? district.buildings : [];
-        const resolvedBaseName = String((buildingIndex >= 0 && buildings[buildingIndex]) || baseName || "Neznámá budova");
-        const overrides = Array.isArray(district?.buildingNameOverrides) ? district.buildingNameOverrides : [];
-        const variantRaw = buildingIndex >= 0 ? String(overrides[buildingIndex] || "").trim() : "";
-        const detailInput = {
-          baseName: resolvedBaseName,
-          variantName: variantRaw && variantRaw !== resolvedBaseName ? variantRaw : null,
-          districtId: district?.id ?? null,
-          buildingIndex: buildingIndex >= 0 ? buildingIndex : (onboardingFallbackActive ? null : buildingIndex)
-        };
-
-        if (window.Empire.Map?.showBuildingDetail) {
-          try {
-            window.Empire.Map.showBuildingDetail(detailInput, district);
-            return;
-          } catch (error) {
-            const message = error instanceof Error ? error.message : "neznámá chyba";
-            pushEvent(`Detail budovy se nepodařilo otevřít: ${message}`);
-            return;
-          }
-        }
-        pushEvent("Detail budovy není dostupný.");
-      });
-    });
+    return getMarketFacade()?.initMarketBuildingShortcuts?.();
   }
 
   function formatMarketResourceName(resourceKey) {
-    return MARKET_RESOURCE_LABELS[resourceKey] || String(resourceKey || "").replace(/_/g, " ");
+    return getMarketFacade()?.formatMarketResourceName?.(resourceKey)
+      || MARKET_RESOURCE_LABELS[resourceKey]
+      || String(resourceKey || "").replace(/_/g, " ");
   }
 
   function formatCompactMarketResourceName(resourceKey) {
-    const compactLabels = {
-      neon_dust: "ND",
-      pulse_shot: "PS",
-      velvet_smoke: "VS",
-      ghost_serum: "GS",
-      overdrive_x: "OX",
-      weapons: "Zbraně",
-      materials: "Mat",
-      data_shards: "Data",
-      chemicals: "Chem",
-      biomass: "Bio",
-      stim_pack: "Stim",
-      metal_parts: "MP",
-      tech_core: "TC",
-      combat_module: "CM",
-      baseball_bat: "Pálka",
-      street_pistol: "Pistole",
-      grenade: "Granát",
-      smg: "SMG",
-      bazooka: "Bazuka",
-      bulletproof_vest: "Vesta",
-      steel_barricades: "Barikády",
-      security_cameras: "Kamery",
-      auto_mg_nest: "MG Nest",
-      alarm_system: "Alarm"
-    };
-    return compactLabels[resourceKey] || formatMarketResourceName(resourceKey);
+    return getMarketFacade()?.formatCompactMarketResourceName?.(resourceKey)
+      || formatMarketResourceName(resourceKey);
   }
 
   function renderMarketState(resourceKey, marketTab = "server") {
-    const summary = document.getElementById("market-balance-summary");
-    const sellOrders = document.getElementById("market-sell-orders");
-    const buyOrders = document.getElementById("market-buy-orders");
-    const myOrders = document.getElementById("market-my-orders");
-    const tradeHistory = document.getElementById("market-trade-history");
-    const sellCount = document.getElementById("market-sell-count");
-    const buyCount = document.getElementById("market-buy-count");
-    const myCount = document.getElementById("market-my-count");
-    const tradeCount = document.getElementById("market-trade-count");
-    if (!summary || !sellOrders || !buyOrders || !myOrders || !tradeHistory || !sellCount || !buyCount || !myCount || !tradeCount) return;
-
-    const market = cachedMarket || { balances: {}, orderBook: [], myOrders: [] };
-    const balances = market.balances || {};
-    const money = resolveMoneyBreakdown(balances);
-    const selectedOrders = (market.orderBook || []).filter((order) => order.resourceKey === resourceKey && order.status === "open");
-    const sells = selectedOrders.filter((order) => order.side === "sell");
-    const buys = selectedOrders.filter((order) => order.side === "buy");
-    const mine = (market.myOrders || []).filter((order) => order.resourceKey === resourceKey && order.status === "open");
-    const trades = (market.recentTrades || []).filter((trade) => trade.resourceKey === resourceKey);
-
-    const activeResourceLabel = formatMarketResourceName(resourceKey);
-    const summaryPills = marketTab === "black"
-      ? [
-          `Čisté: $${money.cleanMoney}`,
-          `Kontrakt: ${activeResourceLabel}`,
-          `Ve skladu: ${balances[resourceKeyToBalanceKey(resourceKey)] || 0}`,
-          `Fee: ${market.marketFeePct || 0}%`
-        ]
-      : [
-          `Čisté: $${money.cleanMoney}`,
-          `Drogy: ${balances.drugs || 0}`,
-          `Zbraně: ${balances.weapons || 0}`,
-          `Materiály: ${balances.materials || 0}`,
-          `Fee: ${market.marketFeePct || 0}%`
-        ];
-
-    summary.innerHTML = summaryPills
-      .map((label) => `<div class="market-balance-pill">${label}</div>`)
-      .join("");
-
-    sellCount.textContent = String(sells.length);
-    buyCount.textContent = String(buys.length);
-    myCount.textContent = String(mine.length);
-    tradeCount.textContent = String(trades.length);
-
-    sellOrders.innerHTML = renderMarketOrdersList(sells, "sell");
-    buyOrders.innerHTML = renderMarketOrdersList(buys, "buy");
-    myOrders.innerHTML = renderMyOrdersList(mine);
-    tradeHistory.innerHTML = renderTradeHistoryList(trades);
-  }
-
-  function renderMarketOrdersList(orders, side) {
-    if (!orders.length) {
-      return '<div class="market-modal__empty">Žádné aktivní příkazy.</div>';
-    }
-    return orders
-      .map(
-        (order) => `
-          <div class="market-order market-order--${side}">
-            <div class="market-order__head">
-              <span>${order.username}</span>
-              <strong>$${order.pricePerUnit}</strong>
-            </div>
-            <div class="market-order__meta">${formatCompactMarketResourceName(order.resourceKey)} • ${order.remainingQuantity} ks</div>
-          </div>
-        `
-      )
-      .join("");
-  }
-
-  function renderMyOrdersList(orders) {
-    if (!orders.length) {
-      return '<div class="market-modal__empty">Nemáš žádné otevřené příkazy.</div>';
-    }
-    return orders
-      .map(
-        (order) => `
-          <div class="market-order market-order--mine">
-            <div class="market-order__head">
-              <span>${order.side === "buy" ? "Poptávka" : "Nabídka"}</span>
-              <strong>$${order.pricePerUnit}</strong>
-            </div>
-            <div class="market-order__meta">${formatCompactMarketResourceName(order.resourceKey)} • ${order.remainingQuantity}/${order.quantity} ks</div>
-            <button class="btn btn--ghost" data-market-cancel="${order.id}">Zrušit</button>
-          </div>
-        `
-      )
-      .join("");
-  }
-
-  function renderTradeHistoryList(trades) {
-    if (!trades.length) {
-      return '<div class="market-modal__empty">Žádné nedávné obchody.</div>';
-    }
-    return trades
-      .map(
-        (trade) => `
-          <div class="market-order market-order--history">
-            <div class="market-order__head">
-              <span>${formatCompactMarketResourceName(trade.resourceKey)} • ${trade.quantity} ks</span>
-              <strong>$${trade.pricePerUnit}</strong>
-            </div>
-            <div class="market-order__meta">Fee: $${trade.feePaid}</div>
-          </div>
-        `
-      )
-      .join("");
+    return getMarketFacade()?.renderMarketState?.(resourceKey, marketTab);
   }
 
   async function handleMarketUpdate() {
-    const root = document.getElementById("market-modal");
-    if (!root || root.classList.contains("hidden") || !marketRefreshHandler) return;
-    await marketRefreshHandler();
+    return getMarketFacade()?.handleMarketUpdate?.();
   }
 
   function getLocalMarketState() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(LOCAL_MARKET_KEY) || "null");
-      if (parsed && parsed.balances && Array.isArray(parsed.orderBook) && Array.isArray(parsed.myOrders) && Array.isArray(parsed.recentTrades)) {
-        normalizeLocalMarketBalances(parsed.balances);
-        let normalizedChanged = false;
-        ["metalParts", "techCore", "combatModule"].forEach((key) => {
-          if (Number(parsed.balances[key] || 0) !== 20) {
-            parsed.balances[key] = 20;
-            normalizedChanged = true;
-          }
-        });
-        if (normalizedChanged) {
-          saveLocalMarketState(parsed);
-        }
-        const dirty = Number(parsed.balances.dirtyMoney || 0);
-        if (!Number.isFinite(dirty) || dirty < GUEST_DEFAULT_DIRTY_MONEY) {
-          parsed.balances.dirtyMoney = GUEST_DEFAULT_DIRTY_MONEY;
-          parsed.balances.money = Number(parsed.balances.cleanMoney || 0) + Number(parsed.balances.dirtyMoney || 0);
-          saveLocalMarketState(parsed);
-        }
-        return parsed;
-      }
-    } catch {}
-    const seeded = {
-      balances: {
-        money: 17000,
-        cleanMoney: 12000,
-        dirtyMoney: GUEST_DEFAULT_DIRTY_MONEY,
-        drugs: 80,
-        chemicals: 36,
-        biomass: 28,
-        stimPack: 12,
-        neonDust: 44,
-        pulseShot: 14,
-        velvetSmoke: 12,
-        ghostSerum: 7,
-        overdriveX: 3,
-        metalParts: 20,
-        techCore: 20,
-        combatModule: 20,
-        weapons: 30,
-        baseballBat: 8,
-        streetPistol: 6,
-        grenade: 4,
-        smg: 3,
-        bazooka: 1,
-        bulletproofVest: 7,
-        steelBarricades: 5,
-        securityCameras: 4,
-        autoMgNest: 2,
-        alarmSystem: 3,
-        materials: 120,
-        dataShards: 18
-      },
-      orderBook: [
-        makeSeedOrder("neon_dust", "sell", 35, 92, "Neon Vipers"),
-        makeSeedOrder("pulse_shot", "buy", 8, 245, "Black Sun Pact"),
-        makeSeedOrder("velvet_smoke", "sell", 6, 310, "Velvet Circuit"),
-        makeSeedOrder("ghost_serum", "buy", 4, 420, "Ghost Wire"),
-        makeSeedOrder("overdrive_x", "sell", 2, 650, "Crimson Apex"),
-        makeSeedOrder("weapons", "sell", 12, 260, "Chrome Cartel"),
-        makeSeedOrder("weapons", "buy", 10, 235, "Raven"),
-        makeSeedOrder("materials", "sell", 60, 78, "Factory 9"),
-        makeSeedOrder("materials", "buy", 40, 70, "Steel Dogs"),
-        makeSeedOrder("chemicals", "sell", 18, 48, "Cold Script"),
-        makeSeedOrder("biomass", "buy", 14, 42, "Bio Verge"),
-        makeSeedOrder("stim_pack", "sell", 6, 130, "White Vein"),
-        makeSeedOrder("metal_parts", "sell", 28, 66, "Forge Lane"),
-        makeSeedOrder("tech_core", "buy", 10, 158, "Helix Nine"),
-        makeSeedOrder("combat_module", "sell", 4, 420, "Core Hammer"),
-        makeSeedOrder("street_pistol", "sell", 5, 220, "Brass Echo"),
-        makeSeedOrder("smg", "buy", 3, 460, "Riot Thread"),
-        makeSeedOrder("bulletproof_vest", "sell", 4, 210, "Shield Loop"),
-        makeSeedOrder("alarm_system", "buy", 2, 320, "Zero Ward"),
-        makeSeedOrder("data_shards", "sell", 8, 420, "Hex"),
-        makeSeedOrder("data_shards", "buy", 6, 390, "Ghost Wire")
-      ],
-      myOrders: [],
-      recentTrades: [
-        { resourceKey: "neon_dust", quantity: 18, pricePerUnit: 96, feePaid: 86, createdAt: Date.now() - 200000 },
-        { resourceKey: "pulse_shot", quantity: 3, pricePerUnit: 236, feePaid: 35, createdAt: Date.now() - 150000 },
-        { resourceKey: "weapons", quantity: 4, pricePerUnit: 248, feePaid: 49, createdAt: Date.now() - 120000 },
-        { resourceKey: "metal_parts", quantity: 16, pricePerUnit: 64, feePaid: 51, createdAt: Date.now() - 90000 },
-        { resourceKey: "street_pistol", quantity: 2, pricePerUnit: 214, feePaid: 21, createdAt: Date.now() - 60000 }
-      ],
-      marketFeePct: 5
-    };
-    saveLocalMarketState(seeded);
-    return seeded;
+    return getMarketFacade()?.getLocalMarketState?.() || {};
   }
 
   function enforceLocalGuestStorageDefaults() {
-    if (window.Empire.token) return;
-    const state = getLocalMarketState();
-    if (!state?.balances) return;
-    normalizeLocalMarketBalances(state.balances);
-    state.balances.metalParts = 20;
-    state.balances.techCore = 20;
-    state.balances.combatModule = 20;
-    if (Array.isArray(state.myOrders) && state.myOrders.length) {
-      state.myOrders = [];
-    }
-    saveLocalMarketState(state);
+    return getMarketFacade()?.enforceLocalGuestStorageDefaults?.();
   }
 
   function saveLocalMarketState(state) {
-    normalizeLocalMarketBalances(state.balances || {});
-    localStorage.setItem(LOCAL_MARKET_KEY, JSON.stringify(state));
+    return getMarketFacade()?.saveLocalMarketState?.(state);
   }
 
   function normalizeLocalMarketBalances(balances) {
-    if (!balances) return;
-    const money = resolveMoneyBreakdown(balances);
-    balances.cleanMoney = money.cleanMoney;
-    balances.dirtyMoney = money.dirtyMoney;
-    balances.money = money.totalMoney;
-    const legacyDrugTotal = Number.isFinite(Number(balances.drugs))
-      ? Math.max(0, Math.floor(Number(balances.drugs)))
-      : 0;
-    storageDrugTypes.forEach((drug) => {
-      const value = Number(balances[drug.key] || 0);
-      balances[drug.key] = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
-    });
-    let drugTotal = storageDrugTypes.reduce((sum, drug) => sum + Number(balances[drug.key] || 0), 0);
-    if (drugTotal === 0 && legacyDrugTotal > 0) {
-      const split = [0.55, 0.18, 0.15, 0.08, 0.04];
-      let used = 0;
-      storageDrugTypes.forEach((drug, index) => {
-        if (index === storageDrugTypes.length - 1) {
-          balances[drug.key] = Math.max(0, legacyDrugTotal - used);
-          return;
-        }
-        const part = Math.floor(legacyDrugTotal * split[index]);
-        balances[drug.key] = part;
-        used += part;
-      });
-      drugTotal = storageDrugTypes.reduce((sum, drug) => sum + Number(balances[drug.key] || 0), 0);
-    }
-    balances.drugs = Math.max(0, Math.floor(drugTotal));
-    [
-      "chemicals",
-      "biomass",
-      "stimPack",
-      "metalParts",
-      "techCore",
-      "combatModule",
-      "weapons",
-      "materials",
-      "dataShards",
-      "baseballBat",
-      "streetPistol",
-      "grenade",
-      "smg",
-      "bazooka",
-      "bulletproofVest",
-      "steelBarricades",
-      "securityCameras",
-      "autoMgNest",
-      "alarmSystem"
-    ].forEach((key) => {
-      const value = Number(balances[key] || 0);
-      balances[key] = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
-    });
+    return getMarketFacade()?.normalizeLocalMarketBalances?.(balances);
   }
 
   function spendLocalMoney(balances, amount) {
-    normalizeLocalMarketBalances(balances);
-    if (!Number.isInteger(amount) || amount < 0) return false;
-    let remaining = amount;
-    const fromClean = Math.min(Number(balances.cleanMoney || 0), remaining);
-    balances.cleanMoney -= fromClean;
-    remaining -= fromClean;
-    const fromDirty = Math.min(Number(balances.dirtyMoney || 0), remaining);
-    balances.dirtyMoney -= fromDirty;
-    remaining -= fromDirty;
-    balances.money = Number(balances.cleanMoney || 0) + Number(balances.dirtyMoney || 0);
-    return remaining === 0;
+    return getMarketFacade()?.spendLocalMoney?.(balances, amount) || false;
   }
 
   function addLocalMoney(balances, amount, bucket = "clean") {
-    normalizeLocalMarketBalances(balances);
-    const value = Number(amount || 0);
-    if (value <= 0) return;
-    if (bucket === "dirty") {
-      balances.dirtyMoney += value;
-    } else {
-      balances.cleanMoney += value;
-    }
-    balances.money = Number(balances.cleanMoney || 0) + Number(balances.dirtyMoney || 0);
+    return getMarketFacade()?.addLocalMoney?.(balances, amount, bucket);
   }
 
   function getEconomySnapshotFromDom() {
-    const parseMoney = (id) => {
-      const text = document.getElementById(id)?.textContent || "0";
-      const normalized = String(text).replace(/[^\d-]/g, "");
-      const parsed = Number(normalized || 0);
-      return Number.isFinite(parsed) ? parsed : 0;
-    };
-    const parseStat = (id) => {
-      const text = document.getElementById(id)?.textContent || "0";
-      const normalized = String(text).replace(/[^\d-]/g, "");
-      const parsed = Number(normalized || 0);
-      return Number.isFinite(parsed) ? parsed : 0;
-    };
-    const influenceEl = document.getElementById("stat-influence");
-    const influenceFromDataset = Number(influenceEl?.dataset?.influenceValue);
-    const influenceValue = Number.isFinite(influenceFromDataset)
-      ? normalizeSpyCount(influenceFromDataset, 0)
-      : parseStat("stat-influence");
-    return {
-      cleanMoney: parseMoney("stat-clean-money"),
-      dirtyMoney: parseMoney("stat-dirty-money"),
-      influence: influenceValue,
-      spyCount: getSpyCount(),
-      spies: getSpyCount(),
-      drugs: 0,
-      drugInventory: {},
-      weapons: 0,
-      defense: 0,
-      materials: 0
-    };
+    return getMarketFacade()?.getEconomySnapshotFromDom?.() || {};
   }
 
   function ensureEconomyCache() {
-    if (!cachedEconomy || typeof cachedEconomy !== "object") {
-      cachedEconomy = getEconomySnapshotFromDom();
-    }
-    const currentInventory = cachedEconomy.drugInventory && typeof cachedEconomy.drugInventory === "object"
-      ? cachedEconomy.drugInventory
-      : {};
-    const normalizedDrugInventory = storageDrugTypes.reduce((acc, item) => {
-      const value = Number(currentInventory[item.key] ?? cachedEconomy[item.key] ?? 0);
-      acc[item.key] = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
-      return acc;
-    }, {});
-    cachedEconomy.drugInventory = normalizedDrugInventory;
-    cachedEconomy.drugs = storageDrugTypes.reduce(
-      (sum, item) => sum + Number(normalizedDrugInventory[item.key] || 0),
-      0
-    );
-    const money = resolveMoneyBreakdown(cachedEconomy || {});
-    cachedEconomy.cleanMoney = money.cleanMoney;
-    cachedEconomy.dirtyMoney = money.dirtyMoney;
-    cachedEconomy.balance = money.totalMoney;
-    const economySpyCount = resolveSpyCountFromPayload(cachedEconomy);
-    if (economySpyCount != null) {
-      setSpyCount(economySpyCount, { persist: true });
-    }
-    cachedEconomy.spyCount = getSpyCount();
-    cachedEconomy.spies = getSpyCount();
-    return cachedEconomy;
+    return getMarketFacade()?.ensureEconomyCache?.() || {};
   }
 
   function getEconomySnapshot() {
-    const snapshot = ensureEconomyCache();
-    return JSON.parse(JSON.stringify(snapshot));
+    return getMarketFacade()?.getEconomySnapshot?.() || {};
   }
 
   function trySpendCash(amount) {
-    const required = Number.isFinite(Number(amount)) ? Math.max(0, Math.floor(Number(amount))) : 0;
-    if (required <= 0) return { ok: true, spent: 0 };
-    const economy = ensureEconomyCache();
-    const money = resolveMoneyBreakdown(economy);
-    if (money.totalMoney < required) {
-      return { ok: false, reason: "insufficient_cash", available: money.totalMoney };
-    }
-
-    let remaining = required;
-    const fromClean = Math.min(money.cleanMoney, remaining);
-    money.cleanMoney -= fromClean;
-    remaining -= fromClean;
-    const fromDirty = Math.min(money.dirtyMoney, remaining);
-    money.dirtyMoney -= fromDirty;
-    remaining -= fromDirty;
-
-    economy.cleanMoney = money.cleanMoney;
-    economy.dirtyMoney = money.dirtyMoney;
-    economy.balance = money.cleanMoney + money.dirtyMoney;
-    updateEconomy(economy);
-    return { ok: true, spent: required, cleanSpent: fromClean, dirtySpent: fromDirty };
+    return getMarketFacade()?.trySpendCash?.(amount) || { ok: false, reason: "unavailable" };
   }
 
   function trySpendCleanCash(amount) {
-    const required = Number.isFinite(Number(amount)) ? Math.max(0, Math.floor(Number(amount))) : 0;
-    if (required <= 0) return { ok: true, spent: 0 };
-    const economy = ensureEconomyCache();
-    const money = resolveMoneyBreakdown(economy);
-    if (money.cleanMoney < required) {
-      return { ok: false, reason: "insufficient_clean_cash", available: money.cleanMoney };
-    }
-
-    money.cleanMoney -= required;
-    economy.cleanMoney = money.cleanMoney;
-    economy.dirtyMoney = money.dirtyMoney;
-    economy.balance = money.cleanMoney + money.dirtyMoney;
-    updateEconomy(economy);
-    return { ok: true, spent: required, cleanSpent: required, dirtySpent: 0 };
+    return getMarketFacade()?.trySpendCleanCash?.(amount) || { ok: false, reason: "unavailable" };
   }
 
   function addCleanCash(amount) {
-    const value = Number.isFinite(Number(amount)) ? Math.max(0, Math.floor(Number(amount))) : 0;
-    if (value <= 0) return 0;
-    const economy = ensureEconomyCache();
-    economy.cleanMoney = Number(economy.cleanMoney || 0) + value;
-    economy.balance = Number(economy.cleanMoney || 0) + Number(economy.dirtyMoney || 0);
-    updateEconomy(economy);
-    return value;
+    return getMarketFacade()?.addCleanCash?.(amount) || 0;
   }
 
   function addDirtyCash(amount) {
-    const value = Number.isFinite(Number(amount)) ? Math.max(0, Math.floor(Number(amount))) : 0;
-    if (value <= 0) return 0;
-    const economy = ensureEconomyCache();
-    economy.dirtyMoney = Number(economy.dirtyMoney || 0) + value;
-    economy.balance = Number(economy.cleanMoney || 0) + Number(economy.dirtyMoney || 0);
-    updateEconomy(economy);
-    return value;
+    return getMarketFacade()?.addDirtyCash?.(amount) || 0;
   }
 
   function trySpendMaterials(amount) {
-    const required = Number.isFinite(Number(amount)) ? Math.max(0, Math.floor(Number(amount))) : 0;
-    if (required <= 0) return { ok: true, spent: 0 };
-    const removed = removeEconomyResource("materials", required);
-    if (removed < required) {
-      if (removed > 0) addEconomyResource("materials", removed);
-      return { ok: false, reason: "insufficient_materials", available: removed };
-    }
-    return { ok: true, spent: required };
+    return getMarketFacade()?.trySpendMaterials?.(amount) || { ok: false, reason: "unavailable" };
   }
 
   function addMaterials(amount) {
-    return addEconomyResource("materials", amount);
+    return getMarketFacade()?.addMaterials?.(amount) || 0;
   }
 
   function addInfluence(amount) {
-    const value = Number.isFinite(Number(amount)) ? Math.max(0, Math.floor(Number(amount))) : 0;
-    if (value <= 0) return 0;
-    const economy = ensureEconomyCache();
-    economy.influence = Math.max(0, Number(economy.influence || 0) + value);
-    updateEconomy(economy);
-    return value;
+    return getMarketFacade()?.addInfluence?.(amount) || 0;
   }
 
   function readBountyEntries() {
@@ -21410,23 +17680,7 @@ window.Empire.UI = (() => {
   }
 
   function launderDirtyCash(portion) {
-    const ratioRaw = Number(portion);
-    if (!Number.isFinite(ratioRaw)) return 0;
-    const ratio = Math.max(0, Math.min(1, ratioRaw > 1 ? ratioRaw / 100 : ratioRaw));
-    if (ratio <= 0) return 0;
-
-    const economy = ensureEconomyCache();
-    const money = resolveMoneyBreakdown(economy);
-    const laundered = Math.max(0, Math.floor(money.dirtyMoney * ratio));
-    if (laundered <= 0) return 0;
-
-    money.dirtyMoney = Math.max(0, money.dirtyMoney - laundered);
-    money.cleanMoney += laundered;
-    economy.cleanMoney = money.cleanMoney;
-    economy.dirtyMoney = money.dirtyMoney;
-    economy.balance = money.cleanMoney + money.dirtyMoney;
-    updateEconomy(economy);
-    return laundered;
+    return getMarketFacade()?.launderDirtyCash?.(portion) || 0;
   }
 
   function makeSeedOrder(resourceKey, side, remainingQuantity, pricePerUnit, username) {
@@ -21465,44 +17719,11 @@ window.Empire.UI = (() => {
   }
 
   function addEconomyResource(resourceKey, amount) {
-    const value = Number.isFinite(Number(amount)) ? Math.max(0, Math.floor(Number(amount))) : 0;
-    if (value <= 0) return 0;
-    const economy = ensureEconomyCache();
-    const balanceKey = resourceKeyToBalanceKey(resourceKey);
-    economy[balanceKey] = Math.max(0, Math.floor(Number(economy[balanceKey] || 0) + value));
-    if (["metalParts", "techCore", "combatModule"].includes(balanceKey)) {
-      economy.materials = Math.max(0, Math.floor(Number(economy.materials || 0) + value));
-    } else if (storageDrugTypes.some((item) => item.key === balanceKey)) {
-      economy.drugInventory = economy.drugInventory || {};
-      economy.drugInventory[balanceKey] = Math.max(0, Math.floor(Number(economy.drugInventory[balanceKey] || 0) + value));
-      economy.drugs = Math.max(0, Math.floor(Number(economy.drugs || 0) + value));
-    } else if (["baseballBat", "streetPistol", "grenade", "smg", "bazooka"].includes(balanceKey)) {
-      economy.weapons = Math.max(0, Math.floor(Number(economy.weapons || 0) + value));
-    }
-    updateEconomy(economy);
-    return value;
+    return getMarketEconomyController()?.addEconomyResource?.(resourceKey, amount) || 0;
   }
 
   function removeEconomyResource(resourceKey, amount) {
-    const value = Number.isFinite(Number(amount)) ? Math.max(0, Math.floor(Number(amount))) : 0;
-    if (value <= 0) return 0;
-    const economy = ensureEconomyCache();
-    const balanceKey = resourceKeyToBalanceKey(resourceKey);
-    const available = Math.max(0, Math.floor(Number(economy[balanceKey] || 0)));
-    const removed = Math.min(available, value);
-    if (removed <= 0) return 0;
-    economy[balanceKey] = Math.max(0, available - removed);
-    if (["metalParts", "techCore", "combatModule"].includes(balanceKey)) {
-      economy.materials = Math.max(0, Math.floor(Number(economy.materials || 0) - removed));
-    } else if (storageDrugTypes.some((item) => item.key === balanceKey)) {
-      economy.drugInventory = economy.drugInventory || {};
-      economy.drugInventory[balanceKey] = Math.max(0, Math.floor(Number(economy.drugInventory[balanceKey] || 0) - removed));
-      economy.drugs = Math.max(0, Math.floor(Number(economy.drugs || 0) - removed));
-    } else if (["baseballBat", "streetPistol", "grenade", "smg", "bazooka"].includes(balanceKey)) {
-      economy.weapons = Math.max(0, Math.floor(Number(economy.weapons || 0) - removed));
-    }
-    updateEconomy(economy);
-    return removed;
+    return getMarketEconomyController()?.removeEconomyResource?.(resourceKey, amount) || 0;
   }
 
   function readOwnerRaidStorageState() {
@@ -21596,224 +17817,27 @@ window.Empire.UI = (() => {
   }
 
   function createLocalMarketOrder({ resourceKey, side, quantity, pricePerUnit }) {
-    const state = getLocalMarketState();
-    normalizeLocalMarketBalances(state.balances || {});
-    if (!["buy", "sell"].includes(side)) return { error: "invalid_side" };
-    if (!Number.isInteger(quantity) || quantity <= 0) return { error: "invalid_quantity" };
-    if (!Number.isInteger(pricePerUnit) || pricePerUnit <= 0) return { error: "invalid_price" };
-
-    const balanceKey = resourceKeyToBalanceKey(resourceKey);
-    if (side === "sell" && Number(state.balances[balanceKey] || 0) < quantity) {
-      return { error: "insufficient_resource" };
-    }
-    const orderCost = quantity * pricePerUnit;
-    if (side === "buy" && Number(state.balances.money || 0) < orderCost) {
-      return { error: "insufficient_money" };
-    }
-
-    if (side === "sell") {
-      state.balances[balanceKey] -= quantity;
-    } else {
-      if (!spendLocalMoney(state.balances, orderCost)) {
-        return { error: "insufficient_money" };
-      }
-    }
-
-    const order = {
-      id: `local-${Date.now()}`,
-      resourceKey,
-      side,
-      quantity,
-      remainingQuantity: quantity,
-      pricePerUnit,
-      status: "open",
-      createdAt: Date.now()
-    };
-    state.myOrders.unshift(order);
-    matchLocalMarketOrder(state, order);
-    saveLocalMarketState(state);
-    return { ok: true };
+    return getMarketEconomyController()?.createLocalMarketOrder?.({ resourceKey, side, quantity, pricePerUnit }) || { error: "unavailable" };
   }
 
   function cancelLocalMarketOrder(orderId) {
-    const state = getLocalMarketState();
-    normalizeLocalMarketBalances(state.balances || {});
-    const order = state.myOrders.find((item) => item.id === orderId && item.status === "open");
-    if (!order) return { error: "order_not_found" };
-
-    const balanceKey = resourceKeyToBalanceKey(order.resourceKey);
-    if (order.side === "sell") {
-      state.balances[balanceKey] += order.remainingQuantity;
-    } else {
-      addLocalMoney(state.balances, order.remainingQuantity * order.pricePerUnit, "clean");
-    }
-    state.myOrders = (state.myOrders || []).filter((item) => item.id !== orderId);
-    state.orderBook = (state.orderBook || []).filter((item) => item.id !== orderId);
-    saveLocalMarketState(state);
-    return { ok: true };
+    return getMarketEconomyController()?.cancelLocalMarketOrder?.(orderId) || { error: "unavailable" };
   }
 
   function matchLocalMarketOrder(state, order) {
-    normalizeLocalMarketBalances(state.balances || {});
-    const candidates = (state.orderBook || []).filter((entry) =>
-      entry.resourceKey === order.resourceKey &&
-      entry.side !== order.side &&
-      ((order.side === "buy" && entry.pricePerUnit <= order.pricePerUnit) ||
-        (order.side === "sell" && entry.pricePerUnit >= order.pricePerUnit))
-    );
-
-    const sorted = candidates.sort((a, b) =>
-      order.side === "buy"
-        ? a.pricePerUnit - b.pricePerUnit
-        : b.pricePerUnit - a.pricePerUnit
-    );
-
-    const balanceKey = resourceKeyToBalanceKey(order.resourceKey);
-
-    sorted.forEach((entry) => {
-      if (order.remainingQuantity <= 0) return;
-      const traded = Math.min(order.remainingQuantity, entry.remainingQuantity);
-      const gross = traded * entry.pricePerUnit;
-      const feePaid = Math.floor(gross * 0.05);
-
-      if (order.side === "buy") {
-        state.balances[balanceKey] += traded;
-        addLocalMoney(state.balances, traded * Math.max(0, order.pricePerUnit - entry.pricePerUnit), "clean");
-      } else {
-        addLocalMoney(state.balances, gross - feePaid, "dirty");
-      }
-
-      order.remainingQuantity -= traded;
-      entry.remainingQuantity -= traded;
-      state.recentTrades.unshift({
-        resourceKey: order.resourceKey,
-        quantity: traded,
-        pricePerUnit: entry.pricePerUnit,
-        feePaid,
-        createdAt: Date.now()
-      });
-    });
-
-    state.orderBook = (state.orderBook || []).filter((entry) => entry.remainingQuantity > 0);
-    state.recentTrades = state.recentTrades.slice(0, 30);
-    order.status = order.remainingQuantity === 0 ? "filled" : "open";
+    return getMarketEconomyController()?.matchLocalMarketOrder?.(state, order);
   }
 
   function syncGuestEconomyFromMarket() {
-    if (window.Empire.token) return;
-    const state = getLocalMarketState();
-    const money = resolveMoneyBreakdown(state.balances || {});
-    const currentProfile = cachedProfile || window.Empire.player || null;
-    const currentInfluence = Math.max(
-      0,
-      Math.floor(Number(
-        currentProfile?.influence
-        ?? cachedEconomy?.influence
-        ?? 0
-      ) || 0)
-    );
-    if (currentProfile && typeof currentProfile === "object") {
-      const nextProfile = applyMoneyToProfileSnapshot(currentProfile, money);
-      nextProfile.influence = currentInfluence;
-      if (isBlackoutLikeScenario()) {
-        nextProfile.sources = buildBlackoutPlayerSourcesSnapshot(window.Empire.districts, resolveActiveScenarioOwnerName());
-        nextProfile.source = nextProfile.sources;
-      }
-      cachedProfile = nextProfile;
-      window.Empire.player = {
-        ...(window.Empire.player || {}),
-        ...nextProfile
-      };
-    }
-    const drugInventory = storageDrugTypes.reduce((acc, item) => {
-      acc[item.key] = Number(state.balances[item.key] || 0);
-      return acc;
-    }, {});
-    updateEconomy({
-      balance: money.totalMoney,
-      cleanMoney: money.cleanMoney,
-      dirtyMoney: money.dirtyMoney,
-      influence: currentInfluence,
-      drugs: Number(state.balances.drugs || 0),
-      neonDust: Number(state.balances.neonDust || 0),
-      pulseShot: Number(state.balances.pulseShot || 0),
-      velvetSmoke: Number(state.balances.velvetSmoke || 0),
-      ghostSerum: Number(state.balances.ghostSerum || 0),
-      overdriveX: Number(state.balances.overdriveX || 0),
-      drugInventory,
-      weapons: Number(state.balances.weapons || 0),
-      defense: 0,
-      materials: Number(state.balances.materials || 0),
-      metalParts: Number(state.balances.metalParts || 0),
-      techCore: Number(state.balances.techCore || 0),
-      combatModule: Number(state.balances.combatModule || 0),
-      dataShards: Number(state.balances.dataShards || 0)
-    });
-    if (currentProfile && typeof currentProfile === "object") {
-      updateProfile(window.Empire.player);
-    }
+    return getMarketEconomyController()?.syncGuestEconomyFromMarket?.();
   }
 
   function initWeaponsPopover() {
-    const wrap = document.getElementById("stat-weapons-wrap");
-    const popover = document.getElementById("weapons-popover");
-    if (!wrap || !popover) return;
-    let isOpen = false;
-
-    const open = () => {
-      popover.classList.add("is-open");
-      isOpen = true;
-    };
-
-    const close = () => {
-      popover.classList.remove("is-open");
-      isOpen = false;
-    };
-
-    wrap.addEventListener("click", (event) => {
-      const target = event.target;
-      if (target instanceof Node && popover.contains(target)) return;
-      event.stopPropagation();
-      if (isOpen) close();
-      else open();
-    });
-    popover.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-      const button = target.closest("[data-weapon-action]");
-      if (!button) return;
-      const action = button.dataset.weaponAction;
-      if (!action) return;
-      openWeaponsModal(action);
-    });
+    return getInventoryController()?.initWeaponsPopover?.();
   }
 
   function openWeaponsModal(mode) {
-    const root = document.getElementById("weapons-modal");
-    const list = document.getElementById("weapons-modal-list");
-    const title = document.getElementById("weapons-modal-title");
-    if (!root || !list || !title) return;
-    const currentGangMembers = countPlayerControlledPopulation(cachedProfile || window.Empire.player || {});
-    const isAttack = mode === "attack";
-    const stats = isAttack ? attackWeaponStats : defenseWeaponStats;
-    const counts = isAttack ? resolveWeaponCounts() : resolveDefenseCounts();
-    title.textContent = isAttack ? "Útočné zbraně" : "Obranné zbraně";
-    list.innerHTML = stats
-      .map((item) => {
-        const key = Object.keys(counts).find((k) => k.toLowerCase() === item.name.toLowerCase());
-        const value = key ? counts[key] : 0;
-        const unlocked = currentGangMembers >= item.requiredMembers;
-        return `
-          <div class="weapons-modal__item ${unlocked ? "" : "is-locked"}">
-            <span class="weapons-modal__name">${item.name}</span>
-            <span class="weapons-modal__count">${value} ks</span>
-            <span class="weapons-modal__power">Síla ${item.power} • Min. ${item.requiredMembers} členů${unlocked ? "" : " • Nelze použít"}</span>
-          </div>
-        `;
-      })
-      .join("");
-    root.classList.remove("hidden");
+    return getInventoryController()?.openWeaponsModal?.(mode);
   }
 
   function collectBlackoutMapPlayerSummaries() {
@@ -21842,179 +17866,33 @@ window.Empire.UI = (() => {
   }
 
   function hydrateProfileModal(profile) {
-    if (!profile) return;
-    const economy = cachedEconomy || {};
-    const moneyFromProfile = resolveMoneyBreakdown(profile || {});
-    const moneyFromEconomy = resolveMoneyBreakdown(economy || {});
-    const guestUsername = String(localStorage.getItem("empire_guest_username") || "").trim();
-    const guestGangName = String(localStorage.getItem("empire_gang_name") || "").trim();
-    const factionLabel = formatFactionLabel(profile.structure || localStorage.getItem("empire_structure"));
-    const wantedLevel = resolveWantedLevel(profile);
-    const influenceRaw = Number(profile.influence ?? economy.influence ?? 0);
-    const influenceValue = Number.isFinite(influenceRaw) ? Math.max(0, Math.floor(influenceRaw)) : 0;
-    const setText = (id, value) => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = value;
-    };
-    const avatar = resolveActiveProfileAvatar();
-    const avatarImg = document.getElementById("profile-avatar");
-    if (avatarImg) {
-      if (avatar) {
-        avatarImg.src = avatar;
-        avatarImg.classList.remove("hidden");
-      } else {
-        avatarImg.removeAttribute("src");
-        avatarImg.classList.add("hidden");
-      }
+    const controller = getProfileModalController();
+    if (controller?.hydrateProfileModal) {
+      return controller.hydrateProfileModal(profile);
     }
-    applyProfileModalVisuals(avatar);
-    setText("profile-modal-username", profile.username || guestUsername || "-");
-    setText("profile-modal-gang", profile.gangName || guestGangName || "-");
-    setText("profile-modal-faction", factionLabel);
-    setText("profile-modal-influence", influenceValue);
-    const wantedText = formatWantedHeat(wantedLevel);
-    setText("profile-modal-wanted", wantedText);
-    const wantedEl = document.getElementById("profile-modal-wanted");
-    if (wantedEl) {
-      wantedEl.title = `Hledanost: ${wantedText} | ${formatPoliceRaidProtectionLabel(profile)}`;
-    }
-    const wantedLockEl = document.getElementById("profile-modal-wanted-lock");
-    if (wantedLockEl) {
-      const until = resolvePoliceRaidProtectionUntil(profile);
-      const active = until > Date.now();
-      wantedLockEl.classList.toggle("hidden", !active);
-      wantedLockEl.title = active ? `Aktivní ochrana po razii: ${formatDurationLabel(until - Date.now())}` : "Bez aktivní ochrany po razii";
-    }
-    setText("profile-modal-raid-protection", formatPoliceRaidProtectionLabel(profile));
-    const allianceLabel = extractAllianceDisplayName(profile.alliance) || "Žádná";
-    const districtCount = Number.isFinite(Number(profile.districts)) ? Math.max(0, Math.floor(Number(profile.districts))) : 0;
-    setText("profile-modal-alliance", allianceLabel !== "Žádná" ? `${allianceLabel} • ${districtCount}` : "Žádná");
-    setText("profile-modal-districts", profile.districts || 0);
-    const blackoutSourceRow = document.getElementById("profile-modal-blackout-source-row");
-    const blackoutSourceValue = document.getElementById("profile-modal-blackout-source");
-    const blackoutPlayersRow = document.getElementById("profile-modal-blackout-players-row");
-    const blackoutPlayersValue = document.getElementById("profile-modal-blackout-players");
-    try {
-      const rawBlackoutSources = isBlackoutLikeScenario()
-        ? buildBlackoutPlayerSourcesSnapshot(window.Empire.districts, resolveActiveScenarioOwnerName())
-        : null;
-      const liveBlackoutSources = hasMeaningfulBlackoutSources(rawBlackoutSources)
-        ? rawBlackoutSources
-        : lastValidBlackoutSources || rawBlackoutSources;
-      if (hasMeaningfulBlackoutSources(rawBlackoutSources)) {
-        lastValidBlackoutSources = rawBlackoutSources;
-      }
-      const blackoutSources = liveBlackoutSources || (profile.sources && typeof profile.sources === "object" ? profile.sources : null);
-      const districtMinuteIncome = blackoutSources?.districtIncomePerMinute || {};
-      const buildingMinuteIncome = blackoutSources?.buildingIncomePerMinute || {};
-      const showBlackoutSource =
-        isBlackoutLikeScenario()
-        && blackoutSources
-        && typeof blackoutSources === "object";
-      if (blackoutSourceRow) {
-        blackoutSourceRow.classList.toggle("hidden", !showBlackoutSource);
-      }
-      if (blackoutPlayersRow) {
-        blackoutPlayersRow.classList.toggle("hidden", !showBlackoutSource);
-      }
-      if (blackoutSourceValue && showBlackoutSource) {
-        const districtCleanPerHour = Number(districtMinuteIncome.clean || 0) * 60;
-        const districtDirtyPerHour = Number(districtMinuteIncome.dirty || 0) * 60;
-        const districtInfluencePerHour = Number(blackoutSources?.districtInfluencePerMinute || 0) * 60;
-        const buildingCleanPerHour = Number(buildingMinuteIncome.clean || 0) * 60;
-        const buildingDirtyPerHour = Number(buildingMinuteIncome.dirty || 0) * 60;
-        const buildingInfluencePerHour = Number(blackoutSources?.buildingInfluencePerMinute?.total || 0) * 60;
-        const buildingHeatPerDay = Number(blackoutSources?.buildingHeatPerMinute?.total || 0) * 1440;
-        blackoutSourceValue.textContent =
-          `Districts C${formatDecimalValue(districtCleanPerHour, 2)}/D${formatDecimalValue(districtDirtyPerHour, 2)} / hod`
-          + ` • Buildings C${formatDecimalValue(buildingCleanPerHour, 2)}/D${formatDecimalValue(buildingDirtyPerHour, 2)} / hod`
-          + ` • Vliv ${formatDecimalValue(districtInfluencePerHour + buildingInfluencePerHour, 2)} / hod`
-          + ` • Heat ${formatDecimalValue(buildingHeatPerDay, 2)} / den`;
-      }
-      if (blackoutPlayersValue && showBlackoutSource) {
-        const playersLabel = collectBlackoutMapPlayerSummaries()
-          .map((entry) => `${entry.name} (${entry.districtCount})`)
-          .join(", ");
-        blackoutPlayersValue.textContent = playersLabel || "-";
-      }
-      if (liveBlackoutSources && profile && typeof profile === "object") {
-        profile.sources = liveBlackoutSources;
-        profile.source = liveBlackoutSources;
-      }
-    } catch (error) {
-      console.error("Profile blackout source render failed", error);
-      if (blackoutSourceRow) {
-        blackoutSourceRow.classList.add("hidden");
-      }
-      if (blackoutPlayersRow) {
-        blackoutPlayersRow.classList.add("hidden");
-      }
-    }
-    const profileHasMoneyData =
-      profile.cleanMoney !== undefined ||
-      profile.clean_money !== undefined ||
-      profile.dirtyMoney !== undefined ||
-      profile.dirty_money !== undefined ||
-      profile.money !== undefined ||
-      profile.balance !== undefined;
-    const modalMoney = profileHasMoneyData ? moneyFromProfile : moneyFromEconomy;
-    setText("profile-modal-clean-money", `$${modalMoney.cleanMoney}`);
-    setText("profile-modal-dirty-money", `$${modalMoney.dirtyMoney}`);
-    refreshGangColorDisplays();
   }
 
   function showProfileModal() {
-    const root = document.getElementById("profile-modal");
-    if (!root) return;
-    const liveProfile = window.Empire.player || cachedProfile;
-    if (liveProfile && typeof liveProfile === "object") {
-      try {
-        hydrateProfileModal(liveProfile);
-      } catch (error) {
-        console.error("Profile modal hydrate failed", error);
-      }
+    const controller = getProfileModalController();
+    if (controller?.showProfileModal) {
+      return controller.showProfileModal();
     }
-    root.classList.remove("hidden");
   }
 
   function showSettingsModal() {
-    const root = document.getElementById("settings-modal");
-    if (!root) return;
-    root.dispatchEvent(new CustomEvent("settings:open"));
-    root.classList.remove("hidden");
+    return getSettingsModalController()?.showSettingsModal?.();
   }
 
   function getSettingsState() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || "null");
-      const settings = {
-        ...DEFAULT_SETTINGS,
-        ...(parsed && typeof parsed === "object" ? parsed : {})
-      };
-      const forced = {
-        ...settings,
-        mapVisibilityMode: "all",
-        mapAllianceSymbols: true
-      };
-      if (forced.mapVisibilityMode !== settings.mapVisibilityMode || forced.mapAllianceSymbols !== settings.mapAllianceSymbols) {
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(forced));
-      }
-      return forced;
-    } catch {
-      const forced = {
-        ...DEFAULT_SETTINGS,
-        mapVisibilityMode: "all",
-        mapAllianceSymbols: true
-      };
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(forced));
-      return forced;
-    }
+    return getSettingsModalController()?.getSettingsState?.() || {
+      ...DEFAULT_SETTINGS,
+      mapVisibilityMode: "all",
+      mapAllianceSymbols: true
+    };
   }
 
   function normalizeMapVisibilityMode(value) {
-    const mode = String(value || "").trim().toLowerCase();
-    if (mode === "all" || mode === "hide-enemies" || mode === "only-player") return mode;
-    return DEFAULT_SETTINGS.mapVisibilityMode;
+    return getSettingsModalController()?.normalizeMapVisibilityMode?.(value) || DEFAULT_SETTINGS.mapVisibilityMode;
   }
 
   function animateMoneyStatValue(element, delta) {
@@ -22086,406 +17964,90 @@ window.Empire.UI = (() => {
   }
 
   function updateEconomy(economy, { instant = false } = {}) {
-    const safeEconomy = economy && typeof economy === "object" ? { ...economy } : {};
-    const rawDrugInventory = safeEconomy.drugInventory && typeof safeEconomy.drugInventory === "object"
-      ? safeEconomy.drugInventory
-      : {};
-    const normalizedDrugInventory = storageDrugTypes.reduce((acc, item) => {
-      const directValue = Number(rawDrugInventory[item.key]);
-      const fallbackValue = Number(safeEconomy[item.key]);
-      const value = Number.isFinite(directValue) ? directValue : fallbackValue;
-      acc[item.key] = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
-      return acc;
-    }, {});
-    const totalDrugs = storageDrugTypes.reduce((sum, item) => sum + Number(normalizedDrugInventory[item.key] || 0), 0);
-    safeEconomy.drugInventory = normalizedDrugInventory;
-    safeEconomy.drugs = Number.isFinite(Number(safeEconomy.drugs))
-      ? Math.max(0, Math.floor(Number(safeEconomy.drugs)))
-      : totalDrugs;
-    safeEconomy.influence = normalizeSpyCount(safeEconomy.influence || 0, 0);
-    const economySpyCount = resolveSpyCountFromPayload(safeEconomy);
-    if (economySpyCount != null) {
-      setSpyCount(economySpyCount, { persist: true });
-    } else {
-      getSpyCount();
+    const controller = getProfileStateController();
+    if (controller?.updateEconomy) {
+      return controller.updateEconomy(economy, { instant });
     }
-    safeEconomy.spyCount = getSpyCount();
-    safeEconomy.spies = getSpyCount();
-    cachedEconomy = safeEconomy;
-
-    const money = resolveMoneyBreakdown(safeEconomy || {});
-    const cleanMoney = document.getElementById("stat-clean-money");
-    const dirtyMoney = document.getElementById("stat-dirty-money");
-    if (cleanMoney) {
-      if (instant || lastRenderedCleanMoney == null) {
-        syncMoneyStatToCachedValue(cleanMoney, money.cleanMoney);
-      } else {
-        animateMoneyStatCounter(cleanMoney, money.cleanMoney);
-      }
-    }
-    if (dirtyMoney) {
-      if (instant || lastRenderedDirtyMoney == null) {
-        syncMoneyStatToCachedValue(dirtyMoney, money.dirtyMoney);
-      } else {
-        animateMoneyStatCounter(dirtyMoney, money.dirtyMoney);
-      }
-    }
-    if (!instant && cleanMoney && lastRenderedCleanMoney != null && money.cleanMoney !== lastRenderedCleanMoney) {
-      animateMoneyStatValue(cleanMoney, money.cleanMoney - lastRenderedCleanMoney);
-    }
-    if (!instant && dirtyMoney && lastRenderedDirtyMoney != null && money.dirtyMoney !== lastRenderedDirtyMoney) {
-      animateMoneyStatValue(dirtyMoney, money.dirtyMoney - lastRenderedDirtyMoney);
-    }
-    lastRenderedCleanMoney = money.cleanMoney;
-    lastRenderedDirtyMoney = money.dirtyMoney;
-    renderInfluenceSpyTopbarStat({ instant });
-    const drugs = document.getElementById("stat-drugs");
-    const storage = document.getElementById("stat-storage");
-    const weapons = document.getElementById("stat-weapons");
-    const defense = document.getElementById("stat-defense");
-    if (drugs) drugs.textContent = safeEconomy.drugs || 0;
-    if (storage) storage.textContent = safeEconomy.materials || 0;
-    if (weapons) weapons.textContent = safeEconomy.weapons || 0;
-    syncWeaponStatCounter();
-    if (defense) defense.textContent = safeEconomy.defense || 0;
-    syncDefenseStatCounter();
-    hydrateStorageModalValues();
-    if (cachedProfile) hydrateProfileModal(cachedProfile);
-    updateWeaponsPopover();
-    updateDefensePopover();
   }
 
   function normalizeAttackWeaponLabel(name) {
-    const raw = String(name || "").trim();
-    if (!raw) return "";
-    const mapped = LEGACY_ATTACK_WEAPON_ALIASES[raw];
-    if (mapped) return mapped;
-    const compactKey = raw
-      .toLowerCase()
-      .replace(/[\s_-]+/g, "");
-    switch (compactKey) {
-      case "baseballovapalka":
-      case "baseballbat":
-        return "Baseballová pálka";
-      case "poulicnipistole":
-      case "streetpistol":
-      case "pistole":
-        return "Pouliční pistole";
-      case "granat":
-      case "grenade":
-        return "Granát";
-      case "samopal":
-      case "smg":
-      case "utocnapuska":
-        return "Samopal";
-      case "bazuka":
-      case "bazooka":
-        return "Bazuka";
-      default:
-        return raw;
-    }
+    return getInventoryController()?.normalizeAttackWeaponLabel?.(name) || "";
   }
 
   function readLocalWeaponCounts() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem("empire_weapons_detail") || "null");
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return parsed;
-      }
-    } catch {}
-    return {};
+    return getInventoryController()?.readLocalWeaponCounts?.() || {};
   }
 
   function writeLocalWeaponCounts(store) {
-    localStorage.setItem("empire_weapons_detail", JSON.stringify(store || {}));
+    return getInventoryController()?.writeLocalWeaponCounts?.(store);
   }
 
   function persistWeaponCounts(store) {
-    const safeStore = store && typeof store === "object" ? { ...store } : {};
-    writeLocalWeaponCounts(safeStore);
-    if (cachedProfile && typeof cachedProfile === "object") {
-      cachedProfile.weaponsDetail = { ...safeStore };
-      cachedProfile.weapons = getAttackWeaponTotal(safeStore);
-    }
-    if (cachedEconomy && typeof cachedEconomy === "object") {
-      cachedEconomy.weaponsDetail = { ...safeStore };
-      cachedEconomy.weapons = getAttackWeaponTotal(safeStore);
-      updateEconomy(cachedEconomy);
-      return;
-    }
-    syncWeaponStatCounter();
-    updateWeaponsPopover();
-    hydrateStorageModalValues();
+    return getInventoryController()?.persistWeaponCounts?.(store);
   }
 
   function consumeAttackWeaponCounts(selectionCounts = {}) {
-    const current = resolveWeaponCounts();
-    const next = { ...current };
-    attackWeaponStats.forEach((item) => {
-      const delta = Math.max(0, Math.floor(Number(selectionCounts?.[item.name] || 0)));
-      if (!delta) return;
-      next[item.name] = Math.max(0, Math.floor(Number(next[item.name] || 0) - delta));
-    });
-    persistWeaponCounts(next);
-    updateWeaponsPopover();
-    syncWeaponStatCounter();
-    hydrateStorageModalValues();
-    const weaponsModal = document.getElementById("weapons-modal");
-    if (weaponsModal && !weaponsModal.classList.contains("hidden")) {
-      openWeaponsModal("attack");
-    }
-    return next;
+    return getInventoryController()?.consumeAttackWeaponCounts?.(selectionCounts) || {};
   }
 
   function restoreAttackWeaponCounts(selectionCounts = {}) {
-    const restored = {};
-    attackWeaponStats.forEach((item) => {
-      const delta = Math.max(0, Math.floor(Number(selectionCounts?.[item.name] || 0)));
-      if (!delta) return;
-      restored[item.name] = delta;
-    });
-    if (!Object.keys(restored).length) return resolveWeaponCounts();
-    return addCraftedWeapons(restored);
+    return getInventoryController()?.restoreAttackWeaponCounts?.(selectionCounts) || {};
   }
 
   function readLocalDefenseCounts() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem("empire_defense_detail") || "null");
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return parsed;
-      }
-    } catch {}
-    return {};
+    return getInventoryController()?.readLocalDefenseCounts?.() || {};
   }
 
   function writeLocalDefenseCounts(store) {
-    localStorage.setItem("empire_defense_detail", JSON.stringify(store || {}));
+    return getInventoryController()?.writeLocalDefenseCounts?.(store);
   }
 
   function persistDefenseCounts(store) {
-    const safeStore = store && typeof store === "object" ? { ...store } : {};
-    writeLocalDefenseCounts(safeStore);
-    if (cachedProfile && typeof cachedProfile === "object") {
-      cachedProfile.defenseDetail = { ...safeStore };
-      cachedProfile.defense = getDefenseWeaponTotal(safeStore);
-    }
-    if (cachedEconomy && typeof cachedEconomy === "object") {
-      cachedEconomy.defenseDetail = { ...safeStore };
-      cachedEconomy.defense = getDefenseWeaponTotal(safeStore);
-      updateEconomy(cachedEconomy);
-      return;
-    }
-    syncDefenseStatCounter();
-    updateDefensePopover();
-    hydrateStorageModalValues();
+    return getInventoryController()?.persistDefenseCounts?.(store);
   }
 
   function consumeDefenseWeaponCounts(selectionCounts = {}) {
-    const current = resolveDefenseCounts();
-    const next = { ...current };
-    defenseWeaponStats.forEach((item) => {
-      const delta = Math.max(0, Math.floor(Number(selectionCounts?.[item.name] || 0)));
-      if (!delta) return;
-      next[item.name] = Math.max(0, Math.floor(Number(next[item.name] || 0) - delta));
-    });
-    persistDefenseCounts(next);
-    updateDefensePopover();
-    syncDefenseStatCounter();
-    hydrateStorageModalValues();
-    const weaponsModal = document.getElementById("weapons-modal");
-    if (weaponsModal && !weaponsModal.classList.contains("hidden")) {
-      openWeaponsModal("defense");
-    }
-    return next;
+    return getInventoryController()?.consumeDefenseWeaponCounts?.(selectionCounts) || {};
   }
 
   function resolveWeaponCounts() {
-    const fromProfile = cachedProfile?.weaponsDetail;
-    const fromEconomy = cachedEconomy?.weaponsDetail;
-    const fromStorage = readLocalWeaponCounts();
-    const fromEconomyBalances = cachedEconomy && typeof cachedEconomy === "object"
-      ? {
-          baseballBat: cachedEconomy.baseballBat,
-          streetPistol: cachedEconomy.streetPistol,
-          grenade: cachedEconomy.grenade,
-          smg: cachedEconomy.smg,
-          bazooka: cachedEconomy.bazooka
-        }
-      : null;
-    const sources = [fromProfile, fromEconomy, fromStorage, fromEconomyBalances].filter((source) => source && typeof source === "object");
-    const normalized = {};
-
-    sources.forEach((source) => {
-      Object.entries(source).forEach(([name, value]) => {
-        const mappedName = normalizeAttackWeaponLabel(name);
-        if (!mappedName) return;
-        const parsed = Number(value || 0);
-        const safe = Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
-        if (!safe) return;
-        normalized[mappedName] = Math.max(
-          Math.max(0, Math.floor(Number(normalized[mappedName] || 0))),
-          safe
-        );
-      });
-    });
-
-    attackWeaponStats.forEach((item) => {
-      if (!Number.isFinite(Number(normalized[item.name]))) {
-        normalized[item.name] = Math.max(0, Math.floor(Number(normalized[item.name] || 0)));
-      }
-    });
-
-    return normalized;
+    return getInventoryController()?.resolveWeaponCounts?.() || {};
   }
 
   function getAttackWeaponTotal(counts = {}) {
-    return attackWeaponStats.reduce((sum, item) => {
-      const key = Object.keys(counts).find((name) => name.toLowerCase() === item.name.toLowerCase());
-      const value = key ? Number(counts[key] || 0) : 0;
-      return sum + (Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0);
-    }, 0);
+    return getInventoryController()?.getAttackWeaponTotal?.(counts) || 0;
   }
 
   function syncWeaponStatCounter() {
-    const weapons = document.getElementById("stat-weapons");
-    if (!weapons) return;
-    const counts = resolveWeaponCounts();
-    const localTotal = getAttackWeaponTotal(counts);
-    const serverTotal = Math.max(0, Math.floor(Number(cachedEconomy?.weapons || 0)));
-    weapons.textContent = Math.max(serverTotal, localTotal);
+    return getInventoryController()?.syncWeaponStatCounter?.();
   }
 
   function getDefenseWeaponTotal(counts = {}) {
-    return defenseWeaponStats.reduce((sum, item) => {
-      const key = Object.keys(counts).find((name) => name.toLowerCase() === item.name.toLowerCase());
-      const value = key ? Number(counts[key] || 0) : 0;
-      return sum + (Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0);
-    }, 0);
+    return getInventoryController()?.getDefenseWeaponTotal?.(counts) || 0;
   }
 
   function syncDefenseStatCounter() {
-    const defense = document.getElementById("stat-defense");
-    if (!defense) return;
-    const counts = resolveDefenseCounts();
-    const localTotal = getDefenseWeaponTotal(counts);
-    const serverTotal = Math.max(0, Math.floor(Number(cachedEconomy?.defense || 0)));
-    defense.textContent = Math.max(serverTotal, localTotal);
+    return getInventoryController()?.syncDefenseStatCounter?.();
   }
 
   function addCraftedWeapons(weaponMap = {}) {
-    const source = weaponMap && typeof weaponMap === "object" ? weaponMap : {};
-    const store = readLocalWeaponCounts();
-    Object.entries(source).forEach(([rawName, amount]) => {
-      const name = normalizeAttackWeaponLabel(rawName);
-      if (!name) return;
-      const delta = Math.max(0, Math.floor(Number(amount) || 0));
-      if (!delta) return;
-      store[name] = Math.max(0, Math.floor(Number(store[name] || 0) + delta));
-    });
-    writeLocalWeaponCounts(store);
-    updateWeaponsPopover();
-    syncWeaponStatCounter();
-    const weaponsModal = document.getElementById("weapons-modal");
-    if (weaponsModal && !weaponsModal.classList.contains("hidden")) {
-      openWeaponsModal("attack");
-    }
-    return store;
+    return getInventoryController()?.addCraftedWeapons?.(weaponMap) || {};
   }
 
   function addCraftedDefense(weaponMap = {}) {
-    const source = weaponMap && typeof weaponMap === "object" ? weaponMap : {};
-    const store = readLocalDefenseCounts();
-    Object.entries(source).forEach(([rawName, amount]) => {
-      const name = String(rawName || "").trim();
-      if (!name) return;
-      const delta = Math.max(0, Math.floor(Number(amount) || 0));
-      if (!delta) return;
-      store[name] = Math.max(0, Math.floor(Number(store[name] || 0) + delta));
-    });
-    writeLocalDefenseCounts(store);
-    updateDefensePopover();
-    syncDefenseStatCounter();
-    hydrateStorageModalValues();
-    const weaponsModal = document.getElementById("weapons-modal");
-    if (weaponsModal && !weaponsModal.classList.contains("hidden")) {
-      openWeaponsModal("defense");
-    }
-    return store;
+    return getInventoryController()?.addCraftedDefense?.(weaponMap) || {};
   }
 
   function updateWeaponsPopover() {
-    const list = document.getElementById("weapons-popover-list");
-    if (!list) return;
-    const counts = resolveWeaponCounts();
-    list.innerHTML = weaponCatalog
-      .map((name) => {
-        const key = Object.keys(counts).find((k) => k.toLowerCase() === name.toLowerCase());
-        const value = key ? counts[key] : 0;
-        return `
-          <div class="stat__popover-item">
-            <span>${name}</span>
-            <strong>${value}</strong>
-          </div>
-        `;
-      })
-      .join("");
+    return getInventoryController()?.updateWeaponsPopover?.();
   }
 
   function resolveDefenseCounts() {
-    const fromProfile = cachedProfile?.defenseDetail;
-    const fromEconomy = cachedEconomy?.defenseDetail;
-    const fromStorage = readLocalDefenseCounts();
-    const fromEconomyBalances = cachedEconomy && typeof cachedEconomy === "object"
-      ? {
-          "Neprůstřelná vesta": cachedEconomy.bulletproofVest,
-          "Ocelové barikády": cachedEconomy.steelBarricades,
-          "Bezpečnostní kamery": cachedEconomy.securityCameras,
-          "Automatické kulometné stanoviště": cachedEconomy.autoMgNest,
-          Alarm: cachedEconomy.alarmSystem
-        }
-      : null;
-    const sources = [fromProfile, fromEconomy, fromStorage, fromEconomyBalances].filter((source) => source && typeof source === "object");
-    const normalized = {};
-
-    sources.forEach((source) => {
-      Object.entries(source).forEach(([name, value]) => {
-        const safeName = String(name || "").trim();
-        if (!safeName) return;
-        const parsed = Number(value || 0);
-        const safe = Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
-        if (!safe) return;
-        normalized[safeName] = Math.max(
-          Math.max(0, Math.floor(Number(normalized[safeName] || 0))),
-          safe
-        );
-      });
-    });
-
-    defenseWeaponStats.forEach((item) => {
-      if (!Number.isFinite(Number(normalized[item.name]))) {
-        normalized[item.name] = Math.max(0, Math.floor(Number(normalized[item.name] || 0)));
-      }
-    });
-
-    return normalized;
+    return getInventoryController()?.resolveDefenseCounts?.() || {};
   }
 
   function updateDefensePopover() {
-    const list = document.getElementById("defense-popover-list");
-    if (!list) return;
-    const counts = resolveDefenseCounts();
-    list.innerHTML = defenseCatalog
-      .map((name) => {
-        const key = Object.keys(counts).find((k) => k.toLowerCase() === name.toLowerCase());
-        const value = key ? counts[key] : 0;
-        return `
-          <div class="stat__popover-item">
-            <span>${name}</span>
-            <strong>${value}</strong>
-          </div>
-        `;
-      })
-      .join("");
+    return getInventoryController()?.updateDefensePopover?.();
   }
 
   function updateDistrict(district) {
@@ -22507,243 +18069,52 @@ window.Empire.UI = (() => {
   }
 
   function updateRound(round) {
-    if (!round) return;
-    roundStatusState = { ...round };
-    renderRoundStatusState();
-    startRoundPhaseTicker();
-  }
-
-  function normalizeInfoWindowHistoryEntries(entries) {
-    if (!Array.isArray(entries)) return [];
-    return entries
-      .map((entry) => {
-        if (!entry || typeof entry !== "object") return null;
-        const title = String(entry.title || "").trim();
-        const text = String(entry.text || "").trim();
-        const createdAtRaw = Number(entry.createdAt || entry.timestamp || Date.now());
-        const createdAt = Number.isFinite(createdAtRaw) ? Math.max(0, Math.floor(createdAtRaw)) : Date.now();
-        if (!title || !text) return null;
-        const id = String(entry.id || `${createdAt}-${Math.random().toString(36).slice(2, 8)}`).trim();
-        if (!id) return null;
-        return {
-          id,
-          title: title.slice(0, 160),
-          text: text.slice(0, 420),
-          createdAt
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
-      .slice(0, INFO_WINDOWS_HISTORY_LIMIT);
+    return getRoundStatusController()?.updateRound?.(round);
   }
 
   function loadInfoWindowHistory() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(INFO_WINDOWS_HISTORY_STORAGE_KEY) || "[]");
-      infoWindowHistoryEntries = normalizeInfoWindowHistoryEntries(parsed);
-    } catch {
-      infoWindowHistoryEntries = [];
-    }
-  }
-
-  function persistInfoWindowHistory() {
-    localStorage.setItem(INFO_WINDOWS_HISTORY_STORAGE_KEY, JSON.stringify(infoWindowHistoryEntries));
-  }
-
-  function formatInfoWindowHistoryTime(timestamp) {
-    const date = new Date(Number(timestamp || Date.now()));
-    if (Number.isNaN(date.getTime())) return "--:--";
-    return date.toLocaleTimeString("cs-CZ", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit"
-    });
+    getNotificationCenter()?.loadInfoWindowHistory?.();
   }
 
   function renderInfoWindowHistory() {
-    const container = document.getElementById("info-history-items");
-    if (!container) return;
-    container.innerHTML = "";
-
-    if (!infoWindowHistoryEntries.length) {
-      const empty = document.createElement("div");
-      empty.className = "info-history__empty";
-      empty.textContent = "Zatím žádná informační okna.";
-      container.appendChild(empty);
-      return;
-    }
-
-    const fragment = document.createDocumentFragment();
-    infoWindowHistoryEntries.forEach((entry) => {
-      const item = document.createElement("article");
-      item.className = "info-history__item";
-      item.dataset.entryId = String(entry.id);
-
-      const meta = document.createElement("div");
-      meta.className = "info-history__item-meta";
-
-      const time = document.createElement("span");
-      time.className = "info-history__item-time";
-      time.textContent = formatInfoWindowHistoryTime(entry.createdAt);
-
-      const title = document.createElement("strong");
-      title.className = "info-history__item-title";
-      title.textContent = entry.title;
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.type = "button";
-      deleteBtn.className = "info-history__item-delete-btn";
-      deleteBtn.dataset.infoHistoryDelete = String(entry.id);
-      deleteBtn.setAttribute("aria-label", "Smazat informační okno");
-      deleteBtn.title = "Smazat";
-      deleteBtn.textContent = "×";
-
-      const text = document.createElement("p");
-      text.className = "info-history__item-text";
-      text.textContent = entry.text;
-
-      meta.append(time, title, deleteBtn);
-      item.append(meta, text);
-      fragment.appendChild(item);
-    });
-
-    container.appendChild(fragment);
+    getNotificationCenter()?.renderInfoWindowHistory?.();
   }
 
   function pushInfoWindowHistoryEntry({ title, text, rows } = {}) {
-    const safeTitle = String(title || "").trim();
-    const summaryText = String(text || "").trim();
-    const fallbackText = Array.isArray(rows)
-      ? rows
-        .map((row) => {
-          const label = String(row?.label || "").trim();
-          const value = String(row?.value || "").trim();
-          if (!label || !value) return "";
-          return `${label}: ${value}`;
-        })
-        .filter(Boolean)
-        .join(" • ")
-      : "";
-    const safeText = summaryText || fallbackText;
-    if (!safeTitle || !safeText) return;
-
-    const now = Date.now();
-    const entry = {
-      id: `${now}-${Math.random().toString(36).slice(2, 8)}`,
-      title: safeTitle.slice(0, 160),
-      text: safeText.slice(0, 420),
-      createdAt: now
-    };
-
-    const lastEntry = infoWindowHistoryEntries[0];
-    if (
-      lastEntry
-      && lastEntry.title === entry.title
-      && lastEntry.text === entry.text
-      && Math.abs(Number(lastEntry.createdAt || 0) - now) < 1500
-    ) {
-      return;
-    }
-
-    infoWindowHistoryEntries = [entry, ...infoWindowHistoryEntries].slice(0, INFO_WINDOWS_HISTORY_LIMIT);
-    persistInfoWindowHistory();
-    renderInfoWindowHistory();
+    getNotificationCenter()?.pushInfoWindowHistoryEntry?.({ title, text, rows });
   }
 
   function removeInfoWindowHistoryEntry(entryId) {
-    const safeId = String(entryId || "").trim();
-    if (!safeId) return;
-    infoWindowHistoryEntries = infoWindowHistoryEntries.filter((entry) => String(entry?.id) !== safeId);
-    persistInfoWindowHistory();
-    renderInfoWindowHistory();
+    getNotificationCenter()?.removeInfoWindowHistoryEntry?.(entryId);
   }
 
   function clearInfoWindowHistory() {
-    infoWindowHistoryEntries = [];
-    persistInfoWindowHistory();
-    renderInfoWindowHistory();
+    getNotificationCenter()?.clearInfoWindowHistory?.();
   }
 
   function initInfoWindowHistoryControls() {
-    const clearBtn = document.getElementById("info-history-clear-btn");
-    const items = document.getElementById("info-history-items");
-    if (clearBtn && clearBtn.dataset.bound !== "1") {
-      clearBtn.dataset.bound = "1";
-      clearBtn.addEventListener("click", clearInfoWindowHistory);
-    }
-    if (items && items.dataset.bound !== "1") {
-      items.dataset.bound = "1";
-      items.addEventListener("click", (event) => {
-        const target = event.target;
-        if (!(target instanceof HTMLElement)) return;
-        const removeBtn = target.closest("[data-info-history-delete]");
-        if (!(removeBtn instanceof HTMLElement)) return;
-        removeInfoWindowHistoryEntry(removeBtn.dataset.infoHistoryDelete || "");
-      });
-    }
+    getNotificationCenter()?.initInfoWindowHistoryControls?.();
   }
 
   function getRoundStatusSnapshot() {
-    const override = roundStatusOverride && typeof roundStatusOverride === "object" ? roundStatusOverride : null;
-    const state = roundStatusState && typeof roundStatusState === "object" ? roundStatusState : null;
-    if (!state && !override) return null;
-
-    const source = override || state;
-    const phaseSnapshot = state ? resolveRoundPhaseSnapshot(state) : null;
-    const clockSnapshot = state ? resolveRoundClockSnapshot(state) : null;
-    const basePhaseKey = source?.phaseKey || phaseSnapshot?.phaseKey || state?.currentPhaseKey || "";
-    const activeSubPhaseKey = source?.subPhaseKey || state?.currentSubPhaseKey || "";
-    const effectiveMode = resolveEffectiveRoundMode(basePhaseKey, activeSubPhaseKey);
-    const phaseDurationMs = Math.max(0, Math.floor(Number(state?.phaseDurationMs || source?.phaseDurationMs) || 0));
-    const roundStartedAt = Number(state?.roundStartedAt || source?.phaseStartedAt || source?.roundStartedAt || 0);
-    const currentPhaseIndex = roundStartedAt && phaseDurationMs
-      ? Math.floor(Math.max(0, Date.now() - roundStartedAt) / phaseDurationMs)
-      : 0;
-    const phaseStartedAt = roundStartedAt && phaseDurationMs
-      ? roundStartedAt + (currentPhaseIndex * phaseDurationMs)
-      : null;
-
-    return {
-      ...(state || {}),
-      ...(override || {}),
-      currentPhaseKey: effectiveMode.mapMode || basePhaseKey || "",
-      currentSubPhaseKey: activeSubPhaseKey || "",
-      currentSubPhaseLabel: source?.phaseLabel || state?.currentSubPhaseLabel || effectiveMode.phaseLabel || "",
-      currentGameDay: source?.currentGameDay || phaseSnapshot?.currentGameDay || 1,
-      currentGameTimeLabel: source?.timeLabel || clockSnapshot?.label || state?.currentGameTimeLabel || "09:15",
-      phaseStartedAt,
-      phaseDurationMs,
-      roundStartedAt,
-      currentPhaseIndex
-    };
+    return getRoundStatusController()?.getRoundStatusSnapshot?.() || null;
   }
 
   function pushEvent(text) {
-    const container = document.getElementById("event-items");
-    if (!container) return;
-    const div = document.createElement("div");
-    div.className = "ticker__item";
-    div.textContent = text;
-    container.prepend(div);
+    getNotificationCenter()?.pushEvent?.(text);
   }
 
   function clearEventFeed() {
-    const container = document.getElementById("event-items");
-    if (!container) return;
-    container.innerHTML = '<div class="ticker__item">Čekám na rozkazy...</div>';
+    getNotificationCenter()?.clearEventFeed?.();
   }
 
   function initEventFeedControls() {
-    const clearBtn = document.getElementById("event-clear-btn");
-    if (!clearBtn || clearBtn.dataset.bound === "1") return;
-    clearBtn.dataset.bound = "1";
-    clearBtn.addEventListener("click", () => {
-      clearEventFeed();
-    });
+    getNotificationCenter()?.initEventFeedControls?.();
   }
 
   return {
     assignDistrictMetadata,
+    bootstrapGuestIndexMapView,
     evaluateDistrictActionAvailability,
     init,
     hydrateAfterAuth,
@@ -22787,3 +18158,4 @@ window.Empire.UI = (() => {
     openDistrictAttackInProgressModal
   };
 })();
+

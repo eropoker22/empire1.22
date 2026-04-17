@@ -1,4 +1,6 @@
 window.Empire = window.Empire || {};
+const runtimeConfig = window.Empire?.RuntimeConfig || null;
+const empireStorage = window.Empire?.Storage || null;
 Object.assign(window.Empire, {
   token: null,
   player: null,
@@ -8,7 +10,7 @@ Object.assign(window.Empire, {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  const token = localStorage.getItem("empire_token");
+  const token = empireStorage?.getItem("token");
   if (token) {
     window.Empire.token = token;
   }
@@ -25,16 +27,17 @@ document.addEventListener("DOMContentLoaded", () => {
     window.Empire.UI.setGuestMode(false);
   } else {
     window.Empire.UI.setGuestMode(true);
-    const guestUsername = String(localStorage.getItem("empire_guest_username") || "").trim();
-    const guestGangName = String(localStorage.getItem("empire_gang_name") || "").trim();
+    const guestUsername = String(empireStorage?.getItem("guestUsername") || "").trim();
+    const guestGangName = String(empireStorage?.getItem("gangName") || "").trim();
     window.Empire.UI.updateProfile({
       username: guestUsername || "Host",
       gangName: guestGangName || "Guest Crew",
-      structure: localStorage.getItem("empire_structure") || "-",
+      structure: empireStorage?.getItem("structure") || "-",
       alliance: "Žádná",
       districts: 0,
       influence: 0
     });
+    window.Empire.UI.bootstrapGuestIndexMapView?.();
   }
 
   document.addEventListener("click", async (event) => {
