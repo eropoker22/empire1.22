@@ -1,38 +1,73 @@
 @media (max-width: 720px) {
   .game-resource-strip {
-    display: flex !important;
-    justify-content: center;
-    align-items: center;
-    gap: 0 !important;
-    width: 100%;
-    overflow: visible !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    justify-content: stretch;
+    align-items: stretch;
+    gap: 4px !important;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    margin-inline: calc(50% - 50vw + 8px);
+    overflow: hidden !important;
     transform: none !important;
   }
 
   .game-resource-strip .resource-pill {
-    display: none !important;
+    display: flex !important;
   }
 
+  .game-resource-strip > * {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .resource-pill,
   .game-resource-strip > .game-toolbar-button {
-    width: auto !important;
-    min-width: 92px !important;
-    max-width: min(46vw, 132px);
     min-height: 34px !important;
-    padding: 0 12px !important;
+    padding: 3px 4px !important;
     border-radius: 10px !important;
-    font-size: 11px !important;
-    letter-spacing: 0.04em !important;
+    gap: 2px !important;
+    box-sizing: border-box;
+  }
+
+  .resource-label,
+  .resource-pill--interactive .resource-label {
+    width: 100%;
+    min-height: 0;
+    font-size: clamp(7px, 2.1vw, 9px);
+    line-height: 1.05;
+    letter-spacing: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+
+  .resource-value,
+  .resource-value--inline,
+  .game-resource-strip > .game-toolbar-button {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: clamp(9px, 2.7vw, 11px) !important;
+    line-height: 1 !important;
+    letter-spacing: 0 !important;
   }
 
   body.is-mobile-topbar-condensed .game-resource-strip {
-    display: flex !important;
-    gap: 0 !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 4px !important;
   }
 
+  body.is-mobile-topbar-condensed .resource-pill,
   body.is-mobile-topbar-condensed .game-resource-strip > .game-toolbar-button {
     min-height: 32px !important;
-    padding: 0 11px !important;
-    font-size: 10px !important;
+    padding: 3px 4px !important;
+    font-size: clamp(9px, 2.6vw, 10px) !important;
   }
 
   .modal__content,
