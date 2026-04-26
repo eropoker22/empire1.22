@@ -1,16 +1,36 @@
-import { cp, mkdir, rm, writeFile } from "node:fs/promises";
+import { access, cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const publishDir = resolve(rootDir, "client");
-const staticDirs = ["pages", "page-assets", "img"];
+const staticDirs = [
+  "pages",
+  "page-assets",
+  "img",
+  "packages/game-config/src/legacy-page",
+  "packages/game-core/src/legacy-page"
+];
+const requiredPublishFiles = [
+  "pages/login.html",
+  "page-assets/js/login.js",
+  "page-assets/js/app/auth-flow.js",
+  "page-assets/js/app/model/authority-state.js",
+  "packages/game-config/src/legacy-page/combat-config.js",
+  "packages/game-config/src/legacy-page/economy-config.js",
+  "packages/game-config/src/legacy-page/faction-config.js",
+  "packages/game-core/src/legacy-page/combat-preview-rules.js",
+  "packages/game-core/src/legacy-page/production-preview-rules.js",
+  "packages/game-core/src/legacy-page/spy-preview-rules.js"
+];
 
 await rm(publishDir, { recursive: true, force: true });
 await mkdir(publishDir, { recursive: true });
 
 for (const dir of staticDirs) {
-  await cp(resolve(rootDir, dir), resolve(publishDir, dir), { recursive: true });
+  const targetDir = resolve(publishDir, dir);
+  await mkdir(dirname(targetDir), { recursive: true });
+  await cp(resolve(rootDir, dir), targetDir, { recursive: true });
 }
 
 await writeFile(
@@ -25,5 +45,9 @@ await writeFile(
   ].join("\n"),
   "utf8"
 );
+
+for (const file of requiredPublishFiles) {
+  await access(resolve(publishDir, file));
+}
 
 console.log(`Prepared Netlify publish directory: ${relative(rootDir, publishDir)}`);

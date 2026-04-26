@@ -73,6 +73,12 @@ const netlifyPublishScript = read("scripts/build-netlify-client.mjs");
 if (!netlifyPublishScript.includes("/lobby.html /pages/lobby.html 200")) {
   violations.push("scripts/build-netlify-client.mjs must emit a /lobby.html redirect");
 }
+if (
+  !netlifyPublishScript.includes("packages/game-config/src/legacy-page")
+  || !netlifyPublishScript.includes("packages/game-core/src/legacy-page")
+) {
+  violations.push("scripts/build-netlify-client.mjs must publish legacy package modules used by browser ESM imports");
+}
 
 if (violations.length > 0) {
   console.error("UI smoke violations detected:");
