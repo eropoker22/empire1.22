@@ -18,6 +18,7 @@ await writeFile(
   [
     "/ /pages/login.html 200",
     "/login.html /pages/login.html 200",
+    "/lobby.html /pages/lobby.html 200",
     "/game.html /pages/game.html 200",
     "/faction.html /pages/faction.html 200",
     ""

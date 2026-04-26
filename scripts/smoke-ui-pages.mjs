@@ -64,6 +64,16 @@ if (!adminHtml.includes("type=\"module\" src=\"../page-assets/js/admin-assets/ad
   violations.push("pages/admin.html must load the admin slice bundle as a module script");
 }
 
+const netlifyConfig = read("netlify.toml");
+if (!netlifyConfig.includes('from = "/lobby.html"') || !netlifyConfig.includes('to = "/pages/lobby.html"')) {
+  violations.push("netlify.toml must route /lobby.html to /pages/lobby.html for the guest login flow");
+}
+
+const netlifyPublishScript = read("scripts/build-netlify-client.mjs");
+if (!netlifyPublishScript.includes("/lobby.html /pages/lobby.html 200")) {
+  violations.push("scripts/build-netlify-client.mjs must emit a /lobby.html redirect");
+}
+
 if (violations.length > 0) {
   console.error("UI smoke violations detected:");
   for (const violation of violations) {

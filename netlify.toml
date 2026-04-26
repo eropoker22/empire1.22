@@ -16,6 +16,11 @@
   status = 200
 
 [[redirects]]
+  from = "/lobby.html"
+  to = "/pages/lobby.html"
+  status = 200
+
+[[redirects]]
   from = "/game.html"
   to = "/pages/game.html"
   status = 200
