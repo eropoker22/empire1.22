@@ -1,0 +1,137 @@
+import type { GameCommand, GameModeId, ServerInstanceId } from "@empire/shared-types";
+import { getInstanceHealth } from "./monitoring/instance-health";
+import { createInstanceMonitorSnapshot } from "./monitoring/instance-metrics";
+import type { ServerInstanceRuntime } from "./instance/server-instance-runtime";
+import { InstanceLifecycleService } from "./instance-manager/instance-lifecycle-service";
+import { createServerInstanceRuntime } from "./instance-manager/instance-factory";
+import { InstanceRegistry } from "./instance-manager/instance-registry";
+import type { InstanceCommandDispatchResult } from "./orchestration/instance-command-dispatch-result";
+import { createGameplaySliceProjection } from "./projections/gameplay-slice-projection-service";
+import { createPlayerProjection } from "./projections/player-projection-service";
+
+/**
+ * Responsibility: Top-level orchestrator for isolated server instance runtimes.
+ * Belongs here: registry access and public lifecycle operations over instances.
+ * Does not belong here: gameplay rules, websocket fanout, or persistence implementation details.
+ */
+export class ServerInstanceManager {
+  private readonly registry = new InstanceRegistry();
+  private readonly lifecycle = new InstanceLifecycleService();
+
+  createInstance(instanceId: ServerInstanceId, mode: GameModeId): ServerInstanceRuntime {
+    const runtime = createServerInstanceRuntime(instanceId, mode);
+    this.registry.set(runtime);
+    return runtime;
+  }
+
+  startInstance(instanceId: ServerInstanceId): ServerInstanceRuntime | undefined {
+    const runtime = this.registry.get(instanceId);
+    return runtime ? this.lifecycle.start(runtime) : undefined;
+  }
+
+  pauseInstance(instanceId: ServerInstanceId): ServerInstanceRuntime | undefined {
+    const runtime = this.registry.get(instanceId);
+    return runtime ? this.lifecycle.pause(runtime) : undefined;
+  }
+
+  stopInstance(instanceId: ServerInstanceId): ServerInstanceRuntime | undefined {
+    const runtime = this.registry.get(instanceId);
+    return runtime ? this.lifecycle.stop(runtime) : undefined;
+  }
+
+  restartInstance(instanceId: ServerInstanceId): ServerInstanceRuntime | undefined {
+    const runtime = this.registry.get(instanceId);
+    return runtime ? this.lifecycle.restart(runtime) : undefined;
+  }
+
+  destroyInstance(instanceId: ServerInstanceId): boolean {
+    const runtime = this.registry.get(instanceId);
+
+    if (!runtime) {
+      return false;
+    }
+
+    this.lifecycle.destroy(runtime);
+    this.registry.remove(instanceId);
+    return true;
+  }
+
+  getInstanceById(instanceId: ServerInstanceId): ServerInstanceRuntime | undefined {
+    return this.registry.get(instanceId);
+  }
+
+  listInstances(): ServerInstanceRuntime[] {
+    return this.registry.list();
+  }
+
+  listActiveInstances(): ServerInstanceRuntime[] {
+    return this.registry
+      .list()
+      .filter((runtime) => runtime.record.status === "running");
+  }
+
+  tickInstance(instanceId: ServerInstanceId): ServerInstanceRuntime | undefined {
+    const runtime = this.registry.get(instanceId);
+    return runtime ? this.lifecycle.tick(runtime) : undefined;
+  }
+
+  dispatchCommand(
+    instanceId: ServerInstanceId,
+    command: GameCommand
+  ): InstanceCommandDispatchResult | undefined {
+    const runtime = this.registry.get(instanceId);
+    return runtime ? this.lifecycle.dispatch(runtime, command) : undefined;
+  }
+
+  getPlayerProjection(instanceId: ServerInstanceId, playerId: string) {
+    const runtime = this.registry.get(instanceId);
+    return runtime ? createPlayerProjection(runtime, playerId) : undefined;
+  }
+
+  getGameplaySliceProjection(instanceId: ServerInstanceId, playerId: string, districtId: string) {
+    const runtime = this.registry.get(instanceId);
+    return runtime ? createGameplaySliceProjection(runtime, playerId, districtId) : undefined;
+  }
+
+  async restoreInstance(instanceId: ServerInstanceId): Promise<ServerInstanceRuntime | undefined> {
+    const runtime = this.registry.get(instanceId);
+    return runtime ? this.lifecycle.restore(runtime) : undefined;
+  }
+
+  getInstanceMonitorSnapshot(instanceId: ServerInstanceId) {
+    const runtime = this.registry.get(instanceId);
+    return runtime
+      ? createInstanceMonitorSnapshot(
+          runtime.record,
+          runtime.state,
+          runtime.eventQueue,
+          runtime.runtimeHealth
+        )
+      : undefined;
+  }
+
+  getInstanceHealth(instanceId: ServerInstanceId) {
+    const runtime = this.registry.get(instanceId);
+    return runtime ? getInstanceHealth(runtime) : undefined;
+  }
+
+  getHealthSummary() {
+    const instances = this.registry.list();
+    return {
+      totalInstances: instances.length,
+      runningInstances: instances.filter((runtime) => runtime.record.status === "running").length,
+      crashedInstances: instances.filter((runtime) => runtime.record.status === "crashed").length
+    };
+  }
+
+  async saveInstanceSnapshot(instanceId: ServerInstanceId): Promise<boolean> {
+    const runtime = this.registry.get(instanceId);
+
+    if (!runtime) {
+      return false;
+    }
+
+    await runtime.snapshotController.save(runtime);
+    return true;
+  }
+}

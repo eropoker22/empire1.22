@@ -1,0 +1,2138 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Empire Streets | Game Shell</title>
+    <link rel="stylesheet" href="../page-assets/css/styles.css">
+    <link rel="stylesheet" href="../page-assets/css/styles-game-admin-slice.css">
+  </head>
+  <body>
+    <header id="game-header" class="game-topbar">
+      <div class="game-topbar-inner">
+        <div class="game-brand">
+          <span class="game-logo-slot" aria-hidden="true">
+            <span class="game-logo-mark">ES</span>
+          </span>
+          <div class="game-brand-copy">
+            <button type="button" class="game-brand-name game-brand-name--slice-trigger" data-slice-panel-open>EmpireStreets</button>
+          </div>
+          <button type="button" class="button player-profile-trigger nav-btn nav-btn--profile" data-player-profile-open>Profil hráče</button>
+        </div>
+
+        <div class="game-topbar-controls">
+          <section class="game-resource-strip" aria-label="Player resources">
+            <div class="resource-pill">
+              <span class="resource-label">Čisté peníze</span>
+              <strong class="resource-value" data-topbar-clean-money>$0</strong>
+            </div>
+            <div class="resource-pill">
+              <span class="resource-label">Špinavé peníze</span>
+              <strong class="resource-value" data-topbar-dirty-money>$0</strong>
+            </div>
+            <button type="button" class="resource-pill resource-pill--interactive resource-pill--influence" data-topbar-spy-pill aria-label="Vliv nebo špeh">
+              <span class="resource-label" data-topbar-spy-label>Vliv</span>
+              <strong class="resource-value resource-value--inline" data-topbar-influence data-topbar-spy-value>0</strong>
+            </button>
+            <button type="button" class="button game-toolbar-button" data-storage-popup-open>SKLAD</button>
+          </section>
+
+          <div class="game-utility-actions">
+            <button type="button" class="button game-toolbar-button game-toolbar-button--settings nav-btn nav-btn--settings" data-nav-settings>Nastavení</button>
+            <button type="button" class="button game-toolbar-button game-toolbar-button--logout topbar__logout" data-nav-logout>Odhlásit se</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="game-root" class="game-shell" data-page="game">
+      <div class="game-shell-ambience" aria-hidden="true">
+        <span class="game-ambient-orb game-ambient-orb--cyan"></span>
+        <span class="game-ambient-orb game-ambient-orb--amber"></span>
+        <span class="game-grid-haze"></span>
+      </div>
+      <section id="game-layout" class="game-layout game-layout--shell">
+        <aside id="game-rail-left" class="sidebar-shell game-rail">
+          <div id="game-left-nav" class="panel-action-stack" aria-label="Left panel actions">
+            <div id="city-events-card-anchor" hidden aria-hidden="true"></div>
+            <section id="city-events-card" class="city-events-card" aria-label="City Events">
+              <button class="button panel-action-button events-hero" id="city-events-open" type="button" aria-label="City Events">
+                <span class="city-events-btn__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                    <rect x="3.5" y="4.5" width="17" height="16" rx="3"></rect>
+                    <path d="M8 2.5v4"></path>
+                    <path d="M16 2.5v4"></path>
+                    <path d="M3.5 9.5h17"></path>
+                    <path d="M8 13h3"></path>
+                  </svg>
+                </span>
+                <span class="city-events-btn__label">City Events</span>
+              </button>
+            </section>
+            <div id="buildings-card-anchor" hidden aria-hidden="true"></div>
+            <section id="buildings-card" class="feature-card feature-card--buildings" aria-label="Správa budov">
+              <button type="button" class="button panel-action-button panel-action-button--feature" data-buildings-popup-open>Budovy</button>
+            </section>
+            <div id="market-card-anchor" hidden aria-hidden="true"></div>
+            <section id="market-card" class="feature-card feature-card--market" aria-label="Obchod a trh">
+              <button type="button" class="button panel-action-button panel-action-button--feature" data-market-popup-open>Market</button>
+            </section>
+            <div id="building-shortcuts-anchor" hidden aria-hidden="true"></div>
+            <div id="building-shortcut-grid" class="building-shortcut-grid" aria-label="Rychlé budovy">
+              <button type="button" class="button building-shortcut-button building-shortcut-button--pharmacy" aria-label="Lékarna" data-pharmacy-popup-open>
+                <span class="building-shortcut-badge building-shortcut-badge--icon">✚</span>
+                <span class="building-shortcut-label">Lékárna</span>
+              </button>
+              <button type="button" class="button building-shortcut-button building-shortcut-button--druglab" aria-label="Drug lab" data-druglab-popup-open>
+                <span class="building-shortcut-badge building-shortcut-badge--icon">◈</span>
+                <span class="building-shortcut-label">Lab</span>
+              </button>
+              <button type="button" class="button building-shortcut-button building-shortcut-button--factory" aria-label="Továrna" data-factory-popup-open>
+                <span class="building-shortcut-badge building-shortcut-badge--icon">▦</span>
+                <span class="building-shortcut-label">Továrna</span>
+              </button>
+              <button type="button" class="button building-shortcut-button building-shortcut-button--armory" aria-label="Zbrojovka" data-armory-popup-open>
+                <span class="building-shortcut-badge building-shortcut-badge--icon">✶</span>
+                <span class="building-shortcut-label">Zbrojovka</span>
+              </button>
+            </div>
+            <section class="building-action-status" aria-label="Poslední akce budov">
+              <div class="building-action-status__head">
+                <span class="building-action-status__eyebrow">Uliční zprávy</span>
+                <div class="building-action-status__controls">
+                  <strong class="building-action-status__state building-action-status__state--idle" data-building-action-state>Připraveno</strong>
+                  <button type="button" class="button building-action-status__clear" aria-label="Smazat všechny zprávy" data-building-action-clear>
+                    <span aria-hidden="true">🗑</span>
+                  </button>
+                </div>
+              </div>
+              <p class="building-action-status__summary" data-building-action-summary>Zatím tu nejsou žádné poslední akce. Panel je připravený pro výsledek výroby, craftu nebo jiné budoucí události.</p>
+              <p class="building-action-status__meta" data-building-action-meta>Čeká na první herní akci</p>
+              <p class="building-action-status__empty" data-building-action-empty>Žádné uliční zprávy. Jakmile se něco stane, první záznam skočí sem.</p>
+              <div class="building-action-status__feed" data-building-action-feed role="log" aria-live="polite" aria-label="Historie uličních zpráv"></div>
+            </section>
+            <div id="leaderboard-card-anchor" hidden aria-hidden="true"></div>
+            <button id="leaderboard-card" type="button" class="button leaderboard-button">Leaderboard</button>
+          </div>
+        </aside>
+
+        <div id="mobile-gang-panel-anchor" hidden aria-hidden="true"></div>
+        <section id="game-main-region" class="region-shell game-stage" data-client-surface="game-shell">
+          <section id="game-map-stage" class="map-stage-shell" aria-label="Game map stage">
+            <div class="map-stage-header">
+              <div class="map-stage-heading">
+                <h2 class="map-stage-title">Mapa kontroly města</h2>
+                <div class="map-stage-actions map-stage-actions--desktop" aria-label="Map quick actions desktop">
+                  <button
+                    type="button"
+                    class="button city-events-target-btn map-bounty-shortcut map-bounty-shortcut--desktop"
+                    data-bounty-open-trigger
+                    aria-label="Otevřít bounty panel"
+                    title="Bounty"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <circle cx="12" cy="12" r="7"></circle>
+                      <circle cx="12" cy="12" r="3.2"></circle>
+                      <path d="M5.5 5.5L12 12"></path>
+                      <path d="M5.5 5.5H9.2"></path>
+                      <path d="M5.5 5.5V9.2"></path>
+                    </svg>
+                  </button>
+                  <button class="button map-boost-btn map-boost-btn--desktop" type="button" data-boost-open-trigger aria-label="Boost">
+                    Boost
+                  </button>
+                </div>
+              </div>
+              <div class="map-phase-toolbar" aria-label="Phase switch">
+                <button type="button" class="button map-phase-button" data-game-phase-toggle>Fáze hry: LIVE</button>
+                <button type="button" class="button map-phase-button" data-border-toggle>Hrany: BÍLÁ</button>
+              </div>
+            </div>
+            <div id="game-map-mount" class="mount-point mount-point--map" data-mount-role="map">
+              <div class="map-viewport" data-map-viewport>
+                <div class="map-canvas-shell" data-map-phase="day" data-game-phase="live" data-map-canvas>
+                  <canvas
+                    class="map-district-canvas"
+                    data-district-canvas
+                    width="1600"
+                    height="980"
+                    aria-label="Mapa rozdělená na 161 districtů"
+                  ></canvas>
+                </div>
+                <div class="district-hover-tooltip" data-district-tooltip hidden>
+                  <span class="district-hover-tooltip__label">District</span>
+                  <strong class="district-hover-tooltip__value" data-district-tooltip-value>1</strong>
+                  <span class="district-hover-tooltip__type" data-district-tooltip-type>resident</span>
+                  <div class="district-hover-tooltip__gossip" data-district-tooltip-gossip></div>
+                </div>
+              </div>
+            <div class="map-zoom-controls" aria-label="Map zoom controls">
+              <button type="button" class="button map-zoom-button" data-map-zoom="in">+</button>
+              <button type="button" class="button map-zoom-button" data-map-zoom="out">-</button>
+            </div>
+            </div>
+            <div id="game-command-bar-mount" class="mount-point mount-point--tray" data-mount-role="command-bar">
+              <div class="city-status-bar" aria-label="Stav města">
+                <div class="city-status-pill">
+                  <span class="city-status-pill__label" data-mobile-short="Čas">Čas města</span>
+                  <strong class="city-status-pill__value" data-city-clock>22:14</strong>
+                </div>
+                <div class="city-status-pill">
+                  <span class="city-status-pill__label" data-mobile-short="Den">Denní fáze</span>
+                  <strong class="city-status-pill__value" data-city-day-phase>DEN</strong>
+                </div>
+                <div class="city-status-pill">
+                  <span class="city-status-pill__label" data-mobile-short="Srv">Fáze serveru</span>
+                  <strong class="city-status-pill__value" data-city-game-phase>LIVE</strong>
+                </div>
+                <div class="city-status-pill">
+                  <span class="city-status-pill__label" data-mobile-short="Stav">Stav města</span>
+                  <strong class="city-status-pill__value" data-city-status>Klid před bouří</strong>
+                </div>
+                <div class="city-status-pill">
+                  <span class="city-status-pill__label" data-mobile-short="Prod">Produkce</span>
+                  <strong class="city-status-pill__value" data-city-production>+12 % denní směna</strong>
+                </div>
+              </div>
+            </div>
+            <div class="map-stage-actions map-stage-actions--mobile" aria-label="Map quick actions">
+              <button
+                type="button"
+                class="button city-events-target-btn map-bounty-shortcut"
+                data-bounty-open-trigger
+                aria-label="Otevřít bounty panel"
+                title="Bounty"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <circle cx="12" cy="12" r="7"></circle>
+                  <circle cx="12" cy="12" r="3.2"></circle>
+                  <path d="M5.5 5.5L12 12"></path>
+                  <path d="M5.5 5.5H9.2"></path>
+                  <path d="M5.5 5.5V9.2"></path>
+                </svg>
+              </button>
+              <button class="button map-boost-btn" type="button" data-boost-open-trigger aria-label="Boost">
+                Boost
+              </button>
+            </div>
+          </section>
+        </section>
+
+        <aside id="game-rail-right" class="sidebar-shell game-rail">
+          <div id="game-gang-panel-anchor" hidden aria-hidden="true"></div>
+          <div id="game-gang-panel-mount" class="mount-point mount-point--panel gang-profile-panel" data-mount-role="gang-panel">
+            <div id="profile-gang-card" class="right-panel-card">
+              <div class="profile-heading gang-profile-header">
+                <h3 class="placeholder-title">Profil Gangu</h3>
+                <p class="panel-note gang-profile-stars" aria-label="Gang level" data-gang-stars>
+                  <span class="is-active" data-gang-star>★</span>
+                  <span data-gang-star>★</span>
+                  <span data-gang-star>★</span>
+                  <span data-gang-star>★</span>
+                  <span data-gang-star>★</span>
+                  <span data-gang-star>★</span>
+                </p>
+              </div>
+              <p class="panel-note profile-row gang-profile-row"><span class="gang-profile-row__label">Členové</span><span data-gang-members>0</span></p>
+              <p class="panel-note profile-row profile-row--wanted gang-profile-row"><span class="gang-profile-row__label">Hledanost</span><button type="button" class="button gang-profile-value-button profile-heat-panel" data-gang-heat>10</button></p>
+              <p class="panel-note profile-row gang-profile-row"><span class="gang-profile-row__label">Frakce</span><span data-gang-faction>-</span></p>
+              <p class="panel-note profile-row gang-profile-row"><span class="gang-profile-row__label">Distrikty</span><span data-gang-districts>0</span></p>
+              <p class="panel-note profile-row gang-profile-row"><span class="gang-profile-row__label">Aliance</span><span id="profile-alliance" data-gang-alliance>Žádná</span></p>
+            </div>
+          </div>
+          <div id="mobile-building-shortcuts-anchor" hidden aria-hidden="true"></div>
+          <div id="alliance-chat-card" class="right-panel-card">
+            <button type="button" class="button alliance-button" id="alliance-btn" data-alliance-popup-open>
+              <span class="alliance-btn__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                  <circle cx="12" cy="12" r="7"></circle>
+                  <circle cx="12" cy="12" r="2.2"></circle>
+                  <path d="M12 2v3.5"></path>
+                  <path d="M12 18.5V22"></path>
+                  <path d="M2 12h3.5"></path>
+                  <path d="M18.5 12H22"></path>
+                </svg>
+              </span>
+              <span class="alliance-btn__label">Aliance</span>
+            </button>
+          </div>
+          <div id="global-chat-card" class="right-panel-card">
+            <section class="alliance-chat server-chat-panel" aria-label="Serverový chat">
+              <div class="alliance-chat__title">Globální chat</div>
+              <div id="alliance-chat-log" class="alliance-chat__log server-chat-panel__feed" data-global-chat-log>
+                <div class="alliance-chat__item server-chat-panel__message">
+                  <span class="server-chat-panel__author">System</span>
+                  <span class="server-chat-panel__text">Chat je připravený pro komunikaci mezi všemi hráči na serveru.</span>
+                </div>
+                <div class="alliance-chat__item server-chat-panel__message">
+                  <span class="server-chat-panel__author">Info</span>
+                  <span class="server-chat-panel__text">Zprávy, obchodní nabídky a varování budou chodit sem.</span>
+                </div>
+              </div>
+              <div class="alliance-chat__input server-chat-panel__composer">
+                <input id="alliance-chat-input" type="text" class="server-chat-panel__input" placeholder="Napiš zprávu do globálního chatu..." aria-label="Zpráva do globálního chatu" data-global-chat-input>
+                <button id="alliance-chat-send" type="button" class="button server-chat-panel__send" aria-label="Odeslat zprávu" data-global-chat-send>Odeslat</button>
+              </div>
+            </section>
+          </div>
+        </aside>
+      </section>
+
+      <div class="game-mobile-utility-actions" aria-label="Mobilní utility akce">
+        <button type="button" class="button game-toolbar-button game-toolbar-button--settings nav-btn nav-btn--settings" data-nav-settings>Nastavení</button>
+        <button type="button" class="button game-toolbar-button game-toolbar-button--logout topbar__logout" data-nav-logout>Odhlásit se</button>
+      </div>
+
+      <section id="game-overlay-region" class="page-section">
+        <h2 class="section-title">Overlay roots</h2>
+        <div class="page-grid game-overlay-grid">
+          <div id="game-modal-root" class="mount-point mount-point--overlay" data-mount-role="modals"><span class="placeholder-label">Overlay root</span><h3 class="placeholder-title">Modal layer</h3><p class="panel-note">Potvrzení, detailní okna, blocking flow.</p></div>
+          <div id="game-toast-root" class="mount-point mount-point--overlay" data-mount-role="notifications"><span class="placeholder-label">Overlay root</span><h3 class="placeholder-title">Notification layer</h3><p class="panel-note">Krátké notifikace a systémové stavy.</p></div>
+          <div id="game-report-root" class="mount-point mount-point--overlay" data-mount-role="reports"><span class="placeholder-label">Overlay root</span><h3 class="placeholder-title">Report layer</h3><p class="panel-note">Historie reportů, battle logy a archiv událostí.</p></div>
+        </div>
+      </section>
+
+      <div class="district-popup-shell" data-district-popup hidden>
+        <div class="district-popup-backdrop" data-district-popup-close></div>
+        <div class="district-popup-card" data-district-popup-card role="dialog" aria-modal="true" aria-label="District detail">
+          <button type="button" class="button district-popup-toggle" data-district-popup-toggle aria-pressed="false">Zapnout přehled</button>
+          <button type="button" class="button district-popup-close" data-district-popup-close aria-label="Zavřít district okno">×</button>
+          <div class="district-modal-hero district-modal-hero--district">
+            <img class="district-modal-hero__image" data-district-popup-atmosphere-image alt="Atmosféra distriktu" loading="lazy">
+            <div class="district-modal-hero__scrim"></div>
+            <div class="district-modal-hero__copy">
+              <span class="district-popup-eyebrow" data-district-popup-atmosphere-label>Neznámý sektor</span>
+              <h3 class="district-popup-title" data-district-popup-title>District 1</h3>
+              <p class="district-modal-hero__mood" data-district-popup-atmosphere-mood>Atmosféra města se propíše podle typu distriktu.</p>
+            </div>
+          </div>
+          <div class="district-popup-body">
+            <div class="district-popup-owner-card">
+              <div class="district-popup-owner-avatar-wrap">
+                <img class="district-popup-owner-avatar is-empty" data-district-popup-owner-avatar alt="Avatar vlastníka districtu" loading="lazy">
+                <span class="district-popup-owner-avatar-fallback" data-district-popup-owner-avatar-fallback>?</span>
+              </div>
+              <div class="district-popup-owner-copy">
+                <div class="district-popup-owner-label">Vlastník districtu</div>
+                <div class="district-popup-owner-name" data-district-popup-owner>Neobsazeno</div>
+                <div class="district-popup-owner-meta" data-district-popup-owner-meta>Bez avatara</div>
+              </div>
+            </div>
+            <section class="district-popup-status">
+              <div class="district-popup-status__label">Přehled</div>
+              <div class="district-popup-status__flags" data-district-popup-flags></div>
+            </section>
+            <section class="district-popup-summary-grid" aria-label="Souhrn distriktu">
+              <article class="district-popup-summary-card">
+                <span class="district-popup-summary-card__label">Typ</span>
+                <strong class="district-popup-summary-card__value" data-district-popup-type>resident</strong>
+              </article>
+              <article class="district-popup-summary-card">
+                <span class="district-popup-summary-card__label">Obrana</span>
+                <strong class="district-popup-summary-card__value" data-district-popup-defense>Žádná</strong>
+              </article>
+              <article class="district-popup-summary-card">
+                <span class="district-popup-summary-card__label">Síla obrany</span>
+                <strong class="district-popup-summary-card__value" data-district-popup-defense-power>0</strong>
+              </article>
+              <article class="district-popup-summary-card">
+                <span class="district-popup-summary-card__label">Obyvatelé</span>
+                <strong class="district-popup-summary-card__value" data-district-popup-residents>0</strong>
+              </article>
+              <article class="district-popup-summary-card">
+                <span class="district-popup-summary-card__label">Příjem</span>
+                <strong class="district-popup-summary-card__value" data-district-popup-income>$0/hod</strong>
+              </article>
+              <article class="district-popup-summary-card">
+                <span class="district-popup-summary-card__label">Heat</span>
+                <strong class="district-popup-summary-card__value" data-district-popup-heat>0/den</strong>
+              </article>
+              <article class="district-popup-summary-card">
+                <span class="district-popup-summary-card__label">Vliv</span>
+                <strong class="district-popup-summary-card__value" data-district-popup-influence>0/hod</strong>
+              </article>
+            </section>
+            <section class="district-popup-buildings" data-district-popup-buildings>
+              <div class="district-popup-buildings__head">
+                <div class="district-popup-buildings__label">Budovy v distriktu</div>
+                <div class="district-popup-buildings__meta" data-district-popup-buildings-meta>District package</div>
+              </div>
+              <div class="district-popup-buildings__list" data-district-popup-buildings-list></div>
+            </section>
+            <section class="district-popup-gossip" data-district-popup-gossip>
+              <div class="district-popup-gossip__label">Drby</div>
+              <div class="district-popup-gossip__list" data-district-popup-gossip-list></div>
+            </section>
+            <section class="district-popup-action-section" data-district-action-section>
+              <div class="district-popup-action-section__head">
+                <div class="district-popup-action-section__title">Akce</div>
+                <p class="district-popup-action-section__copy">Co můžeš spustit hned teď.</p>
+              </div>
+              <div class="district-popup-actions" data-district-actions></div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <div id="buildings-modal" class="buildings-popup-shell modal" data-buildings-popup hidden>
+        <div id="buildings-modal-backdrop" class="buildings-popup-backdrop modal__backdrop" data-buildings-popup-close></div>
+        <div class="buildings-popup-card modal__content modal__content--profile buildings-modal__content" role="dialog" aria-modal="true" aria-label="Budovy podle distriktu">
+          <div class="modal__header">
+            <h3>Budovy podle distriktu</h3>
+            <button type="button" id="buildings-modal-close" class="modal__close" data-buildings-popup-close aria-label="Zavřít okno budov">✕</button>
+          </div>
+          <div class="modal__body buildings-popup__body">
+            <div class="buildings-popup__layout buildings-modal__layout">
+              <div id="buildings-type-list" class="buildings-popup__types buildings-modal__types" data-buildings-popup-types></div>
+              <div id="buildings-modal-detail" class="buildings-popup__detail buildings-modal__detail" data-buildings-popup-detail></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="spy-toast" data-spy-toast role="status" aria-live="polite" aria-atomic="true" hidden>
+        <span class="spy-toast__label">SPY</span>
+        <strong class="spy-toast__title">Akce spuštěna</strong>
+        <p class="spy-toast__copy">Špeh byl vyslán do districtu.</p>
+      </div>
+
+      <div class="attack-toast" data-attack-toast role="status" aria-live="polite" aria-atomic="true" hidden>
+        <span class="attack-toast__label">ATTACK</span>
+        <strong class="attack-toast__title">Útok spuštěn</strong>
+        <p class="attack-toast__copy">Jednotky byly vyslány do districtu.</p>
+      </div>
+
+      <div class="attack-toast robbery-toast" data-robbery-toast role="status" aria-live="polite" aria-atomic="true" hidden>
+        <span class="attack-toast__label">ROBBERY</span>
+        <strong class="attack-toast__title">Vykradení spuštěno</strong>
+        <p class="attack-toast__copy">Posádka vyráží pro materiály.</p>
+      </div>
+
+      <div class="attack-setup-popup-shell" data-attack-setup-popup hidden>
+        <div class="attack-setup-popup-backdrop" data-attack-setup-close></div>
+        <div class="attack-setup-popup-card" data-attack-setup-card role="dialog" aria-modal="true" aria-label="Nastavení útoku">
+          <div class="district-modal-hero district-modal-hero--attack">
+            <img class="district-modal-hero__image" data-attack-setup-atmosphere-image alt="Atmosféra cílového distriktu" loading="lazy">
+            <div class="district-modal-hero__scrim"></div>
+            <div class="district-modal-hero__copy">
+              <span class="attack-setup-popup-eyebrow">Útok na district</span>
+              <strong class="district-modal-hero__type" data-attack-setup-atmosphere-label>Neznámý sektor</strong>
+              <h3 class="attack-setup-popup-title" data-attack-target-title>District 1</h3>
+            </div>
+            <button type="button" class="button attack-setup-popup-close" data-attack-setup-close>✕</button>
+          </div>
+          <div class="attack-setup-popup-body">
+            <p class="attack-setup-popup-row">Zdrojový district
+              <span>
+                <select class="attack-setup-popup-select" data-attack-source-select aria-label="Vyber zdrojový district"></select>
+              </span>
+            </p>
+            <p class="attack-setup-popup-row">Dostupní obyvatelé <span data-attack-available-population>24</span></p>
+            <p class="attack-setup-popup-row">Potřební obyvatelé <span data-attack-required-population>0</span></p>
+            <p class="attack-setup-popup-row">Síla útoku <span data-attack-estimated-power>0</span></p>
+            <p class="attack-setup-popup-row">Stav <span data-attack-status>Vyber zbraně</span></p>
+            <div class="attack-setup-popup-weapons" data-attack-weapon-list>
+              <label class="attack-setup-popup-weapon">
+                <span class="attack-setup-popup-weapon__name">Baseballová pálka</span>
+                <span class="attack-setup-popup-weapon__meta">1 obyvatel · sklad <strong data-attack-owned="baseball-bat">0</strong></span>
+                <span class="attack-setup-popup-stepper">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="baseball-bat" aria-label="Ubrat baseballovou pálku">−</button>
+                  <input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-attack-weapon-input="baseball-bat" aria-label="Počet baseballových pálek">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="baseball-bat" aria-label="Přidat baseballovou pálku">+</button>
+                </span>
+              </label>
+              <label class="attack-setup-popup-weapon">
+                <span class="attack-setup-popup-weapon__name">Pistole</span>
+                <span class="attack-setup-popup-weapon__meta">1 obyvatel · sklad <strong data-attack-owned="pistol">0</strong></span>
+                <span class="attack-setup-popup-stepper">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="pistol" aria-label="Ubrat pistoli">−</button>
+                  <input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-attack-weapon-input="pistol" aria-label="Počet pistolí">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="pistol" aria-label="Přidat pistoli">+</button>
+                </span>
+              </label>
+              <label class="attack-setup-popup-weapon">
+                <span class="attack-setup-popup-weapon__name">Granát</span>
+                <span class="attack-setup-popup-weapon__meta">1 obyvatel · sklad <strong data-attack-owned="grenade">0</strong></span>
+                <span class="attack-setup-popup-stepper">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="grenade" aria-label="Ubrat granát">−</button>
+                  <input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-attack-weapon-input="grenade" aria-label="Počet granátů">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="grenade" aria-label="Přidat granát">+</button>
+                </span>
+              </label>
+              <label class="attack-setup-popup-weapon">
+                <span class="attack-setup-popup-weapon__name">SMG</span>
+                <span class="attack-setup-popup-weapon__meta">2 obyvatelé · sklad <strong data-attack-owned="smg">0</strong></span>
+                <span class="attack-setup-popup-stepper">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="smg" aria-label="Ubrat SMG">−</button>
+                  <input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-attack-weapon-input="smg" aria-label="Počet SMG">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="smg" aria-label="Přidat SMG">+</button>
+                </span>
+              </label>
+              <label class="attack-setup-popup-weapon">
+                <span class="attack-setup-popup-weapon__name">Bazuka</span>
+                <span class="attack-setup-popup-weapon__meta">3 obyvatelé · sklad <strong data-attack-owned="bazooka">0</strong></span>
+                <span class="attack-setup-popup-stepper">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="bazooka" aria-label="Ubrat bazuku">−</button>
+                  <input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-attack-weapon-input="bazooka" aria-label="Počet bazuk">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="bazooka" aria-label="Přidat bazuku">+</button>
+                </span>
+              </label>
+              <div class="attack-setup-popup-weapon attack-setup-popup-weapon--action">
+                <button type="button" class="button attack-setup-popup-confirm" data-attack-confirm>Potvrdit útok</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="attack-confirm-modal" class="modal" data-attack-confirm-popup hidden>
+        <div id="attack-confirm-modal-backdrop" class="modal__backdrop" data-attack-confirm-close></div>
+        <div class="modal__content spy-confirm-modal__content attack-confirm-modal__content district-action-confirm-popup-card attack-confirm-popup-card" data-attack-confirm-card role="dialog" aria-modal="true" aria-labelledby="attack-confirm-modal-heading">
+          <div class="district-modal-hero district-modal-hero--attack-confirm">
+            <img class="district-modal-hero__image" data-attack-confirm-atmosphere-image alt="Atmosféra cílového distriktu" loading="lazy">
+            <div class="district-modal-hero__scrim"></div>
+            <div class="district-modal-hero__copy">
+              <span class="attack-setup-popup-eyebrow">Potvrdit útok</span>
+              <strong class="district-modal-hero__type" data-attack-confirm-atmosphere-label>Neznámý sektor</strong>
+              <h3 class="attack-setup-popup-title" id="attack-confirm-modal-heading" data-attack-confirm-title>District 1</h3>
+            </div>
+            <button class="button attack-setup-popup-close" id="attack-confirm-modal-close" type="button" aria-label="Zavřít" data-attack-confirm-close>✕</button>
+          </div>
+          <div class="modal__body spy-confirm-modal__body attack-confirm-modal__body district-action-confirm-popup-body">
+            <p class="attack-setup-popup-row attack-confirm-modal__stat">Zdroj útoku <span><strong data-attack-confirm-source>---</strong></span></p>
+            <p class="attack-setup-popup-row attack-confirm-modal__stat">Použito členů <span><strong data-attack-confirm-members>0</strong></span></p>
+            <p class="attack-setup-popup-row attack-confirm-modal__stat">Výsledná síla útoku <span><strong data-attack-confirm-power>0</strong></span></p>
+            <p class="attack-setup-popup-row attack-confirm-modal__stat">Scénář <span><strong data-attack-confirm-scenario>Neznámý</strong></span></p>
+            <p class="attack-setup-popup-row attack-confirm-modal__stat">Trvání <span><strong data-attack-confirm-duration>20s</strong></span></p>
+            <p class="muted spy-confirm-modal__note attack-confirm-modal__note attack-setup-popup-copy" data-attack-confirm-note>Po potvrzení vyrazí ozbrojená posádka do cílového distriktu.</p>
+            <div class="modal__actions spy-confirm-modal__actions attack-confirm-modal__actions">
+              <button class="btn btn--ghost modal__cancel-btn" id="attack-confirm-modal-cancel" type="button" data-attack-confirm-close>Zrušit</button>
+              <button class="btn btn--danger modal__confirm-btn" id="attack-confirm-modal-confirm" type="button" data-attack-confirm-button>Potvrdit útok</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="attack-setup-popup-shell robbery-setup-popup-shell" data-robbery-setup-popup hidden>
+        <div class="attack-setup-popup-backdrop" data-robbery-setup-close></div>
+        <div class="attack-setup-popup-card robbery-setup-popup-card" data-robbery-setup-card role="dialog" aria-modal="true" aria-label="Nastavení vykradení">
+          <div class="district-modal-hero district-modal-hero--robbery">
+            <img class="district-modal-hero__image" data-robbery-setup-atmosphere-image alt="Atmosféra cílového distriktu" loading="lazy">
+            <div class="district-modal-hero__scrim"></div>
+            <div class="district-modal-hero__copy">
+              <span class="attack-setup-popup-eyebrow">Vykrást district</span>
+              <strong class="district-modal-hero__type" data-robbery-setup-atmosphere-label>Neznámý sektor</strong>
+              <h3 class="attack-setup-popup-title" data-robbery-target-title>District 1</h3>
+            </div>
+            <button type="button" class="button attack-setup-popup-close" data-robbery-setup-close>✕</button>
+          </div>
+          <div class="attack-setup-popup-body">
+            <p class="attack-setup-popup-row">Zdrojový district
+              <span>
+                <select class="attack-setup-popup-select" data-robbery-source-select aria-label="Vyber zdrojový district"></select>
+              </span>
+            </p>
+            <p class="attack-setup-popup-row">Dostupní členové <span data-robbery-available-members>100</span></p>
+            <p class="attack-setup-popup-row">Nasazení členové <span><span class="attack-setup-popup-stepper attack-setup-popup-stepper--inline"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="robbery-members" aria-label="Ubrat člena pro vykradení">−</button><input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-robbery-member-input aria-label="Počet členů gangu pro vykradení"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="robbery-members" aria-label="Přidat člena pro vykradení">+</button></span></span></p>
+            <p class="attack-setup-popup-row">Stav <span data-robbery-status>Vyber členy gangu</span></p>
+            <p class="attack-setup-popup-copy">Vykradení lze provést jen na prázdný sousední district. Akce trvá 20 sekund a po návratu přinese report i případný loot materiálů.</p>
+            <div class="attack-setup-popup-actions">
+              <button type="button" class="button attack-setup-popup-confirm" data-robbery-confirm>Potvrdit vykradení</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="raid-confirm-modal" class="modal" data-robbery-confirm-popup hidden>
+        <div id="raid-confirm-modal-backdrop" class="modal__backdrop" data-robbery-confirm-close></div>
+        <div class="modal__content spy-confirm-modal__content district-action-confirm-popup-card robbery-confirm-popup-card" data-robbery-confirm-card role="dialog" aria-modal="true" aria-labelledby="raid-confirm-modal-heading">
+          <div class="district-modal-hero district-modal-hero--robbery-confirm">
+            <img class="district-modal-hero__image" data-robbery-confirm-atmosphere-image alt="Atmosféra cílového distriktu" loading="lazy">
+            <div class="district-modal-hero__scrim"></div>
+            <div class="district-modal-hero__copy">
+              <span class="attack-setup-popup-eyebrow">Potvrdit vykradení</span>
+              <strong class="district-modal-hero__type" data-robbery-confirm-atmosphere-label>Neznámý sektor</strong>
+              <h3 class="attack-setup-popup-title" id="raid-confirm-modal-heading" data-robbery-confirm-title>District 1</h3>
+            </div>
+            <button class="button attack-setup-popup-close" id="raid-confirm-modal-close" type="button" aria-label="Zavřít" data-robbery-confirm-close>✕</button>
+          </div>
+          <div class="modal__body spy-confirm-modal__body district-action-confirm-popup-body">
+            <p class="attack-setup-popup-row">Zdroj <span><strong data-robbery-confirm-source>---</strong></span></p>
+            <p class="attack-setup-popup-row">Nasazení členové <span><strong data-robbery-confirm-members>0</strong></span></p>
+            <p class="attack-setup-popup-row">Trvání <span><strong data-robbery-confirm-duration>20s</strong></span></p>
+            <p class="muted spy-confirm-modal__note attack-setup-popup-copy" data-robbery-confirm-note>Po potvrzení vyrazí crew na loot run.</p>
+            <div class="modal__actions spy-confirm-modal__actions">
+              <button class="btn btn--ghost modal__cancel-btn" id="raid-confirm-modal-cancel" type="button" data-robbery-confirm-close>Zrušit</button>
+              <button class="btn btn--primary modal__confirm-btn" id="raid-confirm-modal-confirm" type="button" data-robbery-confirm-button>Potvrdit vykradení</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="attack-setup-popup-shell defense-setup-popup-shell" data-defense-setup-popup hidden>
+        <div class="attack-setup-popup-backdrop" data-defense-setup-close></div>
+        <div class="attack-setup-popup-card defense-setup-popup-card" data-defense-setup-card role="dialog" aria-modal="true" aria-label="Nastavení obrany">
+          <div class="district-modal-hero district-modal-hero--defense">
+            <img class="district-modal-hero__image" data-defense-setup-atmosphere-image alt="Atmosféra obranného distriktu" loading="lazy">
+            <div class="district-modal-hero__scrim"></div>
+            <div class="district-modal-hero__copy">
+              <span class="attack-setup-popup-eyebrow defense-setup-popup-eyebrow">Obrana districtu</span>
+              <strong class="district-modal-hero__type" data-defense-setup-atmosphere-label>Neznámý sektor</strong>
+              <h3 class="attack-setup-popup-title defense-setup-popup-title" data-defense-target-title>District 1</h3>
+            </div>
+            <button type="button" class="button attack-setup-popup-close" data-defense-setup-close>✕</button>
+          </div>
+          <div class="attack-setup-popup-body">
+            <p class="attack-setup-popup-row defense-setup-popup-row">Obyvatelé v obraně <span><span class="attack-setup-popup-stepper attack-setup-popup-stepper--inline"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="defense-residents" aria-label="Ubrat obyvatele v obraně">−</button><input type="number" class="attack-setup-popup-weapon__input defense-setup-popup-residents-input" min="0" step="1" value="0" data-defense-residents-input aria-label="Počet obyvatel v obraně"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="defense-residents" aria-label="Přidat obyvatele v obraně">+</button></span></span></p>
+            <p class="attack-setup-popup-row defense-setup-popup-row">Síla obrany <span data-defense-estimated-power>0</span></p>
+            <p class="attack-setup-popup-row defense-setup-popup-row">Stav <span data-defense-status>Bez obrany</span></p>
+            <div class="attack-setup-popup-weapons defense-setup-popup-weapons">
+              <label class="attack-setup-popup-weapon defense-setup-popup-weapon">
+                <span class="attack-setup-popup-weapon__name">Vesta</span>
+                <span class="attack-setup-popup-weapon__meta">Defense power 6 · sklad <strong data-defense-owned="vest">0</strong></span>
+                <span class="attack-setup-popup-stepper">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="vest" aria-label="Ubrat vestu">−</button>
+                  <input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-defense-weapon-input="vest" aria-label="Počet vest">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="vest" aria-label="Přidat vestu">+</button>
+                </span>
+              </label>
+              <label class="attack-setup-popup-weapon defense-setup-popup-weapon">
+                <span class="attack-setup-popup-weapon__name">Barikády</span>
+                <span class="attack-setup-popup-weapon__meta">Defense power 12 · sklad <strong data-defense-owned="barricades">0</strong></span>
+                <span class="attack-setup-popup-stepper">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="barricades" aria-label="Ubrat barikádu">−</button>
+                  <input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-defense-weapon-input="barricades" aria-label="Počet barikád">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="barricades" aria-label="Přidat barikádu">+</button>
+                </span>
+              </label>
+              <label class="attack-setup-popup-weapon defense-setup-popup-weapon">
+                <span class="attack-setup-popup-weapon__name">Kamery</span>
+                <span class="attack-setup-popup-weapon__meta">Defense power 6 · sklad <strong data-defense-owned="cameras">0</strong></span>
+                <span class="attack-setup-popup-stepper">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="cameras" aria-label="Ubrat kameru">−</button>
+                  <input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-defense-weapon-input="cameras" aria-label="Počet kamer">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="cameras" aria-label="Přidat kameru">+</button>
+                </span>
+              </label>
+              <label class="attack-setup-popup-weapon defense-setup-popup-weapon">
+                <span class="attack-setup-popup-weapon__name">Defense tower</span>
+                <span class="attack-setup-popup-weapon__meta">Defense power 20 · sklad <strong data-defense-owned="defense-tower">0</strong></span>
+                <span class="attack-setup-popup-stepper">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="defense-tower" aria-label="Ubrat defense tower">−</button>
+                  <input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-defense-weapon-input="defense-tower" aria-label="Počet defense tower">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="defense-tower" aria-label="Přidat defense tower">+</button>
+                </span>
+              </label>
+              <label class="attack-setup-popup-weapon defense-setup-popup-weapon">
+                <span class="attack-setup-popup-weapon__name">Alarm</span>
+                <span class="attack-setup-popup-weapon__meta">Defense power 10 · sklad <strong data-defense-owned="alarm">0</strong></span>
+                <span class="attack-setup-popup-stepper">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="alarm" aria-label="Ubrat alarm">−</button>
+                  <input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-defense-weapon-input="alarm" aria-label="Počet alarmů">
+                  <button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="alarm" aria-label="Přidat alarm">+</button>
+                </span>
+              </label>
+            </div>
+            <p class="attack-setup-popup-copy defense-setup-popup-copy">Navol obrannou výbavu a počet obyvatel v districtu. Loadout i celková síla obrany se ukládají průběžně.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="trap-confirm-modal" class="modal" data-trap-confirm-popup hidden>
+        <div id="trap-confirm-modal-backdrop" class="modal__backdrop" data-trap-confirm-close></div>
+        <div class="modal__content spy-confirm-modal__content district-action-confirm-popup-card trap-confirm-popup-card" data-trap-confirm-card role="dialog" aria-modal="true" aria-labelledby="trap-confirm-modal-heading">
+          <div class="district-modal-hero district-modal-hero--trap-confirm">
+            <img class="district-modal-hero__image" data-trap-confirm-atmosphere-image alt="Atmosféra cílového distriktu" loading="lazy">
+            <div class="district-modal-hero__scrim"></div>
+            <div class="district-modal-hero__copy">
+              <span class="attack-setup-popup-eyebrow">Potvrdit past</span>
+              <strong class="district-modal-hero__type" data-trap-confirm-atmosphere-label>Neznámý sektor</strong>
+              <h3 class="attack-setup-popup-title" id="trap-confirm-modal-heading" data-trap-confirm-title>District 1</h3>
+            </div>
+            <button class="button attack-setup-popup-close" id="trap-confirm-modal-close" type="button" aria-label="Zavřít" data-trap-confirm-close>✕</button>
+          </div>
+          <div class="modal__body spy-confirm-modal__body district-action-confirm-popup-body">
+            <p class="attack-setup-popup-row">Cooldown přesunu <span><strong data-trap-confirm-cooldown>Připraveno</strong></span></p>
+            <p class="muted spy-confirm-modal__note attack-setup-popup-copy" data-trap-confirm-note>Nastraží toxickou past do vybraného distriktu. Pokud už máš aktivní past jinde, přesune se sem.</p>
+            <div class="modal__actions spy-confirm-modal__actions">
+              <button class="btn btn--ghost modal__cancel-btn" id="trap-confirm-modal-cancel" type="button" data-trap-confirm-close>Odmítnout</button>
+              <button class="btn btn--primary modal__confirm-btn" id="trap-confirm-modal-confirm" type="button" data-trap-confirm-button>Potvrdit</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="spy-confirm-modal" class="modal" data-spy-confirm-popup hidden>
+        <div id="spy-confirm-modal-backdrop" class="modal__backdrop" data-spy-confirm-close></div>
+        <div class="modal__content spy-confirm-modal__content district-action-confirm-popup-card spy-confirm-popup-card" data-spy-confirm-card role="dialog" aria-modal="true" aria-labelledby="spy-confirm-modal-heading">
+          <div class="district-modal-hero district-modal-hero--spy-confirm">
+            <img class="district-modal-hero__image" data-spy-confirm-atmosphere-image alt="Atmosféra cílového distriktu" loading="lazy">
+            <div class="district-modal-hero__scrim"></div>
+            <div class="district-modal-hero__copy">
+              <span class="attack-setup-popup-eyebrow">Potvrdit špehování</span>
+              <strong class="district-modal-hero__type" data-spy-confirm-atmosphere-label>Neznámý sektor</strong>
+              <h3 class="attack-setup-popup-title" id="spy-confirm-modal-heading" data-spy-confirm-title>District 1</h3>
+            </div>
+            <button class="button attack-setup-popup-close" id="spy-confirm-modal-close" type="button" aria-label="Zavřít" data-spy-confirm-close>✕</button>
+          </div>
+          <div class="modal__body spy-confirm-modal__body district-action-confirm-popup-body">
+            <p class="attack-setup-popup-row">Zdroj <span><strong data-spy-confirm-source>---</strong></span></p>
+            <p class="attack-setup-popup-row">Dostupní špehové <span><strong data-spy-confirm-available>0</strong></span></p>
+            <p class="attack-setup-popup-row">Trvání <span><strong data-spy-confirm-duration>20s</strong></span></p>
+            <p class="muted spy-confirm-modal__note attack-setup-popup-copy" data-spy-confirm-note>Každé špehování spotřebuje 1 špeha.</p>
+            <div class="modal__actions spy-confirm-modal__actions">
+              <button class="btn btn--ghost modal__cancel-btn" id="spy-confirm-modal-cancel" type="button" data-spy-confirm-close>Odmítnout</button>
+              <button class="btn btn--warn modal__confirm-btn" id="spy-confirm-modal-confirm" type="button" data-spy-confirm-button>Potvrdit</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="occupy-confirm-modal" class="modal" data-occupy-confirm-popup hidden>
+        <div id="occupy-confirm-modal-backdrop" class="modal__backdrop" data-occupy-confirm-close></div>
+        <div class="modal__content spy-confirm-modal__content district-action-confirm-popup-card occupy-confirm-popup-card" data-occupy-confirm-card role="dialog" aria-modal="true" aria-labelledby="occupy-confirm-modal-heading">
+          <div class="district-modal-hero district-modal-hero--occupy-confirm">
+            <img class="district-modal-hero__image" data-occupy-confirm-atmosphere-image alt="Atmosféra cílového distriktu" loading="lazy">
+            <div class="district-modal-hero__scrim"></div>
+            <div class="district-modal-hero__copy">
+              <span class="attack-setup-popup-eyebrow">Potvrdit obsazení</span>
+              <strong class="district-modal-hero__type" data-occupy-confirm-atmosphere-label>Neznámý sektor</strong>
+              <h3 class="attack-setup-popup-title" id="occupy-confirm-modal-heading" data-occupy-confirm-title>District 1</h3>
+            </div>
+            <button class="button attack-setup-popup-close" id="occupy-confirm-modal-close" type="button" aria-label="Zavřít" data-occupy-confirm-close>✕</button>
+          </div>
+          <div class="modal__body spy-confirm-modal__body district-action-confirm-popup-body">
+            <p class="attack-setup-popup-row">Zdroj <span><strong data-occupy-confirm-source>---</strong></span></p>
+            <p class="attack-setup-popup-row">Podmínka <span><strong data-occupy-confirm-condition>Špehování</strong></span></p>
+            <p class="attack-setup-popup-row">Trvání <span><strong data-occupy-confirm-duration>20s</strong></span></p>
+            <p class="muted spy-confirm-modal__note attack-setup-popup-copy" data-occupy-confirm-note>Obsazení spotřebuje členy gangu a akce trvá 20 sekund.</p>
+            <div class="modal__actions spy-confirm-modal__actions">
+              <button class="btn btn--ghost modal__cancel-btn" id="occupy-confirm-modal-cancel" type="button" data-occupy-confirm-close>Odmítnout</button>
+              <button class="btn btn--warn modal__confirm-btn" id="occupy-confirm-modal-confirm" type="button" data-occupy-confirm-button>Potvrdit</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="spy-result-modal" class="modal hidden">
+        <div id="spy-result-modal-backdrop" class="modal__backdrop"></div>
+        <div id="spy-result-modal-content" class="modal__content spy-result-modal__content">
+          <div class="modal__header">
+            <h3 id="spy-result-modal-title">Výsledek špehování</h3>
+            <button class="modal__close" id="spy-result-modal-close" type="button" aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body spy-result-modal__body">
+            <p id="spy-result-modal-summary" class="spy-result-modal__summary"></p>
+            <div id="spy-result-modal-details" class="spy-result-modal__details"></div>
+            <div class="modal__actions spy-result-modal__actions">
+              <button class="btn btn--primary" id="spy-result-modal-ok" type="button">Rozumím</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="spy-warning-modal" class="modal hidden">
+        <div id="spy-warning-modal-backdrop" class="modal__backdrop"></div>
+        <div id="spy-warning-modal-content" class="modal__content spy-result-modal__content">
+          <div class="modal__header">
+            <h3 id="spy-warning-modal-title">Upozornění na špehování</h3>
+            <button class="modal__close" id="spy-warning-modal-close" type="button" aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body spy-result-modal__body">
+            <div class="attack-result-modal__badge" id="spy-warning-modal-badge">Vlastní district</div>
+            <p id="spy-warning-modal-summary" class="spy-result-modal__summary"></p>
+            <div id="spy-warning-modal-details" class="spy-result-modal__details"></div>
+            <div class="modal__actions spy-result-modal__actions">
+              <button class="btn btn--danger" id="spy-warning-modal-ok" type="button">Rozumím</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="raid-result-modal" class="modal hidden">
+        <div id="raid-result-modal-backdrop" class="modal__backdrop"></div>
+        <div id="raid-result-modal-content" class="modal__content spy-result-modal__content">
+          <div class="modal__header">
+            <h3 id="raid-result-modal-title">Výsledek krádeže</h3>
+            <button class="modal__close" id="raid-result-modal-close" type="button" aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body spy-result-modal__body">
+            <p id="raid-result-modal-summary" class="spy-result-modal__summary"></p>
+            <div id="raid-result-modal-details" class="spy-result-modal__details"></div>
+            <div class="modal__actions spy-result-modal__actions">
+              <button class="btn btn--primary" id="raid-result-modal-ok" type="button">Rozumím</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="attack-result-modal" class="modal hidden">
+        <div id="attack-result-modal-backdrop" class="modal__backdrop"></div>
+        <div id="attack-result-modal-content" class="modal__content attack-result-modal__content">
+          <div class="modal__header">
+            <h3 id="attack-result-modal-title">Výsledek útoku</h3>
+            <button class="modal__close" id="attack-result-modal-close" type="button" aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body attack-result-modal__body">
+            <span id="attack-result-modal-badge" class="attack-result-modal__badge">Výsledek útoku</span>
+            <p id="attack-result-modal-summary" class="attack-result-modal__summary"></p>
+            <div id="attack-result-modal-stats" class="attack-result-modal__stats">
+              <div class="modal__row attack-result-modal__stat">
+                <span id="attack-result-modal-label-target">Cíl</span>
+                <strong id="attack-result-modal-nickname">-</strong>
+              </div>
+              <div class="modal__row attack-result-modal__stat">
+                <span id="attack-result-modal-label-attack">Útočná síla</span>
+                <strong id="attack-result-modal-faction">-</strong>
+              </div>
+              <div class="modal__row attack-result-modal__stat">
+                <span id="attack-result-modal-label-defense">Obranná síla</span>
+                <strong id="attack-result-modal-alliance">-</strong>
+              </div>
+              <div class="modal__row attack-result-modal__stat">
+                <span id="attack-result-modal-label-attack-losses">Ztráty útočníka</span>
+                <strong id="attack-result-modal-weapons">-</strong>
+              </div>
+              <div class="modal__row attack-result-modal__stat">
+                <span id="attack-result-modal-label-defense-losses">Ztráty obránce</span>
+                <strong id="attack-result-modal-power">-</strong>
+              </div>
+              <div class="modal__row attack-result-modal__stat">
+                <span id="attack-result-modal-label-state">Stav districtu</span>
+                <strong id="attack-result-modal-members">-</strong>
+              </div>
+              <div class="modal__row attack-result-modal__meta">
+                <span id="attack-result-modal-label-duration">Trvání</span>
+                <strong id="attack-result-modal-duration">-</strong>
+              </div>
+            </div>
+            <div class="modal__actions attack-result-modal__actions">
+              <button class="btn btn--primary" id="attack-result-modal-ok" type="button">Rozumím</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="police-action-result-modal" class="modal hidden">
+        <div id="police-action-result-modal-backdrop" class="modal__backdrop"></div>
+        <div id="police-action-result-modal-content" class="modal__content police-action-result-modal__content">
+          <div class="modal__header">
+            <h3 id="police-action-result-modal-title">Policejní akce</h3>
+            <button class="modal__close" id="police-action-result-modal-close" type="button" aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body police-action-result-modal__body">
+            <span id="police-action-result-modal-badge" class="police-action-result-modal__badge">Policejní zásah</span>
+            <p id="police-action-result-modal-summary" class="police-action-result-modal__summary"></p>
+            <div id="police-action-result-modal-details" class="police-action-result-modal__details"></div>
+            <div class="modal__actions attack-result-modal__actions">
+              <button class="btn btn--primary" id="police-action-result-modal-ok" type="button">Rozumím</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="wanted-popup-shell" data-wanted-popup hidden>
+        <div class="wanted-popup-backdrop" data-wanted-popup-close></div>
+        <div class="wanted-popup-card" role="dialog" aria-modal="true" aria-label="Hledanost gangu">
+          <button type="button" class="button wanted-popup-close" data-wanted-popup-close aria-label="Zavřít heat panel">✕</button>
+          <span class="wanted-popup-eyebrow">Police / Heat</span>
+          <div class="wanted-popup-hero">
+            <div class="wanted-popup-hero__copy">
+              <div class="wanted-popup-value" data-wanted-popup-heat>10</div>
+              <h3 class="wanted-popup-title" data-wanted-popup-tier>Nízký heat</h3>
+              <p class="wanted-popup-copy" data-wanted-popup-description>Lehký dohled. Gang je skoro pod radarem.</p>
+            </div>
+            <div class="wanted-popup-meta">
+              <p class="wanted-popup-row wanted-popup-row--compact">Tier <span data-wanted-popup-level>1 / 6</span></p>
+              <p class="wanted-popup-row wanted-popup-row--compact">Ochrana <span data-wanted-popup-protection>Bez ochrany</span></p>
+            </div>
+          </div>
+          <div class="wanted-popup-actions">
+            <button type="button" class="button wanted-popup-action wanted-popup-action--dirty" data-wanted-popup-dirty>Snížit dirty cash</button>
+            <button type="button" class="button wanted-popup-action wanted-popup-action--clean" data-wanted-popup-clean>Snížit clean cash</button>
+          </div>
+          <div class="wanted-popup-cost-row">
+            <span class="wanted-popup-cost" data-wanted-popup-dirty-cost>$500 dirty • -10 heat</span>
+            <span class="wanted-popup-cost" data-wanted-popup-clean-cost>$300 clean • -15 heat</span>
+          </div>
+          <div class="wanted-popup-feedback" data-wanted-popup-feedback hidden></div>
+          <div class="wanted-popup-levels" data-wanted-popup-levels></div>
+          <div class="wanted-popup-grid">
+            <section class="wanted-popup-panel">
+              <h4 class="wanted-popup-panel__title">Proč heat roste</h4>
+              <div class="wanted-popup-list" data-wanted-popup-rise-list></div>
+            </section>
+            <section class="wanted-popup-panel">
+              <div class="wanted-popup-panel__head">
+                <h4 class="wanted-popup-panel__title">Proč heat klesá</h4>
+                <button type="button" class="button wanted-popup-clear" data-wanted-popup-clear-log aria-label="Smazat heat log">Smazat log</button>
+              </div>
+              <div class="wanted-popup-list" data-wanted-popup-fall-list></div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <div class="player-popup-shell" data-player-popup hidden>
+        <div class="player-popup-backdrop" data-player-popup-close></div>
+        <div class="player-popup-card" data-player-popup-card role="dialog" aria-modal="true" aria-label="Profil hráče">
+          <div class="player-popup-header">
+            <div class="player-popup-header__copy">
+              <span class="player-popup-eyebrow">Profil hráče</span>
+              <h3 class="player-popup-title" data-player-popup-name>Host</h3>
+            </div>
+            <button type="button" class="player-popup-close" data-player-popup-close aria-label="Zavřít">✕</button>
+          </div>
+          <div class="player-popup-body">
+            <p class="player-popup-row"><span>Uživatelské jméno</span><strong data-player-popup-identity>Host</strong></p>
+            <p class="player-popup-row"><span>Gang</span><strong data-player-popup-gang>Guest Crew</strong></p>
+            <p class="player-popup-row"><span>Frakce</span><strong data-player-popup-faction>-</strong></p>
+            <p class="player-popup-row"><span>Server</span><strong data-player-popup-server>-</strong></p>
+            <p class="player-popup-row"><span>Start district</span><strong data-player-popup-start-district>-</strong></p>
+            <p class="player-popup-row"><span>Vliv</span><strong data-player-popup-influence>0</strong></p>
+            <p class="player-popup-row"><span>Hledanost</span><strong data-player-popup-heat>0</strong></p>
+            <p class="player-popup-row"><span>Ochrana po razii</span><strong data-player-popup-protection>Bez ochrany</strong></p>
+            <p class="player-popup-row"><span>Aliance</span><strong data-player-popup-alliance>Žádná</strong></p>
+            <p class="player-popup-row"><span>Distrikty</span><strong data-player-popup-districts>0</strong></p>
+            <p class="player-popup-row"><span>Čisté peníze</span><strong data-player-popup-clean-money>$0</strong></p>
+            <p class="player-popup-row"><span>Špinavé peníze</span><strong data-player-popup-dirty-money>$0</strong></p>
+          </div>
+        </div>
+      </div>
+
+      <div id="alliance-member-lightbox" class="avatar-lightbox hidden">
+        <div id="alliance-member-lightbox-backdrop" class="avatar-lightbox__backdrop"></div>
+        <div class="avatar-lightbox__content alliance-member-lightbox__content">
+          <button class="avatar-lightbox__close" id="alliance-member-lightbox-close" aria-label="Zavřít">✕</button>
+          <img id="alliance-member-lightbox-image" alt="Avatar člena aliance">
+          <div class="avatar-lightbox__caption" id="alliance-member-lightbox-caption">
+            <div class="avatar-lightbox__legend-name" id="alliance-member-lightbox-title">Člen aliance</div>
+            <div class="avatar-lightbox__legend-bio" id="alliance-member-lightbox-meta"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="alliance-modal" class="modal hidden">
+        <div id="alliance-modal-backdrop" class="modal__backdrop"></div>
+        <div class="modal__content modal__content--profile alliance-modal__content">
+          <div class="modal__header">
+            <h3>Aliance</h3>
+            <button class="modal__close" id="alliance-modal-close" aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body alliance-modal__body">
+            <div class="alliance-control" id="alliance-create-entry">
+              <div class="alliance-control__head alliance-control__head--split">
+                <div>
+                  <div class="alliance-control__title">Vytvoření aliance</div>
+                  <div class="alliance-control__subtitle">Založ vlastní alianci a nastav její identitu.</div>
+                </div>
+                <button class="btn btn--primary alliance-control__launch-btn" id="alliance-create-toggle-btn">
+                  Vytvořit alianci
+                </button>
+              </div>
+            </div>
+            <div id="alliance-active-panel"></div>
+            <div id="alliance-player-invites-panel"></div>
+            <div id="alliance-list-panel"></div>
+          </div>
+          <div class="modal__actions alliance-modal__footer-actions">
+            <button class="btn btn--danger hidden" id="alliance-leave-btn">Opustit alianci</button>
+            <button class="btn btn--primary hidden" id="alliance-management-footer-btn">Správa aliance</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="alliance-leave-modal" class="modal hidden">
+        <div id="alliance-leave-modal-backdrop" class="modal__backdrop"></div>
+        <div class="modal__content alliance-leave-modal__content">
+          <div class="modal__header alliance-leave-modal__header">
+            <h3>Varování</h3>
+            <button class="modal__close" id="alliance-leave-modal-close" aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body alliance-leave-modal__body">
+            <div class="alliance-leave-modal__warning-mark">!</div>
+            <div class="alliance-leave-modal__text">
+              Po opuštění aliance přijdeš o alianční podporu a okamžitě ztratíš přístup k internímu chatu i správě členů.
+            </div>
+            <div class="modal__actions alliance-leave-modal__actions">
+              <button class="btn btn--ghost" id="alliance-leave-cancel-btn">Zpět</button>
+              <button class="btn btn--danger" id="alliance-leave-confirm-btn">Opravdu opustit</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="alliance-create-modal" class="modal hidden">
+        <div id="alliance-create-modal-backdrop" class="modal__backdrop"></div>
+        <div class="modal__content alliance-create-modal__content">
+          <div class="modal__header">
+            <h3>Nová aliance</h3>
+            <button class="modal__close" id="alliance-create-modal-close" aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body alliance-create-modal__body">
+            <div class="alliance-control alliance-control--create">
+              <div class="alliance-control__stack">
+                <input id="alliance-create-name" type="text" maxlength="40" placeholder="Název aliance">
+                <textarea id="alliance-create-description" rows="3" maxlength="180" placeholder="Popisek aliance"></textarea>
+              </div>
+              <div class="alliance-icon-picker">
+                <div class="alliance-icon-picker__label">Znak aliance</div>
+                <div class="alliance-icon-picker__grid" id="alliance-icon-picker"></div>
+              </div>
+              <div class="alliance-control__row alliance-control__row--end">
+                <button class="btn btn--primary modal__launch-btn" id="alliance-create-btn">Potvrdit vytvoření</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="alliance-management-modal" class="modal hidden">
+        <div id="alliance-management-modal-backdrop" class="modal__backdrop"></div>
+        <div class="modal__content alliance-management-modal__content">
+          <div class="modal__header">
+            <h3>Správa aliance</h3>
+            <button class="modal__close" id="alliance-management-modal-close" aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body alliance-management-modal__body">
+            <div id="alliance-management-panel"></div>
+            <div class="alliance-control alliance-control--create">
+              <div class="alliance-control__head">
+                <div class="alliance-control__title">Pozvat hráče</div>
+                <div class="alliance-control__subtitle">Pošli přímou pozvánku pouze hráči, který není v žádné alianci.</div>
+              </div>
+              <div class="alliance-control__row">
+                <input id="alliance-management-invite-name" type="text" placeholder="Jméno hráče">
+                <button class="btn btn--primary" id="alliance-management-invite-btn">Poslat pozvánku</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="armory-popup-shell" data-armory-popup hidden>
+        <div class="armory-popup-backdrop" data-armory-popup-close></div>
+        <div class="armory-popup-card building-detail-modal__content building-detail-modal__content--armory" role="dialog" aria-modal="true" aria-label="Zbrojovka">
+          <div class="modal__header">
+            <h3>
+              Detail budovy
+              <span class="building-detail-title__badge">
+                <span class="building-detail-title__badge-text--full">Zbrojovka</span>
+                <span class="building-detail-title__badge-text--compact">Zbr.</span>
+              </span>
+            </h3>
+            <span class="building-detail-header-level" data-production-building-header-level>Lv 1</span>
+            <button type="button" class="building-detail-title__action-btn building-detail-title__action-btn--collect" data-production-building-collect aria-label="Vybrat hotové do skladu" title="Vybrat hotové do skladu">+</button>
+            <button type="button" class="building-detail-title__action-btn building-detail-title__action-btn--upgrade" data-production-building-upgrade aria-label="Upgrade budovy" title="Upgrade budovy">⇪</button>
+            <button type="button" class="modal__close" data-armory-popup-close aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body">
+            <div class="building-detail-tabs">
+              <button class="building-detail-tabs__btn is-active" type="button" data-production-building-tab="armory:stats" aria-selected="true">Statistiky</button>
+              <button class="building-detail-tabs__btn" type="button" data-production-building-tab="armory:info" aria-selected="false">Info</button>
+            </div>
+
+            <div class="building-detail-panel" data-production-building-panel="armory:stats">
+              <div class="building-tech-popup-overview-grid">
+                <article class="building-tech-popup-stat-card">
+                  <span class="building-tech-popup-stat-card__label">Level</span>
+                  <strong class="building-tech-popup-stat-card__value" data-production-building-level>1</strong>
+                </article>
+                <article class="building-tech-popup-stat-card">
+                  <span class="building-tech-popup-stat-card__label">Multiplier</span>
+                  <strong class="building-tech-popup-stat-card__value" data-production-building-multiplier>1.00x</strong>
+                </article>
+                <article class="building-tech-popup-stat-card">
+                  <span class="building-tech-popup-stat-card__label">Hotové</span>
+                  <strong class="building-tech-popup-stat-card__value" data-production-building-ready>0/10</strong>
+                </article>
+                <article class="building-tech-popup-stat-card">
+                  <span class="building-tech-popup-stat-card__label">Upgrade</span>
+                  <strong class="building-tech-popup-stat-card__value" data-production-building-upgrade-cost>$0</strong>
+                </article>
+              </div>
+              <p class="building-tech-popup-effects" data-production-building-effects>Zbrojovka · základní produkční rychlost</p>
+              <div class="building-detail-actions">
+                <div class="building-detail-actions__group">
+                  <div class="building-detail-actions__label">Produkce</div>
+                  <div class="production-craft-list production-craft-list--tech armory-layout" data-production-panel="armory"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="building-detail-panel" data-production-building-panel="armory:info" hidden>
+            <div class="building-info-card building-info-card--compact-tech">
+              <div class="building-info-card__head">
+                <h4 class="building-info-card__title">Profil budovy</h4>
+                <p class="building-info-card__subtitle">Výroba zbraní pro útok i obranu districtů.</p>
+              </div>
+              <div class="building-info-card__stats">
+                <div class="building-info-card__stat">
+                  <span>Recepty</span>
+                  <strong>10 loadoutů</strong>
+                </div>
+                <div class="building-info-card__stat">
+                  <span>Vstupy</span>
+                  <strong>Metal + Tech</strong>
+                </div>
+                <div class="building-info-card__stat">
+                  <span>Role</span>
+                  <strong>ATK / DEF</strong>
+                </div>
+                <div class="building-info-card__stat">
+                  <span>Řetězec</span>
+                  <strong>Továrna → Zbrojovka</strong>
+                </div>
+              </div>
+              <div class="building-info-card__section">
+                <h5>Popis budovy</h5>
+                <p class="building-detail-info-text" data-production-building-info-text></p>
+              </div>
+              <div class="building-info-card__section">
+                <h5>Aktivní mechaniky</h5>
+                <p class="building-info-card__effects" data-production-building-info-effects></p>
+              </div>
+              <div class="building-info-card__section">
+                <h5>Speciální akce</h5>
+                <div class="building-info-card__actions building-info-card__actions--armory">
+                  <div class="building-info-action-row">
+                    <strong class="building-info-action-row__title">+ Vybrat hotové</strong>
+                    <span class="building-info-action-row__desc">Přesune dokončené kusy výzbroje do skladu hráče.</span>
+                  </div>
+                  <div class="building-info-action-row">
+                    <strong class="building-info-action-row__title">Combat loadout</strong>
+                    <span class="building-info-action-row__desc">Stejná budova krmí útok, obranu districtu i past loadouty.</span>
+                  </div>
+                  <div class="building-info-action-row building-info-action-row--upgrade">
+                    <strong class="building-info-action-row__title">⇪ Upgrade</strong>
+                    <span class="building-info-action-row__desc">Každý level zrychluje craft všech weapon a defense receptů.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="building-tech-popup-reference-grid">
+              <article class="armory-info-block armory-info-block--attack">
+                <div class="armory-info-block__head">
+                  <span class="armory-info-block__badge">Attack</span>
+                  <span class="armory-info-block__hint">Ofenziva</span>
+                </div>
+                <div class="armory-info-block__grid">
+                  <div class="armory-info-chip armory-info-chip--attack">
+                    <strong class="armory-info-chip__title">Pistole / SMG</strong>
+                    <span class="armory-info-chip__meta">Mid tier</span>
+                    <span class="armory-info-chip__effect">Stabilní základ pro běžné útoky a pressure na districty.</span>
+                  </div>
+                  <div class="armory-info-chip armory-info-chip--attack">
+                    <strong class="armory-info-chip__title">Granát / Bazuka</strong>
+                    <span class="armory-info-chip__meta">Burst</span>
+                    <span class="armory-info-chip__effect">Vyšší dopad při dražším craftu a delším čase výroby.</span>
+                  </div>
+                </div>
+              </article>
+              <article class="armory-info-block armory-info-block--defense">
+                <div class="armory-info-block__head">
+                  <span class="armory-info-block__badge">Defense</span>
+                  <span class="armory-info-block__hint">District hold</span>
+                </div>
+                <div class="armory-info-block__grid">
+                  <div class="armory-info-chip armory-info-chip--defense">
+                    <strong class="armory-info-chip__title">Vesta / Barikády</strong>
+                    <span class="armory-info-chip__meta">Frontline</span>
+                    <span class="armory-info-chip__effect">Zpevňují obrannou linii a drží district proti tlaku.</span>
+                  </div>
+                  <div class="armory-info-chip armory-info-chip--defense">
+                    <strong class="armory-info-chip__title">Kamery / Alarm / Tower</strong>
+                    <span class="armory-info-chip__meta">Intel</span>
+                    <span class="armory-info-chip__effect">Zvyšují kontrolu prostoru a podporují defense power.</span>
+                  </div>
+                </div>
+              </article>
+              <article class="armory-info-block armory-info-block--boost">
+                <div class="armory-info-block__head">
+                  <span class="armory-info-block__badge">Flow</span>
+                  <span class="armory-info-block__hint">Výrobní řetězec</span>
+                </div>
+                <div class="armory-info-block__grid armory-info-block__grid--boosts">
+                  <div class="armory-info-chip armory-info-chip--boost">
+                    <strong class="armory-info-chip__title">Metal Parts</strong>
+                    <span class="armory-info-chip__effect">Levnější základní kusy a obranné utility.</span>
+                  </div>
+                  <div class="armory-info-chip armory-info-chip--boost">
+                    <strong class="armory-info-chip__title">Tech Core</strong>
+                    <span class="armory-info-chip__effect">Vyšší tier výzbroj a elektronická obrana.</span>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pharmacy-popup-shell" data-pharmacy-popup hidden>
+        <div class="pharmacy-popup-backdrop" data-pharmacy-popup-close></div>
+        <div class="pharmacy-popup-card building-detail-modal__content building-detail-modal__content--pharmacy" role="dialog" aria-modal="true" aria-label="Lékárna">
+          <div class="modal__header">
+            <h3>
+              Detail budovy
+              <span class="building-detail-title__badge">
+                <span class="building-detail-title__badge-text--full">Lékárna</span>
+                <span class="building-detail-title__badge-text--compact">Lék.</span>
+              </span>
+            </h3>
+            <span class="building-detail-header-level" data-production-building-header-level>Lv 1</span>
+            <button type="button" class="building-detail-title__action-btn building-detail-title__action-btn--collect" data-production-building-collect aria-label="Vybrat hotové do skladu" title="Vybrat hotové do skladu">+</button>
+            <button type="button" class="building-detail-title__action-btn building-detail-title__action-btn--upgrade" data-production-building-upgrade aria-label="Upgrade budovy" title="Upgrade budovy">⇪</button>
+            <button type="button" class="modal__close" data-pharmacy-popup-close aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body">
+            <div class="building-detail-tabs">
+              <button class="building-detail-tabs__btn is-active" type="button" data-production-building-tab="pharmacy:stats" aria-selected="true">Statistiky</button>
+              <button class="building-detail-tabs__btn" type="button" data-production-building-tab="pharmacy:info" aria-selected="false">Info</button>
+            </div>
+
+            <div class="building-detail-panel" data-production-building-panel="pharmacy:stats">
+              <div class="building-tech-popup-overview-grid">
+                <article class="building-tech-popup-stat-card">
+                  <span class="building-tech-popup-stat-card__label">Level</span>
+                  <strong class="building-tech-popup-stat-card__value" data-production-building-level>1</strong>
+                </article>
+                <article class="building-tech-popup-stat-card">
+                  <span class="building-tech-popup-stat-card__label">Multiplier</span>
+                  <strong class="building-tech-popup-stat-card__value" data-production-building-multiplier>1.00x</strong>
+                </article>
+                <article class="building-tech-popup-stat-card">
+                  <span class="building-tech-popup-stat-card__label">Hotové</span>
+                  <strong class="building-tech-popup-stat-card__value" data-production-building-ready>0/3</strong>
+                </article>
+                <article class="building-tech-popup-stat-card">
+                  <span class="building-tech-popup-stat-card__label">Upgrade</span>
+                  <strong class="building-tech-popup-stat-card__value" data-production-building-upgrade-cost>$0</strong>
+                </article>
+              </div>
+              <p class="building-tech-popup-effects" data-production-building-effects>Lékárna · základní produkční rychlost</p>
+              <div class="building-detail-actions">
+                <div class="building-detail-actions__group">
+                  <div class="building-detail-actions__label">Produkce</div>
+                  <div class="production-craft-list production-craft-list--tech pharmacy-slot-grid" data-production-panel="pharmacy"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="building-detail-panel" data-production-building-panel="pharmacy:info" hidden>
+            <div class="building-info-card building-info-card--compact-tech">
+              <div class="building-info-card__head">
+                <h4 class="building-info-card__title">Profil budovy</h4>
+                <p class="building-info-card__subtitle">První vrstva produkce pro Chemicals, Biomass a Stim Pack.</p>
+              </div>
+              <div class="building-info-card__stats">
+                <div class="building-info-card__stat">
+                  <span>Recepty</span>
+                  <strong>3 materiály</strong>
+                </div>
+                <div class="building-info-card__stat">
+                  <span>Výstup</span>
+                  <strong>Tier I supply</strong>
+                </div>
+                <div class="building-info-card__stat">
+                  <span>Role</span>
+                  <strong>Chain base</strong>
+                </div>
+                <div class="building-info-card__stat">
+                  <span>Napojení</span>
+                  <strong>Lékárna → Lab</strong>
+                </div>
+              </div>
+              <div class="building-info-card__section">
+                <h5>Popis budovy</h5>
+                <p class="building-detail-info-text" data-production-building-info-text></p>
+              </div>
+              <div class="building-info-card__section">
+                <h5>Aktivní mechaniky</h5>
+                <p class="building-info-card__effects" data-production-building-info-effects></p>
+              </div>
+              <div class="building-info-card__section">
+                <h5>Speciální akce</h5>
+                <div class="building-info-card__actions building-info-card__actions--drug-lab">
+                  <div class="building-info-action-row">
+                    <strong class="building-info-action-row__title">+ Vybrat hotové</strong>
+                    <span class="building-info-action-row__desc">Přesune připravené materiály do skladu pro další craft.</span>
+                  </div>
+                  <div class="building-info-action-row">
+                    <strong class="building-info-action-row__title">Supply chain</strong>
+                    <span class="building-info-action-row__desc">Chemicals, Biomass a Stim Pack krmí recepty v Labu.</span>
+                  </div>
+                  <div class="building-info-action-row building-info-action-row--upgrade">
+                    <strong class="building-info-action-row__title">⇪ Upgrade</strong>
+                    <span class="building-info-action-row__desc">Vyšší level zrychluje základní produkci celé farmaceutické vrstvy.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="building-tech-popup-reference-grid">
+              <article class="lab-info-block lab-info-block--product">
+                <div class="lab-info-block__head">
+                  <span class="lab-info-block__badge">Products</span>
+                  <span class="lab-info-block__hint">Core outputs</span>
+                </div>
+                <div class="lab-info-block__grid">
+                  <div class="lab-info-chip lab-info-chip--product">
+                    <strong class="lab-info-chip__title">Chemicals</strong>
+                    <span class="lab-info-chip__meta">Base reagent</span>
+                    <span class="lab-info-chip__effect">Základní chemická surovina pro mixy a další craft.</span>
+                  </div>
+                  <div class="lab-info-chip lab-info-chip--product">
+                    <strong class="lab-info-chip__title">Biomass</strong>
+                    <span class="lab-info-chip__meta">Organic input</span>
+                    <span class="lab-info-chip__effect">Organický materiál pro biologické a syntetické recepty.</span>
+                  </div>
+                </div>
+              </article>
+              <article class="lab-info-block lab-info-block--boost">
+                <div class="lab-info-block__head">
+                  <span class="lab-info-block__badge">Flow</span>
+                  <span class="lab-info-block__hint">Advanced input</span>
+                </div>
+                <div class="lab-info-block__grid">
+                  <div class="lab-info-chip lab-info-chip--boost">
+                    <strong class="lab-info-chip__title">Stim Pack</strong>
+                    <span class="lab-info-chip__meta">Tier II</span>
+                    <span class="lab-info-chip__effect">Pokročilá směs pro vyšší tier recepty a finální kombinace.</span>
+                  </div>
+                  <div class="lab-info-chip lab-info-chip--boost">
+                    <strong class="lab-info-chip__title">Lab feed</strong>
+                    <span class="lab-info-chip__meta">Chain link</span>
+                    <span class="lab-info-chip__effect">Každý hotový batch zrychluje obrat a stabilizuje downstream výrobu.</span>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="druglab-popup-shell" data-druglab-popup hidden>
+        <div class="druglab-popup-backdrop" data-druglab-popup-close></div>
+        <div class="druglab-popup-card building-detail-modal__content building-detail-modal__content--druglab" role="dialog" aria-modal="true" aria-label="Drug Lab">
+          <div class="modal__header">
+            <h3>
+              Detail budovy
+              <span class="building-detail-title__badge">
+                <span class="building-detail-title__badge-text--full">Lab</span>
+                <span class="building-detail-title__badge-text--compact">Lab</span>
+              </span>
+            </h3>
+            <span class="building-detail-header-level" data-production-building-header-level>Lv 1</span>
+            <button type="button" class="building-detail-title__action-btn building-detail-title__action-btn--collect" data-production-building-collect aria-label="Vybrat hotové do skladu" title="Vybrat hotové do skladu">+</button>
+            <button type="button" class="building-detail-title__action-btn building-detail-title__action-btn--upgrade" data-production-building-upgrade aria-label="Upgrade budovy" title="Upgrade budovy">⇪</button>
+            <button type="button" class="modal__close" data-druglab-popup-close aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body">
+            <div class="building-detail-tabs">
+              <button class="building-detail-tabs__btn is-active" type="button" data-production-building-tab="druglab:stats" aria-selected="true">Statistiky</button>
+              <button class="building-detail-tabs__btn" type="button" data-production-building-tab="druglab:info" aria-selected="false">Info</button>
+            </div>
+
+            <div class="building-detail-panel" data-production-building-panel="druglab:stats">
+              <div class="building-tech-popup-overview-grid">
+                <article class="building-tech-popup-stat-card">
+                  <span class="building-tech-popup-stat-card__label">Level</span>
+                  <strong class="building-tech-popup-stat-card__value" data-production-building-level>1</strong>
+                </article>
+                <article class="building-tech-popup-stat-card">
+                  <span class="building-tech-popup-stat-card__label">Multiplier</span>
+                  <strong class="building-tech-popup-stat-card__value" data-production-building-multiplier>1.00x</strong>
+                </article>
+                <article class="building-tech-popup-stat-card">
+                  <span class="building-tech-popup-stat-card__label">Hotové</span>
+                  <strong class="building-tech-popup-stat-card__value" data-production-building-ready>0/5</strong>
+                </article>
+                <article class="building-tech-popup-stat-card">
+                  <span class="building-tech-popup-stat-card__label">Upgrade</span>
+                  <strong class="building-tech-popup-stat-card__value" data-production-building-upgrade-cost>$0</strong>
+                </article>
+              </div>
+              <p class="building-tech-popup-effects" data-production-building-effects>Lab · základní produkční rychlost</p>
+              <div class="building-detail-actions">
+                <div class="building-detail-actions__group">
+                  <div class="building-detail-actions__label">Produkce</div>
+                  <div class="production-craft-list production-craft-list--tech drug-production-slot-grid" data-production-panel="druglab"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="building-detail-panel" data-production-building-panel="druglab:info" hidden>
+            <div class="building-info-card building-info-card--compact-tech">
+              <div class="building-info-card__head">
+                <h4 class="building-info-card__title">Profil budovy</h4>
+                <p class="building-info-card__subtitle">Finální chemický mix pro distribuci a vyšší výnosy.</p>
+              </div>
+              <div class="building-info-card__stats">
+                <div class="building-info-card__stat">
+                  <span>Recepty</span>
+                  <strong>5 balíků</strong>
+                </div>
+                <div class="building-info-card__stat">
+                  <span>Výstup</span>
+                  <strong>Street product</strong>
+                </div>
+                <div class="building-info-card__stat">
+                  <span>Role</span>
+                  <strong>Finální craft</strong>
+                </div>
+                <div class="building-info-card__stat">
+                  <span>Napojení</span>
+                  <strong>Lab → Market</strong>
+                </div>
+              </div>
+              <div class="building-info-card__section">
+                <h5>Popis budovy</h5>
+                <p class="building-detail-info-text" data-production-building-info-text></p>
+              </div>
+              <div class="building-info-card__section">
+                <h5>Aktivní mechaniky</h5>
+                <p class="building-info-card__effects" data-production-building-info-effects></p>
+              </div>
+              <div class="building-info-card__section">
+                <h5>Speciální akce</h5>
+                <div class="building-info-card__actions building-info-card__actions--drug-lab">
+                  <div class="building-info-action-row">
+                    <strong class="building-info-action-row__title">+ Vybrat hotové</strong>
+                    <span class="building-info-action-row__desc">Přesune vyrobené balíky do skladu drog bez dalšího kroku.</span>
+                  </div>
+                  <div class="building-info-action-row">
+                    <strong class="building-info-action-row__title">Market ready</strong>
+                    <span class="building-info-action-row__desc">Finální produkty jsou připravené pro black market a další flow.</span>
+                  </div>
+                  <div class="building-info-action-row building-info-action-row--upgrade">
+                    <strong class="building-info-action-row__title">⇪ Upgrade</strong>
+                    <span class="building-info-action-row__desc">Vyšší level zkracuje craft a zrychluje výnosnější recepty.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="building-tech-popup-reference-grid">
+              <article class="lab-info-block lab-info-block--product">
+                <div class="lab-info-block__head">
+                  <span class="lab-info-block__badge">Products</span>
+                  <span class="lab-info-block__hint">Street ready</span>
+                </div>
+                <div class="lab-info-block__grid">
+                  <div class="lab-info-chip lab-info-chip--product">
+                    <strong class="lab-info-chip__title">Neon Dust / Pulse Shot</strong>
+                    <span class="lab-info-chip__meta">Fast turnover</span>
+                    <span class="lab-info-chip__effect">Rychlé balíky pro stabilní pouliční distribuci a obrat.</span>
+                  </div>
+                  <div class="lab-info-chip lab-info-chip--product">
+                    <strong class="lab-info-chip__title">Velvet Smoke</strong>
+                    <span class="lab-info-chip__meta">Mid tier</span>
+                    <span class="lab-info-chip__effect">Vyvážený poměr vstupů a výnosu pro běžný chain.</span>
+                  </div>
+                </div>
+              </article>
+              <article class="lab-info-block lab-info-block--boost">
+                <div class="lab-info-block__head">
+                  <span class="lab-info-block__badge">High tier</span>
+                  <span class="lab-info-block__hint">Premium mix</span>
+                </div>
+                <div class="lab-info-block__grid">
+                  <div class="lab-info-chip lab-info-chip--boost">
+                    <strong class="lab-info-chip__title">Ghost Serum</strong>
+                    <span class="lab-info-chip__meta">Sensitive recipe</span>
+                    <span class="lab-info-chip__effect">Vyšší tier balík s náročnějšími vstupy a vyšší hodnotou.</span>
+                  </div>
+                  <div class="lab-info-chip lab-info-chip--boost">
+                    <strong class="lab-info-chip__title">Overdrive X</strong>
+                    <span class="lab-info-chip__meta">Max yield</span>
+                    <span class="lab-info-chip__effect">Nejdražší mix pro pozdní fázi chainu a vyšší profit.</span>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="factory-popup-shell" data-factory-popup hidden>
+        <div class="factory-popup-backdrop" data-factory-popup-close></div>
+        <div class="factory-popup-card building-detail-modal__content building-detail-modal__content--factory" role="dialog" aria-modal="true" aria-label="Továrna">
+          <div class="modal__header">
+            <h3>
+              Detail budovy
+              <span class="building-detail-title__badge">
+                <span class="building-detail-title__badge-text--full">Továrna</span>
+                <span class="building-detail-title__badge-text--compact">Tov.</span>
+              </span>
+            </h3>
+            <span class="building-detail-header-level" data-factory-header-level>Lv 1</span>
+            <button type="button" class="building-detail-title__action-btn building-detail-title__action-btn--collect" data-factory-collect aria-label="Vybrat hotové do skladu" title="Vybrat hotové do skladu">+</button>
+            <button type="button" class="building-detail-title__action-btn building-detail-title__action-btn--upgrade" data-factory-upgrade aria-label="Upgrade budovy" title="Upgrade budovy">⇪</button>
+            <button type="button" class="modal__close" data-factory-popup-close aria-label="Zavřít">✕</button>
+          </div>
+
+          <div class="modal__body">
+          <div class="building-detail-tabs">
+            <button class="building-detail-tabs__btn is-active" type="button" data-factory-tab="stats" aria-selected="true">Statistiky</button>
+            <button class="building-detail-tabs__btn" type="button" data-factory-tab="info" aria-selected="false">Info</button>
+          </div>
+
+          <div class="building-detail-panel" data-factory-panel="stats">
+          <div class="building-tech-popup-overview-grid factory-overview-grid">
+            <article class="building-tech-popup-stat-card factory-stat-card">
+              <span class="building-tech-popup-stat-card__label factory-stat-card__label">Level</span>
+              <strong class="building-tech-popup-stat-card__value factory-stat-card__value" data-factory-level>1</strong>
+            </article>
+            <article class="building-tech-popup-stat-card factory-stat-card">
+              <span class="building-tech-popup-stat-card__label factory-stat-card__label">Multiplier</span>
+              <strong class="building-tech-popup-stat-card__value factory-stat-card__value" data-factory-multiplier>1.00x</strong>
+            </article>
+            <article class="building-tech-popup-stat-card factory-stat-card">
+              <span class="building-tech-popup-stat-card__label factory-stat-card__label">Síť továren</span>
+              <strong class="building-tech-popup-stat-card__value factory-stat-card__value" data-factory-owned-count>1</strong>
+            </article>
+            <article class="building-tech-popup-stat-card factory-stat-card">
+              <span class="building-tech-popup-stat-card__label factory-stat-card__label">Upgrade</span>
+              <strong class="building-tech-popup-stat-card__value factory-stat-card__value" data-factory-upgrade-cost>$0</strong>
+            </article>
+          </div>
+
+          <p class="building-tech-popup-effects factory-popup-meta" data-factory-effects-label>Síť Továren: 1 budova (+0% rychlost výroby)</p>
+
+          <div class="building-detail-actions building-detail-actions--factory">
+            <div class="building-detail-actions__group">
+              <div class="building-detail-actions__label">Výstup</div>
+              <div class="factory-resource-strip">
+                <div class="factory-resource-pill">
+                  <span>Metal Parts</span>
+                  <strong data-factory-resource-metal>0</strong>
+                </div>
+                <div class="factory-resource-pill">
+                  <span>Tech Core</span>
+                  <strong data-factory-resource-tech>0</strong>
+                </div>
+                <div class="factory-resource-pill">
+                  <span>Combat Module</span>
+                  <strong data-factory-resource-combat>0</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="building-detail-actions__group">
+              <div class="building-detail-actions__label">Produkce</div>
+              <div class="factory-slot-list factory-slot-grid" data-factory-slot-list></div>
+            </div>
+
+            <div class="building-detail-actions__group factory-supplies-card">
+              <div class="factory-supplies-card__head">
+                <div class="building-detail-actions__label">Player supplies</div>
+              </div>
+              <div class="factory-resource-strip">
+                <div class="factory-resource-pill">
+                  <span>Metal Parts</span>
+                  <strong data-factory-supply-metal>0</strong>
+                </div>
+                <div class="factory-resource-pill">
+                  <span>Tech Core</span>
+                  <strong data-factory-supply-tech>0</strong>
+                </div>
+                <div class="factory-resource-pill">
+                  <span>Combat Module</span>
+                  <strong data-factory-supply-combat>0</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="building-detail-actions__group factory-boost-card">
+              <div class="factory-supplies-card__head">
+                <div class="building-detail-actions__label">Combat Module boosty</div>
+                <strong class="factory-boost-card__active" data-factory-active-boost>Žádný aktivní</strong>
+              </div>
+              <div class="factory-boost-list">
+                <div class="factory-boost-item">
+                  <div>
+                    <strong class="factory-boost-item__title">Assault</strong>
+                    <p class="factory-boost-item__copy">+30 % attack power pro další útok. Cena 2 Combat Module.</p>
+                  </div>
+                  <button type="button" class="button factory-slot-button" data-factory-boost="assault">Aktivovat</button>
+                </div>
+                <div class="factory-boost-item">
+                  <div>
+                    <strong class="factory-boost-item__title">Rapid</strong>
+                    <p class="factory-boost-item__copy">-40 % cooldown dalšího útoku. Cena 3 Combat Module.</p>
+                  </div>
+                  <button type="button" class="button factory-slot-button" data-factory-boost="rapid">Aktivovat</button>
+                </div>
+                <div class="factory-boost-item">
+                  <div>
+                    <strong class="factory-boost-item__title">Breach</strong>
+                    <p class="factory-boost-item__copy">Ignoruje 15 % obrany cíle a může zničit obranné budovy. Cena 4 Combat Module.</p>
+                  </div>
+                  <button type="button" class="button factory-slot-button" data-factory-boost="breach">Aktivovat</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          </div>
+
+          <div class="building-detail-panel" data-factory-panel="info" hidden>
+            <div class="building-info-card building-info-card--compact-tech">
+              <div class="building-info-card__head">
+                <h4 class="building-info-card__title">Profil budovy</h4>
+                <p class="building-info-card__subtitle">Výroba Metal Parts, Tech Core a Combat Module pro další bojové systémy.</p>
+              </div>
+              <div class="building-info-card__stats">
+                <div class="building-info-card__stat">
+                  <span>Sloty</span>
+                  <strong>3 linky</strong>
+                </div>
+                <div class="building-info-card__stat">
+                  <span>Výstup</span>
+                  <strong>Parts / Core / Module</strong>
+                </div>
+                <div class="building-info-card__stat">
+                  <span>Role</span>
+                  <strong>Infrastructure</strong>
+                </div>
+                <div class="building-info-card__stat">
+                  <span>Napojení</span>
+                  <strong>Továrna → Zbrojovka</strong>
+                </div>
+              </div>
+              <div class="building-info-card__section">
+                <h5>Popis budovy</h5>
+                <p class="building-detail-info-text">Továrna tvoří materiálovou páteř pro Zbrojovku a Combat Module boosty. Produkce běží přes tři sloty stejně jako v referenční verzi.</p>
+              </div>
+              <div class="building-info-card__section">
+                <h5>Aktivní mechaniky</h5>
+                <p class="building-info-card__effects">Level zvyšuje produkční multiplier, Combat Module aktivují Assault, Rapid a Breach pro další útok.</p>
+              </div>
+              <div class="building-info-card__section">
+                <h5>Speciální akce</h5>
+                <div class="building-info-card__actions building-info-card__actions--drug-lab">
+                  <div class="building-info-action-row">
+                    <strong class="building-info-action-row__title">+ Vybrat hotové</strong>
+                    <span class="building-info-action-row__desc">Přesune všechno vyrobené z linky do player supplies jedním krokem.</span>
+                  </div>
+                  <div class="building-info-action-row">
+                    <strong class="building-info-action-row__title">Combat boosty</strong>
+                    <span class="building-info-action-row__desc">Assault, Rapid a Breach se pálí z Combat Module pro další útok.</span>
+                  </div>
+                  <div class="building-info-action-row building-info-action-row--upgrade">
+                    <strong class="building-info-action-row__title">⇪ Upgrade</strong>
+                    <span class="building-info-action-row__desc">Vyšší level zvyšuje multiplier celé tovární sítě a zrychluje craft.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="building-tech-popup-reference-grid">
+              <article class="lab-info-block lab-info-block--product">
+                <div class="lab-info-block__head">
+                  <span class="lab-info-block__badge">Production</span>
+                  <span class="lab-info-block__hint">Base output</span>
+                </div>
+                <div class="lab-info-block__grid">
+                  <div class="lab-info-chip lab-info-chip--product">
+                    <strong class="lab-info-chip__title">Metal Parts</strong>
+                    <span class="lab-info-chip__meta">Heavy base</span>
+                    <span class="lab-info-chip__effect">Základní průmyslový materiál pro levnější weapon a defense recepty.</span>
+                  </div>
+                  <div class="lab-info-chip lab-info-chip--product">
+                    <strong class="lab-info-chip__title">Tech Core</strong>
+                    <span class="lab-info-chip__meta">Advanced core</span>
+                    <span class="lab-info-chip__effect">Pokročilý vstup pro vyšší tier výzbroj a elektronické systémy.</span>
+                  </div>
+                </div>
+              </article>
+              <article class="lab-info-block lab-info-block--boost">
+                <div class="lab-info-block__head">
+                  <span class="lab-info-block__badge">Combat Module</span>
+                  <span class="lab-info-block__hint">Attack support</span>
+                </div>
+                <div class="lab-info-block__grid lab-info-block__grid--boosts">
+                  <div class="lab-info-chip lab-info-chip--boost">
+                    <strong class="lab-info-chip__title">Assault</strong>
+                    <span class="lab-info-chip__meta">Power</span>
+                    <span class="lab-info-chip__effect">Zvyšuje attack power dalšího útoku.</span>
+                  </div>
+                  <div class="lab-info-chip lab-info-chip--boost">
+                    <strong class="lab-info-chip__title">Rapid</strong>
+                    <span class="lab-info-chip__meta">Tempo</span>
+                    <span class="lab-info-chip__effect">Zkracuje cooldown a zrychluje tlak na mapě.</span>
+                  </div>
+                  <div class="lab-info-chip lab-info-chip--boost">
+                    <strong class="lab-info-chip__title">Breach</strong>
+                    <span class="lab-info-chip__meta">Penetrace</span>
+                    <span class="lab-info-chip__effect">Snižuje efektivní obranu a podporuje průlom cíle.</span>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="market-popup-shell" data-market-popup hidden>
+        <div class="market-popup-backdrop" data-market-popup-close></div>
+        <div class="market-popup-card" role="dialog" aria-modal="true" aria-label="Server market">
+          <button type="button" class="button market-popup-close" data-market-popup-close aria-label="Zavřít market">✕</button>
+          <span class="market-popup-eyebrow">Server Market</span>
+          <h3 class="market-popup-title">Burza serveru</h3>
+          <div class="market-popup-tabs" aria-label="Market tabs">
+            <button type="button" class="button market-popup-tab is-active" data-market-tab="market">Market</button>
+            <button type="button" class="button market-popup-tab" data-market-tab="black-market">Black Market</button>
+          </div>
+          <p class="market-popup-copy" data-market-copy>Oficiální serverový trh pro materiály a legálnější výměnu zásob.</p>
+          <div class="market-popup-list" data-market-list></div>
+        </div>
+      </div>
+
+      <div id="events-modal" class="modal hidden">
+        <div id="events-modal-backdrop" class="modal__backdrop"></div>
+        <div class="modal__content modal__content--profile events-modal__content">
+          <div class="modal__header">
+            <h3 id="events-modal-title">City Events <span id="events-refresh-countdown" class="events-modal__refresh-pill">refresh 30s</span></h3>
+            <button class="modal__close" id="events-modal-close" aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body events-modal__body">
+            <div class="events-modal__agents">
+              <button class="events-agent" data-agent="victor" type="button">
+                <img src="../img/events/victor.png" alt="Victor Grave" loading="lazy">
+                <div class="events-agent__info">
+                  <div class="events-agent__name">Victor Grave Kadeř</div>
+                  <div class="events-agent__type">Pouliční boss</div>
+                </div>
+              </button>
+              <button class="events-agent" data-agent="leon" type="button">
+                <img src="../img/events/leon.png" alt="Leon Switch" loading="lazy">
+                <div class="events-agent__info">
+                  <div class="events-agent__name">Leon Switch Varga</div>
+                  <div class="events-agent__type">Fixer / obchodník</div>
+                </div>
+              </button>
+              <button class="events-agent" data-agent="nira" type="button">
+                <img src="../img/events/nira.png" alt="Nyra Vale" loading="lazy">
+                <div class="events-agent__info">
+                  <div class="events-agent__name">Nyra Vale</div>
+                  <div class="events-agent__type">Informační síť / vliv</div>
+                </div>
+              </button>
+            </div>
+            <div class="events-modal__detail">
+              <div class="events-modal__header">
+                <div>
+                  <div class="events-modal__title" id="events-agent-name">Vyber postavu</div>
+                  <div class="events-modal__subtitle" id="events-agent-type">Každá má jiné questy</div>
+                </div>
+                <div class="events-modal__tagline" id="events-agent-quote"></div>
+              </div>
+              <p class="muted" id="events-agent-desc">Klikni na postavu a zobrazí se její popis a dočasné úkoly.</p>
+              <div class="events-tasklist" id="events-tasklist"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="event-detail-modal" class="modal hidden">
+        <div id="event-detail-modal-backdrop" class="modal__backdrop"></div>
+        <div class="modal__content modal__content--profile event-detail-modal__content">
+          <div class="modal__header">
+            <h3 id="event-detail-title">Detail eventu</h3>
+            <button class="modal__close" id="event-detail-modal-close" aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body event-detail-modal__body">
+            <div class="event-detail-modal__meta">
+              <span id="event-detail-giver">-</span>
+              <span id="event-detail-stats">Úspěšnost 0% • 0 s</span>
+            </div>
+            <p class="event-detail-modal__desc" id="event-detail-desc"></p>
+            <div class="event-detail-modal__section">
+              <div class="event-detail-modal__label">Co hráč může získat</div>
+              <div class="event-detail-modal__chips" id="event-detail-gains"></div>
+            </div>
+            <div class="event-detail-modal__section">
+              <div class="event-detail-modal__label">Riziko</div>
+              <div class="event-detail-modal__chips" id="event-detail-risk"></div>
+            </div>
+            <div class="event-detail-modal__actions">
+              <button class="button" id="event-detail-accept" type="button">Accept</button>
+              <button class="button" id="event-detail-decline" type="button">Decline</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="bounty-modal" class="modal hidden bounty-board-modal">
+        <div id="bounty-modal-backdrop" class="modal__backdrop"></div>
+        <div class="modal__content bounty-board__content">
+          <header class="bounty-board__header">
+            <div class="bounty-board__header-copy">
+              <div class="bounty-board__eyebrow">Bounty board</div>
+              <h3>VYPSAT ODMĚNU</h3>
+              <p>Označ hráče nebo konkrétní district a nech město lovit za tvoje zdroje.</p>
+            </div>
+            <button id="bounty-modal-close" class="modal__close" type="button" aria-label="Zavřít">×</button>
+          </header>
+
+          <div class="bounty-board__layout">
+            <section class="bounty-board__column bounty-board__column--left">
+              <div class="bounty-board__panel">
+                <div class="bounty-board__panel-head">
+                  <span class="bounty-board__kicker">Target</span>
+                  <strong>Koho jdeš označit</strong>
+                </div>
+                <label class="bounty-board__field">
+                  <span>Hráč</span>
+                  <select id="bounty-modal-target" class="bounty-board__input"></select>
+                </label>
+                <div class="bounty-board__target-card">
+                  <div class="bounty-board__avatar-wrap">
+                    <img id="bounty-target-avatar" class="bounty-board__avatar is-empty" alt="Target avatar">
+                    <span id="bounty-target-avatar-fallback" class="bounty-board__avatar-fallback">??</span>
+                  </div>
+                  <div class="bounty-board__target-copy">
+                    <div id="bounty-target-name" class="bounty-board__target-name">Nevybrán cíl</div>
+                    <div id="bounty-target-alliance" class="bounty-board__target-meta">Aliance: Bez aliance</div>
+                    <div id="bounty-target-districts" class="bounty-board__target-meta">Districtů: 0</div>
+                    <div id="bounty-target-activity" class="bounty-board__target-meta">Poslední aktivita: -</div>
+                  </div>
+                  <div id="bounty-target-threat" class="bounty-board__threat" data-tone="low">Low threat</div>
+                </div>
+              </div>
+
+              <div class="bounty-board__panel">
+                <div class="bounty-board__panel-head">
+                  <span class="bounty-board__kicker">Nastavení odměny</span>
+                  <strong>Jen clean cash</strong>
+                </div>
+                <div class="bounty-board__resource-list">
+                  <div class="bounty-board__resource-row">
+                    <div class="bounty-board__resource-head">
+                      <span class="bounty-board__resource-icon">$</span>
+                      <div>
+                        <div class="bounty-board__resource-name">Clean cash</div>
+                        <div id="bounty-cash-available" class="bounty-board__resource-have">Máš: 0$</div>
+                      </div>
+                    </div>
+                    <div class="bounty-board__resource-controls bounty-board__resource-controls--cash">
+                      <input id="bounty-cash-range" class="bounty-board__range" type="range" min="0" max="0" step="100" value="0">
+                      <input id="bounty-cash-input" class="bounty-board__input bounty-board__input--number" type="number" min="0" max="0" step="100" value="0">
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <div class="bounty-board__settings">
+                <div class="bounty-board__panel bounty-board__panel--compact">
+                  <div class="bounty-board__panel-head">
+                    <span class="bounty-board__kicker">Trvání</span>
+                  </div>
+                  <div class="bounty-board__segment-grid">
+                    <label class="bounty-board__segment"><input type="radio" name="bounty-duration" value="6"><span>6h</span></label>
+                    <label class="bounty-board__segment"><input type="radio" name="bounty-duration" value="12" checked><span>12h</span></label>
+                    <label class="bounty-board__segment"><input type="radio" name="bounty-duration" value="24"><span>24h</span></label>
+                  </div>
+                </div>
+
+                <div class="bounty-board__panel bounty-board__panel--compact">
+                  <div class="bounty-board__panel-head">
+                    <span class="bounty-board__kicker">Anonymita</span>
+                  </div>
+                  <label class="bounty-board__toggle">
+                    <input id="bounty-anonymous-input" type="checkbox" checked>
+                    <span>Anonymní vypsání odměny</span>
+                    <small>OFF = target vidí, kdo ho označil.</small>
+                  </label>
+                </div>
+              </div>
+
+              <div class="bounty-board__panel">
+                <div class="bounty-board__panel-head">
+                  <span class="bounty-board__kicker">Typ bounty</span>
+                  <strong>Co musí město splnit</strong>
+                </div>
+                <div class="bounty-board__choice-grid">
+                  <label class="bounty-board__choice">
+                    <input type="radio" name="bounty-target-scope" value="player" checked>
+                    <span>Celý hráč</span>
+                  </label>
+                  <label class="bounty-board__choice">
+                    <input type="radio" name="bounty-target-scope" value="district">
+                    <span>Konkrétní district</span>
+                  </label>
+                </div>
+                <div class="bounty-board__choice-grid">
+                  <label class="bounty-board__choice">
+                    <input type="radio" name="bounty-objective" value="occupy-sector" checked>
+                    <span>Za obsazení districtu</span>
+                  </label>
+                  <label class="bounty-board__choice">
+                    <input type="radio" name="bounty-objective" value="successful-attack">
+                    <span>Za úspěšný útok</span>
+                  </label>
+                  <label class="bounty-board__choice">
+                    <input type="radio" name="bounty-objective" value="destroy-units">
+                    <span>Za zničení obrany</span>
+                  </label>
+                </div>
+                <label id="bounty-district-field" class="bounty-board__field">
+                  <span>Konkrétní district</span>
+                  <select id="bounty-modal-district" class="bounty-board__input"></select>
+                </label>
+              </div>
+            </section>
+
+            <section class="bounty-board__column bounty-board__column--right">
+              <div class="bounty-board__panel bounty-board__preview">
+                <div id="bounty-preview-target" class="bounty-board__preview-target">Nevybrán cíl</div>
+                <div id="bounty-preview-value" class="bounty-board__preview-value">$0</div>
+                <div class="bounty-board__preview-grid">
+                  <div><span>Typ</span><strong id="bounty-preview-type">Za obsazení districtu</strong></div>
+                  <div><span>Trvání</span><strong id="bounty-preview-duration">12h</strong></div>
+                  <div><span>Anonymita</span><strong id="bounty-preview-anonymous">Anonymní</strong></div>
+                </div>
+              </div>
+
+              <div class="bounty-board__panel">
+                <div id="bounty-hunt-state" class="bounty-board__hunt-state" data-mode="charging">Hunt mode se plní</div>
+                <div class="bounty-board__progress"><div id="bounty-hunt-progress-fill" class="bounty-board__progress-fill"></div></div>
+                <div id="bounty-hunt-progress-label" class="bounty-board__progress-label">Do HUNT MODE zbývá $10,000.</div>
+              </div>
+
+              <div class="bounty-board__panel bounty-board__table-panel">
+                <div class="bounty-board__panel-head">
+                  <span class="bounty-board__kicker">Aktivní odměny</span>
+                  <strong>Hráči a odměny</strong>
+                </div>
+                <div class="bounty-board__table-wrap">
+                  <table class="bounty-board__table">
+                    <thead>
+                      <tr><th>Hráč</th><th>District</th><th>Odměna</th><th>Režim</th><th>Do</th></tr>
+                    </thead>
+                    <tbody id="bounty-board-body"></tbody>
+                  </table>
+                  <div id="bounty-board-empty" class="bounty-board__empty">Zatím tu není žádná aktivní bounty.</div>
+                </div>
+              </div>
+
+              <div class="bounty-board__actions">
+                <button id="bounty-modal-cancel" class="btn bounty-board__cancel" type="button">Zrušit</button>
+                <button id="bounty-modal-submit" class="btn bounty-board__submit" type="button">VYPSAT ODMĚNU</button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <div id="bounty-confirm-modal" class="modal hidden bounty-board-modal">
+        <div id="bounty-confirm-modal-backdrop" class="modal__backdrop"></div>
+        <div class="modal__content bounty-board__content bounty-board__content--confirm">
+          <header class="bounty-board__header bounty-board__header--confirm">
+            <div class="bounty-board__header-copy">
+              <div class="bounty-board__eyebrow">Bounty confirm</div>
+              <h3>Potvrdit vypsání bounty</h3>
+              <p>Po potvrzení se odměna uloží na board. Hráč, který splní podmínky, ji dostane připsanou na účet a do skladu.</p>
+            </div>
+            <button id="bounty-confirm-modal-close" class="modal__close" type="button" aria-label="Zavřít">×</button>
+          </header>
+          <div class="bounty-board__panel bounty-board__panel--compact">
+            <div class="bounty-board__preview-grid bounty-board__preview-grid--confirm">
+              <div><span>Cíl</span><strong id="bounty-confirm-target">Nevybrán cíl</strong></div>
+              <div><span>Typ</span><strong id="bounty-confirm-type">-</strong></div>
+              <div><span>Odměna</span><strong id="bounty-confirm-value">$0</strong></div>
+              <div><span>Trvání</span><strong id="bounty-confirm-duration">12h</strong></div>
+              <div><span>Anonymita</span><strong id="bounty-confirm-anonymous">Anonymní</strong></div>
+            </div>
+          </div>
+          <div class="bounty-board__actions">
+            <button id="bounty-confirm-modal-cancel" class="btn bounty-board__cancel" type="button">Zpět</button>
+            <button id="bounty-confirm-modal-submit" class="btn bounty-board__submit" type="button">POTVRDIT BOUNTY</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="boost-modal" class="modal hidden">
+        <div id="boost-modal-backdrop" class="modal__backdrop"></div>
+        <div class="modal__content modal__content--profile boost-modal__content">
+          <div class="modal__header">
+            <h3>Boost</h3>
+            <button class="modal__close" id="boost-modal-close" aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body boost-modal__body">
+            <div class="boost-modal__tabs" aria-label="Boost tabs">
+              <button type="button" class="boost-modal__tab is-active" data-boost-tab="actions">Akce</button>
+              <button type="button" class="boost-modal__tab" data-boost-tab="info">Info</button>
+            </div>
+            <div class="boost-modal__swipe-hint">Swipe pro přepnutí tabů</div>
+
+            <section id="boost-modal-panel-actions" class="boost-modal__panel">
+              <div class="boost-modal__hint">Aktivuj boost drogy z Labu a Combat Module z Továrny. Spotřeba je okamžitá.</div>
+              <div id="boost-modal-content" class="boost-modal__list"></div>
+            </section>
+
+            <section id="boost-modal-panel-info" class="boost-modal__panel hidden">
+              <div class="boost-modal__hint boost-modal__hint--info">
+                Ghost Serum: +50 % spy speed, +30 % info quality. Action: +25 % attack a vykrádání. Overdrive X: +20 % aktivní akce a +3 heat.
+              </div>
+              <div class="boost-modal__hint boost-modal__hint--info">
+                Assault: +30 % attack power. Rapid: rychlejší attack a raid. Breach: ignoruje část obrany.
+              </div>
+            </section>
+
+            <div id="boost-modal-status" class="boost-modal__status"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="settings-modal" class="modal hidden">
+        <div id="settings-modal-backdrop" class="modal__backdrop"></div>
+        <div class="modal__content modal__content--profile settings-modal__content">
+          <div class="modal__header">
+            <h3>Nastavení</h3>
+            <button class="modal__close" id="settings-modal-close" aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body settings-modal__body">
+            <div class="settings-modal__section-title">Mapa</div>
+            <div class="modal__row settings-modal__row settings-modal__row--toggle">
+              <span class="settings-modal__label">Čáry distriktů</span>
+              <label class="toggle settings-toggle">
+                <input id="settings-map-district-borders" type="checkbox" checked>
+                <span class="toggle__track"></span>
+              </label>
+            </div>
+            <div class="modal__row settings-modal__row settings-modal__row--toggle">
+              <span class="settings-modal__label">Znaky aliancí</span>
+              <label class="toggle settings-toggle">
+                <input id="settings-map-alliance-symbols" type="checkbox" checked>
+                <span class="toggle__track"></span>
+              </label>
+            </div>
+            <div class="modal__row settings-modal__row settings-modal__row--visibility">
+              <span class="settings-modal__label">Viditelnost mapy</span>
+              <div class="settings-modal__select settings-modal__visibility-select">
+                <select id="settings-map-visibility">
+                  <option value="all">Všechny distrikty</option>
+                  <option value="hide-enemies">Skrýt nepřátele</option>
+                  <option value="only-player">Jen moje distrikty</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal__actions settings-modal__actions">
+              <div class="settings-modal__select settings-modal__language-select">
+                <select id="settings-language" aria-label="Jazyk">
+                  <option value="cs">Čeština</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+              <button id="settings-save-btn" class="button settings-modal__save-btn" type="button">Uložit</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="storage-popup-shell" data-storage-popup hidden>
+        <div class="storage-popup-backdrop" data-storage-popup-close></div>
+        <div class="storage-popup-card" role="dialog" aria-modal="true" aria-label="Sklad zbraní">
+          <div class="storage-popup-grid">
+            <section class="storage-popup-section">
+              <h3 class="storage-popup-subtitle">Útočné zbraně</h3>
+              <div class="storage-popup-list">
+                <p class="storage-popup-row">Baseballová pálka <span data-storage-weapon-count="baseball-bat">0 ks</span></p>
+                <p class="storage-popup-row">Pistole <span data-storage-weapon-count="pistol">0 ks</span></p>
+                <p class="storage-popup-row">Granát <span data-storage-weapon-count="grenade">0 ks</span></p>
+                <p class="storage-popup-row">SMG <span data-storage-weapon-count="smg">0 ks</span></p>
+                <p class="storage-popup-row">Bazuka <span data-storage-weapon-count="bazooka">0 ks</span></p>
+              </div>
+            </section>
+            <section class="storage-popup-section">
+              <h3 class="storage-popup-subtitle">Obranné zbraně</h3>
+              <div class="storage-popup-list">
+                <p class="storage-popup-row">Vesta <span data-storage-weapon-count="vest">0 ks</span></p>
+                <p class="storage-popup-row">Barikády <span data-storage-weapon-count="barricades">0 ks</span></p>
+                <p class="storage-popup-row">Kamery <span data-storage-weapon-count="cameras">0 ks</span></p>
+                <p class="storage-popup-row">Defense tower <span data-storage-weapon-count="defense-tower">0 ks</span></p>
+                <p class="storage-popup-row">Alarm <span data-storage-weapon-count="alarm">0 ks</span></p>
+              </div>
+            </section>
+            <section class="storage-popup-section">
+              <h3 class="storage-popup-subtitle">Lékárna materiály</h3>
+              <div class="storage-popup-list">
+                <p class="storage-popup-row">Chemicals <span data-storage-material-count="chemicals">0 ks</span></p>
+                <p class="storage-popup-row">Biomass <span data-storage-material-count="biomass">0 ks</span></p>
+                <p class="storage-popup-row">Stim Pack <span data-storage-material-count="stim-pack">0 ks</span></p>
+              </div>
+            </section>
+            <section class="storage-popup-section">
+              <h3 class="storage-popup-subtitle">Factory supplies</h3>
+              <div class="storage-popup-list">
+                <p class="storage-popup-row">Metal Parts <span data-storage-factory-count="metalParts">0 ks</span></p>
+                <p class="storage-popup-row">Tech Core <span data-storage-factory-count="techCore">0 ks</span></p>
+                <p class="storage-popup-row">Combat Module <span data-storage-factory-count="combatModule">0 ks</span></p>
+              </div>
+            </section>
+            <section class="storage-popup-section storage-popup-section--wide">
+              <h3 class="storage-popup-subtitle">Drug balíky</h3>
+              <div class="storage-popup-list">
+                <p class="storage-popup-row">Neon Dust <span data-storage-drug-count="neon-dust">0 ks</span></p>
+                <p class="storage-popup-row">Pulse Shot <span data-storage-drug-count="pulse-shot">0 ks</span></p>
+                <p class="storage-popup-row">Velvet Smoke <span data-storage-drug-count="velvet-smoke">0 ks</span></p>
+                <p class="storage-popup-row">Ghost Serum <span data-storage-drug-count="ghost-serum">0 ks</span></p>
+                <p class="storage-popup-row">Overdrive X <span data-storage-drug-count="overdrive-x">0 ks</span></p>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <div class="game-admin-slice-overlay" data-game-admin-slice-overlay hidden>
+        <button type="button" class="game-admin-slice-overlay__backdrop" data-game-admin-slice-close aria-label="Zavřít gameplay slice panel"></button>
+        <section class="game-admin-slice-overlay__dialog" role="dialog" aria-modal="true" aria-label="Gameplay slice panel">
+          <header class="game-admin-slice-overlay__header">
+            <div>
+              <h2 class="game-admin-slice-overlay__title">Gameplay Slice Panel</h2>
+              <p class="game-admin-slice-overlay__subtitle">District selection, build a attack flow z nové architektury.</p>
+            </div>
+            <button type="button" class="button game-admin-slice-overlay__close" data-game-admin-slice-close>Zavřít</button>
+          </header>
+          <div class="game-admin-slice-surface">
+            <aside class="game-admin-slice-surface__sidebar">
+              <section class="mount-point game-admin-slice-surface__mount" data-game-slice-nav>
+                <h3 class="placeholder-title">Gameplay slice demo</h3>
+              </section>
+              <section class="mount-point game-admin-slice-surface__mount" data-game-slice-filter>
+                <h3 class="placeholder-title">Current selection</h3>
+              </section>
+            </aside>
+            <section class="game-admin-slice-surface__workspace">
+              <section class="mount-point game-admin-slice-surface__mount" data-game-slice-toolbar>
+                <h3 class="placeholder-title">Toolbar</h3>
+              </section>
+              <section class="mount-point game-admin-slice-surface__mount" data-game-slice-content>
+                <h3 class="placeholder-title">Gameplay slice mount</h3>
+              </section>
+              <div class="game-admin-slice-surface__meta">
+                <section class="mount-point game-admin-slice-surface__mount" data-game-slice-modal>
+                  <h3 class="placeholder-title">Command trace</h3>
+                </section>
+                <section class="mount-point game-admin-slice-surface__mount" data-game-slice-notice>
+                  <h3 class="placeholder-title">Run mode</h3>
+                </section>
+              </div>
+            </section>
+          </div>
+        </section>
+      </div>
+    </main>
+    <script type="module" src="../page-assets/js/app.js"></script>
+    <script type="module" src="../page-assets/js/app/city-events-runtime.js"></script>
+    <script type="module" src="../page-assets/js/app/alliance-runtime.js"></script>
+    <script type="module" src="../page-assets/js/app/bounty-runtime.js"></script>
+    <script type="module" src="../page-assets/js/app/boost-runtime.js"></script>
+    <script type="module" src="../page-assets/js/app/mobile-layout-runtime.js"></script>
+    <script src="../page-assets/js/admin-assets/admin-slice-demo.js"></script>
+    <script type="module" src="../page-assets/js/app/game-admin-slice-launcher.js"></script>
+  </body>
+</html>

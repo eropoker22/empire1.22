@@ -1,0 +1,13 @@
+{
+  "name": "@empire/game-core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check": "echo game core pending"
+  }
+}
+

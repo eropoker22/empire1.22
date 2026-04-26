@@ -1,0 +1,1212 @@
+body.auth-body--login:not(.servers-page) {
+  min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
+  background:
+    linear-gradient(180deg, rgba(4, 7, 14, 0.62), rgba(4, 7, 14, 0.82)),
+    url("../../img/loginmob.jpeg") center / cover fixed;
+  color: #f8fafc;
+}
+
+body.auth-body--login:not(.servers-page)::before,
+body.auth-body--login:not(.servers-page)::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+body.auth-body--login:not(.servers-page)::before {
+  z-index: 0;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(34, 211, 238, 0.2), transparent 26%),
+    radial-gradient(circle at 82% 18%, rgba(244, 114, 182, 0.22), transparent 24%),
+    linear-gradient(180deg, rgba(3, 7, 18, 0.32), rgba(3, 7, 18, 0.74));
+}
+
+body.auth-body--login:not(.servers-page)::after {
+  z-index: 1;
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 7px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.08), transparent 18%, transparent 82%, rgba(244, 114, 182, 0.08));
+  mix-blend-mode: screen;
+  opacity: 0.72;
+}
+
+body.auth-body--login:not(.servers-page) .rain-drops,
+body.auth-body--login:not(.servers-page) .smoke-layer,
+body.auth-body--login:not(.servers-page) .vortex-graffiti {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+body.auth-body--login:not(.servers-page) .rain-drops {
+  z-index: 1;
+  opacity: 0.16;
+  background-image: linear-gradient(180deg, transparent 0%, rgba(180, 232, 255, 0.75) 55%, transparent 100%);
+  background-size: 2px 120px;
+  animation: authRainFall 9s linear infinite;
+}
+
+body.auth-body--login:not(.servers-page) .rain-drops--fast {
+  opacity: 0.1;
+  background-size: 3px 90px;
+  animation-duration: 5.5s;
+}
+
+body.auth-body--login:not(.servers-page) .smoke-layer {
+  z-index: 1;
+}
+
+body.auth-body--login:not(.servers-page) .smoke-layer--low {
+  background:
+    radial-gradient(circle at 20% 80%, rgba(74, 85, 104, 0.12), transparent 28%),
+    radial-gradient(circle at 75% 72%, rgba(20, 25, 35, 0.22), transparent 24%);
+  animation: authSmokeDrift 14s ease-in-out infinite alternate;
+}
+
+body.auth-body--login:not(.servers-page) .smoke-layer--high {
+  background:
+    radial-gradient(circle at 80% 20%, rgba(61, 71, 90, 0.12), transparent 22%),
+    radial-gradient(circle at 36% 14%, rgba(17, 24, 39, 0.18), transparent 20%);
+  animation: authSmokeDrift 18s ease-in-out infinite alternate-reverse;
+}
+
+body.auth-body--login:not(.servers-page) .vortex-graffiti {
+  z-index: 2;
+  overflow: hidden;
+}
+
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag {
+  position: absolute;
+  font-family: "Bahnschrift", "Segoe UI", sans-serif;
+  font-size: 16px;
+  letter-spacing: 1px;
+  color: rgba(203, 244, 255, 0.9);
+  text-transform: uppercase;
+  text-shadow:
+    -2px 2px 0 rgba(8, 12, 22, 0.9),
+    -6px 6px 0 rgba(8, 12, 22, 0.8),
+    -10px 10px 0 rgba(8, 12, 22, 0.65),
+    0 0 10px rgba(34, 211, 238, 0.9),
+    0 0 28px rgba(244, 114, 182, 0.85);
+  animation: neonFlicker 3.6s ease-in-out infinite;
+  opacity: 0.7;
+  mix-blend-mode: screen;
+  user-select: none;
+}
+
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--one { top: 8%; left: 6%; font-size: 26px; letter-spacing: 5px; transform: rotate(-6deg) skewY(-2deg); opacity: 0.9; }
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--two { top: 18%; right: 8%; transform: rotate(4deg) skewY(1deg); }
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--three { top: 38%; left: 10%; transform: rotate(2deg) skewY(-1deg); }
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--four { top: 30%; right: 12%; font-size: 18px; letter-spacing: 2px; transform: rotate(-4deg) skewY(2deg); }
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--five { bottom: 28%; left: 18%; transform: rotate(3deg) skewY(-2deg); }
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--six { bottom: 20%; right: 14%; font-size: 18px; transform: rotate(-2deg) skewY(1deg); }
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--seven { bottom: 10%; left: 8%; transform: rotate(5deg) skewY(-2deg); }
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--eight { top: 52%; right: 6%; font-size: 20px; letter-spacing: 3px; transform: rotate(-7deg) skewY(2deg); }
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--nine { top: 62%; left: 4%; font-size: 14px; transform: rotate(6deg) skewY(-2deg); opacity: 0.55; }
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--ten { top: 8%; right: 22%; font-size: 13px; letter-spacing: 2px; transform: rotate(-3deg) skewY(1deg); opacity: 0.6; }
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--fourteen { bottom: 6%; right: 10%; font-size: 18px; letter-spacing: 4px; transform: rotate(5deg) skewY(-2deg); opacity: 0.7; }
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--sixteen { bottom: 46%; left: 14%; font-size: 17px; letter-spacing: 2px; transform: rotate(-11deg) skewY(4deg); opacity: 0.6; }
+
+body.auth-body--login:not(.servers-page) .auth-mobile-fit-frame,
+body.auth-body--login:not(.servers-page) .auth-mobile-fit-stack {
+  position: relative;
+  z-index: 4;
+  min-height: 100vh;
+}
+
+body.auth-body--login:not(.servers-page) .auth-shell {
+  position: relative;
+  z-index: 4;
+  width: min(920px, 92vw);
+  min-height: calc(100vh - 120px);
+  margin: 0 auto;
+  padding: clamp(34px, 6vh, 70px) 0 130px;
+  display: grid;
+  gap: 18px;
+  align-content: center;
+}
+
+body.auth-body--login:not(.servers-page) .auth-headline {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 18px 18px 10px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-headline::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.14), transparent 64%);
+  filter: blur(2px);
+}
+
+body.auth-body--login:not(.servers-page) .auth-headline h1,
+body.auth-body--login:not(.servers-page) .auth-subtitle {
+  position: relative;
+  z-index: 1;
+}
+
+body.auth-body--login:not(.servers-page) .auth-headline h1 {
+  margin: 0;
+  font-family: "IBM Plex Mono", "Bahnschrift", monospace;
+  font-size: clamp(24px, 3.3vw, 31px);
+  line-height: 1;
+  letter-spacing: 0.065em;
+  text-transform: uppercase;
+}
+
+body.auth-body--login:not(.servers-page) .auth-subtitle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 6px 12px;
+  margin: 4px auto 0;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 211, 238, 0.16);
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.08), rgba(244, 114, 182, 0.08)),
+    rgba(8, 13, 24, 0.64);
+  color: rgba(226, 232, 240, 0.88);
+  font-size: 11px;
+  line-height: 1.45;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+body.auth-body--login:not(.servers-page) .auth-mode-tabs {
+  width: min(430px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  padding: 7px;
+  border: 1px solid rgba(103, 232, 249, 0.16);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(6, 10, 18, 0.88), rgba(5, 9, 16, 0.86)),
+    radial-gradient(circle at top right, rgba(34, 211, 238, 0.06), transparent 34%);
+}
+
+body.auth-body--login:not(.servers-page) .auth-mode-tab,
+body.auth-body--login:not(.servers-page) .tab-btn {
+  min-height: 40px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(7, 12, 22, 0.92), rgba(5, 10, 19, 0.94));
+  color: rgba(203, 213, 225, 0.86);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.65);
+}
+
+body.auth-body--login:not(.servers-page) .auth-mode-tab.is-active,
+body.auth-body--login:not(.servers-page) .tab-btn--active {
+  border-color: rgba(34, 211, 238, 0.76);
+  color: #ecfeff;
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.24), rgba(244, 114, 182, 0.14)),
+    rgba(8, 13, 24, 0.92);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.16),
+    0 0 20px rgba(34, 211, 238, 0.18);
+}
+
+body.auth-body--login:not(.servers-page) .auth-login-row {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.42fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+body.auth-body--login:not(.servers-page) .auth-side-panel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-tabs--detached {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid rgba(103, 232, 249, 0.16);
+  border-radius: 18px;
+  background: rgba(5, 9, 16, 0.78);
+  box-shadow: 0 18px 42px rgba(2, 6, 23, 0.34);
+}
+
+body.auth-body--login:not(.servers-page) .auth-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: 100%;
+  max-width: none;
+  min-height: 480px;
+  display: flex;
+  flex-direction: column;
+  padding: 28px;
+  border: 1px solid rgba(103, 232, 249, 0.26);
+  border-radius: 20px;
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.045), transparent 24%),
+    radial-gradient(circle at top right, rgba(34, 211, 238, 0.2), transparent 28%),
+    radial-gradient(circle at bottom left, rgba(244, 114, 182, 0.14), transparent 30%),
+    linear-gradient(180deg, rgba(8, 13, 24, 0.96), rgba(4, 8, 15, 0.97));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.065),
+    0 40px 86px rgba(0, 0, 0, 0.58),
+    0 0 36px rgba(34, 211, 238, 0.2),
+    0 0 58px rgba(244, 114, 182, 0.14);
+  backdrop-filter: blur(14px);
+}
+
+body.auth-body--login:not(.servers-page) .auth-card::before,
+body.auth-body--login:not(.servers-page) .auth-card.auth-panel--right::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+body.auth-body--login:not(.servers-page) .auth-card::before {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 18%, transparent 78%, rgba(34, 211, 238, 0.08)),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 9px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 15px);
+  opacity: 0.6;
+}
+
+body.auth-body--login:not(.servers-page) .auth-card.auth-panel--right::after {
+  inset: 11px;
+  border: 1px solid rgba(103, 232, 249, 0.11);
+  clip-path: polygon(0 10px, 10px 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+
+body.auth-body--login:not(.servers-page) .auth-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+body.auth-body--login:not(.servers-page) .auth-form {
+  display: grid;
+  gap: 10px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-form label {
+  color: rgba(226, 232, 240, 0.72);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+body.auth-body--login:not(.servers-page) .auth-form input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  border-radius: 12px;
+  background: rgba(5, 9, 16, 0.78);
+  color: #f8fafc;
+  padding: 0 14px;
+  font-size: 15px;
+  box-shadow:
+    inset 0 0 0 1px rgba(15, 23, 42, 0.55),
+    0 12px 22px rgba(2, 6, 23, 0.16);
+}
+
+body.auth-body--login:not(.servers-page) .auth-form input::placeholder {
+  color: rgba(148, 163, 184, 0.58);
+}
+
+body.auth-body--login:not(.servers-page) .auth-form input:focus {
+  outline: none;
+  border-color: rgba(34, 211, 238, 0.72);
+  box-shadow:
+    0 0 0 3px rgba(34, 211, 238, 0.14),
+    0 0 20px rgba(34, 211, 238, 0.12);
+}
+
+body.auth-body--login:not(.servers-page) .auth-form--guest {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(103, 232, 249, 0.12);
+}
+
+body.auth-body--login:not(.servers-page) .btn {
+  min-height: 46px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 18px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+body.auth-body--login:not(.servers-page) .btn--primary {
+  margin-top: 6px;
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.95), rgba(244, 114, 182, 0.88)),
+    #22d3ee;
+  color: #06111f;
+  box-shadow:
+    0 14px 28px rgba(34, 211, 238, 0.24),
+    0 0 24px rgba(244, 114, 182, 0.18);
+}
+
+body.auth-body--login:not(.servers-page) .btn--ghost {
+  border: 1px solid rgba(34, 211, 238, 0.36);
+  background: rgba(8, 13, 24, 0.78);
+  color: #cffafe;
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.12);
+}
+
+body.auth-body--login:not(.servers-page) .auth-error {
+  margin: 12px 0 0;
+  color: #fecaca;
+  font-size: 13px;
+}
+
+body.auth-body--login:not(.servers-page) .about-game-copy {
+  margin: 0;
+  padding: 16px;
+  border: 1px solid rgba(103, 232, 249, 0.16);
+  border-radius: 18px;
+  background: rgba(5, 9, 16, 0.78);
+  color: rgba(226, 232, 240, 0.84);
+  line-height: 1.55;
+}
+
+body.auth-body--login:not(.servers-page) .about-game-copy__link {
+  color: #67e8f9;
+  font-weight: 900;
+}
+
+body.auth-body--login:not(.servers-page) .about-game-shell {
+  width: min(880px, 92vw);
+}
+
+body.auth-body--login:not(.servers-page) .about-game-card {
+  min-height: 0;
+  display: grid;
+  gap: 16px;
+}
+
+body.auth-body--login:not(.servers-page) .about-game-head h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+}
+
+body.auth-body--login:not(.servers-page) .about-game-kicker,
+body.auth-body--login:not(.servers-page) .about-game-content p,
+body.auth-body--login:not(.servers-page) .about-game-outro {
+  color: rgba(226, 232, 240, 0.82);
+  line-height: 1.65;
+}
+
+body.auth-body--login:not(.servers-page) .about-game-content {
+  display: grid;
+  gap: 12px;
+}
+
+body.auth-body--login:not(.servers-page) .about-game-content p {
+  margin: 0;
+}
+
+body.auth-body--login:not(.servers-page) .about-game-highlight {
+  margin: 0;
+  color: #cffafe;
+  font-weight: 900;
+}
+
+body.auth-body--login:not(.servers-page) .about-game-actions {
+  margin: 0;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer {
+  position: relative;
+  z-index: 5;
+  padding: 20px 24px 28px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer--fixed {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__inner {
+  width: min(920px, 92vw);
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border: 1px solid rgba(34, 211, 238, 0.4);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(9, 15, 28, 0.9), rgba(12, 18, 32, 0.9));
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.45),
+    0 0 26px rgba(34, 211, 238, 0.35),
+    0 0 40px rgba(244, 114, 182, 0.25);
+  backdrop-filter: blur(10px);
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__brand,
+body.auth-body--login:not(.servers-page) .auth-footer__links {
+  display: flex;
+  align-items: center;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__brand {
+  gap: 12px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__links {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: url("../../img/logo.jpg") center / cover no-repeat;
+  border: 1px solid rgba(34, 211, 238, 0.45);
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.6), 0 0 28px rgba(244, 114, 182, 0.35);
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__title {
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.6px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__subtitle {
+  font-size: 11px;
+  color: rgba(226, 232, 240, 0.68);
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__link {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  color: #cffafe;
+  text-decoration: none;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: 12px;
+  background: rgba(10, 14, 26, 0.6);
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.25);
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__link svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: currentColor;
+}
+
+body.auth-body--login:not(.servers-page) .hidden {
+  display: none !important;
+}
+
+@keyframes neonFlicker {
+  0%, 100% { filter: brightness(1); }
+  45% { filter: brightness(1.25); }
+  48% { filter: brightness(0.78); }
+  52% { filter: brightness(1.35); }
+}
+
+@media (max-width: 900px) {
+  body.auth-body--login:not(.servers-page) {
+    overflow: hidden;
+  }
+
+  body.auth-body--login:not(.servers-page).login-mobile-keyboard-lock {
+    overflow-y: auto;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-mobile-fit-frame {
+    min-height: 100svh;
+    width: 100vw;
+    overflow: hidden;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-mobile-fit-stack {
+    min-height: 100svh;
+    transform: scale(var(--login-mobile-fit-scale, 1));
+    transform-origin: top center;
+  }
+
+  body.auth-body--login:not(.servers-page).login-mobile-keyboard-lock .auth-mobile-fit-stack {
+    transform: none;
+  }
+
+  body.auth-body--login:not(.servers-page) .vortex-graffiti {
+    opacity: 0.42;
+  }
+
+  body.auth-body--login:not(.servers-page) .vortex-graffiti__tag {
+    font-size: 11px;
+  }
+
+  body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--one {
+    font-size: 16px;
+  }
+
+  body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--four,
+  body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--six,
+  body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--eight,
+  body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--ten {
+    display: none;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-shell {
+    width: min(360px, calc(100vw - 22px));
+    min-height: auto;
+    padding: 12px 0 104px;
+    gap: 8px;
+    align-content: start;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-headline {
+    padding: 8px 8px 2px;
+    gap: 4px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-headline h1 {
+    font-size: 18px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-subtitle {
+    min-height: 22px;
+    padding: 4px 8px;
+    font-size: 9px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-mode-tabs {
+    width: 100%;
+    gap: 5px;
+    padding: 5px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-mode-tab,
+  body.auth-body--login:not(.servers-page) .tab-btn {
+    min-height: 31px;
+    padding: 4px 6px;
+    font-size: 10px;
+    border-radius: 10px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-login-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-side-panel {
+    gap: 6px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-tabs--detached {
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+    padding: 5px;
+    border-radius: 14px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-card {
+    min-height: 0;
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-form {
+    gap: 6px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-form label {
+    font-size: 9px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-form input {
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: 12px;
+    border-radius: 10px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-form--guest {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  body.auth-body--login:not(.servers-page) .btn {
+    min-height: 34px;
+    padding: 0 12px;
+    font-size: 10px;
+  }
+
+  body.auth-body--login:not(.servers-page) .about-game-copy {
+    padding: 10px;
+    font-size: 12px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-footer {
+    padding: 0 10px 8px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-footer__inner {
+    width: min(360px, calc(100vw - 20px));
+    padding: 8px 10px;
+    gap: 8px;
+    border-radius: 14px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-footer__logo {
+    width: 34px;
+    height: 34px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-footer__title {
+    font-size: 11px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-footer__subtitle {
+    font-size: 9px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-footer__link {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-footer__link svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  body.auth-body--login:not(.servers-page).login-mobile-fit-compact .auth-shell {
+    width: min(340px, calc(100vw - 18px));
+    padding-top: 8px;
+    gap: 6px;
+  }
+
+  body.auth-body--login:not(.servers-page).login-mobile-fit-tight .auth-headline,
+  body.auth-body--login:not(.servers-page).login-mobile-fit-ultra .auth-headline {
+    padding-top: 4px;
+  }
+
+  body.auth-body--login:not(.servers-page).login-mobile-fit-tight .auth-card,
+  body.auth-body--login:not(.servers-page).login-mobile-fit-ultra .auth-card {
+    padding: 9px;
+  }
+
+  body.auth-body--login:not(.servers-page).login-mobile-fit-tight .auth-form input,
+  body.auth-body--login:not(.servers-page).login-mobile-fit-ultra .auth-form input,
+  body.auth-body--login:not(.servers-page).login-mobile-fit-tight .btn,
+  body.auth-body--login:not(.servers-page).login-mobile-fit-ultra .btn {
+    min-height: 30px;
+  }
+
+  body.auth-body--login:not(.servers-page).login-mobile-fit-ultra .auth-footer {
+    padding-bottom: 5px;
+  }
+}
+
+@media (max-width: 420px) {
+  body.auth-body--login:not(.servers-page) .auth-footer__subtitle {
+    display: none;
+  }
+}
+
+/* Login visual refresh: keeps empire2 flow, but makes the STREETS surface calmer and more legible. */
+body.auth-body--login:not(.servers-page) {
+  background:
+    linear-gradient(90deg, rgba(2, 6, 12, 0.9) 0%, rgba(5, 10, 18, 0.72) 42%, rgba(2, 5, 10, 0.95) 100%),
+    linear-gradient(180deg, rgba(2, 6, 12, 0.35), rgba(2, 6, 12, 0.88)),
+    url("../../img/loginmob.jpeg") center / cover fixed;
+  color: #eef7fb;
+}
+
+body.auth-body--login:not(.servers-page)::before {
+  background:
+    linear-gradient(90deg, rgba(20, 184, 166, 0.11), transparent 24%, transparent 76%, rgba(244, 63, 94, 0.1)),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 72px);
+}
+
+body.auth-body--login:not(.servers-page)::after {
+  opacity: 0.24;
+  background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.028) 0 1px, transparent 1px 8px);
+}
+
+body.auth-body--login:not(.servers-page) .rain-drops {
+  opacity: 0.07;
+}
+
+body.auth-body--login:not(.servers-page) .smoke-layer {
+  opacity: 0.42;
+}
+
+body.auth-body--login:not(.servers-page) .vortex-graffiti {
+  z-index: 1;
+  opacity: 0.22;
+}
+
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag {
+  color: rgba(216, 244, 255, 0.55);
+  text-shadow: 0 0 16px rgba(20, 184, 166, 0.32);
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--three,
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--five,
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--six,
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--nine,
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--ten,
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--fourteen,
+body.auth-body--login:not(.servers-page) .vortex-graffiti__tag--sixteen {
+  display: none;
+}
+
+body.auth-body--login:not(.servers-page) .auth-shell {
+  width: min(980px, calc(100vw - 48px));
+  min-height: calc(100vh - 96px);
+  padding: 38px 0 118px;
+  gap: 14px;
+  align-content: center;
+}
+
+body.auth-body--login:not(.servers-page) .auth-headline {
+  width: min(720px, 100%);
+  justify-self: center;
+  padding: 0;
+  gap: 10px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-headline::before {
+  display: none;
+}
+
+body.auth-body--login:not(.servers-page) .auth-headline h1 {
+  font-family: "Bahnschrift", "Segoe UI", sans-serif;
+  font-size: clamp(34px, 5vw, 56px);
+  line-height: 0.95;
+  letter-spacing: 0;
+  text-transform: none;
+  text-shadow: 0 18px 46px rgba(0, 0, 0, 0.62);
+}
+
+body.auth-body--login:not(.servers-page) .auth-subtitle {
+  min-height: 0;
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(220, 234, 242, 0.78);
+  font-size: 15px;
+  letter-spacing: 0;
+  line-height: 1.45;
+  text-transform: none;
+  box-shadow: none;
+}
+
+body.auth-body--login:not(.servers-page) .auth-mode-tabs {
+  width: min(430px, 100%);
+  padding: 4px;
+  gap: 4px;
+  border-color: rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  background: rgba(8, 13, 22, 0.82);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+}
+
+body.auth-body--login:not(.servers-page) .auth-mode-tab,
+body.auth-body--login:not(.servers-page) .tab-btn {
+  min-height: 38px;
+  border-color: transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(226, 232, 240, 0.68);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  box-shadow: none;
+}
+
+body.auth-body--login:not(.servers-page) .auth-mode-tab.is-active,
+body.auth-body--login:not(.servers-page) .tab-btn--active {
+  border-color: rgba(45, 212, 191, 0.42);
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.22), rgba(15, 23, 42, 0.78));
+  color: #f8fafc;
+  box-shadow: 0 0 20px rgba(20, 184, 166, 0.12);
+}
+
+body.auth-body--login:not(.servers-page) .auth-login-row {
+  width: min(780px, 100%);
+  justify-self: center;
+  grid-template-columns: 190px minmax(0, 410px);
+  gap: 14px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-tabs--detached,
+body.auth-body--login:not(.servers-page) .about-game-copy {
+  border-color: rgba(148, 163, 184, 0.18);
+  border-radius: 10px;
+  background: rgba(8, 13, 22, 0.78);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+}
+
+body.auth-body--login:not(.servers-page) .auth-card {
+  min-height: 0;
+  padding: 22px;
+  border-color: rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(4, 8, 15, 0.96)),
+    rgba(8, 13, 22, 0.96);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px);
+}
+
+body.auth-body--login:not(.servers-page) .auth-card::before,
+body.auth-body--login:not(.servers-page) .auth-card.auth-panel--right::after {
+  display: none;
+}
+
+body.auth-body--login:not(.servers-page) .auth-form {
+  gap: 9px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-form label {
+  color: rgba(203, 213, 225, 0.72);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.auth-body--login:not(.servers-page) .auth-form input {
+  min-height: 42px;
+  border-color: rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+  background: rgba(2, 6, 12, 0.72);
+  color: #f8fafc;
+  box-shadow: none;
+}
+
+body.auth-body--login:not(.servers-page) .auth-form input:focus {
+  border-color: rgba(45, 212, 191, 0.72);
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.12);
+}
+
+body.auth-body--login:not(.servers-page) .auth-form--guest {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top-color: rgba(148, 163, 184, 0.16);
+}
+
+body.auth-body--login:not(.servers-page) .btn {
+  min-height: 42px;
+  border-radius: 8px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.auth-body--login:not(.servers-page) .btn--primary {
+  background: linear-gradient(135deg, #2dd4bf, #f59e0b);
+  color: #06111f;
+  box-shadow: 0 14px 28px rgba(20, 184, 166, 0.18);
+}
+
+body.auth-body--login:not(.servers-page) .btn--ghost {
+  border-color: rgba(244, 63, 94, 0.32);
+  background: rgba(15, 23, 42, 0.68);
+  color: #ffe4e6;
+  box-shadow: none;
+}
+
+body.auth-body--login:not(.servers-page) .auth-error {
+  padding: 10px 12px;
+  border: 1px solid rgba(244, 63, 94, 0.28);
+  border-radius: 8px;
+  background: rgba(127, 29, 29, 0.18);
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer {
+  padding: 0 24px 22px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__inner {
+  width: min(780px, calc(100vw - 48px));
+  padding: 12px 14px;
+  border-color: rgba(148, 163, 184, 0.18);
+  border-radius: 10px;
+  background: rgba(8, 13, 22, 0.72);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.28);
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__link {
+  width: 34px;
+  height: 34px;
+  border-color: rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.74);
+  color: rgba(226, 232, 240, 0.78);
+  box-shadow: none;
+}
+
+@media (max-width: 900px) {
+  body.auth-body--login:not(.servers-page) {
+    overflow-y: auto;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-mobile-fit-frame {
+    overflow: visible;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-mobile-fit-stack {
+    transform: none;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-shell {
+    width: min(390px, calc(100vw - 24px));
+    padding: 22px 0 92px;
+    gap: 10px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-headline h1 {
+    font-size: 28px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-subtitle {
+    font-size: 13px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-login-row {
+    width: 100%;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-tabs--detached {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-card {
+    padding: 16px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-form input,
+  body.auth-body--login:not(.servers-page) .btn {
+    min-height: 40px;
+    font-size: 13px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-footer {
+    padding: 0 12px 12px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-footer__inner {
+    width: min(390px, calc(100vw - 24px));
+  }
+}
+
+/* Login layout pass: tighter card composition and slim bottom footer. */
+body.auth-body--login:not(.servers-page) .auth-shell {
+  width: min(860px, calc(100vw - 48px));
+  min-height: calc(100vh - 54px);
+  padding: 34px 0 68px;
+  gap: 12px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-headline {
+  margin-bottom: 2px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-mode-tabs {
+  margin-bottom: 2px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-login-row {
+  width: min(720px, 100%);
+  grid-template-columns: 156px minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  background: rgba(4, 8, 15, 0.52);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(12px);
+}
+
+body.auth-body--login:not(.servers-page) .auth-side-panel {
+  min-width: 0;
+  height: 100%;
+}
+
+body.auth-body--login:not(.servers-page) .auth-tabs--detached {
+  height: 100%;
+  min-height: 228px;
+  align-content: start;
+  padding: 8px;
+  box-shadow: none;
+}
+
+body.auth-body--login:not(.servers-page) .auth-tabs--detached .tab-btn {
+  justify-content: flex-start;
+  min-height: 42px;
+  padding: 0 12px;
+  text-align: left;
+}
+
+body.auth-body--login:not(.servers-page) .auth-tabs--detached .tab-btn--active {
+  border-color: rgba(45, 212, 191, 0.46);
+}
+
+body.auth-body--login:not(.servers-page) .about-game-copy {
+  height: 100%;
+  min-height: 228px;
+  box-shadow: none;
+}
+
+body.auth-body--login:not(.servers-page) .auth-card {
+  padding: 18px;
+  box-shadow: none;
+}
+
+body.auth-body--login:not(.servers-page) .auth-form {
+  gap: 8px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-form input {
+  min-height: 40px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-form--guest {
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+body.auth-body--login:not(.servers-page) .btn {
+  min-height: 40px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer {
+  padding: 0;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer--fixed {
+  bottom: 0;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__inner {
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 18px;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: 0;
+  background: rgba(4, 8, 15, 0.88);
+  box-shadow: 0 -12px 34px rgba(0, 0, 0, 0.34);
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__title {
+  font-size: 12px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__subtitle {
+  font-size: 10px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__link {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__link svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 900px) {
+  body.auth-body--login:not(.servers-page) .auth-shell {
+    width: min(390px, calc(100vw - 22px));
+    min-height: calc(100svh - 44px);
+    padding: 18px 0 58px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-login-row {
+    width: 100%;
+    grid-template-columns: 1fr;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-tabs--detached {
+    height: auto;
+    min-height: 0;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-tabs--detached .tab-btn {
+    justify-content: center;
+    min-height: 36px;
+    text-align: center;
+  }
+
+  body.auth-body--login:not(.servers-page) .about-game-copy {
+    height: auto;
+    min-height: 0;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-card {
+    padding: 13px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-footer__inner {
+    min-height: 40px;
+    padding: 5px 10px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-footer__brand {
+    gap: 8px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-footer__links {
+    gap: 6px;
+  }
+}

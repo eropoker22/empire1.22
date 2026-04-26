@@ -1,3 +1,26 @@
 [build]
-  command = "rm -rf client/img && mkdir -p client/img && cp -R img/. client/img/"
-  publish = "client"
+  command = "npm run build:admin:page"
+  publish = "."
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[redirects]]
+  from = "/"
+  to = "/pages/login.html"
+  status = 200
+
+[[redirects]]
+  from = "/login.html"
+  to = "/pages/login.html"
+  status = 200
+
+[[redirects]]
+  from = "/game.html"
+  to = "/pages/game.html"
+  status = 200
+
+[[redirects]]
+  from = "/faction.html"
+  to = "/pages/faction.html"
+  status = 200

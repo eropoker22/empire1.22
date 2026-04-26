@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Empire Streets | Výběr serveru</title>
+    <meta name="description" content="Vyber herní server a startovní district pro Empire Streets.">
+    <link rel="stylesheet" href="../page-assets/css/styles.css">
+  </head>
+  <body class="auth-body auth-body--login auth-body--war servers-page">
+    <div class="rain-drops rain-drops--slow" aria-hidden="true"></div>
+    <div class="rain-drops rain-drops--fast" aria-hidden="true"></div>
+    <div class="vortex-graffiti" aria-hidden="true">
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--one">VORTEX CITY</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--two">Déšť nikdy nepřestává.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--three">Neony svítí na špinavé ulice.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--four">Tvoje první území začíná tady.</div>
+    </div>
+
+    <div class="auth-mobile-fit-frame">
+      <div class="auth-mobile-fit-stack">
+        <main id="lobby-root" class="auth-shell auth-shell--entry" data-page="lobby">
+          <section class="auth-card auth-card--wide auth-card--server page-section">
+            <div class="brand auth-brand">
+              <div class="brand__logo auth-brand__logo" aria-hidden="true"></div>
+              <div>
+                <div class="brand__name">EmpireStreets</div>
+                <div class="brand__tag">Vyber server a startovní district.</div>
+              </div>
+            </div>
+
+            <div class="auth-headline">
+              <h1>Výběr serveru</h1>
+              <h2 class="auth-subtitle">Zvol shard pro režim WAR nebo FREE a klikni na startovní district v detailu serveru.</h2>
+            </div>
+
+            <section class="lobby-profile-card" aria-label="Kontext hráče">
+              <div>
+                <span class="lobby-profile-card__label">Přihlášený hráč</span>
+                <strong class="lobby-profile-card__name" data-lobby-user>Host</strong>
+                <p class="lobby-profile-card__meta" data-lobby-user-meta>Přihlášený hráč · vyber server a startovní district.</p>
+              </div>
+              <div class="lobby-profile-card__summary">
+                <span>Server <strong data-lobby-summary-server>Nevybrán</strong></span>
+                <span>Mode <strong data-lobby-summary-mode>WAR</strong></span>
+                <span>District <strong data-lobby-summary-district>Nevybrán</strong></span>
+              </div>
+            </section>
+
+            <div class="auth-mode-tabs" role="tablist" aria-label="Výběr režimu">
+              <button class="auth-mode-tab" type="button" data-server-mode-tab="war" role="tab" aria-selected="false">WAR</button>
+              <button class="auth-mode-tab" type="button" data-server-mode-tab="free" role="tab" aria-selected="false">FREE</button>
+            </div>
+            <p class="auth-entry-status" data-lobby-flow-note data-state="ready">Klikni na server, otevři detail a vyber startovní district.</p>
+
+            <section class="lobby-server-list-only">
+              <div class="auth-servers auth-servers--single" data-server-list aria-live="polite"></div>
+            </section>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="server-detail-modal hidden" id="server-detail-modal" data-server-detail-modal aria-hidden="true">
+      <div class="server-detail-modal__backdrop" data-server-detail-close></div>
+      <section class="server-detail-modal__card" role="dialog" aria-modal="true" aria-labelledby="server-detail-title">
+        <button class="server-detail-modal__close" type="button" aria-label="Zavřít" data-server-detail-close>&times;</button>
+        <div class="server-detail-modal__title-row">
+          <h3 class="server-detail-modal__title" id="server-detail-title" data-server-detail-title>Server detail</h3>
+          <span class="server-detail-modal__spawn-hint" id="server-detail-spawn-hint" data-server-detail-hint>Vyber district</span>
+        </div>
+        <p class="server-detail-modal__subtitle" id="server-detail-subtitle" data-server-detail-subtitle></p>
+        <div class="server-detail-modal__meta">
+          <span id="server-detail-mode" data-server-detail-mode></span>
+          <span id="server-detail-capacity" data-server-detail-capacity></span>
+          <span id="server-detail-start" data-server-detail-start></span>
+          <span id="server-detail-countdown" data-server-detail-countdown></span>
+        </div>
+        <div class="server-detail-modal__map-wrap" data-server-detail-map-shell aria-label="Detail mapy serveru">
+          <canvas class="server-detail-modal__map server-detail-modal__map-canvas" id="server-detail-map" data-server-detail-map role="img" aria-label="Velký náhled mapy districtů"></canvas>
+          <div class="server-map-scale-controls">
+            <button class="server-map-scale-btn" type="button" data-server-detail-zoom-out aria-label="Oddálit mapu">−</button>
+            <button class="server-map-scale-btn" type="button" data-server-detail-zoom-in aria-label="Přiblížit mapu">+</button>
+          </div>
+          <button class="btn btn--ghost server-detail-modal__map-zoom-btn" type="button" data-server-detail-zoom-toggle>Zvětšit mapu</button>
+        </div>
+        <div class="server-detail-modal__type-counts" id="server-detail-type-counts" data-server-detail-type-counts aria-label="Počty typů districtů"></div>
+        <div class="server-detail-modal__materials">
+          <h4>Start materiály</h4>
+          <ul id="server-detail-materials" data-server-detail-materials></ul>
+        </div>
+        <div class="server-detail-modal__actions">
+          <button class="btn server-detail-modal__btn server-detail-modal__btn--close" type="button" data-server-detail-close>Zavřít</button>
+          <button class="btn server-detail-modal__btn server-detail-modal__btn--join" type="button" id="server-detail-join" data-server-detail-continue>Vstoupit na server</button>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="../page-assets/js/lobby.js"></script>
+  </body>
+</html>

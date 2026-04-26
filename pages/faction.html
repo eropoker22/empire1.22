@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Empire Streets | Výběr frakce</title>
+    <meta name="description" content="Vyber frakci, barvu a avatara pro svůj gang v EmpireStreets.">
+    <link rel="stylesheet" href="../page-assets/css/styles.css">
+  </head>
+  <body class="auth-body auth-body--matrix auth-body--faction auth-body--war">
+    <canvas id="matrix-canvas" class="matrix-canvas" aria-hidden="tr
+    ,0ue"></canvas>
+    <main id="auth-root" class="auth-shell" data-page="faction">
+      <form id="auth-form" class="auth-card auth-card--wide auth-card--faction" novalidate>
+        <input id="auth-faction" name="faction" type="hidden" value="mafian">
+        <div class="faction-selected-avatar-bg hidden" id="faction-selected-avatar-bg" aria-hidden="true"></div>
+
+        <div class="brand">
+          <div class="brand__logo brand__logo--img" aria-label="EmpireStreets logo"></div>
+          <div>
+            <div class="brand__name">EmpireStreets</div>
+            <div class="brand__tag">Vyber frakci, barvu a avatara.</div>
+          </div>
+        </div>
+
+        <div class="faction-hero">
+          <h1 class="faction-hero__title">Vyber frakci</h1>
+          <p class="muted faction-hero__copy">Nastavíš identitu gangu pro toto kolo a barvu na mapě.</p>
+        </div>
+
+        <div class="structure-grid" id="structure-grid">
+          <button type="button" class="structure-card is-active" data-faction-id="mafian" data-structure="mafián" aria-label="Mafián">
+            <span class="structure-card__title">Mafián</span>
+          </button>
+          <button type="button" class="structure-card" data-faction-id="kartel" data-structure="kartel" aria-label="Kartel">
+            <span class="structure-card__title">Kartel</span>
+          </button>
+          <button type="button" class="structure-card" data-faction-id="kult" data-structure="kult" aria-label="Kult">
+            <span class="structure-card__title">Kult</span>
+          </button>
+          <button type="button" class="structure-card" data-faction-id="tajna-organizace" data-structure="tajná organizace" aria-label="Tajná organizace">
+            <span class="structure-card__title">Tajná organizace</span>
+          </button>
+          <button type="button" class="structure-card" data-faction-id="hackeri" data-structure="hackeři" aria-label="Hackeři">
+            <span class="structure-card__title">Hackeři</span>
+          </button>
+          <button type="button" class="structure-card" data-faction-id="motorkarsky-gang" data-structure="motorkářský gang" aria-label="Motorkářský gang">
+            <span class="structure-card__title">Motorkářský gang</span>
+          </button>
+          <button type="button" class="structure-card" data-faction-id="soukroma-armada" data-structure="soukromá armáda" aria-label="Soukromá armáda">
+            <span class="structure-card__title">Soukromá armáda</span>
+          </button>
+          <button type="button" class="structure-card" data-faction-id="korporace" data-structure="korporace" aria-label="Korporace">
+            <span class="structure-card__title">Korporace</span>
+          </button>
+        </div>
+
+        <div class="card faction-detail" id="faction-detail" aria-label="Detail vybrané frakce">
+          <h2 id="faction-title">Vyber frakci</h2>
+          <p class="muted" id="faction-desc">Klikni na frakci, zobrazí se popis a výhoda.</p>
+          <div class="faction-bonus" id="faction-bonus">
+            <span class="faction-bonus__icon" aria-hidden="true">✦</span>
+            <span class="faction-bonus__copy"><strong>Profil frakce</strong> Výhody a nevýhody určují tvůj styl expanze a tlak ve městě.</span>
+          </div>
+        </div>
+
+        <div class="card gang-color-card">
+          <h2>Vyber barvu gangu</h2>
+          <p class="muted">Tahle barva se použije pro tvoje distrikty na mapě.</p>
+          <div class="gang-color-grid" id="gang-color-grid"></div>
+          <div class="gang-color-meta">
+            <strong id="gang-color-value">Nevybráno</strong>
+          </div>
+        </div>
+
+        <div class="card avatar-card">
+          <h2>Vyber avatara</h2>
+          <p class="muted">Po výběru frakce uvidíš jen avatary dané frakce.</p>
+          <div class="avatar-marquee" aria-label="Avatar carousel">
+            <div class="avatar-track" id="avatar-grid"></div>
+          </div>
+          <div class="avatar-controls">
+            <button class="avatar-arrow avatar-arrow--left" id="avatar-left" type="button" aria-label="Posunout doleva">
+              <span aria-hidden="true">‹</span>
+            </button>
+            <button class="avatar-arrow avatar-arrow--right" id="avatar-right" type="button" aria-label="Posunout doprava">
+              <span aria-hidden="true">›</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="faction-links">
+          <a class="faction-link faction-link--secondary" href="./lobby.html">Zpět do lobby</a>
+          <a class="faction-link faction-link--disabled" id="go-game" href="./game.html">Pokračovat do hry</a>
+        </div>
+
+        <p id="structure-note" class="muted faction-note">Vyber frakci, barvu a avatara pro pokračování.</p>
+        <p id="faction-inline-status" class="faction-page__status hidden" aria-live="polite"></p>
+      </form>
+    </main>
+
+    <div id="avatar-lightbox" class="avatar-lightbox hidden">
+      <div class="avatar-lightbox__backdrop"></div>
+      <div class="avatar-lightbox__content">
+        <button class="avatar-lightbox__close" id="avatar-lightbox-close" type="button" aria-label="Zavřít">✕</button>
+        <img id="avatar-lightbox-img" alt="Avatar preview">
+        <div class="avatar-lightbox__caption" id="avatar-lightbox-caption"></div>
+        <div class="avatar-lightbox__controls">
+          <button class="avatar-lightbox__arrow avatar-lightbox__arrow--left" id="avatar-lightbox-prev" type="button" aria-label="Předchozí avatar">
+            <span aria-hidden="true">‹</span>
+          </button>
+          <button class="avatar-lightbox__confirm" id="avatar-lightbox-confirm" type="button" aria-label="Potvrdit výběr avatara">
+            <span aria-hidden="true">&#10003;</span>
+            <span>Potvrdit</span>
+          </button>
+          <button class="avatar-lightbox__arrow avatar-lightbox__arrow--right" id="avatar-lightbox-next" type="button" aria-label="Další avatar">
+            <span aria-hidden="true">›</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="../page-assets/js/faction.js"></script>
+  </body>
+</html>

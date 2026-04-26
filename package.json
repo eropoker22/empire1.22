@@ -1,0 +1,43 @@
+{
+  "name": "empire-streets",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "apps/client",
+    "apps/server",
+    "apps/admin",
+    "packages/shared-types",
+    "packages/game-core",
+    "packages/game-config",
+    "tools/debug",
+    "tools/seed"
+  ],
+  "scripts": {
+    "dev:admin": "vite",
+    "build:admin": "vite build",
+    "build:admin:page": "vite build --config vite.admin-page.config.ts",
+    "build": "npm run build --workspaces --if-present",
+    "check": "npm run check --workspaces --if-present",
+    "lint": "node scripts/check-architecture.mjs && node scripts/check-file-sizes.mjs",
+    "lint:architecture": "node scripts/check-architecture.mjs",
+    "lint:file-sizes": "node scripts/check-file-sizes.mjs",
+    "typecheck": "node scripts/run-local-bin.mjs typescript/bin/tsc -p tsconfig.test.json --noEmit",
+    "test": "npm run test:unit && npm run test:integration && npm run test:server && npm run test:persistence && npm run test:read-models",
+    "test:unit": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/unit",
+    "test:integration": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/integration",
+    "test:server": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/server",
+    "test:persistence": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/persistence",
+    "test:read-models": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/read-models",
+    "coverage:check": "node scripts/run-local-bin.mjs vitest/vitest.mjs run --coverage",
+    "quality": "npm run lint && npm run typecheck && npm run test && npm run coverage:check"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.5",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

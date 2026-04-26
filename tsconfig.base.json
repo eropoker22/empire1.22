@@ -1,0 +1,46 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@empire/shared-types": [
+        "packages/shared-types/src/index.ts"
+      ],
+      "@empire/shared-types/*": [
+        "packages/shared-types/src/*"
+      ],
+      "@empire/game-core": [
+        "packages/game-core/src/index.ts"
+      ],
+      "@empire/game-core/*": [
+        "packages/game-core/src/*"
+      ],
+      "@empire/game-config": [
+        "packages/game-config/src/index.ts"
+      ],
+      "@empire/game-config/*": [
+        "packages/game-config/src/*"
+      ],
+      "@empire/tools-debug": [
+        "tools/debug/src/index.ts"
+      ],
+      "@empire/tools-debug/*": [
+        "tools/debug/src/*"
+      ],
+      "@empire/tools-seed": [
+        "tools/seed/src/index.ts"
+      ],
+      "@empire/tools-seed/*": [
+        "tools/seed/src/*"
+      ]
+    }
+  }
+}

@@ -1,0 +1,119 @@
+@import "./styles-admin-slice.css";
+
+.game-brand-name--slice-trigger {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.game-brand-name--slice-trigger:hover,
+.game-brand-name--slice-trigger:focus-visible {
+  color: #8eddff;
+  text-shadow: 0 0 16px rgba(142, 221, 255, 0.28);
+  outline: none;
+}
+
+.game-admin-slice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+}
+
+.game-admin-slice-overlay[hidden] {
+  display: none;
+}
+
+.game-admin-slice-overlay__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(3, 8, 14, 0.74);
+  cursor: pointer;
+}
+
+.game-admin-slice-overlay__dialog {
+  position: relative;
+  z-index: 1;
+  width: min(1320px, calc(100vw - 40px));
+  height: min(820px, calc(100vh - 40px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(124, 210, 255, 0.16);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent),
+    rgba(7, 14, 24, 0.96);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.5);
+}
+
+.game-admin-slice-overlay__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.game-admin-slice-overlay__title {
+  margin: 0;
+  font-size: 1rem;
+  color: #edf5ff;
+}
+
+.game-admin-slice-overlay__subtitle {
+  margin: 4px 0 0;
+  color: rgba(220, 235, 248, 0.72);
+  font-size: 0.84rem;
+}
+
+.game-admin-slice-overlay__close {
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 12px;
+}
+
+.game-admin-slice-surface {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(240px, 290px) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.game-admin-slice-surface__sidebar,
+.game-admin-slice-surface__workspace {
+  min-height: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.game-admin-slice-surface__workspace {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.game-admin-slice-surface__meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.game-admin-slice-surface__mount {
+  min-height: 0;
+  overflow: auto;
+}
+
+@media (max-width: 1180px) {
+  .game-admin-slice-surface {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .game-admin-slice-surface__meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

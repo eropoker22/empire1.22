@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>EmpireStreets - Přihlášení</title>
+    <meta name="description" content="Gangy. Distrikty. Kontrola. Vstup do města a ovládni ulice.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="EmpireStreets">
+    <meta property="og:title" content="EmpireStreets">
+    <meta property="og:description" content="Gangy. Distrikty. Kontrola.">
+    <meta property="og:image" content="../img/og-cover-safe.jpg?v=2">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="EmpireStreets - gangy, distrikty a kontrola města">
+    <meta property="og:locale" content="cs_CZ">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="EmpireStreets">
+    <meta name="twitter:description" content="Gangy. Distrikty. Kontrola.">
+    <meta name="twitter:image" content="../img/og-cover-safe.jpg?v=2">
+    <meta name="twitter:image:alt" content="EmpireStreets - gangy, distrikty a kontrola města">
+    <link rel="stylesheet" href="../page-assets/css/styles.css">
+    <link rel="stylesheet" href="../page-assets/css/styles-login-empire2.css">
+  </head>
+  <body class="auth-body auth-body--login auth-body--war">
+    <div class="rain-drops rain-drops--slow" aria-hidden="true"></div>
+    <div class="rain-drops rain-drops--fast" aria-hidden="true"></div>
+    <div class="smoke-layer smoke-layer--low" aria-hidden="true"></div>
+    <div class="smoke-layer smoke-layer--high" aria-hidden="true"></div>
+    <div class="vortex-graffiti" aria-hidden="true">
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--one">VORTEX CITY</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--two">namísto AtuDéšť nikdy nepřestává.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--three">Neony svítí na špinavé ulice.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--four">Informace. Přístup. Cena.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--five">Gangy už začaly.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--six">A teď jsi na řadě ty.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--seven">Vezmi si první území.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--eight">Ovládni Vortex City.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--nine">Pod světly stojí šlapky.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--ten">Prodávají tělo. Informace. Přístup.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--fourteen">Rozjeď prachy.</div>
+      <div class="vortex-graffiti__tag vortex-graffiti__tag--sixteen">Tvoje ulice. Tvoje pravidla.</div>
+    </div>
+
+    <div class="auth-mobile-fit-frame">
+      <div class="auth-mobile-fit-stack">
+        <main class="auth-shell" id="auth-root" data-page="login">
+          <div class="auth-headline">
+            <h1>Vstup do města</h1>
+            <h2 class="auth-subtitle">Založ gang a ovládni ulice</h2>
+          </div>
+
+          <div class="auth-mode-tabs" id="auth-mode-tabs" role="tablist" aria-label="Výběr režimu">
+            <button class="auth-mode-tab is-active" type="button" data-mode="war" role="tab" aria-selected="true">WAR</button>
+            <button class="auth-mode-tab" type="button" data-mode="free" role="tab" aria-selected="false">FREE</button>
+            <button class="auth-mode-tab auth-mode-tab--about" type="button" id="about-game-btn">O hře</button>
+          </div>
+
+          <div class="auth-login-row">
+            <div class="auth-side-panel">
+              <div class="auth-tabs auth-tabs--detached">
+                <button class="tab-btn tab-btn--active" type="button" data-tab="login">Přihlášení</button>
+                <button class="tab-btn" type="button" data-tab="register">Registrace</button>
+              </div>
+              <p id="about-game-copy" class="about-game-copy about-game-copy--detached hidden">
+                EmpireStreets je neonová gang válka o distrikty.
+                <a class="about-game-copy__link" href="./about-game.html">viz.</a>
+              </p>
+            </div>
+
+            <div class="auth-card auth-panel--right">
+              <form id="login-form" class="auth-form" autocomplete="on" novalidate>
+                <label for="login-username">Uživatelské jméno</label>
+                <input type="text" id="login-username" name="username" placeholder="streetboss" autocomplete="username">
+                <label for="login-password">Heslo</label>
+                <input type="password" id="login-password" name="password" placeholder="******" autocomplete="current-password">
+                <button type="submit" class="btn btn--primary">Přihlásit</button>
+              </form>
+
+              <form id="register-form" class="auth-form hidden" autocomplete="on" novalidate>
+                <label for="register-username">Uživatelské jméno</label>
+                <input type="text" id="register-username" name="username" placeholder="newblood" autocomplete="username">
+                <label for="register-gang">Název gangu</label>
+                <input type="text" id="register-gang" name="gang" placeholder="Crimson Street" autocomplete="organization">
+                <label for="register-password">Heslo</label>
+                <input type="password" id="register-password" name="password" placeholder="******" autocomplete="new-password">
+                <button type="submit" class="btn btn--primary">Registrovat</button>
+              </form>
+
+              <div class="auth-form auth-form--guest">
+                <label for="guest-username">Nick hosta</label>
+                <input type="text" id="guest-username" placeholder="streetguest" maxlength="24" autocomplete="nickname">
+                <label for="guest-gang">Název gangu</label>
+                <input type="text" id="guest-gang" placeholder="Ghost Crew" maxlength="32" autocomplete="organization">
+                <button type="button" class="btn btn--ghost" id="guest-btn">Pokračovat jako host</button>
+              </div>
+
+              <p id="auth-error" class="auth-error hidden"></p>
+            </div>
+          </div>
+        </main>
+
+        <footer class="auth-footer auth-footer--fixed">
+          <div class="auth-footer__inner">
+            <div class="auth-footer__brand">
+              <div class="auth-footer__logo auth-footer__logo--img" aria-label="EmpireStreets logo"></div>
+              <div>
+                <div class="auth-footer__title">EmpireStreets</div>
+                <div class="auth-footer__subtitle">Neonová metropole nikdy nespí.</div>
+              </div>
+            </div>
+            <div class="auth-footer__links">
+              <a class="auth-footer__link" href="https://facebook.com" target="_blank" rel="noopener" aria-label="Facebook">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M13.5 8.5h2.7V5.9h-2.7c-2.6 0-4.2 1.5-4.2 4.1v2H7v2.7h2.3V22h3v-7.3h2.7l.4-2.7h-3.1V9.9c0-.9.4-1.4 1.2-1.4z"></path>
+                </svg>
+              </a>
+              <a class="auth-footer__link" href="https://x.com" target="_blank" rel="noopener" aria-label="X">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M18.2 3H21l-6.4 7.3L22 21h-5.6l-4.4-5.5L6.7 21H4l6.9-7.8L2 3h5.7l4 5.1L18.2 3z"></path>
+                </svg>
+              </a>
+              <a class="auth-footer__link auth-footer__link--instagram" href="https://instagram.com" target="_blank" rel="noopener" aria-label="Instagram">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zm10 2H7a2 2 0 0 0-2 2v10c0 1.1.9 2 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-5 3.2a4.8 4.8 0 1 1 0 9.6 4.8 4.8 0 0 1 0-9.6zm0 2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6zm5.6-.9a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"></path>
+                </svg>
+              </a>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <script type="module" src="../page-assets/js/login.js"></script>
+  </body>
+</html>
