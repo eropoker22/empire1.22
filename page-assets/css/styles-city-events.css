@@ -833,11 +833,19 @@
   .events-agent {
     min-height: 0;
     scroll-snap-align: start;
+    background:
+      radial-gradient(circle at 50% 34%, rgba(103, 232, 249, 0.12), transparent 46%),
+      linear-gradient(180deg, rgba(8, 15, 29, 0.9), rgba(5, 9, 20, 0.96));
   }
 
   .events-agent img,
   #events-modal.events-modal--compact .events-agent img {
-    height: 122px;
+    height: clamp(184px, 36vh, 248px);
+    object-fit: contain;
+    object-position: center bottom;
+    background:
+      radial-gradient(circle at 50% 54%, rgba(103, 232, 249, 0.16), transparent 42%),
+      linear-gradient(180deg, rgba(5, 11, 22, 0.2), rgba(5, 9, 18, 0.72));
   }
 
   .events-agent__info {
@@ -957,7 +965,7 @@
 
   .events-agent img,
   #events-modal.events-modal--compact .events-agent img {
-    height: 108px;
+    height: clamp(172px, 32vh, 224px);
   }
 
   #events-modal.events-modal--compact .events-modal__content {

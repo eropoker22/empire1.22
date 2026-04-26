@@ -2,6 +2,21 @@ const MOBILE_MEDIA = "(max-width: 720px)";
 const CONDENSE_SCROLL_Y = 44;
 const EXPAND_SCROLL_Y = 18;
 const MOBILE_TOPBAR_GAP = 12;
+const MOBILE_OVERLAY_SELECTOR = [
+  ".modal",
+  ".district-popup-shell",
+  ".attack-setup-popup-shell",
+  ".wanted-popup-shell",
+  ".player-popup-shell",
+  ".alliance-popup-shell",
+  ".armory-popup-shell",
+  ".pharmacy-popup-shell",
+  ".druglab-popup-shell",
+  ".factory-popup-shell",
+  ".market-popup-shell",
+  ".storage-popup-shell",
+  ".game-admin-slice-overlay"
+].join(",");
 
 function initMobileViewportLock(windowObj = window, documentObj = document) {
   const media = windowObj.matchMedia(MOBILE_MEDIA);
@@ -186,6 +201,54 @@ function initMobileLeaderboardPlacement(documentObj = document) {
   moveElementAfterAnchor(leaderboardAnchor, leaderboardCard);
 }
 
+function initMobileOverlayScrollLock(windowObj = window, documentObj = document) {
+  const media = windowObj.matchMedia(MOBILE_MEDIA);
+  const root = documentObj.documentElement;
+  let frameId = null;
+
+  const isOpenOverlay = (element) => {
+    if (!(element instanceof windowObj.HTMLElement)) {
+      return false;
+    }
+    if (element.hidden || element.classList.contains("hidden") || element.getAttribute("aria-hidden") === "true") {
+      return false;
+    }
+    const style = windowObj.getComputedStyle(element);
+    return style.display !== "none" && style.visibility !== "hidden";
+  };
+
+  const applyLock = () => {
+    frameId = null;
+    const hasOpenOverlay = media.matches
+      && Array.from(documentObj.querySelectorAll(MOBILE_OVERLAY_SELECTOR)).some(isOpenOverlay);
+    root.classList.toggle("game-modal-scroll-locked", hasOpenOverlay);
+    documentObj.body.classList.toggle("game-modal-scroll-locked", hasOpenOverlay);
+  };
+
+  const requestApply = () => {
+    if (frameId !== null) {
+      return;
+    }
+    frameId = windowObj.requestAnimationFrame(applyLock);
+  };
+
+  applyLock();
+  if (typeof windowObj.MutationObserver === "function") {
+    const observer = new windowObj.MutationObserver(requestApply);
+    observer.observe(documentObj.body, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class", "hidden", "style", "aria-hidden"]
+    });
+  }
+  windowObj.addEventListener("resize", requestApply);
+  if (typeof media.addEventListener === "function") {
+    media.addEventListener("change", requestApply);
+  } else if (typeof media.addListener === "function") {
+    media.addListener(requestApply);
+  }
+}
+
 function initMobileLayoutRuntime() {
   initMobileViewportLock();
   initMobileTopbarState();
@@ -193,6 +256,7 @@ function initMobileLayoutRuntime() {
   initMobileGangProfilePlacement();
   initMobilePrimaryActionCardsPlacement();
   initMobileLeaderboardPlacement();
+  initMobileOverlayScrollLock();
 }
 
 if (document.readyState === "loading") {

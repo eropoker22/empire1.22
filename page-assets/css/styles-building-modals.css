@@ -2169,6 +2169,97 @@
   }
 }
 
+@media (max-width: 640px) {
+  .armory-popup-card.building-detail-modal__content,
+  .pharmacy-popup-card.building-detail-modal__content,
+  .druglab-popup-card.building-detail-modal__content,
+  .factory-popup-card.building-detail-modal__content {
+    width: calc(100vw - 12px) !important;
+    height: calc(100dvh - 12px);
+    max-height: calc(100dvh - 12px);
+    border-radius: 18px;
+    background: rgba(7, 12, 18, 0.08) !important;
+    backdrop-filter: blur(18px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(140%) !important;
+  }
+
+  .armory-popup-card.building-detail-modal__content .modal__header,
+  .pharmacy-popup-card.building-detail-modal__content .modal__header,
+  .druglab-popup-card.building-detail-modal__content .modal__header,
+  .factory-popup-card.building-detail-modal__content .modal__header {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 8px;
+    align-items: center;
+    padding: 12px 52px 11px 12px;
+  }
+
+  .armory-popup-card.building-detail-modal__content .modal__header h3,
+  .pharmacy-popup-card.building-detail-modal__content .modal__header h3,
+  .druglab-popup-card.building-detail-modal__content .modal__header h3,
+  .factory-popup-card.building-detail-modal__content .modal__header h3 {
+    font-size: 15px;
+    line-height: 1.15;
+  }
+
+  .building-detail-title__action-btn {
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    min-height: 30px;
+  }
+
+  .building-detail-header-level {
+    justify-self: start;
+    margin-left: 0;
+    font-size: 11px;
+  }
+
+  .armory-popup-card.building-detail-modal__content .modal__body,
+  .pharmacy-popup-card.building-detail-modal__content .modal__body,
+  .druglab-popup-card.building-detail-modal__content .modal__body,
+  .factory-popup-card.building-detail-modal__content .modal__body {
+    gap: 8px;
+    padding: 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .building-detail-tabs {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .building-detail-tabs__btn {
+    min-height: 36px;
+    padding: 8px 6px;
+    font-size: 11px;
+  }
+
+  .building-detail-panel {
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .building-tech-popup-stat-card,
+  .building-tech-popup-reference-card,
+  .building-info-card,
+  .building-info-card__effects,
+  .building-info-card__actions,
+  .production-craft-card,
+  .drug-production-slot,
+  .factory-slot {
+    border-radius: 14px;
+  }
+}
+
 /* Interaction performance pass */
 
 .building-tech-popup-card .production-craft-card__button,

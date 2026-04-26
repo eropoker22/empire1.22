@@ -14043,11 +14043,11 @@ function bindMapNavigation(root) {
     return;
   }
 
-  const MIN_SCALE = 1;
+  const MIN_SCALE = window.matchMedia?.("(max-width: 720px)")?.matches ? 1.42 : 1;
   const MAX_SCALE = 3;
   const ZOOM_STEP = 0.18;
   const state = {
-    scale: 1,
+    scale: MIN_SCALE,
     x: 0,
     y: 0,
     pointerId: null,
@@ -14058,8 +14058,8 @@ function bindMapNavigation(root) {
   };
 
   const clampOffset = () => {
-    const maxX = ((state.scale - 1) * viewport.clientWidth) / 2;
-    const maxY = ((state.scale - 1) * viewport.clientHeight) / 2;
+    const maxX = Math.max(0, ((canvasHost.offsetWidth * state.scale) - viewport.clientWidth) / 2);
+    const maxY = Math.max(0, ((canvasHost.offsetHeight * state.scale) - viewport.clientHeight) / 2);
     state.x = Math.min(Math.max(state.x, -maxX), maxX);
     state.y = Math.min(Math.max(state.y, -maxY), maxY);
   };
@@ -14072,7 +14072,7 @@ function bindMapNavigation(root) {
   const setScale = (nextScale) => {
     state.scale = Math.min(Math.max(nextScale, MIN_SCALE), MAX_SCALE);
 
-    if (state.scale === MIN_SCALE) {
+    if (state.scale === MIN_SCALE && MIN_SCALE === 1) {
       state.x = 0;
       state.y = 0;
     }
