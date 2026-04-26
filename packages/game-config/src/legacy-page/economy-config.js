@@ -112,30 +112,38 @@ export const ARMORY_RECIPES = {
 
 export const MARKET_TAB_CONFIG = {
   market: {
-    label: "Market",
-    copy: "Oficiální serverový trh pro materiály a legálnější výměnu zásob.",
+    label: "Normal Market",
+    copy: "Legální bazar serveru pro rychlý nákup a výkup materiálu bez heat risku.",
+    payment: "cleanMoney",
     payout: "cleanMoney",
+    buyMultiplier: 1.12,
+    sellMultiplier: 0.92,
+    variance: 0.08,
     items: [
-      { inventory: "materials", itemId: "chemicals", name: "Chemicals", price: 420 },
-      { inventory: "materials", itemId: "biomass", name: "Biomass", price: 380 },
-      { inventory: "materials", itemId: "stim-pack", name: "Stim Pack", price: 960 },
-      { inventory: "materials", itemId: "metal-parts", name: "Metal Parts", price: 620 },
-      { inventory: "materials", itemId: "tech-core", name: "Tech Core", price: 1150 }
+      { inventory: "materials", itemId: "chemicals", name: "Chemicals", price: 360 },
+      { inventory: "materials", itemId: "biomass", name: "Biomass", price: 320 },
+      { inventory: "materials", itemId: "stim-pack", name: "Stim Pack", price: 780 },
+      { inventory: "materials", itemId: "metal-parts", name: "Metal Parts", price: 540 },
+      { inventory: "materials", itemId: "tech-core", name: "Tech Core", price: 980 }
     ]
   },
   "black-market": {
     label: "Black Market",
-    copy: "Neoficiální síť pro dirty trade, drug balíky a citlivou výzbroj.",
+    copy: "Neonová síť překupníků pro dirty trade, drogy a citlivou výzbroj.",
+    payment: "dirtyMoney",
     payout: "dirtyMoney",
+    buyMultiplier: 1.32,
+    sellMultiplier: 1.08,
+    variance: 0.22,
     items: [
-      { inventory: "drugs", itemId: "neon-dust", name: "Neon Dust", price: 1900 },
-      { inventory: "drugs", itemId: "pulse-shot", name: "Pulse Shot", price: 2300 },
-      { inventory: "drugs", itemId: "velvet-smoke", name: "Velvet Smoke", price: 2800 },
-      { inventory: "drugs", itemId: "ghost-serum", name: "Ghost Serum", price: 3600 },
-      { inventory: "drugs", itemId: "overdrive-x", name: "Overdrive X", price: 5200 },
-      { inventory: "weapons", itemId: "pistol", name: "Pistole", price: 1400 },
-      { inventory: "weapons", itemId: "smg", name: "SMG", price: 3200 },
-      { inventory: "weapons", itemId: "bazooka", name: "Bazuka", price: 7600 }
+      { inventory: "drugs", itemId: "neon-dust", name: "Neon Dust", price: 2600 },
+      { inventory: "drugs", itemId: "pulse-shot", name: "Pulse Shot", price: 3050 },
+      { inventory: "drugs", itemId: "velvet-smoke", name: "Velvet Smoke", price: 3800 },
+      { inventory: "drugs", itemId: "ghost-serum", name: "Ghost Serum", price: 5100 },
+      { inventory: "drugs", itemId: "overdrive-x", name: "Overdrive X", price: 7200 },
+      { inventory: "weapons", itemId: "pistol", name: "Pistole", price: 2500 },
+      { inventory: "weapons", itemId: "smg", name: "SMG", price: 5600 },
+      { inventory: "weapons", itemId: "bazooka", name: "Bazuka", price: 13200 }
     ]
   }
 };

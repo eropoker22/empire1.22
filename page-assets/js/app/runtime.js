@@ -154,6 +154,7 @@ const MARKET_POPUP_CLOSE_SELECTOR = "[data-market-popup-close]";
 const MARKET_TAB_SELECTOR = "[data-market-tab]";
 const MARKET_COPY_SELECTOR = "[data-market-copy]";
 const MARKET_LIST_SELECTOR = "[data-market-list]";
+const MARKET_SERVER_BADGE_SELECTOR = "[data-market-server-badge]";
 const SETTINGS_MODAL_SELECTOR = "#settings-modal";
 const SETTINGS_MODAL_BACKDROP_SELECTOR = "#settings-modal-backdrop";
 const SETTINGS_MODAL_CLOSE_SELECTOR = "#settings-modal-close";
@@ -896,6 +897,7 @@ let lastRenderedTopbarMode = null;
 let startPhaseResourceSimulationState = null;
 const PREVIEW_SESSION_STORAGE_KEY = "empireStreets.session.v1";
 const SETTINGS_STORAGE_KEY = "empire_settings";
+const DEFAULT_MARKET_SERVER_ID = "preview-server";
 const DEFAULT_SETTINGS = Object.freeze({
   language: "cs",
   mapDistrictBorders: true,
@@ -958,6 +960,29 @@ function getStoredRegistration() {
 
 function setStoredRegistration(payload) {
   updateStoredPreviewSession((session) => ({ ...session, registration: payload }));
+}
+
+function normalizeMarketServerId(serverId) {
+  const normalizedServerId = String(serverId || "").trim();
+  return normalizedServerId || DEFAULT_MARKET_SERVER_ID;
+}
+
+function getMarketServerScope(session = getAuthoritySession()) {
+  const registration = session?.registration || {};
+  const serverId = normalizeMarketServerId(registration.serverId);
+  const serverLabel = String(registration.serverLabel || registration.serverId || "Preview server").trim() || "Preview server";
+  return { serverId, serverLabel };
+}
+
+function isMarketPriceStatePayload(payload) {
+  return Boolean(payload?.items && payload?.nextRefreshAt);
+}
+
+function withMarketServerId(payload, serverId) {
+  return {
+    ...payload,
+    serverId: normalizeMarketServerId(payload?.serverId || serverId)
+  };
 }
 
 function getRegistrationAccentColor(factionId) {
@@ -1211,15 +1236,44 @@ function getResolvedEconomyState() {
 }
 
 function getStoredMarketPriceState() {
-  return getAuthoritySession().market;
+  const session = getAuthoritySession();
+  const { serverId } = getMarketServerScope(session);
+  const scopedState = session.marketByServerId?.[serverId];
+
+  if (isMarketPriceStatePayload(scopedState)) {
+    return withMarketServerId(scopedState, serverId);
+  }
+
+  if (isMarketPriceStatePayload(session.market) && normalizeMarketServerId(session.market.serverId) === serverId) {
+    return withMarketServerId(session.market, serverId);
+  }
+
+  return null;
 }
 
 function setStoredMarketPriceState(payload) {
-  updateStoredPreviewSession((session) => ({ ...session, market: payload || session.market }));
+  updateStoredPreviewSession((session) => {
+    const { serverId } = getMarketServerScope(session);
+    const scopedState = session.marketByServerId?.[serverId];
+    const nextState = withMarketServerId(
+      payload || scopedState || session.market || createDefaultMarketPriceState(serverId),
+      serverId
+    );
+
+    return {
+      ...session,
+      market: nextState,
+      marketByServerId: {
+        ...(session.marketByServerId || {}),
+        [serverId]: nextState
+      }
+    };
+  });
 }
 
-function createDefaultMarketPriceState() {
+function createDefaultMarketPriceState(serverId = getMarketServerScope().serverId) {
   const items = {};
+  const normalizedServerId = normalizeMarketServerId(serverId);
 
   for (const [tabId, tabConfig] of Object.entries(MARKET_TAB_CONFIG)) {
     for (const item of tabConfig.items) {
@@ -1231,6 +1285,7 @@ function createDefaultMarketPriceState() {
   }
 
   return {
+    serverId: normalizedServerId,
     nextRefreshAt: new Date(Date.now() + MARKET_PRICE_REFRESH_MS).toISOString(),
     items
   };
@@ -1249,7 +1304,7 @@ function getResolvedMarketPriceState() {
 }
 
 function getPriceVarianceForTab(tabId) {
-  return tabId === "black-market" ? 0.18 : 0.1;
+  return MARKET_TAB_CONFIG[tabId]?.variance ?? (tabId === "black-market" ? 0.18 : 0.1);
 }
 
 function computeNextDynamicPrice(basePrice, currentPrice, variance) {
@@ -1282,6 +1337,7 @@ function refreshMarketPricesIfNeeded(force = false) {
   }
 
   const nextState = {
+    serverId: state.serverId || getMarketServerScope().serverId,
     nextRefreshAt: new Date(Date.now() + MARKET_PRICE_REFRESH_MS).toISOString(),
     items: nextItems
   };
@@ -5705,6 +5761,7 @@ function bindMarketPopup(root) {
   const tabs = Array.from(root.querySelectorAll(MARKET_TAB_SELECTOR));
   const copyElement = root.querySelector(MARKET_COPY_SELECTOR);
   const listElement = root.querySelector(MARKET_LIST_SELECTOR);
+  const serverBadgeElement = root.querySelector(MARKET_SERVER_BADGE_SELECTOR);
 
   if (!openButton || !popup || closeElements.length === 0 || !copyElement || !listElement || tabs.length === 0) {
     return;
@@ -5712,10 +5769,23 @@ function bindMarketPopup(root) {
 
   let activeTab = "market";
 
+  const getMoneyLabel = (moneyKey) => moneyKey === "dirtyMoney" ? "dirty $" : "clean $";
+  const formatMarketPrice = (value) => `${Math.max(0, Math.floor(Number(value) || 0)).toLocaleString("cs-CZ")}$`;
+
   const renderMarketTab = () => {
     const priceState = refreshMarketPricesIfNeeded(false);
     const tabConfig = MARKET_TAB_CONFIG[activeTab] || MARKET_TAB_CONFIG.market;
-    copyElement.textContent = `${tabConfig.copy} Další změna cen za ${getMarketRefreshCountdownSeconds()} s.`;
+    const serverScope = getMarketServerScope();
+    const paymentKey = tabConfig.payment || "cleanMoney";
+    const payoutKey = tabConfig.payout || paymentKey;
+
+    popup.dataset.marketMode = activeTab;
+
+    if (serverBadgeElement) {
+      serverBadgeElement.textContent = `Server: ${serverScope.serverLabel}`;
+    }
+
+    copyElement.textContent = `${tabConfig.copy} Ceny platí jen pro tento server. Refresh za ${getMarketRefreshCountdownSeconds()} s.`;
     listElement.replaceChildren();
 
     for (const item of tabConfig.items) {
@@ -5724,9 +5794,12 @@ function bindMarketPopup(root) {
         price: item.price,
         previousPrice: item.price
       };
+      const buyPrice = Math.max(1, Math.round(priceEntry.price * (tabConfig.buyMultiplier || 1.15)));
+      const sellPrice = Math.max(1, Math.round(priceEntry.price * (tabConfig.sellMultiplier || 1)));
       const delta = priceEntry.price - priceEntry.previousPrice;
       const row = document.createElement("div");
       row.className = "market-popup-row";
+      row.dataset.marketInventory = item.inventory;
 
       const info = document.createElement("div");
       info.className = "market-popup-row__info";
@@ -5737,25 +5810,54 @@ function bindMarketPopup(root) {
 
       const meta = document.createElement("span");
       meta.className = "market-popup-row__meta";
-      meta.textContent = `Sklad ${amount} ks · ${priceEntry.price}$ / ks`;
+      meta.textContent = `Sklad ${amount} ks · ${getMoneyLabel(paymentKey)}`;
+
+      const price = document.createElement("span");
+      price.className = "market-popup-row__price";
+      price.textContent = `Nákup ${formatMarketPrice(buyPrice)} · výkup ${formatMarketPrice(sellPrice)}`;
 
       const trend = document.createElement("span");
       trend.className = "market-popup-row__trend";
       trend.dataset.marketTrend = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
       trend.textContent = delta > 0
-        ? `▲ +${delta}$`
+        ? `▲ +${formatMarketPrice(delta)}`
         : delta < 0
-          ? `▼ ${delta}$`
+          ? `▼ -${formatMarketPrice(Math.abs(delta))}`
           : "• beze změny";
 
-      info.append(name, meta, trend);
+      info.append(name, meta, price, trend);
 
-      const action = document.createElement("button");
-      action.type = "button";
-      action.className = "button market-popup-row__sell";
-      action.textContent = "Prodat vše";
-      action.disabled = amount <= 0;
-      action.addEventListener("click", () => {
+      const actions = document.createElement("div");
+      actions.className = "market-popup-row__actions";
+
+      const buyAction = document.createElement("button");
+      buyAction.type = "button";
+      buyAction.className = "button market-popup-row__buy";
+      buyAction.textContent = "Koupit 1";
+      buyAction.disabled = (getResolvedEconomyState()[paymentKey] || 0) < buyPrice;
+      buyAction.addEventListener("click", () => {
+        const currentEconomy = getResolvedEconomyState();
+
+        if ((currentEconomy[paymentKey] || 0) < buyPrice) {
+          renderMarketTab();
+          return;
+        }
+
+        setInventoryAmount(item.inventory, item.itemId, getInventoryAmount(item.inventory, item.itemId) + 1);
+        setStoredEconomyState({
+          ...currentEconomy,
+          [paymentKey]: Math.max(0, (currentEconomy[paymentKey] || 0) - buyPrice)
+        });
+        applyTopbarEconomy(root);
+        renderMarketTab();
+      });
+
+      const sellAction = document.createElement("button");
+      sellAction.type = "button";
+      sellAction.className = "button market-popup-row__sell";
+      sellAction.textContent = "Prodat vše";
+      sellAction.disabled = amount <= 0;
+      sellAction.addEventListener("click", () => {
         const currentAmount = getInventoryAmount(item.inventory, item.itemId);
 
         if (currentAmount <= 0) {
@@ -5765,17 +5867,17 @@ function bindMarketPopup(root) {
 
         setInventoryAmount(item.inventory, item.itemId, 0);
         const economy = getResolvedEconomyState();
-        const payoutKey = tabConfig.payout;
         const nextEconomy = {
           ...economy,
-          [payoutKey]: economy[payoutKey] + currentAmount * priceEntry.price
+          [payoutKey]: (economy[payoutKey] || 0) + currentAmount * sellPrice
         };
         setStoredEconomyState(nextEconomy);
         applyTopbarEconomy(root);
         renderMarketTab();
       });
 
-      row.append(info, action);
+      actions.append(buyAction, sellAction);
+      row.append(info, actions);
       listElement.append(row);
     }
 

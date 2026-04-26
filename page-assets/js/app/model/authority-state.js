@@ -13,9 +13,16 @@ import {
 import { FACTION_CATALOG } from "../../../../packages/game-config/src/legacy-page/faction-config.js";
 
 const SESSION_STORAGE_KEY = "empireStreets.session.v1";
+const DEFAULT_MARKET_SERVER_ID = "preview-server";
 
-function createDefaultMarketState() {
+function normalizeMarketServerId(serverId) {
+  const normalizedServerId = String(serverId || "").trim();
+  return normalizedServerId || DEFAULT_MARKET_SERVER_ID;
+}
+
+function createDefaultMarketState(serverId = DEFAULT_MARKET_SERVER_ID) {
   const items = {};
+  const normalizedServerId = normalizeMarketServerId(serverId);
 
   for (const [tabId, tabConfig] of Object.entries(MARKET_TAB_CONFIG)) {
     for (const item of tabConfig.items) {
@@ -27,9 +34,38 @@ function createDefaultMarketState() {
   }
 
   return {
+    serverId: normalizedServerId,
     nextRefreshAt: new Date(Date.now() + MARKET_PRICE_REFRESH_MS).toISOString(),
     items
   };
+}
+
+function normalizeMarketStatePayload(marketState, fallbackServerId = DEFAULT_MARKET_SERVER_ID) {
+  if (!marketState?.items || !marketState?.nextRefreshAt) {
+    return null;
+  }
+
+  const serverId = normalizeMarketServerId(marketState.serverId || fallbackServerId);
+  return {
+    ...marketState,
+    serverId
+  };
+}
+
+function normalizeMarketStateMap(marketByServerId) {
+  if (!marketByServerId || typeof marketByServerId !== "object") {
+    return {};
+  }
+
+  return Object.entries(marketByServerId).reduce((accumulator, [serverId, marketState]) => {
+    const normalizedMarketState = normalizeMarketStatePayload(marketState, serverId);
+
+    if (normalizedMarketState) {
+      accumulator[normalizedMarketState.serverId] = normalizedMarketState;
+    }
+
+    return accumulator;
+  }, {});
 }
 
 function createDefaultFactoryResources() {
@@ -88,6 +124,7 @@ function createDefaultProductionBuildingsState() {
 
 export function createDefaultPreviewSession(factionId = "mafian") {
   const faction = FACTION_CATALOG[factionId] || FACTION_CATALOG.mafian;
+  const market = createDefaultMarketState();
 
   return {
     registration: null,
@@ -145,7 +182,10 @@ export function createDefaultPreviewSession(factionId = "mafian") {
       districtGossipById: {},
       districtPoliceActionById: {}
     },
-    market: createDefaultMarketState()
+    market,
+    marketByServerId: {
+      [market.serverId]: market
+    }
   };
 }
 
@@ -168,6 +208,18 @@ function normalizePreviewSession(session) {
   );
   mergedMaterials["metal-parts"] = 0;
   mergedMaterials["tech-core"] = 0;
+  const marketServerId = normalizeMarketServerId(session?.registration?.serverId);
+  const legacyMarketState = normalizeMarketStatePayload(session?.market, marketServerId) || createDefaultMarketState(marketServerId);
+  const marketByServerId = {
+    ...normalizeMarketStateMap(session?.marketByServerId),
+    [legacyMarketState.serverId]: legacyMarketState
+  };
+
+  if (!marketByServerId[marketServerId]) {
+    marketByServerId[marketServerId] = createDefaultMarketState(marketServerId);
+  }
+
+  const activeMarketState = marketByServerId[marketServerId];
 
   return {
     ...base,
@@ -286,7 +338,8 @@ function normalizePreviewSession(session) {
         ? session.world.districtPoliceActionById
         : {}
     },
-    market: session?.market?.items && session?.market?.nextRefreshAt ? session.market : base.market
+    market: activeMarketState,
+    marketByServerId
   };
 }
 

@@ -424,31 +424,63 @@
 .market-popup-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(4, 7, 12, 0.34);
+  background:
+    linear-gradient(135deg, rgba(3, 8, 18, 0.78), rgba(12, 4, 24, 0.64)),
+    repeating-linear-gradient(90deg, rgba(103, 232, 249, 0.04) 0 1px, transparent 1px 18px);
+  backdrop-filter: blur(8px) saturate(135%);
+  -webkit-backdrop-filter: blur(8px) saturate(135%);
 }
 
 .market-popup-card {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: min(520px, calc(100vw - 32px));
+  width: min(720px, calc(100vw - 32px));
   max-height: min(82vh, 680px);
-  padding: 18px 52px 18px 18px;
-  border: 1px solid rgba(103, 225, 255, 0.18);
-  border-radius: 20px;
+  padding: 20px 54px 20px 20px;
+  border: 1px solid rgba(34, 211, 238, 0.46);
+  border-radius: 8px;
   overflow: auto;
   background:
-    radial-gradient(circle at top right, rgba(103, 225, 255, 0.08), transparent 34%),
-    radial-gradient(circle at top left, rgba(165, 255, 89, 0.08), transparent 36%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01) 32%, transparent 72%),
-    rgba(9, 17, 20, 0.95);
+    linear-gradient(180deg, rgba(7, 15, 28, 0.78), rgba(6, 8, 18, 0.94)),
+    linear-gradient(120deg, rgba(34, 211, 238, 0.15), transparent 28%, rgba(244, 114, 182, 0.13) 72%, transparent),
+    url("../../img/market.jpg") center / cover;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
-    inset 0 0 28px rgba(103, 225, 255, 0.035),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 34px rgba(34, 211, 238, 0.08),
     0 18px 40px rgba(0, 0, 0, 0.42),
-    0 0 28px rgba(103, 225, 255, 0.03);
-  backdrop-filter: blur(16px);
+    0 0 32px rgba(34, 211, 238, 0.24),
+    0 0 42px rgba(244, 114, 182, 0.16);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
   transform: translate(-50%, -50%);
+}
+
+.market-popup-shell[data-market-mode="black-market"] .market-popup-card {
+  border-color: rgba(244, 114, 182, 0.56);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 34px rgba(244, 114, 182, 0.09),
+    0 18px 40px rgba(0, 0, 0, 0.46),
+    0 0 34px rgba(244, 114, 182, 0.24),
+    0 0 46px rgba(34, 211, 238, 0.14);
+}
+
+.market-popup-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, transparent 0 91%, rgba(34, 211, 238, 0.12) 91% 92%, transparent 92%),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 9px);
+  opacity: 0.58;
+}
+
+.market-popup-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .market-popup-close {
@@ -497,41 +529,76 @@
     0 0 22px rgba(244, 114, 182, 0.16);
 }
 
+.market-popup-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
 .market-popup-eyebrow {
   display: block;
-  margin-bottom: 8px;
-  color: rgba(222, 252, 255, 0.76);
+  color: #67e8f9;
   font-size: 0.56rem;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.55);
+}
+
+.market-popup-server {
+  max-width: 48%;
+  padding: 5px 8px;
+  border: 1px solid rgba(165, 255, 89, 0.32);
+  border-radius: 8px;
+  color: #d9ff8b;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-align: right;
+  text-transform: uppercase;
+  background: rgba(8, 16, 26, 0.76);
+  box-shadow: 0 0 14px rgba(165, 255, 89, 0.1);
 }
 
 .market-popup-title {
-  margin: 0 0 14px;
+  margin: 0 0 16px;
   color: #effcff;
-  font-size: 1.08rem;
-  letter-spacing: 0.08em;
+  font-size: 1.28rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  text-shadow: 0 0 16px rgba(103, 225, 255, 0.16);
+  text-shadow:
+    0 0 16px rgba(34, 211, 238, 0.46),
+    0 0 24px rgba(244, 114, 182, 0.18);
 }
 
 .market-popup-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
 }
 
 .market-popup-tab {
-  min-height: 30px;
-  padding: 0 12px;
-  font-size: 0.58rem;
-  letter-spacing: 0.14em;
+  min-height: 36px;
+  padding: 0 14px;
+  border-color: rgba(34, 211, 238, 0.22);
+  border-radius: 8px;
+  color: rgba(219, 252, 255, 0.74);
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
+  background: rgba(6, 14, 25, 0.72);
 }
 
 .market-popup-tab.is-active {
-  border-color: rgba(103, 225, 255, 0.36);
-  box-shadow: 0 0 18px rgba(103, 225, 255, 0.14);
+  border-color: rgba(34, 211, 238, 0.64);
+  color: #f2fdff;
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.22), rgba(244, 114, 182, 0.16)),
+    rgba(6, 14, 25, 0.9);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 18px rgba(34, 211, 238, 0.24);
 }
 
 .market-popup-copy {
@@ -546,16 +613,17 @@
 }
 
 .market-popup-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid rgba(103, 225, 255, 0.12);
-  border-radius: 14px;
+  padding: 12px;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 8px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
-    rgba(14, 24, 26, 0.76);
+    linear-gradient(90deg, rgba(34, 211, 238, 0.1), transparent 34%),
+    rgba(4, 11, 20, 0.8);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
 .market-popup-row__info {
@@ -572,6 +640,14 @@
 .market-popup-row__meta {
   color: rgba(216, 238, 245, 0.74);
   font-size: 0.72rem;
+}
+
+.market-popup-row__price {
+  color: #a5ff59;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: 0 0 12px rgba(165, 255, 89, 0.24);
 }
 
 .market-popup-row__trend {
@@ -593,12 +669,64 @@
   color: rgba(216, 238, 245, 0.58);
 }
 
+.market-popup-row__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.market-popup-row__buy,
 .market-popup-row__sell {
   min-height: 30px;
   padding: 0 12px;
+  border-radius: 8px;
   font-size: 0.58rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.market-popup-row__buy {
+  border-color: rgba(165, 255, 89, 0.36);
+  color: #ecffd2;
+  background:
+    linear-gradient(135deg, rgba(165, 255, 89, 0.18), rgba(34, 211, 238, 0.1)),
+    rgba(7, 16, 22, 0.86);
+}
+
+.market-popup-row__sell {
+  border-color: rgba(244, 114, 182, 0.32);
+  color: #ffe1f0;
+  background:
+    linear-gradient(135deg, rgba(244, 114, 182, 0.18), rgba(34, 211, 238, 0.08)),
+    rgba(7, 12, 22, 0.86);
+}
+
+@media (max-width: 620px) {
+  .market-popup-card {
+    width: min(100vw - 20px, 520px);
+    padding: 18px 16px 16px;
+  }
+
+  .market-popup-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-right: 42px;
+  }
+
+  .market-popup-server {
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .market-popup-row {
+    grid-template-columns: 1fr;
+  }
+
+  .market-popup-row__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
 }
 
 .storage-popup-shell {

@@ -76,7 +76,7 @@
             </section>
             <div id="market-card-anchor" hidden aria-hidden="true"></div>
             <section id="market-card" class="feature-card feature-card--market" aria-label="Obchod a trh">
-              <button type="button" class="button panel-action-button panel-action-button--feature" data-market-popup-open>Market</button>
+              <button type="button" class="button panel-action-button panel-action-button--feature" data-market-popup-open>Bazar</button>
             </section>
             <div id="building-shortcuts-anchor" hidden aria-hidden="true"></div>
             <div id="building-shortcut-grid" class="building-shortcut-grid" aria-label="Rychlé budovy">
@@ -1677,15 +1677,18 @@
 
       <div class="market-popup-shell" data-market-popup hidden>
         <div class="market-popup-backdrop" data-market-popup-close></div>
-        <div class="market-popup-card" role="dialog" aria-modal="true" aria-label="Server market">
+        <div class="market-popup-card" role="dialog" aria-modal="true" aria-label="Server bazar">
           <button type="button" class="button market-popup-close" data-market-popup-close aria-label="Zavřít market">✕</button>
-          <span class="market-popup-eyebrow">Server Market</span>
-          <h3 class="market-popup-title">Burza serveru</h3>
+          <div class="market-popup-heading">
+            <span class="market-popup-eyebrow">Neon Bazaar</span>
+            <span class="market-popup-server" data-market-server-badge>Server shard</span>
+          </div>
+          <h3 class="market-popup-title">Serverový bazar</h3>
           <div class="market-popup-tabs" aria-label="Market tabs">
-            <button type="button" class="button market-popup-tab is-active" data-market-tab="market">Market</button>
+            <button type="button" class="button market-popup-tab is-active" data-market-tab="market">Normal Market</button>
             <button type="button" class="button market-popup-tab" data-market-tab="black-market">Black Market</button>
           </div>
-          <p class="market-popup-copy" data-market-copy>Oficiální serverový trh pro materiály a legálnější výměnu zásob.</p>
+          <p class="market-popup-copy" data-market-copy>Legální bazar serveru pro rychlý nákup a výkup materiálu bez heat risku.</p>
           <div class="market-popup-list" data-market-list></div>
         </div>
       </div>
