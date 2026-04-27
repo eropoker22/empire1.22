@@ -41,10 +41,7 @@ import {
   resolveRobberyScenario,
   validateAttackSelection
 } from "../../../packages/game-core/src/legacy-page/combat-preview-rules.js";
-import {
-  canStartProduction,
-  formatDurationLabel
-} from "../../../packages/game-core/src/legacy-page/production-preview-rules.js";
+import { formatDurationLabel } from "../../../packages/game-core/src/legacy-page/production-preview-rules.js";
 import { resolveSpyScenario } from "../../../packages/game-core/src/legacy-page/spy-preview-rules.js";
 import {
   getAuthoritySession,
@@ -214,8 +211,6 @@ const FACTORY_SLOT_LIST_SELECTOR = "[data-factory-slot-list]";
 const FACTORY_EFFECTS_LABEL_SELECTOR = "[data-factory-effects-label]";
 const FACTORY_UPGRADE_SELECTOR = "[data-factory-upgrade]";
 const FACTORY_COLLECT_SELECTOR = "[data-factory-collect]";
-const FACTORY_ACTIVE_BOOST_SELECTOR = "[data-factory-active-boost]";
-const FACTORY_BOOST_BUTTON_SELECTOR = "[data-factory-boost]";
 const FACTORY_TAB_SELECTOR = "[data-factory-tab]";
 const FACTORY_PANEL_SELECTOR = "[data-factory-panel]";
 const ARMORY_POPUP_OPEN_SELECTOR = "[data-armory-popup-open]";
@@ -4404,6 +4399,10 @@ function consumeMaterials(inputs = {}) {
   }
 }
 
+function getScaledProductionInputs(inputs = {}, multiplier = 1) {
+  return Object.fromEntries(Object.entries(inputs).map(([itemId, amount]) => [itemId, Number(amount || 0) * Math.max(1, Math.floor(Number(multiplier || 1)))]));
+}
+
 function syncCompletedProductionJobs() {
   const productionState = getResolvedProductionState();
   let hasChanges = false;
@@ -4748,12 +4747,12 @@ function createProductionCard(buildingName, recipeId, recipeKey, recipe, rerende
   const durationMultiplier = getProductionBuildingMultiplier(buildingName, buildingState.level);
   const effectiveDurationMs = Math.max(1000, Math.round(recipe.durationMs / durationMultiplier));
   const slotState = getProductionSlotState(job);
-  const canStart = !job && hasEnoughMaterials(recipe.inputs || {});
   const outputInventoryAmount = getInventoryAmount(recipe.output.inventory, recipe.output.itemId);
   const visual = PRODUCTION_SLOT_VISUALS[buildingName]?.[recipeId] || null;
   const card = document.createElement("article");
   const startButton = document.createElement("button");
   const collectButton = document.createElement("button");
+  let selectedBatches = 1, getStartBatchCount = () => 1, refreshQuantityControl = () => {};
 
   if (buildingName === "pharmacy") {
     card.className = [
@@ -4880,10 +4879,13 @@ function createProductionCard(buildingName, recipeId, recipeKey, recipe, rerende
 
     const metrics = document.createElement("div");
     metrics.className = "drug-production-slot__metrics";
+    const timeMetric = createMetricBlock({ label: "Čas", value: formatDurationLabel(Number(job?.durationMs || effectiveDurationMs)) });
+    const queueMetric = createMetricBlock({ label: "Ve frontě", value: `${Number(job?.output?.amount || recipe.output.amount || 0)} ks`, inline: true });
     metrics.append(
       createMetricBlock({ label: "Výstup", value: `${recipe.output.amount} ks` }),
-      createMetricBlock({ label: "Čas", value: formatDurationLabel(effectiveDurationMs) }),
-      createMetricBlock({ label: "Ve skladu", value: `${outputInventoryAmount} ks`, inline: true })
+      timeMetric,
+      createMetricBlock({ label: "Ve skladu", value: `${outputInventoryAmount} ks`, inline: true }),
+      queueMetric
     );
 
     const supplyMetric = document.createElement("div");
@@ -4896,28 +4898,62 @@ function createProductionCard(buildingName, recipeId, recipeKey, recipe, rerende
 
     const actions = document.createElement("div");
     actions.className = "drug-production-slot__controls";
+    const quantityControl = document.createElement("div");
+    const minusButton = document.createElement("button");
+    const plusButton = document.createElement("button");
+    const quantityValue = document.createElement("strong");
+    quantityControl.className = "armory-slot__quantity";
+    minusButton.type = plusButton.type = "button";
+    minusButton.className = plusButton.className = "armory-slot__quantity-btn";
+    quantityValue.className = "armory-slot__quantity-value";
+    minusButton.textContent = "−";
+    plusButton.textContent = "+";
+    minusButton.setAttribute("aria-label", `Ubrat výrobu ${recipe.name}`);
+    plusButton.setAttribute("aria-label", `Přidat výrobu ${recipe.name}`);
+    quantityControl.append(minusButton, quantityValue, plusButton);
+    const getMaxBatches = () => Math.min(99, ...Object.entries(recipe.inputs || {}).map(([itemId, amount]) => Math.floor(getInventoryAmount("materials", itemId) / Math.max(1, Number(amount || 0)))));
+    getStartBatchCount = () => selectedBatches;
+    refreshQuantityControl = () => {
+      const maxBatches = Math.max(0, getMaxBatches());
+      selectedBatches = Math.min(Math.max(1, selectedBatches), Math.max(1, maxBatches));
+      const queuedAmount = Number(job?.output?.amount || recipe.output.amount * selectedBatches || 0);
+      quantityValue.textContent = String(job ? Math.max(1, Math.ceil(queuedAmount / Math.max(1, Number(recipe.output.amount || 1)))) : selectedBatches);
+      minusButton.disabled = !!job || selectedBatches <= 1;
+      plusButton.disabled = !!job || selectedBatches >= maxBatches;
+      startButton.disabled = !!job || selectedBatches > maxBatches;
+      timeMetric.querySelector(".drug-production-slot__metric-value").textContent = formatDurationLabel(Number(job?.durationMs || effectiveDurationMs * selectedBatches));
+      queueMetric.querySelector(".drug-production-slot__metric-inline-value").textContent = `${queuedAmount} ks`;
+    };
+    minusButton.addEventListener("click", () => { selectedBatches -= 1; refreshQuantityControl(); });
+    plusButton.addEventListener("click", () => { selectedBatches += 1; refreshQuantityControl(); });
     startButton.className = "button drug-lab-mini-btn";
     startButton.dataset.armorySlotStart = "true";
     collectButton.className = "button drug-lab-mini-btn";
     collectButton.dataset.armorySlotStop = "true";
-    actions.append(startButton, collectButton);
+    actions.append(quantityControl, startButton, collectButton);
     card.append(head, metrics, actions);
   }
 
   startButton.type = "button";
   startButton.textContent = !job ? "Spustit" : job.status === "running" ? "Běží" : "Čeká";
-  startButton.disabled = !canStart;
+  startButton.disabled = !!job || !hasEnoughMaterials(recipe.inputs || {});
+  refreshQuantityControl();
   startButton.addEventListener("click", () => {
-    if (!hasEnoughMaterials(recipe.inputs || {})) {
+    const batchCount = Math.max(1, getStartBatchCount());
+    const requiredInputs = getScaledProductionInputs(recipe.inputs || {}, batchCount);
+    const durationMs = effectiveDurationMs * batchCount;
+    if (!hasEnoughMaterials(requiredInputs)) {
       rerender();
       return;
     }
 
-    consumeMaterials(recipe.inputs || {});
+    consumeMaterials(requiredInputs);
     persistProductionJob(recipeKey, {
       status: "running",
-      readyAt: new Date(Date.now() + effectiveDurationMs).toISOString(),
-      output: recipe.output
+      readyAt: new Date(Date.now() + durationMs).toISOString(),
+      output: { ...recipe.output, amount: Number(recipe.output.amount || 0) * batchCount },
+      quantity: batchCount,
+      durationMs
     });
     rerender();
     scheduleProductionJob(recipeKey, rerender);
@@ -15113,8 +15149,6 @@ function bindFactoryPopup(root) {
   const effectsLabelElement = root.querySelector(FACTORY_EFFECTS_LABEL_SELECTOR);
   const upgradeButton = root.querySelector(FACTORY_UPGRADE_SELECTOR);
   const collectButton = root.querySelector(FACTORY_COLLECT_SELECTOR);
-  const activeBoostElement = root.querySelector(FACTORY_ACTIVE_BOOST_SELECTOR);
-  const boostButtons = Array.from(root.querySelectorAll(FACTORY_BOOST_BUTTON_SELECTOR));
   const tabButtons = Array.from(popup.querySelectorAll(FACTORY_TAB_SELECTOR));
   const panels = Array.from(popup.querySelectorAll(FACTORY_PANEL_SELECTOR));
 
@@ -15180,26 +15214,6 @@ function bindFactoryPopup(root) {
       ? `Vybrat hotové do skladu (${collectableAmount})`
       : "Vybrat hotové do skladu";
     collectButton.setAttribute("aria-label", collectButton.title);
-    const activeBoost = activeBoostElement || boostButtons.length > 0
-      ? getFactoryActiveBoost()
-      : null;
-    if (activeBoostElement) {
-      activeBoostElement.textContent = activeBoost
-        ? `${activeBoost.label} · ${Math.max(0, Math.ceil((new Date(activeBoost.expiresAt).getTime() - Date.now()) / 1000))}s`
-        : "Žádný aktivní";
-    }
-
-    for (const button of boostButtons) {
-      const boostType = button.dataset.factoryBoost;
-      const boostConfig = FACTORY_COMBAT_BOOSTS[boostType];
-      if (!boostConfig) {
-        button.disabled = true;
-        continue;
-      }
-      const isActive = activeBoost?.type === boostType;
-      button.disabled = isActive || Number(supplyState.combatModule || 0) < boostConfig.combatModuleCost;
-      button.textContent = isActive ? "Aktivní" : `${boostConfig.label} (${boostConfig.combatModuleCost})`;
-    }
 
     slotList.replaceChildren();
     slotList.classList.add("factory-slot-grid");
@@ -15405,20 +15419,6 @@ function bindFactoryPopup(root) {
     setBuildingActionFeedback(root, "success", "Továrna", `Továrna byla upgradovaná na level ${nextLevel}.`);
     renderFactoryDashboard();
   });
-
-  for (const button of boostButtons) {
-    button.addEventListener("click", () => {
-      const boostType = button.dataset.factoryBoost;
-      const result = activateFactoryBoost(boostType);
-      if (!result.ok) {
-        setBuildingActionFeedback(root, "warning", "Factory boost", result.reason);
-        renderFactoryDashboard();
-        return;
-      }
-      setBuildingActionFeedback(root, "success", "Factory boost", `${result.boost.label} je aktivní pro další útok.`);
-      renderFactoryDashboard();
-    });
-  }
 
   for (const closeElement of closeElements) {
     closeElement.addEventListener("click", closePopup);
