@@ -15658,6 +15658,7 @@ function bootstrapPage() {
   applySettingsState(getSettingsState());
   root.dataset.bootstrap = "ready";
   document.documentElement.dataset.page = context.name;
+  document.body?.classList.remove("game-body--booting");
 }
 
 export {
