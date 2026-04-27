@@ -7,6 +7,38 @@
     display: none !important;
   }
 
+  body.game-modal-scroll-locked::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 29;
+    display: block;
+    background: transparent;
+    pointer-events: auto;
+    touch-action: none;
+  }
+
+  body.game-modal-scroll-locked .modal,
+  body.game-modal-scroll-locked .district-popup-shell,
+  body.game-modal-scroll-locked .attack-setup-popup-shell,
+  body.game-modal-scroll-locked .buildings-popup-shell,
+  body.game-modal-scroll-locked .wanted-popup-shell,
+  body.game-modal-scroll-locked .player-popup-shell,
+  body.game-modal-scroll-locked .alliance-popup-shell,
+  body.game-modal-scroll-locked .armory-popup-shell,
+  body.game-modal-scroll-locked .pharmacy-popup-shell,
+  body.game-modal-scroll-locked .druglab-popup-shell,
+  body.game-modal-scroll-locked .factory-popup-shell,
+  body.game-modal-scroll-locked .market-popup-shell,
+  body.game-modal-scroll-locked .leaderboard-popup-shell,
+  body.game-modal-scroll-locked .storage-popup-shell,
+  body.game-modal-scroll-locked .district-building-detail-shell,
+  body.game-modal-scroll-locked .avatar-lightbox,
+  body.game-modal-scroll-locked .game-admin-slice-overlay {
+    z-index: 80 !important;
+    pointer-events: auto !important;
+  }
+
   .game-topbar {
     padding: 6px 10px !important;
     background: rgba(10, 15, 28, 0.52) !important;
@@ -193,6 +225,19 @@
   .game-shell {
     padding-top: var(--mobile-topbar-offset, 72px) !important;
     transition: none !important;
+  }
+
+  .district-building-detail-shell {
+    inset: 0 !important;
+  }
+
+  .district-building-detail-card.building-detail-modal__content {
+    top: 8px !important;
+    left: 50% !important;
+    width: min(430px, calc(100vw - 12px)) !important;
+    height: calc(var(--mobile-locked-vh, 100svh) - 16px) !important;
+    max-height: calc(var(--mobile-locked-vh, 100svh) - 16px) !important;
+    transform: translateX(-50%) !important;
   }
 
   #game-rail-left > #leaderboard-card,
@@ -707,6 +752,18 @@
   .factory-popup-card.building-detail-modal__content .factory-resource-strip {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     gap: 6px !important;
+  }
+
+  .factory-popup-card.building-detail-modal__content .factory-popup-meta {
+    display: block !important;
+    visibility: visible !important;
+    margin: 0 !important;
+    padding: 7px 8px !important;
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+    color: #ffedd5 !important;
+    background: rgba(33, 19, 8, 0.82) !important;
+    border-color: rgba(251, 146, 60, 0.46) !important;
   }
 
   .factory-popup-card.building-detail-modal__content .factory-resource-pill {

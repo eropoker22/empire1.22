@@ -12,3 +12,5 @@ pnpm-lock.yaml
 yarn.lock
 vite-dev.err.log
 vite-dev.out.log
+admin-vite.err.log
+admin-vite.out.log

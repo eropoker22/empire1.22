@@ -3,66 +3,23 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Empire Streets | Admin</title>
-    <link rel="stylesheet" href="../page-assets/css/styles.css">
-    <link rel="stylesheet" href="../page-assets/css/styles-admin-slice.css">
-    <script>
-      if (window.location.search.includes("embedded=1")) {
-        document.documentElement.dataset.adminEmbedded = "true";
-      }
-    </script>
+    <meta name="color-scheme" content="dark">
+    <title>Empire Streets | Admin Dashboard</title>
+    <link rel="stylesheet" href="../page-assets/css/styles-admin-dashboard.css">
   </head>
   <body>
-    <main id="admin-root" class="admin-shell" data-page="admin">
-      <header id="admin-header" class="admin-header">
-        <div class="brand-block">
-          <p class="brand-subtitle">Separate admin client</p>
-          <h1 class="brand-title">Admin</h1>
-          <p class="page-purpose">Účel: oddělené rozhraní pro správu systému mimo běžný herní klient.</p>
-        </div>
-        <nav id="admin-nav" class="page-nav" aria-label="Admin navigation">
-          <a href="./index.html">Landing</a>
-          <a href="./game.html">Game</a>
-          <a href="./admin.html" aria-current="page">Admin</a>
-        </nav>
-      </header>
-
-      <section id="admin-overview-section" class="page-section">
-        <h2 class="section-title">Admin shell + gameplay slice demo</h2>
-        <p class="section-note">Tahle stránka teď hostuje nový architecture slice z `apps/client` a `apps/server` bez vazby na starý `page-assets/js/app/runtime.js`.</p>
-      </section>
-
-      <section id="admin-layout" class="admin-layout">
-        <aside id="admin-sidebar" class="toolbox-shell">
-          <span class="placeholder-label">Navigation region</span>
-          <div id="admin-nav-mount" class="mount-point" data-mount-role="navigation">
-            <h3 class="placeholder-title">Admin navigation tree</h3>
-          </div>
-          <div id="admin-filter-mount" class="mount-point" data-mount-role="filters">
-            <h3 class="placeholder-title">Filters / scope selection</h3>
-          </div>
-        </aside>
-
-        <section id="admin-workspace" class="workspace-shell">
-          <span class="placeholder-label">Workspace region</span>
-          <div id="admin-toolbar-mount" class="mount-point" data-mount-role="toolbar">
-            <h3 class="placeholder-title">Toolbar / status mount</h3>
-          </div>
-          <div id="admin-content-mount" class="mount-point" data-mount-role="content">
-            <h3 class="placeholder-title">Gameplay slice mount</h3>
-            <p class="panel-note">District selection, district panel, build a attack demo.</p>
-          </div>
-        </section>
-      </section>
-
-      <section id="admin-overlay-section" class="page-section">
-        <h2 class="section-title">Overlay roots</h2>
-        <div class="content-grid">
-          <div id="admin-modal-root" class="mount-point" data-mount-role="modals"><span class="placeholder-label">Overlay root</span><h3 class="placeholder-title">Admin modal layer</h3></div>
-          <div id="admin-notice-root" class="mount-point" data-mount-role="notices"><span class="placeholder-label">Overlay root</span><h3 class="placeholder-title">System notice layer</h3></div>
+    <main id="admin-dashboard-root" class="admin-dashboard" data-page="admin" aria-label="Empire Streets Admin Dashboard">
+      <section class="admin-boot" aria-live="polite">
+        <span class="admin-boot__mark"></span>
+        <div>
+          <p class="admin-boot__eyebrow">Admin command center</p>
+          <h1>Empire Streets Admin</h1>
+          <p>Načítám mock projekce serverů, hráčů, ekonomiky a bezpečnostních logů.</p>
         </div>
       </section>
+      <noscript>Admin dashboard potřebuje povolený JavaScript.</noscript>
     </main>
     <script type="module" src="../page-assets/js/admin-assets/admin-slice-demo.js"></script>
+    <script type="module" src="../page-assets/js/admin-dashboard/admin.js"></script>
   </body>
 </html>

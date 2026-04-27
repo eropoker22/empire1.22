@@ -51,6 +51,7 @@ import { bindLeaderboardPopup } from "./features/leaderboard.js";
 import { bindMapNavigation } from "./map-navigation.js";
 import { getPoliceTierShortEffect, resolvePoliceTierImpact } from "./police-raid-config.js";
 import { renderPoliceRaidImpactDetails } from "./police-raid-modal.js";
+import { createStorageCollectResultPayload } from "./production-collect-results.js";
 
 const PAGE_ROOT_SELECTOR = "main[data-page]";
 const MOUNT_SELECTOR = "[data-mount-role], [id$='-mount'], [id$='-root']";
@@ -4514,6 +4515,7 @@ function getProductionBuildingReadyCount(buildingName, recipes) {
 
 function collectReadyProductionForBuilding(buildingName, recipes) {
   let collected = 0;
+  const items = [];
 
   for (const recipeId of Object.keys(recipes || {})) {
     const jobKey = `${buildingName}:${recipeId}`;
@@ -4525,10 +4527,12 @@ function collectReadyProductionForBuilding(buildingName, recipes) {
 
     applyInventoryOutput(job.output);
     clearProductionJob(jobKey);
-    collected += Math.max(0, Number(job.output?.amount || 0));
+    const amount = Math.max(0, Number(job.output?.amount || 0));
+    collected += amount;
+    items.push({ label: getProductionResourceLabel(job.output?.itemId), amount });
   }
 
-  return collected;
+  return { total: collected, items };
 }
 
 function getProductionBuildingEffectsLabel(buildingName, level) {
@@ -4551,6 +4555,7 @@ function collectFactoryOutputsToSupplies() {
   const nextState = syncResult.state;
   const nextSupplies = getStoredFactorySupplies();
   let collected = 0;
+  const items = [];
 
   for (const slot of nextState.slots || []) {
     const amount = Math.max(0, Math.floor(Number(slot?.producedAmount || 0)));
@@ -4562,11 +4567,12 @@ function collectFactoryOutputsToSupplies() {
     nextSupplies[slot.resourceKey] = Math.max(0, Math.floor(Number(nextSupplies[slot.resourceKey] || 0) + amount));
     slot.producedAmount = 0;
     collected += amount;
+    items.push({ label: FACTORY_SLOT_CONFIG.find((entry) => entry.resourceKey === slot.resourceKey)?.label || getProductionResourceLabel(slot.resourceKey), amount });
   }
 
   setStoredFactoryState(nextState);
   setStoredFactorySupplies(nextSupplies);
-  return collected;
+  return { total: collected, items };
 }
 
 const PRODUCTION_RESOURCE_LABELS = Object.freeze({
@@ -4971,7 +4977,7 @@ function createProductionCard(root, buildingName, recipeId, recipeKey, recipe, r
       if (!currentJob || currentJob.status !== "ready") return rerender();
       applyInventoryOutput(currentJob.output);
       clearProductionJob(recipeKey);
-      setBuildingActionFeedback(root, "success", PRODUCTION_BUILDING_CONFIG[buildingName]?.label || "Budova", `${getProductionResourceLabel(currentJob.output?.itemId)} přesunuto do skladu.`, `Vyzvednuto ${Math.max(0, Number(currentJob.output?.amount || 0))} ks.`, { forceLog: true });
+      appendBuildingActionResultEntry(root, "police", createStorageCollectResultPayload({ buildingLabel: PRODUCTION_BUILDING_CONFIG[buildingName]?.label || "Budova", items: [{ label: getProductionResourceLabel(currentJob.output?.itemId), amount: Math.max(0, Number(currentJob.output?.amount || 0)) }], meta: "Hotová výroba" }), {}, { syncPreview: true, forceLog: true });
       rerender();
     });
   }
@@ -5132,12 +5138,12 @@ function bindProductionBuildingPopup(root, {
       const collected = collectReadyProductionForBuilding(buildingName, recipes);
       renderDashboard();
 
-      if (collected <= 0) {
+      if (collected.total <= 0) {
         setBuildingActionFeedback(root, "warning", config?.label || "Budova", "Není nic hotového k vyzvednutí.");
         return;
       }
 
-      setBuildingActionFeedback(root, "success", config?.label || "Budova", `${config?.label || "Budova"} přesunula hotovou výrobu do skladu.`, `Vyzvednuto ${collected} ks · ${getProductionBuildingEffectsLabel(buildingName, getStoredProductionBuildingState(buildingName).level)}`, { forceLog: true });
+      appendBuildingActionResultEntry(root, "police", createStorageCollectResultPayload({ buildingLabel: config?.label || "Budova", items: collected.items, meta: getProductionBuildingEffectsLabel(buildingName, getStoredProductionBuildingState(buildingName).level) }), {}, { syncPreview: true, forceLog: true });
     });
   }
 
@@ -8281,13 +8287,7 @@ function collectDistrictBuildingDetailOutput(root, shell) {
     lastCollectedAt: Date.now()
   }));
 
-  setBuildingActionFeedback(
-    root,
-    "success",
-    `${context.buildingName}: výstup vybrán`,
-    summary.length > 0 ? summary.join(" · ") : "Výstup byl zapsán.",
-    context.district?.id ? `District ${context.district.id}` : "Fixed building"
-  );
+  appendBuildingActionResultEntry(root, "police", createStorageCollectResultPayload({ buildingLabel: context.buildingName, items: summary.map((value, index) => ({ label: `Položka ${index + 1}`, value })), meta: "Výstup budovy", districtLabel: context.district?.id ? `District ${context.district.id}` : "Fixed building" }), {}, { syncPreview: true, forceLog: true });
   refreshDistrictBuildingDetailPopup(root, shell);
 }
 
@@ -15382,12 +15382,12 @@ function bindFactoryPopup(root) {
     const collected = collectFactoryOutputsToSupplies();
     renderFactoryDashboard();
 
-    if (collected <= 0) {
+    if (collected.total <= 0) {
       setBuildingActionFeedback(root, "warning", "Továrna", "Není nic hotového k vyzvednutí.");
       return;
     }
 
-    setBuildingActionFeedback(root, "success", "Továrna", "Továrna přesunula hotovou výrobu do skladu.", `Vyzvednuto ${collected} ks.`, { forceLog: true });
+    appendBuildingActionResultEntry(root, "police", createStorageCollectResultPayload({ buildingLabel: "Továrna", items: collected.items, meta: "Factory supplies" }), {}, { syncPreview: true, forceLog: true });
   });
 
   upgradeButton.addEventListener("click", () => {

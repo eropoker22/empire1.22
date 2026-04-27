@@ -3202,15 +3202,21 @@ body.game-body--booting .game-logo-slot {
 
 .buildings-popup__group--types {
   border-color: color-mix(in srgb, var(--buildings-type-border, rgba(34, 211, 238, 0.18)) 70%, transparent);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.16)) 54%, transparent), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
+    rgba(2, 8, 18, 0.34);
 }
 
 .buildings-popup__group--names {
   border-color: color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.7)) 48%, transparent);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.018)),
-    radial-gradient(circle at 50% 0, color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.18)) 68%, transparent), transparent 64%),
-    rgba(2, 6, 23, 0.34);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    radial-gradient(circle at 50% 0, color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.18)) 76%, transparent), transparent 58%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.082), transparent 46%),
+    rgba(8, 14, 26, 0.52);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 12px 26px rgba(0, 0, 0, 0.24);
 }
 
 .buildings-popup__group-divider {
@@ -3254,20 +3260,43 @@ body.game-body--booting .game-logo-slot {
 }
 
 .buildings-popup__building--type {
+  position: relative;
   min-height: 50px;
+  padding-left: 16px;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--buildings-type-border, rgba(34, 211, 238, 0.22)) 82%, transparent);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.16)) 48%, transparent), transparent 44%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.008)),
+    rgba(3, 10, 20, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.018);
+}
+
+.buildings-popup__building--type::before {
+  content: "";
+  position: absolute;
+  inset: 9px auto 9px 8px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74));
+  box-shadow: 0 0 12px var(--buildings-type-glow, rgba(34, 211, 238, 0.24));
 }
 
 .buildings-popup__building--name {
   min-height: 42px;
   padding: 12px 14px;
-  border-color: color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.62)) 52%, transparent);
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.62)) 68%, transparent);
+  border-radius: 999px 12px 999px 12px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
-    linear-gradient(180deg, color-mix(in srgb, var(--buildings-type-item-hover-a, rgba(15, 23, 42, 0.95)) 62%, transparent), var(--buildings-type-item-b, rgba(8, 14, 26, 0.68))),
-    rgba(8, 14, 26, 0.82);
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.14), transparent 58%),
+    linear-gradient(135deg, color-mix(in srgb, var(--buildings-type-item-hover-a, rgba(15, 23, 42, 0.95)) 72%, transparent), color-mix(in srgb, var(--buildings-type-item-b, rgba(8, 14, 26, 0.68)) 84%, transparent)),
+    rgba(8, 14, 26, 0.94);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 8px 18px rgba(0, 0, 0, 0.22);
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.035),
+    0 8px 18px rgba(0, 0, 0, 0.25),
+    0 0 14px color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.16)) 72%, transparent);
 }
 
 .buildings-popup__building--interactive {
@@ -3301,6 +3330,14 @@ body.game-body--booting .game-logo-slot {
   text-align: left;
 }
 
+.buildings-popup__building--type > span:first-child {
+  color: rgba(241, 245, 249, 0.9);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .buildings-popup__building > span:only-child {
   display: block;
   text-align: center;
@@ -3308,8 +3345,9 @@ body.game-body--booting .game-logo-slot {
 
 .buildings-popup__building--name > span:only-child {
   color: #ffffff;
-  font-size: 13px;
-  font-weight: 750;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
 }
 
 .buildings-popup__building > span:nth-child(2) {
@@ -3444,6 +3482,16 @@ body.game-body--booting .game-logo-slot {
   .buildings-popup__layout.buildings-modal__layout {
     --buildings-modal-panel-height: min(34vh, 340px);
     grid-template-columns: 1fr;
+  }
+
+  .buildings-popup__types.buildings-modal__types {
+    height: auto;
+    overflow: visible;
+  }
+
+  .buildings-popup__detail.buildings-modal__detail {
+    height: auto;
+    max-height: min(48vh, 420px);
   }
 }
 

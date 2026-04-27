@@ -4,6 +4,7 @@ const MOBILE_OVERLAY_SELECTOR = [
   ".modal",
   ".district-popup-shell",
   ".attack-setup-popup-shell",
+  ".buildings-popup-shell",
   ".wanted-popup-shell",
   ".player-popup-shell",
   ".alliance-popup-shell",
@@ -14,6 +15,8 @@ const MOBILE_OVERLAY_SELECTOR = [
   ".market-popup-shell",
   ".leaderboard-popup-shell",
   ".storage-popup-shell",
+  ".district-building-detail-shell",
+  ".avatar-lightbox",
   ".game-admin-slice-overlay"
 ].join(",");
 const MOBILE_CLOSE_CONTROL_SELECTOR = [
@@ -238,6 +241,43 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
   const media = windowObj.matchMedia(MOBILE_MEDIA);
   const root = documentObj.documentElement;
   let frameId = null;
+  let lockedScrollY = null;
+  let lastOverlayState = false;
+
+  const getScrollY = () => Math.max(
+    0,
+    Math.floor(windowObj.scrollY || windowObj.pageYOffset || root.scrollTop || documentObj.body.scrollTop || 0)
+  );
+
+  const lockPageScroll = () => {
+    if (lockedScrollY !== null) {
+      return;
+    }
+
+    lockedScrollY = getScrollY();
+    documentObj.body.style.position = "fixed";
+    documentObj.body.style.top = `-${lockedScrollY}px`;
+    documentObj.body.style.left = "0";
+    documentObj.body.style.right = "0";
+    documentObj.body.style.width = "100%";
+  };
+
+  const unlockPageScroll = () => {
+    if (lockedScrollY === null) {
+      return;
+    }
+
+    const nextScrollY = lockedScrollY;
+    lockedScrollY = null;
+    documentObj.body.style.removeProperty("position");
+    documentObj.body.style.removeProperty("top");
+    documentObj.body.style.removeProperty("left");
+    documentObj.body.style.removeProperty("right");
+    documentObj.body.style.removeProperty("width");
+    windowObj.requestAnimationFrame(() => {
+      windowObj.scrollTo({ top: nextScrollY, left: 0, behavior: "instant" });
+    });
+  };
 
   const isOpenOverlay = (element) => {
     if (!(element instanceof windowObj.HTMLElement)) {
@@ -254,8 +294,16 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
     frameId = null;
     const hasOpenOverlay = media.matches
       && Array.from(documentObj.querySelectorAll(MOBILE_OVERLAY_SELECTOR)).some(isOpenOverlay);
+
+    if (hasOpenOverlay && !lastOverlayState) {
+      lockPageScroll();
+    } else if (!hasOpenOverlay && lastOverlayState) {
+      unlockPageScroll();
+    }
+
     root.classList.toggle("game-modal-scroll-locked", hasOpenOverlay);
     documentObj.body.classList.toggle("game-modal-scroll-locked", hasOpenOverlay);
+    lastOverlayState = hasOpenOverlay;
   };
 
   const requestApply = () => {
