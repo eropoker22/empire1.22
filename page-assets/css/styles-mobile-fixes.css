@@ -157,8 +157,8 @@
   .avatar-lightbox__close,
   .game-admin-slice-overlay__close {
     position: absolute !important;
-    top: 8px !important;
-    right: 8px !important;
+    top: 5px !important;
+    right: 5px !important;
     left: auto !important;
     z-index: 48 !important;
     display: grid !important;
@@ -168,13 +168,44 @@
     height: 44px !important;
     min-height: 44px !important;
     padding: 0 !important;
+    border: 0 !important;
     border-radius: 999px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #a5f3ff !important;
     font-size: 0 !important;
     line-height: 1 !important;
     pointer-events: auto !important;
     touch-action: manipulation !important;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .modal__close::after,
+  .district-popup-close::after,
+  .attack-setup-popup-close::after,
+  .wanted-popup-close::after,
+  .player-popup-close::after,
+  .market-popup-close::after,
+  .storage-popup-close::after,
+  .building-tech-popup-close::after,
+  .avatar-lightbox__close::after,
+  .game-admin-slice-overlay__close::after {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    border-radius: inherit;
+    border: 1px solid rgba(103, 232, 249, 0.76);
+    background:
+      radial-gradient(circle at 30% 30%, rgba(167, 243, 255, 0.24), transparent 42%),
+      linear-gradient(180deg, rgba(8, 22, 38, 0.72), rgba(4, 10, 20, 0.9));
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+      inset 0 0 14px rgba(34, 211, 238, 0.12),
+      0 0 16px rgba(34, 211, 238, 0.28),
+      0 10px 22px rgba(2, 6, 23, 0.34);
+    pointer-events: none;
+    z-index: 0;
   }
 
   .modal__close::before,
@@ -188,13 +219,72 @@
   .avatar-lightbox__close::before,
   .game-admin-slice-overlay__close::before {
     content: "\00d7";
-    font-size: 23px;
+    position: absolute;
+    inset: 4px;
+    display: grid;
+    place-items: center;
+    font-size: 20px;
     font-weight: 600;
     line-height: 1;
     pointer-events: none;
+    z-index: 1;
   }
 
   .game-admin-slice-overlay__header {
-    padding-right: 62px;
+    padding-right: 54px;
+  }
+
+  .armory-popup-card.building-detail-modal__content .modal__header,
+  .pharmacy-popup-card.building-detail-modal__content .modal__header,
+  .druglab-popup-card.building-detail-modal__content .modal__header,
+  .factory-popup-card.building-detail-modal__content .modal__header {
+    grid-template-columns: minmax(0, 1fr) 30px 30px !important;
+    grid-template-rows: auto auto;
+    column-gap: 6px !important;
+    row-gap: 4px !important;
+    padding-right: 54px !important;
+  }
+
+  .armory-popup-card.building-detail-modal__content .modal__header h3,
+  .pharmacy-popup-card.building-detail-modal__content .modal__header h3,
+  .druglab-popup-card.building-detail-modal__content .modal__header h3,
+  .factory-popup-card.building-detail-modal__content .modal__header h3 {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .building-detail-header-level {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+    margin: 0 !important;
+  }
+
+  .building-detail-title__action-btn {
+    width: 30px !important;
+    min-width: 30px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+
+  .building-detail-title__action-btn--collect {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    justify-self: end;
+  }
+
+  .building-detail-title__action-btn--upgrade {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: center;
+    justify-self: end;
   }
 }
