@@ -1039,6 +1039,8 @@
 .armory-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(5, minmax(0, auto));
+  grid-auto-flow: column;
   gap: 10px;
 }
 
@@ -1967,6 +1969,8 @@
 
   .armory-layout {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-auto-flow: row;
   }
 }
 
@@ -2239,9 +2243,6 @@
   }
 
   .building-detail-tabs {
-    position: sticky;
-    top: 0;
-    z-index: 5;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
   }

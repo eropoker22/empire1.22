@@ -4616,11 +4616,11 @@ const PRODUCTION_SLOT_VISUALS = Object.freeze({
     "overdrive-x": Object.freeze({ iconToneClass: "drug-production-slot__icon--red", iconGlyphClass: "drug-production-slot__icon--capsule", productLabel: "Drug balík" })
   }),
   armory: Object.freeze({
-    "baseball-bat": Object.freeze({ iconToneClass: "drug-production-slot__icon--amber", iconGlyphClass: "drug-production-slot__icon--crate", productLabel: "Výzbroj" }),
-    pistol: Object.freeze({ iconToneClass: "drug-production-slot__icon--red", iconGlyphClass: "drug-production-slot__icon--crosshair", productLabel: "Výzbroj" }),
-    grenade: Object.freeze({ iconToneClass: "drug-production-slot__icon--amber", iconGlyphClass: "drug-production-slot__icon--powder", productLabel: "Výzbroj" }),
-    smg: Object.freeze({ iconToneClass: "drug-production-slot__icon--red", iconGlyphClass: "drug-production-slot__icon--crosshair", productLabel: "Výzbroj" }),
-    bazooka: Object.freeze({ iconToneClass: "drug-production-slot__icon--red", iconGlyphClass: "drug-production-slot__icon--crosshair", productLabel: "Výzbroj" }),
+    "baseball-bat": Object.freeze({ iconToneClass: "drug-production-slot__icon--amber", iconGlyphClass: "drug-production-slot__icon--crate", productLabel: "Attack" }),
+    pistol: Object.freeze({ iconToneClass: "drug-production-slot__icon--red", iconGlyphClass: "drug-production-slot__icon--crosshair", productLabel: "Attack" }),
+    grenade: Object.freeze({ iconToneClass: "drug-production-slot__icon--amber", iconGlyphClass: "drug-production-slot__icon--powder", productLabel: "Attack" }),
+    smg: Object.freeze({ iconToneClass: "drug-production-slot__icon--red", iconGlyphClass: "drug-production-slot__icon--crosshair", productLabel: "Attack" }),
+    bazooka: Object.freeze({ iconToneClass: "drug-production-slot__icon--red", iconGlyphClass: "drug-production-slot__icon--crosshair", productLabel: "Attack" }),
     vest: Object.freeze({ iconToneClass: "drug-production-slot__icon--cyan", iconGlyphClass: "drug-production-slot__icon--shield", productLabel: "Defense" }),
     barricades: Object.freeze({ iconToneClass: "drug-production-slot__icon--amber", iconGlyphClass: "drug-production-slot__icon--crate", productLabel: "Defense" }),
     cameras: Object.freeze({ iconToneClass: "drug-production-slot__icon--cyan", iconGlyphClass: "drug-production-slot__icon--chip", productLabel: "Defense" }),
@@ -4866,7 +4866,7 @@ function createProductionCard(buildingName, recipeId, recipeKey, recipe, rerende
     titles.className = "drug-production-slot__titles";
     const product = document.createElement("span");
     product.className = "drug-production-slot__product";
-    product.textContent = visual?.productLabel || "Výzbroj";
+    product.textContent = visual?.productLabel || "Attack";
     const title = document.createElement("strong");
     title.className = "drug-production-slot__title";
     title.textContent = recipe.name;
