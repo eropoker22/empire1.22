@@ -17,6 +17,18 @@ const MOBILE_OVERLAY_SELECTOR = [
   ".storage-popup-shell",
   ".game-admin-slice-overlay"
 ].join(",");
+const MOBILE_CLOSE_CONTROL_SELECTOR = [
+  ".modal__close",
+  ".district-popup-close",
+  ".attack-setup-popup-close",
+  ".wanted-popup-close",
+  ".player-popup-close",
+  ".market-popup-close",
+  ".storage-popup-close",
+  ".building-tech-popup-close",
+  ".avatar-lightbox__close",
+  ".game-admin-slice-overlay__close"
+].join(",");
 
 function initMobileViewportLock(windowObj = window, documentObj = document) {
   const media = windowObj.matchMedia(MOBILE_MEDIA);
@@ -249,6 +261,63 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
   }
 }
 
+function initMobileCloseTapAssist(windowObj = window, documentObj = document) {
+  const media = windowObj.matchMedia(MOBILE_MEDIA);
+  let activeControl = null;
+  let startX = 0;
+  let startY = 0;
+
+  const getCloseControl = (target) => {
+    if (!media.matches || !(target instanceof windowObj.Element)) {
+      return null;
+    }
+
+    const control = target.closest(MOBILE_CLOSE_CONTROL_SELECTOR);
+    if (!(control instanceof windowObj.HTMLButtonElement) || control.disabled) {
+      return null;
+    }
+
+    return control;
+  };
+
+  documentObj.addEventListener("pointerdown", (event) => {
+    const control = getCloseControl(event.target);
+
+    if (!control) {
+      activeControl = null;
+      return;
+    }
+
+    activeControl = control;
+    startX = event.clientX;
+    startY = event.clientY;
+  }, true);
+
+  documentObj.addEventListener("pointerup", (event) => {
+    const control = activeControl;
+    activeControl = null;
+
+    if (!control) {
+      return;
+    }
+
+    const deltaX = Math.abs(event.clientX - startX);
+    const deltaY = Math.abs(event.clientY - startY);
+
+    if (deltaX > 18 || deltaY > 18) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    control.click();
+  }, true);
+
+  documentObj.addEventListener("pointercancel", () => {
+    activeControl = null;
+  }, true);
+}
+
 function initMobileLayoutRuntime() {
   initMobileViewportLock();
   initMobileTopbarState();
@@ -257,6 +326,7 @@ function initMobileLayoutRuntime() {
   initMobilePrimaryActionCardsPlacement();
   initMobileLeaderboardPlacement();
   initMobileOverlayScrollLock();
+  initMobileCloseTapAssist();
 }
 
 if (document.readyState === "loading") {

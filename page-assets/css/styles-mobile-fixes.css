@@ -157,20 +157,24 @@
   .avatar-lightbox__close,
   .game-admin-slice-overlay__close {
     position: absolute !important;
-    top: 10px !important;
-    right: 10px !important;
+    top: 8px !important;
+    right: 8px !important;
     left: auto !important;
     z-index: 48 !important;
     display: grid !important;
     place-items: center !important;
-    width: 34px !important;
-    min-width: 34px !important;
-    height: 34px !important;
-    min-height: 34px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
     padding: 0 !important;
     border-radius: 999px !important;
     font-size: 0 !important;
     line-height: 1 !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .modal__close::before,
@@ -184,12 +188,13 @@
   .avatar-lightbox__close::before,
   .game-admin-slice-overlay__close::before {
     content: "\00d7";
-    font-size: 20px;
+    font-size: 23px;
     font-weight: 600;
     line-height: 1;
+    pointer-events: none;
   }
 
   .game-admin-slice-overlay__header {
-    padding-right: 54px;
+    padding-right: 62px;
   }
 }
