@@ -2869,7 +2869,8 @@ body.game-body--booting .game-logo-slot {
   #game-rail-left > #market-card,
   #game-rail-left > #leaderboard-card,
   #game-rail-right > #alliance-chat-card,
-  #game-rail-right > #global-chat-card {
+  #game-rail-right > #global-chat-card,
+  #game-rail-right > #leaderboard-card {
     width: 100%;
   }
 }

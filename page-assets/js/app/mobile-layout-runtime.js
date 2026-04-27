@@ -217,14 +217,33 @@ function initMobilePrimaryActionCardsPlacement(documentObj = document) {
   restoreToLeftRail();
 }
 
-function initMobileLeaderboardPlacement(documentObj = document) {
+function initMobileLeaderboardPlacement(windowObj = window, documentObj = document) {
   const leaderboardCard = documentObj.getElementById("leaderboard-card");
   const leaderboardAnchor = documentObj.getElementById("leaderboard-card-anchor");
+  const globalChatCard = documentObj.getElementById("global-chat-card");
 
-  if (!leaderboardCard || !leaderboardAnchor) {
+  if (!leaderboardCard || !leaderboardAnchor || !globalChatCard) {
     return;
   }
-  moveElementAfterAnchor(leaderboardAnchor, leaderboardCard);
+
+  const media = windowObj.matchMedia(MOBILE_MEDIA);
+
+  const applyPlacement = () => {
+    if (media.matches) {
+      moveElementAfterAnchor(globalChatCard, leaderboardCard);
+      return;
+    }
+
+    moveElementAfterAnchor(leaderboardAnchor, leaderboardCard);
+  };
+
+  applyPlacement();
+  if (typeof media.addEventListener === "function") {
+    media.addEventListener("change", applyPlacement);
+  } else if (typeof media.addListener === "function") {
+    media.addListener(applyPlacement);
+  }
+  windowObj.addEventListener("resize", applyPlacement);
 }
 
 function initMobileOverlayScrollLock(windowObj = window, documentObj = document) {
