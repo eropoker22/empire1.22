@@ -49,6 +49,7 @@ import {
 } from "./model/authority-state.js";
 import { bindMapNavigation } from "./map-navigation.js";
 import { getPoliceTierShortEffect, resolvePoliceTierImpact } from "./police-raid-config.js";
+import { renderPoliceRaidImpactDetails } from "./police-raid-modal.js";
 
 const PAGE_ROOT_SELECTOR = "main[data-page]";
 const MOUNT_SELECTOR = "[data-mount-role], [id$='-mount'], [id$='-root']";
@@ -2886,10 +2887,6 @@ function resolvePoliceActionTierQuote(tierId) {
   return pickRandomQuote(POLICE_ACTION_TIER_QUOTES[Math.max(1, Number.parseInt(String(tierId || 1), 10) || 1)] || []);
 }
 
-function resolvePoliceActionSpecialtyQuote(specialtyKey) {
-  return pickRandomQuote(POLICE_ACTION_SPECIALTY_QUOTES[String(specialtyKey || "").trim().toLowerCase()] || []);
-}
-
 function createPoliceActionInfoRows(districtId, policeAction, specialtyMeta) {
   const startedAt = Number(policeAction?.startedAt || Date.now());
   const expiresAt = Number(policeAction?.expiresAt || startedAt + GANG_HEAT_POLICE_DURATION_MS);
@@ -2902,27 +2899,6 @@ function createPoliceActionInfoRows(districtId, policeAction, specialtyMeta) {
     ...(Array.isArray(policeAction?.impact?.effectRows) ? policeAction.impact.effectRows : []),
     ...(Array.isArray(policeAction?.impact?.rows) ? policeAction.impact.rows : [])
   ];
-}
-
-function createPoliceActionStartedPayload(district, policeAction) {
-  const districtId = resolveDistrictNumericId(district || policeAction?.districtId);
-  const tier = POLICE_ACTION_TIER_MESSAGES[policeAction?.impact?.tierId] ? { id: policeAction.impact.tierId } : resolveGangHeatTier(getResolvedGangState().heat);
-  const tierEntry = POLICE_ACTION_TIER_MESSAGES[tier.id] || POLICE_ACTION_TIER_MESSAGES[1];
-  const specialtyMeta = resolvePoliceSpecialty(policeAction?.raidSpecialtyKey || resolvePoliceOperationType(policeAction?.operationType)?.specialtyKey);
-  const specialtyQuote = resolvePoliceActionSpecialtyQuote(specialtyMeta.key);
-  const policeQuote = resolvePoliceActionTierQuote(tier.id);
-  const buildRows = () => createPoliceActionInfoRows(districtId, policeAction, specialtyMeta);
-
-  return {
-    tone: `${tierEntry.tone} is-specialty-${specialtyMeta.key}`,
-    title: "Policejní akce",
-    badge: `Stupeň ${tier.id}/6 • ${specialtyMeta.label}`,
-    summary: specialtyQuote || policeQuote || tierEntry.text,
-    syncToBuildingAction: false,
-    getRows: buildRows,
-    refreshMs: 1000,
-    autoCloseWhen: () => Math.max(0, Number(policeAction?.expiresAt || 0) - Date.now()) <= 0
-  };
 }
 
 function createDistrictPoliceRaidWarningPayload(district, policeAction) {
@@ -2949,8 +2925,8 @@ function createOwnedDistrictPoliceRaidAlertPayload(district, policeAction) {
   const buildRows = () => createPoliceActionInfoRows(districtId, policeAction, specialtyMeta);
   return {
     tone: `${tierEntry.tone} is-specialty-${specialtyMeta.key} is-owned-district-raid-alert`,
-    title: "Policejní akce",
-    badge: `Stupeň ${tier.id}/6 • ${specialtyMeta.label}`,
+    title: "Dopady razie",
+    badge: `Razia aktivní • ${specialtyMeta.label} • Stupeň ${tier.id}/6`,
     summary: pickRandomQuote(
       [
         "Policie právě najela do tvého districtu. Všechno je pod tlakem a bere se, co jde.",
@@ -3380,7 +3356,9 @@ function openPoliceActionResultModal(root, payload = {}) {
     const resolvedRows = typeof payload.getRows === "function"
       ? payload.getRows()
       : (payload.rows || []);
-    renderActionResultRows(details, resolvedRows);
+    if (!renderPoliceRaidImpactDetails(details, payload, resolvedRows)) {
+      renderActionResultRows(details, resolvedRows);
+    }
   };
   renderRows();
   modal.classList.remove("hidden");
