@@ -1,9 +1,10 @@
 import { updateStoredPreviewSession } from "./model/authority-state.js";
-import { applyTopbarEconomy, renderSpyResourceState } from "./runtime.js";
+import { appendBuildingActionResultEntry, applyTopbarEconomy, renderSpyResourceState } from "./runtime.js";
 import { leonSwitchVargaEvents, nyraValeEvents, victorGraveEvents } from "./city-events-data.js";
 
 const CITY_EVENTS_STORAGE_KEY = "empireStreets.cityEvents.v1";
 const CHARACTER_EVENTS_REFRESH_SECONDS = 30;
+const CHARACTER_EVENTS_COUNTDOWN_SYNC_MS = 250;
 const MAX_VISIBLE_EVENTS_PER_CHARACTER = 3;
 
 const rewardLabels = Object.freeze({
@@ -147,9 +148,27 @@ function normalizeCityEventsState(state) {
 function getStoredCityEventsState() {
   try {
     const rawValue = window.localStorage.getItem(CITY_EVENTS_STORAGE_KEY);
-    return rawValue ? normalizeCityEventsState(JSON.parse(rawValue)) : createDefaultCityEventsState();
+    if (!rawValue) {
+      const defaultState = createDefaultCityEventsState();
+      window.localStorage.setItem(CITY_EVENTS_STORAGE_KEY, JSON.stringify(defaultState));
+      return defaultState;
+    }
+
+    const parsedState = JSON.parse(rawValue);
+    const normalizedState = normalizeCityEventsState(parsedState);
+    const storedRefreshAt = Number(parsedState?.nextRefreshAt || 0);
+    if (!Number.isFinite(storedRefreshAt) || storedRefreshAt <= 0) {
+      window.localStorage.setItem(CITY_EVENTS_STORAGE_KEY, JSON.stringify(normalizedState));
+    }
+    return normalizedState;
   } catch {
-    return createDefaultCityEventsState();
+    const defaultState = createDefaultCityEventsState();
+    try {
+      window.localStorage.setItem(CITY_EVENTS_STORAGE_KEY, JSON.stringify(defaultState));
+    } catch {
+      // Local UX only.
+    }
+    return defaultState;
   }
 }
 
@@ -165,11 +184,6 @@ function updateStoredCityEventsState(updater) {
   const nextState = normalizeCityEventsState(updater(getStoredCityEventsState()));
   setStoredCityEventsState(nextState);
   return nextState;
-}
-
-function isGameLive(root) {
-  const mapCanvas = root.querySelector("[data-map-canvas]");
-  return (mapCanvas?.dataset.gamePhase || "").trim() === "live";
 }
 
 function getCityEventRunState(taskId) {
@@ -212,6 +226,21 @@ function resolveVisibleCharacterTasks(poolKey, tasks) {
   return [...activePinned, ...rotated];
 }
 
+function countActiveCharacterRuns(tasks, activeRuns, nowMs = Date.now()) {
+  const taskIds = new Set((Array.isArray(tasks) ? tasks : []).map((task) => String(task?.id || "").trim()).filter(Boolean));
+  if (!taskIds.size) return 0;
+
+  const activeIds = new Set();
+  (Array.isArray(activeRuns) ? activeRuns : []).forEach((entry) => {
+    const taskId = String(entry?.taskId || entry?.id || "").trim();
+    if (taskId && taskIds.has(taskId) && Number(entry?.endsAt || 0) > nowMs) {
+      activeIds.add(taskId);
+    }
+  });
+
+  return Math.min(MAX_VISIBLE_EVENTS_PER_CHARACTER, activeIds.size);
+}
+
 function resolveEventOutcomePool(task, wasSuccess) {
   const title = String(task?.title || "Event").trim();
   const risk = String(task?.risk || "Heat +0").trim();
@@ -234,6 +263,38 @@ function resolveRandomOutcomeLine(task, wasSuccess) {
   const pool = resolveEventOutcomePool(task, wasSuccess);
   const index = Math.max(0, Math.floor(Math.random() * pool.length)) % pool.length;
   return String(pool[index] || pool[0] || "").trim();
+}
+
+function createCityEventStreetNewsPayload(task, run) {
+  const durationSec = Math.max(1, Math.floor(Number(task?.durationSec || 1)));
+  const gains = Array.isArray(task?.gains) ? task.gains.filter(Boolean) : [];
+  const remainingSec = Math.max(0, Math.ceil((Number(run?.endsAt || 0) - Date.now()) / 1000));
+  return {
+    tone: "is-specialty-financial",
+    title: `City Event spuštěn: ${String(task?.title || "City Event").trim()}`,
+    taskTitle: String(task?.title || "City Event").trim(),
+    badge: "Probíhající úkol",
+    liveRowsKind: "city_event",
+    refreshMs: 1000,
+    syncToBuildingAction: false,
+    summary: `Úkol běží: ${String(task?.title || "City Event").trim()}. Klikni pro zbývající čas a možný zisk.`,
+    giver: String(task?.giver || AGENTS[task?.agentKey || ""]?.name || "-").trim(),
+    risk: String(task?.risk || "Nízké").trim(),
+    gains,
+    successRate: Math.max(0, Math.min(100, Math.floor(Number(task?.successRate || 0)))),
+    durationSec,
+    startedAt: Number(run?.startedAt || Date.now()),
+    endsAt: Number(run?.endsAt || Date.now() + (durationSec * 1000)),
+    rows: [
+      { label: "Stav", value: "Probíhá" },
+      { label: "Úkol", value: String(task?.title || "City Event").trim() },
+      { label: "Zbývá", value: `${remainingSec}s`, nowrap: true },
+      { label: "Zadavatel", value: String(task?.giver || AGENTS[task?.agentKey || ""]?.name || "-").trim() },
+      { label: "Úspěšnost", value: `${Math.max(0, Math.min(100, Math.floor(Number(task?.successRate || 0))))}%` },
+      { label: "Možný zisk", value: gains.length ? gains.join(", ") : "Bez garantované odměny" },
+      { label: "Riziko", value: String(task?.risk || "Nízké").trim() }
+    ]
+  };
 }
 
 function getTopbarInfluenceValue(root) {
@@ -444,13 +505,10 @@ function initCityEventsRuntime() {
     renderDetailChips(detailGains, task.gains, "gain");
     renderDetailChips(detailRisk, task.risk ? [task.risk] : [], "risk");
     if (detailAcceptBtn) {
-      const disabled = runState.active || !isGameLive(root);
-      detailAcceptBtn.disabled = disabled;
+      detailAcceptBtn.disabled = runState.active;
       detailAcceptBtn.textContent = runState.active
         ? `Probíhá (${runState.remainingSec}s)`
-        : isGameLive(root)
-          ? "Accept"
-          : "Mimo HRA";
+        : "Accept";
     }
     detailModal.classList.remove("hidden");
   };
@@ -547,18 +605,28 @@ function initCityEventsRuntime() {
       return false;
     }
     const durationSec = Math.max(1, Math.floor(Number(task?.durationSec || 1)));
+    const nowMs = Date.now();
+    const runEntry = {
+      id: taskId,
+      taskId,
+      startedAt: nowMs,
+      endsAt: nowMs + (durationSec * 1000)
+    };
     updateStoredCityEventsState((state) => ({
       ...state,
       activeRuns: [
         ...state.activeRuns,
-        {
-          id: taskId,
-          taskId,
-          startedAt: Date.now(),
-          endsAt: Date.now() + (durationSec * 1000)
-        }
+        runEntry
       ]
     }));
+    const newsPayload = createCityEventStreetNewsPayload(task, runEntry);
+    appendBuildingActionResultEntry(root, "police", newsPayload, {
+      id: `city-event-start-${taskId}-${runEntry.startedAt}`,
+      tone: "event",
+      title: `City Event spuštěn: ${task.title}`,
+      summary: newsPayload.summary,
+      meta: `${newsPayload.giver} · zbývá ${durationSec}s`
+    }, { syncPreview: true, forceLog: true });
     writeCityEventsInfo(`Event běží: ${task.title} • dokončení za ${durationSec}s`);
     if (selectedAgentKey) {
       renderTasks(selectedAgentKey);
@@ -567,26 +635,35 @@ function initCityEventsRuntime() {
   };
 
   const rotateCharacterEvents = () => {
+    const nowMs = Date.now();
+    const resolveNextPoolIndex = (poolKey, tasks, state) => {
+      const safeTasks = Array.isArray(tasks) ? tasks : [];
+      if (!safeTasks.length) return 0;
+      const currentIndex = Math.max(0, Number(state.poolIndexes?.[poolKey] || 0));
+      const activeCount = countActiveCharacterRuns(safeTasks, state.activeRuns, nowMs);
+      const refreshSlots = Math.max(0, MAX_VISIBLE_EVENTS_PER_CHARACTER - activeCount);
+      return (currentIndex + refreshSlots) % safeTasks.length;
+    };
+
     updateStoredCityEventsState((state) => ({
       ...state,
       poolIndexes: {
-        victor: (Math.max(0, Number(state.poolIndexes?.victor || 0)) + 1) % victorTasks.length,
-        leon: (Math.max(0, Number(state.poolIndexes?.leon || 0)) + 1) % leonTasks.length,
-        nira: (Math.max(0, Number(state.poolIndexes?.nira || 0)) + 1) % nyraTasks.length
+        victor: resolveNextPoolIndex("victor", victorTasks, state),
+        leon: resolveNextPoolIndex("leon", leonTasks, state),
+        nira: resolveNextPoolIndex("nira", nyraTasks, state)
       },
-      nextRefreshAt: Date.now() + (CHARACTER_EVENTS_REFRESH_SECONDS * 1000)
+      nextRefreshAt: nowMs + (CHARACTER_EVENTS_REFRESH_SECONDS * 1000)
     }));
   };
 
-  const syncRefreshLabel = () => {
+  const syncRefreshLabel = (nowMs = Date.now()) => {
     if (!eventsRefreshCountdown) return;
-    if (!isGameLive(root)) {
-      eventsRefreshCountdown.textContent = "refresh paused";
-      return;
-    }
     const state = getStoredCityEventsState();
-    const remainingSec = Math.max(0, Math.ceil((Number(state.nextRefreshAt || 0) - Date.now()) / 1000));
-    eventsRefreshCountdown.textContent = `refresh ${remainingSec}s`;
+    const remainingSec = Math.max(0, Math.ceil((Number(state.nextRefreshAt || 0) - nowMs) / 1000));
+    const nextText = `refresh ${remainingSec}s`;
+    if (eventsRefreshCountdown.textContent !== nextText) {
+      eventsRefreshCountdown.textContent = nextText;
+    }
   };
 
   openBtn.addEventListener("click", openModal);
@@ -637,13 +714,13 @@ function initCityEventsRuntime() {
     }
   });
 
-  const tick = () => {
+  const tick = (nowMs = Date.now()) => {
     const state = getStoredCityEventsState();
-    const expiredRuns = state.activeRuns.filter((entry) => Number(entry?.endsAt || 0) <= Date.now());
+    const expiredRuns = state.activeRuns.filter((entry) => Number(entry?.endsAt || 0) <= nowMs);
     expiredRuns.forEach((entry) => finalizeCityEventRun(entry.id));
 
     const refreshedState = getStoredCityEventsState();
-    if (isGameLive(root) && Number(refreshedState.nextRefreshAt || 0) <= Date.now()) {
+    if (Number(refreshedState.nextRefreshAt || 0) <= nowMs) {
       rotateCharacterEvents();
       if (selectedAgentKey && !modal.classList.contains("hidden")) {
         renderTasks(selectedAgentKey);
@@ -657,11 +734,22 @@ function initCityEventsRuntime() {
       const refreshedTask = taskLookup.get(String(selectedEventTask.id || "")) || selectedEventTask;
       openEventDetailModal(refreshedTask);
     }
-    syncRefreshLabel();
+    syncRefreshLabel(nowMs);
+  };
+
+  const syncCountdownTick = () => {
+    const nowMs = Date.now();
+    const state = getStoredCityEventsState();
+    if (Number(state.nextRefreshAt || 0) <= nowMs) {
+      tick(nowMs);
+      return;
+    }
+    syncRefreshLabel(nowMs);
   };
 
   tick();
   window.setInterval(tick, 1000);
+  window.setInterval(syncCountdownTick, CHARACTER_EVENTS_COUNTDOWN_SYNC_MS);
 }
 
 if (typeof document !== "undefined") {

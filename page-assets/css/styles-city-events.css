@@ -189,15 +189,19 @@
 
 #events-modal .modal__close,
 #event-detail-modal .modal__close {
-  width: 28px;
-  height: 28px;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
   border-radius: 999px;
   border: 1px solid rgba(103, 232, 249, 0.34);
   background:
     radial-gradient(circle at 30% 30%, rgba(244, 114, 182, 0.16), transparent 42%),
     linear-gradient(180deg, rgba(8, 20, 36, 0.96), rgba(5, 9, 18, 0.94));
   color: #8ff6ff;
-  font-size: 0.84rem;
+  font-size: 0.72rem;
   line-height: 1;
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.04),
@@ -236,6 +240,14 @@
   z-index: 430;
 }
 
+#events-modal .events-modal__content > .modal__header {
+  padding: 0 34px 10px 0;
+}
+
+#event-detail-modal .event-detail-modal__content > .modal__header {
+  padding: 12px 34px 12px 14px;
+}
+
 @media (min-width: 781px) {
   #events-modal,
   #event-detail-modal {
@@ -252,7 +264,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding-right: 4px;
+  padding: 0 4px 0 0;
 }
 
 .events-modal__agents {
@@ -811,7 +823,7 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    padding-right: 2px;
+    padding: 0 2px 0 0;
     touch-action: pan-y;
   }
 

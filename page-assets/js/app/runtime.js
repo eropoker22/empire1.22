@@ -3353,26 +3353,30 @@ function openPoliceActionResultModal(root, payload = {}) {
   title.textContent = payload.title || "Policejní akce";
   badge.textContent = payload.badge || "Policejní zásah";
   summary.textContent = payload.summary || "";
+  let cityEventRowsRendered = false;
   const renderRows = () => {
-    const resolvedRows = typeof payload.getRows === "function"
-      ? payload.getRows()
-      : (payload.rows || []);
+    const cityEventRemainingMs = String(payload.liveRowsKind || "") === "city_event" ? Math.max(0, Number(payload.endsAt || 0) - Date.now()) : null;
+    if (cityEventRemainingMs !== null && cityEventRowsRendered) { const values = details.querySelectorAll(".modal__row strong"); if (values[0]) values[0].textContent = cityEventRemainingMs > 0 ? "Probíhá" : "Doběhnuto"; if (values[2]) values[2].textContent = cityEventRemainingMs > 0 ? formatDurationLabel(cityEventRemainingMs) : "0s"; return; }
+    const resolvedRows = cityEventRemainingMs === null
+      ? (typeof payload.getRows === "function" ? payload.getRows() : (payload.rows || []))
+      : [["Stav", cityEventRemainingMs > 0 ? "Probíhá" : "Doběhnuto"], ["Úkol", String(payload.taskTitle || payload.title || "City Event")],
+        ["Zbývá", cityEventRemainingMs > 0 ? formatDurationLabel(cityEventRemainingMs) : "0s", true], ["Úspěšnost", `${Math.max(0, Math.min(100, Math.floor(Number(payload.successRate || 0))))}%`],
+        ["Možný zisk", Array.isArray(payload.gains) && payload.gains.length ? payload.gains.join(", ") : "Bez garantované odměny"], ["Riziko", String(payload.risk || "Nízké")]]
+        .map(([label, value, nowrap]) => ({ label, value, nowrap: Boolean(nowrap) }));
     if (!renderPoliceRaidImpactDetails(details, payload, resolvedRows)) {
       renderActionResultRows(details, resolvedRows);
     }
+    cityEventRowsRendered = cityEventRemainingMs !== null;
   };
   renderRows();
   modal.classList.remove("hidden");
-
-  if (typeof payload.getRows === "function" && Number(payload.refreshMs || 0) > 0) {
+  if ((typeof payload.getRows === "function" || String(payload.liveRowsKind || "") === "city_event") && Number(payload.refreshMs || 0) > 0) {
     policeActionResultLiveTimerId = window.setInterval(() => {
       if (modal.classList.contains("hidden")) {
         clearPoliceActionResultLiveTimer();
         return;
       }
-
       renderRows();
-
       if (typeof payload.autoCloseWhen === "function" && payload.autoCloseWhen()) {
         clearPoliceActionResultLiveTimer();
         closePoliceActionResultModal(root);
@@ -3478,7 +3482,7 @@ function cloneBuildingActionResultPayload(payload) {
   };
 }
 
-function appendBuildingActionResultEntry(root, kind, payload, snapshot = {}) {
+function appendBuildingActionResultEntry(root, kind, payload, snapshot = {}, options = {}) {
   const normalizedPayload = cloneBuildingActionResultPayload(payload);
   const title = String(payload?.title || snapshot.title || "Uliční zpráva").trim();
   const summary = String(payload?.summary || snapshot.summary || "Bez detailu.").trim();
@@ -3492,7 +3496,7 @@ function appendBuildingActionResultEntry(root, kind, payload, snapshot = {}) {
     meta,
     resultKind: kind,
     resultPayload: normalizedPayload
-  }, { syncPreview: false });
+  }, { syncPreview: Boolean(options.syncPreview), forceLog: Boolean(options.forceLog) });
 }
 
 function resolveBuildingActionPanel(root) {
@@ -3706,7 +3710,7 @@ function renderBuildingActionFeed(root, { syncPreview = false, previewSnapshot =
   }
 }
 
-function appendBuildingActionEntry(root, snapshot, { syncPreview = false } = {}) {
+function appendBuildingActionEntry(root, snapshot, { syncPreview = false, forceLog = false } = {}) {
   const panel = resolveBuildingActionPanel(root);
   if (!panel) {
     return;
@@ -3720,12 +3724,12 @@ function appendBuildingActionEntry(root, snapshot, { syncPreview = false } = {})
     return;
   }
 
-  if (!entry.resultKind || !entry.resultPayload) {
+  if (!forceLog && (!entry.resultKind || !entry.resultPayload)) {
     renderBuildingActionFeed(root, { syncPreview, previewSnapshot: entry });
     return;
   }
 
-  if (panel.entries[0] && createBuildingActionFingerprint(panel.entries[0]) === fingerprint) {
+  if (!forceLog && panel.entries[0] && createBuildingActionFingerprint(panel.entries[0]) === fingerprint) {
     renderBuildingActionFeed(root, { syncPreview, previewSnapshot: entry });
     return;
   }
@@ -3774,7 +3778,7 @@ function scheduleBuildingActionMutationCapture(root) {
   });
 }
 
-function setBuildingActionFeedback(root, tone, title, summary, meta = "") {
+function setBuildingActionFeedback(root, tone, title, summary, meta = "", options = {}) {
   const snapshot = normalizeBuildingActionSnapshot({
     tone,
     title,
@@ -3783,7 +3787,7 @@ function setBuildingActionFeedback(root, tone, title, summary, meta = "") {
   });
 
   syncBuildingActionSource(root, snapshot);
-  appendBuildingActionEntry(root, snapshot, { syncPreview: false });
+  appendBuildingActionEntry(root, snapshot, { syncPreview: false, forceLog: Boolean(options.forceLog) });
 }
 
 function completeAttackOrder(root, orderId) {
@@ -4444,33 +4448,21 @@ const PRODUCTION_BUILDING_CONFIG = Object.freeze({
     title: "Výroba látek",
     upgradeBaseCost: 3200,
     infoText: "Lékárna drží základní chemické vstupy pro další výrobu. Je to první vrstva produkčního řetězce mezi materiálem a finálním produktem.",
-    infoActions: Object.freeze([
-      "+ Vybrat hotové přesune dokončené dávky do skladu materiálů.",
-      "⇪ Upgrade zvyšuje rychlost výroby celé budovy o 10 % za level.",
-      "Chemicals, Biomass a Stim Pack napájí recepty v Labu."
-    ])
+    infoActions: Object.freeze(["+ Vybrat hotové přesune dokončené dávky do skladu materiálů.", "⇪ Upgrade zvyšuje rychlost výroby celé budovy o 10 % za level.", "Chemicals, Biomass a Stim Pack napájí recepty v Labu."])
   }),
   druglab: Object.freeze({
     label: "Lab",
     title: "Výroba drug balíků",
     upgradeBaseCost: 4200,
     infoText: "Lab přetváří látky z Lékárny na finální balíky pro distribuci. Vyšší level zkracuje craft a zrychluje obrat celé nelegální produkce.",
-    infoActions: Object.freeze([
-      "+ Vybrat hotové přesune dokončené balíky do skladu drog.",
-      "⇪ Upgrade zvyšuje rychlost craftu všech receptů v Labu.",
-      "Lab spotřebovává Chemicals, Biomass a Stim Pack z materiálového skladu."
-    ])
+    infoActions: Object.freeze(["+ Vybrat hotové přesune dokončené balíky do skladu drog.", "⇪ Upgrade zvyšuje rychlost craftu všech receptů v Labu.", "Lab spotřebovává Chemicals, Biomass a Stim Pack z materiálového skladu."])
   }),
   armory: Object.freeze({
     label: "Zbrojovka",
     title: "Výroba výzbroje",
     upgradeBaseCost: 5200,
     infoText: "Zbrojovka převádí Metal Parts a Tech Core na útočné i obranné vybavení. Je to hlavní zdroj výzbroje pro útoky i defense loadouty districtů.",
-    infoActions: Object.freeze([
-      "+ Vybrat hotové přesune zbraně do skladu výzbroje.",
-      "⇪ Upgrade zvyšuje rychlost výroby zbrojovky o 10 % za level.",
-      "Zbrojovka bere Metal Parts a Tech Core z materiálového skladu."
-    ])
+    infoActions: Object.freeze(["+ Vybrat hotové přesune zbraně do skladu výzbroje.", "⇪ Upgrade zvyšuje rychlost výroby zbrojovky o 10 % za level.", "Zbrojovka bere Metal Parts a Tech Core z materiálového skladu."])
   })
 });
 
@@ -4726,7 +4718,7 @@ function createArmoryMaterialsRow(inputs = {}) {
   return row;
 }
 
-function createProductionQuantityControl({ recipe, job, startButton, timeMetric, queueMetric, effectiveDurationMs, extraClass = "" }) {
+function createProductionQuantityControl({ recipe, job, startButton, timeMetric, queueMetric, effectiveDurationMs, costMetric = null, queueAsBatches = false, resetQuantityOnJob = false, extraClass = "" }) {
   let selectedBatches = 1;
   const control = document.createElement("div"), minusButton = document.createElement("button"), plusButton = document.createElement("button"), quantityValue = document.createElement("strong");
   control.className = `armory-slot__quantity${extraClass ? ` ${extraClass}` : ""}`;
@@ -4736,21 +4728,24 @@ function createProductionQuantityControl({ recipe, job, startButton, timeMetric,
   minusButton.textContent = "−"; plusButton.textContent = "+";
   minusButton.setAttribute("aria-label", `Ubrat výrobu ${recipe.name}`); plusButton.setAttribute("aria-label", `Přidat výrobu ${recipe.name}`);
   control.append(minusButton, quantityValue, plusButton);
-  const getMaxBatches = () => Math.min(99, ...Object.entries(recipe.inputs || {}).map(([itemId, amount]) => Math.floor(getInventoryAmount("materials", itemId) / Math.max(1, Number(amount || 0)))));
+  const cleanCost = Math.max(0, Number(recipe.cleanMoneyCost || 0)), setMetricValue = (metric, value) => metric?.querySelector(".drug-production-slot__metric-value,.drug-production-slot__metric-inline-value,.pharmacy-slot__metric-value")?.replaceChildren(document.createTextNode(value));
+  const getMaxBatches = () => Math.min(99, cleanCost ? Math.floor(Number(getResolvedEconomyState().cleanMoney || 0) / cleanCost) : 99, ...Object.entries(recipe.inputs || {}).map(([itemId, amount]) => Math.floor(getInventoryAmount("materials", itemId) / Math.max(1, Number(amount || 0)))));
   const refresh = () => {
     const maxBatches = Math.max(0, getMaxBatches()), outputAmount = Math.max(1, Number(recipe.output.amount || 1));
     selectedBatches = Math.min(Math.max(1, selectedBatches), Math.max(1, maxBatches));
     const queuedAmount = Number(job?.output?.amount || outputAmount * selectedBatches || 0);
-    quantityValue.textContent = String(job ? Math.max(1, Math.ceil(queuedAmount / outputAmount)) : selectedBatches);
+    const visibleBatches = job ? Math.max(1, Math.ceil(queuedAmount / outputAmount)) : selectedBatches;
+    quantityValue.textContent = String(job && resetQuantityOnJob ? 0 : visibleBatches);
     minusButton.disabled = !!job || selectedBatches <= 1; plusButton.disabled = !!job || selectedBatches >= maxBatches; startButton.disabled = !!job || selectedBatches > maxBatches;
-    timeMetric.querySelector(".drug-production-slot__metric-value").textContent = formatDurationLabel(Number(job?.durationMs || effectiveDurationMs * selectedBatches));
-    queueMetric.querySelector(".drug-production-slot__metric-inline-value").textContent = `${queuedAmount} ks`;
+    setMetricValue(timeMetric, formatDurationLabel(Number(job?.durationMs || effectiveDurationMs * selectedBatches)));
+    setMetricValue(queueMetric, queueAsBatches ? String(job ? Math.max(1, Math.floor(Number(job.quantity || visibleBatches))) : 0) : `${queuedAmount} ks`);
+    if (costMetric) setMetricValue(costMetric, cleanCost ? `${formatCurrency(cleanCost * visibleBatches)} clean` : "-");
   };
   minusButton.addEventListener("click", () => { selectedBatches -= 1; refresh(); }); plusButton.addEventListener("click", () => { selectedBatches += 1; refresh(); });
   return { control, getStartBatchCount: () => selectedBatches, refresh };
 }
 
-function createProductionCard(buildingName, recipeId, recipeKey, recipe, rerender) {
+function createProductionCard(root, buildingName, recipeId, recipeKey, recipe, rerender) {
   const job = getProductionJob(recipeKey);
   const buildingState = getStoredProductionBuildingState(buildingName);
   const durationMultiplier = getProductionBuildingMultiplier(buildingName, buildingState.level);
@@ -4798,16 +4793,23 @@ function createProductionCard(buildingName, recipeId, recipeKey, recipe, rerende
 
     const metrics = document.createElement("div");
     metrics.className = "pharmacy-slot__metrics";
+    const timeMetric = createPharmacyMetricBlock("Čas", formatDurationLabel(Number(job?.durationMs || effectiveDurationMs)));
+    const queueMetric = createPharmacyMetricBlock("Ve frontě", "0");
+    const costMetric = createPharmacyMetricBlock("Cena", formatCurrency(Number(recipe.cleanMoneyCost || 0)));
     metrics.append(
       createPharmacyMetricBlock("Výstup", `${recipe.output.amount} ks`),
-      createPharmacyMetricBlock("Čas", formatDurationLabel(effectiveDurationMs))
+      timeMetric,
+      costMetric,
+      queueMetric
     );
 
     const actions = document.createElement("div");
     actions.className = "pharmacy-slot__actions";
+    const quantityControl = createProductionQuantityControl({ recipe, job, startButton, timeMetric, queueMetric, effectiveDurationMs, costMetric, queueAsBatches: true, resetQuantityOnJob: true, extraClass: "pharmacy-slot__quantity" });
+    getStartBatchCount = quantityControl.getStartBatchCount; refreshQuantityControl = quantityControl.refresh;
     startButton.className = "button pharmacy-slot__btn pharmacy-slot__btn--start";
     collectButton.className = "button pharmacy-slot__btn pharmacy-slot__btn--stop";
-    actions.append(startButton, collectButton);
+    actions.append(quantityControl.control, startButton, collectButton);
     card.append(head, metrics, actions);
   } else if (buildingName === "druglab") {
     card.className = slotState.isActive
@@ -4930,12 +4932,14 @@ function createProductionCard(buildingName, recipeId, recipeKey, recipe, rerende
     const batchCount = Math.max(1, getStartBatchCount());
     const requiredInputs = getScaledProductionInputs(recipe.inputs || {}, batchCount);
     const durationMs = effectiveDurationMs * batchCount;
-    if (!hasEnoughMaterials(requiredInputs)) {
+    const cleanCost = Math.max(0, Number(recipe.cleanMoneyCost || 0) * batchCount), economyState = getResolvedEconomyState();
+    if (!hasEnoughMaterials(requiredInputs) || economyState.cleanMoney < cleanCost) {
       rerender();
       return;
     }
 
     consumeMaterials(requiredInputs);
+    if (cleanCost > 0) setStoredEconomyState({ ...economyState, cleanMoney: economyState.cleanMoney - cleanCost });
     persistProductionJob(recipeKey, {
       status: "running",
       readyAt: new Date(Date.now() + durationMs).toISOString(),
@@ -4967,6 +4971,7 @@ function createProductionCard(buildingName, recipeId, recipeKey, recipe, rerende
       if (!currentJob || currentJob.status !== "ready") return rerender();
       applyInventoryOutput(currentJob.output);
       clearProductionJob(recipeKey);
+      setBuildingActionFeedback(root, "success", PRODUCTION_BUILDING_CONFIG[buildingName]?.label || "Budova", `${getProductionResourceLabel(currentJob.output?.itemId)} přesunuto do skladu.`, `Vyzvednuto ${Math.max(0, Number(currentJob.output?.amount || 0))} ks.`, { forceLog: true });
       rerender();
     });
   }
@@ -4995,7 +5000,7 @@ function renderProductionPanel(root, panelName, recipes, rerender) {
       };
 
   for (const [recipeId, recipe] of Object.entries(recipes)) {
-    mount.append(createProductionCard(panelName, recipeId, `${panelName}:${recipeId}`, recipe, safeRerender));
+    mount.append(createProductionCard(root, panelName, recipeId, `${panelName}:${recipeId}`, recipe, safeRerender));
   }
 }
 
@@ -5132,13 +5137,7 @@ function bindProductionBuildingPopup(root, {
         return;
       }
 
-      setBuildingActionFeedback(
-        root,
-        "success",
-        config?.label || "Budova",
-        `${config?.label || "Budova"} přesunula hotovou výrobu do skladu.`,
-        `Vyzvednuto ${collected} ks · ${getProductionBuildingEffectsLabel(buildingName, getStoredProductionBuildingState(buildingName).level)}`
-      );
+      setBuildingActionFeedback(root, "success", config?.label || "Budova", `${config?.label || "Budova"} přesunula hotovou výrobu do skladu.`, `Vyzvednuto ${collected} ks · ${getProductionBuildingEffectsLabel(buildingName, getStoredProductionBuildingState(buildingName).level)}`, { forceLog: true });
     });
   }
 
@@ -15388,7 +15387,7 @@ function bindFactoryPopup(root) {
       return;
     }
 
-    setBuildingActionFeedback(root, "success", "Továrna", "Továrna přesunula hotovou výrobu do skladu.", `Vyzvednuto ${collected} ks.`);
+    setBuildingActionFeedback(root, "success", "Továrna", "Továrna přesunula hotovou výrobu do skladu.", `Vyzvednuto ${collected} ks.`, { forceLog: true });
   });
 
   upgradeButton.addEventListener("click", () => {
@@ -15708,6 +15707,7 @@ export {
   addGangHeat,
   applyFactionPreview,
   applyTopbarEconomy,
+  appendBuildingActionResultEntry,
   bindAlliancePopup,
   bindArmoryPopup,
   bindAttackOrders,

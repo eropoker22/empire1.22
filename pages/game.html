@@ -844,28 +844,35 @@
       <div class="wanted-popup-shell" data-wanted-popup hidden>
         <div class="wanted-popup-backdrop" data-wanted-popup-close></div>
         <div class="wanted-popup-card" role="dialog" aria-modal="true" aria-label="Hledanost gangu">
-          <button type="button" class="button wanted-popup-close" data-wanted-popup-close aria-label="Zavřít heat panel">✕</button>
-          <span class="wanted-popup-eyebrow">Police / Heat</span>
-          <div class="wanted-popup-hero">
-            <div class="wanted-popup-hero__copy">
-              <div class="wanted-popup-value" data-wanted-popup-heat>10</div>
-              <h3 class="wanted-popup-title" data-wanted-popup-tier>Nízký heat</h3>
-              <p class="wanted-popup-copy" data-wanted-popup-description>Lehký dohled. Gang je skoro pod radarem.</p>
-            </div>
-            <div class="wanted-popup-meta">
-              <p class="wanted-popup-row wanted-popup-row--compact">Tier <span data-wanted-popup-level>1 / 6</span></p>
-              <p class="wanted-popup-row wanted-popup-row--compact">Ochrana <span data-wanted-popup-protection>Bez ochrany</span></p>
-            </div>
+          <div class="wanted-popup-header">
+            <h3>Heat</h3>
+            <button type="button" class="button wanted-popup-close" data-wanted-popup-close aria-label="Zavřít heat panel">✕</button>
           </div>
-          <div class="wanted-popup-actions">
-            <button type="button" class="button wanted-popup-action wanted-popup-action--dirty" data-wanted-popup-dirty>Snížit dirty cash</button>
-            <button type="button" class="button wanted-popup-action wanted-popup-action--clean" data-wanted-popup-clean>Snížit clean cash</button>
-          </div>
-          <div class="wanted-popup-cost-row">
-            <span class="wanted-popup-cost" data-wanted-popup-dirty-cost>$500 dirty • -10 heat</span>
-            <span class="wanted-popup-cost" data-wanted-popup-clean-cost>$300 clean • -15 heat</span>
+          <div class="wanted-popup-top">
+            <div class="wanted-popup-hero">
+              <div class="wanted-popup-hero__copy">
+                <div class="wanted-popup-value" data-wanted-popup-heat>10</div>
+                <h3 class="wanted-popup-title" data-wanted-popup-tier>Nízký heat</h3>
+                <p class="wanted-popup-copy" data-wanted-popup-description>Lehký dohled. Gang je skoro pod radarem.</p>
+              </div>
+              <div class="wanted-popup-meta">
+                <p class="wanted-popup-row wanted-popup-row--compact">Tier <span data-wanted-popup-level>1 / 6</span></p>
+                <p class="wanted-popup-row wanted-popup-row--compact">Ochrana <span data-wanted-popup-protection>Bez ochrany</span></p>
+              </div>
+            </div>
+            <div class="wanted-popup-side">
+              <div class="wanted-popup-actions">
+                <button type="button" class="button wanted-popup-action wanted-popup-action--dirty" data-wanted-popup-dirty>Snížit dirty cash</button>
+                <button type="button" class="button wanted-popup-action wanted-popup-action--clean" data-wanted-popup-clean>Snížit clean cash</button>
+              </div>
+              <div class="wanted-popup-cost-row">
+                <span class="wanted-popup-cost" data-wanted-popup-dirty-cost>$500 dirty • -10 heat</span>
+                <span class="wanted-popup-cost" data-wanted-popup-clean-cost>$300 clean • -15 heat</span>
+              </div>
+            </div>
           </div>
           <div class="wanted-popup-feedback" data-wanted-popup-feedback hidden></div>
+          <div class="wanted-popup-levels" data-wanted-popup-levels></div>
           <div class="wanted-popup-grid">
             <section class="wanted-popup-panel">
               <h4 class="wanted-popup-panel__title">Proč heat roste</h4>
@@ -874,13 +881,12 @@
             <section class="wanted-popup-panel">
               <div class="wanted-popup-panel__head">
                 <h4 class="wanted-popup-panel__title">Proč heat klesá</h4>
-                <button type="button" class="button wanted-popup-clear" data-wanted-popup-clear-log aria-label="Smazat heat log">Smazat log</button>
+                <button type="button" class="wanted-popup-clear" data-wanted-popup-clear-log aria-label="Smazat heat log" title="Smazat heat log">
+                  <span class="wanted-popup-clear__icon" aria-hidden="true"></span>
+                  <span class="wanted-popup-clear__text">Smazat log</span>
+                </button>
               </div>
               <div class="wanted-popup-list" data-wanted-popup-fall-list></div>
-            </section>
-            <section class="wanted-popup-panel wanted-popup-panel--levels">
-              <h4 class="wanted-popup-panel__title">Stupně heatu</h4>
-              <div class="wanted-popup-levels" data-wanted-popup-levels></div>
             </section>
           </div>
         </div>
@@ -1064,7 +1070,6 @@
                   <strong class="building-tech-popup-stat-card__value" data-production-building-upgrade-cost>$0</strong>
                 </article>
               </div>
-              <p class="building-tech-popup-effects" data-production-building-effects>Zbrojovka · základní produkční rychlost</p>
               <div class="building-detail-actions">
                 <div class="building-detail-actions__group">
                   <div class="building-detail-actions__label">Produkce</div>
@@ -1078,24 +1083,6 @@
               <div class="building-info-card__head">
                 <h4 class="building-info-card__title">Profil budovy</h4>
                 <p class="building-info-card__subtitle">Výroba zbraní pro útok i obranu districtů.</p>
-              </div>
-              <div class="building-info-card__stats">
-                <div class="building-info-card__stat">
-                  <span>Recepty</span>
-                  <strong>10 loadoutů</strong>
-                </div>
-                <div class="building-info-card__stat">
-                  <span>Vstupy</span>
-                  <strong>Metal + Tech</strong>
-                </div>
-                <div class="building-info-card__stat">
-                  <span>Role</span>
-                  <strong>ATK / DEF</strong>
-                </div>
-                <div class="building-info-card__stat">
-                  <span>Řetězec</span>
-                  <strong>Továrna → Zbrojovka</strong>
-                </div>
               </div>
               <div class="building-info-card__section">
                 <h5>Popis budovy</h5>
@@ -1223,7 +1210,6 @@
                   <strong class="building-tech-popup-stat-card__value" data-production-building-upgrade-cost>$0</strong>
                 </article>
               </div>
-              <p class="building-tech-popup-effects" data-production-building-effects>Lékárna · základní produkční rychlost</p>
               <div class="building-detail-actions">
                 <div class="building-detail-actions__group">
                   <div class="building-detail-actions__label">Produkce</div>
@@ -1237,24 +1223,6 @@
               <div class="building-info-card__head">
                 <h4 class="building-info-card__title">Profil budovy</h4>
                 <p class="building-info-card__subtitle">První vrstva produkce pro Chemicals, Biomass a Stim Pack.</p>
-              </div>
-              <div class="building-info-card__stats">
-                <div class="building-info-card__stat">
-                  <span>Recepty</span>
-                  <strong>3 materiály</strong>
-                </div>
-                <div class="building-info-card__stat">
-                  <span>Výstup</span>
-                  <strong>Tier I supply</strong>
-                </div>
-                <div class="building-info-card__stat">
-                  <span>Role</span>
-                  <strong>Chain base</strong>
-                </div>
-                <div class="building-info-card__stat">
-                  <span>Napojení</span>
-                  <strong>Lékárna → Lab</strong>
-                </div>
               </div>
               <div class="building-info-card__section">
                 <h5>Popis budovy</h5>
@@ -1358,7 +1326,6 @@
                   <strong class="building-tech-popup-stat-card__value" data-production-building-ready>0/5</strong>
                 </article>
               </div>
-              <p class="building-tech-popup-effects" data-production-building-effects>Lab · základní produkční rychlost</p>
               <div class="building-detail-actions">
                 <div class="building-detail-actions__group">
                   <div class="building-detail-actions__label">Produkce</div>
@@ -1372,24 +1339,6 @@
               <div class="building-info-card__head">
                 <h4 class="building-info-card__title">Profil budovy</h4>
                 <p class="building-info-card__subtitle">Finální chemický mix pro distribuci a vyšší výnosy.</p>
-              </div>
-              <div class="building-info-card__stats">
-                <div class="building-info-card__stat">
-                  <span>Recepty</span>
-                  <strong>5 balíků</strong>
-                </div>
-                <div class="building-info-card__stat">
-                  <span>Výstup</span>
-                  <strong>Street product</strong>
-                </div>
-                <div class="building-info-card__stat">
-                  <span>Role</span>
-                  <strong>Finální craft</strong>
-                </div>
-                <div class="building-info-card__stat">
-                  <span>Napojení</span>
-                  <strong>Lab → Market</strong>
-                </div>
               </div>
               <div class="building-info-card__section">
                 <h5>Popis budovy</h5>
@@ -1537,24 +1486,6 @@
               <div class="building-info-card__head">
                 <h4 class="building-info-card__title">Profil budovy</h4>
                 <p class="building-info-card__subtitle">Výroba Metal Parts, Tech Core a Combat Module pro další bojové systémy.</p>
-              </div>
-              <div class="building-info-card__stats">
-                <div class="building-info-card__stat">
-                  <span>Sloty</span>
-                  <strong>3 linky</strong>
-                </div>
-                <div class="building-info-card__stat">
-                  <span>Výstup</span>
-                  <strong>Parts / Core / Module</strong>
-                </div>
-                <div class="building-info-card__stat">
-                  <span>Role</span>
-                  <strong>Infrastructure</strong>
-                </div>
-                <div class="building-info-card__stat">
-                  <span>Napojení</span>
-                  <strong>Továrna → Zbrojovka</strong>
-                </div>
               </div>
               <div class="building-info-card__section">
                 <h5>Popis budovy</h5>

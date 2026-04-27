@@ -28,9 +28,9 @@ export const DEFAULT_DRUG_INVENTORY = {
 export const MARKET_PRICE_REFRESH_MS = 45_000;
 
 export const PHARMACY_RECIPES = {
-  chemicals: { name: "Chemicals", output: { inventory: "materials", itemId: "chemicals", amount: 20 }, durationMs: 16_000 },
-  biomass: { name: "Biomass", output: { inventory: "materials", itemId: "biomass", amount: 16 }, durationMs: 18_000 },
-  "stim-pack": { name: "Stim Pack", output: { inventory: "materials", itemId: "stim-pack", amount: 8 }, durationMs: 24_000 }
+  chemicals: { name: "Chemicals", cleanMoneyCost: 360, output: { inventory: "materials", itemId: "chemicals", amount: 20 }, durationMs: 16_000 },
+  biomass: { name: "Biomass", cleanMoneyCost: 320, output: { inventory: "materials", itemId: "biomass", amount: 16 }, durationMs: 18_000 },
+  "stim-pack": { name: "Stim Pack", cleanMoneyCost: 780, output: { inventory: "materials", itemId: "stim-pack", amount: 8 }, durationMs: 24_000 }
 };
 
 export const FACTORY_CONFIG = Object.freeze({

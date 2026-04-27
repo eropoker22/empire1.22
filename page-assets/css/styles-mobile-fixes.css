@@ -232,6 +232,13 @@
     position: relative;
   }
 
+  .wanted-popup-card {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+  }
+
   .modal__close,
   .district-popup-close,
   .attack-setup-popup-close,
@@ -319,6 +326,30 @@
     z-index: 1;
   }
 
+  #events-modal .modal__close,
+  #event-detail-modal .modal__close,
+  .wanted-popup-card .wanted-popup-close {
+    top: -2px !important;
+    right: -2px !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+  }
+
+  #events-modal .modal__close::after,
+  #event-detail-modal .modal__close::after,
+  .wanted-popup-card .wanted-popup-close::after {
+    inset: 5px !important;
+  }
+
+  #events-modal .modal__close::before,
+  #event-detail-modal .modal__close::before,
+  .wanted-popup-card .wanted-popup-close::before {
+    inset: 5px !important;
+    font-size: 14px !important;
+  }
+
   .game-admin-slice-overlay__header {
     padding-right: 48px;
   }
@@ -391,6 +422,70 @@
   .factory-stat-card {
     min-width: 0;
     padding: 10px !important;
+  }
+
+  .pharmacy-popup-card.building-detail-modal__content .building-tech-popup-overview-grid {
+    gap: 6px !important;
+  }
+
+  .druglab-popup-card.building-detail-modal__content .building-tech-popup-overview-grid {
+    gap: 6px !important;
+  }
+
+  .armory-popup-card.building-detail-modal__content .building-tech-popup-overview-grid,
+  .factory-popup-card.building-detail-modal__content .factory-overview-grid {
+    gap: 6px !important;
+  }
+
+  .pharmacy-popup-card.building-detail-modal__content .building-tech-popup-stat-card {
+    padding: 6px 7px !important;
+    border-radius: 9px !important;
+  }
+
+  .druglab-popup-card.building-detail-modal__content .building-tech-popup-stat-card {
+    padding: 6px 7px !important;
+    border-radius: 9px !important;
+  }
+
+  .armory-popup-card.building-detail-modal__content .building-tech-popup-stat-card,
+  .factory-popup-card.building-detail-modal__content .building-tech-popup-stat-card {
+    padding: 6px 7px !important;
+    border-radius: 9px !important;
+  }
+
+  .pharmacy-popup-card.building-detail-modal__content .building-tech-popup-stat-card__label {
+    font-size: 8px !important;
+    letter-spacing: 0.06em !important;
+  }
+
+  .druglab-popup-card.building-detail-modal__content .building-tech-popup-stat-card__label {
+    font-size: 8px !important;
+    letter-spacing: 0.06em !important;
+  }
+
+  .armory-popup-card.building-detail-modal__content .building-tech-popup-stat-card__label,
+  .factory-popup-card.building-detail-modal__content .building-tech-popup-stat-card__label {
+    font-size: 8px !important;
+    letter-spacing: 0.06em !important;
+  }
+
+  .pharmacy-popup-card.building-detail-modal__content .building-tech-popup-stat-card__value {
+    margin-top: 2px !important;
+    font-size: 13px !important;
+    line-height: 1.05 !important;
+  }
+
+  .druglab-popup-card.building-detail-modal__content .building-tech-popup-stat-card__value {
+    margin-top: 2px !important;
+    font-size: 13px !important;
+    line-height: 1.05 !important;
+  }
+
+  .armory-popup-card.building-detail-modal__content .building-tech-popup-stat-card__value,
+  .factory-popup-card.building-detail-modal__content .building-tech-popup-stat-card__value {
+    margin-top: 2px !important;
+    font-size: 13px !important;
+    line-height: 1.05 !important;
   }
 
   .building-tech-popup-stat-card__value,
@@ -488,6 +583,25 @@
   .armory-popup-card.building-detail-modal__content .armory-slot__materials-row {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 6px !important;
+  }
+
+  .armory-popup-card.building-detail-modal__content .armory-slot,
+  .factory-popup-card.building-detail-modal__content .factory-slot {
+    padding: 10px !important;
+    border-radius: 14px !important;
+  }
+
+  .armory-popup-card.building-detail-modal__content .armory-slot .drug-production-slot__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  .armory-popup-card.building-detail-modal__content .armory-slot .drug-production-slot__metric {
+    padding: 7px 6px !important;
+  }
+
+  .armory-popup-card.building-detail-modal__content .armory-slot .drug-production-slot__metric--supplies {
+    grid-column: 1 / -1;
   }
 
   .armory-popup-card.building-detail-modal__content .armory-slot__material-pill {
