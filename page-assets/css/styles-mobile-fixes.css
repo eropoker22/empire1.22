@@ -1,4 +1,12 @@
 @media (max-width: 720px), (hover: none) and (pointer: coarse) {
+  html.game-modal-scroll-locked {
+    --mobile-topbar-offset: 0px !important;
+  }
+
+  body.game-modal-scroll-locked .game-topbar {
+    display: none !important;
+  }
+
   .game-topbar-inner {
     display: grid !important;
     grid-template-columns: 1fr !important;
