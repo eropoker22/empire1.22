@@ -7783,7 +7783,7 @@ const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   }),
   tovarna: Object.freeze({
     role: "Průmyslová výroba",
-    info: "Továrna vyrábí Metal Parts, Tech Core a Combat Module pro zbrojovku, útoky a průmyslové boosty.",
+    info: "Továrna vyrábí Metal Parts, Tech Core a Combat Module pro zbrojovku, útoky a průmyslové linky.",
     actions: Object.freeze(["Combat module run", "Rapid assembly", "Industrial overdrive"])
   }),
   zbrojovka: Object.freeze({
@@ -15123,7 +15123,6 @@ function bindFactoryPopup(root) {
     || !ownedCountElement || !upgradeCostElement || !metalElement || !techElement || !combatElement
     || !effectsLabelElement || !upgradeButton
     || !collectButton
-    || !activeBoostElement
   ) {
     return;
   }
@@ -15181,10 +15180,14 @@ function bindFactoryPopup(root) {
       ? `Vybrat hotové do skladu (${collectableAmount})`
       : "Vybrat hotové do skladu";
     collectButton.setAttribute("aria-label", collectButton.title);
-    const activeBoost = getFactoryActiveBoost();
-    activeBoostElement.textContent = activeBoost
-      ? `${activeBoost.label} · ${Math.max(0, Math.ceil((new Date(activeBoost.expiresAt).getTime() - Date.now()) / 1000))}s`
-      : "Žádný aktivní";
+    const activeBoost = activeBoostElement || boostButtons.length > 0
+      ? getFactoryActiveBoost()
+      : null;
+    if (activeBoostElement) {
+      activeBoostElement.textContent = activeBoost
+        ? `${activeBoost.label} · ${Math.max(0, Math.ceil((new Date(activeBoost.expiresAt).getTime() - Date.now()) / 1000))}s`
+        : "Žádný aktivní";
+    }
 
     for (const button of boostButtons) {
       const boostType = button.dataset.factoryBoost;
