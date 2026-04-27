@@ -261,6 +261,49 @@
     0 0 18px rgba(244, 114, 182, 0.12);
 }
 
+#global-chat-card .server-chat-panel__composer {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+#global-chat-card .server-chat-panel__send {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  justify-self: end;
+  align-self: stretch;
+  min-width: 98px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid rgba(103, 225, 255, 0.5);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0)),
+    linear-gradient(135deg, rgba(34, 211, 238, 0.44), rgba(244, 114, 182, 0.24) 54%, rgba(250, 204, 21, 0.18)),
+    rgba(7, 12, 20, 0.94);
+  color: #f8feff;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 14px rgba(34, 211, 238, 0.22),
+    0 8px 18px rgba(2, 6, 23, 0.3);
+}
+
+#global-chat-card .server-chat-panel__send:hover,
+#global-chat-card .server-chat-panel__send:focus-visible {
+  border-color: rgba(165, 243, 252, 0.68);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.11),
+    0 0 18px rgba(34, 211, 238, 0.32),
+    0 10px 20px rgba(2, 6, 23, 0.34);
+}
+
+#global-chat-card .server-chat-panel__send:active {
+  transform: translateY(1px);
+}
+
 .alliance-chat__input input::placeholder {
   color: rgba(148, 163, 184, 0.76);
 }
@@ -1179,5 +1222,30 @@
 
   .alliance-members {
     grid-template-columns: 1fr;
+  }
+
+  #global-chat-card .alliance-chat__input,
+  #global-chat-card .server-chat-panel__composer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  #global-chat-card .server-chat-panel__input {
+    min-height: 34px;
+    padding: 0 10px;
+    border-radius: 10px;
+    font-size: 0.68rem;
+  }
+
+  #global-chat-card .server-chat-panel__send {
+    align-self: stretch;
+    min-width: 68px;
+    min-height: 34px;
+    padding: 0 9px;
+    border-radius: 10px;
+    font-size: 0.56rem;
+    letter-spacing: 0.04em;
   }
 }
