@@ -78,6 +78,27 @@ function initMobileTopbarState(windowObj = window, documentObj = document) {
 
   let ticking = false;
   let condensed = false;
+  let offsetFrameId = null;
+
+  const applyTopbarOffset = () => {
+    offsetFrameId = null;
+    if (!media.matches) {
+      root.style.removeProperty("--mobile-topbar-offset");
+      root.style.setProperty("--desktop-topbar-offset", `${Math.ceil(topbar.offsetHeight)}px`);
+      return;
+    }
+
+    root.style.setProperty(
+      "--mobile-topbar-offset",
+      `${Math.ceil(topbar.getBoundingClientRect().height + MOBILE_TOPBAR_GAP)}px`
+    );
+    root.style.removeProperty("--desktop-topbar-offset");
+  };
+
+  const requestTopbarOffset = () => {
+    if (offsetFrameId !== null) return;
+    offsetFrameId = windowObj.requestAnimationFrame(applyTopbarOffset);
+  };
 
   const applyState = () => {
     ticking = false;
@@ -93,18 +114,7 @@ function initMobileTopbarState(windowObj = window, documentObj = document) {
     }
 
     documentObj.body.classList.toggle("is-mobile-topbar-condensed", condensed && media.matches);
-
-    if (media.matches) {
-      documentObj.documentElement.style.setProperty(
-        "--mobile-topbar-offset",
-        `${Math.ceil(topbar.offsetHeight + MOBILE_TOPBAR_GAP)}px`
-      );
-      documentObj.documentElement.style.removeProperty("--desktop-topbar-offset");
-      return;
-    }
-
-    documentObj.documentElement.style.removeProperty("--mobile-topbar-offset");
-    documentObj.documentElement.style.setProperty("--desktop-topbar-offset", `${Math.ceil(topbar.offsetHeight)}px`);
+    requestTopbarOffset();
   };
 
   const requestApply = () => {
@@ -114,6 +124,10 @@ function initMobileTopbarState(windowObj = window, documentObj = document) {
   };
 
   applyState();
+  if (typeof windowObj.ResizeObserver === "function") {
+    const observer = new windowObj.ResizeObserver(requestTopbarOffset);
+    observer.observe(topbar);
+  }
   windowObj.addEventListener("scroll", requestApply, { passive: true });
   windowObj.addEventListener("resize", requestApply);
   windowObj.visualViewport?.addEventListener?.("resize", requestApply);

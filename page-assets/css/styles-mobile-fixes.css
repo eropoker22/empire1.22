@@ -14,6 +14,10 @@
     justify-items: center !important;
     text-align: center;
     row-gap: 10px;
+    transition:
+      row-gap 0.56s cubic-bezier(0.22, 1, 0.36, 1),
+      gap 0.56s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.56s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .game-topbar-controls {
@@ -23,12 +27,15 @@
     margin: 0 !important;
     padding: 0 !important;
     justify-self: stretch;
+    transition:
+      gap 0.56s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.56s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .game-resource-strip {
     display: grid !important;
     grid-column: 1 / -1;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     justify-content: stretch;
     align-items: stretch;
     gap: 8px !important;
@@ -38,6 +45,10 @@
     overflow: visible !important;
     padding-bottom: 0;
     transform: none !important;
+    transition:
+      gap 0.56s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.38s ease,
+      transform 0.56s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .game-resource-strip .resource-pill {
@@ -57,6 +68,14 @@
     border-radius: 12px !important;
     gap: 4px !important;
     box-sizing: border-box;
+    transition:
+      min-height 0.56s cubic-bezier(0.22, 1, 0.36, 1),
+      padding 0.56s cubic-bezier(0.22, 1, 0.36, 1),
+      border-radius 0.56s cubic-bezier(0.22, 1, 0.36, 1),
+      gap 0.56s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.56s ease,
+      transform 0.56s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: min-height, padding, border-radius, gap;
   }
 
   .resource-label,
@@ -69,6 +88,11 @@
     white-space: normal;
     overflow-wrap: anywhere;
     text-align: center;
+    transition:
+      min-height 0.56s cubic-bezier(0.22, 1, 0.36, 1),
+      font-size 0.56s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.38s ease,
+      line-height 0.56s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .resource-value,
@@ -82,6 +106,10 @@
     font-size: 14px !important;
     line-height: 1 !important;
     letter-spacing: 0 !important;
+    transition:
+      font-size 0.56s cubic-bezier(0.22, 1, 0.36, 1),
+      line-height 0.56s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.56s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .game-resource-strip > .game-toolbar-button {
@@ -95,6 +123,11 @@
     font-weight: 700 !important;
     line-height: 1 !important;
     letter-spacing: 0.02em !important;
+    transition:
+      font-size 0.56s cubic-bezier(0.22, 1, 0.36, 1),
+      min-height 0.56s cubic-bezier(0.22, 1, 0.36, 1),
+      padding 0.56s cubic-bezier(0.22, 1, 0.36, 1),
+      border-radius 0.56s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   body.is-mobile-topbar-condensed .game-resource-strip {
@@ -132,6 +165,10 @@
   body.game-modal-scroll-locked .game-resource-strip,
   body.game-modal-scroll-locked.is-mobile-topbar-condensed .game-resource-strip {
     display: none !important;
+  }
+
+  .game-shell {
+    transition: padding-top 0.56s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .modal__content,
