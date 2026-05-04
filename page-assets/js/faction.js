@@ -276,7 +276,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const marquee = avatarGrid?.closest(".avatar-marquee") || null;
   const existingRegistration = getRegistrationDraft();
 
-  let selectedFactionId = existingRegistration?.factionId || localStorage.getItem("empire_structure_id") || factionInput?.value || "mafian";
+  let selectedFactionId = factionOrder.includes(existingRegistration?.factionId)
+    ? existingRegistration.factionId
+    : null;
   let selectedAvatar = localStorage.getItem("empire_avatar") || existingRegistration?.avatar || null;
   let selectedGangColor = normalizeHexColor(localStorage.getItem("empire_gang_color") || existingRegistration?.gangColor || "");
   let marqueeLoopWidth = 0;
@@ -320,6 +322,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function getAvailableAvatars() {
+    if (!selectedFactionId) return [];
     return getFactionMeta(selectedFactionId).avatars || [];
   }
 
@@ -406,7 +409,29 @@ document.addEventListener("DOMContentLoaded", () => {
     replaceList(disadvantagesEl, faction.disadvantages);
   }
 
+  function renderEmptyFactionPreview() {
+    if (factionInput) factionInput.value = "";
+    if (title) title.textContent = "Vyber frakci";
+    if (nameEl) nameEl.textContent = "Nevybráno";
+    if (tagline) tagline.textContent = "";
+    if (desc) desc.textContent = "Klikni na frakci, zobrazí se popis a výhoda.";
+    if (bonus) {
+      bonus.innerHTML = '<span class="faction-bonus__icon" aria-hidden="true">✦</span><span class="faction-bonus__copy"><strong>Profil frakce</strong> Výhody a nevýhody určují tvůj styl expanze a tlak ve městě.</span>';
+    }
+    if (cleanMoneyEl) cleanMoneyEl.textContent = "-";
+    if (dirtyMoneyEl) dirtyMoneyEl.textContent = "-";
+    if (influenceEl) influenceEl.textContent = "-";
+    if (heatEl) heatEl.textContent = "-";
+    replaceList(advantagesEl, []);
+    replaceList(disadvantagesEl, []);
+    detail?.classList.remove("is-active");
+    structureGrid?.querySelectorAll(".structure-card").forEach((button) => {
+      button.classList.remove("is-active", "structure-card--active");
+    });
+  }
+
   function applyStructureSelection(factionId, confirm = true) {
+    if (!factionOrder.includes(factionId)) return;
     selectedFactionId = factionId;
     localStorage.setItem("empire_structure_id", factionId);
     localStorage.setItem("empire_structure", getFactionMeta(factionId).structure);
@@ -645,7 +670,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function commitRegistration() {
     const currentRegistration = getRegistrationDraft();
-    const factionId = selectedFactionId || "mafian";
+    const factionId = selectedFactionId;
     if (!currentRegistration?.identity || !currentRegistration?.serverId || !currentRegistration?.startDistrictId) {
       setStatus("Lobby není hotové", "Nejdřív dokonči přihlášení, výběr serveru a districtu.");
       return false;
@@ -661,7 +686,7 @@ document.addEventListener("DOMContentLoaded", () => {
       registration: {
         ...currentRegistration,
         factionId,
-        factionLabel: FACTION_CATALOG[factionId]?.name || factionId,
+        factionLabel: FACTION_CATALOG[factionId].name,
         avatar: selectedAvatar,
         gangColor: selectedGangColor,
         lockedAt: new Date().toISOString()
@@ -743,7 +768,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   renderGangColorOptions();
   renderGangColorSelectionState(selectedGangColor);
-  applyStructureSelection(factionOrder.includes(selectedFactionId) ? selectedFactionId : "mafian", false);
+  if (selectedFactionId) {
+    applyStructureSelection(selectedFactionId, false);
+  } else {
+    selectedAvatar = null;
+    selectionConfirmed.avatar = false;
+    localStorage.removeItem("empire_avatar");
+    renderEmptyFactionPreview();
+    renderAvatars();
+  }
   if (selectedAvatar) applyAvatarSelection(selectedAvatar, false);
   else syncSelectedAvatarBackground();
 

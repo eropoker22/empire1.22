@@ -21,6 +21,7 @@ export const baseModeConfig: Omit<ResolvedGameModeConfig, "mode"> = {
     dayLengthTicks: 12,
     nightLengthTicks: 12,
     victoryConditionKey: "default-control",
+    districtControlVictoryThreshold: 1,
     startingResources: {
       cash: 1000
     }

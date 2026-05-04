@@ -1,4 +1,5 @@
 import { createServerApp } from "../app";
+export * from "./gameplay-slice-session-bootstrap";
 
 /**
  * Responsibility: Authoritative server bootstrap entry point.

@@ -18,6 +18,11 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
     throw new Error("Mode config requires a positive maxAllianceSize.");
   }
 
+  const victoryThreshold = config.balance.districtControlVictoryThreshold ?? 1;
+  if (victoryThreshold <= 0 || victoryThreshold > 1) {
+    throw new Error("Mode config requires districtControlVictoryThreshold between 0 and 1.");
+  }
+
   if (!config.technical.storageKeyPrefix) {
     throw new Error("Mode config requires a storageKeyPrefix.");
   }
@@ -29,6 +34,14 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
 
     if (config.balance.conflict.attackCooldownTicks < 0) {
       throw new Error("Conflict config requires a non-negative attackCooldownTicks.");
+    }
+
+    if ((config.balance.conflict.minAttackDurationTicks ?? 0) < 0) {
+      throw new Error("Conflict config requires a non-negative minAttackDurationTicks.");
+    }
+
+    if ((config.balance.conflict.attackHeatGain ?? 0) < 0) {
+      throw new Error("Conflict config requires a non-negative attackHeatGain.");
     }
 
     if (config.balance.conflict.trapAttackLosses < 0) {
@@ -62,12 +75,8 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
       throw new Error("Building action config requires actionId and buildingType.");
     }
 
-    if (action.durationMs <= 0 || action.cooldownMs < 0) {
-      throw new Error(`Building action "${action.actionId}" requires positive durationMs and non-negative cooldownMs.`);
-    }
-
-    if (action.heatGain < 0) {
-      throw new Error(`Building action "${action.actionId}" requires non-negative heatGain.`);
+    if (action.durationMs < 0 || action.cooldownMs < 0) {
+      throw new Error(`Building action "${action.actionId}" requires non-negative durationMs and cooldownMs.`);
     }
   }
 

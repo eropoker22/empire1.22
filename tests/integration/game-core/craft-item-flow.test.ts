@@ -13,6 +13,7 @@ describe("craft-item command flow", () => {
       config: resolveModeConfig("free")
     };
     const { state, building } = createCoreStateWithFixedBuildingFixture("pharmacy", {
+      includeWarehouse: true,
       productionResourceKey: "chemicals"
     });
     const buildingId = building.id;

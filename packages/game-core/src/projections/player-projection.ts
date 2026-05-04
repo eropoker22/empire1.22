@@ -14,6 +14,9 @@ export const createPlayerView = (state: CoreGameState, playerId: string): Player
 
   const victoryState: VictoryState | null = state.victoryState;
   const resourceBalances = player ? { ...(state.resourceStatesById[player.resourceStateId]?.balances ?? {}) } : {};
+  if (player && Number.isFinite(Number(player.population))) {
+    resourceBalances.population = Math.max(0, Number(player.population || 0));
+  }
 
   return {
     playerId,

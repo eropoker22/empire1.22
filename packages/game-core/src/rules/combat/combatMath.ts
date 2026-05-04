@@ -28,12 +28,14 @@ const DEFENSE_POWER_BY_WEAPON: Record<DefenseWeaponId, number> = {
 };
 
 export const calculateBaseAttackPower = (
-  loadout: Partial<Record<AttackWeaponId, number>>
+  loadout: Partial<Record<AttackWeaponId, number>>,
+  modifiers: Partial<Record<AttackWeaponId, number>> = {}
 ): number =>
   Object.entries(loadout).reduce((totalPower, [weaponId, amount]) => {
     const normalizedAmount = Math.max(0, amount ?? 0);
     const attackPower = ATTACK_POWER_BY_WEAPON[weaponId as AttackWeaponId] ?? 0;
-    return totalPower + normalizedAmount * attackPower;
+    const multiplier = Math.max(0, Number(modifiers[weaponId as AttackWeaponId] ?? 1));
+    return totalPower + normalizedAmount * attackPower * multiplier;
   }, 0);
 
 export const hasFullAttackWeaponSet = (
@@ -41,13 +43,14 @@ export const hasFullAttackWeaponSet = (
 ): boolean => ATTACK_WEAPON_IDS.every((weaponId) => (loadout[weaponId] ?? 0) > 0);
 
 export const calculateSmgComboBonus = (
-  loadout: Partial<Record<AttackWeaponId, number>>
+  loadout: Partial<Record<AttackWeaponId, number>>,
+  modifiers: Partial<Record<AttackWeaponId, number>> = {}
 ): number => {
   if (!hasFullAttackWeaponSet(loadout)) {
     return 0;
   }
 
-  return (loadout.smg ?? 0) * 0.2;
+  return (loadout.smg ?? 0) * 0.2 * Math.max(0, Number(modifiers.smg ?? 1));
 };
 
 export const calculateGrenadeDefenseIgnorePercent = (
@@ -64,16 +67,20 @@ export const calculateEffectiveDefenseAfterGrenades = (
 ): number => Math.max(0, defensePercent - calculateGrenadeDefenseIgnorePercent(grenadeCount));
 
 export const calculateTotalAttackPower = (
-  loadout: Partial<Record<AttackWeaponId, number>>
-): number => calculateBaseAttackPower(loadout) + calculateSmgComboBonus(loadout);
+  loadout: Partial<Record<AttackWeaponId, number>>,
+  strengthMultiplier = 1,
+  modifiers: Partial<Record<AttackWeaponId, number>> = {}
+): number => (calculateBaseAttackPower(loadout, modifiers) + calculateSmgComboBonus(loadout, modifiers)) * Math.max(0, Number(strengthMultiplier || 1));
 
 export const calculateBaseDefensePower = (
-  loadout: Partial<Record<DefenseWeaponId, number>>
+  loadout: Partial<Record<DefenseWeaponId, number>>,
+  modifiers: Partial<Record<DefenseWeaponId, number>> = {}
 ): number =>
   Object.entries(loadout).reduce((totalPower, [weaponId, amount]) => {
     const normalizedAmount = Math.max(0, amount ?? 0);
     const defensePower = DEFENSE_POWER_BY_WEAPON[weaponId as DefenseWeaponId] ?? 0;
-    return totalPower + normalizedAmount * defensePower;
+    const multiplier = Math.max(0, Number(modifiers[weaponId as DefenseWeaponId] ?? 1));
+    return totalPower + normalizedAmount * defensePower * multiplier;
   }, 0);
 
 export const calculateVestPopulationLossReductionPercent = (

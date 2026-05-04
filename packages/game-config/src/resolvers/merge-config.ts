@@ -13,7 +13,19 @@ export const mergeModeConfig = (
   ...override,
   balance: {
     ...base.balance,
-    ...override.balance
+    ...override.balance,
+    conflict: {
+      ...base.balance.conflict!,
+      ...(override.balance?.conflict ?? {})
+    } as NonNullable<ResolvedGameModeConfig["balance"]["conflict"]>,
+    fixedBuildings: {
+      ...(base.balance.fixedBuildings ?? {}),
+      ...(override.balance?.fixedBuildings ?? {})
+    },
+    buildingActions: {
+      ...(base.balance.buildingActions ?? {}),
+      ...(override.balance?.buildingActions ?? {})
+    }
   },
   technical: {
     ...base.technical,
@@ -28,4 +40,3 @@ export const mergeModeConfig = (
     ...override.publicMeta
   }
 });
-

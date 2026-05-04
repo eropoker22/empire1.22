@@ -20,5 +20,17 @@ export const createDistrictPanelProjection = (
     productionCatalog: runtime.config.balance.productionBuildings ?? {},
     craftCatalog: runtime.config.balance.craftBuildings ?? {},
     buildingActionCatalog: runtime.config.balance.buildingActions ?? {},
-    productionMultiplier: runtime.config.balance.productionMultiplier
+    stripClubConfig: runtime.config.balance.stripClub,
+    restaurantConfig: runtime.config.balance.restaurant,
+    convenienceStoreConfig: runtime.config.balance.convenienceStore,
+    shoppingMallConfig: runtime.config.balance.shoppingMall,
+    fitnessClubConfig: runtime.config.balance.fitnessClub,
+    powerStationConfig: runtime.config.balance.powerStation,
+    recruitmentCenterConfig: runtime.config.balance.recruitmentCenter,
+    garageConfig: runtime.config.balance.garage,
+    carDealerConfig: runtime.config.balance.carDealer,
+    smugglingTunnelConfig: runtime.config.balance.smugglingTunnel,
+    recyclingCenterConfig: runtime.config.balance.recyclingCenter,
+    productionMultiplier: runtime.config.balance.productionMultiplier,
+    tickRateMs: runtime.config.tickRateMs
   });

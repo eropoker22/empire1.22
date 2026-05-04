@@ -10,7 +10,7 @@ export const SERVER_CATALOG = Object.freeze([
     mode: "war",
     region: "EU Central",
     players: 64,
-    capacity: 120,
+    capacity: 150,
     startLabel: "Live server",
     badge: "HOT",
     description: "Tvrdý válečný shard s rychlou expanzí, hustší konkurencí a tlakem na obranu districtů."
@@ -21,7 +21,7 @@ export const SERVER_CATALOG = Object.freeze([
     mode: "war",
     region: "EU Central",
     players: 41,
-    capacity: 120,
+    capacity: 150,
     startLabel: "Start za 12 min",
     badge: "QUEUE",
     description: "Čerstvě otevíraná instance, vhodná pro nový náběh a rychlé obsazení startovní pozice."
@@ -31,8 +31,8 @@ export const SERVER_CATALOG = Object.freeze([
     name: "Neon Drift FREE-01",
     mode: "free",
     region: "EU Central",
-    players: 29,
-    capacity: 80,
+    players: 8,
+    capacity: 20,
     startLabel: "Volný vstup",
     badge: "FREE",
     description: "Volnější režim pro test buildů, economy loopu a klidnější rozjezdy gangu."
@@ -42,8 +42,8 @@ export const SERVER_CATALOG = Object.freeze([
     name: "Afterglow FREE-02",
     mode: "free",
     region: "EU West",
-    players: 52,
-    capacity: 80,
+    players: 14,
+    capacity: 20,
     startLabel: "Live server",
     badge: "ACTIVE",
     description: "Rozjetý free shard s vyšší ekonomikou a otevřeným onboardingem pro nové hráče."

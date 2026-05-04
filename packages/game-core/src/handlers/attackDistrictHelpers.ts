@@ -2,6 +2,7 @@ import type {
   AttackDistrictCommand,
   AttackWeaponId,
   CooldownState,
+  DefenseWeaponId,
   Notification
 } from "@empire/shared-types";
 import { createNotification } from "../events";
@@ -71,10 +72,19 @@ export const createBattleReportNotification = (input: {
   defenderPlayerId: string | null;
   targetDistrictId: string;
   result: "success" | "failure" | "blocked" | "catastrophe";
+  outcomeTier: "clean_capture" | "costly_capture" | "failed_raid" | "disaster";
   districtCaptured: boolean;
   districtDestroyed: boolean;
+  districtDamaged: boolean;
   trapTriggered: boolean;
+  trapType: "toxic" | null;
+  trapReport: string | null;
   attackerLosses: Partial<Record<AttackWeaponId, number>>;
+  defenderLosses: Partial<Record<DefenseWeaponId, number>>;
+  heatGained: number;
+  reportForAttacker: string;
+  reportForDefender: string;
+  attackDurationTicks: number;
   detectedDefense: ReturnType<typeof filterDefenseLoadout>;
   tick: number;
   eventId: string;
@@ -96,10 +106,19 @@ export const createBattleReportNotification = (input: {
       sourceDistrictId: input.command.payload.sourceDistrictId,
       targetDistrictId: input.targetDistrictId,
       result: input.result,
+      outcomeTier: input.outcomeTier,
       districtCaptured: input.districtCaptured,
       districtDestroyed: input.districtDestroyed,
+      districtDamaged: input.districtDamaged,
       trapTriggered: input.trapTriggered,
+      trapType: input.trapType,
+      trapReport: input.trapReport,
       attackerLosses: input.attackerLosses,
+      defenderLosses: input.defenderLosses,
+      heatGained: input.heatGained,
+      reportForAttacker: input.reportForAttacker,
+      reportForDefender: input.reportForDefender,
+      attackDurationTicks: input.attackDurationTicks,
       detectedDefense: input.detectedDefense,
       tick: input.tick,
       createdAt: new Date(0).toISOString(),
@@ -115,10 +134,19 @@ export const createBattleReportNotifications = (input: {
   defenderPlayerId: string | null;
   targetDistrict: CoreGameState["districtsById"][string];
   result: "success" | "failure" | "blocked" | "catastrophe";
+  outcomeTier: "clean_capture" | "costly_capture" | "failed_raid" | "disaster";
   districtCaptured: boolean;
   districtDestroyed: boolean;
+  districtDamaged: boolean;
   trapTriggered: boolean;
+  trapType: "toxic" | null;
+  trapReport: string | null;
   attackerLosses: Partial<Record<AttackWeaponId, number>>;
+  defenderLosses: Partial<Record<DefenseWeaponId, number>>;
+  heatGained: number;
+  reportForAttacker: string;
+  reportForDefender: string;
+  attackDurationTicks: number;
   tick: number;
 }): Notification[] => {
   const eventId = composeEntityId("event", `${input.command.id}:district-attacked`);
@@ -127,10 +155,19 @@ export const createBattleReportNotifications = (input: {
     defenderPlayerId: input.defenderPlayerId,
     targetDistrictId: input.targetDistrict.id,
     result: input.result,
+    outcomeTier: input.outcomeTier,
     districtCaptured: input.districtCaptured,
     districtDestroyed: input.districtDestroyed,
+    districtDamaged: input.districtDamaged,
     trapTriggered: input.trapTriggered,
+    trapType: input.trapType,
+    trapReport: input.trapReport,
     attackerLosses: input.attackerLosses,
+    defenderLosses: input.defenderLosses,
+    heatGained: input.heatGained,
+    reportForAttacker: input.reportForAttacker,
+    reportForDefender: input.reportForDefender,
+    attackDurationTicks: input.attackDurationTicks,
     detectedDefense: filterDefenseLoadout(input.targetDistrict.defenseLoadout),
     tick: input.tick,
     eventId

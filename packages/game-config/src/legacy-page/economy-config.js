@@ -145,6 +145,16 @@ export const MARKET_TAB_CONFIG = {
       { inventory: "weapons", itemId: "smg", name: "SMG", price: 5600 },
       { inventory: "weapons", itemId: "bazooka", name: "Bazuka", price: 13200 }
     ]
+  },
+  "player-market": {
+    label: "Hráčský bazar",
+    copy: "P2P bazar aktuálního serveru. Vystav vlastní stock, kupuj nabídky ostatních hráčů a sleduj obchodní tlak serveru.",
+    payment: "cleanMoney",
+    payout: "cleanMoney",
+    buyMultiplier: 1,
+    sellMultiplier: 1,
+    variance: 0,
+    items: []
   }
 };
 

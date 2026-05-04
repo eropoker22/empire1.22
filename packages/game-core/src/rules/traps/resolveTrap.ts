@@ -9,6 +9,8 @@ export interface ResolveTrapResult {
   losses: Partial<Record<AttackWeaponId, number>>;
   nextLoadout: Partial<Record<AttackWeaponId, number>>;
   blocked: boolean;
+  trapType: "toxic";
+  report: string;
 }
 
 const LOSS_ORDER: AttackWeaponId[] = [
@@ -40,6 +42,8 @@ export const resolveTrap = (input: ResolveTrapInput): ResolveTrapResult => {
   return {
     losses,
     nextLoadout,
-    blocked: LOSS_ORDER.every((weaponId) => Math.max(0, Number(nextLoadout[weaponId] ?? 0)) === 0)
+    blocked: LOSS_ORDER.every((weaponId) => Math.max(0, Number(nextLoadout[weaponId] ?? 0)) === 0),
+    trapType: "toxic",
+    report: "Toxic trap triggered and burned through the attacking loadout."
   };
 };

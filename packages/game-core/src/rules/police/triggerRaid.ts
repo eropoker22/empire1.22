@@ -6,6 +6,14 @@ import type { GameCoreContext } from "../../engine/context";
 const RAID_PRESSURE_THRESHOLD = 100;
 const RAID_PENDING_FLAG = "raid:pending";
 
+interface PendingRaidResult {
+  cashSeized: Record<string, number>;
+  resourcesSeized: Record<string, number>;
+  gangMembersLost: number;
+  districtLockdownMinutes: number;
+  heatReduced: number;
+}
+
 /**
  * Responsibility: Flags player police states that cross the raid pressure threshold.
  * Belongs here: police-driven state transitions in the core.
@@ -26,6 +34,8 @@ export const triggerRaid = (
       continue;
     }
 
+    const raidResult = createPendingRaidResult(state, policeState);
+
     nextPoliceStatesById = {
       ...nextPoliceStatesById,
       [policeState.id]: {
@@ -41,7 +51,13 @@ export const triggerRaid = (
         playerId: policeState.ownerPlayerId,
         policeStateId: policeState.id,
         heat: policeState.heat,
-        threshold
+        threshold,
+        raidResult,
+        cashSeized: raidResult.cashSeized,
+        resourcesSeized: raidResult.resourcesSeized,
+        gangMembersLost: raidResult.gangMembersLost,
+        districtLockdownMinutes: raidResult.districtLockdownMinutes,
+        heatReduced: raidResult.heatReduced
       })
     );
   }
@@ -54,5 +70,34 @@ export const triggerRaid = (
         }
       : state,
     events
+  };
+};
+
+const createPendingRaidResult = (
+  state: CoreGameState,
+  policeState: CoreGameState["policeStatesById"][string]
+): PendingRaidResult => {
+  const player = state.playersById[policeState.ownerPlayerId];
+  const balances = player
+    ? state.resourceStatesById[player.resourceStateId]?.balances ?? {}
+    : {};
+  const cashSeized = {
+    cash: Math.floor(Math.max(0, Number(balances.cash ?? 0)) * 0.05),
+    "dirty-cash": Math.floor(Math.max(0, Number(balances["dirty-cash"] ?? 0)) * 0.12)
+  };
+  const resourcesSeized = Object.fromEntries(
+    Object.entries(balances)
+      .filter(([key]) => key !== "cash" && key !== "dirty-cash" && key !== "gang-members")
+      .map(([key, value]) => [key, Math.floor(Math.max(0, Number(value ?? 0)) * 0.08)])
+      .filter(([, value]) => Number(value) > 0)
+  );
+  const wantedPressure = Math.max(1, policeState.wantedLevel);
+
+  return {
+    cashSeized,
+    resourcesSeized,
+    gangMembersLost: Math.floor(Math.max(0, Number(balances["gang-members"] ?? 0)) * 0.03),
+    districtLockdownMinutes: Math.min(120, 15 + wantedPressure * 5),
+    heatReduced: Math.min(policeState.heat, Math.max(10, Math.floor(policeState.heat * 0.2)))
   };
 };

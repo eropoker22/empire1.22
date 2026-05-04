@@ -27,7 +27,7 @@ export const runTick = (
       tick: state.root.tick + 1
     }
   };
-  const incomeState = collectIncome(advancedState);
+  const incomeState = collectIncome(advancedState, context);
   const producedState = completeProduction(incomeState, context);
   const processingResult = completeCraftProcessing(producedState, context);
   const policeResult = triggerRaid(processingResult.nextState, context);

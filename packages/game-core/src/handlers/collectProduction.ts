@@ -6,6 +6,7 @@ import { createEvent, CORE_EVENT_TYPES } from "../events";
 import type { GameCoreContext } from "../engine/context";
 import { validateCollect } from "../validation";
 import { composeEntityId } from "../utils";
+import { getWarehouseCapacityForResource, resolveWarehouseStorageCapacity } from "./warehouseBuilding";
 
 /**
  * Responsibility: Placeholder handler for production collection commands.
@@ -51,12 +52,23 @@ export const handleCollectProduction = (
     Number(buildingResourceState?.balances?.[productionProfile?.resourceKey || ""] || 0)
   );
   const playerResourceState = state.resourceStatesById[player.resourceStateId] ?? createPlayerResourceState(player, state.root.tick);
+  const warehouseCapacity = context.config.balance.warehouse
+    ? resolveWarehouseStorageCapacity(state, player.id, context.config.balance.warehouse, context.config.balance.powerStation)
+    : null;
+  const resourceCapacity = warehouseCapacity
+    ? getWarehouseCapacityForResource(warehouseCapacity, productionProfile.resourceKey)
+    : Number.POSITIVE_INFINITY;
+  const currentPlayerAmount = Math.max(0, Number(playerResourceState.balances[productionProfile.resourceKey] || 0));
+  const acceptedAmount = Number.isFinite(resourceCapacity)
+    ? Math.max(0, Math.min(collectedAmount, resourceCapacity - currentPlayerAmount))
+    : collectedAmount;
+  const remainingAmount = Math.max(0, collectedAmount - acceptedAmount);
 
   const nextBuildingResourceState: ResourceState = {
     ...(buildingResourceState as ResourceState),
     balances: {
       ...buildingResourceState.balances,
-      [productionProfile.resourceKey]: 0
+      [productionProfile.resourceKey]: remainingAmount
     },
     lastUpdatedTick: state.root.tick,
     version: buildingResourceState.version + 1
@@ -68,7 +80,7 @@ export const handleCollectProduction = (
       ...playerResourceState.balances,
       [productionProfile.resourceKey]: Math.max(
         0,
-        Number(playerResourceState.balances[productionProfile.resourceKey] || 0) + collectedAmount
+        currentPlayerAmount + acceptedAmount
       )
     },
     lastUpdatedTick: state.root.tick,
@@ -90,7 +102,7 @@ export const handleCollectProduction = (
         districtId: command.payload.districtId,
         buildingId: command.payload.buildingId,
         resourceKey: productionProfile.resourceKey,
-        amount: collectedAmount
+        amount: acceptedAmount
       })
     ],
     errors: []

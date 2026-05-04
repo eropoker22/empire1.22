@@ -1210,3 +1210,459 @@ body.auth-body--login:not(.servers-page) .auth-footer__link svg {
     gap: 6px;
   }
 }
+
+/* Empire Streets login final pass: match the in-game neon glass interface. */
+body.auth-body--login:not(.servers-page) {
+  --login-cyan: 34, 211, 238;
+  --login-pink: 244, 114, 182;
+  --login-green: 52, 211, 153;
+  --login-amber: 251, 191, 36;
+  --login-red: 248, 113, 113;
+  background:
+    linear-gradient(90deg, rgba(2, 6, 14, 0.94), rgba(4, 10, 20, 0.72) 44%, rgba(2, 6, 14, 0.92)),
+    linear-gradient(180deg, rgba(2, 6, 14, 0.2), rgba(2, 6, 14, 0.82)),
+    url("../../img/loginmob.jpeg") center / cover fixed;
+  color: #eefcff;
+}
+
+body.auth-body--login:not(.servers-page)::before {
+  background:
+    repeating-linear-gradient(90deg, rgba(34, 211, 238, 0.035) 0 1px, transparent 1px 96px),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.026) 0 1px, transparent 1px 9px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.08), transparent 28%, transparent 70%, rgba(244, 114, 182, 0.08));
+  opacity: 0.9;
+}
+
+body.auth-body--login:not(.servers-page)::after {
+  background:
+    linear-gradient(180deg, transparent, rgba(2, 6, 14, 0.42)),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 7px);
+  opacity: 0.32;
+  mix-blend-mode: screen;
+}
+
+body.auth-body--login:not(.servers-page) .auth-mobile-fit-frame,
+body.auth-body--login:not(.servers-page) .auth-mobile-fit-stack,
+body.auth-body--login:not(.servers-page) .auth-shell,
+body.auth-body--login:not(.servers-page) .auth-footer {
+  position: relative;
+  z-index: 4;
+}
+
+body.auth-body--login:not(.servers-page) .vortex-graffiti {
+  opacity: 0.12;
+}
+
+body.auth-body--login:not(.servers-page) .auth-shell {
+  width: min(940px, calc(100vw - 48px));
+  min-height: calc(100vh - 52px);
+  padding: 28px 0 62px;
+  gap: 10px;
+  align-content: center;
+}
+
+body.auth-body--login:not(.servers-page) .auth-headline {
+  width: min(760px, 100%);
+  justify-self: center;
+  gap: 7px;
+  padding: 0;
+}
+
+body.auth-body--login:not(.servers-page) .auth-kicker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border: 1px solid rgba(var(--login-cyan), 0.32);
+  border-radius: 999px;
+  color: #dffcff;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  background:
+    linear-gradient(135deg, rgba(var(--login-cyan), 0.16), rgba(var(--login-pink), 0.1)),
+    rgba(3, 10, 20, 0.58);
+  box-shadow: 0 0 18px rgba(var(--login-cyan), 0.16);
+}
+
+body.auth-body--login:not(.servers-page) .auth-headline h1 {
+  margin: 0;
+  color: #f8fdff;
+  font-family: "Bahnschrift", "Segoe UI", sans-serif;
+  font-size: 3.45rem;
+  line-height: 0.92;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 18px rgba(var(--login-cyan), 0.45),
+    0 0 32px rgba(var(--login-pink), 0.2),
+    0 18px 44px rgba(0, 0, 0, 0.64);
+}
+
+body.auth-body--login:not(.servers-page) .auth-subtitle {
+  max-width: 58ch;
+  color: rgba(232, 248, 255, 0.78);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+body.auth-body--login:not(.servers-page) .auth-mode-tabs,
+body.auth-body--login:not(.servers-page) .auth-login-row,
+body.auth-body--login:not(.servers-page) .auth-tabs--detached,
+body.auth-body--login:not(.servers-page) .about-game-copy,
+body.auth-body--login:not(.servers-page) .auth-card,
+body.auth-body--login:not(.servers-page) .auth-city-signal,
+body.auth-body--login:not(.servers-page) .auth-footer__inner {
+  border: 1px solid rgba(var(--login-cyan), 0.22);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(var(--login-cyan), 0.075), rgba(255, 255, 255, 0.018) 45%, rgba(var(--login-pink), 0.055)),
+    rgba(3, 10, 20, 0.64);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 22px rgba(var(--login-cyan), 0.04),
+    0 18px 42px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+}
+
+body.auth-body--login:not(.servers-page) .auth-mode-tabs {
+  width: min(440px, 100%);
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 5px;
+  padding: 5px;
+  margin: 0 auto 2px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-mode-tab,
+body.auth-body--login:not(.servers-page) .tab-btn {
+  min-height: 36px;
+  border: 1px solid rgba(var(--login-cyan), 0.16);
+  border-radius: 6px;
+  color: rgba(232, 248, 255, 0.72);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+    rgba(2, 8, 18, 0.56);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+body.auth-body--login:not(.servers-page) .auth-mode-tab.is-active,
+body.auth-body--login:not(.servers-page) .tab-btn--active {
+  border-color: rgba(var(--login-green), 0.56);
+  color: #effff8;
+  background:
+    linear-gradient(135deg, rgba(var(--login-green), 0.24), rgba(var(--login-cyan), 0.12)),
+    rgba(3, 12, 20, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 18px rgba(var(--login-green), 0.2);
+}
+
+body.auth-body--login:not(.servers-page) .auth-login-row {
+  width: min(860px, 100%);
+  grid-template-columns: 238px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+  justify-self: center;
+  align-items: stretch;
+}
+
+body.auth-body--login:not(.servers-page) .auth-side-panel {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+body.auth-body--login:not(.servers-page) .auth-tabs--detached {
+  min-height: 0;
+  height: auto;
+  padding: 8px;
+  gap: 6px;
+  box-shadow: none;
+}
+
+body.auth-body--login:not(.servers-page) .auth-tabs--detached .tab-btn {
+  justify-content: flex-start;
+  min-height: 38px;
+  padding: 0 10px;
+  text-align: left;
+}
+
+body.auth-body--login:not(.servers-page) .auth-card {
+  min-height: 0;
+  padding: 18px;
+  overflow: hidden;
+  box-shadow: none;
+}
+
+body.auth-body--login:not(.servers-page) .auth-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: -1;
+  width: 3px;
+  background: linear-gradient(180deg, rgb(var(--login-cyan)), rgb(var(--login-pink)));
+  box-shadow: 0 0 18px rgba(var(--login-cyan), 0.5);
+}
+
+body.auth-body--login:not(.servers-page) .auth-form {
+  gap: 8px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-form label {
+  color: rgba(232, 248, 255, 0.7);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+body.auth-body--login:not(.servers-page) .auth-form input {
+  min-height: 40px;
+  border: 1px solid rgba(var(--login-cyan), 0.22);
+  border-radius: 7px;
+  color: #f8fdff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+    rgba(2, 8, 18, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 0 12px rgba(var(--login-cyan), 0.045);
+}
+
+body.auth-body--login:not(.servers-page) .auth-form input:focus {
+  border-color: rgba(var(--login-green), 0.68);
+  box-shadow:
+    0 0 0 3px rgba(var(--login-green), 0.12),
+    0 0 16px rgba(var(--login-green), 0.14);
+}
+
+body.auth-body--login:not(.servers-page) .auth-form--guest {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(var(--login-cyan), 0.14);
+}
+
+body.auth-body--login:not(.servers-page) .btn {
+  min-height: 40px;
+  border-radius: 7px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+body.auth-body--login:not(.servers-page) .btn--primary {
+  border-color: rgba(var(--login-green), 0.55);
+  color: #effff8;
+  background:
+    linear-gradient(135deg, rgba(var(--login-green), 0.34), rgba(var(--login-cyan), 0.18)),
+    rgba(4, 13, 18, 0.86);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 20px rgba(var(--login-green), 0.2);
+}
+
+body.auth-body--login:not(.servers-page) .btn--ghost {
+  border-color: rgba(var(--login-pink), 0.44);
+  color: #ffe8f4;
+  background:
+    linear-gradient(135deg, rgba(var(--login-pink), 0.2), rgba(var(--login-cyan), 0.08)),
+    rgba(10, 5, 22, 0.72);
+  box-shadow: 0 0 18px rgba(var(--login-pink), 0.12);
+}
+
+body.auth-body--login:not(.servers-page) .auth-city-signal {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-city-signal__head,
+body.auth-body--login:not(.servers-page) .auth-city-signal__rows span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-city-signal__head span,
+body.auth-body--login:not(.servers-page) .auth-city-signal__rows b {
+  color: rgba(232, 248, 255, 0.62);
+  font-size: 0.56rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+body.auth-body--login:not(.servers-page) .auth-city-signal__head strong,
+body.auth-body--login:not(.servers-page) .auth-city-signal__rows strong {
+  color: #d9ff8b;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(var(--login-green), 0.32);
+}
+
+body.auth-body--login:not(.servers-page) .auth-city-map {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-city-map span {
+  min-height: 34px;
+  border: 1px solid rgba(var(--login-cyan), 0.22);
+  border-radius: 6px;
+  background:
+    linear-gradient(135deg, rgba(var(--login-cyan), 0.16), rgba(255, 255, 255, 0.02)),
+    rgba(2, 8, 18, 0.62);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 12px rgba(var(--login-cyan), 0.08);
+}
+
+body.auth-body--login:not(.servers-page) .auth-city-map span[data-zone="downtown"],
+body.auth-body--login:not(.servers-page) .auth-city-map span[data-zone="market"] {
+  border-color: rgba(var(--login-amber), 0.36);
+  background:
+    linear-gradient(135deg, rgba(var(--login-amber), 0.22), rgba(var(--login-cyan), 0.05)),
+    rgba(14, 8, 2, 0.58);
+}
+
+body.auth-body--login:not(.servers-page) .auth-city-map span[data-zone="hostile"] {
+  border-color: rgba(var(--login-red), 0.38);
+  background:
+    linear-gradient(135deg, rgba(var(--login-red), 0.2), rgba(var(--login-pink), 0.08)),
+    rgba(18, 4, 8, 0.58);
+}
+
+body.auth-body--login:not(.servers-page) .auth-city-map span[data-zone="safehouse"],
+body.auth-body--login:not(.servers-page) .auth-city-map span[data-zone="park"] {
+  border-color: rgba(var(--login-green), 0.34);
+  background:
+    linear-gradient(135deg, rgba(var(--login-green), 0.2), rgba(var(--login-cyan), 0.06)),
+    rgba(3, 15, 12, 0.58);
+}
+
+body.auth-body--login:not(.servers-page) .auth-city-signal__rows {
+  display: grid;
+  gap: 5px;
+}
+
+body.auth-body--login:not(.servers-page) .auth-city-signal__rows span {
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid rgba(var(--login-cyan), 0.14);
+  border-radius: 6px;
+  background: rgba(2, 8, 18, 0.42);
+}
+
+body.auth-body--login:not(.servers-page) .about-game-copy {
+  min-height: 0;
+  padding: 10px;
+  color: rgba(232, 248, 255, 0.76);
+  box-shadow: none;
+}
+
+body.auth-body--login:not(.servers-page) .auth-error {
+  border-color: rgba(var(--login-red), 0.34);
+  border-radius: 7px;
+  color: #ffe4e6;
+  background: rgba(80, 8, 18, 0.36);
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer {
+  padding: 0;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer--fixed {
+  bottom: 0;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__inner {
+  width: 100%;
+  min-height: 42px;
+  padding: 6px 18px;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: 0;
+  background: rgba(3, 10, 20, 0.86);
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  box-shadow: 0 0 14px rgba(var(--login-cyan), 0.16);
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__title {
+  color: #f8fdff;
+  font-size: 0.74rem;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__subtitle {
+  color: rgba(232, 248, 255, 0.62);
+  font-size: 0.62rem;
+}
+
+body.auth-body--login:not(.servers-page) .auth-footer__link {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  border-color: rgba(var(--login-cyan), 0.2);
+  background: rgba(2, 8, 18, 0.68);
+  color: rgba(232, 248, 255, 0.78);
+}
+
+@media (max-width: 900px) {
+  body.auth-body--login:not(.servers-page) .auth-shell {
+    width: min(410px, calc(100vw - 22px));
+    min-height: calc(100svh - 44px);
+    padding: 16px 0 58px;
+    gap: 8px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-headline h1 {
+    font-size: 2.05rem;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-kicker {
+    min-height: 22px;
+    font-size: 0.58rem;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-subtitle {
+    font-size: 0.78rem;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-login-row {
+    grid-template-columns: 1fr;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-tabs--detached {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-tabs--detached .tab-btn {
+    justify-content: center;
+    text-align: center;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-city-signal {
+    display: none;
+  }
+
+  body.auth-body--login:not(.servers-page) .auth-card {
+    padding: 13px;
+  }
+}

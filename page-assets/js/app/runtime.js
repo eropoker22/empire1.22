@@ -52,344 +52,395 @@ import { bindMapNavigation } from "./map-navigation.js";
 import { getPoliceTierShortEffect, resolvePoliceTierImpact } from "./police-raid-config.js";
 import { renderPoliceRaidImpactDetails } from "./police-raid-modal.js";
 import { createStorageCollectResultPayload } from "./production-collect-results.js";
-
-const PAGE_ROOT_SELECTOR = "main[data-page]";
-const MOUNT_SELECTOR = "[data-mount-role], [id$='-mount'], [id$='-root']";
-const AUTH_FORM_SELECTOR = "#auth-form";
-const AUTH_STATUS_MOUNT_SELECTOR = "#auth-status-mount";
-const AUTH_IDENTITY_SELECTOR = "#auth-identity";
-const AUTH_FACTION_INPUT_SELECTOR = "#auth-faction";
-const NAV_SETTINGS_SELECTOR = "[data-nav-settings]";
-const NAV_LOGOUT_SELECTOR = "[data-nav-logout]";
-const FACTION_OPTION_SELECTOR = "[data-faction-option]";
-const FACTION_NAME_SELECTOR = "[data-faction-name]";
-const FACTION_TAGLINE_SELECTOR = "[data-faction-tagline]";
-const FACTION_DESCRIPTION_SELECTOR = "[data-faction-description]";
-const FACTION_CLEAN_MONEY_SELECTOR = "[data-faction-clean-money]";
-const FACTION_DIRTY_MONEY_SELECTOR = "[data-faction-dirty-money]";
-const FACTION_INFLUENCE_SELECTOR = "[data-faction-influence]";
-const FACTION_HEAT_SELECTOR = "[data-faction-heat]";
-const FACTION_ADVANTAGES_SELECTOR = "[data-faction-advantages]";
-const FACTION_DISADVANTAGES_SELECTOR = "[data-faction-disadvantages]";
-const PHASE_TOGGLE_SELECTOR = "[data-phase-toggle]";
-const BORDER_TOGGLE_SELECTOR = "[data-border-toggle]";
-const MAP_PHASE_SELECTOR = "[data-map-phase]";
-const MAP_VIEWPORT_SELECTOR = "[data-map-viewport]";
-const MAP_CANVAS_SELECTOR = "[data-map-canvas]";
-const DISTRICT_CANVAS_SELECTOR = "[data-district-canvas]";
-const DISTRICT_TOOLTIP_SELECTOR = "[data-district-tooltip]";
-const DISTRICT_TOOLTIP_VALUE_SELECTOR = "[data-district-tooltip-value]";
-const DISTRICT_TOOLTIP_TYPE_SELECTOR = "[data-district-tooltip-type]";
-const DISTRICT_TOOLTIP_GOSSIP_SELECTOR = "[data-district-tooltip-gossip]";
-const DISTRICT_POPUP_SELECTOR = "[data-district-popup]";
-const DISTRICT_POPUP_CARD_SELECTOR = "[data-district-popup-card]";
-const DISTRICT_POPUP_TITLE_SELECTOR = "[data-district-popup-title]";
-const DISTRICT_POPUP_TYPE_SELECTOR = "[data-district-popup-type]";
-const DISTRICT_POPUP_OWNER_SELECTOR = "[data-district-popup-owner]";
-const DISTRICT_POPUP_OWNER_META_SELECTOR = "[data-district-popup-owner-meta]";
-const DISTRICT_POPUP_OWNER_AVATAR_SELECTOR = "[data-district-popup-owner-avatar]";
-const DISTRICT_POPUP_OWNER_AVATAR_FALLBACK_SELECTOR = "[data-district-popup-owner-avatar-fallback]";
-const DISTRICT_POPUP_DEFENSE_SELECTOR = "[data-district-popup-defense]";
-const DISTRICT_POPUP_DEFENSE_POWER_SELECTOR = "[data-district-popup-defense-power]";
-const DISTRICT_POPUP_RESIDENTS_SELECTOR = "[data-district-popup-residents]";
-const DISTRICT_POPUP_INCOME_SELECTOR = "[data-district-popup-income]";
-const DISTRICT_POPUP_HEAT_SELECTOR = "[data-district-popup-heat]";
-const DISTRICT_POPUP_INFLUENCE_SELECTOR = "[data-district-popup-influence]";
-const DISTRICT_POPUP_FLAGS_SELECTOR = "[data-district-popup-flags]";
-const DISTRICT_POPUP_TOGGLE_SELECTOR = "[data-district-popup-toggle]";
-const DISTRICT_POPUP_CLOSE_SELECTOR = "[data-district-popup-close]";
-const DISTRICT_POPUP_ATMOSPHERE_IMAGE_SELECTOR = "[data-district-popup-atmosphere-image]";
-const DISTRICT_POPUP_ATMOSPHERE_LABEL_SELECTOR = "[data-district-popup-atmosphere-label]";
-const DISTRICT_POPUP_ATMOSPHERE_MOOD_SELECTOR = "[data-district-popup-atmosphere-mood]";
-const DISTRICT_POPUP_BUILDINGS_SELECTOR = "[data-district-popup-buildings]";
-const DISTRICT_POPUP_BUILDINGS_META_SELECTOR = "[data-district-popup-buildings-meta]";
-const DISTRICT_POPUP_BUILDINGS_LIST_SELECTOR = "[data-district-popup-buildings-list]";
-const DISTRICT_POPUP_GOSSIP_SELECTOR = "[data-district-popup-gossip]";
-const DISTRICT_POPUP_GOSSIP_LIST_SELECTOR = "[data-district-popup-gossip-list]";
-const DISTRICT_ACTION_SECTION_SELECTOR = "[data-district-action-section]";
-const DISTRICT_ACTIONS_SELECTOR = "[data-district-actions]";
-const SPY_TOAST_SELECTOR = "[data-spy-toast]";
-const ATTACK_TOAST_SELECTOR = "[data-attack-toast]";
-const ROBBERY_TOAST_SELECTOR = "[data-robbery-toast]";
-const GAME_PHASE_TOGGLE_SELECTOR = "[data-game-phase-toggle]";
-const BUILDING_ACTION_STATE_SELECTOR = "[data-building-action-state]";
-const BUILDING_ACTION_SUMMARY_SELECTOR = "[data-building-action-summary]";
-const BUILDING_ACTION_META_SELECTOR = "[data-building-action-meta]";
-const BUILDING_ACTION_CLEAR_SELECTOR = "[data-building-action-clear]";
-const BUILDING_ACTION_FEED_SELECTOR = "[data-building-action-feed]";
-const BUILDING_ACTION_EMPTY_SELECTOR = "[data-building-action-empty]";
-const BUILDING_ACTION_REMOVE_SELECTOR = "[data-building-action-remove]";
+import {
+  PAGE_ROOT_SELECTOR,
+  MOUNT_SELECTOR,
+  AUTH_FORM_SELECTOR,
+  AUTH_STATUS_MOUNT_SELECTOR,
+  AUTH_IDENTITY_SELECTOR,
+  AUTH_FACTION_INPUT_SELECTOR,
+  NAV_SETTINGS_SELECTOR,
+  NAV_LOGOUT_SELECTOR,
+  FACTION_OPTION_SELECTOR,
+  FACTION_NAME_SELECTOR,
+  FACTION_TAGLINE_SELECTOR,
+  FACTION_DESCRIPTION_SELECTOR,
+  FACTION_CLEAN_MONEY_SELECTOR,
+  FACTION_DIRTY_MONEY_SELECTOR,
+  FACTION_INFLUENCE_SELECTOR,
+  FACTION_HEAT_SELECTOR,
+  FACTION_ADVANTAGES_SELECTOR,
+  FACTION_DISADVANTAGES_SELECTOR,
+  PHASE_TOGGLE_SELECTOR,
+  BORDER_TOGGLE_SELECTOR,
+  MAP_PHASE_SELECTOR,
+  MAP_VIEWPORT_SELECTOR,
+  MAP_CANVAS_SELECTOR,
+  DISTRICT_CANVAS_SELECTOR,
+  DISTRICT_TOOLTIP_SELECTOR,
+  DISTRICT_TOOLTIP_VALUE_SELECTOR,
+  DISTRICT_TOOLTIP_TYPE_SELECTOR,
+  DISTRICT_TOOLTIP_GOSSIP_SELECTOR,
+  DISTRICT_POPUP_SELECTOR,
+  DISTRICT_POPUP_CARD_SELECTOR,
+  DISTRICT_POPUP_TITLE_SELECTOR,
+  DISTRICT_POPUP_TYPE_SELECTOR,
+  DISTRICT_POPUP_OWNER_SELECTOR,
+  DISTRICT_POPUP_OWNER_META_SELECTOR,
+  DISTRICT_POPUP_OWNER_AVATAR_SELECTOR,
+  DISTRICT_POPUP_OWNER_AVATAR_FALLBACK_SELECTOR,
+  DISTRICT_POPUP_DEFENSE_SELECTOR,
+  DISTRICT_POPUP_DEFENSE_POWER_SELECTOR,
+  DISTRICT_POPUP_RESIDENTS_SELECTOR,
+  DISTRICT_POPUP_INCOME_SELECTOR,
+  DISTRICT_POPUP_HEAT_SELECTOR,
+  DISTRICT_POPUP_INFLUENCE_SELECTOR,
+  DISTRICT_POPUP_FLAGS_SELECTOR,
+  DISTRICT_POPUP_TOGGLE_SELECTOR,
+  DISTRICT_POPUP_CLOSE_SELECTOR,
+  DISTRICT_POPUP_ATMOSPHERE_IMAGE_SELECTOR,
+  DISTRICT_POPUP_ATMOSPHERE_LABEL_SELECTOR,
+  DISTRICT_POPUP_ATMOSPHERE_MOOD_SELECTOR,
+  DISTRICT_POPUP_BUILDINGS_SELECTOR,
+  DISTRICT_POPUP_BUILDINGS_META_SELECTOR,
+  DISTRICT_POPUP_BUILDINGS_LIST_SELECTOR,
+  DISTRICT_POPUP_GOSSIP_SELECTOR,
+  DISTRICT_POPUP_GOSSIP_LIST_SELECTOR,
+  DISTRICT_ACTION_SECTION_SELECTOR,
+  DISTRICT_ACTIONS_SELECTOR,
+  SPY_TOAST_SELECTOR,
+  ATTACK_TOAST_SELECTOR,
+  ROBBERY_TOAST_SELECTOR,
+  GAME_PHASE_TOGGLE_SELECTOR,
+  BUILDING_ACTION_STATE_SELECTOR,
+  BUILDING_ACTION_SUMMARY_SELECTOR,
+  BUILDING_ACTION_META_SELECTOR,
+  BUILDING_ACTION_CLEAR_SELECTOR,
+  BUILDING_ACTION_FEED_SELECTOR,
+  BUILDING_ACTION_EMPTY_SELECTOR,
+  BUILDING_ACTION_REMOVE_SELECTOR,
+  GANG_MEMBERS_SELECTOR,
+  GANG_HEAT_SELECTOR,
+  GANG_STAR_SELECTOR,
+  GANG_STARS_SELECTOR,
+  WANTED_POPUP_SELECTOR,
+  WANTED_POPUP_CLOSE_SELECTOR,
+  WANTED_POPUP_HEAT_SELECTOR,
+  WANTED_POPUP_LEVEL_SELECTOR,
+  WANTED_POPUP_TIER_SELECTOR,
+  WANTED_POPUP_DESCRIPTION_SELECTOR,
+  WANTED_POPUP_PROTECTION_SELECTOR,
+  WANTED_POPUP_LEVELS_SELECTOR,
+  WANTED_POPUP_RISE_LIST_SELECTOR,
+  WANTED_POPUP_FALL_LIST_SELECTOR,
+  WANTED_POPUP_FEEDBACK_SELECTOR,
+  WANTED_POPUP_DIRTY_ACTION_SELECTOR,
+  WANTED_POPUP_CLEAN_ACTION_SELECTOR,
+  WANTED_POPUP_CLEAR_LOG_SELECTOR,
+  PLAYER_PROFILE_OPEN_SELECTOR,
+  PLAYER_POPUP_SELECTOR,
+  PLAYER_POPUP_CARD_SELECTOR,
+  PLAYER_POPUP_CLOSE_SELECTOR,
+  PLAYER_POPUP_AVATAR_SELECTOR,
+  PLAYER_POPUP_AVATAR_FALLBACK_SELECTOR,
+  BUILDINGS_POPUP_OPEN_SELECTOR,
+  BUILDINGS_POPUP_SELECTOR,
+  BUILDINGS_POPUP_CLOSE_SELECTOR,
+  BUILDINGS_POPUP_TYPES_SELECTOR,
+  BUILDINGS_POPUP_DETAIL_SELECTOR,
+  MARKET_POPUP_OPEN_SELECTOR,
+  MARKET_POPUP_SELECTOR,
+  MARKET_POPUP_CLOSE_SELECTOR,
+  MARKET_TAB_SELECTOR,
+  MARKET_COPY_SELECTOR,
+  MARKET_LIST_SELECTOR,
+  MARKET_SERVER_BADGE_SELECTOR,
+  MARKET_DASHBOARD_SELECTOR,
+  MARKET_FEEDBACK_SELECTOR,
+  SETTINGS_MODAL_SELECTOR,
+  SETTINGS_MODAL_BACKDROP_SELECTOR,
+  SETTINGS_MODAL_CLOSE_SELECTOR,
+  SETTINGS_SAVE_SELECTOR,
+  SETTINGS_MAP_BORDERS_SELECTOR,
+  SETTINGS_MAP_ALLIANCE_SYMBOLS_SELECTOR,
+  SETTINGS_MAP_REDUCED_EFFECTS_SELECTOR,
+  SETTINGS_MAP_VISIBILITY_SELECTOR,
+  SETTINGS_LANGUAGE_SELECTOR,
+  TOPBAR_CLEAN_MONEY_SELECTOR,
+  TOPBAR_DIRTY_MONEY_SELECTOR,
+  TOPBAR_INFLUENCE_SELECTOR,
+  TOPBAR_SPY_PILL_SELECTOR,
+  TOPBAR_SPY_LABEL_SELECTOR,
+  TOPBAR_SPY_VALUE_SELECTOR,
+  PLAYER_POPUP_CLEAN_MONEY_SELECTOR,
+  PLAYER_POPUP_DIRTY_MONEY_SELECTOR,
+  PLAYER_POPUP_INFLUENCE_SELECTOR,
+  PLAYER_POPUP_IDENTITY_SELECTOR,
+  PLAYER_POPUP_FACTION_SELECTOR,
+  PLAYER_POPUP_SERVER_SELECTOR,
+  PLAYER_POPUP_START_DISTRICT_SELECTOR,
+  PLAYER_POPUP_HEAT_SELECTOR,
+  PLAYER_POPUP_PROTECTION_SELECTOR,
+  PLAYER_POPUP_GANG_SELECTOR,
+  PLAYER_POPUP_ALLIANCE_SELECTOR,
+  PLAYER_POPUP_DISTRICTS_SELECTOR,
+  ALLIANCE_POPUP_OPEN_SELECTOR,
+  ALLIANCE_POPUP_SELECTOR,
+  ALLIANCE_POPUP_CLOSE_SELECTOR,
+  STORAGE_POPUP_OPEN_SELECTOR,
+  STORAGE_POPUP_SELECTOR,
+  STORAGE_POPUP_CLOSE_SELECTOR,
+  STORAGE_MATERIAL_COUNT_SELECTOR,
+  STORAGE_DRUG_COUNT_SELECTOR,
+  STORAGE_FACTORY_COUNT_SELECTOR,
+  PHARMACY_POPUP_OPEN_SELECTOR,
+  PHARMACY_POPUP_SELECTOR,
+  PHARMACY_POPUP_CLOSE_SELECTOR,
+  DRUGLAB_POPUP_OPEN_SELECTOR,
+  DRUGLAB_POPUP_SELECTOR,
+  DRUGLAB_POPUP_CLOSE_SELECTOR,
+  FACTORY_POPUP_OPEN_SELECTOR,
+  FACTORY_POPUP_SELECTOR,
+  FACTORY_POPUP_CLOSE_SELECTOR,
+  FACTORY_LEVEL_SELECTOR,
+  FACTORY_HEADER_LEVEL_SELECTOR,
+  FACTORY_MULTIPLIER_SELECTOR,
+  FACTORY_OWNED_COUNT_SELECTOR,
+  FACTORY_UPGRADE_COST_SELECTOR,
+  FACTORY_RESOURCE_METAL_SELECTOR,
+  FACTORY_RESOURCE_TECH_SELECTOR,
+  FACTORY_RESOURCE_COMBAT_SELECTOR,
+  FACTORY_SUPPLY_METAL_SELECTOR,
+  FACTORY_SUPPLY_TECH_SELECTOR,
+  FACTORY_SUPPLY_COMBAT_SELECTOR,
+  FACTORY_SLOT_LIST_SELECTOR,
+  FACTORY_EFFECTS_LABEL_SELECTOR,
+  FACTORY_UPGRADE_SELECTOR,
+  FACTORY_COLLECT_SELECTOR,
+  FACTORY_TAB_SELECTOR,
+  FACTORY_PANEL_SELECTOR,
+  ARMORY_POPUP_OPEN_SELECTOR,
+  ARMORY_POPUP_SELECTOR,
+  ARMORY_POPUP_CLOSE_SELECTOR,
+  PRODUCTION_BUILDING_TAB_SELECTOR,
+  PRODUCTION_BUILDING_PANEL_SELECTOR,
+  PRODUCTION_BUILDING_LEVEL_SELECTOR,
+  PRODUCTION_BUILDING_HEADER_LEVEL_SELECTOR,
+  PRODUCTION_BUILDING_MULTIPLIER_SELECTOR,
+  PRODUCTION_BUILDING_READY_SELECTOR,
+  PRODUCTION_BUILDING_UPGRADE_COST_SELECTOR,
+  PRODUCTION_BUILDING_EFFECTS_SELECTOR,
+  PRODUCTION_BUILDING_COLLECT_SELECTOR,
+  PRODUCTION_BUILDING_UPGRADE_SELECTOR,
+  PRODUCTION_BUILDING_INFO_TEXT_SELECTOR,
+  PRODUCTION_BUILDING_INFO_EFFECTS_SELECTOR,
+  PRODUCTION_BUILDING_INFO_ACTIONS_SELECTOR,
+  ATTACK_SETUP_POPUP_SELECTOR,
+  ATTACK_SETUP_CARD_SELECTOR,
+  ATTACK_SETUP_CLOSE_SELECTOR,
+  ATTACK_SETUP_ATMOSPHERE_IMAGE_SELECTOR,
+  ATTACK_SETUP_ATMOSPHERE_LABEL_SELECTOR,
+  ATTACK_TARGET_TITLE_SELECTOR,
+  ATTACK_SOURCE_SELECT_SELECTOR,
+  ATTACK_AVAILABLE_POPULATION_SELECTOR,
+  ATTACK_REQUIRED_POPULATION_SELECTOR,
+  ATTACK_ESTIMATED_POWER_SELECTOR,
+  ATTACK_STATUS_SELECTOR,
+  ATTACK_WEAPON_INPUT_SELECTOR,
+  ATTACK_OWNED_SELECTOR,
+  ATTACK_CONFIRM_SELECTOR,
+  ATTACK_CONFIRM_POPUP_SELECTOR,
+  ATTACK_CONFIRM_CARD_SELECTOR,
+  ATTACK_CONFIRM_CLOSE_SELECTOR,
+  ATTACK_CONFIRM_ATMOSPHERE_IMAGE_SELECTOR,
+  ATTACK_CONFIRM_ATMOSPHERE_LABEL_SELECTOR,
+  ATTACK_CONFIRM_TITLE_SELECTOR,
+  ATTACK_CONFIRM_SOURCE_SELECTOR,
+  ATTACK_CONFIRM_MEMBERS_SELECTOR,
+  ATTACK_CONFIRM_POWER_SELECTOR,
+  ATTACK_CONFIRM_SCENARIO_SELECTOR,
+  ATTACK_CONFIRM_DURATION_SELECTOR,
+  ATTACK_CONFIRM_NOTE_SELECTOR,
+  ATTACK_CONFIRM_BUTTON_SELECTOR,
+  ROBBERY_SETUP_POPUP_SELECTOR,
+  ROBBERY_SETUP_CARD_SELECTOR,
+  ROBBERY_SETUP_CLOSE_SELECTOR,
+  ROBBERY_SETUP_ATMOSPHERE_IMAGE_SELECTOR,
+  ROBBERY_SETUP_ATMOSPHERE_LABEL_SELECTOR,
+  ROBBERY_TARGET_TITLE_SELECTOR,
+  ROBBERY_SOURCE_SELECT_SELECTOR,
+  ROBBERY_AVAILABLE_MEMBERS_SELECTOR,
+  ROBBERY_MEMBER_INPUT_SELECTOR,
+  ROBBERY_STATUS_SELECTOR,
+  ROBBERY_CONFIRM_SELECTOR,
+  ROBBERY_CONFIRM_POPUP_SELECTOR,
+  ROBBERY_CONFIRM_CARD_SELECTOR,
+  ROBBERY_CONFIRM_CLOSE_SELECTOR,
+  ROBBERY_CONFIRM_ATMOSPHERE_IMAGE_SELECTOR,
+  ROBBERY_CONFIRM_ATMOSPHERE_LABEL_SELECTOR,
+  ROBBERY_CONFIRM_TITLE_SELECTOR,
+  ROBBERY_CONFIRM_SOURCE_SELECTOR,
+  ROBBERY_CONFIRM_MEMBERS_SELECTOR,
+  ROBBERY_CONFIRM_DURATION_SELECTOR,
+  ROBBERY_CONFIRM_NOTE_SELECTOR,
+  ROBBERY_CONFIRM_BUTTON_SELECTOR,
+  DEFENSE_SETUP_POPUP_SELECTOR,
+  DEFENSE_SETUP_CARD_SELECTOR,
+  DEFENSE_SETUP_CLOSE_SELECTOR,
+  DEFENSE_SETUP_ATMOSPHERE_IMAGE_SELECTOR,
+  DEFENSE_SETUP_ATMOSPHERE_LABEL_SELECTOR,
+  DEFENSE_TARGET_TITLE_SELECTOR,
+  DEFENSE_STATUS_SELECTOR,
+  DEFENSE_ESTIMATED_POWER_SELECTOR,
+  DEFENSE_WEAPON_INPUT_SELECTOR,
+  DEFENSE_OWNED_SELECTOR,
+  DEFENSE_RESIDENTS_INPUT_SELECTOR,
+  DEFENSE_CONFIRM_SELECTOR,
+  TRAP_CONFIRM_POPUP_SELECTOR,
+  TRAP_CONFIRM_CARD_SELECTOR,
+  TRAP_CONFIRM_CLOSE_SELECTOR,
+  TRAP_CONFIRM_ATMOSPHERE_IMAGE_SELECTOR,
+  TRAP_CONFIRM_ATMOSPHERE_LABEL_SELECTOR,
+  TRAP_CONFIRM_TITLE_SELECTOR,
+  TRAP_CONFIRM_COOLDOWN_SELECTOR,
+  TRAP_CONFIRM_NOTE_SELECTOR,
+  TRAP_CONFIRM_BUTTON_SELECTOR,
+  SPY_CONFIRM_POPUP_SELECTOR,
+  SPY_CONFIRM_CARD_SELECTOR,
+  SPY_CONFIRM_CLOSE_SELECTOR,
+  SPY_CONFIRM_ATMOSPHERE_IMAGE_SELECTOR,
+  SPY_CONFIRM_ATMOSPHERE_LABEL_SELECTOR,
+  SPY_CONFIRM_TITLE_SELECTOR,
+  SPY_CONFIRM_SOURCE_SELECTOR,
+  SPY_CONFIRM_AVAILABLE_SELECTOR,
+  SPY_CONFIRM_DURATION_SELECTOR,
+  SPY_CONFIRM_NOTE_SELECTOR,
+  SPY_CONFIRM_BUTTON_SELECTOR,
+  OCCUPY_CONFIRM_POPUP_SELECTOR,
+  OCCUPY_CONFIRM_CARD_SELECTOR,
+  OCCUPY_CONFIRM_CLOSE_SELECTOR,
+  OCCUPY_CONFIRM_ATMOSPHERE_IMAGE_SELECTOR,
+  OCCUPY_CONFIRM_ATMOSPHERE_LABEL_SELECTOR,
+  OCCUPY_CONFIRM_TITLE_SELECTOR,
+  OCCUPY_CONFIRM_SOURCE_SELECTOR,
+  OCCUPY_CONFIRM_CONDITION_SELECTOR,
+  OCCUPY_CONFIRM_DURATION_SELECTOR,
+  OCCUPY_CONFIRM_NOTE_SELECTOR,
+  OCCUPY_CONFIRM_BUTTON_SELECTOR,
+  SPY_RESULT_MODAL_SELECTOR,
+  SPY_RESULT_MODAL_BACKDROP_SELECTOR,
+  SPY_RESULT_MODAL_CLOSE_SELECTOR,
+  SPY_RESULT_MODAL_OK_SELECTOR,
+  SPY_RESULT_MODAL_CONTENT_SELECTOR,
+  SPY_RESULT_MODAL_TITLE_SELECTOR,
+  SPY_RESULT_MODAL_SUMMARY_SELECTOR,
+  SPY_RESULT_MODAL_DETAILS_SELECTOR,
+  SPY_WARNING_MODAL_SELECTOR,
+  SPY_WARNING_MODAL_BACKDROP_SELECTOR,
+  SPY_WARNING_MODAL_CLOSE_SELECTOR,
+  SPY_WARNING_MODAL_OK_SELECTOR,
+  SPY_WARNING_MODAL_CONTENT_SELECTOR,
+  SPY_WARNING_MODAL_TITLE_SELECTOR,
+  SPY_WARNING_MODAL_BADGE_SELECTOR,
+  SPY_WARNING_MODAL_SUMMARY_SELECTOR,
+  SPY_WARNING_MODAL_DETAILS_SELECTOR,
+  RAID_RESULT_MODAL_SELECTOR,
+  RAID_RESULT_MODAL_BACKDROP_SELECTOR,
+  RAID_RESULT_MODAL_CLOSE_SELECTOR,
+  RAID_RESULT_MODAL_OK_SELECTOR,
+  RAID_RESULT_MODAL_CONTENT_SELECTOR,
+  RAID_RESULT_MODAL_TITLE_SELECTOR,
+  RAID_RESULT_MODAL_SUMMARY_SELECTOR,
+  RAID_RESULT_MODAL_DETAILS_SELECTOR,
+  ATTACK_RESULT_MODAL_SELECTOR,
+  ATTACK_RESULT_MODAL_BACKDROP_SELECTOR,
+  ATTACK_RESULT_MODAL_CLOSE_SELECTOR,
+  ATTACK_RESULT_MODAL_OK_SELECTOR,
+  ATTACK_RESULT_MODAL_CONTENT_SELECTOR,
+  ATTACK_RESULT_MODAL_TITLE_SELECTOR,
+  ATTACK_RESULT_MODAL_BADGE_SELECTOR,
+  ATTACK_RESULT_MODAL_SUMMARY_SELECTOR,
+  ATTACK_RESULT_MODAL_STATS_SELECTOR,
+  ATTACK_RESULT_MODAL_TARGET_LABEL_SELECTOR,
+  ATTACK_RESULT_MODAL_TARGET_VALUE_SELECTOR,
+  ATTACK_RESULT_MODAL_ATTACK_LABEL_SELECTOR,
+  ATTACK_RESULT_MODAL_ATTACK_VALUE_SELECTOR,
+  ATTACK_RESULT_MODAL_DEFENSE_LABEL_SELECTOR,
+  ATTACK_RESULT_MODAL_DEFENSE_VALUE_SELECTOR,
+  ATTACK_RESULT_MODAL_ATTACK_LOSS_LABEL_SELECTOR,
+  ATTACK_RESULT_MODAL_ATTACK_LOSS_VALUE_SELECTOR,
+  ATTACK_RESULT_MODAL_DEFENSE_LOSS_LABEL_SELECTOR,
+  ATTACK_RESULT_MODAL_DEFENSE_LOSS_VALUE_SELECTOR,
+  ATTACK_RESULT_MODAL_STATE_LABEL_SELECTOR,
+  ATTACK_RESULT_MODAL_STATE_VALUE_SELECTOR,
+  ATTACK_RESULT_MODAL_DURATION_LABEL_SELECTOR,
+  ATTACK_RESULT_MODAL_DURATION_VALUE_SELECTOR,
+  POLICE_ACTION_RESULT_MODAL_SELECTOR,
+  POLICE_ACTION_RESULT_MODAL_BACKDROP_SELECTOR,
+  POLICE_ACTION_RESULT_MODAL_CLOSE_SELECTOR,
+  POLICE_ACTION_RESULT_MODAL_OK_SELECTOR,
+  POLICE_ACTION_RESULT_MODAL_CONTENT_SELECTOR,
+  POLICE_ACTION_RESULT_MODAL_TITLE_SELECTOR,
+  POLICE_ACTION_RESULT_MODAL_BADGE_SELECTOR,
+  POLICE_ACTION_RESULT_MODAL_SUMMARY_SELECTOR,
+  POLICE_ACTION_RESULT_MODAL_DETAILS_SELECTOR,
+  CITY_CLOCK_SELECTOR,
+  CITY_DAY_PHASE_SELECTOR,
+  CITY_GAME_PHASE_SELECTOR,
+  CITY_STATUS_SELECTOR,
+  CITY_PRODUCTION_SELECTOR,
+  DAY_MAP_IMAGE_PATH,
+  NIGHT_MAP_IMAGE_PATH,
+  STORAGE_WEAPON_COUNT_SELECTOR,
+  OVERFLOW_TEXT_TOOLTIP_SELECTOR
+} from "./runtime/constants.js";
+// Legacy static-page preview runtime; browser-local only when no server authority is present.
+const MARKET_TRANSACTION_LIMIT = 12;
+const MARKET_STOCK_DEFAULTS = Object.freeze({
+  market: Object.freeze({
+    chemicals: Object.freeze({ start: 700, max: 1100, regen: 28 }),
+    biomass: Object.freeze({ start: 1000, max: 1600, regen: 45 }),
+    "stim-pack": Object.freeze({ start: 180, max: 320, regen: 8 }),
+    "metal-parts": Object.freeze({ start: 900, max: 1400, regen: 35 }),
+    "tech-core": Object.freeze({ start: 260, max: 420, regen: 8 })
+  })
+});
+const MARKET_BLACK_HEAT_BY_VALUE = Object.freeze([
+  Object.freeze({ min: 3500, heat: 10, label: "extrémní" }),
+  Object.freeze({ min: 1800, heat: 6, label: "vysoké" }),
+  Object.freeze({ min: 750, heat: 3, label: "střední" }),
+  Object.freeze({ min: 1, heat: 1, label: "nízké" })
+]);
+const MARKET_PLAYER_TAB_ID = "player-market";
+const MARKET_PLAYER_SELLER_ID = "player:self";
+const MARKET_PLAYER_LISTING_LIMIT = 18;
+const MARKET_PLAYER_OWN_LISTING_LIMIT = 4;
+const MARKET_PLAYER_LISTING_TTL_MS = 45 * 60 * 1000;
+const MARKET_PLAYER_DEMO_SELLERS = Object.freeze([
+  Object.freeze({ id: "seller:neon-fox", name: "Neon Fox" }),
+  Object.freeze({ id: "seller:chrome-crew", name: "Chrome Crew" }),
+  Object.freeze({ id: "seller:zero-lab", name: "Zero Lab" }),
+  Object.freeze({ id: "seller:byte-runners", name: "Byte Runners" }),
+  Object.freeze({ id: "seller:scarlet-yard", name: "Scarlet Yard" })
+]);
+const MARKET_PLAYER_TRADE_ITEMS = Object.freeze([
+  Object.freeze({ inventory: "materials", itemId: "chemicals", category: "Materiál" }),
+  Object.freeze({ inventory: "materials", itemId: "biomass", category: "Materiál" }),
+  Object.freeze({ inventory: "materials", itemId: "stim-pack", category: "Materiál" }),
+  Object.freeze({ inventory: "materials", itemId: "metal-parts", category: "Materiál" }),
+  Object.freeze({ inventory: "materials", itemId: "tech-core", category: "Materiál" }),
+  Object.freeze({ inventory: "drugs", itemId: "neon-dust", category: "Drogy" }),
+  Object.freeze({ inventory: "drugs", itemId: "pulse-shot", category: "Drogy" }),
+  Object.freeze({ inventory: "drugs", itemId: "velvet-smoke", category: "Drogy" }),
+  Object.freeze({ inventory: "drugs", itemId: "ghost-serum", category: "Drogy" }),
+  Object.freeze({ inventory: "drugs", itemId: "overdrive-x", category: "Drogy" }),
+  Object.freeze({ inventory: "weapons", itemId: "pistol", category: "Výzbroj" }),
+  Object.freeze({ inventory: "weapons", itemId: "smg", category: "Výzbroj" }),
+  Object.freeze({ inventory: "weapons", itemId: "bazooka", category: "Výzbroj" })
+]);
 const SPY_CAPTURE_COOLDOWN_MS = 40_000;
 const DEV_ONLY_POLICE_INTERVAL_MS = 30_000;
 const DEV_ONLY_DESTROYED_DISTRICT_ID = 8;
-const GANG_MEMBERS_SELECTOR = "[data-gang-members]";
-const GANG_HEAT_SELECTOR = "[data-gang-heat]";
-const GANG_STAR_SELECTOR = "[data-gang-star]";
-const GANG_STARS_SELECTOR = "[data-gang-stars]";
-const WANTED_POPUP_SELECTOR = "[data-wanted-popup]";
-const WANTED_POPUP_CLOSE_SELECTOR = "[data-wanted-popup-close]";
-const WANTED_POPUP_HEAT_SELECTOR = "[data-wanted-popup-heat]";
-const WANTED_POPUP_LEVEL_SELECTOR = "[data-wanted-popup-level]";
-const WANTED_POPUP_TIER_SELECTOR = "[data-wanted-popup-tier]";
-const WANTED_POPUP_DESCRIPTION_SELECTOR = "[data-wanted-popup-description]";
-const WANTED_POPUP_PROTECTION_SELECTOR = "[data-wanted-popup-protection]";
-const WANTED_POPUP_LEVELS_SELECTOR = "[data-wanted-popup-levels]";
-const WANTED_POPUP_RISE_LIST_SELECTOR = "[data-wanted-popup-rise-list]";
-const WANTED_POPUP_FALL_LIST_SELECTOR = "[data-wanted-popup-fall-list]";
-const WANTED_POPUP_FEEDBACK_SELECTOR = "[data-wanted-popup-feedback]";
-const WANTED_POPUP_DIRTY_ACTION_SELECTOR = "[data-wanted-popup-dirty]";
-const WANTED_POPUP_CLEAN_ACTION_SELECTOR = "[data-wanted-popup-clean]";
-const WANTED_POPUP_CLEAR_LOG_SELECTOR = "[data-wanted-popup-clear-log]";
-const PLAYER_PROFILE_OPEN_SELECTOR = "[data-player-profile-open]";
-const PLAYER_POPUP_SELECTOR = "[data-player-popup]";
-const PLAYER_POPUP_CARD_SELECTOR = "[data-player-popup-card]";
-const PLAYER_POPUP_CLOSE_SELECTOR = "[data-player-popup-close]";
-const BUILDINGS_POPUP_OPEN_SELECTOR = "[data-buildings-popup-open]";
-const BUILDINGS_POPUP_SELECTOR = "[data-buildings-popup]";
-const BUILDINGS_POPUP_CLOSE_SELECTOR = "[data-buildings-popup-close]";
-const BUILDINGS_POPUP_TYPES_SELECTOR = "[data-buildings-popup-types]";
-const BUILDINGS_POPUP_DETAIL_SELECTOR = "[data-buildings-popup-detail]";
-const MARKET_POPUP_OPEN_SELECTOR = "[data-market-popup-open]";
-const MARKET_POPUP_SELECTOR = "[data-market-popup]";
-const MARKET_POPUP_CLOSE_SELECTOR = "[data-market-popup-close]";
-const MARKET_TAB_SELECTOR = "[data-market-tab]";
-const MARKET_COPY_SELECTOR = "[data-market-copy]";
-const MARKET_LIST_SELECTOR = "[data-market-list]";
-const MARKET_SERVER_BADGE_SELECTOR = "[data-market-server-badge]";
-const SETTINGS_MODAL_SELECTOR = "#settings-modal";
-const SETTINGS_MODAL_BACKDROP_SELECTOR = "#settings-modal-backdrop";
-const SETTINGS_MODAL_CLOSE_SELECTOR = "#settings-modal-close";
-const SETTINGS_SAVE_SELECTOR = "#settings-save-btn";
-const SETTINGS_MAP_BORDERS_SELECTOR = "#settings-map-district-borders";
-const SETTINGS_MAP_ALLIANCE_SYMBOLS_SELECTOR = "#settings-map-alliance-symbols";
-const SETTINGS_MAP_VISIBILITY_SELECTOR = "#settings-map-visibility";
-const SETTINGS_LANGUAGE_SELECTOR = "#settings-language";
-const TOPBAR_CLEAN_MONEY_SELECTOR = "[data-topbar-clean-money]";
-const TOPBAR_DIRTY_MONEY_SELECTOR = "[data-topbar-dirty-money]";
-const TOPBAR_INFLUENCE_SELECTOR = "[data-topbar-influence]";
-const TOPBAR_SPY_PILL_SELECTOR = "[data-topbar-spy-pill]";
-const TOPBAR_SPY_LABEL_SELECTOR = "[data-topbar-spy-label]";
-const TOPBAR_SPY_VALUE_SELECTOR = "[data-topbar-spy-value]";
-const PLAYER_POPUP_CLEAN_MONEY_SELECTOR = "[data-player-popup-clean-money]";
-const PLAYER_POPUP_DIRTY_MONEY_SELECTOR = "[data-player-popup-dirty-money]";
-const PLAYER_POPUP_INFLUENCE_SELECTOR = "[data-player-popup-influence]";
-const PLAYER_POPUP_IDENTITY_SELECTOR = "[data-player-popup-identity]";
-const PLAYER_POPUP_FACTION_SELECTOR = "[data-player-popup-faction]";
-const PLAYER_POPUP_SERVER_SELECTOR = "[data-player-popup-server]";
-const PLAYER_POPUP_START_DISTRICT_SELECTOR = "[data-player-popup-start-district]";
-const PLAYER_POPUP_HEAT_SELECTOR = "[data-player-popup-heat]";
-const PLAYER_POPUP_PROTECTION_SELECTOR = "[data-player-popup-protection]";
-const PLAYER_POPUP_GANG_SELECTOR = "[data-player-popup-gang]";
-const PLAYER_POPUP_ALLIANCE_SELECTOR = "[data-player-popup-alliance]";
-const PLAYER_POPUP_DISTRICTS_SELECTOR = "[data-player-popup-districts]";
-const ALLIANCE_POPUP_OPEN_SELECTOR = "[data-alliance-popup-open]";
-const ALLIANCE_POPUP_SELECTOR = "[data-alliance-popup]";
-const ALLIANCE_POPUP_CLOSE_SELECTOR = "[data-alliance-popup-close]";
-const STORAGE_POPUP_OPEN_SELECTOR = "[data-storage-popup-open]";
-const STORAGE_POPUP_SELECTOR = "[data-storage-popup]";
-const STORAGE_POPUP_CLOSE_SELECTOR = "[data-storage-popup-close]";
-const STORAGE_MATERIAL_COUNT_SELECTOR = "[data-storage-material-count]";
-const STORAGE_DRUG_COUNT_SELECTOR = "[data-storage-drug-count]";
-const STORAGE_FACTORY_COUNT_SELECTOR = "[data-storage-factory-count]";
-const PHARMACY_POPUP_OPEN_SELECTOR = "[data-pharmacy-popup-open]";
-const PHARMACY_POPUP_SELECTOR = "[data-pharmacy-popup]";
-const PHARMACY_POPUP_CLOSE_SELECTOR = "[data-pharmacy-popup-close]";
-const DRUGLAB_POPUP_OPEN_SELECTOR = "[data-druglab-popup-open]";
-const DRUGLAB_POPUP_SELECTOR = "[data-druglab-popup]";
-const DRUGLAB_POPUP_CLOSE_SELECTOR = "[data-druglab-popup-close]";
-const FACTORY_POPUP_OPEN_SELECTOR = "[data-factory-popup-open]";
-const FACTORY_POPUP_SELECTOR = "[data-factory-popup]";
-const FACTORY_POPUP_CLOSE_SELECTOR = "[data-factory-popup-close]";
-const FACTORY_LEVEL_SELECTOR = "[data-factory-level]";
-const FACTORY_HEADER_LEVEL_SELECTOR = "[data-factory-header-level]";
-const FACTORY_MULTIPLIER_SELECTOR = "[data-factory-multiplier]";
-const FACTORY_OWNED_COUNT_SELECTOR = "[data-factory-owned-count]";
-const FACTORY_UPGRADE_COST_SELECTOR = "[data-factory-upgrade-cost]";
-const FACTORY_RESOURCE_METAL_SELECTOR = "[data-factory-resource-metal]";
-const FACTORY_RESOURCE_TECH_SELECTOR = "[data-factory-resource-tech]";
-const FACTORY_RESOURCE_COMBAT_SELECTOR = "[data-factory-resource-combat]";
-const FACTORY_SUPPLY_METAL_SELECTOR = "[data-factory-supply-metal]";
-const FACTORY_SUPPLY_TECH_SELECTOR = "[data-factory-supply-tech]";
-const FACTORY_SUPPLY_COMBAT_SELECTOR = "[data-factory-supply-combat]";
-const FACTORY_SLOT_LIST_SELECTOR = "[data-factory-slot-list]";
-const FACTORY_EFFECTS_LABEL_SELECTOR = "[data-factory-effects-label]";
-const FACTORY_UPGRADE_SELECTOR = "[data-factory-upgrade]";
-const FACTORY_COLLECT_SELECTOR = "[data-factory-collect]";
-const FACTORY_TAB_SELECTOR = "[data-factory-tab]";
-const FACTORY_PANEL_SELECTOR = "[data-factory-panel]";
-const ARMORY_POPUP_OPEN_SELECTOR = "[data-armory-popup-open]";
-const ARMORY_POPUP_SELECTOR = "[data-armory-popup]";
-const ARMORY_POPUP_CLOSE_SELECTOR = "[data-armory-popup-close]";
-const PRODUCTION_BUILDING_TAB_SELECTOR = "[data-production-building-tab]";
-const PRODUCTION_BUILDING_PANEL_SELECTOR = "[data-production-building-panel]";
-const PRODUCTION_BUILDING_LEVEL_SELECTOR = "[data-production-building-level]";
-const PRODUCTION_BUILDING_HEADER_LEVEL_SELECTOR = "[data-production-building-header-level]";
-const PRODUCTION_BUILDING_MULTIPLIER_SELECTOR = "[data-production-building-multiplier]";
-const PRODUCTION_BUILDING_READY_SELECTOR = "[data-production-building-ready]";
-const PRODUCTION_BUILDING_UPGRADE_COST_SELECTOR = "[data-production-building-upgrade-cost]";
-const PRODUCTION_BUILDING_EFFECTS_SELECTOR = "[data-production-building-effects]";
-const PRODUCTION_BUILDING_COLLECT_SELECTOR = "[data-production-building-collect]";
-const PRODUCTION_BUILDING_UPGRADE_SELECTOR = "[data-production-building-upgrade]";
-const PRODUCTION_BUILDING_INFO_TEXT_SELECTOR = "[data-production-building-info-text]";
-const PRODUCTION_BUILDING_INFO_EFFECTS_SELECTOR = "[data-production-building-info-effects]";
-const PRODUCTION_BUILDING_INFO_ACTIONS_SELECTOR = "[data-production-building-info-actions]";
-const ATTACK_SETUP_POPUP_SELECTOR = "[data-attack-setup-popup]";
-const ATTACK_SETUP_CARD_SELECTOR = "[data-attack-setup-card]";
-const ATTACK_SETUP_CLOSE_SELECTOR = "[data-attack-setup-close]";
-const ATTACK_SETUP_ATMOSPHERE_IMAGE_SELECTOR = "[data-attack-setup-atmosphere-image]";
-const ATTACK_SETUP_ATMOSPHERE_LABEL_SELECTOR = "[data-attack-setup-atmosphere-label]";
-const ATTACK_TARGET_TITLE_SELECTOR = "[data-attack-target-title]";
-const ATTACK_SOURCE_SELECT_SELECTOR = "[data-attack-source-select]";
-const ATTACK_AVAILABLE_POPULATION_SELECTOR = "[data-attack-available-population]";
-const ATTACK_REQUIRED_POPULATION_SELECTOR = "[data-attack-required-population]";
-const ATTACK_ESTIMATED_POWER_SELECTOR = "[data-attack-estimated-power]";
-const ATTACK_STATUS_SELECTOR = "[data-attack-status]";
-const ATTACK_WEAPON_INPUT_SELECTOR = "[data-attack-weapon-input]";
-const ATTACK_OWNED_SELECTOR = "[data-attack-owned]";
-const ATTACK_CONFIRM_SELECTOR = "[data-attack-confirm]";
-const ATTACK_CONFIRM_POPUP_SELECTOR = "[data-attack-confirm-popup]";
-const ATTACK_CONFIRM_CARD_SELECTOR = "[data-attack-confirm-card]";
-const ATTACK_CONFIRM_CLOSE_SELECTOR = "[data-attack-confirm-close]";
-const ATTACK_CONFIRM_ATMOSPHERE_IMAGE_SELECTOR = "[data-attack-confirm-atmosphere-image]";
-const ATTACK_CONFIRM_ATMOSPHERE_LABEL_SELECTOR = "[data-attack-confirm-atmosphere-label]";
-const ATTACK_CONFIRM_TITLE_SELECTOR = "[data-attack-confirm-title]";
-const ATTACK_CONFIRM_SOURCE_SELECTOR = "[data-attack-confirm-source]";
-const ATTACK_CONFIRM_MEMBERS_SELECTOR = "[data-attack-confirm-members]";
-const ATTACK_CONFIRM_POWER_SELECTOR = "[data-attack-confirm-power]";
-const ATTACK_CONFIRM_SCENARIO_SELECTOR = "[data-attack-confirm-scenario]";
-const ATTACK_CONFIRM_DURATION_SELECTOR = "[data-attack-confirm-duration]";
-const ATTACK_CONFIRM_NOTE_SELECTOR = "[data-attack-confirm-note]";
-const ATTACK_CONFIRM_BUTTON_SELECTOR = "[data-attack-confirm-button]";
-const ROBBERY_SETUP_POPUP_SELECTOR = "[data-robbery-setup-popup]";
-const ROBBERY_SETUP_CARD_SELECTOR = "[data-robbery-setup-card]";
-const ROBBERY_SETUP_CLOSE_SELECTOR = "[data-robbery-setup-close]";
-const ROBBERY_SETUP_ATMOSPHERE_IMAGE_SELECTOR = "[data-robbery-setup-atmosphere-image]";
-const ROBBERY_SETUP_ATMOSPHERE_LABEL_SELECTOR = "[data-robbery-setup-atmosphere-label]";
-const ROBBERY_TARGET_TITLE_SELECTOR = "[data-robbery-target-title]";
-const ROBBERY_SOURCE_SELECT_SELECTOR = "[data-robbery-source-select]";
-const ROBBERY_AVAILABLE_MEMBERS_SELECTOR = "[data-robbery-available-members]";
-const ROBBERY_MEMBER_INPUT_SELECTOR = "[data-robbery-member-input]";
-const ROBBERY_STATUS_SELECTOR = "[data-robbery-status]";
-const ROBBERY_CONFIRM_SELECTOR = "[data-robbery-confirm]";
-const ROBBERY_CONFIRM_POPUP_SELECTOR = "[data-robbery-confirm-popup]";
-const ROBBERY_CONFIRM_CARD_SELECTOR = "[data-robbery-confirm-card]";
-const ROBBERY_CONFIRM_CLOSE_SELECTOR = "[data-robbery-confirm-close]";
-const ROBBERY_CONFIRM_ATMOSPHERE_IMAGE_SELECTOR = "[data-robbery-confirm-atmosphere-image]";
-const ROBBERY_CONFIRM_ATMOSPHERE_LABEL_SELECTOR = "[data-robbery-confirm-atmosphere-label]";
-const ROBBERY_CONFIRM_TITLE_SELECTOR = "[data-robbery-confirm-title]";
-const ROBBERY_CONFIRM_SOURCE_SELECTOR = "[data-robbery-confirm-source]";
-const ROBBERY_CONFIRM_MEMBERS_SELECTOR = "[data-robbery-confirm-members]";
-const ROBBERY_CONFIRM_DURATION_SELECTOR = "[data-robbery-confirm-duration]";
-const ROBBERY_CONFIRM_NOTE_SELECTOR = "[data-robbery-confirm-note]";
-const ROBBERY_CONFIRM_BUTTON_SELECTOR = "[data-robbery-confirm-button]";
-const DEFENSE_SETUP_POPUP_SELECTOR = "[data-defense-setup-popup]";
-const DEFENSE_SETUP_CARD_SELECTOR = "[data-defense-setup-card]";
-const DEFENSE_SETUP_CLOSE_SELECTOR = "[data-defense-setup-close]";
-const DEFENSE_SETUP_ATMOSPHERE_IMAGE_SELECTOR = "[data-defense-setup-atmosphere-image]";
-const DEFENSE_SETUP_ATMOSPHERE_LABEL_SELECTOR = "[data-defense-setup-atmosphere-label]";
-const DEFENSE_TARGET_TITLE_SELECTOR = "[data-defense-target-title]";
-const DEFENSE_STATUS_SELECTOR = "[data-defense-status]";
-const DEFENSE_ESTIMATED_POWER_SELECTOR = "[data-defense-estimated-power]";
-const DEFENSE_WEAPON_INPUT_SELECTOR = "[data-defense-weapon-input]";
-const DEFENSE_OWNED_SELECTOR = "[data-defense-owned]";
-const DEFENSE_RESIDENTS_INPUT_SELECTOR = "[data-defense-residents-input]";
-const DEFENSE_CONFIRM_SELECTOR = "[data-defense-confirm]";
-const TRAP_CONFIRM_POPUP_SELECTOR = "[data-trap-confirm-popup]";
-const TRAP_CONFIRM_CARD_SELECTOR = "[data-trap-confirm-card]";
-const TRAP_CONFIRM_CLOSE_SELECTOR = "[data-trap-confirm-close]";
-const TRAP_CONFIRM_ATMOSPHERE_IMAGE_SELECTOR = "[data-trap-confirm-atmosphere-image]";
-const TRAP_CONFIRM_ATMOSPHERE_LABEL_SELECTOR = "[data-trap-confirm-atmosphere-label]";
-const TRAP_CONFIRM_TITLE_SELECTOR = "[data-trap-confirm-title]";
-const TRAP_CONFIRM_COOLDOWN_SELECTOR = "[data-trap-confirm-cooldown]";
-const TRAP_CONFIRM_NOTE_SELECTOR = "[data-trap-confirm-note]";
-const TRAP_CONFIRM_BUTTON_SELECTOR = "[data-trap-confirm-button]";
-const SPY_CONFIRM_POPUP_SELECTOR = "[data-spy-confirm-popup]";
-const SPY_CONFIRM_CARD_SELECTOR = "[data-spy-confirm-card]";
-const SPY_CONFIRM_CLOSE_SELECTOR = "[data-spy-confirm-close]";
-const SPY_CONFIRM_ATMOSPHERE_IMAGE_SELECTOR = "[data-spy-confirm-atmosphere-image]";
-const SPY_CONFIRM_ATMOSPHERE_LABEL_SELECTOR = "[data-spy-confirm-atmosphere-label]";
-const SPY_CONFIRM_TITLE_SELECTOR = "[data-spy-confirm-title]";
-const SPY_CONFIRM_SOURCE_SELECTOR = "[data-spy-confirm-source]";
-const SPY_CONFIRM_AVAILABLE_SELECTOR = "[data-spy-confirm-available]";
-const SPY_CONFIRM_DURATION_SELECTOR = "[data-spy-confirm-duration]";
-const SPY_CONFIRM_NOTE_SELECTOR = "[data-spy-confirm-note]";
-const SPY_CONFIRM_BUTTON_SELECTOR = "[data-spy-confirm-button]";
-const OCCUPY_CONFIRM_POPUP_SELECTOR = "[data-occupy-confirm-popup]";
-const OCCUPY_CONFIRM_CARD_SELECTOR = "[data-occupy-confirm-card]";
-const OCCUPY_CONFIRM_CLOSE_SELECTOR = "[data-occupy-confirm-close]";
-const OCCUPY_CONFIRM_ATMOSPHERE_IMAGE_SELECTOR = "[data-occupy-confirm-atmosphere-image]";
-const OCCUPY_CONFIRM_ATMOSPHERE_LABEL_SELECTOR = "[data-occupy-confirm-atmosphere-label]";
-const OCCUPY_CONFIRM_TITLE_SELECTOR = "[data-occupy-confirm-title]";
-const OCCUPY_CONFIRM_SOURCE_SELECTOR = "[data-occupy-confirm-source]";
-const OCCUPY_CONFIRM_CONDITION_SELECTOR = "[data-occupy-confirm-condition]";
-const OCCUPY_CONFIRM_DURATION_SELECTOR = "[data-occupy-confirm-duration]";
-const OCCUPY_CONFIRM_NOTE_SELECTOR = "[data-occupy-confirm-note]";
-const OCCUPY_CONFIRM_BUTTON_SELECTOR = "[data-occupy-confirm-button]";
-const SPY_RESULT_MODAL_SELECTOR = "#spy-result-modal";
-const SPY_RESULT_MODAL_BACKDROP_SELECTOR = "#spy-result-modal-backdrop";
-const SPY_RESULT_MODAL_CLOSE_SELECTOR = "#spy-result-modal-close";
-const SPY_RESULT_MODAL_OK_SELECTOR = "#spy-result-modal-ok";
-const SPY_RESULT_MODAL_CONTENT_SELECTOR = "#spy-result-modal-content";
-const SPY_RESULT_MODAL_TITLE_SELECTOR = "#spy-result-modal-title";
-const SPY_RESULT_MODAL_SUMMARY_SELECTOR = "#spy-result-modal-summary";
-const SPY_RESULT_MODAL_DETAILS_SELECTOR = "#spy-result-modal-details";
-const SPY_WARNING_MODAL_SELECTOR = "#spy-warning-modal";
-const SPY_WARNING_MODAL_BACKDROP_SELECTOR = "#spy-warning-modal-backdrop";
-const SPY_WARNING_MODAL_CLOSE_SELECTOR = "#spy-warning-modal-close";
-const SPY_WARNING_MODAL_OK_SELECTOR = "#spy-warning-modal-ok";
-const SPY_WARNING_MODAL_CONTENT_SELECTOR = "#spy-warning-modal-content";
-const SPY_WARNING_MODAL_TITLE_SELECTOR = "#spy-warning-modal-title";
-const SPY_WARNING_MODAL_BADGE_SELECTOR = "#spy-warning-modal-badge";
-const SPY_WARNING_MODAL_SUMMARY_SELECTOR = "#spy-warning-modal-summary";
-const SPY_WARNING_MODAL_DETAILS_SELECTOR = "#spy-warning-modal-details";
-const RAID_RESULT_MODAL_SELECTOR = "#raid-result-modal";
-const RAID_RESULT_MODAL_BACKDROP_SELECTOR = "#raid-result-modal-backdrop";
-const RAID_RESULT_MODAL_CLOSE_SELECTOR = "#raid-result-modal-close";
-const RAID_RESULT_MODAL_OK_SELECTOR = "#raid-result-modal-ok";
-const RAID_RESULT_MODAL_CONTENT_SELECTOR = "#raid-result-modal-content";
-const RAID_RESULT_MODAL_TITLE_SELECTOR = "#raid-result-modal-title";
-const RAID_RESULT_MODAL_SUMMARY_SELECTOR = "#raid-result-modal-summary";
-const RAID_RESULT_MODAL_DETAILS_SELECTOR = "#raid-result-modal-details";
-const ATTACK_RESULT_MODAL_SELECTOR = "#attack-result-modal";
-const ATTACK_RESULT_MODAL_BACKDROP_SELECTOR = "#attack-result-modal-backdrop";
-const ATTACK_RESULT_MODAL_CLOSE_SELECTOR = "#attack-result-modal-close";
-const ATTACK_RESULT_MODAL_OK_SELECTOR = "#attack-result-modal-ok";
-const ATTACK_RESULT_MODAL_CONTENT_SELECTOR = "#attack-result-modal-content";
-const ATTACK_RESULT_MODAL_TITLE_SELECTOR = "#attack-result-modal-title";
-const ATTACK_RESULT_MODAL_BADGE_SELECTOR = "#attack-result-modal-badge";
-const ATTACK_RESULT_MODAL_SUMMARY_SELECTOR = "#attack-result-modal-summary";
-const ATTACK_RESULT_MODAL_STATS_SELECTOR = "#attack-result-modal-stats";
-const ATTACK_RESULT_MODAL_TARGET_LABEL_SELECTOR = "#attack-result-modal-label-target";
-const ATTACK_RESULT_MODAL_TARGET_VALUE_SELECTOR = "#attack-result-modal-nickname";
-const ATTACK_RESULT_MODAL_ATTACK_LABEL_SELECTOR = "#attack-result-modal-label-attack";
-const ATTACK_RESULT_MODAL_ATTACK_VALUE_SELECTOR = "#attack-result-modal-faction";
-const ATTACK_RESULT_MODAL_DEFENSE_LABEL_SELECTOR = "#attack-result-modal-label-defense";
-const ATTACK_RESULT_MODAL_DEFENSE_VALUE_SELECTOR = "#attack-result-modal-alliance";
-const ATTACK_RESULT_MODAL_ATTACK_LOSS_LABEL_SELECTOR = "#attack-result-modal-label-attack-losses";
-const ATTACK_RESULT_MODAL_ATTACK_LOSS_VALUE_SELECTOR = "#attack-result-modal-weapons";
-const ATTACK_RESULT_MODAL_DEFENSE_LOSS_LABEL_SELECTOR = "#attack-result-modal-label-defense-losses";
-const ATTACK_RESULT_MODAL_DEFENSE_LOSS_VALUE_SELECTOR = "#attack-result-modal-power";
-const ATTACK_RESULT_MODAL_STATE_LABEL_SELECTOR = "#attack-result-modal-label-state";
-const ATTACK_RESULT_MODAL_STATE_VALUE_SELECTOR = "#attack-result-modal-members";
-const ATTACK_RESULT_MODAL_DURATION_LABEL_SELECTOR = "#attack-result-modal-label-duration";
-const ATTACK_RESULT_MODAL_DURATION_VALUE_SELECTOR = "#attack-result-modal-duration";
-const POLICE_ACTION_RESULT_MODAL_SELECTOR = "#police-action-result-modal";
-const POLICE_ACTION_RESULT_MODAL_BACKDROP_SELECTOR = "#police-action-result-modal-backdrop";
-const POLICE_ACTION_RESULT_MODAL_CLOSE_SELECTOR = "#police-action-result-modal-close";
-const POLICE_ACTION_RESULT_MODAL_OK_SELECTOR = "#police-action-result-modal-ok";
-const POLICE_ACTION_RESULT_MODAL_CONTENT_SELECTOR = "#police-action-result-modal-content";
-const POLICE_ACTION_RESULT_MODAL_TITLE_SELECTOR = "#police-action-result-modal-title";
-const POLICE_ACTION_RESULT_MODAL_BADGE_SELECTOR = "#police-action-result-modal-badge";
-const POLICE_ACTION_RESULT_MODAL_SUMMARY_SELECTOR = "#police-action-result-modal-summary";
-const POLICE_ACTION_RESULT_MODAL_DETAILS_SELECTOR = "#police-action-result-modal-details";
-const CITY_CLOCK_SELECTOR = "[data-city-clock]";
-const CITY_DAY_PHASE_SELECTOR = "[data-city-day-phase]";
-const CITY_GAME_PHASE_SELECTOR = "[data-city-game-phase]";
-const CITY_STATUS_SELECTOR = "[data-city-status]";
-const CITY_PRODUCTION_SELECTOR = "[data-city-production]";
-const DAY_MAP_IMAGE_PATH = "../../img/mapaden2.png";
-const NIGHT_MAP_IMAGE_PATH = "../../img/mapanoc.png";
-const STORAGE_WEAPON_COUNT_SELECTOR = "[data-storage-weapon-count]";
 const BUILDING_ACTION_EMPTY_SNAPSHOT = Object.freeze({
   tone: "idle",
   title: "Připraveno",
@@ -398,7 +449,8 @@ const BUILDING_ACTION_EMPTY_SNAPSHOT = Object.freeze({
 });
 const BUILDING_ACTION_LOG_LIMIT = 30;
 const MONEY_STAT_COUNT_TICK_MS = 26;
-const DISTRICT_GOSSIP_MAX_PER_DISTRICT = 24;
+const CITY_CLOCK_MINUTES_PER_TICK = 1;
+const DISTRICT_GOSSIP_MAX_PER_DISTRICT = 2;
 const buildingActionPanels = new WeakMap();
 const attackMissionTimers = new Map();
 const occupyMissionTimers = new Map();
@@ -876,6 +928,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   language: "cs",
   mapDistrictBorders: true,
   mapAllianceSymbols: true,
+  reducedMapEffects: false,
   mapVisibilityMode: "all"
 });
 
@@ -900,6 +953,7 @@ function getSettingsState() {
       language: String(merged.language || DEFAULT_SETTINGS.language).trim().toLowerCase() === "en" ? "en" : "cs",
       mapDistrictBorders: Boolean(merged.mapDistrictBorders),
       mapAllianceSymbols: Boolean(merged.mapAllianceSymbols),
+      reducedMapEffects: Boolean(merged.reducedMapEffects),
       mapVisibilityMode: normalizeMapVisibilityMode(merged.mapVisibilityMode)
     };
   } catch {
@@ -914,6 +968,7 @@ function applySettingsState(settings) {
     language: String(settings?.language || DEFAULT_SETTINGS.language).trim().toLowerCase() === "en" ? "en" : "cs",
     mapDistrictBorders: Boolean(settings?.mapDistrictBorders),
     mapAllianceSymbols: Boolean(settings?.mapAllianceSymbols),
+    reducedMapEffects: Boolean(settings?.reducedMapEffects),
     mapVisibilityMode: normalizeMapVisibilityMode(settings?.mapVisibilityMode)
   };
 
@@ -921,6 +976,7 @@ function applySettingsState(settings) {
   document.documentElement.lang = normalized.language;
   document.documentElement.dataset.language = normalized.language;
   document.documentElement.dataset.mapVisibilityMode = normalized.mapVisibilityMode;
+  document.documentElement.dataset.mapEffects = normalized.reducedMapEffects ? "reduced" : "full";
   document.dispatchEvent(new CustomEvent("empire:settings-changed", {
     detail: { settings: normalized }
   }));
@@ -956,6 +1012,208 @@ function withMarketServerId(payload, serverId) {
   return {
     ...payload,
     serverId: normalizeMarketServerId(payload?.serverId || serverId)
+  };
+}
+
+function getMarketStockConfig(tabId, itemId) {
+  return MARKET_STOCK_DEFAULTS[tabId]?.[itemId] || null;
+}
+
+function getMarketStockKey(tabId, itemId) {
+  return getMarketPriceKey(tabId, itemId);
+}
+
+function getMarketCatalogItem(inventoryName, itemId) {
+  for (const tabConfig of Object.values(MARKET_TAB_CONFIG)) {
+    const item = tabConfig.items.find((candidate) => candidate.inventory === inventoryName && candidate.itemId === itemId);
+    if (item) {
+      return item;
+    }
+  }
+  return null;
+}
+
+function getPlayerMarketCatalog() {
+  return MARKET_PLAYER_TRADE_ITEMS.map((item) => {
+    const catalogItem = getMarketCatalogItem(item.inventory, item.itemId);
+    return {
+      ...item,
+      name: catalogItem?.name || item.itemId,
+      price: Math.max(1, Math.floor(Number(catalogItem?.price || 100)))
+    };
+  });
+}
+
+function getPlayerMarketCatalogItem(inventoryName, itemId) {
+  return getPlayerMarketCatalog().find((item) => item.inventory === inventoryName && item.itemId === itemId) || null;
+}
+
+function getRuntimePlayerMarketItemId(entry = {}) {
+  const rawItemId = String(entry.itemId || "").trim();
+  if (rawItemId) {
+    return rawItemId;
+  }
+
+  const resourceId = String(entry.resourceId || "").trim();
+  const resourceAlias = {
+    metalParts: "metal-parts",
+    techCore: "tech-core",
+    chemicals: "chemicals",
+    biomass: "biomass"
+  };
+  return resourceAlias[resourceId] || resourceId;
+}
+
+function hashMarketString(value) {
+  let hash = 2166136261;
+  for (const character of String(value || "")) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function createDefaultPlayerMarketListings(serverId = getMarketServerScope().serverId, now = Date.now()) {
+  const normalizedServerId = normalizeMarketServerId(serverId);
+  const random = createSeededRandom(hashMarketString(`player-market:${normalizedServerId}`));
+  const catalog = getPlayerMarketCatalog();
+  const listings = [];
+  const listingCount = Math.min(MARKET_PLAYER_LISTING_LIMIT - 4, 10);
+
+  for (let index = 0; index < listingCount; index += 1) {
+    const item = catalog[Math.floor(random() * catalog.length)] || catalog[0];
+    const seller = MARKET_PLAYER_DEMO_SELLERS[index % MARKET_PLAYER_DEMO_SELLERS.length];
+    const amountBase = item.inventory === "materials" ? 8 : item.inventory === "drugs" ? 3 : 1;
+    const amountSpread = item.inventory === "materials" ? 30 : item.inventory === "drugs" ? 9 : 3;
+    const amount = Math.max(1, Math.floor(amountBase + random() * amountSpread));
+    const priceVariance = 0.82 + random() * 0.58;
+    const unitPrice = Math.max(1, Math.round(item.price * priceVariance));
+    const currency = item.inventory === "drugs" || (item.inventory === "weapons" && random() > 0.5)
+      ? "dirtyMoney"
+      : "cleanMoney";
+
+    listings.push({
+      id: `demo-player-market:${normalizedServerId}:${index}:${item.itemId}`,
+      sellerId: seller.id,
+      sellerName: seller.name,
+      inventory: item.inventory,
+      itemId: item.itemId,
+      itemName: item.name,
+      category: item.category,
+      amount,
+      unitPrice,
+      currency,
+      createdAt: now - Math.floor(random() * 12 * 60 * 1000),
+      expiresAt: now + MARKET_PLAYER_LISTING_TTL_MS + Math.floor(random() * 18 * 60 * 1000),
+      isDemo: true
+    });
+  }
+
+  return listings;
+}
+
+function normalizePlayerMarketListings(listings = [], serverId = getMarketServerScope().serverId, now = Date.now()) {
+  const source = Array.isArray(listings) ? listings : createDefaultPlayerMarketListings(serverId, now);
+
+  return source
+    .filter((entry) => entry && typeof entry === "object")
+    .map((entry, index) => {
+      const itemId = getRuntimePlayerMarketItemId(entry);
+      const inventory = String(entry.inventory || "materials");
+      const catalogItem = getPlayerMarketCatalogItem(inventory, itemId) || getPlayerMarketCatalog().find((item) => item.itemId === itemId);
+      const createdAt = Math.max(0, Number(entry.createdAt || now) || now);
+      const expiresAt = Math.max(createdAt + 1000, Number(entry.expiresAt || createdAt + MARKET_PLAYER_LISTING_TTL_MS) || createdAt + MARKET_PLAYER_LISTING_TTL_MS);
+      return {
+        id: String(entry.id || `player-market-${normalizeMarketServerId(serverId)}-${createdAt}-${index}`),
+        sellerId: String(entry.sellerId || entry.sellerPlayerId || "").trim() || `seller:${index}`,
+        sellerName: String(entry.sellerName || entry.seller || "Hráč").trim() || "Hráč",
+        inventory: catalogItem?.inventory || inventory,
+        itemId: catalogItem?.itemId || itemId,
+        itemName: String(entry.itemName || catalogItem?.name || entry.itemId || "Položka"),
+        category: String(entry.category || catalogItem?.category || "Trade"),
+        amount: Math.max(1, Math.floor(Number(entry.amount || 1))),
+        unitPrice: Math.max(1, Math.floor(Number(entry.unitPrice || entry.price || catalogItem?.price || 1))),
+        currency: entry.currency === "dirtyMoney" || entry.paymentType === "dirtyCash" ? "dirtyMoney" : "cleanMoney",
+        createdAt,
+        expiresAt,
+        isDemo: Boolean(entry.isDemo),
+        isOwn: String(entry.sellerId || entry.sellerPlayerId || "") === MARKET_PLAYER_SELLER_ID
+      };
+    })
+    .filter((entry) => entry.itemId && entry.expiresAt > now)
+    .slice(0, MARKET_PLAYER_LISTING_LIMIT);
+}
+
+function createDefaultMarketStockState() {
+  const stock = {};
+
+  for (const [tabId, tabConfig] of Object.entries(MARKET_TAB_CONFIG)) {
+    for (const item of tabConfig.items) {
+      const stockConfig = getMarketStockConfig(tabId, item.itemId);
+      if (stockConfig) {
+        stock[getMarketStockKey(tabId, item.itemId)] = Math.max(0, Math.floor(Number(stockConfig.start || 0)));
+      }
+    }
+  }
+
+  return stock;
+}
+
+function normalizeMarketStockState(stockPayload = {}) {
+  const defaults = createDefaultMarketStockState();
+  const nextStock = { ...defaults };
+
+  for (const [tabId, tabConfig] of Object.entries(MARKET_TAB_CONFIG)) {
+    for (const item of tabConfig.items) {
+      const stockConfig = getMarketStockConfig(tabId, item.itemId);
+      if (!stockConfig) {
+        continue;
+      }
+
+      const stockKey = getMarketStockKey(tabId, item.itemId);
+      const maxStock = Math.max(0, Math.floor(Number(stockConfig.max || stockConfig.start || 0)));
+      const rawStock = Number(stockPayload?.[stockKey] ?? defaults[stockKey] ?? 0);
+      nextStock[stockKey] = clamp(Math.floor(Number.isFinite(rawStock) ? rawStock : 0), 0, maxStock);
+    }
+  }
+
+  return nextStock;
+}
+
+function normalizeMarketTransactions(transactions = []) {
+  return (Array.isArray(transactions) ? transactions : [])
+    .filter((entry) => entry && typeof entry === "object")
+    .map((entry, index) => ({
+      id: String(entry.id || `market-tx-${Date.now()}-${index}`),
+      type: entry.type === "sell" ? "sell" : "buy",
+      tabId: MARKET_TAB_CONFIG[entry.tabId] ? entry.tabId : "market",
+      itemId: String(entry.itemId || ""),
+      itemName: String(entry.itemName || entry.itemId || "Položka"),
+      amount: Math.max(1, Math.floor(Number(entry.amount || 1))),
+      total: Math.max(0, Math.floor(Number(entry.total || 0))),
+      moneyKey: entry.moneyKey === "dirtyMoney" ? "dirtyMoney" : "cleanMoney",
+      createdAt: Math.max(0, Number(entry.createdAt || Date.now()) || Date.now())
+    }))
+    .filter((entry) => entry.itemId)
+    .slice(0, MARKET_TRANSACTION_LIMIT);
+}
+
+function normalizeMarketTradeState(state) {
+  const fallback = createDefaultMarketPriceState(state?.serverId || getMarketServerScope().serverId);
+  const serverId = normalizeMarketServerId(state?.serverId || fallback.serverId);
+  return {
+    ...fallback,
+    ...(state || {}),
+    serverId,
+    items: state?.items && typeof state.items === "object" ? state.items : fallback.items,
+    stock: normalizeMarketStockState(state?.stock || fallback.stock),
+    transactions: normalizeMarketTransactions(state?.transactions),
+    playerListings: normalizePlayerMarketListings(
+      Array.isArray(state?.playerListings)
+        ? state.playerListings
+        : fallback.playerListings || createDefaultPlayerMarketListings(serverId),
+      serverId
+    )
   };
 }
 
@@ -1261,7 +1519,10 @@ function createDefaultMarketPriceState(serverId = getMarketServerScope().serverI
   return {
     serverId: normalizedServerId,
     nextRefreshAt: new Date(Date.now() + MARKET_PRICE_REFRESH_MS).toISOString(),
-    items
+    items,
+    stock: createDefaultMarketStockState(),
+    transactions: [],
+    playerListings: createDefaultPlayerMarketListings(normalizedServerId)
   };
 }
 
@@ -1269,7 +1530,7 @@ function getResolvedMarketPriceState() {
   const storedState = getStoredMarketPriceState();
 
   if (storedState?.items && storedState.nextRefreshAt) {
-    return storedState;
+    return normalizeMarketTradeState(storedState);
   }
 
   const nextState = createDefaultMarketPriceState();
@@ -1310,11 +1571,31 @@ function refreshMarketPricesIfNeeded(force = false) {
     }
   }
 
-  const nextState = {
+  const nextStock = normalizeMarketStockState(state.stock);
+
+  for (const [tabId, tabConfig] of Object.entries(MARKET_TAB_CONFIG)) {
+    for (const item of tabConfig.items) {
+      const stockConfig = getMarketStockConfig(tabId, item.itemId);
+      if (!stockConfig) {
+        continue;
+      }
+
+      const stockKey = getMarketStockKey(tabId, item.itemId);
+      nextStock[stockKey] = clamp(
+        Math.floor(Number(nextStock[stockKey] || 0) + Number(stockConfig.regen || 0)),
+        0,
+        Math.max(0, Number(stockConfig.max || stockConfig.start || 0))
+      );
+    }
+  }
+
+  const nextState = normalizeMarketTradeState({
+    ...state,
     serverId: state.serverId || getMarketServerScope().serverId,
     nextRefreshAt: new Date(Date.now() + MARKET_PRICE_REFRESH_MS).toISOString(),
-    items: nextItems
-  };
+    items: nextItems,
+    stock: nextStock
+  });
 
   setStoredMarketPriceState(nextState);
   return nextState;
@@ -1383,26 +1664,10 @@ function animateMoneyStatCounter(element, targetValue, options = {}) {
   const safeTarget = Math.max(0, Math.floor(Number(targetValue) || 0));
   const prefix = String(options?.prefix ?? "$");
   const suffix = String(options?.suffix ?? "");
+  element.dataset.moneyTarget = String(safeTarget);
   stopMoneyStatCounter(element);
-
-  let current = parseMoneyValueFromElement(element);
-  if (current === safeTarget) {
-    element.textContent = `${prefix}${safeTarget}${suffix}`;
-    return;
-  }
-
-  const direction = safeTarget > current ? 1 : -1;
-  const intervalId = window.setInterval(() => {
-    current += direction;
-    element.textContent = `${prefix}${current}${suffix}`;
-
-    if (current === safeTarget) {
-      window.clearInterval(intervalId);
-      moneyStatCountIntervals.delete(element);
-    }
-  }, MONEY_STAT_COUNT_TICK_MS);
-
-  moneyStatCountIntervals.set(element, intervalId);
+  element.classList.remove("is-money-up", "is-money-down");
+  element.textContent = `${prefix}${safeTarget}${suffix}`;
 }
 
 function syncMoneyStatToCachedValue(element, value, options = {}) {
@@ -1421,6 +1686,7 @@ function syncMoneyStatToCachedValue(element, value, options = {}) {
   const safeValue = Math.max(0, Math.floor(Number(value) || 0));
   const prefix = String(options?.prefix ?? "$");
   const suffix = String(options?.suffix ?? "");
+  element.dataset.moneyTarget = String(safeValue);
   element.textContent = `${prefix}${safeValue}${suffix}`;
 }
 
@@ -1452,6 +1718,7 @@ function applyTopbarEconomy(root, { instant = false } = {}) {
   }
 
   if (topbarCleanMoney) {
+    topbarCleanMoney.dataset.moneyTarget = String(economy.cleanMoney);
     if (instant || lastRenderedCleanMoney === null) {
       syncMoneyStatToCachedValue(topbarCleanMoney, economy.cleanMoney);
     } else {
@@ -1460,6 +1727,7 @@ function applyTopbarEconomy(root, { instant = false } = {}) {
   }
 
   if (topbarDirtyMoney) {
+    topbarDirtyMoney.dataset.moneyTarget = String(economy.dirtyMoney);
     if (instant || lastRenderedDirtyMoney === null) {
       syncMoneyStatToCachedValue(topbarDirtyMoney, economy.dirtyMoney);
     } else {
@@ -1477,6 +1745,64 @@ function applyTopbarEconomy(root, { instant = false } = {}) {
 
   lastRenderedCleanMoney = economy.cleanMoney;
   lastRenderedDirtyMoney = economy.dirtyMoney;
+}
+
+function skipTopbarMoneyCounterToTarget(root, kind) {
+  const scope = root.ownerDocument || document;
+  const displaySnapshot = getDisplayedResourceSnapshot();
+  const isDirty = kind === "dirty";
+  const valueElement = scope.querySelector(isDirty ? TOPBAR_DIRTY_MONEY_SELECTOR : TOPBAR_CLEAN_MONEY_SELECTOR);
+  const targetValue = isDirty ? displaySnapshot.dirtyMoney : displaySnapshot.cleanMoney;
+
+  syncMoneyStatToCachedValue(valueElement, targetValue);
+  if (isDirty) {
+    lastRenderedDirtyMoney = targetValue;
+  } else {
+    lastRenderedCleanMoney = targetValue;
+  }
+}
+
+function bindTopbarMoneySkipControls(root) {
+  const scope = root.ownerDocument || document;
+  const bindings = [
+    {
+      kind: "clean",
+      label: "Čisté peníze",
+      valueElement: scope.querySelector(TOPBAR_CLEAN_MONEY_SELECTOR)
+    },
+    {
+      kind: "dirty",
+      label: "Špinavé peníze",
+      valueElement: scope.querySelector(TOPBAR_DIRTY_MONEY_SELECTOR)
+    }
+  ];
+
+  for (const binding of bindings) {
+    const control = binding.valueElement?.closest(".resource-pill") || binding.valueElement;
+    if (!control || control.dataset.moneySkipBound === "1") {
+      continue;
+    }
+
+    control.dataset.moneySkipBound = "1";
+    control.dataset.moneyKind = binding.kind;
+    control.setAttribute("role", "button");
+    control.setAttribute("tabindex", "0");
+    control.setAttribute("aria-label", `${binding.label}. Aktuální hodnota zdroje.`);
+
+    const skip = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      skipTopbarMoneyCounterToTarget(root, binding.kind);
+    };
+
+    control.addEventListener("click", skip);
+    control.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+      skip(event);
+    });
+  }
 }
 
 function getStoredGangState() {
@@ -1510,6 +1836,24 @@ function setStoredWorldState(payload) {
   document.dispatchEvent(new CustomEvent("empire:world-state-changed"));
 }
 
+function pruneDistrictGossipMap(rawMap) {
+  if (!rawMap || typeof rawMap !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(rawMap).map(([districtKey, entries]) => [
+      districtKey,
+      Array.isArray(entries)
+        ? entries
+            .filter((entry) => entry && typeof entry === "object")
+            .sort((left, right) => Number(right.createdAt || 0) - Number(left.createdAt || 0))
+            .slice(0, DISTRICT_GOSSIP_MAX_PER_DISTRICT)
+        : []
+    ])
+  );
+}
+
 function getResolvedWorldState() {
   const world = getStoredWorldState();
   return {
@@ -1536,9 +1880,7 @@ function getResolvedWorldState() {
     districtTrapById: world.districtTrapById && typeof world.districtTrapById === "object"
       ? world.districtTrapById
       : {},
-    districtGossipById: world.districtGossipById && typeof world.districtGossipById === "object"
-      ? world.districtGossipById
-      : {},
+    districtGossipById: pruneDistrictGossipMap(world.districtGossipById),
     districtPoliceActionById: world.districtPoliceActionById && typeof world.districtPoliceActionById === "object"
       ? world.districtPoliceActionById
       : {},
@@ -1931,7 +2273,15 @@ function sanitizeDistrictGossipEntry(rawEntry) {
   };
 }
 
+function isDistrictGossipDevOnlyMode() {
+  return (getResolvedWorldState().phaseState?.gamePhase || "live") === "launch";
+}
+
 function getDistrictGossipEntries(districtOrId, limit = DISTRICT_GOSSIP_MAX_PER_DISTRICT) {
+  if (!isDistrictGossipDevOnlyMode()) {
+    return [];
+  }
+
   const districtKey = normalizeDistrictGossipKey(districtOrId);
   const rawEntries = Array.isArray(getResolvedWorldState().districtGossipById?.[districtKey])
     ? getResolvedWorldState().districtGossipById[districtKey]
@@ -1945,6 +2295,10 @@ function getDistrictGossipEntries(districtOrId, limit = DISTRICT_GOSSIP_MAX_PER_
 }
 
 function appendDistrictGossip(districtOrId, text, metadata = {}) {
+  if (!isDistrictGossipDevOnlyMode()) {
+    return null;
+  }
+
   const districtKey = normalizeDistrictGossipKey(districtOrId);
 
   if (!districtKey) {
@@ -1987,7 +2341,7 @@ function appendDistrictGossip(districtOrId, text, metadata = {}) {
 }
 
 function buildSeedDistrictGossipEntries(district) {
-  if (!district) {
+  if (!district || !isDistrictGossipDevOnlyMode()) {
     return [];
   }
 
@@ -1997,9 +2351,6 @@ function buildSeedDistrictGossipEntries(district) {
   const rumorPool = Array.isArray(catalog.rumors) && catalog.rumors.length > 0
     ? catalog.rumors
     : DISTRICT_GOSSIP_SEED_LIBRARY.unknown.rumors;
-  const verifiedPool = Array.isArray(catalog.verified) && catalog.verified.length > 0
-    ? catalog.verified
-    : DISTRICT_GOSSIP_SEED_LIBRARY.unknown.verified;
   const now = Date.now();
 
   return [
@@ -2016,19 +2367,12 @@ function buildSeedDistrictGossipEntries(district) {
       createdAt: now - (districtNumber % 7 + 18) * 60_000,
       intelLevel: "rumor",
       intelType: "rumor"
-    }),
-    sanitizeDistrictGossipEntry({
-      id: `seed-verified:${districtNumber}`,
-      text: verifiedPool[(districtNumber + 1) % verifiedPool.length],
-      createdAt: now - (districtNumber % 5 + 32) * 60_000,
-      intelLevel: "verified",
-      intelType: "district_seed"
     })
   ].filter(Boolean);
 }
 
 function ensureDistrictPassiveGossip(district) {
-  if (!district) {
+  if (!district || !isDistrictGossipDevOnlyMode()) {
     return [];
   }
 
@@ -4544,6 +4888,126 @@ function getProductionBuildingEffectsLabel(buildingName, level) {
     : `${label} · základní produkční rychlost`;
 }
 
+function formatProductionRecipeInputList(recipe = {}) {
+  const inputs = recipe.inputs || {};
+  const cleanCost = Math.max(0, Math.floor(Number(recipe.cleanMoneyCost || 0)));
+  const parts = [
+    cleanCost > 0 ? `${formatCurrency(cleanCost)} clean` : "",
+    ...Object.entries(inputs).map(([itemId, amount]) => `${getProductionResourceLabel(itemId)} x${amount}`)
+  ].filter(Boolean);
+
+  return parts.join(" + ") || "Bez vstupu";
+}
+
+function formatProductionRecipeInfoLine(recipe = {}) {
+  const outputLabel = getProductionResourceLabel(recipe.output?.itemId || recipe.name);
+  const outputAmount = Math.max(0, Number(recipe.output?.amount || 0));
+  return `${recipe.name || outputLabel}: ${formatProductionRecipeInputList(recipe)} -> ${outputLabel} x${outputAmount} · ${formatDurationLabel(recipe.durationMs || 0)}`;
+}
+
+function renderProductionBuildingInfo({ infoTextElement, infoEffectsElement, infoActionsElement, buildingName, recipes, state, readyCount, upgradeCost, maxLevel }) {
+  const config = PRODUCTION_BUILDING_CONFIG[buildingName];
+  const multiplier = getProductionBuildingMultiplier(buildingName, state.level);
+  const nextMultiplier = state.level < maxLevel
+    ? getProductionBuildingMultiplier(buildingName, state.level + 1)
+    : multiplier;
+  const recipeLines = Object.values(recipes || {}).map(formatProductionRecipeInfoLine);
+
+  if (infoTextElement) {
+    infoTextElement.textContent = [
+      config?.infoText || "",
+      `Level ${state.level}: rychlost x${multiplier.toFixed(2)}.`,
+      state.level < maxLevel
+        ? `Upgrade stojí ${formatCurrency(upgradeCost)} a zvedne rychlost na x${nextMultiplier.toFixed(2)}.`
+        : "Budova je na maximálním levelu.",
+      `Hotovo k vyzvednutí: ${readyCount} receptů.`
+    ].filter(Boolean).join(" ");
+  }
+
+  if (infoEffectsElement) {
+    infoEffectsElement.textContent = [
+      getProductionBuildingEffectsLabel(buildingName, state.level),
+      state.level < maxLevel ? `Další level: +10 % rychlost craftu.` : "Další upgrade už není dostupný.",
+      "Vyzvednutí přesune hotové kusy do skladu hráče."
+    ].join(" · ");
+  }
+
+  if (infoActionsElement) {
+    infoActionsElement.replaceChildren();
+    const lines = [
+      `+ Vybrat hotové: přesune ${readyCount > 0 ? `${readyCount} hotových receptů` : "hotové recepty"} do skladu.`,
+      state.level < maxLevel
+        ? `⇪ Upgrade: cena ${formatCurrency(upgradeCost)}, nový multiplier x${nextMultiplier.toFixed(2)}.`
+        : "⇪ Upgrade: max level.",
+      ...recipeLines
+    ];
+
+    for (const entry of lines) {
+      const item = document.createElement("li");
+      item.textContent = entry;
+      infoActionsElement.append(item);
+    }
+  }
+}
+
+function renderFactoryBuildingInfo(infoPanel, factoryState, syncResult, collectableAmount) {
+  if (!(infoPanel instanceof HTMLElement)) {
+    return;
+  }
+
+  const nextLevel = factoryState.level < FACTORY_CONFIG.maxLevel ? factoryState.level + 1 : null;
+  const upgradeCost = nextLevel ? getFactoryUpgradeCost(nextLevel) : 0;
+  const nextMultiplier = nextLevel ? getFactoryLevelMultiplier(nextLevel) : syncResult.productionMultiplier;
+
+  const card = document.createElement("div");
+  card.className = "building-info-card building-info-card--compact-tech";
+
+  const head = document.createElement("div");
+  head.className = "building-info-card__head";
+  const title = document.createElement("h4");
+  title.className = "building-info-card__title";
+  title.textContent = "Co hráč musí vědět";
+  const subtitle = document.createElement("p");
+  subtitle.className = "building-info-card__subtitle";
+  subtitle.textContent = "Továrna vyrábí Metal Parts, Tech Core a Combat Module pro další bojové systémy.";
+  head.append(title, subtitle);
+
+  const overview = document.createElement("div");
+  overview.className = "building-detail-mechanics district-building-detail-mechanics district-building-detail-info-grid";
+  overview.replaceChildren(
+    createDistrictBuildingInfoLine("Level", `L${factoryState.level} · multiplier x${syncResult.productionMultiplier.toFixed(2)}`),
+    createDistrictBuildingInfoLine("Upgrade", nextLevel ? `${formatCurrency(upgradeCost)} -> L${nextLevel}` : "Max level"),
+    createDistrictBuildingInfoLine("Další level", nextLevel ? `Multiplier x${nextMultiplier.toFixed(2)}, vyšší rychlost linek.` : "Budova už je na maximu."),
+    createDistrictBuildingInfoLine("Výstup", `Metal Parts ${syncResult.rates.metalPartsPerHour.toFixed(2)}/h · Tech Core ${syncResult.rates.techCorePerHour.toFixed(2)}/h · Combat Module ${syncResult.rates.combatModulePerHour.toFixed(2)}/h`),
+    createDistrictBuildingInfoLine("Vyzvednutí", collectableAmount > 0 ? `${collectableAmount} ks hotovo do skladu` : "Zatím nic hotového"),
+    createDistrictBuildingInfoLine("Combat Module", `${FACTORY_CONFIG.combatModule.metalPartsCost} Metal Parts + ${FACTORY_CONFIG.combatModule.techCoreCost} Tech Core · ${formatDurationLabel(FACTORY_CONFIG.combatModule.durationMs)} · heat +${FACTORY_CONFIG.combatModule.heatPerUnit}/ks`)
+  );
+
+  const actionsTitle = document.createElement("h5");
+  actionsTitle.textContent = "Akce";
+  const actions = document.createElement("div");
+  actions.className = "building-info-card__actions district-building-detail-actions district-building-detail-info-actions";
+  [
+    ["+ Vybrat hotové", collectableAmount > 0 ? `Přesune ${collectableAmount} ks hotových továrních výstupů do skladu.` : "Přesune hotové tovární výstupy do skladu, až budou připravené."],
+    ["⇪ Upgrade", nextLevel ? `Stojí ${formatCurrency(upgradeCost)} clean cash a zvedne multiplier na x${nextMultiplier.toFixed(2)}.` : "Max level, další upgrade není dostupný."],
+    ["Spustit / Pozastavit slot", "Řídí jednotlivé linky: Metal Parts, Tech Core a Combat Module. Pauza zastaví přibývání ve slotu."]
+  ].forEach(([actionTitle, description]) => {
+    const row = document.createElement("div");
+    row.className = "building-info-action-row";
+    const rowTitle = document.createElement("strong");
+    rowTitle.className = "building-info-action-row__title";
+    rowTitle.textContent = actionTitle;
+    const rowDesc = document.createElement("span");
+    rowDesc.className = "building-info-action-row__desc";
+    rowDesc.textContent = description;
+    row.append(rowTitle, rowDesc);
+    actions.append(row);
+  });
+
+  card.append(head, overview, actionsTitle, actions);
+  infoPanel.replaceChildren(card);
+}
+
 function getFactoryCollectableAmount(factoryState) {
   return (factoryState?.slots || []).reduce((total, slot) => (
     total + Math.max(0, Math.floor(Number(slot?.producedAmount || 0)))
@@ -4598,13 +5062,13 @@ const PRODUCTION_SLOT_VISUALS = Object.freeze({
     "overdrive-x": Object.freeze({ iconToneClass: "drug-production-slot__icon--red", iconGlyphClass: "drug-production-slot__icon--capsule", productLabel: "Drug balík" })
   }),
   armory: Object.freeze({
-    "baseball-bat": Object.freeze({ iconToneClass: "drug-production-slot__icon--amber", iconGlyphClass: "drug-production-slot__icon--crate", productLabel: "Attack" }),
+    "baseball-bat": Object.freeze({ iconToneClass: "drug-production-slot__icon--red", iconGlyphClass: "drug-production-slot__icon--crate", productLabel: "Attack" }),
     pistol: Object.freeze({ iconToneClass: "drug-production-slot__icon--red", iconGlyphClass: "drug-production-slot__icon--crosshair", productLabel: "Attack" }),
-    grenade: Object.freeze({ iconToneClass: "drug-production-slot__icon--amber", iconGlyphClass: "drug-production-slot__icon--powder", productLabel: "Attack" }),
+    grenade: Object.freeze({ iconToneClass: "drug-production-slot__icon--red", iconGlyphClass: "drug-production-slot__icon--powder", productLabel: "Attack" }),
     smg: Object.freeze({ iconToneClass: "drug-production-slot__icon--red", iconGlyphClass: "drug-production-slot__icon--crosshair", productLabel: "Attack" }),
     bazooka: Object.freeze({ iconToneClass: "drug-production-slot__icon--red", iconGlyphClass: "drug-production-slot__icon--crosshair", productLabel: "Attack" }),
     vest: Object.freeze({ iconToneClass: "drug-production-slot__icon--cyan", iconGlyphClass: "drug-production-slot__icon--shield", productLabel: "Defense" }),
-    barricades: Object.freeze({ iconToneClass: "drug-production-slot__icon--amber", iconGlyphClass: "drug-production-slot__icon--crate", productLabel: "Defense" }),
+    barricades: Object.freeze({ iconToneClass: "drug-production-slot__icon--cyan", iconGlyphClass: "drug-production-slot__icon--crate", productLabel: "Defense" }),
     cameras: Object.freeze({ iconToneClass: "drug-production-slot__icon--cyan", iconGlyphClass: "drug-production-slot__icon--chip", productLabel: "Defense" }),
     "defense-tower": Object.freeze({ iconToneClass: "drug-production-slot__icon--cyan", iconGlyphClass: "drug-production-slot__icon--shield", productLabel: "Defense" }),
     alarm: Object.freeze({ iconToneClass: "drug-production-slot__icon--cyan", iconGlyphClass: "drug-production-slot__icon--shield", productLabel: "Defense" })
@@ -4613,6 +5077,16 @@ const PRODUCTION_SLOT_VISUALS = Object.freeze({
 
 function getProductionResourceLabel(itemId) {
   return PRODUCTION_RESOURCE_LABELS[itemId] || String(itemId || "").trim() || "Materiál";
+}
+
+function normalizeProductionResourceColorKey(itemId) {
+  const normalized = String(itemId || "").trim();
+  const aliases = {
+    metalParts: "metal-parts",
+    techCore: "tech-core",
+    combatModule: "combat-module"
+  };
+  return aliases[normalized] || normalized;
 }
 
 function getProductionSlotState(job) {
@@ -4678,6 +5152,7 @@ function createDrugSupplyRow(inputs = {}) {
 
   for (const [itemId, amount] of Object.entries(inputs)) {
     const pill = document.createElement("div");
+    pill.dataset.resourceColor = normalizeProductionResourceColorKey(itemId);
     const variant = itemId === "chemicals"
       ? "drug-production-slot__supply-pill--chemicals"
       : itemId === "biomass"
@@ -4707,6 +5182,7 @@ function createArmoryMaterialsRow(inputs = {}) {
 
   for (const [itemId, amount] of Object.entries(inputs)) {
     const pill = document.createElement("div");
+    pill.dataset.resourceColor = normalizeProductionResourceColorKey(itemId);
     pill.className = `armory-slot__material-pill ${itemId === "metal-parts" ? "armory-slot__material-pill--metal" : "armory-slot__material-pill--tech"}`;
 
     const name = document.createElement("span");
@@ -4765,6 +5241,7 @@ function createProductionCard(root, buildingName, recipeId, recipeKey, recipe, r
   let getStartBatchCount = () => 1, refreshQuantityControl = () => {};
 
   if (buildingName === "pharmacy") {
+    card.dataset.resourceColor = normalizeProductionResourceColorKey(recipe.output.itemId || recipeId);
     card.className = [
       "pharmacy-slot",
       visual?.slotClass || "",
@@ -4818,6 +5295,7 @@ function createProductionCard(root, buildingName, recipeId, recipeKey, recipe, r
     actions.append(quantityControl.control, startButton, collectButton);
     card.append(head, metrics, actions);
   } else if (buildingName === "druglab") {
+    card.dataset.resourceColor = normalizeProductionResourceColorKey(recipe.output.itemId || recipeId);
     card.className = slotState.isActive
       ? "drug-production-slot drug-production-slot--active"
       : "drug-production-slot";
@@ -4870,6 +5348,7 @@ function createProductionCard(root, buildingName, recipeId, recipeKey, recipe, r
     actions.append(quantityControl.control, startButton, collectButton);
     card.append(head, metrics, actions);
   } else {
+    card.dataset.resourceColor = normalizeProductionResourceColorKey(recipe.output.itemId || recipeId);
     card.className = slotState.isActive
       ? "armory-slot drug-production-slot armory-slot--active drug-production-slot--active"
       : "armory-slot drug-production-slot";
@@ -5086,22 +5565,17 @@ function bindProductionBuildingPopup(root, {
       effectsElement.textContent = getProductionBuildingEffectsLabel(buildingName, state.level);
     }
 
-    if (infoTextElement) {
-      infoTextElement.textContent = config?.infoText || "";
-    }
-
-    if (infoEffectsElement) {
-      infoEffectsElement.textContent = `${getProductionBuildingEffectsLabel(buildingName, state.level)} · ${readyCount} hotových receptů čeká na vyzvednutí.`;
-    }
-
-    if (infoActionsElement) {
-      infoActionsElement.replaceChildren();
-      for (const entry of config?.infoActions || []) {
-        const item = document.createElement("li");
-        item.textContent = entry;
-        infoActionsElement.append(item);
-      }
-    }
+    renderProductionBuildingInfo({
+      infoTextElement,
+      infoEffectsElement,
+      infoActionsElement,
+      buildingName,
+      recipes,
+      state,
+      readyCount,
+      upgradeCost,
+      maxLevel
+    });
 
     if (collectButton instanceof HTMLButtonElement) {
       collectButton.disabled = readyCount <= 0;
@@ -5189,10 +5663,12 @@ function bindProductionBuildingPopup(root, {
     setActiveTab("stats");
     renderDashboard();
     popup.hidden = false;
+    syncBuildingDetailTopbarVisibility(root);
   };
 
   const closePopup = () => {
     popup.hidden = true;
+    syncBuildingDetailTopbarVisibility(root);
   };
 
   openButton.addEventListener("click", openPopup);
@@ -5799,6 +6275,8 @@ function bindMarketPopup(root) {
   const copyElement = root.querySelector(MARKET_COPY_SELECTOR);
   const listElement = root.querySelector(MARKET_LIST_SELECTOR);
   const serverBadgeElement = root.querySelector(MARKET_SERVER_BADGE_SELECTOR);
+  const dashboardElement = root.querySelector(MARKET_DASHBOARD_SELECTOR);
+  const feedbackElement = root.querySelector(MARKET_FEEDBACK_SELECTOR);
 
   if (!openButton || !popup || closeElements.length === 0 || !copyElement || !listElement || tabs.length === 0) {
     return;
@@ -5806,8 +6284,470 @@ function bindMarketPopup(root) {
 
   let activeTab = "market";
 
-  const getMoneyLabel = (moneyKey) => moneyKey === "dirtyMoney" ? "dirty $" : "clean $";
+  const getMoneyLabel = (moneyKey) => moneyKey === "dirtyMoney" ? "dirty cash" : "clean cash";
   const formatMarketPrice = (value) => `${Math.max(0, Math.floor(Number(value) || 0)).toLocaleString("cs-CZ")}$`;
+  const getTabLabel = (tabId) => MARKET_TAB_CONFIG[tabId]?.label || "Market";
+  const getStockAmount = (marketState, tabId, itemId) => {
+    const stockConfig = getMarketStockConfig(tabId, itemId);
+    if (!stockConfig) {
+      return Number.POSITIVE_INFINITY;
+    }
+
+    const stock = normalizeMarketStockState(marketState.stock);
+    return stock[getMarketStockKey(tabId, itemId)] ?? Math.max(0, Math.floor(Number(stockConfig.start || 0)));
+  };
+  const getMaxStock = (tabId, itemId) => {
+    const stockConfig = getMarketStockConfig(tabId, itemId);
+    return stockConfig ? Math.max(0, Math.floor(Number(stockConfig.max || stockConfig.start || 0))) : Number.POSITIVE_INFINITY;
+  };
+  const getStockLabel = (marketState, tabId, itemId) => {
+    const stockAmount = getStockAmount(marketState, tabId, itemId);
+    if (!Number.isFinite(stockAmount)) {
+      return "Stock bez limitu";
+    }
+    return `Stock ${stockAmount}/${getMaxStock(tabId, itemId)} ks`;
+  };
+  const getStockPercent = (marketState, tabId, itemId) => {
+    const stockAmount = getStockAmount(marketState, tabId, itemId);
+    const maxStock = getMaxStock(tabId, itemId);
+    if (!Number.isFinite(stockAmount) || !Number.isFinite(maxStock) || maxStock <= 0) {
+      return 100;
+    }
+    return clamp(Math.round((stockAmount / maxStock) * 100), 0, 100);
+  };
+  const resolveBlackMarketHeatRisk = (totalValue) => {
+    const safeValue = Math.max(0, Math.floor(Number(totalValue || 0)));
+    return MARKET_BLACK_HEAT_BY_VALUE.find((entry) => safeValue >= entry.min) || MARKET_BLACK_HEAT_BY_VALUE[MARKET_BLACK_HEAT_BY_VALUE.length - 1];
+  };
+  const setMarketFeedback = (tone, message) => {
+    if (!feedbackElement) {
+      return;
+    }
+
+    const safeMessage = String(message || "").trim();
+    feedbackElement.hidden = !safeMessage;
+    feedbackElement.dataset.marketFeedbackTone = tone || "info";
+    feedbackElement.textContent = safeMessage;
+  };
+  const createDashboardChip = (label, value, tone = "neutral") => {
+    const chip = document.createElement("div");
+    chip.className = "market-popup-dashboard__chip";
+    chip.dataset.marketDashboardTone = tone;
+
+    const chipLabel = document.createElement("span");
+    chipLabel.textContent = label;
+
+    const chipValue = document.createElement("strong");
+    chipValue.textContent = value;
+
+    chip.append(chipLabel, chipValue);
+    return chip;
+  };
+  const renderDashboard = (marketState) => {
+    if (!dashboardElement) {
+      return;
+    }
+
+    const economy = getResolvedEconomyState();
+    const gangState = getResolvedGangState();
+    const tabConfig = MARKET_TAB_CONFIG[activeTab] || MARKET_TAB_CONFIG.market;
+    const serverScope = getMarketServerScope();
+    const playerListings = normalizePlayerMarketListings(marketState.playerListings, serverScope.serverId);
+    const stockSummary = activeTab === MARKET_PLAYER_TAB_ID
+      ? `${playerListings.length} nabídek`
+      : activeTab === "black-market"
+        ? "neomezeně"
+        : `${tabConfig.items.reduce((total, item) => total + getStockAmount(marketState, activeTab, item.itemId), 0)} ks`;
+    const recentTransactions = normalizeMarketTransactions(marketState.transactions).slice(0, 3);
+    const recentList = document.createElement("div");
+    recentList.className = "market-popup-dashboard__recent";
+
+    const recentTitle = document.createElement("span");
+    recentTitle.className = "market-popup-dashboard__recent-title";
+    recentTitle.textContent = "Poslední obchody";
+    recentList.append(recentTitle);
+
+    if (recentTransactions.length <= 0) {
+      const empty = document.createElement("span");
+      empty.className = "market-popup-dashboard__recent-empty";
+      empty.textContent = "Zatím žádný trade.";
+      recentList.append(empty);
+    } else {
+      for (const transaction of recentTransactions) {
+        const entry = document.createElement("span");
+        entry.className = "market-popup-dashboard__recent-entry";
+        entry.dataset.marketTradeType = transaction.type;
+        entry.textContent = `${transaction.type === "buy" ? "Nákup" : "Prodej"} ${transaction.amount}x ${transaction.itemName} · ${formatMarketPrice(transaction.total)}`;
+        recentList.append(entry);
+      }
+    }
+
+    dashboardElement.replaceChildren(
+      createDashboardChip("Režim", getTabLabel(activeTab), activeTab === "black-market" ? "danger" : "stock"),
+      createDashboardChip("Clean", formatMarketPrice(economy.cleanMoney), "clean"),
+      createDashboardChip("Dirty", formatMarketPrice(economy.dirtyMoney), "dirty"),
+      createDashboardChip("Heat", String(gangState.heat), activeTab === "black-market" || activeTab === MARKET_PLAYER_TAB_ID ? "danger" : "neutral"),
+      createDashboardChip("Refresh", `${getMarketRefreshCountdownSeconds()} s`, "timer"),
+      createDashboardChip("Stock", stockSummary, activeTab === "black-market" || activeTab === MARKET_PLAYER_TAB_ID ? "danger" : "stock"),
+      recentList
+    );
+  };
+  const commitMarketState = (updater) => {
+    const currentState = refreshMarketPricesIfNeeded(false);
+    const nextState = normalizeMarketTradeState(updater(currentState));
+    setStoredMarketPriceState(nextState);
+    return nextState;
+  };
+  const createTransaction = ({ type, tabId, item, amount, total, moneyKey }) => ({
+    id: `market-tx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    type,
+    tabId,
+    itemId: item.itemId,
+    itemName: item.name,
+    amount,
+    total,
+    moneyKey,
+    createdAt: Date.now()
+  });
+  const getListingTotal = (listing) => Math.max(1, Math.floor(Number(listing.amount || 1)) * Math.max(1, Math.floor(Number(listing.unitPrice || 1))));
+  const getListingCurrencyLabel = (currency) => currency === "dirtyMoney" ? "dirty cash" : "clean cash";
+  const getSuggestedPlayerUnitPrice = (item, priceState) => {
+    const sourceTab = item.inventory === "materials" ? "market" : "black-market";
+    const priceEntry = priceState.items[getMarketPriceKey(sourceTab, item.itemId)];
+    const basePrice = Math.max(1, Number(priceEntry?.price || item.price || 1));
+    const peerMultiplier = item.inventory === "materials" ? 1.02 : 0.92;
+    return Math.max(1, Math.round(basePrice * peerMultiplier));
+  };
+  const getSellablePlayerMarketItems = () => getPlayerMarketCatalog()
+    .map((item) => ({
+      ...item,
+      amount: getInventoryAmount(item.inventory, item.itemId)
+    }))
+    .filter((item) => item.amount > 0);
+  const renderPlayerMarketTab = (priceState, serverScope) => {
+    const marketState = normalizeMarketTradeState(priceState);
+    const listings = normalizePlayerMarketListings(marketState.playerListings, serverScope.serverId)
+      .sort((a, b) => {
+        const ownDelta = Number(b.sellerId === MARKET_PLAYER_SELLER_ID) - Number(a.sellerId === MARKET_PLAYER_SELLER_ID);
+        return ownDelta || b.createdAt - a.createdAt;
+      });
+    const ownListingCount = listings.filter((listing) => listing.sellerId === MARKET_PLAYER_SELLER_ID).length;
+    const sellableItems = getSellablePlayerMarketItems();
+    const shell = document.createElement("div");
+    shell.className = "market-player";
+
+    const sellPanel = document.createElement("section");
+    sellPanel.className = "market-player-sell-panel";
+
+    const sellHeader = document.createElement("div");
+    sellHeader.className = "market-player-sell-panel__header";
+
+    const sellTitle = document.createElement("strong");
+    sellTitle.textContent = "Vystavit nabídku";
+
+    const sellMeta = document.createElement("span");
+    sellMeta.textContent = `${ownListingCount}/${MARKET_PLAYER_OWN_LISTING_LIMIT} aktivní nabídky`;
+    sellHeader.append(sellTitle, sellMeta);
+
+    const form = document.createElement("div");
+    form.className = "market-player-form";
+
+    const itemField = document.createElement("label");
+    itemField.className = "market-player-field";
+    const itemFieldLabel = document.createElement("span");
+    itemFieldLabel.textContent = "Položka";
+    const itemSelect = document.createElement("select");
+    itemSelect.className = "market-player-input";
+    itemSelect.disabled = sellableItems.length <= 0;
+
+    if (sellableItems.length <= 0) {
+      const option = document.createElement("option");
+      option.textContent = "Nemáš nic k prodeji";
+      option.value = "";
+      itemSelect.append(option);
+    } else {
+      for (const item of sellableItems) {
+        const option = document.createElement("option");
+        option.value = `${item.inventory}|${item.itemId}`;
+        option.textContent = `${item.name} · ${item.amount} ks`;
+        itemSelect.append(option);
+      }
+    }
+    itemField.append(itemFieldLabel, itemSelect);
+
+    const amountField = document.createElement("label");
+    amountField.className = "market-player-field";
+    const amountLabel = document.createElement("span");
+    amountLabel.textContent = "Množství";
+    const amountInput = document.createElement("input");
+    amountInput.className = "market-player-input";
+    amountInput.type = "number";
+    amountInput.min = "1";
+    amountInput.step = "1";
+    amountInput.value = "1";
+    amountInput.inputMode = "numeric";
+    amountField.append(amountLabel, amountInput);
+
+    const priceField = document.createElement("label");
+    priceField.className = "market-player-field";
+    const priceLabel = document.createElement("span");
+    priceLabel.textContent = "Cena / kus";
+    const unitPriceInput = document.createElement("input");
+    unitPriceInput.className = "market-player-input";
+    unitPriceInput.type = "number";
+    unitPriceInput.min = "1";
+    unitPriceInput.step = "1";
+    unitPriceInput.value = "1";
+    unitPriceInput.inputMode = "numeric";
+    priceField.append(priceLabel, unitPriceInput);
+
+    const currencyField = document.createElement("label");
+    currencyField.className = "market-player-field";
+    const currencyLabel = document.createElement("span");
+    currencyLabel.textContent = "Měna";
+    const currencySelect = document.createElement("select");
+    currencySelect.className = "market-player-input";
+    for (const [value, label] of [["cleanMoney", "Clean cash"], ["dirtyMoney", "Dirty cash"]]) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      currencySelect.append(option);
+    }
+    currencyField.append(currencyLabel, currencySelect);
+
+    const submit = document.createElement("button");
+    submit.type = "button";
+    submit.className = "button market-player-sell-button";
+    submit.textContent = "Vystavit";
+
+    const getSelectedSellItem = () => {
+      const [inventory, itemId] = String(itemSelect.value || "").split("|");
+      return sellableItems.find((item) => item.inventory === inventory && item.itemId === itemId) || null;
+    };
+    const syncSellForm = () => {
+      const item = getSelectedSellItem();
+      const maxAmount = Math.max(0, Number(item?.amount || 0));
+      amountInput.disabled = !item;
+      unitPriceInput.disabled = !item;
+      currencySelect.disabled = !item;
+      submit.disabled = !item || ownListingCount >= MARKET_PLAYER_OWN_LISTING_LIMIT;
+
+      if (!item) {
+        amountInput.value = "1";
+        unitPriceInput.value = "1";
+        return;
+      }
+
+      amountInput.max = String(Math.max(1, maxAmount));
+      amountInput.value = String(clamp(Number.parseInt(String(amountInput.value || "1"), 10) || 1, 1, Math.max(1, maxAmount)));
+      unitPriceInput.value = String(Math.max(1, Math.floor(Number(unitPriceInput.value || getSuggestedPlayerUnitPrice(item, priceState)))));
+      currencySelect.value = item.inventory === "drugs" ? "dirtyMoney" : currencySelect.value;
+      submit.title = ownListingCount >= MARKET_PLAYER_OWN_LISTING_LIMIT
+        ? "Máš plný limit aktivních nabídek."
+        : "Vystavit nabídku na serverový hráčský bazar.";
+    };
+
+    itemSelect.addEventListener("change", () => {
+      const item = getSelectedSellItem();
+      if (item) {
+        unitPriceInput.value = String(getSuggestedPlayerUnitPrice(item, priceState));
+        currencySelect.value = item.inventory === "drugs" ? "dirtyMoney" : "cleanMoney";
+      }
+      syncSellForm();
+    });
+    amountInput.addEventListener("input", syncSellForm);
+    unitPriceInput.addEventListener("input", syncSellForm);
+
+    if (sellableItems[0]) {
+      unitPriceInput.value = String(getSuggestedPlayerUnitPrice(sellableItems[0], priceState));
+      currencySelect.value = sellableItems[0].inventory === "drugs" ? "dirtyMoney" : "cleanMoney";
+    }
+
+    submit.addEventListener("click", () => {
+      const item = getSelectedSellItem();
+      if (!item) {
+        setMarketFeedback("warning", "Nemáš žádnou položku, kterou můžeš vystavit.");
+        return;
+      }
+      if (ownListingCount >= MARKET_PLAYER_OWN_LISTING_LIMIT) {
+        setMarketFeedback("warning", "Nejdřív stáhni některou vlastní nabídku.");
+        return;
+      }
+
+      const requestedAmount = clamp(Number.parseInt(String(amountInput.value || "1"), 10) || 1, 1, Math.max(1, item.amount));
+      const unitPrice = Math.max(1, Math.floor(Number(unitPriceInput.value || 1)));
+      const currency = currencySelect.value === "dirtyMoney" ? "dirtyMoney" : "cleanMoney";
+      setInventoryAmount(item.inventory, item.itemId, item.amount - requestedAmount);
+
+      const listing = {
+        id: `player-market:${serverScope.serverId}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+        sellerId: MARKET_PLAYER_SELLER_ID,
+        sellerName: getCurrentPlayerIdentityLabel(),
+        inventory: item.inventory,
+        itemId: item.itemId,
+        itemName: item.name,
+        category: item.category,
+        amount: requestedAmount,
+        unitPrice,
+        currency,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + MARKET_PLAYER_LISTING_TTL_MS,
+        isDemo: false
+      };
+
+      commitMarketState((state) => ({
+        ...state,
+        playerListings: [
+          listing,
+          ...normalizePlayerMarketListings(state.playerListings, serverScope.serverId)
+        ].slice(0, MARKET_PLAYER_LISTING_LIMIT),
+        transactions: [
+          createTransaction({
+            type: "sell",
+            tabId: MARKET_PLAYER_TAB_ID,
+            item,
+            amount: requestedAmount,
+            total: requestedAmount * unitPrice,
+            moneyKey: currency
+          }),
+          ...normalizeMarketTransactions(state.transactions)
+        ]
+      }));
+
+      setMarketFeedback("success", `Vystaveno ${requestedAmount}x ${item.name} za ${formatMarketPrice(unitPrice)} / kus.`);
+      applyTopbarEconomy(root);
+      renderMarketTab();
+    });
+
+    syncSellForm();
+    form.append(itemField, amountField, priceField, currencyField, submit);
+    sellPanel.append(sellHeader, form);
+
+    const listingsWrap = document.createElement("section");
+    listingsWrap.className = "market-player-listings";
+
+    if (listings.length <= 0) {
+      const empty = document.createElement("p");
+      empty.className = "market-player-empty";
+      empty.textContent = "Na serveru teď nejsou aktivní hráčské nabídky.";
+      listingsWrap.append(empty);
+    } else {
+      for (const listing of listings) {
+        const isOwn = listing.sellerId === MARKET_PLAYER_SELLER_ID;
+        const total = getListingTotal(listing);
+        const economy = getResolvedEconomyState();
+        const canBuy = !isOwn && (economy[listing.currency] || 0) >= total;
+        const card = document.createElement("article");
+        card.className = "market-player-listing";
+        card.dataset.listingOwner = isOwn ? "self" : "peer";
+        card.dataset.listingCurrency = listing.currency;
+
+        const head = document.createElement("div");
+        head.className = "market-player-listing__head";
+        const title = document.createElement("strong");
+        title.textContent = listing.itemName;
+        const seller = document.createElement("span");
+        seller.textContent = isOwn ? "Tvoje nabídka" : listing.sellerName;
+        head.append(title, seller);
+
+        const meta = document.createElement("div");
+        meta.className = "market-player-listing__meta";
+        meta.innerHTML = "";
+        const amount = document.createElement("span");
+        amount.textContent = `${listing.amount} ks`;
+        const price = document.createElement("span");
+        price.textContent = `${formatMarketPrice(listing.unitPrice)} / kus`;
+        const currency = document.createElement("span");
+        currency.textContent = getListingCurrencyLabel(listing.currency);
+        const expires = document.createElement("span");
+        expires.textContent = `expirace ${Math.max(1, Math.ceil((listing.expiresAt - Date.now()) / 60000))} min`;
+        meta.append(amount, price, currency, expires);
+
+        const footer = document.createElement("div");
+        footer.className = "market-player-listing__footer";
+        const totalLabel = document.createElement("strong");
+        totalLabel.textContent = `Celkem ${formatMarketPrice(total)}`;
+
+        const action = document.createElement("button");
+        action.type = "button";
+        action.className = isOwn
+          ? "button market-player-listing__cancel"
+          : "button market-player-listing__buy";
+        action.textContent = isOwn ? "Stáhnout" : "Koupit";
+        action.disabled = !isOwn && !canBuy;
+        action.title = isOwn
+          ? "Stáhnout nabídku a vrátit položku do skladu."
+          : canBuy
+            ? "Koupit nabídku od hráče na tomto serveru."
+            : `Chybí ${formatMarketPrice(total - (economy[listing.currency] || 0))}.`;
+
+        action.addEventListener("click", () => {
+          if (isOwn) {
+            setInventoryAmount(listing.inventory, listing.itemId, getInventoryAmount(listing.inventory, listing.itemId) + listing.amount);
+            commitMarketState((state) => ({
+              ...state,
+              playerListings: normalizePlayerMarketListings(state.playerListings, serverScope.serverId)
+                .filter((entry) => entry.id !== listing.id)
+            }));
+            setMarketFeedback("success", `Nabídka ${listing.itemName} stažena zpět do skladu.`);
+            renderMarketTab();
+            return;
+          }
+
+          const currentEconomy = getResolvedEconomyState();
+          if ((currentEconomy[listing.currency] || 0) < total) {
+            setMarketFeedback("warning", `Na nákup chybí ${formatMarketPrice(total - (currentEconomy[listing.currency] || 0))}.`);
+            renderMarketTab();
+            return;
+          }
+
+          setStoredEconomyState({
+            ...currentEconomy,
+            [listing.currency]: Math.max(0, (currentEconomy[listing.currency] || 0) - total)
+          });
+          setInventoryAmount(listing.inventory, listing.itemId, getInventoryAmount(listing.inventory, listing.itemId) + listing.amount);
+
+          const heatRisk = listing.currency === "dirtyMoney" ? resolveBlackMarketHeatRisk(total) : null;
+          if (heatRisk) {
+            addGangHeat(root, Math.max(1, Math.ceil(heatRisk.heat * 0.35)), `Hráčský bazar: ${listing.itemName}`);
+          }
+
+          commitMarketState((state) => ({
+            ...state,
+            playerListings: normalizePlayerMarketListings(state.playerListings, serverScope.serverId)
+              .filter((entry) => entry.id !== listing.id),
+            transactions: [
+              createTransaction({
+                type: "buy",
+                tabId: MARKET_PLAYER_TAB_ID,
+                item: { itemId: listing.itemId, name: listing.itemName },
+                amount: listing.amount,
+                total,
+                moneyKey: listing.currency
+              }),
+              ...normalizeMarketTransactions(state.transactions)
+            ]
+          }));
+
+          setMarketFeedback(
+            listing.currency === "dirtyMoney" ? "danger" : "success",
+            listing.currency === "dirtyMoney"
+              ? `Koupeno ${listing.amount}x ${listing.itemName}. Dirty trade přidal heat.`
+              : `Koupeno ${listing.amount}x ${listing.itemName} z hráčského bazaru.`
+          );
+          applyTopbarEconomy(root);
+          renderMarketTab();
+        });
+
+        footer.append(totalLabel, action);
+        card.append(head, meta, footer);
+        listingsWrap.append(card);
+      }
+    }
+
+    shell.append(sellPanel, listingsWrap);
+    listElement.append(shell);
+  };
 
   const renderMarketTab = () => {
     const priceState = refreshMarketPricesIfNeeded(false);
@@ -5822,8 +6762,22 @@ function bindMarketPopup(root) {
       serverBadgeElement.textContent = `Server: ${serverScope.serverLabel}`;
     }
 
-    copyElement.textContent = `${tabConfig.copy} Ceny platí jen pro tento server. Refresh za ${getMarketRefreshCountdownSeconds()} s.`;
+    renderDashboard(priceState);
+
+    copyElement.textContent = activeTab === MARKET_PLAYER_TAB_ID
+      ? `${tabConfig.copy} Nabídky jsou uložené jen pro tento server, vlastní nabídku můžeš stáhnout a dirty platby zvyšují heat.`
+      : activeTab === "black-market"
+        ? `${tabConfig.copy} Dirty cash platí přes dražší kanál, stock je dostupný, ale každý nákup zvedá heat. Ceny platí jen pro tento server.`
+        : `${tabConfig.copy} Stock je omezený, nákup ho snižuje a prodej ho vrací do trhu. Ceny platí jen pro tento server.`;
     listElement.replaceChildren();
+
+    if (activeTab === MARKET_PLAYER_TAB_ID) {
+      renderPlayerMarketTab(priceState, serverScope);
+      for (const tab of tabs) {
+        tab.classList.toggle("is-active", tab.dataset.marketTab === activeTab);
+      }
+      return;
+    }
 
     for (const item of tabConfig.items) {
       const amount = getInventoryAmount(item.inventory, item.itemId);
@@ -5831,12 +6785,19 @@ function bindMarketPopup(root) {
         price: item.price,
         previousPrice: item.price
       };
-      const buyPrice = Math.max(1, Math.round(priceEntry.price * (tabConfig.buyMultiplier || 1.15)));
+      const baseBuyPrice = Math.max(1, Math.round(priceEntry.price * (tabConfig.buyMultiplier || 1.15)));
+      const marketDiscount = getShoppingMallMarketDiscountForTab(activeTab);
+      const buyPrice = applyShoppingMallMarketDiscountToPrice(baseBuyPrice, marketDiscount);
       const sellPrice = Math.max(1, Math.round(priceEntry.price * (tabConfig.sellMultiplier || 1)));
       const delta = priceEntry.price - priceEntry.previousPrice;
+      const stockAmount = getStockAmount(priceState, activeTab, item.itemId);
+      const maxStock = getMaxStock(activeTab, item.itemId);
+      const hasLimitedStock = Number.isFinite(stockAmount);
       const row = document.createElement("div");
       row.className = "market-popup-row";
       row.dataset.marketInventory = item.inventory;
+      row.dataset.marketRowMode = activeTab === "black-market" ? "black" : "normal";
+      row.dataset.resourceColor = item.itemId;
 
       const info = document.createElement("div");
       info.className = "market-popup-row__info";
@@ -5847,11 +6808,13 @@ function bindMarketPopup(root) {
 
       const meta = document.createElement("span");
       meta.className = "market-popup-row__meta";
-      meta.textContent = `Sklad ${amount} ks · ${getMoneyLabel(paymentKey)}`;
+      meta.textContent = `Máš ${amount} ks · ${getStockLabel(priceState, activeTab, item.itemId)} · platba ${getMoneyLabel(paymentKey)}`;
 
       const price = document.createElement("span");
       price.className = "market-popup-row__price";
-      price.textContent = `Nákup ${formatMarketPrice(buyPrice)} · výkup ${formatMarketPrice(sellPrice)}`;
+      price.textContent = marketDiscount.discountPct > 0
+        ? `Základ ${formatMarketPrice(baseBuyPrice)} · sleva OC -${marketDiscount.discountPct.toFixed(1)} % · nákup ${formatMarketPrice(buyPrice)} · fee -${marketDiscount.feeReductionPct.toFixed(0)} % · výkup ${formatMarketPrice(sellPrice)}`
+        : `Nákup ${formatMarketPrice(buyPrice)} · výkup ${formatMarketPrice(sellPrice)}`;
 
       const trend = document.createElement("span");
       trend.className = "market-popup-row__trend";
@@ -5862,7 +6825,36 @@ function bindMarketPopup(root) {
           ? `▼ -${formatMarketPrice(Math.abs(delta))}`
           : "• beze změny";
 
-      info.append(name, meta, price, trend);
+      const stockBar = document.createElement("span");
+      stockBar.className = "market-popup-row__stock";
+      stockBar.style.setProperty("--market-stock", `${getStockPercent(priceState, activeTab, item.itemId)}%`);
+      stockBar.setAttribute("aria-label", getStockLabel(priceState, activeTab, item.itemId));
+
+      info.append(name, meta, price, trend, stockBar);
+
+      const trade = document.createElement("div");
+      trade.className = "market-popup-row__trade";
+
+      const quantityWrap = document.createElement("label");
+      quantityWrap.className = "market-popup-row__quantity-wrap";
+
+      const quantityLabel = document.createElement("span");
+      quantityLabel.textContent = "Množství";
+
+      const quantityInput = document.createElement("input");
+      quantityInput.className = "market-popup-row__quantity";
+      quantityInput.type = "number";
+      quantityInput.min = "1";
+      quantityInput.max = "999";
+      quantityInput.step = "1";
+      quantityInput.value = "1";
+      quantityInput.inputMode = "numeric";
+      quantityInput.setAttribute("aria-label", `Množství pro ${item.name}`);
+
+      quantityWrap.append(quantityLabel, quantityInput);
+
+      const totals = document.createElement("span");
+      totals.className = "market-popup-row__total";
 
       const actions = document.createElement("div");
       actions.className = "market-popup-row__actions";
@@ -5870,51 +6862,181 @@ function bindMarketPopup(root) {
       const buyAction = document.createElement("button");
       buyAction.type = "button";
       buyAction.className = "button market-popup-row__buy";
-      buyAction.textContent = "Koupit 1";
-      buyAction.disabled = (getResolvedEconomyState()[paymentKey] || 0) < buyPrice;
-      buyAction.addEventListener("click", () => {
-        const currentEconomy = getResolvedEconomyState();
-
-        if ((currentEconomy[paymentKey] || 0) < buyPrice) {
-          renderMarketTab();
-          return;
-        }
-
-        setInventoryAmount(item.inventory, item.itemId, getInventoryAmount(item.inventory, item.itemId) + 1);
-        setStoredEconomyState({
-          ...currentEconomy,
-          [paymentKey]: Math.max(0, (currentEconomy[paymentKey] || 0) - buyPrice)
-        });
-        applyTopbarEconomy(root);
-        renderMarketTab();
-      });
+      buyAction.textContent = "Koupit";
 
       const sellAction = document.createElement("button");
       sellAction.type = "button";
       sellAction.className = "button market-popup-row__sell";
-      sellAction.textContent = "Prodat vše";
-      sellAction.disabled = amount <= 0;
-      sellAction.addEventListener("click", () => {
-        const currentAmount = getInventoryAmount(item.inventory, item.itemId);
+      sellAction.textContent = "Prodat";
 
-        if (currentAmount <= 0) {
-          renderMarketTab();
+      const getRequestedQuantity = () => clamp(Number.parseInt(String(quantityInput.value || "1"), 10) || 1, 1, 999);
+      const updateRowTradeState = () => {
+        const requestedQuantity = getRequestedQuantity();
+        quantityInput.value = String(requestedQuantity);
+        const currentEconomy = getResolvedEconomyState();
+        const currentAmount = getInventoryAmount(item.inventory, item.itemId);
+        const latestMarketState = getResolvedMarketPriceState();
+        const latestStock = getStockAmount(latestMarketState, activeTab, item.itemId);
+        const latestMaxStock = getMaxStock(activeTab, item.itemId);
+        const buyTotal = requestedQuantity * buyPrice;
+        const sellTotal = requestedQuantity * sellPrice;
+        const sellCapacity = Number.isFinite(latestMaxStock) ? Math.max(0, latestMaxStock - latestStock) : Number.POSITIVE_INFINITY;
+        const blackHeatRisk = activeTab === "black-market" ? resolveBlackMarketHeatRisk(buyTotal) : null;
+
+        buyAction.disabled = (currentEconomy[paymentKey] || 0) < buyTotal
+          || (Number.isFinite(latestStock) && latestStock < requestedQuantity);
+        sellAction.disabled = currentAmount < requestedQuantity
+          || (Number.isFinite(sellCapacity) && sellCapacity < requestedQuantity);
+
+        buyAction.title = buyAction.disabled
+          ? (Number.isFinite(latestStock) && latestStock < requestedQuantity
+              ? "Market nemá dost stocku."
+              : `Chybí ${formatMarketPrice(buyTotal - (currentEconomy[paymentKey] || 0))}.`)
+          : activeTab === "black-market" && blackHeatRisk
+            ? `Black market risk: +${blackHeatRisk.heat} heat (${blackHeatRisk.label}).`
+            : "Koupit z marketu.";
+        sellAction.title = sellAction.disabled
+          ? (currentAmount < requestedQuantity
+              ? "Nemáš dost kusů ve skladu."
+              : "Normal market je přesycený.")
+          : "Prodat do marketu.";
+        totals.textContent = activeTab === "black-market" && blackHeatRisk
+          ? `Celkem ${formatMarketPrice(buyTotal)} · prodej ${formatMarketPrice(sellTotal)} · +${blackHeatRisk.heat} heat`
+          : `Celkem ${formatMarketPrice(buyTotal)} · prodej ${formatMarketPrice(sellTotal)}`;
+      };
+
+      quantityInput.addEventListener("input", updateRowTradeState);
+      quantityInput.addEventListener("change", updateRowTradeState);
+
+      buyAction.addEventListener("click", () => {
+        const currentEconomy = getResolvedEconomyState();
+        const requestedQuantity = getRequestedQuantity();
+        const buyTotal = requestedQuantity * buyPrice;
+        const latestMarketState = getResolvedMarketPriceState();
+        const latestStock = getStockAmount(latestMarketState, activeTab, item.itemId);
+
+        if ((currentEconomy[paymentKey] || 0) < buyTotal) {
+          setMarketFeedback("warning", `Na nákup chybí ${formatMarketPrice(buyTotal - (currentEconomy[paymentKey] || 0))}.`);
+          updateRowTradeState();
           return;
         }
 
-        setInventoryAmount(item.inventory, item.itemId, 0);
-        const economy = getResolvedEconomyState();
-        const nextEconomy = {
-          ...economy,
-          [payoutKey]: (economy[payoutKey] || 0) + currentAmount * sellPrice
-        };
-        setStoredEconomyState(nextEconomy);
+        if (Number.isFinite(latestStock) && latestStock < requestedQuantity) {
+          setMarketFeedback("warning", `Market má jen ${latestStock} ks ${item.name}. Zkus menší množství nebo black market.`);
+          updateRowTradeState();
+          return;
+        }
+
+        setInventoryAmount(item.inventory, item.itemId, getInventoryAmount(item.inventory, item.itemId) + requestedQuantity);
+        setStoredEconomyState({
+          ...currentEconomy,
+          [paymentKey]: Math.max(0, (currentEconomy[paymentKey] || 0) - buyTotal)
+        });
+
+        const heatRisk = activeTab === "black-market" ? resolveBlackMarketHeatRisk(buyTotal) : null;
+        if (heatRisk?.heat > 0) {
+          addGangHeat(root, heatRisk.heat, `Black market nákup: ${item.name}`);
+        }
+
+        commitMarketState((marketState) => {
+          const nextStock = normalizeMarketStockState(marketState.stock);
+          const stockKey = getMarketStockKey(activeTab, item.itemId);
+          if (hasLimitedStock) {
+            nextStock[stockKey] = Math.max(0, (nextStock[stockKey] || 0) - requestedQuantity);
+          }
+          return {
+            ...marketState,
+            stock: nextStock,
+            transactions: [
+              createTransaction({
+                type: "buy",
+                tabId: activeTab,
+                item,
+                amount: requestedQuantity,
+                total: buyTotal,
+                moneyKey: paymentKey
+              }),
+              ...normalizeMarketTransactions(marketState.transactions)
+            ]
+          };
+        });
+
+        setMarketFeedback(
+          activeTab === "black-market" ? "danger" : "success",
+          activeTab === "black-market"
+            ? `Koupeno ${requestedQuantity}x ${item.name} za ${formatMarketPrice(buyTotal)}. Black market přidal ${heatRisk?.heat || 0} heat.`
+            : `Koupeno ${requestedQuantity}x ${item.name} za ${formatMarketPrice(buyTotal)}.`
+        );
         applyTopbarEconomy(root);
         renderMarketTab();
       });
 
+      sellAction.addEventListener("click", () => {
+        const requestedQuantity = getRequestedQuantity();
+        const currentAmount = getInventoryAmount(item.inventory, item.itemId);
+        const latestMarketState = getResolvedMarketPriceState();
+        const latestStock = getStockAmount(latestMarketState, activeTab, item.itemId);
+        const latestMaxStock = getMaxStock(activeTab, item.itemId);
+        const sellCapacity = Number.isFinite(latestMaxStock) ? Math.max(0, latestMaxStock - latestStock) : Number.POSITIVE_INFINITY;
+
+        if (currentAmount < requestedQuantity) {
+          setMarketFeedback("warning", `Ve skladu máš jen ${currentAmount} ks ${item.name}.`);
+          updateRowTradeState();
+          return;
+        }
+
+        if (Number.isFinite(sellCapacity) && sellCapacity < requestedQuantity) {
+          setMarketFeedback("warning", `Normal market přijme už jen ${sellCapacity} ks ${item.name}.`);
+          updateRowTradeState();
+          return;
+        }
+
+        const sellTotal = requestedQuantity * sellPrice;
+        setInventoryAmount(item.inventory, item.itemId, currentAmount - requestedQuantity);
+        const economy = getResolvedEconomyState();
+        const nextEconomy = {
+          ...economy,
+          [payoutKey]: (economy[payoutKey] || 0) + sellTotal
+        };
+        setStoredEconomyState(nextEconomy);
+
+        commitMarketState((marketState) => {
+          const nextStock = normalizeMarketStockState(marketState.stock);
+          const stockKey = getMarketStockKey(activeTab, item.itemId);
+          if (hasLimitedStock) {
+            nextStock[stockKey] = clamp(
+              (nextStock[stockKey] || 0) + requestedQuantity,
+              0,
+              maxStock
+            );
+          }
+          return {
+            ...marketState,
+            stock: nextStock,
+            transactions: [
+              createTransaction({
+                type: "sell",
+                tabId: activeTab,
+                item,
+                amount: requestedQuantity,
+                total: sellTotal,
+                moneyKey: payoutKey
+              }),
+              ...normalizeMarketTransactions(marketState.transactions)
+            ]
+          };
+        });
+
+        setMarketFeedback("success", `Prodáno ${requestedQuantity}x ${item.name} za ${formatMarketPrice(sellTotal)}.`);
+        applyTopbarEconomy(root);
+        renderMarketTab();
+      });
+
+      updateRowTradeState();
+
       actions.append(buyAction, sellAction);
-      row.append(info, actions);
+      trade.append(quantityWrap, totals, actions);
+      row.append(info, trade);
       listElement.append(row);
     }
 
@@ -5924,6 +7046,7 @@ function bindMarketPopup(root) {
   };
 
   const openPopup = () => {
+    setMarketFeedback("", "");
     renderMarketTab();
     popup.hidden = false;
   };
@@ -5941,6 +7064,7 @@ function bindMarketPopup(root) {
       }
 
       activeTab = tab.dataset.marketTab;
+      setMarketFeedback("", "");
       renderMarketTab();
     });
   }
@@ -6164,7 +7288,7 @@ const LAUNCH_PLAYER_FACTION_ORDER = Object.freeze([
 const LAUNCH_PLAYER_AVATAR_BY_FACTION_ID = Object.freeze({
   mafian: "../img/avatars/Mafia/2854d1df-0f7c-4fe4-aa85-7a70dfe299db.jpg",
   kartel: "../img/avatars/Kartel/0f3d68b6-79b0-4bdd-9856-2491cd66cb78.jpg",
-  kult: "../img/avatars/polucnigang/5f1bbe02-e437-43b6-b9ed-c453e34ca622.jpg",
+  kult: "../img/avatars/kult/5f1bbe02-e437-43b6-b9ed-c453e34ca622.jpg",
   "tajna-organizace": "../img/avatars/Tajnaorganizace/0099fc13-4774-459a-b1a9-ea507a6c0526.jpg",
   hackeri: "../img/avatars/Hacker/379f566a-18b8-457e-83ee-ee9ee114cb7a.jpg",
   "motorkarsky-gang": "../img/avatars/Motogang/grok_image_1773621173474.jpg",
@@ -6549,15 +7673,6 @@ const namedCommercialFitnessClubs = [
   "No Mercy Fitness"
 ];
 
-const namedCommercialOfficeBlocks = [
-  "Iron Tower Offices",
-  "Blackline Corporate Hub",
-  "Neon Business Center",
-  "Vortex Office Complex",
-  "Skyline Syndicate Offices",
-  "ShadowCorp Tower"
-];
-
 const namedCommercialExchanges = [
   "ZeroSum Vault",
   "Neon Arbitrage",
@@ -6588,19 +7703,6 @@ const namedCommercialCasinos = [
   "High Rollers Sanctum",
   "Velvet Eclipse Casino",
   "Neon Crown Palace"
-];
-
-const namedIndustrialDataCenters = [
-  "NeuroGrid Core",
-  "Black Node Nexus",
-  "DataForge Complex",
-  "Synapse Vault",
-  "Quantum Relay Hub",
-  "GhostNet Core",
-  "Iron Pulse Servers",
-  "DeepCode Facility",
-  "CipherStack Center",
-  "Neon Matrix Node"
 ];
 
 const namedIndustrialPowerStations = [
@@ -6697,17 +7799,6 @@ const namedIndustrialArmories = [
   "Iron Rain Arsenal"
 ];
 
-const namedIndustrialResearchCenters = [
-  "Neon Research Hub",
-  "IronMind Labs",
-  "Quantum Black Lab",
-  "Synapse Forge Center",
-  "DarkPulse Research",
-  "CipherWorks Institute",
-  "NovaCore Laboratory",
-  "Obsidian Research Vault"
-];
-
 const namedIndustrialRecyclingCenters = [
   "SteelLoop Recycling",
   "BlackCycle Depot",
@@ -6717,19 +7808,6 @@ const namedIndustrialRecyclingCenters = [
   "Urban Reforge Plant",
   "DustLine Recycling",
   "GhostMetal Recovery"
-];
-
-const namedResidentialBrainwashCenters = [
-  "NeuroControl Lab",
-  "MindHack Facility",
-  "BlackMind Institute",
-  "Synapse Override Center",
-  "GhostMind Program",
-  "PsyCore Lab",
-  "Oblivion Mind Center",
-  "Neural Dominion Hub",
-  "ThoughtForge Facility",
-  "Cortex Manipulation Lab"
 ];
 
 const namedResidentialApartmentBlocks = Array.from(
@@ -6791,20 +7869,6 @@ const namedResidentialSchools = [
   "NextGen Academy",
   "StreetWise Institute",
   "LogicLab School"
-];
-
-const namedResidentialTaxiServices = [
-  "NightRide Taxi",
-  "Neon Cab Co.",
-  "GhostDrive Taxi",
-  "StreetMove Transport",
-  "RapidRide Taxi",
-  "Shadow Cab Service",
-  "Urban Wheels Taxi",
-  "BlackRoute Taxi",
-  "Velocity Cab",
-  "Backstreet Taxi",
-  "FlashRide Taxi"
 ];
 
 const namedParkDrugLabs = [
@@ -6913,24 +7977,19 @@ const DISTRICT_BUILDING_VARIANT_NAMES_BY_BASE_NAME = Object.freeze({
   "Lékárna": namedCommercialPharmacies,
   Autosalon: namedCommercialAutoSalons,
   "Fitness Club": namedCommercialFitnessClubs,
-  "Kancelářský blok": namedCommercialOfficeBlocks,
   "Směnárna": namedCommercialExchanges,
   Herna: namedCommercialArcades,
   Kasino: namedCommercialCasinos,
-  "Datové centrum": namedIndustrialDataCenters,
   "Energetická stanice": namedIndustrialPowerStations,
   Sklad: namedIndustrialStorages,
   "Továrna": namedIndustrialFactories,
   "Zbrojovka": namedIndustrialArmories,
-  "Výzkumné centrum": namedIndustrialResearchCenters,
   "Recyklační centrum": namedIndustrialRecyclingCenters,
-  "Brainwash centrum": namedResidentialBrainwashCenters,
   "Bytový blok": namedResidentialApartmentBlocks,
   Garage: namedResidentialGarages,
   Klinika: namedResidentialClinics,
   "Rekrutační centrum": namedResidentialRecruitCenters,
   "Škola": namedResidentialSchools,
-  "Taxi služba": namedResidentialTaxiServices,
   "Drug lab": namedParkDrugLabs,
   "Pašovací tunel": namedParkSmugglingTunnels,
   "Pouliční dealeři": namedParkStreetDealers,
@@ -6948,31 +8007,29 @@ const DISTRICT_MINUTE_INCOME_RULES_EMPIRE2 = Object.freeze({
 });
 
 const DISTRICT_BUILDING_MINUTE_INCOME_RULES_EMPIRE2 = Object.freeze({
-  "Autosalon": Object.freeze({ clean: 5, dirty: 1 }),
-  "Fitness Club": Object.freeze({ clean: 6, dirty: 0.5 }),
-  Herna: Object.freeze({ clean: 3, dirty: 3 }),
-  "Kancelářský blok": Object.freeze({ clean: 6, dirty: 1 }),
-  Kasino: Object.freeze({ clean: 5, dirty: 4 }),
+  "Autosalon": Object.freeze({ clean: 68, dirty: 18 }),
+  "Fitness Club": Object.freeze({ clean: 72, dirty: 0 }),
+  Herna: Object.freeze({ clean: 42, dirty: 72 }),
+  Kasino: Object.freeze({ clean: 140, dirty: 260 }),
   "Lékárna": Object.freeze({ clean: 3, dirty: 0.4 }),
-  "Obchodní centrum": Object.freeze({ clean: 8, dirty: 1 }),
+  "Obchodní centrum": Object.freeze({ clean: 95, dirty: 22 }),
   Restaurace: Object.freeze({ clean: 3, dirty: 2 }),
-  "Směnárna": Object.freeze({ clean: 3.3333, dirty: 1.6667 }),
-  "Datové centrum": Object.freeze({ clean: 5, dirty: 0.4 }),
+  "Směnárna": Object.freeze({ clean: 70, dirty: 95 }),
   "Energetická stanice": Object.freeze({ clean: 4, dirty: 0.3 }),
-  Sklad: Object.freeze({ clean: 2, dirty: 0.2 }),
+  Sklad: Object.freeze({ clean: 45, dirty: 0 }),
   "Továrna": Object.freeze({ clean: 1, dirty: 0.2 }),
   "Zbrojovka": Object.freeze({ clean: 1.2, dirty: 0.5 }),
-  "Brainwash centrum": Object.freeze({ clean: 8, dirty: 1.5 }),
-  "Bytový blok": Object.freeze({ clean: 1.5, dirty: 0.5 }),
-  Garage: Object.freeze({ clean: 3, dirty: 0.5 }),
-  Klinika: Object.freeze({ clean: 2.5, dirty: 0.3 }),
-  "Rekrutační centrum": Object.freeze({ clean: 2, dirty: 0.3 }),
+  "Bytový blok": Object.freeze({ clean: 0, dirty: 0 }),
+  Garage: Object.freeze({ clean: 42, dirty: 0 }),
+  Klinika: Object.freeze({ clean: 55, dirty: 0 }),
+  "Rekrutační centrum": Object.freeze({ clean: 35, dirty: 0 }),
   "Škola": Object.freeze({ clean: 4.4, dirty: 1 }),
   "Drug lab": Object.freeze({ clean: 1.5, dirty: 2 }),
-  "Pašovací tunel": Object.freeze({ clean: 0.2, dirty: 3 }),
+  "Pašovací tunel": Object.freeze({ clean: 0, dirty: 62 }),
   "Pouliční dealeři": Object.freeze({ clean: 0.1, dirty: 4.5 }),
   "Strip club": Object.freeze({ clean: 8, dirty: 2 }),
-  "Večerka": Object.freeze({ clean: 3.5, dirty: 1.3 }),
+  "Večerka": Object.freeze({ clean: 32, dirty: 18 }),
+  "Recyklační centrum": Object.freeze({ clean: 40, dirty: 0 }),
   Burza: Object.freeze({ clean: 18, dirty: 1 }),
   "Centrální banka": Object.freeze({ clean: 26, dirty: 1 }),
   "Letiště": Object.freeze({ clean: 19, dirty: 1 }),
@@ -6981,29 +8038,42 @@ const DISTRICT_BUILDING_MINUTE_INCOME_RULES_EMPIRE2 = Object.freeze({
   Parlament: Object.freeze({ clean: 22, dirty: 3 }),
   "Přístav": Object.freeze({ clean: 26, dirty: 8.5 }),
   Soud: Object.freeze({ clean: 20, dirty: 10 }),
-  "VIP salonek": Object.freeze({ clean: 8, dirty: 22 }),
-  "Taxi služba": Object.freeze({ clean: 5.5, dirty: 1.5 })
+  "VIP salonek": Object.freeze({ clean: 8, dirty: 22 })
 });
 
 const DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2 = Object.freeze({
-  "Pašovací tunel": Object.freeze({ heat: 4.3 / 1440 }),
+  Autosalon: Object.freeze({ heat: 0.08 }),
+  "Fitness Club": Object.freeze({ heat: 0.04 }),
+  Herna: Object.freeze({ heat: 0.12 }),
+  "Obchodní centrum": Object.freeze({ heat: 0.09 }),
+  Kasino: Object.freeze({ heat: 0.45 }),
+  "Směnárna": Object.freeze({ heat: 0.16 }),
+  "Pašovací tunel": Object.freeze({ heat: 0.03 }),
   "Strip club": Object.freeze({ heat: 5 / 1440 }),
-  "Datové centrum": Object.freeze({ heat: 5.5 / 1440 }),
-  Sklad: Object.freeze({ heat: 2.8 / 1440 }),
-  "Večerka": Object.freeze({ heat: 2.5 / 1440 }),
-  "Výzkumné centrum": Object.freeze({ heat: 4.8 / 1440 }),
-  "Recyklační centrum": Object.freeze({ heat: 4 / 1440 })
+  Sklad: Object.freeze({ heat: 0.06 }),
+  Garage: Object.freeze({ heat: 0.06 }),
+  Klinika: Object.freeze({ heat: 0.03 }),
+  "Rekrutační centrum": Object.freeze({ heat: 0.07 }),
+  "Večerka": Object.freeze({ heat: 0.05 }),
+  "Recyklační centrum": Object.freeze({ heat: 0.08 })
 });
 
 const DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2 = Object.freeze({
-  "Pašovací tunel": Object.freeze({ influence: 18 / 1440 }),
+  Autosalon: Object.freeze({ influence: 0 }),
+  "Fitness Club": Object.freeze({ influence: 0 }),
+  Herna: Object.freeze({ influence: 0.18 }),
+  "Obchodní centrum": Object.freeze({ influence: 0.24 }),
+  Kasino: Object.freeze({ influence: 0.7 }),
+  "Směnárna": Object.freeze({ influence: 0.28 }),
+  "Pašovací tunel": Object.freeze({ influence: 0 }),
   "Pouliční dealeři": Object.freeze({ influence: 3.5 / 1440 }),
   "Strip club": Object.freeze({ influence: 28 / 1440 }),
-  "Datové centrum": Object.freeze({ influence: 32 / 1440 }),
-  Sklad: Object.freeze({ influence: 14 / 1440 }),
-  "Večerka": Object.freeze({ influence: 8 / 1440 }),
-  "Výzkumné centrum": Object.freeze({ influence: 30 / 1440 }),
-  "Recyklační centrum": Object.freeze({ influence: 16 / 1440 })
+  Sklad: Object.freeze({ influence: 0 }),
+  Garage: Object.freeze({ influence: 0 }),
+  Klinika: Object.freeze({ influence: 0 }),
+  "Rekrutační centrum": Object.freeze({ influence: 0 }),
+  "Večerka": Object.freeze({ influence: 0.1 }),
+  "Recyklační centrum": Object.freeze({ influence: 0 })
 });
 const START_PHASE_RESOURCE_SIMULATION = Object.freeze({
   cleanPerMinuteByDistrictType: Object.freeze({
@@ -7020,22 +8090,22 @@ const DISTRICT_BUILDING_PACKAGE_POOLS = Object.freeze({
   resident: Object.freeze({
     early: Object.freeze([
       Object.freeze({ key: "res-early-1", tier: "early", title: "Startovní růst", buildings: Object.freeze(["Bytový blok", "Garage"]) }),
-      Object.freeze({ key: "res-early-2", tier: "early", title: "Stabilní základna", buildings: Object.freeze(["Bytový blok", "Brainwash centrum"]) }),
+      Object.freeze({ key: "res-early-2", tier: "early", title: "Stabilní základna", buildings: Object.freeze(["Bytový blok", "Herna"]) }),
       Object.freeze({ key: "res-early-3", tier: "early", title: "První nábor", buildings: Object.freeze(["Bytový blok", "Rekrutační centrum"]) }),
-      Object.freeze({ key: "res-early-4", tier: "early", title: "Obytná kontrola", buildings: Object.freeze(["Bytový blok", "Brainwash centrum", "Garage"]) })
+      Object.freeze({ key: "res-early-4", tier: "early", title: "Obytná kontrola", buildings: Object.freeze(["Bytový blok", "Herna", "Garage"]) })
     ]),
     mid: Object.freeze([
       Object.freeze({ key: "res-mid-1", tier: "mid", title: "Mobilní posily", buildings: Object.freeze(["Bytový blok", "Rekrutační centrum", "Garage"]) }),
       Object.freeze({ key: "res-mid-2", tier: "mid", title: "Udržitelný růst", buildings: Object.freeze(["Bytový blok", "Klinika"]) }),
       Object.freeze({ key: "res-mid-3", tier: "mid", title: "Disciplína a kvalita", buildings: Object.freeze(["Bytový blok", "Škola"]) }),
-      Object.freeze({ key: "res-mid-4", tier: "mid", title: "Loajalita a výcvik", buildings: Object.freeze(["Brainwash centrum", "Škola"]) }),
+      Object.freeze({ key: "res-mid-4", tier: "mid", title: "Loajalita a výcvik", buildings: Object.freeze(["Herna", "Škola"]) }),
       Object.freeze({ key: "res-mid-5", tier: "mid", title: "Regenerace fronty", buildings: Object.freeze(["Rekrutační centrum", "Klinika"]) }),
-      Object.freeze({ key: "res-mid-6", tier: "mid", title: "Kontrolovaný development", buildings: Object.freeze(["Bytový blok", "Brainwash centrum", "Škola"]) })
+      Object.freeze({ key: "res-mid-6", tier: "mid", title: "Kontrolovaný development", buildings: Object.freeze(["Bytový blok", "Herna", "Škola"]) })
     ]),
     late: Object.freeze([
       Object.freeze({ key: "res-late-1", tier: "late", title: "Válečné zázemí", buildings: Object.freeze(["Bytový blok", "Rekrutační centrum", "Klinika"]) }),
       Object.freeze({ key: "res-late-2", tier: "late", title: "Mobilní tlak", buildings: Object.freeze(["Rekrutační centrum", "Garage", "Klinika"]) }),
-      Object.freeze({ key: "res-late-3", tier: "late", title: "Loajální populace", buildings: Object.freeze(["Bytový blok", "Brainwash centrum", "Klinika"]) }),
+      Object.freeze({ key: "res-late-3", tier: "late", title: "Loajální populace", buildings: Object.freeze(["Bytový blok", "Herna", "Klinika"]) }),
       Object.freeze({ key: "res-late-4", tier: "late", title: "Elitní rezidenční zóna", buildings: Object.freeze(["Bytový blok", "Škola", "Klinika"]) }),
       Object.freeze({ key: "res-late-5", tier: "late", title: "Strategická mobilizace", buildings: Object.freeze(["Bytový blok", "Rekrutační centrum", "Škola"]) })
     ])
@@ -7046,16 +8116,16 @@ const DISTRICT_BUILDING_PACKAGE_POOLS = Object.freeze({
       Object.freeze({ key: "eco-early-2", tier: "early", title: "Civilní utility", buildings: Object.freeze(["Restaurace", "Lékárna"]) }),
       Object.freeze({ key: "eco-early-3", tier: "early", title: "Lehký cashflow", buildings: Object.freeze(["Restaurace", "Směnárna"]) }),
       Object.freeze({ key: "eco-early-4", tier: "early", title: "Bezpečný mix", buildings: Object.freeze(["Restaurace", "Lékárna", "Fitness Club"]) }),
-      Object.freeze({ key: "eco-early-5", tier: "early", title: "Startovní laundering", buildings: Object.freeze(["Autosalon", "Restaurace"]) })
+      Object.freeze({ key: "eco-early-5", tier: "early", title: "Startovní mobilita", buildings: Object.freeze(["Autosalon", "Restaurace"]) })
     ]),
     mid: Object.freeze([
       Object.freeze({ key: "eco-mid-1", tier: "mid", title: "Utility growth", buildings: Object.freeze(["Autosalon", "Lékárna"]) }),
       Object.freeze({ key: "eco-mid-2", tier: "mid", title: "Finanční uzel", buildings: Object.freeze(["Autosalon", "Směnárna"]) }),
-      Object.freeze({ key: "eco-mid-3", tier: "mid", title: "Korporátní stabilita", buildings: Object.freeze(["Kancelářský blok", "Restaurace"]) }),
-      Object.freeze({ key: "eco-mid-4", tier: "mid", title: "Administrativní utility", buildings: Object.freeze(["Kancelářský blok", "Lékárna", "Restaurace"]) }),
+      Object.freeze({ key: "eco-mid-3", tier: "mid", title: "Korporátní stabilita", buildings: Object.freeze(["Obchodní centrum", "Restaurace"]) }),
+      Object.freeze({ key: "eco-mid-4", tier: "mid", title: "Administrativní utility", buildings: Object.freeze(["Obchodní centrum", "Lékárna", "Restaurace"]) }),
       Object.freeze({ key: "eco-mid-5", tier: "mid", title: "Hlavní retail", buildings: Object.freeze(["Obchodní centrum", "Restaurace"]) }),
       Object.freeze({ key: "eco-mid-6", tier: "mid", title: "Vyvážený obchod", buildings: Object.freeze(["Restaurace", "Lékárna", "Směnárna"]) }),
-      Object.freeze({ key: "eco-mid-7", tier: "mid", title: "Prací front", buildings: Object.freeze(["Autosalon", "Směnárna", "Restaurace"]) })
+      Object.freeze({ key: "eco-mid-7", tier: "mid", title: "Mobilní front", buildings: Object.freeze(["Autosalon", "Směnárna", "Restaurace"]) })
     ]),
     top: Object.freeze([
       Object.freeze({ key: "eco-top-1", tier: "top", title: "Kasino hotspot", buildings: Object.freeze(["Kasino", "Restaurace"]) }),
@@ -7091,23 +8161,23 @@ const DISTRICT_BUILDING_PACKAGE_POOLS = Object.freeze({
       Object.freeze({ key: "ind-early-2", tier: "early", title: "Napájená produkce", buildings: Object.freeze(["Továrna", "Energetická stanice"]) }),
       Object.freeze({ key: "ind-early-3", tier: "early", title: "První militarizace", buildings: Object.freeze(["Továrna", "Zbrojovka"]) }),
       Object.freeze({ key: "ind-early-4", tier: "early", title: "Zásobovací uzel", buildings: Object.freeze(["Sklad", "Energetická stanice"]) }),
-      Object.freeze({ key: "ind-early-5", tier: "early", title: "Základní výzkum", buildings: Object.freeze(["Továrna", "Výzkumné centrum"]) }),
+      Object.freeze({ key: "ind-early-5", tier: "early", title: "Základní recyklace", buildings: Object.freeze(["Továrna", "Recyklační centrum"]) }),
       Object.freeze({ key: "ind-early-6", tier: "early", title: "Recyklační tok", buildings: Object.freeze(["Sklad", "Recyklační centrum"]) })
     ]),
     mid: Object.freeze([
       Object.freeze({ key: "ind-mid-1", tier: "mid", title: "Vojenská výroba", buildings: Object.freeze(["Zbrojovka", "Sklad"]) }),
-      Object.freeze({ key: "ind-mid-2", tier: "mid", title: "Technický provoz", buildings: Object.freeze(["Továrna", "Datové centrum"]) }),
+      Object.freeze({ key: "ind-mid-2", tier: "mid", title: "Technický provoz", buildings: Object.freeze(["Továrna", "Recyklační centrum"]) }),
       Object.freeze({ key: "ind-mid-3", tier: "mid", title: "Efektivní řetězec", buildings: Object.freeze(["Továrna", "Sklad", "Energetická stanice"]) }),
       Object.freeze({ key: "ind-mid-4", tier: "mid", title: "Zbrojní logistika", buildings: Object.freeze(["Zbrojovka", "Sklad", "Energetická stanice"]) }),
-      Object.freeze({ key: "ind-mid-5", tier: "mid", title: "Datová výroba", buildings: Object.freeze(["Sklad", "Datové centrum"]) }),
-      Object.freeze({ key: "ind-mid-6", tier: "mid", title: "Výzkum a obrana", buildings: Object.freeze(["Výzkumné centrum", "Zbrojovka"]) }),
+      Object.freeze({ key: "ind-mid-5", tier: "mid", title: "Recyklační sklad", buildings: Object.freeze(["Sklad", "Recyklační centrum"]) }),
+      Object.freeze({ key: "ind-mid-6", tier: "mid", title: "Recyklace a obrana", buildings: Object.freeze(["Recyklační centrum", "Zbrojovka"]) }),
       Object.freeze({ key: "ind-mid-7", tier: "mid", title: "Obnova zdrojů", buildings: Object.freeze(["Továrna", "Recyklační centrum", "Sklad"]) })
     ]),
     top: Object.freeze([
       Object.freeze({ key: "ind-top-1", tier: "top", title: "Arms grid", buildings: Object.freeze(["Továrna", "Zbrojovka", "Sklad"]) }),
       Object.freeze({ key: "ind-top-2", tier: "top", title: "Power forge", buildings: Object.freeze(["Továrna", "Zbrojovka", "Energetická stanice"]) }),
-      Object.freeze({ key: "ind-top-3", tier: "top", title: "Hack foundry", buildings: Object.freeze(["Zbrojovka", "Datové centrum", "Sklad"]) }),
-      Object.freeze({ key: "ind-top-4", tier: "top", title: "Critical infrastructure", buildings: Object.freeze(["Energetická stanice", "Datové centrum", "Sklad"]) }),
+      Object.freeze({ key: "ind-top-3", tier: "top", title: "Scrap foundry", buildings: Object.freeze(["Zbrojovka", "Recyklační centrum", "Sklad"]) }),
+      Object.freeze({ key: "ind-top-4", tier: "top", title: "Critical recovery", buildings: Object.freeze(["Energetická stanice", "Recyklační centrum", "Sklad"]) }),
       Object.freeze({ key: "ind-top-5", tier: "top", title: "Heavy recycle", buildings: Object.freeze(["Zbrojovka", "Recyklační centrum", "Továrna"]) })
     ])
   }),
@@ -7257,6 +8327,151 @@ function resolveDistrictBuildingProfile(district) {
     tier: String(packageMeta.tier || resolveDistrictBuildingTier({ ...district, districtType }) || "mid"),
     buildings
   };
+}
+
+function getOwnedShoppingMallCountForMarket() {
+  return getDistrictResourceCatalog().reduce((total, district) => {
+    const ownerId = Number(START_PHASE_OWNER_BY_DISTRICT_ID.get(Number(district.id)) || 0);
+    if (ownerId !== CURRENT_PLAYER_ID) {
+      return total;
+    }
+    const profile = resolveDistrictBuildingProfile(district);
+    const mallCount = (profile?.buildings || []).filter((building) =>
+      normalizeBuildingLookupKey(building.baseName) === "obchodni centrum"
+    ).length;
+    return total + mallCount;
+  }, 0);
+}
+
+function getShoppingMallMarketDiscountForTab(tabId) {
+  const ownedMalls = getOwnedShoppingMallCountForMarket();
+  const baseDiscountPct = Math.min(14, Math.max(0, ownedMalls) * 2);
+  const discountPct = tabId === "market"
+    ? baseDiscountPct
+    : tabId === "black-market"
+      ? baseDiscountPct * 0.4
+      : 0;
+  return {
+    ownedMalls,
+    discountPct,
+    feeReductionPct: Math.min(30, Math.max(0, ownedMalls) * 5),
+    minFinalPriceMultiplier: 0.7
+  };
+}
+
+function getShoppingMallNetworkMultipliers(count = getOwnedShoppingMallCountForMarket()) {
+  const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
+  return {
+    cleanIncomeMultiplier: Math.min(SHOPPING_MALL_NETWORK_CONFIG.maxCleanIncomeMultiplier, 1 + extra * SHOPPING_MALL_NETWORK_CONFIG.cleanIncomeBonusPctPerExtraMall / 100),
+    dirtyIncomeMultiplier: Math.min(SHOPPING_MALL_NETWORK_CONFIG.maxDirtyIncomeMultiplier, 1 + extra * SHOPPING_MALL_NETWORK_CONFIG.dirtyIncomeBonusPctPerExtraMall / 100),
+    influenceMultiplier: Math.min(SHOPPING_MALL_NETWORK_CONFIG.maxInfluenceMultiplier, 1 + extra * SHOPPING_MALL_NETWORK_CONFIG.influenceBonusPctPerExtraMall / 100),
+    heatMultiplier: Math.min(SHOPPING_MALL_NETWORK_CONFIG.maxHeatMultiplier, 1 + extra * SHOPPING_MALL_NETWORK_CONFIG.heatBonusPctPerExtraMall / 100)
+  };
+}
+
+function getOwnedAutoSalonCount() {
+  const interactionState = {
+    ownedDistrictIds: new Set(getResolvedWorldState().ownedDistrictIds || []),
+    gamePhase: getResolvedWorldState().phase || "live"
+  };
+  const ownedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+  return getDistrictResourceCatalog().reduce((count, district) => {
+    if (!ownedDistrictIds.has(Number(district.id))) return count;
+    const profile = resolveDistrictBuildingProfile(district);
+    const hasAutoSalon = (profile?.buildings || []).some((building) => normalizeBuildingLookupKey(building.baseName) === "autosalon");
+    return count + (hasAutoSalon ? 1 : 0);
+  }, 0);
+}
+
+function getAutoSalonNetworkMultipliers(count = getOwnedAutoSalonCount()) {
+  const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
+  return {
+    cleanIncomeMultiplier: Math.min(AUTO_SALON_SUPPORT_CONFIG.maxCleanIncomeMultiplier, 1 + extra * AUTO_SALON_SUPPORT_CONFIG.cleanIncomeBonusPctPerExtraDealer / 100),
+    dirtyIncomeMultiplier: Math.min(AUTO_SALON_SUPPORT_CONFIG.maxDirtyIncomeMultiplier, 1 + extra * AUTO_SALON_SUPPORT_CONFIG.dirtyIncomeBonusPctPerExtraDealer / 100),
+    heatMultiplier: Math.min(AUTO_SALON_SUPPORT_CONFIG.maxHeatMultiplier, 1 + extra * AUTO_SALON_SUPPORT_CONFIG.heatBonusPctPerExtraDealer / 100)
+  };
+}
+
+function getAutoSalonSupportStats(count = getOwnedAutoSalonCount()) {
+  const ownedCount = Math.max(0, Math.floor(Number(count || 0)));
+  return {
+    ownedCount,
+    mobilityBonusPct: Math.min(AUTO_SALON_SUPPORT_CONFIG.maxMobilityBonusPct, ownedCount * AUTO_SALON_SUPPORT_CONFIG.mobilityBonusPctPerDealer),
+    cooldownReductionPct: Math.min(AUTO_SALON_SUPPORT_CONFIG.maxCooldownReductionPct, ownedCount * AUTO_SALON_SUPPORT_CONFIG.cooldownReductionPctPerDealer),
+    escapeChanceBonusPct: Math.min(AUTO_SALON_SUPPORT_CONFIG.maxEscapeChanceBonusPct, ownedCount * AUTO_SALON_SUPPORT_CONFIG.escapeChanceBonusPctPerDealer)
+  };
+}
+
+function getOwnedFitnessClubCount() {
+  const interactionState = {
+    ownedDistrictIds: new Set(getResolvedWorldState().ownedDistrictIds || []),
+    gamePhase: getResolvedWorldState().phase || "live"
+  };
+  const ownedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+  return getDistrictResourceCatalog().reduce((count, district) => {
+    if (!ownedDistrictIds.has(Number(district.id))) return count;
+    const profile = resolveDistrictBuildingProfile(district);
+    const hasFitnessClub = (profile?.buildings || []).some((building) => normalizeBuildingLookupKey(building.baseName) === "fitness club");
+    return count + (hasFitnessClub ? 1 : 0);
+  }, 0);
+}
+
+function getFitnessClubNetworkMultipliers(count = getOwnedFitnessClubCount()) {
+  const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
+  return {
+    incomeMultiplier: Math.min(FITNESS_CLUB_SUPPORT_CONFIG.maxIncomeMultiplier, 1 + extra * FITNESS_CLUB_SUPPORT_CONFIG.incomeBonusPctPerExtraClub / 100),
+    heatMultiplier: Math.min(FITNESS_CLUB_SUPPORT_CONFIG.maxHeatMultiplier, 1 + extra * FITNESS_CLUB_SUPPORT_CONFIG.heatBonusPctPerExtraClub / 100)
+  };
+}
+
+function getFitnessClubSupportStats(count = getOwnedFitnessClubCount()) {
+  const ownedCount = Math.max(0, Math.floor(Number(count || 0)));
+  return {
+    ownedCount,
+    attackStrengthBonusPct: Math.min(FITNESS_CLUB_SUPPORT_CONFIG.maxAttackStrengthBonusPct, ownedCount * FITNESS_CLUB_SUPPORT_CONFIG.attackStrengthBonusPctPerClub),
+    defenseStrengthBonusPct: Math.min(FITNESS_CLUB_SUPPORT_CONFIG.maxDefenseStrengthBonusPct, ownedCount * FITNESS_CLUB_SUPPORT_CONFIG.defenseStrengthBonusPctPerClub),
+    combinedRecruitmentFitnessAttackCapPct: FITNESS_CLUB_SUPPORT_CONFIG.combinedRecruitmentFitnessAttackCapPct,
+    combinedRecruitmentFitnessDefenseCapPct: FITNESS_CLUB_SUPPORT_CONFIG.combinedRecruitmentFitnessDefenseCapPct
+  };
+}
+
+function getOwnedSmugglingTunnelCount() {
+  const interactionState = {
+    ownedDistrictIds: new Set(getResolvedWorldState().ownedDistrictIds || []),
+    gamePhase: getResolvedWorldState().phase || "live"
+  };
+  const ownedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+  return getDistrictResourceCatalog().reduce((count, district) => {
+    if (!ownedDistrictIds.has(Number(district.id))) return count;
+    const profile = resolveDistrictBuildingProfile(district);
+    const hasTunnel = (profile?.buildings || []).some((building) => normalizeBuildingLookupKey(building.baseName) === "pasovaci tunel");
+    return count + (hasTunnel ? 1 : 0);
+  }, 0);
+}
+
+function getSmugglingTunnelNetworkMultipliers(count = getOwnedSmugglingTunnelCount()) {
+  const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
+  return {
+    dirtyProductionMultiplier: Math.min(SMUGGLING_TUNNEL_CONFIG.maxDirtyProductionMultiplier, 1 + extra * SMUGGLING_TUNNEL_CONFIG.dirtyProductionBonusPctPerExtraTunnel / 100),
+    batchCapacityMultiplier: Math.min(SMUGGLING_TUNNEL_CONFIG.maxBatchCapacityMultiplier, 1 + extra * SMUGGLING_TUNNEL_CONFIG.batchCapacityBonusPctPerExtraTunnel / 100),
+    passiveHeatMultiplier: Math.min(SMUGGLING_TUNNEL_CONFIG.maxPassiveHeatMultiplier, 1 + extra * SMUGGLING_TUNNEL_CONFIG.passiveHeatBonusPctPerExtraTunnel / 100)
+  };
+}
+
+function getSmugglingTunnelCollectHeat(amount) {
+  const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
+  if (safeAmount >= 5000) return 16;
+  if (safeAmount >= 3000) return 11;
+  if (safeAmount >= 2000) return 7;
+  if (safeAmount >= 1000) return 4;
+  if (safeAmount >= 1) return 2;
+  return 0;
+}
+
+function applyShoppingMallMarketDiscountToPrice(basePrice, discount) {
+  const safeBasePrice = Math.max(1, Math.round(Number(basePrice || 1)));
+  const discounted = safeBasePrice * (1 - Math.max(0, Number(discount?.discountPct || 0)) / 100);
+  return Math.max(1, Math.ceil(Math.max(discounted, safeBasePrice * Math.max(0, Number(discount?.minFinalPriceMultiplier || 0.7)))));
 }
 
 function getDistrictEconomySnapshot(district) {
@@ -7456,9 +8671,12 @@ function getCurrentPlayerStartPhaseSourceSnapshot() {
     const districtType = resolveStartPhaseResourceDistrictType(district);
     const districtIncomeRule = DISTRICT_MINUTE_INCOME_RULES_EMPIRE2[districtType] || DISTRICT_MINUTE_INCOME_RULES_EMPIRE2.resident;
     const snapshot = getDistrictEconomySnapshot(district);
-    cleanMoneyPerMinute += Number(START_PHASE_RESOURCE_SIMULATION.cleanPerMinuteByDistrictType[districtType] || 0);
-    dirtyMoneyPerMinute += Number(districtIncomeRule.dirty || 0);
-    influencePerMinute += START_PHASE_RESOURCE_SIMULATION.influencePerMinute;
+    cleanMoneyPerMinute += Number(START_PHASE_RESOURCE_SIMULATION.cleanPerMinuteByDistrictType[districtType] || 0)
+      + (Number(snapshot.buildingCleanHourlyIncome || 0) / 60);
+    dirtyMoneyPerMinute += Number(districtIncomeRule.dirty || 0)
+      + (Number(snapshot.buildingDirtyHourlyIncome || 0) / 60);
+    influencePerMinute += START_PHASE_RESOURCE_SIMULATION.influencePerMinute
+      + (Number(snapshot.buildingInfluencePerHour || 0) / 60);
     heatPerDay += Number(snapshot.passiveHeatPerDay || 0);
     heatPerMinute += Number(snapshot.passiveHeatPerDay || 0) / 1440;
     districtCount += 1;
@@ -7621,7 +8839,7 @@ function syncStartPhaseResourceSimulation(root, now = Date.now()) {
       cleanMoney: Math.max(0, Math.floor(Number(economyState.cleanMoney || 0)) + cleanDelta),
       dirtyMoney: Math.max(0, Math.floor(Number(economyState.dirtyMoney || 0)) + dirtyDelta)
     });
-    applyTopbarEconomy(root, { instant: true });
+    applyTopbarEconomy(root);
   }
 
   if (influenceDelta > 0) {
@@ -7695,29 +8913,24 @@ function resolveBuildingPopupTarget(buildingName) {
 
 const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   "bytovy blok": Object.freeze({
-    role: "Rezidenční kontrola",
-    info: "Bytový blok drží základ populace v districtu a vytváří prostor pro nábor členů gangu.",
-    actions: Object.freeze(["Collect gang members", "Stabilizovat nájemníky", "Zvýšit lokální vliv"])
+    role: "Population / gang members",
+    info: "Bytový blok negeneruje peníze ani heat. Jen lidi. A lidi jsou munice města.",
+    actions: Object.freeze(["Vybrat obyvatele"])
   }),
   garage: Object.freeze({
-    role: "Mobilita",
-    info: "Garage podporuje přesuny posádek, rychlejší výjezdy a logistiku mezi obsazenými districty.",
-    actions: Object.freeze(["Připravit vozidla", "Zkrátit výjezd", "Zajistit únikové trasy"])
-  }),
-  "brainwash centrum": Object.freeze({
-    role: "Loajalita",
-    info: "Brainwash centrum drží morálku a poslušnost v lokální populaci.",
-    actions: Object.freeze(["Zvýšit loajalitu", "Potlačit odpor", "Vytvořit propagandu"])
+    role: "Economy / logistics / cooldown multiplier",
+    info: "Garáž generuje čistý příjem a snižuje cooldowny logistických, pohybových a přípravných akcí. Motory běží pod plechovou střechou, kufry mizí ve tmě a někdo vždycky ví, kudy projet bez kamer.",
+    actions: Object.freeze([])
   }),
   "rekrutacni centrum": Object.freeze({
-    role: "Nábor",
-    info: "Rekrutační centrum převádí lokální populaci na použitelné členy gangu.",
-    actions: Object.freeze(["Collect gang members", "Zrychlit nábor", "Prověřit nováčky"])
+    role: "Support / population support / combat multiplier",
+    info: "Rekrutační centrum nevyrábí lidi. Dělá z obyvatel použitelný gang a z výbavy skutečnou sílu. Lidi přijdou z bloků. Tady se z nich stává armáda ulice.",
+    actions: Object.freeze([])
   }),
   klinika: Object.freeze({
-    role: "Podpora",
-    info: "Klinika pomáhá držet posádku v provozu po konfliktech a snižuje ztráty v dlouhých taženích.",
-    actions: Object.freeze(["Ošetřit posádku", "Zvýšit obnovu", "Stabilizovat district"])
+    role: "Economy / recovery / support",
+    info: "Klinika nevyrábí zbraně ani gang. Zachraňuje to, co by jinak město sežralo. Recovery probíhá jen přes akci Stabilizační protokol.",
+    actions: Object.freeze(["Stabilizační protokol"])
   }),
   skola: Object.freeze({
     role: "Výcvik",
@@ -7730,34 +8943,34 @@ const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
     actions: Object.freeze(["Vybrat tržby", "Krýt schůzky", "Posílit lokální síť"])
   }),
   "fitness club": Object.freeze({
-    role: "Legální front",
-    info: "Fitness Club je civilní front s dobrým čistým příjmem a nízkým rizikem.",
-    actions: Object.freeze(["Vybrat členské poplatky", "Nabrat vyhazovače", "Držet nízký heat"])
+    role: "Economy / combat support / physical training",
+    info: "Fitness Club generuje čistý příjem a posiluje fyzickou sílu útoku i obrany. Nezískáš víc lidí. Získáš tvrdší lidi. Rezavé činky, rozbité zrcadlo a trenér, který nepočítá opakování, ale přežití.",
+    actions: Object.freeze([])
+  }),
+  herna: Object.freeze({
+    role: "Economy / dirty cash / laundering / network",
+    info: "Herna je pouliční cashflow. Blikající automaty, špinavé mince, zadní pokladna a dým z cigaret. Sama o sobě tě nespasí, ale síť heren dokáže krmit gang celou free session.",
+    actions: Object.freeze(["Noční automaty", "Zadní pokladna"])
   }),
   smenarna: Object.freeze({
-    role: "Finance",
-    info: "Směnárna mění špinavé peníze na čistší kapitál a pomáhá stabilizovat ekonomiku.",
-    actions: Object.freeze(["Exchange dirty to clean cash", "Zkontrolovat kurz", "Zakrýt transakce"])
+    role: "Economy / laundering / network",
+    info: "Směnárna pere menší částky bezpečněji než kasino. Jedna směnárna je služba. Síť směnáren je finanční pavouk přes celé město.",
+    actions: Object.freeze(["Výhodný kurz"])
   }),
   autosalon: Object.freeze({
-    role: "Finance a logistika",
-    info: "Autosalon pere peníze přes drahé zboží a zároveň podporuje mobilitu posádek.",
-    actions: Object.freeze(["Vybrat prodeje", "Připravit flotilu", "Zakryt špinavý cash"])
-  }),
-  "kancelarsky blok": Object.freeze({
-    role: "Administrativa",
-    info: "Kancelářský blok drží legální krytí, smlouvy a firemní cashflow.",
-    actions: Object.freeze(["Vybrat nájem", "Založit front firmu", "Zvýšit krytí"])
+    role: "Economy / mobility / logistics / cooldown multiplier",
+    info: "Autosalon generuje peníze a zlepšuje mobilitu gangu. Lesklé kapoty vpředu, falešné smlouvy vzadu a klíče od aut, která nikdy neuvidí papíry. Autosalon není jen showroom. Je to úniková trasa na kolech.",
+    actions: Object.freeze([])
   }),
   "obchodni centrum": Object.freeze({
-    role: "Retail",
-    info: "Obchodní centrum vytváří silný čistý příjem a stabilní zákaznický provoz.",
-    actions: Object.freeze(["Vybrat tržby", "Rozšířit obchody", "Maskovat provoz"])
+    role: "Economy / market / influence / multiplier",
+    info: "Obchodní centrum generuje peníze, menší dirty cash, vliv a snižuje ceny na marketu. Výlohy svítí, kasy pípají a pod parkovištěm se domlouvají dohody, které nikdy neuvidíš na účtence.",
+    actions: Object.freeze([])
   }),
   kasino: Object.freeze({
-    role: "Praní peněz",
-    info: "Kasino je prémiový zdroj špinavých peněz a hlavní místo pro laundering.",
-    actions: Object.freeze(["Launder dirty cash", "Vybrat herní zisk", "Hostit VIP večer"])
+    role: "Economy / laundering / high-risk",
+    info: "Kasino není jen místo, kde se hraje. Je to neonová pračka peněz, politická kancelář a past na chamtivé hráče. Kdo ho drží, bohatne rychle. Kdo pere moc, skončí pod reflektory policie.",
+    actions: Object.freeze(["Tichá herna", "VIP noc", "Podplacený inspektor"])
   }),
   "poulicni dealeri": Object.freeze({
     role: "Distribuce",
@@ -7765,14 +8978,14 @@ const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
     actions: Object.freeze(["Rozšířit distribuci", "Vybrat cash", "Přesunout stash"])
   }),
   vecerka: Object.freeze({
-    role: "Malý front",
-    info: "Večerka je nízkoprofilový front pro drobné tržby, zásoby a lokální kontakty.",
-    actions: Object.freeze(["Vybrat tržby", "Schovat zásoby", "Získat info z ulice"])
+    role: "Economy / dirty cash / rumors / influence / street life",
+    info: "Večerka generuje malé čisté peníze, drobné dirty cash, trochu vlivu a lokální pouliční drby. Zářivky bzučí, dveře pípají a kamera nad regálem vidí víc, než by měla.",
+    actions: Object.freeze([])
   }),
   "pasovaci tunel": Object.freeze({
-    role: "Logistika",
-    info: "Pašovací tunel posouvá zboží mimo běžný dohled a zvyšuje špinavý tok zdrojů.",
-    actions: Object.freeze(["Big shipment", "Přesunout zásilku", "Snížit stopu"])
+    role: "Dirty cash / smuggling / stash / risk reward",
+    info: "Pašovací tunel není obchod. Je to díra pod městem, která plive špinavé peníze. Čím déle ji necháš běžet, tím větší balík vytáhneš. A tím víc bude město cítit, že pod ním něco hnije.",
+    actions: Object.freeze(["Vybrat dávku", "Tichý kanál"])
   }),
   "strip club": Object.freeze({
     role: "Noční provoz",
@@ -7780,29 +8993,19 @@ const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
     actions: Object.freeze(["Vybrat cash", "Hostit VIP klienty", "Získat kompromat"])
   }),
   sklad: Object.freeze({
-    role: "Skladování",
-    info: "Sklad drží materiály, zbraně a zásoby připravené pro další akce.",
-    actions: Object.freeze(["Collect stored resources", "Zkontrolovat zásoby", "Přesunout materiál"])
+    role: "Economy / storage / logistics",
+    info: "Sklad drží zásoby města pohromadě. Negeneruje špinavé peníze ani vliv, ale bez skladů se impérium zadusí vlastním materiálem.",
+    actions: Object.freeze([])
   }),
   "energeticka stanice": Object.freeze({
     role: "Infrastruktura",
     info: "Energetická stanice podporuje průmyslovou výrobu a drží provoz districtu stabilní.",
     actions: Object.freeze(["Stabilizovat síť", "Napájet výrobu", "Snížit výpadky"])
   }),
-  "vyzkumne centrum": Object.freeze({
-    role: "Výzkum",
-    info: "Výzkumné centrum zvyšuje technickou hodnotu districtu a otevírá silnější synergie.",
-    actions: Object.freeze(["Analyzovat technologii", "Zvýšit efektivitu", "Testovat prototyp"])
-  }),
-  "datove centrum": Object.freeze({
-    role: "Intel",
-    info: "Datové centrum zvyšuje informační kontrolu, vliv a technický přehled nad městem.",
-    actions: Object.freeze(["Získat intel", "Zvýšit vliv", "Monitorovat síť"])
-  }),
   "recyklacni centrum": Object.freeze({
-    role: "Materiály",
-    info: "Recyklační centrum vrací část odpadu do použitelných materiálů a drží průmysl levnější.",
-    actions: Object.freeze(["Získat materiály", "Přečistit odpad", "Snížit náklady"])
+    role: "Support / salvage / item recovery",
+    info: "Recyklační centrum nevrací lidi. Vrací železo, zbraně, moduly a všechno, co se dá po boji ještě vytáhnout ze šrotu.",
+    actions: Object.freeze(["Vytěžit ztráty"])
   }),
   lekarna: Object.freeze({
     role: "Chemická podpora",
@@ -7843,85 +9046,55 @@ function getDistrictBuildingDetailProfile(buildingName) {
 }
 
 const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
+  "bytovy blok": Object.freeze([
+    Object.freeze({ apartmentCollectPopulation: true, cooldownMs: 0, summary: "Přesune lokálně uložené obyvatele do globální populace gangu." })
+  ]),
   restaurace: Object.freeze([
     Object.freeze({ clean: 180, dirty: 90, heat: 1, summary: "Lokální tržby přepsány do zdrojů." }),
     Object.freeze({ durationMs: 2 * 60 * 60 * 1000, incomeBoostPct: 18, influence: 2, heat: 1, summary: "Schůzky zvedly dočasný income budovy." }),
     Object.freeze({ influence: 4, heat: 2, durationMs: 60 * 60 * 1000, influenceBoostPct: 12, summary: "Lokální síť posílila vliv districtu." })
   ]),
-  "fitness club": Object.freeze([
-    Object.freeze({ clean: 220, heat: 1, summary: "Členské poplatky připsány do clean cash." }),
-    Object.freeze({ members: 2, influence: 2, heat: 2, summary: "Vyhazovači přidáni do posádky." }),
-    Object.freeze({ heat: -3, durationMs: 2 * 60 * 60 * 1000, heatMultiplier: 0.85, summary: "Nízký profil snižuje heat." })
+  "fitness club": Object.freeze([]),
+  klinika: Object.freeze([
+    Object.freeze({ clinicStabilizationProtocol: true, cleanCost: 1200, heat: 1, cooldownMs: 18 * 60 * 1000, summary: "Vrátí část neexpirovaných ztrát z recovery poolu do gangu a skladu." })
+  ]),
+  herna: Object.freeze([
+    Object.freeze({ arcadeNightMachines: true, durationMs: 7 * 60 * 1000, cooldownMs: 16 * 60 * 1000, cleanIncomeBoostPct: 35, dirtyIncomeBoostPct: 65, influenceBoostPct: 15, heatMultiplier: 1.45, auditRiskBoostPct: 4, summary: "Noční automaty zvednou income, vliv, heat a audit risk." }),
+    Object.freeze({ arcadeBackCashdesk: true, minimumDirty: 500, dirtySharePct: 13, maxDirty: 3800, feePct: 15, influence: 1, heat: 3, cooldownMs: 12 * 60 * 1000, auditRiskBoostPct: 3, auditRiskDurationMs: 8 * 60 * 1000, summary: "Zadní pokladna vypere část dirty cash a zvýší audit risk." })
   ]),
   smenarna: Object.freeze([
-    Object.freeze({ exchangeDirty: 900, exchangeRate: 0.78, heat: 2, summary: "Směna dirty cash na clean cash proběhla." }),
-    Object.freeze({ clean: 120, influence: 1, summary: "Kurz přinesl menší clean zisk." }),
-    Object.freeze({ heat: -2, durationMs: 2 * 60 * 60 * 1000, heatMultiplier: 0.9, summary: "Transakce byly zakryté." })
+    Object.freeze({ exchangeOfficeGoodRate: true, minimumDirty: 800, dirtySharePct: 16, maxDirty: 6000, feePct: 12, influence: 1.5, heat: 4, cooldownMs: 11 * 60 * 1000, auditRiskBoostPct: 4, auditRiskDurationMs: 8 * 60 * 1000, summary: "Výhodný kurz vypere menší část dirty cash a zvedne audit risk." })
   ]),
-  autosalon: Object.freeze([
-    Object.freeze({ clean: 260, dirty: 80, heat: 1, summary: "Prodeje aut přidaly cash." }),
-    Object.freeze({ durationMs: 2 * 60 * 60 * 1000, incomeBoostPct: 15, influence: 2, summary: "Flotila zvedla logistiku a income." }),
-    Object.freeze({ exchangeDirty: 1100, exchangeRate: 0.82, heat: 2, summary: "Dirty cash byl zakryt přes autosalon." })
-  ]),
-  "kancelarsky blok": Object.freeze([
-    Object.freeze({ clean: 240, summary: "Nájem připsán do clean cash." }),
-    Object.freeze({ durationMs: 3 * 60 * 60 * 1000, cleanIncomeBoostPct: 18, influence: 3, summary: "Front firma zvýšila clean income." }),
-    Object.freeze({ heat: -2, influence: 2, summary: "Krytí snížilo heat a přidalo vliv." })
-  ]),
-  "obchodni centrum": Object.freeze([
-    Object.freeze({ clean: 340, dirty: 60, heat: 1, summary: "Retail tržby zapsány do zdrojů." }),
-    Object.freeze({ durationMs: 3 * 60 * 60 * 1000, cleanIncomeBoostPct: 22, summary: "Rozšíření obchodů zvedlo clean income." }),
-    Object.freeze({ heat: -2, dirty: 120, summary: "Provoz maskoval špinavé peníze." })
-  ]),
+  autosalon: Object.freeze([]),
+  "obchodni centrum": Object.freeze([]),
   kasino: Object.freeze([
-    Object.freeze({ exchangeDirty: 1400, exchangeRate: 0.84, heat: 3, summary: "Kasino vypralo dirty cash." }),
-    Object.freeze({ dirty: 420, heat: 3, summary: "Herní zisk přidán do dirty cash." }),
-    Object.freeze({ dirty: 360, influence: 6, heat: 4, durationMs: 2 * 60 * 60 * 1000, dirtyIncomeBoostPct: 25, summary: "VIP večer zvýšil vliv i dirty income." })
+    Object.freeze({ casinoQuietBackroom: true, minimumDirty: 1500, dirtySharePct: 24, maxDirty: 18000, feePct: 9, influence: 3, heat: 7, cooldownMs: 14 * 60 * 1000, durationMs: 10 * 60 * 1000, auditRiskBoostPct: 6, summary: "Tichá herna vypere část dirty cash a zvýší audit risk." }),
+    Object.freeze({ casinoVipNight: true, durationMs: 10 * 60 * 1000, cooldownMs: 26 * 60 * 1000, cleanIncomeBoostPct: 70, dirtyIncomeBoostPct: 55, influenceBoostPct: 25, heatMultiplier: 1.6, auditRiskBoostPct: 8, summary: "VIP noc masivně zvedá income, vliv, heat a audit risk." }),
+    Object.freeze({ casinoBribedInspector: true, cleanCost: 5500, failureChancePct: 14, durationMs: 12 * 60 * 1000, cooldownMs: 32 * 60 * 1000, heatSuccess: -16, heatFailure: 12, influenceSuccess: 4, auditRiskReductionPct: 35, auditRiskFailurePct: 10, summary: "Podplacený inspektor je drahá ochrana s rizikem selhání." })
   ]),
   "poulicni dealeri": Object.freeze([
     Object.freeze({ dirty: 360, heat: 4, durationMs: 2 * 60 * 60 * 1000, dirtyIncomeBoostPct: 35, summary: "Distribuce zvedla dirty cash a income." }),
     Object.freeze({ dirty: 280, heat: 3, summary: "Hotový cash byl vybrán." }),
     Object.freeze({ materials: { biomass: 2 }, heat: 1, summary: "Stash přesunut do zásob." })
   ]),
-  vecerka: Object.freeze([
-    Object.freeze({ clean: 130, dirty: 70, heat: 1, summary: "Tržby z večerky připsány." }),
-    Object.freeze({ materials: { chemicals: 1, biomass: 1 }, heat: 1, summary: "Zásoby schované do inventáře." }),
-    Object.freeze({ influence: 3, heat: 1, summary: "Ulice dodala nové info." })
-  ]),
+  vecerka: Object.freeze([]),
   "pasovaci tunel": Object.freeze([
-    Object.freeze({ dirty: 520, materials: { "tech-core": 1 }, heat: 5, summary: "Velká zásilka prošla tunelem." }),
-    Object.freeze({ durationMs: 2 * 60 * 60 * 1000, dirtyIncomeBoostPct: 30, heat: 4, summary: "Tok zásilek dočasně zvedl dirty income." }),
-    Object.freeze({ heat: -3, influence: 2, summary: "Stopa zásilky byla snížena." })
+    Object.freeze({ smugglingCollectBatch: true, cooldownMs: 0, summary: "Vybere lokální dirty cash dávku z konkrétního tunelu." }),
+    Object.freeze({ smugglingSilentChannel: true, dirtyCost: 600, durationMs: 8 * 60 * 1000, cooldownMs: 20 * 60 * 1000, dirtyIncomeBoostPct: 80, heatMultiplier: 2, capacityBoostPct: 25, raidChancePct: 12, summary: "Tichý kanál zvedne dávku, produkci a heat s rizikem zátahu." })
   ]),
   "strip club": Object.freeze([
     Object.freeze({ dirty: 360, heat: 3, summary: "Noční cash vybrán." }),
     Object.freeze({ durationMs: 2 * 60 * 60 * 1000, incomeBoostPct: 35, influence: 5, heat: 4, summary: "VIP klienti zvedli income i vliv." }),
     Object.freeze({ influence: 7, heat: 3, summary: "Kompromat přidal vliv." })
   ]),
-  sklad: Object.freeze([
-    Object.freeze({ materials: { chemicals: 2, "metal-parts": 2 }, heat: 1, summary: "Skladové zásoby připsány." }),
-    Object.freeze({ durationMs: 2 * 60 * 60 * 1000, incomeBoostPct: 12, influence: 2, heat: 2, summary: "Materiál se přesunul a zvedl income." }),
-    Object.freeze({ heat: -2, durationMs: 3 * 60 * 60 * 1000, heatMultiplier: 0.88, summary: "Skrytý sklad snížil policejní stopu." })
-  ]),
+  sklad: Object.freeze([]),
   "energeticka stanice": Object.freeze([
     Object.freeze({ durationMs: 2 * 60 * 60 * 1000, incomeBoostPct: 12, heat: 1, summary: "Síť stabilizována, income běží rychleji." }),
     Object.freeze({ durationMs: 2 * 60 * 60 * 1000, cleanIncomeBoostPct: 18, heat: 2, summary: "Výroba dostala napájecí boost." }),
     Object.freeze({ heat: -2, summary: "Výpadky byly snížené." })
   ]),
-  "vyzkumne centrum": Object.freeze([
-    Object.freeze({ materials: { "tech-core": 2 }, heat: 2, summary: "Technologie připsána do zásob." }),
-    Object.freeze({ durationMs: 2 * 60 * 60 * 1000, incomeBoostPct: 18, influence: 4, heat: 3, summary: "Efektivita zvýšila income a vliv." }),
-    Object.freeze({ materials: { "metal-parts": 2, "tech-core": 1 }, heat: 4, summary: "Prototyp přidal technické zdroje." })
-  ]),
-  "datove centrum": Object.freeze([
-    Object.freeze({ influence: 7, heat: 3, summary: "Intel přepsán do vlivu." }),
-    Object.freeze({ influence: 5, heat: 2, durationMs: 2 * 60 * 60 * 1000, influenceBoostPct: 22, summary: "Síť dočasně zvedla vliv districtu." }),
-    Object.freeze({ influence: 4, clean: 160, heat: 4, summary: "Monitorování přineslo data a clean cash." })
-  ]),
   "recyklacni centrum": Object.freeze([
-    Object.freeze({ materials: { biomass: 3, "metal-parts": 2 }, heat: 1, summary: "Materiály získané z odpadu." }),
-    Object.freeze({ materials: { chemicals: 2, "metal-parts": 5 }, heat: 3, summary: "Rozebraná zásilka přidala materiály." }),
-    Object.freeze({ heat: -2, materials: { "tech-core": 1 }, summary: "Nouzová obnova snížila heat a dala tech core." })
+    Object.freeze({ recyclingExtractLosses: true, cleanCost: 900, heat: 2, cooldownMs: 16 * 60 * 1000, summary: "Vytěží část neexpirovaných itemových ztrát ze salvage poolu. Nikdy nevrací populaci ani členy gangu." })
   ]),
   lekarna: Object.freeze([
     Object.freeze({ materials: { "stim-pack": 3, chemicals: 2 }, heat: 1, summary: "Lékárna přepsala stim packy a chemii do zásob." }),
@@ -7963,19 +9136,167 @@ const DISTRICT_BUILDING_DETAIL_DEFAULT_ACCRUAL_MS = 60 * 60 * 1000;
 const DISTRICT_BUILDING_DETAIL_COLLECT_CAP_MS = 4 * 60 * 60 * 1000;
 const DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS = 90 * 1000;
 const DISTRICT_BUILDING_DETAIL_MAX_LEVEL = 8;
+const CASINO_DETAIL_BASE_LAUNDERING_CAPACITY = 18000;
+const CASINO_DETAIL_BASE_LAUNDERING_FEE_PCT = 9;
+const CASINO_DETAIL_MAX_LEVEL = 4;
+const CASINO_DETAIL_UPGRADES = Object.freeze({
+  1: Object.freeze({ clean: 0, techCore: 0, combatModule: 0, incomeBonusPct: 0, launderingLimitBonusPct: 0, launderingFeeReductionPct: 0, actionHeatReductionPct: 0 }),
+  2: Object.freeze({ clean: 7500, techCore: 3, combatModule: 0, incomeBonusPct: 12, launderingLimitBonusPct: 8, launderingFeeReductionPct: 0, actionHeatReductionPct: 0 }),
+  3: Object.freeze({ clean: 18000, techCore: 7, combatModule: 0, incomeBonusPct: 25, launderingLimitBonusPct: 16, launderingFeeReductionPct: 2, actionHeatReductionPct: 0 }),
+  4: Object.freeze({ clean: 38000, techCore: 14, combatModule: 3, incomeBonusPct: 40, launderingLimitBonusPct: 25, launderingFeeReductionPct: 2, actionHeatReductionPct: 8 })
+});
+const EXCHANGE_OFFICE_BASE_LAUNDERING_CAPACITY = 6000;
+const EXCHANGE_OFFICE_BASE_AUDIT_RISK_PCT = 4;
+const EXCHANGE_OFFICE_NETWORK_CONFIG = Object.freeze({
+  incomeBonusPctPerExtraExchange: 8,
+  launderingLimitBonusPctPerExtraExchange: 10,
+  heatBonusPctPerExtraExchange: 4,
+  maxIncomeMultiplier: 1.48,
+  maxLaunderingLimitMultiplier: 1.6,
+  maxHeatMultiplier: 1.24
+});
+const ARCADE_BASE_LAUNDERING_CAPACITY = 3800;
+const ARCADE_BASE_AUDIT_RISK_PCT = 3;
+const ARCADE_NETWORK_CONFIG = Object.freeze({
+  incomeBonusPctPerExtraArcade: 5,
+  launderingLimitBonusPctPerExtraArcade: 6,
+  heatBonusPctPerExtraArcade: 3,
+  maxIncomeMultiplier: 1.45,
+  maxLaunderingLimitMultiplier: 1.55,
+  maxHeatMultiplier: 1.27
+});
+const APARTMENT_BLOCK_BASE_CAPACITY = 50;
+const APARTMENT_BLOCK_POPULATION_PER_MINUTE = 2;
+const APARTMENT_BLOCK_NETWORK_CONFIG = Object.freeze({
+  populationProductionBonusPctPerExtraBlock: 6,
+  capacityBonusPctPerExtraBlock: 8,
+  maxPopulationProductionMultiplier: 1.55,
+  maxCapacityMultiplier: 1.75
+});
+const WAREHOUSE_BASE_STORAGE_CAPACITIES = Object.freeze({
+  genericResources: 500,
+  chemicals: 350,
+  biomass: 350,
+  metalParts: 400,
+  techCore: 120,
+  combatModule: 80,
+  drugsAndBoosts: 220,
+  weaponsAndDefense: 160
+});
+const WAREHOUSE_NETWORK_CONFIG = Object.freeze({
+  incomeBonusPctPerExtraWarehouse: 4,
+  storageCapacityBonusPctPerExtraWarehouse: 10,
+  heatBonusPctPerExtraWarehouse: 3,
+  maxIncomeMultiplier: 1.36,
+  maxStorageCapacityMultiplier: 1.9,
+  maxHeatMultiplier: 1.27
+});
+const SHOPPING_MALL_NETWORK_CONFIG = Object.freeze({
+  countOnMap: 10,
+  cleanIncomeBonusPctPerExtraMall: 5,
+  dirtyIncomeBonusPctPerExtraMall: 5,
+  influenceBonusPctPerExtraMall: 4,
+  heatBonusPctPerExtraMall: 3,
+  maxCleanIncomeMultiplier: 1.3,
+  maxDirtyIncomeMultiplier: 1.3,
+  maxInfluenceMultiplier: 1.24,
+  maxHeatMultiplier: 1.18
+});
+const AUTO_SALON_SUPPORT_CONFIG = Object.freeze({
+  countOnMap: 10,
+  mobilityBonusPctPerDealer: 3,
+  maxMobilityBonusPct: 21,
+  cooldownReductionPctPerDealer: 1.5,
+  maxCooldownReductionPct: 10.5,
+  combinedGarageDealerMaxReductionPct: 22,
+  escapeChanceBonusPctPerDealer: 2,
+  maxEscapeChanceBonusPct: 12,
+  fullBonusCategories: Object.freeze(["gangMovement", "equipmentTransfer", "resourceTransfer", "districtRobbery", "attackPreparation", "retreatReturn"]),
+  halfBonusCategories: Object.freeze(["attackTravelTime", "defenseReposition"]),
+  smallBonusCategories: Object.freeze(["clinicEvacuationRecovery", "recyclingSalvageTransport"]),
+  excludedCategories: Object.freeze(["moneyLaundering", "casinoActions", "exchangeOfficeActions", "arcadeLaunderingActions", "rumorGeneration", "passiveProduction", "intelScan", "trapDetection"]),
+  escapeAppliesTo: Object.freeze(["neúspěšné vykradení", "odhalená špionáž", "přepadení při přesunu", "návrat po útoku"]),
+  cleanIncomeBonusPctPerExtraDealer: 4,
+  dirtyIncomeBonusPctPerExtraDealer: 4,
+  heatBonusPctPerExtraDealer: 3,
+  maxCleanIncomeMultiplier: 1.24,
+  maxDirtyIncomeMultiplier: 1.24,
+  maxHeatMultiplier: 1.18
+});
+const AUTO_SALON_ACTION_CATEGORY_LABELS = Object.freeze({
+  gangMovement: "přesuny gangu",
+  equipmentTransfer: "výbava",
+  resourceTransfer: "zásoby",
+  districtRobbery: "district loupeže",
+  attackPreparation: "příprava útoku",
+  retreatReturn: "návrat",
+  attackTravelTime: "cesta k útoku",
+  defenseReposition: "obranný přesun",
+  clinicEvacuationRecovery: "evakuace kliniky",
+  recyclingSalvageTransport: "salvage transport",
+  moneyLaundering: "praní peněz",
+  casinoActions: "kasino",
+  exchangeOfficeActions: "směnárna",
+  arcadeLaunderingActions: "herna",
+  rumorGeneration: "drby",
+  passiveProduction: "pasivní výroba",
+  intelScan: "intel scan",
+  trapDetection: "detekce pastí"
+});
+const FITNESS_CLUB_SUPPORT_CONFIG = Object.freeze({
+  countOnMap: 5,
+  cleanCashPerMinute: 72,
+  heatPerMinute: 0.04,
+  attackStrengthBonusPctPerClub: 4,
+  defenseStrengthBonusPctPerClub: 3,
+  maxAttackStrengthBonusPct: 20,
+  maxDefenseStrengthBonusPct: 15,
+  combinedRecruitmentFitnessAttackCapPct: 30,
+  combinedRecruitmentFitnessDefenseCapPct: 24,
+  incomeBonusPctPerExtraClub: 5,
+  heatBonusPctPerExtraClub: 3,
+  maxIncomeMultiplier: 1.2,
+  maxHeatMultiplier: 1.12
+});
+const SMUGGLING_TUNNEL_CONFIG = Object.freeze({
+  countOnMap: 18,
+  dirtyCashPerMinute: 62,
+  passiveHeatPerMinute: 0.03,
+  baseBatchCapacity: 2500,
+  minCollectDirty: 300,
+  dirtyProductionBonusPctPerExtraTunnel: 5,
+  batchCapacityBonusPctPerExtraTunnel: 6,
+  passiveHeatBonusPctPerExtraTunnel: 4,
+  maxDirtyProductionMultiplier: 1.35,
+  maxBatchCapacityMultiplier: 1.55,
+  maxPassiveHeatMultiplier: 1.28,
+  silentChannelDirtyCost: 600,
+  silentChannelDurationMs: 8 * 60 * 1000,
+  silentChannelCooldownMs: 20 * 60 * 1000,
+  silentChannelDirtyProductionMultiplier: 1.8,
+  silentChannelHeatMultiplier: 2,
+  silentChannelBatchCapacityMultiplier: 1.25,
+  silentChannelRaidChancePct: 12
+});
+const CLINIC_RECOVERY_POOL_KEY = "empireStreets.clinicRecoveryPool.v1";
+const CLINIC_BASE_RECOVERY_RATE_PCT = 15;
+const CLINIC_RECOVERY_RATE_PCT_PER_EXTRA = 3;
+const CLINIC_MAX_RECOVERY_RATE_PCT = 40;
+const CLINIC_POOL_TTL_MS = 20 * 60 * 1000;
+const CLINIC_RECOVERABLE_ITEMS = Object.freeze(["population", "gang-members"]);
+const CLINIC_RARE_ITEMS = Object.freeze([]);
 
 const DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES = Object.freeze({
   "bytovy blok": "apartment-block",
-  "rekrutacni centrum": "apartment-block",
+  "rekrutacni centrum": "recruitment-center",
   skola: "school",
   garage: "garage",
-  "brainwash centrum": "loyalty",
   klinika: "clinic",
   restaurace: "restaurant",
   "fitness club": "fitness-club",
+  herna: "arcade",
   smenarna: "exchange",
   autosalon: "auto-salon",
-  "kancelarsky blok": "office",
   "obchodni centrum": "retail",
   kasino: "casino",
   "poulicni dealeri": "street-dealers",
@@ -7984,8 +9305,6 @@ const DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES = Object.freeze({
   "strip club": "strip-club",
   sklad: "warehouse",
   "energeticka stanice": "power-plant",
-  "vyzkumne centrum": "research-center",
-  "datove centrum": "data-center",
   "recyklacni centrum": "recycling-center",
   lekarna: "pharmacy",
   "drug lab": "drug-lab",
@@ -8005,6 +9324,310 @@ function getDistrictBuildingRule(ruleSet, buildingName, fallback) {
   const lookupKey = normalizeBuildingLookupKey(buildingName);
   const matchingKey = Object.keys(ruleSet || {}).find((ruleKey) => normalizeBuildingLookupKey(ruleKey) === lookupKey);
   return matchingKey ? ruleSet[matchingKey] : fallback;
+}
+
+function getCasinoDetailUpgrade(level) {
+  const safeLevel = Math.max(1, Math.min(CASINO_DETAIL_MAX_LEVEL, Math.floor(Number(level) || 1)));
+  return CASINO_DETAIL_UPGRADES[safeLevel] || CASINO_DETAIL_UPGRADES[1];
+}
+
+function getCasinoDetailUpgradeCostLabel(level) {
+  const upgrade = getCasinoDetailUpgrade(level);
+  const parts = [
+    upgrade.clean > 0 ? `${formatDistrictBuildingMoney(upgrade.clean)} clean` : "",
+    upgrade.techCore > 0 ? `${upgrade.techCore} Tech Core` : "",
+    upgrade.combatModule > 0 ? `${upgrade.combatModule} Combat Module` : ""
+  ].filter(Boolean);
+  return parts.join(" + ") || "Zdarma";
+}
+
+function getOwnedExchangeOfficeCount() {
+  const interactionState = {
+    ownedDistrictIds: new Set(getResolvedWorldState().ownedDistrictIds || []),
+    gamePhase: getResolvedWorldState().phase || "live"
+  };
+  const ownedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+  return getDistrictResourceCatalog().reduce((count, district) => {
+    if (!ownedDistrictIds.has(Number(district.id))) return count;
+    const profile = resolveDistrictBuildingProfile(district);
+    const hasExchange = (profile?.buildings || []).some((building) => normalizeBuildingLookupKey(building.baseName) === "smenarna");
+    return count + (hasExchange ? 1 : 0);
+  }, 0);
+}
+
+function getExchangeOfficeNetworkMultipliers(count = getOwnedExchangeOfficeCount()) {
+  const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
+  return {
+    incomeMultiplier: Math.min(EXCHANGE_OFFICE_NETWORK_CONFIG.maxIncomeMultiplier, 1 + extra * EXCHANGE_OFFICE_NETWORK_CONFIG.incomeBonusPctPerExtraExchange / 100),
+    launderingLimitMultiplier: Math.min(EXCHANGE_OFFICE_NETWORK_CONFIG.maxLaunderingLimitMultiplier, 1 + extra * EXCHANGE_OFFICE_NETWORK_CONFIG.launderingLimitBonusPctPerExtraExchange / 100),
+    heatMultiplier: Math.min(EXCHANGE_OFFICE_NETWORK_CONFIG.maxHeatMultiplier, 1 + extra * EXCHANGE_OFFICE_NETWORK_CONFIG.heatBonusPctPerExtraExchange / 100)
+  };
+}
+
+function getOwnedArcadeCount() {
+  const interactionState = {
+    ownedDistrictIds: new Set(getResolvedWorldState().ownedDistrictIds || []),
+    gamePhase: getResolvedWorldState().phase || "live"
+  };
+  const ownedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+  return getDistrictResourceCatalog().reduce((count, district) => {
+    if (!ownedDistrictIds.has(Number(district.id))) return count;
+    const profile = resolveDistrictBuildingProfile(district);
+    const hasArcade = (profile?.buildings || []).some((building) => normalizeBuildingLookupKey(building.baseName) === "herna");
+    return count + (hasArcade ? 1 : 0);
+  }, 0);
+}
+
+function getArcadeNetworkMultipliers(count = getOwnedArcadeCount()) {
+  const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
+  return {
+    incomeMultiplier: Math.min(ARCADE_NETWORK_CONFIG.maxIncomeMultiplier, 1 + extra * ARCADE_NETWORK_CONFIG.incomeBonusPctPerExtraArcade / 100),
+    launderingLimitMultiplier: Math.min(ARCADE_NETWORK_CONFIG.maxLaunderingLimitMultiplier, 1 + extra * ARCADE_NETWORK_CONFIG.launderingLimitBonusPctPerExtraArcade / 100),
+    heatMultiplier: Math.min(ARCADE_NETWORK_CONFIG.maxHeatMultiplier, 1 + extra * ARCADE_NETWORK_CONFIG.heatBonusPctPerExtraArcade / 100)
+  };
+}
+
+function getOwnedApartmentBlockCount() {
+  const interactionState = {
+    ownedDistrictIds: new Set(getResolvedWorldState().ownedDistrictIds || []),
+    gamePhase: getResolvedWorldState().phase || "live"
+  };
+  const ownedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+  return getDistrictResourceCatalog().reduce((count, district) => {
+    if (!ownedDistrictIds.has(Number(district.id))) return count;
+    const profile = resolveDistrictBuildingProfile(district);
+    const hasApartmentBlock = (profile?.buildings || []).some((building) => normalizeBuildingLookupKey(building.baseName) === "bytovy blok");
+    return count + (hasApartmentBlock ? 1 : 0);
+  }, 0);
+}
+
+function getApartmentBlockNetworkMultipliers(count = getOwnedApartmentBlockCount()) {
+  const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
+  return {
+    populationProductionMultiplier: Math.min(
+      APARTMENT_BLOCK_NETWORK_CONFIG.maxPopulationProductionMultiplier,
+      1 + extra * APARTMENT_BLOCK_NETWORK_CONFIG.populationProductionBonusPctPerExtraBlock / 100
+    ),
+    capacityMultiplier: Math.min(
+      APARTMENT_BLOCK_NETWORK_CONFIG.maxCapacityMultiplier,
+      1 + extra * APARTMENT_BLOCK_NETWORK_CONFIG.capacityBonusPctPerExtraBlock / 100
+    )
+  };
+}
+
+function getOwnedWarehouseCount() {
+  const interactionState = {
+    ownedDistrictIds: new Set(getResolvedWorldState().ownedDistrictIds || []),
+    gamePhase: getResolvedWorldState().phase || "live"
+  };
+  const ownedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+  return getDistrictResourceCatalog().reduce((count, district) => {
+    if (!ownedDistrictIds.has(Number(district.id))) return count;
+    const profile = resolveDistrictBuildingProfile(district);
+    const hasWarehouse = (profile?.buildings || []).some((building) => normalizeBuildingLookupKey(building.baseName) === "sklad");
+    return count + (hasWarehouse ? 1 : 0);
+  }, 0);
+}
+
+function getWarehouseNetworkMultipliers(count = getOwnedWarehouseCount()) {
+  const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
+  return {
+    incomeMultiplier: Math.min(WAREHOUSE_NETWORK_CONFIG.maxIncomeMultiplier, 1 + extra * WAREHOUSE_NETWORK_CONFIG.incomeBonusPctPerExtraWarehouse / 100),
+    storageCapacityMultiplier: Math.min(WAREHOUSE_NETWORK_CONFIG.maxStorageCapacityMultiplier, 1 + extra * WAREHOUSE_NETWORK_CONFIG.storageCapacityBonusPctPerExtraWarehouse / 100),
+    heatMultiplier: Math.min(WAREHOUSE_NETWORK_CONFIG.maxHeatMultiplier, 1 + extra * WAREHOUSE_NETWORK_CONFIG.heatBonusPctPerExtraWarehouse / 100)
+  };
+}
+
+function getWarehouseCapacityBreakdown(count = getOwnedWarehouseCount()) {
+  const network = getWarehouseNetworkMultipliers(count);
+  const scale = (value) => Math.floor(Math.max(0, count) * Number(value || 0) * network.storageCapacityMultiplier);
+  return {
+    genericResources: scale(WAREHOUSE_BASE_STORAGE_CAPACITIES.genericResources),
+    chemicals: scale(WAREHOUSE_BASE_STORAGE_CAPACITIES.chemicals),
+    biomass: scale(WAREHOUSE_BASE_STORAGE_CAPACITIES.biomass),
+    metalParts: scale(WAREHOUSE_BASE_STORAGE_CAPACITIES.metalParts),
+    techCore: scale(WAREHOUSE_BASE_STORAGE_CAPACITIES.techCore),
+    combatModule: scale(WAREHOUSE_BASE_STORAGE_CAPACITIES.combatModule),
+    drugsAndBoosts: scale(WAREHOUSE_BASE_STORAGE_CAPACITIES.drugsAndBoosts),
+    weaponsAndDefense: scale(WAREHOUSE_BASE_STORAGE_CAPACITIES.weaponsAndDefense)
+  };
+}
+
+function getWarehouseStorageUsage(capacity = getWarehouseCapacityBreakdown()) {
+  const materials = getStoredMaterialInventory();
+  const supplies = getStoredFactorySupplies();
+  const drugs = getStoredDrugInventory();
+  const weapons = getStoredWeaponInventory();
+  const value = (source, key) => Math.max(0, Math.floor(Number(source?.[key] || 0)));
+  return {
+    chemicals: value(materials, "chemicals"),
+    biomass: value(materials, "biomass"),
+    metalParts: value(supplies, "metalParts") + value(materials, "metal-parts"),
+    techCore: value(supplies, "techCore") + value(materials, "tech-core"),
+    combatModule: value(supplies, "combatModule") + value(materials, "combat-module"),
+    drugsAndBoosts: Object.values(drugs || {}).reduce((total, amount) => total + Math.max(0, Math.floor(Number(amount || 0))), value(materials, "stim-pack")),
+    weaponsAndDefense: Object.values(weapons || {}).reduce((total, amount) => total + Math.max(0, Math.floor(Number(amount || 0))), 0),
+    genericResources: Object.values(materials || {}).reduce((total, amount) => total + Math.max(0, Math.floor(Number(amount || 0))), 0),
+    capacity
+  };
+}
+
+function getWarehouseCapacityWarnings(usage) {
+  const capacities = usage?.capacity || {};
+  const pairs = [
+    ["chemicals", usage.chemicals, capacities.chemicals],
+    ["biomass", usage.biomass, capacities.biomass],
+    ["metalParts", usage.metalParts, capacities.metalParts],
+    ["techCore", usage.techCore, capacities.techCore],
+    ["combatModule", usage.combatModule, capacities.combatModule],
+    ["drugsAndBoosts", usage.drugsAndBoosts, capacities.drugsAndBoosts],
+    ["weaponsAndDefense", usage.weaponsAndDefense, capacities.weaponsAndDefense],
+    ["genericResources", usage.genericResources, capacities.genericResources]
+  ];
+  const full = pairs.some(([, current, cap]) => Number(cap || 0) > 0 && Number(current || 0) >= Number(cap || 0));
+  const near = pairs.some(([, current, cap]) => Number(cap || 0) > 0 && Number(current || 0) >= Number(cap || 0) * 0.85);
+  return [
+    near && !full ? "Skladové zásoby se blíží maximu." : "",
+    full ? "Sklad je plný. Produkce některých surovin je pozastavena." : "",
+    near || full ? "Získej další sklad nebo spotřebuj zásoby." : ""
+  ].filter(Boolean);
+}
+
+function getOwnedClinicCount() {
+  const interactionState = {
+    ownedDistrictIds: new Set(getResolvedWorldState().ownedDistrictIds || []),
+    gamePhase: getResolvedWorldState().phase || "live"
+  };
+  const ownedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+  return getDistrictResourceCatalog().reduce((count, district) => {
+    if (!ownedDistrictIds.has(Number(district.id))) return count;
+    const profile = resolveDistrictBuildingProfile(district);
+    const hasClinic = (profile?.buildings || []).some((building) => normalizeBuildingLookupKey(building.baseName) === "klinika");
+    return count + (hasClinic ? 1 : 0);
+  }, 0);
+}
+
+function getClinicNetworkMultipliers(count = getOwnedClinicCount()) {
+  const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
+  return {
+    incomeMultiplier: Math.min(1.4, 1 + extra * 0.05),
+    heatMultiplier: Math.min(1.24, 1 + extra * 0.03)
+  };
+}
+
+function getClinicRecoveryRatePct(count = getOwnedClinicCount()) {
+  const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
+  return Math.min(CLINIC_MAX_RECOVERY_RATE_PCT, CLINIC_BASE_RECOVERY_RATE_PCT + extra * CLINIC_RECOVERY_RATE_PCT_PER_EXTRA);
+}
+
+function getStoredClinicRecoveryPool() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(CLINIC_RECOVERY_POOL_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((entry) => entry && typeof entry === "object") : [];
+  } catch {
+    return [];
+  }
+}
+
+function setStoredClinicRecoveryPool(pool) {
+  try {
+    window.localStorage.setItem(CLINIC_RECOVERY_POOL_KEY, JSON.stringify(Array.isArray(pool) ? pool : []));
+  } catch {
+    // Recovery pool je klientský preview stav; při selhání storage jen nepřetrvá.
+  }
+}
+
+function getClinicRecoveryPoolView(now = Date.now()) {
+  const pool = getStoredClinicRecoveryPool()
+    .map((entry, index) => ({
+      id: String(entry.id || `clinic-recovery:${index}`),
+      itemType: String(entry.itemType || entry.type || ""),
+      amount: Math.max(0, Math.floor(Number(entry.amount || 0))),
+      source: String(entry.source || "loss"),
+      lostAt: Number.isFinite(Number(entry.lostAt)) ? Number(entry.lostAt) : Date.parse(entry.lostAt || "") || now
+    }))
+    .filter((entry) => entry.itemType && entry.amount > 0);
+  const fresh = pool.filter((entry) => now - entry.lostAt <= CLINIC_POOL_TTL_MS);
+  const expired = pool.filter((entry) => now - entry.lostAt > CLINIC_POOL_TTL_MS);
+  return {
+    fresh,
+    expired,
+    totalFreshAmount: fresh.reduce((total, entry) => total + entry.amount, 0),
+    nextExpiryMs: fresh.length
+      ? Math.max(0, Math.min(...fresh.map((entry) => CLINIC_POOL_TTL_MS - (now - entry.lostAt))))
+      : 0,
+    label: fresh.length
+      ? fresh.map((entry) => `${getProductionResourceLabel(entry.itemType)} ${entry.amount}x (${formatDistrictBuildingCooldown(CLINIC_POOL_TTL_MS - (now - entry.lostAt))})`).join(" · ")
+      : "Recovery pool je prázdný"
+  };
+}
+
+function normalizeClinicRecoverableItem(itemType) {
+  const key = normalizeBuildingLookupKey(itemType);
+  const aliases = {
+    "gang members": "gang-members",
+    population: "gang-members",
+    chemicals: "chemicals",
+    biomass: "biomass",
+    "metal parts": "metal-parts",
+    "tech core": "tech-core",
+    "combat module": "combat-module",
+    "neon dust": "neon-dust",
+    "pulse shot": "pulse-shot",
+    "velvet smoke": "velvet-smoke",
+    "ghost serum": "ghost-serum",
+    "overdrive x": "overdrive-x",
+    "baseballova palka": "baseball-bat",
+    "baseball bat": "baseball-bat",
+    "poulicni pistole": "pistol",
+    pistol: "pistol",
+    granat: "grenade",
+    grenade: "grenade",
+    samopal: "smg",
+    smg: "smg",
+    bazuka: "bazooka",
+    bazooka: "bazooka",
+    "neprustrelna vesta": "vest",
+    vest: "vest",
+    "ocelove barikady": "barricades",
+    barricades: "barricades",
+    "bezpecnostni kamery": "cameras",
+    cameras: "cameras",
+    "automaticke kulometne stanoviste": "defense-tower",
+    "defense tower": "defense-tower",
+    alarm: "alarm"
+  };
+  return aliases[key] || String(itemType || "");
+}
+
+function getClinicWarehouseCapacityForItem(itemId, capacity) {
+  if (!capacity) return Number.POSITIVE_INFINITY;
+  switch (itemId) {
+    case "chemicals": return capacity.chemicals;
+    case "biomass": return capacity.biomass;
+    case "metal-parts": return capacity.metalParts;
+    case "tech-core": return capacity.techCore;
+    case "combat-module": return capacity.combatModule;
+    case "neon-dust":
+    case "pulse-shot":
+    case "velvet-smoke":
+    case "ghost-serum":
+    case "overdrive-x":
+      return capacity.drugsAndBoosts;
+    case "baseball-bat":
+    case "pistol":
+    case "grenade":
+    case "smg":
+    case "bazooka":
+    case "vest":
+    case "barricades":
+    case "cameras":
+    case "defense-tower":
+    case "alarm":
+      return capacity.weaponsAndDefense;
+    default:
+      return capacity.genericResources;
+  }
 }
 
 function getActiveDistrictBuildingEffects(district, buildingName, now = Date.now()) {
@@ -8038,10 +9661,13 @@ function getDistrictBuildingDetailEntry(district, buildingName) {
   const state = getStoredDistrictBuildingDetailState();
   const key = getDistrictBuildingDetailStorageKey(district, buildingName);
   const entry = state[key] && typeof state[key] === "object" ? state[key] : {};
+  const isApartmentBlock = normalizeBuildingLookupKey(buildingName) === "bytovy blok";
   const level = Math.max(1, Math.min(DISTRICT_BUILDING_DETAIL_MAX_LEVEL, Math.floor(Number(entry.level || 1))));
   const lastCollectedAt = Number.isFinite(Number(entry.lastCollectedAt))
     ? Number(entry.lastCollectedAt)
-    : Date.now() - DISTRICT_BUILDING_DETAIL_DEFAULT_ACCRUAL_MS;
+    : isApartmentBlock
+      ? Date.now()
+      : Date.now() - DISTRICT_BUILDING_DETAIL_DEFAULT_ACCRUAL_MS;
   const actionCooldowns = entry.actionCooldowns && typeof entry.actionCooldowns === "object"
     ? entry.actionCooldowns
     : {};
@@ -8055,7 +9681,19 @@ function getDistrictBuildingDetailEntry(district, buildingName) {
     level,
     lastCollectedAt,
     actionCooldowns,
-    activeEffects
+    activeEffects,
+    storedPopulation: Math.max(0, Number(entry.storedPopulation || 0)),
+    populationLastUpdatedAt: Number.isFinite(Number(entry.populationLastUpdatedAt))
+      ? Number(entry.populationLastUpdatedAt)
+      : isApartmentBlock
+        ? Date.now()
+        : lastCollectedAt,
+    populationCapacity: Number.isFinite(Number(entry.populationCapacity))
+      ? Math.max(1, Math.floor(Number(entry.populationCapacity)))
+      : APARTMENT_BLOCK_BASE_CAPACITY,
+    populationFullNotifiedAt: Number.isFinite(Number(entry.populationFullNotifiedAt))
+      ? Number(entry.populationFullNotifiedAt)
+      : 0
   };
 }
 
@@ -8092,6 +9730,14 @@ function getDistrictBuildingActionDescription(action, mechanics, buildingName = 
 
   if (actionProfile) {
     const parts = [
+      actionProfile.casinoQuietBackroom ? `Pere ${actionProfile.dirtySharePct}% aktuálního dirty cash, max ${formatDistrictBuildingMoney(actionProfile.maxDirty)}` : "",
+      actionProfile.casinoVipNight ? `Clean +${actionProfile.cleanIncomeBoostPct}% · Dirty +${actionProfile.dirtyIncomeBoostPct}% · Vliv +${actionProfile.influenceBoostPct}% · Heat +60%` : "",
+      actionProfile.casinoBribedInspector ? `Cena ${formatDistrictBuildingMoney(actionProfile.cleanCost)} · šance selhání ${actionProfile.failureChancePct}%` : "",
+      actionProfile.exchangeOfficeGoodRate ? `Pere ${actionProfile.dirtySharePct}% aktuálního dirty cash, max ${formatDistrictBuildingMoney(mechanics.exchangeLaunderingCapacity || actionProfile.maxDirty)}` : "",
+      actionProfile.arcadeNightMachines ? `Clean +${actionProfile.cleanIncomeBoostPct}% · Dirty +${actionProfile.dirtyIncomeBoostPct}% · Vliv +${actionProfile.influenceBoostPct}% · Heat +45%` : "",
+      actionProfile.arcadeBackCashdesk ? `Pere ${actionProfile.dirtySharePct}% aktuálního dirty cash, max ${formatDistrictBuildingMoney(mechanics.arcadeLaunderingCapacity || actionProfile.maxDirty)}` : "",
+      actionProfile.apartmentCollectPopulation ? `Vybere ${mechanics.apartmentWholePopulation}/${mechanics.apartmentCapacity} obyvatel do členů gangu` : "",
+      actionProfile.clinicStabilizationProtocol ? `Cena ${formatDistrictBuildingMoney(actionProfile.cleanCost)} · recovery ${mechanics.clinicRecoveryRatePct}% · pool ${mechanics.clinicRecoveryPool?.totalFreshAmount || 0} položek` : "",
       actionProfile.clean ? `Clean +${formatDistrictBuildingMoney(actionProfile.clean)}` : "",
       actionProfile.dirty ? `Dirty +${formatDistrictBuildingMoney(actionProfile.dirty)}` : "",
       actionProfile.influence ? `Vliv +${actionProfile.influence}` : "",
@@ -8102,7 +9748,8 @@ function getDistrictBuildingActionDescription(action, mechanics, buildingName = 
       ...Object.entries(actionProfile.factorySupplies || {}).map(([itemId, amount]) => `${itemId} x${amount}`),
       actionProfile.incomeBoostPct ? `Income +${actionProfile.incomeBoostPct}%` : "",
       actionProfile.cleanIncomeBoostPct ? `Clean income +${actionProfile.cleanIncomeBoostPct}%` : "",
-      actionProfile.dirtyIncomeBoostPct ? `Dirty income +${actionProfile.dirtyIncomeBoostPct}%` : ""
+      actionProfile.dirtyIncomeBoostPct ? `Dirty income +${actionProfile.dirtyIncomeBoostPct}%` : "",
+      actionProfile.cooldownMs ? `Cooldown ${formatDistrictBuildingCooldown(actionProfile.cooldownMs)}` : ""
     ].filter(Boolean);
 
     return parts.length > 0
@@ -8135,50 +9782,395 @@ function getDistrictBuildingActionDescription(action, mechanics, buildingName = 
   return "Spustí lokální building akci s cooldownem a reportem v informačním panelu.";
 }
 
+function formatDistrictBuildingOutputProfile(profile = {}) {
+  const parts = [
+    profile.casinoQuietBackroom ? `Vypere ${profile.dirtySharePct}% dirty cash, max ${formatDistrictBuildingMoney(profile.maxDirty)}` : "",
+    profile.casinoVipNight ? `Clean +${profile.cleanIncomeBoostPct}% · Dirty +${profile.dirtyIncomeBoostPct}% · Vliv +${profile.influenceBoostPct}%` : "",
+    profile.casinoBribedInspector ? `Cena ${formatDistrictBuildingMoney(profile.cleanCost)} clean · selhání ${profile.failureChancePct}%` : "",
+    profile.exchangeOfficeGoodRate ? `Vypere ${profile.dirtySharePct}% dirty cash, max ${formatDistrictBuildingMoney(profile.maxDirty)} · fee ${profile.feePct}%` : "",
+    profile.arcadeNightMachines ? `Clean +${profile.cleanIncomeBoostPct}% · Dirty +${profile.dirtyIncomeBoostPct}% · Vliv +${profile.influenceBoostPct}%` : "",
+    profile.arcadeBackCashdesk ? `Vypere ${profile.dirtySharePct}% dirty cash, max ${formatDistrictBuildingMoney(profile.maxDirty)} · fee ${profile.feePct}%` : "",
+    profile.apartmentCollectPopulation ? "Přesune uložené obyvatele do členů gangu" : "",
+    profile.clinicStabilizationProtocol ? `Recovery pool · cena ${formatDistrictBuildingMoney(profile.cleanCost)} clean · heat +${profile.heat}` : "",
+    profile.clean ? `Clean +${formatDistrictBuildingMoney(profile.clean)}` : "",
+    profile.dirty ? `Dirty +${formatDistrictBuildingMoney(profile.dirty)}` : "",
+    profile.exchangeDirty ? `Převod dirty ${formatDistrictBuildingMoney(profile.exchangeDirty)} -> clean` : "",
+    profile.members ? `Členové +${Math.floor(Number(profile.members || 0))}` : "",
+    profile.population ? `Obyvatelé +${Math.floor(Number(profile.population || 0))}` : "",
+    profile.influence ? `Vliv +${Math.floor(Number(profile.influence || 0))}` : "",
+    Number.isFinite(Number(profile.heat)) && Number(profile.heat) !== 0
+      ? `Heat ${Number(profile.heat) > 0 ? "+" : ""}${Math.floor(Number(profile.heat))}`
+      : "",
+    ...Object.entries(profile.materials || {}).map(([itemId, amount]) => `${getProductionResourceLabel(itemId)} x${amount}`),
+    ...Object.entries(profile.drugs || {}).map(([itemId, amount]) => `${getProductionResourceLabel(itemId)} x${amount}`),
+    ...Object.entries(profile.weapons || {}).map(([itemId, amount]) => `${ATTACK_WEAPON_LABELS[itemId] || itemId} x${amount}`),
+    ...Object.entries(profile.factorySupplies || {}).map(([itemId, amount]) => `${getProductionResourceLabel(normalizeProductionResourceColorKey(itemId))} x${amount}`),
+    profile.incomeBoostPct ? `Income +${profile.incomeBoostPct}%` : "",
+    profile.cleanIncomeBoostPct ? `Clean income +${profile.cleanIncomeBoostPct}%` : "",
+    profile.dirtyIncomeBoostPct ? `Dirty income +${profile.dirtyIncomeBoostPct}%` : "",
+    profile.influenceBoostPct ? `Vliv +${profile.influenceBoostPct}%` : "",
+    profile.heatMultiplier && Number(profile.heatMultiplier) !== 1 ? `Heat x${Number(profile.heatMultiplier).toFixed(2)}` : "",
+    profile.durationMs ? `Trvání ${formatDistrictBuildingCooldown(profile.durationMs)}` : "",
+    profile.cooldownMs ? `Cooldown ${formatDistrictBuildingCooldown(profile.cooldownMs)}` : ""
+  ].filter(Boolean);
+
+  return parts.join(" · ") || "Bez přímého výstupu, používá hlavně lokální efekt.";
+}
+
+function createDistrictBuildingInfoLine(label, value) {
+  const row = document.createElement("div");
+  row.className = "district-building-detail-mechanic-row district-building-detail-info-line";
+  const rowLabel = document.createElement("span");
+  rowLabel.textContent = label;
+  const rowValue = document.createElement("strong");
+  rowValue.textContent = value;
+  row.append(rowLabel, rowValue);
+  return row;
+}
+
+function formatAutoSalonCategoryLabels(categories) {
+  return (Array.isArray(categories) ? categories : [])
+    .map((category) => AUTO_SALON_ACTION_CATEGORY_LABELS[category] || category)
+    .join(" · ");
+}
+
+function getCasinoClientAuditRisk(entry, playerHeat = getResolvedGangState().heat) {
+  const activeEffects = Array.isArray(entry?.activeEffects) ? entry.activeEffects : [];
+  let risk = 8;
+  risk += activeEffects
+    .filter((effect) => Number(effect.expiresAt || 0) > Date.now())
+    .reduce((total, effect) => total + Math.max(0, Number(effect.auditRiskBoostPct || 0)), 0);
+  if (Number(playerHeat || 0) > 180) {
+    risk += 20;
+  } else if (Number(playerHeat || 0) > 100) {
+    risk += 10;
+  }
+  const reductionPct = activeEffects
+    .filter((effect) => Number(effect.expiresAt || 0) > Date.now())
+    .reduce((max, effect) => Math.max(max, Number(effect.auditRiskReductionPct || 0)), 0);
+  if (reductionPct > 0) {
+    risk *= 1 - reductionPct / 100;
+  }
+  return `${Math.max(0, Math.round(risk * 10) / 10)} %`;
+}
+
+function renderDistrictBuildingInfoSection(infoElement, {
+  profile,
+  mechanics,
+  buildingName,
+  entry
+}) {
+  const section = infoElement?.closest(".building-info-card__section") || infoElement?.parentElement;
+  if (!section) {
+    return;
+  }
+
+  const title = document.createElement("h5");
+  title.textContent = "Co hráč musí vědět";
+
+  const intro = document.createElement("p");
+  intro.className = "building-detail-info-text";
+  intro.textContent = profile.info;
+
+  const overview = document.createElement("div");
+  overview.className = "building-detail-mechanics district-building-detail-mechanics district-building-detail-info-grid";
+
+  const nextMultiplier = mechanics.nextLevel
+    ? mechanics.mechanicsType === "casino"
+      ? 1 + (getCasinoDetailUpgrade(mechanics.nextLevel).incomeBonusPct / 100)
+      : 1 + ((mechanics.nextLevel - 1) * 0.14)
+    : null;
+  const rows = [
+    createDistrictBuildingInfoLine("Role", `${profile.role} · ${buildingName}`),
+    createDistrictBuildingInfoLine("Pasivně", mechanics.effectsLabel || "Bez pasivního výstupu."),
+    createDistrictBuildingInfoLine("Vybrání", mechanics.storedOutputLabel),
+    createDistrictBuildingInfoLine("Upgrade", mechanics.nextLevel ? `${mechanics.upgradeCostLabel} -> L${mechanics.nextLevel}` : "Max level"),
+    createDistrictBuildingInfoLine("Další level", nextMultiplier ? `Multiplier x${nextMultiplier.toFixed(2)}, vyšší výnos a akční hodnoty.` : "Budova už je na maximu."),
+    createDistrictBuildingInfoLine("Riziko", `Heat +${mechanics.dailyHeat}/den · vliv +${mechanics.dailyInfluence}/den`)
+  ];
+    if (mechanics.mechanicsType === "casino") {
+      const nextCasino = mechanics.nextCasinoUpgrade;
+      rows.push(
+        createDistrictBuildingInfoLine("Laundering kapacita", `${formatDistrictBuildingMoney(mechanics.casinoLaunderingCapacity)} dirty / akce`),
+        createDistrictBuildingInfoLine("Poplatek", `${mechanics.casinoLaunderingFeePct} % z vyprané částky`),
+        createDistrictBuildingInfoLine("Audit risk", `${getCasinoClientAuditRisk(entry)} · kontrola každých 5 min · okno 30 min`),
+        createDistrictBuildingInfoLine("Další casino bonus", nextCasino ? `Income +${nextCasino.incomeBonusPct}% · limit +${nextCasino.launderingLimitBonusPct}% · fee -${nextCasino.launderingFeeReductionPct}% · heat akce -${nextCasino.actionHeatReductionPct}%` : "Max level bonus aktivní."),
+        createDistrictBuildingInfoLine("Mapa", "Vzácná budova: 3x na mapě")
+      );
+    } else if (mechanics.mechanicsType === "exchange") {
+      rows.push(
+        createDistrictBuildingInfoLine("Vlastněné směnárny", `${mechanics.ownedExchangeOffices}/13`),
+        createDistrictBuildingInfoLine("Network multiplier", `Income x${mechanics.exchangeNetwork.incomeMultiplier.toFixed(2)} · limit x${mechanics.exchangeNetwork.launderingLimitMultiplier.toFixed(2)} · heat x${mechanics.exchangeNetwork.heatMultiplier.toFixed(2)}`),
+        createDistrictBuildingInfoLine("Laundering kapacita", `${formatDistrictBuildingMoney(mechanics.exchangeLaunderingCapacity)} dirty / akce`),
+        createDistrictBuildingInfoLine("Audit risk", `${mechanics.exchangeAuditRisk} · kontrola každých 6 min · okno 30 min`),
+        createDistrictBuildingInfoLine("Mapa", "Dostupná síťová budova: 13x na mapě")
+      );
+    } else if (mechanics.mechanicsType === "arcade") {
+      rows.push(
+        createDistrictBuildingInfoLine("Vlastněné herny", `${mechanics.ownedArcades}/20`),
+        createDistrictBuildingInfoLine("Network multiplier", `Income x${mechanics.arcadeNetwork.incomeMultiplier.toFixed(2)} · limit x${mechanics.arcadeNetwork.launderingLimitMultiplier.toFixed(2)} · heat x${mechanics.arcadeNetwork.heatMultiplier.toFixed(2)}`),
+        createDistrictBuildingInfoLine("Laundering kapacita", `${formatDistrictBuildingMoney(mechanics.arcadeLaunderingCapacity)} dirty / akce`),
+        createDistrictBuildingInfoLine("Audit risk", `${mechanics.arcadeAuditRisk} · kontrola každých 7 min · okno 30 min`),
+        createDistrictBuildingInfoLine("Mapa", "Pouliční síťová budova: 20x na mapě")
+      );
+    } else if (mechanics.mechanicsType === "apartment-block") {
+      rows.push(
+        createDistrictBuildingInfoLine("Lokální zásobník", `${mechanics.apartmentWholePopulation}/${mechanics.apartmentCapacity} obyvatel`),
+        createDistrictBuildingInfoLine("Čas do naplnění", mechanics.apartmentIsFull ? "Plná kapacita" : formatDistrictBuildingCooldown(mechanics.apartmentTimeToFullMs)),
+        createDistrictBuildingInfoLine("Network multiplier", `Produkce x${mechanics.apartmentNetwork.populationProductionMultiplier.toFixed(2)} · kapacita x${mechanics.apartmentNetwork.capacityMultiplier.toFixed(2)}`),
+        createDistrictBuildingInfoLine("Vlastněné bloky", `${mechanics.ownedApartmentBlocks}/29`),
+        createDistrictBuildingInfoLine("Pravidla", "0 cash · 0 dirty · 0 heat · 0 vliv · žádný audit · žádné praní"),
+        createDistrictBuildingInfoLine("Mapa", "Populační budova: 29x na mapě")
+      );
+    } else if (mechanics.mechanicsType === "warehouse") {
+      rows.push(
+        createDistrictBuildingInfoLine("Vlastněné sklady", `${mechanics.ownedWarehouses}/18`),
+        createDistrictBuildingInfoLine("Network multiplier", `Income x${mechanics.warehouseNetwork.incomeMultiplier.toFixed(2)} · storage x${mechanics.warehouseNetwork.storageCapacityMultiplier.toFixed(2)} · heat x${mechanics.warehouseNetwork.heatMultiplier.toFixed(2)}`),
+        createDistrictBuildingInfoLine("Kapacity", `Chem ${mechanics.warehouseCapacity.chemicals} · bio ${mechanics.warehouseCapacity.biomass} · metal ${mechanics.warehouseCapacity.metalParts} · tech ${mechanics.warehouseCapacity.techCore}`),
+        createDistrictBuildingInfoLine("Výzbroj a balíky", `Boosty/drogy ${mechanics.warehouseCapacity.drugsAndBoosts} · zbraně/obrana ${mechanics.warehouseCapacity.weaponsAndDefense}`),
+        createDistrictBuildingInfoLine("Warning", mechanics.warehouseWarnings.join(" · ") || "Kapacity jsou v pořádku."),
+        createDistrictBuildingInfoLine("Pravidla", "Žádné dirty cash · žádný vliv · žádné akce · žádné praní · žádný audit")
+      );
+    } else if (mechanics.mechanicsType === "clinic") {
+      rows.push(
+        createDistrictBuildingInfoLine("Vlastněné kliniky", `${mechanics.ownedClinics}/14`),
+        createDistrictBuildingInfoLine("Network multiplier", `Income x${mechanics.clinicNetwork.incomeMultiplier.toFixed(2)} · heat x${mechanics.clinicNetwork.heatMultiplier.toFixed(2)}`),
+        createDistrictBuildingInfoLine("Recovery rate", `${mechanics.clinicRecoveryRatePct} % · toxická past používá polovinu`),
+        createDistrictBuildingInfoLine("Recovery pool", mechanics.clinicRecoveryPool.label),
+        createDistrictBuildingInfoLine("Expirace", mechanics.clinicRecoveryPool.nextExpiryMs ? `Nejbližší za ${formatDistrictBuildingCooldown(mechanics.clinicRecoveryPool.nextExpiryMs)}` : "Nic nečeká"),
+        createDistrictBuildingInfoLine("Pravidla", "Žádné dirty cash · žádný vliv · žádná populace automaticky · žádné praní · žádný audit")
+      );
+    } else if (normalizeBuildingLookupKey(buildingName) === "obchodni centrum") {
+      rows.push(
+        createDistrictBuildingInfoLine("Vlastněné mally", `${mechanics.ownedShoppingMalls}/${SHOPPING_MALL_NETWORK_CONFIG.countOnMap}`),
+        createDistrictBuildingInfoLine("Market sleva", `${mechanics.shoppingMallMarketDiscount.discountPct}% regular market · ${mechanics.shoppingMallBlackMarketDiscount.discountPct}% black market`),
+        createDistrictBuildingInfoLine("Fee reduction", `-${mechanics.shoppingMallMarketDiscount.feeReductionPct}% market fees · minimální cena ${Math.round(mechanics.shoppingMallMarketDiscount.minFinalPriceMultiplier * 100)}%`),
+        createDistrictBuildingInfoLine("Income network", `clean x${mechanics.shoppingMallNetwork.cleanIncomeMultiplier.toFixed(2)} · dirty x${mechanics.shoppingMallNetwork.dirtyIncomeMultiplier.toFixed(2)}`),
+        createDistrictBuildingInfoLine("Vliv / heat", `vliv x${mechanics.shoppingMallNetwork.influenceMultiplier.toFixed(2)} · heat x${mechanics.shoppingMallNetwork.heatMultiplier.toFixed(2)}`),
+        createDistrictBuildingInfoLine("Pasivní market bonus", "Sleva se aplikuje automaticky bez speciální akce."),
+        createDistrictBuildingInfoLine("Pravidla", "Pasivní budova bez přímých akcí; bonus se projeví v marketu a server income projekci.")
+      );
+    } else if (normalizeBuildingLookupKey(buildingName) === "autosalon") {
+      rows.push(
+        createDistrictBuildingInfoLine("Síť autosalonů", `${mechanics.ownedAutoSalons}/${AUTO_SALON_SUPPORT_CONFIG.countOnMap} vlastněno`),
+        createDistrictBuildingInfoLine("Výnos", `čisté x${mechanics.autoSalonNetwork.cleanIncomeMultiplier.toFixed(2)} · špinavé x${mechanics.autoSalonNetwork.dirtyIncomeMultiplier.toFixed(2)} · heat x${mechanics.autoSalonNetwork.heatMultiplier.toFixed(2)}`),
+        createDistrictBuildingInfoLine("Mobilita a únik", `mobilita +${mechanics.autoSalonSupport.mobilityBonusPct}% · únik +${mechanics.autoSalonSupport.escapeChanceBonusPct}%`),
+        createDistrictBuildingInfoLine("Cooldowny", `autosalon -${mechanics.autoSalonSupport.cooldownReductionPct}% · společný cap -${mechanics.autoSalonSupport.combinedGarageDealerMaxReductionPct}%`),
+        createDistrictBuildingInfoLine("Kde pomáhá", formatAutoSalonCategoryLabels(AUTO_SALON_SUPPORT_CONFIG.fullBonusCategories.concat(AUTO_SALON_SUPPORT_CONFIG.halfBonusCategories, AUTO_SALON_SUPPORT_CONFIG.smallBonusCategories))),
+        createDistrictBuildingInfoLine("Bez vlivu", formatAutoSalonCategoryLabels(AUTO_SALON_SUPPORT_CONFIG.excludedCategories)),
+        createDistrictBuildingInfoLine("Pravidla", "Pasivní mobilita bez praní, auditu, vlivu, populace a Intel Power.")
+      );
+    } else if (normalizeBuildingLookupKey(buildingName) === "fitness club") {
+      rows.push(
+        createDistrictBuildingInfoLine("Síť fitness clubů", `${mechanics.ownedFitnessClubs}/${FITNESS_CLUB_SUPPORT_CONFIG.countOnMap} vlastněno`),
+        createDistrictBuildingInfoLine("Výnos", `clean x${mechanics.fitnessClubNetwork.incomeMultiplier.toFixed(2)} · heat x${mechanics.fitnessClubNetwork.heatMultiplier.toFixed(2)}`),
+        createDistrictBuildingInfoLine("Útok", `+${mechanics.fitnessClubSupport.attackStrengthBonusPct}% fyzická síla · cap s rekrutačním centrem +${mechanics.fitnessClubSupport.combinedRecruitmentFitnessAttackCapPct}%`),
+        createDistrictBuildingInfoLine("Obrana", `+${mechanics.fitnessClubSupport.defenseStrengthBonusPct}% odolnost · cap s rekrutačním centrem +${mechanics.fitnessClubSupport.combinedRecruitmentFitnessDefenseCapPct}%`),
+        createDistrictBuildingInfoLine("Platí na", "gang, pálky, pistole, granáty, samopaly, bazuky, vesty a barikády podle váhy"),
+        createDistrictBuildingInfoLine("Bez bonusu", "bezpečnostní kamery, alarm a automatické kulometné stanoviště"),
+        createDistrictBuildingInfoLine("Pravidla", "Žádné dirty cash, vliv, populace, Intel Power, praní, audit ani speciální akce.")
+      );
+    } else if (mechanics.mechanicsType === "smuggling-tunnel") {
+      rows.push(
+        createDistrictBuildingInfoLine("Lokální dávka", `${formatDistrictBuildingMoney(mechanics.smugglingWholeDirtyCash)} / ${formatDistrictBuildingMoney(mechanics.smugglingBatchCapacity)}`),
+        createDistrictBuildingInfoLine("Čas do naplnění", mechanics.smugglingIsFull ? "Dávka připravena" : formatDistrictBuildingCooldown(mechanics.smugglingTimeToFullMs)),
+        createDistrictBuildingInfoLine("Network multiplier", `dirty x${mechanics.smugglingTunnelNetwork.dirtyProductionMultiplier.toFixed(2)} · kapacita x${mechanics.smugglingTunnelNetwork.batchCapacityMultiplier.toFixed(2)} · heat x${mechanics.smugglingTunnelNetwork.passiveHeatMultiplier.toFixed(2)}`),
+        createDistrictBuildingInfoLine("Vlastněné tunely", `${mechanics.ownedSmugglingTunnels}/${SMUGGLING_TUNNEL_CONFIG.countOnMap}`),
+        createDistrictBuildingInfoLine("Výběr", `minimum ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.minCollectDirty)} · aktuální heat +${mechanics.smugglingCollectHeat}`),
+        createDistrictBuildingInfoLine("Tichý kanál", mechanics.smugglingSilentActive ? `Aktivní ještě ${formatDistrictBuildingCooldown(mechanics.smugglingSilentRemainingMs)}` : `Cena ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.silentChannelDirtyCost)} dirty · cooldown 20 min · riziko ${SMUGGLING_TUNNEL_CONFIG.silentChannelRaidChancePct}%`),
+        createDistrictBuildingInfoLine("Pravidla", "Pouze dirty cash a heat; žádné clean cash, vliv, populace, Intel Power, praní ani audit")
+      );
+    }
+  overview.replaceChildren(...rows);
+
+  const actionsTitle = document.createElement("h5");
+  actionsTitle.textContent = "Akce";
+
+  const actionList = document.createElement("div");
+  actionList.className = "building-info-card__actions district-building-detail-actions district-building-detail-info-actions";
+
+  profile.actions.forEach((action, actionIndex) => {
+    const actionProfile = getDistrictBuildingSpecialActionProfile(buildingName, actionIndex);
+    const row = document.createElement("div");
+    row.className = "building-info-action-row";
+    const rowTitle = document.createElement("strong");
+    rowTitle.className = "building-info-action-row__title";
+    rowTitle.textContent = action;
+    const desc = document.createElement("span");
+    desc.className = "building-info-action-row__desc";
+    desc.textContent = getDistrictBuildingActionDescription(action, mechanics, buildingName, actionIndex);
+    const result = document.createElement("span");
+    result.className = "building-info-action-row__cooldown";
+    result.textContent = [
+      formatDistrictBuildingOutputProfile(actionProfile || {}),
+      `Cooldown ${formatDistrictBuildingCooldown(actionProfile && Object.prototype.hasOwnProperty.call(actionProfile, "cooldownMs") ? actionProfile.cooldownMs : DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS)}`
+    ].join(" · ");
+    row.append(rowTitle, desc, result);
+    actionList.append(row);
+  });
+  const children = [title, intro, overview];
+  if (profile.actions.length > 0) {
+    children.push(actionsTitle, actionList);
+  }
+  section.replaceChildren(...children);
+}
+
 function resolveDistrictBuildingDetailMechanics(district, buildingName) {
   const entry = getDistrictBuildingDetailEntry(district, buildingName);
   const mechanicsType = resolveDistrictBuildingDetailMechanicsType(buildingName);
+  const buildingLookupKey = normalizeBuildingLookupKey(buildingName);
+  const isShoppingMall = buildingLookupKey === "obchodni centrum";
+  const isAutoSalon = buildingLookupKey === "autosalon";
+  const isFitnessClub = buildingLookupKey === "fitness club";
   const income = getDistrictBuildingRule(DISTRICT_BUILDING_MINUTE_INCOME_RULES_EMPIRE2, buildingName, { clean: 0, dirty: 0 });
   const heatRule = getDistrictBuildingRule(DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2, buildingName, { heat: 0 });
   const influenceRule = getDistrictBuildingRule(DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2, buildingName, { influence: 0 });
   const now = Date.now();
   const elapsedMs = Math.min(DISTRICT_BUILDING_DETAIL_COLLECT_CAP_MS, Math.max(0, now - entry.lastCollectedAt));
   const elapsedHours = elapsedMs / (60 * 60 * 1000);
-  const multiplier = 1 + ((entry.level - 1) * 0.14);
-  const cleanHourly = Math.max(0, Math.round(Number(income.clean || 0) * 60 * multiplier));
-  const dirtyHourly = Math.max(0, Math.round(Number(income.dirty || 0) * 60 * multiplier));
+  const maxLevel = mechanicsType === "casino"
+    ? CASINO_DETAIL_MAX_LEVEL
+    : mechanicsType === "apartment-block"
+      ? 1
+      : DISTRICT_BUILDING_DETAIL_MAX_LEVEL;
+  const level = Math.max(1, Math.min(maxLevel, Math.floor(Number(entry.level || 1))));
+  const casinoUpgrade = mechanicsType === "casino" ? getCasinoDetailUpgrade(level) : null;
+  const ownedExchangeOffices = mechanicsType === "exchange" ? getOwnedExchangeOfficeCount() : 0;
+  const exchangeNetwork = mechanicsType === "exchange" ? getExchangeOfficeNetworkMultipliers(ownedExchangeOffices) : null;
+  const ownedArcades = mechanicsType === "arcade" ? getOwnedArcadeCount() : 0;
+  const arcadeNetwork = mechanicsType === "arcade" ? getArcadeNetworkMultipliers(ownedArcades) : null;
+  const ownedApartmentBlocks = mechanicsType === "apartment-block" ? getOwnedApartmentBlockCount() : 0;
+  const apartmentNetwork = mechanicsType === "apartment-block" ? getApartmentBlockNetworkMultipliers(ownedApartmentBlocks) : null;
+  const ownedWarehouses = mechanicsType === "warehouse" ? getOwnedWarehouseCount() : 0;
+  const warehouseNetwork = mechanicsType === "warehouse" ? getWarehouseNetworkMultipliers(ownedWarehouses) : null;
+  const warehouseCapacity = mechanicsType === "warehouse" ? getWarehouseCapacityBreakdown(ownedWarehouses) : null;
+  const warehouseUsage = mechanicsType === "warehouse" ? getWarehouseStorageUsage(warehouseCapacity) : null;
+  const warehouseWarnings = mechanicsType === "warehouse" ? getWarehouseCapacityWarnings(warehouseUsage) : [];
+  const ownedClinics = mechanicsType === "clinic" ? getOwnedClinicCount() : 0;
+  const clinicNetwork = mechanicsType === "clinic" ? getClinicNetworkMultipliers(ownedClinics) : null;
+  const clinicRecoveryRatePct = mechanicsType === "clinic" ? getClinicRecoveryRatePct(ownedClinics) : 0;
+  const clinicRecoveryPool = mechanicsType === "clinic" ? getClinicRecoveryPoolView(now) : null;
+  const ownedShoppingMalls = isShoppingMall ? getOwnedShoppingMallCountForMarket() : 0;
+  const shoppingMallMarketDiscount = isShoppingMall ? getShoppingMallMarketDiscountForTab("market") : null;
+  const shoppingMallBlackMarketDiscount = isShoppingMall ? getShoppingMallMarketDiscountForTab("black-market") : null;
+  const shoppingMallNetwork = isShoppingMall ? getShoppingMallNetworkMultipliers(ownedShoppingMalls) : null;
+  const ownedAutoSalons = isAutoSalon ? getOwnedAutoSalonCount() : 0;
+  const autoSalonNetwork = isAutoSalon ? getAutoSalonNetworkMultipliers(ownedAutoSalons) : null;
+  const autoSalonSupport = isAutoSalon ? getAutoSalonSupportStats(ownedAutoSalons) : null;
+  const ownedFitnessClubs = isFitnessClub ? getOwnedFitnessClubCount() : 0;
+  const fitnessClubNetwork = isFitnessClub ? getFitnessClubNetworkMultipliers(ownedFitnessClubs) : null;
+  const fitnessClubSupport = isFitnessClub ? getFitnessClubSupportStats(ownedFitnessClubs) : null;
+  const ownedSmugglingTunnels = mechanicsType === "smuggling-tunnel" ? getOwnedSmugglingTunnelCount() : 0;
+  const smugglingTunnelNetwork = mechanicsType === "smuggling-tunnel" ? getSmugglingTunnelNetworkMultipliers(ownedSmugglingTunnels) : null;
+  const smugglingSilentActive = mechanicsType === "smuggling-tunnel" && Number(entry.silentChannelExpiresAt || 0) > now;
+  const multiplier = arcadeNetwork
+    ? arcadeNetwork.incomeMultiplier
+    : exchangeNetwork
+    ? exchangeNetwork.incomeMultiplier
+    : warehouseNetwork
+    ? warehouseNetwork.incomeMultiplier
+    : clinicNetwork
+    ? clinicNetwork.incomeMultiplier
+    : fitnessClubNetwork
+    ? fitnessClubNetwork.incomeMultiplier
+    : autoSalonNetwork
+    ? autoSalonNetwork.cleanIncomeMultiplier
+    : casinoUpgrade
+    ? 1 + (casinoUpgrade.incomeBonusPct / 100)
+    : 1 + ((level - 1) * 0.14);
+  const cleanHourly = mechanicsType === "smuggling-tunnel" ? 0 : Math.max(0, Math.round(Number(income.clean || 0) * 60 * multiplier));
+  const dirtyHourly = mechanicsType === "smuggling-tunnel"
+    ? Math.max(0, Math.round(SMUGGLING_TUNNEL_CONFIG.dirtyCashPerMinute * 60 * (smugglingTunnelNetwork?.dirtyProductionMultiplier || 1) * (smugglingSilentActive ? SMUGGLING_TUNNEL_CONFIG.silentChannelDirtyProductionMultiplier : 1)))
+    : Math.max(0, Math.round(Number(income.dirty || 0) * 60 * (autoSalonNetwork ? autoSalonNetwork.dirtyIncomeMultiplier : multiplier)));
   const storedClean = Math.max(0, Math.floor(cleanHourly * elapsedHours));
   const storedDirty = Math.max(0, Math.floor(dirtyHourly * elapsedHours));
-  const memberGain = Math.max(1, Math.floor((entry.level + 1) * Math.max(0.5, elapsedHours)));
-  const materialGain = Math.max(1, Math.floor((entry.level + 2) * Math.max(0.75, elapsedHours)));
-  const influenceActionGain = Math.max(1, Math.ceil(entry.level * 1.5));
+  const memberGain = Math.max(1, Math.floor((level + 1) * Math.max(0.5, elapsedHours)));
+  const materialGain = Math.max(1, Math.floor((level + 2) * Math.max(0.75, elapsedHours)));
+  const influenceActionGain = Math.max(1, Math.ceil(level * 1.5));
   const quickCashGain = Math.max(50, Math.round((cleanHourly + dirtyHourly) / 4));
-  const moneyActionAmount = Math.max(250, entry.level * 650);
-  const upgradeCost = entry.level >= DISTRICT_BUILDING_DETAIL_MAX_LEVEL
+  const moneyActionAmount = Math.max(250, level * 650);
+  const upgradeCost = level >= maxLevel
     ? 0
-    : Math.max(850, Math.round((cleanHourly + dirtyHourly + 120) * (entry.level + 2) * 2.4));
-  const nextLevel = entry.level >= DISTRICT_BUILDING_DETAIL_MAX_LEVEL ? null : entry.level + 1;
-  const dailyHeat = Math.round(Number(heatRule.heat || 0) * 1440 * 10) / 10;
+    : casinoUpgrade
+      ? getCasinoDetailUpgrade(level + 1).clean
+      : Math.max(850, Math.round((cleanHourly + dirtyHourly + 120) * (level + 2) * 2.4));
+  const nextLevel = level >= maxLevel ? null : level + 1;
+  const nextCasinoUpgrade = casinoUpgrade && nextLevel ? getCasinoDetailUpgrade(nextLevel) : null;
+  const casinoLaunderingCapacity = casinoUpgrade
+    ? Math.round(CASINO_DETAIL_BASE_LAUNDERING_CAPACITY * (1 + casinoUpgrade.launderingLimitBonusPct / 100))
+    : 0;
+  const casinoLaunderingFeePct = casinoUpgrade
+    ? Math.max(0, CASINO_DETAIL_BASE_LAUNDERING_FEE_PCT - casinoUpgrade.launderingFeeReductionPct)
+    : 0;
+  const exchangeLaunderingCapacity = exchangeNetwork
+    ? Math.round(EXCHANGE_OFFICE_BASE_LAUNDERING_CAPACITY * exchangeNetwork.launderingLimitMultiplier)
+    : 0;
+  const arcadeLaunderingCapacity = arcadeNetwork
+    ? Math.round(ARCADE_BASE_LAUNDERING_CAPACITY * arcadeNetwork.launderingLimitMultiplier)
+    : 0;
+  const apartmentCapacity = apartmentNetwork
+    ? Math.max(1, Math.floor(APARTMENT_BLOCK_BASE_CAPACITY * apartmentNetwork.capacityMultiplier))
+    : 0;
+  const apartmentElapsedMs = mechanicsType === "apartment-block"
+    ? Math.max(0, now - Number(entry.populationLastUpdatedAt || entry.lastCollectedAt || now))
+    : 0;
+  const apartmentStoredBase = mechanicsType === "apartment-block"
+    ? Math.min(apartmentCapacity, Math.max(0, Number(entry.storedPopulation || 0)))
+    : 0;
+  const apartmentPopulationPerMinute = apartmentNetwork
+    ? APARTMENT_BLOCK_POPULATION_PER_MINUTE * apartmentNetwork.populationProductionMultiplier
+    : 0;
+  const apartmentStoredPopulation = mechanicsType === "apartment-block"
+    ? Math.min(apartmentCapacity, apartmentStoredBase + (apartmentStoredBase >= apartmentCapacity ? 0 : apartmentPopulationPerMinute * apartmentElapsedMs / 60000))
+    : 0;
+  const apartmentWholePopulation = Math.max(0, Math.floor(apartmentStoredPopulation));
+  const apartmentIsFull = mechanicsType === "apartment-block" && apartmentCapacity > 0 && apartmentStoredPopulation >= apartmentCapacity;
+  const apartmentTimeToFullMs = mechanicsType === "apartment-block" && !apartmentIsFull && apartmentPopulationPerMinute > 0
+    ? Math.ceil((apartmentCapacity - apartmentStoredPopulation) / apartmentPopulationPerMinute * 60000)
+    : 0;
+  const smugglingBatchCapacity = smugglingTunnelNetwork
+    ? Math.max(1, Math.floor(SMUGGLING_TUNNEL_CONFIG.baseBatchCapacity * smugglingTunnelNetwork.batchCapacityMultiplier * (smugglingSilentActive ? SMUGGLING_TUNNEL_CONFIG.silentChannelBatchCapacityMultiplier : 1)))
+    : 0;
+  const smugglingStoredBase = mechanicsType === "smuggling-tunnel"
+    ? Math.min(smugglingBatchCapacity, Math.max(0, Number(entry.storedDirtyCash || 0)))
+    : 0;
+  const smugglingElapsedMs = mechanicsType === "smuggling-tunnel"
+    ? Math.max(0, now - Number(entry.smugglingLastUpdatedAt || entry.lastCollectedAt || now))
+    : 0;
+  const smugglingDirtyPerMinute = mechanicsType === "smuggling-tunnel"
+    ? SMUGGLING_TUNNEL_CONFIG.dirtyCashPerMinute * (smugglingTunnelNetwork?.dirtyProductionMultiplier || 1) * (smugglingSilentActive ? SMUGGLING_TUNNEL_CONFIG.silentChannelDirtyProductionMultiplier : 1)
+    : 0;
+  const smugglingStoredDirtyCash = mechanicsType === "smuggling-tunnel"
+    ? Math.min(smugglingBatchCapacity, smugglingStoredBase + (smugglingStoredBase >= smugglingBatchCapacity ? 0 : smugglingDirtyPerMinute * smugglingElapsedMs / 60000))
+    : 0;
+  const smugglingWholeDirtyCash = Math.max(0, Math.floor(smugglingStoredDirtyCash));
+  const smugglingIsFull = mechanicsType === "smuggling-tunnel" && smugglingBatchCapacity > 0 && smugglingStoredDirtyCash >= smugglingBatchCapacity;
+  const smugglingTimeToFullMs = mechanicsType === "smuggling-tunnel" && !smugglingIsFull && smugglingDirtyPerMinute > 0
+    ? Math.ceil((smugglingBatchCapacity - smugglingStoredDirtyCash) / smugglingDirtyPerMinute * 60000)
+    : 0;
+  const dailyHeat = Math.round(Number(heatRule.heat || 0) * (smugglingTunnelNetwork?.passiveHeatMultiplier || fitnessClubNetwork?.heatMultiplier || autoSalonNetwork?.heatMultiplier || clinicNetwork?.heatMultiplier || warehouseNetwork?.heatMultiplier || arcadeNetwork?.heatMultiplier || exchangeNetwork?.heatMultiplier || 1) * (smugglingSilentActive ? SMUGGLING_TUNNEL_CONFIG.silentChannelHeatMultiplier : 1) * 1440 * 10) / 10;
   const dailyInfluence = Math.round(Number(influenceRule.influence || 0) * 1440 * 10) / 10;
   const activeEffectLabels = (entry.activeEffects || [])
     .map((effect) => `${effect.label || "Efekt"} ${formatDistrictBuildingCooldown(Number(effect.expiresAt || 0) - Date.now())}`)
     .filter(Boolean);
   const canCollect =
-    storedClean > 0
-    || storedDirty > 0
-    || mechanicsType === "apartment-block"
-    || mechanicsType === "school"
-    || mechanicsType === "warehouse"
-    || mechanicsType === "recycling-center";
+    mechanicsType === "apartment-block" && apartmentWholePopulation > 0
+    || mechanicsType === "smuggling-tunnel" && smugglingWholeDirtyCash >= SMUGGLING_TUNNEL_CONFIG.minCollectDirty;
+  const hasManualCollect =
+    mechanicsType === "apartment-block"
+    || mechanicsType === "smuggling-tunnel";
   const storedOutputLabel = [
-    storedClean > 0 ? `${formatDistrictBuildingMoney(storedClean)} clean` : "",
-    storedDirty > 0 ? `${formatDistrictBuildingMoney(storedDirty)} dirty` : "",
-    mechanicsType === "apartment-block" || mechanicsType === "school" ? `${memberGain} členů` : "",
-    mechanicsType === "warehouse" || mechanicsType === "recycling-center" ? `${materialGain * 2} zásob` : ""
+    mechanicsType === "apartment-block" ? `${apartmentWholePopulation}/${apartmentCapacity} obyvatel` : "",
+    mechanicsType === "smuggling-tunnel" ? `${formatDistrictBuildingMoney(smugglingWholeDirtyCash)}/${formatDistrictBuildingMoney(smugglingBatchCapacity)} dirty` : ""
   ].filter(Boolean).join(" · ") || "Zatím nic";
   const effectsLabel = [
     cleanHourly > 0 ? `Clean cash +${formatDistrictBuildingMoney(cleanHourly)}/hod` : "",
     dirtyHourly > 0 ? `Dirty cash +${formatDistrictBuildingMoney(dirtyHourly)}/hod` : "",
+    mechanicsType === "apartment-block" ? `Populace +${apartmentPopulationPerMinute.toFixed(2)}/min` : "",
+    mechanicsType === "smuggling-tunnel" ? `Dávka +${formatDistrictBuildingMoney(smugglingDirtyPerMinute)}/min` : "",
+    apartmentIsFull ? "Plná kapacita · Bytový blok je plný. Obyvatelé čekají na vybrání." : "",
+    smugglingIsFull ? "Dávka připravena · Pašovací tunel je plný. Dirty cash čeká na vybrání." : "",
+    ...warehouseWarnings,
     dailyHeat > 0 ? `Heat +${dailyHeat}/den` : "",
     dailyInfluence > 0 ? `Vliv +${dailyInfluence}/den` : "",
     ...activeEffectLabels,
@@ -8187,9 +10179,65 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
 
   return {
     mechanicsType,
-    level: entry.level,
+    level,
+    maxLevel,
     nextLevel,
     upgradeCost,
+    upgradeCostLabel: nextLevel
+      ? casinoUpgrade
+        ? getCasinoDetailUpgradeCostLabel(nextLevel)
+        : formatDistrictBuildingMoney(upgradeCost)
+      : "Max level",
+    casinoLaunderingCapacity,
+    casinoLaunderingFeePct,
+    casinoActionHeatReductionPct: casinoUpgrade ? casinoUpgrade.actionHeatReductionPct : 0,
+    nextCasinoUpgrade,
+    ownedExchangeOffices,
+    exchangeNetwork,
+    exchangeLaunderingCapacity,
+    exchangeAuditRisk: mechanicsType === "exchange" ? `${EXCHANGE_OFFICE_BASE_AUDIT_RISK_PCT} %` : "",
+    ownedArcades,
+    arcadeNetwork,
+    arcadeLaunderingCapacity,
+    arcadeAuditRisk: mechanicsType === "arcade" ? `${ARCADE_BASE_AUDIT_RISK_PCT} %` : "",
+    ownedApartmentBlocks,
+    apartmentNetwork,
+    apartmentStoredPopulation,
+    apartmentCapacity,
+    apartmentPopulationPerMinute,
+    apartmentWholePopulation,
+    apartmentIsFull,
+    apartmentTimeToFullMs,
+    ownedWarehouses,
+    warehouseNetwork,
+    warehouseCapacity,
+    warehouseUsage,
+    warehouseWarnings,
+    ownedClinics,
+    clinicNetwork,
+    clinicRecoveryRatePct,
+    clinicRecoveryPool,
+    ownedShoppingMalls,
+    shoppingMallMarketDiscount,
+    shoppingMallBlackMarketDiscount,
+    shoppingMallNetwork,
+    ownedAutoSalons,
+    autoSalonNetwork,
+    autoSalonSupport,
+    ownedFitnessClubs,
+    fitnessClubNetwork,
+    fitnessClubSupport,
+    ownedSmugglingTunnels,
+    smugglingTunnelNetwork,
+    smugglingBatchCapacity,
+    smugglingStoredDirtyCash,
+    smugglingWholeDirtyCash,
+    smugglingDirtyPerMinute,
+    smugglingIsFull,
+    smugglingTimeToFullMs,
+    smugglingCollectHeat: getSmugglingTunnelCollectHeat(smugglingWholeDirtyCash),
+    smugglingSilentActive,
+    smugglingSilentRemainingMs: Math.max(0, Number(entry.silentChannelExpiresAt || 0) - now),
     cleanHourly,
     dirtyHourly,
     storedClean,
@@ -8202,6 +10250,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     dailyHeat,
     dailyInfluence,
     canCollect,
+    hasManualCollect,
     storedOutputLabel,
     effectsLabel,
     actionCooldowns: entry.actionCooldowns
@@ -8247,39 +10296,75 @@ function collectDistrictBuildingDetailOutput(root, shell) {
 
   const mechanics = resolveDistrictBuildingDetailMechanics(context.district, context.buildingName);
   if (!mechanics.canCollect) {
-    setBuildingActionFeedback(root, "warning", context.buildingName, "Budova zatím nemá připravený výstup.", "Počkej na další tick produkce.");
+    setBuildingActionFeedback(root, "warning", context.buildingName, "Budova zatím nemá ručně vybratelný výstup.", "Clean, dirty, vliv a heat se připisují automaticky.");
     return;
   }
 
-  const economy = getResolvedEconomyState();
-  let cleanMoney = Math.max(0, Math.floor(Number(economy.cleanMoney || 0)));
-  let dirtyMoney = Math.max(0, Math.floor(Number(economy.dirtyMoney || 0)));
   const summary = [];
 
-  if (mechanics.storedClean > 0 || mechanics.storedDirty > 0) {
-    cleanMoney += mechanics.storedClean;
-    dirtyMoney += mechanics.storedDirty;
-    setStoredEconomyState({ cleanMoney, dirtyMoney });
-    applyTopbarEconomy(root, { instant: true });
-    if (mechanics.storedClean > 0) {
-      summary.push(`${formatDistrictBuildingMoney(mechanics.storedClean)} clean`);
+  if (mechanics.mechanicsType === "apartment-block") {
+    const collectedPopulation = Math.max(0, Math.floor(Number(mechanics.apartmentStoredPopulation || 0)));
+    if (collectedPopulation <= 0) {
+      setBuildingActionFeedback(root, "warning", context.buildingName, "Bytový blok zatím nemá obyvatele k vybrání.", "Počkej na další produkci.");
+      return;
     }
-    if (mechanics.storedDirty > 0) {
-      summary.push(`${formatDistrictBuildingMoney(mechanics.storedDirty)} dirty`);
-    }
-  }
-
-  if (mechanics.mechanicsType === "apartment-block" || mechanics.mechanicsType === "school") {
     const gangState = getResolvedGangState();
-    setStoredGangState({ members: Math.max(0, Math.floor(Number(gangState.members || 0)) + mechanics.memberGain) });
+    const remainingPopulation = Math.max(0, Number(mechanics.apartmentStoredPopulation || 0) - collectedPopulation);
+    setStoredGangState({ members: Math.max(0, Math.floor(Number(gangState.members || 0)) + collectedPopulation) });
     renderGangMembersState(root);
-    summary.push(`${mechanics.memberGain} členů`);
+    summary.push(`${collectedPopulation} členů gangu`);
+    updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
+      ...entry,
+      storedPopulation: remainingPopulation,
+      populationLastUpdatedAt: Date.now(),
+      populationCapacity: mechanics.apartmentCapacity,
+      populationFullNotifiedAt: 0,
+      lastCollectedAt: Date.now()
+    }));
+    setBuildingActionFeedback(
+      root,
+      "success",
+      context.buildingName,
+      `Vybral jsi ${collectedPopulation} nových členů gangu z Bytového bloku.`,
+      `${Math.floor(remainingPopulation)}/${mechanics.apartmentCapacity} zůstává lokálně`
+    );
+    appendBuildingActionResultEntry(root, "police", createStorageCollectResultPayload({ buildingLabel: context.buildingName, items: summary.map((value, index) => ({ label: `Položka ${index + 1}`, value })), meta: "Vybrat obyvatele", districtLabel: context.district?.id ? `District ${context.district.id}` : "Fixed building" }), {}, { syncPreview: true, forceLog: true });
+    refreshDistrictBuildingDetailPopup(root, shell);
+    return;
   }
 
-  if (mechanics.mechanicsType === "warehouse" || mechanics.mechanicsType === "recycling-center") {
-    applyInventoryOutput({ inventory: "materials", itemId: "chemicals", amount: mechanics.materialGain });
-    applyInventoryOutput({ inventory: "materials", itemId: "metal-parts", amount: mechanics.materialGain });
-    summary.push(`Chemicals x${mechanics.materialGain}`, `Metal Parts x${mechanics.materialGain}`);
+  if (mechanics.mechanicsType === "smuggling-tunnel") {
+    const collectedDirty = Math.max(0, Math.floor(Number(mechanics.smugglingWholeDirtyCash || 0)));
+    if (collectedDirty < SMUGGLING_TUNNEL_CONFIG.minCollectDirty) {
+      setBuildingActionFeedback(root, "warning", context.buildingName, `V tunelu musí být alespoň ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.minCollectDirty)} dirty cash.`, mechanics.storedOutputLabel);
+      return;
+    }
+    const heatGain = getSmugglingTunnelCollectHeat(collectedDirty);
+    const economy = getResolvedEconomyState();
+    setStoredEconomyState({
+      cleanMoney: Math.max(0, Math.floor(Number(economy.cleanMoney || 0))),
+      dirtyMoney: Math.max(0, Math.floor(Number(economy.dirtyMoney || 0)) + collectedDirty)
+    });
+    applyTopbarEconomy(root);
+    addGangHeat(root, heatGain, "Vybraná pašovací dávka");
+    updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
+      ...entry,
+      storedDirtyCash: 0,
+      smugglingLastUpdatedAt: Date.now(),
+      smugglingBatchCapacity: mechanics.smugglingBatchCapacity,
+      smugglingFullNotifiedAt: 0,
+      lastCollectedAt: Date.now()
+    }));
+    setBuildingActionFeedback(
+      root,
+      "success",
+      context.buildingName,
+      `Vybral jsi ${formatDistrictBuildingMoney(collectedDirty)} dirty cash z Pašovacího tunelu. Heat +${heatGain}.`,
+      "Dávka se začíná znovu plnit."
+    );
+    appendBuildingActionResultEntry(root, "police", createStorageCollectResultPayload({ buildingLabel: context.buildingName, items: [{ label: "Dirty cash", value: formatDistrictBuildingMoney(collectedDirty) }, { label: "Heat", value: `+${heatGain}` }], meta: "Vybrat dávku", districtLabel: context.district?.id ? `District ${context.district.id}` : "Fixed building" }), {}, { syncPreview: true, forceLog: true });
+    refreshDistrictBuildingDetailPopup(root, shell);
+    return;
   }
 
   updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
@@ -8311,16 +10396,42 @@ function upgradeDistrictBuildingDetail(root, shell) {
       "warning",
       `${context.buildingName}: upgrade nejde`,
       `Chybí ${formatDistrictBuildingMoney(mechanics.upgradeCost - cleanMoney)} clean cash.`,
-      `Cena upgradu ${formatDistrictBuildingMoney(mechanics.upgradeCost)}`
+      `Cena upgradu ${mechanics.upgradeCostLabel}`
     );
     return;
+  }
+
+  if (mechanics.mechanicsType === "casino") {
+    const upgrade = getCasinoDetailUpgrade(mechanics.nextLevel);
+    const supplies = getStoredFactorySupplies();
+    const techCore = Math.max(0, Math.floor(Number(supplies.techCore || 0)));
+    const combatModule = Math.max(0, Math.floor(Number(supplies.combatModule || 0)));
+    const missing = [
+      techCore < upgrade.techCore ? `${upgrade.techCore - techCore} Tech Core` : "",
+      combatModule < upgrade.combatModule ? `${upgrade.combatModule - combatModule} Combat Module` : ""
+    ].filter(Boolean);
+    if (missing.length > 0) {
+      setBuildingActionFeedback(
+        root,
+        "warning",
+        `${context.buildingName}: upgrade nejde`,
+        `Chybí ${missing.join(" + ")}.`,
+        `Cena upgradu ${mechanics.upgradeCostLabel}`
+      );
+      return;
+    }
+    setStoredFactorySupplies({
+      ...supplies,
+      techCore: techCore - upgrade.techCore,
+      combatModule: combatModule - upgrade.combatModule
+    });
   }
 
   setStoredEconomyState({
     cleanMoney: cleanMoney - mechanics.upgradeCost,
     dirtyMoney: Math.max(0, Math.floor(Number(economy.dirtyMoney || 0)))
   });
-  applyTopbarEconomy(root, { instant: true });
+  applyTopbarEconomy(root);
   updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
     ...entry,
     level: mechanics.nextLevel
@@ -8331,7 +10442,7 @@ function upgradeDistrictBuildingDetail(root, shell) {
     "success",
     `${context.buildingName}: upgrade`,
     `Budova je teď na levelu ${mechanics.nextLevel}.`,
-    `Cena ${formatDistrictBuildingMoney(mechanics.upgradeCost)}`
+    `Cena ${mechanics.upgradeCostLabel}`
   );
   refreshDistrictBuildingDetailPopup(root, shell);
 }
@@ -8345,6 +10456,302 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
   let influenceChanged = false;
   let membersChanged = false;
   const summaryParts = [];
+
+  if (actionProfile.apartmentCollectPopulation) {
+    const collectedPopulation = Math.max(0, Math.floor(Number(mechanics.apartmentStoredPopulation || 0)));
+    if (collectedPopulation <= 0) {
+      setBuildingActionFeedback(root, "warning", action, "Bytový blok zatím nemá obyvatele k vybrání.", context.buildingName);
+      return null;
+    }
+    const remainingPopulation = Math.max(0, Number(mechanics.apartmentStoredPopulation || 0) - collectedPopulation);
+    setStoredGangState({ members: Math.max(0, Math.floor(Number(gangState.members || 0)) + collectedPopulation) });
+    renderGangMembersState(root);
+    updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
+      ...entry,
+      storedPopulation: remainingPopulation,
+      populationLastUpdatedAt: Date.now(),
+      populationCapacity: mechanics.apartmentCapacity,
+      populationFullNotifiedAt: 0,
+      lastCollectedAt: Date.now()
+    }));
+    membersChanged = true;
+    summaryParts.push(`Vybral jsi ${collectedPopulation} nových členů gangu z Bytového bloku.`);
+    summaryParts.push(`${Math.floor(remainingPopulation)}/${mechanics.apartmentCapacity} lokálně`);
+  }
+
+  if (actionProfile.smugglingCollectBatch) {
+    const collectedDirty = Math.max(0, Math.floor(Number(mechanics.smugglingWholeDirtyCash || 0)));
+    if (collectedDirty < SMUGGLING_TUNNEL_CONFIG.minCollectDirty) {
+      setBuildingActionFeedback(root, "warning", action, `V tunelu musí být alespoň ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.minCollectDirty)} dirty cash.`, context.buildingName);
+      return null;
+    }
+    const heatGain = getSmugglingTunnelCollectHeat(collectedDirty);
+    dirtyMoney += collectedDirty;
+    setStoredEconomyState({ cleanMoney, dirtyMoney });
+    applyTopbarEconomy(root);
+    addGangHeat(root, heatGain, "Vybraná pašovací dávka");
+    updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
+      ...entry,
+      storedDirtyCash: 0,
+      smugglingLastUpdatedAt: Date.now(),
+      smugglingBatchCapacity: mechanics.smugglingBatchCapacity,
+      smugglingFullNotifiedAt: 0,
+      lastCollectedAt: Date.now()
+    }));
+    economyChanged = true;
+    summaryParts.push(`Vybral jsi ${formatDistrictBuildingMoney(collectedDirty)} dirty cash z Pašovacího tunelu. Heat +${heatGain}.`);
+  }
+
+  if (actionProfile.smugglingSilentChannel) {
+    const cost = Math.max(0, Math.floor(Number(actionProfile.dirtyCost || 0)));
+    const activeUntil = Number(mechanics.actionCooldowns?.silentChannelActiveUntil || 0);
+    if (activeUntil > Date.now()) {
+      setBuildingActionFeedback(root, "warning", action, `Tichý kanál už běží. Zbývá ${formatDistrictBuildingCooldown(activeUntil - Date.now())}.`, context.buildingName);
+      return null;
+    }
+    if (dirtyMoney < cost) {
+      setBuildingActionFeedback(root, "warning", action, `Chybí ${formatDistrictBuildingMoney(cost - dirtyMoney)} dirty cash.`, context.buildingName);
+      return null;
+    }
+    dirtyMoney -= cost;
+    const expiresAt = Date.now() + SMUGGLING_TUNNEL_CONFIG.silentChannelDurationMs;
+    updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
+      ...entry,
+      silentChannelExpiresAt: expiresAt,
+      actionCooldowns: {
+        ...(entry.actionCooldowns || {}),
+        silentChannel: Date.now() + SMUGGLING_TUNNEL_CONFIG.silentChannelCooldownMs,
+        silentChannelActiveUntil: expiresAt
+      }
+    }));
+    economyChanged = true;
+    summaryParts.push(`Tichý kanál aktivní na ${formatDistrictBuildingCooldown(SMUGGLING_TUNNEL_CONFIG.silentChannelDurationMs)}.`);
+    summaryParts.push(`Riziko zátahu po skončení ${SMUGGLING_TUNNEL_CONFIG.silentChannelRaidChancePct} %.`);
+  }
+
+  if (actionProfile.clinicStabilizationProtocol) {
+    const cost = Math.max(0, Math.floor(Number(actionProfile.cleanCost || 0)));
+    if (cleanMoney < cost) {
+      setBuildingActionFeedback(root, "warning", action, `Chybí ${formatDistrictBuildingMoney(cost - cleanMoney)} clean cash.`, context.buildingName);
+      return null;
+    }
+    const clinicRecoverableFresh = mechanics.clinicRecoveryPool
+      ? mechanics.clinicRecoveryPool.fresh.filter((entry) => CLINIC_RECOVERABLE_ITEMS.includes(normalizeClinicRecoverableItem(entry.itemType)))
+      : [];
+    const clinicRecyclingFresh = mechanics.clinicRecoveryPool
+      ? mechanics.clinicRecoveryPool.fresh.filter((entry) => !CLINIC_RECOVERABLE_ITEMS.includes(normalizeClinicRecoverableItem(entry.itemType)))
+      : [];
+    if (!mechanics.clinicRecoveryPool || clinicRecoverableFresh.length <= 0) {
+      setBuildingActionFeedback(root, "warning", action, "Recovery pool je prázdný. Klinika nemá co zachránit.", context.buildingName);
+      return null;
+    }
+
+    cleanMoney -= cost;
+    setStoredEconomyState({ cleanMoney, dirtyMoney });
+    applyTopbarEconomy(root);
+
+    const rate = Math.max(0, Number(mechanics.clinicRecoveryRatePct || 0)) / 100;
+    const warehouseCapacity = getWarehouseCapacityBreakdown();
+    const warehouseUsage = getWarehouseStorageUsage(warehouseCapacity);
+    const acceptedByType = {};
+    const lostByCapacity = {};
+    const expiredCount = mechanics.clinicRecoveryPool.expired.reduce((total, entry) => total + Math.max(0, Math.floor(Number(entry.amount || 0))), 0);
+    let recoveredMembers = 0;
+
+    const groupUsage = { ...warehouseUsage };
+    for (const entry of clinicRecoverableFresh) {
+      const itemId = normalizeClinicRecoverableItem(entry.itemType);
+      const entryRate = entry.source === "trap" || entry.source === "toxic_trap"
+        ? rate * 0.5
+        : rate;
+      const rawAmount = Math.max(0, Number(entry.amount || 0)) * entryRate;
+      let recoverAmount = Math.floor(rawAmount);
+      if (CLINIC_RARE_ITEMS.includes(itemId) && Math.random() < rawAmount - recoverAmount) {
+        recoverAmount += 1;
+      }
+      if (recoverAmount <= 0) continue;
+
+      if (itemId === "gang-members") {
+        recoveredMembers += recoverAmount;
+        acceptedByType[itemId] = Math.max(0, Math.floor(Number(acceptedByType[itemId] || 0)) + recoverAmount);
+        continue;
+      }
+
+      const cap = getClinicWarehouseCapacityForItem(itemId, warehouseCapacity);
+      const usageKey = itemId === "chemicals" || itemId === "biomass"
+        ? itemId
+        : itemId === "metal-parts"
+          ? "metalParts"
+          : itemId === "tech-core"
+            ? "techCore"
+            : itemId === "combat-module"
+              ? "combatModule"
+              : ["neon-dust", "pulse-shot", "velvet-smoke", "ghost-serum", "overdrive-x"].includes(itemId)
+                ? "drugsAndBoosts"
+                : ["baseball-bat", "pistol", "grenade", "smg", "bazooka", "vest", "barricades", "cameras", "defense-tower", "alarm"].includes(itemId)
+                  ? "weaponsAndDefense"
+                  : "genericResources";
+      const currentUsage = Math.max(0, Math.floor(Number(groupUsage[usageKey] || 0)));
+      const accepted = Number.isFinite(cap) ? Math.max(0, Math.min(recoverAmount, cap - currentUsage)) : recoverAmount;
+      const overflow = Math.max(0, recoverAmount - accepted);
+      if (accepted > 0) {
+        groupUsage[usageKey] = currentUsage + accepted;
+        acceptedByType[itemId] = Math.max(0, Math.floor(Number(acceptedByType[itemId] || 0)) + accepted);
+      }
+      if (overflow > 0) {
+        lostByCapacity[itemId] = Math.max(0, Math.floor(Number(lostByCapacity[itemId] || 0)) + overflow);
+      }
+    }
+
+    if (recoveredMembers > 0) {
+      setStoredGangState({ members: Math.max(0, Math.floor(Number(gangState.members || 0)) + recoveredMembers) });
+      renderGangMembersState(root);
+      membersChanged = true;
+    }
+
+    const supplies = getStoredFactorySupplies();
+    const nextSupplies = { ...supplies };
+    for (const [itemId, amount] of Object.entries(acceptedByType)) {
+      const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
+      if (safeAmount <= 0 || itemId === "gang-members") continue;
+      if (itemId === "metal-parts") {
+        nextSupplies.metalParts = Math.max(0, Math.floor(Number(nextSupplies.metalParts || 0)) + safeAmount);
+      } else if (itemId === "tech-core") {
+        nextSupplies.techCore = Math.max(0, Math.floor(Number(nextSupplies.techCore || 0)) + safeAmount);
+      } else if (itemId === "combat-module") {
+        nextSupplies.combatModule = Math.max(0, Math.floor(Number(nextSupplies.combatModule || 0)) + safeAmount);
+      } else if (["neon-dust", "pulse-shot", "velvet-smoke", "ghost-serum", "overdrive-x"].includes(itemId)) {
+        applyInventoryOutput({ inventory: "drugs", itemId, amount: safeAmount });
+      } else if (["baseball-bat", "pistol", "grenade", "smg", "bazooka", "vest", "barricades", "cameras", "defense-tower", "alarm"].includes(itemId)) {
+        applyInventoryOutput({ inventory: "weapons", itemId, amount: safeAmount });
+      } else {
+        applyInventoryOutput({ inventory: "materials", itemId, amount: safeAmount });
+      }
+    }
+    setStoredFactorySupplies(nextSupplies);
+    setStoredClinicRecoveryPool(clinicRecyclingFresh);
+
+    actionProfile = {
+      ...actionProfile,
+      heat: Math.max(0, Math.floor(Number(actionProfile.heat || 0)))
+    };
+    summaryParts.push(`Zachráněno členů ${recoveredMembers}`);
+    const returnedItems = Object.entries(acceptedByType)
+      .filter(([itemId]) => itemId !== "gang-members")
+      .map(([itemId, amount]) => `${getProductionResourceLabel(itemId)} x${amount}`);
+    if (returnedItems.length > 0) summaryParts.push(`Vráceno ${returnedItems.join(", ")}`);
+    const capacityLoss = Object.values(lostByCapacity).reduce((total, amount) => total + Math.max(0, Math.floor(Number(amount || 0))), 0);
+    if (capacityLoss > 0) summaryParts.push(`Propadlo kvůli skladu ${capacityLoss}`);
+    const keptForRecycling = clinicRecyclingFresh.reduce((total, entry) => total + Math.max(0, Math.floor(Number(entry.amount || 0))), 0);
+    if (keptForRecycling > 0) summaryParts.push(`Pro recyklaci ${keptForRecycling}`);
+    if (expiredCount > 0) summaryParts.push(`Expirovalo ${expiredCount}`);
+    summaryParts.push(`Cena ${formatDistrictBuildingMoney(cost)}`);
+  }
+
+  if (actionProfile.casinoQuietBackroom) {
+    if (dirtyMoney < Math.max(0, Number(actionProfile.minimumDirty || 0))) {
+      setBuildingActionFeedback(root, "warning", action, `Potřebuješ alespoň ${formatDistrictBuildingMoney(actionProfile.minimumDirty)} dirty cash.`, context.buildingName);
+      return null;
+    }
+    const laundered = Math.min(
+      Math.floor(dirtyMoney * Math.max(0, Number(actionProfile.dirtySharePct || 0)) / 100),
+      Math.max(0, Math.floor(Number(mechanics.casinoLaunderingCapacity || actionProfile.maxDirty || 0)))
+    );
+    const feePct = Number.isFinite(Number(mechanics.casinoLaunderingFeePct))
+      ? Number(mechanics.casinoLaunderingFeePct)
+      : Number(actionProfile.feePct || 0);
+    const heatGain = Math.floor(Number(actionProfile.heat || 0) * (1 - Math.max(0, Number(mechanics.casinoActionHeatReductionPct || 0)) / 100));
+    const fee = Math.floor(laundered * Math.max(0, feePct) / 100);
+    const cleanGain = Math.max(0, laundered - fee);
+    dirtyMoney = Math.max(0, dirtyMoney - laundered);
+    cleanMoney += cleanGain;
+    setStoredEconomyState({ cleanMoney, dirtyMoney });
+    applyTopbarEconomy(root);
+    summaryParts.push(`Vypráno ${formatDistrictBuildingMoney(laundered)} dirty`);
+    summaryParts.push(`Clean +${formatDistrictBuildingMoney(cleanGain)}`);
+    summaryParts.push(`Poplatek ${formatDistrictBuildingMoney(fee)}`);
+    actionProfile = {
+      ...actionProfile,
+      heat: heatGain,
+      feePct
+    };
+  }
+
+  if (actionProfile.casinoBribedInspector) {
+    const cost = Math.max(0, Math.floor(Number(actionProfile.cleanCost || 0)));
+    if (cleanMoney < cost) {
+      setBuildingActionFeedback(root, "warning", action, `Chybí ${formatDistrictBuildingMoney(cost - cleanMoney)} clean cash.`, context.buildingName);
+      return null;
+    }
+    cleanMoney -= cost;
+    setStoredEconomyState({ cleanMoney, dirtyMoney });
+    applyTopbarEconomy(root);
+    const failed = Math.random() < Math.max(0, Number(actionProfile.failureChancePct || 0)) / 100;
+    if (failed) {
+      actionProfile = {
+        ...actionProfile,
+        heat: Math.max(0, Number(actionProfile.heatFailure || 0)),
+        influence: 0,
+        durationMs: 8 * 60 * 1000,
+        auditRiskBoostPct: actionProfile.auditRiskFailurePct
+      };
+      summaryParts.push("Inspektor selhal");
+      summaryParts.push(`Cena propadla ${formatDistrictBuildingMoney(cost)}`);
+      summaryParts.push(`Heat +${Math.floor(Number(actionProfile.heat || 0))}`);
+      summaryParts.push(`Audit risk +${actionProfile.auditRiskBoostPct}%`);
+    } else {
+      actionProfile = {
+        ...actionProfile,
+        heat: Math.floor(Number(actionProfile.heatSuccess || 0)),
+        influence: Math.floor(Number(actionProfile.influenceSuccess || 0))
+      };
+      summaryParts.push("Inspektor uspěl");
+      summaryParts.push(`Cena ${formatDistrictBuildingMoney(cost)}`);
+      summaryParts.push(`Heat ${actionProfile.heat}`);
+      summaryParts.push(`Audit risk relativně -${actionProfile.auditRiskReductionPct}%`);
+    }
+  }
+
+  if (actionProfile.exchangeOfficeGoodRate) {
+    if (dirtyMoney < Math.max(0, Number(actionProfile.minimumDirty || 0))) {
+      setBuildingActionFeedback(root, "warning", action, `Potřebuješ alespoň ${formatDistrictBuildingMoney(actionProfile.minimumDirty)} dirty cash.`, context.buildingName);
+      return null;
+    }
+    const capacity = Math.max(0, Math.floor(Number(mechanics.exchangeLaunderingCapacity || actionProfile.maxDirty || 0)));
+    const laundered = Math.min(
+      Math.floor(dirtyMoney * Math.max(0, Number(actionProfile.dirtySharePct || 0)) / 100),
+      capacity
+    );
+    const fee = Math.floor(laundered * Math.max(0, Number(actionProfile.feePct || 0)) / 100);
+    const cleanGain = Math.max(0, laundered - fee);
+    dirtyMoney = Math.max(0, dirtyMoney - laundered);
+    cleanMoney += cleanGain;
+    setStoredEconomyState({ cleanMoney, dirtyMoney });
+    applyTopbarEconomy(root);
+    summaryParts.push(`Vypráno ${formatDistrictBuildingMoney(laundered)} dirty`);
+    summaryParts.push(`Clean +${formatDistrictBuildingMoney(cleanGain)}`);
+    summaryParts.push(`Poplatek ${formatDistrictBuildingMoney(fee)}`);
+    summaryParts.push(`Síť x${mechanics.exchangeNetwork?.incomeMultiplier?.toFixed(2) || "1.00"}`);
+  }
+
+  if (actionProfile.arcadeBackCashdesk) {
+    if (dirtyMoney < Math.max(0, Number(actionProfile.minimumDirty || 0))) {
+      setBuildingActionFeedback(root, "warning", action, `Potřebuješ alespoň ${formatDistrictBuildingMoney(actionProfile.minimumDirty)} dirty cash.`, context.buildingName);
+      return null;
+    }
+    const capacity = Math.max(0, Math.floor(Number(mechanics.arcadeLaunderingCapacity || actionProfile.maxDirty || 0)));
+    const laundered = Math.min(Math.floor(dirtyMoney * Math.max(0, Number(actionProfile.dirtySharePct || 0)) / 100), capacity);
+    const fee = Math.floor(laundered * Math.max(0, Number(actionProfile.feePct || 0)) / 100);
+    const cleanGain = Math.max(0, laundered - fee);
+    dirtyMoney = Math.max(0, dirtyMoney - laundered);
+    cleanMoney += cleanGain;
+    setStoredEconomyState({ cleanMoney, dirtyMoney });
+    applyTopbarEconomy(root);
+    summaryParts.push(`Vypráno ${formatDistrictBuildingMoney(laundered)} dirty`);
+    summaryParts.push(`Clean +${formatDistrictBuildingMoney(cleanGain)}`);
+    summaryParts.push(`Poplatek ${formatDistrictBuildingMoney(fee)}`);
+    summaryParts.push(`Síť x${mechanics.arcadeNetwork?.incomeMultiplier?.toFixed(2) || "1.00"}`);
+  }
 
   if (actionProfile.exchangeDirty) {
     const amount = Math.min(dirtyMoney, Math.max(0, Math.floor(Number(actionProfile.exchangeDirty || 0))));
@@ -8373,7 +10780,7 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
 
   if (economyChanged) {
     setStoredEconomyState({ cleanMoney, dirtyMoney });
-    applyTopbarEconomy(root, { instant: true });
+    applyTopbarEconomy(root);
   }
 
   if (actionProfile.members) {
@@ -8443,6 +10850,8 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
         cleanIncomeBoostPct: Math.max(0, Number(actionProfile.cleanIncomeBoostPct || 0)),
         dirtyIncomeBoostPct: Math.max(0, Number(actionProfile.dirtyIncomeBoostPct || 0)),
         influenceBoostPct: Math.max(0, Number(actionProfile.influenceBoostPct || 0)),
+        auditRiskBoostPct: Math.max(0, Number(actionProfile.auditRiskBoostPct || 0)),
+        auditRiskReductionPct: Math.max(0, Number(actionProfile.auditRiskReductionPct || 0)),
         influencePerDay: Math.max(0, Number(actionProfile.influencePerDay || 0)),
         heatMultiplier: Math.max(0, Number(actionProfile.heatMultiplier || 1)),
         heatPerDay: Math.max(0, Number(actionProfile.heatPerDay || 0))
@@ -8472,10 +10881,14 @@ function runDistrictBuildingDetailAction(root, shell, actionIndex) {
     return;
   }
 
+  runDistrictBuildingActionFromContext(root, context, actionIndex, { shell });
+}
+
+function runDistrictBuildingActionFromContext(root, context, actionIndex, options = {}) {
   const profile = getDistrictBuildingDetailProfile(context.buildingName);
   const action = profile.actions[actionIndex];
   if (!action) {
-    return;
+    return false;
   }
 
   const mechanics = resolveDistrictBuildingDetailMechanics(context.district, context.buildingName);
@@ -8483,10 +10896,29 @@ function runDistrictBuildingDetailAction(root, shell, actionIndex) {
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
   if (cooldownRemaining > 0) {
     setBuildingActionFeedback(root, "warning", action, `Akce má cooldown ${formatDistrictBuildingCooldown(cooldownRemaining)}.`, context.buildingName);
-    return;
+    return false;
   }
 
   const actionProfile = getDistrictBuildingSpecialActionProfile(context.buildingName, actionIndex);
+  if (actionProfile?.casinoVipNight) {
+    const activeVip = getDistrictBuildingDetailEntry(context.district, context.buildingName)
+      .activeEffects?.find((effect) => effect.label === action && Number(effect.expiresAt || 0) > Date.now());
+    if (activeVip) {
+      setBuildingActionFeedback(root, "warning", action, `VIP noc už běží. Zbývá ${formatDistrictBuildingCooldown(Number(activeVip.expiresAt || 0) - Date.now())}.`, context.buildingName);
+      return false;
+    }
+  }
+  if (actionProfile?.arcadeNightMachines) {
+    const activeArcadeBoost = getDistrictBuildingDetailEntry(context.district, context.buildingName)
+      .activeEffects?.find((effect) => effect.label === action && Number(effect.expiresAt || 0) > Date.now());
+    if (activeArcadeBoost) {
+      setBuildingActionFeedback(root, "warning", action, `Noční automaty už běží. Zbývá ${formatDistrictBuildingCooldown(Number(activeArcadeBoost.expiresAt || 0) - Date.now())}.`, context.buildingName);
+      return false;
+    }
+  }
+  const actionCooldownMs = actionProfile && Object.prototype.hasOwnProperty.call(actionProfile, "cooldownMs")
+    ? Math.max(0, Number(actionProfile.cooldownMs || 0))
+    : DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS;
   const actionResult = applyDistrictBuildingSpecialAction(
     root,
     context,
@@ -8496,7 +10928,7 @@ function runDistrictBuildingDetailAction(root, shell, actionIndex) {
   );
 
   if (!actionResult) {
-    return;
+    return false;
   }
 
   updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
@@ -8506,7 +10938,7 @@ function runDistrictBuildingDetailAction(root, shell, actionIndex) {
       : (entry.activeEffects || []),
     actionCooldowns: {
       ...(entry.actionCooldowns || {}),
-      [actionIndex]: Date.now() + DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS
+      [actionIndex]: Date.now() + actionCooldownMs
     }
   }));
 
@@ -8517,11 +10949,47 @@ function runDistrictBuildingDetailAction(root, shell, actionIndex) {
     actionResult.summary,
     context.district?.id ? `${context.buildingName} · District ${context.district.id}` : context.buildingName
   );
-  refreshDistrictBuildingDetailPopup(root, shell);
+  if (options.shell) {
+    refreshDistrictBuildingDetailPopup(root, options.shell);
+  }
+  return true;
 }
 
-function ensureDistrictBuildingDetailPopup(root) {
-  let shell = root.querySelector("[data-district-building-detail-popup]");
+function getDistrictBuildingDetailPopupKey(district, buildingName) {
+  const districtId = district?.id == null ? "unknown" : String(district.id);
+  const buildingKey = normalizeBuildingLookupKey(buildingName) || "building";
+  return `${districtId}:${buildingKey}`;
+}
+
+function syncBuildingDetailTopbarVisibility(root) {
+  const scope = root?.ownerDocument || document;
+  const body = scope.body;
+  if (!body) {
+    return;
+  }
+
+  const hasOpenBuildingDetail = Boolean(scope.querySelector([
+    "[data-district-building-detail-popup]:not([hidden])",
+    "[data-armory-popup]:not([hidden])",
+    "[data-pharmacy-popup]:not([hidden])",
+    "[data-druglab-popup]:not([hidden])",
+    "[data-factory-popup]:not([hidden])"
+  ].join(",")));
+  body.classList.toggle("building-detail-resources-hidden", hasOpenBuildingDetail);
+}
+
+function closeOtherDistrictBuildingDetailPopups(root, activeShell) {
+  root.querySelectorAll("[data-district-building-detail-popup]").forEach((candidate) => {
+    if (candidate instanceof HTMLElement && candidate !== activeShell) {
+      candidate.hidden = true;
+    }
+  });
+}
+
+function ensureDistrictBuildingDetailPopup(root, popupKey = "") {
+  const normalizedPopupKey = String(popupKey || "default").trim() || "default";
+  let shell = Array.from(root.querySelectorAll("[data-district-building-detail-popup]"))
+    .find((candidate) => candidate instanceof HTMLElement && candidate.dataset.districtBuildingDetailKey === normalizedPopupKey);
   if (shell instanceof HTMLElement) {
     return shell;
   }
@@ -8529,6 +10997,7 @@ function ensureDistrictBuildingDetailPopup(root) {
   shell = document.createElement("div");
   shell.className = "district-building-detail-shell";
   shell.dataset.districtBuildingDetailPopup = "true";
+  shell.dataset.districtBuildingDetailKey = normalizedPopupKey;
   shell.hidden = true;
 
   const backdrop = document.createElement("div");
@@ -8632,6 +11101,7 @@ function ensureDistrictBuildingDetailPopup(root) {
 
   const effectsSection = document.createElement("div");
   effectsSection.className = "building-info-card__section";
+  effectsSection.dataset.districtBuildingDetailEffectsSection = "true";
   const effectsTitle = document.createElement("h5");
   effectsTitle.textContent = "Efekty";
   const effects = document.createElement("p");
@@ -8650,6 +11120,7 @@ function ensureDistrictBuildingDetailPopup(root) {
 
   const actionSection = document.createElement("div");
   actionSection.className = "building-info-card__section";
+  actionSection.dataset.districtBuildingDetailActionSection = "true";
   const actionTitle = document.createElement("h5");
   actionTitle.textContent = "Speciální akce";
   const actions = document.createElement("div");
@@ -8657,8 +11128,8 @@ function ensureDistrictBuildingDetailPopup(root) {
   actions.dataset.districtBuildingDetailActions = "true";
   actionSection.append(actionTitle, actions);
 
-  statsPanel.append(name, meta, stats, mechanicsSection, effectsSection);
-  infoPanel.append(infoSection, actionSection);
+  statsPanel.append(name, meta, stats, mechanicsSection, effectsSection, actionSection);
+  infoPanel.append(infoSection);
   body.append(tabs, statsPanel, infoPanel);
   card.append(header, body);
   shell.append(backdrop, card);
@@ -8666,6 +11137,7 @@ function ensureDistrictBuildingDetailPopup(root) {
 
   const close = () => {
     shell.hidden = true;
+    syncBuildingDetailTopbarVisibility(root);
   };
 
   shell.querySelectorAll("[data-district-building-detail-close]").forEach((element) => {
@@ -8722,14 +11194,20 @@ function createDistrictBuildingStat(label, value) {
 }
 
 function openGenericDistrictBuildingDetail(root, district, buildingName, displayName = buildingName) {
-  const shell = ensureDistrictBuildingDetailPopup(root);
+  const popupKey = getDistrictBuildingDetailPopupKey(district, buildingName);
+  const shell = ensureDistrictBuildingDetailPopup(root, popupKey);
   const profile = getDistrictBuildingDetailProfile(buildingName);
   const mechanics = resolveDistrictBuildingDetailMechanics(district, buildingName);
+  const detailEntry = getDistrictBuildingDetailEntry(district, buildingName);
   const buildingProfile = resolveDistrictBuildingProfile(district);
   const displayLabel = String(displayName || buildingName || "Budova").trim() || "Budova";
 
   districtBuildingDetailContextByShell.set(shell, { district, buildingName, displayName: displayLabel });
+  shell.dataset.districtBuildingDetailKey = popupKey;
+  shell.dataset.districtBuildingDetailName = normalizeBuildingLookupKey(buildingName) || "building";
+  shell.dataset.districtBuildingDetailDistrictId = district?.id == null ? "unknown" : String(district.id);
   shell.dataset.buildingMechanicsType = mechanics.mechanicsType;
+  closeOtherDistrictBuildingDetailPopups(root, shell);
 
   const title = shell.querySelector("[data-district-building-detail-title]");
   const badge = shell.querySelector("[data-district-building-detail-badge]");
@@ -8743,6 +11221,8 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
   const effects = shell.querySelector("[data-district-building-detail-effects]");
   const info = shell.querySelector("[data-district-building-detail-info]");
   const actions = shell.querySelector("[data-district-building-detail-actions]");
+  const actionSection = shell.querySelector("[data-district-building-detail-action-section]");
+  const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
 
   if (title) {
     title.textContent = displayLabel;
@@ -8757,16 +11237,23 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
   }
 
   if (collectButton instanceof HTMLButtonElement) {
-    collectButton.disabled = !mechanics.canCollect;
-    collectButton.title = mechanics.canCollect
-      ? `Vybrat připravený výstup: ${mechanics.storedOutputLabel}`
-      : "Budova zatím nemá co vybrat.";
+    const showManualCollect = Boolean(mechanics.hasManualCollect);
+    collectButton.hidden = !showManualCollect;
+    collectButton.style.display = showManualCollect ? "" : "none";
+    collectButton.setAttribute("aria-hidden", showManualCollect ? "false" : "true");
+    collectButton.tabIndex = showManualCollect ? 0 : -1;
+    collectButton.disabled = showManualCollect && !mechanics.canCollect;
+    collectButton.title = showManualCollect
+      ? (mechanics.canCollect
+          ? `Vybrat připravený výstup: ${mechanics.storedOutputLabel}`
+          : "Populace zatím není připravená k vybrání.")
+      : "";
   }
 
   if (upgradeButton instanceof HTMLButtonElement) {
     upgradeButton.disabled = !mechanics.nextLevel;
     upgradeButton.title = mechanics.nextLevel
-      ? `Upgrade na L${mechanics.nextLevel} za ${formatDistrictBuildingMoney(mechanics.upgradeCost)}`
+      ? `Upgrade na L${mechanics.nextLevel} za ${mechanics.upgradeCostLabel}`
       : "Budova je na maximálním levelu.";
   }
 
@@ -8784,7 +11271,7 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
   }
 
   if (stats) {
-    stats.replaceChildren(
+    const statRows = [
       createDistrictBuildingStat("Čisté / hod", formatDistrictBuildingMoney(mechanics.cleanHourly)),
       createDistrictBuildingStat("Špinavé / hod", formatDistrictBuildingMoney(mechanics.dirtyHourly)),
       createDistrictBuildingStat("Heat / den", `+${mechanics.dailyHeat}`),
@@ -8792,25 +11279,248 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
       createDistrictBuildingStat("Zóna", DISTRICT_BUILDING_TYPE_META[buildingProfile?.typeKey]?.shortLabel || "District"),
       createDistrictBuildingStat("Tier", formatDistrictBuildingTierLabel(buildingProfile?.tier || "mid")),
       createDistrictBuildingStat("Připraveno", mechanics.storedOutputLabel),
-      createDistrictBuildingStat("Upgrade", mechanics.nextLevel ? `${formatDistrictBuildingMoney(mechanics.upgradeCost)} -> L${mechanics.nextLevel}` : "Max level")
-    );
+      createDistrictBuildingStat("Upgrade", mechanics.nextLevel ? `${mechanics.upgradeCostLabel} -> L${mechanics.nextLevel}` : "Max level")
+    ];
+      if (mechanics.mechanicsType === "casino") {
+        statRows.splice(6, 0,
+          createDistrictBuildingStat("Kapacita praní", formatDistrictBuildingMoney(mechanics.casinoLaunderingCapacity)),
+          createDistrictBuildingStat("Audit risk", getCasinoClientAuditRisk(detailEntry))
+        );
+      } else if (mechanics.mechanicsType === "apartment-block") {
+        statRows.splice(0, statRows.length,
+          createDistrictBuildingStat("Obyvatelé", `${mechanics.apartmentWholePopulation}/${mechanics.apartmentCapacity}`),
+          createDistrictBuildingStat("Populace / min", `+${mechanics.apartmentPopulationPerMinute.toFixed(2)}`),
+          createDistrictBuildingStat("Do naplnění", mechanics.apartmentIsFull ? "Plná kapacita" : formatDistrictBuildingCooldown(mechanics.apartmentTimeToFullMs)),
+          createDistrictBuildingStat("Bytové bloky", `${mechanics.ownedApartmentBlocks}/29`),
+          createDistrictBuildingStat("Produkce network", `x${mechanics.apartmentNetwork.populationProductionMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Kapacita network", `x${mechanics.apartmentNetwork.capacityMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Cash / dirty / heat", "0 / 0 / 0"),
+          createDistrictBuildingStat("Upgrade", "Bez upgradu")
+        );
+      } else if (mechanics.mechanicsType === "exchange") {
+        statRows.splice(6, 0,
+          createDistrictBuildingStat("Směnárny", `${mechanics.ownedExchangeOffices}/13`),
+          createDistrictBuildingStat("Network", `x${mechanics.exchangeNetwork.incomeMultiplier.toFixed(2)} / limit x${mechanics.exchangeNetwork.launderingLimitMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Kapacita praní", formatDistrictBuildingMoney(mechanics.exchangeLaunderingCapacity)),
+          createDistrictBuildingStat("Audit risk", mechanics.exchangeAuditRisk)
+        );
+      } else if (mechanics.mechanicsType === "arcade") {
+        statRows.splice(6, 0,
+          createDistrictBuildingStat("Herny", `${mechanics.ownedArcades}/20`),
+          createDistrictBuildingStat("Network", `x${mechanics.arcadeNetwork.incomeMultiplier.toFixed(2)} / limit x${mechanics.arcadeNetwork.launderingLimitMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Kapacita praní", formatDistrictBuildingMoney(mechanics.arcadeLaunderingCapacity)),
+          createDistrictBuildingStat("Audit risk", mechanics.arcadeAuditRisk)
+        );
+      } else if (mechanics.mechanicsType === "warehouse") {
+        statRows.splice(0, statRows.length,
+          createDistrictBuildingStat("Clean / min", `+${formatDistrictBuildingMoney(45 * mechanics.warehouseNetwork.incomeMultiplier)}`),
+          createDistrictBuildingStat("Heat / min", `+${(0.06 * mechanics.warehouseNetwork.heatMultiplier).toFixed(3)}`),
+          createDistrictBuildingStat("Sklady", `${mechanics.ownedWarehouses}/18`),
+          createDistrictBuildingStat("Income network", `x${mechanics.warehouseNetwork.incomeMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Storage network", `x${mechanics.warehouseNetwork.storageCapacityMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Kapacita bonus", `+${mechanics.warehouseCapacity.genericResources}`),
+          createDistrictBuildingStat("Dirty / vliv", "0 / 0"),
+          createDistrictBuildingStat("Akce", "Žádné")
+        );
+      } else if (mechanics.mechanicsType === "clinic") {
+        statRows.splice(0, statRows.length,
+          createDistrictBuildingStat("Clean / min", `+${formatDistrictBuildingMoney(55 * mechanics.clinicNetwork.incomeMultiplier)}`),
+          createDistrictBuildingStat("Heat / min", `+${(0.03 * mechanics.clinicNetwork.heatMultiplier).toFixed(3)}`),
+          createDistrictBuildingStat("Kliniky", `${mechanics.ownedClinics}/14`),
+          createDistrictBuildingStat("Income network", `x${mechanics.clinicNetwork.incomeMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Recovery rate", `${mechanics.clinicRecoveryRatePct} %`),
+          createDistrictBuildingStat("Recovery pool", `${mechanics.clinicRecoveryPool.totalFreshAmount} položek`),
+          createDistrictBuildingStat("Cooldown akce", "18m 00s"),
+          createDistrictBuildingStat("Cena akce", formatDistrictBuildingMoney(1200))
+        );
+      } else if (normalizeBuildingLookupKey(buildingName) === "obchodni centrum") {
+        statRows.splice(0, statRows.length,
+          createDistrictBuildingStat("Market sleva", `${mechanics.shoppingMallMarketDiscount.discountPct}%`),
+          createDistrictBuildingStat("Black market", `${mechanics.shoppingMallBlackMarketDiscount.discountPct}%`),
+          createDistrictBuildingStat("Market fee", `-${mechanics.shoppingMallMarketDiscount.feeReductionPct}%`),
+          createDistrictBuildingStat("Vlastněné mally", `${mechanics.ownedShoppingMalls}/${SHOPPING_MALL_NETWORK_CONFIG.countOnMap}`),
+          createDistrictBuildingStat("Clean network", `x${mechanics.shoppingMallNetwork.cleanIncomeMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Dirty network", `x${mechanics.shoppingMallNetwork.dirtyIncomeMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Vliv network", `x${mechanics.shoppingMallNetwork.influenceMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Heat network", `x${mechanics.shoppingMallNetwork.heatMultiplier.toFixed(2)}`)
+        );
+      } else if (normalizeBuildingLookupKey(buildingName) === "autosalon") {
+        statRows.splice(0, statRows.length,
+          createDistrictBuildingStat("Čisté / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
+          createDistrictBuildingStat("Špinavé / min", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly / 60)}`),
+          createDistrictBuildingStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
+          createDistrictBuildingStat("Autosalony", `${mechanics.ownedAutoSalons}/${AUTO_SALON_SUPPORT_CONFIG.countOnMap}`),
+          createDistrictBuildingStat("Čisté peníze", `x${mechanics.autoSalonNetwork.cleanIncomeMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Špinavé peníze", `x${mechanics.autoSalonNetwork.dirtyIncomeMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Mobilita", `+${mechanics.autoSalonSupport.mobilityBonusPct}%`),
+          createDistrictBuildingStat("Cooldown", `-${mechanics.autoSalonSupport.cooldownReductionPct}%`),
+          createDistrictBuildingStat("Únik", `+${mechanics.autoSalonSupport.escapeChanceBonusPct}%`),
+          createDistrictBuildingStat("Cooldown cap", `-${mechanics.autoSalonSupport.combinedGarageDealerMaxReductionPct}%`)
+        );
+      } else if (normalizeBuildingLookupKey(buildingName) === "fitness club") {
+        statRows.splice(0, statRows.length,
+          createDistrictBuildingStat("Clean / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
+          createDistrictBuildingStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
+          createDistrictBuildingStat("Fitness Cluby", `${mechanics.ownedFitnessClubs}/${FITNESS_CLUB_SUPPORT_CONFIG.countOnMap}`),
+          createDistrictBuildingStat("Income network", `x${mechanics.fitnessClubNetwork.incomeMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Heat network", `x${mechanics.fitnessClubNetwork.heatMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Útok", `+${mechanics.fitnessClubSupport.attackStrengthBonusPct}%`),
+          createDistrictBuildingStat("Obrana", `+${mechanics.fitnessClubSupport.defenseStrengthBonusPct}%`),
+          createDistrictBuildingStat("Cap s rekrutací", `+${mechanics.fitnessClubSupport.combinedRecruitmentFitnessAttackCapPct}% / +${mechanics.fitnessClubSupport.combinedRecruitmentFitnessDefenseCapPct}%`)
+        );
+      } else if (mechanics.mechanicsType === "smuggling-tunnel") {
+        statRows.splice(0, statRows.length,
+          createDistrictBuildingStat("Dirty / min", `+${formatDistrictBuildingMoney(mechanics.smugglingDirtyPerMinute)}`),
+          createDistrictBuildingStat("Passive heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
+          createDistrictBuildingStat("Dávka", `${formatDistrictBuildingMoney(mechanics.smugglingWholeDirtyCash)} / ${formatDistrictBuildingMoney(mechanics.smugglingBatchCapacity)}`),
+          createDistrictBuildingStat("Do naplnění", mechanics.smugglingIsFull ? "Dávka připravena" : formatDistrictBuildingCooldown(mechanics.smugglingTimeToFullMs)),
+          createDistrictBuildingStat("Tunely", `${mechanics.ownedSmugglingTunnels}/${SMUGGLING_TUNNEL_CONFIG.countOnMap}`),
+          createDistrictBuildingStat("Dirty network", `x${mechanics.smugglingTunnelNetwork.dirtyProductionMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Kapacita network", `x${mechanics.smugglingTunnelNetwork.batchCapacityMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Heat network", `x${mechanics.smugglingTunnelNetwork.passiveHeatMultiplier.toFixed(2)}`),
+          createDistrictBuildingStat("Heat při výběru", `+${mechanics.smugglingCollectHeat}`),
+          createDistrictBuildingStat("Tichý kanál", mechanics.smugglingSilentActive ? formatDistrictBuildingCooldown(mechanics.smugglingSilentRemainingMs) : "Neaktivní")
+        );
+    }
+    stats.replaceChildren(...statRows);
   }
 
   if (mechanicsList) {
-    mechanicsList.replaceChildren(
-      createDistrictBuildingMechanicRow("Výnos", `${formatDistrictBuildingMoney(mechanics.cleanHourly + mechanics.dirtyHourly)} / hod`),
-      createDistrictBuildingMechanicRow("Stored output", mechanics.storedOutputLabel),
-      createDistrictBuildingMechanicRow("Collect", mechanics.canCollect ? "Připraveno" : "Čeká na produkci"),
-      createDistrictBuildingMechanicRow("Cooldown akce", formatDistrictBuildingCooldown(DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS))
-    );
+    if (mechanics.mechanicsType === "apartment-block") {
+        mechanicsList.replaceChildren(
+          createDistrictBuildingMechanicRow("Lokální zásobník", `${mechanics.apartmentWholePopulation}/${mechanics.apartmentCapacity}`),
+          createDistrictBuildingMechanicRow("Produkce", `+${mechanics.apartmentPopulationPerMinute.toFixed(2)} obyv./min`),
+          createDistrictBuildingMechanicRow("Collect", mechanics.canCollect ? "Připraveno" : "Čeká na obyvatele"),
+          createDistrictBuildingMechanicRow("Síť", mechanics.ownedApartmentBlocks > 1 ? "Zvyšuje produkci a kapacitu" : "První bytový blok")
+        );
+      } else if (mechanics.mechanicsType === "warehouse") {
+        mechanicsList.replaceChildren(
+          createDistrictBuildingMechanicRow("Kapacita generic", `${mechanics.warehouseUsage.genericResources}/${mechanics.warehouseCapacity.genericResources}`),
+          createDistrictBuildingMechanicRow("Chemicals", `${mechanics.warehouseUsage.chemicals}/${mechanics.warehouseCapacity.chemicals}`),
+          createDistrictBuildingMechanicRow("Metal Parts", `${mechanics.warehouseUsage.metalParts}/${mechanics.warehouseCapacity.metalParts}`),
+          createDistrictBuildingMechanicRow("Drugs/boosty", `${mechanics.warehouseUsage.drugsAndBoosts}/${mechanics.warehouseCapacity.drugsAndBoosts}`)
+        );
+      } else if (mechanics.mechanicsType === "clinic") {
+        mechanicsList.replaceChildren(
+          createDistrictBuildingMechanicRow("Recovery pool", mechanics.clinicRecoveryPool.label),
+          createDistrictBuildingMechanicRow("Nejbližší expirace", mechanics.clinicRecoveryPool.nextExpiryMs ? formatDistrictBuildingCooldown(mechanics.clinicRecoveryPool.nextExpiryMs) : "Žádná"),
+          createDistrictBuildingMechanicRow("Síť klinik", `${mechanics.ownedClinics}/14`),
+          createDistrictBuildingMechanicRow("Akce", mechanics.clinicRecoveryPool.totalFreshAmount > 0 ? "Připraveno" : "Čeká na ztráty")
+        );
+      } else if (normalizeBuildingLookupKey(buildingName) === "obchodni centrum") {
+        mechanicsList.replaceChildren(
+          createDistrictBuildingMechanicRow("Market sleva", `${mechanics.shoppingMallMarketDiscount.discountPct}% regular · ${mechanics.shoppingMallBlackMarketDiscount.discountPct}% black market`),
+          createDistrictBuildingMechanicRow("Fee reduction", `-${mechanics.shoppingMallMarketDiscount.feeReductionPct}% market fees`),
+          createDistrictBuildingMechanicRow("Síť", `${mechanics.ownedShoppingMalls}/${SHOPPING_MALL_NETWORK_CONFIG.countOnMap} obchodních center`),
+          createDistrictBuildingMechanicRow("Income network", `clean x${mechanics.shoppingMallNetwork.cleanIncomeMultiplier.toFixed(2)} · dirty x${mechanics.shoppingMallNetwork.dirtyIncomeMultiplier.toFixed(2)}`),
+          createDistrictBuildingMechanicRow("Vliv / heat", `vliv x${mechanics.shoppingMallNetwork.influenceMultiplier.toFixed(2)} · heat x${mechanics.shoppingMallNetwork.heatMultiplier.toFixed(2)}`)
+        );
+      } else if (normalizeBuildingLookupKey(buildingName) === "autosalon") {
+        mechanicsList.replaceChildren(
+          createDistrictBuildingMechanicRow("Plný bonus", formatAutoSalonCategoryLabels(AUTO_SALON_SUPPORT_CONFIG.fullBonusCategories)),
+          createDistrictBuildingMechanicRow("Částečný bonus", formatAutoSalonCategoryLabels(AUTO_SALON_SUPPORT_CONFIG.halfBonusCategories.concat(AUTO_SALON_SUPPORT_CONFIG.smallBonusCategories))),
+          createDistrictBuildingMechanicRow("Mobilita", `+${mechanics.autoSalonSupport.mobilityBonusPct}% pro přesuny a návraty`),
+          createDistrictBuildingMechanicRow("Únik", `+${mechanics.autoSalonSupport.escapeChanceBonusPct}% lepší výsledek, ne jistota`),
+          createDistrictBuildingMechanicRow("Mimo bonus", formatAutoSalonCategoryLabels(AUTO_SALON_SUPPORT_CONFIG.excludedCategories))
+        );
+      } else if (normalizeBuildingLookupKey(buildingName) === "fitness club") {
+        mechanicsList.replaceChildren(
+          createDistrictBuildingMechanicRow("Útok 100 %", "gang a baseballová pálka"),
+          createDistrictBuildingMechanicRow("Útok část", "pistole 50 % · granát 25 % · samopal 40 % · bazuka 15 %"),
+          createDistrictBuildingMechanicRow("Obrana", "gang 100 % · vesta 60 % · barikády 35 %"),
+          createDistrictBuildingMechanicRow("Bez bonusu", "kamery · alarm · kulometné stanoviště")
+        );
+      } else if (mechanics.mechanicsType === "smuggling-tunnel") {
+        mechanicsList.replaceChildren(
+          createDistrictBuildingMechanicRow("Collect", mechanics.canCollect ? "Vybrat dávku připraveno" : `Minimum ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.minCollectDirty)}`),
+          createDistrictBuildingMechanicRow("Zásobník", `${formatDistrictBuildingMoney(mechanics.smugglingWholeDirtyCash)} / ${formatDistrictBuildingMoney(mechanics.smugglingBatchCapacity)}`),
+          createDistrictBuildingMechanicRow("Tichý kanál", mechanics.smugglingSilentActive ? `Aktivní ${formatDistrictBuildingCooldown(mechanics.smugglingSilentRemainingMs)}` : `Cena ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.silentChannelDirtyCost)} dirty`),
+          createDistrictBuildingMechanicRow("Riziko zátahu", `${SMUGGLING_TUNNEL_CONFIG.silentChannelRaidChancePct} % po skončení`),
+          createDistrictBuildingMechanicRow("Pravidla", "Pouze dirty cash a heat; žádné clean, vliv, populace, Intel, praní ani audit")
+        );
+      } else {
+        mechanicsList.replaceChildren(
+          createDistrictBuildingMechanicRow("Výnos", `${formatDistrictBuildingMoney(mechanics.cleanHourly + mechanics.dirtyHourly)} / hod`),
+          createDistrictBuildingMechanicRow("Income", "Automaticky do zdrojů"),
+          createDistrictBuildingMechanicRow("Collect", mechanics.canCollect ? "Připraveno" : "Není potřeba"),
+          createDistrictBuildingMechanicRow("Cooldown akce", formatDistrictBuildingCooldown(DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS))
+        );
+      }
   }
 
   if (effects) {
     effects.textContent = mechanics.effectsLabel || "Žádné aktivní mechaniky.";
   }
 
+  if (mechanics.mechanicsType === "apartment-block") {
+    updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
+      ...entry,
+      storedPopulation: mechanics.apartmentStoredPopulation,
+      populationLastUpdatedAt: Date.now(),
+      populationCapacity: mechanics.apartmentCapacity,
+      populationFullNotifiedAt: entry.populationFullNotifiedAt
+    }));
+  }
+
+  if (mechanics.mechanicsType === "smuggling-tunnel") {
+    updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
+      ...entry,
+      storedDirtyCash: mechanics.smugglingStoredDirtyCash,
+      smugglingLastUpdatedAt: Date.now(),
+      smugglingBatchCapacity: mechanics.smugglingBatchCapacity,
+      smugglingFullNotifiedAt: entry.smugglingFullNotifiedAt
+    }));
+  }
+
+  if (
+    mechanics.mechanicsType === "apartment-block"
+    && mechanics.apartmentIsFull
+    && Number(detailEntry.populationFullNotifiedAt || 0) <= 0
+  ) {
+    updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
+      ...entry,
+      storedPopulation: mechanics.apartmentStoredPopulation,
+      populationLastUpdatedAt: Date.now(),
+      populationCapacity: mechanics.apartmentCapacity,
+      populationFullNotifiedAt: Date.now()
+    }));
+    setBuildingActionFeedback(root, "warning", displayLabel, "Bytový blok je plný. Obyvatelé čekají na vybrání.", "Plná kapacita");
+  }
+
+  if (
+    mechanics.mechanicsType === "smuggling-tunnel"
+    && mechanics.smugglingIsFull
+    && Number(detailEntry.smugglingFullNotifiedAt || 0) <= 0
+  ) {
+    updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
+      ...entry,
+      storedDirtyCash: mechanics.smugglingStoredDirtyCash,
+      smugglingLastUpdatedAt: Date.now(),
+      smugglingBatchCapacity: mechanics.smugglingBatchCapacity,
+      smugglingFullNotifiedAt: Date.now()
+    }));
+    setBuildingActionFeedback(root, "warning", displayLabel, "Pašovací tunel je plný. Dirty cash čeká na vybrání.", "Dávka připravena");
+  }
+
   if (info) {
-    info.textContent = profile.info;
+    renderDistrictBuildingInfoSection(info, {
+      profile,
+      mechanics,
+      buildingName,
+      entry: detailEntry
+    });
+  }
+
+  const hasSpecialActions = profile.actions.length > 0;
+  if (actionSection instanceof HTMLElement) {
+    actionSection.hidden = !hasSpecialActions;
+    if (hasSpecialActions) {
+      if (!actionSection.isConnected && statsPanel instanceof HTMLElement) {
+        statsPanel.append(actionSection);
+      }
+    } else {
+      actionSection.remove();
+    }
   }
 
   if (actions) {
@@ -8822,18 +11532,57 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
       row.dataset.districtBuildingDetailActionIndex = String(actionIndex);
       const cooldownUntil = Number(mechanics.actionCooldowns?.[actionIndex] || 0);
       const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
-      row.disabled = cooldownRemaining > 0;
+      const actionProfile = getDistrictBuildingSpecialActionProfile(buildingName, actionIndex);
+      const economyState = getResolvedEconomyState();
+      const casinoDisabledReason = actionProfile?.casinoQuietBackroom && Number(economyState.dirtyMoney || 0) < Number(actionProfile.minimumDirty || 0)
+        ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.minimumDirty)} dirty cash.`
+        : actionProfile?.exchangeOfficeGoodRate && Number(economyState.dirtyMoney || 0) < Number(actionProfile.minimumDirty || 0)
+          ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.minimumDirty)} dirty cash.`
+        : actionProfile?.arcadeBackCashdesk && Number(economyState.dirtyMoney || 0) < Number(actionProfile.minimumDirty || 0)
+          ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.minimumDirty)} dirty cash.`
+        : actionProfile?.casinoBribedInspector && Number(economyState.cleanMoney || 0) < Number(actionProfile.cleanCost || 0)
+          ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.cleanCost)} clean cash.`
+        : actionProfile?.apartmentCollectPopulation && mechanics.apartmentWholePopulation <= 0
+          ? "Bytový blok zatím nemá obyvatele k vybrání."
+        : actionProfile?.smugglingCollectBatch && mechanics.smugglingWholeDirtyCash < SMUGGLING_TUNNEL_CONFIG.minCollectDirty
+          ? `V tunelu musí být alespoň ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.minCollectDirty)} dirty cash.`
+        : actionProfile?.smugglingSilentChannel && Number(economyState.dirtyMoney || 0) < SMUGGLING_TUNNEL_CONFIG.silentChannelDirtyCost
+          ? `Potřebuješ ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.silentChannelDirtyCost)} dirty cash.`
+        : actionProfile?.smugglingSilentChannel && mechanics.smugglingSilentActive
+          ? `Tichý kanál běží. Zbývá ${formatDistrictBuildingCooldown(mechanics.smugglingSilentRemainingMs)}.`
+        : actionProfile?.clinicStabilizationProtocol && Number(economyState.cleanMoney || 0) < Number(actionProfile.cleanCost || 0)
+          ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.cleanCost)} clean cash.`
+        : actionProfile?.clinicStabilizationProtocol && (!mechanics.clinicRecoveryPool || mechanics.clinicRecoveryPool.fresh.length <= 0)
+          ? "Recovery pool je prázdný."
+        : actionProfile?.recyclingExtractLosses
+          ? "Salvage pool je prázdný. Recyklační centrum nevrací členy gangu ani populaci."
+          : "";
+      const activeSameCasinoBoost = actionProfile?.casinoVipNight
+        && detailEntry.activeEffects?.some((effect) => effect.label === action && Number(effect.expiresAt || 0) > Date.now());
+      const activeSameArcadeBoost = actionProfile?.arcadeNightMachines
+        && detailEntry.activeEffects?.some((effect) => effect.label === action && Number(effect.expiresAt || 0) > Date.now());
+      row.disabled = cooldownRemaining > 0 || Boolean(activeSameCasinoBoost) || Boolean(activeSameArcadeBoost) || Boolean(casinoDisabledReason);
       const title = document.createElement("strong");
       title.className = "building-info-action-row__title";
       title.textContent = action;
       const description = document.createElement("span");
       description.className = "building-info-action-row__desc";
-      description.textContent = getDistrictBuildingActionDescription(action, mechanics, buildingName, actionIndex);
+      description.textContent = activeSameCasinoBoost
+        ? `Boost je aktivní. Zbývá ${formatDistrictBuildingCooldown(Number(detailEntry.activeEffects?.find((effect) => effect.label === action)?.expiresAt || 0) - Date.now())}.`
+        : activeSameArcadeBoost
+          ? `Boost je aktivní. Zbývá ${formatDistrictBuildingCooldown(Number(detailEntry.activeEffects?.find((effect) => effect.label === action)?.expiresAt || 0) - Date.now())}.`
+        : casinoDisabledReason || getDistrictBuildingActionDescription(action, mechanics, buildingName, actionIndex);
       const cooldown = document.createElement("span");
       cooldown.className = "building-info-action-row__cooldown";
       cooldown.textContent = cooldownRemaining > 0
         ? `Cooldown: ${formatDistrictBuildingCooldown(cooldownRemaining)}`
-        : `Cooldown: ${formatDistrictBuildingCooldown(DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS)}`;
+        : activeSameCasinoBoost
+          ? "Aktivní boost"
+        : activeSameArcadeBoost
+          ? "Aktivní boost"
+          : `Cooldown: ${formatDistrictBuildingCooldown(
+              actionProfile && Object.prototype.hasOwnProperty.call(actionProfile, "cooldownMs") ? actionProfile.cooldownMs : DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS
+            )}`;
       row.append(title, description);
       row.append(cooldown);
       actions.append(row);
@@ -8842,6 +11591,7 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
 
   syncDistrictBuildingDetailTabs(shell, shell.dataset.activeDistrictBuildingDetailTab || "stats");
   shell.hidden = false;
+  syncBuildingDetailTopbarVisibility(root);
 }
 
 function getDistrictAtmosphereMeta(district, interactionState = {}) {
@@ -10189,6 +12939,140 @@ function drawOccupyCountdownLabel(context, district, remainingSeconds) {
   context.restore();
 }
 
+function drawReducedMapActivityIcon(context, type, x, y, size, color) {
+  const iconType = String(type || "").trim().toLowerCase();
+  const markerColor = String(color || "#67e1ff").trim() || "#67e1ff";
+  const half = size / 2;
+
+  context.save();
+  context.strokeStyle = markerColor;
+  context.fillStyle = markerColor;
+  context.lineWidth = Math.max(1.6, size * 0.08);
+  context.lineCap = "round";
+  context.lineJoin = "round";
+
+  if (iconType === "spy") {
+    context.beginPath();
+    context.ellipse(x, y, half * 0.82, half * 0.42, 0, 0, Math.PI * 2);
+    context.stroke();
+    context.beginPath();
+    context.arc(x, y, half * 0.22, 0, Math.PI * 2);
+    context.fill();
+  } else if (iconType === "police") {
+    context.beginPath();
+    context.moveTo(x, y - half * 0.78);
+    context.lineTo(x + half * 0.62, y - half * 0.48);
+    context.lineTo(x + half * 0.5, y + half * 0.36);
+    context.quadraticCurveTo(x, y + half * 0.84, x - half * 0.5, y + half * 0.36);
+    context.lineTo(x - half * 0.62, y - half * 0.48);
+    context.closePath();
+    context.stroke();
+    context.beginPath();
+    context.moveTo(x, y - half * 0.34);
+    context.lineTo(x + half * 0.16, y - half * 0.02);
+    context.lineTo(x + half * 0.5, y + half * 0.02);
+    context.lineTo(x + half * 0.24, y + half * 0.24);
+    context.lineTo(x + half * 0.3, y + half * 0.58);
+    context.lineTo(x, y + half * 0.4);
+    context.lineTo(x - half * 0.3, y + half * 0.58);
+    context.lineTo(x - half * 0.24, y + half * 0.24);
+    context.lineTo(x - half * 0.5, y + half * 0.02);
+    context.lineTo(x - half * 0.16, y - half * 0.02);
+    context.closePath();
+    context.fill();
+  } else if (iconType === "attack") {
+    drawAttackFlameSprite(context, x, y + half * 0.06, size * 0.9, 0.95, 0.2, 1);
+  } else if (iconType === "occupy") {
+    context.beginPath();
+    context.moveTo(x - half * 0.42, y + half * 0.68);
+    context.lineTo(x - half * 0.42, y - half * 0.72);
+    context.stroke();
+    context.beginPath();
+    context.moveTo(x - half * 0.34, y - half * 0.68);
+    context.lineTo(x + half * 0.54, y - half * 0.48);
+    context.lineTo(x - half * 0.34, y - half * 0.14);
+    context.closePath();
+    context.fill();
+    context.beginPath();
+    context.moveTo(x - half * 0.68, y + half * 0.72);
+    context.lineTo(x + half * 0.24, y + half * 0.72);
+    context.stroke();
+  } else if (iconType === "robbery") {
+    context.beginPath();
+    context.moveTo(x - half * 0.54, y + half * 0.56);
+    context.quadraticCurveTo(x - half * 0.64, y - half * 0.12, x - half * 0.24, y - half * 0.3);
+    context.quadraticCurveTo(x, y - half * 0.44, x + half * 0.24, y - half * 0.3);
+    context.quadraticCurveTo(x + half * 0.64, y - half * 0.12, x + half * 0.54, y + half * 0.56);
+    context.closePath();
+    context.stroke();
+    context.beginPath();
+    context.moveTo(x - half * 0.2, y - half * 0.38);
+    context.quadraticCurveTo(x, y - half * 0.7, x + half * 0.2, y - half * 0.38);
+    context.stroke();
+    context.beginPath();
+    context.moveTo(x - half * 0.24, y + half * 0.02);
+    context.lineTo(x + half * 0.24, y + half * 0.02);
+    context.moveTo(x - half * 0.1, y + half * 0.24);
+    context.lineTo(x + half * 0.18, y + half * 0.24);
+    context.stroke();
+  } else if (iconType === "trap") {
+    context.beginPath();
+    context.moveTo(x, y - half * 0.72);
+    context.lineTo(x + half * 0.74, y + half * 0.58);
+    context.lineTo(x - half * 0.74, y + half * 0.58);
+    context.closePath();
+    context.stroke();
+    context.beginPath();
+    context.moveTo(x, y - half * 0.32);
+    context.lineTo(x, y + half * 0.16);
+    context.stroke();
+    context.beginPath();
+    context.arc(x, y + half * 0.38, half * 0.06, 0, Math.PI * 2);
+    context.fill();
+  } else {
+    context.beginPath();
+    context.arc(x, y, half * 0.55, 0, Math.PI * 2);
+    context.stroke();
+    context.beginPath();
+    context.arc(x, y, half * 0.18, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  context.restore();
+}
+
+function drawReducedMapActivityMarker(context, district, type, color) {
+  if (!district || !Array.isArray(district.polygon) || district.polygon.length < 3) {
+    return;
+  }
+
+  const markerType = String(type || "").trim().toLowerCase();
+  const markerColor = String(color || "#67e1ff").trim() || "#67e1ff";
+  const iconSize = 24;
+  const iconRadius = 15;
+
+  context.save();
+  drawDistrictPolygon(context, district.polygon);
+  context.strokeStyle = markerColor;
+  context.lineWidth = 1.8;
+  context.setLineDash([5, 4]);
+  context.stroke();
+  context.setLineDash([]);
+
+  context.fillStyle = "rgba(4, 10, 18, 0.82)";
+  context.strokeStyle = markerColor;
+  context.lineWidth = 1.2;
+  context.shadowBlur = 14;
+  context.shadowColor = markerColor;
+  context.beginPath();
+  context.arc(district.centerX, district.centerY, iconRadius, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+
+  drawReducedMapActivityIcon(context, markerType, district.centerX, district.centerY, iconSize, markerColor);
+  context.restore();
+}
+
 function getAllianceMapBadge() {
   const provider = window.empireStreetsAllianceState;
   if (provider && typeof provider.getMapBadge === "function") {
@@ -10380,6 +13264,7 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
   const borderColor = interactionState.borderColor ?? "white";
   const showDistrictBorders = interactionState.showDistrictBorders !== false;
   const showAllianceSymbols = interactionState.showAllianceSymbols !== false;
+  const reducedMapEffects = Boolean(interactionState.reducedMapEffects);
   const mapVisibilityMode = normalizeMapVisibilityMode(interactionState.mapVisibilityMode);
   const effectiveOwnedDistrictIds = getEffectiveOwnedDistrictIds(interactionState);
   const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
@@ -10416,23 +13301,27 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
     context.fillRect(0, 0, width, height);
   }
 
-  context.fillStyle = isNight ? "rgba(4, 8, 14, 0.28)" : "rgba(6, 14, 24, 0.14)";
+  context.fillStyle = reducedMapEffects
+    ? (isNight ? "rgba(4, 8, 14, 0.18)" : "rgba(6, 14, 24, 0.08)")
+    : (isNight ? "rgba(4, 8, 14, 0.28)" : "rgba(6, 14, 24, 0.14)");
   context.fillRect(0, 0, width, height);
 
-  context.save();
-  context.globalCompositeOperation = "screen";
-  const imageBloom = context.createRadialGradient(width * 0.52, height * 0.42, 30, width * 0.52, height * 0.42, width * 0.58);
-  imageBloom.addColorStop(0, isNight ? "rgba(103, 225, 255, 0.12)" : "rgba(255, 255, 255, 0.08)");
-  imageBloom.addColorStop(1, "rgba(103, 225, 255, 0)");
-  context.fillStyle = imageBloom;
-  context.fillRect(0, 0, width, height);
-  context.restore();
+  if (!reducedMapEffects) {
+    context.save();
+    context.globalCompositeOperation = "screen";
+    const imageBloom = context.createRadialGradient(width * 0.52, height * 0.42, 30, width * 0.52, height * 0.42, width * 0.58);
+    imageBloom.addColorStop(0, isNight ? "rgba(103, 225, 255, 0.12)" : "rgba(255, 255, 255, 0.08)");
+    imageBloom.addColorStop(1, "rgba(103, 225, 255, 0)");
+    context.fillStyle = imageBloom;
+    context.fillRect(0, 0, width, height);
+    context.restore();
 
-  const glowGradient = context.createRadialGradient(width * 0.2, height * 0.18, 20, width * 0.2, height * 0.18, width * 0.55);
-  glowGradient.addColorStop(0, isNight ? "rgba(103, 225, 255, 0.22)" : "rgba(103, 225, 255, 0.15)");
-  glowGradient.addColorStop(1, "rgba(103, 225, 255, 0)");
-  context.fillStyle = glowGradient;
-  context.fillRect(0, 0, width, height);
+    const glowGradient = context.createRadialGradient(width * 0.2, height * 0.18, 20, width * 0.2, height * 0.18, width * 0.55);
+    glowGradient.addColorStop(0, isNight ? "rgba(103, 225, 255, 0.22)" : "rgba(103, 225, 255, 0.15)");
+    glowGradient.addColorStop(1, "rgba(103, 225, 255, 0)");
+    context.fillStyle = glowGradient;
+    context.fillRect(0, 0, width, height);
+  }
 
   for (const district of geometry.districts) {
     const isHovered = district.id === hoveredDistrictId;
@@ -10452,11 +13341,11 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
 
     if (isSelected) {
       context.save();
-      context.shadowBlur = 26;
+      context.shadowBlur = reducedMapEffects ? 0 : 26;
       context.shadowColor = isNight ? "rgba(255, 154, 61, 0.74)" : "rgba(255, 154, 61, 0.6)";
       drawDistrictPolygon(context, district.polygon);
       context.strokeStyle = "rgba(255, 154, 61, 0.96)";
-      context.lineWidth = 4;
+      context.lineWidth = reducedMapEffects ? 2.4 : 4;
       context.stroke();
       context.restore();
     }
@@ -10481,22 +13370,22 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
 
     if (launchOwnerId && !isOwnedByCurrentPlayer) {
       context.save();
-      context.shadowBlur = isNight ? 24 : 18;
+      context.shadowBlur = reducedMapEffects ? 0 : isNight ? 24 : 18;
       context.shadowColor = launchOwnerColor;
       drawDistrictPolygon(context, district.polygon);
       context.strokeStyle = launchOwnerColor;
-      context.lineWidth = 3.8;
+      context.lineWidth = reducedMapEffects ? 2.2 : 3.8;
       context.stroke();
       context.restore();
     }
 
     if (!launchOwnerId && isOwnedByCurrentPlayer) {
       context.save();
-      context.shadowBlur = isNight ? 24 : 18;
+      context.shadowBlur = reducedMapEffects ? 0 : isNight ? 24 : 18;
       context.shadowColor = currentPlayerColor;
       drawDistrictPolygon(context, district.polygon);
       context.strokeStyle = currentPlayerColor;
-      context.lineWidth = 3.6;
+      context.lineWidth = reducedMapEffects ? 2.2 : 3.6;
       context.stroke();
       context.restore();
     }
@@ -10538,29 +13427,56 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
       drawBountyDistrictBadge(context, district, bountyMarker, isNight);
     }
 
-    if (activeSpyDistrictIds.has(district.id)) {
-      drawSpyDistrictAnimation(context, district, activeSpyMarkersByDistrictId.get(district.id), animationTick);
-    }
+    if (reducedMapEffects) {
+      if (activeSpyDistrictIds.has(district.id)) {
+        drawReducedMapActivityMarker(context, district, "spy", "#a6ebff");
+      }
 
-    if (activePoliceDistrictIds.has(district.id)) {
-      drawPoliceDistrictAnimation(context, district, activePoliceMarkersByDistrictId.get(district.id), animationTick);
-    }
+      if (activePoliceDistrictIds.has(district.id)) {
+        drawReducedMapActivityMarker(context, district, "police", "#60a5fa");
+      }
 
-    if (activeAttackDistrictIds.has(district.id)) {
-      drawAttackDistrictAnimation(context, district, activeAttackMarkersByDistrictId.get(district.id), animationTick);
-    }
+      if (activeAttackDistrictIds.has(district.id)) {
+        drawReducedMapActivityMarker(context, district, "attack", "#fb923c");
+      }
 
-    if (activeOccupyDistrictIds.has(district.id)) {
-      drawOccupyDistrictAnimation(context, district, animationTick / 1600);
-      drawOccupyCountdownLabel(context, district, activeOccupyCountdownByDistrictId.get(district.id) ?? 0);
-    }
+      if (activeOccupyDistrictIds.has(district.id)) {
+        drawReducedMapActivityMarker(context, district, "occupy", getLaunchPlayerColor(CURRENT_PLAYER_ID));
+        drawOccupyCountdownLabel(context, district, activeOccupyCountdownByDistrictId.get(district.id) ?? 0);
+      }
 
-    if (activeRobberyDistrictIds.has(district.id)) {
-      drawRobberyDistrictAnimation(context, district, activeRobberyMarkersByDistrictId.get(district.id), animationTick);
-    }
+      if (activeRobberyDistrictIds.has(district.id)) {
+        drawReducedMapActivityMarker(context, district, "robbery", "#94a3b8");
+      }
 
-    if (activeTrapDistrictIds.has(district.id)) {
-      drawTrapDistrictAnimation(context, district, animationTick / 2800);
+      if (activeTrapDistrictIds.has(district.id)) {
+        drawReducedMapActivityMarker(context, district, "trap", "#a3ff60");
+      }
+    } else {
+      if (activeSpyDistrictIds.has(district.id)) {
+        drawSpyDistrictAnimation(context, district, activeSpyMarkersByDistrictId.get(district.id), animationTick);
+      }
+
+      if (activePoliceDistrictIds.has(district.id)) {
+        drawPoliceDistrictAnimation(context, district, activePoliceMarkersByDistrictId.get(district.id), animationTick);
+      }
+
+      if (activeAttackDistrictIds.has(district.id)) {
+        drawAttackDistrictAnimation(context, district, activeAttackMarkersByDistrictId.get(district.id), animationTick);
+      }
+
+      if (activeOccupyDistrictIds.has(district.id)) {
+        drawOccupyDistrictAnimation(context, district, animationTick / 1600);
+        drawOccupyCountdownLabel(context, district, activeOccupyCountdownByDistrictId.get(district.id) ?? 0);
+      }
+
+      if (activeRobberyDistrictIds.has(district.id)) {
+        drawRobberyDistrictAnimation(context, district, activeRobberyMarkersByDistrictId.get(district.id), animationTick);
+      }
+
+      if (activeTrapDistrictIds.has(district.id)) {
+        drawTrapDistrictAnimation(context, district, animationTick / 2800);
+      }
     }
   }
 
@@ -10781,6 +13697,7 @@ function bindDistrictCanvas(root) {
     borderColor: phaseHost.dataset.borderColor || "white",
     showDistrictBorders: initialSettings.mapDistrictBorders,
     showAllianceSymbols: initialSettings.mapAllianceSymbols,
+    reducedMapEffects: initialSettings.reducedMapEffects,
     mapVisibilityMode: initialSettings.mapVisibilityMode,
     gamePhase: phaseHost.dataset.gamePhase || "launch",
     revealedDistrictIds: new Set(),
@@ -11221,7 +14138,7 @@ function bindDistrictCanvas(root) {
       return;
     }
 
-    if (!district) {
+    if (!district || !isDistrictGossipDevOnlyMode()) {
       tooltipGossip.replaceChildren();
       return;
     }
@@ -11268,7 +14185,7 @@ function bindDistrictCanvas(root) {
       return;
     }
 
-    if (!district) {
+    if (!district || !isDistrictGossipDevOnlyMode()) {
       popupGossip.hidden = true;
       popupGossipList.replaceChildren();
       return;
@@ -11727,7 +14644,8 @@ function bindDistrictCanvas(root) {
     popupCard.dataset.overviewEnabled = isDistrictPopupOverviewEnabled ? "true" : "false";
 
     if (popupToggle instanceof HTMLButtonElement) {
-      popupToggle.textContent = isDistrictPopupOverviewEnabled ? "Vypnout přehled" : "Zapnout přehled";
+      popupToggle.textContent = "Přehled";
+      popupToggle.setAttribute("aria-label", isDistrictPopupOverviewEnabled ? "Vypnout přehled districtu" : "Zapnout přehled districtu");
       popupToggle.setAttribute("aria-pressed", isDistrictPopupOverviewEnabled ? "true" : "false");
     }
   };
@@ -13148,7 +16066,7 @@ function bindDistrictCanvas(root) {
       || hasActiveRobberyMissions
       || hasActiveTrapDistricts;
 
-    if (!hasActiveMissions) {
+    if (interactionState.reducedMapEffects || !hasActiveMissions) {
       if (spyAnimationFrameId !== null) {
         window.cancelAnimationFrame(spyAnimationFrameId);
         spyAnimationFrameId = null;
@@ -13365,8 +16283,10 @@ function bindDistrictCanvas(root) {
     const settings = event.detail?.settings || getSettingsState();
     interactionState.showDistrictBorders = Boolean(settings.mapDistrictBorders);
     interactionState.showAllianceSymbols = Boolean(settings.mapAllianceSymbols);
+    interactionState.reducedMapEffects = Boolean(settings.reducedMapEffects);
     interactionState.mapVisibilityMode = normalizeMapVisibilityMode(settings.mapVisibilityMode);
     render();
+    ensureMissionAnimationLoop();
   });
   phaseHost.addEventListener("gamephasechange", render);
   window.addEventListener("empire:alliance-state-changed", render);
@@ -14287,6 +17207,7 @@ function bindSettingsModal(root) {
   const saveButton = scope.querySelector(SETTINGS_SAVE_SELECTOR);
   const mapBordersInput = scope.querySelector(SETTINGS_MAP_BORDERS_SELECTOR);
   const mapAllianceSymbolsInput = scope.querySelector(SETTINGS_MAP_ALLIANCE_SYMBOLS_SELECTOR);
+  const mapReducedEffectsInput = scope.querySelector(SETTINGS_MAP_REDUCED_EFFECTS_SELECTOR);
   const mapVisibilitySelect = scope.querySelector(SETTINGS_MAP_VISIBILITY_SELECTOR);
   const languageSelect = scope.querySelector(SETTINGS_LANGUAGE_SELECTOR);
 
@@ -14296,6 +17217,7 @@ function bindSettingsModal(root) {
     || !(saveButton instanceof HTMLButtonElement)
     || !(mapBordersInput instanceof HTMLInputElement)
     || !(mapAllianceSymbolsInput instanceof HTMLInputElement)
+    || !(mapReducedEffectsInput instanceof HTMLInputElement)
     || !(mapVisibilitySelect instanceof HTMLSelectElement)
     || !(languageSelect instanceof HTMLSelectElement)
   ) {
@@ -14312,6 +17234,7 @@ function bindSettingsModal(root) {
   const applySettingsToForm = (settings) => {
     mapBordersInput.checked = Boolean(settings.mapDistrictBorders);
     mapAllianceSymbolsInput.checked = Boolean(settings.mapAllianceSymbols);
+    mapReducedEffectsInput.checked = Boolean(settings.reducedMapEffects);
     mapVisibilitySelect.value = normalizeMapVisibilityMode(settings.mapVisibilityMode);
     languageSelect.value = settings.language === "en" ? "en" : "cs";
   };
@@ -14319,6 +17242,7 @@ function bindSettingsModal(root) {
   const captureFormSettings = () => ({
     mapDistrictBorders: Boolean(mapBordersInput.checked),
     mapAllianceSymbols: Boolean(mapAllianceSymbolsInput.checked),
+    reducedMapEffects: Boolean(mapReducedEffectsInput.checked),
     mapVisibilityMode: normalizeMapVisibilityMode(mapVisibilitySelect.value),
     language: languageSelect.value === "en" ? "en" : "cs"
   });
@@ -14356,6 +17280,7 @@ function bindSettingsModal(root) {
 
   mapBordersInput.addEventListener("change", previewSettings);
   mapAllianceSymbolsInput.addEventListener("change", previewSettings);
+  mapReducedEffectsInput.addEventListener("change", previewSettings);
   mapVisibilitySelect.addEventListener("change", previewSettings);
   languageSelect.addEventListener("change", previewSettings);
   backdrop?.addEventListener("click", () => closeModal({ revert: true }));
@@ -14851,6 +17776,8 @@ function bindPlayerProfilePopup(root) {
   const popup = scope.querySelector(PLAYER_POPUP_SELECTOR);
   const popupCard = scope.querySelector(PLAYER_POPUP_CARD_SELECTOR);
   const closeElements = Array.from(scope.querySelectorAll(PLAYER_POPUP_CLOSE_SELECTOR));
+  const popupAvatar = scope.querySelector(PLAYER_POPUP_AVATAR_SELECTOR);
+  const popupAvatarFallback = scope.querySelector(PLAYER_POPUP_AVATAR_FALLBACK_SELECTOR);
   const popupName = scope.querySelector("[data-player-popup-name]");
   const popupIdentity = scope.querySelector(PLAYER_POPUP_IDENTITY_SELECTOR);
   const popupFaction = scope.querySelector(PLAYER_POPUP_FACTION_SELECTOR);
@@ -14889,8 +17816,20 @@ function bindPlayerProfilePopup(root) {
 
     if (avatarSrc) {
       popupCard.style.setProperty("--player-popup-avatar-url", `url("${String(avatarSrc).replace(/"/g, '\\"')}")`);
+      if (popupAvatar instanceof HTMLImageElement) {
+        popupAvatar.src = avatarSrc;
+        popupAvatar.classList.remove("is-empty");
+      }
     } else {
       popupCard.style.setProperty("--player-popup-avatar-url", "none");
+      if (popupAvatar instanceof HTMLImageElement) {
+        popupAvatar.removeAttribute("src");
+        popupAvatar.classList.add("is-empty");
+      }
+    }
+
+    if (popupAvatarFallback) {
+      popupAvatarFallback.textContent = String(identityLabel || "?").slice(0, 1).toUpperCase() || "?";
     }
     popupCard.style.setProperty("--player-popup-border-color", accentColor);
 
@@ -15147,6 +18086,7 @@ function bindFactoryPopup(root) {
   const collectButton = root.querySelector(FACTORY_COLLECT_SELECTOR);
   const tabButtons = Array.from(popup.querySelectorAll(FACTORY_TAB_SELECTOR));
   const panels = Array.from(popup.querySelectorAll(FACTORY_PANEL_SELECTOR));
+  const infoPanel = popup.querySelector('[data-factory-panel="info"]');
 
   if (
     !openButton || !popup || closeElements.length === 0 || !slotList || !levelElement || !multiplierElement
@@ -15198,6 +18138,7 @@ function bindFactoryPopup(root) {
       supplyCombatElement.textContent = String(supplyState.combatModule || 0);
     }
     effectsLabelElement.textContent = `Síť Továren: ${syncResult.ownedFactoryCount} budova (+${syncResult.networkProductionBonusPct}% rychlost výroby)`;
+    renderFactoryBuildingInfo(infoPanel, factoryState, syncResult, collectableAmount);
     upgradeButton.disabled = factoryState.level >= FACTORY_CONFIG.maxLevel;
     upgradeButton.textContent = factoryState.level >= FACTORY_CONFIG.maxLevel ? "MAX" : "⇪";
     upgradeButton.title = factoryState.level >= FACTORY_CONFIG.maxLevel
@@ -15248,6 +18189,7 @@ function bindFactoryPopup(root) {
               secondaryLine: `${formatDurationLabel(FACTORY_CONFIG.combatModule.durationMs)} / kus`
             };
       const card = document.createElement("article");
+      card.dataset.resourceColor = normalizeProductionResourceColorKey(slot.resourceKey);
       card.className = slot.isProducing
         ? "factory-slot drug-production-slot factory-slot--active drug-production-slot--active"
         : "factory-slot drug-production-slot";
@@ -15364,10 +18306,12 @@ function bindFactoryPopup(root) {
     setActiveTab("stats");
     renderFactoryDashboard();
     popup.hidden = false;
+    syncBuildingDetailTopbarVisibility(root);
   };
 
   const closePopup = () => {
     popup.hidden = true;
+    syncBuildingDetailTopbarVisibility(root);
   };
 
   openButton.addEventListener("click", openPopup);
@@ -15575,7 +18519,7 @@ function bindCityStatusBar(root) {
 
     const worldState = getResolvedWorldState();
     const currentPhaseState = worldState.phaseState || getResolvedPhaseState();
-    const nextCityMinutes = ((currentPhaseState.cityMinutes ?? (22 * 60 + 14)) + 7) % (24 * 60);
+    const nextCityMinutes = ((currentPhaseState.cityMinutes ?? (22 * 60 + 14)) + CITY_CLOCK_MINUTES_PER_TICK) % (24 * 60);
 
     setStoredWorldState({
       ...worldState,
@@ -15636,6 +18580,102 @@ function bindCityStatusBar(root) {
   }, { once: true });
 }
 
+function bindOverflowTextTooltips(root) {
+  let tooltip = null;
+  let activeElement = null;
+
+  const getTooltip = () => {
+    if (tooltip) return tooltip;
+    tooltip = document.createElement("div");
+    tooltip.className = "overflow-text-tooltip";
+    tooltip.setAttribute("role", "tooltip");
+    tooltip.hidden = true;
+    document.body.appendChild(tooltip);
+    return tooltip;
+  };
+
+  const getTooltipText = (element) => {
+    const text = String(element?.textContent || "").replace(/\s+/g, " ").trim();
+    return text.length > 1 ? text : "";
+  };
+
+  const isElementTextClipped = (element) => {
+    if (!(element instanceof HTMLElement)) return false;
+    const text = getTooltipText(element);
+    if (!text) return false;
+    return element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1;
+  };
+
+  const positionTooltip = (element) => {
+    if (!tooltip || !element) return;
+    const rect = element.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const gap = 8;
+    const viewportPadding = 8;
+    const left = Math.min(
+      window.innerWidth - tooltipRect.width - viewportPadding,
+      Math.max(viewportPadding, rect.left + (rect.width - tooltipRect.width) / 2)
+    );
+    const preferTop = rect.top - tooltipRect.height - gap >= viewportPadding;
+    const top = preferTop
+      ? rect.top - tooltipRect.height - gap
+      : Math.min(window.innerHeight - tooltipRect.height - viewportPadding, rect.bottom + gap);
+    tooltip.style.left = `${Math.round(left)}px`;
+    tooltip.style.top = `${Math.round(Math.max(viewportPadding, top))}px`;
+  };
+
+  const hideTooltip = () => {
+    activeElement = null;
+    if (!tooltip) return;
+    tooltip.hidden = true;
+    tooltip.classList.remove("is-visible");
+  };
+
+  const showTooltip = (element) => {
+    if (!isElementTextClipped(element)) {
+      hideTooltip();
+      return;
+    }
+    activeElement = element;
+    const tooltipElement = getTooltip();
+    tooltipElement.textContent = getTooltipText(element);
+    tooltipElement.hidden = false;
+    positionTooltip(element);
+    tooltipElement.classList.add("is-visible");
+  };
+
+  root.addEventListener("pointerover", (event) => {
+    if (event.pointerType === "touch") return;
+    const target = event.target instanceof Element
+      ? event.target.closest(OVERFLOW_TEXT_TOOLTIP_SELECTOR)
+      : null;
+    if (!(target instanceof HTMLElement) || !root.contains(target)) return;
+    showTooltip(target);
+  });
+
+  root.addEventListener("pointerout", (event) => {
+    if (!activeElement) return;
+    const nextTarget = event.relatedTarget;
+    if (nextTarget instanceof Node && activeElement.contains(nextTarget)) return;
+    hideTooltip();
+  });
+
+  root.addEventListener("focusin", (event) => {
+    const target = event.target instanceof Element
+      ? event.target.closest(OVERFLOW_TEXT_TOOLTIP_SELECTOR)
+      : null;
+    if (target instanceof HTMLElement && root.contains(target)) {
+      showTooltip(target);
+    }
+  });
+
+  root.addEventListener("focusout", hideTooltip);
+  window.addEventListener("scroll", hideTooltip, { passive: true });
+  window.addEventListener("resize", () => {
+    if (activeElement) positionTooltip(activeElement);
+  });
+}
+
 function bootstrapPage() {
   const root = document.querySelector(PAGE_ROOT_SELECTOR);
   if (!root) {
@@ -15648,6 +18688,7 @@ function bootstrapPage() {
   const context = createPageContext(root);
   window.empireStreetsPage = context;
   markMounts(context);
+  bindTopbarMoneySkipControls(root);
   bindFactionRegistration(root);
   bindRegisteredPlayerState(root);
   bindDistrictCanvas(root);
@@ -15669,6 +18710,7 @@ function bootstrapPage() {
   bindFactoryPopup(root);
   bindArmoryPopup(root);
   bindCityStatusBar(root);
+  bindOverflowTextTooltips(root);
   bindSpyResourceToggle(root);
   bindAttackOrders(root);
   bindOccupyOrders(root);

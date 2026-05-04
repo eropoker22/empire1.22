@@ -5,6 +5,15 @@
 [build.environment]
   NODE_VERSION = "20"
 
+[functions]
+  directory = "netlify/functions"
+
+[[redirects]]
+  from = "/api/gameplay-slice/*"
+  to = "/.netlify/functions/gameplay-slice/:splat"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/"
   to = "/pages/login.html"

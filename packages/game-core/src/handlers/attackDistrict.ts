@@ -1,10 +1,6 @@
-import type {
-  AttackDistrictCommand,
-  AttackWeaponId
-} from "@empire/shared-types";
+import type { AttackDistrictCommand, AttackWeaponId } from "@empire/shared-types";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreGameState } from "../entities";
-import { createEvent, CORE_EVENT_TYPES } from "../events";
 import type { CoreEvent } from "../events";
 import type { CoreError } from "../errors";
 import {
@@ -16,16 +12,32 @@ import {
   calculateSmgComboBonus,
   calculateTotalAttackPower,
   calculateTowerAttackReductionPercent,
+  resolveAttackDurationTicks,
+  resolveCombat,
   resolveTrap
 } from "../rules";
+import {
+  createDefaultDistrictEffectModifiers,
+  resolveActiveDistrictEffectModifiers
+} from "../rules/economy/calculateIncome";
 import { validateAttack } from "../validation";
 import {
-  createBattleReportNotifications,
-  createPlayerCooldownState,
-  markDestroyedDistrictBuildings,
-  reassignCapturedDistrictBuildings
+  createBattleReportNotifications, createPlayerCooldownState, markDestroyedDistrictBuildings, reassignCapturedDistrictBuildings
 } from "./attackDistrictHelpers";
+import { createDistrictAttackEvents } from "./attackDistrictEvents";
 import { deterministicUnitInterval } from "../utils/math";
+import { increasePlayerPoliceHeat } from "./playerPoliceState";
+import { appendRecoveryPoolEntries, createRecoveryEntriesFromLosses } from "./clinicBuildingActions";
+import { appendSalvagePoolEntries, createSalvageEntriesFromLosses } from "./recyclingCenterBuildingActions";
+import {
+  applyCarDealerCooldownReductionTicks,
+  resolveCarDealerEscapeChanceBonusPct
+} from "./carDealerBuildingActions";
+import { resolveCombinedCameraAlarmBonuses, resolveRecruitmentCenterSupportBonuses } from "./recruitmentCenterBuildingActions";
+import {
+  resolveFitnessAttackWeaponModifiers,
+  resolveFitnessDefenseItemModifiers
+} from "./fitnessClubBuildingActions";
 
 /**
  * Responsibility: Orchestrates one authoritative district attack command.
@@ -49,6 +61,9 @@ export const handleAttackDistrict = (
 
   const attacker = state.playersById[command.playerId];
   const targetDistrict = state.districtsById[command.payload.districtId];
+  const sourceDistrict = command.payload.sourceDistrictId
+    ? state.districtsById[command.payload.sourceDistrictId]
+    : null;
   const activeTrap = Object.values(state.trapsById).find(
     (trap) => trap.districtId === targetDistrict.id && trap.status === "active"
   );
@@ -60,42 +75,121 @@ export const handleAttackDistrict = (
     : {
         losses: {} as Partial<Record<AttackWeaponId, number>>,
         nextLoadout: { ...attacker.attackLoadout },
-        blocked: false
+        blocked: false,
+        trapType: "toxic" as const,
+        report: ""
       };
   const effectiveLoadout = trapResolution.nextLoadout;
   const grenadeCount = effectiveLoadout.grenade ?? 0;
   const bazookaCount = effectiveLoadout.bazooka ?? 0;
   const towerCount = targetDistrict.defenseLoadout["defense-tower"] ?? 0;
-  const baseAttackPower = calculateTotalAttackPower(attacker.attackLoadout);
-  const trapAdjustedAttackPower = calculateTotalAttackPower(effectiveLoadout);
-  const defensePower = calculateBaseDefensePower(targetDistrict.defenseLoadout);
-  const effectiveAttackPower = calculateReducedAttackPowerFromTowers(trapAdjustedAttackPower, towerCount);
-  const effectiveDefensePower = calculateEffectiveDefenseAfterGrenades(defensePower, grenadeCount);
+  const attackerDistrictModifiers = sourceDistrict?.ownerPlayerId === attacker.id
+    ? resolveActiveDistrictEffectModifiers(state, sourceDistrict.id)
+    : createDefaultDistrictEffectModifiers();
+  const targetDistrictModifiers = resolveActiveDistrictEffectModifiers(state, targetDistrict.id);
+  const combinedCameraAlarmBonuses = resolveCombinedCameraAlarmBonuses({
+    state,
+    playerId: targetDistrict.ownerPlayerId,
+    recruitmentCenterConfig: context.config.balance.recruitmentCenter,
+    powerStationConfig: context.config.balance.powerStation,
+    tick: state.root.tick
+  });
+  const attackerRecruitmentBonuses = resolveRecruitmentCenterSupportBonuses({
+    state,
+    playerId: attacker.id,
+    config: context.config.balance.recruitmentCenter
+  });
+  const defenderRecruitmentBonuses = resolveRecruitmentCenterSupportBonuses({
+    state,
+    playerId: targetDistrict.ownerPlayerId,
+    config: context.config.balance.recruitmentCenter
+  });
+  const attackWeaponModifiers = resolveFitnessAttackWeaponModifiers({
+    state,
+    playerId: attacker.id,
+    fitnessConfig: context.config.balance.fitnessClub,
+    recruitmentCenterConfig: context.config.balance.recruitmentCenter
+  });
+  const defenseItemModifiers = resolveFitnessDefenseItemModifiers({
+    state,
+    playerId: targetDistrict.ownerPlayerId,
+    fitnessConfig: context.config.balance.fitnessClub,
+    recruitmentCenterConfig: context.config.balance.recruitmentCenter,
+    baseModifiers: {
+      cameras: 1 + combinedCameraAlarmBonuses.cameraStrengthBonusPct / 100,
+      alarm: 1 + combinedCameraAlarmBonuses.alarmStrengthBonusPct / 100
+    }
+  });
+  const baseAttackPower = calculateTotalAttackPower(attacker.attackLoadout, 1, attackWeaponModifiers);
+  const trapAdjustedAttackPower = calculateTotalAttackPower(effectiveLoadout, 1, attackWeaponModifiers);
+  const effectAdjustedAttackPower = trapAdjustedAttackPower * attackerDistrictModifiers.attackMultiplier;
+  const defensePower = calculateBaseDefensePower(targetDistrict.defenseLoadout, defenseItemModifiers);
+  const effectAdjustedDefensePower = defensePower * targetDistrictModifiers.defenseMultiplier;
+  const effectiveAttackPower = calculateReducedAttackPowerFromTowers(effectAdjustedAttackPower, towerCount);
+  const effectiveDefensePower = calculateEffectiveDefenseAfterGrenades(effectAdjustedDefensePower, grenadeCount);
   const catastropheRoll = deterministicUnitInterval(
     `${state.serverInstance.worldSeed}:attack:catastrophe:${command.playerId}:${targetDistrict.id}:${state.root.tick}:${command.id}`
   );
   const catastropheChance = Math.max(0, Math.min(1, Number(context.config.balance.conflict?.catastropheChance ?? 0)));
   const districtDestroyed = !trapResolution.blocked && catastropheRoll < catastropheChance;
-  const attackSucceeded = !districtDestroyed && !trapResolution.blocked && effectiveAttackPower > effectiveDefensePower;
-  const battleResult = trapResolution.blocked
-    ? "blocked"
-    : districtDestroyed
-      ? "catastrophe"
-      : attackSucceeded
-      ? "success"
-      : "failure";
+  const combatResolution = resolveCombat({
+    attackLoadoutAfterTrap: effectiveLoadout,
+    defenseLoadout: targetDistrict.defenseLoadout,
+    trapBlocked: trapResolution.blocked,
+    districtDestroyed,
+    effectiveAttackPower,
+    effectiveDefensePower,
+    trapLosses: trapResolution.losses,
+    heatGain: context.config.balance.conflict?.attackHeatGain ?? 6
+  });
+  const attackSucceeded = combatResolution.districtCaptured;
+  const battleResult = combatResolution.legacyResult;
+  const escapeChanceBonusPct = resolveCarDealerEscapeChanceBonusPct({
+    state,
+    playerId: attacker.id,
+    config: context.config.balance.carDealer
+  });
+  const escapeRoll = deterministicUnitInterval(
+    `${state.serverInstance.worldSeed}:attack:escape:${command.playerId}:${targetDistrict.id}:${state.root.tick}:${command.id}`
+  );
+  const escapeMitigation = resolveAttackEscapeMitigation({
+    losses: combatResolution.attackerLosses,
+    nextLoadout: combatResolution.nextAttackerLoadout,
+    heatGained: combatResolution.heatGained,
+    enabled: !attackSucceeded,
+    bonusPct: escapeChanceBonusPct,
+    roll: escapeRoll
+  });
   const currentCooldownState = state.cooldownStatesById[attacker.cooldownStateId] ?? createPlayerCooldownState(attacker.id, attacker.cooldownStateId);
   const attackCooldownKey = `attack:${targetDistrict.id}`;
+  const attackDurationTicks = applyCarDealerCooldownReductionTicks({
+    baseTicks: resolveAttackDurationTicks(context),
+    state,
+    playerId: attacker.id,
+    config: context.config.balance.carDealer,
+    garageConfig: context.config.balance.garage,
+    category: "attackPreparation"
+  });
+  const nextPoliceState = increasePlayerPoliceHeat(state, attacker, escapeMitigation.heatGained, state.root.tick);
   const notificationEntries = createBattleReportNotifications({
     command,
     attackerPlayerId: attacker.id,
     defenderPlayerId: targetDistrict.ownerPlayerId,
     targetDistrict,
     result: battleResult,
+    outcomeTier: combatResolution.outcomeTier,
     districtCaptured: attackSucceeded,
     districtDestroyed,
+    districtDamaged: combatResolution.districtDamaged,
     trapTriggered: Boolean(activeTrap),
-    attackerLosses: trapResolution.losses,
+    trapType: activeTrap ? trapResolution.trapType : null,
+    trapReport: activeTrap ? trapResolution.report : null,
+    attackerLosses: escapeMitigation.losses,
+    defenderLosses: combatResolution.defenderLosses,
+    heatGained: escapeMitigation.heatGained,
+    reportForAttacker: combatResolution.reportForAttacker,
+    reportForDefender: combatResolution.reportForDefender,
+    attackDurationTicks,
     tick: state.root.tick
   });
   const attackerReport = notificationEntries[0];
@@ -113,7 +207,7 @@ export const handleAttackDistrict = (
       ...state.playersById,
       [attacker.id]: {
         ...attacker,
-        attackLoadout: effectiveLoadout,
+        attackLoadout: escapeMitigation.nextLoadout,
         lastActionAt: command.issuedAt,
         version: attacker.version + 1
       }
@@ -129,13 +223,13 @@ export const handleAttackDistrict = (
             : targetDistrict.ownerPlayerId,
         controllerAllianceId: districtDestroyed
           ? null
-          : attackSucceeded
-            ? attacker.allianceId
-            : targetDistrict.controllerAllianceId,
-        heat: districtDestroyed ? 0 : targetDistrict.heat,
+            : attackSucceeded
+              ? attacker.allianceId
+              : targetDistrict.controllerAllianceId,
+        heat: districtDestroyed ? 0 : Math.max(0, Number(targetDistrict.heat || 0) + escapeMitigation.heatGained),
         influence: districtDestroyed ? 0 : targetDistrict.influence,
         buildingIds: districtDestroyed ? [] : targetDistrict.buildingIds,
-        defenseLoadout: districtDestroyed ? {} : targetDistrict.defenseLoadout,
+        defenseLoadout: districtDestroyed ? {} : combatResolution.nextDefenseLoadout,
         status: districtDestroyed
           ? "destroyed"
           : attackSucceeded
@@ -153,11 +247,14 @@ export const handleAttackDistrict = (
         ...currentCooldownState,
         cooldowns: {
           ...currentCooldownState.cooldowns,
-          [attackCooldownKey]:
-            state.root.tick + (context.config.balance.conflict?.attackCooldownTicks ?? 2)
+          [attackCooldownKey]: state.root.tick + attackDurationTicks
         },
         version: currentCooldownState.version + (state.cooldownStatesById[currentCooldownState.id] ? 1 : 0)
       }
+    },
+    policeStatesById: {
+      ...state.policeStatesById,
+      [nextPoliceState.id]: nextPoliceState
     },
     trapsById: activeTrap
       ? {
@@ -184,65 +281,138 @@ export const handleAttackDistrict = (
     }
   };
 
-  const events: CoreEvent[] = [
-    createEvent(CORE_EVENT_TYPES.districtAttacked, {
-      attackerPlayerId: command.playerId,
-      districtId: targetDistrict.id,
+  const recoveryState = appendSalvagePoolEntries(
+    appendSalvagePoolEntries(
+      appendRecoveryPoolEntries(
+        appendRecoveryPoolEntries(
+          nextState,
+          attacker.id,
+          createRecoveryEntriesFromLosses(
+            escapeMitigation.losses,
+            activeTrap && trapResolution.trapType === "toxic" ? "toxic_trap" : "attack"
+          ),
+          `${command.id}:attacker`
+        ),
+        targetDistrict.ownerPlayerId,
+        createRecoveryEntriesFromLosses(combatResolution.defenderLosses, "defense"),
+        `${command.id}:defender`
+      ),
+      attacker.id,
+      createSalvageEntriesFromLosses(
+        escapeMitigation.losses,
+        activeTrap && trapResolution.trapType === "toxic" ? "toxic_trap" : "attack",
+        context.config.balance.recyclingCenter
+      ),
+      `${command.id}:attacker`
+    ),
+    targetDistrict.ownerPlayerId,
+    createSalvageEntriesFromLosses(combatResolution.defenderLosses, "defense", context.config.balance.recyclingCenter),
+    `${command.id}:defender`
+  );
+  const events = createDistrictAttackEvents({
+    command,
+    attackerReport,
+    defenderReport,
+    targetDistrictId: targetDistrict.id,
+    previousOwnerPlayerId: targetDistrict.ownerPlayerId,
+    activeTrapId: activeTrap?.id ?? null,
+    trapType: activeTrap ? trapResolution.trapType : null,
+    trapLosses: trapResolution.losses,
+    trapReport: activeTrap ? trapResolution.report : null,
+    attackSucceeded,
+    attackPayload: {
       attackPower: baseAttackPower,
       attackPowerAfterTrap: trapAdjustedAttackPower,
+      attackMultiplier: attackerDistrictModifiers.attackMultiplier,
+      attackPowerAfterEffects: effectAdjustedAttackPower,
       attackPowerAfterTowers: effectiveAttackPower,
       defensePower,
+      defenseMultiplier: targetDistrictModifiers.defenseMultiplier,
+      cameraStrengthBonusPct: combinedCameraAlarmBonuses.cameraStrengthBonusPct,
+      alarmStrengthBonusPct: combinedCameraAlarmBonuses.alarmStrengthBonusPct,
+      recruitmentAttackWeaponStrengthBonusPct: attackerRecruitmentBonuses.attackWeaponStrengthBonusPct,
+      recruitmentDefenseItemStrengthBonusPct: defenderRecruitmentBonuses.defenseItemStrengthBonusPct,
+      defensePowerAfterEffects: effectAdjustedDefensePower,
       defensePowerAfterGrenades: effectiveDefensePower,
       smgComboBonus: calculateSmgComboBonus(effectiveLoadout),
       grenadeDefenseIgnorePercent: calculateGrenadeDefenseIgnorePercent(grenadeCount),
       towerAttackReductionPercent: calculateTowerAttackReductionPercent(towerCount),
       bazookaTotalDestructionBonusPercent: calculateBazookaTotalDestructionBonusPercent(bazookaCount),
       attackSucceeded,
+      outcomeTier: combatResolution.outcomeTier,
       districtDestroyed,
+      districtCaptured: combatResolution.districtCaptured,
+      districtDamaged: combatResolution.districtDamaged,
       catastropheRoll,
       trapTriggered: Boolean(activeTrap),
-      attackerLosses: trapResolution.losses
-    }),
-    createEvent(CORE_EVENT_TYPES.notificationCreated, {
-      notificationId: attackerReport.id,
-      recipientId: attackerReport.recipientId,
-      category: attackerReport.category
-    })
-  ];
+      trapType: activeTrap ? trapResolution.trapType : null,
+      attackerLosses: escapeMitigation.losses,
+      defenderLosses: combatResolution.defenderLosses,
+      heatGained: escapeMitigation.heatGained,
+      carDealerEscapeChanceBonusPct: escapeChanceBonusPct,
+      carDealerEscapeMitigated: escapeMitigation.mitigated,
+      attackDurationTicks,
+      attackDurationMs: attackDurationTicks * context.config.tickRateMs,
+      reportForAttacker: combatResolution.reportForAttacker,
+      reportForDefender: combatResolution.reportForDefender
+    }
+  });
 
-  if (defenderReport) {
-    events.push(
-      createEvent(CORE_EVENT_TYPES.notificationCreated, {
-        notificationId: defenderReport.id,
-        recipientId: defenderReport.recipientId,
-        category: defenderReport.category
-      })
-    );
+  return {
+    nextState: recoveryState,
+    events,
+    errors: []
+  };
+};
+
+const resolveAttackEscapeMitigation = (input: {
+  losses: Partial<Record<AttackWeaponId, number>>;
+  nextLoadout: Partial<Record<AttackWeaponId, number>>;
+  heatGained: number;
+  enabled: boolean;
+  bonusPct: number;
+  roll: number;
+}): {
+  losses: Partial<Record<AttackWeaponId, number>>;
+  nextLoadout: Partial<Record<AttackWeaponId, number>>;
+  heatGained: number;
+  mitigated: boolean;
+} => {
+  const chance = Math.max(0, Math.min(0.95, Number(input.bonusPct || 0) / 100));
+  if (!input.enabled || chance <= 0 || input.roll > chance) {
+    return {
+      losses: input.losses,
+      nextLoadout: input.nextLoadout,
+      heatGained: input.heatGained,
+      mitigated: false
+    };
   }
 
-  if (activeTrap) {
-    events.push(
-      createEvent(CORE_EVENT_TYPES.trapTriggered, {
-        trapId: activeTrap.id,
-        districtId: targetDistrict.id,
-        attackerPlayerId: attacker.id
-      })
-    );
+  const reducedLosses = { ...input.losses };
+  const restoredWeaponId = (Object.keys(reducedLosses) as AttackWeaponId[]).find((weaponId) =>
+    Math.max(0, Number(reducedLosses[weaponId] ?? 0)) > 0
+  );
+  if (!restoredWeaponId) {
+    return {
+      losses: input.losses,
+      nextLoadout: input.nextLoadout,
+      heatGained: Math.max(0, input.heatGained - 1),
+      mitigated: true
+    };
   }
 
-  if (attackSucceeded) {
-    events.push(
-      createEvent(CORE_EVENT_TYPES.districtCaptured, {
-        attackerPlayerId: command.playerId,
-        districtId: targetDistrict.id,
-        previousOwnerPlayerId: targetDistrict.ownerPlayerId
-      })
-    );
+  reducedLosses[restoredWeaponId] = Math.max(0, Number(reducedLosses[restoredWeaponId] ?? 0) - 1);
+  if (reducedLosses[restoredWeaponId] === 0) {
+    delete reducedLosses[restoredWeaponId];
   }
 
   return {
-    nextState,
-    events,
-    errors: []
+    losses: reducedLosses,
+    nextLoadout: {
+      ...input.nextLoadout,
+      [restoredWeaponId]: Math.max(0, Number(input.nextLoadout[restoredWeaponId] ?? 0)) + 1
+    },
+    heatGained: Math.max(0, input.heatGained - 1),
+    mitigated: true
   };
 };

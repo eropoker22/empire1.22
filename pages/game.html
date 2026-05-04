@@ -14,6 +14,7 @@
           <span class="game-logo-slot" aria-hidden="true"></span>
           <div class="game-brand-copy">
             <span class="game-brand-name">EmpireStreets</span>
+            <!-- Deprecated dev/demo trigger. Production keeps it hidden; the debug bundle is not eagerly loaded. -->
             <button type="button" class="game-brand-name game-brand-name--slice-trigger" data-slice-panel-open hidden>EmpireStreets debug</button>
           </div>
           <button type="button" class="button player-profile-trigger nav-btn nav-btn--profile" data-player-profile-open>Profil hráče</button>
@@ -896,6 +897,10 @@
         <div class="player-popup-backdrop" data-player-popup-close></div>
         <div class="player-popup-card" data-player-popup-card role="dialog" aria-modal="true" aria-label="Profil hráče">
           <div class="player-popup-header">
+            <div class="player-popup-avatar-wrap" aria-hidden="true">
+              <img class="player-popup-avatar is-empty" data-player-popup-avatar alt="" loading="lazy">
+              <span class="player-popup-avatar-fallback" data-player-popup-avatar-fallback>?</span>
+            </div>
             <div class="player-popup-header__copy">
               <span class="player-popup-eyebrow">Profil hráče</span>
               <h3 class="player-popup-title" data-player-popup-name>Host</h3>
@@ -1257,12 +1262,12 @@
                   <span class="lab-info-block__hint">Core outputs</span>
                 </div>
                 <div class="lab-info-block__grid">
-                  <div class="lab-info-chip lab-info-chip--product">
+                  <div class="lab-info-chip lab-info-chip--product" data-resource-color="chemicals">
                     <strong class="lab-info-chip__title">Chemicals</strong>
                     <span class="lab-info-chip__meta">Base reagent</span>
                     <span class="lab-info-chip__effect">Základní chemická surovina pro mixy a další craft.</span>
                   </div>
-                  <div class="lab-info-chip lab-info-chip--product">
+                  <div class="lab-info-chip lab-info-chip--product" data-resource-color="biomass">
                     <strong class="lab-info-chip__title">Biomass</strong>
                     <span class="lab-info-chip__meta">Organic input</span>
                     <span class="lab-info-chip__effect">Organický materiál pro biologické a syntetické recepty.</span>
@@ -1275,7 +1280,7 @@
                   <span class="lab-info-block__hint">Advanced input</span>
                 </div>
                 <div class="lab-info-block__grid">
-                  <div class="lab-info-chip lab-info-chip--boost">
+                  <div class="lab-info-chip lab-info-chip--boost" data-resource-color="stim-pack">
                     <strong class="lab-info-chip__title">Stim Pack</strong>
                     <span class="lab-info-chip__meta">Tier II</span>
                     <span class="lab-info-chip__effect">Pokročilá směs pro vyšší tier recepty a finální kombinace.</span>
@@ -1373,12 +1378,15 @@
                   <span class="lab-info-block__hint">Street ready</span>
                 </div>
                 <div class="lab-info-block__grid">
-                  <div class="lab-info-chip lab-info-chip--product">
-                    <strong class="lab-info-chip__title">Neon Dust / Pulse Shot</strong>
+                  <div class="lab-info-chip lab-info-chip--product" data-resource-color="neon-dust">
+                    <strong class="lab-info-chip__title">
+                      <span data-resource-color="neon-dust">Neon Dust</span> /
+                      <span data-resource-color="pulse-shot">Pulse Shot</span>
+                    </strong>
                     <span class="lab-info-chip__meta">Fast turnover</span>
                     <span class="lab-info-chip__effect">Rychlé balíky pro stabilní pouliční distribuci a obrat.</span>
                   </div>
-                  <div class="lab-info-chip lab-info-chip--product">
+                  <div class="lab-info-chip lab-info-chip--product" data-resource-color="velvet-smoke">
                     <strong class="lab-info-chip__title">Velvet Smoke</strong>
                     <span class="lab-info-chip__meta">Mid tier</span>
                     <span class="lab-info-chip__effect">Vyvážený poměr vstupů a výnosu pro běžný chain.</span>
@@ -1391,12 +1399,12 @@
                   <span class="lab-info-block__hint">Premium mix</span>
                 </div>
                 <div class="lab-info-block__grid">
-                  <div class="lab-info-chip lab-info-chip--boost">
+                  <div class="lab-info-chip lab-info-chip--boost" data-resource-color="ghost-serum">
                     <strong class="lab-info-chip__title">Ghost Serum</strong>
                     <span class="lab-info-chip__meta">Sensitive recipe</span>
                     <span class="lab-info-chip__effect">Vyšší tier balík s náročnějšími vstupy a vyšší hodnotou.</span>
                   </div>
-                  <div class="lab-info-chip lab-info-chip--boost">
+                  <div class="lab-info-chip lab-info-chip--boost" data-resource-color="overdrive-x">
                     <strong class="lab-info-chip__title">Overdrive X</strong>
                     <span class="lab-info-chip__meta">Max yield</span>
                     <span class="lab-info-chip__effect">Nejdražší mix pro pozdní fázi chainu a vyšší profit.</span>
@@ -1458,15 +1466,15 @@
             <div class="building-detail-actions__group">
               <div class="building-detail-actions__label">Výstup</div>
               <div class="factory-resource-strip">
-                <div class="factory-resource-pill">
+                <div class="factory-resource-pill" data-resource-color="metal-parts">
                   <span>Metal Parts</span>
                   <strong data-factory-resource-metal>0</strong>
                 </div>
-                <div class="factory-resource-pill">
+                <div class="factory-resource-pill" data-resource-color="tech-core">
                   <span>Tech Core</span>
                   <strong data-factory-resource-tech>0</strong>
                 </div>
-                <div class="factory-resource-pill">
+                <div class="factory-resource-pill" data-resource-color="combat-module">
                   <span>Combat Module</span>
                   <strong data-factory-resource-combat>0</strong>
                 </div>
@@ -1516,12 +1524,12 @@
                   <span class="lab-info-block__hint">Base output</span>
                 </div>
                 <div class="lab-info-block__grid">
-                  <div class="lab-info-chip lab-info-chip--product">
+                    <div class="lab-info-chip lab-info-chip--product" data-resource-color="metal-parts">
                     <strong class="lab-info-chip__title">Metal Parts</strong>
                     <span class="lab-info-chip__meta">Heavy base</span>
                     <span class="lab-info-chip__effect">Základní průmyslový materiál pro levnější weapon a defense recepty.</span>
                   </div>
-                  <div class="lab-info-chip lab-info-chip--product">
+                    <div class="lab-info-chip lab-info-chip--product" data-resource-color="tech-core">
                     <strong class="lab-info-chip__title">Tech Core</strong>
                     <span class="lab-info-chip__meta">Advanced core</span>
                     <span class="lab-info-chip__effect">Pokročilý vstup pro vyšší tier výzbroj a elektronické systémy.</span>
@@ -1546,8 +1554,11 @@
           <div class="market-popup-tabs" aria-label="Market tabs">
             <button type="button" class="button market-popup-tab is-active" data-market-tab="market">Normal Market</button>
             <button type="button" class="button market-popup-tab" data-market-tab="black-market">Black Market</button>
+            <button type="button" class="button market-popup-tab" data-market-tab="player-market">Hráčský bazar</button>
           </div>
+          <div class="market-popup-dashboard" data-market-dashboard aria-label="Stav marketu"></div>
           <p class="market-popup-copy" data-market-copy>Legální bazar serveru pro rychlý nákup a výkup materiálu bez heat risku.</p>
+          <p class="market-popup-feedback" data-market-feedback role="status" aria-live="polite"></p>
           <div class="market-popup-list" data-market-list></div>
         </div>
       </div>
@@ -1911,6 +1922,13 @@
                 <span class="toggle__track"></span>
               </label>
             </div>
+            <div class="modal__row settings-modal__row settings-modal__row--toggle">
+              <span class="settings-modal__label">Menší efekty mapy</span>
+              <label class="toggle settings-toggle">
+                <input id="settings-map-reduced-effects" type="checkbox">
+                <span class="toggle__track"></span>
+              </label>
+            </div>
             <div class="modal__row settings-modal__row settings-modal__row--visibility">
               <span class="settings-modal__label">Viditelnost mapy</span>
               <div class="settings-modal__select settings-modal__visibility-select">
@@ -1939,56 +1957,57 @@
         <div class="storage-popup-card" role="dialog" aria-modal="true" aria-label="Sklad zbraní">
           <button type="button" class="button storage-popup-close" data-storage-popup-close aria-label="Zavřít sklad">✕</button>
           <div class="storage-popup-grid">
-            <section class="storage-popup-section">
+            <section class="storage-popup-section storage-popup-section--attack">
               <h3 class="storage-popup-subtitle">Útočné zbraně</h3>
               <div class="storage-popup-list">
-                <p class="storage-popup-row">Baseballová pálka <span data-storage-weapon-count="baseball-bat">0 ks</span></p>
-                <p class="storage-popup-row">Pistole <span data-storage-weapon-count="pistol">0 ks</span></p>
-                <p class="storage-popup-row">Granát <span data-storage-weapon-count="grenade">0 ks</span></p>
-                <p class="storage-popup-row">SMG <span data-storage-weapon-count="smg">0 ks</span></p>
-                <p class="storage-popup-row">Bazuka <span data-storage-weapon-count="bazooka">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="red" data-storage-resource="baseball-bat">Baseballová pálka <span data-storage-weapon-count="baseball-bat">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="red" data-storage-resource="pistol">Pistole <span data-storage-weapon-count="pistol">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="red" data-storage-resource="grenade">Granát <span data-storage-weapon-count="grenade">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="red" data-storage-resource="smg">SMG <span data-storage-weapon-count="smg">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="red" data-storage-resource="bazooka">Bazuka <span data-storage-weapon-count="bazooka">0 ks</span></p>
               </div>
             </section>
-            <section class="storage-popup-section">
+            <section class="storage-popup-section storage-popup-section--defense">
               <h3 class="storage-popup-subtitle">Obranné zbraně</h3>
               <div class="storage-popup-list">
-                <p class="storage-popup-row">Vesta <span data-storage-weapon-count="vest">0 ks</span></p>
-                <p class="storage-popup-row">Barikády <span data-storage-weapon-count="barricades">0 ks</span></p>
-                <p class="storage-popup-row">Kamery <span data-storage-weapon-count="cameras">0 ks</span></p>
-                <p class="storage-popup-row">Defense tower <span data-storage-weapon-count="defense-tower">0 ks</span></p>
-                <p class="storage-popup-row">Alarm <span data-storage-weapon-count="alarm">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="vest">Vesta <span data-storage-weapon-count="vest">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="barricades">Barikády <span data-storage-weapon-count="barricades">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="cameras">Kamery <span data-storage-weapon-count="cameras">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="defense-tower">Defense tower <span data-storage-weapon-count="defense-tower">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="alarm">Alarm <span data-storage-weapon-count="alarm">0 ks</span></p>
               </div>
             </section>
-            <section class="storage-popup-section">
+            <section class="storage-popup-section storage-popup-section--materials">
               <h3 class="storage-popup-subtitle">Lékárna materiály</h3>
               <div class="storage-popup-list">
-                <p class="storage-popup-row">Chemicals <span data-storage-material-count="chemicals">0 ks</span></p>
-                <p class="storage-popup-row">Biomass <span data-storage-material-count="biomass">0 ks</span></p>
-                <p class="storage-popup-row">Stim Pack <span data-storage-material-count="stim-pack">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="chemicals">Chemicals <span data-storage-material-count="chemicals">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="green" data-storage-resource="biomass">Biomass <span data-storage-material-count="biomass">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="violet" data-storage-resource="stim-pack">Stim Pack <span data-storage-material-count="stim-pack">0 ks</span></p>
               </div>
             </section>
-            <section class="storage-popup-section">
+            <section class="storage-popup-section storage-popup-section--factory">
               <h3 class="storage-popup-subtitle">Factory supplies</h3>
               <div class="storage-popup-list">
-                <p class="storage-popup-row">Metal Parts <span data-storage-factory-count="metalParts">0 ks</span></p>
-                <p class="storage-popup-row">Tech Core <span data-storage-factory-count="techCore">0 ks</span></p>
-                <p class="storage-popup-row">Combat Module <span data-storage-factory-count="combatModule">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="amber" data-storage-resource="metal-parts">Metal Parts <span data-storage-factory-count="metalParts">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="tech-core">Tech Core <span data-storage-factory-count="techCore">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="pink" data-storage-resource="combat-module">Combat Module <span data-storage-factory-count="combatModule">0 ks</span></p>
               </div>
             </section>
-            <section class="storage-popup-section storage-popup-section--wide">
+            <section class="storage-popup-section storage-popup-section--wide storage-popup-section--drugs">
               <h3 class="storage-popup-subtitle">Drug balíky</h3>
               <div class="storage-popup-list">
-                <p class="storage-popup-row">Neon Dust <span data-storage-drug-count="neon-dust">0 ks</span></p>
-                <p class="storage-popup-row">Pulse Shot <span data-storage-drug-count="pulse-shot">0 ks</span></p>
-                <p class="storage-popup-row">Velvet Smoke <span data-storage-drug-count="velvet-smoke">0 ks</span></p>
-                <p class="storage-popup-row">Ghost Serum <span data-storage-drug-count="ghost-serum">0 ks</span></p>
-                <p class="storage-popup-row">Overdrive X <span data-storage-drug-count="overdrive-x">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="violet" data-storage-resource="neon-dust">Neon Dust <span data-storage-drug-count="neon-dust">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="amber" data-storage-resource="pulse-shot">Pulse Shot <span data-storage-drug-count="pulse-shot">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="velvet-smoke">Velvet Smoke <span data-storage-drug-count="velvet-smoke">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="green" data-storage-resource="ghost-serum">Ghost Serum <span data-storage-drug-count="ghost-serum">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="red" data-storage-resource="overdrive-x">Overdrive X <span data-storage-drug-count="overdrive-x">0 ks</span></p>
               </div>
             </section>
           </div>
         </div>
       </div>
 
+      <!-- Deprecated dev/demo overlay retained until the static game shell migrates to apps/client/src. -->
       <div class="game-admin-slice-overlay" data-game-admin-slice-overlay hidden>
         <button type="button" class="game-admin-slice-overlay__backdrop" data-game-admin-slice-close aria-label="Zavřít gameplay slice panel"></button>
         <section class="game-admin-slice-overlay__dialog" role="dialog" aria-modal="true" aria-label="Gameplay slice panel">

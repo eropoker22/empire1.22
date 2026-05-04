@@ -34,7 +34,11 @@ export const renderBuildingDetailPopup = (building: DistrictPanelBuildingViewMod
     `<span class="district-building-popup__count">${building.specialActions.length}</span>`,
     `</div>`,
     building.specialActions.length > 0
-      ? building.specialActions.map((action) => renderSpecialAction(building, action)).join("")
+      ? [
+          `<div class="district-building-popup__action-grid">`,
+          building.specialActions.map((action) => renderSpecialAction(building, action)).join(""),
+          `</div>`
+        ].join("")
       : `<p class="district-panel__empty-copy">Tahle budova nemá v katalogu speciální akce.</p>`,
     `</div>`,
     `</section>`
@@ -52,6 +56,7 @@ const renderSpecialAction = (
 
   return [
     `<article class="district-building-popup__action${action.disabled ? " is-disabled" : ""}" data-special-action-id="${action.actionId}">`,
+    `<span class="district-building-popup__action-light" aria-hidden="true"></span>`,
     `<div class="district-building-popup__action-copy">`,
     `<span class="district-building-popup__action-state">${action.disabled ? "Blocked" : "Ready"}</span>`,
     `<strong>${action.label}</strong>`,
@@ -63,7 +68,7 @@ const renderSpecialAction = (
     `<small>Heat ${action.heatLabel}</small>`,
     `</div>`,
     `</div>`,
-    `<button class="district-panel__action-button district-panel__action-button--craft" data-building-action-building-id="${building.buildingId}" data-building-action-id="${action.actionId}"${disabledAttribute}${reasonAttribute}>Run</button>`,
+    `<button class="district-panel__action-button district-panel__action-button--craft district-building-popup__run-button" data-building-action-building-id="${building.buildingId}" data-building-action-id="${action.actionId}"${disabledAttribute}${reasonAttribute}>Spustit</button>`,
     action.disabledReason
       ? `<p class="district-panel__action-reason">${action.disabledReason}</p>`
       : "",

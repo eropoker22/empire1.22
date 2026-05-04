@@ -11,6 +11,8 @@ export interface ResolveSpyInput {
   hasActiveTrap: boolean;
   spyBaseSuccessChance: number;
   spyTrapRevealChance: number;
+  cameraStrengthBonusPct?: number;
+  alarmStrengthBonusPct?: number;
 }
 
 export interface ResolveSpyResult {
@@ -27,8 +29,12 @@ export interface ResolveSpyResult {
 export const resolveSpy = (input: ResolveSpyInput): ResolveSpyResult => {
   const cameraCount = input.defenseLoadout.cameras ?? 0;
   const alarmCount = input.defenseLoadout.alarm ?? 0;
-  const cameraPenalty = hasSpyDetectionChance(cameraCount) ? 0.18 : 0;
-  const alarmPenalty = alarmCount >= 5 ? 0.08 : 0;
+  const cameraPenalty = hasSpyDetectionChance(cameraCount)
+    ? 0.18 * (1 + Math.max(0, Number(input.cameraStrengthBonusPct || 0)) / 100)
+    : 0;
+  const alarmPenalty = alarmCount >= 5
+    ? 0.08 * (1 + Math.max(0, Number(input.alarmStrengthBonusPct || 0)) / 100)
+    : 0;
   const successChance = clamp(input.spyBaseSuccessChance - cameraPenalty - alarmPenalty, 0.08, 0.95);
   const successRoll = deterministicUnitInterval(
     `${input.worldSeed}:spy:success:${input.playerId}:${input.targetDistrictId}:${input.tick}`

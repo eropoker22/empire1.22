@@ -27,6 +27,7 @@ export interface Building {
   status: BuildingStatus;
   processing: BuildingProcessingJob | null;
   actionCooldowns: Record<string, number>;
+  metadata?: Record<string, unknown>;
   startedAt: string | null;
   completedAt: string | null;
   version: number;

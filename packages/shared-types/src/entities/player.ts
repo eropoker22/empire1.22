@@ -9,6 +9,26 @@ import type { PlayerFactionId } from "./faction";
 import type { PlayerColorHex } from "./player-color";
 import type { AttackWeaponId } from "./weapon";
 
+export interface PlayerRecoveryPoolEntry {
+  id: string;
+  itemType: string;
+  amount: number;
+  lostAtTick?: number;
+  lostAt?: string;
+  source: "attack" | "defense" | "robbery" | "trap" | "raid" | string;
+}
+
+export interface PlayerSalvagePoolEntry {
+  id: string;
+  itemId: string;
+  itemName: string;
+  category: "materials" | "rareComponents" | "drugsAndBoosts" | "weapons" | "defenseItems" | string;
+  amount: number;
+  lostAtTick?: number;
+  lostAt?: string;
+  source: "attack" | "defense" | "robbery" | "trap" | "raid" | string;
+}
+
 /**
  * Responsibility: Minimal authoritative player write-model shape shared as a contract.
  * Belongs here: identity, ownership references, and stable state fields.
@@ -25,6 +45,9 @@ export interface Player {
   allianceId: AllianceId | null;
   homeDistrictId: DistrictId | null;
   attackLoadout: Partial<Record<AttackWeaponId, number>>;
+  population?: number;
+  recoveryPool?: PlayerRecoveryPoolEntry[];
+  salvagePool?: PlayerSalvagePoolEntry[];
   resourceStateId: string;
   cooldownStateId: string;
   effectStateId: string;

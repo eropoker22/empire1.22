@@ -18,12 +18,14 @@ describe("production collect command flow", () => {
       config: resolveModeConfig("free")
     };
     const { state, building } = createCoreStateWithFixedBuildingFixture(buildingTypeId, {
+      includeWarehouse: true,
       productionResourceKey: resourceKey
     });
     const buildingId = building.id;
     const buildingResourceStateId = `resource:${buildingId}`;
 
-    expect(state.districtsById["district:1"].buildingIds).toEqual([buildingId]);
+    expect(state.districtsById["district:1"].buildingIds).toContain(buildingId);
+    expect(state.districtsById["district:1"].buildingIds).toContain("building:district-1:warehouse:1");
     expect(state.resourceStatesById[buildingResourceStateId]?.balances[resourceKey]).toBe(0);
 
     const firstTick = runTick(state, context);

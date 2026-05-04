@@ -2,9 +2,21 @@ import type { DistrictPanelView } from "@empire/shared-types";
 import type { CoreGameState } from "../entities/game-state";
 import type {
   BuildingActionBalanceConfig,
+  CarDealerBalanceConfig,
+  ConvenienceStoreBalanceConfig,
   CraftBuildingBalanceConfig,
-  ProductionBuildingBalanceConfig
+  FitnessClubBalanceConfig,
+  GarageBalanceConfig,
+  PowerStationBalanceConfig,
+  ProductionBuildingBalanceConfig,
+  RecruitmentCenterBalanceConfig,
+  RecyclingCenterBalanceConfig,
+  RestaurantBalanceConfig,
+  ShoppingMallBalanceConfig,
+  SmugglingTunnelBalanceConfig,
+  StripClubBalanceConfig
 } from "../contracts/game-mode-config";
+import { resolvePowerStationInfrastructureMultiplier } from "../handlers/powerStationBuildingActions";
 import { composeEntityId } from "../utils";
 import { createDistrictAttackTargetViews } from "./district-attack-target-projection";
 import { createDistrictPanelBuildingViews } from "./district-building-action-projection";
@@ -18,7 +30,19 @@ export interface DistrictPanelProjectionInput {
   productionCatalog: Readonly<Record<string, ProductionBuildingBalanceConfig>>;
   craftCatalog: Readonly<Record<string, CraftBuildingBalanceConfig>>;
   buildingActionCatalog: Readonly<Record<string, BuildingActionBalanceConfig>>;
+  stripClubConfig?: StripClubBalanceConfig;
+  restaurantConfig?: RestaurantBalanceConfig;
+  convenienceStoreConfig?: ConvenienceStoreBalanceConfig;
+  shoppingMallConfig?: ShoppingMallBalanceConfig;
+  powerStationConfig?: PowerStationBalanceConfig;
+  recruitmentCenterConfig?: RecruitmentCenterBalanceConfig;
+  fitnessClubConfig?: FitnessClubBalanceConfig;
+  garageConfig?: GarageBalanceConfig;
+  carDealerConfig?: CarDealerBalanceConfig;
+  smugglingTunnelConfig?: SmugglingTunnelBalanceConfig;
+  recyclingCenterConfig?: RecyclingCenterBalanceConfig;
   productionMultiplier: number;
+  tickRateMs?: number;
 }
 
 /**
@@ -64,13 +88,26 @@ export const createDistrictPanelView = (
     buildings: isDestroyed
       ? []
       : createDistrictPanelBuildingViews({
+      state,
       buildings: filledBuildings,
       buildCatalog: input.buildCatalog,
       actionCatalog: input.buildingActionCatalog,
+      stripClubConfig: input.stripClubConfig,
+      restaurantConfig: input.restaurantConfig,
+      convenienceStoreConfig: input.convenienceStoreConfig,
+      shoppingMallConfig: input.shoppingMallConfig,
+      powerStationConfig: input.powerStationConfig,
+      recruitmentCenterConfig: input.recruitmentCenterConfig,
+      fitnessClubConfig: input.fitnessClubConfig,
+      garageConfig: input.garageConfig,
+      carDealerConfig: input.carDealerConfig,
+      smugglingTunnelConfig: input.smugglingTunnelConfig,
+      recyclingCenterConfig: input.recyclingCenterConfig,
       district,
       playerId: input.playerId,
       playerBalances,
-      tick: state.root.tick
+      tick: state.root.tick,
+      tickRateMs: input.tickRateMs
     }),
     attackTargets: isDestroyed ? [] : attackTargets,
     spyTargets: isDestroyed ? [] : spyTargets,
@@ -102,7 +139,11 @@ export const createDistrictPanelView = (
                 resourceLabel: productionProfile.resourceLabel,
                 storedAmount,
                 storageCap: productionProfile.storageCap,
-                amountPerTick: Math.max(0, Math.floor(productionProfile.amountPerTick * input.productionMultiplier)),
+                amountPerTick: Math.max(0, Math.floor(productionProfile.amountPerTick * input.productionMultiplier * resolveProductionInfrastructureMultiplier({
+                  state,
+                  building,
+                  powerStationConfig: input.powerStationConfig
+                }))),
                 canCollect: isOwnedByPlayer && building.ownerPlayerId === input.playerId && building.status === "active" && storedAmount > 0,
                 collectDisabledReason: !isOwnedByPlayer || building.ownerPlayerId !== input.playerId
                   ? "Only the building owner can collect production here."
@@ -238,3 +279,18 @@ const createProcessingView = (
 };
 
 const formatTickLabel = (tickCount: number): string => `${tickCount} ${tickCount === 1 ? "tick" : "ticks"}`;
+
+const resolveProductionInfrastructureMultiplier = (input: {
+  state: CoreGameState;
+  building: CoreGameState["buildingsById"][string];
+  powerStationConfig?: PowerStationBalanceConfig;
+}): number =>
+  input.building.buildingTypeId === "factory"
+    ? resolvePowerStationInfrastructureMultiplier({
+        state: input.state,
+        playerId: input.building.ownerPlayerId,
+        config: input.powerStationConfig,
+        tick: input.state.root.tick,
+        target: "factoryProductionSpeed"
+      })
+    : 1;

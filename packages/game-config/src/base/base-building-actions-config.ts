@@ -17,6 +17,7 @@ export const baseBuildingActionsConfig: NonNullable<BalanceConfig["buildingActio
           outputGain: { ...action.outputGain },
           heatGain: action.heatGain,
           influenceChange: action.influenceChange,
+          effectModifiers: action.effectModifiers ? { ...action.effectModifiers } : undefined,
           requiredOwner: true,
           allowedIfContested: false,
           reportText: action.reportText

@@ -21,3 +21,20 @@ export const createPlayerPoliceState = (
 
 export const resolveWantedLevel = (heat: number): number =>
   Math.max(0, Math.min(5, Math.floor(Math.max(0, heat) / 20)));
+
+export const increasePlayerPoliceHeat = (
+  state: CoreGameState,
+  player: CoreGameState["playersById"][string],
+  heatGain: number,
+  tick: number
+): PoliceState => {
+  const currentPoliceState = state.policeStatesById[player.policeStateId] ?? createPlayerPoliceState(player, tick);
+  const nextHeat = Math.max(0, Number(currentPoliceState.heat || 0) + Math.max(0, heatGain));
+
+  return {
+    ...currentPoliceState,
+    heat: nextHeat,
+    wantedLevel: resolveWantedLevel(nextHeat),
+    version: currentPoliceState.version + (state.policeStatesById[currentPoliceState.id] ? 1 : 0)
+  };
+};

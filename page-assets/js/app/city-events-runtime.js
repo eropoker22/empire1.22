@@ -297,6 +297,44 @@ function createCityEventStreetNewsPayload(task, run) {
   };
 }
 
+function createCityEventResultStreetNewsPayload(task, run, wasSuccess, outcomeLine, appliedRewards = []) {
+  const title = String(task?.title || "City Event").trim();
+  const giver = String(task?.giver || AGENTS[task?.agentKey || ""]?.name || "-").trim();
+  const gains = Array.isArray(appliedRewards) ? appliedRewards.filter(Boolean) : [];
+  const possibleGains = Array.isArray(task?.gains) ? task.gains.filter(Boolean) : [];
+  const risk = String(task?.risk || "Nízké").trim();
+  const statusLabel = wasSuccess ? "Úspěch" : "Selhání";
+  const rewardLabel = wasSuccess
+    ? (gains.length ? gains.join(", ") : "Bez garantované odměny")
+    : "Žádný zisk";
+
+  return {
+    tone: wasSuccess ? "success is-specialty-financial" : "is-specialty-arrests",
+    title: `City Event dokončen: ${title}`,
+    taskTitle: title,
+    badge: statusLabel,
+    syncToBuildingAction: false,
+    summary: String(outcomeLine || `${title}: ${statusLabel.toLowerCase()}.`).trim(),
+    giver,
+    risk,
+    gains: wasSuccess ? gains : possibleGains,
+    successRate: Math.max(0, Math.min(100, Math.floor(Number(task?.successRate || 0)))),
+    durationSec: Math.max(1, Math.floor(Number(task?.durationSec || 1))),
+    startedAt: Number(run?.startedAt || 0),
+    endedAt: Date.now(),
+    wasSuccess,
+    rows: [
+      { label: "Výsledek", value: statusLabel },
+      { label: "Úkol", value: title },
+      { label: "Zadavatel", value: giver },
+      { label: "Shrnutí", value: String(outcomeLine || "-").trim() || "-" },
+      { label: "Zisk", value: rewardLabel },
+      { label: "Riziko", value: risk },
+      { label: "Úspěšnost", value: `${Math.max(0, Math.min(100, Math.floor(Number(task?.successRate || 0))))}%` }
+    ]
+  };
+}
+
 function getTopbarInfluenceValue(root) {
   const influenceElement = root.querySelector("[data-topbar-influence]");
   const raw = influenceElement?.dataset.influenceValue || influenceElement?.textContent || "0";
@@ -577,9 +615,10 @@ function initCityEventsRuntime() {
     const successRoll = Math.random() * 100;
     const wasSuccess = successRoll <= Math.max(0, Math.min(100, Number(task?.successRate || 0)));
     const outcomeLine = resolveRandomOutcomeLine(task, wasSuccess);
+    let appliedRewards = [];
 
     if (wasSuccess) {
-      const appliedRewards = applyEventRewardsToPlayerState(root, task);
+      appliedRewards = applyEventRewardsToPlayerState(root, task);
       const gainInfo = appliedRewards.length ? ` • Zisk: ${appliedRewards.join(", ")}` : "";
       writeCityEventsInfo(`${outcomeLine}${gainInfo}`);
       applyTopbarEconomy(root);
@@ -587,6 +626,15 @@ function initCityEventsRuntime() {
     } else {
       writeCityEventsInfo(outcomeLine);
     }
+
+    const resultPayload = createCityEventResultStreetNewsPayload(task, run, wasSuccess, outcomeLine, appliedRewards);
+    appendBuildingActionResultEntry(root, "police", resultPayload, {
+      id: `city-event-result-${String(task.id || run.taskId || "event")}-${Date.now()}`,
+      tone: "event",
+      title: resultPayload.title,
+      summary: resultPayload.summary,
+      meta: wasSuccess ? "Klikni pro detail výsledku a zisku" : "Klikni pro detail neúspěchu"
+    }, { syncPreview: true, forceLog: true });
 
     if (selectedAgentKey) {
       renderTasks(selectedAgentKey);

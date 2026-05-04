@@ -1,6 +1,7 @@
 import type { CoreGameState } from "../../entities";
 import type { GameCoreContext } from "../../engine/context";
 import { composeEntityId } from "../../utils";
+import { resolvePowerStationInfrastructureMultiplier } from "../../handlers/powerStationBuildingActions";
 
 /**
  * Responsibility: Resolves completed production entries during ticks.
@@ -45,9 +46,19 @@ export const completeProduction = (
       continue;
     }
 
+    const productionTarget = building.buildingTypeId === "factory" ? "factoryProductionSpeed" : null;
+    const infrastructureMultiplier = productionTarget
+      ? resolvePowerStationInfrastructureMultiplier({
+          state,
+          playerId: building.ownerPlayerId,
+          config: context.config.balance.powerStation,
+          tick: state.root.tick,
+          target: productionTarget
+        })
+      : 1;
     const producedPerTick = Math.max(
       0,
-      Math.floor(profile.amountPerTick * context.config.balance.productionMultiplier)
+      Math.floor(profile.amountPerTick * context.config.balance.productionMultiplier * infrastructureMultiplier)
     );
     const currentAmount = Math.max(0, Number(currentState.balances[profile.resourceKey] || 0));
     const nextAmount = Math.min(profile.storageCap, currentAmount + producedPerTick * elapsedTicks);

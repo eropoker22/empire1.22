@@ -6,6 +6,8 @@ import { createEvent, CORE_EVENT_TYPES } from "../events";
 import type { GameCoreContext } from "../engine/context";
 import { resolveCraftProcessingDurationTicks } from "../rules/production/productionRules";
 import { validateCraft } from "../validation";
+import { applyGarageCooldownReductionTicks } from "./garageBuildingActions";
+import { resolvePowerStationInfrastructureMultiplier } from "./powerStationBuildingActions";
 
 /**
  * Responsibility: Command-scoped orchestration for the first migrated craft-item processing flow.
@@ -48,10 +50,33 @@ export const handleCraftItem = (
       lastUpdatedTick: state.root.tick,
       version: currentResourceState.version + (state.resourceStatesById[player.resourceStateId] ? 1 : 0)
     };
-    const durationTicks = resolveCraftProcessingDurationTicks(
+    const infrastructureMultiplier = building.buildingTypeId === "armory"
+      ? resolvePowerStationInfrastructureMultiplier({
+          state,
+          playerId: building.ownerPlayerId,
+          config: context.config.balance.powerStation,
+          tick: state.root.tick,
+          target: "armoryProductionSpeed"
+        })
+      : 1;
+    const baseDurationTicks = Math.max(1, Math.ceil(resolveCraftProcessingDurationTicks(
       recipe.durationTicks,
       context.config.balance.cooldownMultiplier
-    );
+    ) / infrastructureMultiplier));
+    const garageCategory = building.buildingTypeId === "armory"
+      ? "armoryProductionActions"
+      : building.buildingTypeId === "factory"
+        ? "factoryProductionActions"
+        : null;
+    const durationTicks = garageCategory
+      ? applyGarageCooldownReductionTicks({
+          baseTicks: baseDurationTicks,
+          state,
+          playerId: player.id,
+          config: context.config.balance.garage,
+          category: garageCategory
+        })
+      : baseDurationTicks;
     const nextBuilding = {
       ...building,
       processing: {
@@ -91,16 +116,55 @@ export const handleCraftItem = (
             districtId: command.payload.districtId,
             buildingId: command.payload.buildingId,
             recipeId: command.payload.recipeId,
-            completesAtTick: state.root.tick + resolveCraftProcessingDurationTicks(
-              recipe.durationTicks,
-              context.config.balance.cooldownMultiplier
-            )
+            completesAtTick: state.root.tick + resolveCraftDurationTicks({
+              state,
+              playerId: command.playerId,
+              building,
+              recipeDurationTicks: recipe.durationTicks,
+              context
+            })
           })
         ]
       : [];
   })(),
   errors: validateCraft(state, command, context)
 });
+
+const resolveCraftDurationTicks = (input: {
+  state: CoreGameState;
+  playerId: string;
+  building: CoreGameState["buildingsById"][string];
+  recipeDurationTicks: number;
+  context: GameCoreContext;
+}): number => {
+  const infrastructureMultiplier = input.building.buildingTypeId === "armory"
+    ? resolvePowerStationInfrastructureMultiplier({
+        state: input.state,
+        playerId: input.building.ownerPlayerId,
+        config: input.context.config.balance.powerStation,
+        tick: input.state.root.tick,
+        target: "armoryProductionSpeed"
+      })
+    : 1;
+  const baseDurationTicks = Math.max(1, Math.ceil(resolveCraftProcessingDurationTicks(
+    input.recipeDurationTicks,
+    input.context.config.balance.cooldownMultiplier
+  ) / infrastructureMultiplier));
+  const garageCategory = input.building.buildingTypeId === "armory"
+    ? "armoryProductionActions"
+    : input.building.buildingTypeId === "factory"
+      ? "factoryProductionActions"
+      : null;
+  return garageCategory
+    ? applyGarageCooldownReductionTicks({
+        baseTicks: baseDurationTicks,
+        state: input.state,
+        playerId: input.playerId,
+        config: input.context.config.balance.garage,
+        category: garageCategory
+      })
+    : baseDurationTicks;
+};
 
 const createPlayerResourceState = (
   player: CoreGameState["playersById"][string],

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { applyCommand } from "../../../packages/game-core/src/engine";
+import { resolveModeConfig } from "../../../packages/game-config/src";
 import { createAttackDistrictCommandFixture } from "../../fixtures/command-fixtures";
-import { createCombatStateFixture } from "../../fixtures/game-state-fixtures";
+import { createCombatStateFixture, createFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
 
 const context = {
   config: {
@@ -79,5 +80,129 @@ describe("attack-district command flow", () => {
         message: "Player can only attack a district that borders the selected source district."
       }
     ]);
+  });
+
+  it("reduces attack preparation cooldown with owned garages", () => {
+    const state = createCombatStateFixture();
+    const resolvedConfig = resolveModeConfig("free");
+    const baseConflict = resolvedConfig.balance.conflict ?? {
+      spyCooldownTicks: 2,
+      attackCooldownTicks: 2,
+      spyBaseSuccessChance: 0.72,
+      spyTrapRevealChance: 0.22,
+      trapAttackLosses: 1,
+      reportsLimit: 20
+    };
+    const garageContext = {
+      config: {
+        ...resolvedConfig,
+        balance: {
+          ...resolvedConfig.balance,
+          conflict: {
+            ...baseConflict,
+            attackCooldownTicks: 100,
+            minAttackDurationTicks: 0
+          }
+        }
+      }
+    };
+    const garageBuildings = Array.from({ length: 8 }, (_value, index) =>
+      createFixedBuildingFixture("garage", {
+        id: `building:district-1:garage:${index + 1}`,
+        districtId: "district:1",
+        ownerPlayerId: "player:1"
+      })
+    );
+    for (const garage of garageBuildings) {
+      state.buildingsById[garage.id] = garage;
+    }
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      buildingIds: garageBuildings.map((garage) => garage.id),
+      slotCount: 8
+    };
+
+    const result = applyCommand(state, createAttackDistrictCommandFixture(), garageContext);
+    const attackEvent = result.events.find((event) => event.type === "district-attacked");
+
+    expect(result.errors).toEqual([]);
+    expect(attackEvent?.payload).toMatchObject({
+      attackDurationTicks: 84
+    });
+    expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:district:2"]).toBe(84);
+  });
+
+  it("reduces attack preparation cooldown with car dealers and respects garage combined cap", () => {
+    const state = createCombatStateFixture();
+    const resolvedConfig = resolveModeConfig("free");
+    const baseConflict = resolvedConfig.balance.conflict ?? {
+      spyCooldownTicks: 2,
+      attackCooldownTicks: 2,
+      spyBaseSuccessChance: 0.72,
+      spyTrapRevealChance: 0.22,
+      trapAttackLosses: 1,
+      reportsLimit: 20
+    };
+    const carDealerContext = {
+      config: {
+        ...resolvedConfig,
+        balance: {
+          ...resolvedConfig.balance,
+          conflict: {
+            ...baseConflict,
+            attackCooldownTicks: 100,
+            minAttackDurationTicks: 0
+          }
+        }
+      }
+    };
+    const garageBuildings = Array.from({ length: 8 }, (_value, index) =>
+      createFixedBuildingFixture("garage", {
+        id: `building:district-1:garage:${index + 1}`,
+        districtId: "district:1",
+        ownerPlayerId: "player:1"
+      })
+    );
+    const carDealerBuildings = Array.from({ length: 7 }, (_value, index) =>
+      createFixedBuildingFixture("car_dealer", {
+        id: `building:district-1:car_dealer:${index + 1}`,
+        districtId: "district:1",
+        ownerPlayerId: "player:1"
+      })
+    );
+    const buildings = [...garageBuildings, ...carDealerBuildings];
+    for (const building of buildings) {
+      state.buildingsById[building.id] = building;
+    }
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      buildingIds: buildings.map((building) => building.id),
+      slotCount: buildings.length
+    };
+
+    const result = applyCommand(state, createAttackDistrictCommandFixture(), carDealerContext);
+    const attackEvent = result.events.find((event) => event.type === "district-attacked");
+
+    expect(result.errors).toEqual([]);
+    expect(attackEvent?.payload).toMatchObject({
+      attackDurationTicks: 78
+    });
+    expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:district:2"]).toBe(78);
+  });
+
+  it("stores combat item losses in salvage pools instead of clinic recovery pools", () => {
+    const state = createCombatStateFixture();
+    const resolvedConfig = resolveModeConfig("free");
+
+    const result = applyCommand(state, createAttackDistrictCommandFixture(), { config: resolvedConfig });
+
+    expect(result.errors).toEqual([]);
+    expect(result.nextState.playersById["player:1"].salvagePool?.map((entry) => entry.itemId)).toEqual([
+      "baseball-bat",
+      "pistol"
+    ]);
+    expect(result.nextState.playersById["player:2"].salvagePool?.map((entry) => entry.itemId)).toEqual(["alarm"]);
+    expect(result.nextState.playersById["player:1"].recoveryPool ?? []).toEqual([]);
+    expect(result.nextState.playersById["player:2"].recoveryPool ?? []).toEqual([]);
   });
 });

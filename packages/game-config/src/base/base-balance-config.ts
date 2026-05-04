@@ -1,5 +1,6 @@
 import type { BalanceConfig } from "../contracts/balance-config";
 import { baseBuildingActionsConfig } from "./base-building-actions-config";
+import { baseFixedBuildingsConfig } from "./base-fixed-buildings-config";
 
 /**
  * Responsibility: Neutral default balance values shared by all modes.
@@ -20,6 +21,7 @@ export const baseBalanceConfig: BalanceConfig = {
   dayLengthTicks: 12,
   nightLengthTicks: 12,
   victoryConditionKey: "default-control",
+  districtControlVictoryThreshold: 1,
   startingResources: {
     cash: 1000,
     "dirty-cash": 250,
@@ -31,6 +33,8 @@ export const baseBalanceConfig: BalanceConfig = {
   conflict: {
     spyCooldownTicks: 2,
     attackCooldownTicks: 2,
+    minAttackDurationTicks: 2,
+    attackHeatGain: 6,
     spyBaseSuccessChance: 0.72,
     spyTrapRevealChance: 0.22,
     trapAttackLosses: 1,
@@ -206,5 +210,6 @@ export const baseBalanceConfig: BalanceConfig = {
       }
     }
   },
+  fixedBuildings: baseFixedBuildingsConfig,
   buildingActions: baseBuildingActionsConfig
 };

@@ -73,6 +73,8 @@ describe("page onboarding smoke", () => {
     expect(readFileSync(resolve(root, "page-assets/js/lobby.js"), "utf8")).not.toContain("free-demo");
 
     expect(page("faction.html")).toContain('id="structure-grid"');
+    expect(page("faction.html")).toContain('id="auth-faction" name="faction" type="hidden" value=""');
+    expect(page("faction.html")).not.toContain('class="structure-card is-active"');
     expect(page("faction.html")).toContain("dvojitým klepnutím");
     expect(page("faction.html")).toContain('id="gang-color-grid"');
     expect(page("faction.html")).toContain('id="avatar-grid"');
@@ -84,6 +86,12 @@ describe("page onboarding smoke", () => {
     expect(page("game.html")).toContain('src="../page-assets/js/app.js"');
     expect(page("game.html")).toContain('src="../page-assets/js/app/game-admin-slice-launcher.js"');
     expect(page("game.html")).not.toContain('src="../page-assets/js/admin-assets/admin-slice-demo.js"');
+
+    expect(readFileSync(resolve(root, "page-assets/css/styles.css"), "utf8")).toContain('@import "./styles-static-hover.css";');
+    expect(page("admin.html")).toContain('href="../page-assets/css/styles-static-hover.css"');
+    expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain("transform: none !important;");
+    expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain(".building-info-action-row");
+    expect(readFileSync(resolve(root, "page-assets/css/styles-building-modals.css"), "utf8")).toContain(".district-building-detail-stats {\n  display: none !important;");
   });
 
   it("walks a clean registration draft through lobby and faction lock", () => {
@@ -130,5 +138,37 @@ describe("page onboarding smoke", () => {
       lockedAt: "2026-04-26T11:00:00.000Z"
     });
     expect(session.world.ownedDistrictIds).toEqual([27]);
+  });
+
+  it("keeps owned building passive output automatic in the legacy runtime", () => {
+    const runtimeSource = readFileSync(resolve(root, "page-assets/js/app/runtime.js"), "utf8");
+
+    expect(runtimeSource).toContain("snapshot.buildingCleanHourlyIncome");
+    expect(runtimeSource).toContain("snapshot.buildingDirtyHourlyIncome");
+    expect(runtimeSource).toContain("snapshot.buildingInfluencePerHour");
+    expect(runtimeSource).toContain("snapshot.passiveHeatPerDay");
+    expect(runtimeSource).toContain("Clean, dirty, vliv a heat se připisují automaticky.");
+    expect(runtimeSource).toContain("collectButton.hidden = !showManualCollect");
+    expect(runtimeSource).toContain('collectButton.style.display = showManualCollect ? "" : "none";');
+    expect(readFileSync(resolve(root, "page-assets/css/styles-building-modals.css"), "utf8")).toContain(".building-detail-title__action-btn[hidden]");
+    expect(readFileSync(resolve(root, "page-assets/css/styles-building-modals.css"), "utf8")).toContain(".district-building-detail-shell {\n  position: fixed;\n  inset: 0;");
+    expect(runtimeSource).toContain("function syncBuildingDetailTopbarVisibility(root)");
+    expect(runtimeSource).toContain("hasManualCollect");
+    expect(runtimeSource).toContain("function drawReducedMapActivityIcon(context, type, x, y, size, color)");
+    expect(runtimeSource).toContain('drawReducedMapActivityMarker(context, district, "attack", "#fb923c")');
+    expect(runtimeSource).not.toContain('drawReducedMapActivityMarker(context, district, "UTOK", "#fb923c")');
+    expect(runtimeSource).toContain("SHOPPING_MALL_NETWORK_CONFIG");
+    expect(runtimeSource).toContain("Pasivní market bonus");
+    expect(runtimeSource).toContain("mechanics.shoppingMallMarketDiscount.discountPct");
+    expect(runtimeSource).toContain("AUTO_SALON_SUPPORT_CONFIG");
+    expect(runtimeSource).toContain("Pasivní mobilita");
+    expect(runtimeSource).toContain("combinedGarageDealerMaxReductionPct");
+    expect(runtimeSource).not.toContain("auto_salon_gray_import");
+    expect(runtimeSource).not.toContain("Zakryt špinavý cash");
+    expect(runtimeSource).toContain('mechanicsType === "apartment-block"');
+    expect(runtimeSource).not.toContain("cleanMoney += mechanics.storedClean");
+    expect(runtimeSource).not.toContain("dirtyMoney += mechanics.storedDirty");
+    expect(runtimeSource).not.toContain('|| mechanicsType === "school"');
+    expect(runtimeSource).not.toContain('if (mechanics.mechanicsType === "school")');
   });
 });

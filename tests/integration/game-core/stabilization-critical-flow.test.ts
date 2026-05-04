@@ -21,17 +21,22 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     expect(freeConfig.tickRateMs).toBe(5000);
     expect(warConfig.tickRateMs).toBe(15000);
     expect(freeConfig.balance.productionMultiplier).toBe(1.2);
-    expect(warConfig.balance.productionMultiplier).toBe(1);
+    expect(warConfig.balance.productionMultiplier).toBe(0.85);
     expect(freeConfig.balance.cooldownMultiplier).toBe(0.8);
     expect(warConfig.balance.cooldownMultiplier).toBe(1.15);
-    expect(freeConfig.balance.maxPlayersPerServer).toBe(80);
+    expect(freeConfig.balance.maxPlayersPerServer).toBe(20);
     expect(warConfig.balance.maxPlayersPerServer).toBe(150);
+    expect(freeConfig.balance.maxAllianceSize).toBe(4);
     expect(freeConfig.balance.victoryConditionKey).toBe("fast-control");
+    expect(freeConfig.balance.districtControlVictoryThreshold).toBe(0.85);
+    expect(freeConfig.balance.conflict?.minAttackDurationTicks).toBe(36);
+    expect(freeConfig.balance.conflict?.attackHeatGain).toBe(8);
     expect(warConfig.balance.victoryConditionKey).toBe("long-war-control");
-    expect(freeConfig.technical.sessionTtlMs).toBe(1000 * 60 * 60 * 6);
-    expect(warConfig.technical.sessionTtlMs).toBe(1000 * 60 * 60 * 24);
-    expect(freeConfig.technical.gameDurationMs).toBe(1000 * 60 * 60 * 12);
-    expect(warConfig.technical.gameDurationMs).toBe(1000 * 60 * 60 * 24 * 7);
+    expect(warConfig.balance.conflict?.attackHeatGain).toBe(14);
+    expect(freeConfig.technical.sessionTtlMs).toBe(1000 * 60 * 60 * 2);
+    expect(warConfig.technical.sessionTtlMs).toBe(1000 * 60 * 60 * 24 * 10);
+    expect(freeConfig.technical.gameDurationMs).toBe(1000 * 60 * 60 * 2);
+    expect(warConfig.technical.gameDurationMs).toBe(1000 * 60 * 60 * 24 * 10);
     expect(freeConfig.technical.storageKeyPrefix).toBe("empire:free");
     expect(warConfig.technical.storageKeyPrefix).toBe("empire:war");
     expect(freeConfig.technical.debug.allowDebugTools).toBe(false);
@@ -42,6 +47,26 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     const state = createCoreStateFixture();
 
     expect(collectIncome(state)).toBe(state);
+  });
+
+  it("collects fixed building income and passive pressure from mode balance during tick", () => {
+    const { state } = createCoreStateFixtureWithActionBuilding("casino");
+    state.resourceStatesById["resource:1"] = {
+      ...state.resourceStatesById["resource:1"],
+      balances: {
+        cash: 1000,
+        "dirty-cash": 250
+      }
+    };
+
+    const result = runTick(state, {
+      config: resolveModeConfig("free")
+    });
+
+    expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBeGreaterThan(1000);
+    expect(result.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBeGreaterThan(250);
+    expect(result.nextState.districtsById["district:1"].heat).toBeGreaterThan(0);
+    expect(result.nextState.districtsById["district:1"].influence).toBeGreaterThan(0);
   });
 
   it("collects district income from authoritative resource modifiers during tick", () => {
@@ -145,6 +170,33 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     expect(result.nextState.matchResult).toMatchObject({
       winnerPlayerId: "player:1",
       reason: "control:fast-control"
+    });
+  });
+
+  it("resolves free victory at the configured 85 percent district control threshold", () => {
+    const state = createCoreStateFixture();
+    const context = {
+      config: resolveModeConfig("free")
+    };
+
+    for (let index = 2; index <= 20; index += 1) {
+      const districtId = `district:${index}`;
+      state.districtsById[districtId] = {
+        ...state.districtsById["district:1"],
+        id: districtId,
+        name: `District ${index}`,
+        ownerPlayerId: index <= 17 ? "player:1" : null
+      };
+      state.root.districtIds.push(districtId);
+    }
+
+    const result = checkVictory(state, context);
+
+    expect(result.resolved).toBe(true);
+    expect(result.nextState.victoryState?.progressPayload).toMatchObject({
+      controlledDistrictCount: 17,
+      totalActiveDistrictCount: 20,
+      requiredControlledDistricts: 17
     });
   });
 

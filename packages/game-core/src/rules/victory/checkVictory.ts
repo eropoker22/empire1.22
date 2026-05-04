@@ -1,10 +1,30 @@
 import type { CoreGameState } from "../../entities";
 import type { GameCoreContext } from "../../engine/context";
 import { PRODUCTION_GAME_LIFECYCLE_PHASES } from "@empire/shared-types";
+import {
+  createDistrictControlScores,
+  createDurationScores,
+  createExistingVictorySummary,
+  createVictorySummary
+} from "./victoryScoring";
 
 export interface VictoryCheckResult {
   nextState: CoreGameState;
   resolved: boolean;
+  summary: VictorySummary;
+}
+
+export type VictoryWinnerType = "player" | "alliance" | "none";
+
+export interface VictorySummary {
+  hasWinner: boolean;
+  winnerType: VictoryWinnerType;
+  winnerId: string | null;
+  reason: string;
+  controlledDistricts: number;
+  totalActiveDistricts: number;
+  controlPercent: number;
+  mode: string;
 }
 
 /**
@@ -19,31 +39,54 @@ export const checkVictory = (
   if (state.victoryState?.status === "resolved" || state.matchResult) {
     return {
       nextState: state,
-      resolved: true
+      resolved: true,
+      summary: createExistingVictorySummary(state, context)
     };
   }
 
   const activeDistricts = Object.values(state.districtsById).filter((district) => district.status !== "destroyed");
-  const districtScores = createDistrictControlScores(activeDistricts);
-  const leader = districtScores[0] ?? null;
-  const allActiveDistrictsControlledByLeader =
+  const controlScores = createDistrictControlScores(state, activeDistricts);
+  const leader = controlScores[0] ?? null;
+  const controlVictoryThreshold = Math.min(1, Math.max(0.01, context.config.balance.districtControlVictoryThreshold ?? 1));
+  const requiredControlledDistricts = Math.max(1, Math.ceil(activeDistricts.length * controlVictoryThreshold));
+  const activeDistrictControlWonByLeader =
+    context.config.mode === "free" &&
     activeDistricts.length > 1 &&
     leader !== null &&
-    leader.score === activeDistricts.length;
+    leader.controlledDistricts >= requiredControlledDistricts;
   const durationTicks = Math.max(1, Math.ceil(context.config.technical.gameDurationMs / Math.max(1, context.config.tickRateMs)));
   const durationExpired = state.root.tick >= durationTicks;
 
-  if (!allActiveDistrictsControlledByLeader && !durationExpired) {
+  if (!activeDistrictControlWonByLeader && !durationExpired) {
     return {
       nextState: state,
-      resolved: false
+      resolved: false,
+      summary: createVictorySummary({
+        mode: context.config.mode,
+        reason: "ongoing",
+        winner: leader,
+        totalActiveDistricts: activeDistricts.length
+      })
     };
   }
 
-  const reason = allActiveDistrictsControlledByLeader
+  const durationScores = createDurationScores(state, activeDistricts);
+  const winner = activeDistrictControlWonByLeader
+    ? leader
+    : durationScores[0] ?? null;
+  const reason = activeDistrictControlWonByLeader
     ? `control:${context.config.balance.victoryConditionKey}`
-    : `duration:${context.config.balance.victoryConditionKey}`;
-  const winnerPlayerId = leader?.subjectId ?? null;
+    : activeDistricts.length === 0
+      ? "duration:no-active-districts"
+      : `duration:${context.config.balance.victoryConditionKey}`;
+  const summary = createVictorySummary({
+    mode: context.config.mode,
+    reason,
+    winner,
+    totalActiveDistricts: activeDistricts.length
+  });
+  const winnerPlayerId = summary.winnerType === "player" ? summary.winnerId : null;
+  const winnerAllianceId = summary.winnerType === "alliance" ? summary.winnerId : null;
   const victoryStateId = state.root.victoryStateId ?? `victory:${state.serverInstance.id}`;
   const matchResultId = state.root.matchResultId ?? `match:${state.serverInstance.id}:${state.root.tick}`;
   const endedAt = new Date(0).toISOString();
@@ -70,11 +113,13 @@ export const checkVictory = (
         status: "resolved",
         victoryType: context.config.balance.victoryConditionKey,
         leaderPlayerId: winnerPlayerId,
-        leaderAllianceId: null,
+        leaderAllianceId: winnerAllianceId,
         progressPayload: {
+          ...summary,
           reason,
-          controlledDistrictCount: leader?.score ?? 0,
+          controlledDistrictCount: summary.controlledDistricts,
           totalActiveDistrictCount: activeDistricts.length,
+          requiredControlledDistricts,
           durationTicks,
           currentTick: state.root.tick
         },
@@ -86,9 +131,9 @@ export const checkVictory = (
         serverInstanceId: state.serverInstance.id,
         endedAt,
         winnerPlayerId,
-        winnerAllianceId: null,
-        ranking: districtScores.map((score, index) => ({
-          subjectType: "player",
+        winnerAllianceId,
+        ranking: (durationExpired ? durationScores : controlScores).map((score, index) => ({
+          subjectType: score.subjectType,
           subjectId: score.subjectId,
           rank: index + 1,
           score: score.score
@@ -96,27 +141,7 @@ export const checkVictory = (
         reason
       }
     },
-    resolved: true
+    resolved: true,
+    summary
   };
-};
-
-const createDistrictControlScores = (
-  districts: Array<CoreGameState["districtsById"][string]>
-): Array<{ subjectId: string; score: number }> => {
-  const scoreByPlayerId = new Map<string, number>();
-
-  for (const district of districts) {
-    if (!district.ownerPlayerId) {
-      continue;
-    }
-
-    scoreByPlayerId.set(
-      district.ownerPlayerId,
-      (scoreByPlayerId.get(district.ownerPlayerId) ?? 0) + 1
-    );
-  }
-
-  return [...scoreByPlayerId.entries()]
-    .map(([subjectId, score]) => ({ subjectId, score }))
-    .sort((left, right) => right.score - left.score || left.subjectId.localeCompare(right.subjectId));
 };

@@ -12,6 +12,10 @@ import {
 } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
 import { FACTION_CATALOG } from "../../../../packages/game-config/src/legacy-page/faction-config.js";
 
+// Browser preview-state bridge for the legacy static frontend.
+// Server-fed sessions take precedence; localStorage writes are ignored when server
+// authority is present.
+
 const SESSION_STORAGE_KEY = "empireStreets.session.v1";
 const DEFAULT_MARKET_SERVER_ID = "preview-server";
 
@@ -36,7 +40,8 @@ function createDefaultMarketState(serverId = DEFAULT_MARKET_SERVER_ID) {
   return {
     serverId: normalizedServerId,
     nextRefreshAt: new Date(Date.now() + MARKET_PRICE_REFRESH_MS).toISOString(),
-    items
+    items,
+    transactions: []
   };
 }
 

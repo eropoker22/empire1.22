@@ -1,0 +1,899 @@
+.gameplay-slice-client {
+  --slice-bg: #05070b;
+  --slice-panel: rgba(10, 13, 18, 0.92);
+  --slice-panel-strong: rgba(16, 19, 27, 0.98);
+  --slice-border: rgba(221, 190, 122, 0.18);
+  --slice-border-strong: rgba(221, 190, 122, 0.42);
+  --slice-gold: #d9b66b;
+  --slice-red: #e05b5b;
+  --slice-green: #63d6a0;
+  --slice-blue: #78b7ff;
+  --slice-ink: #f2efe8;
+  --slice-muted: #a9b0ba;
+  --slice-dim: #6d7582;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--slice-border);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0)),
+    linear-gradient(135deg, rgba(217, 182, 107, 0.1), rgba(120, 183, 255, 0.04) 48%, rgba(224, 91, 91, 0.06)),
+    var(--slice-bg);
+  box-shadow:
+    0 18px 36px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: var(--slice-ink);
+}
+
+.gameplay-slice-client[hidden] {
+  display: none;
+}
+
+.gameplay-slice-client *,
+.gameplay-slice-client *::before,
+.gameplay-slice-client *::after {
+  box-sizing: border-box;
+}
+
+.gameplay-slice-client button,
+.gameplay-slice-client summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gameplay-slice-client__status,
+.gameplay-slice-client__topbar header {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(221, 190, 122, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--slice-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.gameplay-slice-client__status strong {
+  color: var(--slice-gold);
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.gameplay-slice-client__topbar header {
+  color: #ddd6c9;
+  overflow-wrap: anywhere;
+}
+
+.gameplay-slice-client__error {
+  color: #ffb6aa;
+}
+
+.gameplay-slice-client__map,
+.gameplay-slice-client__panel {
+  overflow: auto;
+  scrollbar-color: rgba(217, 182, 107, 0.48) rgba(255, 255, 255, 0.06);
+}
+
+.gameplay-slice-client__map {
+  max-height: 224px;
+  padding: 1px;
+}
+
+.gameplay-slice-client__panel {
+  max-height: 560px;
+  padding-right: 2px;
+}
+
+.gameplay-slice-client .top-bar-shell,
+.gameplay-slice-client .side-panel-shell {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.gameplay-slice-client [data-map-surface="district-list"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.gameplay-slice-client .map-district {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-height: 106px;
+  padding: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(132, 143, 158, 0.24);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0)),
+    rgba(9, 12, 18, 0.88);
+  color: var(--slice-muted);
+  text-align: left;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.gameplay-slice-client .map-district::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, var(--map-owner-color, var(--slice-gold)), transparent);
+  opacity: 0.82;
+}
+
+.gameplay-slice-client .map-district strong {
+  color: var(--slice-ink);
+  font-size: 0.86rem;
+  line-height: 1.2;
+}
+
+.gameplay-slice-client .map-district span {
+  min-width: 0;
+  color: var(--slice-muted);
+  font-size: 0.72rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.gameplay-slice-client .map-district[data-selected="true"] {
+  border-color: var(--slice-border-strong);
+  background:
+    linear-gradient(180deg, rgba(217, 182, 107, 0.14), rgba(255, 255, 255, 0.02)),
+    rgba(14, 13, 17, 0.95);
+  box-shadow:
+    0 0 0 1px rgba(217, 182, 107, 0.18),
+    0 14px 28px rgba(0, 0, 0, 0.32);
+}
+
+.gameplay-slice-client .map-district[data-attack-target="true"] {
+  border-color: rgba(224, 91, 91, 0.34);
+}
+
+.gameplay-slice-client .map-district[data-attack-enabled="true"] {
+  color: #ffd7cf;
+}
+
+.gameplay-slice-client [data-feature="district-panel"],
+.gameplay-slice-client .side-panel-shell {
+  display: grid;
+  gap: 10px;
+}
+
+.gameplay-slice-client .district-panel__header,
+.gameplay-slice-client .district-panel__section,
+.gameplay-slice-client .district-panel__slot,
+.gameplay-slice-client .district-panel__summary-card,
+.gameplay-slice-client .district-panel__production,
+.gameplay-slice-client .district-panel__craft-option {
+  border: 1px solid rgba(221, 190, 122, 0.14);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0)),
+    var(--slice-panel);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.gameplay-slice-client .district-panel__header,
+.gameplay-slice-client .district-panel__section,
+.gameplay-slice-client .district-panel__slot {
+  display: grid;
+  gap: 11px;
+  padding: 12px;
+}
+
+.gameplay-slice-client .district-panel__header {
+  border-color: rgba(217, 182, 107, 0.24);
+  background:
+    linear-gradient(135deg, rgba(217, 182, 107, 0.14), rgba(120, 183, 255, 0.05)),
+    var(--slice-panel-strong);
+}
+
+.gameplay-slice-client .district-panel__eyebrow,
+.gameplay-slice-client .district-panel__summary-label,
+.gameplay-slice-client .district-panel__slot-index,
+.gameplay-slice-client .district-panel__section-meta {
+  margin: 0;
+  color: var(--slice-gold);
+  font-size: 0.7rem;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.gameplay-slice-client .district-panel__title,
+.gameplay-slice-client .district-panel__section-title,
+.gameplay-slice-client .district-panel__slot-title {
+  margin: 0;
+  color: var(--slice-ink);
+  font-weight: 800;
+  line-height: 1.14;
+}
+
+.gameplay-slice-client .district-panel__title {
+  font-size: 1.1rem;
+}
+
+.gameplay-slice-client .district-panel__section-title,
+.gameplay-slice-client .district-panel__slot-title {
+  font-size: 0.94rem;
+}
+
+.gameplay-slice-client .district-panel__badges,
+.gameplay-slice-client .district-panel__section-head,
+.gameplay-slice-client .district-panel__slot-head,
+.gameplay-slice-client .district-panel__production-head,
+.gameplay-slice-client .district-panel__production-metrics {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gameplay-slice-client .district-panel__badges,
+.gameplay-slice-client .district-panel__production-metrics {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.gameplay-slice-client .district-panel__section-head,
+.gameplay-slice-client .district-panel__slot-head {
+  align-items: flex-start;
+}
+
+.gameplay-slice-client .district-panel__slot-heading {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.gameplay-slice-client .district-panel__slot-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid rgba(217, 182, 107, 0.28);
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(217, 182, 107, 0.18), rgba(255, 255, 255, 0.03)),
+    #090b10;
+  color: var(--slice-gold);
+  font-weight: 900;
+}
+
+.gameplay-slice-client .district-panel__badge,
+.gameplay-slice-client .district-panel__slot-state,
+.gameplay-slice-client .district-panel__section-meta,
+.gameplay-slice-client .district-panel__production-rate,
+.gameplay-slice-client .district-panel__production-metric {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid rgba(221, 190, 122, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  color: #d8d2c7;
+  font-size: 0.72rem;
+  line-height: 1.15;
+}
+
+.gameplay-slice-client .district-panel__badge--owner {
+  border-color: rgba(99, 214, 160, 0.28);
+  color: #bff4d6;
+}
+
+.gameplay-slice-client .district-panel__badge--status {
+  border-color: rgba(120, 183, 255, 0.28);
+  color: #cfe5ff;
+}
+
+.gameplay-slice-client .district-panel__summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.gameplay-slice-client .district-panel__summary-card {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.gameplay-slice-client .district-panel__summary-value {
+  color: var(--slice-ink);
+  font-size: 0.88rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.gameplay-slice-client .district-panel__section-copy,
+.gameplay-slice-client .district-panel__slot-summary,
+.gameplay-slice-client .district-panel__empty-copy,
+.gameplay-slice-client .district-panel__action-reason {
+  margin: 0;
+  color: var(--slice-muted);
+  font-size: 0.78rem;
+  line-height: 1.42;
+}
+
+.gameplay-slice-client .district-panel__slot-list,
+.gameplay-slice-client .district-panel__action-list,
+.gameplay-slice-client [data-attack-targets="true"],
+.gameplay-slice-client [data-spy-targets="true"],
+.gameplay-slice-client [data-build-actions="true"] {
+  display: grid;
+  gap: 8px;
+}
+
+.gameplay-slice-client .district-panel__slot {
+  --building-accent: var(--slice-gold);
+  --building-accent-soft: rgba(217, 182, 107, 0.1);
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--building-accent) 30%, rgba(221, 190, 122, 0.12));
+  background:
+    linear-gradient(90deg, var(--building-accent-soft), rgba(255, 255, 255, 0) 52%),
+    var(--slice-panel);
+}
+
+.gameplay-slice-client .district-panel__slot::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--building-accent);
+  opacity: 0.9;
+}
+
+.gameplay-slice-client .district-panel__slot--pharmacy {
+  --building-accent: var(--slice-green);
+  --building-accent-soft: rgba(99, 214, 160, 0.11);
+}
+
+.gameplay-slice-client .district-panel__slot--drug-lab {
+  --building-accent: #c77dff;
+  --building-accent-soft: rgba(199, 125, 255, 0.1);
+}
+
+.gameplay-slice-client .district-panel__slot--factory {
+  --building-accent: #e8a84f;
+  --building-accent-soft: rgba(232, 168, 79, 0.12);
+}
+
+.gameplay-slice-client .district-panel__slot--armory {
+  --building-accent: var(--slice-red);
+  --building-accent-soft: rgba(224, 91, 91, 0.12);
+}
+
+.gameplay-slice-client .district-panel__slot--warehouse {
+  --building-accent: var(--slice-blue);
+  --building-accent-soft: rgba(120, 183, 255, 0.1);
+}
+
+.gameplay-slice-client .district-panel__production,
+.gameplay-slice-client .district-panel__craft-option {
+  display: grid;
+  gap: 9px;
+  padding: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0)),
+    rgba(5, 7, 11, 0.58);
+}
+
+.gameplay-slice-client .district-panel__production-title {
+  color: var(--slice-ink);
+  font-size: 0.86rem;
+  line-height: 1.2;
+}
+
+.gameplay-slice-client .district-panel__production-bar {
+  height: 7px;
+  overflow: hidden;
+  border: 1px solid rgba(221, 190, 122, 0.14);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.gameplay-slice-client .district-panel__production-bar-fill {
+  display: block;
+  width: var(--production-fill, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--building-accent), rgba(242, 239, 232, 0.88));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--building-accent) 70%, transparent);
+}
+
+.gameplay-slice-client .district-panel__action-row {
+  display: grid;
+  gap: 6px;
+}
+
+.gameplay-slice-client .district-panel__action-button {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 11px 38px 11px 12px;
+  overflow: hidden;
+  border: 1px solid rgba(221, 190, 122, 0.22);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0)),
+    linear-gradient(90deg, rgba(217, 182, 107, 0.12), rgba(255, 255, 255, 0)),
+    #0b0e13;
+  color: var(--slice-ink);
+  font: inherit;
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: left;
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.gameplay-slice-client .district-panel__action-button::after {
+  content: ">";
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(242, 239, 232, 0.18);
+  border-radius: 999px;
+  color: var(--slice-gold);
+  font-size: 0.78rem;
+  transform: translateY(-50%);
+}
+
+.gameplay-slice-client .district-panel__action-title,
+.gameplay-slice-client .district-panel__action-meta {
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gameplay-slice-client .district-panel__action-title {
+  color: inherit;
+  font-size: 0.88rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.gameplay-slice-client .district-panel__action-meta {
+  color: var(--slice-muted);
+  font-size: 0.74rem;
+  line-height: 1.22;
+  white-space: normal;
+}
+
+.gameplay-slice-client .district-panel__action-button--attack {
+  border-color: rgba(224, 91, 91, 0.46);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0)),
+    linear-gradient(90deg, rgba(224, 91, 91, 0.22), rgba(217, 182, 107, 0.08)),
+    #120c0d;
+  color: #fff0ec;
+}
+
+.gameplay-slice-client .district-panel__action-button--attack::after {
+  border-color: rgba(224, 91, 91, 0.4);
+  color: #ffb0a5;
+}
+
+.gameplay-slice-client .district-panel__action-button--spy {
+  border-color: rgba(120, 183, 255, 0.38);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0)),
+    linear-gradient(90deg, rgba(120, 183, 255, 0.18), rgba(217, 182, 107, 0.06)),
+    #080d15;
+}
+
+.gameplay-slice-client .district-panel__action-button--trap {
+  border-color: rgba(232, 168, 79, 0.42);
+  color: #ffe7bd;
+}
+
+.gameplay-slice-client .district-panel__action-button--collect,
+.gameplay-slice-client .district-panel__action-button--craft {
+  border-color: rgba(99, 214, 160, 0.34);
+}
+
+.gameplay-slice-client .district-panel__action-button--info {
+  border-color: rgba(217, 182, 107, 0.34);
+  color: var(--slice-gold);
+}
+
+.gameplay-slice-client .district-panel__action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  filter: saturate(0.35);
+  box-shadow: none;
+}
+
+.gameplay-slice-client .district-panel__action-button:hover:not(:disabled),
+.gameplay-slice-client .district-panel__action-button:focus-visible {
+  border-color: var(--slice-border-strong);
+  transform: translateY(-1px);
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.34),
+    0 0 0 1px rgba(217, 182, 107, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.gameplay-slice-client .district-panel__action-reason {
+  padding: 7px 9px;
+  border: 1px solid rgba(224, 91, 91, 0.2);
+  border-radius: 8px;
+  background: rgba(224, 91, 91, 0.07);
+  color: #f2c3bd;
+}
+
+.gameplay-slice-client .district-building-popup-host {
+  display: grid;
+  gap: 8px;
+}
+
+.gameplay-slice-client .district-building-popup-host > summary {
+  list-style: none;
+}
+
+.gameplay-slice-client .district-building-popup-host > summary::-webkit-details-marker {
+  display: none;
+}
+
+.gameplay-slice-client .district-building-popup {
+  --popup-cyan: rgba(74, 222, 255, 0.82);
+  --popup-cyan-soft: rgba(34, 211, 238, 0.16);
+  --popup-magenta: rgba(244, 114, 255, 0.58);
+  --popup-amber: rgba(250, 204, 21, 0.5);
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(74, 222, 255, 0.28);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(244, 114, 255, 0.18), transparent 32%),
+    radial-gradient(circle at 100% 18%, rgba(34, 211, 238, 0.2), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.025) 48%, rgba(5, 7, 11, 0.74)),
+    rgba(5, 7, 11, 0.78);
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(244, 114, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(16px) saturate(1.35);
+}
+
+.gameplay-slice-client .district-building-popup__stats,
+.gameplay-slice-client .district-building-popup__actions {
+  display: grid;
+  gap: 8px;
+}
+
+.gameplay-slice-client .district-building-popup__header,
+.gameplay-slice-client .district-building-popup__actions-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.gameplay-slice-client .district-building-popup__eyebrow,
+.gameplay-slice-client .district-building-popup__type,
+.gameplay-slice-client .district-building-popup__section-label,
+.gameplay-slice-client .district-building-popup__stat-label,
+.gameplay-slice-client .district-building-popup__action-state,
+.gameplay-slice-client .district-building-popup__action-metrics small {
+  color: rgba(219, 244, 255, 0.68);
+  font-size: 0.66rem;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.gameplay-slice-client .district-building-popup__title,
+.gameplay-slice-client .district-building-popup__stat-value,
+.gameplay-slice-client .district-building-popup__action-copy strong {
+  margin: 3px 0 0;
+  color: #f8fbff;
+  text-shadow: 0 0 18px rgba(74, 222, 255, 0.18);
+}
+
+.gameplay-slice-client .district-building-popup__type {
+  margin: 4px 0 0;
+  color: var(--popup-cyan);
+}
+
+.gameplay-slice-client .district-building-popup__badge,
+.gameplay-slice-client .district-building-popup__count,
+.gameplay-slice-client .district-building-popup__stat {
+  border: 1px solid rgba(74, 222, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(3, 8, 16, 0.42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.gameplay-slice-client .district-building-popup__badge,
+.gameplay-slice-client .district-building-popup__count {
+  flex: 0 0 auto;
+  padding: 6px 8px;
+  color: #ddfbff;
+}
+
+.gameplay-slice-client .district-building-popup__info-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(244, 114, 255, 0.16);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(244, 114, 255, 0.09), rgba(74, 222, 255, 0.05)),
+    rgba(2, 6, 13, 0.48);
+}
+
+.gameplay-slice-client .district-building-popup__info {
+  margin: 0;
+  color: rgba(231, 239, 248, 0.82);
+  font-size: 0.78rem;
+  line-height: 1.42;
+}
+
+.gameplay-slice-client .district-building-popup__stats {
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+}
+
+.gameplay-slice-client .district-building-popup__stat {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px;
+}
+
+.gameplay-slice-client .district-building-popup__action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(176px, 1fr));
+  gap: 8px;
+}
+
+.gameplay-slice-client .district-building-popup__action {
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 10px;
+  min-width: 0;
+  min-height: 198px;
+  padding: 11px;
+  overflow: hidden;
+  border: 1px solid rgba(74, 222, 255, 0.24);
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(74, 222, 255, 0.12), rgba(244, 114, 255, 0.09) 46%, rgba(250, 204, 21, 0.045)),
+    rgba(2, 6, 13, 0.62);
+  box-shadow:
+    0 12px 26px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.gameplay-slice-client .district-building-popup__action::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent) 0 0 / 100% 1px no-repeat,
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 8px);
+  opacity: 0.32;
+}
+
+.gameplay-slice-client .district-building-popup__action-light {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--popup-cyan);
+  box-shadow: 0 0 16px rgba(74, 222, 255, 0.88);
+}
+
+.gameplay-slice-client .district-building-popup__action.is-disabled {
+  opacity: 0.62;
+  filter: saturate(0.55);
+}
+
+.gameplay-slice-client .district-building-popup__action.is-disabled .district-building-popup__action-light {
+  background: rgba(250, 204, 21, 0.82);
+  box-shadow: 0 0 14px rgba(250, 204, 21, 0.62);
+}
+
+.gameplay-slice-client .district-building-popup__action-copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.gameplay-slice-client .district-building-popup__action-copy > span:not(.district-building-popup__action-state) {
+  color: rgba(231, 239, 248, 0.76);
+  font-size: 0.76rem;
+  line-height: 1.34;
+}
+
+.gameplay-slice-client .district-building-popup__action-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.gameplay-slice-client .district-building-popup__action-metrics small {
+  min-height: 22px;
+  padding: 4px 6px;
+  border: 1px solid rgba(74, 222, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(231, 246, 255, 0.76);
+}
+
+.gameplay-slice-client .district-building-popup__run-button {
+  z-index: 1;
+  min-height: 42px;
+  padding: 10px 38px 10px 11px;
+  border-color: rgba(74, 222, 255, 0.46);
+  background:
+    linear-gradient(90deg, rgba(34, 211, 238, 0.32), rgba(244, 114, 255, 0.18)),
+    rgba(4, 10, 18, 0.82);
+  color: #f8fbff;
+  box-shadow:
+    0 0 20px rgba(34, 211, 238, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.gameplay-slice-client .district-building-popup__run-button::after {
+  color: var(--popup-cyan);
+  border-color: rgba(74, 222, 255, 0.42);
+  box-shadow: 0 0 14px rgba(74, 222, 255, 0.2);
+}
+
+.gameplay-slice-client .district-building-popup__run-button:hover:not(:disabled),
+.gameplay-slice-client .district-building-popup__run-button:focus-visible {
+  border-color: rgba(244, 114, 255, 0.68);
+  box-shadow:
+    0 16px 30px rgba(0, 0, 0, 0.36),
+    0 0 24px rgba(34, 211, 238, 0.2),
+    0 0 18px rgba(244, 114, 255, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+@media (max-width: 720px), (hover: none) and (pointer: coarse) {
+  .gameplay-slice-client {
+    gap: 9px;
+    width: 100%;
+    max-width: 100%;
+    padding: 8px;
+    border-radius: 8px;
+  }
+
+  .gameplay-slice-client__status,
+  .gameplay-slice-client__topbar header {
+    padding: 8px 9px;
+    font-size: 0.72rem;
+  }
+
+  .gameplay-slice-client__map {
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .gameplay-slice-client [data-map-surface="district-list"] {
+    display: flex;
+    gap: 8px;
+    padding-bottom: 2px;
+    scroll-snap-type: x proximity;
+  }
+
+  .gameplay-slice-client .map-district {
+    width: 162px;
+    min-width: 162px;
+    min-height: 118px;
+    scroll-snap-align: start;
+  }
+
+  .gameplay-slice-client__panel {
+    max-height: min(68svh, 620px);
+    padding-right: 0;
+  }
+
+  .gameplay-slice-client .district-panel__header,
+  .gameplay-slice-client .district-panel__section,
+  .gameplay-slice-client .district-panel__slot {
+    padding: 10px;
+  }
+
+  .gameplay-slice-client .district-panel__section-copy {
+    display: none;
+  }
+
+  .gameplay-slice-client .district-panel__title {
+    font-size: 1rem;
+  }
+
+  .gameplay-slice-client .district-panel__summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .gameplay-slice-client .district-panel__summary-card {
+    padding: 9px;
+  }
+
+  .gameplay-slice-client .district-panel__summary-value {
+    font-size: 0.82rem;
+  }
+
+  .gameplay-slice-client .district-panel__section-head,
+  .gameplay-slice-client .district-panel__slot-head,
+  .gameplay-slice-client .district-panel__production-head {
+    gap: 8px;
+  }
+
+  .gameplay-slice-client .district-panel__slot-state,
+  .gameplay-slice-client .district-panel__section-meta {
+    max-width: 42%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .gameplay-slice-client .district-panel__action-button {
+    min-height: 56px;
+    padding: 12px 40px 12px 12px;
+  }
+
+  .gameplay-slice-client .district-panel__action-title {
+    font-size: 0.9rem;
+  }
+
+  .gameplay-slice-client .district-panel__action-meta,
+  .gameplay-slice-client .district-panel__slot-summary,
+  .gameplay-slice-client .district-panel__empty-copy {
+    font-size: 0.75rem;
+  }
+
+  .gameplay-slice-client .district-panel__production-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gameplay-slice-client .district-panel__production-metric {
+    justify-content: center;
+    min-width: 0;
+    text-align: center;
+  }
+}
+
+@media (max-width: 420px) {
+  .gameplay-slice-client .district-panel__summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gameplay-slice-client .district-panel__production-metrics {
+    grid-template-columns: 1fr;
+  }
+}

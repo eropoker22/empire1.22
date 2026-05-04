@@ -64,11 +64,18 @@ const mapNotificationToReport = (notification: Notification): ConflictReportView
       sourceDistrictId: String(payload.sourceDistrictId ?? ""),
       targetDistrictId: String(payload.targetDistrictId ?? ""),
       result,
+      outcomeTier: asBattleOutcomeTier(payload.outcomeTier),
       districtCaptured: Boolean(payload.districtCaptured),
       districtDestroyed: Boolean(payload.districtDestroyed),
+      districtDamaged: Boolean(payload.districtDamaged),
       trapTriggered: Boolean(payload.trapTriggered),
       attackerLosses: asNumberRecord(payload.attackerLosses),
+      defenderLosses: asNumberRecord(payload.defenderLosses),
       detectedDefense: asNumberRecord(payload.detectedDefense),
+      heatGained: Number(payload.heatGained ?? 0),
+      reportForAttacker: String(payload.reportForAttacker ?? ""),
+      reportForDefender: String(payload.reportForDefender ?? ""),
+      attackDurationTicks: Number(payload.attackDurationTicks ?? 0),
       tick: Number(payload.tick ?? 0),
       createdAt: String(payload.createdAt ?? notification.createdAt),
       eventId: payload.eventId ? String(payload.eventId) : null
@@ -92,6 +99,15 @@ const mapNotificationToReport = (notification: Notification): ConflictReportView
       intelRevealedDistrictIds: asStringArray(payload.intelRevealedDistrictIds),
       intelDetectedDefense: asNumberRecordByKey(payload.intelDetectedDefense),
       messages: asStringArray(payload.messages),
+      casinoResult: asUnknownRecord(payload.casinoResult),
+      exchangeResult: asUnknownRecord(payload.exchangeResult),
+      arcadeResult: asUnknownRecord(payload.arcadeResult),
+      apartmentResult: asUnknownRecord(payload.apartmentResult),
+      clinicResult: asUnknownRecord(payload.clinicResult),
+      recyclingResult: asUnknownRecord(payload.recyclingResult),
+      stripClubResult: asUnknownRecord(payload.stripClubResult),
+      powerStationResult: asUnknownRecord(payload.powerStationResult),
+      smugglingTunnelResult: asUnknownRecord(payload.smugglingTunnelResult),
       heatGain: Number(payload.heatGain ?? 0),
       influenceChange: Number(payload.influenceChange ?? 0),
       tick: Number(payload.tick ?? 0),
@@ -101,6 +117,14 @@ const mapNotificationToReport = (notification: Notification): ConflictReportView
   }
 
   return null;
+};
+
+const asUnknownRecord = (value: unknown): Record<string, unknown> | undefined => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return { ...(value as Record<string, unknown>) };
 };
 
 const asNumberRecord = (value: unknown): Record<string, number> => {
@@ -119,6 +143,19 @@ const asNumberRecord = (value: unknown): Record<string, number> => {
 const asStringArray = (value: unknown): string[] => Array.isArray(value)
   ? value.map((entry) => String(entry || "").trim()).filter(Boolean)
   : [];
+
+const asBattleOutcomeTier = (value: unknown): BattleReport["outcomeTier"] => {
+  if (
+    value === "clean_capture"
+    || value === "costly_capture"
+    || value === "failed_raid"
+    || value === "disaster"
+  ) {
+    return value;
+  }
+
+  return "failed_raid";
+};
 
 const asNumberRecordByKey = (value: unknown): Record<string, Record<string, number>> => {
   if (!value || typeof value !== "object") {

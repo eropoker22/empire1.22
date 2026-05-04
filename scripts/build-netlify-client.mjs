@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const publishDir = resolve(rootDir, "client");
+// `client/` is generated publish output. Canonical source stays in root `pages/`,
+// `page-assets/`, `img/`, and the explicit legacy browser compatibility modules.
 const staticDirs = [
   "pages",
   "page-assets",
@@ -14,6 +16,7 @@ const staticDirs = [
 const requiredPublishFiles = [
   "pages/login.html",
   "page-assets/js/login.js",
+  "page-assets/js/client-assets/gameplay-slice-client.js",
   "page-assets/js/app/auth-flow.js",
   "page-assets/js/app/model/authority-state.js",
   "packages/game-config/src/legacy-page/combat-config.js",

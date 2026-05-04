@@ -16,15 +16,18 @@ export interface LoadGameplaySliceRequest {
   serverInstanceId: ServerInstanceId;
   playerId: PlayerId;
   districtId: DistrictId;
+  snapshotToken?: string | null;
 }
 
 export interface SubmitGameplayCommandRequest {
   command: GameCommand;
   focusDistrictId: DistrictId;
+  snapshotToken?: string | null;
 }
 
 export interface GameplaySliceResponse {
   accepted: boolean;
   readModel: GameplaySliceView | null;
   errors: DomainError[];
+  snapshotToken?: string | null;
 }

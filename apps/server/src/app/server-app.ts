@@ -1,6 +1,7 @@
 import { ServerInstanceManager } from "../runtime";
 import { createAdminMonitoringFacade } from "../runtime/monitoring/admin-monitoring-facade";
 import { createCommandIngress } from "../transport/command-ingress";
+import { createGameplaySliceJsonHandler } from "../transport/gameplay-slice-json-handler";
 import { createGameplaySliceTransport } from "../transport/gameplay-slice-transport";
 import { createLiveUpdateGateway } from "../transport/live-update-gateway";
 import { createInstanceCommandRouter } from "../runtime/orchestration/instance-command-router";
@@ -18,6 +19,7 @@ export const createServerApp = () => {
   const commandRouter = createInstanceCommandRouter(instanceManager);
   const commandIngress = createCommandIngress(commandRouter);
   const gameplaySliceTransport = createGameplaySliceTransport(instanceManager, commandIngress);
+  const gameplaySliceJsonHandler = createGameplaySliceJsonHandler(gameplaySliceTransport);
   const liveUpdateGateway = createLiveUpdateGateway();
   const tickOrchestrator = createTickOrchestrator(instanceManager);
   const snapshotOrchestrator = createSnapshotOrchestrator(instanceManager);
@@ -28,6 +30,7 @@ export const createServerApp = () => {
     instanceManager,
     commandIngress,
     gameplaySliceTransport,
+    gameplaySliceJsonHandler,
     liveUpdateGateway,
     tickOrchestrator,
     snapshotOrchestrator,

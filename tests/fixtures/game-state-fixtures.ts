@@ -104,6 +104,7 @@ export const createCoreStateWithFixedBuildingFixture = (
   buildingTypeId = "pharmacy",
   options: {
     buildingOverrides?: Partial<Building>;
+    includeWarehouse?: boolean;
     playerBalances?: Record<string, number>;
     productionResourceKey?: string;
     productionStoredAmount?: number;
@@ -111,11 +112,19 @@ export const createCoreStateWithFixedBuildingFixture = (
 ) => {
   const state = createCoreStateFixture();
   const building = createFixedBuildingFixture(buildingTypeId, options.buildingOverrides);
+  const warehouse = options.includeWarehouse && buildingTypeId !== "warehouse"
+    ? createFixedBuildingFixture("warehouse", {
+        id: "building:district-1:warehouse:1"
+      })
+    : null;
 
   state.buildingsById[building.id] = building;
+  if (warehouse) {
+    state.buildingsById[warehouse.id] = warehouse;
+  }
   state.districtsById[building.districtId] = {
     ...state.districtsById[building.districtId],
-    buildingIds: [building.id]
+    buildingIds: warehouse ? [building.id, warehouse.id] : [building.id]
   };
 
   if (options.playerBalances) {
@@ -138,7 +147,7 @@ export const createCoreStateWithFixedBuildingFixture = (
     });
   }
 
-  return { state, building };
+  return { state, building, warehouse };
 };
 
 export const createCombatStateFixture = (instanceId = "instance:1") => {

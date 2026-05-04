@@ -9,8 +9,8 @@ export const warModeOverride: Partial<ResolvedGameModeConfig> = {
   mode: "war",
   tickRateMs: 15000,
   balance: {
-    incomeMultiplier: 1,
-    productionMultiplier: 1,
+    incomeMultiplier: 0.85,
+    productionMultiplier: 0.85,
     cooldownMultiplier: 1.15,
     maxPlayersPerServer: 150,
     maxAllianceSize: 12,
@@ -22,6 +22,17 @@ export const warModeOverride: Partial<ResolvedGameModeConfig> = {
     dayLengthTicks: 16,
     nightLengthTicks: 16,
     victoryConditionKey: "long-war-control",
+    conflict: {
+      spyCooldownTicks: 4,
+      attackCooldownTicks: 48,
+      minAttackDurationTicks: 48,
+      attackHeatGain: 14,
+      spyBaseSuccessChance: 0.66,
+      spyTrapRevealChance: 0.28,
+      trapAttackLosses: 2,
+      reportsLimit: 10,
+      catastropheChance: 0.1
+    },
     startingResources: {
       cash: 1000,
       "dirty-cash": 250,
@@ -32,8 +43,8 @@ export const warModeOverride: Partial<ResolvedGameModeConfig> = {
     }
   },
   technical: {
-    sessionTtlMs: 1000 * 60 * 60 * 24,
-    gameDurationMs: 1000 * 60 * 60 * 24 * 7,
+    sessionTtlMs: 1000 * 60 * 60 * 24 * 10,
+    gameDurationMs: 1000 * 60 * 60 * 24 * 10,
     storageKeyPrefix: "empire:war",
     snapshotIntervalTicks: 12,
     notificationBatchWindowMs: 400,

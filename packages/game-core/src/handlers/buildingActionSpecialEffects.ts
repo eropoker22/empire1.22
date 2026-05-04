@@ -14,12 +14,9 @@ export const resolveBuildingActionSpecialEffect = (input: {
   district: CoreGameState["districtsById"][string];
   actionId: string;
 }): BuildingActionSpecialEffectResult => {
-  if (input.actionId === "armory_fortify") {
-    const defenseAdded = {
-      barricades: 2,
-      cameras: 1,
-      alarm: 1
-    } satisfies Partial<Record<DefenseWeaponId, number>>;
+  const defenseAdded = DEFENSE_LOADOUT_BY_ACTION_ID[input.actionId] ?? null;
+  if (defenseAdded) {
+    const label = BUILDING_ACTION_MESSAGE_LABELS[input.actionId] ?? "Building crews";
 
     return {
       nextDistrict: {
@@ -30,40 +27,31 @@ export const resolveBuildingActionSpecialEffect = (input: {
       intelRevealedDistrictIds: [],
       intelDetectedDefense: {},
       messages: [
-        "Armory crews reinforced this district with barricades, cameras, and an alarm.",
+        `${label} reinforced this district.`,
         "The added defense is now part of attack and spy resolution."
       ]
     };
   }
 
-  if (input.actionId === "data_center_tracking") {
-    const intelRevealedDistrictIds = getIntelDistrictIds(input.state, input.district, 3);
+  const intelEffect = INTEL_EFFECT_BY_ACTION_ID[input.actionId] ?? null;
+  if (intelEffect) {
+    const intelRevealedDistrictIds = getIntelDistrictIds(input.state, input.district, intelEffect.limit);
+    const label = BUILDING_ACTION_MESSAGE_LABELS[input.actionId] ?? "Intel";
     return {
       nextDistrict: input.district,
       defenseAdded: {},
       intelRevealedDistrictIds,
-      intelDetectedDefense: Object.fromEntries(
-        intelRevealedDistrictIds.map((districtId) => [
-          districtId,
-          input.state.districtsById[districtId]?.defenseLoadout ?? {}
-        ])
-      ),
+      intelDetectedDefense: intelEffect.detectDefense
+        ? Object.fromEntries(
+            intelRevealedDistrictIds.map((districtId) => [
+              districtId,
+              input.state.districtsById[districtId]?.defenseLoadout ?? {}
+            ])
+          )
+        : {},
       messages: intelRevealedDistrictIds.length > 0
-        ? intelRevealedDistrictIds.map((districtId) => `Data center tracked ${districtId}.`)
-        : ["Data center found no adjacent district to track."]
-    };
-  }
-
-  if (input.actionId === "restaurant_street_gossip") {
-    const intelRevealedDistrictIds = getIntelDistrictIds(input.state, input.district, 2);
-    return {
-      nextDistrict: input.district,
-      defenseAdded: {},
-      intelRevealedDistrictIds,
-      intelDetectedDefense: {},
-      messages: intelRevealedDistrictIds.length > 0
-        ? intelRevealedDistrictIds.map((districtId) => `Street gossip revealed activity around ${districtId}.`)
-        : ["Street gossip did not find a useful lead."]
+        ? intelRevealedDistrictIds.map((districtId) => `${label} revealed activity around ${districtId}.`)
+        : [`${label} did not find a useful lead.`]
     };
   }
 
@@ -74,6 +62,57 @@ export const resolveBuildingActionSpecialEffect = (input: {
     intelDetectedDefense: {},
     messages: []
   };
+};
+
+const DEFENSE_LOADOUT_BY_ACTION_ID: Record<string, Partial<Record<DefenseWeaponId, number>>> = {
+  armory_fortify: {
+    barricades: 2,
+    cameras: 1,
+    alarm: 1
+  },
+  court_case_pressure: {
+    cameras: 1,
+    alarm: 1
+  },
+  clinic_recovery_boost: {
+    vest: 1,
+    barricades: 1
+  },
+  school_discipline: {
+    barricades: 1,
+    cameras: 1
+  },
+  garage_escape_routes: {
+    alarm: 1
+  },
+  warehouse_hidden_storage: {
+    barricades: 1,
+    cameras: 1
+  }
+};
+
+const INTEL_EFFECT_BY_ACTION_ID: Record<string, { limit: number; detectDefense: boolean }> = {
+  restaurant_street_gossip: { limit: 2, detectDefense: false },
+  lobby_club_backroom_deal: { limit: 1, detectDefense: false },
+  vip_lounge_private_table: { limit: 1, detectDefense: false },
+  airport_fast_manifest: { limit: 1, detectDefense: false },
+  convenience_street_info: { limit: 2, detectDefense: false },
+  strip_club_compromise: { limit: 1, detectDefense: false },
+};
+
+const BUILDING_ACTION_MESSAGE_LABELS: Record<string, string> = {
+  armory_fortify: "Armory crews",
+  court_case_pressure: "Court pressure",
+  clinic_recovery_boost: "Clinic recovery teams",
+  school_discipline: "School discipline crews",
+  garage_escape_routes: "Garage route crews",
+  warehouse_hidden_storage: "Warehouse crews",
+  restaurant_street_gossip: "Street gossip",
+  lobby_club_backroom_deal: "Lobby contacts",
+  vip_lounge_private_table: "VIP contacts",
+  airport_fast_manifest: "Airport manifest",
+  convenience_street_info: "Store gossip",
+  strip_club_compromise: "Compromat",
 };
 
 const addDefenseLoadout = (

@@ -1,0 +1,107 @@
+/*
+ * Global hover policy: cursor hover must not move, lift, zoom, or animate UI.
+ * Keep color, border, shadow, and opacity feedback static; disable transform-based
+ * hover/focus motion for interactive controls and cards.
+ */
+
+:where(
+  a,
+  button,
+  summary,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [tabindex],
+  .btn,
+  .button,
+  .nav-btn,
+  .topbar__logout,
+  .resource-pill,
+  .panel-action-button--feature,
+  .leaderboard-button,
+  .map-phase-button,
+  .building-shortcut-button,
+  .buildings-popup__type-btn,
+  .buildings-popup__building--interactive,
+  .building-detail-title__action-btn,
+  .building-info-action-row,
+  .building-detail-tabs__btn,
+  .district-building-popup__action,
+  .district-building-popup__run-button,
+  .market-popup-row,
+  .market-popup-row__buy,
+  .market-popup-row__sell,
+  .market-popup-close,
+  .modal__confirm-btn,
+  .modal__cancel-btn,
+  .modal__close,
+  .modal__row,
+  .server-card,
+  .auth-server-card,
+  .server-detail-modal__btn,
+  .gang-color-swatch,
+  .avatar-item,
+  .avatar-item img,
+  .admin-button,
+  .admin-row-actions button,
+  .admin-nav__item,
+  .admin-map-cell
+):is(:hover, :focus, :focus-visible, :focus-within) {
+  transform: none !important;
+  animation: none !important;
+}
+
+#alliance-btn:hover,
+#alliance-btn:focus-visible,
+#alliance-btn:hover .alliance-btn__icon,
+#alliance-btn:focus-visible .alliance-btn__icon {
+  transform: none !important;
+  animation: none !important;
+}
+
+:where(
+  a,
+  button,
+  summary,
+  [role="button"],
+  .btn,
+  .button,
+  .nav-btn,
+  .panel-action-button--feature,
+  .building-shortcut-button,
+  .buildings-popup__type-btn,
+  .buildings-popup__building--interactive,
+  .building-detail-title__action-btn,
+  .building-info-action-row,
+  .district-building-popup__action,
+  .district-building-popup__run-button,
+  .market-popup-row,
+  .server-card,
+  .auth-server-card,
+  .avatar-item
+):is(:hover, :focus-visible)::before,
+:where(
+  a,
+  button,
+  summary,
+  [role="button"],
+  .btn,
+  .button,
+  .nav-btn,
+  .panel-action-button--feature,
+  .building-shortcut-button,
+  .buildings-popup__type-btn,
+  .buildings-popup__building--interactive,
+  .building-detail-title__action-btn,
+  .building-info-action-row,
+  .district-building-popup__action,
+  .district-building-popup__run-button,
+  .market-popup-row,
+  .server-card,
+  .auth-server-card,
+  .avatar-item
+):is(:hover, :focus-visible)::after {
+  transform: none !important;
+  animation: none !important;
+}

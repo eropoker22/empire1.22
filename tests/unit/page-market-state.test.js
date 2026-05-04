@@ -44,6 +44,21 @@ describe("page market state", () => {
         market: {
           ...baseSession.market,
           serverId: "war-eu-01",
+          playerListings: [
+            {
+              id: "listing-war-chemicals",
+              sellerId: "seller:war",
+              sellerName: "War Dealer",
+              inventory: "materials",
+              itemId: "chemicals",
+              itemName: "Chemicals",
+              amount: 4,
+              unitPrice: 420,
+              currency: "cleanMoney",
+              createdAt: Date.now(),
+              expiresAt: Date.now() + 600000
+            }
+          ],
           items: {
             ...baseSession.market.items,
             "market:chemicals": {
@@ -72,5 +87,6 @@ describe("page market state", () => {
     expect(session.market.serverId).toBe("free-eu-01");
     expect(session.market.items["market:chemicals"].price).toBe(360);
     expect(session.marketByServerId["war-eu-01"].items["market:chemicals"].price).toBe(111);
+    expect(session.marketByServerId["war-eu-01"].playerListings).toHaveLength(1);
   });
 });

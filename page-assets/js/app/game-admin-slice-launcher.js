@@ -12,6 +12,8 @@ const DEBUG_STORAGE_KEY = "empire:debug:adminSlice";
 
 let mountedSurface = null;
 
+// Dev/demo bridge only. The production game page must not eagerly load the
+// generated admin slice bundle; it is injected only when explicitly enabled.
 const isAdminSliceDebugEnabled = () => {
   const params = new URLSearchParams(window.location.search);
   return params.get("debugSlice") === "1" || window.localStorage.getItem(DEBUG_STORAGE_KEY) === "1";

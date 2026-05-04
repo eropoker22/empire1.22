@@ -11,6 +11,8 @@ import { CORE_EVENT_TYPES, createEvent, createNotification } from "../events";
 import { resolveSpy } from "../rules";
 import { composeEntityId } from "../utils";
 import { validateSpy } from "../validation";
+import { applyGarageCooldownReductionTicks } from "./garageBuildingActions";
+import { resolveCombinedCameraAlarmBonuses } from "./recruitmentCenterBuildingActions";
 
 /**
  * Responsibility: Orchestrates one authoritative spy command and report creation.
@@ -39,6 +41,13 @@ export const handleSpyDistrict = (
     (trap) => trap.districtId === targetDistrict.id && trap.status === "active"
   );
   const reportEventId = composeEntityId("event", `${command.id}:district-spied`);
+  const combinedCameraAlarmBonuses = resolveCombinedCameraAlarmBonuses({
+    state,
+    playerId: targetDistrict.ownerPlayerId,
+    recruitmentCenterConfig: context.config.balance.recruitmentCenter,
+    powerStationConfig: context.config.balance.powerStation,
+    tick: state.root.tick
+  });
   const reportResult = resolveSpy({
     worldSeed: state.serverInstance.worldSeed,
     playerId: player.id,
@@ -47,7 +56,9 @@ export const handleSpyDistrict = (
     defenseLoadout: targetDistrict.defenseLoadout,
     hasActiveTrap: Boolean(activeTrap),
     spyBaseSuccessChance: context.config.balance.conflict?.spyBaseSuccessChance ?? 0.72,
-    spyTrapRevealChance: context.config.balance.conflict?.spyTrapRevealChance ?? 0.22
+    spyTrapRevealChance: context.config.balance.conflict?.spyTrapRevealChance ?? 0.22,
+    cameraStrengthBonusPct: combinedCameraAlarmBonuses.cameraStrengthBonusPct,
+    alarmStrengthBonusPct: combinedCameraAlarmBonuses.alarmStrengthBonusPct
   });
   const report = createSpyReportNotification({
     command,
@@ -58,6 +69,13 @@ export const handleSpyDistrict = (
     eventId: reportEventId
   });
   const spyCooldownKey = `spy:${targetDistrict.id}`;
+  const spyCooldownTicks = applyGarageCooldownReductionTicks({
+    baseTicks: context.config.balance.conflict?.spyCooldownTicks ?? 2,
+    state,
+    playerId: player.id,
+    config: context.config.balance.garage,
+    category: "districtSpy"
+  });
 
   return {
     nextState: {
@@ -76,8 +94,7 @@ export const handleSpyDistrict = (
           ...cooldownState,
           cooldowns: {
             ...cooldownState.cooldowns,
-            [spyCooldownKey]:
-              state.root.tick + (context.config.balance.conflict?.spyCooldownTicks ?? 2)
+            [spyCooldownKey]: state.root.tick + spyCooldownTicks
           },
           version: cooldownState.version + (state.cooldownStatesById[cooldownState.id] ? 1 : 0)
         }

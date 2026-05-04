@@ -1890,3 +1890,630 @@
     min-height: 50px;
   }
 }
+
+/* Final district action grid and neon glass pass. */
+.district-popup-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding-top: 6px;
+  border-top-color: rgba(var(--district-accent-rgb), 0.22);
+}
+
+.district-popup-action-row {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.district-popup-action-row:has(.district-popup-action[data-district-action-id="defense"]) {
+  order: 1;
+}
+
+.district-popup-action-row:has(.district-popup-action[data-district-action-id="trap"]) {
+  order: 2;
+}
+
+.district-popup-action-row:has(.district-popup-action[data-district-action-id="spy"]) {
+  order: 3;
+}
+
+.district-popup-action-row:has(.district-popup-action[data-district-action-id="rob"]) {
+  order: 4;
+}
+
+.district-popup-action-row:has(.district-popup-action[data-district-action-id="attack"]) {
+  order: 5;
+}
+
+.district-popup-action-row:has(.district-popup-action[data-district-action-id="occupy"]) {
+  order: 6;
+}
+
+.district-popup-action {
+  --district-action-rgb: 103, 232, 249;
+  --district-action-secondary-rgb: 168, 85, 247;
+  --district-action-text: #effcff;
+  width: 100%;
+  min-height: 46px;
+  grid-column: auto !important;
+  padding: 8px 10px 9px;
+  overflow: hidden;
+  border: 1px solid rgba(var(--district-action-rgb), 0.34);
+  border-radius: 7px;
+  background:
+    linear-gradient(135deg, rgba(var(--district-action-rgb), 0.17), rgba(var(--district-action-secondary-rgb), 0.08) 46%, rgba(6, 10, 18, 0.66)),
+    rgba(6, 10, 18, 0.44);
+  color: var(--district-action-text);
+  text-align: left;
+  letter-spacing: 0;
+  text-shadow: 0 0 8px rgba(var(--district-action-rgb), 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 18px rgba(2, 6, 23, 0.22),
+    0 0 14px rgba(var(--district-action-rgb), 0.11);
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+}
+
+.district-popup-action::before {
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.13), transparent 30%, transparent 78%, rgba(var(--district-action-rgb), 0.12)),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 8px);
+  opacity: 0.26;
+}
+
+.district-popup-action::after {
+  inset: 0 auto 0 0;
+  width: 2px;
+  border-radius: 0;
+  background: linear-gradient(180deg, rgb(var(--district-action-rgb)), rgb(var(--district-action-secondary-rgb)));
+  box-shadow: 0 0 12px rgba(var(--district-action-rgb), 0.62);
+  opacity: 1;
+}
+
+.district-popup-action__label,
+.district-popup-action > span,
+.district-popup-action {
+  position: relative;
+  z-index: 1;
+}
+
+.district-popup-action__label {
+  font-size: 0.66rem;
+  font-weight: 850;
+  line-height: 1.08;
+}
+
+.district-popup-action__sub {
+  font-size: 0.54rem;
+  color: rgba(236, 248, 255, 0.68);
+}
+
+.district-popup-action:only-child {
+  width: 100%;
+  grid-column: auto !important;
+  justify-self: stretch;
+}
+
+.district-popup-action[data-district-action-id="defense"] {
+  --district-action-rgb: 96, 165, 250;
+  --district-action-secondary-rgb: 34, 211, 238;
+  --district-action-text: #eaf5ff;
+}
+
+.district-popup-action[data-district-action-id="trap"] {
+  --district-action-rgb: 45, 212, 191;
+  --district-action-secondary-rgb: 34, 197, 94;
+  --district-action-text: #eafff8;
+}
+
+.district-popup-action[data-district-action-id="spy"] {
+  --district-action-rgb: 250, 204, 21;
+  --district-action-secondary-rgb: 236, 72, 153;
+  --district-action-text: #fff9d7;
+}
+
+.district-popup-action[data-district-action-id="rob"] {
+  --district-action-rgb: 34, 211, 238;
+  --district-action-secondary-rgb: 168, 85, 247;
+  --district-action-text: #e8fdff;
+}
+
+.district-popup-action[data-district-action-id="attack"] {
+  --district-action-rgb: 248, 113, 113;
+  --district-action-secondary-rgb: 251, 146, 60;
+  --district-action-text: #fff1f2;
+}
+
+.district-popup-action[data-district-action-id="occupy"] {
+  --district-action-rgb: 251, 191, 36;
+  --district-action-secondary-rgb: 45, 212, 191;
+  --district-action-text: #fff7d6;
+}
+
+.district-popup-action[data-district-action-id]:not(:disabled):hover,
+.district-popup-action[data-district-action-id]:not(:disabled):focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(var(--district-action-rgb), 0.72);
+  color: #ffffff;
+  outline: none;
+  filter: saturate(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 12px 24px rgba(2, 6, 23, 0.3),
+    0 0 18px rgba(var(--district-action-rgb), 0.22),
+    0 0 12px rgba(var(--district-action-secondary-rgb), 0.12);
+}
+
+.district-popup-action:disabled {
+  opacity: 0.52;
+  filter: saturate(0.62);
+}
+
+.district-popup-action-reason {
+  padding: 5px 7px;
+  border: 1px solid rgba(248, 113, 113, 0.22);
+  border-radius: 7px;
+  background:
+    linear-gradient(135deg, rgba(248, 113, 113, 0.1), rgba(6, 10, 18, 0.46)),
+    rgba(6, 10, 18, 0.4);
+  color: rgba(255, 225, 225, 0.8);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+}
+
+.attack-setup-popup-card {
+  border-color: rgba(var(--district-accent-rgb, 103, 232, 249), 0.42);
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(var(--district-accent-rgb, 103, 232, 249), 0.16), rgba(var(--district-secondary-rgb, 168, 85, 247), 0.08) 44%, rgba(5, 9, 18, 0.46)),
+    rgba(5, 9, 18, 0.46);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 22px 58px rgba(0, 0, 0, 0.42),
+    0 0 24px rgba(var(--district-accent-rgb, 103, 232, 249), 0.16);
+  backdrop-filter: blur(24px) saturate(168%);
+  -webkit-backdrop-filter: blur(24px) saturate(168%);
+}
+
+.attack-setup-popup-row,
+.attack-setup-popup-weapon {
+  border-color: rgba(var(--district-accent-rgb, 103, 232, 249), 0.22);
+  background:
+    linear-gradient(135deg, rgba(var(--district-accent-rgb, 103, 232, 249), 0.11), rgba(255, 255, 255, 0.035)),
+    rgba(5, 9, 18, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 16px rgba(0, 0, 0, 0.14);
+  backdrop-filter: blur(12px) saturate(124%);
+  -webkit-backdrop-filter: blur(12px) saturate(124%);
+}
+
+.attack-setup-popup-confirm {
+  border-color: rgba(var(--district-accent-rgb, 103, 232, 249), 0.5);
+  background:
+    linear-gradient(135deg, rgba(var(--district-accent-rgb, 103, 232, 249), 0.28), rgba(var(--district-secondary-rgb, 168, 85, 247), 0.14)),
+    rgba(5, 9, 18, 0.54);
+  color: #f8fbff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 10px 22px rgba(0, 0, 0, 0.24),
+    0 0 18px rgba(var(--district-accent-rgb, 103, 232, 249), 0.16);
+  backdrop-filter: blur(12px) saturate(145%);
+  -webkit-backdrop-filter: blur(12px) saturate(145%);
+}
+
+/* Clean transparent district window pass. */
+.district-popup-card {
+  width: min(440px, calc(100vw - 28px));
+  padding: 8px;
+  border-radius: 14px;
+  border-color: rgba(var(--district-accent-rgb), 0.32);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.018) 34%, rgba(255, 255, 255, 0)),
+    linear-gradient(135deg, rgba(var(--district-accent-rgb), 0.09), rgba(255, 255, 255, 0.025) 42%, rgba(3, 8, 16, 0.2)),
+    rgba(3, 8, 16, 0.36);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+    0 18px 46px rgba(0, 0, 0, 0.36),
+    0 0 20px rgba(var(--district-accent-rgb), 0.14);
+  backdrop-filter: blur(24px) saturate(156%);
+  -webkit-backdrop-filter: blur(24px) saturate(156%);
+}
+
+.district-popup-card::before {
+  opacity: calc(var(--district-owner-avatar-opacity) * 0.72);
+  filter: saturate(0.96) brightness(0.72) contrast(1.02);
+}
+
+.district-popup-card::after {
+  background:
+    radial-gradient(circle at 14% -18%, rgba(var(--district-accent-rgb), 0.12), rgba(var(--district-accent-rgb), 0.025) 42%, transparent 64%),
+    linear-gradient(180deg, rgba(2, 6, 18, 0.02), rgba(2, 6, 18, 0.2));
+}
+
+.district-modal-hero--district {
+  min-height: 68px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  border-color: rgba(var(--district-accent-rgb), 0.14);
+  background: rgba(4, 9, 16, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.district-modal-hero--district .district-modal-hero__image {
+  opacity: 0.26;
+  filter: saturate(0.96) brightness(0.62) contrast(1.02);
+}
+
+.district-modal-hero--district .district-modal-hero__scrim {
+  background:
+    radial-gradient(circle at 88% 4%, rgba(var(--district-accent-rgb), 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(2, 6, 18, 0.02), rgba(2, 6, 18, 0.28));
+}
+
+.district-popup-body {
+  gap: 7px;
+  padding: 8px;
+  padding-right: 6px;
+  border-color: rgba(var(--district-accent-rgb), 0.1);
+  border-radius: 10px;
+  background: rgba(4, 9, 16, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(10px) saturate(122%);
+  -webkit-backdrop-filter: blur(10px) saturate(122%);
+}
+
+.district-popup-owner-card,
+.district-popup-status,
+.district-popup-summary-card,
+.district-popup-buildings,
+.district-popup-gossip,
+.district-popup-action-section {
+  border-color: rgba(var(--district-accent-rgb), 0.18);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.01)),
+    rgba(7, 13, 24, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 18px rgba(var(--district-accent-rgb), 0.035);
+  backdrop-filter: blur(14px) saturate(128%);
+  -webkit-backdrop-filter: blur(14px) saturate(128%);
+}
+
+.district-popup-owner-card:hover,
+.district-popup-status:hover,
+.district-popup-summary-card:hover,
+.district-popup-buildings:hover,
+.district-popup-gossip:hover {
+  border-color: rgba(var(--district-accent-rgb), 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 18px rgba(var(--district-accent-rgb), 0.055);
+}
+
+.district-popup-status,
+.district-popup-buildings,
+.district-popup-gossip,
+.district-popup-action-section {
+  gap: 6px;
+  padding: 8px;
+}
+
+.district-popup-summary-card {
+  min-height: 32px;
+  padding: 6px 8px;
+}
+
+.district-popup-buildings__chip,
+.district-popup-gossip__item {
+  border-color: rgba(var(--district-accent-rgb), 0.16);
+  border-radius: 7px;
+  background: rgba(4, 10, 20, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+.district-popup-action-section {
+  border-color: rgba(var(--district-accent-rgb), 0.2);
+  background:
+    linear-gradient(135deg, rgba(var(--district-accent-rgb), 0.06), rgba(255, 255, 255, 0.018)),
+    rgba(5, 10, 18, 0.24);
+}
+
+.district-popup-actions {
+  gap: 7px;
+  padding-top: 7px;
+  border-top-color: rgba(var(--district-accent-rgb), 0.16);
+}
+
+.district-popup-action {
+  min-height: 46px;
+  border-radius: 8px;
+  border-color: rgba(var(--district-action-rgb), 0.36);
+  background:
+    linear-gradient(135deg, rgba(var(--district-action-rgb), 0.18), rgba(var(--district-action-secondary-rgb), 0.08) 48%, rgba(4, 10, 20, 0.5)),
+    rgba(5, 10, 18, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.11),
+    0 8px 16px rgba(2, 6, 23, 0.22),
+    0 0 12px rgba(var(--district-action-rgb), 0.1);
+}
+
+.district-popup-action::before {
+  inset: 0;
+  width: auto;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.11), transparent 30%, transparent 78%, rgba(var(--district-action-rgb), 0.1)),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 8px);
+  opacity: 0.24;
+}
+
+.district-popup-action::after {
+  inset: 0 auto 0 0;
+  width: 2px;
+  border-radius: 0;
+  background: linear-gradient(180deg, rgb(var(--district-action-rgb)), rgb(var(--district-action-secondary-rgb)));
+  box-shadow: 0 0 12px rgba(var(--district-action-rgb), 0.48);
+  opacity: 1;
+}
+
+/* Readable district detail layout pass. */
+.district-popup-card {
+  gap: 6px;
+}
+
+.district-popup-toggle {
+  position: relative;
+  top: auto;
+  right: auto;
+  z-index: 2;
+  align-self: flex-end;
+  display: inline-flex;
+  justify-content: center;
+  min-width: 82px;
+  min-height: 28px;
+  margin: 0 42px 0 0;
+  padding: 0 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.06em;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent),
+    rgba(7, 13, 24, 0.62);
+}
+
+.district-popup-toggle[aria-pressed="true"] {
+  border-color: rgba(var(--district-accent-rgb), 0.58);
+  color: #ffffff;
+  background:
+    linear-gradient(135deg, rgba(var(--district-accent-rgb), 0.22), rgba(255, 255, 255, 0.055)),
+    rgba(7, 13, 24, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 14px rgba(var(--district-accent-rgb), 0.18);
+}
+
+.district-popup-card .district-popup-close {
+  top: 8px !important;
+  right: 8px !important;
+}
+
+.district-modal-hero--district .district-modal-hero__copy {
+  padding: 10px 12px 10px 11px;
+}
+
+.district-popup-title,
+.district-modal-hero__mood,
+.district-popup-owner-name,
+.district-popup-owner-meta,
+.district-popup-summary-card__label,
+.district-popup-summary-card__value,
+.district-popup-buildings__meta,
+.district-popup-buildings__chip,
+.district-popup-gossip__text,
+.district-popup-action__label,
+.district-popup-action__sub,
+.district-popup-action-reason,
+.district-popup-action-section__copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.district-popup-title {
+  line-height: 1.08;
+}
+
+.district-modal-hero__mood {
+  max-width: none;
+}
+
+.district-popup-card[data-overview-enabled="true"] .district-popup-body {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.008)),
+    rgba(4, 9, 16, 0.44);
+  border-color: rgba(var(--district-accent-rgb), 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    inset 0 0 22px rgba(0, 0, 0, 0.08);
+}
+
+.district-popup-card[data-overview-enabled="true"] .district-popup-status,
+.district-popup-card[data-overview-enabled="true"] .district-popup-summary-card {
+  border-color: rgba(var(--district-accent-rgb), 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.012)),
+    rgba(5, 12, 24, 0.5);
+}
+
+.district-popup-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+}
+
+.district-popup-summary-card {
+  min-width: 0;
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: minmax(92px, 0.56fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.district-popup-summary-card__label {
+  min-width: 0;
+  color: rgba(203, 213, 225, 0.78);
+  font-size: 0.62rem;
+  line-height: 1.1;
+  white-space: normal;
+}
+
+.district-popup-summary-card__value {
+  min-width: 0;
+  color: #f8fbff;
+  font-size: 0.76rem;
+  line-height: 1.14;
+  text-align: right;
+  white-space: normal;
+}
+
+.district-popup-status__flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.district-popup-buildings__head,
+.district-popup-action-section__head {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.district-popup-buildings__list,
+.district-popup-gossip__list {
+  overscroll-behavior: contain;
+}
+
+.district-popup-actions {
+  align-items: stretch;
+}
+
+.district-popup-action {
+  display: grid;
+  align-content: center;
+  gap: 3px;
+}
+
+.district-popup-action__label {
+  white-space: normal;
+}
+
+.district-popup-action__sub {
+  white-space: normal;
+}
+
+/* Owner/building readability guard: keep stacked text from visually colliding. */
+.district-popup-body > .district-popup-owner-card,
+.district-popup-body > .district-popup-buildings,
+.district-popup-body > .district-popup-gossip,
+.district-popup-body > .district-popup-action-section,
+.district-popup-body > .district-popup-status,
+.district-popup-body > .district-popup-summary-grid {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.district-popup-owner-card {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 66px;
+  overflow: visible;
+}
+
+.district-popup-owner-avatar-wrap {
+  width: 44px;
+  height: 44px;
+  align-self: center;
+}
+
+.district-popup-owner-copy {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.district-popup-owner-label,
+.district-popup-owner-name,
+.district-popup-owner-meta,
+.district-popup-buildings__label,
+.district-popup-buildings__meta {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.district-popup-owner-label {
+  font-size: 0.58rem;
+  line-height: 1.15;
+  letter-spacing: 0.08em;
+}
+
+.district-popup-owner-name {
+  font-size: 0.86rem;
+  line-height: 1.18;
+}
+
+.district-popup-owner-meta {
+  font-size: 0.64rem;
+  line-height: 1.2;
+}
+
+.district-popup-buildings {
+  display: grid;
+  gap: 7px;
+  margin-top: 0;
+  overflow: visible;
+}
+
+.district-popup-card[data-overview-enabled="false"] .district-popup-owner-card {
+  margin-bottom: 2px;
+}
+
+.district-popup-buildings__head {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 3px;
+  min-height: max-content;
+}
+
+.district-popup-buildings__label {
+  font-size: 0.62rem;
+  line-height: 1.15;
+  letter-spacing: 0.08em;
+}
+
+.district-popup-buildings__meta {
+  text-align: left;
+  font-size: 0.54rem;
+  line-height: 1.2;
+}
