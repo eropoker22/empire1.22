@@ -3,6 +3,7 @@ import type {
   AllianceId,
   Building,
   BuildingId,
+  CityFeedEvent,
   CooldownState,
   District,
   DistrictId,
@@ -39,6 +40,7 @@ export interface NormalizedGameState {
   cooldownStatesById: Record<string, CooldownState>;
   effectStatesById: Record<string, EffectState>;
   policeStatesById: Record<string, PoliceState>;
+  cityFeedEventsById: Record<string, CityFeedEvent>;
   eventsById: Record<EventId, EventState>;
   trapsById: Record<TrapId, DistrictTrap>;
   notificationsById: Record<NotificationId, Notification>;

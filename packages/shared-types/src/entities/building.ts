@@ -25,6 +25,7 @@ export interface Building {
   displayName?: string | null;
   level: number;
   status: BuildingStatus;
+  disruptedUntilTick?: number | null;
   processing: BuildingProcessingJob | null;
   actionCooldowns: Record<string, number>;
   metadata?: Record<string, unknown>;

@@ -12,7 +12,9 @@ export const SERVER_CATALOG = Object.freeze([
     players: 64,
     capacity: 150,
     startLabel: "Live server",
-    badge: "HOT",
+    badge: "DOPORUČENO",
+    status: "ONLINE",
+    activity: "HIGH",
     description: "Tvrdý válečný shard s rychlou expanzí, hustší konkurencí a tlakem na obranu districtů."
   },
   {
@@ -23,30 +25,91 @@ export const SERVER_CATALOG = Object.freeze([
     players: 41,
     capacity: 150,
     startLabel: "Start za 12 min",
-    badge: "QUEUE",
-    description: "Čerstvě otevíraná instance, vhodná pro nový náběh a rychlé obsazení startovní pozice."
+    badge: "",
+    status: "ONLINE",
+    activity: "MEDIUM",
+    description: "Čerstvě otevřená instance, vhodná pro nový náběh a rychlé obsazení startovní pozice."
+  },
+  {
+    id: "war-eu-03",
+    name: "Red Sector WAR-03",
+    mode: "war",
+    region: "EU Central",
+    players: 22,
+    capacity: 150,
+    startLabel: "Live server",
+    badge: "",
+    status: "VYSOKÁ",
+    activity: "HIGH",
+    description: "Vyvážený server s aktivní komunitou a častými bitvami."
+  },
+  {
+    id: "war-eu-04",
+    name: "Iron Gate WAR-04",
+    mode: "war",
+    region: "EU Central",
+    players: 0,
+    capacity: 150,
+    startLabel: "Připravujeme",
+    badge: "",
+    status: "PŘIPRAVUJEME",
+    activity: "LOW",
+    locked: true,
+    description: "Připravujeme spuštění serveru. Sleduj oznámení."
+  },
+  {
+    id: "war-eu-05",
+    name: "Kingmaker WAR-05",
+    mode: "war",
+    region: "EU Central",
+    players: 5,
+    capacity: 150,
+    startLabel: "Premium required",
+    badge: "PREMIUM",
+    status: "LOCKED",
+    activity: "LOW",
+    locked: true,
+    description: "Nový válečný shard pro elitní gangy."
   },
   {
     id: "free-eu-01",
-    name: "Neon Drift FREE-01",
+    name: "Neon Docks FREE-01",
     mode: "free",
     region: "EU Central",
-    players: 8,
+    players: 17,
     capacity: 20,
-    startLabel: "Volný vstup",
-    badge: "FREE",
-    description: "Volnější režim pro test buildů, economy loopu a klidnější rozjezdy gangu."
+    startLabel: "Končí za 01h 18m",
+    badge: "NEJLEPŠÍ START",
+    status: "ONLINE",
+    activity: "MEDIUM",
+    description: "Rychlá válka o město. Ideální pro první vstup do Empire Streets."
   },
   {
     id: "free-eu-02",
-    name: "Afterglow FREE-02",
+    name: "Lowtown Riot FREE-02",
     mode: "free",
-    region: "EU West",
-    players: 14,
+    region: "EU Central",
+    players: 20,
     capacity: 20,
-    startLabel: "Live server",
-    badge: "ACTIVE",
-    description: "Rozjetý free shard s vyšší ekonomikou a otevřeným onboardingem pro nové hráče."
+    startLabel: "Končí za 00h 47m",
+    badge: "",
+    status: "FULL",
+    activity: "HIGH",
+    full: true,
+    description: "Krátká session plná chaosu. Server je momentálně plný."
+  },
+  {
+    id: "free-eu-03",
+    name: "Rain Market FREE-03",
+    mode: "free",
+    region: "EU Central",
+    players: 12,
+    capacity: 20,
+    startLabel: "Končí za 01h 42m",
+    badge: "",
+    status: "ONLINE",
+    activity: "LOW",
+    description: "Vyvážená ekonomika, rychlý start, nízký heat."
   }
 ]);
 

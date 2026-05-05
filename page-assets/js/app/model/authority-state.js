@@ -11,12 +11,15 @@ import {
   MARKET_TAB_CONFIG
 } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
 import { FACTION_CATALOG } from "../../../../packages/game-config/src/legacy-page/faction-config.js";
+import {
+  loadState,
+  saveState
+} from "../persistence/legacyStorage.js";
 
 // Browser preview-state bridge for the legacy static frontend.
 // Server-fed sessions take precedence; localStorage writes are ignored when server
 // authority is present.
 
-const SESSION_STORAGE_KEY = "empireStreets.session.v1";
 const DEFAULT_MARKET_SERVER_ID = "preview-server";
 
 function normalizeMarketServerId(serverId) {
@@ -362,12 +365,8 @@ export function hasServerAuthority() {
 }
 
 export function getStoredPreviewSession() {
-  try {
-    const rawValue = window.localStorage.getItem(SESSION_STORAGE_KEY);
-    return rawValue ? normalizePreviewSession(JSON.parse(rawValue)) : createDefaultPreviewSession();
-  } catch {
-    return createDefaultPreviewSession();
-  }
+  const storedSession = loadState(null, null);
+  return storedSession ? normalizePreviewSession(storedSession) : createDefaultPreviewSession();
 }
 
 export function setStoredPreviewSession(session) {
@@ -375,11 +374,7 @@ export function setStoredPreviewSession(session) {
     return;
   }
 
-  try {
-    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(normalizePreviewSession(session)));
-  } catch {
-    // Preview mode only.
-  }
+  saveState(null, null, normalizePreviewSession(session));
 }
 
 export function updateStoredPreviewSession(updater) {

@@ -1,5 +1,6 @@
 import type { PoliceState } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
+import { resolveWantedLevel } from "../rules/police/wantedLevel";
 
 /**
  * Responsibility: Shared player police-state helpers for command handlers.
@@ -19,8 +20,7 @@ export const createPlayerPoliceState = (
   version: 1
 });
 
-export const resolveWantedLevel = (heat: number): number =>
-  Math.max(0, Math.min(5, Math.floor(Math.max(0, heat) / 20)));
+export { resolveWantedLevel };
 
 export const increasePlayerPoliceHeat = (
   state: CoreGameState,

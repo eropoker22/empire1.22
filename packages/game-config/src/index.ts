@@ -2,6 +2,7 @@ export * from "./contracts";
 export * from "./base";
 export * from "./factories";
 export * from "./resolvers";
+export * from "./rumorTextTemplates";
 export * from "./config-resolver";
 export * from "./public";
 export * from "./validation";

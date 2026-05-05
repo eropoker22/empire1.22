@@ -4,6 +4,7 @@ import type { PlayerFactionId } from "../entities/faction";
 import type { PlayerColorHex } from "../entities/player-color";
 import type { PlayerId, ServerInstanceId } from "../ids/entity-id";
 import type { GameModeId } from "../ids/game-mode-id";
+import type { PoliceReadModel } from "./police-read-model-view";
 
 /**
  * Responsibility: Minimal player-facing projection rendered by the client.
@@ -18,6 +19,7 @@ export interface PlayerView {
   color: PlayerColorHex;
   serverTime: string;
   resourceBalances: Record<string, number>;
+  police?: PoliceReadModel | null;
   notifications: Notification[];
   victoryState: VictoryState | null;
 }

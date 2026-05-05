@@ -1,4 +1,5 @@
 import type { GameModeId } from "@empire/shared-types/ids/game-mode-id";
+import type { PoliceSystemBalanceConfig } from "./police-balance-config";
 
 export interface ProductionBuildingBalanceConfig {
   resourceKey: string;
@@ -890,6 +891,7 @@ export interface GameModeConfig {
     districtControlVictoryThreshold?: number;
     startingResources: Record<string, number>;
     conflict?: ConflictBalanceConfig;
+    police?: PoliceSystemBalanceConfig;
     productionBuildings?: Record<string, ProductionBuildingBalanceConfig>;
     craftBuildings?: Record<string, CraftBuildingBalanceConfig>;
     fixedBuildings?: Record<string, FixedBuildingBalanceConfig>;

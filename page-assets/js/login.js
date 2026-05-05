@@ -6,11 +6,13 @@ import {
 const GUEST_USERNAME_KEY = "empire_guest_username";
 const GUEST_GANG_KEY = "empire_gang_name";
 const LOBBY_ENTRY_HREF = "./lobby.html";
+const ACCESS_DENIED_MESSAGE = "ACCESS DENIED — IDENTITA NENALEZENA";
 
 const state = {
-  activeTab: "login",
   activeMode: "war",
-  requestMobileLoginFit: null
+  activeTab: "login",
+  isSubmitting: false,
+  feedTimer: null
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -18,13 +20,17 @@ document.addEventListener("DOMContentLoaded", () => {
   state.activeMode = resolveInitialMode(registration);
 
   hydrateInputs(registration);
-  bindModeTabs();
-  bindTabs();
+  bindServerSelectButton();
+  bindModeCards();
+  bindTerminalTabs();
   bindForms();
   bindGuest();
-  bindAboutGameLink();
-  initMobileLoginFit();
-  updateModeTabs();
+  bindPasswordToggle();
+  bindSoundToggle();
+  bindForgotPassword();
+  startCityFeedPulse();
+  updateModeCards();
+  updateTerminalTab();
 });
 
 const resolveInitialMode = (registration) => {
@@ -40,95 +46,121 @@ const normalizeMode = (mode) => {
   return normalized === "free" || normalized === "war" ? normalized : "";
 };
 
-const hydrateInputs = (registration) => {
+const getModeServersUrl = (mode) => `${LOBBY_ENTRY_HREF}?mode=${normalizeMode(mode) || "war"}`;
+const sanitizeGuestValue = (value, maxLength) => String(value || "").trim().slice(0, maxLength);
+
+function bindServerSelectButton() {
+  const button = document.querySelector("[data-open-server-select]");
+  if (!(button instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  button.addEventListener("click", () => {
+    const identity = resolveServerSelectIdentity();
+    const gangName = resolveServerSelectGangName();
+    saveLoginStep({
+      identity,
+      gangName,
+      isGuest: true,
+      mode: state.activeMode
+    });
+    window.localStorage.setItem("empire:active_guest_mode", state.activeMode);
+    window.location.href = getModeServersUrl(state.activeMode);
+  });
+}
+
+function hydrateInputs(registration) {
   setInputValue("login-username", registration?.isGuest ? "" : registration?.identity);
   setInputValue("register-username", registration?.isGuest ? "" : registration?.identity);
   setInputValue("register-gang", registration?.gangName || window.localStorage.getItem(GUEST_GANG_KEY));
   setInputValue("guest-username", window.localStorage.getItem(GUEST_USERNAME_KEY) || (registration?.isGuest ? registration.identity : ""));
   setInputValue("guest-gang", window.localStorage.getItem(GUEST_GANG_KEY) || registration?.gangName);
-};
+}
 
-const setInputValue = (id, value) => {
+function setInputValue(id, value) {
   const input = document.getElementById(id);
   if (input instanceof HTMLInputElement && value) {
     input.value = String(value).trim();
   }
-};
-
-const getModeServersUrl = (mode) => `${LOBBY_ENTRY_HREF}?mode=${normalizeMode(mode) || "war"}`;
-
-const getAboutGameUrl = () => "./about-game.html";
-
-function bindAboutGameLink() {
-  const aboutLink = document.querySelector(".about-game-copy__link");
-  if (!(aboutLink instanceof HTMLAnchorElement)) return;
-  const targetUrl = getAboutGameUrl();
-  aboutLink.setAttribute("href", targetUrl);
-  aboutLink.setAttribute("target", "_blank");
-  aboutLink.setAttribute("rel", "noopener noreferrer");
-  aboutLink.addEventListener("click", (event) => {
-    event.preventDefault();
-    window.open(targetUrl, "_blank", "noopener,noreferrer");
-  });
 }
 
-function bindModeTabs() {
-  const tabs = document.querySelectorAll(".auth-mode-tab");
-  const aboutCopy = document.getElementById("about-game-copy");
-  const authTabsDetached = document.querySelector(".auth-tabs--detached");
+function getInputValue(id) {
+  const input = document.getElementById(id);
+  return String(input instanceof HTMLInputElement ? input.value : "").trim();
+}
 
-  tabs.forEach((button) => {
+function resolveServerSelectIdentity() {
+  return [
+    getInputValue("login-username"),
+    getInputValue("register-username"),
+    getInputValue("guest-username"),
+    String(getRegistrationDraft()?.identity || "").trim()
+  ].find(Boolean) || "Host";
+}
+
+function resolveServerSelectGangName() {
+  return [
+    getInputValue("register-gang"),
+    getInputValue("guest-gang"),
+    String(getRegistrationDraft()?.gangName || "").trim()
+  ].find(Boolean) || "";
+}
+
+function bindModeCards() {
+  document.querySelectorAll("[data-mode]").forEach((button) => {
     button.addEventListener("click", () => {
       const mode = normalizeMode(button.dataset.mode);
-      if (!mode) return;
-      if (mode === state.activeMode) return;
+      if (!mode || mode === state.activeMode) {
+        return;
+      }
+
       state.activeMode = mode;
       window.localStorage.setItem("empire:active_auth_mode", state.activeMode);
-      aboutCopy?.classList.add("hidden");
-      authTabsDetached?.classList.remove("hidden");
-      document.body.classList.remove("about-view-active");
-      updateModeTabs();
-      state.requestMobileLoginFit?.();
+      updateModeCards();
     });
-  });
-
-  const aboutButton = document.getElementById("about-game-btn");
-  aboutButton?.addEventListener("click", () => {
-    if (!aboutCopy) return;
-    const shouldShow = aboutCopy.classList.contains("hidden");
-    aboutCopy.classList.toggle("hidden", !shouldShow);
-    authTabsDetached?.classList.toggle("hidden", shouldShow);
-    document.body.classList.toggle("about-view-active", shouldShow);
-    state.requestMobileLoginFit?.();
   });
 }
 
-function updateModeTabs() {
-  document.querySelectorAll(".auth-mode-tab").forEach((button) => {
-    const mode = normalizeMode(button.dataset.mode);
-    if (!mode) {
-      button.classList.remove("is-active");
-      button.removeAttribute("aria-selected");
-      return;
-    }
-    const isActive = mode === state.activeMode;
+function updateModeCards() {
+  document.body.classList.toggle("auth-body--free", state.activeMode === "free");
+  document.body.classList.toggle("auth-body--war", state.activeMode === "war");
+
+  document.querySelectorAll("[data-mode]").forEach((button) => {
+    const isActive = normalizeMode(button.dataset.mode) === state.activeMode;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
+
+function bindTerminalTabs() {
+  document.querySelectorAll("[data-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setActiveTab(button.dataset.tab === "register" ? "register" : "login");
+    });
+  });
+
+  document.querySelectorAll("[data-tab-link]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setActiveTab(button.dataset.tabLink === "register" ? "register" : "login");
+    });
+  });
+}
+
+function setActiveTab(tab) {
+  state.activeTab = tab === "register" ? "register" : "login";
+  hideError();
+  updateTerminalTab();
+}
+
+function updateTerminalTab() {
+  const isRegister = state.activeTab === "register";
+  document.getElementById("login-form")?.classList.toggle("hidden", isRegister);
+  document.getElementById("register-form")?.classList.toggle("hidden", !isRegister);
+
+  document.querySelectorAll("[data-tab]").forEach((button) => {
+    const isActive = button.dataset.tab === state.activeTab;
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-selected", isActive ? "true" : "false");
-  });
-}
-
-function bindTabs() {
-  document.querySelectorAll(".tab-btn").forEach((button) => {
-    button.addEventListener("click", () => {
-      const tab = button.dataset.tab;
-      state.activeTab = tab === "register" ? "register" : "login";
-      document.querySelectorAll(".tab-btn").forEach((tabButton) =>
-        tabButton.classList.toggle("tab-btn--active", tabButton.dataset.tab === state.activeTab)
-      );
-      document.getElementById("login-form")?.classList.toggle("hidden", state.activeTab !== "login");
-      document.getElementById("register-form")?.classList.toggle("hidden", state.activeTab !== "register");
-      state.requestMobileLoginFit?.();
-    });
   });
 }
 
@@ -142,20 +174,16 @@ function bindForms() {
     const password = getInputValue("login-password");
 
     if (!username || !password) {
-      showError("Přihlášení se nezdařilo. Zkontroluj údaje.");
+      showError(ACCESS_DENIED_MESSAGE);
       return;
     }
 
-    hideError();
-    window.localStorage.removeItem(GUEST_USERNAME_KEY);
-    saveLoginStep({
+    runAccessSequence({
+      form: loginForm,
       identity: username,
-      isGuest: false,
       gangName: `${username} Crew`,
-      mode: state.activeMode
+      isGuest: false
     });
-    window.localStorage.setItem("empire:active_auth_mode", state.activeMode);
-    window.location.href = getModeServersUrl(state.activeMode);
   });
 
   registerForm?.addEventListener("submit", (event) => {
@@ -165,21 +193,17 @@ function bindForms() {
     const password = getInputValue("register-password");
 
     if (!username || !gangName || !password) {
-      showError("Registrace se nezdařila. Vyplň jméno, gang i heslo.");
+      showError(ACCESS_DENIED_MESSAGE);
       return;
     }
 
-    hideError();
-    window.localStorage.removeItem(GUEST_USERNAME_KEY);
     window.localStorage.setItem(GUEST_GANG_KEY, gangName);
-    saveLoginStep({
+    runAccessSequence({
+      form: registerForm,
       identity: username,
-      isGuest: false,
       gangName,
-      mode: state.activeMode
+      isGuest: false
     });
-    window.localStorage.setItem("empire:active_auth_mode", state.activeMode);
-    window.location.href = getModeServersUrl(state.activeMode);
   });
 }
 
@@ -187,154 +211,159 @@ function bindGuest() {
   const button = document.getElementById("guest-btn");
   const guestUsernameInput = document.getElementById("guest-username");
   const guestGangInput = document.getElementById("guest-gang");
-  if (!button || !guestUsernameInput || !guestGangInput) return;
+  if (!button || !guestUsernameInput || !guestGangInput) {
+    return;
+  }
 
   const continueAsGuest = () => {
     const username = sanitizeGuestValue(guestUsernameInput.value, 24);
     const gangName = sanitizeGuestValue(guestGangInput.value, 32);
 
     if (!username || !gangName) {
-      showError("Pro hosta vyplň nick i název gangu.");
+      showError(ACCESS_DENIED_MESSAGE);
       return;
     }
 
-    hideError();
     window.localStorage.removeItem("empire_token");
     window.localStorage.removeItem("empire_structure");
     window.localStorage.setItem(GUEST_USERNAME_KEY, username);
     window.localStorage.setItem(GUEST_GANG_KEY, gangName);
-    saveLoginStep({
+    runAccessSequence({
+      button,
       identity: username,
-      isGuest: true,
       gangName,
-      mode: state.activeMode
+      isGuest: true
     });
-    window.localStorage.setItem("empire:active_guest_mode", state.activeMode);
-    window.location.href = getModeServersUrl(state.activeMode);
   };
 
   button.addEventListener("click", continueAsGuest);
   [guestUsernameInput, guestGangInput].forEach((input) => {
     input.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter") return;
+      if (event.key !== "Enter") {
+        return;
+      }
       event.preventDefault();
       continueAsGuest();
     });
   });
 }
 
-const getInputValue = (id) => {
-  const input = document.getElementById(id);
-  return String(input instanceof HTMLInputElement ? input.value : "").trim();
-};
+function bindPasswordToggle() {
+  const toggle = document.querySelector("[data-password-toggle]");
+  const input = document.getElementById("login-password");
+  if (!(toggle instanceof HTMLButtonElement) || !(input instanceof HTMLInputElement)) {
+    return;
+  }
 
-const sanitizeGuestValue = (value, maxLength) => String(value || "").trim().slice(0, maxLength);
+  toggle.addEventListener("click", () => {
+    const reveal = input.type === "password";
+    input.type = reveal ? "text" : "password";
+    toggle.textContent = reveal ? "◉" : "◎";
+    toggle.setAttribute("aria-label", reveal ? "Skrýt heslo" : "Zobrazit heslo");
+  });
+}
+
+function bindSoundToggle() {
+  const button = document.querySelector("[data-sound-toggle]");
+  if (!(button instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  button.addEventListener("click", () => {
+    const muted = button.dataset.muted !== "true";
+    button.dataset.muted = muted ? "true" : "false";
+    button.textContent = muted ? "Zvuk off" : "Zvuk";
+  });
+}
+
+function bindForgotPassword() {
+  const button = document.querySelector("[data-forgot-password]");
+  if (!(button instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  button.addEventListener("click", () => {
+    showError("POLICE WARNING — RESET TERMINÁL NENÍ V MOCKU AKTIVNÍ");
+  });
+}
+
+function runAccessSequence({ form = null, button = null, identity, gangName, isGuest }) {
+  if (state.isSubmitting) {
+    return;
+  }
+
+  const submitButton = button || form?.querySelector("button[type='submit']");
+  if (!(submitButton instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  state.isSubmitting = true;
+  hideError();
+  submitButton.disabled = true;
+  submitButton.classList.add("is-loading");
+  submitButton.textContent = "PŘIPOJOVÁNÍ…";
+
+  window.setTimeout(() => {
+    submitButton.textContent = "ACCESS GRANTED";
+  }, 520);
+
+  window.setTimeout(() => {
+    showAccessOverlay();
+    saveLoginStep({
+      identity,
+      isGuest,
+      gangName,
+      mode: state.activeMode
+    });
+    window.localStorage.setItem(isGuest ? "empire:active_guest_mode" : "empire:active_auth_mode", state.activeMode);
+    console.info("redirect to game.html");
+  }, 1050);
+
+  window.setTimeout(() => {
+    window.location.href = getModeServersUrl(state.activeMode);
+  }, 1700);
+}
+
+function showAccessOverlay() {
+  const overlay = document.querySelector("[data-access-overlay]");
+  if (overlay instanceof HTMLElement) {
+    overlay.hidden = false;
+  }
+}
 
 function showError(message) {
   const error = document.getElementById("auth-error");
-  if (!error) return;
+  if (!error) {
+    return;
+  }
+
   error.textContent = message;
   error.classList.remove("hidden");
-  state.requestMobileLoginFit?.();
 }
 
 function hideError() {
   const error = document.getElementById("auth-error");
-  if (!error) return;
+  if (!error) {
+    return;
+  }
+
   error.textContent = "";
   error.classList.add("hidden");
-  state.requestMobileLoginFit?.();
 }
 
-function initMobileLoginFit() {
-  const body = document.body;
-  const footer = document.querySelector(".auth-footer");
-  const stack = document.querySelector(".auth-mobile-fit-stack");
-  const media = window.matchMedia("(max-width: 900px)");
-  if (!body || !footer || !stack) return;
-
-  let frame = 0;
-  const fitClasses = ["login-mobile-fit-compact", "login-mobile-fit-tight", "login-mobile-fit-ultra"];
-  let keyboardEditingLock = false;
-
-  const getOuterHeight = (element) => {
-    const rect = element.getBoundingClientRect();
-    const styles = window.getComputedStyle(element);
-    const marginTop = Number.parseFloat(styles.marginTop || "0") || 0;
-    const marginBottom = Number.parseFloat(styles.marginBottom || "0") || 0;
-    return rect.height + marginTop + marginBottom;
-  };
-
-  const measure = () => {
-    frame = 0;
-    if (keyboardEditingLock) return;
-    fitClasses.forEach((className) => body.classList.remove(className));
-    body.style.removeProperty("--login-mobile-fit-scale");
-    if (!media.matches) return;
-
-    const availableHeight = Math.max(
-      0,
-      Math.floor(window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight || 0)
-    );
-    if (!availableHeight) return;
-
-    const fitsViewport = () => getOuterHeight(stack) <= availableHeight - 4;
-    if (fitsViewport()) return;
-
-    body.classList.add("login-mobile-fit-compact");
-    if (fitsViewport()) return;
-
-    body.classList.add("login-mobile-fit-tight");
-    if (fitsViewport()) return;
-
-    body.classList.add("login-mobile-fit-ultra");
-    if (fitsViewport()) return;
-
-    const totalHeight = getOuterHeight(stack);
-    if (totalHeight > 0) {
-      const scale = Math.max(0.72, Math.min(1, (availableHeight - 4) / totalHeight));
-      body.style.setProperty("--login-mobile-fit-scale", scale.toFixed(4));
-    }
-  };
-
-  const requestMeasure = () => {
-    if (frame) return;
-    frame = window.requestAnimationFrame(measure);
-  };
-
-  state.requestMobileLoginFit = requestMeasure;
-
-  const isEditableField = (element) =>
-    element instanceof HTMLInputElement
-    || element instanceof HTMLTextAreaElement
-    || Boolean(element instanceof HTMLElement && element.isContentEditable);
-
-  document.addEventListener("focusin", (event) => {
-    if (!media.matches || !isEditableField(event.target)) return;
-    keyboardEditingLock = true;
-    body.classList.add("login-mobile-keyboard-lock");
-  });
-
-  document.addEventListener("focusout", () => {
-    if (!media.matches) return;
-    window.setTimeout(() => {
-      const stillEditing = isEditableField(document.activeElement);
-      keyboardEditingLock = stillEditing;
-      body.classList.toggle("login-mobile-keyboard-lock", stillEditing);
-      if (!stillEditing) {
-        requestMeasure();
-      }
-    }, 40);
-  });
-
-  requestMeasure();
-  window.addEventListener("resize", requestMeasure);
-  window.addEventListener("orientationchange", requestMeasure);
-  window.visualViewport?.addEventListener("resize", requestMeasure);
-  window.visualViewport?.addEventListener("scroll", requestMeasure);
-  if (typeof media.addEventListener === "function") {
-    media.addEventListener("change", requestMeasure);
-  } else if (typeof media.addListener === "function") {
-    media.addListener(requestMeasure);
+function startCityFeedPulse() {
+  const items = Array.from(document.querySelectorAll("[data-city-feed] .feed-item"));
+  if (items.length === 0) {
+    return;
   }
+
+  const pulse = () => {
+    items.forEach((item) => item.classList.remove("is-flashing"));
+    const item = items[Math.floor(Math.random() * items.length)];
+    item?.classList.add("is-flashing");
+    window.setTimeout(() => item?.classList.remove("is-flashing"), 1250);
+  };
+
+  pulse();
+  state.feedTimer = window.setInterval(pulse, 3600);
 }

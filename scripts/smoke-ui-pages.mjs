@@ -59,6 +59,26 @@ if (!gameHtml.includes("data-page=\"game\"")) {
   violations.push("pages/game.html is missing the game page marker");
 }
 
+const gameMapAnchors = [
+  "id=\"game-map-stage\"",
+  "id=\"game-map-mount\"",
+  "data-map-viewport",
+  "data-map-canvas",
+  "data-district-canvas",
+  "data-district-tooltip",
+  "data-district-popup",
+  "data-district-popup-title",
+  "data-district-popup-owner",
+  "data-district-popup-buildings-list",
+  "data-buildings-popup",
+  "data-buildings-popup-detail"
+];
+for (const anchor of gameMapAnchors) {
+  if (!gameHtml.includes(anchor)) {
+    violations.push(`pages/game.html is missing map anchor ${anchor}`);
+  }
+}
+
 const adminHtml = read("pages/admin.html");
 if (!adminHtml.includes("type=\"module\" src=\"../page-assets/js/admin-assets/admin-slice-demo.js\"")) {
   violations.push("pages/admin.html must load the admin slice bundle as a module script");

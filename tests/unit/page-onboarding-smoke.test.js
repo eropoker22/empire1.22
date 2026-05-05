@@ -63,6 +63,7 @@ describe("page onboarding smoke", () => {
     expect(page("login.html")).toContain('id="login-form"');
     expect(page("login.html")).toContain('id="register-form"');
     expect(page("login.html")).toContain('id="guest-btn"');
+    expect(page("login.html")).toContain('data-open-server-select');
     expect(page("login.html")).toContain('src="../page-assets/js/login.js"');
 
     expect(page("lobby.html")).toContain('data-server-list');
@@ -142,27 +143,35 @@ describe("page onboarding smoke", () => {
 
   it("keeps owned building passive output automatic in the legacy runtime", () => {
     const runtimeSource = readFileSync(resolve(root, "page-assets/js/app/runtime.js"), "utf8");
+    const buildingDetailPanelSource = readFileSync(resolve(root, "page-assets/js/app/ui/buildingDetailPanel.js"), "utf8");
+    const buildingDetailViewModelSource = readFileSync(resolve(root, "page-assets/js/app/runtime/buildingDetailViewModel.js"), "utf8");
+    const buildingDetailInfoViewModelSource = readFileSync(resolve(root, "page-assets/js/app/runtime/buildingDetailInfoViewModel.js"), "utf8");
+    const mapCanvasAnimationsSource = readFileSync(resolve(root, "page-assets/js/app/map/mapCanvasAnimations.js"), "utf8");
+    const districtCanvasRendererSource = readFileSync(resolve(root, "page-assets/js/app/map/districtCanvasRenderer.js"), "utf8");
+    const mapConstantsSource = readFileSync(resolve(root, "page-assets/js/app/map/mapConstants.js"), "utf8");
+    const buildingDetailUiSource = `${runtimeSource}\n${buildingDetailPanelSource}\n${buildingDetailViewModelSource}\n${buildingDetailInfoViewModelSource}`;
 
     expect(runtimeSource).toContain("snapshot.buildingCleanHourlyIncome");
     expect(runtimeSource).toContain("snapshot.buildingDirtyHourlyIncome");
     expect(runtimeSource).toContain("snapshot.buildingInfluencePerHour");
     expect(runtimeSource).toContain("snapshot.passiveHeatPerDay");
     expect(runtimeSource).toContain("Clean, dirty, vliv a heat se připisují automaticky.");
-    expect(runtimeSource).toContain("collectButton.hidden = !showManualCollect");
-    expect(runtimeSource).toContain('collectButton.style.display = showManualCollect ? "" : "none";');
+    expect(buildingDetailUiSource).toContain("collectButton.hidden = !showManualCollect");
+    expect(buildingDetailUiSource).toContain('collectButton.style.display = showManualCollect ? "" : "none";');
     expect(readFileSync(resolve(root, "page-assets/css/styles-building-modals.css"), "utf8")).toContain(".building-detail-title__action-btn[hidden]");
     expect(readFileSync(resolve(root, "page-assets/css/styles-building-modals.css"), "utf8")).toContain(".district-building-detail-shell {\n  position: fixed;\n  inset: 0;");
     expect(runtimeSource).toContain("function syncBuildingDetailTopbarVisibility(root)");
     expect(runtimeSource).toContain("hasManualCollect");
-    expect(runtimeSource).toContain("function drawReducedMapActivityIcon(context, type, x, y, size, color)");
-    expect(runtimeSource).toContain('drawReducedMapActivityMarker(context, district, "attack", "#fb923c")');
+    expect(mapCanvasAnimationsSource).toContain("function drawReducedMapActivityIcon(context, type, x, y, size, color)");
+    expect(districtCanvasRendererSource).toContain('drawReducedMapActivityMarker(context, district, "attack", reducedActivityColors.attack)');
+    expect(mapConstantsSource).toContain('attack: "#fb923c"');
     expect(runtimeSource).not.toContain('drawReducedMapActivityMarker(context, district, "UTOK", "#fb923c")');
     expect(runtimeSource).toContain("SHOPPING_MALL_NETWORK_CONFIG");
-    expect(runtimeSource).toContain("Pasivní market bonus");
-    expect(runtimeSource).toContain("mechanics.shoppingMallMarketDiscount.discountPct");
+    expect(buildingDetailUiSource).toContain("Pasivní market bonus");
+    expect(buildingDetailUiSource).toContain("mechanics.shoppingMallMarketDiscount.discountPct");
     expect(runtimeSource).toContain("AUTO_SALON_SUPPORT_CONFIG");
-    expect(runtimeSource).toContain("Pasivní mobilita");
-    expect(runtimeSource).toContain("combinedGarageDealerMaxReductionPct");
+    expect(buildingDetailUiSource).toContain("Pasivní mobilita");
+    expect(buildingDetailUiSource).toContain("combinedGarageDealerMaxReductionPct");
     expect(runtimeSource).not.toContain("auto_salon_gray_import");
     expect(runtimeSource).not.toContain("Zakryt špinavý cash");
     expect(runtimeSource).toContain('mechanicsType === "apartment-block"');
@@ -172,7 +181,7 @@ describe("page onboarding smoke", () => {
     expect(runtimeSource).toContain('if (mechanics.mechanicsType === "school")');
     expect(runtimeSource).toContain("SCHOOL_CONFIG");
     expect(runtimeSource).toContain("rollSchoolTalent");
-    expect(runtimeSource).toContain("Výsledek talentu");
-    expect(runtimeSource).toContain("zapíše se do uličních zpráv");
+    expect(buildingDetailUiSource).toContain("Výsledek talentu");
+    expect(buildingDetailUiSource).toContain("zapíše se do uličních zpráv");
   });
 });

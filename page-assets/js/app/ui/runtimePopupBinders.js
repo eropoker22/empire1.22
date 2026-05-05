@@ -1,0 +1,434 @@
+export function createRuntimePopupBinders(deps = {}) {
+  const {
+    NAV_SETTINGS_SELECTOR = '',
+    SETTINGS_MODAL_SELECTOR = '',
+    SETTINGS_MODAL_BACKDROP_SELECTOR = '',
+    SETTINGS_MODAL_CLOSE_SELECTOR = '',
+    SETTINGS_SAVE_SELECTOR = '',
+    SETTINGS_MAP_BORDERS_SELECTOR = '',
+    SETTINGS_MAP_ALLIANCE_SYMBOLS_SELECTOR = '',
+    SETTINGS_MAP_REDUCED_EFFECTS_SELECTOR = '',
+    SETTINGS_MAP_VISIBILITY_SELECTOR = '',
+    SETTINGS_LANGUAGE_SELECTOR = '',
+    PLAYER_PROFILE_OPEN_SELECTOR = '',
+    PLAYER_POPUP_SELECTOR = '',
+    PLAYER_POPUP_CARD_SELECTOR = '',
+    PLAYER_POPUP_CLOSE_SELECTOR = '',
+    PLAYER_POPUP_AVATAR_SELECTOR = '',
+    PLAYER_POPUP_AVATAR_FALLBACK_SELECTOR = '',
+    PLAYER_POPUP_IDENTITY_SELECTOR = '',
+    PLAYER_POPUP_FACTION_SELECTOR = '',
+    PLAYER_POPUP_SERVER_SELECTOR = '',
+    PLAYER_POPUP_START_DISTRICT_SELECTOR = '',
+    PLAYER_POPUP_CLEAN_MONEY_SELECTOR = '',
+    PLAYER_POPUP_DIRTY_MONEY_SELECTOR = '',
+    PLAYER_POPUP_INFLUENCE_SELECTOR = '',
+    PLAYER_POPUP_HEAT_SELECTOR = '',
+    PLAYER_POPUP_PROTECTION_SELECTOR = '',
+    PLAYER_POPUP_GANG_SELECTOR = '',
+    PLAYER_POPUP_ALLIANCE_SELECTOR = '',
+    PLAYER_POPUP_DISTRICTS_SELECTOR = '',
+    ALLIANCE_POPUP_OPEN_SELECTOR = '',
+    ALLIANCE_POPUP_SELECTOR = '',
+    ALLIANCE_POPUP_CLOSE_SELECTOR = '',
+    STORAGE_POPUP_OPEN_SELECTOR = '',
+    STORAGE_POPUP_SELECTOR = '',
+    STORAGE_POPUP_CLOSE_SELECTOR = '',
+    NAV_LOGOUT_SELECTOR = '',
+    TOPBAR_SPY_PILL_SELECTOR = '',
+    TOPBAR_SPY_VALUE_SELECTOR = '',
+    CURRENT_PLAYER_ID = 'current-player',
+    FACTION_CATALOG = {},
+    normalizeMapVisibilityMode = (value) => value || 'all',
+    getSettingsState = () => ({}),
+    applySettingsState = () => {},
+    getDisplayedResourceSnapshot = () => ({}),
+    getStoredRegistration = () => null,
+    clearLegacyState = () => {},
+    getLaunchPlayerAvatar = () => '',
+    getCurrentPlayerDistrictSourceSnapshot = () => ({ districtCount: 0 }),
+    getCurrentPlayerLaunchStartDistrictId = () => 0,
+    syncCurrentPlayerDistrictCountDisplays = () => {},
+    getResolvedGangState = () => ({}),
+    getLaunchPlayerColor = () => '#67e1ff',
+    createPlayerProfileViewModel = (value) => value,
+    resolveRuntimeAssetUrl = (value) => value,
+    formatGangHeatProtectionLabel = () => '',
+    renderPlayerProfilePanel = () => {},
+    renderStorageList = () => {},
+    renderSpyResourceState = () => {},
+    getResolvedWeaponInventory = () => ({}),
+    getResolvedMaterialInventory = () => ({}),
+    getResolvedDrugInventory = () => ({}),
+    getStoredFactorySupplies = () => ({}),
+    windowRef = typeof window !== 'undefined' ? window : null
+  } = deps;
+
+function bindSettingsModal(root) {
+    if (!root) {
+      return;
+    }
+  const scope = root.ownerDocument || document;
+  const openButtons = Array.from(scope.querySelectorAll(NAV_SETTINGS_SELECTOR));
+  const modal = scope.querySelector(SETTINGS_MODAL_SELECTOR);
+  const backdrop = scope.querySelector(SETTINGS_MODAL_BACKDROP_SELECTOR);
+  const closeButton = scope.querySelector(SETTINGS_MODAL_CLOSE_SELECTOR);
+  const saveButton = scope.querySelector(SETTINGS_SAVE_SELECTOR);
+  const mapBordersInput = scope.querySelector(SETTINGS_MAP_BORDERS_SELECTOR);
+  const mapAllianceSymbolsInput = scope.querySelector(SETTINGS_MAP_ALLIANCE_SYMBOLS_SELECTOR);
+  const mapReducedEffectsInput = scope.querySelector(SETTINGS_MAP_REDUCED_EFFECTS_SELECTOR);
+  const mapVisibilitySelect = scope.querySelector(SETTINGS_MAP_VISIBILITY_SELECTOR);
+  const languageSelect = scope.querySelector(SETTINGS_LANGUAGE_SELECTOR);
+
+  if (
+    openButtons.length === 0
+    || !(modal instanceof HTMLElement)
+    || !(saveButton instanceof HTMLButtonElement)
+    || !(mapBordersInput instanceof HTMLInputElement)
+    || !(mapAllianceSymbolsInput instanceof HTMLInputElement)
+    || !(mapReducedEffectsInput instanceof HTMLInputElement)
+    || !(mapVisibilitySelect instanceof HTMLSelectElement)
+    || !(languageSelect instanceof HTMLSelectElement)
+  ) {
+    return;
+  }
+
+  let settingsSnapshot = null;
+  const mobileMedia = window.matchMedia("(max-width: 720px)");
+
+  const syncMobileSettingsBackdropState = (open) => {
+    scope.body?.classList.toggle("mobile-settings-modal-open", Boolean(open) && mobileMedia.matches);
+  };
+
+  const applySettingsToForm = (settings) => {
+    mapBordersInput.checked = Boolean(settings.mapDistrictBorders);
+    mapAllianceSymbolsInput.checked = Boolean(settings.mapAllianceSymbols);
+    mapReducedEffectsInput.checked = Boolean(settings.reducedMapEffects);
+    mapVisibilitySelect.value = normalizeMapVisibilityMode(settings.mapVisibilityMode);
+    languageSelect.value = settings.language === "en" ? "en" : "cs";
+  };
+
+  const captureFormSettings = () => ({
+    mapDistrictBorders: Boolean(mapBordersInput.checked),
+    mapAllianceSymbols: Boolean(mapAllianceSymbolsInput.checked),
+    reducedMapEffects: Boolean(mapReducedEffectsInput.checked),
+    mapVisibilityMode: normalizeMapVisibilityMode(mapVisibilitySelect.value),
+    language: languageSelect.value === "en" ? "en" : "cs"
+  });
+
+  const previewSettings = () => {
+    applySettingsState(captureFormSettings());
+  };
+
+  const closeModal = ({ revert = false } = {}) => {
+    if (revert && settingsSnapshot) {
+      applySettingsState(settingsSnapshot);
+    }
+    settingsSnapshot = null;
+    modal.classList.add("hidden");
+    syncMobileSettingsBackdropState(false);
+  };
+
+  const openModal = () => {
+    settingsSnapshot = getSettingsState();
+    applySettingsToForm(settingsSnapshot);
+    modal.classList.remove("hidden");
+    syncMobileSettingsBackdropState(true);
+  };
+
+  const saveSettings = () => {
+    applySettingsState(captureFormSettings());
+    settingsSnapshot = null;
+    modal.classList.add("hidden");
+    syncMobileSettingsBackdropState(false);
+  };
+
+  for (const button of openButtons) {
+    button.addEventListener("click", openModal);
+  }
+
+  mapBordersInput.addEventListener("change", previewSettings);
+  mapAllianceSymbolsInput.addEventListener("change", previewSettings);
+  mapReducedEffectsInput.addEventListener("change", previewSettings);
+  mapVisibilitySelect.addEventListener("change", previewSettings);
+  languageSelect.addEventListener("change", previewSettings);
+  backdrop?.addEventListener("click", () => closeModal({ revert: true }));
+  closeButton?.addEventListener("click", () => closeModal({ revert: true }));
+  saveButton.addEventListener("click", saveSettings);
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !modal.classList.contains("hidden")) {
+      closeModal({ revert: true });
+    }
+  });
+}
+
+function bindPlayerProfilePopup(root) {
+    if (!root) {
+      return;
+    }
+  const scope = root.ownerDocument || document;
+  const openButton = scope.querySelector(PLAYER_PROFILE_OPEN_SELECTOR);
+  const popup = scope.querySelector(PLAYER_POPUP_SELECTOR);
+  const popupCard = scope.querySelector(PLAYER_POPUP_CARD_SELECTOR);
+  const closeElements = Array.from(scope.querySelectorAll(PLAYER_POPUP_CLOSE_SELECTOR));
+  const popupAvatar = scope.querySelector(PLAYER_POPUP_AVATAR_SELECTOR);
+  const popupAvatarFallback = scope.querySelector(PLAYER_POPUP_AVATAR_FALLBACK_SELECTOR);
+  const popupName = scope.querySelector("[data-player-popup-name]");
+  const popupIdentity = scope.querySelector(PLAYER_POPUP_IDENTITY_SELECTOR);
+  const popupFaction = scope.querySelector(PLAYER_POPUP_FACTION_SELECTOR);
+  const popupServer = scope.querySelector(PLAYER_POPUP_SERVER_SELECTOR);
+  const popupStartDistrict = scope.querySelector(PLAYER_POPUP_START_DISTRICT_SELECTOR);
+  const popupCleanMoney = scope.querySelector(PLAYER_POPUP_CLEAN_MONEY_SELECTOR);
+  const popupDirtyMoney = scope.querySelector(PLAYER_POPUP_DIRTY_MONEY_SELECTOR);
+  const popupInfluence = scope.querySelector(PLAYER_POPUP_INFLUENCE_SELECTOR);
+  const popupHeat = scope.querySelector(PLAYER_POPUP_HEAT_SELECTOR);
+  const popupProtection = scope.querySelector(PLAYER_POPUP_PROTECTION_SELECTOR);
+  const popupGang = scope.querySelector(PLAYER_POPUP_GANG_SELECTOR);
+  const popupAlliance = scope.querySelector(PLAYER_POPUP_ALLIANCE_SELECTOR);
+  const popupDistricts = scope.querySelector(PLAYER_POPUP_DISTRICTS_SELECTOR);
+
+  if (!openButton || !popup || !popupCard || closeElements.length === 0) {
+    return;
+  }
+
+  const syncPlayerProfileResources = () => {
+    const displaySnapshot = getDisplayedResourceSnapshot();
+    const registration = getStoredRegistration();
+    const faction = registration?.factionId && FACTION_CATALOG[registration.factionId]
+      ? FACTION_CATALOG[registration.factionId]
+      : null;
+    const avatarSrc = getLaunchPlayerAvatar(CURRENT_PLAYER_ID);
+    const districtCount = getCurrentPlayerDistrictSourceSnapshot().districtCount;
+    const startDistrictId = Number(registration?.startDistrictId || 0) || getCurrentPlayerLaunchStartDistrictId();
+    const allianceLabel = windowRef?.empireStreetsAllianceState?.getActiveAlliance?.()?.name
+      || root.querySelector("[data-gang-alliance]")?.textContent?.trim()
+      || "Žádná";
+    const accentColor = getLaunchPlayerColor(CURRENT_PLAYER_ID);
+
+    syncCurrentPlayerDistrictCountDisplays(root, districtCount);
+
+    const gangState = getResolvedGangState();
+    const profileViewModel = createPlayerProfileViewModel({
+      registration,
+      faction,
+      displaySnapshot,
+      gangState,
+      districtCount,
+      startDistrictId,
+      allianceLabel,
+      avatarSrc,
+      accentColor,
+      assetResolver: resolveRuntimeAssetUrl,
+      protectionLabel: formatGangHeatProtectionLabel(gangState.policeRaidProtectionUntil)
+    });
+    renderPlayerProfilePanel({
+      openButton,
+      card: popupCard,
+      avatar: popupAvatar,
+      avatarFallback: popupAvatarFallback,
+      name: popupName,
+      identity: popupIdentity,
+      faction: popupFaction,
+      server: popupServer,
+      startDistrict: popupStartDistrict,
+      cleanMoney: popupCleanMoney,
+      dirtyMoney: popupDirtyMoney,
+      influence: popupInfluence,
+      heat: popupHeat,
+      protection: popupProtection,
+      gang: popupGang,
+      alliance: popupAlliance,
+      districts: popupDistricts
+    }, profileViewModel);
+  };
+
+  const openPopup = () => {
+    syncPlayerProfileResources();
+    popup.hidden = false;
+  };
+
+  const closePopup = () => {
+    popup.hidden = true;
+  };
+
+  openButton.addEventListener("click", openPopup);
+
+  for (const closeElement of closeElements) {
+    closeElement.addEventListener("click", closePopup);
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !popup.hidden) {
+      closePopup();
+    }
+  });
+
+  document.addEventListener("empire:gang-state-changed", syncPlayerProfileResources);
+  document.addEventListener("empire:police-state-changed", syncPlayerProfileResources);
+  document.addEventListener("empire:economy-state-changed", syncPlayerProfileResources);
+  document.addEventListener("empire:world-state-changed", syncPlayerProfileResources);
+  document.addEventListener("empire:runtime-refresh", syncPlayerProfileResources);
+  windowRef?.addEventListener("empire:alliance-state-changed", syncPlayerProfileResources);
+
+  syncPlayerProfileResources();
+}
+
+function bindAlliancePopup(root) {
+    if (!root) {
+      return;
+    }
+  const openButton = root.querySelector(ALLIANCE_POPUP_OPEN_SELECTOR);
+  const popup = root.querySelector(ALLIANCE_POPUP_SELECTOR);
+  const closeElements = Array.from(root.querySelectorAll(ALLIANCE_POPUP_CLOSE_SELECTOR));
+
+  if (!openButton || !popup || closeElements.length === 0) {
+    return;
+  }
+
+  const openPopup = () => {
+    popup.hidden = false;
+  };
+
+  const closePopup = () => {
+    popup.hidden = true;
+  };
+
+  openButton.addEventListener("click", openPopup);
+
+  for (const closeElement of closeElements) {
+    closeElement.addEventListener("click", closePopup);
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !popup.hidden) {
+      closePopup();
+    }
+  });
+}
+
+function bindStoragePopup(root) {
+    if (!root) {
+      return;
+    }
+  const scope = root.ownerDocument || document;
+  const openButton = scope.querySelector(STORAGE_POPUP_OPEN_SELECTOR);
+  const popup = root.querySelector(STORAGE_POPUP_SELECTOR);
+  const closeElements = Array.from(root.querySelectorAll(STORAGE_POPUP_CLOSE_SELECTOR));
+
+  if (!openButton || !popup || closeElements.length === 0) {
+    return;
+  }
+
+  const renderStorageInventory = () => {
+    renderStorageList({
+      weapons: getResolvedWeaponInventory(),
+      materials: getResolvedMaterialInventory(),
+      drugs: getResolvedDrugInventory(),
+      factorySupplies: getStoredFactorySupplies()
+    }, { root });
+  };
+
+  const openPopup = () => {
+    renderStorageInventory();
+    popup.hidden = false;
+  };
+
+  const closePopup = () => {
+    popup.hidden = true;
+  };
+
+  openButton.addEventListener("click", openPopup);
+
+  for (const closeElement of closeElements) {
+    closeElement.addEventListener("click", closePopup);
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !popup.hidden) {
+      closePopup();
+    }
+  });
+
+  renderStorageInventory();
+}
+
+function bindLogoutActions(root) {
+    if (!root) {
+      return;
+    }
+  const scope = root.ownerDocument || document;
+  const buttons = Array.from(scope.querySelectorAll(NAV_LOGOUT_SELECTOR));
+
+  if (buttons.length === 0) {
+    return;
+  }
+
+  const logout = () => {
+    const mode = String(getStoredRegistration()?.serverMode || "").trim().toLowerCase();
+    clearLegacyState();
+    const nextHref = mode === "war" || mode === "free"
+      ? `./login.html?mode=${mode}`
+      : "./login.html";
+
+    if (windowRef?.location) {
+      windowRef.location.href = nextHref;
+    }
+  };
+
+  for (const button of buttons) {
+    button.addEventListener("click", logout);
+  }
+}
+
+function bindSpyResourceToggle(root) {
+    if (!root) {
+      return;
+    }
+  const scope = root.ownerDocument || document;
+  const spyPill = scope.querySelector(TOPBAR_SPY_PILL_SELECTOR);
+  const spyValue = scope.querySelector(TOPBAR_SPY_VALUE_SELECTOR);
+
+  if (!spyPill || !spyValue) {
+    return;
+  }
+
+  if (!spyPill.dataset.resourceMode) {
+    spyPill.dataset.resourceMode = "influence";
+  }
+
+  if (!spyValue.dataset.influenceValue) {
+    spyValue.dataset.influenceValue = spyValue.textContent || "0";
+  }
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    const trigger = target.closest(TOPBAR_SPY_PILL_SELECTOR);
+
+    if (!(trigger instanceof HTMLButtonElement) || trigger !== spyPill) {
+      return;
+    }
+
+    event.preventDefault();
+    spyPill.dataset.resourceMode = spyPill.dataset.resourceMode === "spy" ? "influence" : "spy";
+    renderSpyResourceState(root, { animate: true });
+  });
+
+  renderSpyResourceState(root, { instant: true });
+}
+
+  return {
+    bindAlliancePopup,
+    bindLogoutActions,
+    bindPlayerProfilePopup,
+    bindSettingsModal,
+    bindSpyResourceToggle,
+    bindStoragePopup
+  };
+}
+

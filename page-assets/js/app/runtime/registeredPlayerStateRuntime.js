@@ -1,0 +1,85 @@
+export function createRegisteredPlayerStateRuntime(deps = {}) {
+  const bindRegisteredPlayerState = (root) => {
+    const registration = deps.getStoredRegistration();
+    deps.renderGangMembersState(root);
+
+    if (!registration?.factionId || !deps.factionCatalog?.[registration.factionId]) {
+      return;
+    }
+
+    const faction = deps.factionCatalog[registration.factionId];
+    const scope = root.ownerDocument || document;
+    const topbarInfluence = scope.querySelector(deps.topbarInfluenceSelector);
+    const gangFaction = root.querySelector("[data-gang-faction]");
+    const gangHeat = root.querySelector(deps.gangHeatSelector);
+    const playerName = scope.querySelector("[data-player-popup-name]");
+    const playerIdentity = scope.querySelector(deps.playerPopupIdentitySelector);
+    const playerGang = scope.querySelector(deps.playerPopupGangSelector);
+    const playerFaction = scope.querySelector(deps.playerPopupFactionSelector);
+    const playerServer = scope.querySelector(deps.playerPopupServerSelector);
+    const playerStartDistrict = scope.querySelector(deps.playerPopupStartDistrictSelector);
+
+    deps.applyTopbarEconomy(root, { instant: true });
+
+    if (topbarInfluence) {
+      topbarInfluence.dataset.influenceValue = String(deps.getDisplayedResourceSnapshot().influence);
+    }
+
+    deps.renderSpyResourceState(root, { instant: true });
+
+    if (gangFaction) {
+      gangFaction.textContent = faction.name;
+    }
+
+    deps.syncCurrentPlayerDistrictCountDisplays(root, deps.getCurrentPlayerDistrictSourceSnapshot().districtCount);
+
+    if (gangHeat) {
+      gangHeat.textContent = String(deps.getResolvedGangState().heat);
+    }
+
+    if (playerName) {
+      playerName.textContent = registration.identity || "Host";
+    }
+
+    if (playerIdentity) {
+      playerIdentity.textContent = registration.identity || "Host";
+    }
+
+    if (playerGang) {
+      playerGang.textContent = registration.identity ? `${registration.identity} Crew` : "Guest Crew";
+    }
+
+    if (playerFaction) {
+      playerFaction.textContent = faction.name;
+    }
+
+    if (playerServer) {
+      playerServer.textContent = registration.serverLabel || registration.serverId || "-";
+    }
+
+    if (playerStartDistrict) {
+      const startDistrictId = Number(registration.startDistrictId || 0) || deps.getCurrentPlayerLaunchStartDistrictId();
+      playerStartDistrict.textContent = startDistrictId ? `District ${startDistrictId}` : "-";
+    }
+
+    const syncGangOverview = () => {
+      deps.applyTopbarEconomy(root);
+      deps.renderSpyResourceState(root);
+      deps.syncCurrentPlayerDistrictCountDisplays(root, deps.getCurrentPlayerDistrictSourceSnapshot().districtCount);
+      if (gangHeat) {
+        gangHeat.textContent = String(deps.getResolvedGangState().heat);
+      }
+    };
+
+    document.addEventListener("empire:economy-state-changed", syncGangOverview);
+    document.addEventListener("empire:gang-state-changed", syncGangOverview);
+    document.addEventListener("empire:police-state-changed", syncGangOverview);
+    document.addEventListener("empire:world-state-changed", syncGangOverview);
+    document.addEventListener("empire:runtime-refresh", syncGangOverview);
+    window.addEventListener("empire:alliance-state-changed", syncGangOverview);
+  };
+
+  return {
+    bindRegisteredPlayerState
+  };
+}

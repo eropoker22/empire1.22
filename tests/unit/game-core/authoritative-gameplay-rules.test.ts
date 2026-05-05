@@ -271,16 +271,17 @@ describe("authoritative gameplay rules", () => {
     expect(result.nextState.policeStatesById["police:1"].activeFlags).toContain("raid:pending");
     expect(result.events[0]?.payload).toMatchObject({
       playerId: "player:1",
+      aggregatePressure: 126,
+      severity: "high",
       cashSeized: {
-        cash: 50,
         "dirty-cash": 60
       },
       resourcesSeized: {
-        chemicals: 2
+        chemicals: 1
       },
-      gangMembersLost: 1,
-      districtLockdownMinutes: 35,
-      heatReduced: 28
+      gangMembersLost: 0,
+      districtLockdownTicks: 0,
+      heatReduced: 30
     });
   });
 });

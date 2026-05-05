@@ -1,4 +1,4 @@
-import { createInitialState } from "@empire/game-core";
+import { createInitialState, createPlayerPoliceState } from "@empire/game-core";
 import { resolveDistrictBuildingTypes, resolveModeConfig } from "@empire/game-config";
 import type {
   Building,
@@ -110,6 +110,7 @@ const createGameplaySliceSessionState = (request: Required<GameplaySliceSessionR
     player.id,
     config.balance.startingResources
   );
+  state.policeStatesById[player.policeStateId] = createPlayerPoliceState(player, state.root.tick);
   state.root.playerIds.push(player.id);
 
   districtIds.forEach((districtId, index) => {

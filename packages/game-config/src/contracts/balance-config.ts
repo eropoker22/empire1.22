@@ -1,3 +1,5 @@
+import type { PoliceSystemBalanceConfig } from "./police-balance-config";
+
 export interface CraftRecipeBalanceConfig {
   label: string;
   durationTicks: number;
@@ -878,6 +880,7 @@ export interface BalanceConfig {
   districtControlVictoryThreshold?: number;
   startingResources: Record<string, number>;
   conflict?: ConflictBalanceConfig;
+  police?: PoliceSystemBalanceConfig;
   productionBuildings?: Record<
     string,
     {

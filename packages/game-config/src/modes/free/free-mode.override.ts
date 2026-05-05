@@ -17,12 +17,8 @@ import { freeModeRestaurantConfig } from "../../public/free-mode-restaurant-conf
 import { freeModeShoppingMallConfig } from "../../public/free-mode-shopping-mall-config";
 import { freeModeStripClubConfig } from "../../public/free-mode-strip-club-config";
 import { freeModeWarehouseConfig } from "../../public/free-mode-warehouse-config";
+import { freeModePoliceConfig } from "./free-police-config";
 
-/**
- * Responsibility: Free mode override focused on faster pacing and lower commitment.
- * Belongs here: only values that differ from the shared base config.
- * Does not belong here: duplicated full config copies or core gameplay logic.
- */
 export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
   mode: "free",
   tickRateMs: 5000,
@@ -41,6 +37,7 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
     nightLengthTicks: 8,
     victoryConditionKey: "fast-control",
     districtControlVictoryThreshold: 0.85,
+    police: freeModePoliceConfig,
     conflict: {
       spyCooldownTicks: 1,
       attackCooldownTicks: 36,

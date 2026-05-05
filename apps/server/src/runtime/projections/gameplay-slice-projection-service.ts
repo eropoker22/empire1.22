@@ -1,4 +1,4 @@
-import { createConflictReportViews } from "@empire/game-core";
+import { createCityFeedProjection, createConflictReportViews } from "@empire/game-core";
 import { toPublicModeConfig } from "@empire/game-config";
 import type { GameplayModeView, GameplaySliceView } from "@empire/shared-types";
 import type { ServerInstanceRuntime } from "../instance/server-instance-runtime";
@@ -24,10 +24,18 @@ export const createGameplaySliceProjection = (
     tickRateMs: publicMode.tickRateMs,
     sessionKeyPrefix: publicMode.sessionKeyPrefix
   };
+  const player = createPlayerProjection(runtime, playerId);
 
   return {
     mode,
-    player: createPlayerProjection(runtime, playerId),
+    player,
+    police: player.police ?? null,
+    cityFeed: createCityFeedProjection(runtime.state, {
+      playerId,
+      selectedDistrictId: districtId,
+      factionId: player.factionId,
+      limit: 50
+    }),
     districts: createDistrictListProjection(runtime, playerId),
     district: createDistrictPanelProjection(runtime, playerId, districtId),
     reports: createConflictReportViews(runtime.state, {

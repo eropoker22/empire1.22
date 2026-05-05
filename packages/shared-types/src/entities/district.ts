@@ -23,6 +23,9 @@ export interface District {
   controllerAllianceId: AllianceId | null;
   heat: number;
   influence: number;
+  lockdownUntilTick?: number | null;
+  policeLockdownReason?: string | null;
+  previousStatusBeforeLockdown?: DistrictStatus | null;
   buildingIds: BuildingId[];
   defenseLoadout: Partial<Record<DefenseWeaponId, number>>;
   slotCount: number;

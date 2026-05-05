@@ -1,4 +1,5 @@
 import type { AttackDistrictCommand } from "./attack-district-command";
+import type { AcknowledgePendingRaidCommand } from "./acknowledge-pending-raid-command";
 import type { BuildStructureCommand } from "./build-structure-command";
 import type { CollectProductionCommand } from "./collect-production-command";
 import type { CraftItemCommand } from "./craft-item-command";
@@ -12,6 +13,7 @@ import type { SpyDistrictCommand } from "./spy-district-command";
  * Does not belong here: transport adapters or execution logic.
  */
 export type GameCommand =
+  | AcknowledgePendingRaidCommand
   | AttackDistrictCommand
   | BuildStructureCommand
   | CollectProductionCommand

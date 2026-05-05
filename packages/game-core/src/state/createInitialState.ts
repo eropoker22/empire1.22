@@ -52,6 +52,7 @@ export const createInitialState = (instanceId: string, mode: GameModeId): CoreGa
     cooldownStatesById: {},
     effectStatesById: {},
     policeStatesById: {},
+    cityFeedEventsById: {},
     eventsById: {},
     trapsById: {},
     notificationsById: {},

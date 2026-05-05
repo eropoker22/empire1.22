@@ -3,136 +3,213 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>EmpireStreets - Přihlášení</title>
-    <meta name="description" content="Gangy. Distrikty. Kontrola. Vstup do města a ovládni ulice.">
+    <title>Empire Streets - Přihlášení</title>
+    <meta name="description" content="Temný vstup do online strategie Empire Streets. Gangy, distrikty, policie a válka o město.">
     <meta property="og:type" content="website">
-    <meta property="og:site_name" content="EmpireStreets">
-    <meta property="og:title" content="EmpireStreets">
-    <meta property="og:description" content="Gangy. Distrikty. Kontrola.">
+    <meta property="og:site_name" content="Empire Streets">
+    <meta property="og:title" content="Empire Streets">
+    <meta property="og:description" content="Město nečeká. Zabereš district, nebo ho vezme někdo jiný.">
     <meta property="og:image" content="../img/og-cover-safe.jpg?v=2">
     <meta property="og:image:type" content="image/jpeg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="EmpireStreets - gangy, distrikty a kontrola města">
+    <meta property="og:image:alt" content="Empire Streets - gangy, distrikty a kontrola města">
     <meta property="og:locale" content="cs_CZ">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="EmpireStreets">
+    <meta name="twitter:title" content="Empire Streets">
     <meta name="twitter:description" content="Gangy. Distrikty. Kontrola.">
     <meta name="twitter:image" content="../img/og-cover-safe.jpg?v=2">
-    <meta name="twitter:image:alt" content="EmpireStreets - gangy, distrikty a kontrola města">
+    <meta name="twitter:image:alt" content="Empire Streets - gangy, distrikty a kontrola města">
     <link rel="stylesheet" href="../page-assets/css/styles.css">
-    <link rel="stylesheet" href="../page-assets/css/styles-login-empire2.css">
+    <link rel="stylesheet" href="../page-assets/css/login.css">
   </head>
-  <body class="auth-body auth-body--login auth-body--war">
-    <div class="auth-mobile-fit-frame">
-      <div class="auth-mobile-fit-stack">
-        <main class="auth-shell" id="auth-root" data-page="login">
-          <div class="auth-headline">
-            <span class="auth-kicker">Neon city access</span>
-            <h1>Empire Streets</h1>
-            <h2 class="auth-subtitle">Vstup do serveru, založ gang a ovládni distrikty.</h2>
+  <body class="login-body auth-body auth-body--login">
+    <main class="login-stage" id="auth-root" data-page="login">
+      <div class="city-backdrop" aria-hidden="true">
+        <div class="city-skyline city-skyline--back"></div>
+        <div class="city-skyline city-skyline--front"></div>
+        <div class="neon-sign neon-sign--vultures">NIGHT<br>VULTURES</div>
+        <div class="neon-sign neon-sign--blood">BLOOD<br>KINGS</div>
+        <div class="neon-sign neon-sign--iron">IRON<br>SYNDICATE</div>
+        <div class="neon-sign neon-sign--raid">POLICE RAID<br><span>Downtown sector 17</span></div>
+        <div class="neon-sign neon-sign--trust">TRUST<br>NOBODY</div>
+        <div class="police-light police-light--left"></div>
+        <div class="police-light police-light--right"></div>
+      </div>
+      <div class="foreground-character" aria-hidden="true"></div>
+
+      <section class="hud-panel city-feed" aria-label="City feed">
+        <div class="panel-heading">
+          <span class="panel-icon">⌁</span>
+          <h2>CITY FEED</h2>
+          <span class="live-dot" aria-label="Živě"></span>
+          <button class="panel-chevron" type="button" aria-label="Další zprávy">››</button>
+        </div>
+        <ul class="feed-list" data-city-feed>
+          <li class="feed-item is-hot">
+            <span class="feed-icon feed-icon--raid">✦</span>
+            <p>Policie uzavřela Downtown sektor 17 <small>před 3 min</small></p>
+          </li>
+          <li class="feed-item">
+            <span class="feed-icon feed-icon--gang">☠</span>
+            <p>Gang Night Vultures zabral starou továrnu <small>před 11 min</small></p>
+          </li>
+          <li class="feed-item">
+            <span class="feed-icon feed-icon--tech">▣</span>
+            <p>Cena Tech Core stoupla o 12 % <small>před 18 min</small></p>
+          </li>
+          <li class="feed-item">
+            <span class="feed-icon feed-icon--toxic">☣</span>
+            <p>V Park zóně se šíří toxická past <small>před 25 min</small></p>
+          </li>
+          <li class="feed-item">
+            <span class="feed-icon feed-icon--dealer">✧</span>
+            <p>Obchodník dorazil: Luxury Dealer <small>před 31 min</small></p>
+          </li>
+          <li class="feed-item">
+            <span class="feed-icon feed-icon--raid">◆</span>
+            <p>Policejní drony skenují střechy v Commercial zóně <small>před 36 min</small></p>
+          </li>
+          <li class="feed-item">
+            <span class="feed-icon feed-icon--gang">✣</span>
+            <p>Iron Syndicate zablokoval most mezi Downtown a Industrial <small>před 42 min</small></p>
+          </li>
+        </ul>
+      </section>
+
+      <section class="hud-panel active-events" aria-label="Aktivní události">
+        <h2>AKTIVNÍ UDÁLOSTI</h2>
+        <article class="event-card event-card--raid">
+          <span class="event-symbol">◇</span>
+          <div>
+            <h3>POLICE RAID</h3>
+            <p>Zvýšená aktivita policie v sektoru Downtown a Industrial.</p>
           </div>
-
-          <div class="auth-mode-tabs" id="auth-mode-tabs" role="tablist" aria-label="Výběr režimu">
-            <button class="auth-mode-tab is-active" type="button" data-mode="war" role="tab" aria-selected="true">WAR</button>
-            <button class="auth-mode-tab" type="button" data-mode="free" role="tab" aria-selected="false">FREE</button>
-            <button class="auth-mode-tab auth-mode-tab--about" type="button" id="about-game-btn">O hře</button>
+          <time>08:42</time>
+        </article>
+        <article class="event-card event-card--toxic">
+          <span class="event-symbol">☠</span>
+          <div>
+            <h3>TOXIC TRAP</h3>
+            <p>Toxické pasti jsou aktivní v Park zóně. Vyšší riziko, vyšší odměna.</p>
           </div>
-
-          <div class="auth-login-row">
-            <div class="auth-side-panel">
-              <div class="auth-tabs auth-tabs--detached">
-                <button class="tab-btn tab-btn--active" type="button" data-tab="login">Přihlášení</button>
-                <button class="tab-btn" type="button" data-tab="register">Registrace</button>
-              </div>
-              <p id="about-game-copy" class="about-game-copy about-game-copy--detached hidden">
-                EmpireStreets je neonová gang válka o distrikty.
-                <a class="about-game-copy__link" href="./about-game.html">viz.</a>
-              </p>
-              <div class="auth-city-signal" aria-hidden="true">
-                <div class="auth-city-signal__head">
-                  <span>City feed</span>
-                  <strong>Live</strong>
-                </div>
-                <div class="auth-city-map">
-                  <span data-zone="downtown"></span>
-                  <span data-zone="industrial"></span>
-                  <span data-zone="residential"></span>
-                  <span data-zone="market"></span>
-                  <span data-zone="park"></span>
-                  <span data-zone="hostile"></span>
-                  <span data-zone="safehouse"></span>
-                  <span data-zone="factory"></span>
-                  <span data-zone="lab"></span>
-                </div>
-                <div class="auth-city-signal__rows">
-                  <span><b>Heat</b><strong>12</strong></span>
-                  <span><b>Market</b><strong>Open</strong></span>
-                  <span><b>Districts</b><strong>25</strong></span>
-                </div>
-              </div>
-            </div>
-
-            <div class="auth-card auth-panel--right">
-              <form id="login-form" class="auth-form" autocomplete="on" novalidate>
-                <label for="login-username">Uživatelské jméno</label>
-                <input type="text" id="login-username" name="username" placeholder="streetboss" autocomplete="username">
-                <label for="login-password">Heslo</label>
-                <input type="password" id="login-password" name="password" placeholder="******" autocomplete="current-password">
-                <button type="submit" class="btn btn--primary">Přihlásit</button>
-              </form>
-
-              <form id="register-form" class="auth-form hidden" autocomplete="on" novalidate>
-                <label for="register-username">Uživatelské jméno</label>
-                <input type="text" id="register-username" name="username" placeholder="newblood" autocomplete="username">
-                <label for="register-gang">Název gangu</label>
-                <input type="text" id="register-gang" name="gang" placeholder="Crimson Street" autocomplete="organization">
-                <label for="register-password">Heslo</label>
-                <input type="password" id="register-password" name="password" placeholder="******" autocomplete="new-password">
-                <button type="submit" class="btn btn--primary">Registrovat</button>
-              </form>
-
-              <div class="auth-form auth-form--guest">
-                <label for="guest-username">Nick hosta</label>
-                <input type="text" id="guest-username" placeholder="streetguest" maxlength="24" autocomplete="nickname">
-                <label for="guest-gang">Název gangu</label>
-                <input type="text" id="guest-gang" placeholder="Ghost Crew" maxlength="32" autocomplete="organization">
-                <button type="button" class="btn btn--ghost" id="guest-btn">Pokračovat jako host</button>
-              </div>
-
-              <p id="auth-error" class="auth-error hidden"></p>
-            </div>
+          <time>13:27</time>
+        </article>
+        <article class="event-card event-card--war">
+          <span class="event-symbol">✣</span>
+          <div>
+            <h3>GANG WAR</h3>
+            <p>Probíhá válka o území mezi gangy Night Vultures a Purple Cobras.</p>
           </div>
-        </main>
+          <time>21:15</time>
+        </article>
+      </section>
 
-        <footer class="auth-footer auth-footer--fixed">
-          <div class="auth-footer__inner">
-            <div class="auth-footer__brand">
-              <div class="auth-footer__logo auth-footer__logo--img" aria-label="EmpireStreets logo"></div>
-              <div>
-                <div class="auth-footer__title">EmpireStreets</div>
-                <div class="auth-footer__subtitle">Neonová metropole nikdy nespí.</div>
-              </div>
-            </div>
-            <div class="auth-footer__links">
-              <a class="auth-footer__link" href="https://facebook.com" target="_blank" rel="noopener" aria-label="Facebook">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M13.5 8.5h2.7V5.9h-2.7c-2.6 0-4.2 1.5-4.2 4.1v2H7v2.7h2.3V22h3v-7.3h2.7l.4-2.7h-3.1V9.9c0-.9.4-1.4 1.2-1.4z"></path>
-                </svg>
-              </a>
-              <a class="auth-footer__link" href="https://x.com" target="_blank" rel="noopener" aria-label="X">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M18.2 3H21l-6.4 7.3L22 21h-5.6l-4.4-5.5L6.7 21H4l6.9-7.8L2 3h5.7l4 5.1L18.2 3z"></path>
-                </svg>
-              </a>
-              <a class="auth-footer__link auth-footer__link--instagram" href="https://instagram.com" target="_blank" rel="noopener" aria-label="Instagram">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zm10 2H7a2 2 0 0 0-2 2v10c0 1.1.9 2 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-5 3.2a4.8 4.8 0 1 1 0 9.6 4.8 4.8 0 0 1 0-9.6zm0 2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6zm5.6-.9a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"></path>
-                </svg>
-              </a>
-            </div>
-          </div>
-        </footer>
+      <section class="login-terminal" aria-label="Přihlášení do Empire Streets">
+        <div class="terminal-frame"></div>
+        <header class="terminal-title">
+          <h1><span>EMPIRE</span><strong>STREETS</strong></h1>
+          <p>MĚSTO NEČEKÁ. BUĎ ZABEREŠ DISTRICT,<br>NEBO HO VEZME NĚKDO JINÝ.</p>
+        </header>
+
+        <div class="terminal-tabs" role="tablist" aria-label="Typ přístupu">
+          <button class="terminal-tab is-active" type="button" data-tab="login" role="tab" aria-selected="true">PŘÍSTUP</button>
+          <button class="terminal-tab" type="button" data-tab="register" role="tab" aria-selected="false">ZALOŽIT GANG</button>
+        </div>
+
+        <form id="login-form" class="auth-form terminal-form" autocomplete="on" novalidate>
+          <label class="field-shell" for="login-username">
+            <span class="field-icon">●</span>
+            <input type="text" id="login-username" name="username" placeholder="Email / Přezdívka" autocomplete="username">
+          </label>
+          <label class="field-shell" for="login-password">
+            <span class="field-icon">▣</span>
+            <input type="password" id="login-password" name="password" placeholder="Heslo" autocomplete="current-password">
+            <button class="password-eye" type="button" data-password-toggle aria-label="Zobrazit heslo">◎</button>
+          </label>
+          <button type="submit" class="enter-city-button" data-submit-label="VSTOUPIT DO MĚSTA">VSTOUPIT DO MĚSTA</button>
+        </form>
+
+        <form id="register-form" class="auth-form terminal-form hidden" autocomplete="on" novalidate>
+          <label class="field-shell" for="register-username">
+            <span class="field-icon">●</span>
+            <input type="text" id="register-username" name="username" placeholder="Jméno bosse" autocomplete="username">
+          </label>
+          <label class="field-shell" for="register-gang">
+            <span class="field-icon">◆</span>
+            <input type="text" id="register-gang" name="gang" placeholder="Název gangu" autocomplete="organization">
+          </label>
+          <label class="field-shell" for="register-password">
+            <span class="field-icon">▣</span>
+            <input type="password" id="register-password" name="password" placeholder="Heslo" autocomplete="new-password">
+          </label>
+          <button type="submit" class="enter-city-button" data-submit-label="ZALOŽIT GANG">ZALOŽIT GANG</button>
+        </form>
+
+        <p id="auth-error" class="auth-error hidden" role="alert"></p>
+
+        <div class="terminal-actions">
+          <button class="terminal-link" type="button" data-open-server-select>▣ Vybrat server</button>
+          <button class="terminal-link" type="button" data-tab-link="register">▣ Založit gang</button>
+          <button class="terminal-link" type="button" data-forgot-password>▣ Zapomenuté heslo</button>
+        </div>
+
+        <div class="guest-access" aria-label="Guest access">
+          <input type="text" id="guest-username" placeholder="Host" maxlength="24" autocomplete="nickname">
+          <input type="text" id="guest-gang" placeholder="Ghost Crew" maxlength="32" autocomplete="organization">
+          <button type="button" id="guest-btn">Přihlásit se jako host</button>
+        </div>
+      </section>
+
+      <section class="hud-panel server-status" aria-label="Server status">
+        <div class="panel-heading">
+          <span class="panel-icon">▱</span>
+          <h2>SERVER STATUS</h2>
+          <span class="status-dot"></span>
+        </div>
+        <div class="server-main">
+          <strong>FREE-01</strong>
+          <span>ONLINE</span>
+        </div>
+        <div class="server-players"><span>♟</span>17/20 hráčů</div>
+        <div class="metric">
+          <span>HEAT LEVEL</span>
+          <strong>78 %</strong>
+          <div class="progress"><i style="width: 78%"></i></div>
+        </div>
+        <div class="metric metric--market">
+          <span>MARKET VOLATILITY</span>
+          <strong>VERY HIGH</strong>
+          <svg class="sparkline" viewBox="0 0 180 48" aria-hidden="true">
+            <polyline points="0,34 10,29 18,37 30,24 40,31 50,19 60,32 70,15 82,28 94,22 108,36 122,18 136,24 148,12 160,26 172,16 180,20"></polyline>
+          </svg>
+        </div>
+      </section>
+
+      <section class="mode-dock" aria-label="Výběr režimu">
+        <button class="mode-card mode-card--free" type="button" data-mode="free" aria-pressed="false">
+          <span class="mode-icon">▰</span>
+          <span><strong>FREE MODE</strong><small>Rychlá válka o město</small><em>Vstup bez rizika. Získej respekt.</em></span>
+        </button>
+        <button class="mode-card mode-card--war is-active" type="button" data-mode="war" aria-pressed="true">
+          <span class="premium-badge">PREMIUM</span>
+          <span class="mode-icon">☠</span>
+          <span><strong>WAR MODE</strong><small>Plná válka o impérium</small><em>Vysoké riziko. Větší odměny.</em></span>
+        </button>
+      </section>
+    </main>
+
+    <nav class="login-footer" aria-label="Footer">
+      <a href="./about-game.html">Nastavení</a>
+      <a href="./about-game.html">Novinky</a>
+      <button type="button" data-sound-toggle>Zvuk</button>
+      <a href="./about-game.html">Pomoc</a>
+    </nav>
+
+    <div class="access-overlay" data-access-overlay hidden>
+      <div>
+        <span>ACCESS GRANTED</span>
+        <strong>VSTUP DO MĚSTA POVOLEN</strong>
       </div>
     </div>
 

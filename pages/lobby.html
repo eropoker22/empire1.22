@@ -6,51 +6,183 @@
     <title>Empire Streets | Výběr serveru</title>
     <meta name="description" content="Vyber herní server a startovní district pro Empire Streets.">
     <link rel="stylesheet" href="../page-assets/css/styles.css">
+    <link rel="stylesheet" href="../page-assets/css/lobby.css">
   </head>
-  <body class="auth-body auth-body--login auth-body--war servers-page">
-    <div class="auth-mobile-fit-frame">
-      <div class="auth-mobile-fit-stack">
-        <main id="lobby-root" class="auth-shell auth-shell--entry" data-page="lobby">
-          <section class="auth-card auth-card--wide auth-card--server page-section">
-            <div class="brand auth-brand">
-              <div class="brand__logo auth-brand__logo" aria-hidden="true"></div>
-              <div>
-                <div class="brand__name">EmpireStreets</div>
-                <div class="brand__tag">Vyber server a startovní district.</div>
-              </div>
-            </div>
+  <body class="auth-body auth-body--login auth-body--war servers-page lobby-command-body">
+    <main id="lobby-root" class="lobby-command" data-page="lobby">
+      <div class="lobby-bg" aria-hidden="true">
+        <span class="lobby-rain"></span>
+        <span class="lobby-scan"></span>
+      </div>
 
-            <div class="auth-headline">
-              <h1>Výběr serveru</h1>
-              <h2 class="auth-subtitle">Zvol shard pro režim WAR nebo FREE a klikni na startovní district v detailu serveru.</h2>
+      <aside class="lobby-side lobby-side--left" aria-label="Stav města">
+        <section class="lobby-hud-panel lobby-logo-card" aria-label="Empire Streets">
+          <strong>EMPIRE<br><span>STREETS</span></strong>
+        </section>
+
+        <section class="lobby-hud-panel lobby-status-card">
+          <div class="lobby-panel-heading">
+            <span>SERVER STATUS</span>
+            <i></i>
+          </div>
+          <strong>ONLINE</strong>
+          <p><span>♟</span> 17 120 hráčů online</p>
+        </section>
+
+        <section class="lobby-hud-panel lobby-heat-card">
+          <div class="lobby-panel-heading">
+            <span>HEAT LEVEL</span>
+            <b>🔥</b>
+          </div>
+          <strong>78 %</strong>
+          <div class="lobby-meter"><i style="width: 78%"></i></div>
+        </section>
+
+        <section class="lobby-hud-panel lobby-market-card">
+          <div class="lobby-panel-heading">
+            <span>MARKET VOLATILITY</span>
+          </div>
+          <strong>VERY HIGH</strong>
+          <svg viewBox="0 0 180 48" aria-hidden="true">
+            <polyline points="0,35 12,30 20,36 34,25 44,31 55,18 66,32 76,17 88,29 100,20 114,35 128,19 142,24 154,13 166,27 180,18"></polyline>
+          </svg>
+        </section>
+
+        <section class="lobby-hud-panel lobby-events-card">
+          <div class="lobby-panel-heading">
+            <span>AKTIVNÍ UDÁLOSTI</span>
+          </div>
+          <article class="lobby-event lobby-event--raid">
+            <span>◇</span>
+            <div><strong>POLICE RAID</strong><p>Zvýšená aktivita policie v sektoru Downtown a Industrial.</p></div>
+            <time>08:42</time>
+          </article>
+          <article class="lobby-event lobby-event--toxic">
+            <span>☠</span>
+            <div><strong>TOXIC TRAP</strong><p>Toxické pasti jsou aktivní v Park zóně. Vyšší riziko, vyšší odměna.</p></div>
+            <time>18:27</time>
+          </article>
+          <article class="lobby-event lobby-event--war">
+            <span>✣</span>
+            <div><strong>GANG WAR</strong><p>Probíhá válka o území mezi gangy Night Vultures a Purple Cobras.</p></div>
+            <time>21:15</time>
+          </article>
+        </section>
+
+        <section class="lobby-hud-panel lobby-promo-card" aria-label="Městský signál">
+          <strong>TRUST NOBODY.<br>CONTROL EVERYTHING.</strong>
+        </section>
+      </aside>
+
+      <section class="lobby-command-shell" aria-label="Výběr serveru">
+        <header class="lobby-topbar">
+          <nav class="lobby-terminal-nav" data-lobby-nav aria-label="Lobby menu">
+            <button class="is-active" type="button" data-lobby-nav-target="city" aria-pressed="true"><span aria-hidden="true">▣</span> VÝBĚR MĚSTA</button>
+            <button type="button" data-lobby-nav-target="gang" aria-pressed="false"><span aria-hidden="true">♟</span> MOJE GANG</button>
+            <button type="button" data-lobby-nav-target="market" aria-pressed="false"><span aria-hidden="true">▱</span> OBCHOD</button>
+            <button type="button" data-lobby-nav-target="settings" aria-pressed="false"><span aria-hidden="true">⚙</span> NASTAVENÍ</button>
+          </nav>
+          <div class="lobby-top-player">
+            <div class="lobby-top-player__avatar" aria-hidden="true"></div>
+            <div>
+              <strong data-lobby-top-user>Host</strong>
+              <span>ÚROVEŇ 1</span>
+              <i><b></b></i>
+            </div>
+            <em>0 / 100 XP</em>
+            <small>🟡 0 kreditů</small>
+          </div>
+        </header>
+
+        <div class="lobby-shell-grid">
+          <section class="lobby-main-column">
+            <div class="lobby-title-block">
+              <h1>VÝBĚR SERVERU</h1>
+              <p>Zvol server pro režim <strong>WAR</strong> nebo <b>FREE</b> a klikni na startovní district.</p>
             </div>
 
             <section class="lobby-profile-card" aria-label="Kontext hráče">
+              <div class="lobby-profile-avatar" aria-hidden="true"></div>
               <div>
-                <span class="lobby-profile-card__label">Přihlášený hráč</span>
+                <span class="lobby-profile-card__label">PŘIHLÁŠENÝ HRÁČ</span>
                 <strong class="lobby-profile-card__name" data-lobby-user>Host</strong>
                 <p class="lobby-profile-card__meta" data-lobby-user-meta>Přihlášený hráč · vyber server a startovní district.</p>
               </div>
               <div class="lobby-profile-card__summary">
-                <span>Server <strong data-lobby-summary-server>Nevybrán</strong></span>
-                <span>Mode <strong data-lobby-summary-mode>WAR</strong></span>
-                <span>District <strong data-lobby-summary-district>Nevybrán</strong></span>
+                <span>SERVER <strong data-lobby-summary-server>Nevybrán</strong></span>
+                <span>REŽIM <strong data-lobby-summary-mode>WAR</strong></span>
+                <span>DISTRICT <strong data-lobby-summary-district>Nevybrán</strong></span>
               </div>
             </section>
 
             <div class="auth-mode-tabs" role="tablist" aria-label="Výběr režimu">
-              <button class="auth-mode-tab" type="button" data-server-mode-tab="war" role="tab" aria-selected="false">WAR</button>
-              <button class="auth-mode-tab" type="button" data-server-mode-tab="free" role="tab" aria-selected="false">FREE</button>
+              <button class="auth-mode-tab" type="button" data-server-mode-tab="war" role="tab" aria-selected="false">☠ WAR</button>
+              <button class="auth-mode-tab" type="button" data-server-mode-tab="free" role="tab" aria-selected="false">🪽 FREE</button>
             </div>
             <p class="auth-entry-status" data-lobby-flow-note data-state="ready">Klikni na server, otevři detail a vyber startovní district.</p>
 
             <section class="lobby-server-list-only">
               <div class="auth-servers auth-servers--single" data-server-list aria-live="polite"></div>
+              <button class="lobby-refresh-button" type="button">⟳ OBNOVIT SEZNAM</button>
             </section>
           </section>
-        </main>
-      </div>
-    </div>
+
+          <aside class="lobby-detail-column" aria-label="Detail serveru">
+            <section class="lobby-map-panel">
+              <h2>VYBER STARTOVNÍ DISTRICT</h2>
+              <p>Klikni na district v detailu serveru pro výběr místa.</p>
+              <div class="lobby-zone-map" aria-hidden="true">
+                <span class="lobby-zone lobby-zone--residential">⌂<b>RESIDENTIAL</b></span>
+                <span class="lobby-zone lobby-zone--downtown">▥<b>DOWNTOWN</b></span>
+                <span class="lobby-zone lobby-zone--park">♟<b>PARK</b></span>
+                <span class="lobby-zone lobby-zone--industrial">▦<b>INDUSTRIAL</b></span>
+                <span class="lobby-zone lobby-zone--commercial">▥<b>COMMERCIAL</b></span>
+              </div>
+              <div class="lobby-map-legend">
+                <span><i class="is-residential"></i> Residential</span>
+                <span><i class="is-park"></i> Park</span>
+                <span><i class="is-downtown"></i> Downtown</span>
+                <span><i class="is-industrial"></i> Industrial</span>
+                <span><i class="is-commercial"></i> Commercial</span>
+                <span class="lobby-map-legend__marker lobby-map-legend__marker--raid"><i></i> Police Raid</span>
+                <span class="lobby-map-legend__marker lobby-map-legend__marker--trap"><i></i> Toxic Trap</span>
+                <span class="lobby-map-legend__marker lobby-map-legend__marker--gang"><i></i> Gang Control</span>
+              </div>
+            </section>
+
+            <section class="lobby-server-detail-card">
+              <div class="lobby-detail-title">
+                <div>
+                  <span class="lobby-detail-kicker">DETAILY SERVERU</span>
+                  <h2 data-lobby-detail-name>Vortex City WAR-01</h2>
+                </div>
+                <span>DOPORUČENO</span>
+              </div>
+              <div class="lobby-detail-heat">
+                <span>HEAT LEVEL</span>
+                <strong>78 %</strong>
+                <div class="lobby-meter"><i style="width: 78%"></i></div>
+              </div>
+              <div class="lobby-detail-grid">
+                <span>REGION <strong data-lobby-detail-region>EU Central</strong></span>
+                <span>STATUS <strong data-lobby-detail-status>ONLINE</strong></span>
+                <span>REŽIM <strong data-lobby-detail-mode>WAR</strong></span>
+                <span>HRÁČŮ ONLINE <strong data-lobby-detail-capacity>64 / 150</strong></span>
+                <span>START / LIVE <strong data-lobby-detail-start>Live server</strong></span>
+                <span>POPIS <strong data-lobby-detail-description>Tvrdý válečný shard s rychlou expanzí.</strong></span>
+              </div>
+              <button class="lobby-primary-cta" type="button" data-lobby-open-selected>VYBRAT SERVER A DISTRICT <span>›</span></button>
+              <p>⚠ Po výběru již nelze district změnit.</p>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <aside class="lobby-side lobby-side--right" aria-hidden="true">
+        <div class="lobby-gang-sign lobby-gang-sign--blood">BLOOD<br>KINGS</div>
+        <div class="lobby-gang-sign lobby-gang-sign--iron">IRON<br>SYNDICATE</div>
+      </aside>
+    </main>
 
     <div class="server-detail-modal hidden" id="server-detail-modal" data-server-detail-modal aria-hidden="true">
       <div class="server-detail-modal__backdrop" data-server-detail-close></div>

@@ -14,7 +14,11 @@ export const CORE_EVENT_TYPES = {
   productionCollected: "production-collected",
   itemProcessingStarted: "item-processing-started",
   itemCrafted: "item-crafted",
+  policeRaidAcknowledged: "police-raid-acknowledged",
+  policeRaidExpired: "police-raid-expired",
+  policeRaidResolved: "police-raid-resolved",
   policeRaidTriggered: "police-raid-triggered",
+  policeWarningIssued: "police-warning-issued",
   commandApplied: "command-applied",
   notificationCreated: "notification-created"
 } as const;

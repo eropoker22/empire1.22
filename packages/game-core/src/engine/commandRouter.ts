@@ -3,6 +3,7 @@ import type { CoreError } from "../errors";
 import type { CoreGameState } from "../entities";
 import type { CoreEvent } from "../events";
 import {
+  handleAcknowledgePendingRaid,
   handleAttackDistrict,
   handleBuildStructure,
   handleCollectProduction,
@@ -24,6 +25,8 @@ export const routeCommand = (
   context: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
   switch (command.type) {
+    case "acknowledge-pending-raid":
+      return handleAcknowledgePendingRaid(state, command, context);
     case "attack-district":
       return handleAttackDistrict(state, command, context);
     case "build-structure":

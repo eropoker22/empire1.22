@@ -1,0 +1,243 @@
+function queryAll(root, selector) {
+  return selector ? Array.from(root?.querySelectorAll?.(selector) || []) : [];
+}
+
+export function createMarketPopupRuntime(deps = {}) {
+  const selectors = deps.selectors || {};
+  const windowRef = deps.windowRef || (typeof window !== "undefined" ? window : null);
+  const documentRef = deps.documentRef || (typeof document !== "undefined" ? document : null);
+  let marketPriceTimerId = null;
+
+  const bindMarketPopup = (root) => {
+    const openButton = root?.querySelector?.(selectors.open);
+    const popup = root?.querySelector?.(selectors.popup);
+    const closeElements = queryAll(root, selectors.close);
+    const tabs = queryAll(root, selectors.tab);
+    const copyElement = root?.querySelector?.(selectors.copy);
+    const listElement = root?.querySelector?.(selectors.list);
+    const serverBadgeElement = root?.querySelector?.(selectors.serverBadge);
+    const dashboardElement = root?.querySelector?.(selectors.dashboard);
+    const feedbackElement = root?.querySelector?.(selectors.feedback);
+
+    if (!openButton || !popup || closeElements.length === 0 || !copyElement || !listElement || tabs.length === 0) {
+      return false;
+    }
+
+    let activeTab = "market";
+
+    const stockAdapterOptions = {
+      clamp: deps.clamp,
+      getMarketStockConfig: deps.getMarketStockConfig,
+      getMarketStockKey: deps.getMarketStockKey,
+      normalizeMarketStockState: deps.normalizeMarketStockState
+    };
+    const getStockAmount = (marketState, tabId, itemId) => deps.getMarketStockAmount?.(marketState, tabId, itemId, stockAdapterOptions);
+    const getMaxStock = (tabId, itemId) => deps.getMarketMaxStock?.(tabId, itemId, stockAdapterOptions);
+    const getStockLabel = (marketState, tabId, itemId) => deps.getMarketStockLabel?.(marketState, tabId, itemId, stockAdapterOptions);
+    const getStockPercent = (marketState, tabId, itemId) => deps.getMarketStockPercent?.(marketState, tabId, itemId, stockAdapterOptions);
+    const resolveBlackMarketHeatRisk = (totalValue) => deps.resolveMarketHeatRiskByValue?.(totalValue, deps.MARKET_BLACK_HEAT_BY_VALUE);
+    const setMarketFeedback = (tone, message) => {
+      deps.renderMarketFeedback?.(feedbackElement, tone, message);
+    };
+    const renderDashboard = (marketState) => {
+      if (!dashboardElement) {
+        return;
+      }
+
+      deps.renderMarketDashboard?.(dashboardElement, deps.createMarketDashboardViewModel?.(deps.createMarketDashboardAdapter?.({
+        activeTab,
+        marketState,
+        marketTabConfig: deps.MARKET_TAB_CONFIG,
+        economy: deps.getResolvedEconomyState?.(),
+        gangState: deps.getResolvedGangState?.(),
+        serverScope: deps.getMarketServerScope?.(),
+        playerTabId: deps.MARKET_PLAYER_TAB_ID,
+        refreshCountdownSeconds: deps.getMarketRefreshCountdownSeconds?.(),
+        normalizePlayerMarketListings: deps.normalizePlayerMarketListings,
+        normalizeMarketTransactions: deps.normalizeMarketTransactions,
+        getStockAmount,
+        formatPrice: deps.formatMarketPrice
+      })));
+    };
+    const commitMarketState = (updater) => {
+      const currentState = deps.refreshMarketPricesIfNeeded?.(false);
+      const nextState = deps.normalizeMarketTradeState?.(updater(currentState));
+      deps.setStoredMarketPriceState?.(nextState);
+      return nextState;
+    };
+    const renderPlayerMarketTab = (priceState, serverScope) => {
+      const { viewModel: playerMarketViewModel } = deps.createPlayerMarketPanelPayload?.({
+        priceState,
+        serverScope,
+        catalog: deps.getPlayerMarketCatalog?.(),
+        economy: deps.getResolvedEconomyState?.(),
+        sellerId: deps.MARKET_PLAYER_SELLER_ID,
+        ownListingLimit: deps.MARKET_PLAYER_OWN_LISTING_LIMIT,
+        normalizeMarketTradeState: deps.normalizeMarketTradeState,
+        normalizePlayerMarketListings: deps.normalizePlayerMarketListings,
+        getInventoryAmount: deps.getInventoryAmount,
+        getListingTotal: deps.getMarketListingTotal,
+        formatPrice: deps.formatMarketPrice
+      }) || { viewModel: {} };
+
+      deps.renderPlayerMarketPanel?.(listElement, playerMarketViewModel, deps.createPlayerMarketCallbacks?.({
+        root,
+        priceState,
+        playerMarketViewModel,
+        serverScope,
+        sellerId: deps.MARKET_PLAYER_SELLER_ID,
+        playerTabId: deps.MARKET_PLAYER_TAB_ID,
+        ownListingLimit: deps.MARKET_PLAYER_OWN_LISTING_LIMIT,
+        listingLimit: deps.MARKET_PLAYER_LISTING_LIMIT,
+        listingTtlMs: deps.MARKET_PLAYER_LISTING_TTL_MS,
+        getSuggestedPlayerMarketUnitPrice: deps.getSuggestedPlayerMarketUnitPrice,
+        setMarketFeedback,
+        setInventoryAmount: deps.setInventoryAmount,
+        getInventoryAmount: deps.getInventoryAmount,
+        getCurrentPlayerIdentityLabel: deps.getCurrentPlayerIdentityLabel,
+        commitMarketState,
+        normalizePlayerMarketListings: deps.normalizePlayerMarketListings,
+        normalizeMarketTransactions: deps.normalizeMarketTransactions,
+        createTransaction: deps.createMarketTransaction,
+        formatMarketPrice: deps.formatMarketPrice,
+        applyTopbarEconomy: deps.applyTopbarEconomy,
+        refreshMarketTab: renderMarketTab,
+        getResolvedEconomyState: deps.getResolvedEconomyState,
+        setStoredEconomyState: deps.setStoredEconomyState,
+        resolveBlackMarketHeatRisk,
+        addGangHeat: deps.addGangHeat,
+        getListingTotal: deps.getMarketListingTotal
+      }));
+    };
+
+    const renderMarketTab = () => {
+      const priceState = deps.refreshMarketPricesIfNeeded?.(false);
+      const tabConfig = deps.MARKET_TAB_CONFIG?.[activeTab] || deps.MARKET_TAB_CONFIG?.market || {};
+      const serverScope = deps.getMarketServerScope?.();
+      const paymentKey = tabConfig.payment || "cleanMoney";
+      const payoutKey = tabConfig.payout || paymentKey;
+
+      popup.dataset.marketMode = activeTab;
+
+      if (serverBadgeElement) {
+        serverBadgeElement.textContent = `Server: ${serverScope.serverLabel}`;
+      }
+
+      renderDashboard(priceState);
+
+      copyElement.textContent = deps.createMarketCopy?.(activeTab, tabConfig);
+      listElement.replaceChildren();
+
+      if (activeTab === deps.MARKET_PLAYER_TAB_ID) {
+        renderPlayerMarketTab(priceState, serverScope);
+        deps.syncMarketTabs?.(tabs, activeTab);
+        return;
+      }
+
+      const catalogViewModel = deps.createMarketCatalogPanelPayload?.({
+        tabConfig,
+        activeTab,
+        paymentKey,
+        payoutKey,
+        priceState,
+        marketDiscount: deps.getShoppingMallMarketDiscountForTab?.(activeTab),
+        getInventoryAmount: deps.getInventoryAmount,
+        getStockAmount,
+        getMaxStock,
+        getStockLabel,
+        getStockPercent,
+        applyDiscountToPrice: deps.applyShoppingMallMarketDiscountToPrice,
+        formatPrice: deps.formatMarketPrice,
+        getMoneyLabel: deps.getMarketMoneyLabel
+      });
+
+      const marketCallbacks = deps.createMarketCatalogCallbacks?.({
+        root,
+        activeTab,
+        getResolvedEconomyState: deps.getResolvedEconomyState,
+        getInventoryAmount: deps.getInventoryAmount,
+        getResolvedMarketPriceState: deps.getResolvedMarketPriceState,
+        getStockAmount,
+        getMaxStock,
+        createMarketTradeStateViewModel: deps.createMarketTradeStateViewModel,
+        resolveBlackMarketHeatRisk,
+        formatMarketPrice: deps.formatMarketPrice,
+        setMarketFeedback,
+        setInventoryAmount: deps.setInventoryAmount,
+        setStoredEconomyState: deps.setStoredEconomyState,
+        addGangHeat: deps.addGangHeat,
+        commitMarketState,
+        normalizeMarketStockState: deps.normalizeMarketStockState,
+        getMarketStockKey: deps.getMarketStockKey,
+        clamp: deps.clamp,
+        createTransaction: deps.createMarketTransaction,
+        normalizeMarketTransactions: deps.normalizeMarketTransactions,
+        applyTopbarEconomy: deps.applyTopbarEconomy,
+        refreshMarketTab: renderMarketTab
+      });
+
+      const renderCatalog = activeTab === "black-market" ? deps.renderBlackMarketPanel : deps.renderMarketPanel;
+      renderCatalog?.(listElement, catalogViewModel, marketCallbacks);
+
+      deps.syncMarketTabs?.(tabs, activeTab);
+    };
+
+    const openPopup = () => {
+      setMarketFeedback("", "");
+      renderMarketTab();
+      deps.openMarketPanel?.(popup);
+    };
+
+    const closePopup = () => {
+      deps.closeMarketPanel?.(popup);
+    };
+
+    openButton.addEventListener("click", openPopup);
+
+    for (const tab of tabs) {
+      tab.addEventListener("click", () => {
+        if (!tab.dataset.marketTab) {
+          return;
+        }
+
+        activeTab = tab.dataset.marketTab;
+        setMarketFeedback("", "");
+        renderMarketTab();
+      });
+    }
+
+    for (const closeElement of closeElements) {
+      closeElement.addEventListener("click", closePopup);
+    }
+
+    documentRef?.addEventListener?.("keydown", (event) => {
+      if (event.key === "Escape" && !popup.hidden) {
+        closePopup();
+      }
+    });
+
+    const scheduleMarketRefresh = () => {
+      if (marketPriceTimerId !== null) {
+        windowRef?.clearTimeout?.(marketPriceTimerId);
+      }
+
+      const state = deps.getResolvedMarketPriceState?.();
+      const delay = Math.max(250, new Date(state.nextRefreshAt).getTime() - Date.now());
+
+      marketPriceTimerId = windowRef?.setTimeout?.(() => {
+        deps.refreshMarketPricesIfNeeded?.(true);
+        if (!popup.hidden) {
+          renderMarketTab();
+        }
+        scheduleMarketRefresh();
+      }, delay) ?? null;
+    };
+
+    scheduleMarketRefresh();
+    return true;
+  };
+
+  return {
+    bindMarketPopup
+  };
+}

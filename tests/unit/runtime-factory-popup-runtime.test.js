@@ -1,0 +1,144 @@
+import { describe, expect, it, vi } from "vitest";
+import { createFactoryPopupRuntime } from "../../page-assets/js/app/runtime/factoryPopupRuntime.js";
+
+function createElement(dataset = {}) {
+  const listeners = new Map();
+
+  return {
+    dataset,
+    hidden: false,
+    textContent: "",
+    addEventListener: vi.fn((type, listener) => {
+      listeners.set(type, [...(listeners.get(type) || []), listener]);
+    }),
+    dispatch(type) {
+      for (const listener of listeners.get(type) || []) {
+        listener({ key: "Escape", type });
+      }
+    },
+    querySelector: vi.fn(),
+    querySelectorAll: vi.fn(() => []),
+    classList: {
+      toggle: vi.fn()
+    },
+    setAttribute: vi.fn()
+  };
+}
+
+function createRoot(elements = {}, all = {}) {
+  return {
+    querySelector: vi.fn((selector) => elements[selector] || null),
+    querySelectorAll: vi.fn((selector) => all[selector] || [])
+  };
+}
+
+function createRuntime(overrides = {}) {
+  return createFactoryPopupRuntime({
+    FACTORY_CONFIG: { maxLevel: 14 },
+    FACTORY_SLOT_CONFIG: [],
+    FACTORY_SLOT_STORAGE_CAP: 100,
+    buildFactoryDashboardViewModel: vi.fn(() => ({ slots: [] })),
+    createFactoryBuildingInfoViewModel: vi.fn(() => ({ rows: [], actions: [] })),
+    formatCurrency: (value) => `$${value}`,
+    formatDurationLabel: () => "1s",
+    getFactoryLevelMultiplier: () => 1,
+    getFactoryUpgradeCost: () => 100,
+    getResolvedEconomyState: () => ({ cleanMoney: 1000 }),
+    getStoredFactoryState: () => ({ level: 1, slots: [] }),
+    getStoredFactorySupplies: () => ({}),
+    renderFactoryBuildingInfoPanel: vi.fn(),
+    renderFactoryDashboardPanel: vi.fn(),
+    renderFactorySlotList: vi.fn(),
+    selectors: {
+      close: ".close",
+      collect: ".collect",
+      combat: ".combat",
+      effectsLabel: ".effects",
+      headerLevel: ".header",
+      level: ".level",
+      metal: ".metal",
+      multiplier: ".multiplier",
+      open: ".open",
+      ownedCount: ".owned",
+      panel: ".panel",
+      popup: ".popup",
+      slotList: ".slots",
+      supplyCombat: ".supply-combat",
+      supplyMetal: ".supply-metal",
+      supplyTech: ".supply-tech",
+      tab: ".tab",
+      tech: ".tech",
+      upgrade: ".upgrade",
+      upgradeCost: ".upgrade-cost"
+    },
+    setStoredFactoryState: vi.fn(),
+    syncFactoryProduction: vi.fn((state) => ({ state })),
+    ...overrides
+  });
+}
+
+describe("factory popup runtime", () => {
+  it("handles missing factory DOM without crashing", () => {
+    const runtime = createRuntime();
+
+    expect(runtime.bindFactoryPopup(createRoot())).toBe(false);
+    expect(runtime.bindFactoryPopup(null)).toBe(false);
+  });
+
+  it("binds factory shell and delegates collect action to runtime callbacks", () => {
+    const open = createElement();
+    const popup = createElement();
+    const close = createElement();
+    const collect = createElement();
+    const upgrade = createElement();
+    const appendBuildingActionResultEntry = vi.fn();
+    const collectFactoryOutputsToSupplies = vi.fn(() => ({
+      items: [{ label: "Metal", amount: 2 }],
+      total: 2
+    }));
+    const renderFactoryDashboardPanel = vi.fn();
+    const runtime = createRuntime({
+      appendBuildingActionResultEntry,
+      collectFactoryOutputsToSupplies,
+      createStorageCollectResultPayload: vi.fn((payload) => payload),
+      renderFactoryDashboardPanel,
+      setBuildingActionFeedback: vi.fn(),
+      syncBuildingDetailTopbarVisibility: vi.fn()
+    });
+    const root = createRoot({
+      ".collect": collect,
+      ".combat": createElement(),
+      ".effects": createElement(),
+      ".header": createElement(),
+      ".level": createElement(),
+      ".metal": createElement(),
+      ".multiplier": createElement(),
+      ".open": open,
+      ".owned": createElement(),
+      ".popup": popup,
+      ".slots": createElement(),
+      ".supply-combat": createElement(),
+      ".supply-metal": createElement(),
+      ".supply-tech": createElement(),
+      ".tech": createElement(),
+      ".upgrade": upgrade,
+      ".upgrade-cost": createElement()
+    }, {
+      ".close": [close]
+    });
+
+    expect(runtime.bindFactoryPopup(root)).toBe(true);
+    open.dispatch("click");
+    collect.dispatch("click");
+
+    expect(renderFactoryDashboardPanel).toHaveBeenCalled();
+    expect(collectFactoryOutputsToSupplies).toHaveBeenCalledTimes(1);
+    expect(appendBuildingActionResultEntry).toHaveBeenCalledWith(
+      root,
+      "police",
+      expect.objectContaining({ buildingLabel: "Továrna" }),
+      {},
+      { syncPreview: true, forceLog: true }
+    );
+  });
+});

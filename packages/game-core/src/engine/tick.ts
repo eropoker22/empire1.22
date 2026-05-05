@@ -4,8 +4,11 @@ import type { GameCoreContext } from "./context";
 import { collectIncome } from "../rules/economy/collectIncome";
 import { completeCraftProcessing } from "../rules/production/completeCraftProcessing";
 import { completeProduction } from "../rules/production/completeProduction";
+import { releaseExpiredPoliceConsequences } from "../rules/police/policeConsequenceExpiry";
+import { expirePendingRaids } from "../rules/police/raidLifecycle";
 import { triggerRaid } from "../rules/police/triggerRaid";
 import { checkVictory } from "../rules/victory/checkVictory";
+import { appendCityFeedEventsFromCoreEvents } from "../rules/events";
 
 /**
  * Responsibility: Canonical tick entry point for periodic server-side simulation.
@@ -27,14 +30,17 @@ export const runTick = (
       tick: state.root.tick + 1
     }
   };
-  const incomeState = collectIncome(advancedState, context);
+  const releasedPoliceState = releaseExpiredPoliceConsequences(advancedState);
+  const incomeState = collectIncome(releasedPoliceState, context);
   const producedState = completeProduction(incomeState, context);
   const processingResult = completeCraftProcessing(producedState, context);
-  const policeResult = triggerRaid(processingResult.nextState, context);
+  const lifecycleResult = expirePendingRaids(processingResult.nextState, context);
+  const policeResult = triggerRaid(lifecycleResult.nextState, context);
   const victoryResult = checkVictory(policeResult.nextState, context);
+  const events = [...processingResult.events, ...lifecycleResult.events, ...policeResult.events];
 
   return {
-    nextState: victoryResult.nextState,
-    events: [...processingResult.events, ...policeResult.events]
+    nextState: appendCityFeedEventsFromCoreEvents(victoryResult.nextState, events),
+    events
   };
 };

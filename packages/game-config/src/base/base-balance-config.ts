@@ -1,6 +1,7 @@
 import type { BalanceConfig } from "../contracts/balance-config";
 import { baseBuildingActionsConfig } from "./base-building-actions-config";
 import { baseFixedBuildingsConfig } from "./base-fixed-buildings-config";
+import { basePoliceConfig } from "./base-police-config";
 
 /**
  * Responsibility: Neutral default balance values shared by all modes.
@@ -17,6 +18,7 @@ export const baseBalanceConfig: BalanceConfig = {
   eventFrequencyMultiplier: 1,
   policePressureMultiplier: 1,
   raidIntensityMultiplier: 1,
+  police: basePoliceConfig,
   expansionSpeedMultiplier: 1,
   dayLengthTicks: 12,
   nightLengthTicks: 12,

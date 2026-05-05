@@ -18,6 +18,10 @@ export const mergeModeConfig = (
       ...base.balance.conflict!,
       ...(override.balance?.conflict ?? {})
     } as NonNullable<ResolvedGameModeConfig["balance"]["conflict"]>,
+    police: {
+      ...base.balance.police!,
+      ...(override.balance?.police ?? {})
+    } as NonNullable<ResolvedGameModeConfig["balance"]["police"]>,
     fixedBuildings: {
       ...(base.balance.fixedBuildings ?? {}),
       ...(override.balance?.fixedBuildings ?? {})
