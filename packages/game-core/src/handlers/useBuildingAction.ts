@@ -1,16 +1,19 @@
-import type { ActiveEffect, Notification, ResourceState, RunBuildingActionCommand } from "@empire/shared-types";
+import type { ActiveEffect, ResourceState, RunBuildingActionCommand } from "@empire/shared-types";
 import type { BuildingActionBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import type { CoreEvent } from "../events";
 import type { CoreError } from "../errors";
 import type { GameCoreContext } from "../engine/context";
-import { CORE_EVENT_TYPES, createEvent, createNotification } from "../events";
+import { CORE_EVENT_TYPES, createEvent } from "../events";
 import { composeEntityId } from "../utils";
 import { validateRunBuildingAction } from "../validation";
+import { resolveBuildingActionSpecialEffect } from "./buildingActionSpecialEffects";
 import {
-  type BuildingActionSpecialEffectResult,
-  resolveBuildingActionSpecialEffect
-} from "./buildingActionSpecialEffects";
+  createBuildingActionReportNotification,
+  createResourceDelta,
+  sanitizeNumber,
+  sanitizeNumberRecord
+} from "./buildingActionReportNotification";
 import { resolveArcadeAction } from "./arcadeBuildingActions";
 import { resolveApartmentBlockAction } from "./apartmentBlockBuildingActions";
 import { resolveCasinoAction } from "./casinoBuildingActions";
@@ -266,9 +269,15 @@ export const handleUseBuildingAction = (
     buildingId: building.id,
     buildingTypeId: building.buildingTypeId,
     playerId: player.id,
+    cooldownUntilTick: nextBuilding.actionCooldowns[resolvedAction.actionId] ?? state.root.tick,
     specialEffect,
     tick: state.root.tick,
     eventId,
+    policeImpact: {
+      playerHeat: nextPoliceState.heat,
+      wantedLevel: nextPoliceState.wantedLevel,
+      heatDelta: resolvedAction.heatGain
+    },
     casinoResult: casinoResolution?.casinoResult,
     exchangeResult: exchangeOfficeResolution?.exchangeResult,
     arcadeResult: arcadeResolution?.arcadeResult,
@@ -288,6 +297,7 @@ export const handleUseBuildingAction = (
     action: resolvedAction,
     context
   });
+  const actionResourceDelta = createResourceDelta(resolvedAction.inputCost, resolvedAction.outputGain);
 
   return {
     nextState: {
@@ -335,12 +345,18 @@ export const handleUseBuildingAction = (
         buildingId: building.id,
         buildingTypeId: building.buildingTypeId,
         actionId: resolvedAction.actionId,
-        outputGain: resolvedAction.outputGain,
-        heatGain: resolvedAction.heatGain,
-        influenceChange: resolvedAction.influenceChange,
+        outputGain: sanitizeNumberRecord(resolvedAction.outputGain),
+        inputCost: sanitizeNumberRecord(resolvedAction.inputCost),
+        resourceDelta: actionResourceDelta,
+        cashDelta: actionResourceDelta.cash ?? 0,
+        dirtyCashDelta: actionResourceDelta["dirty-cash"] ?? 0,
+        heatGain: sanitizeNumber(resolvedAction.heatGain),
+        influenceChange: sanitizeNumber(resolvedAction.influenceChange),
         effectModifiers: resolvedAction.effectModifiers,
         defenseAdded: specialEffect.defenseAdded,
-        intelRevealedDistrictIds: specialEffect.intelRevealedDistrictIds
+        intelRevealedDistrictIds: specialEffect.intelRevealedDistrictIds,
+        reportText: resolvedAction.reportText,
+        eventId
       }),
       createEvent(CORE_EVENT_TYPES.notificationCreated, {
         notificationId: notification.id,
@@ -455,70 +471,3 @@ const createDistrictBuildingActionEffectState = (input: {
     version: current.version + 1
   };
 };
-
-const createBuildingActionReportNotification = (input: {
-  command: RunBuildingActionCommand;
-  action: BuildingActionBalanceConfig;
-  districtId: string;
-  buildingId: string;
-  buildingTypeId: string;
-  playerId: string;
-  specialEffect: BuildingActionSpecialEffectResult;
-  casinoResult?: Record<string, unknown>;
-  exchangeResult?: Record<string, unknown>;
-  arcadeResult?: Record<string, unknown>;
-  apartmentResult?: Record<string, unknown>;
-  clinicResult?: Record<string, unknown>;
-  recyclingResult?: Record<string, unknown>;
-  stripClubResult?: Record<string, unknown>;
-  powerStationResult?: Record<string, unknown>;
-  smugglingTunnelResult?: Record<string, unknown>;
-  schoolResult?: Record<string, unknown>;
-  tick: number;
-  eventId: string;
-}): Notification =>
-  createNotification({
-    id: composeEntityId("notification", `${input.command.id}:building-action-report`),
-    recipientType: "player",
-    recipientId: input.playerId,
-    category: "report.building-action",
-    title: input.action.label,
-    bodyKey: "report.building-action",
-    payload: {
-      reportId: composeEntityId("report", `${input.command.id}:building-action`),
-      reportType: "building-action",
-      actionType: "run-building-action",
-      playerId: input.playerId,
-      districtId: input.districtId,
-      buildingId: input.buildingId,
-      buildingTypeId: input.buildingTypeId,
-      buildingActionId: input.action.actionId,
-      actionLabel: input.action.label,
-      result: "success",
-      inputCost: input.action.inputCost,
-      outputGain: input.action.outputGain,
-      defenseAdded: input.specialEffect.defenseAdded,
-      intelRevealedDistrictIds: input.specialEffect.intelRevealedDistrictIds,
-      intelDetectedDefense: input.specialEffect.intelDetectedDefense,
-      messages: input.specialEffect.messages,
-      casinoResult: input.casinoResult,
-      exchangeResult: input.exchangeResult,
-      arcadeResult: input.arcadeResult,
-      apartmentResult: input.apartmentResult,
-      clinicResult: input.clinicResult,
-      recyclingResult: input.recyclingResult,
-      stripClubResult: input.stripClubResult,
-      powerStationResult: input.powerStationResult,
-      smugglingTunnelResult: input.smugglingTunnelResult,
-      schoolResult: input.schoolResult,
-      heatGain: input.action.heatGain,
-      influenceChange: input.action.influenceChange,
-      effectModifiers: input.action.effectModifiers,
-      reportText: input.action.reportText,
-      tick: input.tick,
-      createdAt: new Date(0).toISOString(),
-      eventId: input.eventId
-    },
-    createdAt: new Date(0).toISOString(),
-    readAt: null
-  });

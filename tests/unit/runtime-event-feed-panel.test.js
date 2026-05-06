@@ -68,7 +68,7 @@ describe("event feed panel helpers", () => {
       tone: "success",
       title: "Akce hotová",
       summary: "Výsledek je připravený.",
-      meta: "Klikni pro detail",
+      meta: "Výsledek akce",
       resultKind: "attack",
       resultPayload: { tone: "success" },
       timestampMs: 1000
@@ -85,6 +85,8 @@ describe("event feed panel helpers", () => {
     expect(item.dataset.buildingActionResultKind).toBe("attack");
     expect(item.classList.contains("building-action-status__item--clickable")).toBe(true);
     expect(item.children[0].children[0].textContent).toBe("Akce hotová");
+    expect(item.children[0].children[1].children[0].innerHTML).toContain("building-action-status__trash-icon");
+    expect(item.children[0].children[1].children[0].innerHTML).toContain("<svg");
     expect(item.children[1].textContent).toBe("Výsledek je připravený.");
   });
 });

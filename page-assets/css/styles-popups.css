@@ -374,6 +374,14 @@
   }
 }
 
+@media (min-width: 721px) {
+  .market-popup-shell,
+  .leaderboard-popup-shell {
+    inset: 56px 0 0 0;
+    z-index: 29;
+  }
+}
+
 .market-popup-shell[hidden],
 .leaderboard-popup-shell[hidden] {
   display: none;

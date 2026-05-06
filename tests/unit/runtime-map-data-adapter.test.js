@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   createMapDistrictViewModel,
@@ -8,6 +10,7 @@ import {
   resolveMapZoneFillStyle
 } from "../../page-assets/js/app/map/mapDataAdapter.js";
 import {
+  DISTRICT_ATMOSPHERE_META,
   MAP_DEFAULT_OWNER_COLOR,
   MAP_UNOWNED_OWNER_LABEL
 } from "../../page-assets/js/app/map/mapConstants.js";
@@ -67,5 +70,15 @@ describe("map data adapter", () => {
       currentPlayerId: 1,
       getLaunchPlayerName: (ownerId) => `Player ${ownerId}`
     })).toBe("Player 2");
+  });
+
+  it("assigns existing image pools to every visible district atmosphere type", () => {
+    for (const typeKey of ["resident", "industrial", "economy", "park", "downtown"]) {
+      const imagePaths = DISTRICT_ATMOSPHERE_META[typeKey].imagePaths;
+      expect(imagePaths.length).toBeGreaterThan(1);
+      for (const imagePath of imagePaths) {
+        expect(existsSync(resolve(process.cwd(), imagePath.replace("../", "")))).toBe(true);
+      }
+    }
   });
 });

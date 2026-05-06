@@ -235,7 +235,6 @@ export function createBuildingDetailMechanicRows({
     mechanicRows.push(
       createMechanic("Lokální zásobník", `${mechanics.apartmentWholePopulation}/${mechanics.apartmentCapacity}`),
       createMechanic("Produkce", `+${mechanics.apartmentPopulationPerMinute.toFixed(2)} obyv./min`),
-      createMechanic("Collect", mechanics.canCollect ? "Připraveno" : "Čeká na obyvatele"),
       createMechanic("Síť", mechanics.ownedApartmentBlocks > 1 ? "Zvyšuje produkci a kapacitu" : "První bytový blok")
     );
   } else if (mechanics.mechanicsType === "school") {
@@ -294,10 +293,12 @@ export function createBuildingDetailMechanicRows({
   } else {
     mechanicRows.push(
       createMechanic("Výnos", `${formatDistrictBuildingMoney(mechanics.cleanHourly + mechanics.dirtyHourly)} / hod`),
-      createMechanic("Income", "Automaticky do zdrojů"),
-      createMechanic("Collect", mechanics.canCollect ? "Připraveno" : "Není potřeba"),
-      createMechanic("Cooldown akce", formatDistrictBuildingCooldown(DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS))
+      createMechanic("Income", "Automaticky do zdrojů")
     );
+    if (mechanics.hasManualCollect) {
+      mechanicRows.push(createMechanic("Collect", mechanics.canCollect ? "Připraveno" : "Čeká na výstup"));
+    }
+    mechanicRows.push(createMechanic("Cooldown akce", formatDistrictBuildingCooldown(DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS)));
   }
   return mechanicRows;
 }

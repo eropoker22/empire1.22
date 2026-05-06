@@ -2,6 +2,7 @@ import { resolveRumorTemplate, type RumorTextTemplateKey } from "@empire/game-co
 import type { CityFeedEvent, CityFeedSeverity, CityFeedSourceType } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";
 import type { CoreEvent } from "../../events";
+import { createBuildingActionFeedEvents, createCraftFeedEvents } from "./buildingCityFeedEvents";
 
 export const CITY_FEED_DEFAULT_LIMIT = 50;
 
@@ -131,31 +132,12 @@ export const createCityFeedEventsFromCoreEvent = (
         messageKey: "trap"
       })];
     case "building-action-resolved":
-      return createBuildingActionFeedEvent(state, event, payload);
+      return createBuildingActionFeedEvents(state, event, payload);
+    case "item-crafted":
+      return createCraftFeedEvents(state, event, payload);
     default:
       return [];
   }
-};
-
-const createBuildingActionFeedEvent = (
-  state: CoreGameState,
-  event: CoreEvent,
-  payload: EventPayload
-): CityFeedEvent[] => {
-  const heatGain = numericValue(payload.heatGain);
-  const dirtyCash = numericValue(safePayload(payload.outputGain)["dirty-cash"]);
-  if (heatGain < 5 && dirtyCash < 500) return [];
-  return [createFeedEvent(state, event, {
-    sourceType: "building_action",
-    category: "economy",
-    severity: heatGain >= 10 || dirtyCash >= 2000 ? "high" : "medium",
-    truthiness: "unconfirmed",
-    visibility: "all",
-    playerId: stringValue(payload.playerId),
-    districtId: stringValue(payload.districtId),
-    messageKey: dirtyCash > 0 ? "black_market" : "police_warning",
-    payload: { actionId: stringValue(payload.actionId), heatGain }
-  })];
 };
 
 const createFeedEvent = (

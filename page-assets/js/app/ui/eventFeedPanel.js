@@ -89,6 +89,18 @@ export function createBuildingActionEntry(snapshot) {
   };
 }
 
+const TRASH_ICON_SVG = `
+  <span class="building-action-status__trash-icon" aria-hidden="true">
+    <svg viewBox="0 0 24 24" focusable="false">
+      <path d="M4 7h16"></path>
+      <path d="M9 7V4h6v3"></path>
+      <path d="M7 7l1 13h8l1-13"></path>
+      <path d="M10 11v5"></path>
+      <path d="M14 11v5"></path>
+    </svg>
+  </span>
+`;
+
 export function createBuildingActionFeedItemElement(documentRef, entry, options = {}) {
   const ownerDocument = documentRef && typeof documentRef.createElement === "function"
     ? documentRef
@@ -159,7 +171,7 @@ export function createBuildingActionFeedItemElement(documentRef, entry, options 
   removeButton.className = "button building-action-status__item-delete";
   removeButton.dataset.buildingActionRemove = entry.id;
   removeButton.setAttribute("aria-label", `Smazat zprávu ${entry.title}`);
-  removeButton.innerHTML = "<span aria-hidden=\"true\">✕</span>";
+  removeButton.innerHTML = TRASH_ICON_SVG;
   controls.append(removeButton);
 
   head.append(controls);

@@ -216,6 +216,21 @@ describe("building detail, production and recipe UI modules", () => {
     expect(shell.hidden).toBe(false);
     expect(shell.querySelector("[data-district-building-detail-title]").textContent).toBe("Továrna");
     expect(shell.querySelector("[data-district-building-detail-stats]").children[0].children[0].textContent).toBe("Čisté / hod");
+    expect(shell.querySelector("[data-district-building-detail-collect]").classList.contains("is-empty")).toBe(false);
+
+    renderBuildingDetailPanel({
+      shell,
+      title: "Továrna",
+      collect: { visible: true, enabled: false, title: "Zatím není co vybrat" },
+      upgrade: { disabled: true, title: "" },
+      stats: [],
+      mechanics: [],
+      actions: []
+    });
+
+    const emptyCollectButton = shell.querySelector("[data-district-building-detail-collect]");
+    expect(emptyCollectButton.disabled).toBe(true);
+    expect(emptyCollectButton.classList.contains("is-empty")).toBe(true);
 
     expect(() => renderBuildingDetailPanel(null)).not.toThrow();
     expect(() => renderBuildingDetailPanel({ shell, stats: [], mechanics: [], actions: [] })).not.toThrow();

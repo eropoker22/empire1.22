@@ -63,7 +63,9 @@ describe("page onboarding smoke", () => {
     expect(page("login.html")).toContain('id="login-form"');
     expect(page("login.html")).toContain('id="register-form"');
     expect(page("login.html")).toContain('id="guest-btn"');
-    expect(page("login.html")).toContain('data-open-server-select');
+    expect(page("login.html")).not.toContain('data-open-server-select');
+    expect(page("login.html")).toContain('data-tab-link="register"');
+    expect(page("login.html")).toContain('data-forgot-password');
     expect(page("login.html")).toContain('src="../page-assets/js/login.js"');
 
     expect(page("lobby.html")).toContain('data-server-list');
@@ -81,18 +83,60 @@ describe("page onboarding smoke", () => {
     expect(page("faction.html")).toContain('id="avatar-grid"');
     expect(page("faction.html")).toContain('id="go-game"');
     expect(page("faction.html")).toContain('src="../page-assets/js/faction.js"');
+    const factionJsSource = readFileSync(resolve(root, "page-assets/js/faction.js"), "utf8");
+    for (const avatarFolder of ["Mafia", "Kartel", "kult", "Tajnaorganizace", "Hacker", "Motogang", "SoukromaArmada", "Korporat"]) {
+      expect((factionJsSource.match(new RegExp(`\\.\\./img/avatars/${avatarFolder}/`, "g")) || []).length).toBe(10);
+    }
 
     expect(page("game.html")).toContain('id="game-root"');
     expect(page("game.html")).toContain('data-mount-role="map"');
+    expect(page("game.html")).toContain('data-district-popup-atmosphere role="button"');
+    expect(page("game.html")).toContain('data-district-atmosphere-window');
     expect(page("game.html")).toContain('src="../page-assets/js/app.js"');
     expect(page("game.html")).toContain('src="../page-assets/js/app/game-admin-slice-launcher.js"');
     expect(page("game.html")).not.toContain('src="../page-assets/js/admin-assets/admin-slice-demo.js"');
 
     expect(readFileSync(resolve(root, "page-assets/css/styles.css"), "utf8")).toContain('@import "./styles-static-hover.css";');
     expect(page("admin.html")).toContain('href="../page-assets/css/styles-static-hover.css"');
+    expect(page("login.html")).toContain('href="../page-assets/css/login.css">\n    <link rel="stylesheet" href="../page-assets/css/styles-static-hover.css">');
+    expect(page("lobby.html")).toContain('href="../page-assets/css/lobby.css">\n    <link rel="stylesheet" href="../page-assets/css/styles-static-hover.css">');
+    expect(readFileSync(resolve(root, "server-select.html"), "utf8")).toContain('href="./server-select.css">\n    <link rel="stylesheet" href="./page-assets/css/styles-static-hover.css">');
     expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain("transform: none !important;");
+    expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain("transition-property: color, background, background-color");
     expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain(".building-info-action-row");
+    expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain(".modal__row:hover");
+    expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain("animation: none !important;");
+    expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain(".game-shell :where");
+    expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain("#city-events-open");
+    expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain("#leaderboard-card");
+    expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain(".building-action-status__item");
+    expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain(".game-topbar :where");
+    expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain(".gang-profile-panel");
+    expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain("animation-play-state: paused !important;");
+    const gameRedesignSource = readFileSync(resolve(root, "page-assets/css/styles-game-redesign.css"), "utf8");
+    expect(gameRedesignSource).toContain("body.game-body > .game-topbar {\n    position: sticky;");
+    expect(gameRedesignSource).toContain("z-index: 70;");
     expect(readFileSync(resolve(root, "page-assets/css/styles-building-modals.css"), "utf8")).toContain(".district-building-detail-stats {\n  display: none !important;");
+    const districtCssSource = readFileSync(resolve(root, "page-assets/css/styles-district.css"), "utf8");
+    expect(districtCssSource).toContain(".district-popup-shell {\n    inset: 56px 0 0 0;\n    z-index: 29;");
+    const popupsCssSource = readFileSync(resolve(root, "page-assets/css/styles-popups.css"), "utf8");
+    expect(popupsCssSource).toContain(".market-popup-shell,\n  .leaderboard-popup-shell {\n    inset: 56px 0 0 0;\n    z-index: 29;");
+    const mobileFixesSource = readFileSync(resolve(root, "page-assets/css/styles-mobile-fixes.css"), "utf8");
+    expect(mobileFixesSource).toContain("#buildings-modal:not([hidden])");
+    expect(mobileFixesSource).toContain("touch-action: pan-y !important;");
+    expect(mobileFixesSource).toContain(".district-building-detail-shell:not([hidden]) .district-building-detail-card .district-building-detail-body");
+    expect(mobileFixesSource).toContain("Mobile building cards must scroll as one sheet");
+    expect(mobileFixesSource).toContain("--mobile-building-scroll-rgb");
+    expect(mobileFixesSource).toContain(":has(.buildings-popup__detail-card[data-building-district-type=\"industrial\"])");
+    expect(mobileFixesSource).toContain("::-webkit-scrollbar-thumb");
+    expect(mobileFixesSource).toContain("#buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__body");
+    expect(mobileFixesSource).toContain("#buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__layout.buildings-modal__layout");
+    expect(mobileFixesSource).toContain("overflow-y: auto !important;");
+    const runtimeSource = readFileSync(resolve(root, "page-assets/js/app/runtime.js"), "utf8");
+    expect(runtimeSource).toContain("shell.dataset.buildingDistrictType");
+    expect(runtimeSource).toContain("function dispatchDistrictBuildingProductionCollected");
+    expect(readFileSync(resolve(root, "page-assets/js/app/runtime/productionBuildingPopupRuntime.js"), "utf8")).toContain("source: \"production-building-popup\"");
+    expect(readFileSync(resolve(root, "page-assets/js/app/runtime/factoryPopupRuntime.js"), "utf8")).toContain("source: \"factory-popup\"");
   });
 
   it("walks a clean registration draft through lobby and faction lock", () => {

@@ -8,6 +8,7 @@ export const MARKET_PLAYER_DEMO_SELLERS = Object.freeze([
 
 export const DEV_ONLY_POLICE_INTERVAL_MS = 30_000;
 export const DEV_ONLY_DESTROYED_DISTRICT_ID = 8;
+export const DEV_ONLY_SPY_FULL_SUCCESS_CHANCE = 0.99;
 
 export const START_PHASE_RESOURCE_SIMULATION = Object.freeze({
   cleanPerMinuteByDistrictType: Object.freeze({

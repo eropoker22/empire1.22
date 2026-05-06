@@ -1,4 +1,5 @@
 import {
+  MAP_DISTRICT_GEOMETRY_TOP_INSET,
   createDistrictGeometry,
   getDistrictAtPoint
 } from "./app/district-geometry.js";
@@ -97,7 +98,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const detailZoomOutButton = document.querySelector("[data-server-detail-zoom-out]");
   const detailCloseNodes = Array.from(document.querySelectorAll("[data-server-detail-close]"));
 
-  const geometry = createDistrictGeometry(DISTRICT_CANVAS_WIDTH, DISTRICT_CANVAS_HEIGHT, 0, 0, 0);
+  const geometry = createDistrictGeometry(DISTRICT_CANVAS_WIDTH, DISTRICT_CANVAS_HEIGHT, 0, MAP_DISTRICT_GEOMETRY_TOP_INSET, 0);
   const minSpawnColumnIndex = Math.min(...geometry.districts.map((district) => district.columnIndex));
   const maxSpawnColumnIndex = Math.max(...geometry.districts.map((district) => district.columnIndex));
   const maxSpawnRowIndex = Math.max(...geometry.districts.map((district) => district.rowIndex));

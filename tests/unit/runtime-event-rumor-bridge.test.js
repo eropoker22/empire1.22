@@ -92,13 +92,19 @@ class FakeStorage {
 }
 
 describe("event rumor bridge", () => {
-  it("uses core feed first and appends idempotent runtime action rumors", () => {
+  it("uses core feed first and appends idempotent runtime action rumors without mounting a left-panel feed", () => {
     const document = new FakeDocument();
     const storage = new FakeStorage();
     const root = new FakeElement("main");
     const anchor = new FakeElement("section");
+    const districtPanel = new FakeElement("section");
+    const districtList = new FakeElement("div");
+    districtPanel.ownerDocument = document;
+    districtList.ownerDocument = document;
     root.querySelector = (selector) => {
       if (selector === ".building-action-status") return anchor;
+      if (selector === "[data-district-popup-gossip]") return districtPanel;
+      if (selector === "[data-district-popup-gossip-list]") return districtList;
       return null;
     };
 
@@ -124,6 +130,8 @@ describe("event rumor bridge", () => {
     });
 
     bridge.init();
+    expect(anchor.afterElement).toBeUndefined();
+
     document.dispatch("empire:action-result", {
       kind: "attack",
       payload: {
@@ -147,5 +155,9 @@ describe("event rumor bridge", () => {
     expect(events.some((event) => event.id === "city-feed:core")).toBe(true);
     expect(events.filter((event) => event.sourceEventId === "runtime:attack:attack:1")).toHaveLength(1);
     expect(JSON.parse(storage.getItem("empireStreets.cityFeed.v1"))).toHaveLength(1);
+
+    document.dispatch("empire:district-opened", { districtId: "district:2" });
+    expect(districtPanel.hidden).toBe(false);
+    expect(districtList.children).toHaveLength(1);
   });
 });

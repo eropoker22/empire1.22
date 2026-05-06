@@ -17,6 +17,7 @@ function noopGetMarkers() { return new Map(); }
 
 export function createDistrictCanvasRenderer(deps = {}) {
   const {
+    districtGeometryTopInset = 0,
     createDistrictGeometry = createFallbackGeometry,
     normalizeMapVisibilityMode = normalizeFallbackVisibilityMode,
     getEffectiveOwnedDistrictIds = safeSet,
@@ -81,7 +82,7 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
   const cachedGeometry = interactionState?.geometryCache;
   const geometry = cachedGeometry && cachedGeometry.width === width && cachedGeometry.height === height
     ? cachedGeometry
-    : createDistrictGeometry(width, height, 0, 0, 0);
+    : createDistrictGeometry(width, height, 0, districtGeometryTopInset, 0);
   if (interactionState && typeof interactionState === "object") {
     interactionState.geometryCache = geometry;
   }
@@ -156,7 +157,7 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
     const isOwned = effectiveOwnedDistrictIds.has(district.id);
     const isOwnedByCurrentPlayer = currentPlayerOwnedDistrictIds.has(district.id);
     const rawLaunchOwnerId = launchOwnerByDistrictId.get(district.id) ?? null;
-    const showEnemyMarkers = showAllianceSymbols && mapVisibilityMode === "all";
+    const showEnemyMarkers = showAllianceSymbols && mapVisibilityMode === "all" && !isOwnedByCurrentPlayer;
     const launchOwnerId = showEnemyMarkers ? rawLaunchOwnerId : null;
     const launchOwnerColor = launchOwnerId ? getLaunchPlayerColor(launchOwnerId) : null;
     const currentPlayerColor = getLaunchPlayerColor(currentPlayerId);

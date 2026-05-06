@@ -102,7 +102,15 @@
                 <div class="building-action-status__controls">
                   <strong class="building-action-status__state building-action-status__state--idle" data-building-action-state>Připraveno</strong>
                   <button type="button" class="button building-action-status__clear" aria-label="Smazat všechny zprávy" data-building-action-clear>
-                    <span aria-hidden="true">🗑</span>
+                    <span class="building-action-status__trash-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M4 7h16"></path>
+                        <path d="M9 7V4h6v3"></path>
+                        <path d="M7 7l1 13h8l1-13"></path>
+                        <path d="M10 11v5"></path>
+                        <path d="M14 11v5"></path>
+                      </svg>
+                    </span>
                   </button>
                 </div>
               </div>
@@ -308,7 +316,7 @@
         <div class="district-popup-card" data-district-popup-card role="dialog" aria-modal="true" aria-label="District detail">
           <button type="button" class="button district-popup-toggle" data-district-popup-toggle aria-pressed="false">Zapnout přehled</button>
           <button type="button" class="button district-popup-close" data-district-popup-close aria-label="Zavřít district okno">×</button>
-          <div class="district-modal-hero district-modal-hero--district">
+          <div class="district-modal-hero district-modal-hero--district" data-district-popup-atmosphere role="button" tabindex="0" aria-expanded="false" aria-label="Zobrazit atmosféru distriktu">
             <img class="district-modal-hero__image" data-district-popup-atmosphere-image alt="Atmosféra distriktu" loading="lazy">
             <div class="district-modal-hero__scrim"></div>
             <div class="district-modal-hero__copy">
@@ -317,6 +325,14 @@
               <p class="district-modal-hero__mood" data-district-popup-atmosphere-mood>Atmosféra města se propíše podle typu distriktu.</p>
             </div>
           </div>
+          <aside class="district-atmosphere-window" data-district-atmosphere-window hidden role="dialog" aria-modal="false" aria-label="Fotka atmosféry districtu">
+            <button type="button" class="button district-atmosphere-window__close" data-district-atmosphere-close aria-label="Zavřít fotku atmosféry">✕</button>
+            <img class="district-atmosphere-window__image" data-district-atmosphere-window-image alt="Fotka atmosféry districtu" loading="lazy">
+            <div class="district-atmosphere-window__caption">
+              <strong data-district-atmosphere-window-label>Atmosféra districtu</strong>
+              <span data-district-atmosphere-window-mood></span>
+            </div>
+          </aside>
           <div class="district-popup-body">
             <div class="district-popup-owner-card">
               <div class="district-popup-owner-avatar-wrap">
@@ -843,10 +859,13 @@
       </div>
 
       <div class="wanted-popup-shell" data-wanted-popup hidden>
-        <div class="wanted-popup-backdrop" data-wanted-popup-close></div>
-        <div class="wanted-popup-card" role="dialog" aria-modal="true" aria-label="Hledanost gangu">
-          <div class="wanted-popup-header">
-            <h3>Heat</h3>
+          <div class="wanted-popup-backdrop" data-wanted-popup-close></div>
+          <div class="wanted-popup-card" role="dialog" aria-modal="true" aria-label="Hledanost gangu">
+            <div class="wanted-popup-header">
+            <div class="wanted-popup-header__title">
+              <h3>Heat</h3>
+              <button type="button" class="button wanted-popup-police-toggle" data-wanted-popup-police-toggle aria-label="Zobrazit police feedback" aria-expanded="false">?</button>
+            </div>
             <button type="button" class="button wanted-popup-close" data-wanted-popup-close aria-label="Zavřít heat panel">✕</button>
           </div>
           <div class="wanted-popup-top">
@@ -891,6 +910,10 @@
             </section>
           </div>
         </div>
+        <aside class="wanted-popup-police-window" data-wanted-popup-police-window hidden role="dialog" aria-modal="false" aria-label="Police feedback">
+          <button type="button" class="button wanted-popup-police-window__close" data-wanted-popup-police-close aria-label="Zavřít police feedback">✕</button>
+          <section class="wanted-popup-police-feed" data-wanted-popup-police-feed aria-label="Police feedback"></section>
+        </aside>
       </div>
 
       <div class="player-popup-shell" data-player-popup hidden>

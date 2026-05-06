@@ -83,10 +83,50 @@ export function resolveRandomPoliceSpecialtyKey(random = Math.random) {
   return resolveWeightedRandomKey(POLICE_SPECIALTY_RANDOM_WEIGHTS, "total", random);
 }
 
-export function resolveRandomPoliceOperationType(tierId, source = "", random = Math.random) {
+const POLICE_OPERATION_CANDIDATES_BY_SPECIALTY = Object.freeze({
+  financial: Object.freeze([
+    Object.freeze({ key: "cash_seizure", weight: 42 }),
+    Object.freeze({ key: "dirty_cash_seizure", weight: 34 }),
+    Object.freeze({ key: "district_control", weight: 24 })
+  ]),
+  drug: Object.freeze([
+    Object.freeze({ key: "drug_seizure", weight: 44 }),
+    Object.freeze({ key: "warehouse_raid", weight: 34 }),
+    Object.freeze({ key: "district_control", weight: 22 })
+  ]),
+  weapons: Object.freeze([
+    Object.freeze({ key: "building_shutdown", weight: 42 }),
+    Object.freeze({ key: "warehouse_raid", weight: 34 }),
+    Object.freeze({ key: "district_control", weight: 24 })
+  ]),
+  arrests: Object.freeze([
+    Object.freeze({ key: "apartment_search", weight: 44 }),
+    Object.freeze({ key: "district_lock", weight: 34 }),
+    Object.freeze({ key: "coordinated_operation", weight: 22 })
+  ]),
+  total: Object.freeze([
+    Object.freeze({ key: "coordinated_operation", weight: 30 }),
+    Object.freeze({ key: "district_lock", weight: 22 }),
+    Object.freeze({ key: "building_shutdown", weight: 18 }),
+    Object.freeze({ key: "dirty_cash_seizure", weight: 16 }),
+    Object.freeze({ key: "drug_seizure", weight: 14 })
+  ])
+});
+
+export function resolveRandomPoliceOperationType(tierId, source = "", random = Math.random, specialtyKey = "") {
   const normalizedSource = String(source || "").trim().toLowerCase();
   if (normalizedSource === "heat-dirty-bribe") {
     return tierId >= 4 ? "dirty_cash_seizure" : "district_control";
+  }
+
+  const normalizedSpecialty = String(specialtyKey || "").trim().toLowerCase();
+  const specialtyCandidates = POLICE_OPERATION_CANDIDATES_BY_SPECIALTY[normalizedSpecialty];
+  if (specialtyCandidates) {
+    const eligibleSpecialtyCandidates = specialtyCandidates
+      .filter((entry) => Number(POLICE_OPERATION_TYPES[entry.key]?.minTier || 1) <= Number(tierId || 1));
+    if (eligibleSpecialtyCandidates.length > 0) {
+      return resolveWeightedRandomKey(eligibleSpecialtyCandidates, eligibleSpecialtyCandidates[0].key, random);
+    }
   }
 
   const eligible = Object.values(POLICE_OPERATION_TYPES)

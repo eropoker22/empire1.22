@@ -13,6 +13,7 @@ import {
 } from "../runtime/constants.js";
 
 const MONEY_STAT_ANIMATION_MS = 1050;
+const MONEY_STAT_COUNT_DURATION_MS = 900;
 const TOPBAR_STAT_SWITCH_MS = 340;
 
 const moneyStatAnimationTimers = new Map();
@@ -54,11 +55,13 @@ function safeQueryAll(root, selector) {
 function getTimerApi(options = {}) {
   const timerSource = options.timerApi || (typeof window !== "undefined" ? window : globalThis);
   const setTimeoutFn = options.setTimeout || timerSource?.setTimeout;
+  const setIntervalFn = options.setInterval || timerSource?.setInterval;
   const clearTimeoutFn = options.clearTimeout || timerSource?.clearTimeout;
   const clearIntervalFn = options.clearInterval || timerSource?.clearInterval;
 
   return {
     setTimeout: typeof setTimeoutFn === "function" ? setTimeoutFn.bind(timerSource) : null,
+    setInterval: typeof setIntervalFn === "function" ? setIntervalFn.bind(timerSource) : null,
     clearTimeout: typeof clearTimeoutFn === "function" ? clearTimeoutFn.bind(timerSource) : null,
     clearInterval: typeof clearIntervalFn === "function" ? clearIntervalFn.bind(timerSource) : null
   };
@@ -129,10 +132,49 @@ function animateMoneyStatCounter(element, targetValue, options = {}) {
   const safeTarget = normalizeCount(targetValue);
   const prefix = String(options?.prefix ?? "$");
   const suffix = String(options?.suffix ?? "");
+  const currentValue = normalizeCount(element.dataset.moneyDisplay ?? element.dataset.moneyTarget ?? element.textContent);
   element.dataset.moneyTarget = String(safeTarget);
   stopMoneyStatCounter(element, options);
   element.classList?.remove("is-money-up", "is-money-down");
-  element.textContent = `${prefix}${safeTarget}${suffix}`;
+
+  if (currentValue === safeTarget) {
+    element.dataset.moneyDisplay = String(safeTarget);
+    element.textContent = `${prefix}${safeTarget}${suffix}`;
+    return;
+  }
+
+  const { setInterval, clearInterval } = getTimerApi(options);
+  if (!setInterval || !clearInterval) {
+    element.dataset.moneyDisplay = String(safeTarget);
+    element.textContent = `${prefix}${safeTarget}${suffix}`;
+    return;
+  }
+
+  const direction = safeTarget > currentValue ? 1 : -1;
+  const totalSteps = Math.abs(safeTarget - currentValue);
+  const maxDuration = Math.max(80, Number(options?.countDurationMs ?? MONEY_STAT_COUNT_DURATION_MS));
+  const intervalMs = Math.max(1, Number(options?.countIntervalMs ?? Math.floor(maxDuration / Math.max(1, totalSteps))));
+  let displayedValue = currentValue;
+
+  const renderNextValue = () => {
+    displayedValue += direction;
+    element.dataset.moneyDisplay = String(displayedValue);
+    element.textContent = `${prefix}${displayedValue}${suffix}`;
+
+    if (displayedValue === safeTarget) {
+      const activeInterval = moneyStatCountIntervals.get(element);
+      if (activeInterval) {
+        clearInterval(activeInterval);
+        moneyStatCountIntervals.delete(element);
+      }
+    }
+  };
+
+  renderNextValue();
+  if (displayedValue !== safeTarget) {
+    const intervalId = setInterval(renderNextValue, intervalMs);
+    moneyStatCountIntervals.set(element, intervalId);
+  }
 }
 
 function syncMoneyStatToCachedValue(element, value, options = {}) {
@@ -155,6 +197,7 @@ function syncMoneyStatToCachedValue(element, value, options = {}) {
   const prefix = String(options?.prefix ?? "$");
   const suffix = String(options?.suffix ?? "");
   element.dataset.moneyTarget = String(safeValue);
+  element.dataset.moneyDisplay = String(safeValue);
   element.textContent = `${prefix}${safeValue}${suffix}`;
 }
 

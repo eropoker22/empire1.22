@@ -1,7 +1,6 @@
 import {
   normalizeCityFeedEvents,
-  renderDistrictRumorFeed,
-  renderRumorFeedPanel
+  renderDistrictRumorFeed
 } from "../ui/rumorFeedPanel.js";
 
 const CITY_FEED_STORAGE_KEY = "empireStreets.cityFeed.v1";
@@ -48,21 +47,6 @@ function collectCoreFeed(state = {}) {
     ...asArray(state.cityFeedEvents),
     ...Object.values(safeObject(state.cityFeedEventsById))
   ]);
-}
-
-function createMount(root, documentRef) {
-  const existing = root?.querySelector?.("[data-rumor-feed]");
-  if (existing) return existing;
-  const mount = documentRef?.createElement?.("section");
-  if (!mount) return null;
-  const anchor = root?.querySelector?.(".building-action-status");
-  const container = root?.querySelector?.("#game-left-nav") || root;
-  if (anchor?.after) {
-    anchor.after(mount);
-  } else {
-    container?.append?.(mount);
-  }
-  return mount;
 }
 
 function getActionDistrictId(payload = {}) {
@@ -173,7 +157,6 @@ export function createEventRumorBridge(deps = {}) {
   const documentRef = deps.documentRef || (typeof document !== "undefined" ? document : null);
   const storage = deps.storage || (typeof window !== "undefined" ? window.localStorage : null);
   const root = deps.root || documentRef?.querySelector?.("#game-root") || null;
-  let mount = deps.mount || null;
   let selectedDistrictId = "";
   let localEvents = normalizeCityFeedEvents(readStorage(storage));
 
@@ -182,12 +165,10 @@ export function createEventRumorBridge(deps = {}) {
     const list = root?.querySelector?.("[data-district-popup-gossip-list]");
     const panel = root?.querySelector?.("[data-district-popup-gossip]");
     const hasEntries = renderDistrictRumorFeed(list, events, { districtId: selectedDistrictId, limit: 5 });
-    if (panel && hasEntries) panel.hidden = false;
+    if (panel) panel.hidden = !hasEntries;
   };
   const render = () => {
     const events = normalizeCityFeedEvents([...collectCoreFeed(getState()), ...localEvents]).slice(0, CITY_FEED_LIMIT);
-    mount ||= createMount(root, documentRef);
-    if (mount) renderRumorFeedPanel(mount, { events }, {}, { limit: 6 });
     renderDistrictFeed(events);
     return events;
   };

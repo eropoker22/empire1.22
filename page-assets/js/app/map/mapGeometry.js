@@ -1,7 +1,9 @@
 import {
   MAP_BASE_DISTRICT_TYPES,
   MAP_DEFAULT_DISTRICT_TYPE,
+  MAP_DISTRICT_GEOMETRY_TOP_INSET,
   MAP_DOWNTOWN_DISTRICT_TYPE,
+  DISTRICT_SHAPE_CONFIG,
   MAP_GEOMETRY_NEIGHBOR_LIMIT,
   MAP_GEOMETRY_SEED,
   MAP_GRID_COLUMNS,
@@ -12,6 +14,15 @@ import {
   createSeededRandom,
   hashCell
 } from "../runtime/utils.js";
+import {
+  createOrganicDistrictPolygon,
+  createOrganicDistrictPolygons
+} from "./organicDistrictPolygon.js";
+
+export {
+  createOrganicDistrictPolygon,
+  createOrganicDistrictPolygons
+} from "./organicDistrictPolygon.js";
 
 export function isDowntownCell(rowIndex, columnIndex) {
   const isDowntownRow = rowIndex === 3 || rowIndex === 4;
@@ -182,9 +193,10 @@ export function clipPolygonAgainstBisector(polygon, site, otherSite) {
   return clipped;
 }
 
-export function createDistrictGeometry(width, height, insetX = 0, insetTop = 0, insetBottom = 0) {
+export function createDistrictGeometry(width, height, insetX = 0, insetTop = MAP_DISTRICT_GEOMETRY_TOP_INSET, insetBottom = 0, options = {}) {
   const columns = MAP_GRID_COLUMNS;
   const rows = MAP_GRID_ROWS;
+  const geometryOptions = options && typeof options === "object" ? options : {};
   const random = createSeededRandom(MAP_GEOMETRY_SEED);
   const innerWidth = width - insetX * 2;
   const innerHeight = height - insetTop - insetBottom;
@@ -193,6 +205,16 @@ export function createDistrictGeometry(width, height, insetX = 0, insetTop = 0, 
   const districts = [];
   const sites = [];
   const typeByDistrictId = new Map();
+  const districtShapeConfig = {
+    ...DISTRICT_SHAPE_CONFIG,
+    ...(geometryOptions.districtShapeConfig || geometryOptions.shapeConfig || {}),
+    bounds: {
+      minX: insetX,
+      minY: insetTop,
+      maxX: width - insetX,
+      maxY: height - insetBottom
+    }
+  };
   let districtId = 1;
 
   for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
@@ -252,8 +274,9 @@ export function createDistrictGeometry(width, height, insetX = 0, insetTop = 0, 
     }
 
     if (polygon.length >= 3) {
+      const mappedDistrictId = remapDistrictId(site.id);
       districts.push({
-        id: remapDistrictId(site.id),
+        id: mappedDistrictId,
         rowIndex: site.rowIndex,
         columnIndex: site.columnIndex,
         districtType: remapDistrictType(site.id, typeByDistrictId),
@@ -264,7 +287,13 @@ export function createDistrictGeometry(width, height, insetX = 0, insetTop = 0, 
     }
   }
 
-  return { districts, xStops, yStops, width, height };
+  return {
+    districts: createOrganicDistrictPolygons(districts, districtShapeConfig),
+    xStops,
+    yStops,
+    width,
+    height
+  };
 }
 
 export function isPointInDistrict(point, district) {

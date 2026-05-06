@@ -252,4 +252,44 @@ describe("runtime map rendering guards", () => {
     expect(unownedFill).not.toBe(ownedFill);
     expect(ownedFill).toBe("#ef444433");
   });
+
+  it("fills a captured enemy launch district with the current player color", () => {
+    const context = new FakeCanvasContext();
+    const canvas = new FakeCanvas(context);
+    const geometry = createDistrictGeometry(1600, 980);
+    const capturedDistrict = geometry.districts[2];
+    const interactionState = {
+      gamePhase: "launch",
+      selectedDistrictId: capturedDistrict.id,
+      ownedDistrictIds: new Set([capturedDistrict.id]),
+      destroyedDistrictIds: new Set(),
+      launchOwnerByDistrictId: new Map([[capturedDistrict.id, 2]]),
+      showAllianceSymbols: true,
+      mapVisibilityMode: "all",
+      reducedMapEffects: true,
+      geometryCache: geometry
+    };
+
+    expect(getDistrictFillStyle(capturedDistrict, false, interactionState)).toBe("#ef444433");
+    expect(() => renderDistrictCanvas(canvas, "day", interactionState)).not.toThrow();
+
+    const currentPlayerFill = context.calls.some(([name, meta]) => (
+      name === "fill"
+      && meta?.fillStyle === "#ef444433"
+    ));
+    const enemyOwnerStroke = context.calls.some(([name, meta]) => (
+      name === "stroke"
+      && meta?.strokeStyle === "#3b82f6"
+      && meta?.lineWidth === 3.8
+    ));
+    const currentPlayerStroke = context.calls.some(([name, meta]) => (
+      name === "stroke"
+      && meta?.strokeStyle === "#ef4444"
+      && meta?.lineWidth === 2.2
+    ));
+
+    expect(currentPlayerFill).toBe(true);
+    expect(enemyOwnerStroke).toBe(false);
+    expect(currentPlayerStroke).toBe(true);
+  });
 });

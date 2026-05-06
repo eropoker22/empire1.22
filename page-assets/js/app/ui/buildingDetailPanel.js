@@ -312,6 +312,7 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
     collectButton.setAttribute("aria-hidden", showManualCollect ? "false" : "true");
     collectButton.tabIndex = showManualCollect ? 0 : -1;
     collectButton.disabled = showManualCollect && !collect.enabled;
+    collectButton.classList.toggle("is-empty", showManualCollect && !collect.enabled);
     collectButton.title = showManualCollect ? (collect.title || "") : "";
   }
 

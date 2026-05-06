@@ -2,6 +2,36 @@
 
 Date: 2026-05-05
 
+## MVP Buildings + Core Loop Hardening Follow-up
+
+- Status after hardening: ready for MVP core loop, with UI clarity follow-ups still useful.
+- Audit: `docs/audits/mvp-buildings-core-loop-hardening.md`
+- Core/config source of truth:
+  - building catalog and fixed stats in `packages/game-config/src/public/building-definitions.ts`
+  - production/craft config in `packages/game-config/src/base/base-balance-config.ts`
+  - free-specific building action overrides in `packages/game-config/src/modes/free/free-mode.override.ts`
+  - authoritative action handling in `packages/game-core/src/handlers/useBuildingAction.ts`
+- Runtime boundary:
+  - runtime should continue to render building detail/production/craft/actions from projections,
+  - runtime must not recompute production, dirty cash conversion, heat, police pressure, craft output, or storage acceptance,
+  - missing/partial building data should stay a no-crash display fallback, not a local gameplay rule.
+- Implemented in this follow-up:
+  - unified building action report payload with resource/cash/dirty cash/heat/influence deltas, produced/consumed items, cooldown tick, message and police impact,
+  - significant drug-lab, laundering, armory and craft-completion city feed hooks with existing `sourceEventId` dedupe,
+  - targeted MVP matrix and core-loop integration tests.
+- Safe next runtime work:
+  - expose stable recipe IDs in legacy craft cards so `craftItem(recipeId)` can target a specific recipe,
+  - make warehouse overflow/cap text clearer in the storage panel,
+  - improve attack/defense item display labels after balancing,
+  - keep all of the above projection/UI-only.
+- Verification passed so far:
+  - `node scripts\run-local-bin.mjs vitest\vitest.mjs run tests\integration\game-core\mvp-buildings-core-loop-hardening.test.ts`
+  - `npm run typecheck`
+  - `npm run smoke:ui`
+  - `npm run lint:architecture`
+  - `npm run lint:file-sizes`
+  - `node scripts\run-local-bin.mjs vitest\vitest.mjs run tests\integration\game-core\building-action-flow.test.ts tests\integration\game-core\production-collect-flow.test.ts tests\integration\game-core\craft-item-flow.test.ts tests\unit\game-core\city-feed-event-generator.test.ts tests\read-models\police-read-model.test.ts`
+
 ## Rumors + City Feed Integration Follow-up
 
 - Status after integration: partial, MVP city feed is wired.
@@ -36,6 +66,7 @@ Date: 2026-05-05
   - Runs headless Chromium/Edge through CDP pipe.
   - Seeds an isolated FREE session in a temporary browser profile.
   - Uses public handlers and live DOM controls against `pages/game.html`.
+  - Fails validation on missing public handlers, broken storage/topbar refresh, missing spy/attack reports, misleading attack heat `+0`, missing police feedback, incomplete checklist, or page console warnings/errors.
 - Verified in browser:
   - FREE session on `free-eu-01`, not demo mode.
   - Owned district `27`.
@@ -44,14 +75,16 @@ Date: 2026-05-05
   - Adjacent enemy district opens.
   - Spy starts and returns a report.
   - Attack starts with a real loadout and returns a timed battle report.
+  - Attack report now uses `Police feed` as the fallback heat row when no authoritative heat delta is present, instead of displaying `+0`.
   - Police feed renders high-risk feedback.
   - Gang profile stars get neon police-threat state.
   - Onboarding reaches `10/10`.
 - Fixes made:
   - `collectProduction()` dispatches a UI-only onboarding event after successful click.
   - Onboarding bridge tracks production collection and storage open via delegated document click.
+  - Static attack report payloads no longer show a fake `HEAT GAINED +0`; explicit heat values still render when provided by the payload.
 - Remaining safe next work:
-  - connect static/free browser attack result to core attack heat where server/core snapshot is authoritative,
+  - connect static/free browser attack result to core attack heat where server/core snapshot is authoritative, keeping the current `Police feed` fallback for legacy static sessions,
   - wire pending raid acknowledge from browser command transport in server-authority mode,
   - keep runtime police/heat as fallback display only.
 

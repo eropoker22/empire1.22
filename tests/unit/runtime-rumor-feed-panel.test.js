@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   normalizeCityFeedEvent,
   normalizeCityFeedEvents,
-  renderDistrictRumorFeed,
-  renderRumorFeedPanel
+  renderDistrictRumorFeed
 } from "../../page-assets/js/app/ui/rumorFeedPanel.js";
 
 class FakeClassList {
@@ -72,11 +71,10 @@ describe("rumor feed panel", () => {
 
   it("renders empty, partial and district-specific feed without DOM crashes", () => {
     const document = new FakeDocument();
-    const mount = document.createElement("section");
     const list = document.createElement("div");
 
-    expect(renderRumorFeedPanel(mount, { events: [] })).toBe(true);
-    expect(mount.children[0].children[0].textContent).toBe("Drby města");
+    expect(renderDistrictRumorFeed(list, [], { districtId: "district:7" })).toBe(false);
+    expect(list.children).toHaveLength(0);
 
     expect(renderDistrictRumorFeed(list, [
       { id: "a", districtId: "district:7", message: "District rumor" },

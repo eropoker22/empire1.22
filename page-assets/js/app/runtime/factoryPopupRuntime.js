@@ -156,6 +156,15 @@ export function createFactoryPopupRuntime(deps = {}) {
         items: collected.items,
         meta: "Factory supplies"
       }), {}, { syncPreview: true, forceLog: true });
+      deps.documentRef?.dispatchEvent?.(new CustomEvent("empire:production-collected", {
+        detail: {
+          type: "production:collected",
+          source: "factory-popup",
+          buildingName: "factory",
+          amount: collected.total,
+          items: collected.items
+        }
+      }));
     });
 
     upgradeButton.addEventListener("click", () => {

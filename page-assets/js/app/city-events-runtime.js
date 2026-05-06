@@ -633,7 +633,7 @@ function initCityEventsRuntime() {
       tone: "event",
       title: resultPayload.title,
       summary: resultPayload.summary,
-      meta: wasSuccess ? "Klikni pro detail výsledku a zisku" : "Klikni pro detail neúspěchu"
+      meta: wasSuccess ? "Výsledek city eventu a zisk" : "Výsledek city eventu"
     }, { syncPreview: true, forceLog: true });
 
     if (selectedAgentKey) {

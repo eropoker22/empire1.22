@@ -318,7 +318,9 @@ export function createResultPayloadBuilders(deps = {}) {
     const safeCreatedAtMs = Number.isFinite(createdAtMs) ? createdAtMs : now();
     const safeResolveAtMs = Number.isFinite(resolveAtMs) ? resolveAtMs : safeCreatedAtMs;
     const durationValue = formatDurationLabel(Math.max(0, safeResolveAtMs - safeCreatedAtMs));
+    const hasExplicitHeatData = order.heatAdded !== undefined || order.factoryBoost?.heatAdded !== undefined;
     const heatGained = Math.max(0, Number(order.heatAdded ?? order.factoryBoost?.heatAdded ?? 0) || 0);
+    const heatGainedLabel = hasExplicitHeatData ? `+${heatGained}` : "Police feed";
     const policeRiskPct = Math.max(0, Number(order.factoryBoost?.policeInterventionRiskPct || 0) || 0);
     const lootLabel = outcome.capturesDistrict
       ? "Kontrola districtu"
@@ -329,7 +331,9 @@ export function createResultPayloadBuilders(deps = {}) {
       ? `Riziko zásahu ${policeRiskPct}%`
       : heatGained > 0
         ? "Heat zvýšen, sleduj police feed"
-        : "Bez přímého police eventu";
+        : hasExplicitHeatData
+          ? "Bez přímého police eventu"
+          : "Sleduj police feed";
 
     return {
       tone: `is-${attackOutcomeMeta.key}`,
@@ -343,7 +347,7 @@ export function createResultPayloadBuilders(deps = {}) {
       attackerLossesLabel: `${attackerLossPct}%`,
       defenderLossesLabel: `${defenderLossPct}%`,
       lootLabel,
-      heatGainedLabel: `+${heatGained}`,
+      heatGainedLabel,
       policeWarningLabel,
       districtStateValue: trapTriggered
         ? "Past aktivována"
@@ -357,7 +361,7 @@ export function createResultPayloadBuilders(deps = {}) {
       nextActionLabel: "Zpět na mapu / vyber další cíl",
       extraRows: [
         { label: "Loot", value: lootLabel },
-        { label: "Heat gained", value: `+${heatGained}` },
+        { label: "Heat gained", value: heatGainedLabel },
         { label: "Police warning", value: policeWarningLabel },
         { label: "Cooldown", value: durationValue, nowrap: true },
         { label: "Další krok", value: "Zpět na mapu / vyber další cíl" }

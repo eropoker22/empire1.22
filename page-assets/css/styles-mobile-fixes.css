@@ -4,6 +4,236 @@ body.game-modal-scroll-locked {
   overscroll-behavior: none;
 }
 
+/* Wanted heat journal readability: keep every reason fully readable and scroll after about three entries. */
+html body .wanted-popup-card .wanted-popup-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  max-height: 190px !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: scroll !important;
+  overscroll-behavior-y: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-gutter: stable !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(34, 211, 238, 0.92) rgba(8, 14, 26, 0.82) !important;
+}
+
+html body .wanted-popup-card .wanted-popup-list::-webkit-scrollbar {
+  width: 8px !important;
+}
+
+html body .wanted-popup-card .wanted-popup-list::-webkit-scrollbar-track {
+  border-radius: 999px !important;
+  background: rgba(8, 14, 26, 0.82) !important;
+}
+
+html body .wanted-popup-card .wanted-popup-list::-webkit-scrollbar-thumb {
+  border-radius: 999px !important;
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.96), rgba(248, 113, 113, 0.9)) !important;
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.34) !important;
+}
+
+html body .wanted-popup-card .wanted-popup-item,
+html body .wanted-popup-card .wanted-popup-empty {
+  flex: 0 0 auto !important;
+  overflow: visible !important;
+  min-height: auto !important;
+  max-height: none !important;
+}
+
+html body .wanted-popup-card .wanted-popup-item strong,
+html body .wanted-popup-card .wanted-popup-item small,
+html body .wanted-popup-card .wanted-popup-empty {
+  display: block !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+}
+
+@media (max-width: 640px) {
+  html body .wanted-popup-card .wanted-popup-list {
+    max-height: 178px !important;
+  }
+}
+
+html body .wanted-popup-card .wanted-popup-police-toggle.button,
+html body .wanted-popup-card .wanted-popup-police-toggle {
+  display: inline-grid !important;
+  place-items: center !important;
+  position: relative !important;
+  width: 20px !important;
+  min-width: 20px !important;
+  max-width: 20px !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  max-height: 20px !important;
+  padding: 0 !important;
+  border: 1px solid rgba(191, 219, 254, 0.88) !important;
+  border-radius: 999px !important;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.88) 0 8%, transparent 10%),
+    radial-gradient(circle at 38% 38%, rgba(125, 211, 252, 0.58), transparent 34%),
+    conic-gradient(from 25deg, rgba(37, 99, 235, 1), rgba(14, 165, 233, 0.98), rgba(239, 68, 68, 1), rgba(127, 29, 29, 0.98), rgba(37, 99, 235, 1)) !important;
+  color: #ffffff !important;
+  font-size: 0.64rem !important;
+  font-weight: 1000 !important;
+  line-height: 1 !important;
+  text-shadow:
+    0 0 5px rgba(255, 255, 255, 0.92),
+    0 0 10px rgba(56, 189, 248, 0.88),
+    0 0 12px rgba(248, 113, 113, 0.62) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+    inset 0 0 9px rgba(255, 255, 255, 0.1),
+    0 0 8px rgba(59, 130, 246, 0.72),
+    0 0 13px rgba(239, 68, 68, 0.48),
+    0 0 20px rgba(14, 165, 233, 0.26) !important;
+}
+
+html body .wanted-popup-card .wanted-popup-police-toggle[aria-expanded="true"] {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.96) 0 8%, transparent 10%),
+    conic-gradient(from 25deg, rgba(14, 165, 233, 1), rgba(56, 189, 248, 1), rgba(248, 113, 113, 1), rgba(185, 28, 28, 1), rgba(14, 165, 233, 1)) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 10px rgba(56, 189, 248, 0.88),
+    0 0 18px rgba(248, 113, 113, 0.64),
+    0 0 26px rgba(14, 165, 233, 0.32) !important;
+}
+
+html body .wanted-popup-card .wanted-popup-header__title {
+  position: relative !important;
+}
+
+html body .wanted-popup-card .wanted-popup-header {
+  z-index: 24 !important;
+}
+
+html body .wanted-popup-card .wanted-popup-header__title {
+  z-index: 25 !important;
+}
+
+html body .wanted-popup-shell:not([hidden]) {
+  z-index: 12000 !important;
+}
+
+html body .wanted-popup-shell:not([hidden]) .wanted-popup-card {
+  z-index: 12010 !important;
+}
+
+html body .wanted-popup-shell > .wanted-popup-police-window,
+html body .wanted-popup-card .wanted-popup-police-window {
+  position: fixed !important;
+  z-index: 12020 !important;
+  top: var(--wanted-police-window-top, 78px) !important;
+  right: auto !important;
+  left: var(--wanted-police-window-left, 128px) !important;
+  width: min(348px, calc(100vw - 42px)) !important;
+  max-height: min(440px, calc(100dvh - 92px)) !important;
+  padding: 28px 10px 10px !important;
+  border: 1px solid rgba(147, 197, 253, 0.36) !important;
+  border-radius: 14px !important;
+  background:
+    linear-gradient(145deg, rgba(8, 15, 28, 0.32), rgba(15, 23, 42, 0.18)),
+    rgba(3, 8, 18, 0.22) !important;
+  box-shadow:
+    0 0 0 1px rgba(96, 165, 250, 0.08),
+    0 18px 44px rgba(2, 6, 18, 0.34),
+    0 0 22px rgba(56, 189, 248, 0.16),
+    0 0 28px rgba(248, 113, 113, 0.1),
+    inset 0 0 22px rgba(96, 165, 250, 0.055) !important;
+  backdrop-filter: blur(12px) saturate(136%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(136%) !important;
+}
+
+html body .wanted-popup-shell > .wanted-popup-police-window::before,
+html body .wanted-popup-card .wanted-popup-police-window::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 3px;
+  width: 13px;
+  height: 13px;
+  border-left: 1px solid rgba(147, 197, 253, 0.36);
+  border-top: 1px solid rgba(147, 197, 253, 0.36);
+  background: rgba(3, 8, 18, 0.42);
+  transform: rotate(45deg);
+  backdrop-filter: blur(10px);
+}
+
+html body .wanted-popup-shell > .wanted-popup-police-window .wanted-popup-police-window__close.button,
+html body .wanted-popup-shell > .wanted-popup-police-window .wanted-popup-police-window__close,
+html body .wanted-popup-card .wanted-popup-police-window__close.button,
+html body .wanted-popup-card .wanted-popup-police-window__close {
+  position: absolute !important;
+  top: 6px !important;
+  right: 6px !important;
+  left: auto !important;
+  z-index: 4 !important;
+  display: grid !important;
+  place-items: center !important;
+  width: 20px !important;
+  min-width: 20px !important;
+  max-width: 20px !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  max-height: 20px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(248, 113, 113, 0.6) !important;
+  background:
+    radial-gradient(circle at 32% 30%, rgba(255, 255, 255, 0.26), transparent 38%),
+    rgba(20, 8, 15, 0.54) !important;
+  color: rgba(255, 228, 230, 0.95) !important;
+  font-size: 0.68rem !important;
+  line-height: 1 !important;
+  box-shadow:
+    0 0 10px rgba(248, 113, 113, 0.22),
+    inset 0 0 8px rgba(248, 113, 113, 0.08) !important;
+}
+
+html body .wanted-popup-shell > .wanted-popup-police-window .wanted-popup-police-feed.police-feed-panel,
+html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
+  margin: 0 !important;
+  max-height: 360px !important;
+  overflow: auto !important;
+  background: transparent !important;
+}
+
+@media (max-width: 720px), (hover: none) and (pointer: coarse) {
+  html body .wanted-popup-card .wanted-popup-police-window {
+    position: fixed !important;
+    top: 48px !important;
+    right: 10px !important;
+    left: 10px !important;
+    width: auto !important;
+    max-height: min(420px, calc(100dvh - 76px)) !important;
+  }
+
+  html body .wanted-popup-card .wanted-popup-police-window::before {
+    left: 54px;
+  }
+
+  html body .wanted-popup-shell > .wanted-popup-police-window {
+    position: fixed !important;
+    top: 48px !important;
+    right: 10px !important;
+    left: 10px !important;
+    width: auto !important;
+    max-height: min(420px, calc(100dvh - 76px)) !important;
+  }
+
+  html body .wanted-popup-shell > .wanted-popup-police-window::before {
+    left: 54px;
+  }
+}
+
 @media (max-width: 720px), (hover: none) and (pointer: coarse) {
   html.game-modal-scroll-locked {
     --mobile-topbar-offset: 0px !important;
@@ -264,13 +494,18 @@ body.game-modal-scroll-locked {
     align-items: stretch !important;
     gap: 8px !important;
     margin-top: 8px !important;
-    padding-top: 16px !important;
+    padding-top: 0 !important;
+    padding-bottom: 16px !important;
   }
 
   #game-left-nav.panel-action-stack::before {
+    content: none !important;
+  }
+
+  #game-left-nav.panel-action-stack::after {
     content: "";
     position: absolute;
-    top: 0;
+    bottom: 0;
     left: 0;
     right: 0;
     height: 1px;
@@ -1092,10 +1327,24 @@ html body #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__
     color: #fff0ec !important;
   }
 
-  .district-popup-action[data-district-action-id="occupy"],
   .district-popup-action[data-district-action-id="spy"] {
     border-color: rgba(217, 182, 107, 0.42) !important;
     color: #fff4cf !important;
+  }
+
+  .district-popup-action[data-district-action-id="occupy"] {
+    --district-action-rgb: 220, 20, 60;
+    --district-action-secondary-rgb: 136, 19, 55;
+    --district-action-text: #ffe7ee;
+    border-color: rgba(220, 20, 60, 0.52) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)),
+      linear-gradient(135deg, rgba(220, 20, 60, 0.22), rgba(136, 19, 55, 0.12)),
+      rgba(24, 6, 13, 0.96) !important;
+    color: #ffe7ee !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 0 14px rgba(220, 20, 60, 0.16) !important;
   }
 
   .district-popup-action[data-district-action-id="rob"] {
@@ -1594,7 +1843,7 @@ html body #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__
     height: var(--mobile-locked-vh, 100svh) !important;
     padding: 6px !important;
     overflow: hidden !important;
-    touch-action: none !important;
+    touch-action: pan-y !important;
   }
 
   #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__content {
@@ -1647,6 +1896,38 @@ html body #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__
     overflow-y: auto !important;
     overscroll-behavior-y: contain !important;
     scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
+
+  .district-building-detail-shell:not([hidden]) {
+    overflow: hidden !important;
+    touch-action: pan-y !important;
+  }
+
+  .district-building-detail-shell:not([hidden]) .district-building-detail-card.building-detail-modal__content {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    touch-action: pan-y !important;
+  }
+
+  .district-building-detail-shell:not([hidden]) .district-building-detail-card .district-building-detail-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
+
+  .district-building-detail-shell:not([hidden]) .district-building-detail-card .district-building-detail-panel:not(.hidden) {
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
     -webkit-overflow-scrolling: touch !important;
     touch-action: pan-y !important;
   }
@@ -2054,4 +2335,224 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) {
 html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popup-backdrop.modal__backdrop {
   position: fixed !important;
   inset: 0 !important;
+}
+
+/* Mobile building cards must scroll as one sheet; nested scroll panes are unreliable on touch browsers. */
+@media (max-width: 720px), (hover: none) and (pointer: coarse) {
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content {
+    display: flex !important;
+    flex-direction: column !important;
+    height: calc(var(--mobile-locked-vh, 100svh) - 12px) !important;
+    max-height: calc(var(--mobile-locked-vh, 100svh) - 12px) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    touch-action: pan-y !important;
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__layout.buildings-modal__layout {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: max-content !important;
+    overflow: visible !important;
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__types.buildings-modal__types {
+    flex: 0 0 auto !important;
+    max-height: min(30svh, 180px) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__detail.buildings-modal__detail,
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__detail-card {
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  html body .district-building-detail-shell:not([hidden]) .district-building-detail-card.building-detail-modal__content {
+    display: flex !important;
+    flex-direction: column !important;
+    height: calc(var(--mobile-locked-vh, 100svh) - 16px) !important;
+    max-height: calc(var(--mobile-locked-vh, 100svh) - 16px) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    touch-action: pan-y !important;
+  }
+
+  html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .district-building-detail-body {
+    display: block !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
+
+  html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .district-building-detail-panel {
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]),
+  html body .district-building-detail-shell:not([hidden]) {
+    --mobile-building-scroll-rgb: 34, 211, 238;
+    --mobile-building-scroll-soft-rgb: 8, 145, 178;
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]):has(.buildings-popup__detail-card[data-building-district-type="economy"]),
+  html body #buildings-modal.buildings-popup-shell:not([hidden]):has(.buildings-popup__detail-card[data-building-district-type="commercial"]),
+  html body .district-building-detail-shell[data-building-district-type="economy"]:not([hidden]),
+  html body .district-building-detail-shell[data-building-district-type="commercial"]:not([hidden]) {
+    --mobile-building-scroll-rgb: 96, 165, 250;
+    --mobile-building-scroll-soft-rgb: 59, 130, 246;
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]):has(.buildings-popup__detail-card[data-building-district-type="resident"]),
+  html body #buildings-modal.buildings-popup-shell:not([hidden]):has(.buildings-popup__detail-card[data-building-district-type="residential"]),
+  html body .district-building-detail-shell[data-building-district-type="resident"]:not([hidden]),
+  html body .district-building-detail-shell[data-building-district-type="residential"]:not([hidden]) {
+    --mobile-building-scroll-rgb: 253, 224, 71;
+    --mobile-building-scroll-soft-rgb: 250, 204, 21;
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]):has(.buildings-popup__detail-card[data-building-district-type="industrial"]),
+  html body .district-building-detail-shell[data-building-district-type="industrial"]:not([hidden]) {
+    --mobile-building-scroll-rgb: 203, 213, 225;
+    --mobile-building-scroll-soft-rgb: 100, 116, 139;
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]):has(.buildings-popup__detail-card[data-building-district-type="downtown"]),
+  html body .district-building-detail-shell[data-building-district-type="downtown"]:not([hidden]) {
+    --mobile-building-scroll-rgb: 251, 113, 133;
+    --mobile-building-scroll-soft-rgb: 248, 113, 113;
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]):has(.buildings-popup__detail-card[data-building-district-type="park"]),
+  html body .district-building-detail-shell[data-building-district-type="park"]:not([hidden]) {
+    --mobile-building-scroll-rgb: 134, 239, 172;
+    --mobile-building-scroll-soft-rgb: 34, 197, 94;
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__body,
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__types.buildings-modal__types,
+  html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .district-building-detail-body {
+    scrollbar-width: thin !important;
+    scrollbar-color:
+      rgba(var(--mobile-building-scroll-rgb), 0.92)
+      rgba(2, 8, 18, 0.82) !important;
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__body::-webkit-scrollbar,
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__types.buildings-modal__types::-webkit-scrollbar,
+  html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .district-building-detail-body::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__body::-webkit-scrollbar-track,
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__types.buildings-modal__types::-webkit-scrollbar-track,
+  html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .district-building-detail-body::-webkit-scrollbar-track {
+    border: 1px solid rgba(var(--mobile-building-scroll-rgb), 0.16);
+    border-radius: 999px;
+    background:
+      linear-gradient(180deg, rgba(2, 8, 18, 0.94), rgba(8, 14, 26, 0.78)),
+      repeating-linear-gradient(180deg, rgba(var(--mobile-building-scroll-rgb), 0.12) 0 1px, transparent 1px 5px);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+      inset 0 0 14px rgba(var(--mobile-building-scroll-soft-rgb), 0.12);
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__body::-webkit-scrollbar-thumb,
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__types.buildings-modal__types::-webkit-scrollbar-thumb,
+  html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .district-building-detail-body::-webkit-scrollbar-thumb {
+    border: 1px solid rgba(2, 8, 18, 0.76);
+    border-radius: 999px;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(var(--mobile-building-scroll-rgb), 0.95) 34%, rgba(var(--mobile-building-scroll-soft-rgb), 0.92)),
+      linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.62), transparent);
+    box-shadow:
+      0 0 8px rgba(var(--mobile-building-scroll-rgb), 0.72),
+      0 0 18px rgba(var(--mobile-building-scroll-soft-rgb), 0.5),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__body::-webkit-scrollbar-thumb:hover,
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__types.buildings-modal__types::-webkit-scrollbar-thumb:hover,
+  html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .district-building-detail-body::-webkit-scrollbar-thumb:hover {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(var(--mobile-building-scroll-rgb), 1) 28%, rgba(var(--mobile-building-scroll-soft-rgb), 1)),
+      linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.76), transparent);
+    box-shadow:
+      0 0 12px rgba(var(--mobile-building-scroll-rgb), 0.88),
+      0 0 24px rgba(var(--mobile-building-scroll-soft-rgb), 0.66),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.34);
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header > button#buildings-modal-close.modal__close,
+  html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .modal__close {
+    position: absolute !important;
+    top: 6px !important;
+    right: 2px !important;
+    bottom: auto !important;
+    left: auto !important;
+    inset: 6px 2px auto auto !important;
+    z-index: 96 !important;
+    width: 28px !important;
+    min-width: 28px !important;
+    max-width: 28px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    max-height: 28px !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 999px !important;
+    background: transparent !important;
+    color: rgb(var(--mobile-building-scroll-rgb)) !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header > button#buildings-modal-close.modal__close::after,
+  html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .modal__close::after {
+    inset: 4px !important;
+    border: 1px solid rgba(var(--mobile-building-scroll-rgb), 0.78) !important;
+    background:
+      radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.28), transparent 42%),
+      linear-gradient(180deg, rgba(var(--mobile-building-scroll-rgb), 0.18), rgba(var(--mobile-building-scroll-soft-rgb), 0.08)),
+      rgba(2, 8, 18, 0.88) !important;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+      0 0 9px rgba(var(--mobile-building-scroll-rgb), 0.46),
+      0 0 16px rgba(var(--mobile-building-scroll-soft-rgb), 0.28) !important;
+  }
+
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header > button#buildings-modal-close.modal__close::before,
+  html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .modal__close::before {
+    inset: 4px !important;
+    color: rgb(var(--mobile-building-scroll-rgb)) !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    text-shadow: 0 0 9px rgba(var(--mobile-building-scroll-rgb), 0.72) !important;
+  }
 }

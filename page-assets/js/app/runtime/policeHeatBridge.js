@@ -172,6 +172,54 @@ function createMount(root, documentRef) {
     return existing;
   }
 
+  const wantedFeedMount = root?.querySelector?.("[data-wanted-popup-police-feed]");
+  if (wantedFeedMount) {
+    const toggleButton = root?.querySelector?.("[data-wanted-popup-police-toggle]");
+    const policeWindow = root?.querySelector?.("[data-wanted-popup-police-window]");
+    const closeButton = root?.querySelector?.("[data-wanted-popup-police-close]");
+    const panelHost = policeWindow || wantedFeedMount;
+    const positionPoliceWindow = () => {
+      if (!toggleButton || !policeWindow || typeof toggleButton.getBoundingClientRect !== "function") {
+        return;
+      }
+      const rect = toggleButton.getBoundingClientRect();
+      const windowWidth = 348;
+      const viewportWidth = Number(globalThis.innerWidth || 0);
+      const left = viewportWidth > 0
+        ? Math.max(10, Math.min(rect.left, viewportWidth - windowWidth - 10))
+        : rect.left;
+      policeWindow.style?.setProperty?.("--wanted-police-window-left", `${Math.round(left)}px`);
+      policeWindow.style?.setProperty?.("--wanted-police-window-top", `${Math.round(rect.bottom + 10)}px`);
+    };
+    wantedFeedMount.classList?.add?.("police-feed-panel");
+    wantedFeedMount.setAttribute?.("data-police-feed", "");
+    wantedFeedMount.setAttribute?.("aria-label", "Police feedback");
+    panelHost.hidden = true;
+    if (toggleButton && !toggleButton.dataset?.policeFeedToggleBound) {
+      if (toggleButton.dataset) {
+        toggleButton.dataset.policeFeedToggleBound = "true";
+      }
+      toggleButton.addEventListener?.("click", () => {
+        const nextHidden = !panelHost.hidden;
+        if (!nextHidden) {
+          positionPoliceWindow();
+        }
+        panelHost.hidden = nextHidden;
+        toggleButton.setAttribute?.("aria-expanded", nextHidden ? "false" : "true");
+      });
+    }
+    if (closeButton && !closeButton.dataset?.policeFeedCloseBound) {
+      if (closeButton.dataset) {
+        closeButton.dataset.policeFeedCloseBound = "true";
+      }
+      closeButton.addEventListener?.("click", () => {
+        panelHost.hidden = true;
+        toggleButton?.setAttribute?.("aria-expanded", "false");
+      });
+    }
+    return wantedFeedMount;
+  }
+
   const mount = documentRef?.createElement?.("section");
   if (!mount) {
     return null;
@@ -180,8 +228,7 @@ function createMount(root, documentRef) {
   mount.setAttribute("data-police-feed", "");
   mount.setAttribute("aria-label", "Police feedback");
 
-  const container = root?.querySelector?.("#game-rail-right")
-    || root?.querySelector?.("#game-gang-panel-mount")?.parentNode
+  const container = root?.querySelector?.(".wanted-popup-card")
     || root;
   container?.append?.(mount);
   return mount;

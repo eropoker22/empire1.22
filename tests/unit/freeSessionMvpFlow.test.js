@@ -222,7 +222,7 @@ describe("free session MVP flow", () => {
     expect(attackPayload.title).toBe("NEÚSPĚCH");
     expect(attackPayload.durationValue).toBe("0ms");
     expect(attackPayload.lootLabel).toBe("Žádný");
-    expect(attackPayload.policeWarningLabel).toBe("Bez přímého police eventu");
+    expect(attackPayload.policeWarningLabel).toBe("Sleduj police feed");
     expect(attackPayload.extraRows.map((row) => row.label)).toEqual([
       "Loot",
       "Heat gained",

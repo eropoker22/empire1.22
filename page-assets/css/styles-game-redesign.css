@@ -45,7 +45,12 @@ body.game-body {
     mask-image: linear-gradient(180deg, black 0%, rgba(0, 0, 0, 0.88) 62%, rgba(0, 0, 0, 0.58) 100%);
   }
 
-  body.game-body > .game-topbar,
+  body.game-body > .game-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 70;
+  }
+
   body.game-body > .game-shell {
     position: relative;
     z-index: 1;
@@ -764,7 +769,7 @@ body.game-body--booting .game-logo-slot {
 }
 
 #game-left-nav {
-  padding-top: 84px;
+  padding-top: 43px;
 }
 
 #game-main-region {
@@ -1162,18 +1167,20 @@ body.game-body--booting .game-logo-slot {
 }
 
 .building-action-status__clear {
-  min-width: 26px;
-  width: 26px;
-  height: 26px;
-  min-height: 26px;
+  min-width: 20px;
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
   border-radius: 999px;
-  border-color: rgba(255, 122, 182, 0.22);
+  border-color: rgba(74, 222, 128, 0.46);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
-    linear-gradient(135deg, rgba(255, 82, 146, 0.16), rgba(91, 22, 54, 0.84));
+    radial-gradient(circle at 50% 20%, rgba(187, 247, 208, 0.22), transparent 40%),
+    linear-gradient(180deg, rgba(34, 197, 94, 0.16), rgba(6, 78, 59, 0.18)),
+    rgba(3, 18, 13, 0.82);
+  color: #86efac;
   box-shadow:
-    inset 0 0 12px rgba(255, 122, 182, 0.12),
-    0 0 16px rgba(255, 122, 182, 0.12);
+    inset 0 0 10px rgba(74, 222, 128, 0.12),
+    0 0 10px rgba(74, 222, 128, 0.18);
 }
 
 .building-action-status__summary {
@@ -1215,29 +1222,36 @@ body.game-body--booting .game-logo-slot {
 }
 
 .building-action-status__feed {
-  gap: 10px;
+  gap: 8px;
   align-content: start;
-  max-height: 320px;
-  padding-right: 6px;
+  max-height: 258px;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  overscroll-behavior-y: contain;
+  padding-right: 7px;
   padding-bottom: 2px;
+  scrollbar-gutter: stable;
+  scrollbar-color: rgba(74, 222, 128, 0.92) rgba(4, 18, 13, 0.82);
 }
 
 .building-action-status__feed::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
 }
 
 .building-action-status__feed::-webkit-scrollbar-track {
-  border-color: rgba(60, 122, 194, 0.22);
+  border-color: rgba(74, 222, 128, 0.18);
   background:
-    linear-gradient(180deg, rgba(9, 18, 30, 0.98), rgba(9, 20, 36, 0.88));
+    linear-gradient(180deg, rgba(3, 18, 13, 0.96), rgba(5, 31, 22, 0.86)),
+    repeating-linear-gradient(180deg, rgba(74, 222, 128, 0.12) 0 1px, transparent 1px 6px);
 }
 
 .building-action-status__feed::-webkit-scrollbar-thumb {
-  border-color: rgba(119, 255, 238, 0.48);
+  border-color: rgba(4, 18, 13, 0.78);
   background:
-    linear-gradient(180deg, rgba(109, 255, 236, 0.98), rgba(104, 88, 255, 0.78));
+    linear-gradient(180deg, rgba(220, 252, 231, 0.9), rgba(74, 222, 128, 0.96), rgba(22, 163, 74, 0.9));
   box-shadow:
-    0 0 14px rgba(105, 247, 255, 0.28),
+    0 0 10px rgba(74, 222, 128, 0.58),
+    0 0 18px rgba(34, 197, 94, 0.36),
     inset 0 0 10px rgba(255, 255, 255, 0.2);
 }
 
@@ -1304,28 +1318,52 @@ body.game-body--booting .game-logo-slot {
 }
 
 .building-action-status__item-delete {
-  min-width: 14px;
-  width: 14px;
-  min-height: 14px;
-  height: 14px;
+  min-width: 13px;
+  width: 13px;
+  min-height: 13px;
+  height: 13px;
   padding: 0;
   border-radius: 999px;
-  border: 1px solid rgba(255, 118, 170, 0.24);
+  border: 1px solid rgba(74, 222, 128, 0.4);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent),
-    rgba(36, 11, 21, 0.5);
-  color: #fff1f6;
+    radial-gradient(circle at 50% 20%, rgba(187, 247, 208, 0.18), transparent 40%),
+    rgba(3, 18, 13, 0.62);
+  color: #86efac;
   box-shadow:
-    inset 0 0 8px rgba(255, 118, 170, 0.08),
-    0 0 8px rgba(255, 118, 170, 0.12);
+    inset 0 0 7px rgba(74, 222, 128, 0.1),
+    0 0 8px rgba(74, 222, 128, 0.16);
   backdrop-filter: blur(8px) saturate(120%);
   -webkit-backdrop-filter: blur(8px) saturate(120%);
 }
 
 .building-action-status__item-delete span {
-  display: block;
-  font-size: 0.5rem;
+  display: grid;
+  place-items: center;
+  width: 9px;
+  height: 9px;
+  font-size: 0;
   line-height: 1;
+}
+
+.building-action-status__trash-icon svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter:
+    drop-shadow(0 0 4px rgba(134, 239, 172, 0.72))
+    drop-shadow(0 0 8px rgba(34, 197, 94, 0.38));
+}
+
+.building-action-status__item-delete .building-action-status__trash-icon svg {
+  width: 9px;
+  height: 9px;
+  stroke-width: 2.1;
 }
 
 .building-action-status__item-summary {
@@ -1534,6 +1572,16 @@ body.game-body--booting .game-logo-slot {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.02),
     0 24px 44px rgba(0, 0, 0, 0.28);
+}
+
+@media (min-width: 901px) {
+  .map-stage-header {
+    margin-top: -12px;
+  }
+
+  .mount-point--map {
+    margin-top: -29px;
+  }
 }
 
 .map-viewport {

@@ -288,6 +288,15 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           items: collected.items,
           meta: deps.getProductionBuildingEffectsLabel?.(buildingName, deps.getStoredProductionBuildingState?.(buildingName).level)
         }), {}, { syncPreview: true, forceLog: true });
+        deps.documentRef?.dispatchEvent?.(new CustomEvent("empire:production-collected", {
+          detail: {
+            type: "production:collected",
+            source: "production-building-popup",
+            buildingName,
+            amount: collected.total,
+            items: collected.items
+          }
+        }));
       });
     }
 

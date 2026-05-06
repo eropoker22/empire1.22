@@ -105,6 +105,28 @@ describe("result payload builders", () => {
     expect(payload.attackerLossesLabel).toBe("20%");
     expect(payload.defenderLossesLabel).toBe("50%");
     expect(payload.districtStateValue).toBe("Obsazený");
+    expect(payload.heatGainedLabel).toBe("Police feed");
+    expect(payload.policeWarningLabel).toBe("Sleduj police feed");
+  });
+
+  it("keeps explicit attack heat values when core/runtime payload provides them", () => {
+    const payload = createBuilders().createAttackResultPayload({
+      order: {
+        estimatedAttackPower: 120,
+        heatAdded: 8,
+        createdAt: new Date(1_000).toISOString(),
+        resolveAt: new Date(3_000).toISOString()
+      },
+      targetDistrictId: 3,
+      outcome: { key: "failure", capturesDistrict: false, destroysDistrict: false },
+      deployedMembers: 10,
+      memberLoss: 2,
+      currentDefense: 100,
+      nextDefense: 80
+    });
+
+    expect(payload.heatGainedLabel).toBe("+8");
+    expect(payload.policeWarningLabel).toBe("Heat zvýšen, sleduj police feed");
   });
 
   it("creates robbery result payloads for loot and empty outcomes", () => {

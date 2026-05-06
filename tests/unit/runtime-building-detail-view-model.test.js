@@ -71,6 +71,7 @@ describe("building detail view-model builder", () => {
     expect(model.collect.visible).toBe(false);
     expect(model.upgrade.disabled).toBe(true);
     expect(model.actions).toEqual([]);
+    expect(model.mechanics.some((row) => row.label === "Collect")).toBe(false);
   });
 
   it("builds school-specific stat and mechanic rows from supplied mechanics", () => {
@@ -97,6 +98,23 @@ describe("building detail view-model builder", () => {
       value: "+$10"
     });
     expect(createBuildingDetailMechanicRows({ buildingName: "Škola", mechanics: schoolMechanics }).some((row) => row.label === "Talent Pool")).toBe(true);
+  });
+
+  it("does not render a collect mechanic row for apartment blocks", () => {
+    const rows = createBuildingDetailMechanicRows({
+      buildingName: "Bytový blok",
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "apartment-block",
+        apartmentWholePopulation: 2,
+        apartmentCapacity: 50,
+        apartmentPopulationPerMinute: 2,
+        ownedApartmentBlocks: 1
+      }
+    });
+
+    expect(rows.some((row) => row.label === "Collect")).toBe(false);
+    expect(rows.map((row) => row.label)).toEqual(["Lokální zásobník", "Produkce", "Síť"]);
   });
 
   it("disables collect-style actions when supplied view state says requirements are missing", () => {

@@ -50,6 +50,67 @@
 ):is(:hover, :focus, :focus-visible, :focus-within) {
   transform: none !important;
   animation: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  filter: none !important;
+}
+
+:where(
+  a,
+  button,
+  summary,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [tabindex],
+  .btn,
+  .button,
+  .nav-btn,
+  .topbar__logout,
+  .resource-pill,
+  .panel-action-button,
+  .panel-action-button--feature,
+  .leaderboard-button,
+  .map-phase-button,
+  .map-zoom-button,
+  .building-shortcut-button,
+  .buildings-popup__type-btn,
+  .buildings-popup__building--interactive,
+  .building-detail-title__action-btn,
+  .building-info-action-row,
+  .building-detail-tabs__btn,
+  .district-building-popup__action,
+  .district-building-popup__run-button,
+  .market-popup-row,
+  .market-popup-row__buy,
+  .market-popup-row__sell,
+  .market-popup-close,
+  .modal__confirm-btn,
+  .modal__cancel-btn,
+  .modal__close,
+  .modal__row,
+  .server-card,
+  .auth-server-card,
+  .server-detail-modal__btn,
+  .terminal-nav button,
+  .lobby-terminal-nav button,
+  .mode-card,
+  .mode-tab,
+  .auth-mode-tab,
+  .summary-box,
+  .nav-module-card button,
+  .gang-color-swatch,
+  .avatar-item,
+  .avatar-item img,
+  .admin-button,
+  .admin-row-actions button,
+  .admin-nav__item,
+  .admin-map-cell
+) {
+  transition-property: color, background, background-color, border-color, box-shadow, text-shadow, outline-color, fill, stroke !important;
+  transition-duration: 80ms !important;
+  transition-delay: 0ms !important;
 }
 
 #alliance-btn:hover,
@@ -58,6 +119,8 @@
 #alliance-btn:focus-visible .alliance-btn__icon {
   transform: none !important;
   animation: none !important;
+  opacity: 1 !important;
+  filter: none !important;
 }
 
 .building-shortcut-button,
@@ -68,6 +131,149 @@
   opacity: 1 !important;
   transform: none !important;
   filter: none !important;
+}
+
+.modal__row,
+.modal__row:hover,
+.modal__row:focus,
+.modal__row:focus-within {
+  animation: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.game-shell :where(
+  button,
+  .button,
+  .btn,
+  [role="button"],
+  .panel-action-button,
+  .panel-action-button--feature,
+  .leaderboard-button,
+  .city-events-target-btn,
+  .map-bounty-shortcut,
+  .building-shortcut-button,
+  .building-action-status__clear,
+  .building-action-status__item,
+  .feature-card,
+  .city-events-card,
+  #city-events-open,
+  #leaderboard-card,
+  #buildings-card,
+  #market-card
+),
+.game-shell :where(
+  button,
+  .button,
+  .btn,
+  [role="button"],
+  .panel-action-button,
+  .panel-action-button--feature,
+  .leaderboard-button,
+  .city-events-target-btn,
+  .map-bounty-shortcut,
+  .building-shortcut-button,
+  .building-action-status__clear,
+  .building-action-status__item,
+  .feature-card,
+  .city-events-card,
+  #city-events-open,
+  #leaderboard-card,
+  #buildings-card,
+  #market-card
+):is(:hover, :focus, :focus-visible, :focus-within) {
+  animation: none !important;
+  transform: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  filter: none !important;
+}
+
+.game-shell :where(
+  button,
+  .button,
+  .btn,
+  [role="button"],
+  .panel-action-button,
+  .panel-action-button--feature,
+  .leaderboard-button,
+  .city-events-target-btn,
+  .map-bounty-shortcut,
+  .building-shortcut-button,
+  .building-action-status__clear,
+  .building-action-status__item,
+  .feature-card,
+  .city-events-card,
+  #city-events-open,
+  #leaderboard-card,
+  #buildings-card,
+  #market-card
+)::before,
+.game-shell :where(
+  button,
+  .button,
+  .btn,
+  [role="button"],
+  .panel-action-button,
+  .panel-action-button--feature,
+  .leaderboard-button,
+  .city-events-target-btn,
+  .map-bounty-shortcut,
+  .building-shortcut-button,
+  .building-action-status__clear,
+  .building-action-status__item,
+  .feature-card,
+  .city-events-card,
+  #city-events-open,
+  #leaderboard-card,
+  #buildings-card,
+  #market-card
+)::after,
+.game-shell :where(
+  button,
+  .button,
+  .btn,
+  [role="button"],
+  .panel-action-button,
+  .panel-action-button--feature,
+  .leaderboard-button,
+  .city-events-target-btn,
+  .map-bounty-shortcut,
+  .building-shortcut-button,
+  .building-action-status__clear,
+  .building-action-status__item,
+  .feature-card,
+  .city-events-card,
+  #city-events-open,
+  #leaderboard-card,
+  #buildings-card,
+  #market-card
+):is(:hover, :focus-visible)::before,
+.game-shell :where(
+  button,
+  .button,
+  .btn,
+  [role="button"],
+  .panel-action-button,
+  .panel-action-button--feature,
+  .leaderboard-button,
+  .city-events-target-btn,
+  .map-bounty-shortcut,
+  .building-shortcut-button,
+  .building-action-status__clear,
+  .building-action-status__item,
+  .feature-card,
+  .city-events-card,
+  #city-events-open,
+  #leaderboard-card,
+  #buildings-card,
+  #market-card
+):is(:hover, :focus-visible)::after {
+  animation: none !important;
+  transform: none !important;
+  transition-property: color, background, background-color, border-color, box-shadow, text-shadow, outline-color, fill, stroke !important;
+  transition-duration: 80ms !important;
+  transition-delay: 0ms !important;
 }
 
 :where(
@@ -221,6 +427,80 @@ html {
 .map-phase-button::after,
 .leaderboard-button::after {
   animation: none !important;
+}
+
+.game-topbar :where(
+  .player-profile-trigger,
+  .game-resource-strip,
+  .game-resource-strip > *,
+  .resource-pill,
+  .resource-label,
+  .resource-value,
+  .game-toolbar-button
+),
+.game-topbar :where(
+  .player-profile-trigger,
+  .game-resource-strip,
+  .game-resource-strip > *,
+  .resource-pill,
+  .resource-label,
+  .resource-value,
+  .game-toolbar-button
+):is(:hover, :focus, :focus-visible, :focus-within),
+.gang-profile-panel,
+.gang-profile-panel :where(
+  .gang-profile-row,
+  .profile-row,
+  .gang-profile-value-button,
+  .gang-profile-stars,
+  .gang-profile-stars > *,
+  .gang-profile-row__label
+),
+.gang-profile-panel :where(
+  .gang-profile-row,
+  .profile-row,
+  .gang-profile-value-button,
+  .gang-profile-stars,
+  .gang-profile-stars > *,
+  .gang-profile-row__label
+):is(:hover, :focus, :focus-visible, :focus-within) {
+  animation: none !important;
+  animation-play-state: paused !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+.game-topbar :where(
+  .player-profile-trigger,
+  .game-resource-strip > *,
+  .resource-pill,
+  .game-toolbar-button
+)::before,
+.game-topbar :where(
+  .player-profile-trigger,
+  .game-resource-strip > *,
+  .resource-pill,
+  .game-toolbar-button
+)::after,
+.gang-profile-panel::before,
+.gang-profile-panel::after,
+.gang-profile-panel :where(
+  .gang-profile-row,
+  .profile-row,
+  .gang-profile-value-button
+)::before,
+.gang-profile-panel :where(
+  .gang-profile-row,
+  .profile-row,
+  .gang-profile-value-button
+)::after {
+  animation: none !important;
+  transform: none !important;
+  transition-property: color, background, background-color, border-color, box-shadow, text-shadow, outline-color, fill, stroke !important;
+  transition-duration: 80ms !important;
+  transition-delay: 0ms !important;
 }
 
 @media (max-width: 720px), (hover: none) and (pointer: coarse) {

@@ -94,14 +94,14 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     state.policeStatesById["police:1"] = {
       id: "police:1",
       ownerPlayerId: "player:1",
-      heat: 120,
+      heat: 130,
       wantedLevel: 3,
       lastDecayTick: 0,
       activeFlags: [],
       version: 1
     };
 
-    expect(evaluatePolicePressure(state, context)).toBe(108);
+    expect(evaluatePolicePressure(state, context)).toBe(117);
 
     const raidResult = triggerRaid(state, context);
 
@@ -115,7 +115,7 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
         payload: {
           playerId: "player:1",
           policeStateId: "police:1",
-          heat: 120
+          heat: 130
         }
       }
     ]);

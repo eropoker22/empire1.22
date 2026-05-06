@@ -260,6 +260,57 @@ describe("resources panel UI rendering", () => {
     expect(spyPill.classList.contains("resource-pill--spy")).toBe(true);
   });
 
+  it("counts money and influence one unit at a time when values change", () => {
+    const { root, cleanValue, dirtyValue, spyValue } = createResourceFixture();
+    const intervals = [];
+    const timerApi = {
+      setInterval(callback) {
+        intervals.push(callback);
+        return callback;
+      },
+      clearInterval(callback) {
+        const index = intervals.indexOf(callback);
+        if (index >= 0) intervals.splice(index, 1);
+      },
+      setTimeout(callback) {
+        return callback;
+      },
+      clearTimeout() {}
+    };
+
+    updateTopbarResources({
+      cleanMoney: 10,
+      dirtyMoney: 20,
+      influence: 5,
+      spyAvailable: 0,
+      maxSpies: 0
+    }, { root, instant: true, timerApi });
+
+    updateTopbarResources({
+      cleanMoney: 13,
+      dirtyMoney: 18,
+      influence: 7,
+      spyAvailable: 0,
+      maxSpies: 0
+    }, { root, timerApi });
+
+    expect(cleanValue.textContent).toBe("$11");
+    expect(dirtyValue.textContent).toBe("$19");
+    expect(spyValue.textContent).toBe("6");
+
+    for (const callback of [...intervals]) callback();
+
+    expect(cleanValue.textContent).toBe("$12");
+    expect(dirtyValue.textContent).toBe("$18");
+    expect(spyValue.textContent).toBe("7");
+
+    for (const callback of [...intervals]) callback();
+
+    expect(cleanValue.textContent).toBe("$13");
+    expect(dirtyValue.textContent).toBe("$18");
+    expect(spyValue.textContent).toBe("7");
+  });
+
   it("binds topbar money controls to skip counters to the latest snapshot", () => {
     const { root, cleanPill, cleanValue, dirtyPill, dirtyValue } = createResourceFixture();
 

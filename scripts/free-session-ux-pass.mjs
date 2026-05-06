@@ -368,6 +368,8 @@ const passExpression = String.raw`
   result.ui = {
     onboardingVisible: Boolean(document.querySelector("[data-free-onboarding-panel]")),
     onboardingText: safeText("[data-free-onboarding-panel]", 350),
+    actionFeedVisible: Boolean(document.querySelector("[data-building-action-feed]")),
+    actionFeedText: safeText("[data-building-action-feed]", 450),
     policeFeedVisible: Boolean(document.querySelector("[data-police-feed]")),
     policeFeedText: safeText("[data-police-feed]", 350),
     gangStarsText: safeText("[data-gang-stars]", 120),
@@ -393,6 +395,9 @@ const passExpression = String.raw`
   await wait(350);
   result.actions.runBuildingAction = Boolean(window.runBuildingAction?.(0));
   await wait(350);
+  result.ui.actionFeedTextAfterBuildingAction = safeText("[data-building-action-feed]", 550);
+  result.ui.actionSummaryAfterBuildingAction = safeText("[data-building-action-summary]", 550);
+  result.ui.actionMetaAfterBuildingAction = safeText("[data-building-action-meta]", 220);
   const storageButton = document.querySelector("[data-storage-popup-open]");
   storageButton?.click?.();
   await wait(250);
@@ -401,6 +406,8 @@ const passExpression = String.raw`
   result.actions.craftItem = Boolean(window.craftItem?.());
   await wait(350);
   result.ui.topbarText = safeText(".game-topbar, #game-topbar, header", 350);
+  result.ui.cleanMoneyText = safeText("[data-topbar-clean-money]", 80);
+  result.ui.dirtyMoneyText = safeText("[data-topbar-dirty-money]", 80);
 
   result.actions.openEnemyDistrict = Boolean(window.openDistrict?.(enemyDistrictId));
   await wait(350);
@@ -449,6 +456,115 @@ const passExpression = String.raw`
   result.ui.gangStarsPoliceThreatClass = Boolean(document.querySelector("[data-gang-stars]")?.classList?.contains("is-police-threat"));
   result.ui.activeThreatStars = document.querySelectorAll("[data-gang-stars] .is-active.is-police-threat").length;
   result.ui.policeFeedRisk = document.querySelector("[data-police-feed]")?.dataset?.policeRisk || "";
+
+  for (const modalId of ["spy-result-modal", "attack-result-modal", "police-action-result-modal"]) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.hidden = true;
+      modal.classList?.add?.("hidden");
+    }
+  }
+
+  const longJournalReason = "Dlouhé upozornění policejního tlaku po hlučné akci, dirty cash přesunu a svědeckých hlášeních v okolí districtu";
+  runtimeModule.setStoredGangState({
+    heat: 155,
+    heatJournal: [
+      ...Array.from({ length: 5 }, (_, index) => ({
+        type: "rise",
+        amount: 6 + index,
+        reason: longJournalReason + " #" + (index + 1),
+        createdAt: new Date(Date.now() - index * 60_000).toISOString()
+      })),
+      ...Array.from({ length: 4 }, (_, index) => ({
+        type: "fall",
+        amount: 4 + index,
+        reason: "Dlouhé vysvětlení poklesu heat po zahlazení stop, vyčištění části hotovosti a utlumení hlídek #" + (index + 1),
+        createdAt: new Date(Date.now() - (index + 8) * 60_000).toISOString()
+      }))
+    ]
+  });
+  window.EmpireRuntime?.refreshAllUi?.(window.EmpireRuntime?.hydrateInitialState?.(root));
+  document.querySelector("[data-gang-heat]")?.click?.();
+  await wait(250);
+  const collectHeatListMetrics = (selector) => {
+    const list = document.querySelector(selector);
+    const firstReason = list?.querySelector?.(".wanted-popup-item strong");
+    const styles = list ? getComputedStyle(list) : null;
+    const reasonStyles = firstReason ? getComputedStyle(firstReason) : null;
+    return {
+      exists: Boolean(list),
+      overflowY: styles?.overflowY || "",
+      maxHeight: styles?.maxHeight || "",
+      clientHeight: list?.clientHeight || 0,
+      scrollHeight: list?.scrollHeight || 0,
+      scrollbarNeeded: Boolean(list && list.scrollHeight > list.clientHeight + 1),
+      firstReasonText: String(firstReason?.textContent || ""),
+      firstReasonClientHeight: firstReason?.clientHeight || 0,
+      firstReasonScrollHeight: firstReason?.scrollHeight || 0,
+      firstReasonWhiteSpace: reasonStyles?.whiteSpace || "",
+      firstReasonOverflow: reasonStyles?.overflow || "",
+      firstReasonTextOverflow: reasonStyles?.textOverflow || ""
+    };
+  };
+  const policeToggle = document.querySelector("[data-wanted-popup-police-toggle]");
+  const policeToggleStyle = policeToggle ? getComputedStyle(policeToggle) : null;
+  const getRect = (element) => {
+    const rect = element?.getBoundingClientRect?.();
+    if (!rect) return null;
+    return {
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height
+    };
+  };
+  result.ui.wantedPopupVisible = Boolean(document.querySelector("[data-wanted-popup]:not([hidden])"));
+  result.ui.wantedRiseListMetrics = collectHeatListMetrics("[data-wanted-popup-rise-list]");
+  result.ui.wantedFallListMetrics = collectHeatListMetrics("[data-wanted-popup-fall-list]");
+  result.ui.wantedPoliceToggleMetrics = {
+    width: policeToggle?.clientWidth || 0,
+    height: policeToggle?.clientHeight || 0,
+    backgroundImage: policeToggleStyle?.backgroundImage || "",
+    color: policeToggleStyle?.color || ""
+  };
+  policeToggle?.click?.();
+  await wait(120);
+  const policeWindow = document.querySelector("[data-wanted-popup-police-window]");
+  const policeClose = document.querySelector("[data-wanted-popup-police-close]");
+  const policeWindowStyle = policeWindow ? getComputedStyle(policeWindow) : null;
+  const policeWindowRect = getRect(policeWindow);
+  const policeCloseRect = getRect(policeClose);
+  const policeToggleRect = getRect(policeToggle);
+  const policeWindowCenterElement = policeWindowRect
+    ? document.elementFromPoint(
+        policeWindowRect.left + Math.min(policeWindowRect.width - 8, Math.max(8, policeWindowRect.width / 2)),
+        policeWindowRect.top + Math.min(policeWindowRect.height - 8, Math.max(8, policeWindowRect.height / 2))
+      )
+    : null;
+  result.ui.wantedPoliceWindowMetrics = {
+    visible: Boolean(policeWindow && !policeWindow.hidden && policeWindowStyle?.display !== "none"),
+    top: policeWindowRect?.top ?? null,
+    left: policeWindowRect?.left ?? null,
+    width: policeWindowRect?.width ?? null,
+    height: policeWindowRect?.height ?? null,
+    backgroundColor: policeWindowStyle?.backgroundColor || "",
+    backgroundImage: policeWindowStyle?.backgroundImage || "",
+    backdropFilter: policeWindowStyle?.backdropFilter || policeWindowStyle?.webkitBackdropFilter || "",
+    opensBelowToggle: Boolean(policeWindowRect && policeToggleRect && policeWindowRect.top >= policeToggleRect.bottom - 4),
+    startsNearToggle: Boolean(policeWindowRect && policeToggleRect && Math.abs(policeWindowRect.left - policeToggleRect.left) <= 56),
+    topMostAtCenter: Boolean(policeWindow && policeWindowCenterElement && policeWindow.contains(policeWindowCenterElement)),
+    topElementAtCenter: policeWindowCenterElement
+      ? {
+          tagName: policeWindowCenterElement.tagName || "",
+          className: policeWindowCenterElement.className || "",
+          datasetKeys: Object.keys(policeWindowCenterElement.dataset || {})
+        }
+      : null,
+    closeTopOffset: policeWindowRect && policeCloseRect ? policeCloseRect.top - policeWindowRect.top : null,
+    closeRightOffset: policeWindowRect && policeCloseRect ? policeWindowRect.right - policeCloseRect.right : null
+  };
   result.ui.onboardingTextAfterLoop = safeText("[data-free-onboarding-panel]", 500);
   result.ui.onboardingDoneCount = document.querySelectorAll("[data-free-onboarding-panel] .free-onboarding-panel__step.is-done").length;
 
@@ -461,6 +577,89 @@ const passExpression = String.raw`
   return result;
 })()
 `;
+
+function validatePassResult(result) {
+  const failures = [];
+  const requireCheck = (condition, message) => {
+    if (!condition) failures.push(message);
+  };
+  const textIncludes = (text, expected) => String(text || "").toLowerCase().includes(String(expected).toLowerCase());
+
+  requireCheck(result?.bootstrap === "ready", "runtime did not report ready bootstrap");
+  requireCheck(Array.isArray(result?.missingHandlers) && result.missingHandlers.length === 0, `missing public handlers: ${(result?.missingHandlers || []).join(", ")}`);
+  for (const actionName of [
+    "openOwnDistrict",
+    "openBuildingDetail",
+    "collectProduction",
+    "runBuildingAction",
+    "craftItem",
+    "openEnemyDistrict",
+    "openSpyPanel",
+    "startSpy",
+    "openAttackPanel",
+    "startAttack"
+  ]) {
+    requireCheck(Boolean(result?.actions?.[actionName]), `action failed: ${actionName}`);
+  }
+
+  requireCheck(result?.session?.mode === "free", "session is not in FREE mode");
+  requireCheck(result?.session?.demoActive === false, "demo scenario is active");
+  requireCheck(Boolean(result?.ui?.buildingDetailVisible), "building detail did not open");
+  requireCheck(!textIncludes(result?.ui?.buildingDetailText, "COLLECT\nNení potřeba"), "building detail still shows unnecessary collect row");
+  requireCheck(Boolean(result?.ui?.storageVisible), "storage popup did not open");
+  requireCheck(textIncludes(result?.ui?.storageText, "Pistole"), "storage popup does not show weapon inventory");
+  requireCheck(textIncludes(result?.ui?.storageText, "Chemicals"), "storage popup does not show pharmacy materials");
+  requireCheck(textIncludes(result?.ui?.storageText, "Tech Core"), "storage popup does not show factory supplies");
+  requireCheck(textIncludes(result?.ui?.topbarText, "Čisté peníze"), "topbar does not show clean cash label");
+  requireCheck(textIncludes(result?.ui?.topbarText, "Špinavé peníze"), "topbar does not show dirty cash label");
+  requireCheck(/^\$\d/.test(String(result?.ui?.cleanMoneyText || "")), "clean cash topbar value is missing");
+  requireCheck(/^\$\d/.test(String(result?.ui?.dirtyMoneyText || "")), "dirty cash topbar value is missing");
+  requireCheck(
+    textIncludes(result?.ui?.actionFeedTextAfterBuildingAction, "Pouliční")
+      || textIncludes(result?.ui?.actionFeedTextAfterBuildingAction, "cash")
+      || textIncludes(result?.ui?.actionFeedTextAfterBuildingAction, "Heat")
+      || textIncludes(result?.ui?.actionSummaryAfterBuildingAction, "Pouliční")
+      || textIncludes(result?.ui?.actionSummaryAfterBuildingAction, "cash")
+      || textIncludes(result?.ui?.actionSummaryAfterBuildingAction, "Heat"),
+    "building action result did not reach the visible action status surface"
+  );
+  requireCheck(textIncludes(result?.modals?.spyReport, "ŠPEHOVÁNÍ"), "spy report did not render");
+  requireCheck(textIncludes(result?.modals?.attackReport, "POLICE WARNING"), "attack report did not show police feedback row");
+  requireCheck(!textIncludes(result?.modals?.attackReport, "HEAT GAINED\n+0"), "attack report still shows misleading heat +0 fallback");
+  requireCheck(textIncludes(result?.modals?.attackReport, "Police feed"), "attack report does not point to police feed when explicit heat is absent");
+  requireCheck(result?.ui?.gangStarsPoliceThreat === "true", "gang stars did not mark police threat");
+  requireCheck(Boolean(result?.ui?.gangStarsPoliceThreatClass), "gang stars threat class missing");
+  requireCheck(result?.ui?.policeFeedRisk === "extreme", "police feed did not reflect forced extreme heat");
+  requireCheck(Boolean(result?.ui?.wantedPopupVisible), "wanted heat popup did not open");
+  for (const [label, metrics] of [
+    ["rise", result?.ui?.wantedRiseListMetrics || {}],
+    ["fall", result?.ui?.wantedFallListMetrics || {}]
+  ]) {
+    requireCheck(Boolean(metrics.exists), `wanted ${label} list is missing`);
+    requireCheck(String(metrics.overflowY || "").includes("scroll") || String(metrics.overflowY || "").includes("auto"), `wanted ${label} list is not scrollable`);
+    requireCheck(Boolean(metrics.scrollbarNeeded), `wanted ${label} list does not overflow into a scrollbar`);
+    requireCheck(String(metrics.firstReasonWhiteSpace || "") === "normal", `wanted ${label} reason text is not allowed to wrap`);
+    requireCheck(String(metrics.firstReasonTextOverflow || "") !== "ellipsis", `wanted ${label} reason text is ellipsized`);
+    requireCheck(Number(metrics.firstReasonScrollHeight || 0) <= Number(metrics.firstReasonClientHeight || 0) + 1, `wanted ${label} reason text is clipped`);
+  }
+  const wantedPoliceToggleBackground = String(result?.ui?.wantedPoliceToggleMetrics?.backgroundImage || "");
+  const wantedPoliceWindowBackground = String(result?.ui?.wantedPoliceWindowMetrics?.backgroundColor || "");
+  const wantedPoliceWindowAlpha = Number((wantedPoliceWindowBackground.match(/rgba?\([^,]+,[^,]+,[^,]+,\s*([0-9.]+)\)/) || [])[1] || 1);
+  requireCheck(Number(result?.ui?.wantedPoliceToggleMetrics?.width || 0) <= 20, "wanted police ? button is too wide");
+  requireCheck(Number(result?.ui?.wantedPoliceToggleMetrics?.height || 0) <= 20, "wanted police ? button is too tall");
+  requireCheck(wantedPoliceToggleBackground.includes("linear-gradient") || wantedPoliceToggleBackground.includes("conic-gradient"), "wanted police ? button is missing blue/red neon gradient");
+  requireCheck(Boolean(result?.ui?.wantedPoliceWindowMetrics?.visible), "wanted police window did not open from ? button");
+  requireCheck(Boolean(result?.ui?.wantedPoliceWindowMetrics?.opensBelowToggle), "wanted police window is not anchored below the ? button");
+  requireCheck(Boolean(result?.ui?.wantedPoliceWindowMetrics?.startsNearToggle), "wanted police window is not horizontally anchored near the ? button");
+  requireCheck(Boolean(result?.ui?.wantedPoliceWindowMetrics?.topMostAtCenter), "wanted police window is behind the heat popup");
+  requireCheck(wantedPoliceWindowAlpha < 0.5, "wanted police window is not transparent enough");
+  requireCheck(Number(result?.ui?.wantedPoliceWindowMetrics?.closeTopOffset ?? 99) <= 10, "wanted police window close button is not in the top-right corner");
+  requireCheck(Number(result?.ui?.wantedPoliceWindowMetrics?.closeRightOffset ?? 99) <= 10, "wanted police window close button is not in the top-right corner");
+  requireCheck(Number(result?.ui?.onboardingDoneCount || 0) >= 10, "free loop checklist did not complete");
+  requireCheck(Array.isArray(result?.console) && result.console.length === 0, "browser console has warnings/errors");
+
+  return failures;
+}
 
 async function run() {
   const browserPath = findBrowserPath();
@@ -552,7 +751,11 @@ async function run() {
     result.seed = seed;
     result.console = pageMessages.filter((entry) => ["error", "warning", "assert"].includes(entry.type)).slice(0, 20);
     result.browserStderr = stderr.filter(Boolean).slice(0, 5);
+    result.validationFailures = validatePassResult(result);
     console.log(JSON.stringify(result, null, 2));
+    if (result.validationFailures.length > 0) {
+      throw new Error(`Free-session UX pass failed validation: ${result.validationFailures.join("; ")}`);
+    }
   } finally {
     clearTimeout(hardTimeout);
     await cleanup();
