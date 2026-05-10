@@ -9,6 +9,11 @@ import { expirePendingRaids } from "../rules/police/raidLifecycle";
 import { triggerRaid } from "../rules/police/triggerRaid";
 import { checkVictory } from "../rules/victory/checkVictory";
 import { appendCityFeedEventsFromCoreEvents } from "../rules/events";
+import { completeAirportImportsAndCustoms } from "../handlers/airportBuildingActions";
+import { applyCentralBankPassiveInterestAndOversight } from "../handlers/centralBankBuildingActions";
+import { applyCityHallCorruptionScandals } from "../handlers/cityHallBuildingActions";
+import { completeStreetDealerSales } from "../handlers/streetDealersBuildingActions";
+import { applyStockExchangeFinancialInspections, applyStockExchangePassiveEffects } from "../handlers/stockExchangeBuildingActions";
 
 /**
  * Responsibility: Canonical tick entry point for periodic server-side simulation.
@@ -34,10 +39,40 @@ export const runTick = (
   const incomeState = collectIncome(releasedPoliceState, context);
   const producedState = completeProduction(incomeState, context);
   const processingResult = completeCraftProcessing(producedState, context);
-  const lifecycleResult = expirePendingRaids(processingResult.nextState, context);
+  const streetDealerResult = context.config.balance.streetDealers
+    ? completeStreetDealerSales(
+        processingResult.nextState,
+        context.config.balance.streetDealers,
+        context.config.balance.smugglingTunnel,
+        context.config.tickRateMs
+      )
+    : { nextState: processingResult.nextState, events: [] };
+  const stockInsightState = context.config.balance.stockExchange
+    ? applyStockExchangePassiveEffects(streetDealerResult.nextState, context.config.balance.stockExchange, context.config.tickRateMs)
+    : streetDealerResult.nextState;
+  const stockInspectionState = context.config.balance.stockExchange
+    ? applyStockExchangeFinancialInspections(stockInsightState, context.config.balance.stockExchange, context.config.tickRateMs)
+    : stockInsightState;
+  const airportState = context.config.balance.airport
+    ? completeAirportImportsAndCustoms(
+        stockInspectionState,
+        context.config.balance.airport,
+        context.config.balance.warehouse,
+        context.config.balance.powerStation,
+        context.config.balance.smugglingTunnel,
+        context.config.tickRateMs
+      )
+    : stockInspectionState;
+  const cityHallState = context.config.balance.cityHall
+    ? applyCityHallCorruptionScandals(airportState, context.config.balance.cityHall, context.config.tickRateMs)
+    : airportState;
+  const centralBankState = context.config.balance.centralBank
+    ? applyCentralBankPassiveInterestAndOversight(cityHallState, context.config.balance.centralBank, context.config.tickRateMs)
+    : cityHallState;
+  const lifecycleResult = expirePendingRaids(centralBankState, context);
   const policeResult = triggerRaid(lifecycleResult.nextState, context);
   const victoryResult = checkVictory(policeResult.nextState, context);
-  const events = [...processingResult.events, ...lifecycleResult.events, ...policeResult.events];
+  const events = [...processingResult.events, ...streetDealerResult.events, ...lifecycleResult.events, ...policeResult.events];
 
   return {
     nextState: appendCityFeedEventsFromCoreEvents(victoryResult.nextState, events),

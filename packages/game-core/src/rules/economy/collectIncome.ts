@@ -6,10 +6,13 @@ import {
   getActiveFixedBuildingConfigsForDistrict,
   resolveActiveDistrictEffectModifiers
 } from "./calculateIncome";
+import { applyAirportIncomeModifiers } from "../../handlers/airportBuildingActions";
 import { applyArcadeAuditChecks, applyArcadeIncomeModifiers } from "../../handlers/arcadeBuildingActions";
 import { applyApartmentBlockPopulationProduction } from "../../handlers/apartmentBlockBuildingActions";
 import { applyCasinoAuditChecks, applyCasinoIncomeModifiers } from "../../handlers/casinoBuildingActions";
 import { applyCarDealerIncomeModifiers } from "../../handlers/carDealerBuildingActions";
+import { applyCentralBankIncomeModifiers } from "../../handlers/centralBankBuildingActions";
+import { applyCityHallIncomeModifiers } from "../../handlers/cityHallBuildingActions";
 import { applyClinicIncomeModifiers } from "../../handlers/clinicBuildingActions";
 import { applyConvenienceStoreIncomeModifiers, applyConvenienceStorePassiveRumors } from "../../handlers/convenienceStoreBuildingActions";
 import { applyExchangeOfficeAuditChecks, applyExchangeOfficeIncomeModifiers } from "../../handlers/exchangeOfficeBuildingActions";
@@ -20,6 +23,7 @@ import { applyRecruitmentCenterIncomeModifiers } from "../../handlers/recruitmen
 import { applyRecyclingCenterIncomeModifiers } from "../../handlers/recyclingCenterBuildingActions";
 import { applyRestaurantIncomeModifiers, applyRestaurantPassiveRumors } from "../../handlers/restaurantBuildingActions";
 import { applyShoppingMallIncomeModifiers } from "../../handlers/shoppingMallBuildingActions";
+import { applyStockExchangeIncomeModifiers } from "../../handlers/stockExchangeBuildingActions";
 import {
   applySchoolIncomeModifiers,
   applySchoolStudentProduction
@@ -28,7 +32,9 @@ import {
   applySmugglingTunnelBatchProduction,
   applySmugglingTunnelIncomeModifiers
 } from "../../handlers/smugglingTunnelBuildingActions";
+import { applyStreetDealersIncomeModifiers } from "../../handlers/streetDealersBuildingActions";
 import { applyStripClubIncomeModifiers, applyStripClubPassiveRumors } from "../../handlers/stripClubBuildingActions";
+import { applyVipLoungeIncomeModifiers, applyVipLoungePassiveRumors } from "../../handlers/vipLoungeBuildingActions";
 import { applyWarehouseIncomeModifiers } from "../../handlers/warehouseBuilding";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -121,9 +127,12 @@ export const collectIncome = (state: CoreGameState, context?: GameCoreContext): 
   const restaurantRumorState = context?.config.balance.restaurant
     ? applyRestaurantPassiveRumors(stripClubRumorState, context.config.balance.restaurant, context.config.tickRateMs)
     : stripClubRumorState;
-  return context?.config.balance.convenienceStore
+  const convenienceRumorState = context?.config.balance.convenienceStore
     ? applyConvenienceStorePassiveRumors(restaurantRumorState, context.config.balance.convenienceStore, context.config.tickRateMs, context.config.balance.restaurant)
     : restaurantRumorState;
+  return context?.config.balance.vipLounge
+    ? applyVipLoungePassiveRumors(convenienceRumorState, context.config.balance.vipLounge, context.config.tickRateMs)
+    : convenienceRumorState;
 };
 
 const createPlayerResourceState = (
@@ -286,17 +295,75 @@ const applyFixedBuildingPassivePressure = (
             influencePerDay: fitnessClubConfig.influencePerDay
           })
         : fitnessClubConfig;
+      const stockExchangeConfig = context.config.balance.stockExchange
+        ? applyStockExchangeIncomeModifiers({
+            config: context.config.balance.stockExchange,
+            state,
+            building,
+            tick: state.root.tick,
+            cleanPerHour: shoppingMallConfig.cleanPerHour,
+            dirtyPerHour: shoppingMallConfig.dirtyPerHour,
+            heatPerDay: shoppingMallConfig.heatPerDay,
+            influencePerDay: shoppingMallConfig.influencePerDay
+          })
+        : shoppingMallConfig;
+      const airportConfig = context.config.balance.airport
+        ? applyAirportIncomeModifiers({
+            config: context.config.balance.airport,
+            building,
+            cleanPerHour: stockExchangeConfig.cleanPerHour,
+            dirtyPerHour: stockExchangeConfig.dirtyPerHour,
+            heatPerDay: stockExchangeConfig.heatPerDay,
+            influencePerDay: stockExchangeConfig.influencePerDay
+          })
+        : stockExchangeConfig;
+      const cityHallConfig = context.config.balance.cityHall
+        ? applyCityHallIncomeModifiers({
+            config: context.config.balance.cityHall,
+            state,
+            building,
+            districtId: district.id,
+            tick: state.root.tick,
+            cleanPerHour: airportConfig.cleanPerHour,
+            dirtyPerHour: airportConfig.dirtyPerHour,
+            heatPerDay: airportConfig.heatPerDay,
+            influencePerDay: airportConfig.influencePerDay
+          })
+        : airportConfig;
+      const centralBankConfig = context.config.balance.centralBank
+        ? applyCentralBankIncomeModifiers({
+            config: context.config.balance.centralBank,
+            state,
+            building,
+            tick: state.root.tick,
+            cleanPerHour: cityHallConfig.cleanPerHour,
+            dirtyPerHour: cityHallConfig.dirtyPerHour,
+            heatPerDay: cityHallConfig.heatPerDay,
+            influencePerDay: cityHallConfig.influencePerDay
+          })
+        : cityHallConfig;
+      const vipLoungeConfig = context.config.balance.vipLounge
+        ? applyVipLoungeIncomeModifiers({
+            config: context.config.balance.vipLounge,
+            state,
+            building,
+            cleanPerHour: centralBankConfig.cleanPerHour,
+            dirtyPerHour: centralBankConfig.dirtyPerHour,
+            heatPerDay: centralBankConfig.heatPerDay,
+            influencePerDay: centralBankConfig.influencePerDay
+          })
+        : centralBankConfig;
       const garageConfig = context.config.balance.garage
         ? applyGarageIncomeModifiers({
             config: context.config.balance.garage,
             state,
             building,
-            cleanPerHour: shoppingMallConfig.cleanPerHour,
-            dirtyPerHour: shoppingMallConfig.dirtyPerHour,
-            heatPerDay: shoppingMallConfig.heatPerDay,
-            influencePerDay: shoppingMallConfig.influencePerDay
-        })
-        : shoppingMallConfig;
+            cleanPerHour: vipLoungeConfig.cleanPerHour,
+            dirtyPerHour: vipLoungeConfig.dirtyPerHour,
+            heatPerDay: vipLoungeConfig.heatPerDay,
+            influencePerDay: vipLoungeConfig.influencePerDay
+          })
+        : vipLoungeConfig;
       const carDealerConfig = context.config.balance.carDealer
         ? applyCarDealerIncomeModifiers({
             config: context.config.balance.carDealer,
@@ -343,18 +410,30 @@ const applyFixedBuildingPassivePressure = (
             influencePerDay: schoolConfig.influencePerDay
           })
         : schoolConfig;
-      const powerStationConfig = context.config.balance.powerStation
-        ? applyPowerStationIncomeModifiers({
-            config: context.config.balance.powerStation,
+      const streetDealersConfig = context.config.balance.streetDealers
+        ? applyStreetDealersIncomeModifiers({
+            config: context.config.balance.streetDealers,
+            smugglingTunnelConfig: context.config.balance.smugglingTunnel,
             state,
             building,
-            tick: state.root.tick,
             cleanPerHour: smugglingTunnelConfig.cleanPerHour,
             dirtyPerHour: smugglingTunnelConfig.dirtyPerHour,
             heatPerDay: smugglingTunnelConfig.heatPerDay,
             influencePerDay: smugglingTunnelConfig.influencePerDay
           })
         : smugglingTunnelConfig;
+      const powerStationConfig = context.config.balance.powerStation
+        ? applyPowerStationIncomeModifiers({
+            config: context.config.balance.powerStation,
+            state,
+            building,
+            tick: state.root.tick,
+            cleanPerHour: streetDealersConfig.cleanPerHour,
+            dirtyPerHour: streetDealersConfig.dirtyPerHour,
+            heatPerDay: streetDealersConfig.heatPerDay,
+            influencePerDay: streetDealersConfig.influencePerDay
+          })
+        : streetDealersConfig;
       return total + sanitizePerDay(powerStationConfig.heatPerDay);
     }, 0);
     const baseInfluencePerDay = activeBuildings.reduce((total, { building, config }) => {
@@ -482,17 +561,75 @@ const applyFixedBuildingPassivePressure = (
             influencePerDay: fitnessClubConfig.influencePerDay
           })
         : fitnessClubConfig;
+      const stockExchangeConfig = context.config.balance.stockExchange
+        ? applyStockExchangeIncomeModifiers({
+            config: context.config.balance.stockExchange,
+            state,
+            building,
+            tick: state.root.tick,
+            cleanPerHour: shoppingMallConfig.cleanPerHour,
+            dirtyPerHour: shoppingMallConfig.dirtyPerHour,
+            heatPerDay: shoppingMallConfig.heatPerDay,
+            influencePerDay: shoppingMallConfig.influencePerDay
+          })
+        : shoppingMallConfig;
+      const airportConfig = context.config.balance.airport
+        ? applyAirportIncomeModifiers({
+            config: context.config.balance.airport,
+            building,
+            cleanPerHour: stockExchangeConfig.cleanPerHour,
+            dirtyPerHour: stockExchangeConfig.dirtyPerHour,
+            heatPerDay: stockExchangeConfig.heatPerDay,
+            influencePerDay: stockExchangeConfig.influencePerDay
+          })
+        : stockExchangeConfig;
+      const cityHallConfig = context.config.balance.cityHall
+        ? applyCityHallIncomeModifiers({
+            config: context.config.balance.cityHall,
+            state,
+            building,
+            districtId: district.id,
+            tick: state.root.tick,
+            cleanPerHour: airportConfig.cleanPerHour,
+            dirtyPerHour: airportConfig.dirtyPerHour,
+            heatPerDay: airportConfig.heatPerDay,
+            influencePerDay: airportConfig.influencePerDay
+          })
+        : airportConfig;
+      const centralBankConfig = context.config.balance.centralBank
+        ? applyCentralBankIncomeModifiers({
+            config: context.config.balance.centralBank,
+            state,
+            building,
+            tick: state.root.tick,
+            cleanPerHour: cityHallConfig.cleanPerHour,
+            dirtyPerHour: cityHallConfig.dirtyPerHour,
+            heatPerDay: cityHallConfig.heatPerDay,
+            influencePerDay: cityHallConfig.influencePerDay
+          })
+        : cityHallConfig;
+      const vipLoungeConfig = context.config.balance.vipLounge
+        ? applyVipLoungeIncomeModifiers({
+            config: context.config.balance.vipLounge,
+            state,
+            building,
+            cleanPerHour: centralBankConfig.cleanPerHour,
+            dirtyPerHour: centralBankConfig.dirtyPerHour,
+            heatPerDay: centralBankConfig.heatPerDay,
+            influencePerDay: centralBankConfig.influencePerDay
+          })
+        : centralBankConfig;
       const garageConfig = context.config.balance.garage
         ? applyGarageIncomeModifiers({
             config: context.config.balance.garage,
             state,
             building,
-            cleanPerHour: shoppingMallConfig.cleanPerHour,
-            dirtyPerHour: shoppingMallConfig.dirtyPerHour,
-            heatPerDay: shoppingMallConfig.heatPerDay,
-            influencePerDay: shoppingMallConfig.influencePerDay
-        })
-        : shoppingMallConfig;
+            cleanPerHour: vipLoungeConfig.cleanPerHour,
+            dirtyPerHour: vipLoungeConfig.dirtyPerHour,
+            heatPerDay: vipLoungeConfig.heatPerDay,
+            influencePerDay: vipLoungeConfig.influencePerDay
+          })
+        : vipLoungeConfig;
       const carDealerConfig = context.config.balance.carDealer
         ? applyCarDealerIncomeModifiers({
             config: context.config.balance.carDealer,
@@ -539,18 +676,30 @@ const applyFixedBuildingPassivePressure = (
             influencePerDay: schoolConfig.influencePerDay
           })
         : schoolConfig;
-      const powerStationConfig = context.config.balance.powerStation
-        ? applyPowerStationIncomeModifiers({
-            config: context.config.balance.powerStation,
+      const streetDealersConfig = context.config.balance.streetDealers
+        ? applyStreetDealersIncomeModifiers({
+            config: context.config.balance.streetDealers,
+            smugglingTunnelConfig: context.config.balance.smugglingTunnel,
             state,
             building,
-            tick: state.root.tick,
             cleanPerHour: smugglingTunnelConfig.cleanPerHour,
             dirtyPerHour: smugglingTunnelConfig.dirtyPerHour,
             heatPerDay: smugglingTunnelConfig.heatPerDay,
             influencePerDay: smugglingTunnelConfig.influencePerDay
           })
         : smugglingTunnelConfig;
+      const powerStationConfig = context.config.balance.powerStation
+        ? applyPowerStationIncomeModifiers({
+            config: context.config.balance.powerStation,
+            state,
+            building,
+            tick: state.root.tick,
+            cleanPerHour: streetDealersConfig.cleanPerHour,
+            dirtyPerHour: streetDealersConfig.dirtyPerHour,
+            heatPerDay: streetDealersConfig.heatPerDay,
+            influencePerDay: streetDealersConfig.influencePerDay
+          })
+        : streetDealersConfig;
       return total + sanitizePerDay(powerStationConfig.influencePerDay);
     }, 0);
     const heatPerDay = baseHeatPerDay * modifiers.heatMultiplier + modifiers.heatPerDay;

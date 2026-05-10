@@ -101,8 +101,9 @@ export function createBuildingNetworkRuntime(deps = {}) {
     const config = deps.smugglingTunnelConfig;
     return {
       dirtyProductionMultiplier: Math.min(config.maxDirtyProductionMultiplier, 1 + extra * config.dirtyProductionBonusPctPerExtraTunnel / 100),
-      batchCapacityMultiplier: Math.min(config.maxBatchCapacityMultiplier, 1 + extra * config.batchCapacityBonusPctPerExtraTunnel / 100),
-      passiveHeatMultiplier: Math.min(config.maxPassiveHeatMultiplier, 1 + extra * config.passiveHeatBonusPctPerExtraTunnel / 100)
+      batchCapacityMultiplier: 1,
+      heatMultiplier: Math.min(config.maxHeatMultiplier ?? config.maxPassiveHeatMultiplier, 1 + extra * (config.heatBonusPctPerExtraTunnel ?? config.passiveHeatBonusPctPerExtraTunnel) / 100),
+      passiveHeatMultiplier: Math.min(config.maxHeatMultiplier ?? config.maxPassiveHeatMultiplier, 1 + extra * (config.heatBonusPctPerExtraTunnel ?? config.passiveHeatBonusPctPerExtraTunnel) / 100)
     };
   };
   const getSmugglingTunnelCollectHeat = (amount) => {

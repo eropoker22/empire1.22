@@ -179,9 +179,9 @@ describe("building panel rendering", () => {
     renderBuildingActionRows(mount, [
       {
         index: 0,
-        title: "Tichý kanál",
-        description: "Cena 600 dirty.",
-        cooldownLabel: "Cooldown: 20m 00s",
+        title: "Otevřít kanál",
+        description: "Cena 800 dirty.",
+        cooldownLabel: "Cooldown: 18m 00s",
         disabled: true
       },
       {
@@ -195,7 +195,7 @@ describe("building panel rendering", () => {
 
     expect(mount.children).toHaveLength(2);
     expect(mount.children[0].disabled).toBe(true);
-    expect(mount.children[0].children[2].textContent).toBe("Cooldown: 20m 00s");
+    expect(mount.children[0].children[2].textContent).toBe("Cooldown: 18m 00s");
     expect(mount.children[1].dataset.districtBuildingDetailActionIndex).toBe("1");
 
     mount.children[1].click();

@@ -1,8 +1,11 @@
 import type { ResolvedGameModeConfig } from "../../contracts/game-mode-config";
 import { freeModeApartmentBlockConfig } from "../../public/free-mode-apartment-block-config";
+import { freeModeAirportConfig } from "../../public/free-mode-airport-config";
 import { freeModeArcadeConfig } from "../../public/free-mode-arcade-config";
 import { freeModeCasinoConfig } from "../../public/free-mode-casino-config";
 import { freeModeCarDealerConfig } from "../../public/free-mode-car-dealer-config";
+import { freeModeCentralBankConfig } from "../../public/free-mode-central-bank-config";
+import { freeModeCityHallConfig } from "../../public/free-mode-city-hall-config";
 import { freeModeClinicConfig } from "../../public/free-mode-clinic-config";
 import { freeModeConvenienceStoreConfig } from "../../public/free-mode-convenience-store-config";
 import { freeModeExchangeOfficeConfig } from "../../public/free-mode-exchange-office-config";
@@ -12,10 +15,13 @@ import { freeModePowerStationConfig } from "../../public/free-mode-power-station
 import { freeModeRecyclingCenterConfig } from "../../public/free-mode-recycling-center-config";
 import { freeModeSchoolConfig } from "../../public/free-mode-school-config";
 import { freeModeSmugglingTunnelConfig } from "../../public/free-mode-smuggling-tunnel-config";
+import { freeModeStreetDealersConfig } from "../../public/free-mode-street-dealers-config";
 import { freeModeRecruitmentCenterConfig } from "../../public/free-mode-recruitment-center-config";
 import { freeModeRestaurantConfig } from "../../public/free-mode-restaurant-config";
 import { freeModeShoppingMallConfig } from "../../public/free-mode-shopping-mall-config";
+import { freeModeStockExchangeConfig } from "../../public/free-mode-stock-exchange-config";
 import { freeModeStripClubConfig } from "../../public/free-mode-strip-club-config";
+import { freeModeVipLoungeConfig } from "../../public/free-mode-vip-lounge-config";
 import { freeModeWarehouseConfig } from "../../public/free-mode-warehouse-config";
 import { freeModePoliceConfig } from "./free-police-config";
 
@@ -142,6 +148,41 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
         influencePerDay: freeModeShoppingMallConfig.influencePerMinute * 60 * 24,
         maxLevel: 1
       },
+      central_bank: {
+        cleanPerHour: freeModeCentralBankConfig.cleanCashPerMinute * 60,
+        dirtyPerHour: 0,
+        heatPerDay: freeModeCentralBankConfig.heatPerMinute * 60 * 24,
+        influencePerDay: freeModeCentralBankConfig.influencePerMinute * 60 * 24,
+        maxLevel: 1
+      },
+      stock_exchange: {
+        cleanPerHour: freeModeStockExchangeConfig.cleanCashPerMinute * 60,
+        dirtyPerHour: 0,
+        heatPerDay: freeModeStockExchangeConfig.heatPerMinute * 60 * 24,
+        influencePerDay: freeModeStockExchangeConfig.influencePerMinute * 60 * 24,
+        maxLevel: 1
+      },
+      airport: {
+        cleanPerHour: freeModeAirportConfig.cleanCashPerMinute * 60,
+        dirtyPerHour: freeModeAirportConfig.dirtyCashPerMinute * 60,
+        heatPerDay: freeModeAirportConfig.heatPerMinute * 60 * 24,
+        influencePerDay: freeModeAirportConfig.influencePerMinute * 60 * 24,
+        maxLevel: 1
+      },
+      city_hall: {
+        cleanPerHour: freeModeCityHallConfig.cleanCashPerMinute * 60,
+        dirtyPerHour: 0,
+        heatPerDay: freeModeCityHallConfig.heatPerMinute * 60 * 24,
+        influencePerDay: freeModeCityHallConfig.influencePerMinute * 60 * 24,
+        maxLevel: 1
+      },
+      vip_lounge: {
+        cleanPerHour: freeModeVipLoungeConfig.cleanCashPerMinute * 60,
+        dirtyPerHour: freeModeVipLoungeConfig.dirtyCashPerMinute * 60,
+        heatPerDay: freeModeVipLoungeConfig.heatPerMinute * 60 * 24,
+        influencePerDay: freeModeVipLoungeConfig.influencePerMinute * 60 * 24,
+        maxLevel: 1
+      },
       fitness_club: {
         cleanPerHour: freeModeFitnessClubConfig.cleanCashPerMinute * 60,
         dirtyPerHour: 0,
@@ -180,41 +221,213 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
       smuggling_tunnel: {
         cleanPerHour: 0,
         dirtyPerHour: freeModeSmugglingTunnelConfig.dirtyCashPerMinute * 60,
-        heatPerDay: freeModeSmugglingTunnelConfig.passiveHeatPerMinute * 60 * 24,
+        heatPerDay: freeModeSmugglingTunnelConfig.heatPerMinute * 60 * 24,
+        influencePerDay: 0,
+        maxLevel: 1
+      },
+      street_dealers: {
+        cleanPerHour: 0,
+        dirtyPerHour: freeModeStreetDealersConfig.dirtyCashPerMinute * 60,
+        heatPerDay: freeModeStreetDealersConfig.heatPerMinute * 60 * 24,
         influencePerDay: 0,
         maxLevel: 1
       }
     },
     buildingActions: {
-      collect_smuggling_batch: {
-        actionId: "collect_smuggling_batch",
-        buildingType: "smuggling_tunnel",
-        label: "Vybrat dávku",
-        description: "Přesune lokální dirty cash dávku z konkrétního Pašovacího tunelu do globální dirty cash.",
+      official_cover: {
+        actionId: "official_cover",
+        buildingType: "city_hall",
+        label: "Úřední krytí",
+        description: "Na 8 minut sníží heat gain, police control chance a rumor chance ve zvoleném vlastněném districtu.",
+        durationMs: freeModeCityHallConfig.officialCover.durationMinutes * 60 * 1000,
+        cooldownMs: freeModeCityHallConfig.officialCover.cooldownMinutes * 60 * 1000,
+        inputCost: { cash: freeModeCityHallConfig.officialCover.costCleanCash },
+        outputGain: {},
+        heatGain: freeModeCityHallConfig.officialCover.heatGain,
+        influenceChange: -freeModeCityHallConfig.officialCover.costInfluence,
+        requiredOwner: true,
+        allowedIfContested: false,
+        reportText: "Úřední krytí je aktivní. Cílový district má dočasně slabší heat a policejní tlak."
+      },
+      city_contract: {
+        actionId: "city_contract",
+        buildingType: "city_hall",
+        label: "Městská zakázka",
+        description: "Převede politický vliv na clean cash podle počtu legálních budov hráče.",
         durationMs: 0,
-        cooldownMs: 0,
+        cooldownMs: freeModeCityHallConfig.cityContract.cooldownMinutes * 60 * 1000,
         inputCost: {},
         outputGain: {},
-        heatGain: 0,
-        influenceChange: 0,
+        heatGain: freeModeCityHallConfig.cityContract.heatGain,
+        influenceChange: -freeModeCityHallConfig.cityContract.costInfluence,
         requiredOwner: true,
         allowedIfContested: false,
-        reportText: "Vybere dirty cash dávku z Pašovacího tunelu."
+        reportText: "Městská zakázka připsala clean cash podle legální infrastruktury."
       },
-      silent_channel: {
-        actionId: "silent_channel",
-        buildingType: "smuggling_tunnel",
-        label: "Tichý kanál",
-        description: "Na 8 minut zvýší dirty cash produkci, passive heat a kapacitu dávky v daném tunelu. Po skončení má 12% riziko zátahu.",
-        durationMs: freeModeSmugglingTunnelConfig.silentChannel.durationMinutes * 60 * 1000,
-        cooldownMs: freeModeSmugglingTunnelConfig.silentChannel.cooldownMinutes * 60 * 1000,
-        inputCost: { "dirty-cash": freeModeSmugglingTunnelConfig.silentChannel.costDirtyCash },
+      emergency_decree: {
+        actionId: "emergency_decree",
+        buildingType: "city_hall",
+        label: "Nouzová vyhláška",
+        description: "Na 6 minut spustí městský režim: Noční hlídky, Zastavené kontroly nebo Stavební uzávěru.",
+        durationMs: freeModeCityHallConfig.emergencyDecree.durationMinutes * 60 * 1000,
+        cooldownMs: freeModeCityHallConfig.emergencyDecree.cooldownMinutes * 60 * 1000,
+        inputCost: { cash: freeModeCityHallConfig.emergencyDecree.costCleanCash },
         outputGain: {},
-        heatGain: 0,
+        heatGain: freeModeCityHallConfig.emergencyDecree.heatGain,
+        influenceChange: -freeModeCityHallConfig.emergencyDecree.costInfluence,
+        requiredOwner: true,
+        allowedIfContested: false,
+        reportText: "Magistrát vydal nouzovou vyhlášku. Město se na chvíli mění."
+      },
+      express_import: {
+        actionId: "express_import",
+        buildingType: "airport",
+        label: "Expresní dovoz",
+        description: "Po 90 sekundách doručí importní zásilku vybrané kategorie do skladu hráče. Přesah přes storage kapacitu propadne.",
+        durationMs: freeModeAirportConfig.expressImport.durationSeconds * 1000,
+        cooldownMs: freeModeAirportConfig.expressImport.cooldownMinutes * 60 * 1000,
+        inputCost: { cash: freeModeAirportConfig.expressImport.costCleanCash },
+        outputGain: {},
+        heatGain: freeModeAirportConfig.expressImport.heatGain,
         influenceChange: 0,
         requiredOwner: true,
         allowedIfContested: false,
-        reportText: "Tichý kanál dočasně zvedne pašovací dávku a riziko."
+        reportText: "Expresní dovoz byl objednán. Zásilka dorazí po krátkém runway okně."
+      },
+      black_charter: {
+        actionId: "black_charter",
+        buildingType: "airport",
+        label: "Černý charter",
+        description: "Na 8 minut otevře speciální Black Market nabídku se slevou a celním rizikem při nákupu.",
+        durationMs: 0,
+        cooldownMs: freeModeAirportConfig.blackCharter.cooldownMinutes * 60 * 1000,
+        inputCost: { "dirty-cash": freeModeAirportConfig.blackCharter.costDirtyCash },
+        outputGain: {},
+        heatGain: freeModeAirportConfig.blackCharter.heatGain,
+        influenceChange: 0,
+        requiredOwner: true,
+        allowedIfContested: false,
+        reportText: "Černý charter otevřel dočasnou Black Market nabídku."
+      },
+      evacuation_corridor: {
+        actionId: "evacuation_corridor",
+        buildingType: "airport",
+        label: "Evakuační koridor",
+        description: "Na 7 minut zlepší únik, sníží ztráty při neúspěchu a zrychlí návratové logistické časy.",
+        durationMs: freeModeAirportConfig.evacuationCorridor.durationMinutes * 60 * 1000,
+        cooldownMs: freeModeAirportConfig.evacuationCorridor.cooldownMinutes * 60 * 1000,
+        inputCost: { cash: freeModeAirportConfig.evacuationCorridor.costCleanCash },
+        outputGain: {},
+        heatGain: freeModeAirportConfig.evacuationCorridor.heatGain,
+        influenceChange: 0,
+        requiredOwner: true,
+        allowedIfContested: false,
+        reportText: "Evakuační koridor je aktivní. Únik a logistika mají dočasný boost."
+      },
+      speculative_buy: {
+        actionId: "speculative_buy",
+        buildingType: "stock_exchange",
+        label: "Spekulativní nákup",
+        description: "Investuje clean cash do vybrané market kategorie. Výsledek může být zisk, neutrální pohyb nebo ztráta.",
+        durationMs: 0,
+        cooldownMs: freeModeStockExchangeConfig.speculativeBuy.cooldownMinutes * 60 * 1000,
+        inputCost: { cash: freeModeStockExchangeConfig.speculativeBuy.costCleanCash },
+        outputGain: {},
+        heatGain: freeModeStockExchangeConfig.speculativeBuy.heatGain,
+        influenceChange: 0,
+        requiredOwner: true,
+        allowedIfContested: false,
+        reportText: "Burza provedla spekulativní nákup a zvýšila financial inspection risk."
+      },
+      market_pressure: {
+        actionId: "market_pressure",
+        buildingType: "stock_exchange",
+        label: "Tržní tlak",
+        description: "Na 10 minut server-wide pumpne nebo dumpne ceny vybrané market kategorie.",
+        durationMs: freeModeStockExchangeConfig.marketPressure.durationMinutes * 60 * 1000,
+        cooldownMs: freeModeStockExchangeConfig.marketPressure.cooldownMinutes * 60 * 1000,
+        inputCost: { cash: freeModeStockExchangeConfig.marketPressure.costCleanCash },
+        outputGain: {},
+        heatGain: freeModeStockExchangeConfig.marketPressure.heatGain,
+        influenceChange: -freeModeStockExchangeConfig.marketPressure.costInfluence,
+        requiredOwner: true,
+        allowedIfContested: false,
+        reportText: "Downtown burza rozkolísala ceny ve vybrané kategorii."
+      },
+      insider_window: {
+        actionId: "insider_window",
+        buildingType: "stock_exchange",
+        label: "Insider Window",
+        description: "Na 6 minut zlepší trend hints, fee reduction a šanci Spekulativního nákupu.",
+        durationMs: freeModeStockExchangeConfig.insiderWindow.durationMinutes * 60 * 1000,
+        cooldownMs: freeModeStockExchangeConfig.insiderWindow.cooldownMinutes * 60 * 1000,
+        inputCost: { cash: freeModeStockExchangeConfig.insiderWindow.costCleanCash },
+        outputGain: {},
+        heatGain: freeModeStockExchangeConfig.insiderWindow.heatGain,
+        influenceChange: 0,
+        requiredOwner: true,
+        allowedIfContested: false,
+        reportText: "Insider Window aktivní. Burza ukazuje hlubší trend hints, ale zvedá financial inspection risk."
+      },
+      liquidity_injection: {
+        actionId: "liquidity_injection",
+        buildingType: "central_bank",
+        label: "Likviditní injekce",
+        description: "Okamžitě přidá clean cash podle velikosti čisté ekonomiky hráče a zvýší Financial Oversight risk.",
+        durationMs: 0,
+        cooldownMs: freeModeCentralBankConfig.liquidityInjection.cooldownMinutes * 60 * 1000,
+        inputCost: {},
+        outputGain: {},
+        heatGain: freeModeCentralBankConfig.liquidityInjection.heatGain,
+        influenceChange: -freeModeCentralBankConfig.liquidityInjection.costInfluence,
+        requiredOwner: true,
+        allowedIfContested: false,
+        reportText: "Centrální banka provedla likviditní injekci podle čisté ekonomiky hráče."
+      },
+      frozen_accounts: {
+        actionId: "frozen_accounts",
+        buildingType: "central_bank",
+        label: "Zmrazené účty",
+        description: "Na 8 minut zvýší ochranu clean cash, sníží pokuty a finanční ztráty, ale zhorší market fee.",
+        durationMs: freeModeCentralBankConfig.frozenAccounts.durationMinutes * 60 * 1000,
+        cooldownMs: freeModeCentralBankConfig.frozenAccounts.cooldownMinutes * 60 * 1000,
+        inputCost: { cash: freeModeCentralBankConfig.frozenAccounts.costCleanCash },
+        outputGain: {},
+        heatGain: freeModeCentralBankConfig.frozenAccounts.heatGain,
+        influenceChange: 0,
+        requiredOwner: true,
+        allowedIfContested: false,
+        reportText: "Zmrazené účty chrání rezervy, ale zhoršují poplatkovou stopu na marketu."
+      },
+      currency_intervention: {
+        actionId: "currency_intervention",
+        buildingType: "central_bank",
+        label: "Kurzovní intervence",
+        description: "Na 8 minut stabilizuje vybranou market kategorii a tlumí účinek Tržního tlaku z Burzy.",
+        durationMs: freeModeCentralBankConfig.currencyIntervention.durationMinutes * 60 * 1000,
+        cooldownMs: freeModeCentralBankConfig.currencyIntervention.cooldownMinutes * 60 * 1000,
+        inputCost: { cash: freeModeCentralBankConfig.currencyIntervention.costCleanCash },
+        outputGain: {},
+        heatGain: freeModeCentralBankConfig.currencyIntervention.heatGain,
+        influenceChange: -freeModeCentralBankConfig.currencyIntervention.costInfluence,
+        requiredOwner: true,
+        allowedIfContested: false,
+        reportText: "Centrální banka spustila kurzovní intervenci ve vybrané kategorii."
+      },
+      open_channel: {
+        actionId: "open_channel",
+        buildingType: "smuggling_tunnel",
+        label: "Otevřít kanál",
+        description: "Na 7 minut globálně posílí dirty cash produkci Pašovacích tunelů a prodej Pouličních dealerů. Nestackuje se.",
+        durationMs: freeModeSmugglingTunnelConfig.openChannel.durationMinutes * 60 * 1000,
+        cooldownMs: freeModeSmugglingTunnelConfig.openChannel.cooldownMinutes * 60 * 1000,
+        inputCost: { "dirty-cash": freeModeSmugglingTunnelConfig.openChannel.costDirtyCash },
+        outputGain: {},
+        heatGain: freeModeSmugglingTunnelConfig.openChannel.heatGain,
+        influenceChange: 0,
+        requiredOwner: true,
+        allowedIfContested: false,
+        reportText: "Otevřený kanál krátkodobě zvedne tok špinavých peněz, dealer rewardy a street risk."
       },
       extract_losses: {
         actionId: "extract_losses",
@@ -461,6 +674,21 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
         requiredOwner: true,
         allowedIfContested: false,
         reportText: "Záložní síť aktivní. Infrastructure a defense systémy jsou dočasně posílené."
+      },
+      start_drug_sale: {
+        actionId: "start_drug_sale",
+        buildingType: "street_dealers",
+        label: "Spustit prodej",
+        description: "Použije globální dealer slot k prodeji látky vyrobené v Drug Labu za dirty cash.",
+        durationMs: 0,
+        cooldownMs: 0,
+        inputCost: {},
+        outputGain: {},
+        heatGain: 0,
+        influenceChange: 0,
+        requiredOwner: true,
+        allowedIfContested: false,
+        reportText: "Pouliční dealeři spustili prodej přes vybraný slot."
       }
     },
     casino: freeModeCasinoConfig,
@@ -474,11 +702,17 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
     restaurant: freeModeRestaurantConfig,
     convenienceStore: freeModeConvenienceStoreConfig,
     shoppingMall: freeModeShoppingMallConfig,
+    stockExchange: freeModeStockExchangeConfig,
+    centralBank: freeModeCentralBankConfig,
+    airport: freeModeAirportConfig,
+    cityHall: freeModeCityHallConfig,
+    vipLounge: freeModeVipLoungeConfig,
     fitnessClub: freeModeFitnessClubConfig,
     recruitmentCenter: freeModeRecruitmentCenterConfig,
     garage: freeModeGarageConfig,
     carDealer: freeModeCarDealerConfig,
     smugglingTunnel: freeModeSmugglingTunnelConfig,
+    streetDealers: freeModeStreetDealersConfig,
     recyclingCenter: freeModeRecyclingCenterConfig,
     powerStation: freeModePowerStationConfig
   },

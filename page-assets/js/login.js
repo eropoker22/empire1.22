@@ -290,32 +290,32 @@ const SERVER_STATUS_STATES = Object.freeze([
     status: "ONLINE",
     players: "17/20 hráčů",
     heat: 78,
-    market: "VERY HIGH",
-    sparkline: "0,34 10,29 18,37 30,24 40,31 50,19 60,32 70,15 82,28 94,22 108,36 122,18 136,24 148,12 160,26 172,16 180,20"
+    districtsControlled: 124,
+    districtsMax: 161
   },
   {
     server: "WAR-01",
     status: "RAID ALERT",
     players: "20/20 hráčů",
     heat: 92,
-    market: "SPIKING",
-    sparkline: "0,39 10,31 20,42 32,22 44,36 56,17 68,33 80,12 92,28 104,18 118,40 132,16 146,30 158,10 170,24 180,14"
+    districtsControlled: 151,
+    districtsMax: 161
   },
   {
     server: "FREE-02",
     status: "SYNCING",
     players: "14/20 hráčů",
     heat: 46,
-    market: "UNSTABLE",
-    sparkline: "0,28 12,32 24,25 36,30 48,24 60,28 72,18 84,24 96,21 108,27 120,19 132,25 144,17 156,22 168,18 180,23"
+    districtsControlled: 89,
+    districtsMax: 161
   },
   {
     server: "WAR-02",
     status: "HOT ZONE",
     players: "19/20 hráčů",
     heat: 88,
-    market: "BLACK MARKET",
-    sparkline: "0,36 10,22 22,38 34,18 46,33 58,14 70,35 82,11 94,31 106,20 118,39 130,15 142,32 154,12 166,28 180,16"
+    districtsControlled: 143,
+    districtsMax: 161
   }
 ]);
 
@@ -1077,20 +1077,28 @@ function renderServerStatus(status, options = {}) {
   const stateLabel = document.querySelector("[data-server-status-state]");
   const players = document.querySelector("[data-server-status-players]");
   const heat = document.querySelector("[data-server-status-heat]");
-  const heatBar = document.querySelector("[data-server-status-heat-bar]");
-  const market = document.querySelector("[data-server-status-market]");
-  const sparkline = document.querySelector("[data-server-status-sparkline]");
+  const heatCircle = document.querySelector("[data-server-status-heat-circle]");
+  const heatCircleValue = document.querySelector("[data-server-status-heat-circle-value]");
+  const districts = document.querySelector("[data-server-status-districts]");
+  const districtsCircle = document.querySelector("[data-server-status-districts-circle]");
+  const districtsCount = document.querySelector("[data-server-status-districts-count]");
 
   if (!(panel instanceof HTMLElement)) {
     return;
   }
 
   const applyStatus = (typewrite = true) => {
-    if (heatBar instanceof HTMLElement) {
-      heatBar.style.width = `${status.heat}%`;
+    const districtsMax = Number.isFinite(status.districtsMax) ? status.districtsMax : 161;
+    const districtsRatio = districtsMax > 0 ? Math.max(0, Math.min(100, (status.districtsControlled / districtsMax) * 100)) : 0;
+    const serverMode = typeof status.server === "string" && status.server.startsWith("WAR") ? "war" : "free";
+
+    panel.dataset.serverMode = serverMode;
+
+    if (heatCircle instanceof HTMLElement) {
+      heatCircle.style.setProperty("--value", `${status.heat}`);
     }
-    if (sparkline) {
-      sparkline.setAttribute("points", status.sparkline);
+    if (districtsCircle instanceof HTMLElement) {
+      districtsCircle.style.setProperty("--value", `${districtsRatio}`);
     }
 
     if (typewrite) {
@@ -1098,7 +1106,9 @@ function renderServerStatus(status, options = {}) {
       typeServerStatusText(stateLabel, status.status, 46);
       typeServerStatusText(players, status.players, 34);
       typeServerStatusText(heat, `${status.heat} %`, 58);
-      typeServerStatusText(market, status.market, 40);
+      typeServerStatusText(heatCircleValue, `${status.heat}%`, 40);
+      typeServerStatusText(districts, `${status.districtsControlled} / ${districtsMax}`, 38);
+      typeServerStatusText(districtsCount, `${status.districtsControlled}`, 34);
       return;
     }
 
@@ -1106,7 +1116,9 @@ function renderServerStatus(status, options = {}) {
     setServerStatusText(stateLabel, status.status);
     setServerStatusText(players, status.players);
     setServerStatusText(heat, `${status.heat} %`);
-    setServerStatusText(market, status.market);
+    setServerStatusText(heatCircleValue, `${status.heat}%`);
+    setServerStatusText(districts, `${status.districtsControlled} / ${districtsMax}`);
+    setServerStatusText(districtsCount, `${status.districtsControlled}`);
   };
 
   window.clearTimeout(state.serverStatusApplyTimer);

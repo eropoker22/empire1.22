@@ -41,7 +41,7 @@ function createRuntime(overrides = {}) {
     resolveDistrictBuildingProfile: (district) => ({ buildings: profiles[district.id] || [] }),
     schoolConfig: { maxPopulationProductionMultiplier: 2, populationProductionBonusPctPerExtraSchool: 10, maxStudentCapacityMultiplier: 2, studentCapacityBonusPctPerExtraSchool: 10, maxIncomeMultiplier: 2, incomeBonusPctPerExtraSchool: 10, maxTalentChancePct: 50, baseTalentChancePct: 10, talentChancePctPerExtraSchool: 5, eveningCourseTalentChanceBonusPct: 20 },
     shoppingMallNetworkConfig: { maxCleanIncomeMultiplier: 2, cleanIncomeBonusPctPerExtraMall: 10, maxDirtyIncomeMultiplier: 2, dirtyIncomeBonusPctPerExtraMall: 10, maxInfluenceMultiplier: 2, influenceBonusPctPerExtraMall: 10, maxHeatMultiplier: 2, heatBonusPctPerExtraMall: 10 },
-    smugglingTunnelConfig: { maxDirtyProductionMultiplier: 2, dirtyProductionBonusPctPerExtraTunnel: 10, maxBatchCapacityMultiplier: 2, batchCapacityBonusPctPerExtraTunnel: 10, maxPassiveHeatMultiplier: 2, passiveHeatBonusPctPerExtraTunnel: 10 },
+    smugglingTunnelConfig: { maxDirtyProductionMultiplier: 2, dirtyProductionBonusPctPerExtraTunnel: 10, maxHeatMultiplier: 2, heatBonusPctPerExtraTunnel: 10 },
     startPhaseOwnerByDistrictId: new Map([[1, 1], [2, 1], [3, 2]]),
     warehouseBaseStorageCapacities: { genericResources: 10, chemicals: 10, biomass: 10, metalParts: 10, techCore: 10, combatModule: 10, drugsAndBoosts: 10, weaponsAndDefense: 10 },
     warehouseNetworkConfig: { maxIncomeMultiplier: 2, incomeBonusPctPerExtraWarehouse: 10, maxStorageCapacityMultiplier: 2, storageCapacityBonusPctPerExtraWarehouse: 10, maxHeatMultiplier: 2, heatBonusPctPerExtraWarehouse: 10 },

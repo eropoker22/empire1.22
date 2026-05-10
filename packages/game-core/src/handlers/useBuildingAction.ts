@@ -7,6 +7,8 @@ import type { GameCoreContext } from "../engine/context";
 import { CORE_EVENT_TYPES, createEvent } from "../events";
 import { composeEntityId } from "../utils";
 import { validateRunBuildingAction } from "../validation";
+import { resolveAirportAction } from "./airportBuildingActions";
+import { resolveCityHallAction, resolveCityHallInfluenceActionCostReductionPct } from "./cityHallBuildingActions";
 import { resolveBuildingActionSpecialEffect } from "./buildingActionSpecialEffects";
 import {
   createBuildingActionReportNotification,
@@ -17,6 +19,7 @@ import {
 import { resolveArcadeAction } from "./arcadeBuildingActions";
 import { resolveApartmentBlockAction } from "./apartmentBlockBuildingActions";
 import { resolveCasinoAction } from "./casinoBuildingActions";
+import { resolveCentralBankAction, resolveCentralBankInfluenceActionCostReductionPct } from "./centralBankBuildingActions";
 import { resolveClinicAction } from "./clinicBuildingActions";
 import { resolveExchangeOfficeAction } from "./exchangeOfficeBuildingActions";
 import {
@@ -31,6 +34,8 @@ import { resolvePowerStationAction } from "./powerStationBuildingActions";
 import { resolveRecyclingCenterAction } from "./recyclingCenterBuildingActions";
 import { resolveSchoolAction } from "./schoolBuildingActions";
 import { resolveSmugglingTunnelAction } from "./smugglingTunnelBuildingActions";
+import { resolveStockExchangeAction } from "./stockExchangeBuildingActions";
+import { resolveStreetDealersAction } from "./streetDealersBuildingActions";
 import { resolveStripClubAction } from "./stripClubBuildingActions";
 import { createPlayerPoliceState, resolveWantedLevel } from "./playerPoliceState";
 
@@ -164,6 +169,7 @@ export const handleUseBuildingAction = (
   const smugglingTunnelResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && !clinicResolution && !recyclingCenterResolution && !stripClubResolution && !powerStationResolution && context.config.balance.smugglingTunnel
     ? resolveSmugglingTunnelAction({
         state,
+        player,
         building,
         actionId: action.actionId,
         balances: nextBalances,
@@ -171,7 +177,56 @@ export const handleUseBuildingAction = (
         tickRateMs: context.config.tickRateMs
       })
     : null;
-  const schoolResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && !clinicResolution && !recyclingCenterResolution && !stripClubResolution && !powerStationResolution && !smugglingTunnelResolution && context.config.balance.school
+  const stockExchangeResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && !clinicResolution && !recyclingCenterResolution && !stripClubResolution && !powerStationResolution && !smugglingTunnelResolution && context.config.balance.stockExchange
+    ? resolveStockExchangeAction({
+        state,
+        building,
+        action,
+        balances: nextBalances,
+        config: context.config.balance.stockExchange,
+        tickRateMs: context.config.tickRateMs,
+        commandId: command.id,
+        payload: command.payload
+      })
+    : null;
+  const airportResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && !clinicResolution && !recyclingCenterResolution && !stripClubResolution && !powerStationResolution && !smugglingTunnelResolution && !stockExchangeResolution && context.config.balance.airport
+    ? resolveAirportAction({
+        state,
+        building,
+        action,
+        balances: nextBalances,
+        config: context.config.balance.airport,
+        tickRateMs: context.config.tickRateMs,
+        commandId: command.id,
+        payload: command.payload
+      })
+    : null;
+  const cityHallResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && !clinicResolution && !recyclingCenterResolution && !stripClubResolution && !powerStationResolution && !smugglingTunnelResolution && !stockExchangeResolution && !airportResolution && context.config.balance.cityHall
+    ? resolveCityHallAction({
+        state,
+        building,
+        action,
+        balances: nextBalances,
+        district,
+        config: context.config.balance.cityHall,
+        tickRateMs: context.config.tickRateMs,
+        commandId: command.id,
+        payload: command.payload
+      })
+    : null;
+  const centralBankResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && !clinicResolution && !recyclingCenterResolution && !stripClubResolution && !powerStationResolution && !smugglingTunnelResolution && !stockExchangeResolution && !airportResolution && !cityHallResolution && context.config.balance.centralBank
+    ? resolveCentralBankAction({
+        state,
+        building,
+        action,
+        balances: nextBalances,
+        config: context.config.balance.centralBank,
+        tickRateMs: context.config.tickRateMs,
+        commandId: command.id,
+        payload: command.payload
+      })
+    : null;
+  const schoolResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && !clinicResolution && !recyclingCenterResolution && !stripClubResolution && !powerStationResolution && !smugglingTunnelResolution && !stockExchangeResolution && !airportResolution && !cityHallResolution && !centralBankResolution && context.config.balance.school
     ? resolveSchoolAction({
         state,
         building,
@@ -181,8 +236,21 @@ export const handleUseBuildingAction = (
         tickRateMs: context.config.tickRateMs
       })
     : null;
-  const specialResolution = casinoResolution ?? exchangeOfficeResolution ?? arcadeResolution ?? apartmentBlockResolution ?? clinicResolution ?? recyclingCenterResolution ?? stripClubResolution ?? powerStationResolution ?? smugglingTunnelResolution ?? schoolResolution;
-  const resolvedAction: BuildingActionBalanceConfig = specialResolution
+  const streetDealersResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && !clinicResolution && !recyclingCenterResolution && !stripClubResolution && !powerStationResolution && !smugglingTunnelResolution && !stockExchangeResolution && !airportResolution && !cityHallResolution && !centralBankResolution && !schoolResolution && context.config.balance.streetDealers
+    ? resolveStreetDealersAction({
+        state,
+        player,
+        building,
+        action,
+        command,
+        balances: nextBalances,
+        config: context.config.balance.streetDealers,
+        smugglingTunnelConfig: context.config.balance.smugglingTunnel,
+        tickRateMs: context.config.tickRateMs
+      })
+    : null;
+  const specialResolution = casinoResolution ?? exchangeOfficeResolution ?? arcadeResolution ?? apartmentBlockResolution ?? clinicResolution ?? recyclingCenterResolution ?? stripClubResolution ?? powerStationResolution ?? smugglingTunnelResolution ?? stockExchangeResolution ?? airportResolution ?? cityHallResolution ?? centralBankResolution ?? schoolResolution ?? streetDealersResolution;
+  let resolvedAction: BuildingActionBalanceConfig = specialResolution
     ? {
         ...action,
         inputCost: specialResolution.inputCost,
@@ -193,6 +261,27 @@ export const handleUseBuildingAction = (
         reportText: specialResolution.reportText
       }
     : action;
+  const cityHallInfluenceReductionPct = building.buildingTypeId !== "city_hall" && resolvedAction.influenceChange < 0
+    ? resolveCityHallInfluenceActionCostReductionPct({
+        state,
+        playerId: player.id,
+        config: context.config.balance.cityHall
+      })
+    : 0;
+  const centralBankInfluenceReductionPct = building.buildingTypeId !== "central_bank" && resolvedAction.influenceChange < 0
+    ? resolveCentralBankInfluenceActionCostReductionPct({
+        state,
+        playerId: player.id,
+        config: context.config.balance.centralBank
+      })
+    : 0;
+  const influenceReductionPct = Math.min(25, cityHallInfluenceReductionPct + centralBankInfluenceReductionPct);
+  if (influenceReductionPct > 0) {
+    resolvedAction = {
+      ...resolvedAction,
+      influenceChange: -Math.ceil(Math.abs(resolvedAction.influenceChange) * (1 - influenceReductionPct / 100))
+    };
+  }
 
   if (specialResolution) {
     nextBalances = specialResolution.balances;
@@ -251,6 +340,8 @@ export const handleUseBuildingAction = (
       : {}),
     ...(clinicResolution ? { recoveryPool: clinicResolution.playerRecoveryPool } : {}),
     ...(recyclingCenterResolution ? { salvagePool: recyclingCenterResolution.playerSalvagePool } : {}),
+    ...(streetDealersResolution ? { metadata: streetDealersResolution.playerMetadata } : {}),
+    ...(smugglingTunnelResolution ? { metadata: smugglingTunnelResolution.playerMetadata } : {}),
     lastActionAt: command.issuedAt,
     version: player.version + 1
   };
@@ -287,7 +378,12 @@ export const handleUseBuildingAction = (
     stripClubResult: stripClubResolution?.stripClubResult,
     powerStationResult: powerStationResolution?.powerStationResult,
     smugglingTunnelResult: smugglingTunnelResolution?.smugglingTunnelResult,
-    schoolResult: schoolResolution?.schoolResult
+    airportResult: airportResolution?.airportResult,
+    cityHallResult: cityHallResolution?.cityHallResult,
+    centralBankResult: centralBankResolution?.centralBankResult,
+    stockExchangeResult: stockExchangeResolution?.stockExchangeResult,
+    schoolResult: schoolResolution?.schoolResult,
+    streetDealerResult: streetDealersResolution?.streetDealerResult
   });
   const nextEffectState = createDistrictBuildingActionEffectState({
     state,
@@ -355,6 +451,10 @@ export const handleUseBuildingAction = (
         effectModifiers: resolvedAction.effectModifiers,
         defenseAdded: specialEffect.defenseAdded,
         intelRevealedDistrictIds: specialEffect.intelRevealedDistrictIds,
+        airportResult: airportResolution?.airportResult,
+        cityHallResult: cityHallResolution?.cityHallResult,
+        centralBankResult: centralBankResolution?.centralBankResult,
+        stockExchangeResult: stockExchangeResolution?.stockExchangeResult,
         reportText: resolvedAction.reportText,
         eventId
       }),

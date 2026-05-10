@@ -117,19 +117,18 @@ describe("building detail view-model builder", () => {
     expect(rows.map((row) => row.label)).toEqual(["Lokální zásobník", "Produkce", "Síť"]);
   });
 
-  it("disables collect-style actions when supplied view state says requirements are missing", () => {
+  it("disables smuggling tunnel open channel when dirty cash is missing", () => {
     const rows = createBuildingDetailActionRows({
       buildingName: "Pašovací tunel",
-      profile: { actions: ["Vybrat dávku"] },
+      profile: { actions: ["Otevřít kanál"] },
       mechanics: {
         ...baseMechanics,
         mechanicsType: "smuggling-tunnel",
-        smugglingWholeDirtyCash: 100,
-        smugglingSilentActive: false,
-        smugglingSilentRemainingMs: 0
+        smugglingOpenChannelActive: false,
+        smugglingOpenChannelRemainingMs: 0
       },
       economyState: { dirtyMoney: 0 },
-      actionProfiles: [{ smugglingCollectBatch: true, cooldownMs: 60000 }],
+      actionProfiles: [{ smugglingOpenChannel: true, dirtyCost: 800, cooldownMs: 18 * 60 * 1000 }],
       now: 1000
     });
 

@@ -29,6 +29,19 @@ describe("building change guard", () => {
     }
   });
 
+  it("keeps every downtown public building represented in downtown building sets", () => {
+    const downtownBuildingIds = publicBuildingDefinitions
+      .filter((definition) => definition.zone === "downtown")
+      .map((definition) => definition.buildingTypeId);
+    const downtownSetBuildingIds = new Set(
+      (publicDistrictBuildingSetPools.downtown ?? []).flatMap((set) => set.buildingTypes)
+    );
+
+    for (const buildingTypeId of downtownBuildingIds) {
+      expect(downtownSetBuildingIds.has(buildingTypeId), `downtown sets should include ${buildingTypeId}`).toBe(true);
+    }
+  });
+
   it("keeps every public building backed by non-empty display name variants", () => {
     for (const definition of publicBuildingDefinitions) {
       const variants = publicBuildingNameVariants[definition.buildingTypeId];

@@ -2600,3 +2600,382 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
     text-shadow: 0 0 9px rgba(var(--mobile-building-scroll-rgb), 0.72) !important;
   }
 }
+
+@media (max-width: 720px) {
+  body.game-modal-scroll-locked .leaderboard-popup-shell {
+    inset: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 6px !important;
+  }
+
+  body.game-modal-scroll-locked .leaderboard-popup-card.leaderboard-terminal-card {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    margin: 0 auto !important;
+    transform: none !important;
+    overflow: visible !important;
+  }
+}
+
+@media (max-width: 720px) {
+  html body .leaderboard-popup-shell:not([hidden]) {
+    display: block !important;
+    height: 100dvh !important;
+    padding: 6px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-card.leaderboard-terminal-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    transform: none !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-terminal {
+    max-height: none !important;
+  }
+}
+
+@media (max-width: 720px) {
+  html body .leaderboard-popup-shell:not([hidden]) {
+    padding: 4px !important;
+    background:
+      radial-gradient(circle at 20% 0, rgba(0, 245, 255, 0.12), transparent 42%),
+      rgba(2, 6, 16, 0.92) !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-card.leaderboard-terminal-card {
+    border-radius: 10px !important;
+    min-height: calc(100dvh - 8px) !important;
+    overflow: visible !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-terminal {
+    display: grid !important;
+    grid-template-rows: auto auto auto auto !important;
+    gap: 9px !important;
+    padding: 12px 9px 14px !important;
+    overflow: visible !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-close {
+    top: 5px !important;
+    right: 5px !important;
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-terminal__header {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 7px !important;
+    padding-right: 36px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-title {
+    max-width: 220px !important;
+    font-size: 0.9rem !important;
+    line-height: 1.05 !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-terminal__server {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+    min-width: 0 !important;
+    gap: 5px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-server,
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-terminal__server strong {
+    padding: 4px 7px !important;
+    font-size: 0.48rem !important;
+    text-align: left !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-control-strip {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 7px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-search input {
+    min-height: 34px !important;
+    border-radius: 8px !important;
+    font-size: 0.68rem !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-filter-group,
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-tabs {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 5px !important;
+    margin: 0 -2px !important;
+    padding: 0 2px 3px !important;
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-filter-group::-webkit-scrollbar,
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-filter,
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-tab {
+    flex: 0 0 auto !important;
+    min-height: 28px !important;
+    padding: 0 9px !important;
+    font-size: 0.47rem !important;
+    white-space: nowrap !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-terminal__body {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-my-rank {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 8px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-my-rank .leaderboard-panel-label {
+    display: block !important;
+    grid-column: 1 / -1 !important;
+    font-size: 0.46rem !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-my-rank__hero {
+    margin: 0 !important;
+    min-width: 92px !important;
+    padding: 10px 12px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-my-rank__hero strong {
+    font-size: 1.8rem !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-my-rank__detail {
+    align-self: stretch !important;
+    width: 118px !important;
+    min-height: 100% !important;
+    font-size: 0.48rem !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-board {
+    border-radius: 10px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-board__head {
+    padding: 8px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-board h4 {
+    margin: 0 !important;
+    font-size: 0.72rem !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-board__count {
+    font-size: 0.52rem !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+    padding: 7px 8px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-stat {
+    padding: 6px 7px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-stat small {
+    font-size: 0.43rem !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-stat strong {
+    font-size: 0.6rem !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-list {
+    --leaderboard-row-height: 116px !important;
+    --leaderboard-row-gap: 7px !important;
+    max-height: calc((var(--leaderboard-row-height) * 4) + (var(--leaderboard-row-gap) * 3) + 12px) !important;
+    padding: 0 8px 10px !important;
+    mask-image: none !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-table-head {
+    display: none !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-table-row {
+    display: grid !important;
+    grid-template-columns: 42px minmax(0, 1fr) auto !important;
+    grid-template-areas:
+      "rank player actions"
+      "trend faction score"
+      "wanted districts score" !important;
+    gap: 6px 8px !important;
+    min-height: var(--leaderboard-row-height) !important;
+    padding: 9px !important;
+    border-radius: 10px !important;
+    align-items: center !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-rank-cell {
+    grid-area: rank !important;
+    min-height: 34px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-trend {
+    grid-area: trend !important;
+    justify-self: stretch !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-cell {
+    grid-area: player !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-cell strong {
+    font-size: 0.76rem !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-table-row:not(.leaderboard-alliance-row) > .leaderboard-cell-muted:nth-child(4) {
+    grid-area: faction !important;
+    justify-self: start !important;
+    max-width: 100% !important;
+    font-size: 0.52rem !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-table-row:not(.leaderboard-alliance-row) > .leaderboard-number-cell:nth-child(6) {
+    grid-area: districts !important;
+    justify-self: start !important;
+    color: rgba(165, 243, 255, 0.82) !important;
+    font-size: 0.58rem !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-table-row:not(.leaderboard-alliance-row) > span:nth-child(8) {
+    grid-area: wanted !important;
+    justify-self: stretch !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-score-cell {
+    grid-area: score !important;
+    justify-self: end !important;
+    font-size: 0.62rem !important;
+    text-align: right !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-actions {
+    grid-area: actions !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 4px !important;
+    justify-self: end !important;
+    width: 64px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-row-action {
+    width: 100% !important;
+    min-height: 23px !important;
+    padding: 0 5px !important;
+    font-size: 0.43rem !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-alliance-row {
+    grid-template-areas:
+      "rank player actions"
+      "wanted player score" !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-alliance-row > .leaderboard-number-cell,
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-alliance-row > .leaderboard-cell-muted {
+    display: none !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-alliance-row > span:nth-child(8) {
+    grid-area: wanted !important;
+    display: block !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-alliance-row .leaderboard-score-cell {
+    grid-area: score !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-shell:not([hidden]) {
+    position: fixed !important;
+    inset: 0 !important;
+    padding: 12px !important;
+    z-index: 13000 !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-card {
+    width: min(100%, 380px) !important;
+    max-height: calc(100dvh - 24px) !important;
+    padding: 12px !important;
+    border-radius: 10px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-card::before {
+    margin: -12px -12px 11px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-close {
+    top: 7px !important;
+    right: 7px !important;
+    width: 25px !important;
+    min-width: 25px !important;
+    height: 25px !important;
+    min-height: 25px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-card .leaderboard-detail-identity {
+    margin-right: 28px !important;
+    padding: 10px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-card .leaderboard-detail-identity strong {
+    font-size: 0.98rem !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-card .leaderboard-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-card .leaderboard-detail-stat {
+    min-height: 54px !important;
+    padding: 8px 9px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-card .leaderboard-detail-stat span {
+    font-size: 0.45rem !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-card .leaderboard-detail-stat strong {
+    font-size: 0.66rem !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-card .leaderboard-detail-actions {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-card .leaderboard-detail-action {
+    min-height: 27px !important;
+    padding: 0 4px !important;
+    font-size: 0.4rem !important;
+  }
+}

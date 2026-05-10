@@ -12,7 +12,9 @@ import {
 
 export interface ClientSurfaceActionElement {
   dataset: Record<string, string | undefined>;
+  value?: string;
   closest<T extends ClientSurfaceActionElement = ClientSurfaceActionElement>(selector: string): T | null;
+  querySelector?<T extends ClientSurfaceActionElement = ClientSurfaceActionElement>(selector: string): T | null;
 }
 
 export type ClientSurfaceAction =
@@ -21,7 +23,7 @@ export type ClientSurfaceAction =
   | { kind: "spy"; targetDistrictId: string }
   | { kind: "place-trap" }
   | { kind: "open-building"; buildingId: string }
-  | { kind: "building-action"; buildingId: string; actionId: string }
+  | { kind: "building-action"; buildingId: string; actionId: string; dealerSlotId?: string; itemId?: string; amount?: number }
   | { kind: "collect"; buildingId: string }
   | { kind: "craft"; buildingId: string; recipeId: string };
 
@@ -105,6 +107,9 @@ export const createClientSurfaceActionRouter = (
             slice,
             buildingId: action.buildingId,
             actionId: action.actionId,
+            dealerSlotId: action.dealerSlotId,
+            itemId: action.itemId,
+            amount: action.amount,
             issuedAt
           })
         );
@@ -186,10 +191,18 @@ export const resolveClientSurfaceAction = (
     "button[data-building-action-building-id][data-building-action-id]"
   );
   if (buildingActionButton?.dataset.buildingActionBuildingId && buildingActionButton?.dataset.buildingActionId) {
+    const buildingCard = buildingActionButton.closest<ClientSurfaceActionElement>("article[data-building-id][data-building-type]");
+    const slotInput = buildingCard?.querySelector?.("select[data-dealer-slot-input]");
+    const itemInput = buildingCard?.querySelector?.("select[data-dealer-item-input]");
+    const amountInput = buildingCard?.querySelector?.("input[data-dealer-amount-input]");
+    const amount = Number(amountInput?.value || amountInput?.dataset.value || amountInput?.dataset.dealerAmountValue || "");
     return {
       kind: "building-action",
       buildingId: buildingActionButton.dataset.buildingActionBuildingId,
-      actionId: buildingActionButton.dataset.buildingActionId
+      actionId: buildingActionButton.dataset.buildingActionId,
+      dealerSlotId: buildingActionButton.dataset.dealerSlotId || slotInput?.value || slotInput?.dataset.value,
+      itemId: buildingActionButton.dataset.dealerItemId || itemInput?.value || itemInput?.dataset.value,
+      amount: Number.isFinite(amount) && amount > 0 ? amount : undefined
     };
   }
 

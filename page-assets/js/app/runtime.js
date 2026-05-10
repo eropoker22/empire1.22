@@ -4644,7 +4644,19 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
   const fitnessClubSupport = isFitnessClub ? getFitnessClubSupportStats(ownedFitnessClubs) : null;
   const ownedSmugglingTunnels = mechanicsType === "smuggling-tunnel" ? getOwnedSmugglingTunnelCount() : 0;
   const smugglingTunnelNetwork = mechanicsType === "smuggling-tunnel" ? getSmugglingTunnelNetworkMultipliers(ownedSmugglingTunnels) : null;
-  const smugglingSilentActive = mechanicsType === "smuggling-tunnel" && Number(entry.silentChannelExpiresAt || 0) > now;
+  const smugglingOpenChannelActive = mechanicsType === "smuggling-tunnel" && Number(entry.openChannelExpiresAt || entry.silentChannelExpiresAt || 0) > now;
+  const smugglingDealerSupplyBonusPct = mechanicsType === "smuggling-tunnel"
+    ? Math.min(SMUGGLING_TUNNEL_CONFIG.dealerSupplyMaxBonusPct, ownedSmugglingTunnels * SMUGGLING_TUNNEL_CONFIG.dealerSupplyBonusPctPerTunnel)
+    : 0;
+  const smugglingContrabandFlowLabel = ownedSmugglingTunnels >= 10
+    ? "Podzemní síť"
+    : ownedSmugglingTunnels >= 6
+      ? "Silný tok"
+      : ownedSmugglingTunnels >= 3
+        ? "Stabilní tok"
+        : ownedSmugglingTunnels >= 1
+          ? "Nízký tok"
+          : "Žádný tok";
   const multiplier = arcadeNetwork
     ? arcadeNetwork.incomeMultiplier
     : exchangeNetwork
@@ -4664,7 +4676,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     : 1 + ((level - 1) * 0.14);
   const cleanHourly = mechanicsType === "smuggling-tunnel" ? 0 : Math.max(0, Math.round(Number(income.clean || 0) * 60 * multiplier));
   const dirtyHourly = mechanicsType === "smuggling-tunnel"
-    ? Math.max(0, Math.round(SMUGGLING_TUNNEL_CONFIG.dirtyCashPerMinute * 60 * (smugglingTunnelNetwork?.dirtyProductionMultiplier || 1) * (smugglingSilentActive ? SMUGGLING_TUNNEL_CONFIG.silentChannelDirtyProductionMultiplier : 1)))
+    ? Math.max(0, Math.round(SMUGGLING_TUNNEL_CONFIG.dirtyCashPerMinute * 60 * (smugglingTunnelNetwork?.dirtyProductionMultiplier || 1) * (smugglingOpenChannelActive ? 1 + SMUGGLING_TUNNEL_CONFIG.openChannelTunnelDirtyProductionBonusPct / 100 : 1)))
     : Math.max(0, Math.round(Number(income.dirty || 0) * 60 * (autoSalonNetwork ? autoSalonNetwork.dirtyIncomeMultiplier : multiplier)));
   const storedClean = Math.max(0, Math.floor(cleanHourly * elapsedHours));
   const storedDirty = Math.max(0, Math.floor(dirtyHourly * elapsedHours));
@@ -4733,7 +4745,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     ? Math.ceil((schoolCapacity - schoolStoredStudents) / schoolPopulationPerMinute * 60000)
     : 0;
   const smugglingBatchCapacity = smugglingTunnelNetwork
-    ? Math.max(1, Math.floor(SMUGGLING_TUNNEL_CONFIG.baseBatchCapacity * smugglingTunnelNetwork.batchCapacityMultiplier * (smugglingSilentActive ? SMUGGLING_TUNNEL_CONFIG.silentChannelBatchCapacityMultiplier : 1)))
+    ? Math.max(0, Math.floor(SMUGGLING_TUNNEL_CONFIG.baseBatchCapacity * smugglingTunnelNetwork.batchCapacityMultiplier))
     : 0;
   const smugglingStoredBase = mechanicsType === "smuggling-tunnel"
     ? Math.min(smugglingBatchCapacity, Math.max(0, Number(entry.storedDirtyCash || 0)))
@@ -4742,7 +4754,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     ? Math.max(0, now - Number(entry.smugglingLastUpdatedAt || entry.lastCollectedAt || now))
     : 0;
   const smugglingDirtyPerMinute = mechanicsType === "smuggling-tunnel"
-    ? SMUGGLING_TUNNEL_CONFIG.dirtyCashPerMinute * (smugglingTunnelNetwork?.dirtyProductionMultiplier || 1) * (smugglingSilentActive ? SMUGGLING_TUNNEL_CONFIG.silentChannelDirtyProductionMultiplier : 1)
+    ? SMUGGLING_TUNNEL_CONFIG.dirtyCashPerMinute * (smugglingTunnelNetwork?.dirtyProductionMultiplier || 1) * (smugglingOpenChannelActive ? 1 + SMUGGLING_TUNNEL_CONFIG.openChannelTunnelDirtyProductionBonusPct / 100 : 1)
     : 0;
   const smugglingStoredDirtyCash = mechanicsType === "smuggling-tunnel"
     ? Math.min(smugglingBatchCapacity, smugglingStoredBase + (smugglingStoredBase >= smugglingBatchCapacity ? 0 : smugglingDirtyPerMinute * smugglingElapsedMs / 60000))
@@ -4752,33 +4764,30 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
   const smugglingTimeToFullMs = mechanicsType === "smuggling-tunnel" && !smugglingIsFull && smugglingDirtyPerMinute > 0
     ? Math.ceil((smugglingBatchCapacity - smugglingStoredDirtyCash) / smugglingDirtyPerMinute * 60000)
     : 0;
-  const dailyHeat = Math.round(Number(heatRule.heat || 0) * (smugglingTunnelNetwork?.passiveHeatMultiplier || fitnessClubNetwork?.heatMultiplier || autoSalonNetwork?.heatMultiplier || clinicNetwork?.heatMultiplier || warehouseNetwork?.heatMultiplier || arcadeNetwork?.heatMultiplier || exchangeNetwork?.heatMultiplier || 1) * (smugglingSilentActive ? SMUGGLING_TUNNEL_CONFIG.silentChannelHeatMultiplier : 1) * 1440 * 10) / 10;
+  const dailyHeat = Math.round(Number(heatRule.heat || 0) * (smugglingTunnelNetwork?.heatMultiplier || smugglingTunnelNetwork?.passiveHeatMultiplier || fitnessClubNetwork?.heatMultiplier || autoSalonNetwork?.heatMultiplier || clinicNetwork?.heatMultiplier || warehouseNetwork?.heatMultiplier || arcadeNetwork?.heatMultiplier || exchangeNetwork?.heatMultiplier || 1) * 1440 * 10) / 10;
   const dailyInfluence = Math.round(Number(influenceRule.influence || 0) * 1440 * 10) / 10;
   const activeEffectLabels = (entry.activeEffects || [])
     .map((effect) => `${effect.label || "Efekt"} ${formatDistrictBuildingCooldown(Number(effect.expiresAt || 0) - Date.now())}`)
     .filter(Boolean);
   const canCollect =
     mechanicsType === "apartment-block" && apartmentWholePopulation > 0
-    || mechanicsType === "school" && schoolWholeStudents > 0
-    || mechanicsType === "smuggling-tunnel" && smugglingWholeDirtyCash >= SMUGGLING_TUNNEL_CONFIG.minCollectDirty;
+    || mechanicsType === "school" && schoolWholeStudents > 0;
   const hasManualCollect =
     mechanicsType === "apartment-block"
-    || mechanicsType === "school"
-    || mechanicsType === "smuggling-tunnel";
+    || mechanicsType === "school";
   const storedOutputLabel = [
     mechanicsType === "apartment-block" ? `${apartmentWholePopulation}/${apartmentCapacity} obyvatel` : "",
-    mechanicsType === "school" ? `${schoolWholeStudents}/${schoolCapacity} studentů` : "",
-    mechanicsType === "smuggling-tunnel" ? `${formatDistrictBuildingMoney(smugglingWholeDirtyCash)}/${formatDistrictBuildingMoney(smugglingBatchCapacity)} dirty` : ""
+    mechanicsType === "school" ? `${schoolWholeStudents}/${schoolCapacity} studentů` : ""
   ].filter(Boolean).join(" · ") || "Zatím nic";
   const effectsLabel = [
     cleanHourly > 0 ? `Clean cash +${formatDistrictBuildingMoney(cleanHourly)}/hod` : "",
     dirtyHourly > 0 ? `Dirty cash +${formatDistrictBuildingMoney(dirtyHourly)}/hod` : "",
     mechanicsType === "apartment-block" ? `Populace +${apartmentPopulationPerMinute.toFixed(2)}/min` : "",
     mechanicsType === "school" ? `Studenti +${schoolPopulationPerMinute.toFixed(2)}/min` : "",
-    mechanicsType === "smuggling-tunnel" ? `Dávka +${formatDistrictBuildingMoney(smugglingDirtyPerMinute)}/min` : "",
+    mechanicsType === "smuggling-tunnel" ? `Kontraband Flow ${smugglingContrabandFlowLabel} · Dealer Supply +${smugglingDealerSupplyBonusPct}%` : "",
     apartmentIsFull ? "Plná kapacita · Bytový blok je plný. Obyvatelé čekají na vybrání." : "",
     schoolIsFull ? "Plná kapacita · Škola je plná. Studenti čekají na vybrání." : "",
-    smugglingIsFull ? "Dávka připravena · Pašovací tunel je plný. Dirty cash čeká na vybrání." : "",
+    mechanicsType === "smuggling-tunnel" && smugglingOpenChannelActive ? `Otevřený kanál aktivní ${formatDistrictBuildingCooldown(Number(entry.openChannelExpiresAt || entry.silentChannelExpiresAt || 0) - now)}` : "",
     mechanicsType === "school" ? `Talent chance ${schoolTalentChancePct}%` : "",
     ...warehouseWarnings,
     dailyHeat > 0 ? `Heat +${dailyHeat}/den` : "",
@@ -4857,8 +4866,12 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     smugglingIsFull,
     smugglingTimeToFullMs,
     smugglingCollectHeat: getSmugglingTunnelCollectHeat(smugglingWholeDirtyCash),
-    smugglingSilentActive,
-    smugglingSilentRemainingMs: Math.max(0, Number(entry.silentChannelExpiresAt || 0) - now),
+    smugglingDealerSupplyBonusPct,
+    smugglingContrabandFlowLabel,
+    smugglingOpenChannelActive,
+    smugglingOpenChannelRemainingMs: Math.max(0, Number(entry.openChannelExpiresAt || entry.silentChannelExpiresAt || 0) - now),
+    smugglingSilentActive: smugglingOpenChannelActive,
+    smugglingSilentRemainingMs: Math.max(0, Number(entry.openChannelExpiresAt || entry.silentChannelExpiresAt || 0) - now),
     cleanHourly,
     dirtyHourly,
     storedClean,
@@ -5250,6 +5263,36 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
     economyChanged = true;
     summaryParts.push(`Tichý kanál aktivní na ${formatDistrictBuildingCooldown(SMUGGLING_TUNNEL_CONFIG.silentChannelDurationMs)}.`);
     summaryParts.push(`Riziko zátahu po skončení ${SMUGGLING_TUNNEL_CONFIG.silentChannelRaidChancePct} %.`);
+  }
+
+  if (actionProfile.smugglingOpenChannel) {
+    const cost = Math.max(0, Math.floor(Number(actionProfile.dirtyCost || SMUGGLING_TUNNEL_CONFIG.openChannelDirtyCost || 0)));
+    const activeUntil = Number(mechanics.actionCooldowns?.openChannelActiveUntil || 0);
+    if (activeUntil > Date.now()) {
+      setBuildingActionFeedback(root, "warning", action, `Otevřený kanál už běží. Zbývá ${formatDistrictBuildingCooldown(activeUntil - Date.now())}.`, context.buildingName);
+      return null;
+    }
+    if (dirtyMoney < cost) {
+      setBuildingActionFeedback(root, "warning", action, `Chybí ${formatDistrictBuildingMoney(cost - dirtyMoney)} dirty cash.`, context.buildingName);
+      return null;
+    }
+    dirtyMoney -= cost;
+    setStoredEconomyState({ cleanMoney, dirtyMoney });
+    applyTopbarEconomy(root);
+    addGangHeat(root, SMUGGLING_TUNNEL_CONFIG.openChannelHeatGain, "Otevřený pašovací kanál");
+    const expiresAt = Date.now() + SMUGGLING_TUNNEL_CONFIG.openChannelDurationMs;
+    updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
+      ...entry,
+      openChannelExpiresAt: expiresAt,
+      actionCooldowns: {
+        ...(entry.actionCooldowns || {}),
+        openChannel: Date.now() + SMUGGLING_TUNNEL_CONFIG.openChannelCooldownMs,
+        openChannelActiveUntil: expiresAt
+      }
+    }));
+    economyChanged = true;
+    summaryParts.push(`Otevřený kanál aktivní na ${formatDistrictBuildingCooldown(SMUGGLING_TUNNEL_CONFIG.openChannelDurationMs)}.`);
+    summaryParts.push(`Dealer bonus +${SMUGGLING_TUNNEL_CONFIG.openChannelDealerSalePriceBonusPct}% cena, +${SMUGGLING_TUNNEL_CONFIG.openChannelDealerSaleSpeedBonusPct}% rychlost, incident risk +${SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct}%.`);
   }
 
   if (actionProfile.schoolEveningCourse) {

@@ -2,15 +2,20 @@ import type { RunBuildingActionCommand } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { CoreError } from "../errors";
 import type { GameCoreContext } from "../engine/context";
+import { validateAirportAction } from "../handlers/airportBuildingActions";
 import { validateArcadeAction } from "../handlers/arcadeBuildingActions";
 import { validateApartmentBlockAction } from "../handlers/apartmentBlockBuildingActions";
 import { validateCasinoAction } from "../handlers/casinoBuildingActions";
+import { validateCentralBankAction } from "../handlers/centralBankBuildingActions";
+import { validateCityHallAction } from "../handlers/cityHallBuildingActions";
 import { validateClinicAction } from "../handlers/clinicBuildingActions";
 import { validateExchangeOfficeAction } from "../handlers/exchangeOfficeBuildingActions";
 import { validatePowerStationAction } from "../handlers/powerStationBuildingActions";
 import { validateRecyclingCenterAction } from "../handlers/recyclingCenterBuildingActions";
 import { validateSchoolAction } from "../handlers/schoolBuildingActions";
 import { validateSmugglingTunnelAction } from "../handlers/smugglingTunnelBuildingActions";
+import { validateStockExchangeAction } from "../handlers/stockExchangeBuildingActions";
+import { validateStreetDealersAction } from "../handlers/streetDealersBuildingActions";
 import { validateStripClubAction } from "../handlers/stripClubBuildingActions";
 
 /**
@@ -237,6 +242,7 @@ export const validateRunBuildingAction = (
 
   const smugglingTunnelErrorCode = validateSmugglingTunnelAction({
     state,
+    player,
     building,
     actionId: action.actionId,
     balances,
@@ -246,6 +252,70 @@ export const validateRunBuildingAction = (
     errors.push({
       code: smugglingTunnelErrorCode,
       message: "Smuggling tunnel action preconditions are not met."
+    });
+  }
+
+  const stockExchangeErrorCode = validateStockExchangeAction({
+    state,
+    building,
+    actionId: action.actionId,
+    balances,
+    districtInfluence: district.influence,
+    config: context.config.balance.stockExchange,
+    payload: command.payload
+  });
+  if (stockExchangeErrorCode) {
+    errors.push({
+      code: stockExchangeErrorCode,
+      message: "Stock exchange action preconditions are not met."
+    });
+  }
+
+  const airportErrorCode = validateAirportAction({
+    state,
+    building,
+    actionId: action.actionId,
+    balances,
+    config: context.config.balance.airport,
+    payload: command.payload
+  });
+  if (airportErrorCode) {
+    errors.push({
+      code: airportErrorCode,
+      message: "Airport action preconditions are not met."
+    });
+  }
+
+  const cityHallErrorCode = validateCityHallAction({
+    state,
+    building,
+    district,
+    actionId: action.actionId,
+    balances,
+    districtInfluence: district.influence,
+    config: context.config.balance.cityHall,
+    payload: command.payload
+  });
+  if (cityHallErrorCode) {
+    errors.push({
+      code: cityHallErrorCode,
+      message: "City Hall action preconditions are not met."
+    });
+  }
+
+  const centralBankErrorCode = validateCentralBankAction({
+    state,
+    building,
+    actionId: action.actionId,
+    balances,
+    districtInfluence: district.influence,
+    config: context.config.balance.centralBank,
+    payload: command.payload
+  });
+  if (centralBankErrorCode) {
+    errors.push({
+      code: centralBankErrorCode,
+      message: "Central Bank action preconditions are not met."
     });
   }
 
@@ -260,6 +330,22 @@ export const validateRunBuildingAction = (
     errors.push({
       code: schoolErrorCode,
       message: "School action preconditions are not met."
+    });
+  }
+
+  const streetDealersErrorCode = validateStreetDealersAction({
+    state,
+    player,
+    building,
+    command,
+    actionId: action.actionId,
+    balances,
+    config: context.config.balance.streetDealers
+  });
+  if (streetDealersErrorCode) {
+    errors.push({
+      code: streetDealersErrorCode,
+      message: "Street dealers action preconditions are not met."
     });
   }
 

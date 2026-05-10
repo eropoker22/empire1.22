@@ -13,6 +13,17 @@ export interface RunBuildingActionPayload {
   districtId: DistrictId;
   buildingId: BuildingId;
   actionId: string;
+  dealerSlotId?: string;
+  slotId?: string;
+  itemId?: string;
+  amount?: number;
+  targetCategory?: string;
+  category?: string;
+  mode?: "pump" | "dump" | string;
+  investmentCleanCash?: number;
+  investment?: number;
+  targetDistrictId?: DistrictId;
+  targetZone?: string;
 }
 
 export type RunBuildingActionCommand = ActionCommand<"run-building-action", RunBuildingActionPayload>;

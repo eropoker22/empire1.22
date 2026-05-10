@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCommand, collectIncome, completeProduction, createConflictReportViews } from "@empire/game-core";
+import { applyCommand, buyResource, calculateMarketPrice, collectIncome, completeProduction, createConflictReportViews, runTick } from "@empire/game-core";
 import { getAllPublicBuildingDefinitions, resolveDistrictBuildingTypes, resolveModeConfig } from "@empire/game-config";
 import {
   createCoreStateWithFixedBuildingFixture,
@@ -44,7 +44,7 @@ describe("run-building-action command flow", () => {
     const buildingActions = context.config.balance.buildingActions ?? {};
     const downtownCountByType: Record<string, number> = {
       court: 2,
-      central_bank: 1,
+      central_bank: 2,
       lobby_club: 2,
       city_hall: 1,
       stock_exchange: 1,
@@ -77,6 +77,7 @@ describe("run-building-action command flow", () => {
         || definition.buildingTypeId === "garage"
         || definition.buildingTypeId === "car_dealer"
         || definition.buildingTypeId === "fitness_club"
+        || definition.buildingTypeId === "vip_lounge"
       ) {
         expect(definition.specialActions).toHaveLength(0);
       } else {
@@ -105,20 +106,26 @@ describe("run-building-action command flow", () => {
       }, {});
 
     expect(Object.keys(counts).sort()).toEqual([
+      "airport",
       "central_bank",
       "city_hall",
       "court",
       "lobby_club",
+      "parliament",
+      "port",
       "stock_exchange",
       "vip_lounge"
     ]);
     expect(counts).toMatchObject({
       court: 2,
-      central_bank: 1,
+      central_bank: 2,
       lobby_club: 2,
       city_hall: 1,
       stock_exchange: 1,
-      vip_lounge: 2
+      vip_lounge: 2,
+      airport: 1,
+      port: 1,
+      parliament: 1
     });
   });
 
@@ -132,9 +139,708 @@ describe("run-building-action command flow", () => {
     const result = collectIncome(state, context);
 
     expect(result.resourceStatesById["resource:1"].balances.cash).toBeGreaterThan(0);
-    expect(result.resourceStatesById["resource:1"].balances["dirty-cash"]).toBeGreaterThan(0);
+    expect(result.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(0);
     expect(result.districtsById["district:1"].heat).toBeGreaterThan(0);
     expect(result.districtsById["district:1"].influence).toBeGreaterThan(0);
+  });
+
+  it("keeps street dealers dirty-only passives and completes global drug sale slots", () => {
+    const { state, building } = createStateWithFixedBuilding("street_dealers", {
+      playerBalances: {
+        cash: 0,
+        "dirty-cash": 0,
+        "neon-dust": 12
+      }
+    });
+    const passive = collectIncome(state, context);
+
+    expect(passive.resourceStatesById["resource:1"].balances.cash ?? 0).toBe(0);
+    expect(passive.resourceStatesById["resource:1"].balances["dirty-cash"]).toBeGreaterThan(0);
+    expect(passive.districtsById["district:1"].heat).toBeGreaterThan(0);
+    expect(passive.districtsById["district:1"].influence).toBe(0);
+
+    const saleContext = {
+      config: {
+        ...context.config,
+        balance: {
+          ...context.config.balance,
+          fixedBuildings: {
+            ...(context.config.balance.fixedBuildings ?? {}),
+            street_dealers: {
+              cleanPerHour: 0,
+              dirtyPerHour: 0,
+              heatPerDay: 0,
+              influencePerDay: 0,
+              maxLevel: 1
+            }
+          },
+          streetDealers: {
+            ...context.config.balance.streetDealers!,
+            streetIncidents: {
+              ...context.config.balance.streetDealers!.streetIncidents,
+              maxStreetRiskPct: 0
+            }
+          }
+        }
+      }
+    };
+    const started = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:street-dealers:start",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "start_drug_sale",
+          dealerSlotId: "slot-1",
+          itemId: "neonDust",
+          amount: 4
+        }
+      }),
+      saleContext
+    );
+
+    expect(started.errors).toEqual([]);
+    expect(started.nextState.resourceStatesById["resource:1"].balances["neon-dust"]).toBe(8);
+    expect(started.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(0);
+    expect(started.nextState.districtsById["district:1"].heat).toBe(0);
+    expect(started.nextState.playersById["player:1"].metadata?.streetDealers).toMatchObject({
+      slots: [
+        {
+          slotId: "slot-1",
+          itemId: "neon-dust",
+          amount: 4,
+          rewardDirtyCash: 380,
+          heatGain: 8,
+          streetRiskPct: 0
+        }
+      ]
+    });
+
+    let completedState = started.nextState;
+    for (let index = 0; index < 48; index += 1) {
+      completedState = runTick(completedState, saleContext).nextState;
+    }
+    const completedBalances = completedState.resourceStatesById["resource:1"].balances;
+    const completedReport = createConflictReportViews(completedState, { playerId: "player:1", limit: 1 })[0];
+
+    expect(completedBalances["dirty-cash"]).toBe(380);
+    expect(completedBalances.cash ?? 0).toBe(0);
+    expect(completedState.districtsById["district:1"].heat).toBe(8);
+    expect(completedState.districtsById["district:1"].influence).toBe(0);
+    expect(completedState.playersById["player:1"].population ?? 0).toBe(0);
+    expect(completedState.playersById["player:1"].metadata?.streetDealers).toMatchObject({
+      slots: [],
+      saleHistory: [
+        {
+          type: "sale_completed",
+          slotId: "slot-1",
+          itemId: "neon-dust",
+          rewardDirtyCash: 380,
+          heatGain: 8
+        }
+      ]
+    });
+    expect(completedReport).toMatchObject({
+      buildingActionId: "start_drug_sale",
+      streetDealerResult: {
+        type: "sale_completed",
+        rewardDirtyCash: 380,
+        heatGain: 8
+      }
+    });
+  });
+
+  it("applies smuggling tunnel Dealer Supply bonuses to street dealer sale previews", () => {
+    const { state, building } = createStateWithFixedBuilding("street_dealers", {
+      playerBalances: {
+        cash: 0,
+        "dirty-cash": 0,
+        "neon-dust": 12
+      }
+    });
+    const smugglingTunnelIds = Array.from({ length: 5 }, (_, index) => {
+      const tunnel = createFixedBuildingFixture("smuggling_tunnel", {
+        id: `building:district-1:smuggling_tunnel:${index + 1}`
+      });
+      state.buildingsById[tunnel.id] = tunnel;
+      return tunnel.id;
+    });
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      buildingIds: [building.id, ...smugglingTunnelIds]
+    };
+
+    const started = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:street-dealers:tunnel-support",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "start_drug_sale",
+          dealerSlotId: "slot-1",
+          itemId: "neonDust",
+          amount: 4
+        }
+      }),
+      context
+    );
+
+    expect(started.errors).toEqual([]);
+    expect(started.nextState.playersById["player:1"].metadata?.streetDealers).toMatchObject({
+      slots: [
+        {
+          slotId: "slot-1",
+          itemId: "neon-dust",
+          amount: 4,
+          rewardDirtyCash: 418,
+          heatGain: 9,
+          streetRiskPct: 7.36,
+          completesAtTick: 45
+        }
+      ]
+    });
+  });
+
+  it("keeps stock exchange clean-only passives and runs market control actions", () => {
+    const { state, building } = createStateWithFixedBuilding("stock_exchange", {
+      playerBalances: {
+        cash: 20000,
+        "dirty-cash": 300
+      }
+    });
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      influence: 25
+    };
+    const passive = collectIncome(state, context);
+
+    expect(passive.resourceStatesById["resource:1"].balances.cash).toBeGreaterThan(0);
+    expect(passive.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(300);
+    expect(passive.districtsById["district:1"].heat).toBeGreaterThan(0);
+    expect(passive.districtsById["district:1"].influence).toBeGreaterThan(25);
+
+    const speculation = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:stock:speculation",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "speculative_buy",
+          targetCategory: "materials",
+          investmentCleanCash: 4000
+        }
+      }),
+      context
+    );
+    const speculationReport = createConflictReportViews(speculation.nextState, { playerId: "player:1", limit: 1 })[0];
+
+    expect(speculation.errors).toEqual([]);
+    expect(speculation.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(300);
+    expect(speculation.nextState.districtsById["district:1"].heat).toBe(5);
+    expect(speculation.nextState.buildingsById[building.id].metadata?.stockExchange).toMatchObject({
+      actionHistory: [{ actionId: "speculative_buy", category: "materials" }],
+      riskEvents: [{ actionId: "speculative_buy", riskPct: 6 }]
+    });
+    expect(speculationReport).toMatchObject({
+      buildingActionId: "speculative_buy",
+      stockExchangeResult: {
+        type: "speculative_buy",
+        category: "materials",
+        investmentCleanCash: 4000
+      }
+    });
+
+    const pressureState = {
+      ...state,
+      buildingsById: {
+        ...state.buildingsById,
+        [building.id]: {
+          ...building,
+          actionCooldowns: {}
+        }
+      }
+    };
+    const beforeNormalMetal = calculateMarketPrice({ ...pressureState, config: context.config }, "metalParts", "normal").finalPrice;
+    const beforeBlackMetal = calculateMarketPrice({ ...pressureState, config: context.config }, "metalParts", "black").finalPrice;
+    const pressure = applyCommand(
+      pressureState,
+      createRunBuildingActionCommandFixture({
+        id: "command:stock:pressure",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "market_pressure",
+          targetCategory: "materials",
+          mode: "pump"
+        }
+      }),
+      context
+    );
+    const afterNormalMetal = calculateMarketPrice({ ...pressure.nextState, config: context.config }, "metalParts", "normal").finalPrice;
+    const afterBlackMetal = calculateMarketPrice({ ...pressure.nextState, config: context.config }, "metalParts", "black").finalPrice;
+
+    expect(pressure.errors).toEqual([]);
+    expect(pressure.nextState.resourceStatesById["resource:1"].balances.cash).toBe(17000);
+    expect(pressure.nextState.districtsById["district:1"].influence).toBe(10);
+    expect(pressure.nextState.districtsById["district:1"].heat).toBe(8);
+    expect(pressure.nextState.buildingsById[building.id].metadata?.stockExchange).toMatchObject({
+      marketEffects: [
+        {
+          category: "materials",
+          mode: "pump",
+          regularPriceModifierPct: 12,
+          blackMarketPriceModifierPct: 4.8
+        }
+      ]
+    });
+    expect(afterNormalMetal).toBeGreaterThan(beforeNormalMetal);
+    expect(afterBlackMetal).toBeGreaterThan(beforeBlackMetal);
+    expect(Object.values(pressure.nextState.cityFeedEventsById).some((event) =>
+      event.message === "Downtown burza rozkolísala ceny v kategorii materials."
+    )).toBe(true);
+
+    const insiderState = {
+      ...state,
+      buildingsById: {
+        ...state.buildingsById,
+        [building.id]: {
+          ...building,
+          actionCooldowns: {}
+        }
+      }
+    };
+    const insider = applyCommand(
+      insiderState,
+      createRunBuildingActionCommandFixture({
+        id: "command:stock:insider",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "insider_window"
+        }
+      }),
+      context
+    );
+
+    expect(insider.errors).toEqual([]);
+    expect(insider.nextState.resourceStatesById["resource:1"].balances.cash).toBe(18500);
+    expect(insider.nextState.districtsById["district:1"].heat).toBe(4);
+    expect(insider.nextState.buildingsById[building.id].metadata?.stockExchange).toMatchObject({
+      insiderWindowExpiresAtTick: 72,
+      riskEvents: [{ actionId: "insider_window", riskPct: 10 }]
+    });
+  });
+
+  it("keeps central bank clean-only passives and runs reserve actions", () => {
+    const { state, building } = createStateWithFixedBuilding("central_bank", {
+      playerBalances: {
+        cash: 10000,
+        "dirty-cash": 300
+      }
+    });
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      influence: 60
+    };
+    const passive = collectIncome(state, context);
+
+    expect(passive.resourceStatesById["resource:1"].balances.cash).toBeGreaterThan(10000);
+    expect(passive.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(300);
+    expect(passive.districtsById["district:1"].heat).toBeGreaterThan(0);
+    expect(passive.districtsById["district:1"].influence).toBeGreaterThan(60);
+
+    const liquidity = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:central-bank:liquidity",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "liquidity_injection"
+        }
+      }),
+      context
+    );
+    const liquidityReport = createConflictReportViews(liquidity.nextState, { playerId: "player:1", limit: 1 })[0];
+
+    expect(liquidity.errors).toEqual([]);
+    expect(liquidity.nextState.resourceStatesById["resource:1"].balances.cash).toBe(12500);
+    expect(liquidity.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(300);
+    expect(liquidity.nextState.districtsById["district:1"].heat).toBe(4);
+    expect(liquidity.nextState.districtsById["district:1"].influence).toBe(40);
+    expect(liquidity.nextState.buildingsById[building.id].metadata?.centralBank).toMatchObject({
+      riskEvents: [{ actionId: "liquidity_injection", riskPct: 6 }]
+    });
+    expect(liquidityReport).toMatchObject({
+      buildingActionId: "liquidity_injection",
+      centralBankResult: {
+        type: "liquidity_injection",
+        rewardCleanCash: 2500
+      }
+    });
+
+    const frozenState = {
+      ...state,
+      buildingsById: {
+        ...state.buildingsById,
+        [building.id]: {
+          ...building,
+          actionCooldowns: {}
+        }
+      }
+    };
+    const frozen = applyCommand(
+      frozenState,
+      createRunBuildingActionCommandFixture({
+        id: "command:central-bank:frozen",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "frozen_accounts"
+        }
+      }),
+      context
+    );
+
+    expect(frozen.errors).toEqual([]);
+    expect(frozen.nextState.resourceStatesById["resource:1"].balances.cash).toBe(8000);
+    expect(frozen.nextState.buildingsById[building.id].metadata?.centralBank).toMatchObject({
+      frozenAccountsExpiresAtTick: 96,
+      riskEvents: [{ actionId: "frozen_accounts", riskPct: 8 }]
+    });
+
+    const intervention = applyCommand(
+      frozenState,
+      createRunBuildingActionCommandFixture({
+        id: "command:central-bank:intervention",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "currency_intervention",
+          targetCategory: "materials"
+        }
+      }),
+      context
+    );
+
+    expect(intervention.errors).toEqual([]);
+    expect(intervention.nextState.resourceStatesById["resource:1"].balances.cash).toBe(7000);
+    expect(intervention.nextState.districtsById["district:1"].influence).toBe(35);
+    expect(intervention.nextState.buildingsById[building.id].metadata?.centralBank).toMatchObject({
+      currencyInterventions: [{ category: "materials", volatilityReductionPct: 30, stockExchangeEffectReductionPct: 25 }],
+      riskEvents: [{ actionId: "currency_intervention", riskPct: 12 }]
+    });
+  });
+
+  it("runs airport import, black charter, evacuation corridor, and import market discounts", () => {
+    const airportContext = {
+      config: {
+        ...context.config,
+        balance: {
+          ...context.config.balance,
+          airport: {
+            ...context.config.balance.airport!,
+            expressImport: {
+              ...context.config.balance.airport!.expressImport,
+              customsRiskPct: 0
+            },
+            customsInspection: {
+              ...context.config.balance.airport!.customsInspection,
+              passiveRiskPct: 0
+            }
+          }
+        }
+      }
+    };
+    const { state, building } = createStateWithFixedBuilding("airport", {
+      playerBalances: {
+        cash: 10000,
+        "dirty-cash": 5000,
+        "metal-parts": 0,
+        chemicals: 0,
+        biomass: 0,
+        "tech-core": 0
+      }
+    });
+    const warehouse = createFixedBuildingFixture("warehouse", {
+      id: "building:district-1:warehouse:airport"
+    });
+    state.buildingsById[warehouse.id] = warehouse;
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      buildingIds: [building.id, warehouse.id]
+    };
+
+    const passive = collectIncome(state, context);
+    expect(passive.resourceStatesById["resource:1"].balances.cash).toBeGreaterThan(10000);
+    expect(passive.resourceStatesById["resource:1"].balances["dirty-cash"]).toBeGreaterThan(5000);
+    expect(passive.districtsById["district:1"].influence).toBeGreaterThan(0);
+
+    const importStarted = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:airport:import",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "express_import",
+          targetCategory: "materials"
+        }
+      }),
+      airportContext
+    );
+
+    expect(importStarted.errors).toEqual([]);
+    expect(importStarted.nextState.resourceStatesById["resource:1"].balances.cash).toBe(8000);
+    expect(importStarted.nextState.districtsById["district:1"].heat).toBe(6);
+    expect(importStarted.nextState.buildingsById[building.id].metadata?.airport).toMatchObject({
+      pendingImports: [{ category: "materials", completesAtTick: 18 }]
+    });
+
+    let completedState = importStarted.nextState;
+    for (let index = 0; index < 18; index += 1) {
+      completedState = runTick(completedState, airportContext).nextState;
+    }
+    const completedBalances = completedState.resourceStatesById["resource:1"].balances;
+    expect(
+      (completedBalances["metal-parts"] ?? 0)
+      + (completedBalances.chemicals ?? 0)
+      + (completedBalances.biomass ?? 0)
+    ).toBeGreaterThan(0);
+    expect(completedState.buildingsById[building.id].metadata?.airport).toMatchObject({
+      pendingImports: [],
+      lastImportShipment: {
+        category: "materials",
+        customsTriggered: false
+      }
+    });
+
+    const charter = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:airport:charter",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "black_charter"
+        }
+      }),
+      context
+    );
+    expect(charter.errors).toEqual([]);
+    expect(charter.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(2500);
+    expect(charter.nextState.buildingsById[building.id].metadata?.airport).toMatchObject({
+      blackCharterExpiresAtTick: 96,
+      blackCharterOffer: {
+        discountPct: 6,
+        purchaseCustomsRiskPct: 15
+      }
+    });
+
+    const corridor = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:airport:corridor",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "evacuation_corridor"
+        }
+      }),
+      context
+    );
+    expect(corridor.errors).toEqual([]);
+    expect(corridor.nextState.resourceStatesById["resource:1"].balances.cash).toBe(8200);
+    expect(corridor.nextState.buildingsById[building.id].metadata?.airport).toMatchObject({
+      evacuationCorridorExpiresAtTick: 84
+    });
+
+    const marketState = {
+      ...state,
+      config: context.config,
+      playersById: {
+        "player:1": {
+          id: "player:1",
+          cleanCash: 10000,
+          dirtyCash: 10000,
+          resources: {}
+        }
+      },
+      eventLog: [],
+      rumors: []
+    };
+    const basePrice = calculateMarketPrice(marketState, "metalParts", "normal").finalPrice;
+    const bought = buyResource(marketState, marketState.playersById["player:1"], "metalParts", 1, "normal", "cleanCash");
+    expect(bought.success).toBe(true);
+    expect(bought.shoppingMallDiscountPct).toBe(8);
+    expect(bought.unitPrice).toBe(Math.ceil(basePrice * 0.92));
+  });
+
+  it("keeps city hall clean political and runs authority actions", () => {
+    const { state, building } = createStateWithFixedBuilding("city_hall", {
+      playerBalances: {
+        cash: 10000,
+        "dirty-cash": 900
+      }
+    });
+    const restaurant = createFixedBuildingFixture("restaurant", {
+      id: "building:district-1:restaurant:city-hall"
+    });
+    const school = createFixedBuildingFixture("school", {
+      id: "building:district-1:school:city-hall"
+    });
+    state.buildingsById[restaurant.id] = restaurant;
+    state.buildingsById[school.id] = school;
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      influence: 100,
+      buildingIds: [building.id, restaurant.id, school.id]
+    };
+
+    const passive = collectIncome(state, context);
+    expect(passive.resourceStatesById["resource:1"].balances.cash).toBeGreaterThan(10000);
+    expect(passive.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(900);
+    expect(passive.districtsById["district:1"].influence).toBeGreaterThan(100);
+    expect(passive.districtsById["district:1"].heat).toBeGreaterThan(0);
+
+    const cover = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:city-hall:cover",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "official_cover",
+          targetDistrictId: "district:1"
+        }
+      }),
+      context
+    );
+    expect(cover.errors).toEqual([]);
+    expect(cover.nextState.resourceStatesById["resource:1"].balances.cash).toBe(8500);
+    expect(cover.nextState.districtsById["district:1"].influence).toBe(75);
+    expect(cover.nextState.districtsById["district:1"].heat).toBe(2);
+    expect(cover.nextState.buildingsById[building.id].metadata?.cityHall).toMatchObject({
+      officialCoverByDistrictId: {
+        "district:1": {
+          heatGainReductionPct: 35,
+          policeControlChanceReductionPct: 20,
+          rumorChanceReductionPct: 15,
+          expiresAtTick: 96
+        }
+      },
+      riskEvents: [{ actionId: "official_cover", riskPct: 8 }]
+    });
+
+    const contract = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:city-hall:contract",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "city_contract"
+        }
+      }),
+      context
+    );
+    const contractReport = createConflictReportViews(contract.nextState, { playerId: "player:1", limit: 1 })[0];
+    expect(contract.errors).toEqual([]);
+    expect(contract.nextState.resourceStatesById["resource:1"].balances.cash).toBe(11740);
+    expect(contract.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(900);
+    expect(contract.nextState.districtsById["district:1"].influence).toBe(80);
+    expect(contract.nextState.districtsById["district:1"].heat).toBe(3);
+    expect(contractReport).toMatchObject({
+      buildingActionId: "city_contract",
+      cityHallResult: {
+        type: "city_contract",
+        legalBuildingCount: 2,
+        rewardCleanCash: 1740,
+        influenceCost: 20
+      }
+    });
+
+    const decree = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:city-hall:decree",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "emergency_decree",
+          mode: "suspended_checks"
+        }
+      }),
+      context
+    );
+    expect(decree.errors).toEqual([]);
+    expect(decree.nextState.resourceStatesById["resource:1"].balances.cash).toBe(7500);
+    expect(decree.nextState.districtsById["district:1"].influence).toBe(60);
+    expect(decree.nextState.districtsById["district:1"].heat).toBe(8);
+    expect(decree.nextState.buildingsById[building.id].metadata?.cityHall).toMatchObject({
+      emergencyDecree: {
+        modeId: "suspended_checks",
+        expiresAtTick: 72
+      },
+      riskEvents: [{ actionId: "emergency_decree", riskPct: 12 }]
+    });
+  });
+
+  it("keeps vip lounge as high-truth passive rumor building without intel power or contacts", () => {
+    const vipContext = {
+      config: {
+        ...context.config,
+        balance: {
+          ...context.config.balance,
+          vipLounge: {
+            ...context.config.balance.vipLounge!,
+            passiveRumor: {
+              ...context.config.balance.vipLounge!.passiveRumor,
+              baseChancePct: 100
+            }
+          }
+        }
+      }
+    };
+    const { state, building } = createStateWithFixedBuilding("vip_lounge", {
+      playerBalances: {
+        cash: 1000,
+        "dirty-cash": 200
+      }
+    });
+    const extraVipIds = Array.from({ length: 2 }, (_, index) => {
+      const vip = createFixedBuildingFixture("vip_lounge", {
+        id: `building:district-1:vip_lounge:${index + 2}`
+      });
+      state.buildingsById[vip.id] = vip;
+      return vip.id;
+    });
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      buildingIds: [building.id, ...extraVipIds]
+    };
+
+    const passive = collectIncome(state, vipContext);
+    expect(passive.resourceStatesById["resource:1"].balances.cash).toBeGreaterThan(1000);
+    expect(passive.resourceStatesById["resource:1"].balances["dirty-cash"]).toBeGreaterThan(200);
+    expect(passive.districtsById["district:1"].influence).toBeGreaterThan(0);
+    expect(passive.districtsById["district:1"].heat).toBeGreaterThan(0);
+
+    let rumorState = state;
+    for (let index = 0; index < 50; index += 1) {
+      rumorState = runTick(rumorState, vipContext).nextState;
+    }
+    expect(rumorState.buildingsById[building.id].metadata?.vipLounge).toMatchObject({
+      rumorEvents: [
+        {
+          truthChancePct: 86
+        }
+      ]
+    });
+    expect(rumorState.buildingsById[building.id].metadata?.vipLounge).not.toHaveProperty("contacts");
   });
 
   it("runs a valid fixed building action and updates resources, district heat, influence, cooldown, and report", () => {
@@ -1062,7 +1768,7 @@ describe("run-building-action command flow", () => {
     expect(result.errors).toEqual([]);
     expect(balances.cash).toBe(3800);
     expect(balances.chemicals).toBe(0);
-    expect(balances["gang-members"]).toBe(1);
+    expect(balances["gang-members"]).toBeUndefined();
     expect(result.nextState.playersById["player:1"].population).toBe(11);
     expect(result.nextState.playersById["player:1"].recoveryPool).toEqual([
       { id: "recovery:test:pistol", itemType: "pistol", amount: 5, source: "attack", lostAtTick: 0 }
@@ -1073,8 +1779,7 @@ describe("run-building-action command flow", () => {
       clinicResult: {
         type: "recovery",
         recovered: {
-          population: 1,
-          "gang-members": 1
+          population: 1
         },
         keptForRecycling: 5,
         cleanCashCost: 1200,
@@ -1139,7 +1844,7 @@ describe("run-building-action command flow", () => {
     expect(result.errors.map((error) => error.code)).toContain("clinic_recovery_pool_empty");
   });
 
-  it("runs recycling center extract losses against item salvage pool only", () => {
+  it("runs recycling center extract losses against material salvage pool only", () => {
     const { state, building } = createStateWithFixedBuilding("recycling_center", {
       playerBalances: {
         cash: 5000,
@@ -1187,8 +1892,8 @@ describe("run-building-action command flow", () => {
     expect(result.errors).toEqual([]);
     expect(balances.cash).toBe(4100);
     expect(balances["metal-parts"]).toBe(2);
-    expect(balances["baseball-bat"]).toBe(2);
-    expect(balances.vest).toBe(2);
+    expect(balances["baseball-bat"]).toBe(0);
+    expect(balances.vest).toBe(0);
     expect(result.nextState.playersById["player:1"].population).toBe(10);
     expect(result.nextState.playersById["player:1"].salvagePool).toEqual([]);
     expect(result.nextState.districtsById["district:1"].heat).toBe(2);
@@ -1198,9 +1903,7 @@ describe("run-building-action command flow", () => {
         type: "salvage_recovery",
         salvageRatePct: 12,
         recoveredByCategory: {
-          materials: 2,
-          weapons: 2,
-          defenseItems: 2
+          materials: 2
         },
         cleanCashCost: 900,
         heatGain: 2,
@@ -1270,64 +1973,23 @@ describe("run-building-action command flow", () => {
     expect(result.nextState.resourceStatesById[`resource:${building.id}`].balances.chemicals).toBe(15);
   });
 
-  it("stores smuggling tunnel dirty cash locally and collects the batch with heat", () => {
+  it("keeps smuggling tunnel as dirty-only passive income with heat", () => {
     const { state, building } = createStateWithFixedBuilding("smuggling_tunnel", {
       playerBalances: {
         cash: 0,
         "dirty-cash": 0,
         influence: 0
-      },
-      metadata: {
-        smugglingTunnel: {
-          storedDirtyCash: 0,
-          lastUpdatedTick: 0
-        }
       }
     });
     state.root.tick = 250;
 
     const produced = collectIncome(state, context);
-    const producedBuilding = produced.buildingsById[building.id];
-    const smugglingMetadata = producedBuilding.metadata?.smugglingTunnel as { storedDirtyCash?: number } | undefined;
-    const storedDirtyCash = Number(smugglingMetadata?.storedDirtyCash ?? 0);
 
     expect(produced.resourceStatesById["resource:1"].balances.cash).toBe(0);
-    expect(produced.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(0);
-    expect(storedDirtyCash).toBeGreaterThanOrEqual(300);
-    expect(storedDirtyCash).toBeLessThanOrEqual(2500);
+    expect(produced.resourceStatesById["resource:1"].balances["dirty-cash"]).toBeGreaterThan(0);
+    expect(produced.buildingsById[building.id].metadata?.smugglingTunnel).toBeUndefined();
     expect(produced.districtsById["district:1"].heat).toBeGreaterThan(0);
     expect(produced.districtsById["district:1"].influence).toBe(0);
-
-    const result = applyCommand(
-      produced,
-      createRunBuildingActionCommandFixture({
-        payload: {
-          districtId: "district:1",
-          buildingId: building.id,
-          actionId: "collect_smuggling_batch"
-        }
-      }),
-      context
-    );
-    const report = createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })[0];
-
-    expect(result.errors).toEqual([]);
-    expect(result.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(Math.floor(storedDirtyCash));
-    expect(result.nextState.buildingsById[building.id].metadata?.smugglingTunnel).toMatchObject({
-      storedDirtyCash: 0,
-      wasFull: false
-    });
-    expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(0);
-    expect(result.nextState.resourceStatesById["resource:1"].balances.influence).toBe(0);
-    expect(result.nextState.districtsById["district:1"].influence).toBe(0);
-    expect(report).toMatchObject({
-      reportType: "building-action",
-      buildingActionId: "collect_smuggling_batch",
-      smugglingTunnelResult: {
-        type: "collect_dirty_cash",
-        collectedDirtyCash: Math.floor(storedDirtyCash)
-      }
-    });
   });
 
   it("adds real district defense from non-production building actions", () => {
@@ -1361,7 +2023,7 @@ describe("run-building-action command flow", () => {
     });
   });
 
-  it("activates smuggling tunnel silent channel and blocks stacking while active", () => {
+  it("activates smuggling tunnel open channel and blocks stacking while active", () => {
     const { state, building } = createStateWithFixedBuilding("smuggling_tunnel", {
       playerBalances: {
         cash: 0,
@@ -1372,11 +2034,11 @@ describe("run-building-action command flow", () => {
     const first = applyCommand(
       state,
       createRunBuildingActionCommandFixture({
-        id: "command:smuggling:silent:1",
+        id: "command:smuggling:open-channel:1",
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "silent_channel"
+          actionId: "open_channel"
         }
       }),
       context
@@ -1384,11 +2046,11 @@ describe("run-building-action command flow", () => {
     const second = applyCommand(
       first.nextState,
       createRunBuildingActionCommandFixture({
-        id: "command:smuggling:silent:2",
+        id: "command:smuggling:open-channel:2",
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "silent_channel"
+          actionId: "open_channel"
         }
       }),
       context
@@ -1396,19 +2058,23 @@ describe("run-building-action command flow", () => {
     const report = createConflictReportViews(first.nextState, { playerId: "player:1", limit: 1 })[0];
 
     expect(first.errors).toEqual([]);
-    expect(first.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(400);
-    expect(first.nextState.buildingsById[building.id].metadata?.smugglingTunnel).toMatchObject({
-      silentChannelExpiresAtTick: 96
+    expect(first.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(200);
+    expect(first.nextState.playersById["player:1"].metadata?.smugglingTunnel).toMatchObject({
+      openChannelStartedAtTick: 0,
+      openChannelExpiresAtTick: 84
     });
-    expect(first.nextState.buildingsById[building.id].actionCooldowns.silent_channel).toBe(192);
+    expect(first.nextState.buildingsById[building.id].actionCooldowns.open_channel).toBe(173);
     expect(second.errors.map((error) => error.code)).toContain("building_action_cooldown");
-    expect(second.errors.map((error) => error.code)).toContain("smuggling_tunnel_silent_channel_active");
+    expect(second.errors.map((error) => error.code)).toContain("smuggling_tunnel_open_channel_active");
     expect(report).toMatchObject({
       reportType: "building-action",
-      buildingActionId: "silent_channel",
+      buildingActionId: "open_channel",
       smugglingTunnelResult: {
-        type: "dirty_cash_boost_risk",
-        raidChancePct: 12
+        type: "open_channel",
+        dirtyCashCost: 800,
+        tunnelDirtyProductionBonusPct: 45,
+        dealerSalePriceBonusPct: 12,
+        streetIncidentFlatRiskPct: 5
       }
     });
   });

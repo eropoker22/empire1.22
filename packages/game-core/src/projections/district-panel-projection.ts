@@ -2,7 +2,10 @@ import type { DistrictPanelView } from "@empire/shared-types";
 import type { CoreGameState } from "../entities/game-state";
 import type {
   BuildingActionBalanceConfig,
+  AirportBalanceConfig,
   CarDealerBalanceConfig,
+  CentralBankBalanceConfig,
+  CityHallBalanceConfig,
   ConvenienceStoreBalanceConfig,
   CraftBuildingBalanceConfig,
   FitnessClubBalanceConfig,
@@ -14,8 +17,11 @@ import type {
   RestaurantBalanceConfig,
   SchoolBalanceConfig,
   ShoppingMallBalanceConfig,
+  StockExchangeBalanceConfig,
   SmugglingTunnelBalanceConfig,
-  StripClubBalanceConfig
+  StreetDealersBalanceConfig,
+  StripClubBalanceConfig,
+  VipLoungeBalanceConfig
 } from "../contracts/game-mode-config";
 import { resolvePowerStationInfrastructureMultiplier } from "../handlers/powerStationBuildingActions";
 import { composeEntityId } from "../utils";
@@ -35,12 +41,18 @@ export interface DistrictPanelProjectionInput {
   restaurantConfig?: RestaurantBalanceConfig;
   convenienceStoreConfig?: ConvenienceStoreBalanceConfig;
   shoppingMallConfig?: ShoppingMallBalanceConfig;
+  stockExchangeConfig?: StockExchangeBalanceConfig;
+  centralBankConfig?: CentralBankBalanceConfig;
+  airportConfig?: AirportBalanceConfig;
+  cityHallConfig?: CityHallBalanceConfig;
+  vipLoungeConfig?: VipLoungeBalanceConfig;
   powerStationConfig?: PowerStationBalanceConfig;
   recruitmentCenterConfig?: RecruitmentCenterBalanceConfig;
   fitnessClubConfig?: FitnessClubBalanceConfig;
   garageConfig?: GarageBalanceConfig;
   carDealerConfig?: CarDealerBalanceConfig;
   smugglingTunnelConfig?: SmugglingTunnelBalanceConfig;
+  streetDealersConfig?: StreetDealersBalanceConfig;
   schoolConfig?: SchoolBalanceConfig;
   recyclingCenterConfig?: RecyclingCenterBalanceConfig;
   productionMultiplier: number;
@@ -98,12 +110,18 @@ export const createDistrictPanelView = (
       restaurantConfig: input.restaurantConfig,
       convenienceStoreConfig: input.convenienceStoreConfig,
       shoppingMallConfig: input.shoppingMallConfig,
+      stockExchangeConfig: input.stockExchangeConfig,
+      centralBankConfig: input.centralBankConfig,
+      airportConfig: input.airportConfig,
+      cityHallConfig: input.cityHallConfig,
+      vipLoungeConfig: input.vipLoungeConfig,
       powerStationConfig: input.powerStationConfig,
       recruitmentCenterConfig: input.recruitmentCenterConfig,
       fitnessClubConfig: input.fitnessClubConfig,
       garageConfig: input.garageConfig,
       carDealerConfig: input.carDealerConfig,
       smugglingTunnelConfig: input.smugglingTunnelConfig,
+      streetDealersConfig: input.streetDealersConfig,
       schoolConfig: input.schoolConfig,
       recyclingCenterConfig: input.recyclingCenterConfig,
       district,

@@ -20,13 +20,38 @@ export const createBuildingActionFeedEvents = (
   );
   const actionId = stringValue(payload.actionId);
   const buildingTypeId = stringValue(payload.buildingTypeId);
+  const streetDealerResult = safePayload(payload.streetDealerResult);
+  const stockExchangeResult = safePayload(payload.stockExchangeResult);
+  if (buildingTypeId === "stock_exchange" && actionId === "market_pressure") {
+    const category = stringValue(stockExchangeResult.category) || "market";
+    return [createDirectFeedEvent(state, event, {
+      sourceType: "market",
+      category: "economy",
+      severity: "high",
+      truthiness: "confirmed",
+      visibility: "all",
+      playerId: stringValue(payload.playerId),
+      districtId: stringValue(payload.districtId),
+      message: `Downtown burza rozkolísala ceny v kategorii ${category}.`,
+      payload: {
+        actionId,
+        buildingTypeId,
+        marketCategory: category,
+        mode: stringValue(stockExchangeResult.mode),
+        regularPriceModifierPct: signedNumericValue(stockExchangeResult.regularPriceModifierPct),
+        blackMarketPriceModifierPct: signedNumericValue(stockExchangeResult.blackMarketPriceModifierPct),
+        activeUntilTick: numericValue(stockExchangeResult.activeUntilTick)
+      }
+    })];
+  }
   const significantBuildingAction = isSignificantBuildingAction(actionId, buildingTypeId);
-  if (heatGain < 5 && dirtyCash < 500 && !significantBuildingAction) return [];
+  const streetDealerIncident = safePayload(streetDealerResult.incident);
+  if (heatGain < 5 && dirtyCash < 500 && !significantBuildingAction && !streetDealerIncident.type) return [];
 
   return [createFeedEvent(state, event, {
     sourceType: "building_action",
     category: "economy",
-    severity: heatGain >= 10 || dirtyCash >= 2000 || buildingTypeId === "drug_lab" ? "high" : "medium",
+    severity: heatGain >= 10 || dirtyCash >= 2000 || buildingTypeId === "drug_lab" || streetDealerIncident.type === "loose_talk" ? "high" : "medium",
     truthiness: "unconfirmed",
     visibility: "all",
     playerId: stringValue(payload.playerId),
@@ -80,6 +105,20 @@ const createFeedEvent = (
   };
 };
 
+const createDirectFeedEvent = (
+  state: CoreGameState,
+  event: CoreEvent,
+  input: Omit<CityFeedEvent, "id" | "createdAtTick" | "messageKey"> & { message: string }
+): CityFeedEvent => {
+  const sourceEventId = createSourceEventId(event, input.sourceType, state.root.tick);
+  return {
+    id: `city-feed:${sourceEventId}`,
+    sourceEventId,
+    createdAtTick: state.root.tick,
+    ...input
+  };
+};
+
 const createSourceEventId = (event: CoreEvent, sourceType: CityFeedSourceType, fallbackTick: number): string => {
   const payload = safePayload(event.payload);
   const directId = stringValue(payload.raidId || payload.notificationId || payload.reportId || payload.eventId);
@@ -104,6 +143,9 @@ const isSignificantBuildingAction = (
   if (buildingTypeId === "armory") return actionId === "armory_fortify" || actionId === "armory_craft_weapons";
   if (buildingTypeId === "casino") return actionId === "quiet_backroom" || actionId === "vip_night";
   if (buildingTypeId === "exchange") return actionId === "good_rate";
+  if (buildingTypeId === "street_dealers") return actionId === "start_drug_sale";
+  if (buildingTypeId === "airport") return actionId === "black_charter" || actionId === "express_import";
+  if (buildingTypeId === "city_hall") return actionId === "emergency_decree";
   return false;
 };
 

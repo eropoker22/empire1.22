@@ -3,7 +3,8 @@ const namedDowntownExchanges = [
 ];
 
 const namedDowntownCentralBanks = [
-  "Iron Reserve Bank"
+  "Iron Reserve Bank",
+  "Federal Reserve Node"
 ];
 
 const namedDowntownAirports = [

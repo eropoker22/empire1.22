@@ -23,7 +23,12 @@ export interface BuildingActionReportNotificationInput {
   stripClubResult?: Record<string, unknown>;
   powerStationResult?: Record<string, unknown>;
   smugglingTunnelResult?: Record<string, unknown>;
+  airportResult?: Record<string, unknown>;
+  cityHallResult?: Record<string, unknown>;
+  centralBankResult?: Record<string, unknown>;
   schoolResult?: Record<string, unknown>;
+  streetDealerResult?: Record<string, unknown>;
+  stockExchangeResult?: Record<string, unknown>;
   tick: number;
   eventId: string;
 }
@@ -78,7 +83,12 @@ export const createBuildingActionReportNotification = (
       stripClubResult: input.stripClubResult,
       powerStationResult: input.powerStationResult,
       smugglingTunnelResult: input.smugglingTunnelResult,
+      airportResult: input.airportResult,
+      cityHallResult: input.cityHallResult,
+      centralBankResult: input.centralBankResult,
       schoolResult: input.schoolResult,
+      streetDealerResult: input.streetDealerResult,
+      stockExchangeResult: input.stockExchangeResult,
       heatGain: sanitizeNumber(input.action.heatGain),
       influenceChange: sanitizeNumber(input.action.influenceChange),
       effectModifiers: input.action.effectModifiers,

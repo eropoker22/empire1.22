@@ -1,6 +1,6 @@
 export const publicBuildingNameVariants: Record<string, string[]> = {
   stock_exchange: ["Vortex Exchange"],
-  central_bank: ["Iron Reserve Bank"],
+  central_bank: ["Iron Reserve Bank", "Federal Reserve Node"],
   airport: ["Neon Skyport"],
   lobby_club: ["Velvet Influence Club", "Shadow Lobby Lounge"],
   city_hall: ["City Dominion Hall"],

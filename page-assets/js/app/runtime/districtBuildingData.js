@@ -25,16 +25,18 @@ export const DISTRICT_BUILDING_MINUTE_INCOME_RULES_EMPIRE2 = Object.freeze({
   "Rekrutační centrum": Object.freeze({ clean: 35, dirty: 0 }),
   "Škola": Object.freeze({ clean: 18, dirty: 0 }),
   "Drug lab": Object.freeze({ clean: 1.5, dirty: 2 }),
-  "Pašovací tunel": Object.freeze({ clean: 0, dirty: 62 }),
-  "Pouliční dealeři": Object.freeze({ clean: 0.1, dirty: 4.5 }),
+  "Pašovací tunel": Object.freeze({ clean: 0, dirty: 54 }),
+  "Pouliční dealeři": Object.freeze({ clean: 0, dirty: 36 }),
   "Strip club": Object.freeze({ clean: 8, dirty: 2 }),
   "Večerka": Object.freeze({ clean: 32, dirty: 18 }),
   "Recyklační centrum": Object.freeze({ clean: 40, dirty: 0 }),
-  Burza: Object.freeze({ clean: 18, dirty: 1 }),
-  "Centrální banka": Object.freeze({ clean: 26, dirty: 1 }),
-  "Letiště": Object.freeze({ clean: 19, dirty: 1 }),
+  Burza: Object.freeze({ clean: 220, dirty: 0 }),
+  "Centrální banka": Object.freeze({ clean: 160, dirty: 0, heat: 0.1, influence: 0.35 }),
+  "Letiště": Object.freeze({ clean: 180, dirty: 45 }),
   "Lobby klub": Object.freeze({ clean: 3, dirty: 22 }),
-  "Magistrát": Object.freeze({ clean: 25, dirty: 6 }),
+  "Magistrát": Object.freeze({ clean: 130, dirty: 0 }),
+  "VIP Salonek": Object.freeze({ clean: 105, dirty: 30 }),
+  "VIP salonek": Object.freeze({ clean: 105, dirty: 30 }),
   Parlament: Object.freeze({ clean: 22, dirty: 3 }),
   "Přístav": Object.freeze({ clean: 26, dirty: 8.5 }),
   Soud: Object.freeze({ clean: 20, dirty: 10 }),
@@ -48,7 +50,13 @@ export const DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2 = Object.freeze({
   "Obchodní centrum": Object.freeze({ heat: 0.09 }),
   Kasino: Object.freeze({ heat: 0.45 }),
   "Směnárna": Object.freeze({ heat: 0.16 }),
-  "Pašovací tunel": Object.freeze({ heat: 0.03 }),
+  "Pašovací tunel": Object.freeze({ heat: 0.07 }),
+  "Pouliční dealeři": Object.freeze({ heat: 0.06 }),
+  Burza: Object.freeze({ heat: 0.18 }),
+  "Letiště": Object.freeze({ heat: 0.2 }),
+  "Magistrát": Object.freeze({ heat: 0.12 }),
+  "VIP Salonek": Object.freeze({ heat: 0.13 }),
+  "VIP salonek": Object.freeze({ heat: 0.13 }),
   "Strip club": Object.freeze({ heat: 5 / 1440 }),
   Sklad: Object.freeze({ heat: 0.06 }),
   Garage: Object.freeze({ heat: 0.06 }),
@@ -67,7 +75,12 @@ export const DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2 = Object.freeze({
   Kasino: Object.freeze({ influence: 0.7 }),
   "Směnárna": Object.freeze({ influence: 0.28 }),
   "Pašovací tunel": Object.freeze({ influence: 0 }),
-  "Pouliční dealeři": Object.freeze({ influence: 3.5 / 1440 }),
+  "Pouliční dealeři": Object.freeze({ influence: 0 }),
+  Burza: Object.freeze({ influence: 0.45 }),
+  "Letiště": Object.freeze({ influence: 0.2 }),
+  "Magistrát": Object.freeze({ influence: 0.85 }),
+  "VIP Salonek": Object.freeze({ influence: 0.48 }),
+  "VIP salonek": Object.freeze({ influence: 0.48 }),
   "Strip club": Object.freeze({ influence: 28 / 1440 }),
   Sklad: Object.freeze({ influence: 0 }),
   Garage: Object.freeze({ influence: 0 }),
@@ -177,20 +190,23 @@ export const DISTRICT_BUILDING_PACKAGE_POOLS = Object.freeze({
       Object.freeze({ key: "down-mid-1", tier: "mid", title: "Městské finance", buildings: Object.freeze(["Centrální banka", "Magistrát"]) }),
       Object.freeze({ key: "down-mid-2", tier: "mid", title: "Politický vliv", buildings: Object.freeze(["Lobby klub", "Magistrát"]) }),
       Object.freeze({ key: "down-mid-3", tier: "mid", title: "Právní tlak", buildings: Object.freeze(["Soud", "Lobby klub"]) }),
-      Object.freeze({ key: "down-mid-4", tier: "mid", title: "Volatilní kapitál", buildings: Object.freeze(["Burza", "VIP salonek"]) })
+      Object.freeze({ key: "down-mid-4", tier: "mid", title: "Volatilní kapitál", buildings: Object.freeze(["Burza", "VIP salonek"]) }),
+      Object.freeze({ key: "down-mid-5", tier: "mid", title: "Dopravní manifest", buildings: Object.freeze(["Letiště", "Přístav"]) })
     ]),
     high: Object.freeze([
       Object.freeze({ key: "down-high-1", tier: "high", title: "Korporátní kontrola", buildings: Object.freeze(["Centrální banka", "Lobby klub"]) }),
       Object.freeze({ key: "down-high-2", tier: "high", title: "Státní pevnost", buildings: Object.freeze(["Magistrát", "Soud"]) }),
       Object.freeze({ key: "down-high-3", tier: "high", title: "Elitní arbitráž", buildings: Object.freeze(["Soud", "VIP salonek"]) }),
       Object.freeze({ key: "down-high-4", tier: "high", title: "Burzovní manipulace", buildings: Object.freeze(["Burza", "Lobby klub"]) }),
-      Object.freeze({ key: "down-high-5", tier: "high", title: "Executive chamber", buildings: Object.freeze(["Magistrát", "VIP salonek"]) })
+      Object.freeze({ key: "down-high-5", tier: "high", title: "Executive chamber", buildings: Object.freeze(["Magistrát", "VIP salonek"]) }),
+      Object.freeze({ key: "down-high-6", tier: "high", title: "Politický terminál", buildings: Object.freeze(["Parlament", "Letiště"]) })
     ]),
     core: Object.freeze([
       Object.freeze({ key: "down-core-1", tier: "core", title: "Capital nexus", buildings: Object.freeze(["Centrální banka", "Magistrát", "VIP salonek"]) }),
       Object.freeze({ key: "down-core-2", tier: "core", title: "Shadow exchange", buildings: Object.freeze(["Burza", "Lobby klub", "VIP salonek"]) }),
       Object.freeze({ key: "down-core-3", tier: "core", title: "Judicial machine", buildings: Object.freeze(["Magistrát", "Soud", "Lobby klub"]) }),
-      Object.freeze({ key: "down-core-4", tier: "core", title: "System override", buildings: Object.freeze(["Centrální banka", "Soud", "Lobby klub"]) })
+      Object.freeze({ key: "down-core-4", tier: "core", title: "System override", buildings: Object.freeze(["Centrální banka", "Soud", "Lobby klub"]) }),
+      Object.freeze({ key: "down-core-5", tier: "core", title: "Capital logistics", buildings: Object.freeze(["Parlament", "Letiště", "Přístav"]) })
     ])
   })
 });
@@ -198,12 +214,12 @@ export const DISTRICT_BUILDING_PACKAGE_POOLS = Object.freeze({
 export const DOWNTOWN_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID = Object.freeze({
   79: Object.freeze({ key: "downtown-fixed-79", tier: "core", title: "Elitní arbitráž", buildings: Object.freeze(["Soud", "VIP salonek"]) }),
   80: Object.freeze({ key: "downtown-fixed-80", tier: "core", title: "Městské finance", buildings: Object.freeze(["Centrální banka"]) }),
-  81: Object.freeze({ key: "downtown-fixed-81", tier: "core", title: "Politický vliv", buildings: Object.freeze(["Lobby klub"]) }),
+  81: Object.freeze({ key: "downtown-fixed-81", tier: "core", title: "Politický vliv", buildings: Object.freeze(["Lobby klub", "Centrální banka"]) }),
   82: Object.freeze({ key: "downtown-fixed-82", tier: "core", title: "Volatilní kapitál", buildings: Object.freeze(["Burza"]) }),
   83: Object.freeze({ key: "downtown-fixed-83", tier: "core", title: "Právní tlak", buildings: Object.freeze(["Soud"]) }),
-  58: Object.freeze({ key: "downtown-fixed-58", tier: "core", title: "Městská kontrola", buildings: Object.freeze(["Magistrát"]) }),
-  57: Object.freeze({ key: "downtown-fixed-57", tier: "core", title: "Lobby síť", buildings: Object.freeze(["Lobby klub"]) }),
-  59: Object.freeze({ key: "downtown-fixed-59", tier: "core", title: "VIP patro", buildings: Object.freeze(["VIP salonek"]) })
+  58: Object.freeze({ key: "downtown-fixed-58", tier: "core", title: "Městská kontrola", buildings: Object.freeze(["Magistrát", "Parlament"]) }),
+  57: Object.freeze({ key: "downtown-fixed-57", tier: "core", title: "Lobby síť", buildings: Object.freeze(["Lobby klub", "Letiště"]) }),
+  59: Object.freeze({ key: "downtown-fixed-59", tier: "core", title: "VIP patro", buildings: Object.freeze(["VIP salonek", "Přístav"]) })
 });
 
 export function formatDistrictBuildingTierLabel(tier) {

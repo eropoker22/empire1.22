@@ -48,6 +48,7 @@ export interface Player {
   population?: number;
   recoveryPool?: PlayerRecoveryPoolEntry[];
   salvagePool?: PlayerSalvagePoolEntry[];
+  metadata?: Record<string, unknown>;
   resourceStateId: string;
   cooldownStateId: string;
   effectStateId: string;

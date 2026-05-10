@@ -67,16 +67,18 @@ export const resolveRecyclingCenterSalvageStats = (input: {
   if (!input.config || !input.playerId) {
     return { ownedCount: 0, salvageRatePct: 0, freshPool: [], expiredPool: [] };
   }
+  const config = input.config;
   const player = input.state.playersById[input.playerId];
   const pool = player?.salvagePool ?? [];
-  const ttlTicks = Math.ceil(input.config.salvage.poolTtlMinutes * 60000 / Math.max(1, input.tickRateMs));
-  const ttlMs = input.config.salvage.poolTtlMinutes * 60000;
-  const freshPool = pool.filter((entry) => isSalvageEntryFresh(entry, input.state.root.tick, ttlTicks, ttlMs));
-  const expiredPool = pool.filter((entry) => !freshPool.includes(entry));
-  const ownedCount = getOwnedRecyclingCenterCount(input.state, input.playerId, input.config);
+  const ttlTicks = Math.ceil(config.salvage.poolTtlMinutes * 60000 / Math.max(1, input.tickRateMs));
+  const ttlMs = config.salvage.poolTtlMinutes * 60000;
+  const freshEntries = pool.filter((entry) => isSalvageEntryFresh(entry, input.state.root.tick, ttlTicks, ttlMs));
+  const freshPool = freshEntries.filter((entry) => isRecyclingRecoverableItem(entry.itemId, config));
+  const expiredPool = pool.filter((entry) => !freshEntries.includes(entry));
+  const ownedCount = getOwnedRecyclingCenterCount(input.state, input.playerId, config);
   return {
     ownedCount,
-    salvageRatePct: resolveRecyclingCenterSalvageRatePct(ownedCount, input.config),
+    salvageRatePct: resolveRecyclingCenterSalvageRatePct(ownedCount, config),
     freshPool,
     expiredPool
   };
@@ -270,3 +272,9 @@ const isSalvageEntryFresh = (
   const lostAtMs = entry.lostAt ? Date.parse(entry.lostAt) : Number.NaN;
   return Number.isFinite(lostAtMs) ? Date.now() - lostAtMs <= ttlMs : true;
 };
+
+const isRecyclingRecoverableItem = (
+  itemId: string,
+  config: RecyclingCenterBalanceConfig
+): boolean =>
+  Boolean(config.salvage.recoverableItems[String(itemId || "")]);

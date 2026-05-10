@@ -190,18 +190,15 @@ describe("attack-district command flow", () => {
     expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:district:2"]).toBe(78);
   });
 
-  it("stores combat item losses in salvage pools instead of clinic recovery pools", () => {
+  it("does not store non-material combat losses in recovery or salvage pools", () => {
     const state = createCombatStateFixture();
     const resolvedConfig = resolveModeConfig("free");
 
     const result = applyCommand(state, createAttackDistrictCommandFixture(), { config: resolvedConfig });
 
     expect(result.errors).toEqual([]);
-    expect(result.nextState.playersById["player:1"].salvagePool?.map((entry) => entry.itemId)).toEqual([
-      "baseball-bat",
-      "pistol"
-    ]);
-    expect(result.nextState.playersById["player:2"].salvagePool?.map((entry) => entry.itemId)).toEqual(["alarm"]);
+    expect(result.nextState.playersById["player:1"].salvagePool ?? []).toEqual([]);
+    expect(result.nextState.playersById["player:2"].salvagePool ?? []).toEqual([]);
     expect(result.nextState.playersById["player:1"].recoveryPool ?? []).toEqual([]);
     expect(result.nextState.playersById["player:2"].recoveryPool ?? []).toEqual([]);
   });

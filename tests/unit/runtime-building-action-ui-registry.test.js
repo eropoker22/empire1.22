@@ -82,8 +82,8 @@ describe("building action UI registry", () => {
     expect(getActionLabel("VIP noc")).toBe("VIP noc");
     expect(getActionIcon("VIP noc")).toBe("VIP");
 
-    const ui = getBuildingActionUi("Tichý kanál", "Pašovací tunel");
-    expect(ui.label).toBe("Tichý kanál");
+    const ui = getBuildingActionUi("Otevřít kanál", "Pašovací tunel");
+    expect(ui.label).toBe("Otevřít kanál");
     expect(ui.badge).toBe("Tunel");
     expect(ui.buildingType).toBe("Pašovací tunel");
   });

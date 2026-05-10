@@ -91,9 +91,9 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
     actions: Object.freeze(["Tichá herna", "VIP noc", "Podplacený inspektor"])
   }),
   "poulicni dealeri": Object.freeze({
-    role: "Distribuce",
-    info: "Pouliční dealeři vytváří vysoký dirty cash, ale zvedají pozornost v okolí.",
-    actions: Object.freeze(["Rozšířit distribuci", "Vybrat cash", "Přesunout stash"])
+    role: "Dirty cash / drug distribution / street economy",
+    info: "Pouliční dealeři generují slabší dirty cash a prodávají látky z Drug Labu za špinavé peníze. Lab vyrobí produkt. Pouliční dealeři ho promění v peníze.",
+    actions: Object.freeze(["Spustit prodej"])
   }),
   vecerka: Object.freeze({
     role: "Economy / dirty cash / rumors / influence / street life",
@@ -101,9 +101,29 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
     actions: Object.freeze([])
   }),
   "pasovaci tunel": Object.freeze({
-    role: "Dirty cash / smuggling / stash / risk reward",
-    info: "Pašovací tunel není obchod. Je to díra pod městem, která plive špinavé peníze. Čím déle ji necháš běžet, tím větší balík vytáhneš. A tím víc bude město cítit, že pod ním něco hnije.",
-    actions: Object.freeze(["Vybrat dávku", "Tichý kanál"])
+    role: "Dirty cash / smuggling / dealer support / risk reward",
+    info: "Pašovací tunel je přísun špinavých peněz a tepna pouliční distribuce. Lab vyrobí látky. Dealeři je prodají. Tunely drží proud peněz a zboží dostatečně temný na to, aby město nevidělo, odkud opravdu přichází.",
+    actions: Object.freeze(["Otevřít kanál"])
+  }),
+  burza: Object.freeze({
+    role: "Ultra rare / economy / market control / financial power",
+    info: "Burza je jediná na mapě. Neprodává zboží. Ovládá ceny, poplatky a rytmus celé ekonomiky. Skleněná věž v Downtownu, kde se války nevedou noži, ale grafy.",
+    actions: Object.freeze(["Spekulativní nákup", "Tržní tlak", "Insider Window"])
+  }),
+  magistrat: Object.freeze({
+    role: "Ultra rare / politics / city control / heat management",
+    info: "Magistrát není gangová základna. Je to místo, kde se zločin mění na razítko. Kdo drží magistrát, nemusí mít vždy větší zbraň. Stačí, když má správný podpis.",
+    actions: Object.freeze(["Úřední krytí", "Městská zakázka", "Nouzová vyhláška"])
+  }),
+  "vip salonek": Object.freeze({
+    role: "Rare / elite rumors / high truth intel / influence",
+    info: "VIP Salonek je luxusní informační uzel. Drby vznikají rychleji a s vyšší pravdivostí než v běžném městském šumu, ale nikdy nejsou stoprocentní jistota.",
+    actions: Object.freeze([])
+  }),
+  letiste: Object.freeze({
+    role: "Ultra rare / logistics / import / black market support / mobility",
+    info: "Letiště je brána města. Co ostatní musí vyrábět, ty můžeš dovézt. Co ostatní musí vozit ulicemi, ty pošleš přes runway. Ale každý kontejner má papíry. A každý falešný papír jednou někdo zkontroluje.",
+    actions: Object.freeze(["Expresní dovoz", "Černý charter", "Evakuační koridor"])
   }),
   "strip club": Object.freeze({
     role: "Noční provoz",
@@ -190,8 +210,28 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
   ]),
   vecerka: Object.freeze([]),
   "pasovaci tunel": Object.freeze([
-    Object.freeze({ smugglingCollectBatch: true, cooldownMs: 0, summary: "Vybere lokální dirty cash dávku z konkrétního tunelu." }),
-    Object.freeze({ smugglingSilentChannel: true, dirtyCost: 600, durationMs: 8 * 60 * 1000, cooldownMs: 20 * 60 * 1000, dirtyIncomeBoostPct: 80, heatMultiplier: 2, capacityBoostPct: 25, raidChancePct: 12, summary: "Tichý kanál zvedne dávku, produkci a heat s rizikem zátahu." })
+    Object.freeze({ smugglingOpenChannel: true, dirtyCost: 800, heat: 5, durationMs: 7 * 60 * 1000, cooldownMs: 18 * 60 * 1000, dirtyIncomeBoostPct: 45, dealerSalePriceBonusPct: 12, dealerSaleSpeedBonusPct: 10, dealerRewardBonusPct: 10, heatRiskBonusPct: 15, streetIncidentFlatRiskPct: 5, summary: "Otevřený kanál zvedne dirty cash tunelů a prodej dealerů, ale přidá heat a street incident risk." })
+  ]),
+  burza: Object.freeze([
+    Object.freeze({ stockSpeculativeBuy: true, cleanCost: 2500, maxInvestmentCleanCash: 10000, heat: 5, cooldownMs: 16 * 60 * 1000, successChancePct: 65, neutralChancePct: 25, badChancePct: 10, summary: "Investuje clean cash do vybrané market kategorie. Výsledek může být zisk, neutrální pohyb nebo ztráta." }),
+    Object.freeze({ stockMarketPressure: true, cleanCost: 3000, influenceCost: 15, heat: 8, durationMs: 10 * 60 * 1000, cooldownMs: 22 * 60 * 1000, pumpPct: 12, dumpPct: -10, blackMarketEffectSharePct: 40, summary: "Na krátkou dobu server-wide pumpne nebo dumpne ceny vybrané kategorie." }),
+    Object.freeze({ stockInsiderWindow: true, cleanCost: 1500, heat: 4, durationMs: 6 * 60 * 1000, cooldownMs: 18 * 60 * 1000, trendHints: 3, extraFeeReductionPct: 8, speculativeSuccessBonusPct: 12, summary: "Zlepší trend hints, fee reduction a šanci Spekulativního nákupu." })
+  ]),
+  "centralni banka": Object.freeze([
+    Object.freeze({ centralBankLiquidityInjection: true, influenceCost: 20, heat: 4, cooldownMs: 20 * 60 * 1000, baseRewardCleanCash: 2500, rewardPerCleanEconomyBuilding: 90, maxRewardCleanCash: 8000, summary: "Přidá clean cash podle čisté ekonomiky hráče a zvedne Financial Oversight risk." }),
+    Object.freeze({ centralBankFrozenAccounts: true, cleanCost: 2000, heat: 5, durationMs: 8 * 60 * 1000, cooldownMs: 24 * 60 * 1000, cleanCashProtectionBonusPct: 25, dirtyCashProtectionPct: 8, fineReductionPct: 20, marketFeePenaltyPct: 5, summary: "Dočasně chrání rezervy, snižuje pokuty a finanční ztráty, ale zhorší market fee." }),
+    Object.freeze({ centralBankCurrencyIntervention: true, cleanCost: 3000, influenceCost: 25, heat: 7, durationMs: 8 * 60 * 1000, cooldownMs: 28 * 60 * 1000, volatilityReductionPct: 30, priceMoveCapPct: 6, marketFeeReductionPct: 6, stockExchangeEffectReductionPct: 25, summary: "Stabilizuje vybranou market kategorii a tlumí Tržní tlak Burzy." })
+  ]),
+  magistrat: Object.freeze([
+    Object.freeze({ cityHallOfficialCover: true, cleanCost: 1500, influenceCost: 25, heat: 2, durationMs: 8 * 60 * 1000, cooldownMs: 20 * 60 * 1000, heatGainReductionPct: 35, policeControlChanceReductionPct: 20, rumorChanceReductionPct: 15, summary: "Cílový vlastněný district dostane politické krytí proti heatu, kontrole a rumorům." }),
+    Object.freeze({ cityHallContract: true, influenceCost: 20, heat: 3, cooldownMs: 18 * 60 * 1000, baseRewardCleanCash: 1500, rewardPerLegalBuilding: 120, maxRewardCleanCash: 6500, summary: "Přidá clean cash podle počtu legálních budov hráče." }),
+    Object.freeze({ cityHallEmergencyDecree: true, cleanCost: 2500, influenceCost: 40, heat: 8, durationMs: 6 * 60 * 1000, cooldownMs: 28 * 60 * 1000, modes: "night_patrols / suspended_checks / construction_closure", summary: "Spustí krátkou městskou vyhlášku s obranným, policejním nebo zónovým efektem." })
+  ]),
+  "vip salonek": Object.freeze([]),
+  letiste: Object.freeze([
+    Object.freeze({ airportExpressImport: true, cleanCost: 2000, heat: 6, durationMs: 90 * 1000, cooldownMs: 18 * 60 * 1000, customsRiskPct: 10, summary: "Objedná zásilku materials, rare components, weapons nebo defense items. Přesah přes sklad propadne." }),
+    Object.freeze({ airportBlackCharter: true, dirtyCost: 2500, heat: 9, durationMs: 8 * 60 * 1000, cooldownMs: 24 * 60 * 1000, offerDiscountPct: 6, purchaseCustomsRiskPct: 15, summary: "Otevře dočasnou Black Market nabídku s rizikem celního zátahu při nákupu." }),
+    Object.freeze({ airportEvacuationCorridor: true, cleanCost: 1800, heat: 5, durationMs: 7 * 60 * 1000, cooldownMs: 26 * 60 * 1000, escapeChanceBonusPct: 18, lossReductionPct: 10, summary: "Zvedne šanci úniku, sníží ztráty při neúspěchu a zrychlí návratovou logistiku." })
   ]),
   "strip club": Object.freeze([
     Object.freeze({ dirty: 360, heat: 3, summary: "Noční cash vybrán." }),
@@ -365,23 +405,38 @@ export const FITNESS_CLUB_SUPPORT_CONFIG = Object.freeze({
 });
 export const SMUGGLING_TUNNEL_CONFIG = Object.freeze({
   countOnMap: 18,
-  dirtyCashPerMinute: 62,
-  passiveHeatPerMinute: 0.03,
-  baseBatchCapacity: 2500,
-  minCollectDirty: 300,
+  dirtyCashPerMinute: 54,
+  heatPerMinute: 0.07,
   dirtyProductionBonusPctPerExtraTunnel: 5,
-  batchCapacityBonusPctPerExtraTunnel: 6,
-  passiveHeatBonusPctPerExtraTunnel: 4,
+  heatBonusPctPerExtraTunnel: 4,
   maxDirtyProductionMultiplier: 1.35,
-  maxBatchCapacityMultiplier: 1.55,
+  maxHeatMultiplier: 1.28,
+  dealerSupplyBonusPctPerTunnel: 4,
+  dealerSupplyMaxBonusPct: 32,
+  dealerSupplySalePriceSharePct: 50,
+  dealerSupplySaleSpeedSharePct: 35,
+  dealerSupplyStreetRiskReductionSharePct: 40,
+  dealerSupplyPassiveDirtyIncomeSharePct: 25,
+  dealerSupplySaleHeatRiskSharePct: 20,
+  openChannelDirtyCost: 800,
+  openChannelHeatGain: 5,
+  openChannelDurationMs: 7 * 60 * 1000,
+  openChannelCooldownMs: 18 * 60 * 1000,
+  openChannelTunnelDirtyProductionBonusPct: 45,
+  openChannelDealerSalePriceBonusPct: 12,
+  openChannelDealerSaleSpeedBonusPct: 10,
+  openChannelDealerCompletionRewardBonusPct: 10,
+  openChannelDealerSaleHeatBonusPct: 15,
+  openChannelStreetIncidentFlatRiskPct: 5,
+  baseBatchCapacity: 0,
+  minCollectDirty: Number.POSITIVE_INFINITY,
+  maxBatchCapacityMultiplier: 1,
   maxPassiveHeatMultiplier: 1.28,
-  silentChannelDirtyCost: 600,
-  silentChannelDurationMs: 8 * 60 * 1000,
-  silentChannelCooldownMs: 20 * 60 * 1000,
-  silentChannelDirtyProductionMultiplier: 1.8,
-  silentChannelHeatMultiplier: 2,
-  silentChannelBatchCapacityMultiplier: 1.25,
-  silentChannelRaidChancePct: 12
+  passiveHeatBonusPctPerExtraTunnel: 4,
+  silentChannelDirtyProductionMultiplier: 1,
+  silentChannelHeatMultiplier: 1,
+  silentChannelBatchCapacityMultiplier: 1,
+  silentChannelRaidChancePct: 0
 });
 export const CLINIC_BASE_RECOVERY_RATE_PCT = 15;
 export const CLINIC_RECOVERY_RATE_PCT_PER_EXTRA = 3;
@@ -406,6 +461,10 @@ export const DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES = Object.freeze({
   "poulicni dealeri": "street-dealers",
   vecerka: "convenience-store",
   "pasovaci tunel": "smuggling-tunnel",
+  "centralni banka": "central-bank",
+  magistrat: "city-hall",
+  "vip salonek": "vip-lounge",
+  letiste: "airport",
   "strip club": "strip-club",
   sklad: "warehouse",
   "energeticka stanice": "power-plant",

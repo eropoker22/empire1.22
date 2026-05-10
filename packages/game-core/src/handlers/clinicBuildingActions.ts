@@ -174,9 +174,7 @@ export const resolveClinicAction = (input: {
     if (RARE_ITEMS.has(entry.itemType) && random() < raw - amount) amount += 1;
     if (amount <= 0) continue;
     if (entry.itemType === "population" || entry.itemType === "gang-members") {
-      nextBalances["gang-members"] = Math.max(0, Number(nextBalances["gang-members"] || 0) + amount);
       recovered.population = Math.max(0, Number(recovered.population || 0) + amount);
-      recovered["gang-members"] = Math.max(0, Number(recovered["gang-members"] || 0) + amount);
       continue;
     }
     const cap = capacity ? getWarehouseCapacityForResource(capacity, entry.itemType) : Number.POSITIVE_INFINITY;

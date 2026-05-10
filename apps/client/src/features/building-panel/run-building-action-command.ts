@@ -5,6 +5,9 @@ export interface CreateRunBuildingActionCommandInput {
   slice: GameplaySliceView;
   buildingId: string;
   actionId: string;
+  dealerSlotId?: string;
+  itemId?: string;
+  amount?: number;
   issuedAt: string;
   clientRequestId?: string | null;
 }
@@ -35,7 +38,10 @@ export const createRunBuildingActionCommand = (
     payload: {
       districtId: district.districtId,
       buildingId: building.buildingId,
-      actionId: action.actionId
+      actionId: action.actionId,
+      ...(input.dealerSlotId ? { dealerSlotId: input.dealerSlotId } : {}),
+      ...(input.itemId ? { itemId: input.itemId } : {}),
+      ...(input.amount !== undefined ? { amount: input.amount } : {})
     },
     clientRequestId: input.clientRequestId ?? null
   };

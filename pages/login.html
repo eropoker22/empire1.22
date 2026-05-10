@@ -227,27 +227,45 @@
       </section>
 
       <section class="hud-panel server-status" aria-label="Server status">
+        <div class="server-status__grid" aria-hidden="true"></div>
         <div class="panel-heading">
           <span class="panel-icon">▱</span>
           <h2>SERVER STATUS</h2>
           <span class="status-dot"></span>
         </div>
-        <div class="server-main">
-          <strong data-server-status-name>FREE-01</strong>
-          <span data-server-status-state>ONLINE</span>
-        </div>
-        <div class="server-players"><span>♟</span><strong data-server-status-players>17/20 hráčů</strong></div>
-        <div class="metric">
-          <span>HEAT LEVEL</span>
-          <strong data-server-status-heat>78 %</strong>
-          <div class="progress"><i data-server-status-heat-bar style="width: 78%"></i></div>
-        </div>
-        <div class="metric metric--market">
-          <span>MARKET VOLATILITY</span>
-          <strong data-server-status-market>VERY HIGH</strong>
-          <svg class="sparkline" viewBox="0 0 180 48" aria-hidden="true">
-            <polyline data-server-status-sparkline points="0,34 10,29 18,37 30,24 40,31 50,19 60,32 70,15 82,28 94,22 108,36 122,18 136,24 148,12 160,26 172,16 180,20"></polyline>
-          </svg>
+        <div class="server-status__body">
+          <div class="server-main">
+            <div class="server-main__meta">
+              <small>LIVE NODE 2. <span class="server-state-inline" data-server-status-state>ONLINE</span></small>
+              <strong data-server-status-name>FREE-01</strong>
+            </div>
+          </div>
+          <div class="server-players">
+            <span class="server-players__label">POPULATION</span>
+            <strong data-server-status-players>17/20 hráčů</strong>
+          </div>
+          <div class="server-metrics">
+            <div class="metric metric--heat">
+              <span>HEAT LEVEL</span>
+              <strong data-server-status-heat>78 %</strong>
+              <div class="metric-circle metric-circle--heat" data-server-status-heat-circle style="--value: 78;">
+                <div class="metric-circle__inner">
+                  <b data-server-status-heat-circle-value>78%</b>
+                  <small>RISK</small>
+                </div>
+              </div>
+            </div>
+            <div class="metric metric--districts">
+              <span>OVLÁDNUTO DISTRIKTŮ</span>
+              <strong data-server-status-districts>124 / 161</strong>
+              <div class="metric-circle metric-circle--districts" data-server-status-districts-circle style="--value: 77;">
+                <div class="metric-circle__inner">
+                  <b data-server-status-districts-count>124</b>
+                  <small>/ 161</small>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

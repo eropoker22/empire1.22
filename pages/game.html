@@ -170,6 +170,9 @@
             <div id="game-map-mount" class="mount-point mount-point--map" data-mount-role="map">
               <div class="map-viewport" data-map-viewport>
                 <div class="map-canvas-shell" data-map-phase="day" data-game-phase="live" data-map-canvas>
+                  <div class="map-refresh-fallback" aria-hidden="true">
+                    <strong>REFRESH</strong>
+                  </div>
                   <canvas
                     class="map-district-canvas"
                     data-district-canvas
@@ -1588,20 +1591,70 @@
 
       <div class="leaderboard-popup-shell" data-leaderboard-popup hidden>
         <div class="leaderboard-popup-backdrop" data-leaderboard-popup-close></div>
-        <div class="leaderboard-popup-card" role="dialog" aria-modal="true" aria-label="Leaderboard">
+        <div class="leaderboard-popup-card leaderboard-terminal-card" role="dialog" aria-modal="true" aria-label="City Ranking Terminal" tabindex="-1">
           <button type="button" class="button leaderboard-popup-close" data-leaderboard-popup-close aria-label="Zavřít leaderboard">✕</button>
-          <div class="leaderboard-popup-heading">
-            <span class="leaderboard-popup-eyebrow">EmpireStreets ranking</span>
-            <span class="leaderboard-popup-server" data-leaderboard-server-badge>Server shard</span>
+          <div class="leaderboard-terminal">
+            <header class="leaderboard-terminal__header">
+              <div class="leaderboard-terminal__title-block">
+                <h3 class="leaderboard-popup-title">CITY RANKING TERMINAL</h3>
+              </div>
+              <div class="leaderboard-terminal__server">
+                <span class="leaderboard-popup-server" data-leaderboard-server-badge>Server shard</span>
+                <strong data-leaderboard-phase>LIVE / NIGHT</strong>
+              </div>
+            </header>
+
+            <section class="leaderboard-control-strip" aria-label="Leaderboard filtry">
+              <label class="leaderboard-search">
+                <input type="search" data-leaderboard-search placeholder="Najít hráče, gang nebo alianci..." autocomplete="off">
+              </label>
+              <div class="leaderboard-filter-group" aria-label="Filtr leaderboardu">
+                <button type="button" class="button leaderboard-filter is-active" data-leaderboard-filter="current">Current server</button>
+                <button type="button" class="button leaderboard-filter" data-leaderboard-filter="free">Free</button>
+                <button type="button" class="button leaderboard-filter" data-leaderboard-filter="war">War</button>
+                <button type="button" class="button leaderboard-filter" data-leaderboard-filter="alliance">Moje aliance</button>
+                <button type="button" class="button leaderboard-filter" data-leaderboard-filter="active">Online / aktivní</button>
+              </div>
+            </section>
+
+            <div class="leaderboard-popup-tabs" aria-label="Leaderboard tabs" role="tablist">
+              <button type="button" class="button leaderboard-popup-tab is-active" data-leaderboard-tab="overall" role="tab" aria-selected="true">Celkově</button>
+              <button type="button" class="button leaderboard-popup-tab" data-leaderboard-tab="influence" role="tab" aria-selected="false">Vliv</button>
+              <button type="button" class="button leaderboard-popup-tab" data-leaderboard-tab="districts" role="tab" aria-selected="false">Distrikty</button>
+              <button type="button" class="button leaderboard-popup-tab" data-leaderboard-tab="money" role="tab" aria-selected="false">Peníze</button>
+              <button type="button" class="button leaderboard-popup-tab" data-leaderboard-tab="wanted" role="tab" aria-selected="false">Wanted</button>
+              <button type="button" class="button leaderboard-popup-tab" data-leaderboard-tab="attacks" role="tab" aria-selected="false">Útoky</button>
+              <button type="button" class="button leaderboard-popup-tab" data-leaderboard-tab="alliance" role="tab" aria-selected="false">Aliance</button>
+            </div>
+
+            <div class="leaderboard-terminal__body">
+              <aside class="leaderboard-my-rank" data-leaderboard-my-rank aria-label="Tvůj rank"></aside>
+              <section class="leaderboard-board" aria-live="polite">
+                <div class="leaderboard-board__head">
+                  <div>
+                    <span class="leaderboard-board__eyebrow" data-leaderboard-mode-label>CELKOVĚ</span>
+                    <h4 data-leaderboard-table-title>Empire Score</h4>
+                  </div>
+                  <span class="leaderboard-board__count" data-leaderboard-count>0 hráčů</span>
+                </div>
+                <div class="leaderboard-popup-stats" data-leaderboard-stats></div>
+                <div class="leaderboard-popup-list" data-leaderboard-list></div>
+              </section>
+            </div>
+
+            <div class="leaderboard-player-detail-shell" data-leaderboard-player-detail hidden>
+              <div class="leaderboard-player-detail-backdrop" data-leaderboard-player-detail-close></div>
+              <section class="leaderboard-player-detail-card" role="dialog" aria-modal="true" aria-label="Detail hráče" tabindex="-1">
+                <button type="button" class="button leaderboard-player-detail-close" data-leaderboard-player-detail-close aria-label="Zavřít detail hráče">✕</button>
+                <div class="leaderboard-detail-panel" data-leaderboard-detail aria-label="Detail hráče"></div>
+              </section>
+            </div>
+
+            <div class="leaderboard-toast" data-leaderboard-toast role="status" aria-live="polite" hidden>
+              <strong data-leaderboard-toast-title>TERMINAL</strong>
+              <span data-leaderboard-toast-message>Funkce bude napojena později.</span>
+            </div>
           </div>
-          <h3 class="leaderboard-popup-title">Leaderboard</h3>
-          <div class="leaderboard-popup-tabs" aria-label="Leaderboard tabs">
-            <button type="button" class="button leaderboard-popup-tab is-active" data-leaderboard-tab="server">Server</button>
-            <button type="button" class="button leaderboard-popup-tab" data-leaderboard-tab="global">Celkové žebříčky</button>
-          </div>
-          <p class="leaderboard-popup-copy" data-leaderboard-copy>Příčky všech hráčů na aktuálním serveru.</p>
-          <div class="leaderboard-popup-stats" data-leaderboard-stats></div>
-          <div class="leaderboard-popup-list" data-leaderboard-list></div>
         </div>
       </div>
 

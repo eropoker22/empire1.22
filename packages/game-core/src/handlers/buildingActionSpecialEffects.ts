@@ -94,8 +94,9 @@ const DEFENSE_LOADOUT_BY_ACTION_ID: Record<string, Partial<Record<DefenseWeaponI
 const INTEL_EFFECT_BY_ACTION_ID: Record<string, { limit: number; detectDefense: boolean }> = {
   restaurant_street_gossip: { limit: 2, detectDefense: false },
   lobby_club_backroom_deal: { limit: 1, detectDefense: false },
-  vip_lounge_private_table: { limit: 1, detectDefense: false },
-  airport_fast_manifest: { limit: 1, detectDefense: false },
+  express_import: { limit: 1, detectDefense: false },
+  black_charter: { limit: 1, detectDefense: false },
+  evacuation_corridor: { limit: 1, detectDefense: false },
   convenience_street_info: { limit: 2, detectDefense: false },
   strip_club_compromise: { limit: 1, detectDefense: false },
 };
@@ -109,8 +110,9 @@ const BUILDING_ACTION_MESSAGE_LABELS: Record<string, string> = {
   warehouse_hidden_storage: "Warehouse crews",
   restaurant_street_gossip: "Street gossip",
   lobby_club_backroom_deal: "Lobby contacts",
-  vip_lounge_private_table: "VIP contacts",
-  airport_fast_manifest: "Airport manifest",
+  express_import: "Airport import crews",
+  black_charter: "Airport charter contacts",
+  evacuation_corridor: "Airport evacuation crews",
   convenience_street_info: "Store gossip",
   strip_club_compromise: "Compromat",
 };

@@ -1596,8 +1596,8 @@ body.game-body--booting .game-logo-slot {
   border-radius: 28px;
   overflow: hidden;
   background:
-    linear-gradient(180deg, rgba(5, 10, 17, 0.12), rgba(5, 10, 17, 0.4)),
-    url("../../img/tapeta.png") center/cover;
+    linear-gradient(180deg, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.96)),
+    #000;
   transform-origin: center center;
   will-change: transform;
   transition:
@@ -1605,9 +1605,110 @@ body.game-body--booting .game-logo-slot {
     transform 260ms var(--motion-modal-ease);
 }
 
+.map-refresh-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+  color: rgba(221, 252, 255, 0.92);
+  background:
+    radial-gradient(circle at 50% 48%, rgba(0, 245, 255, 0.16), transparent 24%),
+    radial-gradient(circle at 52% 54%, rgba(255, 43, 214, 0.1), transparent 34%),
+    linear-gradient(rgba(0, 245, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 245, 255, 0.04) 1px, transparent 1px),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 6px),
+    #000;
+  background-size: auto, auto, 32px 32px, 32px 32px, auto, auto;
+  pointer-events: none;
+}
+
+.map-refresh-fallback::before,
+.map-refresh-fallback::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.map-refresh-fallback::before {
+  inset: 13%;
+  border: 1px solid rgba(0, 245, 255, 0.13);
+  background:
+    linear-gradient(90deg, transparent 0 10%, rgba(0, 245, 255, 0.22) 10% 10.4%, transparent 10.4% 89.6%, rgba(255, 43, 214, 0.2) 89.6% 90%, transparent 90%),
+    linear-gradient(180deg, transparent 0 12%, rgba(0, 245, 255, 0.18) 12% 12.5%, transparent 12.5% 87.5%, rgba(255, 43, 214, 0.16) 87.5% 88%, transparent 88%);
+  clip-path: polygon(0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px));
+  opacity: 0.74;
+}
+
+.map-refresh-fallback::after {
+  left: 50%;
+  top: 50%;
+  width: min(440px, 70%);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 245, 255, 0.88), rgba(255, 43, 214, 0.72), transparent);
+  box-shadow:
+    0 0 18px rgba(0, 245, 255, 0.58),
+    0 0 26px rgba(255, 43, 214, 0.32);
+  transform: translate(-50%, calc(-50% + 44px));
+}
+
+.map-refresh-fallback strong {
+  position: relative;
+  min-width: min(360px, 70%);
+  padding: 14px 26px 15px;
+  border: 1px solid rgba(0, 245, 255, 0.42);
+  border-radius: 6px;
+  color: #effdff;
+  background:
+    linear-gradient(90deg, rgba(0, 245, 255, 0.14), transparent 18%, transparent 82%, rgba(255, 43, 214, 0.12)),
+    linear-gradient(180deg, rgba(6, 18, 29, 0.74), rgba(1, 5, 12, 0.9));
+  font: 1000 clamp(1.45rem, 3.2vw, 3.15rem) "Bahnschrift", "Rajdhani", "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+  clip-path: polygon(0 8px, 8px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 18px 100%, 0 calc(100% - 18px));
+  text-shadow:
+    0 0 7px rgba(232, 252, 255, 0.74),
+    0 0 18px rgba(0, 245, 255, 0.66),
+    0 0 34px rgba(255, 43, 214, 0.38);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.055),
+    0 0 24px rgba(0, 245, 255, 0.22),
+    0 0 42px rgba(255, 43, 214, 0.12),
+    inset 0 0 22px rgba(0, 245, 255, 0.1),
+    inset 0 0 38px rgba(255, 43, 214, 0.055);
+}
+
+.map-refresh-fallback strong::before,
+.map-refresh-fallback strong::after {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(0, 245, 255, 0.82);
+  font-size: 0.42rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  line-height: 1;
+  text-shadow: 0 0 12px rgba(0, 245, 255, 0.54);
+}
+
+.map-refresh-fallback strong::before {
+  content: "CITY GRID REBUILD";
+  top: -17px;
+}
+
+.map-refresh-fallback strong::after {
+  content: "SYNC / MAP BUFFER";
+  bottom: -17px;
+  color: rgba(255, 43, 214, 0.76);
+  text-shadow: 0 0 12px rgba(255, 43, 214, 0.5);
+}
+
 .map-district-canvas {
   position: relative;
-  z-index: 0;
+  z-index: 2;
   display: block;
   width: 100%;
   height: 100%;
@@ -3083,10 +3184,8 @@ body.game-body--booting .game-logo-slot {
     position: relative;
     overflow: hidden;
     background:
-      linear-gradient(180deg, rgba(7, 14, 24, 0.08), rgba(7, 14, 24, 0.42)),
-      radial-gradient(circle at top, rgba(34, 211, 238, 0.11), transparent 42%),
-      radial-gradient(circle at bottom right, rgba(217, 70, 239, 0.08), transparent 38%),
-      url("../../img/tapeta.png") center/cover;
+      linear-gradient(180deg, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.96)),
+      #000;
   }
 
   .map-canvas-shell::before {
@@ -3100,6 +3199,7 @@ body.game-body--booting .game-logo-slot {
       linear-gradient(90deg, rgba(34, 211, 238, 0.06), transparent 22%, transparent 78%, rgba(217, 70, 239, 0.06)),
       repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 4px);
     mix-blend-mode: screen;
+    z-index: 3;
   }
 
   .map-canvas-shell::after {
@@ -3111,6 +3211,7 @@ body.game-body--booting .game-logo-slot {
       inset 0 0 0 1px rgba(255, 255, 255, 0.04),
       inset 0 -24px 38px rgba(2, 6, 23, 0.24),
       inset 0 10px 20px rgba(255, 255, 255, 0.025);
+    z-index: 4;
   }
 
   .map-district-canvas {

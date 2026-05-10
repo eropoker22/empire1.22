@@ -209,6 +209,7 @@ export function createResultPayloadBuilders(deps = {}) {
       summary: pickRandomQuote(deps.policeDistrictClickWarningQuotes, "Tady teď ne. Policie to tu právě rozjebává.", random),
       syncToBuildingAction: false,
       rows: [
+        { label: "District", value: formatDistrictReference(districtId) },
         { label: "Hráč", value: getResultDistrictOwnerLabel(districtId) },
         { label: "Typ razie", value: specialtyMeta.label }
       ]

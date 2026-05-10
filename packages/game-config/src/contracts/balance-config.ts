@@ -486,6 +486,42 @@ export interface RestaurantBalanceConfig {
   };
 }
 
+export interface VipLoungeBalanceConfig {
+  id: "vip_lounge";
+  buildingTypeId: "vip_lounge";
+  countOnMap: 3;
+  category: string[];
+  cleanCashPerMinute: number;
+  dirtyCashPerMinute: number;
+  influencePerMinute: number;
+  populationPerMinute: 0;
+  heatPerMinute: number;
+  noIntelPower: true;
+  noEliteContacts: true;
+  noPopulationProduction: true;
+  noLaundering: true;
+  noAuditRisk: true;
+  passiveRumor: {
+    baseChancePct: number;
+    reliabilityLabels: string[];
+    rumorTypes: string[];
+  };
+  network: {
+    tiers: Array<{
+      minOwned: number;
+      maxOwned: number | null;
+      incomeMultiplier: number;
+      influenceMultiplier: number;
+      heatMultiplier: number;
+      rumorIntervalMinutes: number;
+      truthChancePct: number;
+      districtHintChancePct: number;
+      buildingHintChancePct: number;
+      reliabilityLabelChancePct: number;
+    }>;
+  };
+}
+
 export interface ConvenienceStoreBalanceConfig {
   id: "convenience_store";
   buildingTypeId: "convenience_store";
@@ -639,6 +675,371 @@ export interface ShoppingMallBalanceConfig {
   };
 }
 
+export interface StockExchangeBalanceConfig {
+  id: "stock_exchange";
+  buildingTypeId: "stock_exchange";
+  countOnMap: 1;
+  zone: "downtown";
+  category: string[];
+  cleanCashPerMinute: number;
+  dirtyCashPerMinute: 0;
+  influencePerMinute: number;
+  populationPerMinute: 0;
+  heatPerMinute: number;
+  noDirtyCash: true;
+  noPopulationProduction: true;
+  noIntelPower: true;
+  noLaundering: true;
+  marketInsight: {
+    intervalMinutes: number;
+    baseHintCount: number;
+    insiderHintCount: number;
+  };
+  marketFeeReduction: {
+    regularMarketPct: number;
+    playerMarketPct: number;
+    blackMarketPct: number;
+    insiderExtraPct: number;
+  };
+  speculativeBuy: {
+    actionId: "speculative_buy";
+    cooldownMinutes: number;
+    costCleanCash: number;
+    maxInvestmentCleanCash: number;
+    heatGain: number;
+    targetCategories: string[];
+    successChancePct: number;
+    insiderSuccessChanceBonusPct: number;
+    successProfitMinPct: number;
+    successProfitMaxPct: number;
+    neutralChancePct: number;
+    neutralReturnMinPct: number;
+    neutralReturnMaxPct: number;
+    lossReturnMinPct: number;
+    lossReturnMaxPct: number;
+    riskPct: number;
+    riskDurationMinutes: number;
+  };
+  marketPressure: {
+    actionId: "market_pressure";
+    cooldownMinutes: number;
+    durationMinutes: number;
+    costCleanCash: number;
+    costInfluence: number;
+    heatGain: number;
+    targetCategories: string[];
+    pumpRegularPct: number;
+    dumpRegularPct: number;
+    blackMarketEffectSharePct: number;
+    riskPct: number;
+    riskDurationMinutes: number;
+  };
+  insiderWindow: {
+    actionId: "insider_window";
+    cooldownMinutes: number;
+    durationMinutes: number;
+    costCleanCash: number;
+    heatGain: number;
+    financialInspectionRiskPct: number;
+  };
+  financialInspection: {
+    intervalMinutes: number;
+    multiActionWindowMinutes: number;
+    multiActionThreshold: number;
+    multiActionRiskPct: number;
+    heatThreshold: number;
+    heatRiskPct: number;
+    frozenIncomeMinutes: number;
+    feeReductionDisabledMinutes: number;
+    fineCleanCash: number;
+    panicVolatilityPct: number;
+    panicDurationMinutes: number;
+    scandalHeatGain: number;
+  };
+}
+
+export interface CentralBankBalanceConfig {
+  id: "central_bank";
+  buildingTypeId: "central_bank";
+  countOnMap: 2;
+  zone: "downtown";
+  category: string[];
+  cleanCashPerMinute: number;
+  dirtyCashPerMinute: 0;
+  influencePerMinute: number;
+  populationPerMinute: 0;
+  heatPerMinute: number;
+  noIntelPower: true;
+  noDirtyCash: true;
+  noPopulationProduction: true;
+  noLaundering: true;
+  reserveTiers: Array<{
+    minOwned: number;
+    maxOwned: number;
+    cleanCashProtectionPct: number;
+    interestIntervalMinutes: number;
+    interestPct: number;
+    maxInterestCleanCash: number;
+    incomeMultiplier: number;
+    influenceMultiplier: number;
+    heatMultiplier: number;
+    fineReductionPct: number;
+    marketFeeReductionPct: number;
+    financialInspectionPenaltyReductionPct: number;
+    economicCrisisImpactReductionPct: number;
+  }>;
+  liquidityInjection: {
+    actionId: "liquidity_injection";
+    cooldownMinutes: number;
+    costInfluence: number;
+    heatGain: number;
+    baseRewardCleanCash: number;
+    rewardPerCleanEconomyBuilding: number;
+    maxRewardCleanCash: number;
+    shoppingMallRewardBonusPct: number;
+    riskPct: number;
+    riskDurationMinutes: number;
+    cleanEconomyBuildingTypeIds: string[];
+  };
+  frozenAccounts: {
+    actionId: "frozen_accounts";
+    cooldownMinutes: number;
+    durationMinutes: number;
+    costCleanCash: number;
+    heatGain: number;
+    cleanCashProtectionBonusPct: number;
+    dirtyCashProtectionPct: number;
+    fineReductionPct: number;
+    financialEventLossReductionPct: number;
+    marketFeePenaltyPct: number;
+    riskPct: number;
+  };
+  currencyIntervention: {
+    actionId: "currency_intervention";
+    cooldownMinutes: number;
+    durationMinutes: number;
+    costCleanCash: number;
+    costInfluence: number;
+    heatGain: number;
+    targetCategories: string[];
+    volatilityReductionPct: number;
+    priceMoveCapPct: number;
+    holderMarketFeeReductionPct: number;
+    stockExchangeEffectReductionPct: number;
+    stockExchangeSynergyEffectBonusPct: number;
+    riskPct: number;
+  };
+  financialOversight: {
+    intervalMinutes: number;
+    passiveRiskPct: number;
+    heatThreshold: number;
+    heatRiskPct: number;
+    stockExchangeRiskPct: number;
+    cityHallRiskReductionPct: number;
+    interestDisabledMinutes: number;
+    liquidityBlockedMinutes: number;
+    regulatoryFineCleanCash: number;
+    feeReductionDisabledMinutes: number;
+  };
+  synergies: {
+    stockExchangeSpeculativeRiskReductionPct: number;
+    cityHallCorruptionPenaltyReductionPct: number;
+    cityHallInfluenceActionCostReductionPct: number;
+    shoppingMallMarketFeeReductionPct: number;
+    shoppingMallCleanIncomeBonusPct: number;
+  };
+}
+
+export interface CityHallBalanceConfig {
+  id: "city_hall";
+  buildingTypeId: "city_hall";
+  countOnMap: 1;
+  zone: "downtown";
+  category: string[];
+  cleanCashPerMinute: number;
+  dirtyCashPerMinute: 0;
+  influencePerMinute: number;
+  populationPerMinute: 0;
+  heatPerMinute: number;
+  noIntelPower: true;
+  noDirtyCash: true;
+  noPopulationProduction: true;
+  noLaundering: true;
+  cityAuthority: {
+    influenceGenerationBonusPct: number;
+    legalBuildingHeatReductionPct: number;
+    policeRaidWarningChancePct: number;
+    warningCooldownMinutes: number;
+    influenceActionCostReductionPct: number;
+    maxInfluenceActionCostReductionPct: number;
+    districtControlPressurePct: number;
+    legalBuildingTypeIds: string[];
+  };
+  officialCover: {
+    actionId: "official_cover";
+    cooldownMinutes: number;
+    durationMinutes: number;
+    costInfluence: number;
+    costCleanCash: number;
+    heatGain: number;
+    heatGainReductionPct: number;
+    policeControlChanceReductionPct: number;
+    rumorChanceReductionPct: number;
+    riskPct: number;
+  };
+  cityContract: {
+    actionId: "city_contract";
+    cooldownMinutes: number;
+    costInfluence: number;
+    heatGain: number;
+    baseRewardCleanCash: number;
+    rewardPerLegalBuilding: number;
+    maxRewardCleanCash: number;
+    restaurantConvenienceSynergyPct: number;
+    restaurantSynergyThreshold: number;
+    convenienceSynergyThreshold: number;
+    riskPct: number;
+    riskDurationMinutes: number;
+    legalBuildingTypeIds: string[];
+  };
+  emergencyDecree: {
+    actionId: "emergency_decree";
+    cooldownMinutes: number;
+    durationMinutes: number;
+    costInfluence: number;
+    costCleanCash: number;
+    heatGain: number;
+    riskPct: number;
+    modes: {
+      nightPatrols: {
+        modeId: "night_patrols";
+        incomingAttackPreparationIncreasePct: number;
+        districtRobberyCooldownIncreasePct: number;
+        defenseBonusPct: number;
+      };
+      suspendedChecks: {
+        modeId: "suspended_checks";
+        heatGainReductionPct: number;
+        policeIncidentChanceReductionPct: number;
+      };
+      constructionClosure: {
+        modeId: "construction_closure";
+        enemyZoneMovementTimeIncreasePct: number;
+        enemyZoneRobberyTimeIncreasePct: number;
+      };
+    };
+  };
+  corruptionScandal: {
+    intervalMinutes: number;
+    passiveRiskPct: number;
+    heatThreshold: number;
+    heatRiskPct: number;
+    casinoOrStockExchangeRiskPct: number;
+    stockExchangeSynergyRiskPct: number;
+    airportSynergyRiskPct: number;
+    influencePenaltyPct: number;
+    influencePenaltyMinutes: number;
+    cityContractBlockedMinutes: number;
+    publicResistanceInfluenceLoss: number;
+    policeOversightHeatGain: number;
+  };
+  synergies: {
+    stripClubContactChancePct: number;
+    stripClubPrivatePartyScandalReductionPct: number;
+    civilRumorTruthRestaurantThreshold: number;
+    civilRumorTruthConvenienceThreshold: number;
+    civilRumorTruthBonusPct: number;
+    stockExchangeFinancialInspectionRiskReductionPct: number;
+    airportCustomsRiskReductionPct: number;
+  };
+}
+
+export interface AirportBalanceConfig {
+  id: "airport";
+  buildingTypeId: "airport";
+  countOnMap: 1;
+  zone: "downtown";
+  category: string[];
+  cleanCashPerMinute: number;
+  dirtyCashPerMinute: number;
+  influencePerMinute: number;
+  populationPerMinute: 0;
+  heatPerMinute: number;
+  noIntelPower: true;
+  noPopulationProduction: true;
+  noLaundering: true;
+  importDiscount: {
+    materialsPct: number;
+    rareComponentsPct: number;
+    weaponsPct: number;
+    defenseItemsPct: number;
+    drugsAndBoostsPct: number;
+    blackMarketItemsPct: number;
+    shoppingMallMaterialsSynergyPct: number;
+  };
+  cooldownReduction: {
+    marketDeliveryPct: number;
+    blackMarketDeliveryPct: number;
+    resourceTransferPct: number;
+    equipmentTransferPct: number;
+    shoppingMallMarketDeliverySynergyPct: number;
+    combinedLogisticsMaxReductionPct: number;
+  };
+  blackMarketSignal: {
+    rareItemOfferChanceBonusPct: number;
+    extraStockRefreshOffers: number;
+    weaponsAndComponentsChanceBonusPct: number;
+  };
+  expressImport: {
+    actionId: "express_import";
+    cooldownMinutes: number;
+    durationSeconds: number;
+    costCleanCash: number;
+    nextImportCostPenaltyPct: number;
+    heatGain: number;
+    targetCategories: string[];
+    customsRiskPct: number;
+    customsHeatGain: number;
+    customsShipmentPenaltyPct: number;
+    shipmentValueRanges: Record<string, { min: number; max: number }>;
+  };
+  blackCharter: {
+    actionId: "black_charter";
+    cooldownMinutes: number;
+    durationMinutes: number;
+    costDirtyCash: number;
+    heatGain: number;
+    specialOfferDiscountPct: number;
+    purchaseCustomsRiskPct: number;
+    offerItems: string[];
+  };
+  evacuationCorridor: {
+    actionId: "evacuation_corridor";
+    cooldownMinutes: number;
+    durationMinutes: number;
+    costCleanCash: number;
+    heatGain: number;
+    escapeChanceBonusPct: number;
+    peopleLossReductionPct: number;
+    equipmentLossReductionPct: number;
+    retreatReturnTimeReductionPct: number;
+    gangMovementTimeReductionPct: number;
+    customsRiskPct: number;
+  };
+  customsInspection: {
+    intervalMinutes: number;
+    passiveRiskPct: number;
+    heatThreshold: number;
+    heatRiskPct: number;
+    smugglingTunnelThreshold: number;
+    smugglingTunnelRiskPct: number;
+    stockExchangeSynergyRiskPct: number;
+    discountDisabledMinutes: number;
+    hangarHeatGain: number;
+    nextImportCostPenaltyPct: number;
+  };
+}
+
 export interface GarageBalanceConfig {
   id: "garage";
   buildingTypeId: "garage";
@@ -724,44 +1125,97 @@ export interface SmugglingTunnelBalanceConfig {
   dirtyCashPerMinute: number;
   influencePerMinute: 0;
   populationPerMinute: 0;
-  passiveHeatPerMinute: number;
+  heatPerMinute: number;
   noCleanCash: true;
   noInfluence: true;
   noPopulationProduction: true;
   noIntelPower: true;
   noLaundering: true;
   noAuditRisk: true;
-  batch: {
-    baseCapacityDirtyCash: number;
-    minCollectDirtyCash: number;
-    heatByCollectedDirtyCash: Array<{
-      minDirtyCash: number;
-      maxDirtyCash?: number;
-      heatGain: number;
-    }>;
-  };
-  collectBatch: {
-    actionId: "collect_smuggling_batch";
-    minStoredDirtyCash: number;
-  };
-  silentChannel: {
-    actionId: "silent_channel";
+  openChannel: {
+    actionId: "open_channel";
     cooldownMinutes: number;
     durationMinutes: number;
     costDirtyCash: number;
-    dirtyProductionMultiplier: number;
-    passiveHeatMultiplier: number;
-    batchCapacityMultiplier: number;
-    raidChancePct: number;
-    blockedMinutesOnClosedEntrance: number;
+    heatGain: number;
+    tunnelDirtyProductionBonusPct: number;
+    dealerSalePriceBonusPct: number;
+    dealerSaleSpeedBonusPct: number;
+    dealerCompletionRewardBonusPct: number;
+    dealerSaleHeatBonusPct: number;
+    streetIncidentFlatRiskPct: number;
+    stackable: false;
+  };
+  dealerSupply: {
+    bonusPctPerTunnel: number;
+    maxBonusPct: number;
+    salePriceSharePct: number;
+    saleSpeedSharePct: number;
+    streetRiskReductionSharePct: number;
+    passiveDirtyIncomeSharePct: number;
+    saleHeatRiskSharePct: number;
   };
   network: {
     dirtyProductionBonusPctPerExtraTunnel: number;
-    batchCapacityBonusPctPerExtraTunnel: number;
-    passiveHeatBonusPctPerExtraTunnel: number;
     maxDirtyProductionMultiplier: number;
-    maxBatchCapacityMultiplier: number;
-    maxPassiveHeatMultiplier: number;
+    heatBonusPctPerExtraTunnel: number;
+    maxHeatMultiplier: number;
+  };
+}
+
+export interface StreetDealerDrugSaleConfig {
+  itemId: string;
+  label: string;
+  aliases?: string[];
+  basePriceDirtyCash: number;
+  baseDurationMinutes: number;
+  baseHeatPerUnit: number;
+  maxAmountPerSlot: number;
+  baseStreetRiskPct: number;
+}
+
+export interface StreetDealersBalanceConfig {
+  id: "street_dealers";
+  buildingTypeId: "street_dealers";
+  name: "Pouliční dealeři";
+  countOnMap: number;
+  category: string[];
+  cleanCashPerMinute: 0;
+  dirtyCashPerMinute: number;
+  influencePerMinute: 0;
+  populationPerMinute: 0;
+  heatPerMinute: number;
+  noCleanCash: true;
+  noInfluence: true;
+  noPopulationProduction: true;
+  noIntelPower: true;
+  noLaundering: true;
+  noAuditRisk: true;
+  startDrugSale: {
+    actionId: "start_drug_sale";
+  };
+  dealerSlots: Array<{
+    minOwned: number;
+    maxOwned: number | null;
+    slots: number;
+  }>;
+  sellableDrugs: StreetDealerDrugSaleConfig[];
+  streetIncidents: {
+    extraCooldownMinutes: number;
+    fakeCustomerRewardPenaltyPct: number;
+    streetConflictHeatGain: number;
+    lostPackageAmountPct: number;
+    maxStreetRiskPct: number;
+  };
+  network: {
+    passiveDirtyIncomeBonusPctPerExtraDealer: number;
+    salePriceBonusPctPerExtraDealer: number;
+    saleSpeedBonusPctPerExtraDealer: number;
+    heatBonusPctPerExtraDealer: number;
+    maxPassiveDirtyIncomeMultiplier: number;
+    maxSalePriceMultiplier: number;
+    maxSaleSpeedMultiplier: number;
+    maxHeatMultiplier: number;
   };
 }
 
@@ -904,11 +1358,17 @@ export interface BalanceConfig {
   restaurant?: RestaurantBalanceConfig;
   convenienceStore?: ConvenienceStoreBalanceConfig;
     shoppingMall?: ShoppingMallBalanceConfig;
+    stockExchange?: StockExchangeBalanceConfig;
+    centralBank?: CentralBankBalanceConfig;
+    airport?: AirportBalanceConfig;
+    cityHall?: CityHallBalanceConfig;
+    vipLounge?: VipLoungeBalanceConfig;
     recruitmentCenter?: RecruitmentCenterBalanceConfig;
     fitnessClub?: FitnessClubBalanceConfig;
     garage?: GarageBalanceConfig;
     carDealer?: CarDealerBalanceConfig;
     smugglingTunnel?: SmugglingTunnelBalanceConfig;
+    streetDealers?: StreetDealersBalanceConfig;
   recyclingCenter?: RecyclingCenterBalanceConfig;
   powerStation?: PowerStationBalanceConfig;
 }

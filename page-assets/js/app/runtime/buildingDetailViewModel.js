@@ -211,14 +211,12 @@ export function createBuildingDetailStatRows({
     statRows.splice(0, statRows.length,
       createStat("Dirty / min", `+${formatDistrictBuildingMoney(mechanics.smugglingDirtyPerMinute)}`),
       createStat("Passive heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
-      createStat("Dávka", `${formatDistrictBuildingMoney(mechanics.smugglingWholeDirtyCash)} / ${formatDistrictBuildingMoney(mechanics.smugglingBatchCapacity)}`),
-      createStat("Do naplnění", mechanics.smugglingIsFull ? "Dávka připravena" : formatDistrictBuildingCooldown(mechanics.smugglingTimeToFullMs)),
       createStat("Tunely", `${mechanics.ownedSmugglingTunnels}/${SMUGGLING_TUNNEL_CONFIG.countOnMap}`),
       createStat("Dirty network", `x${mechanics.smugglingTunnelNetwork.dirtyProductionMultiplier.toFixed(2)}`),
-      createStat("Kapacita network", `x${mechanics.smugglingTunnelNetwork.batchCapacityMultiplier.toFixed(2)}`),
-      createStat("Heat network", `x${mechanics.smugglingTunnelNetwork.passiveHeatMultiplier.toFixed(2)}`),
-      createStat("Heat při výběru", `+${mechanics.smugglingCollectHeat}`),
-      createStat("Tichý kanál", mechanics.smugglingSilentActive ? formatDistrictBuildingCooldown(mechanics.smugglingSilentRemainingMs) : "Neaktivní")
+      createStat("Heat network", `x${(mechanics.smugglingTunnelNetwork.heatMultiplier || mechanics.smugglingTunnelNetwork.passiveHeatMultiplier).toFixed(2)}`),
+      createStat("Dealer Supply", `+${mechanics.smugglingDealerSupplyBonusPct}%`),
+      createStat("Kontraband Flow", mechanics.smugglingContrabandFlowLabel),
+      createStat("Otevřít kanál", mechanics.smugglingOpenChannelActive ? formatDistrictBuildingCooldown(mechanics.smugglingOpenChannelRemainingMs) : "Neaktivní")
     );
   }
 
@@ -284,10 +282,10 @@ export function createBuildingDetailMechanicRows({
     );
   } else if (mechanics.mechanicsType === "smuggling-tunnel") {
     mechanicRows.push(
-      createMechanic("Collect", mechanics.canCollect ? "Vybrat dávku připraveno" : `Minimum ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.minCollectDirty)}`),
-      createMechanic("Zásobník", `${formatDistrictBuildingMoney(mechanics.smugglingWholeDirtyCash)} / ${formatDistrictBuildingMoney(mechanics.smugglingBatchCapacity)}`),
-      createMechanic("Tichý kanál", mechanics.smugglingSilentActive ? `Aktivní ${formatDistrictBuildingCooldown(mechanics.smugglingSilentRemainingMs)}` : `Cena ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.silentChannelDirtyCost)} dirty`),
-      createMechanic("Riziko zátahu", `${SMUGGLING_TUNNEL_CONFIG.silentChannelRaidChancePct} % po skončení`),
+      createMechanic("Dealer Supply", `sale price +${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySalePriceSharePct / 100}% · speed +${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleSpeedSharePct / 100}%`),
+      createMechanic("Street risk", `-${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplyStreetRiskReductionSharePct / 100}% relativně · heat +${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleHeatRiskSharePct / 100}%`),
+      createMechanic("Otevřít kanál", mechanics.smugglingOpenChannelActive ? `Aktivní ${formatDistrictBuildingCooldown(mechanics.smugglingOpenChannelRemainingMs)}` : `Cena ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.openChannelDirtyCost)} dirty`),
+      createMechanic("Boost risk", `heat +${SMUGGLING_TUNNEL_CONFIG.openChannelHeatGain} · incident risk +${SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct}%`),
       createMechanic("Pravidla", "Pouze dirty cash a heat; žádné clean, vliv, populace, Intel, praní ani audit")
     );
   } else {
@@ -332,12 +330,10 @@ export function createBuildingDetailActionRows({
         ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.cleanCost)} clean cash.`
       : actionProfile?.apartmentCollectPopulation && mechanics.apartmentWholePopulation <= 0
         ? "Bytový blok zatím nemá obyvatele k vybrání."
-      : actionProfile?.smugglingCollectBatch && mechanics.smugglingWholeDirtyCash < SMUGGLING_TUNNEL_CONFIG.minCollectDirty
-        ? `V tunelu musí být alespoň ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.minCollectDirty)} dirty cash.`
-      : actionProfile?.smugglingSilentChannel && Number(economyState.dirtyMoney || 0) < SMUGGLING_TUNNEL_CONFIG.silentChannelDirtyCost
-        ? `Potřebuješ ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.silentChannelDirtyCost)} dirty cash.`
-      : actionProfile?.smugglingSilentChannel && mechanics.smugglingSilentActive
-        ? `Tichý kanál běží. Zbývá ${formatDistrictBuildingCooldown(mechanics.smugglingSilentRemainingMs)}.`
+      : actionProfile?.smugglingOpenChannel && Number(economyState.dirtyMoney || 0) < SMUGGLING_TUNNEL_CONFIG.openChannelDirtyCost
+        ? `Potřebuješ ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.openChannelDirtyCost)} dirty cash.`
+      : actionProfile?.smugglingOpenChannel && mechanics.smugglingOpenChannelActive
+        ? `Otevřený kanál běží. Zbývá ${formatDistrictBuildingCooldown(mechanics.smugglingOpenChannelRemainingMs)}.`
       : actionProfile?.schoolEveningCourse && Number(economyState.cleanMoney || 0) < Number(actionProfile.cleanCost || 0)
         ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.cleanCost)} clean cash.`
       : actionProfile?.schoolEveningCourse && mechanics.schoolEveningCourseActive

@@ -86,6 +86,15 @@ describe("result payload builders", () => {
     expect(spyPayload.detectedAt).toBe(1_000);
   });
 
+  it("includes district identity in police district warning payloads", () => {
+    const payload = createBuilders().createDistrictPoliceRaidWarningPayload({ id: 3 }, {
+      impact: { tierId: 2 },
+      expiresAt: 2_000
+    });
+
+    expect(payload.rows).toContainEqual({ label: "District", value: "District 3" });
+  });
+
   it("creates attack result payloads without resolving gameplay outcome", () => {
     const payload = createBuilders().createAttackResultPayload({
       order: {

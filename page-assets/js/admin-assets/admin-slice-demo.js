@@ -7713,8 +7713,9 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   const INTEL_EFFECT_BY_ACTION_ID = {
     restaurant_street_gossip: { limit: 2, detectDefense: false },
     lobby_club_backroom_deal: { limit: 1, detectDefense: false },
-    vip_lounge_private_table: { limit: 1, detectDefense: false },
-    airport_fast_manifest: { limit: 1, detectDefense: false },
+    express_import: { limit: 1, detectDefense: false },
+    black_charter: { limit: 1, detectDefense: false },
+    evacuation_corridor: { limit: 1, detectDefense: false },
     convenience_street_info: { limit: 2, detectDefense: false },
     strip_club_compromise: { limit: 1, detectDefense: false }
   };
@@ -7727,8 +7728,9 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     warehouse_hidden_storage: "Warehouse crews",
     restaurant_street_gossip: "Street gossip",
     lobby_club_backroom_deal: "Lobby contacts",
-    vip_lounge_private_table: "VIP contacts",
-    airport_fast_manifest: "Airport manifest",
+    express_import: "Airport import crews",
+    black_charter: "Airport charter contacts",
+    evacuation_corridor: "Airport evacuation crews",
     convenience_street_info: "Store gossip",
     strip_club_compromise: "Compromat"
   };
@@ -9540,7 +9542,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   };
   const publicBuildingNameVariants = {
     stock_exchange: ["Vortex Exchange"],
-    central_bank: ["Iron Reserve Bank"],
+    central_bank: ["Iron Reserve Bank", "Federal Reserve Node"],
     airport: ["Neon Skyport"],
     lobby_club: ["Velvet Influence Club", "Shadow Lobby Lounge"],
     city_hall: ["City Dominion Hall"],
@@ -9624,26 +9626,32 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     specialActions
   });
   const publicBuildingDefinitions = [
-    building("central_bank", "Centrální banka", "downtown", "Finance", "Hlavní finanční uzel pro clean cash a kontrolu kapitálu.", perMinuteStat(26, 1, 3, 32), [
-      action({ actionId: "central_bank_reserve_audit", label: "Reserve Audit", description: "Přesměruje část rezerv do tvého účtu.", effectSummary: "+clean cash, +vliv, +heat", heatGain: 5, outputGain: out("cash", 180), influenceChange: 2 })
+    building("central_bank", "Centrální banka", "downtown", "Ultra rare / finance / reserve / market stability", "Centrální banka netiskne chaos. Drží ho pod zámkem. Kdo ovládá rezervy, nemusí vyhrávat každou přestřelku. Stačí, když přežije každou krizi.", perMinuteStat(160, 0, 0.1 * 60 * 24, 0.35 * 60 * 24, 1), [
+      action({ actionId: "liquidity_injection", label: "Likviditní injekce", description: "Okamžitě přidá clean cash podle velikosti čisté ekonomiky hráče.", effectSummary: "Cena 20 influence, +clean cash, +heat, +Financial Oversight risk", cooldownMs: 20 * minute, heatGain: 4, influenceChange: -20 }),
+      action({ actionId: "frozen_accounts", label: "Zmrazené účty", description: "Dočasně zvýší ochranu clean cash a sníží finanční ztráty.", effectSummary: "Cena 2000 clean cash, ochrana rezerv, horší market fee", durationMs: 8 * minute, cooldownMs: 24 * minute, heatGain: 5, inputCost: out("cash", 2000) }),
+      action({ actionId: "currency_intervention", label: "Kurzovní intervence", description: "Stabilizuje vybranou market kategorii a tlumí Tržní tlak Burzy.", effectSummary: "Cena 3000 clean cash + 25 influence, nižší volatilita, +heat", durationMs: 8 * minute, cooldownMs: 28 * minute, heatGain: 7, inputCost: out("cash", 3000), influenceChange: -25 })
     ]),
-    building("city_hall", "Magistrát", "downtown", "Civic control", "Administrativní centrum pro městské procesy a legální krytí.", perMinuteStat(25, 6, 4, 34), [
-      action({ actionId: "city_hall_permit_pressure", label: "Permit Pressure", description: "Protlačí povolení a lokální zakázky.", effectSummary: "+clean cash, +vliv, +heat", heatGain: 4, outputGain: out("cash", 150), influenceChange: 3 })
+    building("city_hall", "Magistrát", "downtown", "Ultra rare / politics / city control / heat management", "Magistrát není gangová základna. Je to místo, kde se zločin mění na razítko. Kdo drží magistrát, nemusí mít vždy větší zbraň. Stačí, když má správný podpis.", perMinuteStat(130, 0, 0.12 * 60 * 24, 0.85 * 60 * 24, 1), [
+      action({ actionId: "official_cover", label: "Úřední krytí", description: "Na 8 minut sníží heat gain, police control chance a rumor chance ve zvoleném vlastněném districtu.", effectSummary: "Cena 1500 clean + 25 influence, heat +2, scandal risk +8 %", cooldownMs: 20 * minute, durationMs: 8 * minute, heatGain: 2, inputCost: out("cash", 1500), influenceChange: -25 }),
+      action({ actionId: "city_contract", label: "Městská zakázka", description: "Převede politický vliv na clean cash podle počtu legálních budov hráče.", effectSummary: "Cena 20 influence, reward 1500 + legální budovy × 120, heat +3", cooldownMs: 18 * minute, heatGain: 3, influenceChange: -20 }),
+      action({ actionId: "emergency_decree", label: "Nouzová vyhláška", description: "Na 6 minut spustí městský režim: Noční hlídky, Zastavené kontroly nebo Stavební uzávěru.", effectSummary: "Cena 2500 clean + 40 influence, heat +8, city-wide efekt", cooldownMs: 28 * minute, durationMs: 6 * minute, heatGain: 8, inputCost: out("cash", 2500), influenceChange: -40 })
     ]),
     building("lobby_club", "Lobby klub", "downtown", "Influence", "Diskrétní klub pro kontakty, špinavé finance a politické páky.", perMinuteStat(3, 22, 6, 38), [
       action({ actionId: "lobby_club_backroom_deal", label: "Backroom Deal", description: "Domluví vlivnou dohodu mimo záznam.", effectSummary: "+dirty cash, +vliv, +heat", heatGain: 6, outputGain: out("dirty-cash", 180), influenceChange: 4 })
     ]),
-    building("stock_exchange", "Burza", "downtown", "Market", "Volatilní kapitál a rychlé přesuny cashflow.", perMinuteStat(18, 1, 3, 24), [
-      action({ actionId: "stock_exchange_market_push", label: "Market Push", description: "Krátký tržní tlak vytáhne clean cash.", effectSummary: "+clean cash, +heat", heatGain: 4, outputGain: out("cash", 140), influenceChange: 1 })
+    building("stock_exchange", "Burza", "downtown", "Ultra rare / economy / market control / financial power", "Burza je jediná na mapě. Neprodává zboží. Ovládá ceny, poplatky a rytmus celé ekonomiky. Skleněná věž v Downtownu, kde se války nevedou noži, ale grafy.", perMinuteStat(220, 0, 0.18 * 60 * 24, 0.45 * 60 * 24, 1), [
+      action({ actionId: "speculative_buy", label: "Spekulativní nákup", description: "Investuje clean cash do vybrané market kategorie. Výsledek může být zisk, neutrální pohyb nebo ztráta.", effectSummary: "Cena 2500 clean + investice, heat +5, financial inspection risk +6 %", cooldownMs: 16 * minute, heatGain: 5, inputCost: out("cash", 2500) }),
+      action({ actionId: "market_pressure", label: "Tržní tlak", description: "Na 10 minut server-wide pumpne nebo dumpne ceny vybrané market kategorie.", effectSummary: "Cena 3000 clean + 15 influence, heat +8, server-wide market efekt", cooldownMs: 22 * minute, durationMs: 10 * minute, heatGain: 8, inputCost: out("cash", 3000), influenceChange: -15 }),
+      action({ actionId: "insider_window", label: "Insider Window", description: "Na 6 minut zlepší trend hints, fee reduction a šanci Spekulativního nákupu.", effectSummary: "Cena 1500 clean, heat +4, 3 trend hints, extra fee reduction -8 %", cooldownMs: 18 * minute, durationMs: 6 * minute, heatGain: 4, inputCost: out("cash", 1500) })
     ]),
     building("court", "Soud", "downtown", "Law", "Právní páka pro tlak na území, obranu a politický vliv.", perMinuteStat(16, 4, 3.2, 32), [
       action({ actionId: "court_case_pressure", label: "Case Pressure", description: "Využije právní tlak pro vliv, krytí a obranu districtu.", effectSummary: "+vliv, +obrana, +clean cash, +heat", heatGain: 3, outputGain: out("cash", 110), influenceChange: 5 })
     ]),
-    building("vip_lounge", "VIP salonek", "downtown", "Elite", "Elitní zóna pro high-value kontakty, dirty cash a zákulisní dohody.", perMinuteStat(8, 22, 6, 36), [
-      action({ actionId: "vip_lounge_private_table", label: "Private Table", description: "Uzavře soukromý deal s VIP hosty.", effectSummary: "+dirty cash, +vliv, +heat", heatGain: 7, outputGain: out("dirty-cash", 220), influenceChange: 3 })
-    ]),
-    building("airport", "Letiště", "downtown", "Logistics", "Vzdušný logistický uzel pro rychlý přesun zboží, lidí a informací.", perMinuteStat(14, 2, 4, 20), [
-      action({ actionId: "airport_fast_manifest", label: "Fast Manifest", description: "Zrychlí přepravní manifest a vytěží cash, zásoby a stopu o okolí.", effectSummary: "+clean cash, +suroviny, +info, +heat", heatGain: 5, outputGain: resources({ cash: 130, "metal-parts": 2, "tech-core": 1 }), influenceChange: 1 })
+    building("vip_lounge", "VIP Salonek", "downtown", "Rare / elite rumors / high truth intel / influence", "VIP Salonek je luxusní informační uzel. Za tlumeným světlem a drahým stolem se mluví rychleji než ve městě dole. Nedává jistotu, ale jeho zákulisní drby bývají nebezpečně blízko pravdě.", perMinuteStat(105, 30, 0.13 * 60 * 24, 0.48 * 60 * 24, 1), []),
+    building("airport", "Letiště", "downtown", "Ultra rare / logistics / import / black market support / mobility", "Letiště je brána města. Co ostatní musí vyrábět, ty můžeš dovézt. Co ostatní musí vozit ulicemi, ty pošleš přes runway. Ale každý kontejner má papíry. A každý falešný papír jednou někdo zkontroluje.", perMinuteStat(180, 45, 0.2 * 60 * 24, 0.2 * 60 * 24, 1), [
+      action({ actionId: "express_import", label: "Expresní dovoz", description: "Po 90 sekundách doručí importní zásilku vybrané kategorie do skladu hráče.", effectSummary: "Cena 2000 clean, heat +6, customs risk 10 %", cooldownMs: 18 * minute, durationMs: 90 * 1000, heatGain: 6, inputCost: out("cash", 2000) }),
+      action({ actionId: "black_charter", label: "Černý charter", description: "Na 8 minut otevře speciální Black Market nabídku.", effectSummary: "Cena 2500 dirty, heat +9, nabídka -6 %, celní zátah při nákupu 15 %", cooldownMs: 24 * minute, heatGain: 9, inputCost: out("dirty-cash", 2500) }),
+      action({ actionId: "evacuation_corridor", label: "Evakuační koridor", description: "Na 7 minut zlepší únik, ztráty při neúspěchu a návratovou logistiku.", effectSummary: "Cena 1800 clean, heat +5, escape +18 %, ztráty -10 %", cooldownMs: 26 * minute, durationMs: 7 * minute, heatGain: 5, inputCost: out("cash", 1800) })
     ]),
     building("port", "Přístav", "downtown", "Logistics", "Těžká logistika, kontejnery, materiály a dirty cash přes mořské trasy.", perMinuteStat(26, 8.5, 5, 26), [
       action({ actionId: "port_container_cut", label: "Container Cut", description: "Vybere z kontejnerů užitečné zásoby.", effectSummary: "+dirty cash, +materials, +heat", heatGain: 6, outputGain: resources({ "dirty-cash": 160, "metal-parts": 3 }), influenceChange: 1 })
@@ -11658,7 +11666,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   const downtownFixedBuildingSetByDistrictId = {
     "79": set("downtown", "core", "downtown-fixed-79", "Elitní arbitráž", ["court", "vip_lounge"]),
     "80": set("downtown", "core", "downtown-fixed-80", "Městské finance", ["central_bank"]),
-    "81": set("downtown", "core", "downtown-fixed-81", "Politický vliv", ["lobby_club"]),
+    "81": set("downtown", "core", "downtown-fixed-81", "Politický vliv", ["lobby_club", "central_bank"]),
     "82": set("downtown", "core", "downtown-fixed-82", "Volatilní kapitál", ["stock_exchange"]),
     "83": set("downtown", "core", "downtown-fixed-83", "Právní tlak", ["court"]),
     "58": set("downtown", "core", "downtown-fixed-58", "Městská kontrola", ["city_hall"]),

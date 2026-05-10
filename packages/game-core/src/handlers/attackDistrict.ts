@@ -29,6 +29,7 @@ import { deterministicUnitInterval } from "../utils/math";
 import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { appendRecoveryPoolEntries, createRecoveryEntriesFromLosses } from "./clinicBuildingActions";
 import { appendSalvagePoolEntries, createSalvageEntriesFromLosses } from "./recyclingCenterBuildingActions";
+import { resolveAirportEvacuationSupport } from "./airportBuildingActions";
 import {
   applyCarDealerCooldownReductionTicks,
   resolveCarDealerEscapeChanceBonusPct
@@ -149,6 +150,12 @@ export const handleAttackDistrict = (
     playerId: attacker.id,
     config: context.config.balance.carDealer
   });
+  const airportEvacuation = resolveAirportEvacuationSupport({
+    state,
+    playerId: attacker.id,
+    config: context.config.balance.airport,
+    tick: state.root.tick
+  });
   const escapeRoll = deterministicUnitInterval(
     `${state.serverInstance.worldSeed}:attack:escape:${command.playerId}:${targetDistrict.id}:${state.root.tick}:${command.id}`
   );
@@ -157,7 +164,8 @@ export const handleAttackDistrict = (
     nextLoadout: combatResolution.nextAttackerLoadout,
     heatGained: combatResolution.heatGained,
     enabled: !attackSucceeded,
-    bonusPct: escapeChanceBonusPct,
+    bonusPct: escapeChanceBonusPct + airportEvacuation.escapeChanceBonusPct,
+    equipmentLossReductionPct: airportEvacuation.equipmentLossReductionPct,
     roll: escapeRoll
   });
   const currentCooldownState = state.cooldownStatesById[attacker.cooldownStateId] ?? createPlayerCooldownState(attacker.id, attacker.cooldownStateId);
@@ -350,6 +358,8 @@ export const handleAttackDistrict = (
       defenderLosses: combatResolution.defenderLosses,
       heatGained: escapeMitigation.heatGained,
       carDealerEscapeChanceBonusPct: escapeChanceBonusPct,
+      airportEvacuationEscapeChanceBonusPct: airportEvacuation.escapeChanceBonusPct,
+      airportEvacuationEquipmentLossReductionPct: airportEvacuation.equipmentLossReductionPct,
       carDealerEscapeMitigated: escapeMitigation.mitigated,
       attackDurationTicks,
       attackDurationMs: attackDurationTicks * context.config.tickRateMs,
@@ -371,6 +381,7 @@ const resolveAttackEscapeMitigation = (input: {
   heatGained: number;
   enabled: boolean;
   bonusPct: number;
+  equipmentLossReductionPct?: number;
   roll: number;
 }): {
   losses: Partial<Record<AttackWeaponId, number>>;
@@ -380,6 +391,15 @@ const resolveAttackEscapeMitigation = (input: {
 } => {
   const chance = Math.max(0, Math.min(0.95, Number(input.bonusPct || 0) / 100));
   if (!input.enabled || chance <= 0 || input.roll > chance) {
+    const reducedByCorridor = applyFlatEquipmentLossReduction(input.losses, input.nextLoadout, input.equipmentLossReductionPct ?? 0);
+    if (reducedByCorridor.changed) {
+      return {
+        losses: reducedByCorridor.losses,
+        nextLoadout: reducedByCorridor.nextLoadout,
+        heatGained: input.heatGained,
+        mitigated: false
+      };
+    }
     return {
       losses: input.losses,
       nextLoadout: input.nextLoadout,
@@ -415,4 +435,29 @@ const resolveAttackEscapeMitigation = (input: {
     heatGained: Math.max(0, input.heatGained - 1),
     mitigated: true
   };
+};
+
+const applyFlatEquipmentLossReduction = (
+  losses: Partial<Record<AttackWeaponId, number>>,
+  nextLoadout: Partial<Record<AttackWeaponId, number>>,
+  reductionPct: number
+): { losses: Partial<Record<AttackWeaponId, number>>; nextLoadout: Partial<Record<AttackWeaponId, number>>; changed: boolean } => {
+  if (reductionPct <= 0) return { losses, nextLoadout, changed: false };
+  const reducedLosses = { ...losses };
+  const restoredLoadout = { ...nextLoadout };
+  let changed = false;
+  for (const weaponId of Object.keys(reducedLosses) as AttackWeaponId[]) {
+    const amount = Math.max(0, Number(reducedLosses[weaponId] ?? 0));
+    const restored = Math.floor(amount * reductionPct / 100);
+    if (restored <= 0) continue;
+    const nextAmount = Math.max(0, amount - restored);
+    if (nextAmount > 0) {
+      reducedLosses[weaponId] = nextAmount;
+    } else {
+      delete reducedLosses[weaponId];
+    }
+    restoredLoadout[weaponId] = Math.max(0, Number(restoredLoadout[weaponId] ?? 0)) + restored;
+    changed = true;
+  }
+  return { losses: reducedLosses, nextLoadout: restoredLoadout, changed };
 };

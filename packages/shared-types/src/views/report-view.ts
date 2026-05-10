@@ -92,7 +92,12 @@ export interface BuildingActionReport {
   stripClubResult?: Record<string, unknown>;
   powerStationResult?: Record<string, unknown>;
   smugglingTunnelResult?: Record<string, unknown>;
+  airportResult?: Record<string, unknown>;
+  cityHallResult?: Record<string, unknown>;
+  centralBankResult?: Record<string, unknown>;
   schoolResult?: Record<string, unknown>;
+  streetDealerResult?: Record<string, unknown>;
+  stockExchangeResult?: Record<string, unknown>;
   heatGain: number;
   influenceChange: number;
   tick: number;

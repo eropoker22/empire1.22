@@ -183,12 +183,12 @@ export function createBuildingDetailInfoRows({
     );
   } else if (mechanics.mechanicsType === "smuggling-tunnel") {
     rows.push(
-      createInfoLine("Lokální dávka", `${formatDistrictBuildingMoney(mechanics.smugglingWholeDirtyCash)} / ${formatDistrictBuildingMoney(mechanics.smugglingBatchCapacity)}`),
-      createInfoLine("Čas do naplnění", mechanics.smugglingIsFull ? "Dávka připravena" : formatDistrictBuildingCooldown(mechanics.smugglingTimeToFullMs)),
-      createInfoLine("Network multiplier", `dirty x${mechanics.smugglingTunnelNetwork.dirtyProductionMultiplier.toFixed(2)} · kapacita x${mechanics.smugglingTunnelNetwork.batchCapacityMultiplier.toFixed(2)} · heat x${mechanics.smugglingTunnelNetwork.passiveHeatMultiplier.toFixed(2)}`),
+      createInfoLine("Dirty / min", `+${formatDistrictBuildingMoney(mechanics.smugglingDirtyPerMinute)}`),
+      createInfoLine("Network multiplier", `dirty x${mechanics.smugglingTunnelNetwork.dirtyProductionMultiplier.toFixed(2)} · heat x${(mechanics.smugglingTunnelNetwork.heatMultiplier || mechanics.smugglingTunnelNetwork.passiveHeatMultiplier).toFixed(2)}`),
       createInfoLine("Vlastněné tunely", `${mechanics.ownedSmugglingTunnels}/${SMUGGLING_TUNNEL_CONFIG.countOnMap}`),
-      createInfoLine("Výběr", `minimum ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.minCollectDirty)} · aktuální heat +${mechanics.smugglingCollectHeat}`),
-      createInfoLine("Tichý kanál", mechanics.smugglingSilentActive ? `Aktivní ještě ${formatDistrictBuildingCooldown(mechanics.smugglingSilentRemainingMs)}` : `Cena ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.silentChannelDirtyCost)} dirty · cooldown 20 min · riziko ${SMUGGLING_TUNNEL_CONFIG.silentChannelRaidChancePct}%`),
+      createInfoLine("Dealer Supply", `+${mechanics.smugglingDealerSupplyBonusPct}% · price +${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySalePriceSharePct / 100}% · speed +${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleSpeedSharePct / 100}%`),
+      createInfoLine("Kontraband Flow", mechanics.smugglingContrabandFlowLabel),
+      createInfoLine("Otevřít kanál", mechanics.smugglingOpenChannelActive ? `Aktivní ještě ${formatDistrictBuildingCooldown(mechanics.smugglingOpenChannelRemainingMs)}` : `Cena ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.openChannelDirtyCost)} dirty · cooldown 18 min · incident risk +${SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct}%`),
       createInfoLine("Pravidla", "Pouze dirty cash a heat; žádné clean cash, vliv, populace, Intel Power, praní ani audit")
     );
   }

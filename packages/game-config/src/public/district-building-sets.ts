@@ -101,27 +101,30 @@ export const publicDistrictBuildingSetPools: Record<string, PublicDistrictBuildi
     set("downtown", "mid", "down-mid-2", "Politický vliv", ["lobby_club", "city_hall"]),
     set("downtown", "mid", "down-mid-3", "Právní tlak", ["court", "lobby_club"]),
     set("downtown", "mid", "down-mid-4", "Volatilní kapitál", ["stock_exchange", "vip_lounge"]),
+    set("downtown", "mid", "down-mid-5", "Dopravní manifest", ["airport", "port"]),
     set("downtown", "high", "down-high-1", "Korporátní kontrola", ["central_bank", "lobby_club"]),
     set("downtown", "high", "down-high-2", "Státní pevnost", ["city_hall", "court"]),
     set("downtown", "high", "down-high-3", "Elitní arbitráž", ["court", "vip_lounge"]),
     set("downtown", "high", "down-high-4", "Burzovní manipulace", ["stock_exchange", "lobby_club"]),
     set("downtown", "high", "down-high-5", "Executive chamber", ["city_hall", "vip_lounge"]),
+    set("downtown", "high", "down-high-6", "Politický terminál", ["parliament", "airport"]),
     set("downtown", "core", "down-core-1", "Capital nexus", ["central_bank", "city_hall", "vip_lounge"]),
     set("downtown", "core", "down-core-2", "Shadow exchange", ["stock_exchange", "lobby_club", "vip_lounge"]),
     set("downtown", "core", "down-core-3", "Judicial machine", ["city_hall", "court", "lobby_club"]),
-    set("downtown", "core", "down-core-4", "System override", ["central_bank", "court", "lobby_club"])
+    set("downtown", "core", "down-core-4", "System override", ["central_bank", "court", "lobby_club"]),
+    set("downtown", "core", "down-core-5", "Capital logistics", ["parliament", "airport", "port"])
   ]
 };
 
 const downtownFixedBuildingSetByDistrictId: Record<string, PublicDistrictBuildingSet> = {
   "79": set("downtown", "core", "downtown-fixed-79", "Elitní arbitráž", ["court", "vip_lounge"]),
   "80": set("downtown", "core", "downtown-fixed-80", "Městské finance", ["central_bank"]),
-  "81": set("downtown", "core", "downtown-fixed-81", "Politický vliv", ["lobby_club"]),
+  "81": set("downtown", "core", "downtown-fixed-81", "Politický vliv", ["lobby_club", "central_bank"]),
   "82": set("downtown", "core", "downtown-fixed-82", "Volatilní kapitál", ["stock_exchange"]),
   "83": set("downtown", "core", "downtown-fixed-83", "Právní tlak", ["court"]),
-  "58": set("downtown", "core", "downtown-fixed-58", "Městská kontrola", ["city_hall"]),
-  "57": set("downtown", "core", "downtown-fixed-57", "Lobby síť", ["lobby_club"]),
-  "59": set("downtown", "core", "downtown-fixed-59", "VIP patro", ["vip_lounge"])
+  "58": set("downtown", "core", "downtown-fixed-58", "Městská kontrola", ["city_hall", "parliament"]),
+  "57": set("downtown", "core", "downtown-fixed-57", "Lobby síť", ["lobby_club", "airport"]),
+  "59": set("downtown", "core", "downtown-fixed-59", "VIP patro", ["vip_lounge", "port"])
 };
 
 const tierOrderByZone: Record<string, string[]> = {

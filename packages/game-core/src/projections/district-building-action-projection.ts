@@ -3,6 +3,19 @@ import type { BuildingActionBalanceConfig } from "../contracts/game-mode-config"
 import type { CoreGameState } from "../entities/game-state";
 import type { DistrictPanelBuildingCatalogEntry } from "./district-building-catalog-types";
 import {
+  getAirportMetadata,
+  resolveAirportCustomsRiskPct
+} from "../handlers/airportBuildingActions";
+import {
+  getCentralBankMetadata,
+  getOwnedCentralBankCount,
+  resolveCentralBankReserveStats
+} from "../handlers/centralBankBuildingActions";
+import {
+  getCityHallMetadata,
+  resolveCityHallScandalRiskPct
+} from "../handlers/cityHallBuildingActions";
+import {
   getOwnedConvenienceStoreCount,
   resolveConvenienceStoreNetworkMultipliers,
   resolveConvenienceStoreRumorStats
@@ -50,18 +63,31 @@ import {
   resolveStripClubRumorStats
 } from "../handlers/stripClubBuildingActions";
 import {
+  getVipLoungeMetadata,
+  resolveVipLoungeRumorStats
+} from "../handlers/vipLoungeBuildingActions";
+import {
   getOwnedShoppingMallCount,
   resolveShoppingMallMarketBonuses,
   resolveShoppingMallNetworkMultipliers
 } from "../handlers/shoppingMallBuildingActions";
 import {
+  getStockExchangeMetadata,
+  resolveStockExchangeFeeReduction,
+  resolveStockExchangeInspectionRiskPct
+} from "../handlers/stockExchangeBuildingActions";
+import {
   getOwnedSmugglingTunnelCount,
-  getSmugglingTunnelMetadata,
-  isSilentChannelActive,
-  resolveSmugglingTunnelCapacity,
-  resolveSmugglingTunnelCollectHeat,
+  resolveDealerSupplyStats,
+  resolveOpenChannelStats,
   resolveSmugglingTunnelNetworkMultipliers
 } from "../handlers/smugglingTunnelBuildingActions";
+import {
+  getOwnedStreetDealerCount,
+  getStreetDealersPlayerMetadata,
+  resolveStreetDealerNetworkMultipliers,
+  resolveStreetDealerSlotCount
+} from "../handlers/streetDealersBuildingActions";
 import {
   getOwnedSchoolCount,
   getSchoolMetadata,
@@ -70,7 +96,7 @@ import {
   resolveSchoolNetworkMultipliers,
   resolveSchoolTalentChancePct
 } from "../handlers/schoolBuildingActions";
-import type { CarDealerBalanceConfig, FitnessClubBalanceConfig, GarageBalanceConfig, PowerStationBalanceConfig, RecruitmentCenterBalanceConfig, RecyclingCenterBalanceConfig, RestaurantBalanceConfig, SchoolBalanceConfig, ShoppingMallBalanceConfig, SmugglingTunnelBalanceConfig, StripClubBalanceConfig } from "../contracts/game-mode-config";
+import type { AirportBalanceConfig, CarDealerBalanceConfig, CentralBankBalanceConfig, CityHallBalanceConfig, FitnessClubBalanceConfig, GarageBalanceConfig, PowerStationBalanceConfig, RecruitmentCenterBalanceConfig, RecyclingCenterBalanceConfig, RestaurantBalanceConfig, SchoolBalanceConfig, ShoppingMallBalanceConfig, SmugglingTunnelBalanceConfig, StockExchangeBalanceConfig, StreetDealersBalanceConfig, StripClubBalanceConfig, VipLoungeBalanceConfig } from "../contracts/game-mode-config";
 import type { ConvenienceStoreBalanceConfig } from "../contracts/game-mode-config";
 
 export interface CreateDistrictPanelBuildingViewsInput {
@@ -82,12 +108,18 @@ export interface CreateDistrictPanelBuildingViewsInput {
   restaurantConfig?: RestaurantBalanceConfig;
   convenienceStoreConfig?: ConvenienceStoreBalanceConfig;
   shoppingMallConfig?: ShoppingMallBalanceConfig;
+  stockExchangeConfig?: StockExchangeBalanceConfig;
+  centralBankConfig?: CentralBankBalanceConfig;
+  airportConfig?: AirportBalanceConfig;
+  cityHallConfig?: CityHallBalanceConfig;
+  vipLoungeConfig?: VipLoungeBalanceConfig;
   powerStationConfig?: PowerStationBalanceConfig;
   recruitmentCenterConfig?: RecruitmentCenterBalanceConfig;
   fitnessClubConfig?: FitnessClubBalanceConfig;
   garageConfig?: GarageBalanceConfig;
   carDealerConfig?: CarDealerBalanceConfig;
   smugglingTunnelConfig?: SmugglingTunnelBalanceConfig;
+  streetDealersConfig?: StreetDealersBalanceConfig;
   schoolConfig?: SchoolBalanceConfig;
   recyclingCenterConfig?: RecyclingCenterBalanceConfig;
   district: CoreGameState["districtsById"][string];
@@ -112,12 +144,18 @@ export const createDistrictPanelBuildingViews = (
       restaurantConfig: input.restaurantConfig,
       convenienceStoreConfig: input.convenienceStoreConfig,
       shoppingMallConfig: input.shoppingMallConfig,
+      stockExchangeConfig: input.stockExchangeConfig,
+      centralBankConfig: input.centralBankConfig,
+      airportConfig: input.airportConfig,
+      cityHallConfig: input.cityHallConfig,
+      vipLoungeConfig: input.vipLoungeConfig,
       powerStationConfig: input.powerStationConfig,
       recruitmentCenterConfig: input.recruitmentCenterConfig,
       fitnessClubConfig: input.fitnessClubConfig,
       garageConfig: input.garageConfig,
       carDealerConfig: input.carDealerConfig,
       smugglingTunnelConfig: input.smugglingTunnelConfig,
+      streetDealersConfig: input.streetDealersConfig,
       schoolConfig: input.schoolConfig,
       recyclingCenterConfig: input.recyclingCenterConfig,
       district: input.district,
@@ -145,16 +183,23 @@ export const createDistrictPanelBuildingViews = (
         district: input.district,
         building,
         playerId: input.playerId,
+        playerBalances: input.playerBalances,
         stripClubConfig: input.stripClubConfig,
         restaurantConfig: input.restaurantConfig,
         convenienceStoreConfig: input.convenienceStoreConfig,
         shoppingMallConfig: input.shoppingMallConfig,
+        stockExchangeConfig: input.stockExchangeConfig,
+        centralBankConfig: input.centralBankConfig,
+        airportConfig: input.airportConfig,
+        cityHallConfig: input.cityHallConfig,
+        vipLoungeConfig: input.vipLoungeConfig,
         powerStationConfig: input.powerStationConfig,
         recruitmentCenterConfig: input.recruitmentCenterConfig,
         fitnessClubConfig: input.fitnessClubConfig,
         garageConfig: input.garageConfig,
         carDealerConfig: input.carDealerConfig,
         smugglingTunnelConfig: input.smugglingTunnelConfig,
+        streetDealersConfig: input.streetDealersConfig,
         schoolConfig: input.schoolConfig,
         recyclingCenterConfig: input.recyclingCenterConfig,
         tick: input.tick,
@@ -175,16 +220,23 @@ const createBuildingStats = (input: {
   district: CoreGameState["districtsById"][string];
   building: CoreGameState["buildingsById"][string];
   playerId: string;
+  playerBalances: Record<string, number>;
   stripClubConfig?: StripClubBalanceConfig;
   restaurantConfig?: RestaurantBalanceConfig;
   convenienceStoreConfig?: ConvenienceStoreBalanceConfig;
   shoppingMallConfig?: ShoppingMallBalanceConfig;
+  stockExchangeConfig?: StockExchangeBalanceConfig;
+  centralBankConfig?: CentralBankBalanceConfig;
+  airportConfig?: AirportBalanceConfig;
+  cityHallConfig?: CityHallBalanceConfig;
+  vipLoungeConfig?: VipLoungeBalanceConfig;
   powerStationConfig?: PowerStationBalanceConfig;
   recruitmentCenterConfig?: RecruitmentCenterBalanceConfig;
   fitnessClubConfig?: FitnessClubBalanceConfig;
   garageConfig?: GarageBalanceConfig;
   carDealerConfig?: CarDealerBalanceConfig;
   smugglingTunnelConfig?: SmugglingTunnelBalanceConfig;
+  streetDealersConfig?: StreetDealersBalanceConfig;
   schoolConfig?: SchoolBalanceConfig;
   recyclingCenterConfig?: RecyclingCenterBalanceConfig;
   tick: number;
@@ -217,6 +269,149 @@ const createBuildingStats = (input: {
       { label: "Market fee reduction", value: `-${formatNumber(marketBonuses.marketFeeReductionPct)} %` }
     ];
   }
+  if (input.building.buildingTypeId === "stock_exchange" && input.stockExchangeConfig && input.building.ownerPlayerId) {
+    const metadata = getStockExchangeMetadata(input.building, input.tick);
+    const feeReduction = resolveStockExchangeFeeReduction({ building: input.building, config: input.stockExchangeConfig, tick: input.tick });
+    const riskPct = resolveStockExchangeInspectionRiskPct({
+      state: input.state,
+      building: input.building,
+      config: input.stockExchangeConfig,
+      tick: input.tick
+    });
+    const activeEffects = metadata.marketEffects
+      .map((effect) => `${effect.mode} ${effect.category} ${formatTickLabel(Math.max(0, effect.expiresAtTick - input.tick))}`)
+      .join(", ");
+    const hints = metadata.trendHints.slice(-3).map((hint) => hint.text).join(" | ");
+    return [
+      { label: "Clean / min", value: `$${formatNumber(input.stockExchangeConfig.cleanCashPerMinute)}` },
+      { label: "Influence / min", value: formatNumber(input.stockExchangeConfig.influencePerMinute) },
+      { label: "Heat / min", value: formatNumber(input.stockExchangeConfig.heatPerMinute) },
+      { label: "Regular fee reduction", value: `-${formatNumber(feeReduction.regularMarketPct)} %` },
+      { label: "Player fee reduction", value: `-${formatNumber(feeReduction.playerMarketPct)} %` },
+      { label: "Black fee reduction", value: `-${formatNumber(feeReduction.blackMarketPct)} %` },
+      { label: "Market trend hints", value: hints || "waiting for next signal" },
+      { label: "Financial inspection risk", value: `${formatNumber(riskPct)} %` },
+      { label: "Insider Window", value: Number(metadata.insiderWindowExpiresAtTick || 0) > input.tick ? `active ${formatTickLabel(Number(metadata.insiderWindowExpiresAtTick) - input.tick)}` : "inactive" },
+      { label: "Income freeze", value: Number(metadata.incomeFrozenUntilTick || 0) > input.tick ? `active ${formatTickLabel(Number(metadata.incomeFrozenUntilTick) - input.tick)}` : "none" },
+      { label: "Fee reduction status", value: feeReduction.disabled ? `disabled ${formatTickLabel(Number(metadata.feeReductionDisabledUntilTick || 0) - input.tick)}` : "active" },
+      { label: "Server-wide market effects", value: activeEffects || "none" }
+    ];
+  }
+  if (input.building.buildingTypeId === "central_bank" && input.centralBankConfig && input.building.ownerPlayerId) {
+    const metadata = getCentralBankMetadata(input.building, input.tick);
+    const stats = resolveCentralBankReserveStats({
+      state: input.state,
+      playerId: input.building.ownerPlayerId,
+      config: input.centralBankConfig,
+      tick: input.tick
+    });
+    const ownedCount = getOwnedCentralBankCount(input.state, input.building.ownerPlayerId, input.centralBankConfig);
+    const latestInterest = metadata.interestEvents.at(-1);
+    const intervention = stats.activeCurrencyInterventions
+      .map((effect) => `${effect.category} ${formatTickLabel(Math.max(0, effect.expiresAtTick - input.tick))}`)
+      .join(", ");
+    return [
+      { label: "Clean / min", value: `$${formatNumber(input.centralBankConfig.cleanCashPerMinute * (stats.tier?.incomeMultiplier ?? 1))}` },
+      { label: "Influence / min", value: formatNumber(input.centralBankConfig.influencePerMinute * (stats.tier?.influenceMultiplier ?? 1)) },
+      { label: "Heat / min", value: formatNumber(input.centralBankConfig.heatPerMinute * (stats.tier?.heatMultiplier ?? 1)) },
+      { label: "Owned banks", value: `${ownedCount}/${input.centralBankConfig.countOnMap}` },
+      { label: "Clean cash protection", value: `${formatNumber(stats.cleanCashProtectionPct)} %` },
+      { label: "Reserve interest", value: `${formatNumber(stats.interestPct)} % every ${formatNumber(stats.interestIntervalMinutes)} min` },
+      { label: "Max interest tick", value: `$${formatNumber(stats.maxInterestCleanCash)}` },
+      { label: "Next interest", value: metadata.lastInterestTick === undefined || !stats.tier ? "initializing" : formatTickLabel(Math.max(0, metadata.lastInterestTick + Math.ceil(stats.tier.interestIntervalMinutes * 60000 / Math.max(1, input.tickRateMs ?? 5000)) - input.tick)) },
+      { label: "Last interest", value: latestInterest ? `$${formatNumber(latestInterest.amount)}` : "none" },
+      { label: "Market fee reduction", value: `-${formatNumber(stats.marketFeeReductionPct)} %` },
+      { label: "Economic stability", value: `fines -${formatNumber(stats.fineReductionPct)} %, crisis -${formatNumber(stats.economicCrisisImpactReductionPct)} %` },
+      { label: "Financial penalty reduction", value: `-${formatNumber(stats.financialInspectionPenaltyReductionPct)} %` },
+      { label: "Financial Oversight Risk", value: `${formatNumber(resolveCentralBankOversightRiskForUi(input.state, input.building, input.centralBankConfig, input.tick))} %` },
+      { label: "Zmrazené účty", value: stats.frozenAccountsActive ? `active ${formatTickLabel(Number(metadata.frozenAccountsExpiresAtTick || 0) - input.tick)}` : "inactive" },
+      { label: "Kurzovní intervence", value: intervention || "inactive" },
+      { label: "Reserve status", value: stats.interestDisabled ? `interest disabled ${formatTickLabel(Number(metadata.interestDisabledUntilTick || 0) - input.tick)}` : "active" }
+    ];
+  }
+  if (input.building.buildingTypeId === "airport" && input.airportConfig && input.building.ownerPlayerId) {
+    const metadata = getAirportMetadata(input.building, input.tick);
+    const customsRiskPct = resolveAirportCustomsRiskPct({
+      state: input.state,
+      building: input.building,
+      config: input.airportConfig,
+      smugglingTunnelConfig: input.smugglingTunnelConfig,
+      tick: input.tick
+    });
+    const pendingImports = metadata.pendingImports
+      .map((entry) => `${entry.category} ${formatTickLabel(Math.max(0, entry.completesAtTick - input.tick))}`)
+      .join(", ");
+    const offerItems = metadata.blackCharterOffer?.items?.join(", ") ?? "";
+    return [
+      { label: "Clean / min", value: `$${formatNumber(input.airportConfig.cleanCashPerMinute)}` },
+      { label: "Dirty / min", value: `$${formatNumber(input.airportConfig.dirtyCashPerMinute)}` },
+      { label: "Influence / min", value: formatNumber(input.airportConfig.influencePerMinute) },
+      { label: "Heat / min", value: formatNumber(input.airportConfig.heatPerMinute) },
+      { label: "Materials discount", value: `-${formatNumber(input.airportConfig.importDiscount.materialsPct)} %` },
+      { label: "Rare components discount", value: `-${formatNumber(input.airportConfig.importDiscount.rareComponentsPct)} %` },
+      { label: "Black Market discount", value: `-${formatNumber(input.airportConfig.importDiscount.blackMarketItemsPct)} %` },
+      { label: "Market delivery cooldown", value: `-${formatNumber(input.airportConfig.cooldownReduction.marketDeliveryPct)} %` },
+      { label: "Black Market Signal", value: `rare +${formatNumber(input.airportConfig.blackMarketSignal.rareItemOfferChanceBonusPct)} %, offers +${input.airportConfig.blackMarketSignal.extraStockRefreshOffers}` },
+      { label: "Customs Risk", value: `${formatNumber(customsRiskPct)} %` },
+      { label: "Pending import", value: pendingImports || "none" },
+      { label: "Černý charter", value: Number(metadata.blackCharterExpiresAtTick || 0) > input.tick ? `active ${formatTickLabel(Number(metadata.blackCharterExpiresAtTick) - input.tick)} · ${offerItems}` : "inactive" },
+      { label: "Evakuační koridor", value: Number(metadata.evacuationCorridorExpiresAtTick || 0) > input.tick ? `active ${formatTickLabel(Number(metadata.evacuationCorridorExpiresAtTick) - input.tick)}` : "inactive" },
+      { label: "Import discounts", value: Number(metadata.discountDisabledUntilTick || 0) > input.tick ? `disabled ${formatTickLabel(Number(metadata.discountDisabledUntilTick) - input.tick)}` : "active" },
+      { label: "Next import cost", value: metadata.nextImportCostPenaltyPct ? `+${formatNumber(metadata.nextImportCostPenaltyPct)} %` : "normal" }
+    ];
+  }
+  if (input.building.buildingTypeId === "city_hall" && input.cityHallConfig && input.building.ownerPlayerId) {
+    const metadata = getCityHallMetadata(input.building, input.tick);
+    const scandalRiskPct = resolveCityHallScandalRiskPct({
+      state: input.state,
+      building: input.building,
+      config: input.cityHallConfig,
+      tick: input.tick
+    });
+    const cover = Object.values(metadata.officialCoverByDistrictId)
+      .map((entry) => `${entry.districtId} ${formatTickLabel(Math.max(0, entry.expiresAtTick - input.tick))}`)
+      .join(", ");
+    const decree = metadata.emergencyDecree && metadata.emergencyDecree.expiresAtTick > input.tick
+      ? `${metadata.emergencyDecree.modeId}${metadata.emergencyDecree.zone ? ` ${metadata.emergencyDecree.zone}` : ""} ${formatTickLabel(metadata.emergencyDecree.expiresAtTick - input.tick)}`
+      : "inactive";
+    return [
+      { label: "Clean / min", value: `$${formatNumber(input.cityHallConfig.cleanCashPerMinute)}` },
+      { label: "Influence / min", value: formatNumber(input.cityHallConfig.influencePerMinute) },
+      { label: "Heat / min", value: formatNumber(input.cityHallConfig.heatPerMinute) },
+      { label: "City Authority", value: `influence +${formatNumber(input.cityHallConfig.cityAuthority.influenceGenerationBonusPct)} %, legal heat -${formatNumber(input.cityHallConfig.cityAuthority.legalBuildingHeatReductionPct)} %` },
+      { label: "Influence action cost", value: `-${formatNumber(input.cityHallConfig.cityAuthority.influenceActionCostReductionPct)} % cap -${formatNumber(input.cityHallConfig.cityAuthority.maxInfluenceActionCostReductionPct)} %` },
+      { label: "Police raid warning", value: `+${formatNumber(input.cityHallConfig.cityAuthority.policeRaidWarningChancePct)} %` },
+      { label: "District pressure", value: `+${formatNumber(input.cityHallConfig.cityAuthority.districtControlPressurePct)} %` },
+      { label: "Corruption Scandal Risk", value: `${formatNumber(scandalRiskPct)} %` },
+      { label: "Úřední krytí", value: cover || "inactive" },
+      { label: "Nouzová vyhláška", value: decree },
+      { label: "Influence penalty", value: Number(metadata.influencePenaltyUntilTick || 0) > input.tick ? `active ${formatTickLabel(Number(metadata.influencePenaltyUntilTick) - input.tick)}` : "none" },
+      { label: "Městská zakázka", value: Number(metadata.cityContractBlockedUntilTick || 0) > input.tick ? `blocked ${formatTickLabel(Number(metadata.cityContractBlockedUntilTick) - input.tick)}` : "available" }
+    ];
+  }
+  if (input.building.buildingTypeId === "vip_lounge" && input.vipLoungeConfig && input.building.ownerPlayerId) {
+    const stats = resolveVipLoungeRumorStats({
+      state: input.state,
+      playerId: input.building.ownerPlayerId,
+      config: input.vipLoungeConfig
+    });
+    const metadata = getVipLoungeMetadata(input.building);
+    const lastRumor = metadata.rumorEvents.at(-1);
+    return [
+      { label: "Clean / min", value: `$${formatNumber(input.vipLoungeConfig.cleanCashPerMinute * stats.tier.incomeMultiplier)}` },
+      { label: "Dirty / min", value: `$${formatNumber(input.vipLoungeConfig.dirtyCashPerMinute * stats.tier.incomeMultiplier)}` },
+      { label: "Influence / min", value: formatNumber(input.vipLoungeConfig.influencePerMinute * stats.tier.influenceMultiplier) },
+      { label: "Heat / min", value: formatNumber(input.vipLoungeConfig.heatPerMinute * stats.tier.heatMultiplier) },
+      { label: "Owned VIP lounges", value: `${stats.ownedCount}/${input.vipLoungeConfig.countOnMap}` },
+      { label: "Rumor interval", value: `${formatNumber(stats.rumorIntervalMinutes)} min` },
+      { label: "Backroom rumor chance", value: `${formatNumber(stats.passiveRumorChancePct)} %` },
+      { label: "Truth chance", value: `${formatNumber(stats.truthChancePct)} %` },
+      { label: "District hint chance", value: `${formatNumber(stats.districtHintChancePct)} %` },
+      { label: "Building hint chance", value: `${formatNumber(stats.buildingHintChancePct)} %` },
+      { label: "Reliability label chance", value: `${formatNumber(stats.reliabilityLabelChancePct)} %` },
+      { label: "Latest backroom rumor", value: lastRumor?.text ?? "waiting for next whisper" }
+    ];
+  }
   if (input.building.buildingTypeId === "car_dealer" && input.carDealerConfig && input.building.ownerPlayerId) {
     const ownedCount = getOwnedCarDealerCount(input.state, input.building.ownerPlayerId, input.carDealerConfig);
     const network = resolveCarDealerNetworkMultipliers(ownedCount, input.carDealerConfig);
@@ -244,36 +439,82 @@ const createBuildingStats = (input: {
   if (input.building.buildingTypeId === "smuggling_tunnel" && input.smugglingTunnelConfig && input.building.ownerPlayerId) {
     const ownedCount = getOwnedSmugglingTunnelCount(input.state, input.building.ownerPlayerId, input.smugglingTunnelConfig);
     const network = resolveSmugglingTunnelNetworkMultipliers(ownedCount, input.smugglingTunnelConfig);
-    const metadata = getSmugglingTunnelMetadata(input.building);
-    const activeSilentChannel = isSilentChannelActive(metadata, input.tick);
-    const capacity = resolveSmugglingTunnelCapacity({
+    const dealerSupply = resolveDealerSupplyStats({
       state: input.state,
-      building: input.building,
+      playerId: input.building.ownerPlayerId,
+      config: input.smugglingTunnelConfig
+    });
+    const openChannel = resolveOpenChannelStats({
+      state: input.state,
+      playerId: input.building.ownerPlayerId,
       config: input.smugglingTunnelConfig,
       tick: input.tick
     });
-    const stored = Math.min(capacity, metadata.storedDirtyCash);
     const productionPerMinute = input.smugglingTunnelConfig.dirtyCashPerMinute
       * network.dirtyProductionMultiplier
-      * (activeSilentChannel ? input.smugglingTunnelConfig.silentChannel.dirtyProductionMultiplier : 1);
-    const heatPerMinute = input.smugglingTunnelConfig.passiveHeatPerMinute
-      * network.passiveHeatMultiplier
-      * (activeSilentChannel ? input.smugglingTunnelConfig.silentChannel.passiveHeatMultiplier : 1);
-    const timeToFullTicks = productionPerMinute > 0 && stored < capacity
-      ? Math.ceil((capacity - stored) / productionPerMinute * 60000 / Math.max(1, input.tickRateMs ?? 5000))
-      : 0;
+      * (1 + openChannel.tunnelDirtyProductionBonusPct / 100);
+    const heatPerMinute = input.smugglingTunnelConfig.heatPerMinute * network.heatMultiplier;
     return [
       { label: "Dirty / min", value: `$${formatNumber(productionPerMinute)}` },
-      { label: "Passive heat / min", value: formatNumber(heatPerMinute) },
-      { label: "Stored batch", value: `$${formatNumber(stored)} / $${formatNumber(capacity)}` },
-      { label: "Time to full", value: stored >= capacity ? "Dávka připravena" : formatTickLabel(timeToFullTicks) },
+      { label: "Heat / min", value: formatNumber(heatPerMinute) },
       { label: "Owned tunnels", value: `${ownedCount}/${input.smugglingTunnelConfig.countOnMap}` },
       { label: "Dirty production multiplier", value: `x${formatNumber(network.dirtyProductionMultiplier)}` },
-      { label: "Batch capacity multiplier", value: `x${formatNumber(network.batchCapacityMultiplier)}` },
-      { label: "Passive heat multiplier", value: `x${formatNumber(network.passiveHeatMultiplier)}` },
-      { label: "Collect heat now", value: `+${formatNumber(resolveSmugglingTunnelCollectHeat(stored, input.smugglingTunnelConfig))}` },
-      { label: "Silent Channel", value: activeSilentChannel ? `active ${formatTickLabel(Math.max(0, Number(metadata.silentChannelExpiresAtTick || 0) - input.tick))}` : "ready when off cooldown" },
-      { label: "Raid risk after boost", value: `${formatNumber(input.smugglingTunnelConfig.silentChannel.raidChancePct)} %` }
+      { label: "Heat multiplier", value: `x${formatNumber(network.heatMultiplier)}` },
+      { label: "Dealer Supply bonus", value: `+${formatNumber(dealerSupply.dealerSupplyBonusPct)} %` },
+      { label: "Kontraband Flow", value: dealerSupply.contrabandFlowLabel },
+      { label: "Dealer sale price bonus", value: `+${formatNumber(dealerSupply.salePriceBonusPct + openChannel.dealerSalePriceBonusPct)} %` },
+      { label: "Dealer sale speed bonus", value: `+${formatNumber(dealerSupply.saleSpeedBonusPct + openChannel.dealerSaleSpeedBonusPct)} %` },
+      { label: "Dealer passive dirty bonus", value: `+${formatNumber(dealerSupply.passiveDirtyIncomeBonusPct)} %` },
+      { label: "Dealer street risk reduction", value: `-${formatNumber(dealerSupply.streetRiskReductionPct)} %` },
+      { label: "Dealer heat risk bonus", value: `+${formatNumber(dealerSupply.saleHeatRiskBonusPct + openChannel.dealerSaleHeatBonusPct)} %` },
+      { label: "Otevřít kanál", value: openChannel.active ? `active ${formatTickLabel(openChannel.remainingTicks)}` : "ready when off cooldown" },
+      { label: "Boost incident risk", value: `+${formatNumber(openChannel.streetIncidentFlatRiskPct)} %` }
+    ];
+  }
+  if (input.building.buildingTypeId === "street_dealers" && input.streetDealersConfig && input.building.ownerPlayerId) {
+    const player = input.state.playersById[input.building.ownerPlayerId];
+    const ownedCount = getOwnedStreetDealerCount(input.state, input.building.ownerPlayerId, input.streetDealersConfig);
+    const network = resolveStreetDealerNetworkMultipliers(ownedCount, input.streetDealersConfig);
+    const dealerSupply = resolveDealerSupplyStats({
+      state: input.state,
+      playerId: input.building.ownerPlayerId,
+      config: input.smugglingTunnelConfig
+    });
+    const openChannel = resolveOpenChannelStats({
+      state: input.state,
+      playerId: input.building.ownerPlayerId,
+      config: input.smugglingTunnelConfig,
+      tick: input.tick
+    });
+    const slotCount = resolveStreetDealerSlotCount(ownedCount, input.streetDealersConfig);
+    const metadata = player ? getStreetDealersPlayerMetadata(player) : { slots: [], saleHistory: [] };
+    const lockedSlots = metadata.slots.filter((slot) => slot.saleId || Number(slot.cooldownUntilTick || 0) > input.tick);
+    const activeSales = metadata.slots.filter((slot) => slot.saleId);
+    const inventory = input.streetDealersConfig.sellableDrugs
+      .map((drug) => `${drug.label}: ${formatNumber(input.playerBalances[drug.itemId] || 0)}`)
+      .join(", ");
+    const activeSaleSummary = activeSales.length > 0
+      ? activeSales
+          .map((slot) => `${slot.slotId} ${slot.itemLabel ?? slot.itemId} ${formatTickLabel(Math.max(0, Number(slot.completesAtTick || 0) - input.tick))}`)
+          .join(", ")
+      : "none";
+    return [
+      { label: "Dirty / min", value: `$${formatNumber(input.streetDealersConfig.dirtyCashPerMinute * network.passiveDirtyIncomeMultiplier * (1 + dealerSupply.passiveDirtyIncomeBonusPct / 100))}` },
+      { label: "Heat / min", value: formatNumber(input.streetDealersConfig.heatPerMinute * network.heatMultiplier) },
+      { label: "Owned dealers", value: `${ownedCount}/${input.streetDealersConfig.countOnMap}` },
+      { label: "Dealer slots", value: `${Math.max(0, slotCount - lockedSlots.length)}/${slotCount} free` },
+      { label: "Active sales", value: activeSaleSummary },
+      { label: "Drug inventory", value: inventory || "empty" },
+      { label: "Passive dirty multiplier", value: `x${formatNumber(network.passiveDirtyIncomeMultiplier)}` },
+      { label: "Sale price multiplier", value: `x${formatNumber(network.salePriceMultiplier)}` },
+      { label: "Sale speed multiplier", value: `x${formatNumber(network.saleSpeedMultiplier)}` },
+      { label: "Heat multiplier", value: `x${formatNumber(network.heatMultiplier)}` },
+      { label: "Tunnel sale price bonus", value: `+${formatNumber(dealerSupply.salePriceBonusPct + openChannel.dealerSalePriceBonusPct)} %` },
+      { label: "Tunnel sale speed bonus", value: `+${formatNumber(dealerSupply.saleSpeedBonusPct + openChannel.dealerSaleSpeedBonusPct)} %` },
+      { label: "Tunnel passive dirty bonus", value: `+${formatNumber(dealerSupply.passiveDirtyIncomeBonusPct)} %` },
+      { label: "Tunnel street risk reduction", value: `-${formatNumber(dealerSupply.streetRiskReductionPct)} %` },
+      { label: "Tunnel heat risk bonus", value: `+${formatNumber(dealerSupply.saleHeatRiskBonusPct + openChannel.dealerSaleHeatBonusPct)} %` },
+      { label: "Otevřít kanál", value: openChannel.active ? `active ${formatTickLabel(openChannel.remainingTicks)}` : "inactive" }
     ];
   }
   if (input.building.buildingTypeId === "school" && input.schoolConfig && input.building.ownerPlayerId) {
@@ -377,10 +618,10 @@ const createBuildingStats = (input: {
       { label: "Owned centers", value: `${ownedCount}/${recyclingCenterConfig.countOnMap}` },
       { label: "Income multiplier", value: `x${formatNumber(network.incomeMultiplier)}` },
       { label: "Salvage rate", value: `${formatNumber(salvageStats.salvageRatePct)} %` },
-      { label: "Salvage pool", value: `${formatNumber(poolTotal)} items` },
+      { label: "Material salvage pool", value: `${formatNumber(poolTotal)} materials` },
       { label: "Next expiry", value: nextExpiry === null ? "none" : formatTickLabel(nextExpiry) },
       { label: "Action cost", value: `$${formatNumber(recyclingCenterConfig.extractLosses.cleanCashCost)}` },
-      { label: "Population recovery", value: "never returns gang members or population" }
+      { label: "Recovery scope", value: "lost materials only" }
     ];
   }
   if (input.building.buildingTypeId !== "strip_club" || !input.stripClubConfig || !input.building.ownerPlayerId) {
@@ -557,12 +798,18 @@ const createBuildingActionViews = (input: {
   restaurantConfig?: RestaurantBalanceConfig;
   convenienceStoreConfig?: ConvenienceStoreBalanceConfig;
   shoppingMallConfig?: ShoppingMallBalanceConfig;
+  stockExchangeConfig?: StockExchangeBalanceConfig;
+  centralBankConfig?: CentralBankBalanceConfig;
+  airportConfig?: AirportBalanceConfig;
+  cityHallConfig?: CityHallBalanceConfig;
+  vipLoungeConfig?: VipLoungeBalanceConfig;
   powerStationConfig?: PowerStationBalanceConfig;
   recruitmentCenterConfig?: RecruitmentCenterBalanceConfig;
   fitnessClubConfig?: FitnessClubBalanceConfig;
   garageConfig?: GarageBalanceConfig;
   carDealerConfig?: CarDealerBalanceConfig;
   smugglingTunnelConfig?: SmugglingTunnelBalanceConfig;
+  streetDealersConfig?: StreetDealersBalanceConfig;
   schoolConfig?: SchoolBalanceConfig;
   recyclingCenterConfig?: RecyclingCenterBalanceConfig;
   building: CoreGameState["buildingsById"][string];
@@ -612,11 +859,54 @@ const createBuildingActionViews = (input: {
         smugglingTunnelConfig: input.smugglingTunnelConfig,
         tick: input.tick
       });
+      const stockExchangeDisabledReason = resolveStockExchangeDisabledReason({
+        state: input.state,
+        district: input.district,
+        building: input.building,
+        action,
+        stockExchangeConfig: input.stockExchangeConfig,
+        playerBalances: input.playerBalances,
+        tick: input.tick
+      });
+      const airportDisabledReason = resolveAirportDisabledReason({
+        state: input.state,
+        building: input.building,
+        action,
+        airportConfig: input.airportConfig,
+        playerBalances: input.playerBalances,
+        tick: input.tick
+      });
+      const cityHallDisabledReason = resolveCityHallDisabledReason({
+        state: input.state,
+        district: input.district,
+        building: input.building,
+        action,
+        cityHallConfig: input.cityHallConfig,
+        playerBalances: input.playerBalances,
+        tick: input.tick
+      });
+      const centralBankDisabledReason = resolveCentralBankDisabledReason({
+        state: input.state,
+        district: input.district,
+        building: input.building,
+        action,
+        centralBankConfig: input.centralBankConfig,
+        playerBalances: input.playerBalances,
+        tick: input.tick
+      });
       const schoolDisabledReason = resolveSchoolDisabledReason({
         state: input.state,
         building: input.building,
         action,
         schoolConfig: input.schoolConfig,
+        tick: input.tick
+      });
+      const streetDealerDisabledReason = resolveStreetDealerDisabledReason({
+        state: input.state,
+        building: input.building,
+        action,
+        streetDealersConfig: input.streetDealersConfig,
+        playerBalances: input.playerBalances,
         tick: input.tick
       });
       const disabledReason = ownerBlocked
@@ -633,13 +923,23 @@ const createBuildingActionViews = (input: {
                   ? recyclingCenterDisabledReason
                   : smugglingTunnelDisabledReason
                     ? smugglingTunnelDisabledReason
-                    : schoolDisabledReason
-                      ? schoolDisabledReason
-                      : cooldownRemainingTicks > 0
-                        ? `Cooldown ${formatTickLabel(cooldownRemainingTicks)}.`
-                        : missingCosts.length > 0
-                          ? `Need ${formatInputSummary(Object.fromEntries(missingCosts))}.`
-                          : null;
+                    : stockExchangeDisabledReason
+                      ? stockExchangeDisabledReason
+                      : airportDisabledReason
+                        ? airportDisabledReason
+                        : cityHallDisabledReason
+                          ? cityHallDisabledReason
+                          : centralBankDisabledReason
+                            ? centralBankDisabledReason
+                            : schoolDisabledReason
+                              ? schoolDisabledReason
+                              : streetDealerDisabledReason
+                                ? streetDealerDisabledReason
+                              : cooldownRemainingTicks > 0
+                                ? `Cooldown ${formatTickLabel(cooldownRemainingTicks)}.`
+                                : missingCosts.length > 0
+                                  ? `Need ${formatInputSummary(Object.fromEntries(missingCosts))}.`
+                                  : null;
 
       return {
         actionId: action.actionId,
@@ -702,6 +1002,29 @@ const formatNumber = (value: number): string => {
 };
 
 const formatTickLabel = (tickCount: number): string => `${tickCount} ${tickCount === 1 ? "tick" : "ticks"}`;
+
+const resolveCentralBankOversightRiskForUi = (
+  state: CoreGameState,
+  building: CoreGameState["buildingsById"][string],
+  config: CentralBankBalanceConfig,
+  tick: number
+): number => {
+  const metadata = getCentralBankMetadata(building, tick);
+  const playerId = building.ownerPlayerId;
+  const player = playerId ? state.playersById[playerId] : undefined;
+  const policeState = player ? state.policeStatesById[player.policeStateId] : undefined;
+  const eventRisk = metadata.riskEvents.reduce((total, event) => total + Math.max(0, Number(event.riskPct || 0)), 0);
+  const heatRisk = Number(policeState?.heat || 0) > config.financialOversight.heatThreshold
+    ? config.financialOversight.heatRiskPct
+    : 0;
+  const stockRisk = playerId && Object.values(state.buildingsById).some((candidate) => candidate.ownerPlayerId === playerId && candidate.status === "active" && candidate.buildingTypeId === "stock_exchange")
+    ? config.financialOversight.stockExchangeRiskPct
+    : 0;
+  const cityHallReduction = playerId && Object.values(state.buildingsById).some((candidate) => candidate.ownerPlayerId === playerId && candidate.status === "active" && candidate.buildingTypeId === "city_hall")
+    ? config.financialOversight.cityHallRiskReductionPct
+    : 0;
+  return Math.max(0, Math.min(100, config.financialOversight.passiveRiskPct + eventRisk + heatRisk + stockRisk - cityHallReduction));
+};
 
 const resolveStripClubDisabledReason = (input: {
   state: CoreGameState;
@@ -780,22 +1103,173 @@ const resolveSmugglingTunnelDisabledReason = (input: {
   if (!config || input.building.buildingTypeId !== config.buildingTypeId) {
     return null;
   }
-  const metadata = getSmugglingTunnelMetadata(input.building);
-  if (input.action.actionId === config.collectBatch.actionId) {
-    const stored = Math.floor(metadata.storedDirtyCash);
-    return stored >= config.collectBatch.minStoredDirtyCash
-      ? null
-      : `Need at least ${config.collectBatch.minStoredDirtyCash} dirty cash in this tunnel.`;
-  }
-  if (input.action.actionId !== config.silentChannel.actionId) {
+  if (input.action.actionId !== config.openChannel.actionId) {
     return null;
   }
-  if (isSilentChannelActive(metadata, input.tick)) {
-    return `Tichý kanál active ${formatTickLabel(Math.max(0, Number(metadata.silentChannelExpiresAtTick || 0) - input.tick))}.`;
+  const channel = resolveOpenChannelStats({
+    state: input.state,
+    playerId: input.building.ownerPlayerId,
+    config,
+    tick: input.tick
+  });
+  if (channel.active) {
+    return `Otevřený kanál active ${formatTickLabel(channel.remainingTicks)}.`;
   }
-  const blockedUntil = Math.max(0, Number(metadata.silentChannelBlockedUntilTick || 0));
-  if (blockedUntil > input.tick) {
-    return `Uzavřený vstup ${formatTickLabel(blockedUntil - input.tick)}.`;
+  return null;
+};
+
+const resolveStockExchangeDisabledReason = (input: {
+  state: CoreGameState;
+  district: CoreGameState["districtsById"][string];
+  building: CoreGameState["buildingsById"][string];
+  action: BuildingActionBalanceConfig;
+  stockExchangeConfig?: StockExchangeBalanceConfig;
+  playerBalances: Record<string, number>;
+  tick: number;
+}): string | null => {
+  const config = input.stockExchangeConfig;
+  if (!config || input.building.buildingTypeId !== config.buildingTypeId) return null;
+  const metadata = getStockExchangeMetadata(input.building, input.tick);
+  if (input.action.actionId === config.marketPressure.actionId) {
+    if (Math.max(0, Number(input.district.influence || 0)) < config.marketPressure.costInfluence) {
+      return `Need ${config.marketPressure.costInfluence} influence.`;
+    }
+    if (metadata.marketEffects.some((effect) => effect.expiresAtTick > input.tick)) {
+      return "Market pressure is already active.";
+    }
+  }
+  if (input.action.actionId === config.insiderWindow.actionId && Number(metadata.insiderWindowExpiresAtTick || 0) > input.tick) {
+    return `Insider Window active ${formatTickLabel(Number(metadata.insiderWindowExpiresAtTick) - input.tick)}.`;
+  }
+  if (input.action.actionId === config.speculativeBuy.actionId) {
+    const minimumTotal = config.speculativeBuy.costCleanCash + 1;
+    if (Math.max(0, Number(input.playerBalances.cash || 0)) < minimumTotal) {
+      return `Need at least ${minimumTotal} clean cash.`;
+    }
+  }
+  return null;
+};
+
+const resolveAirportDisabledReason = (input: {
+  state: CoreGameState;
+  building: CoreGameState["buildingsById"][string];
+  action: BuildingActionBalanceConfig;
+  airportConfig?: AirportBalanceConfig;
+  playerBalances: Record<string, number>;
+  tick: number;
+}): string | null => {
+  const config = input.airportConfig;
+  if (!config || input.building.buildingTypeId !== config.buildingTypeId) return null;
+  const metadata = getAirportMetadata(input.building, input.tick);
+  if (input.action.actionId === config.expressImport.actionId) {
+    const penaltyPct = Math.max(0, Number(metadata.nextImportCostPenaltyPct || 0));
+    const cost = Math.ceil(config.expressImport.costCleanCash * (1 + penaltyPct / 100));
+    if (Math.max(0, Number(input.playerBalances.cash || 0)) < cost) {
+      return `Need ${cost} clean cash.`;
+    }
+  }
+  if (input.action.actionId === config.blackCharter.actionId) {
+    if (Number(metadata.blackCharterExpiresAtTick || 0) > input.tick) {
+      return `Černý charter active ${formatTickLabel(Number(metadata.blackCharterExpiresAtTick) - input.tick)}.`;
+    }
+    if (Math.max(0, Number(input.playerBalances["dirty-cash"] || 0)) < config.blackCharter.costDirtyCash) {
+      return `Need ${config.blackCharter.costDirtyCash} dirty cash.`;
+    }
+  }
+  if (input.action.actionId === config.evacuationCorridor.actionId) {
+    if (Number(metadata.evacuationCorridorExpiresAtTick || 0) > input.tick) {
+      return `Evakuační koridor active ${formatTickLabel(Number(metadata.evacuationCorridorExpiresAtTick) - input.tick)}.`;
+    }
+    if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.evacuationCorridor.costCleanCash) {
+      return `Need ${config.evacuationCorridor.costCleanCash} clean cash.`;
+    }
+  }
+  return null;
+};
+
+const resolveCityHallDisabledReason = (input: {
+  state: CoreGameState;
+  district: CoreGameState["districtsById"][string];
+  building: CoreGameState["buildingsById"][string];
+  action: BuildingActionBalanceConfig;
+  cityHallConfig?: CityHallBalanceConfig;
+  playerBalances: Record<string, number>;
+  tick: number;
+}): string | null => {
+  const config = input.cityHallConfig;
+  if (!config || input.building.buildingTypeId !== config.buildingTypeId) return null;
+  const metadata = getCityHallMetadata(input.building, input.tick);
+  if (input.action.actionId === config.officialCover.actionId) {
+    if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.officialCover.costCleanCash) {
+      return `Need ${config.officialCover.costCleanCash} clean cash.`;
+    }
+    if (Math.max(0, Number(input.district.influence || 0)) < config.officialCover.costInfluence) {
+      return `Need ${config.officialCover.costInfluence} influence.`;
+    }
+    if (metadata.officialCoverByDistrictId[input.district.id]?.expiresAtTick > input.tick) {
+      return `Úřední krytí active ${formatTickLabel(metadata.officialCoverByDistrictId[input.district.id].expiresAtTick - input.tick)}.`;
+    }
+  }
+  if (input.action.actionId === config.cityContract.actionId) {
+    if (Number(metadata.cityContractBlockedUntilTick || 0) > input.tick) {
+      return `Městská zakázka blocked ${formatTickLabel(Number(metadata.cityContractBlockedUntilTick) - input.tick)}.`;
+    }
+    if (Math.max(0, Number(input.district.influence || 0)) < config.cityContract.costInfluence) {
+      return `Need ${config.cityContract.costInfluence} influence.`;
+    }
+  }
+  if (input.action.actionId === config.emergencyDecree.actionId) {
+    if (Number(metadata.emergencyDecree?.expiresAtTick || 0) > input.tick) {
+      return `Nouzová vyhláška active ${formatTickLabel(Number(metadata.emergencyDecree?.expiresAtTick || 0) - input.tick)}.`;
+    }
+    if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.emergencyDecree.costCleanCash) {
+      return `Need ${config.emergencyDecree.costCleanCash} clean cash.`;
+    }
+    if (Math.max(0, Number(input.district.influence || 0)) < config.emergencyDecree.costInfluence) {
+      return `Need ${config.emergencyDecree.costInfluence} influence.`;
+    }
+  }
+  return null;
+};
+
+const resolveCentralBankDisabledReason = (input: {
+  state: CoreGameState;
+  district: CoreGameState["districtsById"][string];
+  building: CoreGameState["buildingsById"][string];
+  action: BuildingActionBalanceConfig;
+  centralBankConfig?: CentralBankBalanceConfig;
+  playerBalances: Record<string, number>;
+  tick: number;
+}): string | null => {
+  const config = input.centralBankConfig;
+  if (!config || input.building.buildingTypeId !== config.buildingTypeId) return null;
+  const metadata = getCentralBankMetadata(input.building, input.tick);
+  if (input.action.actionId === config.liquidityInjection.actionId) {
+    if (Number(metadata.liquidityBlockedUntilTick || 0) > input.tick) {
+      return `Likviditní injekce blocked ${formatTickLabel(Number(metadata.liquidityBlockedUntilTick) - input.tick)}.`;
+    }
+    if (Math.max(0, Number(input.district.influence || 0)) < config.liquidityInjection.costInfluence) {
+      return `Need ${config.liquidityInjection.costInfluence} influence.`;
+    }
+  }
+  if (input.action.actionId === config.frozenAccounts.actionId) {
+    if (Number(metadata.frozenAccountsExpiresAtTick || 0) > input.tick) {
+      return `Zmrazené účty active ${formatTickLabel(Number(metadata.frozenAccountsExpiresAtTick) - input.tick)}.`;
+    }
+    if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.frozenAccounts.costCleanCash) {
+      return `Need ${config.frozenAccounts.costCleanCash} clean cash.`;
+    }
+  }
+  if (input.action.actionId === config.currencyIntervention.actionId) {
+    if (metadata.currencyInterventions.some((effect) => effect.expiresAtTick > input.tick)) {
+      return "Kurzovní intervence is already active.";
+    }
+    if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.currencyIntervention.costCleanCash) {
+      return `Need ${config.currencyIntervention.costCleanCash} clean cash.`;
+    }
+    if (Math.max(0, Number(input.district.influence || 0)) < config.currencyIntervention.costInfluence) {
+      return `Need ${config.currencyIntervention.costInfluence} influence.`;
+    }
   }
   return null;
 };
@@ -822,4 +1296,27 @@ const resolveSchoolDisabledReason = (input: {
     return `Večerní kurz active ${formatTickLabel(Math.max(0, Number(metadata.eveningCourseExpiresAtTick || 0) - input.tick))}.`;
   }
   return null;
+};
+
+const resolveStreetDealerDisabledReason = (input: {
+  state: CoreGameState;
+  building: CoreGameState["buildingsById"][string];
+  action: BuildingActionBalanceConfig;
+  streetDealersConfig?: StreetDealersBalanceConfig;
+  playerBalances: Record<string, number>;
+  tick: number;
+}): string | null => {
+  const config = input.streetDealersConfig;
+  if (!config || input.building.buildingTypeId !== config.buildingTypeId || input.action.actionId !== config.startDrugSale.actionId) {
+    return null;
+  }
+  if (!input.building.ownerPlayerId) return "Street dealers need an owner.";
+  const player = input.state.playersById[input.building.ownerPlayerId];
+  const ownedCount = getOwnedStreetDealerCount(input.state, input.building.ownerPlayerId, config);
+  const slotCount = resolveStreetDealerSlotCount(ownedCount, config);
+  const metadata = player ? getStreetDealersPlayerMetadata(player) : { slots: [], saleHistory: [] };
+  const lockedSlots = metadata.slots.filter((slot) => slot.saleId || Number(slot.cooldownUntilTick || 0) > input.tick).length;
+  if (slotCount <= 0 || lockedSlots >= slotCount) return "No free dealer slot.";
+  const hasDrugStock = config.sellableDrugs.some((drug) => Number(input.playerBalances[drug.itemId] || 0) > 0);
+  return hasDrugStock ? null : "Need a Drug Lab product in storage.";
 };

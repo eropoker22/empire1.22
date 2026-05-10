@@ -402,7 +402,7 @@ export const buyResource = (
   }
 
   const baseUnitPrice = calculateMarketPrice(state, resourceId, marketType).finalPrice;
-  const marketBonus = resolveShoppingMallMarketBonusForMarket(state, player, marketType);
+  const marketBonus = resolveShoppingMallMarketBonusForMarket(state, player, marketType, resourceId);
   const unitPrice = applyShoppingMallDiscount(baseUnitPrice, marketBonus);
   const paymentMultiplier = paymentType === "dirtyCash" ? marketConfig.blackMarket.dirtyCashPaymentMultiplier : 1;
   const totalPrice = Math.ceil(unitPrice * safeAmount * paymentMultiplier);
@@ -784,8 +784,8 @@ export const getMarketViewModel = (serverState: AnyRecord, playerState: AnyRecor
       const resourceConfig = marketConfig.resources[resourceId];
       const baseNormalPrice = calculateMarketPrice(state, resourceId, "normal").finalPrice;
       const baseBlackPrice = calculateMarketPrice(state, resourceId, "black").finalPrice;
-      const normalBonus = resolveShoppingMallMarketBonusForMarket(state, player, "normal");
-      const blackBonus = resolveShoppingMallMarketBonusForMarket(state, player, "black");
+      const normalBonus = resolveShoppingMallMarketBonusForMarket(state, player, "normal", resourceId);
+      const blackBonus = resolveShoppingMallMarketBonusForMarket(state, player, "black", resourceId);
       const normalPrice = applyShoppingMallDiscount(baseNormalPrice, normalBonus);
       const blackPrice = applyShoppingMallDiscount(baseBlackPrice, blackBonus);
       const maxStock = getMaxStock(resourceId, state.market.mode);
@@ -1115,12 +1115,13 @@ const collectRecentEventRecords = (serverState: AnyRecord, windowStart: number):
 const getEventPriceFactor = (serverState: AnyRecord, resourceId: MarketResourceId): number => {
   const market = getExistingOrInitializedMarket(serverState);
   const resource = marketConfig.resources[resourceId];
-  return market.activeMarketEvents.reduce((factor, activeEvent) => {
+  const eventFactor = market.activeMarketEvents.reduce((factor, activeEvent) => {
     const config = marketConfig.marketEvents[activeEvent.eventType];
     return isResourceAffectedByEvent(resourceId, resource.category, config)
       ? factor * safePositiveNumber(config.priceMultiplier, 1)
       : factor;
   }, 1);
+  return eventFactor * getStockExchangeMarketPressureFactor(serverState, resourceId, "normal");
 };
 
 const getEventStockRegenFactor = (serverState: AnyRecord, resourceId: MarketResourceId): number => {
@@ -1153,7 +1154,7 @@ const getBlackMarketTypeFactor = (serverState: AnyRecord, resourceId: MarketReso
     marketConfig.blackMarket.minRiskFactor,
     marketConfig.blackMarket.maxRiskFactor
   );
-  return roundRatio(resource.blackMarketMarkup * warMarkup * riskFactor);
+  return roundRatio(resource.blackMarketMarkup * warMarkup * riskFactor * getStockExchangeMarketPressureFactor(serverState, resourceId, "black"));
 };
 
 const getSellMultiplier = (serverState: AnyRecord, resourceId: MarketResourceId): number => {
@@ -1167,11 +1168,17 @@ const getSellMultiplier = (serverState: AnyRecord, resourceId: MarketResourceId)
 const resolveShoppingMallMarketBonusForMarket = (
   serverState: AnyRecord,
   player: AnyRecord,
-  marketType: MarketType | "player" | "emergency"
+  marketType: MarketType | "player" | "emergency",
+  resourceId?: MarketResourceId
 ): { discountPct: number; marketFeeReductionPct: number; minFinalPriceMultiplier: number } => {
   const config = resolveShoppingMallMarketConfig(serverState);
   const count = getOwnedShoppingMallCountForMarket(serverState, getPlayerId(player), config.buildingTypeId);
   const baseDiscountPct = Math.min(config.maxDiscountPct, count * config.discountPctPerMall);
+  const stockExchangeFeeReductionPct = getStockExchangeMarketFeeReductionPct(serverState, getPlayerId(player), marketType);
+  const centralBankFeeReductionPct = getCentralBankMarketFeeReductionPct(serverState, getPlayerId(player));
+  const airportImportDiscountPct = resourceId
+    ? getAirportImportDiscountPct(serverState, getPlayerId(player), marketType, resourceId)
+    : 0;
   const marketWeight = marketType === "normal"
     ? config.regularMarketWeight
     : marketType === "black"
@@ -1180,8 +1187,8 @@ const resolveShoppingMallMarketBonusForMarket = (
         ? config.playerMarketWeight
         : config.emergencyMarketWeight;
   return {
-    discountPct: baseDiscountPct * marketWeight,
-    marketFeeReductionPct: Math.min(config.maxFeeReductionPct, count * config.feeReductionPctPerMall),
+    discountPct: baseDiscountPct * marketWeight + airportImportDiscountPct,
+    marketFeeReductionPct: Math.min(config.maxFeeReductionPct, count * config.feeReductionPctPerMall) + stockExchangeFeeReductionPct + centralBankFeeReductionPct,
     minFinalPriceMultiplier: config.minFinalPriceMultiplier
   };
 };
@@ -1235,6 +1242,165 @@ const getOwnedShoppingMallCountForMarket = (
     && building?.ownerPlayerId === playerId
     && building?.status === "active"
   ).length;
+};
+
+const isPlainObject = (value: unknown): value is AnyRecord =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const getStockExchangeMarketFeeReductionPct = (
+  serverState: AnyRecord,
+  playerId: string,
+  marketType: MarketType | "player" | "emergency"
+): number => {
+  if (!playerId) return 0;
+  const config = serverState?.config?.balance?.stockExchange ?? serverState?.balance?.stockExchange;
+  if (!config) return 0;
+  const tick = Number(serverState?.root?.tick ?? serverState?.serverInstance?.currentTick ?? 0);
+  const building = Object.values(serverState?.buildingsById ?? {}).find((candidate: any) =>
+    candidate?.buildingTypeId === (config.buildingTypeId ?? "stock_exchange")
+    && candidate?.ownerPlayerId === playerId
+    && candidate?.status === "active"
+  ) as AnyRecord | undefined;
+  if (!building) return 0;
+  const metadata = isPlainObject(building.metadata?.stockExchange) ? building.metadata.stockExchange : {};
+  if (Number(metadata.feeReductionDisabledUntilTick || 0) > tick) return 0;
+  const base = marketType === "black"
+    ? Number(config.marketFeeReduction?.blackMarketPct || 0)
+    : marketType === "player"
+      ? Number(config.marketFeeReduction?.playerMarketPct || 0)
+      : Number(config.marketFeeReduction?.regularMarketPct || 0);
+  const extra = Number(metadata.insiderWindowExpiresAtTick || 0) > tick
+    ? Number(config.marketFeeReduction?.insiderExtraPct || 0)
+    : 0;
+  return Math.max(0, base + extra);
+};
+
+const getCentralBankMarketFeeReductionPct = (
+  serverState: AnyRecord,
+  playerId: string
+): number => {
+  if (!playerId) return 0;
+  const config = serverState?.config?.balance?.centralBank ?? serverState?.balance?.centralBank;
+  if (!config) return 0;
+  const tick = Number(serverState?.root?.tick ?? serverState?.serverInstance?.currentTick ?? 0);
+  const buildings = Object.values(serverState?.buildingsById ?? {}).filter((candidate: any) =>
+    candidate?.buildingTypeId === (config.buildingTypeId ?? "central_bank")
+    && candidate?.ownerPlayerId === playerId
+    && candidate?.status === "active"
+  ) as AnyRecord[];
+  if (buildings.length <= 0) return 0;
+  const tier = resolveCentralBankTierForMarket(config, buildings.length);
+  if (!tier) return 0;
+  const metadata = isPlainObject(buildings[0]?.metadata?.centralBank) ? buildings[0].metadata.centralBank : {};
+  if (Number(metadata.feeReductionDisabledUntilTick || 0) > tick) return 0;
+  const hasShoppingMall = getOwnedShoppingMallCountForMarket(serverState, playerId, "shopping_mall") > 0;
+  const shoppingMallBonus = hasShoppingMall ? Number(config.synergies?.shoppingMallMarketFeeReductionPct || 0) : 0;
+  const interventionBonus = Array.isArray(metadata.currencyInterventions) && metadata.currencyInterventions.some((effect: any) => Number(effect?.expiresAtTick || 0) > tick)
+    ? Number(config.currencyIntervention?.holderMarketFeeReductionPct || 0)
+    : 0;
+  const frozenPenalty = Number(metadata.frozenAccountsExpiresAtTick || 0) > tick
+    ? Number(config.frozenAccounts?.marketFeePenaltyPct || 0)
+    : 0;
+  return Math.max(0, Number(tier.marketFeeReductionPct || 0) + shoppingMallBonus + interventionBonus - frozenPenalty);
+};
+
+const getCentralBankMarketPressureReductionPct = (
+  serverState: AnyRecord,
+  category: string
+): number => {
+  const config = serverState?.config?.balance?.centralBank ?? serverState?.balance?.centralBank;
+  if (!config) return 0;
+  const tick = Number(serverState?.root?.tick ?? serverState?.serverInstance?.currentTick ?? 0);
+  return Object.values(serverState?.buildingsById ?? {}).reduce((maxReduction: number, building: any) => {
+    if (building?.buildingTypeId !== (config.buildingTypeId ?? "central_bank") || !building?.ownerPlayerId || building?.status !== "active") {
+      return maxReduction;
+    }
+    const metadata = isPlainObject(building.metadata?.centralBank) ? building.metadata.centralBank : {};
+    const active = Array.isArray(metadata.currencyInterventions)
+      && metadata.currencyInterventions.some((effect: any) => String(effect?.category || "") === category && Number(effect?.expiresAtTick || 0) > tick);
+    if (!active) return maxReduction;
+    const hasStockExchange = Object.values(serverState?.buildingsById ?? {}).some((candidate: any) =>
+      candidate?.buildingTypeId === "stock_exchange"
+      && candidate?.ownerPlayerId === building.ownerPlayerId
+      && candidate?.status === "active"
+    );
+    return Math.max(
+      maxReduction,
+      Number(config.currencyIntervention?.stockExchangeEffectReductionPct || 0)
+        + (hasStockExchange ? Number(config.currencyIntervention?.stockExchangeSynergyEffectBonusPct || 0) : 0)
+    );
+  }, 0);
+};
+
+const resolveCentralBankTierForMarket = (config: AnyRecord, ownedCount: number): AnyRecord | null => {
+  const tiers = Array.isArray(config.reserveTiers) ? config.reserveTiers : [];
+  return tiers.find((tier: any) => ownedCount >= Number(tier?.minOwned || 0) && ownedCount <= Number(tier?.maxOwned || 0))
+    ?? tiers.find((tier: any) => ownedCount >= Number(tier?.minOwned || 0))
+    ?? null;
+};
+
+const getAirportImportDiscountPct = (
+  serverState: AnyRecord,
+  playerId: string,
+  marketType: MarketType | "player" | "emergency",
+  resourceId: MarketResourceId
+): number => {
+  if (!playerId) return 0;
+  const config = serverState?.config?.balance?.airport ?? serverState?.balance?.airport;
+  if (!config) return 0;
+  const tick = Number(serverState?.root?.tick ?? serverState?.serverInstance?.currentTick ?? 0);
+  const building = Object.values(serverState?.buildingsById ?? {}).find((candidate: any) =>
+    candidate?.buildingTypeId === (config.buildingTypeId ?? "airport")
+    && candidate?.ownerPlayerId === playerId
+    && candidate?.status === "active"
+  ) as AnyRecord | undefined;
+  if (!building) return 0;
+  const metadata = isPlainObject(building.metadata?.airport) ? building.metadata.airport : {};
+  if (Number(metadata.discountDisabledUntilTick || 0) > tick) return 0;
+  if (marketType === "black") return Math.max(0, Number(config.importDiscount?.blackMarketItemsPct || 0));
+  if (marketType !== "normal") return 0;
+  const category = getAirportImportCategoryForResource(resourceId);
+  const shoppingMallBonus = category === "materials" && getOwnedShoppingMallCountForMarket(serverState, playerId, "shopping_mall") > 0
+    ? Number(config.importDiscount?.shoppingMallMaterialsSynergyPct || 0)
+    : 0;
+  if (category === "materials") return Math.max(0, Number(config.importDiscount?.materialsPct || 0) + shoppingMallBonus);
+  if (category === "rareComponents") return Math.max(0, Number(config.importDiscount?.rareComponentsPct || 0));
+  return 0;
+};
+
+const getAirportImportCategoryForResource = (resourceId: MarketResourceId): string => {
+  if (resourceId === "techCore") return "rareComponents";
+  return "materials";
+};
+
+const getStockExchangeMarketPressureFactor = (
+  serverState: AnyRecord,
+  resourceId: MarketResourceId,
+  marketType: MarketType
+): number => {
+  const tick = Number(serverState?.root?.tick ?? serverState?.serverInstance?.currentTick ?? 0);
+  return Object.values(serverState?.buildingsById ?? {}).reduce((factor: number, building: any) => {
+    const metadata = isPlainObject(building?.metadata?.stockExchange) ? building.metadata.stockExchange : {};
+    const effects = Array.isArray(metadata.marketEffects) ? metadata.marketEffects : [];
+    return effects.reduce((nextFactor: number, effect: any) => {
+      if (Number(effect?.expiresAtTick || 0) <= tick || !isStockExchangeEffectCategoryForResource(String(effect?.category || ""), resourceId)) {
+        return nextFactor;
+      }
+      const pct = marketType === "black"
+        ? Number(effect.blackMarketPriceModifierPct || 0)
+        : Number(effect.regularPriceModifierPct || 0);
+      const centralBankReductionPct = getCentralBankMarketPressureReductionPct(serverState, String(effect.category || ""));
+      return nextFactor * Math.max(0.1, 1 + pct * (1 - centralBankReductionPct / 100) / 100);
+    }, factor);
+  }, 1);
+};
+
+const isStockExchangeEffectCategoryForResource = (category: string, resourceId: MarketResourceId): boolean => {
+  if (category === "materials") return resourceId === "metalParts" || resourceId === "chemicals" || resourceId === "biomass";
+  if (category === "rareComponents") return resourceId === "techCore";
+  if (category === "drugsAndBoosts") return resourceId === "chemicals" || resourceId === "biomass";
+  if (category === "weapons" || category === "defenseItems") return resourceId === "metalParts" || resourceId === "techCore";
+  return false;
 };
 
 const getMaxPlayerListingUnitPrice = (serverState: AnyRecord, resourceId: MarketResourceId): number =>
