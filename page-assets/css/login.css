@@ -2553,6 +2553,15 @@ body.login-body::after {
     overflow-y: auto;
   }
 
+  .leaderboard-item strong,
+  .leaderboard-item small {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
   .leaderboard-summary {
     margin-top: 10px;
     padding-top: 10px;

@@ -1054,6 +1054,7 @@ function renderPlayerRow(player) {
   const rank = normalizeNumber(player.currentRank);
   const wantedClass = getWantedClass(player.wanted);
   const rankClass = getRankClass(rank);
+  const score = formatNumber(player.empireScore);
   const selectedClass = leaderboardState.selectedPlayerId === player.id ? " is-selected" : "";
   const currentClass = player.isCurrentPlayer ? " is-current" : "";
 
@@ -1063,7 +1064,8 @@ function renderPlayerRow(player) {
       ${getTrendHtml(player)}
       <span class="leaderboard-player-cell">
         <strong>${escapeHtml(player.isCurrentPlayer ? `${player.name} (ty)` : player.name)}</strong>
-        <span>${escapeHtml(player.gangName)}</span>
+        <span class="leaderboard-player-score-mobile" aria-label="Skóre ${score}">${escapeHtml(score)}</span>
+        <span class="leaderboard-player-gang">${escapeHtml(player.gangName)}</span>
       </span>
       <span class="leaderboard-cell-muted">${escapeHtml(player.faction)}</span>
       <span class="leaderboard-cell-muted">${escapeHtml(player.alliance)}</span>
