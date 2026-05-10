@@ -15,6 +15,13 @@ const LOGIN_ENTRY_HREF = "./login.html";
 const DISTRICT_CANVAS_WIDTH = 1600;
 const DISTRICT_CANVAS_HEIGHT = 980;
 const NIGHT_MAP_IMAGE_PATH = "../img/mapanoc.png";
+const LOBBY_STATUS_INITIAL_PLAYERS = 4200;
+const LOBBY_STATUS_UPDATE_MS = 5000;
+const LOBBY_STATUS_ANIMATION_MS = 1700;
+const LOBBY_STATUS_MIN_PLAYERS = 4050;
+const LOBBY_STATUS_MAX_PLAYERS = 4380;
+const SERVER_LIST_REFRESH_SECONDS = 20;
+const MATRIX_DIGITS = "0123456789";
 const SERVER_COUNTDOWN_OFFSETS_MINUTES = Object.freeze({
   "war-eu-02": 12
 });
@@ -37,22 +44,26 @@ const START_PACKAGES = Object.freeze({
 
 const LOBBY_NAV_PREVIEWS = Object.freeze({
   city: Object.freeze({
-    title: "VÝBĚR MĚSTA",
-    message: "Server selection protocol aktivní."
+    title: "SERVER",
+    message: "Vyber server."
   }),
   gang: Object.freeze({
-    title: "MOJE GANG",
-    message: "Gang karta se odemkne po vstupu na server a výběru frakce."
+    title: "MŮJ GANG",
+    message: "Mock data gangu."
   }),
   market: Object.freeze({
     title: "OBCHOD",
-    message: "Black market terminál čeká na server sync."
+    message: "Mock nabídka obchodu."
   }),
   settings: Object.freeze({
     title: "NASTAVENÍ",
-    message: "Nastavení profilu, zvuku a terminálu bude dostupné po vstupu do města."
+    message: "Mock nastavení účtu."
   })
 });
+
+const formatLobbyPlayerCount = (value) => new Intl.NumberFormat("cs-CZ")
+  .format(Math.max(0, Math.round(Number(value) || 0)))
+  .replace(/\u00a0/g, " ");
 
 document.addEventListener("DOMContentLoaded", () => {
   if (!ensureIdentity()) {
@@ -65,11 +76,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const list = document.querySelector("[data-server-list]");
   const userLabel = document.querySelector("[data-lobby-user]");
   const userMeta = document.querySelector("[data-lobby-user-meta]");
+  const profileCard = document.querySelector("[data-lobby-profile-card]");
   const summaryServer = document.querySelector("[data-lobby-summary-server]");
   const summaryDistrict = document.querySelector("[data-lobby-summary-district]");
   const summaryMode = document.querySelector("[data-lobby-summary-mode]");
+  const summaryCells = {
+    server: document.querySelector("[data-lobby-summary-cell='server']"),
+    mode: document.querySelector("[data-lobby-summary-cell='mode']"),
+    district: document.querySelector("[data-lobby-summary-cell='district']")
+  };
   const topUserLabel = document.querySelector("[data-lobby-top-user]");
   const navButtons = Array.from(document.querySelectorAll("[data-lobby-nav-target]"));
+  const lobbyViews = Array.from(document.querySelectorAll("[data-lobby-view]"));
   const flowNote = document.querySelector("[data-lobby-flow-note]");
   const lobbyDetailName = document.querySelector("[data-lobby-detail-name]");
   const lobbyDetailRegion = document.querySelector("[data-lobby-detail-region]");
@@ -78,8 +96,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const lobbyDetailCapacity = document.querySelector("[data-lobby-detail-capacity]");
   const lobbyDetailStart = document.querySelector("[data-lobby-detail-start]");
   const lobbyDetailDescription = document.querySelector("[data-lobby-detail-description]");
+  const lobbyRiskRing = document.querySelector("[data-lobby-risk-ring]");
+  const lobbyRiskValue = document.querySelector("[data-lobby-risk-value]");
   const lobbyOpenSelectedButton = document.querySelector("[data-lobby-open-selected]");
-  const lobbyRefreshButton = document.querySelector(".lobby-refresh-button");
+  const lobbyEnterSelectedButton = document.querySelector("[data-lobby-enter-selected]");
+  const lobbyStatusCount = document.querySelector("[data-lobby-status-count]");
+  const lobbyRefreshCountdown = document.querySelector("[data-lobby-refresh-countdown]");
 
   const detailModal = document.querySelector("[data-server-detail-modal]");
   const detailModalTitle = document.querySelector("[data-server-detail-title]");
@@ -117,14 +139,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const availableServers = Array.isArray(SERVER_CATALOG) ? SERVER_CATALOG : [];
   const state = {
     mode: registration?.serverMode || "war",
-    serverId: registration?.serverId || "",
+    serverId: "",
     hoveredDistrictId: null,
-    selectedDistrictId: Number.parseInt(String(registration?.startDistrictId || ""), 10) || null,
-    serverDistrictSelections: new Map(
-      registration?.serverId && registration?.startDistrictId
-        ? [[registration.serverId, Number.parseInt(String(registration.startDistrictId), 10)]]
-        : []
-    ),
+    selectedDistrictId: null,
+    serverDistrictSelections: new Map(),
     launchByServerId: Object.fromEntries(
       Object.entries(SERVER_COUNTDOWN_OFFSETS_MINUTES).map(([serverId, minutes]) => [
         serverId,
@@ -148,7 +166,8 @@ document.addEventListener("DOMContentLoaded", () => {
     panOriginX: 0,
     panOriginY: 0,
     panningMoved: false,
-    suppressNextMapClick: false
+    suppressNextMapClick: false,
+    serverRefreshSecondsRemaining: SERVER_LIST_REFRESH_SECONDS
   };
   let activeLobbyNav = "city";
   const detailMapPointers = new Map();
@@ -159,6 +178,66 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const isSelectableSpawnDistrict = (district) => Boolean(district && selectableSpawnDistrictIds.has(Number(district.id || 0)));
+
+  const startLobbyStatusTicker = () => {
+    if (!(lobbyStatusCount instanceof HTMLElement)) {
+      return;
+    }
+
+    let currentCount = LOBBY_STATUS_INITIAL_PLAYERS;
+    let direction = 1;
+    let animationFrame = 0;
+
+    const renderStatusCount = (value, isScrambling = false) => {
+      const countText = typeof value === "string" ? value : formatLobbyPlayerCount(value);
+      lobbyStatusCount.textContent = `ONLINE - ${countText} hráčů`;
+      lobbyStatusCount.classList.toggle("is-scrambling", isScrambling);
+    };
+
+    const scrambleCountText = (value) => formatLobbyPlayerCount(value).replace(/\d/g, (digit) => (
+      Math.random() < 0.38 ? MATRIX_DIGITS[Math.floor(Math.random() * MATRIX_DIGITS.length)] : digit
+    ));
+
+    const animateStatusCount = (targetCount) => {
+      window.cancelAnimationFrame(animationFrame);
+      const startCount = currentCount;
+      const startTime = performance.now();
+
+      const tick = (now) => {
+        const progress = Math.min(1, (now - startTime) / LOBBY_STATUS_ANIMATION_MS);
+        const easedProgress = 1 - ((1 - progress) ** 3);
+        const visibleCount = Math.round(startCount + ((targetCount - startCount) * easedProgress));
+
+        renderStatusCount(progress < 0.88 ? scrambleCountText(visibleCount) : visibleCount, progress < 0.96);
+
+        if (progress < 1) {
+          animationFrame = window.requestAnimationFrame(tick);
+          return;
+        }
+
+        currentCount = targetCount;
+        renderStatusCount(currentCount);
+      };
+
+      animationFrame = window.requestAnimationFrame(tick);
+    };
+
+    const queueNextStatusCount = () => {
+      const delta = 45 + Math.floor(Math.random() * 185);
+      let targetCount = currentCount + (direction * delta);
+
+      if (targetCount < LOBBY_STATUS_MIN_PLAYERS || targetCount > LOBBY_STATUS_MAX_PLAYERS) {
+        direction *= -1;
+        targetCount = currentCount + (direction * delta);
+      }
+
+      direction *= -1;
+      animateStatusCount(targetCount);
+    };
+
+    renderStatusCount(currentCount);
+    window.setInterval(queueNextStatusCount, LOBBY_STATUS_UPDATE_MS);
+  };
 
   state.selectedDistrictId = normalizeSelectableDistrictId(state.selectedDistrictId);
   state.serverDistrictSelections = new Map(
@@ -195,12 +274,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const getServerCountdownText = (serverId) => {
     const server = availableServers.find((entry) => entry.id === serverId);
-    if (server?.locked || server?.full) {
-      return server.status || server.startLabel || "Locked";
+    if (server?.full || server?.locked) {
+      return "";
     }
     const launchAt = Number(state.launchByServerId[serverId] || 0);
     if (!launchAt) {
-      return server?.status || "Online";
+      return "";
     }
     const msRemaining = launchAt - Date.now();
     if (msRemaining <= 0) {
@@ -250,6 +329,10 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const getSelectedServer = () => availableServers.find((entry) => entry.id === state.serverId) || null;
+  const isServerUnavailable = (server) => Boolean(server?.full || server?.locked);
+  const getServerRiskPercent = (server) => Math.max(0, Math.min(100, Math.round(
+    Number(server?.riskPercent ?? server?.riskPct ?? server?.heat ?? 0) || 0
+  )));
 
   const isDetailModalOpen = () => detailModal instanceof HTMLElement && !detailModal.classList.contains("hidden");
 
@@ -325,7 +408,8 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const commitLobbySelection = () => {
-    if (!state.serverId || !state.selectedDistrictId) {
+    const server = getSelectedServer();
+    if (!state.serverId || !state.selectedDistrictId || isServerUnavailable(server)) {
       return;
     }
 
@@ -335,6 +419,26 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     window.location.href = FACTION_ENTRY_HREF;
+  };
+
+  const confirmDetailDistrictSelection = () => {
+    const server = getSelectedServer();
+    const isUnavailable = isServerUnavailable(server);
+    if (!state.serverId || !state.selectedDistrictId || isUnavailable) {
+      if (detailModalHint) {
+        detailModalHint.textContent = !state.serverId
+          ? "Vyber server"
+          : isUnavailable
+            ? (server?.full ? "Server je plný" : "Server se připravuje")
+            : "Vyber district";
+        detailModalHint.classList.add("is-required");
+      }
+      return;
+    }
+
+    updateLobbySummary();
+    updateDetailModal();
+    closeDetailModal();
   };
 
   const updateCountdowns = () => {
@@ -376,7 +480,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const isDisabled = !state.serverId;
+    const selectedServer = getSelectedServer();
+    const isUnavailable = isServerUnavailable(selectedServer);
+    const isDisabled = !state.serverId || isUnavailable;
     context.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
     if (nightMapImage.complete && nightMapImage.naturalWidth > 0) {
       drawMapImageCover(context, nightMapImage, targetCanvas.width, targetCanvas.height);
@@ -401,6 +507,8 @@ document.addEventListener("DOMContentLoaded", () => {
         ? "rgba(148, 163, 184, 0.08)"
         : isSelected
           ? "rgba(255, 154, 61, 0.34)"
+          : isHovered
+            ? "rgba(255, 51, 71, 0.26)"
           : isSelectable
             ? "rgba(103, 225, 255, 0.11)"
             : district.districtType === "downtown"
@@ -414,23 +522,26 @@ document.addEventListener("DOMContentLoaded", () => {
         : isSelected
           ? "rgba(255, 154, 61, 0.96)"
           : isHovered
-            ? "rgba(103, 225, 255, 0.96)"
+            ? "rgba(255, 94, 111, 1)"
           : isSelectable
             ? "rgba(245, 250, 255, 0.74)"
             : district.districtType === "downtown"
               ? "rgba(255, 103, 208, 0.28)"
               : "rgba(148, 163, 184, 0.18)";
-      context.lineWidth = isSelected ? 3 : isHovered ? 2.4 : isSelectable ? 1.15 : 0.9;
+      context.lineWidth = isSelected ? 3 : isHovered ? 2.8 : isSelectable ? 1.15 : 0.9;
+      context.shadowBlur = isHovered ? 16 : 0;
+      context.shadowColor = isHovered ? "rgba(255, 51, 71, 0.62)" : "transparent";
       context.stroke();
+      context.shadowBlur = 0;
 
-      if (!isDisabled && isSelectable && isSelected) {
+      if (!isDisabled && isSelectable && (isSelected || isHovered)) {
         context.save();
         context.font = "700 18px Bahnschrift, Segoe UI, sans-serif";
         context.textAlign = "center";
         context.textBaseline = "middle";
-        context.fillStyle = "#ffd7c2";
-        context.shadowBlur = 18;
-        context.shadowColor = "rgba(255, 154, 61, 0.65)";
+        context.fillStyle = isSelected ? "#ffd7c2" : "#ffd9dd";
+        context.shadowBlur = isSelected ? 18 : 14;
+        context.shadowColor = isSelected ? "rgba(255, 154, 61, 0.65)" : "rgba(255, 51, 71, 0.58)";
         context.fillText(`D${district.id}`, district.centerX, district.centerY);
         context.restore();
       }
@@ -443,7 +554,7 @@ document.addEventListener("DOMContentLoaded", () => {
       context.fillStyle = "rgba(214, 244, 255, 0.86)";
       context.font = "700 34px Bahnschrift, Segoe UI, sans-serif";
       context.textAlign = "center";
-      context.fillText("Nejdřív vyber server", targetCanvas.width / 2, targetCanvas.height / 2);
+      context.fillText(state.serverId ? "Server není dostupný" : "Nejdřív vyber server", targetCanvas.width / 2, targetCanvas.height / 2);
       context.restore();
     }
   };
@@ -469,7 +580,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (userMeta) {
       userMeta.textContent = registration?.isGuest
         ? "Host účet · po výběru serveru pokračuješ do frakce"
-        : "Přihlášený hráč · vyber server a startovní district";
+        : "Vyber server a startovní district";
     }
 
     if (summaryServer) {
@@ -484,12 +595,17 @@ document.addEventListener("DOMContentLoaded", () => {
       summaryMode.textContent = server ? server.mode.toUpperCase() : state.mode.toUpperCase();
     }
 
+    summaryCells.server?.setAttribute("data-summary-state", server ? "selected" : "missing");
+    summaryCells.mode?.setAttribute("data-summary-state", state.mode ? "selected" : "missing");
+    summaryCells.district?.setAttribute("data-summary-state", state.selectedDistrictId ? "selected" : "missing");
+
+    profileCard?.setAttribute("data-server-state", server ? "selected" : "missing");
+
     if (flowNote) {
+      flowNote.hidden = Boolean(server || state.selectedDistrictId);
       flowNote.textContent = !server
-        ? "Klikni na server, otevři detail a vyber startovní district."
-        : state.selectedDistrictId
-          ? `${server.name} • District ${state.selectedDistrictId} je připravený pro vstup do frakce.`
-          : `${server.name} • otevři detail a zvol district na levém, spodním nebo pravém okraji.`;
+        ? "Vyber server a district."
+        : "";
       flowNote.setAttribute("data-state", state.selectedDistrictId ? "success" : "ready");
     }
 
@@ -500,7 +616,7 @@ document.addEventListener("DOMContentLoaded", () => {
       lobbyDetailRegion.textContent = server?.region || "EU Central";
     }
     if (lobbyDetailStatus) {
-      lobbyDetailStatus.textContent = server ? "ONLINE" : "Nevybrán";
+      lobbyDetailStatus.textContent = server?.status || "Nevybrán";
     }
     if (lobbyDetailMode) {
       lobbyDetailMode.textContent = (server?.mode || state.mode || "war").toUpperCase();
@@ -514,8 +630,21 @@ document.addEventListener("DOMContentLoaded", () => {
     if (lobbyDetailDescription) {
       lobbyDetailDescription.textContent = server?.description || "Vyber server pro detail.";
     }
+    if (lobbyRiskRing instanceof HTMLElement || lobbyRiskValue) {
+      const riskPercent = getServerRiskPercent(server);
+      if (lobbyRiskRing instanceof HTMLElement) {
+        lobbyRiskRing.style.setProperty("--risk-value", `${riskPercent}%`);
+        lobbyRiskRing.setAttribute("aria-label", `Riziko ${riskPercent} procent`);
+      }
+      if (lobbyRiskValue) {
+        lobbyRiskValue.textContent = `${riskPercent} %`;
+      }
+    }
     if (lobbyOpenSelectedButton instanceof HTMLButtonElement) {
-      lobbyOpenSelectedButton.disabled = false;
+      lobbyOpenSelectedButton.disabled = !server || isServerUnavailable(server);
+    }
+    if (lobbyEnterSelectedButton instanceof HTMLButtonElement) {
+      lobbyEnterSelectedButton.disabled = !state.serverId || !state.selectedDistrictId || isServerUnavailable(server);
     }
   };
 
@@ -524,6 +653,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const isActive = button.getAttribute("data-lobby-nav-target") === activeLobbyNav;
       button.classList.toggle("is-active", isActive);
       button.setAttribute("aria-pressed", String(isActive));
+    });
+    lobbyViews.forEach((view) => {
+      view.hidden = view.getAttribute("data-lobby-view") !== activeLobbyNav;
     });
   };
 
@@ -540,20 +672,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!nextServer) {
       return;
     }
-    if (nextServer.locked || nextServer.full) {
-      if (flowNote) {
-        flowNote.textContent = nextServer.full
-          ? "Server je plný. Vyber jiný shard s volnou kapacitou."
-          : "Server je zamčený nebo se připravuje. Vyber dostupný shard.";
-        flowNote.setAttribute("data-state", "error");
-      }
-      return;
-    }
 
     const previousServerId = state.serverId;
     state.mode = nextServer.mode;
     state.serverId = nextServer.id;
-    if (nextServer.id !== previousServerId) {
+    if (isServerUnavailable(nextServer)) {
+      state.selectedDistrictId = null;
+      state.serverDistrictSelections.delete(nextServer.id);
+    } else if (nextServer.id !== previousServerId) {
       state.selectedDistrictId = Number(state.serverDistrictSelections.get(nextServer.id) || 0) || null;
     }
     syncModeTabs();
@@ -561,7 +687,7 @@ document.addEventListener("DOMContentLoaded", () => {
     updateLobbySummary();
     updateDetailModal();
     applyDetailZoom(1);
-    if (openModal) {
+    if (openModal && !isServerUnavailable(nextServer)) {
       openDetailModal();
     }
   };
@@ -569,16 +695,44 @@ document.addEventListener("DOMContentLoaded", () => {
   const updateDetailModal = () => {
     const server = getSelectedServer();
     if (!server) {
+      if (detailModalTitle) {
+        detailModalTitle.textContent = "Server detail";
+      }
+      if (detailModalSubtitle) {
+        detailModalSubtitle.textContent = "";
+      }
+      if (detailModalMode) {
+        detailModalMode.textContent = "";
+      }
+      if (detailModalCapacity) {
+        detailModalCapacity.textContent = "";
+      }
+      if (detailModalStart) {
+        detailModalStart.textContent = "";
+      }
+      if (detailModalCountdown) {
+        detailModalCountdown.textContent = "";
+      }
       if (detailContinueButton instanceof HTMLButtonElement) {
         detailContinueButton.disabled = true;
+      }
+      if (lobbyEnterSelectedButton instanceof HTMLButtonElement) {
+        lobbyEnterSelectedButton.disabled = true;
       }
       if (detailModalHint) {
         detailModalHint.textContent = "Vyber server";
         detailModalHint.classList.add("is-required");
       }
+      if (detailModalTypeCounts instanceof HTMLElement) {
+        detailModalTypeCounts.innerHTML = "";
+      }
+      if (detailModalMaterials instanceof HTMLElement) {
+        detailModalMaterials.innerHTML = "";
+      }
       return;
     }
 
+    const serverUnavailable = isServerUnavailable(server);
     if (detailModalTitle) {
       detailModalTitle.textContent = server.name;
     }
@@ -598,11 +752,16 @@ document.addEventListener("DOMContentLoaded", () => {
       detailModalCountdown.textContent = getServerCountdownText(server.id);
     }
     if (detailModalHint) {
-      detailModalHint.textContent = state.selectedDistrictId ? `Start: District ${state.selectedDistrictId}` : "Okraj mapy";
-      detailModalHint.classList.toggle("is-required", !state.selectedDistrictId);
+      detailModalHint.textContent = serverUnavailable
+        ? (server.full ? "Server je plný" : "Server se připravuje")
+        : state.selectedDistrictId ? `Start: District ${state.selectedDistrictId}` : "Okraj mapy";
+      detailModalHint.classList.toggle("is-required", serverUnavailable || !state.selectedDistrictId);
     }
     if (detailContinueButton instanceof HTMLButtonElement) {
-      detailContinueButton.disabled = !state.serverId || !state.selectedDistrictId;
+      detailContinueButton.disabled = !state.serverId || !state.selectedDistrictId || serverUnavailable;
+    }
+    if (lobbyEnterSelectedButton instanceof HTMLButtonElement) {
+      lobbyEnterSelectedButton.disabled = !state.serverId || !state.selectedDistrictId || serverUnavailable;
     }
     if (detailModalTypeCounts instanceof HTMLElement) {
       detailModalTypeCounts.innerHTML = renderTypeCountMarkup();
@@ -622,9 +781,7 @@ document.addEventListener("DOMContentLoaded", () => {
     list.innerHTML = servers.map((server) => `
       <button type="button" class="auth-server-card ${server.id === state.serverId ? "is-selected" : ""} ${server.locked ? "is-locked" : ""} ${server.full ? "is-full" : ""}" data-server-card="${server.id}" data-server-mode="${server.mode}">
         <span class="auth-server-card__label">${server.name}</span>
-        <span class="auth-server-card__subtitle">${server.description}</span>
         <span class="auth-server-card__meta">${server.region} • ${server.mode.toUpperCase()} • ${server.players}/${server.capacity}</span>
-        ${server.badge ? `<span class="auth-server-card__badge">${server.badge}</span>` : ""}
         <span class="auth-server-card__schedule">${server.status || "ONLINE"}</span>
         <span class="auth-server-card__countdown" data-server-countdown="${server.id}">${getServerCountdownText(server.id)}</span>
         <span class="auth-server-card__signal is-${String(server.activity || "medium").toLowerCase()}"><i></i><i></i><i></i><i></i></span>
@@ -636,6 +793,44 @@ document.addEventListener("DOMContentLoaded", () => {
         selectServerById(String(button.getAttribute("data-server-card") || ""), { openModal: false });
       });
     }
+  };
+
+  const refreshServerList = () => {
+    state.serverId = "";
+    state.selectedDistrictId = null;
+    state.hoveredDistrictId = null;
+    state.serverDistrictSelections.clear();
+    renderServerList();
+    updateCountdowns();
+    updateLobbySummary();
+    updateDetailModal();
+    renderAllCanvases();
+  };
+
+  const renderServerRefreshCountdown = (isRefreshing = false) => {
+    if (!(lobbyRefreshCountdown instanceof HTMLElement)) {
+      return;
+    }
+
+    lobbyRefreshCountdown.textContent = `${state.serverRefreshSecondsRemaining}s`;
+    lobbyRefreshCountdown.parentElement?.classList.toggle("is-refreshing", isRefreshing);
+  };
+
+  const startServerListAutoRefresh = () => {
+    renderServerRefreshCountdown();
+    window.setInterval(() => {
+      state.serverRefreshSecondsRemaining -= 1;
+
+      if (state.serverRefreshSecondsRemaining <= 0) {
+        state.serverRefreshSecondsRemaining = SERVER_LIST_REFRESH_SECONDS;
+        refreshServerList();
+        renderServerRefreshCountdown(true);
+        window.setTimeout(() => renderServerRefreshCountdown(false), 520);
+        return;
+      }
+
+      renderServerRefreshCountdown();
+    }, 1000);
   };
 
   const getCanvasPoint = (targetCanvas, event) => {
@@ -650,7 +845,52 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const x = ((event.clientX - rect.left) / rect.width) * targetCanvas.width;
     const y = ((event.clientY - rect.top) / rect.height) * targetCanvas.height;
+    if (x < 0 || x > targetCanvas.width || y < 0 || y > targetCanvas.height) {
+      return null;
+    }
     return { x, y };
+  };
+
+  const selectDetailDistrictAtClientPoint = (event) => {
+    if (!state.serverId) {
+      return false;
+    }
+    if (event.target instanceof Element && event.target.closest("button")) {
+      return false;
+    }
+
+    const server = getSelectedServer();
+    if (isServerUnavailable(server)) {
+      setHoveredDetailDistrictId(null);
+      if (detailModalHint) {
+        detailModalHint.textContent = server?.full ? "Server je plný" : "Server se připravuje";
+        detailModalHint.classList.add("is-required");
+      }
+      return false;
+    }
+
+    const point = getCanvasPoint(detailCanvas, event);
+    if (!point) {
+      return false;
+    }
+
+    const district = getDistrictAtPoint(geometry, point) || getNearestDistrict(point);
+    if (!isSelectableSpawnDistrict(district)) {
+      setHoveredDetailDistrictId(null);
+      if (detailModalHint) {
+        detailModalHint.textContent = "Jen levý, pravý nebo spodní okraj";
+        detailModalHint.classList.add("is-required");
+      }
+      return false;
+    }
+
+    state.selectedDistrictId = Number(district.id);
+    state.serverDistrictSelections.set(state.serverId, state.selectedDistrictId);
+    state.hoveredDistrictId = state.selectedDistrictId;
+    updateLobbySummary();
+    updateDetailModal();
+    renderAllCanvases();
+    return true;
   };
 
   const closeDetailModal = () => {
@@ -665,6 +905,7 @@ document.addEventListener("DOMContentLoaded", () => {
     applyDetailZoom(1);
     detailMapPointers.clear();
     state.detailIsPinching = false;
+    state.suppressNextMapClick = false;
   };
 
   const setHoveredDetailDistrictId = (nextDistrictId) => {
@@ -675,6 +916,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     state.hoveredDistrictId = normalizedDistrictId;
     renderAllCanvases();
+  };
+
+  const handleDetailMapClick = (event) => {
+    if (state.suppressNextMapClick) {
+      state.suppressNextMapClick = false;
+      return;
+    }
+    selectDetailDistrictAtClientPoint(event);
   };
 
   const bindCanvasInteractions = (targetCanvas) => {
@@ -691,53 +940,31 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (!state.serverId) {
         setHoveredDetailDistrictId(null);
+        targetCanvas.style.cursor = "default";
+        return;
+      }
+      if (isServerUnavailable(getSelectedServer())) {
+        setHoveredDetailDistrictId(null);
+        targetCanvas.style.cursor = "not-allowed";
         return;
       }
 
       const point = getCanvasPoint(targetCanvas, event);
       const district = point ? getDistrictAtPoint(geometry, point) : null;
       const selectableDistrict = isSelectableSpawnDistrict(district) ? district : null;
+      targetCanvas.style.cursor = selectableDistrict ? "pointer" : "default";
       setHoveredDetailDistrictId(selectableDistrict?.id ?? null);
     });
 
     targetCanvas.addEventListener("mouseleave", () => {
+      targetCanvas.style.cursor = state.detailZoom > 1.02 ? "grab" : "default";
       setHoveredDetailDistrictId(null);
     });
 
-    targetCanvas.addEventListener("click", (event) => {
-      if (state.suppressNextMapClick) {
-        state.suppressNextMapClick = false;
-        return;
-      }
-      if (!state.serverId) {
-        return;
-      }
-
-      const point = getCanvasPoint(targetCanvas, event);
-      const district = point ? getDistrictAtPoint(geometry, point) : null;
-      if (!district) {
-        return;
-      }
-      if (!isSelectableSpawnDistrict(district)) {
-        setHoveredDetailDistrictId(null);
-        if (detailModalHint) {
-          detailModalHint.textContent = "Jen okraj mapy";
-          detailModalHint.classList.add("is-required");
-        }
-        return;
-      }
-
-      state.selectedDistrictId = district.id;
-      if (state.serverId) {
-        state.serverDistrictSelections.set(state.serverId, district.id);
-      }
-      updateLobbySummary();
-      updateDetailModal();
-      renderAllCanvases();
-    });
   };
 
   bindCanvasInteractions(detailCanvas);
+  detailCanvasShell?.addEventListener("click", handleDetailMapClick);
 
   const getPointerPair = () => {
     const pointers = Array.from(detailMapPointers.values());
@@ -851,24 +1078,36 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const wasPinching = state.detailIsPinching;
+    const wasDragging = state.panningMoved;
+    const wasActivePanPointer = state.activePanPointerId === event.pointerId;
     detailMapPointers.delete(event.pointerId);
     if (detailCanvasShell.hasPointerCapture?.(event.pointerId)) {
       detailCanvasShell.releasePointerCapture?.(event.pointerId);
     }
+    const shouldSelectDistrict = !wasPinching
+      && !wasDragging
+      && event.type !== "pointercancel"
+      && detailMapPointers.size === 0
+      && Boolean(state.serverId)
+      && !(event.target instanceof Element && event.target.closest("button"));
 
     if (wasPinching && detailMapPointers.size < 2) {
       state.detailIsPinching = false;
       state.suppressNextMapClick = true;
     }
 
-    if (state.activePanPointerId !== event.pointerId) {
+    if (!wasActivePanPointer) {
       if (detailMapPointers.size === 0) {
         detailCanvasShell.classList.remove("is-panning");
+      }
+      if (shouldSelectDistrict) {
+        selectDetailDistrictAtClientPoint(event);
+        state.suppressNextMapClick = true;
       }
       return;
     }
 
-    if (state.panningMoved) {
+    if (wasDragging) {
       state.suppressNextMapClick = true;
     }
 
@@ -877,6 +1116,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (detailMapPointers.size === 0) {
       detailCanvasShell.classList.remove("is-panning");
     }
+    if (shouldSelectDistrict) {
+      selectDetailDistrictAtClientPoint(event);
+      state.suppressNextMapClick = true;
+    }
   };
 
   detailCanvasShell?.addEventListener("pointerdown", startDetailMapPan);
@@ -884,31 +1127,33 @@ document.addEventListener("DOMContentLoaded", () => {
   detailCanvasShell?.addEventListener("pointerup", stopDetailMapPan);
   detailCanvasShell?.addEventListener("pointercancel", stopDetailMapPan);
 
-  detailContinueButton?.addEventListener("click", commitLobbySelection);
+  detailContinueButton?.addEventListener("click", confirmDetailDistrictSelection);
+  lobbyEnterSelectedButton?.addEventListener("click", commitLobbySelection);
   lobbyOpenSelectedButton?.addEventListener("click", () => {
     if (!state.serverId) {
-      const firstVisibleServer = getVisibleServers()[0];
+      const visibleServers = getVisibleServers();
+      const firstVisibleServer = visibleServers.find((server) => !isServerUnavailable(server)) || visibleServers[0];
       if (firstVisibleServer) {
         state.serverId = firstVisibleServer.id;
-        state.selectedDistrictId = Number(state.serverDistrictSelections.get(firstVisibleServer.id) || 0) || null;
+        state.selectedDistrictId = isServerUnavailable(firstVisibleServer)
+          ? null
+          : Number(state.serverDistrictSelections.get(firstVisibleServer.id) || 0) || null;
         renderServerList();
         updateLobbySummary();
         updateDetailModal();
       }
     }
-    if (!state.serverId) {
+    if (!state.serverId || isServerUnavailable(getSelectedServer())) {
       return;
     }
     applyDetailZoom(1);
     openDetailModal();
   });
-  lobbyRefreshButton?.addEventListener("click", () => {
-    renderServerList();
-    updateCountdowns();
-    updateLobbySummary();
-  });
   navButtons.forEach((button) => {
     button.addEventListener("click", () => {
+      if (button.disabled || button.getAttribute("aria-disabled") === "true") {
+        return;
+      }
       const nextTarget = String(button.getAttribute("data-lobby-nav-target") || "city");
       activeLobbyNav = nextTarget;
       syncLobbyNav();
@@ -962,4 +1207,6 @@ document.addEventListener("DOMContentLoaded", () => {
   renderAllCanvases();
   ensureCountdownTicker();
   updateCountdowns();
+  startLobbyStatusTicker();
+  startServerListAutoRefresh();
 });

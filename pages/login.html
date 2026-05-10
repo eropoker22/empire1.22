@@ -39,71 +39,136 @@
       </div>
       <div class="foreground-character" aria-hidden="true"></div>
 
-      <section class="hud-panel city-feed" aria-label="City feed">
+      <section class="hud-panel leaderboard-panel" aria-label="Leaderboard">
         <div class="panel-heading">
-          <span class="panel-icon">⌁</span>
-          <h2>CITY FEED</h2>
+          <span class="panel-icon">♛</span>
+          <h2>LEADERBOARD</h2>
           <span class="live-dot" aria-label="Živě"></span>
-          <button class="panel-chevron" type="button" aria-label="Další zprávy">››</button>
+          <span class="leaderboard-season">SEASON 01</span>
         </div>
-        <ul class="feed-list" data-city-feed>
-          <li class="feed-item is-hot">
-            <span class="feed-icon feed-icon--raid">✦</span>
-            <p>Policie uzavřela Downtown sektor 17 <small>před 3 min</small></p>
+        <ol class="leaderboard-list" data-leaderboard>
+          <li class="leaderboard-item is-leading" data-login-leaderboard-player="night-vultures" role="button" tabindex="0" aria-label="Zobrazit detail Night Vultures">
+            <span class="leaderboard-rank">#1</span>
+            <p><strong>Night Vultures</strong><small>Downtown cartel</small></p>
+            <span class="leaderboard-score">14 820</span>
           </li>
-          <li class="feed-item">
-            <span class="feed-icon feed-icon--gang">☠</span>
-            <p>Gang Night Vultures zabral starou továrnu <small>před 11 min</small></p>
+          <li class="leaderboard-item" data-login-leaderboard-player="blood-kings" role="button" tabindex="0" aria-label="Zobrazit detail Blood Kings">
+            <span class="leaderboard-rank">#2</span>
+            <p><strong>Blood Kings</strong><small>Harbor runners</small></p>
+            <span class="leaderboard-score">13 640</span>
           </li>
-          <li class="feed-item">
-            <span class="feed-icon feed-icon--tech">▣</span>
-            <p>Cena Tech Core stoupla o 12 % <small>před 18 min</small></p>
+          <li class="leaderboard-item" data-login-leaderboard-player="iron-syndicate" role="button" tabindex="0" aria-label="Zobrazit detail Iron Syndicate">
+            <span class="leaderboard-rank">#3</span>
+            <p><strong>Iron Syndicate</strong><small>Industrial bloc</small></p>
+            <span class="leaderboard-score">12 975</span>
           </li>
-          <li class="feed-item">
-            <span class="feed-icon feed-icon--toxic">☣</span>
-            <p>V Park zóně se šíří toxická past <small>před 25 min</small></p>
+          <li class="leaderboard-item" data-login-leaderboard-player="purple-cobras" role="button" tabindex="0" aria-label="Zobrazit detail Purple Cobras">
+            <span class="leaderboard-rank">#4</span>
+            <p><strong>Purple Cobras</strong><small>Market pressure</small></p>
+            <span class="leaderboard-score">11 730</span>
           </li>
-          <li class="feed-item">
-            <span class="feed-icon feed-icon--dealer">✧</span>
-            <p>Obchodník dorazil: Luxury Dealer <small>před 31 min</small></p>
+          <li class="leaderboard-item" data-login-leaderboard-player="ghost-crew" role="button" tabindex="0" aria-label="Zobrazit detail Ghost Crew">
+            <span class="leaderboard-rank">#5</span>
+            <p><strong>Ghost Crew</strong><small>Silent expansion</small></p>
+            <span class="leaderboard-score">10 420</span>
           </li>
-          <li class="feed-item">
-            <span class="feed-icon feed-icon--raid">◆</span>
-            <p>Policejní drony skenují střechy v Commercial zóně <small>před 36 min</small></p>
+          <li class="leaderboard-item" data-login-leaderboard-player="neon-saints" role="button" tabindex="0" aria-label="Zobrazit detail Neon Saints">
+            <span class="leaderboard-rank">#6</span>
+            <p><strong>Neon Saints</strong><small>Free mode surge</small></p>
+            <span class="leaderboard-score">9 980</span>
           </li>
-          <li class="feed-item">
-            <span class="feed-icon feed-icon--gang">✣</span>
-            <p>Iron Syndicate zablokoval most mezi Downtown a Industrial <small>před 42 min</small></p>
+          <li class="leaderboard-item" data-login-leaderboard-player="black-circuit" role="button" tabindex="0" aria-label="Zobrazit detail Black Circuit">
+            <span class="leaderboard-rank">#7</span>
+            <p><strong>Black Circuit</strong><small>Tech core control</small></p>
+            <span class="leaderboard-score">9 260</span>
           </li>
-        </ul>
+          <li class="leaderboard-item" data-login-leaderboard-player="chrome-wolf" role="button" tabindex="0" aria-label="Zobrazit detail Chrome Wolf">
+            <span class="leaderboard-rank">#8</span>
+            <p><strong>Chrome Wolf</strong><small>Neon block scout</small></p>
+            <span class="leaderboard-score">8 940</span>
+          </li>
+          <li class="leaderboard-item" data-login-leaderboard-player="velvet-snake" role="button" tabindex="0" aria-label="Zobrazit detail Velvet Snake">
+            <span class="leaderboard-rank">#9</span>
+            <p><strong>Velvet Snake</strong><small>Silent broker</small></p>
+            <span class="leaderboard-score">8 510</span>
+          </li>
+          <li class="leaderboard-item" data-login-leaderboard-player="rust-bishop" role="button" tabindex="0" aria-label="Zobrazit detail Rust Bishop">
+            <span class="leaderboard-rank">#10</span>
+            <p><strong>Rust Bishop</strong><small>Rusted parish</small></p>
+            <span class="leaderboard-score">8 120</span>
+          </li>
+          <li class="leaderboard-item" data-login-leaderboard-player="district-rat" role="button" tabindex="0" aria-label="Zobrazit detail District Rat">
+            <span class="leaderboard-rank">#11</span>
+            <p><strong>District Rat</strong><small>Sewer kings</small></p>
+            <span class="leaderboard-score">7 880</span>
+          </li>
+          <li class="leaderboard-item" data-login-leaderboard-player="zero-prophet" role="button" tabindex="0" aria-label="Zobrazit detail Zero Prophet">
+            <span class="leaderboard-rank">#12</span>
+            <p><strong>Zero Prophet</strong><small>Afterglow circuit</small></p>
+            <span class="leaderboard-score">7 540</span>
+          </li>
+          <li class="leaderboard-item" data-login-leaderboard-player="switch-runner" role="button" tabindex="0" aria-label="Zobrazit detail Switch Runner">
+            <span class="leaderboard-rank">#13</span>
+            <p><strong>Switch Runner</strong><small>Rail yard deals</small></p>
+            <span class="leaderboard-score">7 210</span>
+          </li>
+          <li class="leaderboard-item" data-login-leaderboard-player="ghost-dealer" role="button" tabindex="0" aria-label="Zobrazit detail Ghost Dealer">
+            <span class="leaderboard-rank">#14</span>
+            <p><strong>Ghost Dealer</strong><small>Quiet market</small></p>
+            <span class="leaderboard-score">6 980</span>
+          </li>
+          <li class="leaderboard-item" data-login-leaderboard-player="black-lotus" role="button" tabindex="0" aria-label="Zobrazit detail Black Lotus">
+            <span class="leaderboard-rank">#15</span>
+            <p><strong>Black Lotus</strong><small>Clean money front</small></p>
+            <span class="leaderboard-score">6 720</span>
+          </li>
+          <li class="leaderboard-item" data-login-leaderboard-player="iron-saint" role="button" tabindex="0" aria-label="Zobrazit detail Iron Saint">
+            <span class="leaderboard-rank">#16</span>
+            <p><strong>Iron Saint</strong><small>Private army</small></p>
+            <span class="leaderboard-score">6 390</span>
+          </li>
+          <li class="leaderboard-item" data-login-leaderboard-player="neon-butcher" role="button" tabindex="0" aria-label="Zobrazit detail Neon Butcher">
+            <span class="leaderboard-rank">#17</span>
+            <p><strong>Neon Butcher</strong><small>Red alley raids</small></p>
+            <span class="leaderboard-score">6 040</span>
+          </li>
+        </ol>
+        <div class="leaderboard-summary">
+          <span>RESET</span>
+          <strong>02D 14H</strong>
+        </div>
       </section>
 
-      <section class="hud-panel active-events" aria-label="Aktivní události">
-        <h2>AKTIVNÍ UDÁLOSTI</h2>
-        <article class="event-card event-card--raid">
-          <span class="event-symbol">◇</span>
-          <div>
-            <h3>POLICE RAID</h3>
-            <p>Zvýšená aktivita policie v sektoru Downtown a Industrial.</p>
-          </div>
-          <time>08:42</time>
-        </article>
-        <article class="event-card event-card--toxic">
-          <span class="event-symbol">☠</span>
-          <div>
-            <h3>TOXIC TRAP</h3>
-            <p>Toxické pasti jsou aktivní v Park zóně. Vyšší riziko, vyšší odměna.</p>
-          </div>
-          <time>13:27</time>
-        </article>
-        <article class="event-card event-card--war">
-          <span class="event-symbol">✣</span>
-          <div>
-            <h3>GANG WAR</h3>
-            <p>Probíhá válka o území mezi gangy Night Vultures a Purple Cobras.</p>
-          </div>
-          <time>21:15</time>
-        </article>
+      <section class="hud-panel active-events" aria-label="Aktivní události" data-login-active-events>
+        <div class="active-events__header">
+          <h2>AKTIVNÍ UDÁLOSTI</h2>
+        </div>
+        <div class="active-events__feed" data-login-active-events-feed aria-live="polite">
+          <article class="event-card" data-tone="raid">
+            <span class="event-symbol">◇</span>
+            <div>
+              <h3>POLICE RAID</h3>
+              <p>Zvýšená aktivita policie v sektoru Downtown a Industrial.</p>
+            </div>
+            <time>08:42</time>
+          </article>
+          <article class="event-card" data-tone="toxic">
+            <span class="event-symbol">☠</span>
+            <div>
+              <h3>TOXIC TRAP</h3>
+              <p>Toxické pasti jsou aktivní v Park zóně. Vyšší riziko, vyšší odměna.</p>
+            </div>
+            <time>13:27</time>
+          </article>
+          <article class="event-card" data-tone="war">
+            <span class="event-symbol">✣</span>
+            <div>
+              <h3>GANG WAR</h3>
+              <p>Probíhá válka o území mezi gangy Night Vultures a Purple Cobras.</p>
+            </div>
+            <time>21:15</time>
+          </article>
+        </div>
       </section>
 
       <section class="login-terminal" aria-label="Přihlášení do Empire Streets">
@@ -168,33 +233,41 @@
           <span class="status-dot"></span>
         </div>
         <div class="server-main">
-          <strong>FREE-01</strong>
-          <span>ONLINE</span>
+          <strong data-server-status-name>FREE-01</strong>
+          <span data-server-status-state>ONLINE</span>
         </div>
-        <div class="server-players"><span>♟</span>17/20 hráčů</div>
+        <div class="server-players"><span>♟</span><strong data-server-status-players>17/20 hráčů</strong></div>
         <div class="metric">
           <span>HEAT LEVEL</span>
-          <strong>78 %</strong>
-          <div class="progress"><i style="width: 78%"></i></div>
+          <strong data-server-status-heat>78 %</strong>
+          <div class="progress"><i data-server-status-heat-bar style="width: 78%"></i></div>
         </div>
         <div class="metric metric--market">
           <span>MARKET VOLATILITY</span>
-          <strong>VERY HIGH</strong>
+          <strong data-server-status-market>VERY HIGH</strong>
           <svg class="sparkline" viewBox="0 0 180 48" aria-hidden="true">
-            <polyline points="0,34 10,29 18,37 30,24 40,31 50,19 60,32 70,15 82,28 94,22 108,36 122,18 136,24 148,12 160,26 172,16 180,20"></polyline>
+            <polyline data-server-status-sparkline points="0,34 10,29 18,37 30,24 40,31 50,19 60,32 70,15 82,28 94,22 108,36 122,18 136,24 148,12 160,26 172,16 180,20"></polyline>
           </svg>
         </div>
       </section>
 
       <section class="mode-dock" aria-label="Výběr režimu">
         <button class="mode-card mode-card--free" type="button" data-mode="free" aria-pressed="false">
-          <span class="mode-icon">▰</span>
-          <span><strong>FREE MODE</strong><small>Rychlá válka o město</small><em>Vstup bez rizika. Získej respekt.</em></span>
+          <span class="mode-content">
+            <strong>FREE MODE</strong>
+            <small>Rychlá válka o město</small>
+            <em>Vstup bez rizika. Získej respekt.</em>
+          </span>
+          <span class="mode-icon" aria-hidden="true"><span>▰</span></span>
         </button>
         <button class="mode-card mode-card--war is-active" type="button" data-mode="war" aria-pressed="true">
           <span class="premium-badge">PREMIUM</span>
-          <span class="mode-icon">☠</span>
-          <span><strong>WAR MODE</strong><small>Plná válka o impérium</small><em>Vysoké riziko. Větší odměny.</em></span>
+          <span class="mode-icon" aria-hidden="true"><span>☠</span></span>
+          <span class="mode-content">
+            <strong>WAR MODE</strong>
+            <small>Plná válka o impérium</small>
+            <em>Vysoké riziko. Větší odměny.</em>
+          </span>
         </button>
       </section>
     </main>
@@ -205,6 +278,26 @@
       <button type="button" data-sound-toggle>Zvuk</button>
       <a href="./about-game.html">Pomoc</a>
     </nav>
+
+    <div class="login-leaderboard-overlay" data-login-leaderboard-overlay hidden>
+      <div class="login-leaderboard-backdrop" data-login-leaderboard-close></div>
+      <section class="login-leaderboard-detail" role="dialog" aria-modal="true" aria-labelledby="login-leaderboard-title" tabindex="-1">
+        <button type="button" class="login-leaderboard-close" data-login-leaderboard-close aria-label="Zavřít leaderboard detail">✕</button>
+        <div class="login-leaderboard-identity">
+          <span class="login-leaderboard-kicker">CITY RANKING TERMINAL</span>
+          <h2 id="login-leaderboard-title" data-login-leaderboard-name>Night Vultures</h2>
+          <p class="login-leaderboard-meta" data-login-leaderboard-meta>Downtown cartel · Kartel</p>
+        </div>
+        <div class="login-leaderboard-stats" data-login-leaderboard-stats></div>
+        <p class="login-leaderboard-status" data-login-leaderboard-status>Kontroluje velkou část města.</p>
+        <div class="login-leaderboard-actions">
+          <button type="button" data-login-leaderboard-mock-action>Zobrazit profil</button>
+          <button type="button" data-login-leaderboard-mock-action>Označit cíl</button>
+          <button type="button" data-login-leaderboard-mock-action>Bounty</button>
+        </div>
+        <p class="login-leaderboard-toast" data-login-leaderboard-toast hidden>Funkce bude napojena později.</p>
+      </section>
+    </div>
 
     <div class="access-overlay" data-access-overlay hidden>
       <div>

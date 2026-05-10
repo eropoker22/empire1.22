@@ -12,22 +12,17 @@
   <body class="auth-body auth-body--login auth-body--war servers-page lobby-command-body">
     <main id="lobby-root" class="lobby-command" data-page="lobby">
       <div class="lobby-bg" aria-hidden="true">
-        <span class="lobby-rain"></span>
         <span class="lobby-scan"></span>
       </div>
+
+      <section class="lobby-hud-panel lobby-status-card" aria-label="Server status">
+        <i aria-hidden="true"></i>
+        <strong data-lobby-status-count>ONLINE - 4 200 hráčů</strong>
+      </section>
 
       <aside class="lobby-side lobby-side--left" aria-label="Stav města">
         <section class="lobby-hud-panel lobby-logo-card" aria-label="Empire Streets">
           <strong>EMPIRE<br><span>STREETS</span></strong>
-        </section>
-
-        <section class="lobby-hud-panel lobby-status-card">
-          <div class="lobby-panel-heading">
-            <span>SERVER STATUS</span>
-            <i></i>
-          </div>
-          <strong>ONLINE</strong>
-          <p><span>♟</span> 17 120 hráčů online</p>
         </section>
 
         <section class="lobby-hud-panel lobby-heat-card">
@@ -49,27 +44,6 @@
           </svg>
         </section>
 
-        <section class="lobby-hud-panel lobby-events-card">
-          <div class="lobby-panel-heading">
-            <span>AKTIVNÍ UDÁLOSTI</span>
-          </div>
-          <article class="lobby-event lobby-event--raid">
-            <span>◇</span>
-            <div><strong>POLICE RAID</strong><p>Zvýšená aktivita policie v sektoru Downtown a Industrial.</p></div>
-            <time>08:42</time>
-          </article>
-          <article class="lobby-event lobby-event--toxic">
-            <span>☠</span>
-            <div><strong>TOXIC TRAP</strong><p>Toxické pasti jsou aktivní v Park zóně. Vyšší riziko, vyšší odměna.</p></div>
-            <time>18:27</time>
-          </article>
-          <article class="lobby-event lobby-event--war">
-            <span>✣</span>
-            <div><strong>GANG WAR</strong><p>Probíhá válka o území mezi gangy Night Vultures a Purple Cobras.</p></div>
-            <time>21:15</time>
-          </article>
-        </section>
-
         <section class="lobby-hud-panel lobby-promo-card" aria-label="Městský signál">
           <strong>TRUST NOBODY.<br>CONTROL EVERYTHING.</strong>
         </section>
@@ -78,41 +52,34 @@
       <section class="lobby-command-shell" aria-label="Výběr serveru">
         <header class="lobby-topbar">
           <nav class="lobby-terminal-nav" data-lobby-nav aria-label="Lobby menu">
-            <button class="is-active" type="button" data-lobby-nav-target="city" aria-pressed="true"><span aria-hidden="true">▣</span> VÝBĚR MĚSTA</button>
-            <button type="button" data-lobby-nav-target="gang" aria-pressed="false"><span aria-hidden="true">♟</span> MOJE GANG</button>
-            <button type="button" data-lobby-nav-target="market" aria-pressed="false"><span aria-hidden="true">▱</span> OBCHOD</button>
+            <button class="is-active" type="button" data-lobby-nav-target="city" aria-pressed="true"><span aria-hidden="true">▣</span> SERVER</button>
+            <button type="button" data-lobby-nav-target="gang" aria-pressed="false"><span aria-hidden="true">♟</span> MŮJ GANG</button>
+            <button class="is-locked" type="button" data-lobby-nav-target="market" aria-pressed="false" aria-disabled="true" disabled title="Obchod je uzamčený"><span aria-hidden="true">▱</span> OBCHOD LOCK</button>
             <button type="button" data-lobby-nav-target="settings" aria-pressed="false"><span aria-hidden="true">⚙</span> NASTAVENÍ</button>
           </nav>
           <div class="lobby-top-player">
-            <div class="lobby-top-player__avatar" aria-hidden="true"></div>
-            <div>
-              <strong data-lobby-top-user>Host</strong>
-              <span>ÚROVEŇ 1</span>
-              <i><b></b></i>
-            </div>
-            <em>0 / 100 XP</em>
-            <small>🟡 0 kreditů</small>
+            <strong data-lobby-top-user>Host</strong>
           </div>
         </header>
 
         <div class="lobby-shell-grid">
-          <section class="lobby-main-column">
+          <section class="lobby-main-column" data-lobby-view="city">
             <div class="lobby-title-block">
-              <h1>VÝBĚR SERVERU</h1>
-              <p>Zvol server pro režim <strong>WAR</strong> nebo <b>FREE</b> a klikni na startovní district.</p>
+              <h1>SERVER</h1>
+              <div class="lobby-refresh-countdown" aria-live="polite">
+                <span>REFRESH</span>
+                <strong data-lobby-refresh-countdown>20s</strong>
+              </div>
             </div>
 
-            <section class="lobby-profile-card" aria-label="Kontext hráče">
-              <div class="lobby-profile-avatar" aria-hidden="true"></div>
+            <section class="lobby-profile-card" aria-label="Hráč a výběr" data-lobby-profile-card>
               <div>
-                <span class="lobby-profile-card__label">PŘIHLÁŠENÝ HRÁČ</span>
                 <strong class="lobby-profile-card__name" data-lobby-user>Host</strong>
-                <p class="lobby-profile-card__meta" data-lobby-user-meta>Přihlášený hráč · vyber server a startovní district.</p>
               </div>
               <div class="lobby-profile-card__summary">
-                <span>SERVER <strong data-lobby-summary-server>Nevybrán</strong></span>
-                <span>REŽIM <strong data-lobby-summary-mode>WAR</strong></span>
-                <span>DISTRICT <strong data-lobby-summary-district>Nevybrán</strong></span>
+                <span data-lobby-summary-cell="server">SERVER <strong data-lobby-summary-server>Nevybrán</strong></span>
+                <span data-lobby-summary-cell="mode">REŽIM <strong data-lobby-summary-mode>WAR</strong></span>
+                <span data-lobby-summary-cell="district">DISTRICT <strong data-lobby-summary-district>Nevybrán</strong></span>
               </div>
             </section>
 
@@ -120,62 +87,115 @@
               <button class="auth-mode-tab" type="button" data-server-mode-tab="war" role="tab" aria-selected="false">☠ WAR</button>
               <button class="auth-mode-tab" type="button" data-server-mode-tab="free" role="tab" aria-selected="false">🪽 FREE</button>
             </div>
-            <p class="auth-entry-status" data-lobby-flow-note data-state="ready">Klikni na server, otevři detail a vyber startovní district.</p>
 
             <section class="lobby-server-list-only">
               <div class="auth-servers auth-servers--single" data-server-list aria-live="polite"></div>
-              <button class="lobby-refresh-button" type="button">⟳ OBNOVIT SEZNAM</button>
             </section>
           </section>
 
-          <aside class="lobby-detail-column" aria-label="Detail serveru">
-            <section class="lobby-map-panel">
-              <h2>VYBER STARTOVNÍ DISTRICT</h2>
-              <p>Klikni na district v detailu serveru pro výběr místa.</p>
-              <div class="lobby-zone-map" aria-hidden="true">
-                <span class="lobby-zone lobby-zone--residential">⌂<b>RESIDENTIAL</b></span>
-                <span class="lobby-zone lobby-zone--downtown">▥<b>DOWNTOWN</b></span>
-                <span class="lobby-zone lobby-zone--park">♟<b>PARK</b></span>
-                <span class="lobby-zone lobby-zone--industrial">▦<b>INDUSTRIAL</b></span>
-                <span class="lobby-zone lobby-zone--commercial">▥<b>COMMERCIAL</b></span>
-              </div>
-              <div class="lobby-map-legend">
-                <span><i class="is-residential"></i> Residential</span>
-                <span><i class="is-park"></i> Park</span>
-                <span><i class="is-downtown"></i> Downtown</span>
-                <span><i class="is-industrial"></i> Industrial</span>
-                <span><i class="is-commercial"></i> Commercial</span>
-                <span class="lobby-map-legend__marker lobby-map-legend__marker--raid"><i></i> Police Raid</span>
-                <span class="lobby-map-legend__marker lobby-map-legend__marker--trap"><i></i> Toxic Trap</span>
-                <span class="lobby-map-legend__marker lobby-map-legend__marker--gang"><i></i> Gang Control</span>
-              </div>
-            </section>
-
+          <aside class="lobby-detail-column" aria-label="Detail serveru" data-lobby-view="city">
             <section class="lobby-server-detail-card">
               <div class="lobby-detail-title">
                 <div>
-                  <span class="lobby-detail-kicker">DETAILY SERVERU</span>
+                  <span class="lobby-detail-kicker">SERVER</span>
                   <h2 data-lobby-detail-name>Vortex City WAR-01</h2>
                 </div>
-                <span>DOPORUČENO</span>
+                <span>ONLINE</span>
               </div>
               <div class="lobby-detail-heat">
-                <span>HEAT LEVEL</span>
-                <strong>78 %</strong>
-                <div class="lobby-meter"><i style="width: 78%"></i></div>
+                <span>RIZIKO</span>
+                <div class="lobby-risk-ring" data-lobby-risk-ring style="--risk-value: 0%" aria-label="Riziko 0 procent">
+                  <strong data-lobby-risk-value>0 %</strong>
+                </div>
               </div>
               <div class="lobby-detail-grid">
                 <span>REGION <strong data-lobby-detail-region>EU Central</strong></span>
                 <span>STATUS <strong data-lobby-detail-status>ONLINE</strong></span>
                 <span>REŽIM <strong data-lobby-detail-mode>WAR</strong></span>
                 <span>HRÁČŮ ONLINE <strong data-lobby-detail-capacity>64 / 150</strong></span>
-                <span>START / LIVE <strong data-lobby-detail-start>Live server</strong></span>
-                <span>POPIS <strong data-lobby-detail-description>Tvrdý válečný shard s rychlou expanzí.</strong></span>
               </div>
-              <button class="lobby-primary-cta" type="button" data-lobby-open-selected>VYBRAT SERVER A DISTRICT <span>›</span></button>
+              <div class="lobby-detail-actions">
+                <button class="lobby-primary-cta" type="button" data-lobby-open-selected>VYBRAT DISTRICT <span>›</span></button>
+                <button class="lobby-primary-cta lobby-primary-cta--enter" type="button" data-lobby-enter-selected disabled>VSTOUPIT NA SERVER <span>›</span></button>
+              </div>
               <p>⚠ Po výběru již nelze district změnit.</p>
             </section>
           </aside>
+
+          <section class="lobby-mock-view" data-lobby-view="gang" hidden>
+            <div class="lobby-mock-heading">
+              <span>GANG</span>
+              <h2>MŮJ GANG</h2>
+            </div>
+            <div class="lobby-mock-grid">
+              <article class="lobby-mock-card">
+                <span>NÁZEV</span>
+                <strong>Neon Vultures</strong>
+              </article>
+              <article class="lobby-mock-card">
+                <span>RESPEKT</span>
+                <strong>1 240</strong>
+              </article>
+              <article class="lobby-mock-card">
+                <span>ČLENOVÉ</span>
+                <strong>4 / 12</strong>
+              </article>
+              <article class="lobby-mock-card">
+                <span>ÚZEMÍ</span>
+                <strong>2 districty</strong>
+              </article>
+            </div>
+          </section>
+
+          <section class="lobby-mock-view" data-lobby-view="market" hidden>
+            <div class="lobby-mock-heading">
+              <span>MARKET</span>
+              <h2>OBCHOD</h2>
+            </div>
+            <div class="lobby-mock-grid">
+              <article class="lobby-mock-card">
+                <span>KREDITY</span>
+                <strong>0</strong>
+              </article>
+              <article class="lobby-mock-card">
+                <span>BLACK DEAL</span>
+                <strong>Stimpack x20</strong>
+              </article>
+              <article class="lobby-mock-card">
+                <span>SLEVA</span>
+                <strong>12 %</strong>
+              </article>
+              <article class="lobby-mock-card">
+                <span>RESET</span>
+                <strong>02:14:08</strong>
+              </article>
+            </div>
+          </section>
+
+          <section class="lobby-mock-view" data-lobby-view="settings" hidden>
+            <div class="lobby-mock-heading">
+              <span>TERMINÁL</span>
+              <h2>NASTAVENÍ</h2>
+            </div>
+            <div class="lobby-mock-grid">
+              <article class="lobby-mock-card">
+                <span>PROFIL</span>
+                <strong>Host</strong>
+              </article>
+              <article class="lobby-mock-card">
+                <span>ZVUK</span>
+                <strong>ON</strong>
+              </article>
+              <article class="lobby-mock-card">
+                <span>VZHLED</span>
+                <strong>Empire Neon</strong>
+              </article>
+              <article class="lobby-mock-card">
+                <span>NOTIFIKACE</span>
+                <strong>ON</strong>
+              </article>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -214,7 +234,7 @@
         </div>
         <div class="server-detail-modal__actions">
           <button class="btn server-detail-modal__btn server-detail-modal__btn--close" type="button" data-server-detail-close>Zavřít</button>
-          <button class="btn server-detail-modal__btn server-detail-modal__btn--join" type="button" id="server-detail-join" data-server-detail-continue>Vstoupit na server</button>
+          <button class="btn server-detail-modal__btn server-detail-modal__btn--join" type="button" id="server-detail-join" data-server-detail-continue>POTVRDIT</button>
         </div>
       </section>
     </div>

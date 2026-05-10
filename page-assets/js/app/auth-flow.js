@@ -15,6 +15,7 @@ export const SERVER_CATALOG = Object.freeze([
     badge: "DOPORUČENO",
     status: "ONLINE",
     activity: "HIGH",
+    riskPercent: 78,
     description: "Tvrdý válečný shard s rychlou expanzí, hustší konkurencí a tlakem na obranu districtů."
   },
   {
@@ -28,6 +29,7 @@ export const SERVER_CATALOG = Object.freeze([
     badge: "",
     status: "ONLINE",
     activity: "MEDIUM",
+    riskPercent: 54,
     description: "Čerstvě otevřená instance, vhodná pro nový náběh a rychlé obsazení startovní pozice."
   },
   {
@@ -41,6 +43,7 @@ export const SERVER_CATALOG = Object.freeze([
     badge: "",
     status: "VYSOKÁ",
     activity: "HIGH",
+    riskPercent: 69,
     description: "Vyvážený server s aktivní komunitou a častými bitvami."
   },
   {
@@ -55,6 +58,7 @@ export const SERVER_CATALOG = Object.freeze([
     status: "PŘIPRAVUJEME",
     activity: "LOW",
     locked: true,
+    riskPercent: 18,
     description: "Připravujeme spuštění serveru. Sleduj oznámení."
   },
   {
@@ -69,6 +73,7 @@ export const SERVER_CATALOG = Object.freeze([
     status: "LOCKED",
     activity: "LOW",
     locked: true,
+    riskPercent: 34,
     description: "Nový válečný shard pro elitní gangy."
   },
   {
@@ -82,6 +87,7 @@ export const SERVER_CATALOG = Object.freeze([
     badge: "NEJLEPŠÍ START",
     status: "ONLINE",
     activity: "MEDIUM",
+    riskPercent: 42,
     description: "Rychlá válka o město. Ideální pro první vstup do Empire Streets."
   },
   {
@@ -96,6 +102,7 @@ export const SERVER_CATALOG = Object.freeze([
     status: "FULL",
     activity: "HIGH",
     full: true,
+    riskPercent: 81,
     description: "Krátká session plná chaosu. Server je momentálně plný."
   },
   {
@@ -109,6 +116,7 @@ export const SERVER_CATALOG = Object.freeze([
     badge: "",
     status: "ONLINE",
     activity: "LOW",
+    riskPercent: 28,
     description: "Vyvážená ekonomika, rychlý start, nízký heat."
   }
 ]);
