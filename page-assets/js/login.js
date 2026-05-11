@@ -471,7 +471,6 @@ const state = {
   activeEventsTimer: null,
   activeEventsEffectTimer: null,
   isSubmitting: false,
-  feedTimer: null,
   serverStatusTimer: null,
   serverStatusApplyTimer: null,
   serverStatusEffectTimer: null,
@@ -493,7 +492,6 @@ document.addEventListener("DOMContentLoaded", () => {
   bindSoundToggle();
   bindForgotPassword();
   bindLoginLeaderboard();
-  startLeaderboardPulse();
   startServerStatusCycle();
   startLoginActiveEventsCycle();
   updateModeCards();
@@ -608,7 +606,8 @@ function bindTerminalTabs() {
 
   document.querySelectorAll("[data-tab-link]").forEach((button) => {
     button.addEventListener("click", () => {
-      setActiveTab(button.dataset.tabLink === "register" ? "register" : "login");
+      const nextTab = state.activeTab === "register" ? "login" : "register";
+      setActiveTab(nextTab);
     });
   });
 }
@@ -623,11 +622,21 @@ function updateTerminalTab() {
   const isRegister = state.activeTab === "register";
   document.getElementById("login-form")?.classList.toggle("hidden", isRegister);
   document.getElementById("register-form")?.classList.toggle("hidden", !isRegister);
+  document.querySelector(".guest-access")?.classList.toggle("hidden", isRegister);
 
   document.querySelectorAll("[data-tab]").forEach((button) => {
     const isActive = button.dataset.tab === state.activeTab;
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+
+  document.querySelectorAll("[data-tab-link]").forEach((button) => {
+    if (!(button instanceof HTMLElement)) {
+      return;
+    }
+
+    button.textContent = state.activeTab === "register" ? "▣ PŘIHLÁSIT" : "▣ ZALOŽIT GANG";
+    button.setAttribute("aria-label", state.activeTab === "register" ? "Přepnout zpět na přihlášení" : "Přepnout na vytvoření gangu");
   });
 }
 
@@ -1005,23 +1014,6 @@ function startLoginActiveEventsCycle() {
     state.activeEventsIndex = (state.activeEventsIndex + 3) % LOGIN_ACTIVE_EVENTS.length;
     renderLoginActiveEvents();
   }, ACTIVE_EVENTS_REFRESH_MS);
-}
-
-function startLeaderboardPulse() {
-  const items = Array.from(document.querySelectorAll("[data-leaderboard] .leaderboard-item"));
-  if (items.length === 0) {
-    return;
-  }
-
-  const pulse = () => {
-    items.forEach((item) => item.classList.remove("is-flashing"));
-    const item = items[Math.floor(Math.random() * items.length)];
-    item?.classList.add("is-flashing");
-    window.setTimeout(() => item?.classList.remove("is-flashing"), 1250);
-  };
-
-  pulse();
-  state.feedTimer = window.setInterval(pulse, 3600);
 }
 
 function clearServerStatusTyping() {
