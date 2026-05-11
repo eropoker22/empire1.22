@@ -3770,9 +3770,14 @@
   .pharmacy-popup-card.building-detail-modal__content,
   .druglab-popup-card.building-detail-modal__content,
   .factory-popup-card.building-detail-modal__content {
-    width: min(94vw, 560px) !important;
+    position: absolute !important;
+    width: 100vw !important;
     height: min(calc(100vh - 84px), 720px);
     max-height: min(calc(100vh - 84px), 720px);
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    transform: none !important;
   }
 
   .armory-popup-card.building-detail-modal__content .modal__header,
@@ -3796,7 +3801,7 @@
   .pharmacy-popup-card.building-detail-modal__content,
   .druglab-popup-card.building-detail-modal__content,
   .factory-popup-card.building-detail-modal__content {
-    width: calc(100vw - 12px) !important;
+    width: 100vw !important;
     height: calc(100dvh - 12px);
     max-height: calc(100dvh - 12px);
     border-radius: 18px;
@@ -4398,6 +4403,25 @@
   .district-building-detail-card.building-detail-modal__content {
     width: min(430px, calc(100vw - 12px));
     border-radius: 10px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="pharmacy"] .district-building-detail-card.building-detail-modal__content,
+  .district-building-detail-shell[data-building-mechanics-type="factory"] .district-building-detail-card.building-detail-modal__content,
+  .district-building-detail-shell[data-building-mechanics-type="drug-lab"] .district-building-detail-card.building-detail-modal__content,
+  .district-building-detail-shell[data-building-mechanics-type="armory"] .district-building-detail-card.building-detail-modal__content {
+    width: 100vw;
+  }
+
+  .armory-popup-card.building-detail-modal__content,
+  .pharmacy-popup-card.building-detail-modal__content,
+  .druglab-popup-card.building-detail-modal__content,
+  .factory-popup-card.building-detail-modal__content {
+    position: absolute !important;
+    width: 100vw !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    transform: none !important;
   }
 
   .district-building-detail-card .modal__header {

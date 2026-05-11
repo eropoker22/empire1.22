@@ -656,6 +656,22 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     transform: translateX(-50%) !important;
   }
 
+  .district-building-detail-shell[data-building-mechanics-type="pharmacy"] .district-building-detail-card.building-detail-modal__content,
+  .district-building-detail-shell[data-building-mechanics-type="factory"] .district-building-detail-card.building-detail-modal__content,
+  .district-building-detail-shell[data-building-mechanics-type="drug-lab"] .district-building-detail-card.building-detail-modal__content,
+  .district-building-detail-shell[data-building-mechanics-type="armory"] .district-building-detail-card.building-detail-modal__content,
+  .armory-popup-card.building-detail-modal__content,
+  .pharmacy-popup-card.building-detail-modal__content,
+  .druglab-popup-card.building-detail-modal__content,
+  .factory-popup-card.building-detail-modal__content {
+    position: absolute !important;
+    width: 100vw !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+  }
+
   #game-rail-left > #leaderboard-card,
   #game-rail-right > #leaderboard-card {
     width: 100% !important;
@@ -841,6 +857,13 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     white-space: nowrap;
   }
 
+  .armory-popup-card.building-detail-modal__content .modal__close,
+  .pharmacy-popup-card.building-detail-modal__content .modal__close,
+  .druglab-popup-card.building-detail-modal__content .modal__close,
+  .factory-popup-card.building-detail-modal__content .modal__close {
+    top: 8px !important;
+  }
+
   .building-detail-header-level {
     flex: 0 0 auto;
     height: 22px;
@@ -848,6 +871,30 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     margin: 0 0 0 4px !important;
     padding: 0 7px;
     font-size: 10px;
+  }
+
+  .armory-popup-card.building-detail-modal__content .building-detail-title__badge,
+  .pharmacy-popup-card.building-detail-modal__content .building-detail-title__badge,
+  .druglab-popup-card.building-detail-modal__content .building-detail-title__badge,
+  .factory-popup-card.building-detail-modal__content .building-detail-title__badge {
+    margin-left: 4px !important;
+    padding: 1px 6px 0 !important;
+    font-size: 9px !important;
+    line-height: 1 !important;
+    transform: translateY(0) !important;
+  }
+
+  .armory-popup-card.building-detail-modal__content .building-detail-header-level,
+  .pharmacy-popup-card.building-detail-modal__content .building-detail-header-level,
+  .druglab-popup-card.building-detail-modal__content .building-detail-header-level,
+  .factory-popup-card.building-detail-modal__content .building-detail-header-level {
+    min-width: 30px !important;
+    height: 22px !important;
+    margin: 0 0 0 4px !important;
+    padding: 1px 6px 0 !important;
+    font-size: 9px !important;
+    transform: translateY(0) !important;
+    align-self: center !important;
   }
 
   .building-detail-title__action-btn {
@@ -1927,6 +1974,22 @@ html body #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__
     padding-bottom: max(0px, env(safe-area-inset-bottom)) !important;
     overscroll-behavior: contain !important;
     -webkit-overflow-scrolling: touch !important;
+  }
+
+  body.game-modal-scroll-locked .district-building-detail-shell[data-building-mechanics-type="pharmacy"] .district-building-detail-card.building-detail-modal__content,
+  body.game-modal-scroll-locked .district-building-detail-shell[data-building-mechanics-type="factory"] .district-building-detail-card.building-detail-modal__content,
+  body.game-modal-scroll-locked .district-building-detail-shell[data-building-mechanics-type="drug-lab"] .district-building-detail-card.building-detail-modal__content,
+  body.game-modal-scroll-locked .district-building-detail-shell[data-building-mechanics-type="armory"] .district-building-detail-card.building-detail-modal__content,
+  body.game-modal-scroll-locked .armory-popup-shell .armory-popup-card.building-detail-modal__content,
+  body.game-modal-scroll-locked .pharmacy-popup-shell .pharmacy-popup-card.building-detail-modal__content,
+  body.game-modal-scroll-locked .druglab-popup-shell .druglab-popup-card.building-detail-modal__content,
+  body.game-modal-scroll-locked .factory-popup-shell .factory-popup-card.building-detail-modal__content {
+    position: absolute !important;
+    width: 100vw !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    transform: none !important;
   }
 
   body.game-modal-scroll-locked .building-detail-modal__content > .modal__body,
