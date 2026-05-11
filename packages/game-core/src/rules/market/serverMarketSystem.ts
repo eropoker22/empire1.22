@@ -1,3 +1,21 @@
+import {
+  clonePriceHistory,
+  cloneServerState
+} from "./market-state-clone";
+import {
+  creditPlayerCash,
+  creditPlayerResource,
+  debitPlayerCash,
+  debitPlayerResource,
+  findPlayer,
+  getAllPlayers,
+  getPlayerCash,
+  getPlayerId,
+  getPlayerResourceAmount,
+  hasPlayerCash,
+  resolvePlayerForMutation,
+  resolvePlayerForRead
+} from "./market-state-access";
 export type MarketResourceId = "metalParts" | "techCore" | "chemicals" | "biomass";
 export type MarketType = "normal" | "black";
 export type MarketPaymentType = "cleanCash" | "dirtyCash";
@@ -1796,246 +1814,6 @@ const failMarketAction = (
   message,
   ...extra
 });
-
-const cloneServerState = <T extends AnyRecord>(state: T): T => {
-  const next: AnyRecord = { ...state };
-  cloneRecordMap(next, state, "playersById", cloneEntity);
-  cloneRecordMap(next, state, "resourceStatesById", cloneResourceState);
-  cloneRecordMap(next, state, "policeStatesById", cloneEntity);
-  cloneRecordMap(next, state, "districtsById", cloneEntity);
-  cloneRecordMap(next, state, "eventsById", cloneEntity);
-  if (Array.isArray(state.players)) {
-    next.players = state.players.map(cloneEntity);
-  }
-  if (Array.isArray(state.eventLog)) {
-    next.eventLog = state.eventLog.map(cloneEntity);
-  }
-  if (Array.isArray(state.rumors)) {
-    next.rumors = state.rumors.map(cloneEntity);
-  }
-  if (state.market && typeof state.market === "object") {
-    next.market = cloneMarketState(state.market);
-  }
-  if (state.root && typeof state.root === "object") {
-    next.root = {
-      ...state.root,
-      eventIds: Array.isArray(state.root.eventIds) ? [...state.root.eventIds] : state.root.eventIds
-    };
-  }
-  return next as T;
-};
-
-const cloneRecordMap = (
-  next: AnyRecord,
-  state: AnyRecord,
-  key: string,
-  cloneValue: (value: AnyRecord) => AnyRecord
-): void => {
-  const record = state[key];
-  if (!record || typeof record !== "object" || Array.isArray(record)) {
-    return;
-  }
-  next[key] = Object.fromEntries(Object.entries(record).map(([entryKey, value]) => [
-    entryKey,
-    value && typeof value === "object" ? cloneValue(value as AnyRecord) : value
-  ]));
-};
-
-const cloneEntity = <T extends AnyRecord>(entity: T): T => {
-  const next: AnyRecord = { ...entity };
-  if (entity.resources && typeof entity.resources === "object") {
-    next.resources = { ...entity.resources };
-  }
-  if (entity.economy && typeof entity.economy === "object") {
-    next.economy = { ...entity.economy };
-  }
-  if (entity.gang && typeof entity.gang === "object") {
-    next.gang = { ...entity.gang };
-  }
-  if (entity.police && typeof entity.police === "object") {
-    next.police = { ...entity.police };
-  }
-  return next as T;
-};
-
-const cloneResourceState = <T extends AnyRecord>(resourceState: T): T => ({
-  ...resourceState,
-  balances: resourceState.balances && typeof resourceState.balances === "object"
-    ? { ...resourceState.balances }
-    : resourceState.balances
-});
-
-const cloneMarketState = (market: Partial<ServerMarketState>): ServerMarketState => ({
-  mode: market.mode === "war" ? "war" : "free",
-  stock: { ...(market.stock ?? {}) } as Record<MarketResourceId, number>,
-  rollingVolume: Object.fromEntries(marketResourceIds.map((resourceId) => [
-    resourceId,
-    { ...(market.rollingVolume?.[resourceId] ?? { buy: 0, sell: 0 }) }
-  ])) as Record<MarketResourceId, { buy: number; sell: number }>,
-  volumeEvents: Array.isArray(market.volumeEvents) ? market.volumeEvents.map((event) => ({ ...event })) : [],
-  priceHistory: clonePriceHistory(market.priceHistory),
-  transactions: Array.isArray(market.transactions) ? market.transactions.map((transaction) => ({ ...transaction })) : [],
-  playerListings: Array.isArray(market.playerListings) ? market.playerListings.map((listing) => ({ ...listing })) : [],
-  activeMarketEvents: Array.isArray(market.activeMarketEvents) ? market.activeMarketEvents.map((event) => ({ ...event })) : [],
-  lastStockRegenAt: safeTimestamp(market.lastStockRegenAt),
-  lastPriceSnapshotAt: safeTimestamp(market.lastPriceSnapshotAt),
-  warningFlags: { ...(market.warningFlags ?? {}) }
-});
-
-const clonePriceHistory = (priceHistory: Partial<ServerMarketState["priceHistory"]> | undefined): ServerMarketState["priceHistory"] =>
-  Object.fromEntries(marketResourceIds.map((resourceId) => [
-    resourceId,
-    Array.isArray(priceHistory?.[resourceId]) ? priceHistory[resourceId]!.map((entry) => ({ ...entry })) : []
-  ])) as ServerMarketState["priceHistory"];
-
-const resolvePlayerForMutation = (serverState: AnyRecord, playerState: AnyRecord): AnyRecord => {
-  const playerId = getPlayerId(playerState);
-  const existing = playerId ? findPlayer(serverState, playerId) : null;
-  return existing ?? cloneEntity(playerState);
-};
-
-const resolvePlayerForRead = (serverState: AnyRecord, playerState: AnyRecord): AnyRecord =>
-  findPlayer(serverState, getPlayerId(playerState)) ?? playerState ?? {};
-
-const findPlayer = (serverState: AnyRecord, playerId: string): AnyRecord | null => {
-  if (!playerId) {
-    return null;
-  }
-  if (serverState.playersById?.[playerId]) {
-    return serverState.playersById[playerId];
-  }
-  if (Array.isArray(serverState.players)) {
-    return serverState.players.find((player: AnyRecord) => player?.id === playerId) ?? null;
-  }
-  if (serverState.players && typeof serverState.players === "object") {
-    return serverState.players[playerId] ?? null;
-  }
-  return null;
-};
-
-const getAllPlayers = (serverState: AnyRecord): AnyRecord[] => {
-  if (serverState.playersById && typeof serverState.playersById === "object") {
-    return Object.values(serverState.playersById);
-  }
-  if (Array.isArray(serverState.players)) {
-    return serverState.players;
-  }
-  if (serverState.players && typeof serverState.players === "object") {
-    return Object.values(serverState.players);
-  }
-  return [];
-};
-
-const getPlayerId = (player: AnyRecord | null | undefined): string =>
-  String(player?.id ?? player?.playerId ?? "").trim();
-
-const getPlayerCash = (
-  serverState: AnyRecord,
-  player: AnyRecord,
-  paymentType: MarketPaymentType,
-  seenResourceStates?: Set<string>
-): number => {
-  const resourceState = getPlayerResourceState(serverState, player);
-  if (resourceState?.balances) {
-    if (seenResourceStates && resourceState.id) {
-      if (seenResourceStates.has(resourceState.id)) {
-        return 0;
-      }
-      seenResourceStates.add(resourceState.id);
-    }
-    return getBalanceFromContainer(resourceState.balances, paymentType === "cleanCash" ? CLEAN_CASH_KEYS : DIRTY_CASH_KEYS);
-  }
-  if (player?.economy && typeof player.economy === "object") {
-    return getBalanceFromContainer(player.economy, paymentType === "cleanCash" ? CLEAN_CASH_KEYS : DIRTY_CASH_KEYS);
-  }
-  return getBalanceFromContainer(player, paymentType === "cleanCash" ? CLEAN_CASH_KEYS : DIRTY_CASH_KEYS);
-};
-
-const hasPlayerCash = (serverState: AnyRecord, player: AnyRecord, paymentType: MarketPaymentType, amount: number): boolean =>
-  getPlayerCash(serverState, player, paymentType) >= safeInteger(amount);
-
-const debitPlayerCash = (serverState: AnyRecord, player: AnyRecord, paymentType: MarketPaymentType, amount: number): void => {
-  const container = getPrimaryCashContainer(serverState, player);
-  debitBalance(container, paymentType === "cleanCash" ? CLEAN_CASH_KEYS : DIRTY_CASH_KEYS, amount);
-};
-
-const creditPlayerCash = (serverState: AnyRecord, player: AnyRecord, paymentType: MarketPaymentType, amount: number): void => {
-  const container = getPrimaryCashContainer(serverState, player);
-  creditBalance(container, paymentType === "cleanCash" ? CLEAN_CASH_KEYS : DIRTY_CASH_KEYS, amount);
-};
-
-const getPrimaryCashContainer = (serverState: AnyRecord, player: AnyRecord): AnyRecord => {
-  const resourceState = getPlayerResourceState(serverState, player);
-  if (resourceState?.balances) {
-    return resourceState.balances;
-  }
-  if (player.economy && typeof player.economy === "object") {
-    return player.economy;
-  }
-  return player;
-};
-
-const getPlayerResourceState = (serverState: AnyRecord, player: AnyRecord): AnyRecord | null => {
-  if (player?.resourceStateId && serverState.resourceStatesById?.[player.resourceStateId]) {
-    return serverState.resourceStatesById[player.resourceStateId];
-  }
-  if (serverState.resourceStatesById && typeof serverState.resourceStatesById === "object") {
-    return Object.values(serverState.resourceStatesById).find((resourceState: any) =>
-      resourceState?.ownerType === "player" && resourceState?.ownerId === getPlayerId(player)
-    ) as AnyRecord | null ?? null;
-  }
-  return null;
-};
-
-const getPrimaryResourceContainer = (serverState: AnyRecord, player: AnyRecord): AnyRecord => {
-  const resourceState = getPlayerResourceState(serverState, player);
-  if (resourceState?.balances) {
-    return resourceState.balances;
-  }
-  if (player.resources && typeof player.resources === "object") {
-    return player.resources;
-  }
-  if (player.inventory?.materials && typeof player.inventory.materials === "object") {
-    return player.inventory.materials;
-  }
-  player.resources = player.resources && typeof player.resources === "object" ? player.resources : {};
-  return player.resources;
-};
-
-const getPlayerResourceAmount = (serverState: AnyRecord, player: AnyRecord, resourceId: MarketResourceId): number =>
-  getBalanceFromContainer(getPrimaryResourceContainer(serverState, player), RESOURCE_ALIASES[resourceId]);
-
-const creditPlayerResource = (serverState: AnyRecord, player: AnyRecord, resourceId: MarketResourceId, amount: number): void =>
-  creditBalance(getPrimaryResourceContainer(serverState, player), RESOURCE_ALIASES[resourceId], amount);
-
-const debitPlayerResource = (serverState: AnyRecord, player: AnyRecord, resourceId: MarketResourceId, amount: number): void => {
-  debitBalance(getPrimaryResourceContainer(serverState, player), RESOURCE_ALIASES[resourceId], amount);
-};
-
-const getBalanceFromContainer = (container: AnyRecord | null | undefined, keys: string[]): number => {
-  if (!container || typeof container !== "object") {
-    return 0;
-  }
-  const key = resolveExistingKey(container, keys);
-  return key ? safeInteger(container[key]) : 0;
-};
-
-const debitBalance = (container: AnyRecord, keys: string[], amount: number): number => {
-  const key = resolveExistingKey(container, keys) ?? keys[0];
-  const safeAmount = safeInteger(amount);
-  const current = safeInteger(container[key]);
-  const debited = Math.min(current, safeAmount);
-  container[key] = Math.max(0, current - debited);
-  return debited;
-};
-
-const creditBalance = (container: AnyRecord, keys: string[], amount: number): void => {
-  const key = resolveExistingKey(container, keys) ?? keys[0];
-  container[key] = safeInteger(container[key]) + safeInteger(amount);
-};
-
-const resolveExistingKey = (container: AnyRecord, keys: string[]): string | null =>
-  keys.find((key) => Object.prototype.hasOwnProperty.call(container, key)) ?? null;
 
 const addHeatToPlayer = (serverState: AnyRecord, player: AnyRecord, amount: number, reason: string): void => {
   const safeAmount = safeInteger(amount);

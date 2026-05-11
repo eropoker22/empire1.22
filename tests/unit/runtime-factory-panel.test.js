@@ -20,7 +20,10 @@ describe("factory dashboard view model and panel", () => {
       factoryState: {
         level: 2,
         resources: { metalParts: 3, techCore: 4, combatModule: 5 },
-        slots: [{ id: "a", resourceKey: "metalParts" }, { id: "b", resourceKey: "combatModule" }]
+        slots: [
+          { id: "a", resourceKey: "metalParts", producedAmount: 2 },
+          { id: "b", resourceKey: "combatModule", producedAmount: 5 }
+        ]
       },
       syncResult: {
         productionMultiplier: 1.25,
@@ -43,6 +46,7 @@ describe("factory dashboard view model and panel", () => {
     expect(viewModel.headerLevelLabel).toBe("Lv 2");
     expect(viewModel.multiplierLabel).toBe("1.25x");
     expect(viewModel.upgradeCostLabel).toBe("100$");
+    expect(viewModel.resources).toEqual({ metalParts: "2", techCore: "0", combatModule: "5" });
     expect(viewModel.collectButton.disabled).toBe(false);
     expect(viewModel.slots[0]).toMatchObject({ title: "Metal line", perHour: 1, resourceColor: "color:metalParts" });
     expect(viewModel.slots[1].primaryLine).toBe("2 MP + 1 TC");

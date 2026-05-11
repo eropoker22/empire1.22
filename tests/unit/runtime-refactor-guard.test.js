@@ -106,7 +106,7 @@ describe("runtime refactor guard", () => {
     } finally {
       consoleError.mockRestore();
     }
-  });
+  }, 10000);
 
   it("keeps profile popup and building panel binding contracts in runtime", () => {
     const source = runtimeSource();

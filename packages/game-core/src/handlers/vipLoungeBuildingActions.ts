@@ -1,21 +1,9 @@
 import type { FixedBuildingBalanceConfig, VipLoungeBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
+import { deterministicRollPct, isRecord } from "../utils";
+import type { VipLoungeMetadata, VipLoungeRumor } from "./vipLoungeTypes";
 
-export interface VipLoungeRumor {
-  type: string;
-  truthChancePct: number;
-  isTrue: boolean;
-  districtHint: string | null;
-  buildingHint: string | null;
-  reliabilityVisible: boolean;
-  reliabilityLabel: string | null;
-  text: string;
-}
-
-interface VipLoungeMetadata {
-  lastPassiveRumorCheckTick?: number;
-  rumorEvents: VipLoungeRumor[];
-}
+export type { VipLoungeRumor } from "./vipLoungeTypes";
 
 export const getOwnedVipLoungeCount = (
   state: CoreGameState,
@@ -244,19 +232,7 @@ const normalizeRumor = (value: Record<string, unknown>): VipLoungeRumor => ({
 const minutesToTicks = (minutes: number, tickRateMs: number): number =>
   Math.max(1, Math.ceil((Math.max(0, Number(minutes || 0)) * 60 * 1000) / Math.max(1, tickRateMs)));
 
-const deterministicRollPct = (seed: string): number => {
-  let hash = 2166136261;
-  for (let index = 0; index < seed.length; index += 1) {
-    hash ^= seed.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0) % 10000 / 100;
-};
-
 const asOptionalTick = (value: unknown): number | undefined => {
   const numberValue = Number(value);
   return Number.isFinite(numberValue) && numberValue >= 0 ? Math.floor(numberValue) : undefined;
 };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  Boolean(value) && typeof value === "object" && !Array.isArray(value);

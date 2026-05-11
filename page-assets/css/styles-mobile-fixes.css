@@ -2636,6 +2636,9 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
     max-width: 100% !important;
     max-height: none !important;
     transform: none !important;
+    min-height: auto !important;
+    height: auto !important;
+    align-self: start !important;
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-terminal {
@@ -2653,7 +2656,8 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-card.leaderboard-terminal-card {
     border-radius: 10px !important;
-    min-height: calc(100dvh - 8px) !important;
+    min-height: auto !important;
+    height: auto !important;
     overflow: visible !important;
   }
 
@@ -2775,6 +2779,8 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-board {
     border-radius: 10px !important;
+    min-height: 0 !important;
+    grid-template-rows: auto auto auto !important;
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-board__head {
@@ -2809,10 +2815,10 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-list {
-    --leaderboard-row-height: 116px !important;
-    --leaderboard-row-gap: 7px !important;
-    max-height: calc((var(--leaderboard-row-height) * 4) + (var(--leaderboard-row-gap) * 3) + 12px) !important;
-    padding: 0 8px 10px !important;
+    --leaderboard-row-height: 40px !important;
+    --leaderboard-row-gap: 4px !important;
+    max-height: calc((var(--leaderboard-row-height) * 4) + (var(--leaderboard-row-gap) * 3)) !important;
+    padding: 0 8px 0 !important;
     mask-image: none !important;
   }
 
@@ -2822,82 +2828,139 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-table-row {
     display: grid !important;
-    grid-template-columns: 42px minmax(0, 1fr) auto !important;
-    grid-template-areas:
-      "rank player actions"
-      "trend faction score"
-      "wanted districts score" !important;
-    gap: 6px 8px !important;
+    grid-template-columns: 42px minmax(0, 1fr) !important;
+    grid-template-areas: none !important;
+    gap: 4px 8px !important;
     min-height: var(--leaderboard-row-height) !important;
-    padding: 9px !important;
+    padding: 6px 8px !important;
     border-radius: 10px !important;
     align-items: center !important;
+    position: relative !important;
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-rank-cell {
-    grid-area: rank !important;
-    min-height: 34px !important;
+    grid-area: auto !important;
+    min-height: 26px !important;
+    min-width: 42px !important;
+    align-self: center !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-rank-cell.is-rank-1 {
+    color: #ffd56d !important;
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-rank-cell.is-rank-2 {
+    color: #c7d9ff !important;
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-rank-cell.is-rank-3 {
+    color: #ffc59a !important;
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-trend {
-    grid-area: trend !important;
-    justify-self: stretch !important;
+    display: none !important;
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-cell {
-    grid-area: player !important;
+    grid-area: auto !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    flex-wrap: nowrap !important;
+    gap: 4px 8px !important;
+    min-width: 0 !important;
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    padding-right: 40px !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-table-row:not(.leaderboard-alliance-row) .leaderboard-player-score-mobile {
+    margin-right: 30px !important;
+    margin-top: 8px !important;
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    letter-spacing: 0.02em !important;
+    align-self: center !important;
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-cell strong {
+    align-self: center !important;
+    margin-top: 8px !important;
     font-size: 0.76rem !important;
   }
 
-  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-table-row:not(.leaderboard-alliance-row) > .leaderboard-cell-muted:nth-child(4) {
-    grid-area: faction !important;
-    justify-self: start !important;
-    max-width: 100% !important;
-    font-size: 0.52rem !important;
-  }
-
-  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-table-row:not(.leaderboard-alliance-row) > .leaderboard-number-cell:nth-child(6) {
-    grid-area: districts !important;
-    justify-self: start !important;
-    color: rgba(165, 243, 255, 0.82) !important;
-    font-size: 0.58rem !important;
-  }
-
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-table-row:not(.leaderboard-alliance-row) > .leaderboard-cell-muted,
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-table-row:not(.leaderboard-alliance-row) > .leaderboard-number-cell,
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-table-row:not(.leaderboard-alliance-row) > .leaderboard-wanted,
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-table-row:not(.leaderboard-alliance-row) > .leaderboard-score-cell,
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-table-row:not(.leaderboard-alliance-row) > span:nth-child(8) {
-    grid-area: wanted !important;
-    justify-self: stretch !important;
+    display: none !important;
   }
 
-  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-score-cell {
-    grid-area: score !important;
-    justify-self: end !important;
-    font-size: 0.62rem !important;
-    text-align: right !important;
-  }
-
-  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-actions {
-    grid-area: actions !important;
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-table-row:not(.leaderboard-alliance-row) .leaderboard-actions {
+    position: absolute !important;
+    top: 4px !important;
+    right: 4px !important;
+    grid-area: auto !important;
     display: grid !important;
     grid-template-columns: 1fr !important;
     gap: 4px !important;
-    justify-self: end !important;
-    width: 64px !important;
+    justify-content: flex-start !important;
+    align-items: flex-end !important;
+    grid-column: auto !important;
+    grid-row: auto !important;
+    justify-self: auto !important;
+    min-width: 0 !important;
+    width: auto !important;
+    padding: 0 !important;
+    margin-top: 0 !important;
+    z-index: 2 !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-alliance-row .leaderboard-actions {
+    position: absolute !important;
+    top: 4px !important;
+    right: 4px !important;
+    grid-area: auto !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 4px !important;
+    justify-content: flex-start !important;
+    align-items: flex-end !important;
+    grid-column: auto !important;
+    grid-row: auto !important;
+    justify-self: auto !important;
+    min-width: 0 !important;
+    width: auto !important;
+    padding: 0 !important;
+    margin-top: 0 !important;
+    z-index: 2 !important;
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-row-action {
-    width: 100% !important;
-    min-height: 23px !important;
+    width: auto !important;
+    min-height: 18px !important;
     padding: 0 5px !important;
-    font-size: 0.43rem !important;
+    font-size: 0.34rem !important;
+    border-radius: 6px !important;
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-alliance-row {
-    grid-template-areas:
-      "rank player actions"
-      "wanted player score" !important;
+    grid-template-columns: 42px minmax(0, 1fr) !important;
+    grid-template-areas: none !important;
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-alliance-row > .leaderboard-number-cell,
@@ -2906,26 +2969,30 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-alliance-row > span:nth-child(8) {
-    grid-area: wanted !important;
-    display: block !important;
+    display: none !important;
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-alliance-row .leaderboard-score-cell {
-    grid-area: score !important;
+    display: none !important;
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-shell:not([hidden]) {
     position: fixed !important;
     inset: 0 !important;
-    padding: 12px !important;
+    padding: 0 !important;
     z-index: 13000 !important;
+    display: grid !important;
+    place-items: stretch !important;
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-card {
-    width: min(100%, 380px) !important;
-    max-height: calc(100dvh - 24px) !important;
-    padding: 12px !important;
-    border-radius: 10px !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: 100dvh !important;
+    padding: 12px 12px 14px !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-radius: 0 0 10px 10px !important;
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-card::before {
@@ -2935,10 +3002,20 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-close {
     top: 7px !important;
     right: 7px !important;
-    width: 25px !important;
-    min-width: 25px !important;
-    height: 25px !important;
-    min-height: 25px !important;
+    width: 30px !important;
+    min-width: 30px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-close::before {
+    position: static !important;
+    font-size: 18px !important;
+    line-height: 1 !important;
+    transform: translateY(-0.5px) !important;
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-card .leaderboard-detail-identity {

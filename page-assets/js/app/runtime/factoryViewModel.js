@@ -4,6 +4,15 @@ function getFactorySlotPerHour(slot = {}, rates = {}) {
   return rates.combatModulePerHour;
 }
 
+function getFactoryReadyResourceTotals(slots = []) {
+  return (Array.isArray(slots) ? slots : []).reduce((totals, slot) => {
+    const key = String(slot?.resourceKey || "").trim();
+    if (!key) return totals;
+    totals[key] = Math.max(0, Math.floor(Number(totals[key] || 0) + Number(slot?.producedAmount || 0)));
+    return totals;
+  }, {});
+}
+
 function getFactorySlotVisual(slot = {}, config = {}, formatDurationLabel = (value) => `${value}ms`) {
   if (slot.resourceKey === "metalParts") {
     return {
@@ -54,6 +63,7 @@ export function buildFactoryDashboardViewModel({
   const isMaxLevel = level >= Math.max(1, Number(config.maxLevel || level));
   const nextUpgradeCost = isMaxLevel ? null : getFactoryUpgradeCost(level + 1);
   const slots = Array.isArray(factoryState.slots) ? factoryState.slots : [];
+  const readyResources = getFactoryReadyResourceTotals(slots);
 
   return {
     factoryState,
@@ -65,9 +75,9 @@ export function buildFactoryDashboardViewModel({
     ownedCountLabel: String(Math.max(0, Math.floor(Number(syncResult.ownedFactoryCount || 0)))),
     upgradeCostLabel: isMaxLevel ? "MAX" : formatCurrency(nextUpgradeCost),
     resources: {
-      metalParts: String(factoryState.resources?.metalParts || 0),
-      techCore: String(factoryState.resources?.techCore || 0),
-      combatModule: String(factoryState.resources?.combatModule || 0)
+      metalParts: String(readyResources.metalParts || 0),
+      techCore: String(readyResources.techCore || 0),
+      combatModule: String(readyResources.combatModule || 0)
     },
     supplies: {
       metalParts: String(supplyState.metalParts || 0),

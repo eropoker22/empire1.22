@@ -1,32 +1,18 @@
 import type { PlayerSalvagePoolEntry } from "@empire/shared-types";
-import type { BuildingActionBalanceConfig, FixedBuildingBalanceConfig, PowerStationBalanceConfig, RecyclingCenterBalanceConfig, WarehouseBalanceConfig } from "../contracts";
+import type { FixedBuildingBalanceConfig, PowerStationBalanceConfig, RecyclingCenterBalanceConfig, WarehouseBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { getWarehouseCapacityForResource, resolveWarehouseStorageCapacity } from "./warehouseBuilding";
+import type {
+  RecyclingCenterActionResolution,
+  RecyclingCenterNetworkMultipliers,
+  RecyclingCenterSalvageStats
+} from "./recyclingCenterTypes";
 
-export interface RecyclingCenterNetworkMultipliers {
-  incomeMultiplier: number;
-  heatMultiplier: number;
-}
-
-export interface RecyclingCenterSalvageStats {
-  ownedCount: number;
-  salvageRatePct: number;
-  freshPool: PlayerSalvagePoolEntry[];
-  expiredPool: PlayerSalvagePoolEntry[];
-}
-
-export interface RecyclingCenterActionResolution {
-  balances: Record<string, number>;
-  playerSalvagePool: PlayerSalvagePoolEntry[];
-  buildingMetadata?: CoreGameState["buildingsById"][string]["metadata"];
-  effectModifiers?: BuildingActionBalanceConfig["effectModifiers"];
-  heatGain: number;
-  influenceChange: number;
-  inputCost: Record<string, number>;
-  outputGain: Record<string, number>;
-  reportText: string;
-  recyclingResult: Record<string, unknown>;
-}
+export type {
+  RecyclingCenterActionResolution,
+  RecyclingCenterNetworkMultipliers,
+  RecyclingCenterSalvageStats
+} from "./recyclingCenterTypes";
 
 export const getOwnedRecyclingCenterCount = (
   state: CoreGameState,

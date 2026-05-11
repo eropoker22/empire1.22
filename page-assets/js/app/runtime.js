@@ -3001,6 +3001,7 @@ function collectFactoryOutputsToSupplies() {
     }
 
     nextSupplies[slot.resourceKey] = Math.max(0, Math.floor(Number(nextSupplies[slot.resourceKey] || 0) + amount));
+    nextState.resources[slot.resourceKey] = Math.max(0, Math.floor(Number(nextState.resources[slot.resourceKey] || 0) - amount));
     slot.producedAmount = 0;
     collected += amount;
     items.push({ label: FACTORY_SLOT_CONFIG.find((entry) => entry.resourceKey === slot.resourceKey)?.label || getProductionResourceLabel(slot.resourceKey), amount });
@@ -3114,6 +3115,23 @@ function createFactoryDefaultState(now = Date.now()) {
   };
 }
 
+function consumeFactorySlotOutput(stateRef, resourceKey, amount) {
+  let remaining = Math.max(0, Math.floor(Number(amount || 0)));
+  if (remaining <= 0) return 0;
+
+  for (const slot of stateRef.slots || []) {
+    if (slot.resourceKey !== resourceKey || remaining <= 0) continue;
+    const available = Math.max(0, Math.floor(Number(slot.producedAmount || 0)));
+    const consumed = Math.min(available, remaining);
+    slot.producedAmount = Math.max(0, available - consumed);
+    remaining -= consumed;
+  }
+
+  const consumedTotal = Math.max(0, Math.floor(Number(amount || 0)) - remaining);
+  stateRef.resources[resourceKey] = Math.max(0, Math.floor(Number(stateRef.resources[resourceKey] || 0) - consumedTotal));
+  return consumedTotal;
+}
+
 function sanitizeFactoryState(rawState, now = Date.now()) {
   const fallback = createFactoryDefaultState(now);
   return {
@@ -3216,34 +3234,37 @@ function syncFactoryProduction(instanceState, now = Date.now(), options = {}) {
       const scaledDurationMs = Math.max(1, Math.round(FACTORY_CONFIG.combatModule.durationMs / effectiveProductionMultiplier));
       const cycleRaw = elapsedMs / scaledDurationMs + Number(slot.productionRemainder || 0);
       const cycles = Math.max(0, Math.floor(cycleRaw));
-      slot.productionRemainder = Math.max(0, cycleRaw - cycles);
       if (cycles > 0) {
         const maxFromMetal = Math.floor(Number(stateRef.resources.metalParts || 0) / FACTORY_CONFIG.combatModule.metalPartsCost);
         const maxFromTech = Math.floor(Number(stateRef.resources.techCore || 0) / FACTORY_CONFIG.combatModule.techCoreCost);
-        const crafted = Math.max(0, Math.min(cycles, maxFromMetal, maxFromTech));
+        const currentAmount = Math.max(0, Math.floor(Number(slot.producedAmount || 0)));
+        const slotSpace = Math.max(0, FACTORY_SLOT_STORAGE_CAP - currentAmount);
+        const crafted = Math.max(0, Math.min(cycles, maxFromMetal, maxFromTech, slotSpace));
+        slot.productionRemainder = crafted === cycles ? Math.max(0, cycleRaw - cycles) : 0;
         if (crafted > 0) {
-          const currentAmount = Math.max(0, Math.floor(Number(slot.producedAmount || 0)));
-          const slotSpace = Math.max(0, FACTORY_SLOT_STORAGE_CAP - currentAmount);
-          const storable = Math.min(crafted, slotSpace);
-          stateRef.resources.metalParts = Math.max(0, Math.floor(Number(stateRef.resources.metalParts || 0) - crafted * FACTORY_CONFIG.combatModule.metalPartsCost));
-          stateRef.resources.techCore = Math.max(0, Math.floor(Number(stateRef.resources.techCore || 0) - crafted * FACTORY_CONFIG.combatModule.techCoreCost));
+          consumeFactorySlotOutput(stateRef, "metalParts", crafted * FACTORY_CONFIG.combatModule.metalPartsCost);
+          consumeFactorySlotOutput(stateRef, "techCore", crafted * FACTORY_CONFIG.combatModule.techCoreCost);
           stateRef.resources.combatModule = Math.max(0, Math.floor(Number(stateRef.resources.combatModule || 0) + crafted));
-          slot.producedAmount = Math.max(0, currentAmount + storable);
+          slot.producedAmount = Math.max(0, currentAmount + crafted);
           produced.combatModule = Math.max(0, Math.floor(Number(produced.combatModule || 0) + crafted));
         }
+      } else {
+        slot.productionRemainder = Math.max(0, cycleRaw - cycles);
       }
     } else {
       const perHour = slot.resourceKey === "metalParts" ? rates.metalPartsPerHour : rates.techCorePerHour;
       const raw = (elapsedMs / 3600000) * Math.max(0, Number(perHour || 0)) + Number(slot.productionRemainder || 0);
       const gained = Math.max(0, Math.floor(raw));
-      slot.productionRemainder = Math.max(0, raw - gained);
       if (gained > 0) {
         const currentAmount = Math.max(0, Math.floor(Number(slot.producedAmount || 0)));
         const slotSpace = Math.max(0, FACTORY_SLOT_STORAGE_CAP - currentAmount);
         const storable = Math.min(gained, slotSpace);
+        slot.productionRemainder = storable === gained ? Math.max(0, raw - gained) : 0;
         slot.producedAmount = Math.max(0, currentAmount + storable);
-        stateRef.resources[slot.resourceKey] = Math.max(0, Math.floor(Number(stateRef.resources[slot.resourceKey] || 0) + gained));
-        produced[slot.resourceKey] = Math.max(0, Math.floor(Number(produced[slot.resourceKey] || 0) + gained));
+        stateRef.resources[slot.resourceKey] = Math.max(0, Math.floor(Number(stateRef.resources[slot.resourceKey] || 0) + storable));
+        produced[slot.resourceKey] = Math.max(0, Math.floor(Number(produced[slot.resourceKey] || 0) + storable));
+      } else {
+        slot.productionRemainder = Math.max(0, raw - gained);
       }
     }
     slot.lastTick = nowMs;

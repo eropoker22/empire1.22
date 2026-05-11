@@ -186,6 +186,16 @@ function setupDocument() {
   return document;
 }
 
+function findMetricValue(card, labelText) {
+  const metrics = card.querySelectorAll(".drug-production-slot__metric,.pharmacy-slot__metric");
+  for (const metric of metrics) {
+    const label = metric.querySelector(".drug-production-slot__metric-label,.pharmacy-slot__metric-label");
+    if (label?.textContent !== labelText) continue;
+    return metric.querySelector(".drug-production-slot__metric-value,.drug-production-slot__metric-inline-value,.pharmacy-slot__metric-value")?.textContent;
+  }
+  return null;
+}
+
 afterEach(() => {
   globalThis.document = originalDocument;
   globalThis.window = originalWindow;
@@ -304,6 +314,37 @@ describe("building detail, production and recipe UI modules", () => {
     expect(enabled.querySelector(".pharmacy-slot__btn--start").disabled).toBe(false);
     expect(disabled.querySelector(".pharmacy-slot__btn--start").disabled).toBe(true);
     expect(renderRecipeList([{ buildingName: "pharmacy", recipeId: "stim", recipe }], {}, { mount }).children).toHaveLength(1);
+  });
+
+  it("keeps recipe queue metrics tied to real jobs instead of selected previews", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const recipe = {
+      name: "Neon Dust",
+      inputs: { chemicals: 1 },
+      output: { inventory: "drugs", itemId: "neon-dust", amount: 6 },
+      durationMs: 1000
+    };
+
+    const idleCard = renderRecipeCard({
+      buildingName: "druglab",
+      recipeId: "neon-dust",
+      recipe,
+      inputAmounts: { chemicals: 10 },
+      maxBatches: 3,
+      canStart: true
+    }, {}, { mount });
+    expect(findMetricValue(idleCard, "Ve frontě")).toBe("0 ks");
+    idleCard.querySelectorAll(".armory-slot__quantity-btn")[1].click();
+    expect(findMetricValue(idleCard, "Ve frontě")).toBe("0 ks");
+
+    const runningPharmacy = renderRecipeCard({
+      buildingName: "pharmacy",
+      recipeId: "chemicals",
+      recipe: { ...recipe, output: { inventory: "materials", itemId: "chemicals", amount: 20 } },
+      job: { status: "running", output: { inventory: "materials", itemId: "chemicals", amount: 40 }, quantity: 2, durationMs: 2000 }
+    }, {}, { mount });
+    expect(findMetricValue(runningPharmacy, "Ve frontě")).toBe("40 ks");
   });
 
   it("missing DOM containers do not crash", () => {

@@ -1,63 +1,14 @@
 import type { DistrictPanelView } from "@empire/shared-types";
 import type { CoreGameState } from "../entities/game-state";
-import type {
-  BuildingActionBalanceConfig,
-  AirportBalanceConfig,
-  CarDealerBalanceConfig,
-  CentralBankBalanceConfig,
-  CityHallBalanceConfig,
-  ConvenienceStoreBalanceConfig,
-  CraftBuildingBalanceConfig,
-  FitnessClubBalanceConfig,
-  GarageBalanceConfig,
-  PowerStationBalanceConfig,
-  ProductionBuildingBalanceConfig,
-  RecruitmentCenterBalanceConfig,
-  RecyclingCenterBalanceConfig,
-  RestaurantBalanceConfig,
-  SchoolBalanceConfig,
-  ShoppingMallBalanceConfig,
-  StockExchangeBalanceConfig,
-  SmugglingTunnelBalanceConfig,
-  StreetDealersBalanceConfig,
-  StripClubBalanceConfig,
-  VipLoungeBalanceConfig
-} from "../contracts/game-mode-config";
+import type { CraftBuildingBalanceConfig, PowerStationBalanceConfig } from "../contracts/game-mode-config";
 import { resolvePowerStationInfrastructureMultiplier } from "../handlers/powerStationBuildingActions";
 import { composeEntityId } from "../utils";
 import { createDistrictAttackTargetViews } from "./district-attack-target-projection";
 import { createDistrictPanelBuildingViews } from "./district-building-action-projection";
-import type { DistrictPanelBuildingCatalogEntry } from "./district-building-catalog-types";
+import type { DistrictPanelProjectionInput } from "./district-panel-projection-types";
 import { createDistrictSpyTargetViews } from "./district-spy-target-projection";
 
-export interface DistrictPanelProjectionInput {
-  playerId: string;
-  districtId: string;
-  buildCatalog: ReadonlyArray<DistrictPanelBuildingCatalogEntry>;
-  productionCatalog: Readonly<Record<string, ProductionBuildingBalanceConfig>>;
-  craftCatalog: Readonly<Record<string, CraftBuildingBalanceConfig>>;
-  buildingActionCatalog: Readonly<Record<string, BuildingActionBalanceConfig>>;
-  stripClubConfig?: StripClubBalanceConfig;
-  restaurantConfig?: RestaurantBalanceConfig;
-  convenienceStoreConfig?: ConvenienceStoreBalanceConfig;
-  shoppingMallConfig?: ShoppingMallBalanceConfig;
-  stockExchangeConfig?: StockExchangeBalanceConfig;
-  centralBankConfig?: CentralBankBalanceConfig;
-  airportConfig?: AirportBalanceConfig;
-  cityHallConfig?: CityHallBalanceConfig;
-  vipLoungeConfig?: VipLoungeBalanceConfig;
-  powerStationConfig?: PowerStationBalanceConfig;
-  recruitmentCenterConfig?: RecruitmentCenterBalanceConfig;
-  fitnessClubConfig?: FitnessClubBalanceConfig;
-  garageConfig?: GarageBalanceConfig;
-  carDealerConfig?: CarDealerBalanceConfig;
-  smugglingTunnelConfig?: SmugglingTunnelBalanceConfig;
-  streetDealersConfig?: StreetDealersBalanceConfig;
-  schoolConfig?: SchoolBalanceConfig;
-  recyclingCenterConfig?: RecyclingCenterBalanceConfig;
-  productionMultiplier: number;
-  tickRateMs?: number;
-}
+export type { DistrictPanelProjectionInput } from "./district-panel-projection-types";
 
 /**
  * Responsibility: Shapes one district into a client-ready panel projection.

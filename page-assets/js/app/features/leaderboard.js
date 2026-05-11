@@ -1075,8 +1075,6 @@ function renderPlayerRow(player) {
       <span class="leaderboard-score-cell">${formatNumber(player.empireScore)}</span>
       <span class="leaderboard-actions">
         <button type="button" class="button leaderboard-row-action" data-leaderboard-action="view" data-player-id="${escapeHtml(player.id)}" aria-label="Detail hráče ${escapeHtml(player.name)}">Detail</button>
-        <button type="button" class="button leaderboard-row-action" data-leaderboard-action="target" data-player-id="${escapeHtml(player.id)}">Cíl</button>
-        <button type="button" class="button leaderboard-row-action" data-leaderboard-action="bounty" data-player-id="${escapeHtml(player.id)}">Bounty</button>
       </span>
     </article>
   `;
@@ -1123,7 +1121,6 @@ function renderAllianceRow(alliance) {
       <span><span class="leaderboard-wanted ${wantedClass}">${formatNumber(alliance.totalWanted)}</span></span>
       <span class="leaderboard-actions">
         <button type="button" class="button leaderboard-row-action" data-leaderboard-action="view-alliance" data-alliance="${escapeHtml(alliance.alliance)}">Profil</button>
-        <button type="button" class="button leaderboard-row-action" data-leaderboard-action="target-alliance" data-alliance="${escapeHtml(alliance.alliance)}">Cíl</button>
       </span>
     </article>
   `;
@@ -1317,8 +1314,7 @@ function getActionMessage(action) {
     bounty: "Bounty systém bude napojen později.",
     profile: "Profil hráče bude napojen později.",
     message: "Zprávy budou napojeny později.",
-    "view-alliance": "Detail aliance bude napojen později.",
-    "target-alliance": "Aliance target bude napojen později."
+    "view-alliance": "Detail aliance bude napojen později."
   };
 
   return actionLabels[action] || "Funkce bude napojena později.";

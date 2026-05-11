@@ -1,51 +1,22 @@
-import type { CityFeedEvent, RunBuildingActionCommand } from "@empire/shared-types";
+import type { RunBuildingActionCommand } from "@empire/shared-types";
 import type { BuildingActionBalanceConfig, CityHallBalanceConfig, FixedBuildingBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
-import { deterministicUnitInterval } from "../utils/math";
+import type { CityHallActionResolution } from "./cityHallTypes";
+import {
+  appendRiskEvent,
+  countOwnedBuildings,
+  getCityHallMetadata,
+  getOwnedCityHall,
+  minutesToTicks,
+  resolveDecreeMode,
+  resolveDecreeModeOrNull,
+  resolveTargetDistrictId,
+  withCityHallMetadata
+} from "./cityHallMetadata";
 
-export type CityHallDecreeMode = "night_patrols" | "suspended_checks" | "construction_closure";
-
-interface CityHallRiskEvent {
-  actionId: string;
-  riskPct: number;
-  expiresAtTick: number;
-  tick: number;
-}
-
-interface CityHallScandalEvent {
-  type: string;
-  tick: number;
-  label: string;
-  riskPct: number;
-  rumorText?: string;
-}
-
-export interface CityHallMetadata {
-  officialCoverByDistrictId: Record<string, { districtId: string; expiresAtTick: number; heatGainReductionPct: number; policeControlChanceReductionPct: number; rumorChanceReductionPct: number }>;
-  emergencyDecree?: { modeId: CityHallDecreeMode; zone?: string; expiresAtTick: number };
-  influencePenaltyUntilTick?: number;
-  cityContractBlockedUntilTick?: number;
-  lastScandalCheckTick?: number;
-  riskEvents: CityHallRiskEvent[];
-  scandalEvents: CityHallScandalEvent[];
-}
-
-export interface CityHallActionResolution {
-  balances: Record<string, number>;
-  buildingMetadata: Record<string, unknown>;
-  heatGain: number;
-  influenceChange: number;
-  outputGain: Record<string, number>;
-  inputCost: Record<string, number>;
-  effectModifiers?: BuildingActionBalanceConfig["effectModifiers"];
-  reportText: string;
-  cityHallResult: Record<string, unknown>;
-}
-
-export const getCityHallMetadata = (
-  building: CoreGameState["buildingsById"][string],
-  tick = 0
-): CityHallMetadata => cleanupCityHallMetadata(readCityHallMetadata(building), tick);
+export type { CityHallActionResolution, CityHallDecreeMode, CityHallMetadata } from "./cityHallTypes";
+export { applyCityHallCorruptionScandals, resolveCityHallScandalRiskPct } from "./cityHallScandals";
+export { getCityHallMetadata } from "./cityHallMetadata";
 
 export const applyCityHallIncomeModifiers = (input: {
   config: CityHallBalanceConfig;
@@ -82,31 +53,6 @@ export const applyCityHallIncomeModifiers = (input: {
     influencePerDay: input.influencePerDay * influenceMultiplier * (influencePenaltyActive ? 1 - input.config.corruptionScandal.influencePenaltyPct / 100 : 1),
     maxLevel: 1
   };
-};
-
-export const resolveCityHallScandalRiskPct = (input: {
-  state: CoreGameState;
-  building: CoreGameState["buildingsById"][string];
-  config: CityHallBalanceConfig;
-  tick: number;
-}): number => {
-  const metadata = getCityHallMetadata(input.building, input.tick);
-  const player = input.building.ownerPlayerId ? input.state.playersById[input.building.ownerPlayerId] : undefined;
-  const policeState = player ? input.state.policeStatesById[player.policeStateId] : undefined;
-  const eventRisk = metadata.riskEvents.reduce((total, event) => total + Math.max(0, Number(event.riskPct || 0)), 0);
-  const heatRisk = Number(policeState?.heat || 0) > input.config.corruptionScandal.heatThreshold
-    ? input.config.corruptionScandal.heatRiskPct
-    : 0;
-  const casinoRisk = input.building.ownerPlayerId && hasOwnedBuilding(input.state, input.building.ownerPlayerId, "casino")
-    ? input.config.corruptionScandal.casinoOrStockExchangeRiskPct
-    : 0;
-  const stockRisk = input.building.ownerPlayerId && hasOwnedBuilding(input.state, input.building.ownerPlayerId, "stock_exchange")
-    ? input.config.corruptionScandal.casinoOrStockExchangeRiskPct + input.config.corruptionScandal.stockExchangeSynergyRiskPct
-    : 0;
-  const airportRisk = input.building.ownerPlayerId && hasOwnedBuilding(input.state, input.building.ownerPlayerId, "airport")
-    ? input.config.corruptionScandal.airportSynergyRiskPct
-    : 0;
-  return Math.min(100, input.config.corruptionScandal.passiveRiskPct + eventRisk + heatRisk + casinoRisk + stockRisk + airportRisk);
 };
 
 export const resolveCityHallInfluenceActionCostReductionPct = (input: {
@@ -268,233 +214,3 @@ export const validateCityHallAction = (input: {
   }
   return null;
 };
-
-export const applyCityHallCorruptionScandals = (
-  state: CoreGameState,
-  config: CityHallBalanceConfig,
-  tickRateMs: number
-): CoreGameState => {
-  let nextState = state;
-  const intervalTicks = minutesToTicks(config.corruptionScandal.intervalMinutes, tickRateMs);
-  for (const building of Object.values(nextState.buildingsById)) {
-    if (building.buildingTypeId !== config.buildingTypeId || !building.ownerPlayerId || building.status !== "active") continue;
-    const metadata = getCityHallMetadata(building, nextState.root.tick);
-    if (Number(metadata.lastScandalCheckTick ?? 0) + intervalTicks > nextState.root.tick) continue;
-    const riskPct = resolveCityHallScandalRiskPct({ state: nextState, building, config, tick: nextState.root.tick });
-    let nextMetadata: CityHallMetadata = { ...metadata, lastScandalCheckTick: nextState.root.tick };
-    const roll = deterministicUnitInterval(`${nextState.serverInstance.worldSeed}:city-hall-scandal:${building.id}:${nextState.root.tick}`);
-    if (roll < riskPct / 100) {
-      const consequence = resolveScandalConsequence(nextState, building, config, riskPct, tickRateMs);
-      nextState = consequence.state;
-      nextMetadata = { ...nextMetadata, ...consequence.metadataPatch, scandalEvents: [...nextMetadata.scandalEvents, consequence.event].slice(-8) };
-    }
-    const currentBuilding = nextState.buildingsById[building.id] ?? building;
-    nextState = {
-      ...nextState,
-      buildingsById: {
-        ...nextState.buildingsById,
-        [building.id]: {
-          ...currentBuilding,
-          metadata: withCityHallMetadata(currentBuilding, nextMetadata),
-          version: currentBuilding.version + 1
-        }
-      }
-    };
-  }
-  return nextState;
-};
-
-const resolveScandalConsequence = (
-  state: CoreGameState,
-  building: CoreGameState["buildingsById"][string],
-  config: CityHallBalanceConfig,
-  riskPct: number,
-  tickRateMs: number
-): { state: CoreGameState; metadataPatch: Partial<CityHallMetadata>; event: CityHallScandalEvent } => {
-  const type = ["leaked_documents", "anti_corruption_pressure", "frozen_contract", "public_resistance", "police_oversight"][Math.min(4, Math.floor(deterministicUnitInterval(`${state.serverInstance.worldSeed}:city-hall-scandal-type:${building.id}:${state.root.tick}`) * 5))];
-  const labelByType: Record<string, string> = {
-    leaked_documents: "Únik dokumentů",
-    anti_corruption_pressure: "Protikorupční tlak",
-    frozen_contract: "Zmrazená zakázka",
-    public_resistance: "Veřejný odpor",
-    police_oversight: "Policejní dohled"
-  };
-  let nextState = state;
-  const metadataPatch: Partial<CityHallMetadata> = {};
-  let rumorText: string | undefined;
-  if (type === "leaked_documents") {
-    rumorText = "Městem se šíří uniklé dokumenty z Magistrátu. Někdo prý měnil razítka za tichou loajalitu.";
-    nextState = appendCityHallRumor(nextState, building, rumorText, "medium");
-  } else if (type === "anti_corruption_pressure") {
-    metadataPatch.influencePenaltyUntilTick = state.root.tick + minutesToTicks(config.corruptionScandal.influencePenaltyMinutes, tickRateMs);
-  } else if (type === "frozen_contract") {
-    metadataPatch.cityContractBlockedUntilTick = state.root.tick + minutesToTicks(config.corruptionScandal.cityContractBlockedMinutes, tickRateMs);
-  } else if (type === "public_resistance") {
-    const district = state.districtsById[building.districtId];
-    if (district) {
-      nextState = {
-        ...nextState,
-        districtsById: {
-          ...nextState.districtsById,
-          [district.id]: {
-            ...district,
-            influence: Math.max(0, Number(district.influence || 0) - config.corruptionScandal.publicResistanceInfluenceLoss),
-            version: district.version + 1
-          }
-        }
-      };
-    }
-  } else if (type === "police_oversight") {
-    const district = state.districtsById[building.districtId];
-    if (district) {
-      nextState = {
-        ...nextState,
-        districtsById: {
-          ...nextState.districtsById,
-          [district.id]: {
-            ...district,
-            heat: Math.max(0, Number(district.heat || 0) + config.corruptionScandal.policeOversightHeatGain),
-            version: district.version + 1
-          }
-        }
-      };
-    }
-  }
-  return {
-    state: nextState,
-    metadataPatch,
-    event: { type, tick: state.root.tick, label: labelByType[type] ?? type, riskPct, rumorText }
-  };
-};
-
-const appendRiskEvent = (
-  metadata: CityHallMetadata,
-  actionId: string,
-  riskPct: number,
-  expiresAtTick: number,
-  tick: number
-): CityHallMetadata => ({
-  ...metadata,
-  riskEvents: [...metadata.riskEvents, { actionId, riskPct, expiresAtTick, tick }].slice(-12)
-});
-
-const getOwnedCityHall = (
-  state: CoreGameState,
-  playerId: string | null | undefined,
-  config: CityHallBalanceConfig
-): CoreGameState["buildingsById"][string] | undefined =>
-  playerId
-    ? Object.values(state.buildingsById).find((building) =>
-        building.buildingTypeId === config.buildingTypeId && building.ownerPlayerId === playerId && building.status === "active"
-      )
-    : undefined;
-
-const countOwnedBuildings = (state: CoreGameState, playerId: string | null | undefined, buildingTypeIds: string[]): number =>
-  playerId
-    ? Object.values(state.buildingsById).filter((building) =>
-        building.ownerPlayerId === playerId && building.status === "active" && buildingTypeIds.includes(building.buildingTypeId)
-      ).length
-    : 0;
-
-const hasOwnedBuilding = (state: CoreGameState, playerId: string, buildingTypeId: string): boolean =>
-  Object.values(state.buildingsById).some((building) =>
-    building.ownerPlayerId === playerId && building.status === "active" && building.buildingTypeId === buildingTypeId
-  );
-
-const readCityHallMetadata = (building: CoreGameState["buildingsById"][string]): CityHallMetadata => {
-  const raw = isRecord(building.metadata?.cityHall) ? building.metadata.cityHall : {};
-  return {
-    officialCoverByDistrictId: isRecord(raw.officialCoverByDistrictId)
-      ? Object.fromEntries(Object.entries(raw.officialCoverByDistrictId).filter(([, value]) => isRecord(value)).map(([districtId, value]: [string, any]) => [districtId, {
-          districtId: String(value.districtId || districtId),
-          expiresAtTick: Math.floor(Number(value.expiresAtTick || 0)),
-          heatGainReductionPct: Number(value.heatGainReductionPct || 0),
-          policeControlChanceReductionPct: Number(value.policeControlChanceReductionPct || 0),
-          rumorChanceReductionPct: Number(value.rumorChanceReductionPct || 0)
-        }]))
-      : {},
-    emergencyDecree: isRecord(raw.emergencyDecree) && resolveDecreeModeOrNull(raw.emergencyDecree.modeId)
-      ? { modeId: resolveDecreeMode(raw.emergencyDecree.modeId), zone: raw.emergencyDecree.zone ? String(raw.emergencyDecree.zone) : undefined, expiresAtTick: Math.floor(Number(raw.emergencyDecree.expiresAtTick || 0)) }
-      : undefined,
-    influencePenaltyUntilTick: asOptionalTick(raw.influencePenaltyUntilTick),
-    cityContractBlockedUntilTick: asOptionalTick(raw.cityContractBlockedUntilTick),
-    lastScandalCheckTick: asOptionalTick(raw.lastScandalCheckTick),
-    riskEvents: Array.isArray(raw.riskEvents) ? raw.riskEvents.filter(isRecord).map((entry) => ({ actionId: String(entry.actionId || ""), riskPct: Number(entry.riskPct || 0), expiresAtTick: Math.floor(Number(entry.expiresAtTick || 0)), tick: Math.floor(Number(entry.tick || 0)) })).filter((entry) => entry.actionId) : [],
-    scandalEvents: Array.isArray(raw.scandalEvents) ? raw.scandalEvents.filter(isRecord).map((entry) => ({ type: String(entry.type || ""), tick: Math.floor(Number(entry.tick || 0)), label: String(entry.label || entry.type || ""), riskPct: Number(entry.riskPct || 0), rumorText: entry.rumorText ? String(entry.rumorText) : undefined })).filter((entry) => entry.type) : []
-  };
-};
-
-const cleanupCityHallMetadata = (metadata: CityHallMetadata, tick: number): CityHallMetadata => ({
-  ...metadata,
-  officialCoverByDistrictId: Object.fromEntries(Object.entries(metadata.officialCoverByDistrictId).filter(([, entry]) => entry.expiresAtTick > tick)),
-  emergencyDecree: Number(metadata.emergencyDecree?.expiresAtTick || 0) > tick ? metadata.emergencyDecree : undefined,
-  riskEvents: metadata.riskEvents.filter((event) => event.expiresAtTick > tick),
-  scandalEvents: metadata.scandalEvents.slice(-8)
-});
-
-const withCityHallMetadata = (
-  building: CoreGameState["buildingsById"][string],
-  cityHall: CityHallMetadata
-): Record<string, unknown> => ({
-  ...(building.metadata ?? {}),
-  cityHall
-});
-
-const appendCityHallRumor = (
-  state: CoreGameState,
-  building: CoreGameState["buildingsById"][string],
-  message: string,
-  severity: CityFeedEvent["severity"]
-): CoreGameState => {
-  const sourceEventId = `city-hall-scandal:${building.id}:${state.root.tick}:${Math.abs(hashText(message))}`;
-  const event: CityFeedEvent = {
-    id: `city-feed:${sourceEventId}`,
-    sourceEventId,
-    sourceType: "building_action",
-    category: "rumor",
-    severity,
-    truthiness: "unconfirmed",
-    visibility: "all",
-    playerId: building.ownerPlayerId,
-    districtId: building.districtId,
-    createdAtTick: state.root.tick,
-    message,
-    messageKey: "rumor.city_hall_scandal",
-    payload: { buildingTypeId: building.buildingTypeId }
-  };
-  if (state.cityFeedEventsById?.[event.id]) return state;
-  return {
-    ...state,
-    cityFeedEventsById: {
-      ...(state.cityFeedEventsById ?? {}),
-      [event.id]: event
-    }
-  };
-};
-
-const resolveTargetDistrictId = (payload: RunBuildingActionCommand["payload"], fallbackDistrictId: string): string =>
-  String(payload.targetDistrictId ?? payload.districtId ?? fallbackDistrictId);
-
-const resolveDecreeMode = (value: unknown): CityHallDecreeMode =>
-  resolveDecreeModeOrNull(value) ?? "night_patrols";
-
-const resolveDecreeModeOrNull = (value: unknown): CityHallDecreeMode | null => {
-  const normalized = String(value ?? "").trim();
-  return normalized === "night_patrols" || normalized === "suspended_checks" || normalized === "construction_closure"
-    ? normalized
-    : null;
-};
-
-const asOptionalTick = (value: unknown): number | undefined => {
-  const tick = Math.floor(Number(value || 0));
-  return tick > 0 ? tick : undefined;
-};
-
-const minutesToTicks = (minutes: number, tickRateMs: number): number =>
-  Math.max(1, Math.ceil(Math.max(0, minutes) * 60000 / Math.max(1, tickRateMs)));
-
-const hashText = (value: string): number =>
-  Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) | 0, 0);
-
-const isRecord = (value: unknown): value is Record<string, any> =>
-  Boolean(value) && typeof value === "object" && !Array.isArray(value);

@@ -138,7 +138,10 @@ var EmpireGameplaySliceClient = function(exports) {
       payload: {
         districtId: district.districtId,
         buildingId: building.buildingId,
-        actionId: action.actionId
+        actionId: action.actionId,
+        ...input.dealerSlotId ? { dealerSlotId: input.dealerSlotId } : {},
+        ...input.itemId ? { itemId: input.itemId } : {},
+        ...input.amount !== void 0 ? { amount: input.amount } : {}
       },
       clientRequestId: input.clientRequestId ?? null
     };
@@ -250,6 +253,7 @@ var EmpireGameplaySliceClient = function(exports) {
         `<span class="district-panel__production-metric">Influence ${action.influenceLabel}</span>`,
         `</div>`,
         `<div class="district-panel__action-row">`,
+        building.buildingTypeId === "street_dealers" && action.actionId === "start_drug_sale" ? renderStreetDealerControls() : "",
         `<button class="district-panel__action-button district-panel__action-button--craft" data-building-action-building-id="${building.buildingId}" data-building-action-id="${action.actionId}"${disabledAttribute}${reasonAttribute}>${action.label}</button>`,
         action.disabledReason ? `<p class="district-panel__action-reason">${action.disabledReason}</p>` : "",
         `</div>`,
@@ -274,6 +278,19 @@ var EmpireGameplaySliceClient = function(exports) {
         return "•";
     }
   };
+  const renderStreetDealerControls = () => [
+    `<select class="district-panel__action-select" data-dealer-slot-input aria-label="Dealer slot">`,
+    Array.from({ length: 5 }, (_value, index) => `<option value="slot-${index + 1}">Slot ${index + 1}</option>`).join(""),
+    `</select>`,
+    `<select class="district-panel__action-select" data-dealer-item-input aria-label="Drug item">`,
+    `<option value="neon-dust">Neon Dust</option>`,
+    `<option value="pulse-shot">Pulse Shot</option>`,
+    `<option value="velvet-smoke">Velvet Smoke</option>`,
+    `<option value="ghost-serum">Ghost Serum</option>`,
+    `<option value="overdrive-x">Overdrive X</option>`,
+    `</select>`,
+    `<input class="district-panel__action-input" data-dealer-amount-input aria-label="Amount" type="number" min="1" max="12" value="1">`
+  ].join("");
   const toCssToken = (value) => String(value || "building").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "building";
   const renderLiveCooldown = (action) => action.cooldownEndsAtMs && action.cooldownRemainingMs > 0 ? [
     `<span data-live-cooldown="true"`,
@@ -500,6 +517,9 @@ var EmpireGameplaySliceClient = function(exports) {
               slice,
               buildingId: action.buildingId,
               actionId: action.actionId,
+              dealerSlotId: action.dealerSlotId,
+              itemId: action.itemId,
+              amount: action.amount,
               issuedAt
             })
           );
@@ -531,6 +551,7 @@ var EmpireGameplaySliceClient = function(exports) {
     }
   });
   const resolveClientSurfaceAction = (target) => {
+    var _a, _b, _c;
     if (!target) {
       return null;
     }
@@ -572,10 +593,18 @@ var EmpireGameplaySliceClient = function(exports) {
       "button[data-building-action-building-id][data-building-action-id]"
     );
     if ((buildingActionButton == null ? void 0 : buildingActionButton.dataset.buildingActionBuildingId) && (buildingActionButton == null ? void 0 : buildingActionButton.dataset.buildingActionId)) {
+      const buildingCard2 = buildingActionButton.closest("article[data-building-id][data-building-type]");
+      const slotInput = (_a = buildingCard2 == null ? void 0 : buildingCard2.querySelector) == null ? void 0 : _a.call(buildingCard2, "select[data-dealer-slot-input]");
+      const itemInput = (_b = buildingCard2 == null ? void 0 : buildingCard2.querySelector) == null ? void 0 : _b.call(buildingCard2, "select[data-dealer-item-input]");
+      const amountInput = (_c = buildingCard2 == null ? void 0 : buildingCard2.querySelector) == null ? void 0 : _c.call(buildingCard2, "input[data-dealer-amount-input]");
+      const amount = Number((amountInput == null ? void 0 : amountInput.value) || (amountInput == null ? void 0 : amountInput.dataset.value) || (amountInput == null ? void 0 : amountInput.dataset.dealerAmountValue) || "");
       return {
         kind: "building-action",
         buildingId: buildingActionButton.dataset.buildingActionBuildingId,
-        actionId: buildingActionButton.dataset.buildingActionId
+        actionId: buildingActionButton.dataset.buildingActionId,
+        dealerSlotId: buildingActionButton.dataset.dealerSlotId || (slotInput == null ? void 0 : slotInput.value) || (slotInput == null ? void 0 : slotInput.dataset.value),
+        itemId: buildingActionButton.dataset.dealerItemId || (itemInput == null ? void 0 : itemInput.value) || (itemInput == null ? void 0 : itemInput.dataset.value),
+        amount: Number.isFinite(amount) && amount > 0 ? amount : void 0
       };
     }
     const craftButton = target.closest(

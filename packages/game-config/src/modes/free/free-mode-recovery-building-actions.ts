@@ -1,0 +1,150 @@
+import type { ResolvedGameModeConfig } from "../../contracts/game-mode-config";
+import { freeModeArcadeConfig } from "../../public/free-mode-arcade-config";
+import { freeModeClinicConfig } from "../../public/free-mode-clinic-config";
+import { freeModePowerStationConfig } from "../../public/free-mode-power-station-config";
+import { freeModeRecyclingCenterConfig } from "../../public/free-mode-recycling-center-config";
+import { freeModeSchoolConfig } from "../../public/free-mode-school-config";
+import { freeModeSmugglingTunnelConfig } from "../../public/free-mode-smuggling-tunnel-config";
+
+export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig["balance"]["buildingActions"]> = {  open_channel: {
+    actionId: "open_channel",
+    buildingType: "smuggling_tunnel",
+    label: "Otevřít kanál",
+    description: "Na 7 minut globálně posílí dirty cash produkci Pašovacích tunelů a prodej Pouličních dealerů. Nestackuje se.",
+    durationMs: freeModeSmugglingTunnelConfig.openChannel.durationMinutes * 60 * 1000,
+    cooldownMs: freeModeSmugglingTunnelConfig.openChannel.cooldownMinutes * 60 * 1000,
+    inputCost: { "dirty-cash": freeModeSmugglingTunnelConfig.openChannel.costDirtyCash },
+    outputGain: {},
+    heatGain: freeModeSmugglingTunnelConfig.openChannel.heatGain,
+    influenceChange: 0,
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Otevřený kanál krátkodobě zvedne tok špinavých peněz, dealer rewardy a street risk."
+  },
+  extract_losses: {
+    actionId: "extract_losses",
+    buildingType: "recycling_center",
+    label: "Vytěžit ztráty",
+    description: "Vrátí část neexpirovaných itemových ztrát ze salvage poolu. Nevrací populaci ani členy gangu.",
+    durationMs: 0,
+    cooldownMs: freeModeRecyclingCenterConfig.extractLosses.cooldownMinutes * 60 * 1000,
+    inputCost: { cash: freeModeRecyclingCenterConfig.extractLosses.cleanCashCost },
+    outputGain: {},
+    heatGain: freeModeRecyclingCenterConfig.extractLosses.heatGain,
+    influenceChange: 0,
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Recyklační centrum vytěžilo část ztracených itemů ze šrotu."
+  },
+  stabilization_protocol: {
+    actionId: "stabilization_protocol",
+    buildingType: "clinic",
+    label: "Stabilizační protokol",
+    description: "Za clean cash vrátí část neexpirovaných ztrát z recovery poolu do gangu a skladu.",
+    durationMs: 0,
+    cooldownMs: freeModeClinicConfig.stabilizationProtocol.cooldownMinutes * 60 * 1000,
+    inputCost: { cash: freeModeClinicConfig.stabilizationProtocol.cleanCashCost },
+    outputGain: {},
+    heatGain: freeModeClinicConfig.stabilizationProtocol.heatGain,
+    influenceChange: 0,
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Stabilizační protokol obnoví část nedávných ztrát. Recovery neprobíhá automaticky."
+  },
+  collect_population: {
+    actionId: "collect_population",
+    buildingType: "apartment_block",
+    label: "Vybrat obyvatele",
+    description: "Přesune lokálně uložené obyvatele z bytového bloku do globální populace hráče.",
+    durationMs: 0,
+    cooldownMs: 0,
+    inputCost: {},
+    outputGain: {},
+    heatGain: 0,
+    influenceChange: 0,
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Vybere obyvatele z lokálního zásobníku bytového bloku."
+  },
+  collect_students: {
+    actionId: "collect_students",
+    buildingType: "school",
+    label: "Vybrat studenty",
+    description: "Přesune lokálně uložené studenty ze Školy do globální populace a spustí Talent Pool roll.",
+    durationMs: 0,
+    cooldownMs: 0,
+    inputCost: {},
+    outputGain: {},
+    heatGain: 0,
+    influenceChange: 0,
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Vybere studenty ze Školy a zkusí najít talent."
+  },
+  evening_course: {
+    actionId: "evening_course",
+    buildingType: "school",
+    label: "Večerní kurz",
+    description: "Na 8 minut zvýší produkci studentů, šanci na talent a čistý příjem konkrétní Školy.",
+    durationMs: freeModeSchoolConfig.eveningCourse.durationMinutes * 60 * 1000,
+    cooldownMs: freeModeSchoolConfig.eveningCourse.cooldownMinutes * 60 * 1000,
+    inputCost: { cash: freeModeSchoolConfig.eveningCourse.costCleanCash },
+    outputGain: {},
+    heatGain: 0,
+    influenceChange: 0,
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Večerní kurz dočasně zvedne studenty, talent roll a clean income Školy."
+  },
+  night_machines: {
+    actionId: "night_machines",
+    buildingType: "arcade",
+    label: "Noční automaty",
+    description: "Na 7 minut zvýší produkci Herny, vliv, heat a audit risk.",
+    durationMs: freeModeArcadeConfig.nightMachines.durationMinutes * 60 * 1000,
+    cooldownMs: freeModeArcadeConfig.nightMachines.cooldownMinutes * 60 * 1000,
+    inputCost: {},
+    outputGain: {},
+    heatGain: 0,
+    influenceChange: 0,
+    effectModifiers: {
+      cleanIncomeMultiplier: 1 + freeModeArcadeConfig.nightMachines.cleanIncomeBonusPct / 100,
+      dirtyIncomeMultiplier: 1 + freeModeArcadeConfig.nightMachines.dirtyIncomeBonusPct / 100,
+      influenceMultiplier: 1 + freeModeArcadeConfig.nightMachines.influenceBonusPct / 100,
+      heatMultiplier: 1 + freeModeArcadeConfig.nightMachines.heatBonusPct / 100
+    },
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Aktivuje Noční automaty. Boost se sám se sebou nestackuje."
+  },
+  backup_grid_switch: {
+    actionId: "backup_grid_switch",
+    buildingType: "power_station",
+    label: "Přepnutí na záložní síť",
+    description: "Dočasně zvýší infrastructure bonus a posílí kamery, alarm, Továrny a Zbrojovky.",
+    durationMs: freeModePowerStationConfig.backupGridSwitch.durationMinutes * 60 * 1000,
+    cooldownMs: freeModePowerStationConfig.backupGridSwitch.cooldownMinutes * 60 * 1000,
+    inputCost: { cash: freeModePowerStationConfig.backupGridSwitch.cleanCashCost },
+    outputGain: {},
+    heatGain: freeModePowerStationConfig.backupGridSwitch.heatGain,
+    influenceChange: 0,
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Záložní síť aktivní. Infrastructure a defense systémy jsou dočasně posílené."
+  },
+  start_drug_sale: {
+    actionId: "start_drug_sale",
+    buildingType: "street_dealers",
+    label: "Spustit prodej",
+    description: "Použije globální dealer slot k prodeji látky vyrobené v Drug Labu za dirty cash.",
+    durationMs: 0,
+    cooldownMs: 0,
+    inputCost: {},
+    outputGain: {},
+    heatGain: 0,
+    influenceChange: 0,
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Pouliční dealeři spustili prodej přes vybraný slot."
+  }
+};

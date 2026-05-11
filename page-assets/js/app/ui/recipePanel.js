@@ -52,6 +52,23 @@ function getSlotState(job = null) {
   return { label: "Hotovo", isActive: true };
 }
 
+function getRecipeOutputAmount(recipe = {}) {
+  return Math.max(0, Number(recipe.output?.amount || 0));
+}
+
+function getQueuedOutputAmount(job = null, recipe = {}) {
+  if (!job) return 0;
+  const jobAmount = Number(job.output?.amount);
+  if (Number.isFinite(jobAmount) && jobAmount > 0) {
+    return Math.floor(jobAmount);
+  }
+  return getRecipeOutputAmount(recipe) * Math.max(1, Math.floor(Number(job.quantity || 1)));
+}
+
+function formatQueuedOutput(job = null, recipe = {}) {
+  return `${getQueuedOutputAmount(job, recipe)} ks`;
+}
+
 function createMetricBlock(scopeElement, { label, value, inline = false } = {}) {
   const metric = createElement(scopeElement, "div", inline
     ? "drug-production-slot__metric drug-production-slot__metric--inline"
@@ -164,7 +181,6 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
   const queueMetric = options.queueMetric;
   const costMetric = options.costMetric || null;
   const effectiveDurationMs = Math.max(1000, Number(viewModel.effectiveDurationMs || recipe.durationMs || 1000));
-  const queueAsBatches = Boolean(options.queueAsBatches);
   const resetQuantityOnJob = Boolean(options.resetQuantityOnJob);
   const extraClass = String(options.extraClass || "");
 
@@ -194,8 +210,7 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
     const maxBatches = getMaxBatches();
     const outputAmount = Math.max(1, Number(recipe.output?.amount || 1));
     selectedBatches = Math.min(Math.max(1, selectedBatches), Math.max(1, maxBatches));
-    const queuedAmount = Number(job?.output?.amount || outputAmount * selectedBatches || 0);
-    const visibleBatches = job ? Math.max(1, Math.ceil(queuedAmount / outputAmount)) : selectedBatches;
+    const visibleBatches = job ? Math.max(1, Math.ceil(getQueuedOutputAmount(job, recipe) / outputAmount)) : selectedBatches;
     quantityValue.textContent = String(job && resetQuantityOnJob ? 0 : visibleBatches);
     minusButton.disabled = Boolean(job) || selectedBatches <= 1;
     plusButton.disabled = Boolean(job) || selectedBatches >= maxBatches;
@@ -203,7 +218,7 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
       startButton.disabled = Boolean(job) || selectedBatches > maxBatches || maxBatches <= 0;
     }
     setMetricValue(timeMetric, formatDuration(Number(job?.durationMs || effectiveDurationMs * selectedBatches), options));
-    setMetricValue(queueMetric, queueAsBatches ? String(job ? Math.max(1, Math.floor(Number(job.quantity || visibleBatches))) : 0) : `${queuedAmount} ks`);
+    setMetricValue(queueMetric, formatQueuedOutput(job, recipe));
     if (costMetric) {
       setMetricValue(costMetric, cleanCost ? `${formatMoney(cleanCost * visibleBatches, options)} clean` : "-");
     }
@@ -290,7 +305,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     appendChildren(titleLine, [icon, titleWrap]);
     appendChildren(head, [titleLine, state]);
     const timeMetric = createPharmacyMetricBlock(options.mount, "Čas", formatDuration(Number(job?.durationMs || effectiveDurationMs), options));
-    const queueMetric = createPharmacyMetricBlock(options.mount, "Ve frontě", "0");
+    const queueMetric = createPharmacyMetricBlock(options.mount, "Ve frontě", formatQueuedOutput(job, recipe));
     const costMetric = createPharmacyMetricBlock(options.mount, "Cena", formatMoney(Number(recipe.cleanMoneyCost || 0), options));
     appendChildren(metrics, [
       createPharmacyMetricBlock(options.mount, "Výstup", `${recipe.output?.amount || 0} ks`),
@@ -298,7 +313,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
       costMetric,
       queueMetric
     ]);
-    const quantityControl = renderQuantityControl(viewModel, callbacks, { ...options, startButton, timeMetric, queueMetric, effectiveDurationMs, costMetric, queueAsBatches: true, resetQuantityOnJob: true, extraClass: "pharmacy-slot__quantity" });
+    const quantityControl = renderQuantityControl(viewModel, callbacks, { ...options, startButton, timeMetric, queueMetric, effectiveDurationMs, costMetric, resetQuantityOnJob: true, extraClass: "pharmacy-slot__quantity" });
     getStartBatchCount = quantityControl.getStartBatchCount;
     refreshQuantityControl = quantityControl.refresh;
     startButton.className = "button pharmacy-slot__btn pharmacy-slot__btn--start";
@@ -327,7 +342,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     appendChildren(titleWrap, [icon, titles]);
     appendChildren(head, [titleWrap, state]);
     const timeMetric = createMetricBlock(options.mount, { label: "Čas", value: formatDuration(Number(job?.durationMs || effectiveDurationMs), options) });
-    const queueMetric = createMetricBlock(options.mount, { label: "Ve frontě", value: `${Number(job?.output?.amount || recipe.output?.amount || 0)} ks`, inline: true });
+    const queueMetric = createMetricBlock(options.mount, { label: "Ve frontě", value: formatQueuedOutput(job, recipe), inline: true });
     appendChildren(metrics, [
       createMetricBlock(options.mount, { label: "Výstup", value: `${recipe.output?.amount || 0} ks` }),
       timeMetric,
