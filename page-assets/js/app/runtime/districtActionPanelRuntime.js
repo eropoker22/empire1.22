@@ -1,3 +1,16 @@
+import {
+  createAttackConfirmationViewModel,
+  createOccupyConfirmationViewModel,
+  createRobberyConfirmationViewModel,
+  createSpyConfirmationViewModel,
+  createTrapConfirmationViewModel,
+  renderAttackConfirmationPanel,
+  renderOccupyConfirmationPanel,
+  renderRobberyConfirmationPanel,
+  renderSpyConfirmationPanel,
+  renderTrapConfirmationPanel
+} from "../ui/districtActionConfirmationPanel.js";
+
 function isHtmlInputElement(element) {
   return Boolean(element && typeof element === "object" && "value" in element);
 }
@@ -363,45 +376,14 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     const interactionState = getInteractionState();
     const context = preparedContext || state.pendingAttackContext || getPreparedAttackContext(district);
     const atmosphereMeta = getDistrictAtmosphereMeta(district, interactionState);
-    const scenarioLabel = context?.hasTrapDefense ? "Toxická past" : (context?.resolvedScenario?.label || "Neznámý");
-    const cooldownSeconds = Math.ceil(Number(context?.boostContext?.cooldownMs || deps.attackCooldownMs) / 1000);
 
     state.pendingAttackContext = context;
-
-    const note = !context?.sourceDistrictId
-      ? "Útok vyžaduje sousední vlastní district."
-      : !context?.canConfirm
-        ? "Nejdřív nastav validní loadout a dostatek obyvatel pro útok."
-        : context?.hasTrapDefense
-          ? `Cíl je krytý toxickou pastí. Útočná výzbroj: ${context.selectedWeaponsLabel || "bez výzbroje"}.`
-          : `Výzbroj: ${context?.selectedWeaponsLabel || "bez výzbroje"}.${context?.boostContext?.summaryLabel ? ` ${context.boostContext.summaryLabel}.` : ""}`;
-
-    deps.renderAttackConfirmPanel({
-      targetDistrictId: district.id,
-      sourceLabel: context?.sourceDistrictId ? `District ${context.sourceDistrictId}` : "Žádný soused",
-      totalResidents: context?.totalResidents ?? 0,
-      attackPower: context?.boostContext?.effectiveAttackPower ?? context?.totalPower ?? 0,
-      scenarioLabel,
-      durationLabel: `${cooldownSeconds}s`,
-      note,
-      canConfirm: Boolean(context?.canConfirm),
-      atmosphereMeta
-    }, {}, {
-      elements: {
-        popup: elements.attackConfirmPopup,
-        card: elements.attackConfirmCard,
-        imageElement: elements.attackConfirmAtmosphereImage,
-        labelElement: elements.attackConfirmAtmosphereLabel,
-        title: elements.attackConfirmTitle,
-        source: elements.attackConfirmSource,
-        members: elements.attackConfirmMembers,
-        power: elements.attackConfirmPower,
-        scenario: elements.attackConfirmScenario,
-        duration: elements.attackConfirmDuration,
-        note: elements.attackConfirmNote,
-        confirmButton: elements.attackConfirmFinalButton
-      }
-    });
+    renderAttackConfirmationPanel(createAttackConfirmationViewModel({
+      district,
+      context,
+      atmosphereMeta,
+      attackCooldownMs: deps.attackCooldownMs
+    }), elements);
   };
 
   const populateRobberySetupPopup = (district) => {
@@ -449,24 +431,14 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     const { deployedMembers, canConfirm } = renderRobberySummary();
     const sourceDistrictId = isHtmlSelectElement(elements.robberySourceSelect) ? elements.robberySourceSelect.value : "";
 
-    applyDistrictAtmosphere({
-      card: elements.robberyConfirmCard,
-      imageElement: elements.robberyConfirmAtmosphereImage,
-      labelElement: elements.robberyConfirmAtmosphereLabel,
+    renderRobberyConfirmationPanel(createRobberyConfirmationViewModel({
+      district,
+      sourceDistrictId,
+      deployedMembers,
+      canConfirm,
+      robberyCooldownMs: deps.robberyCooldownMs,
       atmosphereMeta
-    });
-
-    elements.robberyConfirmTitle.textContent = `District ${district.id}`;
-    elements.robberyConfirmSource.textContent = sourceDistrictId ? `District ${sourceDistrictId}` : "Žádný soused";
-    elements.robberyConfirmMembers.textContent = String(deployedMembers);
-    elements.robberyConfirmDuration.textContent = `${Math.ceil(deps.robberyCooldownMs / 1000)}s`;
-    elements.robberyConfirmNote.textContent = !sourceDistrictId
-      ? "Vykradení vyžaduje sousední vlastní district."
-      : deployedMembers <= 0
-        ? "Nejdřív nastav počet nasazených členů gangu."
-        : "Po potvrzení vyrazí crew na loot run. District musí být prázdný a návrat proběhne po cooldownu.";
-
-    setElementDisabled(elements.robberyConfirmFinalButton, !canConfirm);
+    }), elements);
   };
 
   const populateDefenseSetupPopup = (district) => {
@@ -525,28 +497,13 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     const atmosphereMeta = getDistrictAtmosphereMeta(district, getInteractionState());
     const currentTrapDistrictId = deps.getCurrentPlayerTrapDistrictId();
     const trapMoveCooldownSeconds = deps.getCurrentPlayerTrapMoveCooldownSeconds();
-    const isMovingTrap = Boolean(currentTrapDistrictId && currentTrapDistrictId !== district.id);
-    const isSameDistrict = Number(currentTrapDistrictId) === Number(district.id);
 
-    applyDistrictAtmosphere({
-      card: elements.trapConfirmCard,
-      imageElement: elements.trapConfirmAtmosphereImage,
-      labelElement: elements.trapConfirmAtmosphereLabel,
+    renderTrapConfirmationPanel(createTrapConfirmationViewModel({
+      district,
+      currentTrapDistrictId,
+      trapMoveCooldownSeconds,
       atmosphereMeta
-    });
-
-    elements.trapConfirmTitle.textContent = `District ${district.id}`;
-    elements.trapConfirmCooldown.textContent = trapMoveCooldownSeconds > 0 ? `${trapMoveCooldownSeconds}s` : "Připraveno";
-    elements.trapConfirmNote.textContent = isSameDistrict
-      ? "Toxická past už je aktivní v tomto districtu."
-      : isMovingTrap
-        ? `Přesune aktivní toxickou past z District ${currentTrapDistrictId} sem. Po přesunu se znovu rozjede toxický kouř.`
-        : "Nastraží toxickou past do vybraného distriktu. Útočník v ní ztratí všechny nasazené lidi i výzbroj.";
-
-    if (elements.trapConfirmButton) {
-      elements.trapConfirmButton.textContent = isMovingTrap ? "Přesunout past" : "Nastražit past";
-      setElementDisabled(elements.trapConfirmButton, isSameDistrict || (isMovingTrap && trapMoveCooldownSeconds > 0));
-    }
+    }), elements);
   };
 
   const populateSpyConfirmPopup = (district) => {
@@ -565,38 +522,14 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     const atmosphereMeta = getDistrictAtmosphereMeta(district, interactionState);
     const adjacentOwnedDistrictIds = getAdjacentOwnedDistrictIds(district);
     const spyState = deps.getResolvedSpyState();
-    const hasSourceDistrict = adjacentOwnedDistrictIds.length > 0;
-    const canConfirm = hasSourceDistrict && spyState.available > 0;
 
-    const note = !hasSourceDistrict
-      ? "Špehování vyžaduje sousední vlastní district."
-      : spyState.available <= 0
-        ? "Nemáš dostupného špeha. Bez špeha akci nespustíš."
-        : "Částečný úspěch odhalí typ distriktu. Úspěch odhalí i obranu a odemkne akci Obsadit.";
-
-    deps.renderSpyPanel({
-      targetDistrictId: district.id,
-      sourceLabel: hasSourceDistrict ? `District ${adjacentOwnedDistrictIds[0]}` : "Žádný soused",
-      availableSpies: spyState.available,
-      durationLabel: `${Math.ceil(deps.spyCooldownMs / 1000)}s`,
-      note,
-      canConfirm,
-      confirmLabel: "Vyslat špeha",
+    renderSpyConfirmationPanel(createSpyConfirmationViewModel({
+      district,
+      adjacentOwnedDistrictIds,
+      spyState,
+      spyCooldownMs: deps.spyCooldownMs,
       atmosphereMeta
-    }, {}, {
-      elements: {
-        popup: elements.spyConfirmPopup,
-        card: elements.spyConfirmCard,
-        imageElement: elements.spyConfirmAtmosphereImage,
-        labelElement: elements.spyConfirmAtmosphereLabel,
-        title: elements.spyConfirmTitle,
-        source: elements.spyConfirmSource,
-        available: elements.spyConfirmAvailable,
-        duration: elements.spyConfirmDuration,
-        note: elements.spyConfirmNote,
-        confirmButton: elements.spyConfirmButton
-      }
-    });
+    }), elements);
   };
 
   const populateOccupyConfirmPopup = (district) => {
@@ -615,30 +548,13 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     const adjacentOwnedDistrictIds = getAdjacentOwnedDistrictIds(district);
     const spyIntel = deps.getResolvedSpyIntel();
     const canOccupyAfterSpy = spyIntel.occupiableDistrictIds.includes(Number(district.id));
-    const hasSourceDistrict = adjacentOwnedDistrictIds.length > 0;
-    const canConfirm = hasSourceDistrict && canOccupyAfterSpy;
 
-    applyDistrictAtmosphere({
-      card: elements.occupyConfirmCard,
-      imageElement: elements.occupyConfirmAtmosphereImage,
-      labelElement: elements.occupyConfirmAtmosphereLabel,
+    renderOccupyConfirmationPanel(createOccupyConfirmationViewModel({
+      district,
+      adjacentOwnedDistrictIds,
+      canOccupyAfterSpy,
       atmosphereMeta
-    });
-
-    elements.occupyConfirmTitle.textContent = `District ${district.id}`;
-    elements.occupyConfirmSource.textContent = hasSourceDistrict ? `District ${adjacentOwnedDistrictIds[0]}` : "Žádný soused";
-    elements.occupyConfirmCondition.textContent = canOccupyAfterSpy ? "Špehování potvrzeno" : "Chybí špehování";
-    elements.occupyConfirmDuration.textContent = "20s";
-    elements.occupyConfirmNote.textContent = !hasSourceDistrict
-      ? "Obsazení vyžaduje sousední vlastní district."
-      : !canOccupyAfterSpy
-        ? "Nejdřív musí proběhnout úspěšné špehování. Teprve pak lze district obsadit."
-        : "Po potvrzení se spustí 20 sekundové obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe.";
-
-    if (elements.occupyConfirmButton) {
-      setElementDisabled(elements.occupyConfirmButton, !canConfirm);
-      elements.occupyConfirmButton.textContent = "Spustit obsazení";
-    }
+    }), elements);
   };
 
   return {
