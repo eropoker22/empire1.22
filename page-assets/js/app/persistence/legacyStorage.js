@@ -1,8 +1,10 @@
-const SESSION_STORAGE_KEY = "empireStreets.session.v1";
-const SETTINGS_STORAGE_KEY = "empire_settings";
+import { STORAGE_KEYS } from "../../config.js";
+
+const SESSION_STORAGE_KEY = STORAGE_KEYS.session;
+const SETTINGS_STORAGE_KEY = STORAGE_KEYS.settings;
 const DISTRICT_BUILDING_DETAIL_STATE_KEY = "empireStreets.districtBuildingDetails.v1";
 const CLINIC_RECOVERY_POOL_KEY = "empireStreets.clinicRecoveryPool.v1";
-const AVATAR_STORAGE_KEY = "empire_avatar";
+const AVATAR_STORAGE_KEY = STORAGE_KEYS.avatar;
 const DEMO_STATE_STORAGE_PREFIX = "empireStreets.demoState";
 
 export const LEGACY_STORAGE_KEYS = Object.freeze({

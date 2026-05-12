@@ -13,19 +13,22 @@ describe("server-select page smoke", () => {
     expect(html).toContain('data-server-list');
     expect(html).toContain('data-district-map');
     expect(html).toContain('data-server-details');
-    expect(html).toContain('src="./server-select.js"');
+    expect(html).toContain('src="./page-assets/js/config.js"');
+    expect(html).toContain('type="module" src="./server-select.js"');
     expect(html).toContain('href="./server-select.css"');
   });
 
   it("keeps gameplay-facing mock data in JavaScript, not HTML", () => {
     const html = readRoot("server-select.html");
     const js = readRoot("server-select.js");
+    const config = readFileSync(resolve(root, "page-assets/js/config.js"), "utf8");
 
     expect(html).not.toContain("Vortex City WAR-01");
     expect(html).not.toContain("Neon Docks FREE-01");
     expect(js).toContain("const mockServers");
     expect(js).toContain("const mockDistricts");
-    expect(js).toContain("empirestreets.selectedServer");
+    expect(js).toContain("STORAGE_KEYS.selectedServer");
+    expect(config).toContain('selectedServer: storageKeyOverrides.selectedServer || "empirestreets.selectedServer"');
     expect(js).toContain("ENABLE_FAKE_REDIRECT = false");
   });
 });

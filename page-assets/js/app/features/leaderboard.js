@@ -1,4 +1,5 @@
 import { getAuthoritySession } from "../model/authority-state.js";
+import { STORAGE_KEYS } from "../../config.js";
 
 const LEADERBOARD_POPUP_OPEN_SELECTOR = "[data-leaderboard-popup-open]";
 const LEADERBOARD_POPUP_SELECTOR = "[data-leaderboard-popup]";
@@ -21,7 +22,7 @@ const LEADERBOARD_TABLE_TITLE_SELECTOR = "[data-leaderboard-table-title]";
 const LEADERBOARD_MODE_LABEL_SELECTOR = "[data-leaderboard-mode-label]";
 const LEADERBOARD_COUNT_SELECTOR = "[data-leaderboard-count]";
 
-const SELECTED_SERVER_STORAGE_KEY = "empirestreets.selectedServer";
+const SELECTED_SERVER_STORAGE_KEY = STORAGE_KEYS.selectedServer;
 const PLAYER_STATE_STORAGE_KEY = "empirestreets.playerState";
 const DEFAULT_SERVER_ID = "war-eu-01";
 

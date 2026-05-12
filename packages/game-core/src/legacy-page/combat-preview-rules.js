@@ -19,7 +19,7 @@ export function calculateAttackDeployment(loadout = {}) {
   );
 }
 
-const DEFENSE_POWER_BY_WEAPON = {
+export const DEFENSE_POWER_BY_WEAPON = {
   vest: 6,
   barricades: 12,
   cameras: 6,
@@ -27,7 +27,7 @@ const DEFENSE_POWER_BY_WEAPON = {
   alarm: 10
 };
 
-const DEFENSE_LABEL_BY_WEAPON = {
+export const DEFENSE_LABEL_BY_WEAPON = {
   vest: "Vesta",
   barricades: "Barikády",
   cameras: "Kamery",

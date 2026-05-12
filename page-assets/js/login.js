@@ -2,9 +2,15 @@ import {
   getRegistrationDraft,
   saveLoginStep
 } from "./app/auth-flow.js";
+import { STORAGE_KEYS } from "./config.js";
+import { LOGIN_ACTIVE_EVENTS } from "./data/events.js";
 
-const GUEST_USERNAME_KEY = "empire_guest_username";
-const GUEST_GANG_KEY = "empire_gang_name";
+const GUEST_USERNAME_KEY = STORAGE_KEYS.guestUsername;
+const GUEST_GANG_KEY = STORAGE_KEYS.guestGangName;
+const TOKEN_STORAGE_KEY = STORAGE_KEYS.token;
+const STRUCTURE_STORAGE_KEY = STORAGE_KEYS.structure;
+const ACTIVE_AUTH_MODE_KEY = STORAGE_KEYS.activeAuthMode;
+const ACTIVE_GUEST_MODE_KEY = STORAGE_KEYS.activeGuestMode;
 const LOBBY_ENTRY_HREF = "./lobby.html";
 const ACCESS_DENIED_MESSAGE = "ACCESS DENIED — IDENTITA NENALEZENA";
 const ACTIVE_EVENTS_REFRESH_MS = 35000;
@@ -319,149 +325,6 @@ const SERVER_STATUS_STATES = Object.freeze([
   }
 ]);
 
-const LOGIN_ACTIVE_EVENTS = Object.freeze([
-  {
-    title: "POLICE RAID",
-    text: "Zásahová jednotka čistí Downtown a zavírá únikové trasy.",
-    time: "08:42",
-    symbol: "◇",
-    tone: "raid"
-  },
-  {
-    title: "TOXIC TRAP",
-    text: "Park zóna hlásí kontaminované skrýše a vyšší odměny.",
-    time: "09:16",
-    symbol: "☠",
-    tone: "toxic"
-  },
-  {
-    title: "GANG WAR",
-    text: "Night Vultures a Purple Cobras bojují o hranici trhu.",
-    time: "10:03",
-    symbol: "✣",
-    tone: "war"
-  },
-  {
-    title: "BLACK MARKET",
-    text: "Překupníci otevřeli krátké okno pro levnější kontraband.",
-    time: "10:41",
-    symbol: "$",
-    tone: "market"
-  },
-  {
-    title: "DATA LEAK",
-    text: "Hackeři pustili do ulic seznam slabých skladů.",
-    time: "11:09",
-    symbol: "⌁",
-    tone: "hack"
-  },
-  {
-    title: "ARMS DROP",
-    text: "Na Industrial okraji přistála zásilka zbraní bez majitele.",
-    time: "11:52",
-    symbol: "▦",
-    tone: "supply"
-  },
-  {
-    title: "SAFEHOUSE BURN",
-    text: "Hoří kryt v Residential bloku. Stopy mizí rychleji než svědci.",
-    time: "12:18",
-    symbol: "▲",
-    tone: "alert"
-  },
-  {
-    title: "BORDER CHECK",
-    text: "Policie kontroluje přejezdy mezi Commercial a Harbor.",
-    time: "12:44",
-    symbol: "!",
-    tone: "raid"
-  },
-  {
-    title: "NIGHT RACE",
-    text: "Motogang blokuje jižní tah a bere sázky na průjezd.",
-    time: "13:21",
-    symbol: "◆",
-    tone: "race"
-  },
-  {
-    title: "HARBOR LOCKDOWN",
-    text: "Přístav zavírá sklady po sérii falešných manifestů.",
-    time: "13:58",
-    symbol: "▤",
-    tone: "raid"
-  },
-  {
-    title: "DISTRICT BLACKOUT",
-    text: "Výpadek proudu skrývá pohyb gangů v severním sektoru.",
-    time: "14:36",
-    symbol: "▧",
-    tone: "blackout"
-  },
-  {
-    title: "SPY NETWORK",
-    text: "Informační síť prodává čerstvé lokace slabých hráčů.",
-    time: "15:05",
-    symbol: "◎",
-    tone: "intel"
-  },
-  {
-    title: "BOUNTY SIGNAL",
-    text: "Na tabuli přibyla odměna za hráče s vysokým heatem.",
-    time: "15:47",
-    symbol: "⊕",
-    tone: "bounty"
-  },
-  {
-    title: "MARKET CRASH",
-    text: "Ceny surovin kolísají po výprodeji špinavých zásob.",
-    time: "16:12",
-    symbol: "↯",
-    tone: "market"
-  },
-  {
-    title: "CHEM CLOUD",
-    text: "Toxický mrak se drží u staré fabriky a láká riskantní loot.",
-    time: "16:53",
-    symbol: "☣",
-    tone: "toxic"
-  },
-  {
-    title: "TURF CLAIM",
-    text: "Chrome Choir vyvěsil barvy na hranici cizího districtu.",
-    time: "17:24",
-    symbol: "✦",
-    tone: "war"
-  },
-  {
-    title: "CONVOY MOVE",
-    text: "Ozbrojený konvoj veze materiál přes Industrial ring.",
-    time: "18:08",
-    symbol: "▰",
-    tone: "supply"
-  },
-  {
-    title: "CLUB FRONT",
-    text: "Noční klub pere hotovost a na chvíli zvedá vliv.",
-    time: "18:39",
-    symbol: "◈",
-    tone: "social"
-  },
-  {
-    title: "SERVER NOISE",
-    text: "Městská síť šumí. Některé falešné stopy mohou být pravé.",
-    time: "19:17",
-    symbol: "⌬",
-    tone: "hack"
-  },
-  {
-    title: "RED NOTICE",
-    text: "Hledaný boss byl zahlédnut u hranice Downtownu.",
-    time: "20:02",
-    symbol: "×",
-    tone: "alert"
-  }
-]);
-
 const state = {
   activeMode: "war",
   activeTab: "login",
@@ -501,8 +364,8 @@ document.addEventListener("DOMContentLoaded", () => {
 const resolveInitialMode = (registration) => {
   const params = new URLSearchParams(window.location.search);
   const requestedMode = normalizeMode(params.get("mode"));
-  const storedMode = normalizeMode(window.localStorage.getItem("empire:active_auth_mode"))
-    || normalizeMode(window.localStorage.getItem("empire:active_guest_mode"));
+  const storedMode = normalizeMode(window.localStorage.getItem(ACTIVE_AUTH_MODE_KEY))
+    || normalizeMode(window.localStorage.getItem(ACTIVE_GUEST_MODE_KEY));
   return requestedMode || normalizeMode(registration?.serverMode) || storedMode || "war";
 };
 
@@ -529,7 +392,7 @@ function bindServerSelectButton() {
       isGuest: true,
       mode: state.activeMode
     });
-    window.localStorage.setItem("empire:active_guest_mode", state.activeMode);
+    window.localStorage.setItem(ACTIVE_GUEST_MODE_KEY, state.activeMode);
     window.location.href = getModeServersUrl(state.activeMode);
   });
 }
@@ -580,7 +443,7 @@ function bindModeCards() {
       }
 
       state.activeMode = mode;
-      window.localStorage.setItem("empire:active_auth_mode", state.activeMode);
+      window.localStorage.setItem(ACTIVE_AUTH_MODE_KEY, state.activeMode);
       updateModeCards();
     });
   });
@@ -700,8 +563,8 @@ function bindGuest() {
       return;
     }
 
-    window.localStorage.removeItem("empire_token");
-    window.localStorage.removeItem("empire_structure");
+    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+    window.localStorage.removeItem(STRUCTURE_STORAGE_KEY);
     window.localStorage.setItem(GUEST_USERNAME_KEY, username);
     window.localStorage.setItem(GUEST_GANG_KEY, gangName);
     runAccessSequence({
@@ -791,7 +654,7 @@ function runAccessSequence({ form = null, button = null, identity, gangName, isG
       gangName,
       mode: state.activeMode
     });
-    window.localStorage.setItem(isGuest ? "empire:active_guest_mode" : "empire:active_auth_mode", state.activeMode);
+    window.localStorage.setItem(isGuest ? ACTIVE_GUEST_MODE_KEY : ACTIVE_AUTH_MODE_KEY, state.activeMode);
     console.info("redirect to game.html");
   }, 1050);
 

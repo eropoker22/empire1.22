@@ -1,6 +1,6 @@
 import { updateStoredPreviewSession } from "./model/authority-state.js";
 import { appendBuildingActionResultEntry, applyTopbarEconomy, renderSpyResourceState } from "./runtime.js";
-import { leonSwitchVargaEvents, nyraValeEvents, victorGraveEvents } from "./city-events-data.js";
+import { leonSwitchVargaEvents, nyraValeEvents, victorGraveEvents } from "../data/events.js";
 
 const CITY_EVENTS_STORAGE_KEY = "empireStreets.cityEvents.v1";
 const CHARACTER_EVENTS_REFRESH_SECONDS = 30;

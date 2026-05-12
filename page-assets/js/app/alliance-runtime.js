@@ -1,6 +1,8 @@
 import { getAuthoritySession } from "./model/authority-state.js";
+import { STORAGE_KEYS } from "../config.js";
 
 const PAGE_SELECTOR = 'main[data-page="game"]';
+const GANG_NAME_STORAGE_KEY = STORAGE_KEYS.guestGangName;
 const LOCAL_ALLIANCE_KEY = "empire_local_alliance_state";
 const LOCAL_GLOBAL_CHAT_KEY = "empire_local_global_chat_state";
 const DEFAULT_ALLIANCE_ICON_KEY = "crown_skull";
@@ -78,7 +80,7 @@ function getCurrentFactionLabel() {
 }
 
 function getCurrentGangName() {
-  return String(localStorage.getItem("empire_gang_name") || "Guest Crew").trim() || "Guest Crew";
+  return String(localStorage.getItem(GANG_NAME_STORAGE_KEY) || "Guest Crew").trim() || "Guest Crew";
 }
 
 function getOwnedDistrictIds() {

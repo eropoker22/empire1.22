@@ -1,5 +1,7 @@
+import { STORAGE_KEYS } from "./page-assets/js/config.js";
+
 const ENABLE_FAKE_REDIRECT = false;
-const STORAGE_KEY = "empirestreets.selectedServer";
+const STORAGE_KEY = STORAGE_KEYS.selectedServer;
 
 const mockPlayer = {
   id: "guest-5470",

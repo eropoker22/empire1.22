@@ -17,11 +17,16 @@ import {
   getRegistrationDraft,
   saveLobbyStep
 } from "./app/auth-flow.js";
+import { STORAGE_KEYS } from "./config.js";
 
 const GAME_ENTRY_HREF = "./game.html";
 const LOGIN_ENTRY_HREF = "./login.html";
 const DEFAULT_FACTION_SERVER_ID = "war-eu-01";
 const DEFAULT_FACTION_DISTRICT_ID = 27;
+const AVATAR_STORAGE_KEY = STORAGE_KEYS.avatar;
+const GANG_COLOR_STORAGE_KEY = STORAGE_KEYS.gangColor;
+const STRUCTURE_ID_STORAGE_KEY = STORAGE_KEYS.structureId;
+const STRUCTURE_STORAGE_KEY = STORAGE_KEYS.structure;
 const AVATAR_MARQUEE_COPY_COUNT = 6;
 const COLOR_OPTIONS = [
   { name: "Červená", value: "#ef4444" }, { name: "Modrá", value: "#3b82f6" }, { name: "Zelená", value: "#22c55e" },
@@ -312,8 +317,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let selectedFactionId = factionOrder.includes(existingRegistration?.factionId)
     ? existingRegistration.factionId
     : null;
-  let selectedAvatar = localStorage.getItem("empire_avatar") || existingRegistration?.avatar || null;
-  let selectedGangColor = normalizeHexColor(localStorage.getItem("empire_gang_color") || existingRegistration?.gangColor || "");
+  let selectedAvatar = localStorage.getItem(AVATAR_STORAGE_KEY) || existingRegistration?.avatar || null;
+  let selectedGangColor = normalizeHexColor(localStorage.getItem(GANG_COLOR_STORAGE_KEY) || existingRegistration?.gangColor || "");
   let marqueeLoopWidth = 0;
   let hoverPause = false;
   let holdDirection = 0;
@@ -466,8 +471,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function applyStructureSelection(factionId, confirm = true) {
     if (!factionOrder.includes(factionId)) return;
     selectedFactionId = factionId;
-    localStorage.setItem("empire_structure_id", factionId);
-    localStorage.setItem("empire_structure", getFactionMeta(factionId).structure);
+    localStorage.setItem(STRUCTURE_ID_STORAGE_KEY, factionId);
+    localStorage.setItem(STRUCTURE_STORAGE_KEY, getFactionMeta(factionId).structure);
     if (confirm) selectionConfirmed.structure = true;
     structureGrid?.querySelectorAll(".structure-card").forEach((button) => {
       const isActive = button.dataset.factionId === factionId;
@@ -498,7 +503,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!getAvailableAvatars().includes(selectedAvatar)) {
       selectedAvatar = null;
       selectionConfirmed.avatar = false;
-      localStorage.removeItem("empire_avatar");
+      localStorage.removeItem(AVATAR_STORAGE_KEY);
     }
     syncSelectedAvatarBackground();
     renderAvatars();
@@ -546,7 +551,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const normalized = normalizeHexColor(color);
     if (!normalized) return;
     selectedGangColor = normalized;
-    localStorage.setItem("empire_gang_color", normalized);
+    localStorage.setItem(GANG_COLOR_STORAGE_KEY, normalized);
     if (confirm) selectionConfirmed.gangColor = true;
     renderGangColorSelectionState(normalized);
     setStatus("", "");
@@ -610,7 +615,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function applyAvatarSelection(src, openPreview = true) {
     if (!src || !getAvailableAvatars().includes(src)) return;
     selectedAvatar = src;
-    localStorage.setItem("empire_avatar", src);
+    localStorage.setItem(AVATAR_STORAGE_KEY, src);
     selectionConfirmed.avatar = true;
     avatarGrid?.querySelectorAll(".avatar-item").forEach((item) => {
       item.classList.toggle("is-selected", item.dataset.avatar === src);
@@ -806,7 +811,7 @@ document.addEventListener("DOMContentLoaded", () => {
   } else {
     selectedAvatar = null;
     selectionConfirmed.avatar = false;
-    localStorage.removeItem("empire_avatar");
+    localStorage.removeItem(AVATAR_STORAGE_KEY);
     renderEmptyFactionPreview();
     renderAvatars();
   }
