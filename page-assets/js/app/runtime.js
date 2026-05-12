@@ -686,13 +686,18 @@ import {
   renderBuildingDetailInfoSection as renderBuildingDetailInfoSectionPanel,
   syncBuildingDetailTabs as syncBuildingDetailPanelTabs
 } from "./ui/buildingDetailPanel.js";
+import { getDistrictPopupElements } from "./ui/districtPopupElements.js";
 import {
-  bindEscapeKeyHandlers,
-  hideElement,
-  hideElements,
-  isClassModalVisible,
-  isElementVisible
-} from "./ui/modalHelpers.js";
+  bindDistrictAtmosphereWindowControls,
+  bindDistrictPopupPresentationControls,
+  closeDistrictAtmosphereWindow,
+  createDistrictPopupModalClosers,
+  createDistrictResultModalClosers,
+  hasActiveDistrictPopupModal,
+  hideDistrictPopupModal,
+  hideDistrictPopupModalStack,
+  showDistrictPopupModal
+} from "./ui/districtPopupModalHelpers.js";
 import {
   collectMounts as collectMountsUi,
   createPageContext as createPageContextUi,
@@ -6296,6 +6301,7 @@ function bindDistrictCanvas(root) {
       hoverCanvas: MAP_HOVER_CANVAS_CLASS
     }
   });
+  const districtPopupElements = getDistrictPopupElements(root);
   const {
     canvas,
     phaseHost,
@@ -6312,161 +6318,47 @@ function bindDistrictCanvas(root) {
     interactionOverlay,
     hoverCanvas
   } = mapShell;
-  const popup = root.querySelector(DISTRICT_POPUP_SELECTOR);
-  const popupCard = root.querySelector(DISTRICT_POPUP_CARD_SELECTOR);
-  const popupTitle = root.querySelector(DISTRICT_POPUP_TITLE_SELECTOR);
-  const popupType = root.querySelector(DISTRICT_POPUP_TYPE_SELECTOR);
-  const popupOwner = root.querySelector(DISTRICT_POPUP_OWNER_SELECTOR);
-  const popupOwnerMeta = root.querySelector(DISTRICT_POPUP_OWNER_META_SELECTOR);
-  const popupOwnerAvatar = root.querySelector(DISTRICT_POPUP_OWNER_AVATAR_SELECTOR);
-  const popupOwnerAvatarFallback = root.querySelector(DISTRICT_POPUP_OWNER_AVATAR_FALLBACK_SELECTOR);
-  const popupDefense = root.querySelector(DISTRICT_POPUP_DEFENSE_SELECTOR);
-  const popupDefensePower = root.querySelector(DISTRICT_POPUP_DEFENSE_POWER_SELECTOR);
-  const popupResidents = root.querySelector(DISTRICT_POPUP_RESIDENTS_SELECTOR);
-  const popupIncome = root.querySelector(DISTRICT_POPUP_INCOME_SELECTOR);
-  const popupHeat = root.querySelector(DISTRICT_POPUP_HEAT_SELECTOR);
-  const popupInfluence = root.querySelector(DISTRICT_POPUP_INFLUENCE_SELECTOR);
-  const popupFlags = root.querySelector(DISTRICT_POPUP_FLAGS_SELECTOR);
-  const popupToggle = root.querySelector(DISTRICT_POPUP_TOGGLE_SELECTOR);
-  const popupAtmosphereHero = root.querySelector("[data-district-popup-atmosphere]");
-  const popupAtmosphereImage = root.querySelector(DISTRICT_POPUP_ATMOSPHERE_IMAGE_SELECTOR);
-  const popupAtmosphereLabel = root.querySelector(DISTRICT_POPUP_ATMOSPHERE_LABEL_SELECTOR);
-  const popupAtmosphereMood = root.querySelector(DISTRICT_POPUP_ATMOSPHERE_MOOD_SELECTOR);
-  const popupAtmosphereWindow = root.querySelector("[data-district-atmosphere-window]");
-  const popupAtmosphereWindowImage = root.querySelector("[data-district-atmosphere-window-image]");
-  const popupAtmosphereWindowLabel = root.querySelector("[data-district-atmosphere-window-label]");
-  const popupAtmosphereWindowMood = root.querySelector("[data-district-atmosphere-window-mood]");
-  const popupAtmosphereWindowClose = root.querySelector("[data-district-atmosphere-close]");
-  const popupBuildings = root.querySelector(DISTRICT_POPUP_BUILDINGS_SELECTOR);
-  const popupBuildingsMeta = root.querySelector(DISTRICT_POPUP_BUILDINGS_META_SELECTOR);
-  const popupBuildingsList = root.querySelector(DISTRICT_POPUP_BUILDINGS_LIST_SELECTOR);
-  const popupGossip = root.querySelector(DISTRICT_POPUP_GOSSIP_SELECTOR);
-  const popupGossipList = root.querySelector(DISTRICT_POPUP_GOSSIP_LIST_SELECTOR);
-  const districtActionSectionHead = root.querySelector(".district-popup-action-section__head");
-  const districtActionSection = root.querySelector(DISTRICT_ACTION_SECTION_SELECTOR);
-  const districtActionsMount = root.querySelector(DISTRICT_ACTIONS_SELECTOR);
-  const popupCloseElements = Array.from(root.querySelectorAll(DISTRICT_POPUP_CLOSE_SELECTOR));
-  const buildingsPopupOpenButton = root.querySelector(BUILDINGS_POPUP_OPEN_SELECTOR);
-  const buildingsPopup = root.querySelector(BUILDINGS_POPUP_SELECTOR);
-  const buildingsPopupTypeMount = root.querySelector(BUILDINGS_POPUP_TYPES_SELECTOR);
-  const buildingsPopupDetailMount = root.querySelector(BUILDINGS_POPUP_DETAIL_SELECTOR);
-  const buildingsPopupCloseElements = Array.from(root.querySelectorAll(BUILDINGS_POPUP_CLOSE_SELECTOR));
-  const attackSetupPopup = root.querySelector(ATTACK_SETUP_POPUP_SELECTOR);
-  const attackSetupCard = root.querySelector(ATTACK_SETUP_CARD_SELECTOR);
-  const attackSetupCloseElements = Array.from(root.querySelectorAll(ATTACK_SETUP_CLOSE_SELECTOR));
-  const attackSetupAtmosphereImage = root.querySelector(ATTACK_SETUP_ATMOSPHERE_IMAGE_SELECTOR);
-  const attackSetupAtmosphereLabel = root.querySelector(ATTACK_SETUP_ATMOSPHERE_LABEL_SELECTOR);
-  const attackTargetTitle = root.querySelector(ATTACK_TARGET_TITLE_SELECTOR);
-  const attackSourceSelect = root.querySelector(ATTACK_SOURCE_SELECT_SELECTOR);
-  const attackAvailablePopulation = root.querySelector(ATTACK_AVAILABLE_POPULATION_SELECTOR);
-  const attackRequiredPopulation = root.querySelector(ATTACK_REQUIRED_POPULATION_SELECTOR);
-  const attackEstimatedPower = root.querySelector(ATTACK_ESTIMATED_POWER_SELECTOR);
-  const attackStatus = root.querySelector(ATTACK_STATUS_SELECTOR);
-  const attackWeaponInputs = Array.from(root.querySelectorAll(ATTACK_WEAPON_INPUT_SELECTOR));
-  const attackOwnedElements = Array.from(root.querySelectorAll(ATTACK_OWNED_SELECTOR));
-  const attackConfirmButton = root.querySelector(ATTACK_CONFIRM_SELECTOR);
-  const attackConfirmPopup = root.querySelector(ATTACK_CONFIRM_POPUP_SELECTOR);
-  const attackConfirmCard = root.querySelector(ATTACK_CONFIRM_CARD_SELECTOR);
-  const attackConfirmCloseElements = Array.from(root.querySelectorAll(ATTACK_CONFIRM_CLOSE_SELECTOR));
-  const attackConfirmAtmosphereImage = root.querySelector(ATTACK_CONFIRM_ATMOSPHERE_IMAGE_SELECTOR);
-  const attackConfirmAtmosphereLabel = root.querySelector(ATTACK_CONFIRM_ATMOSPHERE_LABEL_SELECTOR);
-  const attackConfirmTitle = root.querySelector(ATTACK_CONFIRM_TITLE_SELECTOR);
-  const attackConfirmSource = root.querySelector(ATTACK_CONFIRM_SOURCE_SELECTOR);
-  const attackConfirmMembers = root.querySelector(ATTACK_CONFIRM_MEMBERS_SELECTOR);
-  const attackConfirmPower = root.querySelector(ATTACK_CONFIRM_POWER_SELECTOR);
-  const attackConfirmScenario = root.querySelector(ATTACK_CONFIRM_SCENARIO_SELECTOR);
-  const attackConfirmDuration = root.querySelector(ATTACK_CONFIRM_DURATION_SELECTOR);
-  const attackConfirmNote = root.querySelector(ATTACK_CONFIRM_NOTE_SELECTOR);
-  const attackConfirmFinalButton = root.querySelector(ATTACK_CONFIRM_BUTTON_SELECTOR);
-  const robberySetupPopup = root.querySelector(ROBBERY_SETUP_POPUP_SELECTOR);
-  const robberySetupCard = root.querySelector(ROBBERY_SETUP_CARD_SELECTOR);
-  const robberySetupCloseElements = Array.from(root.querySelectorAll(ROBBERY_SETUP_CLOSE_SELECTOR));
-  const robberySetupAtmosphereImage = root.querySelector(ROBBERY_SETUP_ATMOSPHERE_IMAGE_SELECTOR);
-  const robberySetupAtmosphereLabel = root.querySelector(ROBBERY_SETUP_ATMOSPHERE_LABEL_SELECTOR);
-  const robberyTargetTitle = root.querySelector(ROBBERY_TARGET_TITLE_SELECTOR);
-  const robberySourceSelect = root.querySelector(ROBBERY_SOURCE_SELECT_SELECTOR);
-  const robberyAvailableMembers = root.querySelector(ROBBERY_AVAILABLE_MEMBERS_SELECTOR);
-  const robberyMemberInput = root.querySelector(ROBBERY_MEMBER_INPUT_SELECTOR);
-  const robberyStatus = root.querySelector(ROBBERY_STATUS_SELECTOR);
-  const robberyConfirmButton = root.querySelector(ROBBERY_CONFIRM_SELECTOR);
-  const robberyConfirmPopup = root.querySelector(ROBBERY_CONFIRM_POPUP_SELECTOR);
-  const robberyConfirmCard = root.querySelector(ROBBERY_CONFIRM_CARD_SELECTOR);
-  const robberyConfirmCloseElements = Array.from(root.querySelectorAll(ROBBERY_CONFIRM_CLOSE_SELECTOR));
-  const robberyConfirmAtmosphereImage = root.querySelector(ROBBERY_CONFIRM_ATMOSPHERE_IMAGE_SELECTOR);
-  const robberyConfirmAtmosphereLabel = root.querySelector(ROBBERY_CONFIRM_ATMOSPHERE_LABEL_SELECTOR);
-  const robberyConfirmTitle = root.querySelector(ROBBERY_CONFIRM_TITLE_SELECTOR);
-  const robberyConfirmSource = root.querySelector(ROBBERY_CONFIRM_SOURCE_SELECTOR);
-  const robberyConfirmMembers = root.querySelector(ROBBERY_CONFIRM_MEMBERS_SELECTOR);
-  const robberyConfirmDuration = root.querySelector(ROBBERY_CONFIRM_DURATION_SELECTOR);
-  const robberyConfirmNote = root.querySelector(ROBBERY_CONFIRM_NOTE_SELECTOR);
-  const robberyConfirmFinalButton = root.querySelector(ROBBERY_CONFIRM_BUTTON_SELECTOR);
-  const defenseSetupPopup = root.querySelector(DEFENSE_SETUP_POPUP_SELECTOR);
-  const defenseSetupCard = root.querySelector(DEFENSE_SETUP_CARD_SELECTOR);
-  const defenseSetupCloseElements = Array.from(root.querySelectorAll(DEFENSE_SETUP_CLOSE_SELECTOR));
-  const defenseSetupAtmosphereImage = root.querySelector(DEFENSE_SETUP_ATMOSPHERE_IMAGE_SELECTOR);
-  const defenseSetupAtmosphereLabel = root.querySelector(DEFENSE_SETUP_ATMOSPHERE_LABEL_SELECTOR);
-  const defenseTargetTitle = root.querySelector(DEFENSE_TARGET_TITLE_SELECTOR);
-  const defenseStatus = root.querySelector(DEFENSE_STATUS_SELECTOR);
-  const defenseEstimatedPower = root.querySelector(DEFENSE_ESTIMATED_POWER_SELECTOR);
-  const defenseWeaponInputs = Array.from(root.querySelectorAll(DEFENSE_WEAPON_INPUT_SELECTOR));
-  const defenseOwnedElements = Array.from(root.querySelectorAll(DEFENSE_OWNED_SELECTOR));
-  const defenseResidentsInput = root.querySelector(DEFENSE_RESIDENTS_INPUT_SELECTOR);
-  const defenseConfirmButton = root.querySelector(DEFENSE_CONFIRM_SELECTOR);
-  const trapConfirmPopup = root.querySelector(TRAP_CONFIRM_POPUP_SELECTOR);
-  const trapConfirmCard = root.querySelector(TRAP_CONFIRM_CARD_SELECTOR);
-  const trapConfirmCloseElements = Array.from(root.querySelectorAll(TRAP_CONFIRM_CLOSE_SELECTOR));
-  const trapConfirmAtmosphereImage = root.querySelector(TRAP_CONFIRM_ATMOSPHERE_IMAGE_SELECTOR);
-  const trapConfirmAtmosphereLabel = root.querySelector(TRAP_CONFIRM_ATMOSPHERE_LABEL_SELECTOR);
-  const trapConfirmTitle = root.querySelector(TRAP_CONFIRM_TITLE_SELECTOR);
-  const trapConfirmCooldown = root.querySelector(TRAP_CONFIRM_COOLDOWN_SELECTOR);
-  const trapConfirmNote = root.querySelector(TRAP_CONFIRM_NOTE_SELECTOR);
-  const trapConfirmButton = root.querySelector(TRAP_CONFIRM_BUTTON_SELECTOR);
-  const spyConfirmPopup = root.querySelector(SPY_CONFIRM_POPUP_SELECTOR);
-  const spyConfirmCard = root.querySelector(SPY_CONFIRM_CARD_SELECTOR);
-  const spyConfirmCloseElements = Array.from(root.querySelectorAll(SPY_CONFIRM_CLOSE_SELECTOR));
-  const spyConfirmAtmosphereImage = root.querySelector(SPY_CONFIRM_ATMOSPHERE_IMAGE_SELECTOR);
-  const spyConfirmAtmosphereLabel = root.querySelector(SPY_CONFIRM_ATMOSPHERE_LABEL_SELECTOR);
-  const spyConfirmTitle = root.querySelector(SPY_CONFIRM_TITLE_SELECTOR);
-  const spyConfirmSource = root.querySelector(SPY_CONFIRM_SOURCE_SELECTOR);
-  const spyConfirmAvailable = root.querySelector(SPY_CONFIRM_AVAILABLE_SELECTOR);
-  const spyConfirmDuration = root.querySelector(SPY_CONFIRM_DURATION_SELECTOR);
-  const spyConfirmNote = root.querySelector(SPY_CONFIRM_NOTE_SELECTOR);
-  const spyConfirmButton = root.querySelector(SPY_CONFIRM_BUTTON_SELECTOR);
-  const occupyConfirmPopup = root.querySelector(OCCUPY_CONFIRM_POPUP_SELECTOR);
-  const occupyConfirmCard = root.querySelector(OCCUPY_CONFIRM_CARD_SELECTOR);
-  const occupyConfirmCloseElements = Array.from(root.querySelectorAll(OCCUPY_CONFIRM_CLOSE_SELECTOR));
-  const occupyConfirmAtmosphereImage = root.querySelector(OCCUPY_CONFIRM_ATMOSPHERE_IMAGE_SELECTOR);
-  const occupyConfirmAtmosphereLabel = root.querySelector(OCCUPY_CONFIRM_ATMOSPHERE_LABEL_SELECTOR);
-  const occupyConfirmTitle = root.querySelector(OCCUPY_CONFIRM_TITLE_SELECTOR);
-  const occupyConfirmSource = root.querySelector(OCCUPY_CONFIRM_SOURCE_SELECTOR);
-  const occupyConfirmCondition = root.querySelector(OCCUPY_CONFIRM_CONDITION_SELECTOR);
-  const occupyConfirmDuration = root.querySelector(OCCUPY_CONFIRM_DURATION_SELECTOR);
-  const occupyConfirmNote = root.querySelector(OCCUPY_CONFIRM_NOTE_SELECTOR);
-  const occupyConfirmButton = root.querySelector(OCCUPY_CONFIRM_BUTTON_SELECTOR);
-  const spyResultModal = root.querySelector(SPY_RESULT_MODAL_SELECTOR);
-  const spyResultModalBackdrop = root.querySelector(SPY_RESULT_MODAL_BACKDROP_SELECTOR);
-  const spyResultModalClose = root.querySelector(SPY_RESULT_MODAL_CLOSE_SELECTOR);
-  const spyResultModalOk = root.querySelector(SPY_RESULT_MODAL_OK_SELECTOR);
-  const spyWarningModal = root.querySelector(SPY_WARNING_MODAL_SELECTOR);
-  const spyWarningModalBackdrop = root.querySelector(SPY_WARNING_MODAL_BACKDROP_SELECTOR);
-  const spyWarningModalClose = root.querySelector(SPY_WARNING_MODAL_CLOSE_SELECTOR);
-  const spyWarningModalOk = root.querySelector(SPY_WARNING_MODAL_OK_SELECTOR);
-  const raidResultModal = root.querySelector(RAID_RESULT_MODAL_SELECTOR);
-  const raidResultModalBackdrop = root.querySelector(RAID_RESULT_MODAL_BACKDROP_SELECTOR);
-  const raidResultModalClose = root.querySelector(RAID_RESULT_MODAL_CLOSE_SELECTOR);
-  const raidResultModalOk = root.querySelector(RAID_RESULT_MODAL_OK_SELECTOR);
-  const attackResultModal = root.querySelector(ATTACK_RESULT_MODAL_SELECTOR);
-  const attackResultModalBackdrop = root.querySelector(ATTACK_RESULT_MODAL_BACKDROP_SELECTOR);
-  const attackResultModalClose = root.querySelector(ATTACK_RESULT_MODAL_CLOSE_SELECTOR);
-  const attackResultModalOk = root.querySelector(ATTACK_RESULT_MODAL_OK_SELECTOR);
-  const policeActionResultModal = root.querySelector(POLICE_ACTION_RESULT_MODAL_SELECTOR);
-  const policeActionResultModalBackdrop = root.querySelector(POLICE_ACTION_RESULT_MODAL_BACKDROP_SELECTOR);
-  const policeActionResultModalClose = root.querySelector(POLICE_ACTION_RESULT_MODAL_CLOSE_SELECTOR);
-  const policeActionResultModalOk = root.querySelector(POLICE_ACTION_RESULT_MODAL_OK_SELECTOR);
-  const buildingActionState = root.querySelector(BUILDING_ACTION_STATE_SELECTOR);
-  const buildingActionSummary = root.querySelector(BUILDING_ACTION_SUMMARY_SELECTOR);
-  const buildingActionMeta = root.querySelector(BUILDING_ACTION_META_SELECTOR);
-  const gangMembersValue = root.querySelector(GANG_MEMBERS_SELECTOR);
+  const {
+    popup, popupCard, popupTitle, popupType, popupOwner, popupOwnerMeta,
+    popupOwnerAvatar, popupOwnerAvatarFallback, popupDefense, popupDefensePower,
+    popupResidents, popupIncome, popupHeat, popupInfluence, popupFlags, popupToggle,
+    popupAtmosphereHero, popupAtmosphereImage, popupAtmosphereLabel, popupAtmosphereMood,
+    popupAtmosphereWindow, popupAtmosphereWindowImage, popupAtmosphereWindowLabel,
+    popupAtmosphereWindowMood, popupAtmosphereWindowClose, popupBuildings, popupBuildingsMeta,
+    popupBuildingsList, popupGossip, popupGossipList, districtActionSectionHead,
+    districtActionSection, districtActionsMount, popupCloseElements, buildingsPopupOpenButton,
+    buildingsPopup, buildingsPopupTypeMount, buildingsPopupDetailMount, buildingsPopupCloseElements,
+    attackSetupPopup, attackSetupCard, attackSetupCloseElements, attackSetupAtmosphereImage,
+    attackSetupAtmosphereLabel, attackTargetTitle, attackSourceSelect, attackAvailablePopulation,
+    attackRequiredPopulation, attackEstimatedPower, attackStatus, attackWeaponInputs,
+    attackOwnedElements, attackConfirmButton, attackConfirmPopup, attackConfirmCard,
+    attackConfirmCloseElements, attackConfirmAtmosphereImage, attackConfirmAtmosphereLabel,
+    attackConfirmTitle, attackConfirmSource, attackConfirmMembers, attackConfirmPower,
+    attackConfirmScenario, attackConfirmDuration, attackConfirmNote, attackConfirmFinalButton,
+    robberySetupPopup, robberySetupCard, robberySetupCloseElements, robberySetupAtmosphereImage,
+    robberySetupAtmosphereLabel, robberyTargetTitle, robberySourceSelect, robberyAvailableMembers,
+    robberyMemberInput, robberyStatus, robberyConfirmButton, robberyConfirmPopup, robberyConfirmCard,
+    robberyConfirmCloseElements, robberyConfirmAtmosphereImage, robberyConfirmAtmosphereLabel,
+    robberyConfirmTitle, robberyConfirmSource, robberyConfirmMembers, robberyConfirmDuration,
+    robberyConfirmNote, robberyConfirmFinalButton, defenseSetupPopup, defenseSetupCard,
+    defenseSetupCloseElements, defenseSetupAtmosphereImage, defenseSetupAtmosphereLabel,
+    defenseTargetTitle, defenseStatus, defenseEstimatedPower, defenseWeaponInputs,
+    defenseOwnedElements, defenseResidentsInput, defenseConfirmButton, trapConfirmPopup,
+    trapConfirmCard, trapConfirmCloseElements, trapConfirmAtmosphereImage, trapConfirmAtmosphereLabel,
+    trapConfirmTitle, trapConfirmCooldown, trapConfirmNote, trapConfirmButton, spyConfirmPopup,
+    spyConfirmCard, spyConfirmCloseElements, spyConfirmAtmosphereImage, spyConfirmAtmosphereLabel,
+    spyConfirmTitle, spyConfirmSource, spyConfirmAvailable, spyConfirmDuration, spyConfirmNote,
+    spyConfirmButton, occupyConfirmPopup, occupyConfirmCard, occupyConfirmCloseElements,
+    occupyConfirmAtmosphereImage, occupyConfirmAtmosphereLabel, occupyConfirmTitle,
+    occupyConfirmSource, occupyConfirmCondition, occupyConfirmDuration, occupyConfirmNote,
+    occupyConfirmButton, spyResultModal, spyResultModalBackdrop, spyResultModalClose,
+    spyResultModalOk, spyWarningModal, spyWarningModalBackdrop, spyWarningModalClose,
+    spyWarningModalOk, raidResultModal, raidResultModalBackdrop, raidResultModalClose,
+    raidResultModalOk, attackResultModal, attackResultModalBackdrop, attackResultModalClose,
+    attackResultModalOk, policeActionResultModal, policeActionResultModalBackdrop,
+    policeActionResultModalClose, policeActionResultModalOk, buildingActionState,
+    buildingActionSummary, buildingActionMeta, gangMembersValue
+  } = districtPopupElements;
 
   if (!mapShell.canRender) {
     return;
@@ -6559,17 +6451,7 @@ function bindDistrictCanvas(root) {
     lastTooltipDistrictId = null;
   };
 
-  const hasActiveDistrictModal = () => [
-    popup,
-    attackSetupPopup,
-    attackConfirmPopup,
-    robberySetupPopup,
-    robberyConfirmPopup,
-    defenseSetupPopup,
-    trapConfirmPopup,
-    spyConfirmPopup,
-    occupyConfirmPopup
-  ].some((element) => element && !element.hidden);
+  const hasActiveDistrictModal = () => hasActiveDistrictPopupModal(districtPopupElements);
 
   const syncMapInteractionVisualState = (options = {}) => {
     const focusedDistrict = options.focusedDistrict ?? (
@@ -6601,22 +6483,7 @@ function bindDistrictCanvas(root) {
       popupRefreshTimerId = null;
     }
 
-    if (popupAtmosphereHero instanceof HTMLElement) {
-      popupAtmosphereHero.setAttribute("aria-expanded", "false");
-    }
-
-    hideElements([
-      popup,
-      popupAtmosphereWindow instanceof HTMLElement ? popupAtmosphereWindow : null,
-      attackSetupPopup,
-      attackConfirmPopup,
-      robberySetupPopup,
-      robberyConfirmPopup,
-      defenseSetupPopup,
-      trapConfirmPopup,
-      spyConfirmPopup,
-      occupyConfirmPopup
-    ]);
+    hideDistrictPopupModalStack(districtPopupElements);
 
     syncMapInteractionVisualState({
       hoveredDistrict: geometry?.districts?.find((district) => district.id === interactionState.hoveredDistrictId) || null,
@@ -6635,28 +6502,16 @@ function bindDistrictCanvas(root) {
     closeAttackPanel({ popup: attackConfirmPopup });
   };
 
-  const closeRobberySetupPopup = () => {
-    hideElement(robberySetupPopup);
-  };
-
-  const closeRobberyConfirmPopup = () => {
-    hideElement(robberyConfirmPopup);
-  };
-
-  const closeDefenseSetupPopup = () => {
-    hideElement(defenseSetupPopup);
-  };
-
-  const closeTrapConfirmPopup = () => {
-    hideElement(trapConfirmPopup);
-  };
+  const {
+    closeRobberySetupPopup,
+    closeRobberyConfirmPopup,
+    closeDefenseSetupPopup,
+    closeTrapConfirmPopup,
+    closeOccupyConfirmPopup
+  } = createDistrictPopupModalClosers(districtPopupElements);
 
   const closeSpyConfirmPopup = () => {
     closeSpyPanel({ popup: spyConfirmPopup });
-  };
-
-  const closeOccupyConfirmPopup = () => {
-    hideElement(occupyConfirmPopup);
   };
 
   const getSelectedDistrict = () => (
@@ -6728,7 +6583,7 @@ function bindDistrictCanvas(root) {
 
     if (!popupTarget) {
       if (popup) {
-        popup.hidden = true;
+        hideDistrictPopupModal(popup);
       }
       openGenericDistrictBuildingDetail(root, safeDistrict, buildingLabel, options.displayName || buildingLabel);
       return true;
@@ -6748,7 +6603,7 @@ function bindDistrictCanvas(root) {
 
     openButton.click();
     if (popup) {
-      popup.hidden = true;
+      hideDistrictPopupModal(popup);
     }
     return true;
   };
@@ -7414,9 +7269,10 @@ function bindDistrictCanvas(root) {
           : `Zobrazit větší fotku atmosféry: ${atmosphereMeta.label}`
       );
     }
-    if (popupAtmosphereWindow instanceof HTMLElement) {
-      popupAtmosphereWindow.hidden = true;
-    }
+    closeDistrictAtmosphereWindow({
+      trigger: popupAtmosphereHero,
+      windowElement: popupAtmosphereWindow
+    });
     if (popupAtmosphereWindowImage instanceof HTMLImageElement) {
       popupAtmosphereWindowImage.src = atmosphereMeta.typeKey === "unknown" ? "" : atmosphereMeta.imagePath;
       popupAtmosphereWindowImage.alt = `${atmosphereMeta.label || "District"} – fotka atmosféry`;
@@ -7476,7 +7332,7 @@ function bindDistrictCanvas(root) {
       }
     });
 
-    popup.hidden = false;
+    showDistrictPopupModal(popup);
     document.dispatchEvent(new CustomEvent("empire:district-opened", {
       detail: {
         district,
@@ -8077,36 +7933,11 @@ function bindDistrictCanvas(root) {
     closeElement.addEventListener("click", closePopup);
   }
 
-  if (popupAtmosphereHero instanceof HTMLElement) {
-    const openDistrictAtmosphereWindow = () => {
-      const isLocked = popupAtmosphereHero.dataset.atmosphereState === "locked";
-      if (isLocked || !(popupAtmosphereWindow instanceof HTMLElement)) {
-        return;
-      }
-
-      popupAtmosphereWindow.hidden = false;
-      popupAtmosphereHero.setAttribute("aria-expanded", "true");
-    };
-
-    popupAtmosphereHero.addEventListener("click", openDistrictAtmosphereWindow);
-    popupAtmosphereHero.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") {
-        return;
-      }
-
-      event.preventDefault();
-      openDistrictAtmosphereWindow();
-    });
-  }
-
-  if (popupAtmosphereWindowClose instanceof HTMLElement) {
-    popupAtmosphereWindowClose.addEventListener("click", () => {
-      if (popupAtmosphereWindow instanceof HTMLElement) {
-        popupAtmosphereWindow.hidden = true;
-      }
-      popupAtmosphereHero?.setAttribute?.("aria-expanded", "false");
-    });
-  }
+  bindDistrictAtmosphereWindowControls({
+    trigger: popupAtmosphereHero,
+    windowElement: popupAtmosphereWindow,
+    closeButton: popupAtmosphereWindowClose
+  });
 
   if (popupBuildingsList) {
     popupBuildingsList.addEventListener("click", (event) => {
@@ -8134,10 +7965,6 @@ function bindDistrictCanvas(root) {
 
   if (buildingsPopupOpenButton instanceof HTMLButtonElement) {
     buildingsPopupOpenButton.addEventListener("click", openBuildingsPopup);
-  }
-
-  for (const closeElement of buildingsPopupCloseElements) {
-    closeElement.addEventListener("click", closeBuildingsPopup);
   }
 
   if (buildingsPopupTypeMount) {
@@ -8269,7 +8096,7 @@ function bindDistrictCanvas(root) {
         populateDefenseSetupPopup(selectedDistrict);
 
         if (defenseSetupPopup) {
-          defenseSetupPopup.hidden = false;
+          showDistrictPopupModal(defenseSetupPopup);
         }
         return;
       }
@@ -8303,7 +8130,7 @@ function bindDistrictCanvas(root) {
         populateTrapConfirmPopup(selectedDistrict);
 
         if (trapConfirmPopup) {
-          trapConfirmPopup.hidden = false;
+          showDistrictPopupModal(trapConfirmPopup);
         }
         return;
       }
@@ -8312,7 +8139,7 @@ function bindDistrictCanvas(root) {
         populateOccupyConfirmPopup(selectedDistrict);
 
         if (occupyConfirmPopup) {
-          occupyConfirmPopup.hidden = false;
+          showDistrictPopupModal(occupyConfirmPopup);
         }
         return;
       }
@@ -8340,7 +8167,7 @@ function bindDistrictCanvas(root) {
         }
         populateRobberySetupPopup(selectedDistrict);
         if (robberySetupPopup) {
-          robberySetupPopup.hidden = false;
+          showDistrictPopupModal(robberySetupPopup);
         }
         return;
       }
@@ -8446,14 +8273,6 @@ function bindDistrictCanvas(root) {
     });
   }
 
-  for (const closeElement of robberySetupCloseElements) {
-    closeElement.addEventListener("click", closeRobberySetupPopup);
-  }
-
-  for (const closeElement of robberyConfirmCloseElements) {
-    closeElement.addEventListener("click", closeRobberyConfirmPopup);
-  }
-
   if (defenseResidentsInput instanceof HTMLInputElement) {
     defenseResidentsInput.addEventListener("input", () => {
       defenseResidentsInput.value = String(Math.max(0, Number.parseInt(defenseResidentsInput.value || "0", 10) || 0));
@@ -8467,41 +8286,25 @@ function bindDistrictCanvas(root) {
     });
   }
 
-  for (const closeElement of defenseSetupCloseElements) {
-    closeElement.addEventListener("click", closeDefenseSetupPopup);
-  }
+  const districtModalCloseHandlers = {
+    closePopup, closeBuildingsPopup, closeAttackSetupPopup, closeAttackConfirmPopup,
+    closeRobberySetupPopup, closeRobberyConfirmPopup, closeDefenseSetupPopup,
+    closeTrapConfirmPopup, closeSpyConfirmPopup,
+    closeOccupyConfirmPopup
+  };
 
-  for (const closeElement of trapConfirmCloseElements) {
-    closeElement.addEventListener("click", closeTrapConfirmPopup);
-  }
+  const resultModalClosers = createDistrictResultModalClosers({
+    root,
+    closeResultModal,
+    closePoliceActionResultModal
+  });
 
-  for (const closeElement of spyConfirmCloseElements) {
-    closeElement.addEventListener("click", closeSpyConfirmPopup);
-  }
-
-  for (const closeElement of occupyConfirmCloseElements) {
-    closeElement.addEventListener("click", closeOccupyConfirmPopup);
-  }
-
-  spyResultModalBackdrop?.addEventListener("click", () => closeResultModal(root, SPY_RESULT_MODAL_SELECTOR));
-  spyResultModalClose?.addEventListener("click", () => closeResultModal(root, SPY_RESULT_MODAL_SELECTOR));
-  spyResultModalOk?.addEventListener("click", () => closeResultModal(root, SPY_RESULT_MODAL_SELECTOR));
-
-  spyWarningModalBackdrop?.addEventListener("click", () => closeResultModal(root, SPY_WARNING_MODAL_SELECTOR));
-  spyWarningModalClose?.addEventListener("click", () => closeResultModal(root, SPY_WARNING_MODAL_SELECTOR));
-  spyWarningModalOk?.addEventListener("click", () => closeResultModal(root, SPY_WARNING_MODAL_SELECTOR));
-
-  raidResultModalBackdrop?.addEventListener("click", () => closeResultModal(root, RAID_RESULT_MODAL_SELECTOR));
-  raidResultModalClose?.addEventListener("click", () => closeResultModal(root, RAID_RESULT_MODAL_SELECTOR));
-  raidResultModalOk?.addEventListener("click", () => closeResultModal(root, RAID_RESULT_MODAL_SELECTOR));
-
-  attackResultModalBackdrop?.addEventListener("click", () => closeResultModal(root, ATTACK_RESULT_MODAL_SELECTOR));
-  attackResultModalClose?.addEventListener("click", () => closeResultModal(root, ATTACK_RESULT_MODAL_SELECTOR));
-  attackResultModalOk?.addEventListener("click", () => closeResultModal(root, ATTACK_RESULT_MODAL_SELECTOR));
-
-  policeActionResultModalBackdrop?.addEventListener("click", () => closePoliceActionResultModal(root));
-  policeActionResultModalClose?.addEventListener("click", () => closePoliceActionResultModal(root));
-  policeActionResultModalOk?.addEventListener("click", () => closePoliceActionResultModal(root));
+  bindDistrictPopupPresentationControls({
+    documentRef: document,
+    elements: districtPopupElements,
+    closeHandlers: districtModalCloseHandlers,
+    resultHandlers: resultModalClosers
+  });
 
   if (attackConfirmButton) {
     attackConfirmButton.addEventListener("click", () => {
@@ -8547,7 +8350,7 @@ function bindDistrictCanvas(root) {
       populateRobberyConfirmPopup(selectedDistrict);
 
       if (robberyConfirmPopup) {
-        robberyConfirmPopup.hidden = false;
+        showDistrictPopupModal(robberyConfirmPopup);
       }
     });
   }
@@ -8608,24 +8411,6 @@ function bindDistrictCanvas(root) {
       applyOccupyAction(selectedDistrict);
     });
   }
-
-  bindEscapeKeyHandlers(document, [
-    { element: popup, isOpen: isElementVisible, close: closePopup },
-    { element: buildingsPopup, isOpen: isElementVisible, close: closeBuildingsPopup },
-    { element: attackSetupPopup, isOpen: isElementVisible, close: closeAttackSetupPopup },
-    { element: attackConfirmPopup, isOpen: isElementVisible, close: closeAttackConfirmPopup },
-    { element: robberySetupPopup, isOpen: isElementVisible, close: closeRobberySetupPopup },
-    { element: robberyConfirmPopup, isOpen: isElementVisible, close: closeRobberyConfirmPopup },
-    { element: defenseSetupPopup, isOpen: isElementVisible, close: closeDefenseSetupPopup },
-    { element: trapConfirmPopup, isOpen: isElementVisible, close: closeTrapConfirmPopup },
-    { element: spyConfirmPopup, isOpen: isElementVisible, close: closeSpyConfirmPopup },
-    { element: occupyConfirmPopup, isOpen: isElementVisible, close: closeOccupyConfirmPopup },
-    { element: spyResultModal, isOpen: isClassModalVisible, close: () => closeResultModal(root, SPY_RESULT_MODAL_SELECTOR) },
-    { element: spyWarningModal, isOpen: isClassModalVisible, close: () => closeResultModal(root, SPY_WARNING_MODAL_SELECTOR) },
-    { element: raidResultModal, isOpen: isClassModalVisible, close: () => closeResultModal(root, RAID_RESULT_MODAL_SELECTOR) },
-    { element: attackResultModal, isOpen: isClassModalVisible, close: () => closeResultModal(root, ATTACK_RESULT_MODAL_SELECTOR) },
-    { element: policeActionResultModal, isOpen: isClassModalVisible, close: () => closePoliceActionResultModal(root) }
-  ]);
 
   Promise.all([
     loadImage(DAY_MAP_IMAGE_PATH),
