@@ -49,5 +49,16 @@ describe("district popup modal helpers", () => {
     expect(innerClick.stopPropagation).toHaveBeenCalledTimes(1);
     expect(windowElement.hidden).toBe(false);
     expect(trigger.attrs.get("aria-expanded")).toBe("true");
+
+    const closeClick = {
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn()
+    };
+    closeButton.dispatch("click", closeClick);
+
+    expect(closeClick.preventDefault).toHaveBeenCalledTimes(1);
+    expect(closeClick.stopPropagation).toHaveBeenCalledTimes(1);
+    expect(windowElement.hidden).toBe(true);
+    expect(trigger.attrs.get("aria-expanded")).toBe("false");
   });
 });
