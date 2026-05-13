@@ -7159,6 +7159,13 @@ function bindDistrictCanvas(root) {
       .some((order) => Number(String(order.targetDistrictId || "").replace("district:", "")) === Number(district.id));
     const isUnoccupied = getDistrictOwnerLabel(district, interactionState) === "Neobsazeno";
     const atmosphereMeta = getDistrictAtmosphereMeta(district, interactionState);
+    const previousAtmosphereDistrictId = Number(popupAtmosphereWindow?.dataset?.districtId || NaN);
+    const shouldKeepAtmosphereWindowOpen = Boolean(
+      popupAtmosphereWindow
+      && popupAtmosphereWindow.hidden === false
+      && previousAtmosphereDistrictId === Number(district.id)
+      && atmosphereMeta.typeKey !== "unknown"
+    );
     const ownerLabel = getDistrictOwnerLabel(district, interactionState);
     const isOwnedByCurrentPlayer = currentPlayerOwnedDistrictIds.has(district.id);
     const isDestroyed = interactionState.destroyedDistrictIds.has(Number(district.id));
@@ -7193,7 +7200,7 @@ function bindDistrictCanvas(root) {
       atmosphereMeta
     });
     if (popupAtmosphereHero instanceof HTMLElement) {
-      popupAtmosphereHero.setAttribute("aria-expanded", "false");
+      popupAtmosphereHero.setAttribute("aria-expanded", shouldKeepAtmosphereWindowOpen ? "true" : "false");
       popupAtmosphereHero.dataset.atmosphereState = atmosphereMeta.typeKey === "unknown" ? "locked" : "revealed";
       popupAtmosphereHero.setAttribute(
         "aria-label",
@@ -7202,10 +7209,15 @@ function bindDistrictCanvas(root) {
           : `Zobrazit větší fotku atmosféry: ${atmosphereMeta.label}`
       );
     }
-    closeDistrictAtmosphereWindow({
-      trigger: popupAtmosphereHero,
-      windowElement: popupAtmosphereWindow
-    });
+    if (popupAtmosphereWindow instanceof HTMLElement) {
+      popupAtmosphereWindow.dataset.districtId = String(district.id);
+    }
+    if (!shouldKeepAtmosphereWindowOpen) {
+      closeDistrictAtmosphereWindow({
+        trigger: popupAtmosphereHero,
+        windowElement: popupAtmosphereWindow
+      });
+    }
     if (popupAtmosphereWindowImage instanceof HTMLImageElement) {
       popupAtmosphereWindowImage.src = atmosphereMeta.typeKey === "unknown" ? "" : atmosphereMeta.imagePath;
       popupAtmosphereWindowImage.alt = `${atmosphereMeta.label || "District"} – fotka atmosféry`;

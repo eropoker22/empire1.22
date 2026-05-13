@@ -112,6 +112,14 @@ export function bindDistrictAtmosphereWindowControls(options = {}) {
 
   trigger.addEventListener("click", openWindow);
   boundCount += 1;
+
+  if (windowElement && typeof windowElement.addEventListener === "function") {
+    windowElement.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+    boundCount += 1;
+  }
+
   trigger.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" && event.key !== " ") {
       return;
@@ -123,10 +131,14 @@ export function bindDistrictAtmosphereWindowControls(options = {}) {
   boundCount += 1;
 
   if (closeButton && typeof closeButton.addEventListener === "function") {
-    closeButton.addEventListener("click", () => closeDistrictAtmosphereWindow({
-      trigger,
-      windowElement
-    }));
+    closeButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      closeDistrictAtmosphereWindow({
+        trigger,
+        windowElement
+      });
+    });
     boundCount += 1;
   }
 
