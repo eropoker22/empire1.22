@@ -249,6 +249,8 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
   body.game-modal-scroll-locked .game-topbar {
     display: block !important;
     visibility: visible !important;
+    z-index: 30 !important;
+    pointer-events: none !important;
   }
 
   .district-popup-shell {
@@ -870,6 +872,19 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
   .druglab-popup-card.building-detail-modal__content .modal__close,
   .factory-popup-card.building-detail-modal__content .modal__close {
     top: 8px !important;
+    font-size: 0.84rem !important;
+  }
+
+  .armory-popup-card.building-detail-modal__content .modal__close::before,
+  .armory-popup-card.building-detail-modal__content .modal__close::after,
+  .pharmacy-popup-card.building-detail-modal__content .modal__close::before,
+  .pharmacy-popup-card.building-detail-modal__content .modal__close::after,
+  .druglab-popup-card.building-detail-modal__content .modal__close::before,
+  .druglab-popup-card.building-detail-modal__content .modal__close::after,
+  .factory-popup-card.building-detail-modal__content .modal__close::before,
+  .factory-popup-card.building-detail-modal__content .modal__close::after {
+    content: none !important;
+    display: none !important;
   }
 
   .building-detail-header-level {
@@ -2684,10 +2699,13 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
   html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header > button#buildings-modal-close.modal__close::before,
   html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .modal__close::before {
     inset: 4px !important;
+    display: block !important;
+    background:
+      linear-gradient(45deg, transparent 43%, currentColor 46%, currentColor 54%, transparent 57%),
+      linear-gradient(-45deg, transparent 43%, currentColor 46%, currentColor 54%, transparent 57%) !important;
     color: rgb(var(--mobile-building-scroll-rgb)) !important;
-    font-size: 13px !important;
-    font-weight: 700 !important;
-    text-shadow: 0 0 9px rgba(var(--mobile-building-scroll-rgb), 0.72) !important;
+    transform: none !important;
+    filter: drop-shadow(0 0 6px rgba(var(--mobile-building-scroll-rgb), 0.72)) !important;
   }
 }
 
