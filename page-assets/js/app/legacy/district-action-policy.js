@@ -12,12 +12,16 @@ export const DISTRICT_ACTION_CATALOG = Object.freeze([
     defaultLabel: "Zaútočit"
   }),
   Object.freeze({
+    id: "heist",
+    defaultLabel: "Vykrást hráče"
+  }),
+  Object.freeze({
     id: "occupy",
     defaultLabel: "Obsadit"
   }),
   Object.freeze({
     id: "rob",
-    defaultLabel: "Vykrást"
+    defaultLabel: "Vykrást district"
   }),
   Object.freeze({
     id: "spy",
@@ -116,6 +120,24 @@ export function resolveDistrictActions(context) {
       };
     }
 
+    if (action.id === "heist") {
+      const visible = !isOwnedByCurrentPlayer && !isUnoccupied && hasAdjacentOwnedDistrict;
+
+      return {
+        id: action.id,
+        visible,
+        enabled: visible,
+        label: action.defaultLabel,
+        reason: visible
+          ? null
+          : isOwnedByCurrentPlayer
+            ? `Vykrást hráče nejde spustit na vlastním districtu ${districtId}.`
+            : isUnoccupied
+              ? "Vykrást hráče cílí jen na district vlastněný jiným hráčem."
+              : "Vykrást hráče vyžaduje sousední vlastněný district."
+      };
+    }
+
     if (action.id === "occupy") {
       const visible = !isOwnedByCurrentPlayer && canOccupyAfterSpy && hasAdjacentOwnedDistrict;
 
@@ -136,7 +158,7 @@ export function resolveDistrictActions(context) {
         visible,
         enabled: visible,
         label: action.defaultLabel,
-        reason: visible ? null : "Vykrást lze jen prázdný sousední district."
+        reason: visible ? null : "Vykrást district lze jen na prázdný sousední district."
       };
     }
 

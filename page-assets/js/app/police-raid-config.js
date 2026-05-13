@@ -9,23 +9,23 @@ const TIER_EFFECTS = Object.freeze({
   }),
   2: Object.freeze({
     incomePct: range(20), cleanPct: range(2, 7), dirtyPct: range(16, 20), drugPct: range(5), membersPct: range(3, 7),
-    attackWeaponPct: range(3), influencePct: range(6, 8), actionBan: "špehování + vykrást", production: "Lékárna -10 %, Lab -10 %"
+    attackWeaponPct: range(3), influencePct: range(6, 8), actionBan: "špehování + Vykrást district", production: "Lékárna -10 %, Lab -10 %"
   }),
   3: Object.freeze({
     incomePct: range(21, 26), cleanPct: range(2, 7), dirtyPct: range(16, 20), drugPct: range(6, 9), membersPct: range(7, 12),
-    attackWeaponPct: range(3, 8), defenseWeaponPct: range(3, 8), influencePct: range(8, 12), actionBan: "špehování, vykrást, útok",
+    attackWeaponPct: range(3, 8), defenseWeaponPct: range(3, 8), influencePct: range(8, 12), actionBan: "špehování, Vykrást district, útok",
     production: "Lékárna + Lab -11 až -13 %, Zbrojovka -8 až -13 %"
   }),
   4: Object.freeze({
     incomePct: range(26, 33), cleanPct: range(7, 12), dirtyPct: range(18, 23), drugPct: range(10, 15), membersPct: range(11, 17),
     attackWeaponPct: range(11), defenseWeaponPct: range(11), attackPowerPct: range(8), defensePowerPct: range(10), influencePct: range(11, 14),
-    actionBan: "špehování, vykrást, útok, obsadit + Lékárna/Továrna speciální akce",
+    actionBan: "špehování, Vykrást district, útok, obsadit + Lékárna/Továrna speciální akce",
     production: "Lékárna + Lab -13 až -15 %, Zbrojovka -12 až -16 %"
   }),
   5: Object.freeze({
     incomePct: range(32, 40), cleanPct: range(14, 18), dirtyPct: range(23, 28), materialPct: range(30), drugPct: range(15, 17),
     membersPct: range(18, 23), attackWeaponPct: range(13), defenseWeaponPct: range(14), attackPowerPct: range(15), defensePowerPct: range(15),
-    influencePct: range(14, 17), actionBan: "špehování, vykrást, útok, obsadit + speciální akce budov",
+    influencePct: range(14, 17), actionBan: "špehování, Vykrást district, útok, obsadit + speciální akce budov",
     production: "silně omezená výroba po dobu razie"
   }),
   6: Object.freeze({

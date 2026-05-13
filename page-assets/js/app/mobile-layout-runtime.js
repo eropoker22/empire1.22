@@ -77,6 +77,7 @@ function initMobileViewportLock(windowObj = window, documentObj = document) {
 function initMobileTopbarState(windowObj = window, documentObj = document) {
   const media = windowObj.matchMedia(MOBILE_MEDIA);
   const topbar = documentObj.getElementById("game-header");
+  const root = documentObj.documentElement;
   if (!topbar) return;
 
   let ticking = false;

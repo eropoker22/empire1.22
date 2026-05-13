@@ -154,9 +154,12 @@ describe("result payload builders", () => {
     });
 
     expect(withLoot.raidTone).toBe("is-clean-success");
+    expect(withLoot.raidResultPayload.title).toBe("VYKRÁST DISTRICT: ČISTÝ LOOT");
+    expect(withLoot.raidResultPayload.summary).toContain("Území se neobsazuje");
+    expect(withLoot.raidResultPayload.rows).toContainEqual({ label: "Akce", value: "Vykrást district" });
     expect(withLoot.raidResultPayload.rows.some((row) => row.value === "Tech Core x1")).toBe(true);
     expect(withoutLoot.raidTone).toBe("is-disaster");
-    expect(withoutLoot.raidResultPayload.title).toBe("PRŮSER");
+    expect(withoutLoot.raidResultPayload.title).toBe("VYKRÁST DISTRICT: BEZ LOOTU");
   });
 
   it("creates spy result payloads for success and capture states", () => {
@@ -172,6 +175,12 @@ describe("result payload builders", () => {
       scenarioLabel: "Neúspěch",
       isUnownedDistrict: true
     });
+    const critical = builders.createSpyResultPayload({
+      mission: { targetDistrictId: 3 },
+      scenarioLabel: "Kritický neúspěch",
+      isUnownedDistrict: true,
+      heatGain: 7
+    });
 
     expect(success.summary).toBe("Occupied success");
     expect(success.rows.map((row) => row.label)).toContain("Odhad síly obrany");
@@ -179,5 +188,7 @@ describe("result payload builders", () => {
       { label: "Stav špeha", value: "Zajat" },
       { label: "Cooldown", value: "40000ms", nowrap: true }
     ]);
+    expect(critical.title).toBe("Špehování: Kritický neúspěch");
+    expect(critical.rows).toContainEqual({ label: "Heat", value: "+7" });
   });
 });

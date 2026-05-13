@@ -2719,3 +2719,43 @@
     width: auto;
   }
 }
+
+/* District action hub: only 3-action PvP sets sit in one row on wider screens. */
+.district-popup-actions:has(> .district-popup-action-row:nth-child(3):last-child) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.district-popup-action-row:has(.district-popup-action[data-district-action-id="attack"]) {
+  order: 1;
+}
+
+.district-popup-action-row:has(.district-popup-action[data-district-action-id="heist"]) {
+  order: 2;
+}
+
+.district-popup-action-row:has(.district-popup-action[data-district-action-id="spy"]) {
+  order: 3;
+}
+
+.district-popup-action-row:has(.district-popup-action[data-district-action-id="rob"]) {
+  order: 4;
+}
+
+.district-popup-action-row:has(.district-popup-action[data-district-action-id="occupy"]) {
+  order: 5;
+}
+
+.district-popup-action-row:has(.district-popup-action[data-district-action-id="defense"]) {
+  order: 6;
+}
+
+.district-popup-action-row:has(.district-popup-action[data-district-action-id="trap"]) {
+  order: 7;
+}
+
+.district-popup-action[data-district-action-id="heist"] {
+  --district-action-rgb: 244, 114, 182;
+  --district-action-secondary-rgb: 168, 85, 247;
+  --district-action-text: #fff0fa;
+  border-color: rgba(244, 114, 182, 0.42);
+}

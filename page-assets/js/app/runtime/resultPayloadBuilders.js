@@ -375,7 +375,11 @@ export function createResultPayloadBuilders(deps = {}) {
     order = {},
     deployedMembers = 0,
     memberLoss = 0,
-    lootEntries = []
+    lootEntries = [],
+    heatGain = null,
+    riskLabel = "",
+    successChance = null,
+    zoneLabel = ""
   } = {}) => {
     const safeLootEntries = Array.isArray(lootEntries) ? lootEntries : [];
     const lootLabel = safeLootEntries.length > 0
@@ -386,19 +390,27 @@ export function createResultPayloadBuilders(deps = {}) {
       : (memberLoss >= deployedMembers ? "is-disaster" : "is-alert");
     const durationLabel = formatDurationLabel(new Date(order.resolveAt).getTime() - new Date(order.createdAt).getTime());
 
+    const detailRows = [
+      ...(zoneLabel ? [{ label: "Zóna", value: zoneLabel }] : []),
+      ...(riskLabel ? [{ label: "Risk", value: String(riskLabel) }] : []),
+      ...(Number.isFinite(Number(successChance)) ? [{ label: "Šance", value: `${Math.max(0, Math.round(Number(successChance)))}%` }] : []),
+      ...(Number.isFinite(Number(heatGain)) ? [{ label: "Heat", value: `+${Math.max(0, Math.round(Number(heatGain)))}` }] : [])
+    ];
+
     return {
       raidTone,
       raidResultPayload: {
         tone: raidTone,
         title: safeLootEntries.length > 0
-          ? (memberLoss > 0 ? "ŠPINAVÁ KRÁDEŽ" : "ČISTÁ KRÁDEŽ")
-          : "PRŮSER",
+          ? (memberLoss > 0 ? "VYKRÁST DISTRICT: RISKANTNÍ LOOT" : "VYKRÁST DISTRICT: ČISTÝ LOOT")
+          : "VYKRÁST DISTRICT: BEZ LOOTU",
         summary: safeLootEntries.length > 0
           ? (memberLoss > 0
-            ? "Vzali jste lup ale nebylo to čistý. Trochu krve, trochu bordelu. Něco jsi nechal na místě, ale pořád jsi v plusu."
-            : "Vlezli jste tam, sebrali co šlo a zmizeli jak duchové. Ani kurva nevěděli, že tam někdo byl. Prachy jsou tvoje.")
-          : "Posrali jste to. Chytili vás při činu, někdo to odnesl a zbytek zdrhal jak krysy. Nemáš nic, jen ostudu a ztráty.",
+            ? "Vykrást district uspělo, ale část crew se nevrátila. Území zůstává prázdné, získal jsi jen městský loot."
+            : "Vykrást district proběhlo čistě. Území se neobsazuje, získal jsi jen loot z prázdného městského districtu.")
+          : "Vykrást district selhalo. Území se neobsazuje a crew se vrací bez městského lootu.",
         rows: [
+          { label: "Akce", value: "Vykrást district" },
           ...(safeLootEntries.length > 0
             ? (memberLoss > 0
               ? [
@@ -419,7 +431,7 @@ export function createResultPayloadBuilders(deps = {}) {
                 { label: "Cooldown", value: durationLabel, nowrap: true },
                 { label: "Upozornění cíle", value: raidTone === "is-alert" ? "Ano" : "Ne" }
               ])
-        ]
+        ].concat(detailRows)
       }
     };
   };
@@ -428,10 +440,17 @@ export function createResultPayloadBuilders(deps = {}) {
     mission = {},
     scenarioLabel = "",
     knownDefensePower = 0,
-    isUnownedDistrict = false
+    isUnownedDistrict = false,
+    heatGain = 0
   } = {}) => ({
     tone: scenarioLabel === "Úspěch" ? "is-success" : scenarioLabel === "Částečný úspěch" ? "is-medium-fail" : "is-major-fail",
-    title: scenarioLabel === "Úspěch" ? "Špehování: Úspěch" : scenarioLabel === "Částečný úspěch" ? "Špehování: Částečný neúspěch" : "Špehování: Velký neúspěch",
+    title: scenarioLabel === "Úspěch"
+      ? "Špehování: Úspěch"
+      : scenarioLabel === "Částečný úspěch"
+        ? "Špehování: Částečný úspěch"
+        : scenarioLabel === "Kritický neúspěch"
+          ? "Špehování: Kritický neúspěch"
+          : "Špehování: Neúspěch",
     summary: scenarioLabel === "Úspěch"
       ? pickRandomQuote(
           isUnownedDistrict ? deps.spySuccessEmptyDistrictQuotes : deps.spySuccessOccupiedDistrictQuotes,
@@ -444,6 +463,8 @@ export function createResultPayloadBuilders(deps = {}) {
             `Akce v District ${mission.targetDistrictId} nedopadla dobře, ale tvůj špeh se vrátil.`,
             random
           )
+        : scenarioLabel === "Kritický neúspěch"
+          ? `Špeh byl v District ${mission.targetDistrictId} zajat a akce vyvolala výrazné varování. Heat +${Math.max(0, Math.floor(Number(heatGain || 0)))}.`
         : pickRandomQuote(
             isUnownedDistrict ? deps.spyMajorFailEmptyDistrictQuotes : deps.spyMajorFailOccupiedDistrictQuotes,
             `Špeh byl v districtu District ${mission.targetDistrictId} zajat.`,
@@ -459,12 +480,15 @@ export function createResultPayloadBuilders(deps = {}) {
             spyStatusLabel: "Vrátil se",
             showWeapons: false,
             showPowerRange: false,
-            showAtmosphere: false,
+            showAtmosphere: true,
             showBuildings: false
           })
         : [
             { label: "Stav špeha", value: "Zajat" },
-            { label: "Cooldown", value: formatDurationLabel(deps.spyCaptureCooldownMs), nowrap: true }
+            { label: "Cooldown", value: formatDurationLabel(deps.spyCaptureCooldownMs), nowrap: true },
+            ...(Math.max(0, Math.floor(Number(heatGain || 0))) > 0
+              ? [{ label: "Heat", value: `+${Math.max(0, Math.floor(Number(heatGain || 0)))}` }]
+              : [])
           ]
   });
 

@@ -250,6 +250,10 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     display: none !important;
   }
 
+  .district-popup-shell {
+    inset: 0 !important;
+  }
+
   body.game-modal-scroll-locked::before {
     content: "";
     position: fixed;
@@ -1705,8 +1709,22 @@ html body #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__
   }
 
   .district-popup-close {
-    top: 7px !important;
-    right: 7px !important;
+    position: absolute !important;
+    top: 2px !important;
+    right: 6px !important;
+    width: 30px !important;
+    min-width: 30px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+  }
+
+  .district-popup-close::after {
+    inset: 5px !important;
+  }
+
+  .district-popup-close::before {
+    inset: 5px !important;
+    font-size: 14px !important;
   }
 
   .district-modal-hero--district .district-modal-hero__copy {
@@ -3117,5 +3135,147 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
     min-height: 27px !important;
     padding: 0 4px !important;
     font-size: 0.4rem !important;
+  }
+}
+
+/* Phone layout: only 3-action PvP sets stack vertically; 2-action sets stay side by side. */
+@media (max-width: 720px) {
+  .district-popup-actions:has(> .district-popup-action-row:nth-child(3):last-child) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .district-popup-action-row {
+    width: 100% !important;
+  }
+
+  .district-popup-action[data-district-action-id="heist"] {
+    --district-action-rgb: 244, 114, 182;
+    --district-action-secondary-rgb: 168, 85, 247;
+    --district-action-text: #fff0fa;
+  }
+}
+
+/* Compact phone inventory: table-like storage with less vertical scrolling. */
+@media (max-width: 720px) {
+  body .storage-popup-shell[data-storage-popup] .storage-popup-card {
+    width: min(96vw, 430px) !important;
+    max-height: min(92dvh, 680px) !important;
+    padding: 9px 8px 10px !important;
+    border-radius: 14px !important;
+    overflow-y: auto !important;
+    scrollbar-gutter: auto !important;
+    background:
+      radial-gradient(circle at 100% 0%, rgba(34, 211, 238, 0.12), transparent 30%),
+      radial-gradient(circle at 0% 0%, rgba(244, 114, 182, 0.08), transparent 34%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.016) 42%, transparent),
+      rgba(4, 9, 16, 0.74) !important;
+  }
+
+  body .storage-popup-shell[data-storage-popup] .storage-popup-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    margin: 0 !important;
+    padding-right: 28px !important;
+  }
+
+  body .storage-popup-shell[data-storage-popup] .storage-popup-section,
+  body .storage-popup-shell[data-storage-popup] .storage-popup-section--wide {
+    grid-column: auto !important;
+    gap: 4px !important;
+    min-width: 0 !important;
+    padding: 6px !important;
+    border-radius: 10px !important;
+    border-color: rgba(103, 225, 255, 0.16) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.008)),
+      rgba(7, 14, 24, 0.44) !important;
+  }
+
+  body .storage-popup-shell[data-storage-popup] .storage-popup-section--drugs {
+    grid-column: 1 / -1 !important;
+  }
+
+  body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle {
+    min-height: 18px !important;
+    margin: 0 !important;
+    padding: 0 2px 2px !important;
+    color: rgba(228, 247, 255, 0.9) !important;
+    font-size: 0.52rem !important;
+    line-height: 1.05 !important;
+    letter-spacing: 0.06em !important;
+  }
+
+  body .storage-popup-shell[data-storage-popup] .storage-popup-list {
+    gap: 0 !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(103, 225, 255, 0.12) !important;
+    border-radius: 8px !important;
+    background: rgba(2, 8, 18, 0.26) !important;
+  }
+
+  body .storage-popup-shell[data-storage-popup] .storage-popup-section--drugs .storage-popup-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  body .storage-popup-shell[data-storage-popup] .storage-popup-row {
+    min-height: 25px !important;
+    gap: 4px !important;
+    padding: 4px 5px 4px 8px !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(var(--storage-accent-rgb), 0.14) !important;
+    border-radius: 0 !important;
+    background:
+      linear-gradient(90deg, rgba(var(--storage-accent-rgb), 0.13), rgba(255, 255, 255, 0.018) 46%, rgba(2, 8, 18, 0.2)),
+      transparent !important;
+    box-shadow: none !important;
+    color: rgba(235, 248, 255, 0.9) !important;
+    font-size: 0.6rem !important;
+    line-height: 1.05 !important;
+    white-space: nowrap !important;
+  }
+
+  body .storage-popup-shell[data-storage-popup] .storage-popup-row:nth-last-child(1) {
+    border-bottom: 0 !important;
+  }
+
+  body .storage-popup-shell[data-storage-popup] .storage-popup-section--drugs .storage-popup-row:nth-last-child(2) {
+    border-bottom: 0 !important;
+  }
+
+  body .storage-popup-shell[data-storage-popup] .storage-popup-row::before {
+    width: 2px !important;
+    opacity: 0.82 !important;
+  }
+
+  body .storage-popup-shell[data-storage-popup] .storage-popup-row span {
+    min-width: 34px !important;
+    padding: 2px 4px !important;
+    border-radius: 6px !important;
+    font-size: 0.58rem !important;
+    line-height: 1 !important;
+    letter-spacing: 0 !important;
+  }
+}
+
+@media (max-width: 380px) {
+  body .storage-popup-shell[data-storage-popup] .storage-popup-card {
+    width: calc(100vw - 10px) !important;
+    padding-inline: 6px !important;
+  }
+
+  body .storage-popup-shell[data-storage-popup] .storage-popup-grid {
+    gap: 5px !important;
+    padding-right: 26px !important;
+  }
+
+  body .storage-popup-shell[data-storage-popup] .storage-popup-row {
+    padding-inline: 7px 4px !important;
+    font-size: 0.56rem !important;
+  }
+
+  body .storage-popup-shell[data-storage-popup] .storage-popup-row span {
+    min-width: 30px !important;
+    font-size: 0.54rem !important;
   }
 }

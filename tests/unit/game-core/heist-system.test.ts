@@ -68,6 +68,9 @@ const createHeistStateFixture = () => ({
 const firstActiveHeist = (state: ReturnType<typeof createHeistStateFixture>) =>
   getPlayerHeistState(state, "player:1").activeHeists[0];
 
+const getStyleView = (viewModel: Record<string, any>, styleId: string) =>
+  viewModel.styles.find((style: Record<string, any>) => style.id === styleId);
+
 describe("district heist system", () => {
   it("exposes district heist config with free and war multipliers", () => {
     expect(heistConfig.id).toBe("district_heist");
@@ -92,6 +95,7 @@ describe("district heist system", () => {
     const state = createHeistStateFixture();
     const started = startDistrictHeist(state, "player:1", "district:2", "balanced", 20);
     expect(started.success).toBe(true);
+    expect(started.message).toContain("Vykrást hráče");
     expect(started.nextState?.playersById["player:1"].gangMembers).toBe(80);
     expect(started.nextState?.playersById["player:1"].reservedGangMembers).toBe(20);
 
@@ -104,9 +108,109 @@ describe("district heist system", () => {
 
     const resolved = resolveDistrictHeist(started.nextState!, active.id, 2);
     expect(resolved.outcome).toBe("clean_success");
+    expect(resolved.message).toContain("vlastník districtu se nemění");
     expect(resolved.nextState?.playersById["player:1"].gangMembers).toBe(100);
     expect(resolved.nextState?.playersById["player:1"].reservedGangMembers).toBe(0);
     expect(resolved.nextState?.districtsById["district:2"].ownerPlayerId).toBe("player:2");
+  });
+
+  it("returns style-clamped recommended member ranges and risk preview in heist view model", () => {
+    const viewModel = getHeistViewModel(createHeistStateFixture(), "player:1", "district:2");
+    const expectations = {
+      stealth: { min: 5, max: 35 },
+      balanced: { min: 10, max: 70 },
+      all_in: { min: 25, max: 120 }
+    };
+
+    expect(viewModel.actionLabel).toBe("Vykrást hráče");
+    expect(viewModel.description).toBe("Heist cílí na district vlastněný jiným hráčem. Krade část jeho peněz a surovin, ale nepřebírá vlastnictví districtu.");
+
+    for (const [styleId, limits] of Object.entries(expectations)) {
+      const style = getStyleView(viewModel, styleId);
+      expect(style).toBeTruthy();
+      expect(style.recommendedMembers.min).toBeGreaterThanOrEqual(limits.min);
+      expect(style.recommendedMembers.min).toBeLessThanOrEqual(limits.max);
+      expect(style.recommendedMembers.max).toBeGreaterThanOrEqual(limits.min);
+      expect(style.recommendedMembers.max).toBeLessThanOrEqual(limits.max);
+      expect(style.recommendedMembers.safe).toBeGreaterThanOrEqual(limits.min);
+      expect(style.recommendedMembers.safe).toBeLessThanOrEqual(limits.max);
+      expect(style.recommendedMembers.min).toBeLessThanOrEqual(style.recommendedMembers.max);
+      expect(style.recommendedMembers.max).toBeLessThanOrEqual(style.recommendedMembers.safe);
+      expect(style.riskPreview).toEqual(expect.objectContaining({
+        detectionRiskLabel: expect.stringMatching(/^(low|medium|high|extreme)$/),
+        lootPreviewLabel: expect.stringMatching(/^(low|medium|high|jackpot)$/),
+        lossRiskLabel: expect.stringMatching(/^(low|medium|high|brutal)$/),
+        heatPreviewLabel: expect.stringMatching(/^(low|medium|high|extreme)$/),
+        scoutReportActive: false,
+        scoutReportLabel: "Bez scout reportu",
+        detectionRiskDisplayLabel: "Neznámé / Odhad",
+        lootPreviewDisplayLabel: "Nejistý",
+        trapHintLabel: "Neznámá"
+      }));
+    }
+  });
+
+  it("keeps heist start available without a scout report and uses rough preview labels", () => {
+    const state = createHeistStateFixture();
+    const viewModel = getHeistViewModel(state, "player:1", "district:2");
+    const balanced = getStyleView(viewModel, "balanced");
+    const started = startDistrictHeist(state, "player:1", "district:2", "balanced", 20);
+
+    expect(viewModel.scoutReport.active).toBe(false);
+    expect(viewModel.reasonsBlocked).not.toContain("Chybí scout report");
+    expect(balanced.canUse).toBe(true);
+    expect(balanced.riskPreview.detectionRiskDisplayLabel).toBe("Neznámé / Odhad");
+    expect(balanced.riskPreview.lootPreviewDisplayLabel).toBe("Nejistý");
+    expect(balanced.riskPreview.trapHintLabel).toBe("Neznámá");
+    expect(started.success).toBe(true);
+  });
+
+  it("marks heist scout report active when a successful spy report exists", () => {
+    const state = {
+      ...createHeistStateFixture(),
+      notificationsById: {
+        "notification:spy": {
+          id: "notification:spy",
+          recipientId: "player:1",
+          category: "report.spy",
+          payload: {
+            reportType: "spy",
+            actionType: "spy-district",
+            playerId: "player:1",
+            targetDistrictId: "district:2",
+            result: "success",
+            trapDetected: true
+          }
+        }
+      }
+    };
+    const viewModel = getHeistViewModel(state, "player:1", "district:2");
+    const balanced = getStyleView(viewModel, "balanced");
+
+    expect(viewModel.scoutReport.active).toBe(true);
+    expect(viewModel.scoutReport.label).toBe("Scout report aktivní");
+    expect(balanced.riskPreview.scoutReportActive).toBe(true);
+    expect(balanced.riskPreview.scoutReportLabel).toBe("Scout report aktivní");
+    expect(balanced.riskPreview.detectionRiskDisplayLabel).toBe(balanced.riskPreview.detectionRiskLabel);
+    expect(balanced.riskPreview.lootPreviewDisplayLabel).toBe(balanced.riskPreview.lootPreviewLabel);
+    expect(balanced.riskPreview.trapHintLabel).toContain("Past");
+  });
+
+  it("recommends more members for downtown than park with otherwise equal target pressure", () => {
+    const parkState = createHeistStateFixture();
+    const downtownState = createHeistStateFixture();
+    parkState.districtsById["district:2"].districtType = "park";
+    downtownState.districtsById["district:2"].districtType = "downtown";
+    parkState.districtsById["district:2"].heat = 0;
+    downtownState.districtsById["district:2"].heat = 0;
+    (parkState.districtsById["district:2"] as Record<string, unknown>).defenseLoadout = {};
+    (downtownState.districtsById["district:2"] as Record<string, unknown>).defenseLoadout = {};
+
+    const parkBalanced = getStyleView(getHeistViewModel(parkState, "player:1", "district:2"), "balanced");
+    const downtownBalanced = getStyleView(getHeistViewModel(downtownState, "player:1", "district:2"), "balanced");
+
+    expect(downtownBalanced.recommendedMembers.safe).toBeGreaterThan(parkBalanced.recommendedMembers.safe);
+    expect(downtownBalanced.recommendedMembers.min).toBeGreaterThanOrEqual(parkBalanced.recommendedMembers.min);
   });
 
   it("keeps loot finite and never pulls target balances below zero", () => {

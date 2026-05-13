@@ -89,6 +89,14 @@ export function createDistrictActionConfirmationPanelElements(elements = {}) {
     robberyConfirmAtmosphereLabel: elements.robberyConfirmAtmosphereLabel,
     robberyConfirmCard: elements.robberyConfirmCard,
     robberyMemberInput: elements.robberyMemberInput,
+    robberyZone: elements.robberyZone,
+    robberyRecommendation: elements.robberyRecommendation,
+    robberyRiskLevel: elements.robberyRiskLevel,
+    robberyLootPreview: elements.robberyLootPreview,
+    robberyTrapPreview: elements.robberyTrapPreview,
+    robberyScoutReport: elements.robberyScoutReport,
+    robberyHeatEstimate: elements.robberyHeatEstimate,
+    robberyRiskDescription: elements.robberyRiskDescription,
     robberySetupAtmosphereImage: elements.robberySetupAtmosphereImage,
     robberySetupAtmosphereLabel: elements.robberySetupAtmosphereLabel,
     robberySetupCard: elements.robberySetupCard,
@@ -178,10 +186,10 @@ export function createRobberyConfirmationViewModel({
     membersLabel: String(deployedMembers),
     durationLabel: `${Math.ceil(robberyCooldownMs / 1000)}s`,
     note: !sourceDistrictId
-      ? "Vykradení vyžaduje sousední vlastní district."
+      ? "Vykrást district vyžaduje sousední vlastní district."
       : deployedMembers <= 0
         ? "Nejdřív nastav počet nasazených členů gangu."
-        : "Po potvrzení vyrazí crew na loot run. District musí být prázdný a návrat proběhne po cooldownu.",
+        : "Vykrást district cílí jen na prázdný sousední district. Neobsazuje území, pouze získává loot z města.",
     canConfirm,
     atmosphereMeta
   };

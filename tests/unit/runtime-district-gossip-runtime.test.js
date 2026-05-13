@@ -44,8 +44,12 @@ describe("district gossip runtime", () => {
   });
 
   it("builds district intel event text with stable fallbacks", () => {
+    expect(buildDistrictIntelEventText("raid_started", 3)).toContain("Vykrást district");
     expect(buildDistrictIntelEventText("raid_success", 3, { lootLabel: "Tech Core x1" }))
       .toContain("Tech Core x1");
+    expect(buildDistrictIntelEventText("raid_success", 3, { lootLabel: "Tech Core x1" }))
+      .toContain("Vykrást district");
+    expect(buildDistrictIntelEventText("spy_critical_failed", 3)).toContain("heat");
     expect(buildDistrictIntelEventText("unknown", 3)).toContain("District 3");
   });
 });

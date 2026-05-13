@@ -50,7 +50,7 @@ export function createResultModalRuntime(deps = {}) {
     detailsSelector: selectors.raidResultDetails,
     toneClasses: ["is-clean-success", "is-dirty-fail", "is-disaster", "is-alert"],
     fallbackTone: "is-alert",
-    defaultTitle: "Výsledek krádeže"
+    defaultTitle: "Výsledek: Vykrást district"
   });
 
   const openAttackResultModal = (root, payload = {}) => deps.renderBattleReportPanel?.(root, {

@@ -395,7 +395,6 @@
             </section>
             <section class="district-popup-action-section" data-district-action-section>
               <div class="district-popup-action-section__head">
-                <div class="district-popup-action-section__title">Akce</div>
                 <p class="district-popup-action-section__copy">Co můžeš spustit hned teď.</p>
               </div>
               <div class="district-popup-actions" data-district-actions></div>
@@ -434,7 +433,7 @@
 
       <div class="attack-toast robbery-toast" data-robbery-toast role="status" aria-live="polite" aria-atomic="true" hidden>
         <span class="attack-toast__label">ROBBERY</span>
-        <strong class="attack-toast__title">Vykradení spuštěno</strong>
+        <strong class="attack-toast__title">Vykrást district spuštěno</strong>
         <p class="attack-toast__copy">Posádka vyráží pro materiály.</p>
       </div>
 
@@ -545,7 +544,7 @@
 
       <div class="attack-setup-popup-shell robbery-setup-popup-shell" data-robbery-setup-popup hidden>
         <div class="attack-setup-popup-backdrop" data-robbery-setup-close></div>
-        <div class="attack-setup-popup-card robbery-setup-popup-card" data-robbery-setup-card role="dialog" aria-modal="true" aria-label="Nastavení vykradení">
+        <div class="attack-setup-popup-card robbery-setup-popup-card" data-robbery-setup-card role="dialog" aria-modal="true" aria-label="Nastavení akce Vykrást district">
           <div class="district-modal-hero district-modal-hero--robbery">
             <img class="district-modal-hero__image" data-robbery-setup-atmosphere-image alt="Atmosféra cílového distriktu" loading="lazy">
             <div class="district-modal-hero__scrim"></div>
@@ -563,11 +562,19 @@
               </span>
             </p>
             <p class="attack-setup-popup-row">Dostupní členové <span data-robbery-available-members>100</span></p>
-            <p class="attack-setup-popup-row">Nasazení členové <span><span class="attack-setup-popup-stepper attack-setup-popup-stepper--inline"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="robbery-members" aria-label="Ubrat člena pro vykradení">−</button><input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-robbery-member-input aria-label="Počet členů gangu pro vykradení"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="robbery-members" aria-label="Přidat člena pro vykradení">+</button></span></span></p>
+            <p class="attack-setup-popup-row">Nasazení členové <span><span class="attack-setup-popup-stepper attack-setup-popup-stepper--inline"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="robbery-members" aria-label="Ubrat člena pro Vykrást district">−</button><input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-robbery-member-input aria-label="Počet členů gangu pro Vykrást district"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="robbery-members" aria-label="Přidat člena pro Vykrást district">+</button></span></span></p>
+            <p class="attack-setup-popup-row">Typ zóny <span data-robbery-zone>---</span></p>
+            <p class="attack-setup-popup-row">Doporučení <span data-robbery-recommendation>---</span></p>
+            <p class="attack-setup-popup-row">Risk <span data-robbery-risk-level>---</span></p>
+            <p class="attack-setup-popup-row">Loot <span data-robbery-loot-preview>Nejistý</span></p>
+            <p class="attack-setup-popup-row">Past <span data-robbery-trap-preview>Neznámá</span></p>
+            <p class="attack-setup-popup-row">Scout <span data-robbery-scout-report>Bez scout reportu</span></p>
+            <p class="attack-setup-popup-row">Odhad heat <span data-robbery-heat-estimate>---</span></p>
             <p class="attack-setup-popup-row">Stav <span data-robbery-status>Vyber členy gangu</span></p>
-            <p class="attack-setup-popup-copy">Vykradení lze provést jen na prázdný sousední district. Akce trvá 20 sekund a po návratu přinese report i případný loot materiálů.</p>
+            <p class="attack-setup-popup-copy" data-robbery-risk-description>Vyber počet členů pro odhad rizika.</p>
+            <p class="attack-setup-popup-copy">Tahle akce cílí jen na prázdné sousední districty. Neobsazuje území, pouze získává loot. Akce trvá 20 sekund a po návratu přinese report i případný loot materiálů.</p>
             <div class="attack-setup-popup-actions">
-              <button type="button" class="button attack-setup-popup-confirm" data-robbery-confirm>Potvrdit vykradení</button>
+              <button type="button" class="button attack-setup-popup-confirm" data-robbery-confirm>Potvrdit Vykrást district</button>
             </div>
           </div>
         </div>
@@ -580,7 +587,7 @@
             <img class="district-modal-hero__image" data-robbery-confirm-atmosphere-image alt="Atmosféra cílového distriktu" loading="lazy">
             <div class="district-modal-hero__scrim"></div>
             <div class="district-modal-hero__copy">
-              <span class="attack-setup-popup-eyebrow">Potvrdit vykradení</span>
+              <span class="attack-setup-popup-eyebrow">Potvrdit Vykrást district</span>
               <strong class="district-modal-hero__type" data-robbery-confirm-atmosphere-label>Neznámý sektor</strong>
               <h3 class="attack-setup-popup-title" id="raid-confirm-modal-heading" data-robbery-confirm-title>District 1</h3>
             </div>
@@ -590,10 +597,10 @@
             <p class="attack-setup-popup-row">Zdroj <span><strong data-robbery-confirm-source>---</strong></span></p>
             <p class="attack-setup-popup-row">Nasazení členové <span><strong data-robbery-confirm-members>0</strong></span></p>
             <p class="attack-setup-popup-row">Trvání <span><strong data-robbery-confirm-duration>20s</strong></span></p>
-            <p class="muted spy-confirm-modal__note attack-setup-popup-copy" data-robbery-confirm-note>Po potvrzení vyrazí crew na loot run.</p>
+            <p class="muted spy-confirm-modal__note attack-setup-popup-copy" data-robbery-confirm-note>Vykrást district cílí jen na prázdný sousední district. Neobsazuje území, pouze získává loot z města.</p>
             <div class="modal__actions spy-confirm-modal__actions">
               <button class="btn btn--ghost modal__cancel-btn" id="raid-confirm-modal-cancel" type="button" data-robbery-confirm-close>Zrušit</button>
-              <button class="btn btn--primary modal__confirm-btn" id="raid-confirm-modal-confirm" type="button" data-robbery-confirm-button>Potvrdit vykradení</button>
+              <button class="btn btn--primary modal__confirm-btn" id="raid-confirm-modal-confirm" type="button" data-robbery-confirm-button>Potvrdit Vykrást district</button>
             </div>
           </div>
         </div>
@@ -783,7 +790,7 @@
         <div id="raid-result-modal-backdrop" class="modal__backdrop"></div>
         <div id="raid-result-modal-content" class="modal__content spy-result-modal__content">
           <div class="modal__header">
-            <h3 id="raid-result-modal-title">Výsledek krádeže</h3>
+            <h3 id="raid-result-modal-title">Výsledek: Vykrást district</h3>
             <button class="modal__close" id="raid-result-modal-close" type="button" aria-label="Zavřít">✕</button>
           </div>
           <div class="modal__body spy-result-modal__body">
@@ -2034,7 +2041,7 @@
           <button type="button" class="button storage-popup-close" data-storage-popup-close aria-label="Zavřít sklad">✕</button>
           <div class="storage-popup-grid">
             <section class="storage-popup-section storage-popup-section--attack">
-              <h3 class="storage-popup-subtitle">Útočné zbraně</h3>
+              <h3 class="storage-popup-subtitle">Útok</h3>
               <div class="storage-popup-list">
                 <p class="storage-popup-row" data-storage-tone="red" data-storage-resource="baseball-bat">Baseballová pálka <span data-storage-weapon-count="baseball-bat">0 ks</span></p>
                 <p class="storage-popup-row" data-storage-tone="red" data-storage-resource="pistol">Pistole <span data-storage-weapon-count="pistol">0 ks</span></p>
@@ -2044,17 +2051,17 @@
               </div>
             </section>
             <section class="storage-popup-section storage-popup-section--defense">
-              <h3 class="storage-popup-subtitle">Obranné zbraně</h3>
+              <h3 class="storage-popup-subtitle">Obrana</h3>
               <div class="storage-popup-list">
                 <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="vest">Vesta <span data-storage-weapon-count="vest">0 ks</span></p>
                 <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="barricades">Barikády <span data-storage-weapon-count="barricades">0 ks</span></p>
                 <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="cameras">Kamery <span data-storage-weapon-count="cameras">0 ks</span></p>
-                <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="defense-tower">Defense tower <span data-storage-weapon-count="defense-tower">0 ks</span></p>
+                <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="defense-tower">Tower <span data-storage-weapon-count="defense-tower">0 ks</span></p>
                 <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="alarm">Alarm <span data-storage-weapon-count="alarm">0 ks</span></p>
               </div>
             </section>
             <section class="storage-popup-section storage-popup-section--materials">
-              <h3 class="storage-popup-subtitle">Lékárna materiály</h3>
+              <h3 class="storage-popup-subtitle">Lékárna</h3>
               <div class="storage-popup-list">
                 <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="chemicals">Chemicals <span data-storage-material-count="chemicals">0 ks</span></p>
                 <p class="storage-popup-row" data-storage-tone="green" data-storage-resource="biomass">Biomass <span data-storage-material-count="biomass">0 ks</span></p>
@@ -2062,7 +2069,7 @@
               </div>
             </section>
             <section class="storage-popup-section storage-popup-section--factory">
-              <h3 class="storage-popup-subtitle">Factory supplies</h3>
+              <h3 class="storage-popup-subtitle">Továrna</h3>
               <div class="storage-popup-list">
                 <p class="storage-popup-row" data-storage-tone="amber" data-storage-resource="metal-parts">Metal Parts <span data-storage-factory-count="metalParts">0 ks</span></p>
                 <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="tech-core">Tech Core <span data-storage-factory-count="techCore">0 ks</span></p>
@@ -2070,7 +2077,7 @@
               </div>
             </section>
             <section class="storage-popup-section storage-popup-section--wide storage-popup-section--drugs">
-              <h3 class="storage-popup-subtitle">Drug balíky</h3>
+              <h3 class="storage-popup-subtitle">Drogy</h3>
               <div class="storage-popup-list">
                 <p class="storage-popup-row" data-storage-tone="violet" data-storage-resource="neon-dust">Neon Dust <span data-storage-drug-count="neon-dust">0 ks</span></p>
                 <p class="storage-popup-row" data-storage-tone="amber" data-storage-resource="pulse-shot">Pulse Shot <span data-storage-drug-count="pulse-shot">0 ks</span></p>

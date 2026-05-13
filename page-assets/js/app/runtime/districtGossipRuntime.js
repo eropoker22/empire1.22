@@ -111,16 +111,18 @@ export function buildDistrictIntelEventText(type, districtOrId, payload = {}) {
       return `Potvrzený intel: O ${districtLabel} unikl částečný report. Typ sektoru je známý, obrana ne.`;
     case "spy_failed":
       return `Potvrzený intel: Pokus o špionáž v ${districtLabel} selhal dřív, než se dostal k jádru sektoru.`;
+    case "spy_critical_failed":
+      return `Varování: Špeh v ${districtLabel} byl odhalen a akce zvedla heat v ulicích.`;
     case "raid_started":
-      return `Potvrzený intel: V ${districtLabel} bylo zahájeno vykradení.`;
+      return `Potvrzený intel: V ${districtLabel} začala akce Vykrást district na prázdný sousední sektor.`;
     case "raid_success":
       return lootLabel
-        ? `Potvrzený intel: ${districtLabel} přišel při nočním nájezdu o ${lootLabel}.`
-        : `Potvrzený intel: ${districtLabel} přišel při nočním nájezdu o část zásob.`;
+        ? `Potvrzený intel: ${districtLabel} vydal při akci Vykrást district městský loot: ${lootLabel}.`
+        : `Potvrzený intel: ${districtLabel} vydal při akci Vykrást district část městských zásob.`;
     case "raid_empty":
-      return `Potvrzený intel: Nájezd na ${districtLabel} proběhl, ale uvnitř nezůstal žádný použitelný loot.`;
+      return `Potvrzený intel: Akce Vykrást district v ${districtLabel} proběhla, ale uvnitř nezůstal žádný použitelný loot.`;
     case "raid_failed":
-      return `Potvrzený intel: Vykradení v ${districtLabel} se rozpadlo bez zisku.`;
+      return `Potvrzený intel: Akce Vykrást district v ${districtLabel} se rozpadla bez zisku.`;
     case "trap_armed":
       return `Drb: V uličkách kolem ${districtLabel} je cítit toxický kouř a něco tam není v pořádku.`;
     case "trap_moved":

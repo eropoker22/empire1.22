@@ -80,8 +80,11 @@ export function resolveAttackScenario(order) {
 }
 
 export function resolveRobberyScenario(order) {
-  const targetDistrictId = Number.parseInt(String(order?.targetDistrictId ?? "0").replace("district:", ""), 10) || 0;
-  return `Scénář ${((targetDistrictId - 1) % 4) + 1}`;
+  const preview = createRobberySetupPreview({
+    districtType: order?.targetDistrictType || order?.districtType || "park",
+    sentMembers: order?.deployedMembers
+  });
+  return `${preview.zoneLabel} · ${preview.riskLabel}`;
 }
 
 export function getAttackScenarioMemberLoss(scenarioLabel, deployedMembers) {
@@ -156,25 +159,241 @@ export function resolveAttackOutcome({
 }
 
 export function getRobberyScenarioMemberLoss(scenarioLabel, deployedMembers) {
-  if (scenarioLabel === "Scénář 1") return Math.min(deployedMembers, 1);
-  if (scenarioLabel === "Scénář 2") return Math.min(deployedMembers, 3);
-  if (scenarioLabel === "Scénář 3") return Math.min(deployedMembers, 5);
-  if (scenarioLabel === "Scénář 4") return Math.min(deployedMembers, 8);
+  if (scenarioLabel === "Úspěch") return getRobberyMemberLoss(deployedMembers, true);
+  if (scenarioLabel === "Selhání") return getRobberyMemberLoss(deployedMembers, false);
   return 0;
 }
 
 export function getRobberyLootForOrder(order, scenarioLabel) {
-  const targetDistrictId = Number.parseInt(String(order?.targetDistrictId ?? "0").replace("district:", ""), 10) || 0;
-  const lootTables = {
-    1: { chemicals: 8, biomass: 6 },
-    2: { chemicals: 5, "metal-parts": 4 },
-    3: { biomass: 4, "tech-core": 2 },
-    4: { chemicals: 3, biomass: 2, "stim-pack": 1 }
-  };
+  if (scenarioLabel === "Selhání") {
+    return {};
+  }
+  return resolveRobberyOrderOutcome(order).loot;
+}
 
-  if (scenarioLabel === "Scénář 4") {
+export const ROBBERY_ZONE_CONFIG = Object.freeze({
+  park: Object.freeze({
+    label: "Park",
+    recommendedMin: 6,
+    recommendedMax: 10,
+    difficulty: 10,
+    zoneHeat: 1,
+    loot: Object.freeze({
+      biomass: Object.freeze([2, 5]),
+      chemicals: Object.freeze([1, 3])
+    })
+  }),
+  residential: Object.freeze({
+    label: "Residential",
+    recommendedMin: 8,
+    recommendedMax: 14,
+    difficulty: 16,
+    zoneHeat: 2,
+    loot: Object.freeze({
+      biomass: Object.freeze([3, 7]),
+      chemicals: Object.freeze([2, 5])
+    })
+  }),
+  industrial: Object.freeze({
+    label: "Industrial",
+    recommendedMin: 12,
+    recommendedMax: 20,
+    difficulty: 24,
+    zoneHeat: 4,
+    loot: Object.freeze({
+      "metal-parts": Object.freeze([5, 10]),
+      "tech-core": Object.freeze([1, 3])
+    })
+  }),
+  commercial: Object.freeze({
+    label: "Commercial",
+    recommendedMin: 16,
+    recommendedMax: 26,
+    difficulty: 32,
+    zoneHeat: 6,
+    loot: Object.freeze({
+      chemicals: Object.freeze([5, 11]),
+      "metal-parts": Object.freeze([4, 9])
+    })
+  }),
+  downtown: Object.freeze({
+    label: "Downtown",
+    recommendedMin: 28,
+    recommendedMax: 45,
+    difficulty: 48,
+    zoneHeat: 10,
+    loot: Object.freeze({
+      "tech-core": Object.freeze([2, 5]),
+      chemicals: Object.freeze([8, 15]),
+      "metal-parts": Object.freeze([8, 15])
+    })
+  })
+});
+
+export const ROBBERY_RISK_LABELS = Object.freeze({
+  critical: "Critical",
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+  overkill: "Overkill"
+});
+
+export const ROBBERY_RISK_DESCRIPTIONS = Object.freeze({
+  critical: "Crew je hluboko pod minimem. Šance na průser je extrémní.",
+  high: "Pod doporučením. Dá se to zkusit, ale ztráty můžou bolet.",
+  medium: "Doporučené nasazení pro danou zónu.",
+  low: "Silná sestava. Riziko klesá, ale heat pořád roste.",
+  overkill: "Zbytečně velká akce. Úspěch je pravděpodobný, heat bude hlasitý."
+});
+
+export const ROBBERY_LOOT_LABELS = Object.freeze({
+  park: "Biomass / Chemicals",
+  residential: "Biomass / Chemicals",
+  industrial: "Metal Parts / Tech Core",
+  commercial: "Chemicals / Metal Parts",
+  downtown: "Tech Core / Chemicals / Metal Parts"
+});
+
+export function normalizeRobberyZone(districtType) {
+  const key = String(districtType || "").trim().toLowerCase();
+  if (key === "resident" || key === "residential") return "residential";
+  if (key === "economy" || key === "commercial") return "commercial";
+  if (key === "industrial") return "industrial";
+  if (key === "downtown") return "downtown";
+  return "park";
+}
+
+export function getRobberyZoneConfig(districtType) {
+  return ROBBERY_ZONE_CONFIG[normalizeRobberyZone(districtType)];
+}
+
+export function getRobberyRiskLevel(districtType, sentMembers) {
+  const config = getRobberyZoneConfig(districtType);
+  const sent = normalizeRobberyMembers(sentMembers);
+
+  if (sent < config.recommendedMin * 0.5) return "critical";
+  if (sent < config.recommendedMin) return "high";
+  if (sent <= config.recommendedMax) return "medium";
+  if (sent <= config.recommendedMax * 1.5) return "low";
+  return "overkill";
+}
+
+export function getRobberySuccessChance(districtType, sentMembers) {
+  const config = getRobberyZoneConfig(districtType);
+  const sent = normalizeRobberyMembers(sentMembers);
+  return clampNumber(45 + sent * 2 - config.difficulty, 8, 88);
+}
+
+export function getRobberyHeatGain(districtType, sentMembers) {
+  const config = getRobberyZoneConfig(districtType);
+  const sent = normalizeRobberyMembers(sentMembers);
+  return 3 + Math.ceil(sent / 5) + config.zoneHeat;
+}
+
+export function createRobberySetupPreview({ districtType = "park", sentMembers = 0, hasScoutReport = true } = {}) {
+  const config = getRobberyZoneConfig(districtType);
+  const riskLevel = getRobberyRiskLevel(districtType, sentMembers);
+  const successChance = getRobberySuccessChance(districtType, sentMembers);
+  const heatGain = getRobberyHeatGain(districtType, sentMembers);
+  const zoneKey = normalizeRobberyZone(districtType);
+  const scoutReportActive = Boolean(hasScoutReport);
+
+  return {
+    zoneKey,
+    zoneLabel: config.label,
+    recommendedMin: config.recommendedMin,
+    recommendedMax: config.recommendedMax,
+    recommendationLabel: `${config.recommendedMin}-${config.recommendedMax}`,
+    riskLevel,
+    riskLabel: ROBBERY_RISK_LABELS[riskLevel],
+    riskDescription: ROBBERY_RISK_DESCRIPTIONS[riskLevel],
+    successChance,
+    successChanceLabel: `${successChance}%`,
+    heatGain,
+    heatLabel: `+${heatGain}`,
+    scoutReportActive,
+    scoutReportLabel: scoutReportActive ? "Scout report aktivní" : "Bez scout reportu",
+    previewRiskLabel: scoutReportActive ? ROBBERY_RISK_LABELS[riskLevel] : "Neznámé / Odhad",
+    previewSuccessChanceLabel: scoutReportActive ? `${successChance}%` : "Odhad",
+    previewLootLabel: scoutReportActive ? ROBBERY_LOOT_LABELS[zoneKey] : "Nejistý",
+    previewTrapHintLabel: scoutReportActive ? "Past nepotvrzena" : "Neznámá",
+    previewDescription: scoutReportActive
+      ? `${ROBBERY_RISK_DESCRIPTIONS[riskLevel]} Scout report aktivní.`
+      : "Bez scout reportu je preview jen hrubý odhad. Spy není povinné pro spuštění Vykrást district."
+  };
+}
+
+export function getRobberyMemberLoss(sentMembers, success, random = Math.random) {
+  const sent = normalizeRobberyMembers(sentMembers);
+  if (sent <= 0) {
+    return 0;
+  }
+
+  const minRatio = success ? 0.05 : 0.25;
+  const maxRatio = success ? 0.18 : 0.6;
+  const roll = clampRatio(Number(random()));
+  return Math.min(sent, Math.ceil(sent * (minRatio + (maxRatio - minRatio) * roll)));
+}
+
+export function rollRobberyLoot(districtType, success, random = Math.random) {
+  if (!success) {
     return {};
   }
 
-  return lootTables[((targetDistrictId - 1) % 4) + 1] || {};
+  const config = getRobberyZoneConfig(districtType);
+  return Object.fromEntries(
+    Object.entries(config.loot)
+      .map(([itemId, [minAmount, maxAmount]]) => [
+        itemId,
+        rollInteger(minAmount, maxAmount, random)
+      ])
+      .filter(([, amount]) => amount > 0)
+  );
+}
+
+export function resolveRobberyOrderOutcome(order = {}, options = {}) {
+  const random = typeof options.random === "function" ? options.random : Math.random;
+  const districtType = order.targetDistrictType || order.districtType || "park";
+  const deployedMembers = normalizeRobberyMembers(order.deployedMembers);
+  const successChance = getRobberySuccessChance(districtType, deployedMembers);
+  const successRoll = clampRatio(Number(random()));
+  const success = successRoll * 100 < successChance;
+  const memberLoss = getRobberyMemberLoss(deployedMembers, success, random);
+  const loot = rollRobberyLoot(districtType, success, random);
+  const preview = createRobberySetupPreview({ districtType, sentMembers: deployedMembers });
+
+  return {
+    ...preview,
+    success,
+    scenarioLabel: success ? "Úspěch" : "Selhání",
+    successRoll,
+    deployedMembers,
+    memberLoss,
+    returningMembers: Math.max(0, deployedMembers - memberLoss),
+    loot,
+    heatGain: getRobberyHeatGain(districtType, deployedMembers)
+  };
+}
+
+function normalizeRobberyMembers(value) {
+  return Math.max(0, Math.floor(Number(value) || 0));
+}
+
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, Math.round(Number(value) || 0)));
+}
+
+function clampRatio(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return 0;
+  }
+  return Math.min(1, Math.max(0, number));
+}
+
+function rollInteger(min, max, random) {
+  const safeMin = Math.max(0, Math.floor(Number(min) || 0));
+  const safeMax = Math.max(safeMin, Math.floor(Number(max) || safeMin));
+  const roll = Math.min(0.999999, clampRatio(Number(random())));
+  return safeMin + Math.floor(roll * (safeMax - safeMin + 1));
 }

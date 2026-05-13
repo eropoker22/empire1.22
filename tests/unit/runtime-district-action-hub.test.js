@@ -76,7 +76,7 @@ class FakeDocument {
 const createElement = (document, tagName = "div") => document.createElement(tagName);
 
 describe("district action hub", () => {
-  it("renders attack/spy/robbery/trap/defense buttons and callbacks", () => {
+  it("renders attack/heist/spy/robbery/trap/defense buttons and callbacks", () => {
     const document = new FakeDocument();
     const section = createElement(document);
     const head = createElement(document);
@@ -88,8 +88,9 @@ describe("district action hub", () => {
       headHidden: true,
       actions: [
         { id: "attack", label: "Útok", enabled: true },
+        { id: "heist", label: "Vykrást hráče", enabled: true },
         { id: "spy", label: "Špehovat", enabled: true },
-        { id: "rob", label: "Vykrást", enabled: true },
+        { id: "rob", label: "Vykrást district", enabled: true },
         { id: "trap", label: "Past", enabled: true, stacked: true, trapState: "idle", subtitle: "ready" },
         { id: "defense", label: "Obrana", enabled: true }
       ]
@@ -97,8 +98,8 @@ describe("district action hub", () => {
 
     expect(section.hidden).toBe(false);
     expect(head.hidden).toBe(true);
-    expect(mount.children).toHaveLength(5);
-    expect(mount.children.map((row) => row.children[0].dataset.districtActionId)).toEqual(["attack", "spy", "rob", "trap", "defense"]);
+    expect(mount.children).toHaveLength(6);
+    expect(mount.children.map((row) => row.children[0].dataset.districtActionId)).toEqual(["attack", "heist", "spy", "rob", "trap", "defense"]);
 
     mount.children[0].children[0].dispatch("click");
     expect(onAction).toHaveBeenCalledWith(expect.objectContaining({ id: "attack" }));

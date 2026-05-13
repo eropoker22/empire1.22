@@ -33,16 +33,28 @@ import {
   calculateTotalDefensePower,
   estimateDistrictDefense,
   formatDefenseLoadout,
+  createRobberySetupPreview,
   getAttackScenarioMemberLoss,
   getRobberyLootForOrder,
+  getRobberyRiskLevel,
   getRobberyScenarioMemberLoss,
+  getRobberySuccessChance,
   resolveAttackOutcome,
   resolveAttackScenario,
+  resolveRobberyOrderOutcome,
   resolveRobberyScenario,
   validateAttackSelection
 } from "../../../packages/game-core/src/legacy-page/combat-preview-rules.js";
 import { formatDurationLabel } from "../../../packages/game-core/src/legacy-page/production-preview-rules.js";
-import { resolveSpyScenario } from "../../../packages/game-core/src/legacy-page/spy-preview-rules.js";
+import {
+  LEGACY_SPY_MISSION_SPY_COUNT,
+  applySpyIntelOutcome,
+  createCapturedSpyMission,
+  getSpyHeatGainForOutcome,
+  isSpyCapturedOutcome,
+  normalizeSpyOutcome,
+  resolveSpyScenario
+} from "../../../packages/game-core/src/legacy-page/spy-preview-rules.js";
 import {
   getAuthoritySession,
   updateStoredPreviewSession
@@ -2647,16 +2659,18 @@ function completeRobberyOrder(root, orderId) {
   setStoredRobberyOrders(orders.filter((entry) => entry.id !== orderId));
   robberyMissionTimers.delete(orderId);
 
-  const scenarioLabel = resolveRobberyScenario(order);
-  const deployedMembers = Number.parseInt(String(order.deployedMembers ?? 0), 10) || 0;
-  const memberLoss = getRobberyScenarioMemberLoss(scenarioLabel, deployedMembers);
-  const returningMembers = Math.max(0, deployedMembers - memberLoss);
-  const loot = getRobberyLootForOrder(order, scenarioLabel);
+  const robberyOutcome = resolveRobberyOrderOutcome(order);
+  const scenarioLabel = robberyOutcome.scenarioLabel;
+  const deployedMembers = robberyOutcome.deployedMembers;
+  const memberLoss = robberyOutcome.memberLoss;
+  const returningMembers = robberyOutcome.returningMembers;
+  const loot = robberyOutcome.loot;
   const lootEntries = Object.entries(loot);
   setStoredGangState({
     members: getResolvedGangState().members + returningMembers
   });
   renderGangMembersState(root);
+  addGangHeat(root, robberyOutcome.heatGain, `Vykrást district ${String(order.targetDistrictId || "").replace("district:", "") || "?"}`);
 
   if (lootEntries.length > 0) {
     for (const [itemId, amount] of lootEntries) {
@@ -2665,19 +2679,27 @@ function completeRobberyOrder(root, orderId) {
   }
 
   recordDistrictIntelEvent({
-    type: lootEntries.length > 0 ? "raid_success" : (memberLoss >= deployedMembers ? "raid_failed" : "raid_empty"),
+    type: robberyOutcome.success && lootEntries.length > 0 ? "raid_success" : (!robberyOutcome.success ? "raid_failed" : "raid_empty"),
     districtId: order.targetDistrictId,
     sourceDistrictId: order.sourceDistrictId,
     intelLevel: "verified",
     scenarioLabel,
-    lootLabel: lootEntries.map(([itemId, amount]) => `${itemId} x${amount}`).join(", ")
+    lootLabel: lootEntries.map(([itemId, amount]) => `${itemId} x${amount}`).join(", "),
+    heatGain: robberyOutcome.heatGain,
+    riskLevel: robberyOutcome.riskLevel,
+    successChance: robberyOutcome.successChance,
+    zone: robberyOutcome.zoneKey
   });
 
   const { raidTone, raidResultPayload } = getResultPayloadBuilders().createRobberyResultPayload({
     order,
     deployedMembers,
     memberLoss,
-    lootEntries
+    lootEntries,
+    heatGain: robberyOutcome.heatGain,
+    riskLabel: robberyOutcome.riskLabel,
+    successChance: robberyOutcome.successChance,
+    zoneLabel: robberyOutcome.zoneLabel
   });
   syncBuildingActionSource(root, {
     tone: raidTone === "is-clean-success" ? "success" : raidTone === "is-alert" ? "warning" : "error",
@@ -3573,25 +3595,26 @@ function getRobberyActionDurationMs(baseMs = ROBBERY_COOLDOWN_MS) {
   return Math.max(1000, Math.round(baseMs * (1 - speedPct / 100)));
 }
 
+function getSpyMissionDefenseContext(mission) {
+  const targetDistrictId = Number.parseInt(String(mission?.targetDistrictId ?? 0), 10) || 0;
+  const worldState = getResolvedWorldState();
+  const defenseLoadout = worldState.districtDefenseLoadoutById?.[targetDistrictId] || {};
+
+  return {
+    targetSecurity: Number(worldState.districtDefenseById?.[targetDistrictId] ?? 0),
+    cameraCount: Number(defenseLoadout.cameras || 0),
+    alarmCount: Number(defenseLoadout.alarm || 0),
+    infoQualityPct: Number(mission?.intelQualityPct || 0)
+  };
+}
+
 function resolveSpyScenarioWithBoost(mission) {
-  const baseScenario = resolveSpyScenario(mission, isDemoScenarioMode(getResolvedPhaseState())
-    ? { devOnlyFullSuccessChance: DEV_ONLY_SPY_FULL_SUCCESS_CHANCE }
-    : {});
-  const intelQualityPct = Math.max(0, Math.floor(Number(mission?.intelQualityPct || 0)));
-
-  if (intelQualityPct < 30) {
-    return baseScenario;
-  }
-
-  if (baseScenario === "Neúspěch") {
-    return "Částečný úspěch";
-  }
-
-  if (baseScenario === "Částečný úspěch") {
-    return "Úspěch";
-  }
-
-  return baseScenario;
+  return resolveSpyScenario(mission, {
+    ...getSpyMissionDefenseContext(mission),
+    ...(isDemoScenarioMode(getResolvedPhaseState())
+      ? { devOnlyFullSuccessChance: DEV_ONLY_SPY_FULL_SUCCESS_CHANCE }
+      : {})
+  });
 }
 
 function getFactoryAttackBoostContext({ attackPower, defensePower } = {}) {
@@ -5971,20 +5994,16 @@ function completeSpyMission(root, missionId) {
 
   const scenarioLabel = resolveSpyScenarioWithBoost(mission);
   const remainingMissions = storedMissions.filter((entry) => entry.id !== missionId);
-  const isCapturedOnMajorFail = scenarioLabel === "Neúspěch";
+  const spyOutcome = normalizeSpyOutcome(scenarioLabel);
+  const isCapturedOnMajorFail = isSpyCapturedOutcome(spyOutcome);
+  const heatGain = getSpyHeatGainForOutcome(spyOutcome);
 
   if (isCapturedOnMajorFail) {
-    const cooldownUntil = new Date(Date.now() + SPY_CAPTURE_COOLDOWN_MS).toISOString();
     setStoredSpyState({
       available: clamp(MAX_SPIES - (remainingMissions.length + 1), 0, MAX_SPIES),
       missions: [
         ...remainingMissions,
-        {
-          ...mission,
-          status: "captured",
-          capturedAt: new Date().toISOString(),
-          cooldownUntil
-        }
+        createCapturedSpyMission(mission, { cooldownMs: SPY_CAPTURE_COOLDOWN_MS })
       ]
     });
   } else {
@@ -6000,39 +6019,29 @@ function completeSpyMission(root, missionId) {
   const spyIntel = getResolvedSpyIntel();
   const worldState = getResolvedWorldState();
   const knownDefensePower = Number(worldState.districtDefenseById?.[mission.targetDistrictId] ?? 0);
+  const nextSpyIntel = applySpyIntelOutcome(spyIntel, mission.targetDistrictId, spyOutcome);
 
-  if (scenarioLabel === "Úspěch") {
-    setStoredSpyIntel({
-      occupiableDistrictIds: Array.from(new Set([
-        ...spyIntel.occupiableDistrictIds,
-        Number(mission.targetDistrictId)
-      ])),
-      revealedTypeDistrictIds: Array.from(new Set([
-        ...(spyIntel.revealedTypeDistrictIds || []),
-        Number(mission.targetDistrictId)
-      ])),
-      revealedDefenseDistrictIds: Array.from(new Set([
-        ...(spyIntel.revealedDefenseDistrictIds || []),
-        Number(mission.targetDistrictId)
-      ]))
-    });
-  } else if (scenarioLabel === "Částečný úspěch") {
-    setStoredSpyIntel({
-      occupiableDistrictIds: spyIntel.occupiableDistrictIds,
-      revealedTypeDistrictIds: Array.from(new Set([
-        ...(spyIntel.revealedTypeDistrictIds || []),
-        Number(mission.targetDistrictId)
-      ])),
-      revealedDefenseDistrictIds: spyIntel.revealedDefenseDistrictIds || []
-    });
+  if (scenarioLabel === "Úspěch" || scenarioLabel === "Částečný úspěch") {
+    setStoredSpyIntel(nextSpyIntel);
+  }
+
+  if (heatGain > 0) {
+    addGangHeat(root, heatGain, `Kriticky odhalené špehování District ${mission.targetDistrictId}`);
   }
 
   recordDistrictIntelEvent({
-    type: scenarioLabel === "Úspěch" ? "spy_success" : scenarioLabel === "Částečný úspěch" ? "spy_partial" : "spy_failed",
+    type: scenarioLabel === "Úspěch"
+      ? "spy_success"
+      : scenarioLabel === "Částečný úspěch"
+        ? "spy_partial"
+        : scenarioLabel === "Kritický neúspěch"
+          ? "spy_critical_failed"
+          : "spy_failed",
     districtId: mission.targetDistrictId,
     sourceDistrictId: mission.sourceDistrictId,
     intelLevel: "verified",
-    scenarioLabel
+    scenarioLabel,
+    heatGain
   });
 
   const isUnownedDistrict = isDistrictUnownedForSpyResult(mission.targetDistrictId, mission.ownerLabel);
@@ -6040,7 +6049,8 @@ function completeSpyMission(root, missionId) {
     mission,
     scenarioLabel,
     knownDefensePower,
-    isUnownedDistrict
+    isUnownedDistrict,
+    heatGain
   });
   syncBuildingActionSource(root, {
     tone: scenarioLabel === "Úspěch" ? "success" : scenarioLabel === "Částečný úspěch" ? "warning" : "error",
@@ -6053,7 +6063,7 @@ function completeSpyMission(root, missionId) {
   appendBuildingActionResultEntry(root, "spy", spyResultPayload);
   queueOrOpenResultModal(root, "spy", spyResultPayload);
 
-  if (scenarioLabel === "Neúspěch" && isCurrentPlayerOwnedDistrict(mission.targetDistrictId)) {
+  if (isCapturedOnMajorFail && isCurrentPlayerOwnedDistrict(mission.targetDistrictId)) {
     queueOrOpenResultModal(root, "spy_alert", createSpyDetectionAlertPayload(mission.targetDistrictId));
   }
 }
@@ -6338,10 +6348,12 @@ function bindDistrictCanvas(root) {
     attackConfirmScenario, attackConfirmDuration, attackConfirmNote, attackConfirmFinalButton,
     robberySetupPopup, robberySetupCard, robberySetupCloseElements, robberySetupAtmosphereImage,
     robberySetupAtmosphereLabel, robberyTargetTitle, robberySourceSelect, robberyAvailableMembers,
-    robberyMemberInput, robberyStatus, robberyConfirmButton, robberyConfirmPopup, robberyConfirmCard,
-    robberyConfirmCloseElements, robberyConfirmAtmosphereImage, robberyConfirmAtmosphereLabel,
-    robberyConfirmTitle, robberyConfirmSource, robberyConfirmMembers, robberyConfirmDuration,
-    robberyConfirmNote, robberyConfirmFinalButton, defenseSetupPopup, defenseSetupCard,
+    robberyMemberInput, robberyZone, robberyRecommendation, robberyRiskLevel, robberyHeatEstimate,
+    robberyLootPreview, robberyTrapPreview, robberyScoutReport, robberyRiskDescription, robberyStatus, robberyConfirmButton, robberyConfirmPopup,
+    robberyConfirmCard, robberyConfirmCloseElements, robberyConfirmAtmosphereImage,
+    robberyConfirmAtmosphereLabel, robberyConfirmTitle, robberyConfirmSource,
+    robberyConfirmMembers, robberyConfirmDuration, robberyConfirmNote, robberyConfirmFinalButton,
+    defenseSetupPopup, defenseSetupCard,
     defenseSetupCloseElements, defenseSetupAtmosphereImage, defenseSetupAtmosphereLabel,
     defenseTargetTitle, defenseStatus, defenseEstimatedPower, defenseWeaponInputs,
     defenseOwnedElements, defenseResidentsInput, defenseConfirmButton, trapConfirmPopup,
@@ -6680,6 +6692,7 @@ function bindDistrictCanvas(root) {
     calculateAttackDeployment,
     calculateTotalDefensePower,
     clamp,
+    createRobberySetupPreview,
     estimateDistrictDefense,
     getAdjacentDistrictIdsFromGeometry,
     getCurrentPlayerOwnedDistrictIds,
@@ -7020,6 +7033,7 @@ function bindDistrictCanvas(root) {
       id: `robbery-order:${Date.now()}`,
       playerId: `player:${CURRENT_PLAYER_ID}`,
       targetDistrictId: `district:${selectedDistrict.id}`,
+      targetDistrictType: selectedDistrict.districtType,
       sourceDistrictId: `district:${sourceDistrictId}`,
       deployedMembers,
       createdAt: new Date().toISOString(),
@@ -7042,16 +7056,16 @@ function bindDistrictCanvas(root) {
     ensureMissionAnimationLoop();
 
     if (buildingActionState) {
-      buildingActionState.textContent = "Vykradení";
+      buildingActionState.textContent = "Vykrást district";
       buildingActionState.classList.remove("building-action-status__state--idle");
     }
 
     if (buildingActionSummary) {
-      buildingActionSummary.textContent = `District ${sourceDistrictId} zahájí vykradení District ${selectedDistrict.id}. Nasazeno ${deployedMembers} členů gangu. Akce běží ${Math.ceil(robberyDurationMs / 1000)} sekund.`;
+      buildingActionSummary.textContent = `District ${sourceDistrictId} spouští Vykrást district na prázdný District ${selectedDistrict.id}. Nasazeno ${deployedMembers} členů gangu. Akce neobsazuje území a běží ${Math.ceil(robberyDurationMs / 1000)} sekund.`;
     }
 
     if (buildingActionMeta) {
-      buildingActionMeta.textContent = `Loot run · Členové ${deployedMembers} · Cíl District ${selectedDistrict.id} · cooldown ${Math.ceil(robberyDurationMs / 1000)}s`;
+      buildingActionMeta.textContent = `Vykrást district · Městský loot · Členové ${deployedMembers} · Cíl District ${selectedDistrict.id} · cooldown ${Math.ceil(robberyDurationMs / 1000)}s`;
     }
 
     hideTooltip();
@@ -7079,6 +7093,7 @@ function bindDistrictCanvas(root) {
       id: `spy-mission:${Date.now()}`,
       sourceDistrictId: adjacentOwnedDistrictIds[0],
       targetDistrictId: selectedDistrict.id,
+      spyCount: LEGACY_SPY_MISSION_SPY_COUNT,
       ownerLabel: getDistrictOwnerLabel(selectedDistrict, interactionState),
       districtType: selectedDistrict.districtType,
       intelQualityPct: Number(pharmacySnapshot.effective.infoQualityPct || 0),
@@ -8068,6 +8083,26 @@ function bindDistrictCanvas(root) {
         return;
       }
 
+      if (actionId === "heist") {
+        const ownerLabel = getDistrictOwnerLabel(selectedDistrict, interactionState);
+
+        if (buildingActionState) {
+          buildingActionState.textContent = "Heist";
+          buildingActionState.classList.remove("building-action-status__state--idle");
+        }
+
+        if (buildingActionSummary) {
+          buildingActionSummary.textContent = `Vykrást hráče cílí na District ${selectedDistrict.id} vlastněný hráčem ${ownerLabel}. Krade část cash/resources, ale nepřebírá vlastnictví districtu. Spy report není povinný, jen zpřesňuje preview.`;
+        }
+
+        if (buildingActionMeta) {
+          buildingActionMeta.textContent = `Vykrást hráče · PvP loot · Cíl District ${selectedDistrict.id}`;
+        }
+
+        showInfo("Vykrást hráče je dostupné proti sousednímu cizímu districtu. Scout report je jen výhoda, ne podmínka.", { root });
+        return;
+      }
+
       if (actionId === "spy") {
         populateSpyConfirmPopup(selectedDistrict);
         openSpyPanel(selectedDistrict, { popup: spyConfirmPopup });
@@ -8329,6 +8364,9 @@ function bindDistrictCanvas(root) {
       applyOccupyAction(selectedDistrict);
     });
   }
+
+  render();
+  ensureMissionAnimationLoop();
 
   Promise.all([
     loadImage(DAY_MAP_IMAGE_PATH),
@@ -9335,6 +9373,7 @@ export {
   createOrganicDistrictPolygon,
   createPageContext,
   createProductionCard,
+  createRobberySetupPreview,
   createSeededRandom,
   createStops,
   createWeaponInventoryFromFaction,
@@ -9383,7 +9422,9 @@ export {
   getResolvedSpyState,
   getResolvedWeaponInventory,
   getRobberyLootForOrder,
+  getRobberyRiskLevel,
   getRobberyScenarioMemberLoss,
+  getRobberySuccessChance,
   getStoredAttackOrders,
   getStoredDrugInventory,
   getStoredEconomyState,
@@ -9434,6 +9475,7 @@ export {
   renderSpyResourceState,
   replaceListItems,
   resolveAttackScenario,
+  resolveRobberyOrderOutcome,
   resolveRobberyScenario,
   resolveSpyScenario,
   scheduleAttackOrder,

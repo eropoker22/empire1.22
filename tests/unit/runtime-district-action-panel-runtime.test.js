@@ -75,4 +75,66 @@ describe("district action panel runtime", () => {
     expect(() => runtime.populateTrapConfirmPopup({ id: 1 })).not.toThrow();
     expect(() => runtime.populateSpyConfirmPopup({ id: 1 })).not.toThrow();
   });
+
+  it("keeps robbery confirmable without scout report while rendering rough preview labels", () => {
+    const robberySourceSelect = { value: "5", replaceChildren: vi.fn(), append: vi.fn(), disabled: false };
+    const robberyMemberInput = input("4");
+    const robberyAvailableMembers = textElement();
+    const robberyStatus = textElement();
+    const robberyConfirmButton = textElement();
+    const robberyRiskLevel = textElement();
+    const robberyLootPreview = textElement();
+    const robberyTrapPreview = textElement();
+    const robberyScoutReport = textElement();
+    const robberyRiskDescription = textElement();
+    const previewFactory = vi.fn(({ hasScoutReport }) => ({
+      zoneLabel: "Park",
+      recommendationLabel: "6-10",
+      previewRiskLabel: hasScoutReport ? "Medium" : "Neznámé / Odhad",
+      previewSuccessChanceLabel: hasScoutReport ? "57%" : "Odhad",
+      riskLabel: "Medium",
+      successChanceLabel: "57%",
+      previewLootLabel: hasScoutReport ? "Biomass / Chemicals" : "Nejistý",
+      previewTrapHintLabel: hasScoutReport ? "Past nepotvrzena" : "Neznámá",
+      scoutReportLabel: hasScoutReport ? "Scout report aktivní" : "Bez scout reportu",
+      heatLabel: "+5",
+      previewDescription: hasScoutReport ? "Scout report aktivní." : "Bez scout reportu je preview jen hrubý odhad."
+    }));
+    const runtime = createDistrictActionPanelRuntime({
+      clamp: (value, min, max) => Math.min(Math.max(value, min), max),
+      createRobberySetupPreview: previewFactory,
+      getResolvedSpyIntel: () => ({
+        occupiableDistrictIds: [],
+        revealedTypeDistrictIds: [],
+        revealedDefenseDistrictIds: []
+      }),
+      elements: {
+        robberySourceSelect,
+        robberyMemberInput,
+        robberyAvailableMembers,
+        robberyStatus,
+        robberyConfirmButton,
+        robberyRiskLevel,
+        robberyLootPreview,
+        robberyTrapPreview,
+        robberyScoutReport,
+        robberyRiskDescription,
+        gangMembersValue: textElement("10")
+      }
+    });
+
+    runtime.populateRobberySetupPopup({ id: 12, districtType: "park" });
+    robberySourceSelect.value = "5";
+    robberyMemberInput.value = "4";
+    const summary = runtime.renderRobberySummary();
+
+    expect(summary.canConfirm).toBe(true);
+    expect(robberyConfirmButton.disabled).toBe(false);
+    expect(previewFactory).toHaveBeenLastCalledWith(expect.objectContaining({ hasScoutReport: false }));
+    expect(robberyRiskLevel.textContent).toBe("Neznámé / Odhad · Odhad");
+    expect(robberyLootPreview.textContent).toBe("Nejistý");
+    expect(robberyTrapPreview.textContent).toBe("Neznámá");
+    expect(robberyScoutReport.textContent).toBe("Bez scout reportu");
+    expect(robberyRiskDescription.textContent).toContain("Bez scout reportu");
+  });
 });

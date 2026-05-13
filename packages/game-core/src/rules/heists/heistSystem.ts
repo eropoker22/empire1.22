@@ -82,6 +82,9 @@ export interface HeistResolveResult {
   loot?: HeistLoot;
 }
 
+const HEIST_ACTION_LABEL = "Vykrást hráče";
+const HEIST_ACTION_DESCRIPTION = "Heist cílí na district vlastněný jiným hráčem. Krade část jeho peněz a surovin, ale nepřebírá vlastnictví districtu.";
+
 export const heistConfig = Object.freeze({
   id: "district_heist",
   cooldowns: Object.freeze({
@@ -90,7 +93,7 @@ export const heistConfig = Object.freeze({
   }),
   styles: Object.freeze({
     stealth: Object.freeze({
-      name: "Tiché vykradení",
+      name: "Tichý heist",
       durationSeconds: 90,
       minGangMembers: 5,
       maxGangMembers: 35,
@@ -103,7 +106,7 @@ export const heistConfig = Object.freeze({
       policeSuspicionOnDetected: 4
     }),
     balanced: Object.freeze({
-      name: "Rychlá akce",
+      name: "Vyvážený heist",
       durationSeconds: 150,
       minGangMembers: 10,
       maxGangMembers: 70,
@@ -116,7 +119,7 @@ export const heistConfig = Object.freeze({
       policeSuspicionOnDetected: 7
     }),
     all_in: Object.freeze({
-      name: "Tvrdý nájezd",
+      name: "Tvrdý heist",
       durationSeconds: 180,
       minGangMembers: 25,
       maxGangMembers: 120,
@@ -188,6 +191,18 @@ export const heistConfig = Object.freeze({
 const RESOURCE_KEYS = ["metalParts", "techCore", "chemicals", "biomass"] as const;
 const CASH_KEY_ALIASES = ["cleanCash", "cleanMoney", "cash"];
 const DIRTY_CASH_KEY_ALIASES = ["dirtyCash", "dirtyMoney", "dirty-cash"];
+const HEIST_ZONE_DIFFICULTY: Record<string, number> = Object.freeze({
+  park: 8,
+  residential: 12,
+  industrial: 18,
+  commercial: 24,
+  downtown: 38
+});
+const HEIST_STYLE_RECOMMENDATION_MULTIPLIER: Record<HeistStyleId, number> = Object.freeze({
+  stealth: 0.7,
+  balanced: 1,
+  all_in: 1.35
+});
 const RESOURCE_KEY_ALIASES: Record<string, string[]> = {
   metalParts: ["metalParts", "metal-parts"],
   techCore: ["techCore", "tech-core"],
@@ -288,12 +303,12 @@ export const startDistrictHeist = (
   }
 
   if (targetPlayerId === attackerPlayerId) {
-    return failStart("CANNOT_HEIST_OWN_DISTRICT", "Vlastní district nejde vykrást.");
+    return failStart("CANNOT_HEIST_OWN_DISTRICT", "Vykrást hráče nejde spustit na vlastním districtu.");
   }
 
   const styleConfig = heistConfig.styles[style];
   if (!styleConfig) {
-    return failStart("UNKNOWN_STYLE", "Neznámý styl vykradení.");
+    return failStart("UNKNOWN_STYLE", "Neznámý styl akce Vykrást hráče.");
   }
 
   const sent = sanitizeGangMembers(gangMembersSent);
@@ -313,14 +328,14 @@ export const startDistrictHeist = (
   const heistState = initializeHeistState(attacker).heists;
   const globalRemainingSeconds = getRemainingSeconds(heistState.cooldowns.globalUntil, now);
   if (globalRemainingSeconds > 0) {
-    return failStart("COOLDOWN_ACTIVE", "Gang se musí stáhnout. Další vykradení zatím nejde spustit.", {
+    return failStart("COOLDOWN_ACTIVE", "Gang se musí stáhnout. Další akce Vykrást hráče zatím nejde spustit.", {
       cooldownRemainingSeconds: globalRemainingSeconds
     });
   }
 
   const targetRemainingSeconds = getRemainingSeconds(heistState.cooldowns.targetUntilByDistrictId[targetDistrictId], now);
   if (targetRemainingSeconds > 0) {
-    return failStart("TARGET_COOLDOWN_ACTIVE", "Tenhle district je moc horký. Zkus jiný cíl nebo počkej.", {
+    return failStart("TARGET_COOLDOWN_ACTIVE", "Tenhle district je po heistu moc horký. Zkus jiný cíl nebo počkej.", {
       cooldownRemainingSeconds: targetRemainingSeconds
     });
   }
@@ -330,7 +345,7 @@ export const startDistrictHeist = (
   }
 
   if (isDistrictHeistImmune(district, now)) {
-    return failStart("DISTRICT_HEIST_IMMUNE", "District je dočasně chráněný proti vykradení.");
+    return failStart("DISTRICT_HEIST_IMMUNE", "District je dočasně chráněný proti akci Vykrást hráče.");
   }
 
   const mode = resolveGameMode(nextState);
@@ -361,7 +376,7 @@ export const startDistrictHeist = (
   heistState.stats.started += 1;
 
   addHeatToPlayer(nextState, attackerPlayerId, scaleHeat(styleConfig.heatOnStart, mode), "heist_start");
-  appendGameLog(nextState, "heist", "Vykradení districtu začalo. Gang je v pohybu.", {
+  appendGameLog(nextState, "heist", "Vykrást hráče začalo. Gang míří na cizí cash/resources bez převzetí districtu.", {
     heistId,
     attackerPlayerId,
     targetPlayerId,
@@ -369,7 +384,7 @@ export const startDistrictHeist = (
     style,
     gangMembersSent: sent
   });
-  addRumor(nextState, `Někde v ${normalizeDistrictType(getDistrictType(district))} zóně se pohybuje cizí gang.`, {
+  addRumor(nextState, `Někde v ${normalizeDistrictType(getDistrictType(district))} zóně cizí gang připravuje heist proti vlastněnému districtu.`, {
     type: "heist",
     targetPlayerId,
     districtId: targetDistrictId,
@@ -388,7 +403,7 @@ export const startDistrictHeist = (
     resolvesAt: activeHeist.resolvesAt,
     durationSeconds,
     detectionChancePreview,
-    message: "Vykradení districtu začalo. Gang je v pohybu."
+    message: "Vykrást hráče začalo. Gang míří na cizí cash/resources bez převzetí districtu."
   };
 };
 
@@ -468,7 +483,7 @@ export const resolveDistrictHeist = (
       success: false,
       resolved: false,
       reason: "HEIST_NOT_FOUND",
-      message: "Vykradení nebylo nalezeno."
+      message: "Akce Vykrást hráče nebyla nalezena."
     };
   }
 
@@ -478,7 +493,7 @@ export const resolveDistrictHeist = (
       success: false,
       resolved: false,
       reason: "HEIST_NOT_READY",
-      message: "Gang je pořád v pohybu.",
+      message: "Akce Vykrást hráče pořád běží.",
       nextState
     };
   }
@@ -564,6 +579,7 @@ export const getHeistViewModel = (
   const mode = resolveGameMode(gameState);
   const heistState = attacker ? getPlayerHeistState(gameState, attackerPlayerId) : createHeistState();
   const availableGangMembers = attacker ? getAvailableGangMembers(attacker) : 0;
+  const scoutReport = getScoutReportForDistrict(gameState, attackerPlayerId, targetDistrictId);
   const reasonsBlocked: string[] = [];
 
   if (!attacker) {
@@ -576,7 +592,7 @@ export const getHeistViewModel = (
     reasonsBlocked.push("District nemá vlastníka");
   }
   if (targetOwnerId === attackerPlayerId) {
-    reasonsBlocked.push("Vlastní district nejde vykrást");
+    reasonsBlocked.push("Vykrást hráče nejde spustit na vlastním districtu");
   }
   if (getRemainingSeconds(heistState.cooldowns.globalUntil, now) > 0) {
     reasonsBlocked.push("Globální cooldown je aktivní");
@@ -588,13 +604,18 @@ export const getHeistViewModel = (
     reasonsBlocked.push("District je pod policejním lockdownem");
   }
   if (district && isDistrictHeistImmune(district, now)) {
-    reasonsBlocked.push("District je chráněný proti vykradení");
+    reasonsBlocked.push("District je chráněný proti akci Vykrást hráče");
   }
 
   const styles = (Object.keys(heistConfig.styles) as HeistStyleId[]).map((styleId) => {
     const styleConfig = heistConfig.styles[styleId];
+    const recommendedMembers = calculateRecommendedHeistMembers(gameState, {
+      district,
+      target: targetOwnerId ? findPlayer(gameState, targetOwnerId) : null,
+      style: styleId
+    });
     const previewGangMembers = clamp(
-      Math.max(styleConfig.minGangMembers, Math.min(availableGangMembers, styleConfig.maxGangMembers)),
+      Math.max(styleConfig.minGangMembers, Math.min(availableGangMembers || recommendedMembers.safe, recommendedMembers.safe)),
       styleConfig.minGangMembers,
       styleConfig.maxGangMembers
     );
@@ -612,7 +633,9 @@ export const getHeistViewModel = (
       expectedLootPreview: createEmptyLoot()
     };
     const detectionChancePreview = calculateHeistDetectionChance(gameState, previewHeist);
+    const lootPreview = calculateHeistLoot(gameState, { ...previewHeist, lootRoll: 0.5, rareLootRoll: 1 }, "success");
     const warnings = buildStyleWarnings(district, styleId, detectionChancePreview, availableGangMembers, styleConfig.minGangMembers);
+    const heatPreview = scaleHeat(styleConfig.heatOnStart, mode);
 
     return {
       id: styleId,
@@ -620,21 +643,33 @@ export const getHeistViewModel = (
       durationSeconds: Math.ceil(styleConfig.durationSeconds * getModeMultipliers(mode).durationMultiplier),
       minGangMembers: styleConfig.minGangMembers,
       maxGangMembers: styleConfig.maxGangMembers,
+      recommendedMembers,
       detectionChancePreview,
-      lootPreview: calculateHeistLoot(gameState, { ...previewHeist, lootRoll: 0.5, rareLootRoll: 1 }, "success"),
-      heatPreview: scaleHeat(styleConfig.heatOnStart, mode),
+      lootPreview,
+      heatPreview,
+      riskPreview: buildHeistRiskPreview({
+        detectionChance: detectionChancePreview,
+        lootPreview,
+        styleConfig,
+        sentMembers: previewGangMembers,
+        heatPreview,
+        scoutReport
+      }),
       canUse: reasonsBlocked.length === 0 && availableGangMembers >= styleConfig.minGangMembers,
       warnings
     };
   });
 
   return {
+    actionLabel: HEIST_ACTION_LABEL,
+    description: HEIST_ACTION_DESCRIPTION,
     canStart: reasonsBlocked.length === 0,
     reasonsBlocked,
     targetDistrictId,
     districtType: normalizeDistrictType(getDistrictType(district)),
     targetOwnerId,
     availableGangMembers,
+    scoutReport,
     styles,
     cooldowns: {
       globalRemainingSeconds: getRemainingSeconds(heistState.cooldowns.globalUntil, now),
@@ -821,6 +856,222 @@ const getModeMultipliers = (mode: HeistModeId) =>
 
 const scaleHeat = (amount: number, mode: HeistModeId): number =>
   Math.ceil(Math.max(0, Number(amount) || 0) * getModeMultipliers(mode).heatMultiplier);
+
+const calculateRecommendedHeistMembers = (
+  gameState: AnyRecord,
+  {
+    district,
+    target,
+    style
+  }: {
+    district: AnyRecord | null;
+    target: AnyRecord | null;
+    style: HeistStyleId;
+  }
+): { min: number; max: number; safe: number } => {
+  const styleConfig = heistConfig.styles[style] ?? heistConfig.styles.balanced;
+  const resistance = calculateTargetHeistResistance(gameState, district, target);
+  const baseRecommended = clamp(
+    Math.ceil(resistance * (HEIST_STYLE_RECOMMENDATION_MULTIPLIER[style] ?? 1)),
+    styleConfig.minGangMembers,
+    styleConfig.maxGangMembers
+  );
+
+  return {
+    min: clamp(Math.ceil(baseRecommended * 0.85), styleConfig.minGangMembers, styleConfig.maxGangMembers),
+    max: clamp(Math.ceil(baseRecommended * 1.15), styleConfig.minGangMembers, styleConfig.maxGangMembers),
+    safe: clamp(Math.ceil(baseRecommended * 1.3), styleConfig.minGangMembers, styleConfig.maxGangMembers)
+  };
+};
+
+const calculateTargetHeistResistance = (
+  gameState: AnyRecord,
+  district: AnyRecord | null,
+  target: AnyRecord | null
+): number => {
+  const districtType = normalizeDistrictType(getDistrictType(district));
+  const districtSecurity = getDefenderSecurity(gameState, district);
+  const policePresence = getPolicePresence(gameState, district, target);
+  const districtValueScore = calculateDistrictValueScore(gameState, district, target);
+  const zoneDifficulty = HEIST_ZONE_DIFFICULTY[districtType] ?? HEIST_ZONE_DIFFICULTY.commercial;
+
+  return Math.max(
+    0,
+    districtSecurity * 1.3
+    + policePresence * 1.1
+    + districtValueScore * 0.25
+    + zoneDifficulty
+  );
+};
+
+const calculateDistrictValueScore = (
+  gameState: AnyRecord,
+  district: AnyRecord | null,
+  target: AnyRecord | null
+): number => {
+  const containers = collectLootContainers(gameState, target, district);
+  const cashTotal =
+    getTotalBalance(containers, CASH_KEY_ALIASES)
+    + getTotalBalance(containers, DIRTY_CASH_KEY_ALIASES);
+  const weightedResources =
+    getTotalBalance(containers, RESOURCE_KEY_ALIASES.metalParts) * 3
+    + getTotalBalance(containers, RESOURCE_KEY_ALIASES.techCore) * 8
+    + getTotalBalance(containers, RESOURCE_KEY_ALIASES.chemicals) * 2
+    + getTotalBalance(containers, RESOURCE_KEY_ALIASES.biomass) * 2;
+
+  return Math.sqrt(Math.max(0, cashTotal)) / 8
+    + Math.sqrt(Math.max(0, weightedResources)) / 5;
+};
+
+const getScoutReportForDistrict = (
+  gameState: AnyRecord,
+  playerId: string,
+  targetDistrictId: string
+): AnyRecord => {
+  const report = findScoutReportForDistrict(gameState, playerId, targetDistrictId);
+  const active = Boolean(report);
+  const trapDetected = Boolean(report?.trapDetected || report?.payload?.trapDetected);
+
+  return {
+    active,
+    label: active ? "Scout report aktivní" : "Bez scout reportu",
+    riskLabel: active ? "Přesnější odhad" : "Neznámé / Odhad",
+    lootLabel: active ? "Přesnější odhad" : "Nejistý",
+    trapHintLabel: active
+      ? (trapDetected ? "Past hlášena scout reportem" : "Past nepotvrzena")
+      : "Neznámá",
+    trapDetected,
+    reportId: report?.reportId ?? report?.id ?? report?.payload?.reportId ?? null
+  };
+};
+
+const findScoutReportForDistrict = (
+  gameState: AnyRecord,
+  playerId: string,
+  targetDistrictId: string
+): AnyRecord | null => {
+  const candidates = [
+    ...recordValues(gameState.notificationsById),
+    ...recordValues(gameState.reportsById),
+    ...arrayValues(gameState.notifications),
+    ...arrayValues(gameState.reports),
+    ...arrayValues(gameState.conflictReports)
+  ];
+
+  return candidates.find((candidate) => isMatchingScoutReport(candidate, playerId, targetDistrictId)) ?? null;
+};
+
+const recordValues = (record: unknown): AnyRecord[] => (
+  record && typeof record === "object" && !Array.isArray(record)
+    ? Object.values(record as Record<string, unknown>).filter((entry): entry is AnyRecord => Boolean(entry && typeof entry === "object"))
+    : []
+);
+
+const arrayValues = (value: unknown): AnyRecord[] => (
+  Array.isArray(value)
+    ? value.filter((entry): entry is AnyRecord => Boolean(entry && typeof entry === "object"))
+    : []
+);
+
+const isMatchingScoutReport = (candidate: AnyRecord, playerId: string, targetDistrictId: string): boolean => {
+  const payload = candidate.payload && typeof candidate.payload === "object" ? candidate.payload : candidate;
+  const category = String(candidate.category || payload.category || "").trim();
+  const reportType = String(payload.reportType || "").trim();
+  const actionType = String(payload.actionType || "").trim();
+  const isSpyReport = category === "report.spy" || reportType === "spy" || actionType === "spy-district";
+  const reportTargetId = String(payload.targetDistrictId || candidate.targetDistrictId || "").trim();
+  const reportPlayerId = String(payload.playerId || candidate.playerId || candidate.recipientId || "").trim();
+  const result = String(payload.result || candidate.result || "").trim();
+  const isUsefulReport = result === "success" || result === "partial" || result === "succeeded" || result === "ok" || result === "";
+
+  return isSpyReport
+    && reportTargetId === targetDistrictId
+    && (!reportPlayerId || reportPlayerId === playerId)
+    && isUsefulReport;
+};
+
+const buildHeistRiskPreview = ({
+  detectionChance,
+  lootPreview,
+  styleConfig,
+  sentMembers,
+  heatPreview,
+  scoutReport
+}: {
+  detectionChance: number;
+  lootPreview: HeistLoot;
+  styleConfig: AnyRecord;
+  sentMembers: number;
+  heatPreview: number;
+  scoutReport?: AnyRecord;
+}): {
+  detectionRiskLabel: "low" | "medium" | "high" | "extreme";
+  lootPreviewLabel: "low" | "medium" | "high" | "jackpot";
+  lossRiskLabel: "low" | "medium" | "high" | "brutal";
+  heatPreviewLabel: "low" | "medium" | "high" | "extreme";
+  scoutReportActive: boolean;
+  scoutReportLabel: string;
+  detectionRiskDisplayLabel: string;
+  lootPreviewDisplayLabel: string;
+  trapHintLabel: string;
+} => {
+  const detectionRiskLabel = labelDetectionRisk(detectionChance);
+  const lootPreviewLabel = labelLootPreview(lootPreview);
+  const lossRiskLabel = labelLossRisk(sentMembers, styleConfig);
+  const heatPreviewLabel = labelHeatPreview(heatPreview);
+  const scoutReportActive = Boolean(scoutReport?.active);
+
+  return {
+    detectionRiskLabel,
+    lootPreviewLabel,
+    lossRiskLabel,
+    heatPreviewLabel,
+    scoutReportActive,
+    scoutReportLabel: scoutReportActive ? "Scout report aktivní" : "Bez scout reportu",
+    detectionRiskDisplayLabel: scoutReportActive ? detectionRiskLabel : "Neznámé / Odhad",
+    lootPreviewDisplayLabel: scoutReportActive ? lootPreviewLabel : "Nejistý",
+    trapHintLabel: scoutReportActive ? String(scoutReport?.trapHintLabel || "Past nepotvrzena") : "Neznámá"
+  };
+};
+
+const labelDetectionRisk = (detectionChance: number): "low" | "medium" | "high" | "extreme" => {
+  if (detectionChance < 0.2) return "low";
+  if (detectionChance < 0.4) return "medium";
+  if (detectionChance < 0.65) return "high";
+  return "extreme";
+};
+
+const labelLootPreview = (loot: HeistLoot): "low" | "medium" | "high" | "jackpot" => {
+  const resourceTotal = Object.values(loot.resources).reduce((total, amount) => total + safeInteger(amount), 0);
+  const weightedLoot =
+    safeInteger(loot.cleanCash)
+    + safeInteger(loot.dirtyCash)
+    + resourceTotal * 8
+    + (loot.rareLoot ? safeInteger(loot.rareLoot.amount) * 35 : 0);
+
+  if (weightedLoot < 20) return "low";
+  if (weightedLoot < 80) return "medium";
+  if (weightedLoot < 180) return "high";
+  return "jackpot";
+};
+
+const labelLossRisk = (sentMembers: number, styleConfig: AnyRecord): "low" | "medium" | "high" | "brutal" => {
+  const estimatedDetectedLoss = sanitizeGangMembers(sentMembers)
+    * safeNumber(styleConfig.unitLossMultiplierIfDetected)
+    * 0.85;
+
+  if (estimatedDetectedLoss < 4) return "low";
+  if (estimatedDetectedLoss < 15) return "medium";
+  if (estimatedDetectedLoss < 40) return "high";
+  return "brutal";
+};
+
+const labelHeatPreview = (heatPreview: number): "low" | "medium" | "high" | "extreme" => {
+  if (heatPreview <= 1) return "low";
+  if (heatPreview <= 3) return "medium";
+  if (heatPreview <= 7) return "high";
+  return "extreme";
+};
 
 const getAvailableGangMembers = (player: AnyRecord): number => {
   const directAvailable = pickFirstFinite(player, ["availableGangMembers", "availableMembers", "gangMembers", "members", "population"]);
@@ -1388,13 +1639,13 @@ const notifyPoliceOfHeist = (gameState: AnyRecord, payload: AnyRecord): void => 
     try {
       handler(gameState, payload);
     } catch (error) {
-      appendGameLog(gameState, "police", "Police AI hook pro vykradení selhal bezpečně.", {
+      appendGameLog(gameState, "police", "Police AI hook pro akci Vykrást hráče selhal bezpečně.", {
         ...payload,
         error: error instanceof Error ? error.message : String(error)
       });
     }
   } else {
-    appendGameLog(gameState, "police", "Policie dostala hlášení o vykradení.", payload);
+    appendGameLog(gameState, "police", "Policie dostala hlášení o akci Vykrást hráče.", payload);
   }
 };
 
@@ -1416,11 +1667,11 @@ const appendResolveLogs = (
 
   const lootCash = safeInteger(loot.cleanCash) + safeInteger(loot.dirtyCash);
   const lootResources = Object.values(loot.resources).reduce((total, amount) => total + safeInteger(amount), 0);
-  appendGameLog(gameState, "heist", `Loot získán: cash ${lootCash}, resources ${lootResources}.`, {
+  appendGameLog(gameState, "heist", `Vykrást hráče loot: cash ${lootCash}, resources ${lootResources}.`, {
     heistId: heist.id,
     loot
   });
-  appendGameLog(gameState, "heist", `Ztráty gangu: ${gangLost}. Návrat: ${gangReturned}.`, {
+  appendGameLog(gameState, "heist", `Ztráty gangu při akci Vykrást hráče: ${gangLost}. Návrat: ${gangReturned}.`, {
     heistId: heist.id,
     gangLost,
     gangReturned
@@ -1497,31 +1748,31 @@ const getOutcomeRumor = (outcome: HeistOutcome): { message: string; truth: numbe
   switch (outcome) {
     case "clean_success":
       return {
-        message: "V ulicích se šeptá, že někdo zmizel se zbožím bez jediného výstřelu.",
+        message: "V ulicích se šeptá, že heist vytáhl cash/resources z cizího districtu bez převzetí území.",
         truth: 0.55,
         spread: 0.35
       };
     case "success":
       return {
-        message: "Někdo vybral zásoby a zmizel dřív, než se město stihlo nadechnout.",
+        message: "Někdo při akci Vykrást hráče vybral zásoby cizího districtu, ale vlajka zůstala stejná.",
         truth: 0.65,
         spread: 0.45
       };
     case "detected":
       return {
-        message: "Vykradení se zvrtlo. Sirény byly slyšet až za hranicí districtu.",
+        message: "Vykrást hráče se zvrtlo. Sirény byly slyšet až za hranicí districtu.",
         truth: 0.8,
         spread: 0.75
       };
     case "failed":
       return {
-        message: "Gang se vrátil prázdný a město si pamatuje jejich tváře.",
+        message: "Vykrást hráče selhalo. Gang se vrátil prázdný a město si pamatuje jejich tváře.",
         truth: 0.75,
         spread: 0.65
       };
     case "trap_triggered":
       return {
-        message: "Past sklapla. Do districtu vešli lidé, ven nevyšel nikdo.",
+        message: "Vykrást hráče narazilo na past. Do districtu vešli lidé, ven nevyšel nikdo.",
         truth: 0.9,
         spread: 0.9
       };
@@ -1531,15 +1782,15 @@ const getOutcomeRumor = (outcome: HeistOutcome): { message: string; truth: numbe
 const getOutcomeMessage = (outcome: HeistOutcome): string => {
   switch (outcome) {
     case "clean_success":
-      return "Vykradení proběhlo čistě. Gang zmizel se zbožím.";
+      return "Vykrást hráče proběhlo čistě. Gang ukradl část cash/resources a vlastník districtu se nemění.";
     case "success":
-      return "Vykradení uspělo, ale v ulicích zůstal chaos.";
+      return "Vykrást hráče uspělo, ale v ulicích zůstal chaos. District nepřebíráš.";
     case "detected":
-      return "Vykradení bylo odhaleno. Gang se stáhl s částí kořisti.";
+      return "Vykrást hráče bylo odhaleno. Gang se stáhl s částí kořisti.";
     case "failed":
-      return "Vykradení selhalo. Gang se vrátil s těžkými ztrátami.";
+      return "Vykrást hráče selhalo. Gang se vrátil s těžkými ztrátami.";
     case "trap_triggered":
-      return "Gang narazil na past. Nikdo se nevrátil.";
+      return "Vykrást hráče narazilo na past. Nikdo se nevrátil.";
   }
 };
 
@@ -1594,7 +1845,7 @@ const buildStyleWarnings = (
     warnings.push("Downtown má vysoký loot, ale tvrdou detekci");
   }
   if (districtType === "park" && styleId === "stealth") {
-    warnings.push("Park je vhodný pro tiché vykradení");
+    warnings.push("Park je vhodný pro tichý heist");
   }
   if (district && hasActiveTrap({}, district)) {
     warnings.push("District může mít past");

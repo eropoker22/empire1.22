@@ -380,7 +380,7 @@ export const AUTO_SALON_SUPPORT_CONFIG = Object.freeze({
   halfBonusCategories: Object.freeze(["attackTravelTime", "defenseReposition"]),
   smallBonusCategories: Object.freeze(["clinicEvacuationRecovery", "recyclingSalvageTransport"]),
   excludedCategories: Object.freeze(["moneyLaundering", "casinoActions", "exchangeOfficeActions", "arcadeLaunderingActions", "rumorGeneration", "passiveProduction", "intelScan", "trapDetection"]),
-  escapeAppliesTo: Object.freeze(["neúspěšné vykradení", "odhalená špionáž", "přepadení při přesunu", "návrat po útoku"]),
+  escapeAppliesTo: Object.freeze(["neúspěšné Vykrást district", "odhalená špionáž", "přepadení při přesunu", "návrat po útoku"]),
   cleanIncomeBonusPctPerExtraDealer: 4,
   dirtyIncomeBonusPctPerExtraDealer: 4,
   heatBonusPctPerExtraDealer: 3,

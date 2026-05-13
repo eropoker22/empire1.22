@@ -10,6 +10,14 @@ import {
   renderSpyConfirmationPanel,
   renderTrapConfirmationPanel
 } from "../ui/districtActionConfirmationPanel.js";
+import {
+  createAttackSetupViewModel,
+  createDefenseSetupViewModel,
+  createRobberySetupViewModel,
+  renderAttackSetupPanel,
+  renderDefenseSetupPanel,
+  renderRobberySetupPanel
+} from "../ui/districtActionSetupPanel.js";
 
 function isHtmlInputElement(element) {
   return Boolean(element && typeof element === "object" && "value" in element);
@@ -19,81 +27,16 @@ function isHtmlSelectElement(element) {
   return Boolean(element && typeof element === "object" && "value" in element && typeof element.replaceChildren === "function");
 }
 
-function setElementText(element, value) {
-  if (element) {
-    element.textContent = String(value ?? "");
-  }
-}
-
 function setElementDisabled(element, disabled) {
   if (element && "disabled" in element) {
     element.disabled = Boolean(disabled);
   }
 }
 
-function createOption(selectElement, value, text) {
-  const ownerDocument = selectElement?.ownerDocument || (typeof document !== "undefined" ? document : null);
-  if (!ownerDocument || typeof ownerDocument.createElement !== "function") {
-    return null;
+function setElementText(element, value) {
+  if (element) {
+    element.textContent = String(value ?? "");
   }
-
-  const option = ownerDocument.createElement("option");
-  option.value = String(value ?? "");
-  option.textContent = String(text ?? "");
-  return option;
-}
-
-function renderSourceSelect(selectElement, sourceDistrictIds = []) {
-  if (!isHtmlSelectElement(selectElement)) {
-    return;
-  }
-
-  const safeSourceIds = Array.isArray(sourceDistrictIds)
-    ? sourceDistrictIds.map((sourceDistrictId) => Number(sourceDistrictId)).filter(Boolean)
-    : [];
-  const placeholderOption = createOption(
-    selectElement,
-    "",
-    safeSourceIds.length > 0 ? "Vyber district" : "Žádný sousední district"
-  );
-
-  selectElement.replaceChildren();
-  if (placeholderOption) {
-    selectElement.append(placeholderOption);
-  }
-
-  for (const sourceDistrictId of safeSourceIds) {
-    const option = createOption(selectElement, sourceDistrictId, `District ${sourceDistrictId}`);
-    if (option) {
-      selectElement.append(option);
-    }
-  }
-
-  if (safeSourceIds.length === 1) {
-    selectElement.value = String(safeSourceIds[0]);
-  }
-
-  setElementDisabled(selectElement, safeSourceIds.length === 0);
-}
-
-function applyDistrictAtmosphere({
-  card,
-  imageElement,
-  labelElement,
-  moodElement,
-  atmosphereMeta = {}
-} = {}) {
-  if (card?.dataset) {
-    card.dataset.districtType = atmosphereMeta.typeKey || "unknown";
-  }
-
-  if (imageElement && "src" in imageElement) {
-    imageElement.src = atmosphereMeta.imagePath || "";
-    imageElement.alt = `${atmosphereMeta.label || "Neznámá"} – atmosféra města`;
-  }
-
-  setElementText(labelElement, atmosphereMeta.label || "");
-  setElementText(moodElement, atmosphereMeta.mood || "");
 }
 
 function getWeaponInputId(input, datasetKey) {
@@ -103,7 +46,8 @@ function getWeaponInputId(input, datasetKey) {
 export function createDistrictActionPanelRuntime(deps = {}) {
   const elements = deps.elements || {};
   const state = {
-    pendingAttackContext: null
+    pendingAttackContext: null,
+    pendingRobberyDistrict: null
   };
 
   const clamp = typeof deps.clamp === "function"
@@ -136,6 +80,30 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     return getAdjacentDistrictIdsFromGeometry(getGeometry(), district.id)
       .filter((districtId) => currentPlayerOwnedDistrictIds.has(districtId));
   };
+
+  const hasScoutReportForDistrict = (districtId) => {
+    const normalizedDistrictId = Number(districtId);
+    if (!normalizedDistrictId || typeof deps.getResolvedSpyIntel !== "function") {
+      return false;
+    }
+
+    const spyIntel = deps.getResolvedSpyIntel() || {};
+    return [
+      spyIntel.occupiableDistrictIds,
+      spyIntel.revealedTypeDistrictIds,
+      spyIntel.revealedDefenseDistrictIds
+    ].some((districtIds) => Array.isArray(districtIds) && districtIds.map(Number).includes(normalizedDistrictId));
+  };
+
+  const createRobberyPreviewForDistrict = (district, sentMembers = 0) => (
+    typeof deps.createRobberySetupPreview === "function"
+      ? deps.createRobberySetupPreview({
+          districtType: district?.districtType,
+          sentMembers,
+          hasScoutReport: hasScoutReportForDistrict(district?.id)
+        })
+      : null
+  );
 
   const renderAttackSummary = () => {
     if (
@@ -261,6 +229,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
 
     const hasSourceDistrict = Boolean(elements.robberySourceSelect.value);
     const canConfirm = hasSourceDistrict && deployedMembers > 0;
+    const preview = createRobberyPreviewForDistrict(state.pendingRobberyDistrict, deployedMembers);
 
     elements.robberyStatus.textContent = !hasSourceDistrict
       ? "Chybí sousední district"
@@ -268,9 +237,20 @@ export function createDistrictActionPanelRuntime(deps = {}) {
         ? "Vyber členy gangu"
         : "Připraveno";
 
+    if (preview) {
+      setElementText(elements.robberyZone, preview.zoneLabel);
+      setElementText(elements.robberyRecommendation, `${preview.recommendationLabel} členů`);
+      setElementText(elements.robberyRiskLevel, `${preview.previewRiskLabel || preview.riskLabel} · ${preview.previewSuccessChanceLabel || preview.successChanceLabel}`);
+      setElementText(elements.robberyLootPreview, preview.previewLootLabel || "Nejistý");
+      setElementText(elements.robberyTrapPreview, preview.previewTrapHintLabel || "Neznámá");
+      setElementText(elements.robberyScoutReport, preview.scoutReportLabel || "Bez scout reportu");
+      setElementText(elements.robberyHeatEstimate, preview.heatLabel);
+      setElementText(elements.robberyRiskDescription, preview.previewDescription || preview.riskDescription);
+    }
+
     setElementDisabled(elements.robberyConfirmButton, !canConfirm);
 
-    return { deployedMembers, canConfirm };
+    return { deployedMembers, canConfirm, preview };
   };
 
   const renderDefenseSummary = () => {
@@ -333,27 +313,13 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       .filter((districtId) => currentPlayerOwnedDistrictIds.has(districtId));
     const atmosphereMeta = getDistrictAtmosphereMeta(district, interactionState);
 
-    deps.renderAttackPanel({
-      targetDistrictId: district.id,
-      sourceDistrictIds: adjacentOwnedDistrictIds,
+    renderAttackSetupPanel(createAttackSetupViewModel({
+      district,
+      adjacentOwnedDistrictIds,
       weaponInventory: ownedInventory,
       atmosphereMeta
-    }, {}, {
-      elements: {
-        popup: elements.attackSetupPopup,
-        card: elements.attackSetupCard,
-        imageElement: elements.attackSetupAtmosphereImage,
-        labelElement: elements.attackSetupAtmosphereLabel,
-        title: elements.attackTargetTitle,
-        sourceSelect: elements.attackSourceSelect,
-        availablePopulation: elements.attackAvailablePopulation,
-        requiredPopulation: elements.attackRequiredPopulation,
-        estimatedPower: elements.attackEstimatedPower,
-        status: elements.attackStatus,
-        ownedElements: elements.attackOwnedElements,
-        weaponInputs: elements.attackWeaponInputs,
-        confirmButton: elements.attackConfirmButton
-      }
+    }), elements, {
+      renderAttackPanel: deps.renderAttackPanel
     });
 
     renderAttackSummary();
@@ -400,18 +366,15 @@ export function createDistrictActionPanelRuntime(deps = {}) {
 
     const adjacentOwnedDistrictIds = getAdjacentOwnedDistrictIds(district);
     const atmosphereMeta = getDistrictAtmosphereMeta(district, getInteractionState());
+    state.pendingRobberyDistrict = district;
 
-    applyDistrictAtmosphere({
-      card: elements.robberySetupCard,
-      imageElement: elements.robberySetupAtmosphereImage,
-      labelElement: elements.robberySetupAtmosphereLabel,
+    renderRobberySetupPanel(createRobberySetupViewModel({
+      district,
+      adjacentOwnedDistrictIds,
+      availableMembers: getAvailableAttackPopulation(),
+      robberyPreview: createRobberyPreviewForDistrict(district, 0),
       atmosphereMeta
-    });
-
-    elements.robberyTargetTitle.textContent = `District ${district.id}`;
-    renderSourceSelect(elements.robberySourceSelect, adjacentOwnedDistrictIds);
-    elements.robberyMemberInput.value = "0";
-    elements.robberyMemberInput.max = String(getAvailableAttackPopulation());
+    }), elements);
     renderRobberySummary();
   };
 
@@ -456,36 +419,12 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     const currentDefense = deps.getDistrictDefenseState(district.id);
     const atmosphereMeta = getDistrictAtmosphereMeta(district, getInteractionState());
 
-    applyDistrictAtmosphere({
-      card: elements.defenseSetupCard,
-      imageElement: elements.defenseSetupAtmosphereImage,
-      labelElement: elements.defenseSetupAtmosphereLabel,
+    renderDefenseSetupPanel(createDefenseSetupViewModel({
+      district,
+      weaponInventory: ownedInventory,
+      currentDefense,
       atmosphereMeta
-    });
-
-    elements.defenseTargetTitle.textContent = `District ${district.id}`;
-
-    for (const ownedElement of elements.defenseOwnedElements || []) {
-      const weaponId = getWeaponInputId(ownedElement, "defenseOwned");
-
-      if (!weaponId) {
-        continue;
-      }
-
-      const currentAmount = currentDefense.loadout[weaponId] ?? 0;
-      ownedElement.textContent = String((ownedInventory[weaponId] ?? 0) + currentAmount);
-    }
-
-    for (const input of elements.defenseWeaponInputs || []) {
-      const weaponId = getWeaponInputId(input, "defenseWeaponInput");
-      const currentAmount = weaponId ? currentDefense.loadout[weaponId] ?? 0 : 0;
-      const availableAmount = weaponId ? (ownedInventory[weaponId] ?? 0) + currentAmount : 0;
-      input.max = String(availableAmount);
-      input.value = String(currentAmount);
-      setElementDisabled(input, availableAmount <= 0 && currentAmount <= 0);
-    }
-
-    elements.defenseResidentsInput.value = String(currentDefense.residents);
+    }), elements);
     renderDefenseSummary();
   };
 
