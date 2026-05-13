@@ -2706,19 +2706,17 @@ html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-close::after
 }
 
 html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-close::before {
-  content: "\00d7";
+  content: "";
   position: absolute;
   inset: 4px;
   z-index: 1;
-  display: grid;
-  place-items: center;
+  display: block;
+  background:
+    linear-gradient(currentColor, currentColor) center / 13px 2px no-repeat,
+    linear-gradient(currentColor, currentColor) center / 2px 13px no-repeat;
   color: #d9fbff;
-  font-size: 17px;
-  font-weight: 700;
-  line-height: 1;
-  text-shadow:
-    0 0 8px rgba(0, 245, 255, 0.9),
-    0 0 14px rgba(255, 43, 214, 0.45);
+  transform: rotate(45deg);
+  filter: drop-shadow(0 0 6px rgba(0, 245, 255, 0.9));
   pointer-events: none;
 }
 
@@ -3178,12 +3176,17 @@ html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-clos
 }
 
 html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-close::before {
-  content: "\00d7";
+  content: "";
+  position: absolute;
+  inset: 6px;
+  display: block;
+  background:
+    linear-gradient(currentColor, currentColor) center / 12px 2px no-repeat,
+    linear-gradient(currentColor, currentColor) center / 2px 12px no-repeat;
   color: inherit;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1;
-  text-shadow: 0 0 10px rgba(0, 245, 255, 0.8);
+  transform: rotate(45deg);
+  filter: drop-shadow(0 0 6px rgba(0, 245, 255, 0.8));
+  pointer-events: none;
 }
 
 html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-card .leaderboard-detail-panel {

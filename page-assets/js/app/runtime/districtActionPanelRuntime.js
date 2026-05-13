@@ -1,14 +1,14 @@
 import {
-  createAttackConfirmationViewModel,
-  createOccupyConfirmationViewModel,
-  createRobberyConfirmationViewModel,
-  createSpyConfirmationViewModel,
-  createTrapConfirmationViewModel,
-  renderAttackConfirmationPanel,
-  renderOccupyConfirmationPanel,
-  renderRobberyConfirmationPanel,
-  renderSpyConfirmationPanel,
-  renderTrapConfirmationPanel
+  canRenderAttackConfirmationPanel,
+  canRenderOccupyConfirmationPanel,
+  canRenderRobberyConfirmationPanel,
+  canRenderSpyConfirmationPanel,
+  canRenderTrapConfirmationPanel,
+  renderPreparedAttackConfirmationPanel,
+  renderPreparedOccupyConfirmationPanel,
+  renderPreparedRobberyConfirmationPanel,
+  renderPreparedSpyConfirmationPanel,
+  renderPreparedTrapConfirmationPanel
 } from "../ui/districtActionConfirmationPanel.js";
 import {
   createAttackSetupViewModel,
@@ -326,16 +326,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
   };
 
   const populateAttackConfirmPopup = (district, preparedContext = null) => {
-    if (
-      !district ||
-      !elements.attackConfirmTitle ||
-      !elements.attackConfirmSource ||
-      !elements.attackConfirmMembers ||
-      !elements.attackConfirmPower ||
-      !elements.attackConfirmScenario ||
-      !elements.attackConfirmDuration ||
-      !elements.attackConfirmNote
-    ) {
+    if (!canRenderAttackConfirmationPanel({ district, elements })) {
       return;
     }
 
@@ -344,12 +335,12 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     const atmosphereMeta = getDistrictAtmosphereMeta(district, interactionState);
 
     state.pendingAttackContext = context;
-    renderAttackConfirmationPanel(createAttackConfirmationViewModel({
+    renderPreparedAttackConfirmationPanel({
       district,
       context,
       atmosphereMeta,
       attackCooldownMs: deps.attackCooldownMs
-    }), elements);
+    }, elements);
   };
 
   const populateRobberySetupPopup = (district) => {
@@ -379,14 +370,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
   };
 
   const populateRobberyConfirmPopup = (district) => {
-    if (
-      !district ||
-      !elements.robberyConfirmTitle ||
-      !elements.robberyConfirmSource ||
-      !elements.robberyConfirmMembers ||
-      !elements.robberyConfirmDuration ||
-      !elements.robberyConfirmNote
-    ) {
+    if (!canRenderRobberyConfirmationPanel({ district, elements })) {
       return;
     }
 
@@ -394,14 +378,14 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     const { deployedMembers, canConfirm } = renderRobberySummary();
     const sourceDistrictId = isHtmlSelectElement(elements.robberySourceSelect) ? elements.robberySourceSelect.value : "";
 
-    renderRobberyConfirmationPanel(createRobberyConfirmationViewModel({
+    renderPreparedRobberyConfirmationPanel({
       district,
       sourceDistrictId,
       deployedMembers,
       canConfirm,
       robberyCooldownMs: deps.robberyCooldownMs,
       atmosphereMeta
-    }), elements);
+    }, elements);
   };
 
   const populateDefenseSetupPopup = (district) => {
@@ -429,7 +413,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
   };
 
   const populateTrapConfirmPopup = (district) => {
-    if (!district || !elements.trapConfirmTitle || !elements.trapConfirmCooldown || !elements.trapConfirmNote) {
+    if (!canRenderTrapConfirmationPanel({ district, elements })) {
       return;
     }
 
@@ -437,23 +421,16 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     const currentTrapDistrictId = deps.getCurrentPlayerTrapDistrictId();
     const trapMoveCooldownSeconds = deps.getCurrentPlayerTrapMoveCooldownSeconds();
 
-    renderTrapConfirmationPanel(createTrapConfirmationViewModel({
+    renderPreparedTrapConfirmationPanel({
       district,
       currentTrapDistrictId,
       trapMoveCooldownSeconds,
       atmosphereMeta
-    }), elements);
+    }, elements);
   };
 
   const populateSpyConfirmPopup = (district) => {
-    if (
-      !district ||
-      !elements.spyConfirmTitle ||
-      !elements.spyConfirmSource ||
-      !elements.spyConfirmAvailable ||
-      !elements.spyConfirmDuration ||
-      !elements.spyConfirmNote
-    ) {
+    if (!canRenderSpyConfirmationPanel({ district, elements })) {
       return;
     }
 
@@ -462,24 +439,17 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     const adjacentOwnedDistrictIds = getAdjacentOwnedDistrictIds(district);
     const spyState = deps.getResolvedSpyState();
 
-    renderSpyConfirmationPanel(createSpyConfirmationViewModel({
+    renderPreparedSpyConfirmationPanel({
       district,
       adjacentOwnedDistrictIds,
       spyState,
       spyCooldownMs: deps.spyCooldownMs,
       atmosphereMeta
-    }), elements);
+    }, elements);
   };
 
   const populateOccupyConfirmPopup = (district) => {
-    if (
-      !district ||
-      !elements.occupyConfirmTitle ||
-      !elements.occupyConfirmSource ||
-      !elements.occupyConfirmCondition ||
-      !elements.occupyConfirmDuration ||
-      !elements.occupyConfirmNote
-    ) {
+    if (!canRenderOccupyConfirmationPanel({ district, elements })) {
       return;
     }
 
@@ -488,12 +458,12 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     const spyIntel = deps.getResolvedSpyIntel();
     const canOccupyAfterSpy = spyIntel.occupiableDistrictIds.includes(Number(district.id));
 
-    renderOccupyConfirmationPanel(createOccupyConfirmationViewModel({
+    renderPreparedOccupyConfirmationPanel({
       district,
       adjacentOwnedDistrictIds,
       canOccupyAfterSpy,
       atmosphereMeta
-    }), elements);
+    }, elements);
   };
 
   return {

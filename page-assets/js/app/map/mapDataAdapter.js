@@ -125,8 +125,10 @@ export function resolveMapDistrictOwnerLabel(district, interactionState = {}, op
 
 export function createMapDistrictViewModel(district = {}, options = {}) {
   const id = Number(district?.id ?? options.id ?? 0) || 0;
-  const zoneKey = normalizeMapZoneKey(district?.districtType ?? district?.zone ?? options.zone);
-  const atmosphereMeta = resolveMapAtmosphereMeta(zoneKey, { hidden: Boolean(options.hidden) });
+  const rawZoneKey = district?.districtType ?? district?.zone ?? options.zone;
+  const zoneKey = normalizeMapZoneKey(rawZoneKey);
+  const atmosphereZoneKey = String(rawZoneKey || "").trim() ? rawZoneKey : zoneKey;
+  const atmosphereMeta = resolveMapAtmosphereMeta(atmosphereZoneKey, { hidden: Boolean(options.hidden) });
   const owner = normalizeMapOwner(options.owner || district?.owner, {
     ownerId: options.ownerId,
     currentPlayerId: options.currentPlayerId,

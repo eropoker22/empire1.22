@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="../page-assets/css/styles-static-hover.css">
   </head>
   <body class="login-body auth-body auth-body--login">
-    <main class="login-stage" id="auth-root" data-page="login">
+    <main class="login-stage" id="auth-root" data-page="login" data-testid="login-page">
       <div class="city-backdrop" aria-hidden="true">
         <div class="city-skyline city-skyline--back"></div>
         <div class="city-skyline city-skyline--front"></div>
@@ -179,11 +179,11 @@
         </header>
 
         <div class="terminal-tabs" role="tablist" aria-label="Typ přístupu">
-          <button class="terminal-tab is-active" type="button" data-tab="login" role="tab" aria-selected="true">PŘÍSTUP</button>
-          <button class="terminal-tab" type="button" data-tab="register" role="tab" aria-selected="false">ZALOŽIT GANG</button>
+          <button class="terminal-tab is-active" type="button" data-tab="login" data-testid="login-tab" role="tab" aria-selected="true">PŘÍSTUP</button>
+          <button class="terminal-tab" type="button" data-tab="register" data-testid="register-tab" role="tab" aria-selected="false">ZALOŽIT GANG</button>
         </div>
 
-        <form id="login-form" class="auth-form terminal-form" autocomplete="on" novalidate>
+        <form id="login-form" class="auth-form terminal-form" data-testid="login-form" autocomplete="on" novalidate>
           <label class="field-shell" for="login-username">
             <span class="field-icon">●</span>
             <input type="text" id="login-username" name="username" placeholder="Email / Přezdívka" autocomplete="username">
@@ -196,7 +196,7 @@
           <button type="submit" class="enter-city-button" data-submit-label="VSTOUPIT DO MĚSTA">VSTOUPIT DO MĚSTA</button>
         </form>
 
-        <form id="register-form" class="auth-form terminal-form hidden" autocomplete="on" novalidate>
+        <form id="register-form" class="auth-form terminal-form hidden" data-testid="register-form" autocomplete="on" novalidate>
           <label class="field-shell" for="register-username">
             <span class="field-icon">●</span>
             <input type="text" id="register-username" name="username" placeholder="Jméno bosse" autocomplete="username">
@@ -222,7 +222,7 @@
         <div class="guest-access" aria-label="Guest access">
           <input type="text" id="guest-username" placeholder="Host" maxlength="24" autocomplete="nickname">
           <input type="text" id="guest-gang" placeholder="Ghost Crew" maxlength="32" autocomplete="organization">
-          <button type="button" id="guest-btn">Přihlásit se jako host</button>
+          <button type="button" id="guest-btn" data-testid="guest-login-button">Přihlásit se jako host</button>
         </div>
       </section>
 

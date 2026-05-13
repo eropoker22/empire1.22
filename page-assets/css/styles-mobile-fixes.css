@@ -799,14 +799,14 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
   .building-tech-popup-close::before,
   .avatar-lightbox__close::before,
   .game-admin-slice-overlay__close::before {
-    content: "\00d7";
+    content: "";
     position: absolute;
     inset: 7px;
-    display: grid;
-    place-items: center;
-    font-size: 17px;
-    font-weight: 600;
-    line-height: 1;
+    display: block;
+    background:
+      linear-gradient(currentColor, currentColor) center / 14px 2px no-repeat,
+      linear-gradient(currentColor, currentColor) center / 2px 14px no-repeat;
+    transform: rotate(45deg);
     pointer-events: none;
     z-index: 1;
   }
@@ -1723,12 +1723,17 @@ html body #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__
   }
 
   .district-popup-close::after {
-    inset: 5px !important;
+    content: none !important;
+    display: none !important;
   }
 
   .district-popup-close::before {
-    inset: 5px !important;
-    font-size: 14px !important;
+    content: none !important;
+    display: none !important;
+  }
+
+  .district-popup-close {
+    font-size: 0.84rem !important;
   }
 
   .district-modal-hero--district .district-modal-hero__copy {
@@ -3097,10 +3102,12 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-close::before {
-    position: static !important;
-    font-size: 18px !important;
-    line-height: 1 !important;
-    transform: translateY(-0.5px) !important;
+    position: absolute !important;
+    inset: 6px !important;
+    background:
+      linear-gradient(currentColor, currentColor) center / 12px 2px no-repeat,
+      linear-gradient(currentColor, currentColor) center / 2px 12px no-repeat !important;
+    transform: rotate(45deg) !important;
   }
 
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-card .leaderboard-detail-identity {
@@ -3307,22 +3314,31 @@ html body .district-popup-card .district-atmosphere-window > .district-atmospher
 }
 
 html body .district-popup-card .district-atmosphere-window > .district-atmosphere-window__close.button::after {
-  content: none !important;
-  display: none !important;
+  content: "" !important;
+  position: absolute !important;
+  inset: 5px !important;
+  display: block !important;
+  border-radius: inherit !important;
+  border: 1px solid rgba(103, 232, 249, 0.68) !important;
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.18), transparent 44%),
+    rgba(3, 10, 20, 0.78) !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
 }
 
 html body .district-popup-card .district-atmosphere-window > .district-atmosphere-window__close.button::before {
-  content: "\00d7" !important;
-  position: static !important;
-  display: grid !important;
-  place-items: center !important;
-  width: 100% !important;
-  height: 100% !important;
+  content: "" !important;
+  position: absolute !important;
+  inset: 5px !important;
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  background:
+    linear-gradient(currentColor, currentColor) center / 12px 2px no-repeat,
+    linear-gradient(currentColor, currentColor) center / 2px 12px no-repeat !important;
   color: #dffbff !important;
-  font-size: 14px !important;
-  font-weight: 700 !important;
-  line-height: 1 !important;
-  text-align: center !important;
   pointer-events: none !important;
-  transform: translateY(-0.5px) !important;
+  transform: rotate(45deg) !important;
+  z-index: 1 !important;
 }

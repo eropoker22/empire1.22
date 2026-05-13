@@ -5,6 +5,8 @@ dist/
 .turbo/
 .cache/
 coverage/
+playwright-report/
+test-results/
 .DS_Store
 Thumbs.db
 .env

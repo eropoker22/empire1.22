@@ -39,9 +39,15 @@ describe("district popup modal helpers", () => {
     const boundCount = bindDistrictAtmosphereWindowControls({ trigger, windowElement, closeButton });
 
     expect(boundCount).toBe(4);
-    trigger.dispatch("click");
+    const openClick = {
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn()
+    };
+    trigger.dispatch("click", openClick);
     expect(windowElement.hidden).toBe(false);
     expect(trigger.attrs.get("aria-expanded")).toBe("true");
+    expect(openClick.preventDefault).toHaveBeenCalledTimes(1);
+    expect(openClick.stopPropagation).toHaveBeenCalledTimes(1);
 
     const innerClick = { stopPropagation: vi.fn() };
     windowElement.dispatch("click", innerClick);
@@ -60,5 +66,24 @@ describe("district popup modal helpers", () => {
     expect(closeClick.stopPropagation).toHaveBeenCalledTimes(1);
     expect(windowElement.hidden).toBe(true);
     expect(trigger.attrs.get("aria-expanded")).toBe("false");
+  });
+
+  it("opens the atmosphere window for locked sectors so the blackout image is visible", () => {
+    const trigger = createElement();
+    const windowElement = createElement();
+    trigger.dataset.atmosphereState = "locked";
+
+    bindDistrictAtmosphereWindowControls({ trigger, windowElement });
+
+    const openClick = {
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn()
+    };
+    trigger.dispatch("click", openClick);
+
+    expect(windowElement.hidden).toBe(false);
+    expect(trigger.attrs.get("aria-expanded")).toBe("true");
+    expect(openClick.preventDefault).toHaveBeenCalledTimes(1);
+    expect(openClick.stopPropagation).toHaveBeenCalledTimes(1);
   });
 });

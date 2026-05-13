@@ -72,8 +72,7 @@ export function hasActiveDistrictPopupModal(elements = {}) {
 
 export function openDistrictAtmosphereWindow(options = {}) {
   const { trigger, windowElement } = options;
-  const isLocked = trigger?.dataset?.atmosphereState === "locked";
-  if (isLocked || !windowElement) {
+  if (!windowElement) {
     return false;
   }
 
@@ -106,7 +105,9 @@ export function bindDistrictAtmosphereWindowControls(options = {}) {
   }
 
   let boundCount = 0;
-  const openWindow = () => {
+  const openWindow = (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
     openDistrictAtmosphereWindow({ trigger, windowElement });
   };
 

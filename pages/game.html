@@ -45,7 +45,7 @@
       </div>
     </header>
 
-    <main id="game-root" class="game-shell" data-page="game">
+    <main id="game-root" class="game-shell" data-page="game" data-testid="game-page">
       <div class="game-shell-ambience" aria-hidden="true">
         <span class="game-ambient-orb game-ambient-orb--cyan"></span>
         <span class="game-ambient-orb game-ambient-orb--amber"></span>
@@ -176,6 +176,7 @@
                   <canvas
                     class="map-district-canvas"
                     data-district-canvas
+                    data-testid="district-canvas"
                     width="1600"
                     height="980"
                     aria-label="Mapa rozdělená na 161 districtů"
@@ -314,12 +315,12 @@
         </div>
       </section>
 
-      <div class="district-popup-shell" data-district-popup hidden>
-        <div class="district-popup-backdrop" data-district-popup-close></div>
-        <div class="district-popup-card" data-district-popup-card role="dialog" aria-modal="true" aria-label="District detail">
+      <div class="district-popup-shell" data-district-popup data-testid="district-popup" hidden>
+        <div class="district-popup-backdrop" data-district-popup-close data-testid="district-popup-backdrop"></div>
+        <div class="district-popup-card" data-district-popup-card data-testid="district-popup-card" role="dialog" aria-modal="true" aria-label="District detail">
           <button type="button" class="button district-popup-toggle" data-district-popup-toggle aria-pressed="false">Zapnout přehled</button>
           <button type="button" class="button district-popup-close" data-district-popup-close aria-label="Zavřít district okno">×</button>
-          <div class="district-modal-hero district-modal-hero--district" data-district-popup-atmosphere role="button" tabindex="0" aria-expanded="false" aria-label="Zobrazit atmosféru distriktu">
+          <div class="district-modal-hero district-modal-hero--district" data-district-popup-atmosphere data-testid="district-atmosphere-trigger" role="button" tabindex="0" aria-expanded="false" aria-label="Zobrazit atmosféru distriktu">
             <img class="district-modal-hero__image" data-district-popup-atmosphere-image alt="Atmosféra distriktu" loading="lazy">
             <div class="district-modal-hero__scrim"></div>
             <div class="district-modal-hero__copy">
@@ -328,8 +329,8 @@
               <p class="district-modal-hero__mood" data-district-popup-atmosphere-mood>Atmosféra města se propíše podle typu distriktu.</p>
             </div>
           </div>
-          <aside class="district-atmosphere-window" data-district-atmosphere-window hidden role="dialog" aria-modal="false" aria-label="Fotka atmosféry districtu">
-            <button type="button" class="button district-atmosphere-window__close" data-district-atmosphere-close aria-label="Zavřít fotku atmosféry">✕</button>
+          <aside class="district-atmosphere-window" data-district-atmosphere-window data-testid="district-atmosphere-window" hidden role="dialog" aria-modal="false" aria-label="Fotka atmosféry districtu">
+            <button type="button" class="button district-atmosphere-window__close" data-district-atmosphere-close data-testid="district-atmosphere-close" aria-label="Zavřít fotku atmosféry">✕</button>
             <img class="district-atmosphere-window__image" data-district-atmosphere-window-image alt="Fotka atmosféry districtu" loading="lazy">
             <div class="district-atmosphere-window__caption">
               <strong data-district-atmosphere-window-label>Atmosféra districtu</strong>
@@ -397,7 +398,7 @@
               <div class="district-popup-action-section__head">
                 <p class="district-popup-action-section__copy">Co můžeš spustit hned teď.</p>
               </div>
-              <div class="district-popup-actions" data-district-actions></div>
+              <div class="district-popup-actions" data-district-actions data-testid="district-actions"></div>
             </section>
           </div>
         </div>
@@ -437,7 +438,7 @@
         <p class="attack-toast__copy">Posádka vyráží pro materiály.</p>
       </div>
 
-      <div class="attack-setup-popup-shell" data-attack-setup-popup hidden>
+      <div class="attack-setup-popup-shell" data-attack-setup-popup data-testid="attack-setup-modal" hidden>
         <div class="attack-setup-popup-backdrop" data-attack-setup-close></div>
         <div class="attack-setup-popup-card" data-attack-setup-card role="dialog" aria-modal="true" aria-label="Nastavení útoku">
           <div class="district-modal-hero district-modal-hero--attack">
@@ -542,7 +543,7 @@
         </div>
       </div>
 
-      <div class="attack-setup-popup-shell robbery-setup-popup-shell" data-robbery-setup-popup hidden>
+      <div class="attack-setup-popup-shell robbery-setup-popup-shell" data-robbery-setup-popup data-testid="robbery-setup-modal" hidden>
         <div class="attack-setup-popup-backdrop" data-robbery-setup-close></div>
         <div class="attack-setup-popup-card robbery-setup-popup-card" data-robbery-setup-card role="dialog" aria-modal="true" aria-label="Nastavení akce Vykrást district">
           <div class="district-modal-hero district-modal-hero--robbery">
@@ -606,7 +607,7 @@
         </div>
       </div>
 
-      <div class="attack-setup-popup-shell defense-setup-popup-shell" data-defense-setup-popup hidden>
+      <div class="attack-setup-popup-shell defense-setup-popup-shell" data-defense-setup-popup data-testid="defense-setup-modal" hidden>
         <div class="attack-setup-popup-backdrop" data-defense-setup-close></div>
         <div class="attack-setup-popup-card defense-setup-popup-card" data-defense-setup-card role="dialog" aria-modal="true" aria-label="Nastavení obrany">
           <div class="district-modal-hero district-modal-hero--defense">
@@ -699,7 +700,7 @@
         </div>
       </div>
 
-      <div id="spy-confirm-modal" class="modal" data-spy-confirm-popup hidden>
+      <div id="spy-confirm-modal" class="modal" data-spy-confirm-popup data-testid="spy-confirm-modal" hidden>
         <div id="spy-confirm-modal-backdrop" class="modal__backdrop" data-spy-confirm-close></div>
         <div class="modal__content spy-confirm-modal__content district-action-confirm-popup-card spy-confirm-popup-card" data-spy-confirm-card role="dialog" aria-modal="true" aria-labelledby="spy-confirm-modal-heading">
           <div class="district-modal-hero district-modal-hero--spy-confirm">

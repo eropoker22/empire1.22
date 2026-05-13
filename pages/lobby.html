@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="../page-assets/css/styles-static-hover.css">
   </head>
   <body class="auth-body auth-body--login auth-body--war servers-page lobby-command-body">
-    <main id="lobby-root" class="lobby-command" data-page="lobby">
+    <main id="lobby-root" class="lobby-command" data-page="lobby" data-testid="lobby-page">
       <div class="lobby-bg" aria-hidden="true">
         <span class="lobby-scan"></span>
       </div>
@@ -89,7 +89,7 @@
             </div>
 
             <section class="lobby-server-list-only">
-              <div class="auth-servers auth-servers--single" data-server-list aria-live="polite"></div>
+              <div class="auth-servers auth-servers--single" data-server-list data-testid="server-list" aria-live="polite"></div>
             </section>
           </section>
 
@@ -115,8 +115,8 @@
                 <span>HRÁČŮ ONLINE <strong data-lobby-detail-capacity>64 / 150</strong></span>
               </div>
               <div class="lobby-detail-actions">
-                <button class="lobby-primary-cta" type="button" data-lobby-open-selected>VYBRAT DISTRICT <span>›</span></button>
-                <button class="lobby-primary-cta lobby-primary-cta--enter" type="button" data-lobby-enter-selected disabled>VSTOUPIT NA SERVER <span>›</span></button>
+                <button class="lobby-primary-cta" type="button" data-lobby-open-selected data-testid="open-server-district-select">VYBRAT DISTRICT <span>›</span></button>
+                <button class="lobby-primary-cta lobby-primary-cta--enter" type="button" data-lobby-enter-selected data-testid="enter-selected-server" disabled>VSTOUPIT NA SERVER <span>›</span></button>
               </div>
               <p>⚠ Po výběru již nelze district změnit.</p>
             </section>
@@ -205,7 +205,7 @@
       </aside>
     </main>
 
-    <div class="server-detail-modal hidden" id="server-detail-modal" data-server-detail-modal aria-hidden="true">
+    <div class="server-detail-modal hidden" id="server-detail-modal" data-server-detail-modal data-testid="server-detail-modal" aria-hidden="true">
       <div class="server-detail-modal__backdrop" data-server-detail-close></div>
       <section class="server-detail-modal__card" role="dialog" aria-modal="true" aria-labelledby="server-detail-title">
         <button class="server-detail-modal__close" type="button" aria-label="Zavřít" data-server-detail-close>&times;</button>
@@ -221,7 +221,7 @@
           <span id="server-detail-countdown" data-server-detail-countdown></span>
         </div>
         <div class="server-detail-modal__map-wrap" data-server-detail-map-shell aria-label="Detail mapy serveru">
-          <canvas class="server-detail-modal__map server-detail-modal__map-canvas" id="server-detail-map" data-server-detail-map role="img" aria-label="Velký náhled mapy districtů"></canvas>
+          <canvas class="server-detail-modal__map server-detail-modal__map-canvas" id="server-detail-map" data-server-detail-map data-testid="server-detail-map" role="img" aria-label="Velký náhled mapy districtů"></canvas>
           <div class="server-map-scale-controls">
             <button class="server-map-scale-btn" type="button" data-server-detail-zoom-out aria-label="Oddálit mapu">−</button>
             <button class="server-map-scale-btn" type="button" data-server-detail-zoom-in aria-label="Přiblížit mapu">+</button>
@@ -234,7 +234,7 @@
         </div>
         <div class="server-detail-modal__actions">
           <button class="btn server-detail-modal__btn server-detail-modal__btn--close" type="button" data-server-detail-close>Zavřít</button>
-          <button class="btn server-detail-modal__btn server-detail-modal__btn--join" type="button" id="server-detail-join" data-server-detail-continue>POTVRDIT</button>
+          <button class="btn server-detail-modal__btn server-detail-modal__btn--join" type="button" id="server-detail-join" data-server-detail-continue data-testid="confirm-server-district">POTVRDIT</button>
         </div>
       </section>
     </div>

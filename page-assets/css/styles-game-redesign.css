@@ -4438,10 +4438,25 @@ body.game-body--booting .game-logo-slot {
   .leaderboard-popup-close::before,
   .storage-popup-close::before,
   .building-tech-popup-close::before {
-    content: "×";
-    font-size: 20px;
-    font-weight: 500;
-    line-height: 1;
+    content: "";
+    position: absolute;
+    inset: 8px;
+    display: block;
+    background:
+      linear-gradient(currentColor, currentColor) center / 15px 2px no-repeat,
+      linear-gradient(currentColor, currentColor) center / 2px 15px no-repeat;
+    transform: rotate(45deg);
+    pointer-events: none;
+  }
+
+  .district-popup-close {
+    font-size: 0.84rem !important;
+  }
+
+  .district-popup-close::before,
+  .district-popup-close::after {
+    content: none !important;
+    display: none !important;
   }
 
   .game-resource-strip {

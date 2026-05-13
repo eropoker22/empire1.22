@@ -293,6 +293,14 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
 
   const applyLock = () => {
     frameId = null;
+    if (!media.matches) {
+      unlockPageScroll();
+      root.classList.remove("game-modal-scroll-locked");
+      documentObj.body.classList.remove("game-modal-scroll-locked");
+      lastOverlayState = false;
+      return;
+    }
+
     const hasOpenOverlay = Array.from(documentObj.querySelectorAll(MOBILE_OVERLAY_SELECTOR)).some(isOpenOverlay);
 
     if (hasOpenOverlay && !lastOverlayState) {

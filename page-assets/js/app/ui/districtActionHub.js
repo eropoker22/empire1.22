@@ -35,6 +35,9 @@ export function renderDistrictActionButton(action = {}, callback = null, options
   button.type = "button";
   button.dataset.districtActionId = action.id || "";
   button.dataset.districtActionLabel = action.label || "";
+  if (action.id) {
+    button.dataset.testid = `district-action-${action.id}`;
+  }
   button.disabled = !action.enabled || !hasCallback;
 
   if (action.stacked) {

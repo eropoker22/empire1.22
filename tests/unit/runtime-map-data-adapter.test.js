@@ -6,6 +6,7 @@ import {
   normalizeMapBuildingList,
   normalizeMapOwner,
   normalizeMapZoneKey,
+  resolveMapAtmosphereMeta,
   resolveMapDistrictOwnerLabel,
   resolveMapZoneFillStyle
 } from "../../page-assets/js/app/map/mapDataAdapter.js";
@@ -32,6 +33,28 @@ describe("map data adapter", () => {
     expect(normalizeMapZoneKey("")).toBe("resident");
     expect(viewModel.zoneKey).toBe("resident");
     expect(viewModel.typeLabel).toBe("Rezidenční");
+  });
+
+  it("uses blackout atmosphere for explicit unknown district types", () => {
+    const viewModel = createMapDistrictViewModel({ id: 10, districtType: "unknown" });
+    const atmosphereMeta = resolveMapAtmosphereMeta("unknown");
+
+    expect(viewModel.zoneKey).toBe("resident");
+    expect(viewModel.typeLabel).toBe("Skryto");
+    expect(atmosphereMeta.imagePath).toBe("../img/blackout.png");
+    expect(existsSync(resolve(process.cwd(), atmosphereMeta.imagePath.replace("../", "")))).toBe(true);
+  });
+
+  it("uses blackout atmosphere for hidden districts even when their real type exists", () => {
+    const viewModel = createMapDistrictViewModel(
+      { id: 11, districtType: "industrial" },
+      { hidden: true }
+    );
+    const atmosphereMeta = resolveMapAtmosphereMeta("industrial", { hidden: true });
+
+    expect(viewModel.zoneKey).toBe("industrial");
+    expect(viewModel.typeLabel).toBe("Skryto");
+    expect(atmosphereMeta.imagePath).toBe("../img/blackout.png");
   });
 
   it("normalizes string and object building lists", () => {

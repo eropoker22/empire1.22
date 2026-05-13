@@ -779,7 +779,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const servers = getVisibleServers();
     list.innerHTML = servers.map((server) => `
-      <button type="button" class="auth-server-card ${server.id === state.serverId ? "is-selected" : ""} ${server.locked ? "is-locked" : ""} ${server.full ? "is-full" : ""}" data-server-card="${server.id}" data-server-mode="${server.mode}">
+      <button type="button" class="auth-server-card ${server.id === state.serverId ? "is-selected" : ""} ${server.locked ? "is-locked" : ""} ${server.full ? "is-full" : ""}" data-server-card="${server.id}" data-server-mode="${server.mode}" data-testid="server-card-${server.id}">
         <span class="auth-server-card__label">${server.name}</span>
         <span class="auth-server-card__meta">${server.region} • ${server.mode.toUpperCase()} • ${server.players}/${server.capacity}</span>
         <span class="auth-server-card__schedule">${server.status || "ONLINE"}</span>

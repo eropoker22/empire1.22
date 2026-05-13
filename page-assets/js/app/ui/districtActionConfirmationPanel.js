@@ -31,6 +31,54 @@ function applyDistrictAtmosphere({
   setElementText(labelElement, atmosphereMeta.label || "");
 }
 
+function hasRequiredConfirmationElements(elements = {}, requiredKeys = []) {
+  return requiredKeys.every((key) => Boolean(elements[key]));
+}
+
+const ATTACK_CONFIRMATION_REQUIRED_KEYS = [
+  "attackConfirmTitle",
+  "attackConfirmSource",
+  "attackConfirmMembers",
+  "attackConfirmPower",
+  "attackConfirmScenario",
+  "attackConfirmDuration",
+  "attackConfirmNote"
+];
+
+const ROBBERY_CONFIRMATION_REQUIRED_KEYS = [
+  "robberyConfirmTitle",
+  "robberyConfirmSource",
+  "robberyConfirmMembers",
+  "robberyConfirmDuration",
+  "robberyConfirmNote"
+];
+
+const TRAP_CONFIRMATION_REQUIRED_KEYS = [
+  "trapConfirmTitle",
+  "trapConfirmCooldown",
+  "trapConfirmNote"
+];
+
+const SPY_CONFIRMATION_REQUIRED_KEYS = [
+  "spyConfirmTitle",
+  "spyConfirmSource",
+  "spyConfirmAvailable",
+  "spyConfirmDuration",
+  "spyConfirmNote"
+];
+
+const OCCUPY_CONFIRMATION_REQUIRED_KEYS = [
+  "occupyConfirmTitle",
+  "occupyConfirmSource",
+  "occupyConfirmCondition",
+  "occupyConfirmDuration",
+  "occupyConfirmNote"
+];
+
+function canRenderPreparedConfirmationPanel({ district, elements, requiredKeys } = {}) {
+  return Boolean(district) && hasRequiredConfirmationElements(elements, requiredKeys);
+}
+
 export function createDistrictActionConfirmationPanelElements(elements = {}) {
   return {
     attackAvailablePopulation: elements.attackAvailablePopulation,
@@ -172,6 +220,23 @@ export function renderAttackConfirmationPanel(viewModel = {}, elements = {}) {
   });
 }
 
+export function canRenderAttackConfirmationPanel({ district, elements = {} } = {}) {
+  return canRenderPreparedConfirmationPanel({
+    district,
+    elements,
+    requiredKeys: ATTACK_CONFIRMATION_REQUIRED_KEYS
+  });
+}
+
+export function renderPreparedAttackConfirmationPanel(data = {}, elements = {}) {
+  if (!canRenderAttackConfirmationPanel({ district: data.district, elements })) {
+    return false;
+  }
+
+  renderAttackConfirmationPanel(createAttackConfirmationViewModel(data), elements);
+  return true;
+}
+
 export function createRobberyConfirmationViewModel({
   district,
   sourceDistrictId = "",
@@ -209,6 +274,23 @@ export function renderRobberyConfirmationPanel(viewModel = {}, elements = {}) {
   setElementText(elements.robberyConfirmDuration, viewModel.durationLabel || "");
   setElementText(elements.robberyConfirmNote, viewModel.note || "");
   setElementDisabled(elements.robberyConfirmFinalButton, !viewModel.canConfirm);
+  return true;
+}
+
+export function canRenderRobberyConfirmationPanel({ district, elements = {} } = {}) {
+  return canRenderPreparedConfirmationPanel({
+    district,
+    elements,
+    requiredKeys: ROBBERY_CONFIRMATION_REQUIRED_KEYS
+  });
+}
+
+export function renderPreparedRobberyConfirmationPanel(data = {}, elements = {}) {
+  if (!canRenderRobberyConfirmationPanel({ district: data.district, elements })) {
+    return false;
+  }
+
+  renderRobberyConfirmationPanel(createRobberyConfirmationViewModel(data), elements);
   return true;
 }
 
@@ -252,6 +334,23 @@ export function renderTrapConfirmationPanel(viewModel = {}, elements = {}) {
     setElementDisabled(elements.trapConfirmButton, !viewModel.canConfirm);
   }
 
+  return true;
+}
+
+export function canRenderTrapConfirmationPanel({ district, elements = {} } = {}) {
+  return canRenderPreparedConfirmationPanel({
+    district,
+    elements,
+    requiredKeys: TRAP_CONFIRMATION_REQUIRED_KEYS
+  });
+}
+
+export function renderPreparedTrapConfirmationPanel(data = {}, elements = {}) {
+  if (!canRenderTrapConfirmationPanel({ district: data.district, elements })) {
+    return false;
+  }
+
+  renderTrapConfirmationPanel(createTrapConfirmationViewModel(data), elements);
   return true;
 }
 
@@ -300,6 +399,23 @@ export function renderSpyConfirmationPanel(viewModel = {}, elements = {}) {
   });
 }
 
+export function canRenderSpyConfirmationPanel({ district, elements = {} } = {}) {
+  return canRenderPreparedConfirmationPanel({
+    district,
+    elements,
+    requiredKeys: SPY_CONFIRMATION_REQUIRED_KEYS
+  });
+}
+
+export function renderPreparedSpyConfirmationPanel(data = {}, elements = {}) {
+  if (!canRenderSpyConfirmationPanel({ district: data.district, elements })) {
+    return false;
+  }
+
+  renderSpyConfirmationPanel(createSpyConfirmationViewModel(data), elements);
+  return true;
+}
+
 export function createOccupyConfirmationViewModel({
   district,
   adjacentOwnedDistrictIds = [],
@@ -343,5 +459,22 @@ export function renderOccupyConfirmationPanel(viewModel = {}, elements = {}) {
     elements.occupyConfirmButton.textContent = viewModel.confirmLabel || "Spustit obsazení";
   }
 
+  return true;
+}
+
+export function canRenderOccupyConfirmationPanel({ district, elements = {} } = {}) {
+  return canRenderPreparedConfirmationPanel({
+    district,
+    elements,
+    requiredKeys: OCCUPY_CONFIRMATION_REQUIRED_KEYS
+  });
+}
+
+export function renderPreparedOccupyConfirmationPanel(data = {}, elements = {}) {
+  if (!canRenderOccupyConfirmationPanel({ district: data.district, elements })) {
+    return false;
+  }
+
+  renderOccupyConfirmationPanel(createOccupyConfirmationViewModel(data), elements);
   return true;
 }

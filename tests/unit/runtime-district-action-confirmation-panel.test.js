@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  canRenderRobberyConfirmationPanel,
   createAttackConfirmationViewModel,
   createOccupyConfirmationViewModel,
   createTrapConfirmationViewModel,
   renderOccupyConfirmationPanel,
+  renderPreparedRobberyConfirmationPanel,
   renderTrapConfirmationPanel
 } from "../../page-assets/js/app/ui/districtActionConfirmationPanel.js";
 
@@ -84,6 +86,50 @@ describe("district action confirmation panel", () => {
     expect(card.dataset.districtType).toBe("industrial");
     expect(image.src).toBe("img/industrial.webp");
     expect(label.textContent).toBe("Industrial");
+  });
+
+  it("renders robbery confirmation as presentation-only state", () => {
+    const title = element();
+    const source = element();
+    const members = element();
+    const duration = element();
+    const note = element();
+    const button = element();
+    const card = element();
+    const image = element();
+    const label = element();
+
+    const elements = {
+      robberyConfirmTitle: title,
+      robberyConfirmSource: source,
+      robberyConfirmMembers: members,
+      robberyConfirmDuration: duration,
+      robberyConfirmNote: note,
+      robberyConfirmFinalButton: button,
+      robberyConfirmCard: card,
+      robberyConfirmAtmosphereImage: image,
+      robberyConfirmAtmosphereLabel: label
+    };
+
+    expect(canRenderRobberyConfirmationPanel({ district: { id: 17 }, elements })).toBe(true);
+    expect(renderPreparedRobberyConfirmationPanel({
+      district: { id: 17 },
+      sourceDistrictId: 4,
+      deployedMembers: 8,
+      canConfirm: true,
+      robberyCooldownMs: 20000,
+      atmosphereMeta: { typeKey: "commercial", label: "Commercial", imagePath: "img/commercial.webp" }
+    }, elements)).toBe(true);
+
+    expect(title.textContent).toBe("District 17");
+    expect(source.textContent).toBe("District 4");
+    expect(members.textContent).toBe("8");
+    expect(duration.textContent).toBe("20s");
+    expect(note.textContent).toBe("Vykrást district cílí jen na prázdný sousední district. Neobsazuje území, pouze získává loot z města.");
+    expect(button.disabled).toBe(false);
+    expect(card.dataset.districtType).toBe("commercial");
+    expect(image.src).toBe("img/commercial.webp");
+    expect(label.textContent).toBe("Commercial");
   });
 
   it("renders occupy confirmation without changing gameplay state", () => {

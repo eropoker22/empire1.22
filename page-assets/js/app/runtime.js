@@ -6339,31 +6339,14 @@ function bindDistrictCanvas(root) {
     popupBuildingsList, popupGossip, popupGossipList, districtActionSectionHead,
     districtActionSection, districtActionsMount, popupCloseElements, buildingsPopupOpenButton,
     buildingsPopup, buildingsPopupTypeMount, buildingsPopupDetailMount, buildingsPopupCloseElements,
-    attackSetupPopup, attackSetupCard, attackSetupCloseElements, attackSetupAtmosphereImage,
-    attackSetupAtmosphereLabel, attackTargetTitle, attackSourceSelect, attackAvailablePopulation,
-    attackRequiredPopulation, attackEstimatedPower, attackStatus, attackWeaponInputs,
-    attackOwnedElements, attackConfirmButton, attackConfirmPopup, attackConfirmCard,
-    attackConfirmCloseElements, attackConfirmAtmosphereImage, attackConfirmAtmosphereLabel,
-    attackConfirmTitle, attackConfirmSource, attackConfirmMembers, attackConfirmPower,
-    attackConfirmScenario, attackConfirmDuration, attackConfirmNote, attackConfirmFinalButton,
-    robberySetupPopup, robberySetupCard, robberySetupCloseElements, robberySetupAtmosphereImage,
-    robberySetupAtmosphereLabel, robberyTargetTitle, robberySourceSelect, robberyAvailableMembers,
-    robberyMemberInput, robberyZone, robberyRecommendation, robberyRiskLevel, robberyHeatEstimate,
-    robberyLootPreview, robberyTrapPreview, robberyScoutReport, robberyRiskDescription, robberyStatus, robberyConfirmButton, robberyConfirmPopup,
-    robberyConfirmCard, robberyConfirmCloseElements, robberyConfirmAtmosphereImage,
-    robberyConfirmAtmosphereLabel, robberyConfirmTitle, robberyConfirmSource,
-    robberyConfirmMembers, robberyConfirmDuration, robberyConfirmNote, robberyConfirmFinalButton,
-    defenseSetupPopup, defenseSetupCard,
-    defenseSetupCloseElements, defenseSetupAtmosphereImage, defenseSetupAtmosphereLabel,
-    defenseTargetTitle, defenseStatus, defenseEstimatedPower, defenseWeaponInputs,
-    defenseOwnedElements, defenseResidentsInput, defenseConfirmButton, trapConfirmPopup,
-    trapConfirmCard, trapConfirmCloseElements, trapConfirmAtmosphereImage, trapConfirmAtmosphereLabel,
-    trapConfirmTitle, trapConfirmCooldown, trapConfirmNote, trapConfirmButton, spyConfirmPopup,
-    spyConfirmCard, spyConfirmCloseElements, spyConfirmAtmosphereImage, spyConfirmAtmosphereLabel,
-    spyConfirmTitle, spyConfirmSource, spyConfirmAvailable, spyConfirmDuration, spyConfirmNote,
-    spyConfirmButton, occupyConfirmPopup, occupyConfirmCard, occupyConfirmCloseElements,
-    occupyConfirmAtmosphereImage, occupyConfirmAtmosphereLabel, occupyConfirmTitle,
-    occupyConfirmSource, occupyConfirmCondition, occupyConfirmDuration, occupyConfirmNote,
+    attackSetupPopup, attackSetupCloseElements, attackSourceSelect, attackWeaponInputs,
+    attackConfirmButton, attackConfirmPopup, attackConfirmCloseElements, attackConfirmFinalButton,
+    robberySetupPopup, robberySetupCloseElements, robberySourceSelect, robberyMemberInput,
+    robberyConfirmButton, robberyConfirmPopup, robberyConfirmCloseElements, robberyConfirmFinalButton,
+    defenseSetupPopup, defenseSetupCloseElements, defenseWeaponInputs,
+    defenseResidentsInput, defenseConfirmButton, trapConfirmPopup,
+    trapConfirmCloseElements, trapConfirmButton, spyConfirmPopup,
+    spyConfirmCloseElements, spyConfirmButton, occupyConfirmPopup, occupyConfirmCloseElements,
     occupyConfirmButton, spyResultModal, spyResultModalBackdrop, spyResultModalClose,
     spyResultModalOk, spyWarningModal, spyWarningModalBackdrop, spyWarningModalClose,
     spyWarningModalOk, raidResultModal, raidResultModalBackdrop, raidResultModalClose,
@@ -7164,7 +7147,6 @@ function bindDistrictCanvas(root) {
       popupAtmosphereWindow
       && popupAtmosphereWindow.hidden === false
       && previousAtmosphereDistrictId === Number(district.id)
-      && atmosphereMeta.typeKey !== "unknown"
     );
     const ownerLabel = getDistrictOwnerLabel(district, interactionState);
     const isOwnedByCurrentPlayer = currentPlayerOwnedDistrictIds.has(district.id);
@@ -7205,7 +7187,7 @@ function bindDistrictCanvas(root) {
       popupAtmosphereHero.setAttribute(
         "aria-label",
         atmosphereMeta.typeKey === "unknown"
-          ? "Atmosféra distriktu je skrytá. Vlastni district nebo ho úspěšně vyzvěď."
+          ? "Zobrazit skrytou atmosféru distriktu."
           : `Zobrazit větší fotku atmosféry: ${atmosphereMeta.label}`
       );
     }
@@ -7219,7 +7201,7 @@ function bindDistrictCanvas(root) {
       });
     }
     if (popupAtmosphereWindowImage instanceof HTMLImageElement) {
-      popupAtmosphereWindowImage.src = atmosphereMeta.typeKey === "unknown" ? "" : atmosphereMeta.imagePath;
+      popupAtmosphereWindowImage.src = atmosphereMeta.imagePath;
       popupAtmosphereWindowImage.alt = `${atmosphereMeta.label || "District"} – fotka atmosféry`;
     }
     if (popupAtmosphereWindowLabel) {

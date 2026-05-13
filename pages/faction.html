@@ -9,7 +9,7 @@
   </head>
   <body class="auth-body auth-body--matrix auth-body--faction auth-body--war">
     <canvas id="matrix-canvas" class="matrix-canvas" aria-hidden="true"></canvas>
-    <main id="auth-root" class="auth-shell" data-page="faction">
+    <main id="auth-root" class="auth-shell" data-page="faction" data-testid="faction-page">
       <form id="auth-form" class="auth-card auth-card--wide auth-card--faction" novalidate>
         <input id="auth-faction" name="faction" type="hidden" value="">
         <div class="faction-selected-avatar-bg hidden" id="faction-selected-avatar-bg" aria-hidden="true"></div>
@@ -28,7 +28,7 @@
           <p class="faction-mobile-tap-note">Na mobilu potvrď výběr frakce dvojitým klepnutím.</p>
         </div>
 
-        <div class="structure-grid" id="structure-grid">
+        <div class="structure-grid" id="structure-grid" data-testid="faction-card-list">
           <button type="button" class="structure-card" data-faction-id="mafian" data-structure="mafián" aria-label="Mafián">
             <span class="structure-card__title">Mafián</span>
           </button>
@@ -91,7 +91,7 @@
 
         <div class="faction-links">
           <a class="faction-link faction-link--secondary" href="./lobby.html">Zpět do lobby</a>
-          <a class="faction-link faction-link--disabled" id="go-game" href="./game.html">Pokračovat do hry</a>
+        <a class="faction-link faction-link--disabled" id="go-game" href="./game.html" data-testid="continue-to-game">Pokračovat do hry</a>
         </div>
 
         <p id="structure-note" class="muted faction-note">Vyber frakci, barvu a avatara pro pokračování.</p>
@@ -99,7 +99,7 @@
       </form>
     </main>
 
-    <div id="avatar-lightbox" class="avatar-lightbox hidden">
+    <div id="avatar-lightbox" class="avatar-lightbox hidden" data-testid="avatar-lightbox">
       <div class="avatar-lightbox__backdrop"></div>
       <div class="avatar-lightbox__content">
         <button class="avatar-lightbox__close" id="avatar-lightbox-close" type="button" aria-label="Zavřít">✕</button>

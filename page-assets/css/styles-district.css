@@ -1275,6 +1275,33 @@
   transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, color 0.16s ease;
 }
 
+.attack-setup-popup-close {
+  font-size: 0;
+}
+
+.attack-setup-popup-close::before,
+.attack-setup-popup-close::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 13px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.34);
+  pointer-events: none;
+  transform-origin: center;
+}
+
+.attack-setup-popup-close::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.attack-setup-popup-close::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
 .district-popup-toggle {
   position: absolute;
   top: 12px;
@@ -2580,7 +2607,11 @@
 }
 
 .district-popup-card .district-modal-hero--district[data-atmosphere-state="locked"]::after {
-  content: "Vyšpehuj nebo vlastni";
+  content: "Skrytý sektor";
+}
+
+.district-popup-card .district-modal-hero--district[data-atmosphere-state="locked"] {
+  min-height: 148px;
 }
 
 .district-popup-card .district-modal-hero--district[data-district-popup-atmosphere] .district-modal-hero__image {
@@ -2589,8 +2620,8 @@
 }
 
 .district-popup-card .district-modal-hero--district[data-atmosphere-state="locked"] .district-modal-hero__image {
-  opacity: 0.28;
-  filter: saturate(0.4) brightness(0.42) contrast(1.12);
+  opacity: 0.84;
+  filter: saturate(0.72) brightness(0.72) contrast(1.18);
 }
 
 .district-popup-card .district-modal-hero--district[data-district-popup-atmosphere] .district-modal-hero__scrim {
@@ -2601,6 +2632,10 @@
 
 .district-popup-card .district-modal-hero--district[data-district-popup-atmosphere] .district-modal-hero__copy {
   padding: 12px 112px 12px 12px;
+}
+
+.district-popup-card .district-modal-hero--district[data-atmosphere-state="locked"] .district-modal-hero__copy {
+  padding-right: 14px;
 }
 
 .district-popup-card .district-modal-hero--district[data-district-popup-atmosphere] .district-popup-eyebrow {
@@ -2618,6 +2653,13 @@
   max-width: 46ch;
   color: rgba(244, 250, 255, 0.9);
   font-size: 0.66rem;
+  overflow-wrap: anywhere;
+}
+
+.district-popup-card .district-modal-hero--district[data-atmosphere-state="locked"] .district-modal-hero__mood {
+  max-width: none;
+  font-size: 0.64rem;
+  line-height: 1.42;
 }
 
 .district-popup-card .district-modal-hero--district[data-district-popup-atmosphere]:hover,
@@ -2633,7 +2675,7 @@
 
 @media (max-width: 720px) {
   .district-popup-card .district-modal-hero--district[data-district-popup-atmosphere] {
-    min-height: 104px;
+    min-height: 118px;
   }
 
   .district-popup-card .district-modal-hero--district[data-district-popup-atmosphere] .district-modal-hero__copy {
@@ -2690,13 +2732,36 @@
     linear-gradient(135deg, rgba(34, 211, 238, 0.22), rgba(244, 114, 182, 0.14)),
     rgba(3, 10, 20, 0.9);
   color: #dffbff;
-  font-size: 14px;
+  font-size: 0;
   line-height: 1;
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.06),
     0 0 12px rgba(34, 211, 238, 0.34),
     0 0 22px rgba(244, 114, 182, 0.14);
   text-shadow: 0 0 10px rgba(103, 232, 249, 0.78);
+}
+
+.district-atmosphere-window__close::before,
+.district-atmosphere-window__close::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 13px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 8px rgba(103, 232, 249, 0.58);
+  pointer-events: none;
+  transform-origin: center;
+}
+
+.district-atmosphere-window__close::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.district-atmosphere-window__close::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .district-atmosphere-window__image {

@@ -55,4 +55,15 @@ describe("district building profile runtime", () => {
     expect(runtime.isDistrictTypeVisible({ id: 2, districtType: "resident" }, { gamePhase: "launch" })).toBe(false);
     expect(runtime.isDistrictTypeVisible({ id: 2, districtType: "downtown" }, { gamePhase: "launch" })).toBe(true);
   });
+
+  it("keeps a hidden sector hidden until spy intel reveals its type", () => {
+    const hiddenRuntime = createRuntime();
+    const revealedRuntime = createRuntime({
+      getResolvedSpyIntel: () => ({ revealedTypeDistrictIds: [2] })
+    });
+    const district = { id: 2, districtType: "resident" };
+
+    expect(hiddenRuntime.isDistrictTypeHidden(district, { gamePhase: "launch" })).toBe(true);
+    expect(revealedRuntime.isDistrictTypeHidden(district, { gamePhase: "launch" })).toBe(false);
+  });
 });
