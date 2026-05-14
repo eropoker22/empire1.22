@@ -3,6 +3,20 @@ import type { DistrictId, PlayerId } from "../ids/entity-id";
 export type PoliceRaidSeverity = "low" | "medium" | "high" | "extreme";
 export type PendingRaidStatus = "pending" | "acknowledged" | "resolved" | "expired";
 
+export interface PoliceRaidMitigationPreview {
+  source: "courthouse";
+  ownedCount: number;
+  reductionPct: number;
+  message: string;
+  originalConsequences: {
+    seizedDirtyCash: number;
+    seizedResources: Record<string, number>;
+    lockdownTicks: number;
+    buildingDisruptionTicks: number;
+    heatReducedBy: number;
+  };
+}
+
 export interface PoliceRaidPreviewConsequences {
   seizedDirtyCash: number;
   seizedResources: Record<string, number>;
@@ -11,6 +25,7 @@ export interface PoliceRaidPreviewConsequences {
   disruptedBuildingIds: string[];
   buildingDisruptionUntilTick?: number | null;
   heatReducedBy: number;
+  courthouseMitigation?: PoliceRaidMitigationPreview | null;
 }
 
 export interface PendingRaid {

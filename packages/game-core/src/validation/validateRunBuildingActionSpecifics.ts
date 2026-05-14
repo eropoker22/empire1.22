@@ -7,6 +7,7 @@ import { validateCentralBankAction } from "../handlers/centralBankBuildingAction
 import { validateCityHallAction } from "../handlers/cityHallBuildingActions";
 import { validateClinicAction } from "../handlers/clinicBuildingActions";
 import { validateExchangeOfficeAction } from "../handlers/exchangeOfficeBuildingActions";
+import { validateLobbyClubAction } from "../handlers/lobbyClubBuildingActions";
 import { validatePowerStationAction } from "../handlers/powerStationBuildingActions";
 import { validateRecyclingCenterAction } from "../handlers/recyclingCenterBuildingActions";
 import { validateSchoolAction } from "../handlers/schoolBuildingActions";
@@ -223,6 +224,21 @@ export const validateRunBuildingActionSpecifics = (
     errors.push({
       code: schoolErrorCode,
       message: "School action preconditions are not met."
+    });
+  }
+
+  const lobbyClubErrorCode = validateLobbyClubAction({
+    state,
+    building,
+    actionId: action.actionId,
+    balances,
+    districtInfluence: district.influence,
+    config: context.config.balance.lobbyClub
+  });
+  if (lobbyClubErrorCode) {
+    errors.push({
+      code: lobbyClubErrorCode,
+      message: "Lobby Club action preconditions are not met."
     });
   }
 

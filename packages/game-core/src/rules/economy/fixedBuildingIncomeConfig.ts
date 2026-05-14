@@ -9,9 +9,11 @@ import { applyCentralBankIncomeModifiers } from "../../handlers/centralBankBuild
 import { applyCityHallIncomeModifiers } from "../../handlers/cityHallBuildingActions";
 import { applyClinicIncomeModifiers } from "../../handlers/clinicBuildingActions";
 import { applyConvenienceStoreIncomeModifiers } from "../../handlers/convenienceStoreBuildingActions";
+import { applyCourthouseIncomeModifiers } from "../../handlers/courthouseBuildingActions";
 import { applyExchangeOfficeIncomeModifiers } from "../../handlers/exchangeOfficeBuildingActions";
 import { applyFitnessClubIncomeModifiers } from "../../handlers/fitnessClubBuildingActions";
 import { applyGarageIncomeModifiers } from "../../handlers/garageBuildingActions";
+import { applyLobbyClubIncomeModifiers } from "../../handlers/lobbyClubBuildingActions";
 import { applyPowerStationIncomeModifiers } from "../../handlers/powerStationBuildingActions";
 import { applyRecruitmentCenterIncomeModifiers } from "../../handlers/recruitmentCenterBuildingActions";
 import { applyRecyclingCenterIncomeModifiers } from "../../handlers/recyclingCenterBuildingActions";
@@ -234,7 +236,24 @@ export const resolveFixedBuildingIncomeConfig = (input: {
         ...toIncomeModifierInput(streetDealersConfig)
       })
     : streetDealersConfig;
-  return powerStationConfig;
+  const lobbyClubConfig = context.config.balance.lobbyClub
+    ? applyLobbyClubIncomeModifiers({
+        config: context.config.balance.lobbyClub,
+        state,
+        building,
+        tick: state.root.tick,
+        ...toIncomeModifierInput(powerStationConfig)
+      })
+    : powerStationConfig;
+  const courthouseConfig = context.config.balance.courthouse
+    ? applyCourthouseIncomeModifiers({
+        config: context.config.balance.courthouse,
+        state,
+        building,
+        ...toIncomeModifierInput(lobbyClubConfig)
+      })
+    : lobbyClubConfig;
+  return courthouseConfig;
 };
 
 const toIncomeModifierInput = (config: FixedBuildingIncomeValues) => ({

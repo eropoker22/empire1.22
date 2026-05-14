@@ -28,6 +28,8 @@ export const createDistrictPanelProjection = (
     centralBankConfig: runtime.config.balance.centralBank,
     airportConfig: runtime.config.balance.airport,
     cityHallConfig: runtime.config.balance.cityHall,
+    courthouseConfig: runtime.config.balance.courthouse,
+    lobbyClubConfig: runtime.config.balance.lobbyClub,
     vipLoungeConfig: runtime.config.balance.vipLounge,
     fitnessClubConfig: runtime.config.balance.fitnessClub,
     powerStationConfig: runtime.config.balance.powerStation,

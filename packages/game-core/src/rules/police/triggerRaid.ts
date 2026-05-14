@@ -173,7 +173,9 @@ export const triggerRaid = (
         },
         resourcesSeized: previewConsequences.seizedResources,
         gangMembersLost: 0,
-        districtLockdownTicks: targetDistrictId ? config.lockdownTicksBySeverity[severity] : 0,
+        districtLockdownTicks: previewConsequences.lockdownUntilTick
+          ? Math.max(0, previewConsequences.lockdownUntilTick - currentTick)
+          : 0,
         heatReduced: previewConsequences.heatReducedBy
       })
     );

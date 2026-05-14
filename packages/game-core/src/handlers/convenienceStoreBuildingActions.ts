@@ -1,5 +1,6 @@
-import type { ConvenienceStoreBalanceConfig, FixedBuildingBalanceConfig } from "../contracts";
+import type { ConvenienceStoreBalanceConfig, FixedBuildingBalanceConfig, LobbyClubBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
+import { getOwnedLobbyClubCount } from "./lobbyClubBuildingActions";
 
 export interface ConvenienceStoreNetworkMultipliers {
   cleanIncomeMultiplier: number;
@@ -56,6 +57,7 @@ export const resolveConvenienceStoreRumorStats = (input: {
   playerId: string;
   config: ConvenienceStoreBalanceConfig;
   restaurantConfig?: { buildingTypeId: "restaurant" };
+  lobbyClubConfig?: LobbyClubBalanceConfig;
 }) => {
   const storeCount = getOwnedConvenienceStoreCount(input.state, input.playerId, input.config);
   const restaurantCount = input.restaurantConfig
@@ -66,6 +68,9 @@ export const resolveConvenienceStoreRumorStats = (input: {
   const civilTruthBonusPct = storeCount >= input.config.restaurantSynergy.truthStoreThreshold
     && restaurantCount >= input.config.restaurantSynergy.truthRestaurantThreshold
     ? input.config.restaurantSynergy.civilRumorTruthBonusPct
+    : 0;
+  const lobbyDistrictHintBonusPct = input.lobbyClubConfig && getOwnedLobbyClubCount(input.state, input.playerId, input.lobbyClubConfig) > 0
+    ? input.lobbyClubConfig.civilNetworkSupport.convenienceDistrictHintChancePct
     : 0;
   return {
     storeCount,
@@ -78,7 +83,7 @@ export const resolveConvenienceStoreRumorStats = (input: {
       resolveTruthChancePct(storeCount, input.config)
         + civilTruthBonusPct
     ),
-    districtHintChancePct: input.config.districtHintChancePct,
+    districtHintChancePct: Math.min(100, input.config.districtHintChancePct + lobbyDistrictHintBonusPct),
     areaHintChancePct: input.config.areaHintChancePct,
     buildingHintChancePct: input.config.buildingHintChancePct,
     reliabilityVisible: false
@@ -117,7 +122,8 @@ export const applyConvenienceStorePassiveRumors = (
   state: CoreGameState,
   config: ConvenienceStoreBalanceConfig,
   tickRateMs: number,
-  restaurantConfig?: { buildingTypeId: "restaurant" }
+  restaurantConfig?: { buildingTypeId: "restaurant" },
+  lobbyClubConfig?: LobbyClubBalanceConfig
 ): CoreGameState => {
   const intervalTicks = minutesToTicks(config.passiveRumorIntervalMinutes, tickRateMs);
   let buildingsById = state.buildingsById;
@@ -137,7 +143,7 @@ export const applyConvenienceStorePassiveRumors = (
     if ((metadata.lastPassiveRumorCheckTick ?? -Infinity) + intervalTicks > state.root.tick) {
       continue;
     }
-    const stats = resolveConvenienceStoreRumorStats({ state, playerId: building.ownerPlayerId, config, restaurantConfig });
+    const stats = resolveConvenienceStoreRumorStats({ state, playerId: building.ownerPlayerId, config, restaurantConfig, lobbyClubConfig });
     metadata.lastPassiveRumorCheckTick = state.root.tick;
     if (deterministicRollPct(`${building.id}:convenience-store-passive-rumor:${state.root.tick}`) < stats.passiveRumorChancePct) {
       metadata.rumorEvents.push(generateRumor({

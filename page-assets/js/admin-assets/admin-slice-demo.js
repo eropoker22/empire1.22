@@ -1264,6 +1264,45 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     notificationCreated: "notification-created"
   };
   const resolveWantedLevel = (heat) => Math.max(0, Math.min(5, Math.floor(Math.max(0, heat) / 20)));
+  const getOwnedCourthouses = (state, playerId, config) => {
+    if (!playerId) return [];
+    return Object.values(state.buildingsById).filter(
+      (building2) => building2.ownerPlayerId === playerId && building2.status === "active" && building2.buildingTypeId === config.buildingTypeId
+    );
+  };
+  const getOwnedCourthouseCount = (state, playerId, config) => getOwnedCourthouses(state, playerId, config).length;
+  const resolveCourthouseTier = (ownedCount, config) => config.legalProtectionTiers.find(
+    (tier) => ownedCount >= tier.minOwned && ownedCount <= tier.maxOwned
+  ) ?? null;
+  const resolveCourthouseRaidMitigation = (input) => {
+    if (!input.config || !input.playerId) return { ownedCount: 0, reductionPct: 0 };
+    const ownedCount = getOwnedCourthouseCount(input.state, input.playerId, input.config);
+    const tier = resolveCourthouseTier(ownedCount, input.config);
+    return {
+      ownedCount,
+      reductionPct: Math.max(0, Math.min(100, (tier == null ? void 0 : tier.policeRaidConsequencesReductionPct) ?? 0))
+    };
+  };
+  const applyCourthouseIncomeModifiers = (input) => {
+    if (input.building.buildingTypeId !== input.config.buildingTypeId) {
+      return {
+        cleanPerHour: input.cleanPerHour,
+        dirtyPerHour: input.dirtyPerHour,
+        heatPerDay: input.heatPerDay,
+        influencePerDay: input.influencePerDay,
+        maxLevel: 1
+      };
+    }
+    const ownedCount = getOwnedCourthouseCount(input.state, input.building.ownerPlayerId, input.config);
+    const tier = resolveCourthouseTier(ownedCount, input.config);
+    return {
+      cleanPerHour: input.cleanPerHour * ((tier == null ? void 0 : tier.cleanIncomeMultiplier) ?? 1),
+      dirtyPerHour: 0,
+      heatPerDay: input.heatPerDay * ((tier == null ? void 0 : tier.heatMultiplier) ?? 1),
+      influencePerDay: input.influencePerDay * ((tier == null ? void 0 : tier.influenceMultiplier) ?? 1),
+      maxLevel: 1
+    };
+  };
   const DEFAULT_POLICE_SYSTEM_CONFIG = {
     districtHeatWeight: 1,
     highPressureRaidThreshold: 100,
@@ -1351,24 +1390,38 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const dirtyCash = sanitizeAmount(balances["dirty-cash"]);
     const dirtyPct = sanitizePercent(config.dirtyCashSeizurePercentBySeverity[severity]);
     let remainingCap = sanitizeOptionalCap(config.maxSeizedPerRaid);
-    const seizedDirtyCash = applySeizureCap(Math.floor(dirtyCash * dirtyPct), remainingCap);
-    remainingCap = reduceCap(remainingCap, seizedDirtyCash);
+    const baseSeizedDirtyCash = applySeizureCap(Math.floor(dirtyCash * dirtyPct), remainingCap);
+    const mitigation = resolveCourthouseRaidMitigation({
+      state,
+      playerId,
+      config: context == null ? void 0 : context.config.balance.courthouse
+    });
+    const consequenceMultiplier = 1 - mitigation.reductionPct / 100;
+    const seizedDirtyCash = mitigateLoss(baseSeizedDirtyCash, consequenceMultiplier);
+    remainingCap = reduceCap(remainingCap, baseSeizedDirtyCash);
     const protectedResources = /* @__PURE__ */ new Set([...config.protectedResources ?? [], "dirty-cash"]);
     const resourcePct = sanitizePercent(config.resourceSeizurePercentBySeverity[severity]);
+    const baseSeizedResources = {};
     const seizedResources = {};
     for (const [resourceKey, value] of Object.entries(balances).sort(([left], [right]) => left.localeCompare(right))) {
       if (protectedResources.has(resourceKey)) continue;
-      const seized = applySeizureCap(Math.floor(sanitizeAmount(value) * resourcePct), remainingCap);
-      if (seized <= 0) continue;
-      seizedResources[resourceKey] = seized;
-      remainingCap = reduceCap(remainingCap, seized);
+      const baseSeized = applySeizureCap(Math.floor(sanitizeAmount(value) * resourcePct), remainingCap);
+      if (baseSeized <= 0) continue;
+      baseSeizedResources[resourceKey] = baseSeized;
+      const seized = mitigateLoss(baseSeized, consequenceMultiplier);
+      if (seized > 0) {
+        seizedResources[resourceKey] = seized;
+      }
+      remainingCap = reduceCap(remainingCap, baseSeized);
     }
     const targetDistrict = targetDistrictId ? state.districtsById[targetDistrictId] ?? null : null;
     const lockdownTicks = Math.max(0, Math.floor(Number(config.lockdownTicksBySeverity[severity] || 0)));
     const disruptionTicks = Math.max(0, Math.floor(Number(config.buildingDisruptionTicksBySeverity[severity] || 0)));
-    const lockedDistrictId = targetDistrict && lockdownTicks > 0 ? targetDistrict.id : null;
-    const buildingDisruptionUntilTick = targetDistrict && disruptionTicks > 0 ? state.root.tick + disruptionTicks : null;
-    const disruptedBuildingIds = targetDistrict && disruptionTicks > 0 ? targetDistrict.buildingIds.filter((buildingId) => {
+    const mitigatedLockdownTicks = mitigateDurationTicks(lockdownTicks, consequenceMultiplier);
+    const mitigatedDisruptionTicks = mitigateDurationTicks(disruptionTicks, consequenceMultiplier);
+    const lockedDistrictId = targetDistrict && mitigatedLockdownTicks > 0 ? targetDistrict.id : null;
+    const buildingDisruptionUntilTick = targetDistrict && mitigatedDisruptionTicks > 0 ? state.root.tick + mitigatedDisruptionTicks : null;
+    const disruptedBuildingIds = targetDistrict && mitigatedDisruptionTicks > 0 ? targetDistrict.buildingIds.filter((buildingId) => {
       const building2 = state.buildingsById[buildingId];
       return building2 !== void 0 && building2.status !== "destroyed";
     }) : [];
@@ -1381,10 +1434,23 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       seizedDirtyCash,
       seizedResources,
       lockedDistrictId,
-      lockdownUntilTick: lockedDistrictId ? state.root.tick + lockdownTicks : null,
+      lockdownUntilTick: lockedDistrictId ? state.root.tick + mitigatedLockdownTicks : null,
       disruptedBuildingIds,
       buildingDisruptionUntilTick,
-      heatReducedBy
+      heatReducedBy,
+      courthouseMitigation: mitigation.reductionPct > 0 ? {
+        source: "courthouse",
+        ownedCount: mitigation.ownedCount,
+        reductionPct: mitigation.reductionPct,
+        message: "Následky razie byly zmírněny díky Soudu.",
+        originalConsequences: {
+          seizedDirtyCash: baseSeizedDirtyCash,
+          seizedResources: baseSeizedResources,
+          lockdownTicks,
+          buildingDisruptionTicks: disruptionTicks,
+          heatReducedBy
+        }
+      } : null
     };
   };
   const sanitizeAmount = (value) => {
@@ -1401,6 +1467,11 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   };
   const applySeizureCap = (amount, cap) => Math.max(0, Math.min(Math.max(0, amount), cap ?? Number.POSITIVE_INFINITY));
   const reduceCap = (cap, amount) => cap === null ? null : Math.max(0, cap - amount);
+  const mitigateLoss = (amount, multiplier) => Math.max(0, Math.floor(amount * multiplier));
+  const mitigateDurationTicks = (ticks, multiplier) => {
+    if (ticks <= 0) return 0;
+    return Math.max(1, Math.ceil(ticks * multiplier));
+  };
   const applyResourceSeizures = (resourceState, preview) => {
     const balances = { ...resourceState.balances };
     balances["dirty-cash"] = Math.max(0, sanitizeAmount(balances["dirty-cash"]) - preview.seizedDirtyCash);
@@ -1460,6 +1531,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       disruptedBuildingIds: [],
       buildingDisruptionUntilTick: null,
       heatReducedBy: 0,
+      courthouseMitigation: null,
       message: "Police raid had no valid target.",
       eventId
     };
@@ -1500,6 +1572,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       disruptedBuildingIds: preview.disruptedBuildingIds,
       buildingDisruptionUntilTick: preview.buildingDisruptionUntilTick ?? null,
       heatReducedBy: preview.heatReducedBy,
+      courthouseMitigation: preview.courthouseMitigation ?? null,
       message: createRaidResultMessage(preview),
       eventId
     };
@@ -1537,7 +1610,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           lockdownUntilTick: result.lockdownUntilTick,
           disruptedBuildingIds: result.disruptedBuildingIds,
           buildingDisruptionUntilTick: result.buildingDisruptionUntilTick,
-          heatReducedBy: result.heatReducedBy
+          heatReducedBy: result.heatReducedBy,
+          courthouseMitigation: result.courthouseMitigation ?? null
         }
       } : entry
     );
@@ -1569,10 +1643,15 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       lockdownUntilTick: result.lockdownUntilTick,
       disruptedBuildingIds: result.disruptedBuildingIds,
       buildingDisruptionUntilTick: result.buildingDisruptionUntilTick,
-      heatReducedBy: result.heatReducedBy
+      heatReducedBy: result.heatReducedBy,
+      courthouseMitigation: result.courthouseMitigation ?? null
     }
   });
   const createRaidResultMessage = (preview) => {
+    var _a;
+    if ((_a = preview.courthouseMitigation) == null ? void 0 : _a.reductionPct) {
+      return "Následky razie byly zmírněny díky Soudu.";
+    }
     const seizedResourceCount = Object.values(preview.seizedResources).reduce((total, amount) => total + amount, 0);
     if (preview.seizedDirtyCash <= 0 && seizedResourceCount <= 0 && !preview.lockedDistrictId) {
       return "Razie nic nenašla. Město si tě ale zapsalo.";
@@ -1971,7 +2050,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       (building2) => (building2 == null ? void 0 : building2.buildingTypeId) === config.buildingTypeId && (building2 == null ? void 0 : building2.ownerPlayerId) === playerId && (building2 == null ? void 0 : building2.status) === "active"
     );
   };
-  const hasOwnedBuilding$2 = (state, playerId, buildingTypeId) => Boolean(playerId) && Object.values(state.buildingsById ?? {}).some(
+  const hasOwnedBuilding$3 = (state, playerId, buildingTypeId) => Boolean(playerId) && Object.values(state.buildingsById ?? {}).some(
     (building2) => (building2 == null ? void 0 : building2.buildingTypeId) === buildingTypeId && (building2 == null ? void 0 : building2.ownerPlayerId) === playerId && (building2 == null ? void 0 : building2.status) === "active"
   );
   const getOwnedBuildingCount = (state, playerId, buildingTypeId) => Object.values(state.buildingsById).filter(
@@ -1979,20 +2058,20 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   ).length;
   const readAirportMetadata = (building2) => {
     var _a;
-    const raw = isRecord$i((_a = building2.metadata) == null ? void 0 : _a.airport) ? building2.metadata.airport : {};
+    const raw = isRecord$j((_a = building2.metadata) == null ? void 0 : _a.airport) ? building2.metadata.airport : {};
     return {
-      pendingImports: Array.isArray(raw.pendingImports) ? raw.pendingImports.filter(isRecord$i).map(readPendingImport).filter((entry) => Boolean(entry)) : [],
-      blackCharterExpiresAtTick: asOptionalTick$e(raw.blackCharterExpiresAtTick),
-      blackCharterOffer: isRecord$i(raw.blackCharterOffer) ? {
+      pendingImports: Array.isArray(raw.pendingImports) ? raw.pendingImports.filter(isRecord$j).map(readPendingImport).filter((entry) => Boolean(entry)) : [],
+      blackCharterExpiresAtTick: asOptionalTick$f(raw.blackCharterExpiresAtTick),
+      blackCharterOffer: isRecord$j(raw.blackCharterOffer) ? {
         items: Array.isArray(raw.blackCharterOffer.items) ? raw.blackCharterOffer.items.map(String) : [],
         discountPct: Number(raw.blackCharterOffer.discountPct || 0),
         purchaseCustomsRiskPct: Number(raw.blackCharterOffer.purchaseCustomsRiskPct || 0)
       } : void 0,
-      evacuationCorridorExpiresAtTick: asOptionalTick$e(raw.evacuationCorridorExpiresAtTick),
-      discountDisabledUntilTick: asOptionalTick$e(raw.discountDisabledUntilTick),
+      evacuationCorridorExpiresAtTick: asOptionalTick$f(raw.evacuationCorridorExpiresAtTick),
+      discountDisabledUntilTick: asOptionalTick$f(raw.discountDisabledUntilTick),
       nextImportCostPenaltyPct: Number(raw.nextImportCostPenaltyPct || 0),
-      lastCustomsInspectionTick: asOptionalTick$e(raw.lastCustomsInspectionTick),
-      lastImportShipment: isRecord$i(raw.lastImportShipment) ? {
+      lastCustomsInspectionTick: asOptionalTick$f(raw.lastCustomsInspectionTick),
+      lastImportShipment: isRecord$j(raw.lastImportShipment) ? {
         tick: Math.floor(Number(raw.lastImportShipment.tick || 0)),
         category: resolveImportCategory(raw.lastImportShipment.category, ["materials", "rareComponents", "weapons", "defenseItems"]),
         requestedItems: readNumberRecord(raw.lastImportShipment.requestedItems),
@@ -2000,7 +2079,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         lostItems: readNumberRecord(raw.lastImportShipment.lostItems),
         customsTriggered: Boolean(raw.lastImportShipment.customsTriggered)
       } : void 0,
-      customsEvents: Array.isArray(raw.customsEvents) ? raw.customsEvents.filter(isRecord$i).map((entry) => ({ type: String(entry.type || ""), tick: Math.floor(Number(entry.tick || 0)), label: String(entry.label || entry.type || ""), riskPct: Number(entry.riskPct || 0), rumorText: entry.rumorText ? String(entry.rumorText) : void 0 })).filter((entry) => entry.type) : []
+      customsEvents: Array.isArray(raw.customsEvents) ? raw.customsEvents.filter(isRecord$j).map((entry) => ({ type: String(entry.type || ""), tick: Math.floor(Number(entry.tick || 0)), label: String(entry.label || entry.type || ""), riskPct: Number(entry.riskPct || 0), rumorText: entry.rumorText ? String(entry.rumorText) : void 0 })).filter((entry) => entry.type) : []
     };
   };
   const cleanupAirportMetadata = (metadata, tick) => ({
@@ -2029,15 +2108,15 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const normalized = String(value ?? "").trim();
     return allowed.includes(normalized) ? normalized : null;
   };
-  const readNumberRecord = (value) => isRecord$i(value) ? Object.fromEntries(
+  const readNumberRecord = (value) => isRecord$j(value) ? Object.fromEntries(
     Object.entries(value).map(([key, amount]) => [key, Math.max(0, Math.floor(Number(amount || 0)))]).filter((entry) => entry[1] > 0)
   ) : {};
-  const asOptionalTick$e = (value) => {
+  const asOptionalTick$f = (value) => {
     const tick = Math.floor(Number(value || 0));
     return tick > 0 ? tick : void 0;
   };
-  const minutesToTicks$d = (minutes, tickRateMs) => Math.max(1, Math.ceil(minutes * 60 * 1e3 / Math.max(1, tickRateMs)));
-  const isRecord$i = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  const minutesToTicks$e = (minutes, tickRateMs) => Math.max(1, Math.ceil(minutes * 60 * 1e3 / Math.max(1, tickRateMs)));
+  const isRecord$j = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
   const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
   const deterministicUnitInterval = (seed) => {
     let hash = 2166136261;
@@ -2116,9 +2195,9 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   };
   const getPowerStationMetadata = (building2) => {
     var _a;
-    const raw = isRecord$h((_a = building2.metadata) == null ? void 0 : _a.powerStation) ? building2.metadata.powerStation : {};
+    const raw = isRecord$i((_a = building2.metadata) == null ? void 0 : _a.powerStation) ? building2.metadata.powerStation : {};
     return {
-      backupGridSwitchExpiresAtTick: asOptionalTick$d(raw.backupGridSwitchExpiresAtTick)
+      backupGridSwitchExpiresAtTick: asOptionalTick$e(raw.backupGridSwitchExpiresAtTick)
     };
   };
   const isPowerStationBackupGridActiveForPlayer = (state, playerId, config, tick) => Object.values(state.buildingsById).some(
@@ -2203,7 +2282,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       return null;
     }
     const metadata = cleanupPowerStationMetadata(getPowerStationMetadata(input.building), input.state.root.tick);
-    metadata.backupGridSwitchExpiresAtTick = input.state.root.tick + minutesToTicks$c(config.backupGridSwitch.durationMinutes, input.tickRateMs);
+    metadata.backupGridSwitchExpiresAtTick = input.state.root.tick + minutesToTicks$d(config.backupGridSwitch.durationMinutes, input.tickRateMs);
     return {
       balances: {
         ...input.balances,
@@ -2248,12 +2327,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     ...building2.metadata ?? {},
     powerStation
   });
-  const minutesToTicks$c = (minutes, tickRateMs) => Math.max(1, Math.ceil(Math.max(0, Number(minutes || 0)) * 60 * 1e3 / Math.max(1, tickRateMs)));
-  const asOptionalTick$d = (value) => {
+  const minutesToTicks$d = (minutes, tickRateMs) => Math.max(1, Math.ceil(Math.max(0, Number(minutes || 0)) * 60 * 1e3 / Math.max(1, tickRateMs)));
+  const asOptionalTick$e = (value) => {
     const numberValue = Number(value);
     return Number.isFinite(numberValue) && numberValue > 0 ? Math.floor(numberValue) : void 0;
   };
-  const isRecord$h = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  const isRecord$i = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
   const getOwnedWarehouseCount = (state, playerId, config) => Object.values(state.buildingsById).filter(
     (building2) => building2.buildingTypeId === config.buildingTypeId && building2.ownerPlayerId === playerId && building2.status === "active"
   ).length;
@@ -2381,7 +2460,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const metadataPatch = {};
     let rumorText;
     if (type === "customs_stamp") {
-      metadataPatch.discountDisabledUntilTick = state.root.tick + minutesToTicks$d(config.customsInspection.discountDisabledMinutes, tickRateMs);
+      metadataPatch.discountDisabledUntilTick = state.root.tick + minutesToTicks$e(config.customsInspection.discountDisabledMinutes, tickRateMs);
     } else if (type === "hangar_search") {
       nextState = addAirportHeatAndRumor(nextState, building2, config.customsInspection.hangarHeatGain);
     } else if (type === "lost_papers") {
@@ -2411,7 +2490,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       }
     } : state;
     if (!rumorText) return nextState;
-    const sourceEventId = `airport-customs:${building2.id}:${state.root.tick}:${Math.abs(hashText$4(rumorText))}`;
+    const sourceEventId = `airport-customs:${building2.id}:${state.root.tick}:${Math.abs(hashText$5(rumorText))}`;
     const event = {
       id: `city-feed:${sourceEventId}`,
       sourceEventId,
@@ -2436,7 +2515,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       }
     };
   };
-  const hashText$4 = (value) => Array.from(value).reduce((hash, char) => hash * 31 + char.charCodeAt(0) | 0, 0);
+  const hashText$5 = (value) => Array.from(value).reduce((hash, char) => hash * 31 + char.charCodeAt(0) | 0, 0);
   const resolveAirportCustomsRiskPct = (input) => {
     const player = input.building.ownerPlayerId ? input.state.playersById[input.building.ownerPlayerId] : void 0;
     const policeState = player ? input.state.policeStatesById[player.policeStateId] : void 0;
@@ -2444,7 +2523,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const heatRisk = Number((policeState == null ? void 0 : policeState.heat) || 0) > input.config.customsInspection.heatThreshold ? input.config.customsInspection.heatRiskPct : 0;
     const tunnelRisk = input.smugglingTunnelConfig && input.building.ownerPlayerId && getOwnedBuildingCount(input.state, input.building.ownerPlayerId, input.smugglingTunnelConfig.buildingTypeId) >= input.config.customsInspection.smugglingTunnelThreshold ? input.config.customsInspection.smugglingTunnelRiskPct : 0;
     const corridorRisk = Number(metadata.evacuationCorridorExpiresAtTick || 0) > input.tick ? input.config.evacuationCorridor.customsRiskPct : 0;
-    const stockRisk = input.building.ownerPlayerId && hasOwnedBuilding$2(input.state, input.building.ownerPlayerId, "stock_exchange") ? input.config.customsInspection.stockExchangeSynergyRiskPct : 0;
+    const stockRisk = input.building.ownerPlayerId && hasOwnedBuilding$3(input.state, input.building.ownerPlayerId, "stock_exchange") ? input.config.customsInspection.stockExchangeSynergyRiskPct : 0;
     return Math.min(100, input.config.customsInspection.passiveRiskPct + heatRisk + tunnelRisk + corridorRisk + stockRisk);
   };
   const completeAirportImportsAndCustoms = (state, config, warehouseConfig, powerStationConfig, smugglingTunnelConfig, tickRateMs) => {
@@ -2470,7 +2549,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           pendingImports: metadata.pendingImports.filter((entry) => entry.completesAtTick > nextState.root.tick)
         };
       }
-      const intervalTicks = minutesToTicks$d(config.customsInspection.intervalMinutes, tickRateMs);
+      const intervalTicks = minutesToTicks$e(config.customsInspection.intervalMinutes, tickRateMs);
       if (Number(metadata.lastCustomsInspectionTick ?? 0) + intervalTicks <= nextState.root.tick) {
         const riskPct = resolveAirportCustomsRiskPct({ state: nextState, building: currentBuilding, config, smugglingTunnelConfig, tick: nextState.root.tick });
         const roll = deterministicUnitInterval(`${nextState.serverInstance.worldSeed}:airport-customs:${building2.id}:${nextState.root.tick}`);
@@ -2637,7 +2716,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       };
     }
     if (actionId === input.config.blackCharter.actionId) {
-      const expiresAtTick = input.state.root.tick + minutesToTicks$d(input.config.blackCharter.durationMinutes, input.tickRateMs);
+      const expiresAtTick = input.state.root.tick + minutesToTicks$e(input.config.blackCharter.durationMinutes, input.tickRateMs);
       const nextMetadata = {
         ...metadata,
         blackCharterExpiresAtTick: expiresAtTick,
@@ -2668,7 +2747,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       };
     }
     if (actionId === input.config.evacuationCorridor.actionId) {
-      const expiresAtTick = input.state.root.tick + minutesToTicks$d(input.config.evacuationCorridor.durationMinutes, input.tickRateMs);
+      const expiresAtTick = input.state.root.tick + minutesToTicks$e(input.config.evacuationCorridor.durationMinutes, input.tickRateMs);
       const nextMetadata = {
         ...metadata,
         evacuationCorridorExpiresAtTick: expiresAtTick
@@ -2758,7 +2837,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   };
   const getArcadeMetadata = (building2) => {
     var _a, _b;
-    const raw = isRecord$g((_a = building2.metadata) == null ? void 0 : _a.arcade) ? (_b = building2.metadata) == null ? void 0 : _b.arcade : {};
+    const raw = isRecord$h((_a = building2.metadata) == null ? void 0 : _a.arcade) ? (_b = building2.metadata) == null ? void 0 : _b.arcade : {};
     return {
       launderedEvents: Array.isArray(raw.launderedEvents) ? raw.launderedEvents.map((entry) => ({
         tick: Math.max(0, Math.floor(Number((entry == null ? void 0 : entry.tick) || 0))),
@@ -2769,18 +2848,18 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         riskPct: Math.max(0, Number((entry == null ? void 0 : entry.riskPct) || 0)),
         source: String((entry == null ? void 0 : entry.source) || "arcade")
       })).filter((entry) => entry.expiresAtTick > 0 && entry.riskPct > 0) : [],
-      nightMachinesExpiresAtTick: asOptionalTick$c(raw.nightMachinesExpiresAtTick),
-      incomePenaltyExpiresAtTick: asOptionalTick$c(raw.incomePenaltyExpiresAtTick),
-      incomePenaltyPct: asOptionalNumber$4(raw.incomePenaltyPct),
-      dirtyIncomePenaltyExpiresAtTick: asOptionalTick$c(raw.dirtyIncomePenaltyExpiresAtTick),
-      dirtyIncomePenaltyPct: asOptionalNumber$4(raw.dirtyIncomePenaltyPct),
-      backCashdeskBlockedUntilTick: asOptionalTick$c(raw.backCashdeskBlockedUntilTick),
-      lastAuditCheckTick: asOptionalTick$c(raw.lastAuditCheckTick),
-      auditLog: Array.isArray(raw.auditLog) ? raw.auditLog.filter(isRecord$g).slice(-10) : []
+      nightMachinesExpiresAtTick: asOptionalTick$d(raw.nightMachinesExpiresAtTick),
+      incomePenaltyExpiresAtTick: asOptionalTick$d(raw.incomePenaltyExpiresAtTick),
+      incomePenaltyPct: asOptionalNumber$5(raw.incomePenaltyPct),
+      dirtyIncomePenaltyExpiresAtTick: asOptionalTick$d(raw.dirtyIncomePenaltyExpiresAtTick),
+      dirtyIncomePenaltyPct: asOptionalNumber$5(raw.dirtyIncomePenaltyPct),
+      backCashdeskBlockedUntilTick: asOptionalTick$d(raw.backCashdeskBlockedUntilTick),
+      lastAuditCheckTick: asOptionalTick$d(raw.lastAuditCheckTick),
+      auditLog: Array.isArray(raw.auditLog) ? raw.auditLog.filter(isRecord$h).slice(-10) : []
     };
   };
   const resolveArcadeAuditRisk = (input) => {
-    const windowTicks = minutesToTicks$b(input.config.auditWindowMinutes, input.tickRateMs);
+    const windowTicks = minutesToTicks$c(input.config.auditWindowMinutes, input.tickRateMs);
     const thresholdTick = Math.max(0, input.tick - windowTicks);
     const ownedBuildings = getOwnedArcadeBuildings(input.state, input.ownerPlayerId, input.config);
     const launderedInWindow = ownedBuildings.flatMap((building2) => getArcadeMetadata(building2).launderedEvents).filter((entry) => entry.tick >= thresholdTick).reduce((total, entry) => total + entry.amount, 0);
@@ -2844,7 +2923,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   };
   const applyArcadeAuditChecks = (state, config, tickRateMs) => {
     var _a;
-    const checkEveryTicks = minutesToTicks$b(config.auditCheckEveryMinutes, tickRateMs);
+    const checkEveryTicks = minutesToTicks$c(config.auditCheckEveryMinutes, tickRateMs);
     let buildingsById = state.buildingsById;
     let districtsById = state.districtsById;
     let resourceStatesById = state.resourceStatesById;
@@ -2872,11 +2951,11 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         metadata.auditLog = [...metadata.auditLog || [], { tick: state.root.tick, consequence, riskPct: risk.riskPct, launderedInWindow: risk.launderedInWindow }].slice(-10);
         const owned = getOwnedArcadeBuildings({ ...state, buildingsById }, player.id, config);
         if (consequence === "machineInspection") {
-          buildingsById = applyMetadataToOwnedArcades(buildingsById, owned, (entry) => ({ ...entry, incomePenaltyPct: config.auditConsequences.machineInspection.incomePenaltyPct, incomePenaltyExpiresAtTick: state.root.tick + minutesToTicks$b(config.auditConsequences.machineInspection.durationMinutes, tickRateMs) }));
+          buildingsById = applyMetadataToOwnedArcades(buildingsById, owned, (entry) => ({ ...entry, incomePenaltyPct: config.auditConsequences.machineInspection.incomePenaltyPct, incomePenaltyExpiresAtTick: state.root.tick + minutesToTicks$c(config.auditConsequences.machineInspection.durationMinutes, tickRateMs) }));
         } else if (consequence === "seizedMachine") {
-          buildingsById = applyMetadataToOwnedArcades(buildingsById, owned, (entry) => ({ ...entry, dirtyIncomePenaltyPct: config.auditConsequences.seizedMachine.dirtyIncomePenaltyPct, dirtyIncomePenaltyExpiresAtTick: state.root.tick + minutesToTicks$b(config.auditConsequences.seizedMachine.durationMinutes, tickRateMs) }));
+          buildingsById = applyMetadataToOwnedArcades(buildingsById, owned, (entry) => ({ ...entry, dirtyIncomePenaltyPct: config.auditConsequences.seizedMachine.dirtyIncomePenaltyPct, dirtyIncomePenaltyExpiresAtTick: state.root.tick + minutesToTicks$c(config.auditConsequences.seizedMachine.durationMinutes, tickRateMs) }));
         } else if (consequence === "closedBackRoom") {
-          buildingsById = applyMetadataToOwnedArcades(buildingsById, owned, (entry) => ({ ...entry, backCashdeskBlockedUntilTick: state.root.tick + minutesToTicks$b(config.auditConsequences.closedBackRoom.actionBlockedMinutes, tickRateMs) }));
+          buildingsById = applyMetadataToOwnedArcades(buildingsById, owned, (entry) => ({ ...entry, backCashdeskBlockedUntilTick: state.root.tick + minutesToTicks$c(config.auditConsequences.closedBackRoom.actionBlockedMinutes, tickRateMs) }));
         } else if (consequence === "operatingFine") {
           const current = resourceStatesById[player.resourceStateId];
           if (current) resourceStatesById = { ...resourceStatesById, [current.id]: { ...current, balances: { ...current.balances, cash: Math.max(0, Number(current.balances.cash || 0) - config.auditConsequences.operatingFine.cleanCashLoss) }, version: current.version + 1 } };
@@ -2896,7 +2975,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   };
   const resolveNightMachines = (input) => {
     const metadata = cleanupArcadeMetadata(getArcadeMetadata(input.building), input.state.root.tick);
-    metadata.nightMachinesExpiresAtTick = input.state.root.tick + minutesToTicks$b(input.arcadeConfig.nightMachines.durationMinutes, input.tickRateMs);
+    metadata.nightMachinesExpiresAtTick = input.state.root.tick + minutesToTicks$c(input.arcadeConfig.nightMachines.durationMinutes, input.tickRateMs);
     return {
       balances: { ...input.balances },
       buildingMetadata: withArcadeMetadata(input.building, metadata),
@@ -2918,7 +2997,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const fee = Math.floor(amount * input.arcadeConfig.backCashdesk.feePct / 100);
     const cleanGain = Math.max(0, amount - fee);
     metadata.launderedEvents.push({ tick: input.state.root.tick, amount });
-    metadata.auditRiskBonuses.push({ expiresAtTick: input.state.root.tick + minutesToTicks$b(input.arcadeConfig.backCashdesk.auditRiskDurationMinutes, input.tickRateMs), riskPct: input.arcadeConfig.backCashdesk.auditRiskBonusPct, source: input.arcadeConfig.backCashdesk.actionId });
+    metadata.auditRiskBonuses.push({ expiresAtTick: input.state.root.tick + minutesToTicks$c(input.arcadeConfig.backCashdesk.auditRiskDurationMinutes, input.tickRateMs), riskPct: input.arcadeConfig.backCashdesk.auditRiskBonusPct, source: input.arcadeConfig.backCashdesk.actionId });
     return {
       balances: { ...input.balances, "dirty-cash": Math.max(0, dirtyCash - amount), cash: Math.max(0, Number(input.balances.cash || 0) + cleanGain) },
       buildingMetadata: withArcadeMetadata(input.building, metadata),
@@ -2945,7 +3024,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   };
   const cleanupArcadeMetadata = (metadata, tick) => ({ ...metadata, auditRiskBonuses: metadata.auditRiskBonuses.filter((bonus) => bonus.expiresAtTick > tick), auditLog: (metadata.auditLog || []).slice(-10) });
   const withArcadeMetadata = (building2, arcade) => ({ ...building2.metadata ?? {}, arcade });
-  const minutesToTicks$b = (minutes, tickRateMs) => Math.max(1, Math.ceil(Math.max(0, Number(minutes || 0)) * 60 * 1e3 / Math.max(1, tickRateMs)));
+  const minutesToTicks$c = (minutes, tickRateMs) => Math.max(1, Math.ceil(Math.max(0, Number(minutes || 0)) * 60 * 1e3 / Math.max(1, tickRateMs)));
   const deterministicRollPct$5 = (seed) => {
     let hash = 2166136261;
     for (let index = 0; index < seed.length; index += 1) {
@@ -2954,15 +3033,15 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     return (hash >>> 0) % 1e4 / 100;
   };
-  const asOptionalTick$c = (value) => {
+  const asOptionalTick$d = (value) => {
     const numberValue = Number(value);
     return Number.isFinite(numberValue) && numberValue > 0 ? Math.floor(numberValue) : void 0;
   };
-  const asOptionalNumber$4 = (value) => {
+  const asOptionalNumber$5 = (value) => {
     const numberValue = Number(value);
     return Number.isFinite(numberValue) ? numberValue : void 0;
   };
-  const isRecord$g = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  const isRecord$h = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
   const getOwnedGarageCount = (state, playerId, config) => Object.values(state.buildingsById).filter(
     (building2) => building2.buildingTypeId === config.buildingTypeId && building2.ownerPlayerId === playerId && building2.status === "active"
   ).length;
@@ -3209,7 +3288,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   ].includes(actionId));
   const getCasinoMetadata = (building2) => {
     var _a, _b;
-    const raw = isRecord$f((_a = building2.metadata) == null ? void 0 : _a.casino) ? (_b = building2.metadata) == null ? void 0 : _b.casino : {};
+    const raw = isRecord$g((_a = building2.metadata) == null ? void 0 : _a.casino) ? (_b = building2.metadata) == null ? void 0 : _b.casino : {};
     return {
       launderedEvents: Array.isArray(raw.launderedEvents) ? raw.launderedEvents.map((entry) => ({
         tick: Math.max(0, Math.floor(Number((entry == null ? void 0 : entry.tick) || 0))),
@@ -3220,19 +3299,19 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         riskPct: Math.max(0, Number((entry == null ? void 0 : entry.riskPct) || 0)),
         source: String((entry == null ? void 0 : entry.source) || "casino")
       })).filter((entry) => entry.expiresAtTick > 0 && entry.riskPct > 0) : [],
-      vipNightExpiresAtTick: asOptionalTick$b(raw.vipNightExpiresAtTick),
-      bribedInspectorExpiresAtTick: asOptionalTick$b(raw.bribedInspectorExpiresAtTick),
-      incomePenaltyExpiresAtTick: asOptionalTick$b(raw.incomePenaltyExpiresAtTick),
-      incomePenaltyPct: asOptionalNumber$3(raw.incomePenaltyPct),
-      launderingBlockedUntilTick: asOptionalTick$b(raw.launderingBlockedUntilTick),
-      vipBlockedUntilTick: asOptionalTick$b(raw.vipBlockedUntilTick),
-      lastAuditCheckTick: asOptionalTick$b(raw.lastAuditCheckTick),
-      auditLog: Array.isArray(raw.auditLog) ? raw.auditLog.filter(isRecord$f).slice(-10) : []
+      vipNightExpiresAtTick: asOptionalTick$c(raw.vipNightExpiresAtTick),
+      bribedInspectorExpiresAtTick: asOptionalTick$c(raw.bribedInspectorExpiresAtTick),
+      incomePenaltyExpiresAtTick: asOptionalTick$c(raw.incomePenaltyExpiresAtTick),
+      incomePenaltyPct: asOptionalNumber$4(raw.incomePenaltyPct),
+      launderingBlockedUntilTick: asOptionalTick$c(raw.launderingBlockedUntilTick),
+      vipBlockedUntilTick: asOptionalTick$c(raw.vipBlockedUntilTick),
+      lastAuditCheckTick: asOptionalTick$c(raw.lastAuditCheckTick),
+      auditLog: Array.isArray(raw.auditLog) ? raw.auditLog.filter(isRecord$g).slice(-10) : []
     };
   };
   const resolveCasinoAuditRisk = (input) => {
     const metadata = getCasinoMetadata(input.building);
-    const windowTicks = minutesToTicks$a(input.config.auditWindowMinutes, input.tickRateMs);
+    const windowTicks = minutesToTicks$b(input.config.auditWindowMinutes, input.tickRateMs);
     const thresholdTick = Math.max(0, input.tick - windowTicks);
     const launderedInWindow = metadata.launderedEvents.filter((entry) => entry.tick >= thresholdTick).reduce((total, entry) => total + entry.amount, 0);
     const tier = input.config.auditRiskTiers.find(
@@ -3313,7 +3392,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   };
   const applyCasinoAuditChecks = (state, casinoConfig, tickRateMs) => {
     var _a;
-    const checkEveryTicks = minutesToTicks$a(casinoConfig.auditCheckEveryMinutes, tickRateMs);
+    const checkEveryTicks = minutesToTicks$b(casinoConfig.auditCheckEveryMinutes, tickRateMs);
     let nextState = state;
     let buildingsById = state.buildingsById;
     let districtsById = state.districtsById;
@@ -3367,7 +3446,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         ].slice(-10);
         if (consequence === "lightInspection") {
           metadata.incomePenaltyPct = casinoConfig.auditConsequences.lightInspection.incomePenaltyPct;
-          metadata.incomePenaltyExpiresAtTick = state.root.tick + minutesToTicks$a(casinoConfig.auditConsequences.lightInspection.durationMinutes, tickRateMs);
+          metadata.incomePenaltyExpiresAtTick = state.root.tick + minutesToTicks$b(casinoConfig.auditConsequences.lightInspection.durationMinutes, tickRateMs);
         } else if (consequence === "seizedBooks") {
           const current = resourceStatesById[player.resourceStateId];
           const dirtyCash = Math.max(0, Number((current == null ? void 0 : current.balances["dirty-cash"]) || 0));
@@ -3386,10 +3465,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
             };
           }
         } else if (consequence === "frozenAccounts") {
-          metadata.launderingBlockedUntilTick = state.root.tick + minutesToTicks$a(casinoConfig.auditConsequences.frozenAccounts.launderingBlockedMinutes, tickRateMs);
+          metadata.launderingBlockedUntilTick = state.root.tick + minutesToTicks$b(casinoConfig.auditConsequences.frozenAccounts.launderingBlockedMinutes, tickRateMs);
         } else if (consequence === "policeRaid") {
           metadata.incomePenaltyPct = casinoConfig.auditConsequences.policeRaid.incomePenaltyPct;
-          metadata.incomePenaltyExpiresAtTick = state.root.tick + minutesToTicks$a(casinoConfig.auditConsequences.policeRaid.durationMinutes, tickRateMs);
+          metadata.incomePenaltyExpiresAtTick = state.root.tick + minutesToTicks$b(casinoConfig.auditConsequences.policeRaid.durationMinutes, tickRateMs);
           districtsById = {
             ...districtsById,
             [district.id]: {
@@ -3410,7 +3489,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
             };
           }
         } else if (consequence === "closedVipLounge") {
-          metadata.vipBlockedUntilTick = state.root.tick + minutesToTicks$a(casinoConfig.auditConsequences.closedVipLounge.vipBlockedMinutes, tickRateMs);
+          metadata.vipBlockedUntilTick = state.root.tick + minutesToTicks$b(casinoConfig.auditConsequences.closedVipLounge.vipBlockedMinutes, tickRateMs);
         }
       }
       buildingsById = {
@@ -3457,7 +3536,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     };
     metadata.launderedEvents.push({ tick: input.state.root.tick, amount });
     metadata.auditRiskBonuses.push({
-      expiresAtTick: input.state.root.tick + minutesToTicks$a(config.quietBackroom.auditRiskDurationMinutes, input.tickRateMs),
+      expiresAtTick: input.state.root.tick + minutesToTicks$b(config.quietBackroom.auditRiskDurationMinutes, input.tickRateMs),
       riskPct: config.quietBackroom.auditRiskBonusPct,
       source: config.quietBackroom.actionId
     });
@@ -3482,7 +3561,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   const resolveVipNight = (input) => {
     const config = input.casinoConfig;
     const metadata = cleanupCasinoMetadata(getCasinoMetadata(input.building), input.state.root.tick);
-    metadata.vipNightExpiresAtTick = input.state.root.tick + minutesToTicks$a(config.vipNight.durationMinutes, input.tickRateMs);
+    metadata.vipNightExpiresAtTick = input.state.root.tick + minutesToTicks$b(config.vipNight.durationMinutes, input.tickRateMs);
     return {
       balances: { ...input.balances },
       buildingMetadata: withCasinoMetadata(input.building, metadata),
@@ -3516,7 +3595,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     };
     if (failed) {
       metadata.auditRiskBonuses.push({
-        expiresAtTick: input.state.root.tick + minutesToTicks$a(config.bribedInspector.failureAuditRiskDurationMinutes, input.tickRateMs),
+        expiresAtTick: input.state.root.tick + minutesToTicks$b(config.bribedInspector.failureAuditRiskDurationMinutes, input.tickRateMs),
         riskPct: config.bribedInspector.failureAuditRiskBonusPct,
         source: config.bribedInspector.actionId
       });
@@ -3537,7 +3616,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         }
       };
     }
-    metadata.bribedInspectorExpiresAtTick = input.state.root.tick + minutesToTicks$a(config.bribedInspector.protectionMinutes, input.tickRateMs);
+    metadata.bribedInspectorExpiresAtTick = input.state.root.tick + minutesToTicks$b(config.bribedInspector.protectionMinutes, input.tickRateMs);
     return {
       balances: nextBalances,
       buildingMetadata: withCasinoMetadata(input.building, metadata),
@@ -3570,7 +3649,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     return [...config.upgrades].sort((a, b) => b.level - a.level).find((upgrade) => upgrade.level <= safeLevel) ?? config.upgrades[0];
   };
   const reduceCasinoActionHeat = (heatGain, upgrade) => Math.floor(Number(heatGain || 0) * (1 - Math.max(0, Number(upgrade.actionHeatReductionPct || 0)) / 100));
-  const minutesToTicks$a = (minutes, tickRateMs) => Math.max(1, Math.ceil(Math.max(0, Number(minutes || 0)) * 60 * 1e3 / Math.max(1, tickRateMs)));
+  const minutesToTicks$b = (minutes, tickRateMs) => Math.max(1, Math.ceil(Math.max(0, Number(minutes || 0)) * 60 * 1e3 / Math.max(1, tickRateMs)));
   const deterministicRollPct$4 = (seed) => {
     let hash = 2166136261;
     for (let index = 0; index < seed.length; index += 1) {
@@ -3579,15 +3658,15 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     return (hash >>> 0) % 1e4 / 100;
   };
-  const asOptionalTick$b = (value) => {
+  const asOptionalTick$c = (value) => {
     const numberValue = Number(value);
     return Number.isFinite(numberValue) && numberValue > 0 ? Math.floor(numberValue) : void 0;
   };
-  const asOptionalNumber$3 = (value) => {
+  const asOptionalNumber$4 = (value) => {
     const numberValue = Number(value);
     return Number.isFinite(numberValue) ? numberValue : void 0;
   };
-  const isRecord$f = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  const isRecord$g = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
   const getCentralBankMetadata = (building2, tick = 0) => cleanupCentralBankMetadata(readCentralBankMetadata(building2), tick);
   const getOwnedCentralBankCount = (state, playerId, config) => playerId ? Object.values(state.buildingsById).filter(
     (building2) => building2.buildingTypeId === config.buildingTypeId && building2.ownerPlayerId === playerId && building2.status === "active"
@@ -3601,7 +3680,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   const countOwnedBuildings$1 = (state, playerId, buildingTypeIds) => playerId ? Object.values(state.buildingsById).filter(
     (building2) => building2.ownerPlayerId === playerId && building2.status === "active" && buildingTypeIds.includes(building2.buildingTypeId)
   ).length : 0;
-  const hasOwnedBuilding$1 = (state, playerId, buildingTypeId) => Boolean(playerId) && Object.values(state.buildingsById).some(
+  const hasOwnedBuilding$2 = (state, playerId, buildingTypeId) => Boolean(playerId) && Object.values(state.buildingsById).some(
     (building2) => building2.ownerPlayerId === playerId && building2.status === "active" && building2.buildingTypeId === buildingTypeId
   );
   const emptyCentralBankStats = (ownedCount = 0) => ({
@@ -3624,18 +3703,18 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   });
   const readCentralBankMetadata = (building2) => {
     var _a;
-    const raw = isRecord$e((_a = building2.metadata) == null ? void 0 : _a.centralBank) ? building2.metadata.centralBank : {};
+    const raw = isRecord$f((_a = building2.metadata) == null ? void 0 : _a.centralBank) ? building2.metadata.centralBank : {};
     return {
-      frozenAccountsExpiresAtTick: asOptionalTick$a(raw.frozenAccountsExpiresAtTick),
-      interestDisabledUntilTick: asOptionalTick$a(raw.interestDisabledUntilTick),
-      liquidityBlockedUntilTick: asOptionalTick$a(raw.liquidityBlockedUntilTick),
-      feeReductionDisabledUntilTick: asOptionalTick$a(raw.feeReductionDisabledUntilTick),
-      lastInterestTick: asOptionalTick$a(raw.lastInterestTick),
-      lastOversightTick: asOptionalTick$a(raw.lastOversightTick),
-      riskEvents: Array.isArray(raw.riskEvents) ? raw.riskEvents.filter(isRecord$e).map((entry) => ({ actionId: String(entry.actionId || ""), riskPct: Number(entry.riskPct || 0), expiresAtTick: Math.floor(Number(entry.expiresAtTick || 0)), tick: Math.floor(Number(entry.tick || 0)) })).filter((entry) => entry.actionId) : [],
-      currencyInterventions: Array.isArray(raw.currencyInterventions) ? raw.currencyInterventions.filter(isRecord$e).map(readIntervention).filter((entry) => Boolean(entry)) : [],
-      oversightEvents: Array.isArray(raw.oversightEvents) ? raw.oversightEvents.filter(isRecord$e).map((entry) => ({ type: String(entry.type || ""), tick: Math.floor(Number(entry.tick || 0)), label: String(entry.label || entry.type || ""), riskPct: Number(entry.riskPct || 0), cleanCashLost: entry.cleanCashLost === void 0 ? void 0 : Number(entry.cleanCashLost || 0), rumorText: entry.rumorText ? String(entry.rumorText) : void 0 })).filter((entry) => entry.type) : [],
-      interestEvents: Array.isArray(raw.interestEvents) ? raw.interestEvents.filter(isRecord$e).map((entry) => ({ tick: Math.floor(Number(entry.tick || 0)), amount: Math.max(0, Math.floor(Number(entry.amount || 0))), cleanCashBefore: Math.max(0, Math.floor(Number(entry.cleanCashBefore || 0))), interestPct: Number(entry.interestPct || 0) })).filter((entry) => entry.amount > 0) : []
+      frozenAccountsExpiresAtTick: asOptionalTick$b(raw.frozenAccountsExpiresAtTick),
+      interestDisabledUntilTick: asOptionalTick$b(raw.interestDisabledUntilTick),
+      liquidityBlockedUntilTick: asOptionalTick$b(raw.liquidityBlockedUntilTick),
+      feeReductionDisabledUntilTick: asOptionalTick$b(raw.feeReductionDisabledUntilTick),
+      lastInterestTick: asOptionalTick$b(raw.lastInterestTick),
+      lastOversightTick: asOptionalTick$b(raw.lastOversightTick),
+      riskEvents: Array.isArray(raw.riskEvents) ? raw.riskEvents.filter(isRecord$f).map((entry) => ({ actionId: String(entry.actionId || ""), riskPct: Number(entry.riskPct || 0), expiresAtTick: Math.floor(Number(entry.expiresAtTick || 0)), tick: Math.floor(Number(entry.tick || 0)) })).filter((entry) => entry.actionId) : [],
+      currencyInterventions: Array.isArray(raw.currencyInterventions) ? raw.currencyInterventions.filter(isRecord$f).map(readIntervention).filter((entry) => Boolean(entry)) : [],
+      oversightEvents: Array.isArray(raw.oversightEvents) ? raw.oversightEvents.filter(isRecord$f).map((entry) => ({ type: String(entry.type || ""), tick: Math.floor(Number(entry.tick || 0)), label: String(entry.label || entry.type || ""), riskPct: Number(entry.riskPct || 0), cleanCashLost: entry.cleanCashLost === void 0 ? void 0 : Number(entry.cleanCashLost || 0), rumorText: entry.rumorText ? String(entry.rumorText) : void 0 })).filter((entry) => entry.type) : [],
+      interestEvents: Array.isArray(raw.interestEvents) ? raw.interestEvents.filter(isRecord$f).map((entry) => ({ tick: Math.floor(Number(entry.tick || 0)), amount: Math.max(0, Math.floor(Number(entry.amount || 0))), cleanCashBefore: Math.max(0, Math.floor(Number(entry.cleanCashBefore || 0))), interestPct: Number(entry.interestPct || 0) })).filter((entry) => entry.amount > 0) : []
     };
   };
   const cleanupCentralBankMetadata = (metadata, tick) => ({
@@ -3673,12 +3752,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const normalized = String(value ?? "").trim();
     return allowed.includes(normalized) ? normalized : null;
   };
-  const asOptionalTick$a = (value) => {
+  const asOptionalTick$b = (value) => {
     const tick = Math.floor(Number(value || 0));
     return tick > 0 ? tick : void 0;
   };
-  const minutesToTicks$9 = (minutes, tickRateMs) => Math.max(1, Math.ceil(Math.max(0, minutes) * 6e4 / Math.max(1, tickRateMs)));
-  const isRecord$e = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  const minutesToTicks$a = (minutes, tickRateMs) => Math.max(1, Math.ceil(Math.max(0, minutes) * 6e4 / Math.max(1, tickRateMs)));
+  const isRecord$f = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
   const resolveCentralBankReserveStats = (input) => {
     const config = input.config;
     if (!config || !input.playerId) {
@@ -3695,7 +3774,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const interestDisabled = Number(metadata.interestDisabledUntilTick || 0) > input.tick;
     const liquidityBlocked = Number(metadata.liquidityBlockedUntilTick || 0) > input.tick;
     const feeDisabled = Number(metadata.feeReductionDisabledUntilTick || 0) > input.tick;
-    const shoppingMallBonus = hasOwnedBuilding$1(input.state, input.playerId, "shopping_mall") ? config.synergies.shoppingMallMarketFeeReductionPct : 0;
+    const shoppingMallBonus = hasOwnedBuilding$2(input.state, input.playerId, "shopping_mall") ? config.synergies.shoppingMallMarketFeeReductionPct : 0;
     const interventionFeeReduction = metadata.currencyInterventions.some((effect) => effect.expiresAtTick > input.tick) ? config.currencyIntervention.holderMarketFeeReductionPct : 0;
     const frozenFeePenalty = frozenAccountsActive ? config.frozenAccounts.marketFeePenaltyPct : 0;
     return {
@@ -3732,7 +3811,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       if (!tier) continue;
       let metadata = getCentralBankMetadata(bank, nextState.root.tick);
       let changed = false;
-      const interestIntervalTicks = minutesToTicks$9(tier.interestIntervalMinutes, tickRateMs);
+      const interestIntervalTicks = minutesToTicks$a(tier.interestIntervalMinutes, tickRateMs);
       if (metadata.lastInterestTick === void 0) {
         metadata = { ...metadata, lastInterestTick: nextState.root.tick };
         changed = true;
@@ -3767,7 +3846,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         metadata = { ...metadata, lastInterestTick: nextState.root.tick };
         changed = true;
       }
-      const oversightIntervalTicks = minutesToTicks$9(config.financialOversight.intervalMinutes, tickRateMs);
+      const oversightIntervalTicks = minutesToTicks$a(config.financialOversight.intervalMinutes, tickRateMs);
       if (metadata.lastOversightTick === void 0) {
         metadata = { ...metadata, lastOversightTick: nextState.root.tick };
         changed = true;
@@ -3806,8 +3885,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const policeState = player ? input.state.policeStatesById[player.policeStateId] : void 0;
     const eventRisk = metadata.riskEvents.reduce((total, event) => total + Math.max(0, Number(event.riskPct || 0)), 0);
     const heatRisk = Number((policeState == null ? void 0 : policeState.heat) || 0) > input.config.financialOversight.heatThreshold ? input.config.financialOversight.heatRiskPct : 0;
-    const stockRisk = playerId && hasOwnedBuilding$1(input.state, playerId, "stock_exchange") ? input.config.financialOversight.stockExchangeRiskPct : 0;
-    const cityHallReduction = playerId && hasOwnedBuilding$1(input.state, playerId, "city_hall") ? input.config.financialOversight.cityHallRiskReductionPct : 0;
+    const stockRisk = playerId && hasOwnedBuilding$2(input.state, playerId, "stock_exchange") ? input.config.financialOversight.stockExchangeRiskPct : 0;
+    const cityHallReduction = playerId && hasOwnedBuilding$2(input.state, playerId, "city_hall") ? input.config.financialOversight.cityHallRiskReductionPct : 0;
     return Math.max(0, Math.min(100, input.config.financialOversight.passiveRiskPct + eventRisk + heatRisk + stockRisk - cityHallReduction));
   };
   const resolveOversightConsequence = (state, building2, config, riskPct, tickRateMs) => {
@@ -3824,9 +3903,9 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     let cleanCashLost;
     let rumorText;
     if (type === "reserve_check") {
-      metadataPatch.interestDisabledUntilTick = state.root.tick + minutesToTicks$9(config.financialOversight.interestDisabledMinutes, tickRateMs);
+      metadataPatch.interestDisabledUntilTick = state.root.tick + minutesToTicks$a(config.financialOversight.interestDisabledMinutes, tickRateMs);
     } else if (type === "banking_stop") {
-      metadataPatch.liquidityBlockedUntilTick = state.root.tick + minutesToTicks$9(config.financialOversight.liquidityBlockedMinutes, tickRateMs);
+      metadataPatch.liquidityBlockedUntilTick = state.root.tick + minutesToTicks$a(config.financialOversight.liquidityBlockedMinutes, tickRateMs);
     } else if (type === "regulatory_fine" && building2.ownerPlayerId) {
       const result = applyProtectedCleanCashLoss(nextState, building2.ownerPlayerId, config, config.financialOversight.regulatoryFineCleanCash, state.root.tick);
       nextState = result.state;
@@ -3835,7 +3914,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       rumorText = "Městem unikl drb o finančních vazbách Centrální banky. Někdo prý drží rezervy pevněji než vlastní alibi.";
       nextState = appendCentralBankRumor(nextState, building2, rumorText);
     } else if (type === "market_restriction") {
-      metadataPatch.feeReductionDisabledUntilTick = state.root.tick + minutesToTicks$9(config.financialOversight.feeReductionDisabledMinutes, tickRateMs);
+      metadataPatch.feeReductionDisabledUntilTick = state.root.tick + minutesToTicks$a(config.financialOversight.feeReductionDisabledMinutes, tickRateMs);
     }
     return {
       state: nextState,
@@ -3870,7 +3949,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   };
   const appendCentralBankRumor = (state, building2, message) => {
     var _a;
-    const sourceEventId = `central-bank-oversight:${building2.id}:${state.root.tick}:${Math.abs(hashText$3(message))}`;
+    const sourceEventId = `central-bank-oversight:${building2.id}:${state.root.tick}:${Math.abs(hashText$4(message))}`;
     const event = {
       id: `city-feed:${sourceEventId}`,
       sourceEventId,
@@ -3895,7 +3974,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       }
     };
   };
-  const hashText$3 = (value) => Array.from(value).reduce((hash, char) => hash * 31 + char.charCodeAt(0) | 0, 0);
+  const hashText$4 = (value) => Array.from(value).reduce((hash, char) => hash * 31 + char.charCodeAt(0) | 0, 0);
   const applyCentralBankIncomeModifiers = (input) => {
     const playerId = input.building.ownerPlayerId;
     const ownedCount = getOwnedCentralBankCount(input.state, playerId, input.config);
@@ -3911,7 +3990,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       maxLevel: 1
     };
   };
-  const resolveCentralBankInfluenceActionCostReductionPct = (input) => input.config && input.playerId && hasOwnedBuilding$1(input.state, input.playerId, "city_hall") && getOwnedCentralBankCount(input.state, input.playerId, input.config) > 0 ? input.config.synergies.cityHallInfluenceActionCostReductionPct : 0;
+  const resolveCentralBankInfluenceActionCostReductionPct = (input) => input.config && input.playerId && hasOwnedBuilding$2(input.state, input.playerId, "city_hall") && getOwnedCentralBankCount(input.state, input.playerId, input.config) > 0 ? input.config.synergies.cityHallInfluenceActionCostReductionPct : 0;
   const resolveCentralBankAction = (input) => {
     if (input.building.buildingTypeId !== input.config.buildingTypeId) return null;
     const metadata = getCentralBankMetadata(input.building, input.state.root.tick);
@@ -3922,9 +4001,9 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         input.config.liquidityInjection.maxRewardCleanCash,
         input.config.liquidityInjection.baseRewardCleanCash + cleanEconomyBuildingCount * input.config.liquidityInjection.rewardPerCleanEconomyBuilding
       );
-      const hasShoppingMall = hasOwnedBuilding$1(input.state, input.building.ownerPlayerId, "shopping_mall");
+      const hasShoppingMall = hasOwnedBuilding$2(input.state, input.building.ownerPlayerId, "shopping_mall");
       const reward = Math.floor(baseReward * (hasShoppingMall ? 1 + input.config.liquidityInjection.shoppingMallRewardBonusPct / 100 : 1));
-      const riskExpiresAtTick = input.state.root.tick + minutesToTicks$9(input.config.liquidityInjection.riskDurationMinutes, input.tickRateMs);
+      const riskExpiresAtTick = input.state.root.tick + minutesToTicks$a(input.config.liquidityInjection.riskDurationMinutes, input.tickRateMs);
       const nextMetadata = appendRiskEvent$1(metadata, actionId, input.config.liquidityInjection.riskPct, riskExpiresAtTick, input.state.root.tick);
       return {
         balances: { ...input.balances, cash: Math.max(0, Number(input.balances.cash || 0) + reward) },
@@ -3949,7 +4028,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       };
     }
     if (actionId === input.config.frozenAccounts.actionId) {
-      const expiresAtTick = input.state.root.tick + minutesToTicks$9(input.config.frozenAccounts.durationMinutes, input.tickRateMs);
+      const expiresAtTick = input.state.root.tick + minutesToTicks$a(input.config.frozenAccounts.durationMinutes, input.tickRateMs);
       const nextMetadata = appendRiskEvent$1({
         ...metadata,
         frozenAccountsExpiresAtTick: expiresAtTick
@@ -3976,7 +4055,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     if (actionId === input.config.currencyIntervention.actionId) {
       const category = resolveCategory$1(input.payload.targetCategory ?? input.payload.category, input.config.currencyIntervention.targetCategories);
-      const expiresAtTick = input.state.root.tick + minutesToTicks$9(input.config.currencyIntervention.durationMinutes, input.tickRateMs);
+      const expiresAtTick = input.state.root.tick + minutesToTicks$a(input.config.currencyIntervention.durationMinutes, input.tickRateMs);
       const effect = {
         id: `central-bank-intervention:${input.commandId}`,
         category,
@@ -4036,6 +4115,382 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     return null;
   };
+  const getLobbyClubMetadata = (building2, tick = 0) => cleanupLobbyClubMetadata(readLobbyClubMetadata(building2), tick);
+  const withLobbyClubMetadata = (building2, lobbyClub) => ({
+    ...building2.metadata ?? {},
+    lobbyClub
+  });
+  const getOwnedLobbyClubCount = (state, playerId, config) => playerId ? Object.values(state.buildingsById).filter(
+    (building2) => building2.buildingTypeId === config.buildingTypeId && building2.ownerPlayerId === playerId && building2.status === "active"
+  ).length : 0;
+  const getOwnedLobbyClubs = (state, playerId, config) => playerId ? Object.values(state.buildingsById).filter((building2) => building2.buildingTypeId === config.buildingTypeId && building2.ownerPlayerId === playerId && building2.status === "active").sort((a, b) => a.id.localeCompare(b.id)) : [];
+  const resolveLobbyClubTier = (ownedCount, config) => config.lobbyPressureTiers.find((tier) => ownedCount >= tier.minOwned && ownedCount <= tier.maxOwned) ?? config.lobbyPressureTiers.find((tier) => ownedCount >= tier.minOwned) ?? null;
+  const appendLobbyRiskEvent = (metadata, actionId, riskPct, expiresAtTick, tick) => ({
+    ...metadata,
+    riskEvents: [...metadata.riskEvents, { actionId, riskPct, expiresAtTick, tick }].slice(-12)
+  });
+  const hasOwnedBuilding$1 = (state, playerId, buildingTypeId) => Boolean(playerId) && Object.values(state.buildingsById).some(
+    (building2) => building2.ownerPlayerId === playerId && building2.status === "active" && building2.buildingTypeId === buildingTypeId
+  );
+  const minutesToTicks$9 = (minutes, tickRateMs) => Math.max(1, Math.ceil(Math.max(0, minutes) * 6e4 / Math.max(1, tickRateMs)));
+  const readLobbyClubMetadata = (building2) => {
+    var _a;
+    const raw = isRecord$e((_a = building2.metadata) == null ? void 0 : _a.lobbyClub) ? building2.metadata.lobbyClub : {};
+    return {
+      backroomPressureExpiresAtTick: asOptionalTick$a(raw.backroomPressureExpiresAtTick),
+      mediaScreenExpiresAtTick: asOptionalTick$a(raw.mediaScreenExpiresAtTick),
+      riskReductionExpiresAtTick: asOptionalTick$a(raw.riskReductionExpiresAtTick),
+      nextInfluenceDiscountPct: asOptionalNumber$3(raw.nextInfluenceDiscountPct),
+      nextInfluenceDiscountExpiresAtTick: asOptionalTick$a(raw.nextInfluenceDiscountExpiresAtTick),
+      incomePenaltyUntilTick: asOptionalTick$a(raw.incomePenaltyUntilTick),
+      influenceCostReductionDisabledUntilTick: asOptionalTick$a(raw.influenceCostReductionDisabledUntilTick),
+      lastScandalCheckTick: asOptionalTick$a(raw.lastScandalCheckTick),
+      riskEvents: Array.isArray(raw.riskEvents) ? raw.riskEvents.filter(isRecord$e).map((entry) => ({
+        actionId: String(entry.actionId || ""),
+        riskPct: Number(entry.riskPct || 0),
+        expiresAtTick: Math.floor(Number(entry.expiresAtTick || 0)),
+        tick: Math.floor(Number(entry.tick || 0))
+      })).filter((entry) => entry.actionId) : [],
+      scandalEvents: Array.isArray(raw.scandalEvents) ? raw.scandalEvents.filter(isRecord$e).map((entry) => ({
+        type: String(entry.type || ""),
+        tick: Math.floor(Number(entry.tick || 0)),
+        label: String(entry.label || entry.type || ""),
+        riskPct: Number(entry.riskPct || 0),
+        rumorText: entry.rumorText ? String(entry.rumorText) : void 0
+      })).filter((entry) => entry.type) : []
+    };
+  };
+  const cleanupLobbyClubMetadata = (metadata, tick) => ({
+    ...metadata,
+    backroomPressureExpiresAtTick: Number(metadata.backroomPressureExpiresAtTick || 0) > tick ? metadata.backroomPressureExpiresAtTick : void 0,
+    mediaScreenExpiresAtTick: Number(metadata.mediaScreenExpiresAtTick || 0) > tick ? metadata.mediaScreenExpiresAtTick : void 0,
+    riskReductionExpiresAtTick: Number(metadata.riskReductionExpiresAtTick || 0) > tick ? metadata.riskReductionExpiresAtTick : void 0,
+    nextInfluenceDiscountPct: Number(metadata.nextInfluenceDiscountExpiresAtTick || 0) > tick ? metadata.nextInfluenceDiscountPct : void 0,
+    nextInfluenceDiscountExpiresAtTick: Number(metadata.nextInfluenceDiscountExpiresAtTick || 0) > tick ? metadata.nextInfluenceDiscountExpiresAtTick : void 0,
+    incomePenaltyUntilTick: Number(metadata.incomePenaltyUntilTick || 0) > tick ? metadata.incomePenaltyUntilTick : void 0,
+    influenceCostReductionDisabledUntilTick: Number(metadata.influenceCostReductionDisabledUntilTick || 0) > tick ? metadata.influenceCostReductionDisabledUntilTick : void 0,
+    riskEvents: metadata.riskEvents.filter((event) => event.expiresAtTick > tick),
+    scandalEvents: metadata.scandalEvents.slice(-8)
+  });
+  const asOptionalTick$a = (value) => {
+    const tick = Math.floor(Number(value || 0));
+    return tick > 0 ? tick : void 0;
+  };
+  const asOptionalNumber$3 = (value) => {
+    const amount = Number(value || 0);
+    return amount > 0 && Number.isFinite(amount) ? amount : void 0;
+  };
+  const isRecord$e = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  const applyLobbyClubIncomeModifiers = (input) => {
+    const playerId = input.building.ownerPlayerId;
+    const ownedClubs = getOwnedLobbyClubs(input.state, playerId, input.config);
+    const tier = resolveLobbyClubTier(ownedClubs.length, input.config);
+    const isLobbyClub = input.building.buildingTypeId === input.config.buildingTypeId;
+    const backroomActive = ownedClubs.some((club) => Number(getLobbyClubMetadata(club, input.tick).backroomPressureExpiresAtTick || 0) > input.tick);
+    const incomePenaltyActive = isLobbyClub && Number(getLobbyClubMetadata(input.building, input.tick).incomePenaltyUntilTick || 0) > input.tick;
+    const cleanMultiplier = isLobbyClub ? ((tier == null ? void 0 : tier.incomeMultiplier) ?? 1) * (incomePenaltyActive ? 1 - input.config.lobbyScandal.incomePenaltyPct / 100 : 1) : 1;
+    const influenceMultiplier = (isLobbyClub ? (tier == null ? void 0 : tier.influenceMultiplier) ?? 1 : 1) * (backroomActive ? 1 + input.config.backroomPressure.influenceProductionBonusPct / 100 : 1);
+    return {
+      cleanPerHour: input.cleanPerHour * cleanMultiplier,
+      dirtyPerHour: isLobbyClub ? 0 : input.dirtyPerHour,
+      heatPerDay: isLobbyClub ? input.heatPerDay * ((tier == null ? void 0 : tier.heatMultiplier) ?? 1) : input.heatPerDay,
+      influencePerDay: input.influencePerDay * influenceMultiplier,
+      maxLevel: 1
+    };
+  };
+  const resolveLobbyClubInfluenceActionCostReductionPct = (input) => {
+    if (!input.config || !input.playerId) return 0;
+    const clubs = getOwnedLobbyClubs(input.state, input.playerId, input.config);
+    if (clubs.length <= 0) return 0;
+    const disabled = clubs.some((club) => Number(getLobbyClubMetadata(club, input.tick).influenceCostReductionDisabledUntilTick || 0) > input.tick);
+    if (disabled) return 0;
+    const baseReduction = clubs.length >= 2 ? input.config.influenceCostReduction.twoClubPct : input.config.influenceCostReduction.oneClubPct;
+    const activeReduction = clubs.some((club) => Number(getLobbyClubMetadata(club, input.tick).backroomPressureExpiresAtTick || 0) > input.tick) ? input.config.backroomPressure.influenceActionCostReductionPct : 0;
+    const nextDiscount = Math.max(0, ...clubs.map((club) => Number(getLobbyClubMetadata(club, input.tick).nextInfluenceDiscountPct || 0)));
+    return Math.min(input.config.influenceCostReduction.maxCombinedPct, baseReduction + activeReduction + nextDiscount);
+  };
+  const hasLobbyClubNextInfluenceDiscount = (input) => Boolean(input.config && input.playerId && getOwnedLobbyClubs(input.state, input.playerId, input.config).some(
+    (club) => Number(getLobbyClubMetadata(club, input.tick).nextInfluenceDiscountExpiresAtTick || 0) > input.tick
+  ));
+  const consumeLobbyClubNextInfluenceDiscount = (input) => {
+    if (!input.config || !input.playerId) return {};
+    return Object.fromEntries(getOwnedLobbyClubs(input.state, input.playerId, input.config).flatMap((club) => {
+      const metadata = getLobbyClubMetadata(club, input.tick);
+      if (!metadata.nextInfluenceDiscountExpiresAtTick || metadata.nextInfluenceDiscountExpiresAtTick <= input.tick) return [];
+      const nextMetadata = {
+        ...metadata,
+        nextInfluenceDiscountPct: void 0,
+        nextInfluenceDiscountExpiresAtTick: void 0
+      };
+      return [[club.id, {
+        ...club,
+        metadata: withLobbyClubMetadata(club, nextMetadata),
+        version: club.version + 1
+      }]];
+    }));
+  };
+  const resolveLobbyClubNegativeRumorReductionPct = (input) => {
+    if (!input.config || !input.playerId) return 0;
+    const clubs = getOwnedLobbyClubs(input.state, input.playerId, input.config);
+    if (clubs.length <= 0) return 0;
+    const baseReduction = clubs.length >= 2 ? input.config.negativeRumorReduction.twoClubPct : input.config.negativeRumorReduction.oneClubPct;
+    const backroom = clubs.some((club) => Number(getLobbyClubMetadata(club, input.tick).backroomPressureExpiresAtTick || 0) > input.tick) ? input.config.backroomPressure.negativeRumorReductionPct : 0;
+    const media = clubs.some((club) => Number(getLobbyClubMetadata(club, input.tick).mediaScreenExpiresAtTick || 0) > input.tick) ? input.config.mediaScreen.negativeRumorReductionPct : 0;
+    return Math.min(95, baseReduction + backroom + media);
+  };
+  const resolveLobbyClubScandalRiskPct = (input) => {
+    const metadata = getLobbyClubMetadata(input.building, input.tick);
+    const player = input.building.ownerPlayerId ? input.state.playersById[input.building.ownerPlayerId] : void 0;
+    const policeState = player ? input.state.policeStatesById[player.policeStateId] : void 0;
+    const eventRisk = metadata.riskEvents.reduce((total, event) => total + Math.max(0, Number(event.riskPct || 0)), 0);
+    const riskReduction = Number(metadata.riskReductionExpiresAtTick || 0) > input.tick ? input.config.quietNegotiation.riskReductionPct : 0;
+    const cityHallRisk = hasOwnedBuilding$1(input.state, input.building.ownerPlayerId, "city_hall") ? input.config.lobbyScandal.cityHallRiskPct : 0;
+    const stockRisk = hasOwnedBuilding$1(input.state, input.building.ownerPlayerId, "stock_exchange") ? input.config.lobbyScandal.stockExchangeRiskPct : 0;
+    const heatRisk = Number((policeState == null ? void 0 : policeState.heat) || 0) > input.config.lobbyScandal.heatThreshold ? input.config.lobbyScandal.heatRiskPct : 0;
+    return Math.max(0, Math.min(100, (input.config.lobbyScandal.passiveRiskPct + eventRisk + cityHallRisk + stockRisk + heatRisk) * (1 - riskReduction / 100)));
+  };
+  const resolveLobbyClubAction = (input) => {
+    if (input.building.buildingTypeId !== input.config.buildingTypeId) return null;
+    const metadata = getLobbyClubMetadata(input.building, input.state.root.tick);
+    const actionId = input.action.actionId;
+    if (actionId === input.config.backroomPressure.actionId) {
+      const expiresAtTick = input.state.root.tick + minutesToTicks$9(input.config.backroomPressure.durationMinutes, input.tickRateMs);
+      const nextMetadata = appendLobbyRiskEvent({
+        ...metadata,
+        backroomPressureExpiresAtTick: expiresAtTick
+      }, actionId, input.config.backroomPressure.scandalRiskPct, expiresAtTick, input.state.root.tick);
+      return {
+        balances: { ...input.balances, cash: Math.max(0, Number(input.balances.cash || 0) - input.config.backroomPressure.costCleanCash) },
+        buildingMetadata: withLobbyClubMetadata(input.building, nextMetadata),
+        heatGain: input.config.backroomPressure.heatGain,
+        influenceChange: -input.config.backroomPressure.costInfluence,
+        inputCost: { cash: input.config.backroomPressure.costCleanCash },
+        outputGain: {},
+        effectModifiers: { influenceMultiplier: 1 + input.config.backroomPressure.influenceProductionBonusPct / 100 },
+        reportText: "Zákulisní tlak je aktivní. Lobby síť na několik minut tlačí influence a drží drby níž.",
+        lobbyClubResult: {
+          type: "backroom_pressure",
+          activeUntilTick: expiresAtTick,
+          influenceProductionBonusPct: input.config.backroomPressure.influenceProductionBonusPct,
+          influenceActionCostReductionPct: input.config.backroomPressure.influenceActionCostReductionPct,
+          lobbyScandalRiskAddedPct: input.config.backroomPressure.scandalRiskPct
+        }
+      };
+    }
+    if (actionId === input.config.quietNegotiation.actionId) {
+      const riskExpiresAtTick = input.state.root.tick + minutesToTicks$9(input.config.quietNegotiation.riskReductionMinutes, input.tickRateMs);
+      const nextDiscountExpiresAtTick = input.state.root.tick + minutesToTicks$9(input.config.quietNegotiation.nextInfluenceActionDiscountMinutes, input.tickRateMs);
+      const cooldownPatch = reduceOneEligibleCooldown(input);
+      const nextMetadata = appendLobbyRiskEvent({
+        ...metadata,
+        riskReductionExpiresAtTick: riskExpiresAtTick,
+        nextInfluenceDiscountPct: input.config.quietNegotiation.nextInfluenceActionDiscountPct,
+        nextInfluenceDiscountExpiresAtTick: nextDiscountExpiresAtTick
+      }, actionId, input.config.quietNegotiation.scandalRiskPct, riskExpiresAtTick, input.state.root.tick);
+      return {
+        balances: { ...input.balances, cash: Math.max(0, Number(input.balances.cash || 0) - input.config.quietNegotiation.costCleanCash) },
+        buildingMetadata: withLobbyClubMetadata(input.building, nextMetadata),
+        buildingPatchesById: cooldownPatch.building ? { [cooldownPatch.building.id]: cooldownPatch.building } : void 0,
+        heatGain: input.config.quietNegotiation.heatGain,
+        influenceChange: -input.config.quietNegotiation.costInfluence,
+        inputCost: { cash: input.config.quietNegotiation.costCleanCash },
+        outputGain: {},
+        reportText: cooldownPatch.actionId ? `Tiché vyjednávání zkrátilo cooldown ${cooldownPatch.actionId} o ${cooldownPatch.reducedTicks} ticků.` : "Tiché vyjednávání snížilo rizika a připravilo slevu na další influence akci.",
+        lobbyClubResult: {
+          type: "quiet_negotiation",
+          riskReductionPct: input.config.quietNegotiation.riskReductionPct,
+          riskReductionUntilTick: riskExpiresAtTick,
+          nextInfluenceDiscountPct: input.config.quietNegotiation.nextInfluenceActionDiscountPct,
+          reducedCooldownActionId: cooldownPatch.actionId,
+          reducedCooldownTicks: cooldownPatch.reducedTicks,
+          lobbyScandalRiskAddedPct: input.config.quietNegotiation.scandalRiskPct
+        }
+      };
+    }
+    if (actionId === input.config.mediaScreen.actionId) {
+      const expiresAtTick = input.state.root.tick + minutesToTicks$9(input.config.mediaScreen.durationMinutes, input.tickRateMs);
+      const nextMetadata = appendLobbyRiskEvent({
+        ...metadata,
+        mediaScreenExpiresAtTick: expiresAtTick
+      }, actionId, input.config.mediaScreen.scandalRiskPct, expiresAtTick, input.state.root.tick);
+      return {
+        balances: { ...input.balances, cash: Math.max(0, Number(input.balances.cash || 0) - input.config.mediaScreen.costCleanCash) },
+        buildingMetadata: withLobbyClubMetadata(input.building, nextMetadata),
+        heatGain: input.config.mediaScreen.heatGain,
+        influenceChange: 0,
+        inputCost: { cash: input.config.mediaScreen.costCleanCash },
+        outputGain: {},
+        reportText: "Mediální clona je aktivní. Negativní drby se hůř prosazují a veřejný obraz je čistší.",
+        lobbyClubResult: {
+          type: "media_screen",
+          activeUntilTick: expiresAtTick,
+          negativeRumorReductionPct: input.config.mediaScreen.negativeRumorReductionPct,
+          policeRaidWarningChancePct: input.config.mediaScreen.policeRaidWarningChancePct,
+          weakRewriteChancePct: input.config.mediaScreen.weakRewriteChancePct,
+          lobbyScandalRiskAddedPct: input.config.mediaScreen.scandalRiskPct
+        }
+      };
+    }
+    return null;
+  };
+  const validateLobbyClubAction = (input) => {
+    const config = input.config;
+    if (!config || input.building.buildingTypeId !== config.buildingTypeId) return null;
+    const metadata = getLobbyClubMetadata(input.building, input.state.root.tick);
+    if (input.actionId === config.backroomPressure.actionId) {
+      if (Number(metadata.backroomPressureExpiresAtTick || 0) > input.state.root.tick) return "lobby_club_backroom_pressure_active";
+      if (Math.max(0, Number(input.balances.cash || 0)) < config.backroomPressure.costCleanCash) return "lobby_club_insufficient_clean_cash";
+      if (Math.max(0, Number(input.districtInfluence || 0)) < config.backroomPressure.costInfluence) return "lobby_club_insufficient_influence";
+    }
+    if (input.actionId === config.quietNegotiation.actionId) {
+      if (Math.max(0, Number(input.balances.cash || 0)) < config.quietNegotiation.costCleanCash) return "lobby_club_insufficient_clean_cash";
+      if (Math.max(0, Number(input.districtInfluence || 0)) < config.quietNegotiation.costInfluence) return "lobby_club_insufficient_influence";
+    }
+    if (input.actionId === config.mediaScreen.actionId) {
+      if (Number(metadata.mediaScreenExpiresAtTick || 0) > input.state.root.tick) return "lobby_club_media_screen_active";
+      if (Math.max(0, Number(input.balances.cash || 0)) < config.mediaScreen.costCleanCash) return "lobby_club_insufficient_clean_cash";
+    }
+    return null;
+  };
+  const applyLobbyClubScandalChecks = (state, config, tickRateMs) => {
+    let nextState = state;
+    const intervalTicks = minutesToTicks$9(config.lobbyScandal.intervalMinutes, tickRateMs);
+    for (const building2 of Object.values(nextState.buildingsById)) {
+      if (building2.buildingTypeId !== config.buildingTypeId || !building2.ownerPlayerId || building2.status !== "active") continue;
+      const metadata = getLobbyClubMetadata(building2, nextState.root.tick);
+      if (Number(metadata.lastScandalCheckTick ?? 0) + intervalTicks > nextState.root.tick) continue;
+      const riskPct = resolveLobbyClubScandalRiskPct({ state: nextState, building: building2, config, tick: nextState.root.tick });
+      let nextMetadata = { ...metadata, lastScandalCheckTick: nextState.root.tick };
+      const roll = deterministicUnitInterval(`${nextState.serverInstance.worldSeed}:lobby-club-scandal:${building2.id}:${nextState.root.tick}`);
+      if (roll < riskPct / 100) {
+        const consequence = resolveScandalConsequence$1(nextState, building2, config, riskPct, tickRateMs);
+        nextState = consequence.state;
+        nextMetadata = { ...nextMetadata, ...consequence.metadataPatch, scandalEvents: [...nextMetadata.scandalEvents, consequence.event].slice(-8) };
+      }
+      const currentBuilding = nextState.buildingsById[building2.id] ?? building2;
+      nextState = {
+        ...nextState,
+        buildingsById: {
+          ...nextState.buildingsById,
+          [building2.id]: {
+            ...currentBuilding,
+            metadata: withLobbyClubMetadata(currentBuilding, nextMetadata),
+            version: currentBuilding.version + 1
+          }
+        }
+      };
+    }
+    return nextState;
+  };
+  const reduceOneEligibleCooldown = (input) => {
+    var _a;
+    const candidates = Object.values(input.state.buildingsById).filter(
+      (building2) => building2.ownerPlayerId === input.building.ownerPlayerId && building2.status === "active" && input.config.quietNegotiation.targetBuildingTypeIds.includes(building2.buildingTypeId)
+    ).flatMap((building2) => Object.entries(building2.actionCooldowns ?? {}).map(([actionId, cooldownUntilTick]) => ({
+      building: building2,
+      actionId,
+      remainingTicks: Math.max(0, Number(cooldownUntilTick || 0) - input.state.root.tick)
+    })).filter((entry) => entry.remainingTicks > 0)).sort((a, b) => b.remainingTicks - a.remainingTicks);
+    const target = candidates[0];
+    if (!target) return { building: null, actionId: null, reducedTicks: 0 };
+    const reducedTicks = Math.max(1, Math.floor(target.remainingTicks * input.config.quietNegotiation.cooldownRemainingReductionPct / 100));
+    return {
+      building: {
+        ...target.building,
+        actionCooldowns: {
+          ...target.building.actionCooldowns ?? {},
+          [target.actionId]: Math.max(input.state.root.tick, Number(((_a = target.building.actionCooldowns) == null ? void 0 : _a[target.actionId]) || 0) - reducedTicks)
+        },
+        version: target.building.version + 1
+      },
+      actionId: target.actionId,
+      reducedTicks
+    };
+  };
+  const resolveScandalConsequence$1 = (state, building2, config, riskPct, tickRateMs) => {
+    const type = ["meeting_leak", "public_pressure", "lost_sponsor", "political_stop", "police_interest"][Math.min(4, Math.floor(deterministicUnitInterval(`${state.serverInstance.worldSeed}:lobby-club-scandal-type:${building2.id}:${state.root.tick}`) * 5))];
+    const labelByType = {
+      meeting_leak: "Únik schůzky",
+      public_pressure: "Veřejný tlak",
+      lost_sponsor: "Ztracený sponzor",
+      political_stop: "Politická stopka",
+      police_interest: "Policejní zájem"
+    };
+    let nextState = state;
+    const metadataPatch = {};
+    let rumorText;
+    if (type === "meeting_leak") {
+      rumorText = "Městem proběhl únik ze zákulisní schůzky Lobby Clubu. Nikdo neví, kdo mluvil, ale všichni ví, kdo u toho seděl.";
+      nextState = appendLobbyRumor(nextState, building2, rumorText, "medium");
+    } else if (type === "public_pressure") {
+      const district = state.districtsById[building2.districtId];
+      if (district) {
+        nextState = {
+          ...nextState,
+          districtsById: {
+            ...nextState.districtsById,
+            [district.id]: {
+              ...district,
+              influence: Math.max(0, Number(district.influence || 0) - config.lobbyScandal.influenceLoss),
+              version: district.version + 1
+            }
+          }
+        };
+      }
+    } else if (type === "lost_sponsor") {
+      metadataPatch.incomePenaltyUntilTick = state.root.tick + minutesToTicks$9(config.lobbyScandal.incomePenaltyMinutes, tickRateMs);
+    } else if (type === "political_stop") {
+      metadataPatch.influenceCostReductionDisabledUntilTick = state.root.tick + minutesToTicks$9(config.lobbyScandal.influenceReductionDisabledMinutes, tickRateMs);
+    } else if (type === "police_interest") {
+      const district = state.districtsById[building2.districtId];
+      if (district) {
+        nextState = {
+          ...nextState,
+          districtsById: {
+            ...nextState.districtsById,
+            [district.id]: {
+              ...district,
+              heat: Math.max(0, Number(district.heat || 0) + config.lobbyScandal.policeHeatGain),
+              version: district.version + 1
+            }
+          }
+        };
+      }
+    }
+    return {
+      state: nextState,
+      metadataPatch,
+      event: { type, tick: state.root.tick, label: labelByType[type] ?? type, riskPct, rumorText }
+    };
+  };
+  const appendLobbyRumor = (state, building2, message, severity) => {
+    var _a;
+    const sourceEventId = `lobby-club-scandal:${building2.id}:${state.root.tick}:${Math.abs(hashText$3(message))}`;
+    const event = {
+      id: `city-feed:${sourceEventId}`,
+      sourceEventId,
+      sourceType: "building_action",
+      category: "rumor",
+      severity,
+      truthiness: "unconfirmed",
+      visibility: "all",
+      playerId: building2.ownerPlayerId,
+      districtId: building2.districtId,
+      createdAtTick: state.root.tick,
+      message,
+      messageKey: "rumor.lobby_club_scandal",
+      payload: { buildingTypeId: building2.buildingTypeId }
+    };
+    if ((_a = state.cityFeedEventsById) == null ? void 0 : _a[event.id]) return state;
+    return {
+      ...state,
+      cityFeedEventsById: {
+        ...state.cityFeedEventsById ?? {},
+        [event.id]: event
+      }
+    };
+  };
+  const hashText$3 = (value) => Array.from(value).reduce((hash, char) => hash * 31 + char.charCodeAt(0) | 0, 0);
   const getCityHallMetadata = (building2, tick = 0) => cleanupCityHallMetadata(readCityHallMetadata(building2), tick);
   const appendRiskEvent = (metadata, actionId, riskPct, expiresAtTick, tick) => ({
     ...metadata,
@@ -4246,6 +4701,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     return getOwnedCityHall(input.state, input.playerId, input.config) ? Math.min(input.config.cityAuthority.maxInfluenceActionCostReductionPct, input.config.cityAuthority.influenceActionCostReductionPct) : 0;
   };
   const resolveCityHallAction = (input) => {
+    var _a, _b;
     if (input.building.buildingTypeId !== input.config.buildingTypeId) return null;
     const metadata = getCityHallMetadata(input.building, input.state.root.tick);
     const actionId = input.action.actionId;
@@ -4253,6 +4709,13 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       const targetDistrictId = resolveTargetDistrictId(input.payload, input.district.id);
       const targetDistrict = input.state.districtsById[targetDistrictId];
       const expiresAtTick = input.state.root.tick + minutesToTicks$8(input.config.officialCover.durationMinutes, input.tickRateMs);
+      const cleanCost = resolveLobbyDiscountedCleanCost(
+        input.config.officialCover.costCleanCash,
+        input.state,
+        input.building.ownerPlayerId,
+        (_a = input.lobbyClubConfig) == null ? void 0 : _a.synergies.cityHallOfficialCoverCostReductionPct,
+        input.lobbyClubConfig
+      );
       const nextMetadata = appendRiskEvent({
         ...metadata,
         officialCoverByDistrictId: {
@@ -4267,11 +4730,11 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         }
       }, actionId, input.config.officialCover.riskPct, expiresAtTick, input.state.root.tick);
       return {
-        balances: { ...input.balances, cash: Math.max(0, Number(input.balances.cash || 0) - input.config.officialCover.costCleanCash) },
+        balances: { ...input.balances, cash: Math.max(0, Number(input.balances.cash || 0) - cleanCost) },
         buildingMetadata: withCityHallMetadata(input.building, nextMetadata),
         heatGain: input.config.officialCover.heatGain,
         influenceChange: -input.config.officialCover.costInfluence,
-        inputCost: { cash: input.config.officialCover.costCleanCash },
+        inputCost: { cash: cleanCost },
         outputGain: {},
         reportText: `Úřední krytí je aktivní v districtu ${(targetDistrict == null ? void 0 : targetDistrict.name) ?? targetDistrictId} do ticku ${expiresAtTick}.`,
         cityHallResult: {
@@ -4281,6 +4744,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           heatGainReductionPct: input.config.officialCover.heatGainReductionPct,
           policeControlChanceReductionPct: input.config.officialCover.policeControlChanceReductionPct,
           rumorChanceReductionPct: input.config.officialCover.rumorChanceReductionPct,
+          cleanCashCost: cleanCost,
           corruptionRiskAddedPct: input.config.officialCover.riskPct
         }
       };
@@ -4292,7 +4756,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         input.config.cityContract.maxRewardCleanCash,
         input.config.cityContract.baseRewardCleanCash + legalBuildingCount * input.config.cityContract.rewardPerLegalBuilding
       );
-      const reward = Math.floor(baseReward * (hasSynergy ? 1 + input.config.cityContract.restaurantConvenienceSynergyPct / 100 : 1));
+      const lobbyRewardMultiplier = hasLobbyClub(input.state, input.building.ownerPlayerId, input.lobbyClubConfig) ? 1 + Number(((_b = input.lobbyClubConfig) == null ? void 0 : _b.synergies.cityHallContractRewardPct) || 0) / 100 : 1;
+      const reward = Math.floor(baseReward * (hasSynergy ? 1 + input.config.cityContract.restaurantConvenienceSynergyPct / 100 : 1) * lobbyRewardMultiplier);
       const riskExpiresAtTick = input.state.root.tick + minutesToTicks$8(input.config.cityContract.riskDurationMinutes, input.tickRateMs);
       const nextMetadata = appendRiskEvent(metadata, actionId, input.config.cityContract.riskPct, riskExpiresAtTick, input.state.root.tick);
       return {
@@ -4309,6 +4774,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           baseRewardCleanCash: input.config.cityContract.baseRewardCleanCash,
           rewardPerLegalBuilding: input.config.cityContract.rewardPerLegalBuilding,
           synergyApplied: hasSynergy,
+          lobbySupportApplied: lobbyRewardMultiplier > 1,
           rewardCleanCash: reward,
           influenceCost: input.config.cityContract.costInfluence,
           corruptionRiskAddedPct: input.config.cityContract.riskPct,
@@ -4344,6 +4810,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     return null;
   };
+  const hasLobbyClub = (state, playerId, config) => Boolean(config && playerId && getOwnedLobbyClubCount(state, playerId, config) > 0);
+  const resolveLobbyDiscountedCleanCost = (baseCost, state, playerId, reductionPct, config) => hasLobbyClub(state, playerId, config) ? Math.ceil(baseCost * (1 - Math.max(0, Number(reductionPct || 0)) / 100)) : baseCost;
   const validateCityHallAction = (input) => {
     var _a, _b;
     const config = input.config;
@@ -4544,6 +5012,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const network = resolveConvenienceStoreNetworkMultipliers(storeCount, input.config);
     const civilRumorChanceBonusPct = resolveCivilRumorChanceBonusPct(storeCount, restaurantCount, input.config);
     const civilTruthBonusPct = storeCount >= input.config.restaurantSynergy.truthStoreThreshold && restaurantCount >= input.config.restaurantSynergy.truthRestaurantThreshold ? input.config.restaurantSynergy.civilRumorTruthBonusPct : 0;
+    const lobbyDistrictHintBonusPct = input.lobbyClubConfig && getOwnedLobbyClubCount(input.state, input.playerId, input.lobbyClubConfig) > 0 ? input.lobbyClubConfig.civilNetworkSupport.convenienceDistrictHintChancePct : 0;
     return {
       storeCount,
       restaurantCount,
@@ -4554,7 +5023,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         100,
         resolveTruthChancePct$1(storeCount, input.config) + civilTruthBonusPct
       ),
-      districtHintChancePct: input.config.districtHintChancePct,
+      districtHintChancePct: Math.min(100, input.config.districtHintChancePct + lobbyDistrictHintBonusPct),
       areaHintChancePct: input.config.areaHintChancePct,
       buildingHintChancePct: input.config.buildingHintChancePct,
       reliabilityVisible: false
@@ -4579,7 +5048,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       maxLevel: 1
     };
   };
-  const applyConvenienceStorePassiveRumors = (state, config, tickRateMs, restaurantConfig) => {
+  const applyConvenienceStorePassiveRumors = (state, config, tickRateMs, restaurantConfig, lobbyClubConfig) => {
     const intervalTicks = minutesToTicks$7(config.passiveRumorIntervalMinutes, tickRateMs);
     let buildingsById = state.buildingsById;
     let changed = false;
@@ -4597,7 +5066,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       if ((metadata.lastPassiveRumorCheckTick ?? -Infinity) + intervalTicks > state.root.tick) {
         continue;
       }
-      const stats = resolveConvenienceStoreRumorStats({ state, playerId: building2.ownerPlayerId, config, restaurantConfig });
+      const stats = resolveConvenienceStoreRumorStats({ state, playerId: building2.ownerPlayerId, config, restaurantConfig, lobbyClubConfig });
       metadata.lastPassiveRumorCheckTick = state.root.tick;
       if (deterministicRollPct$3(`${building2.id}:convenience-store-passive-rumor:${state.root.tick}`) < stats.passiveRumorChancePct) {
         metadata.rumorEvents.push(generateRumor({
@@ -5447,11 +5916,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const restaurantCount = getOwnedRestaurantCount(input.state, input.playerId, input.config);
     const network = resolveRestaurantNetworkMultipliers(restaurantCount, input.config);
     const baseTruthChancePct = resolveTruthChancePct(restaurantCount, input.config);
+    const lobbyTruthBonusPct = input.lobbyClubConfig && getOwnedLobbyClubCount(input.state, input.playerId, input.lobbyClubConfig) > 0 ? input.lobbyClubConfig.civilNetworkSupport.restaurantCivilRumorTruthPct : 0;
     return {
       restaurantCount,
       network,
       passiveRumorChancePct: Math.min(100, input.config.baseRumorChancePct * network.rumorMultiplier),
-      truthChancePct: Math.min(100, baseTruthChancePct),
+      truthChancePct: Math.min(100, baseTruthChancePct + lobbyTruthBonusPct),
       districtHintChancePct: input.config.districtHintChancePct,
       buildingHintChancePct: input.config.buildingHintChancePct,
       reliabilityVisible: false
@@ -5476,7 +5946,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       maxLevel: 1
     };
   };
-  const applyRestaurantPassiveRumors = (state, config, tickRateMs) => {
+  const applyRestaurantPassiveRumors = (state, config, tickRateMs, lobbyClubConfig) => {
     const intervalTicks = minutesToTicks$5(config.passiveRumorIntervalMinutes, tickRateMs);
     let buildingsById = state.buildingsById;
     let changed = false;
@@ -5494,7 +5964,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       if ((metadata.lastPassiveRumorCheckTick ?? -Infinity) + intervalTicks > state.root.tick) {
         continue;
       }
-      const stats = resolveRestaurantRumorStats({ state, playerId: building2.ownerPlayerId, config });
+      const stats = resolveRestaurantRumorStats({ state, playerId: building2.ownerPlayerId, config, lobbyClubConfig });
       metadata.lastPassiveRumorCheckTick = state.root.tick;
       if (deterministicRollPct$1(`${building2.id}:restaurant-passive-rumor:${state.root.tick}`) < stats.passiveRumorChancePct) {
         metadata.rumorEvents.push(generateRestaurantRumor({
@@ -7382,12 +7852,13 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   const resolveVipLoungeRumorStats = (input) => {
     const ownedCount = getOwnedVipLoungeCount(input.state, input.playerId, input.config);
     const tier = resolveVipLoungeNetworkTier(ownedCount, input.config);
+    const lobbyTruthBonusPct = input.lobbyClubConfig && getOwnedLobbyClubCount(input.state, input.playerId, input.lobbyClubConfig) > 0 ? input.lobbyClubConfig.civilNetworkSupport.vipLoungeTruthChancePct + input.lobbyClubConfig.synergies.vipLoungeTruthChancePct : 0;
     return {
       ownedCount,
       tier,
       passiveRumorChancePct: input.config.passiveRumor.baseChancePct,
       rumorIntervalMinutes: tier.rumorIntervalMinutes,
-      truthChancePct: tier.truthChancePct,
+      truthChancePct: Math.min(100, tier.truthChancePct + lobbyTruthBonusPct),
       districtHintChancePct: tier.districtHintChancePct,
       buildingHintChancePct: tier.buildingHintChancePct,
       reliabilityLabelChancePct: tier.reliabilityLabelChancePct
@@ -7412,12 +7883,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       maxLevel: 1
     };
   };
-  const applyVipLoungePassiveRumors = (state, config, tickRateMs) => {
+  const applyVipLoungePassiveRumors = (state, config, tickRateMs, lobbyClubConfig) => {
     let buildingsById = state.buildingsById;
     let changed = false;
     for (const building2 of Object.values(state.buildingsById)) {
       if (building2.buildingTypeId !== config.buildingTypeId || building2.status !== "active" || !building2.ownerPlayerId) continue;
-      const stats = resolveVipLoungeRumorStats({ state, playerId: building2.ownerPlayerId, config });
+      const stats = resolveVipLoungeRumorStats({ state, playerId: building2.ownerPlayerId, config, lobbyClubConfig });
       const intervalTicks = minutesToTicks(stats.rumorIntervalMinutes, tickRateMs);
       const metadata = cleanupVipLoungeMetadata(getVipLoungeMetadata(building2));
       if (metadata.lastPassiveRumorCheckTick === void 0) {
@@ -7701,7 +8172,20 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       tick: state.root.tick,
       ...toIncomeModifierInput(streetDealersConfig)
     }) : streetDealersConfig;
-    return powerStationConfig;
+    const lobbyClubConfig = context.config.balance.lobbyClub ? applyLobbyClubIncomeModifiers({
+      config: context.config.balance.lobbyClub,
+      state,
+      building: building2,
+      tick: state.root.tick,
+      ...toIncomeModifierInput(powerStationConfig)
+    }) : powerStationConfig;
+    const courthouseConfig = context.config.balance.courthouse ? applyCourthouseIncomeModifiers({
+      config: context.config.balance.courthouse,
+      state,
+      building: building2,
+      ...toIncomeModifierInput(lobbyClubConfig)
+    }) : lobbyClubConfig;
+    return courthouseConfig;
   };
   const toIncomeModifierInput = (config) => ({
     cleanPerHour: config.cleanPerHour,
@@ -8037,9 +8521,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       incomeMultiplier: context.config.balance.incomeMultiplier
     }) : schoolState;
     const stripClubRumorState = (context == null ? void 0 : context.config.balance.stripClub) ? applyStripClubPassiveRumors(smugglingTunnelState, context.config.balance.stripClub, context.config.tickRateMs) : smugglingTunnelState;
-    const restaurantRumorState = (context == null ? void 0 : context.config.balance.restaurant) ? applyRestaurantPassiveRumors(stripClubRumorState, context.config.balance.restaurant, context.config.tickRateMs) : stripClubRumorState;
-    const convenienceRumorState = (context == null ? void 0 : context.config.balance.convenienceStore) ? applyConvenienceStorePassiveRumors(restaurantRumorState, context.config.balance.convenienceStore, context.config.tickRateMs, context.config.balance.restaurant) : restaurantRumorState;
-    return (context == null ? void 0 : context.config.balance.vipLounge) ? applyVipLoungePassiveRumors(convenienceRumorState, context.config.balance.vipLounge, context.config.tickRateMs) : convenienceRumorState;
+    const restaurantRumorState = (context == null ? void 0 : context.config.balance.restaurant) ? applyRestaurantPassiveRumors(stripClubRumorState, context.config.balance.restaurant, context.config.tickRateMs, context.config.balance.lobbyClub) : stripClubRumorState;
+    const convenienceRumorState = (context == null ? void 0 : context.config.balance.convenienceStore) ? applyConvenienceStorePassiveRumors(restaurantRumorState, context.config.balance.convenienceStore, context.config.tickRateMs, context.config.balance.restaurant, context.config.balance.lobbyClub) : restaurantRumorState;
+    const vipLoungeRumorState = (context == null ? void 0 : context.config.balance.vipLounge) ? applyVipLoungePassiveRumors(convenienceRumorState, context.config.balance.vipLounge, context.config.tickRateMs, context.config.balance.lobbyClub) : convenienceRumorState;
+    return (context == null ? void 0 : context.config.balance.lobbyClub) ? applyLobbyClubScandalChecks(vipLoungeRumorState, context.config.balance.lobbyClub, context.config.tickRateMs) : vipLoungeRumorState;
   };
   const createPlayerResourceState$4 = (player, tick) => ({
     id: player.resourceStateId,
@@ -8208,17 +8693,17 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       action({ actionId: "city_contract", label: "Městská zakázka", description: "Převede politický vliv na clean cash podle počtu legálních budov hráče.", effectSummary: "Cena 20 influence, reward 1500 + legální budovy × 120, heat +3", cooldownMs: 18 * minute, heatGain: 3, influenceChange: -20 }),
       action({ actionId: "emergency_decree", label: "Nouzová vyhláška", description: "Na 6 minut spustí městský režim: Noční hlídky, Zastavené kontroly nebo Stavební uzávěru.", effectSummary: "Cena 2500 clean + 40 influence, heat +8, city-wide efekt", cooldownMs: 28 * minute, durationMs: 6 * minute, heatGain: 8, inputCost: out("cash", 2500), influenceChange: -40 })
     ]),
-    building("lobby_club", "Lobby klub", "downtown", "Influence", "Diskrétní klub pro kontakty, špinavé finance a politické páky.", perMinuteStat(3, 22, 6, 38), [
-      action({ actionId: "lobby_club_backroom_deal", label: "Backroom Deal", description: "Domluví vlivnou dohodu mimo záznam.", effectSummary: "+dirty cash, +vliv, +heat", heatGain: 6, outputGain: out("dirty-cash", 180), influenceChange: 4 })
+    building("lobby_club", "Lobby Club", "downtown", "Ultra rare / lobbying / influence / political support", "Lobby Club není úřad. Je to místnost vedle úřadu, kde se rozhodne dřív, než někdo zvedne ruku. Kdo drží Lobby Club, nevládne městu přímo. Jen šeptá lidem, kteří městem hýbou.", perMinuteStat(95, 0, 0.1 * 60 * 24, 0.65 * 60 * 24, 1), [
+      action({ actionId: "backroom_pressure", label: "Zákulisní tlak", description: "Na 8 minut posílí influence produkci všech budov, zlevní influence akce a sníží negativní drby.", effectSummary: "Cena 1200 clean + 25 influence, influence +18 %, influence akce -10 %, heat +3", cooldownMs: 20 * minute, durationMs: 8 * minute, heatGain: 3, inputCost: out("cash", 1200), influenceChange: -25 }),
+      action({ actionId: "quiet_negotiation", label: "Tiché vyjednávání", description: "Zkrátí jeden aktivní politický nebo společenský cooldown, sníží rizika a zlevní další influence akci.", effectSummary: "Cena 1500 clean + 15 influence, cooldown -20 % zbývajícího času, heat +2", cooldownMs: 24 * minute, heatGain: 2, inputCost: out("cash", 1500), influenceChange: -15 }),
+      action({ actionId: "media_screen", label: "Mediální clona", description: "Na 8 minut tlumí negativní drby, snižuje jejich pravdivost a zlepšuje civilní rumor truth.", effectSummary: "Cena 2000 clean, negativní drby -35 %, police warning +6 %, heat +4", cooldownMs: 26 * minute, durationMs: 8 * minute, heatGain: 4, inputCost: out("cash", 2e3) })
     ]),
     building("stock_exchange", "Burza", "downtown", "Ultra rare / economy / market control / financial power", "Burza je jediná na mapě. Neprodává zboží. Ovládá ceny, poplatky a rytmus celé ekonomiky. Skleněná věž v Downtownu, kde se války nevedou noži, ale grafy.", perMinuteStat(220, 0, 0.18 * 60 * 24, 0.45 * 60 * 24, 1), [
       action({ actionId: "speculative_buy", label: "Spekulativní nákup", description: "Investuje clean cash do vybrané market kategorie. Výsledek může být zisk, neutrální pohyb nebo ztráta.", effectSummary: "Cena 2500 clean + investice, heat +5, financial inspection risk +6 %", cooldownMs: 16 * minute, heatGain: 5, inputCost: out("cash", 2500) }),
       action({ actionId: "market_pressure", label: "Tržní tlak", description: "Na 10 minut server-wide pumpne nebo dumpne ceny vybrané market kategorie.", effectSummary: "Cena 3000 clean + 15 influence, heat +8, server-wide market efekt", cooldownMs: 22 * minute, durationMs: 10 * minute, heatGain: 8, inputCost: out("cash", 3e3), influenceChange: -15 }),
       action({ actionId: "insider_window", label: "Insider Window", description: "Na 6 minut zlepší trend hints, fee reduction a šanci Spekulativního nákupu.", effectSummary: "Cena 1500 clean, heat +4, 3 trend hints, extra fee reduction -8 %", cooldownMs: 18 * minute, durationMs: 6 * minute, heatGain: 4, inputCost: out("cash", 1500) })
     ]),
-    building("court", "Soud", "downtown", "Law", "Právní páka pro tlak na území, obranu a politický vliv.", perMinuteStat(16, 4, 3.2, 32), [
-      action({ actionId: "court_case_pressure", label: "Case Pressure", description: "Využije právní tlak pro vliv, krytí a obranu districtu.", effectSummary: "+vliv, +obrana, +clean cash, +heat", heatGain: 3, outputGain: out("cash", 110), influenceChange: 5 })
-    ]),
+    building("court", "Soud", "downtown", "Ultra rare / passive legal protection / police raid mitigation / influence", "Soud nevypne policii. Jen zařídí, aby její zásah bolel míň. Když máš rozsudky, odklady a správné právníky, i razie ztratí zuby.", perMinuteStat(105, 0, 0.08 * 60 * 24, 0.72 * 60 * 24, 1), []),
     building("vip_lounge", "VIP Salonek", "downtown", "Rare / elite rumors / high truth intel / influence", "VIP Salonek je luxusní informační uzel. Za tlumeným světlem a drahým stolem se mluví rychleji než ve městě dole. Nedává jistotu, ale jeho zákulisní drby bývají nebezpečně blízko pravdě.", perMinuteStat(105, 30, 0.13 * 60 * 24, 0.48 * 60 * 24, 1), []),
     building("airport", "Letiště", "downtown", "Ultra rare / logistics / import / black market support / mobility", "Letiště je brána města. Co ostatní musí vyrábět, ty můžeš dovézt. Co ostatní musí vozit ulicemi, ty pošleš přes runway. Ale každý kontejner má papíry. A každý falešný papír jednou někdo zkontroluje.", perMinuteStat(180, 45, 0.2 * 60 * 24, 0.2 * 60 * 24, 1), [
       action({ actionId: "express_import", label: "Expresní dovoz", description: "Po 90 sekundách doručí importní zásilku vybrané kategorie do skladu hráče.", effectSummary: "Cena 2000 clean, heat +6, customs risk 10 %", cooldownMs: 18 * minute, durationMs: 90 * 1e3, heatGain: 6, inputCost: out("cash", 2e3) }),
@@ -8941,6 +9426,110 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       airportCustomsRiskReductionPct: 5
     }
   };
+  const freeModeLobbyClubConfig = {
+    id: "lobby_club",
+    buildingTypeId: "lobby_club",
+    countOnMap: 2,
+    zone: "downtown",
+    category: ["ultra_rare", "lobbying", "influence", "political_support"],
+    cleanCashPerMinute: 95,
+    dirtyCashPerMinute: 0,
+    influencePerMinute: 0.65,
+    populationPerMinute: 0,
+    heatPerMinute: 0.1,
+    noIntelPower: true,
+    noDirtyCash: true,
+    noPopulationProduction: true,
+    noLaundering: true,
+    noAuditRisk: true,
+    lobbyPressureTiers: [
+      { minOwned: 1, maxOwned: 1, pressurePct: 10, incomeMultiplier: 1, influenceMultiplier: 1, heatMultiplier: 1 },
+      { minOwned: 2, maxOwned: 99, pressurePct: 22, incomeMultiplier: 1.12, influenceMultiplier: 1.18, heatMultiplier: 1.1 }
+    ],
+    influenceCostReduction: {
+      oneClubPct: 8,
+      twoClubPct: 15,
+      maxCombinedPct: 25
+    },
+    negativeRumorReduction: {
+      oneClubPct: 10,
+      twoClubPct: 18,
+      minNegativeRumorChancePct: 5
+    },
+    civilNetworkSupport: {
+      restaurantCivilRumorTruthPct: 4,
+      convenienceDistrictHintChancePct: 4,
+      shoppingMallMarketFeeReductionPct: 3,
+      vipLoungeTruthChancePct: 3
+    },
+    backroomPressure: {
+      actionId: "backroom_pressure",
+      cooldownMinutes: 20,
+      durationMinutes: 8,
+      costInfluence: 25,
+      costCleanCash: 1200,
+      heatGain: 3,
+      influenceProductionBonusPct: 18,
+      influenceActionCostReductionPct: 10,
+      negativeRumorReductionPct: 15,
+      districtControlPressurePct: 8,
+      politicalActionHeatIncreasePct: 10,
+      scandalRiskPct: 8
+    },
+    quietNegotiation: {
+      actionId: "quiet_negotiation",
+      cooldownMinutes: 24,
+      costCleanCash: 1500,
+      costInfluence: 15,
+      heatGain: 2,
+      cooldownRemainingReductionPct: 20,
+      riskReductionPct: 10,
+      riskReductionMinutes: 8,
+      nextInfluenceActionDiscountPct: 8,
+      nextInfluenceActionDiscountMinutes: 8,
+      scandalRiskPct: 6,
+      targetBuildingTypeIds: ["city_hall", "vip_lounge", "strip_club", "stock_exchange", "central_bank", "port", "airport"]
+    },
+    mediaScreen: {
+      actionId: "media_screen",
+      cooldownMinutes: 26,
+      durationMinutes: 8,
+      costCleanCash: 2e3,
+      heatGain: 4,
+      negativeRumorReductionPct: 35,
+      negativeRumorTruthReductionPct: 15,
+      policeRaidWarningChancePct: 6,
+      civilRumorTruthPct: 6,
+      weakRewriteChancePct: 35,
+      scandalRiskPct: 7
+    },
+    lobbyScandal: {
+      intervalMinutes: 8,
+      passiveRiskPct: 2,
+      cityHallRiskPct: 3,
+      stockExchangeRiskPct: 3,
+      heatThreshold: 150,
+      heatRiskPct: 8,
+      influenceLoss: 10,
+      incomePenaltyPct: 40,
+      incomePenaltyMinutes: 8,
+      influenceReductionDisabledMinutes: 8,
+      policeHeatGain: 12
+    },
+    synergies: {
+      cityHallOfficialCoverCostReductionPct: 5,
+      cityHallContractRewardPct: 5,
+      cityHallEmergencyDecreeCooldownMinutes: 2,
+      cityHallCorruptionScandalRiskPct: 3,
+      vipLoungeTruthChancePct: 3,
+      vipLoungeNegativeRumorReductionPct: 5,
+      vipLoungeBackroomWhisperCostReductionPct: 5,
+      stripClubRumorTruthPct: 4,
+      stripClubPrivatePartyScandalReductionPct: 4,
+      stockExchangeSpeculativeBuyCostReductionPct: 5,
+      stockExchangeFinancialInspectionRiskPct: 3
+    }
+  };
   const freeModeStockExchangeConfig = {
     id: "stock_exchange",
     buildingTypeId: "stock_exchange",
@@ -9203,6 +9792,51 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       requiredOwner: true,
       allowedIfContested: false,
       reportText: "Centrální banka spustila kurzovní intervenci ve vybrané kategorii."
+    },
+    backroom_pressure: {
+      actionId: "backroom_pressure",
+      buildingType: "lobby_club",
+      label: "Zákulisní tlak",
+      description: "Na 8 minut posílí influence produkci, sníží cenu influence akcí a přidá politický tlak.",
+      durationMs: freeModeLobbyClubConfig.backroomPressure.durationMinutes * 60 * 1e3,
+      cooldownMs: freeModeLobbyClubConfig.backroomPressure.cooldownMinutes * 60 * 1e3,
+      inputCost: { cash: freeModeLobbyClubConfig.backroomPressure.costCleanCash },
+      outputGain: {},
+      heatGain: freeModeLobbyClubConfig.backroomPressure.heatGain,
+      influenceChange: -freeModeLobbyClubConfig.backroomPressure.costInfluence,
+      requiredOwner: true,
+      allowedIfContested: false,
+      reportText: "Zákulisní tlak je aktivní. Influence síť tlačí na rozhodnutí v celém městě."
+    },
+    quiet_negotiation: {
+      actionId: "quiet_negotiation",
+      buildingType: "lobby_club",
+      label: "Tiché vyjednávání",
+      description: "Okamžitě zkrátí jeden politický/společenský cooldown, sníží rizika a zlevní další influence akci.",
+      durationMs: 0,
+      cooldownMs: freeModeLobbyClubConfig.quietNegotiation.cooldownMinutes * 60 * 1e3,
+      inputCost: { cash: freeModeLobbyClubConfig.quietNegotiation.costCleanCash },
+      outputGain: {},
+      heatGain: freeModeLobbyClubConfig.quietNegotiation.heatGain,
+      influenceChange: -freeModeLobbyClubConfig.quietNegotiation.costInfluence,
+      requiredOwner: true,
+      allowedIfContested: false,
+      reportText: "Tiché vyjednávání proběhlo mimo záznam. Rizika klesla a další influence akce bude levnější."
+    },
+    media_screen: {
+      actionId: "media_screen",
+      buildingType: "lobby_club",
+      label: "Mediální clona",
+      description: "Na 8 minut brání negativním drbům, snižuje jejich pravdivost a zlepšuje veřejný obraz.",
+      durationMs: freeModeLobbyClubConfig.mediaScreen.durationMinutes * 60 * 1e3,
+      cooldownMs: freeModeLobbyClubConfig.mediaScreen.cooldownMinutes * 60 * 1e3,
+      inputCost: { cash: freeModeLobbyClubConfig.mediaScreen.costCleanCash },
+      outputGain: {},
+      heatGain: freeModeLobbyClubConfig.mediaScreen.heatGain,
+      influenceChange: 0,
+      requiredOwner: true,
+      allowedIfContested: false,
+      reportText: "Mediální clona překresluje veřejný obraz a tlumí negativní drby."
     }
   };
   const freeModeArcadeConfig = {
@@ -10107,6 +10741,43 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       civilRumorTruthBonusPct: 5
     }
   };
+  const freeModeCourthouseConfig = {
+    id: "courthouse",
+    buildingTypeId: "court",
+    countOnMap: 2,
+    zone: "downtown",
+    category: ["ultra_rare", "passive_legal_protection", "police_raid_mitigation", "influence"],
+    cleanCashPerMinute: 105,
+    dirtyCashPerMinute: 0,
+    influencePerMinute: 0.72,
+    populationPerMinute: 0,
+    heatPerMinute: 0.08,
+    actions: [],
+    noSpecialActions: true,
+    noIntelPower: true,
+    noDirtyCash: true,
+    noPopulationProduction: true,
+    noLaundering: true,
+    noAuditRisk: true,
+    legalProtectionTiers: [
+      {
+        minOwned: 1,
+        maxOwned: 1,
+        cleanIncomeMultiplier: 1,
+        influenceMultiplier: 1,
+        heatMultiplier: 1,
+        policeRaidConsequencesReductionPct: 50
+      },
+      {
+        minOwned: 2,
+        maxOwned: 99,
+        cleanIncomeMultiplier: 1.14,
+        influenceMultiplier: 1.18,
+        heatMultiplier: 1.08,
+        policeRaidConsequencesReductionPct: 75
+      }
+    ]
+  };
   const freeModeFitnessClubConfig = {
     id: "fitness_club",
     buildingTypeId: "fitness_club",
@@ -10638,6 +11309,20 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       influencePerDay: freeModeCityHallConfig.influencePerMinute * 60 * 24,
       maxLevel: 1
     },
+    lobby_club: {
+      cleanPerHour: freeModeLobbyClubConfig.cleanCashPerMinute * 60,
+      dirtyPerHour: 0,
+      heatPerDay: freeModeLobbyClubConfig.heatPerMinute * 60 * 24,
+      influencePerDay: freeModeLobbyClubConfig.influencePerMinute * 60 * 24,
+      maxLevel: 1
+    },
+    court: {
+      cleanPerHour: freeModeCourthouseConfig.cleanCashPerMinute * 60,
+      dirtyPerHour: 0,
+      heatPerDay: freeModeCourthouseConfig.heatPerMinute * 60 * 24,
+      influencePerDay: freeModeCourthouseConfig.influencePerMinute * 60 * 24,
+      maxLevel: 1
+    },
     vip_lounge: {
       cleanPerHour: freeModeVipLoungeConfig.cleanCashPerMinute * 60,
       dirtyPerHour: freeModeVipLoungeConfig.dirtyCashPerMinute * 60,
@@ -10794,6 +11479,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       centralBank: freeModeCentralBankConfig,
       airport: freeModeAirportConfig,
       cityHall: freeModeCityHallConfig,
+      courthouse: freeModeCourthouseConfig,
+      lobbyClub: freeModeLobbyClubConfig,
       vipLounge: freeModeVipLoungeConfig,
       fitnessClub: freeModeFitnessClubConfig,
       recruitmentCenter: freeModeRecruitmentCenterConfig,
@@ -11506,7 +12193,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     raidId: stringValue(payload.raidId),
     status: stringValue(payload.status),
     seizedDirtyCash: numericValue(payload.seizedDirtyCash ?? safePayload(payload.cashSeized)["dirty-cash"]),
-    heatReduced: numericValue(payload.heatReduced ?? payload.heatReducedBy)
+    heatReduced: numericValue(payload.heatReduced ?? payload.heatReducedBy),
+    courthouseMitigation: safePayload(payload.courthouseMitigation)
   });
   const safePayload = (value) => value && typeof value === "object" ? value : {};
   const stringValue = (value) => {
@@ -11765,7 +12453,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           },
           resourcesSeized: previewConsequences.seizedResources,
           gangMembersLost: 0,
-          districtLockdownTicks: targetDistrictId ? config.lockdownTicksBySeverity[severity] : 0,
+          districtLockdownTicks: previewConsequences.lockdownUntilTick ? Math.max(0, previewConsequences.lockdownUntilTick - currentTick) : 0,
           heatReduced: previewConsequences.heatReducedBy
         })
       );
@@ -12701,6 +13389,20 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       errors.push({
         code: schoolErrorCode,
         message: "School action preconditions are not met."
+      });
+    }
+    const lobbyClubErrorCode = validateLobbyClubAction({
+      state,
+      building: building2,
+      actionId: action2.actionId,
+      balances,
+      districtInfluence: district.influence,
+      config: context.config.balance.lobbyClub
+    });
+    if (lobbyClubErrorCode) {
+      errors.push({
+        code: lobbyClubErrorCode,
+        message: "Lobby Club action preconditions are not met."
       });
     }
     const streetDealersErrorCode = validateStreetDealersAction({
@@ -13992,6 +14694,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       balances: nextBalances,
       district,
       config: context.config.balance.cityHall,
+      lobbyClubConfig: context.config.balance.lobbyClub,
       tickRateMs: context.config.tickRateMs,
       commandId: command.id,
       payload: command.payload
@@ -14014,7 +14717,17 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       config: context.config.balance.school,
       tickRateMs: context.config.tickRateMs
     }) : null;
-    const streetDealersResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && !clinicResolution && !recyclingCenterResolution && !stripClubResolution && !powerStationResolution && !smugglingTunnelResolution && !stockExchangeResolution && !airportResolution && !cityHallResolution && !centralBankResolution && !schoolResolution && context.config.balance.streetDealers ? resolveStreetDealersAction({
+    const lobbyClubResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && !clinicResolution && !recyclingCenterResolution && !stripClubResolution && !powerStationResolution && !smugglingTunnelResolution && !stockExchangeResolution && !airportResolution && !cityHallResolution && !centralBankResolution && !schoolResolution && context.config.balance.lobbyClub ? resolveLobbyClubAction({
+      state,
+      building: building2,
+      action: action2,
+      balances: nextBalances,
+      config: context.config.balance.lobbyClub,
+      tickRateMs: context.config.tickRateMs,
+      commandId: command.id,
+      payload: command.payload
+    }) : null;
+    const streetDealersResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && !clinicResolution && !recyclingCenterResolution && !stripClubResolution && !powerStationResolution && !smugglingTunnelResolution && !stockExchangeResolution && !airportResolution && !cityHallResolution && !centralBankResolution && !schoolResolution && !lobbyClubResolution && context.config.balance.streetDealers ? resolveStreetDealersAction({
       state,
       player,
       building: building2,
@@ -14025,7 +14738,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       smugglingTunnelConfig: context.config.balance.smugglingTunnel,
       tickRateMs: context.config.tickRateMs
     }) : null;
-    const specialResolution = casinoResolution ?? exchangeOfficeResolution ?? arcadeResolution ?? apartmentBlockResolution ?? clinicResolution ?? recyclingCenterResolution ?? stripClubResolution ?? powerStationResolution ?? smugglingTunnelResolution ?? stockExchangeResolution ?? airportResolution ?? cityHallResolution ?? centralBankResolution ?? schoolResolution ?? streetDealersResolution;
+    const specialResolution = casinoResolution ?? exchangeOfficeResolution ?? arcadeResolution ?? apartmentBlockResolution ?? clinicResolution ?? recyclingCenterResolution ?? stripClubResolution ?? powerStationResolution ?? smugglingTunnelResolution ?? stockExchangeResolution ?? airportResolution ?? cityHallResolution ?? centralBankResolution ?? schoolResolution ?? lobbyClubResolution ?? streetDealersResolution;
     return {
       casinoResolution,
       exchangeOfficeResolution,
@@ -14041,6 +14754,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       cityHallResolution,
       centralBankResolution,
       schoolResolution,
+      lobbyClubResolution,
       streetDealersResolution,
       specialResolution
     };
@@ -14097,10 +14811,6 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       cameras: 1,
       alarm: 1
     },
-    court_case_pressure: {
-      cameras: 1,
-      alarm: 1
-    },
     clinic_recovery_boost: {
       vest: 1,
       barricades: 1
@@ -14128,7 +14838,6 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   };
   const BUILDING_ACTION_MESSAGE_LABELS = {
     armory_fortify: "Armory crews",
-    court_case_pressure: "Court pressure",
     clinic_recovery_boost: "Clinic recovery teams",
     school_discipline: "School discipline crews",
     garage_escape_routes: "Garage route crews",
@@ -14204,6 +14913,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         airportResult: input.airportResult,
         cityHallResult: input.cityHallResult,
         centralBankResult: input.centralBankResult,
+        lobbyClubResult: input.lobbyClubResult,
         schoolResult: input.schoolResult,
         streetDealerResult: input.streetDealerResult,
         stockExchangeResult: input.stockExchangeResult,
@@ -14282,6 +14992,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       cityHallResolution,
       centralBankResolution,
       schoolResolution,
+      lobbyClubResolution,
       streetDealersResolution,
       specialResolution
     } = resolveBuildingActionSpecificResolution({
@@ -14313,7 +15024,19 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       playerId: player.id,
       config: context.config.balance.centralBank
     }) : 0;
-    const influenceReductionPct = Math.min(25, cityHallInfluenceReductionPct + centralBankInfluenceReductionPct);
+    const lobbyClubInfluenceReductionPct = building2.buildingTypeId !== "lobby_club" && resolvedAction.influenceChange < 0 ? resolveLobbyClubInfluenceActionCostReductionPct({
+      state,
+      playerId: player.id,
+      config: context.config.balance.lobbyClub,
+      tick: state.root.tick
+    }) : 0;
+    const lobbyClubNextDiscountConsumed = building2.buildingTypeId !== "lobby_club" && resolvedAction.influenceChange < 0 ? hasLobbyClubNextInfluenceDiscount({
+      state,
+      playerId: player.id,
+      config: context.config.balance.lobbyClub,
+      tick: state.root.tick
+    }) : false;
+    const influenceReductionPct = Math.min(25, cityHallInfluenceReductionPct + centralBankInfluenceReductionPct + lobbyClubInfluenceReductionPct);
     if (influenceReductionPct > 0) {
       resolvedAction = {
         ...resolvedAction,
@@ -14355,6 +15078,19 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         [resolvedAction.actionId]: state.root.tick + cooldownTicks
       },
       version: building2.version + 1
+    };
+    const consumedLobbyDiscountPatches = lobbyClubNextDiscountConsumed ? consumeLobbyClubNextInfluenceDiscount({
+      state,
+      playerId: player.id,
+      config: context.config.balance.lobbyClub,
+      tick: state.root.tick
+    }) : {};
+    const specialBuildingPatches = readSpecialBuildingPatches(specialResolution);
+    const patchedBuildingsById = {
+      ...state.buildingsById,
+      ...specialBuildingPatches,
+      ...consumedLobbyDiscountPatches,
+      [building2.id]: nextBuilding
     };
     const baseNextDistrict = {
       ...district,
@@ -14414,6 +15150,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       airportResult: airportResolution == null ? void 0 : airportResolution.airportResult,
       cityHallResult: cityHallResolution == null ? void 0 : cityHallResolution.cityHallResult,
       centralBankResult: centralBankResolution == null ? void 0 : centralBankResolution.centralBankResult,
+      lobbyClubResult: lobbyClubResolution == null ? void 0 : lobbyClubResolution.lobbyClubResult,
       stockExchangeResult: stockExchangeResolution == null ? void 0 : stockExchangeResolution.stockExchangeResult,
       schoolResult: schoolResolution == null ? void 0 : schoolResolution.schoolResult,
       streetDealerResult: streetDealersResolution == null ? void 0 : streetDealersResolution.streetDealerResult
@@ -14439,8 +15176,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           [district.id]: nextDistrict
         },
         buildingsById: {
-          ...state.buildingsById,
-          [building2.id]: nextBuilding
+          ...patchedBuildingsById
         },
         resourceStatesById: {
           ...state.resourceStatesById,
@@ -14484,6 +15220,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           airportResult: airportResolution == null ? void 0 : airportResolution.airportResult,
           cityHallResult: cityHallResolution == null ? void 0 : cityHallResolution.cityHallResult,
           centralBankResult: centralBankResolution == null ? void 0 : centralBankResolution.centralBankResult,
+          lobbyClubResult: lobbyClubResolution == null ? void 0 : lobbyClubResolution.lobbyClubResult,
           stockExchangeResult: stockExchangeResolution == null ? void 0 : stockExchangeResolution.stockExchangeResult,
           reportText: resolvedAction.reportText,
           eventId
@@ -14505,10 +15242,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     const rawTicks = Math.ceil(cooldownMs / Math.max(1, context.config.tickRateMs));
     const baseTicks = Math.max(1, Math.ceil(rawTicks * context.config.balance.cooldownMultiplier));
+    const lobbyCityHallCooldownReductionTicks = context.config.balance.lobbyClub && context.config.balance.cityHall && input.buildingTypeId === context.config.balance.cityHall.buildingTypeId && action2.actionId === context.config.balance.cityHall.emergencyDecree.actionId && getOwnedLobbyClubCount(input.state, input.playerId, context.config.balance.lobbyClub) > 0 ? Math.ceil(context.config.balance.lobbyClub.synergies.cityHallEmergencyDecreeCooldownMinutes * 6e4 / Math.max(1, context.config.tickRateMs)) : 0;
+    const synergyAdjustedBaseTicks = Math.max(1, baseTicks - lobbyCityHallCooldownReductionTicks);
     const carDealerCategory = resolveCarDealerCategoryForBuildingAction(input.buildingTypeId, action2.actionId);
     if (carDealerCategory) {
       return applyCarDealerCooldownReductionTicks({
-        baseTicks,
+        baseTicks: synergyAdjustedBaseTicks,
         state: input.state,
         playerId: input.playerId,
         config: context.config.balance.carDealer,
@@ -14518,12 +15257,12 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     const garageCategory = resolveGarageCategoryForBuildingAction(input.buildingTypeId, action2.actionId);
     return garageCategory ? applyGarageCooldownReductionTicks({
-      baseTicks,
+      baseTicks: synergyAdjustedBaseTicks,
       state: input.state,
       playerId: input.playerId,
       config: context.config.balance.garage,
       category: garageCategory
-    }) : baseTicks;
+    }) : synergyAdjustedBaseTicks;
   };
   const createPlayerResourceState = (player, tick) => ({
     id: player.resourceStateId,
@@ -14534,6 +15273,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     lastUpdatedTick: tick,
     version: 1
   });
+  const readSpecialBuildingPatches = (specialResolution) => specialResolution && typeof specialResolution === "object" && "buildingPatchesById" in specialResolution ? specialResolution.buildingPatchesById ?? {} : {};
   const createDistrictBuildingActionEffectState = (input) => {
     const modifiers = input.action.effectModifiers;
     if (!modifiers || input.action.durationMs <= 0) {
@@ -14830,6 +15570,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         airportResult: asUnknownRecord(payload.airportResult),
         cityHallResult: asUnknownRecord(payload.cityHallResult),
         centralBankResult: asUnknownRecord(payload.centralBankResult),
+        lobbyClubResult: asUnknownRecord(payload.lobbyClubResult),
         schoolResult: asUnknownRecord(payload.schoolResult),
         streetDealerResult: asUnknownRecord(payload.streetDealerResult),
         stockExchangeResult: asUnknownRecord(payload.stockExchangeResult),
@@ -15181,7 +15922,64 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         { label: "Městská zakázka", value: Number(metadata.cityContractBlockedUntilTick || 0) > input.tick ? `blocked ${formatTickLabel$1(Number(metadata.cityContractBlockedUntilTick) - input.tick)}` : "available" }
       ];
     }
+    if (input.building.buildingTypeId === "lobby_club" && input.lobbyClubConfig && input.building.ownerPlayerId) {
+      const metadata = getLobbyClubMetadata(input.building, input.tick);
+      const ownedCount = getOwnedLobbyClubCount(input.state, input.building.ownerPlayerId, input.lobbyClubConfig);
+      const tier = resolveLobbyClubTier(ownedCount, input.lobbyClubConfig);
+      const scandalRiskPct = resolveLobbyClubScandalRiskPct({
+        state: input.state,
+        building: input.building,
+        config: input.lobbyClubConfig,
+        tick: input.tick
+      });
+      const influenceCostReductionPct = resolveLobbyClubInfluenceActionCostReductionPct({
+        state: input.state,
+        playerId: input.building.ownerPlayerId,
+        config: input.lobbyClubConfig,
+        tick: input.tick
+      });
+      const negativeRumorReductionPct = resolveLobbyClubNegativeRumorReductionPct({
+        state: input.state,
+        playerId: input.building.ownerPlayerId,
+        config: input.lobbyClubConfig,
+        tick: input.tick
+      });
+      return [
+        { label: "Clean / min", value: `$${formatNumber(input.lobbyClubConfig.cleanCashPerMinute * ((tier == null ? void 0 : tier.incomeMultiplier) ?? 1))}` },
+        { label: "Influence / min", value: formatNumber(input.lobbyClubConfig.influencePerMinute * ((tier == null ? void 0 : tier.influenceMultiplier) ?? 1)) },
+        { label: "Heat / min", value: formatNumber(input.lobbyClubConfig.heatPerMinute * ((tier == null ? void 0 : tier.heatMultiplier) ?? 1)) },
+        { label: "Owned Lobby Clubs", value: `${ownedCount}/${input.lobbyClubConfig.countOnMap}` },
+        { label: "Lobby Pressure", value: `+${formatNumber((tier == null ? void 0 : tier.pressurePct) ?? 0)} %` },
+        { label: "Influence action cost", value: `-${formatNumber(influenceCostReductionPct)} % cap -${formatNumber(input.lobbyClubConfig.influenceCostReduction.maxCombinedPct)} %` },
+        { label: "Negative rumor chance", value: `-${formatNumber(negativeRumorReductionPct)} % relative` },
+        { label: "Civil network support", value: `restaurant truth +${formatNumber(input.lobbyClubConfig.civilNetworkSupport.restaurantCivilRumorTruthPct)} %, hints +${formatNumber(input.lobbyClubConfig.civilNetworkSupport.convenienceDistrictHintChancePct)} %, market fee -${formatNumber(input.lobbyClubConfig.civilNetworkSupport.shoppingMallMarketFeeReductionPct)} %, VIP truth +${formatNumber(input.lobbyClubConfig.civilNetworkSupport.vipLoungeTruthChancePct)} %` },
+        { label: "Lobby Scandal Risk", value: `${formatNumber(scandalRiskPct)} %` },
+        { label: "Zákulisní tlak", value: Number(metadata.backroomPressureExpiresAtTick || 0) > input.tick ? `active ${formatTickLabel$1(Number(metadata.backroomPressureExpiresAtTick) - input.tick)}` : "inactive" },
+        { label: "Mediální clona", value: Number(metadata.mediaScreenExpiresAtTick || 0) > input.tick ? `active ${formatTickLabel$1(Number(metadata.mediaScreenExpiresAtTick) - input.tick)}` : "inactive" },
+        { label: "Next influence discount", value: Number(metadata.nextInfluenceDiscountExpiresAtTick || 0) > input.tick ? `-${formatNumber(metadata.nextInfluenceDiscountPct ?? 0)} % ${formatTickLabel$1(Number(metadata.nextInfluenceDiscountExpiresAtTick) - input.tick)}` : "none" },
+        { label: "Zákulisní tlak cooldown", value: formatCooldown(input.building, input.lobbyClubConfig.backroomPressure.actionId, input.tick) },
+        { label: "Tiché vyjednávání cooldown", value: formatCooldown(input.building, input.lobbyClubConfig.quietNegotiation.actionId, input.tick) },
+        { label: "Mediální clona cooldown", value: formatCooldown(input.building, input.lobbyClubConfig.mediaScreen.actionId, input.tick) }
+      ];
+    }
+    if (input.building.buildingTypeId === "court" && input.courthouseConfig) {
+      const ownedCount = getOwnedCourthouseCount(input.state, input.building.ownerPlayerId ?? input.playerId, input.courthouseConfig);
+      const tier = resolveCourthouseTier(ownedCount, input.courthouseConfig);
+      return [
+        { label: "Clean / min", value: `$${formatNumber(input.courthouseConfig.cleanCashPerMinute * ((tier == null ? void 0 : tier.cleanIncomeMultiplier) ?? 1))}` },
+        { label: "Influence / min", value: formatNumber(input.courthouseConfig.influencePerMinute * ((tier == null ? void 0 : tier.influenceMultiplier) ?? 1)) },
+        { label: "Heat / min", value: formatNumber(input.courthouseConfig.heatPerMinute * ((tier == null ? void 0 : tier.heatMultiplier) ?? 1)) },
+        { label: "Owned courts", value: `${ownedCount}/${input.courthouseConfig.countOnMap}` },
+        { label: "Clean income multiplier", value: `x${formatNumber((tier == null ? void 0 : tier.cleanIncomeMultiplier) ?? 1)}` },
+        { label: "Influence multiplier", value: `x${formatNumber((tier == null ? void 0 : tier.influenceMultiplier) ?? 1)}` },
+        { label: "Police raid consequences", value: `-${formatNumber((tier == null ? void 0 : tier.policeRaidConsequencesReductionPct) ?? 0)} %` }
+      ];
+    }
     return null;
+  };
+  const formatCooldown = (building2, actionId, tick) => {
+    const remainingTicks = Math.max(0, Number((building2.actionCooldowns ?? {})[actionId] || 0) - tick);
+    return remainingTicks > 0 ? formatTickLabel$1(remainingTicks) : "ready";
   };
   const resolveCentralBankOversightRiskForUi = (state, building2, config, tick) => {
     const metadata = getCentralBankMetadata(building2, tick);
@@ -15451,6 +16249,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         centralBankConfig: input.centralBankConfig,
         airportConfig: input.airportConfig,
         cityHallConfig: input.cityHallConfig,
+        courthouseConfig: input.courthouseConfig,
+        lobbyClubConfig: input.lobbyClubConfig,
         vipLoungeConfig: input.vipLoungeConfig,
         powerStationConfig: input.powerStationConfig,
         recruitmentCenterConfig: input.recruitmentCenterConfig,
@@ -15493,6 +16293,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           centralBankConfig: input.centralBankConfig,
           airportConfig: input.airportConfig,
           cityHallConfig: input.cityHallConfig,
+          courthouseConfig: input.courthouseConfig,
+          lobbyClubConfig: input.lobbyClubConfig,
           vipLoungeConfig: input.vipLoungeConfig,
           powerStationConfig: input.powerStationConfig,
           recruitmentCenterConfig: input.recruitmentCenterConfig,
@@ -15619,6 +16421,14 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       playerBalances: input.playerBalances,
       tick: input.tick
     });
+    const lobbyClubDisabledReason = resolveLobbyClubDisabledReason({
+      district: input.district,
+      building: input.building,
+      action: action2,
+      lobbyClubConfig: input.lobbyClubConfig,
+      playerBalances: input.playerBalances,
+      tick: input.tick
+    });
     const schoolDisabledReason = resolveSchoolDisabledReason({
       state: input.state,
       building: input.building,
@@ -15634,7 +16444,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       playerBalances: input.playerBalances,
       tick: input.tick
     });
-    const disabledReason = ownerBlocked ? "Only the district owner can run this building action." : input.building.status !== "active" ? "Only active fixed buildings can run actions." : input.district.status === "contested" && !action2.allowedIfContested ? "This action is blocked while the district is contested." : stripClubDisabledReason ? stripClubDisabledReason : powerStationDisabledReason ? powerStationDisabledReason : recyclingCenterDisabledReason ? recyclingCenterDisabledReason : smugglingTunnelDisabledReason ? smugglingTunnelDisabledReason : stockExchangeDisabledReason ? stockExchangeDisabledReason : airportDisabledReason ? airportDisabledReason : cityHallDisabledReason ? cityHallDisabledReason : centralBankDisabledReason ? centralBankDisabledReason : schoolDisabledReason ? schoolDisabledReason : streetDealerDisabledReason ? streetDealerDisabledReason : cooldownRemainingTicks > 0 ? `Cooldown ${formatTickLabel$1(cooldownRemainingTicks)}.` : missingCosts.length > 0 ? `Need ${formatInputSummary$1(Object.fromEntries(missingCosts))}.` : null;
+    const disabledReason = ownerBlocked ? "Only the district owner can run this building action." : input.building.status !== "active" ? "Only active fixed buildings can run actions." : input.district.status === "contested" && !action2.allowedIfContested ? "This action is blocked while the district is contested." : stripClubDisabledReason ? stripClubDisabledReason : powerStationDisabledReason ? powerStationDisabledReason : recyclingCenterDisabledReason ? recyclingCenterDisabledReason : smugglingTunnelDisabledReason ? smugglingTunnelDisabledReason : stockExchangeDisabledReason ? stockExchangeDisabledReason : airportDisabledReason ? airportDisabledReason : cityHallDisabledReason ? cityHallDisabledReason : centralBankDisabledReason ? centralBankDisabledReason : lobbyClubDisabledReason ? lobbyClubDisabledReason : schoolDisabledReason ? schoolDisabledReason : streetDealerDisabledReason ? streetDealerDisabledReason : cooldownRemainingTicks > 0 ? `Cooldown ${formatTickLabel$1(cooldownRemainingTicks)}.` : missingCosts.length > 0 ? `Need ${formatInputSummary$1(Object.fromEntries(missingCosts))}.` : null;
     return {
       actionId: action2.actionId,
       label: action2.label,
@@ -15836,6 +16646,39 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     return null;
   };
+  const resolveLobbyClubDisabledReason = (input) => {
+    const config = input.lobbyClubConfig;
+    if (!config || input.building.buildingTypeId !== config.buildingTypeId) return null;
+    const metadata = getLobbyClubMetadata(input.building, input.tick);
+    if (input.action.actionId === config.backroomPressure.actionId) {
+      if (Number(metadata.backroomPressureExpiresAtTick || 0) > input.tick) {
+        return `Zákulisní tlak active ${formatTickLabel$1(Number(metadata.backroomPressureExpiresAtTick) - input.tick)}.`;
+      }
+      if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.backroomPressure.costCleanCash) {
+        return `Need ${config.backroomPressure.costCleanCash} clean cash.`;
+      }
+      if (Math.max(0, Number(input.district.influence || 0)) < config.backroomPressure.costInfluence) {
+        return `Need ${config.backroomPressure.costInfluence} influence.`;
+      }
+    }
+    if (input.action.actionId === config.quietNegotiation.actionId) {
+      if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.quietNegotiation.costCleanCash) {
+        return `Need ${config.quietNegotiation.costCleanCash} clean cash.`;
+      }
+      if (Math.max(0, Number(input.district.influence || 0)) < config.quietNegotiation.costInfluence) {
+        return `Need ${config.quietNegotiation.costInfluence} influence.`;
+      }
+    }
+    if (input.action.actionId === config.mediaScreen.actionId) {
+      if (Number(metadata.mediaScreenExpiresAtTick || 0) > input.tick) {
+        return `Mediální clona active ${formatTickLabel$1(Number(metadata.mediaScreenExpiresAtTick) - input.tick)}.`;
+      }
+      if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.mediaScreen.costCleanCash) {
+        return `Need ${config.mediaScreen.costCleanCash} clean cash.`;
+      }
+    }
+    return null;
+  };
   const resolveSchoolDisabledReason = (input) => {
     const config = input.schoolConfig;
     if (!config || input.building.buildingTypeId !== config.buildingTypeId) {
@@ -15936,6 +16779,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         centralBankConfig: input.centralBankConfig,
         airportConfig: input.airportConfig,
         cityHallConfig: input.cityHallConfig,
+        courthouseConfig: input.courthouseConfig,
+        lobbyClubConfig: input.lobbyClubConfig,
         vipLoungeConfig: input.vipLoungeConfig,
         powerStationConfig: input.powerStationConfig,
         recruitmentCenterConfig: input.recruitmentCenterConfig,
@@ -16755,6 +17600,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     centralBankConfig: runtime.config.balance.centralBank,
     airportConfig: runtime.config.balance.airport,
     cityHallConfig: runtime.config.balance.cityHall,
+    courthouseConfig: runtime.config.balance.courthouse,
+    lobbyClubConfig: runtime.config.balance.lobbyClub,
     vipLoungeConfig: runtime.config.balance.vipLounge,
     fitnessClubConfig: runtime.config.balance.fitnessClub,
     powerStationConfig: runtime.config.balance.powerStation,

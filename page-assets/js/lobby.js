@@ -4,6 +4,7 @@ import {
   getDistrictAtPoint
 } from "./app/district-geometry.js";
 import {
+  clearAuthSession,
   ensureIdentity,
   getRegistrationDraft,
   saveLobbyStep,
@@ -70,6 +71,8 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.href = LOGIN_ENTRY_HREF;
     return;
   }
+
+  installLobbyBackLogoutGuard();
 
   const registration = getRegistrationDraft();
   const tabs = Array.from(document.querySelectorAll("[data-server-mode-tab]"));
@@ -1210,3 +1213,17 @@ document.addEventListener("DOMContentLoaded", () => {
   startLobbyStatusTicker();
   startServerListAutoRefresh();
 });
+
+function installLobbyBackLogoutGuard() {
+  if (!window.history?.pushState) {
+    return;
+  }
+
+  window.history.replaceState({ empireLobby: "active" }, "", window.location.href);
+  window.history.pushState({ empireLobby: "back-logout" }, "", window.location.href);
+
+  window.addEventListener("popstate", () => {
+    clearAuthSession();
+    window.location.replace(LOGIN_ENTRY_HREF);
+  }, { once: true });
+}

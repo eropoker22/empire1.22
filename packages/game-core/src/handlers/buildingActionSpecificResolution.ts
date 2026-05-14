@@ -10,6 +10,7 @@ import { resolveCentralBankAction } from "./centralBankBuildingActions";
 import { resolveCityHallAction } from "./cityHallBuildingActions";
 import { resolveClinicAction } from "./clinicBuildingActions";
 import { resolveExchangeOfficeAction } from "./exchangeOfficeBuildingActions";
+import { resolveLobbyClubAction } from "./lobbyClubBuildingActions";
 import { resolvePowerStationAction } from "./powerStationBuildingActions";
 import { resolveRecyclingCenterAction } from "./recyclingCenterBuildingActions";
 import { resolveSchoolAction } from "./schoolBuildingActions";
@@ -161,6 +162,7 @@ export const resolveBuildingActionSpecificResolution = (
         balances: nextBalances,
         district,
         config: context.config.balance.cityHall,
+        lobbyClubConfig: context.config.balance.lobbyClub,
         tickRateMs: context.config.tickRateMs,
         commandId: command.id,
         payload: command.payload
@@ -186,9 +188,22 @@ export const resolveBuildingActionSpecificResolution = (
         balances: nextBalances,
         config: context.config.balance.school,
         tickRateMs: context.config.tickRateMs
+    })
+    : null;
+  const lobbyClubResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && !clinicResolution && !recyclingCenterResolution && !stripClubResolution && !powerStationResolution && !smugglingTunnelResolution && !stockExchangeResolution && !airportResolution && !cityHallResolution && !centralBankResolution && !schoolResolution && context.config.balance.lobbyClub
+    ? resolveLobbyClubAction({
+        state,
+        building,
+        action,
+        balances: nextBalances,
+        district,
+        config: context.config.balance.lobbyClub,
+        tickRateMs: context.config.tickRateMs,
+        commandId: command.id,
+        payload: command.payload
       })
     : null;
-  const streetDealersResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && !clinicResolution && !recyclingCenterResolution && !stripClubResolution && !powerStationResolution && !smugglingTunnelResolution && !stockExchangeResolution && !airportResolution && !cityHallResolution && !centralBankResolution && !schoolResolution && context.config.balance.streetDealers
+  const streetDealersResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && !clinicResolution && !recyclingCenterResolution && !stripClubResolution && !powerStationResolution && !smugglingTunnelResolution && !stockExchangeResolution && !airportResolution && !cityHallResolution && !centralBankResolution && !schoolResolution && !lobbyClubResolution && context.config.balance.streetDealers
     ? resolveStreetDealersAction({
         state,
         player,
@@ -201,7 +216,7 @@ export const resolveBuildingActionSpecificResolution = (
         tickRateMs: context.config.tickRateMs
       })
     : null;
-  const specialResolution = casinoResolution ?? exchangeOfficeResolution ?? arcadeResolution ?? apartmentBlockResolution ?? clinicResolution ?? recyclingCenterResolution ?? stripClubResolution ?? powerStationResolution ?? smugglingTunnelResolution ?? stockExchangeResolution ?? airportResolution ?? cityHallResolution ?? centralBankResolution ?? schoolResolution ?? streetDealersResolution;
+  const specialResolution = casinoResolution ?? exchangeOfficeResolution ?? arcadeResolution ?? apartmentBlockResolution ?? clinicResolution ?? recyclingCenterResolution ?? stripClubResolution ?? powerStationResolution ?? smugglingTunnelResolution ?? stockExchangeResolution ?? airportResolution ?? cityHallResolution ?? centralBankResolution ?? schoolResolution ?? lobbyClubResolution ?? streetDealersResolution;
   return {
     casinoResolution,
     exchangeOfficeResolution,
@@ -217,6 +232,7 @@ export const resolveBuildingActionSpecificResolution = (
     cityHallResolution,
     centralBankResolution,
     schoolResolution,
+    lobbyClubResolution,
     streetDealersResolution,
     specialResolution
   };

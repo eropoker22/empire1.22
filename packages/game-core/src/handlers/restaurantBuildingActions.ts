@@ -1,5 +1,6 @@
-import type { FixedBuildingBalanceConfig, RestaurantBalanceConfig } from "../contracts";
+import type { FixedBuildingBalanceConfig, LobbyClubBalanceConfig, RestaurantBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
+import { getOwnedLobbyClubCount } from "./lobbyClubBuildingActions";
 
 export interface RestaurantNetworkMultipliers {
   incomeMultiplier: number;
@@ -52,15 +53,19 @@ export const resolveRestaurantRumorStats = (input: {
   state: CoreGameState;
   playerId: string;
   config: RestaurantBalanceConfig;
+  lobbyClubConfig?: LobbyClubBalanceConfig;
 }) => {
   const restaurantCount = getOwnedRestaurantCount(input.state, input.playerId, input.config);
   const network = resolveRestaurantNetworkMultipliers(restaurantCount, input.config);
   const baseTruthChancePct = resolveTruthChancePct(restaurantCount, input.config);
+  const lobbyTruthBonusPct = input.lobbyClubConfig && getOwnedLobbyClubCount(input.state, input.playerId, input.lobbyClubConfig) > 0
+    ? input.lobbyClubConfig.civilNetworkSupport.restaurantCivilRumorTruthPct
+    : 0;
   return {
     restaurantCount,
     network,
     passiveRumorChancePct: Math.min(100, input.config.baseRumorChancePct * network.rumorMultiplier),
-    truthChancePct: Math.min(100, baseTruthChancePct),
+    truthChancePct: Math.min(100, baseTruthChancePct + lobbyTruthBonusPct),
     districtHintChancePct: input.config.districtHintChancePct,
     buildingHintChancePct: input.config.buildingHintChancePct,
     reliabilityVisible: false
@@ -98,7 +103,8 @@ export const applyRestaurantIncomeModifiers = (input: {
 export const applyRestaurantPassiveRumors = (
   state: CoreGameState,
   config: RestaurantBalanceConfig,
-  tickRateMs: number
+  tickRateMs: number,
+  lobbyClubConfig?: LobbyClubBalanceConfig
 ): CoreGameState => {
   const intervalTicks = minutesToTicks(config.passiveRumorIntervalMinutes, tickRateMs);
   let buildingsById = state.buildingsById;
@@ -118,7 +124,7 @@ export const applyRestaurantPassiveRumors = (
     if ((metadata.lastPassiveRumorCheckTick ?? -Infinity) + intervalTicks > state.root.tick) {
       continue;
     }
-    const stats = resolveRestaurantRumorStats({ state, playerId: building.ownerPlayerId, config });
+    const stats = resolveRestaurantRumorStats({ state, playerId: building.ownerPlayerId, config, lobbyClubConfig });
     metadata.lastPassiveRumorCheckTick = state.root.tick;
     if (deterministicRollPct(`${building.id}:restaurant-passive-rumor:${state.root.tick}`) < stats.passiveRumorChancePct) {
       metadata.rumorEvents.push(generateRestaurantRumor({

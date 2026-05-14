@@ -14,6 +14,7 @@ import { applyConvenienceStorePassiveRumors } from "../../handlers/convenienceSt
 import { applyExchangeOfficeAuditChecks } from "../../handlers/exchangeOfficeBuildingActions";
 import { applyRestaurantPassiveRumors } from "../../handlers/restaurantBuildingActions";
 import { applySchoolStudentProduction } from "../../handlers/schoolBuildingActions";
+import { applyLobbyClubScandalChecks } from "../../handlers/lobbyClubBuildingActions";
 import {
   applySmugglingTunnelBatchProduction
 } from "../../handlers/smugglingTunnelBuildingActions";
@@ -108,14 +109,17 @@ export const collectIncome = (state: CoreGameState, context?: GameCoreContext): 
     ? applyStripClubPassiveRumors(smugglingTunnelState, context.config.balance.stripClub, context.config.tickRateMs)
     : smugglingTunnelState;
   const restaurantRumorState = context?.config.balance.restaurant
-    ? applyRestaurantPassiveRumors(stripClubRumorState, context.config.balance.restaurant, context.config.tickRateMs)
+    ? applyRestaurantPassiveRumors(stripClubRumorState, context.config.balance.restaurant, context.config.tickRateMs, context.config.balance.lobbyClub)
     : stripClubRumorState;
   const convenienceRumorState = context?.config.balance.convenienceStore
-    ? applyConvenienceStorePassiveRumors(restaurantRumorState, context.config.balance.convenienceStore, context.config.tickRateMs, context.config.balance.restaurant)
+    ? applyConvenienceStorePassiveRumors(restaurantRumorState, context.config.balance.convenienceStore, context.config.tickRateMs, context.config.balance.restaurant, context.config.balance.lobbyClub)
     : restaurantRumorState;
-  return context?.config.balance.vipLounge
-    ? applyVipLoungePassiveRumors(convenienceRumorState, context.config.balance.vipLounge, context.config.tickRateMs)
+  const vipLoungeRumorState = context?.config.balance.vipLounge
+    ? applyVipLoungePassiveRumors(convenienceRumorState, context.config.balance.vipLounge, context.config.tickRateMs, context.config.balance.lobbyClub)
     : convenienceRumorState;
+  return context?.config.balance.lobbyClub
+    ? applyLobbyClubScandalChecks(vipLoungeRumorState, context.config.balance.lobbyClub, context.config.tickRateMs)
+    : vipLoungeRumorState;
 };
 
 const createPlayerResourceState = (

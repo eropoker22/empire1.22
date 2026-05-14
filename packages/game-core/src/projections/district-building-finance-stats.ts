@@ -14,6 +14,18 @@ import {
   resolveCityHallScandalRiskPct
 } from "../handlers/cityHallBuildingActions";
 import {
+  getOwnedCourthouseCount,
+  resolveCourthouseTier
+} from "../handlers/courthouseBuildingActions";
+import {
+  getLobbyClubMetadata,
+  getOwnedLobbyClubCount,
+  resolveLobbyClubInfluenceActionCostReductionPct,
+  resolveLobbyClubNegativeRumorReductionPct,
+  resolveLobbyClubScandalRiskPct,
+  resolveLobbyClubTier
+} from "../handlers/lobbyClubBuildingActions";
+import {
   getOwnedShoppingMallCount,
   resolveShoppingMallMarketBonuses,
   resolveShoppingMallNetworkMultipliers
@@ -165,7 +177,69 @@ export const createFinanceBuildingStats = (input: BuildingStatsProjectionInput):
       { label: "Městská zakázka", value: Number(metadata.cityContractBlockedUntilTick || 0) > input.tick ? `blocked ${formatTickLabel(Number(metadata.cityContractBlockedUntilTick) - input.tick)}` : "available" }
     ];
   }
+  if (input.building.buildingTypeId === "lobby_club" && input.lobbyClubConfig && input.building.ownerPlayerId) {
+    const metadata = getLobbyClubMetadata(input.building, input.tick);
+    const ownedCount = getOwnedLobbyClubCount(input.state, input.building.ownerPlayerId, input.lobbyClubConfig);
+    const tier = resolveLobbyClubTier(ownedCount, input.lobbyClubConfig);
+    const scandalRiskPct = resolveLobbyClubScandalRiskPct({
+      state: input.state,
+      building: input.building,
+      config: input.lobbyClubConfig,
+      tick: input.tick
+    });
+    const influenceCostReductionPct = resolveLobbyClubInfluenceActionCostReductionPct({
+      state: input.state,
+      playerId: input.building.ownerPlayerId,
+      config: input.lobbyClubConfig,
+      tick: input.tick
+    });
+    const negativeRumorReductionPct = resolveLobbyClubNegativeRumorReductionPct({
+      state: input.state,
+      playerId: input.building.ownerPlayerId,
+      config: input.lobbyClubConfig,
+      tick: input.tick
+    });
+    return [
+      { label: "Clean / min", value: `$${formatNumber(input.lobbyClubConfig.cleanCashPerMinute * (tier?.incomeMultiplier ?? 1))}` },
+      { label: "Influence / min", value: formatNumber(input.lobbyClubConfig.influencePerMinute * (tier?.influenceMultiplier ?? 1)) },
+      { label: "Heat / min", value: formatNumber(input.lobbyClubConfig.heatPerMinute * (tier?.heatMultiplier ?? 1)) },
+      { label: "Owned Lobby Clubs", value: `${ownedCount}/${input.lobbyClubConfig.countOnMap}` },
+      { label: "Lobby Pressure", value: `+${formatNumber(tier?.pressurePct ?? 0)} %` },
+      { label: "Influence action cost", value: `-${formatNumber(influenceCostReductionPct)} % cap -${formatNumber(input.lobbyClubConfig.influenceCostReduction.maxCombinedPct)} %` },
+      { label: "Negative rumor chance", value: `-${formatNumber(negativeRumorReductionPct)} % relative` },
+      { label: "Civil network support", value: `restaurant truth +${formatNumber(input.lobbyClubConfig.civilNetworkSupport.restaurantCivilRumorTruthPct)} %, hints +${formatNumber(input.lobbyClubConfig.civilNetworkSupport.convenienceDistrictHintChancePct)} %, market fee -${formatNumber(input.lobbyClubConfig.civilNetworkSupport.shoppingMallMarketFeeReductionPct)} %, VIP truth +${formatNumber(input.lobbyClubConfig.civilNetworkSupport.vipLoungeTruthChancePct)} %` },
+      { label: "Lobby Scandal Risk", value: `${formatNumber(scandalRiskPct)} %` },
+      { label: "Zákulisní tlak", value: Number(metadata.backroomPressureExpiresAtTick || 0) > input.tick ? `active ${formatTickLabel(Number(metadata.backroomPressureExpiresAtTick) - input.tick)}` : "inactive" },
+      { label: "Mediální clona", value: Number(metadata.mediaScreenExpiresAtTick || 0) > input.tick ? `active ${formatTickLabel(Number(metadata.mediaScreenExpiresAtTick) - input.tick)}` : "inactive" },
+      { label: "Next influence discount", value: Number(metadata.nextInfluenceDiscountExpiresAtTick || 0) > input.tick ? `-${formatNumber(metadata.nextInfluenceDiscountPct ?? 0)} % ${formatTickLabel(Number(metadata.nextInfluenceDiscountExpiresAtTick) - input.tick)}` : "none" },
+      { label: "Zákulisní tlak cooldown", value: formatCooldown(input.building, input.lobbyClubConfig.backroomPressure.actionId, input.tick) },
+      { label: "Tiché vyjednávání cooldown", value: formatCooldown(input.building, input.lobbyClubConfig.quietNegotiation.actionId, input.tick) },
+      { label: "Mediální clona cooldown", value: formatCooldown(input.building, input.lobbyClubConfig.mediaScreen.actionId, input.tick) }
+    ];
+  }
+  if (input.building.buildingTypeId === "court" && input.courthouseConfig) {
+    const ownedCount = getOwnedCourthouseCount(input.state, input.building.ownerPlayerId ?? input.playerId, input.courthouseConfig);
+    const tier = resolveCourthouseTier(ownedCount, input.courthouseConfig);
+    return [
+      { label: "Clean / min", value: `$${formatNumber(input.courthouseConfig.cleanCashPerMinute * (tier?.cleanIncomeMultiplier ?? 1))}` },
+      { label: "Influence / min", value: formatNumber(input.courthouseConfig.influencePerMinute * (tier?.influenceMultiplier ?? 1)) },
+      { label: "Heat / min", value: formatNumber(input.courthouseConfig.heatPerMinute * (tier?.heatMultiplier ?? 1)) },
+      { label: "Owned courts", value: `${ownedCount}/${input.courthouseConfig.countOnMap}` },
+      { label: "Clean income multiplier", value: `x${formatNumber(tier?.cleanIncomeMultiplier ?? 1)}` },
+      { label: "Influence multiplier", value: `x${formatNumber(tier?.influenceMultiplier ?? 1)}` },
+      { label: "Police raid consequences", value: `-${formatNumber(tier?.policeRaidConsequencesReductionPct ?? 0)} %` }
+    ];
+  }
   return null;
+};
+
+const formatCooldown = (
+  building: CoreGameState["buildingsById"][string],
+  actionId: string,
+  tick: number
+): string => {
+  const remainingTicks = Math.max(0, Number((building.actionCooldowns ?? {})[actionId] || 0) - tick);
+  return remainingTicks > 0 ? formatTickLabel(remainingTicks) : "ready";
 };
 const resolveCentralBankOversightRiskForUi = (
   state: CoreGameState,

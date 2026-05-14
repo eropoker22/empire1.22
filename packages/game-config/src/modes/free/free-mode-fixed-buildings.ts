@@ -7,9 +7,11 @@ import { freeModeCentralBankConfig } from "../../public/free-mode-central-bank-c
 import { freeModeCityHallConfig } from "../../public/free-mode-city-hall-config";
 import { freeModeClinicConfig } from "../../public/free-mode-clinic-config";
 import { freeModeConvenienceStoreConfig } from "../../public/free-mode-convenience-store-config";
+import { freeModeCourthouseConfig } from "../../public/free-mode-courthouse-config";
 import { freeModeExchangeOfficeConfig } from "../../public/free-mode-exchange-office-config";
 import { freeModeFitnessClubConfig } from "../../public/free-mode-fitness-club-config";
 import { freeModeGarageConfig } from "../../public/free-mode-garage-config";
+import { freeModeLobbyClubConfig } from "../../public/free-mode-lobby-club-config";
 import { freeModePowerStationConfig } from "../../public/free-mode-power-station-config";
 import { freeModeRecyclingCenterConfig } from "../../public/free-mode-recycling-center-config";
 import { freeModeRecruitmentCenterConfig } from "../../public/free-mode-recruitment-center-config";
@@ -133,6 +135,20 @@ export const freeModeFixedBuildings: NonNullable<ResolvedGameModeConfig["balance
     dirtyPerHour: 0,
     heatPerDay: freeModeCityHallConfig.heatPerMinute * 60 * 24,
     influencePerDay: freeModeCityHallConfig.influencePerMinute * 60 * 24,
+    maxLevel: 1
+  },
+  lobby_club: {
+    cleanPerHour: freeModeLobbyClubConfig.cleanCashPerMinute * 60,
+    dirtyPerHour: 0,
+    heatPerDay: freeModeLobbyClubConfig.heatPerMinute * 60 * 24,
+    influencePerDay: freeModeLobbyClubConfig.influencePerMinute * 60 * 24,
+    maxLevel: 1
+  },
+  court: {
+    cleanPerHour: freeModeCourthouseConfig.cleanCashPerMinute * 60,
+    dirtyPerHour: 0,
+    heatPerDay: freeModeCourthouseConfig.heatPerMinute * 60 * 24,
+    influencePerDay: freeModeCourthouseConfig.influencePerMinute * 60 * 24,
     maxLevel: 1
   },
   vip_lounge: {

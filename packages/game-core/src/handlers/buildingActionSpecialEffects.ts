@@ -70,10 +70,6 @@ const DEFENSE_LOADOUT_BY_ACTION_ID: Record<string, Partial<Record<DefenseWeaponI
     cameras: 1,
     alarm: 1
   },
-  court_case_pressure: {
-    cameras: 1,
-    alarm: 1
-  },
   clinic_recovery_boost: {
     vest: 1,
     barricades: 1
@@ -103,7 +99,6 @@ const INTEL_EFFECT_BY_ACTION_ID: Record<string, { limit: number; detectDefense: 
 
 const BUILDING_ACTION_MESSAGE_LABELS: Record<string, string> = {
   armory_fortify: "Armory crews",
-  court_case_pressure: "Court pressure",
   clinic_recovery_boost: "Clinic recovery teams",
   school_discipline: "School discipline crews",
   garage_escape_routes: "Garage route crews",

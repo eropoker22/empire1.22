@@ -25,6 +25,12 @@ import {
   applyGarageCooldownReductionTicks,
   resolveGarageCategoryForBuildingAction
 } from "./garageBuildingActions";
+import {
+  consumeLobbyClubNextInfluenceDiscount,
+  getOwnedLobbyClubCount,
+  hasLobbyClubNextInfluenceDiscount,
+  resolveLobbyClubInfluenceActionCostReductionPct
+} from "./lobbyClubBuildingActions";
 import { createPlayerPoliceState, resolveWantedLevel } from "./playerPoliceState";
 
 /**
@@ -84,6 +90,7 @@ export const handleUseBuildingAction = (
     cityHallResolution,
     centralBankResolution,
     schoolResolution,
+    lobbyClubResolution,
     streetDealersResolution,
     specialResolution
   } = resolveBuildingActionSpecificResolution({
@@ -120,7 +127,23 @@ export const handleUseBuildingAction = (
         config: context.config.balance.centralBank
       })
     : 0;
-  const influenceReductionPct = Math.min(25, cityHallInfluenceReductionPct + centralBankInfluenceReductionPct);
+  const lobbyClubInfluenceReductionPct = building.buildingTypeId !== "lobby_club" && resolvedAction.influenceChange < 0
+    ? resolveLobbyClubInfluenceActionCostReductionPct({
+        state,
+        playerId: player.id,
+        config: context.config.balance.lobbyClub,
+        tick: state.root.tick
+      })
+    : 0;
+  const lobbyClubNextDiscountConsumed = building.buildingTypeId !== "lobby_club" && resolvedAction.influenceChange < 0
+    ? hasLobbyClubNextInfluenceDiscount({
+        state,
+        playerId: player.id,
+        config: context.config.balance.lobbyClub,
+        tick: state.root.tick
+      })
+    : false;
+  const influenceReductionPct = Math.min(25, cityHallInfluenceReductionPct + centralBankInfluenceReductionPct + lobbyClubInfluenceReductionPct);
   if (influenceReductionPct > 0) {
     resolvedAction = {
       ...resolvedAction,
@@ -165,6 +188,21 @@ export const handleUseBuildingAction = (
       [resolvedAction.actionId]: state.root.tick + cooldownTicks
     },
     version: building.version + 1
+  };
+  const consumedLobbyDiscountPatches = lobbyClubNextDiscountConsumed
+    ? consumeLobbyClubNextInfluenceDiscount({
+        state,
+        playerId: player.id,
+        config: context.config.balance.lobbyClub,
+        tick: state.root.tick
+      })
+    : {};
+  const specialBuildingPatches = readSpecialBuildingPatches(specialResolution);
+  const patchedBuildingsById = {
+    ...state.buildingsById,
+    ...specialBuildingPatches,
+    ...consumedLobbyDiscountPatches,
+    [building.id]: nextBuilding
   };
   const baseNextDistrict = {
     ...district,
@@ -226,6 +264,7 @@ export const handleUseBuildingAction = (
     airportResult: airportResolution?.airportResult,
     cityHallResult: cityHallResolution?.cityHallResult,
     centralBankResult: centralBankResolution?.centralBankResult,
+    lobbyClubResult: lobbyClubResolution?.lobbyClubResult,
     stockExchangeResult: stockExchangeResolution?.stockExchangeResult,
     schoolResult: schoolResolution?.schoolResult,
     streetDealerResult: streetDealersResolution?.streetDealerResult
@@ -252,8 +291,7 @@ export const handleUseBuildingAction = (
         [district.id]: nextDistrict
       },
       buildingsById: {
-        ...state.buildingsById,
-        [building.id]: nextBuilding
+        ...patchedBuildingsById
       },
       resourceStatesById: {
         ...state.resourceStatesById,
@@ -299,6 +337,7 @@ export const handleUseBuildingAction = (
         airportResult: airportResolution?.airportResult,
         cityHallResult: cityHallResolution?.cityHallResult,
         centralBankResult: centralBankResolution?.centralBankResult,
+        lobbyClubResult: lobbyClubResolution?.lobbyClubResult,
         stockExchangeResult: stockExchangeResolution?.stockExchangeResult,
         reportText: resolvedAction.reportText,
         eventId
@@ -327,10 +366,18 @@ const resolveBuildingActionCooldownTicks = (input: {
   }
   const rawTicks = Math.ceil(cooldownMs / Math.max(1, context.config.tickRateMs));
   const baseTicks = Math.max(1, Math.ceil(rawTicks * context.config.balance.cooldownMultiplier));
+  const lobbyCityHallCooldownReductionTicks = context.config.balance.lobbyClub
+    && context.config.balance.cityHall
+    && input.buildingTypeId === context.config.balance.cityHall.buildingTypeId
+    && action.actionId === context.config.balance.cityHall.emergencyDecree.actionId
+    && getOwnedLobbyClubCount(input.state, input.playerId, context.config.balance.lobbyClub) > 0
+    ? Math.ceil(context.config.balance.lobbyClub.synergies.cityHallEmergencyDecreeCooldownMinutes * 60000 / Math.max(1, context.config.tickRateMs))
+    : 0;
+  const synergyAdjustedBaseTicks = Math.max(1, baseTicks - lobbyCityHallCooldownReductionTicks);
   const carDealerCategory = resolveCarDealerCategoryForBuildingAction(input.buildingTypeId, action.actionId);
   if (carDealerCategory) {
     return applyCarDealerCooldownReductionTicks({
-      baseTicks,
+      baseTicks: synergyAdjustedBaseTicks,
       state: input.state,
       playerId: input.playerId,
       config: context.config.balance.carDealer,
@@ -341,13 +388,13 @@ const resolveBuildingActionCooldownTicks = (input: {
   const garageCategory = resolveGarageCategoryForBuildingAction(input.buildingTypeId, action.actionId);
   return garageCategory
     ? applyGarageCooldownReductionTicks({
-        baseTicks,
+        baseTicks: synergyAdjustedBaseTicks,
         state: input.state,
         playerId: input.playerId,
         config: context.config.balance.garage,
         category: garageCategory
       })
-    : baseTicks;
+    : synergyAdjustedBaseTicks;
 };
 
 const createPlayerResourceState = (
@@ -362,6 +409,13 @@ const createPlayerResourceState = (
   lastUpdatedTick: tick,
   version: 1
 });
+
+const readSpecialBuildingPatches = (
+  specialResolution: unknown
+): Record<string, CoreGameState["buildingsById"][string]> =>
+  specialResolution && typeof specialResolution === "object" && "buildingPatchesById" in specialResolution
+    ? ((specialResolution as { buildingPatchesById?: Record<string, CoreGameState["buildingsById"][string]> }).buildingPatchesById ?? {})
+    : {};
 
 const createDistrictBuildingActionEffectState = (input: {
   state: CoreGameState;

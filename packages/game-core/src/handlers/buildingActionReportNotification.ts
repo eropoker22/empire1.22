@@ -26,6 +26,7 @@ export interface BuildingActionReportNotificationInput {
   airportResult?: Record<string, unknown>;
   cityHallResult?: Record<string, unknown>;
   centralBankResult?: Record<string, unknown>;
+  lobbyClubResult?: Record<string, unknown>;
   schoolResult?: Record<string, unknown>;
   streetDealerResult?: Record<string, unknown>;
   stockExchangeResult?: Record<string, unknown>;
@@ -86,6 +87,7 @@ export const createBuildingActionReportNotification = (
       airportResult: input.airportResult,
       cityHallResult: input.cityHallResult,
       centralBankResult: input.centralBankResult,
+      lobbyClubResult: input.lobbyClubResult,
       schoolResult: input.schoolResult,
       streetDealerResult: input.streetDealerResult,
       stockExchangeResult: input.stockExchangeResult,

@@ -2,6 +2,7 @@ import {
   getAuthoritySession,
   updateStoredPreviewSession
 } from "./model/authority-state.js";
+import { STORAGE_KEYS } from "../config.js";
 
 export const SERVER_CATALOG = Object.freeze([
   {
@@ -143,6 +144,20 @@ export function ensureIdentity() {
 export function ensureLobbySelection() {
   const registration = getRegistrationDraft();
   return Boolean(registration?.serverId && registration?.startDistrictId);
+}
+
+export function clearAuthSession() {
+  window.localStorage.removeItem(STORAGE_KEYS.token);
+  window.localStorage.removeItem(STORAGE_KEYS.structure);
+
+  return updateStoredPreviewSession((session) => ({
+    ...session,
+    registration: null,
+    world: {
+      ...session.world,
+      ownedDistrictIds: []
+    }
+  }));
 }
 
 export function saveLoginStep({ identity, isGuest = false, gangName = "", mode = "" }) {

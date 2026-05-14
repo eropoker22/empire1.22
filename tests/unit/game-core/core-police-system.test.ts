@@ -160,6 +160,80 @@ describe("core police system completion", () => {
     expect(secondResolve.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(780);
   });
 
+  it("mitigates police raid consequences when the player owns courthouses", () => {
+    const state = createCoreStateFixture();
+    addPoliceState(state, 150);
+    const targetBuilding = createFixedBuildingFixture("pharmacy");
+    const firstCourt = createFixedBuildingFixture("court", {
+      id: "building:district-legal:court:1",
+      districtId: "district:legal"
+    });
+    const secondCourt = createFixedBuildingFixture("court", {
+      id: "building:district-legal:court:2",
+      districtId: "district:legal"
+    });
+    state.buildingsById[targetBuilding.id] = targetBuilding;
+    state.buildingsById[firstCourt.id] = firstCourt;
+    state.buildingsById[secondCourt.id] = secondCourt;
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      heat: 70,
+      buildingIds: [targetBuilding.id]
+    };
+    state.resourceStatesById["resource:1"] = {
+      ...state.resourceStatesById["resource:1"],
+      balances: {
+        cash: 1000,
+        "dirty-cash": 1000,
+        chemicals: 50
+      }
+    };
+
+    const triggered = triggerRaid(state, createContext());
+    const raid = triggered.nextState.policeStatesById["police:1"].pendingRaids?.[0];
+    const resolved = resolvePendingRaid(triggered.nextState, "player:1", raid!.raidId, createContext());
+    const balances = resolved.nextState.resourceStatesById["resource:1"].balances;
+
+    expect(raid?.previewConsequences.courthouseMitigation).toMatchObject({
+      source: "courthouse",
+      ownedCount: 2,
+      reductionPct: 75,
+      originalConsequences: {
+        seizedDirtyCash: 220,
+        seizedResources: {
+          chemicals: 5
+        },
+        lockdownTicks: 24,
+        buildingDisruptionTicks: 18
+      }
+    });
+    expect(resolved.result).toMatchObject({
+      seizedDirtyCash: 55,
+      seizedResources: {
+        chemicals: 1
+      },
+      lockedDistrictId: "district:1",
+      disruptedBuildingIds: [targetBuilding.id],
+      buildingDisruptionUntilTick: 5,
+      heatReducedBy: 55,
+      courthouseMitigation: {
+        reductionPct: 75
+      },
+      message: "Následky razie byly zmírněny díky Soudu."
+    });
+    expect(balances).toMatchObject({
+      cash: 1000,
+      "dirty-cash": 945,
+      chemicals: 49
+    });
+    expect(resolved.nextState.districtsById["district:1"].lockdownUntilTick).toBe(6);
+    expect(resolved.events[0]?.payload).toMatchObject({
+      courthouseMitigation: {
+        reductionPct: 75
+      }
+    });
+  });
+
   it("supports pending to acknowledged to resolved lifecycle", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 130);

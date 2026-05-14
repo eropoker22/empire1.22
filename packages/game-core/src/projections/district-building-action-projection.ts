@@ -7,6 +7,7 @@ import { formatInputSummary, formatResourceLabel, formatTickLabel } from "./dist
 import { getAirportMetadata } from "../handlers/airportBuildingActions";
 import { getCentralBankMetadata } from "../handlers/centralBankBuildingActions";
 import { getCityHallMetadata } from "../handlers/cityHallBuildingActions";
+import { getLobbyClubMetadata } from "../handlers/lobbyClubBuildingActions";
 import { getPowerStationMetadata } from "../handlers/powerStationBuildingActions";
 import { resolveRecyclingCenterSalvageStats } from "../handlers/recyclingCenterBuildingActions";
 import { getStripClubMetadata } from "../handlers/stripClubBuildingActions";
@@ -21,7 +22,7 @@ import {
   getSchoolMetadata,
   isEveningCourseActive
 } from "../handlers/schoolBuildingActions";
-import type { AirportBalanceConfig, CarDealerBalanceConfig, CentralBankBalanceConfig, CityHallBalanceConfig, FitnessClubBalanceConfig, GarageBalanceConfig, PowerStationBalanceConfig, RecruitmentCenterBalanceConfig, RecyclingCenterBalanceConfig, RestaurantBalanceConfig, SchoolBalanceConfig, ShoppingMallBalanceConfig, SmugglingTunnelBalanceConfig, StockExchangeBalanceConfig, StreetDealersBalanceConfig, StripClubBalanceConfig, VipLoungeBalanceConfig } from "../contracts/game-mode-config";
+import type { AirportBalanceConfig, CarDealerBalanceConfig, CentralBankBalanceConfig, CityHallBalanceConfig, CourthouseBalanceConfig, FitnessClubBalanceConfig, GarageBalanceConfig, LobbyClubBalanceConfig, PowerStationBalanceConfig, RecruitmentCenterBalanceConfig, RecyclingCenterBalanceConfig, RestaurantBalanceConfig, SchoolBalanceConfig, ShoppingMallBalanceConfig, SmugglingTunnelBalanceConfig, StockExchangeBalanceConfig, StreetDealersBalanceConfig, StripClubBalanceConfig, VipLoungeBalanceConfig } from "../contracts/game-mode-config";
 import type { ConvenienceStoreBalanceConfig } from "../contracts/game-mode-config";
 
 export interface CreateDistrictPanelBuildingViewsInput {
@@ -37,6 +38,8 @@ export interface CreateDistrictPanelBuildingViewsInput {
   centralBankConfig?: CentralBankBalanceConfig;
   airportConfig?: AirportBalanceConfig;
   cityHallConfig?: CityHallBalanceConfig;
+  courthouseConfig?: CourthouseBalanceConfig;
+  lobbyClubConfig?: LobbyClubBalanceConfig;
   vipLoungeConfig?: VipLoungeBalanceConfig;
   powerStationConfig?: PowerStationBalanceConfig;
   recruitmentCenterConfig?: RecruitmentCenterBalanceConfig;
@@ -73,6 +76,8 @@ export const createDistrictPanelBuildingViews = (
       centralBankConfig: input.centralBankConfig,
       airportConfig: input.airportConfig,
       cityHallConfig: input.cityHallConfig,
+      courthouseConfig: input.courthouseConfig,
+      lobbyClubConfig: input.lobbyClubConfig,
       vipLoungeConfig: input.vipLoungeConfig,
       powerStationConfig: input.powerStationConfig,
       recruitmentCenterConfig: input.recruitmentCenterConfig,
@@ -117,6 +122,8 @@ export const createDistrictPanelBuildingViews = (
         centralBankConfig: input.centralBankConfig,
         airportConfig: input.airportConfig,
         cityHallConfig: input.cityHallConfig,
+        courthouseConfig: input.courthouseConfig,
+        lobbyClubConfig: input.lobbyClubConfig,
         vipLoungeConfig: input.vipLoungeConfig,
         powerStationConfig: input.powerStationConfig,
         recruitmentCenterConfig: input.recruitmentCenterConfig,
@@ -196,6 +203,8 @@ const createBuildingActionViews = (input: {
   centralBankConfig?: CentralBankBalanceConfig;
   airportConfig?: AirportBalanceConfig;
   cityHallConfig?: CityHallBalanceConfig;
+  courthouseConfig?: CourthouseBalanceConfig;
+  lobbyClubConfig?: LobbyClubBalanceConfig;
   vipLoungeConfig?: VipLoungeBalanceConfig;
   powerStationConfig?: PowerStationBalanceConfig;
   recruitmentCenterConfig?: RecruitmentCenterBalanceConfig;
@@ -288,6 +297,14 @@ const createBuildingActionViews = (input: {
         playerBalances: input.playerBalances,
         tick: input.tick
       });
+      const lobbyClubDisabledReason = resolveLobbyClubDisabledReason({
+        district: input.district,
+        building: input.building,
+        action,
+        lobbyClubConfig: input.lobbyClubConfig,
+        playerBalances: input.playerBalances,
+        tick: input.tick
+      });
       const schoolDisabledReason = resolveSchoolDisabledReason({
         state: input.state,
         building: input.building,
@@ -325,10 +342,12 @@ const createBuildingActionViews = (input: {
                           ? cityHallDisabledReason
                           : centralBankDisabledReason
                             ? centralBankDisabledReason
-                            : schoolDisabledReason
-                              ? schoolDisabledReason
-                              : streetDealerDisabledReason
-                                ? streetDealerDisabledReason
+                            : lobbyClubDisabledReason
+                              ? lobbyClubDisabledReason
+                              : schoolDisabledReason
+                                ? schoolDisabledReason
+                                : streetDealerDisabledReason
+                                  ? streetDealerDisabledReason
                               : cooldownRemainingTicks > 0
                                 ? `Cooldown ${formatTickLabel(cooldownRemainingTicks)}.`
                                 : missingCosts.length > 0
@@ -595,6 +614,47 @@ const resolveCentralBankDisabledReason = (input: {
     }
     if (Math.max(0, Number(input.district.influence || 0)) < config.currencyIntervention.costInfluence) {
       return `Need ${config.currencyIntervention.costInfluence} influence.`;
+    }
+  }
+  return null;
+};
+
+const resolveLobbyClubDisabledReason = (input: {
+  district: CoreGameState["districtsById"][string];
+  building: CoreGameState["buildingsById"][string];
+  action: BuildingActionBalanceConfig;
+  lobbyClubConfig?: LobbyClubBalanceConfig;
+  playerBalances: Record<string, number>;
+  tick: number;
+}): string | null => {
+  const config = input.lobbyClubConfig;
+  if (!config || input.building.buildingTypeId !== config.buildingTypeId) return null;
+  const metadata = getLobbyClubMetadata(input.building, input.tick);
+  if (input.action.actionId === config.backroomPressure.actionId) {
+    if (Number(metadata.backroomPressureExpiresAtTick || 0) > input.tick) {
+      return `Zákulisní tlak active ${formatTickLabel(Number(metadata.backroomPressureExpiresAtTick) - input.tick)}.`;
+    }
+    if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.backroomPressure.costCleanCash) {
+      return `Need ${config.backroomPressure.costCleanCash} clean cash.`;
+    }
+    if (Math.max(0, Number(input.district.influence || 0)) < config.backroomPressure.costInfluence) {
+      return `Need ${config.backroomPressure.costInfluence} influence.`;
+    }
+  }
+  if (input.action.actionId === config.quietNegotiation.actionId) {
+    if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.quietNegotiation.costCleanCash) {
+      return `Need ${config.quietNegotiation.costCleanCash} clean cash.`;
+    }
+    if (Math.max(0, Number(input.district.influence || 0)) < config.quietNegotiation.costInfluence) {
+      return `Need ${config.quietNegotiation.costInfluence} influence.`;
+    }
+  }
+  if (input.action.actionId === config.mediaScreen.actionId) {
+    if (Number(metadata.mediaScreenExpiresAtTick || 0) > input.tick) {
+      return `Mediální clona active ${formatTickLabel(Number(metadata.mediaScreenExpiresAtTick) - input.tick)}.`;
+    }
+    if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.mediaScreen.costCleanCash) {
+      return `Need ${config.mediaScreen.costCleanCash} clean cash.`;
     }
   }
   return null;

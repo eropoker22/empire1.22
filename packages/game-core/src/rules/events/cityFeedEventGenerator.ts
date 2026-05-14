@@ -192,7 +192,8 @@ const publicRaidPayload = (payload: EventPayload): EventPayload => ({
   raidId: stringValue(payload.raidId),
   status: stringValue(payload.status),
   seizedDirtyCash: numericValue(payload.seizedDirtyCash ?? safePayload(payload.cashSeized)["dirty-cash"]),
-  heatReduced: numericValue(payload.heatReduced ?? payload.heatReducedBy)
+  heatReduced: numericValue(payload.heatReduced ?? payload.heatReducedBy),
+  courthouseMitigation: safePayload(payload.courthouseMitigation)
 });
 
 const safePayload = (value: unknown): EventPayload =>

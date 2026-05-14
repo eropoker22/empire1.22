@@ -1301,15 +1301,19 @@ body.login-body::after {
   transform: rotate(-4deg);
 }
 
-.terminal-title p:last-child {
-  margin: 18px 0 18px;
-  color: rgba(232, 240, 255, 0.88);
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  line-height: 1.55;
+.terminal-tagline {
+  display: inline-block;
+  margin: 15px 0 16px;
+  padding-left: 14px;
+  border-left: 2px solid rgba(34, 211, 238, 0.52);
+  color: rgba(226, 236, 255, 0.78);
+  font-size: clamp(0.62rem, 0.75vw, 0.74rem);
+  font-weight: 750;
+  letter-spacing: 0.115em;
+  line-height: 1.48;
   text-transform: uppercase;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.84), 0 0 14px rgba(0, 245, 255, 0.18);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.68);
+  opacity: 0.94;
 }
 
 .terminal-tabs {
@@ -1819,8 +1823,12 @@ body.login-body::after {
 .metric {
   --metric-accent: var(--red);
   --metric-accent-soft: rgba(255, 51, 71, 0.18);
+  --metric-circle-size: 76px;
   margin-top: 18px;
-  padding: 10px 10px 12px;
+  padding: 7px 10px 12px;
+  display: grid;
+  grid-template-rows: 22px auto;
+  align-items: start;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
     linear-gradient(90deg, color-mix(in srgb, var(--metric-accent) 10%, transparent), transparent 70%),
@@ -1855,6 +1863,21 @@ body.login-body::after {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   text-shadow: 0 0 10px color-mix(in srgb, var(--metric-accent) 24%, transparent);
+}
+
+.metric .metric-label {
+  width: fit-content;
+  min-height: 18px;
+  justify-self: start;
+  align-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--metric-accent) 68%, rgba(232, 240, 255, 0.74));
+  font-size: 0.48rem;
+  letter-spacing: 0.105em;
+  line-height: 1;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--metric-accent) 24%, transparent);
 }
 
 .metric strong {
@@ -1895,9 +1918,11 @@ body.login-body::after {
 
 .metric-circle {
   --value: 0;
-  width: min(100%, 106px);
+  width: var(--metric-circle-size);
+  max-width: 100%;
   aspect-ratio: 1;
   margin: 0 auto;
+  align-self: start;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -2368,9 +2393,9 @@ body.login-body::after {
     font-size: clamp(2.7rem, 4.4vw, 4.6rem);
   }
 
-  .terminal-title p:last-child {
+  .terminal-tagline {
     margin: 12px 0 12px;
-    font-size: 0.68rem;
+    font-size: 0.62rem;
     line-height: 1.42;
   }
 
@@ -2522,8 +2547,9 @@ body.login-body::after {
     font-size: clamp(2.35rem, 3.8vw, 3.9rem);
   }
 
-  .terminal-title p:last-child {
-    font-size: 0.62rem;
+  .terminal-tagline {
+    margin: 10px 0 11px;
+    font-size: 0.58rem;
   }
 
   .field-shell {
@@ -2635,9 +2661,12 @@ body.login-body::after {
     font-size: clamp(2.45rem, 13.5vw, 3.55rem);
   }
 
-  .terminal-title p:last-child {
-    font-size: 0.68rem;
-    letter-spacing: 0.1em;
+  .terminal-tagline {
+    margin: 10px 0 12px;
+    padding-left: 10px;
+    font-size: 0.58rem;
+    letter-spacing: 0.075em;
+    line-height: 1.42;
   }
 
   .terminal-tabs,
@@ -2672,8 +2701,20 @@ body.login-body::after {
   }
 
   .terminal-actions {
-    flex-direction: column;
-    align-items: center;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .terminal-link {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.42rem;
+    font-size: 0.58rem;
+    letter-spacing: 0.07em;
+    white-space: nowrap;
   }
 
   .mode-card {
@@ -2691,6 +2732,51 @@ body.login-body::after {
 
   .mode-card--war .mode-content {
     text-align: left;
+  }
+
+  .mode-card--war .mode-icon {
+    border-radius: 12px;
+    transform: none;
+    border-color: rgba(255, 43, 214, 0.58);
+    background:
+      linear-gradient(135deg, rgba(255, 43, 214, 0.2), rgba(255, 255, 255, 0.035)),
+      rgba(10, 4, 18, 0.78);
+    box-shadow:
+      inset 0 0 18px rgba(255, 43, 214, 0.1),
+      0 0 18px rgba(255, 43, 214, 0.18);
+  }
+
+  .mode-card--war .mode-icon > span {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform: none;
+    color: transparent;
+    font-size: 0;
+  }
+
+  .mode-card--war .mode-icon > span::before {
+    content: "WAR";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--pink);
+    font-size: 0.92rem;
+    font-weight: 1000;
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 12px rgba(255, 43, 214, 0.42);
+  }
+
+  .mode-card--war .mode-icon > span::after {
+    content: "";
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 13px;
+    height: 2px;
+    background: var(--pink);
+    box-shadow: 0 0 10px rgba(255, 43, 214, 0.48);
   }
 
   .server-status,
@@ -2725,14 +2811,21 @@ body.login-body::after {
   }
 }
 
-@media (max-width: 390px) {
+@media (max-width: 640px) {
+  .metric {
+    --metric-circle-size: 84px;
+  }
+
+  .metric--heat .metric-label,
   .metric--districts .metric-label {
     font-size: 0;
   }
 
+  .metric--heat .metric-label::after,
   .metric--districts .metric-label::after {
     content: attr(data-mobile-label);
     font-size: 0.52rem;
+    line-height: 1;
   }
 }
 

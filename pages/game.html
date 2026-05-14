@@ -1579,10 +1579,10 @@
       <div class="market-popup-shell" data-market-popup hidden>
         <div class="market-popup-backdrop" data-market-popup-close></div>
         <div class="market-popup-card" role="dialog" aria-modal="true" aria-label="Server bazar">
-          <button type="button" class="button market-popup-close" data-market-popup-close aria-label="Zavřít market">✕</button>
           <div class="market-popup-heading">
             <span class="market-popup-eyebrow">Neon Bazaar</span>
             <span class="market-popup-server" data-market-server-badge>Server shard</span>
+            <button type="button" class="button market-popup-close" data-market-popup-close aria-label="Zavřít market">✕</button>
           </div>
           <h3 class="market-popup-title">Serverový bazar</h3>
           <div class="market-popup-tabs" aria-label="Market tabs">
@@ -2039,7 +2039,10 @@
       <div class="storage-popup-shell" data-storage-popup hidden>
         <div class="storage-popup-backdrop" data-storage-popup-close></div>
         <div class="storage-popup-card" role="dialog" aria-modal="true" aria-label="Sklad zbraní">
-          <button type="button" class="button storage-popup-close" data-storage-popup-close aria-label="Zavřít sklad">✕</button>
+          <div class="storage-popup-heading">
+            <span class="storage-popup-eyebrow">Sklad</span>
+            <button type="button" class="button storage-popup-close" data-storage-popup-close aria-label="Zavřít sklad">✕</button>
+          </div>
           <div class="storage-popup-grid">
             <section class="storage-popup-section storage-popup-section--attack">
               <h3 class="storage-popup-subtitle">Útok</h3>

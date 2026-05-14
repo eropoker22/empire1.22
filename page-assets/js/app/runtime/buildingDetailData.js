@@ -115,6 +115,21 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
     info: "Magistrát není gangová základna. Je to místo, kde se zločin mění na razítko. Kdo drží magistrát, nemusí mít vždy větší zbraň. Stačí, když má správný podpis.",
     actions: Object.freeze(["Úřední krytí", "Městská zakázka", "Nouzová vyhláška"])
   }),
+  "lobby klub": Object.freeze({
+    role: "Ultra rare / lobbying / influence / political support",
+    info: "Lobby Club není úřad. Je to místnost vedle úřadu, kde se rozhodne dřív, než někdo zvedne ruku. Kdo drží Lobby Club, nevládne městu přímo. Jen šeptá lidem, kteří městem hýbou.",
+    actions: Object.freeze(["Zákulisní tlak", "Tiché vyjednávání", "Mediální clona"])
+  }),
+  "lobby club": Object.freeze({
+    role: "Ultra rare / lobbying / influence / political support",
+    info: "Lobby Club není úřad. Je to místnost vedle úřadu, kde se rozhodne dřív, než někdo zvedne ruku. Kdo drží Lobby Club, nevládne městu přímo. Jen šeptá lidem, kteří městem hýbou.",
+    actions: Object.freeze(["Zákulisní tlak", "Tiché vyjednávání", "Mediální clona"])
+  }),
+  soud: Object.freeze({
+    role: "Ultra rare / passive legal protection / police raid mitigation / influence",
+    info: "Soud nevypne policii. Jen zařídí, aby její zásah bolel míň. Když máš rozsudky, odklady a správné právníky, i razie ztratí zuby.",
+    actions: Object.freeze([])
+  }),
   "vip salonek": Object.freeze({
     role: "Rare / elite rumors / high truth intel / influence",
     info: "VIP Salonek je luxusní informační uzel. Drby vznikají rychleji a s vyšší pravdivostí než v běžném městském šumu, ale nikdy nejsou stoprocentní jistota.",
@@ -226,6 +241,16 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
     Object.freeze({ cityHallOfficialCover: true, cleanCost: 1500, influenceCost: 25, heat: 2, durationMs: 8 * 60 * 1000, cooldownMs: 20 * 60 * 1000, heatGainReductionPct: 35, policeControlChanceReductionPct: 20, rumorChanceReductionPct: 15, summary: "Cílový vlastněný district dostane politické krytí proti heatu, kontrole a rumorům." }),
     Object.freeze({ cityHallContract: true, influenceCost: 20, heat: 3, cooldownMs: 18 * 60 * 1000, baseRewardCleanCash: 1500, rewardPerLegalBuilding: 120, maxRewardCleanCash: 6500, summary: "Přidá clean cash podle počtu legálních budov hráče." }),
     Object.freeze({ cityHallEmergencyDecree: true, cleanCost: 2500, influenceCost: 40, heat: 8, durationMs: 6 * 60 * 1000, cooldownMs: 28 * 60 * 1000, modes: "night_patrols / suspended_checks / construction_closure", summary: "Spustí krátkou městskou vyhlášku s obranným, policejním nebo zónovým efektem." })
+  ]),
+  "lobby klub": Object.freeze([
+    Object.freeze({ lobbyBackroomPressure: true, cleanCost: 1200, influenceCost: 25, heat: 3, durationMs: 8 * 60 * 1000, cooldownMs: 20 * 60 * 1000, influenceProductionBonusPct: 18, influenceActionCostReductionPct: 10, negativeRumorReductionPct: 15, districtControlPressurePct: 8, summary: "Zákulisní tlak zvedne influence produkci, zlevní influence akce a sníží negativní drby." }),
+    Object.freeze({ lobbyQuietNegotiation: true, cleanCost: 1500, influenceCost: 15, heat: 2, cooldownMs: 24 * 60 * 1000, cooldownRemainingReductionPct: 20, riskReductionPct: 10, nextInfluenceActionDiscountPct: 8, summary: "Tiché vyjednávání zkrátí politický/společenský cooldown, sníží rizika a připraví slevu na další influence akci." }),
+    Object.freeze({ lobbyMediaScreen: true, cleanCost: 2000, heat: 4, durationMs: 8 * 60 * 1000, cooldownMs: 26 * 60 * 1000, negativeRumorReductionPct: 35, truthReductionPct: 15, policeRaidWarningChancePct: 6, summary: "Mediální clona tlumí negativní drby a zlepšuje veřejný obraz hráče." })
+  ]),
+  "lobby club": Object.freeze([
+    Object.freeze({ lobbyBackroomPressure: true, cleanCost: 1200, influenceCost: 25, heat: 3, durationMs: 8 * 60 * 1000, cooldownMs: 20 * 60 * 1000, influenceProductionBonusPct: 18, influenceActionCostReductionPct: 10, negativeRumorReductionPct: 15, districtControlPressurePct: 8, summary: "Zákulisní tlak zvedne influence produkci, zlevní influence akce a sníží negativní drby." }),
+    Object.freeze({ lobbyQuietNegotiation: true, cleanCost: 1500, influenceCost: 15, heat: 2, cooldownMs: 24 * 60 * 1000, cooldownRemainingReductionPct: 20, riskReductionPct: 10, nextInfluenceActionDiscountPct: 8, summary: "Tiché vyjednávání zkrátí politický/společenský cooldown, sníží rizika a připraví slevu na další influence akci." }),
+    Object.freeze({ lobbyMediaScreen: true, cleanCost: 2000, heat: 4, durationMs: 8 * 60 * 1000, cooldownMs: 26 * 60 * 1000, negativeRumorReductionPct: 35, truthReductionPct: 15, policeRaidWarningChancePct: 6, summary: "Mediální clona tlumí negativní drby a zlepšuje veřejný obraz hráče." })
   ]),
   "vip salonek": Object.freeze([]),
   letiste: Object.freeze([

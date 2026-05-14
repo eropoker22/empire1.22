@@ -1,6 +1,7 @@
-import type { FixedBuildingBalanceConfig, VipLoungeBalanceConfig } from "../contracts";
+import type { FixedBuildingBalanceConfig, LobbyClubBalanceConfig, VipLoungeBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { deterministicRollPct, isRecord } from "../utils";
+import { getOwnedLobbyClubCount } from "./lobbyClubBuildingActions";
 import type { VipLoungeMetadata, VipLoungeRumor } from "./vipLoungeTypes";
 
 export type { VipLoungeRumor } from "./vipLoungeTypes";
@@ -30,15 +31,19 @@ export const resolveVipLoungeRumorStats = (input: {
   state: CoreGameState;
   playerId: string;
   config: VipLoungeBalanceConfig;
+  lobbyClubConfig?: LobbyClubBalanceConfig;
 }) => {
   const ownedCount = getOwnedVipLoungeCount(input.state, input.playerId, input.config);
   const tier = resolveVipLoungeNetworkTier(ownedCount, input.config);
+  const lobbyTruthBonusPct = input.lobbyClubConfig && getOwnedLobbyClubCount(input.state, input.playerId, input.lobbyClubConfig) > 0
+    ? input.lobbyClubConfig.civilNetworkSupport.vipLoungeTruthChancePct + input.lobbyClubConfig.synergies.vipLoungeTruthChancePct
+    : 0;
   return {
     ownedCount,
     tier,
     passiveRumorChancePct: input.config.passiveRumor.baseChancePct,
     rumorIntervalMinutes: tier.rumorIntervalMinutes,
-    truthChancePct: tier.truthChancePct,
+    truthChancePct: Math.min(100, tier.truthChancePct + lobbyTruthBonusPct),
     districtHintChancePct: tier.districtHintChancePct,
     buildingHintChancePct: tier.buildingHintChancePct,
     reliabilityLabelChancePct: tier.reliabilityLabelChancePct
@@ -76,14 +81,15 @@ export const applyVipLoungeIncomeModifiers = (input: {
 export const applyVipLoungePassiveRumors = (
   state: CoreGameState,
   config: VipLoungeBalanceConfig,
-  tickRateMs: number
+  tickRateMs: number,
+  lobbyClubConfig?: LobbyClubBalanceConfig
 ): CoreGameState => {
   let buildingsById = state.buildingsById;
   let changed = false;
 
   for (const building of Object.values(state.buildingsById)) {
     if (building.buildingTypeId !== config.buildingTypeId || building.status !== "active" || !building.ownerPlayerId) continue;
-    const stats = resolveVipLoungeRumorStats({ state, playerId: building.ownerPlayerId, config });
+    const stats = resolveVipLoungeRumorStats({ state, playerId: building.ownerPlayerId, config, lobbyClubConfig });
     const intervalTicks = minutesToTicks(stats.rumorIntervalMinutes, tickRateMs);
     const metadata = cleanupVipLoungeMetadata(getVipLoungeMetadata(building));
     if (metadata.lastPassiveRumorCheckTick === undefined) {

@@ -20,6 +20,7 @@ export interface RaidConsequencesResult {
   disruptedBuildingIds: string[];
   buildingDisruptionUntilTick: number | null;
   heatReducedBy: number;
+  courthouseMitigation?: PoliceRaidPreviewConsequences["courthouseMitigation"];
   message: string;
   eventId: string;
 }
@@ -47,6 +48,7 @@ export const applyRaidConsequences = (
     disruptedBuildingIds: [],
     buildingDisruptionUntilTick: null,
     heatReducedBy: 0,
+    courthouseMitigation: null,
     message: "Police raid had no valid target.",
     eventId
   };
@@ -93,6 +95,7 @@ export const applyRaidConsequences = (
     disruptedBuildingIds: preview.disruptedBuildingIds,
     buildingDisruptionUntilTick: preview.buildingDisruptionUntilTick ?? null,
     heatReducedBy: preview.heatReducedBy,
+    courthouseMitigation: preview.courthouseMitigation ?? null,
     message: createRaidResultMessage(preview),
     eventId
   };
@@ -140,7 +143,8 @@ const applyResolvedRaidToPoliceState = (
             lockdownUntilTick: result.lockdownUntilTick,
             disruptedBuildingIds: result.disruptedBuildingIds,
             buildingDisruptionUntilTick: result.buildingDisruptionUntilTick,
-            heatReducedBy: result.heatReducedBy
+            heatReducedBy: result.heatReducedBy,
+            courthouseMitigation: result.courthouseMitigation ?? null
           }
         }
       : entry
@@ -181,11 +185,15 @@ const createPoliceEvent = (
     lockdownUntilTick: result.lockdownUntilTick,
     disruptedBuildingIds: result.disruptedBuildingIds,
     buildingDisruptionUntilTick: result.buildingDisruptionUntilTick,
-    heatReducedBy: result.heatReducedBy
+    heatReducedBy: result.heatReducedBy,
+    courthouseMitigation: result.courthouseMitigation ?? null
   }
 });
 
 const createRaidResultMessage = (preview: PoliceRaidPreviewConsequences): string => {
+  if (preview.courthouseMitigation?.reductionPct) {
+    return "Následky razie byly zmírněny díky Soudu.";
+  }
   const seizedResourceCount = Object.values(preview.seizedResources).reduce((total, amount) => total + amount, 0);
   if (preview.seizedDirtyCash <= 0 && seizedResourceCount <= 0 && !preview.lockedDistrictId) {
     return "Razie nic nenašla. Město si tě ale zapsalo.";

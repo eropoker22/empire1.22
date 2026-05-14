@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyCommand, buyResource, calculateMarketPrice, collectIncome, completeProduction, createConflictReportViews, runTick } from "@empire/game-core";
-import { getAllPublicBuildingDefinitions, resolveDistrictBuildingTypes, resolveModeConfig } from "@empire/game-config";
+import { getAllPublicBuildingDefinitions, getPublicBuildingCatalog, resolveDistrictBuildingTypes, resolveModeConfig } from "@empire/game-config";
 import {
   createCoreStateWithFixedBuildingFixture,
   createDistrictFixture,
@@ -78,6 +78,7 @@ describe("run-building-action command flow", () => {
         || definition.buildingTypeId === "car_dealer"
         || definition.buildingTypeId === "fitness_club"
         || definition.buildingTypeId === "vip_lounge"
+        || definition.buildingTypeId === "court"
       ) {
         expect(definition.specialActions).toHaveLength(0);
       } else {
@@ -532,6 +533,102 @@ describe("run-building-action command flow", () => {
     expect(intervention.nextState.buildingsById[building.id].metadata?.centralBank).toMatchObject({
       currencyInterventions: [{ category: "materials", volatilityReductionPct: 30, stockExchangeEffectReductionPct: 25 }],
       riskEvents: [{ actionId: "currency_intervention", riskPct: 12 }]
+    });
+  });
+
+  it("runs Lobby Club as clean influence building with pressure actions and no dirty production", () => {
+    const { state, building } = createStateWithFixedBuilding("lobby_club", {
+      playerBalances: {
+        cash: 5000,
+        "dirty-cash": 300
+      }
+    });
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      influence: 80
+    };
+    const passive = collectIncome(state, context);
+
+    expect(passive.resourceStatesById["resource:1"].balances.cash).toBeGreaterThan(5000);
+    expect(passive.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(300);
+    expect(passive.districtsById["district:1"].heat).toBeGreaterThan(0);
+    expect(passive.districtsById["district:1"].influence).toBeGreaterThan(80);
+    expect(context.config.balance.lobbyClub).toMatchObject({
+      countOnMap: 2,
+      zone: "downtown",
+      noIntelPower: true,
+      noDirtyCash: true,
+      noPopulationProduction: true,
+      noLaundering: true,
+      noAuditRisk: true,
+      dirtyCashPerMinute: 0,
+      populationPerMinute: 0
+    });
+
+    const pressure = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:lobby:pressure",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "backroom_pressure"
+        }
+      }),
+      context
+    );
+    const pressureReport = createConflictReportViews(pressure.nextState, { playerId: "player:1", limit: 1 })[0];
+
+    expect(pressure.errors).toEqual([]);
+    expect(pressure.nextState.resourceStatesById["resource:1"].balances.cash).toBe(3800);
+    expect(pressure.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(300);
+    expect(pressure.nextState.districtsById["district:1"].heat).toBe(3);
+    expect(pressure.nextState.districtsById["district:1"].influence).toBe(55);
+    expect(pressure.nextState.buildingsById[building.id].metadata?.lobbyClub).toMatchObject({
+      backroomPressureExpiresAtTick: 96,
+      riskEvents: [{ actionId: "backroom_pressure", riskPct: 8 }]
+    });
+    expect(pressure.nextState.buildingsById[building.id].actionCooldowns.backroom_pressure).toBe(192);
+    expect(pressureReport).toMatchObject({
+      buildingActionId: "backroom_pressure",
+      lobbyClubResult: {
+        type: "backroom_pressure",
+        influenceProductionBonusPct: 18,
+        influenceActionCostReductionPct: 10
+      }
+    });
+
+    const quietState = {
+      ...state,
+      buildingsById: {
+        ...state.buildingsById,
+        [building.id]: {
+          ...building,
+          actionCooldowns: {}
+        }
+      }
+    };
+    const quiet = applyCommand(
+      quietState,
+      createRunBuildingActionCommandFixture({
+        id: "command:lobby:quiet",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "quiet_negotiation"
+        }
+      }),
+      context
+    );
+
+    expect(quiet.errors).toEqual([]);
+    expect(quiet.nextState.resourceStatesById["resource:1"].balances.cash).toBe(3500);
+    expect(quiet.nextState.districtsById["district:1"].influence).toBe(65);
+    expect(quiet.nextState.buildingsById[building.id].metadata?.lobbyClub).toMatchObject({
+      riskReductionExpiresAtTick: 96,
+      nextInfluenceDiscountPct: 8,
+      nextInfluenceDiscountExpiresAtTick: 96,
+      riskEvents: [{ actionId: "quiet_negotiation", riskPct: 6 }]
     });
   });
 
@@ -1992,35 +2089,34 @@ describe("run-building-action command flow", () => {
     expect(produced.districtsById["district:1"].influence).toBe(0);
   });
 
-  it("adds real district defense from non-production building actions", () => {
-    const { state, building } = createStateWithFixedBuilding("court");
-
-    const result = applyCommand(
-      state,
-      createRunBuildingActionCommandFixture({
-        payload: {
-          districtId: "district:1",
-          buildingId: building.id,
-          actionId: "court_case_pressure"
-        }
-      }),
-      context
-    );
-    const report = createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })[0];
-
-    expect(result.errors).toEqual([]);
-    expect(result.nextState.districtsById["district:1"].defenseLoadout).toMatchObject({
-      cameras: 1,
-      alarm: 1
-    });
-    expect(report).toMatchObject({
-      reportType: "building-action",
-      buildingActionId: "court_case_pressure",
-      defenseAdded: {
-        cameras: 1,
-        alarm: 1
+  it("keeps courthouse as passive clean legal protection without special actions", () => {
+    const { state, building } = createStateWithFixedBuilding("court", {
+      playerBalances: {
+        cash: 0,
+        "dirty-cash": 0
       }
     });
+
+    const produced = collectIncome(state, context);
+    const definition = getPublicBuildingCatalog("free").find((entry) => entry.buildingTypeId === "court");
+
+    expect(context.config.balance.courthouse).toMatchObject({
+      id: "courthouse",
+      buildingTypeId: "court",
+      countOnMap: 2,
+      noSpecialActions: true,
+      noDirtyCash: true,
+      noPopulationProduction: true,
+      noIntelPower: true,
+      noLaundering: true,
+      noAuditRisk: true
+    });
+    expect(definition?.specialActions).toEqual([]);
+    expect(produced.resourceStatesById["resource:1"].balances.cash).toBeGreaterThan(0);
+    expect(produced.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(0);
+    expect(produced.districtsById["district:1"].heat).toBeGreaterThan(0);
+    expect(produced.districtsById["district:1"].influence).toBeGreaterThan(0);
+    expect(produced.buildingsById[building.id].actionCooldowns).toEqual({});
   });
 
   it("activates smuggling tunnel open channel and blocks stacking while active", () => {

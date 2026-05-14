@@ -124,6 +124,7 @@ const mapNotificationToReport = (notification: Notification): ConflictReportView
       airportResult: asUnknownRecord(payload.airportResult),
       cityHallResult: asUnknownRecord(payload.cityHallResult),
       centralBankResult: asUnknownRecord(payload.centralBankResult),
+      lobbyClubResult: asUnknownRecord(payload.lobbyClubResult),
       schoolResult: asUnknownRecord(payload.schoolResult),
       streetDealerResult: asUnknownRecord(payload.streetDealerResult),
       stockExchangeResult: asUnknownRecord(payload.stockExchangeResult),

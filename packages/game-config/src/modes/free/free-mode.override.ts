@@ -10,9 +10,11 @@ import { freeModeCentralBankConfig } from "../../public/free-mode-central-bank-c
 import { freeModeCityHallConfig } from "../../public/free-mode-city-hall-config";
 import { freeModeClinicConfig } from "../../public/free-mode-clinic-config";
 import { freeModeConvenienceStoreConfig } from "../../public/free-mode-convenience-store-config";
+import { freeModeCourthouseConfig } from "../../public/free-mode-courthouse-config";
 import { freeModeExchangeOfficeConfig } from "../../public/free-mode-exchange-office-config";
 import { freeModeFitnessClubConfig } from "../../public/free-mode-fitness-club-config";
 import { freeModeGarageConfig } from "../../public/free-mode-garage-config";
+import { freeModeLobbyClubConfig } from "../../public/free-mode-lobby-club-config";
 import { freeModePowerStationConfig } from "../../public/free-mode-power-station-config";
 import { freeModeRecyclingCenterConfig } from "../../public/free-mode-recycling-center-config";
 import { freeModeSchoolConfig } from "../../public/free-mode-school-config";
@@ -82,6 +84,8 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
     centralBank: freeModeCentralBankConfig,
     airport: freeModeAirportConfig,
     cityHall: freeModeCityHallConfig,
+    courthouse: freeModeCourthouseConfig,
+    lobbyClub: freeModeLobbyClubConfig,
     vipLounge: freeModeVipLoungeConfig,
     fitnessClub: freeModeFitnessClubConfig,
     recruitmentCenter: freeModeRecruitmentCenterConfig,

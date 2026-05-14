@@ -1,7 +1,8 @@
 import type { RunBuildingActionCommand } from "@empire/shared-types";
-import type { BuildingActionBalanceConfig, CityHallBalanceConfig, FixedBuildingBalanceConfig } from "../contracts";
+import type { BuildingActionBalanceConfig, CityHallBalanceConfig, FixedBuildingBalanceConfig, LobbyClubBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import type { CityHallActionResolution } from "./cityHallTypes";
+import { getOwnedLobbyClubCount } from "./lobbyClubBuildingActions";
 import {
   appendRiskEvent,
   countOwnedBuildings,
@@ -73,6 +74,7 @@ export const resolveCityHallAction = (input: {
   balances: Record<string, number>;
   district: CoreGameState["districtsById"][string];
   config: CityHallBalanceConfig;
+  lobbyClubConfig?: LobbyClubBalanceConfig;
   tickRateMs: number;
   commandId: string;
   payload: RunBuildingActionCommand["payload"];
@@ -85,6 +87,13 @@ export const resolveCityHallAction = (input: {
     const targetDistrictId = resolveTargetDistrictId(input.payload, input.district.id);
     const targetDistrict = input.state.districtsById[targetDistrictId];
     const expiresAtTick = input.state.root.tick + minutesToTicks(input.config.officialCover.durationMinutes, input.tickRateMs);
+    const cleanCost = resolveLobbyDiscountedCleanCost(
+      input.config.officialCover.costCleanCash,
+      input.state,
+      input.building.ownerPlayerId,
+      input.lobbyClubConfig?.synergies.cityHallOfficialCoverCostReductionPct,
+      input.lobbyClubConfig
+    );
     const nextMetadata = appendRiskEvent({
       ...metadata,
       officialCoverByDistrictId: {
@@ -99,11 +108,11 @@ export const resolveCityHallAction = (input: {
       }
     }, actionId, input.config.officialCover.riskPct, expiresAtTick, input.state.root.tick);
     return {
-      balances: { ...input.balances, cash: Math.max(0, Number(input.balances.cash || 0) - input.config.officialCover.costCleanCash) },
+      balances: { ...input.balances, cash: Math.max(0, Number(input.balances.cash || 0) - cleanCost) },
       buildingMetadata: withCityHallMetadata(input.building, nextMetadata),
       heatGain: input.config.officialCover.heatGain,
       influenceChange: -input.config.officialCover.costInfluence,
-      inputCost: { cash: input.config.officialCover.costCleanCash },
+      inputCost: { cash: cleanCost },
       outputGain: {},
       reportText: `Úřední krytí je aktivní v districtu ${targetDistrict?.name ?? targetDistrictId} do ticku ${expiresAtTick}.`,
       cityHallResult: {
@@ -113,6 +122,7 @@ export const resolveCityHallAction = (input: {
         heatGainReductionPct: input.config.officialCover.heatGainReductionPct,
         policeControlChanceReductionPct: input.config.officialCover.policeControlChanceReductionPct,
         rumorChanceReductionPct: input.config.officialCover.rumorChanceReductionPct,
+        cleanCashCost: cleanCost,
         corruptionRiskAddedPct: input.config.officialCover.riskPct
       }
     };
@@ -126,7 +136,10 @@ export const resolveCityHallAction = (input: {
       input.config.cityContract.maxRewardCleanCash,
       input.config.cityContract.baseRewardCleanCash + legalBuildingCount * input.config.cityContract.rewardPerLegalBuilding
     );
-    const reward = Math.floor(baseReward * (hasSynergy ? 1 + input.config.cityContract.restaurantConvenienceSynergyPct / 100 : 1));
+    const lobbyRewardMultiplier = hasLobbyClub(input.state, input.building.ownerPlayerId, input.lobbyClubConfig)
+      ? 1 + Number(input.lobbyClubConfig?.synergies.cityHallContractRewardPct || 0) / 100
+      : 1;
+    const reward = Math.floor(baseReward * (hasSynergy ? 1 + input.config.cityContract.restaurantConvenienceSynergyPct / 100 : 1) * lobbyRewardMultiplier);
     const riskExpiresAtTick = input.state.root.tick + minutesToTicks(input.config.cityContract.riskDurationMinutes, input.tickRateMs);
     const nextMetadata = appendRiskEvent(metadata, actionId, input.config.cityContract.riskPct, riskExpiresAtTick, input.state.root.tick);
     return {
@@ -143,6 +156,7 @@ export const resolveCityHallAction = (input: {
         baseRewardCleanCash: input.config.cityContract.baseRewardCleanCash,
         rewardPerLegalBuilding: input.config.cityContract.rewardPerLegalBuilding,
         synergyApplied: hasSynergy,
+        lobbySupportApplied: lobbyRewardMultiplier > 1,
         rewardCleanCash: reward,
         influenceCost: input.config.cityContract.costInfluence,
         corruptionRiskAddedPct: input.config.cityContract.riskPct,
@@ -180,6 +194,24 @@ export const resolveCityHallAction = (input: {
 
   return null;
 };
+
+const hasLobbyClub = (
+  state: CoreGameState,
+  playerId: string | null | undefined,
+  config?: LobbyClubBalanceConfig
+): boolean =>
+  Boolean(config && playerId && getOwnedLobbyClubCount(state, playerId, config) > 0);
+
+const resolveLobbyDiscountedCleanCost = (
+  baseCost: number,
+  state: CoreGameState,
+  playerId: string | null | undefined,
+  reductionPct: number | undefined,
+  config?: LobbyClubBalanceConfig
+): number =>
+  hasLobbyClub(state, playerId, config)
+    ? Math.ceil(baseCost * (1 - Math.max(0, Number(reductionPct || 0)) / 100))
+    : baseCost;
 
 export const validateCityHallAction = (input: {
   state: CoreGameState;

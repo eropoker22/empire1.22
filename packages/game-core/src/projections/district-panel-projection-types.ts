@@ -4,6 +4,8 @@ import type {
   CarDealerBalanceConfig,
   CentralBankBalanceConfig,
   CityHallBalanceConfig,
+  CourthouseBalanceConfig,
+  LobbyClubBalanceConfig,
   ConvenienceStoreBalanceConfig,
   CraftBuildingBalanceConfig,
   FitnessClubBalanceConfig,
@@ -38,6 +40,8 @@ export interface DistrictPanelProjectionInput {
   centralBankConfig?: CentralBankBalanceConfig;
   airportConfig?: AirportBalanceConfig;
   cityHallConfig?: CityHallBalanceConfig;
+  courthouseConfig?: CourthouseBalanceConfig;
+  lobbyClubConfig?: LobbyClubBalanceConfig;
   vipLoungeConfig?: VipLoungeBalanceConfig;
   powerStationConfig?: PowerStationBalanceConfig;
   recruitmentCenterConfig?: RecruitmentCenterBalanceConfig;

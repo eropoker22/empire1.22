@@ -95,6 +95,7 @@ export interface BuildingActionReport {
   airportResult?: Record<string, unknown>;
   cityHallResult?: Record<string, unknown>;
   centralBankResult?: Record<string, unknown>;
+  lobbyClubResult?: Record<string, unknown>;
   schoolResult?: Record<string, unknown>;
   streetDealerResult?: Record<string, unknown>;
   stockExchangeResult?: Record<string, unknown>;

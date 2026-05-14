@@ -5,6 +5,8 @@ import type {
   CarDealerBalanceConfig,
   CentralBankBalanceConfig,
   CityHallBalanceConfig,
+  CourthouseBalanceConfig,
+  LobbyClubBalanceConfig,
   ConvenienceStoreBalanceConfig,
   FitnessClubBalanceConfig,
   GarageBalanceConfig,
@@ -41,6 +43,8 @@ export interface BuildingStatsProjectionInput {
   centralBankConfig?: CentralBankBalanceConfig;
   airportConfig?: AirportBalanceConfig;
   cityHallConfig?: CityHallBalanceConfig;
+  courthouseConfig?: CourthouseBalanceConfig;
+  lobbyClubConfig?: LobbyClubBalanceConfig;
   vipLoungeConfig?: VipLoungeBalanceConfig;
   powerStationConfig?: PowerStationBalanceConfig;
   recruitmentCenterConfig?: RecruitmentCenterBalanceConfig;

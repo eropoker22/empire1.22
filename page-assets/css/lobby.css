@@ -2361,6 +2361,10 @@ body.lobby-command-body {
     display: none;
   }
 
+  .lobby-detail-actions .lobby-primary-cta > span {
+    display: none;
+  }
+
   .lobby-server-detail-card p {
     margin-top: 8px;
     font-size: 0.7rem;

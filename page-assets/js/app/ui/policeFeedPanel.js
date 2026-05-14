@@ -92,8 +92,11 @@ export function renderPoliceFeedPanel(mount, viewModel = {}, callbacks = {}, opt
   const preview = viewModel.previewConsequences && typeof viewModel.previewConsequences === "object"
     ? viewModel.previewConsequences
     : null;
+  const mitigation = preview?.courthouseMitigation && typeof preview.courthouseMitigation === "object"
+    ? preview.courthouseMitigation
+    : null;
   pending.textContent = viewModel.pendingRaid
-    ? `Pending raid: ${safeText(viewModel.pendingRaid.severity, "high")} · dirty cash ${Number(preview?.seizedDirtyCash || 0)} · heat -${Number(preview?.heatReducedBy || 0)}`
+    ? `Pending raid: ${safeText(viewModel.pendingRaid.severity, "high")} · dirty cash ${Number(preview?.seizedDirtyCash || 0)} · heat -${Number(preview?.heatReducedBy || 0)}${mitigation ? ` · Soud -${Number(mitigation.reductionPct || 0)} %` : ""}`
     : safeText(viewModel.recommendedAction, "");
 
   titleWrap.append(eyebrow, title);

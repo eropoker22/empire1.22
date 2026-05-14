@@ -1,6 +1,7 @@
 import type { PoliceRaidPreviewConsequences, PoliceRaidSeverity } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";
 import type { GameCoreContext } from "../../engine/context";
+import { resolveCourthouseRaidMitigation } from "../../handlers/courthouseBuildingActions";
 import { resolvePoliceConfig } from "./policeConfig";
 
 export const createRaidPreviewConsequences = (
@@ -17,26 +18,40 @@ export const createRaidPreviewConsequences = (
   const dirtyCash = sanitizeAmount(balances["dirty-cash"]);
   const dirtyPct = sanitizePercent(config.dirtyCashSeizurePercentBySeverity[severity]);
   let remainingCap = sanitizeOptionalCap(config.maxSeizedPerRaid);
-  const seizedDirtyCash = applySeizureCap(Math.floor(dirtyCash * dirtyPct), remainingCap);
-  remainingCap = reduceCap(remainingCap, seizedDirtyCash);
+  const baseSeizedDirtyCash = applySeizureCap(Math.floor(dirtyCash * dirtyPct), remainingCap);
+  const mitigation = resolveCourthouseRaidMitigation({
+    state,
+    playerId,
+    config: context?.config.balance.courthouse
+  });
+  const consequenceMultiplier = 1 - mitigation.reductionPct / 100;
+  const seizedDirtyCash = mitigateLoss(baseSeizedDirtyCash, consequenceMultiplier);
+  remainingCap = reduceCap(remainingCap, baseSeizedDirtyCash);
   const protectedResources = new Set([...(config.protectedResources ?? []), "dirty-cash"]);
   const resourcePct = sanitizePercent(config.resourceSeizurePercentBySeverity[severity]);
+  const baseSeizedResources: Record<string, number> = {};
   const seizedResources: Record<string, number> = {};
 
   for (const [resourceKey, value] of Object.entries(balances).sort(([left], [right]) => left.localeCompare(right))) {
     if (protectedResources.has(resourceKey)) continue;
-    const seized = applySeizureCap(Math.floor(sanitizeAmount(value) * resourcePct), remainingCap);
-    if (seized <= 0) continue;
-    seizedResources[resourceKey] = seized;
-    remainingCap = reduceCap(remainingCap, seized);
+    const baseSeized = applySeizureCap(Math.floor(sanitizeAmount(value) * resourcePct), remainingCap);
+    if (baseSeized <= 0) continue;
+    baseSeizedResources[resourceKey] = baseSeized;
+    const seized = mitigateLoss(baseSeized, consequenceMultiplier);
+    if (seized > 0) {
+      seizedResources[resourceKey] = seized;
+    }
+    remainingCap = reduceCap(remainingCap, baseSeized);
   }
 
   const targetDistrict = targetDistrictId ? state.districtsById[targetDistrictId] ?? null : null;
   const lockdownTicks = Math.max(0, Math.floor(Number(config.lockdownTicksBySeverity[severity] || 0)));
   const disruptionTicks = Math.max(0, Math.floor(Number(config.buildingDisruptionTicksBySeverity[severity] || 0)));
-  const lockedDistrictId = targetDistrict && lockdownTicks > 0 ? targetDistrict.id : null;
-  const buildingDisruptionUntilTick = targetDistrict && disruptionTicks > 0 ? state.root.tick + disruptionTicks : null;
-  const disruptedBuildingIds = targetDistrict && disruptionTicks > 0
+  const mitigatedLockdownTicks = mitigateDurationTicks(lockdownTicks, consequenceMultiplier);
+  const mitigatedDisruptionTicks = mitigateDurationTicks(disruptionTicks, consequenceMultiplier);
+  const lockedDistrictId = targetDistrict && mitigatedLockdownTicks > 0 ? targetDistrict.id : null;
+  const buildingDisruptionUntilTick = targetDistrict && mitigatedDisruptionTicks > 0 ? state.root.tick + mitigatedDisruptionTicks : null;
+  const disruptedBuildingIds = targetDistrict && mitigatedDisruptionTicks > 0
     ? targetDistrict.buildingIds.filter((buildingId) => {
         const building = state.buildingsById[buildingId];
         return building !== undefined && building.status !== "destroyed";
@@ -52,10 +67,25 @@ export const createRaidPreviewConsequences = (
     seizedDirtyCash,
     seizedResources,
     lockedDistrictId,
-    lockdownUntilTick: lockedDistrictId ? state.root.tick + lockdownTicks : null,
+    lockdownUntilTick: lockedDistrictId ? state.root.tick + mitigatedLockdownTicks : null,
     disruptedBuildingIds,
     buildingDisruptionUntilTick,
-    heatReducedBy
+    heatReducedBy,
+    courthouseMitigation: mitigation.reductionPct > 0
+      ? {
+          source: "courthouse",
+          ownedCount: mitigation.ownedCount,
+          reductionPct: mitigation.reductionPct,
+          message: "Následky razie byly zmírněny díky Soudu.",
+          originalConsequences: {
+            seizedDirtyCash: baseSeizedDirtyCash,
+            seizedResources: baseSeizedResources,
+            lockdownTicks,
+            buildingDisruptionTicks: disruptionTicks,
+            heatReducedBy
+          }
+        }
+      : null
   };
 };
 
@@ -79,3 +109,11 @@ const applySeizureCap = (amount: number, cap: number | null): number =>
 
 const reduceCap = (cap: number | null, amount: number): number | null =>
   cap === null ? null : Math.max(0, cap - amount);
+
+const mitigateLoss = (amount: number, multiplier: number): number =>
+  Math.max(0, Math.floor(amount * multiplier));
+
+const mitigateDurationTicks = (ticks: number, multiplier: number): number => {
+  if (ticks <= 0) return 0;
+  return Math.max(1, Math.ceil(ticks * multiplier));
+};

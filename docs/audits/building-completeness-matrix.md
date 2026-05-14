@@ -32,7 +32,7 @@ Important note: free-mode `fixedBuildings` is merged from base config. A buildin
 | city_hall | yes | yes, base | yes | generic `useBuildingAction` | generic detail/action | catalog wiring only | generic action | config-only | No targeted behavior test. |
 | lobby_club | yes | yes, base | yes | generic + intel effect | generic detail/action | catalog wiring only | generic action | partial | `lobby_club_backroom_deal` has intel-style effect, but no focused test. |
 | stock_exchange | yes | yes, base | yes | generic `useBuildingAction` | generic detail/action | catalog wiring only | generic action | config-only | No targeted behavior test. |
-| court | yes | yes, base | yes | generic + defense effect | generic detail/action | targeted integration | yes | ready | `court_case_pressure` reinforces district defense. |
+| court | yes | yes, base | no, passive | courthouse passive raid mitigation | passive detail | targeted integration | yes | ready | Soud has no special action; mitigates resolved police raid consequences. |
 | vip_lounge | yes | yes, base | yes | generic + intel effect | generic detail/action | catalog wiring only | generic action | partial | Intel effect exists, but no focused test. |
 | airport | yes | yes, base | yes | generic + intel effect | generic detail/action | catalog wiring only | generic action | partial | Intel effect exists, but no focused test. |
 | port | yes | yes, base | yes | generic `useBuildingAction` | generic detail/action | catalog wiring only | generic action | config-only | No targeted behavior test. |

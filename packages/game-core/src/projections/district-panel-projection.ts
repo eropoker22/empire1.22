@@ -65,6 +65,8 @@ export const createDistrictPanelView = (
       centralBankConfig: input.centralBankConfig,
       airportConfig: input.airportConfig,
       cityHallConfig: input.cityHallConfig,
+      courthouseConfig: input.courthouseConfig,
+      lobbyClubConfig: input.lobbyClubConfig,
       vipLoungeConfig: input.vipLoungeConfig,
       powerStationConfig: input.powerStationConfig,
       recruitmentCenterConfig: input.recruitmentCenterConfig,
