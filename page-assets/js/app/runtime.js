@@ -879,6 +879,17 @@ function getStoredRegistration() {
   return getAuthoritySession().registration ?? null;
 }
 
+function isGuestSession(registration = null) {
+  const resolvedRegistration = registration || getStoredRegistration();
+  if (!resolvedRegistration) {
+    return false;
+  }
+  return (
+    resolvedRegistration.loginKind === "guest"
+    || resolvedRegistration.isGuest === true
+  );
+}
+
 function setStoredRegistration(payload) {
   updateStoredPreviewSession((session) => ({ ...session, registration: payload }));
 }
@@ -8838,6 +8849,11 @@ function ensureStartDistrictRecovery() {
 
 function bindFreeSessionOnboarding(root) {
   if (!root || onboardingBridgesByRoot.has(root)) {
+    return false;
+  }
+
+  const registration = getStoredRegistration();
+  if (!isGuestSession(registration)) {
     return false;
   }
 
