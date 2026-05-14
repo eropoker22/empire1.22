@@ -796,6 +796,12 @@ describe("run-building-action command flow", () => {
       influence: 100,
       buildingIds: [building.id, restaurant.id, school.id]
     };
+    state.districtsById["district:2"] = createDistrictFixture({
+      id: "district:2",
+      ownerPlayerId: "player:1",
+      name: "Second District"
+    });
+    state.root.districtIds.push("district:2");
 
     const passive = collectIncome(state, context);
     expect(passive.resourceStatesById["resource:1"].balances.cash).toBeGreaterThan(10000);
@@ -823,6 +829,12 @@ describe("run-building-action command flow", () => {
     expect(cover.nextState.buildingsById[building.id].metadata?.cityHall).toMatchObject({
       officialCoverByDistrictId: {
         "district:1": {
+          heatGainReductionPct: 35,
+          policeControlChanceReductionPct: 20,
+          rumorChanceReductionPct: 15,
+          expiresAtTick: 96
+        },
+        "district:2": {
           heatGainReductionPct: 35,
           policeControlChanceReductionPct: 20,
           rumorChanceReductionPct: 15,

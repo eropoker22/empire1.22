@@ -551,8 +551,12 @@ const resolveCityHallDisabledReason = (input: {
     if (Math.max(0, Number(input.district.influence || 0)) < config.officialCover.costInfluence) {
       return `Need ${config.officialCover.costInfluence} influence.`;
     }
-    if (metadata.officialCoverByDistrictId[input.district.id]?.expiresAtTick > input.tick) {
-      return `Úřední krytí active ${formatTickLabel(metadata.officialCoverByDistrictId[input.district.id].expiresAtTick - input.tick)}.`;
+    const activeCover = Object.values(input.state.districtsById)
+      .filter((district) => district.ownerPlayerId === input.building.ownerPlayerId && district.status !== "destroyed")
+      .map((district) => metadata.officialCoverByDistrictId[district.id])
+      .find((cover) => Number(cover?.expiresAtTick || 0) > input.tick);
+    if (activeCover) {
+      return `Úřední krytí active ${formatTickLabel(activeCover.expiresAtTick - input.tick)} ve vlastněných districtech.`;
     }
   }
   if (input.action.actionId === config.cityContract.actionId) {

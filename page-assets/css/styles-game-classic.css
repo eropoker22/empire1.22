@@ -5623,11 +5623,16 @@
 }
 
 .police-feed-panel__risk,
+.police-feed-panel__explanation,
 .police-feed-panel__latest {
   margin: 9px 0 0;
   color: rgba(232, 240, 255, 0.78);
   font-size: 0.78rem;
   line-height: 1.35;
+}
+
+.police-feed-panel__explanation {
+  color: rgba(170, 203, 255, 0.84);
 }
 
 .police-feed-panel__latest {

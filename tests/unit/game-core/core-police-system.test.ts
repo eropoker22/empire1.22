@@ -5,11 +5,12 @@ import {
   calculatePlayerPolicePressure,
   createPoliceReadModel,
   expirePendingRaids,
+  resolveCityHallPoliceMitigation,
   resolvePendingRaid,
   triggerRaid
 } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
-import { createCoreStateFixture, createFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
+import { createCoreStateFixture, createDistrictFixture, createFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
 
 const createContext = (policeOverride = {}) => {
   const config = resolveModeConfig("free");
@@ -42,21 +43,23 @@ const addPoliceState = (state: ReturnType<typeof createCoreStateFixture>, heat: 
 
 const addCityHallOfficialCover = (
   state: ReturnType<typeof createCoreStateFixture>,
-  policeControlChanceReductionPct = 80
+  policeControlChanceReductionPct = 80,
+  districtIds = ["district:1"]
 ) => {
   const cityHall = createFixedBuildingFixture("city_hall", {
     id: "building:district-1:city-hall:1",
     metadata: {
       cityHall: {
-        officialCoverByDistrictId: {
-          "district:1": {
-            districtId: "district:1",
+        officialCoverByDistrictId: Object.fromEntries(districtIds.map((districtId) => [
+          districtId,
+          {
+            districtId,
             expiresAtTick: 100,
             heatGainReductionPct: 35,
             policeControlChanceReductionPct,
             rumorChanceReductionPct: 15
           }
-        }
+        ]))
       }
     }
   });
@@ -378,6 +381,56 @@ describe("core police system completion", () => {
     });
   });
 
+  it("applies City Hall official cover to a raid targeting any owned district", () => {
+    const state = createCoreStateFixture();
+    state.root.tick = 1;
+    addPoliceState(state, 60);
+    state.districtsById["district:2"] = createDistrictFixture({
+      id: "district:2",
+      ownerPlayerId: "player:1",
+      name: "Second District",
+      heat: 90
+    });
+    state.root.districtIds.push("district:2");
+    addCityHallOfficialCover(state, 80, ["district:1", "district:2"]);
+
+    const result = triggerRaid(state, createContext());
+
+    expect(result.events[0]).toMatchObject({
+      type: "police-raid-triggered",
+      payload: {
+        targetDistrictId: "district:2",
+        cityHallMitigation: {
+          districtId: "district:2",
+          coveredDistrictIds: ["district:1", "district:2"],
+          effectiveReductionPct: 45,
+          triggerChancePct: 55
+        }
+      }
+    });
+  });
+
+  it("does not apply City Hall official cover to a district the player does not own", () => {
+    const state = createCoreStateFixture();
+    state.districtsById["district:2"] = createDistrictFixture({
+      id: "district:2",
+      ownerPlayerId: "player:2",
+      name: "Foreign District",
+      heat: 90
+    });
+    addCityHallOfficialCover(state, 80, ["district:2"]);
+
+    const mitigation = resolveCityHallPoliceMitigation({
+      state,
+      context: createContext(),
+      playerId: "player:1",
+      targetDistrictId: "district:2",
+      severity: "high"
+    });
+
+    expect(mitigation).toBeNull();
+  });
+
   it("still allows extreme raids under reduced City Hall cover", () => {
     const state = createCoreStateFixture();
     state.root.tick = 0;
@@ -402,6 +455,61 @@ describe("core police system completion", () => {
       }
     });
     expect(result.nextState.policeStatesById["police:1"].pendingRaids?.[0].severity).toBe("extreme");
+  });
+
+  it("does not erase heat when City Hall cover delays a raid", () => {
+    const state = createCoreStateFixture();
+    state.root.tick = 0;
+    addPoliceState(state, 80);
+    addCityHallOfficialCover(state);
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      heat: 70
+    };
+
+    const result = triggerRaid(state, createContext());
+
+    expect(result.decisions[0]?.type).toBe("political_cover_delayed");
+    expect(result.nextState.policeStatesById["police:1"].heat).toBe(80);
+    expect(result.nextState.districtsById["district:1"].heat).toBe(70);
+  });
+
+  it("keeps existing pending raids under City Hall cover", () => {
+    const state = createCoreStateFixture();
+    addPoliceState(state, 80);
+    addCityHallOfficialCover(state);
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      heat: 70
+    };
+    state.policeStatesById["police:1"].pendingRaids = [{
+      raidId: "police:raid:existing",
+      playerId: "player:1",
+      targetDistrictId: "district:1",
+      severity: "high",
+      reason: "existing",
+      createdAtTick: 0,
+      expiresAtTick: 30,
+      status: "pending",
+      sourcePressure: 143,
+      previewConsequences: {
+        seizedDirtyCash: 0,
+        seizedResources: {},
+        lockedDistrictId: null,
+        lockdownUntilTick: null,
+        disruptedBuildingIds: [],
+        heatReducedBy: 0
+      }
+    }];
+
+    const result = triggerRaid(state, createContext());
+
+    expect(result.events).toEqual([]);
+    expect(result.decisions[0]).toMatchObject({
+      type: "existing_pending_raid_kept",
+      raidId: "police:raid:existing"
+    });
+    expect(result.nextState.policeStatesById["police:1"].pendingRaids).toHaveLength(1);
   });
 
   it("does not suppress confirmed police warning events under City Hall cover", () => {
@@ -440,12 +548,41 @@ describe("core police system completion", () => {
     expect(model.mitigations).toEqual([
       {
         source: "city_hall_official_cover",
-        label: "Political cover active. Raid trigger chance reduced.",
+        label: "Politické krytí aktivní: snižuje šanci zásahu na tvé obsazené districty. Nečistí heat a nezastaví extrémní zásah. Snižuje šanci vytvoření zásahu.",
         districtId: "district:1",
+        coveredDistrictIds: ["district:1"],
         effectiveReductionPct: 45,
         triggerChancePct: 55
       }
     ]);
+  });
+
+  it("does not apply City Hall cover when high raid pressure has no target district", () => {
+    const state = createCoreStateFixture();
+    state.root.tick = 1;
+    addPoliceState(state, 130);
+    addCityHallOfficialCover(state);
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      heat: 0
+    };
+
+    const result = triggerRaid(state, createContext());
+    const model = createPoliceReadModel(state, "player:1", createContext());
+
+    expect(result.events[0]).toMatchObject({
+      type: "police-raid-triggered",
+      payload: {
+        targetDistrictId: null,
+        cityHallMitigation: null
+      }
+    });
+    expect(model.mitigations?.[0]).toMatchObject({
+      source: "city_hall_official_cover",
+      districtId: null,
+      effectiveReductionPct: 0
+    });
+    expect(model.mitigations?.[0]?.label).toContain("Raidy čistě z player heat bez cílového districtu zatím nekryje");
   });
 
   it("decays player heat on the configured interval", () => {
@@ -540,6 +677,79 @@ describe("core police system completion", () => {
     expect(result.districtsById["district:1"]).toMatchObject({
       heat: 87,
       lastHeatDecayTick: 60
+    });
+  });
+
+  it("initializes missing district heat decay tick without retroactive decay", () => {
+    const state = createCoreStateFixture();
+    state.root.tick = 180;
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      heat: 90
+    };
+
+    const result = applyPoliceHeatDecay(state, createContext({
+      heatDecay: {
+        ...resolveModeConfig("free").balance.police!.heatDecay!,
+        districtHighPassiveHeatPerDayThreshold: 999999
+      }
+    }));
+
+    expect(result.districtsById["district:1"]).toMatchObject({
+      heat: 90,
+      lastHeatDecayTick: 180
+    });
+  });
+
+  it("decays district heat normally after initializing the decay tick", () => {
+    const state = createCoreStateFixture();
+    state.root.tick = 180;
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      heat: 90
+    };
+
+    const context = createContext({
+      heatDecay: {
+        ...resolveModeConfig("free").balance.police!.heatDecay!,
+        districtHighPassiveHeatPerDayThreshold: 999999
+      }
+    });
+    const initialized = applyPoliceHeatDecay(state, context);
+    const nextState = {
+      ...initialized,
+      root: {
+        ...initialized.root,
+        tick: 240
+      }
+    };
+    const result = applyPoliceHeatDecay(nextState, context);
+
+    expect(result.districtsById["district:1"]).toMatchObject({
+      heat: 87,
+      lastHeatDecayTick: 240
+    });
+  });
+
+  it("keeps existing valid district heat decay ticks compatible", () => {
+    const state = createCoreStateFixture();
+    state.root.tick = 120;
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      heat: 90,
+      lastHeatDecayTick: 60
+    };
+
+    const result = applyPoliceHeatDecay(state, createContext({
+      heatDecay: {
+        ...resolveModeConfig("free").balance.police!.heatDecay!,
+        districtHighPassiveHeatPerDayThreshold: 999999
+      }
+    }));
+
+    expect(result.districtsById["district:1"]).toMatchObject({
+      heat: 87,
+      lastHeatDecayTick: 120
     });
   });
 

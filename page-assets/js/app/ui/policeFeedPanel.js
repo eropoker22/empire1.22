@@ -19,6 +19,15 @@ function createElement(ownerDocument, tagName, className = "") {
   return element || null;
 }
 
+function setStat(element, label, value, description = "") {
+  if (!element) return;
+  element.textContent = `${label}: ${value}`;
+  if (description) {
+    element.setAttribute?.("title", description);
+    element.setAttribute?.("aria-label", `${label}: ${value}. ${description}`);
+  }
+}
+
 function renderFeedRows(list, entries = []) {
   const ownerDocument = getOwnerDocument(list);
   list?.replaceChildren?.();
@@ -70,24 +79,26 @@ export function renderPoliceFeedPanel(mount, viewModel = {}, callbacks = {}, opt
   const districtPressure = createElement(ownerDocument, "span");
   const hottestDistrict = createElement(ownerDocument, "span");
   const risk = createElement(ownerDocument, "p", "police-feed-panel__risk");
+  const explanation = createElement(ownerDocument, "p", "police-feed-panel__explanation");
   const latest = createElement(ownerDocument, "p", "police-feed-panel__latest");
   const pending = createElement(ownerDocument, "p", "police-feed-panel__pending");
   const list = createElement(ownerDocument, "ul", "police-feed-panel__list");
 
-  if (!header || !titleWrap || !eyebrow || !title || !status || !grid || !heat || !wanted || !pressure || !playerPressure || !districtPressure || !hottestDistrict || !risk || !latest || !pending || !list) {
+  if (!header || !titleWrap || !eyebrow || !title || !status || !grid || !heat || !wanted || !pressure || !playerPressure || !districtPressure || !hottestDistrict || !risk || !explanation || !latest || !pending || !list) {
     return false;
   }
 
   eyebrow.textContent = "POLICE";
-  title.textContent = "Heat feedback";
+  title.textContent = "Police pressure";
   status.textContent = safeText(viewModel.statusLabel, "Low");
-  heat.textContent = `Heat ${Number(viewModel.heat || 0)}`;
-  wanted.textContent = `Wanted ${safeText(viewModel.wantedLabel, "0 / 6")}`;
-  pressure.textContent = `Pressure ${Number(viewModel.aggregatePressure || viewModel.heat || 0)}`;
-  playerPressure.textContent = `Player ${Number(viewModel.playerHeatPressure || viewModel.heat || 0)}`;
-  districtPressure.textContent = `District ${Number(viewModel.districtHeatPressure || 0)}`;
-  hottestDistrict.textContent = `Hot ${safeText(viewModel.hottestDistrictId, "-")} ${Number(viewModel.hottestDistrictHeat || 0)}`;
+  setStat(wanted, "Wanted level", safeText(viewModel.wantedLabel, "0 / 5"), "Osobní policejní stopa hráče. Není to jediné policejní riziko.");
+  setStat(heat, "Player heat", Number(viewModel.playerHeat ?? viewModel.heat ?? 0), "Heat přímo na hráči.");
+  setStat(districtPressure, "District heat", Number(viewModel.ownedDistrictHeat ?? viewModel.districtHeatPressure ?? 0), "Heat z vlastněných districtů.");
+  setStat(pressure, "Raid pressure", Number(viewModel.raidPressure ?? viewModel.aggregatePressure ?? viewModel.heat ?? 0), "Celkový tlak policie, který rozhoduje o warningu a raidu.");
+  setStat(playerPressure, "Player pressure", Number(viewModel.playerHeatPressure || viewModel.heat || 0), "Příspěvek player heat do raid pressure.");
+  setStat(hottestDistrict, "Top district", `${safeText(viewModel.hottestDistrictId, "-")} ${Number(viewModel.hottestDistrictHeat || 0)}`, "Nejhorkější vlastněný district.");
   risk.textContent = safeText(viewModel.riskMessage, "Nízký dohled. Policie zatím jen sbírá šum z ulice.");
+  explanation.textContent = safeText(viewModel.raidPressureExplanation, "District heat může přitáhnout raid i bez vysokého wanted levelu.");
   latest.textContent = safeText(viewModel.lastMessage, "Poslední zpráva: bez aktivního hlášení.");
   const preview = viewModel.previewConsequences && typeof viewModel.previewConsequences === "object"
     ? viewModel.previewConsequences
@@ -101,9 +112,9 @@ export function renderPoliceFeedPanel(mount, viewModel = {}, callbacks = {}, opt
 
   titleWrap.append(eyebrow, title);
   header.append(titleWrap, status);
-  grid.append(heat, wanted, pressure, playerPressure, districtPressure, hottestDistrict);
+  grid.append(wanted, heat, districtPressure, pressure, playerPressure, hottestDistrict);
   renderFeedRows(list, viewModel.entries);
-  mount.append(header, grid, risk, latest, pending, list);
+  mount.append(header, grid, risk, explanation, latest, pending, list);
 
   if (options.focusAfterRender && typeof mount.focus === "function") {
     mount.focus();

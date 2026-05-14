@@ -11,7 +11,6 @@ import {
   minutesToTicks,
   resolveDecreeMode,
   resolveDecreeModeOrNull,
-  resolveTargetDistrictId,
   withCityHallMetadata
 } from "./cityHallMetadata";
 
@@ -84,8 +83,7 @@ export const resolveCityHallAction = (input: {
   const actionId = input.action.actionId;
 
   if (actionId === input.config.officialCover.actionId) {
-    const targetDistrictId = resolveTargetDistrictId(input.payload, input.district.id);
-    const targetDistrict = input.state.districtsById[targetDistrictId];
+    const coveredDistricts = getOwnedCoverDistricts(input.state, input.building.ownerPlayerId);
     const expiresAtTick = input.state.root.tick + minutesToTicks(input.config.officialCover.durationMinutes, input.tickRateMs);
     const cleanCost = resolveLobbyDiscountedCleanCost(
       input.config.officialCover.costCleanCash,
@@ -94,17 +92,18 @@ export const resolveCityHallAction = (input: {
       input.lobbyClubConfig?.synergies.cityHallOfficialCoverCostReductionPct,
       input.lobbyClubConfig
     );
+    const coverByDistrictId = Object.fromEntries(coveredDistricts.map((district) => [district.id, {
+      districtId: district.id,
+      expiresAtTick,
+      heatGainReductionPct: input.config.officialCover.heatGainReductionPct,
+      policeControlChanceReductionPct: input.config.officialCover.policeControlChanceReductionPct,
+      rumorChanceReductionPct: input.config.officialCover.rumorChanceReductionPct
+    }]));
     const nextMetadata = appendRiskEvent({
       ...metadata,
       officialCoverByDistrictId: {
         ...metadata.officialCoverByDistrictId,
-        [targetDistrictId]: {
-          districtId: targetDistrictId,
-          expiresAtTick,
-          heatGainReductionPct: input.config.officialCover.heatGainReductionPct,
-          policeControlChanceReductionPct: input.config.officialCover.policeControlChanceReductionPct,
-          rumorChanceReductionPct: input.config.officialCover.rumorChanceReductionPct
-        }
+        ...coverByDistrictId
       }
     }, actionId, input.config.officialCover.riskPct, expiresAtTick, input.state.root.tick);
     return {
@@ -114,10 +113,11 @@ export const resolveCityHallAction = (input: {
       influenceChange: -input.config.officialCover.costInfluence,
       inputCost: { cash: cleanCost },
       outputGain: {},
-      reportText: `Úřední krytí je aktivní v districtu ${targetDistrict?.name ?? targetDistrictId} do ticku ${expiresAtTick}.`,
+      reportText: `Úřední krytí je aktivní ve všech vlastněných districtech (${coveredDistricts.length}) do ticku ${expiresAtTick}.`,
       cityHallResult: {
         type: "official_cover",
-        targetDistrictId,
+        targetDistrictIds: coveredDistricts.map((district) => district.id),
+        affectedDistrictCount: coveredDistricts.length,
         activeUntilTick: expiresAtTick,
         heatGainReductionPct: input.config.officialCover.heatGainReductionPct,
         policeControlChanceReductionPct: input.config.officialCover.policeControlChanceReductionPct,
@@ -195,6 +195,16 @@ export const resolveCityHallAction = (input: {
   return null;
 };
 
+const getOwnedCoverDistricts = (
+  state: CoreGameState,
+  playerId: string | null | undefined
+): Array<CoreGameState["districtsById"][string]> =>
+  playerId
+    ? Object.values(state.districtsById).filter((district) =>
+        district.ownerPlayerId === playerId && district.status !== "destroyed"
+      )
+    : [];
+
 const hasLobbyClub = (
   state: CoreGameState,
   playerId: string | null | undefined,
@@ -227,10 +237,9 @@ export const validateCityHallAction = (input: {
   if (!config || input.building.buildingTypeId !== config.buildingTypeId) return null;
   const metadata = getCityHallMetadata(input.building, input.state.root.tick);
   if (input.actionId === config.officialCover.actionId) {
-    const targetDistrictId = resolveTargetDistrictId(input.payload, input.district.id);
-    const targetDistrict = input.state.districtsById[targetDistrictId];
-    if (!targetDistrict || targetDistrict.ownerPlayerId !== input.building.ownerPlayerId || targetDistrict.status === "destroyed") return "city_hall_invalid_target_district";
-    if (metadata.officialCoverByDistrictId[targetDistrictId]?.expiresAtTick > input.state.root.tick) return "city_hall_official_cover_active";
+    const coveredDistricts = getOwnedCoverDistricts(input.state, input.building.ownerPlayerId);
+    if (!coveredDistricts.length) return "city_hall_invalid_target_district";
+    if (coveredDistricts.some((district) => metadata.officialCoverByDistrictId[district.id]?.expiresAtTick > input.state.root.tick)) return "city_hall_official_cover_active";
     if (Math.max(0, Number(input.balances.cash || 0)) < config.officialCover.costCleanCash) return "city_hall_insufficient_clean_cash";
     if (Math.max(0, Number(input.districtInfluence || 0)) < config.officialCover.costInfluence) return "city_hall_insufficient_influence";
   }

@@ -79,7 +79,21 @@ const applyDistrictHeatDecay = (
 
   for (const district of Object.values(state.districtsById)) {
     if (district.status === "destroyed") continue;
-    const lastDecayTick = Math.max(0, Number(district.lastHeatDecayTick ?? 0));
+    const initializedLastDecayTick = resolveInitializedDistrictDecayTick(district.lastHeatDecayTick);
+    if (initializedLastDecayTick === null) {
+      districtsById = {
+        ...districtsById,
+        [district.id]: {
+          ...district,
+          lastHeatDecayTick: state.root.tick,
+          version: district.version + 1
+        }
+      };
+      changed = true;
+      continue;
+    }
+
+    const lastDecayTick = initializedLastDecayTick;
     const steps = Math.floor((state.root.tick - lastDecayTick) / interval);
     if (steps <= 0) continue;
 
@@ -151,6 +165,12 @@ const resolveDistrictPassiveHeatPerDay = (
     return total + Number(resolvedConfig.heatPerDay || 0);
   }, 0);
   return Math.max(0, baseHeatPerDay * modifiers.heatMultiplier + modifiers.heatPerDay);
+};
+
+const resolveInitializedDistrictDecayTick = (value: unknown): number | null => {
+  if (value === undefined || value === null) return null;
+  const tick = Number(value);
+  return Number.isFinite(tick) && tick >= 0 ? Math.floor(tick) : null;
 };
 
 const sanitizeInterval = (value: unknown): number => {

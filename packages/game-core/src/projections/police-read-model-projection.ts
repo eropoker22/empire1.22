@@ -1,13 +1,14 @@
 import type {
   PendingRaid,
   PoliceEvent,
+  PoliceHeatBreakdownView,
   PoliceReadModel as SharedPoliceReadModel
 } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import { resolveWantedLevel } from "../rules/police/wantedLevel";
 import { calculatePlayerPolicePressure } from "../rules/police/policePressure";
-import { resolveCityHallPoliceMitigation } from "../rules/police/cityHallPoliceMitigation";
+import { resolveCityHallNetworkCover, resolveCityHallPoliceMitigation } from "../rules/police/cityHallPoliceMitigation";
 
 export type PoliceRaidRisk = "none" | "watch" | "elevated" | "ready" | "pending";
 
@@ -73,7 +74,13 @@ export const createPoliceReadModel = (
   const policeFeed = sanitizePoliceFeed(policeState?.policeEvents);
   const lastPoliceEvent = policeFeed[0] ?? null;
   const raidPending = pendingRaid !== null;
+  const courthouseMitigation = pendingRaid?.previewConsequences.courthouseMitigation ?? null;
   const projectedSeverity = pressure.aggregatePressure >= pressure.extremePressureRaidThreshold ? "extreme" : "high";
+  const cityHallNetworkCover = resolveCityHallNetworkCover({
+    state,
+    context,
+    playerId
+  });
   const cityHallMitigation = resolveCityHallPoliceMitigation({
     state,
     context,
@@ -83,20 +90,42 @@ export const createPoliceReadModel = (
       : null,
     severity: projectedSeverity
   });
-  const mitigations = cityHallMitigation
-    ? [{
-        source: cityHallMitigation.source,
-        label: `${cityHallMitigation.label}. Raid trigger chance reduced.`,
-        districtId: cityHallMitigation.districtId,
-        effectiveReductionPct: cityHallMitigation.effectiveReductionPct,
-        triggerChancePct: cityHallMitigation.triggerChancePct
+  const mitigations = [
+    ...(cityHallMitigation || cityHallNetworkCover
+      ? [{
+        source: (cityHallMitigation ?? cityHallNetworkCover)!.source,
+        label: cityHallMitigation
+          ? `${cityHallMitigation.label} Snižuje šanci vytvoření zásahu.`
+          : `${cityHallNetworkCover!.label} Raidy čistě z player heat bez cílového districtu zatím nekryje.`,
+        districtId: cityHallMitigation?.districtId ?? null,
+        coveredDistrictIds: cityHallMitigation?.coveredDistrictIds ?? cityHallNetworkCover!.coveredDistrictIds,
+        effectiveReductionPct: cityHallMitigation?.effectiveReductionPct ?? 0,
+        triggerChancePct: cityHallMitigation?.triggerChancePct
       }]
-    : [];
+      : []),
+    ...(courthouseMitigation
+      ? [{
+        source: "courthouse",
+        label: "Soud nezabrání zásahu, ale může zmírnit následky.",
+        districtId: pendingRaid?.targetDistrictId ?? null,
+        effectiveReductionPct: courthouseMitigation.reductionPct
+      }]
+      : [])
+  ];
+  const heatBreakdown = createHeatBreakdown({
+    wantedLabel: `${wantedLevel} / 5`,
+    playerHeat,
+    districtHeat,
+    raidPressure: pressure.aggregatePressure
+  });
+  const raidPressureExplanation = "Raid pressure je celkový tlak policie: player heat plus vážený district heat z vlastněných districtů. District heat může přitáhnout raid i bez vysokého wanted levelu.";
 
   return {
     playerId,
     policeStateId,
     heat: playerHeat,
+    playerHeat,
+    ownedDistrictHeat: districtHeat,
     wantedLevel,
     wantedLabel: `${wantedLevel} / 5`,
     riskTier: raidPending && pressure.riskTier === "low" ? "high" : pressure.riskTier,
@@ -109,7 +138,18 @@ export const createPoliceReadModel = (
     lastPoliceEvent,
     policeFeed,
     mitigations,
-    recommendedAction: getRecommendedAction(raidPending ? "high" : pressure.riskTier),
+    recommendedAction: getRecommendedAction({
+      riskTier: pressure.riskTier,
+      raidPending,
+      wantedLevel,
+      playerHeat,
+      playerHeatPressure: pressure.playerHeatPressure,
+      districtHeat,
+      districtHeatPressure: pressure.districtHeatPressure,
+      aggregatePressure: pressure.aggregatePressure,
+      cityHallMitigationActive: Boolean(cityHallNetworkCover),
+      courthouseMitigationActive: Boolean(courthouseMitigation)
+    }),
     updatedAtTick: state.root.tick,
     updatedAt: new Date(0).toISOString(),
     projectedWantedLevel,
@@ -117,6 +157,8 @@ export const createPoliceReadModel = (
     totalHeat,
     raidPressure: pressure.aggregatePressure,
     raidThreshold: pressure.highPressureRaidThreshold,
+    raidPressureExplanation,
+    heatBreakdown,
     raidPending,
     raidRisk: resolveRaidRisk(pressure.aggregatePressure, pressure.highPressureRaidThreshold, raidPending),
     heatSources
@@ -150,16 +192,89 @@ const resolveRaidRisk = (
   return raidPressure > 0 ? "watch" : "none";
 };
 
-const getRecommendedAction = (riskTier: SharedPoliceReadModel["riskTier"]): string => {
-  switch (riskTier) {
+const createHeatBreakdown = (input: {
+  wantedLabel: string;
+  playerHeat: number;
+  districtHeat: number;
+  raidPressure: number;
+}): PoliceHeatBreakdownView[] => [
+  {
+    key: "wantedLevel",
+    label: "Wanted level",
+    value: input.wantedLabel,
+    description: "Osobní policejní stopa hráče. Počítá se z player heat, ne z district heat."
+  },
+  {
+    key: "playerHeat",
+    label: "Player heat",
+    value: String(input.playerHeat),
+    description: "Heat přímo na hráči z hlučných akcí, útoků a špinavých operací."
+  },
+  {
+    key: "districtHeat",
+    label: "District heat",
+    value: String(input.districtHeat),
+    description: "Součet heat ve vlastněných districtech. Může táhnout raid pressure nahoru i při nízkém wanted levelu."
+  },
+  {
+    key: "raidPressure",
+    label: "Raid pressure",
+    value: String(input.raidPressure),
+    description: "Celkový tlak policie, který rozhoduje o warningu a raidu."
+  }
+];
+
+const getRecommendedAction = (input: {
+  riskTier: SharedPoliceReadModel["riskTier"];
+  raidPending: boolean;
+  wantedLevel: number;
+  playerHeat: number;
+  playerHeatPressure: number;
+  districtHeat: number;
+  districtHeatPressure: number;
+  aggregatePressure: number;
+  cityHallMitigationActive: boolean;
+  courthouseMitigationActive: boolean;
+}): string => {
+  const districtDominant = input.districtHeatPressure >= 60
+    && input.districtHeatPressure >= input.playerHeatPressure * 1.25;
+  const playerDominant = input.playerHeatPressure >= 60
+    && input.playerHeatPressure >= input.districtHeatPressure * 1.25;
+  const notes: string[] = [];
+
+  let action: string;
+  if (input.raidPending) {
+    action = "Pending raid je aktivní. Přesuň dirty cash a počítej s následky zásahu.";
+  } else if (districtDominant && input.wantedLevel <= 2) {
+    action = "Tvůj wanted level je nízký, ale tvoje districty jsou příliš horké. Policie sleduje hlavně tvoje podniky, ne tebe osobně.";
+  } else if (districtDominant) {
+    action = "Raid pressure roste hlavně kvůli lokálnímu heat ve vlastněných districtech.";
+  } else if (playerDominant) {
+    action = "Tvoje osobní policejní stopa je horká. Omez útoky a hlučné akce, než z tebe bude snadný cíl.";
+  } else {
+    switch (input.riskTier) {
     case "extreme":
-      return "Okamžitě omez hlučné akce. Hrozí raid.";
+        action = "Raid pressure je extrémní. Okamžitě ztiš operace, jinak policie udeří.";
+        break;
     case "high":
-      return "Zvaž pauzu v útocích. Policie sleduje tvoje districty.";
+        action = "Raid pressure je vysoký. Zvaž pauzu v útocích a stáhni heat z horkých districtů.";
+        break;
     case "medium":
-      return "Sniž hluk nebo přesouvej dirty cash.";
+        action = "Policejní tlak roste. Sniž hluk, drž dirty cash mimo ránu a sleduj district heat.";
+        break;
     case "low":
     default:
-      return "Pokračuj opatrně.";
+        action = "Pokračuj opatrně. District heat může přitáhnout raid i bez vysokého wanted levelu.";
+        break;
+    }
   }
+
+  if (input.cityHallMitigationActive) {
+    notes.push("Magistrát tlumí šanci zásahu, ale extrémní tlak policii nezastaví.");
+  }
+  if (input.courthouseMitigationActive) {
+    notes.push("Soud nezabrání zásahu, ale může zmírnit následky.");
+  }
+
+  return [action, ...notes].join(" ");
 };

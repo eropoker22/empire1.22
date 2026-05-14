@@ -236,6 +236,7 @@ export const handleAttackDistrict = (
               ? attacker.allianceId
               : targetDistrict.controllerAllianceId,
         heat: districtDestroyed ? 0 : Math.max(0, Number(targetDistrict.heat || 0) + escapeMitigation.heatGained),
+        lastHeatDecayTick: districtDestroyed || attackSucceeded ? state.root.tick : targetDistrict.lastHeatDecayTick,
         influence: districtDestroyed ? 0 : targetDistrict.influence,
         buildingIds: districtDestroyed ? [] : targetDistrict.buildingIds,
         defenseLoadout: districtDestroyed ? {} : combatResolution.nextDefenseLoadout,

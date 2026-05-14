@@ -72,6 +72,14 @@ class FakeDocument {
   dispatchEvent() {}
 }
 
+function collectText(element) {
+  if (!element || typeof element !== "object") return "";
+  return [
+    element.textContent || "",
+    ...Array.from(element.children || []).map((child) => collectText(child))
+  ].join(" ");
+}
+
 describe("runtime police heat bridge", () => {
   it("uses the core PoliceReadModel before legacy heat fallback", () => {
     const feedback = resolvePoliceHeatFeedback({
@@ -80,12 +88,16 @@ describe("runtime police heat bridge", () => {
         police: {
           playerId: "player:1",
           heat: 72,
+          playerHeat: 72,
+          ownedDistrictHeat: 60,
           wantedLevel: 3,
           wantedLabel: "3 / 5",
           riskTier: "high",
           aggregatePressure: 132,
           playerHeatPressure: 72,
           districtHeatPressure: 60,
+          raidPressure: 132,
+          raidPressureExplanation: "District heat může přitáhnout raid i bez vysokého wanted levelu.",
           hottestDistrictId: "district:7",
           hottestDistrictHeat: 60,
           pendingRaid: {
@@ -119,8 +131,12 @@ describe("runtime police heat bridge", () => {
 
     expect(feedback).toMatchObject({
       heat: 72,
+      playerHeat: 72,
+      ownedDistrictHeat: 60,
       riskKey: "high",
       aggregatePressure: 132,
+      raidPressure: 132,
+      raidPressureExplanation: "District heat může přitáhnout raid i bez vysokého wanted levelu.",
       districtHeatPressure: 60,
       hottestDistrictId: "district:7",
       hottestDistrictHeat: 60,
@@ -203,5 +219,50 @@ describe("runtime police heat bridge", () => {
     closeButton.click();
     expect(policeWindow.hidden).toBe(true);
     expect(toggle.attributes.get("aria-expanded")).toBe("false");
+  });
+
+  it("renders police labels as separate risks instead of making wanted level the only signal", () => {
+    const documentRef = new FakeDocument();
+    const root = new FakeElement("main");
+    const wantedFeed = new FakeElement("section");
+    wantedFeed.ownerDocument = documentRef;
+    root.querySelector = (selector) => selector === "[data-wanted-popup-police-feed]" ? wantedFeed : null;
+
+    const bridge = createPoliceHeatBridge({
+      root,
+      documentRef,
+      getState: () => ({
+        player: {
+          playerId: "player:1",
+          police: {
+            playerId: "player:1",
+            heat: 20,
+            playerHeat: 20,
+            ownedDistrictHeat: 120,
+            wantedLevel: 1,
+            wantedLabel: "1 / 5",
+            riskTier: "high",
+            aggregatePressure: 128,
+            raidPressure: 128,
+            playerHeatPressure: 20,
+            districtHeatPressure: 120,
+            hottestDistrictId: "district:1",
+            hottestDistrictHeat: 120,
+            recommendedAction: "Tvůj wanted level je nízký, ale tvoje districty jsou příliš horké.",
+            raidPressureExplanation: "District heat může přitáhnout raid i bez vysokého wanted levelu.",
+            policeFeed: []
+          }
+        }
+      })
+    });
+
+    bridge.init();
+    const text = collectText(wantedFeed);
+
+    expect(text).toContain("Wanted level: 1 / 5");
+    expect(text).toContain("Player heat: 20");
+    expect(text).toContain("District heat: 120");
+    expect(text).toContain("Raid pressure: 128");
+    expect(text).toContain("District heat může přitáhnout raid");
   });
 });

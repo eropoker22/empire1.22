@@ -9,7 +9,7 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
     actionId: "official_cover",
     buildingType: "city_hall",
     label: "Úřední krytí",
-    description: "Na 8 minut sníží heat gain, police control chance a rumor chance ve zvoleném vlastněném districtu.",
+    description: "Na 8 minut sníží heat gain, police control chance a rumor chance ve všech vlastněných districtech.",
     durationMs: freeModeCityHallConfig.officialCover.durationMinutes * 60 * 1000,
     cooldownMs: freeModeCityHallConfig.officialCover.cooldownMinutes * 60 * 1000,
     inputCost: { cash: freeModeCityHallConfig.officialCover.costCleanCash },
@@ -18,7 +18,7 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
     influenceChange: -freeModeCityHallConfig.officialCover.costInfluence,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Úřední krytí je aktivní. Cílový district má dočasně slabší heat a policejní tlak."
+    reportText: "Úřední krytí je aktivní. Všechny vlastněné districty mají dočasně slabší heat a policejní tlak."
   },
   city_contract: {
     actionId: "city_contract",
