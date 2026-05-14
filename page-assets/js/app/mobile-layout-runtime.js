@@ -19,6 +19,7 @@ const MOBILE_OVERLAY_SELECTOR = [
   ".avatar-lightbox",
   ".game-admin-slice-overlay"
 ].join(",");
+const MOBILE_BODY_FREEZE_EXEMPT_SELECTOR = ".district-popup-shell";
 const MOBILE_CLOSE_CONTROL_SELECTOR = [
   ".modal__close",
   ".district-popup-close",
@@ -87,14 +88,17 @@ function initMobileTopbarState(windowObj = window, documentObj = document) {
     offsetFrameId = null;
     if (!media.matches) {
       root.style.removeProperty("--mobile-topbar-offset");
+      root.style.removeProperty("--mobile-overlay-top-offset");
       root.style.setProperty("--desktop-topbar-offset", `${Math.ceil(topbar.offsetHeight)}px`);
       return;
     }
 
+    const topbarOffset = Math.ceil(topbar.getBoundingClientRect().height + MOBILE_TOPBAR_GAP);
     root.style.setProperty(
       "--mobile-topbar-offset",
-      `${Math.ceil(topbar.getBoundingClientRect().height + MOBILE_TOPBAR_GAP)}px`
+      `${topbarOffset}px`
     );
+    root.style.setProperty("--mobile-overlay-top-offset", `${topbarOffset}px`);
     root.style.removeProperty("--desktop-topbar-offset");
   };
 
@@ -243,7 +247,6 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
   const root = documentObj.documentElement;
   let frameId = null;
   let lockedScrollY = null;
-  let lastOverlayState = false;
 
   const getScrollY = () => Math.max(
     0,
@@ -297,21 +300,21 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
       unlockPageScroll();
       root.classList.remove("game-modal-scroll-locked");
       documentObj.body.classList.remove("game-modal-scroll-locked");
-      lastOverlayState = false;
       return;
     }
 
-    const hasOpenOverlay = Array.from(documentObj.querySelectorAll(MOBILE_OVERLAY_SELECTOR)).some(isOpenOverlay);
+    const openOverlays = Array.from(documentObj.querySelectorAll(MOBILE_OVERLAY_SELECTOR)).filter(isOpenOverlay);
+    const hasOpenOverlay = openOverlays.length > 0;
+    const shouldFreezeBody = openOverlays.some((element) => !element.matches(MOBILE_BODY_FREEZE_EXEMPT_SELECTOR));
 
-    if (hasOpenOverlay && !lastOverlayState) {
+    if (shouldFreezeBody) {
       lockPageScroll();
-    } else if (!hasOpenOverlay && lastOverlayState) {
+    } else {
       unlockPageScroll();
     }
 
     root.classList.toggle("game-modal-scroll-locked", hasOpenOverlay);
     documentObj.body.classList.toggle("game-modal-scroll-locked", hasOpenOverlay);
-    lastOverlayState = hasOpenOverlay;
   };
 
   const requestApply = () => {

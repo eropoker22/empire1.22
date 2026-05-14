@@ -2,25 +2,28 @@
   --bg: #05070d;
   --panel: rgba(8, 13, 24, 0.78);
   --panel-strong: rgba(4, 9, 18, 0.9);
-  --cyan: #00f5ff;
-  --pink: #ff2bd6;
+  --cyan: #00c4d4;
+  --cyan-rgb: 0, 196, 212;
+  --pink: #c51fa8;
+  --pink-rgb: 197, 31, 168;
   --red: #ff3347;
   --green: #39ff88;
   --yellow: #ffdf4a;
   --text: #e8f0ff;
   --muted: #7d8899;
-  --blue: #3ba7ff;
+  --blue: #277dcc;
+  --blue-rgb: 39, 125, 204;
   --radius-lg: 28px;
   --radius-md: 18px;
   --space: 18px;
-  --glow-cyan: 0 0 18px rgba(0, 245, 255, 0.48), 0 0 42px rgba(0, 245, 255, 0.2);
-  --glow-pink: 0 0 18px rgba(255, 43, 214, 0.55), 0 0 48px rgba(255, 43, 214, 0.28);
+  --glow-cyan: 0 0 16px rgba(var(--cyan-rgb), 0.38), 0 0 38px rgba(var(--cyan-rgb), 0.16);
+  --glow-pink: 0 0 16px rgba(var(--pink-rgb), 0.44), 0 0 42px rgba(var(--pink-rgb), 0.22);
   --glow-red: 0 0 18px rgba(255, 51, 71, 0.5), 0 0 44px rgba(255, 51, 71, 0.18);
   --line: rgba(163, 231, 255, 0.32);
   --font-ui: "Bahnschrift", "Rajdhani", "Segoe UI", system-ui, sans-serif;
   --active-mode: var(--pink);
-  --active-mode-soft: rgba(255, 43, 214, 0.42);
-  --active-mode-deep: rgba(95, 20, 88, 0.76);
+  --active-mode-soft: rgba(var(--pink-rgb), 0.34);
+  --active-mode-deep: rgba(70, 12, 67, 0.82);
   --active-mode-glow: var(--glow-pink);
 }
 
@@ -44,15 +47,15 @@ body.login-body {
 
 body.auth-body--free {
   --active-mode: var(--cyan);
-  --active-mode-soft: rgba(0, 245, 255, 0.42);
-  --active-mode-deep: rgba(0, 77, 96, 0.76);
+  --active-mode-soft: rgba(var(--cyan-rgb), 0.34);
+  --active-mode-deep: rgba(0, 54, 68, 0.84);
   --active-mode-glow: var(--glow-cyan);
 }
 
 body.auth-body--war {
   --active-mode: var(--pink);
-  --active-mode-soft: rgba(255, 43, 214, 0.42);
-  --active-mode-deep: rgba(95, 20, 88, 0.76);
+  --active-mode-soft: rgba(var(--pink-rgb), 0.34);
+  --active-mode-deep: rgba(70, 12, 67, 0.82);
   --active-mode-glow: var(--glow-pink);
 }
 
@@ -89,7 +92,7 @@ body.login-body::after {
   background:
     linear-gradient(180deg, rgba(2, 5, 11, 0.03), rgba(2, 4, 9, 0.18)),
     url("../../img/loginmenu.png") center / cover no-repeat,
-    radial-gradient(circle at 50% 35%, rgba(0, 245, 255, 0.16), transparent 36%),
+    radial-gradient(circle at 50% 35%, rgba(var(--cyan-rgb), 0.12), transparent 36%),
     linear-gradient(120deg, #02040a 0%, #07111f 54%, #02030a 100%);
 }
 
@@ -1224,17 +1227,17 @@ body.login-body::after {
   overflow: hidden;
   clip-path: polygon(24px 0, calc(100% - 24px) 0, 100% 24px, 100% calc(100% - 32px), calc(100% - 44px) 100%, 44px 100%, 0 calc(100% - 32px), 0 24px);
   box-shadow:
-    0 0 0 1px rgba(255, 43, 214, 0.38),
-    0 0 34px rgba(0, 245, 255, 0.38),
-    0 0 64px rgba(255, 43, 214, 0.28),
-    inset 0 0 44px rgba(0, 245, 255, 0.08);
+    0 0 0 1px rgba(var(--pink-rgb), 0.32),
+    0 0 30px rgba(var(--cyan-rgb), 0.28),
+    0 0 56px rgba(var(--pink-rgb), 0.2),
+    inset 0 0 40px rgba(var(--cyan-rgb), 0.06);
   animation: terminalGlow 3.2s ease-in-out infinite alternate;
 }
 
 .terminal-frame {
   position: absolute;
   inset: 12px;
-  border: 1px solid rgba(0, 245, 255, 0.45);
+  border: 1px solid rgba(var(--cyan-rgb), 0.34);
   border-radius: 22px;
   pointer-events: none;
   clip-path: polygon(20px 0, calc(100% - 20px) 0, 100% 20px, 100% calc(100% - 26px), calc(100% - 34px) 100%, 34px 100%, 0 calc(100% - 26px), 0 20px);
@@ -1325,7 +1328,7 @@ body.login-body::after {
 }
 
 .terminal-tab {
-  border: 1px solid rgba(0, 245, 255, 0.24);
+  border: 1px solid rgba(var(--cyan-rgb), 0.2);
   border-radius: 12px;
   padding: 9px 10px;
   color: rgba(232, 240, 255, 0.7);
@@ -1357,26 +1360,26 @@ body.login-body::after {
   display: flex;
   align-items: center;
   min-height: 48px;
-  border: 1px solid rgba(84, 208, 255, 0.28);
+  border: 1px solid rgba(var(--cyan-rgb), 0.22);
   border-radius: 9px;
   background:
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 10px),
-    linear-gradient(180deg, rgba(0, 245, 255, 0.05), transparent 34%),
+    linear-gradient(180deg, rgba(var(--cyan-rgb), 0.04), transparent 34%),
     rgba(0, 4, 10, 0.78);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 0 18px rgba(0, 245, 255, 0.05),
-    0 0 0 1px rgba(0, 245, 255, 0.05),
-    0 0 18px rgba(0, 245, 255, 0.09);
+    inset 0 0 18px rgba(var(--cyan-rgb), 0.04),
+    0 0 0 1px rgba(var(--cyan-rgb), 0.04),
+    0 0 16px rgba(var(--cyan-rgb), 0.07);
   clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
 }
 
 .field-shell:focus-within {
   border-color: var(--cyan);
   box-shadow:
-    0 0 0 1px rgba(0, 245, 255, 0.16),
-    0 0 18px rgba(0, 245, 255, 0.18),
-    inset 0 0 20px rgba(0, 245, 255, 0.08);
+    0 0 0 1px rgba(var(--cyan-rgb), 0.13),
+    0 0 16px rgba(var(--cyan-rgb), 0.14),
+    inset 0 0 18px rgba(var(--cyan-rgb), 0.06);
 }
 
 .field-shell::before {
@@ -1393,7 +1396,7 @@ body.login-body::after {
   padding-left: 10px;
   color: rgba(183, 213, 235, 0.74);
   font-size: 0.9rem;
-  text-shadow: 0 0 8px rgba(0, 245, 255, 0.28);
+  text-shadow: 0 0 8px rgba(var(--cyan-rgb), 0.22);
 }
 
 .field-shell input {
@@ -1421,7 +1424,7 @@ body.login-body::after {
   color: rgba(214, 230, 255, 0.7);
   background: transparent;
   font-size: 1rem;
-  text-shadow: 0 0 8px rgba(0, 245, 255, 0.2);
+  text-shadow: 0 0 8px rgba(var(--cyan-rgb), 0.16);
 }
 
 .enter-city-button {
@@ -1611,12 +1614,12 @@ body.login-body::after {
   font-family: var(--font-ui);
   background:
     linear-gradient(180deg, rgba(6, 14, 28, 0.94), rgba(2, 7, 16, 0.88)),
-    linear-gradient(135deg, rgba(0, 245, 255, 0.08), transparent 38%, rgba(255, 43, 214, 0.06) 100%);
-  border-color: rgba(84, 208, 255, 0.34);
+    linear-gradient(135deg, rgba(var(--cyan-rgb), 0.055), transparent 38%, rgba(var(--pink-rgb), 0.045) 100%);
+  border-color: rgba(var(--cyan-rgb), 0.28);
   box-shadow:
     inset 0 1px 0 rgba(160, 240, 255, 0.08),
-    inset 0 0 44px rgba(0, 245, 255, 0.05),
-    0 0 0 1px rgba(0, 245, 255, 0.08),
+    inset 0 0 44px rgba(var(--cyan-rgb), 0.035),
+    0 0 0 1px rgba(var(--cyan-rgb), 0.055),
     var(--glow-cyan),
     0 24px 64px rgba(0, 0, 0, 0.52);
   transition: box-shadow 420ms ease, border-color 420ms ease;
@@ -1645,8 +1648,8 @@ body.login-body::after {
   pointer-events: none;
   opacity: 0;
   background:
-    linear-gradient(180deg, transparent 0 18%, rgba(0, 245, 255, 0.24) 19%, transparent 20% 46%, rgba(255, 43, 214, 0.18) 47%, transparent 48%),
-    repeating-linear-gradient(90deg, transparent 0 11px, rgba(0, 245, 255, 0.12) 12px, transparent 13px 24px);
+    linear-gradient(180deg, transparent 0 18%, rgba(var(--cyan-rgb), 0.18) 19%, transparent 20% 46%, rgba(var(--pink-rgb), 0.14) 47%, transparent 48%),
+    repeating-linear-gradient(90deg, transparent 0 11px, rgba(var(--cyan-rgb), 0.085) 12px, transparent 13px 24px);
   mix-blend-mode: screen;
 }
 
@@ -1657,17 +1660,17 @@ body.login-body::after {
   pointer-events: none;
   opacity: 0.3;
   background:
-    linear-gradient(180deg, rgba(0, 245, 255, 0.08), transparent 22%),
-    repeating-linear-gradient(0deg, transparent 0 21px, rgba(0, 245, 255, 0.05) 21px 22px),
-    repeating-linear-gradient(90deg, transparent 0 21px, rgba(255, 43, 214, 0.045) 21px 22px);
+    linear-gradient(180deg, rgba(var(--cyan-rgb), 0.055), transparent 22%),
+    repeating-linear-gradient(0deg, transparent 0 21px, rgba(var(--cyan-rgb), 0.035) 21px 22px),
+    repeating-linear-gradient(90deg, transparent 0 21px, rgba(var(--pink-rgb), 0.035) 21px 22px);
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.84), transparent 100%);
 }
 
 .server-status.is-updating {
-  border-color: rgba(0, 245, 255, 0.64);
+  border-color: rgba(var(--cyan-rgb), 0.52);
   box-shadow:
-    0 0 24px rgba(0, 245, 255, 0.55),
-    0 0 54px rgba(255, 43, 214, 0.16),
+    0 0 24px rgba(var(--cyan-rgb), 0.42),
+    0 0 54px rgba(var(--pink-rgb), 0.12),
     0 18px 48px rgba(0, 0, 0, 0.42);
 }
 
@@ -1706,12 +1709,12 @@ body.login-body::after {
   width: auto;
   max-width: 100%;
   padding: 0.42rem 0.78rem 0.46rem;
-  border: 1px solid rgba(0, 245, 255, 0.24);
-  border-left: 3px solid rgba(0, 245, 255, 0.72);
+  border: 1px solid rgba(var(--cyan-rgb), 0.18);
+  border-left: 3px solid rgba(var(--cyan-rgb), 0.58);
   background:
-    repeating-linear-gradient(90deg, rgba(0, 245, 255, 0.08) 0 1px, transparent 1px 8px),
-    linear-gradient(180deg, rgba(0, 245, 255, 0.08), rgba(0, 245, 255, 0.01) 46%, rgba(255, 43, 214, 0.04) 100%),
-    linear-gradient(90deg, rgba(0, 245, 255, 0.12), rgba(0, 245, 255, 0.03) 42%, transparent 100%),
+    repeating-linear-gradient(90deg, rgba(var(--cyan-rgb), 0.055) 0 1px, transparent 1px 8px),
+    linear-gradient(180deg, rgba(var(--cyan-rgb), 0.055), rgba(var(--cyan-rgb), 0.01) 46%, rgba(var(--pink-rgb), 0.032) 100%),
+    linear-gradient(90deg, rgba(var(--cyan-rgb), 0.085), rgba(var(--cyan-rgb), 0.022) 42%, transparent 100%),
     rgba(255, 255, 255, 0.02);
   font-size: clamp(1rem, 1.15vw, 1.24rem);
   font-family: "Bahnschrift", "Consolas", "Segoe UI", monospace;
@@ -1720,12 +1723,12 @@ body.login-body::after {
   text-transform: uppercase;
   color: #cfffff;
   text-shadow:
-    0 0 8px rgba(0, 245, 255, 0.28),
-    0 0 18px rgba(0, 245, 255, 0.12);
+    0 0 8px rgba(var(--cyan-rgb), 0.22),
+    0 0 18px rgba(var(--cyan-rgb), 0.09);
   box-shadow:
-    inset 0 0 18px rgba(0, 245, 255, 0.05),
+    inset 0 0 18px rgba(var(--cyan-rgb), 0.035),
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 0 18px rgba(0, 245, 255, 0.08);
+    0 0 18px rgba(var(--cyan-rgb), 0.055);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1779,11 +1782,11 @@ body.login-body::after {
   color: rgba(232, 240, 255, 0.8);
   border: 1px solid rgba(93, 191, 233, 0.18);
   background:
-    linear-gradient(90deg, rgba(0, 245, 255, 0.1), rgba(255, 43, 214, 0.05)),
+    linear-gradient(90deg, rgba(var(--cyan-rgb), 0.07), rgba(var(--pink-rgb), 0.04)),
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 9px);
   box-shadow:
-    inset 0 0 20px rgba(0, 245, 255, 0.05),
-    0 0 0 1px rgba(0, 245, 255, 0.04);
+    inset 0 0 20px rgba(var(--cyan-rgb), 0.035),
+    0 0 0 1px rgba(var(--cyan-rgb), 0.03);
 }
 
 .server-players__label {
@@ -1794,20 +1797,20 @@ body.login-body::after {
   margin-right: auto;
   padding: 0.16rem 0.34rem 0.2rem;
   color: rgba(186, 235, 255, 0.82);
-  border: 1px solid rgba(0, 245, 255, 0.18);
-  background: rgba(0, 245, 255, 0.06);
+  border: 1px solid rgba(var(--cyan-rgb), 0.14);
+  background: rgba(var(--cyan-rgb), 0.045);
   font-size: 0.54rem;
   font-weight: 900;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  text-shadow: 0 0 10px rgba(0, 245, 255, 0.16);
+  text-shadow: 0 0 10px rgba(var(--cyan-rgb), 0.12);
 }
 
 .server-players strong {
   display: inline-block;
   width: auto;
   padding-left: 10px;
-  border-left: 1px solid rgba(0, 245, 255, 0.16);
+  border-left: 1px solid rgba(var(--cyan-rgb), 0.12);
   color: var(--yellow);
   font-family: "Bahnschrift", "Consolas", "Segoe UI", monospace;
   font-size: 0.76rem;
@@ -2237,8 +2240,8 @@ body.login-body::after {
 }
 
 @keyframes terminalGlow {
-  from { box-shadow: 0 0 0 1px rgba(255, 43, 214, 0.28), 0 0 34px rgba(0, 245, 255, 0.3), 0 0 60px rgba(255, 43, 214, 0.2), inset 0 0 44px rgba(0, 245, 255, 0.06); }
-  to { box-shadow: 0 0 0 1px rgba(0, 245, 255, 0.34), 0 0 44px rgba(0, 245, 255, 0.42), 0 0 78px rgba(255, 43, 214, 0.32), inset 0 0 52px rgba(255, 43, 214, 0.07); }
+  from { box-shadow: 0 0 0 1px rgba(var(--pink-rgb), 0.22), 0 0 28px rgba(var(--cyan-rgb), 0.22), 0 0 52px rgba(var(--pink-rgb), 0.16), inset 0 0 40px rgba(var(--cyan-rgb), 0.05); }
+  to { box-shadow: 0 0 0 1px rgba(var(--cyan-rgb), 0.26), 0 0 36px rgba(var(--cyan-rgb), 0.3), 0 0 68px rgba(var(--pink-rgb), 0.24), inset 0 0 46px rgba(var(--pink-rgb), 0.055); }
 }
 
 @keyframes crownPulse {
@@ -2608,7 +2611,7 @@ body.login-body::after {
     max-width: 100%;
     min-width: 0;
     min-height: 0;
-    margin-top: 156px;
+    margin-top: 132px;
     padding: 24px 18px 24px;
     clip-path: none;
   }
@@ -2698,6 +2701,27 @@ body.login-body::after {
   .enter-city-button {
     min-height: 66px;
     font-size: 1.06rem;
+  }
+
+  #login-form .enter-city-button {
+    justify-self: center;
+    width: min(92%, 320px);
+    min-height: 56px;
+    border-color: color-mix(in srgb, var(--active-mode) 34%, rgba(255, 255, 255, 0.08));
+    background:
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.026) 0 1px, transparent 1px 12px),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 42%),
+      linear-gradient(135deg, color-mix(in srgb, var(--active-mode-deep) 54%, #030712 46%), #040812 54%, #02040a),
+      radial-gradient(circle at 50% 116%, color-mix(in srgb, var(--active-mode) 34%, transparent), transparent 36%);
+    font-size: 0.94rem;
+    letter-spacing: 0.12em;
+    text-shadow: 0 0 10px color-mix(in srgb, var(--active-mode) 34%, transparent);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      inset 0 0 20px color-mix(in srgb, var(--active-mode) 12%, transparent),
+      0 0 0 1px rgba(255, 255, 255, 0.035),
+      0 12px 28px rgba(0, 0, 0, 0.38),
+      0 0 18px color-mix(in srgb, var(--active-mode) 18%, transparent);
   }
 
   .terminal-actions {

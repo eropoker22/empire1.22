@@ -72,6 +72,8 @@ const formatLobbyPlayerCount = (value) => new Intl.NumberFormat("cs-CZ")
 
 let lobbyLogoutPrompt = null;
 let isLeavingLobby = false;
+const LOBBY_HISTORY_ACTIVE_STATE = "active";
+const LOBBY_HISTORY_GUARD_STATE = "back-logout";
 
 function markLeavingLobby() {
   isLeavingLobby = true;
@@ -172,6 +174,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const lobbyRefreshCountdownShell = lobbyRefreshCountdown?.closest(".lobby-refresh-countdown") || null;
   const modeTabsShell = document.querySelector(".auth-mode-tabs");
   const serverListShell = document.querySelector(".lobby-server-list-only");
+  const detailColumn = document.querySelector(".lobby-detail-column");
   const activeServerCard = document.querySelector("[data-lobby-active-server-card]");
   const activeServerName = document.querySelector("[data-active-server-name]");
   const activeServerMode = document.querySelector("[data-active-server-mode]");
@@ -1382,38 +1385,45 @@ function installLobbyBackLogoutGuard() {
     return;
   }
 
-  const shouldUseMobileUnloadGuard = window.matchMedia
-    ? window.matchMedia("(pointer: coarse), (hover: none), (max-width: 720px)").matches
-    : false;
-
-  window.history.replaceState({ empireLobby: "active" }, "", window.location.href);
-  window.history.pushState({ empireLobby: "back-logout" }, "", window.location.href);
-  const beforeUnload = (event) => {
-    if (!shouldUseMobileUnloadGuard || isLeavingLobby) {
+  const armBackLogoutGuard = () => {
+    if (isLeavingLobby) {
       return;
     }
 
-    event.preventDefault();
-    event.returnValue = "";
-    return "";
+    try {
+      const state = window.history.state;
+      if (state?.empireLobby !== LOBBY_HISTORY_ACTIVE_STATE && state?.empireLobby !== LOBBY_HISTORY_GUARD_STATE) {
+        window.history.replaceState({ empireLobby: LOBBY_HISTORY_ACTIVE_STATE }, "", window.location.href);
+      }
+      if (window.history.state?.empireLobby !== LOBBY_HISTORY_GUARD_STATE) {
+        window.history.pushState({ empireLobby: LOBBY_HISTORY_GUARD_STATE }, "", window.location.href);
+      }
+    } catch (_error) {
+      // Some mobile browsers can reject history writes during page restore. The click logout path still works.
+    }
   };
 
-  window.addEventListener("beforeunload", beforeUnload);
+  armBackLogoutGuard();
 
   window.addEventListener("popstate", () => {
     if (isLeavingLobby) {
       return;
     }
 
-    window.history.pushState({ empireLobby: "back-logout" }, "", window.location.href);
+    armBackLogoutGuard();
 
     promptLobbyLogoutConfirmation().then((shouldLogout) => {
       if (!shouldLogout) {
+        armBackLogoutGuard();
         return;
       }
       markLeavingLobby();
       clearAuthSession();
       window.location.replace(LOGIN_ENTRY_HREF);
     });
+  });
+
+  window.addEventListener("pageshow", () => {
+    armBackLogoutGuard();
   });
 }

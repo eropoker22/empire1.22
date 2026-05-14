@@ -7909,90 +7909,140 @@ function bindDistrictCanvas(root) {
     buildingsPopupOpenButton.addEventListener("click", openBuildingsPopup);
   }
 
-  if (buildingsPopupTypeMount) {
-    buildingsPopupTypeMount.addEventListener("click", (event) => {
-      const target = event.target;
+  const bindBuildingsPopupTap = (mount, handler) => {
+    if (!mount || typeof handler !== "function") {
+      return;
+    }
 
-      if (!(target instanceof HTMLElement)) {
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let lastTouchHandledAt = 0;
+
+    mount.addEventListener("click", (event) => {
+      if (Date.now() - lastTouchHandledAt < 420) {
+        event.preventDefault();
         return;
       }
 
-      const typeButton = target.closest("[data-buildings-district-type]");
-      if (!(typeButton instanceof HTMLElement)) {
-        return;
-      }
-
-      const districtType = String(typeButton.dataset.buildingsDistrictType || "").trim();
-      if (!districtType) {
-        return;
-      }
-
-      renderBuildingsPopup(districtType);
+      handler(event);
     });
-  }
 
-  if (buildingsPopupDetailMount) {
-    buildingsPopupDetailMount.addEventListener("click", (event) => {
-      const target = event.target;
-
-      if (!(target instanceof HTMLElement)) {
+    mount.addEventListener("touchstart", (event) => {
+      const touch = event.touches?.[0];
+      if (!touch || event.touches.length !== 1) {
+        touchStartX = 0;
+        touchStartY = 0;
         return;
       }
 
-      const baseButton = target.closest("[data-buildings-select-base-name]");
-      if (baseButton instanceof HTMLButtonElement) {
-        const selectedBaseName = String(baseButton.dataset.buildingsSelectBaseName || "").trim();
-        const selectedType = String(baseButton.dataset.buildingsSelectBaseType || getActiveBuildingsDistrictType() || "").trim();
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+    }, { passive: true });
 
-        if (!selectedBaseName || !selectedType) {
-          return;
-        }
-
-        selectBuildingsPopupBaseName(selectedType, selectedBaseName);
-        renderBuildingsPopupDetail(selectedType);
+    mount.addEventListener("touchend", (event) => {
+      const touch = event.changedTouches?.[0];
+      if (!touch) {
         return;
       }
 
-      const buildingButton = target.closest("[data-buildings-open-building-name]");
-      if (buildingButton instanceof HTMLButtonElement) {
-        const districtId = Number(buildingButton.dataset.buildingsOpenBuildingDistrictId || 0);
-        const district = districtId && geometry?.districts?.length
-          ? geometry.districts.find((entry) => Number(entry.id) === districtId) || null
-          : null;
-
-        if (!district) {
-          return;
-        }
-
-        openDistrictBuildingDetail(district, buildingButton.dataset.buildingsOpenBuildingName || "", {
-          closeBuildingsPopup: true,
-          displayName: buildingButton.dataset.buildingsOpenBuildingDisplayName || "",
-          preferGenericDetail: true
-        });
+      const movedX = Math.abs(touch.clientX - touchStartX);
+      const movedY = Math.abs(touch.clientY - touchStartY);
+      if (movedX > 18 || movedY > 18) {
         return;
       }
 
-      const openButton = target.closest("[data-buildings-open-district-id]");
-      if (!(openButton instanceof HTMLButtonElement)) {
-        return;
+      if (handler(event)) {
+        lastTouchHandledAt = Date.now();
+        event.preventDefault();
+      }
+    }, { passive: false });
+  };
+
+  const handleBuildingsPopupTypeTap = (event) => {
+    const target = event.target;
+
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+
+    const typeButton = target.closest("[data-buildings-district-type]");
+    if (!(typeButton instanceof HTMLElement)) {
+      return false;
+    }
+
+    const districtType = String(typeButton.dataset.buildingsDistrictType || "").trim();
+    if (!districtType) {
+      return false;
+    }
+
+    renderBuildingsPopup(districtType);
+    return true;
+  };
+
+  const handleBuildingsPopupDetailTap = (event) => {
+    const target = event.target;
+
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+
+    const baseButton = target.closest("[data-buildings-select-base-name]");
+    if (baseButton instanceof HTMLButtonElement) {
+      const selectedBaseName = String(baseButton.dataset.buildingsSelectBaseName || "").trim();
+      const selectedType = String(baseButton.dataset.buildingsSelectBaseType || getActiveBuildingsDistrictType() || "").trim();
+
+      if (!selectedBaseName || !selectedType) {
+        return false;
       }
 
-      const districtId = Number(openButton.dataset.buildingsOpenDistrictId || 0);
-      if (!districtId || !geometry?.districts?.length) {
-        return;
-      }
+      selectBuildingsPopupBaseName(selectedType, selectedBaseName);
+      renderBuildingsPopupDetail(selectedType);
+      return true;
+    }
 
-      const district = geometry.districts.find((entry) => Number(entry.id) === districtId) || null;
+    const buildingButton = target.closest("[data-buildings-open-building-name]");
+    if (buildingButton instanceof HTMLButtonElement) {
+      const districtId = Number(buildingButton.dataset.buildingsOpenBuildingDistrictId || 0);
+      const district = districtId && geometry?.districts?.length
+        ? geometry.districts.find((entry) => Number(entry.id) === districtId) || null
+        : null;
+
       if (!district) {
-        return;
+        return false;
       }
 
-      interactionState.selectedDistrictId = district.id;
-      render();
-      closeBuildingsPopup();
-      openPopup(district);
-    });
-  }
+      openDistrictBuildingDetail(district, buildingButton.dataset.buildingsOpenBuildingName || "", {
+        closeBuildingsPopup: true,
+        displayName: buildingButton.dataset.buildingsOpenBuildingDisplayName || "",
+        preferGenericDetail: true
+      });
+      return true;
+    }
+
+    const openButton = target.closest("[data-buildings-open-district-id]");
+    if (!(openButton instanceof HTMLButtonElement)) {
+      return false;
+    }
+
+    const districtId = Number(openButton.dataset.buildingsOpenDistrictId || 0);
+    if (!districtId || !geometry?.districts?.length) {
+      return false;
+    }
+
+    const district = geometry.districts.find((entry) => Number(entry.id) === districtId) || null;
+    if (!district) {
+      return false;
+    }
+
+    interactionState.selectedDistrictId = district.id;
+    render();
+    closeBuildingsPopup();
+    openPopup(district);
+    return true;
+  };
+
+  bindBuildingsPopupTap(buildingsPopupTypeMount, handleBuildingsPopupTypeTap);
+  bindBuildingsPopupTap(buildingsPopupDetailMount, handleBuildingsPopupDetailTap);
 
   if (districtActionsMount) {
     districtActionsMount.addEventListener("click", (event) => {

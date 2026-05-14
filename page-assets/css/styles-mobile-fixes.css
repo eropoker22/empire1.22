@@ -206,7 +206,7 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
   background: transparent !important;
 }
 
-@media (max-width: 720px), (hover: none) and (pointer: coarse) {
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
   html body .wanted-popup-card .wanted-popup-police-window {
     position: fixed !important;
     top: 48px !important;
@@ -234,7 +234,7 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
   }
 }
 
-@media (max-width: 720px), (hover: none) and (pointer: coarse) {
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
   html,
   body.game-body {
     width: 100% !important;
@@ -242,24 +242,40 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     overflow-x: hidden !important;
   }
 
+  html.game-modal-scroll-locked {
+    --mobile-topbar-offset: var(--mobile-overlay-top-offset, 72px) !important;
+  }
+
   body.game-body {
-    background:
-      linear-gradient(180deg, rgba(2, 6, 12, 0.42), rgba(2, 6, 12, 0.72)),
-      url("../../img/gamemobtap.png") center top / cover no-repeat,
-      #050913 !important;
+    --game-mobile-bg-height: var(--mobile-locked-vh, 100svh);
+    min-height: var(--game-mobile-bg-height);
+    background: #050913 !important;
+  }
+
+  @supports (height: 100lvh) {
+    body.game-body {
+      --game-mobile-bg-height: 100lvh;
+    }
   }
 
   html body.game-body::before {
     content: "" !important;
     position: fixed !important;
-    inset: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: var(--game-mobile-bg-height) !important;
+    inset-block-end: auto !important;
     z-index: 0 !important;
     display: block !important;
     pointer-events: none !important;
+    transform: translateZ(0) !important;
     background:
       linear-gradient(180deg, rgba(2, 6, 12, 0.34), rgba(2, 6, 12, 0.72)),
       url("../../img/gamemobtap.png") center top / cover no-repeat,
       #050913 !important;
+    background-size: cover !important;
   }
 
   html body.game-body::after {
@@ -282,32 +298,16 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     z-index: 1;
   }
 
-  html.game-modal-scroll-locked {
-    --mobile-topbar-offset: 0px !important;
-  }
-
   body.game-modal-scroll-locked .game-topbar {
     display: block !important;
-    visibility: visible !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
     z-index: 30 !important;
     pointer-events: none !important;
   }
 
   .district-popup-shell {
     inset: 0 !important;
-  }
-
-  body.game-modal-scroll-locked::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 79;
-    display: block;
-    background: rgba(2, 6, 12, 0.46);
-    backdrop-filter: blur(10px) saturate(115%);
-    -webkit-backdrop-filter: blur(10px) saturate(115%);
-    pointer-events: auto;
-    touch-action: none;
   }
 
   body.game-modal-scroll-locked .modal,
@@ -519,7 +519,9 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
   body.game-modal-scroll-locked .game-resource-strip,
   body.game-modal-scroll-locked.is-mobile-topbar-condensed .game-resource-strip {
     display: grid !important;
-    visibility: visible !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
   }
 
   #game-command-bar-mount .city-status-pill:has([data-city-status]) {
@@ -3812,5 +3814,648 @@ html body .storage-popup-heading > .storage-popup-close::before {
 
   html body .storage-popup-heading > .storage-popup-close::before {
     font-size: 18px !important;
+  }
+}
+
+/* Compact mobile action/result modals. Keep action colors consistent with the launch buttons. */
+@media (max-width: 720px), (hover: none) and (pointer: coarse) {
+  html body #spy-confirm-modal,
+  html body #raid-confirm-modal,
+  html body #occupy-confirm-modal,
+  html body #trap-confirm-modal,
+  html body #attack-confirm-modal,
+  html body #spy-result-modal,
+  html body #spy-warning-modal,
+  html body #raid-result-modal,
+  html body #attack-result-modal,
+  html body #police-action-result-modal {
+    padding: 8px !important;
+  }
+
+  html body #spy-confirm-modal .modal__content,
+  html body #raid-confirm-modal .modal__content,
+  html body #occupy-confirm-modal .modal__content,
+  html body #trap-confirm-modal .modal__content,
+  html body #attack-confirm-modal .modal__content,
+  html body #spy-result-modal .modal__content,
+  html body #spy-warning-modal .modal__content,
+  html body #raid-result-modal .modal__content,
+  html body #attack-result-modal .modal__content,
+  html body #police-action-result-modal .modal__content {
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    overflow: hidden !important;
+    border-radius: 16px !important;
+  }
+
+  html body #spy-confirm-modal .modal__header,
+  html body #raid-confirm-modal .modal__header,
+  html body #occupy-confirm-modal .modal__header,
+  html body #trap-confirm-modal .modal__header,
+  html body #attack-confirm-modal .modal__header,
+  html body #spy-result-modal .modal__header,
+  html body #spy-warning-modal .modal__header,
+  html body #raid-result-modal .modal__header,
+  html body #attack-result-modal .modal__header,
+  html body #police-action-result-modal .modal__header {
+    min-height: 0 !important;
+    padding: 10px 42px 7px 10px !important;
+  }
+
+  html body #spy-confirm-modal .modal__header h3,
+  html body #raid-confirm-modal .modal__header h3,
+  html body #occupy-confirm-modal .modal__header h3,
+  html body #trap-confirm-modal .modal__header h3,
+  html body #attack-confirm-modal .modal__header h3,
+  html body #spy-result-modal .modal__header h3,
+  html body #spy-warning-modal .modal__header h3,
+  html body #raid-result-modal .modal__header h3,
+  html body #attack-result-modal .modal__header h3,
+  html body #police-action-result-modal .modal__header h3 {
+    font-size: clamp(0.82rem, 3.8vw, 1rem) !important;
+    line-height: 1.12 !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  html body #spy-confirm-modal .modal__body,
+  html body #raid-confirm-modal .modal__body,
+  html body #occupy-confirm-modal .modal__body,
+  html body #trap-confirm-modal .modal__body,
+  html body #attack-confirm-modal .modal__body,
+  html body #spy-result-modal .modal__body,
+  html body #spy-warning-modal .modal__body,
+  html body #raid-result-modal .modal__body,
+  html body #attack-result-modal .modal__body,
+  html body #police-action-result-modal .modal__body {
+    min-height: 0 !important;
+    max-height: none !important;
+    padding: 0 10px 10px !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+  }
+
+  html body .spy-result-modal__summary,
+  html body .attack-result-modal__summary,
+  html body .police-action-result-modal__summary {
+    padding: 8px 9px !important;
+    border-radius: 10px !important;
+    font-size: 0.76rem !important;
+    line-height: 1.34 !important;
+    animation: none !important;
+  }
+
+  html body .spy-result-modal__details,
+  html body .attack-result-modal__stats,
+  html body .police-action-result-modal__details {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  html body .spy-result-modal__details .modal__row,
+  html body .attack-result-modal__stats .modal__row,
+  html body .police-action-result-modal__details .modal__row {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    align-content: start !important;
+    gap: 3px !important;
+    min-height: 0 !important;
+    padding: 7px 8px !important;
+    border-radius: 10px !important;
+  }
+
+  html body .spy-result-modal__details .modal__row span,
+  html body .attack-result-modal__stats .modal__row span,
+  html body .police-action-result-modal__details .modal__row span {
+    font-size: 0.52rem !important;
+    letter-spacing: 0.08em !important;
+    line-height: 1.1 !important;
+  }
+
+  html body .spy-result-modal__details .modal__row strong,
+  html body .attack-result-modal__stats .modal__row strong,
+  html body .police-action-result-modal__details .modal__row strong {
+    min-width: 0 !important;
+    font-size: 0.72rem !important;
+    line-height: 1.18 !important;
+    text-align: left !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  html body .attack-result-modal__content .attack-result-modal__badge,
+  html body .spy-result-modal__content .attack-result-modal__badge,
+  html body .police-action-result-modal__content .police-action-result-modal__badge {
+    margin-bottom: 0 !important;
+    padding: 5px 8px !important;
+    font-size: 0.55rem !important;
+    letter-spacing: 0.1em !important;
+  }
+
+  html body .police-raid-impact {
+    gap: 7px !important;
+  }
+
+  html body .police-raid-impact__hero {
+    grid-template-columns: 1fr !important;
+    gap: 7px !important;
+    padding: 9px !important;
+    border-radius: 12px !important;
+  }
+
+  html body .police-raid-impact__hero strong {
+    margin: 3px 0 5px !important;
+    font-size: 0.86rem !important;
+  }
+
+  html body .police-raid-impact__hero p {
+    font-size: 0.7rem !important;
+    line-height: 1.32 !important;
+  }
+
+  html body .police-raid-impact__hero em {
+    min-width: 0 !important;
+    padding: 7px 8px !important;
+    border-radius: 10px !important;
+    font-size: 0.58rem !important;
+  }
+
+  html body .police-raid-impact__overview,
+  html body .police-raid-impact__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  html body .police-raid-impact__overview article,
+  html body .police-raid-impact__rows {
+    padding: 7px !important;
+  }
+
+  html body .police-raid-impact__group h4 {
+    padding: 7px 8px !important;
+    font-size: 0.55rem !important;
+    letter-spacing: 0.1em !important;
+  }
+
+  html body .police-raid-impact__row {
+    padding: 7px !important;
+    border-radius: 9px !important;
+  }
+
+  html body .spy-result-modal__actions,
+  html body .attack-result-modal__actions,
+  html body .police-action-result-modal__body .attack-result-modal__actions,
+  html body .spy-confirm-modal__actions,
+  html body .attack-confirm-modal__actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+    padding: 7px 0 0 !important;
+  }
+
+  html body .spy-result-modal__actions,
+  html body .attack-result-modal__actions,
+  html body .police-action-result-modal__body .attack-result-modal__actions {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  html body .modal__confirm-btn,
+  html body .modal__cancel-btn,
+  html body #spy-result-modal-ok,
+  html body #spy-warning-modal-ok,
+  html body #raid-result-modal-ok,
+  html body #attack-result-modal-ok,
+  html body #police-action-result-modal-ok {
+    min-width: 0 !important;
+    min-height: 38px !important;
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+    font-size: 0.68rem !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+  }
+
+  html body .district-action-confirm-popup-card {
+    width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    padding: 9px !important;
+    overflow: hidden !important;
+  }
+
+  html body .district-action-confirm-popup-card .district-modal-hero {
+    min-height: 84px !important;
+    margin-bottom: 7px !important;
+    border-radius: 12px !important;
+  }
+
+  html body .district-action-confirm-popup-card .district-modal-hero__copy {
+    gap: 3px !important;
+    padding: 9px 46px 9px 9px !important;
+  }
+
+  html body .district-action-confirm-popup-card .attack-setup-popup-eyebrow,
+  html body .district-action-confirm-popup-card .district-modal-hero__type {
+    min-height: 20px !important;
+    padding-inline: 8px !important;
+    font-size: 0.48rem !important;
+    letter-spacing: 0.1em !important;
+  }
+
+  html body .district-action-confirm-popup-body,
+  html body #attack-confirm-modal .attack-confirm-modal__body {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  html body .district-action-confirm-popup-body .attack-setup-popup-row {
+    min-height: 0 !important;
+    padding: 7px 8px !important;
+    border-radius: 10px !important;
+    font-size: 0.56rem !important;
+    line-height: 1.15 !important;
+  }
+
+  html body .district-action-confirm-popup-body .attack-setup-popup-row span,
+  html body .district-action-confirm-popup-body .attack-setup-popup-row strong {
+    font-size: 0.68rem !important;
+    line-height: 1.18 !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  html body .district-action-confirm-popup-body .attack-setup-popup-copy,
+  html body .district-action-confirm-popup-body .modal__actions {
+    grid-column: 1 / -1 !important;
+  }
+
+  html body .district-action-confirm-popup-body .attack-setup-popup-copy {
+    padding: 7px 8px !important;
+    border-radius: 10px !important;
+    font-size: 0.58rem !important;
+    line-height: 1.3 !important;
+  }
+
+  html body .robbery-setup-popup-shell:not([hidden]) {
+    padding: 8px !important;
+    align-items: center !important;
+  }
+
+  html body .robbery-setup-popup-card {
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    padding: 9px !important;
+    overflow: hidden !important;
+    border-radius: 16px !important;
+  }
+
+  html body .robbery-setup-popup-card .district-modal-hero {
+    min-height: 82px !important;
+    margin-bottom: 7px !important;
+    border-radius: 12px !important;
+  }
+
+  html body .robbery-setup-popup-card .district-modal-hero__copy {
+    gap: 3px !important;
+    padding: 9px 44px 9px 9px !important;
+  }
+
+  html body .robbery-setup-popup-card .district-modal-hero__type {
+    display: none !important;
+  }
+
+  html body .robbery-setup-popup-card .attack-setup-popup-title {
+    font-size: clamp(0.82rem, 4vw, 1rem) !important;
+    line-height: 1.08 !important;
+  }
+
+  html body .robbery-setup-popup-card .attack-setup-popup-body {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    padding: 0 1px 1px !important;
+    overscroll-behavior: contain !important;
+  }
+
+  html body .robbery-setup-popup-card .attack-setup-popup-row {
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding: 7px 8px !important;
+    border-radius: 10px !important;
+    gap: 6px !important;
+    font-size: 0.54rem !important;
+    line-height: 1.12 !important;
+  }
+
+  html body .robbery-setup-popup-card .attack-setup-popup-row:first-child,
+  html body .robbery-setup-popup-card .attack-setup-popup-row:nth-child(3),
+  html body .robbery-setup-popup-card .attack-setup-popup-copy,
+  html body .robbery-setup-popup-card .attack-setup-popup-actions {
+    grid-column: 1 / -1 !important;
+  }
+
+  html body .robbery-setup-popup-card .attack-setup-popup-row span {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    gap: 5px !important;
+    font-size: 0.68rem !important;
+    line-height: 1.16 !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  html body .robbery-setup-popup-card .attack-setup-popup-select {
+    min-height: 32px !important;
+    max-width: 100% !important;
+    border-radius: 9px !important;
+    font-size: 0.7rem !important;
+  }
+
+  html body .robbery-setup-popup-card .attack-setup-popup-stepper {
+    width: 100% !important;
+    grid-template-columns: 38px minmax(0, 1fr) 38px !important;
+  }
+
+  html body .robbery-setup-popup-card .attack-setup-popup-stepper__button,
+  html body .robbery-setup-popup-card .attack-setup-popup-weapon__input {
+    width: 100% !important;
+    min-height: 34px !important;
+    height: 34px !important;
+    border-radius: 9px !important;
+  }
+
+  html body .robbery-setup-popup-card .attack-setup-popup-copy {
+    padding: 7px 8px !important;
+    border-radius: 10px !important;
+    font-size: 0.56rem !important;
+    line-height: 1.26 !important;
+  }
+
+  html body .robbery-setup-popup-card .attack-setup-popup-actions {
+    position: sticky !important;
+    bottom: 0 !important;
+    z-index: 2 !important;
+    margin: 0 !important;
+    padding-top: 4px !important;
+    background: linear-gradient(180deg, rgba(4, 8, 16, 0), rgba(4, 8, 16, 0.78) 36%, rgba(4, 8, 16, 0.94)) !important;
+  }
+
+  html body .robbery-setup-popup-card .attack-setup-popup-confirm {
+    min-height: 40px !important;
+    border-radius: 10px !important;
+    border-color: rgba(34, 211, 238, 0.54) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent),
+      linear-gradient(135deg, rgba(34, 211, 238, 0.46), rgba(14, 116, 144, 0.7)),
+      rgba(5, 18, 24, 0.96) !important;
+    color: #ecfeff !important;
+    box-shadow:
+      0 14px 28px rgba(8, 145, 178, 0.26),
+      0 0 18px rgba(34, 211, 238, 0.2),
+      inset 0 1px 0 rgba(207, 250, 254, 0.18) !important;
+  }
+
+  html body #spy-confirm-modal-confirm,
+  html body #spy-result-modal-ok,
+  html body #spy-warning-modal-ok {
+    border-color: rgba(251, 191, 36, 0.62) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent),
+      linear-gradient(135deg, rgba(251, 191, 36, 0.72), rgba(161, 98, 7, 0.92)) !important;
+    color: #fff8e1 !important;
+    box-shadow:
+      0 14px 28px rgba(180, 83, 9, 0.28),
+      0 0 18px rgba(251, 191, 36, 0.24),
+      inset 0 1px 0 rgba(254, 243, 199, 0.18) !important;
+  }
+
+  html body #raid-confirm-modal-confirm,
+  html body #raid-result-modal-ok {
+    border-color: rgba(34, 211, 238, 0.58) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent),
+      linear-gradient(135deg, rgba(34, 211, 238, 0.5), rgba(8, 47, 73, 0.95)) !important;
+    color: #ecfeff !important;
+    box-shadow:
+      0 14px 28px rgba(8, 145, 178, 0.28),
+      0 0 18px rgba(34, 211, 238, 0.24),
+      inset 0 1px 0 rgba(207, 250, 254, 0.18) !important;
+  }
+
+  html body #attack-confirm-modal-confirm,
+  html body #attack-result-modal-ok {
+    border-color: rgba(248, 113, 113, 0.58) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent),
+      linear-gradient(135deg, rgba(248, 113, 113, 0.42), rgba(127, 29, 29, 0.95)) !important;
+    color: #fff1f2 !important;
+    box-shadow:
+      0 14px 28px rgba(127, 29, 29, 0.32),
+      0 0 18px rgba(248, 113, 113, 0.22),
+      inset 0 1px 0 rgba(254, 202, 202, 0.16) !important;
+  }
+
+  html body #trap-confirm-modal-confirm {
+    border-color: rgba(20, 184, 166, 0.58) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent),
+      linear-gradient(135deg, rgba(20, 184, 166, 0.48), rgba(19, 78, 74, 0.94)) !important;
+    color: #f0fdfa !important;
+  }
+
+  html body #occupy-confirm-modal-confirm {
+    border-color: rgba(220, 20, 60, 0.62) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent),
+      linear-gradient(135deg, rgba(220, 20, 60, 0.44), rgba(80, 7, 36, 0.96)) !important;
+    color: #ffe7ee !important;
+  }
+
+  html body #police-action-result-modal-ok {
+    border-color: rgba(96, 165, 250, 0.58) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent),
+      linear-gradient(135deg, rgba(59, 130, 246, 0.46), rgba(30, 41, 59, 0.96)) !important;
+    color: #eff6ff !important;
+  }
+}
+
+@media (max-width: 380px) {
+  html body .spy-result-modal__details,
+  html body .attack-result-modal__stats,
+  html body .police-action-result-modal__details,
+  html body .police-raid-impact__overview,
+  html body .police-raid-impact__grid,
+  html body .district-action-confirm-popup-body,
+  html body #attack-confirm-modal .attack-confirm-modal__body,
+  html body .robbery-setup-popup-card .attack-setup-popup-body {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Mobile overlays must start below the visible resource strip, never under it. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html.game-modal-scroll-locked {
+    --mobile-overlay-card-top: max(var(--mobile-overlay-top-offset, 72px), 72px);
+    --mobile-overlay-card-gap: 8px;
+  }
+
+  html body.game-modal-scroll-locked #spy-confirm-modal,
+  html body.game-modal-scroll-locked #raid-confirm-modal,
+  html body.game-modal-scroll-locked #occupy-confirm-modal,
+  html body.game-modal-scroll-locked #trap-confirm-modal,
+  html body.game-modal-scroll-locked #attack-confirm-modal,
+  html body.game-modal-scroll-locked #spy-result-modal,
+  html body.game-modal-scroll-locked #spy-warning-modal,
+  html body.game-modal-scroll-locked #raid-result-modal,
+  html body.game-modal-scroll-locked #attack-result-modal,
+  html body.game-modal-scroll-locked #police-action-result-modal,
+  html body.game-modal-scroll-locked .robbery-setup-popup-shell:not([hidden]) {
+    align-items: flex-start !important;
+    padding-top: calc(var(--mobile-overlay-card-top) + var(--mobile-overlay-card-gap)) !important;
+  }
+
+  body.game-modal-scroll-locked .modal,
+  body.game-modal-scroll-locked .district-popup-shell,
+  body.game-modal-scroll-locked .attack-setup-popup-shell,
+  body.game-modal-scroll-locked .robbery-setup-popup-shell,
+  body.game-modal-scroll-locked .buildings-popup-shell,
+  body.game-modal-scroll-locked .wanted-popup-shell,
+  body.game-modal-scroll-locked .player-popup-shell,
+  body.game-modal-scroll-locked .alliance-popup-shell,
+  body.game-modal-scroll-locked .armory-popup-shell,
+  body.game-modal-scroll-locked .pharmacy-popup-shell,
+  body.game-modal-scroll-locked .druglab-popup-shell,
+  body.game-modal-scroll-locked .factory-popup-shell,
+  body.game-modal-scroll-locked .market-popup-shell,
+  body.game-modal-scroll-locked .leaderboard-popup-shell,
+  body.game-modal-scroll-locked .storage-popup-shell,
+  body.game-modal-scroll-locked .district-building-detail-shell,
+  body.game-modal-scroll-locked .avatar-lightbox,
+  body.game-modal-scroll-locked .game-admin-slice-overlay {
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding-top: calc(var(--mobile-overlay-card-top) + var(--mobile-overlay-card-gap)) !important;
+    padding-right: 8px !important;
+    padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    padding-left: 8px !important;
+    box-sizing: border-box !important;
+  }
+
+  body.game-modal-scroll-locked .modal__content,
+  body.game-modal-scroll-locked .district-popup-card,
+  body.game-modal-scroll-locked .attack-setup-popup-card,
+  body.game-modal-scroll-locked .district-action-confirm-popup-card,
+  body.game-modal-scroll-locked .robbery-setup-popup-card,
+  body.game-modal-scroll-locked .buildings-popup-card,
+  body.game-modal-scroll-locked .wanted-popup-card,
+  body.game-modal-scroll-locked .player-popup-card,
+  body.game-modal-scroll-locked .alliance-popup-card,
+  body.game-modal-scroll-locked .armory-popup-card,
+  body.game-modal-scroll-locked .pharmacy-popup-card,
+  body.game-modal-scroll-locked .druglab-popup-card,
+  body.game-modal-scroll-locked .factory-popup-card,
+  body.game-modal-scroll-locked .market-popup-card,
+  body.game-modal-scroll-locked .leaderboard-popup-card,
+  body.game-modal-scroll-locked .storage-popup-card,
+  body.game-modal-scroll-locked .building-detail-modal__content,
+  body.game-modal-scroll-locked .avatar-lightbox__dialog,
+  body.game-modal-scroll-locked .game-admin-slice-overlay__panel {
+    margin-top: 0 !important;
+    max-height: calc(100dvh - var(--mobile-overlay-card-top) - 18px - env(safe-area-inset-bottom)) !important;
+  }
+
+  html body.game-modal-scroll-locked #spy-confirm-modal .modal__content,
+  html body.game-modal-scroll-locked #raid-confirm-modal .modal__content,
+  html body.game-modal-scroll-locked #occupy-confirm-modal .modal__content,
+  html body.game-modal-scroll-locked #trap-confirm-modal .modal__content,
+  html body.game-modal-scroll-locked #attack-confirm-modal .modal__content,
+  html body.game-modal-scroll-locked #spy-result-modal .modal__content,
+  html body.game-modal-scroll-locked #spy-warning-modal .modal__content,
+  html body.game-modal-scroll-locked #raid-result-modal .modal__content,
+  html body.game-modal-scroll-locked #attack-result-modal .modal__content,
+  html body.game-modal-scroll-locked #police-action-result-modal .modal__content,
+  html body.game-modal-scroll-locked .robbery-setup-popup-card {
+    max-height: calc(100dvh - var(--mobile-overlay-card-top) - 18px - env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/* Hard guard: large mobile windows must never open under the resource strip. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html.game-modal-scroll-locked {
+    --mobile-topbar-offset: var(--mobile-overlay-top-offset, 72px) !important;
+    --mobile-overlay-card-top: max(var(--mobile-overlay-top-offset, 72px), 72px);
+    --mobile-overlay-card-gap: 8px;
+    --mobile-overlay-available-height: calc(
+      var(--mobile-locked-vh, 100svh) - var(--mobile-overlay-card-top) - var(--mobile-overlay-card-gap) - max(8px, env(safe-area-inset-bottom))
+    );
+  }
+
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]),
+  html body.game-modal-scroll-locked .wanted-popup-shell:not([hidden]),
+  html body.game-modal-scroll-locked .armory-popup-shell:not([hidden]),
+  html body.game-modal-scroll-locked .pharmacy-popup-shell:not([hidden]),
+  html body.game-modal-scroll-locked .druglab-popup-shell:not([hidden]),
+  html body.game-modal-scroll-locked .factory-popup-shell:not([hidden]),
+  html body.game-modal-scroll-locked .district-building-detail-shell:not([hidden]) {
+    position: fixed !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    width: 100vw !important;
+    height: var(--mobile-locked-vh, 100svh) !important;
+    max-height: var(--mobile-locked-vh, 100svh) !important;
+    padding: calc(var(--mobile-overlay-card-top) + var(--mobile-overlay-card-gap)) 8px max(8px, env(safe-area-inset-bottom)) !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content,
+  html body.game-modal-scroll-locked .wanted-popup-shell:not([hidden]) .wanted-popup-card,
+  html body.game-modal-scroll-locked .district-building-detail-shell:not([hidden]) .district-building-detail-card.building-detail-modal__content,
+  html body.game-modal-scroll-locked .armory-popup-shell:not([hidden]) .armory-popup-card.building-detail-modal__content,
+  html body.game-modal-scroll-locked .pharmacy-popup-shell:not([hidden]) .pharmacy-popup-card.building-detail-modal__content,
+  html body.game-modal-scroll-locked .druglab-popup-shell:not([hidden]) .druglab-popup-card.building-detail-modal__content,
+  html body.game-modal-scroll-locked .factory-popup-shell:not([hidden]) .factory-popup-card.building-detail-modal__content {
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    transform: none !important;
+    width: min(430px, calc(100vw - 16px)) !important;
+    max-height: var(--mobile-overlay-available-height) !important;
+    margin: 0 auto !important;
+  }
+
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content,
+  html body.game-modal-scroll-locked .district-building-detail-shell:not([hidden]) .district-building-detail-card.building-detail-modal__content,
+  html body.game-modal-scroll-locked .armory-popup-shell:not([hidden]) .armory-popup-card.building-detail-modal__content,
+  html body.game-modal-scroll-locked .pharmacy-popup-shell:not([hidden]) .pharmacy-popup-card.building-detail-modal__content,
+  html body.game-modal-scroll-locked .druglab-popup-shell:not([hidden]) .druglab-popup-card.building-detail-modal__content,
+  html body.game-modal-scroll-locked .factory-popup-shell:not([hidden]) .factory-popup-card.building-detail-modal__content {
+    height: var(--mobile-overlay-available-height) !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  html body.game-modal-scroll-locked .wanted-popup-shell:not([hidden]) .wanted-popup-card {
+    height: auto !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  html body.game-modal-scroll-locked .wanted-popup-shell > .wanted-popup-police-window,
+  html body.game-modal-scroll-locked .wanted-popup-card .wanted-popup-police-window {
+    top: calc(var(--mobile-overlay-card-top) + var(--mobile-overlay-card-gap)) !important;
+    right: 10px !important;
+    left: 10px !important;
+    max-height: var(--mobile-overlay-available-height) !important;
   }
 }
