@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getCityFeedBadge,
   normalizeCityFeedEvent,
   normalizeCityFeedEvents,
   renderDistrictRumorFeed
@@ -81,5 +82,13 @@ describe("rumor feed panel", () => {
       { id: "b", districtId: "district:8", message: "Other rumor" }
     ], { districtId: "district:7" })).toBe(true);
     expect(list.children).toHaveLength(1);
+  });
+
+  it("maps intel types to player-facing badges", () => {
+    expect(getCityFeedBadge({ intelType: "confirmed_event", truthiness: "confirmed" }).label).toBe("POTVRZENO");
+    expect(getCityFeedBadge({ intelType: "rumor", truthiness: "unconfirmed" }).label).toBe("DRB");
+    expect(getCityFeedBadge({ intelType: "suspicion", truthiness: "false_possible" }).label).toBe("PODEZŘENÍ");
+    expect(getCityFeedBadge({ intelType: "scandal", truthiness: "unconfirmed" }).label).toBe("SKANDÁL");
+    expect(getCityFeedBadge({ intelType: "false_lead", truthiness: "false_possible" }).label).toBe("PODEZŘENÍ");
   });
 });

@@ -3,8 +3,14 @@ import type { CityFeedEvent, CityFeedSeverity, CityFeedSourceType } from "@empir
 import type { CoreGameState } from "../../entities";
 import type { CoreEvent } from "../../events";
 import { createBuildingActionFeedEvents, createCraftFeedEvents } from "./buildingCityFeedEvents";
-
-export const CITY_FEED_DEFAULT_LIMIT = 50;
+import { createPoliceCityFeedEvents } from "./policeCityFeedEvents";
+import type { GameCoreContext } from "../../engine/context";
+import {
+  appendResolvedCityFeedEvents,
+  CITY_FEED_DEFAULT_LIMIT,
+  resolveRumorEvent,
+  type RumorPipelineContext
+} from "./rumorPipeline";
 
 type EventPayload = Record<string, unknown>;
 
@@ -19,36 +25,30 @@ export const createCityFeedEventsFromCoreEvents = (
 export const appendCityFeedEventsFromCoreEvents = (
   state: CoreGameState,
   events: readonly CoreEvent[],
-  limit = CITY_FEED_DEFAULT_LIMIT
-): CoreGameState => appendCityFeedEvents(state, createCityFeedEventsFromCoreEvents(state, events), limit);
+  limit = CITY_FEED_DEFAULT_LIMIT,
+  context?: Pick<GameCoreContext, "config">
+): CoreGameState => appendCityFeedEvents(state, createCityFeedEventsFromCoreEvents(state, events), limit, context);
 
 export const appendCityFeedEvents = (
   state: CoreGameState,
   events: readonly CityFeedEvent[],
-  limit = CITY_FEED_DEFAULT_LIMIT
+  limit = CITY_FEED_DEFAULT_LIMIT,
+  context?: Pick<GameCoreContext, "config">
 ): CoreGameState => {
   if (events.length <= 0) return state;
-  const existing = state.cityFeedEventsById ?? {};
-  const sourceKeys = new Set(Object.values(existing).map((event) => event.sourceEventId || event.id));
-  const nextEntries = { ...existing };
-  let changed = false;
-
-  for (const event of events) {
-    const sourceKey = event.sourceEventId || event.id;
-    if (!event.id || sourceKeys.has(sourceKey)) continue;
-    sourceKeys.add(sourceKey);
-    nextEntries[event.id] = event;
-    changed = true;
-  }
-
-  if (!changed) return state;
-  const trimmed = Object.fromEntries(
-    Object.values(nextEntries)
-      .sort((left, right) => right.createdAtTick - left.createdAtTick || right.id.localeCompare(left.id))
-      .slice(0, Math.max(1, limit))
-      .map((event) => [event.id, event])
-  );
-  return { ...state, cityFeedEventsById: trimmed };
+  const pipelineContext: RumorPipelineContext = {
+    limit,
+    lobbyClubConfig: context?.config.balance.lobbyClub
+  };
+  const resolvedEvents = events.flatMap((event) => {
+    const resolved = resolveRumorEvent({
+      ...event,
+      message: event.message,
+      payload: event.payload
+    }, state, pipelineContext);
+    return resolved.event ? [resolved.event] : [];
+  });
+  return appendResolvedCityFeedEvents(state, resolvedEvents, limit);
 };
 
 export const createCityFeedEventsFromCoreEvent = (
@@ -65,6 +65,7 @@ export const createCityFeedEventsFromCoreEvent = (
         category: "combat",
         severity: resolveAttackSeverity(payload),
         truthiness: "confirmed",
+        intelType: "confirmed_event",
         visibility: "all",
         playerId: stringValue(payload.attackerPlayerId),
         districtId,
@@ -77,6 +78,7 @@ export const createCityFeedEventsFromCoreEvent = (
         category: "district",
         severity: "high",
         truthiness: "confirmed",
+        intelType: "confirmed_event",
         visibility: "all",
         playerId: stringValue(payload.attackerPlayerId),
         targetPlayerId: stringValue(payload.previousOwnerPlayerId),
@@ -89,6 +91,7 @@ export const createCityFeedEventsFromCoreEvent = (
         category: "rumor",
         severity: "low",
         truthiness: "unconfirmed",
+        intelType: "rumor",
         visibility: "all",
         playerId: stringValue(payload.attackerPlayerId),
         districtId,
@@ -96,36 +99,17 @@ export const createCityFeedEventsFromCoreEvent = (
         payload: { publicSummary: "spy_activity" }
       })];
     case "police-warning-issued":
-      return [createFeedEvent(state, event, {
-        sourceType: "police_warning",
-        category: "police",
-        severity: "medium",
-        truthiness: "confirmed",
-        visibility: "all",
-        playerId: stringValue(payload.playerId),
-        districtId,
-        messageKey: "police_warning",
-        payload: { aggregatePressure: numericValue(payload.aggregatePressure) }
-      })];
     case "police-raid-triggered":
-    case "police-raid-resolved":
-      return [createFeedEvent(state, event, {
-        sourceType: "police_raid",
-        category: "police",
-        severity: severityValue(payload.severity, "high"),
-        truthiness: "confirmed",
-        visibility: "all",
-        playerId: stringValue(payload.playerId),
-        districtId: stringValue(payload.targetDistrictId || payload.lockedDistrictId),
-        messageKey: "police_raid",
-        payload: publicRaidPayload(payload)
-      })];
+    case "police-raid-resolved": {
+      return createPoliceCityFeedEvents(state, event, payload);
+    }
     case "trap-triggered":
       return [createFeedEvent(state, event, {
         sourceType: "trap",
         category: "combat",
         severity: "high",
         truthiness: "confirmed",
+        intelType: "confirmed_event",
         visibility: "all",
         playerId: stringValue(payload.attackerPlayerId),
         districtId,
@@ -188,14 +172,6 @@ const publicAttackPayload = (payload: EventPayload): EventPayload => ({
   heatGained: numericValue(payload.heatGained)
 });
 
-const publicRaidPayload = (payload: EventPayload): EventPayload => ({
-  raidId: stringValue(payload.raidId),
-  status: stringValue(payload.status),
-  seizedDirtyCash: numericValue(payload.seizedDirtyCash ?? safePayload(payload.cashSeized)["dirty-cash"]),
-  heatReduced: numericValue(payload.heatReduced ?? payload.heatReducedBy),
-  courthouseMitigation: safePayload(payload.courthouseMitigation)
-});
-
 const safePayload = (value: unknown): EventPayload =>
   value && typeof value === "object" ? value as EventPayload : {};
 
@@ -210,9 +186,6 @@ const numericValue = (value: unknown): number => {
 };
 
 const booleanValue = (value: unknown): boolean => value === true || value === "true";
-
-const severityValue = (value: unknown, fallback: CityFeedSeverity): CityFeedSeverity =>
-  value === "low" || value === "medium" || value === "high" || value === "extreme" ? value : fallback;
 
 const hashText = (value: string): number =>
   Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 0);

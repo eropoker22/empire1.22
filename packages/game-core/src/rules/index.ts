@@ -11,6 +11,8 @@ export * from "./events";
 export * from "./heists";
 export * from "./market";
 export * from "./police/evaluatePolicePressure";
+export * from "./police/heatDecay";
+export * from "./police/cityHallPoliceMitigation";
 export * from "./police/policeConfig";
 export * from "./police/policeConsequenceExpiry";
 export * from "./police/policePressure";

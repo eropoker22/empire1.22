@@ -1,7 +1,7 @@
-import type { CityFeedEvent } from "@empire/shared-types";
-import type { StockExchangeBalanceConfig } from "../contracts";
+import type { LobbyClubBalanceConfig, StockExchangeBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { deterministicUnitInterval } from "../utils/math";
+import { applyRumorEventToState } from "../rules/events/rumorPipeline";
 import {
   getStockExchangeMetadata,
   minutesToTicks,
@@ -69,7 +69,8 @@ export const applyStockExchangePassiveEffects = (
 export const applyStockExchangeFinancialInspections = (
   state: CoreGameState,
   config: StockExchangeBalanceConfig,
-  tickRateMs: number
+  tickRateMs: number,
+  lobbyClubConfig?: LobbyClubBalanceConfig
 ): CoreGameState => {
   let nextState = state;
   const intervalTicks = minutesToTicks(config.financialInspection.intervalMinutes, tickRateMs);
@@ -81,7 +82,7 @@ export const applyStockExchangeFinancialInspections = (
     const roll = deterministicUnitInterval(`${nextState.serverInstance.worldSeed}:stock-inspection:${building.id}:${nextState.root.tick}`);
     let nextMetadata: StockExchangeMetadata = { ...metadata, lastInspectionTick: nextState.root.tick };
     if (roll < riskPct / 100) {
-      const consequence = resolveInspectionConsequence(nextState, building, config, riskPct, tickRateMs);
+      const consequence = resolveInspectionConsequence(nextState, building, config, riskPct, tickRateMs, lobbyClubConfig);
       nextState = consequence.state;
       nextMetadata = { ...nextMetadata, ...consequence.metadataPatch, inspectionEvents: [...nextMetadata.inspectionEvents, consequence.event].slice(-8) };
     }
@@ -106,7 +107,8 @@ const resolveInspectionConsequence = (
   building: CoreGameState["buildingsById"][string],
   config: StockExchangeBalanceConfig,
   riskPct: number,
-  tickRateMs: number
+  tickRateMs: number,
+  lobbyClubConfig?: LobbyClubBalanceConfig
 ): { state: CoreGameState; metadataPatch: Partial<StockExchangeMetadata>; event: StockExchangeInspectionEvent } => {
   const roll = deterministicUnitInterval(`${state.serverInstance.worldSeed}:stock-inspection-type:${building.id}:${state.root.tick}`);
   const type = ["frozen_accounts", "transaction_probe", "fine", "market_panic", "public_scandal"][Math.min(4, Math.floor(roll * 5))];
@@ -158,7 +160,7 @@ const resolveInspectionConsequence = (
     ];
   } else if (type === "public_scandal") {
     const district = state.districtsById[building.districtId];
-    const rumorText = `Downtownem se šíří drb o finančním skandálu kolem Burzy. Grafy prý někdo ohýbal dřív, než trh stihl dýchat.`;
+    const rumorText = formatStockExchangeScandalRumor(state, building);
     if (district) {
       nextState = {
         ...nextState,
@@ -172,7 +174,7 @@ const resolveInspectionConsequence = (
         }
       };
     }
-    nextState = appendStockExchangeScandalRumor(nextState, building, rumorText);
+    nextState = appendStockExchangeScandalRumor(nextState, building, rumorText, lobbyClubConfig);
     metadataPatch.inspectionEvents = [
       ...(metadataPatch.inspectionEvents ?? []),
       { type, tick: state.root.tick, riskPct, label: labelByType[type] ?? type, rumorText }
@@ -185,38 +187,51 @@ const resolveInspectionConsequence = (
   };
 };
 
+const STOCK_EXCHANGE_SCANDAL_RUMORS = [
+  "Downtown šeptá o skandálu na Burze. Grafy prý někdo ohýbal dřív, než trh stihl dýchat.",
+  "Někdo tvrdí, že burzovní čísla tančila podle cizí ruky. Trh se tvářil, že neslyší hudbu.",
+  "Zdroj říká, že pumpa na trhu nebyla náhoda. Někdo možná vydělal dřív, než ostatní viděli signál. Velmi sportovní.",
+  "Šeptá se o obchodech, které přišly moc přesně a odešly moc čistě. Čistota je na Burze vždy podezřelá.",
+  "Burza prý vyplivla stopu po manipulaci. Čísla mlčí, ale reputace krvácí a dělá to na drahý koberec.",
+  "Někdo možná zatlačil na trh přes cizí účty. Vypadá to chytře, ale smrdí to jako výtah po panice."
+];
+
+const formatStockExchangeScandalRumor = (
+  state: CoreGameState,
+  building: CoreGameState["buildingsById"][string]
+): string => {
+  const owner = building.ownerPlayerId ? state.playersById[building.ownerPlayerId] : undefined;
+  const name = owner?.name?.trim() || owner?.id || "někdo z trading flooru";
+  const text = pickVariant(STOCK_EXCHANGE_SCANDAL_RUMORS, `${state.serverInstance.worldSeed}:stock-scandal-rumor:${building.id}:${state.root.tick}`);
+  return `${text} U terminálů prý padlo jméno ${name}, jen potichu. I klávesnice prý přestaly cvakat.`;
+};
+
 const appendStockExchangeScandalRumor = (
   state: CoreGameState,
   building: CoreGameState["buildingsById"][string],
-  message: string
+  message: string,
+  lobbyClubConfig?: LobbyClubBalanceConfig
 ): CoreGameState => {
   const sourceEventId = `stock-inspection:${building.id}:${state.root.tick}:public-scandal`;
-  const event: CityFeedEvent = {
-    id: `city-feed:${sourceEventId}`,
+  return applyRumorEventToState(state, {
     sourceEventId,
     sourceType: "market",
     category: "rumor",
     severity: "high",
     truthiness: "unconfirmed",
+    intelType: "scandal",
     visibility: "all",
     playerId: building.ownerPlayerId,
     districtId: building.districtId,
     createdAtTick: state.root.tick,
     message,
     messageKey: "rumor.stock_exchange_scandal",
+    negative: true,
     payload: {
       buildingTypeId: building.buildingTypeId,
       inspectionType: "public_scandal"
     }
-  };
-  if (state.cityFeedEventsById?.[event.id]) return state;
-  return {
-    ...state,
-    cityFeedEventsById: {
-      ...(state.cityFeedEventsById ?? {}),
-      [event.id]: event
-    }
-  };
+  }, { lobbyClubConfig });
 };
 
 const createTrendHint = (tick: number, seed: string): StockExchangeTrendHint => {
@@ -237,3 +252,7 @@ const resolveRandomCategory = (state: CoreGameState, seed: string): StockExchang
   return categories[Math.min(categories.length - 1, Math.floor(deterministicUnitInterval(`${state.serverInstance.worldSeed}:${seed}:category`) * categories.length))];
 };
 
+const pickVariant = (variants: string[], seed: string): string => {
+  const index = Math.floor(deterministicUnitInterval(seed) * variants.length);
+  return variants[index] ?? variants[0] ?? "";
+};

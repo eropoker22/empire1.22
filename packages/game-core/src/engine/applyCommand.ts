@@ -22,6 +22,6 @@ export const applyCommand = (
   }
   return {
     ...result,
-    nextState: appendCityFeedEventsFromCoreEvents(result.nextState, result.events)
+    nextState: appendCityFeedEventsFromCoreEvents(result.nextState, result.events, undefined, context)
   };
 };

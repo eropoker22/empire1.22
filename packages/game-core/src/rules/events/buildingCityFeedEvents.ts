@@ -29,10 +29,11 @@ export const createBuildingActionFeedEvents = (
       category: "economy",
       severity: "high",
       truthiness: "confirmed",
+      intelType: "confirmed_event",
       visibility: "all",
       playerId: stringValue(payload.playerId),
       districtId: stringValue(payload.districtId),
-      message: `Downtown burza rozkolísala ceny v kategorii ${category}.`,
+      message: formatMarketPressureRumor(category, createSourceEventId(event, "market", state.root.tick)),
       payload: {
         actionId,
         buildingTypeId,
@@ -53,6 +54,7 @@ export const createBuildingActionFeedEvents = (
     category: "economy",
     severity: heatGain >= 10 || dirtyCash >= 2000 || buildingTypeId === "drug_lab" || streetDealerIncident.type === "loose_talk" ? "high" : "medium",
     truthiness: "unconfirmed",
+    intelType: "rumor",
     visibility: "all",
     playerId: stringValue(payload.playerId),
     districtId: stringValue(payload.districtId),
@@ -76,6 +78,7 @@ export const createCraftFeedEvents = (
     category: "economy",
     severity: isWeaponOrDefenseOutput(outputResourceKey) ? "medium" : "high",
     truthiness: "unconfirmed",
+    intelType: "rumor",
     visibility: "all",
     playerId: stringValue(payload.playerId),
     districtId: stringValue(payload.districtId),
@@ -103,6 +106,20 @@ const createFeedEvent = (
     messageKey: `rumor.${input.messageKey}`,
     message: resolveRumorTemplate(input.messageKey, hashText(sourceEventId), { district })
   };
+};
+
+const MARKET_PRESSURE_RUMORS = [
+  "Burza prý v noci rozhoupala ceny v kategorii {category}. Nikdo nechce říct, kdo zatlačil první; peníze stejně neumí svědčit.",
+  "Grafy u {category} se údajně ohnuly moc čistě. Někdo možná trhem pohnul dřív než ostatní stihli mrknout.",
+  "Šeptá se, že {category} dnes netančí podle poptávky, ale podle cizí ruky. Trh má zase nového choreografa.",
+  "Zdroj z trading flooru říká, že {category} dostalo noční impuls bez jména. Takové impulsy bývají drahé.",
+  "Někdo prý zatlačil na {category} tak tiše, že si toho všimly jen peníze. Peníze jsou překvapivě upovídané.",
+  "Ceny v {category} se údajně pohnuly jako na povel. Trh tvrdí, že je to náhoda, což trh tvrdí vždycky."
+];
+
+const formatMarketPressureRumor = (category: string, seed: string): string => {
+  const template = MARKET_PRESSURE_RUMORS[Math.abs(hashText(`${seed}:market-pressure-text`)) % MARKET_PRESSURE_RUMORS.length] ?? MARKET_PRESSURE_RUMORS[0] ?? "";
+  return template.replace("{category}", category);
 };
 
 const createDirectFeedEvent = (

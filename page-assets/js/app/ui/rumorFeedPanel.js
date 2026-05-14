@@ -30,6 +30,14 @@ export function normalizeCityFeedEvent(event = {}) {
   const truthiness = ["confirmed", "unconfirmed", "false_possible"].includes(String(event.truthiness))
     ? String(event.truthiness)
     : "unconfirmed";
+  const intelTypeValue = event.intelType || event.payload?.intelType;
+  const intelType = ["confirmed_event", "rumor", "suspicion", "scandal", "warning", "false_lead"].includes(String(intelTypeValue))
+    ? String(intelTypeValue)
+    : truthiness === "confirmed"
+      ? "confirmed_event"
+      : truthiness === "false_possible"
+        ? "suspicion"
+        : "rumor";
   const sourceEventId = safeText(event.sourceEventId || event.actionResultId || event.raidId || event.battleReportId || event.id);
 
   return {
@@ -39,6 +47,7 @@ export function normalizeCityFeedEvent(event = {}) {
     category,
     severity,
     truthiness,
+    intelType,
     visibility: safeText(event.visibility, "all"),
     playerId: safeText(event.playerId),
     targetPlayerId: safeText(event.targetPlayerId),
@@ -50,6 +59,24 @@ export function normalizeCityFeedEvent(event = {}) {
     messageKey: safeText(event.messageKey),
     payload: event.payload && typeof event.payload === "object" ? event.payload : {}
   };
+}
+
+export function getCityFeedBadge(event = {}) {
+  const truthiness = safeText(event.truthiness, "unconfirmed");
+  const intelType = safeText(event.intelType || event.payload?.intelType, truthiness === "confirmed" ? "confirmed_event" : "rumor");
+  if (truthiness === "confirmed" || intelType === "confirmed_event") {
+    return { label: "POTVRZENO", level: "verified" };
+  }
+  if (truthiness === "false_possible" || intelType === "suspicion" || intelType === "false_lead") {
+    return { label: "PODEZŘENÍ", level: "suspicion" };
+  }
+  if (intelType === "scandal") {
+    return { label: "SKANDÁL", level: "rumor" };
+  }
+  if (intelType === "warning") {
+    return { label: "VAROVÁNÍ", level: "rumor" };
+  }
+  return { label: "DRB", level: "rumor" };
 }
 
 export function normalizeCityFeedEvents(events = []) {
@@ -77,10 +104,11 @@ export function renderDistrictRumorFeed(list, events = [], options = {}) {
   for (const event of entries) {
     const item = createElement(ownerDocument, "div", "district-popup-gossip__item");
     const text = createElement(ownerDocument, "div", "district-popup-gossip__text");
-    const meta = createElement(ownerDocument, "span", "district-popup-gossip__badge district-popup-gossip__badge--rumor");
+    const badge = getCityFeedBadge(event);
+    const meta = createElement(ownerDocument, "span", `district-popup-gossip__badge district-popup-gossip__badge--${badge.level}`);
     if (!item || !text || !meta) continue;
     text.textContent = event.message;
-    meta.textContent = event.truthiness === "confirmed" ? "intel" : "drb";
+    meta.textContent = badge.label;
     item.append(text, meta);
     list.append(item);
   }
@@ -92,6 +120,7 @@ if (typeof window !== "undefined") {
   window.EmpireRumorFeedPanel = {
     normalizeCityFeedEvent,
     normalizeCityFeedEvents,
+    getCityFeedBadge,
     renderDistrictRumorFeed
   };
 }

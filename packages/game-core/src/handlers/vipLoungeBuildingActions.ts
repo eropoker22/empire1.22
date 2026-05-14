@@ -1,6 +1,7 @@
 import type { FixedBuildingBalanceConfig, LobbyClubBalanceConfig, VipLoungeBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { deterministicRollPct, isRecord } from "../utils";
+import { applyResolvedRumorEventsToState, createPassiveBuildingRumorInput, type ResolveRumorEventInput } from "../rules/events/rumorPipeline";
 import { getOwnedLobbyClubCount } from "./lobbyClubBuildingActions";
 import type { VipLoungeMetadata, VipLoungeRumor } from "./vipLoungeTypes";
 
@@ -86,6 +87,7 @@ export const applyVipLoungePassiveRumors = (
 ): CoreGameState => {
   let buildingsById = state.buildingsById;
   let changed = false;
+  const feedInputs: ResolveRumorEventInput[] = [];
 
   for (const building of Object.values(state.buildingsById)) {
     if (building.buildingTypeId !== config.buildingTypeId || building.status !== "active" || !building.ownerPlayerId) continue;
@@ -101,18 +103,31 @@ export const applyVipLoungePassiveRumors = (
     if ((metadata.lastPassiveRumorCheckTick ?? -Infinity) + intervalTicks > state.root.tick) continue;
     metadata.lastPassiveRumorCheckTick = state.root.tick;
     if (deterministicRollPct(`${building.id}:vip-lounge-passive-rumor:${state.root.tick}`) < stats.passiveRumorChancePct) {
-      metadata.rumorEvents.push(generateVipLoungeRumor({
+      const rumor = generateVipLoungeRumor({
         state,
         playerId: building.ownerPlayerId,
         config,
+        lobbyClubConfig,
         seed: `${building.id}:vip-lounge-rumor-event:${state.root.tick}`
+      });
+      metadata.rumorEvents.push(rumor);
+      feedInputs.push(createPassiveBuildingRumorInput({
+        state,
+        building,
+        source: "vip_lounge",
+        rumor,
+        severity: rumor.type === "trap_suspicion" ? "low" : "medium",
+        negative: ["political_pressure", "police_warning", "planned_attack", "revenge_plan", "trap_suspicion"].includes(rumor.type)
       }));
     }
     buildingsById = updateBuildingMetadata(buildingsById, building, metadata);
     changed = true;
   }
 
-  return changed ? { ...state, buildingsById } : state;
+  const metadataState = changed ? { ...state, buildingsById } : state;
+  return feedInputs.length > 0
+    ? applyResolvedRumorEventsToState(metadataState, feedInputs, { lobbyClubConfig })
+    : metadataState;
 };
 
 export const getVipLoungeMetadata = (building: CoreGameState["buildingsById"][string]): VipLoungeMetadata => {
@@ -127,25 +142,29 @@ const generateVipLoungeRumor = (input: {
   state: CoreGameState;
   playerId: string;
   config: VipLoungeBalanceConfig;
+  lobbyClubConfig?: LobbyClubBalanceConfig;
   seed: string;
 }): VipLoungeRumor => {
-  const stats = resolveVipLoungeRumorStats({ state: input.state, playerId: input.playerId, config: input.config });
-  const type = input.config.passiveRumor.rumorTypes[Math.floor(deterministicRollPct(`${input.seed}:type`) / 100 * input.config.passiveRumor.rumorTypes.length)] ?? "fake";
-  const isTrue = deterministicRollPct(`${input.seed}:truth`) < stats.truthChancePct;
+  const stats = resolveVipLoungeRumorStats({ state: input.state, playerId: input.playerId, config: input.config, lobbyClubConfig: input.lobbyClubConfig });
+  const rawType = input.config.passiveRumor.rumorTypes[Math.floor(deterministicRollPct(`${input.seed}:type`) / 100 * input.config.passiveRumor.rumorTypes.length)] ?? "fake";
+  const type = rawType === "trap_suspicion" && deterministicRollPct(`${input.seed}:trap-ultra-rare`) >= 2 ? "fake" : rawType;
+  const truthChancePct = type === "trap_suspicion" ? Math.min(25, stats.truthChancePct) : stats.truthChancePct;
+  const isTrue = deterministicRollPct(`${input.seed}:truth`) < truthChancePct;
   const districtHint = deterministicRollPct(`${input.seed}:district`) < stats.districtHintChancePct ? pickDistrictHint(input.state, input.seed) : null;
   const buildingHint = deterministicRollPct(`${input.seed}:building`) < stats.buildingHintChancePct ? pickBuildingHint(input.state, input.seed) : null;
+  const rivalHint = pickRivalPlayerHint(input.state, input.playerId, input.seed);
   const reliabilityVisible = deterministicRollPct(`${input.seed}:reliability`) < stats.reliabilityLabelChancePct;
   const reliabilityLabel = reliabilityVisible ? resolveReliabilityLabel(stats.truthChancePct, input.config, input.seed) : null;
   const subject = isTrue ? type : "fake";
   return {
     type,
-    truthChancePct: stats.truthChancePct,
+    truthChancePct,
     isTrue,
     districtHint,
     buildingHint,
     reliabilityVisible,
     reliabilityLabel,
-    text: formatRumorText(subject, districtHint, buildingHint, reliabilityLabel)
+    text: formatRumorText(subject, districtHint, buildingHint, rivalHint, reliabilityLabel, input.seed)
   };
 };
 
@@ -153,33 +172,115 @@ const formatRumorText = (
   type: string,
   districtHint: string | null,
   buildingHint: string | null,
-  reliabilityLabel: string | null
+  rivalHint: string | null,
+  reliabilityLabel: string | null,
+  seed: string
 ): string => {
   const place = districtHint
     ? ` poblíž ${districtHint}`
-    : " někde mimo hlavní světla města";
-  const building = buildingHint ? ` a kolem budovy typu ${buildingHint}` : "";
-  const reliability = reliabilityLabel ? ` Odhad zdroje: ${reliabilityLabel}.` : "";
-  return `${formatRumorSubject(type)}${place}${building}.${reliability}`;
+    : " někde za matným sklem města";
+  const building = buildingHint ? `, stopa vede k podniku typu ${buildingHint}` : "";
+  const rival = rivalHint ? ` Zdroj opatrně spojil stopu se jménem ${rivalHint}; opatrně, protože žaloby jsou drahé.` : "";
+  const reliability = reliabilityLabel ? ` Zdroj si věří: ${reliabilityLabel}. V tomhle městě je to skoro diagnóza.` : "";
+  return `${formatRumorSubject(type, seed)}${place}${building}.${rival}${reliability}`;
 };
 
-const formatRumorSubject = (type: string): string => {
-  switch (type) {
-    case "political_pressure": return "Ve VIP salonku se šeptalo, že se chystá politický tlak";
-    case "financial_deal": return "Někdo u zadního stolu mluvil o velkém přesunu peněz";
-    case "police_warning": return "Zákulisní zdroj tvrdí, že policie připravuje tlak";
-    case "planned_attack": return "Host v drahém obleku naznačil plánovaný útok";
-    case "revenge_plan": return "Za závěsem padla řeč o odvetném plánu";
-    case "casino_money": return "U VIP stolu se řešil podezřelý casino cashflow";
-    case "smuggling_route": return "Zákulisní šeptanda ukazuje na pašovací trasu";
-    case "drug_distribution": return "Někdo z VIP části pustil informaci o distribuci drog";
-    case "hidden_weakness": return "Elitní host naznačil skrytou slabinu";
-    case "weak_defense": return "Host tvrdí, že jeden district má slabší obranu, než se zdá";
-    case "storage_hint": return "Zdroj mluvil o skladu, kolem kterého se něco hýbe";
-    case "trap_suspicion": return "Někdo zmínil možnou past, ale zdroj není úplně čistý";
-    default: return "VIP část pustila historku, která může být jen kouřová clona";
-  }
+const VIP_RUMOR_SUBJECTS: Record<string, string[]> = {
+  political_pressure: [
+    "VIP zdroj šeptá, že se chystá tichý politický tlak; nejhorší druh ticha, nosí kravatu",
+    "U sametového stolu prý někdo kupuje měkkou moc na příští tah",
+    "Zákulisí údajně tlačí na úřední dveře bez otisků",
+    "Někdo s vlivem možná připravuje rozhodnutí dřív, než se objeví na papíře",
+    "Politická linka prý zadrnčela ve jménu jednoho hráče"
+  ],
+  financial_deal: [
+    "U zadního stolu prý proběhla dohoda s příliš hladkým cashflow. Když peníze kloužou, někdo maže",
+    "Drahý oblek naznačil obchod, který se nedá najít v účetnictví, což účetnictví bere jako osobní urážku",
+    "Někdo možná přesouvá clean cash tak čistě, až to působí špinavě",
+    "VIP stůl slyšel sumu, která by vysvětlila náhlý růst jednoho hráče",
+    "Finanční stopa prý vede přes ruce, které se nikdy nefotí"
+  ],
+  police_warning: [
+    "Zákulisní zdroj tvrdí, že policie si připravuje měkký stisk. Měkký jen podle policejního slovníku",
+    "Někdo z vyššího patra prý viděl policejní seznam dřív než ulice",
+    "Zdroj říká, že jeden hráč má heat vyšší, než si připouští",
+    "Policie údajně čeká na špatný pohyb, ne na povolení",
+    "Modrá linka prý sleduje cashflow a trpělivě počítá chyby. Policie miluje matematiku, když bolí někoho jiného"
+  ],
+  planned_attack: [
+    "Host v drahém obleku naznačil útok, ale neřekl jméno. Drahé obleky milují dramaturgii",
+    "Na stole ležela mapa a sklenka se nepohnula, dokud nepadl plán",
+    "Někdo prý shání sílu na rychlý úder proti měkkému cíli",
+    "VIP zdroj zachytil přípravu akce, která má vypadat jako nehoda",
+    "Útok se možná nekreslí na zdi, ale v soukromém kalendáři už svítí"
+  ],
+  revenge_plan: [
+    "Za závěsem údajně padla řeč o odvetě",
+    "Někdo si prý neodpustil starý dluh a teď hledá správnou noc",
+    "VIP stůl slyšel jméno vyslovené jako slib, ne jako vzpomínku",
+    "Odveta možná zraje pomalu, ale zdroj tvrdí, že nezmizela",
+    "Někdo údajně přepočítává křivdy na munici"
+  ],
+  casino_money: [
+    "VIP stůl prý cítil casino cash, co prošel špatným filtrem",
+    "Žetony údajně kryly pohyb peněz, který nesedí ke hře",
+    "Někdo možná používá hazard jako výtah pro špinavé zisky",
+    "Zdroj mluví o cashflow, které voní po baru a účetní panice",
+    "Casino peníze prý mění majitele rychleji než karta na stole"
+  ],
+  smuggling_route: [
+    "Zákulisní šeptanda ukazuje na trasu, kterou mapa radši nezná",
+    "Někdo údajně našel koridor, kde se zboží ptá méně než lidé",
+    "VIP zdroj mluví o cestě, která obchází světla i manifesty",
+    "Pašerácká linka možná vede kolem districtu, který se tváří klidně",
+    "Zboží prý teče městem stranou od hlavních kamer"
+  ],
+  drug_distribution: [
+    "Někdo z VIP části pustil stopu o distribuci neonového zboží",
+    "Zdroj naznačil síť, kde se malé dávky mění ve velký problém",
+    "Někdo možná tlačí zboží do ulic rychleji, než stíhá chladnout asfalt",
+    "VIP stůl zachytil jméno napojené na noční distribuci",
+    "Neonový produkt prý mění trasy podle toho, kdo zrovna hlídá roh"
+  ],
+  hidden_weakness: [
+    "Elitní host naznačil slabinu, za kterou by se platilo krví. Nebo influence, podle kurzu",
+    "Zdroj tvrdí, že jeden hráč má měkké místo za drahou fasádou. Fasáda prý fakt maká přesčas",
+    "Někde prý chybí obrana přesně tam, kde reputace křičí nejhlasitěji",
+    "VIP linka ukazuje na slabinu, kterou zatím kryje jen sebevědomí",
+    "Někdo možná nechal odkrytý bok a doufá, že se nikdo nedívá"
+  ],
+  weak_defense: [
+    "Zdroj tvrdí, že jeden district vypadá tvrdší, než ve skutečnosti je",
+    "Obrana prý stojí víc na pověsti než na skutečné výbavě",
+    "Někdo šetřil na hlídačích a koupil si místo toho klidný výraz",
+    "VIP zdroj mluví o okně, které se zavírá pomaleji než ostatní",
+    "District možná drží fasádu, ale zadní strana prý dýchá moc lehce"
+  ],
+  storage_hint: [
+    "Zdroj mluvil o skladu, kolem kterého se v noci hýbou cizí ruce",
+    "Někdo prý stahuje zásoby do místa, které zatím nevypadá důležitě",
+    "VIP stopa ukazuje na bedny, které mění adresu před větší akcí",
+    "Sklad údajně nabírá váhu. To bývá před bouří nebo před loupeží",
+    "Zboží se možná přesouvá podle plánu, který hráči ještě nevidí"
+  ],
+  trap_suspicion: [
+    "VIP zdroj říká, že v jednom bloku něco nesedí. Nikdo nepotvrdil proč, ani kdo tam dělal interiér",
+    "Někdo varoval před příliš tichou trasou, ale důkaz nikdo nepoložil na stůl",
+    "Zdroj mluví o místě, kde se lidé vrací bledší, pokud se vrátí vůbec",
+    "V jednom směru města prý mizí zvuk kroků. Může to být jen paranoia",
+    "VIP šeptanda naznačuje nepříjemné uvítání, ale neříká kde ani jaké. Velmi drahý způsob, jak říct možná"
+  ],
+  fake: [
+    "VIP část pustila historku, která může být jen drahá kouřová clona",
+    "Zdroj možná prodává elegantní lež s drahým razítkem",
+    "Stopa vypadá kvalitně, ale někdo ji mohl naleštit pro cizí oči",
+    "Někdo možná přes VIP síť jen rozhazuje cizí jméno jako návnadu",
+    "Drahý drb nemusí být pravda. Jen mívá lepší parfém"
+  ]
 };
+
+const formatRumorSubject = (type: string, seed: string): string =>
+  pickVariant(VIP_RUMOR_SUBJECTS[type] ?? VIP_RUMOR_SUBJECTS.fake, `${seed}:subject`);
 
 const resolveReliabilityLabel = (truthChancePct: number, config: VipLoungeBalanceConfig, seed: string): string => {
   const labels = config.passiveRumor.reliabilityLabels;
@@ -223,6 +324,15 @@ const pickBuildingHint = (state: CoreGameState, seed: string): string | null => 
   const buildings = Object.values(state.buildingsById).filter((building) => building.status === "active");
   return buildings.length > 0 ? buildings[Math.floor(deterministicRollPct(`${seed}:building-index`) / 100 * buildings.length)]?.buildingTypeId ?? null : null;
 };
+
+const pickRivalPlayerHint = (state: CoreGameState, playerId: string, seed: string): string | null => {
+  const players = Object.values(state.playersById).filter((player) => player.id !== playerId && player.status === "active");
+  const player = players.length > 0 ? players[Math.floor(deterministicRollPct(`${seed}:rival-index`) / 100 * players.length)] : null;
+  return player?.name?.trim() || player?.id || null;
+};
+
+const pickVariant = (variants: string[], seed: string): string =>
+  variants[Math.floor(deterministicRollPct(`${seed}:variant`) / 100 * variants.length)] ?? variants[0] ?? "";
 
 const normalizeRumor = (value: Record<string, unknown>): VipLoungeRumor => ({
   type: String(value.type || "fake"),

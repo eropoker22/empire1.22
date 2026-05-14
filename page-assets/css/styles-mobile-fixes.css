@@ -242,6 +242,46 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     overflow-x: hidden !important;
   }
 
+  body.game-body {
+    background:
+      linear-gradient(180deg, rgba(2, 6, 12, 0.42), rgba(2, 6, 12, 0.72)),
+      url("../../img/gamemobtap.png") center top / cover no-repeat,
+      #050913 !important;
+  }
+
+  html body.game-body::before {
+    content: "" !important;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 0 !important;
+    display: block !important;
+    pointer-events: none !important;
+    background:
+      linear-gradient(180deg, rgba(2, 6, 12, 0.34), rgba(2, 6, 12, 0.72)),
+      url("../../img/gamemobtap.png") center top / cover no-repeat,
+      #050913 !important;
+  }
+
+  html body.game-body::after {
+    content: "" !important;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 0 !important;
+    display: block !important;
+    pointer-events: none !important;
+    opacity: 0.42 !important;
+    background:
+      linear-gradient(rgba(103, 232, 249, 0.026) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(103, 232, 249, 0.02) 1px, transparent 1px),
+      linear-gradient(180deg, transparent, rgba(2, 6, 12, 0.2)) !important;
+    background-size: 72px 72px, 72px 72px, 100% 100% !important;
+  }
+
+  html body.game-body > .game-shell {
+    position: relative;
+    z-index: 1;
+  }
+
   html.game-modal-scroll-locked {
     --mobile-topbar-offset: 0px !important;
   }

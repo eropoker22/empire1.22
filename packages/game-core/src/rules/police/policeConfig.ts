@@ -45,6 +45,17 @@ export const DEFAULT_POLICE_SYSTEM_CONFIG: PoliceSystemBalanceConfig = {
     high: 25,
     extreme: 45
   },
+  heatDecay: {
+    playerIntervalTicks: 30,
+    playerDecayByWantedLevel: { 0: 4, 1: 3, 2: 2, 3: 1, 4: 1, 5: 1 },
+    districtIntervalTicks: 60,
+    districtBaseDecay: 3,
+    districtHighPassiveHeatPerDayThreshold: 100,
+    districtHighPassiveHeatMultiplier: 0.5,
+    districtLockdownDecayMultiplier: 1.25
+  },
+  maxPoliticalRaidTriggerReductionPct: 45,
+  extremePoliticalRaidReductionMultiplier: 0.5,
   protectedResources: ["cash", "gang-members", "population"],
   autoResolveExpiredPendingRaids: true
 };
@@ -78,6 +89,14 @@ export const resolvePoliceConfig = (context?: GameCoreContext): PoliceSystemBala
     heatReductionBySeverity: {
       ...DEFAULT_POLICE_SYSTEM_CONFIG.heatReductionBySeverity,
       ...(override.heatReductionBySeverity ?? {})
+    },
+    heatDecay: {
+      ...DEFAULT_POLICE_SYSTEM_CONFIG.heatDecay!,
+      ...(override.heatDecay ?? {}),
+      playerDecayByWantedLevel: {
+        ...DEFAULT_POLICE_SYSTEM_CONFIG.heatDecay!.playerDecayByWantedLevel,
+        ...(override.heatDecay?.playerDecayByWantedLevel ?? {})
+      }
     },
     protectedResources: override.protectedResources ?? DEFAULT_POLICE_SYSTEM_CONFIG.protectedResources
   };

@@ -1,4 +1,4 @@
-import type { AirportBalanceConfig, PowerStationBalanceConfig, SmugglingTunnelBalanceConfig, WarehouseBalanceConfig } from "../contracts";
+import type { AirportBalanceConfig, LobbyClubBalanceConfig, PowerStationBalanceConfig, SmugglingTunnelBalanceConfig, WarehouseBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { deterministicUnitInterval } from "../utils/math";
 import { getWarehouseCapacityForResource, resolveWarehouseStorageCapacity } from "./warehouseBuilding";
@@ -14,7 +14,8 @@ export const completeAirportImportsAndCustoms = (
   warehouseConfig: WarehouseBalanceConfig | undefined,
   powerStationConfig: PowerStationBalanceConfig | undefined,
   smugglingTunnelConfig: SmugglingTunnelBalanceConfig | undefined,
-  tickRateMs: number
+  tickRateMs: number,
+  lobbyClubConfig?: LobbyClubBalanceConfig
 ): CoreGameState => {
   let nextState = state;
   for (const building of Object.values(nextState.buildingsById)) {
@@ -24,7 +25,7 @@ export const completeAirportImportsAndCustoms = (
     const completed = metadata.pendingImports.filter((entry) => entry.completesAtTick <= nextState.root.tick);
     if (completed.length > 0) {
       for (const pending of completed) {
-        const completion = completePendingImport(nextState, currentBuilding, pending, config, warehouseConfig, powerStationConfig);
+        const completion = completePendingImport(nextState, currentBuilding, pending, config, warehouseConfig, powerStationConfig, lobbyClubConfig);
         nextState = completion.state;
         currentBuilding = nextState.buildingsById[building.id] ?? currentBuilding;
         metadata = {
@@ -47,7 +48,7 @@ export const completeAirportImportsAndCustoms = (
       const roll = deterministicUnitInterval(`${nextState.serverInstance.worldSeed}:airport-customs:${building.id}:${nextState.root.tick}`);
       metadata = { ...metadata, lastCustomsInspectionTick: nextState.root.tick };
       if (roll < riskPct / 100) {
-        const consequence = applyCustomsInspectionConsequence(nextState, currentBuilding, config, riskPct, tickRateMs);
+        const consequence = applyCustomsInspectionConsequence(nextState, currentBuilding, config, riskPct, tickRateMs, lobbyClubConfig);
         nextState = consequence.state;
         currentBuilding = nextState.buildingsById[building.id] ?? currentBuilding;
         metadata = {
@@ -80,7 +81,8 @@ const completePendingImport = (
   pending: PendingAirportImport,
   config: AirportBalanceConfig,
   warehouseConfig?: WarehouseBalanceConfig,
-  powerStationConfig?: PowerStationBalanceConfig
+  powerStationConfig?: PowerStationBalanceConfig,
+  lobbyClubConfig?: LobbyClubBalanceConfig
 ): { state: CoreGameState; lastImportShipment: NonNullable<AirportMetadata["lastImportShipment"]>; customsEvent?: AirportCustomsEvent } => {
   const player = state.playersById[building.ownerPlayerId ?? ""];
   if (!player) {
@@ -142,9 +144,9 @@ const completePendingImport = (
       tick: state.root.tick,
       label: "Celní kontrola",
       riskPct: config.expressImport.customsRiskPct,
-      rumorText: "Okolím Letiště se šíří drb o podezřelém nákladu, který celníci vytáhli z kontejneru."
+      rumorText: formatExpressImportCustomsRumor(state, building)
     };
-    nextState = addAirportHeatAndRumor(nextState, building, config.expressImport.customsHeatGain, customsEvent.rumorText);
+    nextState = addAirportHeatAndRumor(nextState, building, config.expressImport.customsHeatGain, customsEvent.rumorText, lobbyClubConfig);
   }
   return {
     state: nextState,
@@ -158,4 +160,24 @@ const completePendingImport = (
       customsTriggered
     }
   };
+};
+
+const EXPRESS_IMPORT_CUSTOMS_RUMORS = [
+  "Okolím Letiště prý proběhla tichá kontrola. Z kontejneru zmizel náklad a nikdo nechce říct čí.",
+  "Celníci údajně vytáhli část zásilky dřív, než se stihla zapsat do skladu. Administrativa tentokrát běžela rychleji než zločin.",
+  "Šeptá se, že expresní dovoz narazil na modré rukavice a drahé ticho.",
+  "U rampy prý chybělo pár beden. Manifest se tváří čistěji než realita, což je jeho práce.",
+  "Někdo tvrdí, že kontrola byla krátká, ale náklad po ní výrazně zhubnul. Dieta podle celní správy.",
+  "Zdroj z letiště říká, že zásilka prošla, jen ne celá. Zbytek prý spolkl systém a odříhl si."
+];
+
+const formatExpressImportCustomsRumor = (
+  state: CoreGameState,
+  building: CoreGameState["buildingsById"][string]
+): string => {
+  const owner = building.ownerPlayerId ? state.playersById[building.ownerPlayerId] : undefined;
+  const name = owner?.name?.trim() || owner?.id || "někdo s přístupem k runway";
+  const index = Math.floor(deterministicUnitInterval(`${state.serverInstance.worldSeed}:express-import-rumor:${building.id}:${state.root.tick}`) * EXPRESS_IMPORT_CUSTOMS_RUMORS.length);
+  const text = EXPRESS_IMPORT_CUSTOMS_RUMORS[index] ?? EXPRESS_IMPORT_CUSTOMS_RUMORS[0] ?? "";
+  return `${text} V čekárně prý padlo jméno ${name}, ale nikdo za něj neručí. Letištní židle slyšely horší věci.`;
 };

@@ -5,6 +5,7 @@ import { collectIncome } from "../rules/economy/collectIncome";
 import { completeCraftProcessing } from "../rules/production/completeCraftProcessing";
 import { completeProduction } from "../rules/production/completeProduction";
 import { releaseExpiredPoliceConsequences } from "../rules/police/policeConsequenceExpiry";
+import { applyPoliceHeatDecay } from "../rules/police/heatDecay";
 import { expirePendingRaids } from "../rules/police/raidLifecycle";
 import { triggerRaid } from "../rules/police/triggerRaid";
 import { checkVictory } from "../rules/victory/checkVictory";
@@ -51,7 +52,7 @@ export const runTick = (
     ? applyStockExchangePassiveEffects(streetDealerResult.nextState, context.config.balance.stockExchange, context.config.tickRateMs)
     : streetDealerResult.nextState;
   const stockInspectionState = context.config.balance.stockExchange
-    ? applyStockExchangeFinancialInspections(stockInsightState, context.config.balance.stockExchange, context.config.tickRateMs)
+    ? applyStockExchangeFinancialInspections(stockInsightState, context.config.balance.stockExchange, context.config.tickRateMs, context.config.balance.lobbyClub)
     : stockInsightState;
   const airportState = context.config.balance.airport
     ? completeAirportImportsAndCustoms(
@@ -60,22 +61,24 @@ export const runTick = (
         context.config.balance.warehouse,
         context.config.balance.powerStation,
         context.config.balance.smugglingTunnel,
-        context.config.tickRateMs
+        context.config.tickRateMs,
+        context.config.balance.lobbyClub
       )
     : stockInspectionState;
   const cityHallState = context.config.balance.cityHall
-    ? applyCityHallCorruptionScandals(airportState, context.config.balance.cityHall, context.config.tickRateMs)
+    ? applyCityHallCorruptionScandals(airportState, context.config.balance.cityHall, context.config.tickRateMs, context.config.balance.lobbyClub)
     : airportState;
   const centralBankState = context.config.balance.centralBank
-    ? applyCentralBankPassiveInterestAndOversight(cityHallState, context.config.balance.centralBank, context.config.tickRateMs)
+    ? applyCentralBankPassiveInterestAndOversight(cityHallState, context.config.balance.centralBank, context.config.tickRateMs, context.config.balance.lobbyClub)
     : cityHallState;
-  const lifecycleResult = expirePendingRaids(centralBankState, context);
+  const heatDecayState = applyPoliceHeatDecay(centralBankState, context);
+  const lifecycleResult = expirePendingRaids(heatDecayState, context);
   const policeResult = triggerRaid(lifecycleResult.nextState, context);
   const victoryResult = checkVictory(policeResult.nextState, context);
   const events = [...processingResult.events, ...streetDealerResult.events, ...lifecycleResult.events, ...policeResult.events];
 
   return {
-    nextState: appendCityFeedEventsFromCoreEvents(victoryResult.nextState, events),
+    nextState: appendCityFeedEventsFromCoreEvents(victoryResult.nextState, events, undefined, context),
     events
   };
 };

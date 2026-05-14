@@ -428,7 +428,12 @@ describe("free-session police balance simulation", () => {
     expect(FREE_CONFIG.balance.police).toMatchObject({
       raidCooldownTicks: 360,
       pendingRaidTtlTicks: 12,
-      highPressureRaidThreshold: 115
+      highPressureRaidThreshold: 115,
+      heatDecay: {
+        playerIntervalTicks: 30,
+        districtIntervalTicks: 60,
+        districtBaseDecay: 3
+      }
     });
     expect(warConfig.balance.police).toMatchObject({
       raidCooldownTicks: 4,
@@ -452,19 +457,17 @@ describe("free-session police balance simulation", () => {
     });
     expect(results["Quiet Builder"].maxAggregatePressure).toBeLessThan(FREE_CONFIG.balance.police!.raidSeverityThresholds.medium);
 
-    expect(results["Normal Player"].warningCount).toBeGreaterThanOrEqual(1);
-    expect(results["Normal Player"].firstWarningMinute).toBeGreaterThanOrEqual(10);
-    expect(results["Normal Player"].firstWarningMinute).toBeLessThanOrEqual(25);
+    expect(results["Normal Player"].maxAggregatePressure).toBeGreaterThan(results["Quiet Builder"].maxAggregatePressure);
+    expect(results["Normal Player"].maxRiskTier).toBe("low");
     expect(results["Normal Player"].resolvedRaidCount).toBeLessThanOrEqual(1);
     expect(results["Normal Player"].seizedDirtyCash).toBeLessThanOrEqual(500);
 
-    expect(riskScore[results["Aggressive Raider"].maxRiskTier]).toBeGreaterThanOrEqual(riskScore.high);
-    expect(results["Aggressive Raider"].pendingRaidCount).toBeGreaterThanOrEqual(1);
-    expect(results["Aggressive Raider"].resolvedRaidCount).toBeGreaterThanOrEqual(1);
-    expect(results["Aggressive Raider"].seizedDirtyCash + results["Aggressive Raider"].seizedResources).toBeGreaterThan(0);
+    expect(riskScore[results["Aggressive Raider"].maxRiskTier]).toBeGreaterThanOrEqual(riskScore.medium);
+    expect(results["Aggressive Raider"].warningCount).toBeGreaterThanOrEqual(1);
+    expect(results["Aggressive Raider"].maxAggregatePressure).toBeGreaterThanOrEqual(FREE_CONFIG.balance.police!.raidSeverityThresholds.medium);
 
-    expect(results["Dirty Money Stacker"].pendingRaidCount).toBeGreaterThanOrEqual(1);
-    expect(results["Dirty Money Stacker"].seizedDirtyCash).toBeGreaterThan(0);
+    expect(results["Dirty Money Stacker"].maxAggregatePressure).toBeGreaterThan(results["Quiet Builder"].maxAggregatePressure);
+    expect(results["Dirty Money Stacker"].pendingRaidCount).toBe(0);
     expect(results["Dirty Money Stacker"].finalResources["dirty-cash"]).toBeGreaterThan(0);
 
     expect(results["Hot District Owner"].finalDistrictHeatPressure).toBeGreaterThan(results["Hot District Owner"].finalHeat);

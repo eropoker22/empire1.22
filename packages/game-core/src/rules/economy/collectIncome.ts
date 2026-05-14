@@ -106,7 +106,7 @@ export const collectIncome = (state: CoreGameState, context?: GameCoreContext): 
       })
     : schoolState;
   const stripClubRumorState = context?.config.balance.stripClub
-    ? applyStripClubPassiveRumors(smugglingTunnelState, context.config.balance.stripClub, context.config.tickRateMs)
+    ? applyStripClubPassiveRumors(smugglingTunnelState, context.config.balance.stripClub, context.config.tickRateMs, context.config.balance.lobbyClub)
     : smugglingTunnelState;
   const restaurantRumorState = context?.config.balance.restaurant
     ? applyRestaurantPassiveRumors(stripClubRumorState, context.config.balance.restaurant, context.config.tickRateMs, context.config.balance.lobbyClub)

@@ -84,7 +84,8 @@ function createEventFromActionResult(kind, payload = {}, snapshot = {}) {
     sourceType,
     category: resolveCategory(sourceType),
     severity: resolveSeverity(payload),
-    truthiness: sourceType === "spy" ? "unconfirmed" : "confirmed",
+    truthiness: sourceType === "spy" || sourceType === "trap" ? "false_possible" : "confirmed",
+    intelType: sourceType === "trap" ? "suspicion" : sourceType === "spy" ? "rumor" : "confirmed_event",
     visibility: "all",
     districtId,
     createdAtTick: Number(payload.tick || 0),
@@ -93,7 +94,9 @@ function createEventFromActionResult(kind, payload = {}, snapshot = {}) {
     payload: {
       kind: normalizedKind,
       title: payload.title,
-      tone: payload.tone
+      tone: payload.tone,
+      intelType: sourceType === "trap" ? "suspicion" : undefined,
+      rumorType: sourceType === "trap" ? "trap_suspicion" : undefined
     }
   };
 }
@@ -111,7 +114,8 @@ function resolveSourceType(kind, payload = {}) {
 
 function resolveCategory(sourceType) {
   if (sourceType === "police_raid" || sourceType === "police_warning") return "police";
-  if (sourceType === "attack" || sourceType === "trap") return "combat";
+  if (sourceType === "trap") return "rumor";
+  if (sourceType === "attack") return "combat";
   if (sourceType === "market") return "economy";
   if (sourceType === "district_capture") return "district";
   return "rumor";
@@ -131,11 +135,50 @@ function resolveRuntimeMessage(sourceType, payload = {}, districtId = "") {
   if (sourceType === "attack") return payload.ok === false ? `U ${district} někdo narazil.` : `Z ${district} přišly zprávy o přestřelce.`;
   if (sourceType === "spy") return `Někdo si tiše prohlížel ${district}. Detaily zůstávají ve stínu.`;
   if (sourceType === "police_raid") return `Sirény přehlušily neon. Policie si vybrala ${district}.`;
-  if (sourceType === "police_warning") return `Policie začíná sledovat horké body města.`;
-  if (sourceType === "market") return "Na černém trhu se otočil větší balík. Nikdo neříká jména nahlas.";
-  if (sourceType === "robbery") return `Z ${district} zmizelo zboží. Nikdo nic neviděl.`;
-  if (sourceType === "trap") return `V ${district} někdo vstoupil do špatných dveří. Past sklapla.`;
+  if (sourceType === "police_warning") return pickRuntimeMessage("police_warning", payload, [
+    `Šeptá se, že policie krouží kolem horkých bodů. Zatím bez sirén, jen s náladou.`,
+    `Někdo tvrdí, že modré auto stojí moc dlouho u ${district}. Buď hlídka, nebo nejhorší rande ve městě.`,
+    `Zdroj říká, že heat někde vystoupal a dispečer už zvedl hlavu. To nikdy nevěstí dort.`,
+    `Hlídky prý měří trasu kolem ${district}. Nikdo neví, jestli jen projíždí, a to je ta nepříjemná část.`,
+    `Policejní rádio údajně zachytilo špinavý provoz. Jména zatím šumí, svědomí taky.`
+  ]);
+  if (sourceType === "market") return pickRuntimeMessage("market", payload, [
+    "Na černém trhu prý proletěl balík bez jména. Kamery zrovna osleply, klasika.",
+    "Někdo údajně skupuje zboží mimo katalog. Nevypadá to jako běžný nákup, spíš jako seznam výčitek.",
+    "Šeptá se o zásilce, která obešla sklad i svědomí. Obě instituce to přežijí.",
+    "Zdroj říká, že zadní síť dnes voní po špinavém cashi. Parfém města.",
+    "Prý se měnily bedny za peníze tak rychle, že nestačily vychladnout. Logistika s tepem."
+  ]);
+  if (sourceType === "robbery") return pickRuntimeMessage("robbery", payload, [
+    `Z ${district} údajně zmizelo zboží. Svědci najednou zapomněli mluvit.`,
+    `Šeptá se, že v ${district} někdo otevřel špatný sklad správným klíčem.`,
+    `Někdo tvrdí, že ${district} přišel o bedny bez jediného výstřelu.`,
+    `V ${district} prý zůstaly jen prázdné regály a mokré stopy.`,
+    `Zdroj říká, že z ${district} odjelo auto těžší, než přijelo.`
+  ]);
+  if (sourceType === "trap") return pickRuntimeMessage("trap", payload, [
+    `Kolem ${district} se prý ztrácí lidi. Možná jen kouř, možná něco horšího, možná špatná navigace.`,
+    `Někdo varoval před moc tichou trasou u ${district}. Nikdo nic nepotvrdil.`,
+    `U ${district} údajně nesedí rytmus ulice. Možná paranoia, možná problém, každopádně blbý beat.`,
+    `Zdroj říká, že některé dveře poblíž ${district} je lepší nezkoušet potmě.`,
+    `Šeptá se, že kolem ${district} mizí zvuk kroků. Důkaz nikdo nemá.`
+  ]);
   return safeText(payload.summary || payload.message, "Město zachytilo nejasný pohyb v ulicích.");
+}
+
+function pickRuntimeMessage(kind, payload = {}, variants = []) {
+  const seed = `${kind}:${safeText(payload.id || payload.reportId || payload.raidId || payload.summary || payload.message || payload.tick)}`;
+  const index = Math.abs(hashText(seed)) % Math.max(1, variants.length);
+  return variants[index] || variants[0] || "";
+}
+
+function hashText(value = "") {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }
 
 function appendBattleReportRumorNote(documentRef) {

@@ -7,6 +7,7 @@ import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import { resolveWantedLevel } from "../rules/police/wantedLevel";
 import { calculatePlayerPolicePressure } from "../rules/police/policePressure";
+import { resolveCityHallPoliceMitigation } from "../rules/police/cityHallPoliceMitigation";
 
 export type PoliceRaidRisk = "none" | "watch" | "elevated" | "ready" | "pending";
 
@@ -72,6 +73,25 @@ export const createPoliceReadModel = (
   const policeFeed = sanitizePoliceFeed(policeState?.policeEvents);
   const lastPoliceEvent = policeFeed[0] ?? null;
   const raidPending = pendingRaid !== null;
+  const projectedSeverity = pressure.aggregatePressure >= pressure.extremePressureRaidThreshold ? "extreme" : "high";
+  const cityHallMitigation = resolveCityHallPoliceMitigation({
+    state,
+    context,
+    playerId,
+    targetDistrictId: pressure.hottestDistrictHeat >= (context?.config.balance.police?.districtTargetHeatThreshold ?? 60)
+      ? pressure.hottestDistrictId
+      : null,
+    severity: projectedSeverity
+  });
+  const mitigations = cityHallMitigation
+    ? [{
+        source: cityHallMitigation.source,
+        label: `${cityHallMitigation.label}. Raid trigger chance reduced.`,
+        districtId: cityHallMitigation.districtId,
+        effectiveReductionPct: cityHallMitigation.effectiveReductionPct,
+        triggerChancePct: cityHallMitigation.triggerChancePct
+      }]
+    : [];
 
   return {
     playerId,
@@ -88,6 +108,7 @@ export const createPoliceReadModel = (
     pendingRaid,
     lastPoliceEvent,
     policeFeed,
+    mitigations,
     recommendedAction: getRecommendedAction(raidPending ? "high" : pressure.riskTier),
     updatedAtTick: state.root.tick,
     updatedAt: new Date(0).toISOString(),

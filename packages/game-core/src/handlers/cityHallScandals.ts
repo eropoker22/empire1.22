@@ -1,4 +1,4 @@
-import type { CityHallBalanceConfig } from "../contracts";
+import type { CityHallBalanceConfig, LobbyClubBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { deterministicUnitInterval } from "../utils/math";
 import type { CityHallMetadata, CityHallScandalEvent } from "./cityHallTypes";
@@ -38,7 +38,8 @@ export const resolveCityHallScandalRiskPct = (input: {
 export const applyCityHallCorruptionScandals = (
   state: CoreGameState,
   config: CityHallBalanceConfig,
-  tickRateMs: number
+  tickRateMs: number,
+  lobbyClubConfig?: LobbyClubBalanceConfig
 ): CoreGameState => {
   let nextState = state;
   const intervalTicks = minutesToTicks(config.corruptionScandal.intervalMinutes, tickRateMs);
@@ -50,7 +51,7 @@ export const applyCityHallCorruptionScandals = (
     let nextMetadata: CityHallMetadata = { ...metadata, lastScandalCheckTick: nextState.root.tick };
     const roll = deterministicUnitInterval(`${nextState.serverInstance.worldSeed}:city-hall-scandal:${building.id}:${nextState.root.tick}`);
     if (roll < riskPct / 100) {
-      const consequence = resolveScandalConsequence(nextState, building, config, riskPct, tickRateMs);
+      const consequence = resolveScandalConsequence(nextState, building, config, riskPct, tickRateMs, lobbyClubConfig);
       nextState = consequence.state;
       nextMetadata = { ...nextMetadata, ...consequence.metadataPatch, scandalEvents: [...nextMetadata.scandalEvents, consequence.event].slice(-8) };
     }
@@ -75,7 +76,8 @@ const resolveScandalConsequence = (
   building: CoreGameState["buildingsById"][string],
   config: CityHallBalanceConfig,
   riskPct: number,
-  tickRateMs: number
+  tickRateMs: number,
+  lobbyClubConfig?: LobbyClubBalanceConfig
 ): { state: CoreGameState; metadataPatch: Partial<CityHallMetadata>; event: CityHallScandalEvent } => {
   const type = ["leaked_documents", "anti_corruption_pressure", "frozen_contract", "public_resistance", "police_oversight"][Math.min(4, Math.floor(deterministicUnitInterval(`${state.serverInstance.worldSeed}:city-hall-scandal-type:${building.id}:${state.root.tick}`) * 5))];
   const labelByType: Record<string, string> = {
@@ -89,8 +91,8 @@ const resolveScandalConsequence = (
   const metadataPatch: Partial<CityHallMetadata> = {};
   let rumorText: string | undefined;
   if (type === "leaked_documents") {
-    rumorText = "Městem se šíří uniklé dokumenty z Magistrátu. Někdo prý měnil razítka za tichou loajalitu.";
-    nextState = appendCityHallRumor(nextState, building, rumorText, "medium");
+    rumorText = formatCityHallLeakRumor(state, building);
+    nextState = appendCityHallRumor(nextState, building, rumorText, "medium", lobbyClubConfig);
   } else if (type === "anti_corruption_pressure") {
     metadataPatch.influencePenaltyUntilTick = state.root.tick + minutesToTicks(config.corruptionScandal.influencePenaltyMinutes, tickRateMs);
   } else if (type === "frozen_contract") {
@@ -131,4 +133,28 @@ const resolveScandalConsequence = (
     metadataPatch,
     event: { type, tick: state.root.tick, label: labelByType[type] ?? type, riskPct, rumorText }
   };
+};
+
+const CITY_HALL_LEAK_RUMORS = [
+  "Z Magistrátu prý vytekly špinavé spisy. Razítka voní po úplatcích a reputace po kyselině.",
+  "Někdo tvrdí, že úřední složka změnila majitele dřív než razítko zaschlo. Úřad tomu říká efektivita.",
+  "Šeptá se o zakázce, která se narodila v kanceláři a vyrostla v cizí kapse. Krásná kariéra.",
+  "Zdroj říká, že městský papír má víc špíny než podpisů. A podpisů tam bylo dost.",
+  "Prý unikl seznam tichých laskavostí. Každá má cenu a každá kouše jako malý úředník.",
+  "Magistrát údajně pustil stopu, která spojuje vliv, cash a svědomí. Svědomí zatím nereaguje."
+];
+
+const formatCityHallLeakRumor = (
+  state: CoreGameState,
+  building: CoreGameState["buildingsById"][string]
+): string => {
+  const owner = building.ownerPlayerId ? state.playersById[building.ownerPlayerId] : undefined;
+  const name = owner?.name?.trim() || owner?.id || "někdo s vlivem";
+  const text = pickVariant(CITY_HALL_LEAK_RUMORS, `${state.serverInstance.worldSeed}:city-hall-leak:${building.id}:${state.root.tick}`);
+  return `${text} V chodbách prý padlo jméno ${name}, ale nikdo ho nepotvrdil. Všichni jen náhle obdivovali podlahu.`;
+};
+
+const pickVariant = (variants: string[], seed: string): string => {
+  const index = Math.floor(deterministicUnitInterval(seed) * variants.length);
+  return variants[index] ?? variants[0] ?? "";
 };

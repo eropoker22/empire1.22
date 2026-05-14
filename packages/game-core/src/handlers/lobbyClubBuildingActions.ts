@@ -2,6 +2,7 @@ import type { CityFeedEvent, RunBuildingActionCommand } from "@empire/shared-typ
 import type { BuildingActionBalanceConfig, FixedBuildingBalanceConfig, LobbyClubBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { deterministicUnitInterval } from "../utils/math";
+import { applyRumorEventToState } from "../rules/events/rumorPipeline";
 import type { LobbyClubActionResolution, LobbyClubMetadata, LobbyClubScandalEvent } from "./lobbyClubTypes";
 import {
   appendLobbyRiskEvent,
@@ -357,8 +358,8 @@ const resolveScandalConsequence = (
   const metadataPatch: Partial<LobbyClubMetadata> = {};
   let rumorText: string | undefined;
   if (type === "meeting_leak") {
-    rumorText = "Městem proběhl únik ze zákulisní schůzky Lobby Clubu. Nikdo neví, kdo mluvil, ale všichni ví, kdo u toho seděl.";
-    nextState = appendLobbyRumor(nextState, building, rumorText, "medium");
+    rumorText = formatLobbyMeetingLeakRumor(state, building);
+    nextState = appendLobbyRumor(nextState, building, rumorText, "medium", config);
   } else if (type === "public_pressure") {
     const district = state.districtsById[building.districtId];
     if (district) {
@@ -401,37 +402,55 @@ const resolveScandalConsequence = (
   };
 };
 
+const LOBBY_MEETING_LEAK_RUMORS = [
+  "Z Lobby Clubu prý vytekla schůzka. Nikdo neví, kdo mluvil, ale všichni cítí špínu na stole.",
+  "Někdo tvrdí, že v zadní místnosti padla dohoda, která by na světle zčernala. Proto tam světla skoro nejsou.",
+  "Šeptá se o schůzce bez zápisu, kde se město prodávalo po malých kusech. Asi množstevní sleva.",
+  "Zdroj říká, že politická laskavost změnila majitele a nechala na stole toxický otisk.",
+  "Prý unikl seznam lidí, kteří měli sedět doma a místo toho seděli u moci. Klasický problém s židlemi.",
+  "Lobby Club údajně pustil kouř ven. V kouři se rýsuje vliv, cash a špatné svědomí."
+];
+
+const formatLobbyMeetingLeakRumor = (
+  state: CoreGameState,
+  building: CoreGameState["buildingsById"][string]
+): string => {
+  const owner = building.ownerPlayerId ? state.playersById[building.ownerPlayerId] : undefined;
+  const name = owner?.name?.trim() || owner?.id || "někdo s kontakty";
+  const text = pickVariant(LOBBY_MEETING_LEAK_RUMORS, `${state.serverInstance.worldSeed}:lobby-meeting-leak:${building.id}:${state.root.tick}`);
+  return `${text} U dveří prý padlo jméno ${name}, ale zůstalo bez podpisu. Tady se podpisy nechávají jen na účtech za škody.`;
+};
+
 const appendLobbyRumor = (
   state: CoreGameState,
   building: CoreGameState["buildingsById"][string],
   message: string,
-  severity: CityFeedEvent["severity"]
+  severity: CityFeedEvent["severity"],
+  lobbyClubConfig?: LobbyClubBalanceConfig
 ): CoreGameState => {
   const sourceEventId = `lobby-club-scandal:${building.id}:${state.root.tick}:${Math.abs(hashText(message))}`;
-  const event: CityFeedEvent = {
-    id: `city-feed:${sourceEventId}`,
+  return applyRumorEventToState(state, {
     sourceEventId,
     sourceType: "building_action",
     category: "rumor",
     severity,
     truthiness: "unconfirmed",
+    intelType: "scandal",
     visibility: "all",
     playerId: building.ownerPlayerId,
     districtId: building.districtId,
     createdAtTick: state.root.tick,
     message,
     messageKey: "rumor.lobby_club_scandal",
-    payload: { buildingTypeId: building.buildingTypeId }
-  };
-  if (state.cityFeedEventsById?.[event.id]) return state;
-  return {
-    ...state,
-    cityFeedEventsById: {
-      ...(state.cityFeedEventsById ?? {}),
-      [event.id]: event
-    }
-  };
+    negative: true,
+    payload: { buildingTypeId: building.buildingTypeId, rumorType: "meeting_leak" }
+  }, { lobbyClubConfig });
 };
 
 const hashText = (value: string): number =>
   Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) | 0, 0);
+
+const pickVariant = (variants: string[], seed: string): string => {
+  const index = Math.floor(deterministicUnitInterval(seed) * variants.length);
+  return variants[index] ?? variants[0] ?? "";
+};

@@ -18,7 +18,16 @@ export interface PoliceReadModel {
   pendingRaid: PendingRaid | null;
   lastPoliceEvent: PoliceEvent | null;
   policeFeed: PoliceEvent[];
+  mitigations?: PoliceMitigationView[];
   recommendedAction: string;
   updatedAtTick: number;
   updatedAt?: string;
+}
+
+export interface PoliceMitigationView {
+  source: string;
+  label: string;
+  districtId: DistrictId | null;
+  effectiveReductionPct: number;
+  triggerChancePct: number;
 }

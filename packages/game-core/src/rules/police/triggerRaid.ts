@@ -8,6 +8,7 @@ import { createRaidPreviewConsequences } from "./raidPreview";
 import { resolveWantedLevel } from "./wantedLevel";
 import { resolvePoliceConfig } from "./policeConfig";
 import { calculatePlayerPolicePressure } from "./policePressure";
+import { resolveCityHallPoliceMitigation, shouldCreateRaidAfterCityHallMitigation } from "./cityHallPoliceMitigation";
 import {
   createPendingRaidMessage,
   createRaidReason,
@@ -24,6 +25,7 @@ export type RaidTriggerDecisionType =
   | "no_raid"
   | "warning_only"
   | "pending_raid_created"
+  | "political_cover_delayed"
   | "existing_pending_raid_kept"
   | "cooldown_active";
 
@@ -104,6 +106,22 @@ export const triggerRaid = (
       ? pressure.hottestDistrictId
       : null;
     const raidId = `police:raid:${player.id}:${currentTick}:${(currentPoliceState.pendingRaids ?? []).length + 1}`;
+    const cityHallMitigation = resolveCityHallPoliceMitigation({
+      state,
+      context,
+      playerId: player.id,
+      targetDistrictId,
+      severity,
+      rollSeed: `${state.serverInstance.worldSeed}:city-hall-police-cover:${player.id}:${targetDistrictId ?? "none"}:${severity}:${currentTick}`
+    });
+    if (!shouldCreateRaidAfterCityHallMitigation(cityHallMitigation)) {
+      decisions.push({
+        playerId: player.id,
+        type: "political_cover_delayed",
+        aggregatePressure: pressure.aggregatePressure
+      });
+      continue;
+    }
     const previewConsequences = createRaidPreviewConsequences(
       state,
       player.id,
@@ -176,7 +194,8 @@ export const triggerRaid = (
         districtLockdownTicks: previewConsequences.lockdownUntilTick
           ? Math.max(0, previewConsequences.lockdownUntilTick - currentTick)
           : 0,
-        heatReduced: previewConsequences.heatReducedBy
+        heatReduced: previewConsequences.heatReducedBy,
+        cityHallMitigation
       })
     );
     decisions.push({

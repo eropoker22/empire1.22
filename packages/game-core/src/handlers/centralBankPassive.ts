@@ -1,7 +1,7 @@
-import type { CityFeedEvent } from "@empire/shared-types";
-import type { CentralBankBalanceConfig } from "../contracts";
+import type { CentralBankBalanceConfig, LobbyClubBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { deterministicUnitInterval } from "../utils/math";
+import { applyRumorEventToState } from "../rules/events/rumorPipeline";
 import type { CentralBankMetadata, CentralBankOversightEvent } from "./centralBankTypes";
 import {
   getCentralBankMetadata,
@@ -17,7 +17,8 @@ import { resolveCentralBankReserveStats } from "./centralBankReserveStats";
 export const applyCentralBankPassiveInterestAndOversight = (
   state: CoreGameState,
   config: CentralBankBalanceConfig,
-  tickRateMs: number
+  tickRateMs: number,
+  lobbyClubConfig?: LobbyClubBalanceConfig
 ): CoreGameState => {
   let nextState = state;
   const processedPlayerIds = new Set<string>();
@@ -81,7 +82,7 @@ export const applyCentralBankPassiveInterestAndOversight = (
       metadata = { ...metadata, lastOversightTick: nextState.root.tick };
       const roll = deterministicUnitInterval(`${nextState.serverInstance.worldSeed}:central-bank-oversight:${bank.id}:${nextState.root.tick}`);
       if (roll < riskPct / 100) {
-        const consequence = resolveOversightConsequence(nextState, bank, config, riskPct, tickRateMs);
+        const consequence = resolveOversightConsequence(nextState, bank, config, riskPct, tickRateMs, lobbyClubConfig);
         nextState = consequence.state;
         metadata = { ...metadata, ...consequence.metadataPatch, oversightEvents: [...metadata.oversightEvents, consequence.event].slice(-8) };
       }
@@ -134,7 +135,8 @@ const resolveOversightConsequence = (
   building: CoreGameState["buildingsById"][string],
   config: CentralBankBalanceConfig,
   riskPct: number,
-  tickRateMs: number
+  tickRateMs: number,
+  lobbyClubConfig?: LobbyClubBalanceConfig
 ): { state: CoreGameState; metadataPatch: Partial<CentralBankMetadata>; event: CentralBankOversightEvent } => {
   const type = ["reserve_check", "banking_stop", "regulatory_fine", "data_leak", "market_restriction"][Math.min(4, Math.floor(deterministicUnitInterval(`${state.serverInstance.worldSeed}:central-bank-oversight-type:${building.id}:${state.root.tick}`) * 5))];
   const labelByType: Record<string, string> = {
@@ -157,8 +159,8 @@ const resolveOversightConsequence = (
     nextState = result.state;
     cleanCashLost = result.cleanCashLost;
   } else if (type === "data_leak") {
-    rumorText = "Městem unikl drb o finančních vazbách Centrální banky. Někdo prý drží rezervy pevněji než vlastní alibi.";
-    nextState = appendCentralBankRumor(nextState, building, rumorText);
+    rumorText = formatCentralBankDataLeakRumor(state, building);
+    nextState = appendCentralBankRumor(nextState, building, rumorText, lobbyClubConfig);
   } else if (type === "market_restriction") {
     metadataPatch.feeReductionDisabledUntilTick = state.root.tick + minutesToTicks(config.financialOversight.feeReductionDisabledMinutes, tickRateMs);
   }
@@ -167,6 +169,25 @@ const resolveOversightConsequence = (
     metadataPatch,
     event: { type, tick: state.root.tick, label: labelByType[type] ?? type, riskPct, cleanCashLost, rumorText }
   };
+};
+
+const CENTRAL_BANK_DATA_LEAK_RUMORS = [
+  "Z bankovní věže prý unikl toxický seznam vazeb. Rezervy drží pevně, alibi už méně.",
+  "Někdo tvrdí, že z Centrální banky vytekla jména účtů, které měly zůstat pod ledem. Led se tváří uraženě.",
+  "Šeptá se o bankovním logu na špinavém dokumentu. Čistý cash najednou potřebuje sprchu.",
+  "Zdroj říká, že trezor nepustil peníze, ale pustil stopy. Velmi moderní bankovní služba.",
+  "Prý se v bankovní věži rozsvítil seznam vazeb, který měl spát pod zámkem. Zámek podal výpověď.",
+  "Někdo možná našel cestu od rezerv k majiteli. Není to důkaz, jen velmi draze oblečený zápach."
+];
+
+const formatCentralBankDataLeakRumor = (
+  state: CoreGameState,
+  building: CoreGameState["buildingsById"][string]
+): string => {
+  const owner = building.ownerPlayerId ? state.playersById[building.ownerPlayerId] : undefined;
+  const name = owner?.name?.trim() || owner?.id || "někdo z města";
+  const text = pickVariant(CENTRAL_BANK_DATA_LEAK_RUMORS, `${state.serverInstance.worldSeed}:central-bank-rumor:${building.id}:${state.root.tick}`);
+  return `${text} U bankéřů prý padlo jméno ${name}, ale nikdo ho nechce říct nahlas. Bankéři šeptají, aby neslyšely úroky.`;
 };
 
 export const applyProtectedCleanCashLoss = (
@@ -206,33 +227,32 @@ export const applyProtectedCleanCashLoss = (
 const appendCentralBankRumor = (
   state: CoreGameState,
   building: CoreGameState["buildingsById"][string],
-  message: string
+  message: string,
+  lobbyClubConfig?: LobbyClubBalanceConfig
 ): CoreGameState => {
   const sourceEventId = `central-bank-oversight:${building.id}:${state.root.tick}:${Math.abs(hashText(message))}`;
-  const event: CityFeedEvent = {
-    id: `city-feed:${sourceEventId}`,
+  return applyRumorEventToState(state, {
     sourceEventId,
     sourceType: "market",
     category: "rumor",
     severity: "high",
     truthiness: "unconfirmed",
+    intelType: "scandal",
     visibility: "all",
     playerId: building.ownerPlayerId,
     districtId: building.districtId,
     createdAtTick: state.root.tick,
     message,
     messageKey: "rumor.central_bank_oversight",
-    payload: { buildingTypeId: building.buildingTypeId }
-  };
-  if (state.cityFeedEventsById?.[event.id]) return state;
-  return {
-    ...state,
-    cityFeedEventsById: {
-      ...(state.cityFeedEventsById ?? {}),
-      [event.id]: event
-    }
-  };
+    negative: true,
+    payload: { buildingTypeId: building.buildingTypeId, rumorType: "data_leak" }
+  }, { lobbyClubConfig });
 };
 
 const hashText = (value: string): number =>
   Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) | 0, 0);
+
+const pickVariant = (variants: string[], seed: string): string => {
+  const index = Math.floor(deterministicUnitInterval(seed) * variants.length);
+  return variants[index] ?? variants[0] ?? "";
+};

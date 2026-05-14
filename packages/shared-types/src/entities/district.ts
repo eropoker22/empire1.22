@@ -22,6 +22,7 @@ export interface District {
   ownerPlayerId: PlayerId | null;
   controllerAllianceId: AllianceId | null;
   heat: number;
+  lastHeatDecayTick?: number;
   influence: number;
   lockdownUntilTick?: number | null;
   policeLockdownReason?: string | null;

@@ -1,6 +1,7 @@
 import type { CityFeedEvent, RunBuildingActionCommand } from "@empire/shared-types";
-import type { CityHallBalanceConfig } from "../contracts";
+import type { CityHallBalanceConfig, LobbyClubBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
+import { applyRumorEventToState } from "../rules/events/rumorPipeline";
 import type { CityHallDecreeMode, CityHallMetadata } from "./cityHallTypes";
 export const getCityHallMetadata = (
   building: CoreGameState["buildingsById"][string],
@@ -84,32 +85,26 @@ export const appendCityHallRumor = (
   state: CoreGameState,
   building: CoreGameState["buildingsById"][string],
   message: string,
-  severity: CityFeedEvent["severity"]
+  severity: CityFeedEvent["severity"],
+  lobbyClubConfig?: LobbyClubBalanceConfig
 ): CoreGameState => {
   const sourceEventId = `city-hall-scandal:${building.id}:${state.root.tick}:${Math.abs(hashText(message))}`;
-  const event: CityFeedEvent = {
-    id: `city-feed:${sourceEventId}`,
+  return applyRumorEventToState(state, {
     sourceEventId,
     sourceType: "building_action",
     category: "rumor",
     severity,
     truthiness: "unconfirmed",
+    intelType: "scandal",
     visibility: "all",
     playerId: building.ownerPlayerId,
     districtId: building.districtId,
     createdAtTick: state.root.tick,
     message,
     messageKey: "rumor.city_hall_scandal",
-    payload: { buildingTypeId: building.buildingTypeId }
-  };
-  if (state.cityFeedEventsById?.[event.id]) return state;
-  return {
-    ...state,
-    cityFeedEventsById: {
-      ...(state.cityFeedEventsById ?? {}),
-      [event.id]: event
-    }
-  };
+    negative: true,
+    payload: { buildingTypeId: building.buildingTypeId, rumorType: "leaked_documents" }
+  }, { lobbyClubConfig });
 };
 
 export const resolveTargetDistrictId = (payload: RunBuildingActionCommand["payload"], fallbackDistrictId: string): string =>

@@ -2,6 +2,7 @@ import { resolveRumorTemplate, type RumorTextTemplateKey } from "@empire/game-co
 import type {
   CityFeedCategory,
   CityFeedEvent,
+  CityFeedIntelType,
   CityFeedSeverity,
   CityFeedSourceType,
   CityFeedTruthiness,
@@ -14,6 +15,7 @@ export interface CreateCityFeedEventInput {
   category: CityFeedCategory;
   severity?: CityFeedSeverity;
   truthiness?: CityFeedTruthiness;
+  intelType?: CityFeedIntelType;
   visibility?: CityFeedVisibility;
   playerId?: string;
   targetPlayerId?: string;
@@ -36,6 +38,7 @@ export const createCityFeedEvent = (input: CreateCityFeedEventInput): CityFeedEv
     category: input.category,
     severity: input.severity || "low",
     truthiness: input.truthiness || "unconfirmed",
+    intelType: input.intelType || (input.truthiness === "confirmed" ? "confirmed_event" : "rumor"),
     visibility: input.visibility || "all",
     playerId: input.playerId,
     targetPlayerId: input.targetPlayerId,
@@ -60,6 +63,7 @@ export const createMarketCityFeedEvent = (input: {
     sourceType: "market",
     category: "economy",
     truthiness: "unconfirmed",
+    intelType: "rumor",
     messageKey: "black_market"
   });
 
@@ -77,6 +81,7 @@ export const createRobberyCityFeedEvent = (input: {
     sourceType: "robbery",
     category: "rumor",
     truthiness: "unconfirmed",
+    intelType: "rumor",
     messageKey: "robbery"
   });
 
@@ -90,9 +95,10 @@ export const createTrapCityFeedEvent = (input: {
   createCityFeedEvent({
     ...input,
     sourceType: "trap",
-    category: "combat",
-    severity: "high",
-    truthiness: "confirmed",
+    category: "rumor",
+    severity: "low",
+    truthiness: "false_possible",
+    intelType: "suspicion",
     messageKey: "trap"
   });
 

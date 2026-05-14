@@ -16,6 +16,13 @@ export type CityFeedCategory = "combat" | "police" | "economy" | "rumor" | "dist
 export type CityFeedSeverity = "low" | "medium" | "high" | "extreme";
 export type CityFeedTruthiness = "confirmed" | "unconfirmed" | "false_possible";
 export type CityFeedVisibility = "all" | "player" | "faction" | "alliance" | "admin";
+export type CityFeedIntelType =
+  | "confirmed_event"
+  | "rumor"
+  | "suspicion"
+  | "scandal"
+  | "warning"
+  | "false_lead";
 
 /**
  * Responsibility: Shared UI-safe event contract for city news and rumors.
@@ -29,6 +36,7 @@ export interface CityFeedEvent {
   category: CityFeedCategory;
   severity: CityFeedSeverity;
   truthiness: CityFeedTruthiness;
+  intelType?: CityFeedIntelType;
   visibility: CityFeedVisibility;
   playerId?: PlayerId;
   targetPlayerId?: PlayerId;

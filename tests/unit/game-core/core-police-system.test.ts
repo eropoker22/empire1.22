@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   acknowledgePendingRaid,
+  applyPoliceHeatDecay,
   calculatePlayerPolicePressure,
   createPoliceReadModel,
   expirePendingRaids,
@@ -36,6 +37,33 @@ const addPoliceState = (state: ReturnType<typeof createCoreStateFixture>, heat: 
     lastDecayTick: 0,
     activeFlags: [],
     version: 1
+  };
+};
+
+const addCityHallOfficialCover = (
+  state: ReturnType<typeof createCoreStateFixture>,
+  policeControlChanceReductionPct = 80
+) => {
+  const cityHall = createFixedBuildingFixture("city_hall", {
+    id: "building:district-1:city-hall:1",
+    metadata: {
+      cityHall: {
+        officialCoverByDistrictId: {
+          "district:1": {
+            districtId: "district:1",
+            expiresAtTick: 100,
+            heatGainReductionPct: 35,
+            policeControlChanceReductionPct,
+            rumorChanceReductionPct: 15
+          }
+        }
+      }
+    }
+  });
+  state.buildingsById[cityHall.id] = cityHall;
+  state.districtsById["district:1"] = {
+    ...state.districtsById["district:1"],
+    buildingIds: [...state.districtsById["district:1"].buildingIds, cityHall.id]
   };
 };
 
@@ -297,6 +325,259 @@ describe("core police system completion", () => {
       lastPoliceEvent: {
         type: "police-raid-pending"
       }
+    });
+  });
+
+  it("uses City Hall official cover to reduce high raid trigger chance", () => {
+    const state = createCoreStateFixture();
+    state.root.tick = 0;
+    addPoliceState(state, 80);
+    addCityHallOfficialCover(state);
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      heat: 70
+    };
+
+    const result = triggerRaid(state, createContext());
+
+    expect(result.events).toEqual([]);
+    expect(result.decisions[0]).toMatchObject({
+      type: "political_cover_delayed",
+      aggregatePressure: 143
+    });
+    expect(result.nextState.policeStatesById["police:1"].pendingRaids).toBeUndefined();
+  });
+
+  it("does not make high raid pressure immune under City Hall cover", () => {
+    const state = createCoreStateFixture();
+    state.root.tick = 1;
+    addPoliceState(state, 80);
+    addCityHallOfficialCover(state);
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      heat: 70
+    };
+
+    const result = triggerRaid(state, createContext());
+
+    expect(result.events[0]).toMatchObject({
+      type: "police-raid-triggered",
+      payload: {
+        severity: "high",
+        cityHallMitigation: {
+          source: "city_hall_official_cover",
+          rawReductionPct: 80,
+          effectiveReductionPct: 45,
+          triggerChancePct: 55
+        }
+      }
+    });
+    expect(result.nextState.policeStatesById["police:1"].pendingRaids?.[0]).toMatchObject({
+      status: "pending",
+      severity: "high"
+    });
+  });
+
+  it("still allows extreme raids under reduced City Hall cover", () => {
+    const state = createCoreStateFixture();
+    state.root.tick = 0;
+    addPoliceState(state, 140);
+    addCityHallOfficialCover(state);
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      heat: 70
+    };
+
+    const result = triggerRaid(state, createContext());
+
+    expect(result.events[0]).toMatchObject({
+      type: "police-raid-triggered",
+      payload: {
+        severity: "extreme",
+        cityHallMitigation: {
+          rawReductionPct: 80,
+          effectiveReductionPct: 40,
+          triggerChancePct: 60
+        }
+      }
+    });
+    expect(result.nextState.policeStatesById["police:1"].pendingRaids?.[0].severity).toBe("extreme");
+  });
+
+  it("does not suppress confirmed police warning events under City Hall cover", () => {
+    const state = createCoreStateFixture();
+    addPoliceState(state, 20);
+    addCityHallOfficialCover(state);
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      heat: 30
+    };
+
+    const result = triggerRaid(state, createContext());
+
+    expect(result.events[0]).toMatchObject({
+      type: "police-warning-issued",
+      payload: {
+        severity: "medium"
+      }
+    });
+    expect(result.nextState.policeStatesById["police:1"].policeEvents?.[0]).toMatchObject({
+      type: "police-warning"
+    });
+  });
+
+  it("shows City Hall police mitigation in the police read model", () => {
+    const state = createCoreStateFixture();
+    addPoliceState(state, 80);
+    addCityHallOfficialCover(state);
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      heat: 70
+    };
+
+    const model = createPoliceReadModel(state, "player:1", createContext());
+
+    expect(model.mitigations).toEqual([
+      {
+        source: "city_hall_official_cover",
+        label: "Political cover active. Raid trigger chance reduced.",
+        districtId: "district:1",
+        effectiveReductionPct: 45,
+        triggerChancePct: 55
+      }
+    ]);
+  });
+
+  it("decays player heat on the configured interval", () => {
+    const state = createCoreStateFixture();
+    addPoliceState(state, 85);
+    state.root.tick = 30;
+
+    const result = applyPoliceHeatDecay(state, createContext());
+
+    expect(result.policeStatesById["police:1"]).toMatchObject({
+      heat: 84,
+      wantedLevel: 4,
+      lastDecayTick: 30
+    });
+  });
+
+  it("never decays player heat below zero", () => {
+    const state = createCoreStateFixture();
+    addPoliceState(state, 2);
+    state.root.tick = 30;
+
+    const result = applyPoliceHeatDecay(state, createContext());
+
+    expect(result.policeStatesById["police:1"]).toMatchObject({
+      heat: 0,
+      wantedLevel: 0
+    });
+  });
+
+  it("recalculates wanted level after player heat decay", () => {
+    const state = createCoreStateFixture();
+    addPoliceState(state, 41);
+    state.root.tick = 30;
+
+    const result = applyPoliceHeatDecay(state, createContext());
+
+    expect(result.policeStatesById["police:1"]).toMatchObject({
+      heat: 39,
+      wantedLevel: 1
+    });
+  });
+
+  it("skips player heat decay while a raid is pending", () => {
+    const state = createCoreStateFixture();
+    addPoliceState(state, 85);
+    state.root.tick = 30;
+    state.policeStatesById["police:1"].pendingRaids = [{
+      raidId: "raid:pending",
+      playerId: "player:1",
+      severity: "high",
+      reason: "test",
+      createdAtTick: 20,
+      expiresAtTick: 40,
+      status: "pending",
+      sourcePressure: 120,
+      previewConsequences: {
+        seizedDirtyCash: 0,
+        seizedResources: {},
+        lockedDistrictId: null,
+        lockdownUntilTick: null,
+        disruptedBuildingIds: [],
+        heatReducedBy: 0
+      }
+    }];
+
+    const result = applyPoliceHeatDecay(state, createContext());
+
+    expect(result.policeStatesById["police:1"]).toMatchObject({
+      heat: 85,
+      wantedLevel: 4,
+      lastDecayTick: 30
+    });
+    expect(result.policeStatesById["police:1"].pendingRaids?.[0].status).toBe("pending");
+  });
+
+  it("decays district heat on the configured interval", () => {
+    const state = createCoreStateFixture();
+    state.root.tick = 60;
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      heat: 90,
+      lastHeatDecayTick: 0
+    };
+
+    const result = applyPoliceHeatDecay(state, createContext({
+      heatDecay: {
+        ...resolveModeConfig("free").balance.police!.heatDecay!,
+        districtHighPassiveHeatPerDayThreshold: 999999
+      }
+    }));
+
+    expect(result.districtsById["district:1"]).toMatchObject({
+      heat: 87,
+      lastHeatDecayTick: 60
+    });
+  });
+
+  it("never decays district heat below zero", () => {
+    const state = createCoreStateFixture();
+    state.root.tick = 60;
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      heat: 2,
+      lastHeatDecayTick: 0
+    };
+
+    const result = applyPoliceHeatDecay(state, createContext({
+      heatDecay: {
+        ...resolveModeConfig("free").balance.police!.heatDecay!,
+        districtHighPassiveHeatPerDayThreshold: 999999
+      }
+    }));
+
+    expect(result.districtsById["district:1"]).toMatchObject({
+      heat: 0,
+      lastHeatDecayTick: 60
+    });
+  });
+
+  it("still triggers raids after applying decay when pressure remains high", () => {
+    const state = createCoreStateFixture();
+    addPoliceState(state, 120);
+    state.root.tick = 30;
+
+    const decayed = applyPoliceHeatDecay(state, createContext());
+    const triggered = triggerRaid(decayed, createContext());
+
+    expect(decayed.policeStatesById["police:1"].heat).toBe(119);
+    expect(triggered.events[0]?.type).toBe("police-raid-triggered");
+    expect(triggered.nextState.policeStatesById["police:1"].pendingRaids?.[0]).toMatchObject({
+      status: "pending",
+      severity: "high"
     });
   });
 });

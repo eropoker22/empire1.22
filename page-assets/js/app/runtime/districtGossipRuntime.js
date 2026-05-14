@@ -124,9 +124,9 @@ export function buildDistrictIntelEventText(type, districtOrId, payload = {}) {
     case "raid_failed":
       return `Potvrzený intel: Akce Vykrást district v ${districtLabel} se rozpadla bez zisku.`;
     case "trap_armed":
-      return `Drb: V uličkách kolem ${districtLabel} je cítit toxický kouř a něco tam není v pořádku.`;
+      return `Drb: Kolem ${districtLabel} se prý ztrácí lidi. Nikdo nepotvrdil proč.`;
     case "trap_moved":
-      return `Drb: Past byla přesunuta blíž k přístupovým trasám do ${districtLabel}.`;
+      return `Drb: Trasy do ${districtLabel} jsou údajně až moc tiché. Možná jen falešná stopa.`;
     case "trap_triggered":
       return `Potvrzený intel: V ${districtLabel} se aktivovala toxická past a útok se rozpadl během několika vteřin.`;
     case "occupy_started":
@@ -148,6 +148,7 @@ export function createDistrictGossipRuntime(deps = {}) {
   const seedLibrary = deps.seedLibrary || {};
   const unknownCatalog = seedLibrary.unknown || { rumors: [] };
 
+  // Dev/demo-only fallback. Authoritative City Feed rumors come from the core cityFeed projection.
   const isDistrictGossipDevOnlyMode = () => Boolean(isDevMode());
 
   const getDistrictGossipEntries = (districtOrId, limit = maxPerDistrict) => {

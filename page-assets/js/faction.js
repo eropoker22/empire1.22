@@ -440,12 +440,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderEmptyFactionPreview() {
     if (factionInput) factionInput.value = "";
-    if (title) title.textContent = "Vyber frakci";
+    if (title) title.textContent = "Zvol frakci";
     if (nameEl) nameEl.textContent = "Nevybráno";
     if (tagline) tagline.textContent = "";
-    if (desc) desc.textContent = "Klikni na frakci, zobrazí se popis a výhoda.";
+    if (desc) desc.textContent = "";
     if (bonus) {
-      bonus.innerHTML = '<span class="faction-bonus__icon" aria-hidden="true">✦</span><span class="faction-bonus__copy"><strong>Profil frakce</strong> Výhody a nevýhody určují tvůj styl expanze a tlak ve městě.</span>';
+      bonus.innerHTML = '<span class="faction-bonus__icon" aria-hidden="true">✦</span><span class="faction-bonus__copy"><strong>Signál frakce</strong> Každá volba má vlastní rytmus, výhodu i cenu. Vyber si, jak bude město šeptat tvoje jméno.</span>';
     }
     if (cleanMoneyEl) cleanMoneyEl.textContent = "-";
     if (dirtyMoneyEl) dirtyMoneyEl.textContent = "-";

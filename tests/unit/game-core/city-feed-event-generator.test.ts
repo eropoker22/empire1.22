@@ -6,13 +6,15 @@ import {
   createRobberyCityFeedEvent,
   createCityFeedProjection,
   createTrapCityFeedEvent,
+  applyRumorEventToState,
+  resolveRumorEvent,
   runTick,
   type CoreEvent
 } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
 import { applyCommand } from "../../../packages/game-core/src/engine";
 import { createAttackDistrictCommandFixture, createSpyDistrictCommandFixture } from "../../fixtures/command-fixtures";
-import { createCombatStateFixture, createCoreStateFixture } from "../../fixtures/game-state-fixtures";
+import { createCombatStateFixture, createCoreStateFixture, createFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
 
 const context = { config: resolveModeConfig("free") };
 
@@ -207,7 +209,224 @@ describe("city feed event integration", () => {
     const second = runTick(first.nextState, context);
     const feedEvents = Object.values(second.nextState.cityFeedEventsById);
 
-    expect(feedEvents.some((event) => event.sourceType === "police_raid")).toBe(true);
-    expect(feedEvents.filter((event) => event.sourceType === "police_raid")).toHaveLength(1);
+    expect(feedEvents.some((event) => event.sourceType === "police_raid" && event.category === "police")).toBe(true);
+    expect(feedEvents.filter((event) => event.sourceType === "police_raid" && event.category === "police")).toHaveLength(1);
+  });
+
+  it("keeps atmospheric police rumors out of policeFeed while confirmed warnings stay there", () => {
+    const state = createCoreStateFixture();
+    const nextState = appendCityFeedEventsFromCoreEvents(state, [
+      {
+        type: "police-warning-issued",
+        occurredAt: new Date(0).toISOString(),
+        payload: {
+          playerId: "player:1",
+          districtId: "district:1",
+          aggregatePressure: 80
+        }
+      }
+    ], 50, context);
+    const projection = createCityFeedProjection(nextState, {
+      playerId: "player:1",
+      selectedDistrictId: "district:1"
+    });
+    const policeRumors = Object.values(nextState.cityFeedEventsById).filter((event) => event.payload?.atmosphericPoliceRumor);
+
+    expect(policeRumors).toHaveLength(1);
+    expect(policeRumors[0]).toMatchObject({
+      category: "rumor",
+      truthiness: "unconfirmed",
+      intelType: "warning"
+    });
+    expect(projection.policeFeed).toHaveLength(1);
+    expect(projection.policeFeed[0]).toMatchObject({
+      category: "police",
+      truthiness: "confirmed",
+      intelType: "confirmed_event"
+    });
+    expect(projection.policeFeed.some((event) => event.payload?.atmosphericPoliceRumor)).toBe(false);
+  });
+
+  it("routes raid pressure rumors through the pipeline and into the selected district feed", () => {
+    const state = createCoreStateFixture();
+    const nextState = appendCityFeedEventsFromCoreEvents(state, [
+      {
+        type: "police-raid-triggered",
+        occurredAt: new Date(0).toISOString(),
+        payload: {
+          playerId: "player:1",
+          raidId: "raid:pressure:1",
+          severity: "high",
+          targetDistrictId: "district:1"
+        }
+      }
+    ], 50, context);
+    const projection = createCityFeedProjection(nextState, {
+      playerId: "player:1",
+      selectedDistrictId: "district:1"
+    });
+    const rumor = Object.values(nextState.cityFeedEventsById).find((event) => event.payload?.atmosphericPoliceRumor);
+
+    expect(rumor).toMatchObject({
+      category: "rumor",
+      districtId: "district:1",
+      truthiness: "unconfirmed",
+      intelType: "suspicion",
+      payload: {
+        atmosphericPoliceRumor: true,
+        intelType: "suspicion",
+        rumorType: "police_district_heat"
+      }
+    });
+    expect(projection.selectedDistrictFeed.some((event) => event.id === rumor?.id)).toBe(true);
+    expect(projection.policeFeed.some((event) => event.id === rumor?.id)).toBe(false);
+  });
+
+  it("does not let Lobby Club reduction block confirmed raid events", () => {
+    const state = createCoreStateFixture();
+    const lobbyClub = createFixedBuildingFixture("lobby_club", {
+      id: "building:lobby-club:1",
+      metadata: {
+        lobbyClub: {
+          backroomPressureExpiresAtTick: 999,
+          mediaScreenExpiresAtTick: 999
+        }
+      }
+    });
+    state.buildingsById[lobbyClub.id] = lobbyClub;
+    state.districtsById[lobbyClub.districtId] = {
+      ...state.districtsById[lobbyClub.districtId],
+      buildingIds: [lobbyClub.id]
+    };
+
+    const nextState = appendCityFeedEventsFromCoreEvents(state, [
+      {
+        type: "police-raid-resolved",
+        occurredAt: new Date(0).toISOString(),
+        payload: {
+          playerId: "player:1",
+          raidId: "raid:lobby:1",
+          severity: "high",
+          targetDistrictId: "district:1",
+          seizedDirtyCash: 120
+        }
+      }
+    ], 50, context);
+    const projection = createCityFeedProjection(nextState, { playerId: "player:1" });
+
+    expect(projection.policeFeed).toEqual([
+      expect.objectContaining({
+        sourceType: "police_raid",
+        category: "police",
+        truthiness: "confirmed",
+        intelType: "confirmed_event"
+      })
+    ]);
+  });
+
+  it("marks false police leads from police lifecycle as false_possible rumors", () => {
+    const state = createCoreStateFixture();
+    const nextState = appendCityFeedEventsFromCoreEvents(state, [
+      {
+        type: "police-warning-issued",
+        occurredAt: new Date(0).toISOString(),
+        payload: {
+          playerId: "player:1",
+          districtId: "district:1",
+          aggregatePressure: 75,
+          falseLead: true
+        }
+      }
+    ], 50, context);
+    const event = Object.values(nextState.cityFeedEventsById).find((feedEvent) =>
+      feedEvent.payload?.rumorType === "police_false_lead"
+    );
+
+    expect(event).toMatchObject({
+      category: "rumor",
+      sourceType: "police_warning",
+      truthiness: "false_possible",
+      intelType: "false_lead",
+      payload: {
+        rumorType: "police_false_lead",
+        intelType: "false_lead"
+      }
+    });
+  });
+
+  it("keeps trap suspicion rumors unconfirmed and never mutates trap discovery state", () => {
+    const state = createCoreStateFixture();
+    state.trapsById["trap:district:1"] = {
+      id: "trap:district:1",
+      serverInstanceId: state.serverInstance.id,
+      ownerPlayerId: "player:1",
+      districtId: "district:1",
+      status: "active",
+      placedAtTick: 1,
+      triggeredAtTick: null,
+      version: 1
+    };
+    const beforeTraps = JSON.stringify(state.trapsById);
+    const input = {
+      sourceEventId: "trap-rumor:test",
+      sourceType: "trap" as const,
+      category: "rumor" as const,
+      severity: "high" as const,
+      truthiness: "confirmed" as const,
+      visibility: "all" as const,
+      playerId: "player:2",
+      districtId: "district:1",
+      message: "Někdo možná připravil past v tomto districtu.",
+      payload: {
+        rumorType: "trap_suspicion",
+        trapId: "trap:district:1",
+        trapType: "toxic",
+        trapDetected: true
+      }
+    };
+
+    const resolved = resolveRumorEvent(input, state);
+    expect(resolved.event).toMatchObject({
+      sourceType: "trap",
+      category: "rumor",
+      intelType: "suspicion"
+    });
+    expect(resolved.event?.truthiness).not.toBe("confirmed");
+    expect(JSON.stringify(resolved.event?.payload)).not.toContain("trap:district:1");
+    expect(JSON.stringify(resolved.event?.payload)).not.toContain("toxic");
+    expect(resolved.event?.message.toLowerCase()).not.toContain("v tomto districtu je past");
+
+    const nextState = applyRumorEventToState(state, input);
+    expect(JSON.stringify(nextState.trapsById)).toBe(beforeTraps);
+    expect(JSON.stringify(nextState).toLowerCase()).not.toContain("trapdiscovered");
+    expect(JSON.stringify(nextState).toLowerCase()).not.toContain("discoveredtrap");
+  });
+
+  it("creates false_possible rumors and projects them without polluting police feed", () => {
+    const state = createCoreStateFixture();
+    const nextState = applyRumorEventToState(state, {
+      sourceEventId: "restaurant:false-lead:1",
+      sourceType: "building_action",
+      category: "rumor",
+      severity: "low",
+      visibility: "all",
+      playerId: "player:1",
+      districtId: "district:1",
+      message: "Hosté si spletli dodávku s policejním sledováním.",
+      truthChancePct: 0,
+      payload: { buildingTypeId: "restaurant", rumorType: "police_interest" }
+    });
+    const projection = createCityFeedProjection(nextState, {
+      playerId: "player:1",
+      selectedDistrictId: "district:1"
+    });
+
+    expect(projection.currentPlayerFeed[0]).toMatchObject({
+      truthiness: "false_possible",
+      intelType: "false_lead"
+    });
+    expect(projection.globalCityFeed).toHaveLength(1);
+    expect(projection.selectedDistrictFeed).toHaveLength(1);
+    expect(projection.policeFeed).toHaveLength(0);
   });
 });
