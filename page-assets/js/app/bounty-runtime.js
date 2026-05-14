@@ -443,6 +443,7 @@ function initBountyRuntime() {
     ].filter(Boolean)
   ));
   const targetSelect = document.getElementById("bounty-modal-target");
+  const targetPicker = document.getElementById("bounty-target-picker");
   const districtSelect = document.getElementById("bounty-modal-district");
   const cashRange = document.getElementById("bounty-cash-range");
   const cashInput = document.getElementById("bounty-cash-input");
@@ -528,6 +529,18 @@ function initBountyRuntime() {
 
   const getSelectedPlayer = () => collectEligiblePlayers().find((player) => String(player.ownerId) === String(targetSelect.value || "")) || null;
 
+  const syncTargetPickerSelection = () => {
+    if (!targetPicker) {
+      return;
+    }
+    const selectedValue = String(targetSelect.value || "");
+    for (const button of Array.from(targetPicker.querySelectorAll("[data-bounty-target-option]"))) {
+      const isSelected = String(button.dataset.bountyTargetOption || "") === selectedValue;
+      button.classList.toggle("is-selected", isSelected);
+      button.setAttribute("aria-pressed", isSelected ? "true" : "false");
+    }
+  };
+
   const clampIntInput = (input, maxValue) => {
     const safeMax = Math.max(0, Math.floor(Number(maxValue || 0)));
     const nextValue = Math.min(safeMax, Math.max(0, Math.floor(Number(input?.value || 0))));
@@ -555,6 +568,18 @@ function initBountyRuntime() {
       targetSelect.value = previous;
     } else if (players[0]?.ownerId) {
       targetSelect.value = String(players[0].ownerId);
+    }
+
+    if (targetPicker) {
+      targetPicker.innerHTML = players.length
+        ? players.map((player) => `
+            <button class="bounty-board__target-option" type="button" data-bounty-target-option="${escapeHtml(String(player.ownerId))}" aria-pressed="false">
+              <span class="bounty-board__target-option-name">${escapeHtml(player.name)}</span>
+              <span class="bounty-board__target-option-meta">${escapeHtml(`${player.districtCount} districtů`)}</span>
+            </button>
+          `).join("")
+        : '<div class="bounty-board__target-empty">Žádný dostupný cíl</div>';
+      syncTargetPickerSelection();
     }
   };
 
@@ -747,7 +772,6 @@ function initBountyRuntime() {
         <td>${escapeHtml(formatBountyTargetLabel(entry))}</td>
         <td>${escapeHtml(formatBountyObjectiveLabel(entry.objectiveType))}</td>
         <td>${escapeHtml(formatBountyRewardSummary(entry.rewards) || "-")}</td>
-        <td>${entry.isAnonymous ? "Anonymní" : "Veřejná"}</td>
         <td>${escapeHtml(formatExpiryLabel(entry.expiresAt))}</td>
       </tr>
     `).join("");
@@ -849,7 +873,6 @@ function initBountyRuntime() {
     refreshView();
     publishBountyState();
     closeConfirmModal();
-    closeModal();
     pushBountyStatus(
       root,
       "Bounty",
@@ -878,7 +901,7 @@ function initBountyRuntime() {
       pushBountyStatus(root, "Bounty", "Vyber konkrétní district pro bounty.", "Bez districtu nelze tento typ cíle potvrdit");
       return;
     }
-    openConfirmModal(preview);
+    confirmSubmit();
   };
 
   const resolveClaimedEntries = (detail) => {
@@ -946,6 +969,17 @@ function initBountyRuntime() {
   confirmCancelBtn?.addEventListener("click", closeConfirmModal);
 
   targetSelect.addEventListener("change", () => {
+    syncTargetPickerSelection();
+    renderDistrictOptions();
+    syncPreview();
+  });
+  targetPicker?.addEventListener("click", (event) => {
+    const button = event.target?.closest?.("[data-bounty-target-option]");
+    if (!button) {
+      return;
+    }
+    targetSelect.value = String(button.dataset.bountyTargetOption || "");
+    syncTargetPickerSelection();
     renderDistrictOptions();
     syncPreview();
   });

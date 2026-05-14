@@ -948,10 +948,13 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    state.serverId = "";
-    state.selectedDistrictId = null;
-    state.hoveredDistrictId = null;
-    state.serverDistrictSelections.clear();
+    const selectedServer = getSelectedServer();
+    const shouldKeepSelection = selectedServer && !isServerUnavailable(selectedServer);
+    if (!shouldKeepSelection) {
+      state.serverId = "";
+      state.selectedDistrictId = null;
+      state.hoveredDistrictId = null;
+    }
     renderServerList();
     updateCountdowns();
     updateLobbySummary();

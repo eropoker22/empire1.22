@@ -1,15 +1,23 @@
 import {
   FREE_SESSION_ONBOARDING_STEPS,
+  completeOnboardingProgress,
   getNextOnboardingHint as getPanelNextHint,
   hideOnboardingPanel as hidePanel,
   initOnboardingPanel,
   markOnboardingStepDone as markPanelStepDone,
+  moveOnboardingProgress,
   normalizeOnboardingProgress,
   renderOnboardingPanel,
+  shouldAutoStartOnboarding,
   showOnboardingPanel as showPanel
 } from "../ui/onboardingPanel.js";
+import { ONBOARDING_VERSION } from "./onboardingStepRegistry.js";
+import {
+  createOnboardingReadModel,
+  resolveOnboardingMode
+} from "./onboardingReadModel.js";
 
-const STORAGE_KEY = "empireStreets.freeSessionOnboarding.v1";
+export const STORAGE_PREFIX = "empire:onboarding:v1";
 
 function safeObject(value) {
   return value && typeof value === "object" ? value : {};
@@ -23,56 +31,6 @@ function getStorage(storage = null) {
   return storage || (typeof window !== "undefined" ? window.localStorage : null);
 }
 
-function readStoredProgress(storage = null) {
-  const store = getStorage(storage);
-  if (!store?.getItem) {
-    return { completedStepIds: [], hidden: false, minimized: false };
-  }
-
-  try {
-    const parsed = JSON.parse(store.getItem(STORAGE_KEY) || "{}");
-    return {
-      completedStepIds: asArray(parsed.completedStepIds).map(String),
-      hidden: Boolean(parsed.hidden),
-      minimized: Boolean(parsed.minimized)
-    };
-  } catch {
-    return { completedStepIds: [], hidden: false, minimized: false };
-  }
-}
-
-function writeStoredProgress(progress = {}, storage = null) {
-  const store = getStorage(storage);
-  if (!store?.setItem) {
-    return false;
-  }
-
-  try {
-    store.setItem(STORAGE_KEY, JSON.stringify({
-      completedStepIds: asArray(progress.completedStepIds).map(String),
-      hidden: Boolean(progress.hidden),
-      minimized: Boolean(progress.minimized)
-    }));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function hasAnyPositiveValue(value = {}) {
-  return Object.values(safeObject(value)).some((amount) => Number(amount || 0) > 0);
-}
-
-function isOwnDistrict(selectedDistrict, ownedDistrictIds = []) {
-  const selectedId = Number(selectedDistrict?.id || selectedDistrict?.districtId || 0);
-  return selectedId > 0 && asArray(ownedDistrictIds).map(Number).includes(selectedId);
-}
-
-function isEnemyDistrict(selectedDistrict, ownedDistrictIds = []) {
-  const selectedId = Number(selectedDistrict?.id || selectedDistrict?.districtId || 0);
-  return selectedId > 0 && !asArray(ownedDistrictIds).map(Number).includes(selectedId);
-}
-
 function getEventType(eventOrState = {}) {
   if (typeof eventOrState === "string") {
     return eventOrState;
@@ -80,81 +38,128 @@ function getEventType(eventOrState = {}) {
   return String(eventOrState?.type || eventOrState?.kind || eventOrState?.detail?.type || "").trim();
 }
 
+function sanitizeKeyPart(value, fallback) {
+  return encodeURIComponent(String(value || fallback || "unknown").trim() || fallback || "unknown");
+}
+
+export function resolveOnboardingStorageKey(context = {}) {
+  const safeContext = safeObject(context);
+  const playerId = createOnboardingReadModel(safeContext).playerId;
+  const mode = resolveOnboardingMode({ ...safeContext, mode: "dev-only" });
+  return `${STORAGE_PREFIX}:${sanitizeKeyPart(mode, "dev-only")}:${sanitizeKeyPart(playerId, "dev-player")}`;
+}
+
+function readStoredProgress(storage = null, key = "") {
+  const store = getStorage(storage);
+  if (!store?.getItem || !key) {
+    return { completed: false, skipped: false, currentStepId: "welcome", dismissedAt: null, version: ONBOARDING_VERSION };
+  }
+
+  try {
+    const parsed = JSON.parse(store.getItem(key) || "{}");
+    return {
+      completed: Boolean(parsed.completed),
+      skipped: Boolean(parsed.skipped),
+      currentStepId: String(parsed.currentStepId || "welcome"),
+      dismissedAt: parsed.dismissedAt ? String(parsed.dismissedAt) : null,
+      version: String(parsed.version || ONBOARDING_VERSION)
+    };
+  } catch {
+    return { completed: false, skipped: false, currentStepId: "welcome", dismissedAt: null, version: ONBOARDING_VERSION };
+  }
+}
+
+export function serializeOnboardingProgress(progress = {}) {
+  const normalized = normalizeOnboardingProgress(progress);
+  return {
+    completed: Boolean(normalized.completed),
+    skipped: Boolean(normalized.skipped),
+    currentStepId: String(normalized.currentStepId || "welcome"),
+    dismissedAt: normalized.dismissedAt || null,
+    version: String(normalized.version || ONBOARDING_VERSION)
+  };
+}
+
+function writeStoredProgress(progress = {}, storage = null, key = "") {
+  const store = getStorage(storage);
+  if (!store?.setItem || !key) {
+    return false;
+  }
+
+  try {
+    store.setItem(key, JSON.stringify(serializeOnboardingProgress(progress)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function eventCompletesStep(eventType = "", detail = {}) {
+  const actionId = String(detail.actionId || detail.kind || "").trim();
+  if (eventType === "onboarding:next") return detail.stepId;
+  if (eventType === "win-condition:read") return "win-condition";
+  if (eventType === "district:own-opened" || eventType === "empire:district-opened") return "your-district";
+  if (eventType === "district:stats-read") return "district-stats";
+  if (eventType === "building:opened" || eventType === "empire:building-opened") return "buildings";
+  if (eventType === "income:tick" || eventType === "production:collected" || eventType === "action:production" || eventType === "cash:read") return "cash";
+  if (eventType === "production:selected" || eventType === "craft:completed" || eventType === "equipment:prepared") return "production";
+  if (eventType === "people:read") return "people";
+  if (eventType === "heat:opened" || eventType === "heat:changed" || eventType === "police:feedback") return "heat";
+  if (eventType === "day-night:opened") return "day-night";
+  if (eventType === "district:enemy-opened" || eventType === "district:neighbor-opened") return "neighbor-districts";
+  if (eventType === "spy:opened" || eventType === "spy:started" || eventType === "spy:completed" || actionId === "spy") return "spy";
+  if (eventType === "robbery:opened" || eventType === "robbery:started" || actionId === "rob" || actionId === "heist") return "robbery";
+  if (eventType === "attack:opened" || eventType === "attack:started" || eventType === "occupy:opened" || eventType === "occupy:started" || actionId === "attack" || actionId === "occupy") return "occupy-attack";
+  if (eventType === "trap:opened" || actionId === "trap") return "traps";
+  if (eventType === "city-feed:opened") return "city-feed";
+  if (eventType === "market:opened") return "market";
+  if (eventType === "alliance:opened") return "alliance";
+  if (eventType === "elimination:opened" || eventType === "battle-royale:opened") return "elimination";
+  if (eventType === "danger-zone:opened") return "danger-zone";
+  if (eventType === "downtown:read") return "downtown";
+  return null;
+}
+
+function shouldAdvanceFromEvent(progress = {}, stepId = "") {
+  const normalized = normalizeOnboardingProgress(progress);
+  if (!stepId || normalized.completed) {
+    return false;
+  }
+  return normalized.currentStepId === stepId;
+}
+
 export function updateOnboardingProgress(context = {}, eventOrState = {}) {
   const safeContext = safeObject(context);
-  const progress = safeContext.progress || {};
-  const completed = new Set([
-    ...asArray(progress.completedStepIds || progress.completed).map(String),
-    ...asArray(safeContext.completedStepIds).map(String)
-  ]);
   const eventType = getEventType(eventOrState);
   const detail = safeObject(eventOrState?.detail || eventOrState);
-  const world = safeObject(safeContext.world);
-  const inventory = safeObject(safeContext.inventory);
-  const selectedDistrict = safeContext.selectedDistrict || detail.district || null;
-  const ownedDistrictIds = asArray(world.ownedDistrictIds || safeContext.ownedDistrictIds).map(Number).filter(Boolean);
-  const spyIntel = safeObject(safeContext.spyIntel || safeContext.spy?.intel);
-  const spyState = safeObject(safeContext.spy);
+  const progress = normalizeOnboardingProgress(safeContext.progress || {});
 
-  if (isOwnDistrict(selectedDistrict, ownedDistrictIds) || eventType === "district:own-opened") {
-    completed.add("open-own-district");
-  }
-  if (eventType === "building:opened" || safeContext.openedBuilding || detail.buildingName) {
-    completed.add("open-first-building");
-  }
-  if (eventType === "production:collected" || eventType === "action:production" || detail.kind === "production") {
-    completed.add("collect-production");
-  }
-  if (eventType === "storage:opened" || safeContext.storageOpened) {
-    completed.add("check-storage");
-  }
-  if (
-    eventType === "craft:completed"
-    || eventType === "equipment:prepared"
-    || hasAnyPositiveValue(inventory.weapons)
-    || hasAnyPositiveValue(inventory.factorySupplies)
-  ) {
-    completed.add("prepare-equipment");
-  }
-  if (isEnemyDistrict(selectedDistrict, ownedDistrictIds) || eventType === "district:enemy-opened") {
-    completed.add("select-enemy-district");
-  }
-  if (
-    eventType === "spy:started"
-    || eventType === "spy:completed"
-    || eventType === "action:spy"
-    || asArray(spyState.missions).length > 0
-    || asArray(spyIntel.revealedTypeDistrictIds).length > 0
-    || asArray(spyIntel.revealedDefenseDistrictIds).length > 0
-  ) {
-    completed.add("run-spy");
-  }
-  if (eventType === "attack:started" || eventType === "action:attack" || asArray(safeContext.attackOrders).length > 0) {
-    completed.add("run-attack");
-  }
-  if (eventType === "battle-report:opened" || eventType === "attack:completed" || eventType === "action:attack") {
-    completed.add("read-battle-report");
-  }
-  if (eventType === "heat:changed" || eventType === "police:feedback" || eventType === "action:police" || safeContext.hasPoliceFeedback) {
-    completed.add("watch-heat-police");
+  if (progress.completed) {
+    return progress;
   }
 
-  return normalizeOnboardingProgress({
-    ...progress,
-    completedStepIds: Array.from(completed)
-  });
+  if (eventType === "onboarding:skip") {
+    return completeOnboardingProgress(progress, "skipped", { skipped: true });
+  }
+
+  if (eventType === "onboarding:dismiss") {
+    return completeOnboardingProgress(progress, "dismissed", { skipped: true });
+  }
+
+  const completedStepId = eventCompletesStep(eventType, detail);
+  if (shouldAdvanceFromEvent(progress, completedStepId)) {
+    return markPanelStepDone(completedStepId, progress);
+  }
+
+  return progress;
 }
 
 export function markOnboardingStepDone(stepId, progress = {}) {
-  const completed = new Set(asArray(progress.completedStepIds || progress.completed).map(String));
-  const panelCompleted = markPanelStepDone(stepId);
-  for (const id of panelCompleted) {
-    completed.add(id);
-  }
-  return normalizeOnboardingProgress({
-    ...progress,
-    completedStepIds: Array.from(completed)
-  });
+  return markPanelStepDone(stepId, progress);
+}
+
+export function skipOnboardingProgress(progress = {}) {
+  return completeOnboardingProgress(progress, "skipped", { skipped: true });
 }
 
 export function getNextOnboardingHint(context = {}) {
@@ -171,136 +176,232 @@ export function showOnboardingPanel() {
   return showPanel();
 }
 
-function defaultFindContainer(root) {
-  return root?.querySelector?.("#game-left-nav")
-    || root?.querySelector?.("#game-rail-left")
-    || root;
+function defaultFindContainer(root, documentRef) {
+  return documentRef?.body || root?.querySelector?.("#game-root") || root;
+}
+
+function classifyDistrictOpen(context = {}, detail = {}) {
+  const district = detail.district || context.selectedDistrict || null;
+  const districtId = Number(district?.id || district?.districtId || 0);
+  const ownedDistrictIds = asArray(context.world?.ownedDistrictIds || context.districtState?.ownedDistrictIds).map(Number);
+  if (!districtId) {
+    return "district:neighbor-opened";
+  }
+  return ownedDistrictIds.includes(districtId) ? "district:own-opened" : "district:neighbor-opened";
 }
 
 export function createOnboardingBridge(deps = {}) {
   const storage = deps.storage || null;
   const documentRef = deps.documentRef || (typeof document !== "undefined" ? document : null);
   const root = deps.root || documentRef?.querySelector?.("#game-root") || null;
-  const container = deps.container || defaultFindContainer(root);
-  let progress = normalizeOnboardingProgress(readStoredProgress(storage));
+  const container = deps.container || defaultFindContainer(root, documentRef);
+  let storageKey = "";
+  let progress = normalizeOnboardingProgress({ currentStepId: "welcome" });
+  let readModel = createOnboardingReadModel({});
   let mount = null;
+  let eventsBound = false;
 
   const getContext = () => ({
     ...(typeof deps.getContext === "function" ? safeObject(deps.getContext()) : {}),
+    mode: "dev-only",
     progress
   });
 
-  const persist = () => writeStoredProgress(progress, storage);
+  const refreshReadModel = () => {
+    readModel = createOnboardingReadModel(getContext());
+    const nextKey = resolveOnboardingStorageKey(getContext());
+    if (nextKey && nextKey !== storageKey) {
+      storageKey = nextKey;
+      progress = normalizeOnboardingProgress(readStoredProgress(storage, storageKey));
+    }
+    return readModel;
+  };
+
+  const persist = () => writeStoredProgress(progress, storage, storageKey);
 
   const render = () => {
+    refreshReadModel();
     if (!mount) {
       mount = initOnboardingPanel({ progress }, {
         container,
         documentRef,
         root,
-        callbacks: {
-          onHide: () => {
-            progress = { ...progress, hidden: true };
-            persist();
-          },
-          onMinimize: (minimized) => {
-            progress = { ...progress, minimized: Boolean(minimized) };
-            persist();
-            render();
-          }
-        }
+        readModel,
+        callbacks: callbacks()
       });
     }
     if (!mount) {
       return false;
     }
-    return renderOnboardingPanel(progress, {
-      onHide: () => {
-        progress = { ...progress, hidden: true };
-        persist();
-      },
-      onMinimize: (minimized) => {
-        progress = { ...progress, minimized: Boolean(minimized) };
-        persist();
-        render();
-      }
-    }, { mount });
+    return renderOnboardingPanel(progress, callbacks(), {
+      mount,
+      root,
+      readModel
+    });
   };
 
   const update = (eventOrState = {}) => {
+    refreshReadModel();
     progress = updateOnboardingProgress(getContext(), eventOrState);
     persist();
     render();
     return progress;
   };
 
+  const next = (stepId = "") => {
+    progress = markPanelStepDone(stepId || progress.currentStepId, progress);
+    persist();
+    render();
+    return progress;
+  };
+
+  const skip = (currentStepId = "skipped") => {
+    progress = completeOnboardingProgress(progress, currentStepId, { skipped: currentStepId !== "completed" });
+    persist();
+    render();
+    return progress;
+  };
+
+  const back = () => {
+    progress = moveOnboardingProgress(progress, -1);
+    persist();
+    render();
+    return progress;
+  };
+
+  const restart = () => {
+    refreshReadModel();
+    progress = normalizeOnboardingProgress({
+      completed: false,
+      currentStepId: "welcome",
+      skipped: false,
+      dismissedAt: null,
+      version: ONBOARDING_VERSION
+    });
+    persist();
+    showPanel();
+    render();
+    return progress;
+  };
+
+  function callbacks() {
+    return {
+      onNext: (stepId) => next(stepId),
+      onBack: () => back(),
+      onSkip: () => skip("skipped"),
+      onDismiss: () => skip("dismissed")
+    };
+  }
+
   const bindEvents = () => {
-    if (!documentRef?.addEventListener) {
+    if (eventsBound || !documentRef?.addEventListener) {
       return false;
     }
+    eventsBound = true;
+
+    const handleDistrictOpened = (event) => update({
+      type: classifyDistrictOpen(getContext(), safeObject(event?.detail)),
+      detail: event?.detail || {}
+    });
 
     const eventMap = new Map([
-      ["empire:district-opened", (event) => update(event)],
-      ["empire:building-opened", (event) => update(event)],
-      ["empire:action-result", (event) => {
-        const kind = String(event?.detail?.kind || "").trim();
-        update({ type: `action:${kind}`, detail: event?.detail || {} });
-      }],
+      ["empire:district-opened", handleDistrictOpened],
+      ["empire:building-opened", (event) => update({ type: "building:opened", detail: event?.detail || {} })],
       ["empire:production-collected", (event) => update({ type: "production:collected", detail: event?.detail || {} })],
       ["empire:spy-started", (event) => update({ type: "spy:started", detail: event?.detail || {} })],
+      ["empire:robbery-started", (event) => update({ type: "robbery:started", detail: event?.detail || {} })],
       ["empire:attack-started", (event) => update({ type: "attack:started", detail: event?.detail || {} })],
-      ["empire:result-modal-opened", (event) => {
-        const kind = String(event?.detail?.kind || "").trim();
-        update({ type: kind === "attack" ? "battle-report:opened" : `result:${kind}`, detail: event?.detail || {} });
-      }],
+      ["empire:occupy-started", (event) => update({ type: "occupy:started", detail: event?.detail || {} })],
       ["empire:heat-changed", (event) => update({ type: "heat:changed", detail: event?.detail || {} })],
       ["empire:police-feedback", (event) => update({ type: "police:feedback", detail: event?.detail || {} })],
-      ["empire:runtime-refresh", () => update({ type: "runtime:refresh" })]
+      ["empire:runtime-refresh", () => render()]
     ]);
 
     for (const [name, handler] of eventMap.entries()) {
       documentRef.addEventListener(name, handler);
     }
 
-    root?.querySelector?.("[data-storage-popup-open]")?.addEventListener?.("click", () => update({ type: "storage:opened" }));
     documentRef.addEventListener("click", (event) => {
-      if (event?.target?.closest?.("[data-storage-popup-open]")) {
-        update({ type: "storage:opened" });
+      const target = event?.target;
+      if (!target?.closest) {
+        return;
+      }
+
+      if (target.closest("[data-onboarding-launch]")) {
+        restart();
+        return;
+      }
+      if (target.closest("[data-gang-heat]")) {
+        update({ type: "heat:opened" });
+        return;
+      }
+      if (target.closest("[data-game-phase-toggle], [data-map-phase-toggle], .map-phase-toolbar")) {
+        update({ type: "day-night:opened" });
+        return;
+      }
+      if (target.closest("[data-market-popup-open], [data-market-popup]")) {
+        update({ type: "market:opened" });
+        return;
+      }
+      if (target.closest("[data-alliance-popup-open], #alliance-btn, [data-gang-alliance]")) {
+        update({ type: "alliance:opened" });
+        return;
+      }
+      if (target.closest("[data-building-action-feed], [data-district-popup-gossip], [data-district-popup-gossip-list]")) {
+        update({ type: "city-feed:opened" });
+        return;
+      }
+      if (target.closest("[data-br-info-open]")) {
+        update({ type: "elimination:opened" });
+        return;
+      }
+      const actionButton = target.closest("[data-district-action-id]");
+      if (actionButton) {
+        update({
+          type: "district-action:opened",
+          detail: { actionId: actionButton.dataset?.districtActionId || "" }
+        });
       }
     });
+
     return true;
   };
 
   const init = () => {
-    render();
-    update({ type: "init" });
+    refreshReadModel();
+    if (shouldAutoStartOnboarding(progress, readModel)) {
+      render();
+    }
     bindEvents();
     return progress;
   };
 
   return {
     getProgress: () => progress,
+    getReadModel: () => readModel,
+    getStorageKey: () => storageKey,
     getSteps: () => FREE_SESSION_ONBOARDING_STEPS,
     init,
-    markDone: (stepId) => {
-      progress = markOnboardingStepDone(stepId, progress);
-      persist();
-      render();
-      return progress;
-    },
+    markDone: (stepId) => next(stepId),
+    back,
     render,
+    restart,
+    skip,
     update
   };
 }
 
 if (typeof window !== "undefined") {
   window.EmpireOnboardingBridge = {
-    STORAGE_KEY,
+    STORAGE_PREFIX,
     createOnboardingBridge,
     getNextOnboardingHint,
     hideOnboardingPanel,
     markOnboardingStepDone,
+    resolveOnboardingStorageKey,
+    serializeOnboardingProgress,
     showOnboardingPanel,
+    skipOnboardingProgress,
     updateOnboardingProgress
   };
 }

@@ -6,6 +6,7 @@ export * from "./elimination-read-model-view";
 export * from "./gameplay-mode-view";
 export * from "./gameplay-slice-view";
 export * from "./game-snapshot-view";
+export * from "./onboarding-read-model-view";
 export * from "./player-view";
 export * from "./police-read-model-view";
 export * from "./report-view";

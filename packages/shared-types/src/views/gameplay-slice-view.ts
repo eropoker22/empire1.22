@@ -7,6 +7,7 @@ import type { ConflictReportView } from "./report-view";
 import type { CityFeedProjectionView } from "./city-feed-view";
 import type { DayNightReadModel } from "./day-night-read-model-view";
 import type { EliminationReadModel } from "./elimination-read-model-view";
+import type { OnboardingReadModel } from "./onboarding-read-model-view";
 
 /**
  * Responsibility: Minimal server-fed read model for one migrated gameplay slice.
@@ -18,6 +19,7 @@ export interface GameplaySliceView {
   player: PlayerView;
   dayNight?: DayNightReadModel | null;
   elimination?: EliminationReadModel | null;
+  onboarding?: OnboardingReadModel | null;
   police?: PoliceReadModel | null;
   cityFeed?: CityFeedProjectionView | null;
   districts: DistrictSummaryView[];

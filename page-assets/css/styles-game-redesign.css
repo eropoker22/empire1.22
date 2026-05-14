@@ -1562,6 +1562,73 @@ body.game-body--booting .game-logo-slot {
   letter-spacing: 0.08em;
 }
 
+.map-phase-toolbar .map-phase-button[data-game-phase-toggle] {
+  border-color: rgba(103, 225, 255, 0.26);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
+    linear-gradient(90deg, rgba(103, 225, 255, 0.15), rgba(34, 122, 255, 0.08)),
+    rgba(8, 13, 20, 0.86);
+  color: #ddf8ff;
+}
+
+.map-phase-toolbar .map-phase-button[data-border-toggle] {
+  border-color: rgba(255, 214, 102, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
+    linear-gradient(90deg, rgba(255, 214, 102, 0.14), rgba(255, 154, 61, 0.08)),
+    rgba(20, 14, 8, 0.86);
+  color: #fff0bf;
+}
+
+.map-phase-info-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid rgba(103, 225, 255, 0.46);
+  background:
+    radial-gradient(circle at 48% 42%, rgba(103, 225, 255, 0.26), transparent 42%),
+    linear-gradient(180deg, rgba(7, 18, 31, 0.98), rgba(2, 7, 16, 0.99));
+  color: #dffcff;
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  text-shadow: 0 0 8px rgba(103, 225, 255, 0.72);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 12px rgba(34, 211, 238, 0.14),
+    0 0 14px rgba(34, 211, 238, 0.24),
+    0 8px 16px rgba(2, 6, 23, 0.28);
+}
+
+.map-phase-info-button::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  border: 1px solid rgba(244, 114, 182, 0.18);
+  pointer-events: none;
+}
+
+.map-phase-info-button:hover,
+.map-phase-info-button:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(166, 243, 255, 0.92);
+  color: #ffffff;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 0 14px rgba(34, 211, 238, 0.22),
+    0 0 18px rgba(34, 211, 238, 0.42),
+    0 0 22px rgba(244, 114, 182, 0.16);
+}
+
 .mount-point--map {
   padding: 0;
   border-radius: 28px;
@@ -2307,6 +2374,172 @@ body.game-body--booting .game-logo-slot {
   box-shadow:
     inset 0 0 16px rgba(255, 124, 124, 0.08),
     0 0 18px rgba(199, 66, 66, 0.12);
+}
+
+/* Final visual pass: gang profile matches the neon Empire shell. */
+#profile-gang-card.right-panel-card {
+  position: relative;
+  isolation: isolate;
+  padding: 12px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(34, 211, 238, 0.16), transparent 38%),
+    radial-gradient(circle at 100% 18%, rgba(244, 114, 182, 0.12), transparent 34%),
+    linear-gradient(145deg, rgba(3, 9, 18, 0.98), rgba(5, 9, 20, 0.94) 52%, rgba(3, 16, 24, 0.96));
+  box-shadow:
+    0 18px 34px rgba(0, 0, 0, 0.46),
+    0 0 0 1px rgba(34, 211, 238, 0.12),
+    0 0 22px rgba(34, 211, 238, 0.12),
+    inset 0 0 24px rgba(34, 211, 238, 0.055);
+}
+
+#profile-gang-card.right-panel-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, rgba(34, 211, 238, 0.14), transparent 28%, rgba(244, 114, 182, 0.1) 76%, transparent),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 7px);
+  opacity: 0.58;
+  pointer-events: none;
+}
+
+#profile-gang-card.right-panel-card::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 0;
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.88), rgba(244, 114, 182, 0.58), transparent);
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.48);
+  pointer-events: none;
+}
+
+#profile-gang-card.right-panel-card .gang-profile-header {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.2);
+}
+
+#profile-gang-card.right-panel-card .placeholder-title {
+  margin: 0;
+  color: #f8fbff;
+  font-size: 0.78rem;
+  font-weight: 950;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 12px rgba(34, 211, 238, 0.42),
+    0 0 20px rgba(244, 114, 182, 0.14);
+}
+
+#profile-gang-card.right-panel-card .gang-profile-stars {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  margin: 0;
+  color: rgba(251, 191, 36, 0.28);
+  font-size: 0.74rem;
+  line-height: 1;
+}
+
+#profile-gang-card.right-panel-card .gang-profile-stars .is-active {
+  color: #facc15;
+  text-shadow:
+    0 0 8px rgba(250, 204, 21, 0.58),
+    0 0 16px rgba(244, 114, 182, 0.22);
+}
+
+#profile-gang-card.right-panel-card .gang-profile-row.profile-row {
+  position: relative;
+  min-height: 32px;
+  display: grid;
+  grid-template-columns: minmax(72px, 0.8fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(34, 211, 238, 0.16);
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg, rgba(34, 211, 238, 0.07), transparent 48%),
+    rgba(3, 10, 20, 0.74);
+  box-shadow:
+    inset 2px 0 0 rgba(34, 211, 238, 0.22),
+    inset 0 0 14px rgba(34, 211, 238, 0.035);
+}
+
+#profile-gang-card.right-panel-card .gang-profile-row.profile-row + .gang-profile-row.profile-row {
+  margin-top: 6px;
+}
+
+#profile-gang-card.right-panel-card .gang-profile-row__label {
+  min-width: 0 !important;
+  color: rgba(165, 243, 252, 0.76);
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-align: left !important;
+  text-transform: uppercase;
+}
+
+#profile-gang-card.right-panel-card .gang-profile-row > span:not(.gang-profile-row__label),
+#profile-gang-card.right-panel-card #profile-alliance {
+  min-width: 0 !important;
+  color: #f8fbff;
+  font-size: 0.74rem !important;
+  font-weight: 850;
+  line-height: 1.1;
+  text-align: right !important;
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.22);
+}
+
+#profile-gang-card.right-panel-card #profile-alliance {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#profile-gang-card.right-panel-card .profile-row--wanted {
+  border-color: rgba(248, 113, 113, 0.24);
+  background:
+    linear-gradient(90deg, rgba(248, 113, 113, 0.1), transparent 48%),
+    rgba(18, 5, 12, 0.72);
+  box-shadow:
+    inset 2px 0 0 rgba(248, 113, 113, 0.34),
+    inset 0 0 14px rgba(248, 113, 113, 0.04);
+}
+
+#profile-gang-card.right-panel-card .gang-profile-value-button {
+  justify-self: end;
+  min-width: 62px;
+  min-height: 24px;
+  padding: 0 10px;
+  border: 1px solid rgba(190, 18, 60, 0.62);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 30% 18%, rgba(251, 113, 133, 0.16), transparent 34%),
+    linear-gradient(135deg, rgba(88, 12, 31, 0.96), rgba(39, 6, 24, 0.98));
+  color: #fecdd3;
+  font-size: 0.68rem;
+  font-weight: 950;
+  line-height: 1;
+  box-shadow:
+    0 0 16px rgba(190, 18, 60, 0.2),
+    inset 0 0 14px rgba(251, 113, 133, 0.07);
 }
 
 #alliance-chat-card {
@@ -3367,6 +3600,7 @@ body.game-body--booting .game-logo-slot {
   #game-rail-left > #city-events-card,
   #game-rail-left > #buildings-card,
   #game-rail-left > #market-card,
+  #game-rail-left > .leaderboard-launch-row,
   #game-rail-left > #leaderboard-card,
   #game-rail-right > #alliance-chat-card,
   #game-rail-right > #global-chat-card,
@@ -3389,6 +3623,7 @@ body.game-body--booting .game-logo-slot {
 .building-shortcut-button,
 .leaderboard-button,
 .map-phase-button,
+.map-phase-info-button,
 .map-zoom-button,
 .gang-profile-value-button,
 .alliance-button,
@@ -3408,6 +3643,7 @@ body.game-body--booting .game-logo-slot {
 .feature-card--buildings .panel-action-button--feature,
 .building-shortcut-button,
 .map-phase-button,
+.map-phase-info-button,
 .map-zoom-button {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -4284,6 +4520,7 @@ body.game-body--booting .game-logo-slot {
 #market-card,
 #building-shortcut-grid,
 .building-action-status,
+#game-rail-left > .leaderboard-launch-row,
 #leaderboard-card,
 .gang-profile-panel {
   animation: ui-feed-item-in 420ms var(--motion-modal-ease) both;
@@ -4321,6 +4558,7 @@ body.game-body--booting .game-logo-slot {
   animation-delay: 240ms;
 }
 
+#game-rail-left > .leaderboard-launch-row,
 #leaderboard-card,
 .gang-profile-panel {
   animation-delay: 280ms;
@@ -4602,6 +4840,183 @@ body.game-body--booting .game-logo-slot {
     height: 40px;
     min-height: 40px;
     font-size: 2rem;
+  }
+}
+
+/* Battle Royale info button and briefing modal. */
+#battle-royale-info-modal:not(.hidden) {
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 96;
+}
+
+#battle-royale-info-modal .modal__backdrop {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(34, 211, 238, 0.18), transparent 34%),
+    radial-gradient(circle at 18% 78%, rgba(244, 114, 182, 0.14), transparent 30%),
+    rgba(1, 4, 12, 0.76);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+}
+
+.battle-royale-info-modal__content {
+  width: min(560px, calc(100vw - 36px));
+  max-height: min(82vh, 660px);
+  border-radius: 22px;
+  border-color: rgba(103, 225, 255, 0.38);
+  background:
+    linear-gradient(135deg, rgba(103, 225, 255, 0.08), transparent 26%),
+    radial-gradient(circle at 96% 8%, rgba(244, 114, 182, 0.16), transparent 30%),
+    linear-gradient(180deg, rgba(4, 10, 22, 0.985), rgba(2, 5, 13, 0.995));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 34px rgba(34, 211, 238, 0.08),
+    0 28px 72px rgba(0, 0, 0, 0.72),
+    0 0 34px rgba(34, 211, 238, 0.18),
+    0 0 46px rgba(244, 114, 182, 0.1);
+}
+
+.battle-royale-info-modal__header {
+  align-items: flex-start;
+  border-bottom-color: rgba(103, 225, 255, 0.22);
+  background:
+    linear-gradient(90deg, rgba(103, 225, 255, 0.08), rgba(244, 114, 182, 0.06)),
+    rgba(3, 10, 20, 0.98);
+}
+
+.battle-royale-info-modal__header h3 {
+  margin-top: 4px;
+  font-size: 1.08rem;
+  letter-spacing: 0;
+}
+
+.battle-royale-info-modal__eyebrow {
+  color: #8ff6ff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.42);
+}
+
+.battle-royale-info-modal__body {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  background:
+    linear-gradient(180deg, rgba(1, 5, 14, 0.24), rgba(1, 5, 14, 0.42)),
+    rgba(2, 6, 15, 0.98);
+}
+
+.battle-royale-info-modal__lead {
+  padding: 12px 13px;
+  border: 1px solid rgba(103, 225, 255, 0.18);
+  border-radius: 14px;
+  background:
+    linear-gradient(90deg, rgba(34, 211, 238, 0.08), rgba(244, 114, 182, 0.06)),
+    rgba(4, 11, 22, 0.94);
+  color: rgba(226, 242, 255, 0.88);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.battle-royale-info-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.battle-royale-info-modal__item {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  min-height: 118px;
+  padding: 12px;
+  border: 1px solid rgba(103, 225, 255, 0.18);
+  border-radius: 14px;
+  background:
+    linear-gradient(145deg, rgba(10, 25, 42, 0.98), rgba(3, 8, 18, 0.99)),
+    rgba(3, 8, 18, 0.98);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+    inset 0 0 18px rgba(34, 211, 238, 0.05);
+}
+
+.battle-royale-info-modal__item--wide {
+  grid-column: 1 / -1;
+  min-height: 96px;
+  border-color: rgba(244, 114, 182, 0.28);
+  background:
+    linear-gradient(135deg, rgba(244, 114, 182, 0.12), transparent 42%),
+    linear-gradient(145deg, rgba(20, 7, 20, 0.98), rgba(3, 8, 18, 0.99));
+}
+
+.battle-royale-info-modal__item span {
+  width: fit-content;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(103, 225, 255, 0.2);
+  background: rgba(34, 211, 238, 0.08);
+  color: #8ff6ff;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.battle-royale-info-modal__item strong {
+  color: #f5fdff;
+  font-size: 0.86rem;
+  line-height: 1.18;
+}
+
+.battle-royale-info-modal__item p {
+  margin: 0;
+  color: rgba(209, 225, 244, 0.78);
+  font-size: 0.76rem;
+  line-height: 1.36;
+}
+
+@media (max-width: 720px), (hover: none) and (pointer: coarse) {
+  body.battle-royale-info-modal-open {
+    overflow: hidden;
+  }
+
+  #battle-royale-info-modal:not(.hidden) {
+    inset: 0;
+    padding: 12px;
+  }
+
+  .battle-royale-info-modal__content {
+    width: min(100%, 520px);
+    max-height: calc(100dvh - 24px);
+    border-radius: 18px;
+  }
+
+  .battle-royale-info-modal__header {
+    padding: 15px 50px 13px 15px;
+  }
+
+  .battle-royale-info-modal__header h3 {
+    font-size: 1rem;
+  }
+
+  .battle-royale-info-modal__body {
+    padding: 12px;
+  }
+
+  .battle-royale-info-modal__lead {
+    font-size: 0.78rem;
+  }
+
+  .battle-royale-info-modal__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .battle-royale-info-modal__item,
+  .battle-royale-info-modal__item--wide {
+    grid-column: auto;
+    min-height: auto;
   }
 }
 

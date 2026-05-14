@@ -63,6 +63,21 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("top: auto !important;");
       expect(stylesheet).toContain("height: var(--mobile-overlay-available-height) !important;");
       expect(stylesheet).toContain("top: calc(var(--mobile-overlay-card-top) + var(--mobile-overlay-card-gap)) !important;");
+      expect(stylesheet).toContain("Final hard override: mobile Buildings cards must receive taps");
+      expect(stylesheet).toContain("[data-buildings-open-building-name]");
+      expect(stylesheet).toContain("touch-action: manipulation !important;");
+      expect(stylesheet).toContain("Final hard override: mobile faction action modal stays centered vertically");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked #faction-actions-modal.faction-actions-modal:not(.hidden)");
+      expect(stylesheet).toContain("align-items: center !important;");
+      expect(stylesheet).toContain("Final override: action result and key confirmation dialogs stay centered in the viewport.");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked #spy-confirm-modal:not(.hidden)");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked #raid-confirm-modal:not(.hidden)");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked #occupy-confirm-modal:not(.hidden)");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked #attack-result-modal:not(.hidden)");
+      expect(stylesheet).toContain("Final hard override: mobile police raid result opens exactly in the viewport center.");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden])");
+      expect(stylesheet).toContain("place-items: center !important;");
+      expect(stylesheet).toContain("height: var(--mobile-locked-vh, 100dvh) !important;");
     }
     expect(mobileRuntime).toContain('const MOBILE_BODY_FREEZE_EXEMPT_SELECTOR = ".district-popup-shell";');
     expect(mobileRuntime).toContain('root.style.setProperty("--mobile-overlay-top-offset", `${topbarOffset}px`);');

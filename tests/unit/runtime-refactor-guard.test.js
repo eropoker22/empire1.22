@@ -12,7 +12,7 @@ const runtimeSource = () => read("page-assets/js/app/runtime.js");
 
 describe("runtime refactor guard", () => {
   it("keeps the canonical module load path intact", () => {
-    expect(gameHtml()).toContain('type="module" src="../page-assets/js/app.js"');
+    expect(gameHtml()).toMatch(/type="module" src="\.\.\/page-assets\/js\/app\.js(?:\?[^"]*)?"/u);
     expect(gameHtml()).not.toContain('src="../page-assets/js/app/runtime.js"');
     expect(appSource()).toContain('from "./app/render-ui.js"');
     expect(renderUiSource()).toContain('from "./runtime.js"');
@@ -118,6 +118,8 @@ describe("runtime refactor guard", () => {
     expect(source).toContain("createBuildingsPopupRuntime");
     expect(source).toContain("function bindDistrictCanvas(root)");
     expect(source).toContain('buildingsPopupOpenButton.addEventListener("click", openBuildingsPopup);');
+    expect(source).toContain("const bindBuildingsPopupTap = (mount, handler) =>");
+    expect(source).toContain("if (nextType !== activeBuildingsDistrictType)");
     expect(buildingsPopupSource).toContain("elements.buildingsPopup.hidden = false;");
     expect(buildingsPopupSource).toContain("elements.buildingsPopup.hidden = true;");
   });

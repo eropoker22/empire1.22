@@ -2067,6 +2067,9 @@ body.login-body::after {
 
 .mode-card--free {
   border-color: rgba(0, 245, 255, 0.42);
+  background:
+    radial-gradient(circle at 16% 10%, rgba(0, 128, 170, 0.16), transparent 36%),
+    linear-gradient(145deg, rgba(4, 20, 37, 0.88), rgba(2, 8, 19, 0.94));
   box-shadow: var(--glow-cyan), 0 18px 40px rgba(0, 0, 0, 0.4);
 }
 
@@ -2079,6 +2082,9 @@ body.login-body::after {
 
 .mode-card--war {
   border-color: rgba(255, 43, 214, 0.48);
+  background:
+    radial-gradient(circle at 86% 12%, rgba(128, 28, 124, 0.2), transparent 38%),
+    linear-gradient(145deg, rgba(31, 8, 43, 0.9), rgba(7, 5, 18, 0.95));
   box-shadow: var(--glow-pink), 0 18px 40px rgba(0, 0, 0, 0.4);
 }
 
@@ -2619,6 +2625,9 @@ body.login-body::after {
   .mode-dock {
     order: 2;
     margin-top: 12px;
+    width: 100%;
+    gap: 9px;
+    align-self: center;
   }
 
   .leaderboard-panel {
@@ -2678,17 +2687,20 @@ body.login-body::after {
     grid-template-columns: 1fr;
   }
 
-  #login-form .field-shell {
+  #login-form .field-shell,
+  #register-form .field-shell {
     min-height: 42px;
   }
 
-  #login-form .field-icon {
+  #login-form .field-icon,
+  #register-form .field-icon {
     width: 36px;
     padding-left: 9px;
     font-size: 0.82rem;
   }
 
-  #login-form .field-shell input {
+  #login-form .field-shell input,
+  #register-form .field-shell input {
     font-size: 0.84rem;
   }
 
@@ -2703,7 +2715,8 @@ body.login-body::after {
     font-size: 1.06rem;
   }
 
-  #login-form .enter-city-button {
+  #login-form .enter-city-button,
+  #register-form .enter-city-button {
     justify-self: center;
     width: min(92%, 320px);
     min-height: 56px;
@@ -2742,12 +2755,52 @@ body.login-body::after {
   }
 
   .mode-card {
-    min-height: 124px;
+    min-height: 104px;
+    gap: 12px;
+    padding: 12px 13px;
+    border-radius: 13px;
   }
 
   .mode-icon {
-    width: 62px;
-    height: 62px;
+    width: 50px;
+    height: 50px;
+    font-size: 1.36rem;
+  }
+
+  .mode-card strong {
+    font-size: 1.18rem;
+  }
+
+  .mode-card small {
+    margin-top: 2px;
+    font-size: 0.76rem;
+  }
+
+  .mode-card em {
+    margin-top: 3px;
+    font-size: 0.64rem;
+  }
+
+  .mode-card--free {
+    border-color: rgba(0, 196, 212, 0.3);
+    background:
+      radial-gradient(circle at 16% 10%, rgba(0, 98, 132, 0.16), transparent 36%),
+      linear-gradient(145deg, rgba(3, 16, 31, 0.94), rgba(1, 6, 16, 0.98));
+    box-shadow:
+      0 0 14px rgba(0, 196, 212, 0.16),
+      0 12px 26px rgba(0, 0, 0, 0.42),
+      inset 0 0 20px rgba(0, 196, 212, 0.035);
+  }
+
+  .mode-card--war {
+    border-color: rgba(197, 31, 168, 0.34);
+    background:
+      radial-gradient(circle at 86% 12%, rgba(88, 18, 91, 0.2), transparent 38%),
+      linear-gradient(145deg, rgba(24, 7, 36, 0.95), rgba(6, 4, 16, 0.98));
+    box-shadow:
+      0 0 14px rgba(197, 31, 168, 0.18),
+      0 12px 26px rgba(0, 0, 0, 0.42),
+      inset 0 0 20px rgba(197, 31, 168, 0.04);
   }
 
   .mode-card--free .mode-icon {
@@ -2761,13 +2814,13 @@ body.login-body::after {
   .mode-card--war .mode-icon {
     border-radius: 12px;
     transform: none;
-    border-color: rgba(255, 43, 214, 0.58);
+    border-color: rgba(197, 31, 168, 0.46);
     background:
-      linear-gradient(135deg, rgba(255, 43, 214, 0.2), rgba(255, 255, 255, 0.035)),
-      rgba(10, 4, 18, 0.78);
+      linear-gradient(135deg, rgba(197, 31, 168, 0.16), rgba(255, 255, 255, 0.026)),
+      rgba(9, 3, 17, 0.86);
     box-shadow:
-      inset 0 0 18px rgba(255, 43, 214, 0.1),
-      0 0 18px rgba(255, 43, 214, 0.18);
+      inset 0 0 16px rgba(197, 31, 168, 0.08),
+      0 0 14px rgba(197, 31, 168, 0.14);
   }
 
   .mode-card--war .mode-icon > span {
@@ -2786,21 +2839,21 @@ body.login-body::after {
     display: grid;
     place-items: center;
     color: var(--pink);
-    font-size: 0.92rem;
+    font-size: 0.78rem;
     font-weight: 1000;
     letter-spacing: 0.08em;
-    text-shadow: 0 0 12px rgba(255, 43, 214, 0.42);
+    text-shadow: 0 0 10px rgba(197, 31, 168, 0.34);
   }
 
   .mode-card--war .mode-icon > span::after {
     content: "";
     position: absolute;
-    left: 16px;
-    right: 16px;
-    bottom: 13px;
+    left: 13px;
+    right: 13px;
+    bottom: 10px;
     height: 2px;
     background: var(--pink);
-    box-shadow: 0 0 10px rgba(255, 43, 214, 0.48);
+    box-shadow: 0 0 8px rgba(197, 31, 168, 0.36);
   }
 
   .server-status,

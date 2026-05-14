@@ -6981,6 +6981,13 @@ function bindDistrictCanvas(root) {
       ...getStoredOccupyOrders().filter((order) => Number(String(order.targetDistrictId || "").replace("district:", "")) !== Number(selectedDistrict.id)),
       createdOrder
     ]);
+    document.dispatchEvent(new CustomEvent("empire:occupy-started", {
+      detail: {
+        sourceDistrictId: adjacentOwnedDistrictIds[0],
+        targetDistrictId: selectedDistrict.id,
+        order: createdOrder
+      }
+    }));
     recordDistrictIntelEvent({
       type: "occupy_started",
       districtId: selectedDistrict.id,
@@ -7043,6 +7050,13 @@ function bindDistrictCanvas(root) {
       ...getStoredRobberyOrders(),
       createdOrder
     ]);
+    document.dispatchEvent(new CustomEvent("empire:robbery-started", {
+      detail: {
+        sourceDistrictId,
+        targetDistrictId: selectedDistrict.id,
+        order: createdOrder
+      }
+    }));
     recordDistrictIntelEvent({
       type: "raid_started",
       districtId: selectedDistrict.id,
@@ -7146,6 +7160,13 @@ function bindDistrictCanvas(root) {
     }
 
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+    document.dispatchEvent(new CustomEvent("empire:district-opened", {
+      detail: {
+        district,
+        districtId: district.id,
+        isOwnedByCurrentPlayer: currentPlayerOwnedDistrictIds.has(Number(district.id))
+      }
+    }));
     const adjacentOwnedDistrictIds = getAdjacentDistrictIdsFromGeometry(geometry, district.id)
       .filter((districtId) => currentPlayerOwnedDistrictIds.has(districtId));
     const spyState = getResolvedSpyState();
@@ -7462,10 +7483,15 @@ function bindDistrictCanvas(root) {
 
     if (buildingsPopup && !buildingsPopup.hidden) {
       const activeBuildingsDistrictType = getActiveBuildingsDistrictType();
-      const nextType = getSourceDistrictsForBuildingType(activeBuildingsDistrictType).length > 0
+      const hasActiveBuildingsDistrictType = activeBuildingsDistrictType
+        && getSourceDistrictsForBuildingType(activeBuildingsDistrictType).length > 0;
+      const nextType = hasActiveBuildingsDistrictType
         ? activeBuildingsDistrictType
         : getFirstAvailableBuildingDistrictType();
-      renderBuildingsPopup(nextType);
+
+      if (nextType !== activeBuildingsDistrictType) {
+        renderBuildingsPopup(nextType);
+      }
     }
   };
 
@@ -7565,6 +7591,13 @@ function bindDistrictCanvas(root) {
     getDistrictById(districtId) {
       const normalizedDistrictId = Number(districtId);
       return geometry?.districts?.find((district) => Number(district.id) === normalizedDistrictId) || null;
+    },
+    getAllDistricts() {
+      return Array.isArray(geometry?.districts) ? [...geometry.districts] : [];
+    },
+    getDistrictBuildingProfile(districtId) {
+      const district = districtStateApi.getDistrictById(districtId);
+      return district ? resolveDistrictBuildingProfile(district) : null;
     },
     selectDistrict(districtId) {
       const district = districtStateApi.getDistrictById(districtId);
@@ -8860,9 +8893,16 @@ function refreshAllUi(state = null) {
 
 function createFreeSessionUiContext(root) {
   const session = getAuthoritySession();
+  const world = getResolvedWorldState();
   return {
     registration: getStoredRegistration(),
-    world: getResolvedWorldState(),
+    mode: "dev-only",
+    world,
+    phase: world.phaseState,
+    economy: getResolvedEconomyState(),
+    gang: getResolvedGangState(),
+    production: getResolvedProductionState(),
+    policeActions: getResolvedDistrictPoliceActions(),
     inventory: session.inventory || {},
     spy: {
       ...getResolvedSpyState(),
@@ -8871,6 +8911,9 @@ function createFreeSessionUiContext(root) {
     spyIntel: getResolvedSpyIntel(),
     attackOrders: getStoredAttackOrders(),
     selectedDistrict: window.empireStreetsDistrictState?.getSelectedDistrict?.() || null,
+    districtState: window.empireStreetsDistrictState?.getState?.() || null,
+    districtStateApi: window.empireStreetsDistrictState || null,
+    districts: window.empireStreetsDistrictState?.getAllDistricts?.() || [],
     root
   };
 }
@@ -8899,11 +8942,6 @@ function ensureStartDistrictRecovery() {
 
 function bindFreeSessionOnboarding(root) {
   if (!root || onboardingBridgesByRoot.has(root)) {
-    return false;
-  }
-
-  const registration = getStoredRegistration();
-  if (!isGuestSession(registration)) {
     return false;
   }
 

@@ -276,6 +276,20 @@
   font-variant-numeric: tabular-nums;
 }
 
+#bounty-modal .bounty-board__input option {
+  background: #09030b;
+  color: #fff1f4;
+}
+
+#bounty-modal .bounty-board__target-picker {
+  display: none;
+}
+
+#bounty-modal .bounty-board__target-option,
+#bounty-modal .bounty-board__target-empty {
+  width: 100%;
+}
+
 #bounty-modal .bounty-board__target-card,
 #bounty-modal .bounty-board__resource-row {
   display: grid;
@@ -1566,5 +1580,741 @@
   #bounty-modal .bounty-board__target-card,
   #bounty-modal .bounty-board__resource-row {
     border-radius: 8px;
+  }
+}
+
+/* Final simplified bounty flow: target, reward, bounty type, active board, confirm button. */
+#bounty-modal .bounty-board__header-status,
+#bounty-modal .bounty-board__target-card,
+#bounty-modal .bounty-board__status-line,
+#bounty-modal .bounty-board__quick-row,
+#bounty-modal .bounty-board__settings,
+#bounty-modal .bounty-board__preview,
+#bounty-modal .bounty-board__column--right > .bounty-board__panel:not(.bounty-board__table-panel),
+#bounty-modal .bounty-board__cancel,
+#bounty-modal .bounty-board__submit-hint {
+  display: none !important;
+}
+
+#bounty-confirm-modal {
+  display: none !important;
+}
+
+#bounty-modal .bounty-board__content {
+  width: min(940px, calc(100vw - 20px));
+}
+
+#bounty-modal .bounty-board__header {
+  margin-bottom: 10px;
+}
+
+#bounty-modal .bounty-board__layout {
+  grid-template-columns: minmax(300px, 0.86fr) minmax(340px, 1.14fr);
+  align-items: stretch;
+}
+
+#bounty-modal .bounty-board__column {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+#bounty-modal .bounty-board__panel {
+  padding: 10px;
+}
+
+#bounty-modal .bounty-board__panel-head {
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+#bounty-modal .bounty-board__field {
+  gap: 5px;
+}
+
+#bounty-modal .bounty-board__resource-row {
+  gap: 9px;
+  padding: 9px;
+}
+
+#bounty-modal .bounty-board__resource-controls,
+#bounty-modal .bounty-board__resource-controls--cash {
+  grid-template-columns: minmax(0, 1fr) 104px;
+  gap: 8px;
+}
+
+#bounty-modal .bounty-board__choice-grid {
+  gap: 7px;
+}
+
+#bounty-modal .bounty-board__table-panel {
+  min-height: 0;
+}
+
+#bounty-modal .bounty-board__table-wrap {
+  max-height: min(46vh, 360px);
+}
+
+#bounty-modal .bounty-board__actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: 10px;
+}
+
+#bounty-modal .bounty-board__submit {
+  width: 100%;
+  min-height: 42px;
+}
+
+@media (max-width: 720px) {
+  #bounty-modal .bounty-board__content {
+    width: calc(100vw - 16px);
+    max-height: calc(var(--mobile-locked-vh, 100svh) - 18px);
+  }
+
+  #bounty-modal .bounty-board__layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+  }
+
+  #bounty-modal .bounty-board__header {
+    padding-right: 42px;
+  }
+
+  #bounty-modal .bounty-board__header p {
+    max-width: 100%;
+    font-size: 0.68rem;
+  }
+
+  #bounty-modal .bounty-board__resource-controls,
+  #bounty-modal .bounty-board__resource-controls--cash {
+    grid-template-columns: minmax(0, 1fr) 90px;
+  }
+
+  #bounty-modal .bounty-board__table-wrap {
+    max-height: 240px;
+  }
+}
+
+/* Final design pass: simplified bounty board as a clear neon contract desk. */
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__content {
+  opacity: 1 !important;
+  animation: none !important;
+  width: min(790px, calc(100vw - 72px));
+  height: auto !important;
+  max-height: min(540px, calc(100dvh - 122px)) !important;
+  flex: 0 1 auto;
+  overflow: auto;
+  padding: 11px;
+  border-radius: 18px;
+  border-color: rgba(255, 58, 96, 0.66);
+  background:
+    linear-gradient(90deg, rgba(255, 51, 91, 0.72), transparent 18%, transparent 82%, rgba(0, 229, 255, 0.34)) top / 100% 1px no-repeat,
+    linear-gradient(90deg, rgba(0, 229, 255, 0.18), transparent 14%, transparent 86%, rgba(255, 51, 91, 0.22)) bottom / 100% 1px no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.065), transparent 11%),
+    radial-gradient(circle at 11% -14%, rgba(255, 51, 91, 0.38), transparent 30%),
+    radial-gradient(circle at 93% 0%, rgba(0, 229, 255, 0.24), transparent 28%),
+    linear-gradient(135deg, rgba(24, 3, 15, 0.992), rgba(8, 3, 12, 0.988) 52%, rgba(2, 11, 18, 0.982));
+  box-shadow:
+    0 26px 76px rgba(0, 0, 0, 0.76),
+    0 0 36px rgba(255, 0, 80, 0.27),
+    0 0 32px rgba(0, 229, 255, 0.13),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+    inset 0 -34px 82px rgba(0, 0, 0, 0.24);
+  scrollbar-color: rgba(255, 51, 91, 0.58) rgba(9, 2, 10, 0.66);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__content::after {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  pointer-events: none;
+  border-radius: 14px;
+  background:
+    linear-gradient(90deg, rgba(255, 51, 91, 0.2), transparent 18%, transparent 82%, rgba(0, 229, 255, 0.18)),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.026) 0 1px, transparent 1px 74px);
+  opacity: 0.44;
+  mask-image: linear-gradient(180deg, #000, transparent 62%);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 60px;
+  margin-bottom: 9px;
+  padding: 10px 48px 10px 13px;
+  border-radius: 14px;
+  border-color: rgba(255, 51, 91, 0.38);
+  background:
+    linear-gradient(90deg, rgba(122, 7, 38, 0.62), rgba(18, 3, 13, 0.76) 58%, rgba(0, 229, 255, 0.12)),
+    rgba(9, 2, 10, 0.78);
+  box-shadow:
+    inset 4px 0 0 rgba(255, 51, 91, 0.9),
+    inset -1px 0 0 rgba(0, 229, 255, 0.2),
+    0 0 22px rgba(255, 0, 80, 0.14);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__header h3 {
+  margin: 2px 0 0;
+  font-size: clamp(1.05rem, 1.45vw, 1.28rem);
+  font-weight: 950;
+  letter-spacing: 0.055em;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__header p {
+  max-width: 660px;
+  margin-top: 3px;
+  color: rgba(255, 228, 233, 0.82);
+  font-size: 0.7rem;
+  line-height: 1.25;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .modal__close {
+  top: 17px;
+  right: 17px;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 96, 130, 0.48);
+  background:
+    radial-gradient(circle at 35% 25%, rgba(255, 210, 220, 0.22), transparent 38%),
+    rgba(33, 3, 16, 0.86);
+  color: #ffe4ea;
+  box-shadow:
+    0 0 18px rgba(255, 0, 80, 0.24),
+    inset 0 0 12px rgba(255, 51, 91, 0.12);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__layout {
+  grid-template-columns: minmax(340px, 0.9fr) minmax(360px, 1.1fr);
+  gap: 10px;
+  flex: 0 0 auto;
+  align-items: start;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__column--left {
+  counter-reset: bounty-step;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__column--left > .bounty-board__panel:last-child {
+  grid-column: 1 / -1;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__column--left > .bounty-board__panel:last-child {
+  border-color: rgba(130, 18, 48, 0.62);
+  background:
+    linear-gradient(135deg, rgba(100, 8, 34, 0.3), transparent 42%),
+    linear-gradient(180deg, rgba(17, 2, 10, 0.98), rgba(5, 1, 7, 0.99));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 -18px 44px rgba(0, 0, 0, 0.24),
+    0 14px 28px rgba(0, 0, 0, 0.3),
+    0 0 18px rgba(120, 8, 38, 0.14);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__column--left > .bounty-board__panel {
+  position: relative;
+  padding: 9px 10px 9px 38px;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__column--left > .bounty-board__panel::before {
+  counter-increment: bounty-step;
+  content: counter(bounty-step);
+  position: absolute;
+  left: 9px;
+  top: 10px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 145, 168, 0.42);
+  background:
+    radial-gradient(circle at 35% 20%, rgba(255, 205, 215, 0.18), transparent 36%),
+    rgba(42, 4, 18, 0.9);
+  color: #fecdd3;
+  font-size: 0.7rem;
+  font-weight: 950;
+  box-shadow: 0 0 14px rgba(255, 0, 80, 0.2);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__panel {
+  border-radius: 11px;
+  border-color: rgba(255, 66, 104, 0.34);
+  background:
+    linear-gradient(135deg, rgba(255, 0, 80, 0.16), transparent 45%),
+    linear-gradient(180deg, rgba(36, 4, 18, 0.92), rgba(8, 2, 10, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    inset 0 -16px 38px rgba(0, 0, 0, 0.12),
+    0 14px 28px rgba(0, 0, 0, 0.24);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__panel-head {
+  margin-bottom: 5px;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__panel-head strong {
+  font-size: 0.8rem;
+  line-height: 1.1;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__input {
+  min-height: 33px;
+  border-radius: 9px;
+  font-size: 0.72rem;
+  background:
+    linear-gradient(180deg, rgba(26, 3, 15, 0.96), rgba(8, 2, 10, 0.98));
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__resource-row {
+  grid-template-columns: minmax(0, 1fr);
+  border-radius: 10px;
+  gap: 6px;
+  padding: 6px;
+  background:
+    linear-gradient(135deg, rgba(255, 51, 91, 0.11), transparent 44%),
+    rgba(12, 2, 10, 0.74);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__resource-head {
+  align-items: center;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__resource-icon {
+  width: 27px;
+  height: 27px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 145, 168, 0.36);
+  background: rgba(43, 4, 19, 0.84);
+  box-shadow: inset 0 0 14px rgba(255, 0, 80, 0.1);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__choice-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__choice-grid + .bounty-board__choice-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 6px;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__choice {
+  min-height: 32px;
+  justify-content: center;
+  border-radius: 9px;
+  padding-inline: 7px;
+  text-align: center;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__choice span {
+  font-size: 0.64rem;
+  line-height: 1.12;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) #bounty-district-field:not([hidden]) {
+  margin-top: 9px;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__table-panel {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__table-wrap {
+  position: relative;
+  max-height: none;
+  min-height: 218px;
+  max-height: 248px;
+  border-radius: 10px;
+  border-color: rgba(255, 51, 91, 0.22);
+  background:
+    linear-gradient(180deg, rgba(13, 2, 9, 0.74), rgba(5, 1, 7, 0.86));
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__table {
+  font-size: 0.68rem;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 7px 7px;
+  font-size: 0.56rem;
+  letter-spacing: 0.09em;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__table td {
+  padding: 8px 7px;
+  border-bottom-color: rgba(255, 51, 91, 0.12);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__empty {
+  display: grid;
+  place-items: center;
+  min-height: 130px;
+  color: rgba(255, 228, 233, 0.62);
+  text-align: center;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__actions {
+  margin-top: 7px;
+  justify-items: start;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__submit {
+  width: min(184px, 100%);
+  min-height: 33px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 84, 118, 0.52);
+  background:
+    linear-gradient(180deg, rgba(107, 8, 32, 0.98), rgba(43, 4, 18, 0.98));
+  color: #ffdce4;
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.035em;
+  text-transform: none;
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.32),
+    0 0 16px rgba(255, 0, 80, 0.18),
+    inset 0 1px 0 rgba(255, 210, 220, 0.12);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__submit:not(:disabled):hover,
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__submit:not(:disabled):focus-visible {
+  background:
+    linear-gradient(180deg, rgba(134, 13, 42, 0.98), rgba(55, 5, 21, 0.99));
+  border-color: rgba(255, 115, 145, 0.7);
+  color: #fff1f4;
+  box-shadow:
+    0 12px 26px rgba(0, 0, 0, 0.36),
+    0 0 22px rgba(255, 0, 80, 0.26),
+    inset 0 1px 0 rgba(255, 225, 232, 0.18);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+  filter: grayscale(0.35);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.26);
+}
+
+@media (max-width: 720px) {
+  #bounty-modal.bounty-board-modal:not(.hidden) {
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    padding: 0 !important;
+    background:
+      radial-gradient(circle at 20% -10%, rgba(255, 51, 91, 0.36), transparent 34%),
+      radial-gradient(circle at 90% 8%, rgba(0, 229, 255, 0.24), transparent 32%),
+      #03050c;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__content {
+    width: 100vw;
+    min-height: 100dvh;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    padding: max(10px, env(safe-area-inset-top)) 10px max(14px, env(safe-area-inset-bottom));
+    border-radius: 0;
+    border-inline: 0;
+    overflow-y: auto;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 10%),
+      radial-gradient(circle at 12% 0%, rgba(255, 51, 91, 0.24), transparent 32%),
+      radial-gradient(circle at 96% 4%, rgba(0, 229, 255, 0.16), transparent 30%),
+      repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 12px),
+      linear-gradient(180deg, #08030a 0%, #050711 48%, #03040a 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      inset 0 -72px 120px rgba(0, 0, 0, 0.38);
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__header {
+    min-height: 118px !important;
+    display: grid;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 13px 48px 13px 13px !important;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 75, 116, 0.44);
+    background:
+      linear-gradient(90deg, rgba(120, 8, 38, 0.78), rgba(20, 3, 18, 0.86) 58%, rgba(0, 229, 255, 0.16)),
+      rgba(8, 2, 10, 0.94);
+    box-shadow:
+      inset 4px 0 0 rgba(255, 51, 91, 0.95),
+      0 0 28px rgba(255, 0, 80, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__header-copy {
+    gap: 4px;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__header h3 {
+    font-size: 1.18rem;
+    letter-spacing: 0.07em;
+    text-shadow: 0 0 18px rgba(255, 51, 91, 0.34);
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__header p {
+    max-width: 30ch;
+    color: rgba(255, 232, 238, 0.86);
+    font-size: 0.76rem;
+    line-height: 1.4;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__eyebrow,
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__kicker {
+    color: #67e8f9;
+    letter-spacing: 0.14em;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .modal__close {
+    top: max(12px, env(safe-area-inset-top));
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border-color: rgba(0, 229, 255, 0.36);
+    background:
+      radial-gradient(circle at 35% 20%, rgba(255, 255, 255, 0.24), transparent 34%),
+      rgba(12, 3, 16, 0.94);
+    box-shadow:
+      0 0 18px rgba(0, 229, 255, 0.18),
+      0 0 18px rgba(255, 0, 80, 0.14);
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__column {
+    gap: 10px;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__column--left {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__column--left > .bounty-board__panel:last-child {
+    grid-column: auto;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__column--left > .bounty-board__panel:last-child {
+    border-color: rgba(124, 16, 46, 0.66);
+    background:
+      linear-gradient(135deg, rgba(110, 8, 38, 0.34), transparent 44%),
+      linear-gradient(180deg, rgba(14, 2, 9, 0.99), rgba(3, 1, 6, 0.995));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.035),
+      inset 0 -24px 54px rgba(0, 0, 0, 0.34),
+      0 14px 30px rgba(0, 0, 0, 0.34),
+      0 0 20px rgba(120, 8, 38, 0.16);
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__column--left > .bounty-board__panel {
+    padding: 12px 12px 12px 44px;
+    border-radius: 16px;
+    border-color: rgba(255, 75, 116, 0.36);
+    background:
+      linear-gradient(135deg, rgba(255, 0, 80, 0.17), transparent 46%),
+      linear-gradient(180deg, rgba(30, 4, 18, 0.96), rgba(8, 2, 10, 0.98));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      0 14px 30px rgba(0, 0, 0, 0.28),
+      0 0 22px rgba(255, 0, 80, 0.08);
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__column--left > .bounty-board__panel::before {
+    left: 12px;
+    top: 13px;
+    width: 24px;
+    height: 24px;
+    border-color: rgba(0, 229, 255, 0.34);
+    background:
+      radial-gradient(circle at 35% 20%, rgba(255, 255, 255, 0.24), transparent 34%),
+      linear-gradient(180deg, rgba(92, 8, 34, 0.96), rgba(24, 4, 18, 0.98));
+    color: #e6fbff;
+    box-shadow:
+      0 0 16px rgba(255, 0, 80, 0.24),
+      0 0 14px rgba(0, 229, 255, 0.12);
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__choice-grid,
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__choice-grid + .bounty-board__choice-grid,
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__resource-controls,
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__resource-controls--cash {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__input {
+    min-height: 42px;
+    border: 1px solid rgba(0, 229, 255, 0.24);
+    background:
+      linear-gradient(180deg, rgba(9, 4, 16, 0.98), rgba(3, 7, 14, 0.98));
+    color: #effcff;
+    font-size: 0.86rem;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+      0 0 16px rgba(0, 229, 255, 0.08);
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) #bounty-modal-target {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__target-picker {
+    display: grid;
+    gap: 8px;
+    max-height: 210px;
+    margin-top: 4px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 2px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 229, 255, 0.72) rgba(12, 3, 16, 0.85);
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__target-option,
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__target-empty {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    min-height: 46px;
+    padding: 10px 11px;
+    border: 1px solid rgba(255, 75, 116, 0.28);
+    border-radius: 12px;
+    background:
+      linear-gradient(135deg, rgba(255, 51, 91, 0.12), rgba(0, 229, 255, 0.06)),
+      rgba(8, 3, 12, 0.88);
+    color: #fff1f4;
+    text-align: left;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.045),
+      0 8px 18px rgba(0, 0, 0, 0.18);
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__target-option.is-selected {
+    border-color: rgba(0, 229, 255, 0.62);
+    background:
+      linear-gradient(135deg, rgba(255, 51, 91, 0.28), rgba(0, 229, 255, 0.18)),
+      rgba(18, 4, 18, 0.96);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 0 20px rgba(0, 229, 255, 0.16),
+      0 0 18px rgba(255, 0, 80, 0.14);
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__target-option-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 0.86rem;
+    font-weight: 850;
+    color: #f8fbff;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__target-option-meta {
+    padding: 4px 7px;
+    border-radius: 999px;
+    background: rgba(0, 229, 255, 0.1);
+    color: #a5f3fc;
+    font-size: 0.62rem;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__choice {
+    min-height: 44px;
+    justify-content: flex-start;
+    padding-inline: 12px;
+    border-color: rgba(255, 75, 116, 0.28);
+    background:
+      linear-gradient(135deg, rgba(255, 51, 91, 0.12), rgba(0, 229, 255, 0.055)),
+      rgba(8, 3, 12, 0.88);
+    text-align: left;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__choice:has(input:checked) {
+    border-color: rgba(0, 229, 255, 0.58);
+    background:
+      linear-gradient(135deg, rgba(255, 51, 91, 0.28), rgba(0, 229, 255, 0.16)),
+      rgba(18, 4, 18, 0.96);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 0 18px rgba(0, 229, 255, 0.16),
+      0 0 18px rgba(255, 0, 80, 0.12);
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__choice span {
+    font-size: 0.78rem;
+    line-height: 1.25;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__resource-row {
+    padding: 10px;
+    gap: 10px;
+    border-color: rgba(0, 229, 255, 0.18);
+    background:
+      linear-gradient(135deg, rgba(0, 229, 255, 0.08), transparent 42%),
+      rgba(8, 3, 12, 0.9);
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__resource-icon {
+    width: 34px;
+    height: 34px;
+    border-color: rgba(0, 229, 255, 0.32);
+    color: #67e8f9;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__table-wrap {
+    min-height: 260px;
+    max-height: 34dvh;
+    border-color: rgba(0, 229, 255, 0.2);
+    background:
+      linear-gradient(180deg, rgba(5, 9, 18, 0.92), rgba(6, 2, 10, 0.96));
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__table {
+    min-width: 460px;
+    font-size: 0.78rem;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__actions {
+    position: static;
+    z-index: 1;
+    margin: 6px 0 0;
+    padding: 0;
+    background: transparent;
+    justify-items: stretch;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__submit {
+    width: 100%;
+    min-height: 52px;
+    border-color: rgba(255, 75, 116, 0.72);
+    background:
+      linear-gradient(180deg, rgba(150, 13, 45, 0.98), rgba(55, 5, 22, 0.99));
+    color: #fff3f6;
+    font-size: 0.86rem;
+    letter-spacing: 0.04em;
+    box-shadow:
+      0 16px 34px rgba(0, 0, 0, 0.42),
+      0 0 26px rgba(255, 0, 80, 0.3),
+      inset 0 1px 0 rgba(255, 225, 232, 0.2);
   }
 }

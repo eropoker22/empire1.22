@@ -120,18 +120,23 @@
               <div class="building-action-status__feed" data-building-action-feed role="log" aria-live="polite" aria-label="Historie uličních zpráv"></div>
             </section>
             <div id="leaderboard-card-anchor" hidden aria-hidden="true"></div>
-            <button id="leaderboard-card" type="button" class="button leaderboard-button" aria-label="Otevřít leaderboard" data-leaderboard-popup-open>
-              <span class="leaderboard-button__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" role="presentation" focusable="false">
-                  <path d="M9 20V8h6v12"></path>
-                  <path d="M3.5 20v-8H9v8"></path>
-                  <path d="M15 20v-6h5.5v6"></path>
-                  <path d="M10.2 5.6 12 4l1.8 1.6"></path>
-                  <path d="M12 4v3.5"></path>
-                </svg>
-              </span>
-              <span class="leaderboard-button__label">Leaderboard</span>
-            </button>
+            <div class="leaderboard-launch-row">
+              <button id="leaderboard-card" type="button" class="button leaderboard-button" aria-label="Otevřít leaderboard" data-leaderboard-popup-open>
+                <span class="leaderboard-button__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                    <path d="M9 20V8h6v12"></path>
+                    <path d="M3.5 20v-8H9v8"></path>
+                    <path d="M15 20v-6h5.5v6"></path>
+                    <path d="M10.2 5.6 12 4l1.8 1.6"></path>
+                    <path d="M12 4v3.5"></path>
+                  </svg>
+                </span>
+                <span class="leaderboard-button__label">Leaderboard</span>
+              </button>
+              <button id="onboarding-launch-button" type="button" class="button onboarding-launch-button" data-onboarding-launch aria-label="Spustit onboarding" title="Onboarding">
+                <span aria-hidden="true">O</span>
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -173,6 +178,9 @@
               </div>
               <div class="map-phase-toolbar" aria-label="Phase switch">
                 <button type="button" class="button map-phase-button" data-game-phase-toggle>Fáze hry: LIVE</button>
+                <button type="button" class="button map-phase-info-button" data-br-info-open aria-label="Info o Battle Royale" title="Info o Battle Royale">
+                  <span aria-hidden="true">i</span>
+                </button>
                 <button type="button" class="button map-phase-button" data-border-toggle>Hrany: BÍLÁ</button>
               </div>
             </div>
@@ -1759,14 +1767,59 @@
         </div>
       </div>
 
+      <div id="battle-royale-info-modal" class="modal hidden battle-royale-info-modal">
+        <div id="battle-royale-info-modal-backdrop" class="modal__backdrop" data-br-info-close></div>
+        <div class="modal__content battle-royale-info-modal__content" role="dialog" aria-modal="true" aria-labelledby="battle-royale-info-modal-title">
+          <div class="modal__header battle-royale-info-modal__header">
+            <div>
+              <div class="battle-royale-info-modal__eyebrow">Battle Royale briefing</div>
+              <h3 id="battle-royale-info-modal-title">Fáze, spawn a eliminace</h3>
+            </div>
+            <button class="modal__close" id="battle-royale-info-modal-close" type="button" data-br-info-close aria-label="Zavřít">×</button>
+          </div>
+          <div class="modal__body battle-royale-info-modal__body">
+            <div class="battle-royale-info-modal__lead">
+              Server startuje jako několikadenní válka pro 20 hráčů. Mapa se postupně čistí eliminacemi, ale noční okno drží tempo férové.
+            </div>
+            <div class="battle-royale-info-modal__grid" aria-label="Pravidla Battle Royale">
+              <div class="battle-royale-info-modal__item">
+                <span>01</span>
+                <strong>20 hráčů</strong>
+                <p>Každý server spawne maximálně dvacet hráčů do jedné mapy.</p>
+              </div>
+              <div class="battle-royale-info-modal__item">
+                <span>02</span>
+                <strong>Spawn hrany</strong>
+                <p>Start je povolený jen na levém, pravém nebo spodním okraji mapy.</p>
+              </div>
+              <div class="battle-royale-info-modal__item">
+                <span>03</span>
+                <strong>První eliminace po 8h</strong>
+                <p>První eliminační fáze přijde osm hodin po startu serveru.</p>
+              </div>
+              <div class="battle-royale-info-modal__item">
+                <span>04</span>
+                <strong>Další po 4h</strong>
+                <p>Po první eliminaci se další vlna spouští každé čtyři hodiny.</p>
+              </div>
+              <div class="battle-royale-info-modal__item battle-royale-info-modal__item--wide">
+                <span>05</span>
+                <strong>Noční klid 00:00-06:00</strong>
+                <p>Mezi půlnocí a šestou ráno reálného času eliminace neběží.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div id="bounty-modal" class="modal hidden bounty-board-modal">
         <div id="bounty-modal-backdrop" class="modal__backdrop"></div>
         <div class="modal__content bounty-board__content">
           <header class="bounty-board__header">
             <div class="bounty-board__header-copy">
               <div class="bounty-board__eyebrow">Bounty board</div>
-              <h3>VYPSAT ODMĚNU</h3>
-              <p>Označ hráče nebo konkrétní district a nech město lovit za tvoje zdroje.</p>
+              <h3>VYPSAT BOUNTY</h3>
+              <p>Vyber nepřátelského hráče nebo jeho district, nastav odměnu a typ bounty.</p>
             </div>
             <div class="bounty-board__header-status" aria-label="Bounty board status">
               <span>CONTRACT NODE</span>
@@ -1780,12 +1833,13 @@
               <div class="bounty-board__panel">
                 <div class="bounty-board__panel-head">
                   <span class="bounty-board__kicker">Target</span>
-                  <strong>Koho jdeš označit</strong>
+                  <strong>Nepřátelský hráč</strong>
                 </div>
                 <label class="bounty-board__field">
                   <span>Hráč</span>
                   <select id="bounty-modal-target" class="bounty-board__input"></select>
                 </label>
+                <div id="bounty-target-picker" class="bounty-board__target-picker" aria-label="Vyber nepřátelského hráče"></div>
                 <div class="bounty-board__target-card">
                   <div class="bounty-board__avatar-wrap">
                     <img id="bounty-target-avatar" class="bounty-board__avatar is-empty" alt="Target avatar">
@@ -1858,7 +1912,7 @@
               <div class="bounty-board__panel">
                 <div class="bounty-board__panel-head">
                   <span class="bounty-board__kicker">Typ bounty</span>
-                  <strong>Co musí město splnit</strong>
+                  <strong>Cíl kontraktu</strong>
                 </div>
                 <div class="bounty-board__choice-grid">
                   <label class="bounty-board__choice">
@@ -1922,7 +1976,7 @@
                 <div class="bounty-board__table-wrap">
                   <table class="bounty-board__table">
                     <thead>
-                      <tr><th>Cíl</th><th>Podmínka</th><th>Odměna</th><th>Režim</th><th>Do</th></tr>
+                      <tr><th>Cíl</th><th>Typ</th><th>Odměna</th><th>Do</th></tr>
                     </thead>
                     <tbody id="bounty-board-body"></tbody>
                   </table>
@@ -1932,7 +1986,7 @@
 
               <div class="bounty-board__actions">
                 <button id="bounty-modal-cancel" class="btn bounty-board__cancel" type="button">Zrušit</button>
-                <button id="bounty-modal-submit" class="btn bounty-board__submit" type="button">VYPSAT ODMĚNU</button>
+                <button id="bounty-modal-submit" class="btn bounty-board__submit" type="button">Vypsat odměnu</button>
               </div>
               <div id="bounty-submit-hint" class="bounty-board__submit-hint">Vyber cíl a nastav escrow.</div>
             </section>
@@ -2068,6 +2122,7 @@
                   <option value="en">English</option>
                 </select>
               </div>
+              <button id="settings-onboarding-btn" class="button settings-modal__onboarding-btn" type="button" data-onboarding-launch>Onboarding</button>
               <button id="settings-save-btn" class="button settings-modal__save-btn" type="button">Uložit</button>
             </div>
           </div>
@@ -2184,6 +2239,7 @@
     <script type="module" src="../page-assets/js/app/alliance-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/bounty-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/faction-actions-runtime.js"></script>
+    <script type="module" src="../page-assets/js/app/battle-royale-info-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/boost-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/mobile-layout-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/game-admin-slice-launcher.js"></script>

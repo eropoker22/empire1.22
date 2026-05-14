@@ -6,5 +6,6 @@ export * from "./district-attack-target-projection";
 export * from "./district-panel-projection";
 export * from "./district-spy-target-projection";
 export * from "./district-summary-projection";
+export * from "./onboarding-read-model-projection";
 export * from "./player-projection";
 export * from "./police-read-model-projection";

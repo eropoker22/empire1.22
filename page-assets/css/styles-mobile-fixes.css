@@ -2163,7 +2163,7 @@ html body #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__
     touch-action: pan-y !important;
   }
 
-  .district-building-detail-shell:not([hidden]) .district-building-detail-card .district-building-detail-panel:not(.hidden) {
+  .district-building-detail-shell:not([hidden]) .district-building-detail-card .district-building-detail-panel:not(.hidden):not([hidden]) {
     min-height: 0 !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
@@ -3873,11 +3873,11 @@ html body .storage-popup-heading > .storage-popup-close::before {
 
 /* Mobile settings dialog must stay readable over the city background. */
 @media (max-width: 720px), (hover: none) and (pointer: coarse) {
-  html body #settings-modal:not(.hidden) {
+  html body #settings-modal:not(.hidden):not([hidden]) {
     background: rgba(0, 0, 0, 0.28) !important;
   }
 
-  html body #settings-modal:not(.hidden) > #settings-modal-backdrop.modal__backdrop {
+  html body #settings-modal:not(.hidden):not([hidden]) > #settings-modal-backdrop.modal__backdrop {
     background:
       radial-gradient(circle at 50% 0%, rgba(14, 165, 233, 0.18), transparent 38%),
       radial-gradient(circle at 100% 100%, rgba(236, 72, 153, 0.12), transparent 42%),
@@ -3887,7 +3887,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
     -webkit-backdrop-filter: blur(10px) saturate(0.85) !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__content {
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__content {
     isolation: isolate !important;
     width: min(392px, calc(100vw - 18px)) !important;
     max-height: min(82svh, 620px) !important;
@@ -3907,7 +3907,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
     opacity: 1 !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__content::before {
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__content::before {
     content: "" !important;
     position: absolute !important;
     inset: 0 0 auto 0 !important;
@@ -3921,7 +3921,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
     pointer-events: none !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__content::after {
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__content::after {
     content: "" !important;
     position: absolute !important;
     inset: 0 !important;
@@ -3933,12 +3933,12 @@ html body .storage-popup-heading > .storage-popup-close::before {
     pointer-events: none !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__content > * {
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__content > * {
     position: relative !important;
     z-index: 1 !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__content > .modal__header {
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__content > .modal__header {
     min-height: 58px !important;
     padding: 17px 58px 14px 16px !important;
     border-bottom-color: rgba(103, 232, 249, 0.22) !important;
@@ -3947,7 +3947,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
     background-color: #040b18 !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__content > .modal__header h3 {
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__content > .modal__header h3 {
     color: #f0fdff !important;
     font-size: 1.04rem !important;
     font-weight: 900 !important;
@@ -3958,7 +3958,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
       0 0 24px rgba(236, 72, 153, 0.14) !important;
   }
 
-  html body #settings-modal:not(.hidden) #settings-modal-close.modal__close {
+  html body #settings-modal:not(.hidden):not([hidden]) #settings-modal-close.modal__close {
     top: 13px !important;
     right: 14px !important;
     width: 32px !important;
@@ -3977,7 +3977,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
       0 0 20px rgba(236, 72, 153, 0.14) !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__body {
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__body {
     gap: 11px !important;
     padding: 14px !important;
     background:
@@ -3988,15 +3988,15 @@ html body .storage-popup-heading > .storage-popup-close::before {
     overflow-x: hidden !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__body > *,
-  html body #settings-modal:not(.hidden) .settings-modal__actions,
-  html body #settings-modal:not(.hidden) .settings-modal__row,
-  html body #settings-modal:not(.hidden) .settings-modal__section-title {
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__body > *,
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__actions,
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__row,
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__section-title {
     opacity: 1 !important;
     animation: none !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__section-title {
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__section-title {
     width: max-content !important;
     max-width: 100% !important;
     padding: 5px 9px !important;
@@ -4009,7 +4009,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
     box-shadow: 0 0 14px rgba(34, 211, 238, 0.1) !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__row {
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__row {
     position: relative !important;
     overflow: hidden !important;
     min-height: 62px !important;
@@ -4026,7 +4026,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
       0 10px 24px rgba(0, 0, 0, 0.2) !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__row::before {
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__row::before {
     content: "" !important;
     position: absolute !important;
     inset: 0 auto 0 0 !important;
@@ -4036,7 +4036,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
     pointer-events: none !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__label {
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__label {
     color: #edfaff !important;
     font-size: 0.82rem !important;
     font-weight: 850 !important;
@@ -4044,11 +4044,11 @@ html body .storage-popup-heading > .storage-popup-close::before {
     text-shadow: 0 0 10px rgba(34, 211, 238, 0.18) !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-toggle {
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-toggle {
     justify-self: start !important;
   }
 
-  html body #settings-modal:not(.hidden) .toggle__track {
+  html body #settings-modal:not(.hidden):not([hidden]) .toggle__track {
     border-color: rgba(103, 232, 249, 0.36) !important;
     background:
       linear-gradient(180deg, rgba(3, 8, 18, 0.98), rgba(6, 16, 31, 0.98)) !important;
@@ -4058,14 +4058,14 @@ html body .storage-popup-heading > .storage-popup-close::before {
       0 0 14px rgba(34, 211, 238, 0.1) !important;
   }
 
-  html body #settings-modal:not(.hidden) .toggle__track::after {
+  html body #settings-modal:not(.hidden):not([hidden]) .toggle__track::after {
     background: linear-gradient(180deg, #f7fdff, #67e8f9) !important;
     box-shadow:
       0 0 14px rgba(103, 232, 249, 0.42),
       inset 0 0 0 1px rgba(255, 255, 255, 0.7) !important;
   }
 
-  html body #settings-modal:not(.hidden) .toggle input:checked + .toggle__track {
+  html body #settings-modal:not(.hidden):not([hidden]) .toggle input:checked + .toggle__track {
     border-color: rgba(236, 72, 153, 0.58) !important;
     background:
       linear-gradient(135deg, rgba(34, 211, 238, 0.34), rgba(236, 72, 153, 0.26)),
@@ -4076,7 +4076,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
       0 0 22px rgba(236, 72, 153, 0.14) !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__select select {
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__select select {
     min-height: 42px !important;
     border-color: rgba(103, 232, 249, 0.34) !important;
     border-radius: 12px !important;
@@ -4087,12 +4087,12 @@ html body .storage-popup-heading > .storage-popup-close::before {
       0 0 16px rgba(34, 211, 238, 0.1) !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__actions {
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__actions {
     gap: 9px !important;
     padding-top: 2px !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__save-btn {
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__save-btn {
     min-height: 44px !important;
     width: 100% !important;
     border-color: rgba(103, 232, 249, 0.72) !important;
@@ -4756,13 +4756,81 @@ html body .storage-popup-heading > .storage-popup-close::before {
   }
 }
 
+/* Final hard override: mobile Buildings cards must receive taps, not just pan gestures. */
+@media (max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) {
+    z-index: 12000 !important;
+    pointer-events: auto !important;
+  }
+
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popup-backdrop.modal__backdrop {
+    z-index: 0 !important;
+    pointer-events: auto !important;
+  }
+
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content {
+    z-index: 2 !important;
+    pointer-events: auto !important;
+  }
+
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__types.buildings-modal__types,
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__detail.buildings-modal__detail {
+    pointer-events: auto !important;
+  }
+
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__type-btn,
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--interactive,
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) [data-buildings-district-type],
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) [data-buildings-select-base-name],
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) [data-buildings-open-building-name],
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) [data-buildings-open-district-id] {
+    position: relative !important;
+    z-index: 3 !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    cursor: pointer !important;
+    -webkit-tap-highlight-color: rgba(103, 232, 249, 0.18) !important;
+  }
+
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__type-btn *,
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--interactive * {
+    pointer-events: none !important;
+  }
+}
+
+/* Final hard override: mobile faction action modal stays centered vertically. */
+@media (max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-modal-scroll-locked #faction-actions-modal.faction-actions-modal:not(.hidden):not([hidden]) {
+    position: fixed !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100vw !important;
+    min-height: var(--mobile-locked-vh, 100svh) !important;
+    height: var(--mobile-locked-vh, 100svh) !important;
+    padding: max(12px, env(safe-area-inset-top)) 8px max(12px, env(safe-area-inset-bottom)) !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  html body.game-modal-scroll-locked #faction-actions-modal.faction-actions-modal:not(.hidden):not([hidden]) .faction-actions-modal__content {
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+    margin: auto !important;
+    width: min(430px, calc(100vw - 16px)) !important;
+    max-height: calc(var(--mobile-locked-vh, 100svh) - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom))) !important;
+  }
+}
+
 /* Final hard override: mobile settings is an opaque panel, not glass. */
 @media (max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
-  html body #settings-modal:not(.hidden) {
+  html body #settings-modal:not(.hidden):not([hidden]) {
     background: #01040b !important;
   }
 
-  html body #settings-modal:not(.hidden) > #settings-modal-backdrop.modal__backdrop {
+  html body #settings-modal:not(.hidden):not([hidden]) > #settings-modal-backdrop.modal__backdrop {
     background: #01040b !important;
     opacity: 1 !important;
     animation: none !important;
@@ -4770,8 +4838,8 @@ html body .storage-popup-heading > .storage-popup-close::before {
     -webkit-backdrop-filter: none !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__content,
-  html body #settings-modal:not(.hidden) .modal__content.settings-modal__content,
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__content,
+  html body #settings-modal:not(.hidden):not([hidden]) .modal__content.settings-modal__content,
   html body.mobile-settings-modal-open #settings-modal .settings-modal__content,
   html body.mobile-settings-modal-open #settings-modal .modal__content.settings-modal__content {
     background: #030814 !important;
@@ -4788,7 +4856,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
       0 0 44px rgba(236, 72, 153, 0.18) !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__content::after,
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__content::after,
   html body.mobile-settings-modal-open #settings-modal .settings-modal__content::after {
     content: "" !important;
     position: absolute !important;
@@ -4801,10 +4869,10 @@ html body .storage-popup-heading > .storage-popup-close::before {
     pointer-events: none !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__content > .modal__header,
-  html body #settings-modal:not(.hidden) .settings-modal__body,
-  html body #settings-modal:not(.hidden) .settings-modal__row,
-  html body #settings-modal:not(.hidden) .settings-modal__actions,
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__content > .modal__header,
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__body,
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__row,
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__actions,
   html body.mobile-settings-modal-open #settings-modal .settings-modal__content > .modal__header,
   html body.mobile-settings-modal-open #settings-modal .settings-modal__body,
   html body.mobile-settings-modal-open #settings-modal .settings-modal__row,
@@ -4813,21 +4881,21 @@ html body .storage-popup-heading > .storage-popup-close::before {
     animation: none !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__content > .modal__header,
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__content > .modal__header,
   html body.mobile-settings-modal-open #settings-modal .settings-modal__content > .modal__header {
     background: #061123 !important;
     background-color: #061123 !important;
     background-image: none !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__body,
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__body,
   html body.mobile-settings-modal-open #settings-modal .settings-modal__body {
     background: #020610 !important;
     background-color: #020610 !important;
     background-image: none !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__row,
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__row,
   html body.mobile-settings-modal-open #settings-modal .settings-modal__row {
     background: #071426 !important;
     background-color: #071426 !important;
@@ -4835,10 +4903,107 @@ html body .storage-popup-heading > .storage-popup-close::before {
     border-color: rgba(103, 232, 249, 0.36) !important;
   }
 
-  html body #settings-modal:not(.hidden) .settings-modal__select select,
+  html body #settings-modal:not(.hidden):not([hidden]) .settings-modal__select select,
   html body.mobile-settings-modal-open #settings-modal .settings-modal__select select {
     background: #030812 !important;
     background-color: #030812 !important;
     color: #e6fbff !important;
+  }
+}
+
+/* Final override: action result and key confirmation dialogs stay centered in the viewport. */
+html body #spy-confirm-modal:not(.hidden):not([hidden]),
+html body #raid-confirm-modal:not(.hidden):not([hidden]),
+html body #occupy-confirm-modal:not(.hidden):not([hidden]),
+html body #spy-result-modal:not(.hidden):not([hidden]),
+html body #spy-warning-modal:not(.hidden):not([hidden]),
+html body #raid-result-modal:not(.hidden):not([hidden]),
+html body #attack-result-modal:not(.hidden):not([hidden]),
+html body #police-action-result-modal:not(.hidden):not([hidden]),
+html body.game-modal-scroll-locked #spy-confirm-modal:not(.hidden):not([hidden]),
+html body.game-modal-scroll-locked #raid-confirm-modal:not(.hidden):not([hidden]),
+html body.game-modal-scroll-locked #occupy-confirm-modal:not(.hidden):not([hidden]),
+html body.game-modal-scroll-locked #spy-result-modal:not(.hidden):not([hidden]),
+html body.game-modal-scroll-locked #spy-warning-modal:not(.hidden):not([hidden]),
+html body.game-modal-scroll-locked #raid-result-modal:not(.hidden):not([hidden]),
+html body.game-modal-scroll-locked #attack-result-modal:not(.hidden):not([hidden]),
+html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden]) {
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+html body #spy-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+html body #raid-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+html body #occupy-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+html body #spy-result-modal:not(.hidden):not([hidden]) .modal__content,
+html body #spy-warning-modal:not(.hidden):not([hidden]) .modal__content,
+html body #raid-result-modal:not(.hidden):not([hidden]) .modal__content,
+html body #attack-result-modal:not(.hidden):not([hidden]) .modal__content,
+html body #police-action-result-modal:not(.hidden):not([hidden]) .modal__content,
+html body.game-modal-scroll-locked #spy-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+html body.game-modal-scroll-locked #raid-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+html body.game-modal-scroll-locked #occupy-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+html body.game-modal-scroll-locked #spy-result-modal:not(.hidden):not([hidden]) .modal__content,
+html body.game-modal-scroll-locked #spy-warning-modal:not(.hidden):not([hidden]) .modal__content,
+html body.game-modal-scroll-locked #raid-result-modal:not(.hidden):not([hidden]) .modal__content,
+html body.game-modal-scroll-locked #attack-result-modal:not(.hidden):not([hidden]) .modal__content,
+html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden]) .modal__content {
+  width: min(620px, calc(100vw - 28px)) !important;
+  height: auto !important;
+  max-height: min(78dvh, 680px) !important;
+  margin: auto !important;
+}
+
+html body #spy-confirm-modal:not(.hidden):not([hidden]) .modal__body,
+html body #raid-confirm-modal:not(.hidden):not([hidden]) .modal__body,
+html body #occupy-confirm-modal:not(.hidden):not([hidden]) .modal__body,
+html body #spy-result-modal:not(.hidden):not([hidden]) .modal__body,
+html body #spy-warning-modal:not(.hidden):not([hidden]) .modal__body,
+html body #raid-result-modal:not(.hidden):not([hidden]) .modal__body,
+html body #attack-result-modal:not(.hidden):not([hidden]) .modal__body,
+html body #police-action-result-modal:not(.hidden):not([hidden]) .modal__body {
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}
+
+/* Final hard override: mobile police raid result opens exactly in the viewport center. */
+@media (max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body #police-action-result-modal:not(.hidden):not([hidden]),
+  html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden]) {
+    position: fixed !important;
+    inset: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100vw !important;
+    min-width: 100vw !important;
+    height: var(--mobile-locked-vh, 100dvh) !important;
+    min-height: var(--mobile-locked-vh, 100dvh) !important;
+    padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content,
+  html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content {
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    transform: none !important;
+    margin: auto !important;
+    width: min(620px, calc(100vw - 24px)) !important;
+    max-height: calc(var(--mobile-locked-vh, 100dvh) - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom))) !important;
   }
 }

@@ -15,17 +15,22 @@ const violations = [];
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
 const exists = (relativePath) => fs.existsSync(path.join(root, relativePath));
 const normalizeAssetPath = (pagePath, assetPath) => {
+  const rawAssetPath = String(assetPath || "");
   if (
-    assetPath.startsWith("http:") ||
-    assetPath.startsWith("https:") ||
-    assetPath.startsWith("#") ||
-    assetPath.startsWith("mailto:")
+    rawAssetPath.startsWith("http:") ||
+    rawAssetPath.startsWith("https:") ||
+    rawAssetPath.startsWith("#") ||
+    rawAssetPath.startsWith("mailto:")
   ) {
+    return null;
+  }
+  const cleanAssetPath = rawAssetPath.split(/[?#]/u)[0];
+  if (!cleanAssetPath) {
     return null;
   }
 
   return path
-    .normalize(path.join(path.dirname(pagePath), assetPath))
+    .normalize(path.join(path.dirname(pagePath), cleanAssetPath))
     .replace(/\\/g, "/");
 };
 

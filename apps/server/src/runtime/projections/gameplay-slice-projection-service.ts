@@ -1,4 +1,4 @@
-import { createCityFeedProjection, createConflictReportViews } from "@empire/game-core";
+import { createCityFeedProjection, createConflictReportViews, createOnboardingReadModel } from "@empire/game-core";
 import { toPublicModeConfig } from "@empire/game-config";
 import type { GameplayModeView, GameplaySliceView } from "@empire/shared-types";
 import type { ServerInstanceRuntime } from "../instance/server-instance-runtime";
@@ -31,6 +31,9 @@ export const createGameplaySliceProjection = (
     player,
     dayNight: player.dayNight ?? null,
     elimination: player.elimination ?? null,
+    onboarding: createOnboardingReadModel(runtime.state, playerId, {
+      config: runtime.config
+    }),
     police: player.police ?? null,
     cityFeed: createCityFeedProjection(runtime.state, {
       playerId,
