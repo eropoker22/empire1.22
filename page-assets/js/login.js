@@ -655,7 +655,7 @@ function runAccessSequence({ form = null, button = null, identity, gangName, isG
       mode: state.activeMode
     });
     window.localStorage.setItem(isGuest ? ACTIVE_GUEST_MODE_KEY : ACTIVE_AUTH_MODE_KEY, state.activeMode);
-    console.info("redirect to game.html");
+    console.info("redirect to lobby.html");
   }, 1050);
 
   window.setTimeout(() => {

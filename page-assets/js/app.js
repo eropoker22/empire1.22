@@ -1,7 +1,27 @@
+import { ENTRY_FLOW_TARGETS, getEntryFlowTarget } from "./app/auth-flow.js";
 import { bootstrapPage, PAGE_ROOT_SELECTOR } from "./app/render-ui.js";
 
-if (document.readyState === "loading") {
+const ENTRY_REDIRECTS = Object.freeze({
+  [ENTRY_FLOW_TARGETS.login]: "./login.html",
+  [ENTRY_FLOW_TARGETS.lobby]: "./lobby.html",
+  [ENTRY_FLOW_TARGETS.faction]: "./faction.html"
+});
+
+function canBootGame() {
+  const target = getEntryFlowTarget();
+  if (target === ENTRY_FLOW_TARGETS.game) {
+    return true;
+  }
+
+  const redirectHref = ENTRY_REDIRECTS[target] || "./lobby.html";
+  window.location.replace(redirectHref);
+  return false;
+}
+
+const shouldBootGame = canBootGame();
+
+if (shouldBootGame && document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", bootstrapPage, { once: true });
-} else if (document.querySelector(PAGE_ROOT_SELECTOR)) {
+} else if (shouldBootGame && document.querySelector(PAGE_ROOT_SELECTOR)) {
   bootstrapPage();
 }

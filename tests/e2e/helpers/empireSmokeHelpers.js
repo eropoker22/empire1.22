@@ -57,13 +57,24 @@ export function createE2eSession(overrides = {}) {
       isGuest: true,
       loginKind: "guest",
       lastLoginAt: "2026-05-13T10:00:00.000Z",
+      activeServerId: "war-eu-01",
+      activeServerName: "Vortex City WAR-01",
+      activeServerMode: "war",
+      activeServerRegion: "EU Central",
+      activeServerStatus: "ONLINE",
       serverId: "war-eu-01",
       serverLabel: "Vortex City WAR-01",
       serverMode: "war",
       serverRegion: "EU Central",
       startDistrictId: 27,
       lobbyLockedAt: "2026-05-13T10:00:00.000Z",
+      serverRegistrationStatus: "faction_locked",
       factionId: "mafian",
+      selectedFaction: "mafian",
+      structure: "mafián",
+      selectedStructure: "mafián",
+      factionLocked: true,
+      hasCompletedServerEntry: true,
       gangColor: "#ef4444",
       avatar: DEFAULT_TEST_AVATAR,
       lockedAt: "2026-05-13T10:00:00.000Z",
@@ -110,9 +121,20 @@ export async function openLobbyPage(page, options = {}) {
       serverLabel: undefined,
       serverMode: "war",
       serverRegion: undefined,
+      activeServerId: undefined,
+      activeServerName: undefined,
+      activeServerMode: undefined,
+      activeServerRegion: undefined,
+      activeServerStatus: undefined,
       startDistrictId: undefined,
       lobbyLockedAt: undefined,
+      serverRegistrationStatus: undefined,
       factionId: undefined,
+      selectedFaction: undefined,
+      structure: undefined,
+      selectedStructure: undefined,
+      factionLocked: undefined,
+      hasCompletedServerEntry: undefined,
       gangColor: undefined,
       avatar: undefined,
       lockedAt: undefined,
@@ -132,6 +154,12 @@ export async function openFactionPage(page) {
   await seedE2eSession(page, {
     registration: {
       factionId: undefined,
+      selectedFaction: undefined,
+      structure: undefined,
+      selectedStructure: undefined,
+      factionLocked: undefined,
+      hasCompletedServerEntry: undefined,
+      serverRegistrationStatus: "server_selected",
       gangColor: undefined,
       avatar: undefined,
       lockedAt: undefined
@@ -154,6 +182,39 @@ export async function waitForMapReady(page) {
     typeof window.empireStreetsDistrictState?.getDistrictById === "function"
     && Boolean(window.empireStreetsDistrictState.getDistrictById(27))
   ));
+}
+
+export async function expectDistrictCanvasPainted(page) {
+  await page.waitForFunction(() => {
+    const canvas = document.querySelector("[data-testid='district-canvas']");
+    if (!(canvas instanceof HTMLCanvasElement) || canvas.width <= 0 || canvas.height <= 0) {
+      return false;
+    }
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return false;
+    }
+
+    const sampleSize = 20;
+    const sampleX = Math.max(0, Math.floor((canvas.width - sampleSize) / 2));
+    const sampleY = Math.max(0, Math.floor((canvas.height - sampleSize) / 2));
+    let pixels;
+
+    try {
+      pixels = context.getImageData(sampleX, sampleY, sampleSize, sampleSize).data;
+    } catch {
+      return false;
+    }
+
+    for (let index = 0; index < pixels.length; index += 4) {
+      if (pixels[index] !== 0 || pixels[index + 1] !== 0 || pixels[index + 2] !== 0 || pixels[index + 3] !== 0) {
+        return true;
+      }
+    }
+
+    return false;
+  });
 }
 
 async function getDistrictCanvasPosition(page, districtId) {

@@ -35,7 +35,13 @@ const lockFactionStep = ({ factionId, avatar, gangColor }) => {
     registration: {
       ...currentRegistration,
       factionId,
+      selectedFaction: factionId,
       factionLabel: FACTION_CATALOG[factionId].name,
+      structure: FACTION_CATALOG[factionId].name,
+      selectedStructure: FACTION_CATALOG[factionId].name,
+      serverRegistrationStatus: "faction_locked",
+      factionLocked: true,
+      hasCompletedServerEntry: true,
       avatar,
       gangColor,
       lockedAt: new Date().toISOString()
@@ -78,19 +84,21 @@ describe("page onboarding smoke", () => {
     expect(page("faction.html")).toContain('id="structure-grid"');
     expect(page("faction.html")).toContain('id="auth-faction" name="faction" type="hidden" value=""');
     expect(page("faction.html")).not.toContain('class="structure-card is-active"');
-    expect(page("faction.html")).toContain("dvojitým klepnutím");
+    expect(page("faction.html")).toContain("jedním klepnutím");
+    expect(page("faction.html")).toContain("Vyber frakci pro tuto válku");
     expect(page("faction.html")).toContain('id="gang-color-grid"');
     expect(page("faction.html")).toContain('id="avatar-grid"');
     expect(page("faction.html")).toContain('id="go-game"');
     expect(page("faction.html")).toContain('src="../page-assets/js/faction.js"');
     const factionJsSource = readFileSync(resolve(root, "page-assets/js/faction.js"), "utf8");
     for (const avatarFolder of ["Mafia", "Kartel", "kult", "Tajnaorganizace", "Hacker", "Motogang", "SoukromaArmada", "Korporat"]) {
-      expect((factionJsSource.match(new RegExp(`\\.\\./img/avatars/${avatarFolder}/`, "g")) || []).length).toBe(10);
+      expect((factionJsSource.match(new RegExp(`\\.\\./img/avatars/${avatarFolder}/`, "g")) || []).length).toBe(9);
     }
 
     expect(page("game.html")).toContain('id="game-root"');
     expect(page("game.html")).toContain('data-mount-role="map"');
-    expect(page("game.html")).toContain('data-district-popup-atmosphere role="button"');
+    expect(page("game.html")).toContain('data-district-popup-atmosphere');
+    expect(page("game.html")).toContain('role="button" tabindex="0"');
     expect(page("game.html")).toContain('data-district-atmosphere-window');
     expect(page("game.html")).toContain('src="../page-assets/js/app.js"');
     expect(page("game.html")).toContain('src="../page-assets/js/app/game-admin-slice-launcher.js"');
@@ -162,9 +170,13 @@ describe("page onboarding smoke", () => {
     expect(readSession().registration).toMatchObject({
       identity: "Smoke Boss",
       gangName: "Smoke Crew",
+      activeServerId: "war-eu-01",
       serverId: "war-eu-01",
       serverMode: "war",
-      startDistrictId: 27
+      startDistrictId: 27,
+      serverRegistrationStatus: "server_selected",
+      factionLocked: false,
+      hasCompletedServerEntry: false
     });
     expect(readSession().registration.factionId).toBeUndefined();
 
@@ -179,6 +191,9 @@ describe("page onboarding smoke", () => {
       serverId: "war-eu-01",
       startDistrictId: 27,
       factionId: "hackeri",
+      selectedFaction: "hackeri",
+      factionLocked: true,
+      hasCompletedServerEntry: true,
       gangColor: "#3b82f6",
       lockedAt: "2026-04-26T11:00:00.000Z"
     });

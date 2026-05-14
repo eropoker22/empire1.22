@@ -13,16 +13,16 @@ import {
 } from "./app/model/authority-state.js";
 import {
   ensureIdentity,
-  ensureLobbySelection,
+  getActiveServerRegistration,
   getRegistrationDraft,
-  saveLobbyStep
+  hasLockedFaction,
+  SERVER_REGISTRATION_STATUS
 } from "./app/auth-flow.js";
 import { STORAGE_KEYS } from "./config.js";
 
 const GAME_ENTRY_HREF = "./game.html";
 const LOGIN_ENTRY_HREF = "./login.html";
-const DEFAULT_FACTION_SERVER_ID = "war-eu-01";
-const DEFAULT_FACTION_DISTRICT_ID = 27;
+const LOBBY_ENTRY_HREF = "./lobby.html";
 const AVATAR_STORAGE_KEY = STORAGE_KEYS.avatar;
 const GANG_COLOR_STORAGE_KEY = STORAGE_KEYS.gangColor;
 const STRUCTURE_ID_STORAGE_KEY = STORAGE_KEYS.structureId;
@@ -254,12 +254,15 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  if (!ensureLobbySelection()) {
-    const registration = getRegistrationDraft();
-    saveLobbyStep({
-      serverId: String(registration?.serverId || DEFAULT_FACTION_SERVER_ID).trim() || DEFAULT_FACTION_SERVER_ID,
-      districtId: Number.parseInt(String(registration?.startDistrictId || DEFAULT_FACTION_DISTRICT_ID), 10) || DEFAULT_FACTION_DISTRICT_ID
-    });
+  const entryRegistration = getRegistrationDraft();
+  if (!getActiveServerRegistration(entryRegistration)) {
+    window.location.href = LOBBY_ENTRY_HREF;
+    return;
+  }
+
+  if (hasLockedFaction(entryRegistration)) {
+    window.location.href = GAME_ENTRY_HREF;
+    return;
   }
 
   const matrixCanvas = qs("#matrix-canvas");
@@ -306,8 +309,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const marquee = avatarGrid?.closest(".avatar-marquee") || null;
   const existingRegistration = getRegistrationDraft();
 
-  let selectedFactionId = factionOrder.includes(existingRegistration?.factionId)
-    ? existingRegistration.factionId
+  const existingFactionId = existingRegistration?.selectedFaction || existingRegistration?.factionId;
+  let selectedFactionId = factionOrder.includes(existingFactionId)
+    ? existingFactionId
     : null;
   let selectedAvatar = localStorage.getItem(AVATAR_STORAGE_KEY) || existingRegistration?.avatar || null;
   let selectedGangColor = normalizeHexColor(localStorage.getItem(GANG_COLOR_STORAGE_KEY) || existingRegistration?.gangColor || "");
@@ -390,10 +394,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderAuthContext() {
     const registration = getRegistrationDraft();
+    const activeServer = getActiveServerRegistration(registration);
     if (authFlowTitle) {
-      authFlowTitle.textContent = registration?.serverLabel
-        ? `Vstup přes ${registration.serverLabel}`
-        : "Připraveno pro vstup do hry";
+      authFlowTitle.textContent = activeServer?.serverName
+        ? `Vyber frakci pro ${activeServer.serverName}`
+        : "Vyber frakci pro tuto válku";
     }
     if (authIdentity) {
       authIdentity.textContent = registration?.identity || "Host";
@@ -402,7 +407,7 @@ document.addEventListener("DOMContentLoaded", () => {
       authKind.textContent = registration?.isGuest ? "Host účet" : "Standardní účet";
     }
     if (authServer) {
-      authServer.textContent = registration?.serverLabel || "Nezvolen";
+      authServer.textContent = activeServer?.serverName || "Nezvolen";
     }
     if (authDistrict) {
       authDistrict.textContent = registration?.startDistrictId ? `District ${registration.startDistrictId}` : "Nezvolen";
@@ -707,7 +712,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function commitRegistration() {
     const currentRegistration = getRegistrationDraft();
     const factionId = selectedFactionId;
-    if (!currentRegistration?.identity || !currentRegistration?.serverId || !currentRegistration?.startDistrictId) {
+    const activeServer = getActiveServerRegistration(currentRegistration);
+    if (!currentRegistration?.identity || !activeServer?.serverId || !currentRegistration?.startDistrictId) {
       setStatus("Lobby není hotové", "Nejdřív dokonči přihlášení, výběr serveru a districtu.");
       return false;
     }
@@ -721,10 +727,21 @@ document.addEventListener("DOMContentLoaded", () => {
       ...baseSession,
       registration: {
         ...currentRegistration,
+        activeServerId: activeServer.serverId,
+        activeServerName: activeServer.serverName,
+        activeServerMode: activeServer.serverMode,
+        activeServerRegion: activeServer.serverRegion,
+        activeServerStatus: activeServer.serverStatus,
         factionId,
+        selectedFaction: factionId,
         factionLabel: FACTION_CATALOG[factionId].name,
+        structure: getFactionMeta(factionId).structure,
+        selectedStructure: getFactionMeta(factionId).structure,
         avatar: selectedAvatar,
         gangColor: selectedGangColor,
+        serverRegistrationStatus: SERVER_REGISTRATION_STATUS.factionLocked,
+        factionLocked: true,
+        hasCompletedServerEntry: true,
         lockedAt: new Date().toISOString()
       },
       inventory: {

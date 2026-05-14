@@ -17,9 +17,13 @@ test.describe("onboarding flow smoke", () => {
     await page.getByTestId("server-card-war-eu-01").click();
     await selectLobbyDistrict(page);
     await expect(page.getByTestId("enter-selected-server")).toBeEnabled();
+    await page.getByTestId("enter-selected-server").click();
+    await expect(page).toHaveURL(/\/pages\/faction\.html$/);
 
     const session = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)), SESSION_STORAGE_KEY);
+    expect(session.registration.activeServerId).toBe("war-eu-01");
     expect(session.registration.serverId).toBe("war-eu-01");
+    expect(session.registration.serverRegistrationStatus).toBe("server_selected");
     expect(session.registration.startDistrictId).toBeGreaterThan(0);
     expect(session.world.ownedDistrictIds).toContain(session.registration.startDistrictId);
 
@@ -45,6 +49,12 @@ test.describe("onboarding flow smoke", () => {
     const session = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)), SESSION_STORAGE_KEY);
     expect(session.registration).toMatchObject({
       factionId: "mafian",
+      selectedFaction: "mafian",
+      structure: "mafián",
+      selectedStructure: "mafián",
+      factionLocked: true,
+      hasCompletedServerEntry: true,
+      serverRegistrationStatus: "faction_locked",
       gangColor: "#ef4444"
     });
     expect(session.registration.avatar).toContain("../img/avatars/Mafia/");

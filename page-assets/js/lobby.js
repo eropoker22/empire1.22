@@ -6,12 +6,16 @@ import {
 import {
   clearAuthSession,
   ensureIdentity,
+  getActiveServerRegistration,
+  getEntryFlowTarget,
   getRegistrationDraft,
+  hasLockedFaction,
   saveLobbyStep,
   SERVER_CATALOG
 } from "./app/auth-flow.js";
 
 const FACTION_ENTRY_HREF = "./faction.html";
+const GAME_ENTRY_HREF = "./game.html";
 const LOGIN_ENTRY_HREF = "./login.html";
 const DISTRICT_CANVAS_WIDTH = 1600;
 const DISTRICT_CANVAS_HEIGHT = 980;
@@ -159,6 +163,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const lobbyEnterSelectedButton = document.querySelector("[data-lobby-enter-selected]");
   const lobbyStatusCount = document.querySelector("[data-lobby-status-count]");
   const lobbyRefreshCountdown = document.querySelector("[data-lobby-refresh-countdown]");
+  const lobbyRefreshCountdownShell = lobbyRefreshCountdown?.closest(".lobby-refresh-countdown") || null;
+  const modeTabsShell = document.querySelector(".auth-mode-tabs");
+  const serverListShell = document.querySelector(".lobby-server-list-only");
+  const activeServerCard = document.querySelector("[data-lobby-active-server-card]");
+  const activeServerName = document.querySelector("[data-active-server-name]");
+  const activeServerMode = document.querySelector("[data-active-server-mode]");
+  const activeServerStatus = document.querySelector("[data-active-server-status]");
+  const activeServerDistrict = document.querySelector("[data-active-server-district]");
+  const activeServerNote = document.querySelector("[data-active-server-note]");
+  const activeServerContinueButton = document.querySelector("[data-lobby-continue-active]");
 
   const detailModal = document.querySelector("[data-server-detail-modal]");
   const detailModalTitle = document.querySelector("[data-server-detail-title]");
@@ -194,11 +208,13 @@ document.addEventListener("DOMContentLoaded", () => {
       .map((district) => district.id)
   );
   const availableServers = Array.isArray(SERVER_CATALOG) ? SERVER_CATALOG : [];
+  const activeServerRegistration = getActiveServerRegistration(registration);
+  const isActiveServerEntry = Boolean(activeServerRegistration);
   const state = {
-    mode: registration?.serverMode || "war",
-    serverId: "",
+    mode: activeServerRegistration?.serverMode || registration?.serverMode || "war",
+    serverId: activeServerRegistration?.serverId || "",
     hoveredDistrictId: null,
-    selectedDistrictId: null,
+    selectedDistrictId: activeServerRegistration?.startDistrictId || null,
     serverDistrictSelections: new Map(),
     launchByServerId: Object.fromEntries(
       Object.entries(SERVER_COUNTDOWN_OFFSETS_MINUTES).map(([serverId, minutes]) => [
@@ -470,12 +486,12 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    saveLobbyStep({
+    const session = saveLobbyStep({
       serverId: state.serverId,
       districtId: state.selectedDistrictId
     });
 
-    window.location.href = FACTION_ENTRY_HREF;
+    window.location.href = session ? getEntryDestinationHref() : FACTION_ENTRY_HREF;
   };
 
   const confirmDetailDistrictSelection = () => {
@@ -622,6 +638,58 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const setHidden = (element, hidden) => {
+    if (element instanceof HTMLElement) {
+      element.hidden = hidden;
+    }
+  };
+
+  const getEntryDestinationHref = () => {
+    const target = getEntryFlowTarget(getRegistrationDraft());
+    if (target === "game") {
+      return GAME_ENTRY_HREF;
+    }
+    if (target === "faction") {
+      return FACTION_ENTRY_HREF;
+    }
+    if (target === "login") {
+      return LOGIN_ENTRY_HREF;
+    }
+    return "./lobby.html";
+  };
+
+  const renderActiveServerEntry = () => {
+    setHidden(activeServerCard, !isActiveServerEntry);
+    setHidden(modeTabsShell, isActiveServerEntry);
+    setHidden(serverListShell, isActiveServerEntry);
+    setHidden(lobbyRefreshCountdownShell, isActiveServerEntry);
+    setHidden(detailColumn, isActiveServerEntry || activeLobbyNav !== "city");
+
+    if (!isActiveServerEntry || !activeServerRegistration) {
+      return;
+    }
+
+    if (activeServerName) {
+      activeServerName.textContent = activeServerRegistration.serverName || "Server";
+    }
+    if (activeServerMode) {
+      activeServerMode.textContent = String(activeServerRegistration.serverMode || "war").toUpperCase();
+    }
+    if (activeServerStatus) {
+      activeServerStatus.textContent = activeServerRegistration.serverStatus || "ONLINE";
+    }
+    if (activeServerDistrict) {
+      activeServerDistrict.textContent = activeServerRegistration.startDistrictId
+        ? `District ${activeServerRegistration.startDistrictId}`
+        : "-";
+    }
+    if (activeServerNote) {
+      activeServerNote.textContent = hasLockedFaction(registration)
+        ? "Tvoje frakce je pro tento server uzamčená. Frakci pro tento server už nejde změnit."
+        : "Vyber frakci pro tuto válku.";
+    }
+  };
+
   const updateLobbySummary = () => {
     const server = getSelectedServer();
     const playerName = registration?.identity || "Host";
@@ -635,9 +703,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (userMeta) {
-      userMeta.textContent = registration?.isGuest
-        ? "Host účet · po výběru serveru pokračuješ do frakce"
-        : "Vyber server a startovní district";
+      userMeta.textContent = isActiveServerEntry
+        ? "Jsi zapsaný na serveru."
+        : registration?.isGuest
+          ? "Host účet · po výběru serveru pokračuješ do frakce"
+          : "Vyber server a startovní district";
     }
 
     if (summaryServer) {
@@ -659,7 +729,7 @@ document.addEventListener("DOMContentLoaded", () => {
     profileCard?.setAttribute("data-server-state", server ? "selected" : "missing");
 
     if (flowNote) {
-      flowNote.hidden = Boolean(server || state.selectedDistrictId);
+      flowNote.hidden = isActiveServerEntry || Boolean(server || state.selectedDistrictId);
       flowNote.textContent = !server
         ? "Vyber server a district."
         : "";
@@ -703,6 +773,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (lobbyEnterSelectedButton instanceof HTMLButtonElement) {
       lobbyEnterSelectedButton.disabled = !state.serverId || !state.selectedDistrictId || isServerUnavailable(server);
     }
+    renderActiveServerEntry();
   };
 
   const syncLobbyNav = () => {
@@ -714,6 +785,7 @@ document.addEventListener("DOMContentLoaded", () => {
     lobbyViews.forEach((view) => {
       view.hidden = view.getAttribute("data-lobby-view") !== activeLobbyNav;
     });
+    renderActiveServerEntry();
   };
 
   const syncModeTabs = () => {
@@ -725,6 +797,10 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const selectServerById = (nextServerId, { openModal = true } = {}) => {
+    if (isActiveServerEntry) {
+      return;
+    }
+
     const nextServer = availableServers.find((entry) => entry.id === nextServerId);
     if (!nextServer) {
       return;
@@ -833,6 +909,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!list) {
       return;
     }
+    if (isActiveServerEntry) {
+      list.innerHTML = "";
+      return;
+    }
 
     const servers = getVisibleServers();
     list.innerHTML = servers.map((server) => `
@@ -853,6 +933,11 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const refreshServerList = () => {
+    if (isActiveServerEntry) {
+      renderActiveServerEntry();
+      return;
+    }
+
     state.serverId = "";
     state.selectedDistrictId = null;
     state.hoveredDistrictId = null;
@@ -874,6 +959,11 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const startServerListAutoRefresh = () => {
+    if (isActiveServerEntry) {
+      setHidden(lobbyRefreshCountdownShell, true);
+      return;
+    }
+
     renderServerRefreshCountdown();
     window.setInterval(() => {
       state.serverRefreshSecondsRemaining -= 1;
@@ -1186,7 +1276,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   detailContinueButton?.addEventListener("click", confirmDetailDistrictSelection);
   lobbyEnterSelectedButton?.addEventListener("click", commitLobbySelection);
+  activeServerContinueButton?.addEventListener("click", () => {
+    window.location.href = getEntryDestinationHref();
+  });
   lobbyOpenSelectedButton?.addEventListener("click", () => {
+    if (isActiveServerEntry) {
+      return;
+    }
+
     if (!state.serverId) {
       const visibleServers = getVisibleServers();
       const firstVisibleServer = visibleServers.find((server) => !isServerUnavailable(server)) || visibleServers[0];
@@ -1240,6 +1337,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   for (const button of tabs) {
     button.addEventListener("click", () => {
+      if (isActiveServerEntry) {
+        return;
+      }
+
       const nextMode = String(button.getAttribute("data-server-mode-tab") || "war");
       state.mode = nextMode;
       state.serverId = "";

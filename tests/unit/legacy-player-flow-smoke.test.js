@@ -38,7 +38,13 @@ function lockFactionStep({ factionId, avatar, gangColor }) {
     registration: {
       ...currentRegistration,
       factionId,
+      selectedFaction: factionId,
       factionLabel: FACTION_CATALOG[factionId].name,
+      structure: FACTION_CATALOG[factionId].name,
+      selectedStructure: FACTION_CATALOG[factionId].name,
+      serverRegistrationStatus: "faction_locked",
+      factionLocked: true,
+      hasCompletedServerEntry: true,
       avatar,
       gangColor,
       lockedAt: new Date().toISOString()
@@ -83,8 +89,10 @@ describe("legacy player flow smoke guard", () => {
 
     saveLobbyStep({ serverId: "war-eu-01", districtId: 27 });
     expect(readSession().registration).toMatchObject({
+      activeServerId: "war-eu-01",
       serverId: "war-eu-01",
-      startDistrictId: 27
+      startDistrictId: 27,
+      serverRegistrationStatus: "server_selected"
     });
 
     const lockedSession = lockFactionStep({
@@ -96,7 +104,10 @@ describe("legacy player flow smoke guard", () => {
     expect(lockedSession.registration).toMatchObject({
       identity: "Flow Boss",
       factionId: "hackeri",
+      selectedFaction: "hackeri",
       factionLabel: FACTION_CATALOG.hackeri.name,
+      factionLocked: true,
+      hasCompletedServerEntry: true,
       gangColor: "#3b82f6"
     });
     expect(lockedSession.world.ownedDistrictIds).toEqual([27]);

@@ -31,6 +31,12 @@ Runtime renders. Core decides. Config balances. Server owns authority.
 
 New gameplay changes should not be implemented directly in legacy `page-assets/js/app/runtime.js`.
 
+## Local Tooling
+
+- The repo declares `node >=20` in `package.json`.
+- Playwright E2E also requires at least Node `18.19`; local Node `18.3.x` cannot run `npm run test:e2e`.
+- After upgrading Node, run targeted E2E with `node scripts/run-local-bin.mjs playwright/cli.js test tests/e2e/entry-flow.spec.js`.
+
 ## Compatibility
 
 - `packages/shared` and `packages/debug-tools` remain only as deprecated compatibility placeholders.

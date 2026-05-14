@@ -123,9 +123,37 @@ export const SERVER_CATALOG = Object.freeze([
   }
 ]);
 
+export const ENTRY_FLOW_TARGETS = Object.freeze({
+  login: "login",
+  lobby: "lobby",
+  faction: "faction",
+  game: "game"
+});
+
+// Entry-flow state is stored inside STORAGE_KEYS.session -> registration.
+// Existing fields stay intact for runtime compatibility; active*/selected*
+// fields make the single-server contract explicit without adding a new key.
+export const SERVER_REGISTRATION_STATUS = Object.freeze({
+  selected: "server_selected",
+  factionLocked: "faction_locked"
+});
+
 function createGuestIdentity() {
   const suffix = Math.floor(1000 + (Math.random() * 9000));
   return `Host-${suffix}`;
+}
+
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
+function normalizeMode(mode) {
+  const normalized = normalizeText(mode).toLowerCase();
+  return normalized === "free" || normalized === "war" ? normalized : "";
+}
+
+function normalizeDistrictId(districtId) {
+  return Number.parseInt(String(districtId || ""), 10) || 0;
 }
 
 export function getRegistrationDraft() {
@@ -136,14 +164,81 @@ export function getSelectedServer(serverId) {
   return SERVER_CATALOG.find((server) => server.id === serverId) || null;
 }
 
+export function getActiveServerRegistration(registration = getRegistrationDraft()) {
+  const serverId = normalizeText(registration?.activeServerId || registration?.serverId);
+  if (!serverId) {
+    return null;
+  }
+
+  const server = getSelectedServer(serverId);
+  return {
+    serverId,
+    serverName: normalizeText(registration?.activeServerName || registration?.serverLabel || server?.name || serverId),
+    serverMode: normalizeMode(registration?.activeServerMode || registration?.serverMode || server?.mode) || "war",
+    serverRegion: normalizeText(registration?.activeServerRegion || registration?.serverRegion || server?.region),
+    serverStatus: normalizeText(registration?.activeServerStatus || server?.status || "ONLINE"),
+    startDistrictId: normalizeDistrictId(registration?.startDistrictId)
+  };
+}
+
+export function hasActiveServerRegistration(registration = getRegistrationDraft()) {
+  return Boolean(getActiveServerRegistration(registration)?.serverId);
+}
+
+export function getLockedFactionRegistration(registration = getRegistrationDraft()) {
+  const factionId = normalizeText(registration?.selectedFaction || registration?.factionId);
+  const selectedStructure = normalizeText(
+    registration?.selectedStructure
+      || registration?.structure
+      || registration?.structureId
+      || factionId
+  );
+  const isLocked = Boolean(
+    registration?.factionLocked
+      || registration?.hasCompletedServerEntry
+      || registration?.lockedAt
+  );
+
+  if (!factionId || !selectedStructure || !isLocked) {
+    return null;
+  }
+
+  return {
+    factionId,
+    selectedStructure,
+    factionLabel: normalizeText(registration?.factionLabel || factionId),
+    lockedAt: normalizeText(registration?.lockedAt)
+  };
+}
+
+export function hasLockedFaction(registration = getRegistrationDraft()) {
+  return Boolean(getLockedFactionRegistration(registration));
+}
+
+export function getEntryFlowTarget(registration = getRegistrationDraft()) {
+  if (!normalizeText(registration?.identity)) {
+    return ENTRY_FLOW_TARGETS.login;
+  }
+
+  if (!hasActiveServerRegistration(registration)) {
+    return ENTRY_FLOW_TARGETS.lobby;
+  }
+
+  if (!hasLockedFaction(registration)) {
+    return ENTRY_FLOW_TARGETS.faction;
+  }
+
+  return ENTRY_FLOW_TARGETS.game;
+}
+
 export function ensureIdentity() {
   const registration = getRegistrationDraft();
-  return Boolean(String(registration?.identity || "").trim());
+  return Boolean(normalizeText(registration?.identity));
 }
 
 export function ensureLobbySelection() {
   const registration = getRegistrationDraft();
-  return Boolean(registration?.serverId && registration?.startDistrictId);
+  return Boolean(hasActiveServerRegistration(registration) && normalizeDistrictId(registration?.startDistrictId));
 }
 
 export function clearAuthSession() {
@@ -161,26 +256,35 @@ export function clearAuthSession() {
 }
 
 export function saveLoginStep({ identity, isGuest = false, gangName = "", mode = "" }) {
-  const normalizedIdentity = String(identity || "").trim() || createGuestIdentity();
-  const normalizedGangName = String(gangName || "").trim();
-  const normalizedMode = String(mode || "").trim().toLowerCase();
+  const normalizedIdentity = normalizeText(identity) || createGuestIdentity();
+  const normalizedGangName = normalizeText(gangName);
+  const normalizedMode = normalizeMode(mode);
 
-  return updateStoredPreviewSession((session) => ({
-    ...session,
-    registration: {
-      identity: normalizedIdentity,
-      ...(normalizedGangName ? { gangName: normalizedGangName } : {}),
-      ...(normalizedMode ? { serverMode: normalizedMode } : {}),
-      isGuest,
-      loginKind: isGuest ? "guest" : "account",
-      lastLoginAt: new Date().toISOString()
-    }
-  }));
+  return updateStoredPreviewSession((session) => {
+    const activeServer = getActiveServerRegistration(session.registration);
+
+    return {
+      ...session,
+      registration: {
+        ...(session.registration || {}),
+        identity: normalizedIdentity,
+        ...(normalizedGangName ? { gangName: normalizedGangName } : {}),
+        ...(activeServer
+          ? { serverMode: activeServer.serverMode }
+          : normalizedMode
+            ? { serverMode: normalizedMode }
+            : {}),
+        isGuest,
+        loginKind: isGuest ? "guest" : "account",
+        lastLoginAt: new Date().toISOString()
+      }
+    };
+  });
 }
 
 export function saveLobbyStep({ serverId, districtId }) {
   const server = getSelectedServer(serverId);
-  const normalizedDistrictId = Number.parseInt(String(districtId || ""), 10) || 0;
+  const normalizedDistrictId = normalizeDistrictId(districtId);
 
   if (!server || normalizedDistrictId <= 0) {
     return null;
@@ -194,12 +298,20 @@ export function saveLobbyStep({ serverId, districtId }) {
       isGuest: Boolean(session.registration?.isGuest),
       loginKind: session.registration?.loginKind || (session.registration?.isGuest ? "guest" : "account"),
       ...(session.registration?.lastLoginAt ? { lastLoginAt: session.registration.lastLoginAt } : {}),
+      activeServerId: server.id,
+      activeServerName: server.name,
+      activeServerMode: server.mode,
+      activeServerRegion: server.region,
+      activeServerStatus: server.status || "ONLINE",
       serverId: server.id,
       serverLabel: server.name,
       serverMode: server.mode,
       serverRegion: server.region,
       startDistrictId: normalizedDistrictId,
-      lobbyLockedAt: new Date().toISOString()
+      lobbyLockedAt: new Date().toISOString(),
+      serverRegistrationStatus: SERVER_REGISTRATION_STATUS.selected,
+      factionLocked: false,
+      hasCompletedServerEntry: false
     },
     world: {
       ...session.world,

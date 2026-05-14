@@ -1,0 +1,177 @@
+import { expect, test } from "@playwright/test";
+import {
+  SESSION_STORAGE_KEY,
+  assertNoRuntimeErrors,
+  clearStorageOnBoot,
+  createRuntimeErrorMonitor,
+  closeDistrictPopup,
+  expectDistrictCanvasPainted,
+  openLoginPage,
+  openGamePage,
+  openDistrictPopup,
+  seedE2eSession,
+  selectLobbyDistrict,
+  waitForMapReady
+} from "./helpers/empireSmokeHelpers.js";
+
+async function loginAsGuest(page, name = "Entry Host", gang = "Entry Crew") {
+  await openLoginPage(page);
+  await page.getByPlaceholder("Host").fill(name);
+  await page.getByPlaceholder("Ghost Crew").fill(gang);
+  await Promise.all([
+    page.waitForURL(/\/pages\/lobby\.html\?mode=war$/),
+    page.getByTestId("guest-login-button").click()
+  ]);
+  await expect(page.getByTestId("lobby-page")).toBeVisible();
+}
+
+async function chooseServerAndEnter(page) {
+  await expect(page.getByTestId("server-list")).toBeVisible();
+  await page.getByTestId("server-card-war-eu-01").click();
+  await selectLobbyDistrict(page);
+  await expect(page.getByTestId("enter-selected-server")).toBeEnabled();
+  await page.getByTestId("enter-selected-server").click();
+}
+
+async function chooseFactionAndEnter(page) {
+  await expect(page.getByTestId("faction-page")).toBeVisible();
+  await page.getByRole("button", { name: "Mafián" }).click();
+  await page.locator("[data-gang-color]").first().click();
+  await page.locator("[data-avatar]").first().click();
+  await expect(page.getByTestId("avatar-lightbox")).toBeVisible();
+  await page.getByRole("button", { name: "Potvrdit výběr avatara" }).click();
+  await expect(page.getByTestId("continue-to-game")).toBeEnabled();
+  await page.getByTestId("continue-to-game").click();
+  await waitForMapReady(page);
+}
+
+const withoutFaction = {
+  factionId: undefined,
+  selectedFaction: undefined,
+  factionLabel: undefined,
+  structure: undefined,
+  selectedStructure: undefined,
+  factionLocked: false,
+  hasCompletedServerEntry: false,
+  serverRegistrationStatus: "server_selected",
+  gangColor: undefined,
+  avatar: undefined,
+  lockedAt: undefined
+};
+
+const withoutServer = {
+  activeServerId: undefined,
+  activeServerName: undefined,
+  activeServerMode: undefined,
+  activeServerRegion: undefined,
+  activeServerStatus: undefined,
+  serverId: undefined,
+  serverLabel: undefined,
+  serverRegion: undefined,
+  startDistrictId: undefined,
+  lobbyLockedAt: undefined,
+  serverRegistrationStatus: undefined,
+  factionId: undefined,
+  selectedFaction: undefined,
+  factionLabel: undefined,
+  structure: undefined,
+  selectedStructure: undefined,
+  factionLocked: undefined,
+  hasCompletedServerEntry: undefined,
+  gangColor: undefined,
+  avatar: undefined,
+  lockedAt: undefined
+};
+
+test.describe("entry flow", () => {
+  test("new guest selects server, locks faction and boots game", async ({ page }) => {
+    const errors = createRuntimeErrorMonitor(page);
+    await clearStorageOnBoot(page);
+
+    await loginAsGuest(page, "New Entry Host", "New Entry Crew");
+    await chooseServerAndEnter(page);
+    await expect(page).toHaveURL(/\/pages\/faction\.html$/);
+    await chooseFactionAndEnter(page);
+
+    const session = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)), SESSION_STORAGE_KEY);
+    expect(session.registration).toMatchObject({
+      activeServerId: "war-eu-01",
+      selectedFaction: "mafian",
+      selectedStructure: "mafián",
+      factionLocked: true,
+      hasCompletedServerEntry: true
+    });
+    await assertNoRuntimeErrors(errors);
+  });
+
+  test("returning guest continues on active server without faction select", async ({ page }) => {
+    const errors = createRuntimeErrorMonitor(page);
+    await seedE2eSession(page);
+
+    await loginAsGuest(page, "Returning Host", "Returning Crew");
+    await expect(page.getByTestId("active-server-card")).toBeVisible();
+    await expect(page.getByTestId("server-list")).toBeHidden();
+    await page.getByTestId("continue-active-server").click();
+
+    await waitForMapReady(page);
+    await expect(page).toHaveURL(/\/pages\/game\.html$/);
+    await assertNoRuntimeErrors(errors);
+  });
+
+  test("active server without faction continues to faction select", async ({ page }) => {
+    const errors = createRuntimeErrorMonitor(page);
+    await seedE2eSession(page, { registration: withoutFaction });
+
+    await loginAsGuest(page, "Faction Missing Host", "Faction Missing Crew");
+    await expect(page.getByTestId("active-server-card")).toBeVisible();
+    await page.getByTestId("continue-active-server").click();
+
+    await expect(page).toHaveURL(/\/pages\/faction\.html$/);
+    await chooseFactionAndEnter(page);
+    await assertNoRuntimeErrors(errors);
+  });
+
+  test("manual faction page after faction lock redirects to game", async ({ page }) => {
+    const errors = createRuntimeErrorMonitor(page);
+    await seedE2eSession(page);
+
+    await page.goto("/pages/faction.html");
+    await waitForMapReady(page);
+    await expect(page).toHaveURL(/\/pages\/game\.html$/);
+    await assertNoRuntimeErrors(errors);
+  });
+
+  test("manual game page without active server redirects to lobby", async ({ page }) => {
+    const errors = createRuntimeErrorMonitor(page);
+    await seedE2eSession(page, {
+      registration: {
+        identity: "No Server Host",
+        gangName: "No Server Crew",
+        isGuest: true,
+        loginKind: "guest",
+        serverMode: "war",
+        ...withoutServer
+      },
+      world: {
+        ownedDistrictIds: []
+      }
+    });
+
+    await page.goto("/pages/game.html");
+    await expect(page).toHaveURL(/\/pages\/lobby\.html$/);
+    await expect(page.getByTestId("lobby-page")).toBeVisible();
+    await expect(page.getByTestId("server-list")).toBeVisible();
+    await assertNoRuntimeErrors(errors);
+  });
+
+  test("game boot renders map canvas and district popup opens and closes", async ({ page }) => {
+    const errors = createRuntimeErrorMonitor(page);
+
+    await openGamePage(page);
+    await expectDistrictCanvasPainted(page);
+    await openDistrictPopup(page, { districtId: 27 });
+    await expect(page.getByTestId("district-popup-card")).toBeVisible();
+    await closeDistrictPopup(page, "button");
+    await assertNoRuntimeErrors(errors);
+  });
+});

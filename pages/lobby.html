@@ -65,7 +65,7 @@
         <div class="lobby-shell-grid">
           <section class="lobby-main-column" data-lobby-view="city">
             <div class="lobby-title-block">
-              <h1>SERVER</h1>
+              <h1>Vyber server</h1>
               <div class="lobby-refresh-countdown" aria-live="polite">
                 <span>REFRESH</span>
                 <strong data-lobby-refresh-countdown>20s</strong>
@@ -81,6 +81,20 @@
                 <span data-lobby-summary-cell="mode">REŽIM <strong data-lobby-summary-mode>WAR</strong></span>
                 <span data-lobby-summary-cell="district">DISTRICT <strong data-lobby-summary-district>Nevybrán</strong></span>
               </div>
+            </section>
+
+            <section class="lobby-active-server-card" data-lobby-active-server-card data-testid="active-server-card" hidden>
+              <div class="lobby-active-server-card__copy">
+                <span>Jsi zapsaný na serveru.</span>
+                <h2 data-active-server-name>Server</h2>
+                <p data-active-server-note>Tvoje frakce je pro tento server uzamčená.</p>
+              </div>
+              <div class="lobby-active-server-card__meta" aria-label="Aktivní server">
+                <span>REŽIM <strong data-active-server-mode>WAR</strong></span>
+                <span>STATUS <strong data-active-server-status>ONLINE</strong></span>
+                <span>DISTRICT <strong data-active-server-district>-</strong></span>
+              </div>
+              <button class="lobby-primary-cta lobby-primary-cta--enter" type="button" data-lobby-continue-active data-testid="continue-active-server">Vstoupit na server</button>
             </section>
 
             <div class="auth-mode-tabs" role="tablist" aria-label="Výběr režimu">

@@ -153,7 +153,9 @@ describe("free session MVP flow", () => {
     const session = saveLobbyStep({ serverId: "free-eu-01", districtId: 27 });
 
     expect(session.registration.identity).toBe("MVP Boss");
+    expect(session.registration.activeServerId).toBe("free-eu-01");
     expect(session.registration.serverMode).toBe("free");
+    expect(session.registration.serverRegistrationStatus).toBe("server_selected");
     expect(session.registration.startDistrictId).toBe(27);
     expect(session.world.ownedDistrictIds).toEqual([27]);
     expect(session.world.phaseState.gamePhase).toBe("live");
