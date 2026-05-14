@@ -1629,6 +1629,107 @@ body.lobby-command-body {
   box-shadow: var(--lobby-glow-pink);
 }
 
+.lobby-logout-modal[hidden] {
+  display: none;
+}
+
+.lobby-logout-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.lobby-logout-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 22% 18%, rgba(0, 245, 255, 0.16), transparent 30%),
+    radial-gradient(circle at 78% 72%, rgba(255, 43, 214, 0.16), transparent 34%),
+    rgba(1, 4, 10, 0.72);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+
+.lobby-logout-modal__card {
+  position: relative;
+  z-index: 1;
+  width: min(420px, calc(100vw - 28px));
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid rgba(255, 43, 214, 0.44);
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 28%),
+    radial-gradient(circle at top right, rgba(255, 43, 214, 0.18), transparent 42%),
+    linear-gradient(180deg, rgba(8, 14, 26, 0.94), rgba(3, 7, 14, 0.98));
+  box-shadow:
+    var(--lobby-glow-pink),
+    0 26px 70px rgba(0, 0, 0, 0.62),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: rgba(232, 240, 255, 0.9);
+}
+
+.lobby-logout-modal__eyebrow {
+  color: var(--lobby-cyan);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.lobby-logout-modal__card h3 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(1.35rem, 4vw, 1.85rem);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.lobby-logout-modal__card p {
+  margin: 0;
+  color: rgba(232, 240, 255, 0.76);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.lobby-logout-modal__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.lobby-logout-modal__btn {
+  min-height: 44px;
+  border: 1px solid rgba(0, 245, 255, 0.28);
+  border-radius: 12px;
+  background: rgba(8, 14, 26, 0.88);
+  color: #e8f0ff;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.lobby-logout-modal__btn--stay {
+  border-color: rgba(255, 43, 214, 0.62);
+  background: linear-gradient(90deg, rgba(255, 43, 214, 0.72), rgba(64, 16, 62, 0.88));
+  box-shadow: var(--lobby-glow-pink);
+}
+
+.lobby-logout-modal__btn--logout {
+  border-color: rgba(0, 245, 255, 0.42);
+  background: rgba(8, 14, 26, 0.88);
+  box-shadow: 0 0 16px rgba(0, 245, 255, 0.1);
+}
+
 @keyframes lobbyDot {
   0%, 100% { opacity: 0.38; transform: scale(0.88); }
   50% { opacity: 1; transform: scale(1.15); }

@@ -239,6 +239,19 @@
       </section>
     </div>
 
+    <div class="lobby-logout-modal" data-lobby-logout-modal hidden aria-hidden="true">
+      <div class="lobby-logout-modal__backdrop" data-lobby-logout-cancel></div>
+      <section class="lobby-logout-modal__card" role="dialog" aria-modal="true" aria-labelledby="lobby-logout-title">
+        <span class="lobby-logout-modal__eyebrow">Odchod z lobby</span>
+        <h3 id="lobby-logout-title">Opravdu se chceš odhlásit?</h3>
+        <p>Vrátíš se na login obrazovku a aktuální přihlášení se ukončí.</p>
+        <div class="lobby-logout-modal__actions">
+          <button class="lobby-logout-modal__btn lobby-logout-modal__btn--logout" type="button" data-lobby-logout-confirm>Odhlásit se</button>
+          <button class="lobby-logout-modal__btn lobby-logout-modal__btn--stay" type="button" data-lobby-logout-cancel>Zůstat v lobby</button>
+        </div>
+      </section>
+    </div>
+
     <script type="module" src="../page-assets/js/lobby.js"></script>
   </body>
 </html>

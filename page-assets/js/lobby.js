@@ -66,6 +66,60 @@ const formatLobbyPlayerCount = (value) => new Intl.NumberFormat("cs-CZ")
   .format(Math.max(0, Math.round(Number(value) || 0)))
   .replace(/\u00a0/g, " ");
 
+let lobbyLogoutPrompt = null;
+
+function promptLobbyLogoutConfirmation() {
+  if (lobbyLogoutPrompt) {
+    return lobbyLogoutPrompt;
+  }
+
+  const modal = document.querySelector("[data-lobby-logout-modal]");
+  const confirmButton = document.querySelector("[data-lobby-logout-confirm]");
+  const cancelNodes = Array.from(document.querySelectorAll("[data-lobby-logout-cancel]"));
+
+  if (!(modal instanceof HTMLElement) || !(confirmButton instanceof HTMLButtonElement)) {
+    return Promise.resolve(window.confirm("Opravdu se chceš odhlásit z lobby?"));
+  }
+
+  const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+  lobbyLogoutPrompt = new Promise((resolve) => {
+    const finish = (shouldLogout) => {
+      modal.hidden = true;
+      modal.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("is-lobby-logout-modal-open");
+      confirmButton.removeEventListener("click", confirmLogout);
+      cancelNodes.forEach((node) => node.removeEventListener("click", cancelLogout));
+      window.removeEventListener("keydown", handleKeydown);
+      if (!shouldLogout) {
+        previouslyFocused?.focus?.();
+      }
+      lobbyLogoutPrompt = null;
+      resolve(shouldLogout);
+    };
+
+    const confirmLogout = () => finish(true);
+    const cancelLogout = () => finish(false);
+    const handleKeydown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        cancelLogout();
+      }
+    };
+
+    confirmButton.addEventListener("click", confirmLogout);
+    cancelNodes.forEach((node) => node.addEventListener("click", cancelLogout));
+    window.addEventListener("keydown", handleKeydown);
+
+    modal.hidden = false;
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("is-lobby-logout-modal-open");
+    confirmButton.focus();
+  });
+
+  return lobbyLogoutPrompt;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   if (!ensureIdentity()) {
     window.location.href = LOGIN_ENTRY_HREF;
@@ -1219,11 +1273,25 @@ function installLobbyBackLogoutGuard() {
     return;
   }
 
+  let isLeavingLobby = false;
+
   window.history.replaceState({ empireLobby: "active" }, "", window.location.href);
   window.history.pushState({ empireLobby: "back-logout" }, "", window.location.href);
 
   window.addEventListener("popstate", () => {
-    clearAuthSession();
-    window.location.replace(LOGIN_ENTRY_HREF);
-  }, { once: true });
+    if (isLeavingLobby) {
+      return;
+    }
+
+    window.history.pushState({ empireLobby: "back-logout" }, "", window.location.href);
+
+    promptLobbyLogoutConfirmation().then((shouldLogout) => {
+      if (!shouldLogout) {
+        return;
+      }
+      isLeavingLobby = true;
+      clearAuthSession();
+      window.location.replace(LOGIN_ENTRY_HREF);
+    });
+  });
 }
