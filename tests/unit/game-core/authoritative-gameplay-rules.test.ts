@@ -16,10 +16,16 @@ import {
 } from "../../fixtures/command-fixtures";
 
 describe("authoritative gameplay rules", () => {
-  it("resolves free player victory at 85 percent active district control", () => {
+  it("resolves free player victory after 75 percent control and required hold", () => {
     const state = createStateWithDistrictControl({
       totalDistricts: 20,
-      playerControlledDistricts: 17
+      playerControlledDistricts: 15
+    });
+    seedDominanceHold(state, {
+      subjectType: "player",
+      subjectId: "player:1",
+      startedAtTick: 51840,
+      currentTick: 56160
     });
 
     const result = checkVictory(state, {
@@ -30,19 +36,19 @@ describe("authoritative gameplay rules", () => {
       hasWinner: true,
       winnerType: "player",
       winnerId: "player:1",
-      controlledDistricts: 17,
+      controlledDistricts: 15,
       totalActiveDistricts: 20,
-      controlPercent: 85,
+      controlPercent: 75,
       mode: "free"
     });
     expect(result.nextState.victoryState?.progressPayload).toMatchObject(result.summary);
   });
 
-  it("resolves free alliance victory at 85 percent active district control", () => {
+  it("resolves free alliance victory after 75 percent control and required hold", () => {
     const state = createStateWithDistrictControl({
       totalDistricts: 20,
-      playerControlledDistricts: 17,
-      allianceControlledDistricts: 17
+      playerControlledDistricts: 15,
+      allianceControlledDistricts: 15
     });
     state.alliancesById["alliance:1"] = createAllianceFixture({
       memberIds: ["player:1"]
@@ -52,6 +58,12 @@ describe("authoritative gameplay rules", () => {
       allianceId: "alliance:1"
     };
     state.root.allianceIds.push("alliance:1");
+    seedDominanceHold(state, {
+      subjectType: "alliance",
+      subjectId: "alliance:1",
+      startedAtTick: 51840,
+      currentTick: 56160
+    });
 
     const result = checkVictory(state, {
       config: resolveModeConfig("free")
@@ -61,9 +73,9 @@ describe("authoritative gameplay rules", () => {
       hasWinner: true,
       winnerType: "alliance",
       winnerId: "alliance:1",
-      controlledDistricts: 17,
+      controlledDistricts: 15,
       totalActiveDistricts: 20,
-      controlPercent: 85,
+      controlPercent: 75,
       mode: "free"
     });
     expect(result.nextState.matchResult).toMatchObject({
@@ -113,7 +125,7 @@ describe("authoritative gameplay rules", () => {
       state,
       createAttackDistrictCommandFixture(),
       {
-        config: resolveModeConfig("free")
+        config: createFreeConfigWithoutDayNight()
       }
     );
 
@@ -265,7 +277,7 @@ describe("authoritative gameplay rules", () => {
     };
 
     const result = triggerRaid(state, {
-      config: resolveModeConfig("free")
+      config: createFreeConfigWithoutDayNight()
     });
 
     expect(result.nextState.policeStatesById["police:1"].activeFlags).toContain("raid:pending");
@@ -320,4 +332,46 @@ const createStateWithDistrictControl = (input: {
   }
 
   return state;
+};
+
+const seedDominanceHold = (
+  state: ReturnType<typeof createCoreStateFixture>,
+  input: {
+    subjectType: "player" | "alliance";
+    subjectId: string;
+    startedAtTick: number;
+    currentTick: number;
+  }
+) => {
+  state.root.tick = input.currentTick;
+  state.root.victoryStateId = "victory:instance:1";
+  state.victoryState = {
+    id: "victory:instance:1",
+    serverInstanceId: state.serverInstance.id,
+    status: "ongoing",
+    victoryType: "fast-control",
+    leaderPlayerId: input.subjectType === "player" ? input.subjectId : null,
+    leaderAllianceId: input.subjectType === "alliance" ? input.subjectId : null,
+    progressPayload: {
+      leadingSubjectType: input.subjectType,
+      leadingSubjectId: input.subjectId,
+      controlHoldStartedAtTick: input.startedAtTick
+    },
+    resolvedAtTick: null,
+    version: 1
+  };
+};
+
+const createFreeConfigWithoutDayNight = () => {
+  const config = resolveModeConfig("free");
+  return {
+    ...config,
+    balance: {
+      ...config.balance,
+      dayNight: {
+        ...config.balance.dayNight!,
+        enabled: false
+      }
+    }
+  };
 };

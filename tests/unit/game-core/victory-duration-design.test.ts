@@ -1,0 +1,263 @@
+import { describe, expect, it } from "vitest";
+import { checkVictory } from "@empire/game-core";
+import { resolveModeConfig } from "@empire/game-config";
+import {
+  createAllianceFixture,
+  createCoreStateFixture
+} from "../../fixtures/game-state-fixtures";
+
+const FREE_MINIMUM_VICTORY_TICKS = 51_840;
+const FREE_CONTROL_HOLD_TICKS = 4_320;
+const FREE_HARD_TIMEOUT_TICKS = 120_960;
+
+describe("victory duration design", () => {
+  it("does not resolve when a player controls 74 percent of active districts", () => {
+    const state = createStateWithDistrictControl({
+      totalDistricts: 100,
+      playerControlledDistricts: 74
+    });
+    state.root.tick = FREE_MINIMUM_VICTORY_TICKS + FREE_CONTROL_HOLD_TICKS;
+
+    const result = checkVictory(state, { config: resolveModeConfig("free") });
+
+    expect(result.resolved).toBe(false);
+    expect(result.nextState.matchResult).toBeNull();
+    expect(result.nextState.victoryState?.progressPayload).toMatchObject({
+      requiredControlledDistricts: 75,
+      reason: "below_control_threshold",
+      canResolveControlVictoryNow: false
+    });
+  });
+
+  it("does not resolve 75 percent control before the 72h minimum server age", () => {
+    const state = createStateWithDistrictControl({
+      totalDistricts: 20,
+      playerControlledDistricts: 15
+    });
+    seedDominanceHold(state, {
+      subjectType: "player",
+      subjectId: "player:1",
+      startedAtTick: 40_000,
+      currentTick: FREE_MINIMUM_VICTORY_TICKS - 1
+    });
+
+    const result = checkVictory(state, { config: resolveModeConfig("free") });
+
+    expect(result.resolved).toBe(false);
+    expect(result.nextState.matchResult).toBeNull();
+    expect(result.nextState.victoryState?.progressPayload).toMatchObject({
+      reason: "minimum_server_age_not_reached",
+      minimumVictoryTicks: FREE_MINIMUM_VICTORY_TICKS,
+      canResolveControlVictoryNow: false
+    });
+  });
+
+  it("does not resolve 75 percent control after 72h until the 6h hold completes", () => {
+    const state = createStateWithDistrictControl({
+      totalDistricts: 20,
+      playerControlledDistricts: 15
+    });
+    seedDominanceHold(state, {
+      subjectType: "player",
+      subjectId: "player:1",
+      startedAtTick: FREE_MINIMUM_VICTORY_TICKS,
+      currentTick: FREE_MINIMUM_VICTORY_TICKS + FREE_CONTROL_HOLD_TICKS - 1
+    });
+
+    const result = checkVictory(state, { config: resolveModeConfig("free") });
+
+    expect(result.resolved).toBe(false);
+    expect(result.nextState.victoryState?.progressPayload).toMatchObject({
+      reason: "control_hold_not_completed",
+      controlHoldRemainingTicks: 1,
+      canResolveControlVictoryNow: false
+    });
+  });
+
+  it("resolves player victory after 72h and a continuous 6h hold", () => {
+    const state = createStateWithDistrictControl({
+      totalDistricts: 20,
+      playerControlledDistricts: 15
+    });
+    seedDominanceHold(state, {
+      subjectType: "player",
+      subjectId: "player:1",
+      startedAtTick: FREE_MINIMUM_VICTORY_TICKS,
+      currentTick: FREE_MINIMUM_VICTORY_TICKS + FREE_CONTROL_HOLD_TICKS
+    });
+
+    const result = checkVictory(state, { config: resolveModeConfig("free") });
+
+    expect(result.resolved).toBe(true);
+    expect(result.nextState.matchResult).toMatchObject({
+      winnerPlayerId: "player:1",
+      winnerAllianceId: null,
+      reason: "control:fast-control"
+    });
+    expect(result.nextState.victoryState?.progressPayload).toMatchObject({
+      controlledDistrictCount: 15,
+      requiredControlledDistricts: 15,
+      controlHoldRemainingTicks: 0,
+      canResolveControlVictoryNow: true
+    });
+  });
+
+  it("resolves alliance victory as winnerType alliance at 75 percent control", () => {
+    const state = createStateWithDistrictControl({
+      totalDistricts: 20,
+      playerControlledDistricts: 15,
+      allianceControlledDistricts: 15
+    });
+    state.playersById["player:1"] = {
+      ...state.playersById["player:1"],
+      allianceId: "alliance:1"
+    };
+    state.alliancesById["alliance:1"] = createAllianceFixture({
+      memberIds: ["player:1"]
+    });
+    state.root.allianceIds.push("alliance:1");
+    seedDominanceHold(state, {
+      subjectType: "alliance",
+      subjectId: "alliance:1",
+      startedAtTick: FREE_MINIMUM_VICTORY_TICKS,
+      currentTick: FREE_MINIMUM_VICTORY_TICKS + FREE_CONTROL_HOLD_TICKS
+    });
+
+    const result = checkVictory(state, { config: resolveModeConfig("free") });
+
+    expect(result.summary).toMatchObject({
+      hasWinner: true,
+      winnerType: "alliance",
+      winnerId: "alliance:1",
+      controlPercent: 75
+    });
+    expect(result.nextState.matchResult).toMatchObject({
+      winnerPlayerId: null,
+      winnerAllianceId: "alliance:1"
+    });
+  });
+
+  it("resets the hold timer when dominance falls below 75 percent", () => {
+    const state = createStateWithDistrictControl({
+      totalDistricts: 20,
+      playerControlledDistricts: 15
+    });
+    seedDominanceHold(state, {
+      subjectType: "player",
+      subjectId: "player:1",
+      startedAtTick: FREE_MINIMUM_VICTORY_TICKS,
+      currentTick: FREE_MINIMUM_VICTORY_TICKS + 100
+    });
+
+    state.districtsById["district:15"] = {
+      ...state.districtsById["district:15"],
+      ownerPlayerId: null
+    };
+
+    const result = checkVictory(state, { config: resolveModeConfig("free") });
+
+    expect(result.resolved).toBe(false);
+    expect(result.nextState.victoryState?.progressPayload).toMatchObject({
+      reason: "below_control_threshold",
+      controlHoldStartedAtTick: null,
+      controlHoldRemainingTicks: FREE_CONTROL_HOLD_TICKS
+    });
+  });
+
+  it("does not create a false score winner when hard timeout expires with duration fallback disabled", () => {
+    const state = createStateWithDistrictControl({
+      totalDistricts: 20,
+      playerControlledDistricts: 10
+    });
+    state.root.tick = FREE_HARD_TIMEOUT_TICKS;
+
+    const result = checkVictory(state, { config: resolveModeConfig("free") });
+
+    expect(result.resolved).toBe(true);
+    expect(result.summary).toMatchObject({
+      hasWinner: false,
+      winnerType: "none",
+      winnerId: null,
+      reason: "timeout_no_winner"
+    });
+    expect(result.nextState.matchResult).toMatchObject({
+      winnerPlayerId: null,
+      winnerAllianceId: null,
+      reason: "timeout_no_winner"
+    });
+  });
+
+  it("sets free mode day and night to 2h each at tickRateMs 5000", () => {
+    const config = resolveModeConfig("free");
+
+    expect(config.tickRateMs).toBe(5000);
+    expect(config.balance.dayLengthTicks).toBe(1440);
+    expect(config.balance.nightLengthTicks).toBe(1440);
+    expect(config.balance.dayNight?.phases.day.durationTicks).toBe(1440);
+    expect(config.balance.dayNight?.phases.night.durationTicks).toBe(1440);
+  });
+});
+
+const createStateWithDistrictControl = (input: {
+  totalDistricts: number;
+  playerControlledDistricts: number;
+  allianceControlledDistricts?: number;
+}) => {
+  const state = createCoreStateFixture();
+
+  state.root.districtIds = [];
+  state.districtsById = {};
+
+  for (let index = 1; index <= input.totalDistricts; index += 1) {
+    const districtId = `district:${index}`;
+    state.districtsById[districtId] = {
+      id: districtId,
+      serverInstanceId: "instance:1",
+      templateId: `template:${index}`,
+      name: `District ${index}`,
+      zone: "test",
+      adjacentDistrictIds: [],
+      ownerPlayerId: index <= input.playerControlledDistricts ? "player:1" : null,
+      controllerAllianceId: index <= (input.allianceControlledDistricts ?? 0) ? "alliance:1" : null,
+      heat: 0,
+      influence: index,
+      buildingIds: [],
+      defenseLoadout: {},
+      slotCount: 3,
+      status: "claimed",
+      resourceModifiers: {},
+      version: 1
+    };
+    state.root.districtIds.push(districtId);
+  }
+
+  return state;
+};
+
+const seedDominanceHold = (
+  state: ReturnType<typeof createCoreStateFixture>,
+  input: {
+    subjectType: "player" | "alliance";
+    subjectId: string;
+    startedAtTick: number;
+    currentTick: number;
+  }
+) => {
+  state.root.tick = input.currentTick;
+  state.root.victoryStateId = "victory:instance:1";
+  state.victoryState = {
+    id: "victory:instance:1",
+    serverInstanceId: state.serverInstance.id,
+    status: "ongoing",
+    victoryType: "fast-control",
+    leaderPlayerId: input.subjectType === "player" ? input.subjectId : null,
+    leaderAllianceId: input.subjectType === "alliance" ? input.subjectId : null,
+    progressPayload: {
+      leadingSubjectType: input.subjectType,
+      leadingSubjectId: input.subjectId,
+      controlHoldStartedAtTick: input.startedAtTick
+    },
+    resolvedAtTick: null,
+    version: 1
+  };
+};

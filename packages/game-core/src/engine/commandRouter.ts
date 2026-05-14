@@ -24,6 +24,24 @@ export const routeCommand = (
   command: CorePlayerCommand,
   context: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
+  const player = state.playersById[command.playerId];
+  if (player && player.status !== "active") {
+    return {
+      nextState: state,
+      events: [],
+      errors: [
+        {
+          code: "player_not_active",
+          message: "Player is not active on this server.",
+          details: {
+            playerId: player.id,
+            status: player.status
+          }
+        }
+      ]
+    };
+  }
+
   switch (command.type) {
     case "acknowledge-pending-raid":
       return handleAcknowledgePendingRaid(state, command, context);

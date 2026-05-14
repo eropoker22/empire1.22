@@ -41,7 +41,8 @@ export const calculateIncomeByPlayerId = (
   const incomeByPlayerId: Record<string, Record<string, number>> = {};
 
   for (const district of Object.values(state.districtsById)) {
-    if (!district.ownerPlayerId || district.status === "destroyed") {
+    const ownerPlayer = district.ownerPlayerId ? state.playersById[district.ownerPlayerId] : null;
+    if (!district.ownerPlayerId || ownerPlayer?.status !== "active" || district.status === "destroyed") {
       continue;
     }
 
@@ -67,7 +68,8 @@ export const getActiveFixedBuildingConfigsForDistrict = (
   context: GameCoreContext
 ): ActiveFixedBuildingConfig[] => {
   const fixedBuildings = context.config.balance.fixedBuildings;
-  if (!fixedBuildings || !district.ownerPlayerId || district.status === "destroyed") {
+  const ownerPlayer = district.ownerPlayerId ? state.playersById[district.ownerPlayerId] : null;
+  if (!fixedBuildings || !district.ownerPlayerId || ownerPlayer?.status !== "active" || district.status === "destroyed") {
     return [];
   }
 

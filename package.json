@@ -26,6 +26,7 @@
     "lint:architecture": "node scripts/check-architecture.mjs",
     "lint:file-sizes": "node scripts/check-file-sizes.mjs",
     "smoke:ui": "node scripts/smoke-ui-pages.mjs",
+    "simulate:free-mode": "node scripts/run-local-bin.mjs vite-node/vite-node.mjs tools/debug/src/free-mode-pacing/cli.ts",
     "typecheck": "node scripts/run-local-bin.mjs typescript/bin/tsc -p tsconfig.test.json --noEmit",
     "test": "npm run test:unit && npm run test:integration && npm run test:server && npm run test:persistence && npm run test:read-models",
     "test:unit": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/unit",

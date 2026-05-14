@@ -33,16 +33,16 @@ describe("day night cycle", () => {
     expect(getCurrentDayNightPhase(state, context)).toMatchObject({
       phaseId: "day",
       startedAtTick: 0,
-      endsAtTick: 240,
-      remainingTicks: 240
+      endsAtTick: 1440,
+      remainingTicks: 1440
     });
 
-    state.root.tick = 240;
+    state.root.tick = 1440;
     expect(getCurrentDayNightPhase(state, context)).toMatchObject({
       phaseId: "night",
-      startedAtTick: 240,
-      endsAtTick: 480,
-      remainingTicks: 240
+      startedAtTick: 1440,
+      endsAtTick: 2880,
+      remainingTicks: 1440
     });
   });
 
@@ -68,8 +68,8 @@ describe("day night cycle", () => {
   it("emits city feed when the phase changes", () => {
     const state = createCoreStateFixture();
     const context = createContext("free");
-    state.root.tick = 239;
-    state.serverInstance.currentTick = 239;
+    state.root.tick = 1439;
+    state.serverInstance.currentTick = 1439;
 
     const result = runTick(state, context);
     const feed = Object.values(result.nextState.cityFeedEventsById);
@@ -101,7 +101,7 @@ describe("day night cycle", () => {
       heatPerDay: 11
     });
 
-    state.root.tick = 240;
+    state.root.tick = 1440;
     expect(applyDayNightBuildingIncomeModifiers({
       state,
       context,
@@ -134,7 +134,7 @@ describe("day night cycle", () => {
     expect(calculatePlayerPolicePressure(state, "player:1", context).playerHeatPressure).toBe(115);
     expect(applyDayNightHeistDetectionChance({ gameState: { ...state, config: context.config }, baseChance: 0.3 })).toBeCloseTo(0.45);
 
-    state.root.tick = 240;
+    state.root.tick = 1440;
     expect(calculatePlayerPolicePressure(state, "player:1", context).playerHeatPressure).toBe(90);
     expect(applyDayNightHeistDetectionChance({ gameState: { ...state, config: context.config }, baseChance: 0.3 })).toBeCloseTo(0.2);
   });
@@ -142,12 +142,12 @@ describe("day night cycle", () => {
   it("projects day night read model onto player view", () => {
     const state = createCoreStateFixture();
     const context = createContext("free");
-    state.root.tick = 240;
+    state.root.tick = 1440;
 
     expect(createDayNightReadModel(state, context)).toMatchObject({
       phaseId: "night",
       label: "NOC",
-      remainingTicks: 240,
+      remainingTicks: 1440,
       uiThemeHint: "night"
     });
     expect(createPlayerView(state, "player:1", context).dayNight).toMatchObject({

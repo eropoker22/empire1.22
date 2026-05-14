@@ -5,6 +5,7 @@ export * from "./cooldown-state";
 export * from "./district";
 export * from "./district-trap";
 export * from "./effect-state";
+export * from "./elimination-state";
 export * from "./event-state";
 export * from "./faction";
 export * from "./game-lifecycle-phase";

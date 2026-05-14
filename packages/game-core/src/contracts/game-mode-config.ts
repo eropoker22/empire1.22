@@ -94,6 +94,29 @@ export interface DayNightBalanceConfig {
   phases: Record<DayNightPhaseId, DayNightPhaseConfig>;
 }
 
+export interface EliminationScoreWeightsConfig {
+  controlledDistricts: number;
+  districtInfluence: number;
+  cleanCash: number;
+  dirtyCash: number;
+  resources: number;
+  population: number;
+  activeBuildingCount: number;
+  recentActivityBonus: number;
+}
+
+export interface EliminationBalanceConfig {
+  enabled: boolean;
+  intervalTicks: number;
+  firstEliminationTick: number;
+  minActivePlayers: number;
+  dangerZoneSize: number;
+  eliminatedPlayerStatus: "defeated";
+  defeatedDistrictPolicy: "neutralize" | "lock" | "transfer_to_city";
+  defeatedDistrictLockTicks: number;
+  scoreWeights: EliminationScoreWeightsConfig;
+}
+
 /**
  * Responsibility: Core-facing mode configuration contract used by runtime bootstrap.
  * Belongs here: serializable mode knobs grouped for balance and runtime decisions.
@@ -110,6 +133,7 @@ export interface GameModeConfig {
     maxAllianceSize: number;
     buildSlotLimit: number;
     eventFrequencyMultiplier: number;
+    elimination?: EliminationBalanceConfig;
     policePressureMultiplier: number;
     raidIntensityMultiplier: number;
     expansionSpeedMultiplier: number;
@@ -122,6 +146,25 @@ export interface GameModeConfig {
      * Defaults to 1 when omitted by legacy fixtures.
      */
     districtControlVictoryThreshold?: number;
+    /**
+     * Earliest server tick where control victory may resolve.
+     * Defaults to 0 for legacy fixtures and custom tests.
+     */
+    minimumVictoryTicks?: number;
+    /**
+     * Number of continuous ticks a subject must hold the configured control threshold.
+     * Defaults to 0 for legacy immediate-control victory.
+     */
+    districtControlHoldTicks?: number;
+    /**
+     * When false, duration expiry ends as timeout/no winner instead of picking the
+     * current score leader.
+     */
+    allowDurationVictoryFallback?: boolean;
+    /**
+     * Safety timeout in ticks. Used when duration fallback winner is disabled.
+     */
+    hardTimeoutTicks?: number;
     startingResources: Record<string, number>;
     conflict?: import("./building-balance-config").ConflictBalanceConfig;
     police?: PoliceSystemBalanceConfig;

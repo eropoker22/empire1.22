@@ -10,3 +10,4 @@ export const debugToolShell = {
 };
 
 export * from "./admin-gameplay-slice-demo";
+export * from "./free-mode-pacing/simulate";

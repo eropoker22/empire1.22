@@ -17,7 +17,10 @@ export const createDistrictControlScores = (
   const scoresByKey = new Map<string, VictoryScore>();
 
   for (const district of districts) {
-    if (district.ownerPlayerId) {
+    const ownerPlayer = district.ownerPlayerId ? state.playersById[district.ownerPlayerId] : null;
+    const activeOwnerPlayer = ownerPlayer?.status === "active" ? ownerPlayer : null;
+
+    if (district.ownerPlayerId && activeOwnerPlayer) {
       addDistrictScore(scoresByKey, {
         subjectType: "player",
         subjectId: district.ownerPlayerId,
@@ -25,8 +28,9 @@ export const createDistrictControlScores = (
       });
     }
 
-    const allianceId = district.controllerAllianceId
-      ?? (district.ownerPlayerId ? state.playersById[district.ownerPlayerId]?.allianceId ?? null : null);
+    const allianceId = activeOwnerPlayer
+      ? district.controllerAllianceId ?? activeOwnerPlayer.allianceId
+      : null;
 
     if (allianceId) {
       addDistrictScore(scoresByKey, {

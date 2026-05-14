@@ -7,6 +7,10 @@ import {
   createExistingVictorySummary,
   createVictorySummary
 } from "./victoryScoring";
+import {
+  resolveControlVictoryProgress,
+  resolveControlVictoryRules
+} from "./victoryControlProgress";
 
 export interface VictoryCheckResult {
   nextState: CoreGameState;
@@ -26,6 +30,34 @@ export interface VictorySummary {
   controlPercent: number;
   mode: string;
 }
+
+const createOngoingVictoryState = (
+  state: CoreGameState,
+  context: GameCoreContext,
+  progressPayload: Record<string, unknown>
+): CoreGameState => {
+  const victoryStateId = state.root.victoryStateId ?? `victory:${state.serverInstance.id}`;
+
+  return {
+    ...state,
+    root: {
+      ...state.root,
+      victoryStateId,
+      version: state.root.victoryStateId === victoryStateId ? state.root.version : state.root.version + 1
+    },
+    victoryState: {
+      id: victoryStateId,
+      serverInstanceId: state.serverInstance.id,
+      status: "ongoing",
+      victoryType: context.config.balance.victoryConditionKey,
+      leaderPlayerId: progressPayload.leadingSubjectType === "player" ? String(progressPayload.leadingSubjectId) : null,
+      leaderAllianceId: progressPayload.leadingSubjectType === "alliance" ? String(progressPayload.leadingSubjectId) : null,
+      progressPayload,
+      resolvedAtTick: null,
+      version: (state.victoryState?.version ?? 0) + 1
+    }
+  };
+};
 
 /**
  * Responsibility: Checks victory conditions against authoritative state.
@@ -47,38 +79,56 @@ export const checkVictory = (
   const activeDistricts = Object.values(state.districtsById).filter((district) => district.status !== "destroyed");
   const controlScores = createDistrictControlScores(state, activeDistricts);
   const leader = controlScores[0] ?? null;
-  const controlVictoryThreshold = Math.min(1, Math.max(0.01, context.config.balance.districtControlVictoryThreshold ?? 1));
-  const requiredControlledDistricts = Math.max(1, Math.ceil(activeDistricts.length * controlVictoryThreshold));
-  const activeDistrictControlWonByLeader =
-    context.config.mode === "free" &&
-    activeDistricts.length > 1 &&
-    leader !== null &&
-    leader.controlledDistricts >= requiredControlledDistricts;
-  const durationTicks = Math.max(1, Math.ceil(context.config.technical.gameDurationMs / Math.max(1, context.config.tickRateMs)));
-  const durationExpired = state.root.tick >= durationTicks;
+  const victoryRules = resolveControlVictoryRules(context, activeDistricts.length);
+  const controlProgress = resolveControlVictoryProgress({
+    state,
+    leader,
+    totalActiveDistricts: activeDistricts.length,
+    rules: victoryRules
+  });
+  const activeDistrictControlWonByLeader = Boolean(leader && controlProgress.canResolveControlVictoryNow);
+  const durationExpired = state.root.tick >= victoryRules.durationTicks;
+  const hardTimeoutExpired = state.root.tick >= victoryRules.hardTimeoutTicks;
+  const durationFallbackExpired = victoryRules.allowDurationVictoryFallback && durationExpired;
+  const timeoutWithoutWinnerExpired = !victoryRules.allowDurationVictoryFallback && hardTimeoutExpired;
 
-  if (!activeDistrictControlWonByLeader && !durationExpired) {
+  if (!activeDistrictControlWonByLeader && !durationFallbackExpired && !timeoutWithoutWinnerExpired) {
+    const summary = createVictorySummary({
+      mode: context.config.mode,
+      reason: controlProgress.reason,
+      winner: leader,
+      totalActiveDistricts: activeDistricts.length
+    });
+
     return {
-      nextState: state,
+      nextState: createOngoingVictoryState(state, context, {
+        ...summary,
+        ...controlProgress,
+        controlledDistrictCount: summary.controlledDistricts,
+        totalActiveDistrictCount: activeDistricts.length,
+        controlVictoryThreshold: victoryRules.threshold,
+        durationTicks: victoryRules.durationTicks,
+        hardTimeoutTicks: victoryRules.hardTimeoutTicks,
+        allowDurationVictoryFallback: victoryRules.allowDurationVictoryFallback
+      }),
       resolved: false,
-      summary: createVictorySummary({
-        mode: context.config.mode,
-        reason: "ongoing",
-        winner: leader,
-        totalActiveDistricts: activeDistricts.length
-      })
+      summary
     };
   }
 
   const durationScores = createDurationScores(state, activeDistricts);
   const winner = activeDistrictControlWonByLeader
     ? leader
-    : durationScores[0] ?? null;
+    : durationFallbackExpired
+      ? durationScores[0] ?? null
+      : null;
   const reason = activeDistrictControlWonByLeader
     ? `control:${context.config.balance.victoryConditionKey}`
-    : activeDistricts.length === 0
-      ? "duration:no-active-districts"
-      : `duration:${context.config.balance.victoryConditionKey}`;
+    : timeoutWithoutWinnerExpired
+      ? "timeout_no_winner"
+      : activeDistricts.length === 0
+        ? "duration:no-active-districts"
+        : `duration:${context.config.balance.victoryConditionKey}`;
   const summary = createVictorySummary({
     mode: context.config.mode,
     reason,
@@ -116,12 +166,14 @@ export const checkVictory = (
         leaderAllianceId: winnerAllianceId,
         progressPayload: {
           ...summary,
+          ...controlProgress,
           reason,
           controlledDistrictCount: summary.controlledDistricts,
           totalActiveDistrictCount: activeDistricts.length,
-          requiredControlledDistricts,
-          durationTicks,
-          currentTick: state.root.tick
+          controlVictoryThreshold: victoryRules.threshold,
+          durationTicks: victoryRules.durationTicks,
+          hardTimeoutTicks: victoryRules.hardTimeoutTicks,
+          allowDurationVictoryFallback: victoryRules.allowDurationVictoryFallback
         },
         resolvedAtTick: state.root.tick,
         version: (state.victoryState?.version ?? 0) + 1
@@ -132,7 +184,7 @@ export const checkVictory = (
         endedAt,
         winnerPlayerId,
         winnerAllianceId,
-        ranking: (durationExpired ? durationScores : controlScores).map((score, index) => ({
+        ranking: (durationFallbackExpired || timeoutWithoutWinnerExpired ? durationScores : controlScores).map((score, index) => ({
           subjectType: score.subjectType,
           subjectId: score.subjectId,
           rank: index + 1,

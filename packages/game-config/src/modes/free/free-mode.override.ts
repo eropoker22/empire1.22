@@ -30,9 +30,23 @@ import { freeModeWarehouseConfig } from "../../public/free-mode-warehouse-config
 import { freeModePoliceConfig } from "./free-police-config";
 import { createDayNightConfig } from "../../public/day-night-config";
 
+const FREE_MODE_TICK_RATE_MS = 5000;
+const ticksFromHours = (hours: number, tickRateMs = FREE_MODE_TICK_RATE_MS): number =>
+  Math.ceil((hours * 60 * 60 * 1000) / tickRateMs);
+const ticksFromDays = (days: number, tickRateMs = FREE_MODE_TICK_RATE_MS): number =>
+  ticksFromHours(days * 24, tickRateMs);
+
+const FREE_MODE_DAY_NIGHT_PHASE_TICKS = ticksFromHours(2);
+const FREE_MODE_ELIMINATION_INTERVAL_TICKS = ticksFromHours(4);
+const FREE_MODE_FIRST_ELIMINATION_TICKS = ticksFromHours(8);
+const FREE_MODE_MINIMUM_VICTORY_TICKS = ticksFromHours(72);
+const FREE_MODE_CONTROL_HOLD_TICKS = ticksFromHours(6);
+const FREE_MODE_HARD_TIMEOUT_TICKS = ticksFromDays(7);
+const FREE_MODE_HARD_TIMEOUT_MS = FREE_MODE_HARD_TIMEOUT_TICKS * FREE_MODE_TICK_RATE_MS;
+
 export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
   mode: "free",
-  tickRateMs: 5000,
+  tickRateMs: FREE_MODE_TICK_RATE_MS,
   balance: {
     incomeMultiplier: 1.2,
     productionMultiplier: 1.2,
@@ -41,17 +55,41 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
     maxAllianceSize: 4,
     buildSlotLimit: 8,
     eventFrequencyMultiplier: 1.2,
+    elimination: {
+      enabled: true,
+      intervalTicks: FREE_MODE_ELIMINATION_INTERVAL_TICKS,
+      firstEliminationTick: FREE_MODE_FIRST_ELIMINATION_TICKS,
+      minActivePlayers: 5,
+      dangerZoneSize: 3,
+      eliminatedPlayerStatus: "defeated",
+      defeatedDistrictPolicy: "neutralize",
+      defeatedDistrictLockTicks: FREE_MODE_ELIMINATION_INTERVAL_TICKS,
+      scoreWeights: {
+        controlledDistricts: 10000,
+        districtInfluence: 25,
+        activeBuildingCount: 500,
+        cleanCash: 0.1,
+        dirtyCash: 0.05,
+        resources: 0.2,
+        population: 2,
+        recentActivityBonus: 250
+      }
+    },
     policePressureMultiplier: 0.9,
     raidIntensityMultiplier: 0.9,
     expansionSpeedMultiplier: 1.3,
-    dayLengthTicks: 8,
-    nightLengthTicks: 8,
+    dayLengthTicks: FREE_MODE_DAY_NIGHT_PHASE_TICKS,
+    nightLengthTicks: FREE_MODE_DAY_NIGHT_PHASE_TICKS,
     dayNight: createDayNightConfig({
-      dayDurationTicks: 240,
-      nightDurationTicks: 240
+      dayDurationTicks: FREE_MODE_DAY_NIGHT_PHASE_TICKS,
+      nightDurationTicks: FREE_MODE_DAY_NIGHT_PHASE_TICKS
     }),
     victoryConditionKey: "fast-control",
-    districtControlVictoryThreshold: 0.85,
+    districtControlVictoryThreshold: 0.75,
+    minimumVictoryTicks: FREE_MODE_MINIMUM_VICTORY_TICKS,
+    districtControlHoldTicks: FREE_MODE_CONTROL_HOLD_TICKS,
+    allowDurationVictoryFallback: false,
+    hardTimeoutTicks: FREE_MODE_HARD_TIMEOUT_TICKS,
     police: freeModePoliceConfig,
     conflict: {
       spyCooldownTicks: 1,
@@ -62,7 +100,7 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
       spyTrapRevealChance: 0.2,
       trapAttackLosses: 2,
       reportsLimit: 6,
-      catastropheChance: 0.06
+      catastropheChance: 0.02
     },
     startingResources: {
       cash: 1500,
@@ -102,8 +140,8 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
     powerStation: freeModePowerStationConfig
   },
   technical: {
-    sessionTtlMs: 1000 * 60 * 60 * 2,
-    gameDurationMs: 1000 * 60 * 60 * 2,
+    sessionTtlMs: FREE_MODE_HARD_TIMEOUT_MS,
+    gameDurationMs: FREE_MODE_HARD_TIMEOUT_MS,
     storageKeyPrefix: "empire:free",
     snapshotIntervalTicks: 8,
     notificationBatchWindowMs: 200,
@@ -115,8 +153,8 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
   publicMeta: {
     mode: "free",
     label: "Empire Streets Free",
-    matchStyle: "short",
-    tickRateMs: 5000,
+    matchStyle: "long",
+    tickRateMs: FREE_MODE_TICK_RATE_MS,
     sessionKeyPrefix: "empire:free"
   }
 };

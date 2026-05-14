@@ -18,9 +18,38 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
     throw new Error("Mode config requires a positive maxAllianceSize.");
   }
 
+  const elimination = config.balance.elimination;
+  if (elimination?.enabled) {
+    for (const [key, value] of [
+      ["intervalTicks", elimination.intervalTicks],
+      ["firstEliminationTick", elimination.firstEliminationTick],
+      ["minActivePlayers", elimination.minActivePlayers],
+      ["dangerZoneSize", elimination.dangerZoneSize],
+      ["defeatedDistrictLockTicks", elimination.defeatedDistrictLockTicks]
+    ] as const) {
+      if (value < 0) {
+        throw new Error(`Elimination config requires a non-negative ${key}.`);
+      }
+    }
+
+    if (elimination.intervalTicks <= 0) {
+      throw new Error("Elimination config requires a positive intervalTicks.");
+    }
+  }
+
   const victoryThreshold = config.balance.districtControlVictoryThreshold ?? 1;
   if (victoryThreshold <= 0 || victoryThreshold > 1) {
     throw new Error("Mode config requires districtControlVictoryThreshold between 0 and 1.");
+  }
+
+  for (const [key, value] of [
+    ["minimumVictoryTicks", config.balance.minimumVictoryTicks],
+    ["districtControlHoldTicks", config.balance.districtControlHoldTicks],
+    ["hardTimeoutTicks", config.balance.hardTimeoutTicks]
+  ] as const) {
+    if (value !== undefined && value < 0) {
+      throw new Error(`Mode config requires a non-negative ${key}.`);
+    }
   }
 
   if (!config.technical.storageKeyPrefix) {

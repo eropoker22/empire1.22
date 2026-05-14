@@ -233,7 +233,11 @@ describe("free session balance and anti-snowball simulation", () => {
       balance: {
         maxPlayersPerServer: 20,
         maxAllianceSize: 4,
-        districtControlVictoryThreshold: 0.85,
+        districtControlVictoryThreshold: 0.75,
+        minimumVictoryTicks: 51840,
+        districtControlHoldTicks: 4320,
+        allowDurationVictoryFallback: false,
+        hardTimeoutTicks: 120960,
         cooldownMultiplier: 0.8,
         productionMultiplier: 1.2,
         conflict: {

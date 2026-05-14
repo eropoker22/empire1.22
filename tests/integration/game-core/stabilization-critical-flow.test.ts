@@ -28,14 +28,20 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     expect(warConfig.balance.maxPlayersPerServer).toBe(150);
     expect(freeConfig.balance.maxAllianceSize).toBe(4);
     expect(freeConfig.balance.victoryConditionKey).toBe("fast-control");
-    expect(freeConfig.balance.districtControlVictoryThreshold).toBe(0.85);
+    expect(freeConfig.balance.districtControlVictoryThreshold).toBe(0.75);
+    expect(freeConfig.balance.minimumVictoryTicks).toBe(51840);
+    expect(freeConfig.balance.districtControlHoldTicks).toBe(4320);
+    expect(freeConfig.balance.allowDurationVictoryFallback).toBe(false);
+    expect(freeConfig.balance.hardTimeoutTicks).toBe(120960);
+    expect(freeConfig.balance.dayLengthTicks).toBe(1440);
+    expect(freeConfig.balance.nightLengthTicks).toBe(1440);
     expect(freeConfig.balance.conflict?.minAttackDurationTicks).toBe(36);
     expect(freeConfig.balance.conflict?.attackHeatGain).toBe(8);
     expect(warConfig.balance.victoryConditionKey).toBe("long-war-control");
     expect(warConfig.balance.conflict?.attackHeatGain).toBe(14);
-    expect(freeConfig.technical.sessionTtlMs).toBe(1000 * 60 * 60 * 2);
+    expect(freeConfig.technical.sessionTtlMs).toBe(1000 * 60 * 60 * 24 * 7);
     expect(warConfig.technical.sessionTtlMs).toBe(1000 * 60 * 60 * 24 * 10);
-    expect(freeConfig.technical.gameDurationMs).toBe(1000 * 60 * 60 * 2);
+    expect(freeConfig.technical.gameDurationMs).toBe(1000 * 60 * 60 * 24 * 7);
     expect(warConfig.technical.gameDurationMs).toBe(1000 * 60 * 60 * 24 * 10);
     expect(freeConfig.technical.storageKeyPrefix).toBe("empire:free");
     expect(warConfig.technical.storageKeyPrefix).toBe("empire:war");
@@ -88,7 +94,7 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
   it("tracks heat server-side and flags police raid pressure at threshold", () => {
     const state = createCoreStateFixture();
     const context = {
-      config: resolveModeConfig("free")
+      config: createFreeConfigWithoutDayNight()
     };
 
     state.policeStatesById["police:1"] = {
@@ -158,6 +164,12 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
       ownerPlayerId: "player:1"
     };
     state.root.districtIds.push("district:2");
+    seedDominanceHold(state, {
+      subjectType: "player",
+      subjectId: "player:1",
+      startedAtTick: 51840,
+      currentTick: 56160
+    });
 
     const result = checkVictory(state, context);
 
@@ -173,7 +185,7 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     });
   });
 
-  it("resolves free victory at the configured 85 percent district control threshold", () => {
+  it("resolves free victory at the configured 75 percent district control threshold", () => {
     const state = createCoreStateFixture();
     const context = {
       config: resolveModeConfig("free")
@@ -185,22 +197,28 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
         ...state.districtsById["district:1"],
         id: districtId,
         name: `District ${index}`,
-        ownerPlayerId: index <= 17 ? "player:1" : null
+        ownerPlayerId: index <= 15 ? "player:1" : null
       };
       state.root.districtIds.push(districtId);
     }
+    seedDominanceHold(state, {
+      subjectType: "player",
+      subjectId: "player:1",
+      startedAtTick: 51840,
+      currentTick: 56160
+    });
 
     const result = checkVictory(state, context);
 
     expect(result.resolved).toBe(true);
     expect(result.nextState.victoryState?.progressPayload).toMatchObject({
-      controlledDistrictCount: 17,
+      controlledDistrictCount: 15,
       totalActiveDistrictCount: 20,
-      requiredControlledDistricts: 17
+      requiredControlledDistricts: 15
     });
   });
 
-  it("resolves victory from configured match duration during tick", () => {
+  it("resolves legacy duration victory during tick when duration fallback is enabled", () => {
     const state = createCoreStateFixture();
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
@@ -209,6 +227,10 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     const result = runTick(state, {
       config: {
         ...resolveModeConfig("free"),
+        balance: {
+          ...resolveModeConfig("free").balance,
+          allowDurationVictoryFallback: true
+        },
         technical: {
           ...resolveModeConfig("free").technical,
           gameDurationMs: 1
@@ -256,4 +278,46 @@ const createCoreStateFixtureWithActionBuilding = (buildingTypeId: string) => {
   };
 
   return { state, building };
+};
+
+const seedDominanceHold = (
+  state: ReturnType<typeof createCoreStateFixture>,
+  input: {
+    subjectType: "player" | "alliance";
+    subjectId: string;
+    startedAtTick: number;
+    currentTick: number;
+  }
+) => {
+  state.root.tick = input.currentTick;
+  state.root.victoryStateId = "victory:instance:1";
+  state.victoryState = {
+    id: "victory:instance:1",
+    serverInstanceId: state.serverInstance.id,
+    status: "ongoing",
+    victoryType: "fast-control",
+    leaderPlayerId: input.subjectType === "player" ? input.subjectId : null,
+    leaderAllianceId: input.subjectType === "alliance" ? input.subjectId : null,
+    progressPayload: {
+      leadingSubjectType: input.subjectType,
+      leadingSubjectId: input.subjectId,
+      controlHoldStartedAtTick: input.startedAtTick
+    },
+    resolvedAtTick: null,
+    version: 1
+  };
+};
+
+const createFreeConfigWithoutDayNight = () => {
+  const config = resolveModeConfig("free");
+  return {
+    ...config,
+    balance: {
+      ...config.balance,
+      dayNight: {
+        ...config.balance.dayNight!,
+        enabled: false
+      }
+    }
+  };
 };

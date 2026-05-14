@@ -8,6 +8,7 @@ import { releaseExpiredPoliceConsequences } from "../rules/police/policeConseque
 import { applyPoliceHeatDecay } from "../rules/police/heatDecay";
 import { expirePendingRaids } from "../rules/police/raidLifecycle";
 import { triggerRaid } from "../rules/police/triggerRaid";
+import { runScheduledElimination } from "../rules/elimination/eliminationLifecycle";
 import { checkVictory } from "../rules/victory/checkVictory";
 import { appendCityFeedEvents, appendCityFeedEventsFromCoreEvents } from "../rules/events";
 import { createDayNightTransitionFeedEvent } from "../rules/day-night/dayNight";
@@ -75,8 +76,9 @@ export const runTick = (
   const heatDecayState = applyPoliceHeatDecay(centralBankState, context);
   const lifecycleResult = expirePendingRaids(heatDecayState, context);
   const policeResult = triggerRaid(lifecycleResult.nextState, context);
-  const victoryResult = checkVictory(policeResult.nextState, context);
-  const events = [...processingResult.events, ...streetDealerResult.events, ...lifecycleResult.events, ...policeResult.events];
+  const eliminationResult = runScheduledElimination(policeResult.nextState, context);
+  const victoryResult = checkVictory(eliminationResult.nextState, context);
+  const events = [...processingResult.events, ...streetDealerResult.events, ...lifecycleResult.events, ...policeResult.events, ...eliminationResult.events];
   const feedEvents = createDayNightTransitionFeedEvent(victoryResult.nextState, context, state.root.tick, advancedState.root.tick);
   const feedState = appendCityFeedEventsFromCoreEvents(victoryResult.nextState, events, undefined, context);
 
