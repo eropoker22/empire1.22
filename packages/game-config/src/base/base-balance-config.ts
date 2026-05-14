@@ -2,6 +2,7 @@ import type { BalanceConfig } from "../contracts/balance-config";
 import { baseBuildingActionsConfig } from "./base-building-actions-config";
 import { baseFixedBuildingsConfig } from "./base-fixed-buildings-config";
 import { basePoliceConfig } from "./base-police-config";
+import { createDayNightConfig } from "../public/day-night-config";
 
 /**
  * Responsibility: Neutral default balance values shared by all modes.
@@ -22,6 +23,10 @@ export const baseBalanceConfig: BalanceConfig = {
   expansionSpeedMultiplier: 1,
   dayLengthTicks: 12,
   nightLengthTicks: 12,
+  dayNight: createDayNightConfig({
+    dayDurationTicks: 12,
+    nightDurationTicks: 12
+  }),
   victoryConditionKey: "default-control",
   districtControlVictoryThreshold: 1,
   startingResources: {

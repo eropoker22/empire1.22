@@ -4,6 +4,7 @@ import type { PlayerFactionId } from "../entities/faction";
 import type { PlayerColorHex } from "../entities/player-color";
 import type { PlayerId, ServerInstanceId } from "../ids/entity-id";
 import type { GameModeId } from "../ids/game-mode-id";
+import type { DayNightReadModel } from "./day-night-read-model-view";
 import type { PoliceReadModel } from "./police-read-model-view";
 
 /**
@@ -19,6 +20,7 @@ export interface PlayerView {
   color: PlayerColorHex;
   serverTime: string;
   resourceBalances: Record<string, number>;
+  dayNight?: DayNightReadModel | null;
   police?: PoliceReadModel | null;
   notifications: Notification[];
   victoryState: VictoryState | null;

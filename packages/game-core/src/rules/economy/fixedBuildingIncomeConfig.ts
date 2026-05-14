@@ -26,6 +26,7 @@ import { applyStreetDealersIncomeModifiers } from "../../handlers/streetDealersB
 import { applyStripClubIncomeModifiers } from "../../handlers/stripClubBuildingActions";
 import { applyVipLoungeIncomeModifiers } from "../../handlers/vipLoungeBuildingActions";
 import { applyWarehouseIncomeModifiers } from "../../handlers/warehouseBuilding";
+import { applyDayNightBuildingIncomeModifiers } from "../day-night/dayNight";
 
 interface FixedBuildingIncomeValues {
   cleanPerHour: number;
@@ -253,7 +254,12 @@ export const resolveFixedBuildingIncomeConfig = (input: {
         ...toIncomeModifierInput(lobbyClubConfig)
       })
     : lobbyClubConfig;
-  return courthouseConfig;
+  return applyDayNightBuildingIncomeModifiers({
+    state,
+    context,
+    buildingTypeId: building.buildingTypeId,
+    ...toIncomeModifierInput(courthouseConfig)
+  });
 };
 
 const toIncomeModifierInput = (config: FixedBuildingIncomeValues) => ({

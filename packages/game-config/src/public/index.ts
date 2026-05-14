@@ -1,6 +1,7 @@
 export * from "./building-catalog";
 export * from "./building-definitions";
 export * from "./building-name-variants";
+export * from "./day-night-config";
 export * from "./district-building-sets";
 export * from "./free-mode-airport-config";
 export * from "./free-mode-casino-config";

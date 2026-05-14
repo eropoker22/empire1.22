@@ -59,6 +59,41 @@ export * from "./civic-building-balance-config";
 export * from "./underground-building-balance-config";
 export * from "./infrastructure-building-balance-config";
 
+export type DayNightPhaseId = "day" | "night";
+
+export interface DayNightModifiersConfig {
+  legalIncomeMultiplier?: number;
+  dirtyIncomeMultiplier?: number;
+  productionSpeedMultiplier?: number;
+  legalProductionSpeedMultiplier?: number;
+  illegalProductionSpeedMultiplier?: number;
+  heatGainMultiplier?: number;
+  policePressureMultiplier?: number;
+  raidSeverityMultiplier?: number;
+  heistSuccessChanceModifierPct?: number;
+  heistDetectionChanceModifierPct?: number;
+  rumorGenerationMultiplier?: number;
+  rumorTruthChanceModifierPct?: number;
+  marketVolatilityMultiplier?: number;
+  attackTravelOrPreparationMultiplier?: number;
+}
+
+export interface DayNightPhaseConfig {
+  id: DayNightPhaseId;
+  label: string;
+  durationTicks: number;
+  modifiers: DayNightModifiersConfig;
+  cityFeedMessages: string[];
+  uiThemeHint: DayNightPhaseId;
+  effectSummary: string[];
+}
+
+export interface DayNightBalanceConfig {
+  enabled: boolean;
+  defaultPhase: DayNightPhaseId;
+  phases: Record<DayNightPhaseId, DayNightPhaseConfig>;
+}
+
 /**
  * Responsibility: Core-facing mode configuration contract used by runtime bootstrap.
  * Belongs here: serializable mode knobs grouped for balance and runtime decisions.
@@ -80,6 +115,7 @@ export interface GameModeConfig {
     expansionSpeedMultiplier: number;
     dayLengthTicks: number;
     nightLengthTicks: number;
+    dayNight?: DayNightBalanceConfig;
     victoryConditionKey: string;
     /**
      * Fraction of active districts required for control victory.

@@ -25,6 +25,8 @@ export interface PoliceRaidPreviewConsequences {
   disruptedBuildingIds: string[];
   buildingDisruptionUntilTick?: number | null;
   heatReducedBy: number;
+  courtMitigationPct?: number;
+  courtBuildingsOwned?: number;
   courthouseMitigation?: PoliceRaidMitigationPreview | null;
 }
 

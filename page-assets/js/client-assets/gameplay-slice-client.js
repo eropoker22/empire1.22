@@ -971,7 +971,8 @@ var EmpireGameplaySliceClient = function(exports) {
     instanceId: view.instanceId,
     modeLabel: modeLabelOverride ?? view.mode,
     resourceSummary: formatResourceBalances(view.resourceBalances),
-    notificationCount: view.notifications.length
+    notificationCount: view.notifications.length,
+    dayNight: view.dayNight ?? null
   } : null;
   const formatResourceBalances = (balances) => {
     const parts = Object.entries(balances).filter(([, amount]) => amount > 0);
@@ -1062,7 +1063,17 @@ var EmpireGameplaySliceClient = function(exports) {
     ].join("");
   };
   const renderSidePanelShell = ({ activePanel, contentHtml }) => activePanel ? `<aside class="side-panel-shell" data-panel="${activePanel}">${contentHtml}</aside>` : '<aside class="side-panel-shell" data-panel="none"></aside>';
-  const renderTopBarShell = ({ player }) => player ? `<header data-mode="${player.modeLabel}">Mode: ${player.modeLabel} · Player: ${player.playerId} · Resources: ${player.resourceSummary} · Alerts: ${player.notificationCount}</header>` : '<header data-mode="unknown">Loading player projection...</header>';
+  const renderTopBarShell = ({ player }) => {
+    var _a;
+    return player ? `<header data-mode="${player.modeLabel}" data-city-phase="${((_a = player.dayNight) == null ? void 0 : _a.uiThemeHint) ?? "day"}">Mode: ${player.modeLabel} · Player: ${player.playerId} · Resources: ${player.resourceSummary} · Alerts: ${player.notificationCount}${renderDayNightBadge(player)}</header>` : '<header data-mode="unknown">Loading player projection...</header>';
+  };
+  const renderDayNightBadge = (player) => {
+    const dayNight = player.dayNight;
+    if (!dayNight) return "";
+    const summary = dayNight.effectSummary.slice(0, 2).join(", ");
+    return ` · <span class="day-night-badge" data-city-phase="${dayNight.uiThemeHint}" title="${escapeHtml(summary)}">${escapeHtml(dayNight.label)}: ${escapeHtml(summary)} · ${dayNight.remainingTicks} ticků</span>`;
+  };
+  const escapeHtml = (value) => String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const renderClientShell = (store) => {
     var _a, _b, _c, _d, _e;
     const readModel = store.getReadModel();
@@ -1346,6 +1357,11 @@ var EmpireGameplaySliceClient = function(exports) {
     const mounts = resolveMounts(options.root);
     options.root.hidden = false;
     const render = (state) => {
+      var _a, _b;
+      const phase = (_b = (_a = state.player) == null ? void 0 : _a.dayNight) == null ? void 0 : _b.uiThemeHint;
+      if (phase) {
+        document.body.dataset.cityPhase = phase;
+      }
       mounts.status.innerHTML = renderStatus(state);
       mounts.topBar.innerHTML = state.topBarHtml;
       mounts.map.innerHTML = state.mapHtml;

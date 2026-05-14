@@ -71,6 +71,8 @@ export const createRaidPreviewConsequences = (
     disruptedBuildingIds,
     buildingDisruptionUntilTick,
     heatReducedBy,
+    courtMitigationPct: mitigation.reductionPct,
+    courtBuildingsOwned: mitigation.ownedCount,
     courthouseMitigation: mitigation.reductionPct > 0
       ? {
           source: "courthouse",

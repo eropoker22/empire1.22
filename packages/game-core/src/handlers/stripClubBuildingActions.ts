@@ -1,4 +1,4 @@
-import type { BuildingActionBalanceConfig, FixedBuildingBalanceConfig, LobbyClubBalanceConfig, StripClubBalanceConfig } from "../contracts";
+import type { BuildingActionBalanceConfig, FixedBuildingBalanceConfig, LobbyClubBalanceConfig, ResolvedGameModeConfig, StripClubBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { applyResolvedRumorEventsToState, createPassiveBuildingRumorInput, type ResolveRumorEventInput } from "../rules/events/rumorPipeline";
 
@@ -260,7 +260,8 @@ export const applyStripClubPassiveRumors = (
   state: CoreGameState,
   config: StripClubBalanceConfig,
   tickRateMs: number,
-  lobbyClubConfig?: LobbyClubBalanceConfig
+  lobbyClubConfig?: LobbyClubBalanceConfig,
+  dayNightConfig?: ResolvedGameModeConfig
 ): CoreGameState => {
   const intervalTicks = minutesToTicks(config.passiveRumorIntervalMinutes, tickRateMs);
   let buildingsById = state.buildingsById;
@@ -326,7 +327,7 @@ export const applyStripClubPassiveRumors = (
 
   const metadataState = changed ? { ...state, buildingsById } : state;
   return feedInputs.length > 0
-    ? applyResolvedRumorEventsToState(metadataState, feedInputs, { lobbyClubConfig })
+    ? applyResolvedRumorEventsToState(metadataState, feedInputs, { lobbyClubConfig, config: dayNightConfig })
     : metadataState;
 };
 

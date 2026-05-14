@@ -20,6 +20,8 @@ export interface RaidConsequencesResult {
   disruptedBuildingIds: string[];
   buildingDisruptionUntilTick: number | null;
   heatReducedBy: number;
+  courtMitigationPct: number;
+  courtBuildingsOwned: number;
   courthouseMitigation?: PoliceRaidPreviewConsequences["courthouseMitigation"];
   message: string;
   eventId: string;
@@ -48,6 +50,8 @@ export const applyRaidConsequences = (
     disruptedBuildingIds: [],
     buildingDisruptionUntilTick: null,
     heatReducedBy: 0,
+    courtMitigationPct: 0,
+    courtBuildingsOwned: 0,
     courthouseMitigation: null,
     message: "Police raid had no valid target.",
     eventId
@@ -95,6 +99,8 @@ export const applyRaidConsequences = (
     disruptedBuildingIds: preview.disruptedBuildingIds,
     buildingDisruptionUntilTick: preview.buildingDisruptionUntilTick ?? null,
     heatReducedBy: preview.heatReducedBy,
+    courtMitigationPct: preview.courtMitigationPct ?? 0,
+    courtBuildingsOwned: preview.courtBuildingsOwned ?? 0,
     courthouseMitigation: preview.courthouseMitigation ?? null,
     message: createRaidResultMessage(preview),
     eventId
@@ -144,6 +150,8 @@ const applyResolvedRaidToPoliceState = (
             disruptedBuildingIds: result.disruptedBuildingIds,
             buildingDisruptionUntilTick: result.buildingDisruptionUntilTick,
             heatReducedBy: result.heatReducedBy,
+            courtMitigationPct: result.courtMitigationPct,
+            courtBuildingsOwned: result.courtBuildingsOwned,
             courthouseMitigation: result.courthouseMitigation ?? null
           }
         }
@@ -186,6 +194,8 @@ const createPoliceEvent = (
     disruptedBuildingIds: result.disruptedBuildingIds,
     buildingDisruptionUntilTick: result.buildingDisruptionUntilTick,
     heatReducedBy: result.heatReducedBy,
+    courtMitigationPct: result.courtMitigationPct,
+    courtBuildingsOwned: result.courtBuildingsOwned,
     courthouseMitigation: result.courthouseMitigation ?? null
   }
 });

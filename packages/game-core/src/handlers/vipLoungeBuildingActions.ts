@@ -1,4 +1,4 @@
-import type { FixedBuildingBalanceConfig, LobbyClubBalanceConfig, VipLoungeBalanceConfig } from "../contracts";
+import type { FixedBuildingBalanceConfig, LobbyClubBalanceConfig, ResolvedGameModeConfig, VipLoungeBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { deterministicRollPct, isRecord } from "../utils";
 import { applyResolvedRumorEventsToState, createPassiveBuildingRumorInput, type ResolveRumorEventInput } from "../rules/events/rumorPipeline";
@@ -83,7 +83,8 @@ export const applyVipLoungePassiveRumors = (
   state: CoreGameState,
   config: VipLoungeBalanceConfig,
   tickRateMs: number,
-  lobbyClubConfig?: LobbyClubBalanceConfig
+  lobbyClubConfig?: LobbyClubBalanceConfig,
+  dayNightConfig?: ResolvedGameModeConfig
 ): CoreGameState => {
   let buildingsById = state.buildingsById;
   let changed = false;
@@ -126,7 +127,7 @@ export const applyVipLoungePassiveRumors = (
 
   const metadataState = changed ? { ...state, buildingsById } : state;
   return feedInputs.length > 0
-    ? applyResolvedRumorEventsToState(metadataState, feedInputs, { lobbyClubConfig })
+    ? applyResolvedRumorEventsToState(metadataState, feedInputs, { lobbyClubConfig, config: dayNightConfig })
     : metadataState;
 };
 

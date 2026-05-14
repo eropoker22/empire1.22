@@ -4,6 +4,7 @@ export * from "./combat/combatValidation";
 export * from "./combat/attackDuration";
 export * from "./combat/resolveCombat";
 export * from "./districts/districtRules";
+export * from "./day-night/dayNight";
 export * from "./economy/calculateIncome";
 export * from "./economy/collectIncome";
 export * from "./economy/economyRules";

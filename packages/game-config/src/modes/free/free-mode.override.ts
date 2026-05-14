@@ -28,6 +28,7 @@ import { freeModeStripClubConfig } from "../../public/free-mode-strip-club-confi
 import { freeModeVipLoungeConfig } from "../../public/free-mode-vip-lounge-config";
 import { freeModeWarehouseConfig } from "../../public/free-mode-warehouse-config";
 import { freeModePoliceConfig } from "./free-police-config";
+import { createDayNightConfig } from "../../public/day-night-config";
 
 export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
   mode: "free",
@@ -45,6 +46,10 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
     expansionSpeedMultiplier: 1.3,
     dayLengthTicks: 8,
     nightLengthTicks: 8,
+    dayNight: createDayNightConfig({
+      dayDurationTicks: 240,
+      nightDurationTicks: 240
+    }),
     victoryConditionKey: "fast-control",
     districtControlVictoryThreshold: 0.85,
     police: freeModePoliceConfig,

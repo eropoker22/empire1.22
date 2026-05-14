@@ -1,6 +1,7 @@
 import type { DistrictId, PoliceRiskTier } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";
 import type { GameCoreContext } from "../../engine/context";
+import { getDayNightModifiers } from "../day-night/dayNight";
 import { resolvePoliceConfig } from "./policeConfig";
 
 export interface PlayerPolicePressure {
@@ -26,7 +27,7 @@ export const calculatePlayerPolicePressure = (
     ? state.policeStatesById[player.policeStateId] ?? null
     : Object.values(state.policeStatesById).find((entry) => entry.ownerPlayerId === playerId) ?? null;
   const playerHeat = sanitizeHeat(policeState?.heat);
-  const playerHeatPressure = Math.floor(playerHeat * getPolicePressureMultiplier(context));
+  const playerHeatPressure = Math.floor(playerHeat * getPolicePressureMultiplier(state, context) + 1e-9);
   const ownedDistricts = Object.values(state.districtsById).filter((district) => district.ownerPlayerId === playerId);
   const districtHeatPressure = ownedDistricts.reduce((total, district) => total + sanitizeHeat(district.heat), 0);
   const hottestDistrict = ownedDistricts.reduce<CoreGameState["districtsById"][string] | null>(
@@ -64,8 +65,11 @@ export const resolveRiskTier = (
   return "low";
 };
 
-const getPolicePressureMultiplier = (context?: GameCoreContext): number =>
-  Math.max(0, Number(context?.config.balance.policePressureMultiplier ?? 1));
+const getPolicePressureMultiplier = (state: CoreGameState, context?: GameCoreContext): number => {
+  const baseMultiplier = Math.max(0, Number(context?.config.balance.policePressureMultiplier ?? 1));
+  const dayNightMultiplier = Math.max(0, Number(getDayNightModifiers(state, context).policePressureMultiplier ?? 1));
+  return baseMultiplier * dayNightMultiplier;
+};
 
 const sanitizeHeat = (value: unknown): number => {
   const amount = Number(value || 0);

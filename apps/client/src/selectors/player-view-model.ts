@@ -1,4 +1,5 @@
 import type { PlayerView } from "@empire/shared-types";
+import type { DayNightReadModel } from "@empire/shared-types";
 
 /**
  * Responsibility: Maps server-fed player projections into UI-safe view model fields.
@@ -11,6 +12,7 @@ export interface PlayerViewModel {
   modeLabel: string;
   resourceSummary: string;
   notificationCount: number;
+  dayNight: DayNightReadModel | null;
 }
 
 export const createPlayerViewModel = (
@@ -23,7 +25,8 @@ export const createPlayerViewModel = (
         instanceId: view.instanceId,
         modeLabel: modeLabelOverride ?? view.mode,
         resourceSummary: formatResourceBalances(view.resourceBalances),
-        notificationCount: view.notifications.length
+        notificationCount: view.notifications.length,
+        dayNight: view.dayNight ?? null
       }
     : null;
 

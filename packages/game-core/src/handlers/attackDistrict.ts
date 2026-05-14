@@ -12,6 +12,8 @@ import {
   calculateSmgComboBonus,
   calculateTotalAttackPower,
   calculateTowerAttackReductionPercent,
+  applyDayNightAttackDurationTicks,
+  applyDayNightHeatGain,
   resolveAttackDurationTicks,
   resolveCombat,
   resolveTrap
@@ -142,7 +144,7 @@ export const handleAttackDistrict = (
     effectiveAttackPower,
     effectiveDefensePower,
     trapLosses: trapResolution.losses,
-    heatGain: context.config.balance.conflict?.attackHeatGain ?? 6
+    heatGain: applyDayNightHeatGain(context.config.balance.conflict?.attackHeatGain ?? 6, state, context)
   });
   const attackSucceeded = combatResolution.districtCaptured;
   const battleResult = combatResolution.legacyResult;
@@ -171,14 +173,14 @@ export const handleAttackDistrict = (
   });
   const currentCooldownState = state.cooldownStatesById[attacker.cooldownStateId] ?? createPlayerCooldownState(attacker.id, attacker.cooldownStateId);
   const attackCooldownKey = `attack:${targetDistrict.id}`;
-  const attackDurationTicks = applyCarDealerCooldownReductionTicks({
+  const attackDurationTicks = applyDayNightAttackDurationTicks(applyCarDealerCooldownReductionTicks({
     baseTicks: resolveAttackDurationTicks(context),
     state,
     playerId: attacker.id,
     config: context.config.balance.carDealer,
     garageConfig: context.config.balance.garage,
     category: "attackPreparation"
-  });
+  }), state, context);
   const nextPoliceState = increasePlayerPoliceHeat(state, attacker, escapeMitigation.heatGained, state.root.tick);
   const notificationEntries = createBattleReportNotifications({
     command,

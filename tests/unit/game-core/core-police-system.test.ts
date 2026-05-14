@@ -4,8 +4,10 @@ import {
   applyPoliceHeatDecay,
   calculatePlayerPolicePressure,
   createPoliceReadModel,
+  createRaidPreviewConsequences,
   expirePendingRaids,
   resolveCityHallPoliceMitigation,
+  resolveCourtRaidMitigationPct,
   resolvePendingRaid,
   triggerRaid
 } from "@empire/game-core";
@@ -19,6 +21,10 @@ const createContext = (policeOverride = {}) => {
       ...config,
       balance: {
         ...config.balance,
+        dayNight: {
+          ...config.balance.dayNight!,
+          enabled: false
+        },
         policePressureMultiplier: 1,
         police: {
           ...config.balance.police!,
@@ -68,6 +74,35 @@ const addCityHallOfficialCover = (
     ...state.districtsById["district:1"],
     buildingIds: [...state.districtsById["district:1"].buildingIds, cityHall.id]
   };
+};
+
+const addCourts = (state: ReturnType<typeof createCoreStateFixture>, count: number) => {
+  for (let index = 1; index <= count; index += 1) {
+    const court = createFixedBuildingFixture("court", {
+      id: `building:district-legal:court:${index}`,
+      districtId: "district:legal"
+    });
+    state.buildingsById[court.id] = court;
+  }
+};
+
+const createRaidPreviewState = (courtCount = 0) => {
+  const state = createCoreStateFixture();
+  addPoliceState(state, 150);
+  state.districtsById["district:1"] = {
+    ...state.districtsById["district:1"],
+    heat: 70
+  };
+  state.resourceStatesById["resource:1"] = {
+    ...state.resourceStatesById["resource:1"],
+    balances: {
+      cash: 1000,
+      "dirty-cash": 1000,
+      chemicals: 50
+    }
+  };
+  addCourts(state, courtCount);
+  return state;
 };
 
 describe("core police system completion", () => {
@@ -191,6 +226,88 @@ describe("core police system completion", () => {
     expect(secondResolve.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(780);
   });
 
+  it("does not mitigate raid consequences without Court ownership", () => {
+    const state = createRaidPreviewState(0);
+    const preview = createRaidPreviewConsequences(state, "player:1", "extreme", "district:1", createContext());
+
+    expect(resolveCourtRaidMitigationPct(state, "player:1", createContext().config.balance.courthouse)).toBe(0);
+    expect(preview).toMatchObject({
+      seizedDirtyCash: 220,
+      seizedResources: {
+        chemicals: 5
+      },
+      courtMitigationPct: 0,
+      courtBuildingsOwned: 0,
+      courthouseMitigation: null
+    });
+  });
+
+  it("mitigates raid consequences by 50 percent with one Court", () => {
+    const state = createRaidPreviewState(1);
+    const preview = createRaidPreviewConsequences(state, "player:1", "extreme", "district:1", createContext());
+
+    expect(resolveCourtRaidMitigationPct(state, "player:1", createContext().config.balance.courthouse)).toBe(50);
+    expect(preview).toMatchObject({
+      seizedDirtyCash: 110,
+      seizedResources: {
+        chemicals: 2
+      },
+      courtMitigationPct: 50,
+      courtBuildingsOwned: 1,
+      courthouseMitigation: {
+        ownedCount: 1,
+        reductionPct: 50
+      }
+    });
+    expect(preview.heatReducedBy).toBe(55);
+  });
+
+  it("mitigates raid consequences by 75 percent with two Courts", () => {
+    const state = createRaidPreviewState(2);
+    const preview = createRaidPreviewConsequences(state, "player:1", "extreme", "district:1", createContext());
+
+    expect(resolveCourtRaidMitigationPct(state, "player:1", createContext().config.balance.courthouse)).toBe(75);
+    expect(preview).toMatchObject({
+      seizedDirtyCash: 55,
+      seizedResources: {
+        chemicals: 1
+      },
+      lockdownUntilTick: 6,
+      buildingDisruptionUntilTick: 5,
+      courtMitigationPct: 75,
+      courtBuildingsOwned: 2,
+      courthouseMitigation: {
+        ownedCount: 2,
+        reductionPct: 75
+      }
+    });
+    expect(preview.heatReducedBy).toBe(55);
+  });
+
+  it("caps Court raid mitigation at 75 percent with three Courts", () => {
+    const state = createRaidPreviewState(3);
+    const preview = createRaidPreviewConsequences(state, "player:1", "extreme", "district:1", createContext());
+
+    expect(resolveCourtRaidMitigationPct(state, "player:1", createContext().config.balance.courthouse)).toBe(75);
+    expect(preview).toMatchObject({
+      seizedDirtyCash: 55,
+      seizedResources: {
+        chemicals: 1
+      },
+      courtMitigationPct: 75,
+      courtBuildingsOwned: 3
+    });
+  });
+
+  it("does not change police pressure or risk tier when the player owns Courts", () => {
+    const state = createRaidPreviewState(0);
+    const pressureBefore = calculatePlayerPolicePressure(state, "player:1", createContext());
+    addCourts(state, 2);
+    const pressureAfter = calculatePlayerPolicePressure(state, "player:1", createContext());
+
+    expect(pressureAfter).toEqual(pressureBefore);
+  });
+
   it("mitigates police raid consequences when the player owns courthouses", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 150);
@@ -238,6 +355,10 @@ describe("core police system completion", () => {
         buildingDisruptionTicks: 18
       }
     });
+    expect(raid?.previewConsequences).toMatchObject({
+      courtMitigationPct: 75,
+      courtBuildingsOwned: 2
+    });
     expect(resolved.result).toMatchObject({
       seizedDirtyCash: 55,
       seizedResources: {
@@ -247,6 +368,8 @@ describe("core police system completion", () => {
       disruptedBuildingIds: [targetBuilding.id],
       buildingDisruptionUntilTick: 5,
       heatReducedBy: 55,
+      courtMitigationPct: 75,
+      courtBuildingsOwned: 2,
       courthouseMitigation: {
         reductionPct: 75
       },
@@ -259,6 +382,8 @@ describe("core police system completion", () => {
     });
     expect(resolved.nextState.districtsById["district:1"].lockdownUntilTick).toBe(6);
     expect(resolved.events[0]?.payload).toMatchObject({
+      courtMitigationPct: 75,
+      courtBuildingsOwned: 2,
       courthouseMitigation: {
         reductionPct: 75
       }

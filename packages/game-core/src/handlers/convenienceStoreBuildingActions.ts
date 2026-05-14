@@ -1,4 +1,4 @@
-import type { ConvenienceStoreBalanceConfig, FixedBuildingBalanceConfig, LobbyClubBalanceConfig } from "../contracts";
+import type { ConvenienceStoreBalanceConfig, FixedBuildingBalanceConfig, LobbyClubBalanceConfig, ResolvedGameModeConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { applyResolvedRumorEventsToState, createPassiveBuildingRumorInput, type ResolveRumorEventInput } from "../rules/events/rumorPipeline";
 import { getOwnedLobbyClubCount } from "./lobbyClubBuildingActions";
@@ -124,7 +124,8 @@ export const applyConvenienceStorePassiveRumors = (
   config: ConvenienceStoreBalanceConfig,
   tickRateMs: number,
   restaurantConfig?: { buildingTypeId: "restaurant" },
-  lobbyClubConfig?: LobbyClubBalanceConfig
+  lobbyClubConfig?: LobbyClubBalanceConfig,
+  dayNightConfig?: ResolvedGameModeConfig
 ): CoreGameState => {
   const intervalTicks = minutesToTicks(config.passiveRumorIntervalMinutes, tickRateMs);
   let buildingsById = state.buildingsById;
@@ -171,7 +172,7 @@ export const applyConvenienceStorePassiveRumors = (
 
   const metadataState = changed ? { ...state, buildingsById } : state;
   return feedInputs.length > 0
-    ? applyResolvedRumorEventsToState(metadataState, feedInputs, { lobbyClubConfig })
+    ? applyResolvedRumorEventsToState(metadataState, feedInputs, { lobbyClubConfig, config: dayNightConfig })
     : metadataState;
 };
 

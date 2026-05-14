@@ -1,3 +1,9 @@
+import {
+  applyDayNightHeatGain,
+  applyDayNightHeistDetectionChance,
+  applyDayNightHeistSuccessChance
+} from "../day-night/dayNight";
+
 export type HeistStyleId = "stealth" | "balanced" | "all_in";
 export type HeistOutcome = "clean_success" | "success" | "detected" | "failed" | "trap_triggered";
 export type HeistModeId = "free" | "war";
@@ -425,7 +431,10 @@ export const calculateHeistDetectionChance = (gameState: AnyRecord, heist: Activ
     + policePresence * heistConfig.detection.policePresenceScale
     - attackerStealthBonus;
 
-  return roundRatio(clamp(rawChance, heistConfig.detection.clampMin, heistConfig.detection.clampMax));
+  return roundRatio(applyDayNightHeistDetectionChance({
+    gameState,
+    baseChance: clamp(rawChance, heistConfig.detection.clampMin, heistConfig.detection.clampMax)
+  }));
 };
 
 export const calculateHeistLoot = (
@@ -1296,6 +1305,11 @@ const isDistrictHeistImmune = (district: AnyRecord, now: number): boolean =>
 const rollHeistOutcome = (gameState: AnyRecord, heist: ActiveDistrictHeist): HeistOutcome => {
   const detectionChance = heist.detectionChanceSnapshot || calculateHeistDetectionChance(gameState, heist);
   const roll = clamp(Number.isFinite(heist.detectionRoll) ? Number(heist.detectionRoll) : Math.random(), 0, 1);
+  const cleanSuccessChance = applyDayNightHeistSuccessChance({
+    gameState,
+    baseChance: Math.max(0, 1 - Math.min(0.98, detectionChance + 0.35))
+  });
+  const cleanSuccessThreshold = Math.max(0.02, 1 - cleanSuccessChance);
 
   if (roll < detectionChance * 0.35) {
     return "failed";
@@ -1303,7 +1317,7 @@ const rollHeistOutcome = (gameState: AnyRecord, heist: ActiveDistrictHeist): Hei
   if (roll < detectionChance) {
     return "detected";
   }
-  if (roll > Math.min(0.98, detectionChance + 0.35)) {
+  if (roll > cleanSuccessThreshold) {
     return "clean_success";
   }
   return "success";
@@ -1572,7 +1586,7 @@ const applyOutcomeHeatAndPolice = (
 
 const addHeatToPlayer = (gameState: AnyRecord, playerId: string, amount: number, reason: string): void => {
   const player = findPlayer(gameState, playerId);
-  const safeAmount = safeInteger(amount);
+  const safeAmount = safeInteger(applyDayNightHeatGain(amount, gameState, gameState.config ? { config: gameState.config } : undefined));
   if (!player || safeAmount <= 0) {
     return;
   }

@@ -8,7 +8,9 @@ import type {
   CityFeedVisibility
 } from "@empire/shared-types";
 import type { LobbyClubBalanceConfig } from "../../contracts";
+import type { GameCoreContext } from "../../engine/context";
 import type { CoreGameState } from "../../entities";
+import { applyDayNightRumorTruthChancePct, shouldGenerateDayNightRumor } from "../day-night/dayNight";
 import { deterministicRollPct } from "../../utils/math";
 import { getLobbyClubMetadata, getOwnedLobbyClubs } from "../../handlers/lobbyClubMetadata";
 
@@ -39,6 +41,7 @@ export interface ResolveRumorEventInput {
 }
 
 export interface RumorPipelineContext {
+  config?: GameCoreContext["config"];
   lobbyClubConfig?: LobbyClubBalanceConfig;
   limit?: number;
   seed?: string;
@@ -60,7 +63,8 @@ export const resolveRumorEvent = (
   const sourceSeed = context.seed || `${state.serverInstance.worldSeed}:${sourceEventId}`;
   const trapSuspicion = isTrapSuspicion(input);
   const confirmedHardEvent = input.truthiness === "confirmed" && !trapSuspicion;
-  const truthiness = resolveTruthiness(input, sourceSeed, trapSuspicion, confirmedHardEvent);
+  const truthChancePct = applyDayNightRumorTruthChancePct(input.truthChancePct, state, context.config ? { config: context.config } : undefined);
+  const truthiness = resolveTruthiness({ ...input, truthChancePct }, sourceSeed, trapSuspicion, confirmedHardEvent);
   const intelType = resolveIntelType(input, truthiness, trapSuspicion, confirmedHardEvent);
   const category = trapSuspicion ? "rumor" : input.category || resolveDefaultCategory(sourceType);
   const negative = isNegativeRumor(input, intelType, category);
@@ -79,6 +83,13 @@ export const resolveRumorEvent = (
       return { event: null, suppressed: true, lobbyClubReductionPct };
     }
   }
+  if (!confirmedHardEvent && !shouldGenerateDayNightRumor({
+    state,
+    context: context.config ? { config: context.config } : undefined,
+    sourceKey: sourceEventId
+  })) {
+    return { event: null, suppressed: true, lobbyClubReductionPct };
+  }
 
   const severity = negative && lobbyClubReductionPct > 0
     ? maybeReduceSeverity(input.severity || "low", lobbyClubReductionPct, `${sourceSeed}:lobby-negative-rumor-severity`)
@@ -86,7 +97,7 @@ export const resolveRumorEvent = (
   const payload = sanitizeRumorPayload({
     ...(input.payload ?? {}),
     intelType,
-    truthChancePct: input.truthChancePct,
+    truthChancePct,
     lobbyClubReductionPct: lobbyClubReductionPct || undefined,
     trapSuspicion: trapSuspicion || undefined
   }, trapSuspicion);

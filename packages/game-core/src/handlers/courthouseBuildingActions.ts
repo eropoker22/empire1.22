@@ -1,24 +1,38 @@
 import type { CourthouseBalanceConfig, FixedBuildingBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 
+const COURT_BUILDING_TYPE_ID = "court";
+
 export const getOwnedCourthouses = (
   state: CoreGameState,
   playerId: string | null | undefined,
-  config: CourthouseBalanceConfig
+  config?: CourthouseBalanceConfig
 ): CoreGameState["buildingsById"][string][] => {
   if (!playerId) return [];
+  const buildingTypeId = config?.buildingTypeId ?? COURT_BUILDING_TYPE_ID;
   return Object.values(state.buildingsById).filter((building) =>
     building.ownerPlayerId === playerId &&
     building.status === "active" &&
-    building.buildingTypeId === config.buildingTypeId
+    building.buildingTypeId === buildingTypeId
   );
 };
 
 export const getOwnedCourthouseCount = (
   state: CoreGameState,
   playerId: string | null | undefined,
-  config: CourthouseBalanceConfig
+  config?: CourthouseBalanceConfig
 ): number => getOwnedCourthouses(state, playerId, config).length;
+
+export const resolveCourtRaidMitigationPct = (
+  state: CoreGameState,
+  playerId: string | null | undefined,
+  config?: CourthouseBalanceConfig
+): number => {
+  const ownedCount = getOwnedCourthouseCount(state, playerId, config);
+  if (ownedCount >= 2) return 75;
+  if (ownedCount === 1) return 50;
+  return 0;
+};
 
 export const resolveCourthouseTier = (
   ownedCount: number,
@@ -35,10 +49,9 @@ export const resolveCourthouseRaidMitigation = (input: {
 }): { ownedCount: number; reductionPct: number } => {
   if (!input.config || !input.playerId) return { ownedCount: 0, reductionPct: 0 };
   const ownedCount = getOwnedCourthouseCount(input.state, input.playerId, input.config);
-  const tier = resolveCourthouseTier(ownedCount, input.config);
   return {
     ownedCount,
-    reductionPct: Math.max(0, Math.min(100, tier?.policeRaidConsequencesReductionPct ?? 0))
+    reductionPct: resolveCourtRaidMitigationPct(input.state, input.playerId, input.config)
   };
 };
 

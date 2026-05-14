@@ -1,4 +1,5 @@
 import type { ResolvedGameModeConfig } from "../../contracts/game-mode-config";
+import { createDayNightConfig } from "../../public/day-night-config";
 
 /**
  * Responsibility: War mode override focused on longer pacing and larger coordination windows.
@@ -21,6 +22,10 @@ export const warModeOverride: Partial<ResolvedGameModeConfig> = {
     expansionSpeedMultiplier: 0.85,
     dayLengthTicks: 16,
     nightLengthTicks: 16,
+    dayNight: createDayNightConfig({
+      dayDurationTicks: 960,
+      nightDurationTicks: 960
+    }),
     victoryConditionKey: "long-war-control",
     conflict: {
       spyCooldownTicks: 4,

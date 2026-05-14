@@ -66,6 +66,35 @@
   overflow-wrap: anywhere;
 }
 
+.gameplay-slice-client .day-night-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 24px;
+  padding: 3px 9px;
+  border: 1px solid rgba(0, 245, 255, 0.28);
+  background: rgba(5, 14, 24, 0.72);
+  color: #dffbff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.gameplay-slice-client .day-night-badge[data-city-phase="night"] {
+  border-color: rgba(255, 43, 214, 0.38);
+  background: rgba(20, 6, 26, 0.78);
+  color: #ffe4fb;
+}
+
+body[data-city-phase="day"] .gameplay-slice-client {
+  filter: saturate(1.05) contrast(1.02);
+}
+
+body[data-city-phase="night"] .gameplay-slice-client {
+  filter: saturate(1.18) contrast(1.08) brightness(0.92);
+}
+
 .gameplay-slice-client__error {
   color: #ffb6aa;
 }

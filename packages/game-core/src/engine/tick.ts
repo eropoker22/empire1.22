@@ -9,7 +9,8 @@ import { applyPoliceHeatDecay } from "../rules/police/heatDecay";
 import { expirePendingRaids } from "../rules/police/raidLifecycle";
 import { triggerRaid } from "../rules/police/triggerRaid";
 import { checkVictory } from "../rules/victory/checkVictory";
-import { appendCityFeedEventsFromCoreEvents } from "../rules/events";
+import { appendCityFeedEvents, appendCityFeedEventsFromCoreEvents } from "../rules/events";
+import { createDayNightTransitionFeedEvent } from "../rules/day-night/dayNight";
 import { completeAirportImportsAndCustoms } from "../handlers/airportBuildingActions";
 import { applyCentralBankPassiveInterestAndOversight } from "../handlers/centralBankBuildingActions";
 import { applyCityHallCorruptionScandals } from "../handlers/cityHallBuildingActions";
@@ -76,9 +77,11 @@ export const runTick = (
   const policeResult = triggerRaid(lifecycleResult.nextState, context);
   const victoryResult = checkVictory(policeResult.nextState, context);
   const events = [...processingResult.events, ...streetDealerResult.events, ...lifecycleResult.events, ...policeResult.events];
+  const feedEvents = createDayNightTransitionFeedEvent(victoryResult.nextState, context, state.root.tick, advancedState.root.tick);
+  const feedState = appendCityFeedEventsFromCoreEvents(victoryResult.nextState, events, undefined, context);
 
   return {
-    nextState: appendCityFeedEventsFromCoreEvents(victoryResult.nextState, events, undefined, context),
+    nextState: feedEvents ? appendCityFeedEvents(feedState, [feedEvents], undefined, context) : feedState,
     events
   };
 };

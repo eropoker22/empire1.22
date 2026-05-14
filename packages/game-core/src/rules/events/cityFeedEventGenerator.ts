@@ -38,6 +38,7 @@ export const appendCityFeedEvents = (
   if (events.length <= 0) return state;
   const pipelineContext: RumorPipelineContext = {
     limit,
+    config: context?.config,
     lobbyClubConfig: context?.config.balance.lobbyClub
   };
   const resolvedEvents = events.flatMap((event) => {

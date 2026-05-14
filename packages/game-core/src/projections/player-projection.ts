@@ -1,6 +1,7 @@
 import { DEFAULT_PLAYER_COLOR, type Notification, type PlayerView, type VictoryState } from "@empire/shared-types";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreGameState } from "../entities/game-state";
+import { createDayNightReadModel } from "./day-night-read-model-projection";
 import { createPoliceReadModel } from "./police-read-model-projection";
 
 /**
@@ -28,6 +29,7 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
     color: player?.color ?? DEFAULT_PLAYER_COLOR,
     serverTime: new Date(0).toISOString(),
     resourceBalances,
+    dayNight: context ? createDayNightReadModel(state, context) : null,
     police: createPoliceReadModel(state, playerId, context),
     notifications,
     victoryState

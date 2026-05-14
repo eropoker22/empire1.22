@@ -2,6 +2,7 @@ import type { CoreGameState } from "../../entities";
 import type { GameCoreContext } from "../../engine/context";
 import { composeEntityId } from "../../utils";
 import { resolvePowerStationInfrastructureMultiplier } from "../../handlers/powerStationBuildingActions";
+import { applyDayNightProductionMultiplier } from "../day-night/dayNight";
 
 /**
  * Responsibility: Resolves completed production entries during ticks.
@@ -56,10 +57,16 @@ export const completeProduction = (
           target: productionTarget
         })
       : 1;
-    const producedPerTick = Math.max(
+    const baseProducedPerTick = Math.max(
       0,
       Math.floor(profile.amountPerTick * context.config.balance.productionMultiplier * infrastructureMultiplier)
     );
+    const producedPerTick = Math.max(0, applyDayNightProductionMultiplier({
+      state,
+      context,
+      buildingTypeId: building.buildingTypeId,
+      amountPerTick: baseProducedPerTick
+    }));
     const currentAmount = Math.max(0, Number(currentState.balances[profile.resourceKey] || 0));
     const nextAmount = Math.min(profile.storageCap, currentAmount + producedPerTick * elapsedTicks);
 

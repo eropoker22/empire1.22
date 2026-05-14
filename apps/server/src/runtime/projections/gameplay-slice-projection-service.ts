@@ -29,6 +29,7 @@ export const createGameplaySliceProjection = (
   return {
     mode,
     player,
+    dayNight: player.dayNight ?? null,
     police: player.police ?? null,
     cityFeed: createCityFeedProjection(runtime.state, {
       playerId,

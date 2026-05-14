@@ -51,6 +51,10 @@ export const mountGameplaySlicePage = (
   options.root.hidden = false;
 
   const render = (state: ClientRenderState): void => {
+    const phase = state.player?.dayNight?.uiThemeHint;
+    if (phase) {
+      document.body.dataset.cityPhase = phase;
+    }
     mounts.status.innerHTML = renderStatus(state);
     mounts.topBar.innerHTML = state.topBarHtml;
     mounts.map.innerHTML = state.mapHtml;

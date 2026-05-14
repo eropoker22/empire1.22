@@ -106,16 +106,16 @@ export const collectIncome = (state: CoreGameState, context?: GameCoreContext): 
       })
     : schoolState;
   const stripClubRumorState = context?.config.balance.stripClub
-    ? applyStripClubPassiveRumors(smugglingTunnelState, context.config.balance.stripClub, context.config.tickRateMs, context.config.balance.lobbyClub)
+    ? applyStripClubPassiveRumors(smugglingTunnelState, context.config.balance.stripClub, context.config.tickRateMs, context.config.balance.lobbyClub, context.config)
     : smugglingTunnelState;
   const restaurantRumorState = context?.config.balance.restaurant
-    ? applyRestaurantPassiveRumors(stripClubRumorState, context.config.balance.restaurant, context.config.tickRateMs, context.config.balance.lobbyClub)
+    ? applyRestaurantPassiveRumors(stripClubRumorState, context.config.balance.restaurant, context.config.tickRateMs, context.config.balance.lobbyClub, context.config)
     : stripClubRumorState;
   const convenienceRumorState = context?.config.balance.convenienceStore
-    ? applyConvenienceStorePassiveRumors(restaurantRumorState, context.config.balance.convenienceStore, context.config.tickRateMs, context.config.balance.restaurant, context.config.balance.lobbyClub)
+    ? applyConvenienceStorePassiveRumors(restaurantRumorState, context.config.balance.convenienceStore, context.config.tickRateMs, context.config.balance.restaurant, context.config.balance.lobbyClub, context.config)
     : restaurantRumorState;
   const vipLoungeRumorState = context?.config.balance.vipLounge
-    ? applyVipLoungePassiveRumors(convenienceRumorState, context.config.balance.vipLounge, context.config.tickRateMs, context.config.balance.lobbyClub)
+    ? applyVipLoungePassiveRumors(convenienceRumorState, context.config.balance.vipLounge, context.config.tickRateMs, context.config.balance.lobbyClub, context.config)
     : convenienceRumorState;
   return context?.config.balance.lobbyClub
     ? applyLobbyClubScandalChecks(vipLoungeRumorState, context.config.balance.lobbyClub, context.config.tickRateMs)

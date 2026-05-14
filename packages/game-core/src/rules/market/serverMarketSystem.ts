@@ -16,6 +16,7 @@ import {
   resolvePlayerForMutation,
   resolvePlayerForRead
 } from "./market-state-access";
+import { applyDayNightMarketVolatilityFactor } from "../day-night/dayNight";
 export type MarketResourceId = "metalParts" | "techCore" | "chemicals" | "biomass";
 export type MarketType = "normal" | "black";
 export type MarketPaymentType = "cleanCash" | "dirtyCash";
@@ -357,18 +358,20 @@ export const calculateMarketPrice = (
 
   const mode = state.market.mode;
   const basePrice = getModeBasePrice(resourceId, mode);
-  const demandFactor = getDemandFactor(state, resourceId);
-  const scarcityFactor = getScarcityFactor(state, resourceId);
-  const chaosFactor = getChaosFactor(state);
+  const demandFactor = applyDayNightMarketVolatilityFactor(getDemandFactor(state, resourceId), state);
+  const scarcityFactor = applyDayNightMarketVolatilityFactor(getScarcityFactor(state, resourceId), state);
+  const chaosFactor = applyDayNightMarketVolatilityFactor(getChaosFactor(state), state);
   const inflationFactor = getInflationFactor(state);
-  const eventFactor = getEventPriceFactor(state, resourceId);
+  const eventFactor = applyDayNightMarketVolatilityFactor(getEventPriceFactor(state, resourceId), state);
   const normalRawPrice = basePrice * demandFactor * scarcityFactor * chaosFactor * inflationFactor * eventFactor;
   const normalPrice = clamp(
     normalRawPrice,
     basePrice * resourceConfig.minPriceMultiplier,
     basePrice * resourceConfig.maxPriceMultiplier
   );
-  const marketTypeFactor = marketType === "black" ? getBlackMarketTypeFactor(state, resourceId) : 1;
+  const marketTypeFactor = marketType === "black"
+    ? applyDayNightMarketVolatilityFactor(getBlackMarketTypeFactor(state, resourceId), state)
+    : 1;
   const finalPrice = marketType === "black"
     ? Math.ceil(normalPrice * marketTypeFactor)
     : Math.ceil(normalPrice);

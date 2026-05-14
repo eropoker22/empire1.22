@@ -9,6 +9,7 @@ import { resolveWantedLevel } from "./wantedLevel";
 import { resolvePoliceConfig } from "./policeConfig";
 import { calculatePlayerPolicePressure } from "./policePressure";
 import { resolveCityHallPoliceMitigation, shouldCreateRaidAfterCityHallMitigation } from "./cityHallPoliceMitigation";
+import { getDayNightModifiers } from "../day-night/dayNight";
 import {
   createPendingRaidMessage,
   createRaidReason,
@@ -101,7 +102,10 @@ export const triggerRaid = (
       continue;
     }
 
-    const severity = resolveRaidSeverity(pressure.aggregatePressure, config.extremePressureRaidThreshold);
+    const severityPressure = Math.floor(
+      pressure.aggregatePressure * Math.max(0, Number(getDayNightModifiers(state, context).raidSeverityMultiplier ?? 1)) + 1e-9
+    );
+    const severity = resolveRaidSeverity(severityPressure, config.extremePressureRaidThreshold);
     const targetDistrictId = pressure.hottestDistrictHeat >= Math.max(0, config.districtTargetHeatThreshold)
       ? pressure.hottestDistrictId
       : null;
@@ -195,6 +199,8 @@ export const triggerRaid = (
           ? Math.max(0, previewConsequences.lockdownUntilTick - currentTick)
           : 0,
         heatReduced: previewConsequences.heatReducedBy,
+        courtMitigationPct: previewConsequences.courtMitigationPct ?? 0,
+        courtBuildingsOwned: previewConsequences.courtBuildingsOwned ?? 0,
         cityHallMitigation
       })
     );
