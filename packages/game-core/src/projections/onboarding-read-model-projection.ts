@@ -69,7 +69,11 @@ export const createOnboardingReadModel = (
           ticksUntilNextElimination: elimination.ticksUntilNextElimination,
           dangerZoneCount: elimination.dangerZone.length,
           activePlayersRemaining: elimination.activePlayersRemaining,
-          currentPlayerStatus: elimination.currentPlayerStatus
+          currentPlayerStatus: elimination.currentPlayerStatus,
+          eliminationsStopped: elimination.eliminationsStopped,
+          isQuietHoursNow: elimination.isQuietHoursNow,
+          quietHoursResumeTick: elimination.quietHoursResumeTick,
+          deferredFromTick: elimination.deferredFromTick
         }
       : null,
     winConditionText: WIN_CONDITION_TEXT

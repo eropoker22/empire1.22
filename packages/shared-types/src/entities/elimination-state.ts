@@ -9,7 +9,9 @@ export interface EliminationState {
   id: string;
   serverInstanceId: ServerInstanceId;
   lastEliminationTick: number | null;
+  lastScheduledEliminationTick?: number | null;
   nextEliminationTick: number | null;
+  deferredFromTick?: number | null;
   eliminationCount: number;
   eliminatedPlayerIds: PlayerId[];
   lastEliminatedPlayerId: PlayerId | null;

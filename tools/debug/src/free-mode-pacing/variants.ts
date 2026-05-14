@@ -13,25 +13,21 @@ export const FREE_MODE_PACING_VARIANTS: FreeModePacingVariant[] = [
     catastropheChance: 0.06
   },
   {
-    variantName: "lower-catastrophe",
-    catastropheChance: 0.02
-  },
-  {
-    variantName: "elimination-4h",
+    variantName: "elimination-8h-stop8",
     catastropheChance: 0.02,
-    elimination: createEliminationVariant(2_880)
+    elimination: createEliminationVariant()
   },
   {
-    variantName: "elimination-8h-grace",
+    variantName: "elimination-8h-stop8-lower-catastrophe",
     catastropheChance: 0.02,
-    elimination: createEliminationVariant(5_760)
+    elimination: createEliminationVariant()
   },
   {
-    variantName: "elimination-plus-faster-attacks",
+    variantName: "elimination-8h-stop8-lower-catastrophe-faster-attacks",
     catastropheChance: 0.02,
     attackCooldownTicks: 30,
     minAttackDurationTicks: 30,
-    elimination: createEliminationVariant(5_760)
+    elimination: createEliminationVariant()
   }
 ];
 
@@ -69,6 +65,7 @@ export const applyPacingVariantToConfig = (
     intervalTicks: variant.elimination.eliminationIntervalTicks,
     minActivePlayers: variant.elimination.minActivePlayers,
     dangerZoneSize: variant.elimination.dangerZoneSize,
+    quietHours: { ...variant.elimination.quietHours },
     eliminatedPlayerStatus: "defeated",
     defeatedDistrictPolicy: variant.elimination.defeatedDistrictPolicy,
     defeatedDistrictLockTicks: variant.elimination.eliminationIntervalTicks,
@@ -78,13 +75,20 @@ export const applyPacingVariantToConfig = (
   return config;
 };
 
-function createEliminationVariant(firstEliminationTick: number): FreeModePacingVariant["elimination"] {
+function createEliminationVariant(): FreeModePacingVariant["elimination"] {
   return {
   enabled: true,
-  firstEliminationTick,
+  firstEliminationTick: 5_760,
   eliminationIntervalTicks: 2_880,
-  minActivePlayers: 5,
+  minActivePlayers: 8,
   dangerZoneSize: 3,
+  quietHours: {
+    enabled: true,
+    timeZone: "Europe/Bratislava",
+    startHour: 0,
+    endHour: 6,
+    behavior: "defer_to_window_end"
+  },
   defeatedDistrictPolicy: "neutralize"
   };
 }

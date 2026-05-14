@@ -2,10 +2,9 @@ import type { CoreGameState } from "@empire/game-core";
 
 export type PacingVariantName =
   | "baseline"
-  | "lower-catastrophe"
-  | "elimination-4h"
-  | "elimination-8h-grace"
-  | "elimination-plus-faster-attacks";
+  | "elimination-8h-stop8"
+  | "elimination-8h-stop8-lower-catastrophe"
+  | "elimination-8h-stop8-lower-catastrophe-faster-attacks";
 
 export interface PacingEliminationVariantConfig {
   enabled: true;
@@ -13,6 +12,13 @@ export interface PacingEliminationVariantConfig {
   eliminationIntervalTicks: number;
   minActivePlayers: number;
   dangerZoneSize: number;
+  quietHours: {
+    enabled: true;
+    timeZone: "Europe/Bratislava";
+    startHour: 0;
+    endHour: 6;
+    behavior: "defer_to_window_end";
+  };
   defeatedDistrictPolicy: "neutralize";
 }
 

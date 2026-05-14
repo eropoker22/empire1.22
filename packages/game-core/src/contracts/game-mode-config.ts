@@ -105,12 +105,21 @@ export interface EliminationScoreWeightsConfig {
   recentActivityBonus: number;
 }
 
+export interface EliminationQuietHoursConfig {
+  enabled: boolean;
+  timeZone: string;
+  startHour: number;
+  endHour: number;
+  behavior: "defer_to_window_end";
+}
+
 export interface EliminationBalanceConfig {
   enabled: boolean;
   intervalTicks: number;
   firstEliminationTick: number;
   minActivePlayers: number;
   dangerZoneSize: number;
+  quietHours?: EliminationQuietHoursConfig;
   eliminatedPlayerStatus: "defeated";
   defeatedDistrictPolicy: "neutralize" | "lock" | "transfer_to_city";
   defeatedDistrictLockTicks: number;

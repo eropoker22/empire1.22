@@ -59,8 +59,15 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
       enabled: true,
       intervalTicks: FREE_MODE_ELIMINATION_INTERVAL_TICKS,
       firstEliminationTick: FREE_MODE_FIRST_ELIMINATION_TICKS,
-      minActivePlayers: 5,
+      minActivePlayers: 8,
       dangerZoneSize: 3,
+      quietHours: {
+        enabled: true,
+        timeZone: "Europe/Bratislava",
+        startHour: 0,
+        endHour: 6,
+        behavior: "defer_to_window_end"
+      },
       eliminatedPlayerStatus: "defeated",
       defeatedDistrictPolicy: "neutralize",
       defeatedDistrictLockTicks: FREE_MODE_ELIMINATION_INTERVAL_TICKS,

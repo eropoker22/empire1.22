@@ -27,6 +27,10 @@ export interface OnboardingReadModel {
     dangerZoneCount: number;
     activePlayersRemaining: number;
     currentPlayerStatus: EliminationRiskStatus;
+    eliminationsStopped?: boolean;
+    isQuietHoursNow?: boolean;
+    quietHoursResumeTick?: number | null;
+    deferredFromTick?: number | null;
   } | null;
   winConditionText: string;
 }

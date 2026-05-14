@@ -13,11 +13,26 @@ export interface EliminationDangerZoneEntry {
   isCurrentPlayer: boolean;
 }
 
+export interface EliminationQuietHoursView {
+  enabled: boolean;
+  timeZone: string;
+  startHour: number;
+  endHour: number;
+  behavior: "defer_to_window_end";
+}
+
 export interface EliminationReadModel {
   enabled: boolean;
+  firstEliminationTick: number;
   intervalTicks: number;
+  minActivePlayers: number;
   nextEliminationTick: number | null;
   ticksUntilNextElimination: number | null;
+  eliminationsStopped: boolean;
+  quietHours: EliminationQuietHoursView | null;
+  isQuietHoursNow: boolean;
+  quietHoursResumeTick: number | null;
+  deferredFromTick: number | null;
   eliminatedPlayerIds: PlayerId[];
   activePlayersRemaining: number;
   dangerZone: EliminationDangerZoneEntry[];

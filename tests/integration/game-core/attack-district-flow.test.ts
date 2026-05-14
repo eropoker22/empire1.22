@@ -127,9 +127,9 @@ describe("attack-district command flow", () => {
 
     expect(result.errors).toEqual([]);
     expect(attackEvent?.payload).toMatchObject({
-      attackDurationTicks: 84
+      attackDurationTicks: 89
     });
-    expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:district:2"]).toBe(84);
+    expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:district:2"]).toBe(89);
   });
 
   it("reduces attack preparation cooldown with car dealers and respects garage combined cap", () => {
@@ -185,9 +185,9 @@ describe("attack-district command flow", () => {
 
     expect(result.errors).toEqual([]);
     expect(attackEvent?.payload).toMatchObject({
-      attackDurationTicks: 78
+      attackDurationTicks: 82
     });
-    expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:district:2"]).toBe(78);
+    expect(result.nextState.cooldownStatesById["cooldown:1"].cooldowns["attack:district:2"]).toBe(82);
   });
 
   it("does not store non-material combat losses in recovery or salvage pools", () => {

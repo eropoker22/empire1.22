@@ -41,11 +41,23 @@ export const reassignCapturedDistrictBuildings = (
           [building.id]: {
             ...building,
             ownerPlayerId,
+            status: building.status === "destroyed" ? "destroyed" : "active",
+            metadata: removeEliminationDisableMetadata(building.metadata),
             version: building.version + 1
           }
         }
       : collection;
   }, state.buildingsById);
+
+const removeEliminationDisableMetadata = (
+  metadata: CoreGameState["buildingsById"][string]["metadata"]
+): CoreGameState["buildingsById"][string]["metadata"] => {
+  if (!metadata) return metadata;
+  const remaining = { ...metadata };
+  delete remaining.disabledByEliminationAtTick;
+  delete remaining.defeatedOwnerPlayerId;
+  return remaining;
+};
 
 export const markDestroyedDistrictBuildings = (
   state: CoreGameState,

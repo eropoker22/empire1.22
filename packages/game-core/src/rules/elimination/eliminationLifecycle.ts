@@ -3,8 +3,9 @@ import type { CoreGameState } from "../../entities";
 import { CORE_EVENT_TYPES, createEvent, type CoreEvent } from "../../events";
 import type { GameCoreContext } from "../../engine/context";
 import { compareEliminationScores, createPlayerEliminationScore, type PlayerEliminationScore } from "./eliminationScore";
-import { resolveEliminationConfig } from "./eliminationConfig";
+import { resolveEliminationConfig, resolveQuietHoursResumeTick } from "./eliminationConfig";
 import { appendResolvedCityFeedEvents } from "../events/rumorPipeline";
+import { applyDefeatedDistrictPolicy } from "./eliminationDistrictPolicy";
 
 export interface EliminationResult {
   eliminatedPlayerId: PlayerId;
@@ -25,24 +26,40 @@ export const runScheduledElimination = (
   const currentTick = state.root.tick;
   const stateRecord = state.eliminationState ?? createInitialEliminationState(state, config.firstEliminationTick);
   const scheduledTick = stateRecord.nextEliminationTick ?? config.firstEliminationTick;
-  if (currentTick < scheduledTick || stateRecord.lastEliminationTick === scheduledTick) {
+  if (currentTick < scheduledTick || stateRecord.lastEliminationTick === currentTick) {
     return { nextState: { ...state, eliminationState: stateRecord }, events: [], result: null };
   }
 
   const activePlayerIds = state.root.playerIds.filter((playerId) => state.playersById[playerId]?.status === "active");
   if (activePlayerIds.length <= config.minActivePlayers) {
-    return { nextState: { ...state, eliminationState: stateRecord }, events: [], result: null };
+    return { nextState: { ...state, eliminationState: stopEliminationState(stateRecord) }, events: [], result: null };
   }
+
+  const deferredFromTick = stateRecord.deferredFromTick ?? null;
+  const quietHoursResumeTick = deferredFromTick === null
+    ? resolveQuietHoursResumeTick(state, config, scheduledTick, context.config.tickRateMs)
+    : null;
+  if (quietHoursResumeTick !== null && currentTick < quietHoursResumeTick) {
+    return {
+      nextState: {
+        ...state,
+        eliminationState: deferEliminationState(stateRecord, scheduledTick, quietHoursResumeTick)
+      },
+      events: [],
+      result: null
+    };
+  }
+  const effectiveScheduledTick = deferredFromTick ?? scheduledTick;
 
   const weakest = activePlayerIds
     .map((playerId) => createPlayerEliminationScore(state, playerId, context))
     .sort(compareEliminationScores)[0];
   const finalPlacement = activePlayerIds.length;
-  const nextEliminationTick = scheduledTick + config.intervalTicks;
+  const nextEliminationTick = currentTick + config.intervalTicks;
   const eliminatedPlayer = state.playersById[weakest.playerId];
-  const notification = createEliminationNotification(state, weakest.playerId, scheduledTick);
-  const feedEvent = createEliminationFeedEvent(state, weakest, scheduledTick);
-  const eliminationState = updateEliminationState(stateRecord, weakest.playerId, scheduledTick, nextEliminationTick);
+  const notification = createEliminationNotification(state, weakest.playerId, currentTick);
+  const feedEvent = createEliminationFeedEvent(state, weakest, currentTick);
+  const eliminationState = updateEliminationState(stateRecord, weakest.playerId, currentTick, effectiveScheduledTick, nextEliminationTick);
   const neutralizedState = appendResolvedCityFeedEvents(
     applyDefeatedDistrictPolicy(state, weakest.playerId, config),
     [feedEvent]
@@ -56,7 +73,7 @@ export const runScheduledElimination = (
         status: config.eliminatedPlayerStatus,
         metadata: {
           ...(eliminatedPlayer.metadata ?? {}),
-          eliminatedAtTick: scheduledTick,
+          eliminatedAtTick: currentTick,
           eliminationReason: "scheduled_weakest_player",
           finalPlacement
         },
@@ -78,7 +95,7 @@ export const runScheduledElimination = (
     eliminatedPlayerId: weakest.playerId,
     finalPlacement,
     score: weakest,
-    scheduledTick,
+    scheduledTick: effectiveScheduledTick,
     nextEliminationTick,
     activePlayersRemaining: activePlayerIds.length - 1
   };
@@ -89,7 +106,7 @@ export const runScheduledElimination = (
       createEvent(CORE_EVENT_TYPES.playerEliminated, {
         playerId: weakest.playerId,
         playerName: weakest.playerName,
-        eliminatedAtTick: scheduledTick,
+        eliminatedAtTick: currentTick,
         finalPlacement,
         reason: "scheduled_weakest_player",
         score: weakest.score,
@@ -111,7 +128,9 @@ const createInitialEliminationState = (state: CoreGameState, firstEliminationTic
   id: `${state.serverInstance.id}:elimination`,
   serverInstanceId: state.serverInstance.id,
   lastEliminationTick: null,
+  lastScheduledEliminationTick: null,
   nextEliminationTick: firstEliminationTick,
+  deferredFromTick: null,
   eliminationCount: 0,
   eliminatedPlayerIds: [],
   lastEliminatedPlayerId: null,
@@ -119,75 +138,50 @@ const createInitialEliminationState = (state: CoreGameState, firstEliminationTic
   version: 1
 });
 
+const deferEliminationState = (
+  state: EliminationState,
+  scheduledTick: number,
+  resumeTick: number
+): EliminationState => (
+  state.nextEliminationTick === resumeTick && state.deferredFromTick === scheduledTick
+    ? state
+    : {
+        ...state,
+        nextEliminationTick: resumeTick,
+        deferredFromTick: scheduledTick,
+        lastScheduledEliminationTick: scheduledTick,
+        version: state.version + 1
+      }
+);
+
+const stopEliminationState = (state: EliminationState): EliminationState =>
+  state.nextEliminationTick === null && state.deferredFromTick === null
+    ? state
+    : {
+        ...state,
+        nextEliminationTick: null,
+        deferredFromTick: null,
+        version: state.version + 1
+      };
+
 const updateEliminationState = (
   state: EliminationState,
   playerId: PlayerId,
+  eliminationTick: number,
   scheduledTick: number,
   nextEliminationTick: number
 ): EliminationState => ({
   ...state,
-  lastEliminationTick: scheduledTick,
+  lastEliminationTick: eliminationTick,
+  lastScheduledEliminationTick: scheduledTick,
   nextEliminationTick,
+  deferredFromTick: null,
   eliminationCount: state.eliminationCount + 1,
   eliminatedPlayerIds: [...new Set([...state.eliminatedPlayerIds, playerId])],
   lastEliminatedPlayerId: playerId,
   lastEliminationReason: "scheduled_weakest_player",
   version: state.version + 1
 });
-
-const applyDefeatedDistrictPolicy = (
-  state: CoreGameState,
-  playerId: PlayerId,
-  config: NonNullable<ReturnType<typeof resolveEliminationConfig>>
-): CoreGameState => {
-  const lockUntilTick = config.defeatedDistrictPolicy === "lock"
-    ? state.root.tick + Math.max(0, config.defeatedDistrictLockTicks)
-    : null;
-  return neutralizeDefeatedPlayerDistricts(
-    state,
-    playerId,
-    config.defeatedDistrictPolicy === "lock" ? "locked" : "neutral",
-    lockUntilTick
-  );
-};
-
-const neutralizeDefeatedPlayerDistricts = (
-  state: CoreGameState,
-  playerId: PlayerId,
-  status: CoreGameState["districtsById"][string]["status"],
-  lockdownUntilTick: number | null
-): CoreGameState => {
-  const districtsById = { ...state.districtsById };
-  const buildingsById = { ...state.buildingsById };
-  for (const district of Object.values(state.districtsById)) {
-    if (district.ownerPlayerId !== playerId || district.status === "destroyed") continue;
-    districtsById[district.id] = {
-      ...district,
-      ownerPlayerId: null,
-      controllerAllianceId: null,
-      status,
-      lockdownUntilTick,
-      previousStatusBeforeLockdown: status === "locked" ? district.status : district.previousStatusBeforeLockdown,
-      version: district.version + 1
-    };
-    for (const buildingId of district.buildingIds) {
-      const building = buildingsById[buildingId];
-      if (building?.ownerPlayerId === playerId) {
-        buildingsById[buildingId] = {
-          ...building,
-          status: building.status === "destroyed" ? "destroyed" : "disabled",
-          metadata: {
-            ...(building.metadata ?? {}),
-            disabledByEliminationAtTick: state.root.tick,
-            defeatedOwnerPlayerId: playerId
-          },
-          version: building.version + 1
-        };
-      }
-    }
-  }
-  return { ...state, districtsById, buildingsById };
-};
 
 const createEliminationNotification = (
   state: CoreGameState,

@@ -2,7 +2,12 @@ import type { EliminationReadModel, PlayerId } from "@empire/shared-types";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreGameState } from "../entities";
 import { compareEliminationScores, createPlayerEliminationScore } from "../rules/elimination/eliminationScore";
-import { resolveEliminationConfig, resolveNextEliminationTick } from "../rules/elimination/eliminationConfig";
+import {
+  isTickInEliminationQuietHours,
+  resolveEliminationConfig,
+  resolveNextEliminationTick,
+  resolveQuietHoursResumeTick
+} from "../rules/elimination/eliminationConfig";
 
 export const createEliminationReadModel = (
   state: CoreGameState,
@@ -22,18 +27,30 @@ export const createEliminationReadModel = (
   const currentPlayerIndex = scores.findIndex((score) => score.playerId === playerId);
   const currentScore = currentPlayerIndex >= 0 ? scores[currentPlayerIndex] : null;
   const eliminationsStopped = activePlayerIds.length <= config.minActivePlayers;
-  const nextEliminationTick = eliminationsStopped
+  const rawNextEliminationTick = eliminationsStopped
     ? null
     : state.eliminationState?.nextEliminationTick
       ?? resolveNextEliminationTick(config, state.eliminationState?.lastEliminationTick ?? null);
+  const quietHoursResumeTick = resolveReadModelQuietHoursResumeTick(state, config, rawNextEliminationTick, context);
+  const nextEliminationTick = rawNextEliminationTick === null ? null : quietHoursResumeTick ?? rawNextEliminationTick;
   const ticksUntilNext = nextEliminationTick === null ? null : Math.max(0, nextEliminationTick - state.root.tick);
   const dangerZoneSize = eliminationsStopped ? 0 : Math.max(0, config.dangerZoneSize);
+  const isQuietHoursNow = isTickInEliminationQuietHours(state, config, state.root.tick, context.config.tickRateMs);
 
   return {
     enabled: true,
+    firstEliminationTick: config.firstEliminationTick,
     intervalTicks: config.intervalTicks,
+    minActivePlayers: config.minActivePlayers,
     nextEliminationTick,
     ticksUntilNextElimination: ticksUntilNext,
+    eliminationsStopped,
+    quietHours: config.quietHours ?? null,
+    isQuietHoursNow,
+    quietHoursResumeTick: isQuietHoursNow
+      ? resolveQuietHoursResumeTick(state, config, state.root.tick, context.config.tickRateMs)
+      : quietHoursResumeTick,
+    deferredFromTick: state.eliminationState?.deferredFromTick ?? null,
     eliminatedPlayerIds: state.eliminationState?.eliminatedPlayerIds ?? [],
     activePlayersRemaining: activePlayerIds.length,
     dangerZone: scores.slice(0, dangerZoneSize).map((score, index) => ({
@@ -59,9 +76,16 @@ const createDisabledReadModel = (
   activePlayersRemaining: number
 ): EliminationReadModel => ({
   enabled: false,
+  firstEliminationTick: 0,
   intervalTicks: 0,
+  minActivePlayers: 0,
   nextEliminationTick: null,
   ticksUntilNextElimination: null,
+  eliminationsStopped: false,
+  quietHours: null,
+  isQuietHoursNow: false,
+  quietHoursResumeTick: null,
+  deferredFromTick: state.eliminationState?.deferredFromTick ?? null,
   eliminatedPlayerIds: state.eliminationState?.eliminatedPlayerIds ?? [],
   activePlayersRemaining,
   dangerZone: [],
@@ -71,6 +95,19 @@ const createDisabledReadModel = (
   playerStatus: state.playersById[playerId]?.status ?? null,
   lastElimination: createLastElimination(state)
 });
+
+const resolveReadModelQuietHoursResumeTick = (
+  state: CoreGameState,
+  config: NonNullable<ReturnType<typeof resolveEliminationConfig>>,
+  nextEliminationTick: number | null,
+  context: GameCoreContext
+): number | null => {
+  if (nextEliminationTick === null) return null;
+  if (state.eliminationState?.deferredFromTick !== undefined && state.eliminationState.deferredFromTick !== null) {
+    return nextEliminationTick;
+  }
+  return resolveQuietHoursResumeTick(state, config, nextEliminationTick, context.config.tickRateMs);
+};
 
 const resolveRiskStatus = (
   status: string | null,

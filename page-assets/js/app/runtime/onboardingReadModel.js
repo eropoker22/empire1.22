@@ -180,9 +180,13 @@ function resolveElimination(context = {}) {
   ).trim() || "safe";
 
   const ticksUntilNext = Number(elimination.ticksUntilNextElimination);
-  const nextEliminationLabel = Number.isFinite(ticksUntilNext) && ticksUntilNext >= 0
-    ? `${ticksUntilNext} ticků`
-    : "čeká na serverový timer";
+  const nextEliminationLabel = elimination.eliminationsStopped
+    ? "Eliminace skončily. Posledních 8 hráčů bojuje o město."
+    : elimination.isQuietHoursNow
+      ? "Eliminace jsou pozastavené do 06:00."
+      : Number.isFinite(ticksUntilNext) && ticksUntilNext >= 0
+        ? `${ticksUntilNext} ticků`
+        : "čeká na serverový timer";
   const dangerZoneCount = asArray(elimination.dangerZone).length;
   const dangerZoneLabel = dangerZoneCount > 0
     ? `${dangerZoneCount} hráčů v danger zone`
@@ -193,7 +197,11 @@ function resolveElimination(context = {}) {
     currentPlayerStatus,
     nextEliminationLabel,
     dangerZoneLabel,
-    activePlayersRemaining: Number(elimination.activePlayersRemaining || 0) || null
+    activePlayersRemaining: Number(elimination.activePlayersRemaining || 0) || null,
+    eliminationsStopped: Boolean(elimination.eliminationsStopped),
+    isQuietHoursNow: Boolean(elimination.isQuietHoursNow),
+    quietHoursResumeTick: Number.isFinite(Number(elimination.quietHoursResumeTick)) ? Number(elimination.quietHoursResumeTick) : null,
+    deferredFromTick: Number.isFinite(Number(elimination.deferredFromTick)) ? Number(elimination.deferredFromTick) : null
   };
 }
 
