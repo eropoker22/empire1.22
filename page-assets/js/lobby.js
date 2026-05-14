@@ -71,6 +71,11 @@ const formatLobbyPlayerCount = (value) => new Intl.NumberFormat("cs-CZ")
   .replace(/\u00a0/g, " ");
 
 let lobbyLogoutPrompt = null;
+let isLeavingLobby = false;
+
+function markLeavingLobby() {
+  isLeavingLobby = true;
+}
 
 function promptLobbyLogoutConfirmation() {
   if (lobbyLogoutPrompt) {
@@ -126,6 +131,7 @@ function promptLobbyLogoutConfirmation() {
 
 document.addEventListener("DOMContentLoaded", () => {
   if (!ensureIdentity()) {
+    markLeavingLobby();
     window.location.href = LOGIN_ENTRY_HREF;
     return;
   }
@@ -491,6 +497,7 @@ document.addEventListener("DOMContentLoaded", () => {
       districtId: state.selectedDistrictId
     });
 
+    markLeavingLobby();
     window.location.href = session ? getEntryDestinationHref() : FACTION_ENTRY_HREF;
   };
 
@@ -1277,6 +1284,7 @@ document.addEventListener("DOMContentLoaded", () => {
   detailContinueButton?.addEventListener("click", confirmDetailDistrictSelection);
   lobbyEnterSelectedButton?.addEventListener("click", commitLobbySelection);
   activeServerContinueButton?.addEventListener("click", () => {
+    markLeavingLobby();
     window.location.href = getEntryDestinationHref();
   });
   lobbyOpenSelectedButton?.addEventListener("click", () => {
@@ -1374,10 +1382,23 @@ function installLobbyBackLogoutGuard() {
     return;
   }
 
-  let isLeavingLobby = false;
+  const shouldUseMobileUnloadGuard = window.matchMedia
+    ? window.matchMedia("(pointer: coarse), (hover: none), (max-width: 720px)").matches
+    : false;
 
   window.history.replaceState({ empireLobby: "active" }, "", window.location.href);
   window.history.pushState({ empireLobby: "back-logout" }, "", window.location.href);
+  const beforeUnload = (event) => {
+    if (!shouldUseMobileUnloadGuard || isLeavingLobby) {
+      return;
+    }
+
+    event.preventDefault();
+    event.returnValue = "";
+    return "";
+  };
+
+  window.addEventListener("beforeunload", beforeUnload);
 
   window.addEventListener("popstate", () => {
     if (isLeavingLobby) {
@@ -1390,7 +1411,7 @@ function installLobbyBackLogoutGuard() {
       if (!shouldLogout) {
         return;
       }
-      isLeavingLobby = true;
+      markLeavingLobby();
       clearAuthSession();
       window.location.replace(LOGIN_ENTRY_HREF);
     });
