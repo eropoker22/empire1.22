@@ -9,6 +9,8 @@ import type {
 } from "@empire/shared-types";
 import type { ServerInstanceRuntime } from "../../../../apps/server/src/runtime/instance/server-instance-runtime";
 import { createAttackCommand, createCollectCommand, createSpyCommand } from "./commands";
+import { createActionPolicy } from "./bot-profiles";
+import type { SimulationActionType, SimulationBotProfile } from "./types";
 
 export interface SelectedSimulationAction {
   command: SpyDistrictCommand | AttackDistrictCommand | CollectProductionCommand;
@@ -22,18 +24,39 @@ export const selectSimulationAction = (
   round: number,
   playerIndex: number,
   spiedRoutes: Set<string>,
+  profile: SimulationBotProfile,
   loadView: (districtId: DistrictId) => GameplaySliceView | null
 ): SelectedSimulationAction | null => {
   const views = getOwnedDistrictIds(runtime.state, playerId)
     .map((districtId) => loadView(districtId))
     .filter((view): view is GameplaySliceView => Boolean(view));
-  return findSpyAction(runtime, playerId, views, round, playerIndex, spiedRoutes)
-    ?? findAttackAction(runtime, playerId, views, round, playerIndex)
-    ?? findCollectProductionAction(runtime, playerId, views, round, playerIndex);
+  for (const actionType of createActionPolicy(profile, round, playerIndex)) {
+    const action = findActionByType(runtime, playerId, views, round, playerIndex, spiedRoutes, actionType);
+    if (action) return action;
+  }
+  return null;
 };
 
 const getOwnedDistrictIds = (state: CoreGameState, playerId: PlayerId): DistrictId[] =>
   state.root.districtIds.filter((districtId) => state.districtsById[districtId]?.ownerPlayerId === playerId);
+
+const findActionByType = (
+  runtime: ServerInstanceRuntime,
+  playerId: PlayerId,
+  views: GameplaySliceView[],
+  round: number,
+  playerIndex: number,
+  spiedRoutes: Set<string>,
+  actionType: SimulationActionType
+): SelectedSimulationAction | null => {
+  if (actionType === "attack-district") {
+    return findAttackAction(runtime, playerId, views, round, playerIndex);
+  }
+  if (actionType === "collect-production") {
+    return findCollectProductionAction(runtime, playerId, views, round, playerIndex);
+  }
+  return findSpyAction(runtime, playerId, views, round, playerIndex, spiedRoutes);
+};
 
 const findSpyAction = (
   runtime: ServerInstanceRuntime,

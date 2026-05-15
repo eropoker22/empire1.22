@@ -8,24 +8,52 @@ import type {
   SpyDistrictCommand
 } from "@empire/shared-types";
 import { createInitialSimulationCounters, incrementRecord } from "./metrics";
-import type { SimulationActionType } from "./types";
+import type { SimulationActionType, SimulationBotProfile } from "./types";
 
 export const recordSimulationResponse = (
   response: GameplaySliceResponse,
   counters: ReturnType<typeof createInitialSimulationCounters>,
-  actionType: SimulationActionType
+  actionType: SimulationActionType,
+  profile: SimulationBotProfile
 ): void => {
   counters.actionsAttempted += 1;
   incrementRecord(counters.actionsByType, actionType);
+  incrementRecord(counters.actionsByProfile, profile);
+  incrementNestedRecord(counters.actionsByTypeAndProfile, actionType, profile);
 
   if (response.accepted) {
     counters.actionsAccepted += 1;
     incrementRecord(counters.acceptedActionsByType, actionType);
+    incrementRecord(counters.acceptedActionsByProfile, profile);
     return;
   }
 
   counters.actionsRejected += 1;
   for (const error of response.errors) incrementRecord(counters.errorsByCode, error.code);
+};
+
+export const recordNoValidAction = (
+  counters: ReturnType<typeof createInitialSimulationCounters>,
+  profile: SimulationBotProfile
+): void => {
+  counters.turnsWithoutValidAction += 1;
+  incrementRecord(counters.turnsWithoutValidActionByProfile, profile);
+};
+
+export const recordProfileAssignment = (
+  counters: ReturnType<typeof createInitialSimulationCounters>,
+  profile: SimulationBotProfile
+): void => {
+  incrementRecord(counters.profileAssignmentSummary, profile);
+};
+
+const incrementNestedRecord = (
+  record: Record<string, Record<string, number>>,
+  outerKey: string,
+  innerKey: string
+): void => {
+  record[outerKey] ??= {};
+  incrementRecord(record[outerKey], innerKey);
 };
 
 export const createSpyCommand = (

@@ -283,14 +283,19 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     position: fixed !important;
     inset: 0 !important;
     z-index: 0 !important;
-    display: block !important;
+    display: none !important;
     pointer-events: none !important;
-    opacity: 0.42 !important;
-    background:
-      linear-gradient(rgba(103, 232, 249, 0.026) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(103, 232, 249, 0.02) 1px, transparent 1px),
-      linear-gradient(180deg, transparent, rgba(2, 6, 12, 0.2)) !important;
-    background-size: 72px 72px, 72px 72px, 100% 100% !important;
+    opacity: 1 !important;
+    background: none !important;
+    background-size: auto !important;
+  }
+
+  .game-grid-haze,
+  .game-shell-ambience::before,
+  .game-shell-ambience::after {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
   }
 
   html body.game-body > .game-shell {
@@ -635,20 +640,34 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
 
   .leaderboard-launch-row {
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) 36px !important;
+    grid-template-columns: minmax(0, 1fr) clamp(32px, 10vw, 36px) !important;
+    grid-auto-flow: column !important;
+    grid-auto-columns: auto !important;
     align-items: stretch !important;
+    gap: 6px !important;
     width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
   }
 
   .leaderboard-launch-row #leaderboard-card {
     grid-column: auto !important;
     width: 100% !important;
     min-width: 0 !important;
+    max-width: 100% !important;
+    margin-top: 0 !important;
+    padding-inline: 8px !important;
+    gap: 5px !important;
   }
 
   .leaderboard-launch-row #onboarding-launch-button {
     grid-column: auto !important;
     justify-self: end !important;
+    align-self: stretch !important;
+    width: clamp(32px, 10vw, 36px) !important;
+    min-width: clamp(32px, 10vw, 36px) !important;
+    min-height: 34px !important;
   }
 
   #building-shortcut-grid {

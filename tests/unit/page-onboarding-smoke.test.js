@@ -84,7 +84,7 @@ describe("page onboarding smoke", () => {
     expect(page("faction.html")).toContain('id="structure-grid"');
     expect(page("faction.html")).toContain('id="auth-faction" name="faction" type="hidden" value=""');
     expect(page("faction.html")).not.toContain('class="structure-card is-active"');
-    expect(page("faction.html")).toContain("jedním klepnutím");
+    expect(page("faction.html")).not.toContain("jedním klepnutím");
     expect(page("faction.html")).toContain("Vyber frakci pro tuto válku");
     expect(page("faction.html")).toContain('id="gang-color-grid"');
     expect(page("faction.html")).toContain('id="avatar-grid"');

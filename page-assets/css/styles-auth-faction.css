@@ -836,14 +836,14 @@
 }
 
 .server-detail-modal__btn--join {
-  border: 1px solid rgba(34, 211, 238, 0.66) !important;
+  border: 1px solid rgba(255, 214, 88, 0.58) !important;
   background:
-    linear-gradient(135deg, rgba(8, 145, 178, 0.86), rgba(37, 99, 235, 0.76)),
-    rgba(8, 12, 22, 0.94) !important;
-  color: #ecfeff !important;
+    linear-gradient(90deg, rgba(255, 214, 88, 0.2), rgba(214, 168, 79, 0.08)),
+    rgba(1, 5, 12, 0.82) !important;
+  color: #fff8d6 !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 0 18px rgba(34, 211, 238, 0.26);
+    0 0 20px rgba(255, 214, 88, 0.2),
+    inset 0 0 22px rgba(255, 255, 255, 0.055);
 }
 
 .server-detail-modal__btn:hover:not(:disabled) {
@@ -3137,6 +3137,45 @@ html:has(body.auth-body--faction) {
     padding: 18px;
   }
 
+  .auth-body--faction .brand {
+    justify-content: center;
+    gap: 8px;
+    margin: 0 auto 8px;
+    padding: 4px 0 8px;
+    text-align: left;
+  }
+
+  .auth-body--faction .brand::after {
+    content: none;
+  }
+
+  .auth-body--faction .brand__logo {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    border-radius: 6px;
+    border-color: rgba(34, 211, 238, 0.45);
+    background:
+      url("../../img/logo.jpg") center / cover no-repeat,
+      rgba(10, 15, 24, 0.86);
+    box-shadow: none;
+  }
+
+  .auth-body--faction .brand__name {
+    font-size: 1.04rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+    color: #f3fdff;
+    text-shadow: none;
+  }
+
+  .auth-body--faction .brand__tag {
+    display: none;
+  }
+
   .structure-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3302,23 +3341,6 @@ html:has(body.auth-body--faction) {
   .avatar-arrow:hover {
     transform: none;
     box-shadow: none;
-  }
-}
-
-.faction-mobile-tap-note {
-  display: none;
-  margin: 8px auto 0;
-  max-width: 34ch;
-  color: rgba(232, 240, 252, 0.86);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.35;
-  text-align: center;
-}
-
-@media (max-width: 640px), (hover: none) and (pointer: coarse) {
-  .faction-mobile-tap-note {
-    display: block;
   }
 }
 
@@ -3497,10 +3519,6 @@ html:has(body.auth-body--faction) .matrix-canvas {
     margin: 5px 0 0;
     font-size: clamp(10px, 0.9vw, 12px);
     line-height: 1.38;
-  }
-
-  .auth-body--faction .faction-mobile-tap-note {
-    display: none !important;
   }
 
   .auth-body--faction .structure-grid {

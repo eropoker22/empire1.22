@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { runFreeModeSimulation } from "@empire/tools-debug";
+import {
+  FREE_MODE_SHARED_CITY_SCENARIOS,
+  SIMULATION_BOT_PROFILES,
+  getBotProfileForPlayer,
+  runFreeModeScenarioMatrix,
+  runFreeModeSimulation
+} from "@empire/tools-debug";
+import { selectSimulationAction } from "../../tools/debug/src/free-mode-shared-city-simulation/action-selection";
+import type { GameplaySliceView, PlayerId } from "@empire/shared-types";
+import type { ServerInstanceRuntime } from "../../apps/server/src/runtime/instance/server-instance-runtime";
 
 describe("free-mode shared city simulation harness", () => {
   it("runs a deterministic 20-player shared-city playtest through load, submit, and tick flow", async () => {
@@ -27,6 +36,13 @@ describe("free-mode shared city simulation harness", () => {
     expect(report.activePlayers).toBe(20);
     expect(report.topPlayersByScore.length).toBeGreaterThan(0);
     expect(report.averageHeat).toBeGreaterThanOrEqual(0);
+    expect(report.roundsPlayed).toBe(6);
+    expect(report.perRound).toHaveLength(6);
+    expect(report.final.actionsAccepted).toBe(report.actionsAccepted);
+    expect(report.kpi.hardPassed).toBe(true);
+    expect(report.profileAssignmentSummary.scout).toBe(20);
+    expect(report.actionsByProfile.scout).toBe(report.actionsAttempted);
+    expect(report.acceptedActionsByProfile.scout).toBe(report.actionsAccepted);
   });
 
   it("records rejected actions without crashing the simulation report", async () => {
@@ -42,6 +58,7 @@ describe("free-mode shared city simulation harness", () => {
     expect(result.report.errorsByCode.spy_target_not_found).toBeGreaterThan(0);
     expect(result.report.crashedInstances).toBe(0);
     expect(result.report.connectedMap).toBe(true);
+    expect(result.report.actionsByProfile.scout).toBeGreaterThan(0);
   });
 
   it("returns stable headline metrics for the same deterministic options", async () => {
@@ -56,6 +73,103 @@ describe("free-mode shared city simulation harness", () => {
 
     expect(pickDeterministicMetrics(second.report)).toEqual(pickDeterministicMetrics(first.report));
   });
+
+  it("records per-round deltas against the previous round snapshot", async () => {
+    const result = await runFreeModeSimulation({
+      instanceId: "instance:test:free-shared-city-sim-timeline",
+      playerCount: 8,
+      rounds: 4,
+      ticksPerRound: 3
+    });
+
+    let previousSpyReports = 0;
+    let previousBattleReports = 0;
+    let previousFeedEvents = 0;
+
+    for (const round of result.report.perRound) {
+      expect(round.spyReportsDelta).toBe(round.spyReportsTotal - previousSpyReports);
+      expect(round.battleReportsDelta).toBe(round.battleReportsTotal - previousBattleReports);
+      expect(round.cityFeedEventsDelta).toBe(round.cityFeedEventsTotal - previousFeedEvents);
+      previousSpyReports = round.spyReportsTotal;
+      previousBattleReports = round.battleReportsTotal;
+      previousFeedEvents = round.cityFeedEventsTotal;
+    }
+  });
+
+  it("runs the scenario matrix and evaluates baseline KPI warnings", async () => {
+    const matrix = await getMatrix();
+    const names = matrix.scenarios.map((entry) => entry.scenario.name);
+
+    expect(names).toEqual(FREE_MODE_SHARED_CITY_SCENARIOS.map((scenario) => scenario.name));
+    for (const entry of matrix.scenarios) {
+      expect(entry.report).toBeTruthy();
+      expect(entry.report.connectedMap).toBe(true);
+      expect(entry.report.crashedInstances).toBe(0);
+      expect(entry.report.perRound).toHaveLength(entry.scenario.options.rounds ?? 0);
+    }
+
+    const baseline = matrix.scenarios.find((entry) => entry.scenario.name === "baseline-20p-short")!;
+    expect(baseline.report.playerCount).toBe(20);
+    expect(baseline.report.uniqueHomeDistricts).toBe(20);
+    expect(baseline.report.kpi.hardPassed).toBe(true);
+    expect(baseline.report.kpi.softWarnings.some((warning) => warning.code === "spy-heavy")).toBe(true);
+
+    const mixed = matrix.scenarios.find((entry) => entry.scenario.name === "mixed-factions-20p")!;
+    expect(mixed.scenario.options.factionRotation?.length).toBeGreaterThan(1);
+    expect(mixed.report.playerCount).toBe(20);
+
+    const mixedProfiles = matrix.scenarios.find((entry) => entry.scenario.name === "mixed-profiles-20p")!;
+    expect(mixedProfiles.report.profileAssignmentSummary).toEqual({
+      scout: 4,
+      aggressor: 4,
+      opportunist: 4,
+      economy: 4,
+      balanced: 4
+    });
+    expect(mixedProfiles.report.crashedInstances).toBe(0);
+    expect(mixedProfiles.report.connectedMap).toBe(true);
+  });
+
+  it("returns stable headline metrics for the same deterministic scenario matrix", async () => {
+    const scenarios = ["small-8p", "low-action-pressure"] as const;
+    const first = await runFreeModeScenarioMatrix([...scenarios]);
+    const second = await runFreeModeScenarioMatrix([...scenarios]);
+
+    expect(second.scenarios.map((entry) => pickDeterministicMetrics(entry.report)))
+      .toEqual(first.scenarios.map((entry) => pickDeterministicMetrics(entry.report)));
+  });
+
+  it("selects actions according to deterministic bot profile policies", () => {
+    const runtime = createPolicyRuntime();
+    const loadView = () => createPolicyView();
+    const spiedRoutes = new Set<string>();
+
+    expect(selectSimulationAction(runtime, "player:policy", 1, 0, spiedRoutes, "scout", loadView)?.command.type).toBe("spy-district");
+    expect(selectSimulationAction(runtime, "player:policy", 1, 0, spiedRoutes, "aggressor", loadView)?.command.type).toBe("attack-district");
+    expect(selectSimulationAction(runtime, "player:policy", 1, 0, spiedRoutes, "economy", loadView)?.command.type).toBe("collect-production");
+    expect(selectSimulationAction(runtime, "player:policy", 3, 0, spiedRoutes, "balanced", loadView)?.command.type).toBe("attack-district");
+    expect(selectSimulationAction(runtime, "player:policy", 1, 0, spiedRoutes, "balanced", loadView)?.command.type).toBe("spy-district");
+    expect(selectSimulationAction(runtime, "player:policy", 2, 0, spiedRoutes, "balanced", loadView)?.command.type).toBe("collect-production");
+  });
+
+  it("assigns mixed bot profiles deterministically", () => {
+    const assignments = Array.from({ length: 10 }, (_, index) =>
+      getBotProfileForPlayer(index, { botProfileRotation: [...SIMULATION_BOT_PROFILES] })
+    );
+
+    expect(assignments).toEqual([
+      "scout",
+      "aggressor",
+      "opportunist",
+      "economy",
+      "balanced",
+      "scout",
+      "aggressor",
+      "opportunist",
+      "economy",
+      "balanced"
+    ]);
+  });
 });
 
 const pickDeterministicMetrics = (report: Awaited<ReturnType<typeof runFreeModeSimulation>>["report"]) => ({
@@ -69,5 +183,58 @@ const pickDeterministicMetrics = (report: Awaited<ReturnType<typeof runFreeModeS
   spyReportsCreated: report.spyReportsCreated,
   battleReportsCreated: report.battleReportsCreated,
   cityFeedEventsCreated: report.cityFeedEventsCreated,
-  topPlayersByScore: report.topPlayersByScore
+  topPlayersByScore: report.topPlayersByScore,
+  actionsByProfile: report.actionsByProfile,
+  acceptedActionsByProfile: report.acceptedActionsByProfile,
+  actionsByTypeAndProfile: report.actionsByTypeAndProfile,
+  turnsWithoutValidActionByProfile: report.turnsWithoutValidActionByProfile,
+  profileAssignmentSummary: report.profileAssignmentSummary,
+  roundsPlayed: report.roundsPlayed,
+  perRound: report.perRound.map((round) => ({
+    round: round.round,
+    tickAfterRound: round.tickAfterRound,
+    actionsAttempted: round.actionsAttempted,
+    actionsAccepted: round.actionsAccepted,
+    actionsRejected: round.actionsRejected,
+    spyReportsDelta: round.spyReportsDelta,
+    battleReportsDelta: round.battleReportsDelta,
+    cityFeedEventsDelta: round.cityFeedEventsDelta
+  })),
+  kpi: {
+    hardPassed: report.kpi.hardPassed,
+    softWarnings: report.kpi.softWarnings.map((warning) => warning.code)
+  }
 });
+
+let matrixCache: ReturnType<typeof runFreeModeScenarioMatrix> | null = null;
+
+const getMatrix = () => {
+  matrixCache ??= runFreeModeScenarioMatrix();
+  return matrixCache;
+};
+
+const createPolicyRuntime = (): ServerInstanceRuntime => ({
+  record: { id: "instance:policy" },
+  state: { root: { districtIds: ["district:policy-source"] }, districtsById: { "district:policy-source": { ownerPlayerId: "player:policy" } } }
+} as unknown as ServerInstanceRuntime);
+
+const createPolicyView = (): GameplaySliceView => ({
+  district: {
+    districtId: "district:policy-source",
+    spyTargets: [{ districtId: "district:policy-target", name: "Target", ownerPlayerId: null, status: "active", enabled: true, disabledReason: null }],
+    attackTargets: [{ districtId: "district:policy-target", name: "Target", ownerPlayerId: null, status: "active", enabled: true, disabledReason: null }],
+    slots: [
+      {
+        slotIndex: 0,
+        buildingId: "building:policy-production",
+        buildingTypeId: "factory",
+        status: "active",
+        canBuild: false,
+        production: { resourceKey: "metal-parts", resourceLabel: "Metal parts", storedAmount: 1, storageCap: 10, amountPerTick: 1, canCollect: true, collectDisabledReason: null },
+        processing: null,
+        craftOptions: [],
+        buildOptions: []
+      }
+    ]
+  }
+} as unknown as GameplaySliceView);

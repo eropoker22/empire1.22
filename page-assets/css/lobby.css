@@ -1774,9 +1774,21 @@ body.servers-page .auth-server-card.is-selected {
 }
 
 .server-detail-modal__btn--join {
-  border-color: rgba(255, 43, 214, 0.78) !important;
-  background: linear-gradient(90deg, rgba(255, 43, 214, 0.76), rgba(64, 16, 62, 0.88)) !important;
-  box-shadow: var(--lobby-glow-pink);
+  border-color: rgba(255, 214, 88, 0.58) !important;
+  color: #fff8d6 !important;
+  background:
+    linear-gradient(90deg, rgba(255, 214, 88, 0.2), rgba(214, 168, 79, 0.08)),
+    rgba(1, 5, 12, 0.82) !important;
+  box-shadow:
+    0 0 20px rgba(255, 214, 88, 0.2),
+    inset 0 0 22px rgba(255, 255, 255, 0.055);
+}
+
+.server-detail-modal__btn--join:hover:not(:disabled),
+.server-detail-modal__btn--join:focus-visible:not(:disabled) {
+  box-shadow:
+    0 0 28px rgba(255, 214, 88, 0.68),
+    0 0 72px rgba(214, 168, 79, 0.28);
 }
 
 .lobby-logout-modal[hidden] {

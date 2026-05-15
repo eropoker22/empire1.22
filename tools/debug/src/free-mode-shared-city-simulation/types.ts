@@ -1,6 +1,7 @@
 import type {
   DistrictId,
   PlayerId,
+  PlayerFactionId,
   ServerInstanceId
 } from "@empire/shared-types";
 
@@ -10,6 +11,9 @@ export interface FreeModeSharedCitySimulationOptions {
   ticksPerRound?: number;
   instanceId?: ServerInstanceId;
   includeInvalidProbe?: boolean;
+  factionRotation?: PlayerFactionId[];
+  botProfile?: SimulationBotProfile;
+  botProfileRotation?: SimulationBotProfile[];
 }
 
 export interface FreeModeSharedCitySimulationCounters {
@@ -18,8 +22,13 @@ export interface FreeModeSharedCitySimulationCounters {
   actionsRejected: number;
   actionsByType: Record<string, number>;
   acceptedActionsByType: Record<string, number>;
+  actionsByProfile: Record<string, number>;
+  acceptedActionsByProfile: Record<string, number>;
+  actionsByTypeAndProfile: Record<string, Record<string, number>>;
   errorsByCode: Record<string, number>;
   turnsWithoutValidAction: number;
+  turnsWithoutValidActionByProfile: Record<string, number>;
+  profileAssignmentSummary: Record<string, number>;
 }
 
 export interface FreeModeSharedCitySimulationPlayerScore {
@@ -31,7 +40,7 @@ export interface FreeModeSharedCitySimulationPlayerScore {
   score: number;
 }
 
-export interface FreeModeSharedCitySimulationReport extends FreeModeSharedCitySimulationCounters {
+export interface FreeModeSharedCitySimulationFinalReport extends FreeModeSharedCitySimulationCounters {
   playerCount: number;
   districtCount: number;
   tickCount: number;
@@ -47,6 +56,51 @@ export interface FreeModeSharedCitySimulationReport extends FreeModeSharedCitySi
   topPlayersByScore: FreeModeSharedCitySimulationPlayerScore[];
   uniqueHomeDistricts: number;
   connectedMap: boolean;
+}
+
+export interface FreeModeSharedCitySimulationRoundMetrics extends FreeModeSharedCitySimulationCounters {
+  round: number;
+  tickAfterRound: number;
+  spyReportsTotal: number;
+  battleReportsTotal: number;
+  cityFeedEventsTotal: number;
+  spyReportsDelta: number;
+  battleReportsDelta: number;
+  cityFeedEventsDelta: number;
+  activePlayers: number;
+  eliminatedPlayers: number;
+  averageHeat: number;
+  maxHeat: number;
+}
+
+export interface SimulationKpiHardAssertion {
+  name: string;
+  passed: boolean;
+  actual: number | boolean;
+  expected: string;
+}
+
+export interface SimulationKpiSoftWarning {
+  code: string;
+  message: string;
+  value: number;
+  threshold: number;
+}
+
+export interface SimulationKpiEvaluation {
+  hardPassed: boolean;
+  hardAssertions: SimulationKpiHardAssertion[];
+  softWarnings: SimulationKpiSoftWarning[];
+  actionAcceptanceRate: number;
+  turnsWithoutValidActionRate: number;
+  spyToAttackRatio: number;
+}
+
+export interface FreeModeSharedCitySimulationReport extends FreeModeSharedCitySimulationFinalReport {
+  roundsPlayed: number;
+  perRound: FreeModeSharedCitySimulationRoundMetrics[];
+  final: FreeModeSharedCitySimulationFinalReport;
+  kpi: SimulationKpiEvaluation;
 }
 
 export interface FreeModeSharedCitySimulationStateSummary {
@@ -66,3 +120,27 @@ export interface FreeModeSharedCitySimulationResult {
 }
 
 export type SimulationActionType = "spy-district" | "attack-district" | "collect-production";
+export type SimulationBotProfile = "scout" | "aggressor" | "opportunist" | "economy" | "balanced";
+
+export type FreeModeSharedCityScenarioName =
+  | "baseline-20p-short"
+  | "baseline-20p-longer"
+  | "small-8p"
+  | "high-tick-pressure"
+  | "low-action-pressure"
+  | "mixed-factions-20p"
+  | "mixed-profiles-20p";
+
+export interface FreeModeSharedCityScenario {
+  name: FreeModeSharedCityScenarioName;
+  description: string;
+  options: FreeModeSharedCitySimulationOptions;
+}
+
+export interface FreeModeSharedCityScenarioResult extends FreeModeSharedCitySimulationResult {
+  scenario: FreeModeSharedCityScenario;
+}
+
+export interface FreeModeSharedCityScenarioMatrixResult {
+  scenarios: FreeModeSharedCityScenarioResult[];
+}
