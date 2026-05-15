@@ -1,4 +1,9 @@
-import { createInitialState, createPlayerPoliceState } from "@empire/game-core";
+import {
+  applyFactionStartingPackage,
+  createInitialState,
+  createPlayerPoliceState,
+  normalizeFactionId
+} from "@empire/game-core";
 import { resolveDistrictBuildingTypes, resolveModeConfig } from "@empire/game-config";
 import type {
   Building,
@@ -7,6 +12,7 @@ import type {
   GameModeId,
   LoadGameplaySliceRequest,
   Player,
+  PlayerFactionId,
   ResourceState,
   ServerInstanceId,
   SubmitGameplayCommandRequest
@@ -27,15 +33,10 @@ export interface GameplaySliceSessionRequest {
   serverInstanceId: ServerInstanceId;
   playerId: string;
   districtId: string;
+  factionId?: PlayerFactionId | string | null;
   mode?: GameModeId;
 }
 
-/**
- * Responsibility: Temporary server-side bootstrap for the first HTTP gameplay slice.
- * Belongs here: creating an authoritative process-local instance when persistence
- * has not restored one yet.
- * Does not belong here: client session parsing or long-term storage.
- */
 export const ensureGameplaySliceSession = async (
   instanceManager: ServerInstanceManager,
   request: LoadGameplaySliceRequest | SubmitGameplayCommandRequest,
@@ -82,6 +83,7 @@ const normalizeSessionRequest = (
       serverInstanceId: command.serverInstanceId,
       playerId: command.playerId,
       districtId: request.focusDistrictId,
+      factionId: null,
       mode: command.mode
     };
   }
@@ -89,19 +91,21 @@ const normalizeSessionRequest = (
   return {
     serverInstanceId: request.serverInstanceId,
     playerId: request.playerId,
-    districtId: request.districtId
+    districtId: request.districtId,
+    factionId: request.factionId
   };
 };
 
-const createGameplaySliceSessionState = (request: Required<GameplaySliceSessionRequest>) => {
+const createGameplaySliceSessionState = (request: GameplaySliceSessionRequest & { mode: GameModeId }) => {
   const config = resolveModeConfig(request.mode);
   const state = createInitialState(request.serverInstanceId, request.mode);
+  const factionId = normalizeFactionId(request.factionId, config);
   const districtIds = [
     request.districtId,
     createNeighborDistrictId(request.districtId, 1),
     createNeighborDistrictId(request.districtId, 2)
   ];
-  const player = createPlayer(request);
+  const player = createPlayer(request, factionId);
 
   state.playersById[player.id] = player;
   state.resourceStatesById[player.resourceStateId] = createResourceState(
@@ -148,15 +152,18 @@ const createGameplaySliceSessionState = (request: Required<GameplaySliceSessionR
     });
   });
 
-  return state;
+  return applyFactionStartingPackage(state, player.id, { config });
 };
 
-const createPlayer = (request: Required<GameplaySliceSessionRequest>): Player => ({
+const createPlayer = (
+  request: GameplaySliceSessionRequest & { mode: GameModeId },
+  factionId: PlayerFactionId
+): Player => ({
   id: request.playerId,
   accountId: `account:${request.playerId}`,
   serverInstanceId: request.serverInstanceId,
   name: request.playerId.replace(/^player:/u, "").replace(/[-:]+/gu, " ") || "Street Player",
-  factionId: "mafian",
+  factionId,
   color: "#3b82f6",
   status: "active",
   allianceId: null,
@@ -237,12 +244,4 @@ const createResourceState = (
   ownerType: ResourceState["ownerType"],
   ownerId: string,
   balances: Record<string, number>
-): ResourceState => ({
-  id,
-  ownerType,
-  ownerId,
-  balances: { ...balances },
-  incomeModifiers: {},
-  lastUpdatedTick: 0,
-  version: 1
-});
+): ResourceState => ({ id, ownerType, ownerId, balances: { ...balances }, incomeModifiers: {}, lastUpdatedTick: 0, version: 1 });

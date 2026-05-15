@@ -6,6 +6,11 @@ import {
   getActiveFixedBuildingConfigsForDistrict,
   resolveActiveDistrictEffectModifiers
 } from "./calculateIncome";
+import {
+  applyFactionHeatGain,
+  applyFactionInfluenceGain,
+  getFactionPassiveModifiers
+} from "../factions/factionRules";
 import { resolveFixedBuildingIncomeConfig } from "./fixedBuildingIncomeConfig";
 import { applyArcadeAuditChecks } from "../../handlers/arcadeBuildingActions";
 import { applyApartmentBlockPopulationProduction } from "../../handlers/apartmentBlockBuildingActions";
@@ -157,6 +162,7 @@ const applyFixedBuildingPassivePressure = (
 
     const activeBuildings = getActiveFixedBuildingConfigsForDistrict(state, district, context);
     const modifiers = resolveActiveDistrictEffectModifiers(state, district.id);
+    const factionModifiers = getFactionPassiveModifiers(state, district.ownerPlayerId, context);
     const basePressure = activeBuildings.reduce(
       (totals, { building, config }) => {
         const resolvedConfig = resolveFixedBuildingIncomeConfig({
@@ -173,8 +179,14 @@ const applyFixedBuildingPassivePressure = (
       },
       { heatPerDay: 0, influencePerDay: 0 }
     );
-    const heatPerDay = basePressure.heatPerDay * modifiers.heatMultiplier + modifiers.heatPerDay;
-    const influencePerDay = basePressure.influencePerDay * modifiers.influenceMultiplier + modifiers.influencePerDay;
+    const heatPerDay = applyFactionHeatGain(
+      basePressure.heatPerDay * modifiers.heatMultiplier + modifiers.heatPerDay,
+      factionModifiers
+    );
+    const influencePerDay = applyFactionInfluenceGain(
+      basePressure.influencePerDay * modifiers.influenceMultiplier + modifiers.influencePerDay,
+      factionModifiers
+    );
     const heatDelta = resolvePerTick(heatPerDay, ticksPerDay);
     const influenceDelta = resolvePerTick(influencePerDay, ticksPerDay);
 

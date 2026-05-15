@@ -1,4 +1,5 @@
 import type { CoreGameState } from "@empire/game-core";
+import type { FactionPacingMetrics } from "./factionMetrics";
 
 export type PacingVariantName =
   | "baseline"
@@ -79,6 +80,7 @@ export interface PacingSnapshot {
   averageDistrictHeat: number;
   averagePlayerCash: number;
   averagePlayerDirtyCash: number;
+  factionMetrics: FactionPacingMetrics;
   totalAttacks: number;
   successfulAttacks: number;
   failedAttacks: number;
@@ -132,6 +134,7 @@ export interface PacingSimulationResult {
 
 export interface PacingVariantSuiteResult {
   results: PacingSimulationResult[];
+  factionWinRate: Record<string, number>;
 }
 
 export const createInitialPacingMetrics = (): PacingMetrics => ({

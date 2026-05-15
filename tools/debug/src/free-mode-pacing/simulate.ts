@@ -9,6 +9,7 @@ import {
 } from "./report";
 import { createFreeModePacingState } from "./state";
 import { applyPacingVariantToConfig, FREE_MODE_PACING_VARIANTS, resolveFreeModePacingVariant } from "./variants";
+import { createFactionWinRate } from "./factionMetrics";
 import { recordEliminationTimelineEntries } from "./timeline";
 import {
   createInitialPacingMetrics,
@@ -101,13 +102,16 @@ export const runFreeModePacingVariantSuite = (
     ? [options.variant ?? resolveFreeModePacingVariant(options.variantName ?? "baseline")]
     : FREE_MODE_PACING_VARIANTS;
 
+  const results = variants.map((variant) =>
+    runFreeModePacingSimulation({
+      ...options,
+      variant,
+      variantName: undefined
+    })
+  );
+
   return {
-    results: variants.map((variant) =>
-      runFreeModePacingSimulation({
-        ...options,
-        variant,
-        variantName: undefined
-      })
-    )
+    results,
+    factionWinRate: createFactionWinRate(results.map((result) => result.finalState))
   };
 };

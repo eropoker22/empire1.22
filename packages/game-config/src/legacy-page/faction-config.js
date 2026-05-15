@@ -1,21 +1,134 @@
-export const FACTION_WEAPON_PRESETS = {
-  mafian: { "baseball-bat": 2, pistol: 12, grenade: 1, smg: 0, bazooka: 0, vest: 1, barricades: 2, cameras: 1, "defense-tower": 0, alarm: 1 },
-  kartel: { "baseball-bat": 1, pistol: 10, grenade: 2, smg: 3, bazooka: 0, vest: 0, barricades: 1, cameras: 1, "defense-tower": 0, alarm: 0 },
-  kult: { "baseball-bat": 18, pistol: 8, grenade: 0, smg: 0, bazooka: 0, vest: 1, barricades: 1, cameras: 0, "defense-tower": 0, alarm: 0 },
-  "tajna-organizace": { "baseball-bat": 0, pistol: 9, grenade: 1, smg: 1, bazooka: 0, vest: 1, barricades: 0, cameras: 3, "defense-tower": 0, alarm: 2 },
-  hackeri: { "baseball-bat": 0, pistol: 6, grenade: 0, smg: 0, bazooka: 0, vest: 0, barricades: 0, cameras: 4, "defense-tower": 0, alarm: 3 },
-  "motorkarsky-gang": { "baseball-bat": 5, pistol: 14, grenade: 2, smg: 1, bazooka: 0, vest: 1, barricades: 1, cameras: 0, "defense-tower": 0, alarm: 0 },
-  "soukroma-armada": { "baseball-bat": 1, pistol: 16, grenade: 2, smg: 4, bazooka: 1, vest: 4, barricades: 3, cameras: 2, "defense-tower": 1, alarm: 2 },
-  korporace: { "baseball-bat": 0, pistol: 8, grenade: 0, smg: 0, bazooka: 0, vest: 2, barricades: 1, cameras: 3, "defense-tower": 0, alarm: 4 }
-};
+// Compatibility bridge for legacy static pages.
+// Authoritative gameplay faction balance lives in packages/game-config/src/public/faction-definitions.ts.
 
-export const FACTION_CATALOG = {
-  mafian: { id: "mafian", name: "Mafián", tagline: "Stará škola vydírání a vlivu.", description: "Silný ekonomický start, tlak na ochranu a kontrolu lokálního trhu.", startingPackage: { cleanMoney: 140000, dirtyMoney: 60000, influence: 220, heat: 30 }, advantages: ["Vyšší čistý kapitál", "Lepší income z legálních krytí", "Nižší heat decay penalizace"], disadvantages: ["Pomalejší expanze do street výroby", "Slabší kyber obrana"] },
-  kartel: { id: "kartel", name: "Kartel", tagline: "Výroba, logistika a tvrdé cashflow.", description: "Rychlý dirty-money start a silný tlak na produkci a distribuci.", startingPackage: { cleanMoney: 70000, dirtyMoney: 135000, influence: 180, heat: 55 }, advantages: ["Vyšší špinavé peníze", "Levnější produkce", "Silnější drug lab start"], disadvantages: ["Vyšší základní heat", "Slabší alliance důvěra"] },
-  kult: { id: "kult", name: "Kult", tagline: "Fanatická disciplína a tichý nátlak.", description: "Vyšší pasivní vliv a lepší kontrola efektů, ale slabší ekonomika.", startingPackage: { cleanMoney: 50000, dirtyMoney: 45000, influence: 320, heat: 20 }, advantages: ["Vyšší startovní vliv", "Silnější efektové bonusy", "Nižší upkeep členů"], disadvantages: ["Méně peněz", "Slabší palebná síla na startu"] },
-  "tajna-organizace": { id: "tajna-organizace", name: "Tajná organizace", tagline: "Skrytá síť kontaktů a infiltrace.", description: "Silná infiltrace a nižší viditelnost, ale pomalejší otevřená produkce.", startingPackage: { cleanMoney: 80000, dirtyMoney: 70000, influence: 160, heat: 10 }, advantages: ["Nižší heat generace", "Silnější spy utility", "Lepší informační kontrola"], disadvantages: ["Méně veřejného vlivu", "Pomalejší industriální růst"] },
-  hackeri: { id: "hackeri", name: "Hackeři", tagline: "Data, sabotáže a asymetrická válka.", description: "Výborná kontrola informací a rychlý technologický start.", startingPackage: { cleanMoney: 65000, dirtyMoney: 50000, influence: 240, heat: 18 }, advantages: ["Silnější digitální utility", "Vyšší bonus na průzkum", "Rychlejší event reakce"], disadvantages: ["Slabší fyzická obrana", "Nižší startovní výzbroj"] },
-  "motorkarsky-gang": { id: "motorkarsky-gang", name: "Motorkářský gang", tagline: "Mobilita, nájezdy a rychlý tlak.", description: "Agresivní start s dobrým raid tlakem a mobilitou.", startingPackage: { cleanMoney: 60000, dirtyMoney: 80000, influence: 140, heat: 45 }, advantages: ["Vyšší raid tempo", "Lepší mobilita", "Silný early combat"], disadvantages: ["Horší ekonomická stabilita", "Vyšší ztráty při delším konfliktu"] },
-  "soukroma-armada": { id: "soukroma-armada", name: "Soukromá armáda", tagline: "Disciplína, výzbroj a tvrdá kontrola.", description: "Nejlepší bojový start a obrana, vykoupené vyšší cenou a heatem.", startingPackage: { cleanMoney: 90000, dirtyMoney: 50000, influence: 170, heat: 60 }, advantages: ["Silná výzbroj", "Vyšší obrana districtů", "Lepší raid protection"], disadvantages: ["Vysoký upkeep", "Vyšší viditelnost pro policii"] },
-  korporace: { id: "korporace", name: "Korporace", tagline: "Kapitál, legal cover a měkká moc.", description: "Stabilní ekonomika a silné krytí, ale pomalejší underground expanze.", startingPackage: { cleanMoney: 180000, dirtyMoney: 25000, influence: 260, heat: 12 }, advantages: ["Nejvyšší čistý cash start", "Silné legální krytí", "Vyšší diplomacy bias"], disadvantages: ["Slabší dirty pipeline", "Pomalejší bojový náběh"] }
-};
+const BASE_PREVIEW_START = Object.freeze({
+  cleanMoney: 1500,
+  dirtyMoney: 300
+});
+
+export const FACTION_WEAPON_PRESETS = Object.freeze({
+  mafian: { pistol: 1 },
+  kartel: { pistol: 1 },
+  kult: { barricades: 1 },
+  "tajna-organizace": { cameras: 1 },
+  hackeri: { cameras: 1 },
+  "motorkarsky-gang": { "baseball-bat": 2, pistol: 1 },
+  "soukroma-armada": { pistol: 2, vest: 1, barricades: 1 },
+  korporace: {}
+});
+
+export const FACTION_CATALOG = Object.freeze({
+  mafian: createFactionCatalogEntry({
+    id: "mafian",
+    name: "Mafián",
+    tagline: "Staré peníze, staré krytí.",
+    description: "Stabilní ekonomika, výpalné a vliv na správných dveřích.",
+    cashBonus: 250,
+    dirtyBonus: 40,
+    influence: 6,
+    heat: 0,
+    advantages: ["Clean income +10 %", "Heat gain -4 %", "Legální budovy drží tempo"],
+    disadvantages: ["Slabší tech", "Slabší špehování"]
+  }),
+  kartel: createFactionCatalogEntry({
+    id: "kartel",
+    name: "Kartel",
+    tagline: "Rychlá špína, rychlý problém.",
+    description: "Dirty cash, drogy a pašování, které přitahují heat.",
+    cashBonus: 100,
+    dirtyBonus: 180,
+    influence: 0,
+    heat: 3,
+    advantages: ["Dirty income +15 %", "Illegal production +10 %", "Rychlé cashflow"],
+    disadvantages: ["Heat gain +8 %", "Větší policejní tlak"]
+  }),
+  kult: createFactionCatalogEntry({
+    id: "kult",
+    name: "Kult",
+    tagline: "Víra je munice.",
+    description: "Fanatismus, influence a tvrdé držení districtů.",
+    cashBonus: 80,
+    dirtyBonus: 60,
+    influence: 14,
+    heat: 0,
+    advantages: ["Influence +15 %", "Defense +5 %", "Lepší držení území"],
+    disadvantages: ["Clean income -5 %", "Pomalejší cash start"]
+  }),
+  "tajna-organizace": createFactionCatalogEntry({
+    id: "tajna-organizace",
+    name: "Tajná organizace",
+    tagline: "Nevidíš je. To je pointa.",
+    description: "Špehování, infiltrace a menší stopa v policejních systémech.",
+    cashBonus: 150,
+    dirtyBonus: 70,
+    influence: 0,
+    heat: 0,
+    advantages: ["Spy +10 p. b.", "Heat gain -8 %", "Lepší informace"],
+    disadvantages: ["Attack power -5 %", "Menší hrubá síla"]
+  }),
+  hackeri: createFactionCatalogEntry({
+    id: "hackeri",
+    name: "Hackeři",
+    tagline: "Město je jen špatně zamčený terminál.",
+    description: "Data, sabotage, market intel a asymetrická válka.",
+    cashBonus: 120,
+    dirtyBonus: 60,
+    influence: 0,
+    heat: 0,
+    advantages: ["Tech production +10 %", "Spy/intel +8 p. b.", "Market výhoda"],
+    disadvantages: ["Defense -5 %", "Slabší fyzická obrana"]
+  }),
+  "motorkarsky-gang": createFactionCatalogEntry({
+    id: "motorkarsky-gang",
+    name: "Motorkářský gang",
+    tagline: "Rychle dovnitř. Rychle ven.",
+    description: "Mobilita, early aggression a špinavé malé výhody.",
+    cashBonus: 80,
+    dirtyBonus: 140,
+    influence: 0,
+    heat: 2,
+    advantages: ["Attack duration -8 %", "Dirty income +5 %", "Rychlé tempo"],
+    disadvantages: ["Defense -5 %", "Horší dlouhá stabilita"]
+  }),
+  "soukroma-armada": createFactionCatalogEntry({
+    id: "soukroma-armada",
+    name: "Soukromá armáda",
+    tagline: "Když diplomacie krvácí, přijde kontrakt.",
+    description: "Combat, obrana, vybavení a tvrdé držení mapy.",
+    cashBonus: 100,
+    dirtyBonus: 50,
+    influence: 0,
+    heat: 3,
+    advantages: ["Attack +5 %", "Defense +10 %", "Menší ztráty vybavení"],
+    disadvantages: ["Heat gain +5 %", "Vyšší provozní tlak"]
+  }),
+  korporace: createFactionCatalogEntry({
+    id: "korporace",
+    name: "Korporace",
+    tagline: "Legální zločin je pořád zločin.",
+    description: "Finance, downtown páky a čisté cashflow s úsměvem v obleku.",
+    cashBonus: 300,
+    dirtyBonus: 0,
+    influence: 5,
+    heat: 0,
+    advantages: ["Clean income +15 %", "Market fee -10 %", "Downtown finance synergy"],
+    disadvantages: ["Dirty income -8 %", "Pomalejší early combat"]
+  })
+});
+
+function createFactionCatalogEntry(input) {
+  return Object.freeze({
+    id: input.id,
+    name: input.name,
+    tagline: input.tagline,
+    description: input.description,
+    startingPackage: {
+      cleanMoney: BASE_PREVIEW_START.cleanMoney + input.cashBonus,
+      dirtyMoney: BASE_PREVIEW_START.dirtyMoney + input.dirtyBonus,
+      influence: input.influence,
+      heat: input.heat
+    },
+    advantages: input.advantages,
+    disadvantages: input.disadvantages
+  });
+}

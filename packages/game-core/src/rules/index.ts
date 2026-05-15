@@ -10,6 +10,7 @@ export * from "./economy/collectIncome";
 export * from "./economy/economyRules";
 export * from "./elimination";
 export * from "./events";
+export * from "./factions/factionRules";
 export * from "./heists";
 export * from "./market";
 export * from "./police/evaluatePolicePressure";

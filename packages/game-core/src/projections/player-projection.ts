@@ -3,6 +3,7 @@ import type { GameCoreContext } from "../engine/context";
 import type { CoreGameState } from "../entities/game-state";
 import { createDayNightReadModel } from "./day-night-read-model-projection";
 import { createEliminationReadModel } from "./elimination-read-model-projection";
+import { createFactionReadModel } from "./faction-read-model-projection";
 import { createPoliceReadModel } from "./police-read-model-projection";
 
 /**
@@ -30,6 +31,7 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
     color: player?.color ?? DEFAULT_PLAYER_COLOR,
     serverTime: new Date(0).toISOString(),
     resourceBalances,
+    faction: createFactionReadModel(state, playerId, context),
     dayNight: context ? createDayNightReadModel(state, context) : null,
     elimination: createEliminationReadModel(state, playerId, context),
     police: createPoliceReadModel(state, playerId, context),

@@ -3,6 +3,7 @@ export * from "./building-definitions";
 export * from "./building-name-variants";
 export * from "./day-night-config";
 export * from "./district-building-sets";
+export * from "./faction-definitions";
 export * from "./free-mode-airport-config";
 export * from "./free-mode-casino-config";
 export * from "./free-mode-car-dealer-config";

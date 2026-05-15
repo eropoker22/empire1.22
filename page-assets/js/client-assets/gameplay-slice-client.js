@@ -1157,7 +1157,8 @@ var EmpireGameplaySliceClient = function(exports) {
       return {
         serverInstanceId: playerView.instanceId,
         playerId: playerView.playerId,
-        districtId
+        districtId,
+        factionId: playerView.factionId
       };
     };
     return createClientAppShell({
@@ -1279,23 +1280,27 @@ var EmpireGameplaySliceClient = function(exports) {
     const serverId = normalizeToken(registration == null ? void 0 : registration.serverId);
     const districtId = normalizeDistrictId(registration == null ? void 0 : registration.startDistrictId);
     const playerId = normalizePlayerId((registration == null ? void 0 : registration.identity) || (registration == null ? void 0 : registration.gangName));
+    const factionId = normalizeFactionId((registration == null ? void 0 : registration.factionId) || (registration == null ? void 0 : registration.selectedFaction));
     if (!serverId || !districtId || !playerId) {
       return null;
     }
     return {
       serverInstanceId: `instance:${serverId}`,
       playerId,
-      districtId
+      districtId,
+      factionId
     };
   };
   const createExplicitRequest = (dataset) => {
     const serverInstanceId = normalizeToken(dataset.serverInstanceId);
     const playerId = normalizeToken(dataset.playerId);
     const districtId = normalizeDistrictId(dataset.districtId);
+    const factionId = normalizeFactionId(dataset.factionId);
     return serverInstanceId && playerId && districtId ? {
       serverInstanceId,
       playerId,
-      districtId
+      districtId,
+      factionId
     } : null;
   };
   const readLegacySession = (storage, storageKey = DEFAULT_SESSION_STORAGE_KEY) => {
@@ -1338,6 +1343,10 @@ var EmpireGameplaySliceClient = function(exports) {
     }
     const slug = raw.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "");
     return slug ? `player:${slug}` : null;
+  };
+  const normalizeFactionId = (value) => {
+    const normalized = String(value ?? "").trim().toLowerCase();
+    return normalized.length > 0 ? normalized : null;
   };
   const DEFAULT_ENDPOINT_BASE = "/api/gameplay-slice";
   const mountGameplaySlicePage = (options) => {

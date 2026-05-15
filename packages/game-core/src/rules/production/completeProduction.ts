@@ -3,6 +3,10 @@ import type { GameCoreContext } from "../../engine/context";
 import { composeEntityId } from "../../utils";
 import { resolvePowerStationInfrastructureMultiplier } from "../../handlers/powerStationBuildingActions";
 import { applyDayNightProductionMultiplier } from "../day-night/dayNight";
+import {
+  getFactionPassiveModifiers,
+  resolveFactionProductionMultiplier
+} from "../factions/factionRules";
 
 /**
  * Responsibility: Resolves completed production entries during ticks.
@@ -48,6 +52,11 @@ export const completeProduction = (
     }
 
     const productionTarget = building.buildingTypeId === "factory" ? "factoryProductionSpeed" : null;
+    const factionProductionMultiplier = resolveFactionProductionMultiplier(
+      profile.resourceKey,
+      building.buildingTypeId,
+      getFactionPassiveModifiers(state, building.ownerPlayerId, context)
+    );
     const infrastructureMultiplier = productionTarget
       ? resolvePowerStationInfrastructureMultiplier({
           state,
@@ -59,7 +68,12 @@ export const completeProduction = (
       : 1;
     const baseProducedPerTick = Math.max(
       0,
-      Math.floor(profile.amountPerTick * context.config.balance.productionMultiplier * infrastructureMultiplier)
+      Math.floor(
+        profile.amountPerTick
+          * context.config.balance.productionMultiplier
+          * infrastructureMultiplier
+          * factionProductionMultiplier
+      )
     );
     const producedPerTick = Math.max(0, applyDayNightProductionMultiplier({
       state,

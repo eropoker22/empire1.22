@@ -1,4 +1,5 @@
 import {
+  applyFactionStartingPackage,
   createInitialState,
   type CoreGameState,
   type ResolvedGameModeConfig
@@ -9,19 +10,11 @@ import {
   type Alliance,
   type Building,
   type District,
+  PLAYER_FACTION_IDS,
   type Player
 } from "@empire/shared-types";
 
-const FACTIONS = ["mafian", "kartel", "kult", "hackeri", "korporace"] as const;
 const STARTING_LOADOUT = { "baseball-bat": 10, pistol: 5, grenade: 1 };
-const STARTING_BALANCES = {
-  cash: 1500,
-  "dirty-cash": 300,
-  chemicals: 10,
-  biomass: 6,
-  "metal-parts": 18,
-  "tech-core": 4
-};
 
 export const createFreeModePacingState = (input: {
   config: ResolvedGameModeConfig;
@@ -29,7 +22,7 @@ export const createFreeModePacingState = (input: {
   botCount: number;
   districtCount: number;
 }): CoreGameState => {
-  const state = createInitialState("pacing:free:1", "free");
+  let state = createInitialState("pacing:free:1", "free");
   state.serverInstance.status = "running";
   state.serverInstance.worldSeed = input.seed;
   state.root.phase = PRODUCTION_GAME_LIFECYCLE_PHASES.live;
@@ -52,7 +45,7 @@ export const createFreeModePacingState = (input: {
 
   const homeDistrictIds = selectHomeDistrictIds(input.districtCount, input.botCount);
   for (let playerIndex = 1; playerIndex <= input.botCount; playerIndex += 1) {
-    addPlayer(state, playerIndex, homeDistrictIds[playerIndex - 1]);
+    addPlayer(state, playerIndex, homeDistrictIds[playerIndex - 1], input.config);
   }
 
   const width = Math.ceil(Math.sqrt(input.districtCount));
@@ -65,6 +58,10 @@ export const createFreeModePacingState = (input: {
     state.districtsById[districtId] = district;
     state.root.districtIds.push(districtId);
     if (ownerPlayerId) attachStarterBuildings(state, districtId, ownerPlayerId);
+  }
+
+  for (const playerId of state.root.playerIds) {
+    state = applyFactionStartingPackage(state, playerId, { config: input.config });
   }
 
   return state;
@@ -98,7 +95,12 @@ export const attachStarterBuildings = (
   }
 };
 
-const addPlayer = (state: CoreGameState, index: number, homeDistrictId: string): void => {
+const addPlayer = (
+  state: CoreGameState,
+  index: number,
+  homeDistrictId: string,
+  config: ResolvedGameModeConfig
+): void => {
   const playerId = `player:${index}`;
   const allianceId = index <= 16 ? `alliance:${Math.ceil(index / 4)}` : null;
   const player: Player = {
@@ -106,7 +108,7 @@ const addPlayer = (state: CoreGameState, index: number, homeDistrictId: string):
     accountId: `account:${index}`,
     serverInstanceId: state.serverInstance.id,
     name: `Bot ${index}`,
-    factionId: FACTIONS[(index - 1) % FACTIONS.length],
+    factionId: PLAYER_FACTION_IDS[(index - 1) % PLAYER_FACTION_IDS.length],
     color: DEFAULT_PLAYER_COLOR,
     status: "active",
     allianceId,
@@ -126,7 +128,7 @@ const addPlayer = (state: CoreGameState, index: number, homeDistrictId: string):
     id: player.resourceStateId,
     ownerType: "player",
     ownerId: player.id,
-    balances: { ...STARTING_BALANCES },
+    balances: { ...config.balance.startingResources },
     incomeModifiers: {},
     lastUpdatedTick: 0,
     version: 1

@@ -22,6 +22,11 @@ import {
   createDefaultDistrictEffectModifiers,
   resolveActiveDistrictEffectModifiers
 } from "../rules/economy/calculateIncome";
+import {
+  applyFactionHeatGain,
+  applyFactionMultiplier,
+  getFactionPassiveModifiers
+} from "../rules/factions/factionRules";
 import { validateAttack } from "../validation";
 import {
   createBattleReportNotifications, createPlayerCooldownState, markDestroyedDistrictBuildings, reassignCapturedDistrictBuildings
@@ -91,6 +96,8 @@ export const handleAttackDistrict = (
     ? resolveActiveDistrictEffectModifiers(state, sourceDistrict.id)
     : createDefaultDistrictEffectModifiers();
   const targetDistrictModifiers = resolveActiveDistrictEffectModifiers(state, targetDistrict.id);
+  const attackerFactionModifiers = getFactionPassiveModifiers(state, attacker.id, context);
+  const defenderFactionModifiers = getFactionPassiveModifiers(state, targetDistrict.ownerPlayerId, context);
   const combinedCameraAlarmBonuses = resolveCombinedCameraAlarmBonuses({
     state,
     playerId: targetDistrict.ownerPlayerId,
@@ -126,9 +133,15 @@ export const handleAttackDistrict = (
   });
   const baseAttackPower = calculateTotalAttackPower(attacker.attackLoadout, 1, attackWeaponModifiers);
   const trapAdjustedAttackPower = calculateTotalAttackPower(effectiveLoadout, 1, attackWeaponModifiers);
-  const effectAdjustedAttackPower = trapAdjustedAttackPower * attackerDistrictModifiers.attackMultiplier;
+  const effectAdjustedAttackPower = applyFactionMultiplier(
+    trapAdjustedAttackPower * attackerDistrictModifiers.attackMultiplier,
+    attackerFactionModifiers.attackPowerMultiplier
+  );
   const defensePower = calculateBaseDefensePower(targetDistrict.defenseLoadout, defenseItemModifiers);
-  const effectAdjustedDefensePower = defensePower * targetDistrictModifiers.defenseMultiplier;
+  const effectAdjustedDefensePower = applyFactionMultiplier(
+    defensePower * targetDistrictModifiers.defenseMultiplier,
+    defenderFactionModifiers.defensePowerMultiplier
+  );
   const effectiveAttackPower = calculateReducedAttackPowerFromTowers(effectAdjustedAttackPower, towerCount);
   const effectiveDefensePower = calculateEffectiveDefenseAfterGrenades(effectAdjustedDefensePower, grenadeCount);
   const catastropheRoll = deterministicUnitInterval(
@@ -144,7 +157,10 @@ export const handleAttackDistrict = (
     effectiveAttackPower,
     effectiveDefensePower,
     trapLosses: trapResolution.losses,
-    heatGain: applyDayNightHeatGain(context.config.balance.conflict?.attackHeatGain ?? 6, state, context)
+    heatGain: applyFactionHeatGain(
+      applyDayNightHeatGain(context.config.balance.conflict?.attackHeatGain ?? 6, state, context),
+      attackerFactionModifiers
+    )
   });
   const attackSucceeded = combatResolution.districtCaptured;
   const battleResult = combatResolution.legacyResult;
@@ -173,14 +189,20 @@ export const handleAttackDistrict = (
   });
   const currentCooldownState = state.cooldownStatesById[attacker.cooldownStateId] ?? createPlayerCooldownState(attacker.id, attacker.cooldownStateId);
   const attackCooldownKey = `attack:${targetDistrict.id}`;
-  const attackDurationTicks = applyDayNightAttackDurationTicks(applyCarDealerCooldownReductionTicks({
-    baseTicks: resolveAttackDurationTicks(context),
-    state,
-    playerId: attacker.id,
-    config: context.config.balance.carDealer,
-    garageConfig: context.config.balance.garage,
-    category: "attackPreparation"
-  }), state, context);
+  const attackDurationTicks = Math.max(
+    context.config.balance.conflict?.minAttackDurationTicks ?? 1,
+    Math.ceil(applyFactionMultiplier(
+      applyDayNightAttackDurationTicks(applyCarDealerCooldownReductionTicks({
+        baseTicks: resolveAttackDurationTicks(context),
+        state,
+        playerId: attacker.id,
+        config: context.config.balance.carDealer,
+        garageConfig: context.config.balance.garage,
+        category: "attackPreparation"
+      }), state, context),
+      attackerFactionModifiers.attackDurationMultiplier
+    ))
+  );
   const nextPoliceState = increasePlayerPoliceHeat(state, attacker, escapeMitigation.heatGained, state.root.tick);
   const notificationEntries = createBattleReportNotifications({
     command,

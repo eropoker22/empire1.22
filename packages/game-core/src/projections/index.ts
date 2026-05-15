@@ -2,6 +2,7 @@ export * from "./city-feed-projection";
 export * from "./conflict-report-projection";
 export * from "./day-night-read-model-projection";
 export * from "./elimination-read-model-projection";
+export * from "./faction-read-model-projection";
 export * from "./district-attack-target-projection";
 export * from "./district-panel-projection";
 export * from "./district-spy-target-projection";

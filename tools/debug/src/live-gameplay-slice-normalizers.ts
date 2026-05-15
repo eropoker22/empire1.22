@@ -1,4 +1,4 @@
-import type { District, GameModeId, Player } from "@empire/shared-types";
+import { PLAYER_FACTION_IDS, type District, type GameModeId, type Player } from "@empire/shared-types";
 
 const FALLBACK_MODE: GameModeId = "free";
 const FALLBACK_SERVER_ID = "admin-slice";
@@ -19,7 +19,9 @@ export const normalizeIdentity = (identity: unknown, fallbackPlayerId: string): 
 
 export const normalizeFactionId = (factionId: unknown): Player["factionId"] => {
   const normalizedFactionId = String(factionId || "").trim();
-  return normalizedFactionId ? (normalizedFactionId as Player["factionId"]) : "mafian";
+  return PLAYER_FACTION_IDS.includes(normalizedFactionId as Player["factionId"])
+    ? (normalizedFactionId as Player["factionId"])
+    : "mafian";
 };
 
 export const normalizeAttackLoadout = (weapons: Record<string, unknown> | null | undefined): Player["attackLoadout"] =>

@@ -6,6 +6,7 @@ export interface GameplaySliceBootstrapDataset {
   serverInstanceId?: string;
   playerId?: string;
   districtId?: string;
+  factionId?: string;
   sessionStorageKey?: string;
 }
 
@@ -19,6 +20,8 @@ interface LegacyGameplaySession {
     gangName?: unknown;
     serverId?: unknown;
     startDistrictId?: unknown;
+    factionId?: unknown;
+    selectedFaction?: unknown;
   };
 }
 
@@ -43,6 +46,7 @@ export const resolveGameplaySliceBootstrapRequest = (
   const serverId = normalizeToken(registration?.serverId);
   const districtId = normalizeDistrictId(registration?.startDistrictId);
   const playerId = normalizePlayerId(registration?.identity || registration?.gangName);
+  const factionId = normalizeFactionId(registration?.factionId || registration?.selectedFaction);
 
   if (!serverId || !districtId || !playerId) {
     return null;
@@ -51,7 +55,8 @@ export const resolveGameplaySliceBootstrapRequest = (
   return {
     serverInstanceId: `instance:${serverId}`,
     playerId,
-    districtId
+    districtId,
+    factionId
   };
 };
 
@@ -61,12 +66,14 @@ const createExplicitRequest = (
   const serverInstanceId = normalizeToken(dataset.serverInstanceId);
   const playerId = normalizeToken(dataset.playerId);
   const districtId = normalizeDistrictId(dataset.districtId);
+  const factionId = normalizeFactionId(dataset.factionId);
 
   return serverInstanceId && playerId && districtId
     ? {
         serverInstanceId,
         playerId,
-        districtId
+        districtId,
+        factionId
       }
     : null;
 };
@@ -130,4 +137,9 @@ const normalizePlayerId = (value: unknown): string | null => {
     .replace(/^-+|-+$/gu, "");
 
   return slug ? `player:${slug}` : null;
+};
+
+const normalizeFactionId = (value: unknown): string | null => {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
 };

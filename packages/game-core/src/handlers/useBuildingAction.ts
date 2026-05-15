@@ -32,6 +32,11 @@ import {
   resolveLobbyClubInfluenceActionCostReductionPct
 } from "./lobbyClubBuildingActions";
 import { createPlayerPoliceState, resolveWantedLevel } from "./playerPoliceState";
+import {
+  applyFactionHeatGain,
+  applyFactionInfluenceGain,
+  getFactionPassiveModifiers
+} from "../rules/factions/factionRules";
 
 /**
  * Responsibility: Placeholder handler for building-specific actions.
@@ -150,6 +155,12 @@ export const handleUseBuildingAction = (
       influenceChange: -Math.ceil(Math.abs(resolvedAction.influenceChange) * (1 - influenceReductionPct / 100))
     };
   }
+  const factionModifiers = getFactionPassiveModifiers(state, player.id, context);
+  resolvedAction = {
+    ...resolvedAction,
+    heatGain: applyFactionHeatGain(resolvedAction.heatGain, factionModifiers),
+    influenceChange: applyFactionInfluenceGain(resolvedAction.influenceChange, factionModifiers)
+  };
 
   if (specialResolution) {
     nextBalances = specialResolution.balances;

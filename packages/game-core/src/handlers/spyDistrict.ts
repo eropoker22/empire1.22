@@ -9,6 +9,7 @@ import type { CoreEvent } from "../events";
 import type { CoreError } from "../errors";
 import { CORE_EVENT_TYPES, createEvent, createNotification } from "../events";
 import { resolveSpy } from "../rules";
+import { applyFactionChanceBonus, getFactionPassiveModifiers } from "../rules/factions/factionRules";
 import { composeEntityId } from "../utils";
 import { validateSpy } from "../validation";
 import { applyGarageCooldownReductionTicks } from "./garageBuildingActions";
@@ -55,7 +56,10 @@ export const handleSpyDistrict = (
     tick: state.root.tick,
     defenseLoadout: targetDistrict.defenseLoadout,
     hasActiveTrap: Boolean(activeTrap),
-    spyBaseSuccessChance: context.config.balance.conflict?.spyBaseSuccessChance ?? 0.72,
+    spyBaseSuccessChance: applyFactionChanceBonus(
+      context.config.balance.conflict?.spyBaseSuccessChance ?? 0.72,
+      getFactionPassiveModifiers(state, player.id, context).spySuccessChanceBonus
+    ),
     spyTrapRevealChance: context.config.balance.conflict?.spyTrapRevealChance ?? 0.22,
     cameraStrengthBonusPct: combinedCameraAlarmBonuses.cameraStrengthBonusPct,
     alarmStrengthBonusPct: combinedCameraAlarmBonuses.alarmStrengthBonusPct

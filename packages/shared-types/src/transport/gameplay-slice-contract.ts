@@ -5,6 +5,7 @@ import type {
   PlayerId,
   ServerInstanceId
 } from "../ids/entity-id";
+import type { PlayerFactionId } from "../entities/faction";
 import type { GameplaySliceView } from "../views";
 
 /**
@@ -16,6 +17,7 @@ export interface LoadGameplaySliceRequest {
   serverInstanceId: ServerInstanceId;
   playerId: PlayerId;
   districtId: DistrictId;
+  factionId?: PlayerFactionId | string | null;
   snapshotToken?: string | null;
 }
 

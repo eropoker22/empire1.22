@@ -72,7 +72,8 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
     return {
       serverInstanceId: playerView.instanceId,
       playerId: playerView.playerId,
-      districtId
+      districtId,
+      factionId: playerView.factionId
     };
   };
 

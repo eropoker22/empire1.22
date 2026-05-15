@@ -29,6 +29,7 @@ import { freeModeVipLoungeConfig } from "../../public/free-mode-vip-lounge-confi
 import { freeModeWarehouseConfig } from "../../public/free-mode-warehouse-config";
 import { freeModePoliceConfig } from "./free-police-config";
 import { createDayNightConfig } from "../../public/day-night-config";
+import { FACTION_DEFINITION_BY_ID } from "../../public/faction-definitions";
 
 const FREE_MODE_TICK_RATE_MS = 5000;
 const ticksFromHours = (hours: number, tickRateMs = FREE_MODE_TICK_RATE_MS): number =>
@@ -117,6 +118,7 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
       "metal-parts": 8,
       "tech-core": 2
     },
+    factions: FACTION_DEFINITION_BY_ID,
     fixedBuildings: freeModeFixedBuildings,
     buildingActions: freeModeBuildingActions,
     casino: freeModeCasinoConfig,

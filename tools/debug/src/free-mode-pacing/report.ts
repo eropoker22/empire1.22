@@ -3,6 +3,7 @@ import {
   type CoreGameState,
   type ResolvedGameModeConfig
 } from "@empire/game-core";
+import { createFactionPacingMetrics } from "./factionMetrics";
 import type {
   PacingMetrics,
   PacingMilestone,
@@ -57,6 +58,7 @@ export const captureSnapshot = (
     averageDistrictHeat: round(average(activeDistricts.map((district) => district.heat))),
     averagePlayerCash: round(average((playerBalances.length > 0 ? playerBalances : allPlayerBalances).map((balances) => Number(balances.cash || 0)))),
     averagePlayerDirtyCash: round(average((playerBalances.length > 0 ? playerBalances : allPlayerBalances).map((balances) => Number(balances["dirty-cash"] || 0)))),
+    factionMetrics: createFactionPacingMetrics(state, ticksPerHour(config)),
     totalAttacks: metrics.totalAttacks,
     successfulAttacks: metrics.successfulAttacks,
     failedAttacks: metrics.failedAttacks,
@@ -165,6 +167,8 @@ export const printVariantSuiteResult = (suite: PacingVariantSuiteResult): void =
   for (const result of suite.results) {
     console.log(`- ${result.variantName}: ${result.verdict}`);
   }
+  console.log("\nFaction win rate");
+  console.table(suite.factionWinRate);
 };
 
 export const createSimulationSummary = (result: PacingSimulationResult): Record<string, unknown> => {
@@ -184,6 +188,10 @@ export const createSimulationSummary = (result: PacingSimulationResult): Record<
     topAllianceId: final?.topAllianceId ?? null,
     topAllianceControlledDistricts: final?.topAllianceControlledDistricts ?? 0,
     topAllianceControlPercent: final?.topAllianceControlPercent ?? 0,
+    topFactionByControl: final?.factionMetrics.topFactionByControl ?? null,
+    eliminatedByFaction: final?.factionMetrics.eliminatedByFaction ?? {},
+    averageControlByFaction: final?.factionMetrics.averageControlByFaction ?? {},
+    averageSurvivalTimeByFaction: final?.factionMetrics.averageSurvivalTimeByFaction ?? {},
     totalAttacks: final?.totalAttacks ?? 0,
     successfulAttacks: final?.successfulAttacks ?? 0,
     failedAttacks: final?.failedAttacks ?? 0,

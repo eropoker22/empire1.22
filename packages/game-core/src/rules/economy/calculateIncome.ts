@@ -1,6 +1,10 @@
 import type { CoreGameState } from "../../entities";
 import type { BuildingActionEffectModifiers, FixedBuildingBalanceConfig } from "../../contracts";
 import type { GameCoreContext } from "../../engine/context";
+import {
+  getFactionPassiveModifiers,
+  resolveFactionIncomeMultiplier
+} from "../factions/factionRules";
 import { resolveFixedBuildingIncomeConfig } from "./fixedBuildingIncomeConfig";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -47,7 +51,10 @@ export const calculateIncomeByPlayerId = (
     }
 
     for (const [resourceKey, rawAmount] of Object.entries(district.resourceModifiers)) {
-      addIncome(incomeByPlayerId, district.ownerPlayerId, resourceKey, rawAmount);
+      const factionMultiplier = context
+        ? resolveFactionIncomeMultiplier(resourceKey, getFactionPassiveModifiers(state, district.ownerPlayerId, context))
+        : 1;
+      addIncome(incomeByPlayerId, district.ownerPlayerId, resourceKey, Number(rawAmount || 0) * factionMultiplier);
     }
 
     if (!context) {
@@ -139,7 +146,10 @@ const calculateFixedBuildingIncomeForDistrict = (
 
   const ticksPerHour = HOUR_MS / Math.max(1, context.config.tickRateMs);
   const modifiers = resolveActiveDistrictEffectModifiers(state, district.id);
+  const factionModifiers = getFactionPassiveModifiers(state, district.ownerPlayerId, context);
   const incomeMultiplier = Math.max(0, Number(context.config.balance.incomeMultiplier || 0)) * modifiers.incomeMultiplier;
+  const cleanFactionMultiplier = resolveFactionIncomeMultiplier("cash", factionModifiers);
+  const dirtyFactionMultiplier = resolveFactionIncomeMultiplier("dirty-cash", factionModifiers);
 
   return activeBuildings.reduce(
     (totals, { building, config }) => {
@@ -151,8 +161,8 @@ const calculateFixedBuildingIncomeForDistrict = (
         config
       });
       return {
-        cash: totals.cash + resolvePerTick(resolvedConfig.cleanPerHour, ticksPerHour) * incomeMultiplier * modifiers.cleanIncomeMultiplier,
-        dirtyCash: totals.dirtyCash + resolvePerTick(resolvedConfig.dirtyPerHour, ticksPerHour) * incomeMultiplier * modifiers.dirtyIncomeMultiplier
+        cash: totals.cash + resolvePerTick(resolvedConfig.cleanPerHour, ticksPerHour) * incomeMultiplier * modifiers.cleanIncomeMultiplier * cleanFactionMultiplier,
+        dirtyCash: totals.dirtyCash + resolvePerTick(resolvedConfig.dirtyPerHour, ticksPerHour) * incomeMultiplier * modifiers.dirtyIncomeMultiplier * dirtyFactionMultiplier
       };
     },
     { cash: 0, dirtyCash: 0 }

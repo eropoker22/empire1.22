@@ -1,4 +1,5 @@
 import type { GameModeId } from "@empire/shared-types/ids/game-mode-id";
+import type { FactionDefinition, PlayerFactionId } from "@empire/shared-types";
 import type { PoliceSystemBalanceConfig } from "./police-balance-config";
 import type {
   BuildingActionBalanceConfig,
@@ -175,6 +176,7 @@ export interface GameModeConfig {
      */
     hardTimeoutTicks?: number;
     startingResources: Record<string, number>;
+    factions?: Record<PlayerFactionId, FactionDefinition>;
     conflict?: import("./building-balance-config").ConflictBalanceConfig;
     police?: PoliceSystemBalanceConfig;
     productionBuildings?: Record<string, ProductionBuildingBalanceConfig>;
