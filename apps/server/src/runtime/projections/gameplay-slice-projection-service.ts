@@ -25,6 +25,9 @@ export const createGameplaySliceProjection = (
     sessionKeyPrefix: publicMode.sessionKeyPrefix
   };
   const player = createPlayerProjection(runtime, playerId);
+  const selectedDistrictId = runtime.state.districtsById[districtId]
+    ? districtId
+    : runtime.state.playersById[playerId]?.homeDistrictId ?? districtId;
 
   return {
     mode,
@@ -37,12 +40,12 @@ export const createGameplaySliceProjection = (
     police: player.police ?? null,
     cityFeed: createCityFeedProjection(runtime.state, {
       playerId,
-      selectedDistrictId: districtId,
+      selectedDistrictId,
       factionId: player.factionId,
       limit: 50
     }),
     districts: createDistrictListProjection(runtime, playerId),
-    district: createDistrictPanelProjection(runtime, playerId, districtId),
+    district: createDistrictPanelProjection(runtime, playerId, selectedDistrictId),
     reports: createConflictReportViews(runtime.state, {
       playerId,
       limit: runtime.config.balance.conflict?.reportsLimit ?? 6

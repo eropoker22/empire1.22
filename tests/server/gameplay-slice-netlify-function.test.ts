@@ -32,7 +32,8 @@ describe("gameplay slice Netlify function", () => {
     );
 
     expect(load.statusCode).toBe(200);
-    expect(load.json.readModel.district.districtId).toBe("district:31");
+    const focusDistrictId = load.json.readModel.district.districtId;
+    expect(focusDistrictId).toBe("district:spawn:1");
     expect(load.json.snapshotToken).toEqual(expect.any(String));
 
     const building = load.json.readModel.district.buildings.find(
@@ -47,7 +48,7 @@ describe("gameplay slice Netlify function", () => {
       serverInstanceId: "instance:function-slice",
       issuedAt: new Date(0).toISOString(),
       payload: {
-        districtId: "district:31",
+        districtId: focusDistrictId,
         buildingId: building.buildingId,
         actionId: action.actionId
       },
@@ -58,7 +59,7 @@ describe("gameplay slice Netlify function", () => {
       submitHandler(
         postEvent("/api/gameplay-slice/submit", {
           snapshotToken: load.json.snapshotToken,
-          focusDistrictId: "district:31",
+          focusDistrictId,
           command
         })
       )
@@ -74,7 +75,7 @@ describe("gameplay slice Netlify function", () => {
       duplicateHandler(
         postEvent("/api/gameplay-slice/submit", {
           snapshotToken: submit.json.snapshotToken,
-          focusDistrictId: "district:31",
+          focusDistrictId,
           command
         })
       )
@@ -100,6 +101,7 @@ describe("gameplay slice Netlify function", () => {
 
     expect(load.statusCode).toBe(200);
     expect(load.json.readModel.player.factionId).toBe("kartel");
+    const focusDistrictId = load.json.readModel.district.districtId;
 
     const building = load.json.readModel.district.buildings.find(
       (candidate: { actions: unknown[] }) => candidate.actions.length > 0
@@ -113,7 +115,7 @@ describe("gameplay slice Netlify function", () => {
       serverInstanceId: "instance:function-faction-snapshot",
       issuedAt: new Date(0).toISOString(),
       payload: {
-        districtId: "district:44",
+        districtId: focusDistrictId,
         buildingId: building.buildingId,
         actionId: action.actionId
       },
@@ -124,7 +126,7 @@ describe("gameplay slice Netlify function", () => {
       submitHandler(
         postEvent("/api/gameplay-slice/submit", {
           snapshotToken: load.json.snapshotToken,
-          focusDistrictId: "district:44",
+          focusDistrictId,
           command
         })
       )

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import type { CoreGameState } from "@empire/game-core";
 import type { GameplaySliceView, LoadGameplaySliceRequest } from "@empire/shared-types";
 import { createServerApp } from "../../apps/server/src/app";
 import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap/gameplay-slice-session-bootstrap";
+import { sharedCitySpawnDistrictIds } from "../../apps/server/src/bootstrap/gameplay-slice-shared-city-seed";
 
 const createLoadRequest = (
   index: number,
@@ -29,7 +31,22 @@ describe("gameplay slice multiplayer join bootstrap", () => {
     });
     expect(runtime?.record.mode).toBe("free");
     expect(runtime?.state.root.playerIds).toEqual([request.playerId]);
-    expect(runtime?.state.playersById[request.playerId]?.homeDistrictId).toBe(request.districtId);
+    expect(runtime?.state.playersById[request.playerId]?.homeDistrictId).toBe(sharedCitySpawnDistrictIds[0]);
+  });
+
+  it("creates one shared city map on the first load", async () => {
+    const server = createServerApp();
+    const request = createLoadRequest(1);
+
+    await ensureGameplaySliceSessionResult(server.instanceManager, request);
+    const runtime = server.instanceManager.getInstanceById(request.serverInstanceId);
+
+    expect(runtime?.state.root.districtIds).toHaveLength(28);
+    for (const spawnDistrictId of sharedCitySpawnDistrictIds) {
+      expect(runtime?.state.districtsById[spawnDistrictId]).toBeDefined();
+    }
+    expect(runtime?.state.districtsById["district:central:1"]?.zone).toBe("downtown");
+    expect(isConnectedDistrictGraph(runtime!.state)).toBe(true);
   });
 
   it("adds a second player to the same instance without replacing the world", async () => {
@@ -58,7 +75,9 @@ describe("gameplay slice multiplayer join bootstrap", () => {
     expect(runtimeAfterJoin).toBe(runtimeBeforeJoin);
     expect(runtimeAfterJoin?.state.root.playerIds).toEqual([firstRequest.playerId, secondRequest.playerId]);
     expect(runtimeAfterJoin?.state.playersById[firstRequest.playerId]?.homeDistrictId).toBe(firstHomeDistrict);
+    expect(runtimeAfterJoin?.state.playersById[secondRequest.playerId]?.homeDistrictId).toBe(sharedCitySpawnDistrictIds[1]);
     expect(runtimeAfterJoin?.state.resourceStatesById[firstPlayer!.resourceStateId].balances.cash).toBe(4321);
+    expect(runtimeAfterJoin?.state.root.districtIds).toEqual(firstDistrictIdsBeforeJoin);
     for (const districtId of firstDistrictIdsBeforeJoin) {
       expect(runtimeAfterJoin?.state.districtsById[districtId]).toBeDefined();
     }
@@ -74,6 +93,7 @@ describe("gameplay slice multiplayer join bootstrap", () => {
 
     const rejected = await ensureGameplaySliceSessionResult(server.instanceManager, createLoadRequest(21));
     const runtime = server.instanceManager.getInstanceById("instance:free-multiplayer-join");
+    const homeDistrictIds = Object.values(runtime?.state.playersById ?? {}).map((player) => player.homeDistrictId);
 
     expect(rejected.accepted).toBe(false);
     expect(rejected.errors).toEqual([
@@ -88,6 +108,8 @@ describe("gameplay slice multiplayer join bootstrap", () => {
     ]);
     expect(runtime?.state.root.playerIds).toHaveLength(20);
     expect(runtime?.state.playersById["player:join:21"]).toBeUndefined();
+    expect(new Set(homeDistrictIds).size).toBe(20);
+    expect(homeDistrictIds.sort()).toEqual([...sharedCitySpawnDistrictIds].sort());
   });
 
   it("does not duplicate the same player on repeated load", async () => {
@@ -95,6 +117,8 @@ describe("gameplay slice multiplayer join bootstrap", () => {
     const request = createLoadRequest(1);
 
     const first = await ensureGameplaySliceSessionResult(server.instanceManager, request);
+    const runtimeAfterFirstLoad = server.instanceManager.getInstanceById(request.serverInstanceId);
+    const firstHomeDistrictId = runtimeAfterFirstLoad?.state.playersById[request.playerId]?.homeDistrictId;
     const second = await ensureGameplaySliceSessionResult(server.instanceManager, request);
     const runtime = server.instanceManager.getInstanceById(request.serverInstanceId);
 
@@ -106,7 +130,9 @@ describe("gameplay slice multiplayer join bootstrap", () => {
       errors: []
     });
     expect(runtime?.state.root.playerIds).toEqual([request.playerId]);
+    expect(runtime?.state.playersById[request.playerId]?.homeDistrictId).toBe(firstHomeDistrictId);
     expect(Object.keys(runtime?.state.playersById ?? {}).filter((playerId) => playerId === request.playerId)).toHaveLength(1);
+    expect(getClaimedSpawnDistrictIds(runtime!.state)).toEqual([sharedCitySpawnDistrictIds[0]]);
   });
 
   it("returns a player-scoped read model after joining an existing instance", async () => {
@@ -126,10 +152,10 @@ describe("gameplay slice multiplayer join bootstrap", () => {
     expect(readModel.player.playerId).toBe(secondRequest.playerId);
     expect(readModel.player.instanceId).toBe(secondRequest.serverInstanceId);
     expect(readModel.player.factionId).toBe("kartel");
-    expect(readModel.district?.districtId).toBe(secondRequest.districtId);
+    expect(readModel.district?.districtId).toBe(runtimeHomeDistrictId(server, secondRequest));
   });
 
-  it("assigns a deterministic fallback home district when the requested spawn is already seeded", async () => {
+  it("does not assign the same spawn district to two players", async () => {
     const server = createServerApp();
     const firstRequest = createLoadRequest(1);
     const secondRequest = createLoadRequest(2, {
@@ -139,10 +165,42 @@ describe("gameplay slice multiplayer join bootstrap", () => {
     await ensureGameplaySliceSessionResult(server.instanceManager, firstRequest);
     await ensureGameplaySliceSessionResult(server.instanceManager, secondRequest);
     const runtime = server.instanceManager.getInstanceById(firstRequest.serverInstanceId);
+    const firstPlayer = runtime?.state.playersById[firstRequest.playerId];
     const secondPlayer = runtime?.state.playersById[secondRequest.playerId];
 
-    expect(secondPlayer?.homeDistrictId).toBe("district:1010:join:join-2:0");
-    expect(runtime?.state.districtsById[firstRequest.districtId]?.ownerPlayerId).toBe(firstRequest.playerId);
+    expect(firstPlayer?.homeDistrictId).toBe(sharedCitySpawnDistrictIds[0]);
+    expect(secondPlayer?.homeDistrictId).toBe(sharedCitySpawnDistrictIds[1]);
+    expect(firstPlayer?.homeDistrictId).not.toBe(secondPlayer?.homeDistrictId);
+    expect(runtime?.state.districtsById[firstPlayer!.homeDistrictId!]?.ownerPlayerId).toBe(firstRequest.playerId);
     expect(runtime?.state.districtsById[secondPlayer!.homeDistrictId!]?.ownerPlayerId).toBe(secondRequest.playerId);
   });
 });
+
+const runtimeHomeDistrictId = (
+  server: ReturnType<typeof createServerApp>,
+  request: LoadGameplaySliceRequest
+): string | null | undefined =>
+  server.instanceManager.getInstanceById(request.serverInstanceId)?.state.playersById[request.playerId]?.homeDistrictId;
+
+const getClaimedSpawnDistrictIds = (state: CoreGameState): string[] =>
+  sharedCitySpawnDistrictIds.filter((districtId) => state.districtsById[districtId]?.ownerPlayerId);
+
+const isConnectedDistrictGraph = (state: CoreGameState): boolean => {
+  const [firstDistrictId] = state.root.districtIds;
+  if (!firstDistrictId) return true;
+
+  const visited = new Set<string>();
+  const queue = [firstDistrictId];
+  while (queue.length > 0) {
+    const districtId = queue.shift()!;
+    if (visited.has(districtId)) continue;
+    visited.add(districtId);
+    for (const adjacentDistrictId of state.districtsById[districtId]?.adjacentDistrictIds ?? []) {
+      if (state.districtsById[adjacentDistrictId] && !visited.has(adjacentDistrictId)) {
+        queue.push(adjacentDistrictId);
+      }
+    }
+  }
+
+  return visited.size === state.root.districtIds.length;
+};
