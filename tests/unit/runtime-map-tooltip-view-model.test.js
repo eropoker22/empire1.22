@@ -37,6 +37,21 @@ describe("map tooltip view model", () => {
     }).typeLabel).toBe("Player 2");
   });
 
+  it("reduces destroyed district hover content to one message", () => {
+    expect(buildMapTooltipViewModel({ id: 11, districtType: "industrial" }, {
+      gamePhase: "live",
+      destroyedDistrictIds: new Set([11])
+    }, {
+      getDistrictAtmosphereMeta: () => ({ shortLabel: "Industry" })
+    })).toEqual({
+      id: 11,
+      idLabel: "District zničen",
+      typeLabel: "",
+      gossipEntries: [],
+      destroyed: true
+    });
+  });
+
   it("falls back to atmosphere label and limits gossip entries", () => {
     const ensureDistrictPassiveGossip = vi.fn(() => [
       { intelLevel: "rumor", text: "First" },

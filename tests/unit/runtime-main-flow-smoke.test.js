@@ -93,4 +93,15 @@ describe("runtime main UI flow smoke guard", () => {
     expect(battleReportPanel.renderBattleReport).toBeTypeOf("function");
     expect(legacyStorage.getStorageKey).toBeTypeOf("function");
   });
+
+  it("keeps destroyed district popup reduced to a single message", () => {
+    const runtimeSource = read("page-assets/js/app/runtime.js");
+    const districtCssSource = read("page-assets/css/styles-district.css");
+
+    expect(runtimeSource).toContain("setDestroyedDistrictPopupMode(true)");
+    expect(runtimeSource).toContain('notice.textContent = enabled ? "District zničen" : "";');
+    expect(runtimeSource).toContain("return;");
+    expect(districtCssSource).toContain('.district-popup-card[data-district-destroyed="true"] .district-popup-body > :not(.district-popup-destroyed-only)');
+    expect(districtCssSource).toContain(".district-popup-destroyed-only");
+  });
 });

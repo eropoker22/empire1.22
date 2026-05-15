@@ -163,6 +163,50 @@ describe("gameplay slice Netlify function", () => {
     expect(submit.json.readModel).toBeNull();
     expect(submit.json.errors[0].code).toBe("transport.not_found");
   });
+
+  it("rejects the 21st free mode player with a domain error", async () => {
+    const handler = createTestHandler();
+
+    for (let index = 1; index <= 20; index += 1) {
+      const load = await readBody(
+        handler(
+          postEvent("/api/gameplay-slice/load", {
+            serverInstanceId: "instance:function-free-capacity",
+            playerId: `player:function-capacity:${index}`,
+            districtId: `district:${2000 + index * 10}`
+          })
+        )
+      );
+
+      expect(load.statusCode).toBe(200);
+      expect(load.json.accepted).toBe(true);
+    }
+
+    const rejected = await readBody(
+      handler(
+        postEvent("/api/gameplay-slice/load", {
+          serverInstanceId: "instance:function-free-capacity",
+          playerId: "player:function-capacity:21",
+          districtId: "district:2210"
+        })
+      )
+    );
+
+    expect(rejected.statusCode).toBe(200);
+    expect(rejected.json).toMatchObject({
+      accepted: false,
+      readModel: null,
+      errors: [
+        {
+          code: "server.player_cap_reached",
+          details: {
+            currentPlayerCount: 20,
+            maxPlayersPerServer: 20
+          }
+        }
+      ]
+    });
+  });
 });
 
 const createTestHandler = () => createGameplaySliceFunctionHandler({

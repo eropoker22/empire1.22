@@ -38,7 +38,7 @@ export const createDistrictPanelViewModel = (
         : "Unclaimed district",
     zoneLabel: toTitleCase(slice.district.zone),
     statusLabel: slice.district.status,
-    heatLabel: String(slice.district.heat),
+    heatLabel: formatHeatLabel(slice.district.heat),
     influenceLabel: String(slice.district.influence),
     buildingSummary: slice.district.status === "destroyed"
       ? "0 fixed buildings · destroyed"
@@ -232,6 +232,9 @@ const formatDurationMs = (durationMs: number): string => {
   const hours = Math.round((totalMinutes / 60) * 10) / 10;
   return `${hours}h`;
 };
+
+const formatHeatLabel = (value: number): string =>
+  String(Math.round(Number.isFinite(value) ? value : 0));
 
 const formatResourceSummary = (
   values: Record<string, number>,

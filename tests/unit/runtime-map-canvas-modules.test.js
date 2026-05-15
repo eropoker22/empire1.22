@@ -52,6 +52,18 @@ function createDistrict() {
   };
 }
 
+function drawFakeDistrictPolygon(context, polygon = []) {
+  context.beginPath();
+  polygon.forEach((point, index) => {
+    if (index === 0) {
+      context.moveTo(point.x, point.y);
+    } else {
+      context.lineTo(point.x, point.y);
+    }
+  });
+  context.closePath();
+}
+
 describe("map canvas extraction modules", () => {
   it("keeps perimeter and animation helpers no-crash with partial marker data", () => {
     const context = createFakeContext();
@@ -100,5 +112,29 @@ describe("map canvas extraction modules", () => {
     expect(geometry.districts).toHaveLength(1);
     expect(context.calls.some(([name]) => name === "clearRect")).toBe(true);
     expect(context.calls.some(([name]) => name === "badge")).toBe(true);
+  });
+
+  it("draws a cyberpunk destroyed district overlay without mutating map state", () => {
+    const context = createFakeContext();
+    const canvas = { width: 120, height: 80, getContext: () => context };
+    const district = createDistrict();
+    const destroyedDistrictIds = new Set([district.id]);
+    const renderer = createDistrictCanvasRenderer({
+      createDistrictGeometry: () => ({ width: 120, height: 80, districts: [district] }),
+      getEffectiveOwnedDistrictIds: () => new Set(),
+      getCurrentPlayerOwnedDistrictIds: () => new Set(),
+      getDistrictFillStyle: () => "rgba(255, 96, 96, 0.16)",
+      drawDistrictPolygon: drawFakeDistrictPolygon
+    });
+
+    expect(() => renderer.renderDistrictCanvas(canvas, "night", {
+      destroyedDistrictIds,
+      reducedMapEffects: true
+    })).not.toThrow();
+
+    expect(destroyedDistrictIds.has(district.id)).toBe(true);
+    expect(context.calls.some(([name, text]) => name === "fillText" && text === "DISTRICT DESTROYED")).toBe(false);
+    expect(context.calls.some(([name, text]) => name === "strokeText" && text === "DISTRICT DESTROYED")).toBe(false);
+    expect(context.calls.some(([name]) => name === "clip")).toBe(true);
   });
 });

@@ -76,8 +76,8 @@ describe("map data adapter", () => {
   });
 
   it("uses resident color as zone color fallback", () => {
-    expect(resolveMapZoneFillStyle("missing-zone", false)).toBe("rgba(103, 225, 255, 0.14)");
-    expect(resolveMapZoneFillStyle("missing-zone", true)).toBe("rgba(103, 225, 255, 0.10)");
+    expect(resolveMapZoneFillStyle("missing-zone", false)).toBe("rgba(250, 204, 21, 0.2)");
+    expect(resolveMapZoneFillStyle("missing-zone", true)).toBe("rgba(250, 204, 21, 0.15)");
   });
 
   it("uses fallback owner color and resolves owner labels", () => {

@@ -108,6 +108,175 @@ function drawDowntownNeonBorder(context, district, isNight, reducedMapEffects) {
   context.restore();
 }
 
+function getPolygonBounds(polygon = []) {
+  if (!Array.isArray(polygon) || polygon.length === 0) {
+    return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 };
+  }
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  for (const point of polygon) {
+    const x = Number(point?.x ?? 0);
+    const y = Number(point?.y ?? 0);
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
+
+  return {
+    minX,
+    minY,
+    maxX,
+    maxY,
+    width: Math.max(1, maxX - minX),
+    height: Math.max(1, maxY - minY)
+  };
+}
+
+function deterministicUnit(seed) {
+  const value = Math.sin(Number(seed || 0) * 12.9898) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function drawDestroyedDistrictOverlay(context, district, isNight, reducedMapEffects) {
+  const bounds = getPolygonBounds(district?.polygon);
+  const centerX = Number(district?.centerX ?? ((bounds.minX + bounds.maxX) / 2));
+  const centerY = Number(district?.centerY ?? ((bounds.minY + bounds.maxY) / 2));
+  const scale = Math.max(0.72, Math.min(1.35, Math.min(bounds.width / 68, bounds.height / 72)));
+
+  context.save();
+  drawDistrictPolygon(context, district.polygon);
+  context.clip();
+
+  const ashGradient = context.createLinearGradient(bounds.minX, bounds.minY, bounds.maxX, bounds.maxY);
+  ashGradient.addColorStop(0, "rgba(2, 2, 4, 0.84)");
+  ashGradient.addColorStop(0.34, "rgba(31, 7, 9, 0.78)");
+  ashGradient.addColorStop(0.66, "rgba(5, 5, 8, 0.9)");
+  ashGradient.addColorStop(1, "rgba(70, 14, 14, 0.64)");
+  context.fillStyle = ashGradient;
+  context.fillRect(bounds.minX, bounds.minY, bounds.width, bounds.height);
+
+  context.globalCompositeOperation = "screen";
+  const redCore = context.createRadialGradient(centerX, centerY, 2, centerX, centerY, Math.max(bounds.width, bounds.height) * 0.72);
+  redCore.addColorStop(0, isNight ? "rgba(255, 48, 48, 0.28)" : "rgba(255, 24, 24, 0.2)");
+  redCore.addColorStop(0.48, "rgba(255, 32, 32, 0.1)");
+  redCore.addColorStop(1, "rgba(255, 32, 32, 0)");
+  context.fillStyle = redCore;
+  context.fillRect(bounds.minX, bounds.minY, bounds.width, bounds.height);
+
+  if (!reducedMapEffects) {
+    for (let index = 0; index < 3; index += 1) {
+      const smokeX = bounds.minX + bounds.width * (0.18 + deterministicUnit(district.id * 31 + index) * 0.62);
+      const smokeY = bounds.minY + bounds.height * (0.1 + deterministicUnit(district.id * 47 + index) * 0.42);
+      const smokeSize = Math.max(bounds.width, bounds.height) * (0.22 + deterministicUnit(district.id * 59 + index) * 0.16);
+      const smoke = context.createRadialGradient(smokeX, smokeY, 2, smokeX, smokeY, smokeSize);
+      smoke.addColorStop(0, "rgba(5, 8, 12, 0.78)");
+      smoke.addColorStop(0.54, "rgba(17, 24, 39, 0.34)");
+      smoke.addColorStop(1, "rgba(17, 24, 39, 0)");
+      context.globalCompositeOperation = "source-over";
+      context.fillStyle = smoke;
+      context.fillRect(bounds.minX, bounds.minY, bounds.width, bounds.height);
+    }
+
+    context.globalCompositeOperation = "screen";
+    context.lineCap = "round";
+    for (let index = 0; index < 5; index += 1) {
+      const sparkX = bounds.minX + bounds.width * (0.16 + deterministicUnit(district.id * 71 + index) * 0.68);
+      const sparkY = bounds.minY + bounds.height * (0.22 + deterministicUnit(district.id * 83 + index) * 0.56);
+      context.beginPath();
+      context.arc(sparkX, sparkY, Math.max(1.2, 1.8 * scale), 0, Math.PI * 2);
+      context.fillStyle = index % 2 === 0 ? "rgba(255, 116, 36, 0.82)" : "rgba(255, 221, 87, 0.72)";
+      context.shadowBlur = 8;
+      context.shadowColor = "rgba(255, 75, 35, 0.72)";
+      context.fill();
+    }
+  }
+
+  context.globalCompositeOperation = "source-over";
+  context.shadowBlur = 0;
+  context.lineJoin = "round";
+  context.lineCap = "round";
+
+  const crackLines = [
+    [0.12, 0.24, 0.42, 0.48, 0.56, 0.44],
+    [0.24, 0.76, 0.5, 0.54, 0.72, 0.62],
+    [0.64, 0.18, 0.54, 0.42, 0.86, 0.72],
+    [0.1, 0.52, 0.34, 0.58, 0.46, 0.82]
+  ];
+
+  for (const [startX, startY, midX, midY, endX, endY] of crackLines) {
+    context.beginPath();
+    context.moveTo(bounds.minX + bounds.width * startX, bounds.minY + bounds.height * startY);
+    context.lineTo(bounds.minX + bounds.width * midX, bounds.minY + bounds.height * midY);
+    context.lineTo(bounds.minX + bounds.width * endX, bounds.minY + bounds.height * endY);
+    context.strokeStyle = "rgba(0, 0, 0, 0.88)";
+    context.lineWidth = Math.max(1.2, 2.3 * scale);
+    context.stroke();
+
+    context.strokeStyle = "rgba(255, 88, 88, 0.24)";
+    context.lineWidth = Math.max(0.6, 0.9 * scale);
+    context.stroke();
+  }
+
+  if (!reducedMapEffects) {
+    context.setLineDash([Math.max(5, 8 * scale), Math.max(4, 6 * scale)]);
+    context.beginPath();
+    context.moveTo(bounds.minX - bounds.width * 0.08, bounds.minY + bounds.height * 0.72);
+    context.lineTo(bounds.maxX + bounds.width * 0.08, bounds.minY + bounds.height * 0.44);
+    context.strokeStyle = "rgba(255, 214, 75, 0.58)";
+    context.lineWidth = Math.max(2, 4 * scale);
+    context.stroke();
+    context.setLineDash([]);
+
+    const signY = bounds.minY + bounds.height * 0.27;
+    context.beginPath();
+    context.moveTo(bounds.minX + bounds.width * 0.16, signY);
+    context.lineTo(bounds.minX + bounds.width * 0.42, signY + bounds.height * 0.06);
+    context.strokeStyle = "rgba(103, 232, 249, 0.58)";
+    context.lineWidth = Math.max(1, 1.7 * scale);
+    context.shadowBlur = 10;
+    context.shadowColor = "rgba(103, 232, 249, 0.7)";
+    context.stroke();
+
+    context.beginPath();
+    context.moveTo(bounds.minX + bounds.width * 0.62, bounds.minY + bounds.height * 0.76);
+    context.lineTo(bounds.minX + bounds.width * 0.84, bounds.minY + bounds.height * 0.7);
+    context.strokeStyle = "rgba(244, 114, 182, 0.56)";
+    context.shadowColor = "rgba(244, 114, 182, 0.72)";
+    context.stroke();
+    context.shadowBlur = 0;
+
+    for (let index = 0; index < 4; index += 1) {
+      const holeX = bounds.minX + bounds.width * (0.18 + deterministicUnit(district.id * 97 + index) * 0.64);
+      const holeY = bounds.minY + bounds.height * (0.18 + deterministicUnit(district.id * 109 + index) * 0.62);
+      context.beginPath();
+      context.arc(holeX, holeY, Math.max(1.3, 2 * scale), 0, Math.PI * 2);
+      context.fillStyle = "rgba(0, 0, 0, 0.78)";
+      context.fill();
+      context.strokeStyle = "rgba(255, 130, 130, 0.18)";
+      context.lineWidth = 0.7;
+      context.stroke();
+    }
+  }
+
+  context.restore();
+
+  context.save();
+  context.globalCompositeOperation = "screen";
+  drawDistrictPolygon(context, district.polygon);
+  context.shadowBlur = reducedMapEffects ? 8 : 18;
+  context.shadowColor = "rgba(255, 31, 31, 0.96)";
+  context.strokeStyle = isNight ? "rgba(255, 45, 45, 0.86)" : "rgba(248, 45, 45, 0.76)";
+  context.lineWidth = reducedMapEffects ? 2.2 : 3.6;
+  context.stroke();
+  context.restore();
+
+}
+
 function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = null) {
   if (!canvas || typeof canvas.getContext !== "function") {
     return null;
@@ -198,6 +367,7 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
     const isSelected = district.id === selectedDistrictId;
     const isOwned = effectiveOwnedDistrictIds.has(district.id);
     const isOwnedByCurrentPlayer = currentPlayerOwnedDistrictIds.has(district.id);
+    const isDestroyed = interactionState.destroyedDistrictIds?.has?.(district.id) === true;
     const isDowntownDistrict = String(district.districtType || "").trim().toLowerCase() === "downtown";
     const rawLaunchOwnerId = launchOwnerByDistrictId.get(district.id) ?? null;
     const showEnemyMarkers = showAllianceSymbols && mapVisibilityMode === "all" && !isOwnedByCurrentPlayer;
@@ -209,6 +379,10 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
     drawDistrictPolygon(context, district.polygon);
     context.fillStyle = fillStyle;
     context.fill();
+
+    if (isDestroyed) {
+      drawDestroyedDistrictOverlay(context, district, isNight, reducedMapEffects);
+    }
 
     drawDowntownNeonBorder(context, district, isNight, reducedMapEffects);
 

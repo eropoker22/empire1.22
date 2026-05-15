@@ -30,6 +30,12 @@ export const restoreGameplaySliceSessionFromSnapshot = async (
     return false;
   }
 
+  const existingRuntime = instanceManager.getInstanceById(request.serverInstanceId);
+
+  if (existingRuntime) {
+    return false;
+  }
+
   const mode = normalizeMode(snapshot.mode) ?? request.fallbackMode;
   const runtime = instanceManager.createInstance(request.serverInstanceId, mode);
 

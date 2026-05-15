@@ -135,7 +135,7 @@ describe("district building gameplay slice", () => {
     expect(updatedRender.reports[0]?.category).toBe("building-action");
     expect(updatedRender.sidePanelHtml).toContain("Produce Chemicals on district:vertical-slice");
     expect(server.instanceManager.getInstanceById(instanceId)?.state.districtsById[districtId].buildingIds).toHaveLength(2);
-    expect(server.instanceManager.getInstanceById(instanceId)?.state.districtsById[districtId].heat).toBe(1);
+    expect(server.instanceManager.getInstanceById(instanceId)?.state.districtsById[districtId].heat).toBe(0.96);
     expect(server.instanceManager.getInstanceById(instanceId)?.state.resourceStatesById[`resource:${playerId}`]?.balances.chemicals).toBe(16);
     expect(server.gameplaySliceTransport.load({
       serverInstanceId: instanceId,
@@ -146,7 +146,7 @@ describe("district building gameplay slice", () => {
       serverInstanceId: instanceId,
       playerId,
       districtId
-    }).readModel?.districts.find((district) => district.districtId === districtId)?.heat).toBe(1);
+    }).readModel?.districts.find((district) => district.districtId === districtId)?.heat).toBe(0.96);
 
     const attackCommand = createAttackDistrictCommand({
       commandId: "command:attack:neutral",

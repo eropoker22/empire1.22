@@ -1,10 +1,11 @@
 import type {
+  DomainError,
   GameplaySliceResponse,
   LoadGameplaySliceRequest,
   SubmitGameplayCommandRequest
 } from "@empire/shared-types";
 import { createServerApp } from "../app";
-import { ensureGameplaySliceSession } from "../bootstrap";
+import { ensureGameplaySliceSessionResult } from "../bootstrap";
 import { createInstanceSnapshot } from "../runtime/persistence/mappers";
 import { createSnapshotTokenCodec, type SnapshotTokenCryptoProvider } from "../runtime/persistence/services";
 
@@ -68,10 +69,13 @@ export const createGameplaySliceFunctionHandler = (
     if (route === "load") {
       const request = parsedBody as LoadGameplaySliceRequest;
 
-      await ensureGameplaySliceSession(server.instanceManager, request, {
+      const ensureResult = await ensureGameplaySliceSessionResult(server.instanceManager, request, {
         snapshotToken: request.snapshotToken,
         snapshotTokenCodec
       });
+      if (!ensureResult.accepted) {
+        return createJsonResponse(200, createErrorResponseFromErrors(ensureResult.errors));
+      }
       return await toFunctionResponse(server.gameplaySliceJsonHandler.handle({
         method: event.httpMethod,
         path: requestPath,
@@ -81,10 +85,13 @@ export const createGameplaySliceFunctionHandler = (
 
     const request = parsedBody as SubmitGameplayCommandRequest;
 
-    await ensureGameplaySliceSession(server.instanceManager, request, {
+    const ensureResult = await ensureGameplaySliceSessionResult(server.instanceManager, request, {
       snapshotToken: request.snapshotToken,
       snapshotTokenCodec
     });
+    if (!ensureResult.accepted) {
+      return createJsonResponse(200, createErrorResponseFromErrors(ensureResult.errors));
+    }
     return await toFunctionResponse(server.gameplaySliceJsonHandler.handle({
       method: event.httpMethod,
       path: requestPath,
@@ -149,6 +156,14 @@ const createErrorResponse = (
       message
     }
   ]
+});
+
+const createErrorResponseFromErrors = (
+  errors: DomainError[]
+): GameplaySliceResponse => ({
+  accepted: false,
+  readModel: null,
+  errors
 });
 
 const createJsonResponse = (

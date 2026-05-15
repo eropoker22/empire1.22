@@ -15,6 +15,7 @@
   ],
   "scripts": {
     "dev:admin": "vite",
+    "dev:runtime": "node scripts/run-local-bin.mjs vite-node/vite-node.mjs apps/server/src/bootstrap/dev-server-runtime-cli.ts",
     "build:admin": "vite build",
     "build:admin:bundle": "vite build --config vite.admin-page.config.ts",
     "build:client:page": "vite build --config vite.client-page.config.ts",

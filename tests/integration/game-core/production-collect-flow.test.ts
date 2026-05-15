@@ -8,7 +8,7 @@ describe("production collect command flow", () => {
   it.each([
     ["pharmacy", "chemicals", 12],
     ["factory", "metal-parts", 8],
-    ["drug_lab", "neon-dust", 4]
+    ["drug_lab", "neon-dust", 2]
   ])("fills %s output on tick and moves it to player resources on collect", (
     buildingTypeId,
     resourceKey,

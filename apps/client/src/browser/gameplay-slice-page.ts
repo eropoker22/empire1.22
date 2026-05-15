@@ -1,6 +1,6 @@
 import { createClientApp, createClientSurfaceActionRouter, type ClientRenderState } from "../app";
 import { refreshLiveCooldownLabels } from "../shared-ui";
-import { createFetchClientTransport, type ClientTransport } from "../transport";
+import { createFetchClientTransport, createGameplaySlicePoller, type ClientTransport } from "../transport";
 import { resolveGameplaySliceBootstrapRequest } from "./gameplay-slice-bootstrap";
 
 const DEFAULT_ENDPOINT_BASE = "/api/gameplay-slice";
@@ -47,10 +47,18 @@ export const mountGameplaySlicePage = (
     createCommandId: createBrowserCommandId
   });
   const mounts = resolveMounts(options.root);
+  let currentLoadRequest = request;
 
   options.root.hidden = false;
 
   const render = (state: ClientRenderState): void => {
+    if (state.districtPanel?.districtId) {
+      currentLoadRequest = {
+        ...currentLoadRequest,
+        districtId: state.districtPanel.districtId
+      };
+    }
+
     const phase = state.player?.dayNight?.uiThemeHint;
     if (phase) {
       document.body.dataset.cityPhase = phase;
@@ -78,11 +86,28 @@ export const mountGameplaySlicePage = (
     }
   };
 
+  const poller = createGameplaySlicePoller<ClientRenderState>({
+    load: (nextRequest) => client.load(nextRequest),
+    getRequest: () => currentLoadRequest,
+    intervalMs: parsePollingIntervalMs(options.root.dataset.gameplaySlicePollingIntervalMs),
+    enabled: options.root.dataset.gameplaySlicePolling === "true",
+    onResponse: render,
+    onError: () => {
+      mounts.status.innerHTML = [
+        "<strong>Server sync stale</strong>",
+        "<span>Polling refresh failed. Keeping the last read model.</span>"
+      ].join("");
+    }
+  });
+
   const cooldownTimerId = window.setInterval(() => refreshLiveCooldownLabels(options.root), 1000);
   options.root.addEventListener("click", handleClick);
   void client
     .load(request)
-    .then(render)
+    .then((state) => {
+      render(state);
+      poller.start();
+    })
     .catch(() => {
       mounts.status.innerHTML = [
         "<strong>Server sync unavailable</strong>",
@@ -92,6 +117,7 @@ export const mountGameplaySlicePage = (
 
   return {
     destroy: () => {
+      poller.stop();
       window.clearInterval(cooldownTimerId);
       options.root.removeEventListener("click", handleClick);
     }
@@ -130,6 +156,12 @@ const renderStatus = (state: ClientRenderState): string => [
 
 const createBrowserCommandId = (prefix: string): string =>
   `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
+
+const parsePollingIntervalMs = (value: string | undefined): number => {
+  const intervalMs = Number.parseInt(String(value ?? ""), 10);
+
+  return Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : 5000;
+};
 
 const createPageApi = () => ({
   mount: (options: GameplaySlicePageMountOptions) => mountGameplaySlicePage(options),

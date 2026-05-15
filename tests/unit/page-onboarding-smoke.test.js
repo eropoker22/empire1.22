@@ -116,9 +116,9 @@ describe("page onboarding smoke", () => {
     expect(readFileSync(resolve(root, "page-assets/css/styles.css"), "utf8")).toContain('@import "./styles-onboarding.css";');
     expect(readFileSync(resolve(root, "page-assets/css/styles.css"), "utf8")).toContain('@import "./styles-static-hover.css";');
     expect(page("admin.html")).toContain('href="../page-assets/css/styles-static-hover.css"');
-    expect(page("login.html")).toContain('href="../page-assets/css/login.css">\n    <link rel="stylesheet" href="../page-assets/css/styles-static-hover.css">');
-    expect(page("lobby.html")).toContain('href="../page-assets/css/lobby.css">\n    <link rel="stylesheet" href="../page-assets/css/styles-static-hover.css">');
-    expect(readFileSync(resolve(root, "server-select.html"), "utf8")).toContain('href="./server-select.css">\n    <link rel="stylesheet" href="./page-assets/css/styles-static-hover.css">');
+    expect(page("login.html")).toMatch(/href="\.\.\/page-assets\/css\/login\.css">\r?\n\s*<link rel="stylesheet" href="\.\.\/page-assets\/css\/styles-static-hover\.css">/u);
+    expect(page("lobby.html")).toMatch(/href="\.\.\/page-assets\/css\/lobby\.css">\r?\n\s*<link rel="stylesheet" href="\.\.\/page-assets\/css\/styles-static-hover\.css">/u);
+    expect(readFileSync(resolve(root, "server-select.html"), "utf8")).toMatch(/href="\.\/server-select\.css">\r?\n\s*<link rel="stylesheet" href="\.\/page-assets\/css\/styles-static-hover\.css">/u);
     expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain("transform: none !important;");
     expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain("transition-property: color, background, background-color");
     expect(readFileSync(resolve(root, "page-assets/css/styles-static-hover.css"), "utf8")).toContain(".building-info-action-row");
@@ -137,7 +137,7 @@ describe("page onboarding smoke", () => {
     expect(bountyCssSource).toContain("#bounty-modal .bounty-board__target-card");
     expect(bountyCssSource).toContain(".bounty-board__target-picker");
     expect(bountyRuntimeSource).toContain("data-bounty-target-option");
-    expect(bountyCssSource).toContain("#bounty-confirm-modal {\n  display: none !important;");
+    expect(bountyCssSource).toMatch(/#bounty-confirm-modal \{\r?\n\s*display: none !important;/u);
     const loginCssSource = readFileSync(resolve(root, "page-assets/css/login.css"), "utf8");
     expect(loginCssSource).toContain(".mode-card--free");
     expect(loginCssSource).toContain("linear-gradient(145deg, rgba(3, 16, 31, 0.94), rgba(1, 6, 16, 0.98))");
@@ -147,7 +147,7 @@ describe("page onboarding smoke", () => {
     expect(loginCssSource).toContain("#register-form .field-shell input");
     expect(loginCssSource).toContain("#register-form .enter-city-button");
     const gameRedesignSource = readFileSync(resolve(root, "page-assets/css/styles-game-redesign.css"), "utf8");
-    expect(gameRedesignSource).toContain("body.game-body > .game-topbar {\n    position: sticky;");
+    expect(gameRedesignSource).toMatch(/body\.game-body > \.game-topbar \{\r?\n\s*position: sticky;/u);
     expect(gameRedesignSource).toContain("z-index: 70;");
     expect(gameRedesignSource).toContain("Final visual pass: gang profile matches the neon Empire shell.");
     expect(gameRedesignSource).toContain("#profile-gang-card.right-panel-card .gang-profile-row.profile-row");
@@ -155,11 +155,17 @@ describe("page onboarding smoke", () => {
     expect(gameRedesignSource).toContain(".map-phase-info-button");
     expect(gameRedesignSource).toContain(".battle-royale-info-modal__content");
     expect(readFileSync(resolve(root, "page-assets/js/app/battle-royale-info-runtime.js"), "utf8")).toContain("initBattleRoyaleInfoRuntime");
-    expect(readFileSync(resolve(root, "page-assets/css/styles-building-modals.css"), "utf8")).toContain(".district-building-detail-stats {\n  display: none !important;");
+    expect(readFileSync(resolve(root, "page-assets/css/styles-building-modals.css"), "utf8")).toMatch(
+      /\.district-building-detail-stats \{\r?\n\s*display: none !important;/u,
+    );
     const districtCssSource = readFileSync(resolve(root, "page-assets/css/styles-district.css"), "utf8");
-    expect(districtCssSource).toContain(".district-popup-shell {\n    inset: 56px 0 0 0;\n    z-index: 29;");
+    expect(districtCssSource).toMatch(
+      /\.district-popup-shell \{\r?\n\s*inset: 56px 0 0 0;\r?\n\s*z-index: 29;/u,
+    );
     const popupsCssSource = readFileSync(resolve(root, "page-assets/css/styles-popups.css"), "utf8");
-    expect(popupsCssSource).toContain(".market-popup-shell,\n  .leaderboard-popup-shell {\n    inset: 56px 0 0 0;\n    z-index: 29;");
+    expect(popupsCssSource).toMatch(
+      /\.market-popup-shell,\r?\n\s*\.leaderboard-popup-shell \{\r?\n\s*inset: 56px 0 0 0;\r?\n\s*z-index: 29;/u,
+    );
     const mobileFixesSource = readFileSync(resolve(root, "page-assets/css/styles-mobile-fixes.css"), "utf8");
     expect(mobileFixesSource).toContain("#buildings-modal:not([hidden])");
     expect(mobileFixesSource).toContain("touch-action: pan-y !important;");
@@ -249,7 +255,7 @@ describe("page onboarding smoke", () => {
     expect(buildingDetailUiSource).toContain("collectButton.hidden = !showManualCollect");
     expect(buildingDetailUiSource).toContain('collectButton.style.display = showManualCollect ? "" : "none";');
     expect(readFileSync(resolve(root, "page-assets/css/styles-building-modals.css"), "utf8")).toContain(".building-detail-title__action-btn[hidden]");
-    expect(readFileSync(resolve(root, "page-assets/css/styles-building-modals.css"), "utf8")).toContain(".district-building-detail-shell {\n  position: fixed;\n  inset: 0;");
+    expect(readFileSync(resolve(root, "page-assets/css/styles-building-modals.css"), "utf8")).toMatch(/\.district-building-detail-shell \{\r?\n  position: fixed;\r?\n  inset: 0;/u);
     expect(runtimeSource).toContain("function syncBuildingDetailTopbarVisibility(root)");
     expect(runtimeSource).toContain("hasManualCollect");
     expect(mapCanvasAnimationsSource).toContain("function drawReducedMapActivityIcon(context, type, x, y, size, color)");

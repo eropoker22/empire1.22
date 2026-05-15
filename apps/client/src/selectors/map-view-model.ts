@@ -48,7 +48,7 @@ export const createMapDistrictViewModels = (
           ? `Owned by ${district.ownerPlayerId}`
           : "Neutral district",
       zoneLabel: toTitleCase(district.zone),
-      heatLabel: String(district.heat),
+      heatLabel: formatHeatLabel(district.heat),
       influenceLabel: String(district.influence),
       buildingSummary: `${district.filledSlotCount} fixed`,
       ownerPlayerId: district.ownerPlayerId,
@@ -69,3 +69,6 @@ const toTitleCase = (value: string): string =>
     .filter(Boolean)
     .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
     .join(" ");
+
+const formatHeatLabel = (value: number): string =>
+  String(Math.round(Number.isFinite(value) ? value : 0));

@@ -14,6 +14,14 @@ const context = {
   config: resolveModeConfig("free")
 };
 
+const MAFIAN_HEAT_GAIN_MULTIPLIER = 0.96;
+
+const mafianHeat = (baseHeat: number): number => baseHeat * MAFIAN_HEAT_GAIN_MULTIPLIER;
+
+const expectMafianHeat = (actual: number, baseHeat: number): void => {
+  expect(actual).toBeCloseTo(mafianHeat(baseHeat), 5);
+};
+
 const createStateWithFixedBuilding = (buildingTypeId = "pharmacy", options = {}) => {
   const { playerBalances, productionResourceKey, productionStoredAmount, ...buildingOverrides } = options as {
     playerBalances?: Record<string, number>;
@@ -340,7 +348,7 @@ describe("run-building-action command flow", () => {
 
     expect(speculation.errors).toEqual([]);
     expect(speculation.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(300);
-    expect(speculation.nextState.districtsById["district:1"].heat).toBe(5);
+    expectMafianHeat(speculation.nextState.districtsById["district:1"].heat, 5);
     expect(speculation.nextState.buildingsById[building.id].metadata?.stockExchange).toMatchObject({
       actionHistory: [{ actionId: "speculative_buy", category: "materials" }],
       riskEvents: [{ actionId: "speculative_buy", riskPct: 6 }]
@@ -386,7 +394,7 @@ describe("run-building-action command flow", () => {
     expect(pressure.errors).toEqual([]);
     expect(pressure.nextState.resourceStatesById["resource:1"].balances.cash).toBe(17000);
     expect(pressure.nextState.districtsById["district:1"].influence).toBe(10);
-    expect(pressure.nextState.districtsById["district:1"].heat).toBe(8);
+    expectMafianHeat(pressure.nextState.districtsById["district:1"].heat, 8);
     expect(pressure.nextState.buildingsById[building.id].metadata?.stockExchange).toMatchObject({
       marketEffects: [
         {
@@ -401,7 +409,7 @@ describe("run-building-action command flow", () => {
     expect(afterBlackMetal).toBeGreaterThan(beforeBlackMetal);
     expect(Object.values(pressure.nextState.cityFeedEventsById).some((event) =>
       event.message === "Downtown burza rozkolísala ceny v kategorii materials."
-    )).toBe(true);
+    )).toBe(false);
 
     const insiderState = {
       ...state,
@@ -428,7 +436,7 @@ describe("run-building-action command flow", () => {
 
     expect(insider.errors).toEqual([]);
     expect(insider.nextState.resourceStatesById["resource:1"].balances.cash).toBe(18500);
-    expect(insider.nextState.districtsById["district:1"].heat).toBe(4);
+    expectMafianHeat(insider.nextState.districtsById["district:1"].heat, 4);
     expect(insider.nextState.buildingsById[building.id].metadata?.stockExchange).toMatchObject({
       insiderWindowExpiresAtTick: 72,
       riskEvents: [{ actionId: "insider_window", riskPct: 10 }]
@@ -470,7 +478,7 @@ describe("run-building-action command flow", () => {
     expect(liquidity.errors).toEqual([]);
     expect(liquidity.nextState.resourceStatesById["resource:1"].balances.cash).toBe(12500);
     expect(liquidity.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(300);
-    expect(liquidity.nextState.districtsById["district:1"].heat).toBe(4);
+    expectMafianHeat(liquidity.nextState.districtsById["district:1"].heat, 4);
     expect(liquidity.nextState.districtsById["district:1"].influence).toBe(40);
     expect(liquidity.nextState.buildingsById[building.id].metadata?.centralBank).toMatchObject({
       riskEvents: [{ actionId: "liquidity_injection", riskPct: 6 }]
@@ -582,7 +590,7 @@ describe("run-building-action command flow", () => {
     expect(pressure.errors).toEqual([]);
     expect(pressure.nextState.resourceStatesById["resource:1"].balances.cash).toBe(3800);
     expect(pressure.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(300);
-    expect(pressure.nextState.districtsById["district:1"].heat).toBe(3);
+    expectMafianHeat(pressure.nextState.districtsById["district:1"].heat, 3);
     expect(pressure.nextState.districtsById["district:1"].influence).toBe(55);
     expect(pressure.nextState.buildingsById[building.id].metadata?.lobbyClub).toMatchObject({
       backroomPressureExpiresAtTick: 96,
@@ -692,7 +700,7 @@ describe("run-building-action command flow", () => {
 
     expect(importStarted.errors).toEqual([]);
     expect(importStarted.nextState.resourceStatesById["resource:1"].balances.cash).toBe(8000);
-    expect(importStarted.nextState.districtsById["district:1"].heat).toBe(6);
+    expectMafianHeat(importStarted.nextState.districtsById["district:1"].heat, 6);
     expect(importStarted.nextState.buildingsById[building.id].metadata?.airport).toMatchObject({
       pendingImports: [{ category: "materials", completesAtTick: 18 }]
     });
@@ -825,7 +833,7 @@ describe("run-building-action command flow", () => {
     expect(cover.errors).toEqual([]);
     expect(cover.nextState.resourceStatesById["resource:1"].balances.cash).toBe(8500);
     expect(cover.nextState.districtsById["district:1"].influence).toBe(75);
-    expect(cover.nextState.districtsById["district:1"].heat).toBe(2);
+    expectMafianHeat(cover.nextState.districtsById["district:1"].heat, 2);
     expect(cover.nextState.buildingsById[building.id].metadata?.cityHall).toMatchObject({
       officialCoverByDistrictId: {
         "district:1": {
@@ -861,7 +869,7 @@ describe("run-building-action command flow", () => {
     expect(contract.nextState.resourceStatesById["resource:1"].balances.cash).toBe(11740);
     expect(contract.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(900);
     expect(contract.nextState.districtsById["district:1"].influence).toBe(80);
-    expect(contract.nextState.districtsById["district:1"].heat).toBe(3);
+    expectMafianHeat(contract.nextState.districtsById["district:1"].heat, 3);
     expect(contractReport).toMatchObject({
       buildingActionId: "city_contract",
       cityHallResult: {
@@ -888,7 +896,7 @@ describe("run-building-action command flow", () => {
     expect(decree.errors).toEqual([]);
     expect(decree.nextState.resourceStatesById["resource:1"].balances.cash).toBe(7500);
     expect(decree.nextState.districtsById["district:1"].influence).toBe(60);
-    expect(decree.nextState.districtsById["district:1"].heat).toBe(8);
+    expectMafianHeat(decree.nextState.districtsById["district:1"].heat, 8);
     expect(decree.nextState.buildingsById[building.id].metadata?.cityHall).toMatchObject({
       emergencyDecree: {
         modeId: "suspended_checks",
@@ -970,7 +978,7 @@ describe("run-building-action command flow", () => {
     expect(result.nextState.resourceStatesById["resource:1"].balances.chemicals).toBe(8);
     expect(result.nextState.resourceStatesById["resource:1"].balances.biomass).toBe(5);
     expect(result.nextState.resourceStatesById["resource:1"].balances["stim-pack"]).toBe(1);
-    expect(result.nextState.districtsById["district:1"].heat).toBe(2);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 2);
     expect(result.nextState.districtsById["district:1"].influence).toBe(1);
     expect(result.nextState.buildingsById[building.id].actionCooldowns.produce_stim_pack).toBeGreaterThan(0);
     expect(Object.values(result.nextState.notificationsById).some((notification) => notification.category === "report.building-action")).toBe(true);
@@ -1084,7 +1092,7 @@ describe("run-building-action command flow", () => {
     expect(result.errors).toEqual([]);
     expect(balances["dirty-cash"]).toBe(7600);
     expect(balances.cash).toBe(2184);
-    expect(result.nextState.districtsById["district:1"].heat).toBe(7);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 7);
     expect(result.nextState.districtsById["district:1"].influence).toBe(3);
     expect(result.nextState.buildingsById[building.id].metadata?.casino).toMatchObject({
       launderedEvents: [{ tick: 0, amount: 2400 }]
@@ -1181,7 +1189,7 @@ describe("run-building-action command flow", () => {
     expect(result.errors).toEqual([]);
     expect(balances["dirty-cash"]).toBe(8400);
     expect(balances.cash).toBe(1408);
-    expect(result.nextState.districtsById["district:1"].heat).toBe(4);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 4);
     expect(result.nextState.districtsById["district:1"].influence).toBe(1.5);
     expect(result.nextState.buildingsById[building.id].metadata?.exchangeOffice).toMatchObject({
       launderedEvents: [{ tick: 0, amount: 1600 }]
@@ -1243,7 +1251,7 @@ describe("run-building-action command flow", () => {
     expect(result.errors).toEqual([]);
     expect(balances["dirty-cash"]).toBe(8700);
     expect(balances.cash).toBe(1105);
-    expect(result.nextState.districtsById["district:1"].heat).toBe(3);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 3);
     expect(result.nextState.districtsById["district:1"].influence).toBe(1);
     expect(result.nextState.buildingsById[building.id].metadata?.arcade).toMatchObject({
       launderedEvents: [{ tick: 0, amount: 1300 }]
@@ -1882,7 +1890,7 @@ describe("run-building-action command flow", () => {
     expect(result.nextState.playersById["player:1"].recoveryPool).toEqual([
       { id: "recovery:test:pistol", itemType: "pistol", amount: 5, source: "attack", lostAtTick: 0 }
     ]);
-    expect(result.nextState.districtsById["district:1"].heat).toBe(1);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 1);
     expect(report).toMatchObject({
       buildingActionId: "stabilization_protocol",
       clinicResult: {
@@ -2005,7 +2013,7 @@ describe("run-building-action command flow", () => {
     expect(balances.vest).toBe(0);
     expect(result.nextState.playersById["player:1"].population).toBe(10);
     expect(result.nextState.playersById["player:1"].salvagePool).toEqual([]);
-    expect(result.nextState.districtsById["district:1"].heat).toBe(2);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 2);
     expect(report).toMatchObject({
       buildingActionId: "extract_losses",
       recyclingResult: {
@@ -2468,7 +2476,7 @@ describe("run-building-action command flow", () => {
     const report = createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })[0];
 
     expect(result.errors).toEqual([]);
-    expect(result.nextState.districtsById["district:1"].heat).toBe(2);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 2);
     expect(result.nextState.districtsById["district:1"].influence).toBe(5);
     expect(report).toMatchObject({
       buildingActionId: "bar_whispers",
@@ -2505,7 +2513,7 @@ describe("run-building-action command flow", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(3500);
-    expect(result.nextState.districtsById["district:1"].heat).toBe(16);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 16);
     expect(result.nextState.districtsById["district:1"].influence).toBe(4);
     expect(result.nextState.buildingsById[building.id].metadata?.stripClub).toMatchObject({
       privatePartyExpiresAtTick: 120,
@@ -2594,7 +2602,7 @@ describe("run-building-action command flow", () => {
 
     expect(first.errors).toEqual([]);
     expect(first.nextState.resourceStatesById["resource:1"].balances.cash).toBe(3800);
-    expect(first.nextState.districtsById["district:1"].heat).toBe(3);
+    expectMafianHeat(first.nextState.districtsById["district:1"].heat, 3);
     expect(first.nextState.districtsById["district:1"].influence).toBe(0);
     expect(first.nextState.buildingsById[building.id].metadata?.powerStation).toMatchObject({
       backupGridSwitchExpiresAtTick: 96

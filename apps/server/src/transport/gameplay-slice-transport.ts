@@ -1,11 +1,14 @@
 import type {
+  AuthContext,
   GameplaySliceResponse,
   LoadGameplaySliceRequest,
   SubmitGameplayCommandRequest
 } from "@empire/shared-types";
 import type { ServerInstanceManager } from "../runtime";
+import type { ServerInstanceRuntime } from "../runtime/instance/server-instance-runtime";
 import { createGameplaySliceProjection } from "../runtime/projections";
 import type { ServerCommandIngress } from "./command-ingress";
+import { validateCommandPlayerIdentity } from "./player-identity-guard";
 
 /**
  * Responsibility: Transport boundary dedicated to the first district/building gameplay slice.
@@ -14,7 +17,7 @@ import type { ServerCommandIngress } from "./command-ingress";
  */
 export interface GameplaySliceTransport {
   load(request: LoadGameplaySliceRequest): GameplaySliceResponse;
-  submit(request: SubmitGameplayCommandRequest): GameplaySliceResponse;
+  submit(request: SubmitGameplayCommandRequest, authContext?: AuthContext | null): GameplaySliceResponse;
 }
 
 export const createGameplaySliceTransport = (
@@ -22,21 +25,30 @@ export const createGameplaySliceTransport = (
   commandIngress: ServerCommandIngress
 ): GameplaySliceTransport => ({
   load: (request) => {
-    const readModel = instanceManager.getGameplaySliceProjection(
-      request.serverInstanceId,
-      request.playerId,
-      request.districtId
-    );
+    const runtime = instanceManager.getInstanceById(request.serverInstanceId);
 
-    return readModel
-      ? {
-          accepted: true,
-          readModel,
-          errors: []
-        }
-      : createNotFoundResponse("Slice runtime or projection was not found.");
+    if (!runtime) {
+      return createNotFoundResponse("Slice runtime or projection was not found.");
+    }
+
+    return {
+      accepted: true,
+      readModel: createGameplaySliceProjection(runtime, request.playerId, request.districtId),
+      errors: [],
+      metadata: createGameplaySliceResponseMetadata(runtime)
+    };
   },
-  submit: (request) => {
+  submit: (request, authContext) => {
+    const identityErrors = validateCommandPlayerIdentity(request.command, authContext);
+
+    if (identityErrors.length > 0) {
+      return {
+        accepted: false,
+        readModel: null,
+        errors: identityErrors
+      };
+    }
+
     const dispatchResult = commandIngress.submit(request.command);
 
     if (!dispatchResult) {
@@ -50,9 +62,15 @@ export const createGameplaySliceTransport = (
         request.command.playerId,
         request.focusDistrictId
       ),
-      errors: dispatchResult.errors
+      errors: dispatchResult.errors,
+      metadata: createGameplaySliceResponseMetadata(dispatchResult.runtime)
     };
   }
+});
+
+const createGameplaySliceResponseMetadata = (runtime: ServerInstanceRuntime): GameplaySliceResponse["metadata"] => ({
+  serverTick: runtime.state.root.tick,
+  stateVersion: runtime.state.root.version
 });
 
 const createNotFoundResponse = (message: string): GameplaySliceResponse => ({

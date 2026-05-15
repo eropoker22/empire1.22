@@ -31,5 +31,11 @@ export interface GameplaySliceResponse {
   accepted: boolean;
   readModel: GameplaySliceView | null;
   errors: DomainError[];
+  metadata?: GameplaySliceResponseMetadata;
   snapshotToken?: string | null;
+}
+
+export interface GameplaySliceResponseMetadata {
+  serverTick: number;
+  stateVersion: number;
 }

@@ -124,11 +124,24 @@ export function renderDistrictTooltip(viewModel = null, position = {}, options =
     return { visible: hideDistrictTooltip(options), tooltipSize: options.tooltipSize || { width: 84, height: 52 } };
   }
 
+  const isDestroyed = Boolean(viewModel.destroyed);
+  if (tooltip.classList?.toggle) {
+    tooltip.classList.toggle("district-hover-tooltip--destroyed", isDestroyed);
+  } else if (isDestroyed) {
+    tooltip.classList?.add?.("district-hover-tooltip--destroyed");
+  }
+  typeElement.hidden = isDestroyed;
+  if (options.gossip) {
+    options.gossip.hidden = isDestroyed;
+  }
+
   if (options.renderContent !== false) {
     valueElement.textContent = String(viewModel.idLabel || viewModel.id || "");
     typeElement.textContent = String(viewModel.typeLabel || "");
-    if (options.gossip) {
+    if (options.gossip && !isDestroyed) {
       renderDistrictTooltipGossip(options.gossip, viewModel.gossipEntries || [], options);
+    } else {
+      options.gossip?.replaceChildren?.();
     }
   }
 

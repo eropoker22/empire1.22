@@ -180,7 +180,7 @@ describe("runtime map rendering guards", () => {
       ownedDistrictIds: new Set(),
       destroyedDistrictIds: new Set(),
       launchOwnerByDistrictId: new Map()
-    })).toBe("rgba(103, 225, 255, 0.14)");
+    })).toBe("rgba(250, 204, 21, 0.2)");
 
     expect(() => renderDistrictCanvas(canvas, "day", interactionState)).not.toThrow();
 

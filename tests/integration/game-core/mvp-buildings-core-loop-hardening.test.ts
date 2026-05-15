@@ -19,6 +19,10 @@ const context = {
   config: resolveModeConfig("free")
 };
 
+const MAFIAN_HEAT_GAIN_MULTIPLIER = 0.96;
+
+const mafianHeat = (baseHeat: number): number => baseHeat * MAFIAN_HEAT_GAIN_MULTIPLIER;
+
 const MVP_BUILDING_IDS = [
   "apartment_block",
   "pharmacy",
@@ -113,7 +117,7 @@ describe("MVP buildings core loop hardening", () => {
       actionId: "good_rate",
       cashDelta: 1408,
       dirtyCashDelta: -1600,
-      heatDelta: 4,
+      heatDelta: mafianHeat(4),
       influenceDelta: 1.5,
       producedItems: { cash: 1408 },
       consumedItems: { "dirty-cash": 1600 },
@@ -123,13 +127,13 @@ describe("MVP buildings core loop hardening", () => {
       },
       message: expect.stringContaining("Výhodný kurz"),
       policeImpact: {
-        heatDelta: 4,
-        playerHeat: 4
+        heatDelta: mafianHeat(4),
+        playerHeat: mafianHeat(4)
       }
     });
     expect(Number.isNaN(report.cashDelta)).toBe(false);
-    expect(police.heat).toBe(4);
-    expect(police.totalHeat).toBeGreaterThanOrEqual(8);
+    expect(police.heat).toBe(mafianHeat(4));
+    expect(police.totalHeat).toBeGreaterThanOrEqual(mafianHeat(8));
     expect(police.heatSources.map((source) => source.kind)).toContain("player");
     expect(police.heatSources.map((source) => source.kind)).toContain("district");
   });
@@ -169,7 +173,7 @@ describe("MVP buildings core loop hardening", () => {
       payload: {
         actionId: "produce_neon_dust",
         buildingTypeId: "drug_lab",
-        heatGain: 3
+        heatGain: mafianHeat(3)
       }
     });
     expect(twice).toHaveLength(once.length);

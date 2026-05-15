@@ -20,6 +20,16 @@ class FakeClassList {
   contains(token) {
     return this.tokens.has(token);
   }
+
+  toggle(token, force) {
+    const shouldAdd = force === undefined ? !this.tokens.has(token) : Boolean(force);
+    if (shouldAdd) {
+      this.tokens.add(token);
+    } else {
+      this.tokens.delete(token);
+    }
+    return shouldAdd;
+  }
 }
 
 class FakeElement {
@@ -105,5 +115,36 @@ describe("map tooltip UI", () => {
     expect(gossip.children[1].children[0].textContent).toBe("Zatím bez drbů.");
     expect(renderDistrictTooltip(null, {}, {})).toMatchObject({ visible: false });
     expect(updateDistrictTooltipPosition({}, {})).toBeNull();
+  });
+
+  it("renders destroyed district hover as a single text state", () => {
+    const document = new FakeDocument();
+    const tooltip = createElement(document);
+    const value = createElement(document);
+    const type = createElement(document);
+    const gossip = createElement(document);
+
+    renderDistrictTooltip({
+      idLabel: "District zničen",
+      typeLabel: "",
+      gossipEntries: [],
+      destroyed: true
+    }, {
+      pointerX: 40,
+      pointerY: 30
+    }, {
+      tooltip,
+      value,
+      type,
+      gossip,
+      viewportRect: { width: 300, height: 200 },
+      tooltipSize: { width: 84, height: 52 }
+    });
+
+    expect(tooltip.classList.contains("district-hover-tooltip--destroyed")).toBe(true);
+    expect(value.textContent).toBe("District zničen");
+    expect(type.hidden).toBe(true);
+    expect(gossip.hidden).toBe(true);
+    expect(gossip.children).toHaveLength(0);
   });
 });

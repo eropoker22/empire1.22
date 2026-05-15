@@ -337,7 +337,7 @@ describe("city feed event integration", () => {
           falseLead: true
         }
       }
-    ], 50, context);
+    ], 50);
     const event = Object.values(nextState.cityFeedEventsById).find((feedEvent) =>
       feedEvent.payload?.rumorType === "police_false_lead"
     );

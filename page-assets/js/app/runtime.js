@@ -6664,6 +6664,75 @@ function bindDistrictCanvas(root) {
       popupToggle.setAttribute("aria-pressed", isDistrictPopupOverviewEnabled ? "true" : "false");
     }
   };
+  const getDestroyedDistrictNotice = () => {
+    const body = popupCard?.querySelector?.(".district-popup-body");
+    if (!body) {
+      return null;
+    }
+
+    let notice = body.querySelector("[data-district-popup-destroyed-only]");
+    if (!notice) {
+      notice = document.createElement("div");
+      notice.className = "district-popup-destroyed-only";
+      notice.dataset.districtPopupDestroyedOnly = "true";
+      notice.setAttribute("role", "status");
+      body.append(notice);
+    }
+
+    return notice;
+  };
+  const setDestroyedDistrictPopupMode = (enabled) => {
+    if (!popupCard) {
+      return;
+    }
+
+    popupCard.dataset.districtDestroyed = enabled ? "true" : "false";
+    const notice = getDestroyedDistrictNotice();
+    if (notice) {
+      notice.hidden = !enabled;
+      notice.textContent = enabled ? "District zničen" : "";
+    }
+    popupCard.setAttribute("aria-label", enabled ? "District zničen" : "District detail");
+  };
+  const scheduleDistrictPopupRefresh = () => {
+    if (popupRefreshTimerId !== null) {
+      window.clearInterval(popupRefreshTimerId);
+    }
+
+    popupRefreshTimerId = window.setInterval(() => {
+      const refreshedDistrict = getSelectedDistrict();
+
+      if (!refreshedDistrict || popup?.hidden) {
+        if (popupRefreshTimerId !== null) {
+          window.clearInterval(popupRefreshTimerId);
+          popupRefreshTimerId = null;
+        }
+        return;
+      }
+
+      openPopup(refreshedDistrict);
+
+      if (trapConfirmPopup && !trapConfirmPopup.hidden) {
+        populateTrapConfirmPopup(refreshedDistrict);
+      }
+
+      if (spyConfirmPopup && !spyConfirmPopup.hidden) {
+        populateSpyConfirmPopup(refreshedDistrict);
+      }
+
+      if (occupyConfirmPopup && !occupyConfirmPopup.hidden) {
+        populateOccupyConfirmPopup(refreshedDistrict);
+      }
+
+      if (attackConfirmPopup && !attackConfirmPopup.hidden) {
+        populateAttackConfirmPopup(refreshedDistrict, getPendingAttackContext());
+      }
+
+      if (robberyConfirmPopup && !robberyConfirmPopup.hidden) {
+        populateRobberyConfirmPopup(refreshedDistrict);
+      }
+    }, 1000);
+  };
 
   const {
     clearPendingAttackContext,
@@ -7191,6 +7260,37 @@ function bindDistrictCanvas(root) {
     const activePoliceAction = getDistrictPoliceAction(district.id);
     const trapControlState = getDistrictTrapControlState(district);
 
+    if (isDestroyed) {
+      setDestroyedDistrictPopupMode(true);
+      if (popupTitle) {
+        popupTitle.textContent = "District zničen";
+      }
+      if (popupAtmosphereWindow instanceof HTMLElement) {
+        popupAtmosphereWindow.dataset.districtId = String(district.id);
+      }
+      closeDistrictAtmosphereWindow({
+        trigger: popupAtmosphereHero,
+        windowElement: popupAtmosphereWindow
+      });
+      showDistrictPopupModal(popup);
+      document.dispatchEvent(new CustomEvent("empire:district-opened", {
+        detail: {
+          district,
+          districtId: district.id,
+          isOwnedByCurrentPlayer,
+          ownerLabel
+        }
+      }));
+      syncMapInteractionVisualState({
+        hoveredDistrict: geometry?.districts?.find((entry) => entry.id === interactionState.hoveredDistrictId) || null,
+        focusedDistrict: district
+      });
+      scheduleDistrictPopupRefresh();
+      return;
+    }
+
+    setDestroyedDistrictPopupMode(false);
+
     renderSelectedDistrictSummary(buildSelectedDistrictSummaryViewModel(district, interactionState, {
       atmosphereMeta,
       currentPlayerId: CURRENT_PLAYER_ID,
@@ -7310,43 +7410,7 @@ function bindDistrictCanvas(root) {
       focusedDistrict: district
     });
 
-    if (popupRefreshTimerId !== null) {
-      window.clearInterval(popupRefreshTimerId);
-    }
-
-    popupRefreshTimerId = window.setInterval(() => {
-      const refreshedDistrict = getSelectedDistrict();
-
-      if (!refreshedDistrict || popup?.hidden) {
-        if (popupRefreshTimerId !== null) {
-          window.clearInterval(popupRefreshTimerId);
-          popupRefreshTimerId = null;
-        }
-        return;
-      }
-
-      openPopup(refreshedDistrict);
-
-      if (trapConfirmPopup && !trapConfirmPopup.hidden) {
-        populateTrapConfirmPopup(refreshedDistrict);
-      }
-
-      if (spyConfirmPopup && !spyConfirmPopup.hidden) {
-        populateSpyConfirmPopup(refreshedDistrict);
-      }
-
-      if (occupyConfirmPopup && !occupyConfirmPopup.hidden) {
-        populateOccupyConfirmPopup(refreshedDistrict);
-      }
-
-      if (attackConfirmPopup && !attackConfirmPopup.hidden) {
-        populateAttackConfirmPopup(refreshedDistrict, getPendingAttackContext());
-      }
-
-      if (robberyConfirmPopup && !robberyConfirmPopup.hidden) {
-        populateRobberyConfirmPopup(refreshedDistrict);
-      }
-    }, 1000);
+    scheduleDistrictPopupRefresh();
   };
 
   const updateTooltip = (event, district) => {

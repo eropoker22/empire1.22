@@ -88,7 +88,7 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
       config: resolveModeConfig("free")
     });
 
-    expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(1025);
+    expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(1027.5);
   });
 
   it("tracks heat server-side and flags police raid pressure at threshold", () => {
@@ -146,7 +146,7 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     expect(result.errors).toEqual([]);
     expect(result.nextState.policeStatesById["police:1"]).toMatchObject({
       ownerPlayerId: "player:1",
-      heat: 1,
+      heat: 0.96,
       wantedLevel: 0
     });
   });

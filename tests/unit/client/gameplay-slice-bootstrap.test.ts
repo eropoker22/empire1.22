@@ -19,7 +19,8 @@ describe("gameplay slice browser bootstrap", () => {
     ).toEqual({
       serverInstanceId: "instance:manual",
       playerId: "player:manual",
-      districtId: "district:7"
+      districtId: "district:7",
+      factionId: null
     });
   });
 
@@ -38,7 +39,8 @@ describe("gameplay slice browser bootstrap", () => {
     ).toEqual({
       serverInstanceId: "instance:war-eu-01",
       playerId: "player:host-alpha",
-      districtId: "district:27"
+      districtId: "district:27",
+      factionId: null
     });
   });
 

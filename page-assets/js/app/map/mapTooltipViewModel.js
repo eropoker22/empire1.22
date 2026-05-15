@@ -38,6 +38,16 @@ export function buildMapTooltipViewModel(district = null, interactionState = {},
     return null;
   }
 
+  if (interactionState?.destroyedDistrictIds?.has?.(districtId)) {
+    return {
+      id: districtId,
+      idLabel: "District zničen",
+      typeLabel: "",
+      gossipEntries: [],
+      destroyed: true
+    };
+  }
+
   const launchOwnerId = interactionState?.gamePhase === "launch"
     ? interactionState.launchOwnerByDistrictId?.get?.(districtId)
     : null;

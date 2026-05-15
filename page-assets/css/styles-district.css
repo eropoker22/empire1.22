@@ -1373,6 +1373,82 @@
     0 0 22px rgba(244, 114, 182, 0.16);
 }
 
+.district-popup-card[data-district-destroyed="true"] {
+  width: min(360px, calc(100vw - 32px));
+  min-height: 0;
+  border-color: rgba(248, 113, 113, 0.44);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(248, 113, 113, 0.14), transparent 48%),
+    linear-gradient(180deg, rgba(18, 6, 8, 0.96), rgba(4, 6, 12, 0.98));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    inset 0 0 34px rgba(127, 29, 29, 0.12),
+    0 18px 44px rgba(0, 0, 0, 0.58),
+    0 0 28px rgba(248, 113, 113, 0.16);
+}
+
+.district-popup-card[data-district-destroyed="true"] .district-popup-toggle,
+.district-popup-card[data-district-destroyed="true"] .district-modal-hero,
+.district-popup-card[data-district-destroyed="true"] .district-atmosphere-window,
+.district-popup-card[data-district-destroyed="true"] .district-popup-body > :not(.district-popup-destroyed-only) {
+  display: none !important;
+}
+
+.district-popup-card[data-district-destroyed="true"] .district-popup-body {
+  display: grid;
+  min-height: 132px;
+  padding: 34px 24px 28px;
+  place-items: center;
+}
+
+.district-popup-destroyed-only {
+  display: grid;
+  place-items: center;
+  color: #fee2e2;
+  font-size: clamp(1.05rem, 3.4vw, 1.35rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 12px rgba(248, 113, 113, 0.42),
+    0 0 24px rgba(127, 29, 29, 0.34);
+}
+
+.district-popup-destroyed-only[hidden] {
+  display: none !important;
+}
+
+.district-hover-tooltip--destroyed {
+  min-width: 132px;
+  padding: 9px 12px;
+  border-color: rgba(248, 113, 113, 0.52);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(248, 113, 113, 0.18), transparent 58%),
+    rgba(6, 8, 14, 0.96);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 0 18px rgba(248, 113, 113, 0.22),
+    0 14px 26px rgba(0, 0, 0, 0.42);
+}
+
+.district-hover-tooltip--destroyed .district-hover-tooltip__label,
+.district-hover-tooltip--destroyed .district-hover-tooltip__type,
+.district-hover-tooltip--destroyed .district-hover-tooltip__gossip {
+  display: none !important;
+}
+
+.district-hover-tooltip--destroyed .district-hover-tooltip__value {
+  color: #fee2e2;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 10px rgba(248, 113, 113, 0.42),
+    0 0 18px rgba(127, 29, 29, 0.32);
+}
+
 @media (max-width: 840px) {
   .attack-setup-popup-card {
     width: min(94vw, 560px);

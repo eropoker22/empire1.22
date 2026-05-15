@@ -125,7 +125,7 @@ describe("legacy player flow smoke guard", () => {
     expect(gameHtml).toContain("data-map-viewport");
     expect(gameHtml).toContain("data-district-canvas");
     expect(gameHtml).toContain("data-district-popup");
-    expect(gameHtml).toContain('src="../page-assets/js/app.js"');
+    expect(gameHtml).toMatch(/src="\.\.\/page-assets\/js\/app\.js(?:\?[^"]*)?"/u);
     expect(clickedDistrict?.id).toBe(firstDistrict.id);
     expect(runtimeSource).toContain('viewport.addEventListener("click"');
     expect(runtimeSource).toContain("const district = getDistrictAtPoint(geometry, toCanvasPoint(event));");

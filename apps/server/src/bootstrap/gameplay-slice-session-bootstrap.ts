@@ -1,30 +1,21 @@
-import {
-  applyFactionStartingPackage,
-  createInitialState,
-  createPlayerPoliceState,
-  normalizeFactionId
-} from "@empire/game-core";
-import { resolveDistrictBuildingTypes, resolveModeConfig } from "@empire/game-config";
+import { createInitialState } from "@empire/game-core";
 import type {
-  Building,
-  District,
+  DomainError,
   GameCommand,
   GameModeId,
   LoadGameplaySliceRequest,
-  Player,
   PlayerFactionId,
-  ResourceState,
   ServerInstanceId,
   SubmitGameplayCommandRequest
 } from "@empire/shared-types";
 import type { ServerInstanceManager } from "../runtime";
+import type { ServerInstanceRuntime } from "../runtime/instance/server-instance-runtime";
+import { inferModeFromInstanceId } from "./gameplay-slice-bootstrap-format";
+import { ensureGameplaySliceMembershipInState } from "./gameplay-slice-session-membership";
 import {
-  createBuildingId,
-  createNeighborDistrictId,
-  formatDistrictName,
-  inferModeFromInstanceId
-} from "./gameplay-slice-bootstrap-format";
-import { restoreGameplaySliceSessionFromSnapshot, type EnsureGameplaySliceSessionOptions } from "./gameplay-slice-snapshot-restore";
+  restoreGameplaySliceSessionFromSnapshot,
+  type EnsureGameplaySliceSessionOptions
+} from "./gameplay-slice-snapshot-restore";
 
 export interface GameplaySliceSessionRequest {
   serverInstanceId: ServerInstanceId;
@@ -34,16 +25,32 @@ export interface GameplaySliceSessionRequest {
   mode?: GameModeId;
 }
 
+export interface GameplaySliceSessionEnsureResult {
+  accepted: boolean;
+  createdInstance: boolean;
+  joinedPlayer: boolean;
+  errors: DomainError[];
+}
+
 export const ensureGameplaySliceSession = async (
   instanceManager: ServerInstanceManager,
   request: LoadGameplaySliceRequest | SubmitGameplayCommandRequest,
   options: EnsureGameplaySliceSessionOptions = {}
 ): Promise<boolean> => {
+  const result = await ensureGameplaySliceSessionResult(instanceManager, request, options);
+  return result.accepted;
+};
+
+export const ensureGameplaySliceSessionResult = async (
+  instanceManager: ServerInstanceManager,
+  request: LoadGameplaySliceRequest | SubmitGameplayCommandRequest,
+  options: EnsureGameplaySliceSessionOptions = {}
+): Promise<GameplaySliceSessionEnsureResult> => {
   const sessionRequest = normalizeSessionRequest(request);
   const existingRuntime = instanceManager.getInstanceById(sessionRequest.serverInstanceId);
 
   if (existingRuntime) {
-    return true;
+    return ensureRuntimeMembership(existingRuntime, request, sessionRequest);
   }
 
   const mode = sessionRequest.mode ?? inferModeFromInstanceId(sessionRequest.serverInstanceId);
@@ -57,22 +64,29 @@ export const ensureGameplaySliceSession = async (
   );
 
   if (restored) {
-    return true;
+    const restoredRuntime = instanceManager.getInstanceById(sessionRequest.serverInstanceId);
+    return restoredRuntime
+      ? ensureRuntimeMembership(restoredRuntime, request, sessionRequest)
+      : createEnsureFailure("transport.not_found", "Gameplay slice snapshot could not restore a server runtime.");
   }
 
   if ("command" in request) {
-    return false;
+    return createEnsureFailure("transport.not_found", "Gameplay slice session was not found.");
   }
 
   const runtime = instanceManager.createInstance(sessionRequest.serverInstanceId, mode);
-
   runtime.state = createGameplaySliceSessionState({
     ...sessionRequest,
     mode
   });
-
   instanceManager.startInstance(sessionRequest.serverInstanceId);
-  return true;
+
+  return {
+    accepted: true,
+    createdInstance: true,
+    joinedPlayer: true,
+    errors: []
+  };
 };
 
 const normalizeSessionRequest = (
@@ -98,152 +112,60 @@ const normalizeSessionRequest = (
   };
 };
 
-const createGameplaySliceSessionState = (request: GameplaySliceSessionRequest & { mode: GameModeId }) => {
-  const config = resolveModeConfig(request.mode);
-  const state = createInitialState(request.serverInstanceId, request.mode);
-  const factionId = normalizeFactionId(request.factionId, config);
-  const districtIds = [
-    request.districtId,
-    createNeighborDistrictId(request.districtId, 1),
-    createNeighborDistrictId(request.districtId, 2)
-  ];
-  const player = createPlayer(request, factionId);
+const ensureRuntimeMembership = (
+  runtime: ServerInstanceRuntime,
+  request: LoadGameplaySliceRequest | SubmitGameplayCommandRequest,
+  sessionRequest: GameplaySliceSessionRequest
+): GameplaySliceSessionEnsureResult => {
+  if ("command" in request) {
+    return {
+      accepted: true,
+      createdInstance: false,
+      joinedPlayer: false,
+      errors: []
+    };
+  }
 
-  state.playersById[player.id] = player;
-  state.resourceStatesById[player.resourceStateId] = createResourceState(
-    player.resourceStateId,
-    "player",
-    player.id,
-    config.balance.startingResources
-  );
-  state.policeStatesById[player.policeStateId] = createPlayerPoliceState(player, state.root.tick);
-  state.root.playerIds.push(player.id);
-
-  districtIds.forEach((districtId, index) => {
-    const isHomeDistrict = index === 0;
-    const district = createDistrict({
-      instanceId: request.serverInstanceId,
-      districtId,
-      ownerPlayerId: isHomeDistrict ? player.id : null,
-      slotCount: config.balance.buildSlotLimit,
-      zone: isHomeDistrict ? "commercial" : "industrial",
-      buildingSetKey: isHomeDistrict ? "early-stable-2" : "ind-top-1",
-      adjacentDistrictIds: districtIds.filter((candidateId) => candidateId !== districtId)
-    });
-
-    state.districtsById[district.id] = district;
-    state.root.districtIds.push(district.id);
-
-    district.buildingIds.forEach((buildingId, buildingIndex) => {
-      const buildingTypeId = district.buildingIds[buildingIndex]?.split(":").at(-2) ?? "warehouse";
-      const building = createBuilding(request.serverInstanceId, district, buildingId, buildingTypeId);
-      const productionProfile = config.balance.productionBuildings?.[building.buildingTypeId];
-
-      state.buildingsById[building.id] = building;
-
-      if (productionProfile) {
-        state.resourceStatesById[`resource:${building.id}`] = createResourceState(
-          `resource:${building.id}`,
-          "building",
-          building.id,
-          {
-            [productionProfile.resourceKey]: 0
-          }
-        );
-      }
-    });
+  const result = ensureGameplaySliceMembershipInState(runtime.state, {
+    ...sessionRequest,
+    mode: runtime.record.mode
   });
 
-  return applyFactionStartingPackage(state, player.id, { config });
-};
+  if (!result.accepted) {
+    return {
+      accepted: false,
+      createdInstance: false,
+      joinedPlayer: false,
+      errors: result.errors
+    };
+  }
 
-const createPlayer = (
-  request: GameplaySliceSessionRequest & { mode: GameModeId },
-  factionId: PlayerFactionId
-): Player => ({
-  id: request.playerId,
-  accountId: `account:${request.playerId}`,
-  serverInstanceId: request.serverInstanceId,
-  name: request.playerId.replace(/^player:/u, "").replace(/[-:]+/gu, " ") || "Street Player",
-  factionId,
-  color: "#3b82f6",
-  status: "active",
-  allianceId: null,
-  homeDistrictId: request.districtId,
-  attackLoadout: {
-    pistol: 2,
-    smg: 1
-  },
-  resourceStateId: `resource:${request.playerId}`,
-  cooldownStateId: `cooldown:${request.playerId}`,
-  effectStateId: `effect:${request.playerId}`,
-  policeStateId: `police:${request.playerId}`,
-  createdAt: new Date(0).toISOString(),
-  lastActionAt: null,
-  version: 1
-});
-
-const createDistrict = (input: {
-  instanceId: string;
-  districtId: string;
-  ownerPlayerId: string | null;
-  slotCount: number;
-  zone: string;
-  buildingSetKey: string;
-  adjacentDistrictIds: string[];
-}): District => {
-  const buildingTypes = resolveDistrictBuildingTypes({
-    districtId: input.districtId,
-    zone: input.zone,
-    buildingSetKey: input.buildingSetKey
-  });
-
+  runtime.state = result.state;
   return {
-    id: input.districtId,
-    serverInstanceId: input.instanceId,
-    templateId: `district-template:${input.zone}`,
-    name: formatDistrictName(input.districtId),
-    zone: input.zone,
-    adjacentDistrictIds: input.adjacentDistrictIds,
-    ownerPlayerId: input.ownerPlayerId,
-    controllerAllianceId: null,
-    heat: 0,
-    influence: 0,
-    buildingIds: buildingTypes.map((buildingTypeId, index) =>
-      createBuildingId(input.districtId, buildingTypeId, index)
-    ),
-    defenseLoadout: {},
-    slotCount: Math.max(input.slotCount, buildingTypes.length),
-    status: input.ownerPlayerId ? "claimed" : "neutral",
-    resourceModifiers: {},
-    version: 1
+    accepted: true,
+    createdInstance: false,
+    joinedPlayer: result.joinedPlayer,
+    errors: []
   };
 };
 
-const createBuilding = (
-  instanceId: string,
-  district: District,
-  buildingId: string,
-  buildingTypeId: string
-): Building => ({
-  id: buildingId,
-  serverInstanceId: instanceId,
-  districtId: district.id,
-  ownerPlayerId: district.ownerPlayerId ?? "player:neutral",
-  buildingTypeId,
-  displayName: null,
-  level: 1,
-  status: "active",
-  processing: null,
-  actionCooldowns: {},
-  startedAt: new Date(0).toISOString(),
-  completedAt: new Date(0).toISOString(),
-  version: 1
-});
+const createGameplaySliceSessionState = (request: GameplaySliceSessionRequest & { mode: GameModeId }) => {
+  const state = createInitialState(request.serverInstanceId, request.mode);
+  const result = ensureGameplaySliceMembershipInState(state, request);
+  return result.state;
+};
 
-const createResourceState = (
-  id: string,
-  ownerType: ResourceState["ownerType"],
-  ownerId: string,
-  balances: Record<string, number>
-): ResourceState => ({ id, ownerType, ownerId, balances: { ...balances }, incomeModifiers: {}, lastUpdatedTick: 0, version: 1 });
+const createEnsureFailure = (
+  code: string,
+  message: string
+): GameplaySliceSessionEnsureResult => ({
+  accepted: false,
+  createdInstance: false,
+  joinedPlayer: false,
+  errors: [
+    {
+      code,
+      message
+    }
+  ]
+});
