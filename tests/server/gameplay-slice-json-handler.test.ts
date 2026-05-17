@@ -41,7 +41,12 @@ describe("gameplay slice json handler", () => {
         body: {
           focusDistrictId: "district:1",
           command: {
-            type: "place-trap"
+            id: "command:json-handler:1",
+            type: "place-trap",
+            mode: "free",
+            playerId: "player:1",
+            serverInstanceId: "instance:1",
+            issuedAt: new Date(0).toISOString()
           }
         }
       }).status
@@ -85,5 +90,116 @@ describe("gameplay slice json handler", () => {
         ]
       }
     });
+  });
+
+  it("rejects invalid load and submit request shapes before transport dispatch", () => {
+    const handler = createGameplaySliceJsonHandler({
+      load: () => {
+        throw new Error("invalid load reached transport");
+      },
+      submit: () => {
+        throw new Error("invalid submit reached transport");
+      }
+    });
+
+    expect(handler.handle({
+      method: "POST",
+      path: "/api/gameplay-slice/load",
+      body: {
+        playerId: "player:missing-instance",
+        districtId: "district:1"
+      }
+    })).toMatchObject({
+      status: 200,
+      body: {
+        accepted: false,
+        readModel: null,
+        errors: [
+          {
+            code: "transport.invalid_request",
+            details: {
+              field: "serverInstanceId"
+            }
+          }
+        ]
+      }
+    });
+
+    expect(handler.handle({
+      method: "POST",
+      path: "/api/gameplay-slice/submit",
+      body: {
+        focusDistrictId: "district:1"
+      }
+    })).toMatchObject({
+      status: 200,
+      body: {
+        accepted: false,
+        readModel: null,
+        errors: [
+          {
+            code: "transport.invalid_request",
+            details: {
+              field: "command"
+            }
+          }
+        ]
+      }
+    });
+  });
+
+  it("rejects commands missing required envelope fields before transport dispatch", () => {
+    const handler = createGameplaySliceJsonHandler({
+      load: () => {
+        throw new Error("unexpected load");
+      },
+      submit: () => {
+        throw new Error("invalid command reached transport");
+      }
+    });
+
+    const missingId = handler.handle({
+      method: "POST",
+      path: "/api/gameplay-slice/submit",
+      body: {
+        focusDistrictId: "district:1",
+        command: {
+          type: "spy-district",
+          mode: "free",
+          playerId: "player:1",
+          serverInstanceId: "instance:1",
+          issuedAt: new Date(0).toISOString()
+        }
+      }
+    });
+
+    expect(missingId.body.errors).toContainEqual(expect.objectContaining({
+      code: "transport.invalid_request",
+      details: {
+        field: "command.id"
+      }
+    }));
+
+    const missingPlayerId = handler.handle({
+      method: "POST",
+      path: "/api/gameplay-slice/submit",
+      body: {
+        focusDistrictId: "district:1",
+        command: {
+          id: "command:missing-player",
+          type: "spy-district",
+          mode: "free",
+          serverInstanceId: "instance:1",
+          issuedAt: new Date(0).toISOString()
+        }
+      }
+    });
+
+    expect(missingPlayerId.body.errors).toContainEqual(expect.objectContaining({
+      code: "transport.invalid_request",
+      details: {
+        field: "command.playerId"
+      }
+    }));
   });
 });

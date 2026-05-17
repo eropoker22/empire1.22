@@ -1,9 +1,9 @@
-import type { OccupyDistrictCommand } from "@empire/shared-types";
+import type { Notification, OccupyDistrictCommand } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreEvent } from "../events";
 import type { CoreError } from "../errors";
-import { CORE_EVENT_TYPES, createEvent } from "../events";
+import { CORE_EVENT_TYPES, createEvent, createNotification } from "../events";
 import { createOccupyCooldownKey, resolveOccupyBalance } from "../rules";
 import {
   applyFactionCooldownTicks,
@@ -13,6 +13,7 @@ import {
 import { validateOccupy } from "../validation";
 import { createPlayerCooldownState, reassignCapturedDistrictBuildings } from "./attackDistrictHelpers";
 import { increasePlayerPoliceHeat } from "./playerPoliceState";
+import { composeEntityId } from "../utils";
 
 /**
  * Responsibility: Claims one neutral district after successful spy intel.
@@ -45,6 +46,18 @@ export const handleOccupyDistrict = (
   const occupyCooldownKey = createOccupyCooldownKey(targetDistrict.id);
   const nextPoliceState = increasePlayerPoliceHeat(state, player, heatGain, state.root.tick);
   const nextBuildingsById = reassignCapturedDistrictBuildings(state, targetDistrict.buildingIds, player.id);
+  const eventId = composeEntityId("event", `${command.id}:district-occupied`);
+  const report = createOccupyReportNotification({
+    command,
+    playerId: player.id,
+    sourceDistrictId: sourceDistrict.id,
+    targetDistrictId: targetDistrict.id,
+    heatGained: heatGain,
+    influenceCost: balance.influenceCost,
+    cooldownTicks,
+    tick: state.root.tick,
+    eventId
+  });
 
   return {
     nextState: {
@@ -90,8 +103,13 @@ export const handleOccupyDistrict = (
         ...state.policeStatesById,
         [nextPoliceState.id]: nextPoliceState
       },
+      notificationsById: {
+        ...state.notificationsById,
+        [report.id]: report
+      },
       root: {
         ...state.root,
+        notificationIds: [...state.root.notificationIds, report.id],
         version: state.root.version + 1
       }
     },
@@ -105,11 +123,54 @@ export const handleOccupyDistrict = (
         heatGained: heatGain,
         influenceCost: balance.influenceCost,
         cooldownTicks
+      }),
+      createEvent(CORE_EVENT_TYPES.notificationCreated, {
+        notificationId: report.id,
+        recipientId: player.id,
+        category: report.category
       })
     ],
     errors: []
   };
 };
+
+const createOccupyReportNotification = (input: {
+  command: OccupyDistrictCommand;
+  playerId: string;
+  sourceDistrictId: string;
+  targetDistrictId: string;
+  heatGained: number;
+  influenceCost: number;
+  cooldownTicks: number;
+  tick: number;
+  eventId: string;
+}): Notification =>
+  createNotification({
+    id: composeEntityId("notification", `${input.command.id}:occupy-report`),
+    recipientType: "player",
+    recipientId: input.playerId,
+    category: "report.occupy",
+    title: `Occupy report: ${input.targetDistrictId}`,
+    bodyKey: "report.occupy",
+    payload: {
+      reportId: composeEntityId("report", `${input.command.id}:occupy`),
+      reportType: "occupy",
+      actionType: "occupy-district",
+      playerId: input.playerId,
+      sourceDistrictId: input.sourceDistrictId,
+      targetDistrictId: input.targetDistrictId,
+      result: "success",
+      previousOwnerPlayerId: null,
+      heatGained: input.heatGained,
+      influenceCost: input.influenceCost,
+      cooldownTicks: input.cooldownTicks,
+      tick: input.tick,
+      createdAt: new Date(0).toISOString(),
+      eventId: input.eventId
+    },
+    createdAt: new Date(0).toISOString(),
+    readAt: null
+  });
 
 const resolveOccupyHeatGain = (baseHeatGain: number, aggressiveActionHeatGainMultiplier: number | undefined): number => {
   const base = Math.max(0, Number(baseHeatGain) || 0);

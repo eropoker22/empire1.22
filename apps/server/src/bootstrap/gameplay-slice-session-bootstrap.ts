@@ -10,12 +10,20 @@ import type {
 } from "@empire/shared-types";
 import type { ServerInstanceManager } from "../runtime";
 import type { ServerInstanceRuntime } from "../runtime/instance/server-instance-runtime";
+import {
+  syncRuntimeCapacityStatus,
+  validateRuntimeJoinability
+} from "../runtime/instance-manager/server-instance-joinability";
 import { inferModeFromInstanceId } from "./gameplay-slice-bootstrap-format";
 import { ensureGameplaySliceMembershipInState } from "./gameplay-slice-session-membership";
 import {
   restoreGameplaySliceSessionFromSnapshot,
   type EnsureGameplaySliceSessionOptions
 } from "./gameplay-slice-snapshot-restore";
+
+export interface EnsureGameplaySliceBootstrapOptions extends EnsureGameplaySliceSessionOptions {
+  allowImplicitInstanceCreation?: boolean;
+}
 
 export interface GameplaySliceSessionRequest {
   serverInstanceId: ServerInstanceId;
@@ -35,7 +43,7 @@ export interface GameplaySliceSessionEnsureResult {
 export const ensureGameplaySliceSession = async (
   instanceManager: ServerInstanceManager,
   request: LoadGameplaySliceRequest | SubmitGameplayCommandRequest,
-  options: EnsureGameplaySliceSessionOptions = {}
+  options: EnsureGameplaySliceBootstrapOptions = {}
 ): Promise<boolean> => {
   const result = await ensureGameplaySliceSessionResult(instanceManager, request, options);
   return result.accepted;
@@ -44,7 +52,7 @@ export const ensureGameplaySliceSession = async (
 export const ensureGameplaySliceSessionResult = async (
   instanceManager: ServerInstanceManager,
   request: LoadGameplaySliceRequest | SubmitGameplayCommandRequest,
-  options: EnsureGameplaySliceSessionOptions = {}
+  options: EnsureGameplaySliceBootstrapOptions = {}
 ): Promise<GameplaySliceSessionEnsureResult> => {
   const sessionRequest = normalizeSessionRequest(request);
   const existingRuntime = instanceManager.getInstanceById(sessionRequest.serverInstanceId);
@@ -71,7 +79,11 @@ export const ensureGameplaySliceSessionResult = async (
   }
 
   if ("command" in request) {
-    return createEnsureFailure("transport.not_found", "Gameplay slice session was not found.");
+    return createEnsureFailure("server.instance_not_found", "Gameplay slice session was not found.");
+  }
+
+  if (options.allowImplicitInstanceCreation === false) {
+    return createEnsureFailure("server.instance_not_found", "Gameplay slice server instance was not found.");
   }
 
   const runtime = instanceManager.createInstance(sessionRequest.serverInstanceId, mode);
@@ -126,6 +138,16 @@ const ensureRuntimeMembership = (
     };
   }
 
+  const joinabilityErrors = validateRuntimeJoinability(runtime, sessionRequest.playerId);
+  if (joinabilityErrors.length > 0) {
+    return {
+      accepted: false,
+      createdInstance: false,
+      joinedPlayer: false,
+      errors: joinabilityErrors
+    };
+  }
+
   const result = ensureGameplaySliceMembershipInState(runtime.state, {
     ...sessionRequest,
     mode: runtime.record.mode
@@ -141,6 +163,7 @@ const ensureRuntimeMembership = (
   }
 
   runtime.state = result.state;
+  syncRuntimeCapacityStatus(runtime);
   return {
     accepted: true,
     createdInstance: false,

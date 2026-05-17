@@ -2,14 +2,21 @@ import type {
   DomainError,
   GameplaySliceResponse,
   LoadGameplaySliceRequest,
+  ServerInstanceSummary,
   SubmitGameplayCommandRequest
 } from "@empire/shared-types";
 import { createServerApp } from "../app";
 import { ensureGameplaySliceSessionResult } from "../bootstrap";
 import { createInstanceSnapshot } from "../runtime/persistence/mappers";
 import { createSnapshotTokenCodec, type SnapshotTokenCryptoProvider } from "../runtime/persistence/services";
-
-const DEFAULT_SNAPSHOT_SECRET = "empire-streets-local-gameplay-slice-dev-secret";
+import {
+  createGameplaySliceValidationResponse,
+  validateLoadGameplaySliceRequest,
+  validateSubmitGameplayCommandRequest
+} from "../transport/gameplay-slice-request-validation";
+import { validateCommandPlayerIdentity } from "../transport/player-identity-guard";
+import { createGameplaySessionTokenCodec } from "../transport/gameplay-session-token-codec";
+import { readRequiredSnapshotSecret } from "./snapshot-secret";
 
 interface NetlifyFunctionEvent {
   httpMethod: string;
@@ -23,8 +30,16 @@ interface NetlifyFunctionResponse {
   body: string;
 }
 
+interface ServerListResponse {
+  accepted: boolean;
+  servers: ServerInstanceSummary[];
+  errors: DomainError[];
+}
+
 interface GameplaySliceFunctionHandlerOptions {
   cryptoProvider?: SnapshotTokenCryptoProvider;
+  environment?: Record<string, string | undefined>;
+  allowImplicitInstanceCreation?: boolean;
 }
 
 /**
@@ -35,15 +50,32 @@ interface GameplaySliceFunctionHandlerOptions {
 export const createGameplaySliceFunctionHandler = (
   options: GameplaySliceFunctionHandlerOptions = {}
 ) => {
-  const server = createServerApp();
-  const snapshotTokenCodec = createSnapshotTokenCodec({
-    secret: readSnapshotSecret(),
-    cryptoProvider: options.cryptoProvider
+  const snapshotSecret = readRequiredSnapshotSecret(options.environment);
+  const server = createServerApp({
+    gameplaySessionTokenSecret: snapshotSecret.secret ?? undefined
   });
+  ensureDefaultLobbyServers(server);
+  const allowImplicitInstanceCreation =
+    options.allowImplicitInstanceCreation ?? options.environment?.NODE_ENV !== "production";
+  const snapshotTokenCodec = snapshotSecret.secret
+    ? createSnapshotTokenCodec({
+        secret: snapshotSecret.secret,
+        cryptoProvider: options.cryptoProvider
+      })
+    : null;
+  const sessionTokenCodec = snapshotSecret.secret
+    ? createGameplaySessionTokenCodec({
+        secret: snapshotSecret.secret
+      })
+    : null;
 
   return async (event: NetlifyFunctionEvent): Promise<NetlifyFunctionResponse> => {
     if (event.httpMethod.toUpperCase() === "OPTIONS") {
       return createJsonResponse(204, null);
+    }
+
+    if (!snapshotSecret.accepted || !snapshotTokenCodec) {
+      return createJsonResponse(500, createErrorResponseFromErrors(snapshotSecret.errors));
     }
 
     const route = resolveRoute(event.path);
@@ -53,6 +85,14 @@ export const createGameplaySliceFunctionHandler = (
         404,
         createErrorResponse("transport.not_found", "Gameplay slice endpoint was not found.")
       );
+    }
+
+    if (route === "servers") {
+      return createJsonResponse(200, {
+        accepted: true,
+        servers: server.adminMonitoring.listServerSummaries(),
+        errors: []
+      });
     }
 
     const parsedBody = parseBody(event.body);
@@ -67,11 +107,17 @@ export const createGameplaySliceFunctionHandler = (
     const requestPath = `/api/gameplay-slice/${route}`;
 
     if (route === "load") {
-      const request = parsedBody as LoadGameplaySliceRequest;
+      const validation = validateLoadGameplaySliceRequest(parsedBody);
+      if (!validation.accepted) {
+        return createJsonResponse(200, createGameplaySliceValidationResponse(validation.errors));
+      }
+
+      const request: LoadGameplaySliceRequest = validation.request;
 
       const ensureResult = await ensureGameplaySliceSessionResult(server.instanceManager, request, {
         snapshotToken: request.snapshotToken,
-        snapshotTokenCodec
+        snapshotTokenCodec,
+        allowImplicitInstanceCreation
       });
       if (!ensureResult.accepted) {
         return createJsonResponse(200, createErrorResponseFromErrors(ensureResult.errors));
@@ -83,11 +129,24 @@ export const createGameplaySliceFunctionHandler = (
       }), request.serverInstanceId);
     }
 
-    const request = parsedBody as SubmitGameplayCommandRequest;
+    const validation = validateSubmitGameplayCommandRequest(parsedBody);
+    if (!validation.accepted) {
+      return createJsonResponse(200, createGameplaySliceValidationResponse(validation.errors));
+    }
+
+    const request: SubmitGameplayCommandRequest = validation.request;
+    const identityErrors = validateCommandPlayerIdentity(request.command, null, {
+      sessionToken: request.sessionToken,
+      sessionTokenCodec
+    });
+    if (identityErrors.length > 0) {
+      return createJsonResponse(200, createErrorResponseFromErrors(identityErrors));
+    }
 
     const ensureResult = await ensureGameplaySliceSessionResult(server.instanceManager, request, {
       snapshotToken: request.snapshotToken,
-      snapshotTokenCodec
+      snapshotTokenCodec,
+      allowImplicitInstanceCreation
     });
     if (!ensureResult.accepted) {
       return createJsonResponse(200, createErrorResponseFromErrors(ensureResult.errors));
@@ -106,7 +165,7 @@ export const createGameplaySliceFunctionHandler = (
     const runtime = server.instanceManager.getInstanceById(instanceId);
 
     return Promise.resolve(runtime
-      ? snapshotTokenCodec.seal(createInstanceSnapshot(runtime))
+      ? snapshotTokenCodec!.seal(createInstanceSnapshot(runtime))
       : response.body.snapshotToken ?? null
     ).then((snapshotToken) => createJsonResponse(response.status, {
       ...response.body,
@@ -117,9 +176,11 @@ export const createGameplaySliceFunctionHandler = (
 
 export const handler = createGameplaySliceFunctionHandler();
 
-const resolveRoute = (path: string): "load" | "submit" | null => {
+const resolveRoute = (path: string): "load" | "submit" | "servers" | null => {
   const lastSegment = String(path || "").split("/").filter(Boolean).at(-1);
-  return lastSegment === "load" || lastSegment === "submit" ? lastSegment : null;
+  return lastSegment === "load" || lastSegment === "submit" || lastSegment === "servers"
+    ? lastSegment
+    : null;
 };
 
 const parseBody = (body: string | null): unknown | null => {
@@ -133,16 +194,6 @@ const parseBody = (body: string | null): unknown | null => {
     return null;
   }
 };
-
-function readSnapshotSecret(): string {
-  const environment = (globalThis as {
-    process?: {
-      env?: Record<string, string | undefined>;
-    };
-  }).process?.env;
-
-  return environment?.GAMEPLAY_SLICE_SNAPSHOT_SECRET ?? DEFAULT_SNAPSHOT_SECRET;
-}
 
 const createErrorResponse = (
   code: string,
@@ -168,13 +219,50 @@ const createErrorResponseFromErrors = (
 
 const createJsonResponse = (
   statusCode: number,
-  body: GameplaySliceResponse | null
+  body: GameplaySliceResponse | ServerListResponse | null
 ): NetlifyFunctionResponse => ({
   statusCode,
   headers: {
     "access-control-allow-headers": "content-type",
-    "access-control-allow-methods": "POST, OPTIONS",
+    "access-control-allow-methods": "GET, POST, OPTIONS",
     "content-type": "application/json; charset=utf-8"
   },
   body: body ? JSON.stringify(body) : ""
 });
+
+function ensureDefaultLobbyServers(
+  server: ReturnType<typeof createServerApp>
+): void {
+  if (server.instanceManager.listInstances().length > 0) {
+    return;
+  }
+
+  server.serverInstanceCreationService.createGameServerInstance({
+    serverInstanceId: "instance:free:eu-central:public-1",
+    mode: "free",
+    region: "EU Central",
+    displayName: "Neon Docks FREE-01",
+    capacity: 20,
+    mapComposition: {
+      downtown: 8,
+      commercial: 40,
+      industrial: 35,
+      residential: 48,
+      park: 30
+    }
+  });
+  server.serverInstanceCreationService.createGameServerInstance({
+    serverInstanceId: "instance:free:eu-central:public-2",
+    mode: "free",
+    region: "EU Central",
+    displayName: "Rain Market FREE-02",
+    capacity: 20,
+    mapComposition: {
+      downtown: 8,
+      commercial: 45,
+      industrial: 30,
+      residential: 53,
+      park: 25
+    }
+  });
+}

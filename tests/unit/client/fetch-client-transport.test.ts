@@ -8,7 +8,8 @@ describe("fetch client transport", () => {
       accepted: true,
       readModel: null,
       errors: [],
-      snapshotToken: "sealed:snapshot:1"
+      snapshotToken: "sealed:snapshot:1",
+      sessionToken: "sealed:session:1"
     };
     const fetchImpl: typeof fetch = async (input, init) => {
       calls.push({
@@ -64,11 +65,13 @@ describe("fetch client transport", () => {
     expect(calls[1]?.body).toMatchObject({
       focusDistrictId: "district:1",
       snapshotToken: "sealed:snapshot:1",
+      sessionToken: "sealed:session:1",
       command: {
         type: "place-trap"
       }
     });
     expect(storage.getItem("empire:gameplay-slice:snapshot:instance:1:player:1")).toBe("sealed:snapshot:1");
+    expect(storage.getItem("empire:gameplay-slice:session:instance:1:player:1")).toBe("sealed:session:1");
   });
 });
 

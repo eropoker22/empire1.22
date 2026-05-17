@@ -2,11 +2,20 @@ import type { ServerInstanceManager } from "../server-instance-manager";
 import type { InstanceHealthService } from "../orchestration/instance-health-service";
 import { createReplayLogReader } from "../persistence/services/replay-log-reader";
 import {
-  createNullCommandLogRepository,
-  createNullDiagnosticLogRepository,
-  createNullEventLogRepository,
   createNullSnapshotRepository
 } from "../persistence/repositories";
+import type {
+  AlliancePopulationSummary,
+  CommandVolumeSummary,
+  ErrorSummary,
+  InstanceDiagnosticsSummary,
+  InstanceHealthSummary,
+  InstanceSummary,
+  ModeSummary,
+  PlayerPopulationSummary,
+  QueueSummary,
+  SnapshotSummary
+} from "@empire/shared-types";
 
 /**
  * Responsibility: Read-only admin-facing monitoring facade over instance runtime data.
@@ -17,14 +26,112 @@ export const createAdminMonitoringFacade = (
   instanceManager: ServerInstanceManager,
   healthService: InstanceHealthService
 ) => {
+  const persistence = instanceManager.getPersistenceRepositories();
   const replayLogReader = createReplayLogReader(
     createNullSnapshotRepository(),
-    createNullCommandLogRepository(),
-    createNullEventLogRepository(),
-    createNullDiagnosticLogRepository()
+    persistence.commandLogRepository,
+    persistence.eventLogRepository,
+    persistence.diagnosticLogRepository
   );
 
   return {
+    listServerSummaries: () => instanceManager.listServerSummaries(),
+    listInstances: (): InstanceSummary[] =>
+      instanceManager.listInstances().map((runtime) => ({
+        instanceId: runtime.record.id,
+        mode: runtime.record.mode,
+        status: runtime.record.status,
+        tick: runtime.state.root.tick,
+        playerCount: runtime.state.root.playerIds.length,
+        allianceCount: runtime.state.root.allianceIds.length
+      })),
+    getModeSummary: (instanceId: string): ModeSummary => {
+      const runtime = instanceManager.getInstanceById(instanceId);
+      return {
+        instanceId,
+        mode: runtime?.record.mode ?? "unknown",
+        configKey: runtime?.record.configKey ?? "unknown"
+      };
+    },
+    getPlayerPopulationSummary: (instanceId: string): PlayerPopulationSummary => {
+      const runtime = instanceManager.getInstanceById(instanceId);
+      return {
+        instanceId,
+        totalPlayers: runtime?.state.root.playerIds.length ?? 0,
+        connectedPlayers: runtime?.state.root.playerIds.length ?? 0
+      };
+    },
+    getAlliancePopulationSummary: (instanceId: string): AlliancePopulationSummary => {
+      const runtime = instanceManager.getInstanceById(instanceId);
+      return {
+        instanceId,
+        totalAlliances: runtime?.state.root.allianceIds.length ?? 0
+      };
+    },
+    getInstanceHealthSummary: (instanceId: string): InstanceHealthSummary => {
+      const health = instanceManager.getInstanceHealth(instanceId);
+      return {
+        instanceId,
+        status: health?.status ?? "unhealthy",
+        warnings: health?.warnings ?? ["Instance was not found."],
+        lastErrorAt: health?.lastErrorAt ?? null
+      };
+    },
+    getCommandVolumeSummary: async (instanceId: string): Promise<CommandVolumeSummary> => ({
+      instanceId,
+      totalCommands: (await instanceManager.listCommandRecords(instanceId)).length
+    }),
+    getErrorSummary: async (instanceId: string): Promise<ErrorSummary> => {
+      const diagnostics = await instanceManager.listDiagnosticRecords(instanceId);
+      const errorDiagnostics = diagnostics.filter((record) => record.level === "error");
+      const lastError = errorDiagnostics
+        .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))[0];
+
+      return {
+        instanceId,
+        errorCount: errorDiagnostics.length,
+        lastErrorAt: lastError?.occurredAt ?? instanceManager.getInstanceHealth(instanceId)?.lastErrorAt ?? null
+      };
+    },
+    getDiagnosticsSummary: async (instanceId: string): Promise<InstanceDiagnosticsSummary> => {
+      const history = await replayLogReader.getInstanceSummary(instanceId);
+      return {
+        instanceId,
+        lastSnapshotAt: history.lastSnapshotAt,
+        snapshotSchemaVersion: history.snapshotSchemaVersion,
+        lastCrashAt: history.lastCrashAt,
+        diagnosticErrorCount: history.diagnosticErrorCount
+      };
+    },
+    getQueueSummary: (instanceId: string): QueueSummary => {
+      const snapshot = instanceManager.getInstanceMonitorSnapshot(instanceId);
+      return {
+        instanceId,
+        queuedEvents: snapshot?.queuedEventCount ?? 0,
+        queuedCommands: 0
+      };
+    },
+    getSnapshotSummary: async (instanceId: string): Promise<SnapshotSummary | null> => {
+      const history = await replayLogReader.getInstanceSummary(instanceId);
+      if (!history.lastSnapshotAt || !history.snapshotSchemaVersion) {
+        return null;
+      }
+
+      const runtime = instanceManager.getInstanceById(instanceId);
+      return {
+        snapshotId: `snapshot:${instanceId}:latest`,
+        instanceId,
+        createdAt: history.lastSnapshotAt,
+        tick: runtime?.state.root.tick ?? 0,
+        schemaVersion: history.snapshotSchemaVersion
+      };
+    },
+    listRecentCommandRecords: async (instanceId: string, limit = 20) =>
+      limitRecords(await instanceManager.listCommandRecords(instanceId), limit),
+    listRecentEventRecords: async (instanceId: string, limit = 20) =>
+      limitRecords(await instanceManager.listEventRecords(instanceId), limit),
+    listRecentDiagnosticRecords: async (instanceId: string, limit = 20) =>
+      limitRecords(await instanceManager.listDiagnosticRecords(instanceId), limit),
     listInstanceSnapshots: () =>
       instanceManager
         .listInstances()
@@ -34,3 +141,6 @@ export const createAdminMonitoringFacade = (
     getInstanceHistorySummary: (instanceId: string) => replayLogReader.getInstanceSummary(instanceId)
   };
 };
+
+const limitRecords = <TRecord>(records: TRecord[], limit: number): TRecord[] =>
+  records.slice(Math.max(0, records.length - Math.max(0, limit)));

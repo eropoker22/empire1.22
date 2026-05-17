@@ -753,10 +753,12 @@ document.addEventListener("DOMContentLoaded", () => {
       registration: {
         ...currentRegistration,
         activeServerId: activeServer.serverId,
+        activeServerInstanceId: activeServer.serverInstanceId,
         activeServerName: activeServer.serverName,
         activeServerMode: activeServer.serverMode,
         activeServerRegion: activeServer.serverRegion,
         activeServerStatus: activeServer.serverStatus,
+        serverInstanceId: activeServer.serverInstanceId,
         factionId,
         selectedFaction: factionId,
         factionLabel: FACTION_CATALOG[factionId].name,
@@ -776,13 +778,12 @@ document.addEventListener("DOMContentLoaded", () => {
         drugs: { ...DEFAULT_DRUG_INVENTORY }
       },
       world: {
-        ...baseSession.world,
-        ownedDistrictIds: [Number(currentRegistration.startDistrictId)]
+        ...baseSession.world
       }
     }));
     setStatus(
       "Registrace dokončena",
-      `${currentRegistration.identity} vstoupil na ${currentRegistration.serverLabel || "server"} jako ${FACTION_CATALOG[factionId].name} ze startu District ${currentRegistration.startDistrictId}.`
+      `${currentRegistration.identity} vybral ${FACTION_CATALOG[factionId].name}; server při vstupu přiřadí home district.`
     );
     return true;
   }

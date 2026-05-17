@@ -1,7 +1,9 @@
 import type {
   PendingRaid,
+  PoliceConsequenceView,
   PoliceEvent,
   PoliceHeatBreakdownView,
+  PolicePendingRaidView,
   PoliceReadModel as SharedPoliceReadModel
 } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
@@ -30,6 +32,10 @@ export interface PoliceReadModel extends SharedPoliceReadModel {
   heatSources: PoliceHeatSourceView[];
 }
 
+export interface PoliceReadModelOptions {
+  selectedDistrictId?: string | null;
+}
+
 /**
  * Responsibility: Creates a UI/API-safe police projection from authoritative state.
  * Belongs here: read-only heat aggregation, wanted projection, pressure, and raid lifecycle view.
@@ -38,7 +44,8 @@ export interface PoliceReadModel extends SharedPoliceReadModel {
 export const createPoliceReadModel = (
   state: CoreGameState,
   playerId: string,
-  context?: GameCoreContext
+  context?: GameCoreContext,
+  options: PoliceReadModelOptions = {}
 ): PoliceReadModel => {
   const player = state.playersById[playerId] ?? null;
   const policeStateId = player?.policeStateId ?? null;
@@ -70,9 +77,11 @@ export const createPoliceReadModel = (
   const projectedWantedLevel = resolveWantedLevel(playerHeat);
   const storedWantedLevel = sanitizeWantedLevel(policeState?.wantedLevel);
   const wantedLevel = Math.max(storedWantedLevel, projectedWantedLevel);
-  const pendingRaid = selectVisiblePendingRaid(policeState?.pendingRaids);
+  const pendingRaid = toPendingRaidView(selectVisiblePendingRaid(policeState?.pendingRaids));
   const policeFeed = sanitizePoliceFeed(policeState?.policeEvents);
   const lastPoliceEvent = policeFeed[0] ?? null;
+  const recentRaid = createRecentRaidInfo(policeFeed);
+  const activeConsequences = createActiveConsequences(state, playerId);
   const raidPending = pendingRaid !== null;
   const courthouseMitigation = pendingRaid?.previewConsequences.courthouseMitigation ?? null;
   const projectedSeverity = pressure.aggregatePressure >= pressure.extremePressureRaidThreshold ? "extreme" : "high";
@@ -119,6 +128,9 @@ export const createPoliceReadModel = (
     raidPressure: pressure.aggregatePressure
   });
   const raidPressureExplanation = "Raid pressure je celkový tlak policie: player heat plus vážený district heat z vlastněných districtů. District heat může přitáhnout raid i bez vysokého wanted levelu.";
+  const selectedDistrictId = sanitizeDistrictId(options.selectedDistrictId);
+  const selectedDistrict = selectedDistrictId ? state.districtsById[selectedDistrictId] ?? null : null;
+  const protection = createProtectionView(mitigations);
 
   return {
     playerId,
@@ -127,6 +139,7 @@ export const createPoliceReadModel = (
     playerHeat,
     ownedDistrictHeat: districtHeat,
     wantedLevel,
+    wantedLevelLabel: `${wantedLevel} / 5`,
     wantedLabel: `${wantedLevel} / 5`,
     riskTier: raidPending && pressure.riskTier === "low" ? "high" : pressure.riskTier,
     aggregatePressure: pressure.aggregatePressure,
@@ -134,10 +147,33 @@ export const createPoliceReadModel = (
     districtHeatPressure: pressure.districtHeatPressure,
     hottestDistrictId: pressure.hottestDistrictId,
     hottestDistrictHeat: pressure.hottestDistrictHeat,
+    selectedDistrictId,
+    selectedDistrictHeat: selectedDistrict ? sanitizeHeat(selectedDistrict.heat) : 0,
     pendingRaid,
+    activeRaid: pendingRaid
+      ? {
+          id: pendingRaid.id,
+          type: "police-raid-pending",
+          severity: pendingRaid.severity,
+          status: pendingRaid.status,
+          districtId: pendingRaid.targetDistrictId,
+          tick: pendingRaid.triggerTick,
+          message: pendingRaid.reason
+        }
+      : null,
+    recentRaid,
+    activeConsequences,
+    raidConsequenceStatus: raidPending
+      ? "pending"
+      : activeConsequences.length > 0
+        ? "active"
+        : recentRaid
+          ? "recent"
+          : "none",
     lastPoliceEvent,
     policeFeed,
     mitigations,
+    protection,
     recommendedAction: getRecommendedAction({
       riskTier: pressure.riskTier,
       raidPending,
@@ -168,10 +204,26 @@ export const createPoliceReadModel = (
 const selectVisiblePendingRaid = (raids: PendingRaid[] | undefined): PendingRaid | null =>
   (raids ?? []).find((raid) => raid.status === "pending" || raid.status === "acknowledged") ?? null;
 
+const toPendingRaidView = (raid: PendingRaid | null): PolicePendingRaidView | null =>
+  raid
+    ? {
+        ...raid,
+        id: raid.raidId,
+        triggerTick: raid.createdAtTick,
+        expiresAtTick: raid.expiresAtTick ?? null,
+        targetDistrictId: raid.targetDistrictId ?? null
+      }
+    : null;
+
 const sanitizePoliceFeed = (events: PoliceEvent[] | undefined): PoliceEvent[] =>
   (events ?? [])
     .filter((event): event is PoliceEvent => Boolean(event?.id && event.playerId))
     .slice(0, 8);
+
+const sanitizeDistrictId = (value: unknown): string | null => {
+  const districtId = String(value ?? "").trim();
+  return districtId.length > 0 ? districtId : null;
+};
 
 const sanitizeHeat = (value: unknown): number => {
   const amount = Number(value || 0);
@@ -180,6 +232,74 @@ const sanitizeHeat = (value: unknown): number => {
 
 const sanitizeWantedLevel = (value: unknown): number =>
   Math.max(0, Math.min(5, Math.floor(Number(value || 0))));
+
+const createRecentRaidInfo = (events: PoliceEvent[]): SharedPoliceReadModel["recentRaid"] => {
+  const event = events.find((candidate) => String(candidate.type || "").includes("raid")) ?? null;
+  if (!event) return null;
+  return {
+    id: String(event.payload?.raidId ?? event.id),
+    type: event.type,
+    severity: event.severity,
+    status: event.type.includes("resolved")
+      ? "resolved"
+      : event.type.includes("expired")
+        ? "expired"
+        : "recent",
+    districtId: event.districtId ?? null,
+    tick: event.createdAtTick,
+    message: event.message
+  };
+};
+
+const createActiveConsequences = (
+  state: CoreGameState,
+  playerId: string
+): PoliceConsequenceView[] => {
+  const currentTick = state.root.tick;
+  const districtConsequences = Object.values(state.districtsById)
+    .filter((district) =>
+      district.ownerPlayerId === playerId
+      && district.status === "locked"
+      && (!district.lockdownUntilTick || district.lockdownUntilTick > currentTick)
+    )
+    .map((district) => ({
+      id: `police:consequence:district-lockdown:${district.id}`,
+      type: "district-lockdown",
+      severity: "high",
+      districtId: district.id,
+      expiresAtTick: district.lockdownUntilTick ?? null
+    }));
+  const buildingConsequences = Object.values(state.buildingsById)
+    .filter((building) =>
+      building.ownerPlayerId === playerId
+      && building.status === "disabled"
+      && (!building.disruptedUntilTick || building.disruptedUntilTick > currentTick)
+    )
+    .map((building) => ({
+      id: `police:consequence:building-disruption:${building.id}`,
+      type: "building-disruption",
+      severity: "medium",
+      districtId: building.districtId,
+      expiresAtTick: building.disruptedUntilTick ?? null
+    }));
+
+  return [...districtConsequences, ...buildingConsequences];
+};
+
+const createProtectionView = (
+  mitigations: SharedPoliceReadModel["mitigations"]
+): SharedPoliceReadModel["protection"] => {
+  const sources = (mitigations ?? []).map((mitigation) => mitigation.source);
+  const strongestReductionPct = (mitigations ?? []).reduce(
+    (max, mitigation) => Math.max(max, Math.max(0, Number(mitigation.effectiveReductionPct || 0))),
+    0
+  );
+
+  return {
+    raidConsequenceMultiplier: Math.max(0, Math.min(1, 1 - strongestReductionPct / 100)),
+    sources: Array.from(new Set(sources))
+  };
+};
 
 const resolveRaidRisk = (
   raidPressure: number,

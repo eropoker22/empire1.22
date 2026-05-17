@@ -53,6 +53,7 @@ describe("production craft gameplay slice", () => {
     expect(crafted.player?.resourceSummary).toContain("Chemicals 8");
     expect(crafted.player?.resourceSummary).toContain("Biomass 5");
     expect(crafted.player?.resourceSummary).toContain("Stim Pack 1");
+    expect(crafted.player?.economy?.cleanCashLabel).toBe("1500");
     expect(crafted.districtPanel?.heatLabel).toBe("2");
     expect(crafted.districtPanel?.influenceLabel).toBe("1");
     expect(crafted.sidePanelHtml).toContain("Produce Stim Pack on district:producer");
@@ -63,7 +64,7 @@ describe("production craft gameplay slice", () => {
         serverInstanceId: instanceId,
         playerId,
         districtId
-      }).readModel?.player.resourceBalances["stim-pack"]
+      }).readModel?.player.economy.materials["stim-pack"]
     ).toBe(1);
     expect(
       server.instanceManager.getInstanceById(instanceId)?.state.resourceStatesById[`resource:${playerId}`]?.balances.chemicals

@@ -1,6 +1,7 @@
 import type { ServerInstanceId } from "@empire/shared-types";
 import { createNullLogSink } from "./log-sink";
 import type { LogSink } from "./log-sink";
+import { systemClock, type Clock } from "../scheduling/clock";
 
 /**
  * Responsibility: Minimal structured logger bound to one instance context.
@@ -16,14 +17,15 @@ export interface InstanceLogger {
 
 export const createInstanceLogger = (
   instanceId: ServerInstanceId,
-  sink: LogSink = createNullLogSink()
+  sink: LogSink = createNullLogSink(),
+  clock: Clock = systemClock
 ): InstanceLogger => ({
   instanceId,
   info: (message, context) => {
     sink.write({
       level: "info",
       message,
-      timestamp: new Date(0).toISOString(),
+      timestamp: clock.nowIso(),
       instanceId,
       context
     });
@@ -32,7 +34,7 @@ export const createInstanceLogger = (
     sink.write({
       level: "warn",
       message,
-      timestamp: new Date(0).toISOString(),
+      timestamp: clock.nowIso(),
       instanceId,
       context
     });
@@ -41,7 +43,7 @@ export const createInstanceLogger = (
     sink.write({
       level: "error",
       message,
-      timestamp: new Date(0).toISOString(),
+      timestamp: clock.nowIso(),
       instanceId,
       context
     });

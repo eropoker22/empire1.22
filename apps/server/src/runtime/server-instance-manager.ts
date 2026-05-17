@@ -3,8 +3,15 @@ import { getInstanceHealth } from "./monitoring/instance-health";
 import { createInstanceMonitorSnapshot } from "./monitoring/instance-metrics";
 import type { ServerInstanceRuntime } from "./instance/server-instance-runtime";
 import { InstanceLifecycleService } from "./instance-manager/instance-lifecycle-service";
-import { createServerInstanceRuntime } from "./instance-manager/instance-factory";
+import {
+  createInMemoryRuntimePersistenceRepositories,
+  createServerInstanceRuntime,
+  type ServerInstanceRuntimeOptions,
+  type ServerRuntimePersistenceRepositories
+} from "./instance-manager/instance-factory";
 import { InstanceRegistry } from "./instance-manager/instance-registry";
+import { systemClock, type Clock } from "./scheduling/clock";
+import { createServerInstanceSummary } from "./instance-manager/server-instance-summary";
 import type { InstanceCommandDispatchResult } from "./orchestration/instance-command-dispatch-result";
 import { createGameplaySliceProjection } from "./projections/gameplay-slice-projection-service";
 import { createPlayerProjection } from "./projections/player-projection-service";
@@ -17,9 +24,27 @@ import { createPlayerProjection } from "./projections/player-projection-service"
 export class ServerInstanceManager {
   private readonly registry = new InstanceRegistry();
   private readonly lifecycle = new InstanceLifecycleService();
+  private readonly clock: Clock;
+  private readonly persistence: ServerRuntimePersistenceRepositories;
 
-  createInstance(instanceId: ServerInstanceId, mode: GameModeId): ServerInstanceRuntime {
-    const runtime = createServerInstanceRuntime(instanceId, mode);
+  constructor(options: {
+    clock?: Clock;
+    persistence?: ServerRuntimePersistenceRepositories;
+  } = {}) {
+    this.clock = options.clock ?? systemClock;
+    this.persistence = options.persistence ?? createInMemoryRuntimePersistenceRepositories();
+  }
+
+  createInstance(
+    instanceId: ServerInstanceId,
+    mode: GameModeId,
+    options: Pick<ServerInstanceRuntimeOptions, "displayName" | "region" | "capacity"> = {}
+  ): ServerInstanceRuntime {
+    const runtime = createServerInstanceRuntime(instanceId, mode, {
+      clock: this.clock,
+      persistence: this.persistence,
+      ...options
+    });
     this.registry.set(runtime);
     return runtime;
   }
@@ -68,6 +93,38 @@ export class ServerInstanceManager {
     return this.registry
       .list()
       .filter((runtime) => runtime.record.status === "running");
+  }
+
+  listServerSummaries() {
+    return this.registry.list().map(createServerInstanceSummary);
+  }
+
+  getServerSummary(instanceId: ServerInstanceId) {
+    const runtime = this.registry.get(instanceId);
+    return runtime ? createServerInstanceSummary(runtime) : undefined;
+  }
+
+  openInstanceForJoin(instanceId: ServerInstanceId): ServerInstanceRuntime | undefined {
+    const runtime = this.registry.get(instanceId);
+    if (!runtime) {
+      return undefined;
+    }
+
+    runtime.lobby.joinPolicy = "open";
+    if (runtime.record.status === "full") {
+      runtime.record.status = "lobby";
+    }
+    return runtime;
+  }
+
+  closeInstanceForJoin(instanceId: ServerInstanceId): ServerInstanceRuntime | undefined {
+    const runtime = this.registry.get(instanceId);
+    if (!runtime) {
+      return undefined;
+    }
+
+    runtime.lobby.joinPolicy = "closed";
+    return runtime;
   }
 
   tickInstance(instanceId: ServerInstanceId): ServerInstanceRuntime | undefined {
@@ -133,5 +190,21 @@ export class ServerInstanceManager {
 
     await runtime.snapshotController.save(runtime);
     return true;
+  }
+
+  listCommandRecords(instanceId: ServerInstanceId) {
+    return this.persistence.commandLogRepository.listByInstance(instanceId);
+  }
+
+  listEventRecords(instanceId: ServerInstanceId) {
+    return this.persistence.eventLogRepository.listByInstance(instanceId);
+  }
+
+  listDiagnosticRecords(instanceId: ServerInstanceId) {
+    return this.persistence.diagnosticLogRepository.listByInstance(instanceId);
+  }
+
+  getPersistenceRepositories(): ServerRuntimePersistenceRepositories {
+    return this.persistence;
   }
 }

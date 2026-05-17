@@ -47,7 +47,8 @@ export const runInstanceTick = (
       "Tick completed.",
       {
         tick: runtime.state.root.tick
-      }
+      },
+      clock
     );
 
     return runtime;
@@ -64,7 +65,8 @@ export const runInstanceTick = (
       "Tick execution crashed.",
       {
         tick: readRuntimeTick(runtime)
-      }
+      },
+      clock
     );
     return runtime;
   } finally {

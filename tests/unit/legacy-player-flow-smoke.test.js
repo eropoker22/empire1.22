@@ -50,8 +50,7 @@ function lockFactionStep({ factionId, avatar, gangColor }) {
       lockedAt: new Date().toISOString()
     },
     world: {
-      ...baseSession.world,
-      ownedDistrictIds: [Number(currentRegistration.startDistrictId)]
+      ...baseSession.world
     }
   }));
 }
@@ -110,7 +109,7 @@ describe("legacy player flow smoke guard", () => {
       hasCompletedServerEntry: true,
       gangColor: "#3b82f6"
     });
-    expect(lockedSession.world.ownedDistrictIds).toEqual([27]);
+    expect(lockedSession.world.ownedDistrictIds).toEqual([]);
 
     const gameHtml = page("game.html");
     const runtimeSource = read("page-assets/js/app/runtime.js");

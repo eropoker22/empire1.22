@@ -9,6 +9,12 @@
   directory = "netlify/functions"
 
 [[redirects]]
+  from = "/api/servers"
+  to = "/.netlify/functions/gameplay-slice/servers"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/gameplay-slice/*"
   to = "/.netlify/functions/gameplay-slice/:splat"
   status = 200

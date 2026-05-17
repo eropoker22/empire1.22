@@ -5,6 +5,7 @@ import {
   createAttackDistrictCommand,
   createCollectProductionCommand,
   createCraftItemCommand,
+  createOccupyDistrictCommand,
   createPlaceTrapCommand,
   createRunBuildingActionCommand,
   createSpyDistrictCommand
@@ -21,6 +22,7 @@ export type ClientSurfaceAction =
   | { kind: "select-district"; districtId: string }
   | { kind: "attack"; targetDistrictId: string }
   | { kind: "spy"; targetDistrictId: string }
+  | { kind: "occupy"; targetDistrictId: string }
   | { kind: "place-trap" }
   | { kind: "open-building"; buildingId: string }
   | { kind: "building-action"; buildingId: string; actionId: string; dealerSlotId?: string; itemId?: string; amount?: number }
@@ -87,6 +89,15 @@ export const createClientSurfaceActionRouter = (
         return options.client.dispatch(
           createSpyDistrictCommand({
             commandId: options.createCommandId("command:spy"),
+            slice,
+            targetDistrictId: action.targetDistrictId,
+            issuedAt
+          })
+        );
+      case "occupy":
+        return options.client.dispatch(
+          createOccupyDistrictCommand({
+            commandId: options.createCommandId("command:occupy"),
             slice,
             targetDistrictId: action.targetDistrictId,
             issuedAt
@@ -169,6 +180,14 @@ export const resolveClientSurfaceAction = (
     return {
       kind: "spy",
       targetDistrictId: spyButton.dataset.spyTargetId
+    };
+  }
+
+  const occupyButton = target.closest<ClientSurfaceActionElement>("button[data-occupy-target-id]");
+  if (occupyButton?.dataset.occupyTargetId) {
+    return {
+      kind: "occupy",
+      targetDistrictId: occupyButton.dataset.occupyTargetId
     };
   }
 

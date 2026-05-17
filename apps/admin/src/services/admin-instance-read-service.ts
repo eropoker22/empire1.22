@@ -19,27 +19,36 @@ export interface AdminInstanceReadService {
   getHealthSummary(instanceId: string): Promise<InstanceHealthSummary>;
 }
 
-export const createAdminInstanceReadService = (): AdminInstanceReadService => ({
-  listInstances: async () => [],
-  getModeSummary: async (instanceId) => ({
+export interface AdminInstanceReadFacade {
+  listInstances(): InstanceSummary[];
+  getModeSummary(instanceId: string): ModeSummary;
+  getPlayerPopulationSummary(instanceId: string): PlayerPopulationSummary;
+  getAlliancePopulationSummary(instanceId: string): AlliancePopulationSummary;
+  getInstanceHealthSummary(instanceId: string): InstanceHealthSummary;
+}
+
+export const createAdminInstanceReadService = (options: {
+  facade?: AdminInstanceReadFacade;
+} = {}): AdminInstanceReadService => ({
+  listInstances: async () => options.facade?.listInstances() ?? [],
+  getModeSummary: async (instanceId) => options.facade?.getModeSummary(instanceId) ?? ({
     instanceId,
     mode: "unknown",
     configKey: "unknown"
   }),
-  getPlayerPopulationSummary: async (instanceId) => ({
+  getPlayerPopulationSummary: async (instanceId) => options.facade?.getPlayerPopulationSummary(instanceId) ?? ({
     instanceId,
     totalPlayers: 0,
     connectedPlayers: 0
   }),
-  getAlliancePopulationSummary: async (instanceId) => ({
+  getAlliancePopulationSummary: async (instanceId) => options.facade?.getAlliancePopulationSummary(instanceId) ?? ({
     instanceId,
     totalAlliances: 0
   }),
-  getHealthSummary: async (instanceId) => ({
+  getHealthSummary: async (instanceId) => options.facade?.getInstanceHealthSummary(instanceId) ?? ({
     instanceId,
     status: "healthy",
     warnings: [],
     lastErrorAt: null
   })
 });
-

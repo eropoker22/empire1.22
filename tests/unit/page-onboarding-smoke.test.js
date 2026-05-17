@@ -47,8 +47,7 @@ const lockFactionStep = ({ factionId, avatar, gangColor }) => {
       lockedAt: new Date().toISOString()
     },
     world: {
-      ...baseSession.world,
-      ownedDistrictIds: [Number(currentRegistration.startDistrictId)]
+      ...baseSession.world
     }
   }));
 };
@@ -234,7 +233,7 @@ describe("page onboarding smoke", () => {
       gangColor: "#3b82f6",
       lockedAt: "2026-04-26T11:00:00.000Z"
     });
-    expect(session.world.ownedDistrictIds).toEqual([27]);
+    expect(session.world.ownedDistrictIds).toEqual([]);
   });
 
   it("keeps owned building passive output automatic in the legacy runtime", () => {

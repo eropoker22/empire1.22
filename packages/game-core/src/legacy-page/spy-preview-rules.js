@@ -1,6 +1,7 @@
 export const LEGACY_SPY_MISSION_SPY_COUNT = 1;
 export const LEGACY_SPY_CRITICAL_HEAT_GAIN = 7;
 
+// Preview-only legacy helpers. Server-authoritative spy results are resolved by game-core command handlers.
 export const SPY_OUTCOMES = Object.freeze({
   success: "success",
   partial: "partial",

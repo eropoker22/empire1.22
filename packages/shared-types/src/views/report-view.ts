@@ -54,6 +54,23 @@ export interface BattleReport {
   eventId: EventId | null;
 }
 
+export interface OccupyReport {
+  reportId: string;
+  reportType: "occupy";
+  actionType: "occupy-district";
+  playerId: PlayerId;
+  sourceDistrictId: DistrictId;
+  targetDistrictId: DistrictId;
+  result: "success";
+  previousOwnerPlayerId: PlayerId | null;
+  heatGained: number;
+  influenceCost: number;
+  cooldownTicks: number;
+  tick: number;
+  createdAt: string;
+  eventId: EventId | null;
+}
+
 export interface BuildingActionReport {
   reportId: string;
   reportType: "building-action";
@@ -106,4 +123,4 @@ export interface BuildingActionReport {
   eventId: EventId | null;
 }
 
-export type ConflictReportView = SpyReport | BattleReport | BuildingActionReport;
+export type ConflictReportView = SpyReport | BattleReport | OccupyReport | BuildingActionReport;

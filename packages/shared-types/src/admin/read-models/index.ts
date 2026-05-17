@@ -7,5 +7,5 @@ export * from "./instance-summary";
 export * from "./mode-summary";
 export * from "./player-population-summary";
 export * from "./queue-summary";
+export * from "./server-instance-summary";
 export * from "./snapshot-summary";
-

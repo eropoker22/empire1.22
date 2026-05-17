@@ -10,6 +10,7 @@ export interface PoliceReadModel {
   playerHeat?: number;
   ownedDistrictHeat?: number;
   wantedLevel: number;
+  wantedLevelLabel: string;
   wantedLabel: string;
   riskTier: PoliceRiskTier;
   aggregatePressure: number;
@@ -18,15 +19,52 @@ export interface PoliceReadModel {
   districtHeatPressure: number;
   raidPressureExplanation?: string;
   heatBreakdown?: PoliceHeatBreakdownView[];
+  selectedDistrictId?: DistrictId | null;
+  selectedDistrictHeat?: number;
   hottestDistrictId: DistrictId | null;
   hottestDistrictHeat: number;
-  pendingRaid: PendingRaid | null;
+  pendingRaid: PolicePendingRaidView | null;
+  activeRaid: PoliceRaidInfoView | null;
+  recentRaid: PoliceRaidInfoView | null;
+  activeConsequences: PoliceConsequenceView[];
+  raidConsequenceStatus: "none" | "pending" | "active" | "recent";
   lastPoliceEvent: PoliceEvent | null;
   policeFeed: PoliceEvent[];
   mitigations?: PoliceMitigationView[];
+  protection: PoliceProtectionView;
   recommendedAction: string;
   updatedAtTick: number;
   updatedAt?: string;
+}
+
+export interface PolicePendingRaidView extends Omit<PendingRaid, "targetDistrictId" | "expiresAtTick"> {
+  id: string;
+  triggerTick: number;
+  expiresAtTick: number | null;
+  targetDistrictId: DistrictId | null;
+}
+
+export interface PoliceRaidInfoView {
+  id: string;
+  type: string;
+  severity: string;
+  status: string;
+  districtId: DistrictId | null;
+  tick: number;
+  message: string;
+}
+
+export interface PoliceConsequenceView {
+  id: string;
+  type: string;
+  severity: string;
+  districtId: DistrictId | null;
+  expiresAtTick: number | null;
+}
+
+export interface PoliceProtectionView {
+  raidConsequenceMultiplier: number;
+  sources: string[];
 }
 
 export interface PoliceMitigationView {

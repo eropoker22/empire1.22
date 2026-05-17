@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyRaidConsequences,
   createPlayerView,
   createPoliceReadModel,
   triggerRaid
@@ -47,7 +48,9 @@ describe("police read model projection", () => {
       heat: 20
     };
 
-    const model = createPoliceReadModel(state, "player:1", createPoliceContext(1.5, 2));
+    const model = createPoliceReadModel(state, "player:1", createPoliceContext(1.5, 2), {
+      selectedDistrictId: "district:1"
+    });
 
     expect(model).toMatchObject({
       playerId: "player:1",
@@ -57,6 +60,7 @@ describe("police read model projection", () => {
       ownedDistrictHeat: 20,
       projectedWantedLevel: 3,
       wantedLevel: 3,
+      wantedLevelLabel: "3 / 5",
       districtHeat: 20,
       totalHeat: 85,
       aggregatePressure: 117,
@@ -67,8 +71,16 @@ describe("police read model projection", () => {
       raidPressure: 117,
       raidThreshold: 100,
       raidPressureExplanation: "Raid pressure je celkový tlak policie: player heat plus vážený district heat z vlastněných districtů. District heat může přitáhnout raid i bez vysokého wanted levelu.",
+      selectedDistrictId: "district:1",
+      selectedDistrictHeat: 20,
       raidPending: false,
-      raidRisk: "ready"
+      raidRisk: "ready",
+      activeConsequences: [],
+      raidConsequenceStatus: "none",
+      protection: {
+        raidConsequenceMultiplier: 1,
+        sources: []
+      }
     });
     expect(model.heatBreakdown).toEqual([
       {
@@ -277,8 +289,64 @@ describe("police read model projection", () => {
     });
     expect(model.raidPending).toBe(true);
     expect(model.raidRisk).toBe("pending");
+    expect(model.pendingRaid).toMatchObject({
+      id: expect.stringContaining("police:raid:player:1"),
+      triggerTick: state.root.tick
+    });
+    expect(model.activeRaid).toMatchObject({
+      type: "police-raid-pending",
+      status: "pending"
+    });
+    expect(model.raidConsequenceStatus).toBe("pending");
     expect(model.pendingRaid?.previewConsequences.seizedDirtyCash).toBe(90);
     expect(model.wantedLevel).toBe(5);
+  });
+
+  it("projects active and recent raid consequences from authoritative state", () => {
+    const state = createCoreStateFixture();
+    state.policeStatesById["police:1"] = {
+      id: "police:1",
+      ownerPlayerId: "player:1",
+      heat: 160,
+      wantedLevel: 5,
+      lastDecayTick: 0,
+      activeFlags: [],
+      version: 1
+    };
+    state.resourceStatesById["resource:1"] = {
+      ...state.resourceStatesById["resource:1"],
+      balances: {
+        "dirty-cash": 1000,
+        chemicals: 50
+      }
+    };
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      heat: 90
+    };
+
+    const triggered = triggerRaid(state, createFullPoliceContext());
+    const raid = triggered.nextState.policeStatesById["police:1"].pendingRaids?.[0];
+    const resolved = applyRaidConsequences(triggered.nextState, raid!, createFullPoliceContext());
+    const model = createPoliceReadModel(resolved.nextState, "player:1", createFullPoliceContext(), {
+      selectedDistrictId: "district:1"
+    });
+
+    expect(model.recentRaid).toMatchObject({
+      id: raid!.raidId,
+      type: "police-raid-resolved",
+      status: "resolved",
+      tick: resolved.nextState.root.tick
+    });
+    expect(model.activeConsequences.length).toBeGreaterThan(0);
+    expect(model.activeConsequences).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: expect.stringMatching(/district-lockdown|building-disruption/u),
+        districtId: expect.any(String)
+      })
+    ]));
+    expect(model.raidConsequenceStatus).toBe("active");
+    expect(model.selectedDistrictHeat).toBe(90);
   });
 
   it("includes the core police read model in the player projection", () => {

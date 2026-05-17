@@ -20,6 +20,17 @@ const createCooldownSlice = (): GameplaySliceView => ({
     color: "#ef4444",
     serverTime: new Date(0).toISOString(),
     resourceBalances: {},
+    economy: {
+      cleanCash: 0,
+      dirtyCash: 0,
+      influence: 0,
+      population: 0,
+      gangMembers: 0,
+      resources: {},
+      materials: {},
+      drugs: {},
+      weapons: {}
+    },
     notifications: [],
     victoryState: null
   },

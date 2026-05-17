@@ -1,5 +1,11 @@
 import type { InstanceDiagnosticsSummary, InstanceHealthSummary, InstanceSummary } from "@empire/shared-types";
 
+export interface AdminInstanceActivitySummary {
+  commandCount: number;
+  eventCount: number;
+  diagnosticWarningCount: number;
+}
+
 /**
  * Responsibility: UI-ready admin view model for instance overview cards and tables.
  * Belongs here: presentational aggregation over admin read-model contracts.
@@ -14,12 +20,22 @@ export interface AdminInstanceViewModel {
   allianceCount: number;
   healthStatus: string;
   lastSnapshotAt: string | null;
+  commandCount: number;
+  eventCount: number;
+  diagnosticErrorCount: number;
+  diagnosticWarningCount: number;
+  lastErrorAt: string | null;
 }
 
 export const createAdminInstanceViewModel = (
   summary: InstanceSummary,
   health: InstanceHealthSummary,
-  diagnostics: InstanceDiagnosticsSummary
+  diagnostics: InstanceDiagnosticsSummary,
+  activity: AdminInstanceActivitySummary = {
+    commandCount: 0,
+    eventCount: 0,
+    diagnosticWarningCount: 0
+  }
 ): AdminInstanceViewModel => ({
   instanceId: summary.instanceId,
   mode: summary.mode,
@@ -28,6 +44,10 @@ export const createAdminInstanceViewModel = (
   playerCount: summary.playerCount,
   allianceCount: summary.allianceCount,
   healthStatus: health.status,
-  lastSnapshotAt: diagnostics.lastSnapshotAt
+  lastSnapshotAt: diagnostics.lastSnapshotAt,
+  commandCount: activity.commandCount,
+  eventCount: activity.eventCount,
+  diagnosticErrorCount: diagnostics.diagnosticErrorCount,
+  diagnosticWarningCount: activity.diagnosticWarningCount,
+  lastErrorAt: health.lastErrorAt ?? diagnostics.lastCrashAt
 });
-

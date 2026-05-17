@@ -72,6 +72,21 @@ export const createDistrictPanelViewModel = (
         ? "Command pending."
         : target.disabledReason
     })),
+    occupyTargets: slice.district.occupyTargets.map((target) => ({
+      districtId: target.districtId,
+      label: target.name,
+      statusLabel: target.status,
+      disabled: hasPendingCommand || !target.enabled,
+      disabledReason: hasPendingCommand
+        ? "Command pending."
+        : target.disabledReason,
+      disabledCode: target.disabledCode,
+      influenceCostLabel: String(target.cost.influence),
+      heatGainLabel: `+${target.heatGain}`,
+      cooldownLabel: target.cooldownRemainingTicks > 0
+        ? `${target.cooldownRemainingTicks} ticks`
+        : null
+    })),
     attackTargets: slice.district.attackTargets.map((target) => ({
       districtId: target.districtId,
       label: target.name,

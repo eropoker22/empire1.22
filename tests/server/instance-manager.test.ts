@@ -4,7 +4,10 @@ import {
   isDevSetupGameLifecyclePhase,
   isProductionGameLifecyclePhase
 } from "@empire/shared-types";
+import type { GameplaySliceView } from "@empire/shared-types";
 import { createServerApp } from "../../apps/server/src/app";
+import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap";
+import { createFixedClock } from "../../apps/server/src/runtime";
 import { createAttackDistrictCommandFixture } from "../fixtures/command-fixtures";
 import { createInstanceManagerFixture } from "../fixtures/runtime-fixtures";
 
@@ -32,6 +35,113 @@ describe("ServerInstanceManager", () => {
       expect(runtime.state.root.phase).toBe(PRODUCTION_GAME_LIFECYCLE_PHASES.live);
       expect(isProductionGameLifecyclePhase(runtime.state.root.phase)).toBe(true);
       expect(isDevSetupGameLifecyclePhase(runtime.state.root.phase)).toBe(false);
+    });
+  });
+
+  it("uses the injected clock for lifecycle start timestamps", () => {
+    const fixedNow = "2026-05-17T12:34:56.789Z";
+    const server = createServerApp({
+      clock: createFixedClock(fixedNow)
+    });
+    const runtime = server.instanceManager.createInstance("instance:fixed-clock-start", "free");
+
+    server.instanceManager.startInstance(runtime.record.id);
+
+    expect(runtime.record.createdAt).toBe(fixedNow);
+    expect(runtime.record.startedAt).toBe(fixedNow);
+  });
+
+  it("uses the injected clock for command audit and runtime event timestamps", async () => {
+    const fixedNow = "2026-05-17T13:45:00.000Z";
+    const server = createServerApp({
+      clock: createFixedClock(fixedNow)
+    });
+    const request = {
+      serverInstanceId: "instance:fixed-clock-command",
+      playerId: "player:fixed-clock-command",
+      districtId: "district:fixed-clock-command"
+    };
+
+    await ensureGameplaySliceSessionResult(server.instanceManager, request);
+    const runtime = server.instanceManager.getInstanceById(request.serverInstanceId);
+
+    if (!runtime) {
+      throw new Error("Fixed clock command fixture failed to create runtime.");
+    }
+
+    const load = server.gameplaySliceTransport.load(request);
+    const readModel = load.readModel as GameplaySliceView;
+    const focusDistrictId = readModel.district!.districtId;
+    const building = readModel.district!.buildings.find((candidate) => candidate.actions.length > 0);
+
+    if (!building) {
+      throw new Error("Fixed clock command fixture failed to find an actionable building.");
+    }
+
+    const action = building.actions[0]!;
+    const response = server.gameplaySliceTransport.submit({
+      sessionToken: load.sessionToken,
+      focusDistrictId,
+      command: {
+        id: "command:fixed-clock:building-action:1",
+        type: "run-building-action",
+        mode: readModel.mode.mode,
+        playerId: request.playerId,
+        serverInstanceId: request.serverInstanceId,
+        issuedAt: new Date(0).toISOString(),
+        payload: {
+          districtId: focusDistrictId,
+          buildingId: building.buildingId,
+          actionId: action.actionId
+        },
+        clientRequestId: null
+      }
+    });
+
+    expect(response.accepted).toBe(true);
+    const commandRecords = await server.instanceManager.listCommandRecords(request.serverInstanceId);
+    const eventRecords = await server.instanceManager.listEventRecords(request.serverInstanceId);
+    const diagnosticRecords = await server.instanceManager.listDiagnosticRecords(request.serverInstanceId);
+
+    expect(commandRecords[0]?.receivedAt).toBe(fixedNow);
+    expect(eventRecords[0]?.recordedAt).toBe(fixedNow);
+    expect(eventRecords[0]?.event.occurredAt).toBe(fixedNow);
+    expect(eventRecords[0]?.causedByCommandId).toBe("command:fixed-clock:building-action:1");
+    expect(eventRecords[0]?.tickAtEmit).toBe(runtime.state.root.tick);
+    expect(diagnosticRecords.at(-1)?.occurredAt).toBe(fixedNow);
+    expect(commandRecords[0]?.receivedAt).not.toBe("1970-01-01T00:00:00.000Z");
+  });
+
+  it("writes lifecycle and rejected-command diagnostics to the manager persistence repositories", async () => {
+    const server = createServerApp({
+      clock: createFixedClock("2026-05-17T15:00:00.000Z")
+    });
+    const runtime = server.instanceManager.createInstance("instance:diagnostic-log", "free");
+
+    server.instanceManager.startInstance(runtime.record.id);
+    server.instanceManager.pauseInstance(runtime.record.id);
+    server.instanceManager.stopInstance(runtime.record.id);
+
+    let diagnostics = await server.instanceManager.listDiagnosticRecords(runtime.record.id);
+    expect(diagnostics.map((record) => record.message)).toEqual([
+      "Instance started.",
+      "Instance paused.",
+      "Stop triggered snapshot save."
+    ]);
+
+    server.instanceManager.dispatchCommand(
+      runtime.record.id,
+      createAttackDistrictCommandFixture({
+        serverInstanceId: "instance:other"
+      })
+    );
+
+    diagnostics = await server.instanceManager.listDiagnosticRecords(runtime.record.id);
+    expect(diagnostics.at(-1)).toMatchObject({
+      level: "warn",
+      category: "command",
+      message: "Command rejected before core dispatch.",
+      occurredAt: "2026-05-17T15:00:00.000Z"
     });
   });
 

@@ -62,6 +62,6 @@ describe("faction gameplay slice bootstrap", () => {
     const response = server.gameplaySliceTransport.submit(request);
 
     expect(response.accepted).toBe(false);
-    expect(response.errors[0]?.code).toBe("transport.not_found");
+    expect(response.errors[0]?.code).toBe("transport.session_token_missing");
   });
 });

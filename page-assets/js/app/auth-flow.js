@@ -166,6 +166,7 @@ export function getSelectedServer(serverId) {
 
 export function getActiveServerRegistration(registration = getRegistrationDraft()) {
   const serverId = normalizeText(registration?.activeServerId || registration?.serverId);
+  const serverInstanceId = normalizeText(registration?.activeServerInstanceId || registration?.serverInstanceId || serverId);
   if (!serverId) {
     return null;
   }
@@ -173,6 +174,7 @@ export function getActiveServerRegistration(registration = getRegistrationDraft(
   const server = getSelectedServer(serverId);
   return {
     serverId,
+    serverInstanceId,
     serverName: normalizeText(registration?.activeServerName || registration?.serverLabel || server?.name || serverId),
     serverMode: normalizeMode(registration?.activeServerMode || registration?.serverMode || server?.mode) || "war",
     serverRegion: normalizeText(registration?.activeServerRegion || registration?.serverRegion || server?.region),
@@ -282,8 +284,8 @@ export function saveLoginStep({ identity, isGuest = false, gangName = "", mode =
   });
 }
 
-export function saveLobbyStep({ serverId, districtId }) {
-  const server = getSelectedServer(serverId);
+export function saveLobbyStep({ serverId, districtId, server: selectedServer = null }) {
+  const server = selectedServer || getSelectedServer(serverId);
   const normalizedDistrictId = normalizeDistrictId(districtId);
 
   if (!server || normalizedDistrictId <= 0) {
@@ -299,11 +301,13 @@ export function saveLobbyStep({ serverId, districtId }) {
       loginKind: session.registration?.loginKind || (session.registration?.isGuest ? "guest" : "account"),
       ...(session.registration?.lastLoginAt ? { lastLoginAt: session.registration.lastLoginAt } : {}),
       activeServerId: server.id,
+      activeServerInstanceId: normalizeText(server.serverInstanceId || server.id),
       activeServerName: server.name,
       activeServerMode: server.mode,
       activeServerRegion: server.region,
       activeServerStatus: server.status || "ONLINE",
       serverId: server.id,
+      serverInstanceId: normalizeText(server.serverInstanceId || server.id),
       serverLabel: server.name,
       serverMode: server.mode,
       serverRegion: server.region,
@@ -312,10 +316,6 @@ export function saveLobbyStep({ serverId, districtId }) {
       serverRegistrationStatus: SERVER_REGISTRATION_STATUS.selected,
       factionLocked: false,
       hasCompletedServerEntry: false
-    },
-    world: {
-      ...session.world,
-      ownedDistrictIds: [normalizedDistrictId]
     }
   }));
 }

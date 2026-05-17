@@ -29,6 +29,7 @@ export const DISTRICT_ACTION_CATALOG = Object.freeze([
   })
 ]);
 
+// Preview-only legacy policy used by the static shell. Server-fed gameplay slice commands own final outcomes.
 export function resolveDistrictActions(context) {
   const {
     districtId,

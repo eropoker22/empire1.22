@@ -313,6 +313,26 @@ var EmpireGameplaySliceClient = function(exports) {
     },
     clientRequestId: input.clientRequestId ?? null
   });
+  const createOccupyDistrictCommand = (input) => {
+    const district = input.slice.district;
+    const target = district == null ? void 0 : district.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId);
+    if (!district || !target || !target.enabled) {
+      throw new Error("Occupy commands can only be created from enabled occupy targets present in the current server-fed slice.");
+    }
+    return {
+      id: input.commandId,
+      type: "occupy-district",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        districtId: input.targetDistrictId,
+        sourceDistrictId: district.districtId
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
   const createSpyDistrictCommand = (input) => {
     const district = input.slice.district;
     const target = district == null ? void 0 : district.spyTargets.find((entry) => entry.districtId === input.targetDistrictId);
@@ -411,6 +431,28 @@ var EmpireGameplaySliceClient = function(exports) {
       ].join("");
     }).join("") : `<p class="district-panel__empty-copy">No spy targets are available for this district.</p>`,
     `</section>`,
+    `<section class="district-panel__section" data-occupy-targets="true">`,
+    `<div class="district-panel__section-head">`,
+    `<div>`,
+    `<h3 class="district-panel__section-title">Occupy Targets</h3>`,
+    `<p class="district-panel__section-copy">Claim neutral neighbors only after server-confirmed spy intel.</p>`,
+    `</div>`,
+    `<span class="district-panel__section-meta">${panel.occupyTargets.length} total</span>`,
+    `</div>`,
+    panel.occupyTargets.length > 0 ? panel.occupyTargets.map((target) => {
+      const disabledAttribute = target.disabled ? " disabled" : "";
+      const reasonAttribute = target.disabledReason ? ` data-disabled-reason="${target.disabledReason}"` : "";
+      return [
+        `<div class="district-panel__action-row">`,
+        `<button class="district-panel__action-button district-panel__action-button--occupy" data-occupy-target-id="${target.districtId}"${disabledAttribute}${reasonAttribute}>`,
+        `<span class="district-panel__action-title">${target.label}</span>`,
+        `<span class="district-panel__action-meta">${target.statusLabel} · cost ${target.influenceCostLabel} · heat ${target.heatGainLabel}</span>`,
+        `</button>`,
+        target.disabledReason ? `<p class="district-panel__action-reason">${target.disabledReason}</p>` : "",
+        `</div>`
+      ].join("");
+    }).join("") : `<p class="district-panel__empty-copy">No neutral occupy targets are available from this district.</p>`,
+    `</section>`,
     `<section class="district-panel__section" data-attack-targets="true">`,
     `<div class="district-panel__section-head">`,
     `<div>`,
@@ -502,6 +544,15 @@ var EmpireGameplaySliceClient = function(exports) {
               issuedAt
             })
           );
+        case "occupy":
+          return options.client.dispatch(
+            createOccupyDistrictCommand({
+              commandId: options.createCommandId("command:occupy"),
+              slice,
+              targetDistrictId: action.targetDistrictId,
+              issuedAt
+            })
+          );
         case "place-trap":
           return options.client.dispatch(
             createPlaceTrapCommand({
@@ -574,6 +625,13 @@ var EmpireGameplaySliceClient = function(exports) {
       return {
         kind: "spy",
         targetDistrictId: spyButton.dataset.spyTargetId
+      };
+    }
+    const occupyButton = target.closest("button[data-occupy-target-id]");
+    if (occupyButton == null ? void 0 : occupyButton.dataset.occupyTargetId) {
+      return {
+        kind: "occupy",
+        targetDistrictId: occupyButton.dataset.occupyTargetId
       };
     }
     const trapButton = target.closest("button[data-place-trap]");
@@ -701,19 +759,19 @@ var EmpireGameplaySliceClient = function(exports) {
       if (!fetchJson) {
         throw new Error("Fetch transport is unavailable in this runtime.");
       }
-      const requestWithSnapshotToken = attachSnapshotToken(request, storage);
+      const requestWithTokens = attachStoredGameplaySliceTokens(route, request, storage);
       const response = await fetchJson(`${endpointBase}/${route}`, {
         method: "POST",
         headers: {
           "content-type": "application/json"
         },
-        body: JSON.stringify(requestWithSnapshotToken)
+        body: JSON.stringify(requestWithTokens)
       });
       if (!response.ok) {
         throw new Error(`Gameplay slice request failed with HTTP ${response.status}.`);
       }
       const payload = await response.json();
-      persistSnapshotToken(requestWithSnapshotToken, payload, storage);
+      persistGameplaySliceTokens(requestWithTokens, payload, storage);
       return payload;
     };
     return {
@@ -721,40 +779,48 @@ var EmpireGameplaySliceClient = function(exports) {
       send: (request) => post("submit", request)
     };
   };
-  const attachSnapshotToken = (request, storage) => {
-    const key = createSnapshotTokenStorageKey(request);
-    const snapshotToken = key ? readSnapshotToken(storage, key) : null;
-    return snapshotToken ? {
+  const attachStoredGameplaySliceTokens = (route, request, storage) => {
+    const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
+    const sessionKey = createGameplaySliceTokenStorageKey("session", request);
+    const snapshotToken = snapshotKey ? readToken(storage, snapshotKey) : null;
+    const sessionToken = route === "submit" && sessionKey ? readToken(storage, sessionKey) : null;
+    return snapshotToken || sessionToken ? {
       ...request,
-      snapshotToken
+      ...snapshotToken ? { snapshotToken } : {},
+      ...sessionToken ? { sessionToken } : {}
     } : request;
   };
-  const persistSnapshotToken = (request, response, storage) => {
-    const key = createSnapshotTokenStorageKey(request);
+  const persistGameplaySliceTokens = (request, response, storage) => {
+    const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
+    const sessionKey = createGameplaySliceTokenStorageKey("session", request);
     const snapshotToken = String(response.snapshotToken ?? "").trim();
-    if (key && snapshotToken) {
-      writeSnapshotToken(storage, key, snapshotToken);
+    const sessionToken = String(response.sessionToken ?? "").trim();
+    if (snapshotKey && snapshotToken) {
+      writeToken(storage, snapshotKey, snapshotToken);
+    }
+    if (sessionKey && sessionToken) {
+      writeToken(storage, sessionKey, sessionToken);
     }
   };
-  const readSnapshotToken = (storage, key) => {
+  const readToken = (storage, key) => {
     try {
       return (storage == null ? void 0 : storage.getItem(key)) ?? null;
     } catch (_error) {
       return null;
     }
   };
-  const writeSnapshotToken = (storage, key, snapshotToken) => {
+  const writeToken = (storage, key, token) => {
     try {
-      storage == null ? void 0 : storage.setItem(key, snapshotToken);
+      storage == null ? void 0 : storage.setItem(key, token);
     } catch (_error) {
     }
   };
-  const createSnapshotTokenStorageKey = (request) => {
+  const createGameplaySliceTokenStorageKey = (kind, request) => {
     var _a, _b;
     const record = request;
     const serverInstanceId = String(record.serverInstanceId ?? ((_a = record.command) == null ? void 0 : _a.serverInstanceId) ?? "").trim();
     const playerId = String(record.playerId ?? ((_b = record.command) == null ? void 0 : _b.playerId) ?? "").trim();
-    return serverInstanceId && playerId ? `empire:gameplay-slice:snapshot:${serverInstanceId}:${playerId}` : null;
+    return serverInstanceId && playerId ? `empire:gameplay-slice:${kind}:${serverInstanceId}:${playerId}` : null;
   };
   const resolveBrowserStorage = () => {
     try {
@@ -762,6 +828,71 @@ var EmpireGameplaySliceClient = function(exports) {
     } catch (_error) {
       return null;
     }
+  };
+  const browserTimerDriver = {
+    setInterval: (callback, intervalMs) => globalThis.setInterval(callback, intervalMs),
+    clearInterval: (handle) => globalThis.clearInterval(handle)
+  };
+  const createGameplaySlicePoller = ({
+    load,
+    getRequest,
+    intervalMs,
+    enabled = true,
+    timerDriver = browserTimerDriver,
+    onResponse,
+    onError
+  }) => {
+    const safeIntervalMs = Math.max(1, Math.floor(intervalMs));
+    let intervalHandle = null;
+    let refreshInProgress = false;
+    let pollingEnabled = enabled;
+    const stop = () => {
+      if (intervalHandle === null) {
+        return;
+      }
+      timerDriver.clearInterval(intervalHandle);
+      intervalHandle = null;
+    };
+    const refreshOnce = async () => {
+      if (refreshInProgress) {
+        return null;
+      }
+      const request = getRequest();
+      if (!request) {
+        return null;
+      }
+      refreshInProgress = true;
+      try {
+        const response = await load(request);
+        await (onResponse == null ? void 0 : onResponse(response));
+        return response;
+      } catch (error) {
+        onError == null ? void 0 : onError(error);
+        return null;
+      } finally {
+        refreshInProgress = false;
+      }
+    };
+    return {
+      start: () => {
+        if (!pollingEnabled || intervalHandle !== null) {
+          return;
+        }
+        intervalHandle = timerDriver.setInterval(() => {
+          void refreshOnce();
+        }, safeIntervalMs);
+      },
+      stop,
+      isRunning: () => intervalHandle !== null,
+      isEnabled: () => pollingEnabled,
+      setEnabled: (nextEnabled) => {
+        pollingEnabled = nextEnabled;
+        if (!pollingEnabled) {
+          stop();
+        }
+      },
+      refreshOnce
+    };
   };
   const renderMap = ({ districts, selectedDistrictId }) => [
     `<section data-map-surface="district-list" data-selected-district-id="${selectedDistrictId ?? ""}">`,
@@ -805,7 +936,7 @@ var EmpireGameplaySliceClient = function(exports) {
       ownershipLabel: slice.district.isOwnedByPlayer ? "Owned by current player" : slice.district.status === "destroyed" ? "Destroyed district" : slice.district.ownerPlayerId ? `Owned by ${slice.district.ownerPlayerId}` : "Unclaimed district",
       zoneLabel: toTitleCase$3(slice.district.zone),
       statusLabel: slice.district.status,
-      heatLabel: String(slice.district.heat),
+      heatLabel: formatHeatLabel$1(slice.district.heat),
       influenceLabel: String(slice.district.influence),
       buildingSummary: slice.district.status === "destroyed" ? "0 fixed buildings · destroyed" : `${slice.district.buildings.length} fixed buildings`,
       attackSummary: slice.district.attackTargets.length > 0 ? `${slice.district.attackTargets.filter((target) => target.enabled).length}/${slice.district.attackTargets.length} attack routes ready` : "No adjacent attack routes",
@@ -823,6 +954,17 @@ var EmpireGameplaySliceClient = function(exports) {
         statusLabel: target.status,
         disabled: hasPendingCommand || !target.enabled,
         disabledReason: hasPendingCommand ? "Command pending." : target.disabledReason
+      })),
+      occupyTargets: slice.district.occupyTargets.map((target) => ({
+        districtId: target.districtId,
+        label: target.name,
+        statusLabel: target.status,
+        disabled: hasPendingCommand || !target.enabled,
+        disabledReason: hasPendingCommand ? "Command pending." : target.disabledReason,
+        disabledCode: target.disabledCode,
+        influenceCostLabel: String(target.cost.influence),
+        heatGainLabel: `+${target.heatGain}`,
+        cooldownLabel: target.cooldownRemainingTicks > 0 ? `${target.cooldownRemainingTicks} ticks` : null
       })),
       attackTargets: slice.district.attackTargets.map((target) => ({
         districtId: target.districtId,
@@ -938,6 +1080,7 @@ var EmpireGameplaySliceClient = function(exports) {
     const hours = Math.round(totalMinutes / 60 * 10) / 10;
     return `${hours}h`;
   };
+  const formatHeatLabel$1 = (value) => String(Math.round(Number.isFinite(value) ? value : 0));
   const formatResourceSummary = (values, emptyLabel) => {
     const parts = Object.entries(values).filter(([, amount]) => amount > 0);
     return parts.length > 0 ? parts.map(([resourceKey, amount]) => `${amount} ${toTitleCase$3(resourceKey)}`).join(" + ") : emptyLabel;
@@ -951,7 +1094,7 @@ var EmpireGameplaySliceClient = function(exports) {
       label: district.name,
       ownerLabel: isDestroyed ? "Destroyed district" : district.isOwnedByPlayer ? "Owned by current player" : district.ownerPlayerId ? `Owned by ${district.ownerPlayerId}` : "Neutral district",
       zoneLabel: toTitleCase$2(district.zone),
-      heatLabel: String(district.heat),
+      heatLabel: formatHeatLabel(district.heat),
       influenceLabel: String(district.influence),
       buildingSummary: `${district.filledSlotCount} fixed`,
       ownerPlayerId: district.ownerPlayerId,
@@ -966,14 +1109,61 @@ var EmpireGameplaySliceClient = function(exports) {
     };
   });
   const toTitleCase$2 = (value) => value.split("-").filter(Boolean).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
+  const formatHeatLabel = (value) => String(Math.round(Number.isFinite(value) ? value : 0));
   const createPlayerViewModel = (view, modeLabelOverride) => view ? {
     playerId: view.playerId,
     instanceId: view.instanceId,
     modeLabel: modeLabelOverride ?? view.mode,
-    resourceSummary: formatResourceBalances(view.resourceBalances),
+    resourceSummary: view.economy ? formatEconomySummary(view.economy) : formatResourceBalances(view.resourceBalances),
+    economy: view.economy ? createEconomyViewModel(view.economy) : null,
     notificationCount: view.notifications.length,
-    dayNight: view.dayNight ?? null
+    dayNight: view.dayNight ?? null,
+    police: createPoliceViewModel(view)
   } : null;
+  const createEconomyViewModel = (economy) => ({
+    cleanCashLabel: String(Math.max(0, Number(economy.cleanCash || 0))),
+    dirtyCashLabel: String(Math.max(0, Number(economy.dirtyCash || 0))),
+    influenceLabel: String(Math.max(0, Number(economy.influence || 0))),
+    populationLabel: String(Math.max(0, Number(economy.population || 0))),
+    gangMembersLabel: String(Math.max(0, Number(economy.gangMembers || 0)))
+  });
+  const createPoliceViewModel = (view) => {
+    const police = view.police ?? null;
+    if (!police) {
+      return null;
+    }
+    return {
+      heatLabel: String(Math.max(0, Number(police.heat || 0))),
+      wantedLevelLabel: police.wantedLevelLabel || police.wantedLabel || `${police.wantedLevel} / 5`,
+      pendingRaidLabel: police.pendingRaid ? `${police.pendingRaid.severity.toUpperCase()} raid` : null,
+      raidConsequenceStatus: police.raidConsequenceStatus || "none",
+      selectedDistrictHeatLabel: String(Math.max(0, Number(police.selectedDistrictHeat || 0))),
+      protectionLabel: police.protection.sources.length > 0 ? `${police.protection.sources.join(", ")} x${police.protection.raidConsequenceMultiplier.toFixed(2)}` : "none"
+    };
+  };
+  const formatEconomySummary = (economy) => {
+    const seenResourceIds = /* @__PURE__ */ new Set(["cash", "dirty-cash", "population", "gang-members"]);
+    const parts = [
+      `Cash ${Math.max(0, Number(economy.cleanCash || 0))}`,
+      `Dirty Cash ${Math.max(0, Number(economy.dirtyCash || 0))}`,
+      `Influence ${Math.max(0, Number(economy.influence || 0))}`,
+      `Population ${Math.max(0, Number(economy.population || 0))}`
+    ];
+    for (const balances of [economy.materials, economy.drugs, economy.weapons]) {
+      for (const [resourceId, amount] of Object.entries(balances)) {
+        seenResourceIds.add(resourceId);
+        if (amount > 0) {
+          parts.push(`${toTitleCase$1(resourceId)} ${amount}`);
+        }
+      }
+    }
+    for (const [resourceId, amount] of Object.entries(economy.resources)) {
+      if (!seenResourceIds.has(resourceId) && amount > 0) {
+        parts.push(`${toTitleCase$1(resourceId)} ${amount}`);
+      }
+    }
+    return parts.join(" · ");
+  };
   const formatResourceBalances = (balances) => {
     const parts = Object.entries(balances).filter(([, amount]) => amount > 0);
     return parts.length > 0 ? parts.map(([resourceKey, amount]) => `${toTitleCase$1(resourceKey)} ${amount}`).join(" · ") : "No resources";
@@ -981,10 +1171,10 @@ var EmpireGameplaySliceClient = function(exports) {
   const toTitleCase$1 = (value) => value.split("-").filter(Boolean).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
   const createReportViewModels = (reports) => reports.map((report) => ({
     id: report.reportId,
-    title: report.reportType === "spy" ? `Spy ${report.result} on ${report.targetDistrictId}` : report.reportType === "building-action" ? `${toTitleCase(report.buildingActionId)} on ${report.districtId}` : report.districtDestroyed ? `District catastrophe on ${report.targetDistrictId}` : `Attack ${report.result} on ${report.targetDistrictId}`,
+    title: report.reportType === "spy" ? `Spy ${report.result} on ${report.targetDistrictId}` : report.reportType === "occupy" ? `Occupy ${report.result} on ${report.targetDistrictId}` : report.reportType === "building-action" ? `${toTitleCase(report.buildingActionId)} on ${report.districtId}` : report.districtDestroyed ? `District catastrophe on ${report.targetDistrictId}` : `Attack ${report.result} on ${report.targetDistrictId}`,
     createdAt: `${report.tick}`,
     category: report.reportType,
-    summary: report.reportType === "spy" ? report.trapDetected ? "Defense confirmed. Trap detected." : "Defense scout resolved." : report.reportType === "building-action" ? formatBuildingActionSummary(report) : report.districtDestroyed ? "Catastrophe destroyed the district. Control, buildings, heat, and influence were wiped." : report.trapTriggered ? "Trap triggered during the attack." : report.districtCaptured ? "District captured." : "District held by defender.",
+    summary: report.reportType === "spy" ? report.trapDetected ? "Defense confirmed. Trap detected." : "Defense scout resolved." : report.reportType === "occupy" ? `District occupied. Influence -${report.influenceCost} · heat +${report.heatGained}.` : report.reportType === "building-action" ? formatBuildingActionSummary(report) : report.districtDestroyed ? "Catastrophe destroyed the district. Control, buildings, heat, and influence were wiped." : report.trapTriggered ? "Trap triggered during the attack." : report.districtCaptured ? "District captured." : "District held by defender.",
     result: report.result,
     severity: report.reportType === "battle" && report.districtDestroyed ? "critical" : "normal",
     messages: report.reportType === "building-action" ? report.messages ?? [] : report.reportType === "battle" && report.districtDestroyed ? [
@@ -1065,7 +1255,13 @@ var EmpireGameplaySliceClient = function(exports) {
   const renderSidePanelShell = ({ activePanel, contentHtml }) => activePanel ? `<aside class="side-panel-shell" data-panel="${activePanel}">${contentHtml}</aside>` : '<aside class="side-panel-shell" data-panel="none"></aside>';
   const renderTopBarShell = ({ player }) => {
     var _a;
-    return player ? `<header data-mode="${player.modeLabel}" data-city-phase="${((_a = player.dayNight) == null ? void 0 : _a.uiThemeHint) ?? "day"}">Mode: ${player.modeLabel} · Player: ${player.playerId} · Resources: ${player.resourceSummary} · Alerts: ${player.notificationCount}${renderDayNightBadge(player)}</header>` : '<header data-mode="unknown">Loading player projection...</header>';
+    return player ? `<header data-mode="${player.modeLabel}" data-city-phase="${((_a = player.dayNight) == null ? void 0 : _a.uiThemeHint) ?? "day"}">Mode: ${player.modeLabel} · Player: ${player.playerId} · Resources: ${player.resourceSummary} · Alerts: ${player.notificationCount}${renderPoliceBadge(player)}${renderDayNightBadge(player)}</header>` : '<header data-mode="unknown">Loading player projection...</header>';
+  };
+  const renderPoliceBadge = (player) => {
+    const police = player.police;
+    if (!police) return "";
+    const pending = police.pendingRaidLabel ? ` · Pending: ${police.pendingRaidLabel}` : "";
+    return ` · <span class="police-badge" data-raid-status="${escapeHtml(police.raidConsequenceStatus)}" title="District heat ${escapeHtml(police.selectedDistrictHeatLabel)} · Protection ${escapeHtml(police.protectionLabel)}">Heat ${escapeHtml(police.heatLabel)} · Wanted ${escapeHtml(police.wantedLevelLabel)}${pending}</span>`;
   };
   const renderDayNightBadge = (player) => {
     const dayNight = player.dayNight;
@@ -1277,15 +1473,17 @@ var EmpireGameplaySliceClient = function(exports) {
     }
     const session = readLegacySession(storage, dataset.sessionStorageKey);
     const registration = session == null ? void 0 : session.registration;
-    const serverId = normalizeToken(registration == null ? void 0 : registration.serverId);
+    const serverInstanceId = normalizeServerInstanceId(
+      (registration == null ? void 0 : registration.activeServerInstanceId) || (registration == null ? void 0 : registration.serverInstanceId) || (registration == null ? void 0 : registration.activeServerId) || (registration == null ? void 0 : registration.serverId)
+    );
     const districtId = normalizeDistrictId(registration == null ? void 0 : registration.startDistrictId);
     const playerId = normalizePlayerId((registration == null ? void 0 : registration.identity) || (registration == null ? void 0 : registration.gangName));
     const factionId = normalizeFactionId((registration == null ? void 0 : registration.factionId) || (registration == null ? void 0 : registration.selectedFaction));
-    if (!serverId || !districtId || !playerId) {
+    if (!serverInstanceId || !districtId || !playerId) {
       return null;
     }
     return {
-      serverInstanceId: `instance:${serverId}`,
+      serverInstanceId,
       playerId,
       districtId,
       factionId
@@ -1321,6 +1519,13 @@ var EmpireGameplaySliceClient = function(exports) {
   const normalizeToken = (value) => {
     const normalized = String(value ?? "").trim();
     return normalized.length > 0 ? normalized : null;
+  };
+  const normalizeServerInstanceId = (value) => {
+    const normalized = normalizeToken(value);
+    if (!normalized) {
+      return null;
+    }
+    return normalized.startsWith("instance:") ? normalized : `instance:${normalized}`;
   };
   const normalizeDistrictId = (value) => {
     const raw = String(value ?? "").trim();
@@ -1364,10 +1569,17 @@ var EmpireGameplaySliceClient = function(exports) {
       createCommandId: createBrowserCommandId
     });
     const mounts = resolveMounts(options.root);
+    let currentLoadRequest = request;
     options.root.hidden = false;
     const render = (state) => {
-      var _a, _b;
-      const phase = (_b = (_a = state.player) == null ? void 0 : _a.dayNight) == null ? void 0 : _b.uiThemeHint;
+      var _a, _b, _c;
+      if ((_a = state.districtPanel) == null ? void 0 : _a.districtId) {
+        currentLoadRequest = {
+          ...currentLoadRequest,
+          districtId: state.districtPanel.districtId
+        };
+      }
+      const phase = (_c = (_b = state.player) == null ? void 0 : _b.dayNight) == null ? void 0 : _c.uiThemeHint;
       if (phase) {
         document.body.dataset.cityPhase = phase;
       }
@@ -1389,9 +1601,25 @@ var EmpireGameplaySliceClient = function(exports) {
         render(nextState);
       }
     };
+    const poller = createGameplaySlicePoller({
+      load: (nextRequest) => client.load(nextRequest),
+      getRequest: () => currentLoadRequest,
+      intervalMs: parsePollingIntervalMs(options.root.dataset.gameplaySlicePollingIntervalMs),
+      enabled: options.root.dataset.gameplaySlicePolling === "true",
+      onResponse: render,
+      onError: () => {
+        mounts.status.innerHTML = [
+          "<strong>Server sync stale</strong>",
+          "<span>Polling refresh failed. Keeping the last read model.</span>"
+        ].join("");
+      }
+    });
     const cooldownTimerId = window.setInterval(() => refreshLiveCooldownLabels(options.root), 1e3);
     options.root.addEventListener("click", handleClick);
-    void client.load(request).then(render).catch(() => {
+    void client.load(request).then((state) => {
+      render(state);
+      poller.start();
+    }).catch(() => {
       mounts.status.innerHTML = [
         "<strong>Server sync unavailable</strong>",
         "<span>The gameplay slice endpoint did not return a read model.</span>"
@@ -1399,6 +1627,7 @@ var EmpireGameplaySliceClient = function(exports) {
     });
     return {
       destroy: () => {
+        poller.stop();
         window.clearInterval(cooldownTimerId);
         options.root.removeEventListener("click", handleClick);
       }
@@ -1429,6 +1658,10 @@ var EmpireGameplaySliceClient = function(exports) {
     ].join("");
   };
   const createBrowserCommandId = (prefix) => `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
+  const parsePollingIntervalMs = (value) => {
+    const intervalMs = Number.parseInt(String(value ?? ""), 10);
+    return Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : 5e3;
+  };
   const createPageApi = () => ({
     mount: (options) => mountGameplaySlicePage(options),
     autoMount: () => Array.from(document.querySelectorAll("[data-gameplay-slice-client]")).map((root) => mountGameplaySlicePage({ root })).filter((mount) => mount !== null)

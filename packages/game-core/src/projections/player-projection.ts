@@ -1,4 +1,12 @@
-import { DEFAULT_PLAYER_COLOR, type Notification, type PlayerView, type VictoryState } from "@empire/shared-types";
+import {
+  ATTACK_WEAPON_IDS,
+  DEFAULT_PLAYER_COLOR,
+  DEFENSE_WEAPON_IDS,
+  type Notification,
+  type PlayerEconomyView,
+  type PlayerView,
+  type VictoryState
+} from "@empire/shared-types";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreGameState } from "../entities/game-state";
 import { createDayNightReadModel } from "./day-night-read-model-projection";
@@ -22,6 +30,7 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
   if (player && Number.isFinite(Number(player.population))) {
     resourceBalances.population = Math.max(0, Number(player.population || 0));
   }
+  const economy = createPlayerEconomyView(state, playerId, resourceBalances);
 
   return {
     playerId,
@@ -31,6 +40,7 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
     color: player?.color ?? DEFAULT_PLAYER_COLOR,
     serverTime: new Date(0).toISOString(),
     resourceBalances,
+    economy,
     faction: createFactionReadModel(state, playerId, context),
     dayNight: context ? createDayNightReadModel(state, context) : null,
     elimination: createEliminationReadModel(state, playerId, context),
@@ -39,3 +49,68 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
     victoryState
   };
 };
+
+const MATERIAL_RESOURCE_IDS = [
+  "chemicals",
+  "biomass",
+  "stim-pack",
+  "metal-parts",
+  "tech-core",
+  "combat-module",
+  "metalParts",
+  "techCore",
+  "combatModule"
+] as const;
+
+const DRUG_RESOURCE_IDS = [
+  "neon-dust",
+  "pulse-shot",
+  "velvet-smoke",
+  "ghost-serum",
+  "overdrive-x"
+] as const;
+
+const createPlayerEconomyView = (
+  state: CoreGameState,
+  playerId: string,
+  resourceBalances: Record<string, number>
+): PlayerEconomyView => {
+  const player = state.playersById[playerId];
+  const resources = sanitizeBalances(resourceBalances);
+  const population = Math.max(0, Number(player?.population ?? resources.population ?? 0));
+  const gangMembers = Math.max(0, Number(resources["gang-members"] ?? population));
+
+  return {
+    cleanCash: amountOf(resources, "cash"),
+    dirtyCash: amountOf(resources, "dirty-cash"),
+    influence: calculateOwnedDistrictInfluence(state, playerId),
+    population,
+    gangMembers,
+    resources,
+    materials: pickBalances(resources, MATERIAL_RESOURCE_IDS),
+    drugs: pickBalances(resources, DRUG_RESOURCE_IDS),
+    weapons: pickBalances(resources, [...ATTACK_WEAPON_IDS, ...DEFENSE_WEAPON_IDS])
+  };
+};
+
+const sanitizeBalances = (balances: Record<string, number>): Record<string, number> =>
+  Object.fromEntries(
+    Object.entries(balances)
+      .filter(([resourceId]) => resourceId.length > 0)
+      .map(([resourceId, amount]) => [resourceId, Math.max(0, Number(amount || 0))])
+      .filter(([, amount]) => Number.isFinite(amount))
+  );
+
+const amountOf = (balances: Record<string, number>, resourceId: string): number =>
+  Math.max(0, Number(balances[resourceId] ?? 0));
+
+const pickBalances = (
+  balances: Record<string, number>,
+  resourceIds: readonly string[]
+): Record<string, number> =>
+  Object.fromEntries(resourceIds.map((resourceId) => [resourceId, amountOf(balances, resourceId)]));
+
+const calculateOwnedDistrictInfluence = (state: CoreGameState, playerId: string): number =>
+  Object.values(state.districtsById)
+    .filter((district) => district.ownerPlayerId === playerId)
+    .reduce((total, district) => total + Math.max(0, Number(district.influence || 0)), 0);

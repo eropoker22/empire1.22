@@ -26,26 +26,13 @@ const LOBBY_STATUS_ANIMATION_MS = 1700;
 const LOBBY_STATUS_MIN_PLAYERS = 4050;
 const LOBBY_STATUS_MAX_PLAYERS = 4380;
 const SERVER_LIST_REFRESH_SECONDS = 20;
+const SERVER_LIST_ENDPOINT = "/api/servers";
 const MATRIX_DIGITS = "0123456789";
 const SERVER_COUNTDOWN_OFFSETS_MINUTES = Object.freeze({
   "war-eu-02": 12
 });
-const START_PACKAGES = Object.freeze({
-  war: Object.freeze([
-    "Clean cash: $12 000",
-    "Dirty cash: $4 500",
-    "Chemikálie: 60 ks",
-    "Biomasa: 45 ks",
-    "Stimpack: 20 ks"
-  ]),
-  free: Object.freeze([
-    "Clean cash: $25 000",
-    "Dirty cash: $10 000",
-    "Chemikálie: 120 ks",
-    "Biomasa: 90 ks",
-    "Stimpack: 45 ks"
-  ])
-});
+const SERVER_LIST_FALLBACK_SOURCE = "dev-static-fallback";
+const SERVER_LIST_SERVER_SOURCE = "server-summary";
 
 const LOBBY_NAV_PREVIEWS = Object.freeze({
   city: Object.freeze({
@@ -69,6 +56,66 @@ const LOBBY_NAV_PREVIEWS = Object.freeze({
 const formatLobbyPlayerCount = (value) => new Intl.NumberFormat("cs-CZ")
   .format(Math.max(0, Math.round(Number(value) || 0)))
   .replace(/\u00a0/g, " ");
+
+function createServerFromSummary(summary) {
+  if (!summary || typeof summary !== "object") {
+    return null;
+  }
+
+  const id = String(summary.serverInstanceId || "").trim();
+  const mode = String(summary.mode || "").trim().toLowerCase();
+  if (!id || (mode !== "free" && mode !== "war")) {
+    return null;
+  }
+
+  const playerCount = Math.max(0, Number(summary.playerCount || 0) || 0);
+  const maxPlayers = Math.max(1, Number(summary.maxPlayers || 1) || 1);
+  const status = String(summary.status || "lobby").toUpperCase();
+  const full = playerCount >= maxPlayers;
+  const joinable = Boolean(summary.joinable);
+  const map = summary.map && typeof summary.map === "object"
+    ? {
+        totalDistricts: Number(summary.map.totalDistricts || 0) || 0,
+        downtownDistricts: Number(summary.map.downtownDistricts || 0) || 0,
+        commercialDistricts: Number(summary.map.commercialDistricts || 0) || 0,
+        industrialDistricts: Number(summary.map.industrialDistricts || 0) || 0,
+        residentialDistricts: Number(summary.map.residentialDistricts || 0) || 0,
+        parkDistricts: Number(summary.map.parkDistricts || 0) || 0
+      }
+    : null;
+
+  return {
+    id,
+    serverInstanceId: id,
+    name: String(summary.displayName || id),
+    mode,
+    region: String(summary.region || "EU Central"),
+    players: playerCount,
+    capacity: maxPlayers,
+    startLabel: joinable ? "Joinable" : status,
+    badge: "SERVER",
+    status,
+    activity: playerCount / maxPlayers > 0.75 ? "HIGH" : playerCount / maxPlayers > 0.35 ? "MEDIUM" : "LOW",
+    full,
+    locked: !joinable && !full,
+    offline: ["STOPPED", "ENDED", "DESTROYED", "CRASHED"].includes(status),
+    riskPercent: Math.round((playerCount / maxPlayers) * 100),
+    description: `Server-authoritative ${mode.toUpperCase()} instance. Join a spawn potvrzuje server.`,
+    map
+  };
+}
+
+function mergeServerSummariesWithFallback(serverSummaries, fallbackServers) {
+  const serverBacked = serverSummaries.map(createServerFromSummary).filter(Boolean);
+  if (serverBacked.length < 1) {
+    return Array.isArray(fallbackServers) ? fallbackServers : [];
+  }
+
+  const serverBackedIds = new Set(serverBacked.map((server) => server.id));
+  const fallbackOnly = (Array.isArray(fallbackServers) ? fallbackServers : [])
+    .filter((server) => !serverBackedIds.has(server.id));
+  return [...serverBacked, ...fallbackOnly];
+}
 
 let lobbyLogoutPrompt = null;
 let isLeavingLobby = false;
@@ -216,7 +263,8 @@ document.addEventListener("DOMContentLoaded", () => {
       ))
       .map((district) => district.id)
   );
-  const availableServers = Array.isArray(SERVER_CATALOG) ? SERVER_CATALOG : [];
+  let availableServers = Array.isArray(SERVER_CATALOG) ? SERVER_CATALOG : [];
+  let serverListSource = SERVER_LIST_FALLBACK_SOURCE;
   const activeServerRegistration = getActiveServerRegistration(registration);
   const isActiveServerEntry = Boolean(activeServerRegistration);
   const state = {
@@ -370,7 +418,18 @@ document.addEventListener("DOMContentLoaded", () => {
     return `Začíná za ${formatRemaining(msRemaining)}`;
   };
 
-  const getDistrictTypeCounts = () => {
+  const getDistrictTypeCounts = (server = getSelectedServer()) => {
+    const map = server?.map || null;
+    if (map) {
+      return [
+        ["downtown", map.downtownDistricts],
+        ["commercial", map.commercialDistricts],
+        ["industrial", map.industrialDistricts],
+        ["residential", map.residentialDistricts],
+        ["park", map.parkDistricts]
+      ].filter(([, count]) => Number(count) > 0);
+    }
+
     const counts = new Map();
     for (const district of geometry.districts) {
       const key = String(district.districtType || "other");
@@ -379,7 +438,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return Array.from(counts.entries());
   };
 
-  const renderTypeCountMarkup = () => getDistrictTypeCounts().map(([type, count]) => `
+  const renderTypeCountMarkup = (server = getSelectedServer()) => getDistrictTypeCounts(server).map(([type, count]) => `
     <span class="server-detail-modal__type-count ${type === "downtown" ? "is-downtown" : ""}">
       <strong>${type}</strong>
       <b>${count}</b>
@@ -497,7 +556,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const session = saveLobbyStep({
       serverId: state.serverId,
-      districtId: state.selectedDistrictId
+      districtId: state.selectedDistrictId,
+      server
     });
 
     markLeavingLobby();
@@ -907,11 +967,13 @@ document.addEventListener("DOMContentLoaded", () => {
       lobbyEnterSelectedButton.disabled = !state.serverId || !state.selectedDistrictId || serverUnavailable;
     }
     if (detailModalTypeCounts instanceof HTMLElement) {
-      detailModalTypeCounts.innerHTML = renderTypeCountMarkup();
+      detailModalTypeCounts.innerHTML = renderTypeCountMarkup(server);
     }
     if (detailModalMaterials instanceof HTMLElement) {
-      const materials = START_PACKAGES[server.mode] || START_PACKAGES.war;
-      detailModalMaterials.innerHTML = materials.map((item) => `<li>${item}</li>`).join("");
+      detailModalMaterials.innerHTML = [
+        "<li>Gameplay start potvrzuje server při joinu.</li>",
+        `<li>Mapa: ${server.map?.totalDistricts || geometry.districts.length} districtů, ${server.map?.downtownDistricts || getDistrictTypeCounts(server).find(([type]) => type === "downtown")?.[1] || 0} downtown.</li>`
+      ].join("");
     }
   };
 
@@ -931,6 +993,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <span class="auth-server-card__meta">${server.region} • ${server.mode.toUpperCase()} • ${server.players}/${server.capacity}</span>
         <span class="auth-server-card__schedule">${server.status || "ONLINE"}</span>
         <span class="auth-server-card__countdown" data-server-countdown="${server.id}">${getServerCountdownText(server.id)}</span>
+        <span class="auth-server-card__schedule">${server.map?.totalDistricts ? `${server.map.totalDistricts} districtů / ${server.map.downtownDistricts} downtown` : serverListSource === SERVER_LIST_FALLBACK_SOURCE ? "DEV fallback katalog" : ""}</span>
         <span class="auth-server-card__signal is-${String(server.activity || "medium").toLowerCase()}"><i></i><i></i><i></i><i></i></span>
       </button>
     `).join("");
@@ -960,6 +1023,43 @@ document.addEventListener("DOMContentLoaded", () => {
     updateLobbySummary();
     updateDetailModal();
     renderAllCanvases();
+  };
+
+  const hydrateServerSummaries = async () => {
+    if (isActiveServerEntry || typeof fetch !== "function") {
+      return;
+    }
+
+    try {
+      const response = await fetch(SERVER_LIST_ENDPOINT, {
+        method: "GET",
+        headers: {
+          "accept": "application/json"
+        }
+      });
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = await response.json();
+      const serverSummaries = Array.isArray(payload?.servers) ? payload.servers : [];
+      const nextServers = mergeServerSummariesWithFallback(serverSummaries, SERVER_CATALOG);
+      if (nextServers.length < 1 || nextServers.length === availableServers.length && nextServers.every((server, index) => server === availableServers[index])) {
+        return;
+      }
+
+      availableServers = nextServers;
+      serverListSource = serverSummaries.length > 0 ? SERVER_LIST_SERVER_SOURCE : SERVER_LIST_FALLBACK_SOURCE;
+      if (!availableServers.some((server) => server.mode === state.mode)) {
+        state.mode = availableServers[0]?.mode || state.mode;
+        state.serverId = "";
+        state.selectedDistrictId = null;
+      }
+      syncModeTabs();
+      refreshServerList();
+    } catch (_error) {
+      serverListSource = SERVER_LIST_FALLBACK_SOURCE;
+    }
   };
 
   const renderServerRefreshCountdown = (isRefreshing = false) => {
@@ -1381,6 +1481,7 @@ document.addEventListener("DOMContentLoaded", () => {
   updateCountdowns();
   startLobbyStatusTicker();
   startServerListAutoRefresh();
+  void hydrateServerSummaries();
 });
 
 function installLobbyBackLogoutGuard() {

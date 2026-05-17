@@ -25,6 +25,7 @@ export interface SubmitGameplayCommandRequest {
   command: GameCommand;
   focusDistrictId: DistrictId;
   snapshotToken?: string | null;
+  sessionToken?: string | null;
 }
 
 export interface GameplaySliceResponse {
@@ -33,6 +34,7 @@ export interface GameplaySliceResponse {
   errors: DomainError[];
   metadata?: GameplaySliceResponseMetadata;
   snapshotToken?: string | null;
+  sessionToken?: string | null;
 }
 
 export interface GameplaySliceResponseMetadata {

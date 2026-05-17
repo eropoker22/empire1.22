@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GameplaySliceView } from "@empire/shared-types";
 import {
+  createOccupyDistrictCommand,
   createPlaceTrapCommand,
   createSpyDistrictCommand
 } from "../../../apps/client/src/features";
@@ -27,6 +28,17 @@ const createGameplaySliceFixture = ({
     color: "#ef4444",
     serverTime: new Date(0).toISOString(),
     resourceBalances: {},
+    economy: {
+      cleanCash: 0,
+      dirtyCash: 0,
+      influence: 0,
+      population: 0,
+      gangMembers: 0,
+      resources: {},
+      materials: {},
+      drugs: {},
+      weapons: {}
+    },
     notifications: [],
     victoryState: null
   },
@@ -115,6 +127,70 @@ describe("conflict command factories", () => {
     expect(command.payload).toEqual({
       districtId: "district:1"
     });
+  });
+
+  it("builds the occupy command from an enabled server-fed occupy target", () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.occupyTargets = [
+      {
+        districtId: "district:3",
+        name: "Neutral District",
+        ownerPlayerId: null,
+        status: "neutral",
+        enabled: true,
+        disabledCode: null,
+        disabledReason: null,
+        cost: {
+          influence: 5
+        },
+        heatGain: 2,
+        cooldownRemainingTicks: 0
+      }
+    ];
+    const command = createOccupyDistrictCommand({
+      commandId: "command:occupy:district:3",
+      slice,
+      targetDistrictId: "district:3",
+      issuedAt: new Date(0).toISOString()
+    });
+
+    expect(command.type).toBe("occupy-district");
+    expect(command.serverInstanceId).toBe("instance:1");
+    expect(command.payload).toEqual({
+      districtId: "district:3",
+      sourceDistrictId: "district:1"
+    });
+  });
+
+  it("rejects occupy commands for disabled targets in the current server-fed slice", () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.occupyTargets = [
+      {
+        districtId: "district:3",
+        name: "Neutral District",
+        ownerPlayerId: null,
+        status: "neutral",
+        enabled: false,
+        disabledCode: "occupy_requires_successful_spy",
+        disabledReason: "Successful spy intel is required before occupying this district.",
+        cost: {
+          influence: 5
+        },
+        heatGain: 2,
+        cooldownRemainingTicks: 0
+      }
+    ];
+
+    expect(() =>
+      createOccupyDistrictCommand({
+        commandId: "command:occupy:district:3",
+        slice,
+        targetDistrictId: "district:3",
+        issuedAt: new Date(0).toISOString()
+      })
+    ).toThrow(
+      "Occupy commands can only be created from enabled occupy targets present in the current server-fed slice."
+    );
   });
 
   it("rejects trap commands when trap placement is disabled in the current server-fed slice", () => {

@@ -1,5 +1,6 @@
 import { ATTACK_SETUP_WEAPONS } from "../../../game-config/src/legacy-page/combat-config.js";
 
+// Preview-only legacy helpers. Server-authoritative combat results are resolved by game-core command handlers.
 export function calculateAttackDeployment(loadout = {}) {
   return Object.entries(loadout).reduce(
     (totals, [weaponId, amount]) => {

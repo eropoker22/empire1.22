@@ -4,19 +4,42 @@ import {
   createAdminInstanceReadService,
   createAdminLogReadService,
   createAdminSnapshotReadService,
-  createAdminDiagnosticsReadService
+  createAdminDiagnosticsReadService,
+  type AdminDiagnosticsReadFacade,
+  type AdminInstanceReadFacade,
+  type AdminLogReadFacade,
+  type AdminSnapshotReadFacade
 } from "../services";
+
+export interface AdminAppReadFacades {
+  instance?: AdminInstanceReadFacade;
+  log?: AdminLogReadFacade;
+  snapshot?: AdminSnapshotReadFacade;
+  diagnostics?: AdminDiagnosticsReadFacade;
+}
+
+export interface AdminAppOptions {
+  facades?: AdminAppReadFacades;
+}
 
 /**
  * Responsibility: Composition root for the admin application.
  * Belongs here: wiring read services and command boundaries for admin UI modules.
  * Does not belong here: direct gameplay state access or server authority logic.
  */
-export const createAdminApp = () => {
-  const instanceReadService = createAdminInstanceReadService();
-  const logReadService = createAdminLogReadService();
-  const snapshotReadService = createAdminSnapshotReadService();
-  const diagnosticsReadService = createAdminDiagnosticsReadService();
+export const createAdminApp = (options: AdminAppOptions = {}) => {
+  const instanceReadService = createAdminInstanceReadService({
+    facade: options.facades?.instance
+  });
+  const logReadService = createAdminLogReadService({
+    facade: options.facades?.log
+  });
+  const snapshotReadService = createAdminSnapshotReadService({
+    facade: options.facades?.snapshot
+  });
+  const diagnosticsReadService = createAdminDiagnosticsReadService({
+    facade: options.facades?.diagnostics
+  });
   const adminCommandDispatcher = createAdminCommandDispatcher({
     execute: (_command) => {
       return;
@@ -42,4 +65,3 @@ export const createAdminApp = () => {
     }
   });
 };
-

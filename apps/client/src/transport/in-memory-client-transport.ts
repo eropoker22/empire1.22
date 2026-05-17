@@ -17,7 +17,49 @@ export interface GameplaySliceEndpoint {
  */
 export const createInMemoryClientTransport = (
   endpoint: GameplaySliceEndpoint
-): ClientTransport => ({
-  load: async (request) => endpoint.load(request),
-  send: async (request) => endpoint.submit(request)
-});
+): ClientTransport => {
+  const sessionTokensByKey = new Map<string, string>();
+
+  return {
+    load: async (request) => {
+      const response = await endpoint.load(request);
+      persistSessionToken(request, response, sessionTokensByKey);
+      return response;
+    },
+    send: async (request) => {
+      const sessionToken = sessionTokensByKey.get(createSessionKey(request));
+      const response = await endpoint.submit(sessionToken
+        ? {
+            ...request,
+            sessionToken
+          }
+        : request);
+      persistSessionToken(request, response, sessionTokensByKey);
+      return response;
+    }
+  };
+};
+
+const persistSessionToken = (
+  request: LoadGameplaySliceRequest | SubmitGameplayCommandRequest,
+  response: GameplaySliceResponse,
+  sessionTokensByKey: Map<string, string>
+): void => {
+  const sessionToken = String(response.sessionToken ?? "").trim();
+  if (sessionToken) {
+    sessionTokensByKey.set(createSessionKey(request), sessionToken);
+  }
+};
+
+const createSessionKey = (
+  request: LoadGameplaySliceRequest | SubmitGameplayCommandRequest
+): string => {
+  const serverInstanceId = "command" in request
+    ? request.command.serverInstanceId
+    : request.serverInstanceId;
+  const playerId = "command" in request
+    ? request.command.playerId
+    : request.playerId;
+
+  return `${serverInstanceId}:${playerId}`;
+};

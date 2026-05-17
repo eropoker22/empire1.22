@@ -7,6 +7,7 @@ import type {
   SnapshotSummary
 } from "@empire/shared-types";
 import type { ServerInstanceManager } from "../runtime";
+import { systemClock } from "../runtime";
 
 /**
  * Responsibility: Server-side boundary exposing admin-safe read projections.
@@ -36,24 +37,29 @@ export const createServerAdminReadService = (instanceManager: ServerInstanceMana
   },
   getInstanceDiagnosticsSummary: async (instanceId: string): Promise<InstanceDiagnosticsSummary> => {
     const snapshot = instanceManager.getInstanceMonitorSnapshot(instanceId);
+    const diagnostics = await instanceManager.listDiagnosticRecords(instanceId);
+    const lastCrash = diagnostics
+      .filter((record) => record.category === "crash")
+      .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))[0];
+
     return {
       instanceId,
       lastSnapshotAt: null,
       snapshotSchemaVersion: null,
-      lastCrashAt: snapshot?.lastErrorAt ?? null,
-      diagnosticErrorCount: snapshot?.crashCount ?? 0
+      lastCrashAt: lastCrash?.occurredAt ?? snapshot?.lastErrorAt ?? null,
+      diagnosticErrorCount: diagnostics.filter((record) => record.level === "error").length
     };
   },
   getSnapshotSummary: async (instanceId: string): Promise<SnapshotSummary | null> => ({
     snapshotId: `snapshot:${instanceId}:latest`,
     instanceId,
-    createdAt: new Date(0).toISOString(),
+    createdAt: systemClock.nowIso(),
     tick: 0,
     schemaVersion: 1
   }),
   getCommandVolumeSummary: async (instanceId: string): Promise<CommandVolumeSummary> => ({
     instanceId,
-    totalCommands: 0
+    totalCommands: (await instanceManager.listCommandRecords(instanceId)).length
   }),
   getQueueSummary: (instanceId: string): QueueSummary | null => {
     const snapshot = instanceManager.getInstanceMonitorSnapshot(instanceId);
@@ -66,4 +72,3 @@ export const createServerAdminReadService = (instanceManager: ServerInstanceMana
       : null;
   }
 });
-

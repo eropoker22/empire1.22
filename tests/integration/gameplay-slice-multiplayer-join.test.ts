@@ -41,11 +41,18 @@ describe("gameplay slice multiplayer join bootstrap", () => {
     await ensureGameplaySliceSessionResult(server.instanceManager, request);
     const runtime = server.instanceManager.getInstanceById(request.serverInstanceId);
 
-    expect(runtime?.state.root.districtIds).toHaveLength(28);
+    expect(runtime?.state.root.districtIds).toHaveLength(161);
     for (const spawnDistrictId of sharedCitySpawnDistrictIds) {
       expect(runtime?.state.districtsById[spawnDistrictId]).toBeDefined();
     }
     expect(runtime?.state.districtsById["district:central:1"]?.zone).toBe("downtown");
+    expect(countDistrictZones(runtime!.state)).toMatchObject({
+      downtown: 8,
+      commercial: 40,
+      industrial: 35,
+      residential: 48,
+      park: 30
+    });
     expect(isConnectedDistrictGraph(runtime!.state)).toBe(true);
   });
 
@@ -110,6 +117,47 @@ describe("gameplay slice multiplayer join bootstrap", () => {
     expect(runtime?.state.playersById["player:join:21"]).toBeUndefined();
     expect(new Set(homeDistrictIds).size).toBe(20);
     expect(homeDistrictIds.sort()).toEqual([...sharedCitySpawnDistrictIds].sort());
+  });
+
+  it("rejects a player join when no spawn district can be claimed", async () => {
+    const server = createServerApp();
+    const firstRequest = createLoadRequest(1, {
+      serverInstanceId: "instance:free-spawn-unavailable"
+    });
+    const secondRequest = createLoadRequest(2, {
+      serverInstanceId: firstRequest.serverInstanceId
+    });
+
+    await ensureGameplaySliceSessionResult(server.instanceManager, firstRequest);
+    const runtime = server.instanceManager.getInstanceById(firstRequest.serverInstanceId)!;
+    for (const [index, districtId] of sharedCitySpawnDistrictIds.entries()) {
+      runtime.state.districtsById[districtId] = {
+        ...runtime.state.districtsById[districtId],
+        ownerPlayerId: `player:blocked-spawn:${index + 1}`,
+        status: "claimed"
+      };
+    }
+
+    const rejected = await ensureGameplaySliceSessionResult(server.instanceManager, secondRequest);
+
+    expect(rejected).toEqual({
+      accepted: false,
+      createdInstance: false,
+      joinedPlayer: false,
+      errors: [
+        {
+          code: "server.spawn_unavailable",
+          message: "No available spawn district exists for this gameplay slice session.",
+          details: {
+            playerId: secondRequest.playerId,
+            serverInstanceId: secondRequest.serverInstanceId,
+            mode: "free"
+          }
+        }
+      ]
+    });
+    expect(runtime.state.playersById[secondRequest.playerId]).toBeUndefined();
+    expect(runtime.state.root.playerIds).toEqual([firstRequest.playerId]);
   });
 
   it("does not duplicate the same player on repeated load", async () => {
@@ -184,6 +232,15 @@ const runtimeHomeDistrictId = (
 
 const getClaimedSpawnDistrictIds = (state: CoreGameState): string[] =>
   sharedCitySpawnDistrictIds.filter((districtId) => state.districtsById[districtId]?.ownerPlayerId);
+
+const countDistrictZones = (state: CoreGameState): Record<string, number> => {
+  const counts: Record<string, number> = {};
+  for (const districtId of state.root.districtIds) {
+    const zone = state.districtsById[districtId]?.zone ?? "unknown";
+    counts[zone] = (counts[zone] ?? 0) + 1;
+  }
+  return counts;
+};
 
 const isConnectedDistrictGraph = (state: CoreGameState): boolean => {
   const [firstDistrictId] = state.root.districtIds;

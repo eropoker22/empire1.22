@@ -44,6 +44,28 @@ describe("gameplay slice browser bootstrap", () => {
     });
   });
 
+  it("preserves a server-authoritative instance ID from the lobby summary", () => {
+    expect(
+      resolveGameplaySliceBootstrapRequest(
+        {},
+        createStorage({
+          registration: {
+            identity: "Host Alpha",
+            activeServerInstanceId: "instance:free:eu-central:public-1",
+            serverId: "instance:free:eu-central:public-1",
+            startDistrictId: 27,
+            factionId: "red-syndicate"
+          }
+        })
+      )
+    ).toEqual({
+      serverInstanceId: "instance:free:eu-central:public-1",
+      playerId: "player:host-alpha",
+      districtId: "district:27",
+      factionId: "red-syndicate"
+    });
+  });
+
   it("returns null when the session is not ready for gameplay", () => {
     expect(
       resolveGameplaySliceBootstrapRequest(

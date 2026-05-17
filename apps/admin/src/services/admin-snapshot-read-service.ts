@@ -9,7 +9,12 @@ export interface AdminSnapshotReadService {
   getSnapshotSummary(instanceId: string): Promise<SnapshotSummary | null>;
 }
 
-export const createAdminSnapshotReadService = (): AdminSnapshotReadService => ({
-  getSnapshotSummary: async (_instanceId) => null
-});
+export interface AdminSnapshotReadFacade {
+  getSnapshotSummary(instanceId: string): Promise<SnapshotSummary | null>;
+}
 
+export const createAdminSnapshotReadService = (options: {
+  facade?: AdminSnapshotReadFacade;
+} = {}): AdminSnapshotReadService => ({
+  getSnapshotSummary: async (instanceId) => options.facade?.getSnapshotSummary(instanceId) ?? null
+});

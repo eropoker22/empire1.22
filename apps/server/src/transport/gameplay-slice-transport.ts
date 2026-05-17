@@ -9,6 +9,11 @@ import type { ServerInstanceRuntime } from "../runtime/instance/server-instance-
 import { createGameplaySliceProjection } from "../runtime/projections";
 import type { ServerCommandIngress } from "./command-ingress";
 import { validateCommandPlayerIdentity } from "./player-identity-guard";
+import type { GameplaySessionTokenCodec } from "./gameplay-session-token-codec";
+
+export interface GameplaySliceTransportOptions {
+  sessionTokenCodec?: GameplaySessionTokenCodec | null;
+}
 
 /**
  * Responsibility: Transport boundary dedicated to the first district/building gameplay slice.
@@ -22,51 +27,75 @@ export interface GameplaySliceTransport {
 
 export const createGameplaySliceTransport = (
   instanceManager: ServerInstanceManager,
-  commandIngress: ServerCommandIngress
-): GameplaySliceTransport => ({
-  load: (request) => {
-    const runtime = instanceManager.getInstanceById(request.serverInstanceId);
+  commandIngress: ServerCommandIngress,
+  options: GameplaySliceTransportOptions = {}
+): GameplaySliceTransport => {
+  const createGameplaySessionToken = (
+    runtime: ServerInstanceRuntime,
+    playerId: string
+  ): string | null => {
+    const player = runtime.state.playersById[playerId];
 
-    if (!runtime) {
-      return createNotFoundResponse("Slice runtime or projection was not found.");
-    }
+    return player && options.sessionTokenCodec
+      ? options.sessionTokenCodec.seal({
+          serverInstanceId: runtime.record.id,
+          playerId: player.id,
+          factionId: player.factionId,
+          issuedAt: runtime.clock.nowIso()
+        })
+      : null;
+  };
 
-    return {
-      accepted: true,
-      readModel: createGameplaySliceProjection(runtime, request.playerId, request.districtId),
-      errors: [],
-      metadata: createGameplaySliceResponseMetadata(runtime)
-    };
-  },
-  submit: (request, authContext) => {
-    const identityErrors = validateCommandPlayerIdentity(request.command, authContext);
+  return {
+    load: (request) => {
+      const runtime = instanceManager.getInstanceById(request.serverInstanceId);
 
-    if (identityErrors.length > 0) {
+      if (!runtime) {
+        return createNotFoundResponse("Slice runtime or projection was not found.");
+      }
+
       return {
-        accepted: false,
-        readModel: null,
-        errors: identityErrors
+        accepted: true,
+        readModel: createGameplaySliceProjection(runtime, request.playerId, request.districtId),
+        errors: [],
+        metadata: createGameplaySliceResponseMetadata(runtime),
+        sessionToken: createGameplaySessionToken(runtime, request.playerId)
+      };
+    },
+    submit: (request, authContext) => {
+      const identityErrors = validateCommandPlayerIdentity(request.command, authContext, {
+        sessionToken: request.sessionToken,
+        sessionTokenCodec: options.sessionTokenCodec
+      });
+
+      if (identityErrors.length > 0) {
+        return {
+          accepted: false,
+          readModel: null,
+          errors: identityErrors
+        };
+      }
+
+      const dispatchResult = commandIngress.submit(request.command);
+
+      if (!dispatchResult) {
+        return createNotFoundResponse("Target instance was not found for the submitted command.");
+      }
+
+      return {
+        accepted: dispatchResult.errors.length === 0,
+        readModel: createGameplaySliceProjection(
+          dispatchResult.runtime,
+          request.command.playerId,
+          request.focusDistrictId
+        ),
+        errors: dispatchResult.errors,
+        metadata: createGameplaySliceResponseMetadata(dispatchResult.runtime),
+        sessionToken: createGameplaySessionToken(dispatchResult.runtime, request.command.playerId)
       };
     }
-
-    const dispatchResult = commandIngress.submit(request.command);
-
-    if (!dispatchResult) {
-      return createNotFoundResponse("Target instance was not found for the submitted command.");
-    }
-
-    return {
-      accepted: dispatchResult.errors.length === 0,
-      readModel: createGameplaySliceProjection(
-        dispatchResult.runtime,
-        request.command.playerId,
-        request.focusDistrictId
-      ),
-      errors: dispatchResult.errors,
-      metadata: createGameplaySliceResponseMetadata(dispatchResult.runtime)
-    };
-  }
-});
+  };
+};
 
 const createGameplaySliceResponseMetadata = (runtime: ServerInstanceRuntime): GameplaySliceResponse["metadata"] => ({
   serverTick: runtime.state.root.tick,

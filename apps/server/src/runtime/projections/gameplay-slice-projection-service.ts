@@ -1,4 +1,9 @@
-import { createCityFeedProjection, createConflictReportViews, createOnboardingReadModel } from "@empire/game-core";
+import {
+  createCityFeedProjection,
+  createConflictReportViews,
+  createOnboardingReadModel,
+  createPoliceReadModel
+} from "@empire/game-core";
 import { toPublicModeConfig } from "@empire/game-config";
 import type { GameplayModeView, GameplaySliceView } from "@empire/shared-types";
 import type { ServerInstanceRuntime } from "../instance/server-instance-runtime";
@@ -24,10 +29,17 @@ export const createGameplaySliceProjection = (
     tickRateMs: publicMode.tickRateMs,
     sessionKeyPrefix: publicMode.sessionKeyPrefix
   };
-  const player = createPlayerProjection(runtime, playerId);
+  const basePlayer = createPlayerProjection(runtime, playerId);
   const selectedDistrictId = runtime.state.districtsById[districtId]
     ? districtId
     : runtime.state.playersById[playerId]?.homeDistrictId ?? districtId;
+  const police = createPoliceReadModel(runtime.state, playerId, { config: runtime.config }, {
+    selectedDistrictId
+  });
+  const player = {
+    ...basePlayer,
+    police
+  };
 
   return {
     mode,
@@ -37,7 +49,7 @@ export const createGameplaySliceProjection = (
     onboarding: createOnboardingReadModel(runtime.state, playerId, {
       config: runtime.config
     }),
-    police: player.police ?? null,
+    police,
     cityFeed: createCityFeedProjection(runtime.state, {
       playerId,
       selectedDistrictId,

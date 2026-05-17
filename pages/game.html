@@ -6,6 +6,7 @@
     <title>Empire Streets | Game Shell</title>
     <link rel="stylesheet" href="../page-assets/css/styles.css?v=settings-opaque-20260514">
     <link rel="stylesheet" href="../page-assets/css/styles-game-admin-slice.css">
+    <link rel="stylesheet" href="../page-assets/css/styles-gameplay-slice-client.css">
   </head>
   <body class="game-body game-body--booting">
     <header id="game-header" class="game-topbar">
@@ -2234,6 +2235,19 @@
           </div>
         </section>
       </div>
+      <section
+        class="gameplay-slice-client"
+        data-gameplay-slice-client
+        data-gameplay-slice-endpoint-base="/api/gameplay-slice"
+        data-gameplay-slice-polling="false"
+        aria-label="Server-authoritative gameplay slice"
+        hidden
+      >
+        <div class="gameplay-slice-client__status" data-gameplay-slice-status></div>
+        <div class="gameplay-slice-client__topbar" data-gameplay-slice-topbar></div>
+        <div class="gameplay-slice-client__map" data-gameplay-slice-map></div>
+        <div class="gameplay-slice-client__panel" data-gameplay-slice-panel></div>
+      </section>
     </main>
     <script type="module" src="../page-assets/js/config.js"></script>
     <script type="module" src="../page-assets/js/data/weapons.js"></script>
@@ -2251,5 +2265,6 @@
     <script type="module" src="../page-assets/js/app/boost-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/mobile-layout-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/game-admin-slice-launcher.js"></script>
+    <script src="../page-assets/js/client-assets/gameplay-slice-client.js"></script>
   </body>
 </html>

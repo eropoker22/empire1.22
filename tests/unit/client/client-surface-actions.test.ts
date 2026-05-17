@@ -23,6 +23,17 @@ const createGameplaySliceFixture = (): GameplaySliceView => ({
     color: "#ef4444",
     serverTime: new Date(0).toISOString(),
     resourceBalances: {},
+    economy: {
+      cleanCash: 0,
+      dirtyCash: 0,
+      influence: 0,
+      population: 0,
+      gangMembers: 0,
+      resources: {},
+      materials: {},
+      drugs: {},
+      weapons: {}
+    },
     notifications: [],
     victoryState: null
   },
@@ -154,13 +165,21 @@ const createMockElement = (
 };
 
 describe("client surface actions", () => {
-  it("resolves spy and trap click targets from surface dataset hooks", () => {
+  it("resolves spy, occupy, and trap click targets from surface dataset hooks", () => {
     const spyButton = createMockElement({ spyTargetId: "district:2" });
     spyButton.setClosest("button[data-spy-target-id]", spyButton.element);
 
     expect(resolveClientSurfaceAction(spyButton.element)).toEqual({
       kind: "spy",
       targetDistrictId: "district:2"
+    });
+
+    const occupyButton = createMockElement({ occupyTargetId: "district:3" });
+    occupyButton.setClosest("button[data-occupy-target-id]", occupyButton.element);
+
+    expect(resolveClientSurfaceAction(occupyButton.element)).toEqual({
+      kind: "occupy",
+      targetDistrictId: "district:3"
     });
 
     const trapButton = createMockElement({ placeTrap: "true" });
@@ -342,6 +361,62 @@ describe("client surface actions", () => {
         type: "spy-district",
         payload: {
           districtId: "district:2",
+          sourceDistrictId: "district:1"
+        }
+      }
+    ]);
+  });
+
+  it("dispatches occupy commands through the migrated client router", async () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.occupyTargets = [
+      {
+        districtId: "district:3",
+        name: "Neutral District",
+        ownerPlayerId: null,
+        status: "neutral",
+        enabled: true,
+        disabledCode: null,
+        disabledReason: null,
+        cost: {
+          influence: 5
+        },
+        heatGain: 2,
+        cooldownRemainingTicks: 0
+      }
+    ];
+    const renderState = createInitialClientRenderState();
+    const dispatched: Array<{ type: string; payload: Record<string, unknown> }> = [];
+
+    const router = createClientSurfaceActionRouter({
+      client: {
+        load: async () => renderState,
+        selectDistrict: async () => renderState,
+        selectBuilding: async () => renderState,
+        dispatch: async (command) => {
+          dispatched.push({
+            type: command.type,
+            payload: command.payload as unknown as Record<string, unknown>
+          });
+          return renderState;
+        },
+        getRenderState: () => renderState,
+        getGameplaySlice: () => slice
+      },
+      createCommandId: (prefix) => `${prefix}:1`,
+      getIssuedAt: () => new Date(0).toISOString()
+    });
+
+    const occupyButton = createMockElement({ occupyTargetId: "district:3" });
+    occupyButton.setClosest("button[data-occupy-target-id]", occupyButton.element);
+
+    await router.handleTarget(occupyButton.element);
+
+    expect(dispatched).toEqual([
+      {
+        type: "occupy-district",
+        payload: {
+          districtId: "district:3",
           sourceDistrictId: "district:1"
         }
       }

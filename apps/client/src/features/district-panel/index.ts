@@ -1,4 +1,5 @@
 export * from "./attack-command";
+export * from "./occupy-command";
 export * from "./spy-command";
 export * from "./trap-command";
 
@@ -90,6 +91,37 @@ export const renderDistrictPanel = (panel: DistrictPanelViewModel): string =>
           })
           .join("")
       : `<p class="district-panel__empty-copy">No spy targets are available for this district.</p>`,
+    `</section>`,
+    `<section class="district-panel__section" data-occupy-targets="true">`,
+    `<div class="district-panel__section-head">`,
+    `<div>`,
+    `<h3 class="district-panel__section-title">Occupy Targets</h3>`,
+    `<p class="district-panel__section-copy">Claim neutral neighbors only after server-confirmed spy intel.</p>`,
+    `</div>`,
+    `<span class="district-panel__section-meta">${panel.occupyTargets.length} total</span>`,
+    `</div>`,
+    panel.occupyTargets.length > 0
+      ? panel.occupyTargets
+          .map((target) => {
+            const disabledAttribute = target.disabled ? " disabled" : "";
+            const reasonAttribute = target.disabledReason
+              ? ` data-disabled-reason="${target.disabledReason}"`
+              : "";
+
+            return [
+              `<div class="district-panel__action-row">`,
+              `<button class="district-panel__action-button district-panel__action-button--occupy" data-occupy-target-id="${target.districtId}"${disabledAttribute}${reasonAttribute}>`,
+              `<span class="district-panel__action-title">${target.label}</span>`,
+              `<span class="district-panel__action-meta">${target.statusLabel} · cost ${target.influenceCostLabel} · heat ${target.heatGainLabel}</span>`,
+              `</button>`,
+              target.disabledReason
+                ? `<p class="district-panel__action-reason">${target.disabledReason}</p>`
+                : "",
+              `</div>`
+            ].join("");
+          })
+          .join("")
+      : `<p class="district-panel__empty-copy">No neutral occupy targets are available from this district.</p>`,
     `</section>`,
     `<section class="district-panel__section" data-attack-targets="true">`,
     `<div class="district-panel__section-head">`,

@@ -21,21 +21,22 @@ import {
  */
 export class InstanceLifecycleService {
   start(runtime: ServerInstanceRuntime): ServerInstanceRuntime {
+    const nowIso = runtime.clock.nowIso();
     runtime.record.status = "booting";
     runtime.eventPublisher.publish({
       type: "instance-status-changed",
       payload: { status: runtime.record.status },
-      occurredAt: new Date(0).toISOString()
+      occurredAt: nowIso
     });
     runtime = ensureProductionLifecyclePhase(runtime, PRODUCTION_GAME_LIFECYCLE_PHASES.live);
     runtime.record.status = "running";
-    runtime.record.startedAt = new Date(0).toISOString();
+    runtime.record.startedAt = runtime.clock.nowIso();
     runtime.scheduler.isRunning = true;
-    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance started.");
+    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance started.", {}, runtime.clock);
     runtime.eventPublisher.publish({
       type: "instance-status-changed",
       payload: { status: runtime.record.status },
-      occurredAt: new Date(0).toISOString()
+      occurredAt: runtime.clock.nowIso()
     });
     return runtime;
   }
@@ -46,14 +47,14 @@ export class InstanceLifecycleService {
     runtime.eventPublisher.publish({
       type: "instance-status-changed",
       payload: { status: runtime.record.status },
-      occurredAt: new Date(0).toISOString()
+      occurredAt: runtime.clock.nowIso()
     });
     runtime.record.status = "paused";
-    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance paused.");
+    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance paused.", {}, runtime.clock);
     runtime.eventPublisher.publish({
       type: "instance-status-changed",
       payload: { status: runtime.record.status },
-      occurredAt: new Date(0).toISOString()
+      occurredAt: runtime.clock.nowIso()
     });
     return runtime;
   }
@@ -61,14 +62,14 @@ export class InstanceLifecycleService {
   stop(runtime: ServerInstanceRuntime): ServerInstanceRuntime {
     runtime.record.status = "stopping";
     runtime.record.status = "stopped";
-    runtime.record.stoppedAt = new Date(0).toISOString();
+    runtime.record.stoppedAt = runtime.clock.nowIso();
     runtime.scheduler.isRunning = false;
     void runtime.snapshotController.save(runtime);
-    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "snapshot", "Stop triggered snapshot save.");
+    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "snapshot", "Stop triggered snapshot save.", {}, runtime.clock);
     runtime.eventPublisher.publish({
       type: "instance-status-changed",
       payload: { status: runtime.record.status },
-      occurredAt: new Date(0).toISOString()
+      occurredAt: runtime.clock.nowIso()
     });
     return runtime;
   }
@@ -78,7 +79,7 @@ export class InstanceLifecycleService {
     runtime.scheduler.isRunning = false;
     runtime.record.status = "running";
     runtime.scheduler.isRunning = true;
-    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance restarted.");
+    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "lifecycle", "Instance restarted.", {}, runtime.clock);
     return runtime;
   }
 
@@ -86,17 +87,17 @@ export class InstanceLifecycleService {
     runtime.record.status = "destroying";
     runtime.record.status = "destroyed";
     runtime.scheduler.isRunning = false;
-    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "warn", "lifecycle", "Instance destroyed.");
+    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "warn", "lifecycle", "Instance destroyed.", {}, runtime.clock);
     runtime.eventPublisher.publish({
       type: "instance-status-changed",
       payload: { status: runtime.record.status },
-      occurredAt: new Date(0).toISOString()
+      occurredAt: runtime.clock.nowIso()
     });
     return runtime;
   }
 
   tick(runtime: ServerInstanceRuntime): ServerInstanceRuntime {
-    return runInstanceTick(runtime);
+    return runInstanceTick(runtime, runtime.clock);
   }
 
   dispatch(runtime: ServerInstanceRuntime, command: GameCommand): InstanceCommandDispatchResult {
@@ -107,7 +108,7 @@ export class InstanceLifecycleService {
         commandId: command.id,
         commandType: command.type,
         errorCount: gateErrors.length
-      });
+      }, runtime.clock);
 
       return {
         runtime,
@@ -119,7 +120,7 @@ export class InstanceLifecycleService {
       id: `cmd:${command.id}`,
       instanceId: runtime.record.id,
       command,
-      receivedAt: new Date(0).toISOString(),
+      receivedAt: runtime.clock.nowIso(),
       actorId: command.playerId,
       correlationId: command.clientRequestId,
       tickAtReceive: runtime.state.root.tick
@@ -136,7 +137,7 @@ export class InstanceLifecycleService {
         commandId: command.id,
         commandType: command.type,
         errorCount: result.errors.length
-      });
+      }, runtime.clock);
 
       return {
         runtime,
@@ -152,7 +153,7 @@ export class InstanceLifecycleService {
         commandId: command.id,
         eventCount: result.events.length
       },
-      occurredAt: new Date(0).toISOString()
+      occurredAt: runtime.clock.nowIso()
     };
 
     runtime.eventQueue.enqueue(appliedEvent);
@@ -160,13 +161,13 @@ export class InstanceLifecycleService {
     void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "command", "Command dispatched.", {
       commandId: command.id,
       commandType: command.type
-    });
+    }, runtime.clock);
     void runtime.replayLogWriter.writeEvent({
       id: `evt:${command.id}:${runtime.state.root.tick}`,
       instanceId: runtime.record.id,
       event: appliedEvent,
       causedByCommandId: command.id,
-      recordedAt: new Date(0).toISOString(),
+      recordedAt: runtime.clock.nowIso(),
       tickAtEmit: runtime.state.root.tick
     });
 
@@ -184,7 +185,7 @@ export class InstanceLifecycleService {
       runtime
     );
     runtime.record.status = "stopped";
-    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "snapshot", "Instance restored from snapshot or initial state.");
+    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "snapshot", "Instance restored from snapshot or initial state.", {}, runtime.clock);
     return runtime;
   }
 }

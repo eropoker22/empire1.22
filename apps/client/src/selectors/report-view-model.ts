@@ -24,6 +24,8 @@ export const createReportViewModels = (
     title:
       report.reportType === "spy"
         ? `Spy ${report.result} on ${report.targetDistrictId}`
+        : report.reportType === "occupy"
+          ? `Occupy ${report.result} on ${report.targetDistrictId}`
         : report.reportType === "building-action"
           ? `${toTitleCase(report.buildingActionId)} on ${report.districtId}`
         : report.districtDestroyed
@@ -36,6 +38,8 @@ export const createReportViewModels = (
         ? report.trapDetected
           ? "Defense confirmed. Trap detected."
           : "Defense scout resolved."
+        : report.reportType === "occupy"
+          ? `District occupied. Influence -${report.influenceCost} · heat +${report.heatGained}.`
         : report.reportType === "building-action"
           ? formatBuildingActionSummary(report)
         : report.districtDestroyed

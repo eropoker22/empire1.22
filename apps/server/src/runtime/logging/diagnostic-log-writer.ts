@@ -1,4 +1,5 @@
 import type { ReplayLogWriter } from "../persistence/services/replay-log-writer";
+import { systemClock, type Clock } from "../scheduling/clock";
 
 /**
  * Responsibility: Writes operational diagnostics into the separated diagnostic log stream.
@@ -11,14 +12,15 @@ export const writeDiagnosticLog = (
   level: "info" | "warn" | "error",
   category: "lifecycle" | "tick" | "command" | "snapshot" | "crash" | "transport",
   message: string,
-  context: Record<string, unknown> = {}
+  context: Record<string, unknown> = {},
+  clock: Clock = systemClock
 ): Promise<void> =>
   replayLogWriter.writeDiagnostic({
-    id: `diag:${instanceId}:${level}:${category}:${Date.now()}`,
+    id: `diag:${instanceId}:${level}:${category}:${clock.now().getTime()}`,
     instanceId,
     level,
     category,
     message,
-    occurredAt: new Date(0).toISOString(),
+    occurredAt: clock.nowIso(),
     context
   });

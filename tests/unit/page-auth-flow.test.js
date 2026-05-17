@@ -201,11 +201,13 @@ describe("page auth flow", () => {
       isGuest: false,
       loginKind: "account",
       activeServerId: "war-eu-01",
+      activeServerInstanceId: "war-eu-01",
       activeServerName: "Vortex City WAR-01",
       activeServerMode: "war",
       activeServerRegion: "EU Central",
       activeServerStatus: "ONLINE",
       serverId: "war-eu-01",
+      serverInstanceId: "war-eu-01",
       serverMode: "war",
       startDistrictId: 27,
       lobbyLockedAt: "2026-04-26T10:00:00.000Z",
@@ -218,6 +220,36 @@ describe("page auth flow", () => {
     expect(session.registration.avatar).toBeUndefined();
     expect(session.registration.lockedAt).toBeUndefined();
     expect(session.registration.password).toBeUndefined();
-    expect(session.world.ownedDistrictIds).toEqual([27]);
+    expect(session.world.ownedDistrictIds).toEqual([]);
+  });
+
+  it("stores server summary IDs as a client selection cache only", () => {
+    saveLoginStep({
+      identity: "Summary Boss",
+      isGuest: true,
+      mode: "free"
+    });
+
+    const session = saveLobbyStep({
+      serverId: "instance:free:eu-central:public-1",
+      districtId: 31,
+      server: {
+        id: "instance:free:eu-central:public-1",
+        serverInstanceId: "instance:free:eu-central:public-1",
+        name: "Neon Docks FREE-01",
+        mode: "free",
+        region: "EU Central",
+        status: "lobby"
+      }
+    });
+
+    expect(session.registration).toMatchObject({
+      activeServerId: "instance:free:eu-central:public-1",
+      activeServerInstanceId: "instance:free:eu-central:public-1",
+      serverInstanceId: "instance:free:eu-central:public-1",
+      serverMode: "free",
+      startDistrictId: 31
+    });
+    expect(session.world.ownedDistrictIds).toEqual([]);
   });
 });

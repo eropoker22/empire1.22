@@ -116,6 +116,18 @@ export interface DistrictPanelSpyTargetViewModel {
   disabledReason: string | null;
 }
 
+export interface DistrictPanelOccupyTargetViewModel {
+  districtId: string;
+  label: string;
+  statusLabel: string;
+  disabled: boolean;
+  disabledReason: string | null;
+  disabledCode: string | null;
+  influenceCostLabel: string;
+  heatGainLabel: string;
+  cooldownLabel: string | null;
+}
+
 export interface DistrictPanelTrapViewModel {
   actionLabel: string;
   activeLabel: string | null;
@@ -137,6 +149,7 @@ export interface DistrictPanelViewModel {
   hasPendingCommand: boolean;
   trap: DistrictPanelTrapViewModel | null;
   spyTargets: DistrictPanelSpyTargetViewModel[];
+  occupyTargets: DistrictPanelOccupyTargetViewModel[];
   attackTargets: DistrictPanelAttackTargetViewModel[];
   buildings: DistrictPanelBuildingViewModel[];
   slots: DistrictPanelSlotViewModel[];

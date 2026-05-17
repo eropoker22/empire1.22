@@ -5,14 +5,16 @@
  */
 export type InstanceStatus =
   | "created"
+  | "lobby"
   | "booting"
   | "running"
   | "pausing"
   | "paused"
+  | "full"
   | "stopping"
   | "stopped"
+  | "ended"
   | "restarting"
   | "destroying"
   | "destroyed"
   | "crashed";
-

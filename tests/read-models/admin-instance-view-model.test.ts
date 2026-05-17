@@ -35,7 +35,12 @@ describe("createAdminInstanceViewModel", () => {
       playerCount: 4,
       allianceCount: 2,
       healthStatus: "healthy",
-      lastSnapshotAt: "2024-01-01T00:00:00.000Z"
+      lastSnapshotAt: "2024-01-01T00:00:00.000Z",
+      commandCount: 0,
+      eventCount: 0,
+      diagnosticErrorCount: 0,
+      diagnosticWarningCount: 0,
+      lastErrorAt: null
     });
   });
 });

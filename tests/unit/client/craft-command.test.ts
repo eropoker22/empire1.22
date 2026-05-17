@@ -20,6 +20,21 @@ const createGameplaySliceFixture = (canCraft = true): GameplaySliceView => ({
     resourceBalances: {
       chemicals: 12
     },
+    economy: {
+      cleanCash: 0,
+      dirtyCash: 0,
+      influence: 0,
+      population: 0,
+      gangMembers: 0,
+      resources: {
+        chemicals: 12
+      },
+      materials: {
+        chemicals: 12
+      },
+      drugs: {},
+      weapons: {}
+    },
     notifications: [],
     victoryState: null
   },

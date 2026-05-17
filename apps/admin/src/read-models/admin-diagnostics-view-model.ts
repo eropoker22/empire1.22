@@ -10,16 +10,20 @@ export interface AdminDiagnosticsViewModel {
   snapshotVersion: number | null;
   queueBacklog: number;
   errorCount: number;
+  warningCount: number;
+  lastErrorAt: string | null;
 }
 
 export const createAdminDiagnosticsViewModel = (
   snapshot: SnapshotSummary | null,
   queue: QueueSummary,
-  errors: ErrorSummary
+  errors: ErrorSummary,
+  warningCount = 0
 ): AdminDiagnosticsViewModel => ({
   instanceId: queue.instanceId,
   snapshotVersion: snapshot?.schemaVersion ?? null,
   queueBacklog: queue.queuedEvents + queue.queuedCommands,
-  errorCount: errors.errorCount
+  errorCount: errors.errorCount,
+  warningCount,
+  lastErrorAt: errors.lastErrorAt
 });
-

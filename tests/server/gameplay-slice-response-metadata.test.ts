@@ -54,8 +54,14 @@ describe("gameplay slice response metadata", () => {
 
     runtime.state.root.tick = 31;
     runtime.state.root.version = 41;
+    const load = server.gameplaySliceTransport.load({
+      serverInstanceId: instanceId,
+      playerId: "player:metadata:submit",
+      districtId: "district:601"
+    });
 
     const response = server.gameplaySliceTransport.submit({
+      sessionToken: load.sessionToken,
       focusDistrictId: "district:601",
       command: createPlaceTrapCommandFixture({
         id: "command:metadata:submit:1",

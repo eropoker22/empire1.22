@@ -18,7 +18,10 @@ interface LegacyGameplaySession {
   registration?: {
     identity?: unknown;
     gangName?: unknown;
+    serverInstanceId?: unknown;
+    activeServerInstanceId?: unknown;
     serverId?: unknown;
+    activeServerId?: unknown;
     startDistrictId?: unknown;
     factionId?: unknown;
     selectedFaction?: unknown;
@@ -43,17 +46,22 @@ export const resolveGameplaySliceBootstrapRequest = (
 
   const session = readLegacySession(storage, dataset.sessionStorageKey);
   const registration = session?.registration;
-  const serverId = normalizeToken(registration?.serverId);
+  const serverInstanceId = normalizeServerInstanceId(
+    registration?.activeServerInstanceId ||
+    registration?.serverInstanceId ||
+    registration?.activeServerId ||
+    registration?.serverId
+  );
   const districtId = normalizeDistrictId(registration?.startDistrictId);
   const playerId = normalizePlayerId(registration?.identity || registration?.gangName);
   const factionId = normalizeFactionId(registration?.factionId || registration?.selectedFaction);
 
-  if (!serverId || !districtId || !playerId) {
+  if (!serverInstanceId || !districtId || !playerId) {
     return null;
   }
 
   return {
-    serverInstanceId: `instance:${serverId}`,
+    serverInstanceId,
     playerId,
     districtId,
     factionId
@@ -103,6 +111,15 @@ const readLegacySession = (
 const normalizeToken = (value: unknown): string | null => {
   const normalized = String(value ?? "").trim();
   return normalized.length > 0 ? normalized : null;
+};
+
+const normalizeServerInstanceId = (value: unknown): string | null => {
+  const normalized = normalizeToken(value);
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized.startsWith("instance:") ? normalized : `instance:${normalized}`;
 };
 
 const normalizeDistrictId = (value: unknown): string | null => {

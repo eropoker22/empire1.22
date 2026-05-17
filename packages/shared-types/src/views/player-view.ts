@@ -7,6 +7,7 @@ import type { GameModeId } from "../ids/game-mode-id";
 import type { DayNightReadModel } from "./day-night-read-model-view";
 import type { EliminationReadModel } from "./elimination-read-model-view";
 import type { FactionReadModel } from "./faction-read-model-view";
+import type { PlayerEconomyView } from "./player-economy-view";
 import type { PoliceReadModel } from "./police-read-model-view";
 
 /**
@@ -22,6 +23,7 @@ export interface PlayerView {
   color: PlayerColorHex;
   serverTime: string;
   resourceBalances: Record<string, number>;
+  economy: PlayerEconomyView;
   faction?: FactionReadModel | null;
   dayNight?: DayNightReadModel | null;
   elimination?: EliminationReadModel | null;

@@ -1,10 +1,13 @@
 import type {
   DomainError,
-  GameplaySliceResponse,
-  LoadGameplaySliceRequest,
-  SubmitGameplayCommandRequest
+  GameplaySliceResponse
 } from "@empire/shared-types";
 import type { GameplaySliceTransport } from "./gameplay-slice-transport";
+import {
+  createGameplaySliceValidationResponse,
+  validateLoadGameplaySliceRequest,
+  validateSubmitGameplayCommandRequest
+} from "./gameplay-slice-request-validation";
 
 export interface GameplaySliceJsonRequest {
   method: string;
@@ -37,16 +40,32 @@ export const createGameplaySliceJsonHandler = (
     const route = normalizeRoute(request.path, endpointBase);
 
     if (route === "load") {
+      const validation = validateLoadGameplaySliceRequest(request.body);
+      if (!validation.accepted) {
+        return {
+          status: 200,
+          body: createGameplaySliceValidationResponse(validation.errors)
+        };
+      }
+
       return {
         status: 200,
-        body: transport.load(request.body as LoadGameplaySliceRequest)
+        body: transport.load(validation.request)
       };
     }
 
     if (route === "submit") {
+      const validation = validateSubmitGameplayCommandRequest(request.body);
+      if (!validation.accepted) {
+        return {
+          status: 200,
+          body: createGameplaySliceValidationResponse(validation.errors)
+        };
+      }
+
       return {
         status: 200,
-        body: transport.submit(request.body as SubmitGameplayCommandRequest)
+        body: transport.submit(validation.request)
       };
     }
 

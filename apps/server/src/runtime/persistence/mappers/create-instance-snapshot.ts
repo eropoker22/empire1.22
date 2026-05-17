@@ -9,7 +9,7 @@ import type { InstanceSnapshotDto } from "../dto";
 export const createInstanceSnapshot = (runtime: ServerInstanceRuntime): InstanceSnapshotDto => ({
   snapshotId: `snapshot:${runtime.record.id}:${runtime.state.root.tick}`,
   instanceId: runtime.record.id,
-  createdAt: new Date(0).toISOString(),
+  createdAt: runtime.clock.nowIso(),
   tick: runtime.state.root.tick,
   mode: runtime.record.mode,
   metadata: {

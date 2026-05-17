@@ -82,6 +82,25 @@ const mapNotificationToReport = (notification: Notification): ConflictReportView
     } satisfies BattleReport;
   }
 
+  if (notification.category === "report.occupy") {
+    return {
+      reportId: String(payload.reportId ?? notification.id),
+      reportType: "occupy",
+      actionType: "occupy-district",
+      playerId: String(payload.playerId ?? notification.recipientId),
+      sourceDistrictId: String(payload.sourceDistrictId ?? ""),
+      targetDistrictId: String(payload.targetDistrictId ?? ""),
+      result: "success",
+      previousOwnerPlayerId: payload.previousOwnerPlayerId ? String(payload.previousOwnerPlayerId) : null,
+      heatGained: Number(payload.heatGained ?? 0),
+      influenceCost: Number(payload.influenceCost ?? 0),
+      cooldownTicks: Number(payload.cooldownTicks ?? 0),
+      tick: Number(payload.tick ?? 0),
+      createdAt: String(payload.createdAt ?? notification.createdAt),
+      eventId: payload.eventId ? String(payload.eventId) : null
+    };
+  }
+
   if (notification.category === "report.building-action") {
     return {
       reportId: String(payload.reportId ?? notification.id),

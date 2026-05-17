@@ -31,13 +31,13 @@ export const createFetchClientTransport = (
       throw new Error("Fetch transport is unavailable in this runtime.");
     }
 
-    const requestWithSnapshotToken = attachSnapshotToken(request, storage);
+    const requestWithTokens = attachStoredGameplaySliceTokens(route, request, storage);
     const response = await fetchJson(`${endpointBase}/${route}`, {
       method: "POST",
       headers: {
         "content-type": "application/json"
       },
-      body: JSON.stringify(requestWithSnapshotToken)
+      body: JSON.stringify(requestWithTokens)
     });
 
     if (!response.ok) {
@@ -45,7 +45,7 @@ export const createFetchClientTransport = (
     }
 
     const payload = await response.json() as GameplaySliceResponse;
-    persistSnapshotToken(requestWithSnapshotToken, payload, storage);
+    persistGameplaySliceTokens(requestWithTokens, payload, storage);
     return payload;
   };
 
@@ -55,35 +55,45 @@ export const createFetchClientTransport = (
   };
 };
 
-const attachSnapshotToken = <TRequest>(
+const attachStoredGameplaySliceTokens = <TRequest>(
+  route: "load" | "submit",
   request: TRequest,
   storage: Storage | null
 ): TRequest => {
-  const key = createSnapshotTokenStorageKey(request);
-  const snapshotToken = key ? readSnapshotToken(storage, key) : null;
+  const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
+  const sessionKey = createGameplaySliceTokenStorageKey("session", request);
+  const snapshotToken = snapshotKey ? readToken(storage, snapshotKey) : null;
+  const sessionToken = route === "submit" && sessionKey ? readToken(storage, sessionKey) : null;
 
-  return snapshotToken
+  return snapshotToken || sessionToken
     ? {
         ...(request as Record<string, unknown>),
-        snapshotToken
+        ...(snapshotToken ? { snapshotToken } : {}),
+        ...(sessionToken ? { sessionToken } : {})
       } as TRequest
     : request;
 };
 
-const persistSnapshotToken = (
+const persistGameplaySliceTokens = (
   request: unknown,
   response: GameplaySliceResponse,
   storage: Storage | null
 ): void => {
-  const key = createSnapshotTokenStorageKey(request);
+  const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
+  const sessionKey = createGameplaySliceTokenStorageKey("session", request);
   const snapshotToken = String(response.snapshotToken ?? "").trim();
+  const sessionToken = String(response.sessionToken ?? "").trim();
 
-  if (key && snapshotToken) {
-    writeSnapshotToken(storage, key, snapshotToken);
+  if (snapshotKey && snapshotToken) {
+    writeToken(storage, snapshotKey, snapshotToken);
+  }
+
+  if (sessionKey && sessionToken) {
+    writeToken(storage, sessionKey, sessionToken);
   }
 };
 
-const readSnapshotToken = (storage: Storage | null, key: string): string | null => {
+const readToken = (storage: Storage | null, key: string): string | null => {
   try {
     return storage?.getItem(key) ?? null;
   } catch (_error) {
@@ -91,19 +101,22 @@ const readSnapshotToken = (storage: Storage | null, key: string): string | null 
   }
 };
 
-const writeSnapshotToken = (
+const writeToken = (
   storage: Storage | null,
   key: string,
-  snapshotToken: string
+  token: string
 ): void => {
   try {
-    storage?.setItem(key, snapshotToken);
+    storage?.setItem(key, token);
   } catch (_error) {
     // Storage may be unavailable or full; the server can bootstrap a fresh slice.
   }
 };
 
-const createSnapshotTokenStorageKey = (request: unknown): string | null => {
+const createGameplaySliceTokenStorageKey = (
+  kind: "snapshot" | "session",
+  request: unknown
+): string | null => {
   const record = request as {
     serverInstanceId?: unknown;
     playerId?: unknown;
@@ -116,7 +129,7 @@ const createSnapshotTokenStorageKey = (request: unknown): string | null => {
   const playerId = String(record.playerId ?? record.command?.playerId ?? "").trim();
 
   return serverInstanceId && playerId
-    ? `empire:gameplay-slice:snapshot:${serverInstanceId}:${playerId}`
+    ? `empire:gameplay-slice:${kind}:${serverInstanceId}:${playerId}`
     : null;
 };
 
