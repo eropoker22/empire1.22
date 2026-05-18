@@ -25,9 +25,10 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
     selectedDistrictId: string
   ): ClientRenderState => {
     if (response.readModel) {
+      const serverSelectedDistrictId = response.readModel.district?.districtId ?? selectedDistrictId;
       store.setGameplaySlice(response.readModel);
       store.patchUiState({
-        selectedDistrictId,
+        selectedDistrictId: serverSelectedDistrictId,
         activeSidePanel: districtPanelFeature
       });
     }

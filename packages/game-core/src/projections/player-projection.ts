@@ -37,6 +37,7 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
     instanceId: state.serverInstance.id,
     mode: state.serverInstance.mode,
     factionId: player?.factionId ?? "mafian",
+    homeDistrictId: player?.homeDistrictId ?? null,
     color: player?.color ?? DEFAULT_PLAYER_COLOR,
     serverTime: context?.clock?.nowIso() ?? new Date().toISOString(),
     resourceBalances,

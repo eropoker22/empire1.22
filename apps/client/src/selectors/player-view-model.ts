@@ -10,6 +10,7 @@ export interface PlayerViewModel {
   playerId: string;
   instanceId: string;
   modeLabel: string;
+  homeDistrictId: string | null;
   resourceSummary: string;
   economy: PlayerEconomyViewModel | null;
   notificationCount: number;
@@ -43,6 +44,7 @@ export const createPlayerViewModel = (
         playerId: view.playerId,
         instanceId: view.instanceId,
         modeLabel: modeLabelOverride ?? view.mode,
+        homeDistrictId: view.homeDistrictId ?? null,
         resourceSummary: view.economy
           ? formatEconomySummary(view.economy)
           : formatResourceBalances(view.resourceBalances),

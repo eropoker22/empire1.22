@@ -11,8 +11,13 @@ export interface TopBarShellProps {
 
 export const renderTopBarShell = ({ player }: TopBarShellProps): string =>
   player
-    ? `<header data-mode="${player.modeLabel}" data-city-phase="${player.dayNight?.uiThemeHint ?? "day"}">Mode: ${player.modeLabel} · Player: ${player.playerId} · Resources: ${player.resourceSummary} · Alerts: ${player.notificationCount}${renderPoliceBadge(player)}${renderDayNightBadge(player)}</header>`
+    ? `<header data-mode="${player.modeLabel}" data-city-phase="${player.dayNight?.uiThemeHint ?? "day"}">Mode: ${player.modeLabel} · Player: ${player.playerId}${renderHomeDistrict(player)} · Resources: ${player.resourceSummary} · Alerts: ${player.notificationCount}${renderPoliceBadge(player)}${renderDayNightBadge(player)}</header>`
     : "<header data-mode=\"unknown\">Loading player projection...</header>";
+
+const renderHomeDistrict = (player: PlayerViewModel): string =>
+  player.homeDistrictId
+    ? ` · Server assigned home: ${escapeHtml(player.homeDistrictId)}`
+    : "";
 
 const renderPoliceBadge = (player: PlayerViewModel): string => {
   const police = player.police;

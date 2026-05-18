@@ -175,4 +175,48 @@ describe("player identity transport guard", () => {
       sessionTokenCodec: codec
     })[0]?.code).toBe("transport.session_token_invalid");
   });
+
+  it("rejects gameplay session tokens issued in the future", () => {
+    const command = createPlaceTrapCommandFixture({
+      playerId: "player:session-future",
+      serverInstanceId: "instance:session-future"
+    });
+    const codec = createGameplaySessionTokenCodec({
+      secret: "test-session-secret",
+      clock: createFixedClock("2026-05-18T00:00:00.000Z")
+    });
+    const sessionToken = codec.seal({
+      serverInstanceId: "instance:session-future",
+      playerId: "player:session-future",
+      issuedAt: "2026-05-18T00:00:01.000Z",
+      expiresAt: "2026-05-19T00:00:00.000Z"
+    });
+
+    expect(validateCommandPlayerIdentity(command, null, {
+      sessionToken,
+      sessionTokenCodec: codec
+    })[0]?.code).toBe("transport.session_token_invalid");
+  });
+
+  it("rejects gameplay session tokens whose expiry is not after issuedAt", () => {
+    const command = createPlaceTrapCommandFixture({
+      playerId: "player:session-invalid-window",
+      serverInstanceId: "instance:session-invalid-window"
+    });
+    const codec = createGameplaySessionTokenCodec({
+      secret: "test-session-secret",
+      clock: createFixedClock("2026-05-18T00:00:00.000Z")
+    });
+    const sessionToken = codec.seal({
+      serverInstanceId: "instance:session-invalid-window",
+      playerId: "player:session-invalid-window",
+      issuedAt: "2026-05-18T00:00:00.000Z",
+      expiresAt: "2026-05-18T00:00:00.000Z"
+    });
+
+    expect(validateCommandPlayerIdentity(command, null, {
+      sessionToken,
+      sessionTokenCodec: codec
+    })[0]?.code).toBe("transport.session_token_invalid");
+  });
 });

@@ -52,6 +52,7 @@ describe("page auth flow", () => {
           serverId: "war-eu-01",
           serverLabel: "Vortex City WAR-01",
           serverMode: "war",
+          preferredStartDistrictId: 12,
           startDistrictId: 12,
           factionId: "hackeri",
           selectedFaction: "hackeri",
@@ -108,6 +109,7 @@ describe("page auth flow", () => {
           serverId: "free-eu-01",
           serverLabel: "Neon Docks FREE-01",
           serverMode: "free",
+          preferredStartDistrictId: 27,
           startDistrictId: 27,
           factionId: "mafian",
           selectedFaction: "mafian",
@@ -150,12 +152,12 @@ describe("page auth flow", () => {
     expect(getEntryFlowTarget({
       identity: "Boss",
       activeServerId: "war-eu-01",
-      startDistrictId: 27
+      preferredStartDistrictId: 27
     })).toBe(ENTRY_FLOW_TARGETS.faction);
     expect(getEntryFlowTarget({
       identity: "Boss",
       activeServerId: "war-eu-01",
-      startDistrictId: 27,
+      preferredStartDistrictId: 27,
       selectedFaction: "hackeri",
       selectedStructure: "hackeři",
       factionLocked: true
@@ -209,6 +211,7 @@ describe("page auth flow", () => {
       serverId: "war-eu-01",
       serverInstanceId: "war-eu-01",
       serverMode: "war",
+      preferredStartDistrictId: 27,
       startDistrictId: 27,
       lobbyLockedAt: "2026-04-26T10:00:00.000Z",
       serverRegistrationStatus: "server_selected",
@@ -248,6 +251,7 @@ describe("page auth flow", () => {
       activeServerInstanceId: "instance:free:eu-central:public-1",
       serverInstanceId: "instance:free:eu-central:public-1",
       serverMode: "free",
+      preferredStartDistrictId: 31,
       startDistrictId: 31
     });
     expect(session.world.ownedDistrictIds).toEqual([]);

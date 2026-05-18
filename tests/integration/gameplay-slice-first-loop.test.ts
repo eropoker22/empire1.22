@@ -8,6 +8,8 @@ import type {
   SpyDistrictCommand
 } from "@empire/shared-types";
 import type { CoreGameState } from "@empire/game-core";
+import { createClientApp } from "../../apps/client/src/app";
+import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 import { createServerApp } from "../../apps/server/src/app";
 import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap/gameplay-slice-session-bootstrap";
 
@@ -55,9 +57,31 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       }
     });
     expect(readModel.player.police).toBe(readModel.police);
+    expect(readModel.player.homeDistrictId).toBe(homeDistrictId);
     expect(readModel.onboarding?.suggestedNeighborDistrictId).toBe(readModel.district?.spyTargets[0]?.districtId);
     expect(readModel.onboarding?.canSpy).toBe(true);
     expect(readModel.onboarding?.canAttack).toBe(true);
+  });
+
+  it("client selects server-confirmed district when initial focus is only a server-assigned placeholder", async () => {
+    const server = createServerApp();
+    const request = createLoadRequest(1, {
+      districtId: "district:server-assigned",
+      preferredStartDistrictId: "district:27"
+    });
+
+    await ensureGameplaySliceSessionResult(server.instanceManager, request);
+    const runtime = server.instanceManager.getInstanceById(serverInstanceId)!;
+    const homeDistrictId = runtime.state.playersById[request.playerId]!.homeDistrictId!;
+    const client = createClientApp({
+      transport: createInMemoryClientTransport(server.gameplaySliceTransport)
+    });
+    const render = await client.load(request);
+
+    expect(render.districtPanel?.districtId).toBe(homeDistrictId);
+    expect(render.mapDistricts.find((district) => district.districtId === homeDistrictId)?.isSelected).toBe(true);
+    expect(render.player?.homeDistrictId).toBe(homeDistrictId);
+    expect(render.topBarHtml).toContain(`Server assigned home: ${homeDistrictId}`);
   });
 
   it("keeps two players on distinct homes and exposes a conflict path between them", async () => {

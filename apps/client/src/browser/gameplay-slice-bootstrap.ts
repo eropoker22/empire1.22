@@ -1,6 +1,7 @@
 import type { LoadGameplaySliceRequest } from "@empire/shared-types";
 
-const DEFAULT_SESSION_STORAGE_KEY = "empireStreets.session.v1";
+export const DEFAULT_SESSION_STORAGE_KEY = "empireStreets.session.v1";
+export const SERVER_ASSIGNED_FOCUS_DISTRICT_ID = "district:server-assigned";
 
 export interface GameplaySliceBootstrapDataset {
   serverInstanceId?: string;
@@ -23,6 +24,9 @@ interface LegacyGameplaySession {
     serverId?: unknown;
     activeServerId?: unknown;
     startDistrictId?: unknown;
+    preferredStartDistrictId?: unknown;
+    assignedHomeDistrictId?: unknown;
+    lastServerConfirmedDistrictId?: unknown;
     factionId?: unknown;
     selectedFaction?: unknown;
   };
@@ -52,11 +56,16 @@ export const resolveGameplaySliceBootstrapRequest = (
     registration?.activeServerId ||
     registration?.serverId
   );
-  const districtId = normalizeDistrictId(registration?.startDistrictId);
+  const preferredStartDistrictId = normalizeDistrictId(
+    registration?.preferredStartDistrictId || registration?.startDistrictId
+  );
+  const districtId = normalizeDistrictId(
+    registration?.assignedHomeDistrictId || registration?.lastServerConfirmedDistrictId
+  ) ?? SERVER_ASSIGNED_FOCUS_DISTRICT_ID;
   const playerId = normalizePlayerId(registration?.identity || registration?.gangName);
   const factionId = normalizeFactionId(registration?.factionId || registration?.selectedFaction);
 
-  if (!serverInstanceId || !districtId || !playerId) {
+  if (!serverInstanceId || !playerId) {
     return null;
   }
 
@@ -64,6 +73,7 @@ export const resolveGameplaySliceBootstrapRequest = (
     serverInstanceId,
     playerId,
     districtId,
+    ...(preferredStartDistrictId ? { preferredStartDistrictId } : {}),
     factionId
   };
 };
@@ -73,10 +83,10 @@ const createExplicitRequest = (
 ): LoadGameplaySliceRequest | null => {
   const serverInstanceId = normalizeToken(dataset.serverInstanceId);
   const playerId = normalizeToken(dataset.playerId);
-  const districtId = normalizeDistrictId(dataset.districtId);
+  const districtId = normalizeDistrictId(dataset.districtId) ?? SERVER_ASSIGNED_FOCUS_DISTRICT_ID;
   const factionId = normalizeFactionId(dataset.factionId);
 
-  return serverInstanceId && playerId && districtId
+  return serverInstanceId && playerId
     ? {
         serverInstanceId,
         playerId,

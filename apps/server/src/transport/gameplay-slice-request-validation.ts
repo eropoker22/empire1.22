@@ -42,6 +42,7 @@ export const validateLoadGameplaySliceRequest = (
   requireStringField(errors, "load", value, "serverInstanceId");
   requireStringField(errors, "load", value, "playerId");
   requireStringField(errors, "load", value, "districtId");
+  validateOptionalStringField(errors, "load", value, "preferredStartDistrictId");
 
   return errors.length > 0
     ? reject("load", errors)
@@ -131,6 +132,29 @@ const requireStringField = (
   }
 
   errors.push(createMissingFieldError(kind, errorFieldPath));
+};
+
+const validateOptionalStringField = (
+  errors: DomainError[],
+  kind: GameplaySliceRequestKind,
+  value: Record<string, unknown>,
+  fieldPath: string
+): void => {
+  const fieldValue = getFieldPath(value, fieldPath);
+  if (fieldValue === undefined || fieldValue === null) {
+    return;
+  }
+  if (typeof fieldValue === "string" && fieldValue.trim().length > 0) {
+    return;
+  }
+
+  errors.push({
+    code: "transport.invalid_request",
+    message: `Gameplay slice ${kind} request field '${fieldPath}' must be a non-empty string when provided.`,
+    details: {
+      field: fieldPath
+    }
+  });
 };
 
 const createMissingFieldError = (

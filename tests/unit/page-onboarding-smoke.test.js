@@ -209,6 +209,7 @@ describe("page onboarding smoke", () => {
       activeServerId: "war-eu-01",
       serverId: "war-eu-01",
       serverMode: "war",
+      preferredStartDistrictId: 27,
       startDistrictId: 27,
       serverRegistrationStatus: "server_selected",
       factionLocked: false,
@@ -225,6 +226,7 @@ describe("page onboarding smoke", () => {
     expect(session.registration).toMatchObject({
       identity: "Smoke Boss",
       serverId: "war-eu-01",
+      preferredStartDistrictId: 27,
       startDistrictId: 27,
       factionId: "hackeri",
       selectedFaction: "hackeri",

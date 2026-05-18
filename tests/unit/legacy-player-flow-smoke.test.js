@@ -90,6 +90,7 @@ describe("legacy player flow smoke guard", () => {
     expect(readSession().registration).toMatchObject({
       activeServerId: "war-eu-01",
       serverId: "war-eu-01",
+      preferredStartDistrictId: 27,
       startDistrictId: 27,
       serverRegistrationStatus: "server_selected"
     });

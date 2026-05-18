@@ -24,8 +24,9 @@ test.describe("onboarding flow smoke", () => {
     expect(session.registration.activeServerId).toBe("war-eu-01");
     expect(session.registration.serverId).toBe("war-eu-01");
     expect(session.registration.serverRegistrationStatus).toBe("server_selected");
-    expect(session.registration.startDistrictId).toBeGreaterThan(0);
-    expect(session.world.ownedDistrictIds).toContain(session.registration.startDistrictId);
+    expect(session.registration.preferredStartDistrictId).toBeGreaterThan(0);
+    expect(session.registration.startDistrictId).toBe(session.registration.preferredStartDistrictId);
+    expect(session.world.ownedDistrictIds).toEqual([]);
 
     await assertNoRuntimeErrors(errors);
   });

@@ -403,7 +403,10 @@ document.addEventListener("DOMContentLoaded", () => {
       authServer.textContent = activeServer?.serverName || "Nezvolen";
     }
     if (authDistrict) {
-      authDistrict.textContent = registration?.startDistrictId ? `District ${registration.startDistrictId}` : "Nezvolen";
+      const preferredStartDistrictId = registration?.preferredStartDistrictId || registration?.startDistrictId;
+      authDistrict.textContent = preferredStartDistrictId
+        ? `Preferovaná oblast: District ${preferredStartDistrictId}`
+        : "Nezvolena";
     }
   }
 
@@ -738,8 +741,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const currentRegistration = getRegistrationDraft();
     const factionId = selectedFactionId;
     const activeServer = getActiveServerRegistration(currentRegistration);
-    if (!currentRegistration?.identity || !activeServer?.serverId || !currentRegistration?.startDistrictId) {
-      setStatus("Lobby není hotové", "Nejdřív dokonči přihlášení, výběr serveru a districtu.");
+    const preferredStartDistrictId = currentRegistration?.preferredStartDistrictId || currentRegistration?.startDistrictId;
+    if (!currentRegistration?.identity || !activeServer?.serverId || !preferredStartDistrictId) {
+      setStatus("Lobby není hotové", "Nejdřív dokonči přihlášení, výběr serveru a preferované oblasti.");
       return false;
     }
     if (!selectedAvatar || !selectedGangColor || !selectionConfirmed.structure || !selectionConfirmed.avatar || !selectionConfirmed.gangColor) {

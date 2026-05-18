@@ -17,6 +17,7 @@ export interface LoadGameplaySliceRequest {
   serverInstanceId: ServerInstanceId;
   playerId: PlayerId;
   districtId: DistrictId;
+  preferredStartDistrictId?: DistrictId | string | null;
   factionId?: PlayerFactionId | string | null;
   snapshotToken?: string | null;
 }

@@ -2,7 +2,7 @@ import type { Notification } from "../entities/notification";
 import type { VictoryState } from "../entities/victory-state";
 import type { PlayerFactionId } from "../entities/faction";
 import type { PlayerColorHex } from "../entities/player-color";
-import type { PlayerId, ServerInstanceId } from "../ids/entity-id";
+import type { DistrictId, PlayerId, ServerInstanceId } from "../ids/entity-id";
 import type { GameModeId } from "../ids/game-mode-id";
 import type { DayNightReadModel } from "./day-night-read-model-view";
 import type { EliminationReadModel } from "./elimination-read-model-view";
@@ -20,6 +20,7 @@ export interface PlayerView {
   instanceId: ServerInstanceId;
   mode: GameModeId;
   factionId: PlayerFactionId;
+  homeDistrictId: DistrictId | null;
   color: PlayerColorHex;
   serverTime: string;
   resourceBalances: Record<string, number>;

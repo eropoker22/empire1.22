@@ -156,6 +156,7 @@ describe("free session MVP flow", () => {
     expect(session.registration.activeServerId).toBe("free-eu-01");
     expect(session.registration.serverMode).toBe("free");
     expect(session.registration.serverRegistrationStatus).toBe("server_selected");
+    expect(session.registration.preferredStartDistrictId).toBe(27);
     expect(session.registration.startDistrictId).toBe(27);
     expect(session.world.ownedDistrictIds).toEqual([]);
     expect(session.world.phaseState.gamePhase).toBe("live");

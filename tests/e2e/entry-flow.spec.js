@@ -68,6 +68,7 @@ const withoutServer = {
   serverId: undefined,
   serverLabel: undefined,
   serverRegion: undefined,
+  preferredStartDistrictId: undefined,
   startDistrictId: undefined,
   lobbyLockedAt: undefined,
   serverRegistrationStatus: undefined,

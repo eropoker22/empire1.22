@@ -1157,6 +1157,7 @@ var EmpireGameplaySliceClient = function(exports) {
     playerId: view.playerId,
     instanceId: view.instanceId,
     modeLabel: modeLabelOverride ?? view.mode,
+    homeDistrictId: view.homeDistrictId ?? null,
     resourceSummary: view.economy ? formatEconomySummary(view.economy) : formatResourceBalances(view.resourceBalances),
     economy: view.economy ? createEconomyViewModel(view.economy) : null,
     notificationCount: view.notifications.length,
@@ -1298,8 +1299,9 @@ var EmpireGameplaySliceClient = function(exports) {
   const renderSidePanelShell = ({ activePanel, contentHtml }) => activePanel ? `<aside class="side-panel-shell" data-panel="${activePanel}">${contentHtml}</aside>` : '<aside class="side-panel-shell" data-panel="none"></aside>';
   const renderTopBarShell = ({ player }) => {
     var _a;
-    return player ? `<header data-mode="${player.modeLabel}" data-city-phase="${((_a = player.dayNight) == null ? void 0 : _a.uiThemeHint) ?? "day"}">Mode: ${player.modeLabel} · Player: ${player.playerId} · Resources: ${player.resourceSummary} · Alerts: ${player.notificationCount}${renderPoliceBadge(player)}${renderDayNightBadge(player)}</header>` : '<header data-mode="unknown">Loading player projection...</header>';
+    return player ? `<header data-mode="${player.modeLabel}" data-city-phase="${((_a = player.dayNight) == null ? void 0 : _a.uiThemeHint) ?? "day"}">Mode: ${player.modeLabel} · Player: ${player.playerId}${renderHomeDistrict(player)} · Resources: ${player.resourceSummary} · Alerts: ${player.notificationCount}${renderPoliceBadge(player)}${renderDayNightBadge(player)}</header>` : '<header data-mode="unknown">Loading player projection...</header>';
   };
+  const renderHomeDistrict = (player) => player.homeDistrictId ? ` · Server assigned home: ${escapeHtml(player.homeDistrictId)}` : "";
   const renderPoliceBadge = (player) => {
     const police = player.police;
     if (!police) return "";
@@ -1354,18 +1356,19 @@ var EmpireGameplaySliceClient = function(exports) {
     const dispatcher = createCommandDispatcher(transport);
     let renderState = createInitialClientRenderState();
     const commitResponse = (response, selectedDistrictId) => {
-      var _a;
+      var _a, _b;
       if (response.readModel) {
+        const serverSelectedDistrictId = ((_a = response.readModel.district) == null ? void 0 : _a.districtId) ?? selectedDistrictId;
         store.setGameplaySlice(response.readModel);
         store.patchUiState({
-          selectedDistrictId,
+          selectedDistrictId: serverSelectedDistrictId,
           activeSidePanel: districtPanelFeature
         });
       }
       store.setErrors(response.errors);
       store.setConnectionState({
         status: "ready",
-        lastErrorMessage: ((_a = response.errors[0]) == null ? void 0 : _a.message) ?? null,
+        lastErrorMessage: ((_b = response.errors[0]) == null ? void 0 : _b.message) ?? null,
         staleData: response.errors.length > 0
       });
       renderState = renderClientShell(store);
@@ -1509,6 +1512,7 @@ var EmpireGameplaySliceClient = function(exports) {
     return nodes.length;
   };
   const DEFAULT_SESSION_STORAGE_KEY = "empireStreets.session.v1";
+  const SERVER_ASSIGNED_FOCUS_DISTRICT_ID = "district:server-assigned";
   const resolveGameplaySliceBootstrapRequest = (dataset, storage) => {
     const explicit = createExplicitRequest(dataset);
     if (explicit) {
@@ -1519,25 +1523,31 @@ var EmpireGameplaySliceClient = function(exports) {
     const serverInstanceId = normalizeServerInstanceId(
       (registration == null ? void 0 : registration.activeServerInstanceId) || (registration == null ? void 0 : registration.serverInstanceId) || (registration == null ? void 0 : registration.activeServerId) || (registration == null ? void 0 : registration.serverId)
     );
-    const districtId = normalizeDistrictId(registration == null ? void 0 : registration.startDistrictId);
+    const preferredStartDistrictId = normalizeDistrictId(
+      (registration == null ? void 0 : registration.preferredStartDistrictId) || (registration == null ? void 0 : registration.startDistrictId)
+    );
+    const districtId = normalizeDistrictId(
+      (registration == null ? void 0 : registration.assignedHomeDistrictId) || (registration == null ? void 0 : registration.lastServerConfirmedDistrictId)
+    ) ?? SERVER_ASSIGNED_FOCUS_DISTRICT_ID;
     const playerId = normalizePlayerId((registration == null ? void 0 : registration.identity) || (registration == null ? void 0 : registration.gangName));
     const factionId = normalizeFactionId((registration == null ? void 0 : registration.factionId) || (registration == null ? void 0 : registration.selectedFaction));
-    if (!serverInstanceId || !districtId || !playerId) {
+    if (!serverInstanceId || !playerId) {
       return null;
     }
     return {
       serverInstanceId,
       playerId,
       districtId,
+      ...preferredStartDistrictId ? { preferredStartDistrictId } : {},
       factionId
     };
   };
   const createExplicitRequest = (dataset) => {
     const serverInstanceId = normalizeToken(dataset.serverInstanceId);
     const playerId = normalizeToken(dataset.playerId);
-    const districtId = normalizeDistrictId(dataset.districtId);
+    const districtId = normalizeDistrictId(dataset.districtId) ?? SERVER_ASSIGNED_FOCUS_DISTRICT_ID;
     const factionId = normalizeFactionId(dataset.factionId);
-    return serverInstanceId && playerId && districtId ? {
+    return serverInstanceId && playerId ? {
       serverInstanceId,
       playerId,
       districtId,
@@ -1622,6 +1632,11 @@ var EmpireGameplaySliceClient = function(exports) {
           districtId: state.districtPanel.districtId
         };
       }
+      persistServerConfirmedGameplaySliceFocus(
+        getBrowserStorage(),
+        options.root.dataset.sessionStorageKey,
+        client.getGameplaySlice()
+      );
       const phase = (_c = (_b = state.player) == null ? void 0 : _b.dayNight) == null ? void 0 : _c.uiThemeHint;
       if (phase) {
         document.body.dataset.cityPhase = phase;
@@ -1705,6 +1720,33 @@ var EmpireGameplaySliceClient = function(exports) {
     const intervalMs = Number.parseInt(String(value ?? ""), 10);
     return Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : 5e3;
   };
+  const persistServerConfirmedGameplaySliceFocus = (storage, storageKey, gameplaySlice) => {
+    var _a;
+    const assignedHomeDistrictId = normalizeStorageToken(gameplaySlice == null ? void 0 : gameplaySlice.player.homeDistrictId);
+    const lastServerConfirmedDistrictId = normalizeStorageToken(
+      ((_a = gameplaySlice == null ? void 0 : gameplaySlice.district) == null ? void 0 : _a.districtId) || assignedHomeDistrictId
+    );
+    if (!storage || !lastServerConfirmedDistrictId) {
+      return;
+    }
+    try {
+      const key = storageKey || DEFAULT_SESSION_STORAGE_KEY;
+      const parsed = JSON.parse(storage.getItem(key) || "null");
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return;
+      }
+      const registration = parsed.registration && typeof parsed.registration === "object" && !Array.isArray(parsed.registration) ? parsed.registration : {};
+      storage.setItem(key, JSON.stringify({
+        ...parsed,
+        registration: {
+          ...registration,
+          ...assignedHomeDistrictId ? { assignedHomeDistrictId } : {},
+          lastServerConfirmedDistrictId
+        }
+      }));
+    } catch (_error) {
+    }
+  };
   const createPageApi = () => ({
     mount: (options) => mountGameplaySlicePage(options),
     autoMount: () => Array.from(document.querySelectorAll("[data-gameplay-slice-client]")).map((root) => mountGameplaySlicePage({ root })).filter((mount) => mount !== null)
@@ -1716,11 +1758,16 @@ var EmpireGameplaySliceClient = function(exports) {
       return null;
     }
   };
+  const normalizeStorageToken = (value) => {
+    const normalized = String(value ?? "").trim();
+    return normalized.length > 0 ? normalized : null;
+  };
   if (typeof window !== "undefined" && typeof document !== "undefined") {
     window.EmpireGameplaySliceClient = createPageApi();
     window.EmpireGameplaySliceClient.autoMount();
   }
   exports.mountGameplaySlicePage = mountGameplaySlicePage;
+  exports.persistServerConfirmedGameplaySliceFocus = persistServerConfirmedGameplaySliceFocus;
   Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
   return exports;
 }({});

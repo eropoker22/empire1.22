@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveGameplaySliceBootstrapRequest } from "../../../apps/client/src/browser/gameplay-slice-bootstrap";
+import {
+  SERVER_ASSIGNED_FOCUS_DISTRICT_ID,
+  resolveGameplaySliceBootstrapRequest
+} from "../../../apps/client/src/browser/gameplay-slice-bootstrap";
 
 const createStorage = (value: unknown) => ({
   getItem: () => JSON.stringify(value)
@@ -24,7 +27,7 @@ describe("gameplay slice browser bootstrap", () => {
     });
   });
 
-  it("maps the legacy onboarding session into shared gameplay slice IDs", () => {
+  it("maps the legacy onboarding district into a spawn preference, not authoritative focus", () => {
     expect(
       resolveGameplaySliceBootstrapRequest(
         {},
@@ -39,7 +42,30 @@ describe("gameplay slice browser bootstrap", () => {
     ).toEqual({
       serverInstanceId: "instance:war-eu-01",
       playerId: "player:host-alpha",
-      districtId: "district:27",
+      districtId: SERVER_ASSIGNED_FOCUS_DISTRICT_ID,
+      preferredStartDistrictId: "district:27",
+      factionId: null
+    });
+  });
+
+  it("uses server-confirmed home district as the next focus district", () => {
+    expect(
+      resolveGameplaySliceBootstrapRequest(
+        {},
+        createStorage({
+          registration: {
+            identity: "Host Alpha",
+            serverId: "war-eu-01",
+            preferredStartDistrictId: 27,
+            assignedHomeDistrictId: "district:spawn:1"
+          }
+        })
+      )
+    ).toEqual({
+      serverInstanceId: "instance:war-eu-01",
+      playerId: "player:host-alpha",
+      districtId: "district:spawn:1",
+      preferredStartDistrictId: "district:27",
       factionId: null
     });
   });
@@ -53,7 +79,8 @@ describe("gameplay slice browser bootstrap", () => {
             identity: "Host Alpha",
             activeServerInstanceId: "instance:free:eu-central:public-1",
             serverId: "instance:free:eu-central:public-1",
-            startDistrictId: 27,
+            preferredStartDistrictId: 27,
+            lastServerConfirmedDistrictId: "district:spawn:2",
             factionId: "red-syndicate"
           }
         })
@@ -61,19 +88,19 @@ describe("gameplay slice browser bootstrap", () => {
     ).toEqual({
       serverInstanceId: "instance:free:eu-central:public-1",
       playerId: "player:host-alpha",
-      districtId: "district:27",
+      districtId: "district:spawn:2",
+      preferredStartDistrictId: "district:27",
       factionId: "red-syndicate"
     });
   });
 
-  it("returns null when the session is not ready for gameplay", () => {
+  it("returns null when the session is missing server identity", () => {
     expect(
       resolveGameplaySliceBootstrapRequest(
         {},
         createStorage({
           registration: {
-            identity: "Host Alpha",
-            serverId: "war-eu-01"
+            identity: "Host Alpha"
           }
         })
       )

@@ -151,6 +151,44 @@ describe("gameplay slice json handler", () => {
     });
   });
 
+  it("rejects invalid preferred start district hint shape before transport dispatch", () => {
+    const handler = createGameplaySliceJsonHandler({
+      load: () => {
+        throw new Error("invalid load reached transport");
+      },
+      submit: () => {
+        throw new Error("unexpected submit");
+      }
+    });
+
+    const response = handler.handle({
+      method: "POST",
+      path: "/api/gameplay-slice/load",
+      body: {
+        serverInstanceId: "instance:1",
+        playerId: "player:1",
+        districtId: "district:server-assigned",
+        preferredStartDistrictId: 27
+      }
+    });
+
+    expect(response).toMatchObject({
+      status: 200,
+      body: {
+        accepted: false,
+        readModel: null,
+        errors: [
+          {
+            code: "transport.invalid_request",
+            details: {
+              field: "preferredStartDistrictId"
+            }
+          }
+        ]
+      }
+    });
+  });
+
   it("rejects commands missing required envelope fields before transport dispatch", () => {
     const handler = createGameplaySliceJsonHandler({
       load: () => {

@@ -1,7 +1,11 @@
+import type { GameplaySliceView } from "@empire/shared-types";
 import { createClientApp, createClientSurfaceActionRouter, type ClientRenderState } from "../app";
 import { refreshLiveCooldownLabels } from "../shared-ui";
 import { createFetchClientTransport, createGameplaySlicePoller, type ClientTransport } from "../transport";
-import { resolveGameplaySliceBootstrapRequest } from "./gameplay-slice-bootstrap";
+import {
+  DEFAULT_SESSION_STORAGE_KEY,
+  resolveGameplaySliceBootstrapRequest
+} from "./gameplay-slice-bootstrap";
 
 const DEFAULT_ENDPOINT_BASE = "/api/gameplay-slice";
 
@@ -58,6 +62,11 @@ export const mountGameplaySlicePage = (
         districtId: state.districtPanel.districtId
       };
     }
+    persistServerConfirmedGameplaySliceFocus(
+      getBrowserStorage(),
+      options.root.dataset.sessionStorageKey,
+      client.getGameplaySlice()
+    );
 
     const phase = state.player?.dayNight?.uiThemeHint;
     if (phase) {
@@ -163,6 +172,43 @@ const parsePollingIntervalMs = (value: string | undefined): number => {
   return Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : 5000;
 };
 
+export const persistServerConfirmedGameplaySliceFocus = (
+  storage: Storage | null,
+  storageKey: string | undefined,
+  gameplaySlice: GameplaySliceView | null
+): void => {
+  const assignedHomeDistrictId = normalizeStorageToken(gameplaySlice?.player.homeDistrictId);
+  const lastServerConfirmedDistrictId = normalizeStorageToken(
+    gameplaySlice?.district?.districtId || assignedHomeDistrictId
+  );
+
+  if (!storage || !lastServerConfirmedDistrictId) {
+    return;
+  }
+
+  try {
+    const key = storageKey || DEFAULT_SESSION_STORAGE_KEY;
+    const parsed = JSON.parse(storage.getItem(key) || "null");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return;
+    }
+    const registration = parsed.registration && typeof parsed.registration === "object" && !Array.isArray(parsed.registration)
+      ? parsed.registration
+      : {};
+
+    storage.setItem(key, JSON.stringify({
+      ...parsed,
+      registration: {
+        ...registration,
+        ...(assignedHomeDistrictId ? { assignedHomeDistrictId } : {}),
+        lastServerConfirmedDistrictId
+      }
+    }));
+  } catch (_error) {
+    // Browser storage is a cache only; failed persistence must not affect server authority.
+  }
+};
+
 const createPageApi = () => ({
   mount: (options: GameplaySlicePageMountOptions) => mountGameplaySlicePage(options),
   autoMount: () => Array.from(document.querySelectorAll<HTMLElement>("[data-gameplay-slice-client]"))
@@ -176,6 +222,11 @@ const getBrowserStorage = (): Storage | null => {
   } catch (_error) {
     return null;
   }
+};
+
+const normalizeStorageToken = (value: unknown): string | null => {
+  const normalized = String(value ?? "").trim();
+  return normalized.length > 0 ? normalized : null;
 };
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {

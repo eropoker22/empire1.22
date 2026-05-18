@@ -172,6 +172,9 @@ export function getActiveServerRegistration(registration = getRegistrationDraft(
   }
 
   const server = getSelectedServer(serverId);
+  const preferredStartDistrictId = normalizeDistrictId(
+    registration?.preferredStartDistrictId || registration?.startDistrictId
+  );
   return {
     serverId,
     serverInstanceId,
@@ -179,7 +182,12 @@ export function getActiveServerRegistration(registration = getRegistrationDraft(
     serverMode: normalizeMode(registration?.activeServerMode || registration?.serverMode || server?.mode) || "war",
     serverRegion: normalizeText(registration?.activeServerRegion || registration?.serverRegion || server?.region),
     serverStatus: normalizeText(registration?.activeServerStatus || server?.status || "ONLINE"),
-    startDistrictId: normalizeDistrictId(registration?.startDistrictId)
+    preferredStartDistrictId,
+    startDistrictId: preferredStartDistrictId,
+    assignedHomeDistrictId: normalizeText(registration?.assignedHomeDistrictId),
+    lastServerConfirmedDistrictId: normalizeText(
+      registration?.lastServerConfirmedDistrictId || registration?.assignedHomeDistrictId
+    )
   };
 }
 
@@ -240,7 +248,10 @@ export function ensureIdentity() {
 
 export function ensureLobbySelection() {
   const registration = getRegistrationDraft();
-  return Boolean(hasActiveServerRegistration(registration) && normalizeDistrictId(registration?.startDistrictId));
+  return Boolean(
+    hasActiveServerRegistration(registration)
+      && normalizeDistrictId(registration?.preferredStartDistrictId || registration?.startDistrictId)
+  );
 }
 
 export function clearAuthSession() {
@@ -286,9 +297,9 @@ export function saveLoginStep({ identity, isGuest = false, gangName = "", mode =
 
 export function saveLobbyStep({ serverId, districtId, server: selectedServer = null }) {
   const server = selectedServer || getSelectedServer(serverId);
-  const normalizedDistrictId = normalizeDistrictId(districtId);
+  const preferredStartDistrictId = normalizeDistrictId(districtId);
 
-  if (!server || normalizedDistrictId <= 0) {
+  if (!server || preferredStartDistrictId <= 0) {
     return null;
   }
 
@@ -311,11 +322,18 @@ export function saveLobbyStep({ serverId, districtId, server: selectedServer = n
       serverLabel: server.name,
       serverMode: server.mode,
       serverRegion: server.region,
-      startDistrictId: normalizedDistrictId,
+      preferredStartDistrictId,
+      // Compatibility-only alias for legacy static runtime and old saved sessions.
+      // Server-authoritative gameplay treats this as a lobby preference, never as a spawn claim.
+      startDistrictId: preferredStartDistrictId,
       lobbyLockedAt: new Date().toISOString(),
       serverRegistrationStatus: SERVER_REGISTRATION_STATUS.selected,
       factionLocked: false,
       hasCompletedServerEntry: false
+    },
+    world: {
+      ...(session.world || {}),
+      ownedDistrictIds: []
     }
   }));
 }

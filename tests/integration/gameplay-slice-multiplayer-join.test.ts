@@ -222,6 +222,29 @@ describe("gameplay slice multiplayer join bootstrap", () => {
     expect(runtime?.state.districtsById[firstPlayer!.homeDistrictId!]?.ownerPlayerId).toBe(firstRequest.playerId);
     expect(runtime?.state.districtsById[secondPlayer!.homeDistrictId!]?.ownerPlayerId).toBe(secondRequest.playerId);
   });
+
+  it("treats lobby preferred district as a hint and returns the server assigned home district", async () => {
+    const server = createServerApp();
+    const request = createLoadRequest(1, {
+      serverInstanceId: "instance:free-preferred-spawn-hint",
+      districtId: "district:server-assigned",
+      preferredStartDistrictId: "district:central:1"
+    });
+
+    const result = await ensureGameplaySliceSessionResult(server.instanceManager, request);
+    const runtime = server.instanceManager.getInstanceById(request.serverInstanceId)!;
+    const player = runtime.state.playersById[request.playerId]!;
+    const response = server.gameplaySliceTransport.load(request);
+    const readModel = response.readModel as GameplaySliceView;
+
+    expect(result.accepted).toBe(true);
+    expect(player.homeDistrictId).toBe(sharedCitySpawnDistrictIds[0]);
+    expect(player.homeDistrictId).not.toBe(request.preferredStartDistrictId);
+    expect(runtime.state.districtsById[player.homeDistrictId!]?.zone).not.toBe("downtown");
+    expect(runtime.state.districtsById[player.homeDistrictId!]?.ownerPlayerId).toBe(request.playerId);
+    expect(readModel.player.homeDistrictId).toBe(player.homeDistrictId);
+    expect(readModel.district?.districtId).toBe(player.homeDistrictId);
+  });
 });
 
 const runtimeHomeDistrictId = (

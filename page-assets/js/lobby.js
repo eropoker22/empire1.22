@@ -92,7 +92,7 @@ function createServerFromSummary(summary) {
     region: String(summary.region || "EU Central"),
     players: playerCount,
     capacity: maxPlayers,
-    startLabel: joinable ? "Joinable" : status,
+    startLabel: joinable ? "Spawn confirmed by server" : status,
     badge: "SERVER",
     status,
     activity: playerCount / maxPlayers > 0.75 ? "HIGH" : playerCount / maxPlayers > 0.35 ? "MEDIUM" : "LOW",
@@ -100,7 +100,7 @@ function createServerFromSummary(summary) {
     locked: !joinable && !full,
     offline: ["STOPPED", "ENDED", "DESTROYED", "CRASHED"].includes(status),
     riskPercent: Math.round((playerCount / maxPlayers) * 100),
-    description: `Server-authoritative ${mode.toUpperCase()} instance. Join a spawn potvrzuje server.`,
+    description: `Server-authoritative ${mode.toUpperCase()} instance. Join i finální spawn potvrzuje server.`,
     map
   };
 }
@@ -271,7 +271,7 @@ document.addEventListener("DOMContentLoaded", () => {
     mode: activeServerRegistration?.serverMode || registration?.serverMode || "war",
     serverId: activeServerRegistration?.serverId || "",
     hoveredDistrictId: null,
-    selectedDistrictId: activeServerRegistration?.startDistrictId || null,
+    selectedDistrictId: activeServerRegistration?.preferredStartDistrictId || activeServerRegistration?.startDistrictId || null,
     serverDistrictSelections: new Map(),
     launchByServerId: Object.fromEntries(
       Object.entries(SERVER_COUNTDOWN_OFFSETS_MINUTES).map(([serverId, minutes]) => [
@@ -573,7 +573,7 @@ document.addEventListener("DOMContentLoaded", () => {
           ? "Vyber server"
           : isUnavailable
             ? (server?.full ? "Server je plný" : server?.offline ? "Server je offline" : "Server se připravuje")
-            : "Vyber district";
+            : "Vyber preferovanou startovní oblast";
         detailModalHint.classList.add("is-required");
       }
       return;
@@ -749,8 +749,8 @@ document.addEventListener("DOMContentLoaded", () => {
       activeServerStatus.textContent = activeServerRegistration.serverStatus || "ONLINE";
     }
     if (activeServerDistrict) {
-      activeServerDistrict.textContent = activeServerRegistration.startDistrictId
-        ? `District ${activeServerRegistration.startDistrictId}`
+      activeServerDistrict.textContent = activeServerRegistration.preferredStartDistrictId
+        ? `Preferovaná oblast: District ${activeServerRegistration.preferredStartDistrictId}`
         : "-";
     }
     if (activeServerNote) {
@@ -777,7 +777,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ? "Jsi zapsaný na serveru."
         : registration?.isGuest
           ? "Host účet · po výběru serveru pokračuješ do frakce"
-          : "Vyber server a startovní district";
+          : "Vyber server a preferovanou startovní oblast";
     }
 
     if (summaryServer) {
@@ -785,7 +785,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (summaryDistrict) {
-      summaryDistrict.textContent = state.selectedDistrictId ? `District ${state.selectedDistrictId}` : "Nevybrán";
+      summaryDistrict.textContent = state.selectedDistrictId
+        ? `Preferovaná oblast: District ${state.selectedDistrictId}`
+        : "Nevybrána";
     }
 
     if (summaryMode) {
@@ -801,7 +803,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (flowNote) {
       flowNote.hidden = isActiveServerEntry || Boolean(server || state.selectedDistrictId);
       flowNote.textContent = !server
-        ? "Vyber server a district."
+        ? "Vyber server a preferovanou startovní oblast."
         : "";
       flowNote.setAttribute("data-state", state.selectedDistrictId ? "success" : "ready");
     }
@@ -822,7 +824,9 @@ document.addEventListener("DOMContentLoaded", () => {
       lobbyDetailCapacity.textContent = server ? `${server.players} / ${server.capacity}` : "-";
     }
     if (lobbyDetailStart) {
-      lobbyDetailStart.textContent = server?.startLabel || "-";
+      lobbyDetailStart.textContent = server
+        ? `${server.startLabel || server.status}. Finální spawn potvrzuje server.`
+        : "-";
     }
     if (lobbyDetailDescription) {
       lobbyDetailDescription.textContent = server?.description || "Vyber server pro detail.";
@@ -957,7 +961,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (detailModalHint) {
       detailModalHint.textContent = serverUnavailable
         ? (server.full ? "Server je plný" : server.offline ? "Server je offline" : "Server se připravuje")
-        : state.selectedDistrictId ? `Start: District ${state.selectedDistrictId}` : "Okraj mapy";
+        : state.selectedDistrictId
+          ? `Preferovaná startovní oblast: District ${state.selectedDistrictId}. Server přidělí finální spawn při vstupu.`
+          : "Vyber preferovanou oblast na okraji mapy. Finální spawn potvrzuje server.";
       detailModalHint.classList.toggle("is-required", serverUnavailable || !state.selectedDistrictId);
     }
     if (detailContinueButton instanceof HTMLButtonElement) {
@@ -971,7 +977,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (detailModalMaterials instanceof HTMLElement) {
       detailModalMaterials.innerHTML = [
-        "<li>Gameplay start potvrzuje server při joinu.</li>",
+        "<li>Gameplay start a finální spawn potvrzuje server při joinu.</li>",
         `<li>Mapa: ${server.map?.totalDistricts || geometry.districts.length} districtů, ${server.map?.downtownDistricts || getDistrictTypeCounts(server).find(([type]) => type === "downtown")?.[1] || 0} downtown.</li>`
       ].join("");
     }
@@ -1138,7 +1144,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!isSelectableSpawnDistrict(district)) {
       setHoveredDetailDistrictId(null);
       if (detailModalHint) {
-        detailModalHint.textContent = "Jen levý, pravý nebo spodní okraj";
+        detailModalHint.textContent = "Jako preferenci vyber levý, pravý nebo spodní okraj";
         detailModalHint.classList.add("is-required");
       }
       return false;

@@ -15,6 +15,7 @@ const createGameplaySliceFixture = (canCraft = true): GameplaySliceView => ({
     instanceId: "instance:1",
     mode: "free",
     factionId: "mafian",
+    homeDistrictId: "district:1",
     color: "#ef4444",
     serverTime: new Date(0).toISOString(),
     resourceBalances: {
