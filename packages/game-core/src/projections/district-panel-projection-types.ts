@@ -29,6 +29,7 @@ import type { DistrictPanelBuildingCatalogEntry } from "./district-building-cata
 export interface DistrictPanelProjectionInput {
   playerId: string;
   districtId: string;
+  issuedAt?: string;
   buildCatalog: ReadonlyArray<DistrictPanelBuildingCatalogEntry>;
   productionCatalog: Readonly<Record<string, ProductionBuildingBalanceConfig>>;
   craftCatalog: Readonly<Record<string, CraftBuildingBalanceConfig>>;

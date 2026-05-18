@@ -16,7 +16,8 @@ export const createDistrictOccupyTargetViews = (
   state: CoreGameState,
   playerId: string,
   sourceDistrictId: string,
-  conflictConfig?: ConflictBalanceConfig
+  conflictConfig?: ConflictBalanceConfig,
+  issuedAt = new Date().toISOString()
 ): DistrictOccupyTargetView[] => {
   const sourceDistrict = state.districtsById[sourceDistrictId];
 
@@ -34,7 +35,7 @@ export const createDistrictOccupyTargetViews = (
         mode: state.serverInstance.mode,
         playerId,
         serverInstanceId: state.serverInstance.id,
-        issuedAt: new Date(0).toISOString(),
+        issuedAt,
         payload: {
           districtId: targetDistrict.id,
           sourceDistrictId: sourceDistrict.id

@@ -36,7 +36,8 @@ export const createServerApp = (options: ServerAppOptions = {}) => {
   const commandRouter = createInstanceCommandRouter(instanceManager);
   const commandIngress = createCommandIngress(commandRouter);
   const gameplaySessionTokenCodec = createGameplaySessionTokenCodec({
-    secret: options.gameplaySessionTokenSecret ?? DEFAULT_DEV_GAMEPLAY_SESSION_TOKEN_SECRET
+    secret: options.gameplaySessionTokenSecret ?? DEFAULT_DEV_GAMEPLAY_SESSION_TOKEN_SECRET,
+    clock: options.clock
   });
   const gameplaySliceTransport = createGameplaySliceTransport(instanceManager, commandIngress, {
     sessionTokenCodec: gameplaySessionTokenCodec

@@ -58,7 +58,10 @@ export const resolveStreetDealersAction = (input: {
   const metadata = getStreetDealersPlayerMetadata(input.player);
   const nextSlot: StreetDealerSaleSlot = {
     slotId,
-    saleId: composeEntityId("street-sale", `${input.command.id}:${slotId}`),
+    saleId: composeEntityId(
+      "street-sale",
+      `${input.player.id}:${input.building.id}:${slotId}:${input.state.root.tick}`
+    ),
     itemId: drug.itemId,
     itemLabel: drug.label,
     amount,
@@ -110,4 +113,3 @@ export const resolveStreetDealersAction = (input: {
     }
   };
 };
-

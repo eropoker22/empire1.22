@@ -143,4 +143,40 @@ describe("conflict command flow", () => {
       trapTriggered: false
     });
   });
+
+  it("does not let players change attack randomness by changing only command id", () => {
+    const firstState = createCombatStateFixture();
+    const secondState = createCombatStateFixture();
+    firstState.serverInstance.worldSeed = "rng-hardening";
+    secondState.serverInstance.worldSeed = "rng-hardening";
+
+    const hardenedContext = {
+      config: {
+        ...context.config,
+        balance: {
+          ...context.config.balance,
+          conflict: {
+            ...context.config.balance.conflict,
+            catastropheChance: 0.052
+          }
+        }
+      }
+    };
+    const first = applyCommand(
+      firstState,
+      createAttackDistrictCommandFixture({ id: "command:1" }),
+      hardenedContext
+    );
+    const second = applyCommand(
+      secondState,
+      createAttackDistrictCommandFixture({ id: "command:2" }),
+      hardenedContext
+    );
+
+    expect(first.errors).toEqual([]);
+    expect(second.errors).toEqual([]);
+    expect(first.nextState.districtsById["district:2"].status).toBe(second.nextState.districtsById["district:2"].status);
+    expect(first.nextState.districtsById["district:2"].ownerPlayerId).toBe(second.nextState.districtsById["district:2"].ownerPlayerId);
+    expect(first.events.map((event) => event.type)).toEqual(second.events.map((event) => event.type));
+  });
 });

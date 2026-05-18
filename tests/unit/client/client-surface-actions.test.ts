@@ -83,9 +83,16 @@ const createGameplaySliceFixture = (): GameplaySliceView => ({
         actionCooldowns: {},
         actions: [
           {
+            buildingId: "building:pharmacy:1",
+            buildingTypeId: "pharmacy",
             actionId: "produce_chemicals",
             label: "Produce Chemicals",
             description: "Produce chemicals.",
+            status: "available",
+            cost: {},
+            expectedEffectSummary: ["+6 Chemicals"],
+            riskSummary: ["Heat +1"],
+            requiresInput: [],
             durationMs: 5000,
             cooldownMs: 10000,
             cooldownRemainingTicks: 0,

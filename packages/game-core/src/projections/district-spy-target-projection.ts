@@ -13,7 +13,8 @@ import { validateSpy } from "../validation";
 export const createDistrictSpyTargetViews = (
   state: CoreGameState,
   playerId: string,
-  sourceDistrictId: string
+  sourceDistrictId: string,
+  issuedAt = new Date().toISOString()
 ): DistrictSpyTargetView[] => {
   const sourceDistrict = state.districtsById[sourceDistrictId];
 
@@ -31,7 +32,7 @@ export const createDistrictSpyTargetViews = (
         mode: state.serverInstance.mode,
         playerId,
         serverInstanceId: state.serverInstance.id,
-        issuedAt: new Date(0).toISOString(),
+        issuedAt,
         payload: {
           districtId: targetDistrict.id,
           sourceDistrictId: sourceDistrict.id

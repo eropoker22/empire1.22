@@ -93,6 +93,38 @@ describe("server instance creation lifecycle", () => {
     expect(server.instanceManager.listInstances()).toHaveLength(0);
   });
 
+  it("rejects explicit duplicate server ids without replacing the runtime", () => {
+    const server = createServerApp();
+    const first = server.serverInstanceCreationService.createGameServerInstanceResult({
+      serverInstanceId: "instance:free:duplicate",
+      mode: "free",
+      region: "eu-central",
+      displayName: "Original"
+    });
+    const duplicate = server.serverInstanceCreationService.createGameServerInstanceResult({
+      serverInstanceId: "instance:free:duplicate",
+      mode: "free",
+      region: "eu-central",
+      displayName: "Replacement"
+    });
+
+    expect(first.accepted).toBe(true);
+    expect(duplicate).toEqual({
+      accepted: false,
+      runtime: null,
+      errors: [
+        {
+          code: "server.instance_already_exists",
+          message: "Server instance already exists.",
+          details: {
+            serverInstanceId: "instance:free:duplicate"
+          }
+        }
+      ]
+    });
+    expect(server.instanceManager.getInstanceById("instance:free:duplicate")?.lobby.displayName).toBe("Original");
+  });
+
   it("rejects unknown load when implicit creation is disabled and preserves dev fallback when enabled", async () => {
     const server = createServerApp();
 
@@ -238,7 +270,10 @@ describe("server instance creation lifecycle", () => {
       capacity: 1
     });
 
-    expect(server.instanceManager.listServerSummaries()).toEqual([
+    const summaries = server.instanceManager.listServerSummaries();
+
+    expect(summaries[0]).not.toHaveProperty("worldSeed");
+    expect(summaries).toEqual([
       expect.objectContaining({
         serverInstanceId: runtime.record.id,
         displayName: "US East Free",
@@ -268,7 +303,10 @@ describe("server instance creation lifecycle", () => {
       allowImplicitInstanceCreation: false
     });
 
-    expect(server.adminMonitoring.listServerSummaries()).toEqual([
+    const adminSummaries = server.adminMonitoring.listServerSummaries();
+
+    expect(adminSummaries[0]).not.toHaveProperty("worldSeed");
+    expect(adminSummaries).toEqual([
       expect.objectContaining({
         serverInstanceId: runtime.record.id,
         status: "full",

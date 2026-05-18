@@ -33,7 +33,10 @@ export const createGameplaySliceProjection = (
   const selectedDistrictId = runtime.state.districtsById[districtId]
     ? districtId
     : runtime.state.playersById[playerId]?.homeDistrictId ?? districtId;
-  const police = createPoliceReadModel(runtime.state, playerId, { config: runtime.config }, {
+  const police = createPoliceReadModel(runtime.state, playerId, {
+    config: runtime.config,
+    clock: runtime.clock
+  }, {
     selectedDistrictId
   });
   const player = {
@@ -47,7 +50,8 @@ export const createGameplaySliceProjection = (
     dayNight: player.dayNight ?? null,
     elimination: player.elimination ?? null,
     onboarding: createOnboardingReadModel(runtime.state, playerId, {
-      config: runtime.config
+      config: runtime.config,
+      clock: runtime.clock
     }),
     police,
     cityFeed: createCityFeedProjection(runtime.state, {

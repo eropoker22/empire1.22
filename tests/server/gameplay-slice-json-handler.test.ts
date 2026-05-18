@@ -46,7 +46,10 @@ describe("gameplay slice json handler", () => {
             mode: "free",
             playerId: "player:1",
             serverInstanceId: "instance:1",
-            issuedAt: new Date(0).toISOString()
+            issuedAt: new Date(0).toISOString(),
+            payload: {
+              districtId: "district:1"
+            }
           }
         }
       }).status
@@ -199,6 +202,57 @@ describe("gameplay slice json handler", () => {
       code: "transport.invalid_request",
       details: {
         field: "command.playerId"
+      }
+    }));
+  });
+
+  it.each([
+    ["attack-district", {}, "command.payload.districtId"],
+    ["occupy-district", {}, "command.payload.districtId"],
+    ["spy-district", { districtId: "district:2" }, "command.payload.sourceDistrictId"],
+    ["place-trap", {}, "command.payload.districtId"],
+    ["collect-production", { districtId: "district:1" }, "command.payload.buildingId"],
+    ["craft-item", { districtId: "district:1", buildingId: "building:1" }, "command.payload.recipeId"],
+    ["run-building-action", { districtId: "district:1", buildingId: "building:1" }, "command.payload.actionId"]
+  ])("rejects invalid %s payload shape before transport dispatch", (type, payload, field) => {
+    const handler = createGameplaySliceJsonHandler({
+      load: () => {
+        throw new Error("unexpected load");
+      },
+      submit: () => {
+        throw new Error("invalid command reached transport");
+      }
+    });
+
+    const response = handler.handle({
+      method: "POST",
+      path: "/api/gameplay-slice/submit",
+      body: {
+        focusDistrictId: "district:1",
+        command: {
+          id: `command:invalid-payload:${type}`,
+          type,
+          mode: "free",
+          playerId: "player:1",
+          serverInstanceId: "instance:1",
+          issuedAt: new Date(0).toISOString(),
+          payload,
+          clientRequestId: null
+        }
+      }
+    });
+
+    expect(response).toMatchObject({
+      status: 200,
+      body: {
+        accepted: false,
+        readModel: null
+      }
+    });
+    expect(response.body.errors).toContainEqual(expect.objectContaining({
+      code: "transport.invalid_request",
+      details: {
+        field
       }
     }));
   });

@@ -6,6 +6,12 @@ export interface CreateRunBuildingActionCommandInput {
   buildingId: string;
   actionId: string;
   dealerSlotId?: string;
+  targetCategory?: string;
+  category?: string;
+  mode?: string;
+  investmentCleanCash?: number;
+  investment?: number;
+  targetZone?: string;
   itemId?: string;
   amount?: number;
   issuedAt: string;
@@ -40,6 +46,12 @@ export const createRunBuildingActionCommand = (
       buildingId: building.buildingId,
       actionId: action.actionId,
       ...(input.dealerSlotId ? { dealerSlotId: input.dealerSlotId } : {}),
+      ...(input.targetCategory ? { targetCategory: input.targetCategory } : {}),
+      ...(input.category ? { category: input.category } : {}),
+      ...(input.mode ? { mode: input.mode } : {}),
+      ...(input.investmentCleanCash !== undefined ? { investmentCleanCash: input.investmentCleanCash } : {}),
+      ...(input.investment !== undefined ? { investment: input.investment } : {}),
+      ...(input.targetZone ? { targetZone: input.targetZone } : {}),
       ...(input.itemId ? { itemId: input.itemId } : {}),
       ...(input.amount !== undefined ? { amount: input.amount } : {})
     },

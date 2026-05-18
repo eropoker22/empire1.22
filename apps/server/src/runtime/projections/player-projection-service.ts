@@ -10,4 +10,7 @@ import type { ServerInstanceRuntime } from "../instance/server-instance-runtime"
 export const createPlayerProjection = (
   runtime: ServerInstanceRuntime,
   playerId: string
-): PlayerView => createPlayerView(runtime.state, playerId, { config: runtime.config });
+): PlayerView => createPlayerView(runtime.state, playerId, {
+  config: runtime.config,
+  clock: runtime.clock
+});

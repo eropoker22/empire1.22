@@ -18,10 +18,7 @@ import {
   resolveCombat,
   resolveTrap
 } from "../rules";
-import {
-  createDefaultDistrictEffectModifiers,
-  resolveActiveDistrictEffectModifiers
-} from "../rules/economy/calculateIncome";
+import { createDefaultDistrictEffectModifiers, resolveActiveDistrictEffectModifiers } from "../rules/economy/calculateIncome";
 import {
   applyFactionAggressiveHeatGain,
   applyFactionCooldownTicks,
@@ -43,15 +40,9 @@ import { appendRecoveryPoolEntries, createRecoveryEntriesFromLosses } from "./cl
 import { appendSalvagePoolEntries, createSalvageEntriesFromLosses } from "./recyclingCenterBuildingActions";
 import { resolveAirportEvacuationSupport } from "./airportBuildingActions";
 import { resolveAttackEscapeMitigation } from "./attackEscapeMitigation";
-import {
-  applyCarDealerCooldownReductionTicks,
-  resolveCarDealerEscapeChanceBonusPct
-} from "./carDealerBuildingActions";
+import { applyCarDealerCooldownReductionTicks, resolveCarDealerEscapeChanceBonusPct } from "./carDealerBuildingActions";
 import { resolveCombinedCameraAlarmBonuses, resolveRecruitmentCenterSupportBonuses } from "./recruitmentCenterBuildingActions";
-import {
-  resolveFitnessAttackWeaponModifiers,
-  resolveFitnessDefenseItemModifiers
-} from "./fitnessClubBuildingActions";
+import { resolveFitnessAttackWeaponModifiers, resolveFitnessDefenseItemModifiers } from "./fitnessClubBuildingActions";
 
 /**
  * Responsibility: Orchestrates one authoritative district attack command.
@@ -153,7 +144,7 @@ export const handleAttackDistrict = (
   const effectiveAttackPower = calculateReducedAttackPowerFromTowers(effectAdjustedAttackPower, towerCount);
   const effectiveDefensePower = calculateEffectiveDefenseAfterGrenades(effectAdjustedDefensePower, grenadeCount);
   const catastropheRoll = deterministicUnitInterval(
-    `${state.serverInstance.worldSeed}:attack:catastrophe:${command.playerId}:${targetDistrict.id}:${state.root.tick}:${command.id}`
+    `${state.serverInstance.worldSeed}:attack:catastrophe:${command.playerId}:${targetDistrict.id}:${state.root.tick}`
   );
   const catastropheChance = Math.max(0, Math.min(1, Number(context.config.balance.conflict?.catastropheChance ?? 0)));
   const districtDestroyed = !trapResolution.blocked && catastropheRoll < catastropheChance;
@@ -184,7 +175,7 @@ export const handleAttackDistrict = (
     tick: state.root.tick
   });
   const escapeRoll = deterministicUnitInterval(
-    `${state.serverInstance.worldSeed}:attack:escape:${command.playerId}:${targetDistrict.id}:${state.root.tick}:${command.id}`
+    `${state.serverInstance.worldSeed}:attack:escape:${command.playerId}:${targetDistrict.id}:${state.root.tick}`
   );
   const factionAdjustedAttackerLosses = applyFactionEquipmentLosses(combatResolution.attackerLosses, attackerFactionModifiers);
   const escapeMitigation = resolveAttackEscapeMitigation({

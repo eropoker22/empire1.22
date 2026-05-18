@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { webcrypto } from "node:crypto";
 import { createGameplaySliceFunctionHandler } from "../../apps/server/src/netlify/gameplay-slice-function";
+import { createGameplaySessionTokenCodec } from "../../apps/server/src/transport";
 
 const postEvent = (path: string, body: unknown) => ({
   httpMethod: "POST",
@@ -500,6 +501,52 @@ describe("gameplay slice Netlify function", () => {
         }
       ]
     });
+  });
+
+  it("rejects expired gameplay session tokens", async () => {
+    const secret = "test-expired-session-secret";
+    const handler = createTestHandler({
+      NODE_ENV: "test",
+      GAMEPLAY_SLICE_SNAPSHOT_SECRET: secret
+    });
+    const load = await readBody(
+      handler(
+        postEvent("/api/gameplay-slice/load", {
+          serverInstanceId: "instance:function-session-expired",
+          playerId: "player:function-session-expired",
+          districtId: "district:58"
+        })
+      )
+    );
+    const expiredToken = createGameplaySessionTokenCodec({ secret }).seal({
+      serverInstanceId: "instance:function-session-expired",
+      playerId: "player:function-session-expired",
+      issuedAt: "2020-01-01T00:00:00.000Z",
+      expiresAt: "2020-01-01T00:00:01.000Z"
+    });
+
+    const submit = await readBody(
+      handler(
+        postEvent("/api/gameplay-slice/submit", {
+          snapshotToken: load.json.snapshotToken,
+          sessionToken: expiredToken,
+          focusDistrictId: load.json.readModel.district.districtId,
+          command: {
+            id: "command:function:session-expired:1",
+            type: "unknown-command-type",
+            mode: "free",
+            playerId: "player:function-session-expired",
+            serverInstanceId: "instance:function-session-expired",
+            issuedAt: new Date(0).toISOString(),
+            payload: {},
+            clientRequestId: null
+          }
+        })
+      )
+    );
+
+    expect(submit.json.errors[0].code).toBe("transport.session_token_invalid");
+    expect(submit.json.readModel).toBeNull();
   });
 
   it("rejects cold submit without snapshot instead of silently creating mafian fallback", async () => {

@@ -1,4 +1,5 @@
 import { ATTACK_WEAPON_LABELS } from "./combatData.js";
+// Preview-only legacy building detail model. Server projections own command availability and final action results.
 import {
   DISTRICT_BUILDING_TYPE_META
 } from "../map/mapConstants.js";

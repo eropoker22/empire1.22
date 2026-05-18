@@ -1,4 +1,5 @@
 export function createBuildingActionStatusRuntime(deps = {}) {
+  // Preview-only legacy feed runtime. Server-fed gameplay slice reports own authoritative building action results.
   const mutationObserverFactory = deps.MutationObserver || (typeof MutationObserver !== "undefined" ? MutationObserver : null);
 
   const bindBuildingActionStatus = (root) => {

@@ -35,13 +35,16 @@ export const createGameplaySliceTransport = (
     playerId: string
   ): string | null => {
     const player = runtime.state.playersById[playerId];
+    const issuedAt = runtime.clock.now();
+    const ttlMs = Math.max(1, runtime.config.technical.sessionTtlMs);
 
     return player && options.sessionTokenCodec
       ? options.sessionTokenCodec.seal({
           serverInstanceId: runtime.record.id,
           playerId: player.id,
           factionId: player.factionId,
-          issuedAt: runtime.clock.nowIso()
+          issuedAt: issuedAt.toISOString(),
+          expiresAt: new Date(issuedAt.getTime() + ttlMs).toISOString()
         })
       : null;
   };

@@ -3,6 +3,7 @@ import {
   createGameplaySessionTokenCodec,
   validateCommandPlayerIdentity
 } from "../../apps/server/src/transport";
+import { createFixedClock } from "../../apps/server/src/runtime/scheduling/clock";
 import { createPlaceTrapCommandFixture } from "../fixtures/command-fixtures";
 
 describe("player identity transport guard", () => {
@@ -87,7 +88,8 @@ describe("player identity transport guard", () => {
       serverInstanceId: "instance:session-owner",
       playerId: "player:session-owner",
       factionId: "mafian",
-      issuedAt: new Date(0).toISOString()
+      issuedAt: "2026-05-17T00:00:00.000Z",
+      expiresAt: "2099-05-18T00:00:00.000Z"
     });
 
     expect(validateCommandPlayerIdentity(command, null, {
@@ -105,7 +107,8 @@ describe("player identity transport guard", () => {
     const sessionToken = codec.seal({
       serverInstanceId: "instance:session-victim",
       playerId: "player:session-attacker",
-      issuedAt: new Date(0).toISOString()
+      issuedAt: "2026-05-17T00:00:00.000Z",
+      expiresAt: "2099-05-18T00:00:00.000Z"
     });
 
     expect(validateCommandPlayerIdentity(command, null, {
@@ -123,5 +126,53 @@ describe("player identity transport guard", () => {
         }
       }
     ]);
+  });
+
+  it("rejects gameplay session tokens without TTL metadata", () => {
+    const command = createPlaceTrapCommandFixture({
+      playerId: "player:session-no-ttl",
+      serverInstanceId: "instance:session-no-ttl"
+    });
+    const codec = createGameplaySessionTokenCodec({
+      secret: "test-session-secret",
+      clock: createFixedClock("2026-05-17T12:00:00.000Z")
+    });
+    const sessionToken = codec.seal({
+      serverInstanceId: "instance:session-no-ttl",
+      playerId: "player:session-no-ttl",
+      issuedAt: "2026-05-17T00:00:00.000Z"
+    } as never);
+
+    expect(validateCommandPlayerIdentity(command, null, {
+      sessionToken,
+      sessionTokenCodec: codec
+    })).toEqual([
+      {
+        code: "transport.session_token_invalid",
+        message: "Gameplay session token is invalid."
+      }
+    ]);
+  });
+
+  it("rejects expired gameplay session tokens", () => {
+    const command = createPlaceTrapCommandFixture({
+      playerId: "player:session-expired",
+      serverInstanceId: "instance:session-expired"
+    });
+    const codec = createGameplaySessionTokenCodec({
+      secret: "test-session-secret",
+      clock: createFixedClock("2026-05-18T00:00:00.001Z")
+    });
+    const sessionToken = codec.seal({
+      serverInstanceId: "instance:session-expired",
+      playerId: "player:session-expired",
+      issuedAt: "2026-05-17T00:00:00.000Z",
+      expiresAt: "2026-05-18T00:00:00.000Z"
+    });
+
+    expect(validateCommandPlayerIdentity(command, null, {
+      sessionToken,
+      sessionTokenCodec: codec
+    })[0]?.code).toBe("transport.session_token_invalid");
   });
 });

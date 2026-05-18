@@ -109,7 +109,12 @@ describe("district building gameplay slice", () => {
     const homeDistrictRender = await client.selectDistrict(districtId);
 
     expect(homeDistrictRender.districtPanel?.districtId).toBe(districtId);
-    expect(homeDistrictRender.districtPanel?.buildings.find((building) => building.buildingTypeId === "pharmacy")?.actions.find((action) => action.actionId === "produce_chemicals")?.disabled).toBe(false);
+    const pharmacyAction = homeDistrictRender.districtPanel?.buildings.find((building) => building.buildingTypeId === "pharmacy")?.actions.find((action) => action.actionId === "produce_chemicals");
+    expect(pharmacyAction?.disabled).toBe(false);
+    expect(pharmacyAction?.statusLabel).toBe("Available");
+    expect(pharmacyAction?.inputSummary).toBe("Free");
+    expect(pharmacyAction?.expectedEffectSummary).toContain("+6 Chemicals");
+    expect(pharmacyAction?.riskSummary).toContain("Heat +1");
     expect(homeDistrictRender.mapDistricts.find((district) => district.districtId === neutralDistrictId)?.isAttackTarget).toBe(true);
 
     const pharmacyBuildingId = homeDistrictRender.districtPanel?.buildings.find(
@@ -171,5 +176,49 @@ describe("district building gameplay slice", () => {
       districtId
     }).readModel?.district?.attackTargets.find((target) => target.districtId === neutralDistrictId)?.enabled).toBe(false);
     expect(districtPanelFeature).toBe("district-panel");
+  });
+
+  it("projects server-authored building action status and required command inputs", async () => {
+    const server = createServerApp();
+    const instanceId = "instance:building-action-inputs";
+    const playerId = "player:building-action-inputs";
+    const districtId = "district:building-action-inputs";
+    const runtime = server.instanceManager.createInstance(instanceId, "free");
+
+    runtime.state = createDistrictBuildingSliceSeed({
+      instanceId,
+      playerId,
+      districtId,
+      mode: "free",
+      homeDistrict: {
+        zone: "park",
+        buildingSetKey: "park-early-1"
+      }
+    });
+    server.instanceManager.startInstance(instanceId);
+
+    const client = createClientApp({
+      transport: createInMemoryClientTransport(server.gameplaySliceTransport)
+    });
+    const render = await client.load({
+      serverInstanceId: instanceId,
+      playerId,
+      districtId
+    });
+    const streetDealerAction = render.districtPanel?.buildings
+      .find((building) => building.buildingTypeId === "street_dealers")
+      ?.actions.find((action) => action.actionId === "start_drug_sale");
+
+    expect(streetDealerAction).toMatchObject({
+      statusLabel: "Blocked",
+      inputs: [
+        expect.objectContaining({ id: "dealerSlotId", type: "select" }),
+        expect.objectContaining({ id: "itemId", type: "select" }),
+        expect.objectContaining({ id: "amount", type: "number", min: 1 })
+      ]
+    });
+    expect(render.sidePanelHtml).toContain('data-building-action-input="dealerSlotId"');
+    expect(render.sidePanelHtml).toContain('data-building-action-input="itemId"');
+    expect(render.sidePanelHtml).toContain('data-building-action-input="amount"');
   });
 });

@@ -140,6 +140,12 @@ var EmpireGameplaySliceClient = function(exports) {
         buildingId: building.buildingId,
         actionId: action.actionId,
         ...input.dealerSlotId ? { dealerSlotId: input.dealerSlotId } : {},
+        ...input.targetCategory ? { targetCategory: input.targetCategory } : {},
+        ...input.category ? { category: input.category } : {},
+        ...input.mode ? { mode: input.mode } : {},
+        ...input.investmentCleanCash !== void 0 ? { investmentCleanCash: input.investmentCleanCash } : {},
+        ...input.investment !== void 0 ? { investment: input.investment } : {},
+        ...input.targetZone ? { targetZone: input.targetZone } : {},
         ...input.itemId ? { itemId: input.itemId } : {},
         ...input.amount !== void 0 ? { amount: input.amount } : {}
       },
@@ -240,20 +246,22 @@ var EmpireGameplaySliceClient = function(exports) {
       const disabledAttribute = action.disabled ? " disabled" : "";
       const reasonAttribute = action.disabledReason ? ` data-disabled-reason="${action.disabledReason}"` : "";
       return [
-        `<div class="district-panel__production">`,
+        `<div class="district-panel__production" data-building-action-controls="${action.actionId}">`,
         `<div class="district-panel__production-head">`,
         `<strong class="district-panel__production-title">${action.label}</strong>`,
-        `<span class="district-panel__production-rate">${renderLiveCooldown(action)}</span>`,
+        `<span class="district-panel__production-rate">${action.statusLabel} · ${renderLiveCooldown(action)}</span>`,
         `</div>`,
         `<p class="district-panel__slot-summary">${action.description}</p>`,
+        action.expectedEffectSummary.length > 0 ? `<p class="district-panel__slot-summary">${action.expectedEffectSummary.join(" · ")}</p>` : "",
         `<div class="district-panel__production-metrics">`,
         `<span class="district-panel__production-metric">Cost ${action.inputSummary}</span>`,
         `<span class="district-panel__production-metric">Gain ${action.outputSummary}</span>`,
         `<span class="district-panel__production-metric">Heat ${action.heatLabel}</span>`,
         `<span class="district-panel__production-metric">Influence ${action.influenceLabel}</span>`,
         `</div>`,
+        action.riskSummary.length > 0 ? `<div class="district-panel__production-metrics">${action.riskSummary.map((entry) => `<span class="district-panel__production-metric">${entry}</span>`).join("")}</div>` : "",
         `<div class="district-panel__action-row">`,
-        building.buildingTypeId === "street_dealers" && action.actionId === "start_drug_sale" ? renderStreetDealerControls() : "",
+        renderBuildingActionInputs(action),
         `<button class="district-panel__action-button district-panel__action-button--craft" data-building-action-building-id="${building.buildingId}" data-building-action-id="${action.actionId}"${disabledAttribute}${reasonAttribute}>${action.label}</button>`,
         action.disabledReason ? `<p class="district-panel__action-reason">${action.disabledReason}</p>` : "",
         `</div>`,
@@ -278,19 +286,18 @@ var EmpireGameplaySliceClient = function(exports) {
         return "•";
     }
   };
-  const renderStreetDealerControls = () => [
-    `<select class="district-panel__action-select" data-dealer-slot-input aria-label="Dealer slot">`,
-    Array.from({ length: 5 }, (_value, index) => `<option value="slot-${index + 1}">Slot ${index + 1}</option>`).join(""),
-    `</select>`,
-    `<select class="district-panel__action-select" data-dealer-item-input aria-label="Drug item">`,
-    `<option value="neon-dust">Neon Dust</option>`,
-    `<option value="pulse-shot">Pulse Shot</option>`,
-    `<option value="velvet-smoke">Velvet Smoke</option>`,
-    `<option value="ghost-serum">Ghost Serum</option>`,
-    `<option value="overdrive-x">Overdrive X</option>`,
-    `</select>`,
-    `<input class="district-panel__action-input" data-dealer-amount-input aria-label="Amount" type="number" min="1" max="12" value="1">`
-  ].join("");
+  const renderBuildingActionInputs = (action) => action.inputs.map((input) => {
+    const dataAttribute = `data-building-action-input="${input.id}"`;
+    const dealerAttribute = input.id === "dealerSlotId" ? " data-dealer-slot-input" : input.id === "itemId" ? " data-dealer-item-input" : input.id === "amount" ? " data-dealer-amount-input" : "";
+    if (input.type === "select") {
+      return [
+        `<select class="district-panel__action-select" ${dataAttribute}${dealerAttribute} aria-label="${input.label}">`,
+        input.options.map((option) => `<option value="${option.value}">${option.label}</option>`).join(""),
+        `</select>`
+      ].join("");
+    }
+    return `<input class="district-panel__action-input" ${dataAttribute}${dealerAttribute} aria-label="${input.label}" type="${input.type}"${input.min !== void 0 ? ` min="${input.min}"` : ""}${input.max !== void 0 ? ` max="${input.max}"` : ""}${input.required ? " required" : ""}${input.type === "number" ? ' value="1"' : ""}>`;
+  }).join("");
   const toCssToken = (value) => String(value || "building").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "building";
   const renderLiveCooldown = (action) => action.cooldownEndsAtMs && action.cooldownRemainingMs > 0 ? [
     `<span data-live-cooldown="true"`,
@@ -503,6 +510,99 @@ var EmpireGameplaySliceClient = function(exports) {
     ].join("") : "",
     "</section>"
   ].join("");
+  const resolveClientSurfaceAction = (target) => {
+    if (!target) {
+      return null;
+    }
+    const districtButton = target.closest("button[data-district-id]");
+    if (districtButton == null ? void 0 : districtButton.dataset.districtId) {
+      return { kind: "select-district", districtId: districtButton.dataset.districtId };
+    }
+    const attackButton = target.closest("button[data-attack-target-id]");
+    if (attackButton == null ? void 0 : attackButton.dataset.attackTargetId) {
+      return { kind: "attack", targetDistrictId: attackButton.dataset.attackTargetId };
+    }
+    const spyButton = target.closest("button[data-spy-target-id]");
+    if (spyButton == null ? void 0 : spyButton.dataset.spyTargetId) {
+      return { kind: "spy", targetDistrictId: spyButton.dataset.spyTargetId };
+    }
+    const occupyButton = target.closest("button[data-occupy-target-id]");
+    if (occupyButton == null ? void 0 : occupyButton.dataset.occupyTargetId) {
+      return { kind: "occupy", targetDistrictId: occupyButton.dataset.occupyTargetId };
+    }
+    const trapButton = target.closest("button[data-place-trap]");
+    if (trapButton) return { kind: "place-trap" };
+    const collectButton = target.closest("button[data-collect-building-id]");
+    if (collectButton == null ? void 0 : collectButton.dataset.collectBuildingId) {
+      return { kind: "collect", buildingId: collectButton.dataset.collectBuildingId };
+    }
+    const buildingAction = resolveBuildingAction(target);
+    if (buildingAction) return buildingAction;
+    const craftButton = target.closest(
+      "button[data-craft-building-id][data-craft-recipe-id]"
+    );
+    if ((craftButton == null ? void 0 : craftButton.dataset.craftBuildingId) && (craftButton == null ? void 0 : craftButton.dataset.craftRecipeId)) {
+      return {
+        kind: "craft",
+        buildingId: craftButton.dataset.craftBuildingId,
+        recipeId: craftButton.dataset.craftRecipeId
+      };
+    }
+    const buildingCard = target.closest("article[data-building-id][data-building-type]");
+    return (buildingCard == null ? void 0 : buildingCard.dataset.buildingId) ? { kind: "open-building", buildingId: buildingCard.dataset.buildingId } : null;
+  };
+  const resolveBuildingAction = (target) => {
+    var _a, _b, _c;
+    const button = target.closest(
+      "button[data-building-action-building-id][data-building-action-id]"
+    );
+    if (!(button == null ? void 0 : button.dataset.buildingActionBuildingId) || !(button == null ? void 0 : button.dataset.buildingActionId)) {
+      return null;
+    }
+    const card = button.closest("article[data-building-id][data-building-type]");
+    const controls = button.closest("[data-building-action-controls]");
+    const inputScope = controls ?? card;
+    const slotInput = (_a = inputScope == null ? void 0 : inputScope.querySelector) == null ? void 0 : _a.call(inputScope, "select[data-dealer-slot-input]");
+    const itemInput = (_b = inputScope == null ? void 0 : inputScope.querySelector) == null ? void 0 : _b.call(inputScope, "select[data-dealer-item-input]");
+    const amountInput = (_c = inputScope == null ? void 0 : inputScope.querySelector) == null ? void 0 : _c.call(inputScope, "input[data-dealer-amount-input]");
+    const inputValues = collectBuildingActionInputValues(inputScope);
+    const amount = Number((amountInput == null ? void 0 : amountInput.value) || (amountInput == null ? void 0 : amountInput.dataset.value) || (amountInput == null ? void 0 : amountInput.dataset.dealerAmountValue) || "");
+    return {
+      kind: "building-action",
+      buildingId: button.dataset.buildingActionBuildingId,
+      actionId: button.dataset.buildingActionId,
+      dealerSlotId: button.dataset.dealerSlotId || (slotInput == null ? void 0 : slotInput.value) || (slotInput == null ? void 0 : slotInput.dataset.value),
+      itemId: button.dataset.dealerItemId || (itemInput == null ? void 0 : itemInput.value) || (itemInput == null ? void 0 : itemInput.dataset.value),
+      amount: Number.isFinite(amount) && amount > 0 ? amount : readNumberInput(inputValues, "amount"),
+      ...inputValues
+    };
+  };
+  const collectBuildingActionInputValues = (buildingCard) => {
+    const inputIds = [
+      "targetCategory",
+      "category",
+      "mode",
+      "investmentCleanCash",
+      "investment",
+      "targetZone",
+      "amount"
+    ];
+    return Object.fromEntries(inputIds.map((inputId) => {
+      var _a;
+      const element = (_a = buildingCard == null ? void 0 : buildingCard.querySelector) == null ? void 0 : _a.call(buildingCard, `[data-building-action-input="${inputId}"]`);
+      const value = (element == null ? void 0 : element.value) || (element == null ? void 0 : element.dataset.value);
+      const parsed = ["amount", "investment", "investmentCleanCash"].includes(inputId) ? toPositiveNumber(value) : value;
+      return [inputId, parsed || void 0];
+    }));
+  };
+  const readNumberInput = (values, key) => {
+    const value = values[key];
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : void 0;
+  };
+  const toPositiveNumber = (value) => {
+    const parsed = Number(value || "");
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : void 0;
+  };
   const createClientSurfaceActionRouter = (options) => ({
     handleTarget: async (target) => {
       const action = resolveClientSurfaceAction(target);
@@ -569,6 +669,12 @@ var EmpireGameplaySliceClient = function(exports) {
               buildingId: action.buildingId,
               actionId: action.actionId,
               dealerSlotId: action.dealerSlotId,
+              targetCategory: readStringValue(action, "targetCategory"),
+              category: readStringValue(action, "category"),
+              mode: readStringValue(action, "mode"),
+              investmentCleanCash: readNumberValue(action, "investmentCleanCash"),
+              investment: readNumberValue(action, "investment"),
+              targetZone: readStringValue(action, "targetZone"),
               itemId: action.itemId,
               amount: action.amount,
               issuedAt
@@ -601,88 +707,13 @@ var EmpireGameplaySliceClient = function(exports) {
       }
     }
   });
-  const resolveClientSurfaceAction = (target) => {
-    var _a, _b, _c;
-    if (!target) {
-      return null;
-    }
-    const districtButton = target.closest("button[data-district-id]");
-    if (districtButton == null ? void 0 : districtButton.dataset.districtId) {
-      return {
-        kind: "select-district",
-        districtId: districtButton.dataset.districtId
-      };
-    }
-    const attackButton = target.closest("button[data-attack-target-id]");
-    if (attackButton == null ? void 0 : attackButton.dataset.attackTargetId) {
-      return {
-        kind: "attack",
-        targetDistrictId: attackButton.dataset.attackTargetId
-      };
-    }
-    const spyButton = target.closest("button[data-spy-target-id]");
-    if (spyButton == null ? void 0 : spyButton.dataset.spyTargetId) {
-      return {
-        kind: "spy",
-        targetDistrictId: spyButton.dataset.spyTargetId
-      };
-    }
-    const occupyButton = target.closest("button[data-occupy-target-id]");
-    if (occupyButton == null ? void 0 : occupyButton.dataset.occupyTargetId) {
-      return {
-        kind: "occupy",
-        targetDistrictId: occupyButton.dataset.occupyTargetId
-      };
-    }
-    const trapButton = target.closest("button[data-place-trap]");
-    if (trapButton) {
-      return {
-        kind: "place-trap"
-      };
-    }
-    const collectButton = target.closest("button[data-collect-building-id]");
-    if (collectButton == null ? void 0 : collectButton.dataset.collectBuildingId) {
-      return {
-        kind: "collect",
-        buildingId: collectButton.dataset.collectBuildingId
-      };
-    }
-    const buildingActionButton = target.closest(
-      "button[data-building-action-building-id][data-building-action-id]"
-    );
-    if ((buildingActionButton == null ? void 0 : buildingActionButton.dataset.buildingActionBuildingId) && (buildingActionButton == null ? void 0 : buildingActionButton.dataset.buildingActionId)) {
-      const buildingCard2 = buildingActionButton.closest("article[data-building-id][data-building-type]");
-      const slotInput = (_a = buildingCard2 == null ? void 0 : buildingCard2.querySelector) == null ? void 0 : _a.call(buildingCard2, "select[data-dealer-slot-input]");
-      const itemInput = (_b = buildingCard2 == null ? void 0 : buildingCard2.querySelector) == null ? void 0 : _b.call(buildingCard2, "select[data-dealer-item-input]");
-      const amountInput = (_c = buildingCard2 == null ? void 0 : buildingCard2.querySelector) == null ? void 0 : _c.call(buildingCard2, "input[data-dealer-amount-input]");
-      const amount = Number((amountInput == null ? void 0 : amountInput.value) || (amountInput == null ? void 0 : amountInput.dataset.value) || (amountInput == null ? void 0 : amountInput.dataset.dealerAmountValue) || "");
-      return {
-        kind: "building-action",
-        buildingId: buildingActionButton.dataset.buildingActionBuildingId,
-        actionId: buildingActionButton.dataset.buildingActionId,
-        dealerSlotId: buildingActionButton.dataset.dealerSlotId || (slotInput == null ? void 0 : slotInput.value) || (slotInput == null ? void 0 : slotInput.dataset.value),
-        itemId: buildingActionButton.dataset.dealerItemId || (itemInput == null ? void 0 : itemInput.value) || (itemInput == null ? void 0 : itemInput.dataset.value),
-        amount: Number.isFinite(amount) && amount > 0 ? amount : void 0
-      };
-    }
-    const craftButton = target.closest(
-      "button[data-craft-building-id][data-craft-recipe-id]"
-    );
-    if ((craftButton == null ? void 0 : craftButton.dataset.craftBuildingId) && (craftButton == null ? void 0 : craftButton.dataset.craftRecipeId)) {
-      return {
-        kind: "craft",
-        buildingId: craftButton.dataset.craftBuildingId,
-        recipeId: craftButton.dataset.craftRecipeId
-      };
-    }
-    const buildingCard = target.closest("article[data-building-id][data-building-type]");
-    if (buildingCard == null ? void 0 : buildingCard.dataset.buildingId) {
-      return {
-        kind: "open-building",
-        buildingId: buildingCard.dataset.buildingId
-      };
-    }
-    return null;
+  const readStringValue = (action, key) => {
+    const value = action[key];
+    return typeof value === "string" && value.trim() ? value : void 0;
+  };
+  const readNumberValue = (action, key) => {
+    const value = action[key];
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : void 0;
   };
   const createInitialClientReadModel = () => ({
     playerView: null,
@@ -920,6 +951,31 @@ var EmpireGameplaySliceClient = function(exports) {
     ).join(""),
     "</section>"
   ].join("");
+  const toTitleCase$3 = (value) => value.split(/[-_]+/g).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
+  const getStoragePercent = (storedAmount, storageCap) => Math.max(0, Math.min(100, Math.round(Math.max(0, storedAmount) / Math.max(1, storageCap) * 100)));
+  const formatTickLabel = (tickCount) => `${tickCount} ${tickCount === 1 ? "tick" : "ticks"}`;
+  const createCooldownCountdown = (remainingTicks, tickRateMs, nowMs) => {
+    const remainingMs = Math.max(0, Math.ceil(remainingTicks) * tickRateMs);
+    return { remainingMs, endsAtMs: remainingMs > 0 ? nowMs + remainingMs : null };
+  };
+  const formatDurationMs = (durationMs) => {
+    const totalSeconds = Math.max(0, Math.ceil(durationMs / 1e3));
+    if (totalSeconds < 60) {
+      return `${totalSeconds}s`;
+    }
+    const totalMinutes = Math.ceil(totalSeconds / 60);
+    if (totalMinutes < 60) {
+      return `${totalMinutes}m`;
+    }
+    const hours = Math.round(totalMinutes / 60 * 10) / 10;
+    return `${hours}h`;
+  };
+  const formatHeatLabel$1 = (value) => String(Math.round(Number.isFinite(value) ? value : 0));
+  const formatResourceSummary = (values, emptyLabel) => {
+    const parts = Object.entries(values).filter(([, amount]) => amount > 0);
+    return parts.length > 0 ? parts.map(([resourceKey, amount]) => `${amount} ${toTitleCase$3(resourceKey)}`).join(" + ") : emptyLabel;
+  };
+  const formatSigned$1 = (value) => value >= 0 ? `+${value}` : String(value);
   const createDistrictPanelViewModel = (slice, uiState, options = {}) => {
     if (!(slice == null ? void 0 : slice.district) || uiState.selectedDistrictId !== slice.district.districtId) {
       return null;
@@ -990,7 +1046,7 @@ var EmpireGameplaySliceClient = function(exports) {
           value: stat.value
         })),
         specialActions: building.specialActions.map((action) => {
-          const cooldown = createCooldownCountdown(action.cooldownRemainingTicks, tickRateMs, nowMs);
+          const cooldown = createCooldownCountdown(action.cooldownRemainingTicks ?? 0, tickRateMs, nowMs);
           return {
             actionId: action.actionId,
             label: action.label,
@@ -1006,13 +1062,25 @@ var EmpireGameplaySliceClient = function(exports) {
           };
         }),
         actions: building.actions.map((action) => {
-          const cooldown = createCooldownCountdown(action.cooldownRemainingTicks, tickRateMs, nowMs);
+          const cooldown = createCooldownCountdown(action.cooldownRemainingTicks ?? 0, tickRateMs, nowMs);
           return {
             actionId: action.actionId,
             label: action.label,
             description: action.description,
+            statusLabel: toTitleCase$3(action.status),
             inputSummary: formatResourceSummary(action.inputCost, "Free"),
             outputSummary: formatResourceSummary(action.outputGain, "No output"),
+            expectedEffectSummary: action.expectedEffectSummary,
+            riskSummary: action.riskSummary,
+            inputs: action.requiresInput.map((input) => ({
+              id: input.id,
+              type: input.type,
+              label: input.label,
+              required: input.required,
+              min: input.min,
+              max: input.max,
+              options: input.options ?? []
+            })),
             cooldownLabel: cooldown.remainingMs > 0 ? `Cooldown ${formatDurationMs(cooldown.remainingMs)}` : `${Math.ceil(action.cooldownMs / 1e3)}s cooldown`,
             cooldownRemainingMs: cooldown.remainingMs,
             cooldownEndsAtMs: cooldown.endsAtMs,
@@ -1061,31 +1129,6 @@ var EmpireGameplaySliceClient = function(exports) {
       }))
     };
   };
-  const toTitleCase$3 = (value) => value.split(/[-_]+/g).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
-  const getStoragePercent = (storedAmount, storageCap) => Math.max(0, Math.min(100, Math.round(Math.max(0, storedAmount) / Math.max(1, storageCap) * 100)));
-  const formatTickLabel = (tickCount) => `${tickCount} ${tickCount === 1 ? "tick" : "ticks"}`;
-  const createCooldownCountdown = (remainingTicks, tickRateMs, nowMs) => {
-    const remainingMs = Math.max(0, Math.ceil(remainingTicks) * tickRateMs);
-    return { remainingMs, endsAtMs: remainingMs > 0 ? nowMs + remainingMs : null };
-  };
-  const formatDurationMs = (durationMs) => {
-    const totalSeconds = Math.max(0, Math.ceil(durationMs / 1e3));
-    if (totalSeconds < 60) {
-      return `${totalSeconds}s`;
-    }
-    const totalMinutes = Math.ceil(totalSeconds / 60);
-    if (totalMinutes < 60) {
-      return `${totalMinutes}m`;
-    }
-    const hours = Math.round(totalMinutes / 60 * 10) / 10;
-    return `${hours}h`;
-  };
-  const formatHeatLabel$1 = (value) => String(Math.round(Number.isFinite(value) ? value : 0));
-  const formatResourceSummary = (values, emptyLabel) => {
-    const parts = Object.entries(values).filter(([, amount]) => amount > 0);
-    return parts.length > 0 ? parts.map(([resourceKey, amount]) => `${amount} ${toTitleCase$3(resourceKey)}`).join(" + ") : emptyLabel;
-  };
-  const formatSigned$1 = (value) => value >= 0 ? `+${value}` : String(value);
   const createMapDistrictViewModels = (districts, selectedDistrictId, attackTargets = []) => districts.map((district) => {
     const attackTarget = attackTargets.find((target) => target.districtId === district.districtId);
     const isDestroyed = district.status === "destroyed";

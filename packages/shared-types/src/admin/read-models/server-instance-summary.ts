@@ -15,7 +15,6 @@ export interface ServerInstanceSummary {
   createdAt: string;
   tick: number;
   joinable: boolean;
-  worldSeed: string | null;
   phase: string;
   map: ServerInstanceMapSummary;
 }

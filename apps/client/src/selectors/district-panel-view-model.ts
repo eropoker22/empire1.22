@@ -2,6 +2,16 @@ import type { GameplaySliceView } from "@empire/shared-types";
 import type { ClientUiState } from "../state";
 export * from "./district-panel-view-model-types";
 import type { DistrictPanelViewModel } from "./district-panel-view-model-types";
+import {
+  createCooldownCountdown,
+  formatDurationMs,
+  formatHeatLabel,
+  formatResourceSummary,
+  formatSigned,
+  formatTickLabel,
+  getStoragePercent,
+  toTitleCase
+} from "./district-panel-view-model-formatters";
 
 /**
  * Responsibility: Maps server-fed district slice data into UI-ready district panel fields.
@@ -115,7 +125,7 @@ export const createDistrictPanelViewModel = (
         value: stat.value
       })),
       specialActions: building.specialActions.map((action) => {
-        const cooldown = createCooldownCountdown(action.cooldownRemainingTicks, tickRateMs, nowMs);
+        const cooldown = createCooldownCountdown(action.cooldownRemainingTicks ?? 0, tickRateMs, nowMs);
 
         return {
           actionId: action.actionId,
@@ -136,14 +146,26 @@ export const createDistrictPanelViewModel = (
         };
       }),
       actions: building.actions.map((action) => {
-        const cooldown = createCooldownCountdown(action.cooldownRemainingTicks, tickRateMs, nowMs);
+        const cooldown = createCooldownCountdown(action.cooldownRemainingTicks ?? 0, tickRateMs, nowMs);
 
         return {
           actionId: action.actionId,
           label: action.label,
           description: action.description,
+          statusLabel: toTitleCase(action.status),
           inputSummary: formatResourceSummary(action.inputCost, "Free"),
           outputSummary: formatResourceSummary(action.outputGain, "No output"),
+          expectedEffectSummary: action.expectedEffectSummary,
+          riskSummary: action.riskSummary,
+          inputs: action.requiresInput.map((input) => ({
+            id: input.id,
+            type: input.type,
+            label: input.label,
+            required: input.required,
+            min: input.min,
+            max: input.max,
+            options: input.options ?? []
+          })),
           cooldownLabel: cooldown.remainingMs > 0
             ? `Cooldown ${formatDurationMs(cooldown.remainingMs)}`
             : `${Math.ceil(action.cooldownMs / 1000)}s cooldown`,
@@ -214,52 +236,3 @@ export const createDistrictPanelViewModel = (
     }))
   };
 };
-
-const toTitleCase = (value: string): string =>
-  value
-    .split(/[-_]+/g)
-    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
-    .join(" ");
-
-const getStoragePercent = (storedAmount: number, storageCap: number): number =>
-  Math.max(0, Math.min(100, Math.round((Math.max(0, storedAmount) / Math.max(1, storageCap)) * 100)));
-
-const formatTickLabel = (tickCount: number): string => `${tickCount} ${tickCount === 1 ? "tick" : "ticks"}`;
-
-const createCooldownCountdown = (
-  remainingTicks: number,
-  tickRateMs: number,
-  nowMs: number
-): { remainingMs: number; endsAtMs: number | null } => {
-  const remainingMs = Math.max(0, Math.ceil(remainingTicks) * tickRateMs);
-  return { remainingMs, endsAtMs: remainingMs > 0 ? nowMs + remainingMs : null };
-};
-
-const formatDurationMs = (durationMs: number): string => {
-  const totalSeconds = Math.max(0, Math.ceil(durationMs / 1000));
-  if (totalSeconds < 60) {
-    return `${totalSeconds}s`;
-  }
-  const totalMinutes = Math.ceil(totalSeconds / 60);
-  if (totalMinutes < 60) {
-    return `${totalMinutes}m`;
-  }
-  const hours = Math.round((totalMinutes / 60) * 10) / 10;
-  return `${hours}h`;
-};
-
-const formatHeatLabel = (value: number): string =>
-  String(Math.round(Number.isFinite(value) ? value : 0));
-
-const formatResourceSummary = (
-  values: Record<string, number>,
-  emptyLabel: string
-): string => {
-  const parts = Object.entries(values).filter(([, amount]) => amount > 0);
-
-  return parts.length > 0
-    ? parts.map(([resourceKey, amount]) => `${amount} ${toTitleCase(resourceKey)}`).join(" + ")
-    : emptyLabel;
-};
-
-const formatSigned = (value: number): string => value >= 0 ? `+${value}` : String(value);

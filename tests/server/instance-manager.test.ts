@@ -71,6 +71,9 @@ describe("ServerInstanceManager", () => {
 
     const load = server.gameplaySliceTransport.load(request);
     const readModel = load.readModel as GameplaySliceView;
+    expect(readModel.player.serverTime).toBe(fixedNow);
+    expect(readModel.player.police?.updatedAt).toBe(fixedNow);
+    expect(readModel.police?.updatedAt).toBe(fixedNow);
     const focusDistrictId = readModel.district!.districtId;
     const building = readModel.district!.buildings.find((candidate) => candidate.actions.length > 0);
 

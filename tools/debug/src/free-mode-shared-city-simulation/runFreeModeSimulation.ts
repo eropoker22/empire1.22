@@ -42,6 +42,7 @@ export const runFreeModeSimulation = async (
   const playerIds = Array.from({ length: playerCount }, (_, index) => `player:free-sim:${index + 1}` as PlayerId);
   const counters = createInitialSimulationCounters();
   const spiedRoutes = new Set<string>();
+  const sessionTokensByPlayerId = new Map<PlayerId, string>();
   const playerProfiles = new Map<PlayerId, ReturnType<typeof getBotProfileForPlayer>>();
   const perRound = [];
   let previousRoundReport = createZeroFinalReport();
@@ -56,7 +57,10 @@ export const runFreeModeSimulation = async (
     );
     if (!result.accepted) {
       for (const error of result.errors) incrementRecord(counters.errorsByCode, error.code);
+      continue;
     }
+
+    refreshGameplaySessionToken(server, createLoadRequest(instanceId, playerId, index + 1, options.factionRotation), sessionTokensByPlayerId);
   }
 
   for (let round = 1; round <= rounds; round += 1) {
@@ -71,7 +75,7 @@ export const runFreeModeSimulation = async (
         playerIndex,
         spiedRoutes,
         profile,
-        (districtId) => loadGameplaySliceView(server, instanceId, playerId, districtId)
+        (districtId) => loadGameplaySliceView(server, instanceId, playerId, districtId, sessionTokensByPlayerId)
       );
 
       if (!action) {
@@ -80,10 +84,12 @@ export const runFreeModeSimulation = async (
       }
 
       const response = server.gameplaySliceTransport.submit({
+        sessionToken: sessionTokensByPlayerId.get(playerId) ?? null,
         focusDistrictId: action.focusDistrictId,
         command: action.command
       });
       recordSimulationResponse(response, counters, action.command.type, profile);
+      if (response.sessionToken) sessionTokensByPlayerId.set(playerId, response.sessionToken);
       if (response.accepted && action.routeKey) spiedRoutes.add(action.routeKey);
     }
 
@@ -104,7 +110,7 @@ export const runFreeModeSimulation = async (
   }
 
   if (options.includeInvalidProbe) {
-    submitInvalidProbe(instanceId, server, counters, playerProfiles);
+    submitInvalidProbe(instanceId, server, counters, playerProfiles, sessionTokensByPlayerId);
   }
 
   const runtime = server.instanceManager.getInstanceById(instanceId);
@@ -147,7 +153,8 @@ const submitInvalidProbe = (
   instanceId: ServerInstanceId,
   server: ReturnType<typeof createServerApp>,
   counters: ReturnType<typeof createInitialSimulationCounters>,
-  playerProfiles: Map<PlayerId, ReturnType<typeof getBotProfileForPlayer>>
+  playerProfiles: Map<PlayerId, ReturnType<typeof getBotProfileForPlayer>>,
+  sessionTokensByPlayerId: Map<PlayerId, string>
 ): void => {
   const runtime = server.instanceManager.getInstanceById(instanceId);
   const playerId = runtime?.state.root.playerIds[0];
@@ -156,6 +163,7 @@ const submitInvalidProbe = (
 
   recordSimulationResponse(
     server.gameplaySliceTransport.submit({
+      sessionToken: sessionTokensByPlayerId.get(playerId) ?? null,
       focusDistrictId: "district:invalid-probe",
       command: createSpyCommand(instanceId, playerId, homeDistrictId, "district:missing-invalid-probe", 0, 0)
     }),
@@ -169,14 +177,27 @@ const loadGameplaySliceView = (
   server: ReturnType<typeof createServerApp>,
   instanceId: ServerInstanceId,
   playerId: PlayerId,
-  districtId: DistrictId
-): GameplaySliceView | null =>
-  server.gameplaySliceTransport.load({
+  districtId: DistrictId,
+  sessionTokensByPlayerId: Map<PlayerId, string>
+): GameplaySliceView | null => {
+  const response = server.gameplaySliceTransport.load({
     serverInstanceId: instanceId,
     playerId,
     districtId,
     factionId: null
-  }).readModel;
+  });
+  if (response.sessionToken) sessionTokensByPlayerId.set(playerId, response.sessionToken);
+  return response.readModel;
+};
+
+const refreshGameplaySessionToken = (
+  server: ReturnType<typeof createServerApp>,
+  request: LoadGameplaySliceRequest,
+  sessionTokensByPlayerId: Map<PlayerId, string>
+): void => {
+  const response = server.gameplaySliceTransport.load(request);
+  if (response.sessionToken) sessionTokensByPlayerId.set(request.playerId, response.sessionToken);
+};
 
 const createEmptySimulationResult = (
   instanceId: ServerInstanceId,

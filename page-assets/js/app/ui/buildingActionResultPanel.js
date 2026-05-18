@@ -1,4 +1,5 @@
 function resolveDocument(container) {
+  // Preview-only legacy panel helper. Authoritative building action reports come from the server slice.
   return container?.ownerDocument || (typeof document !== "undefined" ? document : null);
 }
 

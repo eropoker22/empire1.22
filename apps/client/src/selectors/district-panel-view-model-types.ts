@@ -52,8 +52,12 @@ export interface DistrictPanelBuildingActionViewModel {
   actionId: string;
   label: string;
   description: string;
+  statusLabel: string;
   inputSummary: string;
   outputSummary: string;
+  expectedEffectSummary: string[];
+  riskSummary: string[];
+  inputs: DistrictPanelBuildingActionInputViewModel[];
   cooldownLabel: string;
   cooldownRemainingMs: number;
   cooldownEndsAtMs: number | null;
@@ -61,6 +65,19 @@ export interface DistrictPanelBuildingActionViewModel {
   influenceLabel: string;
   disabled: boolean;
   disabledReason: string | null;
+}
+
+export interface DistrictPanelBuildingActionInputViewModel {
+  id: string;
+  type: "number" | "select" | "text";
+  label: string;
+  required: boolean;
+  min?: number;
+  max?: number;
+  options: Array<{
+    value: string;
+    label: string;
+  }>;
 }
 
 export interface DistrictPanelBuildingViewModel {

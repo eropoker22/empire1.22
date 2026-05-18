@@ -79,9 +79,16 @@ const createCooldownSlice = (): GameplaySliceView => ({
         },
         actions: [
           {
+            buildingId: "building:armory:1",
+            buildingTypeId: "armory",
             actionId: "armory_fortify",
             label: "Fortify",
             description: "Adds defenses.",
+            status: "cooldown",
+            cost: {},
+            expectedEffectSummary: [],
+            riskSummary: ["Heat +1"],
+            requiresInput: [],
             durationMs: 5000,
             cooldownMs: 10000,
             cooldownRemainingTicks: 3,

@@ -35,9 +35,10 @@ export const createDistrictPanelView = (
   const playerBalances = player
     ? state.resourceStatesById[player.resourceStateId]?.balances ?? {}
     : {};
-  const attackTargets = createDistrictAttackTargetViews(state, input.playerId, district.id);
-  const occupyTargets = createDistrictOccupyTargetViews(state, input.playerId, district.id, input.conflictConfig);
-  const spyTargets = createDistrictSpyTargetViews(state, input.playerId, district.id);
+  const issuedAt = input.issuedAt ?? new Date().toISOString();
+  const attackTargets = createDistrictAttackTargetViews(state, input.playerId, district.id, issuedAt);
+  const occupyTargets = createDistrictOccupyTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
+  const spyTargets = createDistrictSpyTargetViews(state, input.playerId, district.id, issuedAt);
   const trap = createTrapView(state, input.playerId, district.id);
   const isDestroyed = district.status === "destroyed";
 

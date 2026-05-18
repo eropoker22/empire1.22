@@ -42,6 +42,7 @@ export default defineConfig({
       fileName: () => "gameplay-slice.mjs"
     },
     rollupOptions: {
+      external: ["node:crypto"],
       output: {
         inlineDynamicImports: true
       }

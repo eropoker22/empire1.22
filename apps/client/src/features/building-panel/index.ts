@@ -132,22 +132,26 @@ export const renderDistrictBuilding = (
               : "";
 
             return [
-              `<div class="district-panel__production">`,
+              `<div class="district-panel__production" data-building-action-controls="${action.actionId}">`,
               `<div class="district-panel__production-head">`,
               `<strong class="district-panel__production-title">${action.label}</strong>`,
-              `<span class="district-panel__production-rate">${renderLiveCooldown(action)}</span>`,
+              `<span class="district-panel__production-rate">${action.statusLabel} · ${renderLiveCooldown(action)}</span>`,
               `</div>`,
               `<p class="district-panel__slot-summary">${action.description}</p>`,
+              action.expectedEffectSummary.length > 0
+                ? `<p class="district-panel__slot-summary">${action.expectedEffectSummary.join(" · ")}</p>`
+                : "",
               `<div class="district-panel__production-metrics">`,
               `<span class="district-panel__production-metric">Cost ${action.inputSummary}</span>`,
               `<span class="district-panel__production-metric">Gain ${action.outputSummary}</span>`,
               `<span class="district-panel__production-metric">Heat ${action.heatLabel}</span>`,
               `<span class="district-panel__production-metric">Influence ${action.influenceLabel}</span>`,
               `</div>`,
-              `<div class="district-panel__action-row">`,
-              building.buildingTypeId === "street_dealers" && action.actionId === "start_drug_sale"
-                ? renderStreetDealerControls()
+              action.riskSummary.length > 0
+                ? `<div class="district-panel__production-metrics">${action.riskSummary.map((entry) => `<span class="district-panel__production-metric">${entry}</span>`).join("")}</div>`
                 : "",
+              `<div class="district-panel__action-row">`,
+              renderBuildingActionInputs(action),
               `<button class="district-panel__action-button district-panel__action-button--craft" data-building-action-building-id="${building.buildingId}" data-building-action-id="${action.actionId}"${disabledAttribute}${reasonAttribute}>${action.label}</button>`,
               action.disabledReason
                 ? `<p class="district-panel__action-reason">${action.disabledReason}</p>`
@@ -178,20 +182,31 @@ const getBuildingIcon = (buildingTypeId: string | null): string => {
   }
 };
 
-const renderStreetDealerControls = (): string =>
-  [
-    `<select class="district-panel__action-select" data-dealer-slot-input aria-label="Dealer slot">`,
-    Array.from({ length: 5 }, (_value, index) => `<option value="slot-${index + 1}">Slot ${index + 1}</option>`).join(""),
-    `</select>`,
-    `<select class="district-panel__action-select" data-dealer-item-input aria-label="Drug item">`,
-    `<option value="neon-dust">Neon Dust</option>`,
-    `<option value="pulse-shot">Pulse Shot</option>`,
-    `<option value="velvet-smoke">Velvet Smoke</option>`,
-    `<option value="ghost-serum">Ghost Serum</option>`,
-    `<option value="overdrive-x">Overdrive X</option>`,
-    `</select>`,
-    `<input class="district-panel__action-input" data-dealer-amount-input aria-label="Amount" type="number" min="1" max="12" value="1">`
-  ].join("");
+const renderBuildingActionInputs = (
+  action: DistrictPanelBuildingViewModel["actions"][number]
+): string =>
+  action.inputs
+    .map((input) => {
+      const dataAttribute = `data-building-action-input="${input.id}"`;
+      const dealerAttribute = input.id === "dealerSlotId"
+        ? " data-dealer-slot-input"
+        : input.id === "itemId"
+          ? " data-dealer-item-input"
+          : input.id === "amount"
+            ? " data-dealer-amount-input"
+            : "";
+
+      if (input.type === "select") {
+        return [
+          `<select class="district-panel__action-select" ${dataAttribute}${dealerAttribute} aria-label="${input.label}">`,
+          input.options.map((option) => `<option value="${option.value}">${option.label}</option>`).join(""),
+          `</select>`
+        ].join("");
+      }
+
+      return `<input class="district-panel__action-input" ${dataAttribute}${dealerAttribute} aria-label="${input.label}" type="${input.type}"${input.min !== undefined ? ` min="${input.min}"` : ""}${input.max !== undefined ? ` max="${input.max}"` : ""}${input.required ? " required" : ""}${input.type === "number" ? " value=\"1\"" : ""}>`;
+    })
+    .join("");
 
 const toCssToken = (value: string): string =>
   String(value || "building")

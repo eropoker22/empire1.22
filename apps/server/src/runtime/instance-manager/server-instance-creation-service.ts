@@ -76,6 +76,22 @@ export const createServerInstanceCreationService = (
 
     sequence += 1;
     const serverInstanceId = request.serverInstanceId ?? createServerInstanceId(request.mode, request.region, clock, sequence);
+    if (instanceManager.getInstanceById(serverInstanceId)) {
+      return {
+        accepted: false,
+        runtime: null,
+        errors: [
+          {
+            code: "server.instance_already_exists",
+            message: "Server instance already exists.",
+            details: {
+              serverInstanceId
+            }
+          }
+        ]
+      };
+    }
+
     const runtime = instanceManager.createInstance(serverInstanceId, request.mode, {
       displayName: request.displayName,
       region: request.region,

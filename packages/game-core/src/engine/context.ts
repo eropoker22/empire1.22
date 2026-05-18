@@ -7,5 +7,8 @@ import type { ResolvedGameModeConfig } from "../contracts";
  */
 export interface GameCoreContext {
   config: ResolvedGameModeConfig;
+  clock?: {
+    now(): Date;
+    nowIso(): string;
+  };
 }
-

@@ -38,7 +38,7 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
     mode: state.serverInstance.mode,
     factionId: player?.factionId ?? "mafian",
     color: player?.color ?? DEFAULT_PLAYER_COLOR,
-    serverTime: new Date(0).toISOString(),
+    serverTime: context?.clock?.nowIso() ?? new Date().toISOString(),
     resourceBalances,
     economy,
     faction: createFactionReadModel(state, playerId, context),

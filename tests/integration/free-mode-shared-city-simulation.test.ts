@@ -23,7 +23,7 @@ describe("free-mode shared city simulation harness", () => {
     expect(report.playerCount).toBe(20);
     expect(report.uniqueHomeDistricts).toBe(20);
     expect(result.finalStateSummary.homeDistrictIds).toHaveLength(20);
-    expect(report.districtCount).toBe(28);
+    expect(report.districtCount).toBe(161);
     expect(report.connectedMap).toBe(true);
     expect(report.tickCount).toBe(18);
     expect(report.crashedInstances).toBe(0);

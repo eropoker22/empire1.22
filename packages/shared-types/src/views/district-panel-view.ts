@@ -65,21 +65,47 @@ export interface DistrictPanelSlotCraftView {
   craftDisabledReason: string | null;
 }
 
-export interface DistrictPanelBuildingActionView {
+export type BuildingActionStatus = "available" | "cooldown" | "missing_cost" | "blocked" | "planned";
+
+export interface BuildingActionInputOptionView {
+  value: string;
+  label: string;
+}
+
+export interface BuildingActionInputView {
+  id: string;
+  type: "number" | "select" | "text";
+  label: string;
+  required: boolean;
+  min?: number;
+  max?: number;
+  options?: BuildingActionInputOptionView[];
+}
+
+export interface BuildingActionView {
+  buildingId: BuildingId;
+  buildingTypeId: string;
   actionId: string;
   label: string;
   description: string;
+  status: BuildingActionStatus;
+  disabledReason: string | null;
+  cooldownRemainingTicks: number | null;
+  cost: Record<string, number>;
+  expectedEffectSummary: string[];
+  riskSummary: string[];
+  requiresInput: BuildingActionInputView[];
   durationMs: number;
   cooldownMs: number;
-  cooldownRemainingTicks: number;
   inputCost: Record<string, number>;
   outputGain: Record<string, number>;
   heatGain: number;
   influenceChange: number;
   reportText: string;
   enabled: boolean;
-  disabledReason: string | null;
 }
+
+export type DistrictPanelBuildingActionView = BuildingActionView;
 
 export interface DistrictPanelBuildingStatView {
   label: string;

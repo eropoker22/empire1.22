@@ -4,6 +4,12 @@ import type { CoreGameState } from "../entities/game-state";
 import type { DistrictPanelBuildingCatalogEntry } from "./district-building-catalog-types";
 import { createBuildingStats } from "./district-building-stats-projection";
 import { formatInputSummary, formatResourceLabel, formatTickLabel } from "./district-building-action-formatters";
+import {
+  createExpectedEffectSummary,
+  createRequiredInputViews,
+  createRiskSummary,
+  resolveBuildingActionStatus
+} from "./district-building-action-view-helpers";
 import { getAirportMetadata } from "../handlers/airportBuildingActions";
 import { getCentralBankMetadata } from "../handlers/centralBankBuildingActions";
 import { getCityHallMetadata } from "../handlers/cityHallBuildingActions";
@@ -351,23 +357,42 @@ const createBuildingActionViews = (input: {
                               : cooldownRemainingTicks > 0
                                 ? `Cooldown ${formatTickLabel(cooldownRemainingTicks)}.`
                                 : missingCosts.length > 0
-                                  ? `Need ${formatInputSummary(Object.fromEntries(missingCosts))}.`
+                                ? `Need ${formatInputSummary(Object.fromEntries(missingCosts))}.`
                                   : null;
+      const status = resolveBuildingActionStatus({
+        disabledReason,
+        cooldownRemainingTicks,
+        missingCostCount: missingCosts.length
+      });
 
       return {
+        buildingId: input.building.id,
+        buildingTypeId: input.building.buildingTypeId,
         actionId: action.actionId,
         label: action.label,
         description: action.description,
+        status,
+        disabledReason,
+        cooldownRemainingTicks,
+        cost: { ...action.inputCost },
+        expectedEffectSummary: createExpectedEffectSummary(action),
+        riskSummary: createRiskSummary(action),
+        requiresInput: createRequiredInputViews({
+          action,
+          stockExchangeConfig: input.stockExchangeConfig,
+          centralBankConfig: input.centralBankConfig,
+          airportConfig: input.airportConfig,
+          cityHallConfig: input.cityHallConfig,
+          streetDealersConfig: input.streetDealersConfig
+        }),
         durationMs: action.durationMs,
         cooldownMs: action.cooldownMs,
-        cooldownRemainingTicks,
         inputCost: { ...action.inputCost },
         outputGain: { ...action.outputGain },
         heatGain: action.heatGain,
         influenceChange: action.influenceChange,
         reportText: action.reportText,
-        enabled: disabledReason === null,
-        disabledReason
+        enabled: status === "available"
       };
     });
 

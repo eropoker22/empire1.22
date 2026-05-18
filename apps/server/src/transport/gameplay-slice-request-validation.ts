@@ -3,6 +3,7 @@ import type {
   LoadGameplaySliceRequest,
   SubmitGameplayCommandRequest
 } from "@empire/shared-types";
+import { validateGameCommandPayload } from "./gameplay-command-payload-validation";
 
 type GameplaySliceRequestKind = "load" | "submit";
 
@@ -90,6 +91,7 @@ const validateGameCommandShape = (
   requireStringField(errors, "submit", command, "playerId", "command.playerId");
   requireStringField(errors, "submit", command, "mode", "command.mode");
   requireStringField(errors, "submit", command, "issuedAt", "command.issuedAt");
+  validateGameCommandPayload(errors, command);
 };
 
 export const createGameplaySliceValidationResponse = (

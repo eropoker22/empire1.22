@@ -16,7 +16,6 @@ export const createServerInstanceSummary = (
   createdAt: runtime.record.createdAt,
   tick: runtime.state.root.tick,
   joinable: isRuntimeJoinable(runtime),
-  worldSeed: runtime.state.serverInstance.worldSeed || null,
   phase: runtime.state.root.phase,
   map: createMapSummary(runtime)
 });

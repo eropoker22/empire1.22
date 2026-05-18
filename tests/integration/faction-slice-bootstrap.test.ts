@@ -5,7 +5,7 @@ import { ensureGameplaySliceSession } from "../../apps/server/src/bootstrap/game
 import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 
 describe("faction gameplay slice bootstrap", () => {
-  it("persists requested faction and applies its starting package server-side", async () => {
+  it("persists requested faction without local starting package authority", async () => {
     const server = createServerApp();
     const client = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
@@ -27,13 +27,13 @@ describe("faction gameplay slice bootstrap", () => {
 
     expect(player?.factionId).toBe("kartel");
     expect(resources?.balances).toMatchObject({
-      cash: 1600,
-      "dirty-cash": 480,
-      chemicals: 13
+      cash: 1500,
+      "dirty-cash": 300,
+      chemicals: 10
     });
     expect(client.getGameplaySlice()?.player.faction).toMatchObject({
       factionId: "kartel",
-      activePassiveEffects: expect.arrayContaining(["Dirty income +15 %"])
+      activePassiveEffects: expect.arrayContaining(["+18 % dirty income"])
     });
   });
 
