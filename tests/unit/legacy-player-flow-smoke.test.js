@@ -12,6 +12,7 @@ import { STORAGE_KEYS } from "../../page-assets/js/config.js";
 
 const root = process.cwd();
 const SESSION_STORAGE_KEY = STORAGE_KEYS.session;
+const CANONICAL_WAR_SERVER_ID = "instance:war:eu-central:public-1";
 
 const read = (relativePath) => readFileSync(resolve(root, relativePath), "utf8");
 const page = (name) => read(`pages/${name}`);
@@ -88,8 +89,10 @@ describe("legacy player flow smoke guard", () => {
 
     saveLobbyStep({ serverId: "war-eu-01", districtId: 27 });
     expect(readSession().registration).toMatchObject({
-      activeServerId: "war-eu-01",
-      serverId: "war-eu-01",
+      activeServerId: CANONICAL_WAR_SERVER_ID,
+      activeServerInstanceId: CANONICAL_WAR_SERVER_ID,
+      serverId: CANONICAL_WAR_SERVER_ID,
+      serverInstanceId: CANONICAL_WAR_SERVER_ID,
       preferredStartDistrictId: 27,
       startDistrictId: 27,
       serverRegistrationStatus: "server_selected"

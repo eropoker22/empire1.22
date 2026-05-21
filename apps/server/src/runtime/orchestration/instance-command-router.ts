@@ -1,5 +1,6 @@
 import type { GameCommand } from "@empire/shared-types";
 import type { ServerInstanceManager } from "../server-instance-manager";
+import type { CommandDispatchOptions } from "../instance-manager/instance-lifecycle-service";
 
 /**
  * Responsibility: Routes command ingress requests to the authoritative target instance.
@@ -9,15 +10,16 @@ import type { ServerInstanceManager } from "../server-instance-manager";
 export interface InstanceCommandRouter {
   dispatch(
     instanceId: string,
-    command: GameCommand
+    command: GameCommand,
+    options?: CommandDispatchOptions
   ): ReturnType<ServerInstanceManager["dispatchCommand"]>;
 }
 
 export const createInstanceCommandRouter = (
   instanceManager: ServerInstanceManager
 ): InstanceCommandRouter => ({
-  dispatch: (instanceId, command) => {
+  dispatch: (instanceId, command, options) => {
     const target = instanceManager.getInstanceById(instanceId);
-    return target ? instanceManager.dispatchCommand(instanceId, command) : undefined;
+    return target ? instanceManager.dispatchCommand(instanceId, command, options) : undefined;
   }
 });

@@ -10,6 +10,8 @@ import {
 import { createDefaultPreviewSession } from "../../page-assets/js/app/model/authority-state.js";
 
 const SESSION_STORAGE_KEY = "empireStreets.session.v1";
+const CANONICAL_WAR_SERVER_ID = "instance:war:eu-central:public-1";
+const CANONICAL_FREE_SERVER_ID = "instance:free:eu-central:public-1";
 
 const createLocalStorage = () => {
   const store = new Map();
@@ -83,8 +85,10 @@ describe("page auth flow", () => {
       isGuest: false,
       loginKind: "account",
       lastLoginAt: "2026-04-26T10:00:00.000Z",
-      activeServerId: "war-eu-01",
-      serverId: "war-eu-01",
+      activeServerId: CANONICAL_WAR_SERVER_ID,
+      activeServerInstanceId: CANONICAL_WAR_SERVER_ID,
+      serverId: CANONICAL_WAR_SERVER_ID,
+      serverInstanceId: CANONICAL_WAR_SERVER_ID,
       factionId: "hackeri",
       selectedFaction: "hackeri",
       selectedStructure: "hackeři",
@@ -138,7 +142,8 @@ describe("page auth flow", () => {
       isGuest: true,
       loginKind: "guest",
       serverMode: "free",
-      activeServerId: "free-eu-01",
+      activeServerId: CANONICAL_FREE_SERVER_ID,
+      activeServerInstanceId: CANONICAL_FREE_SERVER_ID,
       selectedFaction: "mafian",
       selectedStructure: "mafián",
       factionLocked: true,
@@ -163,7 +168,8 @@ describe("page auth flow", () => {
       factionLocked: true
     })).toBe(ENTRY_FLOW_TARGETS.game);
     expect(getActiveServerRegistration({ serverId: "war-eu-01" })).toMatchObject({
-      serverId: "war-eu-01",
+      serverId: CANONICAL_WAR_SERVER_ID,
+      serverInstanceId: CANONICAL_WAR_SERVER_ID,
       serverName: "Vortex City WAR-01"
     });
     expect(hasLockedFaction({
@@ -202,14 +208,14 @@ describe("page auth flow", () => {
       gangName: "Lobby Crew",
       isGuest: false,
       loginKind: "account",
-      activeServerId: "war-eu-01",
-      activeServerInstanceId: "war-eu-01",
+      activeServerId: CANONICAL_WAR_SERVER_ID,
+      activeServerInstanceId: CANONICAL_WAR_SERVER_ID,
       activeServerName: "Vortex City WAR-01",
       activeServerMode: "war",
       activeServerRegion: "EU Central",
       activeServerStatus: "ONLINE",
-      serverId: "war-eu-01",
-      serverInstanceId: "war-eu-01",
+      serverId: CANONICAL_WAR_SERVER_ID,
+      serverInstanceId: CANONICAL_WAR_SERVER_ID,
       serverMode: "war",
       preferredStartDistrictId: 27,
       startDistrictId: 27,
@@ -255,5 +261,34 @@ describe("page auth flow", () => {
       startDistrictId: 31
     });
     expect(session.world.ownedDistrictIds).toEqual([]);
+  });
+
+  it("migrates legacy selected server objects to canonical serverInstanceId fields", () => {
+    saveLoginStep({
+      identity: "Legacy Summary Boss",
+      isGuest: true,
+      mode: "war"
+    });
+
+    const session = saveLobbyStep({
+      serverId: "war-eu-01",
+      districtId: 32,
+      server: {
+        id: "war-eu-01",
+        serverInstanceId: "war-eu-01",
+        name: "Legacy WAR",
+        mode: "war",
+        region: "EU Central",
+        status: "ONLINE"
+      }
+    });
+
+    expect(session.registration).toMatchObject({
+      activeServerId: CANONICAL_WAR_SERVER_ID,
+      activeServerInstanceId: CANONICAL_WAR_SERVER_ID,
+      serverId: CANONICAL_WAR_SERVER_ID,
+      serverInstanceId: CANONICAL_WAR_SERVER_ID,
+      preferredStartDistrictId: 32
+    });
   });
 });

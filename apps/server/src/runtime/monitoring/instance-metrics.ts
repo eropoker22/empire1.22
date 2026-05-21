@@ -23,5 +23,6 @@ export const createInstanceMonitorSnapshot = (
   playerCount: state.root.playerIds.length,
   crashCount: record.crashCount,
   lastErrorAt: runtimeHealth.lastErrorAt,
+  lastTickStartedAt: runtimeHealth.lastTickStartedAt,
   lastTickCompletedAt: runtimeHealth.lastTickCompletedAt
 });

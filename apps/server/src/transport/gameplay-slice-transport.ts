@@ -79,7 +79,9 @@ export const createGameplaySliceTransport = (
         };
       }
 
-      const dispatchResult = commandIngress.submit(request.command);
+      const dispatchResult = commandIngress.submit(request.command, {
+        expectedStateVersion: request.expectedStateVersion
+      });
 
       if (!dispatchResult) {
         return createNotFoundResponse("Target instance was not found for the submitted command.");

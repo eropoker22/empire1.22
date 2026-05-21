@@ -15,6 +15,12 @@
   force = true
 
 [[redirects]]
+  from = "/api/admin/monitoring"
+  to = "/.netlify/functions/gameplay-slice/admin-monitoring"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/gameplay-slice/*"
   to = "/.netlify/functions/gameplay-slice/:splat"
   status = 200

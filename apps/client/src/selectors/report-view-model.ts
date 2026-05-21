@@ -2,6 +2,7 @@ import type { ConflictReportView } from "@empire/shared-types";
 
 export interface ReportViewModel {
   id: string;
+  reportType: ConflictReportView["reportType"];
   title: string;
   createdAt: string;
   category: string;
@@ -9,6 +10,7 @@ export interface ReportViewModel {
   result: string;
   severity: "normal" | "critical";
   messages: string[];
+  details: string[];
 }
 
 /**
@@ -21,6 +23,7 @@ export const createReportViewModels = (
 ): ReportViewModel[] =>
   reports.map((report) => ({
     id: report.reportId,
+    reportType: report.reportType,
     title:
       report.reportType === "spy"
         ? `Spy ${report.result} on ${report.targetDistrictId}`
@@ -54,14 +57,59 @@ export const createReportViewModels = (
     messages: report.reportType === "building-action"
       ? report.messages ?? []
       : report.reportType === "battle" && report.districtDestroyed
-      ? [
-          "District state: destroyed and unusable.",
-          "Owner: none.",
-          "Fixed buildings: lost.",
-          "All primary district actions are disabled."
-        ]
-      : []
+        ? [
+            "District state: destroyed and unusable.",
+            "Owner: none.",
+            "Fixed buildings: lost.",
+            "All primary district actions are disabled."
+          ]
+        : [],
+    details: formatReportDetails(report)
   }));
+
+const formatReportDetails = (report: ConflictReportView): string[] => {
+  if (report.reportType === "spy") {
+    return [
+      `Source ${report.sourceDistrictId}`,
+      `Target ${report.targetDistrictId}`,
+      `Defense intel ${formatNumberRecord(report.detectedDefense)}`,
+      report.trapDetected ? "Trap detected" : "No trap detected"
+    ];
+  }
+
+  if (report.reportType === "occupy") {
+    return [
+      `Source ${report.sourceDistrictId}`,
+      `Target ${report.targetDistrictId}`,
+      `Influence -${report.influenceCost}`,
+      `Heat +${report.heatGained}`,
+      report.previousOwnerPlayerId ? `Previous owner ${report.previousOwnerPlayerId}` : "Previous owner none"
+    ];
+  }
+
+  if (report.reportType === "battle") {
+    return [
+      `Source ${report.sourceDistrictId}`,
+      `Target ${report.targetDistrictId}`,
+      report.defenderPlayerId ? `Defender ${report.defenderPlayerId}` : "Defender none",
+      `Outcome ${toTitleCase(report.outcomeTier)}`,
+      `Attacker losses ${formatNumberRecord(report.attackerLosses)}`,
+      `Defender losses ${formatNumberRecord(report.defenderLosses)}`,
+      `Heat +${report.heatGained}`,
+      report.reportForAttacker || "No attacker summary"
+    ];
+  }
+
+  return [
+    `District ${report.districtId}`,
+    `Building ${report.buildingId}`,
+    `Output ${formatNumberRecord(report.outputGain)}`,
+    `Cost ${formatNumberRecord(report.inputCost)}`,
+    `Heat ${formatSigned(report.heatDelta ?? report.heatGain)}`,
+    `Influence ${formatSigned(report.influenceDelta ?? report.influenceChange)}`,
+    report.message ?? ""
+  ].filter(Boolean);
+};
 
 const formatBuildingActionSummary = (report: Extract<ConflictReportView, { reportType: "building-action" }>): string => {
   const parts = [
@@ -93,6 +141,14 @@ const formatIntelDelta = (districtIds: string[]): string =>
   districtIds.length > 0 ? `Intel ${districtIds.length} district${districtIds.length === 1 ? "" : "s"}` : "";
 
 const formatSigned = (value: number): string => value >= 0 ? `+${value}` : String(value);
+
+const formatNumberRecord = (values: Partial<Record<string, number>>): string => {
+  const parts = Object.entries(values).filter(([, amount]) => Number(amount ?? 0) !== 0);
+
+  return parts.length > 0
+    ? parts.map(([key, amount]) => `${Number(amount)} ${toTitleCase(key)}`).join(", ")
+    : "none";
+};
 
 const toTitleCase = (value: string): string =>
   value

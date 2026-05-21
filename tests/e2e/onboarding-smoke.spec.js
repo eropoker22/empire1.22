@@ -8,21 +8,25 @@ import {
   selectLobbyDistrict
 } from "./helpers/empireSmokeHelpers.js";
 
+const CANONICAL_WAR_SERVER_ID = "instance:war:eu-central:public-1";
+
 test.describe("onboarding flow smoke", () => {
   test("selects a lobby server and persists selectedServer data", async ({ page }) => {
     const errors = createRuntimeErrorMonitor(page);
 
     await openLobbyPage(page);
-    await expect(page.getByTestId("server-card-war-eu-01")).toBeVisible();
-    await page.getByTestId("server-card-war-eu-01").click();
+    await expect(page.getByTestId(`server-card-${CANONICAL_WAR_SERVER_ID}`)).toBeVisible();
+    await page.getByTestId(`server-card-${CANONICAL_WAR_SERVER_ID}`).click();
     await selectLobbyDistrict(page);
     await expect(page.getByTestId("enter-selected-server")).toBeEnabled();
     await page.getByTestId("enter-selected-server").click();
     await expect(page).toHaveURL(/\/pages\/faction\.html$/);
 
     const session = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)), SESSION_STORAGE_KEY);
-    expect(session.registration.activeServerId).toBe("war-eu-01");
-    expect(session.registration.serverId).toBe("war-eu-01");
+    expect(session.registration.activeServerId).toBe(CANONICAL_WAR_SERVER_ID);
+    expect(session.registration.activeServerInstanceId).toBe(CANONICAL_WAR_SERVER_ID);
+    expect(session.registration.serverId).toBe(CANONICAL_WAR_SERVER_ID);
+    expect(session.registration.serverInstanceId).toBe(CANONICAL_WAR_SERVER_ID);
     expect(session.registration.serverRegistrationStatus).toBe("server_selected");
     expect(session.registration.preferredStartDistrictId).toBeGreaterThan(0);
     expect(session.registration.startDistrictId).toBe(session.registration.preferredStartDistrictId);

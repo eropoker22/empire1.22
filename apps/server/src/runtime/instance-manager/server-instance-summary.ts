@@ -12,6 +12,7 @@ export const createServerInstanceSummary = (
   status: runtime.record.status,
   playerCount: runtime.state.root.playerIds.length,
   maxPlayers: runtime.lobby.maxPlayers,
+  joinPolicy: runtime.lobby.joinPolicy,
   startedAt: runtime.record.startedAt,
   createdAt: runtime.record.createdAt,
   tick: runtime.state.root.tick,

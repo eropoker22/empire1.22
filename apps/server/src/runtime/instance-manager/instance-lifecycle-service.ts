@@ -1,4 +1,5 @@
 import { applyCommand } from "@empire/game-core";
+import type { CoreGameState } from "@empire/game-core";
 import {
   PRODUCTION_GAME_LIFECYCLE_PHASES,
   isDevSetupGameLifecyclePhase
@@ -13,6 +14,10 @@ import {
   recordCommandRateLimitUsage,
   validateCommandDispatchGate
 } from "./instance-command-gates";
+
+export interface CommandDispatchOptions {
+  expectedStateVersion?: number | null;
+}
 
 /**
  * Responsibility: Encapsulates lifecycle transitions and safe tick execution for one runtime.
@@ -100,8 +105,12 @@ export class InstanceLifecycleService {
     return runInstanceTick(runtime, runtime.clock);
   }
 
-  dispatch(runtime: ServerInstanceRuntime, command: GameCommand): InstanceCommandDispatchResult {
-    const gateErrors = validateCommandDispatchGate(runtime, command);
+  dispatch(
+    runtime: ServerInstanceRuntime,
+    command: GameCommand,
+    options: CommandDispatchOptions = {}
+  ): InstanceCommandDispatchResult {
+    const gateErrors = validateCommandDispatchGate(runtime, command, options);
 
     if (gateErrors.length > 0) {
       void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "warn", "command", "Command rejected before core dispatch.", {
@@ -128,6 +137,7 @@ export class InstanceLifecycleService {
     runtime.processedCommandIds.add(command.id);
     recordCommandRateLimitUsage(runtime, command);
 
+    const previousRootVersion = runtime.state.root.version;
     const result = applyCommand(runtime.state, command, {
       config: runtime.config
     });
@@ -145,7 +155,7 @@ export class InstanceLifecycleService {
       };
     }
 
-    runtime.state = result.nextState;
+    runtime.state = ensureAdvancedRootVersion(result.nextState, previousRootVersion);
 
     const appliedEvent: InstanceRuntimeEvent = {
       type: "command-applied",
@@ -206,3 +216,17 @@ const ensureProductionLifecyclePhase = (
 
   return runtime;
 };
+
+const ensureAdvancedRootVersion = (
+  state: CoreGameState,
+  previousRootVersion: number
+): CoreGameState =>
+  state.root.version > previousRootVersion
+    ? state
+    : {
+        ...state,
+        root: {
+          ...state.root,
+          version: previousRootVersion + 1
+        }
+      };

@@ -1,4 +1,5 @@
 import type { GameCommand } from "@empire/shared-types";
+import type { CommandDispatchOptions } from "../runtime/instance-manager/instance-lifecycle-service";
 import type { InstanceCommandRouter } from "../runtime/orchestration/instance-command-router";
 
 /**
@@ -7,11 +8,14 @@ import type { InstanceCommandRouter } from "../runtime/orchestration/instance-co
  * Does not belong here: gameplay rules or direct state mutation.
  */
 export interface ServerCommandIngress {
-  submit(command: GameCommand): ReturnType<InstanceCommandRouter["dispatch"]>;
+  submit(
+    command: GameCommand,
+    options?: CommandDispatchOptions
+  ): ReturnType<InstanceCommandRouter["dispatch"]>;
 }
 
 export const createCommandIngress = (
   commandRouter: InstanceCommandRouter
 ): ServerCommandIngress => ({
-  submit: (command) => commandRouter.dispatch(command.serverInstanceId, command)
+  submit: (command, options) => commandRouter.dispatch(command.serverInstanceId, command, options)
 });

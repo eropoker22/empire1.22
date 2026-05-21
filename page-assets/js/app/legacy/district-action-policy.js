@@ -106,7 +106,7 @@ export function resolveDistrictActions(context) {
     }
 
     if (action.id === "attack") {
-      const visible = !isOwnedByCurrentPlayer && !isUnoccupied && hasAdjacentOwnedDistrict && !canOccupyAfterSpy;
+      const visible = !isOwnedByCurrentPlayer && !isUnoccupied && hasAdjacentOwnedDistrict;
 
       return {
         id: action.id,
@@ -140,7 +140,7 @@ export function resolveDistrictActions(context) {
     }
 
     if (action.id === "occupy") {
-      const visible = !isOwnedByCurrentPlayer && canOccupyAfterSpy && hasAdjacentOwnedDistrict;
+      const visible = !isOwnedByCurrentPlayer && isUnoccupied && canOccupyAfterSpy && hasAdjacentOwnedDistrict;
 
       return {
         id: action.id,

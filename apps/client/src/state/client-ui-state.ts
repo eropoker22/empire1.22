@@ -10,6 +10,12 @@ export interface ClientUiState {
   activeModal: string | null;
   isMapFocused: boolean;
   pendingCommandIds: string[];
+  lastCommandStatus: ClientCommandStatus | null;
+}
+
+export interface ClientCommandStatus {
+  commandId: string;
+  accepted: boolean;
 }
 
 export const createInitialClientUiState = (): ClientUiState => ({
@@ -18,5 +24,6 @@ export const createInitialClientUiState = (): ClientUiState => ({
   activeSidePanel: null,
   activeModal: null,
   isMapFocused: false,
-  pendingCommandIds: []
+  pendingCommandIds: [],
+  lastCommandStatus: null
 });

@@ -13,6 +13,14 @@ const createGameplaySliceFixture = ({
   spyEnabled?: boolean;
   trapEnabled?: boolean;
 } = {}): GameplaySliceView => ({
+  server: {
+    serverInstanceId: "instance:1",
+    mode: "free",
+    currentTick: 0,
+    stateVersion: 1,
+    selectedDistrictId: "district:1",
+    generatedAt: new Date(0).toISOString()
+  },
   mode: {
     mode: "free",
     label: "Empire Streets Free",
@@ -42,6 +50,19 @@ const createGameplaySliceFixture = ({
     },
     notifications: [],
     victoryState: null
+  },
+  commandHints: {
+    selectedDistrictId: "district:1",
+    availableBuildingActionCount: 0,
+    availableSpyTargetCount: spyEnabled ? 1 : 0,
+    availableAttackTargetCount: 0,
+    availableOccupyTargetCount: 0,
+    cooldowns: [],
+    disabledReasons: spyEnabled ? [] : [{
+      commandType: "spy-district",
+      targetId: "district:2",
+      reason: "Spy route is cooling down."
+    }]
   },
   districts: [],
   reports: [],

@@ -5,6 +5,14 @@ import { renderDistrictPanel } from "../../../apps/client/src/features";
 import { formatLiveCooldownLabel } from "../../../apps/client/src/shared-ui";
 
 const createCooldownSlice = (): GameplaySliceView => ({
+  server: {
+    serverInstanceId: "instance:1",
+    mode: "free",
+    currentTick: 0,
+    stateVersion: 1,
+    selectedDistrictId: "district:1",
+    generatedAt: new Date(0).toISOString()
+  },
   mode: {
     mode: "free",
     label: "Empire Streets Free",
@@ -34,6 +42,24 @@ const createCooldownSlice = (): GameplaySliceView => ({
     },
     notifications: [],
     victoryState: null
+  },
+  commandHints: {
+    selectedDistrictId: "district:1",
+    availableBuildingActionCount: 0,
+    availableSpyTargetCount: 0,
+    availableAttackTargetCount: 0,
+    availableOccupyTargetCount: 0,
+    cooldowns: [{
+      commandType: "run-building-action",
+      targetId: "building:armory:1:armory_fortify",
+      remainingTicks: 3,
+      reason: "Cooldown 3 ticks."
+    }],
+    disabledReasons: [{
+      commandType: "run-building-action",
+      targetId: "building:armory:1:armory_fortify",
+      reason: "Cooldown 3 ticks."
+    }]
   },
   districts: [],
   reports: [],
@@ -122,7 +148,8 @@ describe("live cooldown labels", () => {
         activeSidePanel: "building-panel",
         activeModal: null,
         isMapFocused: false,
-        pendingCommandIds: []
+        pendingCommandIds: [],
+        lastCommandStatus: null
       },
       { nowMs: 1000 }
     );

@@ -19,7 +19,7 @@ import {
 export interface GameplaySliceMembershipRequest {
   serverInstanceId: ServerInstanceId;
   playerId: string;
-  districtId: string;
+  districtId?: string | null;
   factionId?: PlayerFactionId | string | null;
   mode: GameModeId;
 }
@@ -61,7 +61,7 @@ export const addPlayerToGameplaySliceState = (
 };
 
 const createPlayer = (
-  request: GameplaySliceMembershipRequest,
+  request: GameplaySliceMembershipRequest & { districtId: string },
   factionId: PlayerFactionId
 ): Player => ({
   id: request.playerId,

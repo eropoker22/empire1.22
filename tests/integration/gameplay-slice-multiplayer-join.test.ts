@@ -203,6 +203,32 @@ describe("gameplay slice multiplayer join bootstrap", () => {
     expect(readModel.district?.districtId).toBe(runtimeHomeDistrictId(server, secondRequest));
   });
 
+  it("assigns and returns a home district on first load without a requested focus district", async () => {
+    const server = createServerApp();
+    const request = createLoadRequest(1, {
+      serverInstanceId: "instance:free-server-assigned-first-load",
+      districtId: null
+    });
+
+    const result = await ensureGameplaySliceSessionResult(server.instanceManager, request);
+    const runtime = server.instanceManager.getInstanceById(request.serverInstanceId)!;
+    const homeDistrictId = runtime.state.playersById[request.playerId]!.homeDistrictId;
+    const response = server.gameplaySliceTransport.load(request);
+    const readModel = response.readModel as GameplaySliceView;
+
+    expect(result).toMatchObject({
+      accepted: true,
+      createdInstance: true,
+      joinedPlayer: true,
+      errors: []
+    });
+    expect(homeDistrictId).toBe(sharedCitySpawnDistrictIds[0]);
+    expect(readModel.player.homeDistrictId).toBe(homeDistrictId);
+    expect(readModel.server.selectedDistrictId).toBe(homeDistrictId);
+    expect(readModel.district?.districtId).toBe(homeDistrictId);
+    expect(runtime.state.districtsById[homeDistrictId!]?.ownerPlayerId).toBe(request.playerId);
+  });
+
   it("does not assign the same spawn district to two players", async () => {
     const server = createServerApp();
     const firstRequest = createLoadRequest(1);

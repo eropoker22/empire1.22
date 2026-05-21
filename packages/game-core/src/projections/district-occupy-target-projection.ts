@@ -27,7 +27,7 @@ export const createDistrictOccupyTargetViews = (
 
   return sourceDistrict.adjacentDistrictIds
     .map((districtId) => state.districtsById[districtId])
-    .filter((district) => district !== undefined)
+    .filter((district) => district !== undefined && !district.ownerPlayerId)
     .map((targetDistrict) => {
       const previewCommand: OccupyDistrictCommand = {
         id: `preview:occupy:${sourceDistrict.id}:${targetDistrict.id}`,

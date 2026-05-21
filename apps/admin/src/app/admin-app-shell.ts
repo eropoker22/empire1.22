@@ -4,8 +4,7 @@
  * Does not belong here: gameplay logic or direct server state mutation.
  */
 export interface AdminAppShell {
-  mount(): void;
+  mount(target?: HTMLElement | null): void | Promise<void>;
 }
 
 export const createAdminAppShell = (shell: AdminAppShell): AdminAppShell => shell;
-

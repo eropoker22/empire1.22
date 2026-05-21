@@ -2,7 +2,10 @@ import type { GameCommand, GameModeId, ServerInstanceId } from "@empire/shared-t
 import { getInstanceHealth } from "./monitoring/instance-health";
 import { createInstanceMonitorSnapshot } from "./monitoring/instance-metrics";
 import type { ServerInstanceRuntime } from "./instance/server-instance-runtime";
-import { InstanceLifecycleService } from "./instance-manager/instance-lifecycle-service";
+import {
+  InstanceLifecycleService,
+  type CommandDispatchOptions
+} from "./instance-manager/instance-lifecycle-service";
 import {
   createInMemoryRuntimePersistenceRepositories,
   createServerInstanceRuntime,
@@ -134,10 +137,11 @@ export class ServerInstanceManager {
 
   dispatchCommand(
     instanceId: ServerInstanceId,
-    command: GameCommand
+    command: GameCommand,
+    options?: CommandDispatchOptions
   ): InstanceCommandDispatchResult | undefined {
     const runtime = this.registry.get(instanceId);
-    return runtime ? this.lifecycle.dispatch(runtime, command) : undefined;
+    return runtime ? this.lifecycle.dispatch(runtime, command, options) : undefined;
   }
 
   getPlayerProjection(instanceId: ServerInstanceId, playerId: string) {

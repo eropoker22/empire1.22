@@ -1,7 +1,8 @@
-import type {
-  DomainError,
-  LoadGameplaySliceRequest,
-  SubmitGameplayCommandRequest
+import {
+  SERVER_ASSIGNED_FOCUS_DISTRICT_ID,
+  type DomainError,
+  type LoadGameplaySliceRequest,
+  type SubmitGameplayCommandRequest
 } from "@empire/shared-types";
 import { validateGameCommandPayload } from "./gameplay-command-payload-validation";
 
@@ -41,8 +42,10 @@ export const validateLoadGameplaySliceRequest = (
 
   requireStringField(errors, "load", value, "serverInstanceId");
   requireStringField(errors, "load", value, "playerId");
-  requireStringField(errors, "load", value, "districtId");
+  validateOptionalStringField(errors, "load", value, "districtId");
   validateOptionalStringField(errors, "load", value, "preferredStartDistrictId");
+  validateOptionalStringField(errors, "load", value, "factionId");
+  validateOptionalStringField(errors, "load", value, "snapshotToken");
 
   return errors.length > 0
     ? reject("load", errors)
@@ -65,6 +68,10 @@ export const validateSubmitGameplayCommandRequest = (
   }
 
   requireStringField(errors, "submit", value, "focusDistrictId");
+  rejectServerAssignedFocusDistrict(errors, value);
+  validateOptionalIntegerField(errors, "submit", value, "expectedStateVersion");
+  validateOptionalStringField(errors, "submit", value, "snapshotToken");
+  validateOptionalStringField(errors, "submit", value, "sessionToken");
 
   const command = value.command;
   if (!isRecord(command)) {
@@ -93,6 +100,23 @@ const validateGameCommandShape = (
   requireStringField(errors, "submit", command, "mode", "command.mode");
   requireStringField(errors, "submit", command, "issuedAt", "command.issuedAt");
   validateGameCommandPayload(errors, command);
+};
+
+const rejectServerAssignedFocusDistrict = (
+  errors: DomainError[],
+  value: Record<string, unknown>
+): void => {
+  if (value.focusDistrictId !== SERVER_ASSIGNED_FOCUS_DISTRICT_ID) {
+    return;
+  }
+
+  errors.push({
+    code: "transport.invalid_request",
+    message: "Gameplay slice submit request field 'focusDistrictId' must be a concrete server district.",
+    details: {
+      field: "focusDistrictId"
+    }
+  });
 };
 
 export const createGameplaySliceValidationResponse = (
@@ -151,6 +175,29 @@ const validateOptionalStringField = (
   errors.push({
     code: "transport.invalid_request",
     message: `Gameplay slice ${kind} request field '${fieldPath}' must be a non-empty string when provided.`,
+    details: {
+      field: fieldPath
+    }
+  });
+};
+
+const validateOptionalIntegerField = (
+  errors: DomainError[],
+  kind: GameplaySliceRequestKind,
+  value: Record<string, unknown>,
+  fieldPath: string
+): void => {
+  const fieldValue = getFieldPath(value, fieldPath);
+  if (fieldValue === undefined || fieldValue === null) {
+    return;
+  }
+  if (typeof fieldValue === "number" && Number.isInteger(fieldValue) && fieldValue >= 0) {
+    return;
+  }
+
+  errors.push({
+    code: "transport.invalid_request",
+    message: `Gameplay slice ${kind} request field '${fieldPath}' must be a non-negative integer when provided.`,
     details: {
       field: fieldPath
     }

@@ -10,6 +10,7 @@ const staticDirs = [
   "pages",
   "page-assets",
   "img",
+  "packages/game-config/src/public",
   "packages/game-config/src/legacy-page",
   "packages/game-core/src/legacy-page"
 ];
@@ -19,6 +20,7 @@ const requiredPublishFiles = [
   "page-assets/js/client-assets/gameplay-slice-client.js",
   "page-assets/js/app/auth-flow.js",
   "page-assets/js/app/model/authority-state.js",
+  "packages/game-config/src/public/public-server-registry.js",
   "packages/game-config/src/legacy-page/combat-config.js",
   "packages/game-config/src/legacy-page/economy-config.js",
   "packages/game-config/src/legacy-page/faction-config.js",

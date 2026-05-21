@@ -26,11 +26,24 @@ describe("legacy district action policy", () => {
     });
   });
 
+  it("keeps enemy-owned districts on attack and heist after successful spy intel", () => {
+    const actions = getVisibleActions({ canOccupyAfterSpy: true });
+
+    expect(actions.map((action) => action.id)).toEqual(["attack", "heist"]);
+    expect(actions.some((action) => action.id === "occupy")).toBe(false);
+  });
+
   it("keeps city robbery only for adjacent empty districts", () => {
     const actions = getVisibleActions({ isUnoccupied: true });
 
     expect(actions.map((action) => action.id)).toEqual(["rob", "spy"]);
     expect(actions.some((action) => action.id === "heist")).toBe(false);
+  });
+
+  it("keeps neutral districts on occupy and city robbery after successful spy intel", () => {
+    const actions = getVisibleActions({ isUnoccupied: true, canOccupyAfterSpy: true });
+
+    expect(actions.map((action) => action.id)).toEqual(["occupy", "rob"]);
   });
 
   it("does not show heist on own or non-adjacent districts", () => {

@@ -8,17 +8,23 @@ import { createInstanceMonitorSnapshot } from "../monitoring/instance-metrics";
 import type {
   CommandLogRepository,
   DiagnosticLogRepository,
-  EventLogRepository
+  EventLogRepository,
+  SnapshotRepository
 } from "../persistence/repositories";
 import {
+  createFileCommandLogRepository,
+  createFileDiagnosticLogRepository,
+  createFileEventLogRepository,
+  createFileSnapshotRepository,
   createInMemoryCommandLogRepository,
   createInMemoryDiagnosticLogRepository,
-  createInMemoryEventLogRepository
+  createInMemoryEventLogRepository,
+  createInMemorySnapshotRepository
 } from "../persistence/repositories";
 import { createReplayLogWriter } from "../persistence/services/replay-log-writer";
 import { systemClock, type Clock } from "../scheduling/clock";
 import { createInstanceScheduler } from "../scheduling/instance-scheduler";
-import { createNullGameStateRepository } from "../snapshots/game-state-repository";
+import { createGameStateRepository } from "../snapshots/game-state-repository";
 import { createSnapshotController } from "../snapshots/instance-snapshot-controller";
 import type { ServerInstanceRuntime } from "../instance/server-instance-runtime";
 
@@ -26,6 +32,7 @@ export interface ServerRuntimePersistenceRepositories {
   commandLogRepository: CommandLogRepository;
   eventLogRepository: EventLogRepository;
   diagnosticLogRepository: DiagnosticLogRepository;
+  snapshotRepository: SnapshotRepository;
 }
 
 export interface ServerInstanceRuntimeOptions {
@@ -39,8 +46,37 @@ export interface ServerInstanceRuntimeOptions {
 export const createInMemoryRuntimePersistenceRepositories = (): ServerRuntimePersistenceRepositories => ({
   commandLogRepository: createInMemoryCommandLogRepository(),
   eventLogRepository: createInMemoryEventLogRepository(),
-  diagnosticLogRepository: createInMemoryDiagnosticLogRepository()
+  diagnosticLogRepository: createInMemoryDiagnosticLogRepository(),
+  snapshotRepository: createInMemorySnapshotRepository()
 });
+
+export interface FileRuntimePersistenceOptions {
+  rootDir: string;
+}
+
+export const createFileRuntimePersistenceRepositories = (
+  options: FileRuntimePersistenceOptions
+): ServerRuntimePersistenceRepositories => ({
+  commandLogRepository: createFileCommandLogRepository({ rootDir: options.rootDir }),
+  eventLogRepository: createFileEventLogRepository({ rootDir: options.rootDir }),
+  diagnosticLogRepository: createFileDiagnosticLogRepository({ rootDir: options.rootDir }),
+  snapshotRepository: createFileSnapshotRepository({ rootDir: options.rootDir })
+});
+
+export const createRuntimePersistenceRepositoriesFromEnvironment = (
+  environment: Record<string, string | undefined> = typeof process !== "undefined" ? process.env : {}
+): ServerRuntimePersistenceRepositories => {
+  const driver = String(environment.EMPIRE_PERSISTENCE_DRIVER ?? environment.GAMEPLAY_PERSISTENCE_DRIVER ?? "memory")
+    .trim()
+    .toLowerCase();
+
+  if (driver === "file") {
+    const rootDir = String(environment.EMPIRE_PERSISTENCE_DIR ?? environment.GAMEPLAY_PERSISTENCE_DIR ?? ".empire-persistence").trim();
+    return createFileRuntimePersistenceRepositories({ rootDir });
+  }
+
+  return createInMemoryRuntimePersistenceRepositories();
+};
 
 /**
  * Responsibility: Creates isolated runtime containers for new server instances.
@@ -71,7 +107,7 @@ export const createServerInstanceRuntime = (
     persistence.diagnosticLogRepository
   );
   const scheduler = createInstanceScheduler(config.tickRateMs);
-  const snapshotController = createSnapshotController(createNullGameStateRepository());
+  const snapshotController = createSnapshotController(createGameStateRepository(persistence.snapshotRepository));
   const processedCommandIds = new Set<string>();
   const commandRateLimitWindow = {
     tick: state.root.tick,

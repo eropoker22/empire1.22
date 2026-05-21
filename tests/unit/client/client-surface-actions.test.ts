@@ -8,6 +8,14 @@ import {
 import { createInitialClientRenderState } from "../../../apps/client/src/app";
 
 const createGameplaySliceFixture = (): GameplaySliceView => ({
+  server: {
+    serverInstanceId: "instance:1",
+    mode: "free",
+    currentTick: 0,
+    stateVersion: 1,
+    selectedDistrictId: "district:1",
+    generatedAt: new Date(0).toISOString()
+  },
   mode: {
     mode: "free",
     label: "Empire Streets Free",
@@ -37,6 +45,15 @@ const createGameplaySliceFixture = (): GameplaySliceView => ({
     },
     notifications: [],
     victoryState: null
+  },
+  commandHints: {
+    selectedDistrictId: "district:1",
+    availableBuildingActionCount: 1,
+    availableSpyTargetCount: 0,
+    availableAttackTargetCount: 0,
+    availableOccupyTargetCount: 0,
+    cooldowns: [],
+    disabledReasons: []
   },
   districts: [],
   reports: [],
@@ -182,6 +199,14 @@ describe("client surface actions", () => {
       targetDistrictId: "district:2"
     });
 
+    const attackButton = createMockElement({ attackTargetId: "district:2" });
+    attackButton.setClosest("button[data-attack-target-id]", attackButton.element);
+
+    expect(resolveClientSurfaceAction(attackButton.element)).toEqual({
+      kind: "attack",
+      targetDistrictId: "district:2"
+    });
+
     const occupyButton = createMockElement({ occupyTargetId: "district:3" });
     occupyButton.setClosest("button[data-occupy-target-id]", occupyButton.element);
 
@@ -239,6 +264,21 @@ describe("client surface actions", () => {
     });
   });
 
+  it("resolves production collect click targets", () => {
+    const collectButton = createMockElement({
+      collectBuildingId: "building:factory:1"
+    });
+    collectButton.setClosest(
+      "button[data-collect-building-id]",
+      collectButton.element
+    );
+
+    expect(resolveClientSurfaceAction(collectButton.element)).toEqual({
+      kind: "collect",
+      buildingId: "building:factory:1"
+    });
+  });
+
   it("does not resolve legacy build slot hooks as main surface actions", () => {
     const buildButton = createMockElement({ buildingType: "safehouse" });
     const slot = createMockElement({ slotIndex: "0" });
@@ -290,6 +330,74 @@ describe("client surface actions", () => {
           districtId: "district:1",
           buildingId: "building:pharmacy:1",
           actionId: "produce_chemicals"
+        }
+      }
+    ]);
+  });
+
+  it("dispatches collect-production commands through the migrated client router", async () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.slots = [
+      {
+        slotIndex: 0,
+        buildingId: "building:factory:1",
+        buildingTypeId: "factory",
+        status: "active",
+        canBuild: false,
+        production: {
+          resourceKey: "metal-parts",
+          resourceLabel: "Metal Parts",
+          storedAmount: 8,
+          storageCap: 24,
+          amountPerTick: 4,
+          canCollect: true,
+          collectDisabledReason: null
+        },
+        processing: null,
+        craftOptions: [],
+        buildOptions: []
+      }
+    ];
+    const renderState = createInitialClientRenderState();
+    const dispatched: Array<{ type: string; payload: Record<string, unknown>; serverInstanceId: string }> = [];
+
+    const router = createClientSurfaceActionRouter({
+      client: {
+        load: async () => renderState,
+        selectDistrict: async () => renderState,
+        selectBuilding: async () => renderState,
+        dispatch: async (command) => {
+          dispatched.push({
+            type: command.type,
+            payload: command.payload as unknown as Record<string, unknown>,
+            serverInstanceId: command.serverInstanceId
+          });
+          return renderState;
+        },
+        getRenderState: () => renderState,
+        getGameplaySlice: () => slice
+      },
+      createCommandId: (prefix) => `${prefix}:1`,
+      getIssuedAt: () => new Date(0).toISOString()
+    });
+
+    const collectButton = createMockElement({
+      collectBuildingId: "building:factory:1"
+    });
+    collectButton.setClosest(
+      "button[data-collect-building-id]",
+      collectButton.element
+    );
+
+    await router.handleTarget(collectButton.element);
+
+    expect(dispatched).toEqual([
+      {
+        type: "collect-production",
+        serverInstanceId: "instance:1",
+        payload: {
+          districtId: "district:1",
+          buildingId: "building:factory:1"
         }
       }
     ]);
@@ -367,6 +475,50 @@ describe("client surface actions", () => {
     expect(dispatched).toEqual([
       {
         type: "spy-district",
+        payload: {
+          districtId: "district:2",
+          sourceDistrictId: "district:1"
+        }
+      }
+    ]);
+  });
+
+  it("dispatches attack commands through the migrated client router", async () => {
+    const slice = createGameplaySliceFixture();
+    const renderState = createInitialClientRenderState();
+    const dispatched: Array<{ type: string; payload: Record<string, unknown>; playerId: string; serverInstanceId: string }> = [];
+
+    const router = createClientSurfaceActionRouter({
+      client: {
+        load: async () => renderState,
+        selectDistrict: async () => renderState,
+        selectBuilding: async () => renderState,
+        dispatch: async (command) => {
+          dispatched.push({
+            type: command.type,
+            payload: command.payload as unknown as Record<string, unknown>,
+            playerId: command.playerId,
+            serverInstanceId: command.serverInstanceId
+          });
+          return renderState;
+        },
+        getRenderState: () => renderState,
+        getGameplaySlice: () => slice
+      },
+      createCommandId: (prefix) => `${prefix}:1`,
+      getIssuedAt: () => new Date(0).toISOString()
+    });
+
+    const attackButton = createMockElement({ attackTargetId: "district:2" });
+    attackButton.setClosest("button[data-attack-target-id]", attackButton.element);
+
+    await router.handleTarget(attackButton.element);
+
+    expect(dispatched).toEqual([
+      {
+        type: "attack-district",
+        playerId: "player:1",
+        serverInstanceId: "instance:1",
         payload: {
           districtId: "district:2",
           sourceDistrictId: "district:1"

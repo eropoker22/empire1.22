@@ -6,6 +6,7 @@ import type {
 } from "../selectors";
 import type { ReportViewModel } from "../reports";
 import type { ConnectionState } from "../transport";
+import type { ClientCommandStatus } from "../state";
 
 /**
  * Responsibility: Headless render snapshot produced by the client shell.
@@ -22,6 +23,7 @@ export interface ClientRenderState {
   reports: ReportViewModel[];
   errors: DomainError[];
   connection: ConnectionState;
+  lastCommandStatus: ClientCommandStatus | null;
 }
 
 export const createInitialClientRenderState = (): ClientRenderState => ({
@@ -37,5 +39,6 @@ export const createInitialClientRenderState = (): ClientRenderState => ({
     status: "idle",
     lastErrorMessage: null,
     staleData: false
-  }
+  },
+  lastCommandStatus: null
 });

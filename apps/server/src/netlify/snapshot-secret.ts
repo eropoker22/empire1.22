@@ -1,6 +1,7 @@
 import type { DomainError } from "@empire/shared-types";
 
 const DEFAULT_DEV_SNAPSHOT_SECRET = "empire-streets-local-gameplay-slice-dev-secret";
+const DEFAULT_DEV_SESSION_SECRET = "empire-streets-local-gameplay-session-dev-secret";
 
 export interface SnapshotSecretResult {
   accepted: boolean;
@@ -41,6 +42,47 @@ export const readRequiredSnapshotSecret = (
   return {
     accepted: true,
     secret: DEFAULT_DEV_SNAPSHOT_SECRET,
+    errors: []
+  };
+};
+
+export const readRequiredGameplaySessionSecret = (
+  environment: Record<string, string | undefined> = readProcessEnvironment(),
+  fallbackSecret?: string | null
+): SnapshotSecretResult => {
+  const configuredSecret = environment.GAMEPLAY_SLICE_SESSION_SECRET?.trim();
+  if (configuredSecret) {
+    return {
+      accepted: true,
+      secret: configuredSecret,
+      errors: []
+    };
+  }
+
+  if (fallbackSecret) {
+    return {
+      accepted: true,
+      secret: fallbackSecret,
+      errors: []
+    };
+  }
+
+  if (environment.NODE_ENV === "production") {
+    return {
+      accepted: false,
+      secret: null,
+      errors: [
+        {
+          code: "transport.session_secret_unavailable",
+          message: "Gameplay session service is not configured."
+        }
+      ]
+    };
+  }
+
+  return {
+    accepted: true,
+    secret: DEFAULT_DEV_SESSION_SECRET,
     errors: []
   };
 };

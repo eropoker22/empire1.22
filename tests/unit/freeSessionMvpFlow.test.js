@@ -9,6 +9,7 @@ import { FREE_SESSION_ONBOARDING_STEPS, renderOnboardingPanel } from "../../page
 import { renderPoliceFeedPanel } from "../../page-assets/js/app/ui/policeFeedPanel.js";
 
 const SESSION_STORAGE_KEY = "empireStreets.session.v1";
+const CANONICAL_FREE_SERVER_ID = "instance:free:eu-central:public-1";
 
 function createLocalStorage() {
   const store = new Map();
@@ -153,7 +154,8 @@ describe("free session MVP flow", () => {
     const session = saveLobbyStep({ serverId: "free-eu-01", districtId: 27 });
 
     expect(session.registration.identity).toBe("MVP Boss");
-    expect(session.registration.activeServerId).toBe("free-eu-01");
+    expect(session.registration.activeServerId).toBe(CANONICAL_FREE_SERVER_ID);
+    expect(session.registration.activeServerInstanceId).toBe(CANONICAL_FREE_SERVER_ID);
     expect(session.registration.serverMode).toBe("free");
     expect(session.registration.serverRegistrationStatus).toBe("server_selected");
     expect(session.registration.preferredStartDistrictId).toBe(27);

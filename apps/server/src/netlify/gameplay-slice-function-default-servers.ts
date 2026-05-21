@@ -1,3 +1,4 @@
+import { publicServerRegistry } from "@empire/game-config";
 import type { createServerApp } from "../app";
 
 export function ensureDefaultLobbyServers(
@@ -7,32 +8,19 @@ export function ensureDefaultLobbyServers(
     return;
   }
 
-  server.serverInstanceCreationService.createGameServerInstance({
-    serverInstanceId: "instance:free:eu-central:public-1",
-    mode: "free",
-    region: "EU Central",
-    displayName: "Neon Docks FREE-01",
-    capacity: 20,
-    mapComposition: {
-      downtown: 8,
-      commercial: 40,
-      industrial: 35,
-      residential: 48,
-      park: 30
+  for (const publicServer of publicServerRegistry) {
+    if (!publicServer.isPublic) {
+      continue;
     }
-  });
-  server.serverInstanceCreationService.createGameServerInstance({
-    serverInstanceId: "instance:free:eu-central:public-2",
-    mode: "free",
-    region: "EU Central",
-    displayName: "Rain Market FREE-02",
-    capacity: 20,
-    mapComposition: {
-      downtown: 8,
-      commercial: 45,
-      industrial: 30,
-      residential: 53,
-      park: 25
-    }
-  });
+
+    server.serverInstanceCreationService.createGameServerInstance({
+      serverInstanceId: publicServer.serverInstanceId,
+      mode: publicServer.mode,
+      region: publicServer.region,
+      displayName: publicServer.displayName,
+      capacity: publicServer.capacity,
+      mapComposition: publicServer.mapComposition,
+      joinPolicy: publicServer.joinPolicy
+    });
+  }
 }

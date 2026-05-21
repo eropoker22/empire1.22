@@ -27,9 +27,10 @@ const LOBBY_STATUS_MIN_PLAYERS = 4050;
 const LOBBY_STATUS_MAX_PLAYERS = 4380;
 const SERVER_LIST_REFRESH_SECONDS = 20;
 const SERVER_LIST_ENDPOINT = "/api/servers";
+const MATCHMAKING_RESERVE_ENDPOINT = "/api/matchmaking/reserve";
 const MATRIX_DIGITS = "0123456789";
 const SERVER_COUNTDOWN_OFFSETS_MINUTES = Object.freeze({
-  "war-eu-02": 12
+  "instance:war:eu-central:public-1": 12
 });
 const SERVER_LIST_FALLBACK_SOURCE = "dev-static-fallback";
 const SERVER_LIST_SERVER_SOURCE = "server-summary";
@@ -288,6 +289,7 @@ document.addEventListener("DOMContentLoaded", () => {
     detailPinchStartDistance: 0,
     detailPinchStartZoom: 1,
     detailPinchStartMidX: 0,
+    isReservingServer: false,
     detailPinchStartMidY: 0,
     detailPinchOriginX: 0,
     detailPinchOriginY: 0,
@@ -548,17 +550,61 @@ document.addEventListener("DOMContentLoaded", () => {
     syncDetailZoomUi();
   };
 
-  const commitLobbySelection = () => {
+  const createReservedServer = (server, reservation) => ({
+    ...(server || {}),
+    id: reservation.serverInstanceId,
+    serverInstanceId: reservation.serverInstanceId,
+    name: reservation.displayName || server?.name || reservation.serverInstanceId,
+    mode: reservation.mode || server?.mode || state.mode,
+    region: reservation.region || server?.region || "EU Central",
+    status: server?.status || "RESERVED"
+  });
+
+  const reserveSelectedServer = async (server) => {
+    const identity = String(getRegistrationDraft()?.identity || "").trim();
+    if (!server || typeof fetch !== "function" || !identity) {
+      return server;
+    }
+
+    try {
+      const response = await fetch(MATCHMAKING_RESERVE_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "accept": "application/json",
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          playerId: identity,
+          mode: server.mode,
+          preferredRegion: server.region,
+          preferredServerInstanceId: server.serverInstanceId || server.id
+        })
+      });
+      if (!response.ok) return server;
+      const payload = await response.json();
+      return payload?.accepted && payload.reservation
+        ? createReservedServer(server, payload.reservation)
+        : server;
+    } catch (_error) {
+      return server;
+    }
+  };
+
+  const commitLobbySelection = async () => {
     const server = getSelectedServer();
-    if (!state.serverId || !state.selectedDistrictId || isServerUnavailable(server)) {
+    if (!state.serverId || !state.selectedDistrictId || isServerUnavailable(server) || state.isReservingServer) {
       return;
     }
 
+    state.isReservingServer = true;
+    updateLobbySummary();
+    const reservedServer = await reserveSelectedServer(server);
     const session = saveLobbyStep({
-      serverId: state.serverId,
+      serverId: reservedServer.serverInstanceId || reservedServer.id || state.serverId,
       districtId: state.selectedDistrictId,
-      server
+      server: reservedServer
     });
+    state.isReservingServer = false;
 
     markLeavingLobby();
     window.location.href = session ? getEntryDestinationHref() : FACTION_ENTRY_HREF;
@@ -845,7 +891,12 @@ document.addEventListener("DOMContentLoaded", () => {
       lobbyOpenSelectedButton.disabled = !server || isServerUnavailable(server);
     }
     if (lobbyEnterSelectedButton instanceof HTMLButtonElement) {
-      lobbyEnterSelectedButton.disabled = !state.serverId || !state.selectedDistrictId || isServerUnavailable(server);
+      lobbyEnterSelectedButton.disabled = state.isReservingServer || !state.serverId || !state.selectedDistrictId || isServerUnavailable(server);
+      if (state.isReservingServer) {
+        lobbyEnterSelectedButton.textContent = "REZERVUJI SERVER...";
+      } else {
+        lobbyEnterSelectedButton.innerHTML = "VSTOUPIT NA SERVER <span>›</span>";
+      }
     }
     renderActiveServerEntry();
   };

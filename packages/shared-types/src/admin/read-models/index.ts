@@ -3,6 +3,7 @@ export * from "./command-volume-summary";
 export * from "./error-summary";
 export * from "./instance-diagnostics-summary";
 export * from "./instance-health-summary";
+export * from "./instance-monitoring-summary";
 export * from "./instance-summary";
 export * from "./mode-summary";
 export * from "./player-population-summary";

@@ -2,7 +2,6 @@ import type {
   DomainError,
   GameplaySliceResponse,
   LoadGameplaySliceRequest,
-  ServerInstanceSummary,
   SubmitGameplayCommandRequest
 } from "@empire/shared-types";
 import { createServerApp } from "../app";
@@ -14,27 +13,21 @@ import {
   validateLoadGameplaySliceRequest,
   validateSubmitGameplayCommandRequest
 } from "../transport/gameplay-slice-request-validation";
+import { publicServerRegistry } from "@empire/game-config";
 import { validateCommandPlayerIdentity } from "../transport/player-identity-guard";
 import { createGameplaySessionTokenCodec } from "../transport/gameplay-session-token-codec";
-import { readRequiredSnapshotSecret } from "./snapshot-secret";
+import { readRequiredGameplaySessionSecret, readRequiredSnapshotSecret } from "./snapshot-secret";
 import { ensureDefaultLobbyServers } from "./gameplay-slice-function-default-servers";
+import { createJsonResponse, type NetlifyFunctionResponse } from "./netlify-json-response";
+import { resolveGameplaySliceFunctionRoute } from "./gameplay-slice-function-routes";
+import { parseNetlifyJsonBody } from "./netlify-request-body";
+import { handlePublicServerMatchmakingReserve } from "./public-server-matchmaking-netlify";
+import { createAdminMonitoringPayload } from "./admin-monitoring-netlify";
 
 interface NetlifyFunctionEvent {
   httpMethod: string;
   path: string;
   body: string | null;
-}
-
-interface NetlifyFunctionResponse {
-  statusCode: number;
-  headers: Record<string, string>;
-  body: string;
-}
-
-interface ServerListResponse {
-  accepted: boolean;
-  servers: ServerInstanceSummary[];
-  errors: DomainError[];
 }
 
 interface GameplaySliceFunctionHandlerOptions {
@@ -43,17 +36,17 @@ interface GameplaySliceFunctionHandlerOptions {
   allowImplicitInstanceCreation?: boolean;
 }
 
-/**
- * Responsibility: Netlify HTTP adapter for the server-fed gameplay slice.
- * Belongs here: serverless event parsing and response formatting.
- * Does not belong here: gameplay rules or client rendering.
- */
 export const createGameplaySliceFunctionHandler = (
   options: GameplaySliceFunctionHandlerOptions = {}
 ) => {
   const snapshotSecret = readRequiredSnapshotSecret(options.environment);
+  const gameplaySessionSecret = readRequiredGameplaySessionSecret(
+    options.environment,
+    snapshotSecret.secret
+  );
   const server = createServerApp({
-    gameplaySessionTokenSecret: snapshotSecret.secret ?? undefined
+    gameplaySessionTokenSecret: gameplaySessionSecret.secret ?? undefined,
+    environment: options.environment
   });
   ensureDefaultLobbyServers(server);
   const allowImplicitInstanceCreation =
@@ -66,7 +59,7 @@ export const createGameplaySliceFunctionHandler = (
     : null;
   const sessionTokenCodec = snapshotSecret.secret
     ? createGameplaySessionTokenCodec({
-        secret: snapshotSecret.secret
+        secret: gameplaySessionSecret.secret ?? snapshotSecret.secret
       })
     : null;
 
@@ -79,7 +72,11 @@ export const createGameplaySliceFunctionHandler = (
       return createJsonResponse(500, createErrorResponseFromErrors(snapshotSecret.errors));
     }
 
-    const route = resolveRoute(event.path);
+    if (!gameplaySessionSecret.accepted || !sessionTokenCodec) {
+      return createJsonResponse(500, createErrorResponseFromErrors(gameplaySessionSecret.errors));
+    }
+
+    const route = resolveGameplaySliceFunctionRoute(event.path);
 
     if (!route) {
       return createJsonResponse(
@@ -89,31 +86,53 @@ export const createGameplaySliceFunctionHandler = (
     }
 
     if (route === "servers") {
+      const publicServerIds = new Set(
+        publicServerRegistry
+          .filter((serverEntry) => serverEntry.isPublic)
+          .map((serverEntry) => serverEntry.serverInstanceId)
+      );
       return createJsonResponse(200, {
         accepted: true,
-        servers: server.adminMonitoring.listServerSummaries(),
+        servers: server.adminMonitoring
+          .listServerSummaries()
+          .filter((summary) => publicServerIds.has(summary.serverInstanceId)),
         errors: []
       });
     }
 
-    const parsedBody = parseBody(event.body);
+    if (route === "admin-monitoring") {
+      return createJsonResponse(200, await createAdminMonitoringPayload(server));
+    }
 
-    if (!parsedBody) {
+    const parsedBody = parseNetlifyJsonBody(event.body);
+
+    if (!parsedBody.accepted) {
       return createJsonResponse(
-        400,
-        createErrorResponse("transport.invalid_json", "Request body must be valid JSON.")
+        parsedBody.statusCode,
+        createErrorResponseFromErrors([parsedBody.error])
       );
+    }
+
+    if (route === "matchmaking-reserve") {
+      return handlePublicServerMatchmakingReserve(server, event.httpMethod, parsedBody.body);
     }
 
     const requestPath = `/api/gameplay-slice/${route}`;
 
     if (route === "load") {
-      const validation = validateLoadGameplaySliceRequest(parsedBody);
+      const validation = validateLoadGameplaySliceRequest(parsedBody.body);
       if (!validation.accepted) {
         return createJsonResponse(200, createGameplaySliceValidationResponse(validation.errors));
       }
 
       const request: LoadGameplaySliceRequest = validation.request;
+      const snapshotTokenError = await validateSnapshotTokenForInstance(
+        request.snapshotToken,
+        request.serverInstanceId
+      );
+      if (snapshotTokenError) {
+        return createJsonResponse(200, createErrorResponseFromErrors([snapshotTokenError]));
+      }
 
       const ensureResult = await ensureGameplaySliceSessionResult(server.instanceManager, request, {
         snapshotToken: request.snapshotToken,
@@ -130,12 +149,20 @@ export const createGameplaySliceFunctionHandler = (
       }), request.serverInstanceId);
     }
 
-    const validation = validateSubmitGameplayCommandRequest(parsedBody);
+    const validation = validateSubmitGameplayCommandRequest(parsedBody.body);
     if (!validation.accepted) {
       return createJsonResponse(200, createGameplaySliceValidationResponse(validation.errors));
     }
 
     const request: SubmitGameplayCommandRequest = validation.request;
+    const snapshotTokenError = await validateSnapshotTokenForInstance(
+      request.snapshotToken,
+      request.command.serverInstanceId
+    );
+    if (snapshotTokenError) {
+      return createJsonResponse(200, createErrorResponseFromErrors([snapshotTokenError]));
+    }
+
     const identityErrors = validateCommandPlayerIdentity(request.command, null, {
       sessionToken: request.sessionToken,
       sessionTokenCodec
@@ -173,28 +200,27 @@ export const createGameplaySliceFunctionHandler = (
       snapshotToken
     }));
   }
+
+  async function validateSnapshotTokenForInstance(
+    snapshotToken: string | null | undefined,
+    serverInstanceId: string
+  ): Promise<DomainError | null> {
+    const token = String(snapshotToken ?? "").trim();
+    if (!token) {
+      return null;
+    }
+
+    const snapshot = await snapshotTokenCodec!.open(token);
+    return snapshot?.instanceId === serverInstanceId
+      ? null
+      : {
+          code: "transport.snapshot_token_invalid",
+          message: "Snapshot token is invalid."
+        };
+  }
 };
 
 export const handler = createGameplaySliceFunctionHandler();
-
-const resolveRoute = (path: string): "load" | "submit" | "servers" | null => {
-  const lastSegment = String(path || "").split("/").filter(Boolean).at(-1);
-  return lastSegment === "load" || lastSegment === "submit" || lastSegment === "servers"
-    ? lastSegment
-    : null;
-};
-
-const parseBody = (body: string | null): unknown | null => {
-  if (!body) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(body);
-  } catch (_error) {
-    return null;
-  }
-};
 
 const createErrorResponse = (
   code: string,
@@ -216,17 +242,4 @@ const createErrorResponseFromErrors = (
   accepted: false,
   readModel: null,
   errors
-});
-
-const createJsonResponse = (
-  statusCode: number,
-  body: GameplaySliceResponse | ServerListResponse | null
-): NetlifyFunctionResponse => ({
-  statusCode,
-  headers: {
-    "access-control-allow-headers": "content-type",
-    "access-control-allow-methods": "GET, POST, OPTIONS",
-    "content-type": "application/json; charset=utf-8"
-  },
-  body: body ? JSON.stringify(body) : ""
 });

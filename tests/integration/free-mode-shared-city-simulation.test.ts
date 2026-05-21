@@ -3,7 +3,9 @@ import { resolveModeConfig } from "@empire/game-config";
 import {
   FREE_MODE_SHARED_CITY_SCENARIOS,
   SIMULATION_BOT_PROFILES,
+  evaluateFreeModeBalanceReport,
   getBotProfileForPlayer,
+  runFreeModeBalanceGate,
   runFreeModeScenarioMatrix,
   runFreeModeSimulation
 } from "@empire/tools-debug";
@@ -188,6 +190,81 @@ describe("free-mode shared city simulation harness", () => {
 
     expect(second.scenarios.map((entry) => pickDeterministicMetrics(entry.report)))
       .toEqual(first.scenarios.map((entry) => pickDeterministicMetrics(entry.report)));
+  });
+
+  it("exposes a stable JSON shape for CI pacing reports", async () => {
+    const matrix = await runFreeModeScenarioMatrix(["baseline-20p-short"]);
+    const parsed = JSON.parse(JSON.stringify(matrix));
+    const report = parsed.scenarios[0].report;
+
+    expect(parsed).toMatchObject({
+      scenarios: [
+        {
+          scenario: {
+            name: "baseline-20p-short"
+          },
+          report: {
+            pacing: {
+              scenarioName: "baseline-20p-short",
+              milestones: expect.any(Object),
+              incomePerPhase: expect.any(Array),
+              resourceBalancesOverTime: expect.any(Array),
+              heatRaidPressure: expect.any(Object),
+              bottleneckResources: expect.any(Array),
+              warnings: expect.any(Array)
+            },
+            kpi: {
+              hardPassed: expect.any(Boolean),
+              actionAcceptanceRate: expect.any(Number),
+              turnsWithoutValidActionRate: expect.any(Number)
+            }
+          }
+        }
+      ]
+    });
+    expect(Object.keys(report.pacing.milestones).sort()).toEqual([
+      "firstAcceptedAttackMinute",
+      "firstAttackReadinessMinute",
+      "firstCraftStartedMinute",
+      "firstExpansionMinute",
+      "firstMeaningfulActionMinute",
+      "firstProductionCollectionMinute"
+    ]);
+  });
+
+  it("passes the free-mode balance gate on baseline scenarios", async () => {
+    const result = await runFreeModeBalanceGate(["baseline-20p-short", "small-8p"]);
+
+    expect(result.hardPassed).toBe(true);
+    expect(result.scenarios).toHaveLength(2);
+    expect(result.scenarios.every((scenario) => scenario.hardPassed)).toBe(true);
+  });
+
+  it("hard-fails the balance gate on an artificial deadlocked report", async () => {
+    const result = await runFreeModeSimulation({
+      instanceId: "instance:test:free-shared-city-bad-balance",
+      playerCount: 5,
+      rounds: 2,
+      ticksPerRound: 1,
+      scenarioName: "artificial-deadlock"
+    });
+    const deadlockedReport = {
+      ...result.report,
+      actionsAccepted: 0,
+      pacing: {
+        ...result.report.pacing,
+        milestones: {
+          ...result.report.pacing.milestones,
+          firstMeaningfulActionMinute: null
+        }
+      }
+    };
+
+    const evaluation = evaluateFreeModeBalanceReport(deadlockedReport);
+
+    expect(evaluation.hardPassed).toBe(false);
+    expect(evaluation.issues.filter((issue) => issue.severity === "hard").map((issue) => issue.code))
+      .toEqual(expect.arrayContaining(["no-accepted-actions", "first-action-deadlock"]));
   });
 
   it("selects actions according to deterministic bot profile policies", () => {

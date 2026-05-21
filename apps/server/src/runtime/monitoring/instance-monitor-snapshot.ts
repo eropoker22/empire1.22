@@ -16,5 +16,6 @@ export interface InstanceMonitorSnapshot {
   playerCount: number;
   crashCount: number;
   lastErrorAt: string | null;
+  lastTickStartedAt: string | null;
   lastTickCompletedAt: string | null;
 }

@@ -9,6 +9,7 @@ import {
 } from "../../page-assets/js/app/model/authority-state.js";
 
 const SESSION_STORAGE_KEY = "empireStreets.session.v1";
+const CANONICAL_WAR_SERVER_ID = "instance:war:eu-central:public-1";
 const root = process.cwd();
 
 const page = (name) => readFileSync(resolve(root, "pages", name), "utf8");
@@ -77,8 +78,12 @@ describe("page onboarding smoke", () => {
     expect(page("lobby.html")).toContain('data-server-detail-map');
     expect(page("lobby.html")).toContain('data-server-detail-continue');
     expect(page("lobby.html")).toContain('src="../page-assets/js/lobby.js"');
-    expect(readFileSync(resolve(root, "page-assets/js/lobby.js"), "utf8")).not.toContain("war-demo");
-    expect(readFileSync(resolve(root, "page-assets/js/lobby.js"), "utf8")).not.toContain("free-demo");
+    const lobbyJsSource = readFileSync(resolve(root, "page-assets/js/lobby.js"), "utf8");
+    expect(lobbyJsSource).not.toContain("war-demo");
+    expect(lobbyJsSource).not.toContain("free-demo");
+    expect(lobbyJsSource).toContain('MATCHMAKING_RESERVE_ENDPOINT = "/api/matchmaking/reserve"');
+    expect(lobbyJsSource).toContain("reserveSelectedServer");
+    expect(lobbyJsSource).toContain("preferredServerInstanceId");
 
     expect(page("faction.html")).toContain('id="structure-grid"');
     expect(page("faction.html")).toContain('id="auth-faction" name="faction" type="hidden" value=""');
@@ -206,8 +211,10 @@ describe("page onboarding smoke", () => {
     expect(readSession().registration).toMatchObject({
       identity: "Smoke Boss",
       gangName: "Smoke Crew",
-      activeServerId: "war-eu-01",
-      serverId: "war-eu-01",
+      activeServerId: CANONICAL_WAR_SERVER_ID,
+      activeServerInstanceId: CANONICAL_WAR_SERVER_ID,
+      serverId: CANONICAL_WAR_SERVER_ID,
+      serverInstanceId: CANONICAL_WAR_SERVER_ID,
       serverMode: "war",
       preferredStartDistrictId: 27,
       startDistrictId: 27,
@@ -225,7 +232,8 @@ describe("page onboarding smoke", () => {
 
     expect(session.registration).toMatchObject({
       identity: "Smoke Boss",
-      serverId: "war-eu-01",
+      serverId: CANONICAL_WAR_SERVER_ID,
+      serverInstanceId: CANONICAL_WAR_SERVER_ID,
       preferredStartDistrictId: 27,
       startDistrictId: 27,
       factionId: "hackeri",

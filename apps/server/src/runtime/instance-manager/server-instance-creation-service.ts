@@ -15,6 +15,7 @@ export interface CreateGameServerInstanceRequest {
   displayName?: string;
   capacity?: number;
   mapComposition?: ServerMapComposition;
+  joinPolicy?: ServerInstanceRuntime["lobby"]["joinPolicy"];
 }
 
 export type ServerInstanceCreationResult =
@@ -98,6 +99,7 @@ export const createServerInstanceCreationService = (
       capacity: request.capacity
     });
 
+    runtime.lobby.joinPolicy = request.joinPolicy ?? runtime.lobby.joinPolicy;
     seedRuntimeMap(runtime, request.mapComposition);
     runtime.record.status = "lobby";
     runtime.state.serverInstance.worldSeed = `shared-city:${serverInstanceId}`;

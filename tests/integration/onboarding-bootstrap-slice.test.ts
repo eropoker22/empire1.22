@@ -59,7 +59,7 @@ describe("onboarding gameplay bootstrap", () => {
     const bootstrap = resolveLiveGameplaySliceBootstrap();
 
     expect(bootstrap).toMatchObject({
-      instanceId: "instance:war-eu-01",
+      instanceId: "instance:war:eu-central:public-1",
       playerId: "Neon Boss",
       playerName: "Neon Boss",
       playerFactionId: "hackeri",

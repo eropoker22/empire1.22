@@ -30,7 +30,13 @@ export const renderClientShell = (store: ClientStore): ClientRenderState => {
   );
   const districtPanel = createDistrictPanelViewModel(readModel.gameplaySlice, uiState);
   const reports = createReportViewModels(readModel.gameplaySlice?.reports ?? []);
-  const sidePanelContent = [districtPanel ? renderDistrictPanel(districtPanel) : "", renderReportLayer(reports)].join("");
+  const sidePanelContent = [
+    districtPanel ? renderDistrictPanel(districtPanel) : "",
+    renderReportLayer(reports, {
+      errors: readModel.lastErrors,
+      lastCommandStatus: uiState.lastCommandStatus
+    })
+  ].join("");
 
   return {
     topBarHtml: renderTopBarShell({
@@ -49,6 +55,7 @@ export const renderClientShell = (store: ClientStore): ClientRenderState => {
     districtPanel,
     reports,
     errors: readModel.lastErrors,
-    connection: readModel.connection
+    connection: readModel.connection,
+    lastCommandStatus: uiState.lastCommandStatus
   };
 };

@@ -1,3 +1,4 @@
+import { resolvePublicServerInstanceId } from "@empire/game-config";
 import { PLAYER_FACTION_IDS, type District, type GameModeId, type Player } from "@empire/shared-types";
 
 const FALLBACK_MODE: GameModeId = "free";
@@ -8,7 +9,8 @@ const DEFENSE_LOADOUT_KEYS = ["vest", "barricades", "cameras", "defense-tower", 
 export const normalizeMode = (mode: unknown): GameModeId => (mode === "war" ? "war" : FALLBACK_MODE);
 
 export const normalizeServerId = (serverId: unknown): string => {
-  const source = String(serverId || readDatasetValue("[data-gang-server]") || "").trim().replace(/^instance:/i, "");
+  const rawServerId = String(serverId || readDatasetValue("[data-gang-server]") || "").trim();
+  const source = resolvePublicServerInstanceId(rawServerId).replace(/^instance:/i, "");
   return source ? source.toLowerCase().replace(/\s+/g, "-") : FALLBACK_SERVER_ID;
 };
 

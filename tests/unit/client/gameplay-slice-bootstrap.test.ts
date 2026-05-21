@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  SERVER_ASSIGNED_FOCUS_DISTRICT_ID,
   resolveGameplaySliceBootstrapRequest
 } from "../../../apps/client/src/browser/gameplay-slice-bootstrap";
 
@@ -40,9 +39,8 @@ describe("gameplay slice browser bootstrap", () => {
         })
       )
     ).toEqual({
-      serverInstanceId: "instance:war-eu-01",
+      serverInstanceId: "instance:war:eu-central:public-1",
       playerId: "player:host-alpha",
-      districtId: SERVER_ASSIGNED_FOCUS_DISTRICT_ID,
       preferredStartDistrictId: "district:27",
       factionId: null
     });
@@ -62,10 +60,31 @@ describe("gameplay slice browser bootstrap", () => {
         })
       )
     ).toEqual({
-      serverInstanceId: "instance:war-eu-01",
+      serverInstanceId: "instance:war:eu-central:public-1",
       playerId: "player:host-alpha",
       districtId: "district:spawn:1",
       preferredStartDistrictId: "district:27",
+      factionId: null
+    });
+  });
+
+  it("prefers the last server-confirmed district over the assigned home cache on rejoin", () => {
+    expect(
+      resolveGameplaySliceBootstrapRequest(
+        {},
+        createStorage({
+          registration: {
+            identity: "Host Alpha",
+            serverId: "war-eu-01",
+            assignedHomeDistrictId: "district:spawn:1",
+            lastServerConfirmedDistrictId: "district:connector:1"
+          }
+        })
+      )
+    ).toEqual({
+      serverInstanceId: "instance:war:eu-central:public-1",
+      playerId: "player:host-alpha",
+      districtId: "district:connector:1",
       factionId: null
     });
   });

@@ -24,7 +24,9 @@ if (options.matrix === "true") {
   const matrix = await runFreeModeScenarioMatrix(
     resolveScenarioNames(typeof options.scenarios === "string" ? options.scenarios : undefined)
   );
-  console.log(formatScenarioMatrixReport(matrix));
+  console.log(options.json === "true"
+    ? JSON.stringify(matrix, null, 2)
+    : formatScenarioMatrixReport(matrix));
 } else {
   const scenario = resolveScenario(typeof options.scenario === "string" ? options.scenario : undefined);
   const durationMinutes = parseNumber(options["duration-minutes"] ?? options.durationMinutes);

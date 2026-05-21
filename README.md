@@ -26,6 +26,7 @@ Project skeleton for a multiplayer browser strategy game with strict separation 
 ## Architecture guardrails
 
 See [docs/architecture-boundaries.md](docs/architecture-boundaries.md) for the main boundary rules between the legacy static frontend and the server-authoritative architecture.
+See [docs/persistence.md](docs/persistence.md) for runtime persistence drivers and local durable file storage.
 
 Runtime renders. Core decides. Config balances. Server owns authority.
 

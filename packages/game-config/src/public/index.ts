@@ -30,4 +30,5 @@ export * from "./free-mode-recruitment-center-config";
 export * from "./free-mode-strip-club-config";
 export * from "./free-mode-vip-lounge-config";
 export * from "./free-mode-warehouse-config";
+export * from "./public-server-registry";
 export * from "./to-public-mode-config";

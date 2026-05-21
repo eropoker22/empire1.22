@@ -14,6 +14,8 @@ import {
   waitForMapReady
 } from "./helpers/empireSmokeHelpers.js";
 
+const CANONICAL_WAR_SERVER_ID = "instance:war:eu-central:public-1";
+
 async function loginAsGuest(page, name = "Entry Host", gang = "Entry Crew") {
   await openLoginPage(page);
   await page.getByPlaceholder("Host").fill(name);
@@ -27,7 +29,7 @@ async function loginAsGuest(page, name = "Entry Host", gang = "Entry Crew") {
 
 async function chooseServerAndEnter(page) {
   await expect(page.getByTestId("server-list")).toBeVisible();
-  await page.getByTestId("server-card-war-eu-01").click();
+  await page.getByTestId(`server-card-${CANONICAL_WAR_SERVER_ID}`).click();
   await selectLobbyDistrict(page);
   await expect(page.getByTestId("enter-selected-server")).toBeEnabled();
   await page.getByTestId("enter-selected-server").click();
@@ -96,7 +98,8 @@ test.describe("entry flow", () => {
 
     const session = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)), SESSION_STORAGE_KEY);
     expect(session.registration).toMatchObject({
-      activeServerId: "war-eu-01",
+      activeServerId: CANONICAL_WAR_SERVER_ID,
+      activeServerInstanceId: CANONICAL_WAR_SERVER_ID,
       selectedFaction: "mafian",
       selectedStructure: "mafián",
       factionLocked: true,

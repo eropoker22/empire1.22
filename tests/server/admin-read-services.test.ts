@@ -15,6 +15,7 @@ describe("admin read services", () => {
     const snapshotService = createAdminSnapshotReadService();
 
     expect(await instanceService.listInstances()).toEqual([]);
+    expect(await instanceService.listInstanceMonitoringSummaries()).toEqual([]);
     expect(await logService.getCommandVolumeSummary("instance:missing")).toEqual({
       instanceId: "instance:missing",
       totalCommands: 0
@@ -49,6 +50,15 @@ describe("admin read services", () => {
       expect.objectContaining({
         instanceId: runtime.record.id,
         status: "running"
+      })
+    ]);
+    expect(await instanceService.listInstanceMonitoringSummaries()).toEqual([
+      expect.objectContaining({
+        instanceId: runtime.record.id,
+        status: "running",
+        displayName: runtime.lobby.displayName,
+        region: runtime.lobby.region,
+        currentTick: 0
       })
     ]);
     expect(await instanceService.getHealthSummary(runtime.record.id)).toMatchObject({

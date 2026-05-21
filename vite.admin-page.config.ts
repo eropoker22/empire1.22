@@ -50,13 +50,13 @@ export default defineConfig({
   },
   build: {
     outDir: fromRoot("page-assets/js/admin-assets"),
-    emptyOutDir: true,
+    emptyOutDir: false,
     minify: false,
     lib: {
-      entry: fromRoot("tools/debug/src/admin-gameplay-slice-page.ts"),
-      name: "EmpireAdminSlicePage",
+      entry: fromRoot("apps/admin/src/browser/admin-page.ts"),
+      name: "EmpireAdminPage",
       formats: ["iife"],
-      fileName: () => "admin-slice-demo.js"
+      fileName: () => "admin-app.js"
     },
     rollupOptions: {
       output: {

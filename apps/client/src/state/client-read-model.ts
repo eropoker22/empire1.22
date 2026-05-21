@@ -1,6 +1,7 @@
 import type {
   DomainError,
   GameSnapshotView,
+  GameplaySliceResponseMetadata,
   GameplaySliceView,
   PlayerView
 } from "@empire/shared-types";
@@ -15,6 +16,7 @@ export interface ClientReadModel {
   playerView: PlayerView | null;
   gameSnapshot: GameSnapshotView | null;
   gameplaySlice: GameplaySliceView | null;
+  gameplaySliceMetadata: GameplaySliceResponseMetadata | null;
   lastErrors: DomainError[];
   connection: ConnectionState;
 }
@@ -23,6 +25,7 @@ export const createInitialClientReadModel = (): ClientReadModel => ({
   playerView: null,
   gameSnapshot: null,
   gameplaySlice: null,
+  gameplaySliceMetadata: null,
   lastErrors: [],
   connection: {
     status: "idle",

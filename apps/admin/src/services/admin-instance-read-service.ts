@@ -1,6 +1,7 @@
 import type {
   AlliancePopulationSummary,
   InstanceHealthSummary,
+  InstanceMonitoringSummary,
   InstanceSummary,
   ModeSummary,
   PlayerPopulationSummary
@@ -13,6 +14,7 @@ import type {
  */
 export interface AdminInstanceReadService {
   listInstances(): Promise<InstanceSummary[]>;
+  listInstanceMonitoringSummaries(): Promise<InstanceMonitoringSummary[]>;
   getModeSummary(instanceId: string): Promise<ModeSummary>;
   getPlayerPopulationSummary(instanceId: string): Promise<PlayerPopulationSummary>;
   getAlliancePopulationSummary(instanceId: string): Promise<AlliancePopulationSummary>;
@@ -21,6 +23,7 @@ export interface AdminInstanceReadService {
 
 export interface AdminInstanceReadFacade {
   listInstances(): InstanceSummary[];
+  listInstanceMonitoringSummaries?(): Promise<InstanceMonitoringSummary[]>;
   getModeSummary(instanceId: string): ModeSummary;
   getPlayerPopulationSummary(instanceId: string): PlayerPopulationSummary;
   getAlliancePopulationSummary(instanceId: string): AlliancePopulationSummary;
@@ -31,6 +34,7 @@ export const createAdminInstanceReadService = (options: {
   facade?: AdminInstanceReadFacade;
 } = {}): AdminInstanceReadService => ({
   listInstances: async () => options.facade?.listInstances() ?? [],
+  listInstanceMonitoringSummaries: async () => options.facade?.listInstanceMonitoringSummaries?.() ?? [],
   getModeSummary: async (instanceId) => options.facade?.getModeSummary(instanceId) ?? ({
     instanceId,
     mode: "unknown",

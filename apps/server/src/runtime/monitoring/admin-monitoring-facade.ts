@@ -1,15 +1,13 @@
 import type { ServerInstanceManager } from "../server-instance-manager";
 import type { InstanceHealthService } from "../orchestration/instance-health-service";
 import { createReplayLogReader } from "../persistence/services/replay-log-reader";
-import {
-  createNullSnapshotRepository
-} from "../persistence/repositories";
 import type {
   AlliancePopulationSummary,
   CommandVolumeSummary,
   ErrorSummary,
   InstanceDiagnosticsSummary,
   InstanceHealthSummary,
+  InstanceMonitoringSummary,
   InstanceSummary,
   ModeSummary,
   PlayerPopulationSummary,
@@ -28,7 +26,7 @@ export const createAdminMonitoringFacade = (
 ) => {
   const persistence = instanceManager.getPersistenceRepositories();
   const replayLogReader = createReplayLogReader(
-    createNullSnapshotRepository(),
+    persistence.snapshotRepository,
     persistence.commandLogRepository,
     persistence.eventLogRepository,
     persistence.diagnosticLogRepository
@@ -44,6 +42,34 @@ export const createAdminMonitoringFacade = (
         tick: runtime.state.root.tick,
         playerCount: runtime.state.root.playerIds.length,
         allianceCount: runtime.state.root.allianceIds.length
+      })),
+    listInstanceMonitoringSummaries: async (): Promise<InstanceMonitoringSummary[]> =>
+      Promise.all(instanceManager.listInstances().map(async (runtime) => {
+        const snapshot = instanceManager.getInstanceMonitorSnapshot(runtime.record.id);
+        const history = await replayLogReader.getInstanceSummary(runtime.record.id);
+        const health = instanceManager.getInstanceHealth(runtime.record.id);
+
+        return {
+          instanceId: runtime.record.id,
+          mode: runtime.record.mode,
+          status: runtime.record.status,
+          displayName: runtime.lobby.displayName,
+          region: runtime.lobby.region,
+          currentTick: snapshot?.tick ?? runtime.state.root.tick,
+          playerCount: snapshot?.playerCount ?? runtime.state.root.playerIds.length,
+          allianceCount: runtime.state.root.allianceIds.length,
+          crashCount: snapshot?.crashCount ?? runtime.record.crashCount,
+          healthStatus: health?.status ?? "unhealthy",
+          warningCount: health?.warnings.length ?? 1,
+          lastTickStartedAt: snapshot?.lastTickStartedAt ?? runtime.runtimeHealth.lastTickStartedAt,
+          lastTickCompletedAt: snapshot?.lastTickCompletedAt ?? runtime.runtimeHealth.lastTickCompletedAt,
+          lastErrorAt: snapshot?.lastErrorAt ?? health?.lastErrorAt ?? history.lastCrashAt,
+          queuedEventCount: snapshot?.queuedEventCount ?? runtime.eventQueue.size(),
+          commandCount: history.commandVolume,
+          eventCount: history.eventVolume,
+          diagnosticErrorCount: history.diagnosticErrorCount,
+          lastSnapshotAt: history.lastSnapshotAt
+        };
       })),
     getModeSummary: (instanceId: string): ModeSummary => {
       const runtime = instanceManager.getInstanceById(instanceId);

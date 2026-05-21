@@ -151,6 +151,70 @@ describe("gameplay slice json handler", () => {
     });
   });
 
+  it("allows first load without a concrete district and rejects server-assigned focus on submit", () => {
+    const calls: string[] = [];
+    const handler = createGameplaySliceJsonHandler({
+      load: (request) => {
+        calls.push(`load:${request.districtId ?? "server-assigned"}`);
+        return {
+          accepted: true,
+          readModel: null,
+          errors: []
+        };
+      },
+      submit: () => {
+        throw new Error("server-assigned submit focus reached transport");
+      }
+    });
+
+    expect(handler.handle({
+      method: "POST",
+      path: "/api/gameplay-slice/load",
+      body: {
+        serverInstanceId: "instance:1",
+        playerId: "player:1"
+      }
+    })).toMatchObject({
+      status: 200,
+      body: {
+        accepted: true
+      }
+    });
+
+    expect(handler.handle({
+      method: "POST",
+      path: "/api/gameplay-slice/submit",
+      body: {
+        focusDistrictId: "district:server-assigned",
+        command: {
+          id: "command:server-assigned-focus",
+          type: "place-trap",
+          mode: "free",
+          playerId: "player:1",
+          serverInstanceId: "instance:1",
+          issuedAt: new Date(0).toISOString(),
+          payload: {
+            districtId: "district:1"
+          }
+        }
+      }
+    })).toMatchObject({
+      status: 200,
+      body: {
+        accepted: false,
+        errors: [
+          {
+            code: "transport.invalid_request",
+            details: {
+              field: "focusDistrictId"
+            }
+          }
+        ]
+      }
+    });
+    expect(calls).toEqual(["load:server-assigned"]);
+  });
+
   it("rejects invalid preferred start district hint shape before transport dispatch", () => {
     const handler = createGameplaySliceJsonHandler({
       load: () => {

@@ -8,6 +8,10 @@ import type {
 import type { PlayerFactionId } from "../entities/faction";
 import type { GameplaySliceView } from "../views";
 
+export const SERVER_ASSIGNED_FOCUS_DISTRICT_ID = "district:server-assigned" as const;
+
+export type ServerAssignedFocusDistrictId = typeof SERVER_ASSIGNED_FOCUS_DISTRICT_ID;
+
 /**
  * Responsibility: Shared request/response contracts for the first gameplay migration slice.
  * Belongs here: transport-safe DTOs between client and server boundaries.
@@ -16,7 +20,7 @@ import type { GameplaySliceView } from "../views";
 export interface LoadGameplaySliceRequest {
   serverInstanceId: ServerInstanceId;
   playerId: PlayerId;
-  districtId: DistrictId;
+  districtId?: DistrictId | ServerAssignedFocusDistrictId | null;
   preferredStartDistrictId?: DistrictId | string | null;
   factionId?: PlayerFactionId | string | null;
   snapshotToken?: string | null;
@@ -25,6 +29,7 @@ export interface LoadGameplaySliceRequest {
 export interface SubmitGameplayCommandRequest {
   command: GameCommand;
   focusDistrictId: DistrictId;
+  expectedStateVersion?: number | null;
   snapshotToken?: string | null;
   sessionToken?: string | null;
 }

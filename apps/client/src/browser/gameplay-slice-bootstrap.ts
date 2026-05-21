@@ -1,7 +1,20 @@
-import type { LoadGameplaySliceRequest } from "@empire/shared-types";
+import {
+  SERVER_ASSIGNED_FOCUS_DISTRICT_ID,
+  type LoadGameplaySliceRequest
+} from "@empire/shared-types";
 
 export const DEFAULT_SESSION_STORAGE_KEY = "empireStreets.session.v1";
-export const SERVER_ASSIGNED_FOCUS_DISTRICT_ID = "district:server-assigned";
+export { SERVER_ASSIGNED_FOCUS_DISTRICT_ID };
+const LEGACY_PUBLIC_SERVER_ID_MIGRATIONS: Record<string, string> = {
+  "war-eu-01": "instance:war:eu-central:public-1",
+  "war-eu-02": "instance:war:eu-central:public-1",
+  "war-eu-03": "instance:war:eu-central:public-1",
+  "war-eu-04": "instance:war:eu-central:public-1",
+  "war-eu-05": "instance:war:eu-central:public-1",
+  "free-eu-01": "instance:free:eu-central:public-1",
+  "free-eu-02": "instance:free:eu-central:public-2",
+  "free-eu-03": "instance:free:eu-central:public-2"
+};
 
 export interface GameplaySliceBootstrapDataset {
   serverInstanceId?: string;
@@ -60,8 +73,8 @@ export const resolveGameplaySliceBootstrapRequest = (
     registration?.preferredStartDistrictId || registration?.startDistrictId
   );
   const districtId = normalizeDistrictId(
-    registration?.assignedHomeDistrictId || registration?.lastServerConfirmedDistrictId
-  ) ?? SERVER_ASSIGNED_FOCUS_DISTRICT_ID;
+    registration?.lastServerConfirmedDistrictId || registration?.assignedHomeDistrictId
+  );
   const playerId = normalizePlayerId(registration?.identity || registration?.gangName);
   const factionId = normalizeFactionId(registration?.factionId || registration?.selectedFaction);
 
@@ -72,7 +85,7 @@ export const resolveGameplaySliceBootstrapRequest = (
   return {
     serverInstanceId,
     playerId,
-    districtId,
+    ...(districtId ? { districtId } : {}),
     ...(preferredStartDistrictId ? { preferredStartDistrictId } : {}),
     factionId
   };
@@ -83,14 +96,14 @@ const createExplicitRequest = (
 ): LoadGameplaySliceRequest | null => {
   const serverInstanceId = normalizeToken(dataset.serverInstanceId);
   const playerId = normalizeToken(dataset.playerId);
-  const districtId = normalizeDistrictId(dataset.districtId) ?? SERVER_ASSIGNED_FOCUS_DISTRICT_ID;
+  const districtId = normalizeDistrictId(dataset.districtId);
   const factionId = normalizeFactionId(dataset.factionId);
 
   return serverInstanceId && playerId
     ? {
         serverInstanceId,
         playerId,
-        districtId,
+        ...(districtId ? { districtId } : {}),
         factionId
       }
     : null;
@@ -129,7 +142,8 @@ const normalizeServerInstanceId = (value: unknown): string | null => {
     return null;
   }
 
-  return normalized.startsWith("instance:") ? normalized : `instance:${normalized}`;
+  const migrated = LEGACY_PUBLIC_SERVER_ID_MIGRATIONS[normalized] ?? normalized;
+  return migrated.startsWith("instance:") ? migrated : `instance:${migrated}`;
 };
 
 const normalizeDistrictId = (value: unknown): string | null => {

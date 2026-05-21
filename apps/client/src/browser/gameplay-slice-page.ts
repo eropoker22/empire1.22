@@ -72,7 +72,7 @@ export const mountGameplaySlicePage = (
     if (phase) {
       document.body.dataset.cityPhase = phase;
     }
-    mounts.status.innerHTML = renderStatus(state);
+    mounts.status.innerHTML = renderGameplaySliceStatus(state);
     mounts.topBar.innerHTML = state.topBarHtml;
     mounts.map.innerHTML = state.mapHtml;
     mounts.panel.innerHTML = state.sidePanelHtml || "<p class=\"gameplay-slice-client__empty\">No server district selected.</p>";
@@ -153,8 +153,11 @@ const getOrCreateMount = (root: HTMLElement, role: string): HTMLElement => {
   return mount;
 };
 
-const renderStatus = (state: ClientRenderState): string => [
+export const renderGameplaySliceStatus = (state: ClientRenderState): string => [
   `<strong>${state.connection.status === "ready" ? "Server synced" : state.connection.status}</strong>`,
+  state.lastCommandStatus
+    ? `<span class="gameplay-slice-client__command-status">${state.lastCommandStatus.accepted ? "Command accepted" : "Command rejected"}</span>`
+    : "",
   state.districtPanel
     ? `<span>${state.districtPanel.title}</span>`
     : "<span>Waiting for district projection</span>",
@@ -181,6 +184,7 @@ export const persistServerConfirmedGameplaySliceFocus = (
   const lastServerConfirmedDistrictId = normalizeStorageToken(
     gameplaySlice?.district?.districtId || assignedHomeDistrictId
   );
+  const serverConfirmedFactionId = normalizeStorageToken(gameplaySlice?.player.factionId);
 
   if (!storage || !lastServerConfirmedDistrictId) {
     return;
@@ -201,6 +205,11 @@ export const persistServerConfirmedGameplaySliceFocus = (
       registration: {
         ...registration,
         ...(assignedHomeDistrictId ? { assignedHomeDistrictId } : {}),
+        ...(serverConfirmedFactionId ? {
+          factionId: serverConfirmedFactionId,
+          selectedFaction: serverConfirmedFactionId,
+          serverConfirmedFactionId
+        } : {}),
         lastServerConfirmedDistrictId
       }
     }));

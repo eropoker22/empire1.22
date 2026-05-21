@@ -1,12 +1,13 @@
 import { createInitialState } from "@empire/game-core";
-import type {
-  DomainError,
-  GameCommand,
-  GameModeId,
-  LoadGameplaySliceRequest,
-  PlayerFactionId,
-  ServerInstanceId,
-  SubmitGameplayCommandRequest
+import {
+  SERVER_ASSIGNED_FOCUS_DISTRICT_ID,
+  type DomainError,
+  type GameCommand,
+  type GameModeId,
+  type LoadGameplaySliceRequest,
+  type PlayerFactionId,
+  type ServerInstanceId,
+  type SubmitGameplayCommandRequest
 } from "@empire/shared-types";
 import type { ServerInstanceManager } from "../runtime";
 import type { ServerInstanceRuntime } from "../runtime/instance/server-instance-runtime";
@@ -28,7 +29,7 @@ export interface EnsureGameplaySliceBootstrapOptions extends EnsureGameplaySlice
 export interface GameplaySliceSessionRequest {
   serverInstanceId: ServerInstanceId;
   playerId: string;
-  districtId: string;
+  districtId?: string | null;
   factionId?: PlayerFactionId | string | null;
   mode?: GameModeId;
 }
@@ -119,9 +120,19 @@ const normalizeSessionRequest = (
   return {
     serverInstanceId: request.serverInstanceId,
     playerId: request.playerId,
-    districtId: request.districtId,
+    districtId: normalizeLoadFocusDistrictId(request.districtId),
     factionId: request.factionId
   };
+};
+
+const normalizeLoadFocusDistrictId = (
+  districtId: LoadGameplaySliceRequest["districtId"]
+): string | null => {
+  if (!districtId || districtId === SERVER_ASSIGNED_FOCUS_DISTRICT_ID) {
+    return null;
+  }
+
+  return districtId;
 };
 
 const ensureRuntimeMembership = (

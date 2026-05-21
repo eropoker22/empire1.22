@@ -47,4 +47,34 @@ describe("gameplay slice page storage cache", () => {
       }
     });
   });
+
+  it("stores server-confirmed faction as cache after load", () => {
+    const storage = createStorage({
+      registration: {
+        identity: "Host Alpha",
+        factionId: "not-a-real-faction",
+        selectedFaction: "not-a-real-faction"
+      }
+    });
+
+    persistServerConfirmedGameplaySliceFocus(storage, undefined, {
+      player: {
+        homeDistrictId: "district:spawn:1",
+        factionId: "mafian"
+      },
+      district: {
+        districtId: "district:spawn:1"
+      }
+    } as GameplaySliceView);
+
+    expect(JSON.parse(storage.getItem("empireStreets.session.v1")!)).toMatchObject({
+      registration: {
+        factionId: "mafian",
+        selectedFaction: "mafian",
+        serverConfirmedFactionId: "mafian",
+        assignedHomeDistrictId: "district:spawn:1",
+        lastServerConfirmedDistrictId: "district:spawn:1"
+      }
+    });
+  });
 });

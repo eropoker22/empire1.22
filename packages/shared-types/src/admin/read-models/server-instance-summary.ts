@@ -11,6 +11,7 @@ export interface ServerInstanceSummary {
   status: string;
   playerCount: number;
   maxPlayers: number;
+  joinPolicy: "open" | "closed";
   startedAt: string | null;
   createdAt: string;
   tick: number;

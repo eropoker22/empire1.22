@@ -14,7 +14,10 @@ const MAX_COMMANDS_PER_PLAYER_PER_TICK = 5;
  */
 export const validateCommandDispatchGate = (
   runtime: ServerInstanceRuntime,
-  command: GameCommand
+  command: GameCommand,
+  options: {
+    expectedStateVersion?: number | null;
+  } = {}
 ): DomainError[] => {
   if (command.serverInstanceId !== runtime.record.id) {
     return [
@@ -39,6 +42,23 @@ export const validateCommandDispatchGate = (
       {
         code: "server.duplicate_command",
         message: "Command id was already processed by this server instance."
+      }
+    ];
+  }
+
+  if (
+    typeof options.expectedStateVersion === "number" &&
+    Number.isFinite(options.expectedStateVersion) &&
+    options.expectedStateVersion !== runtime.state.root.version
+  ) {
+    return [
+      {
+        code: "server.state_version_conflict",
+        message: "Command expectedStateVersion does not match the current server state version.",
+        details: {
+          expectedStateVersion: options.expectedStateVersion,
+          currentStateVersion: runtime.state.root.version
+        }
       }
     ];
   }

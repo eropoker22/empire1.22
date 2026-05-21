@@ -5,6 +5,12 @@ import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstra
 import { createAttackDistrictCommandFixture } from "../fixtures/command-fixtures";
 
 describe("admin monitoring facade", () => {
+  it("returns an empty monitoring list when no runtime instances exist", async () => {
+    const server = createServerApp();
+
+    await expect(server.adminMonitoring.listInstanceMonitoringSummaries()).resolves.toEqual([]);
+  });
+
   it("reads real instance status and tick data from server runtime", async () => {
     const server = createServerApp();
     const request = {
@@ -28,6 +34,42 @@ describe("admin monitoring facade", () => {
     });
     expect(afterTick?.tick).toBe(1);
   });
+
+  it("builds admin monitoring rows from real runtime, health, queue, and log history", async () => {
+    const server = createServerApp();
+    const runtime = server.instanceManager.createInstance("instance:admin-monitoring-row", "free", {
+      displayName: "Admin Monitoring Row",
+      region: "eu-central",
+      capacity: 64
+    });
+
+    server.instanceManager.startInstance(runtime.record.id);
+    server.instanceManager.tickInstance(runtime.record.id);
+    runtime.eventQueue.enqueue({ type: "test-event" });
+
+    const rows = await server.adminMonitoring.listInstanceMonitoringSummaries();
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        instanceId: runtime.record.id,
+        mode: "free",
+        status: "running",
+        displayName: "Admin Monitoring Row",
+        region: "eu-central",
+        currentTick: 1,
+        playerCount: 0,
+        crashCount: 0,
+        commandCount: 0,
+        eventCount: 0,
+        diagnosticErrorCount: 0,
+        lastErrorAt: null
+      })
+    ]);
+    expect(rows[0]?.queuedEventCount).toBeGreaterThanOrEqual(1);
+    expect(rows[0]?.lastTickStartedAt).toEqual(expect.any(String));
+    expect(rows[0]?.lastTickCompletedAt).toEqual(expect.any(String));
+  });
+
 
   it("reads command volume and event logs after successful command dispatch", async () => {
     const server = createServerApp();

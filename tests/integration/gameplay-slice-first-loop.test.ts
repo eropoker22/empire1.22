@@ -63,10 +63,10 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     expect(readModel.onboarding?.canAttack).toBe(true);
   });
 
-  it("client selects server-confirmed district when initial focus is only a server-assigned placeholder", async () => {
+  it("client selects server-confirmed district when initial focus is server-assigned", async () => {
     const server = createServerApp();
     const request = createLoadRequest(1, {
-      districtId: "district:server-assigned",
+      districtId: null,
       preferredStartDistrictId: "district:27"
     });
 
@@ -249,6 +249,49 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       event.sourceType === "district_capture" && event.districtId === targetDistrictId
     )).toBe(true);
     expect(occupy.metadata?.serverTick).toBe(runtime.state.root.tick);
+  });
+
+  it("renders an occupy report from the server read model in the client report panel", async () => {
+    const server = createServerApp();
+    const request = createLoadRequest(1);
+
+    await ensureGameplaySliceSessionResult(server.instanceManager, request);
+    const runtime = server.instanceManager.getInstanceById(serverInstanceId)!;
+    const homeDistrictId = runtime.state.playersById[request.playerId]!.homeDistrictId!;
+    runtime.state.districtsById[homeDistrictId] = {
+      ...runtime.state.districtsById[homeDistrictId],
+      influence: 10
+    };
+    const client = createClientApp({
+      transport: createInMemoryClientTransport(server.gameplaySliceTransport)
+    });
+    await client.load(request);
+    const sourceDistrictId = client.getGameplaySlice()!.district!.districtId;
+    const targetDistrictId = "district:connector:1";
+
+    await client.dispatch(createSpyCommand({
+      id: "command:first-loop:occupy-render-spy:1",
+      playerId: request.playerId,
+      sourceDistrictId,
+      targetDistrictId
+    }));
+    const occupyRender = await client.dispatch(createOccupyCommand({
+      id: "command:first-loop:occupy-render:1",
+      playerId: request.playerId,
+      sourceDistrictId,
+      targetDistrictId
+    }));
+
+    expect(occupyRender.errors).toEqual([]);
+    expect(occupyRender.reports[0]).toMatchObject({
+      category: "occupy",
+      result: "success"
+    });
+    expect(occupyRender.sidePanelHtml).toContain("Latest reports");
+    expect(occupyRender.sidePanelHtml).toContain("Occupy success on district:connector:1");
+    expect(occupyRender.sidePanelHtml).toContain("data-report-highlight=\"latest-command\"");
+    expect(occupyRender.sidePanelHtml).toContain("Influence -5");
+    expect(occupyRender.sidePanelHtml).toContain("Heat +2");
   });
 
   it("returns a clear error and a valid read model for invalid first-loop commands", async () => {

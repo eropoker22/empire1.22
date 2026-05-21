@@ -3,125 +3,61 @@ import {
   updateStoredPreviewSession
 } from "./model/authority-state.js";
 import { STORAGE_KEYS } from "../config.js";
+import {
+  publicServerInstanceIdMigrationMap,
+  publicServerRegistry,
+  resolvePublicServerInstanceId
+} from "../../../packages/game-config/src/public/public-server-registry.js";
 
-export const SERVER_CATALOG = Object.freeze([
-  {
-    id: "war-eu-01",
-    name: "Vortex City WAR-01",
-    mode: "war",
-    region: "EU Central",
-    players: 64,
-    capacity: 150,
-    startLabel: "Live server",
-    badge: "DOPORUČENO",
-    status: "ONLINE",
-    activity: "HIGH",
-    riskPercent: 78,
-    description: "Tvrdý válečný shard s rychlou expanzí, hustší konkurencí a tlakem na obranu districtů."
-  },
-  {
-    id: "war-eu-02",
-    name: "Black Harbor WAR-02",
-    mode: "war",
-    region: "EU Central",
-    players: 41,
-    capacity: 150,
-    startLabel: "Start za 12 min",
-    badge: "",
-    status: "ONLINE",
-    activity: "MEDIUM",
-    riskPercent: 54,
-    description: "Čerstvě otevřená instance, vhodná pro nový náběh a rychlé obsazení startovní pozice."
-  },
-  {
-    id: "war-eu-03",
-    name: "Red Sector WAR-03",
-    mode: "war",
-    region: "EU Central",
-    players: 0,
-    capacity: 150,
-    startLabel: "Offline",
-    badge: "",
-    status: "POZASTAVEN",
+const createMapSummary = (mapComposition) => {
+  const composition = mapComposition && typeof mapComposition === "object" ? mapComposition : {};
+  const downtownDistricts = Number(composition.downtown || 0) || 0;
+  const commercialDistricts = Number(composition.commercial || 0) || 0;
+  const industrialDistricts = Number(composition.industrial || 0) || 0;
+  const residentialDistricts = Number(composition.residential || 0) || 0;
+  const parkDistricts = Number(composition.park || 0) || 0;
+
+  return {
+    totalDistricts: downtownDistricts + commercialDistricts + industrialDistricts + residentialDistricts + parkDistricts,
+    downtownDistricts,
+    commercialDistricts,
+    industrialDistricts,
+    residentialDistricts,
+    parkDistricts
+  };
+};
+
+const createFallbackServerFromRegistry = (serverEntry) => {
+  const locked = serverEntry.joinPolicy !== "open";
+  const players = 0;
+  const capacity = Math.max(1, Number(serverEntry.capacity || 1) || 1);
+
+  return Object.freeze({
+    id: serverEntry.serverInstanceId,
+    serverInstanceId: serverEntry.serverInstanceId,
+    name: serverEntry.displayName,
+    mode: serverEntry.mode,
+    region: serverEntry.region,
+    players,
+    capacity,
+    startLabel: locked ? "Uzavřeno" : "Spawn confirmed by server",
+    badge: serverEntry.mode === "war" ? "WAR" : "FREE",
+    status: locked ? "LOCKED" : "ONLINE",
     activity: "LOW",
-    offline: true,
-    riskPercent: 69,
-    description: "Server je dočasně pozastavený a není dostupný pro vstup."
-  },
-  {
-    id: "war-eu-04",
-    name: "Iron Gate WAR-04",
-    mode: "war",
-    region: "EU Central",
-    players: 0,
-    capacity: 150,
-    startLabel: "Připravujeme",
-    badge: "",
-    status: "PŘIPRAVUJEME",
-    activity: "LOW",
-    locked: true,
-    riskPercent: 18,
-    description: "Připravujeme spuštění serveru. Sleduj oznámení."
-  },
-  {
-    id: "war-eu-05",
-    name: "Kingmaker WAR-05",
-    mode: "war",
-    region: "EU Central",
-    players: 5,
-    capacity: 150,
-    startLabel: "Premium required",
-    badge: "PREMIUM",
-    status: "LOCKED",
-    activity: "LOW",
-    locked: true,
-    riskPercent: 34,
-    description: "Nový válečný shard pro elitní gangy."
-  },
-  {
-    id: "free-eu-01",
-    name: "Neon Docks FREE-01",
-    mode: "free",
-    region: "EU Central",
-    players: 17,
-    capacity: 20,
-    startLabel: "Končí za 01h 18m",
-    badge: "NEJLEPŠÍ START",
-    status: "ONLINE",
-    activity: "MEDIUM",
-    riskPercent: 42,
-    description: "Rychlá válka o město. Ideální pro první vstup do Empire Streets."
-  },
-  {
-    id: "free-eu-02",
-    name: "Lowtown Riot FREE-02",
-    mode: "free",
-    region: "EU Central",
-    players: 20,
-    capacity: 20,
-    startLabel: "Končí za 00h 47m",
-    badge: "",
-    status: "FULL",
-    activity: "HIGH",
-    full: true,
-    riskPercent: 81,
-    description: "Krátká session plná chaosu. Server je momentálně plný."
-  },
-  {
-    id: "free-eu-03",
-    name: "Rain Market FREE-03",
-    mode: "free",
-    region: "EU Central",
-    players: 12,
-    capacity: 20,
-    startLabel: "Končí za 01h 42m",
-    badge: "",
-    status: "ONLINE",
-    activity: "LOW",
-    riskPercent: 28,
-    description: "Vyvážená ekonomika, rychlý start, nízký heat."
-  }
-]);
+    locked,
+    riskPercent: Math.round((players / capacity) * 100),
+    description: `Public ${String(serverEntry.mode).toUpperCase()} instance from canonical server registry.`,
+    map: createMapSummary(serverEntry.mapComposition)
+  });
+};
+
+export const SERVER_CATALOG = Object.freeze(
+  publicServerRegistry
+    .filter((serverEntry) => serverEntry.isPublic)
+    .map(createFallbackServerFromRegistry)
+);
+
+export const SERVER_ID_MIGRATION_MAP = publicServerInstanceIdMigrationMap;
 
 export const ENTRY_FLOW_TARGETS = Object.freeze({
   login: "login",
@@ -147,6 +83,10 @@ function normalizeText(value) {
   return String(value || "").trim();
 }
 
+function normalizeServerId(value) {
+  return resolvePublicServerInstanceId(normalizeText(value));
+}
+
 function normalizeMode(mode) {
   const normalized = normalizeText(mode).toLowerCase();
   return normalized === "free" || normalized === "war" ? normalized : "";
@@ -161,12 +101,15 @@ export function getRegistrationDraft() {
 }
 
 export function getSelectedServer(serverId) {
-  return SERVER_CATALOG.find((server) => server.id === serverId) || null;
+  const normalizedServerId = normalizeServerId(serverId);
+  return SERVER_CATALOG.find((server) => server.id === normalizedServerId) || null;
 }
 
 export function getActiveServerRegistration(registration = getRegistrationDraft()) {
-  const serverId = normalizeText(registration?.activeServerId || registration?.serverId);
-  const serverInstanceId = normalizeText(registration?.activeServerInstanceId || registration?.serverInstanceId || serverId);
+  const serverId = normalizeServerId(registration?.activeServerId || registration?.serverId);
+  const serverInstanceId = normalizeServerId(
+    registration?.activeServerInstanceId || registration?.serverInstanceId || serverId
+  );
   if (!serverId) {
     return null;
   }
@@ -223,6 +166,25 @@ export function getLockedFactionRegistration(registration = getRegistrationDraft
 
 export function hasLockedFaction(registration = getRegistrationDraft()) {
   return Boolean(getLockedFactionRegistration(registration));
+}
+
+function createServerRegistrationFields(server) {
+  const serverInstanceId = normalizeServerId(server.serverInstanceId || server.id);
+  const serverId = normalizeServerId(server.id || server.serverInstanceId);
+  return {
+    activeServerId: serverId || serverInstanceId,
+    activeServerInstanceId: serverInstanceId || serverId,
+    activeServerName: server.name,
+    activeServerMode: server.mode,
+    activeServerRegion: server.region,
+    activeServerStatus: server.status || "ONLINE",
+    // Compatibility-only alias. New flows should read activeServerInstanceId.
+    serverId: serverId || serverInstanceId,
+    serverInstanceId: serverInstanceId || serverId,
+    serverLabel: server.name,
+    serverMode: server.mode,
+    serverRegion: server.region
+  };
 }
 
 export function getEntryFlowTarget(registration = getRegistrationDraft()) {
@@ -282,6 +244,14 @@ export function saveLoginStep({ identity, isGuest = false, gangName = "", mode =
         ...(session.registration || {}),
         identity: normalizedIdentity,
         ...(normalizedGangName ? { gangName: normalizedGangName } : {}),
+        ...(activeServer?.serverId ? createServerRegistrationFields({
+          id: activeServer.serverId,
+          serverInstanceId: activeServer.serverInstanceId,
+          name: activeServer.serverName,
+          mode: activeServer.serverMode,
+          region: activeServer.serverRegion,
+          status: activeServer.serverStatus
+        }) : {}),
         ...(activeServer
           ? { serverMode: activeServer.serverMode }
           : normalizedMode
@@ -311,17 +281,7 @@ export function saveLobbyStep({ serverId, districtId, server: selectedServer = n
       isGuest: Boolean(session.registration?.isGuest),
       loginKind: session.registration?.loginKind || (session.registration?.isGuest ? "guest" : "account"),
       ...(session.registration?.lastLoginAt ? { lastLoginAt: session.registration.lastLoginAt } : {}),
-      activeServerId: server.id,
-      activeServerInstanceId: normalizeText(server.serverInstanceId || server.id),
-      activeServerName: server.name,
-      activeServerMode: server.mode,
-      activeServerRegion: server.region,
-      activeServerStatus: server.status || "ONLINE",
-      serverId: server.id,
-      serverInstanceId: normalizeText(server.serverInstanceId || server.id),
-      serverLabel: server.name,
-      serverMode: server.mode,
-      serverRegion: server.region,
+      ...createServerRegistrationFields(server),
       preferredStartDistrictId,
       // Compatibility-only alias for legacy static runtime and old saved sessions.
       // Server-authoritative gameplay treats this as a lobby preference, never as a spawn claim.

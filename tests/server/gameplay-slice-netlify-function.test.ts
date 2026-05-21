@@ -111,6 +111,57 @@ describe("gameplay slice Netlify function", () => {
     expect(load.json.sessionToken).toEqual(expect.any(String));
   });
 
+  it("uses an explicit gameplay session secret separately from the snapshot secret", async () => {
+    const handler = createTestHandler({
+      NODE_ENV: "production",
+      GAMEPLAY_SLICE_SNAPSHOT_SECRET: "test-production-snapshot-secret",
+      GAMEPLAY_SLICE_SESSION_SECRET: "test-production-session-secret"
+    }, {
+      allowImplicitInstanceCreation: true
+    });
+    const load = await readBody(
+      handler(
+        postEvent("/api/gameplay-slice/load", {
+          serverInstanceId: "instance:function-production-session-secret",
+          playerId: "player:function-production-session-secret",
+          districtId: "district:function-production-session-secret"
+        })
+      )
+    );
+    const wrongSecretToken = createGameplaySessionTokenCodec({
+      secret: "test-production-snapshot-secret"
+    }).seal({
+      serverInstanceId: "instance:function-production-session-secret",
+      playerId: "player:function-production-session-secret",
+      issuedAt: "2026-05-21T00:00:00.000Z",
+      expiresAt: "2099-05-21T00:00:00.000Z"
+    });
+
+    const submit = await readBody(
+      handler(
+        postEvent("/api/gameplay-slice/submit", {
+          snapshotToken: load.json.snapshotToken,
+          sessionToken: wrongSecretToken,
+          focusDistrictId: load.json.readModel.district.districtId,
+          command: {
+            id: "command:function:wrong-session-secret:1",
+            type: "unknown-command-type",
+            mode: "free",
+            playerId: "player:function-production-session-secret",
+            serverInstanceId: "instance:function-production-session-secret",
+            issuedAt: new Date(0).toISOString(),
+            payload: {},
+            clientRequestId: null
+          }
+        })
+      )
+    );
+
+    expect(load.statusCode).toBe(200);
+    expect(load.json.sessionToken).toEqual(expect.any(String));
+    expect(submit.json.errors[0].code).toBe("transport.session_token_invalid");
+  });
+
   it("returns lobby-safe server summaries with map composition", async () => {
     const handler = createTestHandler();
     const response = await readBody(
@@ -137,6 +188,37 @@ describe("gameplay slice Netlify function", () => {
         parkDistricts: 30
       }
     }));
+  });
+
+  it("returns admin monitoring rows from the server app facade", async () => {
+    const handler = createTestHandler();
+    const response = await readBody(
+      handler({
+        httpMethod: "GET",
+        path: "/api/admin/monitoring",
+        body: null
+      })
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json.accepted).toBe(true);
+    expect(response.json.instances).toContainEqual(expect.objectContaining({
+      instanceId: "instance:free:eu-central:public-1",
+      displayName: "Neon Docks FREE-01",
+      region: "EU Central",
+      currentTick: 0,
+      playerCount: 0,
+      crashCount: 0,
+      queuedEventCount: 0
+    }));
+    expect(response.json.overview).toMatchObject({
+      selectedInstanceId: expect.any(String),
+      selectedLogs: {
+        commands: [],
+        events: [],
+        diagnostics: expect.any(Array)
+      }
+    });
   });
 
   it("rejects invalid load and submit shapes without crashing", async () => {
@@ -182,6 +264,65 @@ describe("gameplay slice Netlify function", () => {
           details: {
             field: "command"
           }
+        }
+      ]
+    });
+  });
+
+  it("returns consistent transport errors for malformed serverless requests", async () => {
+    const handler = createTestHandler();
+
+    const unknownRoute = await readBody(
+      handler({
+        httpMethod: "POST",
+        path: "/api/gameplay-slice/unknown",
+        body: "{}"
+      })
+    );
+    const invalidJson = await readBody(
+      handler({
+        httpMethod: "POST",
+        path: "/api/gameplay-slice/load",
+        body: "{"
+      })
+    );
+    const oversized = await readBody(
+      handler({
+        httpMethod: "POST",
+        path: "/api/gameplay-slice/load",
+        body: JSON.stringify({ padding: "x".repeat(600 * 1024) })
+      })
+    );
+
+    expect(unknownRoute.statusCode).toBe(404);
+    expect(unknownRoute.json.errors[0].code).toBe("transport.not_found");
+    expect(invalidJson.statusCode).toBe(400);
+    expect(invalidJson.json.errors[0].code).toBe("transport.invalid_json");
+    expect(oversized.statusCode).toBe(413);
+    expect(oversized.json.errors[0].code).toBe("transport.request_body_too_large");
+  });
+
+  it("rejects invalid snapshot tokens without leaking token details", async () => {
+    const handler = createTestHandler();
+    const load = await readBody(
+      handler(
+        postEvent("/api/gameplay-slice/load", {
+          serverInstanceId: "instance:function-invalid-snapshot-token",
+          playerId: "player:function-invalid-snapshot-token",
+          districtId: "district:function-invalid-snapshot-token",
+          snapshotToken: "v1.invalid.invalid"
+        })
+      )
+    );
+
+    expect(load.statusCode).toBe(200);
+    expect(load.json).toEqual({
+      accepted: false,
+      readModel: null,
+      errors: [
+        {
+          code: "transport.snapshot_token_invalid",
+          message: "Snapshot token is invalid."
         }
       ]
     });
@@ -435,7 +576,6 @@ describe("gameplay slice Netlify function", () => {
     const wrongInstance = await readBody(
       handler(
         postEvent("/api/gameplay-slice/submit", {
-          snapshotToken: load.json.snapshotToken,
           sessionToken: load.json.sessionToken,
           focusDistrictId: load.json.readModel.district.districtId,
           command: {

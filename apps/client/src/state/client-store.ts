@@ -1,6 +1,7 @@
 import type {
   DomainError,
   GameSnapshotView,
+  GameplaySliceResponseMetadata,
   GameplaySliceView,
   PlayerView
 } from "@empire/shared-types";
@@ -20,6 +21,7 @@ export interface ClientStore {
   setServerView(view: PlayerView): void;
   setGameSnapshot(snapshot: GameSnapshotView): void;
   setGameplaySlice(view: GameplaySliceView): void;
+  setGameplaySliceMetadata(metadata: GameplaySliceResponseMetadata | null): void;
   setErrors(errors: DomainError[]): void;
   setConnectionState(connection: ConnectionState): void;
   patchUiState(patch: Partial<ClientUiState>): void;
@@ -49,6 +51,12 @@ export const createClientStore = (initialUiState: ClientUiState): ClientStore =>
         ...readModel,
         gameplaySlice: view,
         playerView: view.player
+      };
+    },
+    setGameplaySliceMetadata: (metadata) => {
+      readModel = {
+        ...readModel,
+        gameplaySliceMetadata: metadata
       };
     },
     setErrors: (errors) => {

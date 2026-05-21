@@ -11,9 +11,11 @@ import { createInstanceHealthService } from "../runtime/orchestration/instance-h
 import { createSnapshotOrchestrator } from "../runtime/orchestration/snapshot-orchestrator";
 import { createTickOrchestrator } from "../runtime/orchestration/tick-orchestrator";
 import { createServerInstanceCreationService } from "../runtime/instance-manager/server-instance-creation-service";
+import { createPublicServerMatchmakingService } from "../runtime/matchmaking/public-server-matchmaking-service";
 import type { Clock } from "../runtime/scheduling/clock";
 import { createTickLoop } from "../runtime/scheduling/tick-loop";
 import type { ServerRuntimePersistenceRepositories } from "../runtime";
+import { createRuntimePersistenceRepositoriesFromEnvironment } from "../runtime/instance-manager/instance-factory";
 
 /**
  * Responsibility: Top-level server application composition root.
@@ -23,6 +25,7 @@ import type { ServerRuntimePersistenceRepositories } from "../runtime";
 export interface ServerAppOptions {
   clock?: Clock;
   persistence?: ServerRuntimePersistenceRepositories;
+  environment?: Record<string, string | undefined>;
   gameplaySessionTokenSecret?: string;
 }
 
@@ -31,14 +34,19 @@ const DEFAULT_DEV_GAMEPLAY_SESSION_TOKEN_SECRET = "empire-streets-local-gameplay
 export const createServerApp = (options: ServerAppOptions = {}) => {
   const instanceManager = new ServerInstanceManager({
     clock: options.clock,
-    persistence: options.persistence
+    persistence: options.persistence ?? createRuntimePersistenceRepositoriesFromEnvironment(options.environment)
   });
   const commandRouter = createInstanceCommandRouter(instanceManager);
   const commandIngress = createCommandIngress(commandRouter);
-  const gameplaySessionTokenCodec = createGameplaySessionTokenCodec({
-    secret: options.gameplaySessionTokenSecret ?? DEFAULT_DEV_GAMEPLAY_SESSION_TOKEN_SECRET,
-    clock: options.clock
-  });
+  const gameplaySessionTokenSecret = options.gameplaySessionTokenSecret ??
+    options.environment?.GAMEPLAY_SLICE_SESSION_SECRET?.trim() ??
+    (options.environment?.NODE_ENV === "production" ? null : DEFAULT_DEV_GAMEPLAY_SESSION_TOKEN_SECRET);
+  const gameplaySessionTokenCodec = gameplaySessionTokenSecret
+    ? createGameplaySessionTokenCodec({
+        secret: gameplaySessionTokenSecret,
+        clock: options.clock
+      })
+    : null;
   const gameplaySliceTransport = createGameplaySliceTransport(instanceManager, commandIngress, {
     sessionTokenCodec: gameplaySessionTokenCodec
   });
@@ -55,6 +63,9 @@ export const createServerApp = (options: ServerAppOptions = {}) => {
   const snapshotOrchestrator = createSnapshotOrchestrator(instanceManager);
   const healthService = createInstanceHealthService(instanceManager);
   const adminMonitoring = createAdminMonitoringFacade(instanceManager, healthService);
+  const publicServerMatchmaking = createPublicServerMatchmakingService(instanceManager, {
+    clock: options.clock
+  });
 
   return {
     instanceManager,
@@ -67,7 +78,8 @@ export const createServerApp = (options: ServerAppOptions = {}) => {
     tickLoop,
     snapshotOrchestrator,
     healthService,
-    adminMonitoring
+    adminMonitoring,
+    publicServerMatchmaking
   };
 };
 

@@ -22,10 +22,14 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
 
   const commitResponse = (
     response: GameplaySliceResponse,
-    selectedDistrictId: string
+    selectedDistrictId?: string | null,
+    commandId?: string
   ): ClientRenderState => {
     if (response.readModel) {
-      const serverSelectedDistrictId = response.readModel.district?.districtId ?? selectedDistrictId;
+      const serverSelectedDistrictId = response.readModel.district?.districtId ??
+        response.readModel.player.homeDistrictId ??
+        selectedDistrictId ??
+        null;
       store.setGameplaySlice(response.readModel);
       store.patchUiState({
         selectedDistrictId: serverSelectedDistrictId,
@@ -33,6 +37,23 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
       });
     }
 
+    if (commandId) {
+      store.patchUiState({
+        lastCommandStatus: {
+          commandId,
+          accepted: response.accepted
+        }
+      });
+    }
+
+    store.setGameplaySliceMetadata(response.metadata ?? (
+      response.readModel
+        ? {
+            serverTick: response.readModel.server.currentTick,
+            stateVersion: response.readModel.server.stateVersion
+          }
+        : null
+    ));
     store.setErrors(response.errors);
     store.setConnectionState({
       status: "ready",
@@ -43,7 +64,7 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
     return renderState;
   };
 
-  const commitTransportFailure = (message: string): ClientRenderState => {
+  const commitTransportFailure = (message: string, commandId?: string): ClientRenderState => {
     const errors: DomainError[] = [
       {
         code: "client.transport_error",
@@ -57,6 +78,14 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
       lastErrorMessage: message,
       staleData: true
     });
+    if (commandId) {
+      store.patchUiState({
+        lastCommandStatus: {
+          commandId,
+          accepted: false
+        }
+      });
+    }
     renderState = renderClientShell(store);
     return renderState;
   };
@@ -128,7 +157,7 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
       const uiState = store.getUiState();
 
       if (!uiState.selectedDistrictId) {
-        return commitTransportFailure("No district is selected for the district panel slice.");
+        return commitTransportFailure("No district is selected for the district panel slice.", command.id);
       }
 
       store.patchUiState({
@@ -139,7 +168,8 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
       try {
         const response = await dispatcher.dispatch({
           command,
-          focusDistrictId: uiState.selectedDistrictId
+          focusDistrictId: uiState.selectedDistrictId,
+          expectedStateVersion: store.getReadModel().gameplaySliceMetadata?.stateVersion ?? null
         });
         store.patchUiState({
           pendingCommandIds: store
@@ -148,7 +178,7 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
             .filter((pendingCommandId) => pendingCommandId !== command.id)
         });
 
-        return commitResponse(response, uiState.selectedDistrictId);
+        return commitResponse(response, uiState.selectedDistrictId, command.id);
       } catch (_error) {
         store.patchUiState({
           pendingCommandIds: store
@@ -157,7 +187,7 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
             .filter((pendingCommandId) => pendingCommandId !== command.id)
         });
 
-        return commitTransportFailure("Unable to submit gameplay command to server.");
+        return commitTransportFailure("Unable to submit gameplay command to server.", command.id);
       }
     },
     getRenderState: () => renderState,

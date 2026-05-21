@@ -383,6 +383,39 @@ body[data-city-phase="night"] .gameplay-slice-client {
   opacity: 0.9;
 }
 
+.gameplay-slice-client [data-report-highlight="latest-command"] {
+  border-color: color-mix(in srgb, var(--slice-green) 55%, rgba(221, 190, 122, 0.12));
+  background:
+    linear-gradient(90deg, rgba(99, 214, 160, 0.16), rgba(255, 255, 255, 0) 56%),
+    var(--slice-panel);
+}
+
+.gameplay-slice-client [data-report-highlight="latest-command"]::before {
+  background: var(--slice-green);
+  width: 3px;
+}
+
+.gameplay-slice-client .reports-panel__detail-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.gameplay-slice-client .reports-panel__detail {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 7px;
+  border: 1px solid rgba(221, 190, 122, 0.14);
+  border-radius: 6px;
+  color: var(--slice-muted);
+  background: rgba(255, 255, 255, 0.045);
+  font-size: 0.72rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
 .gameplay-slice-client .district-panel__slot--pharmacy {
   --building-accent: var(--slice-green);
   --building-accent-soft: rgba(99, 214, 160, 0.11);

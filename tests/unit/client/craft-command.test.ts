@@ -3,6 +3,14 @@ import type { GameplaySliceView } from "@empire/shared-types";
 import { createCraftItemCommand } from "../../../apps/client/src/features/building-panel/craft-command";
 
 const createGameplaySliceFixture = (canCraft = true): GameplaySliceView => ({
+  server: {
+    serverInstanceId: "instance:1",
+    mode: "free",
+    currentTick: 0,
+    stateVersion: 1,
+    selectedDistrictId: "district:1",
+    generatedAt: new Date(0).toISOString()
+  },
   mode: {
     mode: "free",
     label: "Empire Streets Free",
@@ -38,6 +46,15 @@ const createGameplaySliceFixture = (canCraft = true): GameplaySliceView => ({
     },
     notifications: [],
     victoryState: null
+  },
+  commandHints: {
+    selectedDistrictId: "district:1",
+    availableBuildingActionCount: 0,
+    availableSpyTargetCount: 0,
+    availableAttackTargetCount: 0,
+    availableOccupyTargetCount: 0,
+    cooldowns: [],
+    disabledReasons: []
   },
   districts: [],
   reports: [],

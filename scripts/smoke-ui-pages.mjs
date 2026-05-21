@@ -85,8 +85,8 @@ for (const anchor of gameMapAnchors) {
 }
 
 const adminHtml = read("pages/admin.html");
-if (!adminHtml.includes("type=\"module\" src=\"../page-assets/js/admin-assets/admin-slice-demo.js\"")) {
-  violations.push("pages/admin.html must load the admin slice bundle as a module script");
+if (!adminHtml.includes("src=\"../page-assets/js/admin-assets/admin-app.js\"")) {
+  violations.push("pages/admin.html must load the admin monitoring app bundle");
 }
 
 const netlifyConfig = read("netlify.toml");
@@ -100,9 +100,10 @@ if (!netlifyPublishScript.includes("/lobby.html /pages/lobby.html 200")) {
 }
 if (
   !netlifyPublishScript.includes("packages/game-config/src/legacy-page")
+  || !netlifyPublishScript.includes("packages/game-config/src/public/public-server-registry.js")
   || !netlifyPublishScript.includes("packages/game-core/src/legacy-page")
 ) {
-  violations.push("scripts/build-netlify-client.mjs must publish legacy package modules used by browser ESM imports");
+  violations.push("scripts/build-netlify-client.mjs must publish browser ESM package modules used by static pages");
 }
 
 if (violations.length > 0) {
