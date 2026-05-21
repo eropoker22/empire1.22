@@ -6,6 +6,7 @@ import type {
   PlayerId,
   ServerInstanceId
 } from "@empire/shared-types";
+import { resolveModeConfig } from "@empire/game-config";
 import { createServerApp } from "../../../../apps/server/src/app";
 import { ensureGameplaySliceSessionResult } from "../../../../apps/server/src/bootstrap/gameplay-slice-session-bootstrap";
 import { selectSimulationAction } from "./action-selection";
@@ -16,6 +17,7 @@ import {
   recordProfileAssignment,
   recordSimulationResponse
 } from "./commands";
+import { createEmptySimulationResult } from "./empty-result";
 import {
   createFinalSimulationReport,
   createInitialSimulationCounters,
@@ -23,6 +25,7 @@ import {
   createStateSummary,
   incrementRecord
 } from "./metrics";
+import { createRoundReadinessMetrics } from "./readiness";
 import { createRoundMetrics, createZeroFinalReport } from "./timeline";
 import type { FreeModeSharedCitySimulationOptions, FreeModeSharedCitySimulationResult } from "./types";
 
@@ -35,10 +38,18 @@ export const runFreeModeSimulation = async (
   options: FreeModeSharedCitySimulationOptions = {}
 ): Promise<FreeModeSharedCitySimulationResult> => {
   const server = createServerApp();
+  const config = resolveModeConfig("free");
   const instanceId = options.instanceId ?? DEFAULT_INSTANCE_ID;
   const playerCount = Math.max(1, Math.floor(options.playerCount ?? DEFAULT_PLAYER_COUNT));
-  const rounds = Math.max(0, Math.floor(options.rounds ?? DEFAULT_ROUNDS));
-  const ticksPerRound = Math.max(0, Math.floor(options.ticksPerRound ?? DEFAULT_TICKS_PER_ROUND));
+  const ticksPerMinute = Math.max(1, Math.round(60000 / config.tickRateMs));
+  const hasDuration = typeof options.durationMinutes === "number" && Number.isFinite(options.durationMinutes) && options.durationMinutes > 0;
+  const ticksPerRound = Math.max(0, Math.floor(options.ticksPerRound ?? (hasDuration ? ticksPerMinute : DEFAULT_TICKS_PER_ROUND)));
+  const rounds = Math.max(0, Math.floor(options.rounds ?? (
+    hasDuration
+      ? Math.ceil((options.durationMinutes ?? 0) * ticksPerMinute / Math.max(1, ticksPerRound))
+      : DEFAULT_ROUNDS
+  )));
+  const durationMinutes = options.durationMinutes ?? roundMinutes(rounds * ticksPerRound, config.tickRateMs);
   const playerIds = Array.from({ length: playerCount }, (_, index) => `player:free-sim:${index + 1}` as PlayerId);
   const counters = createInitialSimulationCounters();
   const spiedRoutes = new Set<string>();
@@ -46,6 +57,7 @@ export const runFreeModeSimulation = async (
   const playerProfiles = new Map<PlayerId, ReturnType<typeof getBotProfileForPlayer>>();
   const perRound = [];
   let previousRoundReport = createZeroFinalReport();
+  let seedApplied = false;
 
   for (const [index, playerId] of playerIds.entries()) {
     const profile = getBotProfileForPlayer(index, options);
@@ -58,6 +70,10 @@ export const runFreeModeSimulation = async (
     if (!result.accepted) {
       for (const error of result.errors) incrementRecord(counters.errorsByCode, error.code);
       continue;
+    }
+    if (!seedApplied && options.seed) {
+      applySimulationSeed(server, instanceId, options.seed);
+      seedApplied = true;
     }
 
     refreshGameplaySessionToken(server, createLoadRequest(instanceId, playerId, index + 1, options.factionRotation), sessionTokensByPlayerId);
@@ -99,12 +115,17 @@ export const runFreeModeSimulation = async (
 
     const runtimeAfterRound = server.instanceManager.getInstanceById(instanceId);
     if (runtimeAfterRound) {
+      const readiness = createRoundReadinessMetrics(
+        runtimeAfterRound.state,
+        config,
+        config.tickRateMs
+      );
       const currentRoundReport = createFinalSimulationReport(
         runtimeAfterRound.state,
         counters,
         server.instanceManager.getHealthSummary().crashedInstances
       );
-      perRound.push(createRoundMetrics(round, currentRoundReport, previousRoundReport));
+      perRound.push(createRoundMetrics(round, currentRoundReport, previousRoundReport, readiness));
       previousRoundReport = currentRoundReport;
     }
   }
@@ -122,13 +143,27 @@ export const runFreeModeSimulation = async (
     server.instanceManager.getHealthSummary().crashedInstances,
     perRound,
     playerCount,
-    rounds > 0 && ticksPerRound > 0 ? 1 : 0
+    rounds > 0 && ticksPerRound > 0 ? 1 : 0,
+    {
+      scenarioName: options.scenarioName ?? "custom",
+      durationMinutes,
+      tickRateMs: config.tickRateMs
+    }
   );
   return {
     report,
     finalStateSummary: createStateSummary(runtime.state, instanceId),
     errorsByCode: report.errorsByCode
   };
+};
+
+const applySimulationSeed = (
+  server: ReturnType<typeof createServerApp>,
+  instanceId: ServerInstanceId,
+  seed: string
+): void => {
+  const runtime = server.instanceManager.getInstanceById(instanceId);
+  if (runtime) runtime.state.serverInstance.worldSeed = seed;
 };
 
 const createLoadRequest = (
@@ -199,35 +234,5 @@ const refreshGameplaySessionToken = (
   if (response.sessionToken) sessionTokensByPlayerId.set(request.playerId, response.sessionToken);
 };
 
-const createEmptySimulationResult = (
-  instanceId: ServerInstanceId,
-  counters: ReturnType<typeof createInitialSimulationCounters>
-): FreeModeSharedCitySimulationResult => {
-  const final = { ...createZeroFinalReport(), ...counters };
-  return {
-    report: {
-      ...final,
-      roundsPlayed: 0,
-      perRound: [],
-      final,
-      kpi: {
-        hardPassed: false,
-        hardAssertions: [],
-        softWarnings: [],
-        actionAcceptanceRate: 0,
-        turnsWithoutValidActionRate: 0,
-        spyToAttackRatio: 0
-      }
-    },
-    finalStateSummary: {
-      instanceId,
-      playerCount: 0,
-      districtCount: 0,
-      tick: 0,
-      connectedMap: true,
-      uniqueHomeDistricts: 0,
-      homeDistrictIds: [] as DistrictId[]
-    },
-    errorsByCode: counters.errorsByCode
-  };
-};
+const roundMinutes = (tick: number, tickRateMs: number): number =>
+  Math.round((tick * tickRateMs / 60000) * 100) / 100;

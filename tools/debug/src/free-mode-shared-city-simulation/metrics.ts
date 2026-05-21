@@ -4,11 +4,13 @@ import { isConnectedDistrictGraph } from "./graph";
 import type {
   FreeModeSharedCitySimulationCounters,
   FreeModeSharedCitySimulationFinalReport,
+  FreeModeSharedCityPacingReport,
   FreeModeSharedCitySimulationReport,
   FreeModeSharedCitySimulationRoundMetrics,
   FreeModeSharedCitySimulationStateSummary
 } from "./types";
 import { evaluateSimulationKpis } from "./kpi";
+import { createPacingReport } from "./pacing-report";
 
 export const createInitialSimulationCounters = (): FreeModeSharedCitySimulationCounters => ({
   actionsAttempted: 0,
@@ -35,15 +37,32 @@ export const createSimulationReport = (
   crashedInstances: number,
   perRound: FreeModeSharedCitySimulationRoundMetrics[] = [],
   expectedPlayerCount = state.root.playerIds.length,
-  expectedMinimumTick = 0
+  expectedMinimumTick = 0,
+  pacingContext: {
+    scenarioName: string;
+    durationMinutes: number;
+    tickRateMs: number;
+  } = {
+    scenarioName: "custom",
+    durationMinutes: 0,
+    tickRateMs: 5000
+  }
 ): FreeModeSharedCitySimulationReport => {
   const final = createFinalSimulationReport(state, counters, crashedInstances);
+  const pacing: FreeModeSharedCityPacingReport = createPacingReport({
+    final,
+    perRound,
+    scenarioName: pacingContext.scenarioName,
+    durationMinutes: pacingContext.durationMinutes,
+    tickRateMs: pacingContext.tickRateMs
+  });
   return {
     ...final,
     roundsPlayed: perRound.length,
     perRound,
     final,
-    kpi: evaluateSimulationKpis(final, expectedPlayerCount, expectedMinimumTick)
+    kpi: evaluateSimulationKpis(final, expectedPlayerCount, expectedMinimumTick),
+    pacing
   };
 };
 
@@ -54,6 +73,7 @@ export const createFinalSimulationReport = (
 ): FreeModeSharedCitySimulationFinalReport => {
   const playerIds = state.root.playerIds;
   const heats = playerIds.map((playerId) => state.policeStatesById[state.playersById[playerId]?.policeStateId ?? ""]?.heat ?? 0);
+  const districts = state.root.districtIds.map((districtId) => state.districtsById[districtId]).filter(Boolean);
 
   return {
     ...cloneCounters(counters),
@@ -71,7 +91,9 @@ export const createFinalSimulationReport = (
     totalResourcesByKey: createTotalResourcesByKey(state, playerIds),
     topPlayersByScore: createTopPlayersByScore(state, playerIds),
     uniqueHomeDistricts: createHomeDistrictIds(state).length,
-    connectedMap: isConnectedDistrictGraph(state)
+    connectedMap: isConnectedDistrictGraph(state),
+    ownedDistricts: districts.filter((district) => Boolean(district.ownerPlayerId)).length,
+    neutralDistricts: districts.filter((district) => !district.ownerPlayerId).length
   };
 };
 

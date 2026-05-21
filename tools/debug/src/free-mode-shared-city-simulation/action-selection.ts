@@ -2,6 +2,7 @@ import type { CoreGameState } from "@empire/game-core";
 import type {
   AttackDistrictCommand,
   CollectProductionCommand,
+  CraftItemCommand,
   DistrictId,
   GameplaySliceView,
   OccupyDistrictCommand,
@@ -9,12 +10,12 @@ import type {
   SpyDistrictCommand
 } from "@empire/shared-types";
 import type { ServerInstanceRuntime } from "../../../../apps/server/src/runtime/instance/server-instance-runtime";
-import { createAttackCommand, createCollectCommand, createOccupyCommand, createSpyCommand } from "./commands";
+import { createAttackCommand, createCollectCommand, createCraftCommand, createOccupyCommand, createSpyCommand } from "./commands";
 import { createActionPolicy } from "./bot-profiles";
 import type { SimulationActionType, SimulationBotProfile } from "./types";
 
 export interface SelectedSimulationAction {
-  command: SpyDistrictCommand | OccupyDistrictCommand | AttackDistrictCommand | CollectProductionCommand;
+  command: SpyDistrictCommand | OccupyDistrictCommand | AttackDistrictCommand | CollectProductionCommand | CraftItemCommand;
   focusDistrictId: DistrictId;
   routeKey?: string;
 }
@@ -58,6 +59,9 @@ const findActionByType = (
   }
   if (actionType === "collect-production") {
     return findCollectProductionAction(runtime, playerId, views, round, playerIndex);
+  }
+  if (actionType === "craft-item") {
+    return findCraftAction(runtime, playerId, views, round, playerIndex);
   }
   return findSpyAction(runtime, playerId, views, round, playerIndex, spiedRoutes);
 };
@@ -140,6 +144,27 @@ const findCollectProductionAction = (
       return {
         focusDistrictId: sourceDistrictId,
         command: createCollectCommand(runtime.record.id, playerId, sourceDistrictId, slot.buildingId, round, playerIndex)
+      };
+    }
+  }
+  return null;
+};
+
+const findCraftAction = (
+  runtime: ServerInstanceRuntime,
+  playerId: PlayerId,
+  views: GameplaySliceView[],
+  round: number,
+  playerIndex: number
+): SelectedSimulationAction | null => {
+  for (const view of views) {
+    const sourceDistrictId = view.district?.districtId;
+    const slot = view.district?.slots.find((entry) => entry.buildingId && entry.craftOptions.some((option) => option.canCraft));
+    const craftOption = slot?.craftOptions.find((option) => option.canCraft);
+    if (sourceDistrictId && slot?.buildingId && craftOption) {
+      return {
+        focusDistrictId: sourceDistrictId,
+        command: createCraftCommand(runtime.record.id, playerId, sourceDistrictId, slot.buildingId, craftOption.recipeId, round, playerIndex)
       };
     }
   }

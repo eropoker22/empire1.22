@@ -3,13 +3,22 @@ import type {
   FreeModeSharedCitySimulationRoundMetrics
 } from "./types";
 
+export interface RoundReadinessMetrics {
+  tickRateMs: number;
+  attackReadyPlayers: number;
+  craftReadyPlayers: number;
+  productionReadyPlayers: number;
+}
+
 export const createRoundMetrics = (
   round: number,
   current: FreeModeSharedCitySimulationFinalReport,
-  previous: FreeModeSharedCitySimulationFinalReport
+  previous: FreeModeSharedCitySimulationFinalReport,
+  readiness: RoundReadinessMetrics
 ): FreeModeSharedCitySimulationRoundMetrics => ({
   round,
   tickAfterRound: current.tickCount,
+  minuteAfterRound: roundMinute(current.tickCount, readiness.tickRateMs),
   actionsAttempted: current.actionsAttempted - previous.actionsAttempted,
   actionsAccepted: current.actionsAccepted - previous.actionsAccepted,
   actionsRejected: current.actionsRejected - previous.actionsRejected,
@@ -29,6 +38,13 @@ export const createRoundMetrics = (
   eliminatedPlayers: current.eliminatedPlayers,
   averageHeat: current.averageHeat,
   maxHeat: current.maxHeat,
+  ownedDistricts: current.ownedDistricts,
+  neutralDistricts: current.neutralDistricts,
+  totalResourcesByKey: { ...current.totalResourcesByKey },
+  resourceDeltaByKey: diffRecord(current.totalResourcesByKey, previous.totalResourcesByKey),
+  attackReadyPlayers: readiness.attackReadyPlayers,
+  craftReadyPlayers: readiness.craftReadyPlayers,
+  productionReadyPlayers: readiness.productionReadyPlayers,
   turnsWithoutValidAction: current.turnsWithoutValidAction - previous.turnsWithoutValidAction,
   turnsWithoutValidActionByProfile: diffRecord(current.turnsWithoutValidActionByProfile, previous.turnsWithoutValidActionByProfile),
   profileAssignmentSummary: { ...current.profileAssignmentSummary }
@@ -61,7 +77,9 @@ export const createZeroFinalReport = (): FreeModeSharedCitySimulationFinalReport
   totalResourcesByKey: {},
   topPlayersByScore: [],
   uniqueHomeDistricts: 0,
-  connectedMap: true
+  connectedMap: true,
+  ownedDistricts: 0,
+  neutralDistricts: 0
 });
 
 const diffRecord = (
@@ -87,3 +105,6 @@ const diffNestedRecord = (
       .filter(([, value]) => Object.keys(value).length > 0)
   );
 };
+
+const roundMinute = (tick: number, tickRateMs: number): number =>
+  Math.round((tick * tickRateMs / 60000) * 100) / 100;

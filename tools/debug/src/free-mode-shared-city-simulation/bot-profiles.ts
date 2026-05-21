@@ -33,20 +33,20 @@ export const createActionPolicy = (
 ): SimulationActionType[] => {
   switch (profile) {
     case "aggressor":
-      return ["attack-district", "occupy-district", "spy-district", "collect-production"];
+      return ["attack-district", "occupy-district", "spy-district", "collect-production", "craft-item"];
     case "opportunist":
       return (round + playerIndex) % 2 === 0
-        ? ["attack-district", "occupy-district", "spy-district", "collect-production"]
-        : ["collect-production", "occupy-district", "spy-district", "attack-district"];
+        ? ["attack-district", "occupy-district", "spy-district", "collect-production", "craft-item"]
+        : ["collect-production", "craft-item", "occupy-district", "spy-district", "attack-district"];
     case "economy":
-      return ["collect-production", "occupy-district", "spy-district", "attack-district"];
+      return ["collect-production", "craft-item", "occupy-district", "spy-district", "attack-district"];
     case "balanced":
       return createBalancedPolicy(round);
     case "scout":
     default:
       return round <= 3
-        ? ["spy-district", "occupy-district", "collect-production", "attack-district"]
-        : ["spy-district", "occupy-district", "attack-district", "collect-production"];
+        ? ["spy-district", "occupy-district", "collect-production", "craft-item", "attack-district"]
+        : ["spy-district", "occupy-district", "attack-district", "collect-production", "craft-item"];
   }
 };
 
@@ -61,7 +61,7 @@ export const parseBotProfileList = (value: string | undefined): SimulationBotPro
 
 const createBalancedPolicy = (round: number): SimulationActionType[] => {
   const mod = round % 3;
-  if (mod === 0) return ["attack-district", "occupy-district", "spy-district", "collect-production"];
-  if (mod === 1) return ["spy-district", "occupy-district", "attack-district", "collect-production"];
-  return ["collect-production", "occupy-district", "spy-district", "attack-district"];
+  if (mod === 0) return ["attack-district", "occupy-district", "spy-district", "collect-production", "craft-item"];
+  if (mod === 1) return ["spy-district", "occupy-district", "attack-district", "collect-production", "craft-item"];
+  return ["collect-production", "craft-item", "occupy-district", "spy-district", "attack-district"];
 };

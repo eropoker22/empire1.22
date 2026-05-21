@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { resolveModeConfig } from "@empire/game-config";
 import {
   FREE_MODE_SHARED_CITY_SCENARIOS,
   SIMULATION_BOT_PROFILES,
@@ -43,6 +44,9 @@ describe("free-mode shared city simulation harness", () => {
     expect(report.profileAssignmentSummary.scout).toBe(20);
     expect(report.actionsByProfile.scout).toBe(report.actionsAttempted);
     expect(report.acceptedActionsByProfile.scout).toBe(report.actionsAccepted);
+    expect(report.pacing.resourceBalancesOverTime).toHaveLength(6);
+    expect(report.pacing.milestones.firstMeaningfulActionMinute).not.toBeNull();
+    expect(report.pacing.heatRaidPressure.maxHeatObserved).toBeGreaterThanOrEqual(report.maxHeat);
   });
 
   it("records rejected actions without crashing the simulation report", async () => {
@@ -74,6 +78,27 @@ describe("free-mode shared city simulation harness", () => {
     expect(pickDeterministicMetrics(second.report)).toEqual(pickDeterministicMetrics(first.report));
   });
 
+  it("returns deterministic pacing diagnostics for a fixed seed", async () => {
+    const options = {
+      instanceId: "instance:test:free-shared-city-pacing-seed",
+      seed: "free-mode-pacing-ci-seed",
+      scenarioName: "test-seeded-pacing",
+      playerCount: 5,
+      durationMinutes: 5,
+      ticksPerRound: 12,
+      botProfileRotation: [...SIMULATION_BOT_PROFILES]
+    };
+    const first = await runFreeModeSimulation(options);
+    const second = await runFreeModeSimulation(options);
+
+    expect(second.report.pacing).toEqual(first.report.pacing);
+    expect(first.report.pacing.resourceBalancesOverTime).toHaveLength(5);
+    expect(first.report.pacing.incomePerPhase).toHaveLength(3);
+    expect(first.report.pacing.milestones.firstMeaningfulActionMinute).not.toBeNull();
+    expect(first.report.pacing.heatRaidPressure.maxHeatObserved).toBeGreaterThanOrEqual(0);
+    expect(first.report.pacing.warnings.map((warning) => warning.code)).toEqual(expect.any(Array));
+  });
+
   it("records per-round deltas against the previous round snapshot", async () => {
     const result = await runFreeModeSimulation({
       instanceId: "instance:test:free-shared-city-sim-timeline",
@@ -97,15 +122,16 @@ describe("free-mode shared city simulation harness", () => {
   });
 
   it("runs the scenario matrix and evaluates baseline KPI warnings", async () => {
-    const matrix = await getMatrix();
+    const matrix = await runFreeModeScenarioMatrix(["baseline-20p-short", "mixed-factions-20p", "mixed-profiles-20p"]);
     const names = matrix.scenarios.map((entry) => entry.scenario.name);
 
-    expect(names).toEqual(FREE_MODE_SHARED_CITY_SCENARIOS.map((scenario) => scenario.name));
+    expect(names).toEqual(["baseline-20p-short", "mixed-factions-20p", "mixed-profiles-20p"]);
     for (const entry of matrix.scenarios) {
       expect(entry.report).toBeTruthy();
       expect(entry.report.connectedMap).toBe(true);
       expect(entry.report.crashedInstances).toBe(0);
-      expect(entry.report.perRound).toHaveLength(entry.scenario.options.rounds ?? 0);
+      expect(entry.report.perRound).toHaveLength(expectedRoundCount(entry.scenario.options));
+      expect(entry.report.pacing.scenarioName).toBe(entry.scenario.name);
     }
 
     const baseline = matrix.scenarios.find((entry) => entry.scenario.name === "baseline-20p-short")!;
@@ -128,6 +154,31 @@ describe("free-mode shared city simulation harness", () => {
     });
     expect(mixedProfiles.report.crashedInstances).toBe(0);
     expect(mixedProfiles.report.connectedMap).toBe(true);
+  });
+
+  it("exposes the requested 30-60 minute pacing scenario catalog", () => {
+    expect(FREE_MODE_SHARED_CITY_SCENARIOS).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        name: "solo-player-first-30-minutes",
+        options: expect.objectContaining({ playerCount: 1, durationMinutes: 30, botProfile: "economy" })
+      }),
+      expect.objectContaining({
+        name: "shared-city-5p",
+        options: expect.objectContaining({ playerCount: 5, durationMinutes: 60 })
+      }),
+      expect.objectContaining({
+        name: "shared-city-20p",
+        options: expect.objectContaining({ playerCount: 20, durationMinutes: 60 })
+      }),
+      expect.objectContaining({
+        name: "aggressive-conflict-player",
+        options: expect.objectContaining({ botProfile: "aggressor", durationMinutes: 45 })
+      }),
+      expect.objectContaining({
+        name: "passive-economy-player",
+        options: expect.objectContaining({ botProfile: "economy", durationMinutes: 45 })
+      })
+    ]));
   });
 
   it("returns stable headline metrics for the same deterministic scenario matrix", async () => {
@@ -193,24 +244,37 @@ const pickDeterministicMetrics = (report: Awaited<ReturnType<typeof runFreeModeS
   perRound: report.perRound.map((round) => ({
     round: round.round,
     tickAfterRound: round.tickAfterRound,
+    minuteAfterRound: round.minuteAfterRound,
     actionsAttempted: round.actionsAttempted,
     actionsAccepted: round.actionsAccepted,
     actionsRejected: round.actionsRejected,
     spyReportsDelta: round.spyReportsDelta,
     battleReportsDelta: round.battleReportsDelta,
-    cityFeedEventsDelta: round.cityFeedEventsDelta
+    cityFeedEventsDelta: round.cityFeedEventsDelta,
+    resourceDeltaByKey: round.resourceDeltaByKey,
+    attackReadyPlayers: round.attackReadyPlayers,
+    craftReadyPlayers: round.craftReadyPlayers,
+    productionReadyPlayers: round.productionReadyPlayers
   })),
+  pacing: {
+    milestones: report.pacing.milestones,
+    heatRaidPressure: report.pacing.heatRaidPressure,
+    bottleneckResources: report.pacing.bottleneckResources,
+    warnings: report.pacing.warnings.map((warning) => warning.code)
+  },
   kpi: {
     hardPassed: report.kpi.hardPassed,
     softWarnings: report.kpi.softWarnings.map((warning) => warning.code)
   }
 });
 
-let matrixCache: ReturnType<typeof runFreeModeScenarioMatrix> | null = null;
-
-const getMatrix = () => {
-  matrixCache ??= runFreeModeScenarioMatrix();
-  return matrixCache;
+const expectedRoundCount = (options: typeof FREE_MODE_SHARED_CITY_SCENARIOS[number]["options"]): number => {
+  if (typeof options.rounds === "number") return options.rounds;
+  if (typeof options.durationMinutes !== "number") return 0;
+  const config = resolveModeConfig("free");
+  const ticksPerMinute = Math.max(1, Math.round(60000 / config.tickRateMs));
+  const ticksPerRound = Math.max(1, Math.floor(options.ticksPerRound ?? ticksPerMinute));
+  return Math.ceil(options.durationMinutes * ticksPerMinute / ticksPerRound);
 };
 
 const createPolicyRuntime = (): ServerInstanceRuntime => ({

@@ -1,6 +1,7 @@
 import type {
   AttackDistrictCommand,
   CollectProductionCommand,
+  CraftItemCommand,
   DistrictId,
   GameplaySliceResponse,
   OccupyDistrictCommand,
@@ -126,6 +127,25 @@ export const createCollectCommand = (
   serverInstanceId,
   issuedAt: new Date(0).toISOString(),
   payload: { districtId, buildingId },
+  clientRequestId: null
+});
+
+export const createCraftCommand = (
+  serverInstanceId: ServerInstanceId,
+  playerId: PlayerId,
+  districtId: DistrictId,
+  buildingId: string,
+  recipeId: string,
+  round: number,
+  playerIndex: number
+): CraftItemCommand => ({
+  id: createCommandId("craft-item", round, playerIndex, districtId, `${buildingId}:${recipeId}`),
+  type: "craft-item",
+  mode: "free",
+  playerId,
+  serverInstanceId,
+  issuedAt: new Date(0).toISOString(),
+  payload: { districtId, buildingId, recipeId },
   clientRequestId: null
 });
 
