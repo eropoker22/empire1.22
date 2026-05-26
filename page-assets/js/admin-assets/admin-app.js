@@ -1,6 +1,51 @@
 (function() {
   "use strict";
   const createAdminAppShell = (shell) => shell;
+  const ADMIN_MONITORING_TOKEN_STORAGE_KEY = "empire.adminMonitoringToken";
+  const resolveAdminMonitoringToken = (configuredToken) => {
+    const explicitToken = configuredToken == null ? void 0 : configuredToken.trim();
+    if (explicitToken) {
+      return explicitToken;
+    }
+    const runtimeToken = readRuntimeAdminMonitoringToken();
+    if (runtimeToken) {
+      return runtimeToken;
+    }
+    const queryToken = readQueryAdminMonitoringToken();
+    if (queryToken) {
+      writeSessionAdminMonitoringToken(queryToken);
+      return queryToken;
+    }
+    return readSessionAdminMonitoringToken();
+  };
+  const readRuntimeAdminMonitoringToken = () => {
+    var _a;
+    const token = (_a = globalThis.__EMPIRE_ADMIN_MONITORING_TOKEN__) == null ? void 0 : _a.trim();
+    return token || null;
+  };
+  const readQueryAdminMonitoringToken = () => {
+    var _a, _b;
+    const search = typeof window === "undefined" ? "" : window.location.search;
+    if (!search) {
+      return null;
+    }
+    const params = new URLSearchParams(search);
+    return ((_a = params.get("adminToken")) == null ? void 0 : _a.trim()) || ((_b = params.get("empireAdminToken")) == null ? void 0 : _b.trim()) || null;
+  };
+  const readSessionAdminMonitoringToken = () => {
+    var _a;
+    try {
+      return ((_a = sessionStorage.getItem(ADMIN_MONITORING_TOKEN_STORAGE_KEY)) == null ? void 0 : _a.trim()) || null;
+    } catch (_error) {
+      return null;
+    }
+  };
+  const writeSessionAdminMonitoringToken = (token) => {
+    try {
+      sessionStorage.setItem(ADMIN_MONITORING_TOKEN_STORAGE_KEY, token);
+    } catch (_error) {
+    }
+  };
   const createAdminInstanceViewModel = (summary, health, diagnostics, activity = {
     commandCount: 0,
     eventCount: 0,
@@ -355,7 +400,10 @@
         return options.fetchAdminOverview();
       }
       if (!options.fetchMonitoringSummaries && !((_a2 = options.facades) == null ? void 0 : _a2.instance)) {
-        const endpointOverview = await fetchAdminOverviewFromEndpoint(options.monitoringEndpoint ?? "/api/admin/monitoring");
+        const endpointOverview = await fetchAdminOverviewFromEndpoint(
+          options.monitoringEndpoint ?? "/api/admin/monitoring",
+          options.adminMonitoringToken
+        );
         if (endpointOverview) {
           return endpointOverview;
         }
@@ -410,7 +458,10 @@
     if (facadeSummaries.length > 0 || ((_c = (_b = options.facades) == null ? void 0 : _b.instance) == null ? void 0 : _c.listInstanceMonitoringSummaries)) {
       return facadeSummaries;
     }
-    return ((_d = await fetchAdminOverviewFromEndpoint(options.monitoringEndpoint ?? "/api/admin/monitoring")) == null ? void 0 : _d.instances.map((instance) => ({
+    return ((_d = await fetchAdminOverviewFromEndpoint(
+      options.monitoringEndpoint ?? "/api/admin/monitoring",
+      options.adminMonitoringToken
+    )) == null ? void 0 : _d.instances.map((instance) => ({
       instanceId: instance.instanceId,
       mode: instance.mode,
       status: instance.status,
@@ -432,15 +483,20 @@
       lastSnapshotAt: instance.lastSnapshotAt
     }))) ?? [];
   };
-  const fetchAdminOverviewFromEndpoint = async (endpoint) => {
+  const fetchAdminOverviewFromEndpoint = async (endpoint, configuredToken) => {
     var _a;
     if (typeof fetch === "undefined") {
       return null;
     }
+    const token = resolveAdminMonitoringToken(configuredToken);
+    const headers = {
+      accept: "application/json"
+    };
+    if (token) {
+      headers["x-empire-admin-token"] = token;
+    }
     const response = await fetch(endpoint, {
-      headers: {
-        accept: "application/json"
-      }
+      headers
     });
     if (!response.ok) {
       return null;

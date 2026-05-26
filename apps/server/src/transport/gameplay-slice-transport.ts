@@ -2,8 +2,10 @@ import type {
   AuthContext,
   GameplaySliceResponse,
   LoadGameplaySliceRequest,
+  ServerAssignedFocusDistrictId,
   SubmitGameplayCommandRequest
 } from "@empire/shared-types";
+import { SERVER_ASSIGNED_FOCUS_DISTRICT_ID } from "@empire/shared-types";
 import type { ServerInstanceManager } from "../runtime";
 import type { ServerInstanceRuntime } from "../runtime/instance/server-instance-runtime";
 import { createGameplaySliceProjection } from "../runtime/projections";
@@ -79,6 +81,28 @@ export const createGameplaySliceTransport = (
         };
       }
 
+      if (isServerAssignedFocusDistrictId(request.focusDistrictId)) {
+        const runtime = instanceManager.getInstanceById(request.command.serverInstanceId);
+
+        return {
+          accepted: false,
+          readModel: runtime
+            ? createGameplaySliceProjection(runtime, request.command.playerId, null)
+            : null,
+          errors: [
+            {
+              code: "transport.invalid_request",
+              message: "Gameplay slice submit request field 'focusDistrictId' must be a concrete server district.",
+              details: {
+                field: "focusDistrictId"
+              }
+            }
+          ],
+          metadata: runtime ? createGameplaySliceResponseMetadata(runtime) : undefined,
+          sessionToken: runtime ? createGameplaySessionToken(runtime, request.command.playerId) : null
+        };
+      }
+
       const dispatchResult = commandIngress.submit(request.command, {
         expectedStateVersion: request.expectedStateVersion
       });
@@ -101,6 +125,11 @@ export const createGameplaySliceTransport = (
     }
   };
 };
+
+const isServerAssignedFocusDistrictId = (
+  districtId: string
+): districtId is ServerAssignedFocusDistrictId =>
+  districtId === SERVER_ASSIGNED_FOCUS_DISTRICT_ID;
 
 const createGameplaySliceResponseMetadata = (runtime: ServerInstanceRuntime): GameplaySliceResponse["metadata"] => ({
   serverTick: runtime.state.root.tick,

@@ -1,4 +1,5 @@
 import { ENTRY_FLOW_TARGETS, getEntryFlowTarget } from "./app/auth-flow.js";
+import { bindDesktopGameScrollLimit } from "./app/runtime/desktopScrollLimitRuntime.js";
 import { bootstrapPage, PAGE_ROOT_SELECTOR } from "./app/render-ui.js";
 
 const ENTRY_REDIRECTS = Object.freeze({
@@ -20,8 +21,14 @@ function canBootGame() {
 
 const shouldBootGame = canBootGame();
 
+function bootGamePage() {
+  const runtime = bootstrapPage();
+  bindDesktopGameScrollLimit();
+  return runtime;
+}
+
 if (shouldBootGame && document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", bootstrapPage, { once: true });
+  document.addEventListener("DOMContentLoaded", bootGamePage, { once: true });
 } else if (shouldBootGame && document.querySelector(PAGE_ROOT_SELECTOR)) {
-  bootstrapPage();
+  bootGamePage();
 }

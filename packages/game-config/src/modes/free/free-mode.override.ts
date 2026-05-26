@@ -15,7 +15,9 @@ import { freeModeExchangeOfficeConfig } from "../../public/free-mode-exchange-of
 import { freeModeFitnessClubConfig } from "../../public/free-mode-fitness-club-config";
 import { freeModeGarageConfig } from "../../public/free-mode-garage-config";
 import { freeModeLobbyClubConfig } from "../../public/free-mode-lobby-club-config";
+import { freeModeParliamentConfig } from "../../public/free-mode-parliament-config";
 import { freeModePowerStationConfig } from "../../public/free-mode-power-station-config";
+import { freeModePortConfig } from "../../public/free-mode-port-config";
 import { freeModeRecyclingCenterConfig } from "../../public/free-mode-recycling-center-config";
 import { freeModeSchoolConfig } from "../../public/free-mode-school-config";
 import { freeModeSmugglingTunnelConfig } from "../../public/free-mode-smuggling-tunnel-config";
@@ -138,6 +140,8 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
     stockExchange: freeModeStockExchangeConfig,
     centralBank: freeModeCentralBankConfig,
     airport: freeModeAirportConfig,
+    port: freeModePortConfig,
+    parliament: freeModeParliamentConfig,
     cityHall: freeModeCityHallConfig,
     courthouse: freeModeCourthouseConfig,
     lobbyClub: freeModeLobbyClubConfig,

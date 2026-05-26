@@ -2,8 +2,10 @@ import type { ResolvedGameModeConfig } from "../../contracts/game-mode-config";
 import { freeModeAirportConfig } from "../../public/free-mode-airport-config";
 import { freeModeCentralBankConfig } from "../../public/free-mode-central-bank-config";
 import { freeModeCityHallConfig } from "../../public/free-mode-city-hall-config";
-import { freeModeLobbyClubConfig } from "../../public/free-mode-lobby-club-config";
+import { freeModeParliamentConfig } from "../../public/free-mode-parliament-config";
+import { freeModePortConfig } from "../../public/free-mode-port-config";
 import { freeModeStockExchangeConfig } from "../../public/free-mode-stock-exchange-config";
+import { freeModeLobbyClubBuildingActions } from "./free-mode-lobby-club-building-actions";
 
 export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeConfig["balance"]["buildingActions"]> = {  official_cover: {
     actionId: "official_cover",
@@ -95,6 +97,39 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
     allowedIfContested: false,
     reportText: "Evakuační koridor je aktivní. Únik a logistika mají dočasný boost."
   },
+  port_container_cut: {
+    actionId: "port_container_cut",
+    buildingType: "port",
+    label: "Container Cut",
+    description: "Vybere z kontejnerů užitečné zásoby a dirty cash přes přístavní trasu.",
+    durationMs: 0,
+    cooldownMs: freeModePortConfig.containerCut.cooldownMinutes * 60 * 1000,
+    inputCost: {},
+    outputGain: {
+      "dirty-cash": freeModePortConfig.containerCut.dirtyCashGain,
+      "metal-parts": freeModePortConfig.containerCut.metalPartsGain
+    },
+    heatGain: freeModePortConfig.containerCut.heatGain,
+    influenceChange: freeModePortConfig.containerCut.influenceGain,
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Přístav rozebral kontejnerovou trasu a vytáhl dirty cash i metal parts."
+  },
+  parliament_policy_window: {
+    actionId: "parliament_policy_window",
+    buildingType: "parliament",
+    label: "Policy Window",
+    description: "Otevře krátké politické okno pro zisk vlivu a clean cash.",
+    durationMs: 0,
+    cooldownMs: freeModeParliamentConfig.policyWindow.cooldownMinutes * 60 * 1000,
+    inputCost: {},
+    outputGain: { cash: freeModeParliamentConfig.policyWindow.cleanCashGain },
+    heatGain: freeModeParliamentConfig.policyWindow.heatGain,
+    influenceChange: freeModeParliamentConfig.policyWindow.influenceGain,
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Parlament otevřel politické okno a přidal vliv i clean cash."
+  },
   speculative_buy: {
     actionId: "speculative_buy",
     buildingType: "stock_exchange",
@@ -185,49 +220,5 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
     allowedIfContested: false,
     reportText: "Centrální banka spustila kurzovní intervenci ve vybrané kategorii."
   },
-  backroom_pressure: {
-    actionId: "backroom_pressure",
-    buildingType: "lobby_club",
-    label: "Zákulisní tlak",
-    description: "Na 8 minut posílí influence produkci, sníží cenu influence akcí a přidá politický tlak.",
-    durationMs: freeModeLobbyClubConfig.backroomPressure.durationMinutes * 60 * 1000,
-    cooldownMs: freeModeLobbyClubConfig.backroomPressure.cooldownMinutes * 60 * 1000,
-    inputCost: { cash: freeModeLobbyClubConfig.backroomPressure.costCleanCash },
-    outputGain: {},
-    heatGain: freeModeLobbyClubConfig.backroomPressure.heatGain,
-    influenceChange: -freeModeLobbyClubConfig.backroomPressure.costInfluence,
-    requiredOwner: true,
-    allowedIfContested: false,
-    reportText: "Zákulisní tlak je aktivní. Influence síť tlačí na rozhodnutí v celém městě."
-  },
-  quiet_negotiation: {
-    actionId: "quiet_negotiation",
-    buildingType: "lobby_club",
-    label: "Tiché vyjednávání",
-    description: "Okamžitě zkrátí jeden politický/společenský cooldown, sníží rizika a zlevní další influence akci.",
-    durationMs: 0,
-    cooldownMs: freeModeLobbyClubConfig.quietNegotiation.cooldownMinutes * 60 * 1000,
-    inputCost: { cash: freeModeLobbyClubConfig.quietNegotiation.costCleanCash },
-    outputGain: {},
-    heatGain: freeModeLobbyClubConfig.quietNegotiation.heatGain,
-    influenceChange: -freeModeLobbyClubConfig.quietNegotiation.costInfluence,
-    requiredOwner: true,
-    allowedIfContested: false,
-    reportText: "Tiché vyjednávání proběhlo mimo záznam. Rizika klesla a další influence akce bude levnější."
-  },
-  media_screen: {
-    actionId: "media_screen",
-    buildingType: "lobby_club",
-    label: "Mediální clona",
-    description: "Na 8 minut brání negativním drbům, snižuje jejich pravdivost a zlepšuje veřejný obraz.",
-    durationMs: freeModeLobbyClubConfig.mediaScreen.durationMinutes * 60 * 1000,
-    cooldownMs: freeModeLobbyClubConfig.mediaScreen.cooldownMinutes * 60 * 1000,
-    inputCost: { cash: freeModeLobbyClubConfig.mediaScreen.costCleanCash },
-    outputGain: {},
-    heatGain: freeModeLobbyClubConfig.mediaScreen.heatGain,
-    influenceChange: 0,
-    requiredOwner: true,
-    allowedIfContested: false,
-    reportText: "Mediální clona překresluje veřejný obraz a tlumí negativní drby."
-  }
+  ...freeModeLobbyClubBuildingActions
 };

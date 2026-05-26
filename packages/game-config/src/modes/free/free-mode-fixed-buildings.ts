@@ -12,7 +12,9 @@ import { freeModeExchangeOfficeConfig } from "../../public/free-mode-exchange-of
 import { freeModeFitnessClubConfig } from "../../public/free-mode-fitness-club-config";
 import { freeModeGarageConfig } from "../../public/free-mode-garage-config";
 import { freeModeLobbyClubConfig } from "../../public/free-mode-lobby-club-config";
+import { freeModeParliamentConfig } from "../../public/free-mode-parliament-config";
 import { freeModePowerStationConfig } from "../../public/free-mode-power-station-config";
+import { freeModePortConfig } from "../../public/free-mode-port-config";
 import { freeModeRecyclingCenterConfig } from "../../public/free-mode-recycling-center-config";
 import { freeModeRecruitmentCenterConfig } from "../../public/free-mode-recruitment-center-config";
 import { freeModeRestaurantConfig } from "../../public/free-mode-restaurant-config";
@@ -129,6 +131,20 @@ export const freeModeFixedBuildings: NonNullable<ResolvedGameModeConfig["balance
     heatPerDay: freeModeAirportConfig.heatPerMinute * 60 * 24,
     influencePerDay: freeModeAirportConfig.influencePerMinute * 60 * 24,
     maxLevel: 1
+  },
+  port: {
+    cleanPerHour: freeModePortConfig.cleanCashPerMinute * 60,
+    dirtyPerHour: freeModePortConfig.dirtyCashPerMinute * 60,
+    heatPerDay: freeModePortConfig.heatPerMinute * 60 * 24,
+    influencePerDay: freeModePortConfig.influencePerMinute * 60 * 24,
+    maxLevel: 5
+  },
+  parliament: {
+    cleanPerHour: freeModeParliamentConfig.cleanCashPerMinute * 60,
+    dirtyPerHour: freeModeParliamentConfig.dirtyCashPerMinute * 60,
+    heatPerDay: freeModeParliamentConfig.heatPerMinute * 60 * 24,
+    influencePerDay: freeModeParliamentConfig.influencePerMinute * 60 * 24,
+    maxLevel: 5
   },
   city_hall: {
     cleanPerHour: freeModeCityHallConfig.cleanCashPerMinute * 60,

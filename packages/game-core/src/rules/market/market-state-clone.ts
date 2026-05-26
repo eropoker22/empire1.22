@@ -1,11 +1,11 @@
 import type {
   MarketResourceId,
   ServerMarketState
-} from "./serverMarketSystem";
+} from "./market-types";
+import { marketResourceIds } from "./market-config";
 
 type AnyRecord = Record<string, any>;
 
-const marketResourceIds = ["metalParts", "techCore", "chemicals", "biomass"] as const;
 export const cloneServerState = <T extends AnyRecord>(state: T): T => {
   const next: AnyRecord = { ...state };
   cloneRecordMap(next, state, "playersById", cloneEntity);

@@ -5030,6 +5030,12 @@ html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not(
   margin: auto !important;
 }
 
+html body #attack-result-modal:not(.hidden):not([hidden]) .modal__content,
+html body.game-modal-scroll-locked #attack-result-modal:not(.hidden):not([hidden]) .modal__content {
+  width: min(560px, calc(100vw - 28px)) !important;
+  max-height: min(72dvh, 600px) !important;
+}
+
 html body #spy-confirm-modal:not(.hidden):not([hidden]) .modal__body,
 html body #raid-confirm-modal:not(.hidden):not([hidden]) .modal__body,
 html body #occupy-confirm-modal:not(.hidden):not([hidden]) .modal__body,

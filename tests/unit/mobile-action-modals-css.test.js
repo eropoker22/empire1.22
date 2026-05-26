@@ -7,6 +7,8 @@ const root = process.cwd();
 describe("mobile action modal CSS", () => {
   const css = readFileSync(resolve(root, "page-assets/css/styles-mobile-fixes.css"), "utf8");
   const clientCss = readFileSync(resolve(root, "client/page-assets/css/styles-mobile-fixes.css"), "utf8");
+  const actionCss = readFileSync(resolve(root, "page-assets/css/styles-action-results.css"), "utf8");
+  const clientActionCss = readFileSync(resolve(root, "client/page-assets/css/styles-action-results.css"), "utf8");
   const mobileRuntime = readFileSync(resolve(root, "page-assets/js/app/mobile-layout-runtime.js"), "utf8");
 
   it("keeps action result dialogs compact on mobile", () => {
@@ -35,6 +37,22 @@ describe("mobile action modal CSS", () => {
     expect(css).toContain("rgba(251, 191, 36");
     expect(css).toContain("rgba(34, 211, 238");
     expect(css).toContain("rgba(248, 113, 113");
+  });
+
+  it("keeps attack result details compact and split into two columns", () => {
+    for (const stylesheet of [actionCss, clientActionCss]) {
+      expect(stylesheet).toContain(".attack-result-modal__content {\n  width: min(620px, 94vw);");
+      expect(stylesheet).toContain("#attack-result-modal .attack-result-modal__stats");
+      expect(stylesheet).toContain("grid-template-columns: repeat(2, minmax(0, 1fr));");
+      expect(stylesheet).toContain("#attack-result-modal .attack-result-modal__stats .modal__row strong");
+      expect(stylesheet).toContain("overflow-wrap: anywhere;");
+    }
+
+    for (const stylesheet of [css, clientCss]) {
+      expect(stylesheet).toContain("html body #attack-result-modal:not(.hidden):not([hidden]) .modal__content");
+      expect(stylesheet).toContain("width: min(560px, calc(100vw - 28px)) !important;");
+      expect(stylesheet).toContain("max-height: min(72dvh, 600px) !important;");
+    }
   });
 
   it("keeps the onboarding launch button attached to the leaderboard row on mobile", () => {

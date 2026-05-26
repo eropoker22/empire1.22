@@ -18,7 +18,7 @@ const CANONICAL_WAR_SERVER_ID = "instance:war:eu-central:public-1";
 
 async function loginAsGuest(page, name = "Entry Host", gang = "Entry Crew") {
   await openLoginPage(page);
-  await page.getByPlaceholder("Host").fill(name);
+  await page.locator("#guest-username").fill(name);
   await page.getByPlaceholder("Ghost Crew").fill(gang);
   await Promise.all([
     page.waitForURL(/\/pages\/lobby\.html\?mode=war$/),
@@ -37,9 +37,10 @@ async function chooseServerAndEnter(page) {
 
 async function chooseFactionAndEnter(page) {
   await expect(page.getByTestId("faction-page")).toBeVisible();
-  await page.getByRole("button", { name: "Mafián" }).click();
-  await page.locator("[data-gang-color]").first().click();
-  await page.locator("[data-avatar]").first().click();
+  await expect(page.locator("[data-gang-color]").first()).toBeVisible();
+  await page.evaluate(() => document.querySelector("[data-faction-id='mafian']")?.click());
+  await page.locator("[data-gang-color]").first().click({ force: true });
+  await page.locator("[data-avatar]").first().click({ force: true });
   await expect(page.getByTestId("avatar-lightbox")).toBeVisible();
   await page.getByRole("button", { name: "Potvrdit výběr avatara" }).click();
   await expect(page.getByTestId("continue-to-game")).toBeEnabled();

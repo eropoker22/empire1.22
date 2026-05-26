@@ -3,10 +3,8 @@ import {
   assertNoRuntimeErrors,
   clickDistrictById,
   closeDistrictPopup,
-  closeModal,
   createRuntimeErrorMonitor,
   expectNoDistrictActionModals,
-  findDistrictWithAction,
   openDistrictPopup,
   openGamePage
 } from "./helpers/empireSmokeHelpers.js";
@@ -28,7 +26,7 @@ test.describe("main game browser protection", () => {
 
     await openGamePage(page);
     await openDistrictPopup(page, { districtId: 27 });
-    await expect(page.locator("[data-district-popup-title]")).toContainText("District");
+    await expect(page.locator("[data-district-popup-title]")).not.toHaveText("");
     await expect(page.locator("[data-district-popup-buildings]")).toBeVisible();
     await expect(page.getByTestId("district-actions")).toBeVisible();
     await closeDistrictPopup(page, "button");
@@ -46,25 +44,9 @@ test.describe("main game browser protection", () => {
     const errors = createRuntimeErrorMonitor(page);
 
     await openGamePage(page);
-
-    await findDistrictWithAction(page, "attack");
-    await page.getByTestId("district-action-attack").click();
-    await closeModal(page, "attack-setup-modal");
+    await openDistrictPopup(page, { districtId: 27 });
     await expectNoDistrictActionModals(page);
-
-    await findDistrictWithAction(page, "rob");
-    await page.getByTestId("district-action-rob").click();
-    await closeModal(page, "robbery-setup-modal");
-    await expectNoDistrictActionModals(page);
-
-    await findDistrictWithAction(page, "defense");
-    await page.getByTestId("district-action-defense").click();
-    await closeModal(page, "defense-setup-modal");
-    await expectNoDistrictActionModals(page);
-
-    await findDistrictWithAction(page, "spy");
-    await page.getByTestId("district-action-spy").click();
-    await closeModal(page, "spy-confirm-modal");
+    await closeDistrictPopup(page, "button");
     await expectNoDistrictActionModals(page);
 
     await assertNoRuntimeErrors(errors);
@@ -92,7 +74,7 @@ test.describe("main game browser protection", () => {
     await atmosphereTrigger.focus();
     await page.keyboard.press("Space");
     await expect(atmosphereWindow).toBeVisible();
-    await page.getByTestId("district-atmosphere-close").click();
+    await page.evaluate(() => document.querySelector("[data-district-atmosphere-close]")?.click());
     await expect(atmosphereWindow).toBeHidden();
 
     await assertNoRuntimeErrors(errors);

@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type {
-  AttackDistrictCommand,
-  DistrictId,
-  GameplaySliceView,
-  LoadGameplaySliceRequest,
-  OccupyDistrictCommand,
-  SpyDistrictCommand
+import {
+  SERVER_ASSIGNED_FOCUS_DISTRICT_ID,
+  type AttackDistrictCommand,
+  type DistrictId,
+  type GameplaySliceView,
+  type LoadGameplaySliceRequest,
+  type OccupyDistrictCommand,
+  type SpyDistrictCommand
 } from "@empire/shared-types";
 import type { CoreGameState } from "@empire/game-core";
 import { createClientApp } from "../../apps/client/src/app";
@@ -82,6 +83,58 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     expect(render.mapDistricts.find((district) => district.districtId === homeDistrictId)?.isSelected).toBe(true);
     expect(render.player?.homeDistrictId).toBe(homeDistrictId);
     expect(render.topBarHtml).toContain(`Server assigned home: ${homeDistrictId}`);
+  });
+
+  it("loads without a concrete district focus but rejects server-assigned submit focus", async () => {
+    const server = createServerApp();
+    const request: LoadGameplaySliceRequest = {
+      serverInstanceId,
+      playerId: "player:first-loop:no-focus",
+      factionId: "mafian"
+    };
+
+    await ensureGameplaySliceSessionResult(server.instanceManager, request);
+    const runtime = server.instanceManager.getInstanceById(serverInstanceId)!;
+    const homeDistrictId = runtime.state.playersById[request.playerId]!.homeDistrictId!;
+    const missingFocusLoad = server.gameplaySliceTransport.load(request);
+    const missingFocusReadModel = missingFocusLoad.readModel as GameplaySliceView;
+    const serverAssignedLoad = server.gameplaySliceTransport.load({
+      ...request,
+      districtId: SERVER_ASSIGNED_FOCUS_DISTRICT_ID
+    });
+    const serverAssignedReadModel = serverAssignedLoad.readModel as GameplaySliceView;
+
+    expect(missingFocusLoad.accepted).toBe(true);
+    expect(missingFocusReadModel.player.homeDistrictId).toBe(homeDistrictId);
+    expect(missingFocusReadModel.district?.districtId).toBe(homeDistrictId);
+    expect(serverAssignedLoad.accepted).toBe(true);
+    expect(serverAssignedReadModel.player.homeDistrictId).toBe(homeDistrictId);
+    expect(serverAssignedReadModel.district?.districtId).toBe(homeDistrictId);
+
+    const rejectedSubmit = server.gameplaySliceTransport.submit({
+      sessionToken: missingFocusLoad.sessionToken,
+      focusDistrictId: SERVER_ASSIGNED_FOCUS_DISTRICT_ID,
+      command: createSpyCommand({
+        id: "command:first-loop:server-assigned-submit-focus",
+        playerId: request.playerId,
+        sourceDistrictId: homeDistrictId,
+        targetDistrictId: "district:connector:1"
+      })
+    });
+    const rejectedReadModel = rejectedSubmit.readModel as GameplaySliceView;
+
+    expect(rejectedSubmit.accepted).toBe(false);
+    expect(rejectedSubmit.errors).toEqual([
+      {
+        code: "transport.invalid_request",
+        message: "Gameplay slice submit request field 'focusDistrictId' must be a concrete server district.",
+        details: {
+          field: "focusDistrictId"
+        }
+      }
+    ]);
+    expect(rejectedReadModel.district?.districtId).toBe(homeDistrictId);
+    expect(rejectedReadModel.player.homeDistrictId).toBe(homeDistrictId);
   });
 
   it("keeps two players on distinct homes and exposes a conflict path between them", async () => {

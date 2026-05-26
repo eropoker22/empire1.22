@@ -1,4 +1,5 @@
 import { createAdminAppShell } from "./admin-app-shell";
+import { resolveAdminMonitoringToken } from "./admin-monitoring-token";
 import type { InstanceMonitoringSummary } from "@empire/shared-types";
 import {
   createAdminOverviewViewModel,
@@ -25,6 +26,7 @@ export interface AdminAppReadFacades {
 export interface AdminAppOptions {
   facades?: AdminAppReadFacades;
   monitoringEndpoint?: string;
+  adminMonitoringToken?: string;
   fetchAdminOverview?: () => Promise<AdminOverviewViewModel>;
   fetchMonitoringSummaries?: () => Promise<InstanceMonitoringSummary[]>;
 }
@@ -68,7 +70,10 @@ export const createAdminApp = (options: AdminAppOptions = {}) => {
     }
 
     if (!options.fetchMonitoringSummaries && !options.facades?.instance) {
-      const endpointOverview = await fetchAdminOverviewFromEndpoint(options.monitoringEndpoint ?? "/api/admin/monitoring");
+      const endpointOverview = await fetchAdminOverviewFromEndpoint(
+        options.monitoringEndpoint ?? "/api/admin/monitoring",
+        options.adminMonitoringToken
+      );
       if (endpointOverview) {
         return endpointOverview;
       }
@@ -136,7 +141,10 @@ const loadMonitoringSummaries = async (
     return facadeSummaries;
   }
 
-  return (await fetchAdminOverviewFromEndpoint(options.monitoringEndpoint ?? "/api/admin/monitoring"))?.instances
+  return (await fetchAdminOverviewFromEndpoint(
+    options.monitoringEndpoint ?? "/api/admin/monitoring",
+    options.adminMonitoringToken
+  ))?.instances
     .map((instance) => ({
       instanceId: instance.instanceId,
       mode: instance.mode,
@@ -161,16 +169,23 @@ const loadMonitoringSummaries = async (
 };
 
 const fetchAdminOverviewFromEndpoint = async (
-  endpoint: string
+  endpoint: string,
+  configuredToken?: string
 ): Promise<AdminOverviewViewModel | null> => {
   if (typeof fetch === "undefined") {
     return null;
   }
 
+  const token = resolveAdminMonitoringToken(configuredToken);
+  const headers: Record<string, string> = {
+    accept: "application/json"
+  };
+  if (token) {
+    headers["x-empire-admin-token"] = token;
+  }
+
   const response = await fetch(endpoint, {
-    headers: {
-      accept: "application/json"
-    }
+    headers
   });
 
   if (!response.ok) {

@@ -1,7 +1,7 @@
 import type {
   MarketPaymentType,
   MarketResourceId
-} from "./serverMarketSystem";
+} from "./market-types";
 import { cloneEntity } from "./market-state-clone";
 
 type AnyRecord = Record<string, any>;

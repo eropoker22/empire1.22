@@ -37,6 +37,9 @@ New gameplay changes should not be implemented directly in legacy `page-assets/j
 - The repo declares `node >=20` in `package.json`.
 - Playwright E2E also requires at least Node `18.19`; local Node `18.3.x` cannot run `npm run test:e2e`.
 - After upgrading Node, run targeted E2E with `node scripts/run-local-bin.mjs playwright/cli.js test tests/e2e/entry-flow.spec.js`.
+- `npm test` is the regular development gate and excludes long-running balance/simulation suites.
+- `npm run test:simulation` runs the slow deterministic balance and shared-city simulation tests.
+- `npm run test:full` runs both the regular test gate and the simulation gate.
 
 ## Compatibility
 

@@ -14,7 +14,8 @@ var EmpireGameplaySliceClient = function(exports) {
       status: "idle",
       lastErrorMessage: null,
       staleData: false
-    }
+    },
+    lastCommandStatus: null
   });
   const createCollectProductionCommand = (input) => ({
     id: input.commandId,
@@ -719,6 +720,7 @@ var EmpireGameplaySliceClient = function(exports) {
     playerView: null,
     gameSnapshot: null,
     gameplaySlice: null,
+    gameplaySliceMetadata: null,
     lastErrors: [],
     connection: {
       status: "idle",
@@ -751,6 +753,12 @@ var EmpireGameplaySliceClient = function(exports) {
           playerView: view.player
         };
       },
+      setGameplaySliceMetadata: (metadata) => {
+        readModel = {
+          ...readModel,
+          gameplaySliceMetadata: metadata
+        };
+      },
       setErrors: (errors) => {
         readModel = {
           ...readModel,
@@ -777,7 +785,8 @@ var EmpireGameplaySliceClient = function(exports) {
     activeSidePanel: null,
     activeModal: null,
     isMapFocused: false,
-    pendingCommandIds: []
+    pendingCommandIds: [],
+    lastCommandStatus: null
   });
   const createCommandDispatcher = (transport) => ({
     dispatch: (request) => transport.send(request)
@@ -1215,6 +1224,7 @@ var EmpireGameplaySliceClient = function(exports) {
   const toTitleCase$1 = (value) => value.split("-").filter(Boolean).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
   const createReportViewModels = (reports) => reports.map((report) => ({
     id: report.reportId,
+    reportType: report.reportType,
     title: report.reportType === "spy" ? `Spy ${report.result} on ${report.targetDistrictId}` : report.reportType === "occupy" ? `Occupy ${report.result} on ${report.targetDistrictId}` : report.reportType === "building-action" ? `${toTitleCase(report.buildingActionId)} on ${report.districtId}` : report.districtDestroyed ? `District catastrophe on ${report.targetDistrictId}` : `Attack ${report.result} on ${report.targetDistrictId}`,
     createdAt: `${report.tick}`,
     category: report.reportType,
@@ -1226,8 +1236,49 @@ var EmpireGameplaySliceClient = function(exports) {
       "Owner: none.",
       "Fixed buildings: lost.",
       "All primary district actions are disabled."
-    ] : []
+    ] : [],
+    details: formatReportDetails(report)
   }));
+  const formatReportDetails = (report) => {
+    if (report.reportType === "spy") {
+      return [
+        `Source ${report.sourceDistrictId}`,
+        `Target ${report.targetDistrictId}`,
+        `Defense intel ${formatNumberRecord(report.detectedDefense)}`,
+        report.trapDetected ? "Trap detected" : "No trap detected"
+      ];
+    }
+    if (report.reportType === "occupy") {
+      return [
+        `Source ${report.sourceDistrictId}`,
+        `Target ${report.targetDistrictId}`,
+        `Influence -${report.influenceCost}`,
+        `Heat +${report.heatGained}`,
+        report.previousOwnerPlayerId ? `Previous owner ${report.previousOwnerPlayerId}` : "Previous owner none"
+      ];
+    }
+    if (report.reportType === "battle") {
+      return [
+        `Source ${report.sourceDistrictId}`,
+        `Target ${report.targetDistrictId}`,
+        report.defenderPlayerId ? `Defender ${report.defenderPlayerId}` : "Defender none",
+        `Outcome ${toTitleCase(report.outcomeTier)}`,
+        `Attacker losses ${formatNumberRecord(report.attackerLosses)}`,
+        `Defender losses ${formatNumberRecord(report.defenderLosses)}`,
+        `Heat +${report.heatGained}`,
+        report.reportForAttacker || "No attacker summary"
+      ];
+    }
+    return [
+      `District ${report.districtId}`,
+      `Building ${report.buildingId}`,
+      `Output ${formatNumberRecord(report.outputGain)}`,
+      `Cost ${formatNumberRecord(report.inputCost)}`,
+      `Heat ${formatSigned(report.heatDelta ?? report.heatGain)}`,
+      `Influence ${formatSigned(report.influenceDelta ?? report.influenceChange)}`,
+      report.message ?? ""
+    ].filter(Boolean);
+  };
   const formatBuildingActionSummary = (report) => {
     const parts = [
       formatResourceDelta(report.outputGain),
@@ -1248,34 +1299,86 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const formatIntelDelta = (districtIds) => districtIds.length > 0 ? `Intel ${districtIds.length} district${districtIds.length === 1 ? "" : "s"}` : "";
   const formatSigned = (value) => value >= 0 ? `+${value}` : String(value);
+  const formatNumberRecord = (values) => {
+    const parts = Object.entries(values).filter(([, amount]) => Number(amount ?? 0) !== 0);
+    return parts.length > 0 ? parts.map(([key, amount]) => `${Number(amount)} ${toTitleCase(key)}`).join(", ") : "none";
+  };
   const toTitleCase = (value) => value.replaceAll("_", "-").split("-").filter(Boolean).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
-  const renderReportLayer = (reports) => reports.length > 0 ? [
-    `<section class="reports-panel" data-feature="reports-panel">`,
-    renderCatastropheAlert(reports),
-    `<div class="district-panel__section-head">`,
+  const renderReportLayer = (reports, options = {}) => {
+    const commandStatusHtml = renderCommandReportStatus(reports, options);
+    return reports.length > 0 || commandStatusHtml ? [
+      `<section class="reports-panel" data-feature="reports-panel">`,
+      renderCatastropheAlert(reports),
+      `<div class="district-panel__section-head">`,
+      `<div>`,
+      `<h3 class="district-panel__section-title">Latest reports</h3>`,
+      `<p class="district-panel__section-copy">Server-authored spy, occupy, attack, and building-action outcomes for the current player.</p>`,
+      `</div>`,
+      `<span class="district-panel__section-meta">${reports.length} recent</span>`,
+      `</div>`,
+      commandStatusHtml,
+      reports.map((report, index) => {
+        var _a;
+        return renderReportCard(report, {
+          highlighted: Boolean(((_a = options.lastCommandStatus) == null ? void 0 : _a.accepted) && index === 0)
+        });
+      }).join(""),
+      `</section>`
+    ].join("") : "";
+  };
+  const renderReportCard = (report, {
+    highlighted
+  }) => [
+    `<article class="district-panel__slot" data-report-id="${report.id}" data-report-category="${report.category}" data-report-type="${report.reportType}" data-report-severity="${report.severity}" data-report-highlight="${highlighted ? "latest-command" : "none"}">`,
+    `<div class="district-panel__slot-head">`,
     `<div>`,
-    `<h3 class="district-panel__section-title">Reports</h3>`,
-    `<p class="district-panel__section-copy">Latest server-authored spy and battle reports for the current player.</p>`,
+    `<p class="district-panel__slot-index">${report.category}</p>`,
+    `<h4 class="district-panel__slot-title">${report.title}</h4>`,
     `</div>`,
-    `<span class="district-panel__section-meta">${reports.length} recent</span>`,
+    `<span class="district-panel__slot-state">${report.result}</span>`,
     `</div>`,
-    reports.map(
-      (report) => [
-        `<article class="district-panel__slot" data-report-id="${report.id}" data-report-category="${report.category}" data-report-severity="${report.severity}">`,
+    `<p class="district-panel__slot-summary">${report.summary}</p>`,
+    report.details.length > 0 ? `<div class="reports-panel__detail-list">${report.details.map((detail) => `<span class="reports-panel__detail">${detail}</span>`).join("")}</div>` : "",
+    `<p class="district-panel__empty-copy">Tick ${report.createdAt}</p>`,
+    `</article>`
+  ].join("");
+  const renderCommandReportStatus = (reports, options) => {
+    var _a, _b;
+    const status = options.lastCommandStatus;
+    if (!status) {
+      return "";
+    }
+    if (!status.accepted) {
+      const message = ((_b = (_a = options.errors) == null ? void 0 : _a[0]) == null ? void 0 : _b.message) ?? "The server rejected the command.";
+      return [
+        `<article class="district-panel__slot" data-report-command-status="rejected">`,
         `<div class="district-panel__slot-head">`,
         `<div>`,
-        `<p class="district-panel__slot-index">${report.category}</p>`,
-        `<h4 class="district-panel__slot-title">${report.title}</h4>`,
+        `<p class="district-panel__slot-index">command</p>`,
+        `<h4 class="district-panel__slot-title">Command rejected</h4>`,
         `</div>`,
-        `<span class="district-panel__slot-state">${report.result}</span>`,
+        `<span class="district-panel__slot-state">rejected</span>`,
         `</div>`,
-        `<p class="district-panel__slot-summary">${report.summary}</p>`,
-        `<p class="district-panel__empty-copy">Tick ${report.createdAt}</p>`,
+        `<p class="district-panel__slot-summary">${message}</p>`,
         `</article>`
-      ].join("")
-    ).join(""),
-    `</section>`
-  ].join("") : "";
+      ].join("");
+    }
+    if (reports.length > 0) {
+      return "";
+    }
+    return [
+      `<article class="district-panel__slot" data-report-command-status="accepted-without-report">`,
+      `<div class="district-panel__slot-head">`,
+      `<div>`,
+      `<p class="district-panel__slot-index">command</p>`,
+      `<h4 class="district-panel__slot-title">Command accepted</h4>`,
+      `</div>`,
+      `<span class="district-panel__slot-state">accepted</span>`,
+      `</div>`,
+      `<p class="district-panel__slot-summary">The server accepted the command but did not emit a new player report. Check the feed and selected district state for the authoritative result.</p>`,
+      `</article>`
+    ].join("");
+  };
   const renderCatastropheAlert = (reports) => {
     const catastropheReport = reports.find((report) => report.severity === "critical");
     if (!catastropheReport) {
@@ -1299,22 +1402,22 @@ var EmpireGameplaySliceClient = function(exports) {
   const renderSidePanelShell = ({ activePanel, contentHtml }) => activePanel ? `<aside class="side-panel-shell" data-panel="${activePanel}">${contentHtml}</aside>` : '<aside class="side-panel-shell" data-panel="none"></aside>';
   const renderTopBarShell = ({ player }) => {
     var _a;
-    return player ? `<header data-mode="${player.modeLabel}" data-city-phase="${((_a = player.dayNight) == null ? void 0 : _a.uiThemeHint) ?? "day"}">Mode: ${player.modeLabel} · Player: ${player.playerId}${renderHomeDistrict(player)} · Resources: ${player.resourceSummary} · Alerts: ${player.notificationCount}${renderPoliceBadge(player)}${renderDayNightBadge(player)}</header>` : '<header data-mode="unknown">Loading player projection...</header>';
+    return player ? `<header data-mode="${player.modeLabel}" data-city-phase="${((_a = player.dayNight) == null ? void 0 : _a.uiThemeHint) ?? "day"}">Mode: ${player.modeLabel} · Player: ${player.playerId}${renderHomeDistrict(player)} · Resources: ${player.resourceSummary} · Alerts: ${player.notificationCount}${renderPoliceBadge(player)}${renderDayNightBadge(player)}</header>` : "";
   };
-  const renderHomeDistrict = (player) => player.homeDistrictId ? ` · Server assigned home: ${escapeHtml(player.homeDistrictId)}` : "";
+  const renderHomeDistrict = (player) => player.homeDistrictId ? ` · Server assigned home: ${escapeHtml$1(player.homeDistrictId)}` : "";
   const renderPoliceBadge = (player) => {
     const police = player.police;
     if (!police) return "";
     const pending = police.pendingRaidLabel ? ` · Pending: ${police.pendingRaidLabel}` : "";
-    return ` · <span class="police-badge" data-raid-status="${escapeHtml(police.raidConsequenceStatus)}" title="District heat ${escapeHtml(police.selectedDistrictHeatLabel)} · Protection ${escapeHtml(police.protectionLabel)}">Heat ${escapeHtml(police.heatLabel)} · Wanted ${escapeHtml(police.wantedLevelLabel)}${pending}</span>`;
+    return ` · <span class="police-badge" data-raid-status="${escapeHtml$1(police.raidConsequenceStatus)}" title="District heat ${escapeHtml$1(police.selectedDistrictHeatLabel)} · Protection ${escapeHtml$1(police.protectionLabel)}">Heat ${escapeHtml$1(police.heatLabel)} · Wanted ${escapeHtml$1(police.wantedLevelLabel)}${pending}</span>`;
   };
   const renderDayNightBadge = (player) => {
     const dayNight = player.dayNight;
     if (!dayNight) return "";
     const summary = dayNight.effectSummary.slice(0, 2).join(", ");
-    return ` · <span class="day-night-badge" data-city-phase="${dayNight.uiThemeHint}" title="${escapeHtml(summary)}">${escapeHtml(dayNight.label)}: ${escapeHtml(summary)} · ${dayNight.remainingTicks} ticků</span>`;
+    return ` · <span class="day-night-badge" data-city-phase="${dayNight.uiThemeHint}" title="${escapeHtml$1(summary)}">${escapeHtml$1(dayNight.label)}: ${escapeHtml$1(summary)} · ${dayNight.remainingTicks} ticků</span>`;
   };
-  const escapeHtml = (value) => String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const escapeHtml$1 = (value) => String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const renderClientShell = (store) => {
     var _a, _b, _c, _d, _e;
     const readModel = store.getReadModel();
@@ -1330,7 +1433,13 @@ var EmpireGameplaySliceClient = function(exports) {
     );
     const districtPanel = createDistrictPanelViewModel(readModel.gameplaySlice, uiState);
     const reports = createReportViewModels(((_e = readModel.gameplaySlice) == null ? void 0 : _e.reports) ?? []);
-    const sidePanelContent = [districtPanel ? renderDistrictPanel(districtPanel) : "", renderReportLayer(reports)].join("");
+    const sidePanelContent = [
+      districtPanel ? renderDistrictPanel(districtPanel) : "",
+      renderReportLayer(reports, {
+        errors: readModel.lastErrors,
+        lastCommandStatus: uiState.lastCommandStatus
+      })
+    ].join("");
     return {
       topBarHtml: renderTopBarShell({
         player
@@ -1348,23 +1457,36 @@ var EmpireGameplaySliceClient = function(exports) {
       districtPanel,
       reports,
       errors: readModel.lastErrors,
-      connection: readModel.connection
+      connection: readModel.connection,
+      lastCommandStatus: uiState.lastCommandStatus
     };
   };
   const createClientApp = ({ transport }) => {
     const store = createClientStore(createInitialClientUiState());
     const dispatcher = createCommandDispatcher(transport);
     let renderState = createInitialClientRenderState();
-    const commitResponse = (response, selectedDistrictId) => {
+    const commitResponse = (response, selectedDistrictId, commandId) => {
       var _a, _b;
       if (response.readModel) {
-        const serverSelectedDistrictId = ((_a = response.readModel.district) == null ? void 0 : _a.districtId) ?? selectedDistrictId;
+        const serverSelectedDistrictId = ((_a = response.readModel.district) == null ? void 0 : _a.districtId) ?? response.readModel.player.homeDistrictId ?? selectedDistrictId ?? null;
         store.setGameplaySlice(response.readModel);
         store.patchUiState({
           selectedDistrictId: serverSelectedDistrictId,
           activeSidePanel: districtPanelFeature
         });
       }
+      if (commandId) {
+        store.patchUiState({
+          lastCommandStatus: {
+            commandId,
+            accepted: response.accepted
+          }
+        });
+      }
+      store.setGameplaySliceMetadata(response.metadata ?? (response.readModel ? {
+        serverTick: response.readModel.server.currentTick,
+        stateVersion: response.readModel.server.stateVersion
+      } : null));
       store.setErrors(response.errors);
       store.setConnectionState({
         status: "ready",
@@ -1374,7 +1496,7 @@ var EmpireGameplaySliceClient = function(exports) {
       renderState = renderClientShell(store);
       return renderState;
     };
-    const commitTransportFailure = (message) => {
+    const commitTransportFailure = (message, commandId) => {
       const errors = [
         {
           code: "client.transport_error",
@@ -1387,6 +1509,14 @@ var EmpireGameplaySliceClient = function(exports) {
         lastErrorMessage: message,
         staleData: true
       });
+      if (commandId) {
+        store.patchUiState({
+          lastCommandStatus: {
+            commandId,
+            accepted: false
+          }
+        });
+      }
       renderState = renderClientShell(store);
       return renderState;
     };
@@ -1446,9 +1576,10 @@ var EmpireGameplaySliceClient = function(exports) {
         return renderState;
       },
       dispatch: async (command) => {
+        var _a;
         const uiState = store.getUiState();
         if (!uiState.selectedDistrictId) {
-          return commitTransportFailure("No district is selected for the district panel slice.");
+          return commitTransportFailure("No district is selected for the district panel slice.", command.id);
         }
         store.patchUiState({
           pendingCommandIds: [...uiState.pendingCommandIds, command.id]
@@ -1457,17 +1588,18 @@ var EmpireGameplaySliceClient = function(exports) {
         try {
           const response = await dispatcher.dispatch({
             command,
-            focusDistrictId: uiState.selectedDistrictId
+            focusDistrictId: uiState.selectedDistrictId,
+            expectedStateVersion: ((_a = store.getReadModel().gameplaySliceMetadata) == null ? void 0 : _a.stateVersion) ?? null
           });
           store.patchUiState({
             pendingCommandIds: store.getUiState().pendingCommandIds.filter((pendingCommandId) => pendingCommandId !== command.id)
           });
-          return commitResponse(response, uiState.selectedDistrictId);
+          return commitResponse(response, uiState.selectedDistrictId, command.id);
         } catch (_error) {
           store.patchUiState({
             pendingCommandIds: store.getUiState().pendingCommandIds.filter((pendingCommandId) => pendingCommandId !== command.id)
           });
-          return commitTransportFailure("Unable to submit gameplay command to server.");
+          return commitTransportFailure("Unable to submit gameplay command to server.", command.id);
         }
       },
       getRenderState: () => renderState,
@@ -1512,7 +1644,16 @@ var EmpireGameplaySliceClient = function(exports) {
     return nodes.length;
   };
   const DEFAULT_SESSION_STORAGE_KEY = "empireStreets.session.v1";
-  const SERVER_ASSIGNED_FOCUS_DISTRICT_ID = "district:server-assigned";
+  const LEGACY_PUBLIC_SERVER_ID_MIGRATIONS = {
+    "war-eu-01": "instance:war:eu-central:public-1",
+    "war-eu-02": "instance:war:eu-central:public-1",
+    "war-eu-03": "instance:war:eu-central:public-1",
+    "war-eu-04": "instance:war:eu-central:public-1",
+    "war-eu-05": "instance:war:eu-central:public-1",
+    "free-eu-01": "instance:free:eu-central:public-1",
+    "free-eu-02": "instance:free:eu-central:public-2",
+    "free-eu-03": "instance:free:eu-central:public-2"
+  };
   const resolveGameplaySliceBootstrapRequest = (dataset, storage) => {
     const explicit = createExplicitRequest(dataset);
     if (explicit) {
@@ -1527,8 +1668,8 @@ var EmpireGameplaySliceClient = function(exports) {
       (registration == null ? void 0 : registration.preferredStartDistrictId) || (registration == null ? void 0 : registration.startDistrictId)
     );
     const districtId = normalizeDistrictId(
-      (registration == null ? void 0 : registration.assignedHomeDistrictId) || (registration == null ? void 0 : registration.lastServerConfirmedDistrictId)
-    ) ?? SERVER_ASSIGNED_FOCUS_DISTRICT_ID;
+      (registration == null ? void 0 : registration.lastServerConfirmedDistrictId) || (registration == null ? void 0 : registration.assignedHomeDistrictId)
+    );
     const playerId = normalizePlayerId((registration == null ? void 0 : registration.identity) || (registration == null ? void 0 : registration.gangName));
     const factionId = normalizeFactionId((registration == null ? void 0 : registration.factionId) || (registration == null ? void 0 : registration.selectedFaction));
     if (!serverInstanceId || !playerId) {
@@ -1537,7 +1678,7 @@ var EmpireGameplaySliceClient = function(exports) {
     return {
       serverInstanceId,
       playerId,
-      districtId,
+      ...districtId ? { districtId } : {},
       ...preferredStartDistrictId ? { preferredStartDistrictId } : {},
       factionId
     };
@@ -1545,12 +1686,12 @@ var EmpireGameplaySliceClient = function(exports) {
   const createExplicitRequest = (dataset) => {
     const serverInstanceId = normalizeToken(dataset.serverInstanceId);
     const playerId = normalizeToken(dataset.playerId);
-    const districtId = normalizeDistrictId(dataset.districtId) ?? SERVER_ASSIGNED_FOCUS_DISTRICT_ID;
+    const districtId = normalizeDistrictId(dataset.districtId);
     const factionId = normalizeFactionId(dataset.factionId);
     return serverInstanceId && playerId ? {
       serverInstanceId,
       playerId,
-      districtId,
+      ...districtId ? { districtId } : {},
       factionId
     } : null;
   };
@@ -1578,7 +1719,8 @@ var EmpireGameplaySliceClient = function(exports) {
     if (!normalized) {
       return null;
     }
-    return normalized.startsWith("instance:") ? normalized : `instance:${normalized}`;
+    const migrated = LEGACY_PUBLIC_SERVER_ID_MIGRATIONS[normalized] ?? normalized;
+    return migrated.startsWith("instance:") ? migrated : `instance:${migrated}`;
   };
   const normalizeDistrictId = (value) => {
     const raw = String(value ?? "").trim();
@@ -1641,10 +1783,10 @@ var EmpireGameplaySliceClient = function(exports) {
       if (phase) {
         document.body.dataset.cityPhase = phase;
       }
-      mounts.status.innerHTML = renderStatus(state);
+      mounts.status.innerHTML = renderGameplaySliceStatus(state);
       mounts.topBar.innerHTML = state.topBarHtml;
       mounts.map.innerHTML = state.mapHtml;
-      mounts.panel.innerHTML = state.sidePanelHtml || '<p class="gameplay-slice-client__empty">No server district selected.</p>';
+      mounts.panel.innerHTML = state.sidePanelHtml;
       refreshLiveCooldownLabels(options.root);
     };
     const handleClick = async (event) => {
@@ -1707,12 +1849,13 @@ var EmpireGameplaySliceClient = function(exports) {
     root.append(mount);
     return mount;
   };
-  const renderStatus = (state) => {
+  const renderGameplaySliceStatus = (state) => {
     var _a;
     return [
-      `<strong>${state.connection.status === "ready" ? "Server synced" : state.connection.status}</strong>`,
-      state.districtPanel ? `<span>${state.districtPanel.title}</span>` : "<span>Waiting for district projection</span>",
-      state.errors.length > 0 ? `<span class="gameplay-slice-client__error">${((_a = state.errors[0]) == null ? void 0 : _a.message) ?? "Unknown gameplay slice error"}</span>` : ""
+      state.connection.status === "error" ? "" : `<strong>${state.connection.status === "ready" ? "Server synced" : state.connection.status}</strong>`,
+      state.lastCommandStatus ? `<span class="gameplay-slice-client__command-status">${state.lastCommandStatus.accepted ? "Command accepted" : "Command rejected"}</span>` : "",
+      state.connection.status !== "error" && ((_a = state.lastCommandStatus) == null ? void 0 : _a.accepted) === false && state.connection.lastErrorMessage ? `<span class="gameplay-slice-client__error">${escapeHtml(state.connection.lastErrorMessage)}</span>` : "",
+      state.districtPanel ? `<span>${state.districtPanel.title}</span>` : ""
     ].join("");
   };
   const createBrowserCommandId = (prefix) => `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
@@ -1726,6 +1869,7 @@ var EmpireGameplaySliceClient = function(exports) {
     const lastServerConfirmedDistrictId = normalizeStorageToken(
       ((_a = gameplaySlice == null ? void 0 : gameplaySlice.district) == null ? void 0 : _a.districtId) || assignedHomeDistrictId
     );
+    const serverConfirmedFactionId = normalizeStorageToken(gameplaySlice == null ? void 0 : gameplaySlice.player.factionId);
     if (!storage || !lastServerConfirmedDistrictId) {
       return;
     }
@@ -1741,6 +1885,11 @@ var EmpireGameplaySliceClient = function(exports) {
         registration: {
           ...registration,
           ...assignedHomeDistrictId ? { assignedHomeDistrictId } : {},
+          ...serverConfirmedFactionId ? {
+            factionId: serverConfirmedFactionId,
+            selectedFaction: serverConfirmedFactionId,
+            serverConfirmedFactionId
+          } : {},
           lastServerConfirmedDistrictId
         }
       }));
@@ -1762,12 +1911,15 @@ var EmpireGameplaySliceClient = function(exports) {
     const normalized = String(value ?? "").trim();
     return normalized.length > 0 ? normalized : null;
   };
+  const htmlEscapeMap = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  const escapeHtml = (value) => value.replace(/[&<>"']/g, (character) => htmlEscapeMap[character] ?? character);
   if (typeof window !== "undefined" && typeof document !== "undefined") {
     window.EmpireGameplaySliceClient = createPageApi();
     window.EmpireGameplaySliceClient.autoMount();
   }
   exports.mountGameplaySlicePage = mountGameplaySlicePage;
   exports.persistServerConfirmedGameplaySliceFocus = persistServerConfirmedGameplaySliceFocus;
+  exports.renderGameplaySliceStatus = renderGameplaySliceStatus;
   Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
   return exports;
 }({});

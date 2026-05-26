@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { GameplaySliceView } from "@empire/shared-types";
-import { persistServerConfirmedGameplaySliceFocus } from "../../../apps/client/src/browser/gameplay-slice-page";
+import { createInitialClientRenderState } from "../../../apps/client/src/app/client-render-state";
+import {
+  persistServerConfirmedGameplaySliceFocus,
+  renderGameplaySliceStatus
+} from "../../../apps/client/src/browser/gameplay-slice-page";
+import { renderTopBarShell } from "../../../apps/client/src/ui/top-bar/top-bar-shell";
 
 const createStorage = (initialValue: unknown) => {
   const store = new Map<string, string>([
@@ -76,5 +81,33 @@ describe("gameplay slice page storage cache", () => {
         lastServerConfirmedDistrictId: "district:spawn:1"
       }
     });
+  });
+});
+
+describe("gameplay slice page fallback cells", () => {
+  it("omits projection loading and transport error cells from game status html", () => {
+    const html = renderGameplaySliceStatus({
+      ...createInitialClientRenderState(),
+      connection: {
+        status: "error",
+        lastErrorMessage: "Unable to load gameplay slice from server.",
+        staleData: true
+      },
+      errors: [
+        {
+          code: "client.transport_error",
+          message: "Unable to load gameplay slice from server."
+        }
+      ]
+    });
+
+    expect(html).toBe("");
+    expect(html).not.toContain("error");
+    expect(html).not.toContain("Waiting for district projection");
+    expect(html).not.toContain("Unable to load gameplay slice from server.");
+  });
+
+  it("omits the player projection loading header", () => {
+    expect(renderTopBarShell({ player: null })).toBe("");
   });
 });

@@ -221,6 +221,81 @@ describe("gameplay slice Netlify function", () => {
     });
   });
 
+  it("rejects production admin monitoring when the admin secret is missing", async () => {
+    const handler = createTestHandler({
+      NODE_ENV: "production",
+      GAMEPLAY_SLICE_SNAPSHOT_SECRET: "test-production-snapshot-secret",
+      GAMEPLAY_SLICE_SESSION_SECRET: "test-production-session-secret"
+    });
+    const response = await readBody(
+      handler({
+        httpMethod: "GET",
+        path: "/api/admin/monitoring",
+        body: null
+      })
+    );
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json).toEqual({
+      accepted: false,
+      readModel: null,
+      errors: [
+        {
+          code: "transport.admin_monitoring_unauthorized",
+          message: "Admin monitoring is unavailable."
+        }
+      ]
+    });
+  });
+
+  it("rejects production admin monitoring with the wrong token", async () => {
+    const handler = createTestHandler({
+      NODE_ENV: "production",
+      GAMEPLAY_SLICE_SNAPSHOT_SECRET: "test-production-snapshot-secret",
+      GAMEPLAY_SLICE_SESSION_SECRET: "test-production-session-secret",
+      ADMIN_MONITORING_SECRET: "correct-admin-token"
+    });
+    const response = await readBody(
+      handler({
+        httpMethod: "GET",
+        path: "/api/admin/monitoring",
+        body: null,
+        headers: {
+          "x-empire-admin-token": "wrong-admin-token"
+        }
+      })
+    );
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json.errors[0].code).toBe("transport.admin_monitoring_unauthorized");
+    expect(JSON.stringify(response.json)).not.toContain("correct-admin-token");
+  });
+
+  it("returns production admin monitoring with the configured admin token", async () => {
+    const handler = createTestHandler({
+      NODE_ENV: "production",
+      GAMEPLAY_SLICE_SNAPSHOT_SECRET: "test-production-snapshot-secret",
+      GAMEPLAY_SLICE_SESSION_SECRET: "test-production-session-secret",
+      EMPIRE_ADMIN_MONITORING_SECRET: "correct-admin-token"
+    });
+    const response = await readBody(
+      handler({
+        httpMethod: "GET",
+        path: "/api/admin/monitoring",
+        body: null,
+        headers: {
+          "X-Empire-Admin-Token": "correct-admin-token"
+        }
+      })
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json.accepted).toBe(true);
+    expect(response.json.instances).toContainEqual(expect.objectContaining({
+      instanceId: "instance:free:eu-central:public-1"
+    }));
+  });
+
   it("rejects invalid load and submit shapes without crashing", async () => {
     const handler = createTestHandler();
     const missingInstanceId = await readBody(

@@ -54,6 +54,17 @@
   line-height: 1.35;
 }
 
+.gameplay-slice-client__status:empty,
+.gameplay-slice-client__topbar:empty,
+.gameplay-slice-client__map:empty,
+.gameplay-slice-client__panel:empty {
+  display: none;
+}
+
+.gameplay-slice-client:has(> .gameplay-slice-client__status:empty):has(> .gameplay-slice-client__topbar:empty):has(> .gameplay-slice-client__map:empty):has(> .gameplay-slice-client__panel:empty) {
+  display: none;
+}
+
 .gameplay-slice-client__status strong {
   color: var(--slice-gold);
   font-size: 0.78rem;

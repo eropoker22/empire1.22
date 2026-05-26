@@ -37,7 +37,9 @@ import type {
   AirportBalanceConfig,
   CityHallBalanceConfig,
   CourthouseBalanceConfig,
-  LobbyClubBalanceConfig
+  LobbyClubBalanceConfig,
+  ParliamentBalanceConfig,
+  PortBalanceConfig
 } from "./civic-building-balance-config";
 import type {
   CarDealerBalanceConfig,
@@ -197,6 +199,8 @@ export interface GameModeConfig {
     stockExchange?: StockExchangeBalanceConfig;
     centralBank?: CentralBankBalanceConfig;
     airport?: AirportBalanceConfig;
+    port?: PortBalanceConfig;
+    parliament?: ParliamentBalanceConfig;
     cityHall?: CityHallBalanceConfig;
     courthouse?: CourthouseBalanceConfig;
     lobbyClub?: LobbyClubBalanceConfig;

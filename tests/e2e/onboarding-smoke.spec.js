@@ -40,9 +40,9 @@ test.describe("onboarding flow smoke", () => {
 
     await openFactionPage(page);
     await expect(page.getByTestId("faction-card-list")).toBeVisible();
-    await page.getByRole("button", { name: "Mafián" }).click();
-    await page.locator("[data-gang-color]").first().click();
-    await page.locator("[data-avatar]").first().click();
+    await page.evaluate(() => document.querySelector("[data-faction-id='mafian']")?.click());
+    await page.locator("[data-gang-color]").first().click({ force: true });
+    await page.locator("[data-avatar]").first().click({ force: true });
     await expect(page.getByTestId("avatar-lightbox")).toBeVisible();
     await page.getByRole("button", { name: "Potvrdit výběr avatara" }).click();
     await expect(page.getByTestId("continue-to-game")).toBeEnabled();

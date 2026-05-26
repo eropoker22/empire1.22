@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createAdminApp } from "../../apps/admin/src/app";
 
 describe("createAdminApp", () => {
@@ -157,5 +157,43 @@ describe("createAdminApp", () => {
     expect(target.innerHTML).toContain("collect-production");
     expect(target.innerHTML).toContain("command:admin:1");
     expect(target.innerHTML).toContain("production-collected");
+  });
+
+  it("sends an admin monitoring token header when configured", async () => {
+    const target = { innerHTML: "" } as HTMLElement;
+    const previousFetch = globalThis.fetch;
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        accepted: true,
+        overview: {
+          selectedInstanceId: null,
+          instances: [],
+          selectedLogs: {
+            instanceId: null,
+            commands: [],
+            events: [],
+            diagnostics: []
+          }
+        },
+        errors: []
+      })
+    })) as unknown as typeof fetch;
+    globalThis.fetch = fetchMock;
+
+    try {
+      await createAdminApp({
+        adminMonitoringToken: "configured-admin-token"
+      }).mount(target);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/monitoring", {
+      headers: {
+        accept: "application/json",
+        "x-empire-admin-token": "configured-admin-token"
+      }
+    });
   });
 });

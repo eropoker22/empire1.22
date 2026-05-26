@@ -140,6 +140,16 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
     info: "Letiště je brána města. Co ostatní musí vyrábět, ty můžeš dovézt. Co ostatní musí vozit ulicemi, ty pošleš přes runway. Ale každý kontejner má papíry. A každý falešný papír jednou někdo zkontroluje.",
     actions: Object.freeze(["Expresní dovoz", "Černý charter", "Evakuační koridor"])
   }),
+  pristav: Object.freeze({
+    role: "Logistics / containers / materials / dirty cash routes",
+    info: "Přístav drží těžkou logistiku města. Kontejnery nosí materiály, špinavé peníze a trasy, které se ztrácí mezi papíry.",
+    actions: Object.freeze(["Container Cut"])
+  }),
+  parlament: Object.freeze({
+    role: "Ultra rare / power / politics / influence",
+    info: "Parlament je nejvyšší politická páka města. Kdo ovládá hlasování, mění tlak ulice na čisté peníze a vliv.",
+    actions: Object.freeze(["Policy Window"])
+  }),
   "strip club": Object.freeze({
     role: "Noční provoz",
     info: "Strip club generuje cashflow, kontakty a vliv ve večerní ekonomice districtu.",
@@ -257,6 +267,12 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
     Object.freeze({ airportExpressImport: true, cleanCost: 2000, heat: 6, durationMs: 90 * 1000, cooldownMs: 18 * 60 * 1000, customsRiskPct: 10, summary: "Objedná zásilku materials, rare components, weapons nebo defense items. Přesah přes sklad propadne." }),
     Object.freeze({ airportBlackCharter: true, dirtyCost: 2500, heat: 9, durationMs: 8 * 60 * 1000, cooldownMs: 24 * 60 * 1000, offerDiscountPct: 6, purchaseCustomsRiskPct: 15, summary: "Otevře dočasnou Black Market nabídku s rizikem celního zátahu při nákupu." }),
     Object.freeze({ airportEvacuationCorridor: true, cleanCost: 1800, heat: 5, durationMs: 7 * 60 * 1000, cooldownMs: 26 * 60 * 1000, escapeChanceBonusPct: 18, lossReductionPct: 10, summary: "Zvedne šanci úniku, sníží ztráty při neúspěchu a zrychlí návratovou logistiku." })
+  ]),
+  pristav: Object.freeze([
+    Object.freeze({ dirty: 160, materials: { "metal-parts": 3 }, influence: 1, heat: 6, cooldownMs: 14 * 60 * 1000, summary: "Container Cut vytáhne z kontejnerové trasy dirty cash a metal parts." })
+  ]),
+  parlament: Object.freeze([
+    Object.freeze({ clean: 160, influence: 5, heat: 5, cooldownMs: 18 * 60 * 1000, summary: "Policy Window otevře krátké politické okno pro clean cash a vliv." })
   ]),
   "strip club": Object.freeze([
     Object.freeze({ dirty: 360, heat: 3, summary: "Noční cash vybrán." }),

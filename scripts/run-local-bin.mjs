@@ -1,5 +1,7 @@
 import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import path from "node:path";
 
 const require = createRequire(import.meta.url);
 const [, , specifier, ...args] = process.argv;
@@ -16,8 +18,13 @@ try {
     paths: [process.cwd()]
   });
 } catch {
-  console.warn(`Skipped: missing local dependency for ${specifier}. Run npm install to enable this gate.`);
-  process.exit(0);
+  const localBinPath = path.join(process.cwd(), "node_modules", specifier);
+  if (existsSync(localBinPath)) {
+    resolved = localBinPath;
+  } else {
+    console.warn(`Skipped: missing local dependency for ${specifier}. Run npm install to enable this gate.`);
+    process.exit(0);
+  }
 }
 
 const result = spawnSync(process.execPath, [resolved, ...args], {
@@ -26,4 +33,3 @@ const result = spawnSync(process.execPath, [resolved, ...args], {
 });
 
 process.exit(result.status ?? 1);
-

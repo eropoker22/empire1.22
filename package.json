@@ -36,14 +36,16 @@
     "balance:free-mode": "node scripts/run-local-bin.mjs vite-node/vite-node.mjs tools/debug/src/free-mode-shared-city-simulation/balance-gate-cli.ts",
     "typecheck": "node scripts/run-local-bin.mjs typescript/bin/tsc -p tsconfig.test.json --noEmit",
     "test": "npm run test:unit && npm run test:integration && npm run test:server && npm run test:persistence && npm run test:read-models",
-    "test:unit": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/unit",
-    "test:integration": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/integration",
+    "test:full": "npm test && npm run test:simulation",
+    "test:unit": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/unit --exclude tests/unit/game-core/free-session-balance-anti-snowball.test.ts --exclude tests/unit/game-core/faction-foundation-simulation.test.ts --exclude tests/unit/game-core/police-free-session-simulation.test.ts --exclude tests/unit/tools/free-mode-pacing-sim.test.ts",
+    "test:integration": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/integration --exclude tests/integration/free-mode-shared-city-simulation.test.ts",
+    "test:simulation": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/unit/game-core/free-session-balance-anti-snowball.test.ts tests/unit/game-core/faction-foundation-simulation.test.ts tests/unit/game-core/police-free-session-simulation.test.ts tests/unit/tools/free-mode-pacing-sim.test.ts tests/integration/free-mode-shared-city-simulation.test.ts",
     "test:server": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/server",
     "test:persistence": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/persistence",
     "test:read-models": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/read-models",
     "test:e2e": "playwright test",
     "coverage:check": "node scripts/run-local-bin.mjs vitest/vitest.mjs run --coverage",
-    "quality": "npm run lint && npm run smoke:ui && npm run typecheck && npm run test && npm run coverage:check"
+    "quality": "npm run lint && npm run smoke:ui && npm run typecheck && npm run test:full && npm run coverage:check"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

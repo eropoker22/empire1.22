@@ -75,7 +75,7 @@ export const mountGameplaySlicePage = (
     mounts.status.innerHTML = renderGameplaySliceStatus(state);
     mounts.topBar.innerHTML = state.topBarHtml;
     mounts.map.innerHTML = state.mapHtml;
-    mounts.panel.innerHTML = state.sidePanelHtml || "<p class=\"gameplay-slice-client__empty\">No server district selected.</p>";
+    mounts.panel.innerHTML = state.sidePanelHtml;
     refreshLiveCooldownLabels(options.root);
   };
 
@@ -154,15 +154,17 @@ const getOrCreateMount = (root: HTMLElement, role: string): HTMLElement => {
 };
 
 export const renderGameplaySliceStatus = (state: ClientRenderState): string => [
-  `<strong>${state.connection.status === "ready" ? "Server synced" : state.connection.status}</strong>`,
+  state.connection.status === "error"
+    ? ""
+    : `<strong>${state.connection.status === "ready" ? "Server synced" : state.connection.status}</strong>`,
   state.lastCommandStatus
     ? `<span class="gameplay-slice-client__command-status">${state.lastCommandStatus.accepted ? "Command accepted" : "Command rejected"}</span>`
     : "",
+  state.connection.status !== "error" && state.lastCommandStatus?.accepted === false && state.connection.lastErrorMessage
+    ? `<span class="gameplay-slice-client__error">${escapeHtml(state.connection.lastErrorMessage)}</span>`
+    : "",
   state.districtPanel
     ? `<span>${state.districtPanel.title}</span>`
-    : "<span>Waiting for district projection</span>",
-  state.errors.length > 0
-    ? `<span class="gameplay-slice-client__error">${state.errors[0]?.message ?? "Unknown gameplay slice error"}</span>`
     : ""
 ].join("");
 
@@ -237,6 +239,9 @@ const normalizeStorageToken = (value: unknown): string | null => {
   const normalized = String(value ?? "").trim();
   return normalized.length > 0 ? normalized : null;
 };
+
+const htmlEscapeMap: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" };
+const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, (character) => htmlEscapeMap[character] ?? character);
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {
   window.EmpireGameplaySliceClient = createPageApi();

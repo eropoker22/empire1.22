@@ -22,12 +22,13 @@ import { createJsonResponse, type NetlifyFunctionResponse } from "./netlify-json
 import { resolveGameplaySliceFunctionRoute } from "./gameplay-slice-function-routes";
 import { parseNetlifyJsonBody } from "./netlify-request-body";
 import { handlePublicServerMatchmakingReserve } from "./public-server-matchmaking-netlify";
-import { createAdminMonitoringPayload } from "./admin-monitoring-netlify";
+import { handleAdminMonitoringNetlifyRequest } from "./admin-monitoring-netlify";
 
 interface NetlifyFunctionEvent {
   httpMethod: string;
   path: string;
   body: string | null;
+  headers?: Record<string, string | string[] | undefined>;
 }
 
 interface GameplaySliceFunctionHandlerOptions {
@@ -68,14 +69,6 @@ export const createGameplaySliceFunctionHandler = (
       return createJsonResponse(204, null);
     }
 
-    if (!snapshotSecret.accepted || !snapshotTokenCodec) {
-      return createJsonResponse(500, createErrorResponseFromErrors(snapshotSecret.errors));
-    }
-
-    if (!gameplaySessionSecret.accepted || !sessionTokenCodec) {
-      return createJsonResponse(500, createErrorResponseFromErrors(gameplaySessionSecret.errors));
-    }
-
     const route = resolveGameplaySliceFunctionRoute(event.path);
 
     if (!route) {
@@ -83,6 +76,18 @@ export const createGameplaySliceFunctionHandler = (
         404,
         createErrorResponse("transport.not_found", "Gameplay slice endpoint was not found.")
       );
+    }
+
+    if (route === "admin-monitoring") {
+      return handleAdminMonitoringNetlifyRequest(server, { headers: event.headers }, options.environment);
+    }
+
+    if (!snapshotSecret.accepted || !snapshotTokenCodec) {
+      return createJsonResponse(500, createErrorResponseFromErrors(snapshotSecret.errors));
+    }
+
+    if (!gameplaySessionSecret.accepted || !sessionTokenCodec) {
+      return createJsonResponse(500, createErrorResponseFromErrors(gameplaySessionSecret.errors));
     }
 
     if (route === "servers") {
@@ -98,10 +103,6 @@ export const createGameplaySliceFunctionHandler = (
           .filter((summary) => publicServerIds.has(summary.serverInstanceId)),
         errors: []
       });
-    }
-
-    if (route === "admin-monitoring") {
-      return createJsonResponse(200, await createAdminMonitoringPayload(server));
     }
 
     const parsedBody = parseNetlifyJsonBody(event.body);

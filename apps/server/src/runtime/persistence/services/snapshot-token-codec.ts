@@ -60,13 +60,20 @@ export const createSnapshotTokenCodec = (
 
       try {
         const cryptoApi = await getCrypto();
+        const iv = decodeCanonicalBase64Url(ivPart);
+        const encrypted = decodeCanonicalBase64Url(encryptedPart);
+
+        if (!iv || !encrypted) {
+          return null;
+        }
+
         const decrypted = await cryptoApi.subtle.decrypt(
           {
             name: "AES-GCM",
-            iv: fromBase64Url(ivPart)
+            iv
           },
           await getKey(),
-          fromBase64Url(encryptedPart)
+          encrypted
         );
         const parsed = JSON.parse(decoder.decode(decrypted));
 
@@ -119,6 +126,17 @@ const toBase64Url = (bytes: Uint8Array): string =>
     .replace(/\+/gu, "-")
     .replace(/\//gu, "_")
     .replace(/=+$/gu, "");
+
+const BASE64_URL_PATTERN = /^[A-Za-z0-9_-]+$/u;
+
+const decodeCanonicalBase64Url = (value: string): Uint8Array<ArrayBuffer> | null => {
+  if (!BASE64_URL_PATTERN.test(value)) {
+    return null;
+  }
+
+  const bytes = fromBase64Url(value);
+  return toBase64Url(bytes) === value ? bytes : null;
+};
 
 const fromBase64Url = (value: string): Uint8Array<ArrayBuffer> => {
   const base64 = value.replace(/-/gu, "+").replace(/_/gu, "/");
