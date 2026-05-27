@@ -4,6 +4,7 @@ import { formatEventJsonl } from "./audit-log";
 import { formatFreeBrMarkdownReport, formatFreeBrMatrixMarkdownReport, toStableJson } from "./report";
 import { parseScenarioList } from "./scenarios";
 import { runFreeBrMatrix, runFreeBrSimulation } from "./simulation";
+import { defaultFreeBrMatrixWorkerCount, runFreeBrMatrixParallel } from "./matrix-parallel";
 import type { FreeBrMatrixReport, FreeBrScenarioName, FreeBrSimulationReport } from "./types";
 
 declare const process: {
@@ -39,7 +40,11 @@ export const runFreeBrCli = async (argv: string[], io: FreeBrCliIo = {}): Promis
 
   if (args.matrix) {
     const scenarios = args.scenarios ? parseScenarioList(String(args.scenarios)) : [scenario];
-    const matrix = runFreeBrMatrix({ seed, hours, runs, scenarios });
+    const totalRuns = runs * scenarios.length;
+    const workers = numberArg(args.workers, defaultFreeBrMatrixWorkerCount(totalRuns));
+    const matrix = workers > 1
+      ? await runFreeBrMatrixParallel({ seed, hours, runs, scenarios, workers })
+      : runFreeBrMatrix({ seed, hours, runs, scenarios });
     const out = stringArg(args.out, DEFAULT_MATRIX_OUT);
     if (writeFiles) {
       await writeFile(out, formatFreeBrMatrixMarkdownReport(matrix));
@@ -47,6 +52,7 @@ export const runFreeBrCli = async (argv: string[], io: FreeBrCliIo = {}): Promis
     }
     const stdout = [
       `Free BR matrix complete: ${matrix.scenarioNames.join(", ")} x ${matrix.runs} runs`,
+      `Workers: ${workers}`,
       `Average duration: ${matrix.averageMatchDuration}h`,
       `Final Lockdown wins: ${Math.round(matrix.finalLockdownWinRate * 100)}%`,
       `Timeout without winner: ${Math.round(matrix.timeoutWithoutWinnerChance * 100)}%`,

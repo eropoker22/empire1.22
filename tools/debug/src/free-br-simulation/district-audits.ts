@@ -1,6 +1,7 @@
 import { activeAlliances } from "./alliance-simulation";
 import { average, countBy, countWeighted, round1, sum } from "./math";
-import { createEliminationScore, getOwnedDistricts, tickToHour } from "./state-helpers";
+import { createEliminationScore, getOwnedDistricts } from "./state-helpers";
+import { tickToHour } from "./time-helpers";
 import type { FreeBrPlayer, FreeBrSimulationState } from "./types";
 
 export type FreeBrPlayerAuditShape = ReturnType<typeof createPlayerAuditForDowntown>;
@@ -9,24 +10,18 @@ export const createDistrictAudit = (state: FreeBrSimulationState) => {
   const churn = state.districts.map((district) => district.ownerHistory.length - 1);
   const mostContested = [...state.districts].sort((left, right) => (right.ownerHistory.length - left.ownerHistory.length))[0] ?? null;
   const mostValuable = [...state.districts].sort((left, right) => right.value - left.value)[0] ?? null;
-  const firstDowntownEvent = state.events.find((event) =>
-    (event.actionType === "attack-district" || event.actionType === "occupy-district")
-    && event.targetDistrictId
-    && state.districts.find((district) => district.id === event.targetDistrictId)?.isDowntown
-    && (event.result.includes("won") || event.result.includes("occupied"))
-  );
-  const firstOwner = firstDowntownEvent?.playerId ? state.players.find((player) => player.id === firstDowntownEvent.playerId) : null;
+  const firstDowntownCapture = state.counters.firstDowntownCapture;
   return {
     mostContestedDistrict: mostContested?.id ?? null,
     mostValuableDistrict: mostValuable?.id ?? null,
-    firstDowntownCaptured: firstDowntownEvent && firstOwner && firstDowntownEvent.targetDistrictId
+    firstDowntownCaptured: firstDowntownCapture
       ? {
-          tick: firstDowntownEvent.tick,
-          hour: tickToHour(state, firstDowntownEvent.tick),
-          districtId: firstDowntownEvent.targetDistrictId,
-          playerId: firstOwner.id,
-          factionId: firstOwner.factionId,
-          strategyId: firstOwner.strategyId
+          tick: firstDowntownCapture.tick,
+          hour: tickToHour(state, firstDowntownCapture.tick),
+          districtId: firstDowntownCapture.districtId,
+          playerId: firstDowntownCapture.playerId,
+          factionId: firstDowntownCapture.factionId,
+          strategyId: firstDowntownCapture.strategyId
         }
       : null,
     downtownOwnerTimeline: state.timeline.map((snapshot) => ({ hour: snapshot.hour, owners: snapshot.downtownOwners })),
@@ -79,11 +74,6 @@ export const createDowntownAudit = (state: FreeBrSimulationState) => {
   const firstOwnerAudit = first ? createPlayerAuditForDowntown(state, state.players.find((player) => player.id === first.playerId) as FreeBrPlayer) : null;
   const maxHeld = Math.max(0, ...state.timeline.map((snapshot) => Math.max(0, ...Object.values(snapshot.downtownOwners))));
   const earlyOwnerWon = Boolean(first && state.winner === first.playerId);
-  const attacksOnDowntown = state.events.filter((event) =>
-    event.actionType === "attack-district"
-    && event.targetDistrictId
-    && state.districts[event.targetDistrictId - 1]?.isDowntown
-  ).length;
   const verdict: "not a problem" | "mild but healthy" | "risky" | "broken" = earlyOwnerWon && maxHeld >= 4
     ? "broken"
     : (firstOwnerAudit?.finalPlacement ?? 20) <= 8 && maxHeld >= 3
@@ -97,7 +87,7 @@ export const createDowntownAudit = (state: FreeBrSimulationState) => {
     firstOwnerPlayerId: first?.playerId ?? null,
     earlyOwnerSurvivedTop8: (firstOwnerAudit?.finalPlacement ?? 99) <= 8,
     earlyOwnerWon,
-    attacksOnDowntown,
+    attacksOnDowntown: state.counters.attacksOnDowntown,
     alliancesAgainstDowntownLeader: state.counters.alliancesAgainstDowntownLeader,
     rareBuildingActions: state.counters.rareBuildingActions,
     ownerTimeline: state.timeline.map((snapshot) => ({ hour: snapshot.hour, owners: snapshot.downtownOwners })),

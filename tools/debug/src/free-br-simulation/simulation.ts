@@ -26,9 +26,9 @@ import {
 } from "./final-score";
 import {
   createEmptyPlayerStats,
-  recordDangerZoneAppearances,
-  ticksPerHour
+  recordDangerZoneAppearances
 } from "./state-helpers";
+import { ticksPerHour } from "./time-helpers";
 import type {
   FreeBrMatrixReport,
   FreeBrMutablePlayerStats,
@@ -48,6 +48,8 @@ export const runFreeBrSimulation = (options: FreeBrSimulationOptions = {}): Free
   const districts = createWorldDistricts(rng);
   const startDistrictIds = chooseStartDistrictIds(districts);
   const players = createFreeBrPlayers(rng, scenario, startDistrictIds);
+  const ownedDistrictIdsByPlayer = Object.fromEntries(players.map((player) => [player.id, new Set<number>()])) as Record<string, Set<number>>;
+  const ownedBuildingTypeCountsByPlayer = Object.fromEntries(players.map((player) => [player.id, {}])) as Record<string, Record<string, number>>;
 
   for (const player of players) {
     const district = districts.find((candidate) => candidate.id === player.homeDistrictId);
@@ -55,9 +57,12 @@ export const runFreeBrSimulation = (options: FreeBrSimulationOptions = {}): Free
     district.ownerPlayerId = player.id;
     district.status = "controlled";
     district.ownerHistory.push({ tick: 0, ownerPlayerId: player.id });
+    ownedDistrictIdsByPlayer[player.id].add(district.id);
+    ownedBuildingTypeCountsByPlayer[player.id][district.buildingType] = (ownedBuildingTypeCountsByPlayer[player.id][district.buildingType] ?? 0) + 1;
   }
 
   const state: FreeBrSimulationState = {
+    auditLevel: options.auditLevel ?? "full",
     config,
     seed,
     scenario,
@@ -65,6 +70,8 @@ export const runFreeBrSimulation = (options: FreeBrSimulationOptions = {}): Free
     tick: 0,
     players,
     districts,
+    ownedDistrictIdsByPlayer,
+    ownedBuildingTypeCountsByPlayer,
     alliances: [],
     events: [],
     timeline: [],
@@ -77,6 +84,7 @@ export const runFreeBrSimulation = (options: FreeBrSimulationOptions = {}): Free
     winner: null,
     winReason: "ongoing",
     hardTimeoutReached: false,
+    quietHourCache: new Map(),
     finalLockdown: {
       status: "inactive",
       startedAtTick: null,
@@ -98,7 +106,9 @@ export const runFreeBrSimulation = (options: FreeBrSimulationOptions = {}): Free
       allianceCoordinatedAttacks: 0,
       alliancesAgainstDowntownLeader: 0,
       dirtyCashSeized: 0,
-      resourceSeized: 0
+      resourceSeized: 0,
+      attacksOnDowntown: 0,
+      firstDowntownCapture: null
     }
   };
 
@@ -148,19 +158,35 @@ export const runFreeBrSimulation = (options: FreeBrSimulationOptions = {}): Free
 export const runFreeBrMatrix = (options: FreeBrSimulationOptions & { scenarios?: FreeBrScenarioName[] } = {}): FreeBrMatrixReport => {
   const runs = Math.max(1, Math.floor(options.runs ?? 50));
   const scenarioNames = options.scenarios ?? [options.scenario ?? "canonical-20p"];
+  const reports = runFreeBrMatrixReports({ ...options, runs, scenarios: scenarioNames });
+
+  return buildMatrixReport(reports, scenarioNames, runs);
+};
+
+export const runFreeBrMatrixReports = (
+  options: FreeBrSimulationOptions & {
+    scenarios?: FreeBrScenarioName[];
+    startRun?: number;
+  } = {}
+): FreeBrSimulationReport[] => {
+  const runs = Math.max(1, Math.floor(options.runs ?? 50));
+  const scenarioNames = options.scenarios ?? [options.scenario ?? "canonical-20p"];
+  const startRun = Math.max(1, Math.floor(options.startRun ?? 1));
   const reports: FreeBrSimulationReport[] = [];
 
   for (const scenario of scenarioNames) {
     for (let run = 0; run < runs; run += 1) {
+      const runNumber = startRun + run;
       reports.push(runFreeBrSimulation({
         ...options,
+        auditLevel: "matrix",
         scenario,
-        seed: `${options.seed ?? "matrix"}:${scenario}:${run + 1}`
+        seed: `${options.seed ?? "matrix"}:${scenario}:${runNumber}`
       }));
     }
   }
 
-  return buildMatrixReport(reports, scenarioNames, runs);
+  return reports;
 };
 
 const isFinalLockdownRunning = (state: FreeBrSimulationState): boolean =>

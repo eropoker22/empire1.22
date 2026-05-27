@@ -14,11 +14,11 @@ import {
   getBottomPlayers,
   getOwnedDistricts,
   isCooldownReady,
-  isQuietHours,
   pickDistrictByAttackValue,
   pickDistrictByValue,
   setDistrictOwner
 } from "./state-helpers";
+import { isQuietHours } from "./time-helpers";
 import type { FreeBrActionType, FreeBrPlayer, FreeBrSimulationState } from "./types";
 
 export const runBotActionsForStep = (state: FreeBrSimulationState, rng: SeededRng): void => {
@@ -125,7 +125,7 @@ const tryOccupy = (state: FreeBrSimulationState, rng: SeededRng, player: FreeBrP
   state.hourlyCounters.occupations += 1;
   const heatGain = conflict.occupyHeatGain ?? 2;
   addHeat(state, player, heatGain, target);
-  if (target.isDowntown) state.counters.downtownCaptures += 1;
+  if (target.isDowntown) recordDowntownCapture(state, player, target.id);
   addAuditEvent(state, {
     player,
     actionType: "occupy-district",
@@ -160,6 +160,7 @@ const tryAttack = (state: FreeBrSimulationState, rng: SeededRng, player: FreeBrP
   player.lastActionTick = state.tick;
   state.stats[player.id].attacksMade += 1;
   state.hourlyCounters.attacks += 1;
+  if (target.isDowntown) state.counters.attacksOnDowntown += 1;
   if (state.finalLockdown.status === "active" || state.finalLockdown.status === "paused") {
     state.counters.attacksDuringFinalLockdown += 1;
   }
@@ -177,7 +178,7 @@ const tryAttack = (state: FreeBrSimulationState, rng: SeededRng, player: FreeBrP
     state.stats[player.id].districtsCaptured += 1;
     state.stats[defender.id].districtsLost += 1;
     state.stats[player.id].maxControlledDistricts = Math.max(state.stats[player.id].maxControlledDistricts, getOwnedDistricts(state, player.id).length);
-    if (target.isDowntown) state.counters.downtownCaptures += 1;
+    if (target.isDowntown) recordDowntownCapture(state, player, target.id);
   } else {
     state.stats[player.id].attacksLost += 1;
     target.heat += heatGain * 0.35;
@@ -198,4 +199,15 @@ const tryAttack = (state: FreeBrSimulationState, rng: SeededRng, player: FreeBrP
     ].filter(Boolean).join(" · ")
   });
   return true;
+};
+
+const recordDowntownCapture = (state: FreeBrSimulationState, player: FreeBrPlayer, districtId: number): void => {
+  state.counters.downtownCaptures += 1;
+  state.counters.firstDowntownCapture ??= {
+    tick: state.tick,
+    districtId,
+    playerId: player.id,
+    factionId: player.factionId,
+    strategyId: player.strategyId
+  };
 };

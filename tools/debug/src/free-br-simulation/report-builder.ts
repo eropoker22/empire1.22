@@ -17,9 +17,8 @@ import {
 import { average, groupBy, round1, round2, sum } from "./math";
 import {
   getOwnedDistricts,
-  tickToHour,
-  ticksPerHour
 } from "./state-helpers";
+import { tickToHour, ticksPerHour } from "./time-helpers";
 import type {
   FreeBrPlayer,
   FreeBrSimulationReport,

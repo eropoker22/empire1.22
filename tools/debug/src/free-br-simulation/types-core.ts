@@ -53,6 +53,7 @@ export interface FreeBrSimulationOptions {
   scenario?: FreeBrScenarioName;
   runs?: number;
   startAtIso?: string;
+  auditLevel?: "full" | "matrix";
 }
 
 export interface FreeBrBotStrategyProfile {

@@ -1,22 +1,22 @@
 import { addAuditEvent } from "./audit-log";
-import { addHeat, getOwnedDistricts, isCooldownReady, isRareBuildingType, sumNonCashResources } from "./state-helpers";
+import { addHeat, getOwnedBuildingTypes, getOwnedDistricts, isCooldownReady, isRareBuildingType, sumNonCashResources } from "./state-helpers";
 import type { SeededRng } from "./seeded-rng";
 import type { FreeBrPlayer, FreeBrSimulationState } from "./types";
 
 export const tryCraft = (state: FreeBrSimulationState, rng: SeededRng, player: FreeBrPlayer): boolean => {
-  const ownedBuildingTypes = new Set(getOwnedDistricts(state, player.id).map((district) => district.buildingType));
-  const craftBuildings = Object.entries(state.config.balance.craftBuildings ?? {})
-    .filter(([buildingType]) => ownedBuildingTypes.has(buildingType));
+  const ownedBuildingTypes = new Set(getOwnedBuildingTypes(state, player.id));
+  const craftBuildings = getCraftBuildings(state)
+    .filter((building) => ownedBuildingTypes.has(building.buildingType));
   if (craftBuildings.length === 0) return false;
 
-  const [buildingType, buildingConfig] = rng.pick(craftBuildings);
-  const recipes = Object.entries(buildingConfig.recipes ?? {})
-    .filter(([recipeId]) => isCooldownReady(state, player, `craft:${buildingType}:${recipeId}`));
+  const buildingConfig = rng.pick(craftBuildings);
+  const recipes = buildingConfig.recipes
+    .filter(([recipeId]) => isCooldownReady(state, player, `craft:${buildingConfig.buildingType}:${recipeId}`));
   if (recipes.length === 0) return false;
   const [recipeId, recipe] = rng.pick(recipes);
   const cooldownTicks = Math.max(1, Math.ceil(recipe.durationTicks * state.config.balance.cooldownMultiplier));
   const cashCost = Object.values(recipe.inputCosts).reduce((sum, value) => sum + value * 8, 0);
-  player.cooldowns[`craft:${buildingType}:${recipeId}`] = state.tick + cooldownTicks;
+  player.cooldowns[`craft:${buildingConfig.buildingType}:${recipeId}`] = state.tick + cooldownTicks;
   player.resources[recipe.outputResourceKey] = (player.resources[recipe.outputResourceKey] ?? 0) + recipe.outputAmount;
   player.resources.cash = Math.max(0, (player.resources.cash ?? 0) - cashCost);
   player.lastActionTick = state.tick;
@@ -26,7 +26,7 @@ export const tryCraft = (state: FreeBrSimulationState, rng: SeededRng, player: F
     actionType: "craft-item",
     result: recipeId,
     cashDelta: -cashCost,
-    notes: `${buildingType}: ${recipe.label} (${cooldownTicks} ticks cooldown approximation)`
+    notes: `${buildingConfig.buildingType}: ${recipe.label} (${cooldownTicks} ticks cooldown approximation)`
   });
   return true;
 };
@@ -37,10 +37,13 @@ export const tryBuildingAction = (
   player: FreeBrPlayer,
   preferredBuildingTypes: string[] = []
 ): boolean => {
-  const ownedBuildingTypes = new Set(getOwnedDistricts(state, player.id).map((district) => district.buildingType));
-  const actions = Object.values(state.config.balance.buildingActions ?? {})
-    .filter((action) => ownedBuildingTypes.has(action.buildingType))
-    .filter((action) => preferredBuildingTypes.length === 0 || preferredBuildingTypes.includes(action.buildingType))
+  const buildingActionsByType = getBuildingActionsByType(state);
+  const ownedBuildingTypes = preferredBuildingTypes.length > 0
+    ? preferredBuildingTypes
+    : getOwnedBuildingTypes(state, player.id);
+  const actions = ownedBuildingTypes
+    .flatMap((buildingType) => buildingActionsByType[buildingType] ?? [])
+    .filter((action) => preferredBuildingTypes.length === 0 || (state.ownedBuildingTypeCountsByPlayer[player.id]?.[action.buildingType] ?? 0) > 0)
     .filter((action) => isCooldownReady(state, player, `building:${action.actionId}`));
   if (actions.length === 0) return false;
   const action = rng.pick(actions);
@@ -139,6 +142,38 @@ const resolveSimulationDayNightPhase = (state: FreeBrSimulationState): "day" | "
   const nightTicks = Math.max(1, Math.floor(Number(state.config.balance.nightLengthTicks || 1)));
   const cycleTick = state.tick % (dayTicks + nightTicks);
   return cycleTick < dayTicks ? "day" : "night";
+};
+
+type CraftBuildingConfig = NonNullable<FreeBrSimulationState["config"]["balance"]["craftBuildings"]>[string];
+type CraftRecipeConfig = CraftBuildingConfig["recipes"][string];
+type BuildingActionConfig = NonNullable<FreeBrSimulationState["config"]["balance"]["buildingActions"]>[string];
+
+const craftBuildingsCache = new WeakMap<object, Array<{ buildingType: string; recipes: Array<[string, CraftRecipeConfig]> }>>();
+const buildingActionsByTypeCache = new WeakMap<object, Record<string, BuildingActionConfig[]>>();
+
+const getCraftBuildings = (state: FreeBrSimulationState): Array<{ buildingType: string; recipes: Array<[string, CraftRecipeConfig]> }> => {
+  const balance = state.config.balance as object;
+  const cached = craftBuildingsCache.get(balance);
+  if (cached) return cached;
+  const entries = Object.entries(state.config.balance.craftBuildings ?? {}).map(([buildingType, buildingConfig]) => ({
+    buildingType,
+    recipes: Object.entries(buildingConfig.recipes ?? {})
+  }));
+  craftBuildingsCache.set(balance, entries);
+  return entries;
+};
+
+const getBuildingActionsByType = (state: FreeBrSimulationState): Record<string, BuildingActionConfig[]> => {
+  const balance = state.config.balance as object;
+  const cached = buildingActionsByTypeCache.get(balance);
+  if (cached) return cached;
+  const grouped: Record<string, BuildingActionConfig[]> = {};
+  for (const action of Object.values(state.config.balance.buildingActions ?? {})) {
+    grouped[action.buildingType] ??= [];
+    grouped[action.buildingType].push(action);
+  }
+  buildingActionsByTypeCache.set(balance, grouped);
+  return grouped;
 };
 
 export const applyPassiveIncomeAndHeatDecay = (state: FreeBrSimulationState, stepTicks: number): void => {

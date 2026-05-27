@@ -5,12 +5,16 @@ import type { FreeBrDistrict, FreeBrMutablePlayerStats, FreeBrPlayer, FreeBrSimu
 
 export const neutralizePlayerDistricts = (state: FreeBrSimulationState, playerId: string): number => {
   let count = 0;
-  for (const district of state.districts) {
-    if (district.ownerPlayerId !== playerId) continue;
+  const ownedIds = [...(state.ownedDistrictIdsByPlayer[playerId] ?? [])];
+  for (const districtId of ownedIds) {
+    const district = state.districts[districtId - 1];
+    if (!district || district.ownerPlayerId !== playerId) continue;
     district.ownerPlayerId = null;
     district.status = "neutral";
     district.influence = Math.max(0, district.influence * 0.5);
     district.ownerHistory.push({ tick: state.tick, ownerPlayerId: null });
+    state.ownedDistrictIdsByPlayer[playerId]?.delete(district.id);
+    adjustOwnedBuildingTypeCount(state, playerId, district.buildingType, -1);
     count += 1;
   }
   return count;
@@ -18,9 +22,33 @@ export const neutralizePlayerDistricts = (state: FreeBrSimulationState, playerId
 
 export const setDistrictOwner = (state: FreeBrSimulationState, district: FreeBrDistrict, ownerPlayerId: string | null): void => {
   if (district.ownerPlayerId === ownerPlayerId) return;
+  if (district.ownerPlayerId) {
+    state.ownedDistrictIdsByPlayer[district.ownerPlayerId]?.delete(district.id);
+    adjustOwnedBuildingTypeCount(state, district.ownerPlayerId, district.buildingType, -1);
+  }
+  if (ownerPlayerId) {
+    state.ownedDistrictIdsByPlayer[ownerPlayerId] ??= new Set<number>();
+    state.ownedDistrictIdsByPlayer[ownerPlayerId].add(district.id);
+    adjustOwnedBuildingTypeCount(state, ownerPlayerId, district.buildingType, 1);
+  }
   district.ownerPlayerId = ownerPlayerId;
   district.status = ownerPlayerId ? "controlled" : "neutral";
   district.ownerHistory.push({ tick: state.tick, ownerPlayerId });
+};
+
+const adjustOwnedBuildingTypeCount = (
+  state: FreeBrSimulationState,
+  playerId: string,
+  buildingType: string,
+  delta: number
+): void => {
+  state.ownedBuildingTypeCountsByPlayer[playerId] ??= {};
+  const next = (state.ownedBuildingTypeCountsByPlayer[playerId][buildingType] ?? 0) + delta;
+  if (next <= 0) {
+    delete state.ownedBuildingTypeCountsByPlayer[playerId][buildingType];
+    return;
+  }
+  state.ownedBuildingTypeCountsByPlayer[playerId][buildingType] = next;
 };
 
 export const createEliminationScore = (state: FreeBrSimulationState, player: FreeBrPlayer): PlayerEliminationScore => {
@@ -89,10 +117,11 @@ export const createEmptyPlayerStats = (): FreeBrMutablePlayerStats => ({
 });
 
 export const getAdjacentTargets = (state: FreeBrSimulationState, player: FreeBrPlayer): FreeBrDistrict[] => {
-  const ownedIds = new Set(getOwnedDistricts(state, player.id).map((district) => district.id));
+  const ownedIds = state.ownedDistrictIdsByPlayer[player.id] ?? new Set<number>();
   const ids = new Set<number>();
-  for (const district of state.districts) {
-    if (!ownedIds.has(district.id)) continue;
+  for (const districtId of ownedIds) {
+    const district = state.districts[districtId - 1];
+    if (!district) continue;
     for (const adjacentId of district.adjacentDistrictIds) ids.add(adjacentId);
   }
   return [...ids].map((id) => state.districts[id - 1]).filter((district): district is FreeBrDistrict => Boolean(district && !ownedIds.has(district.id)));
@@ -159,7 +188,12 @@ export const getBottomPlayers = (state: FreeBrSimulationState, count: number): F
     .map((entry) => entry.player);
 
 export const getOwnedDistricts = (state: FreeBrSimulationState, playerId: string): FreeBrDistrict[] =>
-  state.districts.filter((district) => district.ownerPlayerId === playerId && district.status !== "destroyed");
+  [...(state.ownedDistrictIdsByPlayer[playerId] ?? [])]
+    .map((districtId) => state.districts[districtId - 1])
+    .filter((district): district is FreeBrDistrict => Boolean(district && district.ownerPlayerId === playerId && district.status !== "destroyed"));
+
+export const getOwnedBuildingTypes = (state: FreeBrSimulationState, playerId: string): string[] =>
+  Object.keys(state.ownedBuildingTypeCountsByPlayer[playerId] ?? {});
 
 export const countDowntownOwners = (state: FreeBrSimulationState): Record<string, number> => {
   const result: Record<string, number> = {};
@@ -176,37 +210,6 @@ export const isCooldownReady = (state: FreeBrSimulationState, player: FreeBrPlay
 
 export const isRareBuildingType = (buildingType: string): boolean =>
   ["stock_exchange", "central_bank", "airport", "city_hall", "courthouse", "vip_lounge", "port", "parliament", "lobby_club"].includes(buildingType);
-
-export const isQuietHours = (state: FreeBrSimulationState, tick: number): boolean => {
-  const quiet = state.config.balance.elimination?.quietHours;
-  if (!quiet?.enabled) return false;
-  const hour = getLocalHour(state, tick, quiet.timeZone);
-  const start = quiet.startHour;
-  const end = quiet.endHour;
-  return start < end ? hour >= start && hour < end : hour >= start || hour < end;
-};
-
-export const resolveQuietHoursResumeTick = (state: FreeBrSimulationState, tick: number): number => {
-  const ticksHour = ticksPerHour(state);
-  let candidate = tick + ticksHour;
-  while (isQuietHours(state, candidate)) candidate += ticksHour;
-  return candidate;
-};
-
-export const getLocalHour = (state: FreeBrSimulationState, tick: number, timeZone: string): number => {
-  const hour = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour: "2-digit",
-    hourCycle: "h23"
-  }).formatToParts(new Date(state.startAtMs + tick * state.config.tickRateMs)).find((part) => part.type === "hour")?.value;
-  return Number(hour ?? 0);
-};
-
-export const ticksPerHour = (state: FreeBrSimulationState): number =>
-  Math.max(1, Math.round((60 * 60 * 1000) / state.config.tickRateMs));
-
-export const tickToHour = (state: FreeBrSimulationState, tick: number): number =>
-  Math.round((tick * state.config.tickRateMs / (60 * 60 * 1000)) * 100) / 100;
 
 export const sumNonCashResources = (player: FreeBrPlayer): number =>
   Object.entries(player.resources)

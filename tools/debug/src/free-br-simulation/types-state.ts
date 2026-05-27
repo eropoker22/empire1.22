@@ -4,11 +4,13 @@ import type {
   FreeBrAuditEvent,
   FreeBrDistrict,
   FreeBrPlayer,
-  FreeBrScenarioConfig
+  FreeBrScenarioConfig,
+  FreeBrStrategyId
 } from "./types-core";
 import type { FreeBrEliminationAudit, FreeBrTimelineSnapshot } from "./types-report";
 
 export interface FreeBrSimulationState {
+  auditLevel: "full" | "matrix";
   config: ResolvedGameModeConfig;
   seed: string;
   scenario: FreeBrScenarioConfig;
@@ -16,6 +18,8 @@ export interface FreeBrSimulationState {
   tick: number;
   players: FreeBrPlayer[];
   districts: FreeBrDistrict[];
+  ownedDistrictIdsByPlayer: Record<string, Set<number>>;
+  ownedBuildingTypeCountsByPlayer: Record<string, Record<string, number>>;
   alliances: FreeBrAlliance[];
   events: FreeBrAuditEvent[];
   timeline: FreeBrTimelineSnapshot[];
@@ -28,6 +32,7 @@ export interface FreeBrSimulationState {
   winner: string | null;
   winReason: string;
   hardTimeoutReached: boolean;
+  quietHourCache: Map<number, boolean>;
   finalLockdown: {
     status: "inactive" | "active" | "paused" | "resolved";
     startedAtTick: number | null;
@@ -55,6 +60,14 @@ export interface FreeBrSimulationState {
     alliancesAgainstDowntownLeader: number;
     dirtyCashSeized: number;
     resourceSeized: number;
+    attacksOnDowntown: number;
+    firstDowntownCapture: {
+      tick: number;
+      districtId: number;
+      playerId: string;
+      factionId: string;
+      strategyId: FreeBrStrategyId;
+    } | null;
   };
 }
 

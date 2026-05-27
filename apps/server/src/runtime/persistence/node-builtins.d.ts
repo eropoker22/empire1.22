@@ -18,6 +18,15 @@ declare module "node:fs/promises" {
   export function rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
 }
 
+declare module "node:child_process" {
+  export function execFile(
+    file: string,
+    args: string[],
+    options: { cwd?: string; maxBuffer?: number },
+    callback: (error: Error | null, stdout: string, stderr: string) => void
+  ): void;
+}
+
 declare module "node:path" {
   export function dirname(path: string): string;
   export function join(...paths: string[]): string;

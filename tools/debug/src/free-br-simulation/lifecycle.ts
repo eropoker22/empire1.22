@@ -11,12 +11,15 @@ import {
   describeWeakness,
   getBottomPlayers,
   getOwnedDistricts,
-  isQuietHours,
   neutralizePlayerDistricts,
+} from "./state-helpers";
+import {
+  countActiveAndQuietTicks,
+  isQuietHours,
   resolveQuietHoursResumeTick,
   tickToHour,
   ticksPerHour
-} from "./state-helpers";
+} from "./time-helpers";
 import type { FreeBrEliminationAudit, FreeBrSimulationState, FreeBrTimelineSnapshot } from "./types";
 
 export const maybeRunElimination = (state: FreeBrSimulationState): void => {
@@ -156,16 +159,7 @@ const maybeRunFinalLockdown = (state: FreeBrSimulationState): void => {
 
   if (state.finalLockdown.status !== "active" && state.finalLockdown.status !== "paused") return;
 
-  const fromTick = state.finalLockdown.lastUpdatedTick;
-  let activeTicks = 0;
-  let pausedTicks = 0;
-  for (let tick = fromTick + 1; tick <= state.tick; tick += 1) {
-    if (isQuietHours(state, tick)) {
-      pausedTicks += 1;
-    } else {
-      activeTicks += 1;
-    }
-  }
+  const { activeTicks, pausedTicks } = countActiveAndQuietTicks(state, state.finalLockdown.lastUpdatedTick, state.tick);
   state.finalLockdown.activeElapsedTicks = Math.min(
     finalConfig.activeDurationTicks,
     state.finalLockdown.activeElapsedTicks + activeTicks

@@ -1,5 +1,11 @@
 import type { FreeBrActionType, FreeBrAuditEvent, FreeBrPlayer, FreeBrSimulationState } from "./types";
 
+const localTimeFormatter = new Intl.DateTimeFormat("cs-CZ", {
+  timeZone: "Europe/Bratislava",
+  dateStyle: "short",
+  timeStyle: "short"
+});
+
 export const addAuditEvent = (
   state: FreeBrSimulationState,
   input: {
@@ -16,6 +22,8 @@ export const addAuditEvent = (
     notes?: string;
   }
 ): void => {
+  if (state.auditLevel === "matrix") return;
+
   const event: FreeBrAuditEvent = {
     tick: state.tick,
     simulatedTime: new Date(state.startAtMs + state.tick * state.config.tickRateMs).toISOString(),
@@ -38,11 +46,7 @@ export const addAuditEvent = (
 };
 
 export const formatLocalTime = (state: FreeBrSimulationState, tick = state.tick): string =>
-  new Intl.DateTimeFormat("cs-CZ", {
-    timeZone: "Europe/Bratislava",
-    dateStyle: "short",
-    timeStyle: "short"
-  }).format(new Date(state.startAtMs + tick * state.config.tickRateMs));
+  localTimeFormatter.format(new Date(state.startAtMs + tick * state.config.tickRateMs));
 
 export const formatEventJsonl = (events: readonly FreeBrAuditEvent[]): string =>
   events.map((event) => JSON.stringify(event)).join("\n");
