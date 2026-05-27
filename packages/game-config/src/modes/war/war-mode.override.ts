@@ -1,5 +1,9 @@
 import type { ResolvedGameModeConfig } from "../../contracts/game-mode-config";
+import { basePoliceConfig } from "../../base/base-police-config";
 import { createDayNightConfig } from "../../public/day-night-config";
+
+const WAR_MODE_TICK_RATE_MS = 15000;
+const WAR_MODE_RAID_DURATION_TICKS = Math.ceil((30 * 60 * 1000) / WAR_MODE_TICK_RATE_MS);
 
 /**
  * Responsibility: War mode override focused on longer pacing and larger coordination windows.
@@ -8,7 +12,7 @@ import { createDayNightConfig } from "../../public/day-night-config";
  */
 export const warModeOverride: Partial<ResolvedGameModeConfig> = {
   mode: "war",
-  tickRateMs: 15000,
+  tickRateMs: WAR_MODE_TICK_RATE_MS,
   balance: {
     incomeMultiplier: 0.85,
     productionMultiplier: 0.85,
@@ -26,6 +30,15 @@ export const warModeOverride: Partial<ResolvedGameModeConfig> = {
       dayDurationTicks: 960,
       nightDurationTicks: 960
     }),
+    police: {
+      ...basePoliceConfig,
+      raidDurationTicks: WAR_MODE_RAID_DURATION_TICKS,
+      pendingRaidTtlTicks: WAR_MODE_RAID_DURATION_TICKS,
+      maxConcurrentRaidsByPhase: {
+        day: 2,
+        night: 1
+      }
+    },
     victoryConditionKey: "long-war-control",
     conflict: {
       spyCooldownTicks: 4,
@@ -65,7 +78,7 @@ export const warModeOverride: Partial<ResolvedGameModeConfig> = {
     mode: "war",
     label: "Empire Streets War",
     matchStyle: "long",
-    tickRateMs: 15000,
+    tickRateMs: WAR_MODE_TICK_RATE_MS,
     sessionKeyPrefix: "empire:war"
   }
 };

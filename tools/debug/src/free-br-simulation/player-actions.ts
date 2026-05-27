@@ -3,13 +3,13 @@ import { isAllianceCoordinatedAttack } from "./alliance-simulation";
 import { resolveActivityProbability } from "./bot-player";
 import { FREE_BR_BOT_STRATEGIES } from "./bot-strategies";
 import { maybeAssistAlly, tryBuildingAction, tryCraft } from "./economy-actions";
+import { findLeader } from "./final-score";
 import { clamp } from "./math";
 import type { SeededRng } from "./seeded-rng";
 import {
   addHeat,
   computeAttackPower,
   computeDefensePower,
-  findLeader,
   getAdjacentTargets,
   getBottomPlayers,
   getOwnedDistricts,
@@ -160,6 +160,9 @@ const tryAttack = (state: FreeBrSimulationState, rng: SeededRng, player: FreeBrP
   player.lastActionTick = state.tick;
   state.stats[player.id].attacksMade += 1;
   state.hourlyCounters.attacks += 1;
+  if (state.finalLockdown.status === "active" || state.finalLockdown.status === "paused") {
+    state.counters.attacksDuringFinalLockdown += 1;
+  }
   addHeat(state, player, heatGain, target);
 
   if (coordinated) {

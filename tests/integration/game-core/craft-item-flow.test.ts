@@ -68,9 +68,11 @@ describe("craft-item command flow", () => {
 
     expect(completionTick.nextState.buildingsById[buildingId]?.processing).toBeNull();
     expect(completionTick.nextState.resourceStatesById["resource:1"]?.balances["stim-pack"]).toBe(1);
-    expect(completionTick.nextState.root.notificationIds).toHaveLength(1);
-    expect(completionTick.nextState.notificationsById[completionTick.nextState.root.notificationIds[0]]?.category).toBe("processing.completed");
-    expect(completionTick.nextState.notificationsById[completionTick.nextState.root.notificationIds[0]]?.recipientId).toBe("player:1");
+    const processingNotifications = completionTick.nextState.root.notificationIds
+      .map((notificationId) => completionTick.nextState.notificationsById[notificationId])
+      .filter((notification) => notification?.category === "processing.completed");
+    expect(processingNotifications).toHaveLength(1);
+    expect(processingNotifications[0]?.recipientId).toBe("player:1");
     expect(completionTick.events).toHaveLength(2);
     expect(completionTick.events[0]?.type).toBe("item-crafted");
     expect(completionTick.events[1]?.type).toBe("notification-created");

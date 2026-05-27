@@ -38,6 +38,7 @@ export interface FreeBrPlayerAudit {
   dangerZoneAppearances: number;
   comebackCount: number;
   finalScore: number;
+  finalScoreBreakdown?: Record<string, number>;
   controlledDistrictsOverTime: Array<{ hour: number; districts: number }>;
 }
 
@@ -117,6 +118,12 @@ export interface FreeBrSimulationSummary {
   leaderDistrictsAtEnd: number;
   hardTimeoutReached: boolean;
   quietHoursDeferredEliminations: number;
+  finalLockdownStartedAtHour: number | null;
+  finalLockdownEndedAtHour: number | null;
+  finalLockdownPausedHours: number;
+  finalTop3: Array<{ playerId: string; score: number; rank: number; scoreBreakdown: Record<string, number> }>;
+  old75ControlReached: boolean;
+  attacksDuringFinalLockdown: number;
 }
 
 export interface FreeBrSimulationReport {
@@ -134,6 +141,8 @@ export interface FreeBrSimulationReport {
     minimumVictoryTicks: number;
     controlHoldTicks: number;
     hardTimeoutTicks: number;
+    finalLockdownTriggerActivePlayers: number;
+    finalLockdownActiveDurationTicks: number;
   };
   approximations: string[];
   players: FreeBrPlayerAudit[];

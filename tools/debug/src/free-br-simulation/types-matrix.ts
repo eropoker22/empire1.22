@@ -15,6 +15,14 @@ export interface FreeBrMatrixReport {
   earlyDowntownOwnerTop8Chance: number;
   victoryBeforeTimeoutChance: number;
   timeoutWithoutWinnerChance: number;
+  finalLockdownWinRate: number;
+  averageFinalLockdownDurationWallClock: number;
+  averageFinalLockdownPausedHours: number;
+  top3RateByFaction: Record<string, number>;
+  top3RateByStrategy: Record<string, number>;
+  averageFinalScoreByFaction: Record<string, number>;
+  downtownBonusImpact: number;
+  heatPenaltyImpact: number;
   dangerZoneComebackRate: number;
   averagePoliceRaidsPerMatch: number;
   mostDominantFaction: string | null;

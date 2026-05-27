@@ -86,30 +86,59 @@ export const checkVictory = (
     totalActiveDistricts: activeDistricts.length,
     rules: victoryRules
   });
-  const activeDistrictControlWonByLeader = Boolean(leader && controlProgress.canResolveControlVictoryNow);
+  const finalLockdownEnabled = Boolean(context.config.balance.finalLockdown?.enabled);
+  const activeDistrictControlWonByLeader = !finalLockdownEnabled && Boolean(leader && controlProgress.canResolveControlVictoryNow);
   const durationExpired = state.root.tick >= victoryRules.durationTicks;
   const hardTimeoutExpired = state.root.tick >= victoryRules.hardTimeoutTicks;
-  const durationFallbackExpired = victoryRules.allowDurationVictoryFallback && durationExpired;
-  const timeoutWithoutWinnerExpired = !victoryRules.allowDurationVictoryFallback && hardTimeoutExpired;
+  const durationFallbackExpired = !finalLockdownEnabled && victoryRules.allowDurationVictoryFallback && durationExpired;
+  const timeoutWithoutWinnerExpired = finalLockdownEnabled
+    ? !state.finalLockdownState && hardTimeoutExpired
+    : !victoryRules.allowDurationVictoryFallback && hardTimeoutExpired;
 
   if (!activeDistrictControlWonByLeader && !durationFallbackExpired && !timeoutWithoutWinnerExpired) {
+    const finalLockdownPayload = finalLockdownEnabled
+      ? {
+          enabled: true,
+          status: state.finalLockdownState?.status ?? "inactive",
+          active: state.finalLockdownState?.status === "active" || state.finalLockdownState?.status === "paused",
+          pausedByQuietHours: state.finalLockdownState?.pausedByQuietHours ?? false,
+          startedAtTick: state.finalLockdownState?.startedAtTick ?? null,
+          activeElapsedTicks: state.finalLockdownState?.activeElapsedTicks ?? 0,
+          activeDurationTicks: state.finalLockdownState?.activeDurationTicks ?? context.config.balance.finalLockdown?.activeDurationTicks ?? 0,
+          remainingActiveTicks: state.finalLockdownState?.remainingActiveTicks ?? context.config.balance.finalLockdown?.activeDurationTicks ?? 0,
+          triggerActivePlayers: context.config.balance.finalLockdown?.triggerActivePlayers ?? null,
+          topRankCount: context.config.balance.finalLockdown?.topRankCount ?? 3
+        }
+      : null;
     const summary = createVictorySummary({
       mode: context.config.mode,
-      reason: controlProgress.reason,
+      reason: finalLockdownEnabled
+        ? state.finalLockdownState
+          ? `final_lockdown_${state.finalLockdownState.status}`
+          : "final_lockdown_waiting_for_top8"
+        : controlProgress.reason,
       winner: leader,
       totalActiveDistricts: activeDistricts.length
     });
+    const payloadControlProgress = finalLockdownEnabled
+      ? {
+          ...controlProgress,
+          controlProgressReason: controlProgress.reason,
+          reason: summary.reason
+        }
+      : controlProgress;
 
     return {
       nextState: createOngoingVictoryState(state, context, {
         ...summary,
-        ...controlProgress,
+        ...payloadControlProgress,
         controlledDistrictCount: summary.controlledDistricts,
         totalActiveDistrictCount: activeDistricts.length,
         controlVictoryThreshold: victoryRules.threshold,
         durationTicks: victoryRules.durationTicks,
         hardTimeoutTicks: victoryRules.hardTimeoutTicks,
-        allowDurationVictoryFallback: victoryRules.allowDurationVictoryFallback
+        allowDurationVictoryFallback: victoryRules.allowDurationVictoryFallback,
+        finalLockdown: finalLockdownPayload
       }),
       resolved: false,
       summary

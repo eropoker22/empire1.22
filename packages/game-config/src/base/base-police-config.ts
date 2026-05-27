@@ -6,8 +6,13 @@ export const basePoliceConfig: PoliceSystemBalanceConfig = {
   extremePressureRaidThreshold: 140,
   districtTargetHeatThreshold: 60,
   raidCooldownTicks: 4,
-  pendingRaidTtlTicks: 2,
+  raidDurationTicks: 360,
+  pendingRaidTtlTicks: 360,
   maxPendingRaidsPerPlayer: 1,
+  maxConcurrentRaidsByPhase: {
+    day: 2,
+    night: 1
+  },
   raidSeverityThresholds: { low: 0, medium: 60, high: 100, extreme: 140 },
   dirtyCashSeizurePercentBySeverity: { low: 0, medium: 0.08, high: 0.18, extreme: 0.32 },
   resourceSeizurePercentBySeverity: { low: 0, medium: 0, high: 0.08, extreme: 0.16 },

@@ -201,7 +201,7 @@ describe("free session balance and anti-snowball simulation", () => {
 
     expect(results.aggressive.heat).toBeGreaterThan(results.passive.heat);
     expect(results.aggressive.aggregatePolicePressure).toBeGreaterThan(results.passive.aggregatePolicePressure);
-    expect(results.aggressive.resolvedRaids).toBeGreaterThanOrEqual(1);
+    expect(results.aggressive.pendingRaids + results.aggressive.resolvedRaids).toBeGreaterThanOrEqual(1);
     expect(results.aggressive.ownedDistricts).toBeGreaterThan(results.normal.ownedDistricts);
 
     expect(results.passive.mostUsedActions["collect-production"]).toBeGreaterThan(
@@ -213,7 +213,9 @@ describe("free session balance and anti-snowball simulation", () => {
 
     expect(results.snowball.ownedDistricts).toBeGreaterThan(results.aggressive.ownedDistricts);
     expect(results.snowball.aggregatePolicePressure).toBeGreaterThan(results.aggressive.aggregatePolicePressure);
-    expect(results.snowball.resolvedRaids).toBeGreaterThanOrEqual(results.aggressive.resolvedRaids);
+    expect(results.snowball.pendingRaids + results.snowball.resolvedRaids).toBeGreaterThanOrEqual(
+      results.aggressive.pendingRaids + results.aggressive.resolvedRaids
+    );
     expect(results.snowball.ownedDistricts).toBeLessThan(Math.ceil(TOTAL_DISTRICTS * FREE_CONFIG.balance.districtControlVictoryThreshold!));
 
     expect(results.alliance.winProgress).toBeLessThan(0.7);
@@ -250,6 +252,8 @@ describe("free session balance and anti-snowball simulation", () => {
         police: {
           highPressureRaidThreshold: 115,
           extremePressureRaidThreshold: 180,
+          raidDurationTicks: 360,
+          pendingRaidTtlTicks: 360,
           maxPendingRaidsPerPlayer: 1
         }
       }

@@ -24,7 +24,8 @@ describe("victory duration design", () => {
     expect(result.nextState.matchResult).toBeNull();
     expect(result.nextState.victoryState?.progressPayload).toMatchObject({
       requiredControlledDistricts: 75,
-      reason: "below_control_threshold",
+      reason: "final_lockdown_waiting_for_top8",
+      controlProgressReason: "below_control_threshold",
       canResolveControlVictoryNow: false
     });
   });
@@ -46,7 +47,8 @@ describe("victory duration design", () => {
     expect(result.resolved).toBe(false);
     expect(result.nextState.matchResult).toBeNull();
     expect(result.nextState.victoryState?.progressPayload).toMatchObject({
-      reason: "minimum_server_age_not_reached",
+      reason: "final_lockdown_waiting_for_top8",
+      controlProgressReason: "minimum_server_age_not_reached",
       minimumVictoryTicks: FREE_MINIMUM_VICTORY_TICKS,
       canResolveControlVictoryNow: false
     });
@@ -68,13 +70,14 @@ describe("victory duration design", () => {
 
     expect(result.resolved).toBe(false);
     expect(result.nextState.victoryState?.progressPayload).toMatchObject({
-      reason: "control_hold_not_completed",
+      reason: "final_lockdown_waiting_for_top8",
+      controlProgressReason: "control_hold_not_completed",
       controlHoldRemainingTicks: 1,
       canResolveControlVictoryNow: false
     });
   });
 
-  it("resolves player victory after 72h and a continuous 6h hold", () => {
+  it("does not resolve free player victory from 75 percent control after Final Lockdown replaces old endgame", () => {
     const state = createStateWithDistrictControl({
       totalDistricts: 20,
       playerControlledDistricts: 15
@@ -88,21 +91,24 @@ describe("victory duration design", () => {
 
     const result = checkVictory(state, { config: resolveModeConfig("free") });
 
-    expect(result.resolved).toBe(true);
-    expect(result.nextState.matchResult).toMatchObject({
-      winnerPlayerId: "player:1",
-      winnerAllianceId: null,
-      reason: "control:fast-control"
-    });
+    expect(result.resolved).toBe(false);
+    expect(result.nextState.matchResult).toBeNull();
     expect(result.nextState.victoryState?.progressPayload).toMatchObject({
+      reason: "final_lockdown_waiting_for_top8",
+      controlProgressReason: "control_victory_ready",
       controlledDistrictCount: 15,
       requiredControlledDistricts: 15,
       controlHoldRemainingTicks: 0,
-      canResolveControlVictoryNow: true
+      canResolveControlVictoryNow: true,
+      finalLockdown: {
+        enabled: true,
+        status: "inactive",
+        triggerActivePlayers: 8
+      }
     });
   });
 
-  it("resolves alliance victory as winnerType alliance at 75 percent control", () => {
+  it("does not resolve free alliance victory from 75 percent control before Final Lockdown", () => {
     const state = createStateWithDistrictControl({
       totalDistricts: 20,
       playerControlledDistricts: 15,
@@ -129,11 +135,19 @@ describe("victory duration design", () => {
       hasWinner: true,
       winnerType: "alliance",
       winnerId: "alliance:1",
-      controlPercent: 75
+      controlPercent: 75,
+      reason: "final_lockdown_waiting_for_top8"
     });
-    expect(result.nextState.matchResult).toMatchObject({
-      winnerPlayerId: null,
-      winnerAllianceId: "alliance:1"
+    expect(result.resolved).toBe(false);
+    expect(result.nextState.matchResult).toBeNull();
+    expect(result.nextState.victoryState?.progressPayload).toMatchObject({
+      reason: "final_lockdown_waiting_for_top8",
+      controlProgressReason: "control_victory_ready",
+      finalLockdown: {
+        enabled: true,
+        status: "inactive",
+        triggerActivePlayers: 8
+      }
     });
   });
 
@@ -158,7 +172,8 @@ describe("victory duration design", () => {
 
     expect(result.resolved).toBe(false);
     expect(result.nextState.victoryState?.progressPayload).toMatchObject({
-      reason: "below_control_threshold",
+      reason: "final_lockdown_waiting_for_top8",
+      controlProgressReason: "below_control_threshold",
       controlHoldStartedAtTick: null,
       controlHoldRemainingTicks: FREE_CONTROL_HOLD_TICKS
     });

@@ -1,4 +1,4 @@
-import type { PendingRaid, PoliceEvent, PoliceState } from "@empire/shared-types";
+import type { PendingRaid, PoliceState } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";
 import type { CoreEvent } from "../../events";
 import { CORE_EVENT_TYPES, createEvent } from "../../events";
@@ -9,7 +9,11 @@ import { resolveWantedLevel } from "./wantedLevel";
 import { resolvePoliceConfig } from "./policeConfig";
 import { calculatePlayerPolicePressure } from "./policePressure";
 import { resolveCityHallPoliceMitigation, shouldCreateRaidAfterCityHallMitigation } from "./cityHallPoliceMitigation";
-import { getDayNightModifiers } from "../day-night/dayNight";
+import { getCurrentDayNightPhase, getDayNightModifiers } from "../day-night/dayNight";
+import {
+  countOpenPendingRaids,
+  resolveMaxConcurrentRaidsForPhase
+} from "./raidConcurrency";
 import {
   createPendingRaidMessage,
   createRaidReason,
@@ -28,6 +32,7 @@ export type RaidTriggerDecisionType =
   | "pending_raid_created"
   | "political_cover_delayed"
   | "existing_pending_raid_kept"
+  | "concurrent_raid_limit_active"
   | "cooldown_active";
 
 export interface RaidTriggerDecision {
@@ -52,6 +57,9 @@ export const triggerRaid = (
   const events: CoreEvent[] = [];
   const decisions: RaidTriggerDecision[] = [];
   const currentTick = state.root.tick;
+  const phaseId = getCurrentDayNightPhase(state, context).phaseId;
+  const maxConcurrentRaids = resolveMaxConcurrentRaidsForPhase(config, phaseId);
+  const raidDurationTicks = Math.max(1, Math.floor(Number(config.raidDurationTicks || config.pendingRaidTtlTicks || 1)));
 
   for (const player of Object.values(state.playersById)) {
     const pressure = calculatePlayerPolicePressure(
@@ -102,6 +110,15 @@ export const triggerRaid = (
       continue;
     }
 
+    if (countOpenPendingRaids(nextPoliceStatesById) >= maxConcurrentRaids) {
+      decisions.push({
+        playerId: player.id,
+        type: "concurrent_raid_limit_active",
+        aggregatePressure: pressure.aggregatePressure
+      });
+      continue;
+    }
+
     const severityPressure = Math.floor(
       pressure.aggregatePressure * Math.max(0, Number(getDayNightModifiers(state, context).raidSeverityMultiplier ?? 1)) + 1e-9
     );
@@ -140,12 +157,12 @@ export const triggerRaid = (
       severity,
       reason: createRaidReason(pressure.aggregatePressure, targetDistrictId),
       createdAtTick: currentTick,
-      expiresAtTick: currentTick + Math.max(1, config.pendingRaidTtlTicks),
+      expiresAtTick: currentTick + raidDurationTicks,
       status: "pending",
       previewConsequences,
       sourcePressure: pressure.aggregatePressure
     };
-    const policeEvent = createPoliceEvent({
+    const policeEvent = {
       id: `police:event:${raidId}:pending`,
       type: "police-raid-pending",
       playerId: player.id,
@@ -158,7 +175,7 @@ export const triggerRaid = (
         sourcePressure: pressure.aggregatePressure,
         previewConsequences
       }
-    });
+    };
     const nextPoliceState: PoliceState = {
       ...currentPoliceState,
       wantedLevel: Math.max(currentPoliceState.wantedLevel, resolveWantedLevel(currentPoliceState.heat)),
@@ -223,5 +240,3 @@ export const triggerRaid = (
     decisions
   };
 };
-
-const createPoliceEvent = (event: PoliceEvent): PoliceEvent => event;

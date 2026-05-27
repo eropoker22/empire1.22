@@ -48,7 +48,8 @@ export const runFreeBrCli = async (argv: string[], io: FreeBrCliIo = {}): Promis
     const stdout = [
       `Free BR matrix complete: ${matrix.scenarioNames.join(", ")} x ${matrix.runs} runs`,
       `Average duration: ${matrix.averageMatchDuration}h`,
-      `Victory before timeout: ${Math.round(matrix.victoryBeforeTimeoutChance * 100)}%`,
+      `Final Lockdown wins: ${Math.round(matrix.finalLockdownWinRate * 100)}%`,
+      `Timeout without winner: ${Math.round(matrix.timeoutWithoutWinnerChance * 100)}%`,
       writeFiles ? `Wrote ${out}` : ""
     ].filter(Boolean).join("\n");
     io.stdout?.(stdout);
@@ -75,6 +76,8 @@ export const runFreeBrCli = async (argv: string[], io: FreeBrCliIo = {}): Promis
   const stdout = [
     `Free BR canonical simulation complete: seed=${report.summary.seed}, scenario=${report.summary.scenario}`,
     `Winner: ${report.summary.winner ?? "none"} (${report.summary.winReason})`,
+    `Final Top 3: ${report.summary.finalTop3.map((entry) => `${entry.rank}. ${entry.playerId} (${Math.round(entry.score)})`).join(", ") || "none"}`,
+    `Final Lockdown: start=${report.summary.finalLockdownStartedAtHour ?? "n/a"}h, end=${report.summary.finalLockdownEndedAtHour ?? "n/a"}h, paused=${report.summary.finalLockdownPausedHours}h`,
     `Top 8: ${report.players.filter((player) => player.finalPlacement <= 8).map((player) => player.playerId).join(", ")}`,
     `Attacks: ${report.summary.totalAttacks}, occupations: ${report.summary.occupiedNeutralDistricts}, spies: ${report.summary.totalSpyActions}`,
     `Building actions: ${report.summary.totalBuildingActions}, craft: ${report.summary.totalCraftActions}, police raids: ${report.summary.totalPoliceRaids}`,

@@ -87,6 +87,20 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
         recentActivityBonus: 250
       }
     },
+    finalLockdown: {
+      enabled: true,
+      triggerActivePlayers: 8,
+      activeDurationTicks: ticksFromHours(12),
+      pauseDuringQuietHours: true,
+      scoreMode: "final_empire_score",
+      topRankCount: 3,
+      downtownDistrictBonus: 15_000,
+      rareBuildingBonus: 5_000,
+      heatPenaltyStart: 120,
+      heatPenaltyPerPoint: 50,
+      extremeHeatPenaltyStart: 180,
+      extremeHeatPenaltyPerPoint: 100
+    },
     policePressureMultiplier: 0.9,
     raidIntensityMultiplier: 0.9,
     expansionSpeedMultiplier: 1.3,

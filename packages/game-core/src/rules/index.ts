@@ -33,4 +33,6 @@ export * from "./production/queueProduction";
 export * from "./spying/resolveSpy";
 export * from "./traps/resolveTrap";
 export * from "./victory/checkVictory";
+export * from "./victory/finalEmpireScore";
+export * from "./victory/finalLockdownLifecycle";
 export * from "./victory/victoryScoring";

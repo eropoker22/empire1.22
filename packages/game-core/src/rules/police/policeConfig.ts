@@ -7,8 +7,13 @@ export const DEFAULT_POLICE_SYSTEM_CONFIG: PoliceSystemBalanceConfig = {
   extremePressureRaidThreshold: 140,
   districtTargetHeatThreshold: 60,
   raidCooldownTicks: 4,
-  pendingRaidTtlTicks: 2,
+  raidDurationTicks: 360,
+  pendingRaidTtlTicks: 360,
   maxPendingRaidsPerPlayer: 1,
+  maxConcurrentRaidsByPhase: {
+    day: 2,
+    night: 1
+  },
   raidSeverityThresholds: {
     low: 0,
     medium: 60,
@@ -98,6 +103,10 @@ export const resolvePoliceConfig = (context?: GameCoreContext): PoliceSystemBala
         ...(override.heatDecay?.playerDecayByWantedLevel ?? {})
       }
     },
-    protectedResources: override.protectedResources ?? DEFAULT_POLICE_SYSTEM_CONFIG.protectedResources
+    protectedResources: override.protectedResources ?? DEFAULT_POLICE_SYSTEM_CONFIG.protectedResources,
+    maxConcurrentRaidsByPhase: {
+      ...DEFAULT_POLICE_SYSTEM_CONFIG.maxConcurrentRaidsByPhase,
+      ...(override.maxConcurrentRaidsByPhase ?? {})
+    }
   };
 };

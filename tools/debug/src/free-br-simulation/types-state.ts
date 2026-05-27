@@ -28,6 +28,16 @@ export interface FreeBrSimulationState {
   winner: string | null;
   winReason: string;
   hardTimeoutReached: boolean;
+  finalLockdown: {
+    status: "inactive" | "active" | "paused" | "resolved";
+    startedAtTick: number | null;
+    endedAtTick: number | null;
+    lastUpdatedTick: number;
+    activeElapsedTicks: number;
+    remainingActiveTicks: number;
+    pausedTicks: number;
+    top3: Array<{ playerId: string; score: number; rank: number; scoreBreakdown: Record<string, number> }>;
+  };
   hourlyCounters: {
     attacks: number;
     occupations: number;
@@ -40,6 +50,7 @@ export interface FreeBrSimulationState {
     rareBuildingActions: number;
     neutralizedDistrictsAfterEliminations: number;
     quietHoursDeferredEliminations: number;
+    attacksDuringFinalLockdown: number;
     allianceCoordinatedAttacks: number;
     alliancesAgainstDowntownLeader: number;
     dirtyCashSeized: number;

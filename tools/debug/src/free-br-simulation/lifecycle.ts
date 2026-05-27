@@ -1,15 +1,18 @@
 import { addAuditEvent, formatLocalTime } from "./audit-log";
 import { activeAlliances } from "./alliance-simulation";
 import {
+  createFinalEmpireRanking,
+  findLeader,
+  resolveActivePlacement
+} from "./final-score";
+import {
   countDowntownOwners,
   createEliminationScore,
   describeWeakness,
-  findLeader,
   getBottomPlayers,
   getOwnedDistricts,
   isQuietHours,
   neutralizePlayerDistricts,
-  resolveActivePlacement,
   resolveQuietHoursResumeTick,
   tickToHour,
   ticksPerHour
@@ -84,6 +87,11 @@ export const maybeRunElimination = (state: FreeBrSimulationState): void => {
 
 export const maybeResolveVictory = (state: FreeBrSimulationState): void => {
   if (state.winner) return;
+  const finalConfig = state.config.balance.finalLockdown;
+  if (finalConfig?.enabled) {
+    maybeRunFinalLockdown(state);
+    return;
+  }
   const threshold = state.config.balance.districtControlVictoryThreshold ?? 0.75;
   const activeDistricts = state.districts.filter((district) => district.status !== "destroyed");
   const needed = Math.ceil(activeDistricts.length * threshold);
@@ -121,6 +129,76 @@ export const maybeResolveVictory = (state: FreeBrSimulationState): void => {
   }
 };
 
+const maybeRunFinalLockdown = (state: FreeBrSimulationState): void => {
+  const finalConfig = state.config.balance.finalLockdown;
+  if (!finalConfig?.enabled || state.winner) return;
+  const activePlayers = state.players.filter((player) => player.status === "active");
+  if (state.finalLockdown.status === "inactive" && activePlayers.length <= finalConfig.triggerActivePlayers) {
+    state.finalLockdown = {
+      status: isQuietHours(state, state.tick) ? "paused" : "active",
+      startedAtTick: state.tick,
+      endedAtTick: null,
+      lastUpdatedTick: state.tick,
+      activeElapsedTicks: 0,
+      remainingActiveTicks: finalConfig.activeDurationTicks,
+      pausedTicks: 0,
+      top3: []
+    };
+    state.nextEliminationTick = Number.POSITIVE_INFINITY;
+    addAuditEvent(state, {
+      player: null,
+      actionType: "victory",
+      result: "final_lockdown_started",
+      notes: "Přežilo 8 gangů. Začíná 12 aktivních hodin do rozsudku."
+    });
+    return;
+  }
+
+  if (state.finalLockdown.status !== "active" && state.finalLockdown.status !== "paused") return;
+
+  const fromTick = state.finalLockdown.lastUpdatedTick;
+  let activeTicks = 0;
+  let pausedTicks = 0;
+  for (let tick = fromTick + 1; tick <= state.tick; tick += 1) {
+    if (isQuietHours(state, tick)) {
+      pausedTicks += 1;
+    } else {
+      activeTicks += 1;
+    }
+  }
+  state.finalLockdown.activeElapsedTicks = Math.min(
+    finalConfig.activeDurationTicks,
+    state.finalLockdown.activeElapsedTicks + activeTicks
+  );
+  state.finalLockdown.pausedTicks += pausedTicks;
+  state.finalLockdown.remainingActiveTicks = Math.max(0, finalConfig.activeDurationTicks - state.finalLockdown.activeElapsedTicks);
+  state.finalLockdown.lastUpdatedTick = state.tick;
+  state.finalLockdown.status = state.finalLockdown.remainingActiveTicks <= 0
+    ? "resolved"
+    : isQuietHours(state, state.tick)
+      ? "paused"
+      : "active";
+
+  if (state.finalLockdown.status !== "resolved") return;
+
+  const ranking = createFinalEmpireRanking(state);
+  state.finalLockdown.endedAtTick = state.tick;
+  state.finalLockdown.top3 = ranking.slice(0, finalConfig.topRankCount).map((entry, index) => ({
+    playerId: entry.player.id,
+    score: Math.round(entry.score.score * 100) / 100,
+    rank: index + 1,
+    scoreBreakdown: entry.score.scoreBreakdown
+  }));
+  state.winner = ranking[0]?.player.id ?? null;
+  state.winReason = "final_lockdown_score";
+  addAuditEvent(state, {
+    player: ranking[0]?.player ?? null,
+    actionType: "victory",
+    result: "final_lockdown_score",
+    notes: `Final Lockdown resolved. Top 3: ${state.finalLockdown.top3.map((entry) => `${entry.rank}. ${entry.playerId}`).join(", ")}`
+  });
+};
+
 export const recordTimelineSnapshot = (state: FreeBrSimulationState): void => {
   const leader = findLeader(state);
   const bottomThree = getBottomPlayers(state, state.config.balance.elimination?.dangerZoneSize ?? 3).map((player) => player.id);
@@ -141,8 +219,9 @@ export const recordTimelineSnapshot = (state: FreeBrSimulationState): void => {
     downtownOwners: countDowntownOwners(state),
     policePressure: Math.round(state.players.reduce((total, player) => total + player.heat, 0)),
     upcomingEliminationCountdownHours: state.nextEliminationTick > state.tick
+      && Number.isFinite(state.nextEliminationTick)
       ? Math.round(((state.nextEliminationTick - state.tick) / ticksPerHour(state)) * 10) / 10
-      : 0,
+      : null,
     quietHoursActive: isQuietHours(state, state.tick)
   };
   state.timeline.push(snapshot);

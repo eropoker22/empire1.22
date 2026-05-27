@@ -151,7 +151,7 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     });
   });
 
-  it("resolves victory when one player controls all active districts", () => {
+  it("keeps full free control as audit progress until Final Lockdown resolves endgame", () => {
     const state = createCoreStateFixture();
     const context = {
       config: resolveModeConfig("free")
@@ -173,19 +173,22 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
 
     const result = checkVictory(state, context);
 
-    expect(result.resolved).toBe(true);
-    expect(result.nextState.victoryState).toMatchObject({
-      status: "resolved",
-      victoryType: "fast-control",
-      leaderPlayerId: "player:1"
-    });
-    expect(result.nextState.matchResult).toMatchObject({
-      winnerPlayerId: "player:1",
-      reason: "control:fast-control"
+    expect(result.resolved).toBe(false);
+    expect(result.nextState.matchResult).toBeNull();
+    expect(result.nextState.victoryState?.progressPayload).toMatchObject({
+      reason: "final_lockdown_waiting_for_top8",
+      controlProgressReason: "control_victory_ready",
+      controlledDistrictCount: 2,
+      totalActiveDistrictCount: 2,
+      finalLockdown: {
+        enabled: true,
+        status: "inactive",
+        triggerActivePlayers: 8
+      }
     });
   });
 
-  it("resolves free victory at the configured 75 percent district control threshold", () => {
+  it("keeps the old 75 percent threshold as audit progress before Final Lockdown", () => {
     const state = createCoreStateFixture();
     const context = {
       config: resolveModeConfig("free")
@@ -210,11 +213,19 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
 
     const result = checkVictory(state, context);
 
-    expect(result.resolved).toBe(true);
+    expect(result.resolved).toBe(false);
+    expect(result.nextState.matchResult).toBeNull();
     expect(result.nextState.victoryState?.progressPayload).toMatchObject({
+      reason: "final_lockdown_waiting_for_top8",
+      controlProgressReason: "control_victory_ready",
       controlledDistrictCount: 15,
       totalActiveDistrictCount: 20,
-      requiredControlledDistricts: 15
+      requiredControlledDistricts: 15,
+      finalLockdown: {
+        enabled: true,
+        status: "inactive",
+        triggerActivePlayers: 8
+      }
     });
   });
 
@@ -229,7 +240,11 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
         ...resolveModeConfig("free"),
         balance: {
           ...resolveModeConfig("free").balance,
-          allowDurationVictoryFallback: true
+          allowDurationVictoryFallback: true,
+          finalLockdown: {
+            ...resolveModeConfig("free").balance.finalLockdown!,
+            enabled: false
+          }
         },
         technical: {
           ...resolveModeConfig("free").technical,

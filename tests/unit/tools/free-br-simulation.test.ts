@@ -84,6 +84,20 @@ describe("canonical Free BR simulation", () => {
     expect(report.events.length).toBeGreaterThan(0);
   });
 
+  it("resolves the top-8 endgame through Final Lockdown and pauses the timer in quiet hours", () => {
+    const report = runFreeBrSimulation({ seed: "123", hours: 168 });
+
+    expect(report.summary.winReason).toBe("final_lockdown_score");
+    expect(report.summary.winner).not.toBeNull();
+    expect(report.summary.finalTop3).toHaveLength(3);
+    expect(report.summary.finalLockdownStartedAtHour).not.toBeNull();
+    expect(report.summary.finalLockdownEndedAtHour).not.toBeNull();
+    expect(report.summary.finalLockdownPausedHours).toBeGreaterThan(0);
+    expect(report.summary.hardTimeoutReached).toBe(false);
+    expect(report.summary.finalLockdownEndedAtHour! - report.summary.finalLockdownStartedAtHour!)
+      .toBeGreaterThan(12);
+  });
+
   it("aggregates a small scenario matrix", () => {
     const matrix = runFreeBrMatrix({
       seed: "matrix-test",

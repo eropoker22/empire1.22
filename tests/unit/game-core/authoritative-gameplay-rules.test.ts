@@ -16,7 +16,7 @@ import {
 } from "../../fixtures/command-fixtures";
 
 describe("authoritative gameplay rules", () => {
-  it("resolves free player victory after 75 percent control and required hold", () => {
+  it("keeps 75 percent free control as audit progress until Final Lockdown resolves endgame", () => {
     const state = createStateWithDistrictControl({
       totalDistricts: 20,
       playerControlledDistricts: 15
@@ -39,12 +39,24 @@ describe("authoritative gameplay rules", () => {
       controlledDistricts: 15,
       totalActiveDistricts: 20,
       controlPercent: 75,
-      mode: "free"
+      mode: "free",
+      reason: "final_lockdown_waiting_for_top8"
     });
-    expect(result.nextState.victoryState?.progressPayload).toMatchObject(result.summary);
+    expect(result.resolved).toBe(false);
+    expect(result.nextState.matchResult).toBeNull();
+    expect(result.nextState.victoryState?.progressPayload).toMatchObject({
+      ...result.summary,
+      controlProgressReason: "control_victory_ready",
+      canResolveControlVictoryNow: true,
+      finalLockdown: {
+        enabled: true,
+        status: "inactive",
+        triggerActivePlayers: 8
+      }
+    });
   });
 
-  it("resolves free alliance victory after 75 percent control and required hold", () => {
+  it("keeps 75 percent free alliance control as audit progress until Final Lockdown resolves endgame", () => {
     const state = createStateWithDistrictControl({
       totalDistricts: 20,
       playerControlledDistricts: 15,
@@ -76,11 +88,18 @@ describe("authoritative gameplay rules", () => {
       controlledDistricts: 15,
       totalActiveDistricts: 20,
       controlPercent: 75,
-      mode: "free"
+      mode: "free",
+      reason: "final_lockdown_waiting_for_top8"
     });
-    expect(result.nextState.matchResult).toMatchObject({
-      winnerAllianceId: "alliance:1",
-      reason: "control:fast-control"
+    expect(result.resolved).toBe(false);
+    expect(result.nextState.matchResult).toBeNull();
+    expect(result.nextState.victoryState?.progressPayload).toMatchObject({
+      controlProgressReason: "control_victory_ready",
+      finalLockdown: {
+        enabled: true,
+        status: "inactive",
+        triggerActivePlayers: 8
+      }
     });
   });
 

@@ -57,6 +57,7 @@ export const createInitialState = (instanceId: string, mode: GameModeId): CoreGa
     trapsById: {},
     notificationsById: {},
     eliminationState: null,
+    finalLockdownState: null,
     victoryState: null,
     matchResult: null
   };

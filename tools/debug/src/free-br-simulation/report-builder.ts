@@ -9,13 +9,16 @@ import {
   FREE_BR_DOWNTOWN_COUNT,
   FREE_BR_PLAYER_COUNT
 } from "./constants";
+import {
+  createFinalEmpireScore,
+  findLeader,
+  resolveActivePlacement
+} from "./final-score";
 import { average, groupBy, round1, round2, sum } from "./math";
 import {
-  createEliminationScore,
-  findLeader,
   getOwnedDistricts,
-  resolveActivePlacement,
-  tickToHour
+  tickToHour,
+  ticksPerHour
 } from "./state-helpers";
 import type {
   FreeBrPlayer,
@@ -59,7 +62,13 @@ export const buildReport = (state: FreeBrSimulationState): FreeBrSimulationRepor
     victoryThresholdDistricts: Math.ceil(activeDistricts.length * (state.config.balance.districtControlVictoryThreshold ?? 0.75)),
     leaderDistrictsAtEnd: leader ? getOwnedDistricts(state, leader.id).length : 0,
     hardTimeoutReached: state.hardTimeoutReached,
-    quietHoursDeferredEliminations: state.counters.quietHoursDeferredEliminations
+    quietHoursDeferredEliminations: state.counters.quietHoursDeferredEliminations,
+    finalLockdownStartedAtHour: state.finalLockdown.startedAtTick === null ? null : tickToHour(state, state.finalLockdown.startedAtTick),
+    finalLockdownEndedAtHour: state.finalLockdown.endedAtTick === null ? null : tickToHour(state, state.finalLockdown.endedAtTick),
+    finalLockdownPausedHours: Math.round((state.finalLockdown.pausedTicks / ticksPerHour(state)) * 10) / 10,
+    finalTop3: state.finalLockdown.top3,
+    old75ControlReached: Boolean(leader && getOwnedDistricts(state, leader.id).length >= Math.ceil(activeDistricts.length * (state.config.balance.districtControlVictoryThreshold ?? 0.75))),
+    attacksDuringFinalLockdown: state.counters.attacksDuringFinalLockdown
   };
 
   return {
@@ -76,7 +85,9 @@ export const buildReport = (state: FreeBrSimulationState): FreeBrSimulationRepor
       victoryThreshold: state.config.balance.districtControlVictoryThreshold ?? 0.75,
       minimumVictoryTicks: state.config.balance.minimumVictoryTicks ?? 0,
       controlHoldTicks: state.config.balance.districtControlHoldTicks ?? 0,
-      hardTimeoutTicks: state.config.balance.hardTimeoutTicks ?? 0
+      hardTimeoutTicks: state.config.balance.hardTimeoutTicks ?? 0,
+      finalLockdownTriggerActivePlayers: state.config.balance.finalLockdown?.triggerActivePlayers ?? 0,
+      finalLockdownActiveDurationTicks: state.config.balance.finalLockdown?.activeDurationTicks ?? 0
     },
     approximations: [
       "Mapa je server-side simulační grid 13x13 minus 8 okrajových polí, ne reálná browser canvas geometrie.",
@@ -101,7 +112,7 @@ export const buildReport = (state: FreeBrSimulationState): FreeBrSimulationRepor
 const createPlayerAudit = (state: FreeBrSimulationState, player: FreeBrPlayer) => {
   const stats = state.stats[player.id];
   const finalControlledDistricts = getOwnedDistricts(state, player.id).length;
-  const score = createEliminationScore(state, player).score;
+  const score = createFinalEmpireScore(state, player);
   return {
     playerId: player.id,
     playerName: player.name,
@@ -132,7 +143,8 @@ const createPlayerAudit = (state: FreeBrSimulationState, player: FreeBrPlayer) =
     betrayals: stats.betrayals,
     dangerZoneAppearances: stats.dangerZoneAppearances,
     comebackCount: stats.comebackCount,
-    finalScore: Math.round(score),
+    finalScore: Math.round(score.score),
+    finalScoreBreakdown: score.scoreBreakdown,
     controlledDistrictsOverTime: stats.controlledDistrictsOverTime
   };
 };

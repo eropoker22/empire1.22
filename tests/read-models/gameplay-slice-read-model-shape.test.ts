@@ -231,7 +231,7 @@ describe("gameplay slice read model contract", () => {
     expect(summarizeSlice(collected.readModel as GameplaySliceView)).toMatchInlineSnapshot(`
       {
         "cityFeed": {
-          "currentPlayer": 0,
+          "currentPlayer": 1,
           "selectedDistrict": 0,
         },
         "commandHints": {
@@ -297,7 +297,7 @@ describe("gameplay slice read model contract", () => {
           "mode": "free",
           "selectedDistrictId": "district:read-model:collect",
           "serverInstanceId": "instance:read-model:collect",
-          "stateVersion": 3,
+          "stateVersion": 4,
         },
       }
     `);

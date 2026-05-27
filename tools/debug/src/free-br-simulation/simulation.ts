@@ -22,8 +22,10 @@ import { resolveFreeBrScenario } from "./scenarios";
 import { createSeededRng } from "./seeded-rng";
 import {
   assignPlacements,
+  findLeader
+} from "./final-score";
+import {
   createEmptyPlayerStats,
-  findLeader,
   recordDangerZoneAppearances,
   ticksPerHour
 } from "./state-helpers";
@@ -75,6 +77,16 @@ export const runFreeBrSimulation = (options: FreeBrSimulationOptions = {}): Free
     winner: null,
     winReason: "ongoing",
     hardTimeoutReached: false,
+    finalLockdown: {
+      status: "inactive",
+      startedAtTick: null,
+      endedAtTick: null,
+      lastUpdatedTick: 0,
+      activeElapsedTicks: 0,
+      remainingActiveTicks: config.balance.finalLockdown?.activeDurationTicks ?? 0,
+      pausedTicks: 0,
+      top3: []
+    },
     hourlyCounters: { attacks: 0, occupations: 0, spies: 0, buildingActions: 0 },
     counters: {
       destroyedDistricts: 0,
@@ -82,6 +94,7 @@ export const runFreeBrSimulation = (options: FreeBrSimulationOptions = {}): Free
       rareBuildingActions: 0,
       neutralizedDistrictsAfterEliminations: 0,
       quietHoursDeferredEliminations: 0,
+      attacksDuringFinalLockdown: 0,
       allianceCoordinatedAttacks: 0,
       alliancesAgainstDowntownLeader: 0,
       dirtyCashSeized: 0,
@@ -95,10 +108,13 @@ export const runFreeBrSimulation = (options: FreeBrSimulationOptions = {}): Free
     Math.ceil(((options.hours ?? 168) * 60 * 60 * 1000) / config.tickRateMs),
     configuredHardTimeoutTicks
   );
+  const requestedMaxTicks = Math.ceil(((options.hours ?? 168) * 60 * 60 * 1000) / config.tickRateMs);
+  const finalLockdownSafetyTicks = (config.balance.finalLockdown?.activeDurationTicks ?? 0) + ticksPerHour(state) * 8;
+  const simulationStopTick = requestedMaxTicks + finalLockdownSafetyTicks;
   const stepTicks = Math.max(1, Math.round((FREE_BR_STEP_MINUTES * 60 * 1000) / config.tickRateMs));
 
   recordTimelineSnapshot(state);
-  while (state.tick < maxTicks && !state.winner && !state.hardTimeoutReached) {
+  while ((state.tick < maxTicks || isFinalLockdownRunning(state)) && state.tick < simulationStopTick && !state.winner && !state.hardTimeoutReached) {
     state.tick += stepTicks;
     applyPassiveIncomeAndHeatDecay(state, stepTicks);
     maybeRunAllianceStep(state, rng);
@@ -114,14 +130,14 @@ export const runFreeBrSimulation = (options: FreeBrSimulationOptions = {}): Free
     }
   }
 
-  if (!state.winner && state.tick >= configuredHardTimeoutTicks) {
+  if (!state.winner && state.tick >= configuredHardTimeoutTicks && state.finalLockdown.status === "inactive") {
     state.hardTimeoutReached = true;
     state.winReason = "timeout_no_winner";
     addAuditEvent(state, {
       player: findLeader(state),
       actionType: "victory",
       result: "hard-timeout",
-      notes: "Hard timeout reached without 75% control victory."
+      notes: "Hard timeout reached before Top 8 and Final Lockdown."
     });
   }
 
@@ -146,3 +162,6 @@ export const runFreeBrMatrix = (options: FreeBrSimulationOptions & { scenarios?:
 
   return buildMatrixReport(reports, scenarioNames, runs);
 };
+
+const isFinalLockdownRunning = (state: FreeBrSimulationState): boolean =>
+  state.finalLockdown.status === "active" || state.finalLockdown.status === "paused";

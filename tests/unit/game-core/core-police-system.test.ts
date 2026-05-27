@@ -12,7 +12,13 @@ import {
   triggerRaid
 } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
-import { createCoreStateFixture, createDistrictFixture, createFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
+import {
+  createCoreStateFixture,
+  createDistrictFixture,
+  createFixedBuildingFixture,
+  createPlayerFixture,
+  createResourceStateFixture
+} from "../../fixtures/game-state-fixtures";
 
 const createContext = (policeOverride = {}) => {
   const config = resolveModeConfig("free");
@@ -45,6 +51,62 @@ const addPoliceState = (state: ReturnType<typeof createCoreStateFixture>, heat: 
     activeFlags: [],
     version: 1
   };
+};
+
+const addRaidReadyPlayer = (
+  state: ReturnType<typeof createCoreStateFixture>,
+  index: number,
+  heat = 220
+) => {
+  const playerId = `player:${index}`;
+  const districtId = `district:${index}`;
+  const existingPlayer = state.playersById[playerId];
+  const player = existingPlayer
+    ? {
+        ...existingPlayer,
+        policeStateId: `police:${index}`,
+        resourceStateId: `resource:${index}`,
+        homeDistrictId: districtId
+      }
+    : createPlayerFixture({
+        id: playerId,
+        accountId: `account:${index}`,
+        name: `Raid Target ${index}`,
+        homeDistrictId: districtId,
+        resourceStateId: `resource:${index}`,
+        cooldownStateId: `cooldown:${index}`,
+        effectStateId: `effect:${index}`,
+        policeStateId: `police:${index}`
+      });
+
+  state.playersById[playerId] = player;
+  if (!state.root.playerIds.includes(playerId)) state.root.playerIds.push(playerId);
+  state.resourceStatesById[player.resourceStateId] = createResourceStateFixture({
+    id: player.resourceStateId,
+    ownerType: "player",
+    ownerId: playerId,
+    balances: {
+      cash: 1000,
+      "dirty-cash": 1200
+    }
+  });
+  state.policeStatesById[player.policeStateId] = {
+    id: player.policeStateId,
+    ownerPlayerId: playerId,
+    heat,
+    wantedLevel: Math.floor(heat / 20),
+    lastDecayTick: 0,
+    activeFlags: [],
+    version: 1
+  };
+  state.districtsById[districtId] = createDistrictFixture({
+    id: districtId,
+    ownerPlayerId: playerId,
+    heat: 90,
+    templateId: `template:${index}`,
+    name: `Raid District ${index}`
+  });
+  if (!state.root.districtIds.includes(districtId)) state.root.districtIds.push(districtId);
 };
 
 const addCityHallOfficialCover = (
@@ -164,10 +226,75 @@ describe("core police system completion", () => {
     expect(raids[0]).toMatchObject({
       targetDistrictId: "district:1",
       status: "pending",
-      sourcePressure: 147
+      sourcePressure: 147,
+      createdAtTick: 0,
+      expiresAtTick: 360
     });
     expect(second.events).toEqual([]);
     expect(second.nextState.policeStatesById["police:1"].pendingRaids).toHaveLength(1);
+  });
+
+  it("keeps Free BR police raids open for 30 minutes", () => {
+    const state = createCoreStateFixture();
+    addPoliceState(state, 150);
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      heat: 70
+    };
+
+    const context = createContext();
+    const result = triggerRaid(state, context);
+    const raid = result.nextState.policeStatesById["police:1"].pendingRaids?.[0];
+
+    expect(context.config.balance.police.raidDurationTicks).toBe(360);
+    expect(context.config.balance.police.pendingRaidTtlTicks).toBe(360);
+    expect(raid?.expiresAtTick).toBe(raid!.createdAtTick + 360);
+  });
+
+  it("caps simultaneous police raids to two during day", () => {
+    const state = createCoreStateFixture();
+    state.playersById = {};
+    state.districtsById = {};
+    state.resourceStatesById = {};
+    state.policeStatesById = {};
+    state.root.playerIds = [];
+    state.root.districtIds = [];
+    addRaidReadyPlayer(state, 1);
+    addRaidReadyPlayer(state, 2);
+    addRaidReadyPlayer(state, 3);
+
+    const result = triggerRaid(state, createContext());
+    const raidEvents = result.events.filter((event) => event.type === "police-raid-triggered");
+    const openRaids = Object.values(result.nextState.policeStatesById).flatMap((policeState) =>
+      (policeState.pendingRaids ?? []).filter((raid) => raid.status === "pending" || raid.status === "acknowledged")
+    );
+
+    expect(raidEvents).toHaveLength(2);
+    expect(openRaids).toHaveLength(2);
+    expect(result.decisions.filter((decision) => decision.type === "concurrent_raid_limit_active")).toHaveLength(1);
+  });
+
+  it("caps simultaneous police raids to one during night", () => {
+    const state = createCoreStateFixture();
+    state.root.tick = resolveModeConfig("free").balance.dayLengthTicks;
+    state.playersById = {};
+    state.districtsById = {};
+    state.resourceStatesById = {};
+    state.policeStatesById = {};
+    state.root.playerIds = [];
+    state.root.districtIds = [];
+    addRaidReadyPlayer(state, 1);
+    addRaidReadyPlayer(state, 2);
+
+    const result = triggerRaid(state, createContext());
+    const raidEvents = result.events.filter((event) => event.type === "police-raid-triggered");
+    const openRaids = Object.values(result.nextState.policeStatesById).flatMap((policeState) =>
+      (policeState.pendingRaids ?? []).filter((raid) => raid.status === "pending" || raid.status === "acknowledged")
+    );
+
+    expect(raidEvents).toHaveLength(1);
+    expect(openRaids).toHaveLength(1);
+    expect(result.decisions.filter((decision) => decision.type === "concurrent_raid_limit_active")).toHaveLength(1);
   });
 
   it("applies raid consequences deterministically and never seizes protected resources", () => {
@@ -421,6 +548,7 @@ describe("core police system completion", () => {
     };
     const context = createContext({
       autoResolveExpiredPendingRaids: false,
+      raidDurationTicks: 1,
       pendingRaidTtlTicks: 1
     });
     const triggered = triggerRaid(state, context);

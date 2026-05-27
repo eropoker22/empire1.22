@@ -32,6 +32,8 @@ export const formatFreeBrMarkdownReport = (report: FreeBrSimulationReport): stri
     `- Craft akce: ${report.summary.totalCraftActions}`,
     `- Police raidy: ${report.summary.totalPoliceRaids}`,
     `- Aliance: ${report.summary.totalAlliancesFormed} vzniklo, ${report.summary.totalAlliancesBroken} skončilo, ${report.summary.totalBetrayals} zrad`,
+    `- Final Lockdown: start ${formatHour(report.summary.finalLockdownStartedAtHour)}, konec ${formatHour(report.summary.finalLockdownEndedAtHour)}, pauza ${report.summary.finalLockdownPausedHours}h`,
+    `- Final Top 3: ${formatFinalTop3(report)}`,
     `- Downtown verdict: ${report.downtown.verdict}`,
     "",
     "## Verdikt: je Free BR pacing zdravý?",
@@ -44,7 +46,7 @@ export const formatFreeBrMarkdownReport = (report: FreeBrSimulationReport): stri
     "",
     "## Co je rizikové",
     `- Downtown max držení jedním hráčem: ${report.downtown.maxDowntownHeldByOnePlayer}/8; early owner top 8: ${yesNo(report.downtown.earlyOwnerSurvivedTop8)}; early owner win: ${yesNo(report.downtown.earlyOwnerWon)}.`,
-    `- 75% victory potřebuje ${report.summary.victoryThresholdDistricts} districtů; leader na konci držel ${report.summary.leaderDistrictsAtEnd}.`,
+    `- Starý 75% threshold by potřeboval ${report.summary.victoryThresholdDistricts} districtů; leader na konci držel ${report.summary.leaderDistrictsAtEnd}; dosaženo: ${yesNo(report.summary.old75ControlReached)}.`,
     `- High heat audit: nejvyšší heat ${report.police.highestHeat} u ${report.police.highestHeatPlayerId ?? "n/a"}, dirty cash seized ${report.police.totalDirtyCashSeized}.`,
     "",
     "## Co je broken",
@@ -123,7 +125,11 @@ export const formatFreeBrMarkdownReport = (report: FreeBrSimulationReport): stri
     "## Victory / endgame",
     `- Victory reached: ${yesNo(Boolean(report.summary.winner))}`,
     `- Win reason: ${report.summary.winReason}`,
-    `- 75% threshold: ${report.summary.victoryThresholdDistricts}/${report.configSnapshot.districts}`,
+    `- Final Lockdown start/end: ${formatHour(report.summary.finalLockdownStartedAtHour)} -> ${formatHour(report.summary.finalLockdownEndedAtHour)}`,
+    `- Final Lockdown paused hours: ${report.summary.finalLockdownPausedHours}`,
+    `- Attacks during Final Lockdown: ${report.summary.attacksDuringFinalLockdown}`,
+    `- Final Top 3: ${formatFinalTop3(report)}`,
+    `- Old 75% audit threshold: ${report.summary.victoryThresholdDistricts}/${report.configSnapshot.districts}, reached: ${yesNo(report.summary.old75ControlReached)}`,
     `- Leader districts at end: ${report.summary.leaderDistrictsAtEnd}`,
     `- Hard timeout reached: ${yesNo(report.summary.hardTimeoutReached)}`,
     "",
@@ -171,8 +177,13 @@ export const formatFreeBrMatrixMarkdownReport = (matrix: FreeBrMatrixReport): st
   `- Average quiet hour deferrals: ${matrix.averageQuietHourDeferrals}`,
   `- Average downtown snowball rate: ${percent(matrix.averageDowntownSnowballRate)}`,
   `- Early downtown owner top 8 chance: ${percent(matrix.earlyDowntownOwnerTop8Chance)}`,
-  `- 75% victory before timeout chance: ${percent(matrix.victoryBeforeTimeoutChance)}`,
+  `- Final Lockdown win rate: ${percent(matrix.finalLockdownWinRate)}`,
+  `- Average Final Lockdown wall-clock: ${matrix.averageFinalLockdownDurationWallClock}h`,
+  `- Average Final Lockdown paused hours: ${matrix.averageFinalLockdownPausedHours}h`,
+  `- Old 75% victory before timeout chance: ${percent(matrix.victoryBeforeTimeoutChance)}`,
   `- Timeout without winner chance: ${percent(matrix.timeoutWithoutWinnerChance)}`,
+  `- Average downtown bonus impact: ${matrix.downtownBonusImpact}`,
+  `- Average heat penalty impact: ${matrix.heatPenaltyImpact}`,
   `- Danger zone comeback rate: ${percent(matrix.dangerZoneComebackRate)}`,
   `- Average police raids per match: ${matrix.averagePoliceRaidsPerMatch}`,
   ""
@@ -187,7 +198,7 @@ const verdictText = (report: FreeBrSimulationReport): string => {
     return `Simulace vypadá použitelně: ${attackDensity.toFixed(1)} útoků/h, ${report.summary.totalEliminations} eliminací a vítězství přes ${report.summary.winReason}.`;
   }
   if (report.summary.hardTimeoutReached || !report.summary.winner) {
-    return `Pacing je hratelný, ale endgame je rizikový: vítěz nevznikl, leader držel ${report.summary.leaderDistrictsAtEnd}/${report.summary.victoryThresholdDistricts} potřebných districtů.`;
+    return `Pacing je hratelný, ale endgame je rizikový: vítěz nevznikl ani přes Final Lockdown; leader držel ${report.summary.leaderDistrictsAtEnd}/${report.summary.victoryThresholdDistricts} starého 75% threshold auditu.`;
   }
   return "Pacing potřebuje další matrix běhy, protože canonical run nedal jednoznačný závěr.";
 };
@@ -203,7 +214,8 @@ const brokenText = (report: FreeBrSimulationReport): string => {
 
 const recommendationText = (report: FreeBrSimulationReport): string => {
   const recommendations: string[] = [];
-  if (!report.summary.winner) recommendations.push("- Neměnit hned 75% threshold jen podle jednoho runu; nejdřív ověřit matrix, jestli hard timeout dominuje opakovaně.");
+  if (!report.summary.winner) recommendations.push("- Ověřit, proč Final Lockdown nedoběhl nebo nevytvořil vítěze; 75% držení města už není primární endgame cíl.");
+  if (report.summary.winner && report.summary.winReason === "final_lockdown_score") recommendations.push("- Endgame už končí skórem po Top 8; další balance ladit přes Final Empire Score breakdown, ne přes 75% threshold.");
   if (report.downtown.verdict === "risky" || report.downtown.verdict === "broken") recommendations.push("- Zkontrolovat rare/downtown reward vs heat/police pressure v dalším balance patchi.");
   if (report.summary.totalAttacks / Math.max(1, report.summary.totalSimulatedHours) < 1) recommendations.push("- Pokud matrix potvrdí nízký conflict density, zvážit jemnou motivaci k útokům, ne zkrácení BR eliminací.");
   if (report.summary.totalDangerZoneComebacks === 0 && report.summary.totalDangerZoneAppearances > 0) recommendations.push("- Danger zone hráči neměli comeback; otestovat, jestli comeback akce a neutral captures po eliminaci dávají dost šancí.");
@@ -231,3 +243,6 @@ const mostTargetedPlayer = (report: FreeBrSimulationReport): string => {
 const percent = (value: number): string => `${Math.round(value * 100)}%`;
 const yesNo = (value: boolean): string => value ? "ano" : "ne";
 const round = (value: number): number => Math.round(value);
+const formatHour = (value: number | null): string => value === null ? "n/a" : `${value}h`;
+const formatFinalTop3 = (report: FreeBrSimulationReport): string =>
+  report.summary.finalTop3.length === 0 ? "n/a" : report.summary.finalTop3.map((entry) => `${entry.rank}. ${entry.playerId} (${round(entry.score)})`).join(", ");

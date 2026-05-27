@@ -6,6 +6,7 @@
 export const PRODUCTION_GAME_LIFECYCLE_PHASES = {
   bootstrapping: "bootstrapping",
   live: "live",
+  finalLockdown: "final_lockdown",
   resolved: "resolved"
 } as const;
 
@@ -26,6 +27,7 @@ export const isProductionGameLifecyclePhase = (
 ): phase is ProductionGameLifecyclePhase =>
   phase === PRODUCTION_GAME_LIFECYCLE_PHASES.bootstrapping ||
   phase === PRODUCTION_GAME_LIFECYCLE_PHASES.live ||
+  phase === PRODUCTION_GAME_LIFECYCLE_PHASES.finalLockdown ||
   phase === PRODUCTION_GAME_LIFECYCLE_PHASES.resolved;
 
 export const isDevSetupGameLifecyclePhase = (

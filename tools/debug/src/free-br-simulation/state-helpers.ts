@@ -3,15 +3,6 @@ import { sum } from "./math";
 import type { SeededRng } from "./seeded-rng";
 import type { FreeBrDistrict, FreeBrMutablePlayerStats, FreeBrPlayer, FreeBrSimulationState } from "./types";
 
-export const assignPlacements = (state: FreeBrSimulationState): void => {
-  const active = state.players
-    .filter((player) => player.status === "active")
-    .sort((left, right) => createEliminationScore(state, right).score - createEliminationScore(state, left).score);
-  active.forEach((player, index) => {
-    state.stats[player.id].finalPlacement = index + 1;
-  });
-};
-
 export const neutralizePlayerDistricts = (state: FreeBrSimulationState, playerId: string): number => {
   let count = 0;
   for (const district of state.districts) {
@@ -167,11 +158,6 @@ export const getBottomPlayers = (state: FreeBrSimulationState, count: number): F
     .slice(0, count)
     .map((entry) => entry.player);
 
-export const findLeader = (state: FreeBrSimulationState): FreeBrPlayer | null =>
-  state.players
-    .filter((player) => player.status === "active")
-    .sort((left, right) => createEliminationScore(state, right).score - createEliminationScore(state, left).score)[0] ?? null;
-
 export const getOwnedDistricts = (state: FreeBrSimulationState, playerId: string): FreeBrDistrict[] =>
   state.districts.filter((district) => district.ownerPlayerId === playerId && district.status !== "destroyed");
 
@@ -183,13 +169,6 @@ export const countDowntownOwners = (state: FreeBrSimulationState): Record<string
     result[key] = (result[key] ?? 0) + 1;
   }
   return result;
-};
-
-export const resolveActivePlacement = (state: FreeBrSimulationState, player: FreeBrPlayer): number => {
-  const active = state.players
-    .filter((candidate) => candidate.status === "active")
-    .sort((left, right) => createEliminationScore(state, right).score - createEliminationScore(state, left).score);
-  return active.findIndex((candidate) => candidate.id === player.id) + 1;
 };
 
 export const isCooldownReady = (state: FreeBrSimulationState, player: FreeBrPlayer, key: string): boolean =>

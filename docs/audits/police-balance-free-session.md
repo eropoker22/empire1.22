@@ -21,8 +21,10 @@ Effective free values:
 | `extremePressureRaidThreshold` | `180` | Extreme raids are for snowball/aggressive pressure. |
 | `districtTargetHeatThreshold` | `70` | Raids target a specific district only when it is clearly hot. |
 | `raidCooldownTicks` | `360` | 30 minutes at free tick rate; prevents raid spam. |
-| `pendingRaidTtlTicks` | `12` | 1 minute warning before auto-resolve. |
+| `raidDurationTicks` | `360` | A Free BR raid stays open for 30 minutes before lifecycle resolution. |
+| `pendingRaidTtlTicks` | `360` | Kept aligned with raid duration so a raid never lasts less than 30 minutes. |
 | `maxPendingRaidsPerPlayer` | `1` | No duplicate unresolved pending raids. |
+| `maxConcurrentRaidsByPhase` | day `2`, night `1` | Global cap: max two simultaneous raids during day, max one during night. |
 | `raidSeverityThresholds` | low `0`, medium `30`, high `115`, extreme `180` | Medium is warning-only. High/extreme create pending raid. |
 | `dirtyCashSeizurePercentBySeverity` | low `0`, medium `5%`, high `12%`, extreme `22%` | Dirty cash matters, but one raid does not wipe the player. |
 | `resourceSeizurePercentBySeverity` | low `0`, medium `0`, high `5%`, extreme `10%` | Contraband/resource loss is noticeable, not fatal. |

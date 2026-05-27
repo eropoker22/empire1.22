@@ -129,6 +129,21 @@ export interface EliminationBalanceConfig {
   scoreWeights: EliminationScoreWeightsConfig;
 }
 
+export interface FinalLockdownBalanceConfig {
+  enabled: boolean;
+  triggerActivePlayers: number;
+  activeDurationTicks: number;
+  pauseDuringQuietHours: boolean;
+  scoreMode: "final_empire_score";
+  topRankCount: number;
+  downtownDistrictBonus: number;
+  rareBuildingBonus: number;
+  heatPenaltyStart: number;
+  heatPenaltyPerPoint: number;
+  extremeHeatPenaltyStart: number;
+  extremeHeatPenaltyPerPoint: number;
+}
+
 /**
  * Responsibility: Core-facing mode configuration contract used by runtime bootstrap.
  * Belongs here: serializable mode knobs grouped for balance and runtime decisions.
@@ -146,6 +161,7 @@ export interface GameModeConfig {
     buildSlotLimit: number;
     eventFrequencyMultiplier: number;
     elimination?: EliminationBalanceConfig;
+    finalLockdown?: FinalLockdownBalanceConfig;
     policePressureMultiplier: number;
     raidIntensityMultiplier: number;
     expansionSpeedMultiplier: number;

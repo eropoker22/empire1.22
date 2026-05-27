@@ -37,6 +37,34 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
     }
   }
 
+  const finalLockdown = config.balance.finalLockdown;
+  if (finalLockdown?.enabled) {
+    for (const [key, value] of [
+      ["triggerActivePlayers", finalLockdown.triggerActivePlayers],
+      ["activeDurationTicks", finalLockdown.activeDurationTicks],
+      ["topRankCount", finalLockdown.topRankCount],
+      ["downtownDistrictBonus", finalLockdown.downtownDistrictBonus],
+      ["rareBuildingBonus", finalLockdown.rareBuildingBonus],
+      ["heatPenaltyStart", finalLockdown.heatPenaltyStart],
+      ["heatPenaltyPerPoint", finalLockdown.heatPenaltyPerPoint],
+      ["extremeHeatPenaltyStart", finalLockdown.extremeHeatPenaltyStart],
+      ["extremeHeatPenaltyPerPoint", finalLockdown.extremeHeatPenaltyPerPoint]
+    ] as const) {
+      if (value < 0) {
+        throw new Error(`Final Lockdown config requires a non-negative ${key}.`);
+      }
+    }
+    if (finalLockdown.triggerActivePlayers <= 0) {
+      throw new Error("Final Lockdown config requires a positive triggerActivePlayers.");
+    }
+    if (finalLockdown.activeDurationTicks <= 0) {
+      throw new Error("Final Lockdown config requires a positive activeDurationTicks.");
+    }
+    if (finalLockdown.topRankCount <= 0) {
+      throw new Error("Final Lockdown config requires a positive topRankCount.");
+    }
+  }
+
   const victoryThreshold = config.balance.districtControlVictoryThreshold ?? 1;
   if (victoryThreshold <= 0 || victoryThreshold > 1) {
     throw new Error("Mode config requires districtControlVictoryThreshold between 0 and 1.");

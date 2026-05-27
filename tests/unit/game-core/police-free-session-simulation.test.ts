@@ -427,7 +427,12 @@ describe("free-session police balance simulation", () => {
 
     expect(FREE_CONFIG.balance.police).toMatchObject({
       raidCooldownTicks: 360,
-      pendingRaidTtlTicks: 12,
+      raidDurationTicks: 360,
+      pendingRaidTtlTicks: 360,
+      maxConcurrentRaidsByPhase: {
+        day: 2,
+        night: 1
+      },
       highPressureRaidThreshold: 115,
       heatDecay: {
         playerIntervalTicks: 30,
@@ -437,7 +442,12 @@ describe("free-session police balance simulation", () => {
     });
     expect(warConfig.balance.police).toMatchObject({
       raidCooldownTicks: 4,
-      pendingRaidTtlTicks: 2,
+      raidDurationTicks: 120,
+      pendingRaidTtlTicks: 120,
+      maxConcurrentRaidsByPhase: {
+        day: 2,
+        night: 1
+      },
       highPressureRaidThreshold: 100
     });
   });

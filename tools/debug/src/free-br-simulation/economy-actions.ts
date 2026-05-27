@@ -96,9 +96,18 @@ export const maybeAssistAlly = (state: FreeBrSimulationState, rng: SeededRng, pl
 export const maybeRunPoliceRaids = (state: FreeBrSimulationState, rng: SeededRng): void => {
   const police = state.config.balance.police;
   if (!police) return;
+  const activeRaidKey = "police-raid-active";
+  let activeRaidCount = state.players.filter((player) => (player.cooldowns[activeRaidKey] ?? 0) > state.tick).length;
+  const phase = resolveSimulationDayNightPhase(state);
+  const maxConcurrentRaids = Math.max(
+    0,
+    Math.floor(Number(police.maxConcurrentRaidsByPhase?.[phase] ?? police.maxPendingRaidsPerPlayer ?? 1))
+  );
+  const raidDurationTicks = Math.max(1, Math.floor(Number(police.raidDurationTicks || police.pendingRaidTtlTicks || 1)));
   for (const player of state.players.filter((candidate) => candidate.status === "active")) {
     const cooldownKey = "police-raid";
     if (!isCooldownReady(state, player, cooldownKey)) continue;
+    if (activeRaidCount >= maxConcurrentRaids) continue;
     const pressure = player.heat;
     const threshold = police.highPressureRaidThreshold;
     if (pressure < threshold) continue;
@@ -110,6 +119,8 @@ export const maybeRunPoliceRaids = (state: FreeBrSimulationState, rng: SeededRng
     player.resources["dirty-cash"] = Math.max(0, (player.resources["dirty-cash"] ?? 0) - dirtySeized);
     player.heat = Math.max(0, player.heat - (police.heatReductionBySeverity[severity] ?? 0));
     player.cooldowns[cooldownKey] = state.tick + police.raidCooldownTicks;
+    player.cooldowns[activeRaidKey] = state.tick + raidDurationTicks;
+    activeRaidCount += 1;
     state.stats[player.id].policeRaidsReceived += 1;
     state.counters.dirtyCashSeized += dirtySeized;
     state.counters.resourceSeized += resourceSeized;
@@ -121,6 +132,13 @@ export const maybeRunPoliceRaids = (state: FreeBrSimulationState, rng: SeededRng
       notes: `dirty seized ${dirtySeized}, abstract resources seized ${resourceSeized}`
     });
   }
+};
+
+const resolveSimulationDayNightPhase = (state: FreeBrSimulationState): "day" | "night" => {
+  const dayTicks = Math.max(1, Math.floor(Number(state.config.balance.dayLengthTicks || 1)));
+  const nightTicks = Math.max(1, Math.floor(Number(state.config.balance.nightLengthTicks || 1)));
+  const cycleTick = state.tick % (dayTicks + nightTicks);
+  return cycleTick < dayTicks ? "day" : "night";
 };
 
 export const applyPassiveIncomeAndHeatDecay = (state: FreeBrSimulationState, stepTicks: number): void => {

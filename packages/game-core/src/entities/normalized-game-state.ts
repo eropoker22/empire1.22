@@ -12,6 +12,7 @@ import type {
   EliminationState,
   EventId,
   EventState,
+  FinalLockdownState,
   GameStateRoot,
   MatchResult,
   Notification,
@@ -46,6 +47,7 @@ export interface NormalizedGameState {
   trapsById: Record<TrapId, DistrictTrap>;
   notificationsById: Record<NotificationId, Notification>;
   eliminationState: EliminationState | null;
+  finalLockdownState: FinalLockdownState | null;
   victoryState: VictoryState | null;
   matchResult: MatchResult | null;
 }

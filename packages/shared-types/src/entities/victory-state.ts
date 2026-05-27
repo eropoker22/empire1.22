@@ -37,7 +37,24 @@ export interface MatchRankingEntry {
   subjectId: string;
   rank: number;
   score: number;
+  scoreBreakdown?: Record<string, unknown>;
 }
 
 export type VictoryStatus = "ongoing" | "locked" | "resolved";
 
+export type FinalLockdownStatus = "inactive" | "active" | "paused" | "resolved";
+
+export interface FinalLockdownState {
+  id: string;
+  serverInstanceId: ServerInstanceId;
+  status: FinalLockdownStatus;
+  startedAtTick: number | null;
+  activeElapsedTicks: number;
+  activeDurationTicks: number;
+  remainingActiveTicks: number;
+  lastUpdatedTick: number;
+  pausedByQuietHours: boolean;
+  resolvedAtTick: number | null;
+  finalTopPlayerIds: PlayerId[];
+  version: number;
+}

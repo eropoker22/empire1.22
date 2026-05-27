@@ -1,4 +1,5 @@
 export type PoliceRaidSeverityKey = "low" | "medium" | "high" | "extreme";
+export type PoliceRaidPhaseKey = "day" | "night";
 
 export interface PoliceSystemBalanceConfig {
   districtHeatWeight: number;
@@ -6,8 +7,10 @@ export interface PoliceSystemBalanceConfig {
   extremePressureRaidThreshold: number;
   districtTargetHeatThreshold: number;
   raidCooldownTicks: number;
+  raidDurationTicks: number;
   pendingRaidTtlTicks: number;
   maxPendingRaidsPerPlayer: number;
+  maxConcurrentRaidsByPhase: Record<PoliceRaidPhaseKey, number>;
   raidSeverityThresholds: Record<PoliceRaidSeverityKey, number>;
   dirtyCashSeizurePercentBySeverity: Record<PoliceRaidSeverityKey, number>;
   resourceSeizurePercentBySeverity: Record<PoliceRaidSeverityKey, number>;
