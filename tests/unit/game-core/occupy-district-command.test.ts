@@ -69,7 +69,7 @@ describe("occupy district command", () => {
       ownerPlayerId: "player:1",
       status: "active"
     });
-    expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:district:2"]).toBe(2);
+    expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:district:2"]).toBe(144);
     expect(result.nextState.policeStatesById["police:1"]?.heat).toBe(2);
     expect(result.nextState.notificationsById["notification:command:occupy:1:occupy-report"]).toMatchObject({
       category: "report.occupy",
@@ -79,7 +79,7 @@ describe("occupy district command", () => {
         targetDistrictId: "district:2",
         heatGained: 2,
         influenceCost: 5,
-        cooldownTicks: 2
+        cooldownTicks: 144
       })
     });
     expect(result.events).toEqual([
@@ -92,7 +92,7 @@ describe("occupy district command", () => {
           actionType: "occupy-district",
           heatGained: 2,
           influenceCost: 5,
-          cooldownTicks: 2
+          cooldownTicks: 144
         })
       }),
       expect.objectContaining({

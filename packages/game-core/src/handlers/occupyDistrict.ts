@@ -12,6 +12,7 @@ import {
 } from "../rules/factions/factionRules";
 import { validateOccupy } from "../validation";
 import { createPlayerCooldownState, reassignCapturedDistrictBuildings } from "./attackDistrictHelpers";
+import { applyCarDealerCooldownReductionTicks } from "./carDealerBuildingActions";
 import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { composeEntityId } from "../utils";
 
@@ -40,7 +41,21 @@ export const handleOccupyDistrict = (
   const targetDistrict = state.districtsById[command.payload.districtId];
   const balance = resolveOccupyBalance(context.config.balance.conflict);
   const factionModifiers = getFactionPassiveModifiers(state, player.id, context);
-  const cooldownTicks = applyFactionCooldownTicks(balance.cooldownTicks, "occupy", factionModifiers);
+  const cooldownTicks = Math.max(
+    resolveOccupyCooldownGuardrailTicks(context, balance.cooldownTicks),
+    applyFactionCooldownTicks(
+      applyCarDealerCooldownReductionTicks({
+        baseTicks: balance.cooldownTicks,
+        state,
+        playerId: player.id,
+        config: context.config.balance.carDealer,
+        garageConfig: context.config.balance.garage,
+        category: "districtOccupy"
+      }),
+      "occupy",
+      factionModifiers
+    )
+  );
   const heatGain = resolveOccupyHeatGain(balance.heatGain, factionModifiers.aggressiveActionHeatGainMultiplier);
   const cooldownState = state.cooldownStatesById[player.cooldownStateId] ?? createPlayerCooldownState(player.id, player.cooldownStateId);
   const occupyCooldownKey = createOccupyCooldownKey(targetDistrict.id);
@@ -178,4 +193,13 @@ const resolveOccupyHeatGain = (baseHeatGain: number, aggressiveActionHeatGainMul
   if (modified > base) return Math.ceil(modified);
   if (modified < base) return Math.floor(modified);
   return modified;
+};
+
+const resolveOccupyCooldownGuardrailTicks = (context: GameCoreContext, configuredCooldownTicks: number): number => {
+  if (context.config.mode !== "free") {
+    return 0;
+  }
+
+  const guardrailTicks = Math.ceil((8 * 60 * 1000) / Math.max(1, context.config.tickRateMs));
+  return configuredCooldownTicks >= guardrailTicks ? guardrailTicks : 0;
 };

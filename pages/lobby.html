@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="../page-assets/css/lobby.css">
     <link rel="stylesheet" href="../page-assets/css/styles-static-hover.css">
   </head>
-  <body class="auth-body auth-body--login auth-body--war servers-page lobby-command-body">
+  <body class="auth-body auth-body--login auth-body--free servers-page lobby-command-body">
     <main id="lobby-root" class="lobby-command" data-page="lobby" data-testid="lobby-page">
       <div class="lobby-bg" aria-hidden="true">
         <span class="lobby-scan"></span>
@@ -78,7 +78,7 @@
               </div>
               <div class="lobby-profile-card__summary">
                 <span data-lobby-summary-cell="server">SERVER <strong data-lobby-summary-server>Nevybrán</strong></span>
-                <span data-lobby-summary-cell="mode">REŽIM <strong data-lobby-summary-mode>WAR</strong></span>
+                <span data-lobby-summary-cell="mode">REŽIM <strong data-lobby-summary-mode>FREE Battle Royale</strong></span>
                 <span data-lobby-summary-cell="district">DISTRICT <strong data-lobby-summary-district>Nevybrán</strong></span>
               </div>
             </section>
@@ -98,8 +98,8 @@
             </section>
 
             <div class="auth-mode-tabs" role="tablist" aria-label="Výběr režimu">
-              <button class="auth-mode-tab" type="button" data-server-mode-tab="war" role="tab" aria-selected="false">☠ WAR</button>
-              <button class="auth-mode-tab" type="button" data-server-mode-tab="free" role="tab" aria-selected="false">🪽 FREE</button>
+              <button class="auth-mode-tab" type="button" data-server-mode-tab="free" role="tab" aria-selected="false">FREE Battle Royale</button>
+              <button class="auth-mode-tab" type="button" data-server-mode-tab="war" role="tab" aria-selected="false">WAR Mode / Premium</button>
             </div>
 
             <section class="lobby-server-list-only">
@@ -112,7 +112,7 @@
               <div class="lobby-detail-title">
                 <div>
                   <span class="lobby-detail-kicker">SERVER</span>
-                  <h2 data-lobby-detail-name>Vortex City WAR-01</h2>
+                  <h2 data-lobby-detail-name>Neon Docks FREE-01</h2>
                 </div>
                 <span>ONLINE</span>
               </div>
@@ -125,8 +125,8 @@
               <div class="lobby-detail-grid">
                 <span>REGION <strong data-lobby-detail-region>EU Central</strong></span>
                 <span>STATUS <strong data-lobby-detail-status>ONLINE</strong></span>
-                <span>REŽIM <strong data-lobby-detail-mode>WAR</strong></span>
-                <span>HRÁČŮ ONLINE <strong data-lobby-detail-capacity>64 / 150</strong></span>
+                <span>REŽIM <strong data-lobby-detail-mode>FREE Battle Royale</strong></span>
+                <span>HRÁČŮ ONLINE <strong data-lobby-detail-capacity>0 / 20</strong></span>
               </div>
               <div class="lobby-detail-actions">
                 <button class="lobby-primary-cta" type="button" data-lobby-open-selected data-testid="open-server-district-select">VYBRAT DISTRICT <span>›</span></button>

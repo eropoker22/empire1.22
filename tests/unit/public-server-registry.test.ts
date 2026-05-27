@@ -52,4 +52,18 @@ describe("public server registry", () => {
       ))
     );
   });
+
+  it("keeps the first public server as the free battle royale default", () => {
+    const firstPublicServer = publicServerRegistry.find((server) => server.isPublic);
+
+    expect(firstPublicServer).toMatchObject({
+      serverInstanceId: "instance:free:eu-central:public-1",
+      mode: "free",
+      capacity: 20,
+      mapComposition: expect.objectContaining({
+        downtown: 8
+      })
+    });
+    expect(resolvePublicServerInstanceId("war-eu-01")).toBe("instance:war:eu-central:public-1");
+  });
 });

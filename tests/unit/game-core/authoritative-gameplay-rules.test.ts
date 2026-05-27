@@ -114,7 +114,7 @@ describe("authoritative gameplay rules", () => {
     });
   });
 
-  it("keeps free attacks at a minimum of three minutes", () => {
+  it("uses the strategic Free BR attack baseline when day/night is disabled", () => {
     const state = createCombatStateFixture();
     state.districtsById["district:2"] = {
       ...state.districtsById["district:2"],
@@ -133,9 +133,9 @@ describe("authoritative gameplay rules", () => {
     const report = result.nextState.notificationsById["notification:command:attack:1:battle:player:1"];
 
     expect(result.errors).toEqual([]);
-    expect(cooldown).toBe(36);
+    expect(cooldown).toBe(264);
     expect(report?.payload).toMatchObject({
-      attackDurationTicks: 36,
+      attackDurationTicks: 264,
       outcomeTier: "clean_capture",
       districtCaptured: true
     });

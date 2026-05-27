@@ -72,7 +72,7 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
     buildingType: "airport",
     label: "Černý charter",
     description: "Na 8 minut otevře speciální Black Market nabídku se slevou a celním rizikem při nákupu.",
-    durationMs: 0,
+    durationMs: freeModeAirportConfig.blackCharter.durationMinutes * 60 * 1000,
     cooldownMs: freeModeAirportConfig.blackCharter.cooldownMinutes * 60 * 1000,
     inputCost: { "dirty-cash": freeModeAirportConfig.blackCharter.costDirtyCash },
     outputGain: {},

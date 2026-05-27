@@ -4,6 +4,7 @@ import {
   ATTACK_SETUP_WEAPONS,
   DEFAULT_GANG_MEMBERS,
   MAX_SPIES,
+  OCCUPY_COOLDOWN_MS,
   ROBBERY_COOLDOWN_MS,
   SPY_COOLDOWN_MS
 } from "../../../packages/game-config/src/legacy-page/combat-config.js";
@@ -3649,7 +3650,7 @@ function getFactoryAttackBoostContext({ attackPower, defensePower } = {}) {
 
   if (!config) {
     if (Number(pharmacySnapshot.effective.attackSpeedPct || 0) > 0) {
-      context.summaryLabel = `Pharmacy boost: útok dorazí za ${Math.ceil(context.cooldownMs / 1000)}s`;
+      context.summaryLabel = `Pharmacy boost: útok dorazí za ${formatDurationLabel(context.cooldownMs)}`;
     }
     return context;
   }
@@ -3676,7 +3677,7 @@ function getFactoryAttackBoostContext({ attackPower, defensePower } = {}) {
   context.summaryLabel = activeBoost.type === "assault"
     ? `Boost ${config.label}: síla útoku +${config.attackPowerPct}%`
     : activeBoost.type === "rapid"
-      ? `Boost ${config.label}: útok dorazí za ${Math.ceil(context.cooldownMs / 1000)}s`
+      ? `Boost ${config.label}: útok dorazí za ${formatDurationLabel(context.cooldownMs)}`
       : activeBoost.type === "breach"
         ? `Boost ${config.label}: obrana cíle -${config.defenseIgnorePct}%`
         : `Boost ${config.label}`;
@@ -6779,6 +6780,7 @@ function bindDistrictCanvas(root) {
     renderAttackProgress,
     resolveAttackOutcome,
     robberyCooldownMs: ROBBERY_COOLDOWN_MS,
+    occupyCooldownMs: OCCUPY_COOLDOWN_MS,
     spyCooldownMs: SPY_COOLDOWN_MS,
     validateAttackSelection,
     elements: createDistrictActionConfirmationPanelElements(districtPopupElements)
@@ -6927,7 +6929,7 @@ function bindDistrictCanvas(root) {
       summary: createdOrder.hasTrapDefense
         ? `District ${context.sourceDistrictId} zahájí útok na District ${selectedDistrict.id}. Cíl je krytý toxickou pastí. Výzbroj: ${context.selectedWeaponsLabel}.${context.boostContext.summaryLabel ? ` ${context.boostContext.summaryLabel}.` : ""}`
         : `District ${context.sourceDistrictId} zahájí útok na District ${selectedDistrict.id}. Výzbroj: ${context.selectedWeaponsLabel}. Výsledek: ${createdOrder.resolvedScenario.label}.${context.boostContext.summaryLabel ? ` ${context.boostContext.summaryLabel}.` : ""}`,
-      meta: `Síla ${createdOrder.estimatedAttackPower} · Obrana ${createdOrder.targetDefensePower} · Obyvatelé ${context.totalResidents} · cooldown ${Math.ceil(context.boostContext.cooldownMs / 1000)}s`
+      meta: `Síla ${createdOrder.estimatedAttackPower} · Obrana ${createdOrder.targetDefensePower} · Obyvatelé ${context.totalResidents} · cooldown ${formatDurationLabel(context.boostContext.cooldownMs)}`
     }, {
       elements: {
         state: buildingActionState,
@@ -6965,7 +6967,7 @@ function bindDistrictCanvas(root) {
       }
 
       if (buildingActionSummary) {
-        buildingActionSummary.textContent = `Past lze přesunout až za ${trapMoveCooldownSeconds} sekund.`;
+        buildingActionSummary.textContent = `Past lze přesunout až za ${formatDurationLabel(trapMoveCooldownSeconds * 1000)}.`;
       }
 
       if (buildingActionMeta) {
@@ -7042,7 +7044,7 @@ function bindDistrictCanvas(root) {
       sourceDistrictId: `district:${adjacentOwnedDistrictIds[0]}`,
       targetDistrictId: `district:${selectedDistrict.id}`,
       createdAt: new Date().toISOString(),
-      resolveAt: new Date(Date.now() + 20_000).toISOString(),
+      resolveAt: new Date(Date.now() + OCCUPY_COOLDOWN_MS).toISOString(),
       status: "cooldown"
     };
 
@@ -7073,11 +7075,11 @@ function bindDistrictCanvas(root) {
     }
 
     if (buildingActionSummary) {
-      buildingActionSummary.textContent = `District ${selectedDistrict.id} se obsazuje po spy akci Úspěch. Obsazení potrvá 20 sekund.`;
+      buildingActionSummary.textContent = `District ${selectedDistrict.id} se obsazuje po spy akci Úspěch. Obsazení potrvá ${formatDurationLabel(OCCUPY_COOLDOWN_MS)}.`;
     }
 
     if (buildingActionMeta) {
-      buildingActionMeta.textContent = `Zdroj District ${adjacentOwnedDistrictIds[0]} · District ${selectedDistrict.id} · cooldown 20s`;
+      buildingActionMeta.textContent = `Zdroj District ${adjacentOwnedDistrictIds[0]} · District ${selectedDistrict.id} · cooldown ${formatDurationLabel(OCCUPY_COOLDOWN_MS)}`;
     }
 
     closeOccupyConfirmPopup();
@@ -7142,11 +7144,11 @@ function bindDistrictCanvas(root) {
     }
 
     if (buildingActionSummary) {
-      buildingActionSummary.textContent = `District ${sourceDistrictId} spouští Vykrást district na prázdný District ${selectedDistrict.id}. Nasazeno ${deployedMembers} členů gangu. Akce neobsazuje území a běží ${Math.ceil(robberyDurationMs / 1000)} sekund.`;
+      buildingActionSummary.textContent = `District ${sourceDistrictId} spouští Vykrást district na prázdný District ${selectedDistrict.id}. Nasazeno ${deployedMembers} členů gangu. Akce neobsazuje území a běží ${formatDurationLabel(robberyDurationMs)}.`;
     }
 
     if (buildingActionMeta) {
-      buildingActionMeta.textContent = `Vykrást district · Městský loot · Členové ${deployedMembers} · Cíl District ${selectedDistrict.id} · cooldown ${Math.ceil(robberyDurationMs / 1000)}s`;
+      buildingActionMeta.textContent = `Vykrást district · Městský loot · Členové ${deployedMembers} · Cíl District ${selectedDistrict.id} · cooldown ${formatDurationLabel(robberyDurationMs)}`;
     }
 
     hideTooltip();
@@ -7210,7 +7212,7 @@ function bindDistrictCanvas(root) {
     }
 
     if (buildingActionSummary) {
-      buildingActionSummary.textContent = `Špeh byl vyslán z District ${mission.sourceDistrictId} do District ${mission.targetDistrictId}. Report dorazí za ${Math.ceil(spyDurationMs / 1000)} sekund.`;
+      buildingActionSummary.textContent = `Špeh byl vyslán z District ${mission.sourceDistrictId} do District ${mission.targetDistrictId}. Report dorazí za ${formatDurationLabel(spyDurationMs)}.`;
     }
 
     if (buildingActionMeta) {
@@ -8205,7 +8207,7 @@ function bindDistrictCanvas(root) {
           }
 
           if (buildingActionSummary) {
-            buildingActionSummary.textContent = `Past lze přesunout až za ${trapMoveCooldownSeconds} sekund.`;
+            buildingActionSummary.textContent = `Past lze přesunout až za ${formatDurationLabel(trapMoveCooldownSeconds * 1000)}.`;
           }
 
           if (buildingActionMeta) {
@@ -9479,6 +9481,7 @@ export {
   MARKET_PRICE_REFRESH_MS,
   MARKET_TAB_CONFIG,
   MAX_SPIES,
+  OCCUPY_COOLDOWN_MS,
   PAGE_ROOT_SELECTOR,
   PHARMACY_RECIPES,
   ROBBERY_COOLDOWN_MS,

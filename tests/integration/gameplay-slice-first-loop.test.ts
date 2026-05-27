@@ -285,7 +285,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     expect(runtime.state.districtsById[sourceDistrictId]?.influence).toBe(5);
     expect(runtime.state.districtsById[targetDistrictId]?.ownerPlayerId).toBe(request.playerId);
     expect(runtime.state.districtsById[targetDistrictId]?.heat).toBe(2);
-    expect(runtime.state.cooldownStatesById[runtime.state.playersById[request.playerId]!.cooldownStateId]?.cooldowns[`occupy:${targetDistrictId}`]).toBe(2);
+    expect(runtime.state.cooldownStatesById[runtime.state.playersById[request.playerId]!.cooldownStateId]?.cooldowns[`occupy:${targetDistrictId}`]).toBe(144);
     expect(runtime.state.districtsById[targetDistrictId]?.buildingIds.every((buildingId) =>
       runtime.state.buildingsById[buildingId]?.ownerPlayerId === request.playerId
     )).toBe(true);

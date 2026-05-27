@@ -22,6 +22,7 @@ import {
   createInMemorySnapshotRepository
 } from "../persistence/repositories";
 import { createReplayLogWriter } from "../persistence/services/replay-log-writer";
+import { createPostgresRuntimePersistenceRepositories } from "../persistence/postgres";
 import { systemClock, type Clock } from "../scheduling/clock";
 import { createInstanceScheduler } from "../scheduling/instance-scheduler";
 import { createGameStateRepository } from "../snapshots/game-state-repository";
@@ -75,7 +76,16 @@ export const createRuntimePersistenceRepositoriesFromEnvironment = (
     return createFileRuntimePersistenceRepositories({ rootDir });
   }
 
-  return createInMemoryRuntimePersistenceRepositories();
+  if (driver === "postgres") {
+    const databaseUrl = String(environment.EMPIRE_DATABASE_URL ?? environment.GAMEPLAY_DATABASE_URL ?? "").trim();
+    return createPostgresRuntimePersistenceRepositories({ databaseUrl });
+  }
+
+  if (driver === "memory") {
+    return createInMemoryRuntimePersistenceRepositories();
+  }
+
+  throw new Error(`Unsupported runtime persistence driver "${driver}". Expected "memory", "file", or "postgres".`);
 };
 
 /**

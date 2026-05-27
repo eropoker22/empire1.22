@@ -1029,7 +1029,7 @@ var EmpireGameplaySliceClient = function(exports) {
         disabledCode: target.disabledCode,
         influenceCostLabel: String(target.cost.influence),
         heatGainLabel: `+${target.heatGain}`,
-        cooldownLabel: target.cooldownRemainingTicks > 0 ? `${target.cooldownRemainingTicks} ticks` : null
+        cooldownLabel: target.cooldownRemainingTicks > 0 ? formatDurationMs(target.cooldownRemainingTicks * tickRateMs) : null
       })),
       attackTargets: slice.district.attackTargets.map((target) => ({
         districtId: target.districtId,
@@ -1090,7 +1090,7 @@ var EmpireGameplaySliceClient = function(exports) {
               max: input.max,
               options: input.options ?? []
             })),
-            cooldownLabel: cooldown.remainingMs > 0 ? `Cooldown ${formatDurationMs(cooldown.remainingMs)}` : `${Math.ceil(action.cooldownMs / 1e3)}s cooldown`,
+            cooldownLabel: cooldown.remainingMs > 0 ? `Cooldown ${formatDurationMs(cooldown.remainingMs)}` : `${formatDurationMs(action.cooldownMs)} cooldown`,
             cooldownRemainingMs: cooldown.remainingMs,
             cooldownEndsAtMs: cooldown.endsAtMs,
             heatLabel: `+${action.heatGain}`,

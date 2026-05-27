@@ -14,6 +14,7 @@ import {
   calculateTowerAttackReductionPercent,
   applyDayNightAttackDurationTicks,
   applyDayNightHeatGain,
+  resolveAttackDurationGuardrailTicks,
   resolveAttackDurationTicks,
   resolveCombat,
   resolveTrap
@@ -190,7 +191,7 @@ export const handleAttackDistrict = (
   const currentCooldownState = state.cooldownStatesById[attacker.cooldownStateId] ?? createPlayerCooldownState(attacker.id, attacker.cooldownStateId);
   const attackCooldownKey = `attack:${targetDistrict.id}`;
   const attackDurationTicks = Math.max(
-    context.config.balance.conflict?.minAttackDurationTicks ?? 1,
+    resolveAttackDurationGuardrailTicks(context),
     applyFactionCooldownTicks(
       applyDayNightAttackDurationTicks(applyCarDealerCooldownReductionTicks({
         baseTicks: resolveAttackDurationTicks(context),

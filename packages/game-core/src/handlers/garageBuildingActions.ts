@@ -4,6 +4,7 @@ import type { CoreGameState } from "../entities";
 export type GarageCooldownCategory =
   | "gangMovement"
   | "attackPreparation"
+  | "districtOccupy"
   | "districtRobbery"
   | "equipmentTransfer"
   | "resourceTransfer"

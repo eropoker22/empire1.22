@@ -10,6 +10,7 @@ import {
   waitForMapReady
 } from "./helpers/empireSmokeHelpers.js";
 
+const CANONICAL_FREE_SERVER_ID = "instance:free:eu-central:public-1";
 const CANONICAL_WAR_SERVER_ID = "instance:war:eu-central:public-1";
 
 async function loginAsGuest(page, name = "Entry Host", gang = "Entry Crew") {
@@ -17,7 +18,7 @@ async function loginAsGuest(page, name = "Entry Host", gang = "Entry Crew") {
   await page.locator("#guest-username").fill(name);
   await page.getByPlaceholder("Ghost Crew").fill(gang);
   await Promise.all([
-    page.waitForURL(/\/pages\/lobby\.html\?mode=war$/),
+    page.waitForURL(/\/pages\/lobby\.html\?mode=free$/),
     page.getByTestId("guest-login-button").click()
   ]);
   await expect(page.getByTestId("lobby-page")).toBeVisible();
@@ -25,7 +26,9 @@ async function loginAsGuest(page, name = "Entry Host", gang = "Entry Crew") {
 
 async function chooseServerAndEnter(page) {
   await expect(page.getByTestId("server-list")).toBeVisible();
-  await page.getByTestId(`server-card-${CANONICAL_WAR_SERVER_ID}`).click();
+  await expect(page.locator("[data-recommended-server='true']")).toHaveAttribute("data-server-mode", "free");
+  await expect(page.locator("[data-recommended-server='true']")).not.toHaveAttribute("data-server-card", CANONICAL_WAR_SERVER_ID);
+  await page.getByTestId(`server-card-${CANONICAL_FREE_SERVER_ID}`).click();
   await selectLobbyDistrict(page);
   await expect(page.getByTestId("enter-selected-server")).toBeEnabled();
   await page.getByTestId("enter-selected-server").click();
@@ -95,8 +98,8 @@ test.describe("entry flow", () => {
 
     const session = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)), SESSION_STORAGE_KEY);
     expect(session.registration).toMatchObject({
-      activeServerId: CANONICAL_WAR_SERVER_ID,
-      activeServerInstanceId: CANONICAL_WAR_SERVER_ID,
+      activeServerId: CANONICAL_FREE_SERVER_ID,
+      activeServerInstanceId: CANONICAL_FREE_SERVER_ID,
       selectedFaction: "mafian",
       selectedStructure: "mafián",
       factionLocked: true,
@@ -150,7 +153,7 @@ test.describe("entry flow", () => {
         gangName: "No Server Crew",
         isGuest: true,
         loginKind: "guest",
-        serverMode: "war",
+        serverMode: "free",
         ...withoutServer
       },
       world: {

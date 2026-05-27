@@ -201,16 +201,18 @@ describe("MVP buildings core loop hardening", () => {
       }),
       context
     );
-    const firstTick = runTick(started.nextState, context);
-    const secondTick = runTick(firstTick.nextState, context);
-    const balances = secondTick.nextState.resourceStatesById["resource:1"].balances;
-    const feedEvents = Object.values(secondTick.nextState.cityFeedEventsById ?? {});
+    let completed = runTick(started.nextState, context);
+    for (let index = 1; index < 60; index += 1) {
+      completed = runTick(completed.nextState, context);
+    }
+    const balances = completed.nextState.resourceStatesById["resource:1"].balances;
+    const feedEvents = Object.values(completed.nextState.cityFeedEventsById ?? {});
 
     expect(started.errors).toEqual([]);
     expect(balances["metal-parts"]).toBe(7);
     expect(balances["tech-core"]).toBe(3);
     expect(balances.pistol).toBe(2);
-    expect(secondTick.nextState.buildingsById[building.id].processing).toBeNull();
+    expect(completed.nextState.buildingsById[building.id].processing).toBeNull();
     expect(feedEvents.some((event) =>
       event.sourceType === "building_action"
       && event.payload?.outputResourceKey === "pistol"

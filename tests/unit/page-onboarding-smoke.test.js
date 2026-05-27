@@ -9,7 +9,7 @@ import {
 } from "../../page-assets/js/app/model/authority-state.js";
 
 const SESSION_STORAGE_KEY = "empireStreets.session.v1";
-const CANONICAL_WAR_SERVER_ID = "instance:war:eu-central:public-1";
+const CANONICAL_FREE_SERVER_ID = "instance:free:eu-central:public-1";
 const root = process.cwd();
 
 const page = (name) => readFileSync(resolve(root, "pages", name), "utf8");
@@ -194,28 +194,28 @@ describe("page onboarding smoke", () => {
       password: "secret",
       isGuest: false,
       gangName: "Smoke Crew",
-      mode: "war"
+      mode: "free"
     });
 
     expect(readSession().registration).toMatchObject({
       identity: "Smoke Boss",
       gangName: "Smoke Crew",
-      serverMode: "war"
+      serverMode: "free"
     });
     expect(readSession().registration.password).toBeUndefined();
     expect(readSession().registration.serverId).toBeUndefined();
     expect(readSession().registration.factionId).toBeUndefined();
 
-    saveLobbyStep({ serverId: "war-eu-01", districtId: 27 });
+    saveLobbyStep({ serverId: "free-eu-01", districtId: 27 });
 
     expect(readSession().registration).toMatchObject({
       identity: "Smoke Boss",
       gangName: "Smoke Crew",
-      activeServerId: CANONICAL_WAR_SERVER_ID,
-      activeServerInstanceId: CANONICAL_WAR_SERVER_ID,
-      serverId: CANONICAL_WAR_SERVER_ID,
-      serverInstanceId: CANONICAL_WAR_SERVER_ID,
-      serverMode: "war",
+      activeServerId: CANONICAL_FREE_SERVER_ID,
+      activeServerInstanceId: CANONICAL_FREE_SERVER_ID,
+      serverId: CANONICAL_FREE_SERVER_ID,
+      serverInstanceId: CANONICAL_FREE_SERVER_ID,
+      serverMode: "free",
       preferredStartDistrictId: 27,
       startDistrictId: 27,
       serverRegistrationStatus: "server_selected",
@@ -232,8 +232,8 @@ describe("page onboarding smoke", () => {
 
     expect(session.registration).toMatchObject({
       identity: "Smoke Boss",
-      serverId: CANONICAL_WAR_SERVER_ID,
-      serverInstanceId: CANONICAL_WAR_SERVER_ID,
+      serverId: CANONICAL_FREE_SERVER_ID,
+      serverInstanceId: CANONICAL_FREE_SERVER_ID,
       preferredStartDistrictId: 27,
       startDistrictId: 27,
       factionId: "hackeri",

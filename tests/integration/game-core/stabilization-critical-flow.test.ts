@@ -35,7 +35,7 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     expect(freeConfig.balance.hardTimeoutTicks).toBe(120960);
     expect(freeConfig.balance.dayLengthTicks).toBe(1440);
     expect(freeConfig.balance.nightLengthTicks).toBe(1440);
-    expect(freeConfig.balance.conflict?.minAttackDurationTicks).toBe(36);
+    expect(freeConfig.balance.conflict?.minAttackDurationTicks).toBe(264);
     expect(freeConfig.balance.conflict?.attackHeatGain).toBe(8);
     expect(warConfig.balance.victoryConditionKey).toBe("long-war-control");
     expect(warConfig.balance.conflict?.attackHeatGain).toBe(14);

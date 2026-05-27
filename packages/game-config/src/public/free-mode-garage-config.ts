@@ -19,6 +19,7 @@ export const freeModeGarageConfig: GarageBalanceConfig = {
     fullBonusActionCategories: [
       "gangMovement",
       "attackPreparation",
+      "districtOccupy",
       "districtRobbery",
       "equipmentTransfer",
       "resourceTransfer",

@@ -27,10 +27,26 @@ const createMapSummary = (mapComposition) => {
   };
 };
 
+export const DEFAULT_PUBLIC_SERVER_MODE = "free";
+
+const getServerModeLabel = (mode) => mode === "war" ? "WAR Mode" : "FREE Battle Royale";
+
+const getServerStartLabel = (serverEntry, locked) => {
+  if (locked) {
+    return serverEntry.mode === "war" ? "Premium režim uzamčen" : "Uzavřeno";
+  }
+  return serverEntry.mode === "war" ? "Premium režim / dev vstup" : "Začni zdarma";
+};
+
+const getServerDescription = (serverEntry, map) => serverEntry.mode === "war"
+  ? "WAR Mode: Premium režim. Delší válka, jiné cooldowny. Viditelné pro dev/test, ne pro defaultní start."
+  : `FREE Battle Royale: 20 hráčů, ${map.totalDistricts || 161} districtů, ${map.downtownDistricts || 8} downtown. Rychlý neonový start zdarma.`;
+
 const createFallbackServerFromRegistry = (serverEntry) => {
   const locked = serverEntry.joinPolicy !== "open";
   const players = 0;
   const capacity = Math.max(1, Number(serverEntry.capacity || 1) || 1);
+  const map = createMapSummary(serverEntry.mapComposition);
 
   return Object.freeze({
     id: serverEntry.serverInstanceId,
@@ -40,14 +56,14 @@ const createFallbackServerFromRegistry = (serverEntry) => {
     region: serverEntry.region,
     players,
     capacity,
-    startLabel: locked ? "Uzavřeno" : "Spawn confirmed by server",
-    badge: serverEntry.mode === "war" ? "WAR" : "FREE",
+    startLabel: getServerStartLabel(serverEntry, locked),
+    badge: getServerModeLabel(serverEntry.mode),
     status: locked ? "LOCKED" : "ONLINE",
     activity: "LOW",
     locked,
     riskPercent: Math.round((players / capacity) * 100),
-    description: `Public ${String(serverEntry.mode).toUpperCase()} instance from canonical server registry.`,
-    map: createMapSummary(serverEntry.mapComposition)
+    description: getServerDescription(serverEntry, map),
+    map
   });
 };
 
@@ -122,7 +138,7 @@ export function getActiveServerRegistration(registration = getRegistrationDraft(
     serverId,
     serverInstanceId,
     serverName: normalizeText(registration?.activeServerName || registration?.serverLabel || server?.name || serverId),
-    serverMode: normalizeMode(registration?.activeServerMode || registration?.serverMode || server?.mode) || "war",
+    serverMode: normalizeMode(registration?.activeServerMode || registration?.serverMode || server?.mode) || DEFAULT_PUBLIC_SERVER_MODE,
     serverRegion: normalizeText(registration?.activeServerRegion || registration?.serverRegion || server?.region),
     serverStatus: normalizeText(registration?.activeServerStatus || server?.status || "ONLINE"),
     preferredStartDistrictId,

@@ -11,23 +11,6 @@ const DEFAULT_PUBLIC_MAP_COMPOSITION = Object.freeze({
 
 export const publicServerRegistry = Object.freeze([
   Object.freeze({
-    serverInstanceId: "instance:war:eu-central:public-1",
-    mode: "war",
-    region: "EU Central",
-    displayName: "Vortex City WAR-01",
-    capacity: 150,
-    mapComposition: DEFAULT_PUBLIC_MAP_COMPOSITION,
-    joinPolicy: "open",
-    isPublic: true,
-    legacyAliases: Object.freeze([
-      "war-eu-01",
-      "war-eu-02",
-      "war-eu-03",
-      "war-eu-04",
-      "war-eu-05"
-    ])
-  }),
-  Object.freeze({
     serverInstanceId: "instance:free:eu-central:public-1",
     mode: "free",
     region: "EU Central",
@@ -56,6 +39,23 @@ export const publicServerRegistry = Object.freeze([
     legacyAliases: Object.freeze([
       "free-eu-02",
       "free-eu-03"
+    ])
+  }),
+  Object.freeze({
+    serverInstanceId: "instance:war:eu-central:public-1",
+    mode: "war",
+    region: "EU Central",
+    displayName: "Vortex City WAR-01",
+    capacity: 150,
+    mapComposition: DEFAULT_PUBLIC_MAP_COMPOSITION,
+    joinPolicy: "open",
+    isPublic: true,
+    legacyAliases: Object.freeze([
+      "war-eu-01",
+      "war-eu-02",
+      "war-eu-03",
+      "war-eu-04",
+      "war-eu-05"
     ])
   })
 ]);

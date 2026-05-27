@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ENTRY_FLOW_TARGETS,
+  SERVER_CATALOG,
   getActiveServerRegistration,
   getEntryFlowTarget,
   hasLockedFaction,
@@ -177,6 +178,33 @@ describe("page auth flow", () => {
       structure: "hackeři",
       lockedAt: "2026-04-26T10:00:00.000Z"
     })).toBe(true);
+  });
+
+  it("keeps free battle royale as the first public start option", () => {
+    const session = saveLoginStep({
+      identity: "Free Starter",
+      isGuest: true,
+      gangName: "Free Crew"
+    });
+
+    expect(session.registration).toMatchObject({
+      identity: "Free Starter",
+      gangName: "Free Crew",
+      isGuest: true,
+      loginKind: "guest"
+    });
+    expect(session.registration.serverMode).toBeUndefined();
+    expect(SERVER_CATALOG[0]).toMatchObject({
+      id: CANONICAL_FREE_SERVER_ID,
+      mode: "free",
+      capacity: 20,
+      badge: "FREE Battle Royale",
+      startLabel: "Začni zdarma"
+    });
+    expect(SERVER_CATALOG.find((server) => server.mode === "war")).toMatchObject({
+      id: CANONICAL_WAR_SERVER_ID,
+      badge: "WAR Mode"
+    });
   });
 
   it("locks lobby selection while clearing stale faction choices", () => {

@@ -24,6 +24,7 @@ export const freeModeCarDealerConfig: CarDealerBalanceConfig = {
       "equipmentTransfer",
       "resourceTransfer",
       "districtRobbery",
+      "districtOccupy",
       "attackPreparation",
       "retreatReturn"
     ],
@@ -55,6 +56,7 @@ export const freeModeCarDealerConfig: CarDealerBalanceConfig = {
       "equipmentTransfer",
       "resourceTransfer",
       "districtRobbery",
+      "districtOccupy",
       "attackPreparation",
       "retreatReturn"
     ],

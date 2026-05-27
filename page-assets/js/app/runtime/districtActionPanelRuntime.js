@@ -462,6 +462,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       district,
       adjacentOwnedDistrictIds,
       canOccupyAfterSpy,
+      occupyCooldownMs: deps.occupyCooldownMs,
       atmosphereMeta
     }, elements);
   };

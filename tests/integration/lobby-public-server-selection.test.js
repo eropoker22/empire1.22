@@ -42,7 +42,7 @@ describe("lobby public server selection", () => {
   });
 
   it("passes a backend public serverInstanceId through the faction/game entry flow", async () => {
-    const canonicalServer = publicServerRegistry.find((server) => server.isPublic && server.mode === "war");
+    const canonicalServer = publicServerRegistry.find((server) => server.isPublic && server.mode === "free");
     const handler = createGameplaySliceFunctionHandler({
       cryptoProvider: () => webcrypto,
       environment: { NODE_ENV: "test" }

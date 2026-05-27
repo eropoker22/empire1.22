@@ -5,6 +5,7 @@ import {
 } from "./app/district-geometry.js";
 import {
   clearAuthSession,
+  DEFAULT_PUBLIC_SERVER_MODE,
   ensureIdentity,
   getActiveServerRegistration,
   getEntryFlowTarget,
@@ -30,7 +31,7 @@ const SERVER_LIST_ENDPOINT = "/api/servers";
 const MATCHMAKING_RESERVE_ENDPOINT = "/api/matchmaking/reserve";
 const MATRIX_DIGITS = "0123456789";
 const SERVER_COUNTDOWN_OFFSETS_MINUTES = Object.freeze({
-  "instance:war:eu-central:public-1": 12
+  "instance:free:eu-central:public-1": 12
 });
 const SERVER_LIST_FALLBACK_SOURCE = "dev-static-fallback";
 const SERVER_LIST_SERVER_SOURCE = "server-summary";
@@ -57,6 +58,24 @@ const LOBBY_NAV_PREVIEWS = Object.freeze({
 const formatLobbyPlayerCount = (value) => new Intl.NumberFormat("cs-CZ")
   .format(Math.max(0, Math.round(Number(value) || 0)))
   .replace(/\u00a0/g, " ");
+
+const normalizeLobbyMode = (mode) => {
+  const normalized = String(mode || "").trim().toLowerCase();
+  return normalized === "free" || normalized === "war" ? normalized : "";
+};
+
+const resolveInitialLobbyMode = (registration, activeServerRegistration) => {
+  if (activeServerRegistration?.serverMode) {
+    return activeServerRegistration.serverMode;
+  }
+  const requestedMode = normalizeLobbyMode(new URLSearchParams(window.location.search).get("mode"));
+  return requestedMode || normalizeLobbyMode(registration?.serverMode) || DEFAULT_PUBLIC_SERVER_MODE;
+};
+
+const getServerModeLabel = (mode) => mode === "war" ? "WAR Mode" : "FREE Battle Royale";
+const getServerCardSubtitle = (server) => server?.mode === "war"
+  ? "Premium režim / Coming soon"
+  : "20 hráčů / 161 districtů / Začni zdarma";
 
 function createServerFromSummary(summary) {
   if (!summary || typeof summary !== "object") {
@@ -93,15 +112,19 @@ function createServerFromSummary(summary) {
     region: String(summary.region || "EU Central"),
     players: playerCount,
     capacity: maxPlayers,
-    startLabel: joinable ? "Spawn confirmed by server" : status,
-    badge: "SERVER",
+    startLabel: joinable
+      ? (mode === "war" ? "Premium režim / dev vstup" : "Začni zdarma")
+      : status,
+    badge: mode === "war" ? "WAR Mode" : "FREE Battle Royale",
     status,
     activity: playerCount / maxPlayers > 0.75 ? "HIGH" : playerCount / maxPlayers > 0.35 ? "MEDIUM" : "LOW",
     full,
     locked: !joinable && !full,
     offline: ["STOPPED", "ENDED", "DESTROYED", "CRASHED"].includes(status),
     riskPercent: Math.round((playerCount / maxPlayers) * 100),
-    description: `Server-authoritative ${mode.toUpperCase()} instance. Join i finální spawn potvrzuje server.`,
+    description: mode === "war"
+      ? "WAR Mode: Premium režim. Delší válka, jiné cooldowny. Viditelné pro dev/test, ne pro defaultní start."
+      : `FREE Battle Royale: 20 hráčů, ${map?.totalDistricts || 161} districtů, ${map?.downtownDistricts || 8} downtown. Začni zdarma, město tě rozřeže rychle.`,
     map
   };
 }
@@ -269,7 +292,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const activeServerRegistration = getActiveServerRegistration(registration);
   const isActiveServerEntry = Boolean(activeServerRegistration);
   const state = {
-    mode: activeServerRegistration?.serverMode || registration?.serverMode || "war",
+    mode: resolveInitialLobbyMode(registration, activeServerRegistration),
     serverId: activeServerRegistration?.serverId || "",
     hoveredDistrictId: null,
     selectedDistrictId: activeServerRegistration?.preferredStartDistrictId || activeServerRegistration?.startDistrictId || null,
@@ -789,7 +812,7 @@ document.addEventListener("DOMContentLoaded", () => {
       activeServerName.textContent = activeServerRegistration.serverName || "Server";
     }
     if (activeServerMode) {
-      activeServerMode.textContent = String(activeServerRegistration.serverMode || "war").toUpperCase();
+      activeServerMode.textContent = getServerModeLabel(activeServerRegistration.serverMode || DEFAULT_PUBLIC_SERVER_MODE);
     }
     if (activeServerStatus) {
       activeServerStatus.textContent = activeServerRegistration.serverStatus || "ONLINE";
@@ -837,7 +860,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (summaryMode) {
-      summaryMode.textContent = server ? server.mode.toUpperCase() : state.mode.toUpperCase();
+      summaryMode.textContent = server ? getServerModeLabel(server.mode) : getServerModeLabel(state.mode);
     }
 
     summaryCells.server?.setAttribute("data-summary-state", server ? "selected" : "missing");
@@ -864,7 +887,7 @@ document.addEventListener("DOMContentLoaded", () => {
       lobbyDetailStatus.textContent = server?.status || "Nevybrán";
     }
     if (lobbyDetailMode) {
-      lobbyDetailMode.textContent = (server?.mode || state.mode || "war").toUpperCase();
+      lobbyDetailMode.textContent = getServerModeLabel(server?.mode || state.mode || DEFAULT_PUBLIC_SERVER_MODE);
     }
     if (lobbyDetailCapacity) {
       lobbyDetailCapacity.textContent = server ? `${server.players} / ${server.capacity}` : "-";
@@ -895,7 +918,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (state.isReservingServer) {
         lobbyEnterSelectedButton.textContent = "REZERVUJI SERVER...";
       } else {
-        lobbyEnterSelectedButton.innerHTML = "VSTOUPIT NA SERVER <span>›</span>";
+        lobbyEnterSelectedButton.innerHTML = server?.mode === "war"
+          ? "VSTOUPIT DO WAR / DEV <span>›</span>"
+          : "ZAČNI ZDARMA <span>›</span>";
       }
     }
     renderActiveServerEntry();
@@ -998,7 +1023,7 @@ document.addEventListener("DOMContentLoaded", () => {
       detailModalSubtitle.textContent = server.description;
     }
     if (detailModalMode) {
-      detailModalMode.textContent = `Režim: ${server.mode.toUpperCase()}`;
+      detailModalMode.textContent = `Režim: ${getServerModeLabel(server.mode)}`;
     }
     if (detailModalCapacity) {
       detailModalCapacity.textContent = `Kapacita: ${server.players}/${server.capacity}`;
@@ -1028,6 +1053,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (detailModalMaterials instanceof HTMLElement) {
       detailModalMaterials.innerHTML = [
+        server.mode === "war"
+          ? "<li>WAR Mode je premium/dev cesta: delší válka, jiné cooldowny, mimo defaultní onboarding.</li>"
+          : "<li>FREE Battle Royale: 20 hráčů, 161 districtů, 8 downtown. Začni zdarma.</li>",
         "<li>Gameplay start a finální spawn potvrzuje server při joinu.</li>",
         `<li>Mapa: ${server.map?.totalDistricts || geometry.districts.length} districtů, ${server.map?.downtownDistricts || getDistrictTypeCounts(server).find(([type]) => type === "downtown")?.[1] || 0} downtown.</li>`
       ].join("");
@@ -1044,10 +1072,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const servers = getVisibleServers();
+    const recommendedServer = servers.find((server) => !isServerUnavailable(server)) || servers[0] || null;
     list.innerHTML = servers.map((server) => `
-      <button type="button" class="auth-server-card ${server.id === state.serverId ? "is-selected" : ""} ${server.locked ? "is-locked" : ""} ${server.full ? "is-full" : ""} ${server.offline ? "is-offline" : ""}" data-server-card="${server.id}" data-server-mode="${server.mode}" data-testid="server-card-${server.id}">
+      <button type="button" class="auth-server-card ${server.id === state.serverId ? "is-selected" : ""} ${recommendedServer?.id === server.id ? "is-recommended" : ""} ${server.locked ? "is-locked" : ""} ${server.full ? "is-full" : ""} ${server.offline ? "is-offline" : ""}" data-server-card="${server.id}" data-server-mode="${server.mode}" ${recommendedServer?.id === server.id ? "data-recommended-server=\"true\"" : ""} data-testid="server-card-${server.id}">
+        ${recommendedServer?.id === server.id ? "<span class=\"auth-server-card__badge\">Doporučený start</span>" : ""}
         <span class="auth-server-card__label">${server.name}</span>
-        <span class="auth-server-card__meta">${server.region} • ${server.mode.toUpperCase()} • ${server.players}/${server.capacity}</span>
+        <span class="auth-server-card__subtitle">${getServerCardSubtitle(server)}</span>
+        <span class="auth-server-card__meta">${server.region} • ${getServerModeLabel(server.mode)} • ${server.players}/${server.capacity}</span>
         <span class="auth-server-card__schedule">${server.status || "ONLINE"}</span>
         <span class="auth-server-card__countdown" data-server-countdown="${server.id}">${getServerCountdownText(server.id)}</span>
         <span class="auth-server-card__schedule">${server.map?.totalDistricts ? `${server.map.totalDistricts} districtů / ${server.map.downtownDistricts} downtown` : serverListSource === SERVER_LIST_FALLBACK_SOURCE ? "DEV fallback katalog" : ""}</span>
@@ -1512,7 +1543,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const nextMode = String(button.getAttribute("data-server-mode-tab") || "war");
+      const nextMode = String(button.getAttribute("data-server-mode-tab") || DEFAULT_PUBLIC_SERVER_MODE);
       state.mode = nextMode;
       state.serverId = "";
       state.hoveredDistrictId = null;

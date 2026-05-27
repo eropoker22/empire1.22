@@ -7,11 +7,13 @@ import {
 } from "../../fixtures/command-fixtures";
 import { createCoreStateWithFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
 
+const context = {
+  config: resolveModeConfig("free")
+};
+const TICKS_PER_MINUTE = Math.ceil(60_000 / context.config.tickRateMs);
+
 describe("craft-item command flow", () => {
   it("starts a processing job, reserves inputs, and credits output on a later server tick", () => {
-    const context = {
-      config: resolveModeConfig("free")
-    };
     const { state, building } = createCoreStateWithFixedBuildingFixture("pharmacy", {
       includeWarehouse: true,
       productionResourceKey: "chemicals"
@@ -48,7 +50,7 @@ describe("craft-item command flow", () => {
     expect(crafted.nextState.buildingsById[buildingId]?.processing).toEqual({
       recipeId: "stim-pack",
       startedAtTick: 2,
-      completesAtTick: 4
+      completesAtTick: 2 + 4 * TICKS_PER_MINUTE
     });
     expect(crafted.events).toHaveLength(1);
     expect(crafted.events[0]?.type).toBe("item-processing-started");
@@ -59,32 +61,35 @@ describe("craft-item command flow", () => {
     expect(afterOneTick.nextState.resourceStatesById["resource:1"]?.balances["stim-pack"]).toBeUndefined();
     expect(afterOneTick.events).toEqual([]);
 
-    const afterSecondTick = runTick(afterOneTick.nextState, context);
+    let completionTick = afterOneTick;
+    for (let index = 1; index < 4 * TICKS_PER_MINUTE; index += 1) {
+      completionTick = runTick(completionTick.nextState, context);
+    }
 
-    expect(afterSecondTick.nextState.buildingsById[buildingId]?.processing).toBeNull();
-    expect(afterSecondTick.nextState.resourceStatesById["resource:1"]?.balances["stim-pack"]).toBe(1);
-    expect(afterSecondTick.nextState.root.notificationIds).toHaveLength(1);
-    expect(afterSecondTick.nextState.notificationsById[afterSecondTick.nextState.root.notificationIds[0]]?.category).toBe("processing.completed");
-    expect(afterSecondTick.nextState.notificationsById[afterSecondTick.nextState.root.notificationIds[0]]?.recipientId).toBe("player:1");
-    expect(afterSecondTick.events).toHaveLength(2);
-    expect(afterSecondTick.events[0]?.type).toBe("item-crafted");
-    expect(afterSecondTick.events[1]?.type).toBe("notification-created");
+    expect(completionTick.nextState.buildingsById[buildingId]?.processing).toBeNull();
+    expect(completionTick.nextState.resourceStatesById["resource:1"]?.balances["stim-pack"]).toBe(1);
+    expect(completionTick.nextState.root.notificationIds).toHaveLength(1);
+    expect(completionTick.nextState.notificationsById[completionTick.nextState.root.notificationIds[0]]?.category).toBe("processing.completed");
+    expect(completionTick.nextState.notificationsById[completionTick.nextState.root.notificationIds[0]]?.recipientId).toBe("player:1");
+    expect(completionTick.events).toHaveLength(2);
+    expect(completionTick.events[0]?.type).toBe("item-crafted");
+    expect(completionTick.events[1]?.type).toBe("notification-created");
   });
 
   it.each([
-    ["factory", "combat-module", { "metal-parts": 10, "tech-core": 3 }, "combat-module", 1],
-    ["drug_lab", "ghost-serum", { chemicals: 4, biomass: 2, "stim-pack": 2 }, "ghost-serum", 1],
-    ["armory", "pistol", { "metal-parts": 6, "tech-core": 2 }, "pistol", 2]
+    ["factory", "combat-module", { "metal-parts": 10, "tech-core": 3 }, "combat-module", 1, 12],
+    ["drug_lab", "ghost-serum", { chemicals: 4, biomass: 2, "stim-pack": 2 }, "ghost-serum", 1, 8],
+    ["armory", "pistol", { "metal-parts": 6, "tech-core": 2 }, "pistol", 2, 5],
+    ["armory", "bazooka", { "metal-parts": 10, "tech-core": 4 }, "bazooka", 1, 14],
+    ["armory", "defense-tower", { "metal-parts": 10, "tech-core": 4 }, "defense-tower", 1, 16]
   ])("processes %s recipe %s through fixed building craft slots", (
     buildingTypeId,
     recipeId,
     playerBalances,
     outputResourceKey,
-    outputAmount
+    outputAmount,
+    expectedMinutes
   ) => {
-    const context = {
-      config: resolveModeConfig("free")
-    };
     const { state, building } = createCoreStateWithFixedBuildingFixture(buildingTypeId, {
       playerBalances
     });
@@ -102,10 +107,14 @@ describe("craft-item command flow", () => {
     );
 
     expect(crafted.errors).toEqual([]);
-    expect(crafted.nextState.buildingsById[buildingId]?.processing?.recipeId).toBe(recipeId);
+    expect(crafted.nextState.buildingsById[buildingId]?.processing).toMatchObject({
+      recipeId,
+      startedAtTick: 0,
+      completesAtTick: expectedMinutes * TICKS_PER_MINUTE
+    });
 
     let nextState = crafted.nextState;
-    for (let index = 0; index < 4; index += 1) {
+    for (let index = 0; index < expectedMinutes * TICKS_PER_MINUTE; index += 1) {
       nextState = runTick(nextState, context).nextState;
     }
 

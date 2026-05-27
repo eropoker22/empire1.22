@@ -1,5 +1,6 @@
 import type { ResolvedGameModeConfig } from "../../contracts/game-mode-config";
 import { freeModeBuildingActions } from "./free-mode-building-actions";
+import { freeModeCraftBuildings } from "./free-mode-craft-config";
 import { freeModeFixedBuildings } from "./free-mode-fixed-buildings";
 import { freeModeApartmentBlockConfig } from "../../public/free-mode-apartment-block-config";
 import { freeModeAirportConfig } from "../../public/free-mode-airport-config";
@@ -30,14 +31,15 @@ import { freeModeStripClubConfig } from "../../public/free-mode-strip-club-confi
 import { freeModeVipLoungeConfig } from "../../public/free-mode-vip-lounge-config";
 import { freeModeWarehouseConfig } from "../../public/free-mode-warehouse-config";
 import { freeModePoliceConfig } from "./free-police-config";
+import {
+  FREE_MODE_COOLDOWN_MULTIPLIER,
+  FREE_MODE_TICK_RATE_MS,
+  ticksFromDays,
+  ticksFromHours,
+  ticksFromMinutes
+} from "./free-mode-timing";
 import { createDayNightConfig } from "../../public/day-night-config";
 import { FACTION_DEFINITION_BY_ID } from "../../public/faction-definitions";
-
-const FREE_MODE_TICK_RATE_MS = 5000;
-const ticksFromHours = (hours: number, tickRateMs = FREE_MODE_TICK_RATE_MS): number =>
-  Math.ceil((hours * 60 * 60 * 1000) / tickRateMs);
-const ticksFromDays = (days: number, tickRateMs = FREE_MODE_TICK_RATE_MS): number =>
-  ticksFromHours(days * 24, tickRateMs);
 
 const FREE_MODE_DAY_NIGHT_PHASE_TICKS = ticksFromHours(2);
 const FREE_MODE_ELIMINATION_INTERVAL_TICKS = ticksFromHours(4);
@@ -53,7 +55,7 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
   balance: {
     incomeMultiplier: 1.2,
     productionMultiplier: 1.2,
-    cooldownMultiplier: 0.8,
+    cooldownMultiplier: FREE_MODE_COOLDOWN_MULTIPLIER,
     maxPlayersPerServer: 20,
     maxAllianceSize: 4,
     buildSlotLimit: 8,
@@ -102,10 +104,10 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
     hardTimeoutTicks: FREE_MODE_HARD_TIMEOUT_TICKS,
     police: freeModePoliceConfig,
     conflict: {
-      spyCooldownTicks: 1,
-      attackCooldownTicks: 36,
-      occupyCooldownTicks: 2,
-      minAttackDurationTicks: 36,
+      spyCooldownTicks: ticksFromMinutes(6),
+      attackCooldownTicks: ticksFromMinutes(22),
+      occupyCooldownTicks: ticksFromMinutes(12),
+      minAttackDurationTicks: ticksFromMinutes(22),
       attackHeatGain: 8,
       occupyHeatGain: 2,
       occupyInfluenceCost: 5,
@@ -124,6 +126,7 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
       "tech-core": 2
     },
     factions: FACTION_DEFINITION_BY_ID,
+    craftBuildings: freeModeCraftBuildings,
     fixedBuildings: freeModeFixedBuildings,
     buildingActions: freeModeBuildingActions,
     casino: freeModeCasinoConfig,

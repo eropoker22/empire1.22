@@ -23,7 +23,7 @@ describe("district action confirmation panel", () => {
   it("builds attack confirmation view-model without applying the action", () => {
     const viewModel = createAttackConfirmationViewModel({
       district: { id: 12 },
-      attackCooldownMs: 10000,
+      attackCooldownMs: 22 * 60 * 1000,
       context: {
         sourceDistrictId: 4,
         totalResidents: 3,
@@ -32,7 +32,7 @@ describe("district action confirmation panel", () => {
         selectedWeaponsLabel: "Pistole x2",
         resolvedScenario: { label: "Úspěch" },
         boostContext: {
-          cooldownMs: 15000,
+          cooldownMs: 15 * 60 * 1000,
           effectiveAttackPower: 64,
           summaryLabel: "Bonus továrny +22"
         }
@@ -46,7 +46,7 @@ describe("district action confirmation panel", () => {
       totalResidents: 3,
       attackPower: 64,
       scenarioLabel: "Úspěch",
-      durationLabel: "15s",
+      durationLabel: "15m",
       note: "Výzbroj: Pistole x2. Bonus továrny +22.",
       canConfirm: true
     });
@@ -117,14 +117,14 @@ describe("district action confirmation panel", () => {
       sourceDistrictId: 4,
       deployedMembers: 8,
       canConfirm: true,
-      robberyCooldownMs: 20000,
+      robberyCooldownMs: 14 * 60 * 1000,
       atmosphereMeta: { typeKey: "commercial", label: "Commercial", imagePath: "img/commercial.webp" }
     }, elements)).toBe(true);
 
     expect(title.textContent).toBe("District 17");
     expect(source.textContent).toBe("District 4");
     expect(members.textContent).toBe("8");
-    expect(duration.textContent).toBe("20s");
+    expect(duration.textContent).toBe("14m");
     expect(note.textContent).toBe("Vykrást district cílí jen na prázdný sousední district. Neobsazuje území, pouze získává loot z města.");
     expect(button.disabled).toBe(false);
     expect(card.dataset.districtType).toBe("commercial");
@@ -143,7 +143,8 @@ describe("district action confirmation panel", () => {
     const viewModel = createOccupyConfirmationViewModel({
       district: { id: 15 },
       adjacentOwnedDistrictIds: [3],
-      canOccupyAfterSpy: true
+      canOccupyAfterSpy: true,
+      occupyCooldownMs: 12 * 60 * 1000
     });
 
     renderOccupyConfirmationPanel(viewModel, {
@@ -158,8 +159,8 @@ describe("district action confirmation panel", () => {
     expect(title.textContent).toBe("District 15");
     expect(source.textContent).toBe("District 3");
     expect(condition.textContent).toBe("Špehování potvrzeno");
-    expect(duration.textContent).toBe("20s");
-    expect(note.textContent).toBe("Po potvrzení se spustí 20 sekundové obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe.");
+    expect(duration.textContent).toBe("12m");
+    expect(note.textContent).toBe("Po potvrzení se spustí 12m obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe.");
     expect(button.textContent).toBe("Spustit obsazení");
     expect(button.disabled).toBe(false);
   });

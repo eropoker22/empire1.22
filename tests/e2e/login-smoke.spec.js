@@ -32,7 +32,7 @@ test.describe("login smoke", () => {
     await page.getByPlaceholder("Ghost Crew").fill("E2E Crew");
     await page.getByTestId("guest-login-button").click();
 
-    await expect(page).toHaveURL(/\/pages\/lobby\.html\?mode=war$/);
+    await expect(page).toHaveURL(/\/pages\/lobby\.html\?mode=free$/);
     await expect(page.getByTestId("lobby-page")).toBeVisible();
 
     const session = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)), SESSION_STORAGE_KEY);
@@ -41,7 +41,7 @@ test.describe("login smoke", () => {
       gangName: "E2E Crew",
       isGuest: true,
       loginKind: "guest",
-      serverMode: "war"
+      serverMode: "free"
     });
 
     await assertNoRuntimeErrors(errors);

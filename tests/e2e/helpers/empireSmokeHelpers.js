@@ -5,7 +5,7 @@ export const SESSION_STORAGE_KEY = "empireStreets.session.v1";
 const DISTRICT_CANVAS_WIDTH = 1600;
 const DISTRICT_CANVAS_HEIGHT = 980;
 const DEFAULT_TEST_AVATAR = "../img/avatars/Mafia/2854d1df-0f7c-4fe4-aa85-7a70dfe299db.jpg";
-const CANONICAL_WAR_SERVER_ID = "instance:war:eu-central:public-1";
+const CANONICAL_FREE_SERVER_ID = "instance:free:eu-central:public-1";
 
 const BENIGN_CONSOLE_ERROR_PATTERNS = [
   /favicon\.ico/i,
@@ -94,16 +94,16 @@ export function createE2eSession(overrides = {}) {
       isGuest: true,
       loginKind: "guest",
       lastLoginAt: "2026-05-13T10:00:00.000Z",
-      activeServerId: CANONICAL_WAR_SERVER_ID,
-      activeServerInstanceId: CANONICAL_WAR_SERVER_ID,
-      activeServerName: "Vortex City WAR-01",
-      activeServerMode: "war",
+      activeServerId: CANONICAL_FREE_SERVER_ID,
+      activeServerInstanceId: CANONICAL_FREE_SERVER_ID,
+      activeServerName: "Neon Docks FREE-01",
+      activeServerMode: "free",
       activeServerRegion: "EU Central",
       activeServerStatus: "ONLINE",
-      serverId: CANONICAL_WAR_SERVER_ID,
-      serverInstanceId: CANONICAL_WAR_SERVER_ID,
-      serverLabel: "Vortex City WAR-01",
-      serverMode: "war",
+      serverId: CANONICAL_FREE_SERVER_ID,
+      serverInstanceId: CANONICAL_FREE_SERVER_ID,
+      serverLabel: "Neon Docks FREE-01",
+      serverMode: "free",
       serverRegion: "EU Central",
       preferredStartDistrictId: 27,
       startDistrictId: 27,
@@ -166,7 +166,7 @@ export async function openLobbyPage(page, options = {}) {
     registration: {
       serverId: undefined,
       serverLabel: undefined,
-      serverMode: "war",
+      serverMode: "free",
       serverRegion: undefined,
       activeServerId: undefined,
       activeServerName: undefined,
@@ -193,7 +193,7 @@ export async function openLobbyPage(page, options = {}) {
       ...(options.world || {})
     }
   });
-  await page.goto("/pages/lobby.html?mode=war");
+  await page.goto("/pages/lobby.html?mode=free");
   await expect(page.getByTestId("lobby-page")).toBeVisible();
   await expect(page.getByTestId("server-list")).toBeVisible();
 }

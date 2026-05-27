@@ -1,4 +1,5 @@
 import {
+  DEFAULT_PUBLIC_SERVER_MODE,
   getRegistrationDraft,
   saveLoginStep
 } from "./app/auth-flow.js";
@@ -326,7 +327,7 @@ const SERVER_STATUS_STATES = Object.freeze([
 ]);
 
 const state = {
-  activeMode: "war",
+  activeMode: DEFAULT_PUBLIC_SERVER_MODE,
   activeTab: "login",
   selectedLeaderboardPlayerId: null,
   leaderboardToastTimer: null,
@@ -364,9 +365,7 @@ document.addEventListener("DOMContentLoaded", () => {
 const resolveInitialMode = (registration) => {
   const params = new URLSearchParams(window.location.search);
   const requestedMode = normalizeMode(params.get("mode"));
-  const storedMode = normalizeMode(window.localStorage.getItem(ACTIVE_AUTH_MODE_KEY))
-    || normalizeMode(window.localStorage.getItem(ACTIVE_GUEST_MODE_KEY));
-  return requestedMode || normalizeMode(registration?.serverMode) || storedMode || "war";
+  return requestedMode || normalizeMode(registration?.serverMode) || DEFAULT_PUBLIC_SERVER_MODE;
 };
 
 const normalizeMode = (mode) => {
@@ -374,7 +373,7 @@ const normalizeMode = (mode) => {
   return normalized === "free" || normalized === "war" ? normalized : "";
 };
 
-const getModeServersUrl = (mode) => `${LOBBY_ENTRY_HREF}?mode=${normalizeMode(mode) || "war"}`;
+const getModeServersUrl = (mode) => `${LOBBY_ENTRY_HREF}?mode=${normalizeMode(mode) || DEFAULT_PUBLIC_SERVER_MODE}`;
 const sanitizeGuestValue = (value, maxLength) => String(value || "").trim().slice(0, maxLength);
 
 function bindServerSelectButton() {

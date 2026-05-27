@@ -140,7 +140,8 @@ describe("free-mode shared city simulation harness", () => {
     expect(baseline.report.playerCount).toBe(20);
     expect(baseline.report.uniqueHomeDistricts).toBe(20);
     expect(baseline.report.kpi.hardPassed).toBe(true);
-    expect(baseline.report.kpi.softWarnings.some((warning) => warning.code === "spy-heavy")).toBe(true);
+    expect(baseline.report.kpi.softWarnings.map((warning) => warning.code)).toContain("low-production");
+    expect(baseline.report.kpi.softWarnings.some((warning) => warning.code === "spy-heavy")).toBe(false);
 
     const mixed = matrix.scenarios.find((entry) => entry.scenario.name === "mixed-factions-20p")!;
     expect(mixed.scenario.options.factionRotation?.length).toBeGreaterThan(1);

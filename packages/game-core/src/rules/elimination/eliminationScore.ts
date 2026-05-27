@@ -64,11 +64,18 @@ export const createPlayerEliminationScore = (
   };
 };
 
+const ELIMINATION_SCORE_EPSILON = 0.0001;
+
 export const compareEliminationScores = (left: PlayerEliminationScore, right: PlayerEliminationScore): number =>
-  left.controlledDistricts - right.controlledDistricts
-  || left.score - right.score
+  compareScore(left.score, right.score)
+  || left.controlledDistricts - right.controlledDistricts
   || compareLastActionAt(left.lastActionAt, right.lastActionAt)
   || left.playerId.localeCompare(right.playerId);
+
+const compareScore = (left: number, right: number): number => {
+  const delta = left - right;
+  return Math.abs(delta) <= ELIMINATION_SCORE_EPSILON ? 0 : delta;
+};
 
 const compareLastActionAt = (left: string | null, right: string | null): number => {
   const leftTime = Date.parse(left ?? "");

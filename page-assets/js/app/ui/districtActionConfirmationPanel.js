@@ -13,6 +13,17 @@ function setElementDisabled(element, disabled) {
   }
 }
 
+function formatActionDuration(ms) {
+  const totalSeconds = Math.max(0, Math.ceil(Number(ms || 0) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes <= 0) {
+    return `${seconds}s`;
+  }
+
+  return seconds > 0 ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${minutes}m`;
+}
+
 function applyDistrictAtmosphere({
   card,
   imageElement,
@@ -179,7 +190,7 @@ export function createAttackConfirmationViewModel({
   attackCooldownMs = 0
 } = {}) {
   const scenarioLabel = context?.hasTrapDefense ? "Toxická past" : (context?.resolvedScenario?.label || "Neznámý");
-  const cooldownSeconds = Math.ceil(Number(context?.boostContext?.cooldownMs || attackCooldownMs) / 1000);
+  const cooldownMs = Number(context?.boostContext?.cooldownMs || attackCooldownMs || 0);
   const note = !context?.sourceDistrictId
     ? "Útok vyžaduje sousední vlastní district."
     : !context?.canConfirm
@@ -194,7 +205,7 @@ export function createAttackConfirmationViewModel({
     totalResidents: context?.totalResidents ?? 0,
     attackPower: context?.boostContext?.effectiveAttackPower ?? context?.totalPower ?? 0,
     scenarioLabel,
-    durationLabel: `${cooldownSeconds}s`,
+    durationLabel: formatActionDuration(cooldownMs),
     note,
     canConfirm: Boolean(context?.canConfirm),
     atmosphereMeta
@@ -249,7 +260,7 @@ export function createRobberyConfirmationViewModel({
     targetDistrictId: district?.id,
     sourceLabel: sourceDistrictId ? `District ${sourceDistrictId}` : "Žádný soused",
     membersLabel: String(deployedMembers),
-    durationLabel: `${Math.ceil(robberyCooldownMs / 1000)}s`,
+    durationLabel: formatActionDuration(robberyCooldownMs),
     note: !sourceDistrictId
       ? "Vykrást district vyžaduje sousední vlastní district."
       : deployedMembers <= 0
@@ -305,7 +316,7 @@ export function createTrapConfirmationViewModel({
 
   return {
     targetDistrictId: district?.id,
-    cooldownLabel: trapMoveCooldownSeconds > 0 ? `${trapMoveCooldownSeconds}s` : "Připraveno",
+    cooldownLabel: trapMoveCooldownSeconds > 0 ? formatActionDuration(trapMoveCooldownSeconds * 1000) : "Připraveno",
     note: isSameDistrict
       ? "Toxická past už je aktivní v tomto districtu."
       : isMovingTrap
@@ -374,7 +385,7 @@ export function createSpyConfirmationViewModel({
     targetDistrictId: district?.id,
     sourceLabel: hasSourceDistrict ? `District ${adjacentOwnedDistrictIds[0]}` : "Žádný soused",
     availableSpies,
-    durationLabel: `${Math.ceil(spyCooldownMs / 1000)}s`,
+    durationLabel: formatActionDuration(spyCooldownMs),
     note,
     canConfirm,
     confirmLabel: "Vyslat špeha",
@@ -420,6 +431,7 @@ export function createOccupyConfirmationViewModel({
   district,
   adjacentOwnedDistrictIds = [],
   canOccupyAfterSpy = false,
+  occupyCooldownMs = 12 * 60 * 1000,
   atmosphereMeta = {}
 } = {}) {
   const hasSourceDistrict = adjacentOwnedDistrictIds.length > 0;
@@ -428,12 +440,12 @@ export function createOccupyConfirmationViewModel({
     targetDistrictId: district?.id,
     sourceLabel: hasSourceDistrict ? `District ${adjacentOwnedDistrictIds[0]}` : "Žádný soused",
     conditionLabel: canOccupyAfterSpy ? "Špehování potvrzeno" : "Chybí špehování",
-    durationLabel: "20s",
+    durationLabel: formatActionDuration(occupyCooldownMs),
     note: !hasSourceDistrict
       ? "Obsazení vyžaduje sousední vlastní district."
       : !canOccupyAfterSpy
         ? "Nejdřív musí proběhnout úspěšné špehování. Teprve pak lze district obsadit."
-        : "Po potvrzení se spustí 20 sekundové obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe.",
+        : `Po potvrzení se spustí ${formatActionDuration(occupyCooldownMs)} obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe.`,
     canConfirm: hasSourceDistrict && canOccupyAfterSpy,
     confirmLabel: "Spustit obsazení",
     atmosphereMeta

@@ -241,9 +241,10 @@ describe("free session balance and anti-snowball simulation", () => {
         cooldownMultiplier: 0.8,
         productionMultiplier: 1.2,
         conflict: {
-          spyCooldownTicks: 1,
-          attackCooldownTicks: 36,
-          minAttackDurationTicks: 36,
+          spyCooldownTicks: 72,
+          attackCooldownTicks: 264,
+          occupyCooldownTicks: 144,
+          minAttackDurationTicks: 264,
           attackHeatGain: 8
         },
         police: {
