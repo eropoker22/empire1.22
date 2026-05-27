@@ -413,7 +413,11 @@ export async function expectNoDistrictActionModals(page) {
     "defense-setup-modal",
     "spy-confirm-modal"
   ]) {
-    await expect(page.getByTestId(testId)).toBeHidden();
+    const modal = page.getByTestId(testId);
+    if (await modal.count() === 0) {
+      continue;
+    }
+    await expect(modal).toBeHidden({ timeout: 1000 });
   }
 }
 

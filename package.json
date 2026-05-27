@@ -43,7 +43,9 @@
     "test:server": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/server",
     "test:persistence": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/persistence",
     "test:read-models": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/read-models",
-    "test:e2e": "playwright test",
+    "test:e2e": "npm run test:e2e:smoke",
+    "test:e2e:smoke": "playwright test tests/e2e/login-smoke.spec.js tests/e2e/onboarding-smoke.spec.js",
+    "test:e2e:full": "playwright test",
     "coverage:check": "node scripts/run-local-bin.mjs vitest/vitest.mjs run --coverage",
     "quality": "npm run lint && npm run smoke:ui && npm run typecheck && npm run test:full && npm run coverage:check"
   },

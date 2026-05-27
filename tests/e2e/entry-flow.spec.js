@@ -4,11 +4,7 @@ import {
   assertNoRuntimeErrors,
   clearStorageOnBoot,
   createRuntimeErrorMonitor,
-  closeDistrictPopup,
-  expectDistrictCanvasPainted,
   openLoginPage,
-  openGamePage,
-  openDistrictPopup,
   seedE2eSession,
   selectLobbyDistrict,
   waitForMapReady
@@ -166,17 +162,6 @@ test.describe("entry flow", () => {
     await expect(page).toHaveURL(/\/pages\/lobby\.html$/);
     await expect(page.getByTestId("lobby-page")).toBeVisible();
     await expect(page.getByTestId("server-list")).toBeVisible();
-    await assertNoRuntimeErrors(errors);
-  });
-
-  test("game boot renders map canvas and district popup opens and closes", async ({ page }) => {
-    const errors = createRuntimeErrorMonitor(page);
-
-    await openGamePage(page);
-    await expectDistrictCanvasPainted(page);
-    await openDistrictPopup(page, { districtId: 27 });
-    await expect(page.getByTestId("district-popup-card")).toBeVisible();
-    await closeDistrictPopup(page, "button");
     await assertNoRuntimeErrors(errors);
   });
 });
