@@ -1,0 +1,155 @@
+import { addAuditEvent, formatLocalTime } from "./audit-log";
+import { activeAlliances } from "./alliance-simulation";
+import {
+  countDowntownOwners,
+  createEliminationScore,
+  describeWeakness,
+  findLeader,
+  getBottomPlayers,
+  getOwnedDistricts,
+  isQuietHours,
+  neutralizePlayerDistricts,
+  resolveActivePlacement,
+  resolveQuietHoursResumeTick,
+  tickToHour,
+  ticksPerHour
+} from "./state-helpers";
+import type { FreeBrEliminationAudit, FreeBrSimulationState, FreeBrTimelineSnapshot } from "./types";
+
+export const maybeRunElimination = (state: FreeBrSimulationState): void => {
+  const config = state.config.balance.elimination;
+  if (!config?.enabled) return;
+  const activePlayers = state.players.filter((player) => player.status === "active");
+  if (activePlayers.length <= config.minActivePlayers) return;
+  if (state.tick < state.nextEliminationTick) return;
+
+  if (isQuietHours(state, state.tick)) {
+    state.nextEliminationTick = resolveQuietHoursResumeTick(state, state.tick);
+    state.counters.quietHoursDeferredEliminations += 1;
+    addAuditEvent(state, {
+      player: null,
+      actionType: "elimination",
+      result: "deferred-quiet-hours",
+      notes: `resume tick ${state.nextEliminationTick}`
+    });
+    return;
+  }
+
+  const bottom = getBottomPlayers(state, config.dangerZoneSize);
+  const eliminated = bottom[0];
+  if (!eliminated) return;
+  const score = createEliminationScore(state, eliminated);
+  const neutralizedDistricts = neutralizePlayerDistricts(state, eliminated.id);
+  eliminated.status = "defeated";
+  eliminated.allianceId = null;
+  state.stats[eliminated.id].eliminatedAtTick = state.tick;
+  state.stats[eliminated.id].finalPlacement = activePlayers.length;
+  state.counters.neutralizedDistrictsAfterEliminations += neutralizedDistricts;
+
+  const audit: FreeBrEliminationAudit = {
+    tick: state.tick,
+    hour: tickToHour(state, state.tick),
+    simulatedTime: new Date(state.startAtMs + state.tick * state.config.tickRateMs).toISOString(),
+    localTime: formatLocalTime(state),
+    eliminatedPlayerId: eliminated.id,
+    playerName: eliminated.name,
+    factionId: eliminated.factionId,
+    strategyId: eliminated.strategyId,
+    finalPlacement: activePlayers.length,
+    eliminationScore: score.score,
+    controlledDistricts: score.controlledDistricts,
+    influence: score.totalOwnedDistrictInfluence,
+    cash: score.cleanCash,
+    dirtyCash: score.dirtyCash,
+    resources: score.totalResourceValue,
+    activeBuildings: score.activeBuildingCount,
+    population: score.population,
+    reasonWhyWeak: describeWeakness(score),
+    bottomThree: bottom.map((player) => player.id),
+    deferredByQuietHours: false,
+    neutralizedDistricts,
+    largestBeneficiaryPlayerId: null
+  };
+  state.eliminations.push(audit);
+  for (const player of bottom.slice(1)) state.stats[player.id].comebackCount += 1;
+  state.nextEliminationTick = state.tick + config.intervalTicks;
+  addAuditEvent(state, {
+    player: eliminated,
+    actionType: "elimination",
+    result: "defeated",
+    districtDelta: -neutralizedDistricts,
+    notes: audit.reasonWhyWeak
+  });
+};
+
+export const maybeResolveVictory = (state: FreeBrSimulationState): void => {
+  if (state.winner) return;
+  const threshold = state.config.balance.districtControlVictoryThreshold ?? 0.75;
+  const activeDistricts = state.districts.filter((district) => district.status !== "destroyed");
+  const needed = Math.ceil(activeDistricts.length * threshold);
+  const leader = findLeader(state);
+  if (!leader) return;
+  const leaderDistricts = getOwnedDistricts(state, leader.id).length;
+  const allianceDistricts = leader.allianceId
+    ? state.districts.filter((district) => {
+        const owner = state.players.find((player) => player.id === district.ownerPlayerId);
+        return owner?.allianceId === leader.allianceId;
+      }).length
+    : 0;
+  const controlId = allianceDistricts >= leaderDistricts && leader.allianceId ? leader.allianceId : leader.id;
+  const controlled = Math.max(leaderDistricts, allianceDistricts);
+  const ageReady = state.tick >= (state.config.balance.minimumVictoryTicks ?? 0);
+  if (!ageReady || controlled < needed) {
+    state.victoryHoldStartTick = null;
+    state.victoryLeaderId = null;
+    return;
+  }
+  if (state.victoryLeaderId !== controlId) {
+    state.victoryLeaderId = controlId;
+    state.victoryHoldStartTick = state.tick;
+    return;
+  }
+  if (state.victoryHoldStartTick !== null && state.tick - state.victoryHoldStartTick >= (state.config.balance.districtControlHoldTicks ?? 0)) {
+    state.winner = controlId;
+    state.winReason = controlId.startsWith("alliance:") ? "alliance_control_75_percent" : "player_control_75_percent";
+    addAuditEvent(state, {
+      player: leader,
+      actionType: "victory",
+      result: state.winReason,
+      notes: `${controlled}/${activeDistricts.length} active districts controlled after hold window`
+    });
+  }
+};
+
+export const recordTimelineSnapshot = (state: FreeBrSimulationState): void => {
+  const leader = findLeader(state);
+  const bottomThree = getBottomPlayers(state, state.config.balance.elimination?.dangerZoneSize ?? 3).map((player) => player.id);
+  const snapshot: FreeBrTimelineSnapshot = {
+    hour: tickToHour(state, state.tick),
+    tick: state.tick,
+    activePlayers: state.players.filter((player) => player.status === "active").length,
+    leader: leader?.id ?? null,
+    leaderFaction: leader?.factionId ?? null,
+    leaderStrategy: leader?.strategyId ?? null,
+    leaderDistricts: leader ? getOwnedDistricts(state, leader.id).length : 0,
+    bottomThree,
+    attacksThisHour: state.hourlyCounters.attacks,
+    occupationsThisHour: state.hourlyCounters.occupations,
+    spyActionsThisHour: state.hourlyCounters.spies,
+    buildingActionsThisHour: state.hourlyCounters.buildingActions,
+    alliancesActive: activeAlliances(state).length,
+    downtownOwners: countDowntownOwners(state),
+    policePressure: Math.round(state.players.reduce((total, player) => total + player.heat, 0)),
+    upcomingEliminationCountdownHours: state.nextEliminationTick > state.tick
+      ? Math.round(((state.nextEliminationTick - state.tick) / ticksPerHour(state)) * 10) / 10
+      : 0,
+    quietHoursActive: isQuietHours(state, state.tick)
+  };
+  state.timeline.push(snapshot);
+  for (const player of state.players) {
+    const owned = getOwnedDistricts(state, player.id).length;
+    state.stats[player.id].controlledDistrictsOverTime.push({ hour: snapshot.hour, districts: owned });
+    state.stats[player.id].maxControlledDistricts = Math.max(state.stats[player.id].maxControlledDistricts, owned);
+    if (player.status === "active") state.stats[player.id].finalPlacement = resolveActivePlacement(state, player);
+  }
+};

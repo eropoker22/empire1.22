@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./free-br-simulation": "./src/free-br-simulation/index.ts"
   },
   "scripts": {
     "check": "echo debug tool shell pending"
   }
 }
-

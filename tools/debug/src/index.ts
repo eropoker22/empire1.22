@@ -10,5 +10,7 @@ export const debugToolShell = {
 };
 
 export * from "./admin-gameplay-slice-demo";
+export * from "./free-br-simulation";
+// Deprecated compatibility exports. New balance work should use free-br-simulation.
 export * from "./free-mode-pacing/simulate";
 export * from "./free-mode-shared-city-simulation";

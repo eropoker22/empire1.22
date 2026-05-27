@@ -1,0 +1,5 @@
+export const FREE_BR_DEFAULT_START_AT = "2026-05-27T06:00:00.000Z";
+export const FREE_BR_STEP_MINUTES = 5;
+export const FREE_BR_PLAYER_COUNT = 20;
+export const FREE_BR_DISTRICT_COUNT = 161;
+export const FREE_BR_DOWNTOWN_COUNT = 8;
