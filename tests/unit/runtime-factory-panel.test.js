@@ -46,10 +46,20 @@ describe("factory dashboard view model and panel", () => {
     expect(viewModel.headerLevelLabel).toBe("Lv 2");
     expect(viewModel.multiplierLabel).toBe("1.25x");
     expect(viewModel.upgradeCostLabel).toBe("100$");
-    expect(viewModel.resources).toEqual({ metalParts: "2", techCore: "0", combatModule: "5" });
+    expect(viewModel.resources).toEqual({ metalParts: "2/20", techCore: "0/10", combatModule: "5/5" });
     expect(viewModel.collectButton.disabled).toBe(false);
-    expect(viewModel.slots[0]).toMatchObject({ title: "Metal line", perHour: 1, resourceColor: "color:metalParts" });
-    expect(viewModel.slots[1].primaryLine).toBe("2 MP + 1 TC");
+    expect(viewModel.slots[0]).toMatchObject({
+      title: "Metal line",
+      perHour: 1,
+      resourceColor: "color:metalParts",
+      priceLabel: "120 Dirty Cash",
+      secondaryLine: "4 min",
+      displayCost: { dirtyCash: 120, techCore: 0 }
+    });
+    expect(viewModel.slots[0].typeLabel).toBe("");
+    expect(viewModel.slots[1].primaryLine).toBe("650 Dirty Cash + 1 Tech Core");
+    expect(viewModel.slots[1].priceLabel).toBe("650 Dirty Cash + 1 Tech Core");
+    expect(viewModel.slots[1].secondaryLine).toBe("15 min");
   });
 
   it("renders dashboard elements and forwards callbacks", () => {
@@ -65,7 +75,6 @@ describe("factory dashboard view model and panel", () => {
       supplyMetal: new FakeElement(),
       supplyTech: new FakeElement(),
       supplyCombat: new FakeElement(),
-      effectsLabel: new FakeElement(),
       upgradeButton: new FakeElement(),
       collectButton: new FakeElement(),
       infoPanel: new FakeElement(),
@@ -85,7 +94,6 @@ describe("factory dashboard view model and panel", () => {
       upgradeCostLabel: "50$",
       resources: { metalParts: "2", techCore: "3", combatModule: "4" },
       supplies: { metalParts: "5", techCore: "6", combatModule: "7" },
-      effectsLabel: "Síť Továren: 1 budova (+0% rychlost výroby)",
       upgradeButton: { disabled: false, text: "⇪", title: "Upgrade budovy (50$)" },
       collectButton: { disabled: true, text: "+", title: "Vybrat hotové do skladu" },
       slots: [{ slot: { id: "a" } }]

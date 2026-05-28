@@ -65,6 +65,7 @@ export const createEliminationReadModel = (
     currentPlayerStatus: resolveRiskStatus(player?.status ?? null, currentPlayerIndex, dangerZoneSize),
     currentPlayerScore: currentScore ? Math.round(currentScore.score * 100) / 100 : null,
     currentPlayerRankFromBottom: currentPlayerIndex >= 0 ? currentPlayerIndex + 1 : null,
+    currentPlayerScoreBreakdown: currentScore ? createEliminationScoreBreakdown(currentScore) : null,
     playerStatus: player?.status ?? null,
     lastElimination: createLastElimination(state)
   };
@@ -92,8 +93,21 @@ const createDisabledReadModel = (
   currentPlayerStatus: state.playersById[playerId]?.status === "defeated" ? "defeated" : "safe",
   currentPlayerScore: null,
   currentPlayerRankFromBottom: null,
+  currentPlayerScoreBreakdown: null,
   playerStatus: state.playersById[playerId]?.status ?? null,
   lastElimination: createLastElimination(state)
+});
+
+const createEliminationScoreBreakdown = (score: ReturnType<typeof createPlayerEliminationScore>): Record<string, number> => ({
+  controlledDistricts: score.controlledDistricts,
+  districtInfluence: Math.round(score.totalOwnedDistrictInfluence * 100) / 100,
+  activeBuildings: score.activeBuildingCount,
+  cleanCash: Math.round(score.cleanCash * 100) / 100,
+  dirtyCash: Math.round(score.dirtyCash * 100) / 100,
+  resources: Math.round(score.totalResourceValue * 100) / 100,
+  population: Math.round(score.population * 100) / 100,
+  recentActivityBonus: Math.round(score.recentActivityBonus * 100) / 100,
+  totalScore: Math.round(score.score * 100) / 100
 });
 
 const resolveReadModelQuietHoursResumeTick = (

@@ -172,9 +172,34 @@ describe("Empire onboarding flow", () => {
     const state = resolveOnboardingStepState(ONBOARDING_STEPS.find((step) => step.id === "danger-zone"), readModel, createRoot(["[data-br-info-open]"]));
 
     expect(readModel.eliminationAvailable).toBe(true);
-    expect(readModel.elimination.nextEliminationLabel).toBe("42 ticků");
+    expect(readModel.elimination.nextEliminationLabel).toBe("za 42m");
     expect(readModel.elimination.dangerZoneLabel).toBe("1 hráčů v danger zone");
+    expect(readModel.elimination.maxPlayersPerServer).toBe(20);
     expect(state.status).toBe("ready");
+  });
+
+  it("operator read model exposes final lockdown essentials", () => {
+    const readModel = createOnboardingReadModel({
+      player: {
+        finalLockdown: {
+          enabled: true,
+          active: true,
+          remainingActiveTicks: 462,
+          currentPlayerRank: 4,
+          currentPlayerFinalScore: 12000,
+          leaderboardTop3: [{ score: 51000 }, { score: 50000 }, { score: 49000 }],
+          topRankCount: 3
+        }
+      },
+      world: { ownedDistrictIds: [1] }
+    });
+
+    expect(readModel.finalLockdown).toMatchObject({
+      active: true,
+      remainingLabel: "7h 42m zbývá",
+      rankLabel: "#4",
+      top3Gap: "+37k"
+    });
   });
 
   it("day/night step uses the day/night read model when it exists", () => {

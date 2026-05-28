@@ -3,21 +3,22 @@ export const PRODUCTION_BUILDING_CONFIG = Object.freeze({
     label: "Lékárna",
     title: "Výroba látek",
     upgradeBaseCost: 3200,
-    infoText: "Lékárna drží základní chemické vstupy pro další výrobu. Je to první vrstva produkčního řetězce mezi materiálem a finálním produktem.",
+    infoText: "Lékárna vyrábí základní materiály pro Lab: Chemicals, Biomass a Stim Pack.",
     infoActions: Object.freeze(["+ Vybrat hotové přesune dokončené dávky do skladu materiálů.", "⇪ Upgrade zvyšuje rychlost výroby celé budovy o 10 % za level.", "Chemicals, Biomass a Stim Pack napájí recepty v Labu."])
   }),
   druglab: Object.freeze({
     label: "Lab",
     title: "Výroba drug balíků",
     upgradeBaseCost: 4200,
-    infoText: "Lab přetváří látky z Lékárny na finální balíky pro distribuci. Vyšší level zkracuje craft a zrychluje obrat celé nelegální produkce.",
+    infoText: "Lab míchá lékárenské vstupy do drog a podpůrných směsí pro další byznys.",
     infoActions: Object.freeze(["+ Vybrat hotové přesune dokončené balíky do skladu drog.", "⇪ Upgrade zvyšuje rychlost craftu všech receptů v Labu.", "Lab spotřebovává Chemicals, Biomass a Stim Pack z materiálového skladu."])
   }),
   armory: Object.freeze({
     label: "Zbrojovka",
     title: "Výroba výzbroje",
     upgradeBaseCost: 5200,
-    infoText: "Zbrojovka převádí Metal Parts a Tech Core na útočné i obranné vybavení. Je to hlavní zdroj výzbroje pro útoky i defense loadouty districtů.",
+    outputCap: 15,
+    infoText: "Zbrojovka vyrábí útočnou i obrannou výzbroj z Metal Parts a Tech Core.",
     infoActions: Object.freeze(["+ Vybrat hotové přesune zbraně do skladu výzbroje.", "⇪ Upgrade zvyšuje rychlost výroby zbrojovky o 10 % za level.", "Zbrojovka bere Metal Parts a Tech Core z materiálového skladu."])
   })
 });

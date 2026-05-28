@@ -720,7 +720,7 @@ body.game-body--booting .game-logo-slot {
 }
 
 .game-shell {
-  padding: 6px 0 34px;
+  padding: 6px 0 0;
 }
 
 .game-shell-ambience::before,
@@ -774,10 +774,25 @@ body.game-body--booting .game-logo-slot {
 
 .sidebar-shell.game-rail,
 .region-shell.game-stage {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
   backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+#game-rail-left.sidebar-shell.game-rail,
+#game-main-region.region-shell.game-stage,
+#game-rail-right.sidebar-shell.game-rail {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.sidebar-shell.game-rail::before,
+.region-shell.game-stage::before {
+  content: none !important;
+  display: none !important;
 }
 
 .panel-action-stack {
@@ -1370,7 +1385,45 @@ body.game-body--booting .game-logo-slot {
 }
 
 #game-overlay-region {
-  display: none;
+  position: fixed !important;
+  inset: auto 0 0 0 !important;
+  z-index: 0;
+  display: block !important;
+  width: 0;
+  height: 0;
+  min-height: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+#game-overlay-region > [data-mount-role] {
+  position: fixed;
+  width: 0;
+  height: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+@media (min-width: 721px) {
+  .game-mobile-utility-actions {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
 }
 
 .leaderboard-button {
@@ -1912,6 +1965,21 @@ body.game-body--booting .game-logo-slot {
   --city-status-accent-alt: 250, 204, 21;
 }
 
+.city-status-pill--danger {
+  --city-status-accent: 251, 146, 60;
+  --city-status-accent-alt: 248, 113, 113;
+}
+
+.city-status-pill--critical {
+  --city-status-accent: 248, 113, 113;
+  --city-status-accent-alt: 244, 63, 94;
+}
+
+.city-status-pill--final {
+  --city-status-accent: 250, 204, 21;
+  --city-status-accent-alt: 168, 85, 247;
+}
+
 .city-status-pill::before {
   content: "";
   position: absolute;
@@ -1950,6 +2018,36 @@ body.game-body--booting .game-logo-slot {
   text-shadow:
     0 0 8px rgba(var(--city-status-accent), 0.44),
     0 0 16px rgba(var(--city-status-accent-alt), 0.18);
+}
+
+.city-status-pill--action {
+  align-content: center;
+}
+
+.city-status-ai-button {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 0;
+  height: 12px;
+  padding: 0 4px;
+  border-radius: 6px;
+  border: 1px solid rgba(var(--city-status-accent), 0.36);
+  background: rgba(4, 10, 18, 0.44);
+  color: #f0fbff;
+  font-size: 0.42rem;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  box-shadow: 0 0 10px rgba(var(--city-status-accent), 0.14);
+}
+
+.city-status-ai-button:hover,
+.city-status-ai-button:focus-visible {
+  border-color: rgba(var(--city-status-accent), 0.72);
+  background: rgba(var(--city-status-accent), 0.16);
+  color: #ffffff;
 }
 
 .gang-profile-panel {
@@ -3111,7 +3209,7 @@ body.game-body--booting .game-logo-slot {
   }
 
   .game-shell {
-    padding: var(--mobile-topbar-offset, 188px) 0 34px;
+    padding: var(--mobile-topbar-offset, 188px) 0 0;
   }
 
   .game-layout--shell {
@@ -4913,4 +5011,15 @@ body.game-body--booting .game-logo-slot {
   .district-hover-tooltip {
     display: none !important;
   }
+}
+
+/* The mobile utility row used to sit after the game layout and created a
+   visible bottom strip. Keep the controls available through the topbar. */
+.game-mobile-utility-actions {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
 }

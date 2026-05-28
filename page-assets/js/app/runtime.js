@@ -19,6 +19,7 @@ import {
   DRUGLAB_RECIPES,
   FACTORY_SLOT_CONFIG,
   FACTORY_SLOT_STORAGE_CAP,
+  FACTORY_SLOT_STORAGE_CAPS,
   getMarketPriceKey,
   MARKET_PRICE_REFRESH_MS,
   MARKET_TAB_CONFIG,
@@ -737,6 +738,10 @@ import { createBuildingActionStatusRuntime } from "./runtime/buildingActionStatu
 import { createRegisteredPlayerStateRuntime } from "./runtime/registeredPlayerStateRuntime.js";
 import { createGangWantedStatusRuntime } from "./runtime/gangWantedStatusRuntime.js";
 import { createCityStatusBarRuntime } from "./runtime/cityStatusBarRuntime.js";
+import {
+  bindEliminationAiPanel,
+  bindEliminationCountdownWarning
+} from "./runtime/eliminationAiPanelRuntime.js";
 import { createPhaseToggleRuntime } from "./runtime/phaseToggleRuntime.js";
 import { createProductionBuildingPopupRuntime } from "./runtime/productionBuildingPopupRuntime.js";
 import { createFactoryPopupRuntime } from "./runtime/factoryPopupRuntime.js";
@@ -848,6 +853,9 @@ const runtimeContextsByRoot = new WeakMap();
 const onboardingBridgesByRoot = new WeakMap();
 const policeHeatBridgesByRoot = new WeakMap();
 const eventRumorBridgesByRoot = new WeakMap();
+const eliminationAiPanelsByRoot = new WeakMap();
+const eliminationCountdownWarningsByRoot = new WeakMap();
+let latestGameplaySliceReadModel = null;
 
 function getDefaultRuntimeRoot() {
   return getDefaultRuntimeRootElement(PAGE_ROOT_SELECTOR);
@@ -1164,12 +1172,38 @@ function getStoredWorldState() {
   };
 }
 
+function normalizeWorldOwnedDistrictIds(world) {
+  return Array.isArray(world?.ownedDistrictIds)
+    ? world.ownedDistrictIds.map(Number).filter(Boolean)
+    : [];
+}
+
+function haveSameWorldOwnedDistrictIds(leftWorld, rightWorld) {
+  const left = normalizeWorldOwnedDistrictIds(leftWorld);
+  const right = normalizeWorldOwnedDistrictIds(rightWorld);
+
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  const rightIds = new Set(right);
+  return left.every((districtId) => rightIds.has(districtId));
+}
+
 function setStoredWorldState(payload) {
+  const previousWorld = getStoredWorldState();
+  const nextWorld = payload || previousWorld;
+  const ownedDistrictIdsChanged = !haveSameWorldOwnedDistrictIds(previousWorld, nextWorld);
+
   updateStoredPreviewSession((session) => ({
     ...session,
-    world: payload || session.world
+    world: nextWorld || session.world
   }));
-  document.dispatchEvent(new CustomEvent("empire:world-state-changed"));
+  document.dispatchEvent(new CustomEvent("empire:world-state-changed", {
+    detail: {
+      ownedDistrictIdsChanged
+    }
+  }));
 }
 
 function pruneDistrictGossipMap(rawMap) {
@@ -2865,7 +2899,10 @@ function syncCompletedProductionJobs() {
 
 function scheduleProductionJob(jobId, rerender) {
   if (productionTimers.has(jobId)) {
-    return;
+    const timerId = productionTimers.get(jobId);
+    const clearTimer = typeof window !== "undefined" && typeof window.clearTimeout === "function" ? window.clearTimeout.bind(window) : globalThis.clearTimeout;
+    if (typeof clearTimer === "function") clearTimer(timerId);
+    productionTimers.delete(jobId);
   }
 
   const job = getProductionJob(jobId);
@@ -2893,6 +2930,19 @@ function scheduleProductionJob(jobId, rerender) {
   }, remainingMs);
 
   productionTimers.set(jobId, timerId);
+}
+
+function scheduleStoredProductionJobs(root = getDefaultRuntimeRoot()) {
+  syncCompletedProductionJobs();
+
+  const productionState = getResolvedProductionState();
+  const rerender = () => refreshAllUi(hydrateInitialState(root));
+
+  for (const [jobId, job] of Object.entries(productionState)) {
+    if (job?.status === "running") {
+      scheduleProductionJob(jobId, rerender);
+    }
+  }
 }
 
 function getStoredProductionBuildingsState() {
@@ -3032,6 +3082,7 @@ const {
     upgrade: PRODUCTION_BUILDING_UPGRADE_SELECTOR,
     upgradeCost: PRODUCTION_BUILDING_UPGRADE_COST_SELECTOR
   },
+  setInventoryAmount,
   setBuildingActionFeedback,
   setStoredEconomyState,
   setStoredProductionBuildingState,
@@ -3146,15 +3197,21 @@ function createFactoryPlayerSupplyMap(rawValue = {}) {
   return createFactoryResourceMap(rawValue, true);
 }
 
+function getFactorySlotStorageCap(resourceKey) {
+  return Math.max(1, Math.floor(Number(FACTORY_SLOT_STORAGE_CAPS?.[resourceKey] || FACTORY_SLOT_STORAGE_CAP)));
+}
+
 function createFactoryDefaultSlot(slot, now = Date.now()) {
   return {
     id: slot.id,
     resourceKey: slot.resourceKey,
     mode: slot.mode,
     isProducing: true,
+    queueMode: false,
+    queuedAmount: 0,
     producedAmount: 0,
     productionRemainder: 0,
-    slotCap: FACTORY_SLOT_STORAGE_CAP,
+    slotCap: getFactorySlotStorageCap(slot.resourceKey),
     lastTick: now
   };
 }
@@ -3201,9 +3258,11 @@ function sanitizeFactoryState(rawState, now = Date.now()) {
         resourceKey: slot.resourceKey,
         mode: slot.mode,
         isProducing: source?.isProducing !== false,
-        producedAmount: Math.max(0, Math.floor(Number(source?.producedAmount || 0))),
+        queueMode: Boolean(source?.queueMode),
+        queuedAmount: Math.max(0, Math.floor(Number(source?.queuedAmount || 0))),
+        producedAmount: Math.min(getFactorySlotStorageCap(slot.resourceKey), Math.max(0, Math.floor(Number(source?.producedAmount || 0)))),
         productionRemainder: Math.max(0, Number(source?.productionRemainder || 0)),
-        slotCap: FACTORY_SLOT_STORAGE_CAP,
+        slotCap: getFactorySlotStorageCap(slot.resourceKey),
         lastTick: Math.max(0, Math.floor(Number(source?.lastTick || now)))
       };
     }),
@@ -3252,11 +3311,23 @@ function getFactoryLevelMultiplier(level) {
 
 function calculateFactoryProductionRates(levelMultiplier = 1) {
   const multiplier = Math.max(0, Number(levelMultiplier) || 0);
+  const slotDurationMs = FACTORY_CONFIG.slotDurationMs || {};
   return {
-    metalPartsPerHour: FACTORY_CONFIG.baseProductionPerHour.metalParts * multiplier,
-    techCorePerHour: FACTORY_CONFIG.baseProductionPerHour.techCore * multiplier,
-    combatModulePerHour: ((60 * 60 * 1000) / FACTORY_CONFIG.combatModule.durationMs) * multiplier
+    metalPartsPerHour: ((60 * 60 * 1000) / Math.max(1, Number(slotDurationMs.metalParts || 4 * 60 * 1000))) * multiplier,
+    techCorePerHour: ((60 * 60 * 1000) / Math.max(1, Number(slotDurationMs.techCore || 8 * 60 * 1000))) * multiplier,
+    combatModulePerHour: ((60 * 60 * 1000) / Math.max(1, Number(slotDurationMs.combatModule || FACTORY_CONFIG.combatModule.durationMs))) * multiplier
   };
+}
+
+function getFactorySlotProductionDurationMs(resourceKey, productionMultiplier = 1) {
+  const slotDurationMs = FACTORY_CONFIG.slotDurationMs || {};
+  const fallbackDurationMs = resourceKey === "metalParts"
+    ? 4 * 60 * 1000
+    : resourceKey === "techCore"
+      ? 8 * 60 * 1000
+      : FACTORY_CONFIG.combatModule.durationMs;
+  const baseDurationMs = Math.max(1, Number(slotDurationMs[resourceKey] || fallbackDurationMs));
+  return Math.max(1, Math.round(baseDurationMs / Math.max(0.1, Number(productionMultiplier) || 1)));
 }
 
 function syncFactoryProduction(instanceState, now = Date.now(), options = {}) {
@@ -3283,38 +3354,60 @@ function syncFactoryProduction(instanceState, now = Date.now(), options = {}) {
       slot.lastTick = nowMs;
       return;
     }
+    if (slot.queueMode && Math.max(0, Math.floor(Number(slot.queuedAmount || 0))) <= 0) {
+      slot.isProducing = false;
+      slot.productionRemainder = 0;
+      slot.lastTick = nowMs;
+      return;
+    }
     if (slot.mode === "craft" || slot.resourceKey === "combatModule") {
-      const scaledDurationMs = Math.max(1, Math.round(FACTORY_CONFIG.combatModule.durationMs / effectiveProductionMultiplier));
+      const scaledDurationMs = getFactorySlotProductionDurationMs(slot.resourceKey, effectiveProductionMultiplier);
       const cycleRaw = elapsedMs / scaledDurationMs + Number(slot.productionRemainder || 0);
       const cycles = Math.max(0, Math.floor(cycleRaw));
       if (cycles > 0) {
         const maxFromMetal = Math.floor(Number(stateRef.resources.metalParts || 0) / FACTORY_CONFIG.combatModule.metalPartsCost);
         const maxFromTech = Math.floor(Number(stateRef.resources.techCore || 0) / FACTORY_CONFIG.combatModule.techCoreCost);
         const currentAmount = Math.max(0, Math.floor(Number(slot.producedAmount || 0)));
-        const slotSpace = Math.max(0, FACTORY_SLOT_STORAGE_CAP - currentAmount);
-        const crafted = Math.max(0, Math.min(cycles, maxFromMetal, maxFromTech, slotSpace));
+        const slotSpace = Math.max(0, getFactorySlotStorageCap(slot.resourceKey) - currentAmount);
+        const queueRemaining = Math.max(0, Math.floor(Number(slot.queuedAmount || 0)));
+        const queueLimit = slot.queueMode ? queueRemaining : Number.POSITIVE_INFINITY;
+        const crafted = Math.max(0, Math.min(cycles, maxFromMetal, maxFromTech, slotSpace, queueLimit));
         slot.productionRemainder = crafted === cycles ? Math.max(0, cycleRaw - cycles) : 0;
         if (crafted > 0) {
           consumeFactorySlotOutput(stateRef, "metalParts", crafted * FACTORY_CONFIG.combatModule.metalPartsCost);
           consumeFactorySlotOutput(stateRef, "techCore", crafted * FACTORY_CONFIG.combatModule.techCoreCost);
           stateRef.resources.combatModule = Math.max(0, Math.floor(Number(stateRef.resources.combatModule || 0) + crafted));
           slot.producedAmount = Math.max(0, currentAmount + crafted);
+          if (slot.queueMode) {
+            slot.queuedAmount = Math.max(0, queueRemaining - crafted);
+            if (slot.queuedAmount <= 0) {
+              slot.isProducing = false;
+            }
+          }
           produced.combatModule = Math.max(0, Math.floor(Number(produced.combatModule || 0) + crafted));
         }
       } else {
         slot.productionRemainder = Math.max(0, cycleRaw - cycles);
       }
     } else {
-      const perHour = slot.resourceKey === "metalParts" ? rates.metalPartsPerHour : rates.techCorePerHour;
-      const raw = (elapsedMs / 3600000) * Math.max(0, Number(perHour || 0)) + Number(slot.productionRemainder || 0);
+      const scaledDurationMs = getFactorySlotProductionDurationMs(slot.resourceKey, effectiveProductionMultiplier);
+      const raw = elapsedMs / scaledDurationMs + Number(slot.productionRemainder || 0);
       const gained = Math.max(0, Math.floor(raw));
       if (gained > 0) {
         const currentAmount = Math.max(0, Math.floor(Number(slot.producedAmount || 0)));
-        const slotSpace = Math.max(0, FACTORY_SLOT_STORAGE_CAP - currentAmount);
-        const storable = Math.min(gained, slotSpace);
+        const slotSpace = Math.max(0, getFactorySlotStorageCap(slot.resourceKey) - currentAmount);
+        const queueRemaining = Math.max(0, Math.floor(Number(slot.queuedAmount || 0)));
+        const queueLimit = slot.queueMode ? queueRemaining : Number.POSITIVE_INFINITY;
+        const storable = Math.min(gained, slotSpace, queueLimit);
         slot.productionRemainder = storable === gained ? Math.max(0, raw - gained) : 0;
         slot.producedAmount = Math.max(0, currentAmount + storable);
         stateRef.resources[slot.resourceKey] = Math.max(0, Math.floor(Number(stateRef.resources[slot.resourceKey] || 0) + storable));
+        if (slot.queueMode) {
+          slot.queuedAmount = Math.max(0, queueRemaining - storable);
+          if (slot.queuedAmount <= 0) {
+            slot.isProducing = false;
+          }
+        }
         produced[slot.resourceKey] = Math.max(0, Math.floor(Number(produced[slot.resourceKey] || 0) + storable));
       } else {
         slot.productionRemainder = Math.max(0, raw - gained);
@@ -3785,6 +3878,66 @@ function getLaunchPlayerFactionId(ownerId) {
 
 function getLaunchPlayerAvatar(ownerId) {
   return getLaunchPlayerRuntime().getLaunchPlayerAvatar(ownerId);
+}
+
+function normalizeEliminationOwnerId(value) {
+  const direct = Number(value);
+  if (Number.isFinite(direct) && direct > 0) return direct;
+  const match = String(value || "").match(/(\d+)$/u);
+  const parsed = match ? Number(match[1]) : 0;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function neutralizeLaunchPlayerDistricts(root, ownerId) {
+  const normalizedOwnerId = normalizeEliminationOwnerId(ownerId);
+  if (!normalizedOwnerId) return 0;
+
+  const neutralizedDistrictIds = [];
+  for (const [districtId, launchOwnerId] of Array.from(START_PHASE_OWNER_BY_DISTRICT_ID.entries())) {
+    if (Number(launchOwnerId) === normalizedOwnerId) {
+      START_PHASE_OWNER_BY_DISTRICT_ID.delete(districtId);
+      neutralizedDistrictIds.push(Number(districtId));
+    }
+  }
+
+  const worldState = getResolvedWorldState();
+  const ownedDistrictIds = Array.isArray(worldState.ownedDistrictIds)
+    ? worldState.ownedDistrictIds.map(Number).filter(Boolean)
+    : [];
+  const neutralizedSet = new Set(neutralizedDistrictIds);
+  const nextOwnedDistrictIds = ownedDistrictIds.filter((districtId) => !neutralizedSet.has(Number(districtId)));
+  const currentPlayerOwnedChanged = nextOwnedDistrictIds.length !== ownedDistrictIds.length;
+
+  if (currentPlayerOwnedChanged) {
+    setStoredWorldState({
+      ...worldState,
+      ownedDistrictIds: nextOwnedDistrictIds
+    });
+  } else if (neutralizedDistrictIds.length > 0) {
+    document.dispatchEvent(new CustomEvent("empire:world-state-changed", {
+      detail: {
+        ownedDistrictIdsChanged: false,
+        neutralizedDistrictIds
+      }
+    }));
+  }
+
+  if (root && neutralizedDistrictIds.length > 0) {
+    refreshAllUi(hydrateInitialState(root));
+  }
+
+  return neutralizedDistrictIds.length;
+}
+
+function enrichEliminationResultForLaunchMap(root, result = {}) {
+  const ownerId = normalizeEliminationOwnerId(result.ownerId || result.playerId);
+  const districtsNeutralized = neutralizeLaunchPlayerDistricts(root, ownerId);
+  return {
+    ownerId,
+    gangName: result.gangName || (ownerId ? getLaunchPlayerName(ownerId) : "neznámý gang"),
+    avatarSrc: result.avatarSrc || (ownerId ? getLaunchPlayerAvatar(ownerId) : ""),
+    districtsNeutralized
+  };
 }
 
 function getCurrentPlayerLaunchStartDistrictId() {
@@ -4505,26 +4658,28 @@ function setStoredDistrictBuildingDetailState(payload) {
   saveDistrictBuildingDetailState(payload);
 }
 
+function hasStoredDistrictBuildingDetailEntry(district, buildingName) {
+  const state = getStoredDistrictBuildingDetailState();
+  const key = getDistrictBuildingDetailStorageKey(district, buildingName);
+  return Boolean(state[key] && typeof state[key] === "object");
+}
+
 function getDistrictBuildingDetailEntry(district, buildingName) {
   const state = getStoredDistrictBuildingDetailState();
   const key = getDistrictBuildingDetailStorageKey(district, buildingName);
   const entry = state[key] && typeof state[key] === "object" ? state[key] : {};
-  const buildingLookupKey = resolveDistrictBuildingCanonicalLookupKey(buildingName);
-  const isApartmentBlock = isApartmentBlockBuildingName(buildingName);
-  const isSchool = buildingLookupKey === "skola";
+  const now = Date.now();
   const level = Math.max(1, Math.min(DISTRICT_BUILDING_DETAIL_MAX_LEVEL, Math.floor(Number(entry.level || 1))));
   const lastCollectedAt = Number.isFinite(Number(entry.lastCollectedAt))
     ? Number(entry.lastCollectedAt)
-    : isApartmentBlock || isSchool
-      ? Date.now()
-      : Date.now() - DISTRICT_BUILDING_DETAIL_DEFAULT_ACCRUAL_MS;
+    : now - DISTRICT_BUILDING_DETAIL_DEFAULT_ACCRUAL_MS;
   const actionCooldowns = entry.actionCooldowns && typeof entry.actionCooldowns === "object"
     ? entry.actionCooldowns
     : {};
   const activeEffects = Array.isArray(entry.activeEffects)
     ? entry.activeEffects
         .filter((effect) => effect && typeof effect === "object")
-        .filter((effect) => Number(effect.expiresAt || 0) > Date.now())
+        .filter((effect) => Number(effect.expiresAt || 0) > now)
     : [];
   return {
     level,
@@ -4534,9 +4689,7 @@ function getDistrictBuildingDetailEntry(district, buildingName) {
     storedPopulation: Math.max(0, Number(entry.storedPopulation || 0)),
     populationLastUpdatedAt: Number.isFinite(Number(entry.populationLastUpdatedAt))
       ? Number(entry.populationLastUpdatedAt)
-      : isApartmentBlock
-        ? Date.now()
-        : lastCollectedAt,
+      : lastCollectedAt,
     populationCapacity: Number.isFinite(Number(entry.populationCapacity))
       ? Math.max(1, Math.floor(Number(entry.populationCapacity)))
       : APARTMENT_BLOCK_BASE_CAPACITY,
@@ -4546,9 +4699,7 @@ function getDistrictBuildingDetailEntry(district, buildingName) {
     storedStudents: Math.max(0, Number(entry.storedStudents || 0)),
     schoolLastUpdatedAt: Number.isFinite(Number(entry.schoolLastUpdatedAt))
       ? Number(entry.schoolLastUpdatedAt)
-      : isSchool
-        ? Date.now()
-        : lastCollectedAt,
+      : lastCollectedAt,
     studentCapacity: Number.isFinite(Number(entry.studentCapacity))
       ? Math.max(1, Math.floor(Number(entry.studentCapacity)))
       : SCHOOL_CONFIG.baseStudentCapacity,
@@ -4557,6 +4708,22 @@ function getDistrictBuildingDetailEntry(district, buildingName) {
       : 0,
     schoolEveningCourseExpiresAt: Number.isFinite(Number(entry.schoolEveningCourseExpiresAt))
       ? Number(entry.schoolEveningCourseExpiresAt)
+      : 0,
+    storedDirtyCash: Math.max(0, Number(entry.storedDirtyCash || 0)),
+    smugglingLastUpdatedAt: Number.isFinite(Number(entry.smugglingLastUpdatedAt))
+      ? Number(entry.smugglingLastUpdatedAt)
+      : lastCollectedAt,
+    smugglingBatchCapacity: Number.isFinite(Number(entry.smugglingBatchCapacity))
+      ? Math.max(0, Math.floor(Number(entry.smugglingBatchCapacity)))
+      : SMUGGLING_TUNNEL_CONFIG.baseBatchCapacity,
+    smugglingFullNotifiedAt: Number.isFinite(Number(entry.smugglingFullNotifiedAt))
+      ? Number(entry.smugglingFullNotifiedAt)
+      : 0,
+    openChannelExpiresAt: Number.isFinite(Number(entry.openChannelExpiresAt))
+      ? Number(entry.openChannelExpiresAt)
+      : 0,
+    silentChannelExpiresAt: Number.isFinite(Number(entry.silentChannelExpiresAt))
+      ? Number(entry.silentChannelExpiresAt)
       : 0
   };
 }
@@ -4891,6 +5058,176 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     storedOutputLabel,
     effectsLabel,
     actionCooldowns: entry.actionCooldowns
+  };
+}
+
+const RUNTIME_PASSIVE_PRODUCTION_SYNC_INTERVAL_MS = 30_000;
+const PASSIVE_DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES = new Set([
+  "apartment-block",
+  "school",
+  "smuggling-tunnel"
+]);
+let lastRuntimePassiveProductionSyncAt = 0;
+
+function getDistrictBuildingNameForProductionSync(building) {
+  return String(building?.baseName || building?.displayName || building?.name || "").trim();
+}
+
+function syncFactoryProductionBuffer(now = Date.now()) {
+  const syncResult = syncFactoryProduction(getStoredFactoryState(), now);
+  setStoredFactoryState(syncResult.state);
+  return syncResult;
+}
+
+function persistDistrictBuildingDetailProductionSnapshot(district, buildingName, mechanics, now = Date.now()) {
+  if (!district || !buildingName || !PASSIVE_DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES.has(mechanics?.mechanicsType)) {
+    return false;
+  }
+
+  if (mechanics.mechanicsType === "apartment-block") {
+    updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
+      ...entry,
+      storedPopulation: mechanics.apartmentStoredPopulation,
+      populationLastUpdatedAt: now,
+      populationCapacity: mechanics.apartmentCapacity,
+      populationFullNotifiedAt: entry.populationFullNotifiedAt
+    }));
+    return true;
+  }
+
+  if (mechanics.mechanicsType === "school") {
+    updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
+      ...entry,
+      storedStudents: mechanics.schoolStoredStudents,
+      schoolLastUpdatedAt: now,
+      studentCapacity: mechanics.schoolCapacity,
+      studentFullNotifiedAt: entry.studentFullNotifiedAt
+    }));
+    return true;
+  }
+
+  if (mechanics.mechanicsType === "smuggling-tunnel") {
+    updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
+      ...entry,
+      storedDirtyCash: mechanics.smugglingStoredDirtyCash,
+      smugglingLastUpdatedAt: now,
+      smugglingBatchCapacity: mechanics.smugglingBatchCapacity,
+      smugglingFullNotifiedAt: entry.smugglingFullNotifiedAt
+    }));
+    return true;
+  }
+
+  return false;
+}
+
+function initializeDistrictBuildingDetailProductionBaseline(district, buildingName, mechanics, now = Date.now()) {
+  if (!district || !buildingName || !PASSIVE_DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES.has(mechanics?.mechanicsType)) {
+    return false;
+  }
+
+  if (mechanics.mechanicsType === "apartment-block") {
+    updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
+      ...entry,
+      lastCollectedAt: now,
+      storedPopulation: 0,
+      populationLastUpdatedAt: now,
+      populationCapacity: mechanics.apartmentCapacity,
+      populationFullNotifiedAt: 0
+    }));
+    return true;
+  }
+
+  if (mechanics.mechanicsType === "school") {
+    updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
+      ...entry,
+      lastCollectedAt: now,
+      storedStudents: 0,
+      schoolLastUpdatedAt: now,
+      studentCapacity: mechanics.schoolCapacity,
+      studentFullNotifiedAt: 0
+    }));
+    return true;
+  }
+
+  if (mechanics.mechanicsType === "smuggling-tunnel") {
+    updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
+      ...entry,
+      lastCollectedAt: now,
+      storedDirtyCash: 0,
+      smugglingLastUpdatedAt: now,
+      smugglingBatchCapacity: mechanics.smugglingBatchCapacity,
+      smugglingFullNotifiedAt: 0
+    }));
+    return true;
+  }
+
+  return false;
+}
+
+function syncOwnedDistrictBuildingDetailProduction({ now = Date.now() } = {}) {
+  const districtStateApi = typeof window !== "undefined" ? window.empireStreetsDistrictState : null;
+  const ownedDistrictIds = normalizeWorldOwnedDistrictIds(getResolvedWorldState());
+  let syncedBuildings = 0;
+
+  if (!districtStateApi?.getDistrictById || ownedDistrictIds.length <= 0) {
+    return { syncedBuildings };
+  }
+
+  for (const districtId of ownedDistrictIds) {
+    const district = districtStateApi.getDistrictById(districtId);
+    const buildingProfile = district ? resolveDistrictBuildingProfile(district) : null;
+    const buildings = Array.isArray(buildingProfile?.buildings) ? buildingProfile.buildings : [];
+
+    for (const building of buildings) {
+      const buildingName = getDistrictBuildingNameForProductionSync(building);
+      const mechanicsType = resolveDistrictBuildingDetailMechanicsType(buildingName);
+
+      if (!buildingName || !PASSIVE_DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES.has(mechanicsType)) {
+        continue;
+      }
+
+      try {
+        const hasStoredEntry = hasStoredDistrictBuildingDetailEntry(district, buildingName);
+        const mechanics = resolveDistrictBuildingDetailMechanics(district, buildingName);
+        const didSync = hasStoredEntry
+          ? persistDistrictBuildingDetailProductionSnapshot(district, buildingName, mechanics, now)
+          : initializeDistrictBuildingDetailProductionBaseline(district, buildingName, mechanics, now);
+        if (didSync) {
+          syncedBuildings += 1;
+        }
+      } catch (error) {
+        warnRuntimeOrchestrator(`Passive building production sync failed: ${buildingName}`, error);
+      }
+    }
+  }
+
+  return { syncedBuildings };
+}
+
+function syncRuntimePassiveProductionState(options = {}) {
+  const now = Math.max(0, Math.floor(Number(options.now ?? Date.now())));
+  const minIntervalMs = Math.max(0, Number(options.minIntervalMs ?? RUNTIME_PASSIVE_PRODUCTION_SYNC_INTERVAL_MS) || 0);
+  const force = Boolean(options.force);
+
+  if (!force && lastRuntimePassiveProductionSyncAt > 0 && now - lastRuntimePassiveProductionSyncAt < minIntervalMs) {
+    return { skipped: true };
+  }
+
+  lastRuntimePassiveProductionSyncAt = now;
+  syncCompletedProductionJobs();
+  const factory = options.includeFactory === false ? null : syncFactoryProductionBuffer(now);
+  const districtBuildings = options.includeDistrictBuildings === false
+    ? { syncedBuildings: 0 }
+    : syncOwnedDistrictBuildingDetailProduction({ now });
+
+  if (options.scheduleProductionJobs !== false) {
+    scheduleStoredProductionJobs(options.root || getDefaultRuntimeRoot());
+  }
+
+  return {
+    skipped: false,
+    factory,
+    districtBuildings
   };
 }
 
@@ -7822,8 +8159,14 @@ function bindDistrictCanvas(root) {
   phaseHost.addEventListener("gamephasechange", render);
   window.addEventListener("empire:alliance-state-changed", render);
   window.addEventListener("empire:bounty-state-changed", render);
-  document.addEventListener("empire:world-state-changed", () => {
+  document.addEventListener("empire:world-state-changed", (event) => {
     syncInteractionDistrictAuthorityState();
+    syncRuntimePassiveProductionState({
+      root,
+      force: Boolean(event?.detail?.ownedDistrictIdsChanged),
+      minIntervalMs: 60_000,
+      scheduleProductionJobs: false
+    });
     render();
     ensureMissionAnimationLoop();
   });
@@ -8960,9 +9303,15 @@ function refreshAllUi(state = null) {
 function createFreeSessionUiContext(root) {
   const session = getAuthoritySession();
   const world = getResolvedWorldState();
+  const gameplaySlice = latestGameplaySliceReadModel || null;
+  const player = gameplaySlice?.player || null;
   return {
     registration: getStoredRegistration(),
-    mode: "dev-only",
+    mode: player?.mode || gameplaySlice?.mode?.id || "dev-only",
+    gameplaySlice,
+    player,
+    elimination: player?.elimination || gameplaySlice?.elimination || null,
+    finalLockdown: player?.finalLockdown || null,
     world,
     phase: world.phaseState,
     economy: getResolvedEconomyState(),
@@ -9018,6 +9367,39 @@ function bindFreeSessionOnboarding(root) {
   });
   onboardingBridgesByRoot.set(root, bridge);
   bridge.init();
+  return true;
+}
+
+function bindEliminationOperatorPanel(root) {
+  if (!root || eliminationAiPanelsByRoot.has(root)) {
+    return false;
+  }
+
+  root.ownerDocument?.addEventListener?.("empire:gameplay-slice-rendered", (event) => {
+    latestGameplaySliceReadModel = event?.detail?.gameplaySlice || null;
+  });
+  const panel = bindEliminationAiPanel(root, {
+    getGameplaySlice: () => latestGameplaySliceReadModel,
+    getPlayerView: () => latestGameplaySliceReadModel?.player || createFreeSessionUiContext(root),
+    onCountdownElapsed: (result) => enrichEliminationResultForLaunchMap(root, result)
+  });
+  if (!panel) {
+    return false;
+  }
+  eliminationAiPanelsByRoot.set(root, panel);
+  return true;
+}
+
+function bindEliminationCountdownWarningOverlay(root) {
+  if (!root || eliminationCountdownWarningsByRoot.has(root)) {
+    return false;
+  }
+
+  const warning = bindEliminationCountdownWarning(root);
+  if (!warning) {
+    return false;
+  }
+  eliminationCountdownWarningsByRoot.set(root, warning);
   return true;
 }
 
@@ -9227,6 +9609,8 @@ function bindUiEvents(root, context = null) {
   bindLogoutActions(root);
   bindGangWantedStatus(root);
   bindFreeSessionOnboarding(root);
+  bindEliminationOperatorPanel(root);
+  bindEliminationCountdownWarningOverlay(root);
   bindEventRumorFeed(root);
   bindPoliceHeatFeedback(root);
   bindPlayerProfilePopup(root);
@@ -9262,17 +9646,19 @@ function initRuntime(root = getDefaultRuntimeRoot()) {
 
   if (runtimeInitializedRoots.has(resolvedRoot)) {
     const context = runtimeContextsByRoot.get(resolvedRoot) || createPageContext(resolvedRoot);
+    syncRuntimePassiveProductionState({ root: resolvedRoot, force: true });
     refreshAllUi(hydrateInitialState(resolvedRoot));
     return context;
   }
 
-  const initialState = hydrateInitialState(resolvedRoot);
+  hydrateInitialState(resolvedRoot);
   const context = createPageContext(resolvedRoot);
   window.empireStreetsPage = context;
   markMounts(context);
   bindUiEvents(resolvedRoot, context);
+  syncRuntimePassiveProductionState({ root: resolvedRoot, force: true });
   applySettingsState(getSettingsState());
-  refreshAllUi(initialState);
+  refreshAllUi(hydrateInitialState(resolvedRoot));
   resolvedRoot.dataset.bootstrap = "ready";
   resolvedRoot.dataset.runtimeInit = "ready";
   document.documentElement.dataset.page = context.name;
@@ -9503,6 +9889,7 @@ export {
   bindCityStatusBar,
   bindDistrictCanvas,
   bindDrugLabPopup,
+  bindEliminationOperatorPanel,
   bindEventRumorFeed,
   bindFactoryPopup,
   bindFactionRegistration,
@@ -9676,5 +10063,9 @@ export {
   showSpyToast,
   showToast,
   showWarning,
-  syncCompletedProductionJobs
+  syncCompletedProductionJobs,
+  syncFactoryProduction,
+  syncOwnedDistrictBuildingDetailProduction,
+  syncRuntimePassiveProductionState,
+  scheduleStoredProductionJobs
 };

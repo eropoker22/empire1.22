@@ -4,6 +4,43 @@ function getFactorySlotPerHour(slot = {}, rates = {}) {
   return rates.combatModulePerHour;
 }
 
+const FACTORY_SLOT_DISPLAY_INFO = Object.freeze({
+  metalParts: Object.freeze({
+    durationLabel: "4 min",
+    priceLabel: "120 Dirty Cash",
+    storageCap: 20,
+    displayCost: Object.freeze({ dirtyCash: 120, techCore: 0 }),
+    primaryLine: "120 Dirty Cash",
+    secondaryLine: "4 min"
+  }),
+  techCore: Object.freeze({
+    durationLabel: "8 min",
+    priceLabel: "300 Dirty Cash",
+    storageCap: 10,
+    displayCost: Object.freeze({ dirtyCash: 300, techCore: 0 }),
+    primaryLine: "300 Dirty Cash",
+    secondaryLine: "8 min"
+  }),
+  combatModule: Object.freeze({
+    durationLabel: "15 min",
+    priceLabel: "650 Dirty Cash + 1 Tech Core",
+    storageCap: 5,
+    displayCost: Object.freeze({ dirtyCash: 650, techCore: 1 }),
+    primaryLine: "650 Dirty Cash + 1 Tech Core",
+    secondaryLine: "15 min"
+  })
+});
+
+function getFactorySlotDisplayInfo(slot = {}) {
+  return FACTORY_SLOT_DISPLAY_INFO[slot.resourceKey] || FACTORY_SLOT_DISPLAY_INFO.metalParts;
+}
+
+function formatFactoryReadyLabel(amount, resourceKey) {
+  const cap = FACTORY_SLOT_DISPLAY_INFO[resourceKey]?.storageCap || 0;
+  const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
+  return cap > 0 ? `${safeAmount}/${cap}` : String(safeAmount);
+}
+
 function getFactoryReadyResourceTotals(slots = []) {
   return (Array.isArray(slots) ? slots : []).reduce((totals, slot) => {
     const key = String(slot?.resourceKey || "").trim();
@@ -14,14 +51,15 @@ function getFactoryReadyResourceTotals(slots = []) {
 }
 
 function getFactorySlotVisual(slot = {}, config = {}, formatDurationLabel = (value) => `${value}ms`) {
+  const displayInfo = getFactorySlotDisplayInfo(slot);
   if (slot.resourceKey === "metalParts") {
     return {
       iconToneClass: "drug-production-slot__icon--amber",
       iconGlyphClass: "drug-production-slot__icon--crate",
-      typeLabel: `Výrobní slot ${slot.id}`,
+      typeLabel: "",
       profileLabel: "Profil",
-      primaryLine: "Surovinový výstup",
-      secondaryLine: "Základ pro další výrobu"
+      primaryLine: displayInfo.primaryLine,
+      secondaryLine: displayInfo.secondaryLine
     };
   }
 
@@ -29,21 +67,43 @@ function getFactorySlotVisual(slot = {}, config = {}, formatDurationLabel = (val
     return {
       iconToneClass: "drug-production-slot__icon--cyan",
       iconGlyphClass: "drug-production-slot__icon--chip",
-      typeLabel: `Výrobní slot ${slot.id}`,
+      typeLabel: "",
       profileLabel: "Profil",
-      primaryLine: "Pokročilé jádro",
-      secondaryLine: "Support pro vyšší tier"
+      primaryLine: displayInfo.primaryLine,
+      secondaryLine: displayInfo.secondaryLine
     };
   }
 
   return {
     iconToneClass: "drug-production-slot__icon--red",
     iconGlyphClass: "drug-production-slot__icon--crosshair",
-    typeLabel: `Craft slot ${slot.id}`,
+    typeLabel: "",
     profileLabel: "Recept",
-    primaryLine: `${config.combatModule?.metalPartsCost || 0} MP + ${config.combatModule?.techCoreCost || 0} TC`,
-    secondaryLine: `${formatDurationLabel(config.combatModule?.durationMs || 0)} / kus`
+    primaryLine: displayInfo.primaryLine,
+    secondaryLine: displayInfo.secondaryLine || `${formatDurationLabel(config.combatModule?.durationMs || 0)} / kus`
   };
+}
+
+function getFactorySlotPriceLabel(slot = {}) {
+  return getFactorySlotDisplayInfo(slot).priceLabel || "bez ceny";
+}
+
+function getFactorySlotDurationMs(slot = {}, config = {}) {
+  const configuredDuration = Number(config.slotDurationMs?.[slot.resourceKey]);
+  if (Number.isFinite(configuredDuration) && configuredDuration > 0) {
+    return configuredDuration;
+  }
+  return FACTORY_SLOT_DISPLAY_INFO[slot.resourceKey]?.durationMs || (
+    slot.resourceKey === "metalParts"
+      ? 4 * 60 * 1000
+      : slot.resourceKey === "techCore"
+        ? 8 * 60 * 1000
+        : 15 * 60 * 1000
+  );
+}
+
+function getEffectiveFactorySlotDurationMs(slot = {}, config = {}, productionMultiplier = 1) {
+  return Math.max(1000, Math.round(getFactorySlotDurationMs(slot, config) / Math.max(0.1, Number(productionMultiplier) || 1)));
 }
 
 export function buildFactoryDashboardViewModel({
@@ -75,16 +135,16 @@ export function buildFactoryDashboardViewModel({
     ownedCountLabel: String(Math.max(0, Math.floor(Number(syncResult.ownedFactoryCount || 0)))),
     upgradeCostLabel: isMaxLevel ? "MAX" : formatCurrency(nextUpgradeCost),
     resources: {
-      metalParts: String(readyResources.metalParts || 0),
-      techCore: String(readyResources.techCore || 0),
-      combatModule: String(readyResources.combatModule || 0)
+      metalParts: formatFactoryReadyLabel(readyResources.metalParts, "metalParts"),
+      techCore: formatFactoryReadyLabel(readyResources.techCore, "techCore"),
+      combatModule: formatFactoryReadyLabel(readyResources.combatModule, "combatModule")
     },
     supplies: {
       metalParts: String(supplyState.metalParts || 0),
       techCore: String(supplyState.techCore || 0),
       combatModule: String(supplyState.combatModule || 0)
     },
-    effectsLabel: `Síť Továren: ${Math.max(0, Math.floor(Number(syncResult.ownedFactoryCount || 0)))} budova (+${Number(syncResult.networkProductionBonusPct || 0)}% rychlost výroby)`,
+    effectsLabel: "",
     upgradeButton: {
       disabled: isMaxLevel,
       text: isMaxLevel ? "MAX" : "⇪",
@@ -105,6 +165,14 @@ export function buildFactoryDashboardViewModel({
         perHour: getFactorySlotPerHour(slot, syncResult.rates || {}),
         slotStorageCap,
         resourceColor: normalizeResourceColorKey(slot.resourceKey),
+        queuedAmount: Math.max(0, Math.floor(Number(slot.queuedAmount || 0))),
+        unitCost: {
+          metalParts: slot.mode === "craft" || slot.resourceKey === "combatModule" ? Math.max(0, Number(config.combatModule?.metalPartsCost || 0)) : 0,
+          techCore: slot.mode === "craft" || slot.resourceKey === "combatModule" ? Math.max(0, Number(config.combatModule?.techCoreCost || 0)) : 0
+        },
+        displayCost: getFactorySlotDisplayInfo(slot).displayCost,
+        priceLabel: getFactorySlotPriceLabel(slot, config),
+        durationMs: getEffectiveFactorySlotDurationMs(slot, config, syncResult.productionMultiplier),
         ...getFactorySlotVisual(slot, config, formatDurationLabel)
       };
     })

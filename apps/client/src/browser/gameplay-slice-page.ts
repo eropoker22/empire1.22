@@ -2,21 +2,12 @@ import type { GameplaySliceView } from "@empire/shared-types";
 import { createClientApp, createClientSurfaceActionRouter, type ClientRenderState } from "../app";
 import { refreshLiveCooldownLabels } from "../shared-ui";
 import { createFetchClientTransport, createGameplaySlicePoller, type ClientTransport } from "../transport";
-import {
-  DEFAULT_SESSION_STORAGE_KEY,
-  resolveGameplaySliceBootstrapRequest
-} from "./gameplay-slice-bootstrap";
+import { DEFAULT_SESSION_STORAGE_KEY, resolveGameplaySliceBootstrapRequest } from "./gameplay-slice-bootstrap";
 
 const DEFAULT_ENDPOINT_BASE = "/api/gameplay-slice";
 
-export interface GameplaySlicePageMountOptions {
-  root: HTMLElement;
-  transport?: ClientTransport;
-}
-
-export interface MountedGameplaySlicePage {
-  destroy(): void;
-}
+export interface GameplaySlicePageMountOptions { root: HTMLElement; transport?: ClientTransport; }
+export interface MountedGameplaySlicePage { destroy(): void; }
 
 declare global {
   interface Window {
@@ -32,9 +23,7 @@ declare global {
  * Belongs here: DOM event wiring and rendering already prepared client HTML.
  * Does not belong here: gameplay resolution or legacy runtime mutation.
  */
-export const mountGameplaySlicePage = (
-  options: GameplaySlicePageMountOptions
-): MountedGameplaySlicePage | null => {
+export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): MountedGameplaySlicePage | null => {
   const request = resolveGameplaySliceBootstrapRequest(options.root.dataset, getBrowserStorage());
 
   if (!request) {
@@ -53,9 +42,24 @@ export const mountGameplaySlicePage = (
   const mounts = resolveMounts(options.root);
   let currentLoadRequest = request;
 
-  options.root.hidden = false;
+  const hideUnavailableGameplaySlice = (): void => {
+    options.root.dataset.gameplaySliceUnavailable = "true";
+    options.root.hidden = true;
+    Object.values(mounts).forEach((mount) => {
+      mount.innerHTML = "";
+    });
+  };
 
   const render = (state: ClientRenderState): void => {
+    const gameplaySlice = client.getGameplaySlice();
+    if (!gameplaySlice && state.connection.status === "error") {
+      hideUnavailableGameplaySlice();
+      return;
+    }
+
+    delete options.root.dataset.gameplaySliceUnavailable;
+    options.root.hidden = false;
+
     if (state.districtPanel?.districtId) {
       currentLoadRequest = {
         ...currentLoadRequest,
@@ -72,6 +76,7 @@ export const mountGameplaySlicePage = (
     if (phase) {
       document.body.dataset.cityPhase = phase;
     }
+    document.dispatchEvent(new CustomEvent("empire:gameplay-slice-rendered", { detail: { gameplaySlice, playerView: gameplaySlice?.player ?? null } }));
     mounts.status.innerHTML = renderGameplaySliceStatus(state);
     mounts.topBar.innerHTML = state.topBarHtml;
     mounts.map.innerHTML = state.mapHtml;
@@ -117,12 +122,7 @@ export const mountGameplaySlicePage = (
       render(state);
       poller.start();
     })
-    .catch(() => {
-      mounts.status.innerHTML = [
-        "<strong>Server sync unavailable</strong>",
-        "<span>The gameplay slice endpoint did not return a read model.</span>"
-      ].join("");
-    });
+    .catch(() => hideUnavailableGameplaySlice());
 
   return {
     destroy: () => {
@@ -132,12 +132,8 @@ export const mountGameplaySlicePage = (
     }
   };
 };
-
 const resolveMounts = (root: HTMLElement) => ({
-  status: getOrCreateMount(root, "status"),
-  topBar: getOrCreateMount(root, "topbar"),
-  map: getOrCreateMount(root, "map"),
-  panel: getOrCreateMount(root, "panel")
+  status: getOrCreateMount(root, "status"), topBar: getOrCreateMount(root, "topbar"), map: getOrCreateMount(root, "map"), panel: getOrCreateMount(root, "panel")
 });
 
 const getOrCreateMount = (root: HTMLElement, role: string): HTMLElement => {

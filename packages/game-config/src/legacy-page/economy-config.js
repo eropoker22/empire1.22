@@ -36,19 +36,29 @@ export const PHARMACY_RECIPES = {
 export const FACTORY_CONFIG = Object.freeze({
   maxLevel: 14,
   baseProductionPerHour: Object.freeze({
-    metalParts: 360,
-    techCore: 200
+    metalParts: 15,
+    techCore: 7.5
+  }),
+  slotDurationMs: Object.freeze({
+    metalParts: 4 * 60 * 1000,
+    techCore: 8 * 60 * 1000,
+    combatModule: 15 * 60 * 1000
   }),
   upgradePctPerLevel: 0.1,
   combatModule: Object.freeze({
     metalPartsCost: 4,
     techCoreCost: 3,
-    durationMs: 12 * 60 * 1000,
+    durationMs: 15 * 60 * 1000,
     heatPerUnit: 1
   })
 });
 
 export const FACTORY_SLOT_STORAGE_CAP = 20;
+export const FACTORY_SLOT_STORAGE_CAPS = Object.freeze({
+  metalParts: 20,
+  techCore: 10,
+  combatModule: 5
+});
 
 export const FACTORY_RESOURCE_KEYS = Object.freeze(["metalParts", "techCore", "combatModule"]);
 

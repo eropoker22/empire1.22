@@ -1,21 +1,55 @@
 import type { SeededRng } from "./seeded-rng";
 import type { FreeBrAlliance, FreeBrDistrict, FreeBrPlayer, FreeBrSimulationState } from "./types";
 import { addAuditEvent } from "./audit-log";
+import { getOwnedDistricts } from "./state-helpers";
+
+const SIMULATION_MAX_ALLIANCE_SIZE = 4;
 
 export const maybeRunAllianceStep = (state: FreeBrSimulationState, rng: SeededRng): void => {
   if (state.tick % ticksPerHour(state) !== 0) return;
 
   maybeBreakAlliance(state, rng);
+  refreshAllianceSharedEnemies(state);
   maybeFormAlliance(state, rng);
 };
 
 export const activeAlliances = (state: FreeBrSimulationState): FreeBrAlliance[] =>
   state.alliances.filter((alliance) => alliance.status === "active");
 
+export const resolveMaxAllianceSize = (state: FreeBrSimulationState): number =>
+  Math.max(1, Math.min(SIMULATION_MAX_ALLIANCE_SIZE, Math.floor(state.config.balance.maxAllianceSize ?? SIMULATION_MAX_ALLIANCE_SIZE)));
+
 export const getAllianceMembers = (state: FreeBrSimulationState, allianceId: string | null): FreeBrPlayer[] =>
   allianceId
     ? state.players.filter((player) => player.status === "active" && player.allianceId === allianceId)
     : [];
+
+export const arePlayersAllied = (
+  left: FreeBrPlayer | null | undefined,
+  right: FreeBrPlayer | null | undefined
+): boolean =>
+  Boolean(left?.allianceId && right?.allianceId && left.allianceId === right.allianceId);
+
+export const resolveAllianceAttackTargetScore = (
+  state: FreeBrSimulationState,
+  attacker: FreeBrPlayer,
+  targetPlayerId: string | null,
+  leader: FreeBrPlayer | null
+): number => {
+  if (!attacker.allianceId || !targetPlayerId) return 1;
+  const target = state.players.find((player) => player.id === targetPlayerId) ?? null;
+  if (arePlayersAllied(attacker, target)) return 0;
+
+  const alliance = activeAlliances(state).find((candidate) => candidate.id === attacker.allianceId);
+  if (!alliance) return 1;
+
+  let score = 1;
+  if (alliance.sharedEnemies.includes(targetPlayerId)) score *= 2.1;
+  if (leader?.id === targetPlayerId) score *= 1.35;
+  if (target && getOwnedDistricts(state, target.id).some((district) => district.isDowntown)) score *= 1.25;
+  if (isAllianceCoordinatedAttack(state, attacker, targetPlayerId)) score *= 1.35;
+  return score;
+};
 
 export const isAllianceCoordinatedAttack = (
   state: FreeBrSimulationState,
@@ -23,9 +57,13 @@ export const isAllianceCoordinatedAttack = (
   targetPlayerId: string | null
 ): boolean => {
   if (!attacker.allianceId || !targetPlayerId) return false;
+  const target = state.players.find((player) => player.id === targetPlayerId) ?? null;
+  if (arePlayersAllied(attacker, target)) return false;
+  const alliance = activeAlliances(state).find((candidate) => candidate.id === attacker.allianceId);
+  if (alliance?.sharedEnemies.includes(targetPlayerId)) return true;
   const allies = getAllianceMembers(state, attacker.allianceId).filter((player) => player.id !== attacker.id);
   return allies.some((ally) => {
-    const allyDistricts = state.districts.filter((district) => district.ownerPlayerId === ally.id);
+    const allyDistricts = getOwnedDistricts(state, ally.id);
     return allyDistricts.some((district) =>
       district.adjacentDistrictIds.some((adjacentId) => state.districts[adjacentId - 1]?.ownerPlayerId === targetPlayerId)
     );
@@ -33,7 +71,7 @@ export const isAllianceCoordinatedAttack = (
 };
 
 const maybeFormAlliance = (state: FreeBrSimulationState, rng: SeededRng): void => {
-  const maxAllianceSize = state.config.balance.maxAllianceSize;
+  const maxAllianceSize = resolveMaxAllianceSize(state);
   const candidates = state.players
     .filter((player) => player.status === "active" && !player.allianceId && player.alliancePreference > 0.25);
   if (candidates.length < 2) return;
@@ -106,6 +144,31 @@ const maybeBreakAlliance = (state: FreeBrSimulationState, rng: SeededRng): void 
   }
 };
 
+const refreshAllianceSharedEnemies = (state: FreeBrSimulationState): void => {
+  const leader = findCurrentLeader(state);
+  for (const alliance of activeAlliances(state)) {
+    const members = new Set(alliance.members);
+    const enemies = new Set(alliance.sharedEnemies.filter((playerId) =>
+      !members.has(playerId)
+      && state.players.some((player) => player.id === playerId && player.status === "active")
+    ));
+    if (leader && !members.has(leader.id)) enemies.add(leader.id);
+
+    const downtownThreat = state.players
+      .filter((player) => player.status === "active" && !members.has(player.id))
+      .sort((left, right) =>
+        getOwnedDistricts(state, right.id).filter((district) => district.isDowntown).length
+        - getOwnedDistricts(state, left.id).filter((district) => district.isDowntown).length
+      )[0] ?? null;
+    if (downtownThreat && getOwnedDistricts(state, downtownThreat.id).some((district) => district.isDowntown)) {
+      enemies.add(downtownThreat.id);
+    }
+
+    alliance.sharedEnemies = [...enemies].slice(0, 3);
+  }
+};
+
+
 const breakAlliance = (
   state: FreeBrSimulationState,
   alliance: FreeBrAlliance,
@@ -160,7 +223,7 @@ const getDangerZonePlayerIds = (state: FreeBrSimulationState): string[] => {
 };
 
 const countDistricts = (state: FreeBrSimulationState, playerId: string): number =>
-  state.districts.filter((district) => district.ownerPlayerId === playerId && district.status !== "destroyed").length;
+  getOwnedDistricts(state, playerId).length;
 
 const ticksPerHour = (state: FreeBrSimulationState): number =>
   Math.max(1, Math.round((60 * 60 * 1000) / state.config.tickRateMs));

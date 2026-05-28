@@ -106,6 +106,10 @@ export const runScheduledElimination = (
       createEvent(CORE_EVENT_TYPES.playerEliminated, {
         playerId: weakest.playerId,
         playerName: weakest.playerName,
+        gangName: weakest.gangName,
+        avatarSrc: weakest.avatarSrc,
+        title: `Policie vystřílela gang ${weakest.gangName}`,
+        body: "Policie vystřílela gang na sračky a nic tu po něm nezbylo.",
         eliminatedAtTick: currentTick,
         finalPlacement,
         reason: "scheduled_weakest_player",
@@ -208,12 +212,6 @@ const createEliminationFeedEvent = (
   score: PlayerEliminationScore,
   scheduledTick: number
 ): CityFeedEvent => {
-  const messages = [
-    `Město sežralo další impérium. ${score.playerName} vypadává ze serveru.`,
-    `Slabí mizí z mapy. ${score.playerName} byl vyřazen z městské války.`,
-    `Pravidelný řez dopadl. ${score.playerName} končí.`
-  ];
-  const index = Math.abs(hashText(`${score.playerId}:${scheduledTick}`)) % messages.length;
   return {
     id: `city-feed:elimination:${scheduledTick}:${score.playerId}`,
     sourceEventId: `elimination:${scheduledTick}:${score.playerId}`,
@@ -225,11 +223,15 @@ const createEliminationFeedEvent = (
     visibility: "all",
     targetPlayerId: score.playerId,
     createdAtTick: state.root.tick,
-    message: messages[index],
+    message: `Policie vystřílela gang ${score.gangName}. Policie vystřílela gang na sračky a nic tu po něm nezbylo.`,
     messageKey: "system.player_eliminated",
     payload: {
       playerId: score.playerId,
       playerName: score.playerName,
+      gangName: score.gangName,
+      avatarSrc: score.avatarSrc,
+      title: `Policie vystřílela gang ${score.gangName}`,
+      body: "Policie vystřílela gang na sračky a nic tu po něm nezbylo.",
       reason: "scheduled_weakest_player",
       score: score.score,
       controlledDistricts: score.controlledDistricts
@@ -237,5 +239,3 @@ const createEliminationFeedEvent = (
   };
 };
 
-const hashText = (value: string): number =>
-  Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 0);

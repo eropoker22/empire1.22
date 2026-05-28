@@ -290,6 +290,41 @@ function appendTextElement(ownerDocument, parent, tagName, className, text) {
   return element;
 }
 
+function getBattleRoyaleOperatorRows(readModel = {}) {
+  const finalLockdown = readModel.finalLockdown || {};
+  if (finalLockdown.active) {
+    return [
+      ["Fáze", "Final Lockdown"],
+      ["Čas", finalLockdown.remainingLabel || "čeká se"],
+      ["Rank", finalLockdown.rankLabel || "-"],
+      ["Top 3", finalLockdown.top3Gap || "-"],
+      ["Plán", finalLockdown.top3Gap === "drž pozici" ? "Udrž score, neplýtvej riskem." : "Zvyš Final Empire Score a přibliž se Top 3."]
+    ];
+  }
+
+  const elimination = readModel.elimination || {};
+  const activePlayers = elimination.activePlayersRemaining
+    ? `${elimination.activePlayersRemaining}/${elimination.maxPlayersPerServer || 20}`
+    : "-";
+  const nextLabel = elimination.eliminationsStopped
+    ? "zastaveno, čeká se na finále"
+    : elimination.nextEliminationLabel || "čeká se";
+  const plan = elimination.currentPlayerStatus === "critical"
+    ? "Okamžitě zvedni score: district, influence, budovy."
+    : elimination.currentPlayerStatus === "danger"
+      ? "Zvedni score před další očistou."
+      : "Drž tempo a sleduj další očistu.";
+
+  return [
+    ["Fáze", "Free Battle Royale"],
+    ["Očista", nextLabel],
+    ["Stav", String(elimination.currentPlayerStatus || "safe").toUpperCase()],
+    ["Hráči", activePlayers],
+    ["Danger", elimination.dangerZoneLabel || "čeká na server"],
+    ["Plán", plan]
+  ];
+}
+
 function updateHighlight(ownerDocument, target, step = {}) {
   const body = ownerDocument?.body;
   if (!body) {
@@ -489,9 +524,13 @@ export function renderOnboardingPanel(progress = {}, callbacks = {}, options = {
   if ((step.id === "elimination" || step.id === "danger-zone") && readModel.elimination) {
     const meta = createElement(ownerDocument, "div", "empire-onboarding__meta");
     if (meta) {
-      appendTextElement(ownerDocument, meta, "span", "", `Další: ${readModel.elimination.nextEliminationLabel || "čeká"}`);
-      appendTextElement(ownerDocument, meta, "span", "", readModel.elimination.dangerZoneLabel || "danger zone čeká");
-      appendTextElement(ownerDocument, meta, "span", "", `Stav: ${readModel.elimination.currentPlayerStatus || "safe"}`);
+      for (const [label, value] of getBattleRoyaleOperatorRows(readModel)) {
+        const row = appendTextElement(ownerDocument, meta, "span", "empire-onboarding__meta-row", "");
+        if (row) {
+          appendTextElement(ownerDocument, row, "strong", "empire-onboarding__meta-label", label);
+          appendTextElement(ownerDocument, row, "span", "empire-onboarding__meta-value", value);
+        }
+      }
       content.append(meta);
     }
   }

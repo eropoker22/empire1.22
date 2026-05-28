@@ -33,6 +33,72 @@ function formatDuration(value, options = {}) {
   return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${seconds}s`;
 }
 
+function getCurrentTimeMs(options = {}) {
+  const now = Number(options.now);
+  return Number.isFinite(now) ? now : Date.now();
+}
+
+function parseDurationLabelMs(value = "") {
+  const text = String(value || "").trim();
+  const minuteMatch = text.match(/^(\d+(?:[.,]\d+)?)\s*(?:m|min)/i);
+  if (minuteMatch) {
+    return Math.max(1000, Math.round(Number(minuteMatch[1].replace(",", ".")) * 60000));
+  }
+  const secondMatch = text.match(/^(\d+(?:[.,]\d+)?)\s*s/i);
+  if (secondMatch) {
+    return Math.max(1000, Math.round(Number(secondMatch[1].replace(",", ".")) * 1000));
+  }
+  return 0;
+}
+
+function getPositiveDurationMs(...values) {
+  for (const value of values) {
+    const number = Number(value);
+    if (Number.isFinite(number) && number > 0) {
+      return Math.max(1000, number);
+    }
+  }
+  return 1000;
+}
+
+function formatFactorySlotTime(slotView = {}, options = {}) {
+  const slot = slotView.slot || {};
+  if (!slot.isProducing) {
+    return slotView.secondaryLine || formatDuration(slotView.durationMs, options);
+  }
+
+  const slotCap = Math.max(0, Number(slotView.slotStorageCap ?? slot.slotStorageCap ?? 0));
+  const producedAmount = Math.max(0, Number(slot.producedAmount || 0));
+  if (slotCap > 0 && producedAmount >= slotCap) {
+    return "plné";
+  }
+
+  const durationMs = getPositiveDurationMs(slotView.durationMs, slot.durationMs, parseDurationLabelMs(slotView.secondaryLine));
+  const lastTickMs = Number(slot.lastTick || 0);
+  const elapsedSinceTickMs = lastTickMs > 0 ? Math.max(0, getCurrentTimeMs(options) - lastTickMs) : 0;
+  const progress = Math.max(0, Number(slot.productionRemainder || 0)) + elapsedSinceTickMs / durationMs;
+  const progressInCycle = progress - Math.floor(progress);
+  const remainingMs = progressInCycle > 0 ? durationMs * (1 - progressInCycle) : durationMs;
+  return formatDuration(remainingMs, options);
+}
+
+function bindFactoryMetricCountdown(valueElement, getValue, options = {}) {
+  if (!valueElement || Number.isFinite(Number(options.now))) {
+    return;
+  }
+  const timerApi = typeof window !== "undefined" ? window : null;
+  if (typeof timerApi?.setInterval !== "function" || typeof timerApi?.clearInterval !== "function") {
+    return;
+  }
+  const intervalId = timerApi.setInterval(() => {
+    if (valueElement.isConnected === false) {
+      timerApi.clearInterval(intervalId);
+      return;
+    }
+    valueElement.textContent = getValue();
+  }, 1000);
+}
+
 function createInfoLine(scopeElement, label, value) {
   const row = createElement(scopeElement, "div", "district-building-detail-mechanic-row");
   const rowLabel = createElement(scopeElement, "span");
@@ -154,28 +220,55 @@ export function renderProductionBuildingInfo(viewModel = {}, callbacks = {}, opt
   } = viewModel || {};
 
   const recipeLines = Array.isArray(viewModel.recipeLines) ? viewModel.recipeLines : [];
+  const isPharmacy = buildingName === "pharmacy";
+  const isDrugLab = buildingName === "druglab";
+  const isArmory = buildingName === "armory";
+  const isCompactProductionInfo = isPharmacy || isDrugLab || isArmory;
 
   if (infoTextElement) {
-    infoTextElement.textContent = [
-      config.infoText || "",
-      `Level ${state.level}: rychlost x${Number(multiplier || 1).toFixed(2)}.`,
-      state.level < maxLevel
-        ? `Upgrade stojí ${formatMoney(upgradeCost, options)} a zvedne rychlost na x${Number(nextMultiplier || multiplier || 1).toFixed(2)}.`
-        : "Budova je na maximálním levelu.",
-      `Hotovo k vyzvednutí: ${readyCount} receptů.`
-    ].filter(Boolean).join(" ");
+    infoTextElement.textContent = isCompactProductionInfo
+      ? (config.infoText || "Budova vyrábí materiály pro další produkci.")
+      : [
+          config.infoText || "",
+          `Level ${state.level}: rychlost x${Number(multiplier || 1).toFixed(2)}.`,
+          state.level < maxLevel
+            ? `Upgrade stojí ${formatMoney(upgradeCost, options)} a zvedne rychlost na x${Number(nextMultiplier || multiplier || 1).toFixed(2)}.`
+            : "Budova je na maximálním levelu.",
+          `Hotovo k vyzvednutí: ${readyCount} receptů.`
+        ].filter(Boolean).join(" ");
   }
 
   if (infoEffectsElement) {
-    infoEffectsElement.textContent = [
-      effectsLabel || `${config.label || "Budova"} · základní produkční rychlost`,
-      state.level < maxLevel ? `Další level: +10 % rychlost craftu.` : "Další upgrade už není dostupný.",
-      "Vyzvednutí přesune hotové kusy do skladu hráče."
-    ].join(" · ");
+    infoEffectsElement.textContent = isPharmacy
+      ? [
+          effectsLabel || "Lékárna · základní produkční rychlost",
+          "fronta po kusech",
+          "zrušení vrací náklady"
+        ].join(" · ")
+      : isDrugLab
+        ? [
+            effectsLabel || "Lab · základní produkční rychlost",
+            "fronta po dávkách",
+            "vstupy podle množství"
+          ].join(" · ")
+      : isArmory
+        ? [
+            effectsLabel || "Zbrojovka · základní produkční rychlost",
+            "max výstup 15 ks",
+            "vstupy podle množství"
+          ].join(" · ")
+      : [
+          effectsLabel || `${config.label || "Budova"} · základní produkční rychlost`,
+          state.level < maxLevel ? `Další level: +10 % rychlost craftu.` : "Další upgrade už není dostupný.",
+          "Vyzvednutí přesune hotové kusy do skladu hráče."
+        ].join(" · ");
   }
 
   if (infoActionsElement) {
     infoActionsElement.replaceChildren();
+    if (isCompactProductionInfo) {
+      return Boolean(buildingName || Object.keys(recipes || {}).length >= 0);
+    }
     const lines = [
       `+ Vybrat hotové: přesune ${readyCount > 0 ? `${readyCount} hotových receptů` : "hotové recepty"} do skladu.`,
       state.level < maxLevel
@@ -199,38 +292,86 @@ export function renderFactoryBuildingInfo(infoPanel, viewModel = {}, options = {
     return false;
   }
 
-  const card = createElement(infoPanel, "div", "building-info-card building-info-card--compact-tech");
+  const card = createElement(infoPanel, "div", "building-info-card building-info-card--compact-tech building-info-card--factory-info");
   const head = createElement(infoPanel, "div", "building-info-card__head");
   const title = createElement(infoPanel, "h4", "building-info-card__title");
   const subtitle = createElement(infoPanel, "p", "building-info-card__subtitle");
-  const overview = createElement(infoPanel, "div", "building-detail-mechanics district-building-detail-mechanics district-building-detail-info-grid");
-  const actionsTitle = createElement(infoPanel, "h5");
-  const actions = createElement(infoPanel, "div", "building-info-card__actions district-building-detail-actions district-building-detail-info-actions");
-  if (!card || !head || !title || !subtitle || !overview || !actionsTitle || !actions) {
+  const mechanicsSection = createElement(infoPanel, "section", "building-info-card__section");
+  const mechanicsTitle = createElement(infoPanel, "h5");
+  const mechanicsText = createElement(infoPanel, "p", "building-info-card__effects");
+  const upgradeSection = createElement(infoPanel, "section", "building-info-card__section building-info-card__section--factory-upgrade-compact");
+  const upgradeTitle = createElement(infoPanel, "h5");
+  const upgradeGrid = createElement(infoPanel, "div", "building-info-upgrade-mini building-info-upgrade-mini--compact");
+  const productsSection = createElement(infoPanel, "section", "building-info-card__section");
+  const productsTitle = createElement(infoPanel, "h5");
+  const productsList = createElement(infoPanel, "div", "pharmacy-info-output-list pharmacy-info-output-list--factory");
+  if (!card || !head || !title || !subtitle || !mechanicsSection || !mechanicsTitle || !mechanicsText || !upgradeSection || !upgradeTitle || !upgradeGrid || !productsSection || !productsTitle || !productsList) {
     return false;
   }
 
-  title.textContent = "Co hráč musí vědět";
-  subtitle.textContent = "Továrna vyrábí Metal Parts, Tech Core a Combat Module pro další bojové systémy.";
+  title.textContent = "Továrna";
+  subtitle.textContent = viewModel.description || "Výroba komponentů pro zbraně, obranu a high-tech výbavu.";
   head.append(title, subtitle);
 
-  for (const row of Array.isArray(viewModel.rows) ? viewModel.rows : []) {
-    overview.append(createInfoLine(infoPanel, row.label, row.value));
+  mechanicsTitle.textContent = "Aktivní mechaniky";
+  mechanicsText.textContent = viewModel.effectsLabel || "Multiplier x1.00 · další level x1.10";
+  mechanicsSection.append(mechanicsTitle, mechanicsText);
+
+  upgradeTitle.textContent = "Další level";
+  const upgrade = viewModel.upgrade || {};
+  for (const item of [
+    { label: "Cena", value: upgrade.costLabel || "-" },
+    { label: "Získáš", value: upgrade.benefitLabel || "-" }
+  ]) {
+    const upgradeItem = createElement(infoPanel, "div", "building-info-upgrade-mini__item");
+    const label = createElement(infoPanel, "span");
+    const value = createElement(infoPanel, "strong");
+    if (!upgradeItem || !label || !value) continue;
+    label.textContent = item.label;
+    value.textContent = item.value;
+    upgradeItem.append(label, value);
+    upgradeGrid.append(upgradeItem);
+  }
+  upgradeSection.append(upgradeTitle, upgradeGrid);
+
+  productsTitle.textContent = "Výroba";
+  const products = Array.isArray(viewModel.products) ? viewModel.products : [];
+  if (products.length <= 0) {
+    const empty = createElement(infoPanel, "p", "building-detail-info-text");
+    if (empty) {
+      empty.textContent = "Výrobní data se načítají.";
+      productsSection.append(productsTitle, empty);
+    }
+  } else {
+    for (const product of products) {
+      const productCard = createElement(infoPanel, "article", "pharmacy-info-output factory-info-output");
+      const productTitle = createElement(infoPanel, "strong");
+      const productDescription = createElement(infoPanel, "span");
+      const meta = createElement(infoPanel, "div", "factory-info-output__meta");
+      if (!productCard || !productTitle || !productDescription || !meta) continue;
+      productCard.dataset.resourceColor = product.id || "";
+      productTitle.textContent = product.title || "Surovina";
+      productDescription.textContent = product.description || "";
+      for (const item of [
+        { label: "Čas", value: product.durationLabel || "-" },
+        { label: "Cena", value: product.costLabel || "-" }
+      ]) {
+        const metaItem = createElement(infoPanel, "div", "factory-info-output__meta-item");
+        const label = createElement(infoPanel, "span");
+        const value = createElement(infoPanel, "strong");
+        if (!metaItem || !label || !value) continue;
+        label.textContent = item.label;
+        value.textContent = item.value;
+        metaItem.append(label, value);
+        meta.append(metaItem);
+      }
+      productCard.append(productTitle, productDescription, meta);
+      productsList.append(productCard);
+    }
+    productsSection.append(productsTitle, productsList);
   }
 
-  actionsTitle.textContent = "Akce";
-  for (const rowView of Array.isArray(viewModel.actions) ? viewModel.actions : []) {
-    const row = createElement(infoPanel, "div", "building-info-action-row");
-    const rowTitle = createElement(infoPanel, "strong", "building-info-action-row__title");
-    const rowDesc = createElement(infoPanel, "span", "building-info-action-row__desc");
-    if (!row || !rowTitle || !rowDesc) continue;
-    rowTitle.textContent = rowView.title || "";
-    rowDesc.textContent = rowView.description || "";
-    row.append(rowTitle, rowDesc);
-    actions.append(row);
-  }
-
-  card.append(head, overview, actionsTitle, actions);
+  card.append(head, mechanicsSection, upgradeSection, productsSection);
   infoPanel.replaceChildren(card);
   return true;
 }
@@ -261,47 +402,98 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
   eyebrow.textContent = slotView.typeLabel || "";
   title.textContent = slotView.title || slot.resourceKey || "";
   status.textContent = slot.isProducing ? "Aktivní" : "Pauza";
-  labelWrap.append(eyebrow, title);
+  if (slotView.typeLabel) {
+    labelWrap.append(eyebrow);
+  }
+  labelWrap.append(title);
   titleWrap.append(icon, labelWrap);
   head.append(titleWrap, status);
 
-  const outputMetric = createElement(options.mount, "div", "drug-production-slot__metric");
-  const outputLabel = createElement(options.mount, "span", "drug-production-slot__metric-label");
-  const outputValue = createElement(options.mount, "strong", "drug-production-slot__metric-value");
-  if (outputMetric && outputLabel && outputValue) {
-    outputLabel.textContent = "Výstup";
-    outputValue.textContent = `${Number(slotView.perHour || 0).toFixed(2)} / h`;
-    outputMetric.append(outputLabel, outputValue);
-    metrics.append(outputMetric);
+  const appendMetric = (labelText, valueText, inline = false) => {
+    const metric = createElement(options.mount, "div", inline ? "drug-production-slot__metric drug-production-slot__metric--inline" : "drug-production-slot__metric");
+    const metricLabel = createElement(options.mount, "span", "drug-production-slot__metric-label");
+    const metricValue = createElement(options.mount, inline ? "span" : "strong", inline ? "drug-production-slot__metric-inline-value factory-slot__price-value" : "drug-production-slot__metric-value");
+    if (!metric || !metricLabel || !metricValue) return null;
+    metricLabel.textContent = labelText;
+    metricValue.textContent = valueText;
+    metric.append(metricLabel, metricValue);
+    metrics.append(metric);
+    return metricValue;
+  };
+
+  const timeValue = appendMetric("Čas", formatFactorySlotTime(slotView, options));
+  if (slot.isProducing) {
+    bindFactoryMetricCountdown(timeValue, () => formatFactorySlotTime(slotView, options), options);
+  }
+  const priceValue = appendMetric("Cena", slotView.priceLabel || "bez ceny");
+  appendMetric("Ve frontě", `${Math.max(0, Math.floor(Number(slotView.queuedAmount || 0)))} ks`, true);
+
+  let selectedBatches = 1;
+  const formatFactorySlotCost = (count = 1) => {
+    const displayCost = slotView.displayCost || {};
+    const dirtyCash = Math.max(0, Math.floor(Number(displayCost.dirtyCash || 0) * count));
+    const techCore = Math.max(0, Math.floor(Number(displayCost.techCore || 0) * count));
+    const metalParts = Math.max(0, Math.floor(Number(displayCost.metalParts || 0) * count));
+    const parts = [
+      dirtyCash > 0 ? `${dirtyCash} Dirty Cash` : "",
+      metalParts > 0 ? `${metalParts} MP` : "",
+      techCore > 0 ? `${techCore} Tech Core` : ""
+    ].filter(Boolean);
+    return parts.join(" + ") || slotView.priceLabel || "bez ceny";
+  };
+  const updatePrice = () => {
+    if (!priceValue) return;
+    if (slotView.displayCost) {
+      priceValue.textContent = formatFactorySlotCost(selectedBatches);
+      return;
+    }
+    if (slot.mode === "craft" || slot.resourceKey === "combatModule") {
+      const metal = Math.max(0, Number(slotView.unitCost?.metalParts || 0) * selectedBatches);
+      const tech = Math.max(0, Number(slotView.unitCost?.techCore || 0) * selectedBatches);
+      priceValue.textContent = `${metal} MP + ${tech} TC`;
+      return;
+    }
+    priceValue.textContent = "bez ceny";
+  };
+
+  const quantityControl = createElement(options.mount, "div", "armory-slot__quantity factory-slot__quantity");
+  const minusButton = createElement(options.mount, "button", "armory-slot__quantity-btn factory-slot__quantity-btn");
+  const plusButton = createElement(options.mount, "button", "armory-slot__quantity-btn factory-slot__quantity-btn");
+  const quantityValue = createElement(options.mount, "strong", "armory-slot__quantity-value factory-slot__quantity-value");
+  if (quantityControl && minusButton && plusButton && quantityValue) {
+    minusButton.type = "button";
+    plusButton.type = "button";
+    minusButton.textContent = "−";
+    plusButton.textContent = "+";
+    minusButton.setAttribute("aria-label", `Ubrat výrobu ${slotView.title || slot.resourceKey || "slotu"}`);
+    plusButton.setAttribute("aria-label", `Přidat výrobu ${slotView.title || slot.resourceKey || "slotu"}`);
+    const refreshQuantity = () => {
+      selectedBatches = Math.max(1, selectedBatches);
+      quantityValue.textContent = String(selectedBatches);
+      minusButton.disabled = selectedBatches <= 1;
+      updatePrice();
+    };
+    minusButton.addEventListener("click", () => {
+      selectedBatches -= 1;
+      refreshQuantity();
+    });
+    plusButton.addEventListener("click", () => {
+      selectedBatches += 1;
+      refreshQuantity();
+    });
+    quantityControl.append(minusButton, quantityValue, plusButton);
+    refreshQuantity();
   }
 
-  const profileMetric = createElement(options.mount, "div", "drug-production-slot__metric");
-  const profileLabel = createElement(options.mount, "span", "drug-production-slot__metric-label");
-  const profileValue = createElement(options.mount, "div", "factory-slot__recipe-value");
-  const profilePrimary = createElement(options.mount, "span", "factory-slot__recipe-line");
-  const profileSecondary = createElement(options.mount, "span", "factory-slot__recipe-line factory-slot__recipe-line--secondary");
-  if (profileMetric && profileLabel && profileValue && profilePrimary && profileSecondary) {
-    profileLabel.textContent = slotView.profileLabel || "Profil";
-    profilePrimary.textContent = slotView.primaryLine || "";
-    profileSecondary.textContent = slotView.secondaryLine || "";
-    profileValue.append(profilePrimary, profileSecondary);
-    profileMetric.append(profileLabel, profileValue);
-    metrics.append(profileMetric);
-  }
-
-  const storageMetric = createElement(options.mount, "div", "drug-production-slot__metric drug-production-slot__metric--inline");
-  const storageLabel = createElement(options.mount, "span", "drug-production-slot__metric-label");
-  const storageValue = createElement(options.mount, "span", "drug-production-slot__metric-inline-value factory-slot__price-value");
-  if (storageMetric && storageLabel && storageValue) {
-    storageLabel.textContent = "Ve slotu";
-    storageValue.textContent = `${slot.producedAmount}/${slotView.slotStorageCap}`;
-    storageMetric.append(storageLabel, storageValue);
-    metrics.append(storageMetric);
-  }
-
-  const pauseButton = createElement(options.mount, "button", "button drug-lab-mini-btn factory-slot-button");
   const startButton = createElement(options.mount, "button", "button drug-lab-mini-btn factory-slot-button");
-  if (pauseButton && startButton) {
+  const pauseButton = createElement(options.mount, "button", "button drug-lab-mini-btn factory-slot-button");
+  if (startButton && pauseButton) {
+    startButton.type = "button";
+    startButton.dataset.factorySlotToggleState = "start";
+    startButton.textContent = slot.isProducing ? "Přidat" : "Spustit";
+    startButton.addEventListener("click", () => {
+      if (typeof callbacks.onStartSlot === "function") callbacks.onStartSlot(slotView, { batchCount: selectedBatches });
+    });
     pauseButton.type = "button";
     pauseButton.dataset.factorySlotToggleState = "stop";
     pauseButton.textContent = "Pozastavit";
@@ -309,14 +501,7 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     pauseButton.addEventListener("click", () => {
       if (typeof callbacks.onPauseSlot === "function") callbacks.onPauseSlot(slotView);
     });
-    startButton.type = "button";
-    startButton.dataset.factorySlotToggleState = "start";
-    startButton.textContent = "Spustit";
-    startButton.disabled = Boolean(slot.isProducing);
-    startButton.addEventListener("click", () => {
-      if (typeof callbacks.onStartSlot === "function") callbacks.onStartSlot(slotView);
-    });
-    actions.append(pauseButton, startButton);
+    actions.append(quantityControl, startButton, pauseButton);
   }
 
   card.append(head, metrics, actions);

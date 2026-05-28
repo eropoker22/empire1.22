@@ -1765,9 +1765,23 @@ var EmpireGameplaySliceClient = function(exports) {
     });
     const mounts = resolveMounts(options.root);
     let currentLoadRequest = request;
-    options.root.hidden = false;
+    const hideUnavailableGameplaySlice = () => {
+      options.root.dataset.gameplaySliceUnavailable = "true";
+      options.root.hidden = true;
+      mounts.status.innerHTML = "";
+      mounts.topBar.innerHTML = "";
+      mounts.map.innerHTML = "";
+      mounts.panel.innerHTML = "";
+    };
     const render = (state) => {
       var _a, _b, _c;
+      const gameplaySlice = client.getGameplaySlice();
+      if (!gameplaySlice && state.connection.status === "error") {
+        hideUnavailableGameplaySlice();
+        return;
+      }
+      delete options.root.dataset.gameplaySliceUnavailable;
+      options.root.hidden = false;
       if ((_a = state.districtPanel) == null ? void 0 : _a.districtId) {
         currentLoadRequest = {
           ...currentLoadRequest,
@@ -1783,6 +1797,12 @@ var EmpireGameplaySliceClient = function(exports) {
       if (phase) {
         document.body.dataset.cityPhase = phase;
       }
+      document.dispatchEvent(new CustomEvent("empire:gameplay-slice-rendered", {
+        detail: {
+          gameplaySlice,
+          playerView: (gameplaySlice == null ? void 0 : gameplaySlice.player) ?? null
+        }
+      }));
       mounts.status.innerHTML = renderGameplaySliceStatus(state);
       mounts.topBar.innerHTML = state.topBarHtml;
       mounts.map.innerHTML = state.mapHtml;
@@ -1820,10 +1840,7 @@ var EmpireGameplaySliceClient = function(exports) {
       render(state);
       poller.start();
     }).catch(() => {
-      mounts.status.innerHTML = [
-        "<strong>Server sync unavailable</strong>",
-        "<span>The gameplay slice endpoint did not return a read model.</span>"
-      ].join("");
+      hideUnavailableGameplaySlice();
     });
     return {
       destroy: () => {

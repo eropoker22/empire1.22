@@ -4,6 +4,8 @@ import { compareEliminationScores, type PlayerEliminationScore } from "@empire/g
 const baseScore = (overrides: Partial<PlayerEliminationScore>): PlayerEliminationScore => ({
   playerId: "player:base",
   playerName: "Base",
+  gangName: "Base",
+  avatarSrc: null,
   score: 0,
   controlledDistricts: 0,
   totalOwnedDistrictInfluence: 0,

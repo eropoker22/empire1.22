@@ -16,6 +16,15 @@ export interface FinalLockdownLeaderboardEntryView {
   scoreBreakdown: Record<string, number>;
 }
 
+export interface FinalLockdownCurrentPlayerView {
+  controlledDistricts: number;
+  downtownDistricts: number;
+  activeBuildings: number;
+  heat: number;
+  heatPenalty: number;
+  scoreBreakdown: Record<string, number>;
+}
+
 export interface FinalLockdownReadModel {
   enabled: boolean;
   status: FinalLockdownStatus;
@@ -28,6 +37,10 @@ export interface FinalLockdownReadModel {
   topRankCount: number;
   currentPlayerRank: number | null;
   currentPlayerFinalScore: number | null;
+  currentPlayer: FinalLockdownCurrentPlayerView | null;
+  currentPlayerScoreBreakdown: Record<string, number> | null;
+  scoreGapToTop3: number | null;
+  scoreGapToFirst: number | null;
   leaderboardTop3: FinalLockdownLeaderboardEntryView[];
   quietHoursResumeTick: number | null;
   endsAtEstimatedTick: number | null;

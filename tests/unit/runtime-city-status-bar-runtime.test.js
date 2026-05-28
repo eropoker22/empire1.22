@@ -8,18 +8,27 @@ import {
 
 function createElement() {
   const listeners = new Map();
+  const classNames = new Set();
 
   return {
+    classList: {
+      add: vi.fn((...names) => names.forEach((name) => classNames.add(name))),
+      contains: (name) => classNames.has(name),
+      remove: vi.fn((...names) => names.forEach((name) => classNames.delete(name)))
+    },
     dataset: {},
+    tagName: "STRONG",
     textContent: "",
     addEventListener: vi.fn((type, listener) => {
       listeners.set(type, [...(listeners.get(type) || []), listener]);
     }),
+    closest: vi.fn(() => null),
     dispatch(type) {
       for (const listener of listeners.get(type) || []) {
         listener({ type });
       }
-    }
+    },
+    setAttribute: vi.fn()
   };
 }
 
@@ -41,11 +50,12 @@ describe("city status bar runtime", () => {
 
     expect(viewModel).toMatchObject({
       clockLabel: "23:09",
-      dayPhaseLabel: "NOC",
-      gamePhaseLabel: "DEV-ONLY",
-      productionLabel: "-8 % noční směna",
-      statusLabel: "Město nespí"
+      dayPhaseLabel: "čeká se",
+      gamePhaseLabel: "SAFE",
+      productionLabel: "Očista",
+      statusLabel: "-"
     });
+    expect(viewModel.gamePhaseLabel).not.toBe("DEV-ONLY");
     expect(phaseState).toEqual({
       cityMinutes: 1389,
       gamePhase: "launch",
@@ -66,17 +76,56 @@ describe("city status bar runtime", () => {
 
     expect(renderCityStatusBar({
       clockLabel: "08:15",
-      dayPhaseLabel: "DEN",
-      gamePhaseLabel: "LIVE",
-      statusLabel: "Klid před bouří",
-      productionLabel: "+12 % denní směna"
+      dayPhaseLabel: "za 42m",
+      gamePhaseLabel: "DANGER",
+      statusLabel: "18/20",
+      productionLabel: "Očista"
     }, elements)).toBe(true);
     expect(elements.clock.textContent).toBe("08:15");
-    expect(elements.dayPhase.textContent).toBe("DEN");
-    expect(elements.gamePhase.textContent).toBe("LIVE");
-    expect(elements.status.textContent).toBe("Klid před bouří");
-    expect(elements.production.textContent).toBe("+12 % denní směna");
+    expect(elements.dayPhase.textContent).toBe("za 42m");
+    expect(elements.gamePhase.textContent).toBe("DANGER");
+    expect(elements.status.textContent).toBe("18/20");
+    expect(elements.production.textContent).toBe("Očista");
     expect(renderCityStatusBar({}, { clock: elements.clock })).toBe(false);
+  });
+
+  it("maps elimination and final lockdown read models into Free BR bar labels", () => {
+    expect(buildCityStatusViewModel({ cityMinutes: 22 * 60 + 37 }, {
+      playerView: {
+        elimination: {
+          activePlayersRemaining: 18,
+          currentPlayerStatus: "danger",
+          ticksUntilNextElimination: 42
+        }
+      }
+    })).toMatchObject({
+      clockLabel: "22:37",
+      dayPhaseTitle: "Očista",
+      dayPhaseLabel: "za 42m",
+      gamePhaseLabel: "DANGER",
+      statusLabel: "18/20"
+    });
+
+    expect(buildCityStatusViewModel({ cityMinutes: 22 * 60 + 37 }, {
+      playerView: {
+        finalLockdown: {
+          active: true,
+          enabled: true,
+          remainingActiveTicks: 462,
+          currentPlayerRank: 4,
+          currentPlayerFinalScore: 12000,
+          leaderboardTop3: [{ score: 51000 }, { score: 50000 }, { score: 49000 }],
+          topRankCount: 3
+        }
+      }
+    })).toMatchObject({
+      dayPhaseTitle: "Finále",
+      dayPhaseLabel: "7h 42m zbývá",
+      gamePhaseLabel: "#4",
+      statusTitle: "Top 3",
+      statusLabel: "+37k",
+      cityStatusMode: "final"
+    });
   });
 
   it("binds the city status shell and delegates tick/game-phase side effects to runtime callbacks", () => {
@@ -124,7 +173,7 @@ describe("city status bar runtime", () => {
 
     expect(runtime.bindCityStatusBar(createRoot(elements))).toBe(true);
     expect(elements["#clock"].textContent).toBe("06:05");
-    expect(elements["#day"].textContent).toBe("DEN");
+    expect(elements["#day"].textContent).toBe("čeká se");
     expect(onInitialSync).toHaveBeenCalledWith(expect.objectContaining({
       phaseHost: elements["#phase"],
       updatePhaseStatus: expect.any(Function)

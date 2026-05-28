@@ -64,6 +64,14 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const buildingState = deps.getStoredProductionBuildingState?.(buildingName) || {};
     const durationMultiplier = deps.getProductionBuildingMultiplier?.(buildingName, buildingState.level) || 1;
     const effectiveDurationMs = Math.max(1000, Math.round(Number(recipe?.durationMs || 0) / durationMultiplier));
+    const outputUnitAmount = buildingName === "pharmacy" || buildingName === "armory"
+      ? 1
+      : Math.max(1, Math.floor(Number(recipe?.output?.amount || 1)));
+    const outputCap = Math.max(0, Math.floor(Number(deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.outputCap || 0)));
+    const getQueuedOutputAmount = (productionJob = null) => Math.max(0, Math.floor(Number(productionJob?.output?.amount || 0)));
+    const getRemainingOutputSpace = (productionJob = null) => outputCap > 0
+      ? Math.max(0, outputCap - getQueuedOutputAmount(productionJob))
+      : Number.POSITIVE_INFINITY;
     const inputAmounts = Object.fromEntries(
       Object.keys(recipe?.inputs || {}).map((itemId) => [itemId, deps.getInventoryAmount?.("materials", itemId) || 0])
     );
@@ -72,7 +80,8 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       return Math.min(
         99,
         cleanCost ? Math.floor(Number(deps.getResolvedEconomyState?.().cleanMoney || 0) / cleanCost) : 99,
-        ...Object.entries(recipe?.inputs || {}).map(([itemId, amount]) => Math.floor((deps.getInventoryAmount?.("materials", itemId) || 0) / Math.max(1, Number(amount || 0))))
+        ...Object.entries(recipe?.inputs || {}).map(([itemId, amount]) => Math.floor((deps.getInventoryAmount?.("materials", itemId) || 0) / Math.max(1, Number(amount || 0)))),
+        outputCap > 0 ? Math.floor(getRemainingOutputSpace(deps.getProductionJob?.(recipeKey)) / outputUnitAmount) : 99
       );
     };
     const viewModel = {
@@ -85,6 +94,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       effectiveDurationMs,
       slotState: getProductionSlotState(job),
       outputInventoryAmount: deps.getInventoryAmount?.(recipe?.output?.inventory, recipe?.output?.itemId) || 0,
+      outputCap,
       visual: deps.PRODUCTION_SLOT_VISUALS?.[buildingName]?.[recipeId] || null,
       inputAmounts,
       canStart: deps.hasEnoughMaterials?.(recipe?.inputs || {}) || false,
@@ -93,9 +103,25 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const card = deps.renderRecipeCard?.(viewModel, {
       getMaxBatches,
       onStart: ({ batchCount }) => {
-        const requiredInputs = deps.getScaledProductionInputs?.(recipe?.inputs || {}, batchCount) || {};
-        const durationMs = effectiveDurationMs * batchCount;
-        const cleanCost = Math.max(0, Number(recipe?.cleanMoneyCost || 0) * batchCount);
+        const currentJob = deps.getProductionJob?.(recipeKey);
+        if (currentJob && currentJob.status !== "running") {
+          rerender?.();
+          return;
+        }
+
+        const maxBatches = Math.max(0, Math.floor(Number(getMaxBatches() || 0)));
+        const safeBatchCount = Math.min(
+          Math.max(1, Math.floor(Number(batchCount || 1))),
+          maxBatches
+        );
+        if (safeBatchCount <= 0) {
+          rerender?.();
+          return;
+        }
+
+        const requiredInputs = deps.getScaledProductionInputs?.(recipe?.inputs || {}, safeBatchCount) || {};
+        const durationMs = effectiveDurationMs * safeBatchCount;
+        const cleanCost = Math.max(0, Number(recipe?.cleanMoneyCost || 0) * safeBatchCount);
         const economyState = deps.getResolvedEconomyState?.() || {};
         if (!deps.hasEnoughMaterials?.(requiredInputs) || Number(economyState.cleanMoney || 0) < cleanCost) {
           rerender?.();
@@ -104,12 +130,37 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
         deps.consumeMaterials?.(requiredInputs);
         if (cleanCost > 0) deps.setStoredEconomyState?.({ ...economyState, cleanMoney: economyState.cleanMoney - cleanCost });
+        const remainingOutputSpace = getRemainingOutputSpace(currentJob);
+        const outputAmount = Math.min(remainingOutputSpace, outputUnitAmount * safeBatchCount);
+        if (outputAmount <= 0) {
+          rerender?.();
+          return;
+        }
+        const baseReadyAt = currentJob?.status === "running"
+          ? Math.max(Date.now(), new Date(currentJob.readyAt).getTime())
+          : Date.now();
+        const nextDurationMs = Math.max(0, Number(currentJob?.durationMs || 0)) + durationMs;
+        const mergedInputs = {
+          ...(currentJob?.inputs || {})
+        };
+        for (const [itemId, amount] of Object.entries(requiredInputs)) {
+          mergedInputs[itemId] = Math.max(0, Number(mergedInputs[itemId] || 0) + Number(amount || 0));
+        }
         deps.persistProductionJob?.(recipeKey, {
+          ...(currentJob || {}),
           status: "running",
-          readyAt: new Date(Date.now() + durationMs).toISOString(),
-          output: { ...recipe.output, amount: Number(recipe.output.amount || 0) * batchCount },
-          quantity: batchCount,
-          durationMs
+          readyAt: new Date(baseReadyAt + durationMs).toISOString(),
+          output: {
+            ...recipe.output,
+            ...(currentJob?.output || {}),
+            amount: outputCap > 0
+              ? Math.min(outputCap, Math.max(0, Number(currentJob?.output?.amount || 0) + outputAmount))
+              : Math.max(0, Number(currentJob?.output?.amount || 0) + outputAmount)
+          },
+          quantity: Math.max(0, Number(currentJob?.quantity || 0)) + safeBatchCount,
+          inputs: mergedInputs,
+          cleanMoneyCost: Math.max(0, Number(currentJob?.cleanMoneyCost || 0) + cleanCost),
+          durationMs: nextDurationMs
         });
         rerender?.();
         deps.scheduleProductionJob?.(recipeKey, rerender);
@@ -117,6 +168,29 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       onStop: () => {
         const currentJob = deps.getProductionJob?.(recipeKey);
         if (!currentJob || currentJob.status !== "running") return rerender?.();
+        if (buildingName === "pharmacy") {
+          const quantity = Math.max(1, Math.floor(Number(currentJob.quantity || 1)));
+          const inputRefunds = currentJob.inputs && typeof currentJob.inputs === "object"
+            ? currentJob.inputs
+            : deps.getScaledProductionInputs?.(recipe?.inputs || {}, quantity) || {};
+          for (const [itemId, amount] of Object.entries(inputRefunds)) {
+            const refundAmount = Math.max(0, Number(amount || 0));
+            if (refundAmount > 0) {
+              deps.setInventoryAmount?.("materials", itemId, Number(deps.getInventoryAmount?.("materials", itemId) || 0) + refundAmount);
+            }
+          }
+
+          const fallbackCleanCost = Math.max(0, Number(recipe?.cleanMoneyCost || 0) * quantity);
+          const cleanRefund = Math.max(0, Number(currentJob.cleanMoneyCost ?? fallbackCleanCost));
+          if (cleanRefund > 0) {
+            const economyState = deps.getResolvedEconomyState?.() || {};
+            deps.setStoredEconomyState?.({
+              ...economyState,
+              cleanMoney: Number(economyState.cleanMoney || 0) + cleanRefund
+            });
+            deps.applyTopbarEconomy?.(root);
+          }
+        }
         deps.clearProductionJob?.(recipeKey);
         rerender?.();
       },
@@ -200,6 +274,8 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const infoTextElement = popup.querySelector(selectors.infoText);
     const infoEffectsElement = popup.querySelector(selectors.infoEffects);
     const infoActionsElement = popup.querySelector(selectors.infoActions);
+    const infoUpgradeCostElement = popup.querySelector("[data-production-building-info-upgrade-cost]");
+    const infoUpgradeBenefitElement = popup.querySelector("[data-production-building-info-upgrade-benefit]");
     const tabButtons = queryAll(popup, selectors.tab)
       .filter((button) => String(button.dataset.productionBuildingTab || "").startsWith(`${buildingName}:`));
     const panels = queryAll(popup, selectors.panel)
@@ -221,6 +297,9 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       deps.syncCompletedProductionJobs?.();
       const state = deps.getStoredProductionBuildingState?.(buildingName) || {};
       const multiplier = deps.getProductionBuildingMultiplier?.(buildingName, state.level) || 1;
+      const nextMultiplier = state.level < maxLevel
+        ? deps.getProductionBuildingMultiplier?.(buildingName, state.level + 1) || multiplier
+        : multiplier;
       const readyCount = deps.getProductionBuildingReadyCount?.(buildingName, recipes) || 0;
       const upgradeCost = state.level < maxLevel ? deps.getProductionBuildingUpgradeCost?.(buildingName, state.level + 1) || 0 : 0;
 
@@ -229,6 +308,13 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       if (multiplierElement) multiplierElement.textContent = `${multiplier.toFixed(2)}x`;
       if (readyElement) readyElement.textContent = `${readyCount}/${Object.keys(recipes || {}).length}`;
       if (upgradeCostElement) upgradeCostElement.textContent = state.level < maxLevel ? deps.formatCurrency?.(upgradeCost) : "MAX";
+      if (infoUpgradeCostElement) infoUpgradeCostElement.textContent = state.level < maxLevel ? deps.formatCurrency?.(upgradeCost) : "MAX";
+      if (infoUpgradeBenefitElement) {
+        const speedGainPct = Math.max(0, Math.round((Number(nextMultiplier || multiplier || 1) - Number(multiplier || 1)) * 100));
+        infoUpgradeBenefitElement.textContent = state.level < maxLevel
+          ? `+${speedGainPct}% rychlost · x${Number(nextMultiplier || multiplier || 1).toFixed(2)}`
+          : "Max level";
+      }
       if (effectsElement) effectsElement.textContent = deps.getProductionBuildingEffectsLabel?.(buildingName, state.level);
 
       renderProductionBuildingInfo({

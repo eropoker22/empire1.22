@@ -84,11 +84,30 @@ describe("production info view models", () => {
     expect(viewModel.rows[2].value).toBe("Multiplier x1.50, vyšší rychlost linek.");
     expect(viewModel.rows[4].value).toBe("4 ks hotovo do skladu");
     expect(viewModel.actions[1].description).toBe("Stojí 100$ clean cash a zvedne multiplier na x1.50.");
+    expect(viewModel.description).toContain("technické komponenty");
+    expect(viewModel.effectsLabel).toBe("Multiplier x1.25 · další level x1.50");
+    expect(viewModel.effectsLabel).not.toContain("Výroba běží přes sloty");
+    expect(viewModel.effectsLabel).not.toContain("fronta po kusech");
+    expect(viewModel.upgrade).toEqual({ costLabel: "100$", benefitLabel: "L3 · x1.50 rychlost" });
+    expect(viewModel.products).toHaveLength(3);
+    expect(viewModel.products[0]).toMatchObject({
+      id: "metal-parts",
+      title: "Metal Parts",
+      durationLabel: "4 min",
+      costLabel: "120 Dirty Cash"
+    });
+    expect(viewModel.products[2]).toMatchObject({
+      id: "combat-module",
+      title: "Combat Module",
+      durationLabel: "15 min",
+      costLabel: "650 Dirty Cash + 1 Tech Core"
+    });
   });
 
   it("handles missing config without crashing", () => {
     expect(getProductionBuildingEffectsLabel("unknown", 1)).toBe("Budova · základní produkční rychlost");
     expect(createProductionBuildingInfoViewModel().recipeLines).toEqual([]);
     expect(createFactoryBuildingInfoViewModel().rows).toHaveLength(6);
+    expect(createFactoryBuildingInfoViewModel().products).toHaveLength(3);
   });
 });

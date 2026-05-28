@@ -1358,203 +1358,6 @@
   }
 }
 
-/* Empire2 action-start toast skin */
-
-.spy-toast,
-.attack-toast,
-.robbery-toast {
-  top: 50%;
-  left: 50%;
-  z-index: 42;
-  width: min(390px, calc(100vw - 28px));
-  gap: 10px;
-  padding: 14px;
-  border: 1px solid rgba(var(--toast-accent-rgb, 250, 204, 21), 0.5);
-  border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.018) 34%, transparent 72%),
-    radial-gradient(circle at 18% -20%, rgba(var(--toast-accent-rgb, 250, 204, 21), 0.18), transparent 46%),
-    rgba(7, 10, 18, 0.96);
-  box-shadow:
-    0 18px 44px rgba(2, 6, 23, 0.42),
-    0 0 0 1px rgba(var(--toast-accent-rgb, 250, 204, 21), 0.18),
-    0 0 20px rgba(var(--toast-accent-rgb, 250, 204, 21), 0.3),
-    0 0 40px rgba(var(--toast-glow-rgb, var(--toast-accent-rgb, 250, 204, 21)), 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
-  transform: translate(-50%, -50%) scale(0.965) translateY(10px);
-  transition: opacity 180ms ease, transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
-  will-change: opacity, transform;
-}
-
-.spy-toast {
-  --toast-accent-rgb: 250, 204, 21;
-  --toast-secondary-rgb: 253, 230, 138;
-  --toast-glow-rgb: 251, 191, 36;
-}
-
-.attack-toast {
-  --toast-accent-rgb: 248, 113, 113;
-  --toast-secondary-rgb: 254, 202, 202;
-  --toast-glow-rgb: 239, 68, 68;
-}
-
-.robbery-toast {
-  --toast-accent-rgb: 56, 189, 248;
-  --toast-secondary-rgb: 207, 250, 254;
-  --toast-glow-rgb: 34, 211, 238;
-}
-
-.spy-toast::before,
-.attack-toast::before,
-.robbery-toast::before {
-  inset: -30%;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(var(--toast-accent-rgb, 250, 204, 21), 0.24), transparent 58%);
-  opacity: 0.46;
-  animation: actionStartToastSpin 8s linear infinite;
-}
-
-.spy-toast::after,
-.attack-toast::after,
-.robbery-toast::after {
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(112deg, transparent 0 38%, rgba(255, 255, 255, 0.18) 50%, transparent 62% 100%);
-  mix-blend-mode: screen;
-  opacity: 0.28;
-  animation: actionStartToastSheen 3.4s ease-in-out infinite;
-}
-
-.spy-toast.is-visible,
-.attack-toast.is-visible,
-.robbery-toast.is-visible {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1) translateY(0);
-  animation: actionStartToastFramePulse 2.4s ease-in-out infinite;
-}
-
-.spy-toast__label,
-.attack-toast__label {
-  display: inline-flex;
-  align-self: flex-start;
-  margin-bottom: 0;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(var(--toast-accent-rgb, 250, 204, 21), 0.36);
-  background: rgba(8, 14, 26, 0.72);
-  color: rgba(var(--toast-secondary-rgb, 253, 230, 138), 0.96);
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  box-shadow: 0 0 16px rgba(var(--toast-accent-rgb, 250, 204, 21), 0.12);
-}
-
-.spy-toast__title,
-.attack-toast__title {
-  color: #f8fafc;
-  font-size: 1rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  text-shadow:
-    0 0 14px rgba(var(--toast-accent-rgb, 250, 204, 21), 0.52),
-    0 0 2px rgba(255, 255, 255, 0.28);
-}
-
-.spy-toast__copy,
-.attack-toast__copy {
-  margin: 0;
-  padding: 10px 12px;
-  border: 1px solid rgba(var(--toast-accent-rgb, 250, 204, 21), 0.24);
-  border-radius: 12px;
-  background: rgba(8, 14, 26, 0.65);
-  color: rgba(var(--toast-secondary-rgb, 253, 230, 138), 0.9);
-  font-size: 0.78rem;
-  line-height: 1.45;
-  animation: actionStartToastSummaryPulse 1.8s ease-in-out infinite;
-}
-
-.robbery-toast .attack-toast__label,
-.robbery-toast .attack-toast__copy {
-  color: rgba(207, 250, 254, 0.92);
-}
-
-.robbery-toast .attack-toast__title {
-  color: #ecfeff;
-}
-
-@keyframes actionStartToastSpin {
-  0% {
-    transform: rotate(0deg) scale(1);
-  }
-  100% {
-    transform: rotate(360deg) scale(1.03);
-  }
-}
-
-@keyframes actionStartToastFramePulse {
-  0%, 100% {
-    box-shadow:
-      0 18px 44px rgba(2, 6, 23, 0.42),
-      0 0 0 1px rgba(var(--toast-accent-rgb, 250, 204, 21), 0.18),
-      0 0 20px rgba(var(--toast-accent-rgb, 250, 204, 21), 0.3),
-      0 0 40px rgba(var(--toast-glow-rgb, var(--toast-accent-rgb, 250, 204, 21)), 0.22),
-      inset 0 1px 0 rgba(255, 255, 255, 0.14);
-  }
-  50% {
-    box-shadow:
-      0 20px 48px rgba(2, 6, 23, 0.46),
-      0 0 0 1px rgba(var(--toast-accent-rgb, 250, 204, 21), 0.24),
-      0 0 24px rgba(var(--toast-accent-rgb, 250, 204, 21), 0.36),
-      0 0 48px rgba(var(--toast-glow-rgb, var(--toast-accent-rgb, 250, 204, 21)), 0.28),
-      inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  }
-}
-
-@keyframes actionStartToastSummaryPulse {
-  0%, 100% {
-    box-shadow: 0 0 0 rgba(var(--toast-accent-rgb, 250, 204, 21), 0);
-  }
-  50% {
-    box-shadow: 0 0 22px rgba(var(--toast-accent-rgb, 250, 204, 21), 0.22);
-  }
-}
-
-@keyframes actionStartToastSheen {
-  0%, 24% {
-    opacity: 0;
-    transform: translateX(-18%);
-  }
-  44%, 58% {
-    opacity: 0.32;
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(18%);
-  }
-}
-
-@media (max-width: 640px) {
-  .spy-toast,
-  .attack-toast,
-  .robbery-toast {
-    width: min(94vw, 360px);
-    padding: 12px;
-    border-radius: 16px;
-  }
-
-  .spy-toast__title,
-  .attack-toast__title {
-    font-size: 0.9rem;
-  }
-
-  .spy-toast__copy,
-  .attack-toast__copy {
-    font-size: 0.72rem;
-  }
-}
-
 /* Final glass/neon pass for action launch and result popups. */
 .spy-confirm-modal__content,
 .attack-confirm-modal__content,
@@ -1597,120 +1400,218 @@
   -webkit-backdrop-filter: blur(14px) saturate(130%);
 }
 
+/* Action windows reuse the last-five-minutes elimination glass frame, tinted per action. */
+html body .attack-setup-popup-card,
+html body .district-action-confirm-popup-card {
+  --action-glass-accent-rgb: 248, 113, 113;
+  --action-glass-strong-rgb: 239, 68, 68;
+  --district-accent-rgb: var(--action-glass-accent-rgb);
+  --district-shadow-rgb: var(--action-glass-strong-rgb);
+  border-color: rgba(var(--action-glass-accent-rgb), 0.34) !important;
+  border-radius: 22px !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.055)),
+    radial-gradient(circle at 50% 0%, rgba(var(--action-glass-accent-rgb), 0.32), transparent 58%),
+    linear-gradient(180deg, rgba(var(--action-glass-strong-rgb), 0.26), rgba(5, 10, 18, 0.56)),
+    rgba(5, 10, 18, 0.72) !important;
+  box-shadow:
+    0 22px 70px rgba(0, 0, 0, 0.3),
+    0 10px 38px rgba(var(--action-glass-strong-rgb), 0.26),
+    0 0 60px rgba(var(--action-glass-accent-rgb), 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 28px rgba(var(--action-glass-accent-rgb), 0.11) !important;
+  backdrop-filter: blur(28px) saturate(1.65) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(1.65) !important;
+}
+
+html body .robbery-setup-popup-card,
+html body .robbery-confirm-popup-card {
+  --action-glass-accent-rgb: 34, 211, 238;
+  --action-glass-strong-rgb: 8, 145, 178;
+}
+
+html body .defense-setup-popup-card {
+  --action-glass-accent-rgb: 103, 225, 255;
+  --action-glass-strong-rgb: 14, 165, 233;
+}
+
+html body .trap-confirm-popup-card {
+  --action-glass-accent-rgb: 20, 184, 166;
+  --action-glass-strong-rgb: 15, 118, 110;
+}
+
+html body .spy-confirm-popup-card {
+  --action-glass-accent-rgb: 251, 191, 36;
+  --action-glass-strong-rgb: 180, 83, 9;
+}
+
+html body .occupy-confirm-popup-card {
+  --action-glass-accent-rgb: 220, 20, 60;
+  --action-glass-strong-rgb: 136, 19, 55;
+}
+
+html body .attack-setup-popup-card .district-modal-hero,
+html body .district-action-confirm-popup-card .district-modal-hero,
+html body .attack-setup-popup-card .attack-setup-popup-row,
+html body .district-action-confirm-popup-card .attack-setup-popup-row,
+html body .attack-setup-popup-card .attack-setup-popup-copy,
+html body .district-action-confirm-popup-card .attack-setup-popup-copy {
+  border-color: rgba(var(--action-glass-accent-rgb), 0.24) !important;
+  background:
+    linear-gradient(135deg, rgba(var(--action-glass-accent-rgb), 0.12), rgba(255, 255, 255, 0.04)),
+    rgba(5, 9, 18, 0.34) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 10px 22px rgba(0, 0, 0, 0.18) !important;
+  backdrop-filter: blur(14px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(130%) !important;
+}
+
+/* Final action-start toast: same glass frame as the elimination countdown. */
 .spy-toast,
 .attack-toast,
-.robbery-toast {
-  width: min(360px, calc(100vw - 28px));
-  padding: 11px 12px 12px;
-  border-color: rgba(var(--toast-accent-rgb, 250, 204, 21), 0.5);
-  border-radius: 12px;
+.robbery-toast,
+.trap-toast {
+  --toast-accent-rgb: 251, 191, 36;
+  --toast-secondary-rgb: 253, 230, 138;
+  --toast-glow-rgb: 180, 83, 9;
+  --toast-deep-rgb: 120, 53, 15;
+  top: 50% !important;
+  left: 50% !important;
+  z-index: 9401 !important;
+  display: grid !important;
+  gap: 8px !important;
+  width: min(360px, calc(100vw - 36px)) !important;
+  padding: 18px 22px 17px !important;
+  border: 1px solid rgba(var(--toast-accent-rgb), 0.34) !important;
+  border-radius: 22px !important;
   background:
-    linear-gradient(135deg, rgba(var(--toast-accent-rgb, 250, 204, 21), 0.16), rgba(var(--toast-secondary-rgb, 253, 230, 138), 0.07) 46%, rgba(5, 9, 18, 0.2)),
-    rgba(5, 9, 18, 0.26);
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.055)),
+    radial-gradient(circle at 50% 0%, rgba(var(--toast-accent-rgb), 0.34), transparent 58%),
+    linear-gradient(180deg, rgba(var(--toast-glow-rgb), 0.32), rgba(var(--toast-deep-rgb), 0.18)),
+    rgba(var(--toast-deep-rgb), 0.16) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -18px 40px rgba(255, 255, 255, 0.025),
-    0 18px 44px rgba(0, 0, 0, 0.34),
-    0 0 0 1px rgba(255, 255, 255, 0.06),
-    0 0 22px rgba(var(--toast-accent-rgb, 250, 204, 21), 0.26);
-  backdrop-filter: blur(30px) saturate(190%);
-  -webkit-backdrop-filter: blur(30px) saturate(190%);
+    0 22px 70px rgba(0, 0, 0, 0.26),
+    0 10px 38px rgba(var(--toast-glow-rgb), 0.28),
+    0 0 60px rgba(var(--toast-accent-rgb), 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 28px rgba(var(--toast-glow-rgb), 0.11) !important;
+  color: rgba(255, 255, 255, 0.96) !important;
+  text-align: center !important;
+  opacity: 0;
+  pointer-events: none;
+  isolation: isolate;
+  overflow: hidden;
+  transform: translate(-50%, -50%) scale(0.96) translateY(8px) !important;
+  transition: opacity 180ms ease, transform 180ms ease !important;
+  backdrop-filter: blur(28px) saturate(1.65) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(1.65) !important;
+}
+
+.attack-toast {
+  --toast-accent-rgb: 248, 113, 113;
+  --toast-secondary-rgb: 254, 202, 202;
+  --toast-glow-rgb: 239, 68, 68;
+  --toast-deep-rgb: 127, 29, 29;
+}
+
+.robbery-toast {
+  --toast-accent-rgb: 34, 211, 238;
+  --toast-secondary-rgb: 165, 243, 252;
+  --toast-glow-rgb: 8, 145, 178;
+  --toast-deep-rgb: 8, 47, 73;
+}
+
+.trap-toast {
+  --toast-accent-rgb: 20, 184, 166;
+  --toast-secondary-rgb: 153, 246, 228;
+  --toast-glow-rgb: 15, 118, 110;
+  --toast-deep-rgb: 19, 78, 74;
 }
 
 .spy-toast::before,
 .attack-toast::before,
-.robbery-toast::before {
-  inset: 0 auto 0 0;
-  width: 3px;
-  border-radius: 0;
-  background: linear-gradient(180deg, rgb(var(--toast-accent-rgb, 250, 204, 21)), rgb(var(--toast-secondary-rgb, 253, 230, 138)));
-  opacity: 1;
-  animation: none;
-}
-
+.robbery-toast::before,
+.trap-toast::before,
 .spy-toast::after,
 .attack-toast::after,
-.robbery-toast::after {
-  background:
-    linear-gradient(110deg, transparent 0 34%, rgba(255, 255, 255, 0.16) 48%, transparent 62% 100%),
-    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 8px);
-  opacity: 0.22;
-}
-
-.spy-toast__label,
-.attack-toast__label {
-  padding: 5px 8px;
-  border-color: rgba(var(--toast-accent-rgb, 250, 204, 21), 0.4);
-  background:
-    linear-gradient(135deg, rgba(var(--toast-accent-rgb, 250, 204, 21), 0.15), rgba(255, 255, 255, 0.04)),
-    rgba(5, 9, 18, 0.2);
-  box-shadow:
-    0 0 12px rgba(var(--toast-accent-rgb, 250, 204, 21), 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(12px) saturate(150%);
-  -webkit-backdrop-filter: blur(12px) saturate(150%);
-}
-
-.spy-toast__title,
-.attack-toast__title {
-  font-size: 0.9rem;
-  letter-spacing: 0.04em;
-}
-
-.spy-toast__copy,
-.attack-toast__copy {
-  padding: 8px 9px;
-  border-color: rgba(var(--toast-accent-rgb, 250, 204, 21), 0.22);
-  border-radius: 9px;
-  background:
-    linear-gradient(135deg, rgba(var(--toast-accent-rgb, 250, 204, 21), 0.08), rgba(255, 255, 255, 0.035)),
-    rgba(5, 9, 18, 0.18);
-  font-size: 0.72rem;
-  backdrop-filter: blur(14px) saturate(150%);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
+.robbery-toast::after,
+.trap-toast::after {
+  content: none !important;
+  animation: none !important;
 }
 
 .spy-toast.is-visible,
 .attack-toast.is-visible,
-.robbery-toast.is-visible {
-  animation: actionStartToastGlassPulse 2.6s ease-in-out infinite;
+.robbery-toast.is-visible,
+.trap-toast.is-visible {
+  opacity: 1 !important;
+  transform: translate(-50%, -50%) scale(1) translateY(0) !important;
+  animation: none !important;
 }
 
-@keyframes actionStartToastGlassPulse {
-  0%, 100% {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.22),
-      inset 0 -18px 40px rgba(255, 255, 255, 0.025),
-      0 18px 44px rgba(0, 0, 0, 0.34),
-      0 0 0 1px rgba(255, 255, 255, 0.06),
-      0 0 22px rgba(var(--toast-accent-rgb, 250, 204, 21), 0.26);
-  }
-  50% {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.26),
-      inset 0 -18px 40px rgba(255, 255, 255, 0.035),
-      0 20px 48px rgba(0, 0, 0, 0.36),
-      0 0 0 1px rgba(var(--toast-accent-rgb, 250, 204, 21), 0.16),
-      0 0 28px rgba(var(--toast-accent-rgb, 250, 204, 21), 0.34);
-  }
+.spy-toast__label,
+.attack-toast__label {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  color: rgba(var(--toast-secondary-rgb), 0.86) !important;
+  font-size: 12px !important;
+  font-weight: 950 !important;
+  letter-spacing: 0.18em !important;
+  line-height: 1 !important;
+  text-transform: uppercase !important;
 }
 
-@media (max-width: 640px) {
+.spy-toast__title,
+.attack-toast__title {
+  display: block !important;
+  margin-top: 8px !important;
+  color: rgba(255, 255, 255, 0.96) !important;
+  font-size: clamp(30px, 6vw, 46px) !important;
+  font-weight: 950 !important;
+  line-height: 0.98 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  text-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.24),
+    0 0 22px rgba(var(--toast-accent-rgb), 0.42) !important;
+}
+
+.spy-toast__copy,
+.attack-toast__copy {
+  margin: 9px 0 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  color: rgba(var(--toast-secondary-rgb), 0.78) !important;
+  font-size: 12px !important;
+  font-weight: 850 !important;
+  line-height: 1.2 !important;
+  animation: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+@media (max-width: 720px), (hover: none) and (pointer: coarse) {
   .spy-toast,
   .attack-toast,
-  .robbery-toast {
-    width: min(92vw, 330px);
-    padding: 10px 11px 11px;
-    border-radius: 11px;
+  .robbery-toast,
+  .trap-toast {
+    width: min(318px, calc(100vw - 32px)) !important;
+    padding: 15px 17px !important;
+    border-radius: 16px !important;
   }
 
   .spy-toast__title,
   .attack-toast__title {
-    font-size: 0.82rem;
-  }
-
-  .spy-toast__copy,
-  .attack-toast__copy {
-    font-size: 0.68rem;
+    font-size: clamp(24px, 8vw, 34px) !important;
   }
 }

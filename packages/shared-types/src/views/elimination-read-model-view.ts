@@ -39,6 +39,7 @@ export interface EliminationReadModel {
   currentPlayerStatus: EliminationRiskStatus;
   currentPlayerScore: number | null;
   currentPlayerRankFromBottom: number | null;
+  currentPlayerScoreBreakdown: Record<string, number> | null;
   playerStatus: PlayerStatus | null;
   lastElimination: {
     playerId: PlayerId;

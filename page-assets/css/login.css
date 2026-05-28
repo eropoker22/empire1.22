@@ -323,6 +323,8 @@ body.login-body::after {
 }
 
 .leaderboard-panel {
+  --leaderboard-green: #168d55;
+  --leaderboard-green-rgb: 22, 141, 85;
   position: absolute;
   z-index: 5;
   left: 0.7vw;
@@ -463,11 +465,16 @@ body.login-body::after {
 }
 
 .leaderboard-score {
-  color: var(--green);
+  color: var(--leaderboard-green);
   font-size: 0.84rem;
   font-weight: 1000;
-  text-shadow: 0 0 14px rgba(57, 255, 136, 0.48);
+  text-shadow: 0 0 12px rgba(var(--leaderboard-green-rgb), 0.42);
   white-space: nowrap;
+}
+
+.leaderboard-item:nth-child(-n + 3) .leaderboard-score {
+  color: #1fbf72;
+  text-shadow: 0 0 12px rgba(31, 191, 114, 0.46);
 }
 
 .leaderboard-summary {

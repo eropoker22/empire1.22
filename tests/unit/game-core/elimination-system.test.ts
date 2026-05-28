@@ -47,6 +47,12 @@ describe("scheduled elimination system", () => {
       eliminationReason: "scheduled_weakest_player",
       finalPlacement: 9
     });
+    expect(result.events.find((event) => event.type === "player-eliminated")?.payload).toMatchObject({
+      playerId: "player:3",
+      gangName: "Player 3",
+      title: "Policie vystřílela gang Player 3",
+      body: "Policie vystřílela gang na sračky a nic tu po něm nezbylo."
+    });
   });
 
   it("runs during the tick lifecycle before victory checks", () => {
@@ -178,6 +184,25 @@ describe("scheduled elimination system", () => {
       status: "neutral"
     });
     expect(result.nextState.buildingsById["building:district:3:restaurant:1"].status).toBe("disabled");
+  });
+
+  it("publishes the police cleanup message to the city feed", () => {
+    const state = createEliminationState();
+    state.root.tick = FIRST_ELIMINATION_TICK;
+
+    const result = runScheduledElimination(state, context);
+    const feedEvent = Object.values(result.nextState.cityFeedEventsById)
+      .find((event) => event.sourceEventId === "elimination:5760:player:3");
+
+    expect(feedEvent).toMatchObject({
+      visibility: "all",
+      message: "Policie vystřílela gang Player 3. Policie vystřílela gang na sračky a nic tu po něm nezbylo.",
+      payload: expect.objectContaining({
+        gangName: "Player 3",
+        title: "Policie vystřílela gang Player 3",
+        body: "Policie vystřílela gang na sračky a nic tu po něm nezbylo."
+      })
+    });
   });
 
   it("reactivates disabled buildings when another player captures a neutralized defeated district", () => {

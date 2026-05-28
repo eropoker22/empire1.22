@@ -91,11 +91,44 @@ export function createFactoryBuildingInfoViewModel({
   const nextLevel = factoryState.level < config.maxLevel ? factoryState.level + 1 : null;
   const upgradeCost = nextLevel ? getFactoryUpgradeCost(nextLevel) : 0;
   const nextMultiplier = nextLevel ? getFactoryLevelMultiplier(nextLevel) : syncResult.productionMultiplier;
+  const currentMultiplier = Number(syncResult.productionMultiplier || 0);
+  const safeNextMultiplier = Number(nextMultiplier || 0);
   return {
+    description: "Továrna vyrábí technické komponenty pro zbraně, obranu a vyšší tier výbavy.",
+    effectsLabel: nextLevel
+      ? `Multiplier x${currentMultiplier.toFixed(2)} · další level x${safeNextMultiplier.toFixed(2)}`
+      : `Multiplier x${currentMultiplier.toFixed(2)} · max level`,
+    upgrade: {
+      costLabel: nextLevel ? formatCurrency(upgradeCost) : "MAX",
+      benefitLabel: nextLevel ? `L${nextLevel} · x${safeNextMultiplier.toFixed(2)} rychlost` : "Max level"
+    },
+    products: [
+      {
+        id: "metal-parts",
+        title: "Metal Parts",
+        description: "Základní kovové díly pro výrobu zbraní, obrany a technického vybavení. Levný základ každé pouliční války.",
+        durationLabel: "4 min",
+        costLabel: "120 Dirty Cash"
+      },
+      {
+        id: "tech-core",
+        title: "Tech Core",
+        description: "Pokročilé technologické jádro používané pro kamery, alarmy, turrety a silnější zbraně. Dražší, ale otevírá vyšší tier výbavy.",
+        durationLabel: "8 min",
+        costLabel: "300 Dirty Cash"
+      },
+      {
+        id: "combat-module",
+        title: "Combat Module",
+        description: "Vojenský bojový modul pro high-tech zbraně, automatickou obranu a těžkou výbavu. Vzácný komponent pro hráče, kteří chtějí dominovat silou.",
+        durationLabel: "15 min",
+        costLabel: "650 Dirty Cash + 1 Tech Core"
+      }
+    ],
     rows: [
-      { label: "Level", value: `L${factoryState.level} · multiplier x${Number(syncResult.productionMultiplier || 0).toFixed(2)}` },
+      { label: "Level", value: `L${factoryState.level} · multiplier x${currentMultiplier.toFixed(2)}` },
       { label: "Upgrade", value: nextLevel ? `${formatCurrency(upgradeCost)} -> L${nextLevel}` : "Max level" },
-      { label: "Další level", value: nextLevel ? `Multiplier x${Number(nextMultiplier || 0).toFixed(2)}, vyšší rychlost linek.` : "Budova už je na maximu." },
+      { label: "Další level", value: nextLevel ? `Multiplier x${safeNextMultiplier.toFixed(2)}, vyšší rychlost linek.` : "Budova už je na maximu." },
       { label: "Výstup", value: `Metal Parts ${Number(syncResult.rates?.metalPartsPerHour || 0).toFixed(2)}/h · Tech Core ${Number(syncResult.rates?.techCorePerHour || 0).toFixed(2)}/h · Combat Module ${Number(syncResult.rates?.combatModulePerHour || 0).toFixed(2)}/h` },
       { label: "Vyzvednutí", value: collectableAmount > 0 ? `${collectableAmount} ks hotovo do skladu` : "Zatím nic hotového" },
       { label: "Combat Module", value: `${config.combatModule?.metalPartsCost || 0} Metal Parts + ${config.combatModule?.techCoreCost || 0} Tech Core · ${formatDurationLabel(config.combatModule?.durationMs || 0)} · heat +${config.combatModule?.heatPerUnit || 0}/ks` }

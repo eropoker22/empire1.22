@@ -145,6 +145,10 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.building-tech-popup-overview-grid--lab-upgrade {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .building-tech-popup-stat-card {
   padding: 12px 14px;
   border-radius: 14px;
@@ -171,6 +175,7 @@
 }
 
 .pharmacy-popup-card.building-detail-modal__content .building-tech-popup-overview-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -213,10 +218,6 @@
 }
 
 .pharmacy-popup-card.building-detail-modal__content .building-tech-popup-stat-card:nth-child(3) {
-  border-color: rgba(52, 211, 153, 0.3);
-}
-
-.pharmacy-popup-card.building-detail-modal__content .building-tech-popup-stat-card:nth-child(4) {
   border-color: rgba(251, 191, 36, 0.32);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
@@ -237,13 +238,14 @@
 
 .pharmacy-popup-card.building-detail-modal__content .building-tech-popup-stat-card__value {
   margin-top: 2px;
-  font-size: 14px;
+  font-size: 17px;
   line-height: 1.1;
   color: #ecfeff;
+  text-align: center;
   text-shadow: 0 0 12px rgba(103, 232, 249, 0.18);
 }
 
-.pharmacy-popup-card.building-detail-modal__content .building-tech-popup-stat-card:nth-child(4) .building-tech-popup-stat-card__value {
+.pharmacy-popup-card.building-detail-modal__content .building-tech-popup-stat-card:nth-child(3) .building-tech-popup-stat-card__value {
   color: #fde68a;
   text-shadow: 0 0 12px rgba(251, 191, 36, 0.2);
 }
@@ -290,6 +292,14 @@
     0 0 14px rgba(45, 212, 191, 0.1);
 }
 
+.druglab-popup-card.building-detail-modal__content .building-tech-popup-stat-card:nth-child(3) {
+  border-color: rgba(251, 191, 36, 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 14px rgba(251, 191, 36, 0.07),
+    0 0 14px rgba(251, 191, 36, 0.1);
+}
+
 .druglab-popup-card.building-detail-modal__content .building-tech-popup-stat-card > * {
   position: relative;
   z-index: 1;
@@ -303,15 +313,43 @@
 
 .druglab-popup-card.building-detail-modal__content .building-tech-popup-stat-card__value {
   margin-top: 2px;
-  font-size: 14px;
+  font-size: 17px;
   line-height: 1.1;
   color: #dbeafe;
+  text-align: center;
   text-shadow: 0 0 12px rgba(125, 211, 252, 0.2);
 }
 
 .druglab-popup-card.building-detail-modal__content .building-tech-popup-stat-card:nth-child(2) .building-tech-popup-stat-card__value {
   color: #99f6e4;
   text-shadow: 0 0 12px rgba(45, 212, 191, 0.2);
+}
+
+.druglab-popup-card.building-detail-modal__content .building-tech-popup-stat-card:nth-child(3) .building-tech-popup-stat-card__value {
+  color: #fde68a;
+  text-shadow: 0 0 12px rgba(251, 191, 36, 0.2);
+}
+
+.druglab-popup-card.building-detail-modal__content .drug-production-slot__metric-label {
+  display: block;
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.druglab-popup-card.building-detail-modal__content .drug-production-slot__metric-value,
+.druglab-popup-card.building-detail-modal__content .drug-production-slot__metric-inline-value {
+  display: block;
+  margin-left: 0;
+  text-align: center;
+}
+
+.pharmacy-popup-card.building-detail-modal__content .pharmacy-slot__state,
+.druglab-popup-card.building-detail-modal__content .drug-production-slot__state {
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: 0.05em;
 }
 
 .armory-popup-card.building-detail-modal__content .building-tech-popup-overview-grid,
@@ -664,6 +702,339 @@
   border-radius: 8px;
   border: 1px solid rgba(167, 139, 250, 0.2);
   background: rgba(30, 27, 48, 0.55);
+}
+
+.building-info-upgrade-mini {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.building-info-upgrade-mini__item {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(251, 191, 36, 0.24);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(34, 211, 238, 0.05)),
+    rgba(12, 10, 22, 0.58);
+}
+
+.building-info-upgrade-mini__item span {
+  font-size: 10px;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: rgba(254, 243, 199, 0.7);
+}
+
+.building-info-upgrade-mini__item strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.15;
+  color: #fde68a;
+}
+
+.druglab-popup-card.building-detail-modal__content .building-info-upgrade-mini--compact {
+  gap: 4px;
+}
+
+.druglab-popup-card.building-detail-modal__content .building-info-upgrade-mini--compact .building-info-upgrade-mini__item {
+  gap: 2px;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+.druglab-popup-card.building-detail-modal__content .building-info-upgrade-mini--compact .building-info-upgrade-mini__item span {
+  font-size: 7px;
+  line-height: 1;
+}
+
+.druglab-popup-card.building-detail-modal__content .building-info-upgrade-mini--compact .building-info-upgrade-mini__item strong {
+  font-size: 9px;
+  line-height: 1;
+}
+
+.druglab-popup-card.building-detail-modal__content .building-info-card__section--lab-upgrade-compact {
+  padding: 3px !important;
+  border-radius: 7px !important;
+  min-height: 0 !important;
+}
+
+.druglab-popup-card.building-detail-modal__content .building-info-card__section--lab-upgrade-compact .building-info-upgrade-mini--compact {
+  gap: 3px !important;
+}
+
+.druglab-popup-card.building-detail-modal__content .building-info-card__section--lab-upgrade-compact .building-info-upgrade-mini__item {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 6px !important;
+  padding: 4px 7px !important;
+  min-height: 0 !important;
+}
+
+.druglab-popup-card.building-detail-modal__content .building-info-card__section--lab-upgrade-compact .building-info-upgrade-mini__item span {
+  flex: 0 0 auto;
+}
+
+.druglab-popup-card.building-detail-modal__content .building-info-card__section--lab-upgrade-compact .building-info-upgrade-mini__item strong {
+  flex: 1 1 auto;
+  text-align: right;
+  font-size: 11px;
+}
+
+.pharmacy-info-output-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.pharmacy-info-output-list--lab {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.pharmacy-info-output-list--armory {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.pharmacy-info-output {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent),
+    rgba(7, 15, 28, 0.52);
+}
+
+.pharmacy-info-output strong {
+  font-size: 11px;
+  line-height: 1.1;
+  color: #ecfeff;
+}
+
+.pharmacy-info-output span {
+  font-size: 10px;
+  line-height: 1.32;
+  color: rgba(203, 213, 225, 0.82);
+}
+
+.pharmacy-info-output__power {
+  display: inline-flex;
+  width: fit-content;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--building-resource-rgb, 103, 232, 249), 0.36);
+  background: rgba(var(--building-resource-rgb, 103, 232, 249), 0.12);
+  color: rgb(var(--building-resource-rgb, 103, 232, 249)) !important;
+  font-size: 9px !important;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.armory-popup-card.building-detail-modal__content .pharmacy-info-output-list--armory .pharmacy-info-output {
+  gap: 5px;
+  min-height: 96px;
+  padding: 8px;
+  border-color: rgba(var(--building-resource-rgb, 248, 113, 113), 0.25);
+  background:
+    radial-gradient(circle at 14% 0%, rgba(var(--building-resource-rgb, 248, 113, 113), 0.2), transparent 46%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent),
+    rgba(7, 15, 28, 0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 14px rgba(var(--building-resource-rgb, 248, 113, 113), 0.1);
+}
+
+.armory-popup-card.building-detail-modal__content .pharmacy-info-output-list--armory .pharmacy-info-output strong {
+  color: rgb(var(--building-resource-rgb, 248, 113, 113));
+  font-size: 11px;
+  line-height: 1.08;
+  text-shadow: 0 0 12px rgba(var(--building-resource-rgb, 248, 113, 113), 0.25);
+}
+
+.armory-popup-card.building-detail-modal__content .pharmacy-info-output-list--armory .pharmacy-info-output span:not(.pharmacy-info-output__power) {
+  font-size: 9.5px;
+  line-height: 1.24;
+  color: rgba(226, 232, 240, 0.84);
+}
+
+.druglab-popup-card.building-detail-modal__content .pharmacy-info-output-list--lab {
+  align-items: stretch;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.druglab-popup-card.building-detail-modal__content .pharmacy-info-output-list--lab .pharmacy-info-output {
+  gap: 5px;
+  min-height: 78px;
+  padding: 8px;
+  border-radius: 9px;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(var(--resource-color-rgb, 103, 232, 249), 0.2), transparent 48%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+    rgba(7, 15, 28, 0.56);
+  border-color: rgba(var(--resource-color-rgb, 103, 232, 249), 0.25);
+}
+
+.druglab-popup-card.building-detail-modal__content .pharmacy-info-output-list--lab .pharmacy-info-output strong {
+  color: rgb(var(--resource-color-rgb, 236, 253, 245));
+  font-size: 11px;
+  line-height: 1.08;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.druglab-popup-card.building-detail-modal__content .pharmacy-info-output-list--lab .pharmacy-info-output span {
+  font-size: 9.5px;
+  line-height: 1.25;
+  color: rgba(226, 232, 240, 0.84);
+}
+
+.druglab-popup-card.building-detail-modal__content .pharmacy-info-output[data-resource-color="neon-dust"] {
+  --resource-color-rgb: 168, 85, 247;
+}
+
+.druglab-popup-card.building-detail-modal__content .pharmacy-info-output[data-resource-color="pulse-shot"] {
+  --resource-color-rgb: 251, 191, 36;
+}
+
+.druglab-popup-card.building-detail-modal__content .pharmacy-info-output[data-resource-color="velvet-smoke"] {
+  --resource-color-rgb: 34, 211, 238;
+}
+
+.druglab-popup-card.building-detail-modal__content .pharmacy-info-output[data-resource-color="ghost-serum"] {
+  --resource-color-rgb: 74, 222, 128;
+}
+
+.druglab-popup-card.building-detail-modal__content .pharmacy-info-output[data-resource-color="combat-module"] {
+  --resource-color-rgb: 248, 113, 113;
+}
+
+.druglab-popup-card.building-detail-modal__content .pharmacy-info-output-list--lab .pharmacy-info-output[data-resource-color="ghost-serum"] {
+  grid-column: 1 / span 2;
+}
+
+.druglab-popup-card.building-detail-modal__content .pharmacy-info-output-list--lab .pharmacy-info-output[data-resource-color="combat-module"] {
+  grid-column: 3 / span 1;
+}
+
+.factory-popup-card.building-detail-modal__content .building-info-card__section--factory-upgrade-compact {
+  padding: 5px !important;
+  border-radius: 8px !important;
+  min-height: 0 !important;
+}
+
+.factory-popup-card.building-detail-modal__content .building-info-card__section--factory-upgrade-compact .building-info-upgrade-mini--compact {
+  gap: 4px !important;
+}
+
+.factory-popup-card.building-detail-modal__content .building-info-card__section--factory-upgrade-compact .building-info-upgrade-mini__item {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 7px !important;
+  min-height: 0 !important;
+  padding: 5px 8px !important;
+  border-color: rgba(251, 146, 60, 0.26);
+  background:
+    linear-gradient(135deg, rgba(251, 146, 60, 0.12), rgba(34, 211, 238, 0.04)),
+    rgba(20, 12, 7, 0.58);
+}
+
+.factory-popup-card.building-detail-modal__content .building-info-card__section--factory-upgrade-compact .building-info-upgrade-mini__item span {
+  flex: 0 0 auto;
+  font-size: 8px;
+  line-height: 1;
+}
+
+.factory-popup-card.building-detail-modal__content .building-info-card__section--factory-upgrade-compact .building-info-upgrade-mini__item strong {
+  flex: 1 1 auto;
+  text-align: right;
+  font-size: 11px;
+  line-height: 1.05;
+}
+
+.factory-popup-card.building-detail-modal__content .pharmacy-info-output-list--factory {
+  align-items: stretch;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.factory-popup-card.building-detail-modal__content .pharmacy-info-output-list--factory .factory-info-output {
+  gap: 6px;
+  min-height: 122px;
+  padding: 9px;
+  border-color: rgba(var(--resource-color-rgb, 251, 146, 60), 0.28);
+  background:
+    radial-gradient(circle at 16% 0%, rgba(var(--resource-color-rgb, 251, 146, 60), 0.22), transparent 48%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.036), transparent),
+    rgba(20, 12, 7, 0.58);
+}
+
+.factory-popup-card.building-detail-modal__content .pharmacy-info-output-list--factory .factory-info-output strong {
+  color: rgb(var(--resource-color-rgb, 253, 186, 116));
+  font-size: 11px;
+  line-height: 1.08;
+  letter-spacing: 0.02em;
+}
+
+.factory-popup-card.building-detail-modal__content .pharmacy-info-output-list--factory .factory-info-output > span {
+  font-size: 9.5px;
+  line-height: 1.25;
+  color: rgba(226, 232, 240, 0.84);
+}
+
+.factory-popup-card.building-detail-modal__content .factory-info-output[data-resource-color="metal-parts"] {
+  --resource-color-rgb: 251, 191, 36;
+}
+
+.factory-popup-card.building-detail-modal__content .factory-info-output[data-resource-color="tech-core"] {
+  --resource-color-rgb: 34, 211, 238;
+}
+
+.factory-popup-card.building-detail-modal__content .factory-info-output[data-resource-color="combat-module"] {
+  --resource-color-rgb: 248, 113, 113;
+}
+
+.factory-info-output__meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: auto;
+}
+
+.factory-info-output__meta-item {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid rgba(var(--resource-color-rgb, 251, 146, 60), 0.2);
+  border-radius: 7px;
+  background: rgba(3, 8, 16, 0.44);
+}
+
+.factory-info-output__meta-item span {
+  color: rgba(226, 232, 240, 0.66) !important;
+  font-size: 7.5px !important;
+  line-height: 1 !important;
+  text-transform: uppercase;
+}
+
+.factory-info-output__meta-item strong {
+  color: #fff7ed !important;
+  font-size: 9.5px !important;
+  line-height: 1.08 !important;
+  overflow-wrap: anywhere;
 }
 
 .building-info-action-row--upgrade {
@@ -2114,6 +2485,15 @@
   gap: 8px;
 }
 
+.drug-production-slot__supply-row--count-2 {
+  grid-template-columns: repeat(2, minmax(0, 160px));
+  justify-content: center;
+}
+
+.drug-production-slot__supply-row--count-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .drug-production-slot__supply-pill {
   display: inline-flex;
   align-items: center;
@@ -2314,6 +2694,12 @@
 }
 
 .factory-slot .drug-production-slot__state {
+  min-height: 20px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.04em;
   color: #fed7aa;
 }
 
@@ -2331,6 +2717,14 @@
 .factory-slot__title-wrap,
 .factory-slot .drug-production-slot__titles {
   min-width: 0;
+}
+
+.factory-slot__title-wrap {
+  align-items: center;
+}
+
+.factory-slot .drug-production-slot__titles {
+  padding-top: 2px;
 }
 
 .factory-slot .drug-production-slot__title {
@@ -2414,6 +2808,40 @@
     0 0 0 1px rgba(251, 113, 133, 0.12),
     0 0 22px rgba(251, 113, 133, 0.14),
     0 16px 30px rgba(2, 6, 23, 0.34);
+}
+
+.armory-slot--attack {
+  --armory-role-rgb: 248, 113, 113;
+  --armory-role-soft-rgb: 190, 24, 93;
+}
+
+.armory-slot--defense {
+  --armory-role-rgb: 96, 165, 250;
+  --armory-role-soft-rgb: 34, 211, 238;
+}
+
+.armory-slot--attack,
+.armory-slot--defense {
+  border-color: rgba(var(--armory-role-rgb), 0.36);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(var(--armory-role-rgb), 0.2), transparent 36%),
+    linear-gradient(135deg, rgba(var(--armory-role-soft-rgb), 0.16), rgba(var(--armory-role-rgb), 0.05) 50%, rgba(8, 14, 26, 0.56)),
+    rgba(7, 12, 22, 0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 0 1px rgba(var(--armory-role-rgb), 0.08),
+    0 0 18px rgba(var(--armory-role-rgb), 0.1),
+    0 14px 26px rgba(2, 6, 23, 0.32);
+}
+
+.armory-slot--attack .drug-production-slot__product,
+.armory-slot--attack .drug-production-slot__title {
+  color: #fecdd3;
+}
+
+.armory-slot--defense .drug-production-slot__product,
+.armory-slot--defense .drug-production-slot__title {
+  color: #bfdbfe;
 }
 
 .armory-slot .drug-production-slot__head {
@@ -2625,6 +3053,11 @@
   gap: 8px;
 }
 
+.factory-slot__actions .factory-slot__quantity {
+  grid-column: 1 / -1;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+}
+
 .factory-slot__actions .factory-slot-button {
   grid-column: auto;
   width: 100%;
@@ -2765,10 +3198,37 @@
     rgba(7, 12, 22, 0.56);
 }
 
+.armory-popup-card.building-detail-modal__content .armory-slot--attack,
+.armory-popup-card.building-detail-modal__content .armory-slot--defense {
+  border-color: rgba(var(--armory-role-rgb), 0.4);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(var(--armory-role-rgb), 0.22), transparent 36%),
+    linear-gradient(135deg, rgba(var(--armory-role-soft-rgb), 0.18), rgba(var(--armory-role-rgb), 0.06) 50%, rgba(8, 14, 26, 0.58)),
+    rgba(7, 12, 22, 0.58);
+}
+
 .armory-popup-card.building-detail-modal__content .armory-slot .drug-production-slot__title,
 .factory-popup-card.building-detail-modal__content .factory-slot .drug-production-slot__title {
   color: #f8fafc;
   text-shadow: 0 0 14px rgba(103, 232, 249, 0.16);
+}
+
+.armory-popup-card.building-detail-modal__content .armory-slot--attack .drug-production-slot__product,
+.armory-popup-card.building-detail-modal__content .armory-slot--attack .drug-production-slot__title {
+  color: #fecdd3;
+}
+
+.armory-popup-card.building-detail-modal__content .armory-slot--defense .drug-production-slot__product,
+.armory-popup-card.building-detail-modal__content .armory-slot--defense .drug-production-slot__title {
+  color: #bfdbfe;
+}
+
+.factory-popup-card.building-detail-modal__content .factory-slot .drug-production-slot__title-wrap {
+  align-items: center;
+}
+
+.factory-popup-card.building-detail-modal__content .factory-slot .drug-production-slot__titles {
+  padding-top: 2px;
 }
 
 .armory-popup-card.building-detail-modal__content .armory-slot .drug-production-slot__product {
@@ -2793,6 +3253,12 @@
 
 .armory-popup-card.building-detail-modal__content .armory-slot .drug-production-slot__state,
 .factory-popup-card.building-detail-modal__content .factory-slot .drug-production-slot__state {
+  min-height: 20px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.04em;
   border-color: rgba(125, 211, 252, 0.34);
   background: rgba(8, 47, 73, 0.52);
   color: #dffbff;
@@ -4686,8 +5152,37 @@
   }
 }
 
+.pharmacy-info-output[data-resource-color="baseball-bat"],
+.pharmacy-info-output[data-resource-color="pistol"],
+.pharmacy-info-output[data-resource-color="grenade"],
+.pharmacy-info-output[data-resource-color="smg"],
+.pharmacy-info-output[data-resource-color="bazooka"],
+.drug-production-slot[data-resource-color="baseball-bat"],
+.drug-production-slot[data-resource-color="pistol"],
+.drug-production-slot[data-resource-color="grenade"],
+.drug-production-slot[data-resource-color="smg"],
+.drug-production-slot[data-resource-color="bazooka"] {
+  --resource-accent-rgb: 248, 113, 113;
+  --resource-soft-rgb: 190, 24, 93;
+}
+
+.pharmacy-info-output[data-resource-color="vest"],
+.pharmacy-info-output[data-resource-color="barricades"],
+.pharmacy-info-output[data-resource-color="cameras"],
+.pharmacy-info-output[data-resource-color="defense-tower"],
+.pharmacy-info-output[data-resource-color="alarm"],
+.drug-production-slot[data-resource-color="vest"],
+.drug-production-slot[data-resource-color="barricades"],
+.drug-production-slot[data-resource-color="cameras"],
+.drug-production-slot[data-resource-color="defense-tower"],
+.drug-production-slot[data-resource-color="alarm"] {
+  --resource-accent-rgb: 96, 165, 250;
+  --resource-soft-rgb: 34, 211, 238;
+}
+
 .pharmacy-slot[data-resource-color],
 .drug-production-slot[data-resource-color],
+.pharmacy-info-output[data-resource-color],
 .factory-resource-pill[data-resource-color],
 .armory-slot__material-pill[data-resource-color],
 .drug-production-slot__supply-pill[data-resource-color],

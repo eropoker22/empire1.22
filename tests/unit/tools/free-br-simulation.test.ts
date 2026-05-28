@@ -62,12 +62,26 @@ describe("canonical Free BR simulation", () => {
   });
 
   it("simulates alliances without exceeding max Free BR alliance size", () => {
-    const report = runFreeBrSimulation({ seed: "alliance-test", hours: 48, scenario: "alliance-heavy" });
+    const report = runFreeBrSimulation({ seed: "alliance-test", hours: 72, scenario: "alliance-heavy" });
 
     expect(report.alliances.formed).toBeGreaterThan(0);
     expect(report.alliances.largestAlliance.size).toBeLessThanOrEqual(4);
     expect(report.alliances.records.every((alliance) => alliance.members.length <= 4)).toBe(true);
     expect(report.alliances.records.every((alliance) => alliance.createdAtTick >= 0)).toBe(true);
+
+    const friendlyFireAttack = report.events.find((event) =>
+      event.actionType === "attack-district"
+      && event.playerId
+      && event.targetPlayerId
+      && report.alliances.records.some((alliance) =>
+        alliance.members.includes(event.playerId!)
+        && alliance.members.includes(event.targetPlayerId!)
+        && event.tick >= alliance.createdAtTick
+        && (alliance.brokenAtTick === null || event.tick < alliance.brokenAtTick)
+      )
+    );
+    expect(friendlyFireAttack).toBeUndefined();
+    expect(report.alliances.coordinatedAttacks).toBeGreaterThan(0);
   });
 
   it("exposes the required audit surfaces", () => {

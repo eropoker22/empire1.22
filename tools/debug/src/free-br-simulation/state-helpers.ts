@@ -72,6 +72,8 @@ export const createEliminationScore = (state: FreeBrSimulationState, player: Fre
   return {
     playerId: player.id,
     playerName: player.name,
+    gangName: player.name,
+    avatarSrc: null,
     score,
     controlledDistricts: districts.length,
     totalOwnedDistrictInfluence: influence,
@@ -141,13 +143,21 @@ export const pickDistrictByAttackValue = (
   rng: SeededRng,
   districts: FreeBrDistrict[],
   player: FreeBrPlayer,
-  leader: FreeBrPlayer | null
+  leader: FreeBrPlayer | null,
+  targetScoreMultiplier: (targetPlayerId: string | null) => number = () => 1
 ): FreeBrDistrict => {
   const weights = Object.fromEntries(districts.map((district) => {
     const owner = district.ownerPlayerId ? state.players.find((candidate) => candidate.id === district.ownerPlayerId) : null;
     const leaderBonus = owner?.id === leader?.id ? 2.2 : 1;
     const weakBonus = owner && getOwnedDistricts(state, owner.id).length <= 2 ? 1.5 : 1;
-    return [String(district.id), district.value * leaderBonus * weakBonus * (district.isDowntown ? 1 + player.downtownPreference * 2.4 : 1)];
+    return [
+      String(district.id),
+      district.value
+        * leaderBonus
+        * weakBonus
+        * targetScoreMultiplier(owner?.id ?? null)
+        * (district.isDowntown ? 1 + player.downtownPreference * 2.4 : 1)
+    ];
   }));
   const id = Number(rng.weightedPick<string>(weights));
   return districts.find((district) => district.id === id) ?? rng.pick(districts);

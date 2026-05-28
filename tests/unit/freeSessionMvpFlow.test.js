@@ -103,6 +103,13 @@ class FakeRoot {
   }
 }
 
+function collectText(element) {
+  return [
+    element?.textContent || "",
+    ...(element?.children || []).map((child) => collectText(child))
+  ].join(" ");
+}
+
 function createBuilders(overrides = {}) {
   return createResultPayloadBuilders({
     currentPlayerId: 1,
@@ -215,6 +222,29 @@ describe("free session MVP flow", () => {
     expect(policeFeedback.hasRealPoliceEvent).toBe(false);
     expect(renderPoliceFeedPanel(policeMount, policeFeedback)).toBe(true);
     expect(policeMount.dataset.policeRisk).toBe("high");
+  });
+
+  it("renders Battle Royale operator essentials in the onboarding panel", () => {
+    const documentRef = new FakeDocument();
+    const onboardingMount = documentRef.createElement("section");
+
+    expect(renderOnboardingPanel({ currentStepId: "elimination" }, {}, { mount: onboardingMount, readModel: {
+      elimination: {
+        currentPlayerStatus: "danger",
+        nextEliminationLabel: "za 42m",
+        dangerZoneLabel: "2 hráči v danger zone",
+        activePlayersRemaining: 18,
+        maxPlayersPerServer: 20
+      },
+      finalLockdown: { active: false }
+    } })).toBe(true);
+
+    const text = collectText(onboardingMount);
+    expect(text).toContain("Free Battle Royale");
+    expect(text).toContain("za 42m");
+    expect(text).toContain("DANGER");
+    expect(text).toContain("18/20");
+    expect(text).toContain("Zvedni score před další očistou.");
   });
 
   it("builds spy and attack result fallback payloads for partial reports", () => {

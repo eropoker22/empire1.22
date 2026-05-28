@@ -108,7 +108,6 @@ describe("factory popup runtime", () => {
     const root = createRoot({
       ".collect": collect,
       ".combat": createElement(),
-      ".effects": createElement(),
       ".header": createElement(),
       ".level": createElement(),
       ".metal": createElement(),

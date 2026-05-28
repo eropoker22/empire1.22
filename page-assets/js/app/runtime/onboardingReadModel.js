@@ -169,8 +169,56 @@ function hasActionButton(context, actionIds = []) {
   return actionIds.some((actionId) => Boolean(root.querySelector(`[data-district-action-id="${actionId}"]:not(:disabled)`)));
 }
 
+function formatTicksShort(ticks) {
+  const totalMinutes = Math.max(0, Math.ceil(Number(ticks || 0)));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? (minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`) : `${totalMinutes}m`;
+}
+
+function formatScoreGap(value) {
+  const safeValue = Math.max(0, Math.ceil(Number(value || 0)));
+  if (safeValue >= 1000000) return `+${Math.round(safeValue / 100000) / 10}M`;
+  if (safeValue >= 1000) return `+${Math.round(safeValue / 1000)}k`;
+  return `+${safeValue}`;
+}
+
+function resolveFinalLockdown(context = {}) {
+  const finalLockdown = safeObject(context.finalLockdown || context.player?.finalLockdown);
+  const active = Boolean(finalLockdown.enabled && (finalLockdown.active || finalLockdown.status === "active"));
+  const topRankCount = Math.max(1, Math.floor(Number(finalLockdown.topRankCount || 3)));
+  const currentRank = Number(finalLockdown.currentPlayerRank);
+  const leaderboardTop3 = asArray(finalLockdown.leaderboardTop3);
+  const thresholdScore = Number(leaderboardTop3[Math.min(topRankCount, leaderboardTop3.length) - 1]?.score);
+  const currentScore = Number(finalLockdown.currentPlayerFinalScore);
+  const top3Gap = Number.isFinite(currentRank) && currentRank > 0 && currentRank <= topRankCount
+    ? "drž pozici"
+    : Number.isFinite(thresholdScore) && Number.isFinite(currentScore)
+      ? formatScoreGap(Math.max(0, thresholdScore - currentScore + 1))
+      : "-";
+
+  return {
+    available: Boolean(finalLockdown.enabled),
+    active,
+    status: finalLockdown.status || (active ? "active" : "inactive"),
+    pausedByQuietHours: Boolean(finalLockdown.pausedByQuietHours),
+    remainingLabel: finalLockdown.pausedByQuietHours
+      ? "pauza do 06:00"
+      : `${formatTicksShort(finalLockdown.remainingActiveTicks)} zbývá`,
+    currentPlayerRank: Number.isFinite(currentRank) && currentRank > 0 ? currentRank : null,
+    rankLabel: Number.isFinite(currentRank) && currentRank > 0 && currentRank <= topRankCount
+      ? `Top ${topRankCount}`
+      : Number.isFinite(currentRank) && currentRank > 0
+        ? `#${currentRank}`
+        : "-",
+    topRankCount,
+    top3Gap,
+    currentPlayerFinalScore: Number.isFinite(currentScore) ? currentScore : null
+  };
+}
+
 function resolveElimination(context = {}) {
-  const elimination = safeObject(context.elimination || context.player?.elimination);
+  const elimination = safeObject(context.elimination || context.player?.elimination || context.gameplaySlice?.elimination);
   const currentPlayerStatus = String(
     elimination.currentPlayerStatus
     || elimination.playerStatus
@@ -185,7 +233,7 @@ function resolveElimination(context = {}) {
     : elimination.isQuietHoursNow
       ? "Eliminace jsou pozastavené do 06:00."
       : Number.isFinite(ticksUntilNext) && ticksUntilNext >= 0
-        ? `${ticksUntilNext} ticků`
+        ? `za ${formatTicksShort(ticksUntilNext)}`
         : "čeká na serverový timer";
   const dangerZoneCount = asArray(elimination.dangerZone).length;
   const dangerZoneLabel = dangerZoneCount > 0
@@ -198,6 +246,7 @@ function resolveElimination(context = {}) {
     nextEliminationLabel,
     dangerZoneLabel,
     activePlayersRemaining: Number(elimination.activePlayersRemaining || 0) || null,
+    maxPlayersPerServer: Number(context.maxPlayersPerServer || context.gameplaySlice?.server?.maxPlayersPerServer || 20) || 20,
     eliminationsStopped: Boolean(elimination.eliminationsStopped),
     isQuietHoursNow: Boolean(elimination.isQuietHoursNow),
     quietHoursResumeTick: Number.isFinite(Number(elimination.quietHoursResumeTick)) ? Number(elimination.quietHoursResumeTick) : null,
@@ -237,6 +286,7 @@ export function createOnboardingReadModel(context = {}) {
     : resolveSuggestedNeighbor(safeContext, firstOwnedDistrictId, ownedDistrictIds, districts);
   const production = resolveProduction(safeContext, ownedDistrictIds, districts);
   const elimination = resolveElimination(safeContext);
+  const finalLockdown = resolveFinalLockdown(safeContext);
   const playerStatus = resolvePlayerStatus(safeContext, elimination);
   const heatAvailable = Boolean(
     safeContext.heatAvailable
@@ -266,6 +316,7 @@ export function createOnboardingReadModel(context = {}) {
     cityFeedAvailable: Boolean(safeContext.cityFeed || hasUiTarget(safeContext, "[data-building-action-feed], [data-district-popup-gossip]")),
     currentPlayerStatus: elimination.currentPlayerStatus,
     elimination,
+    finalLockdown,
     winConditionText: WIN_CONDITION_TEXT
   };
 }

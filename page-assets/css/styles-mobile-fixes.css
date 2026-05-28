@@ -62,6 +62,320 @@ html body .wanted-popup-card .wanted-popup-empty {
   }
 }
 
+/* Tiny white sparkle on the Očista button. */
+.city-status-ai-button::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  width: 5px;
+  height: 5px;
+  background: #ffffff;
+  clip-path: polygon(50% 0, 61% 38%, 100% 50%, 61% 62%, 50% 100%, 39% 62%, 0 50%, 39% 38%);
+  filter:
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.9))
+    drop-shadow(0 0 5px rgba(255, 255, 255, 0.42));
+  opacity: 0.9;
+  pointer-events: none;
+  transform-origin: center;
+  animation: cityStatusAiSparkle 2.7s ease-in-out infinite;
+}
+
+@keyframes cityStatusAiSparkle {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(0.75) rotate(0deg);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1) rotate(18deg);
+  }
+  60% {
+    opacity: 0.78;
+    transform: scale(0.86) rotate(28deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .city-status-ai-button::after {
+    animation: none;
+  }
+}
+
+/* Final mobile Očista panel pass: one clean scrollable sheet inside the phone viewport. */
+@media (max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.elimination-ai-panel-open {
+    overflow: hidden !important;
+    touch-action: pan-y !important;
+  }
+
+  html body .elimination-ai-panel.is-open {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9600 !important;
+    display: block !important;
+    width: 100vw !important;
+    height: var(--mobile-locked-vh, 100dvh) !important;
+    min-height: var(--mobile-locked-vh, 100dvh) !important;
+    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)) !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    background:
+      linear-gradient(180deg, rgba(1, 5, 12, 0.42), rgba(1, 5, 12, 0.66)),
+      rgba(1, 5, 12, 0.46) !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__backdrop {
+    display: block !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background: rgba(1, 5, 12, 0.56) !important;
+    backdrop-filter: blur(4px) saturate(120%) !important;
+    -webkit-backdrop-filter: blur(4px) saturate(120%) !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__card {
+    --ai-panel-lab-blue: 34, 211, 238;
+    --ai-panel-armory-red: 248, 113, 113;
+    --ai-panel-factory-yellow: 251, 191, 36;
+    --ai-panel-pharmacy-green: 45, 212, 191;
+    --ai-panel-cyan: var(--ai-panel-lab-blue);
+    --ai-panel-pink: var(--ai-panel-armory-red);
+    --ai-panel-green: var(--ai-panel-pharmacy-green);
+    --ai-panel-amber: var(--ai-panel-factory-yellow);
+    position: relative !important;
+    z-index: 1 !important;
+    display: block !important;
+    width: min(100%, 430px) !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    margin: 0 auto !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+    border: 1px solid rgba(34, 211, 238, 0.28) !important;
+    border-radius: 18px !important;
+    background:
+      linear-gradient(135deg, rgba(4, 10, 18, 0.88), rgba(2, 7, 15, 0.92) 48%, rgba(18, 5, 21, 0.86)),
+      radial-gradient(circle at 18% 0%, rgba(var(--ai-panel-lab-blue), 0.2), transparent 34%),
+      radial-gradient(circle at 98% 22%, rgba(var(--ai-panel-armory-red), 0.18), transparent 38%),
+      radial-gradient(circle at 84% 84%, rgba(var(--ai-panel-factory-yellow), 0.12), transparent 34%),
+      radial-gradient(circle at 8% 86%, rgba(var(--ai-panel-pharmacy-green), 0.1), transparent 36%),
+      url("../../img/eliminace.png") center / cover no-repeat,
+      #050a12 !important;
+    box-shadow:
+      0 18px 52px rgba(0, 0, 0, 0.56),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.045) !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__card::before {
+    opacity: 0.18 !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__card::after {
+    content: "" !important;
+    position: absolute !important;
+    top: 7px !important;
+    left: 50% !important;
+    z-index: 5 !important;
+    display: block !important;
+    width: 44px !important;
+    height: 4px !important;
+    margin: 0 !important;
+    border-radius: 999px !important;
+    background: rgba(234, 248, 255, 0.28) !important;
+    box-shadow: 0 0 14px rgba(34, 211, 238, 0.24) !important;
+    transform: translateX(-50%) !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__header {
+    position: absolute !important;
+    top: 18px !important;
+    right: 18px !important;
+    z-index: 4 !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    width: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: none !important;
+    pointer-events: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__close {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    padding: 0 !important;
+    border: 1px solid rgba(103, 232, 249, 0.58) !important;
+    border-radius: 9px !important;
+    background:
+      linear-gradient(135deg, rgba(103, 232, 249, 0.18), rgba(236, 72, 153, 0.08)),
+      rgba(2, 8, 16, 0.72) !important;
+    color: #e7fdff !important;
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    pointer-events: auto !important;
+    text-shadow:
+      0 0 8px rgba(103, 232, 249, 0.88),
+      0 0 14px rgba(236, 72, 153, 0.38) !important;
+    box-shadow:
+      0 0 12px rgba(34, 211, 238, 0.26),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__body {
+    display: grid !important;
+    gap: 10px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 10px calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+    overflow: visible !important;
+    overscroll-behavior: auto !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__hero {
+    display: block !important;
+    min-height: 0 !important;
+    padding: 16px 52px 13px 12px !important;
+    border-radius: 14px !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__countdown-label,
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__subtitle {
+    text-align: left !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__countdown-label {
+    display: block !important;
+    max-width: calc(100% - 2px) !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: none !important;
+    color: #dffcff !important;
+    font-size: 11px !important;
+    font-weight: 950 !important;
+    letter-spacing: 0.16em !important;
+    line-height: 1 !important;
+    text-shadow:
+      0 0 8px rgba(34, 211, 238, 0.8),
+      0 0 16px rgba(236, 72, 153, 0.28) !important;
+    box-shadow: none !important;
+    white-space: nowrap !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__countdown {
+    margin-top: 6px !important;
+    font-size: clamp(32px, 10.5vw, 42px) !important;
+    line-height: 1 !important;
+    letter-spacing: 0 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    color: #ffffff !important;
+    font-family: "Orbitron", "Rajdhani", "Inter", system-ui, sans-serif !important;
+    font-weight: 950 !important;
+    text-transform: uppercase !important;
+    text-shadow:
+      0 0 3px rgba(255, 255, 255, 0.88),
+      0 0 14px rgba(34, 211, 238, 0.72),
+      0 0 28px rgba(236, 72, 153, 0.44),
+      0 0 42px rgba(34, 211, 238, 0.28) !important;
+    filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.22));
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__metric {
+    min-height: 58px !important;
+    padding: 9px !important;
+    border-radius: 12px !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__metric span,
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__metric strong {
+    min-width: 0 !important;
+    overflow-wrap: anywhere !important;
+    white-space: normal !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__section {
+    padding: 10px !important;
+    border-radius: 12px !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__section h3 {
+    margin-bottom: 8px !important;
+    font-size: 11px !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__leaderboard,
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__score,
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__section--leaderboard .elimination-ai-panel__leaderboard,
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__section--score .elimination-ai-panel__score {
+    max-height: none !important;
+    overflow: visible !important;
+    scroll-snap-type: none !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__leaderboard-row {
+    grid-template-columns: 24px 28px minmax(0, 1fr) auto auto !important;
+    gap: 6px !important;
+    min-height: 38px !important;
+    padding: 7px 8px !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__leaderboard-name,
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__leaderboard-score,
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__leaderboard-districts {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__score-row,
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__score-total {
+    scroll-snap-align: none !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__result {
+    grid-template-columns: 60px minmax(0, 1fr) !important;
+    gap: 10px !important;
+    padding: 10px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__card {
+    border-radius: 14px !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__countdown {
+    font-size: clamp(29px, 10vw, 38px) !important;
+  }
+
+  html body .elimination-ai-panel.is-open .elimination-ai-panel__metrics {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 html body .wanted-popup-card .wanted-popup-police-toggle.button,
 html body .wanted-popup-card .wanted-popup-police-toggle {
   display: inline-grid !important;
@@ -529,10 +843,6 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     pointer-events: none !important;
   }
 
-  #game-command-bar-mount .city-status-pill:has([data-city-status]) {
-    display: none !important;
-  }
-
   #game-command-bar-mount,
   #game-command-bar-mount .city-status-bar {
     width: 100% !important;
@@ -541,6 +851,10 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
 
   #game-command-bar-mount .city-status-bar {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  #game-command-bar-mount .city-status-pill:nth-child(3) {
+    display: none !important;
   }
 
   #profile-gang-card .gang-profile-row:has(#profile-alliance) {
@@ -1071,11 +1385,16 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
   }
 
   .pharmacy-popup-card.building-detail-modal__content .building-tech-popup-overview-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     gap: 5px !important;
   }
 
   .druglab-popup-card.building-detail-modal__content .building-tech-popup-overview-grid {
     gap: 5px !important;
+  }
+
+  .druglab-popup-card.building-detail-modal__content .building-tech-popup-overview-grid--lab-upgrade {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 
   .armory-popup-card.building-detail-modal__content .building-tech-popup-overview-grid,
@@ -1125,6 +1444,71 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     margin-top: 1px !important;
     font-size: 10px !important;
     line-height: 1 !important;
+  }
+
+  .pharmacy-info-output-list {
+    grid-template-columns: 1fr !important;
+    gap: 5px !important;
+  }
+
+  .pharmacy-info-output-list--lab {
+    grid-template-columns: 1fr !important;
+  }
+
+  .druglab-popup-card.building-detail-modal__content .pharmacy-info-output-list--lab {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+  }
+
+  .druglab-popup-card.building-detail-modal__content .pharmacy-info-output-list--lab .pharmacy-info-output {
+    min-height: 0 !important;
+    padding: 7px !important;
+  }
+
+  .druglab-popup-card.building-detail-modal__content .pharmacy-info-output-list--lab .pharmacy-info-output span {
+    font-size: 9px !important;
+    line-height: 1.2 !important;
+  }
+
+  .druglab-popup-card.building-detail-modal__content .pharmacy-info-output-list--lab .pharmacy-info-output[data-resource-color="ghost-serum"],
+  .druglab-popup-card.building-detail-modal__content .pharmacy-info-output-list--lab .pharmacy-info-output[data-resource-color="combat-module"] {
+    grid-column: auto !important;
+  }
+
+  .druglab-popup-card.building-detail-modal__content .pharmacy-info-output-list--lab .pharmacy-info-output[data-resource-color="combat-module"] {
+    grid-column: 1 / -1 !important;
+  }
+
+  .factory-popup-card.building-detail-modal__content .pharmacy-info-output-list--factory {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+  }
+
+  .factory-popup-card.building-detail-modal__content .pharmacy-info-output-list--factory .factory-info-output {
+    min-height: 0 !important;
+    padding: 8px !important;
+  }
+
+  .factory-popup-card.building-detail-modal__content .pharmacy-info-output-list--factory .factory-info-output > span {
+    font-size: 9.5px !important;
+    line-height: 1.25 !important;
+  }
+
+  .factory-popup-card.building-detail-modal__content .factory-info-output__meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .factory-popup-card.building-detail-modal__content .factory-info-output__meta-item {
+    padding: 5px 6px !important;
+  }
+
+  .pharmacy-info-output {
+    padding: 7px !important;
+  }
+
+  .pharmacy-info-output span {
+    font-size: 9px !important;
+    line-height: 1.25 !important;
   }
 
   .druglab-popup-card.building-detail-modal__content .building-tech-popup-stat-card__value {
@@ -1182,6 +1566,15 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
   .druglab-popup-card.building-detail-modal__content .drug-production-slot__supply-row {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 6px !important;
+  }
+
+  .druglab-popup-card.building-detail-modal__content .drug-production-slot__supply-row--count-2 {
+    grid-template-columns: repeat(2, minmax(0, 120px)) !important;
+    justify-content: center !important;
+  }
+
+  .druglab-popup-card.building-detail-modal__content .drug-production-slot__supply-row--count-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 
   .druglab-popup-card.building-detail-modal__content .drug-production-slot__supply-pill {
@@ -1333,6 +1726,23 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     letter-spacing: 0.03em !important;
   }
 
+  .factory-popup-card.building-detail-modal__content .factory-slot .drug-production-slot__state {
+    min-height: 18px !important;
+    padding: 2px 5px !important;
+    font-size: 7px !important;
+    line-height: 1 !important;
+    letter-spacing: 0.03em !important;
+    white-space: nowrap;
+  }
+
+  .factory-popup-card.building-detail-modal__content .factory-slot .drug-production-slot__title-wrap {
+    align-items: center !important;
+  }
+
+  .factory-popup-card.building-detail-modal__content .factory-slot .drug-production-slot__titles {
+    padding-top: 2px !important;
+  }
+
   .armory-popup-card.building-detail-modal__content .armory-slot .drug-production-slot__controls {
     grid-template-columns: minmax(96px, 1.25fr) repeat(2, minmax(0, 0.9fr)) !important;
     gap: 6px !important;
@@ -1422,6 +1832,11 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
   .factory-popup-card.building-detail-modal__content .factory-slot__actions {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 6px !important;
+  }
+
+  .factory-popup-card.building-detail-modal__content .factory-slot__actions .factory-slot__quantity {
+    grid-column: 1 / -1 !important;
+    grid-template-columns: 30px minmax(0, 1fr) 30px !important;
   }
 
   .factory-popup-card.building-detail-modal__content .factory-slot__actions .factory-slot-button {

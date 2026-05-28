@@ -46,7 +46,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     if (
       !openButton || !popup || closeElements.length === 0 || !slotList || !levelElement || !multiplierElement
       || !ownedCountElement || !upgradeCostElement || !metalElement || !techElement || !combatElement
-      || !effectsLabelElement || !upgradeButton
+      || !upgradeButton
       || !collectButton
     ) {
       return false;
@@ -80,6 +80,18 @@ export function createFactoryPopupRuntime(deps = {}) {
         const targetSlot = (nextState.slots || []).find((item) => item.id === slotId);
         if (!targetSlot) return;
         targetSlot.isProducing = isProducing;
+        targetSlot.lastTick = Date.now();
+        deps.setStoredFactoryState?.(nextState);
+        renderFactoryDashboard();
+      };
+      const queueFactorySlotProduction = (slotView, batchCount = 1) => {
+        const nextState = deps.getStoredFactoryState?.() || {};
+        const targetSlot = (nextState.slots || []).find((item) => item.id === slotView?.slot?.id);
+        if (!targetSlot) return;
+        const safeBatchCount = Math.max(1, Math.floor(Number(batchCount || 1)));
+        targetSlot.queueMode = true;
+        targetSlot.queuedAmount = Math.max(0, Math.floor(Number(targetSlot.queuedAmount || 0))) + safeBatchCount;
+        targetSlot.isProducing = true;
         targetSlot.lastTick = Date.now();
         deps.setStoredFactoryState?.(nextState);
         renderFactoryDashboard();
@@ -118,7 +130,7 @@ export function createFactoryPopupRuntime(deps = {}) {
         renderFactoryBuildingInfo,
         renderFactorySlotList: deps.renderFactorySlotList,
         onPauseSlot: (slotView) => setFactorySlotProduction(slotView.slot?.id, false),
-        onStartSlot: (slotView) => setFactorySlotProduction(slotView.slot?.id, true)
+        onStartSlot: (slotView, payload) => queueFactorySlotProduction(slotView, payload?.batchCount || 1)
       });
     };
 

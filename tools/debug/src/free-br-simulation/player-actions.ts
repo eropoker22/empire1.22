@@ -1,5 +1,9 @@
 import { addAuditEvent } from "./audit-log";
-import { isAllianceCoordinatedAttack } from "./alliance-simulation";
+import {
+  arePlayersAllied,
+  isAllianceCoordinatedAttack,
+  resolveAllianceAttackTargetScore
+} from "./alliance-simulation";
 import { resolveActivityProbability } from "./bot-player";
 import { FREE_BR_BOT_STRATEGIES } from "./bot-strategies";
 import { maybeAssistAlly, tryBuildingAction, tryCraft } from "./economy-actions";
@@ -144,12 +148,21 @@ const tryAttack = (state: FreeBrSimulationState, rng: SeededRng, player: FreeBrP
   const leader = findLeader(state);
   const candidates = getAdjacentTargets(state, player)
     .filter((district) => district.ownerPlayerId && district.ownerPlayerId !== player.id)
+    .filter((district) => !arePlayersAllied(player, state.players.find((candidate) => candidate.id === district.ownerPlayerId)))
     .filter((district) => urgent || player.spyIntel.has(district.id) || rng.chance(0.28 + player.riskTolerance * 0.2));
   if (candidates.length === 0) return false;
 
-  const target = pickDistrictByAttackValue(state, rng, candidates, player, leader);
+  const target = pickDistrictByAttackValue(
+    state,
+    rng,
+    candidates,
+    player,
+    leader,
+    (targetPlayerId) => resolveAllianceAttackTargetScore(state, player, targetPlayerId, leader)
+  );
   const defender = state.players.find((candidate) => candidate.id === target.ownerPlayerId) ?? null;
   if (!defender) return false;
+  if (arePlayersAllied(player, defender)) return false;
   const coordinated = isAllianceCoordinatedAttack(state, player, defender.id);
   const attackPower = computeAttackPower(state, player, coordinated);
   const defensePower = computeDefensePower(state, defender, target);

@@ -6,6 +6,8 @@ import { DEFAULT_ELIMINATION_SCORE_WEIGHTS, resolveEliminationConfig } from "./e
 export interface PlayerEliminationScore {
   playerId: PlayerId;
   playerName: string;
+  gangName: string;
+  avatarSrc: string | null;
   score: number;
   controlledDistricts: number;
   totalOwnedDistrictInfluence: number;
@@ -51,6 +53,8 @@ export const createPlayerEliminationScore = (
   return {
     playerId,
     playerName: player?.name ?? playerId,
+    gangName: stringMetadata(player?.metadata, "gangName") || player?.name || playerId,
+    avatarSrc: stringMetadata(player?.metadata, "avatarSrc") || stringMetadata(player?.metadata, "avatar") || null,
     score,
     controlledDistricts: districts.length,
     totalOwnedDistrictInfluence,
@@ -75,6 +79,11 @@ export const compareEliminationScores = (left: PlayerEliminationScore, right: Pl
 const compareScore = (left: number, right: number): number => {
   const delta = left - right;
   return Math.abs(delta) <= ELIMINATION_SCORE_EPSILON ? 0 : delta;
+};
+
+const stringMetadata = (metadata: Record<string, unknown> | undefined, key: string): string => {
+  const value = String(metadata?.[key] ?? "").trim();
+  return value;
 };
 
 const compareLastActionAt = (left: string | null, right: string | null): number => {
