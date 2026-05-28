@@ -1,59 +1,60 @@
 # Free BR canonical simulation matrix
 
 ## Summary
-- Scenarios: canonical-20p
-- Runs per scenario: 1
+- Scenarios: canonical-20p, aggressive-heavy, casual-heavy, downtown-rush, alliance-heavy, no-alliance-control, high-risk-crime
+- Runs per scenario: 15
 - Average duration: 80h
-- Average attacks: 1024
+- Average attacks: 1018.3619047619047
 - Final Lockdown wins: 100%
 - Average Final Lockdown wall-clock: 18h
 - Average Final Lockdown paused hours: 6h
 - Old 75% victory before timeout: 0%
 - Timeout without winner: 0%
-- Dominant faction: hackeri
-- Weakest faction: mafian
-- Reliable strategy: economy-builder
-- Risky strategy: diplomat
+- Dominant faction: mafian
+- Weakest faction: motorkarsky-gang
+- Reliable strategy: downtown-rusher
+- Risky strategy: casual
 
 ## Scénáře
-- canonical-20p
+- canonical-20p, aggressive-heavy, casual-heavy, downtown-rush, alliance-heavy, no-alliance-control, high-risk-crime
 
 ## Frakce
 | Frakce | Runs | Wins | Win rate | Top 8 | Top 8 rate | Avg placement |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| hackeri | 2 | 1 | 50% | 2 | 100% | 4.5 |
-| kartel | 3 | 0 | 0% | 2 | 67% | 5.7 |
-| korporace | 2 | 0 | 0% | 2 | 100% | 5 |
-| motorkarsky-gang | 2 | 0 | 0% | 1 | 50% | 10.5 |
-| tajna-organizace | 3 | 0 | 0% | 1 | 33% | 13 |
-| mafian | 3 | 0 | 0% | 0 | 0% | 15.7 |
-| soukroma-armada | 2 | 0 | 0% | 0 | 0% | 13.5 |
-| kult | 3 | 0 | 0% | 0 | 0% | 13.3 |
+| kartel | 315 | 18 | 6% | 109 | 35% | 11 |
+| soukroma-armada | 210 | 5 | 2% | 92 | 44% | 10.1 |
+| korporace | 210 | 2 | 1% | 102 | 49% | 9.5 |
+| tajna-organizace | 315 | 17 | 5% | 139 | 44% | 10 |
+| motorkarsky-gang | 210 | 2 | 1% | 67 | 32% | 11.7 |
+| mafian | 315 | 34 | 11% | 147 | 47% | 9.8 |
+| hackeri | 210 | 5 | 2% | 70 | 33% | 11.5 |
+| kult | 315 | 22 | 7% | 114 | 36% | 10.8 |
 
 ## Strategie
 | Strategie | Runs | Wins | Win rate | Top 8 | Top 8 rate | Avg placement |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| economy-builder | 3 | 1 | 33% | 1 | 33% | 12 |
-| aggressive-expander | 4 | 0 | 0% | 3 | 75% | 6.5 |
-| opportunist | 2 | 0 | 0% | 1 | 50% | 6 |
-| casual | 3 | 0 | 0% | 1 | 33% | 12 |
-| downtown-rusher | 4 | 0 | 0% | 2 | 50% | 10.3 |
-| defensive-turtle | 3 | 0 | 0% | 0 | 0% | 14 |
-| diplomat | 1 | 0 | 0% | 0 | 0% | 17 |
+| aggressive-expander | 310 | 19 | 6% | 182 | 59% | 8.3 |
+| defensive-turtle | 196 | 7 | 4% | 73 | 37% | 11.2 |
+| opportunist | 327 | 25 | 8% | 158 | 48% | 9.4 |
+| downtown-rusher | 226 | 20 | 9% | 112 | 50% | 9.1 |
+| economy-builder | 243 | 12 | 5% | 94 | 39% | 10.4 |
+| casual | 285 | 2 | 1% | 26 | 9% | 15.4 |
+| diplomat | 241 | 12 | 5% | 86 | 36% | 10.5 |
+| high-risk-criminal | 272 | 8 | 3% | 109 | 40% | 10 |
 
 ## Aggregate metrics
 - Average match duration: 80h
-- Average attacks per match: 1024
-- Average alliances per match: 5
+- Average attacks per match: 1018.3619047619047
+- Average alliances per match: 3.2476190476190476
 - Average quiet hour deferrals: 2
-- Average downtown snowball rate: 0%
-- Early downtown owner top 8 chance: 0%
+- Average downtown snowball rate: 16%
+- Early downtown owner top 8 chance: 16%
 - Final Lockdown win rate: 100%
 - Average Final Lockdown wall-clock: 18h
 - Average Final Lockdown paused hours: 6h
 - Old 75% victory before timeout chance: 0%
 - Timeout without winner chance: 0%
 - Average downtown bonus impact: 6000
-- Average heat penalty impact: 111695.56399999998
+- Average heat penalty impact: 119546.99676190481
 - Danger zone comeback rate: 10%
-- Average police raids per match: 228
+- Average police raids per match: 228.03809523809525

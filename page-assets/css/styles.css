@@ -135,38 +135,89 @@
 
 /* Final loaded override: make the Očista command visibly blink after imported CSS is cached. */
 html body.game-body .city-status-ai-button {
-  animation: cityStatusAiButtonBlink 2.8s ease-in-out infinite !important;
+  --purge-button-carmine: 196, 18, 48;
+  --purge-button-carmine-hot: 255, 45, 96;
+  border-color: rgba(var(--purge-button-carmine), 0.64) !important;
+  background:
+    linear-gradient(135deg, rgba(var(--purge-button-carmine), 0.26), rgba(var(--purge-button-carmine-hot), 0.14)),
+    rgba(22, 4, 10, 0.92) !important;
+  color: #ffe4ec !important;
+  animation: cityStatusAiButtonBlink 4.8s ease-in-out infinite !important;
   will-change: border-color, background-color, box-shadow, color, filter;
 }
 
 @keyframes cityStatusAiButtonBlink {
   0%, 100% {
-    border-color: rgba(var(--city-status-accent), 0.34);
-    background: rgba(var(--city-status-accent), 0.08);
-    color: #c7f9ff;
-    text-shadow: 0 0 6px rgba(var(--city-status-accent), 0.24);
+    border-color: rgba(var(--purge-button-carmine), 0.54);
+    background:
+      linear-gradient(135deg, rgba(var(--purge-button-carmine), 0.22), rgba(var(--purge-button-carmine-hot), 0.1)),
+      rgba(22, 4, 10, 0.92);
+    color: #ffdce6;
+    text-shadow: 0 0 7px rgba(var(--purge-button-carmine), 0.34);
     box-shadow:
-      0 0 8px rgba(var(--city-status-accent), 0.14),
+      0 0 8px rgba(var(--purge-button-carmine), 0.24),
       inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-    filter: brightness(0.92) saturate(1);
+    filter: brightness(0.96) saturate(1.08);
   }
   48%, 58% {
-    border-color: rgba(var(--city-status-accent), 0.92);
-    background: rgba(var(--city-status-accent), 0.22);
+    border-color: rgba(var(--purge-button-carmine-hot), 0.96);
+    background:
+      linear-gradient(135deg, rgba(var(--purge-button-carmine-hot), 0.34), rgba(var(--purge-button-carmine), 0.22)),
+      rgba(33, 5, 14, 0.96);
     color: #ffffff;
     text-shadow:
       0 0 8px rgba(255, 255, 255, 0.78),
-      0 0 16px rgba(var(--city-status-accent), 0.72);
+      0 0 16px rgba(var(--purge-button-carmine-hot), 0.78);
     box-shadow:
-      0 0 16px rgba(var(--city-status-accent), 0.48),
-      0 0 28px rgba(var(--city-status-accent-alt), 0.24),
+      0 0 16px rgba(var(--purge-button-carmine-hot), 0.58),
+      0 0 30px rgba(var(--purge-button-carmine), 0.34),
       inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-    filter: brightness(1.24) saturate(1.18);
+    filter: brightness(1.2) saturate(1.22);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html body.game-body .city-status-ai-button {
     animation: none !important;
+  }
+}
+
+/* Final loaded override: desktop street news shows three readable rows, then scrolls. */
+@media (min-width: 721px) and (hover: hover) and (pointer: fine) {
+  html body.game-body .building-action-status__feed {
+    --street-news-row-height: 118px;
+    --street-news-row-gap: 8px;
+    display: grid !important;
+    grid-auto-rows: max-content !important;
+    gap: var(--street-news-row-gap) !important;
+    align-content: start !important;
+    align-items: start !important;
+    max-height: calc((var(--street-news-row-height) * 3) + (var(--street-news-row-gap) * 2)) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    padding-right: 8px !important;
+    scrollbar-gutter: stable !important;
+  }
+
+  html body.game-body .building-action-status__item {
+    min-height: var(--street-news-row-height) !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    align-self: start !important;
+  }
+
+  html body.game-body .building-action-status__item-summary,
+  html body.game-body .building-action-status__item-meta {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    text-overflow: clip !important;
+    overflow-wrap: anywhere !important;
+    -webkit-line-clamp: unset !important;
+    line-clamp: unset !important;
   }
 }
