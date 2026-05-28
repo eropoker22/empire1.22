@@ -131,6 +131,10 @@ function getQueuedOutputAmount(job = null, recipe = {}, options = {}) {
 }
 
 function formatQueuedOutput(job = null, recipe = {}, options = {}) {
+  if (job?.status === "ready") {
+    const outputCap = Math.max(0, Math.floor(Number(options.outputCap || 0)));
+    return outputCap > 0 ? `0/${outputCap} ks` : "0 ks";
+  }
   const queuedAmount = getQueuedOutputAmount(job, recipe, options);
   const outputCap = Math.max(0, Math.floor(Number(options.outputCap || 0)));
   return outputCap > 0 ? `${Math.min(outputCap, queuedAmount)}/${outputCap} ks` : `${queuedAmount} ks`;
@@ -319,14 +323,14 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
   const refresh = () => {
     const maxBatches = getMaxBatches();
     const outputAmount = useQuantityAsOutput ? 1 : Math.max(1, Number(recipe.output?.amount || 1));
-    const canQueueMore = !job || job.status === "running";
+    const canQueueMore = !job || job.status === "running" || job.status === "ready";
     selectedBatches = Math.max(1, Math.min(Math.max(1, selectedBatches), Math.max(1, maxBatches)));
     const visibleBatches = canQueueMore ? selectedBatches : Math.max(1, Math.ceil(getQueuedOutputAmount(job, recipe, { useQuantityAsOutput }) / outputAmount));
     quantityValue.textContent = String(job && !canQueueMore && resetQuantityOnJob ? 0 : visibleBatches);
     minusButton.disabled = !canQueueMore || selectedBatches <= 1;
     plusButton.disabled = !canQueueMore || selectedBatches >= maxBatches;
     if (startButton) {
-      startButton.disabled = !canQueueMore || selectedBatches > maxBatches || maxBatches <= 0;
+      startButton.disabled = viewModel.canStart === false || !canQueueMore || selectedBatches > maxBatches || maxBatches <= 0;
     }
     setMetricValue(timeMetric, formatRecipeSlotTime(job, effectiveDurationMs, selectedBatches, options));
     setMetricValue(queueMetric, formatQueuedOutput(job, recipe, { useQuantityAsOutput, outputCap: viewModel.outputCap }));
@@ -461,10 +465,11 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     const metrics = createElement(options.mount, "div", "drug-production-slot__metrics");
     const actions = createElement(options.mount, "div", "drug-production-slot__controls");
     if (icon) icon.setAttribute("aria-hidden", "true");
-    if (product) product.textContent = visual?.productLabel || (isArmory ? "Attack" : "Drug balík");
+    const productLabel = visual?.productLabel ?? (isArmory ? "Attack" : "");
+    if (product && productLabel) product.textContent = productLabel;
     if (title) title.textContent = recipe.name || "";
     if (state) state.textContent = slotState.label;
-    appendChildren(titles, [product, title]);
+    appendChildren(titles, [productLabel ? product : null, title]);
     appendChildren(titleWrap, [icon, titles]);
     appendChildren(head, [titleWrap, state]);
     const timeMetric = createMetricBlock(options.mount, { label: "Čas", value: formatRecipeSlotTime(job, effectiveDurationMs, 1, options) });
@@ -517,7 +522,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
   }
 
   startButton.type = "button";
-  startButton.textContent = !job ? "Spustit" : job.status === "running" ? "Přidat" : "Čeká";
+  startButton.textContent = "Spustit";
   startButton.disabled = (Boolean(job) && job.status !== "running") || viewModel.canStart === false;
   startButton.addEventListener("click", () => {
     if (typeof callbacks.onStart === "function") {
@@ -527,15 +532,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
   refreshQuantityControl();
 
   collectButton.type = "button";
-  if (buildingName === "druglab") {
-    collectButton.textContent = "Zastavit";
-    collectButton.disabled = !job || job.status !== "running";
-    collectButton.title = "Zastavit výrobu";
-    collectButton.setAttribute("aria-label", `Zastavit výrobu ${recipe.name || ""}`);
-    collectButton.addEventListener("click", () => {
-      if (typeof callbacks.onStop === "function") callbacks.onStop(viewModel);
-    });
-  } else if (buildingName === "pharmacy") {
+  if (buildingName === "druglab" || buildingName === "pharmacy" || buildingName === "armory") {
     collectButton.textContent = "Zrušit";
     collectButton.disabled = !job || job.status !== "running";
     collectButton.title = "Zrušit výrobu a vrátit náklady";

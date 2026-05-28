@@ -136,7 +136,7 @@ export function createFactoryBuildingInfoViewModel({
     actions: [
       { title: "+ Vybrat hotové", description: collectableAmount > 0 ? `Přesune ${collectableAmount} ks hotových továrních výstupů do skladu.` : "Přesune hotové tovární výstupy do skladu, až budou připravené." },
       { title: "⇪ Upgrade", description: nextLevel ? `Stojí ${formatCurrency(upgradeCost)} clean cash a zvedne multiplier na x${Number(nextMultiplier || 0).toFixed(2)}.` : "Max level, další upgrade není dostupný." },
-      { title: "Spustit / Pozastavit slot", description: "Řídí jednotlivé linky: Metal Parts, Tech Core a Combat Module. Pauza zastaví přibývání ve slotu." }
+      { title: "Spustit / Zrušit slot", description: "Řídí jednotlivé linky: Metal Parts, Tech Core a Combat Module. Zrušení smaže aktivní frontu slotu." }
     ]
   };
 }

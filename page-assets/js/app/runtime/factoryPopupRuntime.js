@@ -75,11 +75,14 @@ export function createFactoryPopupRuntime(deps = {}) {
       deps.setStoredFactoryState?.(factoryState);
       const collectableAmount = getFactoryCollectableAmount(factoryState);
 
-      const setFactorySlotProduction = (slotId, isProducing) => {
+      const cancelFactorySlotProduction = (slotId) => {
         const nextState = deps.getStoredFactoryState?.() || {};
         const targetSlot = (nextState.slots || []).find((item) => item.id === slotId);
         if (!targetSlot) return;
-        targetSlot.isProducing = isProducing;
+        targetSlot.isProducing = false;
+        targetSlot.queueMode = false;
+        targetSlot.queuedAmount = 0;
+        targetSlot.productionRemainder = 0;
         targetSlot.lastTick = Date.now();
         deps.setStoredFactoryState?.(nextState);
         renderFactoryDashboard();
@@ -129,7 +132,7 @@ export function createFactoryPopupRuntime(deps = {}) {
       }, dashboardViewModel, {
         renderFactoryBuildingInfo,
         renderFactorySlotList: deps.renderFactorySlotList,
-        onPauseSlot: (slotView) => setFactorySlotProduction(slotView.slot?.id, false),
+        onPauseSlot: (slotView) => cancelFactorySlotProduction(slotView.slot?.id),
         onStartSlot: (slotView, payload) => queueFactorySlotProduction(slotView, payload?.batchCount || 1)
       });
     };

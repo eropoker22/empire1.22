@@ -471,6 +471,7 @@ describe("building detail, production and recipe UI modules", () => {
       canStart: true
     }, {}, { mount });
 
+    expect(card.querySelector(".drug-production-slot__product")).toBe(null);
     expect(card.querySelector(".drug-production-slot__supply-row--count-3")).not.toBe(null);
     expect(card.querySelectorAll(".drug-production-slot__supply-value").map((item) => item.textContent)).toEqual(["2/10", "1/10", "2/10"]);
   });
@@ -572,7 +573,7 @@ describe("building detail, production and recipe UI modules", () => {
     }, { onStart }, { mount });
 
     const startButton = card.querySelector(".drug-lab-mini-btn");
-    expect(startButton.textContent).toBe("Přidat");
+    expect(startButton.textContent).toBe("Spustit");
     expect(startButton.disabled).toBe(false);
 
     card.querySelectorAll(".drug-production-slot__quantity-btn")[1].click();
@@ -679,6 +680,8 @@ describe("building detail, production and recipe UI modules", () => {
 
     expect(findMetricValue(idleCard, "Výstup")).toBe("0 ks");
     expect(findMetricValue(readyCard, "Výstup")).toBe("2 ks");
+    expect(readyCard.querySelectorAll(".drug-lab-mini-btn")[1].textContent).toBe("Zrušit");
+    expect(readyCard.querySelectorAll(".drug-lab-mini-btn")[1].disabled).toBe(true);
     expect(idleCard.className).toContain("armory-slot--attack");
     expect(defenseCard.className).toContain("armory-slot--defense");
   });
@@ -687,6 +690,7 @@ describe("building detail, production and recipe UI modules", () => {
     const document = setupDocument();
     const mount = document.createElement("div");
     const onStartSlot = vi.fn();
+    const onPauseSlot = vi.fn();
     const card = renderFactorySlotCard({
       slot: {
         id: "combat",
@@ -707,13 +711,15 @@ describe("building detail, production and recipe UI modules", () => {
       displayCost: { dirtyCash: 650, techCore: 1 },
       queuedAmount: 1,
       slotStorageCap: 20
-    }, { onStartSlot }, { mount, now: 100000 });
+    }, { onStartSlot, onPauseSlot }, { mount, now: 100000 });
 
     expect(findMetricValue(card, "Výstup")).toBe(null);
     expect(card.querySelector(".drug-production-slot__product")).toBe(null);
     expect(findMetricValue(card, "Čas")).toBe("7m 30s");
     expect(findMetricValue(card, "Cena")).toBe("650 Dirty Cash + 1 Tech Core");
     expect(findMetricValue(card, "Ve frontě")).toBe("1 ks");
+    expect(card.querySelector("[data-factory-slot-toggle-state=\"start\"]").textContent).toBe("Spustit");
+    expect(card.querySelector("[data-factory-slot-toggle-state=\"stop\"]").textContent).toBe("Zrušit");
 
     card.querySelectorAll(".factory-slot__quantity-btn")[1].click();
 
@@ -722,6 +728,9 @@ describe("building detail, production and recipe UI modules", () => {
     card.querySelector("[data-factory-slot-toggle-state=\"start\"]").click();
 
     expect(onStartSlot).toHaveBeenCalledWith(expect.any(Object), { batchCount: 2 });
+
+    card.querySelector("[data-factory-slot-toggle-state=\"stop\"]").click();
+    expect(onPauseSlot).toHaveBeenCalledWith(expect.any(Object));
   });
 
   it("shows pharmacy output as ready-to-collect amount only", () => {
@@ -759,6 +768,9 @@ describe("building detail, production and recipe UI modules", () => {
 
     expect(findMetricValue(runningCard, "Výstup")).toBe("0 ks");
     expect(findMetricValue(readyCard, "Výstup")).toBe("2 ks");
+    expect(readyCard.querySelector(".pharmacy-slot__btn--start").textContent).toBe("Spustit");
+    expect(readyCard.querySelector(".pharmacy-slot__btn--start").disabled).toBe(false);
+    expect(findMetricValue(readyCard, "Ve frontě")).toBe("0 ks");
   });
 
   it("keeps pharmacy info tab concise and focused on active mechanics", () => {

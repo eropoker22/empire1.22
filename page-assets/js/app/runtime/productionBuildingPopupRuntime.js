@@ -72,6 +72,10 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const getRemainingOutputSpace = (productionJob = null) => outputCap > 0
       ? Math.max(0, outputCap - getQueuedOutputAmount(productionJob))
       : Number.POSITIVE_INFINITY;
+    const getRunningJobForCapacity = () => {
+      const current = deps.getProductionJob?.(recipeKey);
+      return current?.status === "running" ? current : null;
+    };
     const inputAmounts = Object.fromEntries(
       Object.keys(recipe?.inputs || {}).map((itemId) => [itemId, deps.getInventoryAmount?.("materials", itemId) || 0])
     );
@@ -81,7 +85,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         99,
         cleanCost ? Math.floor(Number(deps.getResolvedEconomyState?.().cleanMoney || 0) / cleanCost) : 99,
         ...Object.entries(recipe?.inputs || {}).map(([itemId, amount]) => Math.floor((deps.getInventoryAmount?.("materials", itemId) || 0) / Math.max(1, Number(amount || 0)))),
-        outputCap > 0 ? Math.floor(getRemainingOutputSpace(deps.getProductionJob?.(recipeKey)) / outputUnitAmount) : 99
+        outputCap > 0 ? Math.floor(getRemainingOutputSpace(getRunningJobForCapacity()) / outputUnitAmount) : 99
       );
     };
     const viewModel = {
@@ -103,8 +107,12 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const card = deps.renderRecipeCard?.(viewModel, {
       getMaxBatches,
       onStart: ({ batchCount }) => {
-        const currentJob = deps.getProductionJob?.(recipeKey);
-        if (currentJob && currentJob.status !== "running") {
+        let currentJob = deps.getProductionJob?.(recipeKey);
+        if (currentJob?.status === "ready") {
+          deps.applyInventoryOutput?.(currentJob.output);
+          deps.clearProductionJob?.(recipeKey);
+          currentJob = null;
+        } else if (currentJob && currentJob.status !== "running") {
           rerender?.();
           return;
         }
@@ -128,14 +136,14 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           return;
         }
 
-        deps.consumeMaterials?.(requiredInputs);
-        if (cleanCost > 0) deps.setStoredEconomyState?.({ ...economyState, cleanMoney: economyState.cleanMoney - cleanCost });
         const remainingOutputSpace = getRemainingOutputSpace(currentJob);
         const outputAmount = Math.min(remainingOutputSpace, outputUnitAmount * safeBatchCount);
         if (outputAmount <= 0) {
           rerender?.();
           return;
         }
+        deps.consumeMaterials?.(requiredInputs);
+        if (cleanCost > 0) deps.setStoredEconomyState?.({ ...economyState, cleanMoney: economyState.cleanMoney - cleanCost });
         const baseReadyAt = currentJob?.status === "running"
           ? Math.max(Date.now(), new Date(currentJob.readyAt).getTime())
           : Date.now();
@@ -168,28 +176,26 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       onStop: () => {
         const currentJob = deps.getProductionJob?.(recipeKey);
         if (!currentJob || currentJob.status !== "running") return rerender?.();
-        if (buildingName === "pharmacy") {
-          const quantity = Math.max(1, Math.floor(Number(currentJob.quantity || 1)));
-          const inputRefunds = currentJob.inputs && typeof currentJob.inputs === "object"
-            ? currentJob.inputs
-            : deps.getScaledProductionInputs?.(recipe?.inputs || {}, quantity) || {};
-          for (const [itemId, amount] of Object.entries(inputRefunds)) {
-            const refundAmount = Math.max(0, Number(amount || 0));
-            if (refundAmount > 0) {
-              deps.setInventoryAmount?.("materials", itemId, Number(deps.getInventoryAmount?.("materials", itemId) || 0) + refundAmount);
-            }
+        const quantity = Math.max(1, Math.floor(Number(currentJob.quantity || 1)));
+        const inputRefunds = currentJob.inputs && typeof currentJob.inputs === "object"
+          ? currentJob.inputs
+          : deps.getScaledProductionInputs?.(recipe?.inputs || {}, quantity) || {};
+        for (const [itemId, amount] of Object.entries(inputRefunds)) {
+          const refundAmount = Math.max(0, Number(amount || 0));
+          if (refundAmount > 0) {
+            deps.setInventoryAmount?.("materials", itemId, Number(deps.getInventoryAmount?.("materials", itemId) || 0) + refundAmount);
           }
+        }
 
-          const fallbackCleanCost = Math.max(0, Number(recipe?.cleanMoneyCost || 0) * quantity);
-          const cleanRefund = Math.max(0, Number(currentJob.cleanMoneyCost ?? fallbackCleanCost));
-          if (cleanRefund > 0) {
-            const economyState = deps.getResolvedEconomyState?.() || {};
-            deps.setStoredEconomyState?.({
-              ...economyState,
-              cleanMoney: Number(economyState.cleanMoney || 0) + cleanRefund
-            });
-            deps.applyTopbarEconomy?.(root);
-          }
+        const fallbackCleanCost = Math.max(0, Number(recipe?.cleanMoneyCost || 0) * quantity);
+        const cleanRefund = Math.max(0, Number(currentJob.cleanMoneyCost ?? fallbackCleanCost));
+        if (cleanRefund > 0) {
+          const economyState = deps.getResolvedEconomyState?.() || {};
+          deps.setStoredEconomyState?.({
+            ...economyState,
+            cleanMoney: Number(economyState.cleanMoney || 0) + cleanRefund
+          });
+          deps.applyTopbarEconomy?.(root);
         }
         deps.clearProductionJob?.(recipeKey);
         rerender?.();

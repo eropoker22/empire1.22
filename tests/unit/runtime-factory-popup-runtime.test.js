@@ -140,4 +140,65 @@ describe("factory popup runtime", () => {
       { syncPreview: true, forceLog: true }
     );
   });
+
+  it("cancels factory slot queue instead of only pausing it", () => {
+    const open = createElement();
+    const popup = createElement();
+    const close = createElement();
+    const collect = createElement();
+    const upgrade = createElement();
+    const factoryState = {
+      level: 1,
+      slots: [{
+        id: "metal",
+        isProducing: true,
+        queueMode: true,
+        queuedAmount: 4,
+        productionRemainder: 0.5,
+        producedAmount: 2,
+        lastTick: 100
+      }]
+    };
+    const setStoredFactoryState = vi.fn();
+    const renderFactoryDashboardPanel = vi.fn();
+    const runtime = createRuntime({
+      getStoredFactoryState: () => factoryState,
+      renderFactoryDashboardPanel,
+      setStoredFactoryState,
+      syncBuildingDetailTopbarVisibility: vi.fn()
+    });
+    const root = createRoot({
+      ".collect": collect,
+      ".combat": createElement(),
+      ".header": createElement(),
+      ".level": createElement(),
+      ".metal": createElement(),
+      ".multiplier": createElement(),
+      ".open": open,
+      ".owned": createElement(),
+      ".popup": popup,
+      ".slots": createElement(),
+      ".supply-combat": createElement(),
+      ".supply-metal": createElement(),
+      ".supply-tech": createElement(),
+      ".tech": createElement(),
+      ".upgrade": upgrade,
+      ".upgrade-cost": createElement()
+    }, {
+      ".close": [close]
+    });
+
+    expect(runtime.bindFactoryPopup(root)).toBe(true);
+    open.dispatch("click");
+    renderFactoryDashboardPanel.mock.calls.at(-1)[2].onPauseSlot({ slot: { id: "metal" } });
+
+    const nextState = setStoredFactoryState.mock.calls.at(-1)[0];
+    expect(nextState.slots[0]).toEqual(expect.objectContaining({
+      isProducing: false,
+      queueMode: false,
+      queuedAmount: 0,
+      productionRemainder: 0,
+      producedAmount: 2
+    }));
+  });
 });

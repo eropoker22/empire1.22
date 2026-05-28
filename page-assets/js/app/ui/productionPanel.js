@@ -490,14 +490,14 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
   if (startButton && pauseButton) {
     startButton.type = "button";
     startButton.dataset.factorySlotToggleState = "start";
-    startButton.textContent = slot.isProducing ? "Přidat" : "Spustit";
+    startButton.textContent = "Spustit";
     startButton.addEventListener("click", () => {
       if (typeof callbacks.onStartSlot === "function") callbacks.onStartSlot(slotView, { batchCount: selectedBatches });
     });
     pauseButton.type = "button";
     pauseButton.dataset.factorySlotToggleState = "stop";
-    pauseButton.textContent = "Pozastavit";
-    pauseButton.disabled = !slot.isProducing;
+    pauseButton.textContent = "Zrušit";
+    pauseButton.disabled = !slot.isProducing && Math.max(0, Math.floor(Number(slot.queuedAmount ?? slotView.queuedAmount ?? 0))) <= 0;
     pauseButton.addEventListener("click", () => {
       if (typeof callbacks.onPauseSlot === "function") callbacks.onPauseSlot(slotView);
     });

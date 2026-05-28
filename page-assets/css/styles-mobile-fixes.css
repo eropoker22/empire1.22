@@ -578,6 +578,7 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     width: 100% !important;
     max-width: 100% !important;
     overflow-x: hidden !important;
+    touch-action: manipulation;
   }
 
   html.game-modal-scroll-locked {
@@ -588,6 +589,14 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     --game-mobile-bg-height: var(--mobile-locked-vh, 100svh);
     min-height: var(--game-mobile-bg-height);
     background: #050913 !important;
+  }
+
+  body.game-body button,
+  body.game-body [role="button"],
+  body.game-body input,
+  body.game-body select,
+  body.game-body textarea {
+    touch-action: manipulation;
   }
 
   @supports (height: 100lvh) {
@@ -5576,5 +5585,23 @@ html body #police-action-result-modal:not(.hidden):not([hidden]) .modal__body {
     margin: auto !important;
     width: min(620px, calc(100vw - 24px)) !important;
     max-height: calc(var(--mobile-locked-vh, 100dvh) - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom))) !important;
+  }
+}
+
+@media (max-width: 420px), (hover: none) and (pointer: coarse) {
+  .pharmacy-popup-card.building-detail-modal__content .pharmacy-slot__actions {
+    grid-template-columns: minmax(78px, 1fr) repeat(2, minmax(46px, 0.78fr)) !important;
+    gap: 4px !important;
+  }
+
+  .pharmacy-popup-card.building-detail-modal__content .pharmacy-slot__quantity {
+    grid-template-columns: 24px minmax(32px, 1fr) 24px !important;
+  }
+
+  .pharmacy-popup-card.building-detail-modal__content .pharmacy-slot__btn {
+    min-height: 28px !important;
+    padding: 0 4px !important;
+    font-size: 8px !important;
+    letter-spacing: 0.02em !important;
   }
 }

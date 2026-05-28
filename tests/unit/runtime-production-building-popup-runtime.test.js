@@ -123,6 +123,62 @@ describe("production building popup runtime", () => {
     expect(clearProductionJob).toHaveBeenCalledWith("pharmacy:tonic");
   });
 
+  it("collects a ready slot before starting a new production batch", () => {
+    const recipeCallbacks = {};
+    const applyInventoryOutput = vi.fn();
+    const clearProductionJob = vi.fn();
+    const persistProductionJob = vi.fn();
+    const renderRecipeCard = vi.fn((viewModel, callbacks) => {
+      Object.assign(recipeCallbacks, callbacks);
+      return { viewModel };
+    });
+    const runtime = createProductionBuildingPopupRuntime({
+      applyInventoryOutput,
+      clearProductionJob,
+      consumeMaterials: vi.fn(),
+      getInventoryAmount: () => 20,
+      getProductionBuildingMultiplier: () => 1,
+      getProductionJob: () => ({
+        status: "ready",
+        quantity: 2,
+        output: { inventory: "materials", itemId: "chemicals", amount: 2 },
+        durationMs: 2000
+      }),
+      getResolvedEconomyState: () => ({ cleanMoney: 100 }),
+      getScaledProductionInputs: (inputs, count) => Object.fromEntries(
+        Object.entries(inputs || {}).map(([itemId, amount]) => [itemId, Number(amount || 0) * count])
+      ),
+      getStoredProductionBuildingState: () => ({ level: 1 }),
+      hasEnoughMaterials: () => true,
+      persistProductionJob,
+      renderProductionPanelUi: vi.fn(() => true),
+      renderRecipeCard,
+      scheduleProductionJob: vi.fn(),
+      syncCompletedProductionJobs: vi.fn()
+    });
+
+    const root = createRoot({
+      '[data-production-panel="pharmacy"]': {}
+    });
+    runtime.renderProductionPanel(root, "pharmacy", {
+      chemicals: {
+        durationMs: 1000,
+        inputs: { biomass: 1 },
+        output: { inventory: "materials", itemId: "chemicals", amount: 20 }
+      }
+    });
+
+    recipeCallbacks.onStart({ batchCount: 1 });
+
+    expect(applyInventoryOutput).toHaveBeenCalledWith({ inventory: "materials", itemId: "chemicals", amount: 2 });
+    expect(clearProductionJob).toHaveBeenCalledWith("pharmacy:chemicals");
+    expect(persistProductionJob).toHaveBeenCalledWith("pharmacy:chemicals", expect.objectContaining({
+      status: "running",
+      quantity: 1,
+      output: expect.objectContaining({ amount: 1 })
+    }));
+  });
+
   it("adds selected batches into an already running production queue", () => {
     const recipeCallbacks = {};
     const persistProductionJob = vi.fn();
