@@ -123,6 +123,7 @@ describe("page onboarding smoke", () => {
     expect(page("game.html")).toContain('data-elimination-ai-panel-close');
     expect(page("game.html")).not.toContain('data-elimination-ai-panel-status');
     expect(page("game.html")).toContain('data-elimination-countdown-warning');
+    expect(page("game.html")).toContain('data-elimination-countdown-warning-close');
     expect(page("game.html")).toContain('data-elimination-countdown-warning-time');
     expect(page("game.html")).toContain('data-mobile-short=""></span>');
     expect(page("game.html")).not.toContain(">DEV-ONLY<");
@@ -154,6 +155,7 @@ describe("page onboarding smoke", () => {
     expect(onboardingCssSource).toContain(".elimination-ai-panel__score-total");
     expect(onboardingCssSource).toContain("scroll-snap-type: y proximity");
     expect(onboardingCssSource).toContain(".elimination-countdown-warning");
+    expect(onboardingCssSource).toContain(".elimination-countdown-warning__close");
     expect(onboardingCssSource).toContain("pointer-events: none");
     expect(onboardingCssSource).toContain("max-width: none !important;");
     expect(onboardingCssSource).toContain("-webkit-overflow-scrolling: touch;");
@@ -206,8 +208,8 @@ describe("page onboarding smoke", () => {
     expect(gameRedesignSource).not.toContain("padding: var(--mobile-topbar-offset, 188px) 0 34px;");
     expect(gameRedesignSource).toMatch(/#game-overlay-region \{\r?\n\s*position: fixed !important;/u);
     expect(gameRedesignSource).toContain("#game-overlay-region > [data-mount-role]");
-    expect(gameRedesignSource).toContain("Hide server runtime status readouts from the playable game shell.");
-    expect(gameRedesignSource).toMatch(/#game-command-bar-mount \.city-status-pill:not\(\.city-status-pill--action\) \{\r?\n\s*display: none !important;/u);
+    expect(gameRedesignSource).not.toContain("Hide server runtime status readouts from the playable game shell.");
+    expect(gameRedesignSource).not.toContain("#game-command-bar-mount .city-status-pill:not(.city-status-pill--action)");
     expect(gameRedesignSource).toContain("Keep the mobile logout/settings controls in the normal bottom flow.");
     expect(gameRedesignSource).toMatch(
       /Keep the mobile logout\/settings controls in the normal bottom flow\.[\s\S]*\.game-mobile-utility-actions \{\r?\n\s*position: static;[\s\S]*display: grid !important;/u
@@ -219,9 +221,9 @@ describe("page onboarding smoke", () => {
     expect(gameRedesignSource).toContain(".map-phase-info-button");
     expect(gameRedesignSource).toContain(".battle-royale-info-modal__content");
     const cityStatusMobileCssSource = readFileSync(resolve(root, "page-assets/css/styles-mobile-fixes.css"), "utf8");
-    expect(cityStatusMobileCssSource).toContain("#game-command-bar-mount .city-status-pill:not(.city-status-pill--action)");
-    expect(cityStatusMobileCssSource).toContain("grid-template-columns: minmax(0, auto) !important;");
-    expect(cityStatusMobileCssSource).toMatch(/#game-command-bar-mount \.city-status-pill:not\(\.city-status-pill--action\) \{\r?\n\s*display: none !important;/u);
+    expect(cityStatusMobileCssSource).toContain("#game-command-bar-mount .city-status-pill:nth-child(3)");
+    expect(cityStatusMobileCssSource).toContain("grid-template-columns: repeat(4, minmax(0, 1fr)) !important;");
+    expect(cityStatusMobileCssSource).toMatch(/#game-command-bar-mount \.city-status-pill:nth-child\(3\) \{\r?\n\s*display: none !important;/u);
     expect(cityStatusMobileCssSource).toContain("Tiny white sparkle on the Očista button.");
     expect(cityStatusMobileCssSource).toContain(".city-status-ai-button::after");
     expect(cityStatusMobileCssSource).toContain("Final mobile Očista panel pass");

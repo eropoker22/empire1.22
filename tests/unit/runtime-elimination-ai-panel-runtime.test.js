@@ -82,11 +82,21 @@ function countMatches(source, pattern) {
 }
 
 function createCountdownWarningFixture() {
+  const closeListeners = new Map();
   const timeNode = { textContent: "" };
+  const closeButton = {
+    addEventListener: vi.fn((type, listener) => {
+      closeListeners.set(type, listener);
+    }),
+    removeEventListener: vi.fn()
+  };
   const warning = {
     hidden: true,
     classList: { toggle: vi.fn() },
-    querySelector: vi.fn((selector) => selector === "[data-elimination-countdown-warning-time]" ? timeNode : null)
+    querySelector: vi.fn((selector) => ({
+      "[data-elimination-countdown-warning-time]": timeNode,
+      "[data-elimination-countdown-warning-close]": closeButton
+    })[selector] || null)
   };
   const root = {
     ownerDocument: {
@@ -103,7 +113,7 @@ function createCountdownWarningFixture() {
     },
     querySelector: vi.fn((selector) => selector === "[data-elimination-countdown-warning]" ? warning : null)
   };
-  return { root, timeNode, warning };
+  return { closeButton, closeListeners, root, timeNode, warning };
 }
 
 function createResultPopupFixture() {
@@ -414,6 +424,48 @@ describe("elimination purge panel runtime", () => {
       type: "empire:elimination-resolved"
     }));
     expect(timerApi.clearInterval).not.toHaveBeenCalled();
+  });
+
+  it("lets players close the warning and reopens it for the final minute", () => {
+    const fixture = createCountdownWarningFixture();
+    let currentTime = 0;
+    let intervalCallback = null;
+    const timerApi = {
+      now: vi.fn(() => currentTime),
+      setInterval: vi.fn((callback) => {
+        intervalCallback = callback;
+        return 10;
+      }),
+      clearInterval: vi.fn()
+    };
+
+    bindEliminationCountdownWarning(fixture.root, {
+      initialCountdownMs: 300000,
+      resetCountdown: true,
+      timerApi
+    });
+
+    expect(fixture.warning.hidden).toBe(false);
+    expect(fixture.timeNode.textContent).toBe("5min 00s");
+
+    fixture.closeListeners.get("click")({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
+    expect(fixture.warning.hidden).toBe(true);
+
+    currentTime = 239000;
+    intervalCallback();
+    expect(fixture.warning.hidden).toBe(true);
+    expect(fixture.timeNode.textContent).toBe("1min 01s");
+
+    currentTime = 240000;
+    intervalCallback();
+    expect(fixture.warning.hidden).toBe(false);
+    expect(fixture.timeNode.textContent).toBe("1min 00s");
+
+    fixture.closeListeners.get("click")({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
+    currentTime = 250000;
+    intervalCallback();
+    expect(fixture.warning.hidden).toBe(true);
+    expect(fixture.timeNode.textContent).toBe("50s");
   });
 
   it("binds a body-level panel outside the game root", () => {

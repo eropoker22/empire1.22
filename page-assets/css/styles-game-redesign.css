@@ -5013,17 +5013,6 @@ body.game-body--booting .game-logo-slot {
   }
 }
 
-/* Hide server runtime status readouts from the playable game shell. */
-#game-command-bar-mount .city-status-pill:not(.city-status-pill--action) {
-  display: none !important;
-}
-
-#game-command-bar-mount .city-status-bar {
-  grid-template-columns: minmax(0, auto) !important;
-  width: auto !important;
-  max-width: 100% !important;
-}
-
 /* Keep the mobile logout/settings controls in the normal bottom flow. */
 @media (max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
   .game-mobile-utility-actions {

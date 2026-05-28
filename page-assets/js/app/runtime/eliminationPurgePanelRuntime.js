@@ -17,12 +17,14 @@ const PURGE_PANEL_CLOSE_SELECTOR = "[data-elimination-ai-panel-close]";
 const PURGE_PANEL_STATUS_SELECTOR = "[data-elimination-ai-panel-status]";
 const COUNTDOWN_WARNING_SELECTOR = "[data-elimination-countdown-warning]";
 const COUNTDOWN_WARNING_TIME_SELECTOR = "[data-elimination-countdown-warning-time]";
+const COUNTDOWN_WARNING_CLOSE_SELECTOR = "[data-elimination-countdown-warning-close]";
 const RESULT_POPUP_SELECTOR = "[data-elimination-result-popup]";
 const RESULT_POPUP_BODY_SELECTOR = "[data-elimination-result-popup-body]";
 const RESULT_POPUP_CARD_SELECTOR = ".elimination-result-popup__card";
 const RESULT_POPUP_CLOSE_SELECTOR = "[data-elimination-result-popup-close]";
 const MOCK_ELIMINATION_RESET_COUNTDOWN_MS = 4 * 60 * 60 * 1000;
 const COUNTDOWN_WARNING_THRESHOLD_MS = 300000;
+const COUNTDOWN_WARNING_REOPEN_THRESHOLD_MS = 60000;
 let sharedMockCountdownEndsAt = null;
 let sharedLastResolvedCountdownEndsAt = null;
 let sharedLastEliminationResult = null;
@@ -662,7 +664,10 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
   if (!root || !warning) return false;
   const timerApi = deps.timerApi || (typeof window !== "undefined" ? window : globalThis);
   const timeNode = warning.querySelector?.(COUNTDOWN_WARNING_TIME_SELECTOR);
+  const closeButton = warning.querySelector?.(COUNTDOWN_WARNING_CLOSE_SELECTOR);
   let intervalId = null;
+  let dismissedCountdownEndsAt = null;
+  let dismissedDuringFinalMinute = false;
 
   const createInput = (countdownRemainingMs) => {
     const mode = deps.getMockMode?.() || deps.mockMode || "elimination";
@@ -690,8 +695,21 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
   const render = () => {
     const remainingMs = getWarningCountdownRemainingMs();
     const shouldShow = remainingMs > 0 && remainingMs <= COUNTDOWN_WARNING_THRESHOLD_MS;
-    warning.hidden = !shouldShow;
-    warning.classList?.toggle?.("is-visible", shouldShow);
+    if (dismissedCountdownEndsAt !== sharedMockCountdownEndsAt) {
+      dismissedCountdownEndsAt = null;
+      dismissedDuringFinalMinute = false;
+    }
+    const shouldReopenDismissedWarning = dismissedCountdownEndsAt
+      && !dismissedDuringFinalMinute
+      && remainingMs <= COUNTDOWN_WARNING_REOPEN_THRESHOLD_MS;
+    if (shouldReopenDismissedWarning) {
+      dismissedCountdownEndsAt = null;
+      dismissedDuringFinalMinute = false;
+    }
+    const isDismissed = dismissedCountdownEndsAt === sharedMockCountdownEndsAt;
+    const isVisible = shouldShow && !isDismissed;
+    warning.hidden = !isVisible;
+    warning.classList?.toggle?.("is-visible", isVisible);
     if (timeNode) {
       timeNode.textContent = formatCountdown(remainingMs);
     }
@@ -699,7 +717,21 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
       timerApi.clearInterval(intervalId);
       intervalId = null;
     }
-    return shouldShow;
+    return isVisible;
+  };
+
+  const closeWarning = () => {
+    const remainingMs = getWarningCountdownRemainingMs();
+    dismissedCountdownEndsAt = sharedMockCountdownEndsAt;
+    dismissedDuringFinalMinute = remainingMs <= COUNTDOWN_WARNING_REOPEN_THRESHOLD_MS;
+    warning.hidden = true;
+    warning.classList?.toggle?.("is-visible", false);
+  };
+
+  const handleCloseClick = (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    closeWarning();
   };
 
   ensureSharedMockCountdownEndsAt(timerApi, deps.initialCountdownMs);
@@ -707,10 +739,13 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
   if (typeof timerApi?.setInterval === "function") {
     intervalId = timerApi.setInterval(render, 1000);
   }
+  closeButton?.addEventListener?.("click", handleCloseClick);
 
   return {
+    close: closeWarning,
     render,
     destroy() {
+      closeButton?.removeEventListener?.("click", handleCloseClick);
       if (intervalId && typeof timerApi?.clearInterval === "function") {
         timerApi.clearInterval(intervalId);
       }
