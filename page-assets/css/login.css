@@ -1424,6 +1424,18 @@ body.login-body::after {
   letter-spacing: 0.08em;
 }
 
+#login-username,
+#login-password {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+}
+
+#login-username::placeholder,
+#login-password::placeholder {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+}
+
 .password-eye {
   width: 42px;
   height: 42px;
@@ -1783,7 +1795,7 @@ body.login-body::after {
 }
 
 .server-status__headline {
-  display: inline-flex;
+  display: none;
   align-items: center;
   gap: 6px;
   min-width: 0;
@@ -1806,7 +1818,6 @@ body.login-body::after {
 
 .server-status .panel-heading .status-dot {
   flex: 0 0 auto;
-  margin-left: 0;
 }
 
 .server-state-inline,
@@ -2163,6 +2174,46 @@ body.login-body::after {
 .mode-icon > span {
   display: block;
   transform: rotate(-45deg);
+}
+
+.mode-icon__bullet {
+  position: relative;
+  width: 24px;
+  height: 11px;
+  border-radius: 999px 70% 70% 999px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.28), transparent 42%),
+    linear-gradient(90deg, rgba(130, 30, 126, 0.72), rgba(255, 43, 214, 0.98) 62%, rgba(255, 146, 236, 0.92));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 235, 252, 0.2),
+    inset 9px 0 8px rgba(24, 4, 34, 0.34),
+    0 0 16px rgba(255, 43, 214, 0.48);
+}
+
+.mode-icon__bullet::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 2px;
+  bottom: 2px;
+  width: 6px;
+  border-radius: 999px;
+  background: rgba(20, 4, 28, 0.34);
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.16);
+}
+
+.mode-icon__bullet::after {
+  content: "";
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid rgba(255, 43, 214, 0.96);
+  filter: drop-shadow(0 0 8px rgba(255, 43, 214, 0.46));
+  transform: translateY(-50%);
 }
 
 .mode-card--free .mode-icon,
@@ -2719,6 +2770,7 @@ body.login-body::after {
   }
 
   .server-status__headline {
+    display: inline-flex;
     gap: 4px;
     max-width: min(48vw, 178px);
     font-size: 0.48rem;
@@ -2731,6 +2783,14 @@ body.login-body::after {
     padding: 0.2rem 0.34rem 0.22rem;
     font-size: 0.46rem;
     text-overflow: ellipsis;
+  }
+
+  .server-main__meta small {
+    display: none;
+  }
+
+  .server-status .panel-heading .status-dot {
+    margin-left: 0;
   }
 
   .active-events {
@@ -2774,6 +2834,13 @@ body.login-body::after {
   #login-form .field-shell input,
   #register-form .field-shell input {
     font-size: 0.84rem;
+  }
+
+  #login-username,
+  #login-password,
+  #login-username::placeholder,
+  #login-password::placeholder {
+    font-size: 0.72rem;
   }
 
   #login-form .password-eye {
@@ -2883,50 +2950,6 @@ body.login-body::after {
     text-align: left;
   }
 
-  .mode-card--war .mode-icon {
-    border-radius: 12px;
-    transform: none;
-    border-color: rgba(197, 31, 168, 0.46);
-    background:
-      linear-gradient(135deg, rgba(197, 31, 168, 0.16), rgba(255, 255, 255, 0.026)),
-      rgba(9, 3, 17, 0.86);
-    box-shadow:
-      inset 0 0 16px rgba(197, 31, 168, 0.08),
-      0 0 14px rgba(197, 31, 168, 0.14);
-  }
-
-  .mode-card--war .mode-icon > span {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    transform: none;
-    color: transparent;
-    font-size: 0;
-  }
-
-  .mode-card--war .mode-icon > span::before {
-    content: "WAR";
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    color: var(--pink);
-    font-size: 0.78rem;
-    font-weight: 1000;
-    letter-spacing: 0.08em;
-    text-shadow: 0 0 10px rgba(197, 31, 168, 0.34);
-  }
-
-  .mode-card--war .mode-icon > span::after {
-    content: "";
-    position: absolute;
-    left: 13px;
-    right: 13px;
-    bottom: 10px;
-    height: 2px;
-    background: var(--pink);
-    box-shadow: 0 0 8px rgba(197, 31, 168, 0.36);
-  }
 
   .server-status,
   .leaderboard-panel,

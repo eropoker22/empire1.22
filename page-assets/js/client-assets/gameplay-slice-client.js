@@ -1029,7 +1029,7 @@ var EmpireGameplaySliceClient = function(exports) {
         disabledCode: target.disabledCode,
         influenceCostLabel: String(target.cost.influence),
         heatGainLabel: `+${target.heatGain}`,
-        cooldownLabel: target.cooldownRemainingTicks > 0 ? formatDurationMs(target.cooldownRemainingTicks * tickRateMs) : null
+        cooldownLabel: target.cooldownRemainingTicks > 0 ? `${target.cooldownRemainingTicks} ticks` : null
       })),
       attackTargets: slice.district.attackTargets.map((target) => ({
         districtId: target.districtId,
@@ -1090,7 +1090,7 @@ var EmpireGameplaySliceClient = function(exports) {
               max: input.max,
               options: input.options ?? []
             })),
-            cooldownLabel: cooldown.remainingMs > 0 ? `Cooldown ${formatDurationMs(cooldown.remainingMs)}` : `${formatDurationMs(action.cooldownMs)} cooldown`,
+            cooldownLabel: cooldown.remainingMs > 0 ? `Cooldown ${formatDurationMs(cooldown.remainingMs)}` : `${Math.ceil(action.cooldownMs / 1e3)}s cooldown`,
             cooldownRemainingMs: cooldown.remainingMs,
             cooldownEndsAtMs: cooldown.endsAtMs,
             heatLabel: `+${action.heatGain}`,
@@ -1768,10 +1768,9 @@ var EmpireGameplaySliceClient = function(exports) {
     const hideUnavailableGameplaySlice = () => {
       options.root.dataset.gameplaySliceUnavailable = "true";
       options.root.hidden = true;
-      mounts.status.innerHTML = "";
-      mounts.topBar.innerHTML = "";
-      mounts.map.innerHTML = "";
-      mounts.panel.innerHTML = "";
+      Object.values(mounts).forEach((mount) => {
+        mount.innerHTML = "";
+      });
     };
     const render = (state) => {
       var _a, _b, _c;
@@ -1797,12 +1796,7 @@ var EmpireGameplaySliceClient = function(exports) {
       if (phase) {
         document.body.dataset.cityPhase = phase;
       }
-      document.dispatchEvent(new CustomEvent("empire:gameplay-slice-rendered", {
-        detail: {
-          gameplaySlice,
-          playerView: (gameplaySlice == null ? void 0 : gameplaySlice.player) ?? null
-        }
-      }));
+      document.dispatchEvent(new CustomEvent("empire:gameplay-slice-rendered", { detail: { gameplaySlice, playerView: (gameplaySlice == null ? void 0 : gameplaySlice.player) ?? null } }));
       mounts.status.innerHTML = renderGameplaySliceStatus(state);
       mounts.topBar.innerHTML = state.topBarHtml;
       mounts.map.innerHTML = state.mapHtml;
@@ -1839,9 +1833,7 @@ var EmpireGameplaySliceClient = function(exports) {
     void client.load(request).then((state) => {
       render(state);
       poller.start();
-    }).catch(() => {
-      hideUnavailableGameplaySlice();
-    });
+    }).catch(() => hideUnavailableGameplaySlice());
     return {
       destroy: () => {
         poller.stop();

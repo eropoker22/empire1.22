@@ -928,7 +928,7 @@ function typeServerStatusText(element, text, delay = 42) {
 function renderServerStatus(status, options = {}) {
   const panel = document.querySelector(".server-status");
   const server = document.querySelector("[data-server-status-name]");
-  const stateLabel = document.querySelector("[data-server-status-state]");
+  const stateLabels = Array.from(document.querySelectorAll("[data-server-status-state]"));
   const players = document.querySelector("[data-server-status-players]");
   const heat = document.querySelector("[data-server-status-heat]");
   const heatCircle = document.querySelector("[data-server-status-heat-circle]");
@@ -957,7 +957,7 @@ function renderServerStatus(status, options = {}) {
 
     if (typewrite) {
       typeServerStatusText(server, status.server, 52);
-      typeServerStatusText(stateLabel, status.status, 46);
+      stateLabels.forEach((stateLabel) => typeServerStatusText(stateLabel, status.status, 46));
       typeServerStatusText(players, status.players, 34);
       typeServerStatusText(heat, `${status.heat} %`, 58);
       typeServerStatusText(heatCircleValue, `${status.heat}%`, 40);
@@ -967,7 +967,7 @@ function renderServerStatus(status, options = {}) {
     }
 
     setServerStatusText(server, status.server);
-    setServerStatusText(stateLabel, status.status);
+    stateLabels.forEach((stateLabel) => setServerStatusText(stateLabel, status.status));
     setServerStatusText(players, status.players);
     setServerStatusText(heat, `${status.heat} %`);
     setServerStatusText(heatCircleValue, `${status.heat}%`);
