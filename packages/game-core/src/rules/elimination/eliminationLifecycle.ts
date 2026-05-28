@@ -16,6 +16,12 @@ export interface EliminationResult {
   activePlayersRemaining: number;
 }
 
+const createEliminationTitle = (gangName: string): string => `Očista proběhla: ${gangName}`;
+const createEliminationBody = (gangName: string): string =>
+  `Policie rozdrtila gang ${gangName}. Jeho území přechází do lockdownu.`;
+const createEliminationFeedMessage = (gangName: string): string =>
+  `Očista proběhla. Gang ${gangName} byl odstraněn z města.`;
+
 export const runScheduledElimination = (
   state: CoreGameState,
   context: GameCoreContext
@@ -108,8 +114,8 @@ export const runScheduledElimination = (
         playerName: weakest.playerName,
         gangName: weakest.gangName,
         avatarSrc: weakest.avatarSrc,
-        title: `Policie vystřílela gang ${weakest.gangName}`,
-        body: "Policie vystřílela gang na sračky a nic tu po něm nezbylo.",
+        title: createEliminationTitle(weakest.gangName),
+        body: createEliminationBody(weakest.gangName),
         eliminatedAtTick: currentTick,
         finalPlacement,
         reason: "scheduled_weakest_player",
@@ -199,7 +205,7 @@ const createEliminationNotification = (
   title: "Byl jsi vyřazen ze serveru",
   bodyKey: "elimination.defeated",
   payload: {
-    body: "Po pravidelném vyhodnocení jsi byl nejslabší aktivní hráč. Tenhle server pro tebe končí jako prohra.",
+    body: "Po pravidelném vyhodnocení jsi byl nejslabší aktivní hráč. Tvůj gang ztratil kontrolu nad ulicemi.",
     eliminatedAtTick: scheduledTick,
     serverInstanceId: state.serverInstance.id
   },
@@ -223,15 +229,15 @@ const createEliminationFeedEvent = (
     visibility: "all",
     targetPlayerId: score.playerId,
     createdAtTick: state.root.tick,
-    message: `Policie vystřílela gang ${score.gangName}. Policie vystřílela gang na sračky a nic tu po něm nezbylo.`,
+    message: createEliminationFeedMessage(score.gangName),
     messageKey: "system.player_eliminated",
     payload: {
       playerId: score.playerId,
       playerName: score.playerName,
       gangName: score.gangName,
       avatarSrc: score.avatarSrc,
-      title: `Policie vystřílela gang ${score.gangName}`,
-      body: "Policie vystřílela gang na sračky a nic tu po něm nezbylo.",
+      title: createEliminationTitle(score.gangName),
+      body: createEliminationBody(score.gangName),
       reason: "scheduled_weakest_player",
       score: score.score,
       controlledDistricts: score.controlledDistricts

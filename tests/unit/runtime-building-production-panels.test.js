@@ -426,6 +426,34 @@ describe("building detail, production and recipe UI modules", () => {
     expect(findMetricValue(card, "Ve frontě")).toBe("0 ks");
   });
 
+  it("updates armory material requirements with selected production quantity", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const card = renderRecipeCard({
+      buildingName: "armory",
+      recipeId: "vest",
+      recipe: {
+        name: "Vesta",
+        inputs: { "metal-parts": 2, "tech-core": 1 },
+        output: { inventory: "weapons", itemId: "vest", amount: 1 },
+        durationMs: 1000
+      },
+      inputAmounts: { "metal-parts": 10, "tech-core": 5 },
+      maxBatches: 4,
+      canStart: true
+    }, {}, { mount });
+
+    expect(card.querySelectorAll(".armory-slot__material-value").map((item) => item.textContent)).toEqual(["2/10", "1/5"]);
+
+    const quantityButtons = card.querySelectorAll(".armory-slot__quantity-btn");
+    quantityButtons[1].click();
+    quantityButtons[1].click();
+    expect(card.querySelectorAll(".armory-slot__material-value").map((item) => item.textContent)).toEqual(["6/10", "3/5"]);
+
+    quantityButtons[0].click();
+    expect(card.querySelectorAll(".armory-slot__material-value").map((item) => item.textContent)).toEqual(["4/10", "2/5"]);
+  });
+
   it("spreads three drug lab inputs across the full supply row", () => {
     const document = setupDocument();
     const mount = document.createElement("div");

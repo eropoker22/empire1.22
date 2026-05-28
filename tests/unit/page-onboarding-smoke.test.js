@@ -115,8 +115,11 @@ describe("page onboarding smoke", () => {
     expect(page("game.html")).toContain(">Očista</button>");
     expect(page("game.html")).toContain('data-elimination-ai-panel');
     expect(page("game.html").indexOf('data-elimination-ai-panel hidden')).toBeGreaterThan(page("game.html").indexOf("</main>"));
+    expect(page("game.html")).toContain('data-elimination-result-popup');
+    expect(page("game.html")).toContain('data-elimination-result-popup-body');
     expect(page("game.html")).toContain('role="dialog"');
-    expect(page("game.html")).toContain('aria-label="Očista"');
+    expect(page("game.html")).toContain('aria-label="Otevřít AI operátora očisty"');
+    expect(page("game.html")).toContain('title="AI operátor očisty"');
     expect(page("game.html")).toContain('data-elimination-ai-panel-close');
     expect(page("game.html")).not.toContain('data-elimination-ai-panel-status');
     expect(page("game.html")).toContain('data-elimination-countdown-warning');
@@ -143,12 +146,13 @@ describe("page onboarding smoke", () => {
     expect(onboardingCssSource).toContain("width: 100vw;");
     expect(onboardingCssSource).toContain("body.elimination-ai-panel-open");
     expect(onboardingCssSource).toContain(".elimination-ai-panel.is-open .elimination-ai-panel__card");
-    expect(onboardingCssSource).toContain("Production mock HUD for the Free BR AI operator");
+    expect(onboardingCssSource).toContain("Production mock HUD for the Free BR purge window");
     expect(onboardingCssSource).toContain('url("../../img/eliminace.png")');
-    expect(onboardingCssSource).toContain("User polish: no text header, no AI unit chip, scrollable last-three list");
+    expect(onboardingCssSource).toContain("User polish: compact header controls and scrollable last-three list");
+    expect(onboardingCssSource).toContain(".elimination-result-popup");
     expect(onboardingCssSource).toContain("@media (max-width: 768px)");
     expect(onboardingCssSource).toContain(".elimination-ai-panel__score-total");
-    expect(onboardingCssSource).toContain("scroll-snap-type: y mandatory");
+    expect(onboardingCssSource).toContain("scroll-snap-type: y proximity");
     expect(onboardingCssSource).toContain(".elimination-countdown-warning");
     expect(onboardingCssSource).toContain("pointer-events: none");
     expect(onboardingCssSource).toContain("max-width: none !important;");
@@ -218,7 +222,7 @@ describe("page onboarding smoke", () => {
     expect(cityStatusMobileCssSource).toContain(".city-status-ai-button::after");
     expect(cityStatusMobileCssSource).toContain("Final mobile Očista panel pass");
     expect(cityStatusMobileCssSource).toContain("overflow-y: auto !important;");
-    expect(cityStatusMobileCssSource).toContain("scroll-snap-type: none !important;");
+    expect(cityStatusMobileCssSource).toContain("scroll-snap-type: y proximity !important;");
     expect(cityStatusMobileCssSource).toContain("top: 18px !important;");
     expect(cityStatusMobileCssSource).toContain("width: 28px !important;");
     expect(cityStatusMobileCssSource).toContain("background: none !important;");

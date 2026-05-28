@@ -2,10 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import {
   bindEliminationAiPanel,
   bindEliminationCountdownWarning,
+  bindEliminationResultPopup,
   createMockEliminationAiPanelViewModel,
   renderEliminationAiPanel,
-  renderFinalLockdownAiPanel
-} from "../../page-assets/js/app/runtime/eliminationAiPanelRuntime.js";
+  renderFinalLockdownPurgePanel
+} from "../../page-assets/js/app/runtime/eliminationPurgePanelRuntime.js";
 
 function createTarget(matchSelector) {
   const target = {
@@ -89,6 +90,15 @@ function createCountdownWarningFixture() {
   };
   const root = {
     ownerDocument: {
+      defaultView: {
+        CustomEvent: class FakeCustomEvent {
+          constructor(type, init = {}) {
+            this.type = type;
+            this.detail = init.detail;
+          }
+        }
+      },
+      dispatchEvent: vi.fn(),
       querySelector: vi.fn((selector) => selector === "[data-elimination-countdown-warning]" ? warning : null)
     },
     querySelector: vi.fn((selector) => selector === "[data-elimination-countdown-warning]" ? warning : null)
@@ -96,13 +106,62 @@ function createCountdownWarningFixture() {
   return { root, timeNode, warning };
 }
 
-describe("elimination AI panel runtime", () => {
+function createResultPopupFixture() {
+  const listeners = new Map();
+  const popupListeners = new Map();
+  const documentListeners = new Map();
+  const body = { innerHTML: "" };
+  const card = { focus: vi.fn() };
+  const popupClassList = { add: vi.fn(), remove: vi.fn(), contains: vi.fn(() => false) };
+  const popup = {
+    hidden: true,
+    classList: popupClassList,
+    addEventListener: vi.fn((type, listener) => {
+      popupListeners.set(type, listener);
+    }),
+    removeEventListener: vi.fn(),
+    querySelector: vi.fn((selector) => ({
+      "[data-elimination-result-popup-body]": body,
+      ".elimination-result-popup__card": card
+    })[selector] || null)
+  };
+  const root = {
+    ownerDocument: {
+      body: { classList: { add: vi.fn(), remove: vi.fn() } },
+      addEventListener: vi.fn((type, listener) => {
+        documentListeners.set(type, listener);
+      }),
+      removeEventListener: vi.fn(),
+      querySelector: vi.fn((selector) => selector === "[data-elimination-result-popup]" ? popup : null)
+    },
+    contains: vi.fn((node) => node === popup),
+    querySelector: vi.fn((selector) => selector === "[data-elimination-result-popup]" ? popup : null),
+    addEventListener: vi.fn((type, listener) => {
+      listeners.set(type, listener);
+    }),
+    removeEventListener: vi.fn()
+  };
+
+  return {
+    body,
+    card,
+    documentListeners,
+    listeners,
+    popup,
+    popupListeners,
+    root
+  };
+}
+
+describe("elimination purge panel runtime", () => {
   it("renders the production mock elimination briefing", () => {
     const html = renderEliminationAiPanel();
 
+    expect(html).not.toContain("OČISTA / PURGE OKNO");
+    expect(html).not.toContain("PURGE-07");
     expect(html).toContain("Očista za");
     expect(html).toContain("6min 01s");
-    expect(html).toContain("Nejnižší gang vypadne");
+    expect(html).toContain("Nejslabší gang vypadne");
     expect(html).toContain("Poslední 3 hráči");
     expect(html).toContain("StreetPhantom");
     expect(html).toContain("NeonViper (TY)");
@@ -141,8 +200,19 @@ describe("elimination AI panel runtime", () => {
     expect(html).not.toContain("Heat penalty");
   });
 
+  it("renders a safe fallback without complete read-model data", () => {
+    const html = renderEliminationAiPanel({
+      mode: "elimination",
+      title: "Očista fallback"
+    });
+
+    expect(html).not.toContain("Očista fallback");
+    expect(html).toContain("Data se načítají");
+    expect(html).not.toContain("DEV-ONLY");
+  });
+
   it("prepares the mock final lockdown variant", () => {
-    const html = renderFinalLockdownAiPanel();
+    const html = renderFinalLockdownPurgePanel();
 
     expect(html).toContain("Do rozsudku");
     expect(html).toContain("7h 42m");
@@ -161,6 +231,8 @@ describe("elimination AI panel runtime", () => {
     expect(viewModel).toMatchObject({
       mode: "elimination",
       status: "danger",
+      title: "OČISTA / PURGE OKNO",
+      unitLabel: "PURGE-07",
       countdownLabel: "Očista za",
       countdownValue: "6min 01s"
     });
@@ -168,9 +240,13 @@ describe("elimination AI panel runtime", () => {
     expect(viewModel.metrics.some((metric) => metric.key === "heat")).toBe(false);
     expect(viewModel.leaderboard).toHaveLength(3);
     expect(viewModel.leaderboard.some((entry) => "heat" in entry)).toBe(false);
-    expect(viewModel.actions).toHaveLength(2);
+    expect(viewModel.actions).toHaveLength(3);
     expect(viewModel.actions.some((action) => action.label.toLowerCase().includes("heat"))).toBe(false);
     expect(viewModel.scoreBreakdown).toHaveLength(4);
+    expect(viewModel.eliminationResult).toMatchObject({
+      gangName: "LowKeyLad",
+      title: "Očista proběhla: LowKeyLad"
+    });
     expect(finalViewModel.mode).toBe("final_lockdown");
     expect(finalViewModel.status).toBe("final");
   });
@@ -227,7 +303,7 @@ describe("elimination AI panel runtime", () => {
     expect(trigger.focus).toHaveBeenCalled();
   });
 
-  it("shows the eliminated gang notice with avatar and restarts the panel countdown", () => {
+  it("resolves the eliminated gang and restarts the purge countdown without embedding the result", () => {
     const fixture = createPanelFixture();
     let currentTime = 0;
     let intervalCallback = null;
@@ -260,19 +336,47 @@ describe("elimination AI panel runtime", () => {
     expect(onCountdownElapsed).toHaveBeenCalledWith(expect.objectContaining({
       ownerId: 3,
       gangName: "LowKeyLad",
-      title: "Policie vystřílela gang LowKeyLad"
+      title: "Očista proběhla: LowKeyLad"
     }), expect.any(Object));
-    expect(fixture.body.innerHTML).toContain("Policie vystřílela gang LowKeyLad");
-    expect(fixture.body.innerHTML).toContain("Policie vystřílela gang na sračky a nic tu po něm nezbylo.");
+    expect(fixture.body.innerHTML).not.toContain("Očista proběhla: LowKeyLad");
+    expect(fixture.body.innerHTML).not.toContain("../img/avatars/lowkey.jpg");
+    expect(fixture.body.innerHTML).toContain("4h 00min 00s");
+  });
+
+  it("shows the eliminated gang result in a separate popup with avatar", () => {
+    const fixture = createResultPopupFixture();
+    const trigger = createTarget("[data-elimination-ai-panel-open]");
+
+    const runtime = bindEliminationResultPopup(fixture.root);
+    runtime.open({
+      gangName: "LowKeyLad",
+      title: "Očista proběhla: LowKeyLad",
+      body: "Policie rozdrtila gang LowKeyLad. Jeho území přechází do lockdownu.",
+      avatarSrc: "../img/avatars/lowkey.jpg",
+      districtsNeutralized: 4
+    }, trigger);
+
+    expect(fixture.popup.hidden).toBe(false);
+    expect(fixture.root.ownerDocument.body.classList.add).toHaveBeenCalledWith("elimination-result-popup-open");
+    expect(fixture.card.focus).toHaveBeenCalled();
+    expect(fixture.body.innerHTML).toContain("Očista proběhla: LowKeyLad");
+    expect(fixture.body.innerHTML).toContain("Policie rozdrtila gang LowKeyLad. Jeho území přechází do lockdownu.");
     expect(fixture.body.innerHTML).toContain("../img/avatars/lowkey.jpg");
     expect(fixture.body.innerHTML).toContain("4 districtů je teď neobsazených");
-    expect(fixture.body.innerHTML).toContain("4h 00min 00s");
+
+    fixture.documentListeners.get("keydown")({ key: "Escape", preventDefault: vi.fn() });
+    expect(fixture.popup.hidden).toBe(true);
+    expect(trigger.focus).toHaveBeenCalled();
   });
 
   it("shows the global red warning only for the last five minutes and restarts after zero", () => {
     const fixture = createCountdownWarningFixture();
     let currentTime = 0;
     let intervalCallback = null;
+    const onCountdownElapsed = vi.fn(() => ({
+      avatarSrc: "../img/avatars/lowkey.jpg",
+      districtsNeutralized: 4
+    }));
     const timerApi = {
       now: vi.fn(() => currentTime),
       setInterval: vi.fn((callback) => {
@@ -285,7 +389,8 @@ describe("elimination AI panel runtime", () => {
     bindEliminationCountdownWarning(fixture.root, {
       initialCountdownMs: 361000,
       resetCountdown: true,
-      timerApi
+      timerApi,
+      onCountdownElapsed
     });
 
     expect(fixture.warning.hidden).toBe(true);
@@ -300,6 +405,14 @@ describe("elimination AI panel runtime", () => {
     intervalCallback();
     expect(fixture.warning.hidden).toBe(true);
     expect(fixture.timeNode.textContent).toBe("4h 00min 00s");
+    expect(onCountdownElapsed).toHaveBeenCalledWith(expect.objectContaining({
+      ownerId: 3,
+      gangName: "LowKeyLad",
+      title: "Očista proběhla: LowKeyLad"
+    }), expect.any(Object));
+    expect(fixture.root.ownerDocument.dispatchEvent).toHaveBeenCalledWith(expect.objectContaining({
+      type: "empire:elimination-resolved"
+    }));
     expect(timerApi.clearInterval).not.toHaveBeenCalled();
   });
 
@@ -329,8 +442,8 @@ describe("elimination AI panel runtime", () => {
     const viewModel = {
       ...createMockEliminationAiPanelViewModel(),
       status: state,
-      title: state === "final" ? "FINAL LOCKDOWN" : "AI OPERÁTOR OČISTY",
-      aiUnit: state === "final" ? "AI-LOCK" : "AI-07"
+      title: state === "final" ? "FINAL LOCKDOWN" : "OČISTA / PURGE OKNO",
+      unitLabel: state === "final" ? "PURGE-LOCK" : "PURGE-07"
     };
     bindEliminationAiPanel(fixture.root, {
       getViewModel: () => viewModel

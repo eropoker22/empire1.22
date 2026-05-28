@@ -739,9 +739,10 @@ import { createRegisteredPlayerStateRuntime } from "./runtime/registeredPlayerSt
 import { createGangWantedStatusRuntime } from "./runtime/gangWantedStatusRuntime.js";
 import { createCityStatusBarRuntime } from "./runtime/cityStatusBarRuntime.js";
 import {
-  bindEliminationAiPanel,
-  bindEliminationCountdownWarning
-} from "./runtime/eliminationAiPanelRuntime.js";
+  bindEliminationCountdownWarning,
+  bindEliminationPurgePanel,
+  bindEliminationResultPopup
+} from "./runtime/eliminationPurgePanelRuntime.js";
 import { createPhaseToggleRuntime } from "./runtime/phaseToggleRuntime.js";
 import { createProductionBuildingPopupRuntime } from "./runtime/productionBuildingPopupRuntime.js";
 import { createFactoryPopupRuntime } from "./runtime/factoryPopupRuntime.js";
@@ -853,8 +854,10 @@ const runtimeContextsByRoot = new WeakMap();
 const onboardingBridgesByRoot = new WeakMap();
 const policeHeatBridgesByRoot = new WeakMap();
 const eventRumorBridgesByRoot = new WeakMap();
-const eliminationAiPanelsByRoot = new WeakMap();
+const eliminationPurgePanelsByRoot = new WeakMap();
+const eliminationResultPopupsByRoot = new WeakMap();
 const eliminationCountdownWarningsByRoot = new WeakMap();
+const ELIMINATION_RESULT_POPUP_SELECTOR = "[data-elimination-result-popup]";
 let latestGameplaySliceReadModel = null;
 
 function getDefaultRuntimeRoot() {
@@ -2088,12 +2091,14 @@ const {
       detail: { kind, payload }
     }));
   },
+  openEliminationResultModal,
   openPoliceActionResultModal,
   renderBattleReportPanel,
   renderSimpleResultModal,
   renderSpyWarningPanel,
   selectors: {
     attackResult: ATTACK_RESULT_MODAL_SELECTOR,
+    eliminationResult: ELIMINATION_RESULT_POPUP_SELECTOR,
     policeActionResult: POLICE_ACTION_RESULT_MODAL_SELECTOR,
     raidResult: RAID_RESULT_MODAL_SELECTOR,
     raidResultContent: RAID_RESULT_MODAL_CONTENT_SELECTOR,
@@ -2108,6 +2113,14 @@ const {
     spyWarning: SPY_WARNING_MODAL_SELECTOR
   }
 });
+
+function openEliminationResultModal(root, payload = {}) {
+  const popup = eliminationResultPopupsByRoot.get(root);
+  if (!popup || typeof popup.open !== "function") {
+    return false;
+  }
+  return popup.open(payload);
+}
 
 function closePoliceActionResultModal(root) {
   const modal = root?.querySelector(POLICE_ACTION_RESULT_MODAL_SELECTOR);
@@ -3937,6 +3950,53 @@ function enrichEliminationResultForLaunchMap(root, result = {}) {
     gangName: result.gangName || (ownerId ? getLaunchPlayerName(ownerId) : "neznámý gang"),
     avatarSrc: result.avatarSrc || (ownerId ? getLaunchPlayerAvatar(ownerId) : ""),
     districtsNeutralized
+  };
+}
+
+function createEliminationStreetNewsPayload(result = {}) {
+  const gangName = String(result.gangName || "neznámý gang").trim();
+  const districtCount = Number(result.districtsNeutralized);
+  const neutralizedLabel = Number.isFinite(districtCount) && districtCount > 0
+    ? `${districtCount} districtů je teď neobsazených`
+    : "Districty gangu jsou teď neobsazené";
+  return {
+    ...result,
+    tone: "warning",
+    title: result.title || `Očista proběhla: ${gangName}`,
+    summary: result.body || `Policie rozdrtila gang ${gangName}. Jeho území přechází do lockdownu.`,
+    badge: "Očista dokončena",
+    rows: [
+      { label: "Gang", value: gangName },
+      { label: "Mapa", value: neutralizedLabel }
+    ],
+    syncToBuildingAction: false
+  };
+}
+
+function appendEliminationStreetNews(root, result = {}) {
+  const payload = createEliminationStreetNewsPayload(result);
+  appendBuildingActionResultEntry(root, "elimination", payload, {
+    tone: "warning",
+    title: payload.title,
+    summary: payload.summary,
+    meta: payload.badge
+  }, {
+    syncPreview: true,
+    forceLog: true,
+    refresh: false
+  });
+  return payload;
+}
+
+function handleEliminationCountdownResolved(root, result = {}) {
+  const enrichedResult = {
+    ...result,
+    ...enrichEliminationResultForLaunchMap(root, result)
+  };
+  const payload = appendEliminationStreetNews(root, enrichedResult);
+  return {
+    ...enrichedResult,
+    ...payload
   };
 }
 
@@ -9370,23 +9430,44 @@ function bindFreeSessionOnboarding(root) {
   return true;
 }
 
-function bindEliminationOperatorPanel(root) {
-  if (!root || eliminationAiPanelsByRoot.has(root)) {
+function bindEliminationResultPopupOverlay(root) {
+  if (!root || eliminationResultPopupsByRoot.has(root)) {
+    return false;
+  }
+
+  const popup = bindEliminationResultPopup(root, {
+    onClose: () => renderNextPendingResultModal(root)
+  });
+  if (!popup) {
+    return false;
+  }
+
+  eliminationResultPopupsByRoot.set(root, popup);
+  return true;
+}
+
+function bindEliminationPurgeWindow(root) {
+  if (!root || eliminationPurgePanelsByRoot.has(root)) {
     return false;
   }
 
   root.ownerDocument?.addEventListener?.("empire:gameplay-slice-rendered", (event) => {
     latestGameplaySliceReadModel = event?.detail?.gameplaySlice || null;
   });
-  const panel = bindEliminationAiPanel(root, {
+  const panel = bindEliminationPurgePanel(root, {
     getGameplaySlice: () => latestGameplaySliceReadModel,
     getPlayerView: () => latestGameplaySliceReadModel?.player || createFreeSessionUiContext(root),
-    onCountdownElapsed: (result) => enrichEliminationResultForLaunchMap(root, result)
+    onCountdownElapsed: (result) => {
+      const resolvedResult = handleEliminationCountdownResolved(root, result);
+      queueOrOpenResultModal(root, "elimination", resolvedResult);
+      return resolvedResult;
+    },
+    openEliminationResultPopup: (result, trigger) => eliminationResultPopupsByRoot.get(root)?.open?.(result, trigger)
   });
   if (!panel) {
     return false;
   }
-  eliminationAiPanelsByRoot.set(root, panel);
+  eliminationPurgePanelsByRoot.set(root, panel);
   return true;
 }
 
@@ -9395,7 +9476,14 @@ function bindEliminationCountdownWarningOverlay(root) {
     return false;
   }
 
-  const warning = bindEliminationCountdownWarning(root);
+  const warning = bindEliminationCountdownWarning(root, {
+    getPlayerView: () => latestGameplaySliceReadModel?.player || createFreeSessionUiContext(root),
+    onCountdownElapsed: (result) => {
+      const resolvedResult = handleEliminationCountdownResolved(root, result);
+      queueOrOpenResultModal(root, "elimination", resolvedResult);
+      return resolvedResult;
+    }
+  });
   if (!warning) {
     return false;
   }
@@ -9609,7 +9697,8 @@ function bindUiEvents(root, context = null) {
   bindLogoutActions(root);
   bindGangWantedStatus(root);
   bindFreeSessionOnboarding(root);
-  bindEliminationOperatorPanel(root);
+  bindEliminationResultPopupOverlay(root);
+  bindEliminationPurgeWindow(root);
   bindEliminationCountdownWarningOverlay(root);
   bindEventRumorFeed(root);
   bindPoliceHeatFeedback(root);
@@ -9889,7 +9978,8 @@ export {
   bindCityStatusBar,
   bindDistrictCanvas,
   bindDrugLabPopup,
-  bindEliminationOperatorPanel,
+  bindEliminationPurgeWindow,
+  bindEliminationResultPopupOverlay,
   bindEventRumorFeed,
   bindFactoryPopup,
   bindFactionRegistration,

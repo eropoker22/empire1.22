@@ -1773,6 +1773,42 @@ body.login-body::after {
   white-space: nowrap;
 }
 
+.server-status .panel-heading {
+  flex-wrap: nowrap;
+  gap: 7px;
+}
+
+.server-status .panel-heading h2 {
+  flex: 0 0 auto;
+}
+
+.server-status__headline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-left: auto;
+  color: rgba(133, 197, 227, 0.78);
+  font-size: 0.56rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.server-status__headline .server-state-inline {
+  min-width: auto;
+  padding: 0.24rem 0.44rem 0.26rem;
+  font-size: 0.54rem;
+  letter-spacing: 0.08em;
+}
+
+.server-status .panel-heading .status-dot {
+  flex: 0 0 auto;
+  margin-left: 0;
+}
+
 .server-state-inline,
 .metric strong {
   color: var(--green);
@@ -2666,6 +2702,35 @@ body.login-body::after {
   .server-status {
     order: 4;
     margin-top: 28px;
+  }
+
+  .server-status .panel-heading {
+    gap: 6px;
+    padding-bottom: 10px;
+  }
+
+  .server-status .panel-heading .panel-icon {
+    flex: 0 0 auto;
+  }
+
+  .server-status .panel-heading h2 {
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+  }
+
+  .server-status__headline {
+    gap: 4px;
+    max-width: min(48vw, 178px);
+    font-size: 0.48rem;
+    letter-spacing: 0.08em;
+  }
+
+  .server-status__headline .server-state-inline {
+    max-width: 82px;
+    overflow: hidden;
+    padding: 0.2rem 0.34rem 0.22rem;
+    font-size: 0.46rem;
+    text-overflow: ellipsis;
   }
 
   .active-events {

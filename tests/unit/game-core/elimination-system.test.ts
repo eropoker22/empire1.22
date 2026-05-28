@@ -50,9 +50,13 @@ describe("scheduled elimination system", () => {
     expect(result.events.find((event) => event.type === "player-eliminated")?.payload).toMatchObject({
       playerId: "player:3",
       gangName: "Player 3",
-      title: "Policie vystřílela gang Player 3",
-      body: "Policie vystřílela gang na sračky a nic tu po něm nezbylo."
+      title: "Očista proběhla: Player 3",
+      body: "Policie rozdrtila gang Player 3. Jeho území přechází do lockdownu."
     });
+    expect(Object.values(result.nextState.notificationsById)
+      .find((notification) => notification.category === "elimination.defeated")?.payload).toMatchObject({
+        body: "Po pravidelném vyhodnocení jsi byl nejslabší aktivní hráč. Tvůj gang ztratil kontrolu nad ulicemi."
+      });
   });
 
   it("runs during the tick lifecycle before victory checks", () => {
@@ -196,13 +200,15 @@ describe("scheduled elimination system", () => {
 
     expect(feedEvent).toMatchObject({
       visibility: "all",
-      message: "Policie vystřílela gang Player 3. Policie vystřílela gang na sračky a nic tu po něm nezbylo.",
+      message: "Očista proběhla. Gang Player 3 byl odstraněn z města.",
       payload: expect.objectContaining({
         gangName: "Player 3",
-        title: "Policie vystřílela gang Player 3",
-        body: "Policie vystřílela gang na sračky a nic tu po něm nezbylo."
+        title: "Očista proběhla: Player 3",
+        body: "Policie rozdrtila gang Player 3. Jeho území přechází do lockdownu."
       })
     });
+    expect(feedEvent?.message).toContain("Player 3");
+    expect(JSON.stringify(feedEvent)).not.toMatch(/sračky|vystřílela/u);
   });
 
   it("reactivates disabled buildings when another player captures a neutralized defeated district", () => {

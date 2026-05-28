@@ -243,7 +243,9 @@ function renderDrugSupplyRow(viewModel = {}, options = {}) {
 
 function renderArmoryMaterialsRow(viewModel = {}, options = {}) {
   const row = createElement(options.mount, "div", "armory-slot__materials-row");
-  if (!row) return null;
+  if (!row) return { element: null, refresh: () => {} };
+
+  const valueEntries = [];
 
   for (const [itemId, amount] of Object.entries(viewModel.recipe?.inputs || {})) {
     const pill = createElement(options.mount, "div");
@@ -253,12 +255,23 @@ function renderArmoryMaterialsRow(viewModel = {}, options = {}) {
     pill.dataset.resourceColor = normalizeResourceColor(itemId, options);
     pill.className = `armory-slot__material-pill ${itemId === "metal-parts" ? "armory-slot__material-pill--metal" : "armory-slot__material-pill--tech"}`;
     name.textContent = getResourceLabel(itemId, options);
-    value.textContent = `${amount}/${getInputAmount(itemId, viewModel)}`;
+    const available = getInputAmount(itemId, viewModel);
+    const baseRequired = Math.max(0, Number(amount || 0));
+    value.textContent = `${baseRequired}/${available}`;
+    valueEntries.push({ value, available, baseRequired });
     pill.append(name, value);
     row.append(pill);
   }
 
-  return row;
+  return {
+    element: row,
+    refresh: (batchCount = 1) => {
+      const safeBatchCount = Math.max(1, Math.floor(Number(batchCount || 1)));
+      for (const entry of valueEntries) {
+        entry.value.textContent = `${entry.baseRequired * safeBatchCount}/${entry.available}`;
+      }
+    }
+  };
 }
 
 function getArmorySlotRole(recipeId = "", recipe = {}) {
@@ -466,9 +479,11 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
       const supplyMetric = createElement(options.mount, "div", "drug-production-slot__metric drug-production-slot__metric--supplies");
       const supplyLabel = createElement(options.mount, "span", "drug-production-slot__metric-label");
       if (supplyMetric && supplyLabel) {
+        const materialRow = renderArmoryMaterialsRow(viewModel, options);
         supplyLabel.textContent = "Materiál";
-        supplyMetric.append(supplyLabel, renderArmoryMaterialsRow(viewModel, options));
+        appendChildren(supplyMetric, [supplyLabel, materialRow.element]);
         metrics.append(supplyMetric);
+        viewModel.refreshInputRequirements = materialRow.refresh;
       }
     } else {
       const supplyRow = renderDrugSupplyRow(viewModel, options);
@@ -482,7 +497,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
       queueMetric,
       effectiveDurationMs,
       extraClass: isArmory ? "" : "drug-production-slot__quantity",
-      onQuantityRefresh: isArmory ? null : ({ visibleBatches }) => {
+      onQuantityRefresh: ({ visibleBatches }) => {
         viewModel.refreshInputRequirements?.(visibleBatches);
       }
     });

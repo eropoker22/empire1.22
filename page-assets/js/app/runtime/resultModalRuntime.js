@@ -7,8 +7,9 @@ export function createResultModalRuntime(deps = {}) {
     root?.querySelector?.(selectors.spyWarning),
     root?.querySelector?.(selectors.raidResult),
     root?.querySelector?.(selectors.attackResult),
-    root?.querySelector?.(selectors.policeActionResult)
-  ].find((element) => element && !element.classList.contains("hidden")) || null;
+    root?.querySelector?.(selectors.policeActionResult),
+    root?.querySelector?.(selectors.eliminationResult)
+  ].find((element) => element && !element.hidden && !element.classList.contains("hidden")) || null;
 
   const openSpyResultModal = (root, payload = {}) => deps.renderSimpleResultModal?.(root, payload, {
     modalSelector: selectors.spyResult,
@@ -94,6 +95,12 @@ export function createResultModalRuntime(deps = {}) {
 
     if (kind === "police") {
       deps.openPoliceActionResultModal?.(root, payload);
+      deps.onOpenResult?.({ root, kind, payload });
+      return;
+    }
+
+    if (kind === "elimination") {
+      deps.openEliminationResultModal?.(root, payload);
       deps.onOpenResult?.({ root, kind, payload });
     }
   };

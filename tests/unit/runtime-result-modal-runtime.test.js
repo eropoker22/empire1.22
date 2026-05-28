@@ -26,6 +26,7 @@ function createRuntime(overrides = {}) {
     renderSpyWarningPanel: vi.fn(() => true),
     selectors: {
       attackResult: "#attack",
+      eliminationResult: "#elimination",
       policeActionResult: "#police",
       raidResult: "#raid",
       raidResultContent: "#raid-content",
@@ -48,8 +49,10 @@ describe("result modal runtime", () => {
     const renderSimpleResultModal = vi.fn(() => true);
     const renderSpyWarningPanel = vi.fn(() => true);
     const renderBattleReportPanel = vi.fn(() => true);
+    const openEliminationResultModal = vi.fn();
     const openPoliceActionResultModal = vi.fn();
     const runtime = createRuntime({
+      openEliminationResultModal,
       openPoliceActionResultModal,
       renderBattleReportPanel,
       renderSimpleResultModal,
@@ -61,6 +64,7 @@ describe("result modal runtime", () => {
     runtime.openResultModalByKind(root, "spy_alert", { attackerNick: "Enemy" });
     runtime.openResultModalByKind(root, "attack", { title: "Attack" });
     runtime.openResultModalByKind(root, "police", { title: "Police" });
+    runtime.openResultModalByKind(root, "elimination", { title: "Elimination" });
 
     expect(renderSimpleResultModal).toHaveBeenCalledWith(root, { title: "Spy" }, expect.objectContaining({
       modalSelector: "#spy"
@@ -77,6 +81,7 @@ describe("result modal runtime", () => {
       nextActionLabel: "Zpět na mapu"
     }));
     expect(openPoliceActionResultModal).toHaveBeenCalledWith(root, { title: "Police" });
+    expect(openEliminationResultModal).toHaveBeenCalledWith(root, { title: "Elimination" });
   });
 
   it("keeps queue behavior guarded by visible modal state", () => {

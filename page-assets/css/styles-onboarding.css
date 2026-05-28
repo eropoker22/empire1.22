@@ -1561,7 +1561,7 @@
   }
 }
 
-/* Elimination AI panel, visual pass based on img/eliminace.png. */
+/* Elimination purge panel, visual pass based on img/eliminace.png. */
 body.elimination-ai-panel-open {
   overflow: hidden;
 }
@@ -2371,7 +2371,7 @@ body.elimination-ai-panel-open {
   }
 }
 
-/* Final AI operator polish: smaller hi-tech desktop HUD and readable fullscreen mobile. */
+/* Final purge window polish: smaller hi-tech desktop HUD and readable fullscreen mobile. */
 html body .elimination-ai-panel.is-open {
   place-items: center end;
   padding: clamp(12px, 2vw, 22px) clamp(16px, 3vw, 38px);
@@ -2653,7 +2653,7 @@ html body .elimination-ai-panel.is-open .elimination-ai-panel__action-chips span
   }
 }
 
-/* Production mock HUD for the Free BR AI operator. */
+/* Production mock HUD for the Free BR purge window. */
 html body .elimination-ai-panel.is-open {
   position: fixed !important;
   inset: 0 !important;
@@ -3458,7 +3458,7 @@ html body .elimination-ai-panel.is-open .elimination-ai-panel__score-total stron
   }
 }
 
-/* AI operator wallpaper from img/eliminace.png. */
+/* Purge window wallpaper from img/eliminace.png. */
 html body .elimination-ai-panel.is-open .elimination-ai-panel__card {
   background:
     linear-gradient(135deg, rgba(4, 10, 18, 0.86), rgba(2, 7, 15, 0.9) 46%, rgba(18, 5, 21, 0.86)),
@@ -3470,7 +3470,7 @@ html body .elimination-ai-panel.is-open .elimination-ai-panel__card {
     #050a12 !important;
 }
 
-/* User polish: no text header, no AI unit chip, scrollable last-three list. */
+/* User polish: compact header controls and scrollable last-three list. */
 html body .elimination-ai-panel.is-open .elimination-ai-panel__eyebrow,
 html body .elimination-ai-panel.is-open .elimination-ai-panel__title,
 html body .elimination-ai-panel.is-open [data-elimination-ai-panel-kicker],
@@ -3490,11 +3490,14 @@ html body .elimination-ai-panel.is-open .elimination-ai-panel__header > div {
 }
 
 html body .elimination-ai-panel.is-open .elimination-ai-panel__section--leaderboard .elimination-ai-panel__leaderboard {
+  min-height: 0 !important;
   max-height: 104px !important;
+  overflow-x: hidden !important;
   overflow-y: auto !important;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
   padding-right: 4px;
-  scroll-snap-type: y mandatory;
+  scroll-snap-type: y proximity;
   scrollbar-color: rgba(var(--ai-panel-cyan), 0.62) rgba(255, 255, 255, 0.06);
   scrollbar-width: thin;
 }
@@ -3518,11 +3521,14 @@ html body .elimination-ai-panel.is-open .elimination-ai-panel__section--leaderbo
 }
 
 html body .elimination-ai-panel.is-open .elimination-ai-panel__section--score .elimination-ai-panel__score {
+  min-height: 0 !important;
   max-height: 118px !important;
+  overflow-x: hidden !important;
   overflow-y: auto !important;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
   padding-right: 4px;
-  scroll-snap-type: y mandatory;
+  scroll-snap-type: y proximity;
   scrollbar-color: rgba(var(--ai-panel-cyan), 0.62) rgba(255, 255, 255, 0.06);
   scrollbar-width: thin;
 }
@@ -3632,6 +3638,221 @@ html body .elimination-ai-panel.is-open .elimination-ai-panel__result-copy p {
   line-height: 1.3;
 }
 
+.elimination-result-popup[hidden] {
+  display: none !important;
+}
+
+body.elimination-result-popup-open {
+  overflow: hidden;
+}
+
+.elimination-result-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 9700;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.elimination-result-popup__backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 30% 12%, rgba(34, 211, 238, 0.16), transparent 34%),
+    radial-gradient(circle at 80% 76%, rgba(255, 45, 107, 0.13), transparent 30%),
+    rgba(1, 5, 12, 0.74);
+  backdrop-filter: blur(12px) saturate(145%);
+  -webkit-backdrop-filter: blur(12px) saturate(145%);
+}
+
+.elimination-result-popup__card {
+  --purge-cyan: 34, 211, 238;
+  --purge-red: 255, 45, 107;
+  position: relative;
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(78vh, 720px);
+  overflow: hidden;
+  border: 1px solid rgba(var(--purge-cyan), 0.42);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(4, 10, 18, 0.88), rgba(2, 7, 15, 0.92) 52%, rgba(20, 5, 18, 0.9)),
+    radial-gradient(circle at 16% 0%, rgba(var(--purge-cyan), 0.22), transparent 36%),
+    radial-gradient(circle at 100% 18%, rgba(var(--purge-red), 0.18), transparent 40%),
+    url("../../img/eliminace.png") center / cover no-repeat,
+    #050a12;
+  box-shadow:
+    0 32px 92px rgba(0, 0, 0, 0.62),
+    0 0 48px rgba(var(--purge-cyan), 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.elimination-result-popup__card::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, transparent, rgba(var(--purge-cyan), 0.12), transparent),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 8px);
+  content: "";
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+.elimination-result-popup__close {
+  position: absolute;
+  z-index: 3;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+  border: 1px solid rgba(var(--purge-cyan), 0.48);
+  border-radius: 9px;
+  background: rgba(3, 12, 24, 0.72);
+  color: rgb(var(--purge-cyan));
+  font-size: 18px;
+  line-height: 1;
+  text-shadow: 0 0 12px rgba(var(--purge-cyan), 0.8);
+  box-shadow: 0 0 16px rgba(var(--purge-cyan), 0.22);
+}
+
+.elimination-result-popup__body {
+  position: relative;
+  z-index: 1;
+  padding: 28px;
+}
+
+.elimination-result-popup__notice {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+  min-height: 150px;
+}
+
+.elimination-result-popup__avatar {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  overflow: hidden;
+  border: 1px solid rgba(var(--purge-cyan), 0.46);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(var(--purge-cyan), 0.18), rgba(var(--purge-red), 0.14)),
+    rgba(0, 0, 0, 0.42);
+  box-shadow: 0 0 28px rgba(var(--purge-cyan), 0.16);
+}
+
+.elimination-result-popup__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.elimination-result-popup__avatar span {
+  color: #ffffff;
+  font-size: 30px;
+  font-weight: 950;
+  text-shadow: 0 0 18px rgba(var(--purge-cyan), 0.6);
+}
+
+.elimination-result-popup__copy {
+  min-width: 0;
+  padding-right: 26px;
+}
+
+.elimination-result-popup__eyebrow {
+  display: block;
+  color: rgb(var(--purge-cyan));
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  text-shadow: 0 0 14px rgba(var(--purge-cyan), 0.48);
+}
+
+.elimination-result-popup__copy strong {
+  display: block;
+  margin-top: 7px;
+  color: #fff;
+  font-size: clamp(22px, 3vw, 32px);
+  font-weight: 950;
+  line-height: 1.04;
+  text-shadow:
+    0 0 18px rgba(var(--purge-red), 0.32),
+    0 0 28px rgba(var(--purge-cyan), 0.18);
+}
+
+.elimination-result-popup__copy p {
+  margin: 10px 0 0;
+  color: rgba(238, 248, 255, 0.9);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.38;
+}
+
+.elimination-result-popup__meta {
+  display: inline-flex;
+  margin-top: 12px;
+  padding: 7px 10px;
+  border: 1px solid rgba(var(--purge-red), 0.36);
+  border-radius: 999px;
+  background: rgba(255, 45, 107, 0.12);
+  color: rgba(255, 235, 238, 0.92);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+@media (max-width: 680px) {
+  .elimination-result-popup {
+    align-items: end;
+    padding: 0;
+  }
+
+  .elimination-result-popup__card {
+    width: 100vw;
+    max-height: 86vh;
+    overflow-y: auto;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .elimination-result-popup__body {
+    padding: 46px 18px max(22px, env(safe-area-inset-bottom));
+  }
+
+  .elimination-result-popup__notice {
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 14px;
+    min-height: 0;
+  }
+
+  .elimination-result-popup__avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 12px;
+  }
+
+  .elimination-result-popup__copy {
+    padding-right: 0;
+  }
+
+  .elimination-result-popup__copy strong {
+    font-size: 22px;
+  }
+
+  .elimination-result-popup__copy p {
+    font-size: 13px;
+  }
+}
+
 html body .elimination-ai-panel.is-open .elimination-ai-panel__leaderboard-row {
   grid-template-columns: 24px 30px minmax(0, 1fr) 62px 42px !important;
 }
@@ -3707,6 +3928,13 @@ html body .elimination-ai-panel.is-open .elimination-ai-panel__countdown {
     0 0 28px rgba(236, 72, 153, 0.44),
     0 0 42px rgba(34, 211, 238, 0.28) !important;
   filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.22));
+}
+
+html body .elimination-ai-panel.is-open .elimination-ai-panel__countdown-seconds {
+  display: inline-block !important;
+  font-size: 0.7em !important;
+  line-height: 1 !important;
+  vertical-align: 0.08em !important;
 }
 
 html body .elimination-ai-panel.is-open .elimination-ai-panel__metrics {
@@ -3886,6 +4114,7 @@ body:has(#spy-result-modal:not(.hidden):not([hidden])) .elimination-countdown-wa
 body:has(#spy-warning-modal:not(.hidden):not([hidden])) .elimination-countdown-warning__card,
 body:has(#raid-result-modal:not(.hidden):not([hidden])) .elimination-countdown-warning__card,
 body:has(#attack-result-modal:not(.hidden):not([hidden])) .elimination-countdown-warning__card,
+body:has(.elimination-result-popup:not([hidden])) .elimination-countdown-warning__card,
 body:has(#police-action-result-modal:not(.hidden):not([hidden])) .elimination-countdown-warning__card {
   border-color: rgba(255, 255, 255, 0.12);
   background:

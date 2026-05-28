@@ -238,8 +238,8 @@
                     class="button city-status-ai-button"
                     data-city-production
                     data-elimination-ai-panel-open
-                    aria-label="Očista"
-                    title="Očista"
+                    aria-label="Otevřít AI operátora očisty"
+                    title="AI operátor očisty"
                   >Očista</button>
                 </div>
               </div>
@@ -2187,11 +2187,18 @@
         <div class="elimination-ai-panel__body" data-elimination-ai-panel-body></div>
       </section>
     </div>
+    <div class="elimination-result-popup" data-elimination-result-popup hidden>
+      <div class="elimination-result-popup__backdrop" data-elimination-result-popup-close></div>
+      <section class="elimination-result-popup__card" role="dialog" aria-modal="true" aria-label="Výsledek očisty" tabindex="-1">
+        <button type="button" class="button elimination-result-popup__close" data-elimination-result-popup-close aria-label="Zavřít výsledek očisty">×</button>
+        <div class="elimination-result-popup__body" data-elimination-result-popup-body></div>
+      </section>
+    </div>
     <div class="elimination-countdown-warning" data-elimination-countdown-warning hidden aria-live="polite" aria-atomic="true">
       <div class="elimination-countdown-warning__card">
         <span class="elimination-countdown-warning__label">OČISTA ZA</span>
         <strong class="elimination-countdown-warning__time" data-elimination-countdown-warning-time>5min 00s</strong>
-        <span class="elimination-countdown-warning__text">Nejnižší gang vypadne</span>
+        <span class="elimination-countdown-warning__text">Nejslabší gang vypadne</span>
       </div>
     </div>
     <script type="module" src="../page-assets/js/config.js"></script>

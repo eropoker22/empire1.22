@@ -105,6 +105,7 @@ function resolveSourceType(kind, payload = {}) {
   if (kind === "attack") return payload.districtCaptured || payload.capturesDistrict ? "district_capture" : "attack";
   if (kind === "spy") return "spy";
   if (kind === "police") return payload.raidId || payload.pendingRaid ? "police_raid" : "police_warning";
+  if (kind === "elimination") return "elimination";
   if (kind === "market") return "market";
   if (kind === "raid" || kind === "robbery") return "robbery";
   if (kind === "trap") return "trap";
@@ -114,6 +115,7 @@ function resolveSourceType(kind, payload = {}) {
 
 function resolveCategory(sourceType) {
   if (sourceType === "police_raid" || sourceType === "police_warning") return "police";
+  if (sourceType === "elimination") return "police";
   if (sourceType === "trap") return "rumor";
   if (sourceType === "attack") return "combat";
   if (sourceType === "market") return "economy";
@@ -142,6 +144,7 @@ function resolveRuntimeMessage(sourceType, payload = {}, districtId = "") {
     `Hlídky prý měří trasu kolem ${district}. Nikdo neví, jestli jen projíždí, a to je ta nepříjemná část.`,
     `Policejní rádio údajně zachytilo špinavý provoz. Jména zatím šumí, svědomí taky.`
   ]);
+  if (sourceType === "elimination") return safeText(payload.summary || payload.message, "Policie dokončila očistu a město má o gang míň.");
   if (sourceType === "market") return pickRuntimeMessage("market", payload, [
     "Na černém trhu prý proletěl balík bez jména. Kamery zrovna osleply, klasika.",
     "Někdo údajně skupuje zboží mimo katalog. Nevypadá to jako běžný nákup, spíš jako seznam výčitek.",
