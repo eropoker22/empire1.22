@@ -5024,21 +5024,17 @@ body.game-body--booting .game-logo-slot {
   max-width: 100% !important;
 }
 
-/* Keep the mobile logout/settings controls visible at the bottom of the game. */
+/* Keep the mobile logout/settings controls in the normal bottom flow. */
 @media (max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
   .game-mobile-utility-actions {
-    position: fixed;
-    left: 10px;
-    right: 10px;
-    bottom: max(10px, env(safe-area-inset-bottom));
-    z-index: 78;
+    position: static;
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 8px;
     height: auto !important;
     min-height: 0 !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 12px 12px max(12px, env(safe-area-inset-bottom)) !important;
     overflow: visible !important;
     pointer-events: auto;
   }

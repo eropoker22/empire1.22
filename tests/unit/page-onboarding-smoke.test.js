@@ -208,8 +208,10 @@ describe("page onboarding smoke", () => {
     expect(gameRedesignSource).toContain("#game-overlay-region > [data-mount-role]");
     expect(gameRedesignSource).toContain("Hide server runtime status readouts from the playable game shell.");
     expect(gameRedesignSource).toMatch(/#game-command-bar-mount \.city-status-pill:not\(\.city-status-pill--action\) \{\r?\n\s*display: none !important;/u);
-    expect(gameRedesignSource).toContain("Keep the mobile logout/settings controls visible at the bottom of the game.");
-    expect(gameRedesignSource).toMatch(/\.game-mobile-utility-actions \{[\s\S]*position: fixed;[\s\S]*display: grid !important;/u);
+    expect(gameRedesignSource).toContain("Keep the mobile logout/settings controls in the normal bottom flow.");
+    expect(gameRedesignSource).toMatch(
+      /Keep the mobile logout\/settings controls in the normal bottom flow\.[\s\S]*\.game-mobile-utility-actions \{\r?\n\s*position: static;[\s\S]*display: grid !important;/u
+    );
     expect(gameRedesignSource).toMatch(/\.sidebar-shell\.game-rail::before,\r?\n\.region-shell\.game-stage::before \{\r?\n\s*content: none !important;/u);
     expect(gameRedesignSource).toContain("Final visual pass: gang profile matches the neon Empire shell.");
     expect(gameRedesignSource).toContain("#profile-gang-card.right-panel-card .gang-profile-row.profile-row");
