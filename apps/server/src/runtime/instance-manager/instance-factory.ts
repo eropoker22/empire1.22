@@ -7,16 +7,19 @@ import { createInstanceLogger } from "../logging/instance-logger";
 import { createInstanceMonitorSnapshot } from "../monitoring/instance-metrics";
 import type {
   CommandLogRepository,
+  CommandReservationRepository,
   DiagnosticLogRepository,
   EventLogRepository,
   SnapshotRepository
 } from "../persistence/repositories";
 import {
   createFileCommandLogRepository,
+  createFileCommandReservationRepository,
   createFileDiagnosticLogRepository,
   createFileEventLogRepository,
   createFileSnapshotRepository,
   createInMemoryCommandLogRepository,
+  createInMemoryCommandReservationRepository,
   createInMemoryDiagnosticLogRepository,
   createInMemoryEventLogRepository,
   createInMemorySnapshotRepository
@@ -35,6 +38,7 @@ export interface ServerRuntimePersistenceRepositories {
   eventLogRepository: EventLogRepository;
   diagnosticLogRepository: DiagnosticLogRepository;
   snapshotRepository: SnapshotRepository;
+  commandReservationRepository?: CommandReservationRepository;
   tickLock?: RuntimeTickLock;
   close?(): Promise<void>;
 }
@@ -49,6 +53,7 @@ export interface ServerInstanceRuntimeOptions {
 
 export const createInMemoryRuntimePersistenceRepositories = (): ServerRuntimePersistenceRepositories => ({
   commandLogRepository: createInMemoryCommandLogRepository(),
+  commandReservationRepository: createInMemoryCommandReservationRepository(),
   eventLogRepository: createInMemoryEventLogRepository(),
   diagnosticLogRepository: createInMemoryDiagnosticLogRepository(),
   snapshotRepository: createInMemorySnapshotRepository()
@@ -62,6 +67,7 @@ export const createFileRuntimePersistenceRepositories = (
   options: FileRuntimePersistenceOptions
 ): ServerRuntimePersistenceRepositories => ({
   commandLogRepository: createFileCommandLogRepository({ rootDir: options.rootDir }),
+  commandReservationRepository: createFileCommandReservationRepository({ rootDir: options.rootDir }),
   eventLogRepository: createFileEventLogRepository({ rootDir: options.rootDir }),
   diagnosticLogRepository: createFileDiagnosticLogRepository({ rootDir: options.rootDir }),
   snapshotRepository: createFileSnapshotRepository({ rootDir: options.rootDir })

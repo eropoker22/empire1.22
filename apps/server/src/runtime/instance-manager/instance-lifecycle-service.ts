@@ -6,7 +6,7 @@ import {
 } from "@empire/shared-types";
 import type { GameCommand, InstanceRuntimeEvent } from "@empire/shared-types";
 import type { ServerInstanceRuntime } from "../instance/server-instance-runtime";
-import { writeDiagnosticLog } from "../logging";
+import { writeCommandRejectionDiagnostic, writeDiagnosticLog } from "../logging";
 import { restoreOrCreateInitialState } from "../snapshots/instance-restore-service";
 import { runInstanceTick } from "../scheduling/tick-runner";
 import type { InstanceCommandDispatchResult } from "../orchestration/instance-command-dispatch-result";
@@ -113,11 +113,14 @@ export class InstanceLifecycleService {
     const gateErrors = validateCommandDispatchGate(runtime, command, options);
 
     if (gateErrors.length > 0) {
-      void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "warn", "command", "Command rejected before core dispatch.", {
-        commandId: command.id,
-        commandType: command.type,
-        errorCount: gateErrors.length
-      }, runtime.clock);
+      void writeCommandRejectionDiagnostic({
+        runtime,
+        command,
+        errors: gateErrors,
+        category: "command_rejected",
+        message: "Command rejected before core dispatch.",
+        expectedStateVersion: options.expectedStateVersion
+      });
 
       return {
         runtime,
@@ -143,11 +146,13 @@ export class InstanceLifecycleService {
     });
 
     if (result.errors.length > 0) {
-      void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "warn", "command", "Command rejected.", {
-        commandId: command.id,
-        commandType: command.type,
-        errorCount: result.errors.length
-      }, runtime.clock);
+      void writeCommandRejectionDiagnostic({
+        runtime,
+        command,
+        errors: result.errors,
+        category: "command_rejected",
+        message: "Command rejected."
+      });
 
       return {
         runtime,

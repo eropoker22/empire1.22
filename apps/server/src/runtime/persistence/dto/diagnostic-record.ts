@@ -9,9 +9,16 @@ export interface DiagnosticRecord {
   id: string;
   instanceId: ServerInstanceId;
   level: "info" | "warn" | "error";
-  category: "lifecycle" | "tick" | "command" | "snapshot" | "crash" | "transport";
+  category:
+    | "lifecycle"
+    | "tick"
+    | "command"
+    | "command_rejected"
+    | "snapshot"
+    | "crash"
+    | "transport"
+    | "transport_rejected";
   message: string;
   occurredAt: string;
   context: Record<string, unknown>;
 }
-

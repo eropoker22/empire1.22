@@ -8,6 +8,7 @@ import type {
 import { SERVER_ASSIGNED_FOCUS_DISTRICT_ID } from "@empire/shared-types";
 import type { ServerInstanceManager } from "../runtime";
 import type { ServerInstanceRuntime } from "../runtime/instance/server-instance-runtime";
+import { writeCommandRejectionDiagnostic } from "../runtime/logging";
 import { createGameplaySliceProjection } from "../runtime/projections";
 import type { ServerCommandIngress } from "./command-ingress";
 import { validateCommandPlayerIdentity } from "./player-identity-guard";
@@ -74,6 +75,19 @@ export const createGameplaySliceTransport = (
       });
 
       if (identityErrors.length > 0) {
+        const runtime = instanceManager.getInstanceById(request.command.serverInstanceId);
+        if (runtime) {
+          void writeCommandRejectionDiagnostic({
+            runtime,
+            command: request.command,
+            errors: identityErrors,
+            category: "transport_rejected",
+            message: "Command rejected by transport identity guard.",
+            expectedStateVersion: request.expectedStateVersion,
+            focusDistrictId: request.focusDistrictId
+          });
+        }
+
         return {
           accepted: false,
           readModel: null,
@@ -83,21 +97,34 @@ export const createGameplaySliceTransport = (
 
       if (isServerAssignedFocusDistrictId(request.focusDistrictId)) {
         const runtime = instanceManager.getInstanceById(request.command.serverInstanceId);
+        const errors = [
+          {
+            code: "transport.invalid_request",
+            message: "Gameplay slice submit request field 'focusDistrictId' must be a concrete server district.",
+            details: {
+              field: "focusDistrictId"
+            }
+          }
+        ];
+
+        if (runtime) {
+          void writeCommandRejectionDiagnostic({
+            runtime,
+            command: request.command,
+            errors,
+            category: "transport_rejected",
+            message: "Command rejected by transport request guard.",
+            expectedStateVersion: request.expectedStateVersion,
+            focusDistrictId: request.focusDistrictId
+          });
+        }
 
         return {
           accepted: false,
           readModel: runtime
             ? createGameplaySliceProjection(runtime, request.command.playerId, null)
             : null,
-          errors: [
-            {
-              code: "transport.invalid_request",
-              message: "Gameplay slice submit request field 'focusDistrictId' must be a concrete server district.",
-              details: {
-                field: "focusDistrictId"
-              }
-            }
-          ],
+          errors,
           metadata: runtime ? createGameplaySliceResponseMetadata(runtime) : undefined,
           sessionToken: runtime ? createGameplaySessionToken(runtime, request.command.playerId) : null
         };

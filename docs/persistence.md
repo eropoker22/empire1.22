@@ -84,7 +84,7 @@ The adapter uses the standard `pg` package with lazy pool creation. Memory and f
 - Duplicate command ids are a safe no-op and do not overwrite payload.
 - `listByInstance()` returns records ordered by `sequence`, then `created_at`, then `id`.
 
-The current in-process command dispatch gate still prevents duplicate command ids before core dispatch when the runtime has the command in `processedCommandIds`. For fully cross-invocation exactly-once command execution, the next infrastructure step is to make command dispatch async and reserve the command id transactionally before `applyCommand()`.
+The current in-process command dispatch gate still prevents duplicate command ids before core dispatch when the runtime has the command in `processedCommandIds`. For fully cross-invocation exactly-once command execution, command dispatch must become async and reserve the command id transactionally before `applyCommand()`. A synchronous reservation call or fire-and-forget repository append is not safe.
 
 ### Event Log
 
@@ -165,4 +165,4 @@ Implemented:
 Known follow-up:
 
 - `empire_player_registrations` exists in the schema, but player registration/session reservation is not yet represented by a dedicated persistence repository. Current membership state is restored through snapshots/snapshot tokens.
-- Cross-invocation exactly-once command execution needs an async command pipeline that reserves command ids before gameplay mutation. The repository-level idempotence is in place, but synchronous dispatch still uses runtime `processedCommandIds` as the pre-dispatch gate. See `docs/command-reservation-design.md` for the minimum public-alpha design.
+- Cross-invocation exactly-once command execution needs an async command pipeline that reserves command ids before gameplay mutation. The repository-level idempotence is in place, but synchronous dispatch still uses runtime `processedCommandIds` as the pre-dispatch gate. See `docs/command-reservation-design.md` for the required public-alpha implementation plan.

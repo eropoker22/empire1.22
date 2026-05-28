@@ -9,7 +9,7 @@
 
 ## Must Before Public Alpha
 
-- Cross-invocation exactly-once command execution still needs transactional command reservation before `applyCommand()`.
+- Cross-invocation exactly-once command execution still needs an async transactional command reservation before `applyCommand()`. This is not implemented as of 2026-05-29 because the production submit path is still synchronous.
 - Add a dedicated command reservation repository/service, or serialize submit handling per server instance with a documented transactional boundary.
 - Run the release gate under Node 20 and keep E2E smoke green.
 
@@ -24,7 +24,7 @@
 - The live update gateway is a transport boundary for future fanout; current gameplay UI should describe this as server sync or refresh-after-action, not real-time multiplayer.
 - `empire_player_registrations` exists in schema, but player registration/session reservation is not yet backed by a dedicated repository.
 - Serverless cold restore can still depend on snapshot-token flow until database-backed session orchestration is complete.
-- `empire_command_log` is idempotent, but idempotent append happens after the synchronous in-process pre-dispatch gate. See `docs/command-reservation-design.md`.
+- `empire_command_log` is idempotent, but idempotent append happens after the synchronous in-process pre-dispatch gate. See `docs/command-reservation-design.md` for the required async implementation plan.
 
 ## Required Commands Before Release
 

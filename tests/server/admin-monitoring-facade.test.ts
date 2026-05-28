@@ -141,7 +141,7 @@ describe("admin monitoring facade", () => {
     ]);
     expect(diagnostics.at(-1)).toMatchObject({
       level: "warn",
-      category: "command"
+      category: "command_rejected"
     });
     expect(summary.diagnosticErrorCount).toBe(0);
   });

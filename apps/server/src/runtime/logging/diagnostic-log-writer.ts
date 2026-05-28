@@ -10,7 +10,15 @@ export const writeDiagnosticLog = (
   replayLogWriter: ReplayLogWriter,
   instanceId: string,
   level: "info" | "warn" | "error",
-  category: "lifecycle" | "tick" | "command" | "snapshot" | "crash" | "transport",
+  category:
+    | "lifecycle"
+    | "tick"
+    | "command"
+    | "command_rejected"
+    | "snapshot"
+    | "crash"
+    | "transport"
+    | "transport_rejected",
   message: string,
   context: Record<string, unknown> = {},
   clock: Clock = systemClock

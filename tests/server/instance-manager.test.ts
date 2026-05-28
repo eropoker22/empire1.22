@@ -113,6 +113,7 @@ describe("ServerInstanceManager", () => {
     expect(eventRecords[0]?.tickAtEmit).toBe(runtime.state.root.tick);
     expect(diagnosticRecords.at(-1)?.occurredAt).toBe(fixedNow);
     expect(commandRecords[0]?.receivedAt).not.toBe("1970-01-01T00:00:00.000Z");
+    expect(diagnosticRecords.some((record) => record.category === "command_rejected")).toBe(false);
   });
 
   it("writes lifecycle and rejected-command diagnostics to the manager persistence repositories", async () => {
@@ -142,9 +143,23 @@ describe("ServerInstanceManager", () => {
     diagnostics = await server.instanceManager.listDiagnosticRecords(runtime.record.id);
     expect(diagnostics.at(-1)).toMatchObject({
       level: "warn",
-      category: "command",
+      category: "command_rejected",
       message: "Command rejected before core dispatch.",
-      occurredAt: "2026-05-17T15:00:00.000Z"
+      occurredAt: "2026-05-17T15:00:00.000Z",
+      context: {
+        commandId: expect.any(String),
+        commandType: "attack-district",
+        playerId: "player:1",
+        serverInstanceId: "instance:other",
+        currentTick: 0,
+        rootVersion: runtime.state.root.version,
+        errorCodes: ["server.instance_mismatch"],
+        errorMessages: ["Command serverInstanceId does not match the target server instance."],
+        expectedStateVersion: null,
+        currentStateVersion: runtime.state.root.version,
+        focusDistrictId: null,
+        clientRequestId: null
+      }
     });
   });
 
@@ -265,7 +280,7 @@ describe("ServerInstanceManager", () => {
     expect(runtime.state.root).toEqual(rootBeforeRateLimit);
   });
 
-  it("rejects state version conflicts before command replay or rate accounting", () => {
+  it("rejects state version conflicts before command replay or rate accounting", async () => {
     const server = createServerApp();
     const runtime = server.instanceManager.createInstance("instance:free", "free");
     const rootBefore = { ...runtime.state.root };
@@ -291,9 +306,24 @@ describe("ServerInstanceManager", () => {
     expect(runtime.state.root).toEqual(rootBefore);
     expect(runtime.processedCommandIds.has(command.id)).toBe(false);
     expect(runtime.commandRateLimitWindow.commandCountsByPlayerId[command.playerId]).toBeUndefined();
+
+    const diagnostics = await server.instanceManager.listDiagnosticRecords(runtime.record.id);
+    expect(diagnostics.at(-1)).toMatchObject({
+      level: "warn",
+      category: "command_rejected",
+      context: {
+        commandId: command.id,
+        commandType: "attack-district",
+        playerId: command.playerId,
+        serverInstanceId: runtime.record.id,
+        errorCodes: ["server.state_version_conflict"],
+        expectedStateVersion: rootBefore.version + 1,
+        currentStateVersion: rootBefore.version
+      }
+    });
   });
 
-  it("rejects unsupported command types without mutating authoritative state", () => {
+  it("rejects unsupported command types without mutating authoritative state", async () => {
     const server = createServerApp();
     const runtime = server.instanceManager.createInstance("instance:free", "free");
     const stateBefore = runtime.state;
@@ -316,9 +346,22 @@ describe("ServerInstanceManager", () => {
     ]);
     expect(runtime.state).toBe(stateBefore);
     expect(runtime.state.root).toEqual(rootBefore);
+
+    const diagnostics = await server.instanceManager.listDiagnosticRecords(runtime.record.id);
+    expect(diagnostics.at(-1)).toMatchObject({
+      level: "warn",
+      category: "command_rejected",
+      message: "Command rejected.",
+      context: {
+        commandId: invalidCommand.id,
+        commandType: "not-a-real-command",
+        errorCodes: ["unsupported_command"],
+        errorMessages: ["Unsupported command type."]
+      }
+    });
   });
 
-  it("rejects inactive players without changing authoritative state", () => {
+  it("rejects inactive players without changing authoritative state", async () => {
     const server = createServerApp();
     const runtime = server.instanceManager.createInstance("instance:free", "free");
     runtime.state.playersById["player:1"] = {
@@ -346,9 +389,20 @@ describe("ServerInstanceManager", () => {
     }));
     expect(runtime.state).toBe(stateBefore);
     expect(runtime.state.root).toEqual(rootBefore);
+
+    const diagnostics = await server.instanceManager.listDiagnosticRecords(runtime.record.id);
+    expect(diagnostics.at(-1)).toMatchObject({
+      level: "warn",
+      category: "command_rejected",
+      context: {
+        commandId: command.id,
+        commandType: "attack-district",
+        errorCodes: ["player_not_active"]
+      }
+    });
   });
 
-  it("rejects duplicate command ids before replaying core dispatch", () => {
+  it("rejects duplicate command ids before replaying core dispatch", async () => {
     const server = createServerApp();
     const runtime = server.instanceManager.createInstance("instance:free", "free");
     const command = createAttackDistrictCommandFixture({
@@ -367,5 +421,16 @@ describe("ServerInstanceManager", () => {
       }
     ]);
     expect(runtime.state.root).toEqual(rootAfterFirstAttempt);
+
+    const diagnostics = await server.instanceManager.listDiagnosticRecords(runtime.record.id);
+    expect(diagnostics.at(-1)).toMatchObject({
+      level: "warn",
+      category: "command_rejected",
+      context: {
+        commandId: command.id,
+        commandType: "attack-district",
+        errorCodes: ["server.duplicate_command"]
+      }
+    });
   });
 });
