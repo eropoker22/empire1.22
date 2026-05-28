@@ -35,3 +35,35 @@ declare module "node:path" {
 declare module "node:os" {
   export function tmpdir(): string;
 }
+
+declare module "pg" {
+  export interface QueryResultRow {
+    [column: string]: unknown;
+  }
+
+  export interface QueryResult<TRow extends QueryResultRow = QueryResultRow> {
+    rows: TRow[];
+    rowCount: number | null;
+    command: string;
+    oid: number;
+    fields: unknown[];
+  }
+
+  export interface PoolClient {
+    query<TRow extends QueryResultRow = QueryResultRow>(
+      sql: string,
+      params?: readonly unknown[]
+    ): Promise<QueryResult<TRow>>;
+    release(): void;
+  }
+
+  export class Pool {
+    constructor(options: { connectionString: string });
+    query<TRow extends QueryResultRow = QueryResultRow>(
+      sql: string,
+      params?: readonly unknown[]
+    ): Promise<QueryResult<TRow>>;
+    connect(): Promise<PoolClient>;
+    end(): Promise<void>;
+  }
+}

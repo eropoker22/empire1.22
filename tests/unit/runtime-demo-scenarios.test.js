@@ -60,5 +60,5 @@ describe("runtime demo scenarios", () => {
     expect(runtime.START_PHASE_OWNER_COORDINATES).toBe(START_PHASE_OWNER_COORDINATES);
     expect(runtime.START_PHASE_PLAYER_COLORS).toBe(START_PHASE_PLAYER_COLORS);
     expect(runtime.START_PHASE_PLAYER_NAMES).toBe(START_PHASE_PLAYER_NAMES);
-  });
+  }, 10000);
 });

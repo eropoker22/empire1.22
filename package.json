@@ -46,6 +46,7 @@
     "test:simulation": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/unit/tools/free-br-simulation.test.ts tests/unit/game-core/free-session-balance-anti-snowball.test.ts tests/unit/game-core/faction-foundation-simulation.test.ts tests/unit/game-core/police-free-session-simulation.test.ts",
     "test:server": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/server",
     "test:persistence": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/persistence",
+    "test:persistence:postgres": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/persistence/postgres-live.test.ts",
     "test:read-models": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/read-models",
     "test:e2e": "npm run test:e2e:smoke",
     "test:e2e:smoke": "playwright test tests/e2e/login-smoke.spec.js tests/e2e/onboarding-smoke.spec.js",
@@ -62,5 +63,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "pg": "^8.21.0"
   }
 }

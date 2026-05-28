@@ -206,8 +206,10 @@ describe("page onboarding smoke", () => {
     expect(gameRedesignSource).not.toContain("padding: var(--mobile-topbar-offset, 188px) 0 34px;");
     expect(gameRedesignSource).toMatch(/#game-overlay-region \{\r?\n\s*position: fixed !important;/u);
     expect(gameRedesignSource).toContain("#game-overlay-region > [data-mount-role]");
-    expect(gameRedesignSource).toMatch(/\.game-mobile-utility-actions \{\r?\n\s*display: none !important;/u);
-    expect(gameRedesignSource).toMatch(/The mobile utility row used to sit after the game layout[\s\S]*\.game-mobile-utility-actions \{\r?\n\s*display: none !important;[\s\S]*overflow: hidden !important;\r?\n\}\s*$/u);
+    expect(gameRedesignSource).toContain("Hide server runtime status readouts from the playable game shell.");
+    expect(gameRedesignSource).toMatch(/#game-command-bar-mount \.city-status-pill:not\(\.city-status-pill--action\) \{\r?\n\s*display: none !important;/u);
+    expect(gameRedesignSource).toContain("Keep the mobile logout/settings controls visible at the bottom of the game.");
+    expect(gameRedesignSource).toMatch(/\.game-mobile-utility-actions \{[\s\S]*position: fixed;[\s\S]*display: grid !important;/u);
     expect(gameRedesignSource).toMatch(/\.sidebar-shell\.game-rail::before,\r?\n\.region-shell\.game-stage::before \{\r?\n\s*content: none !important;/u);
     expect(gameRedesignSource).toContain("Final visual pass: gang profile matches the neon Empire shell.");
     expect(gameRedesignSource).toContain("#profile-gang-card.right-panel-card .gang-profile-row.profile-row");
@@ -215,9 +217,9 @@ describe("page onboarding smoke", () => {
     expect(gameRedesignSource).toContain(".map-phase-info-button");
     expect(gameRedesignSource).toContain(".battle-royale-info-modal__content");
     const cityStatusMobileCssSource = readFileSync(resolve(root, "page-assets/css/styles-mobile-fixes.css"), "utf8");
-    expect(cityStatusMobileCssSource).toContain("#game-command-bar-mount .city-status-pill:nth-child(3)");
-    expect(cityStatusMobileCssSource).toContain("grid-template-columns: repeat(4, minmax(0, 1fr)) !important;");
-    expect(cityStatusMobileCssSource).toMatch(/#game-command-bar-mount \.city-status-pill:nth-child\(3\) \{\r?\n\s*display: none !important;/u);
+    expect(cityStatusMobileCssSource).toContain("#game-command-bar-mount .city-status-pill:not(.city-status-pill--action)");
+    expect(cityStatusMobileCssSource).toContain("grid-template-columns: minmax(0, auto) !important;");
+    expect(cityStatusMobileCssSource).toMatch(/#game-command-bar-mount \.city-status-pill:not\(\.city-status-pill--action\) \{\r?\n\s*display: none !important;/u);
     expect(cityStatusMobileCssSource).toContain("Tiny white sparkle on the Očista button.");
     expect(cityStatusMobileCssSource).toContain(".city-status-ai-button::after");
     expect(cityStatusMobileCssSource).toContain("Final mobile Očista panel pass");
@@ -251,6 +253,8 @@ describe("page onboarding smoke", () => {
     expect(gameplaySliceClientSource).toContain('options.root.dataset.gameplaySliceUnavailable = "true";');
     expect(gameplaySliceClientSource).not.toContain("<strong>Server sync unavailable</strong>");
     expect(gameplaySliceCssSource).toContain('.gameplay-slice-client[data-gameplay-slice-unavailable="true"]');
+    expect(gameplaySliceCssSource).toContain("must not be visible inside game.html");
+    expect(gameplaySliceCssSource).toContain(".game-body .gameplay-slice-client");
     expect(gameplaySliceCssSource).toContain("height: 0 !important;");
     expect(readFileSync(resolve(root, "page-assets/js/app/battle-royale-info-runtime.js"), "utf8")).toContain("initBattleRoyaleInfoRuntime");
     expect(readFileSync(resolve(root, "page-assets/css/styles-building-modals.css"), "utf8")).toMatch(

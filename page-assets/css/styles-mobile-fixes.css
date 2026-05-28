@@ -874,10 +874,10 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
   }
 
   #game-command-bar-mount .city-status-bar {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-columns: minmax(0, auto) !important;
   }
 
-  #game-command-bar-mount .city-status-pill:nth-child(3) {
+  #game-command-bar-mount .city-status-pill:not(.city-status-pill--action) {
     display: none !important;
   }
 

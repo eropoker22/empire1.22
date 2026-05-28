@@ -16,9 +16,12 @@ describe("runtime persistence factory", () => {
       GAMEPLAY_DATABASE_URL: "postgres://empire:empire@localhost:5432/empire"
     });
 
-    await expect(repositories.snapshotRepository.loadLatest("instance:postgres:test")).rejects.toThrow(
-      "Postgres persistence adapter is configured but runtime repository methods are not implemented yet."
-    );
+    expect(repositories.commandLogRepository).toBeDefined();
+    expect(repositories.eventLogRepository).toBeDefined();
+    expect(repositories.diagnosticLogRepository).toBeDefined();
+    expect(repositories.snapshotRepository).toBeDefined();
+    expect(repositories.tickLock).toBeDefined();
+    await repositories.close?.();
   });
 
   it("rejects unknown persistence drivers with a clear error", () => {

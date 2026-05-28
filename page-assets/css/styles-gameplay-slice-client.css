@@ -42,6 +42,22 @@
   box-shadow: none !important;
 }
 
+/* The server-authoritative slice stays available for runtime data, but its
+   diagnostic/read-model shell must not be visible inside game.html. */
+body[data-page="game"] .gameplay-slice-client,
+.game-body .gameplay-slice-client {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
 .gameplay-slice-client *,
 .gameplay-slice-client *::before,
 .gameplay-slice-client *::after {

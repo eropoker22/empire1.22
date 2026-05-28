@@ -4,9 +4,25 @@ import type {
   EventLogRepository,
   SnapshotRepository
 } from "../repositories";
+import type { RuntimeTickLock } from "../tick-lock";
+import {
+  createPostgresDatabase,
+  validatePostgresDatabaseUrl,
+  type PostgresDatabase
+} from "./postgres-client";
+import {
+  createPostgresCommandLogRepository,
+  createPostgresDiagnosticLogRepository,
+  createPostgresEventLogRepository
+} from "./postgres-log-repositories";
+import { createPostgresSnapshotRepository } from "./postgres-snapshot-repository";
+import { createPostgresRuntimeTickLock } from "./postgres-tick-lock";
 
 export interface PostgresRuntimePersistenceOptions {
   databaseUrl: string;
+  database?: PostgresDatabase;
+  tickLockOwnerId?: string;
+  tickLockTtlMs?: number;
 }
 
 export interface PostgresRuntimePersistenceRepositories {
@@ -14,6 +30,8 @@ export interface PostgresRuntimePersistenceRepositories {
   eventLogRepository: EventLogRepository;
   diagnosticLogRepository: DiagnosticLogRepository;
   snapshotRepository: SnapshotRepository;
+  tickLock: RuntimeTickLock;
+  close(): Promise<void>;
 }
 
 /**
@@ -24,40 +42,18 @@ export interface PostgresRuntimePersistenceRepositories {
 export const createPostgresRuntimePersistenceRepositories = (
   options: PostgresRuntimePersistenceOptions
 ): PostgresRuntimePersistenceRepositories => {
-  const databaseUrl = options.databaseUrl.trim();
-  if (!databaseUrl) {
-    throw new Error("Postgres persistence requires EMPIRE_DATABASE_URL or GAMEPLAY_DATABASE_URL.");
-  }
-
-  const notImplemented = createPostgresNotImplementedRepository(databaseUrl);
+  const databaseUrl = validatePostgresDatabaseUrl(options.databaseUrl);
+  const database = options.database ?? createPostgresDatabase(databaseUrl);
 
   return {
-    commandLogRepository: notImplemented,
-    eventLogRepository: notImplemented,
-    diagnosticLogRepository: notImplemented,
-    snapshotRepository: notImplemented
+    commandLogRepository: createPostgresCommandLogRepository(database),
+    eventLogRepository: createPostgresEventLogRepository(database),
+    diagnosticLogRepository: createPostgresDiagnosticLogRepository(database),
+    snapshotRepository: createPostgresSnapshotRepository(database),
+    tickLock: createPostgresRuntimeTickLock(database, {
+      ownerId: options.tickLockOwnerId,
+      ttlMs: options.tickLockTtlMs
+    }),
+    close: () => database.close()
   };
 };
-
-const createPostgresNotImplementedRepository = (
-  _databaseUrl: string
-): CommandLogRepository & EventLogRepository & DiagnosticLogRepository & SnapshotRepository => ({
-  append: async () => {
-    throw createNotImplementedError();
-  },
-  listByInstance: async () => {
-    throw createNotImplementedError();
-  },
-  save: async () => {
-    throw createNotImplementedError();
-  },
-  loadLatest: async () => {
-    throw createNotImplementedError();
-  }
-});
-
-const createNotImplementedError = (): Error =>
-  new Error(
-    "Postgres persistence adapter is configured but runtime repository methods are not implemented yet. " +
-    "Apply the SQL migration and add the DB client-backed repository implementation before using this driver in production."
-  );

@@ -14,7 +14,7 @@ export interface SnapshotTokenCodecOptions {
   cryptoProvider?: SnapshotTokenCryptoProvider;
 }
 
-export type SnapshotTokenCryptoProvider = () => Crypto | Promise<Crypto>;
+export type SnapshotTokenCryptoProvider = () => unknown | Promise<unknown>;
 
 /**
  * Responsibility: Opaque sealed snapshot token codec for stateless edge/serverless
@@ -106,7 +106,7 @@ const createCryptoProvider = (
   let cryptoApi: Promise<Crypto> | null = null;
 
   return () => {
-    cryptoApi ??= Promise.resolve(provider ? provider() : readGlobalCrypto());
+    cryptoApi ??= Promise.resolve(provider ? provider() : readGlobalCrypto()).then(assertCrypto);
     return cryptoApi;
   };
 };
@@ -118,6 +118,14 @@ const readGlobalCrypto = (): Crypto => {
     throw new Error("Web Crypto API is unavailable.");
   }
 
+  return cryptoApi;
+};
+
+const assertCrypto = (value: unknown): Crypto => {
+  const cryptoApi = value as Crypto | null;
+  if (!cryptoApi?.subtle || typeof cryptoApi.getRandomValues !== "function") {
+    throw new Error("Web Crypto API is unavailable.");
+  }
   return cryptoApi;
 };
 

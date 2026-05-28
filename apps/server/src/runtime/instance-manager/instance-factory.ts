@@ -23,6 +23,7 @@ import {
 } from "../persistence/repositories";
 import { createReplayLogWriter } from "../persistence/services/replay-log-writer";
 import { createPostgresRuntimePersistenceRepositories } from "../persistence/postgres";
+import type { RuntimeTickLock } from "../persistence/tick-lock";
 import { systemClock, type Clock } from "../scheduling/clock";
 import { createInstanceScheduler } from "../scheduling/instance-scheduler";
 import { createGameStateRepository } from "../snapshots/game-state-repository";
@@ -34,6 +35,8 @@ export interface ServerRuntimePersistenceRepositories {
   eventLogRepository: EventLogRepository;
   diagnosticLogRepository: DiagnosticLogRepository;
   snapshotRepository: SnapshotRepository;
+  tickLock?: RuntimeTickLock;
+  close?(): Promise<void>;
 }
 
 export interface ServerInstanceRuntimeOptions {

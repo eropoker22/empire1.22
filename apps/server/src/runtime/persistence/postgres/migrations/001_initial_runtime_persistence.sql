@@ -97,8 +97,7 @@ CREATE TABLE IF NOT EXISTS empire_snapshots (
   payload jsonb NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (server_instance_id, snapshot_id),
-  UNIQUE (server_instance_id, root_version)
+  UNIQUE (server_instance_id, snapshot_id)
 );
 
 CREATE INDEX IF NOT EXISTS empire_snapshots_instance_created_idx
