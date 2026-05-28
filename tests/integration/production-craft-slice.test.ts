@@ -37,7 +37,7 @@ describe("production craft gameplay slice", () => {
 
     expect(buildingId).toBeTruthy();
     expect(initialRender.sidePanelHtml).toContain("Produce Stim Pack");
-    expect(initialRender.sidePanelHtml).toContain("Cost 2 Chemicals + 1 Biomass");
+    expect(initialRender.sidePanelHtml).toContain("Cena 2 Chemicals + 1 Biomass");
 
     const crafted = await client.dispatch(
       createRunBuildingActionCommand({
@@ -56,7 +56,7 @@ describe("production craft gameplay slice", () => {
     expect(crafted.player?.economy?.cleanCashLabel).toBe("1500");
     expect(crafted.districtPanel?.heatLabel).toBe("2");
     expect(crafted.districtPanel?.influenceLabel).toBe("1");
-    expect(crafted.sidePanelHtml).toContain("Produce Stim Pack on district:producer");
+    expect(crafted.sidePanelHtml).toContain("Produce Stim Pack v district:producer");
     expect(crafted.topBarHtml).toContain("Alerts: 1");
     expect(crafted.reports[0]?.category).toBe("building-action");
     expect(

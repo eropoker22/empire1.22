@@ -88,7 +88,7 @@ const formatEconomySummary = (economy: PlayerEconomyView): string => {
   const parts = [
     `Cash ${Math.max(0, Number(economy.cleanCash || 0))}`,
     `Dirty Cash ${Math.max(0, Number(economy.dirtyCash || 0))}`,
-    `Influence ${Math.max(0, Number(economy.influence || 0))}`,
+    `Vliv ${Math.max(0, Number(economy.influence || 0))}`,
     `Population ${Math.max(0, Number(economy.population || 0))}`
   ];
 

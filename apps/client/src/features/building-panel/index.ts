@@ -4,6 +4,7 @@ export * from "./building-detail-popup";
 export * from "./run-building-action-command";
 
 import type { DistrictPanelBuildingViewModel, DistrictPanelSlotViewModel } from "../../selectors";
+import { escapeAttribute, escapeHtml } from "../../shared-ui";
 import { renderBuildingDetailPopup } from "./building-detail-popup";
 
 /**
@@ -19,36 +20,36 @@ export const renderBuildingSlot = (slot: DistrictPanelSlotViewModel): string => 
   const hasCraft = slot.craftOptions.length > 0;
 
   return [
-    `<section class="district-panel__slot district-panel__slot--${buildingType}" data-slot-index="${slot.slotIndex}" data-slot-status="${slot.statusLabel}" data-slot-building-type="${buildingType}" data-has-production="${hasProduction}" data-has-craft="${hasCraft}">`,
+    `<section class="district-panel__slot district-panel__slot--${buildingType}" data-slot-index="${escapeAttribute(slot.slotIndex)}" data-slot-status="${escapeAttribute(slot.statusLabel)}" data-slot-building-type="${escapeAttribute(buildingType)}" data-has-production="${escapeAttribute(hasProduction)}" data-has-craft="${escapeAttribute(hasCraft)}">`,
     `<div class="district-panel__slot-head">`,
     `<div class="district-panel__slot-heading">`,
     `<span class="district-panel__slot-icon" aria-hidden="true">${getBuildingIcon(slot.buildingTypeId)}</span>`,
     `<div>`,
-    `<p class="district-panel__slot-index">Slot ${slot.slotIndex + 1}</p>`,
-    `<h4 class="district-panel__slot-title">${slot.title}</h4>`,
+    `<p class="district-panel__slot-index">Slot ${escapeHtml(slot.slotIndex + 1)}</p>`,
+    `<h4 class="district-panel__slot-title">${escapeHtml(slot.title)}</h4>`,
     `</div>`,
     `</div>`,
-    `<span class="district-panel__slot-state">${slot.statusLabel}</span>`,
+    `<span class="district-panel__slot-state">${escapeHtml(slot.statusLabel)}</span>`,
     `</div>`,
-    `<p class="district-panel__slot-summary">${slot.summaryLabel}</p>`,
+    `<p class="district-panel__slot-summary">${escapeHtml(slot.summaryLabel)}</p>`,
     slot.production
       ? [
           `<div class="district-panel__production district-panel__production--storage">`,
           `<div class="district-panel__production-head">`,
-          `<strong class="district-panel__production-title">${slot.production.resourceLabel}</strong>`,
-          `<span class="district-panel__production-rate">${slot.production.rateLabel}</span>`,
+          `<strong class="district-panel__production-title">${escapeHtml(slot.production.resourceLabel)}</strong>`,
+          `<span class="district-panel__production-rate">${escapeHtml(slot.production.rateLabel)}</span>`,
           `</div>`,
-          `<div class="district-panel__production-bar" style="--production-fill:${slot.production.storagePercent}%">`,
+          `<div class="district-panel__production-bar" style="--production-fill:${escapeAttribute(toPercentCssValue(slot.production.storagePercent))}%">`,
           `<span class="district-panel__production-bar-fill"></span>`,
           `</div>`,
           `<div class="district-panel__production-metrics">`,
-          `<span class="district-panel__production-metric">${slot.production.storageLabel}</span>`,
-          `<span class="district-panel__production-metric">${slot.production.playerStockLabel}</span>`,
+          `<span class="district-panel__production-metric">${escapeHtml(slot.production.storageLabel)}</span>`,
+          `<span class="district-panel__production-metric">${escapeHtml(slot.production.playerStockLabel)}</span>`,
           `</div>`,
           `<div class="district-panel__action-row">`,
-          `<button class="district-panel__action-button district-panel__action-button--collect" data-collect-building-id="${slot.production.buildingId}"${slot.production.canCollect ? "" : " disabled"}${slot.production.collectDisabledReason ? ` data-disabled-reason="${slot.production.collectDisabledReason}"` : ""}>Collect ${slot.production.resourceLabel}</button>`,
+          `<button class="district-panel__action-button district-panel__action-button--collect" data-collect-building-id="${escapeAttribute(slot.production.buildingId)}"${slot.production.canCollect ? "" : " disabled"}${slot.production.collectDisabledReason ? ` data-disabled-reason="${escapeAttribute(slot.production.collectDisabledReason)}"` : ""}>Vybrat ${escapeHtml(slot.production.resourceLabel)}</button>`,
           slot.production.collectDisabledReason
-            ? `<p class="district-panel__action-reason">${slot.production.collectDisabledReason}</p>`
+            ? `<p class="district-panel__action-reason">${escapeHtml(slot.production.collectDisabledReason)}</p>`
             : "",
           `</div>`,
           `</div>`
@@ -58,34 +59,34 @@ export const renderBuildingSlot = (slot: DistrictPanelSlotViewModel): string => 
       ? [
           `<div class="district-panel__production district-panel__production--craft">`,
           `<div class="district-panel__production-head">`,
-          `<strong class="district-panel__production-title">Processing slots</strong>`,
-          `<span class="district-panel__production-rate">${slot.craftOptions.length} recipe${slot.craftOptions.length === 1 ? "" : "s"}</span>`,
+          `<strong class="district-panel__production-title">Zpracování</strong>`,
+          `<span class="district-panel__production-rate">${escapeHtml(slot.craftOptions.length)} receptů</span>`,
           `</div>`,
           slot.processing
             ? [
                 `<div class="district-panel__production-metrics">`,
-                `<span class="district-panel__production-metric">Processing ${slot.processing.label}</span>`,
-                `<span class="district-panel__production-metric">${slot.processing.progressLabel}</span>`,
-                `<span class="district-panel__production-metric">${slot.processing.completionLabel}</span>`,
+                `<span class="district-panel__production-metric">Zpracovává se ${escapeHtml(slot.processing.label)}</span>`,
+                `<span class="district-panel__production-metric">${escapeHtml(slot.processing.progressLabel)}</span>`,
+                `<span class="district-panel__production-metric">${escapeHtml(slot.processing.completionLabel)}</span>`,
                 `</div>`,
                 `<div class="district-panel__production-metrics">`,
-                `<span class="district-panel__production-metric">${slot.processing.outputLabel}</span>`,
+                `<span class="district-panel__production-metric">${escapeHtml(slot.processing.outputLabel)}</span>`,
                 `</div>`
               ].join("")
             : "",
           slot.craftOptions
             .map((option) =>
               [
-                `<article class="district-panel__craft-option" data-craft-option="${option.recipeId}">`,
+                `<article class="district-panel__craft-option" data-craft-option="${escapeAttribute(option.recipeId)}">`,
                 `<div class="district-panel__production-metrics">`,
-                `<span class="district-panel__production-metric">Costs ${option.inputSummary}</span>`,
-                `<span class="district-panel__production-metric">+${option.outputAmount} ${option.outputResourceLabel}</span>`,
-                `<span class="district-panel__production-metric">${option.playerStockLabel}</span>`,
+                `<span class="district-panel__production-metric">Cena ${escapeHtml(option.inputSummary)}</span>`,
+                `<span class="district-panel__production-metric">+${escapeHtml(option.outputAmount)} ${escapeHtml(option.outputResourceLabel)}</span>`,
+                `<span class="district-panel__production-metric">${escapeHtml(option.playerStockLabel)}</span>`,
                 `</div>`,
                 `<div class="district-panel__action-row">`,
-                `<button class="district-panel__action-button district-panel__action-button--craft" data-craft-building-id="${option.buildingId}" data-craft-recipe-id="${option.recipeId}"${option.canCraft ? "" : " disabled"}${option.disabledReason ? ` data-disabled-reason="${option.disabledReason}"` : ""}>Process ${option.label}</button>`,
+                `<button class="district-panel__action-button district-panel__action-button--craft" data-craft-building-id="${escapeAttribute(option.buildingId)}" data-craft-recipe-id="${escapeAttribute(option.recipeId)}"${option.canCraft ? "" : " disabled"}${option.disabledReason ? ` data-disabled-reason="${escapeAttribute(option.disabledReason)}"` : ""}>Zpracovat ${escapeHtml(option.label)}</button>`,
                 option.disabledReason
-                  ? `<p class="district-panel__action-reason">${option.disabledReason}</p>`
+                  ? `<p class="district-panel__action-reason">${escapeHtml(option.disabledReason)}</p>`
                   : "",
                 `</div>`,
                 `</article>`
@@ -97,7 +98,7 @@ export const renderBuildingSlot = (slot: DistrictPanelSlotViewModel): string => 
       : "",
     slot.production || slot.craftOptions.length > 0
       ? ""
-      : `<p class="district-panel__empty-copy">Fixed buildings for this district are defined by district map data.</p>`,
+      : `<p class="district-panel__empty-copy">Pevné budovy pro tento distrikt určuje mapa.</p>`,
     "</section>"
   ].join("");
 };
@@ -107,20 +108,20 @@ export const renderDistrictBuilding = (
   isOpen = false
 ): string =>
   [
-    `<article class="district-panel__slot district-panel__slot--${toCssToken(building.buildingTypeId)}" data-building-id="${building.buildingId}" data-building-type="${building.buildingTypeId}">`,
+    `<article class="district-panel__slot district-panel__slot--${toCssToken(building.buildingTypeId)}" data-building-id="${escapeAttribute(building.buildingId)}" data-building-type="${escapeAttribute(building.buildingTypeId)}">`,
     `<div class="district-panel__slot-head">`,
     `<div class="district-panel__slot-heading">`,
     `<span class="district-panel__slot-icon" aria-hidden="true">${getBuildingIcon(building.buildingTypeId)}</span>`,
     `<div>`,
-    `<p class="district-panel__slot-index">${building.typeLabel}</p>`,
-    `<h4 class="district-panel__slot-title">${building.label}</h4>`,
+    `<p class="district-panel__slot-index">${escapeHtml(building.typeLabel)}</p>`,
+    `<h4 class="district-panel__slot-title">${escapeHtml(building.label)}</h4>`,
     `</div>`,
     `</div>`,
-    `<span class="district-panel__slot-state">${building.statusLabel}</span>`,
+    `<span class="district-panel__slot-state">${escapeHtml(building.statusLabel)}</span>`,
     `</div>`,
-    `<p class="district-panel__slot-summary">${building.summaryLabel}</p>`,
-    `<details class="district-building-popup-host" data-building-popup-target="${building.buildingId}"${isOpen ? " open" : ""}>`,
-    `<summary class="district-panel__action-button district-panel__action-button--info">Stats / Info / Speciální akce</summary>`,
+    `<p class="district-panel__slot-summary">${escapeHtml(building.summaryLabel)}</p>`,
+    `<details class="district-building-popup-host" data-building-popup-target="${escapeAttribute(building.buildingId)}"${isOpen ? " open" : ""}>`,
+    `<summary class="district-panel__action-button district-panel__action-button--info">Statistiky / Info / Speciální akce</summary>`,
     renderBuildingDetailPopup(building),
     `</details>`,
     building.actions.length > 0
@@ -128,40 +129,40 @@ export const renderDistrictBuilding = (
           .map((action) => {
             const disabledAttribute = action.disabled ? " disabled" : "";
             const reasonAttribute = action.disabledReason
-              ? ` data-disabled-reason="${action.disabledReason}"`
+              ? ` data-disabled-reason="${escapeAttribute(action.disabledReason)}"`
               : "";
 
             return [
-              `<div class="district-panel__production" data-building-action-controls="${action.actionId}">`,
+              `<div class="district-panel__production" data-building-action-controls="${escapeAttribute(action.actionId)}">`,
               `<div class="district-panel__production-head">`,
-              `<strong class="district-panel__production-title">${action.label}</strong>`,
-              `<span class="district-panel__production-rate">${action.statusLabel} · ${renderLiveCooldown(action)}</span>`,
+              `<strong class="district-panel__production-title">${escapeHtml(action.label)}</strong>`,
+              `<span class="district-panel__production-rate">${escapeHtml(action.statusLabel)} · ${renderLiveCooldown(action)}</span>`,
               `</div>`,
-              `<p class="district-panel__slot-summary">${action.description}</p>`,
+              `<p class="district-panel__slot-summary">${escapeHtml(action.description)}</p>`,
               action.expectedEffectSummary.length > 0
-                ? `<p class="district-panel__slot-summary">${action.expectedEffectSummary.join(" · ")}</p>`
+                ? `<p class="district-panel__slot-summary">${action.expectedEffectSummary.map(escapeHtml).join(" · ")}</p>`
                 : "",
               `<div class="district-panel__production-metrics">`,
-              `<span class="district-panel__production-metric">Cost ${action.inputSummary}</span>`,
-              `<span class="district-panel__production-metric">Gain ${action.outputSummary}</span>`,
-              `<span class="district-panel__production-metric">Heat ${action.heatLabel}</span>`,
-              `<span class="district-panel__production-metric">Influence ${action.influenceLabel}</span>`,
+              `<span class="district-panel__production-metric">Cena ${escapeHtml(action.inputSummary)}</span>`,
+              `<span class="district-panel__production-metric">Zisk ${escapeHtml(action.outputSummary)}</span>`,
+              `<span class="district-panel__production-metric">Hledanost ${escapeHtml(action.heatLabel)}</span>`,
+              `<span class="district-panel__production-metric">Vliv ${escapeHtml(action.influenceLabel)}</span>`,
               `</div>`,
               action.riskSummary.length > 0
-                ? `<div class="district-panel__production-metrics">${action.riskSummary.map((entry) => `<span class="district-panel__production-metric">${entry}</span>`).join("")}</div>`
+                ? `<div class="district-panel__production-metrics">${action.riskSummary.map((entry) => `<span class="district-panel__production-metric">${escapeHtml(entry)}</span>`).join("")}</div>`
                 : "",
               `<div class="district-panel__action-row">`,
               renderBuildingActionInputs(action),
-              `<button class="district-panel__action-button district-panel__action-button--craft" data-building-action-building-id="${building.buildingId}" data-building-action-id="${action.actionId}"${disabledAttribute}${reasonAttribute}>${action.label}</button>`,
+              `<button class="district-panel__action-button district-panel__action-button--craft" data-building-action-building-id="${escapeAttribute(building.buildingId)}" data-building-action-id="${escapeAttribute(action.actionId)}"${disabledAttribute}${reasonAttribute}>${escapeHtml(action.label)}</button>`,
               action.disabledReason
-                ? `<p class="district-panel__action-reason">${action.disabledReason}</p>`
+                ? `<p class="district-panel__action-reason">${escapeHtml(action.disabledReason)}</p>`
                 : "",
               `</div>`,
               `</div>`
             ].join("");
           })
           .join("")
-      : `<p class="district-panel__empty-copy">No server-fed building actions are available for this fixed building.</p>`,
+      : `<p class="district-panel__empty-copy">Pro tuto pevnou budovu nejsou dostupné serverové akce.</p>`,
     `</article>`
   ].join("");
 
@@ -187,7 +188,7 @@ const renderBuildingActionInputs = (
 ): string =>
   action.inputs
     .map((input) => {
-      const dataAttribute = `data-building-action-input="${input.id}"`;
+      const dataAttribute = `data-building-action-input="${escapeAttribute(input.id)}"`;
       const dealerAttribute = input.id === "dealerSlotId"
         ? " data-dealer-slot-input"
         : input.id === "itemId"
@@ -198,13 +199,13 @@ const renderBuildingActionInputs = (
 
       if (input.type === "select") {
         return [
-          `<select class="district-panel__action-select" ${dataAttribute}${dealerAttribute} aria-label="${input.label}">`,
-          input.options.map((option) => `<option value="${option.value}">${option.label}</option>`).join(""),
+          `<select class="district-panel__action-select" ${dataAttribute}${dealerAttribute} aria-label="${escapeAttribute(input.label)}">`,
+          input.options.map((option) => `<option value="${escapeAttribute(option.value)}">${escapeHtml(option.label)}</option>`).join(""),
           `</select>`
         ].join("");
       }
 
-      return `<input class="district-panel__action-input" ${dataAttribute}${dealerAttribute} aria-label="${input.label}" type="${input.type}"${input.min !== undefined ? ` min="${input.min}"` : ""}${input.max !== undefined ? ` max="${input.max}"` : ""}${input.required ? " required" : ""}${input.type === "number" ? " value=\"1\"" : ""}>`;
+      return `<input class="district-panel__action-input" ${dataAttribute}${dealerAttribute} aria-label="${escapeAttribute(input.label)}" type="${escapeAttribute(input.type)}"${input.min !== undefined ? ` min="${escapeAttribute(input.min)}"` : ""}${input.max !== undefined ? ` max="${escapeAttribute(input.max)}"` : ""}${input.required ? " required" : ""}${input.type === "number" ? " value=\"1\"" : ""}>`;
     })
     .join("");
 
@@ -215,16 +216,19 @@ const toCssToken = (value: string): string =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "") || "building";
 
+const toPercentCssValue = (value: number): number =>
+  Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
+
 const renderLiveCooldown = (
   action: DistrictPanelBuildingViewModel["actions"][number]
 ): string =>
   action.cooldownEndsAtMs && action.cooldownRemainingMs > 0
     ? [
         `<span data-live-cooldown="true"`,
-        ` data-cooldown-ends-at-ms="${action.cooldownEndsAtMs}"`,
-        ` data-cooldown-prefix="Cooldown "`,
-        ` data-cooldown-ready-label="Ready after server sync">`,
-        action.cooldownLabel,
+        ` data-cooldown-ends-at-ms="${escapeAttribute(action.cooldownEndsAtMs)}"`,
+        ` data-cooldown-prefix="Čekání "`,
+        ` data-cooldown-ready-label="Připraveno po synchronizaci">`,
+        escapeHtml(action.cooldownLabel),
         `</span>`
       ].join("")
-    : action.cooldownLabel;
+    : escapeHtml(action.cooldownLabel);

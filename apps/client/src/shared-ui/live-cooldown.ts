@@ -28,8 +28,8 @@ export const formatLiveCooldownDuration = (remainingMs: number): string => {
 export const formatLiveCooldownLabel = ({
   endsAtMs,
   nowMs,
-  prefix = "Cooldown ",
-  readyLabel = "Ready"
+  prefix = "Čekání ",
+  readyLabel = "Připraveno"
 }: LiveCooldownLabelInput): string => {
   const remainingMs = Math.max(0, endsAtMs - nowMs);
 
@@ -50,7 +50,7 @@ export const refreshLiveCooldownLabels = (
     node.textContent = formatLiveCooldownLabel({
       endsAtMs,
       nowMs,
-      prefix: node.dataset.cooldownPrefix ?? "Cooldown ",
+      prefix: node.dataset.cooldownPrefix ?? "Čekání ",
       readyLabel: node.dataset.cooldownReadyLabel ?? "Ready"
     });
     node.dataset.cooldownState = endsAtMs > nowMs ? "cooling" : "ready";

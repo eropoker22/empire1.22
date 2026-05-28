@@ -1,4 +1,5 @@
 import * as selectors from "../runtime/constants.js";
+import { escapeHtml } from "./htmlEscape.js";
 
 const DISTRICT_POPUP_ATMOSPHERE_SELECTOR = "[data-district-popup-atmosphere]";
 const DISTRICT_ATMOSPHERE_WINDOW_SELECTOR = "[data-district-atmosphere-window]";
@@ -34,7 +35,7 @@ export function setElementHtml(element, value) {
   if (!element) {
     return false;
   }
-  element.innerHTML = String(value ?? "");
+  element.innerHTML = escapeHtml(value);
   return true;
 }
 

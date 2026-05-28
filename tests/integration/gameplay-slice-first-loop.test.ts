@@ -340,10 +340,10 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       category: "occupy",
       result: "success"
     });
-    expect(occupyRender.sidePanelHtml).toContain("Latest reports");
-    expect(occupyRender.sidePanelHtml).toContain("Occupy success on district:connector:1");
+    expect(occupyRender.sidePanelHtml).toContain("Poslední reporty");
+    expect(occupyRender.sidePanelHtml).toContain("Obsazení success v district:connector:1");
     expect(occupyRender.sidePanelHtml).toContain("data-report-highlight=\"latest-command\"");
-    expect(occupyRender.sidePanelHtml).toContain("Influence -5");
+    expect(occupyRender.sidePanelHtml).toContain("Vliv -5");
     expect(occupyRender.sidePanelHtml).toContain("Heat +2");
   });
 

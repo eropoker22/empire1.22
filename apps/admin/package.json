@@ -4,7 +4,6 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "check": "echo admin shell pending"
+    "check": "node ../../scripts/run-local-bin.mjs typescript/bin/tsc -p ../../tsconfig.test.json --noEmit"
   }
 }
-

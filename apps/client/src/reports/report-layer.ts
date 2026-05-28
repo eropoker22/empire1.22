@@ -1,4 +1,5 @@
 import type { DomainError } from "@empire/shared-types";
+import { escapeAttribute, escapeHtml } from "../shared-ui";
 import type { ClientCommandStatus } from "../state";
 import type { ReportViewModel } from "./report-model";
 
@@ -24,10 +25,10 @@ export const renderReportLayer = (
         renderCatastropheAlert(reports),
         `<div class="district-panel__section-head">`,
         `<div>`,
-        `<h3 class="district-panel__section-title">Latest reports</h3>`,
-        `<p class="district-panel__section-copy">Server-authored spy, occupy, attack, and building-action outcomes for the current player.</p>`,
+        `<h3 class="district-panel__section-title">Poslední reporty</h3>`,
+        `<p class="district-panel__section-copy">Serverové výsledky špehování, obsazení, útoků a akcí budov pro aktuálního hráče.</p>`,
         `</div>`,
-        `<span class="district-panel__section-meta">${reports.length} recent</span>`,
+        `<span class="district-panel__section-meta">${escapeHtml(reports.length)} nových</span>`,
         `</div>`,
         commandStatusHtml,
         reports
@@ -48,21 +49,21 @@ const renderReportCard = (
     highlighted: boolean;
   }
 ): string => [
-  `<article class="district-panel__slot" data-report-id="${report.id}" data-report-category="${report.category}" data-report-type="${report.reportType}" data-report-severity="${report.severity}" data-report-highlight="${highlighted ? "latest-command" : "none"}">`,
+  `<article class="district-panel__slot" data-report-id="${escapeAttribute(report.id)}" data-report-category="${escapeAttribute(report.category)}" data-report-type="${escapeAttribute(report.reportType)}" data-report-severity="${escapeAttribute(report.severity)}" data-report-highlight="${highlighted ? "latest-command" : "none"}">`,
   `<div class="district-panel__slot-head">`,
   `<div>`,
-  `<p class="district-panel__slot-index">${report.category}</p>`,
-  `<h4 class="district-panel__slot-title">${report.title}</h4>`,
+  `<p class="district-panel__slot-index">${escapeHtml(report.category)}</p>`,
+  `<h4 class="district-panel__slot-title">${escapeHtml(report.title)}</h4>`,
   `</div>`,
-  `<span class="district-panel__slot-state">${report.result}</span>`,
+  `<span class="district-panel__slot-state">${escapeHtml(report.result)}</span>`,
   `</div>`,
-  `<p class="district-panel__slot-summary">${report.summary}</p>`,
+  `<p class="district-panel__slot-summary">${escapeHtml(report.summary)}</p>`,
   report.details.length > 0
     ? `<div class="reports-panel__detail-list">${report.details
-      .map((detail) => `<span class="reports-panel__detail">${detail}</span>`)
+      .map((detail) => `<span class="reports-panel__detail">${escapeHtml(detail)}</span>`)
       .join("")}</div>`
     : "",
-  `<p class="district-panel__empty-copy">Tick ${report.createdAt}</p>`,
+  `<p class="district-panel__empty-copy">Tick ${escapeHtml(report.createdAt)}</p>`,
   `</article>`
 ].join("");
 
@@ -77,18 +78,18 @@ const renderCommandReportStatus = (
   }
 
   if (!status.accepted) {
-    const message = options.errors?.[0]?.message ?? "The server rejected the command.";
+    const message = options.errors?.[0]?.message ?? "Server akci odmítl. Zkontroluj vybraný cíl, zdroje nebo synchronizaci a zkus to znovu.";
 
     return [
       `<article class="district-panel__slot" data-report-command-status="rejected">`,
       `<div class="district-panel__slot-head">`,
       `<div>`,
-      `<p class="district-panel__slot-index">command</p>`,
-      `<h4 class="district-panel__slot-title">Command rejected</h4>`,
+      `<p class="district-panel__slot-index">akce</p>`,
+      `<h4 class="district-panel__slot-title">Akce odmítnuta</h4>`,
       `</div>`,
-      `<span class="district-panel__slot-state">rejected</span>`,
+      `<span class="district-panel__slot-state">odmítnuto</span>`,
       `</div>`,
-      `<p class="district-panel__slot-summary">${message}</p>`,
+      `<p class="district-panel__slot-summary">${escapeHtml(message)}</p>`,
       `</article>`
     ].join("");
   }
@@ -101,12 +102,12 @@ const renderCommandReportStatus = (
     `<article class="district-panel__slot" data-report-command-status="accepted-without-report">`,
     `<div class="district-panel__slot-head">`,
     `<div>`,
-    `<p class="district-panel__slot-index">command</p>`,
-    `<h4 class="district-panel__slot-title">Command accepted</h4>`,
+    `<p class="district-panel__slot-index">akce</p>`,
+    `<h4 class="district-panel__slot-title">Akce přijata</h4>`,
     `</div>`,
-    `<span class="district-panel__slot-state">accepted</span>`,
+    `<span class="district-panel__slot-state">přijato</span>`,
     `</div>`,
-    `<p class="district-panel__slot-summary">The server accepted the command but did not emit a new player report. Check the feed and selected district state for the authoritative result.</p>`,
+    `<p class="district-panel__slot-summary">Server akci přijal, ale nevydal nový hráčský report. Výsledek ověř ve feedu a ve stavu vybraného distriktu.</p>`,
     `</article>`
   ].join("");
 };
@@ -119,17 +120,17 @@ const renderCatastropheAlert = (reports: ReportViewModel[]): string => {
   }
 
   return [
-    `<section class="reports-panel__catastrophe-window" data-catastrophe-alert="true" role="dialog" aria-label="District catastrophe report">`,
+    `<section class="reports-panel__catastrophe-window" data-catastrophe-alert="true" role="dialog" aria-label="Report katastrofy distriktu">`,
     `<div class="district-panel__section-head">`,
     `<div>`,
-    `<h3 class="district-panel__section-title">${catastropheReport.title}</h3>`,
-    `<p class="district-panel__section-copy">${catastropheReport.summary}</p>`,
+    `<h3 class="district-panel__section-title">${escapeHtml(catastropheReport.title)}</h3>`,
+    `<p class="district-panel__section-copy">${escapeHtml(catastropheReport.summary)}</p>`,
     `</div>`,
-    `<span class="district-panel__section-meta">${catastropheReport.result}</span>`,
+    `<span class="district-panel__section-meta">${escapeHtml(catastropheReport.result)}</span>`,
     `</div>`,
     `<div class="district-panel__slot-list">`,
     catastropheReport.messages
-      .map((message) => `<p class="district-panel__action-reason">${message}</p>`)
+      .map((message) => `<p class="district-panel__action-reason">${escapeHtml(message)}</p>`)
       .join(""),
     `</div>`,
     `</section>`

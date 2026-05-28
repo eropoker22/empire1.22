@@ -1,29 +1,30 @@
 import type { DistrictPanelBuildingViewModel } from "../../selectors";
+import { escapeAttribute, escapeHtml } from "../../shared-ui";
 
 export const renderBuildingDetailPopup = (building: DistrictPanelBuildingViewModel): string => {
   const zoneKey = toCssToken(building.zoneLabel);
 
   return [
-    `<section class="district-building-popup district-building-popup--${zoneKey}" role="dialog" aria-label="${building.label} detail" data-building-zone="${zoneKey}" data-building-popup-id="${building.buildingId}">`,
+    `<section class="district-building-popup district-building-popup--${zoneKey}" role="dialog" aria-label="${escapeAttribute(`Detail budovy ${building.label}`)}" data-building-zone="${escapeAttribute(zoneKey)}" data-building-popup-id="${escapeAttribute(building.buildingId)}">`,
     `<header class="district-building-popup__header">`,
     `<div>`,
-    `<p class="district-building-popup__eyebrow">${building.zoneLabel} · ${building.roleLabel}</p>`,
-    `<h5 class="district-building-popup__title">${building.label}</h5>`,
-    `<p class="district-building-popup__type">${building.typeLabel}</p>`,
+    `<p class="district-building-popup__eyebrow">${escapeHtml(building.zoneLabel)} · ${escapeHtml(building.roleLabel)}</p>`,
+    `<h5 class="district-building-popup__title">${escapeHtml(building.label)}</h5>`,
+    `<p class="district-building-popup__type">${escapeHtml(building.typeLabel)}</p>`,
     `</div>`,
-    `<span class="district-building-popup__badge">${building.statusLabel}</span>`,
+    `<span class="district-building-popup__badge">${escapeHtml(building.statusLabel)}</span>`,
     `</header>`,
     `<div class="district-building-popup__info-card">`,
     `<span class="district-building-popup__section-label">Info</span>`,
-    `<p class="district-building-popup__info">${building.info}</p>`,
+    `<p class="district-building-popup__info">${escapeHtml(building.info)}</p>`,
     `</div>`,
     `<p class="district-building-popup__section-label">Statistiky</p>`,
     `<div class="district-building-popup__stats">`,
     building.stats
       .map((stat) => [
         `<span class="district-building-popup__stat">`,
-        `<span class="district-building-popup__stat-label">${stat.label}</span>`,
-        `<strong class="district-building-popup__stat-value">${stat.value}</strong>`,
+        `<span class="district-building-popup__stat-label">${escapeHtml(stat.label)}</span>`,
+        `<strong class="district-building-popup__stat-value">${escapeHtml(stat.value)}</strong>`,
         `</span>`
       ].join(""))
       .join(""),
@@ -31,7 +32,7 @@ export const renderBuildingDetailPopup = (building: DistrictPanelBuildingViewMod
     `<div class="district-building-popup__actions">`,
     `<div class="district-building-popup__actions-head">`,
     `<p class="district-building-popup__section-label">Speciální akce</p>`,
-    `<span class="district-building-popup__count">${building.specialActions.length}</span>`,
+    `<span class="district-building-popup__count">${escapeHtml(building.specialActions.length)}</span>`,
     `</div>`,
     building.specialActions.length > 0
       ? [
@@ -51,26 +52,26 @@ const renderSpecialAction = (
 ): string => {
   const disabledAttribute = action.disabled ? " disabled" : "";
   const reasonAttribute = action.disabledReason
-    ? ` data-disabled-reason="${action.disabledReason}"`
+    ? ` data-disabled-reason="${escapeAttribute(action.disabledReason)}"`
     : "";
 
   return [
-    `<article class="district-building-popup__action${action.disabled ? " is-disabled" : ""}" data-special-action-id="${action.actionId}">`,
+    `<article class="district-building-popup__action${action.disabled ? " is-disabled" : ""}" data-special-action-id="${escapeAttribute(action.actionId)}">`,
     `<span class="district-building-popup__action-light" aria-hidden="true"></span>`,
     `<div class="district-building-popup__action-copy">`,
-    `<span class="district-building-popup__action-state">${action.disabled ? "Blocked" : "Ready"}</span>`,
-    `<strong>${action.label}</strong>`,
-    `<span>${action.description}</span>`,
+    `<span class="district-building-popup__action-state">${action.disabled ? "Blokováno" : "Připraveno"}</span>`,
+    `<strong>${escapeHtml(action.label)}</strong>`,
+    `<span>${escapeHtml(action.description)}</span>`,
     `<div class="district-building-popup__action-metrics">`,
-    `<small>${action.effectSummary}</small>`,
+    `<small>${escapeHtml(action.effectSummary)}</small>`,
     `<small>CD ${renderLiveCooldown(action)}</small>`,
-    `<small>${action.durationLabel}</small>`,
-    `<small>Heat ${action.heatLabel}</small>`,
+    `<small>${escapeHtml(action.durationLabel)}</small>`,
+    `<small>Hledanost ${escapeHtml(action.heatLabel)}</small>`,
     `</div>`,
     `</div>`,
-    `<button class="district-panel__action-button district-panel__action-button--craft district-building-popup__run-button" data-building-action-building-id="${building.buildingId}" data-building-action-id="${action.actionId}"${disabledAttribute}${reasonAttribute}>Spustit</button>`,
+    `<button class="district-panel__action-button district-panel__action-button--craft district-building-popup__run-button" data-building-action-building-id="${escapeAttribute(building.buildingId)}" data-building-action-id="${escapeAttribute(action.actionId)}"${disabledAttribute}${reasonAttribute}>Spustit</button>`,
     action.disabledReason
-      ? `<p class="district-panel__action-reason">${action.disabledReason}</p>`
+      ? `<p class="district-panel__action-reason">${escapeHtml(action.disabledReason)}</p>`
       : "",
     `</article>`
   ].join("");
@@ -89,10 +90,10 @@ const renderLiveCooldown = (
   action.cooldownEndsAtMs && action.cooldownRemainingMs > 0
     ? [
         `<span data-live-cooldown="true"`,
-        ` data-cooldown-ends-at-ms="${action.cooldownEndsAtMs}"`,
+        ` data-cooldown-ends-at-ms="${escapeAttribute(action.cooldownEndsAtMs)}"`,
         ` data-cooldown-prefix=""`,
-        ` data-cooldown-ready-label="Ready after server sync">`,
-        action.cooldownLabel.replace(/^Cooldown\s+/u, ""),
+        ` data-cooldown-ready-label="Připraveno po synchronizaci">`,
+        escapeHtml(action.cooldownLabel.replace(/^(?:Cooldown|Čekání)\s+/u, "")),
         `</span>`
       ].join("")
-    : action.cooldownLabel;
+    : escapeHtml(action.cooldownLabel);

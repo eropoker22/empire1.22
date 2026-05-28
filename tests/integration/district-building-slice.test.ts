@@ -75,13 +75,13 @@ describe("district building gameplay slice", () => {
     expect(initialRender.mapHtml).toContain("Neutral District");
     expect(initialRender.mapHtml).toContain("data-owner-color=\"#3b82f6\"");
     expect(initialRender.mapHtml).toContain("data-owner-color=\"#ef4444\"");
-    expect(initialRender.sidePanelHtml).toContain("Attack Targets");
+    expect(initialRender.sidePanelHtml).toContain("Cíle útoku");
     expect(initialRender.sidePanelHtml).toContain("data-attack-target-id=\"district:enemy\"");
     expect(initialRender.sidePanelHtml).toContain("data-attack-target-id=\"district:neutral\"");
     expect(initialRender.mapDistricts.find((district) => district.districtId === enemyDistrictId)?.attackEnabled).toBe(true);
     expect(initialRender.mapDistricts.find((district) => district.districtId === neutralDistrictId)?.attackEnabled).toBe(true);
     expect(initialRender.sidePanelHtml).toContain("Starter District");
-    expect(initialRender.sidePanelHtml).toContain("District buildings");
+    expect(initialRender.sidePanelHtml).toContain("Budovy distriktu");
     expect(initialRender.sidePanelHtml).toContain("Pulse Pharmacy");
     expect(initialRender.sidePanelHtml).toContain("Lékárna");
     expect(initialRender.sidePanelHtml).toContain("Restaurace");
@@ -92,9 +92,9 @@ describe("district building gameplay slice", () => {
     expect(initialRender.sidePanelHtml).not.toContain("Empty slot 1");
     expect(initialRender.sidePanelHtml).not.toContain("data-build-actions");
     expect(initialRender.sidePanelHtml).not.toContain("<button class=\"district-panel__action-button\" data-building-type=");
-    expect(initialRender.mapHtml).toContain("Buildings: 2 fixed");
+    expect(initialRender.mapHtml).toContain("Budovy: 2 pevných");
     expect(initialRender.topBarHtml).toContain("Resources:");
-    expect(client.getRenderState().districtPanel?.buildingSummary).toBe("2 fixed buildings");
+    expect(client.getRenderState().districtPanel?.buildingSummary).toBe("2 pevných budov");
 
     const enemyDistrictRender = await client.selectDistrict(enemyDistrictId);
 
@@ -104,7 +104,7 @@ describe("district building gameplay slice", () => {
     expect(enemyDistrictRender.districtPanel?.attackTargets).toEqual([]);
     expect(enemyDistrictRender.sidePanelHtml).toContain("Zbrojovka");
     expect(enemyDistrictRender.districtPanel?.buildings[0]?.actions[0]?.disabled).toBe(true);
-    expect(enemyDistrictRender.districtPanel?.ownershipLabel).toBe("Owned by player:enemy");
+    expect(enemyDistrictRender.districtPanel?.ownershipLabel).toBe("Vlastní player:enemy");
 
     const homeDistrictRender = await client.selectDistrict(districtId);
 
@@ -112,7 +112,7 @@ describe("district building gameplay slice", () => {
     const pharmacyAction = homeDistrictRender.districtPanel?.buildings.find((building) => building.buildingTypeId === "pharmacy")?.actions.find((action) => action.actionId === "produce_chemicals");
     expect(pharmacyAction?.disabled).toBe(false);
     expect(pharmacyAction?.statusLabel).toBe("Available");
-    expect(pharmacyAction?.inputSummary).toBe("Free");
+    expect(pharmacyAction?.inputSummary).toBe("Zdarma");
     expect(pharmacyAction?.expectedEffectSummary).toContain("+6 Chemicals");
     expect(pharmacyAction?.riskSummary).toContain("Heat +1");
     expect(homeDistrictRender.mapDistricts.find((district) => district.districtId === neutralDistrictId)?.isAttackTarget).toBe(true);
@@ -138,7 +138,7 @@ describe("district building gameplay slice", () => {
     expect(updatedRender.districtPanel?.influenceLabel).toBe("0");
     expect(updatedRender.districtPanel?.buildings.find((building) => building.buildingId === pharmacyBuildingId)?.actions.find((action) => action.actionId === "produce_chemicals")?.disabled).toBe(true);
     expect(updatedRender.reports[0]?.category).toBe("building-action");
-    expect(updatedRender.sidePanelHtml).toContain("Produce Chemicals on district:vertical-slice");
+    expect(updatedRender.sidePanelHtml).toContain("Produce Chemicals v district:vertical-slice");
     expect(server.instanceManager.getInstanceById(instanceId)?.state.districtsById[districtId].buildingIds).toHaveLength(2);
     expect(server.instanceManager.getInstanceById(instanceId)?.state.districtsById[districtId].heat).toBe(0.96);
     expect(server.instanceManager.getInstanceById(instanceId)?.state.resourceStatesById[`resource:${playerId}`]?.balances.chemicals).toBe(16);

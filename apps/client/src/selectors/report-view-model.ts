@@ -26,42 +26,42 @@ export const createReportViewModels = (
     reportType: report.reportType,
     title:
       report.reportType === "spy"
-        ? `Spy ${report.result} on ${report.targetDistrictId}`
+        ? `Špehování ${report.result} v ${report.targetDistrictId}`
         : report.reportType === "occupy"
-          ? `Occupy ${report.result} on ${report.targetDistrictId}`
+          ? `Obsazení ${report.result} v ${report.targetDistrictId}`
         : report.reportType === "building-action"
-          ? `${toTitleCase(report.buildingActionId)} on ${report.districtId}`
+          ? `${toTitleCase(report.buildingActionId)} v ${report.districtId}`
         : report.districtDestroyed
-          ? `District catastrophe on ${report.targetDistrictId}`
-        : `Attack ${report.result} on ${report.targetDistrictId}`,
+          ? `Katastrofa v distriktu ${report.targetDistrictId}`
+        : `Útok ${report.result} v ${report.targetDistrictId}`,
     createdAt: `${report.tick}`,
     category: report.reportType,
     summary:
       report.reportType === "spy"
         ? report.trapDetected
-          ? "Defense confirmed. Trap detected."
-          : "Defense scout resolved."
+          ? "Obrana potvrzena. Past odhalena."
+          : "Průzkum obrany vyhodnocen."
         : report.reportType === "occupy"
-          ? `District occupied. Influence -${report.influenceCost} · heat +${report.heatGained}.`
+          ? `Distrikt obsazen. Vliv -${report.influenceCost} · hledanost +${report.heatGained}.`
         : report.reportType === "building-action"
           ? formatBuildingActionSummary(report)
         : report.districtDestroyed
-          ? "Catastrophe destroyed the district. Control, buildings, heat, and influence were wiped."
+          ? "Katastrofa zničila distrikt. Kontrola, budovy, hledanost i vliv byly smazány."
         : report.trapTriggered
-          ? "Trap triggered during the attack."
+          ? "Během útoku se spustila past."
           : report.districtCaptured
-            ? "District captured."
-            : "District held by defender.",
+            ? "Distrikt dobyt."
+            : "Distrikt udržel obránce.",
     result: report.result,
     severity: report.reportType === "battle" && report.districtDestroyed ? "critical" : "normal",
     messages: report.reportType === "building-action"
       ? report.messages ?? []
       : report.reportType === "battle" && report.districtDestroyed
         ? [
-            "District state: destroyed and unusable.",
-            "Owner: none.",
-            "Fixed buildings: lost.",
-            "All primary district actions are disabled."
+            "Stav distriktu: zničený a nepoužitelný.",
+            "Vlastník: nikdo.",
+            "Pevné budovy: ztraceny.",
+            "Všechny hlavní akce distriktu jsou vypnuté."
           ]
         : [],
     details: formatReportDetails(report)
@@ -70,43 +70,43 @@ export const createReportViewModels = (
 const formatReportDetails = (report: ConflictReportView): string[] => {
   if (report.reportType === "spy") {
     return [
-      `Source ${report.sourceDistrictId}`,
-      `Target ${report.targetDistrictId}`,
-      `Defense intel ${formatNumberRecord(report.detectedDefense)}`,
-      report.trapDetected ? "Trap detected" : "No trap detected"
+      `Zdroj ${report.sourceDistrictId}`,
+      `Cíl ${report.targetDistrictId}`,
+      `Intel obrany ${formatNumberRecord(report.detectedDefense)}`,
+      report.trapDetected ? "Past odhalena" : "Past neodhalena"
     ];
   }
 
   if (report.reportType === "occupy") {
     return [
-      `Source ${report.sourceDistrictId}`,
-      `Target ${report.targetDistrictId}`,
-      `Influence -${report.influenceCost}`,
-      `Heat +${report.heatGained}`,
-      report.previousOwnerPlayerId ? `Previous owner ${report.previousOwnerPlayerId}` : "Previous owner none"
+      `Zdroj ${report.sourceDistrictId}`,
+      `Cíl ${report.targetDistrictId}`,
+      `Vliv -${report.influenceCost}`,
+      `Hledanost +${report.heatGained}`,
+      report.previousOwnerPlayerId ? `Předchozí vlastník ${report.previousOwnerPlayerId}` : "Předchozí vlastník nikdo"
     ];
   }
 
   if (report.reportType === "battle") {
     return [
-      `Source ${report.sourceDistrictId}`,
-      `Target ${report.targetDistrictId}`,
-      report.defenderPlayerId ? `Defender ${report.defenderPlayerId}` : "Defender none",
-      `Outcome ${toTitleCase(report.outcomeTier)}`,
-      `Attacker losses ${formatNumberRecord(report.attackerLosses)}`,
-      `Defender losses ${formatNumberRecord(report.defenderLosses)}`,
-      `Heat +${report.heatGained}`,
-      report.reportForAttacker || "No attacker summary"
+      `Zdroj ${report.sourceDistrictId}`,
+      `Cíl ${report.targetDistrictId}`,
+      report.defenderPlayerId ? `Obránce ${report.defenderPlayerId}` : "Obránce nikdo",
+      `Výsledek ${toTitleCase(report.outcomeTier)}`,
+      `Ztráty útočníka ${formatNumberRecord(report.attackerLosses)}`,
+      `Ztráty obránce ${formatNumberRecord(report.defenderLosses)}`,
+      `Hledanost +${report.heatGained}`,
+      report.reportForAttacker || "Bez shrnutí pro útočníka"
     ];
   }
 
   return [
-    `District ${report.districtId}`,
-    `Building ${report.buildingId}`,
-    `Output ${formatNumberRecord(report.outputGain)}`,
-    `Cost ${formatNumberRecord(report.inputCost)}`,
-    `Heat ${formatSigned(report.heatDelta ?? report.heatGain)}`,
-    `Influence ${formatSigned(report.influenceDelta ?? report.influenceChange)}`,
+    `Distrikt ${report.districtId}`,
+    `Budova ${report.buildingId}`,
+    `Výstup ${formatNumberRecord(report.outputGain)}`,
+    `Cena ${formatNumberRecord(report.inputCost)}`,
+    `Hledanost ${formatSigned(report.heatDelta ?? report.heatGain)}`,
+    `Vliv ${formatSigned(report.influenceDelta ?? report.influenceChange)}`,
     report.message ?? ""
   ].filter(Boolean);
 };
@@ -116,8 +116,8 @@ const formatBuildingActionSummary = (report: Extract<ConflictReportView, { repor
     formatResourceDelta(report.outputGain),
     formatDefenseDelta(report.defenseAdded ?? {}),
     formatIntelDelta(report.intelRevealedDistrictIds ?? []),
-    `Heat +${report.heatGain}`,
-    `Influence ${formatSigned(report.influenceChange)}`
+    `Hledanost +${report.heatGain}`,
+    `Vliv ${formatSigned(report.influenceChange)}`
   ].filter(Boolean);
 
   return parts.join(" · ");
@@ -127,18 +127,18 @@ const formatResourceDelta = (values: Record<string, number>): string => {
   const parts = Object.entries(values).filter(([, amount]) => amount > 0);
   return parts.length > 0
     ? parts.map(([resourceKey, amount]) => `+${amount} ${toTitleCase(resourceKey)}`).join(", ")
-    : "No resource output";
+    : "Bez výstupu zdrojů";
 };
 
 const formatDefenseDelta = (values: Record<string, number>): string => {
   const parts = Object.entries(values).filter(([, amount]) => amount > 0);
   return parts.length > 0
-    ? `Defense ${parts.map(([resourceKey, amount]) => `+${amount} ${toTitleCase(resourceKey)}`).join(", ")}`
+    ? `Obrana ${parts.map(([resourceKey, amount]) => `+${amount} ${toTitleCase(resourceKey)}`).join(", ")}`
     : "";
 };
 
 const formatIntelDelta = (districtIds: string[]): string =>
-  districtIds.length > 0 ? `Intel ${districtIds.length} district${districtIds.length === 1 ? "" : "s"}` : "";
+  districtIds.length > 0 ? `Intel ${districtIds.length} distriktů` : "";
 
 const formatSigned = (value: number): string => value >= 0 ? `+${value}` : String(value);
 

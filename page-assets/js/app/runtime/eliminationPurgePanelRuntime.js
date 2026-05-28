@@ -30,9 +30,28 @@ let sharedLastResolvedCountdownEndsAt = null;
 let sharedLastEliminationResult = null;
 
 const htmlEscapeMap = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" };
+const safeDataImageUrlPattern = /^data:image\/(?:gif|png|jpeg|jpg|webp);base64,[a-z0-9+/=\s]+$/iu;
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => htmlEscapeMap[character] ?? character);
+}
+
+function escapeUrlAttribute(value) {
+  const rawValue = String(value ?? "").trim();
+  if (!rawValue) return "";
+
+  const schemeCheckValue = rawValue.replace(/[\u0000-\u001F\u007F\s]+/g, "");
+  if (/^javascript:/iu.test(schemeCheckValue)) return "";
+
+  const schemeMatch = /^[a-z][a-z0-9+.-]*:/iu.exec(rawValue);
+  if (schemeMatch) {
+    const scheme = schemeMatch[0].toLowerCase();
+    if (scheme !== "http:" && scheme !== "https:" && !safeDataImageUrlPattern.test(rawValue)) {
+      return "";
+    }
+  }
+
+  return escapeHtml(rawValue);
 }
 
 function formatCountdown(value) {
@@ -361,6 +380,7 @@ function resolveCountdownElapsed(input = {}, deps = {}, documentRef = null, cycl
 export function renderEliminationResultPopupBody(result = {}) {
   const gangName = String(result.gangName || "neznámý gang").trim();
   const avatarSrc = String(result.avatarSrc || "").trim();
+  const escapedAvatarSrc = escapeUrlAttribute(avatarSrc);
   const avatarFallback = String(result.avatarFallback || getInitials(gangName)).trim();
   const districtCount = Number(result.districtsNeutralized);
   const districtLine = Number.isFinite(districtCount) && districtCount > 0
@@ -369,8 +389,8 @@ export function renderEliminationResultPopupBody(result = {}) {
   return `
     <article class="elimination-result-popup__notice" role="alert" aria-live="assertive">
       <div class="elimination-result-popup__avatar" aria-hidden="true">
-        ${avatarSrc
-          ? `<img src="${escapeHtml(avatarSrc)}" alt="">`
+        ${escapedAvatarSrc
+          ? `<img src="${escapedAvatarSrc}" alt="">`
           : `<span>${escapeHtml(avatarFallback)}</span>`}
       </div>
       <div class="elimination-result-popup__copy">

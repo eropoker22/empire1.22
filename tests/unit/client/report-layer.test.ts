@@ -10,9 +10,9 @@ describe("client report layer", () => {
       }
     });
 
-    expect(html).toContain("Latest reports");
+    expect(html).toContain("Poslední reporty");
     expect(html).toContain("data-report-command-status=\"accepted-without-report\"");
-    expect(html).toContain("did not emit a new player report");
+    expect(html).toContain("nevydal nový hráčský report");
     expect(html).not.toContain("data-report-highlight=\"latest-command\"");
   });
 
@@ -30,7 +30,7 @@ describe("client report layer", () => {
       ]
     });
 
-    expect(html).toContain("Command rejected");
+    expect(html).toContain("Akce odmítnuta");
     expect(html).toContain("Spy route is still cooling down.");
     expect(html).not.toContain("accepted-without-report");
   });

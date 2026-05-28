@@ -43,8 +43,8 @@ describe("production collect gameplay slice", () => {
     )?.buildingId;
 
     expect(buildingId).toBeTruthy();
-    expect(initialRender.sidePanelHtml).toContain("Collect Metal Parts");
-    expect(initialRender.sidePanelHtml).toContain("8/24 ready");
+    expect(initialRender.sidePanelHtml).toContain("Vybrat Metal Parts");
+    expect(initialRender.sidePanelHtml).toContain("8/24 připraveno");
 
     const collected = await client.dispatch(
       createCollectProductionCommand({
@@ -145,8 +145,8 @@ describe("production collect gameplay slice", () => {
     );
 
     expect(client.getRenderState().districtPanel?.hasPendingCommand).toBe(true);
-    expect(client.getRenderState().sidePanelHtml).toContain("Command pending");
-    expect(client.getRenderState().sidePanelHtml).toContain("data-disabled-reason=\"Command pending.\"");
+    expect(client.getRenderState().sidePanelHtml).toContain("Akce se zpracovává");
+    expect(client.getRenderState().sidePanelHtml).toContain("data-disabled-reason=\"Akce se zpracovává.\"");
     expect(submittedRequest?.sessionToken).toEqual(expect.any(String));
     expect(submittedRequest?.expectedStateVersion).toBe(loadStateVersion);
 
@@ -160,7 +160,7 @@ describe("production collect gameplay slice", () => {
       collected.districtPanel?.slots.find(
         (slot) => slot.production?.buildingId === buildingId
       )?.production?.storageLabel
-    ).toBe("0/24 ready");
+    ).toBe("0/24 připraveno");
   });
 
   it("rejects collect submit without a gameplay session token before mutating state", () => {

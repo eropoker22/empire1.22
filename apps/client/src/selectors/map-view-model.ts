@@ -41,16 +41,16 @@ export const createMapDistrictViewModels = (
       districtId: district.districtId,
       label: district.name,
       ownerLabel: isDestroyed
-        ? "Destroyed district"
+        ? "Zničený distrikt"
         : district.isOwnedByPlayer
-        ? "Owned by current player"
+        ? "Vlastní hráč"
         : district.ownerPlayerId
-          ? `Owned by ${district.ownerPlayerId}`
-          : "Neutral district",
+          ? `Vlastní ${district.ownerPlayerId}`
+          : "Neutrální distrikt",
       zoneLabel: toTitleCase(district.zone),
       heatLabel: formatHeatLabel(district.heat),
       influenceLabel: String(district.influence),
-      buildingSummary: `${district.filledSlotCount} fixed`,
+      buildingSummary: `${district.filledSlotCount} pevných`,
       ownerPlayerId: district.ownerPlayerId,
       ownerColor: district.ownerColor,
       isOwnedByPlayer: district.isOwnedByPlayer,

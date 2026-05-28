@@ -52,35 +52,81 @@ var EmpireGameplaySliceClient = function(exports) {
       clientRequestId: input.clientRequestId ?? null
     };
   };
+  const htmlEscapeMap = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  };
+  const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => htmlEscapeMap[character] ?? character);
+  const escapeAttribute = (value) => escapeHtml(value);
+  const formatLiveCooldownDuration = (remainingMs) => {
+    const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1e3));
+    if (totalSeconds < 60) {
+      return `${totalSeconds}s`;
+    }
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (minutes < 60) {
+      return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  };
+  const formatLiveCooldownLabel = ({
+    endsAtMs,
+    nowMs,
+    prefix = "Čekání ",
+    readyLabel = "Připraveno"
+  }) => {
+    const remainingMs = Math.max(0, endsAtMs - nowMs);
+    return remainingMs > 0 ? `${prefix}${formatLiveCooldownDuration(remainingMs)}` : readyLabel;
+  };
+  const refreshLiveCooldownLabels = (root, nowMs = Date.now()) => {
+    const nodes = root.querySelectorAll("[data-live-cooldown]");
+    nodes.forEach((node) => {
+      const endsAtMs = Number(node.dataset.cooldownEndsAtMs || 0);
+      node.textContent = formatLiveCooldownLabel({
+        endsAtMs,
+        nowMs,
+        prefix: node.dataset.cooldownPrefix ?? "Čekání ",
+        readyLabel: node.dataset.cooldownReadyLabel ?? "Ready"
+      });
+      node.dataset.cooldownState = endsAtMs > nowMs ? "cooling" : "ready";
+    });
+    return nodes.length;
+  };
   const renderBuildingDetailPopup = (building) => {
     const zoneKey = toCssToken$1(building.zoneLabel);
     return [
-      `<section class="district-building-popup district-building-popup--${zoneKey}" role="dialog" aria-label="${building.label} detail" data-building-zone="${zoneKey}" data-building-popup-id="${building.buildingId}">`,
+      `<section class="district-building-popup district-building-popup--${zoneKey}" role="dialog" aria-label="${escapeAttribute(`Detail budovy ${building.label}`)}" data-building-zone="${escapeAttribute(zoneKey)}" data-building-popup-id="${escapeAttribute(building.buildingId)}">`,
       `<header class="district-building-popup__header">`,
       `<div>`,
-      `<p class="district-building-popup__eyebrow">${building.zoneLabel} · ${building.roleLabel}</p>`,
-      `<h5 class="district-building-popup__title">${building.label}</h5>`,
-      `<p class="district-building-popup__type">${building.typeLabel}</p>`,
+      `<p class="district-building-popup__eyebrow">${escapeHtml(building.zoneLabel)} · ${escapeHtml(building.roleLabel)}</p>`,
+      `<h5 class="district-building-popup__title">${escapeHtml(building.label)}</h5>`,
+      `<p class="district-building-popup__type">${escapeHtml(building.typeLabel)}</p>`,
       `</div>`,
-      `<span class="district-building-popup__badge">${building.statusLabel}</span>`,
+      `<span class="district-building-popup__badge">${escapeHtml(building.statusLabel)}</span>`,
       `</header>`,
       `<div class="district-building-popup__info-card">`,
       `<span class="district-building-popup__section-label">Info</span>`,
-      `<p class="district-building-popup__info">${building.info}</p>`,
+      `<p class="district-building-popup__info">${escapeHtml(building.info)}</p>`,
       `</div>`,
       `<p class="district-building-popup__section-label">Statistiky</p>`,
       `<div class="district-building-popup__stats">`,
       building.stats.map((stat) => [
         `<span class="district-building-popup__stat">`,
-        `<span class="district-building-popup__stat-label">${stat.label}</span>`,
-        `<strong class="district-building-popup__stat-value">${stat.value}</strong>`,
+        `<span class="district-building-popup__stat-label">${escapeHtml(stat.label)}</span>`,
+        `<strong class="district-building-popup__stat-value">${escapeHtml(stat.value)}</strong>`,
         `</span>`
       ].join("")).join(""),
       `</div>`,
       `<div class="district-building-popup__actions">`,
       `<div class="district-building-popup__actions-head">`,
       `<p class="district-building-popup__section-label">Speciální akce</p>`,
-      `<span class="district-building-popup__count">${building.specialActions.length}</span>`,
+      `<span class="district-building-popup__count">${escapeHtml(building.specialActions.length)}</span>`,
       `</div>`,
       building.specialActions.length > 0 ? [
         `<div class="district-building-popup__action-grid">`,
@@ -93,35 +139,35 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const renderSpecialAction = (building, action) => {
     const disabledAttribute = action.disabled ? " disabled" : "";
-    const reasonAttribute = action.disabledReason ? ` data-disabled-reason="${action.disabledReason}"` : "";
+    const reasonAttribute = action.disabledReason ? ` data-disabled-reason="${escapeAttribute(action.disabledReason)}"` : "";
     return [
-      `<article class="district-building-popup__action${action.disabled ? " is-disabled" : ""}" data-special-action-id="${action.actionId}">`,
+      `<article class="district-building-popup__action${action.disabled ? " is-disabled" : ""}" data-special-action-id="${escapeAttribute(action.actionId)}">`,
       `<span class="district-building-popup__action-light" aria-hidden="true"></span>`,
       `<div class="district-building-popup__action-copy">`,
-      `<span class="district-building-popup__action-state">${action.disabled ? "Blocked" : "Ready"}</span>`,
-      `<strong>${action.label}</strong>`,
-      `<span>${action.description}</span>`,
+      `<span class="district-building-popup__action-state">${action.disabled ? "Blokováno" : "Připraveno"}</span>`,
+      `<strong>${escapeHtml(action.label)}</strong>`,
+      `<span>${escapeHtml(action.description)}</span>`,
       `<div class="district-building-popup__action-metrics">`,
-      `<small>${action.effectSummary}</small>`,
+      `<small>${escapeHtml(action.effectSummary)}</small>`,
       `<small>CD ${renderLiveCooldown$1(action)}</small>`,
-      `<small>${action.durationLabel}</small>`,
-      `<small>Heat ${action.heatLabel}</small>`,
+      `<small>${escapeHtml(action.durationLabel)}</small>`,
+      `<small>Hledanost ${escapeHtml(action.heatLabel)}</small>`,
       `</div>`,
       `</div>`,
-      `<button class="district-panel__action-button district-panel__action-button--craft district-building-popup__run-button" data-building-action-building-id="${building.buildingId}" data-building-action-id="${action.actionId}"${disabledAttribute}${reasonAttribute}>Spustit</button>`,
-      action.disabledReason ? `<p class="district-panel__action-reason">${action.disabledReason}</p>` : "",
+      `<button class="district-panel__action-button district-panel__action-button--craft district-building-popup__run-button" data-building-action-building-id="${escapeAttribute(building.buildingId)}" data-building-action-id="${escapeAttribute(action.actionId)}"${disabledAttribute}${reasonAttribute}>Spustit</button>`,
+      action.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(action.disabledReason)}</p>` : "",
       `</article>`
     ].join("");
   };
   const toCssToken$1 = (value) => String(value || "building").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "building";
   const renderLiveCooldown$1 = (action) => action.cooldownEndsAtMs && action.cooldownRemainingMs > 0 ? [
     `<span data-live-cooldown="true"`,
-    ` data-cooldown-ends-at-ms="${action.cooldownEndsAtMs}"`,
+    ` data-cooldown-ends-at-ms="${escapeAttribute(action.cooldownEndsAtMs)}"`,
     ` data-cooldown-prefix=""`,
-    ` data-cooldown-ready-label="Ready after server sync">`,
-    action.cooldownLabel.replace(/^Cooldown\s+/u, ""),
+    ` data-cooldown-ready-label="Připraveno po synchronizaci">`,
+    escapeHtml(action.cooldownLabel.replace(/^(?:Cooldown|Čekání)\s+/u, "")),
     `</span>`
-  ].join("") : action.cooldownLabel;
+  ].join("") : escapeHtml(action.cooldownLabel);
   const createRunBuildingActionCommand = (input) => {
     const district = input.slice.district;
     const building = district == null ? void 0 : district.buildings.find((candidate) => candidate.buildingId === input.buildingId);
@@ -158,117 +204,117 @@ var EmpireGameplaySliceClient = function(exports) {
     const hasProduction = Boolean(slot.production);
     const hasCraft = slot.craftOptions.length > 0;
     return [
-      `<section class="district-panel__slot district-panel__slot--${buildingType}" data-slot-index="${slot.slotIndex}" data-slot-status="${slot.statusLabel}" data-slot-building-type="${buildingType}" data-has-production="${hasProduction}" data-has-craft="${hasCraft}">`,
+      `<section class="district-panel__slot district-panel__slot--${buildingType}" data-slot-index="${escapeAttribute(slot.slotIndex)}" data-slot-status="${escapeAttribute(slot.statusLabel)}" data-slot-building-type="${escapeAttribute(buildingType)}" data-has-production="${escapeAttribute(hasProduction)}" data-has-craft="${escapeAttribute(hasCraft)}">`,
       `<div class="district-panel__slot-head">`,
       `<div class="district-panel__slot-heading">`,
       `<span class="district-panel__slot-icon" aria-hidden="true">${getBuildingIcon(slot.buildingTypeId)}</span>`,
       `<div>`,
-      `<p class="district-panel__slot-index">Slot ${slot.slotIndex + 1}</p>`,
-      `<h4 class="district-panel__slot-title">${slot.title}</h4>`,
+      `<p class="district-panel__slot-index">Slot ${escapeHtml(slot.slotIndex + 1)}</p>`,
+      `<h4 class="district-panel__slot-title">${escapeHtml(slot.title)}</h4>`,
       `</div>`,
       `</div>`,
-      `<span class="district-panel__slot-state">${slot.statusLabel}</span>`,
+      `<span class="district-panel__slot-state">${escapeHtml(slot.statusLabel)}</span>`,
       `</div>`,
-      `<p class="district-panel__slot-summary">${slot.summaryLabel}</p>`,
+      `<p class="district-panel__slot-summary">${escapeHtml(slot.summaryLabel)}</p>`,
       slot.production ? [
         `<div class="district-panel__production district-panel__production--storage">`,
         `<div class="district-panel__production-head">`,
-        `<strong class="district-panel__production-title">${slot.production.resourceLabel}</strong>`,
-        `<span class="district-panel__production-rate">${slot.production.rateLabel}</span>`,
+        `<strong class="district-panel__production-title">${escapeHtml(slot.production.resourceLabel)}</strong>`,
+        `<span class="district-panel__production-rate">${escapeHtml(slot.production.rateLabel)}</span>`,
         `</div>`,
-        `<div class="district-panel__production-bar" style="--production-fill:${slot.production.storagePercent}%">`,
+        `<div class="district-panel__production-bar" style="--production-fill:${escapeAttribute(toPercentCssValue(slot.production.storagePercent))}%">`,
         `<span class="district-panel__production-bar-fill"></span>`,
         `</div>`,
         `<div class="district-panel__production-metrics">`,
-        `<span class="district-panel__production-metric">${slot.production.storageLabel}</span>`,
-        `<span class="district-panel__production-metric">${slot.production.playerStockLabel}</span>`,
+        `<span class="district-panel__production-metric">${escapeHtml(slot.production.storageLabel)}</span>`,
+        `<span class="district-panel__production-metric">${escapeHtml(slot.production.playerStockLabel)}</span>`,
         `</div>`,
         `<div class="district-panel__action-row">`,
-        `<button class="district-panel__action-button district-panel__action-button--collect" data-collect-building-id="${slot.production.buildingId}"${slot.production.canCollect ? "" : " disabled"}${slot.production.collectDisabledReason ? ` data-disabled-reason="${slot.production.collectDisabledReason}"` : ""}>Collect ${slot.production.resourceLabel}</button>`,
-        slot.production.collectDisabledReason ? `<p class="district-panel__action-reason">${slot.production.collectDisabledReason}</p>` : "",
+        `<button class="district-panel__action-button district-panel__action-button--collect" data-collect-building-id="${escapeAttribute(slot.production.buildingId)}"${slot.production.canCollect ? "" : " disabled"}${slot.production.collectDisabledReason ? ` data-disabled-reason="${escapeAttribute(slot.production.collectDisabledReason)}"` : ""}>Vybrat ${escapeHtml(slot.production.resourceLabel)}</button>`,
+        slot.production.collectDisabledReason ? `<p class="district-panel__action-reason">${escapeHtml(slot.production.collectDisabledReason)}</p>` : "",
         `</div>`,
         `</div>`
       ].join("") : "",
       slot.craftOptions.length > 0 ? [
         `<div class="district-panel__production district-panel__production--craft">`,
         `<div class="district-panel__production-head">`,
-        `<strong class="district-panel__production-title">Processing slots</strong>`,
-        `<span class="district-panel__production-rate">${slot.craftOptions.length} recipe${slot.craftOptions.length === 1 ? "" : "s"}</span>`,
+        `<strong class="district-panel__production-title">Zpracování</strong>`,
+        `<span class="district-panel__production-rate">${escapeHtml(slot.craftOptions.length)} receptů</span>`,
         `</div>`,
         slot.processing ? [
           `<div class="district-panel__production-metrics">`,
-          `<span class="district-panel__production-metric">Processing ${slot.processing.label}</span>`,
-          `<span class="district-panel__production-metric">${slot.processing.progressLabel}</span>`,
-          `<span class="district-panel__production-metric">${slot.processing.completionLabel}</span>`,
+          `<span class="district-panel__production-metric">Zpracovává se ${escapeHtml(slot.processing.label)}</span>`,
+          `<span class="district-panel__production-metric">${escapeHtml(slot.processing.progressLabel)}</span>`,
+          `<span class="district-panel__production-metric">${escapeHtml(slot.processing.completionLabel)}</span>`,
           `</div>`,
           `<div class="district-panel__production-metrics">`,
-          `<span class="district-panel__production-metric">${slot.processing.outputLabel}</span>`,
+          `<span class="district-panel__production-metric">${escapeHtml(slot.processing.outputLabel)}</span>`,
           `</div>`
         ].join("") : "",
         slot.craftOptions.map(
           (option) => [
-            `<article class="district-panel__craft-option" data-craft-option="${option.recipeId}">`,
+            `<article class="district-panel__craft-option" data-craft-option="${escapeAttribute(option.recipeId)}">`,
             `<div class="district-panel__production-metrics">`,
-            `<span class="district-panel__production-metric">Costs ${option.inputSummary}</span>`,
-            `<span class="district-panel__production-metric">+${option.outputAmount} ${option.outputResourceLabel}</span>`,
-            `<span class="district-panel__production-metric">${option.playerStockLabel}</span>`,
+            `<span class="district-panel__production-metric">Cena ${escapeHtml(option.inputSummary)}</span>`,
+            `<span class="district-panel__production-metric">+${escapeHtml(option.outputAmount)} ${escapeHtml(option.outputResourceLabel)}</span>`,
+            `<span class="district-panel__production-metric">${escapeHtml(option.playerStockLabel)}</span>`,
             `</div>`,
             `<div class="district-panel__action-row">`,
-            `<button class="district-panel__action-button district-panel__action-button--craft" data-craft-building-id="${option.buildingId}" data-craft-recipe-id="${option.recipeId}"${option.canCraft ? "" : " disabled"}${option.disabledReason ? ` data-disabled-reason="${option.disabledReason}"` : ""}>Process ${option.label}</button>`,
-            option.disabledReason ? `<p class="district-panel__action-reason">${option.disabledReason}</p>` : "",
+            `<button class="district-panel__action-button district-panel__action-button--craft" data-craft-building-id="${escapeAttribute(option.buildingId)}" data-craft-recipe-id="${escapeAttribute(option.recipeId)}"${option.canCraft ? "" : " disabled"}${option.disabledReason ? ` data-disabled-reason="${escapeAttribute(option.disabledReason)}"` : ""}>Zpracovat ${escapeHtml(option.label)}</button>`,
+            option.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(option.disabledReason)}</p>` : "",
             `</div>`,
             `</article>`
           ].join("")
         ).join(""),
         `</div>`
       ].join("") : "",
-      slot.production || slot.craftOptions.length > 0 ? "" : `<p class="district-panel__empty-copy">Fixed buildings for this district are defined by district map data.</p>`,
+      slot.production || slot.craftOptions.length > 0 ? "" : `<p class="district-panel__empty-copy">Pevné budovy pro tento distrikt určuje mapa.</p>`,
       "</section>"
     ].join("");
   };
   const renderDistrictBuilding = (building, isOpen = false) => [
-    `<article class="district-panel__slot district-panel__slot--${toCssToken(building.buildingTypeId)}" data-building-id="${building.buildingId}" data-building-type="${building.buildingTypeId}">`,
+    `<article class="district-panel__slot district-panel__slot--${toCssToken(building.buildingTypeId)}" data-building-id="${escapeAttribute(building.buildingId)}" data-building-type="${escapeAttribute(building.buildingTypeId)}">`,
     `<div class="district-panel__slot-head">`,
     `<div class="district-panel__slot-heading">`,
     `<span class="district-panel__slot-icon" aria-hidden="true">${getBuildingIcon(building.buildingTypeId)}</span>`,
     `<div>`,
-    `<p class="district-panel__slot-index">${building.typeLabel}</p>`,
-    `<h4 class="district-panel__slot-title">${building.label}</h4>`,
+    `<p class="district-panel__slot-index">${escapeHtml(building.typeLabel)}</p>`,
+    `<h4 class="district-panel__slot-title">${escapeHtml(building.label)}</h4>`,
     `</div>`,
     `</div>`,
-    `<span class="district-panel__slot-state">${building.statusLabel}</span>`,
+    `<span class="district-panel__slot-state">${escapeHtml(building.statusLabel)}</span>`,
     `</div>`,
-    `<p class="district-panel__slot-summary">${building.summaryLabel}</p>`,
-    `<details class="district-building-popup-host" data-building-popup-target="${building.buildingId}"${isOpen ? " open" : ""}>`,
-    `<summary class="district-panel__action-button district-panel__action-button--info">Stats / Info / Speciální akce</summary>`,
+    `<p class="district-panel__slot-summary">${escapeHtml(building.summaryLabel)}</p>`,
+    `<details class="district-building-popup-host" data-building-popup-target="${escapeAttribute(building.buildingId)}"${isOpen ? " open" : ""}>`,
+    `<summary class="district-panel__action-button district-panel__action-button--info">Statistiky / Info / Speciální akce</summary>`,
     renderBuildingDetailPopup(building),
     `</details>`,
     building.actions.length > 0 ? building.actions.map((action) => {
       const disabledAttribute = action.disabled ? " disabled" : "";
-      const reasonAttribute = action.disabledReason ? ` data-disabled-reason="${action.disabledReason}"` : "";
+      const reasonAttribute = action.disabledReason ? ` data-disabled-reason="${escapeAttribute(action.disabledReason)}"` : "";
       return [
-        `<div class="district-panel__production" data-building-action-controls="${action.actionId}">`,
+        `<div class="district-panel__production" data-building-action-controls="${escapeAttribute(action.actionId)}">`,
         `<div class="district-panel__production-head">`,
-        `<strong class="district-panel__production-title">${action.label}</strong>`,
-        `<span class="district-panel__production-rate">${action.statusLabel} · ${renderLiveCooldown(action)}</span>`,
+        `<strong class="district-panel__production-title">${escapeHtml(action.label)}</strong>`,
+        `<span class="district-panel__production-rate">${escapeHtml(action.statusLabel)} · ${renderLiveCooldown(action)}</span>`,
         `</div>`,
-        `<p class="district-panel__slot-summary">${action.description}</p>`,
-        action.expectedEffectSummary.length > 0 ? `<p class="district-panel__slot-summary">${action.expectedEffectSummary.join(" · ")}</p>` : "",
+        `<p class="district-panel__slot-summary">${escapeHtml(action.description)}</p>`,
+        action.expectedEffectSummary.length > 0 ? `<p class="district-panel__slot-summary">${action.expectedEffectSummary.map(escapeHtml).join(" · ")}</p>` : "",
         `<div class="district-panel__production-metrics">`,
-        `<span class="district-panel__production-metric">Cost ${action.inputSummary}</span>`,
-        `<span class="district-panel__production-metric">Gain ${action.outputSummary}</span>`,
-        `<span class="district-panel__production-metric">Heat ${action.heatLabel}</span>`,
-        `<span class="district-panel__production-metric">Influence ${action.influenceLabel}</span>`,
+        `<span class="district-panel__production-metric">Cena ${escapeHtml(action.inputSummary)}</span>`,
+        `<span class="district-panel__production-metric">Zisk ${escapeHtml(action.outputSummary)}</span>`,
+        `<span class="district-panel__production-metric">Hledanost ${escapeHtml(action.heatLabel)}</span>`,
+        `<span class="district-panel__production-metric">Vliv ${escapeHtml(action.influenceLabel)}</span>`,
         `</div>`,
-        action.riskSummary.length > 0 ? `<div class="district-panel__production-metrics">${action.riskSummary.map((entry) => `<span class="district-panel__production-metric">${entry}</span>`).join("")}</div>` : "",
+        action.riskSummary.length > 0 ? `<div class="district-panel__production-metrics">${action.riskSummary.map((entry) => `<span class="district-panel__production-metric">${escapeHtml(entry)}</span>`).join("")}</div>` : "",
         `<div class="district-panel__action-row">`,
         renderBuildingActionInputs(action),
-        `<button class="district-panel__action-button district-panel__action-button--craft" data-building-action-building-id="${building.buildingId}" data-building-action-id="${action.actionId}"${disabledAttribute}${reasonAttribute}>${action.label}</button>`,
-        action.disabledReason ? `<p class="district-panel__action-reason">${action.disabledReason}</p>` : "",
+        `<button class="district-panel__action-button district-panel__action-button--craft" data-building-action-building-id="${escapeAttribute(building.buildingId)}" data-building-action-id="${escapeAttribute(action.actionId)}"${disabledAttribute}${reasonAttribute}>${escapeHtml(action.label)}</button>`,
+        action.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(action.disabledReason)}</p>` : "",
         `</div>`,
         `</div>`
       ].join("");
-    }).join("") : `<p class="district-panel__empty-copy">No server-fed building actions are available for this fixed building.</p>`,
+    }).join("") : `<p class="district-panel__empty-copy">Pro tuto pevnou budovu nejsou dostupné serverové akce.</p>`,
     `</article>`
   ].join("");
   const getBuildingIcon = (buildingTypeId) => {
@@ -288,26 +334,27 @@ var EmpireGameplaySliceClient = function(exports) {
     }
   };
   const renderBuildingActionInputs = (action) => action.inputs.map((input) => {
-    const dataAttribute = `data-building-action-input="${input.id}"`;
+    const dataAttribute = `data-building-action-input="${escapeAttribute(input.id)}"`;
     const dealerAttribute = input.id === "dealerSlotId" ? " data-dealer-slot-input" : input.id === "itemId" ? " data-dealer-item-input" : input.id === "amount" ? " data-dealer-amount-input" : "";
     if (input.type === "select") {
       return [
-        `<select class="district-panel__action-select" ${dataAttribute}${dealerAttribute} aria-label="${input.label}">`,
-        input.options.map((option) => `<option value="${option.value}">${option.label}</option>`).join(""),
+        `<select class="district-panel__action-select" ${dataAttribute}${dealerAttribute} aria-label="${escapeAttribute(input.label)}">`,
+        input.options.map((option) => `<option value="${escapeAttribute(option.value)}">${escapeHtml(option.label)}</option>`).join(""),
         `</select>`
       ].join("");
     }
-    return `<input class="district-panel__action-input" ${dataAttribute}${dealerAttribute} aria-label="${input.label}" type="${input.type}"${input.min !== void 0 ? ` min="${input.min}"` : ""}${input.max !== void 0 ? ` max="${input.max}"` : ""}${input.required ? " required" : ""}${input.type === "number" ? ' value="1"' : ""}>`;
+    return `<input class="district-panel__action-input" ${dataAttribute}${dealerAttribute} aria-label="${escapeAttribute(input.label)}" type="${escapeAttribute(input.type)}"${input.min !== void 0 ? ` min="${escapeAttribute(input.min)}"` : ""}${input.max !== void 0 ? ` max="${escapeAttribute(input.max)}"` : ""}${input.required ? " required" : ""}${input.type === "number" ? ' value="1"' : ""}>`;
   }).join("");
   const toCssToken = (value) => String(value || "building").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "building";
+  const toPercentCssValue = (value) => Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
   const renderLiveCooldown = (action) => action.cooldownEndsAtMs && action.cooldownRemainingMs > 0 ? [
     `<span data-live-cooldown="true"`,
-    ` data-cooldown-ends-at-ms="${action.cooldownEndsAtMs}"`,
-    ` data-cooldown-prefix="Cooldown "`,
-    ` data-cooldown-ready-label="Ready after server sync">`,
-    action.cooldownLabel,
+    ` data-cooldown-ends-at-ms="${escapeAttribute(action.cooldownEndsAtMs)}"`,
+    ` data-cooldown-prefix="Čekání "`,
+    ` data-cooldown-ready-label="Připraveno po synchronizaci">`,
+    escapeHtml(action.cooldownLabel),
     `</span>`
-  ].join("") : action.cooldownLabel;
+  ].join("") : escapeHtml(action.cooldownLabel);
   const createAttackDistrictCommand = (input) => ({
     id: input.commandId,
     type: "attack-district",
@@ -381,128 +428,128 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const districtPanelFeature = "district-panel";
   const renderDistrictPanel = (panel) => panel.statusLabel === "destroyed" ? [
-    `<section class="district-destroyed-notice" data-feature="district-destroyed-notice" data-district-id="${panel.districtId}" data-district-destroyed="true" role="status" aria-label="Destroyed district">`,
+    `<section class="district-destroyed-notice" data-feature="district-destroyed-notice" data-district-id="${escapeAttribute(panel.districtId)}" data-district-destroyed="true" role="status" aria-label="Zničený distrikt">`,
     `<p>V piči, zničen.</p>`,
     `</section>`
   ].join("") : [
-    `<section class="district-panel" data-feature="${districtPanelFeature}" data-district-id="${panel.districtId}">`,
+    `<section class="district-panel" data-feature="${districtPanelFeature}" data-district-id="${escapeAttribute(panel.districtId)}">`,
     `<header class="district-panel__header">`,
-    `<p class="district-panel__eyebrow">District panel</p>`,
-    `<h2 class="district-panel__title">${panel.title}</h2>`,
+    `<p class="district-panel__eyebrow">Panel distriktu</p>`,
+    `<h2 class="district-panel__title">${escapeHtml(panel.title)}</h2>`,
     `<div class="district-panel__badges">`,
-    `<span class="district-panel__badge district-panel__badge--owner">${panel.ownershipLabel}</span>`,
-    `<span class="district-panel__badge district-panel__badge--status">${panel.statusLabel}</span>`,
-    panel.hasPendingCommand ? `<span class="district-panel__badge district-panel__badge--pending">Command pending</span>` : "",
+    `<span class="district-panel__badge district-panel__badge--owner">${escapeHtml(panel.ownershipLabel)}</span>`,
+    `<span class="district-panel__badge district-panel__badge--status">${escapeHtml(panel.statusLabel)}</span>`,
+    panel.hasPendingCommand ? `<span class="district-panel__badge district-panel__badge--pending">Akce se zpracovává</span>` : "",
     `</div>`,
     `</header>`,
-    `<section class="district-panel__summary-grid" aria-label="District overview">`,
-    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Ownership</span><strong class="district-panel__summary-value">${panel.ownershipLabel}</strong></article>`,
-    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Zone</span><strong class="district-panel__summary-value">${panel.zoneLabel}</strong></article>`,
-    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Heat</span><strong class="district-panel__summary-value">${panel.heatLabel}</strong></article>`,
-    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Influence</span><strong class="district-panel__summary-value">${panel.influenceLabel}</strong></article>`,
-    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Buildings</span><strong class="district-panel__summary-value">${panel.buildingSummary}</strong></article>`,
+    `<section class="district-panel__summary-grid" aria-label="Přehled distriktu">`,
+    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Vlastnictví</span><strong class="district-panel__summary-value">${escapeHtml(panel.ownershipLabel)}</strong></article>`,
+    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Zóna</span><strong class="district-panel__summary-value">${escapeHtml(panel.zoneLabel)}</strong></article>`,
+    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Hledanost</span><strong class="district-panel__summary-value">${escapeHtml(panel.heatLabel)}</strong></article>`,
+    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Vliv</span><strong class="district-panel__summary-value">${escapeHtml(panel.influenceLabel)}</strong></article>`,
+    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Budovy</span><strong class="district-panel__summary-value">${escapeHtml(panel.buildingSummary)}</strong></article>`,
     `</section>`,
     panel.trap ? [
       `<section class="district-panel__section" data-trap-action="true">`,
       `<div class="district-panel__section-head">`,
       `<div>`,
-      `<h3 class="district-panel__section-title">Trap</h3>`,
-      `<p class="district-panel__section-copy">Arm one hidden trap on your owned district. Enemy players only learn about it through reports.</p>`,
+      `<h3 class="district-panel__section-title">Past</h3>`,
+      `<p class="district-panel__section-copy">Nastraž jednu skrytou past ve vlastním distriktu. Nepřátelé ji zjistí jen přes reporty.</p>`,
       `</div>`,
-      `<span class="district-panel__section-meta">${panel.trap.activeLabel ? "Armed" : "Ready"}</span>`,
+      `<span class="district-panel__section-meta">${panel.trap.activeLabel ? "Nastraženo" : "Připraveno"}</span>`,
       `</div>`,
       `<div class="district-panel__action-row">`,
-      `<button class="district-panel__action-button district-panel__action-button--trap" data-place-trap="true"${panel.trap.disabled ? " disabled" : ""}${panel.trap.disabledReason ? ` data-disabled-reason="${panel.trap.disabledReason}"` : ""}>${panel.trap.actionLabel}</button>`,
-      panel.trap.disabledReason ? `<p class="district-panel__action-reason">${panel.trap.disabledReason}</p>` : panel.trap.activeLabel ? `<p class="district-panel__action-reason">${panel.trap.activeLabel}</p>` : "",
+      `<button class="district-panel__action-button district-panel__action-button--trap" data-place-trap="true"${panel.trap.disabled ? " disabled" : ""}${panel.trap.disabledReason ? ` data-disabled-reason="${escapeAttribute(panel.trap.disabledReason)}"` : ""}>${escapeHtml(panel.trap.actionLabel)}</button>`,
+      panel.trap.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(panel.trap.disabledReason)}</p>` : panel.trap.activeLabel ? `<p class="district-panel__action-reason">${escapeHtml(panel.trap.activeLabel)}</p>` : "",
       `</div>`,
       `</section>`
     ].join("") : "",
     `<section class="district-panel__section" data-spy-targets="true">`,
     `<div class="district-panel__section-head">`,
     `<div>`,
-    `<h3 class="district-panel__section-title">Spy Targets</h3>`,
-    `<p class="district-panel__section-copy">Dispatch one scouting command from this district. Reports stay server-authoritative.</p>`,
+    `<h3 class="district-panel__section-title">Cíle špehování</h3>`,
+    `<p class="district-panel__section-copy">Vyšli průzkum z tohoto distriktu. Reporty potvrzuje server.</p>`,
     `</div>`,
-    `<span class="district-panel__section-meta">${panel.spyTargets.length} total</span>`,
+    `<span class="district-panel__section-meta">${escapeHtml(panel.spyTargets.length)} celkem</span>`,
     `</div>`,
     panel.spyTargets.length > 0 ? panel.spyTargets.map((target) => {
       const disabledAttribute = target.disabled ? " disabled" : "";
-      const reasonAttribute = target.disabledReason ? ` data-disabled-reason="${target.disabledReason}"` : "";
+      const reasonAttribute = target.disabledReason ? ` data-disabled-reason="${escapeAttribute(target.disabledReason)}"` : "";
       return [
         `<div class="district-panel__action-row">`,
-        `<button class="district-panel__action-button district-panel__action-button--spy" data-spy-target-id="${target.districtId}"${disabledAttribute}${reasonAttribute}>`,
-        `<span class="district-panel__action-title">${target.label}</span>`,
-        `<span class="district-panel__action-meta">${target.ownerLabel} · ${target.statusLabel}</span>`,
+        `<button class="district-panel__action-button district-panel__action-button--spy" data-spy-target-id="${escapeAttribute(target.districtId)}"${disabledAttribute}${reasonAttribute}>`,
+        `<span class="district-panel__action-title">${escapeHtml(target.label)}</span>`,
+        `<span class="district-panel__action-meta">${escapeHtml(target.ownerLabel)} · ${escapeHtml(target.statusLabel)}</span>`,
         `</button>`,
-        target.disabledReason ? `<p class="district-panel__action-reason">${target.disabledReason}</p>` : "",
+        target.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(target.disabledReason)}</p>` : "",
         `</div>`
       ].join("");
-    }).join("") : `<p class="district-panel__empty-copy">No spy targets are available for this district.</p>`,
+    }).join("") : `<p class="district-panel__empty-copy">Z tohoto distriktu není dostupný cíl špehování.</p>`,
     `</section>`,
     `<section class="district-panel__section" data-occupy-targets="true">`,
     `<div class="district-panel__section-head">`,
     `<div>`,
-    `<h3 class="district-panel__section-title">Occupy Targets</h3>`,
-    `<p class="district-panel__section-copy">Claim neutral neighbors only after server-confirmed spy intel.</p>`,
+    `<h3 class="district-panel__section-title">Cíle obsazení</h3>`,
+    `<p class="district-panel__section-copy">Neutrální sousedy obsazuj až po serverem potvrzeném průzkumu.</p>`,
     `</div>`,
-    `<span class="district-panel__section-meta">${panel.occupyTargets.length} total</span>`,
+    `<span class="district-panel__section-meta">${escapeHtml(panel.occupyTargets.length)} celkem</span>`,
     `</div>`,
     panel.occupyTargets.length > 0 ? panel.occupyTargets.map((target) => {
       const disabledAttribute = target.disabled ? " disabled" : "";
-      const reasonAttribute = target.disabledReason ? ` data-disabled-reason="${target.disabledReason}"` : "";
+      const reasonAttribute = target.disabledReason ? ` data-disabled-reason="${escapeAttribute(target.disabledReason)}"` : "";
       return [
         `<div class="district-panel__action-row">`,
-        `<button class="district-panel__action-button district-panel__action-button--occupy" data-occupy-target-id="${target.districtId}"${disabledAttribute}${reasonAttribute}>`,
-        `<span class="district-panel__action-title">${target.label}</span>`,
-        `<span class="district-panel__action-meta">${target.statusLabel} · cost ${target.influenceCostLabel} · heat ${target.heatGainLabel}</span>`,
+        `<button class="district-panel__action-button district-panel__action-button--occupy" data-occupy-target-id="${escapeAttribute(target.districtId)}"${disabledAttribute}${reasonAttribute}>`,
+        `<span class="district-panel__action-title">${escapeHtml(target.label)}</span>`,
+        `<span class="district-panel__action-meta">${escapeHtml(target.statusLabel)} · cena ${escapeHtml(target.influenceCostLabel)} · hledanost ${escapeHtml(target.heatGainLabel)}</span>`,
         `</button>`,
-        target.disabledReason ? `<p class="district-panel__action-reason">${target.disabledReason}</p>` : "",
+        target.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(target.disabledReason)}</p>` : "",
         `</div>`
       ].join("");
-    }).join("") : `<p class="district-panel__empty-copy">No neutral occupy targets are available from this district.</p>`,
+    }).join("") : `<p class="district-panel__empty-copy">Z tohoto distriktu není dostupný neutrální cíl obsazení.</p>`,
     `</section>`,
     `<section class="district-panel__section" data-attack-targets="true">`,
     `<div class="district-panel__section-head">`,
     `<div>`,
-    `<h3 class="district-panel__section-title">Attack Targets</h3>`,
-    `<p class="district-panel__section-copy">Pick an adjacent district to dispatch an attack command.</p>`,
+    `<h3 class="district-panel__section-title">Cíle útoku</h3>`,
+    `<p class="district-panel__section-copy">Vyber sousední distrikt pro útok.</p>`,
     `</div>`,
-    `<span class="district-panel__section-meta">${panel.attackTargets.length} total</span>`,
+    `<span class="district-panel__section-meta">${escapeHtml(panel.attackTargets.length)} celkem</span>`,
     `</div>`,
     panel.attackTargets.length > 0 ? panel.attackTargets.map((target) => {
       const disabledAttribute = target.disabled ? " disabled" : "";
-      const reasonAttribute = target.disabledReason ? ` data-disabled-reason="${target.disabledReason}"` : "";
+      const reasonAttribute = target.disabledReason ? ` data-disabled-reason="${escapeAttribute(target.disabledReason)}"` : "";
       return [
         `<div class="district-panel__action-row">`,
-        `<button class="district-panel__action-button district-panel__action-button--attack" data-attack-target-id="${target.districtId}"${disabledAttribute}${reasonAttribute}>`,
-        `<span class="district-panel__action-title">${target.label}</span>`,
-        `<span class="district-panel__action-meta">${target.ownerLabel} · ${target.statusLabel}</span>`,
+        `<button class="district-panel__action-button district-panel__action-button--attack" data-attack-target-id="${escapeAttribute(target.districtId)}"${disabledAttribute}${reasonAttribute}>`,
+        `<span class="district-panel__action-title">${escapeHtml(target.label)}</span>`,
+        `<span class="district-panel__action-meta">${escapeHtml(target.ownerLabel)} · ${escapeHtml(target.statusLabel)}</span>`,
         `</button>`,
-        target.disabledReason ? `<p class="district-panel__action-reason">${target.disabledReason}</p>` : "",
+        target.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(target.disabledReason)}</p>` : "",
         `</div>`
       ].join("");
-    }).join("") : `<p class="district-panel__empty-copy">No attack targets are available for this district.</p>`,
+    }).join("") : `<p class="district-panel__empty-copy">Z tohoto distriktu není dostupný cíl útoku.</p>`,
     `</section>`,
     `<section class="district-panel__section">`,
     `<div class="district-panel__section-head">`,
     `<div>`,
-    `<h3 class="district-panel__section-title">District buildings</h3>`,
-    `<p class="district-panel__section-copy">Buildings are fixed by district map data. Run server-authoritative actions from each building.</p>`,
+    `<h3 class="district-panel__section-title">Budovy distriktu</h3>`,
+    `<p class="district-panel__section-copy">Budovy jsou pevně dané mapou distriktu. Akce z budov potvrzuje server.</p>`,
     `</div>`,
-    `<span class="district-panel__section-meta">${panel.buildings.length} fixed</span>`,
+    `<span class="district-panel__section-meta">${escapeHtml(panel.buildings.length)} pevně daných</span>`,
     `</div>`,
     `<div class="district-panel__slot-list">`,
-    panel.buildings.length > 0 ? panel.buildings.map((building) => renderDistrictBuilding(building, building.buildingId === panel.selectedBuildingId)).join("") : `<p class="district-panel__empty-copy">No fixed buildings are assigned to this district projection.</p>`,
+    panel.buildings.length > 0 ? panel.buildings.map((building) => renderDistrictBuilding(building, building.buildingId === panel.selectedBuildingId)).join("") : `<p class="district-panel__empty-copy">Tento distrikt nemá v projekci žádné pevné budovy.</p>`,
     `</div>`,
     `</section>`,
     panel.slots.some((slot) => slot.production || slot.craftOptions.length > 0) ? [
       `<section class="district-panel__section" data-production-slots="true">`,
       `<div class="district-panel__section-head">`,
       `<div>`,
-      `<h3 class="district-panel__section-title">Production slots</h3>`,
-      `<p class="district-panel__section-copy">Fixed production buildings expose storage, processing and craft slots here.</p>`,
+      `<h3 class="district-panel__section-title">Produkční sloty</h3>`,
+      `<p class="district-panel__section-copy">Pevné produkční budovy tady ukazují sklady, zpracování a recepty.</p>`,
       `</div>`,
-      `<span class="district-panel__section-meta">${panel.slots.filter((slot) => slot.production || slot.craftOptions.length > 0).length} active</span>`,
+      `<span class="district-panel__section-meta">${escapeHtml(panel.slots.filter((slot) => slot.production || slot.craftOptions.length > 0).length)} aktivních</span>`,
       `</div>`,
       `<div class="district-panel__slot-list district-panel__slot-list--production">`,
       panel.slots.filter((slot) => slot.production || slot.craftOptions.length > 0).map((slot) => renderBuildingSlot(slot)).join(""),
@@ -589,12 +636,19 @@ var EmpireGameplaySliceClient = function(exports) {
       "amount"
     ];
     return Object.fromEntries(inputIds.map((inputId) => {
-      var _a;
-      const element = (_a = buildingCard == null ? void 0 : buildingCard.querySelector) == null ? void 0 : _a.call(buildingCard, `[data-building-action-input="${inputId}"]`);
+      const element = findBuildingActionInput(buildingCard, inputId);
       const value = (element == null ? void 0 : element.value) || (element == null ? void 0 : element.dataset.value);
       const parsed = ["amount", "investment", "investmentCleanCash"].includes(inputId) ? toPositiveNumber(value) : value;
       return [inputId, parsed || void 0];
     }));
+  };
+  const findBuildingActionInput = (buildingCard, inputId) => {
+    var _a;
+    const inputs = (_a = buildingCard == null ? void 0 : buildingCard.querySelectorAll) == null ? void 0 : _a.call(buildingCard, "[data-building-action-input]");
+    if (!inputs) {
+      return null;
+    }
+    return Array.from(inputs).find((element) => element.dataset.buildingActionInput === inputId) ?? null;
   };
   const readNumberInput = (values, key) => {
     const value = values[key];
@@ -935,24 +989,25 @@ var EmpireGameplaySliceClient = function(exports) {
     };
   };
   const renderMap = ({ districts, selectedDistrictId }) => [
-    `<section data-map-surface="district-list" data-selected-district-id="${selectedDistrictId ?? ""}">`,
+    `<section data-map-surface="district-list" data-selected-district-id="${escapeAttribute(selectedDistrictId ?? "")}">`,
     districts.map(
       (district) => {
-        const ownerColorAttribute = district.ownerColor ? ` data-owner-color="${district.ownerColor}" style="--map-owner-color:${district.ownerColor}"` : "";
+        const ownerColor = toSafeCssColorValue(district.ownerColor);
+        const ownerColorAttribute = ownerColor ? ` data-owner-color="${escapeAttribute(ownerColor)}" style="--map-owner-color:${escapeAttribute(ownerColor)}"` : "";
         return district.isDestroyed ? [
-          `<button class="map-district map-district--destroyed" data-district-id="${district.districtId}" data-selected="${district.isSelected}" data-owned="${district.isOwnedByPlayer}" data-destroyed="true" data-attack-target="${district.isAttackTarget}" data-attack-enabled="false">`,
+          `<button class="map-district map-district--destroyed" data-district-id="${escapeAttribute(district.districtId)}" data-selected="${escapeAttribute(district.isSelected)}" data-owned="${escapeAttribute(district.isOwnedByPlayer)}" data-destroyed="true" data-attack-target="${escapeAttribute(district.isAttackTarget)}" data-attack-enabled="false">`,
           `<span class="map-district__ruin-cracks" aria-hidden="true"></span>`,
-          `<strong>${district.label}</strong>`,
+          `<strong>${escapeHtml(district.label)}</strong>`,
           `<span>V piči, zničen.</span>`,
           `</button>`
         ].join("") : [
-          `<button class="map-district" data-district-id="${district.districtId}" data-selected="${district.isSelected}" data-owned="${district.isOwnedByPlayer}" data-destroyed="false" data-attack-target="${district.isAttackTarget}" data-attack-enabled="${district.attackEnabled}"${ownerColorAttribute}>`,
-          `<strong>${district.label}</strong>`,
-          `<span>${district.ownerLabel}</span>`,
-          `<span>Zone: ${district.zoneLabel}</span>`,
-          `<span>Buildings: ${district.buildingSummary}</span>`,
-          `<span>Heat: ${district.heatLabel} · Influence: ${district.influenceLabel}</span>`,
-          district.isAttackTarget ? `<span>${district.attackEnabled ? "Attack Ready" : district.attackDisabledReason ?? "Attack unavailable"}</span>` : "",
+          `<button class="map-district" data-district-id="${escapeAttribute(district.districtId)}" data-selected="${escapeAttribute(district.isSelected)}" data-owned="${escapeAttribute(district.isOwnedByPlayer)}" data-destroyed="false" data-attack-target="${escapeAttribute(district.isAttackTarget)}" data-attack-enabled="${escapeAttribute(district.attackEnabled)}"${ownerColorAttribute}>`,
+          `<strong>${escapeHtml(district.label)}</strong>`,
+          `<span>${escapeHtml(district.ownerLabel)}</span>`,
+          `<span>Zóna: ${escapeHtml(district.zoneLabel)}</span>`,
+          `<span>Budovy: ${escapeHtml(district.buildingSummary)}</span>`,
+          `<span>Hledanost: ${escapeHtml(district.heatLabel)} · Vliv: ${escapeHtml(district.influenceLabel)}</span>`,
+          district.isAttackTarget ? `<span>${escapeHtml(district.attackEnabled ? "Attack Ready" : district.attackDisabledReason ?? "Attack unavailable")}</span>` : "",
           district.isContested ? "<span>Contested</span>" : "",
           "</button>"
         ].join("");
@@ -960,6 +1015,10 @@ var EmpireGameplaySliceClient = function(exports) {
     ).join(""),
     "</section>"
   ].join("");
+  const toSafeCssColorValue = (value) => {
+    const normalized = String(value ?? "").trim();
+    return /^[#a-zA-Z0-9(),.%\s-]+$/u.test(normalized) ? normalized : "";
+  };
   const toTitleCase$3 = (value) => value.split(/[-_]+/g).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
   const getStoragePercent = (storedAmount, storageCap) => Math.max(0, Math.min(100, Math.round(Math.max(0, storedAmount) / Math.max(1, storageCap) * 100)));
   const formatTickLabel = (tickCount) => `${tickCount} ${tickCount === 1 ? "tick" : "ticks"}`;
@@ -998,34 +1057,34 @@ var EmpireGameplaySliceClient = function(exports) {
       districtId: slice.district.districtId,
       selectedBuildingId,
       title: slice.district.name,
-      ownershipLabel: slice.district.isOwnedByPlayer ? "Owned by current player" : slice.district.status === "destroyed" ? "Destroyed district" : slice.district.ownerPlayerId ? `Owned by ${slice.district.ownerPlayerId}` : "Unclaimed district",
+      ownershipLabel: slice.district.isOwnedByPlayer ? "Vlastní hráč" : slice.district.status === "destroyed" ? "Zničený distrikt" : slice.district.ownerPlayerId ? `Vlastní ${slice.district.ownerPlayerId}` : "Neobsazený distrikt",
       zoneLabel: toTitleCase$3(slice.district.zone),
       statusLabel: slice.district.status,
       heatLabel: formatHeatLabel$1(slice.district.heat),
       influenceLabel: String(slice.district.influence),
-      buildingSummary: slice.district.status === "destroyed" ? "0 fixed buildings · destroyed" : `${slice.district.buildings.length} fixed buildings`,
-      attackSummary: slice.district.attackTargets.length > 0 ? `${slice.district.attackTargets.filter((target) => target.enabled).length}/${slice.district.attackTargets.length} attack routes ready` : "No adjacent attack routes",
+      buildingSummary: slice.district.status === "destroyed" ? "0 pevných budov · zničeno" : `${slice.district.buildings.length} pevných budov`,
+      attackSummary: slice.district.attackTargets.length > 0 ? `${slice.district.attackTargets.filter((target) => target.enabled).length}/${slice.district.attackTargets.length} tras útoku připraveno` : "Žádné sousední trasy útoku",
       hasPendingCommand,
       trap: slice.district.trap ? {
-        actionLabel: slice.district.trap.activeTrap ? "Trap armed" : "Arm hidden trap",
+        actionLabel: slice.district.trap.activeTrap ? "Past nastražena" : "Nastražit skrytou past",
         activeLabel: slice.district.trap.activeTrap ? `${slice.district.trap.activeTrap.label} · tick ${slice.district.trap.activeTrap.placedAtTick}` : null,
         disabled: hasPendingCommand || !slice.district.trap.enabled,
-        disabledReason: hasPendingCommand ? "Command pending." : slice.district.trap.disabledReason
+        disabledReason: hasPendingCommand ? "Akce se zpracovává." : slice.district.trap.disabledReason
       } : null,
       spyTargets: slice.district.spyTargets.map((target) => ({
         districtId: target.districtId,
         label: target.name,
-        ownerLabel: target.ownerPlayerId ? `Owner ${target.ownerPlayerId}` : "Neutral district",
+        ownerLabel: target.ownerPlayerId ? `Vlastník ${target.ownerPlayerId}` : "Neutrální distrikt",
         statusLabel: target.status,
         disabled: hasPendingCommand || !target.enabled,
-        disabledReason: hasPendingCommand ? "Command pending." : target.disabledReason
+        disabledReason: hasPendingCommand ? "Akce se zpracovává." : target.disabledReason
       })),
       occupyTargets: slice.district.occupyTargets.map((target) => ({
         districtId: target.districtId,
         label: target.name,
         statusLabel: target.status,
         disabled: hasPendingCommand || !target.enabled,
-        disabledReason: hasPendingCommand ? "Command pending." : target.disabledReason,
+        disabledReason: hasPendingCommand ? "Akce se zpracovává." : target.disabledReason,
         disabledCode: target.disabledCode,
         influenceCostLabel: String(target.cost.influence),
         heatGainLabel: `+${target.heatGain}`,
@@ -1034,10 +1093,10 @@ var EmpireGameplaySliceClient = function(exports) {
       attackTargets: slice.district.attackTargets.map((target) => ({
         districtId: target.districtId,
         label: target.name,
-        ownerLabel: target.ownerPlayerId ? `Owner ${target.ownerPlayerId}` : "Neutral district",
+        ownerLabel: target.ownerPlayerId ? `Vlastník ${target.ownerPlayerId}` : "Neutrální distrikt",
         statusLabel: target.status,
         disabled: hasPendingCommand || !target.enabled,
-        disabledReason: hasPendingCommand ? "Command pending." : target.disabledReason
+        disabledReason: hasPendingCommand ? "Akce se zpracovává." : target.disabledReason
       })),
       buildings: slice.district.buildings.map((building) => ({
         buildingId: building.buildingId,
@@ -1049,7 +1108,7 @@ var EmpireGameplaySliceClient = function(exports) {
         roleLabel: building.role,
         info: building.info,
         statusLabel: `${building.status} · level ${building.level}`,
-        summaryLabel: `${building.actions.filter((action) => action.enabled).length}/${building.actions.length} actions ready`,
+        summaryLabel: `${building.actions.filter((action) => action.enabled).length}/${building.actions.length} akcí připraveno`,
         stats: building.stats.map((stat) => ({
           label: stat.label,
           value: stat.value
@@ -1061,13 +1120,13 @@ var EmpireGameplaySliceClient = function(exports) {
             label: action.label,
             description: action.description,
             effectSummary: action.effectSummary,
-            durationLabel: action.durationMs > 0 ? formatDurationMs(action.durationMs) : "Instant",
-            cooldownLabel: cooldown.remainingMs > 0 ? `Cooldown ${formatDurationMs(cooldown.remainingMs)}` : formatDurationMs(action.cooldownMs),
+            durationLabel: action.durationMs > 0 ? formatDurationMs(action.durationMs) : "Okamžitě",
+            cooldownLabel: cooldown.remainingMs > 0 ? `Čekání ${formatDurationMs(cooldown.remainingMs)}` : formatDurationMs(action.cooldownMs),
             cooldownRemainingMs: cooldown.remainingMs,
             cooldownEndsAtMs: cooldown.endsAtMs,
             heatLabel: `+${action.heatGain}`,
             disabled: hasPendingCommand || !action.enabled,
-            disabledReason: hasPendingCommand ? "Command pending." : action.disabledReason
+            disabledReason: hasPendingCommand ? "Akce se zpracovává." : action.disabledReason
           };
         }),
         actions: building.actions.map((action) => {
@@ -1077,8 +1136,8 @@ var EmpireGameplaySliceClient = function(exports) {
             label: action.label,
             description: action.description,
             statusLabel: toTitleCase$3(action.status),
-            inputSummary: formatResourceSummary(action.inputCost, "Free"),
-            outputSummary: formatResourceSummary(action.outputGain, "No output"),
+            inputSummary: formatResourceSummary(action.inputCost, "Zdarma"),
+            outputSummary: formatResourceSummary(action.outputGain, "Bez výstupu"),
             expectedEffectSummary: action.expectedEffectSummary,
             riskSummary: action.riskSummary,
             inputs: action.requiresInput.map((input) => ({
@@ -1090,37 +1149,37 @@ var EmpireGameplaySliceClient = function(exports) {
               max: input.max,
               options: input.options ?? []
             })),
-            cooldownLabel: cooldown.remainingMs > 0 ? `Cooldown ${formatDurationMs(cooldown.remainingMs)}` : `${Math.ceil(action.cooldownMs / 1e3)}s cooldown`,
+            cooldownLabel: cooldown.remainingMs > 0 ? `Čekání ${formatDurationMs(cooldown.remainingMs)}` : `${Math.ceil(action.cooldownMs / 1e3)}s čekání`,
             cooldownRemainingMs: cooldown.remainingMs,
             cooldownEndsAtMs: cooldown.endsAtMs,
             heatLabel: `+${action.heatGain}`,
             influenceLabel: formatSigned$1(action.influenceChange),
             disabled: hasPendingCommand || !action.enabled,
-            disabledReason: hasPendingCommand ? "Command pending." : action.disabledReason
+            disabledReason: hasPendingCommand ? "Akce se zpracovává." : action.disabledReason
           };
         })
       })),
       slots: slice.district.slots.map((slot) => ({
         slotIndex: slot.slotIndex,
         buildingTypeId: slot.buildingTypeId,
-        title: slot.buildingTypeId ? toTitleCase$3(slot.buildingTypeId) : `Empty slot ${slot.slotIndex + 1}`,
+        title: slot.buildingTypeId ? toTitleCase$3(slot.buildingTypeId) : `Prázdný slot ${slot.slotIndex + 1}`,
         statusLabel: slot.status,
         canBuild: false,
-        summaryLabel: slot.processing ? `${slot.processing.label} is processing on the server tick.` : slot.production && slot.craftOptions.length > 0 ? `${slot.production.resourceLabel} production runs on the server tick and collected stock can be processed here.` : slot.production ? `${slot.production.resourceLabel} production is running on the server tick.` : slot.craftOptions.length > 0 ? "This structure processes collected stock through server-authoritative recipes." : slot.buildingTypeId ? "Structure already placed" : "No fixed building is assigned to this district slot.",
+        summaryLabel: slot.processing ? `${slot.processing.label} se zpracovává na server ticku.` : slot.production && slot.craftOptions.length > 0 ? `${slot.production.resourceLabel} běží na server ticku a vybraný sklad se tady dá zpracovat.` : slot.production ? `${slot.production.resourceLabel} běží na server ticku.` : slot.craftOptions.length > 0 ? "Tahle stavba zpracovává vybraný sklad přes serverové recepty." : slot.buildingTypeId ? "Stavba už stojí" : "Tomuto slotu není přiřazená pevná budova.",
         production: slot.production && slot.buildingId ? {
           buildingId: slot.buildingId,
           resourceLabel: slot.production.resourceLabel,
-          storageLabel: `${slot.production.storedAmount}/${slot.production.storageCap} ready`,
+          storageLabel: `${slot.production.storedAmount}/${slot.production.storageCap} připraveno`,
           storagePercent: getStoragePercent(slot.production.storedAmount, slot.production.storageCap),
-          playerStockLabel: `${Math.max(0, Number(playerResources[slot.production.resourceKey] || 0))} in stock`,
+          playerStockLabel: `${Math.max(0, Number(playerResources[slot.production.resourceKey] || 0))} ve skladu`,
           rateLabel: `${slot.production.amountPerTick}/tick`,
           canCollect: slot.production.canCollect && !hasPendingCommand,
-          collectDisabledReason: hasPendingCommand ? "Command pending." : slot.production.collectDisabledReason
+          collectDisabledReason: hasPendingCommand ? "Akce se zpracovává." : slot.production.collectDisabledReason
         } : null,
         processing: slot.processing ? {
           label: slot.processing.label,
           progressLabel: `${Math.max(0, slot.processing.totalTicks - slot.processing.remainingTicks)}/${slot.processing.totalTicks} ticks`,
-          completionLabel: `Ready in ${formatTickLabel(slot.processing.remainingTicks)}`,
+          completionLabel: `Připraveno za ${formatTickLabel(slot.processing.remainingTicks)}`,
           outputLabel: `+${slot.processing.outputAmount} ${slot.processing.outputResourceLabel}`
         } : null,
         craftOptions: slot.craftOptions.map((option) => ({
@@ -1130,9 +1189,9 @@ var EmpireGameplaySliceClient = function(exports) {
           inputSummary: option.inputSummary,
           outputAmount: option.outputAmount,
           outputResourceLabel: option.outputResourceLabel,
-          playerStockLabel: `${Math.max(0, Number(playerResources[option.outputResourceKey] || 0))} ${option.outputResourceLabel} in stock`,
+          playerStockLabel: `${Math.max(0, Number(playerResources[option.outputResourceKey] || 0))} ${option.outputResourceLabel} ve skladu`,
           canCraft: option.canCraft && !hasPendingCommand && Boolean(slot.buildingId),
-          disabledReason: hasPendingCommand ? "Command pending." : option.craftDisabledReason
+          disabledReason: hasPendingCommand ? "Akce se zpracovává." : option.craftDisabledReason
         })),
         buildOptions: []
       }))
@@ -1144,11 +1203,11 @@ var EmpireGameplaySliceClient = function(exports) {
     return {
       districtId: district.districtId,
       label: district.name,
-      ownerLabel: isDestroyed ? "Destroyed district" : district.isOwnedByPlayer ? "Owned by current player" : district.ownerPlayerId ? `Owned by ${district.ownerPlayerId}` : "Neutral district",
+      ownerLabel: isDestroyed ? "Zničený distrikt" : district.isOwnedByPlayer ? "Vlastní hráč" : district.ownerPlayerId ? `Vlastní ${district.ownerPlayerId}` : "Neutrální distrikt",
       zoneLabel: toTitleCase$2(district.zone),
       heatLabel: formatHeatLabel(district.heat),
       influenceLabel: String(district.influence),
-      buildingSummary: `${district.filledSlotCount} fixed`,
+      buildingSummary: `${district.filledSlotCount} pevných`,
       ownerPlayerId: district.ownerPlayerId,
       ownerColor: district.ownerColor,
       isOwnedByPlayer: district.isOwnedByPlayer,
@@ -1199,7 +1258,7 @@ var EmpireGameplaySliceClient = function(exports) {
     const parts = [
       `Cash ${Math.max(0, Number(economy.cleanCash || 0))}`,
       `Dirty Cash ${Math.max(0, Number(economy.dirtyCash || 0))}`,
-      `Influence ${Math.max(0, Number(economy.influence || 0))}`,
+      `Vliv ${Math.max(0, Number(economy.influence || 0))}`,
       `Population ${Math.max(0, Number(economy.population || 0))}`
     ];
     for (const balances of [economy.materials, economy.drugs, economy.weapons]) {
@@ -1225,57 +1284,57 @@ var EmpireGameplaySliceClient = function(exports) {
   const createReportViewModels = (reports) => reports.map((report) => ({
     id: report.reportId,
     reportType: report.reportType,
-    title: report.reportType === "spy" ? `Spy ${report.result} on ${report.targetDistrictId}` : report.reportType === "occupy" ? `Occupy ${report.result} on ${report.targetDistrictId}` : report.reportType === "building-action" ? `${toTitleCase(report.buildingActionId)} on ${report.districtId}` : report.districtDestroyed ? `District catastrophe on ${report.targetDistrictId}` : `Attack ${report.result} on ${report.targetDistrictId}`,
+    title: report.reportType === "spy" ? `Špehování ${report.result} v ${report.targetDistrictId}` : report.reportType === "occupy" ? `Obsazení ${report.result} v ${report.targetDistrictId}` : report.reportType === "building-action" ? `${toTitleCase(report.buildingActionId)} v ${report.districtId}` : report.districtDestroyed ? `Katastrofa v distriktu ${report.targetDistrictId}` : `Útok ${report.result} v ${report.targetDistrictId}`,
     createdAt: `${report.tick}`,
     category: report.reportType,
-    summary: report.reportType === "spy" ? report.trapDetected ? "Defense confirmed. Trap detected." : "Defense scout resolved." : report.reportType === "occupy" ? `District occupied. Influence -${report.influenceCost} · heat +${report.heatGained}.` : report.reportType === "building-action" ? formatBuildingActionSummary(report) : report.districtDestroyed ? "Catastrophe destroyed the district. Control, buildings, heat, and influence were wiped." : report.trapTriggered ? "Trap triggered during the attack." : report.districtCaptured ? "District captured." : "District held by defender.",
+    summary: report.reportType === "spy" ? report.trapDetected ? "Obrana potvrzena. Past odhalena." : "Průzkum obrany vyhodnocen." : report.reportType === "occupy" ? `Distrikt obsazen. Vliv -${report.influenceCost} · hledanost +${report.heatGained}.` : report.reportType === "building-action" ? formatBuildingActionSummary(report) : report.districtDestroyed ? "Katastrofa zničila distrikt. Kontrola, budovy, hledanost i vliv byly smazány." : report.trapTriggered ? "Během útoku se spustila past." : report.districtCaptured ? "Distrikt dobyt." : "Distrikt udržel obránce.",
     result: report.result,
     severity: report.reportType === "battle" && report.districtDestroyed ? "critical" : "normal",
     messages: report.reportType === "building-action" ? report.messages ?? [] : report.reportType === "battle" && report.districtDestroyed ? [
-      "District state: destroyed and unusable.",
-      "Owner: none.",
-      "Fixed buildings: lost.",
-      "All primary district actions are disabled."
+      "Stav distriktu: zničený a nepoužitelný.",
+      "Vlastník: nikdo.",
+      "Pevné budovy: ztraceny.",
+      "Všechny hlavní akce distriktu jsou vypnuté."
     ] : [],
     details: formatReportDetails(report)
   }));
   const formatReportDetails = (report) => {
     if (report.reportType === "spy") {
       return [
-        `Source ${report.sourceDistrictId}`,
-        `Target ${report.targetDistrictId}`,
-        `Defense intel ${formatNumberRecord(report.detectedDefense)}`,
-        report.trapDetected ? "Trap detected" : "No trap detected"
+        `Zdroj ${report.sourceDistrictId}`,
+        `Cíl ${report.targetDistrictId}`,
+        `Intel obrany ${formatNumberRecord(report.detectedDefense)}`,
+        report.trapDetected ? "Past odhalena" : "Past neodhalena"
       ];
     }
     if (report.reportType === "occupy") {
       return [
-        `Source ${report.sourceDistrictId}`,
-        `Target ${report.targetDistrictId}`,
-        `Influence -${report.influenceCost}`,
-        `Heat +${report.heatGained}`,
-        report.previousOwnerPlayerId ? `Previous owner ${report.previousOwnerPlayerId}` : "Previous owner none"
+        `Zdroj ${report.sourceDistrictId}`,
+        `Cíl ${report.targetDistrictId}`,
+        `Vliv -${report.influenceCost}`,
+        `Hledanost +${report.heatGained}`,
+        report.previousOwnerPlayerId ? `Předchozí vlastník ${report.previousOwnerPlayerId}` : "Předchozí vlastník nikdo"
       ];
     }
     if (report.reportType === "battle") {
       return [
-        `Source ${report.sourceDistrictId}`,
-        `Target ${report.targetDistrictId}`,
-        report.defenderPlayerId ? `Defender ${report.defenderPlayerId}` : "Defender none",
-        `Outcome ${toTitleCase(report.outcomeTier)}`,
-        `Attacker losses ${formatNumberRecord(report.attackerLosses)}`,
-        `Defender losses ${formatNumberRecord(report.defenderLosses)}`,
-        `Heat +${report.heatGained}`,
-        report.reportForAttacker || "No attacker summary"
+        `Zdroj ${report.sourceDistrictId}`,
+        `Cíl ${report.targetDistrictId}`,
+        report.defenderPlayerId ? `Obránce ${report.defenderPlayerId}` : "Obránce nikdo",
+        `Výsledek ${toTitleCase(report.outcomeTier)}`,
+        `Ztráty útočníka ${formatNumberRecord(report.attackerLosses)}`,
+        `Ztráty obránce ${formatNumberRecord(report.defenderLosses)}`,
+        `Hledanost +${report.heatGained}`,
+        report.reportForAttacker || "Bez shrnutí pro útočníka"
       ];
     }
     return [
-      `District ${report.districtId}`,
-      `Building ${report.buildingId}`,
-      `Output ${formatNumberRecord(report.outputGain)}`,
-      `Cost ${formatNumberRecord(report.inputCost)}`,
-      `Heat ${formatSigned(report.heatDelta ?? report.heatGain)}`,
-      `Influence ${formatSigned(report.influenceDelta ?? report.influenceChange)}`,
+      `Distrikt ${report.districtId}`,
+      `Budova ${report.buildingId}`,
+      `Výstup ${formatNumberRecord(report.outputGain)}`,
+      `Cena ${formatNumberRecord(report.inputCost)}`,
+      `Hledanost ${formatSigned(report.heatDelta ?? report.heatGain)}`,
+      `Vliv ${formatSigned(report.influenceDelta ?? report.influenceChange)}`,
       report.message ?? ""
     ].filter(Boolean);
   };
@@ -1284,20 +1343,20 @@ var EmpireGameplaySliceClient = function(exports) {
       formatResourceDelta(report.outputGain),
       formatDefenseDelta(report.defenseAdded ?? {}),
       formatIntelDelta(report.intelRevealedDistrictIds ?? []),
-      `Heat +${report.heatGain}`,
-      `Influence ${formatSigned(report.influenceChange)}`
+      `Hledanost +${report.heatGain}`,
+      `Vliv ${formatSigned(report.influenceChange)}`
     ].filter(Boolean);
     return parts.join(" · ");
   };
   const formatResourceDelta = (values) => {
     const parts = Object.entries(values).filter(([, amount]) => amount > 0);
-    return parts.length > 0 ? parts.map(([resourceKey, amount]) => `+${amount} ${toTitleCase(resourceKey)}`).join(", ") : "No resource output";
+    return parts.length > 0 ? parts.map(([resourceKey, amount]) => `+${amount} ${toTitleCase(resourceKey)}`).join(", ") : "Bez výstupu zdrojů";
   };
   const formatDefenseDelta = (values) => {
     const parts = Object.entries(values).filter(([, amount]) => amount > 0);
-    return parts.length > 0 ? `Defense ${parts.map(([resourceKey, amount]) => `+${amount} ${toTitleCase(resourceKey)}`).join(", ")}` : "";
+    return parts.length > 0 ? `Obrana ${parts.map(([resourceKey, amount]) => `+${amount} ${toTitleCase(resourceKey)}`).join(", ")}` : "";
   };
-  const formatIntelDelta = (districtIds) => districtIds.length > 0 ? `Intel ${districtIds.length} district${districtIds.length === 1 ? "" : "s"}` : "";
+  const formatIntelDelta = (districtIds) => districtIds.length > 0 ? `Intel ${districtIds.length} distriktů` : "";
   const formatSigned = (value) => value >= 0 ? `+${value}` : String(value);
   const formatNumberRecord = (values) => {
     const parts = Object.entries(values).filter(([, amount]) => Number(amount ?? 0) !== 0);
@@ -1311,10 +1370,10 @@ var EmpireGameplaySliceClient = function(exports) {
       renderCatastropheAlert(reports),
       `<div class="district-panel__section-head">`,
       `<div>`,
-      `<h3 class="district-panel__section-title">Latest reports</h3>`,
-      `<p class="district-panel__section-copy">Server-authored spy, occupy, attack, and building-action outcomes for the current player.</p>`,
+      `<h3 class="district-panel__section-title">Poslední reporty</h3>`,
+      `<p class="district-panel__section-copy">Serverové výsledky špehování, obsazení, útoků a akcí budov pro aktuálního hráče.</p>`,
       `</div>`,
-      `<span class="district-panel__section-meta">${reports.length} recent</span>`,
+      `<span class="district-panel__section-meta">${escapeHtml(reports.length)} nových</span>`,
       `</div>`,
       commandStatusHtml,
       reports.map((report, index) => {
@@ -1329,17 +1388,17 @@ var EmpireGameplaySliceClient = function(exports) {
   const renderReportCard = (report, {
     highlighted
   }) => [
-    `<article class="district-panel__slot" data-report-id="${report.id}" data-report-category="${report.category}" data-report-type="${report.reportType}" data-report-severity="${report.severity}" data-report-highlight="${highlighted ? "latest-command" : "none"}">`,
+    `<article class="district-panel__slot" data-report-id="${escapeAttribute(report.id)}" data-report-category="${escapeAttribute(report.category)}" data-report-type="${escapeAttribute(report.reportType)}" data-report-severity="${escapeAttribute(report.severity)}" data-report-highlight="${highlighted ? "latest-command" : "none"}">`,
     `<div class="district-panel__slot-head">`,
     `<div>`,
-    `<p class="district-panel__slot-index">${report.category}</p>`,
-    `<h4 class="district-panel__slot-title">${report.title}</h4>`,
+    `<p class="district-panel__slot-index">${escapeHtml(report.category)}</p>`,
+    `<h4 class="district-panel__slot-title">${escapeHtml(report.title)}</h4>`,
     `</div>`,
-    `<span class="district-panel__slot-state">${report.result}</span>`,
+    `<span class="district-panel__slot-state">${escapeHtml(report.result)}</span>`,
     `</div>`,
-    `<p class="district-panel__slot-summary">${report.summary}</p>`,
-    report.details.length > 0 ? `<div class="reports-panel__detail-list">${report.details.map((detail) => `<span class="reports-panel__detail">${detail}</span>`).join("")}</div>` : "",
-    `<p class="district-panel__empty-copy">Tick ${report.createdAt}</p>`,
+    `<p class="district-panel__slot-summary">${escapeHtml(report.summary)}</p>`,
+    report.details.length > 0 ? `<div class="reports-panel__detail-list">${report.details.map((detail) => `<span class="reports-panel__detail">${escapeHtml(detail)}</span>`).join("")}</div>` : "",
+    `<p class="district-panel__empty-copy">Tick ${escapeHtml(report.createdAt)}</p>`,
     `</article>`
   ].join("");
   const renderCommandReportStatus = (reports, options) => {
@@ -1349,17 +1408,17 @@ var EmpireGameplaySliceClient = function(exports) {
       return "";
     }
     if (!status.accepted) {
-      const message = ((_b = (_a = options.errors) == null ? void 0 : _a[0]) == null ? void 0 : _b.message) ?? "The server rejected the command.";
+      const message = ((_b = (_a = options.errors) == null ? void 0 : _a[0]) == null ? void 0 : _b.message) ?? "Server akci odmítl. Zkontroluj vybraný cíl, zdroje nebo synchronizaci a zkus to znovu.";
       return [
         `<article class="district-panel__slot" data-report-command-status="rejected">`,
         `<div class="district-panel__slot-head">`,
         `<div>`,
-        `<p class="district-panel__slot-index">command</p>`,
-        `<h4 class="district-panel__slot-title">Command rejected</h4>`,
+        `<p class="district-panel__slot-index">akce</p>`,
+        `<h4 class="district-panel__slot-title">Akce odmítnuta</h4>`,
         `</div>`,
-        `<span class="district-panel__slot-state">rejected</span>`,
+        `<span class="district-panel__slot-state">odmítnuto</span>`,
         `</div>`,
-        `<p class="district-panel__slot-summary">${message}</p>`,
+        `<p class="district-panel__slot-summary">${escapeHtml(message)}</p>`,
         `</article>`
       ].join("");
     }
@@ -1370,12 +1429,12 @@ var EmpireGameplaySliceClient = function(exports) {
       `<article class="district-panel__slot" data-report-command-status="accepted-without-report">`,
       `<div class="district-panel__slot-head">`,
       `<div>`,
-      `<p class="district-panel__slot-index">command</p>`,
-      `<h4 class="district-panel__slot-title">Command accepted</h4>`,
+      `<p class="district-panel__slot-index">akce</p>`,
+      `<h4 class="district-panel__slot-title">Akce přijata</h4>`,
       `</div>`,
-      `<span class="district-panel__slot-state">accepted</span>`,
+      `<span class="district-panel__slot-state">přijato</span>`,
       `</div>`,
-      `<p class="district-panel__slot-summary">The server accepted the command but did not emit a new player report. Check the feed and selected district state for the authoritative result.</p>`,
+      `<p class="district-panel__slot-summary">Server akci přijal, ale nevydal nový hráčský report. Výsledek ověř ve feedu a ve stavu vybraného distriktu.</p>`,
       `</article>`
     ].join("");
   };
@@ -1385,39 +1444,38 @@ var EmpireGameplaySliceClient = function(exports) {
       return "";
     }
     return [
-      `<section class="reports-panel__catastrophe-window" data-catastrophe-alert="true" role="dialog" aria-label="District catastrophe report">`,
+      `<section class="reports-panel__catastrophe-window" data-catastrophe-alert="true" role="dialog" aria-label="Report katastrofy distriktu">`,
       `<div class="district-panel__section-head">`,
       `<div>`,
-      `<h3 class="district-panel__section-title">${catastropheReport.title}</h3>`,
-      `<p class="district-panel__section-copy">${catastropheReport.summary}</p>`,
+      `<h3 class="district-panel__section-title">${escapeHtml(catastropheReport.title)}</h3>`,
+      `<p class="district-panel__section-copy">${escapeHtml(catastropheReport.summary)}</p>`,
       `</div>`,
-      `<span class="district-panel__section-meta">${catastropheReport.result}</span>`,
+      `<span class="district-panel__section-meta">${escapeHtml(catastropheReport.result)}</span>`,
       `</div>`,
       `<div class="district-panel__slot-list">`,
-      catastropheReport.messages.map((message) => `<p class="district-panel__action-reason">${message}</p>`).join(""),
+      catastropheReport.messages.map((message) => `<p class="district-panel__action-reason">${escapeHtml(message)}</p>`).join(""),
       `</div>`,
       `</section>`
     ].join("");
   };
-  const renderSidePanelShell = ({ activePanel, contentHtml }) => activePanel ? `<aside class="side-panel-shell" data-panel="${activePanel}">${contentHtml}</aside>` : '<aside class="side-panel-shell" data-panel="none"></aside>';
+  const renderSidePanelShell = ({ activePanel, contentHtml }) => activePanel ? `<aside class="side-panel-shell" data-panel="${escapeAttribute(activePanel)}">${contentHtml}</aside>` : '<aside class="side-panel-shell" data-panel="none"></aside>';
   const renderTopBarShell = ({ player }) => {
     var _a;
-    return player ? `<header data-mode="${player.modeLabel}" data-city-phase="${((_a = player.dayNight) == null ? void 0 : _a.uiThemeHint) ?? "day"}">Mode: ${player.modeLabel} · Player: ${player.playerId}${renderHomeDistrict(player)} · Resources: ${player.resourceSummary} · Alerts: ${player.notificationCount}${renderPoliceBadge(player)}${renderDayNightBadge(player)}</header>` : "";
+    return player ? `<header data-mode="${escapeAttribute(player.modeLabel)}" data-city-phase="${escapeAttribute(((_a = player.dayNight) == null ? void 0 : _a.uiThemeHint) ?? "day")}">Mode: ${escapeHtml(player.modeLabel)} · Player: ${escapeHtml(player.playerId)}${renderHomeDistrict(player)} · Resources: ${escapeHtml(player.resourceSummary)} · Alerts: ${escapeHtml(player.notificationCount)}${renderPoliceBadge(player)}${renderDayNightBadge(player)}</header>` : "";
   };
-  const renderHomeDistrict = (player) => player.homeDistrictId ? ` · Server assigned home: ${escapeHtml$1(player.homeDistrictId)}` : "";
+  const renderHomeDistrict = (player) => player.homeDistrictId ? ` · Server assigned home: ${escapeHtml(player.homeDistrictId)}` : "";
   const renderPoliceBadge = (player) => {
     const police = player.police;
     if (!police) return "";
-    const pending = police.pendingRaidLabel ? ` · Pending: ${police.pendingRaidLabel}` : "";
-    return ` · <span class="police-badge" data-raid-status="${escapeHtml$1(police.raidConsequenceStatus)}" title="District heat ${escapeHtml$1(police.selectedDistrictHeatLabel)} · Protection ${escapeHtml$1(police.protectionLabel)}">Heat ${escapeHtml$1(police.heatLabel)} · Wanted ${escapeHtml$1(police.wantedLevelLabel)}${pending}</span>`;
+    const pending = police.pendingRaidLabel ? ` · Pending: ${escapeHtml(police.pendingRaidLabel)}` : "";
+    return ` · <span class="police-badge" data-raid-status="${escapeAttribute(police.raidConsequenceStatus)}" title="${escapeAttribute(`Hledanost distriktu ${police.selectedDistrictHeatLabel} · Ochrana ${police.protectionLabel}`)}">Hledanost ${escapeHtml(police.heatLabel)} · Wanted ${escapeHtml(police.wantedLevelLabel)}${pending}</span>`;
   };
   const renderDayNightBadge = (player) => {
     const dayNight = player.dayNight;
     if (!dayNight) return "";
     const summary = dayNight.effectSummary.slice(0, 2).join(", ");
-    return ` · <span class="day-night-badge" data-city-phase="${dayNight.uiThemeHint}" title="${escapeHtml$1(summary)}">${escapeHtml$1(dayNight.label)}: ${escapeHtml$1(summary)} · ${dayNight.remainingTicks} ticků</span>`;
+    return ` · <span class="day-night-badge" data-city-phase="${escapeAttribute(dayNight.uiThemeHint)}" title="${escapeAttribute(summary)}">${escapeHtml(dayNight.label)}: ${escapeHtml(summary)} · ${escapeHtml(dayNight.remainingTicks)} ticků</span>`;
   };
-  const escapeHtml$1 = (value) => String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const renderClientShell = (store) => {
     var _a, _b, _c, _d, _e;
     const readModel = store.getReadModel();
@@ -1606,43 +1664,6 @@ var EmpireGameplaySliceClient = function(exports) {
       getGameplaySlice: () => store.getReadModel().gameplaySlice
     });
   };
-  const formatLiveCooldownDuration = (remainingMs) => {
-    const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1e3));
-    if (totalSeconds < 60) {
-      return `${totalSeconds}s`;
-    }
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    if (minutes < 60) {
-      return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
-    }
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
-  };
-  const formatLiveCooldownLabel = ({
-    endsAtMs,
-    nowMs,
-    prefix = "Cooldown ",
-    readyLabel = "Ready"
-  }) => {
-    const remainingMs = Math.max(0, endsAtMs - nowMs);
-    return remainingMs > 0 ? `${prefix}${formatLiveCooldownDuration(remainingMs)}` : readyLabel;
-  };
-  const refreshLiveCooldownLabels = (root, nowMs = Date.now()) => {
-    const nodes = root.querySelectorAll("[data-live-cooldown]");
-    nodes.forEach((node) => {
-      const endsAtMs = Number(node.dataset.cooldownEndsAtMs || 0);
-      node.textContent = formatLiveCooldownLabel({
-        endsAtMs,
-        nowMs,
-        prefix: node.dataset.cooldownPrefix ?? "Cooldown ",
-        readyLabel: node.dataset.cooldownReadyLabel ?? "Ready"
-      });
-      node.dataset.cooldownState = endsAtMs > nowMs ? "cooling" : "ready";
-    });
-    return nodes.length;
-  };
   const DEFAULT_SESSION_STORAGE_KEY = "empireStreets.session.v1";
   const LEGACY_PUBLIC_SERVER_ID_MIGRATIONS = {
     "war-eu-01": "instance:war:eu-central:public-1",
@@ -1823,8 +1844,8 @@ var EmpireGameplaySliceClient = function(exports) {
       onResponse: render,
       onError: () => {
         mounts.status.innerHTML = [
-          "<strong>Server sync stale</strong>",
-          "<span>Polling refresh failed. Keeping the last read model.</span>"
+          "<strong>Synchronizace se serverem zastarala</strong>",
+          "<span>Obnova ze serveru selhala. Zůstává poslední známý stav.</span>"
         ].join("");
       }
     });
@@ -1861,10 +1882,10 @@ var EmpireGameplaySliceClient = function(exports) {
   const renderGameplaySliceStatus = (state) => {
     var _a;
     return [
-      state.connection.status === "error" ? "" : `<strong>${state.connection.status === "ready" ? "Server synced" : state.connection.status}</strong>`,
-      state.lastCommandStatus ? `<span class="gameplay-slice-client__command-status">${state.lastCommandStatus.accepted ? "Command accepted" : "Command rejected"}</span>` : "",
+      state.connection.status === "error" ? "" : `<strong>${escapeHtml(state.connection.status === "ready" ? "Server synchronizován" : state.connection.status)}</strong>`,
+      state.lastCommandStatus ? `<span class="gameplay-slice-client__command-status">${state.lastCommandStatus.accepted ? "Akce přijata" : "Akce odmítnuta"}</span>` : "",
       state.connection.status !== "error" && ((_a = state.lastCommandStatus) == null ? void 0 : _a.accepted) === false && state.connection.lastErrorMessage ? `<span class="gameplay-slice-client__error">${escapeHtml(state.connection.lastErrorMessage)}</span>` : "",
-      state.districtPanel ? `<span>${state.districtPanel.title}</span>` : ""
+      state.districtPanel ? `<span>${escapeHtml(state.districtPanel.title)}</span>` : ""
     ].join("");
   };
   const createBrowserCommandId = (prefix) => `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
@@ -1920,8 +1941,6 @@ var EmpireGameplaySliceClient = function(exports) {
     const normalized = String(value ?? "").trim();
     return normalized.length > 0 ? normalized : null;
   };
-  const htmlEscapeMap = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-  const escapeHtml = (value) => value.replace(/[&<>"']/g, (character) => htmlEscapeMap[character] ?? character);
   if (typeof window !== "undefined" && typeof document !== "undefined") {
     window.EmpireGameplaySliceClient = createPageApi();
     window.EmpireGameplaySliceClient.autoMount();

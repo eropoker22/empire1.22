@@ -1,6 +1,6 @@
 import type { GameplaySliceView } from "@empire/shared-types";
 import { createClientApp, createClientSurfaceActionRouter, type ClientRenderState } from "../app";
-import { refreshLiveCooldownLabels } from "../shared-ui";
+import { escapeHtml, refreshLiveCooldownLabels } from "../shared-ui";
 import { createFetchClientTransport, createGameplaySlicePoller, type ClientTransport } from "../transport";
 import { DEFAULT_SESSION_STORAGE_KEY, resolveGameplaySliceBootstrapRequest } from "./gameplay-slice-bootstrap";
 
@@ -108,8 +108,8 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     onResponse: render,
     onError: () => {
       mounts.status.innerHTML = [
-        "<strong>Server sync stale</strong>",
-        "<span>Polling refresh failed. Keeping the last read model.</span>"
+        "<strong>Synchronizace se serverem zastarala</strong>",
+        "<span>Obnova ze serveru selhala. Zůstává poslední známý stav.</span>"
       ].join("");
     }
   });
@@ -152,15 +152,15 @@ const getOrCreateMount = (root: HTMLElement, role: string): HTMLElement => {
 export const renderGameplaySliceStatus = (state: ClientRenderState): string => [
   state.connection.status === "error"
     ? ""
-    : `<strong>${state.connection.status === "ready" ? "Server synced" : state.connection.status}</strong>`,
+    : `<strong>${escapeHtml(state.connection.status === "ready" ? "Server synchronizován" : state.connection.status)}</strong>`,
   state.lastCommandStatus
-    ? `<span class="gameplay-slice-client__command-status">${state.lastCommandStatus.accepted ? "Command accepted" : "Command rejected"}</span>`
+    ? `<span class="gameplay-slice-client__command-status">${state.lastCommandStatus.accepted ? "Akce přijata" : "Akce odmítnuta"}</span>`
     : "",
   state.connection.status !== "error" && state.lastCommandStatus?.accepted === false && state.connection.lastErrorMessage
     ? `<span class="gameplay-slice-client__error">${escapeHtml(state.connection.lastErrorMessage)}</span>`
     : "",
   state.districtPanel
-    ? `<span>${state.districtPanel.title}</span>`
+    ? `<span>${escapeHtml(state.districtPanel.title)}</span>`
     : ""
 ].join("");
 
@@ -235,9 +235,6 @@ const normalizeStorageToken = (value: unknown): string | null => {
   const normalized = String(value ?? "").trim();
   return normalized.length > 0 ? normalized : null;
 };
-
-const htmlEscapeMap: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" };
-const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, (character) => htmlEscapeMap[character] ?? character);
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {
   window.EmpireGameplaySliceClient = createPageApi();

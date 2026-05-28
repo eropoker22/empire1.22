@@ -154,19 +154,19 @@ describe("live cooldown labels", () => {
       { nowMs: 1000 }
     );
 
-    expect(panel?.buildings[0]?.actions[0]?.cooldownLabel).toBe("Cooldown 15s");
+    expect(panel?.buildings[0]?.actions[0]?.cooldownLabel).toBe("Čekání 15s");
     expect(panel?.buildings[0]?.actions[0]?.cooldownEndsAtMs).toBe(16000);
 
     const html = renderDistrictPanel(panel!);
 
     expect(html).toContain('data-live-cooldown="true"');
     expect(html).toContain('data-cooldown-ends-at-ms="16000"');
-    expect(html).toContain("Cooldown 15s");
+    expect(html).toContain("Čekání 15s");
     expect(html).toContain("CD <span");
   });
 
   it("formats countdown text as wall-clock time between server refreshes", () => {
-    expect(formatLiveCooldownLabel({ endsAtMs: 16000, nowMs: 6500 })).toBe("Cooldown 10s");
-    expect(formatLiveCooldownLabel({ endsAtMs: 16000, nowMs: 16000 })).toBe("Ready");
+    expect(formatLiveCooldownLabel({ endsAtMs: 16000, nowMs: 6500 })).toBe("Čekání 10s");
+    expect(formatLiveCooldownLabel({ endsAtMs: 16000, nowMs: 16000 })).toBe("Připraveno");
   });
 });

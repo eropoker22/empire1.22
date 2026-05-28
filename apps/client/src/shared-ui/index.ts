@@ -5,4 +5,5 @@
  */
 export const sharedUiPrimitive = "shared-ui-primitive";
 
+export * from "./html-escape";
 export * from "./live-cooldown";

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { bindDistrictAtmosphereWindowControls } from "../../page-assets/js/app/ui/districtPopupModalHelpers.js";
+import { setElementHtml } from "../../page-assets/js/app/ui/districtPopupElements.js";
 
 function createElement() {
   const listeners = new Map();
@@ -30,6 +31,13 @@ function createElement() {
 }
 
 describe("district popup modal helpers", () => {
+  it("renders helper HTML values as escaped text", () => {
+    const element = { innerHTML: "" };
+
+    expect(setElementHtml(element, "<img src=x onerror=alert(1)> & 'district'")).toBe(true);
+    expect(element.innerHTML).toBe("&lt;img src=x onerror=alert(1)&gt; &amp; &#39;district&#39;");
+  });
+
   it("keeps atmosphere window clicks from bubbling back to the hero trigger", () => {
     const trigger = createElement();
     const windowElement = createElement();

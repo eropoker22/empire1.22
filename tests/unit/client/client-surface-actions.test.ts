@@ -264,6 +264,45 @@ describe("client surface actions", () => {
     });
   });
 
+  it("reads building action inputs without building selector strings from input ids", () => {
+    const amountInput = createMockElement({
+      buildingActionInput: "amount",
+      value: "7"
+    });
+    const selectorTrapInput = createMockElement({
+      buildingActionInput: 'mode"] [data-building-action-input="amount',
+      value: "999"
+    });
+    const controls = createMockElement({});
+    controls.element.querySelector = vi.fn(() => null) as never;
+    controls.element.querySelectorAll = vi.fn((selector) =>
+      selector === "[data-building-action-input]"
+        ? ([selectorTrapInput.element, amountInput.element] as unknown as NodeListOf<Element>)
+        : ([] as unknown as NodeListOf<Element>)
+    ) as never;
+
+    const actionButton = createMockElement({
+      buildingActionBuildingId: "building:pharmacy:1",
+      buildingActionId: "produce_chemicals"
+    });
+    actionButton.setClosest(
+      "button[data-building-action-building-id][data-building-action-id]",
+      actionButton.element
+    );
+    actionButton.setClosest("[data-building-action-controls]", controls.element);
+
+    expect(resolveClientSurfaceAction(actionButton.element)).toEqual({
+      kind: "building-action",
+      buildingId: "building:pharmacy:1",
+      actionId: "produce_chemicals",
+      amount: 7
+    });
+    expect(controls.element.querySelectorAll).toHaveBeenCalledWith("[data-building-action-input]");
+    expect(controls.element.querySelector).not.toHaveBeenCalledWith(
+      '[data-building-action-input="mode"] [data-building-action-input="amount"]'
+    );
+  });
+
   it("resolves production collect click targets", () => {
     const collectButton = createMockElement({
       collectBuildingId: "building:factory:1"

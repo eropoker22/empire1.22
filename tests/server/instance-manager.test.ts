@@ -151,23 +151,33 @@ describe("ServerInstanceManager", () => {
   it("rejects commands before core dispatch when server runtime gates fail", () => {
     const server = createServerApp();
     const runtime = server.instanceManager.createInstance("instance:free", "free");
+    const assertNoPreDispatchMutation = (rootBefore: typeof runtime.state.root, commandId: string) => {
+      expect(runtime.state.root).toEqual(rootBefore);
+      expect(runtime.processedCommandIds.has(commandId)).toBe(false);
+      expect(runtime.commandRateLimitWindow.commandCountsByPlayerId["player:1"]).toBeUndefined();
+    };
 
+    const instanceMismatchRoot = { ...runtime.state.root };
+    const instanceMismatchCommand = createAttackDistrictCommandFixture({
+      serverInstanceId: "instance:other"
+    });
     const instanceMismatch = server.instanceManager.dispatchCommand(
       runtime.record.id,
-      createAttackDistrictCommandFixture({
-        serverInstanceId: "instance:other"
-      })
+      instanceMismatchCommand
     );
 
     expect(instanceMismatch?.errors.map((error) => error.code)).toEqual(["server.instance_mismatch"]);
+    assertNoPreDispatchMutation(instanceMismatchRoot, instanceMismatchCommand.id);
 
+    const modeMismatchRoot = { ...runtime.state.root };
+    const modeMismatchCommand = createAttackDistrictCommandFixture({
+      id: "command:attack:mode-mismatch",
+      mode: "war",
+      serverInstanceId: runtime.record.id
+    });
     const modeMismatch = server.instanceManager.dispatchCommand(
       runtime.record.id,
-      createAttackDistrictCommandFixture({
-        id: "command:attack:mode-mismatch",
-        mode: "war",
-        serverInstanceId: runtime.record.id
-      })
+      modeMismatchCommand
     );
 
     expect(modeMismatch?.errors).toEqual([
@@ -176,28 +186,36 @@ describe("ServerInstanceManager", () => {
         message: "Command mode does not match the target server instance mode."
       }
     ]);
+    assertNoPreDispatchMutation(modeMismatchRoot, modeMismatchCommand.id);
 
     runtime.state.root.phase = PRODUCTION_GAME_LIFECYCLE_PHASES.resolved;
+    const resolvedRoot = { ...runtime.state.root };
+    const resolvedCommand = createAttackDistrictCommandFixture({
+      id: "command:attack:resolved",
+      serverInstanceId: runtime.record.id
+    });
     const resolved = server.instanceManager.dispatchCommand(
       runtime.record.id,
-      createAttackDistrictCommandFixture({
-        serverInstanceId: runtime.record.id
-      })
+      resolvedCommand
     );
 
     expect(resolved?.errors.map((error) => error.code)).toEqual(["server.instance_resolved"]);
+    assertNoPreDispatchMutation(resolvedRoot, resolvedCommand.id);
 
     runtime.state.root.phase = PRODUCTION_GAME_LIFECYCLE_PHASES.live;
     runtime.state.root.playerIds = Array.from({ length: runtime.config.balance.maxPlayersPerServer + 1 }, (_, index) => `player:${index}`);
+    const playerCapRoot = { ...runtime.state.root };
+    const playerCapCommand = createAttackDistrictCommandFixture({
+      id: "command:attack:player-cap",
+      serverInstanceId: runtime.record.id
+    });
     const playerCap = server.instanceManager.dispatchCommand(
       runtime.record.id,
-      createAttackDistrictCommandFixture({
-        id: "command:attack:player-cap",
-        serverInstanceId: runtime.record.id
-      })
+      playerCapCommand
     );
 
     expect(playerCap?.errors.map((error) => error.code)).toEqual(["server.player_cap_exceeded"]);
+    assertNoPreDispatchMutation(playerCapRoot, playerCapCommand.id);
   });
 
   it("rejects expired sessions and per-tick command floods before core dispatch", () => {
@@ -234,6 +252,7 @@ describe("ServerInstanceManager", () => {
       expect(result?.errors.map((error) => error.code)).toEqual(["attacker_not_found"]);
     }
 
+    const rootBeforeRateLimit = { ...runtime.state.root };
     const rateLimited = server.instanceManager.dispatchCommand(
       runtime.record.id,
       createAttackDistrictCommandFixture({
@@ -243,6 +262,90 @@ describe("ServerInstanceManager", () => {
     );
 
     expect(rateLimited?.errors.map((error) => error.code)).toEqual(["server.rate_limited"]);
+    expect(runtime.state.root).toEqual(rootBeforeRateLimit);
+  });
+
+  it("rejects state version conflicts before command replay or rate accounting", () => {
+    const server = createServerApp();
+    const runtime = server.instanceManager.createInstance("instance:free", "free");
+    const rootBefore = { ...runtime.state.root };
+    const command = createAttackDistrictCommandFixture({
+      id: "command:attack:state-version-conflict",
+      serverInstanceId: runtime.record.id
+    });
+
+    const result = server.instanceManager.dispatchCommand(runtime.record.id, command, {
+      expectedStateVersion: runtime.state.root.version + 1
+    });
+
+    expect(result?.errors).toEqual([
+      {
+        code: "server.state_version_conflict",
+        message: "Command expectedStateVersion does not match the current server state version.",
+        details: {
+          expectedStateVersion: rootBefore.version + 1,
+          currentStateVersion: rootBefore.version
+        }
+      }
+    ]);
+    expect(runtime.state.root).toEqual(rootBefore);
+    expect(runtime.processedCommandIds.has(command.id)).toBe(false);
+    expect(runtime.commandRateLimitWindow.commandCountsByPlayerId[command.playerId]).toBeUndefined();
+  });
+
+  it("rejects unsupported command types without mutating authoritative state", () => {
+    const server = createServerApp();
+    const runtime = server.instanceManager.createInstance("instance:free", "free");
+    const stateBefore = runtime.state;
+    const rootBefore = { ...runtime.state.root };
+    const invalidCommand = {
+      ...createAttackDistrictCommandFixture({
+        id: "command:invalid:type",
+        serverInstanceId: runtime.record.id
+      }),
+      type: "not-a-real-command"
+    };
+
+    const result = server.instanceManager.dispatchCommand(runtime.record.id, invalidCommand as never);
+
+    expect(result?.errors).toEqual([
+      {
+        code: "unsupported_command",
+        message: "Unsupported command type."
+      }
+    ]);
+    expect(runtime.state).toBe(stateBefore);
+    expect(runtime.state.root).toEqual(rootBefore);
+  });
+
+  it("rejects inactive players without changing authoritative state", () => {
+    const server = createServerApp();
+    const runtime = server.instanceManager.createInstance("instance:free", "free");
+    runtime.state.playersById["player:1"] = {
+      ...runtime.state.playersById["player:1"],
+      id: "player:1",
+      displayName: "Player 1",
+      factionId: "street_crew",
+      status: "defeated"
+    } as never;
+    const stateBefore = runtime.state;
+    const rootBefore = { ...runtime.state.root };
+    const command = createAttackDistrictCommandFixture({
+      id: "command:attack:defeated-player",
+      serverInstanceId: runtime.record.id
+    });
+
+    const result = server.instanceManager.dispatchCommand(runtime.record.id, command);
+
+    expect(result?.errors).toContainEqual(expect.objectContaining({
+      code: "player_not_active",
+      details: expect.objectContaining({
+        playerId: "player:1",
+        status: "defeated"
+      })
+    }));
+    expect(runtime.state).toBe(stateBefore);
+    expect(runtime.state.root).toEqual(rootBefore);
   });
 
   it("rejects duplicate command ids before replaying core dispatch", () => {
@@ -253,6 +356,7 @@ describe("ServerInstanceManager", () => {
     });
 
     const firstResult = server.instanceManager.dispatchCommand(runtime.record.id, command);
+    const rootAfterFirstAttempt = { ...runtime.state.root };
     const duplicateResult = server.instanceManager.dispatchCommand(runtime.record.id, command);
 
     expect(firstResult?.errors.map((error) => error.code)).toEqual(["attacker_not_found"]);
@@ -262,5 +366,6 @@ describe("ServerInstanceManager", () => {
         message: "Command id was already processed by this server instance."
       }
     ]);
+    expect(runtime.state.root).toEqual(rootAfterFirstAttempt);
   });
 });

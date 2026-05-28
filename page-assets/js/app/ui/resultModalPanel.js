@@ -1,10 +1,9 @@
+import { escapeAttribute, escapeHtml, escapeUrlAttribute } from "./htmlEscape.js";
+
+export { escapeAttribute, escapeUrlAttribute };
+
 export function escapeModalHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll("\"", "&quot;")
-    .replaceAll("'", "&#39;");
+  return escapeHtml(value);
 }
 
 export function safeResultModalQuery(root, selector) {

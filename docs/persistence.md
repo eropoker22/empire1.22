@@ -165,4 +165,4 @@ Implemented:
 Known follow-up:
 
 - `empire_player_registrations` exists in the schema, but player registration/session reservation is not yet represented by a dedicated persistence repository. Current membership state is restored through snapshots/snapshot tokens.
-- Cross-invocation exactly-once command execution needs an async command pipeline that reserves command ids before gameplay mutation. The repository-level idempotence is in place, but synchronous dispatch still uses runtime `processedCommandIds` as the pre-dispatch gate.
+- Cross-invocation exactly-once command execution needs an async command pipeline that reserves command ids before gameplay mutation. The repository-level idempotence is in place, but synchronous dispatch still uses runtime `processedCommandIds` as the pre-dispatch gate. See `docs/command-reservation-design.md` for the minimum public-alpha design.

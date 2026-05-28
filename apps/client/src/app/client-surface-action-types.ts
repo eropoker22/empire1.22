@@ -6,6 +6,9 @@ export interface ClientSurfaceActionElement {
   value?: string;
   closest<T extends ClientSurfaceActionElement = ClientSurfaceActionElement>(selector: string): T | null;
   querySelector?<T extends ClientSurfaceActionElement = ClientSurfaceActionElement>(selector: string): T | null;
+  querySelectorAll?<T extends ClientSurfaceActionElement = ClientSurfaceActionElement>(
+    selector: string
+  ): Iterable<T> | ArrayLike<T>;
 }
 
 export type ClientSurfaceAction =

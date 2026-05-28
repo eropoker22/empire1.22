@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  escapeAttribute,
   escapeModalHtml,
+  escapeUrlAttribute,
   renderActionResultRows,
   renderSimpleResultModal
 } from "../../page-assets/js/app/ui/resultModalPanel.js";
@@ -197,5 +199,13 @@ describe("result modal panel helpers", () => {
 
   it("exposes the same HTML escaping used by legacy result rows", () => {
     expect(escapeModalHtml("<>&\"'")).toBe("&lt;&gt;&amp;&quot;&#39;");
+  });
+
+  it("escapes attribute values and blocks script URLs for legacy render helpers", () => {
+    expect(escapeAttribute("gang\" onmouseover=\"alert(1)&copy='x'")).toBe("gang&quot; onmouseover=&quot;alert(1)&amp;copy=&#39;x&#39;");
+    expect(escapeUrlAttribute("javascript:alert(1)")).toBe("");
+    expect(escapeUrlAttribute("java\nscript:alert(1)")).toBe("");
+    expect(escapeUrlAttribute("../img/avatar.png?name=A&B")).toBe("../img/avatar.png?name=A&amp;B");
+    expect(escapeUrlAttribute("https://example.test/avatar.png?name=A&B")).toBe("https://example.test/avatar.png?name=A&amp;B");
   });
 });

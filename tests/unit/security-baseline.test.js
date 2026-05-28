@@ -19,6 +19,7 @@ describe("security baseline", () => {
 
     expect(gamePage).not.toContain("page-assets/js/admin-assets/admin-slice-demo.js");
     expect(gamePage).toContain("game-admin-slice-launcher.js");
+    expect(gamePage).toMatch(/<button[^>]+data-slice-panel-open[^>]+hidden/u);
   });
 
   it("keeps deprecated compatibility packages out of source imports", () => {

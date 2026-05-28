@@ -4,6 +4,6 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "check": "echo client shell pending"
+    "check": "node ../../scripts/run-local-bin.mjs typescript/bin/tsc -p ../../tsconfig.test.json --noEmit"
   }
 }

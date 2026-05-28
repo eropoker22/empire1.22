@@ -102,13 +102,24 @@ const collectBuildingActionInputValues = (
   ];
 
   return Object.fromEntries(inputIds.map((inputId) => {
-    const element = buildingCard?.querySelector?.(`[data-building-action-input="${inputId}"]`);
+    const element = findBuildingActionInput(buildingCard, inputId);
     const value = element?.value || element?.dataset.value;
     const parsed = ["amount", "investment", "investmentCleanCash"].includes(inputId)
       ? toPositiveNumber(value)
       : value;
     return [inputId, parsed || undefined];
   }));
+};
+
+const findBuildingActionInput = (
+  buildingCard: ClientSurfaceActionElement | null | undefined,
+  inputId: string
+): ClientSurfaceActionElement | null => {
+  const inputs = buildingCard?.querySelectorAll?.("[data-building-action-input]");
+  if (!inputs) {
+    return null;
+  }
+  return Array.from(inputs).find((element) => element.dataset.buildingActionInput === inputId) ?? null;
 };
 
 const readNumberInput = (values: Record<string, string | number | undefined>, key: string): number | undefined => {

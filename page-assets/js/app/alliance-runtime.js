@@ -1,5 +1,6 @@
 import { getAuthoritySession } from "./model/authority-state.js";
 import { STORAGE_KEYS } from "../config.js";
+import { escapeUrlAttribute } from "./ui/htmlEscape.js";
 
 const PAGE_SELECTOR = 'main[data-page="game"]';
 const GANG_NAME_STORAGE_KEY = STORAGE_KEYS.guestGangName;
@@ -561,8 +562,9 @@ function renderAllianceMemberCard(member, kickVotes = []) {
     : member.isReadyWindowActive
       ? `<span class="alliance-ready-state alliance-ready-state--ok">READY ${formatReadyCountdown(member.readyDueAt)}</span>`
       : `<span class="alliance-ready-state alliance-ready-state--bad">READY chybí</span>`;
-  const avatarMarkup = member.avatar
-    ? `<button class="alliance-member__avatar-btn" type="button" data-alliance-member-avatar="${escapeHtml(member.username || "Hráč")}" data-alliance-member-avatar-src="${escapeHtml(member.avatar)}" data-alliance-member-avatar-meta="${escapeHtml(`${member.gang_structure || "Gang"} • ${getMemberSectorLabel(member)}`)}"><img class="alliance-member__avatar" src="${escapeHtml(member.avatar)}" alt="Avatar ${escapeHtml(member.username || "Hráč")}" loading="lazy"></button>`
+  const avatarSrc = escapeUrlAttribute(member.avatar);
+  const avatarMarkup = avatarSrc
+    ? `<button class="alliance-member__avatar-btn" type="button" data-alliance-member-avatar="${escapeHtml(member.username || "Hráč")}" data-alliance-member-avatar-src="${avatarSrc}" data-alliance-member-avatar-meta="${escapeHtml(`${member.gang_structure || "Gang"} • ${getMemberSectorLabel(member)}`)}"><img class="alliance-member__avatar" src="${avatarSrc}" alt="Avatar ${escapeHtml(member.username || "Hráč")}" loading="lazy"></button>`
     : `<div class="alliance-member__avatar--empty">${escapeHtml(String(member?.username || "?").slice(0, 1).toUpperCase())}</div>`;
 
   return `

@@ -1,3 +1,5 @@
+import { escapeAttribute } from "../../shared-ui";
+
 /**
  * Responsibility: Presentation shell for future side panel composition.
  * Belongs here: panel container selection and visibility boundaries.
@@ -10,5 +12,5 @@ export interface SidePanelShellProps {
 
 export const renderSidePanelShell = ({ activePanel, contentHtml }: SidePanelShellProps): string =>
   activePanel
-    ? `<aside class="side-panel-shell" data-panel="${activePanel}">${contentHtml}</aside>`
+    ? `<aside class="side-panel-shell" data-panel="${escapeAttribute(activePanel)}">${contentHtml}</aside>`
     : "<aside class=\"side-panel-shell\" data-panel=\"none\"></aside>";

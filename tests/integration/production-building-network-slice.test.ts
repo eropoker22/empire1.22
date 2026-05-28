@@ -39,16 +39,16 @@ describe("production building network gameplay slice", () => {
       districtId
     });
 
-    expect(initialRender.sidePanelHtml).toContain("Production slots");
+    expect(initialRender.sidePanelHtml).toContain("Produkční sloty");
     expect(initialRender.sidePanelHtml).toContain('data-slot-building-type="pharmacy"');
     expect(initialRender.sidePanelHtml).toContain('data-slot-building-type="drug-lab"');
     expect(initialRender.sidePanelHtml).toContain('data-slot-building-type="factory"');
     expect(initialRender.sidePanelHtml).toContain('data-slot-building-type="armory"');
-    expect(initialRender.sidePanelHtml).toContain("Collect Metal Parts");
-    expect(initialRender.sidePanelHtml).toContain("Collect Neon Dust");
-    expect(initialRender.sidePanelHtml).toContain("Process Combat Module");
-    expect(initialRender.sidePanelHtml).toContain("Process Pulse Shot");
-    expect(initialRender.sidePanelHtml).toContain("Process Pistol");
+    expect(initialRender.sidePanelHtml).toContain("Vybrat Metal Parts");
+    expect(initialRender.sidePanelHtml).toContain("Vybrat Neon Dust");
+    expect(initialRender.sidePanelHtml).toContain("Zpracovat Combat Module");
+    expect(initialRender.sidePanelHtml).toContain("Zpracovat Pulse Shot");
+    expect(initialRender.sidePanelHtml).toContain("Zpracovat Pistol");
 
     const factoryId = initialRender.districtPanel?.buildings.find((building) => building.buildingTypeId === "factory")?.buildingId;
     const drugLabId = initialRender.districtPanel?.buildings.find((building) => building.buildingTypeId === "drug_lab")?.buildingId;

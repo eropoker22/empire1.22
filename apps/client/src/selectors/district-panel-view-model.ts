@@ -40,33 +40,33 @@ export const createDistrictPanelViewModel = (
     selectedBuildingId,
     title: slice.district.name,
     ownershipLabel: slice.district.isOwnedByPlayer
-      ? "Owned by current player"
+      ? "Vlastní hráč"
       : slice.district.status === "destroyed"
-        ? "Destroyed district"
+        ? "Zničený distrikt"
         : slice.district.ownerPlayerId
-        ? `Owned by ${slice.district.ownerPlayerId}`
-        : "Unclaimed district",
+        ? `Vlastní ${slice.district.ownerPlayerId}`
+        : "Neobsazený distrikt",
     zoneLabel: toTitleCase(slice.district.zone),
     statusLabel: slice.district.status,
     heatLabel: formatHeatLabel(slice.district.heat),
     influenceLabel: String(slice.district.influence),
     buildingSummary: slice.district.status === "destroyed"
-      ? "0 fixed buildings · destroyed"
-      : `${slice.district.buildings.length} fixed buildings`,
+      ? "0 pevných budov · zničeno"
+      : `${slice.district.buildings.length} pevných budov`,
     attackSummary:
       slice.district.attackTargets.length > 0
-        ? `${slice.district.attackTargets.filter((target) => target.enabled).length}/${slice.district.attackTargets.length} attack routes ready`
-        : "No adjacent attack routes",
+        ? `${slice.district.attackTargets.filter((target) => target.enabled).length}/${slice.district.attackTargets.length} tras útoku připraveno`
+        : "Žádné sousední trasy útoku",
     hasPendingCommand,
     trap: slice.district.trap
       ? {
-          actionLabel: slice.district.trap.activeTrap ? "Trap armed" : "Arm hidden trap",
+          actionLabel: slice.district.trap.activeTrap ? "Past nastražena" : "Nastražit skrytou past",
           activeLabel: slice.district.trap.activeTrap
             ? `${slice.district.trap.activeTrap.label} · tick ${slice.district.trap.activeTrap.placedAtTick}`
             : null,
           disabled: hasPendingCommand || !slice.district.trap.enabled,
           disabledReason: hasPendingCommand
-            ? "Command pending."
+            ? "Akce se zpracovává."
             : slice.district.trap.disabledReason
         }
       : null,
@@ -74,12 +74,12 @@ export const createDistrictPanelViewModel = (
       districtId: target.districtId,
       label: target.name,
       ownerLabel: target.ownerPlayerId
-        ? `Owner ${target.ownerPlayerId}`
-        : "Neutral district",
+        ? `Vlastník ${target.ownerPlayerId}`
+        : "Neutrální distrikt",
       statusLabel: target.status,
       disabled: hasPendingCommand || !target.enabled,
       disabledReason: hasPendingCommand
-        ? "Command pending."
+        ? "Akce se zpracovává."
         : target.disabledReason
     })),
     occupyTargets: slice.district.occupyTargets.map((target) => ({
@@ -88,7 +88,7 @@ export const createDistrictPanelViewModel = (
       statusLabel: target.status,
       disabled: hasPendingCommand || !target.enabled,
       disabledReason: hasPendingCommand
-        ? "Command pending."
+        ? "Akce se zpracovává."
         : target.disabledReason,
       disabledCode: target.disabledCode,
       influenceCostLabel: String(target.cost.influence),
@@ -101,12 +101,12 @@ export const createDistrictPanelViewModel = (
       districtId: target.districtId,
       label: target.name,
       ownerLabel: target.ownerPlayerId
-        ? `Owner ${target.ownerPlayerId}`
-        : "Neutral district",
+        ? `Vlastník ${target.ownerPlayerId}`
+        : "Neutrální distrikt",
       statusLabel: target.status,
       disabled: hasPendingCommand || !target.enabled,
       disabledReason: hasPendingCommand
-        ? "Command pending."
+        ? "Akce se zpracovává."
         : target.disabledReason
     })),
     buildings: slice.district.buildings.map((building) => ({
@@ -119,7 +119,7 @@ export const createDistrictPanelViewModel = (
       roleLabel: building.role,
       info: building.info,
       statusLabel: `${building.status} · level ${building.level}`,
-      summaryLabel: `${building.actions.filter((action) => action.enabled).length}/${building.actions.length} actions ready`,
+      summaryLabel: `${building.actions.filter((action) => action.enabled).length}/${building.actions.length} akcí připraveno`,
       stats: building.stats.map((stat) => ({
         label: stat.label,
         value: stat.value
@@ -132,16 +132,16 @@ export const createDistrictPanelViewModel = (
           label: action.label,
           description: action.description,
           effectSummary: action.effectSummary,
-          durationLabel: action.durationMs > 0 ? formatDurationMs(action.durationMs) : "Instant",
+          durationLabel: action.durationMs > 0 ? formatDurationMs(action.durationMs) : "Okamžitě",
           cooldownLabel: cooldown.remainingMs > 0
-            ? `Cooldown ${formatDurationMs(cooldown.remainingMs)}`
+            ? `Čekání ${formatDurationMs(cooldown.remainingMs)}`
             : formatDurationMs(action.cooldownMs),
           cooldownRemainingMs: cooldown.remainingMs,
           cooldownEndsAtMs: cooldown.endsAtMs,
           heatLabel: `+${action.heatGain}`,
           disabled: hasPendingCommand || !action.enabled,
           disabledReason: hasPendingCommand
-            ? "Command pending."
+            ? "Akce se zpracovává."
             : action.disabledReason
         };
       }),
@@ -153,8 +153,8 @@ export const createDistrictPanelViewModel = (
           label: action.label,
           description: action.description,
           statusLabel: toTitleCase(action.status),
-          inputSummary: formatResourceSummary(action.inputCost, "Free"),
-          outputSummary: formatResourceSummary(action.outputGain, "No output"),
+          inputSummary: formatResourceSummary(action.inputCost, "Zdarma"),
+          outputSummary: formatResourceSummary(action.outputGain, "Bez výstupu"),
           expectedEffectSummary: action.expectedEffectSummary,
           riskSummary: action.riskSummary,
           inputs: action.requiresInput.map((input) => ({
@@ -167,15 +167,15 @@ export const createDistrictPanelViewModel = (
             options: input.options ?? []
           })),
           cooldownLabel: cooldown.remainingMs > 0
-            ? `Cooldown ${formatDurationMs(cooldown.remainingMs)}`
-            : `${Math.ceil(action.cooldownMs / 1000)}s cooldown`,
+            ? `Čekání ${formatDurationMs(cooldown.remainingMs)}`
+            : `${Math.ceil(action.cooldownMs / 1000)}s čekání`,
           cooldownRemainingMs: cooldown.remainingMs,
           cooldownEndsAtMs: cooldown.endsAtMs,
           heatLabel: `+${action.heatGain}`,
           influenceLabel: formatSigned(action.influenceChange),
           disabled: hasPendingCommand || !action.enabled,
           disabledReason: hasPendingCommand
-            ? "Command pending."
+            ? "Akce se zpracovává."
             : action.disabledReason
         };
       })
@@ -183,31 +183,31 @@ export const createDistrictPanelViewModel = (
     slots: slice.district.slots.map((slot) => ({
       slotIndex: slot.slotIndex,
       buildingTypeId: slot.buildingTypeId,
-      title: slot.buildingTypeId ? toTitleCase(slot.buildingTypeId) : `Empty slot ${slot.slotIndex + 1}`,
+      title: slot.buildingTypeId ? toTitleCase(slot.buildingTypeId) : `Prázdný slot ${slot.slotIndex + 1}`,
       statusLabel: slot.status,
       canBuild: false,
       summaryLabel: slot.processing
-        ? `${slot.processing.label} is processing on the server tick.`
+        ? `${slot.processing.label} se zpracovává na server ticku.`
         : slot.production && slot.craftOptions.length > 0
-        ? `${slot.production.resourceLabel} production runs on the server tick and collected stock can be processed here.`
+        ? `${slot.production.resourceLabel} běží na server ticku a vybraný sklad se tady dá zpracovat.`
         : slot.production
-          ? `${slot.production.resourceLabel} production is running on the server tick.`
+          ? `${slot.production.resourceLabel} běží na server ticku.`
           : slot.craftOptions.length > 0
-            ? "This structure processes collected stock through server-authoritative recipes."
+            ? "Tahle stavba zpracovává vybraný sklad přes serverové recepty."
             : slot.buildingTypeId
-              ? "Structure already placed"
-              : "No fixed building is assigned to this district slot.",
+              ? "Stavba už stojí"
+              : "Tomuto slotu není přiřazená pevná budova.",
       production: slot.production && slot.buildingId
         ? {
             buildingId: slot.buildingId,
             resourceLabel: slot.production.resourceLabel,
-            storageLabel: `${slot.production.storedAmount}/${slot.production.storageCap} ready`,
+            storageLabel: `${slot.production.storedAmount}/${slot.production.storageCap} připraveno`,
             storagePercent: getStoragePercent(slot.production.storedAmount, slot.production.storageCap),
-            playerStockLabel: `${Math.max(0, Number(playerResources[slot.production.resourceKey] || 0))} in stock`,
+            playerStockLabel: `${Math.max(0, Number(playerResources[slot.production.resourceKey] || 0))} ve skladu`,
             rateLabel: `${slot.production.amountPerTick}/tick`,
             canCollect: slot.production.canCollect && !hasPendingCommand,
             collectDisabledReason: hasPendingCommand
-              ? "Command pending."
+              ? "Akce se zpracovává."
               : slot.production.collectDisabledReason
           }
         : null,
@@ -215,7 +215,7 @@ export const createDistrictPanelViewModel = (
         ? {
             label: slot.processing.label,
             progressLabel: `${Math.max(0, slot.processing.totalTicks - slot.processing.remainingTicks)}/${slot.processing.totalTicks} ticks`,
-            completionLabel: `Ready in ${formatTickLabel(slot.processing.remainingTicks)}`,
+            completionLabel: `Připraveno za ${formatTickLabel(slot.processing.remainingTicks)}`,
             outputLabel: `+${slot.processing.outputAmount} ${slot.processing.outputResourceLabel}`
           }
         : null,
@@ -226,10 +226,10 @@ export const createDistrictPanelViewModel = (
         inputSummary: option.inputSummary,
         outputAmount: option.outputAmount,
         outputResourceLabel: option.outputResourceLabel,
-        playerStockLabel: `${Math.max(0, Number(playerResources[option.outputResourceKey] || 0))} ${option.outputResourceLabel} in stock`,
+        playerStockLabel: `${Math.max(0, Number(playerResources[option.outputResourceKey] || 0))} ${option.outputResourceLabel} ve skladu`,
         canCraft: option.canCraft && !hasPendingCommand && Boolean(slot.buildingId),
         disabledReason: hasPendingCommand
-          ? "Command pending."
+          ? "Akce se zpracovává."
           : option.craftDisabledReason
       })),
       buildOptions: []

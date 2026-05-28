@@ -109,16 +109,16 @@ describe("production conflict gameplay slice", () => {
     });
     expect(spied.districtPanel?.attackTargets).toContainEqual(expect.objectContaining({
       districtId: targetDistrictId,
-      ownerLabel: "Owner player:2",
+      ownerLabel: "Vlastník player:2",
       disabled: false
     }));
     expect(spied.districtPanel?.occupyTargets.some((target) => target.districtId === targetDistrictId)).toBe(false);
-    expect(spied.sidePanelHtml).toContain("Latest reports");
-    expect(spied.sidePanelHtml).toContain("Spy success on district:2");
+    expect(spied.sidePanelHtml).toContain("Poslední reporty");
+    expect(spied.sidePanelHtml).toContain("Špehování success v district:2");
     expect(spied.sidePanelHtml).toContain("data-attack-target-id=\"district:2\"");
     expect(spied.sidePanelHtml).not.toContain("data-occupy-target-id=\"district:2\"");
     expect(spied.sidePanelHtml).toContain("data-report-highlight=\"latest-command\"");
-    expect(spied.sidePanelHtml).toContain("Trap detected");
+    expect(spied.sidePanelHtml).toContain("Past odhalena");
 
     const attacked = await attackerClient.dispatch(
       createAttackDistrictCommand({
@@ -201,11 +201,11 @@ describe("production conflict gameplay slice", () => {
       category: "battle",
       result: "success"
     });
-    expect(attacked.sidePanelHtml).toContain("Latest reports");
-    expect(attacked.sidePanelHtml).toContain("Attack success on district:2");
+    expect(attacked.sidePanelHtml).toContain("Poslední reporty");
+    expect(attacked.sidePanelHtml).toContain("Útok success v district:2");
     expect(attacked.sidePanelHtml).toContain("data-report-highlight=\"latest-command\"");
-    expect(attacked.sidePanelHtml).toContain("Attacker losses");
-    expect(attacked.sidePanelHtml).toContain("Defender losses");
+    expect(attacked.sidePanelHtml).toContain("Ztráty útočníka");
+    expect(attacked.sidePanelHtml).toContain("Ztráty obránce");
     expect(
       server.instanceManager.getInstanceById(instanceId)?.state.districtsById[targetDistrictId]?.ownerPlayerId
     ).toBe(attackerId);
@@ -213,7 +213,7 @@ describe("production conflict gameplay slice", () => {
       commandId: "command:attack:capture:district:2",
       accepted: true
     });
-    expect(renderGameplaySliceStatus(attacked)).toContain("Command accepted");
+    expect(renderGameplaySliceStatus(attacked)).toContain("Akce přijata");
   });
 
   it("shows a server rejection when a stale spy command hits an active cooldown", async () => {
@@ -279,12 +279,12 @@ describe("production conflict gameplay slice", () => {
       commandId: "command:spy:cooldown:2",
       accepted: false
     });
-    expect(renderGameplaySliceStatus(rejectedSpy)).toContain("Command rejected");
+    expect(renderGameplaySliceStatus(rejectedSpy)).toContain("Akce odmítnuta");
     expect(renderGameplaySliceStatus(rejectedSpy)).toContain("cooling down");
-    expect(rejectedSpy.sidePanelHtml).toContain("Latest reports");
-    expect(rejectedSpy.sidePanelHtml).toContain("Command rejected");
+    expect(rejectedSpy.sidePanelHtml).toContain("Poslední reporty");
+    expect(rejectedSpy.sidePanelHtml).toContain("Akce odmítnuta");
     expect(rejectedSpy.sidePanelHtml).not.toContain("data-report-command-status=\"accepted-without-report\"");
-    expect(rejectedSpy.sidePanelHtml).toContain("Spy success on district:2");
+    expect(rejectedSpy.sidePanelHtml).toContain("Špehování success v district:2");
   });
 
   it("renders a catastrophe report window and destroyed district state after a catastrophic attack", async () => {
@@ -337,7 +337,7 @@ describe("production conflict gameplay slice", () => {
       severity: "critical"
     });
     expect(attacked.sidePanelHtml).toContain("data-catastrophe-alert=\"true\"");
-    expect(attacked.sidePanelHtml).toContain("District state: destroyed and unusable.");
+    expect(attacked.sidePanelHtml).toContain("Stav distriktu: zničený a nepoužitelný.");
     expect(attacked.mapHtml).toContain(`data-district-id="${targetDistrictId}"`);
     expect(attacked.mapHtml).toContain("data-destroyed=\"true\"");
     expect(attacked.mapHtml).toContain("V piči, zničen.");
@@ -345,14 +345,14 @@ describe("production conflict gameplay slice", () => {
     const destroyedTargetRender = await attackerClient.selectDistrict(targetDistrictId);
 
     expect(destroyedTargetRender.districtPanel?.statusLabel).toBe("destroyed");
-    expect(destroyedTargetRender.districtPanel?.ownershipLabel).toBe("Destroyed district");
+    expect(destroyedTargetRender.districtPanel?.ownershipLabel).toBe("Zničený distrikt");
     expect(destroyedTargetRender.sidePanelHtml).toContain("data-feature=\"district-destroyed-notice\"");
     expect(destroyedTargetRender.sidePanelHtml).toContain("data-district-destroyed=\"true\"");
     expect(destroyedTargetRender.sidePanelHtml).toContain("V piči, zničen.");
     expect(destroyedTargetRender.sidePanelHtml).not.toContain("data-feature=\"district-panel\"");
-    expect(destroyedTargetRender.sidePanelHtml).not.toContain("Spy Targets");
-    expect(destroyedTargetRender.sidePanelHtml).not.toContain("Attack Targets");
-    expect(destroyedTargetRender.sidePanelHtml).not.toContain("District buildings");
+    expect(destroyedTargetRender.sidePanelHtml).not.toContain("Cíle špehování");
+    expect(destroyedTargetRender.sidePanelHtml).not.toContain("Cíle útoku");
+    expect(destroyedTargetRender.sidePanelHtml).not.toContain("Budovy distriktu");
     expect(
       server.instanceManager.getInstanceById(instanceId)?.state.districtsById[targetDistrictId]
     ).toMatchObject({

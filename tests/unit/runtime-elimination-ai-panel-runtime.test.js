@@ -5,6 +5,7 @@ import {
   bindEliminationResultPopup,
   createMockEliminationAiPanelViewModel,
   renderEliminationAiPanel,
+  renderEliminationResultPopupBody,
   renderFinalLockdownPurgePanel
 } from "../../page-assets/js/app/runtime/eliminationPurgePanelRuntime.js";
 
@@ -377,6 +378,25 @@ describe("elimination purge panel runtime", () => {
     fixture.documentListeners.get("keydown")({ key: "Escape", preventDefault: vi.fn() });
     expect(fixture.popup.hidden).toBe(true);
     expect(trigger.focus).toHaveBeenCalled();
+  });
+
+  it("blocks script avatar URLs in the eliminated gang result popup", () => {
+    const html = renderEliminationResultPopupBody({
+      gangName: "<script>alert(1)</script>",
+      avatarSrc: "java\nscript:alert(1)",
+      avatarFallback: "A&B",
+      title: "<img src=x onerror=alert(1)>",
+      body: "Gang & crew",
+      districtsNeutralized: 1
+    });
+
+    expect(html).not.toContain("<script");
+    expect(html).not.toContain("<img src=x");
+    expect(html).not.toContain("javascript:alert");
+    expect(html).not.toContain("<img src=");
+    expect(html).toContain("A&amp;B");
+    expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
+    expect(html).toContain("Gang &amp; crew");
   });
 
   it("shows the global red warning only for the last five minutes and restarts after zero", () => {
