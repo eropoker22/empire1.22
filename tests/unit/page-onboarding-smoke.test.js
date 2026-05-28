@@ -152,6 +152,8 @@ describe("page onboarding smoke", () => {
     expect(onboardingCssSource).toContain("User polish: compact header controls and scrollable last-three list");
     expect(onboardingCssSource).toContain(".elimination-result-popup");
     expect(onboardingCssSource).toContain("@media (max-width: 768px)");
+    expect(onboardingCssSource).toContain("place-items: center;");
+    expect(onboardingCssSource).not.toMatch(/\.elimination-result-popup \{\r?\n\s*align-items: end;/u);
     expect(onboardingCssSource).toContain(".elimination-ai-panel__score-total");
     expect(onboardingCssSource).toContain("scroll-snap-type: y proximity");
     expect(onboardingCssSource).toContain(".elimination-countdown-warning");

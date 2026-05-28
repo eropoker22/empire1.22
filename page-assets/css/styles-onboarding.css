@@ -3810,22 +3810,21 @@ body.elimination-result-popup-open {
 
 @media (max-width: 680px) {
   .elimination-result-popup {
-    align-items: end;
-    padding: 0;
+    place-items: center;
+    align-items: center;
+    justify-items: center;
+    padding: 16px;
   }
 
   .elimination-result-popup__card {
-    width: 100vw;
-    max-height: 86vh;
+    width: min(560px, calc(100vw - 24px));
+    max-height: calc(100dvh - 32px);
     overflow-y: auto;
-    border-right: 0;
-    border-bottom: 0;
-    border-left: 0;
-    border-radius: 18px 18px 0 0;
+    border-radius: 18px;
   }
 
   .elimination-result-popup__body {
-    padding: 46px 18px max(22px, env(safe-area-inset-bottom));
+    padding: 46px 18px 20px;
   }
 
   .elimination-result-popup__notice {
