@@ -297,6 +297,7 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
   const useQuantityAsOutput = Boolean(options.useQuantityAsOutput);
   const onQuantityRefresh = typeof options.onQuantityRefresh === "function" ? options.onQuantityRefresh : null;
   const extraClass = String(options.extraClass || "");
+  const canTryStartWithoutInputs = Boolean(viewModel.allowStartWithMissingInputs);
 
   let selectedBatches = 1;
   const control = createElement(options.mount, "div", `armory-slot__quantity${extraClass ? ` ${extraClass}` : ""}`);
@@ -322,15 +323,17 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
 
   const refresh = () => {
     const maxBatches = getMaxBatches();
+    const selectionLimitSource = viewModel.maxSelectableBatches ?? maxBatches;
+    const selectionLimit = Math.max(1, Math.floor(Number(selectionLimitSource || 1)));
     const outputAmount = useQuantityAsOutput ? 1 : Math.max(1, Number(recipe.output?.amount || 1));
     const canQueueMore = !job || job.status === "running" || job.status === "ready";
-    selectedBatches = Math.max(1, Math.min(Math.max(1, selectedBatches), Math.max(1, maxBatches)));
+    selectedBatches = Math.max(1, Math.min(Math.max(1, selectedBatches), selectionLimit));
     const visibleBatches = canQueueMore ? selectedBatches : Math.max(1, Math.ceil(getQueuedOutputAmount(job, recipe, { useQuantityAsOutput }) / outputAmount));
     quantityValue.textContent = String(job && !canQueueMore && resetQuantityOnJob ? 0 : visibleBatches);
     minusButton.disabled = !canQueueMore || selectedBatches <= 1;
-    plusButton.disabled = !canQueueMore || selectedBatches >= maxBatches;
+    plusButton.disabled = !canQueueMore || selectedBatches >= selectionLimit;
     if (startButton) {
-      startButton.disabled = viewModel.canStart === false || !canQueueMore || selectedBatches > maxBatches || maxBatches <= 0;
+      startButton.disabled = (!canTryStartWithoutInputs && viewModel.canStart === false) || !canQueueMore;
     }
     setMetricValue(timeMetric, formatRecipeSlotTime(job, effectiveDurationMs, selectedBatches, options));
     setMetricValue(queueMetric, formatQueuedOutput(job, recipe, { useQuantityAsOutput, outputCap: viewModel.outputCap }));
@@ -523,7 +526,8 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
 
   startButton.type = "button";
   startButton.textContent = "Spustit";
-  startButton.disabled = (Boolean(job) && job.status !== "running") || viewModel.canStart === false;
+  startButton.disabled = (Boolean(job) && job.status !== "running" && job.status !== "ready")
+    || (viewModel.canStart === false && !viewModel.allowStartWithMissingInputs);
   startButton.addEventListener("click", () => {
     if (typeof callbacks.onStart === "function") {
       callbacks.onStart({ ...viewModel, batchCount: Math.max(1, getStartBatchCount()) });

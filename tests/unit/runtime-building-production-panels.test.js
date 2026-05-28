@@ -476,6 +476,39 @@ describe("building detail, production and recipe UI modules", () => {
     expect(card.querySelectorAll(".drug-production-slot__supply-value").map((item) => item.textContent)).toEqual(["2/10", "1/10", "2/10"]);
   });
 
+  it("keeps non-neon drug lab slot controls interactive when inputs are missing", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const onStart = vi.fn();
+    const card = renderRecipeCard({
+      buildingName: "druglab",
+      recipeId: "pulse-shot",
+      recipe: {
+        name: "Pulse Shot",
+        inputs: { chemicals: 2, "stim-pack": 1 },
+        output: { inventory: "drugs", itemId: "pulse-shot", amount: 5 },
+        durationMs: 1000
+      },
+      inputAmounts: { chemicals: 0, "stim-pack": 0 },
+      maxBatches: 0,
+      maxSelectableBatches: 99,
+      canStart: false,
+      allowStartWithMissingInputs: true
+    }, { onStart }, { mount });
+
+    const quantityButtons = card.querySelectorAll(".drug-production-slot__quantity-btn");
+    const startButton = card.querySelector("[data-drug-lab-slot-start]");
+    expect(quantityButtons[1].disabled).toBe(false);
+    expect(startButton.disabled).toBe(false);
+
+    quantityButtons[1].click();
+    quantityButtons[1].click();
+    expect(card.querySelectorAll(".drug-production-slot__supply-value").map((item) => item.textContent)).toEqual(["6/0", "3/0"]);
+
+    startButton.click();
+    expect(onStart).toHaveBeenCalledWith(expect.objectContaining({ recipeId: "pulse-shot", batchCount: 3 }));
+  });
+
   it("starts pharmacy production with selected quantity and previews scaled clean cost", () => {
     const document = setupDocument();
     const mount = document.createElement("div");

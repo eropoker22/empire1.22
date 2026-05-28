@@ -234,6 +234,112 @@ describe("production building popup runtime", () => {
     }));
   });
 
+  it("keeps each drug lab recipe wired to its own production key", () => {
+    const recipeCallbacks = {};
+    const persistProductionJob = vi.fn();
+    const renderRecipeCard = vi.fn((viewModel, callbacks) => {
+      recipeCallbacks[viewModel.recipeId] = callbacks;
+      return { viewModel };
+    });
+    const runtime = createProductionBuildingPopupRuntime({
+      consumeMaterials: vi.fn(),
+      getInventoryAmount: () => 100,
+      getProductionBuildingMultiplier: () => 1,
+      getProductionJob: () => null,
+      getResolvedEconomyState: () => ({ cleanMoney: 1000 }),
+      getScaledProductionInputs: (inputs, count) => Object.fromEntries(
+        Object.entries(inputs || {}).map(([itemId, amount]) => [itemId, Number(amount || 0) * count])
+      ),
+      getStoredProductionBuildingState: () => ({ level: 1 }),
+      hasEnoughMaterials: () => true,
+      persistProductionJob,
+      renderProductionPanelUi: vi.fn(() => true),
+      renderRecipeCard,
+      scheduleProductionJob: vi.fn(),
+      syncCompletedProductionJobs: vi.fn()
+    });
+
+    const root = createRoot({
+      '[data-production-panel="druglab"]': {}
+    });
+    runtime.renderProductionPanel(root, "druglab", {
+      "neon-dust": {
+        durationMs: 1000,
+        inputs: { chemicals: 3, biomass: 2 },
+        output: { inventory: "drugs", itemId: "neon-dust", amount: 6 }
+      },
+      "pulse-shot": {
+        durationMs: 1000,
+        inputs: { chemicals: 2, "stim-pack": 1 },
+        output: { inventory: "drugs", itemId: "pulse-shot", amount: 5 }
+      },
+      "velvet-smoke": {
+        durationMs: 1000,
+        inputs: { biomass: 3, chemicals: 1 },
+        output: { inventory: "drugs", itemId: "velvet-smoke", amount: 4 }
+      }
+    });
+
+    recipeCallbacks["pulse-shot"].onStart({ batchCount: 2 });
+    recipeCallbacks["velvet-smoke"].onStart({ batchCount: 1 });
+
+    expect(persistProductionJob).toHaveBeenNthCalledWith(1, "druglab:pulse-shot", expect.objectContaining({
+      inputs: { chemicals: 4, "stim-pack": 2 },
+      output: expect.objectContaining({ itemId: "pulse-shot", amount: 10 })
+    }));
+    expect(persistProductionJob).toHaveBeenNthCalledWith(2, "druglab:velvet-smoke", expect.objectContaining({
+      inputs: { biomass: 3, chemicals: 1 },
+      output: expect.objectContaining({ itemId: "velvet-smoke", amount: 4 })
+    }));
+  });
+
+  it("reports missing drug lab materials instead of leaving non-neon controls dead", () => {
+    const recipeCallbacks = {};
+    const persistProductionJob = vi.fn();
+    const setBuildingActionFeedback = vi.fn();
+    const renderRecipeCard = vi.fn((viewModel, callbacks) => {
+      recipeCallbacks[viewModel.recipeId] = callbacks;
+      return { viewModel };
+    });
+    const runtime = createProductionBuildingPopupRuntime({
+      getInventoryAmount: () => 0,
+      getProductionBuildingMultiplier: () => 1,
+      getProductionJob: () => null,
+      getResolvedEconomyState: () => ({ cleanMoney: 1000 }),
+      getScaledProductionInputs: (inputs, count) => Object.fromEntries(
+        Object.entries(inputs || {}).map(([itemId, amount]) => [itemId, Number(amount || 0) * count])
+      ),
+      getStoredProductionBuildingState: () => ({ level: 1 }),
+      hasEnoughMaterials: () => false,
+      persistProductionJob,
+      renderProductionPanelUi: vi.fn(() => true),
+      renderRecipeCard,
+      setBuildingActionFeedback,
+      syncCompletedProductionJobs: vi.fn()
+    });
+
+    const root = createRoot({
+      '[data-production-panel="druglab"]': {}
+    });
+    runtime.renderProductionPanel(root, "druglab", {
+      "pulse-shot": {
+        durationMs: 1000,
+        inputs: { chemicals: 2, "stim-pack": 1 },
+        output: { inventory: "drugs", itemId: "pulse-shot", amount: 5 }
+      }
+    });
+
+    recipeCallbacks["pulse-shot"].onStart({ batchCount: 1 });
+
+    expect(persistProductionJob).not.toHaveBeenCalled();
+    expect(setBuildingActionFeedback).toHaveBeenCalledWith(
+      root,
+      "warning",
+      "Budova",
+      "Chybí materiál pro spuštění výroby."
+    );
+  });
+
   it("queues armory output by selected pieces and caps at 15", () => {
     const recipeCallbacks = {};
     const persistProductionJob = vi.fn();

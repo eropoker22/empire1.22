@@ -102,7 +102,9 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       visual: deps.PRODUCTION_SLOT_VISUALS?.[buildingName]?.[recipeId] || null,
       inputAmounts,
       canStart: deps.hasEnoughMaterials?.(recipe?.inputs || {}) || false,
-      maxBatches: getMaxBatches()
+      maxBatches: getMaxBatches(),
+      maxSelectableBatches: buildingName === "druglab" ? 99 : getMaxBatches(),
+      allowStartWithMissingInputs: buildingName === "druglab"
     };
     const card = deps.renderRecipeCard?.(viewModel, {
       getMaxBatches,
@@ -123,6 +125,12 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           maxBatches
         );
         if (safeBatchCount <= 0) {
+          deps.setBuildingActionFeedback?.(
+            root,
+            "warning",
+            deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
+            "Chybí materiál pro spuštění výroby."
+          );
           rerender?.();
           return;
         }
@@ -132,6 +140,12 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         const cleanCost = Math.max(0, Number(recipe?.cleanMoneyCost || 0) * safeBatchCount);
         const economyState = deps.getResolvedEconomyState?.() || {};
         if (!deps.hasEnoughMaterials?.(requiredInputs) || Number(economyState.cleanMoney || 0) < cleanCost) {
+          deps.setBuildingActionFeedback?.(
+            root,
+            "warning",
+            deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
+            "Chybí materiál nebo clean cash pro zvolené množství."
+          );
           rerender?.();
           return;
         }
