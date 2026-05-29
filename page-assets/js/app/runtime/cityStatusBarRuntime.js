@@ -106,7 +106,7 @@ function buildBattleRoyaleStatusViewModel(playerOptions = {}) {
   const activePlayers = Number(elimination.activePlayersRemaining);
   const playersValue = Number.isFinite(activePlayers) && activePlayers > 0
     ? `${activePlayers}/${Math.max(1, Math.floor(maxPlayersPerServer || DEFAULT_MAX_PLAYERS_PER_SERVER))}`
-    : "-";
+    : `${DEFAULT_MAX_PLAYERS_PER_SERVER}/${DEFAULT_MAX_PLAYERS_PER_SERVER}`;
   const nextTicks = Number(elimination.ticksUntilNextElimination);
   const secondaryValue = eliminationsStopped
     ? "zastaveno"
@@ -119,7 +119,7 @@ function buildBattleRoyaleStatusViewModel(playerOptions = {}) {
   return {
     mode: "br",
     secondaryLabel: "Očista",
-    secondaryMobileLabel: "Cut",
+    secondaryMobileLabel: "",
     secondaryValue,
     statusLabel: "Stav",
     statusMobileLabel: "Stav",
@@ -196,7 +196,7 @@ export function renderCityStatusBar(viewModel = {}, elements = {}) {
   elements.clock.textContent = viewModel.clockLabel || "00:00";
   setPillLabel(elements.clock, "Čas města", "Čas");
   elements.dayPhase.textContent = viewModel.dayPhaseLabel || "NOC";
-  setPillLabel(elements.dayPhase, viewModel.dayPhaseTitle || "Očista", viewModel.dayPhaseMobileLabel || "Cut");
+  setPillLabel(elements.dayPhase, viewModel.dayPhaseTitle || "Očista", viewModel.dayPhaseMobileLabel ?? "");
   elements.gamePhase.textContent = viewModel.gamePhaseLabel || "LIVE";
   setPillLabel(elements.gamePhase, viewModel.gamePhaseTitle || "Stav", viewModel.gamePhaseMobileLabel || "Stav");
   elements.status.textContent = viewModel.statusLabel || "";

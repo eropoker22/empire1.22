@@ -53,7 +53,7 @@ describe("city status bar runtime", () => {
       dayPhaseLabel: "čeká se",
       gamePhaseLabel: "SAFE",
       productionLabel: "Očista",
-      statusLabel: "-"
+      statusLabel: "20/20"
     });
     expect(viewModel.gamePhaseLabel).not.toBe("DEV-ONLY");
     expect(phaseState).toEqual({

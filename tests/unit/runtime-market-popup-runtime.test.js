@@ -92,7 +92,9 @@ describe("market popup runtime", () => {
     const open = createElement();
     const popup = createElement();
     const tab = createElement({ marketTab: "black-market" });
+    const playerTab = createElement({ marketTab: "player-market" });
     const close = createElement();
+    const title = createElement();
     const renderMarketPanel = vi.fn();
     const renderBlackMarketPanel = vi.fn();
     const openMarketPanel = vi.fn((target) => {
@@ -110,18 +112,66 @@ describe("market popup runtime", () => {
       ".list": createElement(),
       ".open": open,
       ".popup": popup,
-      ".server": createElement()
+      ".server": createElement(),
+      "[data-market-title]": title
     }, {
       ".close": [close],
-      ".tab": [tab]
+      ".tab": [tab, playerTab]
     });
 
     expect(runtime.bindMarketPopup(root)).toBe(true);
     open.dispatch("click");
+    expect(title.textContent).toBe("Neon Market");
     tab.dispatch("click");
+    expect(title.textContent).toBe("Blackline Market");
+    playerTab.dispatch("click");
 
     expect(openMarketPanel).toHaveBeenCalledWith(popup);
     expect(renderMarketPanel).toHaveBeenCalledTimes(1);
     expect(renderBlackMarketPanel).toHaveBeenCalledTimes(1);
+    expect(title.textContent).toBe("Podzemní burza");
+  });
+
+  it("clears recent market transactions through dashboard callback", () => {
+    const open = createElement();
+    const popup = createElement();
+    const close = createElement();
+    const renderMarketDashboard = vi.fn();
+    const setStoredMarketPriceState = vi.fn();
+    const runtime = createRuntime({
+      renderMarketDashboard,
+      setStoredMarketPriceState,
+      refreshMarketPricesIfNeeded: vi.fn(() => ({
+        nextRefreshAt: new Date(Date.now() + 1000).toISOString(),
+        transactions: [{ id: "tx-1" }]
+      })),
+      normalizeMarketTradeState: vi.fn((state) => state)
+    });
+    const root = createRoot({
+      ".copy": createElement(),
+      ".dashboard": createElement(),
+      ".feedback": createElement(),
+      ".list": createElement(),
+      ".open": open,
+      ".popup": popup,
+      ".server": createElement(),
+      "[data-market-title]": createElement()
+    }, {
+      ".close": [close],
+      ".tab": [createElement({ marketTab: "market" })]
+    });
+
+    expect(runtime.bindMarketPopup(root)).toBe(true);
+    open.dispatch("click");
+
+    const dashboardOptions = renderMarketDashboard.mock.calls[0]?.[2];
+    expect(typeof dashboardOptions?.onClearRecentTransactions).toBe("function");
+
+    dashboardOptions.onClearRecentTransactions();
+
+    expect(setStoredMarketPriceState).toHaveBeenCalledWith(expect.objectContaining({
+      transactions: []
+    }));
+    expect(renderMarketDashboard).toHaveBeenCalledTimes(2);
   });
 });

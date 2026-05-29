@@ -47,10 +47,11 @@ export function renderBuildingsPopupTypes(mount, view = {}) {
 
   const buttons = [];
   for (const item of Array.isArray(view.types) ? view.types : []) {
+    const isDisabled = Boolean(item.disabled);
     const button = createElement(
       mount,
       "button",
-      `button buildings-popup__type-btn buildings-popup__type-btn--${item.typeKey || "unknown"}${item.active ? " is-active" : ""}`
+      `button buildings-popup__type-btn buildings-popup__type-btn--${item.typeKey || "unknown"}${item.active ? " is-active" : ""}${isDisabled ? " is-locked" : ""}`
     );
     const label = createElement(mount, "span", "buildings-popup__type-label");
     const count = createElement(mount, "span", "buildings-popup__type-meta");
@@ -58,11 +59,28 @@ export function renderBuildingsPopupTypes(mount, view = {}) {
       continue;
     }
     button.type = "button";
-    button.dataset.buildingsDistrictType = item.typeKey || "";
+    button.disabled = isDisabled;
+    if (isDisabled) {
+      button.setAttribute("aria-disabled", "true");
+      button.title = `${item.label || "Zóna"} nevlastníš`;
+    } else {
+      button.dataset.buildingsDistrictType = item.typeKey || "";
+    }
     label.textContent = item.label || "";
     count.textContent = item.meta || "";
+    if (Number(item.ownedDistrictCount) > 0) {
+      count.dataset.mobileCount = String(item.ownedDistrictCount);
+    }
     button.append(label, count);
     buttons.push(button);
+  }
+
+  const mobileCaption = createElement(mount, "div", "buildings-popup__mobile-type-caption");
+  if (mobileCaption) {
+    mobileCaption.textContent = view.activeLabel || "";
+    mobileCaption.hidden = !view.activeLabel;
+    mobileCaption.setAttribute("aria-live", "polite");
+    buttons.push(mobileCaption);
   }
 
   mount.replaceChildren(...buttons);
@@ -150,16 +168,27 @@ export function renderBuildingsPopupDetail(mount, view = {}) {
     const entries = Array.isArray(view.entries) ? view.entries : [];
     if (entries.length > 0) {
       for (const entry of entries) {
-        const button = createElement(mount, "button", "button buildings-popup__building buildings-popup__building--name buildings-popup__building--interactive");
+        const isOwnedByCurrentPlayer = entry.isOwnedByCurrentPlayer !== false;
+        const button = createElement(
+          mount,
+          "button",
+          `button buildings-popup__building buildings-popup__building--name${isOwnedByCurrentPlayer ? " buildings-popup__building--interactive" : " buildings-popup__building--locked"}`
+        );
         const label = createElement(mount, "span");
         if (!button || !label) {
           continue;
         }
         button.type = "button";
-        button.dataset.buildingsOpenBuildingName = entry.baseName || "";
-        button.dataset.buildingsOpenBuildingDisplayName = entry.displayName || "";
-        button.dataset.buildingsOpenBuildingDistrictId = String(entry.districtId || "");
-        button.title = `${entry.displayName || entry.baseName || "Budova"} · ${entry.districtLabel || "District"}`;
+        button.disabled = !isOwnedByCurrentPlayer;
+        if (isOwnedByCurrentPlayer) {
+          button.dataset.buildingsOpenBuildingName = entry.baseName || "";
+          button.dataset.buildingsOpenBuildingDisplayName = entry.displayName || "";
+          button.dataset.buildingsOpenBuildingDistrictId = String(entry.districtId || "");
+          button.title = `${entry.displayName || entry.baseName || "Budova"} · ${entry.districtLabel || "District"}`;
+        } else {
+          button.setAttribute("aria-disabled", "true");
+          button.title = `${entry.districtLabel || "District"} nevlastníš`;
+        }
         label.textContent = entry.displayName || entry.baseName || "Budova";
         button.append(label);
         variantsGrid.append(button);

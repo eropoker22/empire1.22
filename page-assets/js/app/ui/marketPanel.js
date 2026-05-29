@@ -100,6 +100,10 @@ function createDashboardChip(ownerDocument, label, value, tone = "neutral") {
   return chip;
 }
 
+function formatMarketTransactionLabel(transaction = {}) {
+  return `${transaction.type === "buy" ? "Nákup" : "Prodej"} ${transaction.amount}x ${transaction.itemName} · ${formatMarketPrice(transaction.total)}`;
+}
+
 export function renderMarketDashboard(dashboardElement, viewModel = {}, options = {}) {
   if (!dashboardElement) {
     return false;
@@ -110,14 +114,41 @@ export function renderMarketDashboard(dashboardElement, viewModel = {}, options 
     return false;
   }
 
-  const recentList = createElement(ownerDocument, "div", "market-popup-dashboard__recent");
-  const recentTitle = createElement(ownerDocument, "span", "market-popup-dashboard__recent-title");
-  recentTitle.textContent = "Poslední obchody";
-  appendChildren(recentList, recentTitle);
-
   const recentTransactions = Array.isArray(viewModel.recentTransactions)
     ? viewModel.recentTransactions
     : [];
+  const allRecentTransactions = Array.isArray(viewModel.allRecentTransactions)
+    ? viewModel.allRecentTransactions
+    : recentTransactions;
+  const recentList = createElement(ownerDocument, "div", "market-popup-dashboard__recent");
+  if (allRecentTransactions.length > 0) {
+    recentList.tabIndex = 0;
+    recentList.title = "Zobrazit všechny poslední obchody";
+    recentList.setAttribute("role", "button");
+    recentList.setAttribute("aria-label", "Zobrazit všechny poslední obchody");
+  }
+  const recentHeader = createElement(ownerDocument, "div", "market-popup-dashboard__recent-header");
+  const recentTitle = createElement(ownerDocument, "span", "market-popup-dashboard__recent-title");
+  recentTitle.textContent = "Poslední obchody";
+  appendChildren(recentHeader, recentTitle);
+
+  if (typeof options.onClearRecentTransactions === "function") {
+    const clearButton = createElement(ownerDocument, "button", "market-popup-dashboard__recent-clear");
+    clearButton.type = "button";
+    clearButton.title = "Vymazat poslední obchody";
+    clearButton.setAttribute("aria-label", "Vymazat poslední obchody");
+    const clearIcon = createElement(ownerDocument, "span", "market-popup-dashboard__recent-clear-icon");
+    clearIcon.setAttribute("aria-hidden", "true");
+    clearIcon.textContent = "🗑";
+    appendChildren(clearButton, clearIcon);
+    clearButton.addEventListener("click", (event) => {
+      event?.stopPropagation?.();
+      options.onClearRecentTransactions();
+    });
+    appendChildren(recentHeader, clearButton);
+  }
+
+  appendChildren(recentList, recentHeader);
 
   if (recentTransactions.length <= 0) {
     const empty = createElement(ownerDocument, "span", "market-popup-dashboard__recent-empty");
@@ -127,9 +158,54 @@ export function renderMarketDashboard(dashboardElement, viewModel = {}, options 
     for (const transaction of recentTransactions) {
       const entry = createElement(ownerDocument, "span", "market-popup-dashboard__recent-entry");
       setDatasetValue(entry, "marketTradeType", transaction.type);
-      entry.textContent = `${transaction.type === "buy" ? "Nákup" : "Prodej"} ${transaction.amount}x ${transaction.itemName} · ${formatMarketPrice(transaction.total)}`;
+      entry.textContent = formatMarketTransactionLabel(transaction);
       appendChildren(recentList, entry);
     }
+  }
+
+  if (allRecentTransactions.length > 0) {
+    const detailPanel = createElement(ownerDocument, "div", "market-popup-dashboard__recent-detail");
+    detailPanel.hidden = true;
+    detailPanel.setAttribute("role", "dialog");
+    detailPanel.setAttribute("aria-label", "Všechny poslední obchody");
+
+    const detailHeader = createElement(ownerDocument, "div", "market-popup-dashboard__recent-detail-header");
+    const detailTitle = createElement(ownerDocument, "strong", "market-popup-dashboard__recent-detail-title");
+    detailTitle.textContent = "Všechny poslední obchody";
+    const detailClose = createElement(ownerDocument, "button", "market-popup-dashboard__recent-detail-close");
+    detailClose.type = "button";
+    detailClose.title = "Zavřít seznam obchodů";
+    detailClose.setAttribute("aria-label", "Zavřít seznam obchodů");
+    detailClose.textContent = "×";
+    appendChildren(detailHeader, detailTitle, detailClose);
+
+    const detailBody = createElement(ownerDocument, "div", "market-popup-dashboard__recent-detail-body");
+    for (const transaction of allRecentTransactions) {
+      const detailEntry = createElement(ownerDocument, "span", "market-popup-dashboard__recent-detail-entry");
+      setDatasetValue(detailEntry, "marketTradeType", transaction.type);
+      detailEntry.textContent = formatMarketTransactionLabel(transaction);
+      appendChildren(detailBody, detailEntry);
+    }
+
+    const openDetailPanel = () => {
+      detailPanel.hidden = false;
+    };
+    const closeDetailPanel = (event) => {
+      event?.stopPropagation?.();
+      detailPanel.hidden = true;
+    };
+
+    recentList.addEventListener("click", openDetailPanel);
+    recentList.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault?.();
+        openDetailPanel();
+      }
+    });
+    detailClose.addEventListener("click", closeDetailPanel);
+
+    appendChildren(detailPanel, detailHeader, detailBody);
+    appendChildren(recentList, detailPanel);
   }
 
   const chips = Array.isArray(viewModel.chips) ? viewModel.chips : [];

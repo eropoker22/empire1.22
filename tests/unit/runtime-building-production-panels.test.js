@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ensureBuildingDetailPanel,
+  renderBuildingDetailInfoSection,
   renderBuildingDetailPanel
 } from "../../page-assets/js/app/ui/buildingDetailPanel.js";
 import {
@@ -248,6 +249,316 @@ describe("building detail, production and recipe UI modules", () => {
 
     expect(() => renderBuildingDetailPanel(null)).not.toThrow();
     expect(() => renderBuildingDetailPanel({ shell, stats: [], mechanics: [], actions: [] })).not.toThrow();
+  });
+
+  it("applies and clears downtown building detail card styling hooks", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "12:bank" });
+    const card = shell.querySelector(".district-building-detail-card");
+
+    renderBuildingDetailPanel({
+      shell,
+      title: "Centrální banka",
+      badge: "Finance",
+      levelLabel: "L1",
+      districtType: "downtown",
+      isDowntownBuilding: true,
+      stats: [],
+      mechanics: [],
+      collect: { visible: false },
+      upgrade: { disabled: true, title: "" },
+      actions: []
+    });
+
+    expect(shell.dataset.buildingDistrictType).toBe("downtown");
+    expect(card.dataset.buildingDistrictType).toBe("downtown");
+    expect(shell.classList.contains("is-downtown-building-detail")).toBe(true);
+    expect(card.classList.contains("is-downtown-building-card")).toBe(true);
+
+    renderBuildingDetailPanel({
+      shell,
+      title: "Restaurace",
+      badge: "Lokální cashflow",
+      levelLabel: "L1",
+      districtType: "commercial",
+      stats: [],
+      mechanics: [],
+      collect: { visible: false },
+      upgrade: { disabled: true, title: "" },
+      actions: []
+    });
+
+    expect(shell.dataset.buildingDistrictType).toBe("commercial");
+    expect(card.dataset.buildingDistrictType).toBe("commercial");
+    expect(shell.classList.contains("is-downtown-building-detail")).toBe(false);
+    expect(card.classList.contains("is-downtown-building-card")).toBe(false);
+  });
+
+  it("hides the upgrade button when a passive building cannot be upgraded", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:garage" });
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "garage",
+      title: "Garáž",
+      badge: "Logistika",
+      levelLabel: "L1",
+      name: "Garáž",
+      meta: "District 1",
+      stats: [{ label: "Upgrade", value: "Bez upgradu" }],
+      mechanics: [{ label: "Cooldowny", value: "-6%" }],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { visible: false, disabled: true, title: "Garáž je pasivní budova bez upgradu." },
+      actions: []
+    });
+
+    const upgradeButton = shell.querySelector("[data-district-building-detail-upgrade]");
+    const tabs = shell.querySelector(".district-building-detail-tabs");
+    const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
+    const infoPanel = shell.querySelector("[data-district-building-detail-panel='info']");
+
+    expect(upgradeButton.hidden).toBe(true);
+    expect(upgradeButton.style.display).toBe("none");
+    expect(upgradeButton.disabled).toBe(true);
+    expect(tabs.hidden).toBe(true);
+    expect(shell.classList.contains("is-building-detail-single-panel")).toBe(true);
+    expect(statsPanel.hidden).toBe(false);
+    expect(infoPanel.hidden).toBe(true);
+    expect(shell.querySelector(".district-building-detail-info-card").parentNode).toBe(statsPanel);
+  });
+
+  it("renders apartment block detail as one combined panel without tabs", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:apartment" });
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "apartment-block",
+      title: "Bytový blok",
+      badge: "Členové gangu",
+      levelLabel: "L1",
+      name: "Bytový blok",
+      meta: "Členové gangu · District 1",
+      stats: [{ label: "Obyvatelé", value: "8/20" }],
+      mechanics: [{ label: "Produkce", value: "+0.30 obyv./min" }],
+      collect: { visible: true, enabled: true, title: "Vybrat obyvatele" },
+      upgrade: { disabled: true, title: "Bez upgradu" },
+      actions: [{ index: 0, title: "Vybrat obyvatele", description: "Přidá členy gangu.", cooldownLabel: "Cooldown: 0s" }]
+    });
+
+    const tabs = shell.querySelector(".district-building-detail-tabs");
+    const panels = shell.querySelectorAll("[data-district-building-detail-panel]");
+    const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
+    const infoPanel = shell.querySelector("[data-district-building-detail-panel='info']");
+
+    expect(tabs.hidden).toBe(true);
+    expect(tabs.style.display).toBe("none");
+    expect(shell.classList.contains("is-building-detail-single-panel")).toBe(true);
+    expect(panels).toHaveLength(2);
+    expect(statsPanel.hidden).toBe(false);
+    expect(statsPanel.classList.contains("district-building-detail-panel--merged")).toBe(true);
+    expect(infoPanel.hidden).toBe(true);
+    expect(infoPanel.classList.contains("hidden")).toBe(true);
+    expect(shell.querySelector(".district-building-detail-info-card").parentNode).toBe(statsPanel);
+    expect(shell.querySelector("[data-district-building-detail-action-section]")).toBe(null);
+  });
+
+  it("renders focused action buildings as a single panel while keeping action controls", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:clinic" });
+    const infoSection = shell.querySelector("[data-district-building-detail-info-section]");
+
+    renderBuildingDetailInfoSection(infoSection, {
+      intro: "Klinika drží gang při životě.",
+      rows: [],
+      actions: []
+    });
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "clinic",
+      title: "Klinika",
+      badge: "Recovery",
+      levelLabel: "L1",
+      name: "Klinika",
+      meta: "",
+      stats: [{ label: "Recovery rate", value: "15 %" }],
+      mechanics: [{ label: "Stabilizace", value: "připravená" }],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { disabled: true, title: "Max level" },
+      showActionsInSinglePanel: true,
+      actions: [{ index: 0, title: "Stabilizační protokol", description: "Vrací čerstvé ztráty.", cooldownLabel: "Cooldown: 18m 00s" }]
+    });
+
+    const tabs = shell.querySelector(".district-building-detail-tabs");
+    const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
+    const infoPanel = shell.querySelector("[data-district-building-detail-panel='info']");
+    const actions = shell.querySelectorAll("[data-district-building-detail-action-index]");
+
+    expect(tabs.hidden).toBe(true);
+    expect(shell.classList.contains("is-building-detail-single-panel")).toBe(true);
+    expect(statsPanel.hidden).toBe(false);
+    expect(infoPanel.hidden).toBe(true);
+    expect(shell.querySelector(".district-building-detail-info-card").parentNode).toBe(statsPanel);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].querySelector(".building-info-action-row__title").textContent).toBe("Stabilizační protokol");
+  });
+
+  it("renders commercial action buildings as one merged panel with actions", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:casino" });
+    const infoSection = shell.querySelector("[data-district-building-detail-info-section]");
+
+    renderBuildingDetailInfoSection(infoSection, {
+      intro: "Kasino pere velké částky s velkým rizikem.",
+      rows: [],
+      actions: []
+    });
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "casino",
+      title: "Kasino",
+      badge: "High-risk praní",
+      levelLabel: "L2",
+      name: "Kasino",
+      meta: "",
+      stats: [{ label: "Kapacita praní", value: "$8000" }],
+      mechanics: [{ label: "Tichá herna", value: "pere část dirty cash" }],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { disabled: false, title: "Upgrade na L3" },
+      showActionsInSinglePanel: true,
+      actions: [{ index: 0, title: "Tichá herna", description: "Vypere dirty cash.", cooldownLabel: "Cooldown: 14m 00s" }]
+    });
+
+    const tabs = shell.querySelector(".district-building-detail-tabs");
+    const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
+    const infoPanel = shell.querySelector("[data-district-building-detail-panel='info']");
+    const actions = shell.querySelectorAll("[data-district-building-detail-action-index]");
+
+    expect(tabs.hidden).toBe(true);
+    expect(shell.classList.contains("is-building-detail-single-panel")).toBe(true);
+    expect(statsPanel.classList.contains("district-building-detail-panel--merged")).toBe(true);
+    expect(infoPanel.hidden).toBe(true);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].querySelector(".building-info-action-row__title").textContent).toBe("Tichá herna");
+  });
+
+  it("renders infrastructure buildings as one merged panel with support actions", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:power" });
+    const infoSection = shell.querySelector("[data-district-building-detail-info-section]");
+
+    renderBuildingDetailInfoSection(infoSection, {
+      intro: "Energetická stanice drží provoz districtu stabilní.",
+      rows: [],
+      actions: []
+    });
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "power-plant",
+      title: "Energetická stanice",
+      badge: "Infrastruktura",
+      levelLabel: "L2",
+      name: "Energetická stanice",
+      meta: "",
+      stats: [{ label: "Akce", value: "síť / výroba / výpadky" }],
+      mechanics: [{ label: "Stabilizovat síť", value: "dočasně zvedne income districtu" }],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { disabled: false, title: "Upgrade na L3" },
+      showActionsInSinglePanel: true,
+      actions: [
+        { index: 0, title: "Stabilizovat síť", description: "Zvedne income.", cooldownLabel: "Cooldown: 0s" },
+        { index: 1, title: "Napájet výrobu", description: "Podpoří výrobu.", cooldownLabel: "Cooldown: 0s" },
+        { index: 2, title: "Snížit výpadky", description: "Sníží heat.", cooldownLabel: "Cooldown: 0s" }
+      ]
+    });
+
+    const tabs = shell.querySelector(".district-building-detail-tabs");
+    const infoPanel = shell.querySelector("[data-district-building-detail-panel='info']");
+    const actions = shell.querySelectorAll("[data-district-building-detail-action-index]");
+
+    expect(tabs.hidden).toBe(true);
+    expect(shell.classList.contains("is-building-detail-single-panel")).toBe(true);
+    expect(infoPanel.hidden).toBe(true);
+    expect(actions).toHaveLength(3);
+    expect(actions[2].querySelector(".building-info-action-row__title").textContent).toBe("Snížit výpadky");
+  });
+
+  it("renders street economy buildings as one merged panel with actions", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:smuggling" });
+    const infoSection = shell.querySelector("[data-district-building-detail-info-section]");
+
+    renderBuildingDetailInfoSection(infoSection, {
+      intro: "Pašovací tunel drží dirty proud mimo světlo.",
+      rows: [],
+      actions: []
+    });
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "smuggling-tunnel",
+      title: "Pašovací tunel",
+      badge: "Pašování",
+      levelLabel: "L2",
+      name: "Pašovací tunel",
+      meta: "",
+      stats: [{ label: "Dirty / min", value: "+$22" }],
+      mechanics: [{ label: "Otevřít kanál", value: "Cena $800 dirty" }],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { disabled: false, title: "Upgrade na L3" },
+      showActionsInSinglePanel: true,
+      actions: [{ index: 0, title: "Otevřít kanál", description: "Zvedne dirty cash tunelů.", cooldownLabel: "Cooldown: 18m 00s" }]
+    });
+
+    const tabs = shell.querySelector(".district-building-detail-tabs");
+    const infoPanel = shell.querySelector("[data-district-building-detail-panel='info']");
+    const actions = shell.querySelectorAll("[data-district-building-detail-action-index]");
+
+    expect(tabs.hidden).toBe(true);
+    expect(shell.classList.contains("is-building-detail-single-panel")).toBe(true);
+    expect(infoPanel.hidden).toBe(true);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].querySelector(".building-info-action-row__title").textContent).toBe("Otevřít kanál");
+  });
+
+  it("keeps a single pinned apartment intro across live refresh renders", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:apartment-refresh" });
+    const infoSection = shell.querySelector("[data-district-building-detail-info-section]");
+    const viewModel = {
+      shell,
+      mechanicsType: "apartment-block",
+      title: "Bytový blok",
+      badge: "Členové gangu",
+      levelLabel: "L1",
+      stats: [],
+      mechanics: [],
+      collect: { visible: true, enabled: false, title: "Čeká na obyvatele" },
+      upgrade: { disabled: true, title: "Bez upgradu" },
+      actions: []
+    };
+    const infoViewModel = {
+      intro: "Bytový blok negeneruje cash ani heat.",
+      rows: [{ label: "Čas do naplnění", value: "1m 00s" }],
+      actions: []
+    };
+
+    renderBuildingDetailInfoSection(infoSection, infoViewModel);
+    renderBuildingDetailPanel(viewModel);
+    renderBuildingDetailInfoSection(infoSection, infoViewModel);
+    renderBuildingDetailPanel(viewModel);
+
+    const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
+    const pinnedIntroCount = statsPanel.children.filter((child) => child.classList.contains("building-detail-info-text")).length;
+    expect(pinnedIntroCount).toBe(1);
   });
 
   it("renders production outputs and empty production panels", () => {

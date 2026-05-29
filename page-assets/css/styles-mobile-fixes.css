@@ -1934,49 +1934,6 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
   }
 }
 
-@media (max-width: 900px), (hover: none) and (pointer: coarse) {
-  #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__content .modal__header {
-    position: relative !important;
-    display: block !important;
-    padding-right: 46px !important;
-  }
-
-  #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__content .modal__header > h3 {
-    margin: 0 !important;
-    line-height: 1.2 !important;
-  }
-
-  #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__content .modal__header > #buildings-modal-close {
-    position: absolute !important;
-    top: 10px !important;
-    right: 0 !important;
-    width: 34px !important;
-    min-width: 34px !important;
-    height: 34px !important;
-    min-height: 34px !important;
-    margin: 0 !important;
-    transform: none !important;
-  }
-}
-
-html body #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header {
-  position: static !important;
-  padding-right: 46px !important;
-}
-
-html body #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header > button#buildings-modal-close.modal__close {
-  position: absolute !important;
-  top: 10px !important;
-  right: 10px !important;
-  left: auto !important;
-  width: 34px !important;
-  min-width: 34px !important;
-  height: 34px !important;
-  min-height: 34px !important;
-  margin: 0 !important;
-  transform: none !important;
-}
-
 .storage-popup-card .storage-popup-close,
 .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-card .modal__close {
   position: absolute !important;
@@ -2631,6 +2588,28 @@ html body #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__
 
 /* Final mobile building modal scroll guards. */
 @media (max-width: 720px), (hover: none) and (pointer: coarse) {
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="arcade"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="school"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="fitness-club"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="exchange"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="power-plant"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="recycling-center"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="street-dealers"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="convenience-store"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="smuggling-tunnel"] .district-building-detail-title .building-detail-title__badge,
+  .district-building-detail-shell[data-building-mechanics-type="strip-club"] .district-building-detail-title .building-detail-title__badge {
+    display: none !important;
+  }
+
   #buildings-modal:not([hidden]) {
     position: fixed !important;
     inset: 0 !important;
@@ -2824,40 +2803,6 @@ html body #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__
     overflow: hidden !important;
     padding-bottom: max(14px, env(safe-area-inset-bottom)) !important;
     overscroll-behavior: contain !important;
-  }
-
-  body.game-modal-scroll-locked #buildings-modal .buildings-popup-card.buildings-modal__content .modal__header {
-    position: relative !important;
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) 32px !important;
-    align-items: start !important;
-    column-gap: 8px !important;
-    flex: 0 0 auto !important;
-    padding-right: 0 !important;
-  }
-
-  body.game-modal-scroll-locked #buildings-modal .buildings-popup-card.buildings-modal__content .modal__header > h3 {
-    margin: 0 !important;
-    line-height: 32px !important;
-  }
-
-  body.game-modal-scroll-locked #buildings-modal .buildings-popup-card.buildings-modal__content .modal__header > #buildings-modal-close {
-    position: static !important;
-    grid-column: 2 !important;
-    grid-row: 1 !important;
-    justify-self: end !important;
-    align-self: start !important;
-    width: 32px !important;
-    min-width: 32px !important;
-    height: 32px !important;
-    min-height: 32px !important;
-    margin: -10px 0 0 0 !important;
-    transform: none !important;
-  }
-
-  body.game-modal-scroll-locked #buildings-modal .buildings-popup-card.buildings-modal__content .modal__header > #buildings-modal-close::before,
-  body.game-modal-scroll-locked #buildings-modal .buildings-popup-card.buildings-modal__content .modal__header > #buildings-modal-close::after {
-    inset: 4px !important;
   }
 
   body.game-modal-scroll-locked .buildings-popup__body {
@@ -3094,52 +3039,6 @@ body .market-popup-shell[data-market-mode="market"] .market-popup-row__sell {
 }
 
 @media (max-width: 720px), (hover: none) and (pointer: coarse) {
-  body.game-modal-scroll-locked #buildings-modal .buildings-popup-card.buildings-modal__content .modal__header {
-    position: relative !important;
-    display: block !important;
-    padding-right: 46px !important;
-  }
-
-  body.game-modal-scroll-locked #buildings-modal .buildings-popup-card.buildings-modal__content .modal__header > h3 {
-    margin: 0 !important;
-    line-height: 1.2 !important;
-  }
-
-  body.game-modal-scroll-locked #buildings-modal .buildings-popup-card.buildings-modal__content .modal__header > #buildings-modal-close {
-    position: absolute !important;
-    top: -6px !important;
-    right: 0 !important;
-    width: 34px !important;
-    min-width: 34px !important;
-    height: 34px !important;
-    min-height: 34px !important;
-    margin: 0 !important;
-    transform: none !important;
-  }
-}
-
-html body #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header {
-  position: relative !important;
-  display: block !important;
-  padding-right: 50px !important;
-}
-
-html body #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header > button#buildings-modal-close.modal__close {
-  position: absolute !important;
-  top: 0 !important;
-  right: 0 !important;
-  bottom: auto !important;
-  left: auto !important;
-  inset: 0 0 auto auto !important;
-  inset-inline-start: auto !important;
-  inset-inline-end: 0 !important;
-  z-index: 90 !important;
-  width: 34px !important;
-  min-width: 34px !important;
-  height: 34px !important;
-  min-height: 34px !important;
-  margin: 0 !important;
-  transform: none !important;
 }
 
 html body #buildings-modal.buildings-popup-shell:not([hidden]) {
@@ -3323,7 +3222,6 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
       inset 0 0 0 1px rgba(255, 255, 255, 0.34);
   }
 
-  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header > button#buildings-modal-close.modal__close,
   html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .modal__close {
     position: absolute !important;
     top: 6px !important;
@@ -3347,7 +3245,6 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
     transform: none !important;
   }
 
-  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header > button#buildings-modal-close.modal__close::after,
   html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .modal__close::after {
     inset: 4px !important;
     border: 1px solid rgba(var(--mobile-building-scroll-rgb), 0.78) !important;
@@ -3361,7 +3258,6 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
       0 0 16px rgba(var(--mobile-building-scroll-soft-rgb), 0.28) !important;
   }
 
-  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header > button#buildings-modal-close.modal__close::before,
   html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .modal__close::before {
     inset: 4px !important;
     display: block !important;
@@ -4052,8 +3948,6 @@ html body .district-popup-card .district-atmosphere-window > .district-atmospher
     .login-leaderboard-close,
     .game-admin-slice-overlay__close
   ),
-  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header > button#buildings-modal-close.modal__close,
-  html body #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header > button#buildings-modal-close.modal__close,
   html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .modal__close,
   html body .district-popup-card .district-atmosphere-window > .district-atmosphere-window__close.button,
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-close,
@@ -4109,8 +4003,6 @@ html body .district-popup-card .district-atmosphere-window > .district-atmospher
     .login-leaderboard-close,
     .game-admin-slice-overlay__close
   )::before,
-  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header > button#buildings-modal-close.modal__close::before,
-  html body #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header > button#buildings-modal-close.modal__close::before,
   html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .modal__close::before,
   html body .district-popup-card .district-atmosphere-window > .district-atmosphere-window__close.button::before,
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-close::before,
@@ -4170,8 +4062,6 @@ html body .district-popup-card .district-atmosphere-window > .district-atmospher
     .login-leaderboard-close,
     .game-admin-slice-overlay__close
   )::after,
-  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header > button#buildings-modal-close.modal__close::after,
-  html body #buildings-modal:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header > button#buildings-modal-close.modal__close::after,
   html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .modal__close::after,
   html body .district-popup-card .district-atmosphere-window > .district-atmosphere-window__close.button::after,
   html body .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-close::after,
@@ -5585,6 +5475,85 @@ html body #police-action-result-modal:not(.hidden):not([hidden]) .modal__body {
     margin: auto !important;
     width: min(620px, calc(100vw - 24px)) !important;
     max-height: calc(var(--mobile-locked-vh, 100dvh) - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom))) !important;
+  }
+}
+
+/* Mobile focused building details mirror the cleaned desktop single-panel layout. */
+@media (max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-tabs,
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-name,
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-meta,
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel[data-district-building-detail-panel="info"] {
+    display: none !important;
+  }
+
+  html body .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card.building-detail-modal__content {
+    background:
+      linear-gradient(180deg, rgba(2, 6, 14, 0.04), rgba(2, 6, 14, 0.14) 64%, rgba(2, 6, 14, 0.24) 100%),
+      url("../../img/budovy/blok.png") center/cover,
+      rgba(4, 8, 16, 0.94) !important;
+  }
+
+  html body .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card.building-detail-modal__content::before {
+    opacity: 0.2 !important;
+  }
+
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-body {
+    gap: 7px !important;
+    padding: 8px !important;
+    background: transparent !important;
+  }
+
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-panel--merged {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 7px !important;
+    padding: 8px !important;
+    background: rgba(3, 8, 16, 0.34) !important;
+  }
+
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-panel--merged > .building-detail-info-text {
+    order: -20 !important;
+    margin: 0 !important;
+    padding: 9px 10px !important;
+    border-radius: 8px !important;
+    background: rgba(5, 10, 19, 0.48) !important;
+    font-size: 0.75rem !important;
+    line-height: 1.28 !important;
+  }
+
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-mechanics,
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-info-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-mechanic-row,
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-info-line {
+    min-height: 0 !important;
+    gap: 4px !important;
+    padding: 8px 8px !important;
+    border-radius: 8px !important;
+  }
+
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-mechanic-row span,
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-info-line span {
+    font-size: 0.56rem !important;
+    line-height: 1.08 !important;
+    text-align: center !important;
+  }
+
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-mechanic-row strong,
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-info-line strong {
+    text-align: center !important;
+    font-size: 0.72rem !important;
+    line-height: 1.14 !important;
+  }
+
+  html body .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel [data-detail-row-label="lokalni-zasobnik"] strong,
+  html body .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel [data-detail-row-label="produkce"] strong,
+  html body .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel [data-detail-row-label="vlastnene-bloky"] strong {
+    font-size: 0.9rem !important;
   }
 }
 

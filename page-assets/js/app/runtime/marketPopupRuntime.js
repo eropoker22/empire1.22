@@ -16,6 +16,7 @@ export function createMarketPopupRuntime(deps = {}) {
     const copyElement = root?.querySelector?.(selectors.copy);
     const listElement = root?.querySelector?.(selectors.list);
     const serverBadgeElement = root?.querySelector?.(selectors.serverBadge);
+    const titleElement = root?.querySelector?.(selectors.title || "[data-market-title]");
     const dashboardElement = root?.querySelector?.(selectors.dashboard);
     const feedbackElement = root?.querySelector?.(selectors.feedback);
 
@@ -39,6 +40,30 @@ export function createMarketPopupRuntime(deps = {}) {
     const setMarketFeedback = (tone, message) => {
       deps.renderMarketFeedback?.(feedbackElement, tone, message);
     };
+    const getMarketTitle = () => {
+      if (activeTab === deps.MARKET_PLAYER_TAB_ID) {
+        return "Podzemní burza";
+      }
+
+      if (activeTab === "black-market") {
+        return "Blackline Market";
+      }
+
+      return "Neon Market";
+    };
+    const commitMarketState = (updater) => {
+      const currentState = deps.refreshMarketPricesIfNeeded?.(false);
+      const nextState = deps.normalizeMarketTradeState?.(updater(currentState));
+      deps.setStoredMarketPriceState?.(nextState);
+      return nextState;
+    };
+    const clearRecentTransactions = () => {
+      const nextState = commitMarketState((currentState = {}) => ({
+        ...currentState,
+        transactions: []
+      }));
+      renderDashboard(nextState);
+    };
     const renderDashboard = (marketState) => {
       if (!dashboardElement) {
         return;
@@ -57,13 +82,9 @@ export function createMarketPopupRuntime(deps = {}) {
         normalizeMarketTransactions: deps.normalizeMarketTransactions,
         getStockAmount,
         formatPrice: deps.formatMarketPrice
-      })));
-    };
-    const commitMarketState = (updater) => {
-      const currentState = deps.refreshMarketPricesIfNeeded?.(false);
-      const nextState = deps.normalizeMarketTradeState?.(updater(currentState));
-      deps.setStoredMarketPriceState?.(nextState);
-      return nextState;
+      })), {
+        onClearRecentTransactions: clearRecentTransactions
+      });
     };
     const renderPlayerMarketTab = (priceState, serverScope) => {
       const { viewModel: playerMarketViewModel } = deps.createPlayerMarketPanelPayload?.({
@@ -119,8 +140,13 @@ export function createMarketPopupRuntime(deps = {}) {
 
       popup.dataset.marketMode = activeTab;
 
+      if (titleElement) {
+        titleElement.textContent = getMarketTitle();
+      }
+
       if (serverBadgeElement) {
-        serverBadgeElement.textContent = `Server: ${serverScope.serverLabel}`;
+        serverBadgeElement.textContent = "";
+        serverBadgeElement.hidden = true;
       }
 
       renderDashboard(priceState);

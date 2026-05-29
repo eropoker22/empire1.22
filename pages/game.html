@@ -220,7 +220,7 @@
                   <strong class="city-status-pill__value" data-city-clock>22:14</strong>
                 </div>
                 <div class="city-status-pill">
-                  <span class="city-status-pill__label" data-mobile-short="Cut">Očista</span>
+                  <span class="city-status-pill__label" data-mobile-short="">Očista</span>
                   <strong class="city-status-pill__value" data-city-day-phase>čeká se</strong>
                 </div>
                 <div class="city-status-pill">
@@ -229,7 +229,7 @@
                 </div>
                 <div class="city-status-pill">
                   <span class="city-status-pill__label" data-mobile-short="Hráči">Hráči</span>
-                  <strong class="city-status-pill__value" data-city-status>-</strong>
+                  <strong class="city-status-pill__value" data-city-status>20/20</strong>
                 </div>
                 <div class="city-status-pill city-status-pill--action">
                   <span class="city-status-pill__label" data-mobile-short=""></span>
@@ -442,7 +442,6 @@
         <div id="buildings-modal-backdrop" class="buildings-popup-backdrop modal__backdrop" data-buildings-popup-close></div>
         <div class="buildings-popup-card modal__content modal__content--profile buildings-modal__content" role="dialog" aria-modal="true" aria-label="Budovy podle distriktu">
           <div class="modal__header">
-            <h3>Budovy podle distriktu</h3>
             <button type="button" id="buildings-modal-close" class="modal__close" data-buildings-popup-close aria-label="Zavřít okno budov">✕</button>
           </div>
           <div class="modal__body buildings-popup__body">
@@ -1537,13 +1536,11 @@
 
       <div class="market-popup-shell" data-market-popup hidden>
         <div class="market-popup-backdrop" data-market-popup-close></div>
-        <div class="market-popup-card" role="dialog" aria-modal="true" aria-label="Server bazar">
+        <div class="market-popup-card" role="dialog" aria-modal="true" aria-label="Market">
           <div class="market-popup-heading">
-            <span class="market-popup-eyebrow">Neon Bazaar</span>
-            <span class="market-popup-server" data-market-server-badge>Server shard</span>
+            <h3 class="market-popup-title" data-market-title>Neon Market</h3>
             <button type="button" class="button market-popup-close" data-market-popup-close aria-label="Zavřít market">✕</button>
           </div>
-          <h3 class="market-popup-title">Serverový bazar</h3>
           <div class="market-popup-tabs" aria-label="Market tabs">
             <button type="button" class="button market-popup-tab is-active" data-market-tab="market">Normal Market</button>
             <button type="button" class="button market-popup-tab" data-market-tab="black-market">Black Market</button>

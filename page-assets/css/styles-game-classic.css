@@ -1765,13 +1765,13 @@
 
 .buildings-popup__type-btn--downtown,
 .buildings-popup__detail-card[data-building-district-type="downtown"] {
-  --buildings-popup-border: rgba(248, 113, 113, 0.44);
-  --buildings-popup-border-strong: rgba(254, 202, 202, 0.84);
-  --buildings-popup-glow: rgba(248, 113, 113, 0.2);
-  --buildings-popup-surface-a: rgba(69, 15, 24, 0.88);
-  --buildings-popup-surface-b: rgba(29, 10, 13, 0.82);
-  --buildings-popup-surface-hover-a: rgba(101, 20, 31, 0.96);
-  --buildings-popup-surface-hover-b: rgba(42, 13, 17, 0.9);
+  --buildings-popup-border: rgba(245, 196, 86, 0.5);
+  --buildings-popup-border-strong: rgba(255, 244, 176, 0.88);
+  --buildings-popup-glow: rgba(245, 196, 86, 0.22);
+  --buildings-popup-surface-a: rgba(38, 30, 13, 0.9);
+  --buildings-popup-surface-b: rgba(8, 12, 21, 0.84);
+  --buildings-popup-surface-hover-a: rgba(62, 46, 16, 0.98);
+  --buildings-popup-surface-hover-b: rgba(16, 16, 30, 0.92);
 }
 
 .buildings-popup__type-btn--park,
@@ -1986,6 +1986,24 @@
   box-shadow:
     0 10px 22px rgba(0, 0, 0, 0.28),
     0 0 14px var(--buildings-popup-glow, rgba(124, 210, 255, 0.12));
+}
+
+.buildings-popup__building--locked,
+.buildings-popup__building--locked:disabled {
+  cursor: not-allowed;
+  border-color: rgba(148, 163, 184, 0.18);
+  background:
+    linear-gradient(135deg, rgba(31, 41, 55, 0.74), rgba(15, 23, 42, 0.84)),
+    rgba(15, 23, 42, 0.82);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+  color: #94a3b8;
+  opacity: 0.62;
+  filter: grayscale(0.75);
+}
+
+.buildings-popup__building--locked > span:only-child {
+  color: #a8b3c2;
+  text-shadow: none;
 }
 
 .buildings-popup__building.is-active,

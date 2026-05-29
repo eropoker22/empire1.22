@@ -29,79 +29,82 @@ export const BUILDING_POPUP_TARGETS = Object.freeze([
 ]);
 
 
+const GARAGE_DETAIL_PROFILE = Object.freeze({
+  role: "Logistika",
+  info: "Garáž je pasivní logistické zázemí. Generuje clean cash, zvedá heat a každá vlastněná garáž zkracuje cooldowny pohybu, útoku, obsazení, přesunů a části support akcí. Nemá dirty cash, vliv, populaci, audit, speciální akce ani upgrade.",
+  actions: Object.freeze([])
+});
+
 export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   "bytovy blok": Object.freeze({
-    role: "Population / gang members",
-    info: "Bytový blok negeneruje peníze ani heat. Jen lidi. A lidi jsou munice města.",
+    role: "Členové gangu",
+    info: "Bytový blok negeneruje cash ani heat. Jen lidi. A v tomhle městě jsou lidi palivo každé války.",
     actions: Object.freeze(["Vybrat obyvatele"])
   }),
-  garage: Object.freeze({
-    role: "Economy / logistics / cooldown multiplier",
-    info: "Garáž generuje čistý příjem a snižuje cooldowny logistických, pohybových a přípravných akcí. Motory běží pod plechovou střechou, kufry mizí ve tmě a někdo vždycky ví, kudy projet bez kamer.",
-    actions: Object.freeze([])
-  }),
+  garage: GARAGE_DETAIL_PROFILE,
+  garaz: GARAGE_DETAIL_PROFILE,
   "rekrutacni centrum": Object.freeze({
-    role: "Support / population support / combat multiplier",
-    info: "Rekrutační centrum nevyrábí lidi. Dělá z obyvatel použitelný gang a z výbavy skutečnou sílu. Lidi přijdou z bloků. Tady se z nich stává armáda ulice.",
+    role: "Nábor",
+    info: "Rekrutační centrum není zdroj populace. Bere lidi z bytových bloků a dělá z nich použitelný gang. Posiluje nábor, kapacitu zázemí a bojovou hodnotu výbavy.",
     actions: Object.freeze([])
   }),
   klinika: Object.freeze({
-    role: "Economy / recovery / support",
-    info: "Klinika nevyrábí zbraně ani gang. Zachraňuje to, co by jinak město sežralo. Recovery probíhá jen přes akci Stabilizační protokol.",
+    role: "Recovery",
+    info: "Klinika drží gang při životě. Sama nevyrábí zbraně ani lidi, ale přes Stabilizační protokol vrací část čerstvých ztrát zpět do hry, než recovery pool vyprší.",
     actions: Object.freeze(["Stabilizační protokol"])
   }),
   skola: Object.freeze({
-    role: "Population / education / talent support / city life",
-    info: "Škola generuje malé peníze, trochu obyvatel a talenty. Není to kasárna. Je to místo, kde město vyrábí chytřejší lidi.",
+    role: "Talenty",
+    info: "Škola pomalu přidává obyvatele, malé clean cash a šanci na talent při výběru studentů. Večerní kurz dočasně zrychlí růst a zvýší šanci na lepší talent.",
     actions: Object.freeze(["Večerní kurz"])
   }),
   restaurace: Object.freeze({
-    role: "Cashflow",
+    role: "Lokální cashflow",
     info: "Restaurace generuje stabilní čistý i špinavý cashflow a slouží jako lokální kontaktní bod.",
     actions: Object.freeze(["Vybrat tržby", "Krýt schůzky", "Posílit lokální síť"])
   }),
   "fitness club": Object.freeze({
-    role: "Economy / combat support / physical training",
+    role: "Síla gangu",
     info: "Fitness Club generuje čistý příjem a posiluje fyzickou sílu útoku i obrany. Nezískáš víc lidí. Získáš tvrdší lidi. Rezavé činky, rozbité zrcadlo a trenér, který nepočítá opakování, ale přežití.",
     actions: Object.freeze([])
   }),
   herna: Object.freeze({
-    role: "Economy / dirty cash / laundering / network",
-    info: "Herna je pouliční cashflow. Blikající automaty, špinavé mince, zadní pokladna a dým z cigaret. Sama o sobě tě nespasí, ale síť heren dokáže krmit gang celou free session.",
+    role: "Dirty cash",
+    info: "Herna je pouliční cashflow a menší pračka. Vyrábí clean i dirty cash, síť heren zvedá výnos a limit praní, ale akce přidávají heat a audit risk.",
     actions: Object.freeze(["Noční automaty", "Zadní pokladna"])
   }),
   smenarna: Object.freeze({
-    role: "Economy / laundering / network",
+    role: "Praní peněz",
     info: "Směnárna pere menší částky bezpečněji než kasino. Jedna směnárna je služba. Síť směnáren je finanční pavouk přes celé město.",
     actions: Object.freeze(["Výhodný kurz"])
   }),
   autosalon: Object.freeze({
-    role: "Economy / mobility / logistics / cooldown multiplier",
+    role: "Mobilita",
     info: "Autosalon generuje peníze a zlepšuje mobilitu gangu. Lesklé kapoty vpředu, falešné smlouvy vzadu a klíče od aut, která nikdy neuvidí papíry. Autosalon není jen showroom. Je to úniková trasa na kolech.",
     actions: Object.freeze([])
   }),
   "obchodni centrum": Object.freeze({
-    role: "Economy / market / influence / multiplier",
+    role: "Market",
     info: "Obchodní centrum generuje peníze, menší dirty cash, vliv a snižuje ceny na marketu. Výlohy svítí, kasy pípají a pod parkovištěm se domlouvají dohody, které nikdy neuvidíš na účtence.",
     actions: Object.freeze([])
   }),
   kasino: Object.freeze({
-    role: "Economy / laundering / high-risk",
+    role: "High-risk praní",
     info: "Kasino není jen místo, kde se hraje. Je to neonová pračka peněz, politická kancelář a past na chamtivé hráče. Kdo ho drží, bohatne rychle. Kdo pere moc, skončí pod reflektory policie.",
     actions: Object.freeze(["Tichá herna", "VIP noc", "Podplacený inspektor"])
   }),
   "poulicni dealeri": Object.freeze({
-    role: "Dirty cash / drug distribution / street economy",
+    role: "Distribuce",
     info: "Pouliční dealeři generují slabší dirty cash a prodávají látky z Drug Labu za špinavé peníze. Lab vyrobí produkt. Pouliční dealeři ho promění v peníze.",
     actions: Object.freeze(["Spustit prodej"])
   }),
   vecerka: Object.freeze({
-    role: "Economy / dirty cash / rumors / influence / street life",
+    role: "Pouliční provoz",
     info: "Večerka generuje malé čisté peníze, drobné dirty cash, trochu vlivu a lokální pouliční drby. Zářivky bzučí, dveře pípají a kamera nad regálem vidí víc, než by měla.",
     actions: Object.freeze([])
   }),
   "pasovaci tunel": Object.freeze({
-    role: "Dirty cash / smuggling / dealer support / risk reward",
+    role: "Pašování",
     info: "Pašovací tunel je přísun špinavých peněz a tepna pouliční distribuce. Lab vyrobí látky. Dealeři je prodají. Tunely drží proud peněz a zboží dostatečně temný na to, aby město nevidělo, odkud opravdu přichází.",
     actions: Object.freeze(["Otevřít kanál"])
   }),
@@ -156,7 +159,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
     actions: Object.freeze(["Vybrat cash", "Hostit VIP klienty", "Získat kompromat"])
   }),
   sklad: Object.freeze({
-    role: "Economy / storage / logistics",
+    role: "Sklad zásob",
     info: "Sklad drží zásoby města pohromadě. Negeneruje špinavé peníze ani vliv, ale bez skladů se impérium zadusí vlastním materiálem.",
     actions: Object.freeze([])
   }),
@@ -166,7 +169,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
     actions: Object.freeze(["Stabilizovat síť", "Napájet výrobu", "Snížit výpadky"])
   }),
   "recyklacni centrum": Object.freeze({
-    role: "Support / salvage / item recovery",
+    role: "Salvage",
     info: "Recyklační centrum nevrací lidi. Vrací železo, zbraně, moduly a všechno, co se dá po boji ještě vytáhnout ze šrotu.",
     actions: Object.freeze(["Vytěžit ztráty"])
   }),
@@ -408,6 +411,43 @@ export const SHOPPING_MALL_NETWORK_CONFIG = Object.freeze({
   maxInfluenceMultiplier: 1.24,
   maxHeatMultiplier: 1.18
 });
+export const GARAGE_SUPPORT_CONFIG = Object.freeze({
+  countOnMap: 16,
+  cleanCashPerMinute: 42,
+  heatPerMinute: 0.06,
+  cooldownReductionPctPerGarage: 2,
+  maxCooldownReductionPct: 16,
+  fullBonusCategories: Object.freeze([
+    "gangMovement",
+    "attackPreparation",
+    "districtOccupy",
+    "districtRobbery",
+    "equipmentTransfer",
+    "resourceTransfer",
+    "defenseRepair",
+    "defenseRestore"
+  ]),
+  halfBonusCategories: Object.freeze([
+    "districtSpy",
+    "trapDetection",
+    "clinicRecovery",
+    "factoryProductionActions",
+    "armoryProductionActions"
+  ]),
+  excludedCategories: Object.freeze([
+    "moneyLaundering",
+    "casinoActions",
+    "exchangeOfficeActions",
+    "arcadeLaunderingActions",
+    "vipBoosts",
+    "rumorGeneration",
+    "passiveProduction"
+  ]),
+  incomeBonusPctPerExtraGarage: 3,
+  heatBonusPctPerExtraGarage: 2,
+  maxIncomeMultiplier: 1.21,
+  maxHeatMultiplier: 1.14
+});
 export const AUTO_SALON_SUPPORT_CONFIG = Object.freeze({
   countOnMap: 10,
   mobilityBonusPctPerDealer: 3,
@@ -491,6 +531,7 @@ export const DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES = Object.freeze({
   "rekrutacni centrum": "recruitment-center",
   skola: "school",
   garage: "garage",
+  garaz: "garage",
   klinika: "clinic",
   restaurace: "restaurant",
   "fitness club": "fitness-club",

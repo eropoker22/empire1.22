@@ -78,4 +78,50 @@ describe("buildings popup runtime", () => {
       emptyText: "Zaber nebo kup district tohoto typu a tady se objeví jeho budovy."
     }));
   });
+
+  it("marks live-mode building district entries that are not owned by the current player", () => {
+    const { runtime, renderBuildingsPopupDetailPanel } = createRuntime({
+      getCurrentPlayerOwnedDistrictIds: () => new Set([1]),
+      getInteractionState: () => ({ gamePhase: "live", destroyedDistrictIds: new Set() })
+    });
+
+    runtime.renderBuildingsPopup("resident");
+
+    expect(renderBuildingsPopupDetailPanel).toHaveBeenLastCalledWith(undefined, expect.objectContaining({
+      entries: [
+        expect.objectContaining({
+          districtId: 1,
+          isOwnedByCurrentPlayer: true
+        }),
+        expect.objectContaining({
+          districtId: 3,
+          isOwnedByCurrentPlayer: false
+        })
+      ]
+    }));
+  });
+
+  it("disables building zone tabs when the player owns no district in that zone", () => {
+    const { runtime, renderBuildingsPopupTypesPanel } = createRuntime({
+      getCurrentPlayerOwnedDistrictIds: () => new Set([1])
+    });
+
+    runtime.renderBuildingsPopup("resident");
+
+    expect(renderBuildingsPopupTypesPanel).toHaveBeenLastCalledWith(undefined, expect.objectContaining({
+      types: expect.arrayContaining([
+        expect.objectContaining({
+          typeKey: "resident",
+          disabled: false,
+          ownedDistrictCount: 1
+        }),
+        expect.objectContaining({
+          typeKey: "industrial",
+          disabled: true,
+          ownedDistrictCount: 0,
+          meta: ""
+        })
+      ])
+    }));
+  });
 });

@@ -605,6 +605,7 @@ import {
   EXCHANGE_OFFICE_BASE_LAUNDERING_CAPACITY,
   EXCHANGE_OFFICE_NETWORK_CONFIG,
   FITNESS_CLUB_SUPPORT_CONFIG,
+  GARAGE_SUPPORT_CONFIG,
   SCHOOL_CONFIG,
   SHOPPING_MALL_NETWORK_CONFIG,
   SMUGGLING_TUNNEL_CONFIG,
@@ -4062,12 +4063,15 @@ const {
   getExchangeOfficeNetworkMultipliers,
   getFitnessClubNetworkMultipliers,
   getFitnessClubSupportStats,
+  getGarageNetworkMultipliers,
+  getGarageSupportStats,
   getOwnedApartmentBlockCount,
   getOwnedArcadeCount,
   getOwnedAutoSalonCount,
   getOwnedClinicCount,
   getOwnedExchangeOfficeCount,
   getOwnedFitnessClubCount,
+  getOwnedGarageCount,
   getOwnedSchoolCount,
   getOwnedShoppingMallCountForMarket,
   getOwnedSmugglingTunnelCount,
@@ -4092,6 +4096,7 @@ const {
   currentPlayerId: CURRENT_PLAYER_ID,
   exchangeOfficeNetworkConfig: EXCHANGE_OFFICE_NETWORK_CONFIG,
   fitnessClubSupportConfig: FITNESS_CLUB_SUPPORT_CONFIG,
+  garageSupportConfig: GARAGE_SUPPORT_CONFIG,
   getCurrentPlayerOwnedDistrictIds,
   getDistrictResourceCatalog,
   getResolvedWorldState,
@@ -4468,7 +4473,14 @@ function resolveBuildingPopupTarget(buildingName) {
     return null;
   }
 
-  return BUILDING_POPUP_TARGETS.find((target) => target.lookupKeys.includes(lookupKey)) || null;
+  const variantBaseName = resolveDistrictBuildingVariantBaseName(buildingName);
+  const variantLookupKey = normalizeBuildingLookupKey(variantBaseName);
+  const candidateKeys = [lookupKey, variantLookupKey].filter(Boolean);
+  return BUILDING_POPUP_TARGETS.find((target) => candidateKeys.some((candidateKey) => target.lookupKeys.includes(candidateKey))) || null;
+}
+
+function shouldOpenGenericDistrictBuildingDetail(buildingName, options = {}) {
+  return Boolean(options?.preferGenericDetail) && !resolveBuildingPopupTarget(buildingName);
 }
 
 function resolveDistrictBuildingVariantBaseName(buildingName) {
@@ -4828,6 +4840,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
   const isShoppingMall = buildingLookupKey === "obchodni centrum";
   const isAutoSalon = buildingLookupKey === "autosalon";
   const isFitnessClub = buildingLookupKey === "fitness club";
+  const isGarage = mechanicsType === "garage";
   const income = getDistrictBuildingRule(DISTRICT_BUILDING_MINUTE_INCOME_RULES_EMPIRE2, buildingName, { clean: 0, dirty: 0 });
   const heatRule = getDistrictBuildingRule(DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2, buildingName, { heat: 0 });
   const influenceRule = getDistrictBuildingRule(DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2, buildingName, { influence: 0 });
@@ -4836,10 +4849,8 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
   const elapsedHours = elapsedMs / (60 * 60 * 1000);
   const maxLevel = mechanicsType === "casino"
     ? CASINO_DETAIL_MAX_LEVEL
-    : mechanicsType === "apartment-block"
+    : (mechanicsType === "apartment-block" || mechanicsType === "school" || isGarage)
       ? 1
-      : mechanicsType === "school"
-        ? 1
       : DISTRICT_BUILDING_DETAIL_MAX_LEVEL;
   const level = Math.max(1, Math.min(maxLevel, Math.floor(Number(entry.level || 1))));
   const casinoUpgrade = mechanicsType === "casino" ? getCasinoDetailUpgrade(level) : null;
@@ -4872,6 +4883,9 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
   const ownedFitnessClubs = isFitnessClub ? getOwnedFitnessClubCount() : 0;
   const fitnessClubNetwork = isFitnessClub ? getFitnessClubNetworkMultipliers(ownedFitnessClubs) : null;
   const fitnessClubSupport = isFitnessClub ? getFitnessClubSupportStats(ownedFitnessClubs) : null;
+  const ownedGarages = isGarage ? getOwnedGarageCount() : 0;
+  const garageNetwork = isGarage ? getGarageNetworkMultipliers(ownedGarages) : null;
+  const garageSupport = isGarage ? getGarageSupportStats(ownedGarages) : null;
   const ownedSmugglingTunnels = mechanicsType === "smuggling-tunnel" ? getOwnedSmugglingTunnelCount() : 0;
   const smugglingTunnelNetwork = mechanicsType === "smuggling-tunnel" ? getSmugglingTunnelNetworkMultipliers(ownedSmugglingTunnels) : null;
   const smugglingOpenChannelActive = mechanicsType === "smuggling-tunnel" && Number(entry.openChannelExpiresAt || entry.silentChannelExpiresAt || 0) > now;
@@ -4897,6 +4911,8 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     ? clinicNetwork.incomeMultiplier
     : fitnessClubNetwork
     ? fitnessClubNetwork.incomeMultiplier
+    : garageNetwork
+    ? garageNetwork.incomeMultiplier
     : schoolNetwork
     ? schoolNetwork.incomeMultiplier * (schoolEveningCourseActive ? SCHOOL_CONFIG.eveningCourseCleanIncomeMultiplier : 1)
     : autoSalonNetwork
@@ -4994,7 +5010,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
   const smugglingTimeToFullMs = mechanicsType === "smuggling-tunnel" && !smugglingIsFull && smugglingDirtyPerMinute > 0
     ? Math.ceil((smugglingBatchCapacity - smugglingStoredDirtyCash) / smugglingDirtyPerMinute * 60000)
     : 0;
-  const dailyHeat = Math.round(Number(heatRule.heat || 0) * (smugglingTunnelNetwork?.heatMultiplier || smugglingTunnelNetwork?.passiveHeatMultiplier || fitnessClubNetwork?.heatMultiplier || autoSalonNetwork?.heatMultiplier || clinicNetwork?.heatMultiplier || warehouseNetwork?.heatMultiplier || arcadeNetwork?.heatMultiplier || exchangeNetwork?.heatMultiplier || 1) * 1440 * 10) / 10;
+  const dailyHeat = Math.round(Number(heatRule.heat || 0) * (smugglingTunnelNetwork?.heatMultiplier || smugglingTunnelNetwork?.passiveHeatMultiplier || garageNetwork?.heatMultiplier || fitnessClubNetwork?.heatMultiplier || autoSalonNetwork?.heatMultiplier || clinicNetwork?.heatMultiplier || warehouseNetwork?.heatMultiplier || arcadeNetwork?.heatMultiplier || exchangeNetwork?.heatMultiplier || 1) * 1440 * 10) / 10;
   const dailyInfluence = Math.round(Number(influenceRule.influence || 0) * 1440 * 10) / 10;
   const activeEffectLabels = (entry.activeEffects || [])
     .map((effect) => `${effect.label || "Efekt"} ${formatDistrictBuildingCooldown(Number(effect.expiresAt || 0) - Date.now())}`)
@@ -5015,6 +5031,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     mechanicsType === "apartment-block" ? `Populace +${apartmentPopulationPerMinute.toFixed(2)}/min` : "",
     mechanicsType === "school" ? `Studenti +${schoolPopulationPerMinute.toFixed(2)}/min` : "",
     mechanicsType === "smuggling-tunnel" ? `Kontraband Flow ${smugglingContrabandFlowLabel} · Dealer Supply +${smugglingDealerSupplyBonusPct}%` : "",
+    isGarage ? `Cooldowny -${garageSupport?.cooldownReductionPct || 0}% · cap -${GARAGE_SUPPORT_CONFIG.maxCooldownReductionPct}%` : "",
     apartmentIsFull ? "Plná kapacita · Bytový blok je plný. Obyvatelé čekají na vybrání." : "",
     schoolIsFull ? "Plná kapacita · Škola je plná. Studenti čekají na vybrání." : "",
     mechanicsType === "smuggling-tunnel" && smugglingOpenChannelActive ? `Otevřený kanál aktivní ${formatDistrictBuildingCooldown(Number(entry.openChannelExpiresAt || entry.silentChannelExpiresAt || 0) - now)}` : "",
@@ -5087,6 +5104,9 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     ownedFitnessClubs,
     fitnessClubNetwork,
     fitnessClubSupport,
+    ownedGarages,
+    garageNetwork,
+    garageSupport,
     ownedSmugglingTunnels,
     smugglingTunnelNetwork,
     smugglingBatchCapacity,
@@ -5519,6 +5539,10 @@ function upgradeDistrictBuildingDetail(root, shell) {
   }
 
   const mechanics = resolveDistrictBuildingDetailMechanics(context.district, context.buildingName);
+  if (mechanics.mechanicsType === "garage") {
+    setBuildingActionFeedback(root, "warning", context.buildingName, "Garáž je pasivní budova bez upgradu.", "L1");
+    return;
+  }
   if (!mechanics.nextLevel) {
     setBuildingActionFeedback(root, "warning", context.buildingName, "Budova je na maximálním levelu.", `L${mechanics.level}`);
     return;
@@ -6211,7 +6235,8 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
   shell.dataset.buildingMechanicsType = mechanics.mechanicsType;
   closeOtherDistrictBuildingDetailPopups(root, shell);
 
-  const info = shell.querySelector("[data-district-building-detail-info]");
+  const info = shell.querySelector("[data-district-building-detail-info-section]")
+    || shell.querySelector("[data-district-building-detail-info]");
 
   if (mechanics.mechanicsType === "apartment-block") {
     updateDistrictBuildingDetailEntry(district, buildingName, (entry) => ({
@@ -6972,7 +6997,8 @@ function bindDistrictCanvas(root) {
       ? geometry.districts.find((entry) => Number(entry.id) === Number(district.id)) || district
       : district;
     const buildingLabel = String(buildingName || "Budova").trim() || "Budova";
-    const popupTarget = options.preferGenericDetail ? null : resolveBuildingPopupTarget(buildingLabel);
+    const popupTarget = resolveBuildingPopupTarget(buildingLabel);
+    const shouldOpenGenericDetail = shouldOpenGenericDistrictBuildingDetail(buildingLabel, options);
     document.dispatchEvent(new CustomEvent("empire:building-opened", {
       detail: {
         districtId: safeDistrict?.id || null,
@@ -6990,7 +7016,7 @@ function bindDistrictCanvas(root) {
       closeBuildingsPopup();
     }
 
-    if (!popupTarget) {
+    if (!popupTarget || shouldOpenGenericDetail) {
       if (popup) {
         hideDistrictPopupModal(popup);
       }
@@ -7010,6 +7036,7 @@ function bindDistrictCanvas(root) {
       return false;
     }
 
+    closeOtherDistrictBuildingDetailPopups(root, null);
     openButton.click();
     if (popup) {
       hideDistrictPopupModal(popup);
@@ -8469,6 +8496,10 @@ function bindDistrictCanvas(root) {
 
     const typeButton = target.closest("[data-buildings-district-type]");
     if (!(typeButton instanceof HTMLElement)) {
+      return false;
+    }
+
+    if (typeButton instanceof HTMLButtonElement && typeButton.disabled) {
       return false;
     }
 
@@ -10094,6 +10125,7 @@ export {
   isDemoScenarioMode,
   isDowntownCell,
   isPointInDistrict,
+  resolveBuildingPopupTarget,
   resolveDistrictBuildingCanonicalLookupKey,
   resolveDistrictBuildingDetailMechanicsType,
   loadImage,
@@ -10129,6 +10161,7 @@ export {
   scheduleRobberyOrder,
   scheduleSpyMission,
   setBuildingActionFeedback,
+  shouldOpenGenericDistrictBuildingDetail,
   setInventoryAmount,
   setStoredAttackOrders,
   setStoredDrugInventory,

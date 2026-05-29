@@ -74,6 +74,28 @@ export function createBuildingNetworkRuntime(deps = {}) {
     };
   };
 
+  const getOwnedGarageCount = () => countOwnedBuildingByBaseName("garage");
+  const getGarageNetworkMultipliers = (count = getOwnedGarageCount()) => {
+    const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
+    const config = deps.garageSupportConfig;
+    return {
+      incomeMultiplier: Math.min(config.maxIncomeMultiplier, 1 + extra * config.incomeBonusPctPerExtraGarage / 100),
+      heatMultiplier: Math.min(config.maxHeatMultiplier, 1 + extra * config.heatBonusPctPerExtraGarage / 100)
+    };
+  };
+  const getGarageSupportStats = (count = getOwnedGarageCount()) => {
+    const ownedCount = Math.max(0, Math.floor(Number(count || 0)));
+    const config = deps.garageSupportConfig;
+    return {
+      ownedCount,
+      cooldownReductionPct: Math.min(config.maxCooldownReductionPct, ownedCount * config.cooldownReductionPctPerGarage),
+      maxCooldownReductionPct: config.maxCooldownReductionPct,
+      fullBonusCategories: [...config.fullBonusCategories],
+      halfBonusCategories: [...config.halfBonusCategories],
+      excludedCategories: [...config.excludedCategories]
+    };
+  };
+
   const getOwnedFitnessClubCount = () => countOwnedBuildingByBaseName("fitness club");
   const getFitnessClubNetworkMultipliers = (count = getOwnedFitnessClubCount()) => {
     const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
@@ -252,12 +274,15 @@ export function createBuildingNetworkRuntime(deps = {}) {
     getExchangeOfficeNetworkMultipliers,
     getFitnessClubNetworkMultipliers,
     getFitnessClubSupportStats,
+    getGarageNetworkMultipliers,
+    getGarageSupportStats,
     getOwnedApartmentBlockCount,
     getOwnedArcadeCount,
     getOwnedAutoSalonCount,
     getOwnedClinicCount,
     getOwnedExchangeOfficeCount,
     getOwnedFitnessClubCount,
+    getOwnedGarageCount,
     getOwnedSchoolCount,
     getOwnedShoppingMallCountForMarket,
     getOwnedSmugglingTunnelCount,

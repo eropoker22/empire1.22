@@ -3,6 +3,7 @@ import {
   closeMarketPanel,
   openMarketPanel,
   renderBlackMarketPanel,
+  renderMarketDashboard,
   renderMarketEmptyState,
   renderMarketPanel,
   renderPlayerMarketPanel,
@@ -133,6 +134,18 @@ function findByClass(element, className) {
   return null;
 }
 
+function findAllByClass(element, className, results = []) {
+  if (element.classList?.contains(className)) {
+    results.push(element);
+  }
+
+  for (const child of element.children || []) {
+    findAllByClass(child, className, results);
+  }
+
+  return results;
+}
+
 const createContainer = () => {
   const document = new FakeDocument();
   return new FakeElement("div", document);
@@ -205,6 +218,61 @@ describe("market panel renderer", () => {
     expect(renderMarketEmptyState(container, "Market je prázdný.")).toBe(true);
     expect(container.children[0].textContent).toBe("Market je prázdný.");
     expect(renderMarketPanel(null, { items: [marketItem] })).toBe(false);
+  });
+
+  it("renders recent trade clear button when dashboard has transactions", () => {
+    const container = createContainer();
+    const onClearRecentTransactions = vi.fn();
+
+    expect(renderMarketDashboard(container, {
+      chips: [],
+      recentTransactions: [{
+        type: "buy",
+        amount: 2,
+        itemName: "Chemicals",
+        total: 240
+      }]
+    }, {
+      onClearRecentTransactions
+    })).toBe(true);
+
+    const clearButton = findByClass(container, "market-popup-dashboard__recent-clear");
+    expect(clearButton).not.toBe(null);
+    expect(clearButton.title).toBe("Vymazat poslední obchody");
+    expect(clearButton.getAttribute("aria-label")).toBe("Vymazat poslední obchody");
+
+    clearButton.dispatch("click");
+
+    expect(onClearRecentTransactions).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps only one recent trade inline and opens full recent trade detail", () => {
+    const container = createContainer();
+
+    renderMarketDashboard(container, {
+      chips: [],
+      recentTransactions: [
+        { type: "buy", amount: 1, itemName: "Chemicals", total: 100 }
+      ],
+      allRecentTransactions: [
+        { type: "buy", amount: 1, itemName: "Chemicals", total: 100 },
+        { type: "sell", amount: 2, itemName: "Biomass", total: 50 },
+        { type: "buy", amount: 1, itemName: "Pistol", total: 300 },
+        { type: "sell", amount: 1, itemName: "Tech", total: 10 }
+      ]
+    }, {
+      onClearRecentTransactions: vi.fn()
+    });
+
+    const recentList = findByClass(container, "market-popup-dashboard__recent");
+    expect(findAllByClass(recentList, "market-popup-dashboard__recent-entry")).toHaveLength(1);
+    const detailPanel = findByClass(recentList, "market-popup-dashboard__recent-detail");
+    expect(detailPanel.hidden).toBe(true);
+    expect(findAllByClass(detailPanel, "market-popup-dashboard__recent-detail-entry")).toHaveLength(4);
+
+    recentList.dispatch("click");
+
+    expect(detailPanel.hidden).toBe(false);
   });
 
   it("renders player market listings and sell form callbacks", () => {

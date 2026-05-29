@@ -1847,6 +1847,18 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.26);
 }
 
+.building-detail-title__action-btn--upgrade:disabled {
+  border-color: rgba(148, 163, 184, 0.42);
+  background:
+    radial-gradient(circle at 50% 20%, rgba(226, 232, 240, 0.18), transparent 60%),
+    linear-gradient(145deg, rgba(71, 85, 105, 0.46), rgba(30, 41, 59, 0.86));
+  color: rgba(226, 232, 240, 0.72);
+  box-shadow:
+    0 0 0 1px rgba(148, 163, 184, 0.14),
+    0 0 10px rgba(100, 116, 139, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
 .building-detail-title__action-btn:disabled {
   cursor: not-allowed;
 }
@@ -4885,6 +4897,12 @@
   --building-window-secondary-rgb: 191, 219, 254;
 }
 
+.district-building-detail-shell[data-building-district-type="downtown"] {
+  --building-window-accent-rgb: 245, 196, 86;
+  --building-window-secondary-rgb: 255, 73, 194;
+  --building-window-danger-rgb: 125, 249, 255;
+}
+
 .district-building-detail-shell[data-building-district-type="park"] {
   --building-window-accent-rgb: 34, 197, 94;
   --building-window-secondary-rgb: 134, 239, 172;
@@ -4932,6 +4950,73 @@
 .district-building-detail-card.building-detail-modal__content > * {
   position: relative;
   z-index: 1;
+}
+
+.district-building-detail-shell[data-building-district-type="downtown"] .district-building-detail-card.building-detail-modal__content {
+  border-color: rgba(245, 196, 86, 0.66);
+  background:
+    linear-gradient(135deg, rgba(245, 196, 86, 0.16), rgba(3, 7, 16, 0.12) 34%, rgba(255, 73, 194, 0.1) 100%),
+    repeating-linear-gradient(125deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 11px),
+    linear-gradient(180deg, rgba(12, 13, 22, 0.98), rgba(4, 8, 15, 0.96));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.075),
+    inset 0 0 42px rgba(245, 196, 86, 0.1),
+    0 28px 74px rgba(0, 0, 0, 0.64),
+    0 0 34px rgba(245, 196, 86, 0.24),
+    0 0 18px rgba(255, 73, 194, 0.1);
+}
+
+.district-building-detail-shell[data-building-district-type="downtown"] .district-building-detail-card.building-detail-modal__content::before {
+  background:
+    linear-gradient(90deg, transparent 0 6%, rgba(245, 196, 86, 0.78) 18%, rgba(255, 73, 194, 0.42) 50%, rgba(125, 249, 255, 0.38) 76%, transparent 94%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075), transparent 18%),
+    repeating-linear-gradient(90deg, rgba(245, 196, 86, 0.06) 0 1px, transparent 1px 14px);
+  background-size: 100% 3px, 100% 100%, 100% 100%;
+  background-position: top, center, center;
+  background-repeat: no-repeat, no-repeat, repeat;
+  opacity: 0.92;
+}
+
+.district-building-detail-shell[data-building-district-type="downtown"] .district-building-detail-card .modal__header {
+  border-bottom-color: rgba(245, 196, 86, 0.5);
+  background:
+    linear-gradient(90deg, rgba(245, 196, 86, 0.2), rgba(255, 73, 194, 0.08) 48%, transparent),
+    linear-gradient(180deg, rgba(11, 14, 25, 0.94), rgba(4, 9, 18, 0.82));
+}
+
+.district-building-detail-shell[data-building-district-type="downtown"] .district-building-detail-title,
+.district-building-detail-shell[data-building-district-type="downtown"] .building-detail-header-level {
+  color: #fff7d6;
+  text-shadow:
+    0 0 12px rgba(245, 196, 86, 0.36),
+    0 0 24px rgba(255, 73, 194, 0.16);
+}
+
+.district-building-detail-shell[data-building-district-type="downtown"] .building-detail-title__badge,
+.district-building-detail-shell[data-building-district-type="downtown"] .building-detail-header-level {
+  border-color: rgba(245, 196, 86, 0.48);
+  background:
+    linear-gradient(135deg, rgba(245, 196, 86, 0.18), rgba(255, 73, 194, 0.08)),
+    rgba(6, 10, 18, 0.68);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 0 16px rgba(245, 196, 86, 0.16);
+}
+
+.district-building-detail-shell[data-building-district-type="downtown"] .district-building-detail-panel,
+.district-building-detail-shell[data-building-district-type="downtown"] .building-info-card__section,
+.district-building-detail-shell[data-building-district-type="downtown"] .district-building-detail-mechanic-row,
+.district-building-detail-shell[data-building-district-type="downtown"] .building-info-action-row {
+  border-color: rgba(245, 196, 86, 0.26);
+  background:
+    linear-gradient(135deg, rgba(245, 196, 86, 0.075), rgba(255, 73, 194, 0.035) 52%, rgba(125, 249, 255, 0.03)),
+    rgba(4, 9, 18, 0.68);
+}
+
+.district-building-detail-shell[data-building-district-type="downtown"] .district-building-detail-mechanic-row strong,
+.district-building-detail-shell[data-building-district-type="downtown"] .building-info-action-row__title {
+  color: #fde68a;
+  text-shadow: 0 0 12px rgba(245, 196, 86, 0.18);
 }
 
 .district-building-detail-card .modal__header {
@@ -5005,6 +5090,217 @@
 
 .district-building-detail-tabs {
   gap: 6px;
+}
+
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-tabs {
+  display: none !important;
+}
+
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel {
+  flex: 0 0 auto;
+}
+
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-name,
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-meta,
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel[data-district-building-detail-panel="info"] {
+  display: none !important;
+}
+
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-card .district-building-detail-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  background: transparent;
+}
+
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-panel--merged {
+  gap: 8px;
+  border-color: rgba(var(--building-window-accent-rgb), 0.3) !important;
+  background:
+    linear-gradient(180deg, rgba(var(--building-window-accent-rgb), 0.045), rgba(255, 255, 255, 0.006)),
+    rgba(3, 8, 16, 0.42) !important;
+}
+
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-info-card {
+  padding: 0;
+  border: 0;
+  background: transparent !important;
+  box-shadow: none;
+}
+
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-panel--merged > .building-detail-info-text {
+  order: -20;
+  margin: 0;
+  padding: 10px 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(var(--building-window-accent-rgb), 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent),
+    rgba(5, 10, 19, 0.54);
+  color: rgba(241, 245, 249, 0.94);
+  font-size: 0.76rem;
+  line-height: 1.34;
+  text-align: center;
+}
+
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-mechanics,
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-info-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-mechanic-row,
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-info-line {
+  min-height: 0;
+  gap: 4px;
+  padding: 8px 9px;
+  border-radius: 8px;
+}
+
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-mechanic-row span,
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-info-line span,
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-mechanic-row strong,
+.district-building-detail-shell.is-building-detail-single-panel .district-building-detail-info-line strong {
+  text-align: center;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-mechanic-row strong,
+.district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged .district-building-detail-info-line strong {
+  text-align: center;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="apartment-block"] .district-building-detail-card.building-detail-modal__content {
+  background:
+    linear-gradient(180deg, rgba(2, 6, 14, 0.04), rgba(2, 6, 14, 0.12) 62%, rgba(2, 6, 14, 0.2) 100%),
+    linear-gradient(135deg, rgba(var(--building-window-accent-rgb), 0.045), rgba(2, 6, 14, 0.02) 42%, rgba(var(--building-window-danger-rgb), 0.025) 100%),
+    url("../../img/budovy/blok.png") center/cover,
+    rgba(4, 8, 16, 0.96);
+  background-position: center;
+  background-size: cover;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="apartment-block"] .district-building-detail-card.building-detail-modal__content::before {
+  opacity: 0.24;
+}
+
+@media (min-width: 721px) {
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card.building-detail-modal__content {
+    width: min(660px, calc(100vw - 40px));
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+    padding: 9px;
+    background: transparent;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel {
+    min-height: 0;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel[data-district-building-detail-panel="info"] {
+    display: none !important;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged {
+    gap: 7px;
+    border-color: rgba(var(--building-window-accent-rgb), 0.34) !important;
+    background:
+      linear-gradient(180deg, rgba(var(--building-window-accent-rgb), 0.04), rgba(255, 255, 255, 0.004)),
+      rgba(3, 8, 16, 0.38) !important;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-name {
+    display: none;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-meta {
+    display: none;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card .building-info-card__section,
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-info-card,
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card .building-info-card__effects {
+    gap: 5px;
+    padding: 7px;
+    border-radius: 8px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-info-card {
+    padding: 0;
+    border: 0;
+    background: transparent !important;
+    box-shadow: none;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged > .building-detail-info-text {
+    order: -20;
+    margin: 0;
+    padding: 9px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(var(--building-window-accent-rgb), 0.3);
+    background:
+      linear-gradient(135deg, rgba(var(--building-window-accent-rgb), 0.1), rgba(var(--building-window-secondary-rgb), 0.05) 54%, rgba(3, 8, 16, 0.4)),
+      rgba(5, 10, 19, 0.46);
+    color: rgba(241, 245, 249, 0.94);
+    font-size: 0.73rem;
+    line-height: 1.28;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.055),
+      0 0 16px rgba(var(--building-window-accent-rgb), 0.08);
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card .building-info-card__section h5,
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel[data-district-building-detail-panel="info"] h5 {
+    margin: 0;
+    padding: 4px 7px;
+    font-size: 0.56rem;
+    line-height: 1;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-mechanics,
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel[data-district-building-detail-panel="info"] .district-building-detail-info-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-mechanic-row,
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel[data-district-building-detail-panel="info"] .district-building-detail-info-line {
+    min-height: 0;
+    gap: 3px;
+    padding: 7px 8px 7px 9px;
+    border-radius: 8px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-mechanic-row span,
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel[data-district-building-detail-panel="info"] .district-building-detail-info-line span {
+    font-size: 0.54rem;
+    line-height: 1.05;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-mechanic-row strong,
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel[data-district-building-detail-panel="info"] .district-building-detail-info-line strong {
+    font-size: 0.66rem;
+    line-height: 1.12;
+    text-align: center;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel[data-district-building-detail-panel="info"] .building-detail-info-text {
+    padding: 7px 8px 7px 9px;
+    font-size: 0.68rem;
+    line-height: 1.22;
+  }
+}
+
+.district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel [data-detail-row-label="lokalni-zasobnik"] strong,
+.district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel [data-detail-row-label="produkce"] strong,
+.district-building-detail-shell[data-building-mechanics-type="apartment-block"].is-building-detail-single-panel [data-detail-row-label="vlastnene-bloky"] strong {
+  font-size: 0.86rem;
+  line-height: 1.16;
 }
 
 .district-building-detail-card .building-detail-tabs__btn {

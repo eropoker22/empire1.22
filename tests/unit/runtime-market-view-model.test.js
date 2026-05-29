@@ -36,7 +36,8 @@ describe("market view model builders", () => {
       { label: "Refresh", value: "42 s", tone: "timer" },
       { label: "Stock", value: "neomezeně", tone: "danger" }
     ]);
-    expect(dashboard.recentTransactions).toHaveLength(3);
+    expect(dashboard.recentTransactions).toHaveLength(1);
+    expect(dashboard.allRecentTransactions).toHaveLength(4);
     expect(createMarketCopy("market", { copy: "Normal." })).toBe("Normal. Stock je omezený, nákup ho snižuje a prodej ho vrací do trhu. Ceny platí jen pro tento server.");
     expect(createMarketCopy("player-market", { copy: "Bazar." })).toContain("vlastní nabídku můžeš stáhnout");
   });

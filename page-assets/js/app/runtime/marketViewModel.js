@@ -11,6 +11,7 @@ export function createMarketDashboardViewModel({
   formatPrice = (value) => String(value)
 } = {}) {
   const isDangerMode = activeTab === "black-market" || activeTab === "player-market";
+  const safeRecentTransactions = Array.isArray(recentTransactions) ? recentTransactions : [];
   return {
     chips: [
       { label: "Režim", value: tabLabel, tone: activeTab === "black-market" ? "danger" : "stock" },
@@ -20,7 +21,8 @@ export function createMarketDashboardViewModel({
       { label: "Refresh", value: `${Math.max(0, Math.floor(Number(refreshCountdownSeconds) || 0))} s`, tone: "timer" },
       { label: "Stock", value: stockSummary, tone: isDangerMode ? "danger" : "stock" }
     ],
-    recentTransactions: Array.isArray(recentTransactions) ? recentTransactions.slice(0, 3) : []
+    recentTransactions: safeRecentTransactions.slice(0, 1),
+    allRecentTransactions: safeRecentTransactions
   };
 }
 

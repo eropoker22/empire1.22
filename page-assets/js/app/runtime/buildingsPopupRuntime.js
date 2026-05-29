@@ -101,12 +101,27 @@ export function createBuildingsPopupRuntime(deps = {}) {
       .sort((left, right) => Number(left?.id || 0) - Number(right?.id || 0));
   };
 
+  const getOwnedDistrictCountForBuildingType = (typeKey = "") => {
+    const geometry = getGeometry();
+    if (!geometry?.districts?.length) {
+      return 0;
+    }
+    const interactionState = getInteractionState();
+    const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+    return geometry.districts
+      .filter((district) => !typeKey || district.districtType === typeKey)
+      .filter((district) => currentPlayerOwnedDistrictIds.has(Number(district.id)))
+      .length;
+  };
+
   const getFirstAvailableBuildingDistrictType = () =>
-    deps.districtBuildingTypeOrder.find((typeKey) => getSourceDistrictsForBuildingType(typeKey).length > 0)
+    deps.districtBuildingTypeOrder.find((typeKey) => getOwnedDistrictCountForBuildingType(typeKey) > 0)
     || deps.districtBuildingTypeOrder[0];
 
   const getBuildingEntriesForDistrictType = (typeKey = "") => {
     const districts = getSourceDistrictsForBuildingType(typeKey);
+    const interactionState = getInteractionState();
+    const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
     const entries = [];
 
     for (const district of districts) {
@@ -127,6 +142,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
           districtId: Number(district.id) || 0,
           districtLabel,
           districtType: buildingProfile.typeKey,
+          isOwnedByCurrentPlayer: currentPlayerOwnedDistrictIds.has(Number(district.id)),
           setTitle: buildingProfile.setTitle,
           tier: buildingProfile.tier
         });
@@ -140,20 +156,20 @@ export function createBuildingsPopupRuntime(deps = {}) {
   };
 
   const renderBuildingsPopupTypes = (selectedType) => {
-    const interactionState = getInteractionState();
-    const isLaunchPhase = (interactionState.gamePhase || "launch") === "launch";
     deps.renderBuildingsPopupTypesPanel(elements.buildingsPopupTypeMount, {
+      activeLabel: deps.districtBuildingTypeMeta[selectedType]?.label || "",
       types: deps.districtBuildingTypeOrder.map((typeKey) => {
         const meta = deps.districtBuildingTypeMeta[typeKey] || deps.districtBuildingTypeMeta.resident;
         const districtCount = getSourceDistrictsForBuildingType(typeKey).length;
+        const ownedDistrictCount = getOwnedDistrictCountForBuildingType(typeKey);
+        const disabled = ownedDistrictCount <= 0;
         return {
           typeKey,
           label: meta.shortLabel,
-          meta: districtCount > 0
-            ? `${districtCount} districtů`
-            : isLaunchPhase
-              ? "Bez vlastního districtu"
-              : "Bez districtu na mapě",
+          districtCount,
+          ownedDistrictCount,
+          disabled,
+          meta: ownedDistrictCount > 0 ? `(${ownedDistrictCount})` : "",
           active: typeKey === selectedType
         };
       })
@@ -208,7 +224,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
         selectedType,
         title: meta.label,
         copy: isLaunchPhase
-          ? "DEV-ONLY fáze zobrazuje jen budovy v districtech, které aktuálně vlastníš."
+          ? "Zobrazuje pouze budovy v districtech, které máš pod kontrolou."
           : "LIVE fáze zobrazuje všechny budovy vybraného typu districtu, jako by byly tvoje.",
         emptyText: isLaunchPhase
           ? "Zaber nebo kup district tohoto typu a tady se objeví jeho budovy."
@@ -221,7 +237,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
       selectedType,
       title: meta.label,
       copy: isLaunchPhase
-        ? "DEV-ONLY fáze zobrazuje jen budovy v districtech, které aktuálně vlastníš."
+        ? "Zobrazuje pouze budovy v districtech, které máš pod kontrolou."
         : "LIVE fáze zobrazuje všechny budovy vybraného typu districtu, jako by byly tvoje.",
       baseTypes,
       activeBaseName,
@@ -262,6 +278,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
     getActiveBuildingsDistrictType: () => activeBuildingsDistrictType,
     getBuildingEntriesForDistrictType,
     getFirstAvailableBuildingDistrictType,
+    getOwnedDistrictCountForBuildingType,
     getSourceDistrictsForBuildingType,
     openBuildingsPopup,
     renderBuildingsPopup,

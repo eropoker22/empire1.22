@@ -3,7 +3,6 @@ import {
   AUTO_SALON_SUPPORT_CONFIG,
   DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS,
   FITNESS_CLUB_SUPPORT_CONFIG,
-  SCHOOL_CONFIG,
   SHOPPING_MALL_NETWORK_CONFIG,
   SMUGGLING_TUNNEL_CONFIG
 } from "./buildingDetailData.js";
@@ -32,6 +31,28 @@ function normalizeBuildingLookupKey(value) {
 function createInfoLine(label, value) {
   return { label, value };
 }
+
+const SINGLE_PANEL_INFO_MECHANICS_TYPES = new Set([
+  "apartment-block",
+  "garage",
+  "recruitment-center",
+  "clinic",
+  "arcade",
+  "school",
+  "restaurant",
+  "fitness-club",
+  "exchange",
+  "auto-salon",
+  "retail",
+  "casino",
+  "warehouse",
+  "power-plant",
+  "recycling-center",
+  "street-dealers",
+  "convenience-store",
+  "smuggling-tunnel",
+  "strip-club"
+]);
 
 function getProductionResourceLabel(itemId) {
   return PRODUCTION_RESOURCE_LABELS[itemId] || String(itemId || "").trim() || "Materiál";
@@ -89,6 +110,10 @@ export function createBuildingDetailInfoRows({
     createInfoLine("Riziko", `Heat +${mechanics.dailyHeat}/den · vliv +${mechanics.dailyInfluence}/den`)
   ];
 
+  if (SINGLE_PANEL_INFO_MECHANICS_TYPES.has(mechanics.mechanicsType) && mechanics.mechanicsType !== "apartment-block") {
+    return [];
+  }
+
   if (mechanics.mechanicsType === "casino") {
     const nextCasino = mechanics.nextCasinoUpgrade;
     rows.push(
@@ -107,32 +132,18 @@ export function createBuildingDetailInfoRows({
       createInfoLine("Mapa", "Dostupná síťová budova: 13x na mapě")
     );
   } else if (mechanics.mechanicsType === "arcade") {
-    rows.push(
-      createInfoLine("Vlastněné herny", `${mechanics.ownedArcades}/20`),
-      createInfoLine("Network multiplier", `Income x${mechanics.arcadeNetwork.incomeMultiplier.toFixed(2)} · limit x${mechanics.arcadeNetwork.launderingLimitMultiplier.toFixed(2)} · heat x${mechanics.arcadeNetwork.heatMultiplier.toFixed(2)}`),
-      createInfoLine("Laundering kapacita", `${formatDistrictBuildingMoney(mechanics.arcadeLaunderingCapacity)} dirty / akce`),
-      createInfoLine("Audit risk", `${mechanics.arcadeAuditRisk} · kontrola každých 7 min · okno 30 min`),
-      createInfoLine("Mapa", "Pouliční síťová budova: 20x na mapě")
-    );
+    return [];
   } else if (mechanics.mechanicsType === "apartment-block") {
-    rows.push(
-      createInfoLine("Lokální zásobník", `${mechanics.apartmentWholePopulation}/${mechanics.apartmentCapacity} obyvatel`),
+    return [
       createInfoLine("Čas do naplnění", mechanics.apartmentIsFull ? "Plná kapacita" : formatDistrictBuildingCooldown(mechanics.apartmentTimeToFullMs)),
-      createInfoLine("Network multiplier", `Produkce x${mechanics.apartmentNetwork.populationProductionMultiplier.toFixed(2)} · kapacita x${mechanics.apartmentNetwork.capacityMultiplier.toFixed(2)}`),
       createInfoLine("Vlastněné bloky", `${mechanics.ownedApartmentBlocks}/29`),
-      createInfoLine("Pravidla", "0 cash · 0 dirty · 0 heat · 0 vliv · žádný audit · žádné praní"),
-      createInfoLine("Mapa", "Populační budova: 29x na mapě")
-    );
+      createInfoLine("Upgrade", "Max level"),
+      createInfoLine("Network multiplier", `Produkce x${mechanics.apartmentNetwork.populationProductionMultiplier.toFixed(2)} · kapacita x${mechanics.apartmentNetwork.capacityMultiplier.toFixed(2)}`),
+      createInfoLine("Síť", mechanics.ownedApartmentBlocks > 1 ? "Zvyšuje produkci a kapacitu" : "První bytový blok"),
+      createInfoLine("Další level", "Budova už je na maximu.")
+    ];
   } else if (mechanics.mechanicsType === "school") {
-    rows.push(
-      createInfoLine("Lokální studenti", `${mechanics.schoolWholeStudents}/${mechanics.schoolCapacity} studentů`),
-      createInfoLine("Čas do naplnění", mechanics.schoolIsFull ? "Plná kapacita" : formatDistrictBuildingCooldown(mechanics.schoolTimeToFullMs)),
-      createInfoLine("Network multiplier", `populace x${mechanics.schoolNetwork.populationProductionMultiplier.toFixed(2)} · kapacita x${mechanics.schoolNetwork.studentCapacityMultiplier.toFixed(2)} · income x${mechanics.schoolNetwork.incomeMultiplier.toFixed(2)}`),
-      createInfoLine("Talent Pool", `${mechanics.schoolTalentChancePct}% při výběru studentů`),
-      createInfoLine("Vlastněné školy", `${mechanics.ownedSchools}/${SCHOOL_CONFIG.countOnMap}`),
-      createInfoLine("Večerní kurz", mechanics.schoolEveningCourseActive ? `Aktivní ještě ${formatDistrictBuildingCooldown(mechanics.schoolEveningCourseRemainingMs)}` : `Cena ${formatDistrictBuildingMoney(SCHOOL_CONFIG.eveningCourseCleanCost)} clean · cooldown 20 min`),
-      createInfoLine("Pravidla", "Žádný dirty cash · žádný heat · žádné praní · žádný audit")
-    );
+    return [];
   } else if (mechanics.mechanicsType === "warehouse") {
     rows.push(
       createInfoLine("Vlastněné sklady", `${mechanics.ownedWarehouses}/18`),
@@ -143,14 +154,11 @@ export function createBuildingDetailInfoRows({
       createInfoLine("Pravidla", "Žádné dirty cash · žádný vliv · žádné akce · žádné praní · žádný audit")
     );
   } else if (mechanics.mechanicsType === "clinic") {
-    rows.push(
-      createInfoLine("Vlastněné kliniky", `${mechanics.ownedClinics}/14`),
-      createInfoLine("Network multiplier", `Income x${mechanics.clinicNetwork.incomeMultiplier.toFixed(2)} · heat x${mechanics.clinicNetwork.heatMultiplier.toFixed(2)}`),
-      createInfoLine("Recovery rate", `${mechanics.clinicRecoveryRatePct} % · toxická past používá polovinu`),
-      createInfoLine("Recovery pool", mechanics.clinicRecoveryPool.label),
-      createInfoLine("Expirace", mechanics.clinicRecoveryPool.nextExpiryMs ? `Nejbližší za ${formatDistrictBuildingCooldown(mechanics.clinicRecoveryPool.nextExpiryMs)}` : "Nic nečeká"),
-      createInfoLine("Pravidla", "Žádné dirty cash · žádný vliv · žádná populace automaticky · žádné praní · žádný audit")
-    );
+    return [];
+  } else if (mechanics.mechanicsType === "garage") {
+    return [];
+  } else if (mechanics.mechanicsType === "recruitment-center") {
+    return [];
   } else if (buildingKey === "obchodni centrum") {
     rows.push(
       createInfoLine("Vlastněné mally", `${mechanics.ownedShoppingMalls}/${SHOPPING_MALL_NETWORK_CONFIG.countOnMap}`),
@@ -230,11 +238,15 @@ export function createBuildingDetailInfoViewModel({
   actionProfiles = [],
   now = Date.now()
 } = {}) {
+  const isSinglePanelBuilding = SINGLE_PANEL_INFO_MECHANICS_TYPES.has(mechanics.mechanicsType);
   return {
-    title: "Co hráč musí vědět",
+    title: isSinglePanelBuilding ? "" : "Co hráč musí vědět",
     intro: profile.info,
+    pinIntroToTop: isSinglePanelBuilding,
     rows: createBuildingDetailInfoRows({ profile, mechanics, buildingName, entry, playerHeat, now }),
-    actionsTitle: "Akce",
-    actions: createBuildingDetailInfoActionRows({ profile, mechanics, buildingName, actionProfiles })
+    actionsTitle: isSinglePanelBuilding ? "" : "Akce",
+    actions: isSinglePanelBuilding
+      ? []
+      : createBuildingDetailInfoActionRows({ profile, mechanics, buildingName, actionProfiles })
   };
 }

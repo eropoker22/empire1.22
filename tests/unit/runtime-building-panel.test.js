@@ -116,7 +116,7 @@ describe("building panel rendering", () => {
     renderBuildingsPopupTypes(mount, {
       types: [
         { typeKey: "resident", label: "Rezidence", meta: "2 districtů", active: true },
-        { typeKey: "economy", label: "Komerce", meta: "Bez vlastního districtu", active: false }
+        { typeKey: "economy", label: "Komerce", meta: "Bez vlastního districtu", active: false, disabled: true }
       ]
     });
 
@@ -124,6 +124,9 @@ describe("building panel rendering", () => {
     expect(mount.children[0].dataset.buildingsDistrictType).toBe("resident");
     expect(mount.children[0].classList.contains("is-active")).toBe(true);
     expect(mount.children[1].children[1].textContent).toBe("Bez vlastního districtu");
+    expect(mount.children[1].disabled).toBe(true);
+    expect(mount.children[1].classList.contains("is-locked")).toBe(true);
+    expect(mount.children[1].dataset.buildingsDistrictType).toBeUndefined();
   });
 
   it("renders building popup detail for empty and populated states", () => {
@@ -148,7 +151,8 @@ describe("building panel rendering", () => {
       ],
       activeBaseName: "Autosalon",
       entries: [
-        { baseName: "Autosalon", displayName: "Neon Cars", districtId: 12, districtLabel: "District 12" }
+        { baseName: "Autosalon", displayName: "Neon Cars", districtId: 12, districtLabel: "District 12", isOwnedByCurrentPlayer: true },
+        { baseName: "Autosalon", displayName: "Enemy Cars", districtId: 13, districtLabel: "District 13", isOwnedByCurrentPlayer: false }
       ]
     });
 
@@ -156,6 +160,9 @@ describe("building panel rendering", () => {
     expect(card.dataset.buildingDistrictType).toBe("economy");
     expect(card.children[2].children[0].children[0].dataset.buildingsSelectBaseName).toBe("Autosalon");
     expect(card.children[4].children[0].children[0].dataset.buildingsOpenBuildingDistrictId).toBe("12");
+    expect(card.children[4].children[0].children[1].disabled).toBe(true);
+    expect(card.children[4].children[0].children[1].classList.contains("buildings-popup__building--locked")).toBe(true);
+    expect(card.children[4].children[0].children[1].dataset.buildingsOpenBuildingDistrictId).toBeUndefined();
   });
 
   it("renders building detail stats and mechanics rows", () => {
