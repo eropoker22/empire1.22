@@ -3,6 +3,7 @@ import type { QueryResult, QueryResultRow } from "pg";
 import {
   acquirePostgresTickLock,
   createPostgresCommandLogRepository,
+  createPostgresCommandReservationRepository,
   createPostgresDiagnosticLogRepository,
   createPostgresEventLogRepository,
   createPostgresSnapshotRepository,
@@ -48,6 +49,105 @@ describe("postgres persistence repositories", () => {
     await expect(repository.append(record)).rejects.toThrow(
       "Postgres command log append requires record.command.id for idempotence."
     );
+  });
+
+  it("reserves command ids idempotently by server instance and command id", async () => {
+    const repository = createPostgresCommandReservationRepository(new FakePostgresDatabase());
+    const draft = createReservationDraft("instance:postgres:reservation", "command:postgres:reservation:1");
+
+    const first = await repository.reserve(draft);
+    const duplicate = await repository.reserve({
+      ...draft,
+      commandType: "spy-district",
+      playerId: "player:changed",
+      payloadHash: "sha256:changed",
+      payload: {
+        changed: true
+      }
+    });
+
+    expect(first.created).toBe(true);
+    expect(first.record).toMatchObject({
+      status: "pending",
+      commandId: "command:postgres:reservation:1",
+      payloadHash: "sha256:reservation"
+    });
+    expect(duplicate.created).toBe(false);
+    expect(duplicate.record).toEqual(first.record);
+  });
+
+  it("supports applied and rejected command reservation terminal states", async () => {
+    const repository = createPostgresCommandReservationRepository(new FakePostgresDatabase());
+    await repository.reserve(createReservationDraft("instance:postgres:reservation-states", "command:postgres:applied"));
+    await repository.reserve(createReservationDraft("instance:postgres:reservation-states", "command:postgres:rejected"));
+
+    const applied = await repository.markApplied("instance:postgres:reservation-states", "command:postgres:applied", {
+      updatedAt: "2026-05-29T12:10:00.000Z",
+      rootVersion: 3,
+      eventCount: 1
+    });
+    const appliedAgain = await repository.markApplied("instance:postgres:reservation-states", "command:postgres:applied", {
+      updatedAt: "2026-05-29T12:11:00.000Z",
+      rootVersion: 4
+    });
+    const rejected = await repository.markRejected("instance:postgres:reservation-states", "command:postgres:rejected", [
+      {
+        code: "unsupported_command",
+        message: "Unsupported command type.",
+        details: {
+          updatedAt: "2026-05-29T12:12:00.000Z"
+        }
+      }
+    ]);
+    const rejectedAgain = await repository.markRejected("instance:postgres:reservation-states", "command:postgres:rejected", [
+      {
+        code: "later_rejection",
+        message: "Should not overwrite."
+      }
+    ]);
+
+    expect(applied).toMatchObject({
+      status: "applied",
+      appliedAt: "2026-05-29T12:10:00.000Z",
+      appliedMetadata: {
+        rootVersion: 3,
+        eventCount: 1
+      }
+    });
+    expect(appliedAgain).toEqual(applied);
+    expect(rejected).toMatchObject({
+      status: "rejected",
+      rejectedAt: "2026-05-29T12:12:00.000Z",
+      rejectionErrors: [
+        {
+          code: "unsupported_command"
+        }
+      ]
+    });
+    expect(rejectedAgain).toEqual(rejected);
+    await expect(repository.markRejected("instance:postgres:reservation-states", "command:postgres:applied", [
+      {
+        code: "later_rejection",
+        message: "Should not overwrite applied."
+      }
+    ])).rejects.toThrow("Cannot mark an applied command reservation as rejected.");
+    await expect(repository.markApplied("instance:postgres:reservation-states", "command:postgres:rejected", {
+      updatedAt: "2026-05-29T12:13:00.000Z"
+    })).rejects.toThrow("Cannot mark a rejected command reservation as applied.");
+  });
+
+  it("scopes postgres command reservation ids by server instance", async () => {
+    const repository = createPostgresCommandReservationRepository(new FakePostgresDatabase());
+
+    const first = await repository.reserve(createReservationDraft("instance:postgres:reservation-a", "command:shared"));
+    const second = await repository.reserve(createReservationDraft("instance:postgres:reservation-b", "command:shared"));
+
+    expect(first.created).toBe(true);
+    expect(second.created).toBe(true);
+    await expect(repository.getByCommandId("instance:postgres:reservation-a", "command:shared"))
+      .resolves.toMatchObject({ serverInstanceId: "instance:postgres:reservation-a" });
+    await expect(repository.getByCommandId("instance:postgres:reservation-b", "command:shared"))
+      .resolves.toMatchObject({ serverInstanceId: "instance:postgres:reservation-b" });
   });
 
   it("keeps event and diagnostic records ordered by append sequence", async () => {
@@ -159,6 +259,7 @@ class FakePostgresDatabase implements PostgresDatabase {
   private readonly commandRows: StoredRow[] = [];
   private readonly eventRows: StoredRow[] = [];
   private readonly diagnosticRows: StoredRow[] = [];
+  private readonly commandReservationRows: CommandReservationStoredRow[] = [];
   private readonly latestSnapshots = new Map<string, LatestSnapshotRow>();
   private readonly tickLocks = new Map<string, TickLockRow>();
 
@@ -192,6 +293,75 @@ class FakePostgresDatabase implements PostgresDatabase {
         .filter((row) => row.serverInstanceId === params[0])
         .sort(sortStoredRows)
         .map((row) => ({ payload: row.payload })));
+    }
+
+    if (compactSql.startsWith("INSERT INTO empire_command_reservations")) {
+      const serverInstanceId = String(params[1]);
+      const commandId = String(params[2]);
+      const existing = this.commandReservationRows.some((row) =>
+        row.server_instance_id === serverInstanceId && row.command_id === commandId
+      );
+      if (existing) {
+        return result([]);
+      }
+
+      const row: CommandReservationStoredRow = {
+        id: String(params[0]),
+        server_instance_id: serverInstanceId,
+        command_id: commandId,
+        status: "pending",
+        command_type: String(params[3]),
+        actor_id: String(params[4]),
+        payload_hash: String(params[5]),
+        payload: parsePayload(params[6]),
+        result: null,
+        rejection_reason: null,
+        reserved_at: String(params[7]),
+        updated_at: String(params[7]),
+        applied_at: null,
+        rejected_at: null
+      };
+      this.commandReservationRows.push(row);
+      return result([row]);
+    }
+
+    if (compactSql.startsWith("SELECT * FROM empire_command_reservations")) {
+      const row = this.commandReservationRows.find((candidate) =>
+        candidate.server_instance_id === params[0] && candidate.command_id === params[1]
+      );
+      return result(row ? [row] : []);
+    }
+
+    if (compactSql.startsWith("UPDATE empire_command_reservations SET status = 'applied'")) {
+      const row = this.commandReservationRows.find((candidate) =>
+        candidate.server_instance_id === params[0] &&
+        candidate.command_id === params[1] &&
+        candidate.status === "pending"
+      );
+      if (!row) {
+        return result([]);
+      }
+      row.status = "applied";
+      row.result = parsePayload(params[2]);
+      row.updated_at = String(params[3]);
+      row.applied_at = String(params[3]);
+      return result([row]);
+    }
+
+    if (compactSql.startsWith("UPDATE empire_command_reservations SET status = 'rejected'")) {
+      const row = this.commandReservationRows.find((candidate) =>
+        candidate.server_instance_id === params[0] &&
+        candidate.command_id === params[1] &&
+        candidate.status === "pending"
+      );
+      if (!row) {
+        return result([]);
+      }
+      row.status = "rejected";
+      row.rejection_reason = parsePayload(params[2]);
+      row.updated_at = String(params[3]);
+      row.rejected_at = String(params[3]);
+      return result([row]);
     }
 
     if (compactSql.startsWith("INSERT INTO empire_event_log")) {
@@ -313,6 +483,23 @@ interface StoredRow {
   payload: unknown;
 }
 
+interface CommandReservationStoredRow extends QueryResultRow {
+  id: string;
+  server_instance_id: string;
+  command_id: string;
+  status: "pending" | "applied" | "rejected";
+  command_type: string;
+  actor_id: string;
+  payload_hash: string;
+  payload: unknown;
+  result: unknown | null;
+  rejection_reason: unknown | null;
+  reserved_at: string;
+  updated_at: string;
+  applied_at: string | null;
+  rejected_at: string | null;
+}
+
 interface LatestSnapshotRow {
   snapshotId: string;
   rootVersion: number;
@@ -352,6 +539,21 @@ const createCommandRecord = (
   actorId: "player:1",
   correlationId: null,
   tickAtReceive: 0
+});
+
+const createReservationDraft = (
+  instanceId: string,
+  commandId: string
+) => ({
+  serverInstanceId: instanceId,
+  commandId,
+  commandType: "attack-district",
+  playerId: "player:postgres-reservation",
+  payloadHash: "sha256:reservation",
+  payload: {
+    commandId
+  },
+  reservedAt: "2026-05-29T12:00:00.000Z"
 });
 
 const createEventRecord = (

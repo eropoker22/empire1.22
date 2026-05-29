@@ -85,7 +85,7 @@ describe("admin monitoring facade", () => {
     const focusDistrictId = readModel.district!.districtId;
     const building = readModel.district!.buildings.find((candidate) => candidate.actions.length > 0)!;
     const action = building.actions[0]!;
-    const response = server.gameplaySliceTransport.submit({
+    const response = await server.gameplaySliceTransport.submit({
       sessionToken: load.sessionToken,
       focusDistrictId,
       command: {
@@ -123,7 +123,7 @@ describe("admin monitoring facade", () => {
     server.instanceManager.startInstance(runtime.record.id);
     server.instanceManager.pauseInstance(runtime.record.id);
     server.instanceManager.stopInstance(runtime.record.id);
-    server.instanceManager.dispatchCommand(
+    await server.instanceManager.dispatchCommand(
       runtime.record.id,
       createAttackDistrictCommandFixture({
         serverInstanceId: "instance:other"

@@ -46,7 +46,7 @@ export const formatFreeBrMarkdownReport = (report: FreeBrSimulationReport): stri
     "",
     "## Co je rizikové",
     `- Downtown max držení jedním hráčem: ${report.downtown.maxDowntownHeldByOnePlayer}/8; early owner top 8: ${yesNo(report.downtown.earlyOwnerSurvivedTop8)}; early owner win: ${yesNo(report.downtown.earlyOwnerWon)}.`,
-    `- Starý 75% threshold by potřeboval ${report.summary.victoryThresholdDistricts} districtů; leader na konci držel ${report.summary.leaderDistrictsAtEnd}; dosaženo: ${yesNo(report.summary.old75ControlReached)}.`,
+    `- District control instant victory: disabled; starý 75% audit milestone by potřeboval ${report.summary.victoryThresholdDistricts} districtů, leader na konci držel ${report.summary.leaderDistrictsAtEnd}; dosaženo: ${yesNo(report.summary.old75ControlReached)}.`,
     `- High heat audit: nejvyšší heat ${report.police.highestHeat} u ${report.police.highestHeatPlayerId ?? "n/a"}, dirty cash seized ${report.police.totalDirtyCashSeized}.`,
     "",
     "## Co je broken",
@@ -129,7 +129,7 @@ export const formatFreeBrMarkdownReport = (report: FreeBrSimulationReport): stri
     `- Final Lockdown paused hours: ${report.summary.finalLockdownPausedHours}`,
     `- Attacks during Final Lockdown: ${report.summary.attacksDuringFinalLockdown}`,
     `- Final Top 3: ${formatFinalTop3(report)}`,
-    `- Old 75% audit threshold: ${report.summary.victoryThresholdDistricts}/${report.configSnapshot.districts}, reached: ${yesNo(report.summary.old75ControlReached)}`,
+    `- Control victory before Final Lockdown: disabled; old 75% audit milestone: ${report.summary.victoryThresholdDistricts}/${report.configSnapshot.districts}, reached: ${yesNo(report.summary.old75ControlReached)}`,
     `- Leader districts at end: ${report.summary.leaderDistrictsAtEnd}`,
     `- Hard timeout reached: ${yesNo(report.summary.hardTimeoutReached)}`,
     "",
@@ -180,7 +180,7 @@ export const formatFreeBrMatrixMarkdownReport = (matrix: FreeBrMatrixReport): st
   `- Final Lockdown win rate: ${percent(matrix.finalLockdownWinRate)}`,
   `- Average Final Lockdown wall-clock: ${matrix.averageFinalLockdownDurationWallClock}h`,
   `- Average Final Lockdown paused hours: ${matrix.averageFinalLockdownPausedHours}h`,
-  `- Old 75% victory before timeout chance: ${percent(matrix.victoryBeforeTimeoutChance)}`,
+  `- Control victory before Final Lockdown: disabled (old 75% audit reach chance ${percent(matrix.victoryBeforeTimeoutChance)})`,
   `- Timeout without winner chance: ${percent(matrix.timeoutWithoutWinnerChance)}`,
   `- Average downtown bonus impact: ${matrix.downtownBonusImpact}`,
   `- Average heat penalty impact: ${matrix.heatPenaltyImpact}`,
@@ -198,7 +198,7 @@ const verdictText = (report: FreeBrSimulationReport): string => {
     return `Simulace vypadá použitelně: ${attackDensity.toFixed(1)} útoků/h, ${report.summary.totalEliminations} eliminací a vítězství přes ${report.summary.winReason}.`;
   }
   if (report.summary.hardTimeoutReached || !report.summary.winner) {
-    return `Pacing je hratelný, ale endgame je rizikový: vítěz nevznikl ani přes Final Lockdown; leader držel ${report.summary.leaderDistrictsAtEnd}/${report.summary.victoryThresholdDistricts} starého 75% threshold auditu.`;
+    return `Pacing je hratelný, ale endgame je rizikový: vítěz nevznikl ani přes Final Lockdown; leader držel ${report.summary.leaderDistrictsAtEnd}/${report.summary.victoryThresholdDistricts} starého 75% audit milníku.`;
   }
   return "Pacing potřebuje další matrix běhy, protože canonical run nedal jednoznačný závěr.";
 };

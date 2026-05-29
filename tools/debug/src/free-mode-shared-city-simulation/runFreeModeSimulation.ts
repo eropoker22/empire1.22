@@ -99,7 +99,7 @@ export const runFreeModeSimulation = async (
         continue;
       }
 
-      const response = server.gameplaySliceTransport.submit({
+      const response = await server.gameplaySliceTransport.submit({
         sessionToken: sessionTokensByPlayerId.get(playerId) ?? null,
         focusDistrictId: action.focusDistrictId,
         command: action.command
@@ -131,7 +131,7 @@ export const runFreeModeSimulation = async (
   }
 
   if (options.includeInvalidProbe) {
-    submitInvalidProbe(instanceId, server, counters, playerProfiles, sessionTokensByPlayerId);
+    await submitInvalidProbe(instanceId, server, counters, playerProfiles, sessionTokensByPlayerId);
   }
 
   const runtime = server.instanceManager.getInstanceById(instanceId);
@@ -184,20 +184,20 @@ const resolveFactionId = (
 ): PlayerFactionId =>
   factionRotation?.[(index - 1) % factionRotation.length] ?? "mafian";
 
-const submitInvalidProbe = (
+const submitInvalidProbe = async (
   instanceId: ServerInstanceId,
   server: ReturnType<typeof createServerApp>,
   counters: ReturnType<typeof createInitialSimulationCounters>,
   playerProfiles: Map<PlayerId, ReturnType<typeof getBotProfileForPlayer>>,
   sessionTokensByPlayerId: Map<PlayerId, string>
-): void => {
+): Promise<void> => {
   const runtime = server.instanceManager.getInstanceById(instanceId);
   const playerId = runtime?.state.root.playerIds[0];
   const homeDistrictId = playerId ? runtime?.state.playersById[playerId]?.homeDistrictId : null;
   if (!playerId || !homeDistrictId) return;
 
   recordSimulationResponse(
-    server.gameplaySliceTransport.submit({
+    await server.gameplaySliceTransport.submit({
       sessionToken: sessionTokensByPlayerId.get(playerId) ?? null,
       focusDistrictId: "district:invalid-probe",
       command: createSpyCommand(instanceId, playerId, homeDistrictId, "district:missing-invalid-probe", 0, 0)

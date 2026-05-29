@@ -121,7 +121,7 @@ describe("faction gameplay slice bootstrap", () => {
       factionId: "kartel"
     });
 
-    const submit = server.gameplaySliceTransport.submit({
+    const submit = await server.gameplaySliceTransport.submit({
       sessionToken: load.sessionToken,
       focusDistrictId: load.readModel?.district?.districtId ?? "district:server-assigned",
       command: createPlaceTrapCommandFixture({
@@ -162,7 +162,7 @@ describe("faction gameplay slice bootstrap", () => {
     await expect(ensureGameplaySliceSession(server.instanceManager, request)).resolves.toBe(false);
     expect(server.instanceManager.getInstanceById("instance:free-faction-cold-submit")).toBeUndefined();
 
-    const response = server.gameplaySliceTransport.submit(request);
+    const response = await server.gameplaySliceTransport.submit(request);
 
     expect(response.accepted).toBe(false);
     expect(response.errors[0]?.code).toBe("transport.session_token_missing");

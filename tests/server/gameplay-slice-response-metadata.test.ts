@@ -60,7 +60,7 @@ describe("gameplay slice response metadata", () => {
       districtId: "district:601"
     });
 
-    const response = server.gameplaySliceTransport.submit({
+    const response = await server.gameplaySliceTransport.submit({
       sessionToken: load.sessionToken,
       focusDistrictId: "district:601",
       command: createPlaceTrapCommandFixture({

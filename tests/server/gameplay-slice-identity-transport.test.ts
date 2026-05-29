@@ -5,19 +5,19 @@ import { createGameplaySliceTransport } from "../../apps/server/src/transport";
 import { createPlaceTrapCommandFixture } from "../fixtures/command-fixtures";
 
 describe("gameplay slice transport identity boundary", () => {
-  it("rejects submit before command ingress when auth context does not match command.playerId", () => {
+  it("rejects submit before command ingress when auth context does not match command.playerId", async () => {
     let ingressCalls = 0;
     const transport = createGameplaySliceTransport(
       new ServerInstanceManager(),
       {
-        submit: () => {
+        submit: async () => {
           ingressCalls += 1;
           return undefined;
         }
       }
     );
 
-    const response = transport.submit(
+    const response = await transport.submit(
       {
         focusDistrictId: "district:2",
         command: createPlaceTrapCommandFixture({
@@ -54,7 +54,7 @@ describe("gameplay slice transport identity boundary", () => {
       clientRequestId: "client-request:transport-rejected"
     });
 
-    const response = server.gameplaySliceTransport.submit({
+    const response = await server.gameplaySliceTransport.submit({
       focusDistrictId: "district:2",
       expectedStateVersion: runtime.state.root.version,
       sessionToken: "unsafe-session-token",

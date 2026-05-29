@@ -161,6 +161,7 @@ export const createServerInstanceRuntime = (
     scheduler,
     clock,
     snapshotController,
+    commandReservationRepository: persistence.commandReservationRepository,
     processedCommandIds,
     commandRateLimitWindow
   };

@@ -27,12 +27,14 @@ export const createInMemoryCommandReservationRepository = (): CommandReservation
       }
 
       const nextRecord: CommandReservationRecord = {
+        id: createReservationId(record.serverInstanceId, record.commandId),
         serverInstanceId: record.serverInstanceId,
         commandId: record.commandId,
         status: "pending",
         commandType: record.commandType,
         playerId: record.playerId,
-        payloadHash: record.payloadHash ?? null,
+        payloadHash: normalizePayloadHash(record.payloadHash),
+        payload: clonePayload(record.payload ?? null),
         reservedAt: record.reservedAt,
         updatedAt: record.reservedAt,
         appliedAt: null,
@@ -92,6 +94,14 @@ const createReservationKey = (
   commandId: string
 ): string => `${instanceId}\u0000${commandId}`;
 
+const createReservationId = (
+  instanceId: ServerInstanceId,
+  commandId: string
+): string => `command-reservation:${instanceId}:${commandId}`;
+
+const normalizePayloadHash = (payloadHash: string | null | undefined): string =>
+  String(payloadHash ?? "").trim();
+
 const requireReservationRecord = (
   recordsByKey: Map<string, CommandReservationRecord>,
   instanceId: ServerInstanceId,
@@ -123,9 +133,17 @@ const cloneReservationRecord = (
   record: CommandReservationRecord
 ): CommandReservationRecord => ({
   ...record,
+  payload: clonePayload(record.payload),
   appliedMetadata: record.appliedMetadata ? { ...record.appliedMetadata } : null,
   rejectionErrors: record.rejectionErrors ? cloneDomainErrors(record.rejectionErrors) : null
 });
+
+const clonePayload = (payload: unknown): unknown => {
+  if (payload === null || typeof payload !== "object") {
+    return payload;
+  }
+  return JSON.parse(JSON.stringify(payload)) as unknown;
+};
 
 const cloneDomainErrors = (errors: DomainError[]): DomainError[] =>
   errors.map((error) => ({

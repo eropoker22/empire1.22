@@ -7,8 +7,15 @@ import {
 import type { GameplaySliceView } from "@empire/shared-types";
 import { createServerApp } from "../../apps/server/src/app";
 import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap";
-import { createFixedClock } from "../../apps/server/src/runtime";
-import { createAttackDistrictCommandFixture } from "../fixtures/command-fixtures";
+import {
+  createCommandReservationPayload,
+  createCommandReservationPayloadHash,
+  createFixedClock
+} from "../../apps/server/src/runtime";
+import {
+  createAttackDistrictCommandFixture,
+  createPlaceTrapCommandFixture
+} from "../fixtures/command-fixtures";
 import { createInstanceManagerFixture } from "../fixtures/runtime-fixtures";
 
 describe("ServerInstanceManager", () => {
@@ -82,7 +89,7 @@ describe("ServerInstanceManager", () => {
     }
 
     const action = building.actions[0]!;
-    const response = server.gameplaySliceTransport.submit({
+    const response = await server.gameplaySliceTransport.submit({
       sessionToken: load.sessionToken,
       focusDistrictId,
       command: {
@@ -133,7 +140,7 @@ describe("ServerInstanceManager", () => {
       "Stop triggered snapshot save."
     ]);
 
-    server.instanceManager.dispatchCommand(
+    await server.instanceManager.dispatchCommand(
       runtime.record.id,
       createAttackDistrictCommandFixture({
         serverInstanceId: "instance:other"
@@ -163,7 +170,7 @@ describe("ServerInstanceManager", () => {
     });
   });
 
-  it("rejects commands before core dispatch when server runtime gates fail", () => {
+  it("rejects commands before core dispatch when server runtime gates fail", async () => {
     const server = createServerApp();
     const runtime = server.instanceManager.createInstance("instance:free", "free");
     const assertNoPreDispatchMutation = (rootBefore: typeof runtime.state.root, commandId: string) => {
@@ -176,7 +183,7 @@ describe("ServerInstanceManager", () => {
     const instanceMismatchCommand = createAttackDistrictCommandFixture({
       serverInstanceId: "instance:other"
     });
-    const instanceMismatch = server.instanceManager.dispatchCommand(
+    const instanceMismatch = await server.instanceManager.dispatchCommand(
       runtime.record.id,
       instanceMismatchCommand
     );
@@ -190,7 +197,7 @@ describe("ServerInstanceManager", () => {
       mode: "war",
       serverInstanceId: runtime.record.id
     });
-    const modeMismatch = server.instanceManager.dispatchCommand(
+    const modeMismatch = await server.instanceManager.dispatchCommand(
       runtime.record.id,
       modeMismatchCommand
     );
@@ -209,7 +216,7 @@ describe("ServerInstanceManager", () => {
       id: "command:attack:resolved",
       serverInstanceId: runtime.record.id
     });
-    const resolved = server.instanceManager.dispatchCommand(
+    const resolved = await server.instanceManager.dispatchCommand(
       runtime.record.id,
       resolvedCommand
     );
@@ -224,7 +231,7 @@ describe("ServerInstanceManager", () => {
       id: "command:attack:player-cap",
       serverInstanceId: runtime.record.id
     });
-    const playerCap = server.instanceManager.dispatchCommand(
+    const playerCap = await server.instanceManager.dispatchCommand(
       runtime.record.id,
       playerCapCommand
     );
@@ -233,13 +240,13 @@ describe("ServerInstanceManager", () => {
     assertNoPreDispatchMutation(playerCapRoot, playerCapCommand.id);
   });
 
-  it("rejects expired sessions and per-tick command floods before core dispatch", () => {
+  it("rejects expired sessions and per-tick command floods before core dispatch", async () => {
     const server = createServerApp();
     const runtime = server.instanceManager.createInstance("instance:free", "free");
 
     const sessionTtlTicks = Math.ceil(runtime.config.technical.sessionTtlMs / runtime.config.tickRateMs);
     runtime.state.root.tick = sessionTtlTicks;
-    const expired = server.instanceManager.dispatchCommand(
+    const expired = await server.instanceManager.dispatchCommand(
       runtime.record.id,
       createAttackDistrictCommandFixture({
         id: "command:attack:expired",
@@ -256,7 +263,7 @@ describe("ServerInstanceManager", () => {
     };
 
     for (let index = 0; index < 5; index += 1) {
-      const result = server.instanceManager.dispatchCommand(
+      const result = await server.instanceManager.dispatchCommand(
         runtime.record.id,
         createAttackDistrictCommandFixture({
           id: `command:attack:flood:${index}`,
@@ -268,7 +275,7 @@ describe("ServerInstanceManager", () => {
     }
 
     const rootBeforeRateLimit = { ...runtime.state.root };
-    const rateLimited = server.instanceManager.dispatchCommand(
+    const rateLimited = await server.instanceManager.dispatchCommand(
       runtime.record.id,
       createAttackDistrictCommandFixture({
         id: "command:attack:flood:6",
@@ -278,6 +285,8 @@ describe("ServerInstanceManager", () => {
 
     expect(rateLimited?.errors.map((error) => error.code)).toEqual(["server.rate_limited"]);
     expect(runtime.state.root).toEqual(rootBeforeRateLimit);
+    await expect(runtime.commandReservationRepository?.getByCommandId(runtime.record.id, "command:attack:flood:6"))
+      .resolves.toBeNull();
   });
 
   it("rejects state version conflicts before command replay or rate accounting", async () => {
@@ -289,7 +298,7 @@ describe("ServerInstanceManager", () => {
       serverInstanceId: runtime.record.id
     });
 
-    const result = server.instanceManager.dispatchCommand(runtime.record.id, command, {
+    const result = await server.instanceManager.dispatchCommand(runtime.record.id, command, {
       expectedStateVersion: runtime.state.root.version + 1
     });
 
@@ -306,6 +315,8 @@ describe("ServerInstanceManager", () => {
     expect(runtime.state.root).toEqual(rootBefore);
     expect(runtime.processedCommandIds.has(command.id)).toBe(false);
     expect(runtime.commandRateLimitWindow.commandCountsByPlayerId[command.playerId]).toBeUndefined();
+    await expect(runtime.commandReservationRepository?.getByCommandId(runtime.record.id, command.id))
+      .resolves.toBeNull();
 
     const diagnostics = await server.instanceManager.listDiagnosticRecords(runtime.record.id);
     expect(diagnostics.at(-1)).toMatchObject({
@@ -336,7 +347,7 @@ describe("ServerInstanceManager", () => {
       type: "not-a-real-command"
     };
 
-    const result = server.instanceManager.dispatchCommand(runtime.record.id, invalidCommand as never);
+    const result = await server.instanceManager.dispatchCommand(runtime.record.id, invalidCommand as never);
 
     expect(result?.errors).toEqual([
       {
@@ -346,6 +357,15 @@ describe("ServerInstanceManager", () => {
     ]);
     expect(runtime.state).toBe(stateBefore);
     expect(runtime.state.root).toEqual(rootBefore);
+    await expect(runtime.commandReservationRepository?.getByCommandId(runtime.record.id, invalidCommand.id))
+      .resolves.toMatchObject({
+        status: "rejected",
+        rejectionErrors: [
+          {
+            code: "unsupported_command"
+          }
+        ]
+      });
 
     const diagnostics = await server.instanceManager.listDiagnosticRecords(runtime.record.id);
     expect(diagnostics.at(-1)).toMatchObject({
@@ -378,7 +398,7 @@ describe("ServerInstanceManager", () => {
       serverInstanceId: runtime.record.id
     });
 
-    const result = server.instanceManager.dispatchCommand(runtime.record.id, command);
+    const result = await server.instanceManager.dispatchCommand(runtime.record.id, command);
 
     expect(result?.errors).toContainEqual(expect.objectContaining({
       code: "player_not_active",
@@ -402,24 +422,19 @@ describe("ServerInstanceManager", () => {
     });
   });
 
-  it("rejects duplicate command ids before replaying core dispatch", async () => {
+  it("returns stored rejection for duplicate rejected command ids without replaying core dispatch", async () => {
     const server = createServerApp();
     const runtime = server.instanceManager.createInstance("instance:free", "free");
     const command = createAttackDistrictCommandFixture({
       serverInstanceId: runtime.record.id
     });
 
-    const firstResult = server.instanceManager.dispatchCommand(runtime.record.id, command);
+    const firstResult = await server.instanceManager.dispatchCommand(runtime.record.id, command);
     const rootAfterFirstAttempt = { ...runtime.state.root };
-    const duplicateResult = server.instanceManager.dispatchCommand(runtime.record.id, command);
+    const duplicateResult = await server.instanceManager.dispatchCommand(runtime.record.id, command);
 
     expect(firstResult?.errors.map((error) => error.code)).toEqual(["attacker_not_found"]);
-    expect(duplicateResult?.errors).toEqual([
-      {
-        code: "server.duplicate_command",
-        message: "Command id was already processed by this server instance."
-      }
-    ]);
+    expect(duplicateResult?.errors.map((error) => error.code)).toEqual(["attacker_not_found"]);
     expect(runtime.state.root).toEqual(rootAfterFirstAttempt);
 
     const diagnostics = await server.instanceManager.listDiagnosticRecords(runtime.record.id);
@@ -429,8 +444,74 @@ describe("ServerInstanceManager", () => {
       context: {
         commandId: command.id,
         commandType: "attack-district",
-        errorCodes: ["server.duplicate_command"]
+        errorCodes: ["attacker_not_found"]
       }
     });
+  });
+
+  it("returns command-in-flight for pending duplicate reservations without mutating state", async () => {
+    const server = createServerApp();
+    const runtime = server.instanceManager.createInstance("instance:pending-duplicate", "free");
+    const command = createAttackDistrictCommandFixture({
+      id: "command:pending-duplicate",
+      serverInstanceId: runtime.record.id
+    });
+    await runtime.commandReservationRepository!.reserve({
+      serverInstanceId: runtime.record.id,
+      commandId: command.id,
+      commandType: command.type,
+      playerId: command.playerId,
+      payloadHash: createCommandReservationPayloadHash(command),
+      payload: createCommandReservationPayload(command),
+      reservedAt: "2026-05-17T16:00:00.000Z"
+    });
+    const rootBefore = { ...runtime.state.root };
+
+    const result = await server.instanceManager.dispatchCommand(runtime.record.id, command);
+
+    expect(result?.errors[0]).toMatchObject({
+      code: "server.command_in_flight"
+    });
+    expect(runtime.state.root).toEqual(rootBefore);
+  });
+
+  it("does not apply an already applied duplicate command twice", async () => {
+    const server = createServerApp();
+    const request = {
+      serverInstanceId: "instance:applied-duplicate",
+      playerId: "player:applied-duplicate",
+      districtId: "district:applied-duplicate"
+    };
+
+    await ensureGameplaySliceSessionResult(server.instanceManager, request);
+    const load = server.gameplaySliceTransport.load(request);
+    const focusDistrictId = load.readModel?.district?.districtId ?? request.districtId;
+    const command = createPlaceTrapCommandFixture({
+      id: "command:applied-duplicate",
+      mode: load.readModel!.mode.mode,
+      playerId: request.playerId,
+      serverInstanceId: request.serverInstanceId,
+      payload: {
+        districtId: focusDistrictId
+      }
+    });
+
+    const first = await server.instanceManager.dispatchCommand(request.serverInstanceId, command);
+    const rootAfterFirst = server.instanceManager.getInstanceById(request.serverInstanceId)!.state.root.version;
+    const second = await server.instanceManager.dispatchCommand(request.serverInstanceId, command);
+
+    expect(first?.errors).toEqual([]);
+    expect(second?.errors[0]).toMatchObject({
+      code: "server.command_already_applied"
+    });
+    expect(server.instanceManager.getInstanceById(request.serverInstanceId)!.state.root.version).toBe(rootAfterFirst);
+    await expect(server.instanceManager.getPersistenceRepositories().commandReservationRepository
+      ?.getByCommandId(request.serverInstanceId, command.id))
+      .resolves.toMatchObject({
+        status: "applied",
+        appliedMetadata: {
+          rootVersion: rootAfterFirst
+        }
+      });
   });
 });

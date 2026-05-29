@@ -143,7 +143,7 @@ export const createGameplaySliceFunctionHandler = (
       if (!ensureResult.accepted) {
         return createJsonResponse(200, createErrorResponseFromErrors(ensureResult.errors));
       }
-      return await toFunctionResponse(server.gameplaySliceJsonHandler.handle({
+      return await toFunctionResponse(await server.gameplaySliceJsonHandler.handle({
         method: event.httpMethod,
         path: requestPath,
         body: request
@@ -180,7 +180,7 @@ export const createGameplaySliceFunctionHandler = (
     if (!ensureResult.accepted) {
       return createJsonResponse(200, createErrorResponseFromErrors(ensureResult.errors));
     }
-    return await toFunctionResponse(server.gameplaySliceJsonHandler.handle({
+    return await toFunctionResponse(await server.gameplaySliceJsonHandler.handle({
       method: event.httpMethod,
       path: requestPath,
       body: request

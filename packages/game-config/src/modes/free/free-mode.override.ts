@@ -44,8 +44,6 @@ import { FACTION_DEFINITION_BY_ID } from "../../public/faction-definitions";
 const FREE_MODE_DAY_NIGHT_PHASE_TICKS = ticksFromHours(2);
 const FREE_MODE_ELIMINATION_INTERVAL_TICKS = ticksFromHours(4);
 const FREE_MODE_FIRST_ELIMINATION_TICKS = ticksFromHours(8);
-const FREE_MODE_MINIMUM_VICTORY_TICKS = ticksFromHours(72);
-const FREE_MODE_CONTROL_HOLD_TICKS = ticksFromHours(6);
 const FREE_MODE_HARD_TIMEOUT_TICKS = ticksFromDays(7);
 const FREE_MODE_HARD_TIMEOUT_MS = FREE_MODE_HARD_TIMEOUT_TICKS * FREE_MODE_TICK_RATE_MS;
 
@@ -110,10 +108,7 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
       dayDurationTicks: FREE_MODE_DAY_NIGHT_PHASE_TICKS,
       nightDurationTicks: FREE_MODE_DAY_NIGHT_PHASE_TICKS
     }),
-    victoryConditionKey: "fast-control",
-    districtControlVictoryThreshold: 0.75,
-    minimumVictoryTicks: FREE_MODE_MINIMUM_VICTORY_TICKS,
-    districtControlHoldTicks: FREE_MODE_CONTROL_HOLD_TICKS,
+    victoryConditionKey: "final-lockdown",
     allowDurationVictoryFallback: false,
     hardTimeoutTicks: FREE_MODE_HARD_TIMEOUT_TICKS,
     police: freeModePoliceConfig,

@@ -26,6 +26,8 @@ import type {
   FreeBrStrategyId
 } from "./types";
 
+const DISABLED_CONTROL_VICTORY_AUDIT_THRESHOLD = 0.75;
+
 export const buildReport = (state: FreeBrSimulationState): FreeBrSimulationReport => {
   const players = state.players.map((player) => createPlayerAudit(state, player))
     .sort((left, right) => left.finalPlacement - right.finalPlacement);
@@ -58,7 +60,7 @@ export const buildReport = (state: FreeBrSimulationState): FreeBrSimulationRepor
     totalDangerZoneAppearances: sum(players.map((player) => player.dangerZoneAppearances)),
     totalDangerZoneComebacks: sum(players.map((player) => player.comebackCount)),
     totalNeutralizedDistrictsAfterEliminations: state.counters.neutralizedDistrictsAfterEliminations,
-    victoryThresholdDistricts: Math.ceil(activeDistricts.length * (state.config.balance.districtControlVictoryThreshold ?? 0.75)),
+    victoryThresholdDistricts: Math.ceil(activeDistricts.length * DISABLED_CONTROL_VICTORY_AUDIT_THRESHOLD),
     leaderDistrictsAtEnd: leader ? getOwnedDistricts(state, leader.id).length : 0,
     hardTimeoutReached: state.hardTimeoutReached,
     quietHoursDeferredEliminations: state.counters.quietHoursDeferredEliminations,
@@ -66,7 +68,7 @@ export const buildReport = (state: FreeBrSimulationState): FreeBrSimulationRepor
     finalLockdownEndedAtHour: state.finalLockdown.endedAtTick === null ? null : tickToHour(state, state.finalLockdown.endedAtTick),
     finalLockdownPausedHours: Math.round((state.finalLockdown.pausedTicks / ticksPerHour(state)) * 10) / 10,
     finalTop3: state.finalLockdown.top3,
-    old75ControlReached: Boolean(leader && getOwnedDistricts(state, leader.id).length >= Math.ceil(activeDistricts.length * (state.config.balance.districtControlVictoryThreshold ?? 0.75))),
+    old75ControlReached: Boolean(leader && getOwnedDistricts(state, leader.id).length >= Math.ceil(activeDistricts.length * DISABLED_CONTROL_VICTORY_AUDIT_THRESHOLD)),
     attacksDuringFinalLockdown: state.counters.attacksDuringFinalLockdown
   };
 
@@ -81,7 +83,7 @@ export const buildReport = (state: FreeBrSimulationState): FreeBrSimulationRepor
       eliminationIntervalTicks: state.config.balance.elimination?.intervalTicks ?? 0,
       dangerZoneSize: state.config.balance.elimination?.dangerZoneSize ?? 0,
       topStop: state.config.balance.elimination?.minActivePlayers ?? 0,
-      victoryThreshold: state.config.balance.districtControlVictoryThreshold ?? 0.75,
+      victoryThreshold: DISABLED_CONTROL_VICTORY_AUDIT_THRESHOLD,
       minimumVictoryTicks: state.config.balance.minimumVictoryTicks ?? 0,
       controlHoldTicks: state.config.balance.districtControlHoldTicks ?? 0,
       hardTimeoutTicks: state.config.balance.hardTimeoutTicks ?? 0,

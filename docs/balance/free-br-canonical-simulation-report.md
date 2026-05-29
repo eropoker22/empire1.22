@@ -27,7 +27,7 @@ Simulace vypadá použitelně: 14.5 útoků/h, 12 eliminací a vítězství pře
 
 ## Co je rizikové
 - Downtown max držení jedním hráčem: 7/8; early owner top 8: ne; early owner win: ne.
-- Starý 75% threshold by potřeboval 121 districtů; leader na konci držel 18; dosaženo: ne.
+- District control instant victory: disabled; starý 75% audit milestone by potřeboval 121 districtů, leader na konci držel 18; dosaženo: ne.
 - High heat audit: nejvyšší heat 3397.9 u player:14, dirty cash seized 19469294.
 
 ## Co je broken
@@ -174,7 +174,7 @@ _Zkráceno: celkem 81 hodinových snapshotů. Plný timeline je v JSON reportu._
 - Final Lockdown paused hours: 6
 - Attacks during Final Lockdown: 194
 - Final Top 3: 1. player:5 (614803), 2. player:4 (598411), 3. player:2 (532803)
-- Old 75% audit threshold: 121/161, reached: ne
+- Control victory before Final Lockdown: disabled; old 75% audit milestone: 121/161, reached: ne
 - Leader districts at end: 18
 - Hard timeout reached: ne
 

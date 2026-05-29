@@ -1,6 +1,6 @@
 # Free BR Final Lockdown
 
-Free Battle Royale uzavirame pres Final Lockdown, protoze 75% control victory byla v 161-district mape prakticky nedosazitelna. Po Top 8 uz eliminace nesmi pokracovat, ale server potrebuje jasny konec misto timeoutu bez viteze.
+Free Battle Royale uzavirame pres Final Lockdown. Stara 75% control victory je ve FREE modu vypnuta, protoze simulace uz ukazuji Final Lockdown jako realny rozhodovaci mechanismus a samotny map control ma zustat score/strategie, ne instantni konec. Po Top 8 uz eliminace nesmi pokracovat, ale server potrebuje jasny konec misto timeoutu bez viteze.
 
 ## Pravidlo
 
@@ -47,6 +47,8 @@ Read model vystavuje:
 
 Legacy runtime.js nema obsahovat autoritativni endgame logiku. UI ma jen renderovat data z core/read modelu.
 
-## 75% control
+## District control victory
 
-Stary 75% threshold zustava pouze auditni metrika v simulatoru. Free BR uz nema vytvaret match result pres `control:fast-control`; produkcni konec ma byt `final_lockdown_score`, pokud server dosahne Top 8 a Final Lockdown dobehne.
+Stary 75% threshold zustava pouze vypnuta auditni metrika v simulatoru. Free BR uz nema aktivni `districtControlVictoryThreshold: 0.75` override; resolved config dedi neutralni 100% control progress default, ale Final Lockdown zabranuje control progressu uzavrit FREE match. Free BR nema pouzivat `control:fast-control` jako produkcni match result a nema ukoncit hru jen proto, ze hrac nebo aliance drzi 75 % mapy. Produkcni konec ma byt `final_lockdown_score`, pokud server dosahne Top 8 a Final Lockdown dobehne.
+
+District control zustava dulezity pro score: controlled districts, influence, downtown district bonusy, rare buildings a zdroje stale vstupuji do Final Empire Score. Jine mody mohou mit vlastni control victory config, ale FREE mod je final-lockdown-first.

@@ -25,7 +25,7 @@ export interface GameplaySliceTransportOptions {
  */
 export interface GameplaySliceTransport {
   load(request: LoadGameplaySliceRequest): GameplaySliceResponse;
-  submit(request: SubmitGameplayCommandRequest, authContext?: AuthContext | null): GameplaySliceResponse;
+  submit(request: SubmitGameplayCommandRequest, authContext?: AuthContext | null): Promise<GameplaySliceResponse>;
 }
 
 export const createGameplaySliceTransport = (
@@ -68,7 +68,7 @@ export const createGameplaySliceTransport = (
         sessionToken: createGameplaySessionToken(runtime, request.playerId)
       };
     },
-    submit: (request, authContext) => {
+    submit: async (request, authContext) => {
       const identityErrors = validateCommandPlayerIdentity(request.command, authContext, {
         sessionToken: request.sessionToken,
         sessionTokenCodec: options.sessionTokenCodec
@@ -130,7 +130,7 @@ export const createGameplaySliceTransport = (
         };
       }
 
-      const dispatchResult = commandIngress.submit(request.command, {
+      const dispatchResult = await commandIngress.submit(request.command, {
         expectedStateVersion: request.expectedStateVersion
       });
 

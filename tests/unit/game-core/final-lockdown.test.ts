@@ -118,6 +118,18 @@ describe("Free BR Final Lockdown", () => {
     expect(ranking[0]?.playerId).toBe("player:1");
   });
 
+  it("keeps district control in the Final Lockdown score model", () => {
+    const state = createTop8State();
+    const widerEmpireScore = createPlayerFinalEmpireScore(state, "player:2", CONTEXT);
+    const smallerEmpireScore = createPlayerFinalEmpireScore(state, "player:3", CONTEXT);
+
+    expect(widerEmpireScore.controlledDistricts).toBeGreaterThan(smallerEmpireScore.controlledDistricts);
+    expect(widerEmpireScore.scoreBreakdown.controlledDistricts).toBeGreaterThan(
+      smallerEmpireScore.scoreBreakdown.controlledDistricts
+    );
+    expect(widerEmpireScore.score).toBeGreaterThan(smallerEmpireScore.score);
+  });
+
   it("exposes Final Lockdown leaderboard in the player view", () => {
     const state = runTick(createTop8State(), CONTEXT).nextState;
     const view = createPlayerView(state, "player:1", CONTEXT);

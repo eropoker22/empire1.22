@@ -183,7 +183,7 @@ describe("gameplay slice read model contract", () => {
     `);
   });
 
-  it("projects updated player resources after collect-production", () => {
+  it("projects updated player resources after collect-production", async () => {
     const server = createServerApp({
       clock: createFixedClock("2026-05-21T00:00:00.000Z")
     });
@@ -214,7 +214,7 @@ describe("gameplay slice read model contract", () => {
     const buildingId = load.readModel?.district?.buildings.find(
       (building) => building.buildingTypeId === "factory"
     )?.buildingId;
-    const collected = server.gameplaySliceTransport.submit({
+    const collected = await server.gameplaySliceTransport.submit({
       sessionToken: load.sessionToken,
       focusDistrictId: districtId,
       command: createCollectProductionCommandFixture({
@@ -303,7 +303,7 @@ describe("gameplay slice read model contract", () => {
     `);
   });
 
-  it("projects reports and city feed after spy and attack events", () => {
+  it("projects reports and city feed after spy and attack events", async () => {
     const server = createServerApp({
       clock: createFixedClock("2026-05-21T00:00:00.000Z")
     });
@@ -322,7 +322,7 @@ describe("gameplay slice read model contract", () => {
       playerId: "player:1",
       districtId: "district:1"
     });
-    const spy = server.gameplaySliceTransport.submit({
+    const spy = await server.gameplaySliceTransport.submit({
       sessionToken: load.sessionToken,
       focusDistrictId: "district:1",
       command: createSpyDistrictCommandFixture({
@@ -335,7 +335,7 @@ describe("gameplay slice read model contract", () => {
         }
       })
     });
-    const attack = server.gameplaySliceTransport.submit({
+    const attack = await server.gameplaySliceTransport.submit({
       sessionToken: spy.sessionToken,
       focusDistrictId: "district:1",
       command: createAttackDistrictCommandFixture({

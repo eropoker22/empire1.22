@@ -4,11 +4,13 @@ Date: 2026-05-27
 
 Scope: original audit only. Later cooldown tuning changed Free BR action pacing; this report now reflects those cooldown labels where mentioned, but still does not prescribe automatic config changes.
 
+Current endgame note: this historical audit predated Final Lockdown becoming the primary FREE-mode win path. The old 75% district-control victory is now disabled for FREE mode; district control remains important for score and strategy, but match resolution is through Final Lockdown / Final Empire Score.
+
 ## Summary verdict
 
 Current Free BR pacing is strong as an onboarding shell: players can act immediately, the first hour is not empty, the elimination schedule creates readable pressure, quiet hours prevent overnight losses, and top 8 stopping works.
 
-The main balance risk is the endgame. With 161 active districts and eliminations stopping at top 8, the 75% control victory is not reached in the current simulations before the 7 day hard timeout. The long simulation ended at hard timeout with `winnerType = none`. That means the server can become a top 8 occupation grind with no practical winner unless live players coordinate large alliance control or future systems make late expansion much faster.
+Historical endgame risk: with 161 active districts and eliminations stopping at top 8, the old 75% control victory was not reached in these simulations before the 7 day hard timeout. That finding was the reason FREE mode moved to Final Lockdown as the deciding mechanism.
 
 Second risk: action pacing is uneven. Shared-city simulation shows very early attacks and expansion, but also many dead turns and extreme heat spikes for aggressive profiles. This points at cooldown/action availability and police pressure as the next tuning area, not elimination timing.
 
@@ -40,9 +42,9 @@ Notes:
 | Danger zone | 3 players |
 | Quiet hours | 00:00-06:00 Europe/Bratislava |
 | Elimination stop | Top 8 |
-| Victory threshold | 75% active districts |
-| Minimum victory age | 72h, tick 51,840 |
-| Control hold | 6h, 4,320 ticks |
+| Victory threshold | Disabled in current FREE mode; historical audit used 75% active districts |
+| Minimum victory age | Not used by current FREE endgame; historical audit used 72h, tick 51,840 |
+| Control hold | Not used by current FREE endgame; historical audit used 6h, 4,320 ticks |
 | Hard timeout | 7 days, tick 120,960 |
 
 Important current-code note: the working tree now uses score-first elimination comparison. Controlled districts are still heavily weighted through `scoreWeights.controlledDistricts`, but they are no longer the primary comparator before total score.
@@ -114,7 +116,7 @@ Risk: top 8 can become a dead phase. In the 96h run, after top 8:
 
 The endgame goal is clear on paper, but not realistically reached in the current bot simulations.
 
-## 75% victory
+## Disabled 75% Victory Historical Audit
 
 Required district control is:
 
@@ -135,7 +137,7 @@ Simulation result:
 - 168h run: first25/first50/first75 never reached.
 - 168h hard timeout resolved the match with `winnerType = none`.
 
-Verdict: this is the most likely broken area. The 72h minimum victory age and 6h hold are fine only if a leader can realistically reach 75%. Current simulations show the map remains too fragmented, especially after eliminations neutralize defeated territory and top 8 stops removing players.
+Verdict: this historical route is no longer an active FREE-mode win condition. The useful finding is that district control stayed fragmented enough that 75% control was a poor primary endgame, while the controlled district count remains a strong Final Empire Score input.
 
 ## District dominance and elimination score
 
@@ -222,9 +224,9 @@ Without quiet hours, top 8 would happen after 52h: first cut at 8h plus 11 inter
 
 ## Probably broken
 
-- 75% victory is not realistically reached in current simulations.
-- 7 day hard timeout can end with no winner.
-- Top 8 endgame can become a long non-resolving phase.
+- Historical 75% victory is not realistically reached in current simulations and is now disabled for FREE mode.
+- Without Final Lockdown, the 7 day hard timeout can end with no winner.
+- Top 8 endgame needed a score-based resolver; current FREE mode uses Final Lockdown.
 - Current simulation reports do not expose enough per-archetype survival metrics for downtown owners and danger-zone players.
 
 ## Recommendations, no automatic config changes
@@ -240,10 +242,10 @@ Recommended next tuning targets:
    - top8 time-to-victory after eliminations stop
    - per-profile dead-turn rate
 
-2. Investigate endgame victory before touching early pacing:
-   - lower 75% threshold as a candidate only after more runs
-   - or make neutralized defeated districts easier/faster to claim in top8
-   - or add a top8-specific pressure mechanic
+2. Investigate Final Lockdown quality before touching early pacing:
+   - verify Final Empire Score rewards district control, downtown, buildings and resources without reviving instant map-control victory
+   - keep neutralized defeated district behavior separate from the endgame resolver
+   - use simulation matrix runs to tune only if Final Lockdown produces weak or confusing winners
 
 3. Investigate cooldown/action availability:
    - attack/occupy/action loops produce many dead turns for non-aggressor profiles
@@ -256,9 +258,9 @@ Recommended next tuning targets:
 
 Suggested values to test later, not apply now:
 
-- victory threshold candidates: 60%, 65%, 70%
-- top8-only victory threshold candidates: 50%, 60%
-- alternative: keep 75%, but reduce neutral district friction after top8
+- Final Empire Score weight candidates only if future matrix runs show weak winner quality
+- top8-only control thresholds are not a current FREE-mode path
+- do not revive the historical 75% instant victory without a new design review
 - cooldown candidates should be tested separately, because attack readiness is already very early
 
 ## Next tests to add

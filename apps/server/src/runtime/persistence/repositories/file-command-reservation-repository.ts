@@ -30,12 +30,14 @@ export const createFileCommandReservationRepository = (
     }
 
     const nextRecord: CommandReservationRecord = {
+      id: createReservationId(record.serverInstanceId, record.commandId),
       serverInstanceId: record.serverInstanceId,
       commandId: record.commandId,
       status: "pending",
       commandType: record.commandType,
       playerId: record.playerId,
-      payloadHash: record.payloadHash ?? null,
+      payloadHash: normalizePayloadHash(record.payloadHash),
+      payload: record.payload ?? null,
       reservedAt: record.reservedAt,
       updatedAt: record.reservedAt,
       appliedAt: null,
@@ -123,6 +125,14 @@ const createReservationPath = (
   "command-reservations",
   `${encodePathSegment(commandId)}.json`
 );
+
+const createReservationId = (
+  instanceId: ServerInstanceId,
+  commandId: string
+): string => `command-reservation:${instanceId}:${commandId}`;
+
+const normalizePayloadHash = (payloadHash: string | null | undefined): string =>
+  String(payloadHash ?? "").trim();
 
 const resolveUpdatedAt = (metadata: Record<string, unknown>): string =>
   typeof metadata.updatedAt === "string" && metadata.updatedAt.trim()

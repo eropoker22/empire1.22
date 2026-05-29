@@ -5,12 +5,12 @@
 - Server/game-core remains the authority for gameplay decisions.
 - Client and legacy render helpers must escape server-fed/user-controlled text before assigning HTML.
 - The game page does not eagerly load the generated admin slice bundle; it is injected only through explicit debug opt-in.
-- Postgres persistence has repository-level command log idempotence, snapshot latest root-version guard, and a distributed tick lock.
+- Postgres persistence has repository-level command log idempotence, command reservation before gameplay dispatch, snapshot latest root-version guard, and a distributed tick lock.
 
 ## Must Before Public Alpha
 
-- Cross-invocation exactly-once command execution still needs an async transactional command reservation before `applyCommand()`. This is not implemented as of 2026-05-29 because the production submit path is still synchronous.
-- Add a dedicated command reservation repository/service, or serialize submit handling per server instance with a documented transactional boundary.
+- Apply `002_command_reservations.sql` in production and keep Postgres persistence enabled for public multiplayer submit.
+- Add stale pending command reservation recovery and full latest-snapshot/state serialization before high-traffic public launch.
 - Run the release gate under Node 20 and keep E2E smoke green.
 
 ## Can Wait After Closed Alpha

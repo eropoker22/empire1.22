@@ -8,7 +8,7 @@
 - Final Lockdown wins: 100%
 - Average Final Lockdown wall-clock: 18h
 - Average Final Lockdown paused hours: 6h
-- Old 75% victory before timeout: 0%
+- Control victory before Final Lockdown: disabled (old 75% audit reach 0%)
 - Timeout without winner: 0%
 - Dominant faction: mafian
 - Weakest faction: motorkarsky-gang
@@ -52,7 +52,7 @@
 - Final Lockdown win rate: 100%
 - Average Final Lockdown wall-clock: 18h
 - Average Final Lockdown paused hours: 6h
-- Old 75% victory before timeout chance: 0%
+- Control victory before Final Lockdown: disabled (old 75% audit reach chance 0%)
 - Timeout without winner chance: 0%
 - Average downtown bonus impact: 6000
 - Average heat penalty impact: 119546.99676190481

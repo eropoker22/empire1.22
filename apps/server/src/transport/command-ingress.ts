@@ -1,5 +1,5 @@
 import type { GameCommand } from "@empire/shared-types";
-import type { CommandDispatchOptions } from "../runtime/instance-manager/instance-lifecycle-service";
+import type { CommandDispatchOptions } from "../runtime/orchestration/command-dispatch-options";
 import type { InstanceCommandRouter } from "../runtime/orchestration/instance-command-router";
 
 /**
@@ -17,5 +17,5 @@ export interface ServerCommandIngress {
 export const createCommandIngress = (
   commandRouter: InstanceCommandRouter
 ): ServerCommandIngress => ({
-  submit: (command, options) => commandRouter.dispatch(command.serverInstanceId, command, options)
+  submit: async (command, options) => commandRouter.dispatch(command.serverInstanceId, command, options)
 });

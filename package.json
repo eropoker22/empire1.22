@@ -23,7 +23,7 @@
     "build:admin:page": "npm run build:admin:bundle && npm run build:client:page && npm run build:functions && node scripts/build-netlify-client.mjs",
     "build": "npm run build --workspaces --if-present",
     "check": "npm run check --workspaces --if-present",
-    "lint": "node scripts/check-architecture.mjs && node scripts/check-file-sizes.mjs",
+    "lint": "node scripts/check-architecture.mjs && node scripts/check-command-dispatch-safety.mjs && node scripts/check-file-sizes.mjs",
     "lint:architecture": "node scripts/check-architecture.mjs",
     "lint:file-sizes": "node scripts/check-file-sizes.mjs",
     "smoke:ui": "node scripts/smoke-ui-pages.mjs",

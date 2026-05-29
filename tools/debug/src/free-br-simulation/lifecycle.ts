@@ -95,7 +95,7 @@ export const maybeResolveVictory = (state: FreeBrSimulationState): void => {
     maybeRunFinalLockdown(state);
     return;
   }
-  const threshold = state.config.balance.districtControlVictoryThreshold ?? 0.75;
+  const threshold = state.config.balance.districtControlVictoryThreshold ?? 1;
   const activeDistricts = state.districts.filter((district) => district.status !== "destroyed");
   const needed = Math.ceil(activeDistricts.length * threshold);
   const leader = findLeader(state);
@@ -122,7 +122,7 @@ export const maybeResolveVictory = (state: FreeBrSimulationState): void => {
   }
   if (state.victoryHoldStartTick !== null && state.tick - state.victoryHoldStartTick >= (state.config.balance.districtControlHoldTicks ?? 0)) {
     state.winner = controlId;
-    state.winReason = controlId.startsWith("alliance:") ? "alliance_control_75_percent" : "player_control_75_percent";
+    state.winReason = controlId.startsWith("alliance:") ? "alliance_control_map" : "player_control_map";
     addAuditEvent(state, {
       player: leader,
       actionType: "victory",

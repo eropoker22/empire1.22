@@ -1,5 +1,6 @@
 import type {
   CommandLogRepository,
+  CommandReservationRepository,
   DiagnosticLogRepository,
   EventLogRepository,
   SnapshotRepository
@@ -15,6 +16,7 @@ import {
   createPostgresDiagnosticLogRepository,
   createPostgresEventLogRepository
 } from "./postgres-log-repositories";
+import { createPostgresCommandReservationRepository } from "./postgres-command-reservation-repository";
 import { createPostgresSnapshotRepository } from "./postgres-snapshot-repository";
 import { createPostgresRuntimeTickLock } from "./postgres-tick-lock";
 
@@ -27,6 +29,7 @@ export interface PostgresRuntimePersistenceOptions {
 
 export interface PostgresRuntimePersistenceRepositories {
   commandLogRepository: CommandLogRepository;
+  commandReservationRepository: CommandReservationRepository;
   eventLogRepository: EventLogRepository;
   diagnosticLogRepository: DiagnosticLogRepository;
   snapshotRepository: SnapshotRepository;
@@ -47,6 +50,7 @@ export const createPostgresRuntimePersistenceRepositories = (
 
   return {
     commandLogRepository: createPostgresCommandLogRepository(database),
+    commandReservationRepository: createPostgresCommandReservationRepository(database),
     eventLogRepository: createPostgresEventLogRepository(database),
     diagnosticLogRepository: createPostgresDiagnosticLogRepository(database),
     snapshotRepository: createPostgresSnapshotRepository(database),

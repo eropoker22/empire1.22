@@ -18,7 +18,7 @@ Relevant test:
 | Target session length | `gameDurationMs/sessionTtlMs: 2h` through mode runtime config | Matches requested 1-2 hour free-session target. |
 | Max players | `20` | Ready for current map density. |
 | Alliance size | `4` | Strong but checked by alliance push simulation. |
-| Win condition | `fast-control`, `districtControlVictoryThreshold: 0.85` | Not reached by 60 minute alliance push; keep for now. |
+| Win condition | `final-lockdown`; district-control instant victory disabled | District control still increases score and position, but no longer resolves FREE mode by itself. |
 | Starting resources | cash `1500`, dirty cash `300`, chemicals `10`, biomass `6`, metal parts `8`, tech core `2` | Supports first craft/action path without zero-resource lock. |
 | Multipliers | income `1.2`, production `1.2`, cooldown `0.8`, expansion speed `1.3` | Free mode intentionally faster than war mode. |
 | First collect timing | observed minute `2` for new player | Ready; target 1-3 minutes. |
@@ -35,11 +35,11 @@ Relevant test:
 | Dirty cash sources | arcade `72/min`, casino `260/min`, exchange `95/min`, smuggling tunnel `62/min` | Dirty cash reward is meaningful. |
 | Laundering actions | arcade back cashdesk, exchange good rate, casino quiet backroom | Reward/risk is visible through heat and police pressure. |
 | Storage caps | warehouse generic `500`, chemicals `350`, biomass `350`, metal parts `400`, tech core `120`, drugs/boosts `220`, weapons/defense `160` | Meaningful cap in core; overflow stays capped by existing storage rules. |
-| War-mode bleed check | war threshold remains separate from FREE threshold in test | FREE changes are not accidentally treated as global. |
+| War-mode bleed check | war threshold remains separate from FREE endgame config in test | FREE changes are not accidentally treated as global. |
 
 Ready: early growth, production/craft path, dirty-cash risk, police warning/raid pressure, alliance threshold sanity.
 
-Suspiciously fast: alliance push can reach `65%` map control in 60 minutes under coordinated scripted pressure. It is still below the 85% win condition, but this should be rechecked after live multiplayer tests.
+Suspiciously fast: alliance push can reach `65%` map control in 60 minutes under coordinated scripted pressure. This no longer ends a FREE match directly, but it still matters through Final Lockdown score and should be rechecked after live multiplayer tests.
 
 Too slow: none in current simulation. Low-activity players collect/craft late by plan, but passive income prevents total collapse.
 
@@ -58,7 +58,7 @@ All scenarios use deterministic scripted plans over a 40 district test map with 
 | Aggressive Raider 60 Minutes | 60 | 3 | 6 | 6 | 9 | 12 | 27 | 11 | 27.5% | 13 | 346 | 2 | Ready: faster growth, higher police risk, not blocked. |
 | Passive Builder 60 Minutes | 60 | 8 | 20 | n/a | n/a | n/a | n/a | 1 | 2.5% | 0 | 10 | 0 | Ready: safe growth, cannot win without conflict. |
 | Snowball Leader | 60 | 2 | 4 | 5 | 6 | 7 | 19 | 12 | 30% | 45 | 494 | 2 | Medium risk: leader grows, pressure/raids brake but do not erase. |
-| Alliance Push | 60 | 4 | 8 | 8 | 10 | 19 | 35 | 26 | 65% | 44 | 157 | 4 | Ready: strong push stays below 85% win condition. |
+| Alliance Push | 60 | 4 | 8 | 8 | 10 | 19 | 35 | 26 | 65% | 44 | 157 | 4 | Ready: strong push affects score but does not directly end the match. |
 | Low Activity Player | 60 | 20 | 40 | n/a | n/a | n/a | n/a | 1 | 2.5% | 0 | 10 | 0 | Ready: falls behind on actions but keeps basic economy. |
 
 Other observed end-state metrics:

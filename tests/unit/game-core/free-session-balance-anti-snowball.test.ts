@@ -28,6 +28,7 @@ const FREE_CONFIG = resolveModeConfig("free");
 const CONTEXT = { config: FREE_CONFIG };
 const TICKS_PER_MINUTE = Math.ceil(60_000 / FREE_CONFIG.tickRateMs);
 const TOTAL_DISTRICTS = 40;
+const CONTROL_DOMINANCE_MILESTONE = 0.75;
 
 type ScenarioKind =
   | "new-player"
@@ -216,10 +217,10 @@ describe("free session balance and anti-snowball simulation", () => {
     expect(results.snowball.pendingRaids + results.snowball.resolvedRaids).toBeGreaterThanOrEqual(
       results.aggressive.pendingRaids + results.aggressive.resolvedRaids
     );
-    expect(results.snowball.ownedDistricts).toBeLessThan(Math.ceil(TOTAL_DISTRICTS * FREE_CONFIG.balance.districtControlVictoryThreshold!));
+    expect(results.snowball.ownedDistricts).toBeLessThan(Math.ceil(TOTAL_DISTRICTS * CONTROL_DOMINANCE_MILESTONE));
 
     expect(results.alliance.winProgress).toBeLessThan(0.7);
-    expect(results.alliance.winProgress).toBeLessThan(FREE_CONFIG.balance.districtControlVictoryThreshold!);
+    expect(results.alliance.winProgress).toBeLessThan(CONTROL_DOMINANCE_MILESTONE);
 
     for (const result of Object.values(results)) {
       assertNoUnsafeNumbers(result);
@@ -235,9 +236,7 @@ describe("free session balance and anti-snowball simulation", () => {
       balance: {
         maxPlayersPerServer: 20,
         maxAllianceSize: 4,
-        districtControlVictoryThreshold: 0.75,
-        minimumVictoryTicks: 51840,
-        districtControlHoldTicks: 4320,
+        victoryConditionKey: "final-lockdown",
         allowDurationVictoryFallback: false,
         hardTimeoutTicks: 120960,
         cooldownMultiplier: 0.8,
@@ -258,7 +257,11 @@ describe("free session balance and anti-snowball simulation", () => {
         }
       }
     });
-    expect(resolveModeConfig("war").balance.districtControlVictoryThreshold).not.toBe(FREE_CONFIG.balance.districtControlVictoryThreshold);
+    expect(FREE_CONFIG.balance.districtControlVictoryThreshold).toBe(1);
+    expect(FREE_CONFIG.balance.districtControlVictoryThreshold).not.toBe(0.75);
+    expect(FREE_CONFIG.balance.minimumVictoryTicks).toBeUndefined();
+    expect(FREE_CONFIG.balance.districtControlHoldTicks).toBeUndefined();
+    expect(resolveModeConfig("war").balance.districtControlVictoryThreshold).toBeDefined();
   });
 });
 

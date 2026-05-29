@@ -1,4 +1,5 @@
 export * from "./postgres-client";
+export * from "./postgres-command-reservation-repository";
 export * from "./postgres-log-repositories";
 export * from "./postgres-runtime-persistence";
 export * from "./postgres-server-instance-row";

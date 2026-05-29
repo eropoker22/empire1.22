@@ -23,7 +23,7 @@ describe("gameplay slice optimistic concurrency", () => {
     });
     const confirmedDistrictId = load.readModel?.district?.districtId ?? districtId;
     const expectedStateVersion = load.metadata?.stateVersion;
-    const response = server.gameplaySliceTransport.submit({
+    const response = await server.gameplaySliceTransport.submit({
       sessionToken: load.sessionToken,
       expectedStateVersion,
       focusDistrictId: confirmedDistrictId,
@@ -61,7 +61,7 @@ describe("gameplay slice optimistic concurrency", () => {
     });
     const confirmedDistrictId = load.readModel?.district?.districtId ?? districtId;
     const staleStateVersion = load.metadata?.stateVersion ?? 0;
-    const accepted = server.gameplaySliceTransport.submit({
+    const accepted = await server.gameplaySliceTransport.submit({
       sessionToken: load.sessionToken,
       expectedStateVersion: staleStateVersion,
       focusDistrictId: confirmedDistrictId,
@@ -78,7 +78,7 @@ describe("gameplay slice optimistic concurrency", () => {
     expect(accepted.errors).toEqual([]);
     expect(accepted.accepted).toBe(true);
 
-    const stale = server.gameplaySliceTransport.submit({
+    const stale = await server.gameplaySliceTransport.submit({
       sessionToken: accepted.sessionToken,
       expectedStateVersion: staleStateVersion,
       focusDistrictId: confirmedDistrictId,
@@ -131,15 +131,15 @@ describe("gameplay slice optimistic concurrency", () => {
         districtId: confirmedDistrictId
       }
     });
-    const accepted = server.gameplaySliceTransport.submit({
+    const accepted = await server.gameplaySliceTransport.submit({
       sessionToken: load.sessionToken,
       expectedStateVersion,
       focusDistrictId: confirmedDistrictId,
       command
     });
-    const duplicate = server.gameplaySliceTransport.submit({
+    const duplicate = await server.gameplaySliceTransport.submit({
       sessionToken: accepted.sessionToken,
-      expectedStateVersion,
+      expectedStateVersion: accepted.metadata?.stateVersion,
       focusDistrictId: confirmedDistrictId,
       command
     });
@@ -147,6 +147,59 @@ describe("gameplay slice optimistic concurrency", () => {
     expect(accepted.errors).toEqual([]);
     expect(accepted.accepted).toBe(true);
     expect(duplicate.accepted).toBe(false);
-    expect(duplicate.errors[0]?.code).toBe("server.duplicate_command");
+    expect(duplicate.errors[0]?.code).toBe("server.command_already_applied");
+    expect(duplicate.metadata?.stateVersion).toBe(accepted.metadata?.stateVersion);
+  });
+
+  it("rejects duplicate command ids with a different payload before state mutation", async () => {
+    const server = createServerApp();
+    const instanceId = "instance:free:concurrency:payload-conflict";
+    const playerId = "player:concurrency:payload-conflict";
+    const districtId = "district:concurrency:payload-conflict";
+
+    await ensureGameplaySliceSessionResult(server.instanceManager, {
+      serverInstanceId: instanceId,
+      playerId,
+      districtId
+    });
+
+    const load = server.gameplaySliceTransport.load({
+      serverInstanceId: instanceId,
+      playerId,
+      districtId
+    });
+    const confirmedDistrictId = load.readModel?.district?.districtId ?? districtId;
+    const expectedStateVersion = load.metadata?.stateVersion;
+    const command = createPlaceTrapCommandFixture({
+      id: "command:concurrency:payload-conflict:1",
+      playerId,
+      serverInstanceId: instanceId,
+      payload: {
+        districtId: confirmedDistrictId
+      }
+    });
+    const accepted = await server.gameplaySliceTransport.submit({
+      sessionToken: load.sessionToken,
+      expectedStateVersion,
+      focusDistrictId: confirmedDistrictId,
+      command
+    });
+    const rootAfterAccepted = server.instanceManager.getInstanceById(instanceId)!.state.root.version;
+    const conflict = await server.gameplaySliceTransport.submit({
+      sessionToken: accepted.sessionToken,
+      expectedStateVersion: accepted.metadata?.stateVersion,
+      focusDistrictId: confirmedDistrictId,
+      command: {
+        ...command,
+        payload: {
+          districtId: "district:payload-conflict:changed"
+        }
+      }
+    });
+
+    expect(accepted.accepted).toBe(true);
+    expect(conflict.accepted).toBe(false);
+    expect(conflict.errors[0]?.code).toBe("server.command_payload_conflict");
+    expect(server.instanceManager.getInstanceById(instanceId)!.state.root.version).toBe(rootAfterAccepted);
   });
 });

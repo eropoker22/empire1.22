@@ -1,3 +1,5 @@
+export * from "./command-reservation-payload";
+export * from "./instance-command-dispatch";
 export * from "./instance-factory";
 export * from "./instance-lifecycle-service";
 export * from "./instance-registry";

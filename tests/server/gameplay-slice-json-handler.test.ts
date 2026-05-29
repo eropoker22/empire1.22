@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createGameplaySliceJsonHandler } from "../../apps/server/src/transport";
 
 describe("gameplay slice json handler", () => {
-  it("routes load and submit requests to the gameplay slice transport", () => {
+  it("routes load and submit requests to the gameplay slice transport", async () => {
     const calls: string[] = [];
     const handler = createGameplaySliceJsonHandler({
       load: (request) => {
@@ -13,7 +13,7 @@ describe("gameplay slice json handler", () => {
           errors: []
         };
       },
-      submit: (request) => {
+      submit: async (request) => {
         calls.push(`submit:${request.focusDistrictId}:${request.command.type}`);
         return {
           accepted: true,
@@ -23,8 +23,8 @@ describe("gameplay slice json handler", () => {
       }
     });
 
-    expect(
-      handler.handle({
+    expect((
+      await handler.handle({
         method: "POST",
         path: "/api/gameplay-slice/load",
         body: {
@@ -32,10 +32,11 @@ describe("gameplay slice json handler", () => {
           playerId: "player:1",
           districtId: "district:1"
         }
-      }).status
+      })
+    ).status
     ).toBe(200);
-    expect(
-      handler.handle({
+    expect((
+      await handler.handle({
         method: "POST",
         path: "/api/gameplay-slice/submit",
         body: {
@@ -52,7 +53,8 @@ describe("gameplay slice json handler", () => {
             }
           }
         }
-      }).status
+      })
+    ).status
     ).toBe(200);
 
     expect(calls).toEqual([
@@ -61,17 +63,17 @@ describe("gameplay slice json handler", () => {
     ]);
   });
 
-  it("returns transport-safe errors for unsupported routes", () => {
+  it("returns transport-safe errors for unsupported routes", async () => {
     const handler = createGameplaySliceJsonHandler({
       load: () => {
         throw new Error("unexpected load");
       },
-      submit: () => {
+      submit: async () => {
         throw new Error("unexpected submit");
       }
     });
 
-    expect(handler.handle({ method: "GET", path: "/api/gameplay-slice/load", body: {} })).toMatchObject({
+    await expect(handler.handle({ method: "GET", path: "/api/gameplay-slice/load", body: {} })).resolves.toMatchObject({
       status: 405,
       body: {
         accepted: false,
@@ -83,7 +85,7 @@ describe("gameplay slice json handler", () => {
         ]
       }
     });
-    expect(handler.handle({ method: "POST", path: "/api/gameplay-slice/missing", body: {} })).toMatchObject({
+    await expect(handler.handle({ method: "POST", path: "/api/gameplay-slice/missing", body: {} })).resolves.toMatchObject({
       status: 404,
       body: {
         errors: [
@@ -95,24 +97,24 @@ describe("gameplay slice json handler", () => {
     });
   });
 
-  it("rejects invalid load and submit request shapes before transport dispatch", () => {
+  it("rejects invalid load and submit request shapes before transport dispatch", async () => {
     const handler = createGameplaySliceJsonHandler({
       load: () => {
         throw new Error("invalid load reached transport");
       },
-      submit: () => {
+      submit: async () => {
         throw new Error("invalid submit reached transport");
       }
     });
 
-    expect(handler.handle({
+    await expect(handler.handle({
       method: "POST",
       path: "/api/gameplay-slice/load",
       body: {
         playerId: "player:missing-instance",
         districtId: "district:1"
       }
-    })).toMatchObject({
+    })).resolves.toMatchObject({
       status: 200,
       body: {
         accepted: false,
@@ -128,13 +130,13 @@ describe("gameplay slice json handler", () => {
       }
     });
 
-    expect(handler.handle({
+    await expect(handler.handle({
       method: "POST",
       path: "/api/gameplay-slice/submit",
       body: {
         focusDistrictId: "district:1"
       }
-    })).toMatchObject({
+    })).resolves.toMatchObject({
       status: 200,
       body: {
         accepted: false,
@@ -151,7 +153,7 @@ describe("gameplay slice json handler", () => {
     });
   });
 
-  it("allows first load without a concrete district and rejects server-assigned focus on submit", () => {
+  it("allows first load without a concrete district and rejects server-assigned focus on submit", async () => {
     const calls: string[] = [];
     const handler = createGameplaySliceJsonHandler({
       load: (request) => {
@@ -162,26 +164,26 @@ describe("gameplay slice json handler", () => {
           errors: []
         };
       },
-      submit: () => {
+      submit: async () => {
         throw new Error("server-assigned submit focus reached transport");
       }
     });
 
-    expect(handler.handle({
+    await expect(handler.handle({
       method: "POST",
       path: "/api/gameplay-slice/load",
       body: {
         serverInstanceId: "instance:1",
         playerId: "player:1"
       }
-    })).toMatchObject({
+    })).resolves.toMatchObject({
       status: 200,
       body: {
         accepted: true
       }
     });
 
-    expect(handler.handle({
+    await expect(handler.handle({
       method: "POST",
       path: "/api/gameplay-slice/submit",
       body: {
@@ -198,7 +200,7 @@ describe("gameplay slice json handler", () => {
           }
         }
       }
-    })).toMatchObject({
+    })).resolves.toMatchObject({
       status: 200,
       body: {
         accepted: false,
@@ -215,17 +217,17 @@ describe("gameplay slice json handler", () => {
     expect(calls).toEqual(["load:server-assigned"]);
   });
 
-  it("rejects invalid preferred start district hint shape before transport dispatch", () => {
+  it("rejects invalid preferred start district hint shape before transport dispatch", async () => {
     const handler = createGameplaySliceJsonHandler({
       load: () => {
         throw new Error("invalid load reached transport");
       },
-      submit: () => {
+      submit: async () => {
         throw new Error("unexpected submit");
       }
     });
 
-    const response = handler.handle({
+    const response = await handler.handle({
       method: "POST",
       path: "/api/gameplay-slice/load",
       body: {
@@ -253,17 +255,17 @@ describe("gameplay slice json handler", () => {
     });
   });
 
-  it("rejects commands missing required envelope fields before transport dispatch", () => {
+  it("rejects commands missing required envelope fields before transport dispatch", async () => {
     const handler = createGameplaySliceJsonHandler({
       load: () => {
         throw new Error("unexpected load");
       },
-      submit: () => {
+      submit: async () => {
         throw new Error("invalid command reached transport");
       }
     });
 
-    const missingId = handler.handle({
+    const missingId = await handler.handle({
       method: "POST",
       path: "/api/gameplay-slice/submit",
       body: {
@@ -285,7 +287,7 @@ describe("gameplay slice json handler", () => {
       }
     }));
 
-    const missingPlayerId = handler.handle({
+    const missingPlayerId = await handler.handle({
       method: "POST",
       path: "/api/gameplay-slice/submit",
       body: {
@@ -316,17 +318,17 @@ describe("gameplay slice json handler", () => {
     ["collect-production", { districtId: "district:1" }, "command.payload.buildingId"],
     ["craft-item", { districtId: "district:1", buildingId: "building:1" }, "command.payload.recipeId"],
     ["run-building-action", { districtId: "district:1", buildingId: "building:1" }, "command.payload.actionId"]
-  ])("rejects invalid %s payload shape before transport dispatch", (type, payload, field) => {
+  ])("rejects invalid %s payload shape before transport dispatch", async (type, payload, field) => {
     const handler = createGameplaySliceJsonHandler({
       load: () => {
         throw new Error("unexpected load");
       },
-      submit: () => {
+      submit: async () => {
         throw new Error("invalid command reached transport");
       }
     });
 
-    const response = handler.handle({
+    const response = await handler.handle({
       method: "POST",
       path: "/api/gameplay-slice/submit",
       body: {

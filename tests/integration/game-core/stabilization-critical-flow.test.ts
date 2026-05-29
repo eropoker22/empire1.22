@@ -27,10 +27,11 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     expect(freeConfig.balance.maxPlayersPerServer).toBe(20);
     expect(warConfig.balance.maxPlayersPerServer).toBe(150);
     expect(freeConfig.balance.maxAllianceSize).toBe(4);
-    expect(freeConfig.balance.victoryConditionKey).toBe("fast-control");
-    expect(freeConfig.balance.districtControlVictoryThreshold).toBe(0.75);
-    expect(freeConfig.balance.minimumVictoryTicks).toBe(51840);
-    expect(freeConfig.balance.districtControlHoldTicks).toBe(4320);
+    expect(freeConfig.balance.victoryConditionKey).toBe("final-lockdown");
+    expect(freeConfig.balance.districtControlVictoryThreshold).toBe(1);
+    expect(freeConfig.balance.districtControlVictoryThreshold).not.toBe(0.75);
+    expect(freeConfig.balance.minimumVictoryTicks).toBeUndefined();
+    expect(freeConfig.balance.districtControlHoldTicks).toBeUndefined();
     expect(freeConfig.balance.allowDurationVictoryFallback).toBe(false);
     expect(freeConfig.balance.hardTimeoutTicks).toBe(120960);
     expect(freeConfig.balance.dayLengthTicks).toBe(1440);
@@ -188,7 +189,7 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     });
   });
 
-  it("keeps the old 75 percent threshold as audit progress before Final Lockdown", () => {
+  it("does not treat 75 percent control as a free-mode victory threshold", () => {
     const state = createCoreStateFixture();
     const context = {
       config: resolveModeConfig("free")
@@ -217,10 +218,11 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     expect(result.nextState.matchResult).toBeNull();
     expect(result.nextState.victoryState?.progressPayload).toMatchObject({
       reason: "final_lockdown_waiting_for_top8",
-      controlProgressReason: "control_victory_ready",
+      controlProgressReason: "below_control_threshold",
       controlledDistrictCount: 15,
       totalActiveDistrictCount: 20,
-      requiredControlledDistricts: 15,
+      requiredControlledDistricts: 20,
+      canResolveControlVictoryNow: false,
       finalLockdown: {
         enabled: true,
         status: "inactive",
@@ -244,7 +246,8 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
           finalLockdown: {
             ...resolveModeConfig("free").balance.finalLockdown!,
             enabled: false
-          }
+          },
+          victoryConditionKey: "legacy-duration"
         },
         technical: {
           ...resolveModeConfig("free").technical,
@@ -255,7 +258,7 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
 
     expect(result.nextState.root.phase).toBe("resolved");
     expect(result.nextState.serverInstance.status).toBe("ended");
-    expect(result.nextState.matchResult?.reason).toBe("duration:fast-control");
+    expect(result.nextState.matchResult?.reason).toBe("duration:legacy-duration");
   });
 });
 
@@ -310,7 +313,7 @@ const seedDominanceHold = (
     id: "victory:instance:1",
     serverInstanceId: state.serverInstance.id,
     status: "ongoing",
-    victoryType: "fast-control",
+    victoryType: "final-lockdown",
     leaderPlayerId: input.subjectType === "player" ? input.subjectId : null,
     leaderAllianceId: input.subjectType === "alliance" ? input.subjectId : null,
     progressPayload: {

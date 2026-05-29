@@ -1,6 +1,6 @@
 import { getOnboardingTargetSelector as getRegistryTargetSelector } from "./onboardingStepRegistry.js";
 
-const WIN_CONDITION_TEXT = "Přežít čistky, růst přes districty a ovládnout 75 % aktivního města. Sám, nebo přes alianci.";
+const WIN_CONDITION_TEXT = "Přežít do Final Lockdownu a mít nejsilnější impérium. Území, budovy, zdroje i heat rozhodují skóre.";
 
 function safeObject(value) {
   return value && typeof value === "object" ? value : {};

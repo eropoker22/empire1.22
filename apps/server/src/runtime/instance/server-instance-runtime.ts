@@ -10,6 +10,7 @@ import type { ReplayLogWriter } from "../persistence/services/replay-log-writer"
 import type { InstanceScheduler } from "../scheduling/instance-scheduler";
 import type { Clock } from "../scheduling/clock";
 import type { InstanceSnapshotController } from "../snapshots/instance-snapshot-controller";
+import type { CommandReservationRepository } from "../persistence/repositories";
 
 /**
  * Responsibility: In-memory runtime container for one isolated game instance.
@@ -29,6 +30,7 @@ export interface ServerInstanceRuntime {
   scheduler: InstanceScheduler;
   clock: Clock;
   snapshotController: InstanceSnapshotController;
+  commandReservationRepository?: CommandReservationRepository;
   processedCommandIds: Set<string>;
   commandRateLimitWindow: CommandRateLimitWindow;
 }

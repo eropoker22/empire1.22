@@ -12,7 +12,7 @@ The latest police sprint moved police trigger/lifecycle/consequences into core/c
 
 Police balance follow-up: `docs/audits/police-balance-free-session.md` now covers deterministic 120 minute free-session simulations. Verdict is `good` for MVP balance: quiet play is safe, normal play gets warnings, aggressive/dirty/snowball play gets real pending raids without open-raid spam.
 
-Free-session balance follow-up: `docs/audits/free-session-balance-anti-snowball.md` now covers deterministic pacing and anti-snowball simulations for new player, normal, aggressive, passive, snowball, alliance, and low-activity play. Verdict is `good` for MVP pacing with `medium` snowball risk: first collect/craft/spy/attack arrive in the target window, aggressive play receives raids, and a 4-player alliance push reaches 65% map control in 60 minutes without hitting the 85% win condition.
+Free-session balance follow-up: `docs/audits/free-session-balance-anti-snowball.md` now covers deterministic pacing and anti-snowball simulations for new player, normal, aggressive, passive, snowball, alliance, and low-activity play. Verdict is `good` for MVP pacing with `medium` snowball risk: first collect/craft/spy/attack arrive in the target window, aggressive play receives raids, and a 4-player alliance push reaches 65% map control in 60 minutes without turning map control into an instant win.
 
 Rumors/city feed follow-up: `docs/audits/rumors-city-feed-integration.md` adds a shared `CityFeedEvent` read model, core feed storage/projection, config-backed rumor templates, and a legacy runtime bridge. Attack, spy, capture, trap, police warning, and police raid events can now surface as city feed entries without changing gameplay outcomes.
 
@@ -34,6 +34,7 @@ Rumors/city feed follow-up: `docs/audits/rumors-city-feed-integration.md` adds a
 - MVP city feed hooks: significant `drug_lab`, `casino`, `exchange`, `armory` and completed equipment/drug craft events create deduped city feed entries; restaurant/convenience passive rumors remain non-gameplay metadata.
 - Police balance: free mode uses a police override with warning threshold `30`, high raid threshold `115`, extreme threshold `180`, one-minute pending TTL, and 30-minute raid cooldown.
 - Free-session pacing: deterministic balance simulation observes first collect at minute `2`, first craft at minute `6`, first spy at minute `10`, first attack at minute `12`, normal warning at minute `23`, aggressive raid at minute `27`, snowball raid at minute `19`, and alliance push at `65%` map control after 60 minutes.
+- Free-session endgame: FREE mode no longer resolves through the old 75% district-control victory. District control still matters for score and position, but match resolution is through Final Lockdown / Final Empire Score with the 7 day hard timeout as a safety limit.
 - Manual browser pass: onboarding reached `10/10`; spy and attack timers completed; no page console errors were captured.
 - Demo/dev: default preview phase remains `live`; demo scenarios are not removed.
 

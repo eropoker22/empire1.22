@@ -29,7 +29,7 @@ export const createGameplaySliceJsonHandler = (
   transport: GameplaySliceTransport,
   endpointBase = "/api/gameplay-slice"
 ) => ({
-  handle: (request: GameplaySliceJsonRequest): GameplaySliceJsonResponse => {
+  handle: async (request: GameplaySliceJsonRequest): Promise<GameplaySliceJsonResponse> => {
     if (request.method.toUpperCase() !== "POST") {
       return createErrorResponse(405, {
         code: "transport.method_not_allowed",
@@ -65,7 +65,7 @@ export const createGameplaySliceJsonHandler = (
 
       return {
         status: 200,
-        body: transport.submit(validation.request)
+        body: await transport.submit(validation.request)
       };
     }
 

@@ -104,13 +104,13 @@ export const createPacingVerdict = (result: Pick<PacingSimulationResult, "milest
   const simulatedHours = final?.simulatedHours ?? 96;
 
   if (!first75) {
-    verdict.push(`75 % pořád nepřišlo do ${simulatedHours}h: kontrola města je pořád moc roztříštěná.`);
+    verdict.push(`75 % control milestone pořád nepřišel do ${simulatedHours}h: kontrola města je pořád moc roztříštěná.`);
   } else if (first75.hour < 48) {
-    verdict.push("75 % přišlo před 48h: moc rychlé.");
+    verdict.push("75 % control milestone přišel před 48h: moc rychlé tempo dominance.");
   } else if (first75.hour >= 72 && first75.hour <= 96) {
-    verdict.push("75 % přišlo mezi 72-96h: ideální pacing dominance.");
+    verdict.push("75 % control milestone přišel mezi 72-96h: zdravý pacing dominance.");
   } else {
-    verdict.push("75 % přišlo mimo ideální okno 72-96h.");
+    verdict.push("75 % control milestone přišel mimo ideální okno 72-96h.");
   }
 
   if (!first75 && result.snapshots.some((snapshot) => snapshot.simulatedHours >= 72 && snapshot.activePlayersRemaining < 5)) {
@@ -131,7 +131,7 @@ export const createPacingVerdict = (result: Pick<PacingSimulationResult, "milest
   }
 
   if (first75?.subjectType === "alliance" && first75.hour < 48) {
-    verdict.push("Aliance vyhrává před 48h: eliminace je moc agresivní nebo aliance příliš silné.");
+    verdict.push("Aliance dosáhla 75 % control milestone před 48h: eliminace je moc agresivní nebo aliance příliš silné.");
   }
 
   return verdict.join(" ");

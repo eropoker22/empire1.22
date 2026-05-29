@@ -1,23 +1,17 @@
-import { applyCommand } from "@empire/game-core";
-import type { CoreGameState } from "@empire/game-core";
 import {
   PRODUCTION_GAME_LIFECYCLE_PHASES,
   isDevSetupGameLifecyclePhase
 } from "@empire/shared-types";
-import type { GameCommand, InstanceRuntimeEvent } from "@empire/shared-types";
+import type { GameCommand } from "@empire/shared-types";
 import type { ServerInstanceRuntime } from "../instance/server-instance-runtime";
-import { writeCommandRejectionDiagnostic, writeDiagnosticLog } from "../logging";
+import { writeDiagnosticLog } from "../logging";
+import type { CommandDispatchOptions } from "../orchestration/command-dispatch-options";
 import { restoreOrCreateInitialState } from "../snapshots/instance-restore-service";
 import { runInstanceTick } from "../scheduling/tick-runner";
 import type { InstanceCommandDispatchResult } from "../orchestration/instance-command-dispatch-result";
-import {
-  recordCommandRateLimitUsage,
-  validateCommandDispatchGate
-} from "./instance-command-gates";
+import { dispatchInstanceCommand } from "./instance-command-dispatch";
 
-export interface CommandDispatchOptions {
-  expectedStateVersion?: number | null;
-}
+export type { CommandDispatchOptions } from "../orchestration/command-dispatch-options";
 
 /**
  * Responsibility: Encapsulates lifecycle transitions and safe tick execution for one runtime.
@@ -105,91 +99,12 @@ export class InstanceLifecycleService {
     return runInstanceTick(runtime, runtime.clock);
   }
 
-  dispatch(
+  async dispatch(
     runtime: ServerInstanceRuntime,
     command: GameCommand,
     options: CommandDispatchOptions = {}
-  ): InstanceCommandDispatchResult {
-    const gateErrors = validateCommandDispatchGate(runtime, command, options);
-
-    if (gateErrors.length > 0) {
-      void writeCommandRejectionDiagnostic({
-        runtime,
-        command,
-        errors: gateErrors,
-        category: "command_rejected",
-        message: "Command rejected before core dispatch.",
-        expectedStateVersion: options.expectedStateVersion
-      });
-
-      return {
-        runtime,
-        errors: gateErrors
-      };
-    }
-
-    void runtime.replayLogWriter.writeCommand({
-      id: `cmd:${command.id}`,
-      instanceId: runtime.record.id,
-      command,
-      receivedAt: runtime.clock.nowIso(),
-      actorId: command.playerId,
-      correlationId: command.clientRequestId,
-      tickAtReceive: runtime.state.root.tick
-    });
-    runtime.processedCommandIds.add(command.id);
-    recordCommandRateLimitUsage(runtime, command);
-
-    const previousRootVersion = runtime.state.root.version;
-    const result = applyCommand(runtime.state, command, {
-      config: runtime.config
-    });
-
-    if (result.errors.length > 0) {
-      void writeCommandRejectionDiagnostic({
-        runtime,
-        command,
-        errors: result.errors,
-        category: "command_rejected",
-        message: "Command rejected."
-      });
-
-      return {
-        runtime,
-        errors: result.errors
-      };
-    }
-
-    runtime.state = ensureAdvancedRootVersion(result.nextState, previousRootVersion);
-
-    const appliedEvent: InstanceRuntimeEvent = {
-      type: "command-applied",
-      payload: {
-        commandId: command.id,
-        eventCount: result.events.length
-      },
-      occurredAt: runtime.clock.nowIso()
-    };
-
-    runtime.eventQueue.enqueue(appliedEvent);
-    runtime.eventPublisher.publish(appliedEvent);
-    void writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "command", "Command dispatched.", {
-      commandId: command.id,
-      commandType: command.type
-    }, runtime.clock);
-    void runtime.replayLogWriter.writeEvent({
-      id: `evt:${command.id}:${runtime.state.root.tick}`,
-      instanceId: runtime.record.id,
-      event: appliedEvent,
-      causedByCommandId: command.id,
-      recordedAt: runtime.clock.nowIso(),
-      tickAtEmit: runtime.state.root.tick
-    });
-
-    return {
-      runtime,
-      errors: []
-    };
+  ): Promise<InstanceCommandDispatchResult> {
+    return dispatchInstanceCommand(runtime, command, options);
   }
 
   async restore(runtime: ServerInstanceRuntime): Promise<ServerInstanceRuntime> {
@@ -221,17 +136,3 @@ const ensureProductionLifecyclePhase = (
 
   return runtime;
 };
-
-const ensureAdvancedRootVersion = (
-  state: CoreGameState,
-  previousRootVersion: number
-): CoreGameState =>
-  state.root.version > previousRootVersion
-    ? state
-    : {
-        ...state,
-        root: {
-          ...state.root,
-          version: previousRootVersion + 1
-        }
-      };

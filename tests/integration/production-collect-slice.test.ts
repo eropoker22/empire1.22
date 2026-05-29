@@ -163,7 +163,7 @@ describe("production collect gameplay slice", () => {
     ).toBe("0/24 připraveno");
   });
 
-  it("rejects collect submit without a gameplay session token before mutating state", () => {
+  it("rejects collect submit without a gameplay session token before mutating state", async () => {
     const server = createServerApp();
     const instanceId = "instance:production-missing-session";
     const playerId = "player:producer-missing-session";
@@ -201,7 +201,7 @@ describe("production collect gameplay slice", () => {
     const buildingBalanceBeforeSubmit =
       server.instanceManager.getInstanceById(instanceId)?.state.resourceStatesById[`resource:${buildingId}`]?.balances["metal-parts"];
 
-    const response: GameplaySliceResponse = server.gameplaySliceTransport.submit({
+    const response: GameplaySliceResponse = await server.gameplaySliceTransport.submit({
       focusDistrictId: districtId,
       command: createCollectProductionCommand({
         commandId: "command:collect:missing-session",

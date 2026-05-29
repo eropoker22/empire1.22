@@ -17,6 +17,7 @@ export const validateCommandDispatchGate = (
   command: GameCommand,
   options: {
     expectedStateVersion?: number | null;
+    skipProcessedCommandIdGate?: boolean;
   } = {}
 ): DomainError[] => {
   if (command.serverInstanceId !== runtime.record.id) {
@@ -37,7 +38,7 @@ export const validateCommandDispatchGate = (
     ];
   }
 
-  if (runtime.processedCommandIds.has(command.id)) {
+  if (!options.skipProcessedCommandIdGate && runtime.processedCommandIds.has(command.id)) {
     return [
       {
         code: "server.duplicate_command",

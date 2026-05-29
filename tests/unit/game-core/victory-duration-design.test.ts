@@ -6,8 +6,8 @@ import {
   createCoreStateFixture
 } from "../../fixtures/game-state-fixtures";
 
-const FREE_MINIMUM_VICTORY_TICKS = 51_840;
-const FREE_CONTROL_HOLD_TICKS = 4_320;
+const OLD_FREE_MINIMUM_VICTORY_TICKS = 51_840;
+const OLD_FREE_CONTROL_HOLD_TICKS = 4_320;
 const FREE_HARD_TIMEOUT_TICKS = 120_960;
 
 describe("victory duration design", () => {
@@ -16,21 +16,21 @@ describe("victory duration design", () => {
       totalDistricts: 100,
       playerControlledDistricts: 74
     });
-    state.root.tick = FREE_MINIMUM_VICTORY_TICKS + FREE_CONTROL_HOLD_TICKS;
+    state.root.tick = OLD_FREE_MINIMUM_VICTORY_TICKS + OLD_FREE_CONTROL_HOLD_TICKS;
 
     const result = checkVictory(state, { config: resolveModeConfig("free") });
 
     expect(result.resolved).toBe(false);
     expect(result.nextState.matchResult).toBeNull();
     expect(result.nextState.victoryState?.progressPayload).toMatchObject({
-      requiredControlledDistricts: 75,
+      requiredControlledDistricts: 100,
       reason: "final_lockdown_waiting_for_top8",
       controlProgressReason: "below_control_threshold",
       canResolveControlVictoryNow: false
     });
   });
 
-  it("does not resolve 75 percent control before the 72h minimum server age", () => {
+  it("does not resolve 75 percent control before the old 72h minimum server age", () => {
     const state = createStateWithDistrictControl({
       totalDistricts: 20,
       playerControlledDistricts: 15
@@ -39,7 +39,7 @@ describe("victory duration design", () => {
       subjectType: "player",
       subjectId: "player:1",
       startedAtTick: 40_000,
-      currentTick: FREE_MINIMUM_VICTORY_TICKS - 1
+      currentTick: OLD_FREE_MINIMUM_VICTORY_TICKS - 1
     });
 
     const result = checkVictory(state, { config: resolveModeConfig("free") });
@@ -48,13 +48,14 @@ describe("victory duration design", () => {
     expect(result.nextState.matchResult).toBeNull();
     expect(result.nextState.victoryState?.progressPayload).toMatchObject({
       reason: "final_lockdown_waiting_for_top8",
-      controlProgressReason: "minimum_server_age_not_reached",
-      minimumVictoryTicks: FREE_MINIMUM_VICTORY_TICKS,
+      controlProgressReason: "below_control_threshold",
+      requiredControlledDistricts: 20,
+      minimumVictoryTicks: 0,
       canResolveControlVictoryNow: false
     });
   });
 
-  it("does not resolve 75 percent control after 72h until the 6h hold completes", () => {
+  it("does not resolve 75 percent control after the old 72h minimum and 6h hold window", () => {
     const state = createStateWithDistrictControl({
       totalDistricts: 20,
       playerControlledDistricts: 15
@@ -62,8 +63,8 @@ describe("victory duration design", () => {
     seedDominanceHold(state, {
       subjectType: "player",
       subjectId: "player:1",
-      startedAtTick: FREE_MINIMUM_VICTORY_TICKS,
-      currentTick: FREE_MINIMUM_VICTORY_TICKS + FREE_CONTROL_HOLD_TICKS - 1
+      startedAtTick: OLD_FREE_MINIMUM_VICTORY_TICKS,
+      currentTick: OLD_FREE_MINIMUM_VICTORY_TICKS + OLD_FREE_CONTROL_HOLD_TICKS
     });
 
     const result = checkVictory(state, { config: resolveModeConfig("free") });
@@ -71,8 +72,9 @@ describe("victory duration design", () => {
     expect(result.resolved).toBe(false);
     expect(result.nextState.victoryState?.progressPayload).toMatchObject({
       reason: "final_lockdown_waiting_for_top8",
-      controlProgressReason: "control_hold_not_completed",
-      controlHoldRemainingTicks: 1,
+      controlProgressReason: "below_control_threshold",
+      requiredControlledDistricts: 20,
+      controlHoldRemainingTicks: 0,
       canResolveControlVictoryNow: false
     });
   });
@@ -85,8 +87,8 @@ describe("victory duration design", () => {
     seedDominanceHold(state, {
       subjectType: "player",
       subjectId: "player:1",
-      startedAtTick: FREE_MINIMUM_VICTORY_TICKS,
-      currentTick: FREE_MINIMUM_VICTORY_TICKS + FREE_CONTROL_HOLD_TICKS
+      startedAtTick: OLD_FREE_MINIMUM_VICTORY_TICKS,
+      currentTick: OLD_FREE_MINIMUM_VICTORY_TICKS + OLD_FREE_CONTROL_HOLD_TICKS
     });
 
     const result = checkVictory(state, { config: resolveModeConfig("free") });
@@ -95,11 +97,11 @@ describe("victory duration design", () => {
     expect(result.nextState.matchResult).toBeNull();
     expect(result.nextState.victoryState?.progressPayload).toMatchObject({
       reason: "final_lockdown_waiting_for_top8",
-      controlProgressReason: "control_victory_ready",
+      controlProgressReason: "below_control_threshold",
       controlledDistrictCount: 15,
-      requiredControlledDistricts: 15,
+      requiredControlledDistricts: 20,
       controlHoldRemainingTicks: 0,
-      canResolveControlVictoryNow: true,
+      canResolveControlVictoryNow: false,
       finalLockdown: {
         enabled: true,
         status: "inactive",
@@ -125,8 +127,8 @@ describe("victory duration design", () => {
     seedDominanceHold(state, {
       subjectType: "alliance",
       subjectId: "alliance:1",
-      startedAtTick: FREE_MINIMUM_VICTORY_TICKS,
-      currentTick: FREE_MINIMUM_VICTORY_TICKS + FREE_CONTROL_HOLD_TICKS
+      startedAtTick: OLD_FREE_MINIMUM_VICTORY_TICKS,
+      currentTick: OLD_FREE_MINIMUM_VICTORY_TICKS + OLD_FREE_CONTROL_HOLD_TICKS
     });
 
     const result = checkVictory(state, { config: resolveModeConfig("free") });
@@ -142,7 +144,9 @@ describe("victory duration design", () => {
     expect(result.nextState.matchResult).toBeNull();
     expect(result.nextState.victoryState?.progressPayload).toMatchObject({
       reason: "final_lockdown_waiting_for_top8",
-      controlProgressReason: "control_victory_ready",
+      controlProgressReason: "below_control_threshold",
+      requiredControlledDistricts: 20,
+      canResolveControlVictoryNow: false,
       finalLockdown: {
         enabled: true,
         status: "inactive",
@@ -151,31 +155,33 @@ describe("victory duration design", () => {
     });
   });
 
-  it("resets the hold timer when dominance falls below 75 percent", () => {
+  it("keeps even full map control as audit progress while Final Lockdown waits", () => {
     const state = createStateWithDistrictControl({
       totalDistricts: 20,
-      playerControlledDistricts: 15
+      playerControlledDistricts: 20
     });
     seedDominanceHold(state, {
       subjectType: "player",
       subjectId: "player:1",
-      startedAtTick: FREE_MINIMUM_VICTORY_TICKS,
-      currentTick: FREE_MINIMUM_VICTORY_TICKS + 100
+      startedAtTick: OLD_FREE_MINIMUM_VICTORY_TICKS,
+      currentTick: OLD_FREE_MINIMUM_VICTORY_TICKS + OLD_FREE_CONTROL_HOLD_TICKS
     });
-
-    state.districtsById["district:15"] = {
-      ...state.districtsById["district:15"],
-      ownerPlayerId: null
-    };
 
     const result = checkVictory(state, { config: resolveModeConfig("free") });
 
     expect(result.resolved).toBe(false);
+    expect(result.nextState.matchResult).toBeNull();
     expect(result.nextState.victoryState?.progressPayload).toMatchObject({
       reason: "final_lockdown_waiting_for_top8",
-      controlProgressReason: "below_control_threshold",
-      controlHoldStartedAtTick: null,
-      controlHoldRemainingTicks: FREE_CONTROL_HOLD_TICKS
+      controlProgressReason: "control_victory_ready",
+      controlledDistrictCount: 20,
+      requiredControlledDistricts: 20,
+      canResolveControlVictoryNow: true,
+      finalLockdown: {
+        enabled: true,
+        status: "inactive",
+        triggerActivePlayers: 8
+      }
     });
   });
 
@@ -264,7 +270,7 @@ const seedDominanceHold = (
     id: "victory:instance:1",
     serverInstanceId: state.serverInstance.id,
     status: "ongoing",
-    victoryType: "fast-control",
+    victoryType: "final-lockdown",
     leaderPlayerId: input.subjectType === "player" ? input.subjectId : null,
     leaderAllianceId: input.subjectType === "alliance" ? input.subjectId : null,
     progressPayload: {

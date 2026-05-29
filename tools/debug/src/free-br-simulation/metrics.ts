@@ -71,7 +71,7 @@ export const summarizeFreeBrMatrix = (matrix: FreeBrMatrixReport): string[] => [
   `Final Lockdown wins: ${(matrix.finalLockdownWinRate * 100).toFixed(0)}%`,
   `Average Final Lockdown wall-clock: ${matrix.averageFinalLockdownDurationWallClock}h`,
   `Average Final Lockdown paused hours: ${matrix.averageFinalLockdownPausedHours}h`,
-  `Old 75% victory before timeout: ${(matrix.victoryBeforeTimeoutChance * 100).toFixed(0)}%`,
+  `Control victory before Final Lockdown: disabled (old 75% audit reach ${(matrix.victoryBeforeTimeoutChance * 100).toFixed(0)}%)`,
   `Timeout without winner: ${(matrix.timeoutWithoutWinnerChance * 100).toFixed(0)}%`,
   `Dominant faction: ${matrix.mostDominantFaction ?? "n/a"}`,
   `Weakest faction: ${matrix.weakestFaction ?? "n/a"}`,

@@ -3,12 +3,14 @@ import type { DomainError, ServerInstanceId } from "@empire/shared-types";
 export type CommandReservationStatus = "pending" | "applied" | "rejected";
 
 export interface CommandReservationRecord {
+  id: string;
   serverInstanceId: ServerInstanceId;
   commandId: string;
   status: CommandReservationStatus;
   commandType: string;
   playerId: string;
-  payloadHash: string | null;
+  payloadHash: string;
+  payload: unknown;
   reservedAt: string;
   updatedAt: string;
   appliedAt: string | null;
@@ -23,6 +25,7 @@ export interface CommandReservationDraft {
   commandType: string;
   playerId: string;
   payloadHash?: string | null;
+  payload?: unknown;
   reservedAt: string;
   metadata?: Record<string, unknown> | null;
 }

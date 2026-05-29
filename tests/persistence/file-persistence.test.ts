@@ -29,7 +29,7 @@ describe("file persistence repositories", () => {
       };
       firstManager.startInstance(instanceId);
 
-      const result = firstManager.dispatchCommand(
+      const result = await firstManager.dispatchCommand(
         instanceId,
         createAttackDistrictCommandFixture({
           id: "command:file-persistence:attack:1",

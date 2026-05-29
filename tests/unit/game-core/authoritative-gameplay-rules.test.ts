@@ -16,7 +16,7 @@ import {
 } from "../../fixtures/command-fixtures";
 
 describe("authoritative gameplay rules", () => {
-  it("keeps 75 percent free control as audit progress until Final Lockdown resolves endgame", () => {
+  it("does not treat 75 percent free control as a victory threshold before Final Lockdown", () => {
     const state = createStateWithDistrictControl({
       totalDistricts: 20,
       playerControlledDistricts: 15
@@ -46,8 +46,9 @@ describe("authoritative gameplay rules", () => {
     expect(result.nextState.matchResult).toBeNull();
     expect(result.nextState.victoryState?.progressPayload).toMatchObject({
       ...result.summary,
-      controlProgressReason: "control_victory_ready",
-      canResolveControlVictoryNow: true,
+      controlProgressReason: "below_control_threshold",
+      requiredControlledDistricts: 20,
+      canResolveControlVictoryNow: false,
       finalLockdown: {
         enabled: true,
         status: "inactive",
@@ -56,7 +57,7 @@ describe("authoritative gameplay rules", () => {
     });
   });
 
-  it("keeps 75 percent free alliance control as audit progress until Final Lockdown resolves endgame", () => {
+  it("does not treat 75 percent free alliance control as a victory threshold before Final Lockdown", () => {
     const state = createStateWithDistrictControl({
       totalDistricts: 20,
       playerControlledDistricts: 15,
@@ -94,7 +95,9 @@ describe("authoritative gameplay rules", () => {
     expect(result.resolved).toBe(false);
     expect(result.nextState.matchResult).toBeNull();
     expect(result.nextState.victoryState?.progressPayload).toMatchObject({
-      controlProgressReason: "control_victory_ready",
+      controlProgressReason: "below_control_threshold",
+      requiredControlledDistricts: 20,
+      canResolveControlVictoryNow: false,
       finalLockdown: {
         enabled: true,
         status: "inactive",
@@ -368,7 +371,7 @@ const seedDominanceHold = (
     id: "victory:instance:1",
     serverInstanceId: state.serverInstance.id,
     status: "ongoing",
-    victoryType: "fast-control",
+    victoryType: "final-lockdown",
     leaderPlayerId: input.subjectType === "player" ? input.subjectId : null,
     leaderAllianceId: input.subjectType === "alliance" ? input.subjectId : null,
     progressPayload: {

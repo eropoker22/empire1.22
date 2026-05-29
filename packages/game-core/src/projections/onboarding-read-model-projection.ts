@@ -5,7 +5,7 @@ import { createDistrictAttackTargetViews } from "./district-attack-target-projec
 import { createDistrictSpyTargetViews } from "./district-spy-target-projection";
 import { createEliminationReadModel } from "./elimination-read-model-projection";
 
-const WIN_CONDITION_TEXT = "Přežít čistky, růst přes districty a ovládnout 75 % aktivního města. Sám, nebo přes alianci.";
+const WIN_CONDITION_TEXT = "Přežít do Final Lockdownu a mít nejsilnější impérium. Území, budovy, zdroje i heat rozhodují skóre.";
 
 /**
  * Responsibility: Safe, read-only hints for the onboarding UI.

@@ -42,11 +42,13 @@ If the selected driver is `postgres` and no database URL is configured, startup 
 Apply the migration manually before enabling the Postgres driver:
 
 - `apps/server/src/runtime/persistence/postgres/migrations/001_initial_runtime_persistence.sql`
+- `apps/server/src/runtime/persistence/postgres/migrations/002_command_reservations.sql`
 
 Example:
 
 ```powershell
 psql $env:EMPIRE_DATABASE_URL -f apps/server/src/runtime/persistence/postgres/migrations/001_initial_runtime_persistence.sql
+psql $env:EMPIRE_DATABASE_URL -f apps/server/src/runtime/persistence/postgres/migrations/002_command_reservations.sql
 ```
 
 The migration creates:
@@ -60,6 +62,10 @@ The migration creates:
 - `empire_player_registrations`
 - `empire_tick_locks`
 
+The second migration creates:
+
+- `empire_command_reservations`
+
 Tables use `payload jsonb`, `created_at timestamptz`, `updated_at` where rows can change, instance-scoped indexes, append ordering indexes, `UNIQUE(server_instance_id, command_id)` for command idempotence, `UNIQUE(server_instance_id, snapshot_id)` for snapshot history, and `UNIQUE(server_instance_id)` for latest snapshots and tick locks.
 
 ## Postgres Adapter
@@ -67,6 +73,7 @@ Tables use `payload jsonb`, `created_at timestamptz`, `updated_at` where rows ca
 `createPostgresRuntimePersistenceRepositories()` returns the same repository shape as memory/file plus a runtime tick lock:
 
 - `commandLogRepository`
+- `commandReservationRepository`
 - `eventLogRepository`
 - `diagnosticLogRepository`
 - `snapshotRepository`
@@ -84,7 +91,25 @@ The adapter uses the standard `pg` package with lazy pool creation. Memory and f
 - Duplicate command ids are a safe no-op and do not overwrite payload.
 - `listByInstance()` returns records ordered by `sequence`, then `created_at`, then `id`.
 
-The current in-process command dispatch gate still prevents duplicate command ids before core dispatch when the runtime has the command in `processedCommandIds`. For fully cross-invocation exactly-once command execution, command dispatch must become async and reserve the command id transactionally before `applyCommand()`. A synchronous reservation call or fire-and-forget repository append is not safe.
+The command log remains an audit stream. Exactly-once command execution is owned by the command reservation repository, which is awaited before `applyCommand()`.
+
+### Command Reservation
+
+`commandReservationRepository.reserve(record)` writes to `empire_command_reservations` before gameplay dispatch.
+
+- `UNIQUE(server_instance_id, command_id)` makes reservation idempotent per server instance.
+- `reserve()` uses `INSERT ... ON CONFLICT DO NOTHING` and reads the existing row on duplicate.
+- Duplicate `pending` commands return `server.command_in_flight`.
+- Duplicate `applied` commands return `server.command_already_applied`.
+- Duplicate `rejected` commands return the stored rejection errors.
+- Same command id with a different deterministic command-envelope hash returns `server.command_payload_conflict`.
+- `markApplied()` allows `pending -> applied` and is idempotent for already applied records.
+- `markRejected()` allows `pending -> rejected` and is idempotent for already rejected records.
+- Terminal states cannot be rewritten across applied/rejected.
+
+Memory and file repositories implement the same lifecycle for local/dev parity, but only Postgres provides cross-invocation shared reservation state.
+
+If a runtime does not have a `commandReservationRepository`, command submit fails closed with `server.command_reservation_unavailable`. The runtime does not write command audit, does not call `applyCommand()`, and does not mutate state. This is intentional: command reservation is correctness-critical and cannot be fire-and-forgotten.
 
 ### Event Log
 
@@ -158,6 +183,7 @@ Implemented:
 
 - DB-backed command/event/diagnostic/snapshot repositories.
 - Command append idempotence by `(server_instance_id, command_id)`.
+- Command reservation by `(server_instance_id, command_id)` before `applyCommand()` in the async submit path.
 - Snapshot latest compare-and-swap by `rootVersion`.
 - Distributed tick lock helper and tick-orchestrator integration.
 - Optional live Postgres smoke test.
@@ -165,4 +191,5 @@ Implemented:
 Known follow-up:
 
 - `empire_player_registrations` exists in the schema, but player registration/session reservation is not yet represented by a dedicated persistence repository. Current membership state is restored through snapshots/snapshot tokens.
-- Cross-invocation exactly-once command execution needs an async command pipeline that reserves command ids before gameplay mutation. The repository-level idempotence is in place, but synchronous dispatch still uses runtime `processedCommandIds` as the pre-dispatch gate. See `docs/command-reservation-design.md` for the required public-alpha implementation plan.
+- Exactly-once command id execution is implemented for the Postgres-backed async submit path, but command dispatch still does not write latest snapshot/state and reservation updates inside one Postgres transaction. Full cross-command serialization/latest snapshot transaction remains a follow-up.
+- Command/event/diagnostic logs may remain best-effort in some lifecycle paths, but command reservation `reserve()`, `markApplied()`, and `markRejected()` are awaited in the command correctness path.
