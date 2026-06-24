@@ -1,8 +1,10 @@
 import type {
   CommandLogRepository,
   CommandReservationRepository,
+  CommandResultRepository,
   DiagnosticLogRepository,
   EventLogRepository,
+  RuntimeOutboxRepository,
   SnapshotRepository
 } from "../repositories";
 import type { RuntimeTickLock } from "../tick-lock";
@@ -17,6 +19,8 @@ import {
   createPostgresEventLogRepository
 } from "./postgres-log-repositories";
 import { createPostgresCommandReservationRepository } from "./postgres-command-reservation-repository";
+import { createPostgresCommandResultRepository } from "./postgres-command-result-repository";
+import { createPostgresRuntimeOutboxRepository } from "./postgres-outbox-repository";
 import { createPostgresSnapshotRepository } from "./postgres-snapshot-repository";
 import { createPostgresRuntimeTickLock } from "./postgres-tick-lock";
 
@@ -30,10 +34,13 @@ export interface PostgresRuntimePersistenceOptions {
 export interface PostgresRuntimePersistenceRepositories {
   commandLogRepository: CommandLogRepository;
   commandReservationRepository: CommandReservationRepository;
+  commandResultRepository: CommandResultRepository;
   eventLogRepository: EventLogRepository;
+  outboxRepository: RuntimeOutboxRepository;
   diagnosticLogRepository: DiagnosticLogRepository;
   snapshotRepository: SnapshotRepository;
   tickLock: RuntimeTickLock;
+  atomicCommandPersistenceMode: "transactional";
   close(): Promise<void>;
 }
 
@@ -51,13 +58,16 @@ export const createPostgresRuntimePersistenceRepositories = (
   return {
     commandLogRepository: createPostgresCommandLogRepository(database),
     commandReservationRepository: createPostgresCommandReservationRepository(database),
+    commandResultRepository: createPostgresCommandResultRepository(database),
     eventLogRepository: createPostgresEventLogRepository(database),
+    outboxRepository: createPostgresRuntimeOutboxRepository(database),
     diagnosticLogRepository: createPostgresDiagnosticLogRepository(database),
     snapshotRepository: createPostgresSnapshotRepository(database),
     tickLock: createPostgresRuntimeTickLock(database, {
       ownerId: options.tickLockOwnerId,
       ttlMs: options.tickLockTtlMs
     }),
+    atomicCommandPersistenceMode: "transactional",
     close: () => database.close()
   };
 };

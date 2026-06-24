@@ -3,8 +3,12 @@ import {
   createAttackDistrictCommand,
   createCollectProductionCommand,
   createCraftItemCommand,
+  createHeistDistrictCommand,
   createOccupyDistrictCommand,
+  createPlaceDefenseCommand,
   createPlaceTrapCommand,
+  createRemoveDefenseCommand,
+  createRobDistrictCommand,
   createRunBuildingActionCommand,
   createSelectSpawnDistrictCommand,
   createSpyDistrictCommand
@@ -89,6 +93,24 @@ export const createClientSurfaceActionRouter = (
             issuedAt
           })
         );
+      case "rob":
+        return options.client.dispatch(
+          createRobDistrictCommand({
+            commandId: options.createCommandId("command:rob"),
+            slice,
+            targetDistrictId: action.targetDistrictId,
+            issuedAt
+          })
+        );
+      case "heist":
+        return options.client.dispatch(
+          createHeistDistrictCommand({
+            commandId: options.createCommandId("command:heist"),
+            slice,
+            targetDistrictId: action.targetDistrictId,
+            issuedAt
+          })
+        );
       case "spy":
         return options.client.dispatch(
           createSpyDistrictCommand({
@@ -111,6 +133,22 @@ export const createClientSurfaceActionRouter = (
         return options.client.dispatch(
           createPlaceTrapCommand({
             commandId: options.createCommandId("command:trap"),
+            slice,
+            issuedAt
+          })
+        );
+      case "place-defense":
+        return options.client.dispatch(
+          createPlaceDefenseCommand({
+            commandId: options.createCommandId("command:place-defense"),
+            slice,
+            issuedAt
+          })
+        );
+      case "remove-defense":
+        return options.client.dispatch(
+          createRemoveDefenseCommand({
+            commandId: options.createCommandId("command:remove-defense"),
             slice,
             issuedAt
           })

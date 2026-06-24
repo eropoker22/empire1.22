@@ -5,6 +5,7 @@ import type {
   GameplaySliceView,
   SubmitGameplayCommandRequest
 } from "@empire/shared-types";
+import { empireStreetsCityMapManifestHash } from "@empire/game-config";
 import { createClientApp } from "../../../apps/client/src/app";
 import type { ClientTransport } from "../../../apps/client/src/transport";
 
@@ -62,6 +63,41 @@ describe("client optimistic concurrency", () => {
     expect(render.connection.staleData).toBe(true);
     expect(render.sidePanelHtml).not.toContain("Command pending");
   });
+
+  it("blocks map commands locally when client and server map hashes differ", async () => {
+    const sent: SubmitGameplayCommandRequest[] = [];
+    const transport: ClientTransport = {
+      load: async () => ({
+        accepted: true,
+        readModel: createGameplaySliceView(7, "fnv1a32:stale"),
+        errors: [],
+        metadata: {
+          serverTick: 0,
+          stateVersion: 7
+        }
+      }),
+      send: async (request) => {
+        sent.push(request);
+        return {
+          accepted: true,
+          readModel: createGameplaySliceView(8),
+          errors: []
+        };
+      }
+    };
+    const client = createClientApp({ transport });
+
+    await client.load({
+      serverInstanceId: "instance:client-concurrency",
+      playerId: "player:client-concurrency",
+      districtId: "district:client-concurrency"
+    });
+    const render = await client.dispatch(createCommand());
+
+    expect(sent).toEqual([]);
+    expect(render.errors[0]?.code).toBe("client.transport_error");
+    expect(render.errors[0]?.message).toContain("map manifest");
+  });
 });
 
 const createCommand = (): GameCommand => ({
@@ -77,13 +113,19 @@ const createCommand = (): GameCommand => ({
   clientRequestId: null
 });
 
-const createGameplaySliceView = (stateVersion: number): GameplaySliceView => ({
+const createGameplaySliceView = (
+  stateVersion: number,
+  mapManifestHash = empireStreetsCityMapManifestHash
+): GameplaySliceView => ({
   server: {
     serverInstanceId: "instance:client-concurrency",
     mode: "free",
     currentTick: 0,
     stateVersion,
     selectedDistrictId: "district:client-concurrency",
+    mapManifestId: "empire-streets-city",
+    mapManifestVersion: 1,
+    mapManifestHash,
     generatedAt: new Date(0).toISOString()
   },
   mode: {

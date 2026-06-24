@@ -4,12 +4,17 @@ import type { CoreGameState } from "../entities";
 import type { CoreEvent } from "../events";
 import {
   handleAcknowledgePendingRaid,
+  handleAllianceLifecycleCommand,
   handleAttackDistrict,
   handleBuildStructure,
   handleCollectProduction,
   handleCraftItem,
+  handleHeistDistrict,
   handleOccupyDistrict,
+  handlePlaceDefense,
   handlePlaceTrap,
+  handleRemoveDefense,
+  handleRobDistrict,
   handleSelectSpawnDistrict,
   handleSpyDistrict,
   handleUseBuildingAction
@@ -63,6 +68,12 @@ export const routeCommand = (
   switch (command.type) {
     case "acknowledge-pending-raid":
       return handleAcknowledgePendingRaid(state, command, context);
+    case "confirm-alliance-ready":
+    case "start-alliance-kick-vote":
+    case "cast-alliance-kick-vote":
+    case "leave-alliance":
+    case "disband-alliance":
+      return handleAllianceLifecycleCommand(state, command, context);
     case "attack-district":
       return handleAttackDistrict(state, command, context);
     case "build-structure":
@@ -72,10 +83,18 @@ export const routeCommand = (
       return handleCollectProduction(state, command, context);
     case "craft-item":
       return handleCraftItem(state, command, context);
+    case "heist-district":
+      return handleHeistDistrict(state, command, context);
     case "occupy-district":
       return handleOccupyDistrict(state, command, context);
+    case "place-defense":
+      return handlePlaceDefense(state, command, context);
     case "place-trap":
       return handlePlaceTrap(state, command, context);
+    case "remove-defense":
+      return handleRemoveDefense(state, command, context);
+    case "rob-district":
+      return handleRobDistrict(state, command, context);
     case "run-building-action":
       return handleUseBuildingAction(state, command, context);
     case "select-spawn-district":

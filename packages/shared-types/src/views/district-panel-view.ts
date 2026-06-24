@@ -176,6 +176,42 @@ export interface DistrictOccupyTargetView {
   cooldownRemainingTicks: number;
 }
 
+export interface DistrictRobTargetView {
+  districtId: DistrictId;
+  name: string;
+  ownerPlayerId: PlayerId | null;
+  status: DistrictStatus;
+  enabled: boolean;
+  disabledCode: string | null;
+  disabledReason: string | null;
+  expectedTargetVersion: number;
+  expectedSourceVersion: number;
+}
+
+export interface DistrictHeistTargetView {
+  districtId: DistrictId;
+  name: string;
+  ownerPlayerId: PlayerId | null;
+  status: DistrictStatus;
+  enabled: boolean;
+  disabledCode: string | null;
+  disabledReason: string | null;
+  expectedTargetVersion: number;
+  expectedSourceVersion: number;
+  styles: Array<{
+    style: "stealth" | "balanced" | "all_in";
+    label: string;
+    defaultGangMembersSent: number;
+  }>;
+}
+
+export interface DistrictDefenseActionView {
+  enabled: boolean;
+  disabledCode: string | null;
+  disabledReason: string | null;
+  expectedTargetVersion: number;
+}
+
 export interface DistrictTrapView {
   enabled: boolean;
   disabledReason: string | null;
@@ -202,6 +238,10 @@ export interface DistrictPanelView {
   attackTargets: DistrictAttackTargetView[];
   spyTargets: DistrictSpyTargetView[];
   occupyTargets: DistrictOccupyTargetView[];
+  robTargets?: DistrictRobTargetView[];
+  heistTargets?: DistrictHeistTargetView[];
+  placeDefense?: DistrictDefenseActionView | null;
+  removeDefense?: DistrictDefenseActionView | null;
   trap: DistrictTrapView | null;
   capabilities?: DistrictCapabilitiesView;
 }

@@ -17,6 +17,57 @@ export const baseBalanceConfig: BalanceConfig = {
   maxAllianceSize: 10,
   buildSlotLimit: 6,
   eventFrequencyMultiplier: 1,
+  allianceLifecycle: {
+    readiness: {
+      readyIntervalSeconds: 6 * 60 * 60,
+      readyButtonAvailableBeforeDueSeconds: 2 * 60 * 60,
+      gracePeriodSeconds: 2 * 60 * 60,
+      voteDurationSeconds: 2 * 60 * 60,
+      voteRetryCooldownSeconds: 2 * 60 * 60
+    },
+    voluntaryLeavePenalty: {
+      allianceJoinLockoutSeconds: 12 * 60 * 60,
+      allianceCreateLockoutSeconds: 12 * 60 * 60,
+      influenceDebuffSeconds: 8 * 60 * 60,
+      actionCooldownDebuffSeconds: 6 * 60 * 60,
+      formerAllyTruceSeconds: 60 * 60,
+      influenceGenerationMultiplier: 0.8,
+      actionCooldownMultiplier: 1.15,
+      blocksAllianceDefenseSupport: true
+    },
+    inactiveKickPenalty: {
+      allianceJoinLockoutSeconds: 6 * 60 * 60,
+      allianceCreateLockoutSeconds: 6 * 60 * 60,
+      influenceDebuffSeconds: 0,
+      actionCooldownDebuffSeconds: 0,
+      formerAllyTruceSeconds: 60 * 60,
+      influenceGenerationMultiplier: 1,
+      actionCooldownMultiplier: 1,
+      blocksAllianceDefenseSupport: true
+    },
+    disbandPenalty: {
+      allianceJoinLockoutSeconds: 30 * 60,
+      allianceCreateLockoutSeconds: 30 * 60,
+      influenceDebuffSeconds: 0,
+      actionCooldownDebuffSeconds: 0,
+      formerAllyTruceSeconds: 60 * 60,
+      influenceGenerationMultiplier: 1,
+      actionCooldownMultiplier: 1,
+      blocksAllianceDefenseSupport: false
+    },
+    administrativeRemovalPenalty: {
+      allianceJoinLockoutSeconds: 0,
+      allianceCreateLockoutSeconds: 0,
+      influenceDebuffSeconds: 0,
+      actionCooldownDebuffSeconds: 0,
+      formerAllyTruceSeconds: 0,
+      influenceGenerationMultiplier: 1,
+      actionCooldownMultiplier: 1,
+      blocksAllianceDefenseSupport: false
+    },
+    affectedCooldownActionIds: ["spy", "heist", "attack", "rob"],
+    exitPendingTimeoutSeconds: 15 * 60
+  },
   policePressureMultiplier: 1,
   raidIntensityMultiplier: 1,
   police: basePoliceConfig,

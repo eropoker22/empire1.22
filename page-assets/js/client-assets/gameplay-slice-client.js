@@ -375,6 +375,78 @@ var EmpireGameplaySliceClient = function(exports) {
       clientRequestId: input.clientRequestId ?? null
     };
   };
+  const DEFAULT_DEFENSE_ITEM_ID = "barricades";
+  const DEFAULT_DEFENSE_AMOUNT = 1;
+  const createPlaceDefenseCommand = (input) => {
+    var _a;
+    const district = input.slice.district;
+    if (!((_a = district == null ? void 0 : district.placeDefense) == null ? void 0 : _a.enabled)) {
+      throw new Error("Place defense commands can only be created from an enabled defense action present in the current server-fed slice.");
+    }
+    return {
+      id: input.commandId,
+      type: "place-defense",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        targetDistrictId: district.districtId,
+        defenseItemId: DEFAULT_DEFENSE_ITEM_ID,
+        amount: DEFAULT_DEFENSE_AMOUNT,
+        expectedTargetVersion: district.placeDefense.expectedTargetVersion
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
+  const createRemoveDefenseCommand = (input) => {
+    var _a;
+    const district = input.slice.district;
+    if (!((_a = district == null ? void 0 : district.removeDefense) == null ? void 0 : _a.enabled)) {
+      throw new Error("Remove defense commands can only be created from an enabled defense action present in the current server-fed slice.");
+    }
+    return {
+      id: input.commandId,
+      type: "remove-defense",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        targetDistrictId: district.districtId,
+        defenseItemId: DEFAULT_DEFENSE_ITEM_ID,
+        amount: DEFAULT_DEFENSE_AMOUNT,
+        expectedTargetVersion: district.removeDefense.expectedTargetVersion
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
+  const createHeistDistrictCommand = (input) => {
+    var _a;
+    const district = input.slice.district;
+    const target = (_a = district == null ? void 0 : district.heistTargets) == null ? void 0 : _a.find((entry) => entry.districtId === input.targetDistrictId);
+    const style = (target == null ? void 0 : target.styles.find((entry) => entry.style === "balanced")) ?? (target == null ? void 0 : target.styles[0]);
+    if (!district || !target || !target.enabled || !style) {
+      throw new Error("Heist commands can only be created from enabled heist targets present in the current server-fed slice.");
+    }
+    return {
+      id: input.commandId,
+      type: "heist-district",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        targetDistrictId: input.targetDistrictId,
+        sourceDistrictId: district.districtId,
+        style: style.style,
+        gangMembersSent: style.defaultGangMembersSent,
+        expectedTargetVersion: target.expectedTargetVersion,
+        expectedSourceVersion: target.expectedSourceVersion
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
   const createOccupyDistrictCommand = (input) => {
     const district = input.slice.district;
     const target = district == null ? void 0 : district.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId);
@@ -391,6 +463,50 @@ var EmpireGameplaySliceClient = function(exports) {
       payload: {
         districtId: input.targetDistrictId,
         sourceDistrictId: district.districtId
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
+  const createRobDistrictCommand = (input) => {
+    var _a;
+    const district = input.slice.district;
+    const target = (_a = district == null ? void 0 : district.robTargets) == null ? void 0 : _a.find((entry) => entry.districtId === input.targetDistrictId);
+    if (!district || !target || !target.enabled) {
+      throw new Error("Rob commands can only be created from enabled rob targets present in the current server-fed slice.");
+    }
+    return {
+      id: input.commandId,
+      type: "rob-district",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        targetDistrictId: input.targetDistrictId,
+        sourceDistrictId: district.districtId,
+        expectedTargetVersion: target.expectedTargetVersion,
+        expectedSourceVersion: target.expectedSourceVersion
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
+  const createSelectSpawnDistrictCommand = (input) => {
+    var _a;
+    const spawnDistrict = (_a = input.slice.spawnSelection) == null ? void 0 : _a.districts.find(
+      (district) => district.districtId === input.districtId
+    );
+    if (!spawnDistrict || spawnDistrict.status !== "available") {
+      throw new Error("Spawn selection commands can only be created from available server-fed spawn districts.");
+    }
+    return {
+      id: input.commandId,
+      type: "select-spawn-district",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        districtId: input.districtId
       },
       clientRequestId: input.clientRequestId ?? null
     };
@@ -433,6 +549,72 @@ var EmpireGameplaySliceClient = function(exports) {
       clientRequestId: input.clientRequestId ?? null
     };
   };
+  const renderBasicDistrictActionSections = (panel) => [
+    renderTargetSection({
+      attribute: "data-rob-targets",
+      title: "Cíle loupeže",
+      copy: "Vykradení neutrálního souseda potvrzuje server.",
+      emptyCopy: "Z tohoto distriktu není dostupný neutrální cíl loupeže.",
+      targetAttribute: "data-rob-target-id",
+      buttonModifier: "rob",
+      targets: panel.robTargets,
+      renderMeta: (target) => target.statusLabel
+    }),
+    renderTargetSection({
+      attribute: "data-heist-targets",
+      title: "Cíle heistu",
+      copy: "Heist krade zdroje bez převzetí území. Výsledek počítá server.",
+      emptyCopy: "Z tohoto distriktu není dostupný nepřátelský cíl heistu.",
+      targetAttribute: "data-heist-target-id",
+      buttonModifier: "heist",
+      targets: panel.heistTargets,
+      renderMeta: (target) => `${target.ownerLabel} · ${target.statusLabel}`
+    }),
+    renderDefenseSection(panel.placeDefense, panel.removeDefense)
+  ].join("");
+  const renderTargetSection = (input) => [
+    `<section class="district-panel__section" ${input.attribute}="true">`,
+    `<div class="district-panel__section-head">`,
+    `<div>`,
+    `<h3 class="district-panel__section-title">${escapeHtml(input.title)}</h3>`,
+    `<p class="district-panel__section-copy">${escapeHtml(input.copy)}</p>`,
+    `</div>`,
+    `<span class="district-panel__section-meta">${escapeHtml(input.targets.length)} celkem</span>`,
+    `</div>`,
+    input.targets.length > 0 ? input.targets.map((target) => renderTargetRow(input, target)).join("") : `<p class="district-panel__empty-copy">${escapeHtml(input.emptyCopy)}</p>`,
+    `</section>`
+  ].join("");
+  const renderTargetRow = (input, target) => {
+    const disabledAttribute = target.disabled ? " disabled" : "";
+    const reasonAttribute = target.disabledReason ? ` data-disabled-reason="${escapeAttribute(target.disabledReason)}"` : "";
+    return [
+      `<div class="district-panel__action-row">`,
+      `<button class="district-panel__action-button district-panel__action-button--${escapeAttribute(input.buttonModifier)}" ${input.targetAttribute}="${escapeAttribute(target.districtId)}"${disabledAttribute}${reasonAttribute}>`,
+      `<span class="district-panel__action-title">${escapeHtml(target.label)}</span>`,
+      `<span class="district-panel__action-meta">${escapeHtml(input.renderMeta(target))}</span>`,
+      `</button>`,
+      target.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(target.disabledReason)}</p>` : "",
+      `</div>`
+    ].join("");
+  };
+  const renderDefenseSection = (placeDefense, removeDefense) => placeDefense || removeDefense ? [
+    `<section class="district-panel__section" data-defense-actions="true">`,
+    `<div class="district-panel__section-head">`,
+    `<div>`,
+    `<h3 class="district-panel__section-title">Obrana</h3>`,
+    `<p class="district-panel__section-copy">Obranu ve vlastním distriktu mění jen serverový command.</p>`,
+    `</div>`,
+    `</div>`,
+    placeDefense ? renderDefenseButton("data-place-defense", placeDefense) : "",
+    removeDefense ? renderDefenseButton("data-remove-defense", removeDefense) : "",
+    `</section>`
+  ].join("") : "";
+  const renderDefenseButton = (attribute, action) => [
+    `<div class="district-panel__action-row">`,
+    `<button class="district-panel__action-button district-panel__action-button--defense" ${attribute}="true"${action.disabled ? " disabled" : ""}>${escapeHtml(action.actionLabel)}</button>`,
+    action.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(action.disabledReason)}</p>` : "",
+    `</div>`
+  ].join("");
   const districtPanelFeature = "district-panel";
   const renderDistrictPanel = (panel) => panel.statusLabel === "destroyed" ? [
     `<section class="district-destroyed-notice" data-feature="district-destroyed-notice" data-district-id="${escapeAttribute(panel.districtId)}" data-district-destroyed="true" role="status" aria-label="Zničený distrikt">`,
@@ -515,6 +697,7 @@ var EmpireGameplaySliceClient = function(exports) {
       ].join("");
     }).join("") : `<p class="district-panel__empty-copy">Z tohoto distriktu není dostupný neutrální cíl obsazení.</p>`,
     `</section>`,
+    renderBasicDistrictActionSections(panel),
     `<section class="district-panel__section" data-attack-targets="true">`,
     `<div class="district-panel__section-head">`,
     `<div>`,
@@ -573,9 +756,21 @@ var EmpireGameplaySliceClient = function(exports) {
     if (districtButton == null ? void 0 : districtButton.dataset.districtId) {
       return { kind: "select-district", districtId: districtButton.dataset.districtId };
     }
+    const spawnButton = target.closest("button[data-select-spawn-district-id]");
+    if (spawnButton == null ? void 0 : spawnButton.dataset.selectSpawnDistrictId) {
+      return { kind: "select-spawn", districtId: spawnButton.dataset.selectSpawnDistrictId };
+    }
     const attackButton = target.closest("button[data-attack-target-id]");
     if (attackButton == null ? void 0 : attackButton.dataset.attackTargetId) {
       return { kind: "attack", targetDistrictId: attackButton.dataset.attackTargetId };
+    }
+    const robButton = target.closest("button[data-rob-target-id]");
+    if (robButton == null ? void 0 : robButton.dataset.robTargetId) {
+      return { kind: "rob", targetDistrictId: robButton.dataset.robTargetId };
+    }
+    const heistButton = target.closest("button[data-heist-target-id]");
+    if (heistButton == null ? void 0 : heistButton.dataset.heistTargetId) {
+      return { kind: "heist", targetDistrictId: heistButton.dataset.heistTargetId };
     }
     const spyButton = target.closest("button[data-spy-target-id]");
     if (spyButton == null ? void 0 : spyButton.dataset.spyTargetId) {
@@ -587,6 +782,10 @@ var EmpireGameplaySliceClient = function(exports) {
     }
     const trapButton = target.closest("button[data-place-trap]");
     if (trapButton) return { kind: "place-trap" };
+    const placeDefenseButton = target.closest("button[data-place-defense]");
+    if (placeDefenseButton) return { kind: "place-defense" };
+    const removeDefenseButton = target.closest("button[data-remove-defense]");
+    if (removeDefenseButton) return { kind: "remove-defense" };
     const collectButton = target.closest("button[data-collect-building-id]");
     if (collectButton == null ? void 0 : collectButton.dataset.collectBuildingId) {
       return { kind: "collect", buildingId: collectButton.dataset.collectBuildingId };
@@ -665,6 +864,119 @@ var EmpireGameplaySliceClient = function(exports) {
     const parsed = Number(value || "");
     return Number.isFinite(parsed) && parsed > 0 ? parsed : void 0;
   };
+  const overlayStack = [];
+  const LOCKED_BODY_DATA_ATTRIBUTE = "overlayScrollLocked";
+  const bodyStyleSnapshot = /* @__PURE__ */ new WeakMap();
+  const getBody = () => {
+    if (typeof document === "undefined") {
+      return null;
+    }
+    return document.body;
+  };
+  const lockBodyScroll = () => {
+    const body = getBody();
+    if (!body || typeof window === "undefined") {
+      return;
+    }
+    if (body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] === "true") {
+      return;
+    }
+    bodyStyleSnapshot.set(body, {
+      scrollY: window.scrollY ?? 0,
+      left: body.style.left,
+      position: body.style.position,
+      right: body.style.right,
+      top: body.style.top,
+      width: body.style.width
+    });
+    const scrollY = window.scrollY ?? 0;
+    body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "true";
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
+  };
+  const unlockBodyScroll = () => {
+    const body = getBody();
+    if (!body || typeof window === "undefined") {
+      return;
+    }
+    if (body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] !== "true") {
+      return;
+    }
+    const savedStyles = bodyStyleSnapshot.get(body);
+    if (!savedStyles) {
+      return;
+    }
+    const { scrollY, left, position, right, top, width } = savedStyles;
+    window.scrollTo(0, scrollY);
+    body.style.left = left;
+    body.style.position = position;
+    body.style.right = right;
+    body.style.top = top;
+    body.style.width = width;
+    body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "";
+    delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
+    bodyStyleSnapshot.delete(body);
+  };
+  const openOverlay = (type) => {
+    if (overlayStack.length === 0) {
+      lockBodyScroll();
+    }
+    overlayStack.push({ type });
+  };
+  const closeOverlay = (_reason) => {
+    if (overlayStack.length > 0) {
+      overlayStack.pop();
+    }
+    if (overlayStack.length === 0) {
+      unlockBodyScroll();
+    }
+  };
+  const isOverlayOpen = () => overlayStack.length > 0;
+  const getTopOverlay = () => {
+    var _a;
+    return ((_a = overlayStack.at(-1)) == null ? void 0 : _a.type) ?? null;
+  };
+  const OVERLAY_BACKDROP_ATTRIBUTE = "overlayBackdrop";
+  const createOverlayBackdrop = (options = {}) => {
+    const mount = options.mount ?? document.body;
+    const backdrop = document.createElement("div");
+    backdrop.className = "gameplay-slice-backdrop overlay-root backdrop";
+    backdrop.dataset[OVERLAY_BACKDROP_ATTRIBUTE] = "true";
+    const handlePointerInteraction = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    };
+    const handleClick = (event) => {
+      handlePointerInteraction(event);
+      if (isOverlayOpen()) {
+        closeOverlay();
+        sync();
+      }
+    };
+    backdrop.addEventListener("pointerdown", handlePointerInteraction);
+    backdrop.addEventListener("pointerup", handlePointerInteraction);
+    backdrop.addEventListener("click", handleClick);
+    const sync = () => {
+      backdrop.hidden = !isOverlayOpen();
+    };
+    sync();
+    mount.appendChild(backdrop);
+    return {
+      element: backdrop,
+      sync,
+      destroy: () => {
+        backdrop.removeEventListener("pointerdown", handlePointerInteraction);
+        backdrop.removeEventListener("pointerup", handlePointerInteraction);
+        backdrop.removeEventListener("click", handleClick);
+        backdrop.remove();
+        backdrop.hidden = true;
+      }
+    };
+  };
   const createClientSurfaceActionRouter = (options) => ({
     handleTarget: async (target) => {
       const action = resolveClientSurfaceAction(target);
@@ -672,7 +984,23 @@ var EmpireGameplaySliceClient = function(exports) {
         return null;
       }
       if (action.kind === "select-district") {
+        if (isOverlayOpen()) {
+          return null;
+        }
         return options.client.selectDistrict(action.districtId);
+      }
+      if (action.kind === "select-spawn") {
+        const slice2 = options.client.getGameplaySlice();
+        if (!slice2) return null;
+        const issuedAt2 = (options.getIssuedAt ?? (() => (/* @__PURE__ */ new Date()).toISOString()))();
+        return options.client.dispatch(
+          createSelectSpawnDistrictCommand({
+            commandId: options.createCommandId("command:select-spawn"),
+            slice: slice2,
+            districtId: action.districtId,
+            issuedAt: issuedAt2
+          })
+        );
       }
       if (action.kind === "open-building") {
         return options.client.selectBuilding(action.buildingId);
@@ -689,6 +1017,24 @@ var EmpireGameplaySliceClient = function(exports) {
           return options.client.dispatch(
             createAttackDistrictCommand({
               commandId: options.createCommandId("command:attack"),
+              slice,
+              targetDistrictId: action.targetDistrictId,
+              issuedAt
+            })
+          );
+        case "rob":
+          return options.client.dispatch(
+            createRobDistrictCommand({
+              commandId: options.createCommandId("command:rob"),
+              slice,
+              targetDistrictId: action.targetDistrictId,
+              issuedAt
+            })
+          );
+        case "heist":
+          return options.client.dispatch(
+            createHeistDistrictCommand({
+              commandId: options.createCommandId("command:heist"),
               slice,
               targetDistrictId: action.targetDistrictId,
               issuedAt
@@ -716,6 +1062,22 @@ var EmpireGameplaySliceClient = function(exports) {
           return options.client.dispatch(
             createPlaceTrapCommand({
               commandId: options.createCommandId("command:trap"),
+              slice,
+              issuedAt
+            })
+          );
+        case "place-defense":
+          return options.client.dispatch(
+            createPlaceDefenseCommand({
+              commandId: options.createCommandId("command:place-defense"),
+              slice,
+              issuedAt
+            })
+          );
+        case "remove-defense":
+          return options.client.dispatch(
+            createRemoveDefenseCommand({
+              commandId: options.createCommandId("command:remove-defense"),
               slice,
               issuedAt
             })
@@ -858,7 +1220,8 @@ var EmpireGameplaySliceClient = function(exports) {
         throw new Error("Fetch transport is unavailable in this runtime.");
       }
       const requestWithTokens = attachStoredGameplaySliceTokens(route, request, storage);
-      const endpoint = `${endpointBase}/${route}`;
+      const endpointRoute = resolveEndpointRoute(route, requestWithTokens, storage);
+      const endpoint = `${endpointBase}/${endpointRoute}`;
       const response = await fetchJson(endpoint, {
         method: "POST",
         headers: {
@@ -882,14 +1245,24 @@ var EmpireGameplaySliceClient = function(exports) {
     const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
     const sessionKey = createGameplaySliceTokenStorageKey("session", request);
     const snapshotToken = snapshotKey ? readToken(storage, snapshotKey) : null;
-    const sessionToken = route === "submit" && sessionKey ? readToken(storage, sessionKey) : null;
+    const sessionToken = sessionKey ? readToken(storage, sessionKey) : null;
     return snapshotToken || sessionToken ? {
       ...request,
       ...snapshotToken ? { snapshotToken } : {},
       ...sessionToken ? { sessionToken } : {}
     } : request;
   };
+  const resolveEndpointRoute = (route, request, storage) => {
+    if (route !== "load") {
+      return route;
+    }
+    const record = request;
+    const sessionKey = createGameplaySliceTokenStorageKey("session", request);
+    const sessionToken = sessionKey ? readToken(storage, sessionKey) : null;
+    return !sessionToken && String(record.joinTicket ?? "").trim() ? "join" : "load";
+  };
   const persistGameplaySliceTokens = (request, response, storage) => {
+    var _a, _b;
     const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
     const sessionKey = createGameplaySliceTokenStorageKey("session", request);
     const snapshotToken = String(response.snapshotToken ?? "").trim();
@@ -899,6 +1272,13 @@ var EmpireGameplaySliceClient = function(exports) {
     }
     if (sessionKey && sessionToken) {
       writeToken(storage, sessionKey, sessionToken);
+    }
+    const serverSessionKey = createGameplaySliceTokenStorageKey("session", {
+      serverInstanceId: (_a = response.readModel) == null ? void 0 : _a.server.serverInstanceId,
+      playerId: (_b = response.readModel) == null ? void 0 : _b.player.playerId
+    });
+    if (serverSessionKey && sessionToken) {
+      writeToken(storage, serverSessionKey, sessionToken);
     }
   };
   const readToken = (storage, key) => {
@@ -923,7 +1303,7 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const resolveBrowserStorage = () => {
     try {
-      return globalThis.localStorage ?? null;
+      return globalThis.sessionStorage ?? null;
     } catch (_error) {
       return null;
     }
@@ -1024,6 +1404,34 @@ var EmpireGameplaySliceClient = function(exports) {
     const normalized = String(value ?? "").trim();
     return /^[#a-zA-Z0-9(),.%\s-]+$/u.test(normalized) ? normalized : "";
   };
+  const createDistrictBasicActionViewModels = (district, hasPendingCommand) => ({
+    robTargets: (district.robTargets ?? []).map((target) => ({
+      districtId: target.districtId,
+      label: target.name,
+      statusLabel: target.status,
+      disabled: hasPendingCommand || !target.enabled,
+      disabledReason: getDisabledReason(hasPendingCommand, target.disabledReason)
+    })),
+    heistTargets: (district.heistTargets ?? []).map((target) => ({
+      districtId: target.districtId,
+      label: target.name,
+      ownerLabel: target.ownerPlayerId ? `Vlastník ${target.ownerPlayerId}` : "Neutrální distrikt",
+      statusLabel: target.status,
+      disabled: hasPendingCommand || !target.enabled,
+      disabledReason: getDisabledReason(hasPendingCommand, target.disabledReason)
+    })),
+    placeDefense: district.placeDefense ? {
+      actionLabel: "Vložit obranu",
+      disabled: hasPendingCommand || !district.placeDefense.enabled,
+      disabledReason: getDisabledReason(hasPendingCommand, district.placeDefense.disabledReason)
+    } : null,
+    removeDefense: district.removeDefense ? {
+      actionLabel: "Odebrat obranu",
+      disabled: hasPendingCommand || !district.removeDefense.enabled,
+      disabledReason: getDisabledReason(hasPendingCommand, district.removeDefense.disabledReason)
+    } : null
+  });
+  const getDisabledReason = (hasPendingCommand, disabledReason) => hasPendingCommand ? "Akce se zpracovává." : disabledReason;
   const toTitleCase$3 = (value) => value.split(/[-_]+/g).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
   const getStoragePercent = (storedAmount, storageCap) => Math.max(0, Math.min(100, Math.round(Math.max(0, storedAmount) / Math.max(1, storageCap) * 100)));
   const formatTickLabel = (tickCount) => `${tickCount} ${tickCount === 1 ? "tick" : "ticks"}`;
@@ -1058,6 +1466,7 @@ var EmpireGameplaySliceClient = function(exports) {
     const nowMs = options.nowMs ?? Date.now();
     const tickRateMs = Math.max(1, slice.mode.tickRateMs);
     const selectedBuildingId = slice.district.buildings.some((building) => building.buildingId === uiState.selectedBuildingId) ? uiState.selectedBuildingId : null;
+    const basicActions = createDistrictBasicActionViewModels(slice.district, hasPendingCommand);
     return {
       districtId: slice.district.districtId,
       selectedBuildingId,
@@ -1095,6 +1504,10 @@ var EmpireGameplaySliceClient = function(exports) {
         heatGainLabel: `+${target.heatGain}`,
         cooldownLabel: target.cooldownRemainingTicks > 0 ? `${target.cooldownRemainingTicks} ticks` : null
       })),
+      robTargets: basicActions.robTargets,
+      heistTargets: basicActions.heistTargets,
+      placeDefense: basicActions.placeDefense,
+      removeDefense: basicActions.removeDefense,
       attackTargets: slice.district.attackTargets.map((target) => ({
         districtId: target.districtId,
         label: target.name,
@@ -1477,7 +1890,7 @@ var EmpireGameplaySliceClient = function(exports) {
       `</section>`
     ].join("");
   };
-  const renderSidePanelShell = ({ activePanel, contentHtml }) => activePanel ? `<aside class="side-panel-shell" data-panel="${escapeAttribute(activePanel)}">${contentHtml}</aside>` : '<aside class="side-panel-shell" data-panel="none"></aside>';
+  const renderSidePanelShell = ({ activePanel, contentHtml }) => activePanel ? `<aside class="side-panel-shell mobile-sheet" data-panel="${escapeAttribute(activePanel)}"><div class="mobile-sheet__body">${contentHtml}</div></aside>` : '<aside class="side-panel-shell" data-panel="none"></aside>';
   const renderTopBarShell = ({ player }) => {
     var _a;
     return player ? `<header data-mode="${escapeAttribute(player.modeLabel)}" data-city-phase="${escapeAttribute(((_a = player.dayNight) == null ? void 0 : _a.uiThemeHint) ?? "day")}">Mode: ${escapeHtml(player.modeLabel)} · Player: ${escapeHtml(player.playerId)}${renderHomeDistrict(player)} · Resources: ${escapeHtml(player.resourceSummary)} · Alerts: ${escapeHtml(player.notificationCount)}${renderPoliceBadge(player)}${renderDayNightBadge(player)}</header>` : "";
@@ -1511,6 +1924,7 @@ var EmpireGameplaySliceClient = function(exports) {
     const districtPanel = createDistrictPanelViewModel(readModel.gameplaySlice, uiState);
     const reports = createReportViewModels(((_e = readModel.gameplaySlice) == null ? void 0 : _e.reports) ?? []);
     const sidePanelContent = [
+      renderSpawnSelectionPanel(readModel.gameplaySlice),
       districtPanel ? renderDistrictPanel(districtPanel) : "",
       renderReportLayer(reports, {
         errors: readModel.lastErrors,
@@ -1538,6 +1952,66 @@ var EmpireGameplaySliceClient = function(exports) {
       lastCommandStatus: uiState.lastCommandStatus
     };
   };
+  const renderSpawnSelectionPanel = (slice) => {
+    if (!(slice == null ? void 0 : slice.spawnSelection) || slice.spawnSelection.status !== "awaiting_spawn_selection") {
+      return "";
+    }
+    return [
+      `<section class="spawn-selection-panel" data-feature="spawn-selection">`,
+      `<header><p>Lobby</p><h2>Vyber startovní district</h2></header>`,
+      `<p>Každý hráč začíná s jedním districtem. Výběr je po potvrzení závazný.</p>`,
+      `<div class="spawn-selection-panel__list">`,
+      ...slice.spawnSelection.districts.map((district) => [
+        `<article class="spawn-selection-panel__item" data-spawn-status="${escapeAttribute(district.status)}">`,
+        `<h3>${escapeHtml(district.districtName)}</h3>`,
+        `<p>Typ: ${escapeHtml(district.districtType)} · Budova: ${escapeHtml(district.buildingType ?? "Neznámá")} · Sousedé: ${district.neighborCount}</p>`,
+        `<p>Spawn zóna: ${escapeHtml(district.spawnZones.join(", "))}</p>`,
+        district.ownerPublicName ? `<p>Obsazeno: ${escapeHtml(district.ownerPublicName)}</p>` : "",
+        district.status === "available" ? `<button type="button" data-select-spawn-district-id="${escapeAttribute(district.districtId)}">POTVRDIT A ZABRAT</button>` : `<button type="button" disabled>${escapeHtml(formatSpawnStatus(district.status))}</button>`,
+        `</article>`
+      ].join("")),
+      `</div>`,
+      `</section>`
+    ].join("");
+  };
+  const formatSpawnStatus = (status) => {
+    switch (status) {
+      case "occupied":
+        return "Obsazeno";
+      case "locked":
+        return "Zamčeno";
+      case "disabled":
+        return "Nedostupné";
+      case "selected_by_me":
+        return "Vybráno";
+      case "reserved_by_other":
+        return "Právě vybírá jiný hráč";
+      default:
+        return "Nedostupné";
+    }
+  };
+  const empireCityMapManifestHash = "fnv1a32:f30dfc61";
+  const getMapManifestMismatch = (response) => {
+    var _a, _b, _c;
+    const serverHash = ((_a = response.readModel) == null ? void 0 : _a.server.mapManifestHash) ?? null;
+    if (!serverHash || serverHash === empireCityMapManifestHash) {
+      return null;
+    }
+    return {
+      code: "client.map_manifest_mismatch",
+      message: "Client map manifest does not match the server map manifest.",
+      details: {
+        clientMapManifestHash: empireCityMapManifestHash,
+        serverMapManifestHash: serverHash,
+        mapManifestId: ((_b = response.readModel) == null ? void 0 : _b.server.mapManifestId) ?? null,
+        mapManifestVersion: ((_c = response.readModel) == null ? void 0 : _c.server.mapManifestVersion) ?? null
+      }
+    };
+  };
+  const hasCurrentMapManifestMismatch = (slice) => {
+    const serverHash = (slice == null ? void 0 : slice.server.mapManifestHash) ?? null;
+    return Boolean(serverHash && serverHash !== empireCityMapManifestHash);
+  };
   const createClientApp = ({ transport }) => {
     const store = createClientStore(createInitialClientUiState());
     const dispatcher = createCommandDispatcher(transport);
@@ -1546,7 +2020,9 @@ var EmpireGameplaySliceClient = function(exports) {
       var _a, _b;
       const hasAuthoritativeReadModel = Boolean(response.readModel);
       const missingReadModelMessage = "Gameplay slice response did not include an authoritative read model.";
-      const firstErrorMessage = ((_a = response.errors[0]) == null ? void 0 : _a.message) ?? null;
+      const mapManifestMismatch = getMapManifestMismatch(response);
+      const responseErrors = mapManifestMismatch ? [...response.errors, mapManifestMismatch] : response.errors;
+      const firstErrorMessage = ((_a = responseErrors[0]) == null ? void 0 : _a.message) ?? null;
       if (response.readModel) {
         const serverSelectedDistrictId = ((_b = response.readModel.district) == null ? void 0 : _b.districtId) ?? response.readModel.player.homeDistrictId ?? selectedDistrictId ?? null;
         store.setGameplaySlice(response.readModel);
@@ -1567,11 +2043,11 @@ var EmpireGameplaySliceClient = function(exports) {
         serverTick: response.readModel.server.currentTick,
         stateVersion: response.readModel.server.stateVersion
       } : null));
-      store.setErrors(response.errors);
+      store.setErrors(responseErrors);
       store.setConnectionState({
-        status: hasAuthoritativeReadModel ? "ready" : "error",
+        status: hasAuthoritativeReadModel && !mapManifestMismatch ? "ready" : "error",
         lastErrorMessage: firstErrorMessage ?? (hasAuthoritativeReadModel ? null : missingReadModelMessage),
-        staleData: response.errors.length > 0 || !hasAuthoritativeReadModel
+        staleData: responseErrors.length > 0 || !hasAuthoritativeReadModel
       });
       renderState = renderClientShell(store);
       return renderState;
@@ -1662,17 +2138,22 @@ var EmpireGameplaySliceClient = function(exports) {
       dispatch: async (command) => {
         var _a;
         const uiState = store.getUiState();
-        if (!uiState.selectedDistrictId) {
+        const currentSlice = store.getReadModel().gameplaySlice;
+        if (hasCurrentMapManifestMismatch(currentSlice)) {
+          return commitTransportFailure("Client map manifest does not match the server map manifest. Map actions are disabled.", command.id);
+        }
+        if (!uiState.selectedDistrictId && command.type !== "select-spawn-district") {
           return commitTransportFailure("No district is selected for the district panel slice.", command.id);
         }
         store.patchUiState({
           pendingCommandIds: [...uiState.pendingCommandIds, command.id]
         });
         renderState = renderClientShell(store);
+        const focusDistrictId = command.type === "select-spawn-district" ? command.payload.districtId : uiState.selectedDistrictId;
         try {
           const response = await dispatcher.dispatch({
             command,
-            focusDistrictId: uiState.selectedDistrictId,
+            focusDistrictId,
             expectedStateVersion: ((_a = store.getReadModel().gameplaySliceMetadata) == null ? void 0 : _a.stateVersion) ?? null
           });
           store.patchUiState({
@@ -1726,6 +2207,7 @@ var EmpireGameplaySliceClient = function(exports) {
     );
     const playerId = normalizePlayerId((registration == null ? void 0 : registration.identity) || (registration == null ? void 0 : registration.gangName));
     const factionId = normalizeFactionId((registration == null ? void 0 : registration.factionId) || (registration == null ? void 0 : registration.selectedFaction));
+    const joinTicket = normalizeToken(registration == null ? void 0 : registration.joinTicket);
     if (!serverInstanceId || !playerId) {
       return null;
     }
@@ -1734,7 +2216,8 @@ var EmpireGameplaySliceClient = function(exports) {
       playerId,
       ...districtId ? { districtId } : {},
       ...preferredStartDistrictId ? { preferredStartDistrictId } : {},
-      factionId
+      factionId,
+      ...joinTicket ? { joinTicket } : {}
     };
   };
   const createExplicitRequest = (dataset) => {
@@ -1839,6 +2322,29 @@ var EmpireGameplaySliceClient = function(exports) {
     const normalized = String(value ?? "").trim();
     return normalized.length > 0 ? normalized : null;
   };
+  const createDistrictSheetOverlayController = () => {
+    let isDistrictSheetOpen = false;
+    const syncFromState = (state) => {
+      var _a;
+      const shouldShowDistrictSheet = Boolean((_a = state.districtPanel) == null ? void 0 : _a.districtId);
+      if (shouldShowDistrictSheet && !isDistrictSheetOpen) {
+        openOverlay("district_sheet");
+        isDistrictSheetOpen = true;
+        return;
+      }
+      if (!shouldShowDistrictSheet && isDistrictSheetOpen && getTopOverlay() === "district_sheet") {
+        closeOverlay();
+        isDistrictSheetOpen = false;
+      }
+    };
+    const closeOnDestroy = () => {
+      if (isDistrictSheetOpen && getTopOverlay() === "district_sheet") {
+        closeOverlay();
+      }
+      isDistrictSheetOpen = false;
+    };
+    return { syncFromState, closeOnDestroy, isOpen: () => isDistrictSheetOpen };
+  };
   const setGameplayRuntimeMarker = (root, marker, details = {}) => {
     root.dataset.gameplayRuntime = marker;
     root.dataset.gameplaySliceRuntime = marker;
@@ -1887,6 +2393,9 @@ var EmpireGameplaySliceClient = function(exports) {
   const createSafeErrorMessage = (error) => error instanceof Error && error.message.trim() ? error.message.trim() : "Unknown gameplay slice error.";
   const sanitizeDiagnosticText = (value, maxLength) => String(value || "").replace(/(snapshotToken|sessionToken|token)["':=\s]+[^,}\s]+/giu, "$1=<redacted>").replace(/[A-Za-z0-9_-]{32,}\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/gu, "<redacted-token>").slice(0, maxLength);
   const DEFAULT_ENDPOINT_BASE = "/api/gameplay-slice";
+  const MOBILE_SHEET_SELECTOR = ".mobile-sheet";
+  const MAP_TAP_PIXEL_THRESHOLD = 10;
+  const DISTRICT_TAP_DEBOUNCE_MS = 350;
   const mountGameplaySlicePage = (options) => {
     const request = resolveGameplaySliceBootstrapRequest(options.root.dataset, getBrowserStorage());
     if (!request) {
@@ -1905,6 +2414,13 @@ var EmpireGameplaySliceClient = function(exports) {
     });
     const mounts = resolveMounts(options.root);
     let currentLoadRequest = request;
+    const overlayBackdrop = createOverlayBackdrop({ mount: options.root });
+    const districtSheetOverlay = createDistrictSheetOverlayController();
+    let pointerOrigin = null;
+    let lastPointerTapIsValid = true;
+    let lastDistrictTap = { districtId: null, atMs: 0 };
+    let pendingDistrictSelection = { districtId: null };
+    let activeDistrictSheetId = null;
     const hideUnavailableGameplaySlice = (state = null) => {
       const message = (state == null ? void 0 : state.connection.lastErrorMessage) || "Gameplay slice did not return an authoritative read model.";
       const endpoint = `${endpointBase}/load`;
@@ -1939,10 +2455,13 @@ var EmpireGameplaySliceClient = function(exports) {
       setGameplayRuntimeMarker(options.root, "server-authoritative-ready");
       options.root.hidden = false;
       if ((_a = state.districtPanel) == null ? void 0 : _a.districtId) {
+        activeDistrictSheetId = state.districtPanel.districtId;
         currentLoadRequest = {
           ...currentLoadRequest,
           districtId: state.districtPanel.districtId
         };
+      } else {
+        activeDistrictSheetId = null;
       }
       persistServerConfirmedGameplaySliceFocus(
         getBrowserStorage(),
@@ -1959,13 +2478,99 @@ var EmpireGameplaySliceClient = function(exports) {
       mounts.map.innerHTML = state.mapHtml;
       mounts.panel.innerHTML = state.sidePanelHtml;
       refreshLiveCooldownLabels(options.root);
+      districtSheetOverlay.syncFromState(state);
+      overlayBackdrop.sync();
+    };
+    const isInsideMobileSheet = (target) => target instanceof HTMLElement && Boolean(target.closest(MOBILE_SHEET_SELECTOR));
+    const handlePointerDown = (event) => {
+      const target = event.target;
+      if (!(event instanceof PointerEvent) || !(target instanceof HTMLElement)) {
+        return;
+      }
+      if (isInsideMobileSheet(target)) {
+        event.stopPropagation();
+      }
+      pointerOrigin = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        atMs: Date.now()
+      };
+      lastPointerTapIsValid = true;
+    };
+    const handlePointerUp = (event) => {
+      if (!(event instanceof PointerEvent) || !pointerOrigin || event.pointerId !== pointerOrigin.pointerId) {
+        return;
+      }
+      const dx = event.clientX - pointerOrigin.x;
+      const dy = event.clientY - pointerOrigin.y;
+      lastPointerTapIsValid = Math.hypot(dx, dy) <= MAP_TAP_PIXEL_THRESHOLD;
+      pointerOrigin = null;
+    };
+    const handlePointerCancel = (event) => {
+      if (!(event instanceof PointerEvent) || !pointerOrigin || event.pointerId !== pointerOrigin.pointerId) {
+        return;
+      }
+      lastPointerTapIsValid = false;
+      pointerOrigin = null;
     };
     const handleClick = async (event) => {
       const target = event.target;
+      const canUsePointerTapForDistrictSelection = lastPointerTapIsValid;
+      lastPointerTapIsValid = true;
+      const insideSheet = isInsideMobileSheet(target);
       if (!(target instanceof HTMLElement)) {
         return;
       }
-      const nextState = await router.handleTarget(target);
+      if (insideSheet) {
+        event.stopPropagation();
+      }
+      const action = resolveClientSurfaceAction(target);
+      if ((action == null ? void 0 : action.kind) === "select-district") {
+        if (!canUsePointerTapForDistrictSelection) {
+          return;
+        }
+        const topOverlay = getTopOverlay();
+        if (isOverlayOpen() && topOverlay !== "district_sheet") {
+          return;
+        }
+        const selectedAtMs = Date.now();
+        const isRapidRepeat = action.districtId === lastDistrictTap.districtId && selectedAtMs - lastDistrictTap.atMs < DISTRICT_TAP_DEBOUNCE_MS;
+        const isSameDistrictAsOpen = action.districtId === activeDistrictSheetId;
+        const isDistrictOpen = districtSheetOverlay.isOpen();
+        if (isDistrictOpen && isSameDistrictAsOpen) {
+          return;
+        }
+        if (!isDistrictOpen && (isRapidRepeat || pendingDistrictSelection.districtId !== null)) {
+          return;
+        }
+        lastDistrictTap = { districtId: action.districtId, atMs: selectedAtMs };
+        pendingDistrictSelection = { districtId: action.districtId };
+        if (isDistrictOpen) {
+          try {
+            const nextState2 = await client.selectDistrict(action.districtId);
+            if (nextState2) {
+              event.preventDefault();
+              event.stopPropagation();
+              render(nextState2);
+            }
+          } finally {
+            pendingDistrictSelection = { districtId: null };
+          }
+          return;
+        }
+      }
+      if ((action == null ? void 0 : action.kind) === "select-district" && isOverlayOpen()) {
+        return;
+      }
+      let nextState = null;
+      try {
+        nextState = await router.handleTarget(target);
+      } finally {
+        if ((action == null ? void 0 : action.kind) === "select-district") {
+          pendingDistrictSelection = { districtId: null };
+        }
+      }
       if (nextState) {
         event.preventDefault();
         event.stopPropagation();
@@ -1987,6 +2592,9 @@ var EmpireGameplaySliceClient = function(exports) {
     });
     const cooldownTimerId = window.setInterval(() => refreshLiveCooldownLabels(options.root), 1e3);
     options.root.addEventListener("click", handleClick);
+    options.root.addEventListener("pointerdown", handlePointerDown);
+    options.root.addEventListener("pointerup", handlePointerUp);
+    options.root.addEventListener("pointercancel", handlePointerCancel);
     void client.load(request).then((state) => {
       render(state);
       poller.start();
@@ -2005,6 +2613,12 @@ var EmpireGameplaySliceClient = function(exports) {
         poller.stop();
         window.clearInterval(cooldownTimerId);
         options.root.removeEventListener("click", handleClick);
+        options.root.removeEventListener("pointerdown", handlePointerDown);
+        options.root.removeEventListener("pointerup", handlePointerUp);
+        options.root.removeEventListener("pointercancel", handlePointerCancel);
+        districtSheetOverlay.closeOnDestroy();
+        overlayBackdrop.sync();
+        overlayBackdrop.destroy();
       }
     };
   };

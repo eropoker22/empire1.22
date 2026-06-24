@@ -715,6 +715,11 @@ import {
   showDistrictPopupModal
 } from "./ui/districtPopupModalHelpers.js";
 import {
+  closeOverlay,
+  isOverlayOpen,
+  shouldSuppressMapInput
+} from "./ui/legacyOverlayCoordinator.js";
+import {
   collectMounts as collectMountsUi,
   createPageContext as createPageContextUi,
   markMounts as markMountsUi
@@ -839,6 +844,18 @@ const buildingActionPanels = new WeakMap();
 const attackMissionTimers = new Map();
 const occupyMissionTimers = new Map();
 const robberyMissionTimers = new Map();
+
+function isServerAuthoritativeGameplayRuntimeReady() {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  if (document.body?.dataset?.gameplayRuntime === "server-authoritative-ready") {
+    return true;
+  }
+
+  return Boolean(document.querySelector?.('[data-gameplay-slice-client][data-gameplay-runtime="server-authoritative-ready"]'));
+}
 const spyMissionTimers = new Map();
 const productionTimers = new Map();
 let policeActionResultLiveTimerId = null;
@@ -2131,6 +2148,7 @@ function closePoliceActionResultModal(root) {
 
   clearPoliceActionResultLiveTimer();
   modal.classList.add("hidden");
+  closeOverlay(modal);
   window.setTimeout(() => {
     renderNextPendingResultModal(root);
   }, 80);
@@ -7214,6 +7232,11 @@ function bindDistrictCanvas(root) {
       return;
     }
 
+    if (isServerAuthoritativeGameplayRuntimeReady()) {
+      showWarning("Obranu potvrzuje serverový gameplay slice. Legacy lokální defense loadout je vypnutý.");
+      return;
+    }
+
     const { residents, totalPower } = renderDefenseSummary();
     const currentDefense = getDistrictDefenseState(selectedDistrict.id);
     const ownedInventory = getResolvedWeaponInventory();
@@ -7513,6 +7536,11 @@ function bindDistrictCanvas(root) {
 
   const applyRobberyAction = (selectedDistrict) => {
     if (!selectedDistrict) {
+      return false;
+    }
+
+    if (isServerAuthoritativeGameplayRuntimeReady()) {
+      showWarning("Vykradení potvrzuje serverový gameplay slice. Legacy lokální robbery výsledek je vypnutý.");
       return false;
     }
 
@@ -7902,6 +7930,11 @@ function bindDistrictCanvas(root) {
   });
 
   const beginDistrictSelectionGesture = (event) => {
+    if (shouldSuppressMapInput(event) || isOverlayOpen()) {
+      districtSelectionGesture.pointerId = null;
+      return;
+    }
+
     districtSelectionGesture.pointerId = event.pointerId;
     districtSelectionGesture.startX = event.clientX;
     districtSelectionGesture.startY = event.clientY;
@@ -7909,6 +7942,11 @@ function bindDistrictCanvas(root) {
   };
 
   const trackDistrictSelectionGesture = (event) => {
+    if (shouldSuppressMapInput(event) || isOverlayOpen()) {
+      districtSelectionGesture.pointerId = null;
+      return;
+    }
+
     if (districtSelectionGesture.pointerId !== event.pointerId || districtSelectionGesture.moved) {
       return;
     }
@@ -7921,6 +7959,12 @@ function bindDistrictCanvas(root) {
   };
 
   const endDistrictSelectionGesture = (event) => {
+    if (shouldSuppressMapInput(event) || isOverlayOpen()) {
+      districtSelectionGesture.pointerId = null;
+      districtSelectionGesture.moved = false;
+      return;
+    }
+
     if (districtSelectionGesture.pointerId !== event.pointerId) {
       return;
     }
@@ -8370,6 +8414,10 @@ function bindDistrictCanvas(root) {
 
   viewport.addEventListener("click", (event) => {
     if (!geometry) {
+      return;
+    }
+
+    if (shouldSuppressMapInput(event) || isOverlayOpen()) {
       return;
     }
 

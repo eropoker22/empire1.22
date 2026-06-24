@@ -42,6 +42,7 @@ interface LegacyGameplaySession {
     lastServerConfirmedDistrictId?: unknown;
     factionId?: unknown;
     selectedFaction?: unknown;
+    joinTicket?: unknown;
   };
 }
 
@@ -77,6 +78,7 @@ export const resolveGameplaySliceBootstrapRequest = (
   );
   const playerId = normalizePlayerId(registration?.identity || registration?.gangName);
   const factionId = normalizeFactionId(registration?.factionId || registration?.selectedFaction);
+  const joinTicket = normalizeToken(registration?.joinTicket);
 
   if (!serverInstanceId || !playerId) {
     return null;
@@ -87,7 +89,8 @@ export const resolveGameplaySliceBootstrapRequest = (
     playerId,
     ...(districtId ? { districtId } : {}),
     ...(preferredStartDistrictId ? { preferredStartDistrictId } : {}),
-    factionId
+    factionId,
+    ...(joinTicket ? { joinTicket } : {})
   };
 };
 

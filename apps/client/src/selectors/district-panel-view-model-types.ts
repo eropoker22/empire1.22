@@ -145,6 +145,29 @@ export interface DistrictPanelOccupyTargetViewModel {
   cooldownLabel: string | null;
 }
 
+export interface DistrictPanelRobTargetViewModel {
+  districtId: string;
+  label: string;
+  statusLabel: string;
+  disabled: boolean;
+  disabledReason: string | null;
+}
+
+export interface DistrictPanelHeistTargetViewModel {
+  districtId: string;
+  label: string;
+  ownerLabel: string;
+  statusLabel: string;
+  disabled: boolean;
+  disabledReason: string | null;
+}
+
+export interface DistrictPanelDefenseActionViewModel {
+  actionLabel: string;
+  disabled: boolean;
+  disabledReason: string | null;
+}
+
 export interface DistrictPanelTrapViewModel {
   actionLabel: string;
   activeLabel: string | null;
@@ -167,6 +190,10 @@ export interface DistrictPanelViewModel {
   trap: DistrictPanelTrapViewModel | null;
   spyTargets: DistrictPanelSpyTargetViewModel[];
   occupyTargets: DistrictPanelOccupyTargetViewModel[];
+  robTargets: DistrictPanelRobTargetViewModel[];
+  heistTargets: DistrictPanelHeistTargetViewModel[];
+  placeDefense: DistrictPanelDefenseActionViewModel | null;
+  removeDefense: DistrictPanelDefenseActionViewModel | null;
   attackTargets: DistrictPanelAttackTargetViewModel[];
   buildings: DistrictPanelBuildingViewModel[];
   slots: DistrictPanelSlotViewModel[];

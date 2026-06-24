@@ -15,8 +15,12 @@ export type ClientSurfaceAction =
   | { kind: "select-district"; districtId: string }
   | { kind: "select-spawn"; districtId: string }
   | { kind: "attack"; targetDistrictId: string }
+  | { kind: "rob"; targetDistrictId: string }
+  | { kind: "heist"; targetDistrictId: string }
   | { kind: "spy"; targetDistrictId: string }
   | { kind: "occupy"; targetDistrictId: string }
+  | { kind: "place-defense" }
+  | { kind: "remove-defense" }
   | { kind: "place-trap" }
   | { kind: "open-building"; buildingId: string }
   | {

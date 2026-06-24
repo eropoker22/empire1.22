@@ -1,5 +1,5 @@
 import type { DistrictId } from "@empire/shared-types";
-import { sharedCitySpawnDistrictIds } from "./gameplay-slice-shared-city-map-constants";
+import { empireStreetsCityMapManifest } from "@empire/game-config";
 
 export type SpawnZone = "west" | "east" | "south";
 
@@ -10,27 +10,14 @@ export interface SpawnCandidate {
   notes?: string;
 }
 
-const westSpawnIds = sharedCitySpawnDistrictIds.slice(0, 7);
-const eastSpawnIds = sharedCitySpawnDistrictIds.slice(7, 14);
-const southSpawnIds = sharedCitySpawnDistrictIds.slice(14, 20);
-
-export const sharedCitySpawnPool: SpawnCandidate[] = [
-  ...westSpawnIds.map((districtId, index): SpawnCandidate => ({
-    districtId,
-    zones: index === 6 ? ["west", "south"] : ["west"],
-    enabled: true
-  })),
-  ...eastSpawnIds.map((districtId, index): SpawnCandidate => ({
-    districtId,
-    zones: index === 0 ? ["east", "south"] : ["east"],
-    enabled: true
-  })),
-  ...southSpawnIds.map((districtId): SpawnCandidate => ({
-    districtId,
-    zones: ["south"],
-    enabled: true
-  }))
-];
+export const sharedCitySpawnPool: SpawnCandidate[] = empireStreetsCityMapManifest.districts
+  .filter((district) => district.isSpawnCandidate)
+  .map((district): SpawnCandidate => ({
+    districtId: district.id as DistrictId,
+    zones: [...(district.spawnZones ?? [])],
+    enabled: district.zone !== "downtown",
+    notes: district.notes
+  }));
 
 export const enabledSharedCitySpawnDistrictIds = sharedCitySpawnPool
   .filter((candidate) => candidate.enabled)

@@ -1,3 +1,4 @@
+import { empireStreetsCityMapManifest } from "@empire/game-config";
 import type { DistrictId } from "@empire/shared-types";
 
 export type NonDowntownDistrictZone = "commercial" | "industrial" | "residential" | "park";
@@ -21,9 +22,9 @@ export const SHARED_CITY_NON_DOWNTOWN_DISTRICT_COUNT =
 export const DEFAULT_SERVER_MAP_COMPOSITION: ServerMapComposition = {
   downtown: 8,
   commercial: 40,
-  industrial: 35,
-  residential: 48,
-  park: 30
+  industrial: 38,
+  residential: 38,
+  park: 37
 };
 
 export const buildingSetKeysByZone: Record<SharedCityDistrictZone, string[]> = {
@@ -34,17 +35,18 @@ export const buildingSetKeysByZone: Record<SharedCityDistrictZone, string[]> = {
   downtown: ["down-core-1", "down-core-2", "down-core-3", "down-mid-2", "down-high-1"]
 };
 
-export const sharedCitySpawnDistrictIds = Array.from(
-  { length: 20 },
-  (_value, index) => createSharedCityDistrictId("spawn", index + 1)
-);
+export const sharedCitySpawnDistrictIds = empireStreetsCityMapManifest.districts
+  .filter((district) => district.isSpawnCandidate)
+  .map((district) => district.id as DistrictId);
 
 export const createConnectorDistrictIds = (): DistrictId[] =>
   Array.from({ length: 5 }, (_value, index) => createConnectorDistrictId(index + 1));
 
+/** @deprecated Compatibility helper for old tests/debug labels; not a map source of truth. */
 export const createConnectorDistrictId = (index: number): DistrictId =>
   createSharedCityDistrictId("connector", index);
 
+/** @deprecated Compatibility helper for old IDs; canonical map IDs come from the manifest. */
 export function createSharedCityDistrictId(
   kind: "spawn" | "connector" | "central" | "downtown" | NonDowntownDistrictZone,
   index: number

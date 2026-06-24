@@ -6,9 +6,20 @@ Server pri joinu automaticky prideloval prvni volny spawn district ze `sharedCit
 
 ## Aktualni serverove pravidlo
 
-Explicitni spawn pool je v:
+Explicitni spawn pool vychazi z canonical map manifestu:
+
+`packages/game-config/src/maps/empire-streets-city-map.json`
+
+Serverovy adapter je v:
 
 `apps/server/src/bootstrap/gameplay-slice-spawn-pool.ts`
+
+Pool bere jen manifest districts s:
+
+```ts
+isSpawnCandidate: true
+spawnZones: ["west" | "east" | "south"]
+```
 
 Pool rozdeluje povolene spawn distrikty do zon:
 
@@ -74,4 +85,4 @@ Lobby nesmi zobrazit:
 
 ## Navazujici prace
 
-Aktualni zmena sjednocuje aktivni serverovy bootstrap, explicitni spawn pool, lobby read-model a atomicky `select-spawn-district` command. Kratka modal rezervace s `reservedByPlayerId` a expiraci jeste neni implementovana.
+Aktualni zmena sjednocuje aktivni serverovy bootstrap, manifest spawn pool, lobby read-model a atomicky `select-spawn-district` command. Kratka modal rezervace s `reservedByPlayerId` a expiraci jeste neni implementovana.

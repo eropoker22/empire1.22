@@ -46,6 +46,9 @@ export interface GameplaySliceServerMetadataView {
   currentTick: number;
   stateVersion: number;
   selectedDistrictId: string | null;
+  mapManifestId: string;
+  mapManifestVersion: number;
+  mapManifestHash: string;
   generatedAt: string;
 }
 

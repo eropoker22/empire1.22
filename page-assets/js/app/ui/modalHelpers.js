@@ -1,8 +1,14 @@
+import {
+  closeOverlay,
+  openOverlay
+} from "./legacyOverlayCoordinator.js";
+
 export function hideElement(element) {
   if (!element) {
     return false;
   }
 
+  closeOverlay(element);
   element.hidden = true;
   return true;
 }
@@ -33,17 +39,30 @@ export function bindEscapeKeyHandlers(documentRef, handlers = []) {
       return;
     }
 
-    for (const handler of handlers) {
+    for (const handler of handlers.slice().reverse()) {
       const element = typeof handler.element === "function" ? handler.element() : handler.element;
       const isOpen = typeof handler.isOpen === "function"
         ? handler.isOpen(element)
         : isElementVisible(element);
 
       if (isOpen && typeof handler.close === "function") {
+        event.preventDefault();
+        event.stopPropagation();
         handler.close(element, event);
+        break;
       }
     }
   });
 
+  return true;
+}
+
+export function showElementAsOverlay(element, options = {}) {
+  if (!element) {
+    return false;
+  }
+
+  element.hidden = false;
+  openOverlay(element, options);
   return true;
 }

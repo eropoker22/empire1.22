@@ -1,5 +1,6 @@
 import type { GameplaySliceView } from "@empire/shared-types";
 import type { ClientUiState } from "../state";
+import { createDistrictBasicActionViewModels } from "./district-basic-action-view-model";
 export * from "./district-panel-view-model-types";
 import type { DistrictPanelViewModel } from "./district-panel-view-model-types";
 import {
@@ -34,6 +35,7 @@ export const createDistrictPanelViewModel = (
   const selectedBuildingId = slice.district.buildings.some((building) => building.buildingId === uiState.selectedBuildingId)
     ? uiState.selectedBuildingId
     : null;
+  const basicActions = createDistrictBasicActionViewModels(slice.district, hasPendingCommand);
 
   return {
     districtId: slice.district.districtId,
@@ -97,6 +99,10 @@ export const createDistrictPanelViewModel = (
         ? `${target.cooldownRemainingTicks} ticks`
         : null
     })),
+    robTargets: basicActions.robTargets,
+    heistTargets: basicActions.heistTargets,
+    placeDefense: basicActions.placeDefense,
+    removeDefense: basicActions.removeDefense,
     attackTargets: slice.district.attackTargets.map((target) => ({
       districtId: target.districtId,
       label: target.name,

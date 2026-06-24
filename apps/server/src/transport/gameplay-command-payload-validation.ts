@@ -1,4 +1,12 @@
 import type { DomainError } from "@empire/shared-types";
+import {
+  isAllianceCommandType,
+  validateAllianceCommandPayload
+} from "./gameplay-alliance-payload-validation";
+import {
+  isBasicActionCommandType,
+  validateBasicActionCommandPayload
+} from "./gameplay-basic-action-payload-validation";
 
 type GameplaySliceRequestKind = "submit";
 
@@ -17,6 +25,14 @@ export const validateGameCommandPayload = (
   }
 
   const payload = command.payload;
+  if (validateBasicActionCommandPayload(errors, type, payload)) {
+    return;
+  }
+
+  if (validateAllianceCommandPayload(errors, type, payload)) {
+    return;
+  }
+
   switch (type) {
     case "attack-district":
       rejectUnknownPayloadFields(errors, payload, ["districtId", "sourceDistrictId"]);
@@ -31,6 +47,7 @@ export const validateGameCommandPayload = (
       requireStringField(errors, "submit", payload, "sourceDistrictId", "command.payload.sourceDistrictId");
       break;
     case "place-trap":
+      rejectUnknownPayloadFields(errors, payload, ["districtId"]);
       requireStringField(errors, "submit", payload, "districtId", "command.payload.districtId");
       break;
     case "select-spawn-district":
@@ -85,7 +102,7 @@ const hasPayloadSchema = (type: string): boolean =>
     "collect-production",
     "craft-item",
     "run-building-action"
-  ].includes(type);
+  ].includes(type) || isBasicActionCommandType(type) || isAllianceCommandType(type);
 
 const validateRunBuildingActionOptionalPayload = (
   errors: DomainError[],

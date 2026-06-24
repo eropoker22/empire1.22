@@ -23,7 +23,7 @@ export const createOverlayBackdrop = (
   const mount = options.mount ?? document.body;
 
   const backdrop = document.createElement("div");
-  backdrop.className = "gameplay-slice-backdrop";
+  backdrop.className = "gameplay-slice-backdrop overlay-root backdrop";
   backdrop.dataset[OVERLAY_BACKDROP_ATTRIBUTE] = "true";
 
   const handlePointerInteraction = (event: Event): void => {

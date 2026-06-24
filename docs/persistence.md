@@ -43,12 +43,16 @@ Apply the migration manually before enabling the Postgres driver:
 
 - `apps/server/src/runtime/persistence/postgres/migrations/001_initial_runtime_persistence.sql`
 - `apps/server/src/runtime/persistence/postgres/migrations/002_command_reservations.sql`
+- `apps/server/src/runtime/persistence/postgres/migrations/003_gameplay_identity_sessions.sql`
+- `apps/server/src/runtime/persistence/postgres/migrations/004_atomic_command_execution.sql`
 
 Example:
 
 ```powershell
 psql $env:EMPIRE_DATABASE_URL -f apps/server/src/runtime/persistence/postgres/migrations/001_initial_runtime_persistence.sql
 psql $env:EMPIRE_DATABASE_URL -f apps/server/src/runtime/persistence/postgres/migrations/002_command_reservations.sql
+psql $env:EMPIRE_DATABASE_URL -f apps/server/src/runtime/persistence/postgres/migrations/003_gameplay_identity_sessions.sql
+psql $env:EMPIRE_DATABASE_URL -f apps/server/src/runtime/persistence/postgres/migrations/004_atomic_command_execution.sql
 ```
 
 The migration creates:
@@ -66,6 +70,11 @@ The second migration creates:
 
 - `empire_command_reservations`
 
+The atomic command migration creates:
+
+- `empire_command_results`
+- `empire_runtime_outbox`
+
 Tables use `payload jsonb`, `created_at timestamptz`, `updated_at` where rows can change, instance-scoped indexes, append ordering indexes, `UNIQUE(server_instance_id, command_id)` for command idempotence, `UNIQUE(server_instance_id, snapshot_id)` for snapshot history, and `UNIQUE(server_instance_id)` for latest snapshots and tick locks.
 
 ## Postgres Adapter
@@ -74,7 +83,9 @@ Tables use `payload jsonb`, `created_at timestamptz`, `updated_at` where rows ca
 
 - `commandLogRepository`
 - `commandReservationRepository`
+- `commandResultRepository`
 - `eventLogRepository`
+- `outboxRepository`
 - `diagnosticLogRepository`
 - `snapshotRepository`
 - `tickLock`

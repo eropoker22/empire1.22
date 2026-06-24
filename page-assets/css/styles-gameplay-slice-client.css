@@ -158,6 +158,8 @@ body[data-city-phase="night"] .gameplay-slice-client {
   padding-right: 2px;
 }
 
+.overlay-root,
+.backdrop,
 .gameplay-slice-backdrop {
   position: fixed;
   inset: 0;
@@ -936,7 +938,29 @@ body[data-city-phase="night"] .gameplay-slice-client {
 
   .gameplay-slice-client__panel {
     max-height: min(68svh, 620px);
+    position: relative;
     padding-right: 0;
+  }
+
+  .gameplay-slice-client__panel .mobile-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: 82dvh;
+    z-index: 3;
+    overflow: hidden;
+    overscroll-behavior: contain;
+    padding-bottom: env(safe-area-inset-bottom);
+    box-sizing: border-box;
+  }
+
+  .gameplay-slice-client__panel .mobile-sheet .mobile-sheet__body {
+    max-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .gameplay-slice-client .district-panel__header,

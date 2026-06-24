@@ -1,4 +1,5 @@
 import { renderActionResultRows } from "./resultModalPanel.js";
+import { openOverlay } from "./legacyOverlayCoordinator.js";
 
 const POLICE_ACTION_RESULT_TONE_CLASSES = Object.freeze([
   "is-tier-1",
@@ -90,6 +91,8 @@ export function renderPoliceActionResultPanel(root, payload = {}, options = {}) 
 
   renderRows();
   elements.modal.classList.remove("hidden");
+  elements.modal.removeAttribute("aria-hidden");
+  openOverlay(elements.modal, { type: "modal", ariaModal: true });
   return {
     ok: true,
     ...elements,

@@ -65,6 +65,19 @@ export const createPostgresCommandReservationRepository = (
     }),
   getByCommandId: async (instanceId, commandId) =>
     selectReservation(database, instanceId, commandId),
+  listPendingByInstance: async (instanceId) => {
+    const result = await database.query<CommandReservationRow>(
+      `
+        SELECT *
+        FROM empire_command_reservations
+        WHERE server_instance_id = $1
+          AND status = 'pending'
+        ORDER BY reserved_at ASC, command_id ASC
+      `,
+      [instanceId]
+    );
+    return result.rows.map(mapReservationRow);
+  },
   markApplied: async (instanceId, commandId, metadata) =>
     database.transaction(async (client) => {
       const existing = await requireReservation(client, instanceId, commandId);

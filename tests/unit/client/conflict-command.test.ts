@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GameplaySliceView } from "@empire/shared-types";
+import { empireStreetsCityMapManifestHash } from "@empire/game-config";
 import {
   createAttackDistrictCommand,
   createOccupyDistrictCommand,
@@ -22,6 +23,9 @@ const createGameplaySliceFixture = ({
     currentTick: 0,
     stateVersion: 1,
     selectedDistrictId: "district:1",
+    mapManifestId: "empire-streets-city",
+    mapManifestVersion: 1,
+    mapManifestHash: empireStreetsCityMapManifestHash,
     generatedAt: new Date(0).toISOString()
   },
   mode: {

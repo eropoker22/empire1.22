@@ -9,16 +9,15 @@ import {
   hideElement,
   hideElements,
   isClassModalVisible,
-  isElementVisible
+  isElementVisible,
+  showElementAsOverlay
 } from "./modalHelpers.js";
 
 export function showDistrictPopupModal(element) {
-  if (!element) {
-    return false;
-  }
-
-  element.hidden = false;
-  return true;
+  return showElementAsOverlay(element, {
+    type: element?.matches?.("[data-district-popup]") ? "mobile-sheet" : "modal",
+    ariaModal: true
+  });
 }
 
 export function hideDistrictPopupModal(element) {
@@ -156,7 +155,11 @@ export function bindDistrictModalCloseControls(closeElements = [], closeHandler)
     if (!closeElement || typeof closeElement.addEventListener !== "function") {
       continue;
     }
-    closeElement.addEventListener("click", closeHandler);
+    closeElement.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      closeHandler();
+    });
     boundCount += 1;
   }
   return boundCount;
@@ -226,7 +229,11 @@ export function bindDistrictResultModalCloseControls(entries = [], closers = {})
       if (!control || typeof control.addEventListener !== "function") {
         continue;
       }
-      control.addEventListener("click", entry.close);
+      control.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        entry.close();
+      });
       boundCount += 1;
     }
   }

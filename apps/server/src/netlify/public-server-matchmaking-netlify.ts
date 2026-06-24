@@ -5,7 +5,8 @@ import { createJsonResponse, type NetlifyFunctionResponse } from "./netlify-json
 export const handlePublicServerMatchmakingReserve = (
   server: ServerApp,
   method: string,
-  body: unknown
+  body: unknown,
+  headers?: Record<string, string | string[] | undefined>
 ): NetlifyFunctionResponse => {
   if (method.toUpperCase() !== "POST") {
     return createJsonResponse(405, {
@@ -18,8 +19,36 @@ export const handlePublicServerMatchmakingReserve = (
     });
   }
 
-  return createJsonResponse(
-    200,
-    server.publicServerMatchmaking.reservePublicServer(body as PublicServerMatchmakingRequest)
-  );
+  const identity = server.accountIdentityProvider.resolve({ headers, body });
+  if (!identity) {
+    return createJsonResponse(200, {
+      accepted: false,
+      reservation: null,
+      errors: [{ code: "SESSION_REQUIRED", message: "Account identity is required for matchmaking reserve." }]
+    });
+  }
+  const reservationResponse = server.publicServerMatchmaking.reservePublicServer({
+    ...(body as PublicServerMatchmakingRequest),
+    playerId: identity.accountId
+  });
+  if (!reservationResponse.accepted || !reservationResponse.reservation) {
+    return createJsonResponse(200, reservationResponse);
+  }
+  const ticket = server.gameplaySessionService.createJoinTicket({
+    accountId: identity.accountId,
+    serverInstanceId: reservationResponse.reservation.serverInstanceId,
+    mode: reservationResponse.reservation.mode,
+    factionId: isRecord(body) ? String(body.factionId ?? "").trim() || null : null,
+    nowIso: new Date().toISOString()
+  });
+  return createJsonResponse(200, {
+    ...reservationResponse,
+    reservation: {
+      ...reservationResponse.reservation,
+      joinTicket: ticket.ticketId
+    }
+  });
 };
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);

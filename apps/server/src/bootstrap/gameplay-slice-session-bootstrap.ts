@@ -119,7 +119,7 @@ const normalizeSessionRequest = (
 
   return {
     serverInstanceId: request.serverInstanceId,
-    playerId: request.playerId,
+    playerId: request.playerId ?? "",
     districtId: normalizeLoadFocusDistrictId(request.districtId),
     factionId: request.factionId
   };

@@ -27,14 +27,14 @@ describe("server instance creation lifecycle", () => {
     expect(countDistrictZones(runtime.state.districtsById)).toMatchObject({
       downtown: 8,
       commercial: 40,
-      industrial: 35,
-      residential: 48,
-      park: 30
+      industrial: 38,
+      residential: 38,
+      park: 37
     });
     expect(runtime.state.root.playerIds).toHaveLength(0);
   });
 
-  it("creates a free-mode server with caller-selected non-downtown map composition", () => {
+  it("creates a free-mode server with canonical non-downtown map composition", () => {
     const server = createServerApp();
     const result = server.serverInstanceCreationService.createGameServerInstanceResult({
       mode: "free",
@@ -42,9 +42,9 @@ describe("server instance creation lifecycle", () => {
       mapComposition: {
         downtown: 8,
         commercial: 40,
-        industrial: 35,
-        residential: 48,
-        park: 30
+        industrial: 38,
+        residential: 38,
+        park: 37
       }
     });
 
@@ -53,9 +53,9 @@ describe("server instance creation lifecycle", () => {
     expect(countDistrictZones(result.runtime!.state.districtsById)).toMatchObject({
       downtown: 8,
       commercial: 40,
-      industrial: 35,
-      residential: 48,
-      park: 30
+      industrial: 38,
+      residential: 38,
+      park: 37
     });
   });
 
@@ -287,9 +287,9 @@ describe("server instance creation lifecycle", () => {
           totalDistricts: 161,
           downtownDistricts: 8,
           commercialDistricts: 40,
-          industrialDistricts: 35,
-          residentialDistricts: 48,
-          parkDistricts: 30
+          industrialDistricts: 38,
+          residentialDistricts: 38,
+          parkDistricts: 37
         },
         phase: runtime.state.root.phase
       })

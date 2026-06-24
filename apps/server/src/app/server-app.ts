@@ -16,6 +16,12 @@ import type { Clock } from "../runtime/scheduling/clock";
 import { createTickLoop } from "../runtime/scheduling/tick-loop";
 import type { ServerRuntimePersistenceRepositories } from "../runtime";
 import { createRuntimePersistenceRepositoriesFromEnvironment } from "../runtime/instance-manager/instance-factory";
+import {
+  createDevAccountIdentityProvider,
+  createInMemoryGameplaySessionService,
+  type AccountIdentityProvider,
+  type GameplaySessionService
+} from "../auth";
 
 /**
  * Responsibility: Top-level server application composition root.
@@ -27,14 +33,26 @@ export interface ServerAppOptions {
   persistence?: ServerRuntimePersistenceRepositories;
   environment?: Record<string, string | undefined>;
   gameplaySessionTokenSecret?: string;
+  accountIdentityProvider?: AccountIdentityProvider | null;
+  gameplaySessionService?: GameplaySessionService | null;
 }
 
 const DEFAULT_DEV_GAMEPLAY_SESSION_TOKEN_SECRET = "empire-streets-local-gameplay-session-dev-secret";
 
 export const createServerApp = (options: ServerAppOptions = {}) => {
+  const isProduction = options.environment?.NODE_ENV === "production";
+  const selectedPersistence = options.persistence ?? createRuntimePersistenceRepositoriesFromEnvironment(options.environment);
+  const persistence = isProduction && selectedPersistence.atomicCommandPersistenceMode !== "transactional"
+    ? {
+        ...selectedPersistence,
+        commandReservationRepository: undefined,
+        commandResultRepository: undefined,
+        outboxRepository: undefined
+      }
+    : selectedPersistence;
   const instanceManager = new ServerInstanceManager({
     clock: options.clock,
-    persistence: options.persistence ?? createRuntimePersistenceRepositoriesFromEnvironment(options.environment)
+    persistence
   });
   const commandRouter = createInstanceCommandRouter(instanceManager);
   const commandIngress = createCommandIngress(commandRouter);
@@ -47,8 +65,15 @@ export const createServerApp = (options: ServerAppOptions = {}) => {
         clock: options.clock
       })
     : null;
+  const accountIdentityProvider = options.accountIdentityProvider ?? createDevAccountIdentityProvider({
+    allow: !isProduction || options.environment?.EMPIRE_DEV_AUTH_ENABLED === "true"
+  });
+  const gameplaySessionService = options.gameplaySessionService ?? createInMemoryGameplaySessionService({
+    productionReady: !isProduction
+  });
   const gameplaySliceTransport = createGameplaySliceTransport(instanceManager, commandIngress, {
-    sessionTokenCodec: gameplaySessionTokenCodec
+    sessionTokenCodec: gameplaySessionTokenCodec,
+    gameplaySessionService
   });
   const gameplaySliceJsonHandler = createGameplaySliceJsonHandler(gameplaySliceTransport);
   const liveUpdateGateway = createLiveUpdateGateway();
@@ -79,7 +104,10 @@ export const createServerApp = (options: ServerAppOptions = {}) => {
     snapshotOrchestrator,
     healthService,
     adminMonitoring,
-    publicServerMatchmaking
+    publicServerMatchmaking,
+    accountIdentityProvider,
+    gameplaySessionService,
+    gameplaySessionTokenCodec
   };
 };
 

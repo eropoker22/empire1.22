@@ -4,6 +4,11 @@ import type { CraftBuildingBalanceConfig, PowerStationBalanceConfig } from "../c
 import { resolvePowerStationInfrastructureMultiplier } from "../handlers/powerStationBuildingActions";
 import { composeEntityId } from "../utils";
 import { createDistrictAttackTargetViews } from "./district-attack-target-projection";
+import {
+  createDistrictDefenseActionView,
+  createDistrictHeistTargetViews,
+  createDistrictRobTargetViews
+} from "./district-basic-action-projection";
 import { createDistrictCapabilitiesView } from "./district-capabilities-projection";
 import { createDistrictPanelBuildingViews } from "./district-building-action-projection";
 import { createDistrictOccupyTargetViews } from "./district-occupy-target-projection";
@@ -40,6 +45,10 @@ export const createDistrictPanelView = (
   const attackTargets = createDistrictAttackTargetViews(state, input.playerId, district.id, issuedAt);
   const occupyTargets = createDistrictOccupyTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
   const spyTargets = createDistrictSpyTargetViews(state, input.playerId, district.id, issuedAt);
+  const robTargets = createDistrictRobTargetViews(state, input.playerId, district.id);
+  const heistTargets = createDistrictHeistTargetViews(state, input.playerId, district.id);
+  const placeDefense = createDistrictDefenseActionView(state, input.playerId, district.id, "place_defense");
+  const removeDefense = createDistrictDefenseActionView(state, input.playerId, district.id, "remove_defense");
   const trap = createTrapView(state, input.playerId, district.id);
   const isDestroyed = district.status === "destroyed";
 
@@ -90,6 +99,10 @@ export const createDistrictPanelView = (
     attackTargets: isDestroyed ? [] : attackTargets,
     spyTargets: isDestroyed ? [] : spyTargets,
     occupyTargets: isDestroyed ? [] : occupyTargets,
+    robTargets: isDestroyed ? [] : robTargets,
+    heistTargets: isDestroyed ? [] : heistTargets,
+    placeDefense: isDestroyed ? null : placeDefense,
+    removeDefense: isDestroyed ? null : removeDefense,
     trap: isDestroyed ? null : trap,
     capabilities: createDistrictCapabilitiesView(state, input.playerId, district.id),
     slots: isDestroyed ? [] : Array.from({ length: district.slotCount }, (_value, slotIndex) => {

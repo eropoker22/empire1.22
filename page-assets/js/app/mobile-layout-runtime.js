@@ -19,7 +19,6 @@ const MOBILE_OVERLAY_SELECTOR = [
   ".avatar-lightbox",
   ".game-admin-slice-overlay"
 ].join(",");
-const MOBILE_BODY_FREEZE_EXEMPT_SELECTOR = ".district-popup-shell";
 const MOBILE_CLOSE_CONTROL_SELECTOR = [
   ".modal__close",
   ".district-popup-close",
@@ -330,7 +329,7 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
 
     const openOverlays = Array.from(documentObj.querySelectorAll(MOBILE_OVERLAY_SELECTOR)).filter(isOpenOverlay);
     const hasOpenOverlay = openOverlays.length > 0;
-    const shouldFreezeBody = openOverlays.some((element) => !element.matches(MOBILE_BODY_FREEZE_EXEMPT_SELECTOR));
+    const shouldFreezeBody = hasOpenOverlay;
 
     if (shouldFreezeBody) {
       lockPageScroll();

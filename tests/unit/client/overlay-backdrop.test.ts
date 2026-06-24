@@ -52,6 +52,15 @@ describe("overlay backdrop", () => {
     document.body.innerHTML = "";
   });
 
+  it("backdrop má třídy overlay-root a backdrop", () => {
+    const root = document.createElement("div");
+    const backdrop = createOverlayBackdrop({ mount: root });
+
+    expect(backdrop.element.classList.contains("overlay-root")).toBe(true);
+    expect(backdrop.element.classList.contains("backdrop")).toBe(true);
+    expect(backdrop.element.classList.contains("gameplay-slice-backdrop")).toBe(true);
+  });
+
   it("tap na backdrop zavře topmost overlay", () => {
     const root = document.createElement("div");
     const backdrop = createOverlayBackdrop({ mount: root });

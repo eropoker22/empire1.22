@@ -9,6 +9,7 @@ import { applyPoliceHeatDecay } from "../rules/police/heatDecay";
 import { expirePendingRaids } from "../rules/police/raidLifecycle";
 import { triggerRaid } from "../rules/police/triggerRaid";
 import { runScheduledElimination } from "../rules/elimination/eliminationLifecycle";
+import { runAllianceLifecycleScheduled } from "../rules/alliances/allianceLifecycle";
 import { runFinalLockdownLifecycle } from "../rules/victory/finalLockdownLifecycle";
 import { checkVictory } from "../rules/victory/checkVictory";
 import { appendCityFeedEvents, appendCityFeedEventsFromCoreEvents } from "../rules/events";
@@ -75,7 +76,8 @@ export const runTick = (
     ? applyCentralBankPassiveInterestAndOversight(cityHallState, context.config.balance.centralBank, context.config.tickRateMs, context.config.balance.lobbyClub)
     : cityHallState;
   const heatDecayState = applyPoliceHeatDecay(centralBankState, context);
-  const lifecycleResult = expirePendingRaids(heatDecayState, context);
+  const allianceLifecycleResult = runAllianceLifecycleScheduled(heatDecayState, context);
+  const lifecycleResult = expirePendingRaids(allianceLifecycleResult.nextState, context);
   const policeResult = triggerRaid(lifecycleResult.nextState, context);
   const eliminationResult = runScheduledElimination(policeResult.nextState, context);
   const finalLockdownResult = runFinalLockdownLifecycle(eliminationResult.nextState, context);

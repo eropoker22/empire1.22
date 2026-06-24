@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GameplaySliceView } from "@empire/shared-types";
+import { empireStreetsCityMapManifestHash } from "@empire/game-config";
 import { closeOverlay, getTopOverlay, isOverlayOpen, openOverlay } from "../../../apps/client/src/modals";
 import {
   createClientSurfaceActionRouter,
@@ -15,6 +16,9 @@ const createGameplaySliceFixture = (): GameplaySliceView => ({
     currentTick: 0,
     stateVersion: 1,
     selectedDistrictId: "district:1",
+    mapManifestId: "empire-streets-city",
+    mapManifestVersion: 1,
+    mapManifestHash: empireStreetsCityMapManifestHash,
     generatedAt: new Date(0).toISOString()
   },
   mode: {

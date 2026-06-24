@@ -7,3 +7,4 @@ export * from "./config-resolver";
 export * from "./public/index";
 export * from "./validation/index";
 export * from "./utils/index";
+export * from "./maps/empire-streets-city-map";

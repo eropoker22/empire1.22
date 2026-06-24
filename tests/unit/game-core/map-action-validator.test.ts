@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   calculatePlayerFrontier,
+  createInitialState,
   createDistrictCapabilitiesView,
   createPlayerFrontierSummaryView,
   detectAlliedEncirclementAfterOccupy,
   validateDistrictAdjacencyGraph,
   validateMapAction
 } from "@empire/game-core";
+import { empireStreetsCityMapManifest } from "@empire/game-config";
 import {
   createAllianceFixture,
   createCombatStateFixture,
@@ -267,4 +269,176 @@ describe("map action validator", () => {
       affectedPlayerIds: ["player:2"]
     });
   });
+
+  it("validates border actions against concrete canonical manifest district IDs", () => {
+    const state = createManifestMapState();
+    const origin = empireStreetsCityMapManifest.districts.find((district) => district.neighborIds.length >= 2)!;
+    const adjacentTargetId = origin.neighborIds[0]!;
+    const nonAdjacentTarget = empireStreetsCityMapManifest.districts.find((district) =>
+      district.id !== origin.id && !origin.neighborIds.includes(district.id)
+    )!;
+
+    state.playersById["player:1"] = createPlayerFixture({ id: "player:1", homeDistrictId: origin.id });
+    state.playersById["player:2"] = createPlayerFixture({ id: "player:2", homeDistrictId: adjacentTargetId });
+    state.districtsById[origin.id] = {
+      ...state.districtsById[origin.id],
+      ownerPlayerId: "player:1",
+      status: "claimed"
+    };
+    state.districtsById[adjacentTargetId] = {
+      ...state.districtsById[adjacentTargetId],
+      ownerPlayerId: "player:2",
+      status: "claimed"
+    };
+    state.districtsById[nonAdjacentTarget.id] = {
+      ...state.districtsById[nonAdjacentTarget.id],
+      ownerPlayerId: "player:2",
+      status: "claimed"
+    };
+
+    expect(validateMapAction(
+      state,
+      {
+        actorPlayerId: "player:1",
+        targetDistrictId: adjacentTargetId,
+        originDistrictId: origin.id,
+        action: "attack"
+      },
+      { hasAttackAuthorization: () => true }
+    )).toMatchObject({
+      allowed: true,
+      originDistrictId: origin.id,
+      isAdjacentToOwnedDistrict: true
+    });
+
+    expect(validateMapAction(
+      state,
+      {
+        actorPlayerId: "player:1",
+        targetDistrictId: nonAdjacentTarget.id,
+        originDistrictId: origin.id,
+        action: "attack"
+      },
+      { hasAttackAuthorization: () => true }
+    )).toMatchObject({
+      allowed: false,
+      reasonCode: "TARGET_NOT_ADJACENT",
+      isAdjacentToOwnedDistrict: false
+    });
+  });
+
+  it("calculates frontier states on the canonical manifest graph", () => {
+    const { state, ownedDistrictId, allyNeighborId, enemyNeighborId, emptyNeighborId } = createManifestFrontierScenario();
+
+    expect(calculatePlayerFrontier(state, "player:1")).toMatchObject({
+      state: "open",
+      emptyDistrictIds: [emptyNeighborId],
+      allyDistrictIds: [allyNeighborId],
+      enemyDistrictIds: [enemyNeighborId]
+    });
+
+    state.districtsById[emptyNeighborId] = {
+      ...state.districtsById[emptyNeighborId],
+      ownerPlayerId: "player:3",
+      status: "claimed"
+    };
+    expect(calculatePlayerFrontier(state, "player:1").state).toBe("mixed_encircled");
+
+    state.districtsById[enemyNeighborId] = {
+      ...state.districtsById[enemyNeighborId],
+      ownerPlayerId: "player:3",
+      status: "claimed"
+    };
+    expect(calculatePlayerFrontier(state, "player:1").state).toBe("allied_encircled");
+
+    state.playersById["player:3"] = { ...state.playersById["player:3"], allianceId: null };
+    state.districtsById[allyNeighborId] = {
+      ...state.districtsById[allyNeighborId],
+      ownerPlayerId: "player:2",
+      status: "claimed"
+    };
+    state.districtsById[enemyNeighborId] = {
+      ...state.districtsById[enemyNeighborId],
+      ownerPlayerId: "player:2",
+      status: "claimed"
+    };
+    state.districtsById[emptyNeighborId] = {
+      ...state.districtsById[emptyNeighborId],
+      ownerPlayerId: "player:2",
+      status: "claimed"
+    };
+    expect(calculatePlayerFrontier(state, "player:1").state).toBe("hostile_encircled");
+
+    const alliedExpansionCandidateId = state.districtsById[allyNeighborId].adjacentDistrictIds.find((districtId) =>
+      districtId !== ownedDistrictId && !state.districtsById[ownedDistrictId].adjacentDistrictIds.includes(districtId)
+    );
+    expect(alliedExpansionCandidateId).toBeTruthy();
+    expect(calculatePlayerFrontier(state, "player:1").emptyDistrictIds).not.toContain(alliedExpansionCandidateId);
+  });
 });
+
+const createManifestMapState = () => {
+  const state = createInitialState("instance:manifest-map", "free");
+  state.root.districtIds = empireStreetsCityMapManifest.districts.map((district) => district.id);
+  state.districtsById = Object.fromEntries(empireStreetsCityMapManifest.districts.map((district) => [
+    district.id,
+    createDistrictFixture({
+      id: district.id,
+      name: district.name,
+      zone: district.zone,
+      ownerPlayerId: null,
+      status: "neutral",
+      adjacentDistrictIds: district.neighborIds
+    })
+  ]));
+  return state;
+};
+
+const createManifestFrontierScenario = () => {
+  const state = createManifestMapState();
+  const ownedDistrict = empireStreetsCityMapManifest.districts.find((district) => district.neighborIds.length >= 3)!;
+  const [allyNeighborId, enemyNeighborId, emptyNeighborId] = ownedDistrict.neighborIds;
+
+  state.playersById["player:1"] = createPlayerFixture({
+    id: "player:1",
+    allianceId: "alliance:1",
+    homeDistrictId: ownedDistrict.id
+  });
+  state.playersById["player:2"] = createPlayerFixture({
+    id: "player:2",
+    allianceId: null,
+    homeDistrictId: enemyNeighborId
+  });
+  state.playersById["player:3"] = createPlayerFixture({
+    id: "player:3",
+    allianceId: "alliance:1",
+    homeDistrictId: allyNeighborId
+  });
+  state.alliancesById["alliance:1"] = createAllianceFixture({
+    memberIds: ["player:1", "player:3"]
+  });
+  state.districtsById[ownedDistrict.id] = {
+    ...state.districtsById[ownedDistrict.id],
+    ownerPlayerId: "player:1",
+    status: "claimed"
+  };
+  state.districtsById[allyNeighborId!] = {
+    ...state.districtsById[allyNeighborId!],
+    ownerPlayerId: "player:3",
+    status: "claimed"
+  };
+  state.districtsById[enemyNeighborId!] = {
+    ...state.districtsById[enemyNeighborId!],
+    ownerPlayerId: "player:2",
+    status: "claimed"
+  };
+  state.root.playerIds = ["player:1", "player:2", "player:3"];
+
+  return {
+    state,
+    ownedDistrictId: ownedDistrict.id,
+    allyNeighborId: allyNeighborId!,
+    enemyNeighborId: enemyNeighborId!,
+    emptyNeighborId: emptyNeighborId!
+  };
+};

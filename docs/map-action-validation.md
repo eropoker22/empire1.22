@@ -1,35 +1,18 @@
 # Map Action Validation
 
-Autoritativni validace mapovych akci je v `packages/game-core/src/rules/map`.
+Map actions use `validateMapAction` from game-core as the central relation and adjacency validator. The read-model and command handlers both depend on this rule layer.
 
-`validateMapAction` vyhodnocuje:
+Covered map actions:
 
-- vztah targetu k hraci (`self`, `ally`, `enemy`, `empty`, `blocked`),
-- obousmerne sousedstvi pres `adjacentDistrictIds`,
-- vlastni origin district,
-- zamcene a znicene distrikty,
-- spy authorization pro attack,
-- spy authorization pro occupy prazdneho districtu,
-- consent hook pro allied encirclement.
+- `spy`
+- `rob`
+- `heist`
+- `occupy`
+- `attack`
+- `place_trap`
+- `place_defense`
+- `remove_defense`
 
-Client muze zobrazovat preview, ale command handler vzdy validuje znovu na serveru.
+Rules are based on actual district ownership, origin ownership, bidirectional adjacency, locks, expected versions and alliance/truce state. Clients receive capabilities and reason codes, but handlers repeat the validation before mutating state.
 
-Spojenec nikdy nerozsiruje hranici pro:
-
-- spy,
-- rob,
-- occupy,
-- heist,
-- attack.
-
-Vyjimka je pouze budoucí vkladani spojenecke obrany.
-
-Aktivni commandy napojene na validator:
-
-- `attack-district`,
-- `occupy-district`,
-- `spy-district`,
-- `place-trap`,
-- `select-spawn-district`.
-
-Validator ma pripravene vetve pro `rob` a `heist`, ale tyto commandy zatim nejsou v aktivnim `GameCommand` unionu.
+Rob and heist support an omitted source district only when exactly one owned adjacent origin exists. Multiple possible origins are rejected with `NO_VALID_ORIGIN`.

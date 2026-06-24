@@ -1,18 +1,9 @@
-import type {
-  DomainError,
-  GameplaySliceResponse,
-  LoadGameplaySliceRequest,
-  SubmitGameplayCommandRequest
-} from "@empire/shared-types";
+import type { DomainError, GameplaySliceResponse, LoadGameplaySliceRequest, SubmitGameplayCommandRequest } from "@empire/shared-types";
 import { createServerApp } from "../app";
 import { ensureGameplaySliceSessionResult } from "../bootstrap";
 import { createInstanceSnapshot } from "../runtime/persistence/mappers";
 import { createSnapshotTokenCodec, type SnapshotTokenCryptoProvider } from "../runtime/persistence/services";
-import {
-  createGameplaySliceValidationResponse,
-  validateLoadGameplaySliceRequest,
-  validateSubmitGameplayCommandRequest
-} from "../transport/gameplay-slice-request-validation";
+import { createGameplaySliceValidationResponse, validateLoadGameplaySliceRequest, validateSubmitGameplayCommandRequest } from "../transport/gameplay-slice-request-validation";
 import { publicServerRegistry } from "@empire/game-config";
 import { validateCommandPlayerIdentity } from "../transport/player-identity-guard";
 import { createGameplaySessionTokenCodec } from "../transport/gameplay-session-token-codec";
@@ -23,6 +14,7 @@ import { resolveGameplaySliceFunctionRoute } from "./gameplay-slice-function-rou
 import { parseNetlifyJsonBody } from "./netlify-request-body";
 import { handlePublicServerMatchmakingReserve } from "./public-server-matchmaking-netlify";
 import { handleAdminMonitoringNetlifyRequest } from "./admin-monitoring-netlify";
+import { createGameplaySessionNetlifyHandlers } from "./gameplay-session-netlify";
 
 interface NetlifyFunctionEvent {
   httpMethod: string;
@@ -61,6 +53,16 @@ export const createGameplaySliceFunctionHandler = (
   const sessionTokenCodec = snapshotSecret.secret
     ? createGameplaySessionTokenCodec({
         secret: gameplaySessionSecret.secret ?? snapshotSecret.secret
+      })
+    : null;
+  const sessionHandlers = sessionTokenCodec && snapshotTokenCodec
+    ? createGameplaySessionNetlifyHandlers({
+        server,
+        sessionTokenCodec,
+        snapshotTokenCodec,
+        allowImplicitInstanceCreation,
+        environment: options.environment,
+        toFunctionResponse
       })
     : null;
 
@@ -105,6 +107,11 @@ export const createGameplaySliceFunctionHandler = (
       });
     }
 
+    const productionGuardError = sessionHandlers?.validateProductionSessionRuntime() ?? null;
+    if (productionGuardError) {
+      return createJsonResponse(500, createErrorResponseFromErrors([productionGuardError]));
+    }
+
     const parsedBody = parseNetlifyJsonBody(event.body);
 
     if (!parsedBody.accepted) {
@@ -115,7 +122,7 @@ export const createGameplaySliceFunctionHandler = (
     }
 
     if (route === "matchmaking-reserve") {
-      return handlePublicServerMatchmakingReserve(server, event.httpMethod, parsedBody.body);
+      return handlePublicServerMatchmakingReserve(server, event.httpMethod, parsedBody.body, event.headers);
     }
 
     const requestPath = `/api/gameplay-slice/${route}`;
@@ -135,19 +142,19 @@ export const createGameplaySliceFunctionHandler = (
         return createJsonResponse(200, createErrorResponseFromErrors([snapshotTokenError]));
       }
 
-      const ensureResult = await ensureGameplaySliceSessionResult(server.instanceManager, request, {
-        snapshotToken: request.snapshotToken,
-        snapshotTokenCodec,
-        allowImplicitInstanceCreation
-      });
-      if (!ensureResult.accepted) {
-        return createJsonResponse(200, createErrorResponseFromErrors(ensureResult.errors));
-      }
       return await toFunctionResponse(await server.gameplaySliceJsonHandler.handle({
         method: event.httpMethod,
         path: requestPath,
         body: request
       }), request.serverInstanceId);
+    }
+
+    if (route === "join") {
+      return sessionHandlers!.handleJoin(parsedBody.body, event.headers);
+    }
+
+    if (route === "logout") {
+      return sessionHandlers!.handleLogout(parsedBody.body);
     }
 
     const validation = validateSubmitGameplayCommandRequest(parsedBody.body);
@@ -229,12 +236,7 @@ const createErrorResponse = (
 ): GameplaySliceResponse => ({
   accepted: false,
   readModel: null,
-  errors: [
-    {
-      code,
-      message
-    }
-  ]
+  errors: [{ code, message }]
 });
 
 const createErrorResponseFromErrors = (

@@ -1,3 +1,5 @@
+import { closeOverlay } from "./legacyOverlayCoordinator.js";
+
 function safeFunction(fn, fallback = () => {}) {
   return typeof fn === "function" ? fn : fallback;
 }
@@ -42,6 +44,7 @@ export function createResultModalQueue(options = {}) {
     }
 
     modal.classList?.add?.("hidden");
+    closeOverlay(modal);
     if (setTimeoutFn) {
       setTimeoutFn(() => renderNext(root), 80);
     } else {

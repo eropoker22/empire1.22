@@ -1,7 +1,8 @@
-import { createClientApp, createClientSurfaceActionRouter, type ClientRenderState } from "../app";
+import { createClientApp, createClientSurfaceActionRouter, resolveClientSurfaceAction, type ClientRenderState } from "../app";
 import { escapeHtml, refreshLiveCooldownLabels } from "../shared-ui";
 import { createFetchClientTransport, createGameplaySlicePoller, type ClientTransport } from "../transport";
 import { createOverlayBackdrop } from "../modals/overlay-backdrop";
+import { getTopOverlay, isOverlayOpen } from "../modals/overlay-state";
 import { resolveGameplaySliceBootstrapRequest } from "./gameplay-slice-bootstrap";
 import { persistServerConfirmedGameplaySliceFocus } from "./gameplay-slice-focus-cache";
 import { createDistrictSheetOverlayController } from "./gameplay-slice-overlays";
@@ -16,6 +17,9 @@ export { persistServerConfirmedGameplaySliceFocus } from "./gameplay-slice-focus
 export { setGameplayRuntimeMarker, type GameplayRuntimeMarker } from "./gameplay-slice-runtime-diagnostics";
 
 const DEFAULT_ENDPOINT_BASE = "/api/gameplay-slice";
+const MOBILE_SHEET_SELECTOR = ".mobile-sheet";
+const MAP_TAP_PIXEL_THRESHOLD = 10;
+const DISTRICT_TAP_DEBOUNCE_MS = 350;
 
 export interface GameplaySlicePageMountOptions { root: HTMLElement; transport?: ClientTransport; }
 export interface MountedGameplaySlicePage { destroy(): void; }
@@ -56,6 +60,11 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
   let currentLoadRequest = request;
   const overlayBackdrop = createOverlayBackdrop({ mount: options.root });
   const districtSheetOverlay = createDistrictSheetOverlayController();
+  let pointerOrigin: { pointerId: number; x: number; y: number; atMs: number } | null = null;
+  let lastPointerTapIsValid = true;
+  let lastDistrictTap = { districtId: null as string | null, atMs: 0 };
+  let pendingDistrictSelection = { districtId: null as string | null };
+  let activeDistrictSheetId: string | null = null;
 
   const hideUnavailableGameplaySlice = (state: ClientRenderState | null = null): void => {
     const message = state?.connection.lastErrorMessage || "Gameplay slice did not return an authoritative read model.";
@@ -93,10 +102,13 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     options.root.hidden = false;
 
     if (state.districtPanel?.districtId) {
+      activeDistrictSheetId = state.districtPanel.districtId;
       currentLoadRequest = {
         ...currentLoadRequest,
         districtId: state.districtPanel.districtId
       };
+    } else {
+      activeDistrictSheetId = null;
     }
     persistServerConfirmedGameplaySliceFocus(
       getBrowserStorage(),
@@ -118,14 +130,119 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     overlayBackdrop.sync();
   };
 
+  const isInsideMobileSheet = (target: EventTarget | null): target is HTMLElement =>
+    target instanceof HTMLElement && Boolean(target.closest(MOBILE_SHEET_SELECTOR));
+
+  const handlePointerDown = (event: Event): void => {
+    const target = event.target;
+    if (!(event instanceof PointerEvent) || !(target instanceof HTMLElement)) {
+      return;
+    }
+
+    if (isInsideMobileSheet(target)) {
+      event.stopPropagation();
+    }
+
+    pointerOrigin = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      atMs: Date.now()
+    };
+    lastPointerTapIsValid = true;
+  };
+
+  const handlePointerUp = (event: Event): void => {
+    if (!(event instanceof PointerEvent) || !pointerOrigin || event.pointerId !== pointerOrigin.pointerId) {
+      return;
+    }
+
+    const dx = event.clientX - pointerOrigin.x;
+    const dy = event.clientY - pointerOrigin.y;
+    lastPointerTapIsValid = Math.hypot(dx, dy) <= MAP_TAP_PIXEL_THRESHOLD;
+    pointerOrigin = null;
+  };
+
+  const handlePointerCancel = (event: Event): void => {
+    if (!(event instanceof PointerEvent) || !pointerOrigin || event.pointerId !== pointerOrigin.pointerId) {
+      return;
+    }
+
+    lastPointerTapIsValid = false;
+    pointerOrigin = null;
+  };
+
   const handleClick = async (event: Event): Promise<void> => {
     const target = event.target;
+    const canUsePointerTapForDistrictSelection = lastPointerTapIsValid;
+    lastPointerTapIsValid = true;
+    const insideSheet = isInsideMobileSheet(target);
 
     if (!(target instanceof HTMLElement)) {
       return;
     }
 
-    const nextState = await router.handleTarget(target);
+    if (insideSheet) {
+      event.stopPropagation();
+    }
+
+    const action = resolveClientSurfaceAction(target);
+
+    if (action?.kind === "select-district") {
+      if (!canUsePointerTapForDistrictSelection) {
+        return;
+      }
+
+      const topOverlay = getTopOverlay();
+      if (isOverlayOpen() && topOverlay !== "district_sheet") {
+        return;
+      }
+
+      const selectedAtMs = Date.now();
+      const isRapidRepeat = action.districtId === lastDistrictTap.districtId
+        && selectedAtMs - lastDistrictTap.atMs < DISTRICT_TAP_DEBOUNCE_MS;
+      const isSameDistrictAsOpen = action.districtId === activeDistrictSheetId;
+      const isDistrictOpen = districtSheetOverlay.isOpen();
+
+      if (isDistrictOpen && isSameDistrictAsOpen) {
+        return;
+      }
+
+      if (!isDistrictOpen && (isRapidRepeat || pendingDistrictSelection.districtId !== null)) {
+        return;
+      }
+
+      lastDistrictTap = { districtId: action.districtId, atMs: selectedAtMs };
+      pendingDistrictSelection = { districtId: action.districtId };
+
+      if (isDistrictOpen) {
+        try {
+          const nextState = await client.selectDistrict(action.districtId);
+          if (nextState) {
+            event.preventDefault();
+            event.stopPropagation();
+            render(nextState);
+          }
+        } finally {
+          pendingDistrictSelection = { districtId: null };
+        }
+
+        return;
+      }
+    }
+
+    if (action?.kind === "select-district" && isOverlayOpen()) {
+      return;
+    }
+
+    let nextState: ClientRenderState | null = null;
+    try {
+      nextState = await router.handleTarget(target);
+    } finally {
+      if (action?.kind === "select-district") {
+        pendingDistrictSelection = { districtId: null };
+      }
+    }
 
     if (nextState) {
       event.preventDefault();
@@ -150,6 +267,9 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
 
   const cooldownTimerId = window.setInterval(() => refreshLiveCooldownLabels(options.root), 1000);
   options.root.addEventListener("click", handleClick);
+  options.root.addEventListener("pointerdown", handlePointerDown);
+  options.root.addEventListener("pointerup", handlePointerUp);
+  options.root.addEventListener("pointercancel", handlePointerCancel);
   void client
     .load(request)
     .then((state) => {
@@ -172,6 +292,9 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       poller.stop();
       window.clearInterval(cooldownTimerId);
       options.root.removeEventListener("click", handleClick);
+      options.root.removeEventListener("pointerdown", handlePointerDown);
+      options.root.removeEventListener("pointerup", handlePointerUp);
+      options.root.removeEventListener("pointercancel", handlePointerCancel);
       districtSheetOverlay.closeOnDestroy();
       overlayBackdrop.sync();
       overlayBackdrop.destroy();

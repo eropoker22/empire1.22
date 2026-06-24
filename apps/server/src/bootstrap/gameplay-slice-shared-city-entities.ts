@@ -12,10 +12,11 @@ import { createBuildingId, formatDistrictName } from "./gameplay-slice-bootstrap
 export const createSharedCityDistrict = (input: {
   instanceId: ServerInstanceId;
   districtId: DistrictId;
+  name?: string;
   ownerPlayerId: string | null;
   slotCount: number;
   zone: string;
-  buildingSetKey: string;
+  buildingSetKey?: string;
   adjacentDistrictIds: DistrictId[];
 }): District => {
   const buildingTypes = resolveDistrictBuildingTypes({
@@ -28,7 +29,7 @@ export const createSharedCityDistrict = (input: {
     id: input.districtId,
     serverInstanceId: input.instanceId,
     templateId: `district-template:${input.zone}`,
-    name: formatDistrictName(input.districtId),
+    name: input.name ?? formatDistrictName(input.districtId),
     zone: input.zone,
     adjacentDistrictIds: input.adjacentDistrictIds,
     ownerPlayerId: input.ownerPlayerId,

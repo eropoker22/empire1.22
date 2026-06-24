@@ -8,8 +8,10 @@ import { createInstanceMonitorSnapshot } from "../monitoring/instance-metrics";
 import type {
   CommandLogRepository,
   CommandReservationRepository,
+  CommandResultRepository,
   DiagnosticLogRepository,
   EventLogRepository,
+  RuntimeOutboxRepository,
   SnapshotRepository
 } from "../persistence/repositories";
 import {
@@ -20,8 +22,10 @@ import {
   createFileSnapshotRepository,
   createInMemoryCommandLogRepository,
   createInMemoryCommandReservationRepository,
+  createInMemoryCommandResultRepository,
   createInMemoryDiagnosticLogRepository,
   createInMemoryEventLogRepository,
+  createInMemoryRuntimeOutboxRepository,
   createInMemorySnapshotRepository
 } from "../persistence/repositories";
 import { createReplayLogWriter } from "../persistence/services/replay-log-writer";
@@ -39,7 +43,10 @@ export interface ServerRuntimePersistenceRepositories {
   diagnosticLogRepository: DiagnosticLogRepository;
   snapshotRepository: SnapshotRepository;
   commandReservationRepository?: CommandReservationRepository;
+  commandResultRepository?: CommandResultRepository;
+  outboxRepository?: RuntimeOutboxRepository;
   tickLock?: RuntimeTickLock;
+  atomicCommandPersistenceMode?: "transactional" | "best-effort" | "unavailable";
   close?(): Promise<void>;
 }
 
@@ -54,9 +61,12 @@ export interface ServerInstanceRuntimeOptions {
 export const createInMemoryRuntimePersistenceRepositories = (): ServerRuntimePersistenceRepositories => ({
   commandLogRepository: createInMemoryCommandLogRepository(),
   commandReservationRepository: createInMemoryCommandReservationRepository(),
+  commandResultRepository: createInMemoryCommandResultRepository(),
   eventLogRepository: createInMemoryEventLogRepository(),
+  outboxRepository: createInMemoryRuntimeOutboxRepository(),
   diagnosticLogRepository: createInMemoryDiagnosticLogRepository(),
-  snapshotRepository: createInMemorySnapshotRepository()
+  snapshotRepository: createInMemorySnapshotRepository(),
+  atomicCommandPersistenceMode: "transactional"
 });
 
 export interface FileRuntimePersistenceOptions {
@@ -68,9 +78,12 @@ export const createFileRuntimePersistenceRepositories = (
 ): ServerRuntimePersistenceRepositories => ({
   commandLogRepository: createFileCommandLogRepository({ rootDir: options.rootDir }),
   commandReservationRepository: createFileCommandReservationRepository({ rootDir: options.rootDir }),
+  commandResultRepository: createInMemoryCommandResultRepository(),
   eventLogRepository: createFileEventLogRepository({ rootDir: options.rootDir }),
+  outboxRepository: createInMemoryRuntimeOutboxRepository(),
   diagnosticLogRepository: createFileDiagnosticLogRepository({ rootDir: options.rootDir }),
-  snapshotRepository: createFileSnapshotRepository({ rootDir: options.rootDir })
+  snapshotRepository: createFileSnapshotRepository({ rootDir: options.rootDir }),
+  atomicCommandPersistenceMode: "best-effort"
 });
 
 export const createRuntimePersistenceRepositoriesFromEnvironment = (
@@ -162,6 +175,8 @@ export const createServerInstanceRuntime = (
     clock,
     snapshotController,
     commandReservationRepository: persistence.commandReservationRepository,
+    commandResultRepository: persistence.commandResultRepository,
+    outboxRepository: persistence.outboxRepository,
     processedCommandIds,
     commandRateLimitWindow
   };

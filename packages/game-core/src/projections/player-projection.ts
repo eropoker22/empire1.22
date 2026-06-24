@@ -14,6 +14,7 @@ import { createEliminationReadModel } from "./elimination-read-model-projection"
 import { createFactionReadModel } from "./faction-read-model-projection";
 import { createFinalLockdownReadModel } from "./final-lockdown-read-model-projection";
 import { createPoliceReadModel } from "./police-read-model-projection";
+import { createPlayerAllianceLifecycleView } from "./alliance-lifecycle-projection";
 
 /**
  * Responsibility: Builds a minimal player-facing projection from authoritative core state.
@@ -48,6 +49,7 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
     elimination: createEliminationReadModel(state, playerId, context),
     finalLockdown: createFinalLockdownReadModel(state, playerId, context),
     police: createPoliceReadModel(state, playerId, context),
+    alliance: createPlayerAllianceLifecycleView(state, playerId, context),
     notifications,
     victoryState
   };

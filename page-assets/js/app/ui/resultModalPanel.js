@@ -1,4 +1,5 @@
 import { escapeAttribute, escapeHtml, escapeUrlAttribute } from "./htmlEscape.js";
+import { openOverlay } from "./legacyOverlayCoordinator.js";
 
 export { escapeAttribute, escapeUrlAttribute };
 
@@ -88,5 +89,7 @@ export function renderSimpleResultModal(root, payload = {}, config = {}, options
   }
   renderActionResultRows(elements.details, payload.rows || []);
   elements.modal.classList.remove("hidden");
+  elements.modal.removeAttribute("aria-hidden");
+  openOverlay(elements.modal, { type: "modal", ariaModal: true });
   return true;
 }

@@ -1,3 +1,8 @@
+import {
+  closeOverlay,
+  openOverlay
+} from "../ui/legacyOverlayCoordinator.js";
+
 export function createBuildingsPopupRuntime(deps = {}) {
   const elements = deps.elements || {};
   let activeBuildingsDistrictType = null;
@@ -257,6 +262,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
 
   const closeBuildingsPopup = () => {
     if (elements.buildingsPopup) {
+      closeOverlay(elements.buildingsPopup);
       elements.buildingsPopup.hidden = true;
     }
   };
@@ -269,6 +275,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
     selectedBuildingBaseNameByType.clear();
     renderBuildingsPopup(null);
     elements.buildingsPopup.hidden = false;
+    openOverlay(elements.buildingsPopup, { type: "modal", ariaModal: true });
     const ownerDocument = elements.buildingsPopup.ownerDocument || (typeof document !== "undefined" ? document : null);
     ownerDocument?.dispatchEvent?.(new CustomEvent("empire:buildings-popup-opened", { detail: { open: true } }));
   };

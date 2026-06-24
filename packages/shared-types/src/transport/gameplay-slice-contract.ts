@@ -24,6 +24,20 @@ export interface LoadGameplaySliceRequest {
   preferredStartDistrictId?: DistrictId | string | null;
   factionId?: PlayerFactionId | string | null;
   snapshotToken?: string | null;
+  sessionToken?: string | null;
+  joinTicket?: string | null;
+}
+
+export interface JoinGameplaySliceRequest {
+  joinTicket: string;
+  serverInstanceId: ServerInstanceId;
+  factionId?: PlayerFactionId | string | null;
+  preferredStartDistrictId?: DistrictId | string | null;
+}
+
+export interface LogoutGameplaySliceRequest {
+  serverInstanceId?: ServerInstanceId | string | null;
+  sessionToken?: string | null;
 }
 
 export interface SubmitGameplayCommandRequest {
@@ -39,6 +53,7 @@ export interface GameplaySliceResponse {
   readModel: GameplaySliceView | null;
   errors: DomainError[];
   metadata?: GameplaySliceResponseMetadata;
+  commandResult?: GameplayCommandResultMetadata | null;
   snapshotToken?: string | null;
   sessionToken?: string | null;
 }
@@ -46,4 +61,14 @@ export interface GameplaySliceResponse {
 export interface GameplaySliceResponseMetadata {
   serverTick: number;
   stateVersion: number;
+}
+
+export interface GameplayCommandResultMetadata {
+  commandId: string;
+  status: "applied" | "rejected";
+  rootVersionBefore: number;
+  rootVersionAfter: number | null;
+  eventCount: number;
+  eventIds: string[];
+  snapshotId: string | null;
 }

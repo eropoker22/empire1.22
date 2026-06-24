@@ -36,7 +36,7 @@ describe("player identity transport guard", () => {
       authenticatedPlayerId: "player:attacker"
     })).toEqual([
       {
-        code: "transport.player_identity_mismatch",
+        code: "PLAYER_IDENTITY_MISMATCH",
         message: "Command playerId does not match the authenticated request identity.",
         details: {
           authenticatedPlayerId: "player:attacker",
@@ -68,7 +68,7 @@ describe("player identity transport guard", () => {
       sessionTokenCodec: codec
     })).toEqual([
       {
-        code: "transport.session_token_missing",
+        code: "SESSION_REQUIRED",
         message: "Gameplay session token is required for command submit.",
         details: {
           commandPlayerId: "player:session-required",
@@ -85,11 +85,14 @@ describe("player identity transport guard", () => {
     });
     const codec = createGameplaySessionTokenCodec({ secret: "test-session-secret" });
     const sessionToken = codec.seal({
+      sessionId: "session:owner",
+      accountId: "account:owner",
       serverInstanceId: "instance:session-owner",
       playerId: "player:session-owner",
       factionId: "mafian",
       issuedAt: "2026-05-17T00:00:00.000Z",
-      expiresAt: "2099-05-18T00:00:00.000Z"
+      expiresAt: "2099-05-18T00:00:00.000Z",
+      version: 1
     });
 
     expect(validateCommandPlayerIdentity(command, null, {
@@ -105,10 +108,13 @@ describe("player identity transport guard", () => {
     });
     const codec = createGameplaySessionTokenCodec({ secret: "test-session-secret" });
     const sessionToken = codec.seal({
+      sessionId: "session:attacker",
+      accountId: "account:attacker",
       serverInstanceId: "instance:session-victim",
       playerId: "player:session-attacker",
       issuedAt: "2026-05-17T00:00:00.000Z",
-      expiresAt: "2099-05-18T00:00:00.000Z"
+      expiresAt: "2099-05-18T00:00:00.000Z",
+      version: 1
     });
 
     expect(validateCommandPlayerIdentity(command, null, {
@@ -116,7 +122,7 @@ describe("player identity transport guard", () => {
       sessionTokenCodec: codec
     })).toEqual([
       {
-        code: "transport.session_identity_mismatch",
+        code: "PLAYER_IDENTITY_MISMATCH",
         message: "Command identity does not match the gameplay session token.",
         details: {
           tokenPlayerId: "player:session-attacker",
@@ -148,7 +154,7 @@ describe("player identity transport guard", () => {
       sessionTokenCodec: codec
     })).toEqual([
       {
-        code: "transport.session_token_invalid",
+        code: "SESSION_INVALID",
         message: "Gameplay session token is invalid."
       }
     ]);
@@ -164,16 +170,19 @@ describe("player identity transport guard", () => {
       clock: createFixedClock("2026-05-18T00:00:00.001Z")
     });
     const sessionToken = codec.seal({
+      sessionId: "session:expired",
+      accountId: "account:expired",
       serverInstanceId: "instance:session-expired",
       playerId: "player:session-expired",
       issuedAt: "2026-05-17T00:00:00.000Z",
-      expiresAt: "2026-05-18T00:00:00.000Z"
+      expiresAt: "2026-05-18T00:00:00.000Z",
+      version: 1
     });
 
     expect(validateCommandPlayerIdentity(command, null, {
       sessionToken,
       sessionTokenCodec: codec
-    })[0]?.code).toBe("transport.session_token_invalid");
+    })[0]?.code).toBe("SESSION_INVALID");
   });
 
   it("rejects gameplay session tokens issued in the future", () => {
@@ -186,16 +195,19 @@ describe("player identity transport guard", () => {
       clock: createFixedClock("2026-05-18T00:00:00.000Z")
     });
     const sessionToken = codec.seal({
+      sessionId: "session:future",
+      accountId: "account:future",
       serverInstanceId: "instance:session-future",
       playerId: "player:session-future",
       issuedAt: "2026-05-18T00:00:01.000Z",
-      expiresAt: "2026-05-19T00:00:00.000Z"
+      expiresAt: "2026-05-19T00:00:00.000Z",
+      version: 1
     });
 
     expect(validateCommandPlayerIdentity(command, null, {
       sessionToken,
       sessionTokenCodec: codec
-    })[0]?.code).toBe("transport.session_token_invalid");
+    })[0]?.code).toBe("SESSION_INVALID");
   });
 
   it("rejects gameplay session tokens whose expiry is not after issuedAt", () => {
@@ -208,15 +220,18 @@ describe("player identity transport guard", () => {
       clock: createFixedClock("2026-05-18T00:00:00.000Z")
     });
     const sessionToken = codec.seal({
+      sessionId: "session:invalid-window",
+      accountId: "account:invalid-window",
       serverInstanceId: "instance:session-invalid-window",
       playerId: "player:session-invalid-window",
       issuedAt: "2026-05-18T00:00:00.000Z",
-      expiresAt: "2026-05-18T00:00:00.000Z"
+      expiresAt: "2026-05-18T00:00:00.000Z",
+      version: 1
     });
 
     expect(validateCommandPlayerIdentity(command, null, {
       sessionToken,
       sessionTokenCodec: codec
-    })[0]?.code).toBe("transport.session_token_invalid");
+    })[0]?.code).toBe("SESSION_INVALID");
   });
 });

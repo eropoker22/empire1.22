@@ -580,7 +580,8 @@ document.addEventListener("DOMContentLoaded", () => {
     name: reservation.displayName || server?.name || reservation.serverInstanceId,
     mode: reservation.mode || server?.mode || state.mode,
     region: reservation.region || server?.region || "EU Central",
-    status: server?.status || "RESERVED"
+    status: server?.status || "RESERVED",
+    joinTicket: reservation.joinTicket || ""
   });
 
   const reserveSelectedServer = async (server) => {
@@ -598,6 +599,7 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         body: JSON.stringify({
           playerId: identity,
+          accountId: identity,
           mode: server.mode,
           preferredRegion: server.region,
           preferredServerInstanceId: server.serverInstanceId || server.id

@@ -1,4 +1,10 @@
 import type { Notification } from "../entities/notification";
+import type {
+  AllianceExitPenalty,
+  AllianceKickVote,
+  AllianceMembership,
+  FormerAllianceTruce
+} from "../entities/alliance";
 import type { VictoryState } from "../entities/victory-state";
 import type { PlayerFactionId } from "../entities/faction";
 import type { PlayerColorHex } from "../entities/player-color";
@@ -31,6 +37,19 @@ export interface PlayerView {
   elimination?: EliminationReadModel | null;
   finalLockdown?: FinalLockdownReadModel | null;
   police?: PoliceReadModel | null;
+  alliance?: PlayerAllianceLifecycleView | null;
   notifications: Notification[];
   victoryState: VictoryState | null;
+}
+
+export interface PlayerAllianceLifecycleView {
+  allianceId: string | null;
+  allianceName: string | null;
+  membership: AllianceMembership | null;
+  activeVote: AllianceKickVote | null;
+  eligibleVotes: AllianceKickVote[];
+  exitPenalty: AllianceExitPenalty | null;
+  formerAllyTruces: FormerAllianceTruce[];
+  canConfirmReady: boolean;
+  readyReasonCode: string | null;
 }

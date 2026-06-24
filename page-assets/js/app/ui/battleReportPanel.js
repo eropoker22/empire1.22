@@ -20,6 +20,7 @@ import {
   ATTACK_RESULT_MODAL_TARGET_VALUE_SELECTOR,
   ATTACK_RESULT_MODAL_TITLE_SELECTOR
 } from "../runtime/constants.js";
+import { openOverlay } from "./legacyOverlayCoordinator.js";
 
 const ATTACK_RESULT_TONE_CLASSES = Object.freeze([
   "is-total-success",
@@ -178,5 +179,7 @@ export function renderBattleReport(root, payload = {}, options = {}) {
   defenseValue.closest?.(".modal__row")?.classList.toggle("hidden", payload.showDefensePower === false);
   renderBattleReportExtraRows(root, stats, payload);
   modal.classList.remove("hidden");
+  modal.removeAttribute("aria-hidden");
+  openOverlay(modal, { type: "modal", ariaModal: true });
   return true;
 }

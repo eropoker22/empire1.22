@@ -1,10 +1,15 @@
 import type { AttackDistrictCommand } from "./attack-district-command";
 import type { AcknowledgePendingRaidCommand } from "./acknowledge-pending-raid-command";
+import type { AllianceLifecycleCommand } from "./alliance-lifecycle-command";
 import type { BuildStructureCommand } from "./build-structure-command";
 import type { CollectProductionCommand } from "./collect-production-command";
 import type { CraftItemCommand } from "./craft-item-command";
+import type { HeistDistrictCommand } from "./heist-district-command";
 import type { OccupyDistrictCommand } from "./occupy-district-command";
+import type { PlaceDefenseCommand } from "./place-defense-command";
 import type { PlaceTrapCommand } from "./place-trap-command";
+import type { RemoveDefenseCommand } from "./remove-defense-command";
+import type { RobDistrictCommand } from "./rob-district-command";
 import type { RunBuildingActionCommand } from "./run-building-action-command";
 import type { SelectSpawnDistrictCommand } from "./select-spawn-district-command";
 import type { SpyDistrictCommand } from "./spy-district-command";
@@ -16,12 +21,17 @@ import type { SpyDistrictCommand } from "./spy-district-command";
  */
 export type GameCommand =
   | AcknowledgePendingRaidCommand
+  | AllianceLifecycleCommand
   | AttackDistrictCommand
   | BuildStructureCommand
   | CollectProductionCommand
   | CraftItemCommand
+  | HeistDistrictCommand
   | OccupyDistrictCommand
+  | PlaceDefenseCommand
   | PlaceTrapCommand
+  | RemoveDefenseCommand
+  | RobDistrictCommand
   | RunBuildingActionCommand
   | SelectSpawnDistrictCommand
   | SpyDistrictCommand;

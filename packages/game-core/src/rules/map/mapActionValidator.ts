@@ -8,6 +8,7 @@ import type {
 } from "./mapActionTypes";
 import { isDistrictLocked, isTargetAdjacentToOwnedDistrict, resolveDistrictRelation } from "./mapRelations";
 import { validateBorderAction, validateEmptyBorderAction, validateSpyAction } from "./mapBorderValidators";
+import { hasFormerAllyTruce } from "../alliances/allianceLifecycle";
 
 export const validateMapAction = (
   state: CoreGameState,
@@ -56,6 +57,14 @@ export const validateMapAction = (
     && origin.version !== context.expectedOriginVersion
   ) {
     return blocked("VERSION_CONFLICT", relation, isAdjacentToOwnedDistrict);
+  }
+
+  if (
+    target.ownerPlayerId
+    && ["attack", "heist", "spy"].includes(context.action)
+    && hasFormerAllyTruce(state, actor.id, target.ownerPlayerId, context.serverTime ?? new Date().toISOString())
+  ) {
+    return blocked("FORMER_ALLY_TRUCE_ACTIVE", relation, isAdjacentToOwnedDistrict);
   }
 
   switch (context.action) {

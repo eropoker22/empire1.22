@@ -54,6 +54,10 @@ export const createInMemoryCommandReservationRepository = (): CommandReservation
       const record = recordsByKey.get(createReservationKey(instanceId, commandId));
       return record ? cloneReservationRecord(record) : null;
     },
+    listPendingByInstance: async (instanceId) =>
+      [...recordsByKey.values()]
+        .filter((record) => record.serverInstanceId === instanceId && record.status === "pending")
+        .map(cloneReservationRecord),
     markApplied: async (instanceId, commandId, metadata) => {
       const record = requireReservationRecord(recordsByKey, instanceId, commandId);
       if (record.status === "rejected") {

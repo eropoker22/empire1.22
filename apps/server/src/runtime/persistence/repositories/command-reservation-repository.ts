@@ -46,6 +46,9 @@ export interface CommandReservationRepository {
     instanceId: ServerInstanceId,
     commandId: string
   ): Promise<CommandReservationRecord | null>;
+  listPendingByInstance?(
+    instanceId: ServerInstanceId
+  ): Promise<CommandReservationRecord[]>;
   markApplied(
     instanceId: ServerInstanceId,
     commandId: string,

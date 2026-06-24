@@ -17,6 +17,8 @@ export interface DistrictCapabilitiesView {
   canSpy: boolean;
   canRob: boolean;
   canHeist: boolean;
+  canPlaceDefense: boolean;
+  canRemoveDefense: boolean;
   canAttack: boolean;
   canOccupy: boolean;
   canPlaceTrap: boolean;

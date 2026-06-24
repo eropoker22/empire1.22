@@ -1,3 +1,8 @@
+import {
+  closeOverlay,
+  openOverlay
+} from "./legacyOverlayCoordinator.js";
+
 function setText(element, value) {
   if (element) {
     element.textContent = String(value ?? "");
@@ -181,6 +186,7 @@ export function openAttackPanel(targetDistrict = null, options = {}) {
   }
 
   popup.hidden = false;
+  openOverlay(popup, { type: "modal", ariaModal: true });
   return true;
 }
 
@@ -190,6 +196,7 @@ export function closeAttackPanel(options = {}) {
     return false;
   }
 
+  closeOverlay(popup);
   popup.hidden = true;
   return true;
 }

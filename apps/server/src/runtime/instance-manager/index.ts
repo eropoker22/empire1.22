@@ -1,4 +1,7 @@
 export * from "./command-reservation-payload";
+export * from "./atomic-command-dispatcher";
+export * from "./atomic-command-outbox";
+export * from "./atomic-command-recovery";
 export * from "./instance-command-dispatch";
 export * from "./instance-factory";
 export * from "./instance-lifecycle-service";

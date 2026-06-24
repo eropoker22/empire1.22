@@ -18,11 +18,16 @@ import {
   createOrganicDistrictPolygon,
   createOrganicDistrictPolygons
 } from "./organicDistrictPolygon.js";
+import {
+  empireCityMapManifest,
+  empireCityMapManifestHash
+} from "../../data/empire-city-map.generated.js";
 
 export {
   createOrganicDistrictPolygon,
   createOrganicDistrictPolygons
 } from "./organicDistrictPolygon.js";
+export { empireCityMapManifestHash };
 
 export function isDowntownCell(rowIndex, columnIndex) {
   const isDowntownRow = rowIndex === 3 || rowIndex === 4;
@@ -159,6 +164,106 @@ export function createStops(segmentCount, totalSize, random) {
   return stops;
 }
 
+const DISTRICT_TYPE_BY_MANIFEST_ZONE = Object.freeze({
+  commercial: "economy",
+  industrial: "industrial",
+  residential: "resident",
+  park: "park",
+  downtown: "downtown"
+});
+
+function closeManifestPolygon(points = []) {
+  const polygon = points.map((point) => ({
+    x: Number(point?.x ?? 0),
+    y: Number(point?.y ?? 0)
+  }));
+  const first = polygon[0];
+  const last = polygon[polygon.length - 1];
+  if (first && last && (first.x !== last.x || first.y !== last.y)) {
+    polygon.push({ ...first });
+  }
+  return polygon;
+}
+
+function getPolygonCenter(points = []) {
+  const polygon = points.length > 1 ? points.slice(0, -1) : points;
+  if (polygon.length === 0) {
+    return { x: 0, y: 0 };
+  }
+  const sum = polygon.reduce((current, point) => ({
+    x: current.x + Number(point?.x ?? 0),
+    y: current.y + Number(point?.y ?? 0)
+  }), { x: 0, y: 0 });
+  return {
+    x: sum.x / polygon.length,
+    y: sum.y / polygon.length
+  };
+}
+
+export function resolveCanonicalDistrictId(inputId) {
+  const raw = String(inputId ?? "").trim();
+  if (!raw) return null;
+  if (empireCityMapManifest.districts.some((district) => district.id === raw)) {
+    return raw;
+  }
+  if (raw.startsWith("district:") || !/^\d+$/u.test(raw)) return null;
+  const canonicalId = `district:${Number.parseInt(raw, 10)}`;
+  return empireCityMapManifest.districts.some((district) => district.id === canonicalId)
+    ? canonicalId
+    : null;
+}
+
+export function resolveLegacyDistrictId(canonicalId) {
+  const district = empireCityMapManifest.districts.find((candidate) => candidate.id === String(canonicalId ?? "").trim());
+  return district?.legacyId ?? null;
+}
+
+export function createManifestDistrictGeometry(width, height) {
+  const scaleX = Number(width || empireCityMapManifest.width) / empireCityMapManifest.width;
+  const scaleY = Number(height || empireCityMapManifest.height) / empireCityMapManifest.height;
+  const districts = empireCityMapManifest.districts.map((manifestDistrict) => {
+    const polygon = closeManifestPolygon(manifestDistrict.polygon).map((point) => ({
+      x: point.x * scaleX,
+      y: point.y * scaleY
+    }));
+    const center = getPolygonCenter(polygon);
+    return {
+      id: Number(manifestDistrict.legacyId ?? String(manifestDistrict.id).replace(/^district:/u, "")),
+      canonicalId: manifestDistrict.id,
+      legacyId: manifestDistrict.legacyId,
+      rowIndex: manifestDistrict.rowIndex,
+      columnIndex: manifestDistrict.columnIndex,
+      districtType: DISTRICT_TYPE_BY_MANIFEST_ZONE[manifestDistrict.zone] || MAP_DEFAULT_DISTRICT_TYPE,
+      zone: manifestDistrict.zone,
+      centerX: center.x,
+      centerY: center.y,
+      polygon,
+      neighborIds: manifestDistrict.neighborIds,
+      legacyNeighborIds: manifestDistrict.neighborIds
+        .map((neighborId) => Number(resolveLegacyDistrictId(neighborId)))
+        .filter((neighborId) => Number.isFinite(neighborId)),
+      spawnZones: manifestDistrict.spawnZones || [],
+      isSpawnCandidate: Boolean(manifestDistrict.isSpawnCandidate),
+      isDowntown: Boolean(manifestDistrict.isDowntown)
+    };
+  });
+
+  return {
+    districts,
+    xStops: createUniformStops(MAP_GRID_COLUMNS, Number(width || empireCityMapManifest.width)),
+    yStops: createUniformStops(MAP_GRID_ROWS, Number(height || empireCityMapManifest.height)),
+    width: Number(width || empireCityMapManifest.width),
+    height: Number(height || empireCityMapManifest.height),
+    manifestId: empireCityMapManifest.id,
+    manifestVersion: empireCityMapManifest.version,
+    manifestHash: empireCityMapManifestHash
+  };
+}
+
+function createUniformStops(segmentCount, totalSize) {
+  return Array.from({ length: segmentCount + 1 }, (_value, index) => (totalSize / segmentCount) * index);
+}
+
 export function clipPolygonAgainstBisector(polygon, site, otherSite) {
   const dx = otherSite.x - site.x;
   const dy = otherSite.y - site.y;
@@ -194,6 +299,11 @@ export function clipPolygonAgainstBisector(polygon, site, otherSite) {
 }
 
 export function createDistrictGeometry(width, height, insetX = 0, insetTop = MAP_DISTRICT_GEOMETRY_TOP_INSET, insetBottom = 0, options = {}) {
+  // Canonical geometry is generated from the shared manifest. The legacy
+  // generator below remains only for old helper exports and must not be used
+  // as a second map source of truth.
+  return createManifestDistrictGeometry(width, height, insetX, insetTop, insetBottom, options);
+
   const columns = MAP_GRID_COLUMNS;
   const rows = MAP_GRID_ROWS;
   const geometryOptions = options && typeof options === "object" ? options : {};
@@ -344,11 +454,11 @@ export function getAdjacentDistrictIdsFromGeometry(geometry, districtId) {
     return [];
   }
 
-  return geometry.districts
-    .filter((district) => {
-      const rowDistance = Math.abs(district.rowIndex - targetDistrict.rowIndex);
-      const columnDistance = Math.abs(district.columnIndex - targetDistrict.columnIndex);
-      return district.id !== targetDistrict.id && ((rowDistance === 1 && columnDistance === 0) || (rowDistance === 0 && columnDistance === 1));
-    })
-    .map((district) => district.id);
+  if (Array.isArray(targetDistrict.legacyNeighborIds)) {
+    return [...targetDistrict.legacyNeighborIds];
+  }
+
+  return (targetDistrict.neighborIds || [])
+    .map((neighborId) => Number(resolveLegacyDistrictId(neighborId)))
+    .filter((neighborId) => Number.isFinite(neighborId));
 }

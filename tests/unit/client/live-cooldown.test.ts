@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GameplaySliceView } from "@empire/shared-types";
+import { empireStreetsCityMapManifestHash } from "@empire/game-config";
 import { createDistrictPanelViewModel } from "../../../apps/client/src/selectors";
 import { renderDistrictPanel } from "../../../apps/client/src/features";
 import { formatLiveCooldownLabel } from "../../../apps/client/src/shared-ui";
@@ -11,6 +12,9 @@ const createCooldownSlice = (): GameplaySliceView => ({
     currentTick: 0,
     stateVersion: 1,
     selectedDistrictId: "district:1",
+    mapManifestId: "empire-streets-city",
+    mapManifestVersion: 1,
+    mapManifestHash: empireStreetsCityMapManifestHash,
     generatedAt: new Date(0).toISOString()
   },
   mode: {

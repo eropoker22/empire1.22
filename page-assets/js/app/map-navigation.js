@@ -1,3 +1,5 @@
+import { shouldSuppressMapInput } from "./ui/legacyOverlayCoordinator.js";
+
 const MAP_VIEWPORT_SELECTOR = "[data-map-viewport]";
 const MAP_CANVAS_SELECTOR = "[data-map-canvas]";
 const MAP_ZOOM_BUTTON_SELECTOR = "[data-map-zoom]";
@@ -119,19 +121,31 @@ function bindMapNavigation(root) {
   };
 
   viewport.addEventListener("wheel", (event) => {
+    if (shouldSuppressMapInput(event)) {
+      return;
+    }
+
     event.preventDefault();
     const direction = event.deltaY < 0 ? 1 : -1;
     setScale(state.scale + direction * ZOOM_STEP);
   });
 
   for (const button of zoomButtons) {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", (event) => {
+      if (shouldSuppressMapInput(event)) {
+        return;
+      }
+
       const direction = button.dataset.mapZoom === "in" ? 1 : -1;
       setScale(state.scale + direction * ZOOM_STEP);
     });
   }
 
   viewport.addEventListener("pointerdown", (event) => {
+    if (shouldSuppressMapInput(event)) {
+      return;
+    }
+
     activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     viewport.setPointerCapture(event.pointerId);
 
@@ -170,6 +184,14 @@ function bindMapNavigation(root) {
   };
 
   viewport.addEventListener("pointermove", (event) => {
+    if (shouldSuppressMapInput(event)) {
+      activePointers.clear();
+      state.pointerId = null;
+      state.pinching = false;
+      viewport.classList.remove("is-dragging");
+      return;
+    }
+
     if (activePointers.has(event.pointerId)) {
       activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     }
@@ -185,6 +207,14 @@ function bindMapNavigation(root) {
   });
 
   const releasePointer = (event) => {
+    if (shouldSuppressMapInput(event)) {
+      activePointers.clear();
+      state.pointerId = null;
+      state.pinching = false;
+      viewport.classList.remove("is-dragging");
+      return;
+    }
+
     activePointers.delete(event.pointerId);
     if (state.pinching && activePointers.size < 2) {
       state.pinching = false;

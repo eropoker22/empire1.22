@@ -3,8 +3,12 @@ import type {
   BuildStructureCommand,
   CollectProductionCommand,
   CraftItemCommand,
+  HeistDistrictCommand,
   OccupyDistrictCommand,
+  PlaceDefenseCommand,
   PlaceTrapCommand,
+  RemoveDefenseCommand,
+  RobDistrictCommand,
   RunBuildingActionCommand,
   SelectSpawnDistrictCommand,
   SpyDistrictCommand
@@ -127,6 +131,78 @@ export const createOccupyDistrictCommandFixture = (
   payload: {
     districtId: "district:2",
     sourceDistrictId: "district:1"
+  },
+  clientRequestId: null,
+  ...overrides
+});
+
+export const createRobDistrictCommandFixture = (
+  overrides: Partial<RobDistrictCommand> = {}
+): RobDistrictCommand => ({
+  id: "command:rob:1",
+  type: "rob-district",
+  mode: "free",
+  playerId: "player:1",
+  serverInstanceId: "instance:1",
+  issuedAt: new Date(0).toISOString(),
+  payload: {
+    targetDistrictId: "district:2",
+    sourceDistrictId: "district:1"
+  },
+  clientRequestId: null,
+  ...overrides
+});
+
+export const createHeistDistrictCommandFixture = (
+  overrides: Partial<HeistDistrictCommand> = {}
+): HeistDistrictCommand => ({
+  id: "command:heist:1",
+  type: "heist-district",
+  mode: "free",
+  playerId: "player:1",
+  serverInstanceId: "instance:1",
+  issuedAt: new Date(0).toISOString(),
+  payload: {
+    targetDistrictId: "district:2",
+    sourceDistrictId: "district:1",
+    style: "balanced",
+    gangMembersSent: 10
+  },
+  clientRequestId: null,
+  ...overrides
+});
+
+export const createPlaceDefenseCommandFixture = (
+  overrides: Partial<PlaceDefenseCommand> = {}
+): PlaceDefenseCommand => ({
+  id: "command:place-defense:1",
+  type: "place-defense",
+  mode: "free",
+  playerId: "player:1",
+  serverInstanceId: "instance:1",
+  issuedAt: new Date(0).toISOString(),
+  payload: {
+    targetDistrictId: "district:1",
+    defenseItemId: "barricades",
+    amount: 1
+  },
+  clientRequestId: null,
+  ...overrides
+});
+
+export const createRemoveDefenseCommandFixture = (
+  overrides: Partial<RemoveDefenseCommand> = {}
+): RemoveDefenseCommand => ({
+  id: "command:remove-defense:1",
+  type: "remove-defense",
+  mode: "free",
+  playerId: "player:1",
+  serverInstanceId: "instance:1",
+  issuedAt: new Date(0).toISOString(),
+  payload: {
+    targetDistrictId: "district:1",
+    defenseItemId: "barricades",
+    amount: 1
   },
   clientRequestId: null,
   ...overrides

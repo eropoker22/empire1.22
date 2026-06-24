@@ -1,5 +1,8 @@
 import type {
   Alliance,
+  AllianceAuditEvent,
+  AllianceDefenseContribution,
+  AllianceExitPenalty,
   AllianceId,
   Building,
   BuildingId,
@@ -23,7 +26,8 @@ import type {
   ResourceState,
   ServerInstance,
   TrapId,
-  VictoryState
+  VictoryState,
+  FormerAllianceTruce
 } from "@empire/shared-types";
 
 /**
@@ -36,6 +40,10 @@ export interface NormalizedGameState {
   root: GameStateRoot;
   playersById: Record<PlayerId, Player>;
   alliancesById: Record<AllianceId, Alliance>;
+  allianceExitPenaltiesById?: Record<string, AllianceExitPenalty>;
+  formerAllianceTrucesById?: Record<string, FormerAllianceTruce>;
+  allianceDefenseContributionsById?: Record<string, AllianceDefenseContribution>;
+  allianceAuditEventsById?: Record<string, AllianceAuditEvent>;
   districtsById: Record<DistrictId, District>;
   buildingsById: Record<BuildingId, Building>;
   resourceStatesById: Record<string, ResourceState>;

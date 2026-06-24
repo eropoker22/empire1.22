@@ -4,9 +4,9 @@
 const DEFAULT_PUBLIC_MAP_COMPOSITION = Object.freeze({
   downtown: 8,
   commercial: 40,
-  industrial: 35,
-  residential: 48,
-  park: 30
+  industrial: 38,
+  residential: 38,
+  park: 37
 });
 
 export const publicServerRegistry = Object.freeze([
@@ -27,13 +27,7 @@ export const publicServerRegistry = Object.freeze([
     region: "EU Central",
     displayName: "Rain Market FREE-02",
     capacity: 20,
-    mapComposition: Object.freeze({
-      downtown: 8,
-      commercial: 45,
-      industrial: 30,
-      residential: 53,
-      park: 25
-    }),
+    mapComposition: DEFAULT_PUBLIC_MAP_COMPOSITION,
     joinPolicy: "open",
     isPublic: true,
     legacyAliases: Object.freeze([

@@ -144,6 +144,35 @@ export interface FinalLockdownBalanceConfig {
   extremeHeatPenaltyPerPoint: number;
 }
 
+export interface AllianceReadinessConfig {
+  readyIntervalSeconds: number;
+  readyButtonAvailableBeforeDueSeconds: number;
+  gracePeriodSeconds: number;
+  voteDurationSeconds: number;
+  voteRetryCooldownSeconds: number;
+}
+
+export interface AllianceExitPenaltyReasonConfig {
+  allianceJoinLockoutSeconds: number;
+  allianceCreateLockoutSeconds: number;
+  influenceDebuffSeconds: number;
+  actionCooldownDebuffSeconds: number;
+  formerAllyTruceSeconds: number;
+  influenceGenerationMultiplier: number;
+  actionCooldownMultiplier: number;
+  blocksAllianceDefenseSupport: boolean;
+}
+
+export interface AllianceLifecycleBalanceConfig {
+  readiness: AllianceReadinessConfig;
+  voluntaryLeavePenalty: AllianceExitPenaltyReasonConfig;
+  inactiveKickPenalty: AllianceExitPenaltyReasonConfig;
+  disbandPenalty: AllianceExitPenaltyReasonConfig;
+  administrativeRemovalPenalty: AllianceExitPenaltyReasonConfig;
+  affectedCooldownActionIds: string[];
+  exitPendingTimeoutSeconds: number;
+}
+
 /**
  * Responsibility: Core-facing mode configuration contract used by runtime bootstrap.
  * Belongs here: serializable mode knobs grouped for balance and runtime decisions.
@@ -158,6 +187,7 @@ export interface GameModeConfig {
     cooldownMultiplier: number;
     maxPlayersPerServer: number;
     maxAllianceSize: number;
+    allianceLifecycle?: AllianceLifecycleBalanceConfig;
     buildSlotLimit: number;
     eventFrequencyMultiplier: number;
     elimination?: EliminationBalanceConfig;

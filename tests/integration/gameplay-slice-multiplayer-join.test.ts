@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CoreGameState } from "@empire/game-core";
+import { empireStreetsCityMapManifest, empireStreetsCityMapManifestHash } from "@empire/game-config";
 import type { GameplaySliceView, LoadGameplaySliceRequest, SelectSpawnDistrictCommand } from "@empire/shared-types";
 import { createServerApp } from "../../apps/server/src/app";
 import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap/gameplay-slice-session-bootstrap";
@@ -73,14 +74,16 @@ describe("gameplay slice multiplayer join bootstrap", () => {
     expect(runtime.state.districtsById[sharedCitySpawnDistrictIds[5]]?.ownerPlayerId).toBe(request.playerId);
     expect(readModel.spawnSelection?.status).toBe("ready_to_play");
     expect(readModel.player.homeDistrictId).toBe(sharedCitySpawnDistrictIds[5]);
+    expect(readModel.server.mapManifestHash).toBe(empireStreetsCityMapManifestHash);
   });
 
   it("rejects invalid requested spawn without fallback", async () => {
     const server = createServerApp();
     const request = createLoadRequest(1);
     await ensureGameplaySliceSessionResult(server.instanceManager, request);
+    const downtownDistrictId = empireStreetsCityMapManifest.districts.find((district) => district.isDowntown)!.id;
 
-    const response = await submitSelectSpawn(server, request, "district:central:1");
+    const response = await submitSelectSpawn(server, request, downtownDistrictId);
     const runtime = server.instanceManager.getInstanceById(request.serverInstanceId)!;
 
     expect(response.accepted).toBe(false);
@@ -127,7 +130,7 @@ describe("gameplay slice multiplayer join bootstrap", () => {
     for (const spawnDistrictId of sharedCitySpawnDistrictIds) {
       expect(runtime?.state.districtsById[spawnDistrictId]).toBeDefined();
     }
-    expect(runtime?.state.districtsById["district:central:1"]?.zone).toBe("downtown");
+    expect(runtime?.state.districtsById[empireStreetsCityMapManifest.districts.find((district) => district.isDowntown)!.id]?.zone).toBe("downtown");
     expect(isConnectedDistrictGraph(runtime!.state)).toBe(true);
   });
 

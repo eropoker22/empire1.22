@@ -25,6 +25,16 @@ export const resolveClientSurfaceAction = (
     return { kind: "attack", targetDistrictId: attackButton.dataset.attackTargetId };
   }
 
+  const robButton = target.closest<ClientSurfaceActionElement>("button[data-rob-target-id]");
+  if (robButton?.dataset.robTargetId) {
+    return { kind: "rob", targetDistrictId: robButton.dataset.robTargetId };
+  }
+
+  const heistButton = target.closest<ClientSurfaceActionElement>("button[data-heist-target-id]");
+  if (heistButton?.dataset.heistTargetId) {
+    return { kind: "heist", targetDistrictId: heistButton.dataset.heistTargetId };
+  }
+
   const spyButton = target.closest<ClientSurfaceActionElement>("button[data-spy-target-id]");
   if (spyButton?.dataset.spyTargetId) {
     return { kind: "spy", targetDistrictId: spyButton.dataset.spyTargetId };
@@ -37,6 +47,12 @@ export const resolveClientSurfaceAction = (
 
   const trapButton = target.closest<ClientSurfaceActionElement>("button[data-place-trap]");
   if (trapButton) return { kind: "place-trap" };
+
+  const placeDefenseButton = target.closest<ClientSurfaceActionElement>("button[data-place-defense]");
+  if (placeDefenseButton) return { kind: "place-defense" };
+
+  const removeDefenseButton = target.closest<ClientSurfaceActionElement>("button[data-remove-defense]");
+  if (removeDefenseButton) return { kind: "remove-defense" };
 
   const collectButton = target.closest<ClientSurfaceActionElement>("button[data-collect-building-id]");
   if (collectButton?.dataset.collectBuildingId) {

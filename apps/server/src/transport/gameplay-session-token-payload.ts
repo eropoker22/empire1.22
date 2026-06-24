@@ -2,11 +2,14 @@ import type { PlayerFactionId, PlayerId, ServerInstanceId } from "@empire/shared
 import type { Clock } from "../runtime/scheduling/clock";
 
 export interface GameplaySessionTokenPayload {
+  sessionId?: string;
+  accountId?: string;
   serverInstanceId: ServerInstanceId;
   playerId: PlayerId;
   factionId?: PlayerFactionId | string | null;
   issuedAt: string;
   expiresAt: string;
+  version?: number;
 }
 
 export const isGameplaySessionTokenPayload = (
@@ -19,6 +22,10 @@ export const isGameplaySessionTokenPayload = (
   const candidate = value as Partial<GameplaySessionTokenPayload>;
   return (
     typeof candidate.serverInstanceId === "string" &&
+    typeof candidate.sessionId === "string" &&
+    candidate.sessionId.trim().length > 0 &&
+    typeof candidate.accountId === "string" &&
+    candidate.accountId.trim().length > 0 &&
     candidate.serverInstanceId.trim().length > 0 &&
     typeof candidate.playerId === "string" &&
     candidate.playerId.trim().length > 0 &&
@@ -26,6 +33,8 @@ export const isGameplaySessionTokenPayload = (
     candidate.issuedAt.trim().length > 0 &&
     typeof candidate.expiresAt === "string" &&
     candidate.expiresAt.trim().length > 0 &&
+    typeof candidate.version === "number" &&
+    Number.isInteger(candidate.version) &&
     (
       candidate.factionId === undefined ||
       candidate.factionId === null ||

@@ -18,6 +18,46 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
     throw new Error("Mode config requires a positive maxAllianceSize.");
   }
 
+  if (config.balance.maxAllianceSize > 4) {
+    throw new Error("Mode config allows alliances with at most 4 players.");
+  }
+
+  const allianceLifecycle = config.balance.allianceLifecycle;
+  if (allianceLifecycle) {
+    const readiness = allianceLifecycle.readiness;
+    for (const [key, value] of [
+      ["readyIntervalSeconds", readiness.readyIntervalSeconds],
+      ["readyButtonAvailableBeforeDueSeconds", readiness.readyButtonAvailableBeforeDueSeconds],
+      ["gracePeriodSeconds", readiness.gracePeriodSeconds],
+      ["voteDurationSeconds", readiness.voteDurationSeconds],
+      ["voteRetryCooldownSeconds", readiness.voteRetryCooldownSeconds],
+      ["exitPendingTimeoutSeconds", allianceLifecycle.exitPendingTimeoutSeconds]
+    ] as const) {
+      if (value < 0) {
+        throw new Error(`Alliance lifecycle config requires a non-negative ${key}.`);
+      }
+    }
+
+    if (readiness.readyIntervalSeconds <= 0 || readiness.voteDurationSeconds <= 0) {
+      throw new Error("Alliance lifecycle config requires positive READY and vote durations.");
+    }
+
+    if (readiness.readyButtonAvailableBeforeDueSeconds > readiness.readyIntervalSeconds) {
+      throw new Error("Alliance READY button window cannot exceed the READY interval.");
+    }
+
+    for (const [key, value] of [
+      ["voluntaryLeavePenalty", allianceLifecycle.voluntaryLeavePenalty],
+      ["inactiveKickPenalty", allianceLifecycle.inactiveKickPenalty],
+      ["disbandPenalty", allianceLifecycle.disbandPenalty],
+      ["administrativeRemovalPenalty", allianceLifecycle.administrativeRemovalPenalty]
+    ] as const) {
+      if (value.influenceGenerationMultiplier <= 0 || value.actionCooldownMultiplier <= 0) {
+        throw new Error(`Alliance lifecycle config requires positive multipliers for ${key}.`);
+      }
+    }
+  }
+
   const elimination = config.balance.elimination;
   if (elimination?.enabled) {
     for (const [key, value] of [

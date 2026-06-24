@@ -94,6 +94,7 @@ const createReservation = (
   now: Date
 ): ActiveReservation => ({
   reservationId: `reservation:${summary.serverInstanceId}:${playerId}:${now.getTime()}`,
+  joinTicket: "",
   serverInstanceId: summary.serverInstanceId,
   mode: summary.mode === "war" ? "war" : "free",
   region: summary.region,
@@ -121,6 +122,7 @@ const countReservationsForServer = (
 
 const stripPlayerId = (reservation: ActiveReservation): PublicServerReservation => ({
   reservationId: reservation.reservationId,
+  joinTicket: reservation.joinTicket,
   serverInstanceId: reservation.serverInstanceId,
   mode: reservation.mode,
   region: reservation.region,

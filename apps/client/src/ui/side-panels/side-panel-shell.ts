@@ -12,5 +12,5 @@ export interface SidePanelShellProps {
 
 export const renderSidePanelShell = ({ activePanel, contentHtml }: SidePanelShellProps): string =>
   activePanel
-    ? `<aside class="side-panel-shell" data-panel="${escapeAttribute(activePanel)}">${contentHtml}</aside>`
+    ? `<aside class="side-panel-shell mobile-sheet" data-panel="${escapeAttribute(activePanel)}"><div class="mobile-sheet__body">${contentHtml}</div></aside>`
     : "<aside class=\"side-panel-shell\" data-panel=\"none\"></aside>";

@@ -51,6 +51,19 @@ export const validateServerMapComposition = (
     }];
   }
 
+  if (
+    composition.commercial !== 40 ||
+    composition.industrial !== 38 ||
+    composition.residential !== 38 ||
+    composition.park !== 37
+  ) {
+    return [{
+      code: "server.invalid_map_composition",
+      message: "Server map composition must match the canonical Empire Streets city map manifest.",
+      details
+    }];
+  }
+
   return [];
 };
 

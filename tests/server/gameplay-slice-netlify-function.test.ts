@@ -183,9 +183,9 @@ describe("gameplay slice Netlify function", () => {
         totalDistricts: 161,
         downtownDistricts: 8,
         commercialDistricts: 40,
-        industrialDistricts: 35,
-        residentialDistricts: 48,
-        parkDistricts: 30
+        industrialDistricts: 38,
+        residentialDistricts: 38,
+        parkDistricts: 37
       }
     }));
   });

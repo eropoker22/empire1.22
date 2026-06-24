@@ -1,5 +1,6 @@
 export * from "./command-log-repository";
 export * from "./command-reservation-repository";
+export * from "./command-result-repository";
 export * from "./diagnostic-log-repository";
 export * from "./event-log-repository";
 export * from "./file-command-log-repository";
@@ -10,7 +11,10 @@ export * from "./file-persistence-utils";
 export * from "./file-snapshot-repository";
 export * from "./in-memory-command-log-repository";
 export * from "./in-memory-command-reservation-repository";
+export * from "./in-memory-command-result-repository";
 export * from "./in-memory-diagnostic-log-repository";
 export * from "./in-memory-event-log-repository";
+export * from "./in-memory-outbox-repository";
 export * from "./in-memory-snapshot-repository";
+export * from "./outbox-repository";
 export * from "./snapshot-repository";

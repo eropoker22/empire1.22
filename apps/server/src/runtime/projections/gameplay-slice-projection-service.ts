@@ -5,7 +5,12 @@ import {
   createOnboardingReadModel,
   createPoliceReadModel
 } from "@empire/game-core";
-import { toPublicModeConfig } from "@empire/game-config";
+import {
+  empireStreetsCityMapManifestHash,
+  empireStreetsCityMapManifestId,
+  empireStreetsCityMapManifestVersion,
+  toPublicModeConfig
+} from "@empire/game-config";
 import {
   SERVER_ASSIGNED_FOCUS_DISTRICT_ID,
   type DistrictId,
@@ -62,6 +67,9 @@ export const createGameplaySliceProjection = (
       currentTick: runtime.state.root.tick,
       stateVersion: runtime.state.root.version,
       selectedDistrictId: district?.districtId ?? null,
+      mapManifestId: empireStreetsCityMapManifestId,
+      mapManifestVersion: empireStreetsCityMapManifestVersion,
+      mapManifestHash: empireStreetsCityMapManifestHash,
       generatedAt: runtime.clock.nowIso()
     },
     mode,

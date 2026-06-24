@@ -150,4 +150,13 @@ describe("runtime refactor guard", () => {
       expect(source).toContain(globalName);
     }
   });
+
+  it("blocks legacy authoritative robbery and defense mutations when server slice is ready", () => {
+    const source = runtimeSource();
+
+    expect(source).toContain("function isServerAuthoritativeGameplayRuntimeReady()");
+    expect(source).toContain('document.body?.dataset?.gameplayRuntime === "server-authoritative-ready"');
+    expect(source).toContain("Legacy lokální robbery výsledek je vypnutý.");
+    expect(source).toContain("Legacy lokální defense loadout je vypnutý.");
+  });
 });

@@ -2,7 +2,9 @@
 
 ## Implementation Status
 
-Status as of 2026-05-29: Phase A, Phase B, Phase C, and Phase D implemented for the server command submit path.
+Status as of 2026-06-24: command reservation is now part of the atomic command execution boundary. See `docs/atomic-command-execution.md` for result replay, latest snapshot persistence, outbox publication, and crash-injection coverage.
+
+Historical status as of 2026-05-29: Phase A, Phase B, Phase C, and Phase D implemented for the server command submit path.
 
 Phase A added the backend persistence boundary: `CommandReservationRepository`, command reservation record types, and an in-memory implementation with unit coverage.
 

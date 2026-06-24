@@ -5,6 +5,7 @@ import { createCommandDispatcher, type ClientTransport } from "../transport";
 import { createClientAppShell, type ClientAppShell } from "./client-app-shell";
 import { createInitialClientRenderState, type ClientRenderState } from "./client-render-state";
 import { renderClientShell } from "./client-shell-renderer";
+import { getMapManifestMismatch, hasCurrentMapManifestMismatch } from "./map-manifest-guard";
 
 /**
  * Responsibility: Client composition root that wires store, transport, and UI shell boundaries.
@@ -27,7 +28,11 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
   ): ClientRenderState => {
     const hasAuthoritativeReadModel = Boolean(response.readModel);
     const missingReadModelMessage = "Gameplay slice response did not include an authoritative read model.";
-    const firstErrorMessage = response.errors[0]?.message ?? null;
+    const mapManifestMismatch = getMapManifestMismatch(response);
+    const responseErrors = mapManifestMismatch
+      ? [...response.errors, mapManifestMismatch]
+      : response.errors;
+    const firstErrorMessage = responseErrors[0]?.message ?? null;
 
     if (response.readModel) {
       const serverSelectedDistrictId = response.readModel.district?.districtId ??
@@ -58,11 +63,11 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
           }
         : null
     ));
-    store.setErrors(response.errors);
+    store.setErrors(responseErrors);
     store.setConnectionState({
-      status: hasAuthoritativeReadModel ? "ready" : "error",
+      status: hasAuthoritativeReadModel && !mapManifestMismatch ? "ready" : "error",
       lastErrorMessage: firstErrorMessage ?? (hasAuthoritativeReadModel ? null : missingReadModelMessage),
-      staleData: response.errors.length > 0 || !hasAuthoritativeReadModel
+      staleData: responseErrors.length > 0 || !hasAuthoritativeReadModel
     });
     renderState = renderClientShell(store);
     return renderState;
@@ -163,6 +168,11 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
     },
     dispatch: async (command: GameCommand) => {
       const uiState = store.getUiState();
+      const currentSlice = store.getReadModel().gameplaySlice;
+
+      if (hasCurrentMapManifestMismatch(currentSlice)) {
+        return commitTransportFailure("Client map manifest does not match the server map manifest. Map actions are disabled.", command.id);
+      }
 
       if (!uiState.selectedDistrictId && command.type !== "select-spawn-district") {
         return commitTransportFailure("No district is selected for the district panel slice.", command.id);

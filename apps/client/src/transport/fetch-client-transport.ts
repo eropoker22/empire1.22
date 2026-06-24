@@ -32,7 +32,8 @@ export const createFetchClientTransport = (
     }
 
     const requestWithTokens = attachStoredGameplaySliceTokens(route, request, storage);
-    const endpoint = `${endpointBase}/${route}`;
+    const endpointRoute = resolveEndpointRoute(route, requestWithTokens, storage);
+    const endpoint = `${endpointBase}/${endpointRoute}`;
     const response = await fetchJson(endpoint, {
       method: "POST",
       headers: {
@@ -64,7 +65,7 @@ const attachStoredGameplaySliceTokens = <TRequest>(
   const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
   const sessionKey = createGameplaySliceTokenStorageKey("session", request);
   const snapshotToken = snapshotKey ? readToken(storage, snapshotKey) : null;
-  const sessionToken = route === "submit" && sessionKey ? readToken(storage, sessionKey) : null;
+  const sessionToken = sessionKey ? readToken(storage, sessionKey) : null;
 
   return snapshotToken || sessionToken
     ? {
@@ -73,6 +74,22 @@ const attachStoredGameplaySliceTokens = <TRequest>(
         ...(sessionToken ? { sessionToken } : {})
       } as TRequest
     : request;
+};
+
+const resolveEndpointRoute = <TRequest>(
+  route: "load" | "submit",
+  request: TRequest,
+  storage: Storage | null
+): "load" | "submit" | "join" => {
+  if (route !== "load") {
+    return route;
+  }
+  const record = request as { joinTicket?: unknown };
+  const sessionKey = createGameplaySliceTokenStorageKey("session", request);
+  const sessionToken = sessionKey ? readToken(storage, sessionKey) : null;
+  return !sessionToken && String(record.joinTicket ?? "").trim()
+    ? "join"
+    : "load";
 };
 
 const persistGameplaySliceTokens = (
@@ -91,6 +108,13 @@ const persistGameplaySliceTokens = (
 
   if (sessionKey && sessionToken) {
     writeToken(storage, sessionKey, sessionToken);
+  }
+  const serverSessionKey = createGameplaySliceTokenStorageKey("session", {
+    serverInstanceId: response.readModel?.server.serverInstanceId,
+    playerId: response.readModel?.player.playerId
+  });
+  if (serverSessionKey && sessionToken) {
+    writeToken(storage, serverSessionKey, sessionToken);
   }
 };
 
@@ -136,7 +160,7 @@ const createGameplaySliceTokenStorageKey = (
 
 const resolveBrowserStorage = (): Storage | null => {
   try {
-    return globalThis.localStorage ?? null;
+    return globalThis.sessionStorage ?? null;
   } catch (_error) {
     return null;
   }

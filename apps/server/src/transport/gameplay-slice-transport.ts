@@ -13,9 +13,11 @@ import { createGameplaySliceProjection } from "../runtime/projections";
 import type { ServerCommandIngress } from "./command-ingress";
 import { validateCommandPlayerIdentity } from "./player-identity-guard";
 import type { GameplaySessionTokenCodec } from "./gameplay-session-token-codec";
+import type { GameplaySessionService } from "../auth";
 
 export interface GameplaySliceTransportOptions {
   sessionTokenCodec?: GameplaySessionTokenCodec | null;
+  gameplaySessionService?: GameplaySessionService | null;
 }
 
 /**
@@ -33,27 +35,16 @@ export const createGameplaySliceTransport = (
   commandIngress: ServerCommandIngress,
   options: GameplaySliceTransportOptions = {}
 ): GameplaySliceTransport => {
-  const createGameplaySessionToken = (
-    runtime: ServerInstanceRuntime,
-    playerId: string
-  ): string | null => {
-    const player = runtime.state.playersById[playerId];
-    const issuedAt = runtime.clock.now();
-    const ttlMs = Math.max(1, runtime.config.technical.sessionTtlMs);
-
-    return player && options.sessionTokenCodec
-      ? options.sessionTokenCodec.seal({
-          serverInstanceId: runtime.record.id,
-          playerId: player.id,
-          factionId: player.factionId,
-          issuedAt: issuedAt.toISOString(),
-          expiresAt: new Date(issuedAt.getTime() + ttlMs).toISOString()
-        })
-      : null;
-  };
-
   return {
     load: (request) => {
+      const sessionResult = validateRequestSession(request.sessionToken, request.serverInstanceId);
+      if (!sessionResult.accepted) {
+        return {
+          accepted: false,
+          readModel: null,
+          errors: sessionResult.errors
+        };
+      }
       const runtime = instanceManager.getInstanceById(request.serverInstanceId);
 
       if (!runtime) {
@@ -62,13 +53,34 @@ export const createGameplaySliceTransport = (
 
       return {
         accepted: true,
-        readModel: createGameplaySliceProjection(runtime, request.playerId, request.districtId),
+        readModel: createGameplaySliceProjection(runtime, sessionResult.session.playerId, request.districtId),
         errors: [],
-        metadata: createGameplaySliceResponseMetadata(runtime),
-        sessionToken: createGameplaySessionToken(runtime, request.playerId)
+        metadata: createGameplaySliceResponseMetadata(runtime)
       };
     },
     submit: async (request, authContext) => {
+      const tokenPayload = options.sessionTokenCodec?.open(String(request.sessionToken ?? ""));
+      const sessionResult = validateRequestSession(tokenPayload?.sessionId, request.command.serverInstanceId);
+      if (!sessionResult.accepted) {
+        return {
+          accepted: false,
+          readModel: null,
+          errors: sessionResult.errors
+        };
+      }
+      if (
+        request.command.playerId !== sessionResult.session.playerId ||
+        request.command.serverInstanceId !== sessionResult.session.serverInstanceId
+      ) {
+        return {
+          accepted: false,
+          readModel: null,
+          errors: [{
+            code: "PLAYER_IDENTITY_MISMATCH",
+            message: "Command playerId does not match the gameplay session."
+          }]
+        };
+      }
       const identityErrors = validateCommandPlayerIdentity(request.command, authContext, {
         sessionToken: request.sessionToken,
         sessionTokenCodec: options.sessionTokenCodec
@@ -122,11 +134,10 @@ export const createGameplaySliceTransport = (
         return {
           accepted: false,
           readModel: runtime
-            ? createGameplaySliceProjection(runtime, request.command.playerId, null)
+            ? createGameplaySliceProjection(runtime, sessionResult.session.playerId, null)
             : null,
           errors,
           metadata: runtime ? createGameplaySliceResponseMetadata(runtime) : undefined,
-          sessionToken: runtime ? createGameplaySessionToken(runtime, request.command.playerId) : null
         };
       }
 
@@ -142,15 +153,46 @@ export const createGameplaySliceTransport = (
         accepted: dispatchResult.errors.length === 0,
         readModel: createGameplaySliceProjection(
           dispatchResult.runtime,
-          request.command.playerId,
+          sessionResult.session.playerId,
           request.focusDistrictId
         ),
         errors: dispatchResult.errors,
         metadata: createGameplaySliceResponseMetadata(dispatchResult.runtime),
-        sessionToken: createGameplaySessionToken(dispatchResult.runtime, request.command.playerId)
+        commandResult: dispatchResult.commandResult
+          ? {
+              commandId: dispatchResult.commandResult.commandId,
+              status: dispatchResult.commandResult.status,
+              rootVersionBefore: dispatchResult.commandResult.rootVersionBefore,
+              rootVersionAfter: dispatchResult.commandResult.rootVersionAfter,
+              eventCount: dispatchResult.commandResult.eventCount,
+              eventIds: dispatchResult.commandResult.eventIds,
+              snapshotId: dispatchResult.commandResult.snapshotId
+            }
+          : null
       };
     }
   };
+
+  function validateRequestSession(
+    sessionTokenOrId: string | null | undefined,
+    serverInstanceId: string
+  ): ReturnType<GameplaySessionService["validateSession"]> {
+    if (!options.gameplaySessionService) {
+      return {
+        accepted: false,
+        errors: [{
+          code: "SESSION_INVALID",
+          message: "Gameplay session repository is unavailable."
+        }]
+      };
+    }
+    const tokenPayload = options.sessionTokenCodec?.open(String(sessionTokenOrId ?? ""));
+    return options.gameplaySessionService.validateSession({
+      sessionId: tokenPayload?.sessionId ?? sessionTokenOrId,
+      serverInstanceId,
+      nowIso: new Date().toISOString()
+    });
+  }
 };
 
 const isServerAssignedFocusDistrictId = (

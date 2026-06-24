@@ -1,10 +1,10 @@
 import type { AuthContext, DomainError, GameCommand } from "@empire/shared-types";
 import type { GameplaySessionTokenCodec } from "./gameplay-session-token-codec";
 
-export const PLAYER_IDENTITY_MISMATCH_CODE = "transport.player_identity_mismatch";
-export const SESSION_TOKEN_MISSING_CODE = "transport.session_token_missing";
-export const SESSION_TOKEN_INVALID_CODE = "transport.session_token_invalid";
-export const SESSION_IDENTITY_MISMATCH_CODE = "transport.session_identity_mismatch";
+export const PLAYER_IDENTITY_MISMATCH_CODE = "PLAYER_IDENTITY_MISMATCH";
+export const SESSION_TOKEN_MISSING_CODE = "SESSION_REQUIRED";
+export const SESSION_TOKEN_INVALID_CODE = "SESSION_INVALID";
+export const SESSION_IDENTITY_MISMATCH_CODE = "PLAYER_IDENTITY_MISMATCH";
 
 export interface GameplaySessionIdentityGuardOptions {
   sessionToken?: string | null;

@@ -187,6 +187,7 @@ export function hasLockedFaction(registration = getRegistrationDraft()) {
 function createServerRegistrationFields(server) {
   const serverInstanceId = normalizeServerId(server.serverInstanceId || server.id);
   const serverId = normalizeServerId(server.id || server.serverInstanceId);
+  const joinTicket = normalizeText(server.joinTicket);
   return {
     activeServerId: serverId || serverInstanceId,
     activeServerInstanceId: serverInstanceId || serverId,
@@ -199,7 +200,8 @@ function createServerRegistrationFields(server) {
     serverInstanceId: serverInstanceId || serverId,
     serverLabel: server.name,
     serverMode: server.mode,
-    serverRegion: server.region
+    serverRegion: server.region,
+    ...(joinTicket ? { joinTicket } : {})
   };
 }
 

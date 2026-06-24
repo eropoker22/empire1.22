@@ -6,6 +6,7 @@ import {
   SPY_WARNING_MODAL_SUMMARY_SELECTOR,
   SPY_WARNING_MODAL_TITLE_SELECTOR
 } from "../runtime/constants.js";
+import { openOverlay } from "./legacyOverlayCoordinator.js";
 import {
   escapeModalHtml,
   renderActionResultRows,
@@ -124,6 +125,7 @@ export function renderSpyResult(result = {}, options = {}) {
     if ("hidden" in elements.modal) {
       elements.modal.hidden = false;
     }
+    openOverlay(elements.modal, { type: "modal", ariaModal: true });
   }
 
   return true;
@@ -189,5 +191,7 @@ export function renderSpyWarningPanel(root, payload = {}, options = {}) {
     </div>
   `;
   elements.modal.classList.remove("hidden");
+  elements.modal.removeAttribute("aria-hidden");
+  openOverlay(elements.modal, { type: "modal", ariaModal: true });
   return true;
 }

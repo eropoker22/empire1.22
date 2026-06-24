@@ -1,5 +1,8 @@
 export * from "./attack-command";
+export * from "./defense-command";
+export * from "./heist-command";
 export * from "./occupy-command";
+export * from "./rob-command";
 export * from "./select-spawn-command";
 export * from "./spy-command";
 export * from "./trap-command";
@@ -7,6 +10,7 @@ export * from "./trap-command";
 import type { DistrictPanelViewModel } from "../../selectors";
 import { escapeAttribute, escapeHtml } from "../../shared-ui";
 import { renderBuildingSlot, renderDistrictBuilding } from "../building-panel";
+import { renderBasicDistrictActionSections } from "./district-basic-action-sections";
 
 /**
  * Responsibility: Feature module boundary for district panel presentation.
@@ -125,6 +129,7 @@ export const renderDistrictPanel = (panel: DistrictPanelViewModel): string =>
           .join("")
       : `<p class="district-panel__empty-copy">Z tohoto distriktu není dostupný neutrální cíl obsazení.</p>`,
     `</section>`,
+    renderBasicDistrictActionSections(panel),
     `<section class="district-panel__section" data-attack-targets="true">`,
     `<div class="district-panel__section-head">`,
     `<div>`,

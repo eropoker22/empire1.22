@@ -35,7 +35,7 @@ if (fs.existsSync(serverSourceRoot)) {
 }
 
 const allowedApplyCommandFiles = new Set([
-  "apps/server/src/runtime/instance-manager/instance-command-dispatch.ts"
+  "apps/server/src/runtime/instance-manager/atomic-command-dispatcher.ts"
 ]);
 const allowedDispatchInstanceCommandFiles = new Set([
   "apps/server/src/runtime/instance-manager/instance-command-dispatch.ts",
@@ -55,6 +55,14 @@ for (const fullPath of productionSourceFiles) {
 
   if (source.includes("dispatchInstanceCommand") && !allowedDispatchInstanceCommandFiles.has(repoPath)) {
     violations.push(`${repoPath} references dispatchInstanceCommand outside InstanceLifecycleService`);
+  }
+
+  if (
+    source.includes("command-applied") &&
+    source.includes("eventPublisher.publish") &&
+    repoPath !== "apps/server/src/runtime/instance-manager/atomic-command-dispatcher.ts"
+  ) {
+    violations.push(`${repoPath} publishes command-applied events outside the durable outbox boundary`);
   }
 
   if (repoPath.startsWith("apps/server/src/transport/") || repoPath.startsWith("apps/server/src/netlify/")) {

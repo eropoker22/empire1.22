@@ -24,6 +24,8 @@ export const createDistrictCapabilitiesView = (
   const canSpy = evaluateAction(state, playerId, targetDistrictId, originDistrictId, "spy", reasons);
   const canRob = evaluateAction(state, playerId, targetDistrictId, originDistrictId, "rob", reasons);
   const canHeist = evaluateAction(state, playerId, targetDistrictId, originDistrictId, "heist", reasons);
+  const canPlaceDefense = evaluateAction(state, playerId, targetDistrictId, undefined, "place_defense", reasons);
+  const canRemoveDefense = evaluateAction(state, playerId, targetDistrictId, undefined, "remove_defense", reasons);
   const canAttack = evaluateAction(state, playerId, targetDistrictId, originDistrictId, "attack", reasons);
   const canOccupy = evaluateAction(state, playerId, targetDistrictId, originDistrictId, "occupy", reasons);
   const canPlaceTrap = evaluateAction(state, playerId, targetDistrictId, undefined, "place_trap", reasons);
@@ -33,6 +35,8 @@ export const createDistrictCapabilitiesView = (
     canSpy,
     canRob,
     canHeist,
+    canPlaceDefense,
+    canRemoveDefense,
     canAttack,
     canOccupy,
     canPlaceTrap,

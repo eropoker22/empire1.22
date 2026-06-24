@@ -59,6 +59,7 @@ export const ensureSharedCityMap = (
     const district = createSharedCityDistrict({
       instanceId,
       districtId: districtPlan.id,
+      name: districtPlan.name,
       ownerPlayerId: null,
       slotCount: config.buildSlotLimit,
       zone: districtPlan.zone,

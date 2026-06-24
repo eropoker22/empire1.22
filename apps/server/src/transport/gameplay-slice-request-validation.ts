@@ -41,11 +41,13 @@ export const validateLoadGameplaySliceRequest = (
   }
 
   requireStringField(errors, "load", value, "serverInstanceId");
-  requireStringField(errors, "load", value, "playerId");
+  validateOptionalStringField(errors, "load", value, "playerId");
   validateOptionalStringField(errors, "load", value, "districtId");
   validateOptionalStringField(errors, "load", value, "preferredStartDistrictId");
   validateOptionalStringField(errors, "load", value, "factionId");
   validateOptionalStringField(errors, "load", value, "snapshotToken");
+  validateOptionalStringField(errors, "load", value, "sessionToken");
+  validateOptionalStringField(errors, "load", value, "joinTicket");
 
   return errors.length > 0
     ? reject("load", errors)
