@@ -1,8 +1,10 @@
 import { createClientApp, createClientSurfaceActionRouter, type ClientRenderState } from "../app";
 import { escapeHtml, refreshLiveCooldownLabels } from "../shared-ui";
 import { createFetchClientTransport, createGameplaySlicePoller, type ClientTransport } from "../transport";
+import { createOverlayBackdrop } from "../modals/overlay-backdrop";
 import { resolveGameplaySliceBootstrapRequest } from "./gameplay-slice-bootstrap";
 import { persistServerConfirmedGameplaySliceFocus } from "./gameplay-slice-focus-cache";
+import { createDistrictSheetOverlayController } from "./gameplay-slice-overlays";
 import {
   createSafeErrorMessage,
   isGameplayDiagnosticsEnabled,
@@ -52,6 +54,8 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
   });
   const mounts = resolveMounts(options.root);
   let currentLoadRequest = request;
+  const overlayBackdrop = createOverlayBackdrop({ mount: options.root });
+  const districtSheetOverlay = createDistrictSheetOverlayController();
 
   const hideUnavailableGameplaySlice = (state: ClientRenderState | null = null): void => {
     const message = state?.connection.lastErrorMessage || "Gameplay slice did not return an authoritative read model.";
@@ -110,6 +114,8 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     mounts.map.innerHTML = state.mapHtml;
     mounts.panel.innerHTML = state.sidePanelHtml;
     refreshLiveCooldownLabels(options.root);
+    districtSheetOverlay.syncFromState(state);
+    overlayBackdrop.sync();
   };
 
   const handleClick = async (event: Event): Promise<void> => {
@@ -166,6 +172,9 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       poller.stop();
       window.clearInterval(cooldownTimerId);
       options.root.removeEventListener("click", handleClick);
+      districtSheetOverlay.closeOnDestroy();
+      overlayBackdrop.sync();
+      overlayBackdrop.destroy();
     }
   };
 };
