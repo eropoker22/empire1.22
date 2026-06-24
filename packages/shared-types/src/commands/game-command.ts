@@ -6,6 +6,7 @@ import type { CraftItemCommand } from "./craft-item-command";
 import type { OccupyDistrictCommand } from "./occupy-district-command";
 import type { PlaceTrapCommand } from "./place-trap-command";
 import type { RunBuildingActionCommand } from "./run-building-action-command";
+import type { SelectSpawnDistrictCommand } from "./select-spawn-district-command";
 import type { SpyDistrictCommand } from "./spy-district-command";
 
 /**
@@ -22,4 +23,5 @@ export type GameCommand =
   | OccupyDistrictCommand
   | PlaceTrapCommand
   | RunBuildingActionCommand
+  | SelectSpawnDistrictCommand
   | SpyDistrictCommand;

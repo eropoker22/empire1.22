@@ -51,5 +51,6 @@
 
 - submit `spy-district`, `place-trap`, and `attack-district` through the migrated command boundary
 - keep trap state hidden in the authoritative core and expose it only through owner projection or spy reports
-- resolve battle and spy outcomes in `packages/game-core`
+- resolve battle and spy outcomes in `packages/game-core`; spy currently has server-authoritative parity v2 for `success`, `partial`, `failed`, `critical_failed`, max two blocked spy slots, and success-only occupy unlock
 - return server-fed battle/spy reports inside the gameplay slice projection
+- attack commands are created only from enabled server-fed attack targets, transport rejects client-injected battle result fields, and smoke verifies no legacy `empire:attack-started` duplicate mutation occurs inside the slice

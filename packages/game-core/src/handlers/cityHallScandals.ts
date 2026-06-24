@@ -89,10 +89,8 @@ const resolveScandalConsequence = (
   };
   let nextState = state;
   const metadataPatch: Partial<CityHallMetadata> = {};
-  let rumorText: string | undefined;
   if (type === "leaked_documents") {
-    rumorText = formatCityHallLeakRumor(state, building);
-    nextState = appendCityHallRumor(nextState, building, rumorText, "medium", lobbyClubConfig);
+    nextState = appendCityHallRumor(nextState, building, "medium", lobbyClubConfig);
   } else if (type === "anti_corruption_pressure") {
     metadataPatch.influencePenaltyUntilTick = state.root.tick + minutesToTicks(config.corruptionScandal.influencePenaltyMinutes, tickRateMs);
   } else if (type === "frozen_contract") {
@@ -131,30 +129,6 @@ const resolveScandalConsequence = (
   return {
     state: nextState,
     metadataPatch,
-    event: { type, tick: state.root.tick, label: labelByType[type] ?? type, riskPct, rumorText }
+    event: { type, tick: state.root.tick, label: labelByType[type] ?? type, riskPct }
   };
-};
-
-const CITY_HALL_LEAK_RUMORS = [
-  "Z Magistrátu prý vytekly špinavé spisy. Razítka voní po úplatcích a reputace po kyselině.",
-  "Někdo tvrdí, že úřední složka změnila majitele dřív než razítko zaschlo. Úřad tomu říká efektivita.",
-  "Šeptá se o zakázce, která se narodila v kanceláři a vyrostla v cizí kapse. Krásná kariéra.",
-  "Zdroj říká, že městský papír má víc špíny než podpisů. A podpisů tam bylo dost.",
-  "Prý unikl seznam tichých laskavostí. Každá má cenu a každá kouše jako malý úředník.",
-  "Magistrát údajně pustil stopu, která spojuje vliv, cash a svědomí. Svědomí zatím nereaguje."
-];
-
-const formatCityHallLeakRumor = (
-  state: CoreGameState,
-  building: CoreGameState["buildingsById"][string]
-): string => {
-  const owner = building.ownerPlayerId ? state.playersById[building.ownerPlayerId] : undefined;
-  const name = owner?.name?.trim() || owner?.id || "někdo s vlivem";
-  const text = pickVariant(CITY_HALL_LEAK_RUMORS, `${state.serverInstance.worldSeed}:city-hall-leak:${building.id}:${state.root.tick}`);
-  return `${text} V chodbách prý padlo jméno ${name}, ale nikdo ho nepotvrdil. Všichni jen náhle obdivovali podlahu.`;
-};
-
-const pickVariant = (variants: string[], seed: string): string => {
-  const index = Math.floor(deterministicUnitInterval(seed) * variants.length);
-  return variants[index] ?? variants[0] ?? "";
 };

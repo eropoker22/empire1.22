@@ -38,9 +38,7 @@ export const createReportViewModels = (
     category: report.reportType,
     summary:
       report.reportType === "spy"
-        ? report.trapDetected
-          ? "Obrana potvrzena. Past odhalena."
-          : "Průzkum obrany vyhodnocen."
+        ? formatSpySummary(report)
         : report.reportType === "occupy"
           ? `Distrikt obsazen. Vliv -${report.influenceCost} · hledanost +${report.heatGained}.`
         : report.reportType === "building-action"
@@ -53,7 +51,11 @@ export const createReportViewModels = (
             ? "Distrikt dobyt."
             : "Distrikt udržel obránce.",
     result: report.result,
-    severity: report.reportType === "battle" && report.districtDestroyed ? "critical" : "normal",
+    severity: report.reportType === "battle" && report.districtDestroyed
+      ? "critical"
+      : report.reportType === "spy" && report.result === "critical_failed"
+        ? "critical"
+        : "normal",
     messages: report.reportType === "building-action"
       ? report.messages ?? []
       : report.reportType === "battle" && report.districtDestroyed
@@ -73,8 +75,10 @@ const formatReportDetails = (report: ConflictReportView): string[] => {
       `Zdroj ${report.sourceDistrictId}`,
       `Cíl ${report.targetDistrictId}`,
       `Intel obrany ${formatNumberRecord(report.detectedDefense)}`,
-      report.trapDetected ? "Past odhalena" : "Past neodhalena"
-    ];
+      report.trapDetected ? "Past odhalena" : "Past neodhalena",
+      report.occupyUnlocked ? "Obsazení odemčeno" : "Obsazení neodemčeno",
+      report.blockedUntilTick ? `Špeh blokován do ticku ${report.blockedUntilTick}` : ""
+    ].filter(Boolean);
   }
 
   if (report.reportType === "occupy") {
@@ -109,6 +113,24 @@ const formatReportDetails = (report: ConflictReportView): string[] => {
     `Vliv ${formatSigned(report.influenceDelta ?? report.influenceChange)}`,
     report.message ?? ""
   ].filter(Boolean);
+};
+
+const formatSpySummary = (report: Extract<ConflictReportView, { reportType: "spy" }>): string => {
+  if (report.result === "success") {
+    return report.trapDetected
+      ? "Obrana potvrzena. Past odhalena. Obsazení odemčeno."
+      : "Obrana potvrzena. Obsazení odemčeno.";
+  }
+
+  if (report.result === "partial") {
+    return "Částečný intel získán. Obsazení zůstává zamčené.";
+  }
+
+  if (report.result === "critical_failed") {
+    return `Kritické selhání. Obsazení zůstává zamčené. Hledanost +${report.heatGained}.`;
+  }
+
+  return "Špehování selhalo. Obsazení zůstává zamčené.";
 };
 
 const formatBuildingActionSummary = (report: Extract<ConflictReportView, { reportType: "building-action" }>): string => {

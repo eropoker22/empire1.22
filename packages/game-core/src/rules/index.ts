@@ -13,6 +13,7 @@ export * from "./elimination";
 export * from "./events";
 export * from "./factions/factionRules";
 export * from "./heists";
+export * from "./map";
 export * from "./market";
 export * from "./police/evaluatePolicePressure";
 export * from "./police/heatDecay";

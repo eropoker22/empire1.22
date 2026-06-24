@@ -210,6 +210,7 @@ export const createCombatStateFixture = (instanceId = "instance:1") => {
       cash: 1000
     }
   });
+  seedSuccessfulSpyIntel(state, attacker.id, ownedDistrict.id, defendedDistrict.id, defender.id);
   state.root.playerIds.push(attacker.id, defender.id);
   state.root.districtIds.push(ownedDistrict.id, defendedDistrict.id);
 
@@ -227,3 +228,46 @@ export const createResourceStateFixture = (
   lastUpdatedTick: overrides.lastUpdatedTick ?? 0,
   version: overrides.version ?? 1
 });
+
+export const seedSuccessfulSpyIntel = (
+  state: ReturnType<typeof createInitialState>,
+  playerId: string,
+  sourceDistrictId: string,
+  targetDistrictId: string,
+  targetOwnerPlayerId: string | null = state.districtsById[targetDistrictId]?.ownerPlayerId ?? null
+): void => {
+  const notificationId = `notification:spy-success:${playerId}:${targetDistrictId}`;
+  state.notificationsById[notificationId] = {
+    id: notificationId,
+    recipientType: "player",
+    recipientId: playerId,
+    category: "report.spy",
+    title: `Spy report: ${targetDistrictId}`,
+    bodyKey: "report.spy",
+    payload: {
+      reportId: `report:spy-success:${playerId}:${targetDistrictId}`,
+      reportType: "spy",
+      actionType: "spy-district",
+      playerId,
+      attackerPlayerId: playerId,
+      sourceDistrictId,
+      targetDistrictId,
+      targetOwnerPlayerId,
+      targetStateAtSpy: targetOwnerPlayerId ? "owned" : "empty",
+      targetVersionAtSpy: state.districtsById[targetDistrictId]?.version ?? 1,
+      purpose: targetOwnerPlayerId ? "attack_owned_district" : "occupy_empty_district",
+      result: "success",
+      detectedDefense: {},
+      trapDetected: false,
+      attackAuthorizationExpiresAtTick: state.root.tick + 120,
+      tick: state.root.tick,
+      createdAt: new Date(0).toISOString(),
+      eventId: null
+    },
+    createdAt: new Date(0).toISOString(),
+    readAt: null
+  };
+  if (!state.root.notificationIds.includes(notificationId)) {
+    state.root.notificationIds.push(notificationId);
+  }
+};

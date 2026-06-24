@@ -13,7 +13,6 @@ export interface LobbyClubScandalEvent {
   tick: number;
   label: string;
   riskPct: number;
-  rumorText?: string;
 }
 
 export interface LobbyClubMetadata {

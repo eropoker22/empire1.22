@@ -25,6 +25,10 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
     selectedDistrictId?: string | null,
     commandId?: string
   ): ClientRenderState => {
+    const hasAuthoritativeReadModel = Boolean(response.readModel);
+    const missingReadModelMessage = "Gameplay slice response did not include an authoritative read model.";
+    const firstErrorMessage = response.errors[0]?.message ?? null;
+
     if (response.readModel) {
       const serverSelectedDistrictId = response.readModel.district?.districtId ??
         response.readModel.player.homeDistrictId ??
@@ -56,9 +60,9 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
     ));
     store.setErrors(response.errors);
     store.setConnectionState({
-      status: "ready",
-      lastErrorMessage: response.errors[0]?.message ?? null,
-      staleData: response.errors.length > 0
+      status: hasAuthoritativeReadModel ? "ready" : "error",
+      lastErrorMessage: firstErrorMessage ?? (hasAuthoritativeReadModel ? null : missingReadModelMessage),
+      staleData: response.errors.length > 0 || !hasAuthoritativeReadModel
     });
     renderState = renderClientShell(store);
     return renderState;
@@ -118,8 +122,10 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
       try {
         const response = await transport.load(request);
         return commitResponse(response, request.districtId);
-      } catch (_error) {
-        return commitTransportFailure("Unable to load gameplay slice from server.");
+      } catch (error) {
+        return commitTransportFailure(
+          createTransportFailureMessage("Unable to load gameplay slice from server.", error)
+        );
       }
     },
     selectDistrict: async (districtId: string) => {
@@ -142,8 +148,10 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
       try {
         const response = await transport.load(request);
         return commitResponse(response, districtId);
-      } catch (_error) {
-        return commitTransportFailure("Unable to load selected district from server.");
+      } catch (error) {
+        return commitTransportFailure(
+          createTransportFailureMessage("Unable to load selected district from server.", error)
+        );
       }
     },
     selectBuilding: async (buildingId: string | null) => {
@@ -156,7 +164,7 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
     dispatch: async (command: GameCommand) => {
       const uiState = store.getUiState();
 
-      if (!uiState.selectedDistrictId) {
+      if (!uiState.selectedDistrictId && command.type !== "select-spawn-district") {
         return commitTransportFailure("No district is selected for the district panel slice.", command.id);
       }
 
@@ -164,11 +172,14 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
         pendingCommandIds: [...uiState.pendingCommandIds, command.id]
       });
       renderState = renderClientShell(store);
+      const focusDistrictId = command.type === "select-spawn-district"
+        ? command.payload.districtId
+        : uiState.selectedDistrictId!;
 
       try {
         const response = await dispatcher.dispatch({
           command,
-          focusDistrictId: uiState.selectedDistrictId,
+          focusDistrictId,
           expectedStateVersion: store.getReadModel().gameplaySliceMetadata?.stateVersion ?? null
         });
         store.patchUiState({
@@ -187,10 +198,18 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
             .filter((pendingCommandId) => pendingCommandId !== command.id)
         });
 
-        return commitTransportFailure("Unable to submit gameplay command to server.", command.id);
+        return commitTransportFailure(
+          createTransportFailureMessage("Unable to submit gameplay command to server.", _error),
+          command.id
+        );
       }
     },
     getRenderState: () => renderState,
     getGameplaySlice: () => store.getReadModel().gameplaySlice
   });
+};
+
+const createTransportFailureMessage = (fallback: string, error: unknown): string => {
+  const detail = error instanceof Error ? error.message.trim() : "";
+  return detail ? `${fallback} ${detail}` : fallback;
 };

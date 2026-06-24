@@ -13,6 +13,7 @@ export interface ClientSurfaceActionElement {
 
 export type ClientSurfaceAction =
   | { kind: "select-district"; districtId: string }
+  | { kind: "select-spawn"; districtId: string }
   | { kind: "attack"; targetDistrictId: string }
   | { kind: "spy"; targetDistrictId: string }
   | { kind: "occupy"; targetDistrictId: string }

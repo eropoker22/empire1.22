@@ -4,6 +4,7 @@ import type { CraftBuildingBalanceConfig, PowerStationBalanceConfig } from "../c
 import { resolvePowerStationInfrastructureMultiplier } from "../handlers/powerStationBuildingActions";
 import { composeEntityId } from "../utils";
 import { createDistrictAttackTargetViews } from "./district-attack-target-projection";
+import { createDistrictCapabilitiesView } from "./district-capabilities-projection";
 import { createDistrictPanelBuildingViews } from "./district-building-action-projection";
 import { createDistrictOccupyTargetViews } from "./district-occupy-target-projection";
 import type { DistrictPanelProjectionInput } from "./district-panel-projection-types";
@@ -90,6 +91,7 @@ export const createDistrictPanelView = (
     spyTargets: isDestroyed ? [] : spyTargets,
     occupyTargets: isDestroyed ? [] : occupyTargets,
     trap: isDestroyed ? null : trap,
+    capabilities: createDistrictCapabilitiesView(state, input.playerId, district.id),
     slots: isDestroyed ? [] : Array.from({ length: district.slotCount }, (_value, slotIndex) => {
       const buildingId = district.buildingIds[slotIndex];
       const building = buildingId ? state.buildingsById[buildingId] : undefined;

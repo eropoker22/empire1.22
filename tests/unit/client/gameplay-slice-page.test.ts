@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { GameplaySliceView } from "@empire/shared-types";
+import { createClientApp } from "../../../apps/client/src/app";
 import { createInitialClientRenderState } from "../../../apps/client/src/app/client-render-state";
 import {
   persistServerConfirmedGameplaySliceFocus,
-  renderGameplaySliceStatus
+  renderGameplaySliceStatus,
+  setGameplayRuntimeMarker
 } from "../../../apps/client/src/browser/gameplay-slice-page";
 import { renderTopBarShell } from "../../../apps/client/src/ui/top-bar/top-bar-shell";
 
@@ -85,6 +87,38 @@ describe("gameplay slice page storage cache", () => {
 });
 
 describe("gameplay slice page fallback cells", () => {
+  it("treats a load response without a read model as a runtime error", async () => {
+    const client = createClientApp({
+      transport: {
+        load: async () => ({
+          accepted: false,
+          readModel: null,
+          errors: [
+            {
+              code: "transport.not_found",
+              message: "Gameplay slice endpoint was not found."
+            }
+          ]
+        }),
+        send: async () => ({
+          accepted: false,
+          readModel: null,
+          errors: []
+        })
+      }
+    });
+
+    const state = await client.load({
+      serverInstanceId: "instance:test",
+      playerId: "player:test",
+      factionId: "mafian"
+    });
+
+    expect(state.connection.status).toBe("error");
+    expect(state.connection.lastErrorMessage).toBe("Gameplay slice endpoint was not found.");
+    expect(client.getGameplaySlice()).toBeNull();
+  });
+
   it("omits projection loading and transport error cells from game status html", () => {
     const html = renderGameplaySliceStatus({
       ...createInitialClientRenderState(),
@@ -109,5 +143,37 @@ describe("gameplay slice page fallback cells", () => {
 
   it("omits the player projection loading header", () => {
     expect(renderTopBarShell({ player: null })).toBe("");
+  });
+});
+
+describe("gameplay slice runtime marker", () => {
+  it("writes a stable DOM marker for server-authoritative errors and legacy fallback", () => {
+    const previousDocument = globalThis.document;
+    const body = { dataset: {} as Record<string, string> };
+    globalThis.document = { body } as unknown as Document;
+    const root = { dataset: {} } as HTMLElement;
+
+    try {
+      setGameplayRuntimeMarker(root, "server-authoritative-error", {
+        endpoint: "/api/gameplay-slice/load",
+        error: "Gameplay slice request failed: POST /api/gameplay-slice/load returned HTTP 404.",
+        fallback: "legacy"
+      });
+
+      expect(root.dataset.gameplayRuntime).toBe("server-authoritative-error");
+      expect(root.dataset.gameplaySliceEndpoint).toBe("/api/gameplay-slice/load");
+      expect(root.dataset.gameplayFallback).toBe("legacy");
+      expect(body.dataset.gameplayRuntime).toBe("server-authoritative-error");
+      expect(body.dataset.gameplayFallback).toBe("legacy");
+
+      setGameplayRuntimeMarker(root, "server-authoritative-ready");
+
+      expect(root.dataset.gameplayRuntime).toBe("server-authoritative-ready");
+      expect(root.dataset.gameplayFallback).toBeUndefined();
+      expect(body.dataset.gameplayRuntime).toBe("server-authoritative-ready");
+      expect(body.dataset.gameplayFallback).toBeUndefined();
+    } finally {
+      globalThis.document = previousDocument;
+    }
   });
 });

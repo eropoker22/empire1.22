@@ -30,7 +30,6 @@ export const freeModeConvenienceStoreConfig: ConvenienceStoreBalanceConfig = {
     "small_conflict",
     "police_patrol",
     "robbery_preparation",
-    "possible_trap",
     "weak_defense",
     "dirty_cash_movement",
     "fake"

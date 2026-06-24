@@ -166,7 +166,7 @@ export const resolveStripClubAction = (input: {
       influenceChange: -config.barWhispers.influenceCost,
       inputCost: { influence: config.barWhispers.influenceCost },
       outputGain: {},
-      reportText: `Šeptanda u baru: ${rumor.text}`,
+      reportText: "Šeptanda u baru dorazila do city feedu.",
       stripClubResult: { type: "rumor_generation", rumor }
     };
   }
@@ -310,8 +310,8 @@ export const applyStripClubPassiveRumors = (
         building,
         source: "strip_club",
         rumor,
-        severity: rumor.type === "traps" ? "low" : "medium",
-        negative: ["relationships", "police", "traps", "laundering"].includes(rumor.type)
+        severity: "medium",
+        negative: ["relationships", "police", "laundering"].includes(rumor.type)
       }));
     }
     buildingsById = {
@@ -354,12 +354,11 @@ const generateStripClubRumor = (input: {
 }): StripClubRumor => {
   const stats = resolveStripClubRumorStats({ state: input.state, playerId: input.playerId, config: input.config });
   const rawType = input.forcedType ?? input.config.rumorTypes[Math.floor(deterministicRollPct(`${input.seed}:type`) / 100 * input.config.rumorTypes.length)] ?? "fake";
-  const type = rawType === "traps" && deterministicRollPct(`${input.seed}:trap-ultra-rare`) >= 1.25 ? "fake" : rawType;
-  const truthChancePct = type === "traps" ? Math.min(24, stats.truthChancePct) : stats.truthChancePct;
+  const type = rawType === "traps" ? "fake" : rawType;
+  const truthChancePct = stats.truthChancePct;
   const isTrue = input.forcedFalse === true ? false : deterministicRollPct(`${input.seed}:truth`) < truthChancePct;
   const districtHint = deterministicRollPct(`${input.seed}:district`) < stats.districtHintChancePct ? pickDistrictHint(input.state, input.seed) : null;
   const buildingHint = deterministicRollPct(`${input.seed}:building`) < stats.buildingHintChancePct ? pickBuildingHint(input.state, input.seed) : null;
-  const rivalHint = pickRivalPlayerHint(input.state, input.playerId, input.seed);
   const verifiedIntel = stats.verifiedIntelEligible && isTrue && deterministicRollPct(`${input.seed}:verified`) < 18;
   return {
     type,
@@ -369,105 +368,9 @@ const generateStripClubRumor = (input: {
     buildingHint,
     probabilityVisible: stats.probabilityVisible,
     verifiedIntel,
-    text: formatRumorText(type, isTrue, districtHint, buildingHint, rivalHint, verifiedIntel, input.seed)
+    text: ""
   };
 };
-
-const formatRumorText = (
-  type: string,
-  isTrue: boolean,
-  districtHint: string | null,
-  buildingHint: string | null,
-  rivalHint: string | null,
-  verifiedIntel: boolean,
-  seed: string
-): string => {
-  const prefix = pickVariant(verifiedIntel ? STRIP_CLUB_VIP_PREFIXES : STRIP_CLUB_PREFIXES, `${seed}:prefix`);
-  const truth = isTrue
-    ? pickVariant(["možná na tom něco je", "zdroj tomu věří víc, než je zdravé, což je v tomhle klubu dost nízká laťka", "nikdo to nepotvrdil, ale stopa drží tvar líp než účetnictví"], `${seed}:truth-wording`)
-    : pickVariant(["možná je to nastrčený šum", "někdo tím možná jen špiní cizí jméno, levně a s leskem", "stopa může být toxická návnada, ale aspoň má styl"], `${seed}:false-wording`);
-  const detail = [districtHint ? `kolem ${districtHint}` : "", buildingHint ? `u podniku typu ${buildingHint}` : ""].filter(Boolean).join(", ");
-  const rival = rivalHint ? ` V boxu prý padlo jméno ${rivalHint}, ale šeptem; i stěny tam mají právníka.` : "";
-  return `${prefix}: ${formatStripClubRumorSubject(type, seed)}. ${truth}${detail ? `, ${detail}` : ""}.${rival}`;
-};
-
-const STRIP_CLUB_PREFIXES = [
-  "Z klubového kouře se šeptá",
-  "Barman prý slyšel pod basou",
-  "U červeného světla někdo sykl",
-  "Z privátního boxu vyteklo",
-  "Tanečnice prý zachytila mezi účty a špatnými rozhodnutími"
-];
-
-const STRIP_CLUB_VIP_PREFIXES = [
-  "VIP zdroj v klubu tvrdí",
-  "Drahý stůl pustil tichou stopu",
-  "Host s neprůstřelným úsměvem naznačil",
-  "Z klubového patra přišla čistší šeptanda",
-  "Zdroj za sametem říká"
-];
-
-const STRIP_CLUB_RUMOR_SUBJECTS: Record<string, string[]> = {
-  money: [
-    "někdo tam pere cash přes mokré účtenky a slepé kamery; pračka by se styděla",
-    "cash teče přes šampaňské tak hladce, až to smrdí draze",
-    "jeden hráč možná nafukuje čistý účet špinavým spodkem",
-    "peníze se tam údajně lámou přes malé účty a velká spropitná, klasická matematika bez svědomí",
-    "někdo zvedá produkci cashflow, ale nechává za sebou mastnou stopu a účetní migrénu"
-  ],
-  relationships: [
-    "špinavý kompromat teče přes VIP boxy a může otrávit reputaci; reputace má slabý žaludek",
-    "něčí spojenectví prý drží na fotce, která neměla vzniknout, ale osvětlení bylo bohužel skvělé",
-    "u jednoho stolu se líbalo moc rukou a málo smluv",
-    "toxická historka může zlomit důvěru mezi dvěma hráči",
-    "někdo možná vyměnil loajalitu za noc pod špatným světlem"
-  ],
-  police: [
-    "modré oči se údajně dívají blíž, než by měly, a nekoukají na program",
-    "policie prý zná rytmus jedné zadní chodby. DJ z toho radost nemá",
-    "něčí heat už možná prosákl až k šatně, což je nejhorší druh parfému",
-    "hlídky se údajně ptaly na jméno, které v klubu zní moc často",
-    "u baru se šeptalo, že další chyba přitáhne razii"
-  ],
-  attacks: [
-    "někdo si prý platí noc, aby ráno věděl, kam udeřit",
-    "mapa districtu ležela pod sklenkou a nikdo se netvářil opile",
-    "v boxu se údajně kupovaly informace o slabém vstupu",
-    "někdo možná chystá úder, ale zatím si jen měří tep města",
-    "host prý sháněl lidi, kteří nekladou otázky před přestřelkou"
-  ],
-  storage: [
-    "bedny mizí přes servisní chodbu bez razítka",
-    "sklad se údajně vyprazdňuje dřív, než se rozsvítí zadní neon",
-    "někdo stahuje zásoby, jako by čekal špatnou noc",
-    "zboží prý cestuje po klubu rychleji než drinky",
-    "servisní dveře možná viděly víc materiálu než celý bar"
-  ],
-  traps: [
-    "některé trasy jsou prý moc tiché a lidi se z nich nevrací; město tomu říká ambiance",
-    "někdo varoval před ulicí, kde se zvuk láme špatným směrem",
-    "zdroj mluvil o podezřele prázdném bloku, ale nic nepotvrdil",
-    "prý existuje cesta, kde se i tvrdí lidé začnou dívat přes rameno a pak předstírají, že si rovnají límec",
-    "někdo možná připravil nepříjemné uvítání, ale jméno ani místo nesedí jistě"
-  ],
-  laundering: [
-    "účty voní parfémem, ale pod nimi hnije špinavý cash",
-    "někdo údajně myje peníze přes drahé noci a levné alibi",
-    "čisté účty mají prý pod lakem špínu",
-    "finance jednoho hráče možná prošly koupelí, která nechává fleky",
-    "spropitné je moc velké a účetní moc klidná"
-  ],
-  fake: [
-    "historka zní sladce, ale může být jen toxická návnada",
-    "někdo v klubu prodává lež zabalenou do parfému",
-    "jméno možná padlo schválně, aby shořel někdo jiný",
-    "stopa má příliš hezký tvar na to, aby nebyla vyřezaná",
-    "šeptanda možná patří na parket, ne do mapy"
-  ]
-};
-
-const formatStripClubRumorSubject = (type: string, seed: string): string =>
-  pickVariant(STRIP_CLUB_RUMOR_SUBJECTS[type] ?? STRIP_CLUB_RUMOR_SUBJECTS.fake, `${seed}:subject`);
 
 const pickDistrictHint = (state: CoreGameState, seed: string): string | null => {
   const districts = Object.values(state.districtsById).filter((district) => district.status !== "destroyed");
@@ -478,15 +381,6 @@ const pickBuildingHint = (state: CoreGameState, seed: string): string | null => 
   const buildings = Object.values(state.buildingsById).filter((building) => building.status === "active");
   return buildings.length > 0 ? buildings[Math.floor(deterministicRollPct(`${seed}:building-index`) / 100 * buildings.length)]?.buildingTypeId ?? null : null;
 };
-
-const pickRivalPlayerHint = (state: CoreGameState, playerId: string, seed: string): string | null => {
-  const players = Object.values(state.playersById).filter((player) => player.id !== playerId && player.status === "active");
-  const player = players.length > 0 ? players[Math.floor(deterministicRollPct(`${seed}:rival-index`) / 100 * players.length)] : null;
-  return player?.name?.trim() || player?.id || null;
-};
-
-const pickVariant = (variants: string[], seed: string): string =>
-  variants[Math.floor(deterministicRollPct(`${seed}:variant`) / 100 * variants.length)] ?? variants[0] ?? "";
 
 const resolveContact = (
   config: StripClubBalanceConfig,

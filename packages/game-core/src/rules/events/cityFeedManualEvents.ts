@@ -1,4 +1,3 @@
-import { resolveRumorTemplate, type RumorTextTemplateKey } from "@empire/game-config";
 import type {
   CityFeedCategory,
   CityFeedEvent,
@@ -23,14 +22,13 @@ export interface CreateCityFeedEventInput {
   zone?: string;
   createdAtTick: number;
   message?: string;
-  messageKey?: RumorTextTemplateKey;
+  messageKey?: string;
   payload?: Record<string, unknown>;
 }
 
 export const createCityFeedEvent = (input: CreateCityFeedEventInput): CityFeedEvent => {
   const sourceEventId = safeKey(input.sourceEventId || `${input.sourceType}:${input.createdAtTick}`);
-  const messageKey = input.messageKey || resolveDefaultMessageKey(input.sourceType);
-  const district = input.districtId || "jedné z horkých čtvrtí";
+  const messageKey = input.messageKey || input.sourceType;
   return {
     id: `city-feed:${sourceEventId}`,
     sourceEventId,
@@ -45,7 +43,7 @@ export const createCityFeedEvent = (input: CreateCityFeedEventInput): CityFeedEv
     districtId: input.districtId,
     zone: input.zone,
     createdAtTick: Math.max(0, Math.floor(Number(input.createdAtTick || 0))),
-    message: input.message || resolveRumorTemplate(messageKey, hashText(sourceEventId), { district }),
+    message: input.message || "",
     messageKey: `rumor.${messageKey}`,
     payload: input.payload
   };
@@ -93,25 +91,19 @@ export const createTrapCityFeedEvent = (input: {
   payload?: Record<string, unknown>;
 }): CityFeedEvent =>
   createCityFeedEvent({
-    ...input,
-    sourceType: "trap",
-    category: "rumor",
+    sourceEventId: `atmosphere:${input.districtId || "city"}:${input.createdAtTick}`,
+    sourceType: "system",
+    category: "atmosphere",
     severity: "low",
-    truthiness: "false_possible",
-    intelType: "suspicion",
-    messageKey: "trap"
+    truthiness: "unconfirmed",
+    intelType: "rumor",
+    visibility: "all",
+    playerId: input.playerId,
+    districtId: input.districtId,
+    createdAtTick: input.createdAtTick,
+    messageKey: "atmosphere",
+    payload: { rumorCategory: "atmosphere" }
   });
-
-const resolveDefaultMessageKey = (sourceType: CityFeedSourceType): RumorTextTemplateKey => {
-  if (sourceType === "police_raid") return "police_raid";
-  if (sourceType === "police_warning") return "police_warning";
-  if (sourceType === "district_capture") return "district_capture";
-  if (sourceType === "trap") return "trap";
-  if (sourceType === "robbery") return "robbery";
-  if (sourceType === "market") return "black_market";
-  if (sourceType === "attack") return "attack_success";
-  return "police_warning";
-};
 
 const safeKey = (value: string): string =>
   String(value || "event")
@@ -119,5 +111,3 @@ const safeKey = (value: string): string =>
     .replace(/\s+/g, "-")
     .replace(/[^a-zA-Z0-9:._-]/g, "");
 
-const hashText = (value: string): number =>
-  Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 0);

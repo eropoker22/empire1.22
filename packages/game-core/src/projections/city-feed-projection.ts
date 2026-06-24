@@ -1,6 +1,6 @@
 import type { CityFeedEvent, CityFeedProjectionView } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
-import { CITY_FEED_DEFAULT_LIMIT } from "../rules/events";
+import { CITY_FEED_DEFAULT_LIMIT, compareCityFeedEvents, computeRumorFreshness } from "../rules/events";
 
 export interface CityFeedProjectionOptions {
   playerId?: string;
@@ -23,7 +23,12 @@ export const createCityFeedProjection = (
   const limit = Math.max(1, Math.floor(Number(options.limit || CITY_FEED_DEFAULT_LIMIT)));
   const events = Object.values(state.cityFeedEventsById ?? {})
     .filter((event): event is CityFeedEvent => Boolean(event?.id && event.message))
-    .sort((left, right) => right.createdAtTick - left.createdAtTick || right.id.localeCompare(left.id));
+    .filter((event) => event.expiresAtTick === undefined || event.expiresAtTick > state.root.tick)
+    .map((event) => ({
+      ...event,
+      freshness: computeRumorFreshness(event, state.root.tick)
+    }))
+    .sort(compareCityFeedEvents);
   const visibleEvents = events.filter((event) => isCityFeedEventVisible(event, options)).slice(0, limit);
 
   return {

@@ -143,10 +143,9 @@ const completePendingImport = (
       type: "express_import_customs_check",
       tick: state.root.tick,
       label: "Celní kontrola",
-      riskPct: config.expressImport.customsRiskPct,
-      rumorText: formatExpressImportCustomsRumor(state, building)
+      riskPct: config.expressImport.customsRiskPct
     };
-    nextState = addAirportHeatAndRumor(nextState, building, config.expressImport.customsHeatGain, customsEvent.rumorText, lobbyClubConfig);
+    nextState = addAirportHeatAndRumor(nextState, building, config.expressImport.customsHeatGain, true, lobbyClubConfig);
   }
   return {
     state: nextState,
@@ -162,22 +161,3 @@ const completePendingImport = (
   };
 };
 
-const EXPRESS_IMPORT_CUSTOMS_RUMORS = [
-  "Okolím Letiště prý proběhla tichá kontrola. Z kontejneru zmizel náklad a nikdo nechce říct čí.",
-  "Celníci údajně vytáhli část zásilky dřív, než se stihla zapsat do skladu. Administrativa tentokrát běžela rychleji než zločin.",
-  "Šeptá se, že expresní dovoz narazil na modré rukavice a drahé ticho.",
-  "U rampy prý chybělo pár beden. Manifest se tváří čistěji než realita, což je jeho práce.",
-  "Někdo tvrdí, že kontrola byla krátká, ale náklad po ní výrazně zhubnul. Dieta podle celní správy.",
-  "Zdroj z letiště říká, že zásilka prošla, jen ne celá. Zbytek prý spolkl systém a odříhl si."
-];
-
-const formatExpressImportCustomsRumor = (
-  state: CoreGameState,
-  building: CoreGameState["buildingsById"][string]
-): string => {
-  const owner = building.ownerPlayerId ? state.playersById[building.ownerPlayerId] : undefined;
-  const name = owner?.name?.trim() || owner?.id || "někdo s přístupem k runway";
-  const index = Math.floor(deterministicUnitInterval(`${state.serverInstance.worldSeed}:express-import-rumor:${building.id}:${state.root.tick}`) * EXPRESS_IMPORT_CUSTOMS_RUMORS.length);
-  const text = EXPRESS_IMPORT_CUSTOMS_RUMORS[index] ?? EXPRESS_IMPORT_CUSTOMS_RUMORS[0] ?? "";
-  return `${text} V čekárně prý padlo jméno ${name}, ale nikdo za něj neručí. Letištní židle slyšely horší věci.`;
-};

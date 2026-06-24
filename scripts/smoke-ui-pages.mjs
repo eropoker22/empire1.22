@@ -114,4 +114,4 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log("UI page smoke checks passed.");
+console.log("Legacy/static UI page smoke checks passed. This does not verify the server-authoritative gameplay slice.");

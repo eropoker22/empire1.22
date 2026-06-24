@@ -25,6 +25,13 @@ export {
   SHARED_CITY_TOTAL_DISTRICT_COUNT,
   sharedCitySpawnDistrictIds
 } from "./gameplay-slice-shared-city-map-constants";
+export {
+  enabledSharedCitySpawnDistrictIds,
+  findSharedCitySpawnCandidate,
+  sharedCitySpawnPool,
+  type SpawnCandidate,
+  type SpawnZone
+} from "./gameplay-slice-spawn-pool";
 export { validateServerMapComposition } from "./gameplay-slice-shared-city-composition";
 export { claimNextSharedCitySpawnDistrict } from "./gameplay-slice-shared-city-spawn";
 

@@ -92,8 +92,7 @@ const readLobbyClubMetadata = (building: CoreGameState["buildingsById"][string])
           type: String(entry.type || ""),
           tick: Math.floor(Number(entry.tick || 0)),
           label: String(entry.label || entry.type || ""),
-          riskPct: Number(entry.riskPct || 0),
-          rumorText: entry.rumorText ? String(entry.rumorText) : undefined
+          riskPct: Number(entry.riskPct || 0)
         })).filter((entry) => entry.type)
       : []
   };

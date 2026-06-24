@@ -8,6 +8,10 @@ import type { CityFeedProjectionView } from "./city-feed-view";
 import type { DayNightReadModel } from "./day-night-read-model-view";
 import type { EliminationReadModel } from "./elimination-read-model-view";
 import type { OnboardingReadModel } from "./onboarding-read-model-view";
+import type {
+  LobbySpawnDistrictView,
+  PlayerFrontierSummaryView
+} from "./map-capabilities-view";
 
 /**
  * Responsibility: Minimal server-fed read model for one migrated gameplay slice.
@@ -19,6 +23,8 @@ export interface GameplaySliceView {
   mode: GameplayModeView;
   player: PlayerView;
   commandHints: GameplaySliceCommandHintsView;
+  spawnSelection?: GameplaySliceSpawnSelectionView;
+  frontier?: PlayerFrontierSummaryView | null;
   dayNight?: DayNightReadModel | null;
   elimination?: EliminationReadModel | null;
   onboarding?: OnboardingReadModel | null;
@@ -27,6 +33,11 @@ export interface GameplaySliceView {
   districts: DistrictSummaryView[];
   district: DistrictPanelView | null;
   reports: ConflictReportView[];
+}
+
+export interface GameplaySliceSpawnSelectionView {
+  status: "awaiting_spawn_selection" | "ready_to_play";
+  districts: LobbySpawnDistrictView[];
 }
 
 export interface GameplaySliceServerMetadataView {

@@ -133,19 +133,16 @@ export const createAdminGameplaySliceDemo = (): AdminGameplaySliceDemo => {
       );
     },
     attack: async (targetDistrictId) => {
-      const selectedDistrictId = getSelectedDistrictId();
+      const slice = client.getGameplaySlice();
 
-      if (!selectedDistrictId) {
+      if (!slice) {
         return client.getRenderState();
       }
 
       return client.dispatch(
         createAttackDistrictCommand({
           commandId: nextCommandId("command:attack"),
-          serverInstanceId: bootstrapState.instanceId,
-          playerId: bootstrapState.playerId,
-          mode: bootstrapState.mode,
-          sourceDistrictId: selectedDistrictId,
+          slice,
           targetDistrictId,
           issuedAt: new Date().toISOString()
         })

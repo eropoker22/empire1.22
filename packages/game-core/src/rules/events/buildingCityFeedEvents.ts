@@ -1,4 +1,3 @@
-import { resolveRumorTemplate, type RumorTextTemplateKey } from "@empire/game-config";
 import type { CityFeedEvent, CityFeedSeverity, CityFeedSourceType } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";
 import type { CoreEvent } from "../../events";
@@ -33,7 +32,6 @@ export const createBuildingActionFeedEvents = (
       visibility: "all",
       playerId: stringValue(payload.playerId),
       districtId: stringValue(payload.districtId),
-      message: formatMarketPressureRumor(category, createSourceEventId(event, "market", state.root.tick)),
       payload: {
         actionId,
         buildingTypeId,
@@ -94,44 +92,30 @@ export const createCraftFeedEvents = (
 const createFeedEvent = (
   state: CoreGameState,
   event: CoreEvent,
-  input: Omit<CityFeedEvent, "id" | "createdAtTick" | "message" | "messageKey"> & { messageKey: RumorTextTemplateKey }
+  input: Omit<CityFeedEvent, "id" | "createdAtTick" | "message" | "messageKey"> & { messageKey: string }
 ): CityFeedEvent => {
   const sourceEventId = createSourceEventId(event, input.sourceType, state.root.tick);
-  const district = input.districtId ? (state.districtsById[input.districtId]?.name || input.districtId) : "jedné z horkých čtvrtí";
   return {
     id: `city-feed:${sourceEventId}`,
     sourceEventId,
     createdAtTick: state.root.tick,
     ...input,
     messageKey: `rumor.${input.messageKey}`,
-    message: resolveRumorTemplate(input.messageKey, hashText(sourceEventId), { district })
+    message: ""
   };
-};
-
-const MARKET_PRESSURE_RUMORS = [
-  "Burza prý v noci rozhoupala ceny v kategorii {category}. Nikdo nechce říct, kdo zatlačil první; peníze stejně neumí svědčit.",
-  "Grafy u {category} se údajně ohnuly moc čistě. Někdo možná trhem pohnul dřív než ostatní stihli mrknout.",
-  "Šeptá se, že {category} dnes netančí podle poptávky, ale podle cizí ruky. Trh má zase nového choreografa.",
-  "Zdroj z trading flooru říká, že {category} dostalo noční impuls bez jména. Takové impulsy bývají drahé.",
-  "Někdo prý zatlačil na {category} tak tiše, že si toho všimly jen peníze. Peníze jsou překvapivě upovídané.",
-  "Ceny v {category} se údajně pohnuly jako na povel. Trh tvrdí, že je to náhoda, což trh tvrdí vždycky."
-];
-
-const formatMarketPressureRumor = (category: string, seed: string): string => {
-  const template = MARKET_PRESSURE_RUMORS[Math.abs(hashText(`${seed}:market-pressure-text`)) % MARKET_PRESSURE_RUMORS.length] ?? MARKET_PRESSURE_RUMORS[0] ?? "";
-  return template.replace("{category}", category);
 };
 
 const createDirectFeedEvent = (
   state: CoreGameState,
   event: CoreEvent,
-  input: Omit<CityFeedEvent, "id" | "createdAtTick" | "messageKey"> & { message: string }
+  input: Omit<CityFeedEvent, "id" | "createdAtTick" | "message" | "messageKey">
 ): CityFeedEvent => {
   const sourceEventId = createSourceEventId(event, input.sourceType, state.root.tick);
   return {
     id: `city-feed:${sourceEventId}`,
     sourceEventId,
     createdAtTick: state.root.tick,
+    message: "",
     ...input
   };
 };
@@ -193,5 +177,3 @@ const signedNumericValue = (value: unknown): number => {
   return Number.isFinite(amount) ? amount : 0;
 };
 
-const hashText = (value: string): number =>
-  Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 0);

@@ -163,7 +163,7 @@ export const applyConvenienceStorePassiveRumors = (
         building,
         source: "convenience_store",
         rumor,
-        severity: rumor.type === "possible_trap" ? "low" : "medium"
+        severity: "medium"
       }));
     }
     buildingsById = updateBuildingMetadata(buildingsById, building, metadata);
@@ -194,13 +194,12 @@ const generateRumor = (input: {
 }): ConvenienceStoreRumor => {
   const stats = resolveConvenienceStoreRumorStats(input);
   const rawType = input.config.rumorTypes[Math.floor(deterministicRollPct(`${input.seed}:type`) / 100 * input.config.rumorTypes.length)] ?? "fake";
-  const type = rawType === "possible_trap" && deterministicRollPct(`${input.seed}:trap-ultra-rare`) >= 1.5 ? "fake" : rawType;
-  const truthChancePct = type === "possible_trap" ? Math.min(20, stats.truthChancePct) : stats.truthChancePct;
+  const type = rawType === "possible_trap" ? "fake" : rawType;
+  const truthChancePct = stats.truthChancePct;
   const isTrue = deterministicRollPct(`${input.seed}:truth`) < truthChancePct;
   const districtHint = deterministicRollPct(`${input.seed}:district`) < stats.districtHintChancePct ? pickDistrictHint(input.state, input.seed) : null;
   const areaHint = deterministicRollPct(`${input.seed}:area`) < stats.areaHintChancePct ? pickAreaHint(input.state, input.seed) : null;
   const buildingHint = deterministicRollPct(`${input.seed}:building`) < stats.buildingHintChancePct ? pickBuildingHint(input.state, input.seed) : null;
-  const rivalHint = pickRivalPlayerHint(input.state, input.playerId, input.seed);
   const reliabilityLabel = stats.reliabilityVisible ? formatReliability(stats.truthChancePct) : null;
   return {
     type,
@@ -211,106 +210,9 @@ const generateRumor = (input: {
     buildingHint,
     reliabilityVisible: stats.reliabilityVisible,
     reliabilityLabel,
-    text: formatRumorText(isTrue ? type : "fake", districtHint, areaHint, buildingHint, rivalHint, reliabilityLabel, input.seed)
+    text: ""
   };
 };
-
-const formatRumorText = (
-  type: string,
-  districtHint: string | null,
-  areaHint: string | null,
-  buildingHint: string | null,
-  rivalHint: string | null,
-  reliabilityLabel: string | null,
-  seed: string
-): string => {
-  const place = districtHint
-    ? ` směrem k ${districtHint}`
-    : areaHint
-      ? ` někde v ${areaHint}`
-      : buildingHint
-        ? ` u podniku typu ${buildingHint}`
-        : "";
-  const rival = rivalHint ? ` Někdo u pultu přísahal, že se kolem toho mihlo jméno ${rivalHint}; pak si koupil žvýkačky a ztratil odvahu.` : "";
-  const reliability = reliabilityLabel ? ` Prodavač tomu dává ${reliabilityLabel}.` : "";
-  return `${formatRumorSubject(type, seed)}${place}.${rival}${reliability}`;
-};
-
-const CONVENIENCE_RUMOR_SUBJECTS: Record<string, string[]> = {
-  night_movement: [
-    "Prodavač prý zahlédl partu mizet po půlnoci. Tak rychle odchází jen vina a levné párky",
-    "Kamera nad regálem údajně chytla tváře, co nekupovaly nic legálního ani chutného",
-    "U dveří se prý střídali kurýři a nikdo z nich nešel pro cigarety, takže romantika to nebyla",
-    "Někdo tvrdí, že stejná parta třikrát objela blok a pokaždé zpomalila",
-    "Noční zákazníci údajně řešili trasu, ne nákup"
-  ],
-  suspicious_purchase: [
-    "Někdo údajně bral baterky, rukavice a pásku. Na cenu se neptal, což je vždycky sociologický alarm",
-    "U pokladny prý cinkly věci, které víc patří do akce než do domácnosti",
-    "Zákazník si údajně vzal plachtu, masku a mlčení prodavače",
-    "Někdo kupoval drobnosti, ze kterých se skládá špinavý plán",
-    "Účtenka byla krátká, ale seznam důvodů k obavám dlouhý a hezky se leskl"
-  ],
-  courier_trace: [
-    "Za obchodem prý stála dodávka bez značek",
-    "Kurýr údajně nechal motor běžet a oči na zadním východu",
-    "U rampy se mihla taška, která nezněla jako drobné",
-    "Šeptá se o skútru, co vozí víc zpráv než jídla",
-    "Někdo viděl balík bez adresy a ruce, co ho přebraly moc rychle"
-  ],
-  small_conflict: [
-    "Před večerkou se šeptem řešil konflikt, po kterém zůstalo jen sklo",
-    "Dva lidé se prý hádali o district, ale mluvili jako o dluhu",
-    "U stojanu na kafe údajně padla výhrůžka, která nezní prázdně",
-    "Někdo před obchodem ztratil nervy a možná i kus plánu",
-    "Mokrý chodník prý slyšel jméno, které by mělo zůstat doma"
-  ],
-  police_patrol: [
-    "Hlídka se prý vrací ke stejnému bloku moc pravidelně, jako špatný seriál s pouty",
-    "Policie údajně parkuje bez sirén, ale s otevřenýma očima a velmi malým smyslem pro humor",
-    "Někdo tvrdí, že modré auto měří čas mezi směnami",
-    "Ve vysílačce prý padl heat, který někdo nedokázal schovat",
-    "Hlídka podle prodavače čeká, až se někdo unaví a udělá chybu. Město tomu říká trpělivost, hráči timeout"
-  ],
-  robbery_preparation: [
-    "Zákazník údajně mluvil o rychlé vykrádačce",
-    "U mrazáku prý někdo počítal minuty k prázdnému skladu",
-    "Dveře, kamera, hlídač. Někdo si to šeptem odškrtával jako nákup",
-    "Šeptá se, že někdo hledá sklad, kde je zboží a málo očí",
-    "Prodavač tvrdí, že slyšel plán na akci bez výstřelu a bez svědků"
-  ],
-  possible_trap: [
-    "Někdo tvrdí, že v jednom bloku mizí lidi. Nikdo neví proč",
-    "Šeptá se, že určitá trasa polyká zvuky až moc dobře. Možná akustika, možná špatný večer",
-    "Zdroj říká, že tam něco nesedí. Past nikdo nepotvrdil",
-    "Někdo prý varoval před moc tichou ulicí, ale možná jen prodává strach ve výhodném balení",
-    "U pultu padlo, že některé dveře se nemají zkoušet potmě. Dveře se k tomu nevyjádřily"
-  ],
-  weak_defense: [
-    "U regálu prý padla řeč o slabé obraně. Mezi chipsy, kde se rodí nejlepší strategie",
-    "Někdo tvrdí, že jeden hráč šetří na hlídačích a tváří se tvrdě. Klasická rozpočtová tragédie",
-    "Prodavač zaslechl, že zadní vchod hlídá víc pověst než výbava",
-    "Šeptá se o districtu, kde kamera funguje líp jako dekorace. Aspoň má pěkný úhel",
-    "Někdo údajně hledal levnou cestu kolem obrany"
-  ],
-  dirty_cash_movement: [
-    "V zadní místnosti se údajně počítaly bankovky mimo kasu",
-    "Špinavý cash prý projel přes drobné nákupy jako přes pračku",
-    "Někdo si měnil malé bankovky za ticho a rychlý odchod",
-    "U automatu údajně mizely obálky, co vážily víc než papír",
-    "Zdroj tvrdí, že někdo přenáší cash po malých dávkách, aby nebyl cítit"
-  ],
-  fake: [
-    "U pultu kolovala historka, co zní až moc pohodlně. Pravda tady obvykle kulhá",
-    "Někdo prodával stopu levněji než kafe. To nikdy nevoní dobře, a místní kafe už vůbec ne",
-    "Prý existuje svědek, ale svědek se mění pokaždé, když se zeptáš",
-    "Šeptanda možná jen kryje úplně jiný pohyb",
-    "Prodavač tomu říká drb, ulice tomu říká návnada"
-  ]
-};
-
-const formatRumorSubject = (type: string, seed: string): string =>
-  pickVariant(CONVENIENCE_RUMOR_SUBJECTS[type] ?? CONVENIENCE_RUMOR_SUBJECTS.fake, `${seed}:subject`);
 
 const resolveCivilRumorChanceBonusPct = (
   storeCount: number,
@@ -370,15 +272,6 @@ const pickBuildingHint = (state: CoreGameState, seed: string): string | null => 
   const buildings = Object.values(state.buildingsById).filter((building) => building.status === "active");
   return buildings.length > 0 ? buildings[Math.floor(deterministicRollPct(`${seed}:building-index`) / 100 * buildings.length)]?.buildingTypeId ?? null : null;
 };
-
-const pickRivalPlayerHint = (state: CoreGameState, playerId: string, seed: string): string | null => {
-  const players = Object.values(state.playersById).filter((player) => player.id !== playerId && player.status === "active");
-  const player = players.length > 0 ? players[Math.floor(deterministicRollPct(`${seed}:rival-index`) / 100 * players.length)] : null;
-  return player?.name?.trim() || player?.id || null;
-};
-
-const pickVariant = (variants: string[], seed: string): string =>
-  variants[Math.floor(deterministicRollPct(`${seed}:variant`) / 100 * variants.length)] ?? variants[0] ?? "";
 
 const formatReliability = (truthChancePct: number): string =>
   truthChancePct >= 60 ? "střední" : truthChancePct >= 50 ? "nízká až střední" : "nízká";

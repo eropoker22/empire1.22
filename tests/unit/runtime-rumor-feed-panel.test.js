@@ -85,10 +85,11 @@ describe("rumor feed panel", () => {
   });
 
   it("maps intel types to player-facing badges", () => {
-    expect(getCityFeedBadge({ intelType: "confirmed_event", truthiness: "confirmed" }).label).toBe("POTVRZENO");
-    expect(getCityFeedBadge({ intelType: "rumor", truthiness: "unconfirmed" }).label).toBe("DRB");
-    expect(getCityFeedBadge({ intelType: "suspicion", truthiness: "false_possible" }).label).toBe("PODEZŘENÍ");
-    expect(getCityFeedBadge({ intelType: "scandal", truthiness: "unconfirmed" }).label).toBe("SKANDÁL");
-    expect(getCityFeedBadge({ intelType: "false_lead", truthiness: "false_possible" }).label).toBe("PODEZŘENÍ");
+    expect(getCityFeedBadge({ confidence: "confirmed", intelType: "confirmed_event", truthiness: "confirmed" }).label).toBe("Potvrzené");
+    expect(getCityFeedBadge({ confidence: "rumor", intelType: "rumor", truthiness: "unconfirmed" }).label).toBe("Nepotvrzená fáma");
+    expect(getCityFeedBadge({ confidence: "suspicion", intelType: "suspicion", truthiness: "unconfirmed" }).label).toBe("Podezření");
+    expect(getCityFeedBadge({ confidence: "credible", intelType: "scandal", truthiness: "unconfirmed" }).label).toBe("Důvěryhodný drb");
+    expect(getCityFeedBadge({ confidence: "false_possible", intelType: "false_lead", truthiness: "false_possible" }).label).toBe("Pochybný zdroj");
+    expect(getCityFeedBadge({ rumorCategory: "atmosphere", intelType: "rumor" }).label).toBe("Hlas ulice");
   });
 });

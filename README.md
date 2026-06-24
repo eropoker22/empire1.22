@@ -36,7 +36,13 @@ New gameplay changes should not be implemented directly in legacy `page-assets/j
 
 - The repo declares `node >=20` in `package.json`.
 - Use Node 20 locally. `.node-version` and `.nvmrc` pin the expected major version for common version managers and CI.
-- Playwright E2E also requires at least Node `18.19`; local Node `18.3.x` cannot run E2E commands.
+- `npm run dev:game` is the normal local server-authoritative game command. It starts Vite on `127.0.0.1:5174` with the local gameplay API middleware wired to the same Netlify gameplay-slice handler used in production.
+- `npm run dev:admin` starts only the static/admin Vite flow. It does not by itself provide `/api/gameplay-slice/*`.
+- The active browser runtime is exposed as `document.body.dataset.gameplayRuntime`: `server-authoritative-ready`, `server-authoritative-error`, `legacy-fallback`, or `initializing`.
+- `npm run smoke:ui:legacy` checks static legacy page wiring only; it does not verify server-authoritative gameplay.
+- `npm run smoke:gameplay-slice` starts the local game dev server, checks `/api/gameplay-slice/load`, clicks one server-fed building action, spy action, and attack action through `/api/gameplay-slice/submit`, verifies non-success spy does not unlock occupy, and fails if only legacy fallback or a legacy duplicate mutation is running.
+- `npm run smoke:free-session` runs the browser free-session UX pass against the server-authoritative local URL and expects the `server-authoritative-ready` marker.
+- Relevant dev, browser smoke, E2E, build, lint, and typecheck scripts run a Node 20 preflight and fail immediately on older Node versions.
 - `npm run test:e2e` runs the fast browser smoke suite for login, lobby, and faction onboarding.
 - `npm run test:e2e:full` runs every browser scenario, including slower map interaction coverage.
 - Run targeted E2E with `node scripts/run-local-bin.mjs playwright/cli.js test tests/e2e/entry-flow.spec.js`.

@@ -1,6 +1,7 @@
 import {
   createCityFeedProjection,
   createConflictReportViews,
+  createPlayerFrontierSummaryView,
   createOnboardingReadModel,
   createPoliceReadModel
 } from "@empire/game-core";
@@ -11,12 +12,14 @@ import {
   type DistrictPanelView,
   type GameplayModeView,
   type GameplaySliceCommandHintsView,
+  type GameplaySliceSpawnSelectionView,
   type GameplaySliceView
 } from "@empire/shared-types";
 import type { ServerInstanceRuntime } from "../instance/server-instance-runtime";
 import { createDistrictPanelProjection } from "./district-panel-projection-service";
 import { createDistrictListProjection } from "./district-list-projection-service";
 import { createPlayerProjection } from "./player-projection-service";
+import { sharedCitySpawnPool } from "../../bootstrap/gameplay-slice-shared-city-seed";
 
 /**
  * Responsibility: Aggregates the minimal read model for the first migrated gameplay slice.
@@ -64,6 +67,8 @@ export const createGameplaySliceProjection = (
     mode,
     player,
     commandHints: createGameplaySliceCommandHints(district),
+    spawnSelection: createSpawnSelectionView(runtime, playerId),
+    frontier: createPlayerFrontierSummaryView(runtime.state, playerId),
     dayNight: player.dayNight ?? null,
     elimination: player.elimination ?? null,
     onboarding: createOnboardingReadModel(runtime.state, playerId, {
@@ -75,6 +80,7 @@ export const createGameplaySliceProjection = (
       playerId,
       ...(selectedDistrictId ? { selectedDistrictId } : {}),
       factionId: player.factionId,
+      allianceId: runtime.state.playersById[playerId]?.allianceId ?? null,
       limit: 50
     }),
     districts: createDistrictListProjection(runtime, playerId),
@@ -84,6 +90,51 @@ export const createGameplaySliceProjection = (
       limit: runtime.config.balance.conflict?.reportsLimit ?? 6
     })
   };
+};
+
+const createSpawnSelectionView = (
+  runtime: ServerInstanceRuntime,
+  playerId: string
+): GameplaySliceSpawnSelectionView => {
+  const player = runtime.state.playersById[playerId];
+
+  return {
+    status: player?.homeDistrictId ? "ready_to_play" : "awaiting_spawn_selection",
+    districts: sharedCitySpawnPool.map((candidate) => {
+      const district = runtime.state.districtsById[candidate.districtId];
+      const owner = district?.ownerPlayerId ? runtime.state.playersById[district.ownerPlayerId] : null;
+      const firstBuilding = district?.buildingIds
+        .map((buildingId) => runtime.state.buildingsById[buildingId])
+        .find((building) => building !== undefined);
+
+      return {
+        districtId: candidate.districtId,
+        districtName: district?.name ?? candidate.districtId,
+        districtType: district?.zone ?? "unknown",
+        buildingType: firstBuilding?.buildingTypeId ?? null,
+        spawnZones: [...candidate.zones],
+        neighborCount: district?.adjacentDistrictIds.length ?? 0,
+        status: resolveSpawnDistrictStatus(candidate.enabled, district, playerId),
+        ownerPublicName: owner?.name ?? null,
+        ownerPlayerId: owner?.id ?? null,
+        version: district?.version ?? 0
+      };
+    })
+  };
+};
+
+const resolveSpawnDistrictStatus = (
+  enabled: boolean,
+  district: ServerInstanceRuntime["state"]["districtsById"][string] | undefined,
+  playerId: string
+): GameplaySliceSpawnSelectionView["districts"][number]["status"] => {
+  if (!enabled || !district) return "disabled";
+  if (district.status === "locked" || district.status === "destroyed" || district.lockdownUntilTick) {
+    return "locked";
+  }
+  if (district.ownerPlayerId === playerId) return "selected_by_me";
+  if (district.ownerPlayerId) return "occupied";
+  return "available";
 };
 
 const resolveSelectedDistrictId = (

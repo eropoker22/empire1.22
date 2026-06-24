@@ -23,48 +23,27 @@ export const applyCustomsInspectionConsequence = (
   };
   let nextState = state;
   const metadataPatch: Partial<AirportMetadata> = {};
-  let rumorText: string | undefined;
   if (type === "customs_stamp") {
     metadataPatch.discountDisabledUntilTick = state.root.tick + minutesToTicks(config.customsInspection.discountDisabledMinutes, tickRateMs);
   } else if (type === "hangar_search") {
-    nextState = addAirportHeatAndRumor(nextState, building, config.customsInspection.hangarHeatGain, undefined, lobbyClubConfig);
+    nextState = addAirportHeatAndRumor(nextState, building, config.customsInspection.hangarHeatGain, false, lobbyClubConfig);
   } else if (type === "lost_papers") {
     metadataPatch.nextImportCostPenaltyPct = config.customsInspection.nextImportCostPenaltyPct;
   } else if (type === "cargo_rumor") {
-    rumorText = formatAirportCargoRumor(state, building);
-    nextState = addAirportHeatAndRumor(nextState, building, 0, rumorText, lobbyClubConfig);
+    nextState = addAirportHeatAndRumor(nextState, building, 0, true, lobbyClubConfig);
   }
   return {
     state: nextState,
     metadataPatch,
-    event: { type, tick: state.root.tick, label: labels[type] ?? type, riskPct, rumorText }
+    event: { type, tick: state.root.tick, label: labels[type] ?? type, riskPct }
   };
-};
-
-const AIRPORT_CARGO_RUMORS = [
-  "U runway se šeptá o falešných papírech a kontejneru, který zmizel dřív, než ho systém stihl pojmenovat.",
-  "Někdo tvrdí, že manifest měl díry a náklad jimi prošel ven. Papír se tvářil nevinně, jak to papír dělá.",
-  "Zdroj z hangáru říká, že jedna bedna přistála v papírech, ale ne ve skladu. Velmi letecký výkon.",
-  "Šeptá se o zásilce, která voněla po celnici a skončila mimo světla. Asi alergie na kontrolu.",
-  "Prý se u brány měnila razítka rychleji než palety. Úřední romantika ve vysoké rychlosti.",
-  "Někdo u letiště zahlédl kontejner bez jména. Takové věci málokdy cestují samy a nikdy levně."
-];
-
-const formatAirportCargoRumor = (
-  state: CoreGameState,
-  building: CoreGameState["buildingsById"][string]
-): string => {
-  const owner = building.ownerPlayerId ? state.playersById[building.ownerPlayerId] : undefined;
-  const name = owner?.name?.trim() || owner?.id || "někdo z letištní sítě";
-  const text = pickVariant(AIRPORT_CARGO_RUMORS, `${state.serverInstance.worldSeed}:airport-cargo-rumor:${building.id}:${state.root.tick}`);
-  return `${text} U rampy prý šeptali o ${name}, ale záznam je rozmazaný. Kamera se tváří, že má trauma.`;
 };
 
 export const addAirportHeatAndRumor = (
   state: CoreGameState,
   building: CoreGameState["buildingsById"][string],
   heatGain: number,
-  rumorText?: string,
+  publishRumor = false,
   lobbyClubConfig?: LobbyClubBalanceConfig
 ): CoreGameState => {
   const district = state.districtsById[building.districtId];
@@ -81,8 +60,8 @@ export const addAirportHeatAndRumor = (
         }
       }
     : state;
-  if (!rumorText) return nextState;
-  const sourceEventId = `airport-customs:${building.id}:${state.root.tick}:${Math.abs(hashText(rumorText))}`;
+  if (!publishRumor) return nextState;
+  const sourceEventId = `airport-customs:${building.id}:${state.root.tick}`;
   return applyRumorEventToState(nextState, {
     sourceEventId,
     sourceType: "market",
@@ -94,17 +73,8 @@ export const addAirportHeatAndRumor = (
     playerId: building.ownerPlayerId,
     districtId: building.districtId,
     createdAtTick: state.root.tick,
-    message: rumorText,
     messageKey: "rumor.airport_customs",
     negative: heatGain > 0,
     payload: { buildingTypeId: building.buildingTypeId, heatGain, rumorType: "airport_customs" }
   }, { lobbyClubConfig });
-};
-
-const hashText = (value: string): number =>
-  Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) | 0, 0);
-
-const pickVariant = (variants: string[], seed: string): string => {
-  const index = Math.floor(deterministicUnitInterval(seed) * variants.length);
-  return variants[index] ?? variants[0] ?? "";
 };

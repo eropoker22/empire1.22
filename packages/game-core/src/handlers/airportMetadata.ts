@@ -55,7 +55,7 @@ const readAirportMetadata = (building: CoreGameState["buildingsById"][string]): 
           customsTriggered: Boolean(raw.lastImportShipment.customsTriggered)
         }
       : undefined,
-    customsEvents: Array.isArray(raw.customsEvents) ? raw.customsEvents.filter(isRecord).map((entry) => ({ type: String(entry.type || ""), tick: Math.floor(Number(entry.tick || 0)), label: String(entry.label || entry.type || ""), riskPct: Number(entry.riskPct || 0), rumorText: entry.rumorText ? String(entry.rumorText) : undefined })).filter((entry) => entry.type) : []
+    customsEvents: Array.isArray(raw.customsEvents) ? raw.customsEvents.filter(isRecord).map((entry) => ({ type: String(entry.type || ""), tick: Math.floor(Number(entry.tick || 0)), label: String(entry.label || entry.type || ""), riskPct: Number(entry.riskPct || 0) })).filter((entry) => entry.type) : []
   };
 };
 
@@ -113,9 +113,6 @@ export const minutesToTicks = (minutes: number, tickRateMs: number): number =>
 
 const interpolate = (min: number, max: number, unit: number): number =>
   min + (max - min) * Math.max(0, Math.min(1, unit));
-
-const hashText = (value: string): number =>
-  Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) | 0, 0);
 
 const isRecord = (value: unknown): value is Record<string, any> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);

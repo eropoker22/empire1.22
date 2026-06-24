@@ -19,16 +19,22 @@ export const validateGameCommandPayload = (
   const payload = command.payload;
   switch (type) {
     case "attack-district":
+      rejectUnknownPayloadFields(errors, payload, ["districtId", "sourceDistrictId"]);
       validateDistrictPayload(errors, payload, true);
       break;
     case "occupy-district":
       validateDistrictPayload(errors, payload, true);
       break;
     case "spy-district":
+      rejectUnknownPayloadFields(errors, payload, ["districtId", "sourceDistrictId"]);
       requireStringField(errors, "submit", payload, "districtId", "command.payload.districtId");
       requireStringField(errors, "submit", payload, "sourceDistrictId", "command.payload.sourceDistrictId");
       break;
     case "place-trap":
+      requireStringField(errors, "submit", payload, "districtId", "command.payload.districtId");
+      break;
+    case "select-spawn-district":
+      rejectUnknownPayloadFields(errors, payload, ["districtId"]);
       requireStringField(errors, "submit", payload, "districtId", "command.payload.districtId");
       break;
     case "collect-production":
@@ -75,6 +81,7 @@ const hasPayloadSchema = (type: string): boolean =>
     "occupy-district",
     "spy-district",
     "place-trap",
+    "select-spawn-district",
     "collect-production",
     "craft-item",
     "run-building-action"
@@ -115,6 +122,23 @@ const requireStringField = (
   }
 
   errors.push(createMissingFieldError(kind, errorFieldPath));
+};
+
+const rejectUnknownPayloadFields = (
+  errors: DomainError[],
+  payload: Record<string, unknown>,
+  allowedFields: string[]
+): void => {
+  const allowed = new Set(allowedFields);
+  for (const field of Object.keys(payload)) {
+    if (allowed.has(field)) {
+      continue;
+    }
+    errors.push(createInvalidFieldError(
+      `command.payload.${field}`,
+      "Command payload field is not allowed for this command type."
+    ));
+  }
 };
 
 const requireOptionalStringField = (

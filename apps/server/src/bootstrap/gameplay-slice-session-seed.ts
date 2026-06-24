@@ -11,10 +11,7 @@ import type {
   ResourceState,
   ServerInstanceId
 } from "@empire/shared-types";
-import {
-  claimNextSharedCitySpawnDistrict,
-  ensureSharedCityMap
-} from "./gameplay-slice-shared-city-seed";
+import { ensureSharedCityMap } from "./gameplay-slice-shared-city-seed";
 
 export interface GameplaySliceMembershipRequest {
   serverInstanceId: ServerInstanceId;
@@ -40,12 +37,7 @@ export const addPlayerToGameplaySliceState = (
     productionBuildings: config.balance.productionBuildings ?? {}
   });
 
-  const spawnDistrictId = claimNextSharedCitySpawnDistrict(state, request.playerId);
-  if (!spawnDistrictId) {
-    return state;
-  }
-
-  const player = createPlayer({ ...request, districtId: spawnDistrictId }, factionId);
+  const player = createPlayer(request, factionId);
 
   state.playersById[player.id] = player;
   state.resourceStatesById[player.resourceStateId] = createResourceState(
@@ -61,7 +53,7 @@ export const addPlayerToGameplaySliceState = (
 };
 
 const createPlayer = (
-  request: GameplaySliceMembershipRequest & { districtId: string },
+  request: GameplaySliceMembershipRequest,
   factionId: PlayerFactionId
 ): Player => ({
   id: request.playerId,
@@ -72,8 +64,11 @@ const createPlayer = (
   color: "#3b82f6",
   status: "active",
   allianceId: null,
-  homeDistrictId: request.districtId,
+  homeDistrictId: null,
   attackLoadout: { pistol: 2, smg: 1 },
+  metadata: {
+    spawnSelectionStatus: "awaiting_spawn_selection"
+  },
   resourceStateId: `resource:${request.playerId}`,
   cooldownStateId: `cooldown:${request.playerId}`,
   effectStateId: `effect:${request.playerId}`,

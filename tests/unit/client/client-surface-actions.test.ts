@@ -566,6 +566,41 @@ describe("client surface actions", () => {
     ]);
   });
 
+  it("rejects attack commands for disabled server-fed targets before dispatch", async () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.attackTargets[0] = {
+      ...slice.district!.attackTargets[0],
+      enabled: false,
+      disabledReason: "Attack route is cooling down."
+    };
+    const renderState = createInitialClientRenderState();
+    const dispatched: string[] = [];
+
+    const router = createClientSurfaceActionRouter({
+      client: {
+        load: async () => renderState,
+        selectDistrict: async () => renderState,
+        selectBuilding: async () => renderState,
+        dispatch: async (command) => {
+          dispatched.push(command.type);
+          return renderState;
+        },
+        getRenderState: () => renderState,
+        getGameplaySlice: () => slice
+      },
+      createCommandId: (prefix) => `${prefix}:1`,
+      getIssuedAt: () => new Date(0).toISOString()
+    });
+
+    const attackButton = createMockElement({ attackTargetId: "district:2" });
+    attackButton.setClosest("button[data-attack-target-id]", attackButton.element);
+
+    await expect(router.handleTarget(attackButton.element)).rejects.toThrow(
+      "Attack commands can only be created from enabled attack targets present in the current server-fed slice."
+    );
+    expect(dispatched).toEqual([]);
+  });
+
   it("dispatches occupy commands through the migrated client router", async () => {
     const slice = createGameplaySliceFixture();
     slice.district!.occupyTargets = [

@@ -2,8 +2,13 @@ import type { OccupyDistrictCommand } from "@empire/shared-types";
 import type { ConflictBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import type { CoreError } from "../errors";
-import { createOccupyCooldownKey, resolveOccupyBalance } from "../rules";
-import { hasSuccessfulSpyIntel } from "./spyIntel";
+import {
+  createOccupyCooldownKey,
+  detectAlliedEncirclementAfterOccupy,
+  resolveOccupyBalance,
+  validateMapAction
+} from "../rules";
+import { validateOccupyEmptyDistrictAuthorization } from "./spyIntel";
 
 /**
  * Responsibility: Pure validator for neutral district occupation after successful intel.
@@ -16,9 +21,6 @@ export const validateOccupy = (
   conflictConfig?: ConflictBalanceConfig
 ): CoreError[] => {
   const player = state.playersById[command.playerId];
-  const sourceDistrict = command.payload.sourceDistrictId
-    ? state.districtsById[command.payload.sourceDistrictId]
-    : null;
   const targetDistrict = state.districtsById[command.payload.districtId];
 
   if (!player) {
@@ -39,88 +41,31 @@ export const validateOccupy = (
     ];
   }
 
-  if (!sourceDistrict) {
-    return [
-      {
-        code: "occupy_source_not_found",
-        message: "Player must occupy from one owned neighboring district."
-      }
-    ];
-  }
+  const mapValidation = validateMapAction(state, {
+    actorPlayerId: command.playerId,
+    targetDistrictId: command.payload.districtId,
+    originDistrictId: command.payload.sourceDistrictId ?? undefined,
+    action: "occupy"
+  }, {
+    hasOccupyAuthorization: () =>
+      validateOccupyEmptyDistrictAuthorization(state, command.playerId, command.payload.districtId),
+    detectConsentRequired: () =>
+      detectAlliedEncirclementAfterOccupy(state, command.playerId, command.payload.districtId)
+  });
 
-  if (sourceDistrict.status === "destroyed") {
+  if (!mapValidation.allowed) {
     return [
       {
-        code: "occupy_source_destroyed",
-        message: "Player cannot occupy from a destroyed district."
-      }
-    ];
-  }
-
-  if (targetDistrict.status === "destroyed") {
-    return [
-      {
-        code: "occupy_target_destroyed",
-        message: "Destroyed districts cannot be occupied."
-      }
-    ];
-  }
-
-  if (sourceDistrict.ownerPlayerId !== command.playerId) {
-    return [
-      {
-        code: "occupy_source_not_owned",
-        message: "Player can only occupy from a district they own."
-      }
-    ];
-  }
-
-  if (targetDistrict.ownerPlayerId === command.playerId) {
-    return [
-      {
-        code: "occupy_own_district",
-        message: "Player already controls this district."
-      }
-    ];
-  }
-
-  if (targetDistrict.ownerPlayerId) {
-    return [
-      {
-        code: "occupy_enemy_owned_district",
-        message: "Enemy-owned districts must be taken through attack-district."
-      }
-    ];
-  }
-
-  if (targetDistrict.status !== "neutral") {
-    return [
-      {
-        code: "occupy_target_not_neutral",
-        message: "Only neutral districts can be occupied without combat."
-      }
-    ];
-  }
-
-  if (!sourceDistrict.adjacentDistrictIds.includes(targetDistrict.id)) {
-    return [
-      {
-        code: "occupy_target_not_adjacent",
-        message: "Player can only occupy a neutral district bordering the selected source district."
-      }
-    ];
-  }
-
-  if (!hasSuccessfulSpyIntel(state, command.playerId, targetDistrict.id)) {
-    return [
-      {
-        code: "occupy_requires_successful_spy",
-        message: "Successful spy intel is required before occupying this district."
+        code: mapValidation.reasonCode ?? "occupy_not_allowed",
+        message: occupyMapActionErrorMessage(mapValidation.reasonCode)
       }
     ];
   }
 
   const balance = resolveOccupyBalance(conflictConfig);
+  const sourceDistrict = mapValidation.originDistrictId
+    ? state.districtsById[mapValidation.originDistrictId]
+    : null;
   const occupyCooldownKey = createOccupyCooldownKey(targetDistrict.id);
   const activeOccupyCooldownTick =
     state.cooldownStatesById[player.cooldownStateId]?.cooldowns?.[occupyCooldownKey];
@@ -130,6 +75,15 @@ export const validateOccupy = (
       {
         code: "occupy_on_cooldown",
         message: `Occupation route to ${targetDistrict.name} is cooling down for ${activeOccupyCooldownTick - state.root.tick} more ticks.`
+      }
+    ];
+  }
+
+  if (!sourceDistrict) {
+    return [
+      {
+        code: "NO_VALID_ORIGIN",
+        message: "Player must occupy from one owned neighboring district."
       }
     ];
   }
@@ -144,4 +98,31 @@ export const validateOccupy = (
   }
 
   return [];
+};
+
+const occupyMapActionErrorMessage = (reasonCode: string | undefined): string => {
+  switch (reasonCode) {
+    case "TARGET_IS_SELF":
+      return "Player already controls this district.";
+    case "TARGET_IS_ALLY":
+    case "TARGET_NOT_EMPTY":
+      return "Only empty neighboring districts can be occupied.";
+    case "NO_VALID_ORIGIN":
+      return "Player must occupy from one owned neighboring district.";
+    case "TARGET_NOT_ADJACENT":
+      return "Player can only occupy a district that borders the selected source district.";
+    case "DISTRICT_LOCKED":
+      return "Locked or destroyed districts cannot be occupied.";
+    case "OCCUPY_SPY_REQUIRED":
+      return "Successful spy authorization is required before occupying this district.";
+    case "OCCUPY_SPY_AUTH_EXPIRED":
+      return "Spy authorization for this district has expired.";
+    case "OCCUPY_SPY_AUTH_INVALIDATED":
+    case "OCCUPY_TARGET_CHANGED":
+      return "Spy authorization no longer matches the target district state.";
+    case "CONSENT_REQUIRED":
+      return "Occupying this district would close an ally's last empty frontier and requires consent.";
+    default:
+      return "Occupation is not allowed for this district.";
+  }
 };

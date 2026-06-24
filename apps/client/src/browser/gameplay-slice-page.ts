@@ -1,8 +1,17 @@
-import type { GameplaySliceView } from "@empire/shared-types";
 import { createClientApp, createClientSurfaceActionRouter, type ClientRenderState } from "../app";
 import { escapeHtml, refreshLiveCooldownLabels } from "../shared-ui";
 import { createFetchClientTransport, createGameplaySlicePoller, type ClientTransport } from "../transport";
-import { DEFAULT_SESSION_STORAGE_KEY, resolveGameplaySliceBootstrapRequest } from "./gameplay-slice-bootstrap";
+import { resolveGameplaySliceBootstrapRequest } from "./gameplay-slice-bootstrap";
+import { persistServerConfirmedGameplaySliceFocus } from "./gameplay-slice-focus-cache";
+import {
+  createSafeErrorMessage,
+  isGameplayDiagnosticsEnabled,
+  renderGameplaySliceDiagnostic,
+  setGameplayRuntimeMarker,
+  writeGameplaySliceDiagnostic
+} from "./gameplay-slice-runtime-diagnostics";
+export { persistServerConfirmedGameplaySliceFocus } from "./gameplay-slice-focus-cache";
+export { setGameplayRuntimeMarker, type GameplayRuntimeMarker } from "./gameplay-slice-runtime-diagnostics";
 
 const DEFAULT_ENDPOINT_BASE = "/api/gameplay-slice";
 
@@ -27,11 +36,13 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
   const request = resolveGameplaySliceBootstrapRequest(options.root.dataset, getBrowserStorage());
 
   if (!request) {
+    setGameplayRuntimeMarker(options.root, "legacy-fallback");
     options.root.hidden = true;
     return null;
   }
 
   const endpointBase = options.root.dataset.gameplaySliceEndpointBase || DEFAULT_ENDPOINT_BASE;
+  setGameplayRuntimeMarker(options.root, "initializing", { endpoint: `${endpointBase}/load` });
   const client = createClientApp({
     transport: options.transport ?? createFetchClientTransport({ endpointBase })
   });
@@ -42,22 +53,39 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
   const mounts = resolveMounts(options.root);
   let currentLoadRequest = request;
 
-  const hideUnavailableGameplaySlice = (): void => {
-    options.root.dataset.gameplaySliceUnavailable = "true";
-    options.root.hidden = true;
-    Object.values(mounts).forEach((mount) => {
-      mount.innerHTML = "";
+  const hideUnavailableGameplaySlice = (state: ClientRenderState | null = null): void => {
+    const message = state?.connection.lastErrorMessage || "Gameplay slice did not return an authoritative read model.";
+    const endpoint = `${endpointBase}/load`;
+    setGameplayRuntimeMarker(options.root, "server-authoritative-error", {
+      endpoint,
+      error: message,
+      fallback: "legacy"
     });
+    writeGameplaySliceDiagnostic(endpoint, message);
+    options.root.dataset.gameplaySliceUnavailable = "true";
+    if (isGameplayDiagnosticsEnabled()) {
+      options.root.hidden = false;
+      mounts.status.innerHTML = renderGameplaySliceDiagnostic(endpoint, message);
+      mounts.topBar.innerHTML = "";
+      mounts.map.innerHTML = "";
+      mounts.panel.innerHTML = "";
+    } else {
+      options.root.hidden = true;
+      Object.values(mounts).forEach((mount) => {
+        mount.innerHTML = "";
+      });
+    }
   };
 
   const render = (state: ClientRenderState): void => {
     const gameplaySlice = client.getGameplaySlice();
     if (!gameplaySlice && state.connection.status === "error") {
-      hideUnavailableGameplaySlice();
+      hideUnavailableGameplaySlice(state);
       return;
     }
 
     delete options.root.dataset.gameplaySliceUnavailable;
+    setGameplayRuntimeMarker(options.root, "server-authoritative-ready");
     options.root.hidden = false;
 
     if (state.districtPanel?.districtId) {
@@ -122,7 +150,16 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       render(state);
       poller.start();
     })
-    .catch(() => hideUnavailableGameplaySlice());
+    .catch((error) => {
+      hideUnavailableGameplaySlice({
+        ...client.getRenderState(),
+        connection: {
+          status: "error",
+          lastErrorMessage: createSafeErrorMessage(error),
+          staleData: true
+        }
+      });
+    });
 
   return {
     destroy: () => {
@@ -132,6 +169,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     }
   };
 };
+
 const resolveMounts = (root: HTMLElement) => ({
   status: getOrCreateMount(root, "status"), topBar: getOrCreateMount(root, "topbar"), map: getOrCreateMount(root, "map"), panel: getOrCreateMount(root, "panel")
 });
@@ -173,49 +211,6 @@ const parsePollingIntervalMs = (value: string | undefined): number => {
   return Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : 5000;
 };
 
-export const persistServerConfirmedGameplaySliceFocus = (
-  storage: Storage | null,
-  storageKey: string | undefined,
-  gameplaySlice: GameplaySliceView | null
-): void => {
-  const assignedHomeDistrictId = normalizeStorageToken(gameplaySlice?.player.homeDistrictId);
-  const lastServerConfirmedDistrictId = normalizeStorageToken(
-    gameplaySlice?.district?.districtId || assignedHomeDistrictId
-  );
-  const serverConfirmedFactionId = normalizeStorageToken(gameplaySlice?.player.factionId);
-
-  if (!storage || !lastServerConfirmedDistrictId) {
-    return;
-  }
-
-  try {
-    const key = storageKey || DEFAULT_SESSION_STORAGE_KEY;
-    const parsed = JSON.parse(storage.getItem(key) || "null");
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return;
-    }
-    const registration = parsed.registration && typeof parsed.registration === "object" && !Array.isArray(parsed.registration)
-      ? parsed.registration
-      : {};
-
-    storage.setItem(key, JSON.stringify({
-      ...parsed,
-      registration: {
-        ...registration,
-        ...(assignedHomeDistrictId ? { assignedHomeDistrictId } : {}),
-        ...(serverConfirmedFactionId ? {
-          factionId: serverConfirmedFactionId,
-          selectedFaction: serverConfirmedFactionId,
-          serverConfirmedFactionId
-        } : {}),
-        lastServerConfirmedDistrictId
-      }
-    }));
-  } catch (_error) {
-    // Browser storage is a cache only; failed persistence must not affect server authority.
-  }
-};
-
 const createPageApi = () => ({
   mount: (options: GameplaySlicePageMountOptions) => mountGameplaySlicePage(options),
   autoMount: () => Array.from(document.querySelectorAll<HTMLElement>("[data-gameplay-slice-client]"))
@@ -229,11 +224,6 @@ const getBrowserStorage = (): Storage | null => {
   } catch (_error) {
     return null;
   }
-};
-
-const normalizeStorageToken = (value: unknown): string | null => {
-  const normalized = String(value ?? "").trim();
-  return normalized.length > 0 ? normalized : null;
 };
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {

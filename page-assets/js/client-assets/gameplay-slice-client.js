@@ -355,19 +355,26 @@ var EmpireGameplaySliceClient = function(exports) {
     escapeHtml(action.cooldownLabel),
     `</span>`
   ].join("") : escapeHtml(action.cooldownLabel);
-  const createAttackDistrictCommand = (input) => ({
-    id: input.commandId,
-    type: "attack-district",
-    mode: input.mode,
-    playerId: input.playerId,
-    serverInstanceId: input.serverInstanceId,
-    issuedAt: input.issuedAt,
-    payload: {
-      districtId: input.targetDistrictId,
-      sourceDistrictId: input.sourceDistrictId
-    },
-    clientRequestId: input.clientRequestId ?? null
-  });
+  const createAttackDistrictCommand = (input) => {
+    const district = input.slice.district;
+    const target = district == null ? void 0 : district.attackTargets.find((entry) => entry.districtId === input.targetDistrictId);
+    if (!district || !target || !target.enabled) {
+      throw new Error("Attack commands can only be created from enabled attack targets present in the current server-fed slice.");
+    }
+    return {
+      id: input.commandId,
+      type: "attack-district",
+      mode: input.slice.mode.mode,
+      playerId: input.slice.player.playerId,
+      serverInstanceId: input.slice.player.instanceId,
+      issuedAt: input.issuedAt,
+      payload: {
+        districtId: input.targetDistrictId,
+        sourceDistrictId: district.districtId
+      },
+      clientRequestId: input.clientRequestId ?? null
+    };
+  };
   const createOccupyDistrictCommand = (input) => {
     const district = input.slice.district;
     const target = district == null ? void 0 : district.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId);
@@ -682,10 +689,7 @@ var EmpireGameplaySliceClient = function(exports) {
           return options.client.dispatch(
             createAttackDistrictCommand({
               commandId: options.createCommandId("command:attack"),
-              serverInstanceId: slice.player.instanceId,
-              playerId: slice.player.playerId,
-              mode,
-              sourceDistrictId: district.districtId,
+              slice,
               targetDistrictId: action.targetDistrictId,
               issuedAt
             })
@@ -854,7 +858,8 @@ var EmpireGameplaySliceClient = function(exports) {
         throw new Error("Fetch transport is unavailable in this runtime.");
       }
       const requestWithTokens = attachStoredGameplaySliceTokens(route, request, storage);
-      const response = await fetchJson(`${endpointBase}/${route}`, {
+      const endpoint = `${endpointBase}/${route}`;
+      const response = await fetchJson(endpoint, {
         method: "POST",
         headers: {
           "content-type": "application/json"
@@ -862,7 +867,7 @@ var EmpireGameplaySliceClient = function(exports) {
         body: JSON.stringify(requestWithTokens)
       });
       if (!response.ok) {
-        throw new Error(`Gameplay slice request failed with HTTP ${response.status}.`);
+        throw new Error(`Gameplay slice request failed: POST ${endpoint} returned HTTP ${response.status}.`);
       }
       const payload = await response.json();
       persistGameplaySliceTokens(requestWithTokens, payload, storage);
@@ -1287,9 +1292,9 @@ var EmpireGameplaySliceClient = function(exports) {
     title: report.reportType === "spy" ? `Špehování ${report.result} v ${report.targetDistrictId}` : report.reportType === "occupy" ? `Obsazení ${report.result} v ${report.targetDistrictId}` : report.reportType === "building-action" ? `${toTitleCase(report.buildingActionId)} v ${report.districtId}` : report.districtDestroyed ? `Katastrofa v distriktu ${report.targetDistrictId}` : `Útok ${report.result} v ${report.targetDistrictId}`,
     createdAt: `${report.tick}`,
     category: report.reportType,
-    summary: report.reportType === "spy" ? report.trapDetected ? "Obrana potvrzena. Past odhalena." : "Průzkum obrany vyhodnocen." : report.reportType === "occupy" ? `Distrikt obsazen. Vliv -${report.influenceCost} · hledanost +${report.heatGained}.` : report.reportType === "building-action" ? formatBuildingActionSummary(report) : report.districtDestroyed ? "Katastrofa zničila distrikt. Kontrola, budovy, hledanost i vliv byly smazány." : report.trapTriggered ? "Během útoku se spustila past." : report.districtCaptured ? "Distrikt dobyt." : "Distrikt udržel obránce.",
+    summary: report.reportType === "spy" ? formatSpySummary(report) : report.reportType === "occupy" ? `Distrikt obsazen. Vliv -${report.influenceCost} · hledanost +${report.heatGained}.` : report.reportType === "building-action" ? formatBuildingActionSummary(report) : report.districtDestroyed ? "Katastrofa zničila distrikt. Kontrola, budovy, hledanost i vliv byly smazány." : report.trapTriggered ? "Během útoku se spustila past." : report.districtCaptured ? "Distrikt dobyt." : "Distrikt udržel obránce.",
     result: report.result,
-    severity: report.reportType === "battle" && report.districtDestroyed ? "critical" : "normal",
+    severity: report.reportType === "battle" && report.districtDestroyed ? "critical" : report.reportType === "spy" && report.result === "critical_failed" ? "critical" : "normal",
     messages: report.reportType === "building-action" ? report.messages ?? [] : report.reportType === "battle" && report.districtDestroyed ? [
       "Stav distriktu: zničený a nepoužitelný.",
       "Vlastník: nikdo.",
@@ -1304,8 +1309,10 @@ var EmpireGameplaySliceClient = function(exports) {
         `Zdroj ${report.sourceDistrictId}`,
         `Cíl ${report.targetDistrictId}`,
         `Intel obrany ${formatNumberRecord(report.detectedDefense)}`,
-        report.trapDetected ? "Past odhalena" : "Past neodhalena"
-      ];
+        report.trapDetected ? "Past odhalena" : "Past neodhalena",
+        report.occupyUnlocked ? "Obsazení odemčeno" : "Obsazení neodemčeno",
+        report.blockedUntilTick ? `Špeh blokován do ticku ${report.blockedUntilTick}` : ""
+      ].filter(Boolean);
     }
     if (report.reportType === "occupy") {
       return [
@@ -1337,6 +1344,18 @@ var EmpireGameplaySliceClient = function(exports) {
       `Vliv ${formatSigned(report.influenceDelta ?? report.influenceChange)}`,
       report.message ?? ""
     ].filter(Boolean);
+  };
+  const formatSpySummary = (report) => {
+    if (report.result === "success") {
+      return report.trapDetected ? "Obrana potvrzena. Past odhalena. Obsazení odemčeno." : "Obrana potvrzena. Obsazení odemčeno.";
+    }
+    if (report.result === "partial") {
+      return "Částečný intel získán. Obsazení zůstává zamčené.";
+    }
+    if (report.result === "critical_failed") {
+      return `Kritické selhání. Obsazení zůstává zamčené. Hledanost +${report.heatGained}.`;
+    }
+    return "Špehování selhalo. Obsazení zůstává zamčené.";
   };
   const formatBuildingActionSummary = (report) => {
     const parts = [
@@ -1525,8 +1544,11 @@ var EmpireGameplaySliceClient = function(exports) {
     let renderState = createInitialClientRenderState();
     const commitResponse = (response, selectedDistrictId, commandId) => {
       var _a, _b;
+      const hasAuthoritativeReadModel = Boolean(response.readModel);
+      const missingReadModelMessage = "Gameplay slice response did not include an authoritative read model.";
+      const firstErrorMessage = ((_a = response.errors[0]) == null ? void 0 : _a.message) ?? null;
       if (response.readModel) {
-        const serverSelectedDistrictId = ((_a = response.readModel.district) == null ? void 0 : _a.districtId) ?? response.readModel.player.homeDistrictId ?? selectedDistrictId ?? null;
+        const serverSelectedDistrictId = ((_b = response.readModel.district) == null ? void 0 : _b.districtId) ?? response.readModel.player.homeDistrictId ?? selectedDistrictId ?? null;
         store.setGameplaySlice(response.readModel);
         store.patchUiState({
           selectedDistrictId: serverSelectedDistrictId,
@@ -1547,9 +1569,9 @@ var EmpireGameplaySliceClient = function(exports) {
       } : null));
       store.setErrors(response.errors);
       store.setConnectionState({
-        status: "ready",
-        lastErrorMessage: ((_b = response.errors[0]) == null ? void 0 : _b.message) ?? null,
-        staleData: response.errors.length > 0
+        status: hasAuthoritativeReadModel ? "ready" : "error",
+        lastErrorMessage: firstErrorMessage ?? (hasAuthoritativeReadModel ? null : missingReadModelMessage),
+        staleData: response.errors.length > 0 || !hasAuthoritativeReadModel
       });
       renderState = renderClientShell(store);
       return renderState;
@@ -1601,8 +1623,10 @@ var EmpireGameplaySliceClient = function(exports) {
         try {
           const response = await transport.load(request);
           return commitResponse(response, request.districtId);
-        } catch (_error) {
-          return commitTransportFailure("Unable to load gameplay slice from server.");
+        } catch (error) {
+          return commitTransportFailure(
+            createTransportFailureMessage("Unable to load gameplay slice from server.", error)
+          );
         }
       },
       selectDistrict: async (districtId) => {
@@ -1622,8 +1646,10 @@ var EmpireGameplaySliceClient = function(exports) {
         try {
           const response = await transport.load(request);
           return commitResponse(response, districtId);
-        } catch (_error) {
-          return commitTransportFailure("Unable to load selected district from server.");
+        } catch (error) {
+          return commitTransportFailure(
+            createTransportFailureMessage("Unable to load selected district from server.", error)
+          );
         }
       },
       selectBuilding: async (buildingId) => {
@@ -1657,12 +1683,19 @@ var EmpireGameplaySliceClient = function(exports) {
           store.patchUiState({
             pendingCommandIds: store.getUiState().pendingCommandIds.filter((pendingCommandId) => pendingCommandId !== command.id)
           });
-          return commitTransportFailure("Unable to submit gameplay command to server.", command.id);
+          return commitTransportFailure(
+            createTransportFailureMessage("Unable to submit gameplay command to server.", _error),
+            command.id
+          );
         }
       },
       getRenderState: () => renderState,
       getGameplaySlice: () => store.getReadModel().gameplaySlice
     });
+  };
+  const createTransportFailureMessage = (fallback, error) => {
+    const detail = error instanceof Error ? error.message.trim() : "";
+    return detail ? `${fallback} ${detail}` : fallback;
   };
   const DEFAULT_SESSION_STORAGE_KEY = "empireStreets.session.v1";
   const LEGACY_PUBLIC_SERVER_ID_MIGRATIONS = {
@@ -1769,14 +1802,100 @@ var EmpireGameplaySliceClient = function(exports) {
     const normalized = String(value ?? "").trim().toLowerCase();
     return normalized.length > 0 ? normalized : null;
   };
+  const persistServerConfirmedGameplaySliceFocus = (storage, storageKey, gameplaySlice) => {
+    var _a;
+    const assignedHomeDistrictId = normalizeStorageToken(gameplaySlice == null ? void 0 : gameplaySlice.player.homeDistrictId);
+    const lastServerConfirmedDistrictId = normalizeStorageToken(
+      ((_a = gameplaySlice == null ? void 0 : gameplaySlice.district) == null ? void 0 : _a.districtId) || assignedHomeDistrictId
+    );
+    const serverConfirmedFactionId = normalizeStorageToken(gameplaySlice == null ? void 0 : gameplaySlice.player.factionId);
+    if (!storage || !lastServerConfirmedDistrictId) {
+      return;
+    }
+    try {
+      const key = storageKey || DEFAULT_SESSION_STORAGE_KEY;
+      const parsed = JSON.parse(storage.getItem(key) || "null");
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return;
+      }
+      const registration = parsed.registration && typeof parsed.registration === "object" && !Array.isArray(parsed.registration) ? parsed.registration : {};
+      storage.setItem(key, JSON.stringify({
+        ...parsed,
+        registration: {
+          ...registration,
+          ...assignedHomeDistrictId ? { assignedHomeDistrictId } : {},
+          ...serverConfirmedFactionId ? {
+            factionId: serverConfirmedFactionId,
+            selectedFaction: serverConfirmedFactionId,
+            serverConfirmedFactionId
+          } : {},
+          lastServerConfirmedDistrictId
+        }
+      }));
+    } catch (_error) {
+    }
+  };
+  const normalizeStorageToken = (value) => {
+    const normalized = String(value ?? "").trim();
+    return normalized.length > 0 ? normalized : null;
+  };
+  const setGameplayRuntimeMarker = (root, marker, details = {}) => {
+    root.dataset.gameplayRuntime = marker;
+    root.dataset.gameplaySliceRuntime = marker;
+    root.dataset.gameplaySliceEndpoint = details.endpoint ?? root.dataset.gameplaySliceEndpoint ?? "";
+    if (details.error) {
+      root.dataset.gameplaySliceError = sanitizeDiagnosticText(details.error, 180);
+    } else {
+      delete root.dataset.gameplaySliceError;
+    }
+    if (details.fallback) {
+      root.dataset.gameplayFallback = details.fallback;
+    } else {
+      delete root.dataset.gameplayFallback;
+    }
+    if (typeof document !== "undefined" && document.body) {
+      document.body.dataset.gameplayRuntime = marker;
+      if (details.fallback) {
+        document.body.dataset.gameplayFallback = details.fallback;
+      } else {
+        delete document.body.dataset.gameplayFallback;
+      }
+    }
+  };
+  const isGameplayDiagnosticsEnabled = () => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    const host = window.location.hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "::1" || window.location.search.includes("gameplayDiagnostics=1");
+  };
+  const writeGameplaySliceDiagnostic = (endpoint, message) => {
+    if (!isGameplayDiagnosticsEnabled()) {
+      return;
+    }
+    console.warn("[gameplay-slice] Server-authoritative runtime failed; legacy fallback remains active.", {
+      endpoint,
+      error: sanitizeDiagnosticText(message, 240)
+    });
+  };
+  const renderGameplaySliceDiagnostic = (endpoint, message) => [
+    `<strong>Server-authoritative gameplay slice unavailable</strong>`,
+    `<span>Legacy fallback is active for this local session.</span>`,
+    `<span data-gameplay-slice-diagnostic-endpoint>${escapeHtml(endpoint)}</span>`,
+    `<span data-gameplay-slice-diagnostic-error>${escapeHtml(sanitizeDiagnosticText(message, 240))}</span>`
+  ].join("");
+  const createSafeErrorMessage = (error) => error instanceof Error && error.message.trim() ? error.message.trim() : "Unknown gameplay slice error.";
+  const sanitizeDiagnosticText = (value, maxLength) => String(value || "").replace(/(snapshotToken|sessionToken|token)["':=\s]+[^,}\s]+/giu, "$1=<redacted>").replace(/[A-Za-z0-9_-]{32,}\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/gu, "<redacted-token>").slice(0, maxLength);
   const DEFAULT_ENDPOINT_BASE = "/api/gameplay-slice";
   const mountGameplaySlicePage = (options) => {
     const request = resolveGameplaySliceBootstrapRequest(options.root.dataset, getBrowserStorage());
     if (!request) {
+      setGameplayRuntimeMarker(options.root, "legacy-fallback");
       options.root.hidden = true;
       return null;
     }
     const endpointBase = options.root.dataset.gameplaySliceEndpointBase || DEFAULT_ENDPOINT_BASE;
+    setGameplayRuntimeMarker(options.root, "initializing", { endpoint: `${endpointBase}/load` });
     const client = createClientApp({
       transport: options.transport ?? createFetchClientTransport({ endpointBase })
     });
@@ -1786,21 +1905,38 @@ var EmpireGameplaySliceClient = function(exports) {
     });
     const mounts = resolveMounts(options.root);
     let currentLoadRequest = request;
-    const hideUnavailableGameplaySlice = () => {
-      options.root.dataset.gameplaySliceUnavailable = "true";
-      options.root.hidden = true;
-      Object.values(mounts).forEach((mount) => {
-        mount.innerHTML = "";
+    const hideUnavailableGameplaySlice = (state = null) => {
+      const message = (state == null ? void 0 : state.connection.lastErrorMessage) || "Gameplay slice did not return an authoritative read model.";
+      const endpoint = `${endpointBase}/load`;
+      setGameplayRuntimeMarker(options.root, "server-authoritative-error", {
+        endpoint,
+        error: message,
+        fallback: "legacy"
       });
+      writeGameplaySliceDiagnostic(endpoint, message);
+      options.root.dataset.gameplaySliceUnavailable = "true";
+      if (isGameplayDiagnosticsEnabled()) {
+        options.root.hidden = false;
+        mounts.status.innerHTML = renderGameplaySliceDiagnostic(endpoint, message);
+        mounts.topBar.innerHTML = "";
+        mounts.map.innerHTML = "";
+        mounts.panel.innerHTML = "";
+      } else {
+        options.root.hidden = true;
+        Object.values(mounts).forEach((mount) => {
+          mount.innerHTML = "";
+        });
+      }
     };
     const render = (state) => {
       var _a, _b, _c;
       const gameplaySlice = client.getGameplaySlice();
       if (!gameplaySlice && state.connection.status === "error") {
-        hideUnavailableGameplaySlice();
+        hideUnavailableGameplaySlice(state);
         return;
       }
       delete options.root.dataset.gameplaySliceUnavailable;
+      setGameplayRuntimeMarker(options.root, "server-authoritative-ready");
       options.root.hidden = false;
       if ((_a = state.districtPanel) == null ? void 0 : _a.districtId) {
         currentLoadRequest = {
@@ -1854,7 +1990,16 @@ var EmpireGameplaySliceClient = function(exports) {
     void client.load(request).then((state) => {
       render(state);
       poller.start();
-    }).catch(() => hideUnavailableGameplaySlice());
+    }).catch((error) => {
+      hideUnavailableGameplaySlice({
+        ...client.getRenderState(),
+        connection: {
+          status: "error",
+          lastErrorMessage: createSafeErrorMessage(error),
+          staleData: true
+        }
+      });
+    });
     return {
       destroy: () => {
         poller.stop();
@@ -1893,39 +2038,6 @@ var EmpireGameplaySliceClient = function(exports) {
     const intervalMs = Number.parseInt(String(value ?? ""), 10);
     return Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : 5e3;
   };
-  const persistServerConfirmedGameplaySliceFocus = (storage, storageKey, gameplaySlice) => {
-    var _a;
-    const assignedHomeDistrictId = normalizeStorageToken(gameplaySlice == null ? void 0 : gameplaySlice.player.homeDistrictId);
-    const lastServerConfirmedDistrictId = normalizeStorageToken(
-      ((_a = gameplaySlice == null ? void 0 : gameplaySlice.district) == null ? void 0 : _a.districtId) || assignedHomeDistrictId
-    );
-    const serverConfirmedFactionId = normalizeStorageToken(gameplaySlice == null ? void 0 : gameplaySlice.player.factionId);
-    if (!storage || !lastServerConfirmedDistrictId) {
-      return;
-    }
-    try {
-      const key = storageKey || DEFAULT_SESSION_STORAGE_KEY;
-      const parsed = JSON.parse(storage.getItem(key) || "null");
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        return;
-      }
-      const registration = parsed.registration && typeof parsed.registration === "object" && !Array.isArray(parsed.registration) ? parsed.registration : {};
-      storage.setItem(key, JSON.stringify({
-        ...parsed,
-        registration: {
-          ...registration,
-          ...assignedHomeDistrictId ? { assignedHomeDistrictId } : {},
-          ...serverConfirmedFactionId ? {
-            factionId: serverConfirmedFactionId,
-            selectedFaction: serverConfirmedFactionId,
-            serverConfirmedFactionId
-          } : {},
-          lastServerConfirmedDistrictId
-        }
-      }));
-    } catch (_error) {
-    }
-  };
   const createPageApi = () => ({
     mount: (options) => mountGameplaySlicePage(options),
     autoMount: () => Array.from(document.querySelectorAll("[data-gameplay-slice-client]")).map((root) => mountGameplaySlicePage({ root })).filter((mount) => mount !== null)
@@ -1937,10 +2049,6 @@ var EmpireGameplaySliceClient = function(exports) {
       return null;
     }
   };
-  const normalizeStorageToken = (value) => {
-    const normalized = String(value ?? "").trim();
-    return normalized.length > 0 ? normalized : null;
-  };
   if (typeof window !== "undefined" && typeof document !== "undefined") {
     window.EmpireGameplaySliceClient = createPageApi();
     window.EmpireGameplaySliceClient.autoMount();
@@ -1948,6 +2056,7 @@ var EmpireGameplaySliceClient = function(exports) {
   exports.mountGameplaySlicePage = mountGameplaySlicePage;
   exports.persistServerConfirmedGameplaySliceFocus = persistServerConfirmedGameplaySliceFocus;
   exports.renderGameplaySliceStatus = renderGameplaySliceStatus;
+  exports.setGameplayRuntimeMarker = setGameplayRuntimeMarker;
   Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
   return exports;
 }({});

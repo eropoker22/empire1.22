@@ -5,6 +5,7 @@ import type {
   DistrictId,
   PlayerId
 } from "../ids/entity-id";
+import type { DistrictCapabilitiesView } from "./map-capabilities-view";
 
 /**
  * Responsibility: Server-fed district panel projection for fixed district buildings.
@@ -202,4 +203,5 @@ export interface DistrictPanelView {
   spyTargets: DistrictSpyTargetView[];
   occupyTargets: DistrictOccupyTargetView[];
   trap: DistrictTrapView | null;
+  capabilities?: DistrictCapabilitiesView;
 }

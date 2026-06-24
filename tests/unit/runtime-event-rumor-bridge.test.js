@@ -92,7 +92,7 @@ class FakeStorage {
 }
 
 describe("event rumor bridge", () => {
-  it("uses core feed first and appends idempotent runtime action rumors without mounting a left-panel feed", () => {
+  it("uses server core feed without generating local runtime action rumors", () => {
     const document = new FakeDocument();
     const storage = new FakeStorage();
     const root = new FakeElement("main");
@@ -122,6 +122,7 @@ describe("event rumor bridge", () => {
             severity: "high",
             truthiness: "confirmed",
             visibility: "all",
+            districtId: "district:2",
             createdAtTick: 5,
             message: "Core raid"
           }]
@@ -153,8 +154,8 @@ describe("event rumor bridge", () => {
 
     const events = bridge.getEvents();
     expect(events.some((event) => event.id === "city-feed:core")).toBe(true);
-    expect(events.filter((event) => event.sourceEventId === "runtime:attack:attack:1")).toHaveLength(1);
-    expect(JSON.parse(storage.getItem("empireStreets.cityFeed.v1"))).toHaveLength(1);
+    expect(events.filter((event) => event.sourceEventId === "runtime:attack:attack:1")).toHaveLength(0);
+    expect(storage.getItem("empireStreets.cityFeed.v1")).toBeNull();
 
     document.dispatch("empire:district-opened", { districtId: "district:2" });
     expect(districtPanel.hidden).toBe(false);

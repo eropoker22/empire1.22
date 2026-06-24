@@ -7,6 +7,9 @@ import type { ResolvedGameModeConfig } from "../contracts";
  */
 export interface GameCoreContext {
   config: ResolvedGameModeConfig;
+  mapRules?: {
+    isEnabledSpawnCandidate?: (districtId: string) => boolean;
+  };
   clock?: {
     now(): Date;
     nowIso(): string;

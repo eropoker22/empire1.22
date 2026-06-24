@@ -360,4 +360,103 @@ describe("gameplay slice json handler", () => {
       }
     }));
   });
+
+  it("rejects client-injected spy result payload fields before transport dispatch", async () => {
+    const handler = createGameplaySliceJsonHandler({
+      load: () => {
+        throw new Error("unexpected load");
+      },
+      submit: async () => {
+        throw new Error("invalid command reached transport");
+      }
+    });
+
+    const response = await handler.handle({
+      method: "POST",
+      path: "/api/gameplay-slice/submit",
+      body: {
+        focusDistrictId: "district:1",
+        command: {
+          id: "command:invalid-spy-result-injection",
+          type: "spy-district",
+          mode: "free",
+          playerId: "player:1",
+          serverInstanceId: "instance:1",
+          issuedAt: new Date(0).toISOString(),
+          payload: {
+            districtId: "district:2",
+            sourceDistrictId: "district:1",
+            result: "success"
+          },
+          clientRequestId: null
+        }
+      }
+    });
+
+    expect(response.body).toMatchObject({
+      accepted: false,
+      readModel: null,
+      errors: [
+        {
+          code: "transport.invalid_request",
+          details: {
+            field: "command.payload.result"
+          }
+        }
+      ]
+    });
+  });
+
+  it("rejects client-injected attack result payload fields before transport dispatch", async () => {
+    const handler = createGameplaySliceJsonHandler({
+      load: () => {
+        throw new Error("unexpected load");
+      },
+      submit: async () => {
+        throw new Error("invalid command reached transport");
+      }
+    });
+
+    const response = await handler.handle({
+      method: "POST",
+      path: "/api/gameplay-slice/submit",
+      body: {
+        focusDistrictId: "district:1",
+        command: {
+          id: "command:invalid-attack-result-injection",
+          type: "attack-district",
+          mode: "free",
+          playerId: "player:1",
+          serverInstanceId: "instance:1",
+          issuedAt: new Date(0).toISOString(),
+          payload: {
+            districtId: "district:2",
+            sourceDistrictId: "district:1",
+            result: "success",
+            attackerLosses: {}
+          },
+          clientRequestId: null
+        }
+      }
+    });
+
+    expect(response.body).toMatchObject({
+      accepted: false,
+      readModel: null,
+      errors: [
+        {
+          code: "transport.invalid_request",
+          details: {
+            field: "command.payload.result"
+          }
+        },
+        {
+          code: "transport.invalid_request",
+          details: {
+            field: "command.payload.attackerLosses"
+          }
+        }
+      ]
+    });
+  });
 });

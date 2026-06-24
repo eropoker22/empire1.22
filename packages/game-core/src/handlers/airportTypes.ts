@@ -14,7 +14,6 @@ export interface AirportCustomsEvent {
   tick: number;
   label: string;
   riskPct: number;
-  rumorText?: string;
 }
 
 export interface AirportMetadata {

@@ -8,7 +8,11 @@ import type { GameCoreContext } from "../engine/context";
 import type { CoreEvent } from "../events";
 import type { CoreError } from "../errors";
 import { CORE_EVENT_TYPES, createEvent, createNotification } from "../events";
-import { resolveSpy } from "../rules";
+import {
+  calculateBaseDefensePower,
+  resolveSpy,
+  type SpyOutcome
+} from "../rules";
 import {
   applyFactionChanceBonus,
   applyFactionTrapDetectionChance,
@@ -17,9 +21,15 @@ import {
   resolveFactionCameraEffectivenessMultiplier
 } from "../rules/factions/factionRules";
 import { composeEntityId } from "../utils";
-import { validateSpy } from "../validation";
+import {
+  SPY_BLOCKED_SLOT_COOLDOWN_PREFIX,
+  SPY_ATTACK_AUTH_TTL_TICKS,
+  validateSpy
+} from "../validation";
 import { applyGarageCooldownReductionTicks } from "./garageBuildingActions";
 import { resolveCombinedCameraAlarmBonuses } from "./recruitmentCenterBuildingActions";
+
+const LEGACY_SPY_CAPTURE_COOLDOWN_MS = 40_000;
 
 /**
  * Responsibility: Orchestrates one authoritative spy command and report creation.
@@ -45,8 +55,9 @@ export const handleSpyDistrict = (
   const targetDistrict = state.districtsById[command.payload.districtId];
   const cooldownState = state.cooldownStatesById[player.cooldownStateId] ?? createPlayerCooldownState(player.id, player.cooldownStateId);
   const activeTrap = Object.values(state.trapsById).find(
-    (trap) => trap.districtId === targetDistrict.id && trap.status === "active"
+    (trap) => targetDistrict.ownerPlayerId && trap.districtId === targetDistrict.id && trap.status === "active"
   );
+  const targetDefenseLoadout = targetDistrict.ownerPlayerId ? targetDistrict.defenseLoadout : {};
   const reportEventId = composeEntityId("event", `${command.id}:district-spied`);
   const combinedCameraAlarmBonuses = resolveCombinedCameraAlarmBonuses({
     state,
@@ -64,7 +75,8 @@ export const handleSpyDistrict = (
     playerId: player.id,
     targetDistrictId: targetDistrict.id,
     tick: state.root.tick,
-    defenseLoadout: targetDistrict.defenseLoadout,
+    defenseLoadout: targetDefenseLoadout,
+    targetSecurity: calculateBaseDefensePower(targetDefenseLoadout),
     hasActiveTrap: Boolean(activeTrap),
     spyBaseSuccessChance: applyFactionChanceBonus(
       context.config.balance.conflict?.spyBaseSuccessChance ?? 0.72,
@@ -77,11 +89,18 @@ export const handleSpyDistrict = (
     cameraStrengthBonusPct,
     alarmStrengthBonusPct
   });
+  const blockedUntilTick = isBlockedSpyOutcome(reportResult.result)
+    ? state.root.tick + resolveSpyCaptureCooldownTicks(context)
+    : null;
   const report = createSpyReportNotification({
     command,
     playerId: player.id,
     targetDistrictId: targetDistrict.id,
+    targetOwnerPlayerId: targetDistrict.ownerPlayerId,
+    targetVersionAtSpy: targetDistrict.version,
+    purpose: targetDistrict.ownerPlayerId ? "attack_owned_district" : "occupy_empty_district",
     reportResult,
+    blockedUntilTick,
     tick: state.root.tick,
     eventId: reportEventId
   });
@@ -93,6 +112,11 @@ export const handleSpyDistrict = (
     config: context.config.balance.garage,
     category: "districtSpy"
   });
+  const blockedSlotCooldown = blockedUntilTick === null
+    ? {}
+    : {
+        [`${SPY_BLOCKED_SLOT_COOLDOWN_PREFIX}${command.id}`]: blockedUntilTick
+      };
 
   return {
     nextState: {
@@ -111,7 +135,8 @@ export const handleSpyDistrict = (
           ...cooldownState,
           cooldowns: {
             ...cooldownState.cooldowns,
-            [spyCooldownKey]: state.root.tick + spyCooldownTicks
+            [spyCooldownKey]: state.root.tick + spyCooldownTicks,
+            ...blockedSlotCooldown
           },
           version: cooldownState.version + (state.cooldownStatesById[cooldownState.id] ? 1 : 0)
         }
@@ -132,7 +157,9 @@ export const handleSpyDistrict = (
         sourceDistrictId: command.payload.sourceDistrictId,
         targetDistrictId: targetDistrict.id,
         result: reportResult.result,
-        trapDetected: reportResult.trapDetected
+        trapDetected: reportResult.trapDetected,
+        occupyUnlocked: reportResult.occupyUnlocked,
+        blockedUntilTick
       }),
       createEvent(CORE_EVENT_TYPES.notificationCreated, {
         notificationId: report.id,
@@ -159,7 +186,11 @@ const createSpyReportNotification = (input: {
   command: SpyDistrictCommand;
   playerId: string;
   targetDistrictId: string;
+  targetOwnerPlayerId: string | null;
+  targetVersionAtSpy: number;
+  purpose: "attack_owned_district" | "occupy_empty_district";
   reportResult: ReturnType<typeof resolveSpy>;
+  blockedUntilTick: number | null;
   tick: number;
   eventId: string;
 }): Notification =>
@@ -178,9 +209,21 @@ const createSpyReportNotification = (input: {
       attackerPlayerId: input.command.playerId,
       sourceDistrictId: input.command.payload.sourceDistrictId,
       targetDistrictId: input.targetDistrictId,
+      targetOwnerPlayerId: input.targetOwnerPlayerId,
+      targetStateAtSpy: input.targetOwnerPlayerId ? "owned" : "empty",
+      targetVersionAtSpy: input.targetVersionAtSpy,
+      purpose: input.reportResult.result === "success" ? input.purpose : null,
       result: input.reportResult.result,
       detectedDefense: input.reportResult.detectedDefense,
       trapDetected: input.reportResult.trapDetected,
+      occupyUnlocked: input.reportResult.occupyUnlocked,
+      revealedType: input.reportResult.revealedType,
+      revealedDefense: input.reportResult.revealedDefense,
+      heatGained: input.reportResult.heatGained,
+      blockedUntilTick: input.blockedUntilTick,
+      attackAuthorizationExpiresAtTick: input.reportResult.result === "success"
+        ? input.tick + SPY_ATTACK_AUTH_TTL_TICKS
+        : null,
       tick: input.tick,
       createdAt: new Date(0).toISOString(),
       eventId: input.eventId
@@ -188,3 +231,9 @@ const createSpyReportNotification = (input: {
     createdAt: new Date(0).toISOString(),
     readAt: null
   });
+
+const isBlockedSpyOutcome = (result: SpyOutcome): boolean =>
+  result === "failed" || result === "critical_failed";
+
+const resolveSpyCaptureCooldownTicks = (context: GameCoreContext): number =>
+  Math.max(1, Math.ceil(LEGACY_SPY_CAPTURE_COOLDOWN_MS / Math.max(1, context.config.tickRateMs)));

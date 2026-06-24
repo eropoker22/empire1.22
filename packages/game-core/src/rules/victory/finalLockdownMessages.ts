@@ -44,7 +44,7 @@ export const createFinalLockdownResolvedNotification = (
 
 export const createFinalLockdownStartedFeedEvent = (state: CoreGameState): CityFeedEvent => ({
   id: `city-feed:final-lockdown:started:${state.root.tick}`,
-  sourceEventId: `final-lockdown:started:${state.root.tick}`,
+  sourceEventId: `final-lockdown:started:${state.root.tick}:global_city:final_lockdown`,
   sourceType: "system",
   category: "system",
   severity: "extreme",
@@ -52,10 +52,20 @@ export const createFinalLockdownStartedFeedEvent = (state: CoreGameState): CityF
   intelType: "confirmed_event",
   visibility: "all",
   createdAtTick: state.root.tick,
+  expiresAtTick: state.root.tick + 10_800,
+  freshness: "fresh",
+  priority: 100,
+  audience: "global_city",
+  confidence: "confirmed",
+  rumorCategory: "final_lockdown",
+  templateId: "system.final_lockdown_started",
   message: "Final Lockdown začal. Přežilo 8 gangů. Město spouští posledních 12 aktivních hodin o trůn.",
   messageKey: "system.final_lockdown_started",
   payload: {
-    startedAtTick: state.root.tick
+    rumorCategory: "final_lockdown",
+    confidence: "confirmed",
+    audience: "global_city",
+    intensityBand: "high"
   }
 });
 
@@ -64,7 +74,7 @@ export const createFinalLockdownResolvedFeedEvent = (
   topScores: ReturnType<typeof createFinalEmpireRanking>
 ): CityFeedEvent => ({
   id: `city-feed:final-lockdown:resolved:${state.root.tick}`,
-  sourceEventId: `final-lockdown:resolved:${state.root.tick}`,
+  sourceEventId: `final-lockdown:resolved:${state.root.tick}:global_city:final_lockdown`,
   sourceType: "system",
   category: "system",
   severity: "extreme",
@@ -72,14 +82,20 @@ export const createFinalLockdownResolvedFeedEvent = (
   intelType: "confirmed_event",
   visibility: "all",
   createdAtTick: state.root.tick,
+  expiresAtTick: state.root.tick + 10_800,
+  freshness: "fresh",
+  priority: 100,
+  audience: "global_city",
+  confidence: "confirmed",
+  rumorCategory: "final_lockdown",
+  templateId: "system.final_lockdown_resolved",
   message: "Final Lockdown skončil. Město má nové Top 3.",
   messageKey: "system.final_lockdown_resolved",
   payload: {
-    top3: topScores.map((score, index) => ({
-      rank: index + 1,
-      playerId: score.playerId,
-      playerName: score.playerName,
-      score: Math.round(score.score * 100) / 100
-    }))
+    rumorCategory: "final_lockdown",
+    confidence: "confirmed",
+    audience: "global_city",
+    intensityBand: "high",
+    topRankCount: topScores.length
   }
 });

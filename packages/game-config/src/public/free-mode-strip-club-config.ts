@@ -18,7 +18,7 @@ export const freeModeStripClubConfig: StripClubBalanceConfig = {
   maxTruthChancePct: 75,
   districtHintChancePct: 35,
   buildingHintChancePct: 20,
-  rumorTypes: ["money", "relationships", "police", "attacks", "storage", "traps", "laundering", "fake"],
+  rumorTypes: ["money", "relationships", "police", "attacks", "storage", "laundering", "fake"],
   network: {
     incomeBonusPctPerExtraStripClub: 5,
     influenceBonusPctPerExtraStripClub: 7,

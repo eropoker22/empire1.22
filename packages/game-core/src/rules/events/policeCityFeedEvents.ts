@@ -1,4 +1,3 @@
-import { resolveRumorTemplate, type RumorTextTemplateKey } from "@empire/game-config";
 import type { CityFeedEvent, CityFeedIntelType, CityFeedSeverity, CityFeedSourceType, CityFeedTruthiness } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";
 import type { CoreEvent } from "../../events";
@@ -102,17 +101,16 @@ export const createPoliceCityFeedEvents = (
 const createFeedEvent = (
   state: CoreGameState,
   event: CoreEvent,
-  input: Omit<CityFeedEvent, "id" | "createdAtTick" | "message" | "messageKey"> & { messageKey: RumorTextTemplateKey }
+  input: Omit<CityFeedEvent, "id" | "createdAtTick" | "message" | "messageKey"> & { messageKey: string }
 ): CityFeedEvent => {
   const sourceEventId = createSourceEventId(event, input.sourceType, state.root.tick);
-  const district = resolveDistrictLabel(state, input.districtId);
   return {
     id: `city-feed:${sourceEventId}`,
     sourceEventId,
     createdAtTick: state.root.tick,
     ...input,
     messageKey: `rumor.${input.messageKey}`,
-    message: resolveRumorTemplate(input.messageKey, hashText(sourceEventId), { district })
+    message: ""
   };
 };
 
@@ -124,7 +122,7 @@ const resolveWarningRumorTemplate = (
   severity: CityFeedSeverity;
   truthiness: CityFeedTruthiness;
   intelType: Exclude<CityFeedIntelType, "confirmed_event">;
-  messageKey: RumorTextTemplateKey;
+  messageKey: string;
   rumorType: string;
 } => {
   const sourceEventId = createSourceEventId(event, "police_warning", state.root.tick);
@@ -158,13 +156,12 @@ const createPoliceRumorFeedEvent = (
     intelType: Exclude<CityFeedIntelType, "confirmed_event">;
     playerId?: string;
     districtId?: string;
-    messageKey: RumorTextTemplateKey;
+    messageKey: string;
     rumorType: string;
   }
 ): CityFeedEvent => {
   const baseSourceEventId = createSourceEventId(event, input.sourceType, state.root.tick);
   const sourceEventId = `${baseSourceEventId}:rumor:${input.rumorType}`;
-  const district = resolveDistrictLabel(state, input.districtId);
   return {
     id: `city-feed:${sourceEventId}`,
     sourceEventId,
@@ -178,7 +175,7 @@ const createPoliceRumorFeedEvent = (
     playerId: input.playerId,
     districtId: input.districtId,
     messageKey: `rumor.${input.messageKey}`,
-    message: resolveRumorTemplate(input.messageKey, hashText(sourceEventId), { district }),
+    message: "",
     payload: {
       atmosphericPoliceRumor: true,
       rumorType: input.rumorType
@@ -208,9 +205,6 @@ const publicRaidPayload = (payload: EventPayload): EventPayload => ({
   heatReduced: numericValue(payload.heatReduced ?? payload.heatReducedBy),
   courthouseMitigation: safePayload(payload.courthouseMitigation)
 });
-
-const resolveDistrictLabel = (state: CoreGameState, districtId?: string): string =>
-  districtId ? (state.districtsById[districtId]?.name || districtId) : "jedné z horkých čtvrtí";
 
 const safePayload = (value: unknown): EventPayload =>
   value && typeof value === "object" ? value as EventPayload : {};

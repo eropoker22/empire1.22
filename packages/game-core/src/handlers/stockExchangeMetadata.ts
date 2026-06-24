@@ -40,7 +40,7 @@ const readStockExchangeMetadata = (building: CoreGameState["buildingsById"][stri
     riskEvents: Array.isArray(raw.riskEvents) ? raw.riskEvents.filter(isRecord).map((entry) => ({ actionId: String(entry.actionId || ""), riskPct: Number(entry.riskPct || 0), expiresAtTick: Math.floor(Number(entry.expiresAtTick || 0)), tick: Math.floor(Number(entry.tick || 0)) })).filter((entry) => entry.actionId) : [],
     trendHints: Array.isArray(raw.trendHints) ? raw.trendHints.filter(isRecord).map((entry) => ({ id: String(entry.id || ""), tick: Math.floor(Number(entry.tick || 0)), category: resolveCategoryOrNull(entry.category, ["materials", "drugsAndBoosts", "weapons", "defenseItems", "rareComponents"]) ?? "materials", text: String(entry.text || "") })).filter((entry) => entry.id && entry.text) : [],
     marketEffects: Array.isArray(raw.marketEffects) ? raw.marketEffects.filter(isRecord).map(readMarketEffect).filter((effect): effect is StockExchangeMarketEffect => Boolean(effect)) : [],
-    inspectionEvents: Array.isArray(raw.inspectionEvents) ? raw.inspectionEvents.filter(isRecord).map((entry) => ({ type: String(entry.type || ""), tick: Math.floor(Number(entry.tick || 0)), riskPct: Number(entry.riskPct || 0), label: String(entry.label || entry.type || ""), rumorText: entry.rumorText ? String(entry.rumorText) : undefined })).filter((entry) => entry.type) : []
+    inspectionEvents: Array.isArray(raw.inspectionEvents) ? raw.inspectionEvents.filter(isRecord).map((entry) => ({ type: String(entry.type || ""), tick: Math.floor(Number(entry.tick || 0)), riskPct: Number(entry.riskPct || 0), label: String(entry.label || entry.type || "") })).filter((entry) => entry.type) : []
   };
 };
 

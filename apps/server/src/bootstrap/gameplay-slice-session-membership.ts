@@ -63,24 +63,6 @@ export const ensureGameplaySliceMembershipInState = (
   }
 
   const nextState = addPlayerToGameplaySliceState(state, request);
-  if (!nextState.playersById[request.playerId]) {
-    return {
-      accepted: false,
-      state: nextState,
-      joinedPlayer: false,
-      errors: [
-        {
-          code: "server.spawn_unavailable",
-          message: "No available spawn district exists for this gameplay slice session.",
-          details: {
-            playerId: request.playerId,
-            serverInstanceId: request.serverInstanceId,
-            mode: request.mode
-          }
-        }
-      ]
-    };
-  }
 
   return {
     accepted: true,

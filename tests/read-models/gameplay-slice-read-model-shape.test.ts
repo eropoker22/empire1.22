@@ -360,14 +360,14 @@ describe("gameplay slice read model contract", () => {
         {
           "actionType": "spy-district",
           "reportType": "spy",
-          "result": "failure",
+          "result": "partial",
           "targetDistrictId": "district:2",
         },
       ]
     `);
     expect(summarizeSlice(attack.readModel as GameplaySliceView).cityFeed).toMatchInlineSnapshot(`
       {
-        "currentPlayer": 3,
+        "currentPlayer": 2,
         "selectedDistrict": 0,
       }
     `);

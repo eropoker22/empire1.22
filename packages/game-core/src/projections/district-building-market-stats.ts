@@ -30,7 +30,7 @@ export const createMarketBuildingStats = (input: BuildingStatsProjectionInput): 
       config: input.vipLoungeConfig
     });
     const metadata = getVipLoungeMetadata(input.building);
-    const lastRumor = metadata.rumorEvents.at(-1);
+    const latestRumorStatus = metadata.rumorEvents.length > 0 ? "available in city feed" : "waiting for next whisper";
     return [
       { label: "Clean / min", value: `$${formatNumber(input.vipLoungeConfig.cleanCashPerMinute * stats.tier.incomeMultiplier)}` },
       { label: "Dirty / min", value: `$${formatNumber(input.vipLoungeConfig.dirtyCashPerMinute * stats.tier.incomeMultiplier)}` },
@@ -43,7 +43,7 @@ export const createMarketBuildingStats = (input: BuildingStatsProjectionInput): 
       { label: "District hint chance", value: `${formatNumber(stats.districtHintChancePct)} %` },
       { label: "Building hint chance", value: `${formatNumber(stats.buildingHintChancePct)} %` },
       { label: "Reliability label chance", value: `${formatNumber(stats.reliabilityLabelChancePct)} %` },
-      { label: "Latest backroom rumor", value: lastRumor?.text ?? "waiting for next whisper" }
+      { label: "Latest backroom rumor", value: latestRumorStatus }
     ];
   }
   if (input.building.buildingTypeId === "car_dealer" && input.carDealerConfig && input.building.ownerPlayerId) {

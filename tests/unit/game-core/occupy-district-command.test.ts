@@ -3,33 +3,30 @@ import { applyCommand, createDistrictOccupyTargetViews, type CoreGameState } fro
 import { resolveModeConfig } from "@empire/game-config";
 import {
   createCombatStateFixture,
-  createFixedBuildingFixture
+  createFixedBuildingFixture,
+  seedSuccessfulSpyIntel
 } from "../../fixtures/game-state-fixtures";
 import { createOccupyDistrictCommandFixture } from "../../fixtures/command-fixtures";
 
 const context = { config: resolveModeConfig("free") };
 
 describe("occupy district command", () => {
-  it("rejects neutral occupation without successful spy intel", () => {
+  it("rejects neutral adjacent occupation without successful empty-district spy intel", () => {
     const state = createNeutralOccupyState();
     const result = applyCommand(state, createOccupyDistrictCommandFixture(), context);
 
-    expect(result.errors).toMatchObject([
-      {
-        code: "occupy_requires_successful_spy"
-      }
-    ]);
+    expect(result.errors).toMatchObject([{ code: "OCCUPY_SPY_REQUIRED" }]);
     expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBeNull();
   });
 
-  it("unlocks an occupy target in the read model after successful spy intel", () => {
+  it("shows an occupy target in the read model for empty neighboring districts", () => {
     const state = createNeutralOccupyState();
-    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2");
 
     expect(createDistrictOccupyTargetViews(state, "player:1", "district:1")).toEqual([
       expect.objectContaining({
         districtId: "district:2",
-        enabled: true,
+        enabled: false,
+        disabledCode: "OCCUPY_SPY_REQUIRED",
         cost: { influence: 5 },
         heatGain: 2,
         cooldownRemainingTicks: 0
@@ -37,25 +34,60 @@ describe("occupy district command", () => {
     ]);
   });
 
-  it("shows disabled reason and preview data before successful spy intel", () => {
+  it("rejects occupation through an allied district origin", () => {
     const state = createNeutralOccupyState();
+    state.playersById["player:3"] = {
+      ...state.playersById["player:2"],
+      id: "player:3",
+      accountId: "account:3",
+      name: "Ally",
+      allianceId: "alliance:1"
+    };
+    state.playersById["player:1"] = {
+      ...state.playersById["player:1"],
+      allianceId: "alliance:1"
+    };
+    state.alliancesById["alliance:1"] = {
+      id: "alliance:1",
+      serverInstanceId: "instance:1",
+      name: "Alliance",
+      tag: "AL",
+      ownerPlayerId: "player:1",
+      memberIds: ["player:1", "player:3"],
+      status: "active",
+      createdAt: new Date(0).toISOString(),
+      version: 1
+    };
+    state.districtsById["district:3"] = {
+      ...state.districtsById["district:1"],
+      id: "district:3",
+      name: "Ally Origin",
+      ownerPlayerId: "player:3",
+      adjacentDistrictIds: ["district:2"]
+    };
+    state.districtsById["district:2"] = {
+      ...state.districtsById["district:2"],
+      adjacentDistrictIds: ["district:1", "district:3"]
+    };
 
-    expect(createDistrictOccupyTargetViews(state, "player:1", "district:1")).toEqual([
-      expect.objectContaining({
-        districtId: "district:2",
-        enabled: false,
-        disabledCode: "occupy_requires_successful_spy",
-        disabledReason: "Successful spy intel is required before occupying this district.",
-        cost: { influence: 5 },
-        heatGain: 2
-      })
-    ]);
+    const result = applyCommand(
+      state,
+      createOccupyDistrictCommandFixture({
+        payload: {
+          districtId: "district:2",
+          sourceDistrictId: "district:3"
+        }
+      }),
+      context
+    );
+
+    expect(result.errors).toMatchObject([{ code: "NO_VALID_ORIGIN" }]);
+    expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBeNull();
   });
 
-  it("claims a neutral adjacent district, pays influence, adds heat and sets cooldown after successful spy intel", () => {
+  it("claims a neutral adjacent district after successful empty-district spy intel", () => {
     const state = createNeutralOccupyState();
-    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2");
-
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
     const result = applyCommand(state, createOccupyDistrictCommandFixture(), context);
 
     expect(result.errors).toEqual([]);
@@ -113,7 +145,7 @@ describe("occupy district command", () => {
 
   it("uses configured occupy cost, heat and cooldown values", () => {
     const state = createNeutralOccupyState();
-    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2");
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
     const config = createOccupyConfig({
       influenceCost: 7,
       heatGain: 3,
@@ -135,7 +167,7 @@ describe("occupy district command", () => {
       ...state.playersById["player:1"],
       factionId: "motorkarsky-gang"
     };
-    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2");
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
     const config = createOccupyConfig({
       influenceCost: 5,
       heatGain: 2,
@@ -157,7 +189,7 @@ describe("occupy district command", () => {
       ...state.playersById["player:1"],
       factionId: "soukroma-armada"
     };
-    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2");
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
     const config = createOccupyConfig({
       influenceCost: 5,
       heatGain: 2,
@@ -176,7 +208,7 @@ describe("occupy district command", () => {
 
   it("rejects occupation during an active occupy cooldown", () => {
     const state = createNeutralOccupyState();
-    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2");
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
     state.cooldownStatesById["cooldown:1"] = {
       id: "cooldown:1",
       ownerType: "player",
@@ -203,8 +235,7 @@ describe("occupy district command", () => {
       ...state.districtsById["district:1"],
       influence: 4
     };
-    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2");
-
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
     const result = applyCommand(state, createOccupyDistrictCommandFixture(), context);
 
     expect(result.errors).toMatchObject([
@@ -217,7 +248,7 @@ describe("occupy district command", () => {
 
   it("rejects repeated occupation of an already owned district", () => {
     const state = createNeutralOccupyState();
-    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2");
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
     const claimed = applyCommand(state, createOccupyDistrictCommandFixture(), context).nextState;
 
     const repeated = applyCommand(
@@ -228,20 +259,19 @@ describe("occupy district command", () => {
 
     expect(repeated.errors).toMatchObject([
       {
-        code: "occupy_own_district"
+        code: "TARGET_IS_SELF"
       }
     ]);
   });
 
   it("rejects enemy-owned districts and leaves them for attack flow", () => {
     const state = createCombatStateFixture();
-    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2");
 
     const result = applyCommand(state, createOccupyDistrictCommandFixture(), context);
 
     expect(result.errors).toMatchObject([
       {
-        code: "occupy_enemy_owned_district"
+        code: "TARGET_NOT_EMPTY"
       }
     ]);
     expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBe("player:2");
@@ -312,39 +342,4 @@ const createOccupyConfig = (input: {
       }
     }
   };
-};
-
-const seedSuccessfulSpyIntel = (
-  state: CoreGameState,
-  playerId: string,
-  sourceDistrictId: string,
-  targetDistrictId: string
-): void => {
-  const notificationId = `notification:spy-success:${playerId}:${targetDistrictId}`;
-  state.notificationsById[notificationId] = {
-    id: notificationId,
-    recipientType: "player",
-    recipientId: playerId,
-    category: "report.spy",
-    title: `Spy report: ${targetDistrictId}`,
-    bodyKey: "report.spy",
-    payload: {
-      reportId: `report:spy-success:${playerId}:${targetDistrictId}`,
-      reportType: "spy",
-      actionType: "spy-district",
-      playerId,
-      attackerPlayerId: playerId,
-      sourceDistrictId,
-      targetDistrictId,
-      result: "success",
-      detectedDefense: {},
-      trapDetected: false,
-      tick: state.root.tick,
-      createdAt: new Date(0).toISOString(),
-      eventId: null
-    },
-    createdAt: new Date(0).toISOString(),
-    readAt: null
-  };
-  state.root.notificationIds.push(notificationId);
 };

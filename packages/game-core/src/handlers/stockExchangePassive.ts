@@ -160,7 +160,6 @@ const resolveInspectionConsequence = (
     ];
   } else if (type === "public_scandal") {
     const district = state.districtsById[building.districtId];
-    const rumorText = formatStockExchangeScandalRumor(state, building);
     if (district) {
       nextState = {
         ...nextState,
@@ -174,10 +173,10 @@ const resolveInspectionConsequence = (
         }
       };
     }
-    nextState = appendStockExchangeScandalRumor(nextState, building, rumorText, lobbyClubConfig);
+    nextState = appendStockExchangeScandalRumor(nextState, building, lobbyClubConfig);
     metadataPatch.inspectionEvents = [
       ...(metadataPatch.inspectionEvents ?? []),
-      { type, tick: state.root.tick, riskPct, label: labelByType[type] ?? type, rumorText }
+      { type, tick: state.root.tick, riskPct, label: labelByType[type] ?? type }
     ];
   }
   return {
@@ -187,29 +186,9 @@ const resolveInspectionConsequence = (
   };
 };
 
-const STOCK_EXCHANGE_SCANDAL_RUMORS = [
-  "Downtown šeptá o skandálu na Burze. Grafy prý někdo ohýbal dřív, než trh stihl dýchat.",
-  "Někdo tvrdí, že burzovní čísla tančila podle cizí ruky. Trh se tvářil, že neslyší hudbu.",
-  "Zdroj říká, že pumpa na trhu nebyla náhoda. Někdo možná vydělal dřív, než ostatní viděli signál. Velmi sportovní.",
-  "Šeptá se o obchodech, které přišly moc přesně a odešly moc čistě. Čistota je na Burze vždy podezřelá.",
-  "Burza prý vyplivla stopu po manipulaci. Čísla mlčí, ale reputace krvácí a dělá to na drahý koberec.",
-  "Někdo možná zatlačil na trh přes cizí účty. Vypadá to chytře, ale smrdí to jako výtah po panice."
-];
-
-const formatStockExchangeScandalRumor = (
-  state: CoreGameState,
-  building: CoreGameState["buildingsById"][string]
-): string => {
-  const owner = building.ownerPlayerId ? state.playersById[building.ownerPlayerId] : undefined;
-  const name = owner?.name?.trim() || owner?.id || "někdo z trading flooru";
-  const text = pickVariant(STOCK_EXCHANGE_SCANDAL_RUMORS, `${state.serverInstance.worldSeed}:stock-scandal-rumor:${building.id}:${state.root.tick}`);
-  return `${text} U terminálů prý padlo jméno ${name}, jen potichu. I klávesnice prý přestaly cvakat.`;
-};
-
 const appendStockExchangeScandalRumor = (
   state: CoreGameState,
   building: CoreGameState["buildingsById"][string],
-  message: string,
   lobbyClubConfig?: LobbyClubBalanceConfig
 ): CoreGameState => {
   const sourceEventId = `stock-inspection:${building.id}:${state.root.tick}:public-scandal`;
@@ -224,7 +203,6 @@ const appendStockExchangeScandalRumor = (
     playerId: building.ownerPlayerId,
     districtId: building.districtId,
     createdAtTick: state.root.tick,
-    message,
     messageKey: "rumor.stock_exchange_scandal",
     negative: true,
     payload: {
@@ -252,7 +230,3 @@ const resolveRandomCategory = (state: CoreGameState, seed: string): StockExchang
   return categories[Math.min(categories.length - 1, Math.floor(deterministicUnitInterval(`${state.serverInstance.worldSeed}:${seed}:category`) * categories.length))];
 };
 
-const pickVariant = (variants: string[], seed: string): string => {
-  const index = Math.floor(deterministicUnitInterval(seed) * variants.length);
-  return variants[index] ?? variants[0] ?? "";
-};

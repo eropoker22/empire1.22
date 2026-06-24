@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   SESSION_STORAGE_KEY,
+  attachE2eDiagnostics,
   assertNoRuntimeErrors,
   clearStorageOnBoot,
   createRuntimeErrorMonitor,
@@ -12,6 +13,10 @@ import {
 
 const CANONICAL_FREE_SERVER_ID = "instance:free:eu-central:public-1";
 const CANONICAL_WAR_SERVER_ID = "instance:war:eu-central:public-1";
+
+test.afterEach(async ({ page }, testInfo) => {
+  await attachE2eDiagnostics(page, testInfo);
+});
 
 async function loginAsGuest(page, name = "Entry Host", gang = "Entry Crew") {
   await openLoginPage(page);

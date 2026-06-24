@@ -1,5 +1,6 @@
 export * from "./attack-command";
 export * from "./occupy-command";
+export * from "./select-spawn-command";
 export * from "./spy-command";
 export * from "./trap-command";
 

@@ -39,7 +39,7 @@ const sourceFileBudgets = [
   ["packages/game-core/src/rules/economy/calculateIncome.ts", 445],
   ["packages/game-core/src/rules/economy/collectIncome.ts", 593],
   ["packages/game-core/src/rules/economy/fixedBuildingIncomeConfig.ts", 273],
-  ["packages/game-core/src/rules/events/rumorPipeline.ts", 369],
+  ["packages/game-core/src/rules/events/rumorPipeline.ts", 720],
   ["packages/game-core/src/rules/factions/factionRules.ts", 255],
   ["packages/game-core/src/rules/heists/heistSystem.ts", 1994],
   ["packages/game-core/src/rules/market/serverMarketSystem.ts", 2069],

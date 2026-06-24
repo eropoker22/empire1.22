@@ -149,7 +149,6 @@ const resolveOversightConsequence = (
   let nextState = state;
   const metadataPatch: Partial<CentralBankMetadata> = {};
   let cleanCashLost: number | undefined;
-  let rumorText: string | undefined;
   if (type === "reserve_check") {
     metadataPatch.interestDisabledUntilTick = state.root.tick + minutesToTicks(config.financialOversight.interestDisabledMinutes, tickRateMs);
   } else if (type === "banking_stop") {
@@ -159,35 +158,15 @@ const resolveOversightConsequence = (
     nextState = result.state;
     cleanCashLost = result.cleanCashLost;
   } else if (type === "data_leak") {
-    rumorText = formatCentralBankDataLeakRumor(state, building);
-    nextState = appendCentralBankRumor(nextState, building, rumorText, lobbyClubConfig);
+    nextState = appendCentralBankRumor(nextState, building, lobbyClubConfig);
   } else if (type === "market_restriction") {
     metadataPatch.feeReductionDisabledUntilTick = state.root.tick + minutesToTicks(config.financialOversight.feeReductionDisabledMinutes, tickRateMs);
   }
   return {
     state: nextState,
     metadataPatch,
-    event: { type, tick: state.root.tick, label: labelByType[type] ?? type, riskPct, cleanCashLost, rumorText }
+    event: { type, tick: state.root.tick, label: labelByType[type] ?? type, riskPct, cleanCashLost }
   };
-};
-
-const CENTRAL_BANK_DATA_LEAK_RUMORS = [
-  "Z bankovní věže prý unikl toxický seznam vazeb. Rezervy drží pevně, alibi už méně.",
-  "Někdo tvrdí, že z Centrální banky vytekla jména účtů, které měly zůstat pod ledem. Led se tváří uraženě.",
-  "Šeptá se o bankovním logu na špinavém dokumentu. Čistý cash najednou potřebuje sprchu.",
-  "Zdroj říká, že trezor nepustil peníze, ale pustil stopy. Velmi moderní bankovní služba.",
-  "Prý se v bankovní věži rozsvítil seznam vazeb, který měl spát pod zámkem. Zámek podal výpověď.",
-  "Někdo možná našel cestu od rezerv k majiteli. Není to důkaz, jen velmi draze oblečený zápach."
-];
-
-const formatCentralBankDataLeakRumor = (
-  state: CoreGameState,
-  building: CoreGameState["buildingsById"][string]
-): string => {
-  const owner = building.ownerPlayerId ? state.playersById[building.ownerPlayerId] : undefined;
-  const name = owner?.name?.trim() || owner?.id || "někdo z města";
-  const text = pickVariant(CENTRAL_BANK_DATA_LEAK_RUMORS, `${state.serverInstance.worldSeed}:central-bank-rumor:${building.id}:${state.root.tick}`);
-  return `${text} U bankéřů prý padlo jméno ${name}, ale nikdo ho nechce říct nahlas. Bankéři šeptají, aby neslyšely úroky.`;
 };
 
 export const applyProtectedCleanCashLoss = (
@@ -227,10 +206,9 @@ export const applyProtectedCleanCashLoss = (
 const appendCentralBankRumor = (
   state: CoreGameState,
   building: CoreGameState["buildingsById"][string],
-  message: string,
   lobbyClubConfig?: LobbyClubBalanceConfig
 ): CoreGameState => {
-  const sourceEventId = `central-bank-oversight:${building.id}:${state.root.tick}:${Math.abs(hashText(message))}`;
+  const sourceEventId = `central-bank-oversight:${building.id}:${state.root.tick}:data-leak`;
   return applyRumorEventToState(state, {
     sourceEventId,
     sourceType: "market",
@@ -242,17 +220,8 @@ const appendCentralBankRumor = (
     playerId: building.ownerPlayerId,
     districtId: building.districtId,
     createdAtTick: state.root.tick,
-    message,
     messageKey: "rumor.central_bank_oversight",
     negative: true,
     payload: { buildingTypeId: building.buildingTypeId, rumorType: "data_leak" }
   }, { lobbyClubConfig });
-};
-
-const hashText = (value: string): number =>
-  Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) | 0, 0);
-
-const pickVariant = (variants: string[], seed: string): string => {
-  const index = Math.floor(deterministicUnitInterval(seed) * variants.length);
-  return variants[index] ?? variants[0] ?? "";
 };

@@ -6,6 +6,7 @@ import type {
   OccupyDistrictCommand,
   PlaceTrapCommand,
   RunBuildingActionCommand,
+  SelectSpawnDistrictCommand,
   SpyDistrictCommand
 } from "@empire/shared-types";
 
@@ -142,6 +143,22 @@ export const createPlaceTrapCommandFixture = (
   issuedAt: new Date(0).toISOString(),
   payload: {
     districtId: "district:2"
+  },
+  clientRequestId: null,
+  ...overrides
+});
+
+export const createSelectSpawnDistrictCommandFixture = (
+  overrides: Partial<SelectSpawnDistrictCommand> = {}
+): SelectSpawnDistrictCommand => ({
+  id: "command:select-spawn:1",
+  type: "select-spawn-district",
+  mode: "free",
+  playerId: "player:1",
+  serverInstanceId: "instance:1",
+  issuedAt: new Date(0).toISOString(),
+  payload: {
+    districtId: "district:spawn:1"
   },
   clientRequestId: null,
   ...overrides

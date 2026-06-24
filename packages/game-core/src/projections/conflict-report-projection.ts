@@ -40,9 +40,20 @@ const mapNotificationToReport = (notification: Notification): ConflictReportView
       attackerPlayerId: String(payload.attackerPlayerId ?? notification.recipientId),
       sourceDistrictId: String(payload.sourceDistrictId ?? ""),
       targetDistrictId: String(payload.targetDistrictId ?? ""),
-      result: payload.result === "success" ? "success" : "failure",
+      result: asSpyOutcome(payload.result),
       detectedDefense: asNumberRecord(payload.detectedDefense),
       trapDetected: Boolean(payload.trapDetected),
+      occupyUnlocked: payload.occupyUnlocked === undefined
+        ? payload.result === "success"
+        : Boolean(payload.occupyUnlocked),
+      revealedType: payload.revealedType === undefined
+        ? payload.result === "success" || payload.result === "partial"
+        : Boolean(payload.revealedType),
+      revealedDefense: payload.revealedDefense === undefined
+        ? payload.result === "success"
+        : Boolean(payload.revealedDefense),
+      heatGained: Number(payload.heatGained ?? 0),
+      blockedUntilTick: typeof payload.blockedUntilTick === "number" ? payload.blockedUntilTick : null,
       tick: Number(payload.tick ?? 0),
       createdAt: String(payload.createdAt ?? notification.createdAt),
       eventId: payload.eventId ? String(payload.eventId) : null
@@ -156,6 +167,19 @@ const mapNotificationToReport = (notification: Notification): ConflictReportView
   }
 
   return null;
+};
+
+const asSpyOutcome = (value: unknown): SpyReport["result"] => {
+  if (
+    value === "success"
+    || value === "partial"
+    || value === "failed"
+    || value === "critical_failed"
+  ) {
+    return value;
+  }
+
+  return "failed";
 };
 
 const asUnknownRecord = (value: unknown): Record<string, unknown> | undefined => {

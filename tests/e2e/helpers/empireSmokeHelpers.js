@@ -1,3 +1,4 @@
+import net from "node:net";
 import { expect } from "@playwright/test";
 
 export const SESSION_STORAGE_KEY = "empireStreets.session.v1";
@@ -11,6 +12,8 @@ const BENIGN_CONSOLE_ERROR_PATTERNS = [
   /favicon\.ico/i,
   /Failed to load resource: the server responded with a status of 404 \(Not Found\)/i
 ];
+
+const PAGE_MONITOR_KEY = "__empireStreetsE2eMonitor";
 
 async function installE2eStabilityScript(page) {
   await page.addInitScript(() => {
@@ -28,6 +31,10 @@ async function installE2eStabilityScript(page) {
           transition-delay: 0s !important;
           transition-duration: 0.001s !important;
         }
+        [data-elimination-countdown-warning],
+        [data-elimination-countdown-warning] * {
+          pointer-events: none !important;
+        }
       `;
       document.head?.appendChild(style);
     };
@@ -42,6 +49,8 @@ async function installE2eStabilityScript(page) {
 
 export function createRuntimeErrorMonitor(page) {
   const errors = [];
+  const failedRequests = [];
+  const gameplaySliceLoadResponses = [];
 
   page.on("console", (message) => {
     if (message.type() !== "error") {
@@ -60,16 +69,118 @@ export function createRuntimeErrorMonitor(page) {
     errors.push(`pageerror: ${error?.stack || error?.message || String(error)}`);
   });
 
-  return {
+  page.on("requestfailed", (request) => {
+    const url = sanitizeRequestUrl(request.url());
+    if (/\/favicon\.ico$/iu.test(url)) {
+      return;
+    }
+    failedRequests.push(`${request.method()} ${url}: ${request.failure()?.errorText || "failed"}`);
+  });
+
+  page.on("response", (response) => {
+    const url = sanitizeRequestUrl(response.url());
+    if (!url.includes("/api/gameplay-slice/load")) {
+      return;
+    }
+    gameplaySliceLoadResponses.push(`${response.request().method()} ${url}: ${response.status()}`);
+  });
+
+  const monitor = {
     errors,
+    failedRequests,
+    gameplaySliceLoadResponses,
     async assertNoRuntimeErrors() {
-      expect(errors).toEqual([]);
+      expect(errors, await formatE2eDiagnostics(page, monitor)).toEqual([]);
     }
   };
+
+  page[PAGE_MONITOR_KEY] = monitor;
+  return monitor;
 }
 
 export async function assertNoRuntimeErrors(monitor) {
   await monitor.assertNoRuntimeErrors();
+}
+
+export async function attachE2eDiagnostics(page, testInfo) {
+  if (testInfo.status === testInfo.expectedStatus) {
+    return;
+  }
+  const diagnostics = await collectE2eDiagnostics(page, page[PAGE_MONITOR_KEY]);
+  const body = JSON.stringify(diagnostics, null, 2);
+  await testInfo.attach("e2e-diagnostics", {
+    body,
+    contentType: "application/json"
+  });
+  console.error(`[e2e diagnostics]\n${body}`);
+}
+
+async function formatE2eDiagnostics(page, monitor) {
+  return JSON.stringify(await collectE2eDiagnostics(page, monitor), null, 2);
+}
+
+async function collectE2eDiagnostics(page, monitor = null) {
+  const baseURL = process.env.PLAYWRIGHT_E2E_BASE_URL || "http://127.0.0.1:4174";
+  const portState = await probeBaseUrlPort(baseURL);
+  const pageState = await page.evaluate(() => ({
+    currentUrl: window.location.href,
+    runtimeMarker: document.body?.dataset?.gameplayRuntime || "",
+    gameplaySliceClientExists: Boolean(document.querySelector("[data-gameplay-slice-client]")),
+    gameplaySliceClientVisible: Boolean(document.querySelector("[data-gameplay-slice-client]:not([hidden])")),
+    gameplaySliceMarker: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplayRuntime || "",
+    legacyRuntimeInit: document.querySelector("#game-root")?.dataset?.runtimeInit || ""
+  })).catch((error) => ({
+    currentUrl: page.url(),
+    pageStateError: error?.message || String(error)
+  }));
+
+  return {
+    webServerCommand: process.env.PLAYWRIGHT_E2E_WEB_SERVER_COMMAND || "",
+    targetUrl: process.env.PLAYWRIGHT_E2E_HEALTH_URL || baseURL,
+    baseURL,
+    portState,
+    pageState,
+    consoleErrors: monitor?.errors || [],
+    failedRequests: monitor?.failedRequests || [],
+    gameplaySliceLoadResponses: monitor?.gameplaySliceLoadResponses || []
+  };
+}
+
+function sanitizeRequestUrl(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return String(rawUrl || "").split("?")[0];
+  }
+}
+
+function probeBaseUrlPort(baseURL) {
+  return new Promise((resolve) => {
+    let parsed;
+    try {
+      parsed = new URL(baseURL);
+    } catch (error) {
+      resolve({ open: false, error: error?.message || String(error) });
+      return;
+    }
+    const socket = net.connect({
+      host: parsed.hostname,
+      port: Number(parsed.port || (parsed.protocol === "https:" ? 443 : 80))
+    });
+    const done = (result) => {
+      socket.destroy();
+      resolve({
+        host: parsed.hostname,
+        port: Number(parsed.port || (parsed.protocol === "https:" ? 443 : 80)),
+        ...result
+      });
+    };
+    socket.setTimeout(1000);
+    socket.once("connect", () => done({ open: true }));
+    socket.once("timeout", () => done({ open: false, error: "timeout" }));
+    socket.once("error", (error) => done({ open: false, error: error?.message || String(error) }));
+  });
 }
 
 export async function clearStorageOnBoot(page) {
@@ -156,7 +267,7 @@ export async function seedE2eSession(page, overrides = {}) {
 }
 
 export async function openLoginPage(page) {
-  await page.goto("/pages/login.html", { waitUntil: "commit" });
+  await page.goto("/pages/login.html", { waitUntil: "load" });
   await expect(page.getByTestId("login-page")).toBeVisible();
   await expect(page).toHaveTitle(/Přihlášení/);
 }
@@ -228,6 +339,7 @@ export async function waitForMapReady(page) {
   await expect(page.getByTestId("game-page")).toBeVisible();
   await expect(page.getByTestId("district-canvas")).toBeVisible();
   await dismissOnboardingGuide(page);
+  await dismissBlockingGameOverlays(page);
   await page.waitForFunction(() => (
     typeof window.empireStreetsDistrictState?.getDistrictById === "function"
     && Boolean(window.empireStreetsDistrictState.getDistrictById(27))
@@ -241,6 +353,34 @@ export async function dismissOnboardingGuide(page) {
     if (await dismissButton.isVisible({ timeout: 1000 }).catch(() => false)) {
       await dismissButton.click({ force: true });
       await expect(panel).toBeHidden({ timeout: 5000 });
+    }
+  }
+}
+
+export async function dismissBlockingGameOverlays(page) {
+  await page.waitForLoadState("domcontentloaded");
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await page.evaluate(() => {
+        const warning = document.querySelector("[data-elimination-countdown-warning].is-visible");
+        const closeButton = document.querySelector(
+          "[data-elimination-countdown-warning].is-visible [data-elimination-countdown-warning-close]"
+        );
+        if (closeButton instanceof HTMLElement) {
+          closeButton.click();
+        }
+        if (warning instanceof HTMLElement && warning.classList.contains("is-visible")) {
+          warning.hidden = true;
+          warning.classList.remove("is-visible");
+          warning.style.pointerEvents = "none";
+        }
+      });
+      return;
+    } catch (error) {
+      if (!String(error?.message || error).includes("Execution context was destroyed") || attempt === 2) {
+        throw error;
+      }
+      await page.waitForLoadState("domcontentloaded");
     }
   }
 }
@@ -308,6 +448,7 @@ async function getDistrictCanvasPosition(page, districtId) {
 
 export async function clickDistrictById(page, districtId) {
   await dismissOnboardingGuide(page);
+  await dismissBlockingGameOverlays(page);
   const openedViaApi = await page.evaluate((id) => Boolean(window.empireStreetsDistrictState?.openDistrict?.(id)), districtId);
   if (!openedViaApi) {
     const position = await getDistrictCanvasPosition(page, districtId);
@@ -320,6 +461,7 @@ export async function openDistrictPopup(page, options = {}) {
   const districtId = Number(options.districtId || 27);
   await clickDistrictById(page, districtId);
   await expect(page.getByTestId("district-popup-card")).toBeVisible();
+  await dismissBlockingGameOverlays(page);
   return districtId;
 }
 
@@ -407,18 +549,26 @@ export async function closeModal(page, modalTestId, method = "escape") {
 }
 
 export async function expectNoDistrictActionModals(page) {
-  for (const testId of [
+  const visibleModalIds = await page.evaluate(() => [
     "attack-setup-modal",
     "robbery-setup-modal",
     "defense-setup-modal",
     "spy-confirm-modal"
-  ]) {
-    const modal = page.getByTestId(testId);
-    if (await modal.count() === 0) {
-      continue;
+  ].filter((testId) => {
+    const element = document.querySelector(`[data-testid="${testId}"]`);
+    if (!(element instanceof HTMLElement)) {
+      return false;
     }
-    await expect(modal).toBeHidden({ timeout: 1000 });
-  }
+    const style = window.getComputedStyle(element);
+    return !element.hidden
+      && !element.classList.contains("hidden")
+      && element.getAttribute("aria-hidden") !== "true"
+      && style.display !== "none"
+      && style.visibility !== "hidden"
+      && style.opacity !== "0";
+  }));
+
+  expect(visibleModalIds).toEqual([]);
 }
 
 export async function selectLobbyDistrict(page) {

@@ -1,11 +1,16 @@
 import { expect, test } from "@playwright/test";
 import {
   SESSION_STORAGE_KEY,
+  attachE2eDiagnostics,
   assertNoRuntimeErrors,
   clearStorageOnBoot,
   createRuntimeErrorMonitor,
   openLoginPage
 } from "./helpers/empireSmokeHelpers.js";
+
+test.afterEach(async ({ page }, testInfo) => {
+  await attachE2eDiagnostics(page, testInfo);
+});
 
 test.describe("login smoke", () => {
   test("renders login, register and guest entry without runtime errors", async ({ page }) => {
@@ -17,7 +22,7 @@ test.describe("login smoke", () => {
     await expect(page.getByTestId("register-tab")).toHaveCount(1);
     await expect(page.getByTestId("guest-login-button")).toBeVisible();
 
-    await page.evaluate(() => document.querySelector("[data-testid='register-tab']")?.click());
+    await page.locator("[data-tab-link='register']").click();
     await expect(page.getByTestId("register-form")).toBeVisible();
 
     await assertNoRuntimeErrors(errors);

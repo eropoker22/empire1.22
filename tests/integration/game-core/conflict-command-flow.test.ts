@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import { applyCommand } from "../../../packages/game-core/src/engine";
 import {
   createAttackDistrictCommandFixture,
+  createOccupyDistrictCommandFixture,
   createPlaceTrapCommandFixture,
   createSpyDistrictCommandFixture
 } from "../../fixtures/command-fixtures";
-import { createCombatStateFixture } from "../../fixtures/game-state-fixtures";
+import {
+  createCombatStateFixture,
+  createDistrictFixture
+} from "../../fixtures/game-state-fixtures";
 
 const context = {
   config: {
@@ -93,8 +97,10 @@ describe("conflict command flow", () => {
   });
 
   it("spy can deterministically reveal an active trap from the server seed", () => {
+    const worldSeed = findTrapRevealSeed();
+    expect(worldSeed, "Expected at least one deterministic trap reveal seed.").toBeTruthy();
     const state = createCombatStateFixture();
-    state.serverInstance.worldSeed = "spy-seed-10";
+    state.serverInstance.worldSeed = worldSeed!;
     const trappedState = applyCommand(state, createPlaceTrapCommandFixture(), context).nextState;
 
     const result = applyCommand(trappedState, createSpyDistrictCommandFixture(), context);
@@ -105,6 +111,125 @@ describe("conflict command flow", () => {
       result: "success",
       trapDetected: true
     });
+  });
+
+  it("successful spy intel unlocks neutral district occupation", () => {
+    const state = createCombatStateFixture();
+    state.serverInstance.worldSeed = "spy-seed-10";
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      influence: 20
+    };
+    state.districtsById["district:2"] = {
+      ...state.districtsById["district:2"],
+      ownerPlayerId: null,
+      status: "neutral",
+      defenseLoadout: {}
+    };
+
+    const spy = applyCommand(state, createSpyDistrictCommandFixture(), context);
+    const report = spy.nextState.notificationsById["notification:command:spy:1:spy-report"];
+
+    expect(spy.errors).toEqual([]);
+    expect(report?.payload).toMatchObject({
+      result: "success",
+      targetDistrictId: "district:2"
+    });
+
+    const occupied = applyCommand(spy.nextState, createOccupyDistrictCommandFixture(), context);
+
+    expect(occupied.errors).toEqual([]);
+    expect(occupied.nextState.districtsById["district:2"]?.ownerPlayerId).toBe("player:1");
+  });
+
+  it("partial spy intel reveals limited info but does not unlock neutral district occupation", () => {
+    const spy = findSpyOutcome("partial");
+
+    expect(spy, "Expected at least one deterministic partial spy seed.").toBeTruthy();
+    const partialSpy = spy!;
+    const report = partialSpy.nextState.notificationsById["notification:command:spy:1:spy-report"];
+
+    expect(partialSpy.errors).toEqual([]);
+    expect(report?.payload).toMatchObject({
+      result: "partial",
+      targetDistrictId: "district:2",
+      revealedType: true,
+      revealedDefense: false,
+      occupyUnlocked: false
+    });
+
+    const occupied = applyCommand(partialSpy.nextState, createOccupyDistrictCommandFixture(), context);
+
+    expect(occupied.errors).toContainEqual(expect.objectContaining({
+      code: "OCCUPY_SPY_REQUIRED"
+    }));
+    expect(occupied.nextState.districtsById["district:2"]?.ownerPlayerId).toBeNull();
+  });
+
+  it.each(["failed", "critical_failed"] as const)(
+    "%s spy intel does not unlock neutral district occupation and blocks a spy slot",
+    (outcome) => {
+      const spy = findSpyOutcome(outcome);
+
+      expect(spy, `Expected at least one deterministic ${outcome} spy seed.`).toBeTruthy();
+      const blockedSpy = spy!;
+      const report = blockedSpy.nextState.notificationsById["notification:command:spy:1:spy-report"];
+
+      expect(blockedSpy.errors).toEqual([]);
+      expect(report?.payload).toMatchObject({
+        result: outcome,
+        targetDistrictId: "district:2",
+        occupyUnlocked: false
+      });
+      expect(report?.payload.blockedUntilTick).toBeGreaterThan(blockedSpy.nextState.root.tick);
+
+      const occupied = applyCommand(blockedSpy.nextState, createOccupyDistrictCommandFixture(), context);
+
+      expect(occupied.errors).toContainEqual(expect.objectContaining({
+        code: "OCCUPY_SPY_REQUIRED"
+      }));
+      expect(occupied.nextState.districtsById["district:2"]?.ownerPlayerId).toBeNull();
+    }
+  );
+
+  it("enforces at most two blocked spy slots", () => {
+    const worldSeed = findBlockedCapacitySeed();
+    expect(worldSeed, "Expected at least one deterministic capacity seed with two blocked spy outcomes.").toBeTruthy();
+    const state = createThreeTargetSpyState(worldSeed!);
+    const first = applyCommand(state, createSpyDistrictCommandFixture({
+      id: "command:spy:slot:1",
+      payload: {
+        districtId: "district:2",
+        sourceDistrictId: "district:1"
+      }
+    }), context);
+    const second = applyCommand(first.nextState, createSpyDistrictCommandFixture({
+      id: "command:spy:slot:2",
+      payload: {
+        districtId: "district:3",
+        sourceDistrictId: "district:1"
+      }
+    }), context);
+    const third = applyCommand(second.nextState, createSpyDistrictCommandFixture({
+      id: "command:spy:slot:3",
+      payload: {
+        districtId: "district:4",
+        sourceDistrictId: "district:1"
+      }
+    }), context);
+
+    expect(first.errors).toEqual([]);
+    expect(second.errors).toEqual([]);
+    expect([
+      first.nextState.notificationsById["notification:command:spy:slot:1:spy-report"]?.payload.result,
+      second.nextState.notificationsById["notification:command:spy:slot:2:spy-report"]?.payload.result
+    ]).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^(failed|critical_failed)$/),
+      expect.stringMatching(/^(failed|critical_failed)$/)
+    ]));
+    expect(third.errors).toContainEqual(expect.objectContaining({
+      code: "spy_capacity_exceeded"
+    }));
   });
 
   it("attack triggers an active trap and applies attacker losses", () => {
@@ -180,3 +305,94 @@ describe("conflict command flow", () => {
     expect(first.events.map((event) => event.type)).toEqual(second.events.map((event) => event.type));
   });
 });
+
+const createNeutralSpyState = (worldSeed: string) => {
+  const state = createCombatStateFixture();
+  state.serverInstance.worldSeed = worldSeed;
+  state.districtsById["district:1"] = {
+    ...state.districtsById["district:1"],
+    influence: 20
+  };
+  state.districtsById["district:2"] = {
+    ...state.districtsById["district:2"],
+    ownerPlayerId: null,
+    status: "neutral",
+    defenseLoadout: {
+      vest: 6,
+      barricades: 6,
+      cameras: 5,
+      "defense-tower": 2,
+      alarm: 5
+    }
+  };
+  return state;
+};
+
+const findSpyOutcome = (outcome: "partial" | "failed" | "critical_failed") =>
+  Array.from({ length: 200 }, (_, index) => {
+    const state = createNeutralSpyState(`spy-parity-${outcome}-${index}`);
+    return applyCommand(state, createSpyDistrictCommandFixture(), context);
+  }).find((candidate) =>
+    candidate.nextState.notificationsById["notification:command:spy:1:spy-report"]?.payload.result === outcome
+  );
+
+const findTrapRevealSeed = () =>
+  Array.from({ length: 500 }, (_, index) => `spy-trap-reveal-${index}`).find((worldSeed) => {
+    const state = createCombatStateFixture();
+    state.serverInstance.worldSeed = worldSeed;
+    const trappedState = applyCommand(state, createPlaceTrapCommandFixture(), context).nextState;
+    const result = applyCommand(trappedState, createSpyDistrictCommandFixture(), context);
+    const payload = result.nextState.notificationsById["notification:command:spy:1:spy-report"]?.payload;
+    return payload?.result === "success" && payload.trapDetected === true;
+  });
+
+const findBlockedCapacitySeed = () =>
+  Array.from({ length: 500 }, (_, index) => `spy-capacity-seed-${index}`).find((worldSeed) => {
+    const state = createThreeTargetSpyState(worldSeed);
+    const first = applyCommand(state, createSpyDistrictCommandFixture({
+      id: "command:spy:slot:1",
+      payload: {
+        districtId: "district:2",
+        sourceDistrictId: "district:1"
+      }
+    }), context);
+    const second = applyCommand(first.nextState, createSpyDistrictCommandFixture({
+      id: "command:spy:slot:2",
+      payload: {
+        districtId: "district:3",
+        sourceDistrictId: "district:1"
+      }
+    }), context);
+    const firstResult = first.nextState.notificationsById["notification:command:spy:slot:1:spy-report"]?.payload.result;
+    const secondResult = second.nextState.notificationsById["notification:command:spy:slot:2:spy-report"]?.payload.result;
+    return (
+      (firstResult === "failed" || firstResult === "critical_failed")
+      && (secondResult === "failed" || secondResult === "critical_failed")
+    );
+  });
+
+const createThreeTargetSpyState = (worldSeed: string) => {
+  const state = createCombatStateFixture();
+  state.serverInstance.worldSeed = worldSeed;
+  state.districtsById["district:1"] = {
+    ...state.districtsById["district:1"],
+    adjacentDistrictIds: ["district:2", "district:3", "district:4"]
+  };
+  for (const districtId of ["district:2", "district:3", "district:4"]) {
+    state.districtsById[districtId] = createDistrictFixture({
+      id: districtId,
+      serverInstanceId: state.serverInstance.id,
+      adjacentDistrictIds: ["district:1"],
+      ownerPlayerId: "player:2",
+      defenseLoadout: {
+        vest: 6,
+        barricades: 6,
+        cameras: 5,
+        "defense-tower": 2,
+        alarm: 5
+      }
+    });
+  }
+  state.root.districtIds = Array.from(new Set([...state.root.districtIds, "district:3", "district:4"]));
+  return state;
+};

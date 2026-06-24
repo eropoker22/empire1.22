@@ -155,10 +155,7 @@ describe("district building gameplay slice", () => {
 
     const attackCommand = createAttackDistrictCommand({
       commandId: "command:attack:neutral",
-      serverInstanceId: instanceId,
-      playerId,
-      mode: "free",
-      sourceDistrictId: districtId,
+      slice: client.getGameplaySlice()!,
       targetDistrictId: neutralDistrictId,
       issuedAt: new Date(0).toISOString()
     });

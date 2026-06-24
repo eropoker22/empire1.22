@@ -12,6 +12,7 @@ export * from "./lobbyClubBuildingActions";
 export * from "./occupyDistrict";
 export * from "./placeTrap";
 export * from "./playerPoliceState";
+export * from "./selectSpawnDistrict";
 export * from "./spyDistrict";
 export * from "./streetDealersBuildingActions";
 export * from "./stockExchangeBuildingActions";

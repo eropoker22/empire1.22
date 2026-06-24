@@ -30,7 +30,6 @@ export const freeModeVipLoungeConfig: VipLoungeBalanceConfig = {
       "hidden_weakness",
       "weak_defense",
       "storage_hint",
-      "trap_suspicion",
       "fake"
     ]
   },

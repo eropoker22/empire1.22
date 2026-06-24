@@ -15,6 +15,11 @@ export const resolveClientSurfaceAction = (
     return { kind: "select-district", districtId: districtButton.dataset.districtId };
   }
 
+  const spawnButton = target.closest<ClientSurfaceActionElement>("button[data-select-spawn-district-id]");
+  if (spawnButton?.dataset.selectSpawnDistrictId) {
+    return { kind: "select-spawn", districtId: spawnButton.dataset.selectSpawnDistrictId };
+  }
+
   const attackButton = target.closest<ClientSurfaceActionElement>("button[data-attack-target-id]");
   if (attackButton?.dataset.attackTargetId) {
     return { kind: "attack", targetDistrictId: attackButton.dataset.attackTargetId };

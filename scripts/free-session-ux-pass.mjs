@@ -1,9 +1,11 @@
+import "./require-node20.mjs";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { chromium } from "@playwright/test";
 
 const DEFAULT_URL = "http://127.0.0.1:5174/pages/game.html";
 const BROWSER_CANDIDATES = [
@@ -16,6 +18,17 @@ const BROWSER_CANDIDATES = [
 
 const url = process.argv.find((arg) => arg.startsWith("--url="))?.slice("--url=".length) || DEFAULT_URL;
 const timeoutMs = Number(process.argv.find((arg) => arg.startsWith("--timeout-ms="))?.slice("--timeout-ms=".length) || 90000);
+const expectedRuntime = process.argv.find((arg) => arg.startsWith("--expect-runtime="))?.slice("--expect-runtime=".length) || "any";
+const allowedRuntimeExpectations = new Set([
+  "any",
+  "server-authoritative-ready",
+  "legacy-fallback",
+  "server-authoritative-error"
+]);
+
+if (!allowedRuntimeExpectations.has(expectedRuntime)) {
+  throw new Error(`Unsupported --expect-runtime=${expectedRuntime}`);
+}
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -23,6 +36,67 @@ function delay(ms) {
 
 function findBrowserPath() {
   return BROWSER_CANDIDATES.find((candidate) => existsSync(candidate)) || null;
+}
+
+async function startVite(targetUrl) {
+  try {
+    const response = await fetch(targetUrl, { method: "GET" });
+    if (response.ok) {
+      return {
+        async stop() {}
+      };
+    }
+  } catch {}
+
+  const parsedUrl = new URL(targetUrl);
+  const host = parsedUrl.hostname || "127.0.0.1";
+  const port = parsedUrl.port || "5174";
+  const child = spawn(process.execPath, [
+    "scripts/run-local-bin.mjs",
+    "vite/bin/vite.js",
+    "--config",
+    "vite.game.config.ts",
+    "--host",
+    host,
+    "--port",
+    port
+  ], {
+    cwd: process.cwd(),
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true
+  });
+  const output = [];
+  child.stdout?.setEncoding("utf8");
+  child.stderr?.setEncoding("utf8");
+  child.stdout?.on("data", (chunk) => output.push(String(chunk).trim()));
+  child.stderr?.on("data", (chunk) => output.push(String(chunk).trim()));
+
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (child.exitCode !== null) {
+      throw new Error(`Local gameplay dev server exited before smoke could start. Port ${port} may be in use.\n${output.slice(-20).join("\n")}`);
+    }
+    try {
+      const response = await fetch(targetUrl, { method: "GET" });
+      if (response.ok) {
+        return {
+          async stop() {
+            if (child.exitCode === null && !child.killed) {
+              child.kill();
+              await Promise.race([
+                once(child, "exit").catch(() => {}),
+                delay(1500)
+              ]);
+            }
+          }
+        };
+      }
+    } catch {}
+    await delay(300);
+  }
+
+  child.kill();
+  throw new Error(`Timed out waiting for local gameplay dev server at ${targetUrl}.\n${output.slice(-20).join("\n")}`);
 }
 
 class CdpPipe {
@@ -160,20 +234,260 @@ async function navigate(cdp, sessionId, targetUrl) {
 async function waitForRuntime(cdp, sessionId, timeout = 30000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeout) {
-    const ready = await evaluate(cdp, sessionId, `Boolean(window.EmpireRuntime && window.empireStreetsDistrictState && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready")`, 10000);
-    if (ready) {
-      return true;
+    const state = await evaluate(cdp, sessionId, String.raw`
+      (() => ({
+        legacyReady: Boolean(window.EmpireRuntime && window.empireStreetsDistrictState && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"),
+        gameplayRuntime: document.body?.dataset?.gameplayRuntime || "",
+        gameplayFallback: document.body?.dataset?.gameplayFallback || "",
+        sliceRuntime: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplayRuntime || "",
+        sliceUnavailable: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplaySliceUnavailable || ""
+      }))()
+    `, 10000);
+    if (state?.legacyReady && state?.gameplayRuntime) {
+      return state;
     }
     await delay(250);
   }
-  return false;
+  return null;
+}
+
+async function collectRuntimeDiagnostics(cdp, sessionId, {
+  pageMessages = [],
+  failedRequests = [],
+  apiResponses = [],
+  seed = null
+} = {}) {
+  const pageState = await evaluate(cdp, sessionId, String.raw`
+    (() => {
+      const sessionRaw = localStorage.getItem("empireStreets.session.v1");
+      let session = null;
+      try {
+        session = sessionRaw ? JSON.parse(sessionRaw) : null;
+      } catch {}
+      const sliceRoot = document.querySelector("[data-gameplay-slice-client]");
+      return {
+        url: location.href,
+        hasSession: Boolean(sessionRaw),
+        session: session ? {
+          identity: session.registration?.identity || "",
+          serverId: session.registration?.serverId || session.registration?.activeServerId || "",
+          serverInstanceId: session.registration?.serverInstanceId || session.registration?.activeServerInstanceId || "",
+          factionId: session.registration?.factionId || session.registration?.selectedFaction || "",
+          startDistrictId: session.registration?.startDistrictId || session.registration?.preferredStartDistrictId || null
+        } : null,
+        legacyRuntimeInit: document.querySelector("#game-root")?.dataset?.runtimeInit || "",
+        gameplayRuntime: document.body?.dataset?.gameplayRuntime || "",
+        gameplayFallback: document.body?.dataset?.gameplayFallback || "",
+        sliceRuntime: sliceRoot?.dataset?.gameplayRuntime || "",
+        sliceUnavailable: sliceRoot?.dataset?.gameplaySliceUnavailable || "",
+        sliceError: sliceRoot?.dataset?.gameplaySliceError || "",
+        loadEndpoint: sliceRoot?.dataset?.gameplaySliceEndpoint || ""
+      };
+    })()
+  `, 10000).catch((error) => ({
+    url: "",
+    evaluateError: error instanceof Error ? error.message : String(error)
+  }));
+
+  return {
+    ...pageState,
+    expectedRuntime,
+    seed,
+    gameplaySliceLoad: apiResponses.find((entry) => entry.url.includes("/api/gameplay-slice/load")) || null,
+    apiResponses: apiResponses.slice(-10),
+    failedApiRequests: failedRequests.filter((entry) => entry.url.includes("/api/")).slice(-10),
+    consoleErrors: pageMessages.filter((entry) => ["error", "warning", "assert"].includes(entry.type)).slice(-20)
+  };
+}
+
+function createDiagnosticError(message, diagnostics) {
+  return new Error(`${message}\nDiagnostics: ${JSON.stringify(diagnostics, null, 2)}`);
+}
+
+function isExpectedGameUrl(expectedUrl, actualUrl) {
+  try {
+    const expected = new URL(expectedUrl);
+    const actual = new URL(actualUrl);
+    return expected.origin === actual.origin && expected.pathname === actual.pathname;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForRuntimeWithPlaywright(page, timeout = 30000) {
+  await page.waitForFunction(() => {
+    const root = document.querySelector("#game-root");
+    const marker = document.body?.dataset?.gameplayRuntime || "";
+    return Boolean(
+      window.EmpireRuntime
+      && window.empireStreetsDistrictState
+      && root?.dataset?.runtimeInit === "ready"
+      && marker
+      && marker !== "initializing"
+    );
+  }, null, { timeout });
+
+  return page.evaluate(String.raw`
+    (() => ({
+      legacyReady: Boolean(window.EmpireRuntime && window.empireStreetsDistrictState && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"),
+      gameplayRuntime: document.body?.dataset?.gameplayRuntime || "",
+      gameplayFallback: document.body?.dataset?.gameplayFallback || "",
+      sliceRuntime: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplayRuntime || "",
+      sliceUnavailable: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplaySliceUnavailable || ""
+    }))()
+  `);
+}
+
+async function collectPlaywrightDiagnostics(page, {
+  pageMessages = [],
+  failedRequests = [],
+  apiResponses = [],
+  seed = null
+} = {}) {
+  const pageState = await page.evaluate(String.raw`
+    (() => {
+      const sessionRaw = localStorage.getItem("empireStreets.session.v1");
+      let session = null;
+      try {
+        session = sessionRaw ? JSON.parse(sessionRaw) : null;
+      } catch {}
+      const sliceRoot = document.querySelector("[data-gameplay-slice-client]");
+      return {
+        url: location.href,
+        hasSession: Boolean(sessionRaw),
+        session: session ? {
+          identity: session.registration?.identity || "",
+          serverId: session.registration?.serverId || session.registration?.activeServerId || "",
+          serverInstanceId: session.registration?.serverInstanceId || session.registration?.activeServerInstanceId || "",
+          factionId: session.registration?.factionId || session.registration?.selectedFaction || "",
+          startDistrictId: session.registration?.startDistrictId || session.registration?.preferredStartDistrictId || null
+        } : null,
+        legacyRuntimeInit: document.querySelector("#game-root")?.dataset?.runtimeInit || "",
+        gameplayRuntime: document.body?.dataset?.gameplayRuntime || "",
+        gameplayFallback: document.body?.dataset?.gameplayFallback || "",
+        sliceRuntime: sliceRoot?.dataset?.gameplayRuntime || "",
+        sliceUnavailable: sliceRoot?.dataset?.gameplaySliceUnavailable || "",
+        sliceError: sliceRoot?.dataset?.gameplaySliceError || "",
+        loadEndpoint: sliceRoot?.dataset?.gameplaySliceEndpoint || ""
+      };
+    })()
+  `).catch((error) => ({
+    url: "",
+    evaluateError: error instanceof Error ? error.message : String(error)
+  }));
+
+  return {
+    ...pageState,
+    expectedRuntime,
+    seed,
+    gameplaySliceLoad: apiResponses.find((entry) => entry.url.includes("/api/gameplay-slice/load")) || null,
+    apiResponses: apiResponses.slice(-10),
+    failedApiRequests: failedRequests.filter((entry) => entry.url.includes("/api/")).slice(-10),
+    consoleErrors: pageMessages.filter((entry) => ["error", "warning", "assert"].includes(entry.type)).slice(-20)
+  };
+}
+
+async function runWithPlaywright() {
+  const browserPath = findBrowserPath();
+  if (!browserPath) {
+    throw new Error("Chrome/Edge executable not found.");
+  }
+
+  const pageMessages = [];
+  const failedRequests = [];
+  const apiResponses = [];
+  let server = null;
+  let browser = null;
+
+  try {
+    server = await startVite(url);
+    browser = await chromium.launch({
+      executablePath: browserPath,
+      headless: true
+    });
+    const page = await browser.newPage();
+
+    page.on("console", (message) => {
+      const text = message.text();
+      const locationUrl = message.location().url || "";
+      if (/favicon\.ico/i.test(`${text} ${locationUrl}`)) {
+        return;
+      }
+      pageMessages.push({
+        type: message.type(),
+        text: text.slice(0, 500),
+        url: locationUrl
+      });
+    });
+    page.on("requestfailed", (request) => {
+      failedRequests.push({
+        url: request.url(),
+        errorText: request.failure()?.errorText || "",
+        type: request.resourceType()
+      });
+    });
+    page.on("response", (response) => {
+      if (!response.url().includes("/api/")) {
+        return;
+      }
+      apiResponses.push({
+        url: response.url(),
+        status: response.status(),
+        mimeType: response.headers()["content-type"] || ""
+      });
+    });
+
+    await page.addInitScript(seedExpression);
+    await page.goto(url, { waitUntil: "load", timeout: timeoutMs });
+    const seed = await page.evaluate(sessionSnapshotExpression);
+    const currentUrl = page.url();
+    if (!isExpectedGameUrl(url, currentUrl)) {
+      throw createDiagnosticError(
+        "Game page redirected before the seeded session reached the auth guard.",
+        await collectPlaywrightDiagnostics(page, { pageMessages, failedRequests, apiResponses, seed })
+      );
+    }
+
+    const ready = await waitForRuntimeWithPlaywright(page, 30000).catch(async () => {
+      throw createDiagnosticError(
+        "Game runtime did not reach ready state.",
+        await collectPlaywrightDiagnostics(page, { pageMessages, failedRequests, apiResponses, seed })
+      );
+    });
+
+    const result = await page.evaluate(passExpression);
+    result.seed = seed;
+    result.runtimeReady = ready;
+    result.api = {
+      gameplaySliceLoad: apiResponses.find((entry) => entry.url.includes("/api/gameplay-slice/load")) || null,
+      gameplaySliceSubmit: apiResponses.find((entry) => entry.url.includes("/api/gameplay-slice/submit")) || null,
+      responses: apiResponses.slice(-10),
+      failedRequests: failedRequests.slice(-10)
+    };
+    result.console = pageMessages
+      .filter((entry) => ["error", "warning", "assert"].includes(entry.type))
+      .filter((entry) => !(
+        expectedRuntime === "server-authoritative-error"
+        && entry.type === "warning"
+        && String(entry.text || "").includes("[gameplay-slice] Server-authoritative runtime failed")
+      ))
+      .slice(0, 20);
+    result.browserStderr = [];
+    result.validationFailures = validatePassResult(result);
+    console.log(JSON.stringify(result, null, 2));
+    if (result.validationFailures.length > 0) {
+      throw new Error(`Free-session UX pass failed validation: ${result.validationFailures.join("; ")}`);
+    }
+  } finally {
+    await browser?.close().catch(() => {});
+    await server?.stop().catch(() => {});
+  }
 }
 
 const seedExpression = String.raw`
-(async () => {
-  const auth = await import("/page-assets/js/app/auth-flow.js");
-  const authority = await import("/page-assets/js/app/model/authority-state.js");
+(() => {
   const now = new Date().toISOString();
+  const serverInstanceId = "instance:free:eu-central:public-1";
   localStorage.clear();
   localStorage.setItem("empire:active_guest_mode", "free");
   localStorage.setItem("empire:active_mode", "free");
@@ -183,90 +497,146 @@ const seedExpression = String.raw`
     minimized: false
   }));
 
-  auth.saveLoginStep({
-    identity: "Manual UX Boss",
-    gangName: "Manual UX Crew",
-    isGuest: true,
-    mode: "free"
-  });
-  auth.saveLobbyStep({ serverId: "free-eu-01", districtId: 27 });
-
-  const base = authority.createDefaultPreviewSession("mafian");
-  const stored = JSON.parse(localStorage.getItem("empireStreets.session.v1") || "{}");
   const session = {
-    ...base,
-    ...stored,
     registration: {
-      ...(stored.registration || {}),
       identity: "Manual UX Boss",
       gangName: "Manual UX Crew",
       isGuest: true,
       loginKind: "guest",
-      serverId: "free-eu-01",
+      activeServerId: serverInstanceId,
+      activeServerInstanceId: serverInstanceId,
+      activeServerName: "Neon Docks FREE-01",
+      activeServerMode: "free",
+      activeServerRegion: "EU Central",
+      activeServerStatus: "ONLINE",
+      serverId: serverInstanceId,
+      serverInstanceId,
       serverLabel: "Neon Docks FREE-01",
       serverMode: "free",
       serverRegion: "EU Central",
+      preferredStartDistrictId: 27,
       startDistrictId: 27,
       factionId: "mafian",
+      selectedFaction: "mafian",
+      structure: "mafián",
+      selectedStructure: "mafián",
+      factionLocked: true,
+      hasCompletedServerEntry: true,
+      serverRegistrationStatus: "faction_locked",
       gangColor: "#67e8f9",
       lastLoginAt: now,
       lobbyLockedAt: now,
       lockedAt: now
     },
     world: {
-      ...base.world,
-      ...(stored.world || {}),
       ownedDistrictIds: [27],
       phaseState: {
-        ...base.world.phaseState,
-        ...(stored.world?.phaseState || {}),
         gamePhase: "live",
-        mapPhase: "night"
+        mapPhase: "night",
+        cityMinutes: 1334
       },
+      destroyedDistrictIds: [],
       districtDefenseById: {
-        ...(base.world.districtDefenseById || {}),
         28: 15,
         29: 20
-      }
+      },
+      districtDefenseLoadoutById: {},
+      districtDefenseResidentsById: {},
+      districtTrapById: {},
+      districtGossipById: {},
+      districtPoliceActionById: {}
     },
     inventory: {
-      ...base.inventory,
       weapons: {
-        ...base.inventory.weapons,
-        "baseball-bat": Math.max(6, Number(base.inventory.weapons?.["baseball-bat"] || 0)),
-        pistol: Math.max(4, Number(base.inventory.weapons?.pistol || 0))
+        "baseball-bat": 6,
+        pistol: 4
       },
       materials: {
-        ...base.inventory.materials,
-        chemicals: Math.max(8, Number(base.inventory.materials?.chemicals || 0)),
-        biomass: Math.max(8, Number(base.inventory.materials?.biomass || 0))
+        chemicals: 8,
+        biomass: 8
       },
       factorySupplies: {
-        ...base.inventory.factorySupplies,
-        metalParts: Math.max(20, Number(base.inventory.factorySupplies?.metalParts || 0)),
-        techCore: Math.max(8, Number(base.inventory.factorySupplies?.techCore || 0))
+        metalParts: 20,
+        techCore: 8,
+        combatModule: 0
       }
     },
     economy: {
-      ...base.economy,
-      cleanMoney: Math.max(5000, Number(base.economy.cleanMoney || 0)),
-      dirtyMoney: Math.max(2500, Number(base.economy.dirtyMoney || 0))
+      cleanMoney: 5000,
+      dirtyMoney: 2500
     },
     gang: {
-      ...base.gang,
-      members: Math.max(24, Number(base.gang.members || 0)),
-      heat: Math.max(35, Number(base.gang.heat || 0)),
-      influence: Math.max(25, Number(base.gang.influence || 0))
+      members: 24,
+      heat: 35,
+      influence: 25,
+      policeRaidProtectionUntil: 0,
+      autoPoliceNextActionAt: 0,
+      heatJournal: [],
+      dirtyHeatReductionTimestamps: [],
+      lastHeatDecayAt: now
+    },
+    missions: {
+      attackOrders: [],
+      occupyOrders: [],
+      robberyOrders: [],
+      spy: {
+        available: 3,
+        missions: []
+      },
+      spyIntel: {
+        occupiableDistrictIds: [],
+        revealedTypeDistrictIds: [],
+        revealedDefenseDistrictIds: []
+      }
+    },
+    production: {
+      jobs: {},
+      factory: {
+        level: 1,
+        resources: {},
+        slots: [],
+        boosts: { active: null },
+        updatedAt: Date.now()
+      },
+      buildings: {
+        pharmacy: { level: 1 },
+        druglab: { level: 1 },
+        armory: { level: 1 }
+      }
     }
   };
   localStorage.setItem("empireStreets.session.v1", JSON.stringify(session));
-  localStorage.setItem("empireStreets.session.free.free-eu-01.v1", JSON.stringify(session));
+  localStorage.setItem("empireStreets.session.free.instance-free-eu-central-public-1.v1", JSON.stringify(session));
   return {
     mode: session.registration.serverMode,
     serverId: session.registration.serverId,
+    serverInstanceId: session.registration.serverInstanceId,
     startDistrictId: session.registration.startDistrictId,
     ownedDistrictIds: session.world.ownedDistrictIds
   };
+})()
+`;
+
+const sessionSnapshotExpression = String.raw`
+(() => {
+  const raw = localStorage.getItem("empireStreets.session.v1");
+  if (!raw) {
+    return { hasSession: false };
+  }
+  try {
+    const session = JSON.parse(raw);
+    return {
+      hasSession: true,
+      identity: session.registration?.identity || "",
+      serverId: session.registration?.serverId || "",
+      serverInstanceId: session.registration?.serverInstanceId || "",
+      factionId: session.registration?.factionId || "",
+      startDistrictId: session.registration?.startDistrictId || null,
+      ownedDistrictIds: Array.isArray(session.world?.ownedDistrictIds) ? session.world.ownedDistrictIds : []
+    };
+  } catch {
+    return { hasSession: true, parseError: true };
+  }
 })()
 `;
 
@@ -316,6 +686,13 @@ const passExpression = String.raw`
     modals: {},
     events,
     errors: []
+  };
+  result.runtime = {
+    marker: document.body?.dataset?.gameplayRuntime || "",
+    fallback: document.body?.dataset?.gameplayFallback || "",
+    sliceMarker: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplayRuntime || "",
+    sliceUnavailable: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplaySliceUnavailable || "",
+    legacyRuntimeInit: root?.dataset?.runtimeInit || ""
   };
 
   for (const name of [
@@ -586,6 +963,29 @@ function validatePassResult(result) {
   const textIncludes = (text, expected) => String(text || "").toLowerCase().includes(String(expected).toLowerCase());
 
   requireCheck(result?.bootstrap === "ready", "runtime did not report ready bootstrap");
+  requireCheck(Boolean(result?.runtime?.marker), "gameplay runtime marker is missing");
+  if (expectedRuntime !== "any") {
+    requireCheck(
+      result?.runtime?.marker === expectedRuntime,
+      `expected gameplay runtime ${expectedRuntime}, got ${result?.runtime?.marker || "missing"}`
+    );
+  }
+  if (expectedRuntime === "server-authoritative-ready") {
+    requireCheck(
+      result?.api?.gameplaySliceLoad?.status && result.api.gameplaySliceLoad.status !== 404,
+      "/api/gameplay-slice/load did not return a non-404 response"
+    );
+    requireCheck(Boolean(result?.seed?.hasSession), "session was not seeded before navigation");
+    requireCheck(isExpectedGameUrl(url, result?.url || ""), "current URL is not the expected game URL");
+    requireCheck(result?.runtime?.sliceMarker === "server-authoritative-ready", "gameplay slice root did not reach server-authoritative-ready");
+    requireCheck(!result?.runtime?.sliceUnavailable, "gameplay slice marked itself unavailable");
+    requireCheck(
+      !result?.api?.failedRequests?.some((entry) => String(entry.url || "").includes("/api/gameplay-slice")),
+      "gameplay slice API request failed"
+    );
+    requireCheck(Array.isArray(result?.console) && result.console.length === 0, "browser console has warnings/errors");
+    return failures;
+  }
   requireCheck(Array.isArray(result?.missingHandlers) && result.missingHandlers.length === 0, `missing public handlers: ${(result?.missingHandlers || []).join(", ")}`);
   for (const actionName of [
     "openOwnDistrict",
@@ -662,6 +1062,8 @@ function validatePassResult(result) {
 }
 
 async function run() {
+  return runWithPlaywright();
+
   const browserPath = findBrowserPath();
   if (!browserPath) {
     throw new Error("Chrome/Edge executable not found.");
@@ -719,9 +1121,14 @@ async function run() {
     const { sessionId } = await cdp.send("Target.attachToTarget", { targetId, flatten: true });
     await cdp.send("Page.enable", {}, sessionId);
     await cdp.send("Runtime.enable", {}, sessionId);
+    await cdp.send("Network.enable", {}, sessionId);
     await cdp.send("Log.enable", {}, sessionId).catch(() => {});
+    await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: seedExpression }, sessionId);
 
     const pageMessages = [];
+    const failedRequests = [];
+    const apiResponses = [];
+    const requestUrls = new Map();
     cdp.waiters.push({
       method: "Runtime.consoleAPICalled",
       sessionId,
@@ -736,20 +1143,92 @@ async function run() {
       reject: () => {},
       timer: setTimeout(() => {}, timeoutMs)
     });
+    cdp.waiters.push({
+      method: "Network.responseReceived",
+      sessionId,
+      predicate: (message) => {
+        const response = message.params?.response;
+        const responseUrl = String(response?.url || "");
+        if (responseUrl.includes("/api/")) {
+          apiResponses.push({
+            url: responseUrl,
+            status: response?.status || 0,
+            mimeType: response?.mimeType || ""
+          });
+        }
+        return false;
+      },
+      resolve: () => {},
+      reject: () => {},
+      timer: setTimeout(() => {}, timeoutMs)
+    });
+    cdp.waiters.push({
+      method: "Network.requestWillBeSent",
+      sessionId,
+      predicate: (message) => {
+        const requestId = message.params?.requestId;
+        const requestUrl = message.params?.request?.url;
+        if (requestId && requestUrl) {
+          requestUrls.set(requestId, requestUrl);
+        }
+        return false;
+      },
+      resolve: () => {},
+      reject: () => {},
+      timer: setTimeout(() => {}, timeoutMs)
+    });
+    cdp.waiters.push({
+      method: "Network.loadingFailed",
+      sessionId,
+      predicate: (message) => {
+        const requestId = message.params?.requestId || "";
+        failedRequests.push({
+          requestId,
+          url: requestUrls.get(requestId) || "",
+          errorText: message.params?.errorText || "",
+          type: message.params?.type || ""
+        });
+        return false;
+      },
+      resolve: () => {},
+      reject: () => {},
+      timer: setTimeout(() => {}, timeoutMs)
+    });
 
     await navigate(cdp, sessionId, url);
-    const seed = await evaluate(cdp, sessionId, seedExpression, 30000);
-    const reloadEvent = cdp.waitForEvent("Page.loadEventFired", { sessionId, timeout: 30000 });
-    await cdp.send("Page.reload", {}, sessionId);
-    await reloadEvent;
+    const seed = await evaluate(cdp, sessionId, sessionSnapshotExpression, 30000);
+    const currentUrl = await evaluate(cdp, sessionId, "location.href", 10000);
+    if (!isExpectedGameUrl(url, currentUrl)) {
+      throw createDiagnosticError(
+        "Game page redirected before the seeded session reached the auth guard.",
+        await collectRuntimeDiagnostics(cdp, sessionId, { pageMessages, failedRequests, apiResponses, seed })
+      );
+    }
     const ready = await waitForRuntime(cdp, sessionId, 30000);
     if (!ready) {
-      throw new Error("Game runtime did not reach ready state.");
+      throw createDiagnosticError(
+        "Game runtime did not reach ready state.",
+        await collectRuntimeDiagnostics(cdp, sessionId, { pageMessages, failedRequests, apiResponses, seed })
+      );
     }
 
     const result = await evaluate(cdp, sessionId, passExpression, timeoutMs);
     result.seed = seed;
-    result.console = pageMessages.filter((entry) => ["error", "warning", "assert"].includes(entry.type)).slice(0, 20);
+    result.runtimeReady = ready;
+    result.api = {
+      gameplaySliceLoad: apiResponses.find((entry) => entry.url.includes("/api/gameplay-slice/load")) || null,
+      gameplaySliceSubmit: apiResponses.find((entry) => entry.url.includes("/api/gameplay-slice/submit")) || null,
+      responses: apiResponses.slice(-10),
+      failedRequests: failedRequests.slice(-10)
+    };
+    result.console = pageMessages
+      .filter((entry) => ["error", "warning", "assert"].includes(entry.type))
+      .filter((entry) => !(
+        expectedRuntime === "server-authoritative-error"
+        && entry.type === "warning"
+        && String(entry.text || "").includes("[gameplay-slice] Server-authoritative runtime failed")
+      ))
+      .slice(0, 20);
     result.browserStderr = stderr.filter(Boolean).slice(0, 5);
     result.validationFailures = validatePassResult(result);
     console.log(JSON.stringify(result, null, 2));

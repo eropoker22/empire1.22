@@ -26,7 +26,6 @@ export interface CentralBankOversightEvent {
   label: string;
   riskPct: number;
   cleanCashLost?: number;
-  rumorText?: string;
 }
 
 export interface CentralBankInterestEvent {

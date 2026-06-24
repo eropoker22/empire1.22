@@ -9,4 +9,5 @@ export * from "./occupy-district-command";
 export * from "./place-trap-command";
 export * from "./player-command";
 export * from "./run-building-action-command";
+export * from "./select-spawn-district-command";
 export * from "./spy-district-command";

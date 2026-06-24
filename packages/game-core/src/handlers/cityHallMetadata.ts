@@ -61,7 +61,7 @@ const readCityHallMetadata = (building: CoreGameState["buildingsById"][string]):
     cityContractBlockedUntilTick: asOptionalTick(raw.cityContractBlockedUntilTick),
     lastScandalCheckTick: asOptionalTick(raw.lastScandalCheckTick),
     riskEvents: Array.isArray(raw.riskEvents) ? raw.riskEvents.filter(isRecord).map((entry) => ({ actionId: String(entry.actionId || ""), riskPct: Number(entry.riskPct || 0), expiresAtTick: Math.floor(Number(entry.expiresAtTick || 0)), tick: Math.floor(Number(entry.tick || 0)) })).filter((entry) => entry.actionId) : [],
-    scandalEvents: Array.isArray(raw.scandalEvents) ? raw.scandalEvents.filter(isRecord).map((entry) => ({ type: String(entry.type || ""), tick: Math.floor(Number(entry.tick || 0)), label: String(entry.label || entry.type || ""), riskPct: Number(entry.riskPct || 0), rumorText: entry.rumorText ? String(entry.rumorText) : undefined })).filter((entry) => entry.type) : []
+    scandalEvents: Array.isArray(raw.scandalEvents) ? raw.scandalEvents.filter(isRecord).map((entry) => ({ type: String(entry.type || ""), tick: Math.floor(Number(entry.tick || 0)), label: String(entry.label || entry.type || ""), riskPct: Number(entry.riskPct || 0) })).filter((entry) => entry.type) : []
   };
 };
 
@@ -84,11 +84,10 @@ export const withCityHallMetadata = (
 export const appendCityHallRumor = (
   state: CoreGameState,
   building: CoreGameState["buildingsById"][string],
-  message: string,
   severity: CityFeedEvent["severity"],
   lobbyClubConfig?: LobbyClubBalanceConfig
 ): CoreGameState => {
-  const sourceEventId = `city-hall-scandal:${building.id}:${state.root.tick}:${Math.abs(hashText(message))}`;
+  const sourceEventId = `city-hall-scandal:${building.id}:${state.root.tick}:leaked-documents`;
   return applyRumorEventToState(state, {
     sourceEventId,
     sourceType: "building_action",
@@ -100,7 +99,6 @@ export const appendCityHallRumor = (
     playerId: building.ownerPlayerId,
     districtId: building.districtId,
     createdAtTick: state.root.tick,
-    message,
     messageKey: "rumor.city_hall_scandal",
     negative: true,
     payload: { buildingTypeId: building.buildingTypeId, rumorType: "leaked_documents" }
@@ -127,9 +125,6 @@ const asOptionalTick = (value: unknown): number | undefined => {
 
 export const minutesToTicks = (minutes: number, tickRateMs: number): number =>
   Math.max(1, Math.ceil(Math.max(0, minutes) * 60000 / Math.max(1, tickRateMs)));
-
-const hashText = (value: string): number =>
-  Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) | 0, 0);
 
 const isRecord = (value: unknown): value is Record<string, any> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);

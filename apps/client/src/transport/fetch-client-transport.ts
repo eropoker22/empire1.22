@@ -32,7 +32,8 @@ export const createFetchClientTransport = (
     }
 
     const requestWithTokens = attachStoredGameplaySliceTokens(route, request, storage);
-    const response = await fetchJson(`${endpointBase}/${route}`, {
+    const endpoint = `${endpointBase}/${route}`;
+    const response = await fetchJson(endpoint, {
       method: "POST",
       headers: {
         "content-type": "application/json"
@@ -41,7 +42,7 @@ export const createFetchClientTransport = (
     });
 
     if (!response.ok) {
-      throw new Error(`Gameplay slice request failed with HTTP ${response.status}.`);
+      throw new Error(`Gameplay slice request failed: POST ${endpoint} returned HTTP ${response.status}.`);
     }
 
     const payload = await response.json() as GameplaySliceResponse;

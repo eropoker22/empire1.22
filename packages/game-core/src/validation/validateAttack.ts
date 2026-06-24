@@ -1,7 +1,8 @@
 import type { AttackDistrictCommand } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { CoreError } from "../errors";
-import { calculateTotalAttackPower } from "../rules";
+import { calculateTotalAttackPower, validateMapAction } from "../rules";
+import { hasValidAttackAuthorization } from "./spyIntel";
 
 /**
  * Responsibility: Placeholder validator for district attacks.
@@ -13,9 +14,6 @@ export const validateAttack = (
   command: AttackDistrictCommand
 ): CoreError[] => {
   const attacker = state.playersById[command.playerId];
-  const sourceDistrict = command.payload.sourceDistrictId
-    ? state.districtsById[command.payload.sourceDistrictId]
-    : null;
   const targetDistrict = state.districtsById[command.payload.districtId];
 
   if (!attacker) {
@@ -36,56 +34,25 @@ export const validateAttack = (
     ];
   }
 
-  if (!sourceDistrict) {
-    return [
-      {
-        code: "source_district_not_found",
-        message: "Player must attack from one owned neighboring district."
-      }
-    ];
-  }
+  const mapValidation = validateMapAction(
+    state,
+    {
+      actorPlayerId: command.playerId,
+      targetDistrictId: command.payload.districtId,
+      originDistrictId: command.payload.sourceDistrictId ?? undefined,
+      action: "attack"
+    },
+    {
+      hasAttackAuthorization: () =>
+        hasValidAttackAuthorization(state, command.playerId, command.payload.districtId)
+    }
+  );
 
-  if (sourceDistrict.status === "destroyed") {
+  if (!mapValidation.allowed) {
     return [
       {
-        code: "source_district_destroyed",
-        message: "Player cannot attack from a destroyed district."
-      }
-    ];
-  }
-
-  if (targetDistrict.status === "destroyed") {
-    return [
-      {
-        code: "target_district_destroyed",
-        message: "Destroyed districts cannot be attacked."
-      }
-    ];
-  }
-
-  if (sourceDistrict.ownerPlayerId !== command.playerId) {
-    return [
-      {
-        code: "source_district_not_owned",
-        message: "Player can only attack from a district they own."
-      }
-    ];
-  }
-
-  if (targetDistrict.ownerPlayerId === command.playerId) {
-    return [
-      {
-        code: "attack_own_district",
-        message: "Player cannot attack a district they already own."
-      }
-    ];
-  }
-
-  if (!sourceDistrict.adjacentDistrictIds.includes(targetDistrict.id)) {
-    return [
-      {
-        code: "target_not_adjacent",
-        message: "Player can only attack a district that borders the selected source district."
+        code: mapValidation.reasonCode ?? "attack_not_allowed",
+        message: mapActionErrorMessage(mapValidation.reasonCode)
       }
     ];
   }
@@ -113,4 +80,25 @@ export const validateAttack = (
   }
 
   return [];
+};
+
+const mapActionErrorMessage = (reasonCode: string | undefined): string => {
+  switch (reasonCode) {
+    case "TARGET_IS_SELF":
+      return "Player cannot attack a district they already own.";
+    case "TARGET_IS_ALLY":
+      return "Player cannot attack an allied district.";
+    case "TARGET_NOT_ENEMY":
+      return "Player can only attack an enemy-owned district.";
+    case "NO_VALID_ORIGIN":
+      return "Player must attack from one owned neighboring district.";
+    case "TARGET_NOT_ADJACENT":
+      return "Player can only attack a district that borders the selected source district.";
+    case "SPY_REQUIRED":
+      return "A valid successful spy authorization is required before attacking this district.";
+    case "DISTRICT_LOCKED":
+      return "Locked or destroyed districts cannot be attacked.";
+    default:
+      return "Attack is not allowed for this district.";
+  }
 };

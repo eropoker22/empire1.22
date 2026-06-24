@@ -10,6 +10,7 @@ import {
   handleCraftItem,
   handleOccupyDistrict,
   handlePlaceTrap,
+  handleSelectSpawnDistrict,
   handleSpyDistrict,
   handleUseBuildingAction
 } from "../handlers";
@@ -43,6 +44,22 @@ export const routeCommand = (
     };
   }
 
+  if (player && command.type !== "select-spawn-district" && !player.homeDistrictId) {
+    return {
+      nextState: state,
+      events: [],
+      errors: [
+        {
+          code: "AWAITING_SPAWN_SELECTION",
+          message: "Player must select a start district before gameplay actions are available.",
+          details: {
+            playerId: player.id
+          }
+        }
+      ]
+    };
+  }
+
   switch (command.type) {
     case "acknowledge-pending-raid":
       return handleAcknowledgePendingRaid(state, command, context);
@@ -61,6 +78,8 @@ export const routeCommand = (
       return handlePlaceTrap(state, command, context);
     case "run-building-action":
       return handleUseBuildingAction(state, command, context);
+    case "select-spawn-district":
+      return handleSelectSpawnDistrict(state, command, context);
     case "spy-district":
       return handleSpyDistrict(state, command, context);
     default:

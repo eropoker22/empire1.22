@@ -360,71 +360,42 @@ export const SPY_ALLIANCE_DETECTION_WARNING_QUOTES = Object.freeze([
 
 export const DISTRICT_GOSSIP_SEED_LIBRARY = Object.freeze({
   resident: Object.freeze({
-    rumors: Object.freeze([
-      "Drb: Ve vnitrobloku se šeptá o nové posádce, která vybírá nájem ve dvě ráno.",
-      "Drb: V činžácích se ztrácí hotovost a sousedi prý moc mluví.",
-      "Drb: V zadních dvorech se večer střídají hlídky bez poznávacích znaků.",
-      "Drb: Domovní vchody hlídají děti a posílají světelné signály přes ulici."
-    ]),
+    rumors: Object.freeze([]),
     verified: Object.freeze([
       "Potvrzený intel: Obytný sektor drží silná uliční síť a cizí pohyb se tu dlouho neschová.",
       "Potvrzený intel: V rezidenčním bloku funguje stabilní logistika lidí i peněz."
     ])
   }),
   industrial: Object.freeze({
-    rumors: Object.freeze([
-      "Drb: U ramp se po směně přesouvají bedny bez evidence.",
-      "Drb: Z haly mizí kov a v noci tam hučí kompresory déle než mají.",
-      "Drb: Dělníci mluví o skrytém skladu za servisním tunelem.",
-      "Drb: V továrním pásu někdo vykupuje ochranné vybavení po celých paletách."
-    ]),
+    rumors: Object.freeze([]),
     verified: Object.freeze([
       "Potvrzený intel: Průmyslový sektor drží zásoby materiálu a rychlý přesun techniky.",
       "Potvrzený intel: V průmyslu bývá tvrdší obrana a lepší krytí pro těžkou výzbroj."
     ])
   }),
   economy: Object.freeze({
-    rumors: Object.freeze([
-      "Drb: V kancelářích se točí účetní knihy, které nikdo nechce vidět za denního světla.",
-      "Drb: Směnárny v sektoru jedou přes zadní dveře a bez kamer.",
-      "Drb: Kurýři nosí balíčky mezi barem, bankou a podzemní garáží.",
-      "Drb: V obchodním bloku mizí zboží ještě dřív, než se objeví v inventuře."
-    ]),
+    rumors: Object.freeze([]),
     verified: Object.freeze([
       "Potvrzený intel: Ekonomický sektor je silný na cashflow, vliv a rychlé krytí transakcí.",
       "Potvrzený intel: V tomto sektoru se dobře schovávají výplaty i tiché nákupy."
     ])
   }),
   park: Object.freeze({
-    rumors: Object.freeze([
-      "Drb: V parku se po setmění schází kurýři bez telefonů a bez poznávacích znamení.",
-      "Drb: Stromová linie skrývá tiché přesuny mezi dvěma sousedními districtama.",
-      "Drb: Hlídky tu mizí v mlze a objevují se až u servisní brány.",
-      "Drb: V parku se prý testují pasti dřív, než jdou do ostrého provozu."
-    ]),
+    rumors: Object.freeze([]),
     verified: Object.freeze([
       "Potvrzený intel: Parkový sektor dává dobré krytí pro přesuny a nenápadný dohled.",
       "Potvrzený intel: Přirozené stíny a členitost terénu tu nahrávají špehování i léčkám."
     ])
   }),
   downtown: Object.freeze({
-    rumors: Object.freeze([
-      "Drb: Downtown nikdy nespí a hlídky se tu mění po minutách.",
-      "Drb: V neonových ulicích se prodává informace rychleji než zboží.",
-      "Drb: Kluby v centru perou peníze přes VIP boxy a soukromé výtahy.",
-      "Drb: Nad střechami centra se přesouvají kurýři přes servisní lávky."
-    ]),
+    rumors: Object.freeze([]),
     verified: Object.freeze([
       "Potvrzený intel: Downtown je hlučný, drahý a plný očí, ale zároveň skrývá nejvíc příležitostí.",
       "Potvrzený intel: Centrum přitahuje obchod, vliv i nejrychlejší eskalaci konfliktu."
     ])
   }),
   unknown: Object.freeze({
-    rumors: Object.freeze([
-      "Drb: V sektoru je cítit nervozita a někdo tam chystá změnu kontroly.",
-      "Drb: Noční provoz v districtu je hustší než obvykle a lidé mizí do bočních ulic.",
-      "Drb: V okolí se šíří řeči o překladišti, které se otevře jen na pár minut."
-    ]),
+    rumors: Object.freeze([]),
     verified: Object.freeze([
       "Potvrzený intel: District drží vlastní rytmus a reaguje rychle na cizí zásah."
     ])

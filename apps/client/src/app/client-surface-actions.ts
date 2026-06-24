@@ -6,6 +6,7 @@ import {
   createOccupyDistrictCommand,
   createPlaceTrapCommand,
   createRunBuildingActionCommand,
+  createSelectSpawnDistrictCommand,
   createSpyDistrictCommand
 } from "../features";
 import {
@@ -45,6 +46,20 @@ export const createClientSurfaceActionRouter = (
       return options.client.selectDistrict(action.districtId);
     }
 
+    if (action.kind === "select-spawn") {
+      const slice = options.client.getGameplaySlice();
+      if (!slice) return null;
+      const issuedAt = (options.getIssuedAt ?? (() => new Date().toISOString()))();
+      return options.client.dispatch(
+        createSelectSpawnDistrictCommand({
+          commandId: options.createCommandId("command:select-spawn"),
+          slice,
+          districtId: action.districtId,
+          issuedAt
+        })
+      );
+    }
+
     if (action.kind === "open-building") {
       return options.client.selectBuilding(action.buildingId);
     }
@@ -64,10 +79,7 @@ export const createClientSurfaceActionRouter = (
         return options.client.dispatch(
           createAttackDistrictCommand({
             commandId: options.createCommandId("command:attack"),
-            serverInstanceId: slice.player.instanceId,
-            playerId: slice.player.playerId,
-            mode,
-            sourceDistrictId: district.districtId,
+            slice,
             targetDistrictId: action.targetDistrictId,
             issuedAt
           })

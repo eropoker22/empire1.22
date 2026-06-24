@@ -124,9 +124,8 @@ export function buildDistrictIntelEventText(type, districtOrId, payload = {}) {
     case "raid_failed":
       return `Potvrzený intel: Akce Vykrást district v ${districtLabel} se rozpadla bez zisku.`;
     case "trap_armed":
-      return `Drb: Kolem ${districtLabel} se prý ztrácí lidi. Nikdo nepotvrdil proč.`;
     case "trap_moved":
-      return `Drb: Trasy do ${districtLabel} jsou údajně až moc tiché. Možná jen falešná stopa.`;
+      return "";
     case "trap_triggered":
       return `Potvrzený intel: V ${districtLabel} se aktivovala toxická past a útok se rozpadl během několika vteřin.`;
     case "occupy_started":

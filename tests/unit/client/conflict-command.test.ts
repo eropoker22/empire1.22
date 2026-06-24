@@ -1,15 +1,18 @@
 import { describe, expect, it } from "vitest";
 import type { GameplaySliceView } from "@empire/shared-types";
 import {
+  createAttackDistrictCommand,
   createOccupyDistrictCommand,
   createPlaceTrapCommand,
   createSpyDistrictCommand
 } from "../../../apps/client/src/features";
 
 const createGameplaySliceFixture = ({
+  attackEnabled = true,
   spyEnabled = true,
   trapEnabled = true
 }: {
+  attackEnabled?: boolean;
   spyEnabled?: boolean;
   trapEnabled?: boolean;
 } = {}): GameplaySliceView => ({
@@ -55,14 +58,21 @@ const createGameplaySliceFixture = ({
     selectedDistrictId: "district:1",
     availableBuildingActionCount: 0,
     availableSpyTargetCount: spyEnabled ? 1 : 0,
-    availableAttackTargetCount: 0,
+    availableAttackTargetCount: attackEnabled ? 1 : 0,
     availableOccupyTargetCount: 0,
     cooldowns: [],
-    disabledReasons: spyEnabled ? [] : [{
-      commandType: "spy-district",
-      targetId: "district:2",
-      reason: "Spy route is cooling down."
-    }]
+    disabledReasons: [
+      ...(attackEnabled ? [] : [{
+        commandType: "attack-district",
+        targetId: "district:2",
+        reason: "Attack route is cooling down."
+      }]),
+      ...(spyEnabled ? [] : [{
+        commandType: "spy-district",
+        targetId: "district:2",
+        reason: "Spy route is cooling down."
+      }])
+    ]
   },
   districts: [],
   reports: [],
@@ -78,7 +88,16 @@ const createGameplaySliceFixture = ({
     slotCount: 0,
     filledSlotCount: 0,
     buildings: [],
-    attackTargets: [],
+    attackTargets: [
+      {
+        districtId: "district:2",
+        name: "Target District",
+        ownerPlayerId: "player:2",
+        status: "claimed",
+        enabled: attackEnabled,
+        disabledReason: attackEnabled ? null : "Attack route is cooling down."
+      }
+    ],
     spyTargets: [
       {
         districtId: "district:2",
@@ -106,6 +125,36 @@ const createGameplaySliceFixture = ({
 });
 
 describe("conflict command factories", () => {
+  it("builds the attack command from the current server-fed gameplay slice", () => {
+    const slice = createGameplaySliceFixture();
+    const command = createAttackDistrictCommand({
+      commandId: "command:attack:district:2",
+      slice,
+      targetDistrictId: "district:2",
+      issuedAt: new Date(0).toISOString()
+    });
+
+    expect(command.type).toBe("attack-district");
+    expect(command.serverInstanceId).toBe("instance:1");
+    expect(command.payload).toEqual({
+      districtId: "district:2",
+      sourceDistrictId: "district:1"
+    });
+  });
+
+  it("rejects attack commands for disabled targets in the current server-fed slice", () => {
+    expect(() =>
+      createAttackDistrictCommand({
+        commandId: "command:attack:district:2",
+        slice: createGameplaySliceFixture({ attackEnabled: false }),
+        targetDistrictId: "district:2",
+        issuedAt: new Date(0).toISOString()
+      })
+    ).toThrow(
+      "Attack commands can only be created from enabled attack targets present in the current server-fed slice."
+    );
+  });
+
   it("builds the spy command from the current server-fed gameplay slice", () => {
     const slice = createGameplaySliceFixture();
     const command = createSpyDistrictCommand({

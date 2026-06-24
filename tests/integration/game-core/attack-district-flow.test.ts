@@ -76,8 +76,56 @@ describe("attack-district command flow", () => {
 
     expect(result.errors).toEqual([
       {
-        code: "target_not_adjacent",
+        code: "TARGET_NOT_ADJACENT",
         message: "Player can only attack a district that borders the selected source district."
+      }
+    ]);
+  });
+
+  it("rejects attack without a valid successful spy authorization", () => {
+    const state = createCombatStateFixture();
+    state.notificationsById = {};
+    state.root.notificationIds = [];
+
+    const result = applyCommand(state, createAttackDistrictCommandFixture(), context);
+
+    expect(result.errors).toEqual([
+      {
+        code: "SPY_REQUIRED",
+        message: "A valid successful spy authorization is required before attacking this district."
+      }
+    ]);
+    expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBe("player:2");
+  });
+
+  it("rejects attack against an allied district", () => {
+    const state = createCombatStateFixture();
+    state.playersById["player:1"] = {
+      ...state.playersById["player:1"],
+      allianceId: "alliance:1"
+    };
+    state.playersById["player:2"] = {
+      ...state.playersById["player:2"],
+      allianceId: "alliance:1"
+    };
+    state.alliancesById["alliance:1"] = {
+      id: "alliance:1",
+      serverInstanceId: "instance:1",
+      name: "Test Alliance",
+      tag: "TA",
+      ownerPlayerId: "player:1",
+      memberIds: ["player:1", "player:2"],
+      status: "active",
+      createdAt: new Date(0).toISOString(),
+      version: 1
+    };
+
+    const result = applyCommand(state, createAttackDistrictCommandFixture(), context);
+
+    expect(result.errors).toEqual([
+      {
+        code: "TARGET_IS_ALLY",
+        message: "Player cannot attack an allied district."
       }
     ]);
   });

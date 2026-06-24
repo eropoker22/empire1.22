@@ -13,6 +13,7 @@ import {
   createCommandReservationPayload,
   createCommandReservationPayloadHash
 } from "./command-reservation-payload";
+import { findSharedCitySpawnCandidate } from "../../bootstrap/gameplay-slice-shared-city-seed";
 
 export const dispatchInstanceCommand = async (
   runtime: ServerInstanceRuntime,
@@ -110,7 +111,13 @@ export const dispatchInstanceCommand = async (
   }
 
   const previousRootVersion = runtime.state.root.version;
-  const result = applyCommand(runtime.state, command, { config: runtime.config });
+  const result = applyCommand(runtime.state, command, {
+    config: runtime.config,
+    mapRules: {
+      isEnabledSpawnCandidate: (districtId) =>
+        Boolean(findSharedCitySpawnCandidate(districtId)?.enabled)
+    }
+  });
 
   if (result.errors.length > 0) {
     await reservationRepository.markRejected(runtime.record.id, command.id, result.errors);

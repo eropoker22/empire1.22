@@ -378,9 +378,10 @@ describe("faction core foundation", () => {
     expect(applyFactionRumorTruthChancePct(60, modifiers)).toBe(90);
     expect(applyFactionRumorTruthChancePct(80, modifiers)).toBe(95);
     expect(lowConfidenceRumor.event).toBeTruthy();
-    expect(Number(lowConfidenceRumor.event?.payload?.truthChancePct)).toBeLessThanOrEqual(95);
     expect(highConfidenceRumor.event).toBeTruthy();
-    expect(Number(highConfidenceRumor.event?.payload?.truthChancePct)).toBe(95);
+    expect(JSON.stringify([lowConfidenceRumor.event, highConfidenceRumor.event])).not.toContain("truthChancePct");
+    expect(lowConfidenceRumor.event?.payload?.confidence).toBe(lowConfidenceRumor.event?.confidence);
+    expect(highConfidenceRumor.event?.payload?.confidence).toBe(highConfidenceRumor.event?.confidence);
     expect(resolveFactionCameraEffectivenessMultiplier(modifiers)).toBeCloseTo(1.15);
     expect(resolveFactionAlarmEffectivenessMultiplier(modifiers)).toBeCloseTo(1.15);
     expect(resolveFactionBaseDefensePowerMultiplier(modifiers)).toBeCloseTo(0.95);

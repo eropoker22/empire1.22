@@ -89,7 +89,7 @@ const readCentralBankMetadata = (building: CoreGameState["buildingsById"][string
     lastOversightTick: asOptionalTick(raw.lastOversightTick),
     riskEvents: Array.isArray(raw.riskEvents) ? raw.riskEvents.filter(isRecord).map((entry) => ({ actionId: String(entry.actionId || ""), riskPct: Number(entry.riskPct || 0), expiresAtTick: Math.floor(Number(entry.expiresAtTick || 0)), tick: Math.floor(Number(entry.tick || 0)) })).filter((entry) => entry.actionId) : [],
     currencyInterventions: Array.isArray(raw.currencyInterventions) ? raw.currencyInterventions.filter(isRecord).map(readIntervention).filter((entry): entry is CentralBankIntervention => Boolean(entry)) : [],
-    oversightEvents: Array.isArray(raw.oversightEvents) ? raw.oversightEvents.filter(isRecord).map((entry) => ({ type: String(entry.type || ""), tick: Math.floor(Number(entry.tick || 0)), label: String(entry.label || entry.type || ""), riskPct: Number(entry.riskPct || 0), cleanCashLost: entry.cleanCashLost === undefined ? undefined : Number(entry.cleanCashLost || 0), rumorText: entry.rumorText ? String(entry.rumorText) : undefined })).filter((entry) => entry.type) : [],
+    oversightEvents: Array.isArray(raw.oversightEvents) ? raw.oversightEvents.filter(isRecord).map((entry) => ({ type: String(entry.type || ""), tick: Math.floor(Number(entry.tick || 0)), label: String(entry.label || entry.type || ""), riskPct: Number(entry.riskPct || 0), cleanCashLost: entry.cleanCashLost === undefined ? undefined : Number(entry.cleanCashLost || 0) })).filter((entry) => entry.type) : [],
     interestEvents: Array.isArray(raw.interestEvents) ? raw.interestEvents.filter(isRecord).map((entry) => ({ tick: Math.floor(Number(entry.tick || 0)), amount: Math.max(0, Math.floor(Number(entry.amount || 0))), cleanCashBefore: Math.max(0, Math.floor(Number(entry.cleanCashBefore || 0))), interestPct: Number(entry.interestPct || 0) })).filter((entry) => entry.amount > 0) : []
   };
 };
@@ -145,9 +145,6 @@ const asOptionalTick = (value: unknown): number | undefined => {
 
 export const minutesToTicks = (minutes: number, tickRateMs: number): number =>
   Math.max(1, Math.ceil(Math.max(0, minutes) * 60000 / Math.max(1, tickRateMs)));
-
-const hashText = (value: string): number =>
-  Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) | 0, 0);
 
 const isRecord = (value: unknown): value is Record<string, any> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);

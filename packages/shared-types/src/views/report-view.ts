@@ -19,9 +19,14 @@ export interface SpyReport {
   attackerPlayerId: PlayerId;
   sourceDistrictId: DistrictId;
   targetDistrictId: DistrictId;
-  result: "success" | "failure";
+  result: "success" | "partial" | "failed" | "critical_failed";
   detectedDefense: Partial<Record<DefenseWeaponId, number>>;
   trapDetected: boolean;
+  occupyUnlocked: boolean;
+  revealedType: boolean;
+  revealedDefense: boolean;
+  heatGained: number;
+  blockedUntilTick: number | null;
   tick: number;
   createdAt: string;
   eventId: EventId | null;

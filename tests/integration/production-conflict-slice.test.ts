@@ -9,6 +9,11 @@ import {
 } from "../../apps/client/src/features";
 import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 import { createServerApp } from "../../apps/server/src/app";
+import { applyCommand } from "../../packages/game-core/src/engine";
+import {
+  createPlaceTrapCommandFixture as createCorePlaceTrapCommandFixture,
+  createSpyDistrictCommandFixture as createCoreSpyDistrictCommandFixture
+} from "../fixtures/command-fixtures";
 import { createCombatStateFixture } from "../fixtures/game-state-fixtures";
 
 describe("production conflict gameplay slice", () => {
@@ -20,9 +25,11 @@ describe("production conflict gameplay slice", () => {
     const sourceDistrictId = "district:1";
     const targetDistrictId = "district:2";
     const runtime = server.instanceManager.createInstance(instanceId, "free");
+    const worldSeed = findTrapRevealSeed();
 
+    expect(worldSeed, "Expected at least one deterministic trap reveal seed.").toBeTruthy();
     runtime.state = createCombatStateFixture(instanceId);
-    runtime.state.serverInstance.worldSeed = "spy-seed-10";
+    runtime.state.serverInstance.worldSeed = worldSeed!;
     server.instanceManager.startInstance(instanceId);
 
     const attackerClient = createClientApp({
@@ -123,10 +130,7 @@ describe("production conflict gameplay slice", () => {
     const attacked = await attackerClient.dispatch(
       createAttackDistrictCommand({
         commandId: "command:attack:district:2",
-        serverInstanceId: instanceId,
-        playerId: attackerId,
-        mode: "free",
-        sourceDistrictId,
+        slice: attackerClient.getGameplaySlice() as GameplaySliceView,
         targetDistrictId,
         issuedAt: new Date(0).toISOString()
       })
@@ -175,10 +179,7 @@ describe("production conflict gameplay slice", () => {
     const attacked = await attackerClient.dispatch(
       createAttackDistrictCommand({
         commandId: "command:attack:capture:district:2",
-        serverInstanceId: instanceId,
-        playerId: attackerId,
-        mode: "free",
-        sourceDistrictId,
+        slice: attackerClient.getGameplaySlice() as GameplaySliceView,
         targetDistrictId,
         issuedAt: new Date(0).toISOString()
       })
@@ -223,9 +224,11 @@ describe("production conflict gameplay slice", () => {
     const sourceDistrictId = "district:1";
     const targetDistrictId = "district:2";
     const runtime = server.instanceManager.createInstance(instanceId, "free");
+    const worldSeed = findSpyOutcomeSeed("success");
 
+    expect(worldSeed, "Expected at least one deterministic successful spy seed.").toBeTruthy();
     runtime.state = createCombatStateFixture(instanceId);
-    runtime.state.serverInstance.worldSeed = "spy-cooldown-seed";
+    runtime.state.serverInstance.worldSeed = worldSeed!;
     server.instanceManager.startInstance(instanceId);
 
     const attackerClient = createClientApp({
@@ -321,10 +324,7 @@ describe("production conflict gameplay slice", () => {
     const attacked = await attackerClient.dispatch(
       createAttackDistrictCommand({
         commandId: "command:attack:catastrophe:district:2",
-        serverInstanceId: instanceId,
-        playerId: attackerId,
-        mode: "free",
-        sourceDistrictId,
+        slice: attackerClient.getGameplaySlice() as GameplaySliceView,
         targetDistrictId,
         issuedAt: new Date(0).toISOString()
       })
@@ -366,3 +366,72 @@ describe("production conflict gameplay slice", () => {
     });
   });
 });
+
+const seedSearchContext = {
+  config: {
+    mode: "free" as const,
+    tickRateMs: 5000,
+    balance: {
+      incomeMultiplier: 1,
+      productionMultiplier: 1,
+      cooldownMultiplier: 1,
+      maxPlayersPerServer: 100,
+      maxAllianceSize: 10,
+      buildSlotLimit: 3,
+      eventFrequencyMultiplier: 1,
+      policePressureMultiplier: 1,
+      raidIntensityMultiplier: 1,
+      expansionSpeedMultiplier: 1,
+      dayLengthTicks: 12,
+      nightLengthTicks: 12,
+      victoryConditionKey: "default-control",
+      startingResources: {
+        cash: 1000
+      },
+      conflict: {
+        spyCooldownTicks: 2,
+        attackCooldownTicks: 2,
+        spyBaseSuccessChance: 0.72,
+        spyTrapRevealChance: 0.22,
+        trapAttackLosses: 1,
+        reportsLimit: 6
+      }
+    },
+    technical: {
+      sessionTtlMs: 1,
+      gameDurationMs: 1,
+      storageKeyPrefix: "test",
+      snapshotIntervalTicks: 1,
+      notificationBatchWindowMs: 1,
+      debug: {
+        allowDebugTools: false,
+        enableDeterministicSeeds: true
+      }
+    },
+    publicMeta: {
+      mode: "free" as const,
+      label: "Free",
+      matchStyle: "short" as const,
+      tickRateMs: 5000,
+      sessionKeyPrefix: "test"
+    }
+  }
+};
+
+const findTrapRevealSeed = () =>
+  Array.from({ length: 500 }, (_, index) => `production-spy-trap-reveal-${index}`).find((worldSeed) => {
+    const state = createCombatStateFixture();
+    state.serverInstance.worldSeed = worldSeed;
+    const trappedState = applyCommand(state, createCorePlaceTrapCommandFixture(), seedSearchContext).nextState;
+    const result = applyCommand(trappedState, createCoreSpyDistrictCommandFixture(), seedSearchContext);
+    const payload = result.nextState.notificationsById["notification:command:spy:1:spy-report"]?.payload;
+    return payload?.result === "success" && payload.trapDetected === true;
+  });
+
+const findSpyOutcomeSeed = (outcome: "success" | "partial" | "failed" | "critical_failed") =>
+  Array.from({ length: 500 }, (_, index) => `production-spy-${outcome}-${index}`).find((worldSeed) => {
+    const state = createCombatStateFixture();
+    state.serverInstance.worldSeed = worldSeed;
+    const result = applyCommand(state, createCoreSpyDistrictCommandFixture(), seedSearchContext);
+    return result.nextState.notificationsById["notification:command:spy:1:spy-report"]?.payload.result === outcome;
+  });

@@ -13,7 +13,6 @@ export interface CityHallScandalEvent {
   tick: number;
   label: string;
   riskPct: number;
-  rumorText?: string;
 }
 
 export interface CityHallMetadata {

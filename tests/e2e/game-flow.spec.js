@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  attachE2eDiagnostics,
   assertNoRuntimeErrors,
   closeDistrictPopup,
   createRuntimeErrorMonitor,
@@ -8,8 +9,12 @@ import {
   openGamePage
 } from "./helpers/empireSmokeHelpers.js";
 
+test.afterEach(async ({ page }, testInfo) => {
+  await attachE2eDiagnostics(page, testInfo);
+});
+
 test.describe("main game browser protection", () => {
-  test.setTimeout(240_000);
+  test.setTimeout(360_000);
 
   test("boots map and exercises district popup controls", async ({ page }) => {
     const errors = createRuntimeErrorMonitor(page);

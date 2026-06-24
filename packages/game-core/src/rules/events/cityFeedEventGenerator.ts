@@ -1,4 +1,3 @@
-import { resolveRumorTemplate, type RumorTextTemplateKey } from "@empire/game-config";
 import type { CityFeedEvent, CityFeedSeverity, CityFeedSourceType } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";
 import type { CoreEvent } from "../../events";
@@ -87,16 +86,19 @@ export const createCityFeedEventsFromCoreEvent = (
         messageKey: "district_capture"
       })];
     case "district-spied":
+      if (!["failed", "critical_failed"].includes(stringValue(payload.result) || "")) return [];
       return [createFeedEvent(state, event, {
         sourceType: "spy",
         category: "rumor",
         severity: "low",
         truthiness: "unconfirmed",
-        intelType: "rumor",
+        intelType: "suspicion",
         visibility: "all",
+        audience: "selected_district",
         playerId: stringValue(payload.attackerPlayerId),
         districtId,
         messageKey: "police_warning",
+        rumorCategory: "espionage",
         payload: { publicSummary: "spy_activity" }
       })];
     case "police-warning-issued":
@@ -105,17 +107,7 @@ export const createCityFeedEventsFromCoreEvent = (
       return createPoliceCityFeedEvents(state, event, payload);
     }
     case "trap-triggered":
-      return [createFeedEvent(state, event, {
-        sourceType: "trap",
-        category: "combat",
-        severity: "high",
-        truthiness: "confirmed",
-        intelType: "confirmed_event",
-        visibility: "all",
-        playerId: stringValue(payload.attackerPlayerId),
-        districtId,
-        messageKey: "trap"
-      })];
+      return [];
     case "building-action-resolved":
       return createBuildingActionFeedEvents(state, event, payload);
     case "item-crafted":
@@ -128,17 +120,16 @@ export const createCityFeedEventsFromCoreEvent = (
 const createFeedEvent = (
   state: CoreGameState,
   event: CoreEvent,
-  input: Omit<CityFeedEvent, "id" | "createdAtTick" | "message" | "messageKey"> & { messageKey: RumorTextTemplateKey }
+  input: Omit<CityFeedEvent, "id" | "createdAtTick" | "message" | "messageKey"> & { messageKey: string }
 ): CityFeedEvent => {
   const sourceEventId = createSourceEventId(event, input.sourceType, state.root.tick);
-  const district = resolveDistrictLabel(state, input.districtId);
   return {
     id: `city-feed:${sourceEventId}`,
     sourceEventId,
     createdAtTick: state.root.tick,
     ...input,
     messageKey: `rumor.${input.messageKey}`,
-    message: resolveRumorTemplate(input.messageKey, hashText(sourceEventId), { district })
+    message: ""
   };
 };
 
@@ -156,9 +147,6 @@ const createSourceEventId = (event: CoreEvent, sourceType: CityFeedSourceType, f
     stringValue(payload.tick ?? fallbackTick)
   ].filter(Boolean).join(":");
 };
-
-const resolveDistrictLabel = (state: CoreGameState, districtId?: string): string =>
-  districtId ? (state.districtsById[districtId]?.name || districtId) : "jedné z horkých čtvrtí";
 
 const resolveAttackSeverity = (payload: EventPayload): CityFeedSeverity => {
   if (booleanValue(payload.districtDestroyed)) return "extreme";
@@ -188,5 +176,3 @@ const numericValue = (value: unknown): number => {
 
 const booleanValue = (value: unknown): boolean => value === true || value === "true";
 
-const hashText = (value: string): number =>
-  Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 0);

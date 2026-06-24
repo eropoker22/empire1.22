@@ -189,7 +189,6 @@ const generateRestaurantRumor = (input: {
   const isTrue = deterministicRollPct(`${input.seed}:truth`) < stats.truthChancePct;
   const districtHint = deterministicRollPct(`${input.seed}:district`) < stats.districtHintChancePct ? pickDistrictHint(input.state, input.seed) : null;
   const buildingHint = deterministicRollPct(`${input.seed}:building`) < stats.buildingHintChancePct ? pickBuildingHint(input.state, input.seed) : null;
-  const rivalHint = pickRivalPlayerHint(input.state, input.playerId, input.seed);
   const reliabilityLabel = stats.reliabilityVisible ? formatReliability(stats.truthChancePct) : null;
   return {
     type,
@@ -199,93 +198,9 @@ const generateRestaurantRumor = (input: {
     buildingHint,
     reliabilityVisible: stats.reliabilityVisible,
     reliabilityLabel,
-    text: formatRumorText(type, isTrue, districtHint, buildingHint, rivalHint, reliabilityLabel, input.seed)
+    text: ""
   };
 };
-
-const formatRumorText = (
-  type: string,
-  isTrue: boolean,
-  districtHint: string | null,
-  buildingHint: string | null,
-  rivalHint: string | null,
-  reliabilityLabel: string | null,
-  seed: string
-): string => {
-  const subject = isTrue ? type : "fake";
-  const detail = districtHint
-    ? buildingHint
-      ? ` poblíž ${districtHint}; někdo šeptal i o podniku typu ${buildingHint}`
-      : ` poblíž ${districtHint}`
-    : buildingHint
-      ? ` kolem podniku typu ${buildingHint}`
-      : " někde pod neonem";
-  const rival = rivalHint ? ` Jméno ${rivalHint} padlo jen šeptem, což je ve zdejší restauraci skoro křik.` : "";
-  const reliability = reliabilityLabel ? ` Zdroj zní ${reliabilityLabel}.` : "";
-  return `U zadního stolu prý padla řeč o ${formatRumorSubject(subject, seed)}${detail}.${rival}${reliability}`;
-};
-
-const RESTAURANT_RUMOR_SUBJECTS: Record<string, string[]> = {
-  civilian_movement: [
-    "lidech, kteří se po zavíračce ztratili v bočních ulicích; účet prý nezaplatili, což je ta menší záhada",
-    "partě, co seděla u okna a počítala hlídky místo drinků",
-    "kurýrech, kteří měnili trasu pokaždé, když zablikal semafor, jako by světla měla právní oddělení",
-    "cizích tvářích, které chodí kolem stejného bloku až moc často na turisty a moc tiše na hlupáky",
-    "nočních návštěvách, co vypadají jako scouting před větší akcí a objednávají si jen vodu, což je podezřelé samo o sobě"
-  ],
-  suspicious_delivery: [
-    "dodávce bez značek a řidiči, co nechtěl účtenku, jen rychle zmizet z dějin",
-    "taškách z kuchyňského vchodu, které byly moc těžké na jídlo a moc hranaté na zeleninu",
-    "krabicích bez loga, co zmizely dřív než ranní zásobování",
-    "nákladu, který prý nešel přes sklad, ale rovnou přes zadní dveře, protože přední dveře mají svědomí",
-    "řidiči, co dvakrát objel blok a pak nechal motor běžet, jako by auto vědělo víc než on"
-  ],
-  police_interest: [
-    "hlídkách, které si možná značkují jeden blok a tváří se u toho jako dekorace",
-    "policejním autě bez majáků, co stálo moc dlouho na rohu",
-    "jménech, která prý padla do policejní vysílačky; rádio se prý zatvářilo zklamaně",
-    "bloku, kde se začaly ztrácet malé laskavosti a objevovat velké otázky",
-    "něčím heatem, který už možná přitáhl špatný typ pozornosti, tedy ten s formulářem"
-  ],
-  economic_activity: [
-    "cashflow, které nesedí ani kuchaři, a ten už viděl věci v mrazáku",
-    "účtech, co voní čistěji, než by měly; čistota je tady vždy podezřelá",
-    "hráči, který možná tlačí peníze přes příliš hladkou fasádu",
-    "podniku, kde se počítá víc hotovosti než zákazníků, což uráží i jídelní lístek",
-    "tichém nárůstu influence, který někdo maskuje jako běžný provoz; velmi roztomilé, velmi nepravděpodobné"
-  ],
-  storage_movement: [
-    "bednách přesunutých dřív, než město rozsvítilo",
-    "skladu, který prý v noci vydechl víc zboží, než ráno přiznal",
-    "zásobách, co se hýbou jen tehdy, když kamery mrknou",
-    "hráči, který možná stahuje materiál před větším tlakem",
-    "servisní chodbě, kde bedny mizí bez razítek"
-  ],
-  attack_preparation: [
-    "partě, která si prý kreslí trasu útoku",
-    "jídle, co zůstalo nedotčené, zatímco se na ubrousek kreslil plán",
-    "někom, kdo shání lidi a ptá se na slabé vchody",
-    "hráči, který možná sbírá odvahu i munici na jeden rychlý tah",
-    "mapě pod stolem, kde byly červeně zakroužkované únikové trasy"
-  ],
-  weak_defense: [
-    "slabém místě, o kterém mluvil až moc opilý host, takže buď lže, nebo konečně říká pravdu",
-    "obraně, která na papíře vypadá tvrději než na ulici; papír má ostatně nulový armor",
-    "hlídačích, kteří prý střídají směny s očima napůl zavřenýma",
-    "districtu, kde je víc reputace než skutečných zátarasů",
-    "hráči, který možná nechal zadní stranu moc měkkou"
-  ],
-  fake: [
-    "historce, která smrdí kouřovou clonou a levným pepřem",
-    "jménu, které někdo možná nastrčil jen jako návnadu",
-    "příběhu, co zní moc čistě na město po půlnoci; tady je čistý maximálně popelník po kontrole",
-    "šeptandě, která může být jen cizí alibi v levném kabátě",
-    "stopě, co se rozpadá hned, jak na ni dopadne neon"
-  ]
-};
-
-const formatRumorSubject = (type: string, seed: string): string =>
-  pickVariant(RESTAURANT_RUMOR_SUBJECTS[type] ?? RESTAURANT_RUMOR_SUBJECTS.fake, `${seed}:subject`);
 
 const resolveTruthChancePct = (count: number, config: RestaurantBalanceConfig): number => {
   const safeCount = Math.max(0, Math.floor(Number(count || 0)));
@@ -320,15 +235,6 @@ const pickBuildingHint = (state: CoreGameState, seed: string): string | null => 
   const buildings = Object.values(state.buildingsById).filter((building) => building.status === "active");
   return buildings.length > 0 ? buildings[Math.floor(deterministicRollPct(`${seed}:building-index`) / 100 * buildings.length)]?.buildingTypeId ?? null : null;
 };
-
-const pickRivalPlayerHint = (state: CoreGameState, playerId: string, seed: string): string | null => {
-  const players = Object.values(state.playersById).filter((player) => player.id !== playerId && player.status === "active");
-  const player = players.length > 0 ? players[Math.floor(deterministicRollPct(`${seed}:rival-index`) / 100 * players.length)] : null;
-  return player?.name?.trim() || player?.id || null;
-};
-
-const pickVariant = (variants: string[], seed: string): string =>
-  variants[Math.floor(deterministicRollPct(`${seed}:variant`) / 100 * variants.length)] ?? variants[0] ?? "";
 
 const normalizeRumor = (value: Record<string, unknown>): RestaurantRumor => ({
   type: String(value.type || "fake"),

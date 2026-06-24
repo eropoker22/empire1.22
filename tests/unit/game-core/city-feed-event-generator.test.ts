@@ -11,9 +11,9 @@ import {
   runTick,
   type CoreEvent
 } from "@empire/game-core";
-import { resolveModeConfig } from "@empire/game-config";
+import { resolveModeConfig, validateRumorTemplates } from "@empire/game-config";
 import { applyCommand } from "../../../packages/game-core/src/engine";
-import { createAttackDistrictCommandFixture, createSpyDistrictCommandFixture } from "../../fixtures/command-fixtures";
+import { createAttackDistrictCommandFixture } from "../../fixtures/command-fixtures";
 import { createCombatStateFixture, createCoreStateFixture, createFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
 
 const context = { config: resolveModeConfig("free") };
@@ -31,7 +31,7 @@ const addPoliceState = (state: ReturnType<typeof createCoreStateFixture>, heat: 
 };
 
 describe("city feed event integration", () => {
-  it("creates idempotent attack and spy city feed events from command results", () => {
+  it("creates idempotent attack feed events and keeps successful spy intel private", () => {
     const attack = applyCommand(createCombatStateFixture(), createAttackDistrictCommandFixture(), context);
     expect(attack.errors).toEqual([]);
     expect(Object.values(attack.nextState.cityFeedEventsById)).toEqual([
@@ -39,7 +39,9 @@ describe("city feed event integration", () => {
         sourceType: "attack",
         category: "combat",
         districtId: "district:2",
-        truthiness: "confirmed"
+        truthiness: "confirmed",
+        confidence: "confirmed",
+        templateId: expect.stringMatching(/^rumor\.attack_activity\.confirmed\./)
       })
     ]);
 
@@ -49,18 +51,43 @@ describe("city feed event integration", () => {
     );
     expect(Object.keys(repeated.cityFeedEventsById)).toHaveLength(1);
 
-    const spy = applyCommand(createCombatStateFixture(), createSpyDistrictCommandFixture(), context);
-    const spyEvent = Object.values(spy.nextState.cityFeedEventsById)[0];
+    const successfulSpyState = appendCityFeedEventsFromCoreEvents(createCoreStateFixture(), [{
+      type: "district-spied",
+      occurredAt: new Date(0).toISOString(),
+      payload: {
+        attackerPlayerId: "player:1",
+        targetDistrictId: "district:2",
+        result: "success",
+        detectedDefense: { cameras: 4 },
+        trapDetected: true
+      }
+    }], 50, context);
+    expect(Object.values(successfulSpyState.cityFeedEventsById)).toHaveLength(0);
+
+    const failedSpyState = appendCityFeedEventsFromCoreEvents(createCoreStateFixture(), [{
+      type: "district-spied",
+      occurredAt: new Date(0).toISOString(),
+      payload: {
+        attackerPlayerId: "player:1",
+        targetDistrictId: "district:2",
+        result: "critical_failed",
+        detectedDefense: { cameras: 4 },
+        trapDetected: true
+      }
+    }], 50, context);
+    const spyEvent = Object.values(failedSpyState.cityFeedEventsById)[0];
     expect(spyEvent).toMatchObject({
       sourceType: "spy",
       category: "rumor",
+      rumorCategory: "espionage",
       truthiness: "unconfirmed",
-      payload: { publicSummary: "spy_activity" }
+      confidence: "suspicion"
     });
-    expect(JSON.stringify(spyEvent.payload)).not.toContain("detectedDefense");
+    expect(JSON.stringify(spyEvent)).not.toContain("detectedDefense");
+    expect(JSON.stringify(spyEvent).toLowerCase()).not.toContain("trap");
   });
 
-  it("creates capture, trap, police warning and raid feed events from core events", () => {
+  it("creates capture, police warning and raid feed events from core events without trap feed", () => {
     const state = createCoreStateFixture();
     const events: CoreEvent[] = [
       {
@@ -104,7 +131,6 @@ describe("city feed event integration", () => {
 
     expect(new Set(Object.values(nextState.cityFeedEventsById).map((event) => event.sourceType))).toEqual(new Set([
       "district_capture",
-      "trap",
       "police_warning",
       "police_raid"
     ]));
@@ -166,8 +192,8 @@ describe("city feed event integration", () => {
 
     expect(projection.currentPlayerFeed.map((event) => event.id)).toEqual([
       "city-feed:police",
-      "city-feed:player",
-      "city-feed:all"
+      "city-feed:all",
+      "city-feed:player"
     ]);
     expect(projection.globalCityFeed.map((event) => event.id)).toEqual(["city-feed:police", "city-feed:all"]);
     expect(projection.selectedDistrictFeed).toHaveLength(2);
@@ -197,9 +223,12 @@ describe("city feed event integration", () => {
       })
     ];
 
-    expect(events.map((event) => event.sourceType)).toEqual(["market", "robbery", "trap"]);
+    expect(events.map((event) => event.sourceType)).toEqual(["market", "robbery", "system"]);
     expect(events.every((event) => event.id.startsWith("city-feed:"))).toBe(true);
-    expect(events.every((event) => event.message.length > 0)).toBe(true);
+    expect(events.every((event) => event.message.length === 0)).toBe(true);
+    expect(events.map((event) => event.messageKey)).toEqual(["rumor.black_market", "rumor.robbery", "rumor.atmosphere"]);
+    expect(JSON.stringify(events).toLowerCase()).not.toContain("trap");
+    expect(JSON.stringify(events).toLowerCase()).not.toContain("past");
   });
 
   it("adds police raid feed during tick without duplicate unresolved spam", () => {
@@ -230,13 +259,15 @@ describe("city feed event integration", () => {
       playerId: "player:1",
       selectedDistrictId: "district:1"
     });
-    const policeRumors = Object.values(nextState.cityFeedEventsById).filter((event) => event.payload?.atmosphericPoliceRumor);
+    const policeRumors = Object.values(nextState.cityFeedEventsById).filter((event) => event.category === "rumor");
 
     expect(policeRumors).toHaveLength(1);
     expect(policeRumors[0]).toMatchObject({
       category: "rumor",
       truthiness: "unconfirmed",
-      intelType: "warning"
+      intelType: "suspicion",
+      confidence: "suspicion",
+      rumorCategory: "police_heat"
     });
     expect(projection.policeFeed).toHaveLength(1);
     expect(projection.policeFeed[0]).toMatchObject({
@@ -244,7 +275,7 @@ describe("city feed event integration", () => {
       truthiness: "confirmed",
       intelType: "confirmed_event"
     });
-    expect(projection.policeFeed.some((event) => event.payload?.atmosphericPoliceRumor)).toBe(false);
+    expect(projection.policeFeed.some((event) => event.category === "rumor")).toBe(false);
   });
 
   it("routes raid pressure rumors through the pipeline and into the selected district feed", () => {
@@ -265,17 +296,17 @@ describe("city feed event integration", () => {
       playerId: "player:1",
       selectedDistrictId: "district:1"
     });
-    const rumor = Object.values(nextState.cityFeedEventsById).find((event) => event.payload?.atmosphericPoliceRumor);
+    const rumor = Object.values(nextState.cityFeedEventsById).find((event) => event.category === "rumor");
 
     expect(rumor).toMatchObject({
       category: "rumor",
       districtId: "district:1",
       truthiness: "unconfirmed",
       intelType: "suspicion",
+      confidence: "suspicion",
       payload: {
-        atmosphericPoliceRumor: true,
-        intelType: "suspicion",
-        rumorType: "police_district_heat"
+        rumorCategory: "police_heat",
+        confidence: "suspicion"
       }
     });
     expect(projection.selectedDistrictFeed.some((event) => event.id === rumor?.id)).toBe(true);
@@ -338,9 +369,7 @@ describe("city feed event integration", () => {
         }
       }
     ], 50);
-    const event = Object.values(nextState.cityFeedEventsById).find((feedEvent) =>
-      feedEvent.payload?.rumorType === "police_false_lead"
-    );
+    const event = Object.values(nextState.cityFeedEventsById).find((feedEvent) => feedEvent.confidence === "false_possible");
 
     expect(event).toMatchObject({
       category: "rumor",
@@ -348,13 +377,13 @@ describe("city feed event integration", () => {
       truthiness: "false_possible",
       intelType: "false_lead",
       payload: {
-        rumorType: "police_false_lead",
-        intelType: "false_lead"
+        rumorCategory: "police_heat",
+        confidence: "false_possible"
       }
     });
   });
 
-  it("keeps trap suspicion rumors unconfirmed and never mutates trap discovery state", () => {
+  it("suppresses trap suspicion rumors and never mutates trap discovery state", () => {
     const state = createCoreStateFixture();
     state.trapsById["trap:district:1"] = {
       id: "trap:district:1",
@@ -386,15 +415,8 @@ describe("city feed event integration", () => {
     };
 
     const resolved = resolveRumorEvent(input, state);
-    expect(resolved.event).toMatchObject({
-      sourceType: "trap",
-      category: "rumor",
-      intelType: "suspicion"
-    });
-    expect(resolved.event?.truthiness).not.toBe("confirmed");
-    expect(JSON.stringify(resolved.event?.payload)).not.toContain("trap:district:1");
-    expect(JSON.stringify(resolved.event?.payload)).not.toContain("toxic");
-    expect(resolved.event?.message.toLowerCase()).not.toContain("v tomto districtu je past");
+    expect(resolved.event).toBeNull();
+    expect(resolved.suppressed).toBe(true);
 
     const nextState = applyRumorEventToState(state, input);
     expect(JSON.stringify(nextState.trapsById)).toBe(beforeTraps);
@@ -428,5 +450,156 @@ describe("city feed event integration", () => {
     expect(projection.globalCityFeed).toHaveLength(1);
     expect(projection.selectedDistrictFeed).toHaveLength(1);
     expect(projection.policeFeed).toHaveLength(0);
+  });
+
+  it("validates runtime rumor content registry and keeps forbidden placeholders out", () => {
+    expect(validateRumorTemplates()).toEqual([]);
+  });
+
+  it("serializes rumor payloads without exact private values", () => {
+    const state = createCoreStateFixture();
+    const nextState = applyRumorEventToState(state, {
+      sourceEventId: "security:leak:1",
+      sourceType: "building_action",
+      category: "rumor",
+      severity: "high",
+      visibility: "all",
+      districtId: "district:1",
+      message: "Bezpečný signál",
+      confidence: "credible",
+      rumorCategory: "weapons_materials",
+      payload: {
+        exactPopulation: 1200,
+        attackPower: 999,
+        defensePower: 888,
+        weaponInventory: { smg: 12 },
+        targetCommand: { districtId: "district:2" },
+        hiddenSpyResult: { detectedDefense: { cameras: 4 } },
+        exactPrivateHeat: 77,
+        dirtyCash: 5000,
+        cleanCash: 3000,
+        sourceBuildingType: "restaurant"
+      }
+    }, context);
+    const serialized = JSON.stringify(Object.values(nextState.cityFeedEventsById));
+
+    for (const forbidden of [
+      "exactPopulation",
+      "attackPower",
+      "defensePower",
+      "weaponInventory",
+      "targetCommand",
+      "hiddenSpyResult",
+      "exactPrivateHeat",
+      "dirtyCash",
+      "cleanCash",
+      "cameras"
+    ]) {
+      expect(serialized).not.toContain(forbidden);
+    }
+  });
+
+  it("keeps template choice deterministic and retry-safe", () => {
+    const state = createCoreStateFixture();
+    const input = {
+      sourceEventId: "deterministic:event:1",
+      sourceType: "building_action" as const,
+      category: "rumor" as const,
+      severity: "medium" as const,
+      visibility: "all" as const,
+      districtId: "district:1",
+      message: "Bezpečný signál",
+      confidence: "credible" as const,
+      rumorCategory: "economy" as const
+    };
+    const first = applyRumorEventToState(state, input, context);
+    const second = applyRumorEventToState(first, input, context);
+    const event = Object.values(first.cityFeedEventsById)[0];
+    const repeated = Object.values(second.cityFeedEventsById)[0];
+
+    expect(Object.values(second.cityFeedEventsById)).toHaveLength(1);
+    expect(repeated.templateId).toBe(event.templateId);
+    expect(repeated.message).toBe(event.message);
+  });
+
+  it("filters audience and expires stale feed items in the read model", () => {
+    const state = createCoreStateFixture();
+    const withEvents = appendCityFeedEvents(state, [
+      {
+        id: "city-feed:player:1",
+        sourceEventId: "player:1",
+        sourceType: "system",
+        category: "rumor",
+        severity: "low",
+        truthiness: "unconfirmed",
+        visibility: "player",
+        playerId: "player:1",
+        createdAtTick: 1,
+        expiresAtTick: 100,
+        priority: 30,
+        message: "Private"
+      },
+      {
+        id: "city-feed:player:2",
+        sourceEventId: "player:2",
+        sourceType: "system",
+        category: "rumor",
+        severity: "low",
+        truthiness: "unconfirmed",
+        visibility: "player",
+        playerId: "player:2",
+        createdAtTick: 2,
+        expiresAtTick: 100,
+        priority: 30,
+        message: "Other"
+      },
+      {
+        id: "city-feed:expired",
+        sourceEventId: "expired",
+        sourceType: "system",
+        category: "rumor",
+        severity: "low",
+        truthiness: "unconfirmed",
+        visibility: "all",
+        createdAtTick: 1,
+        expiresAtTick: 1,
+        priority: 100,
+        message: "Expired"
+      }
+    ]);
+    const projection = createCityFeedProjection({ ...withEvents, root: { ...withEvents.root, tick: 20 } }, { playerId: "player:1" });
+
+    expect(projection.currentPlayerFeed.map((event) => event.id)).toEqual(["city-feed:player:1"]);
+    expect(JSON.stringify(projection)).not.toContain("Other");
+    expect(JSON.stringify(projection)).not.toContain("Expired");
+    expect(projection.currentPlayerFeed[0]?.freshness).toBe("fresh");
+  });
+
+  it("suppresses rapid duplicate category spam", () => {
+    const state = createCoreStateFixture();
+    const first = applyRumorEventToState(state, {
+      sourceEventId: "spam:1",
+      sourceType: "building_action",
+      category: "rumor",
+      visibility: "all",
+      districtId: "district:1",
+      createdAtTick: 10,
+      confidence: "rumor",
+      rumorCategory: "market",
+      message: "Market signal"
+    }, context);
+    const second = applyRumorEventToState({ ...first, root: { ...first.root, tick: 11 } }, {
+      sourceEventId: "spam:2",
+      sourceType: "building_action",
+      category: "rumor",
+      visibility: "all",
+      districtId: "district:1",
+      createdAtTick: 11,
+      confidence: "rumor",
+      rumorCategory: "market",
+      message: "Market signal"
+    }, context);
+
+    expect(Object.values(second.cityFeedEventsById)).toHaveLength(1);
   });
 });

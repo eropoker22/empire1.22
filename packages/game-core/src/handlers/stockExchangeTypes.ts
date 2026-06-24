@@ -32,7 +32,6 @@ export interface StockExchangeInspectionEvent {
   tick: number;
   riskPct: number;
   label: string;
-  rumorText?: string;
 }
 
 export interface StockExchangeMetadata {
@@ -59,4 +58,3 @@ export interface StockExchangeActionResolution {
   reportText: string;
   stockExchangeResult: Record<string, unknown>;
 }
-

@@ -55,6 +55,14 @@ export function normalizeCityFeedEvent(event = {}) {
     zone: safeText(event.zone),
     createdAtTick,
     timestampMs,
+    expiresAtTick: Math.max(0, Number(event.expiresAtTick ?? 0) || 0),
+    freshness: safeText(event.freshness),
+    priority: Math.max(0, Number(event.priority ?? 0) || 0),
+    audience: safeText(event.audience),
+    confidence: safeText(event.confidence),
+    rumorCategory: safeText(event.rumorCategory),
+    templateId: safeText(event.templateId),
+    sourceBuildingType: safeText(event.sourceBuildingType),
     message: safeText(event.message || event.summary, "Město zachytilo nejasný pohyb v ulicích."),
     messageKey: safeText(event.messageKey),
     payload: event.payload && typeof event.payload === "object" ? event.payload : {}
@@ -62,21 +70,33 @@ export function normalizeCityFeedEvent(event = {}) {
 }
 
 export function getCityFeedBadge(event = {}) {
+  if (safeText(event.freshness) === "stale") {
+    return { label: "Zastaralé", level: "stale" };
+  }
+  if (safeText(event.rumorCategory) === "atmosphere" || safeText(event.category) === "atmosphere") {
+    return { label: "Hlas ulice", level: "atmosphere" };
+  }
+  const confidence = safeText(event.confidence);
+  if (confidence === "confirmed") return { label: "Potvrzené", level: "verified" };
+  if (confidence === "credible") return { label: "Důvěryhodný drb", level: "credible" };
+  if (confidence === "suspicion") return { label: "Podezření", level: "suspicion" };
+  if (confidence === "rumor") return { label: "Nepotvrzená fáma", level: "rumor" };
+  if (confidence === "false_possible") return { label: "Pochybný zdroj", level: "suspicion" };
   const truthiness = safeText(event.truthiness, "unconfirmed");
   const intelType = safeText(event.intelType || event.payload?.intelType, truthiness === "confirmed" ? "confirmed_event" : "rumor");
   if (truthiness === "confirmed" || intelType === "confirmed_event") {
-    return { label: "POTVRZENO", level: "verified" };
+    return { label: "Potvrzené", level: "verified" };
   }
   if (truthiness === "false_possible" || intelType === "suspicion" || intelType === "false_lead") {
-    return { label: "PODEZŘENÍ", level: "suspicion" };
+    return { label: truthiness === "false_possible" ? "Pochybný zdroj" : "Podezření", level: "suspicion" };
   }
   if (intelType === "scandal") {
-    return { label: "SKANDÁL", level: "rumor" };
+    return { label: "Nepotvrzená fáma", level: "rumor" };
   }
   if (intelType === "warning") {
-    return { label: "VAROVÁNÍ", level: "rumor" };
+    return { label: "Podezření", level: "suspicion" };
   }
-  return { label: "DRB", level: "rumor" };
+  return { label: "Nepotvrzená fáma", level: "rumor" };
 }
 
 export function normalizeCityFeedEvents(events = []) {
@@ -89,7 +109,7 @@ export function normalizeCityFeedEvents(events = []) {
       seen.add(key);
       return true;
     })
-    .sort((left, right) => right.createdAtTick - left.createdAtTick || right.timestampMs - left.timestampMs);
+    .sort((left, right) => right.priority - left.priority || right.createdAtTick - left.createdAtTick || left.id.localeCompare(right.id));
 }
 
 export function renderDistrictRumorFeed(list, events = [], options = {}) {
