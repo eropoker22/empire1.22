@@ -47,14 +47,14 @@ describe("page auth flow", () => {
         registration: {
           identity: "Old Boss",
           password: "old",
-          activeServerId: "war-eu-01",
-          activeServerName: "Vortex City WAR-01",
-          activeServerMode: "war",
+          activeServerId: "free-eu-01",
+          activeServerName: "Neon Docks FREE-01",
+          activeServerMode: "free",
           activeServerRegion: "EU Central",
           activeServerStatus: "ONLINE",
-          serverId: "war-eu-01",
-          serverLabel: "Vortex City WAR-01",
-          serverMode: "war",
+          serverId: "free-eu-01",
+          serverLabel: "Neon Docks FREE-01",
+          serverMode: "free",
           preferredStartDistrictId: 12,
           startDistrictId: 12,
           factionId: "hackeri",
@@ -76,20 +76,20 @@ describe("page auth flow", () => {
       password: "secret",
       isGuest: false,
       gangName: "New Crew",
-      mode: "free"
+      mode: "war"
     });
 
     expect(session.registration).toMatchObject({
       identity: "New Boss",
       gangName: "New Crew",
-      serverMode: "war",
+      serverMode: "free",
       isGuest: false,
       loginKind: "account",
       lastLoginAt: "2026-04-26T10:00:00.000Z",
-      activeServerId: CANONICAL_WAR_SERVER_ID,
-      activeServerInstanceId: CANONICAL_WAR_SERVER_ID,
-      serverId: CANONICAL_WAR_SERVER_ID,
-      serverInstanceId: CANONICAL_WAR_SERVER_ID,
+      activeServerId: CANONICAL_FREE_SERVER_ID,
+      activeServerInstanceId: CANONICAL_FREE_SERVER_ID,
+      serverId: CANONICAL_FREE_SERVER_ID,
+      serverInstanceId: CANONICAL_FREE_SERVER_ID,
       factionId: "hackeri",
       selectedFaction: "hackeri",
       selectedStructure: "hackeři",
@@ -157,9 +157,17 @@ describe("page auth flow", () => {
     expect(getEntryFlowTarget({ identity: "Boss" })).toBe(ENTRY_FLOW_TARGETS.lobby);
     expect(getEntryFlowTarget({
       identity: "Boss",
-      activeServerId: "war-eu-01",
+      activeServerId: "free-eu-01",
       preferredStartDistrictId: 27
     })).toBe(ENTRY_FLOW_TARGETS.faction);
+    expect(getEntryFlowTarget({
+      identity: "Boss",
+      activeServerId: "free-eu-01",
+      preferredStartDistrictId: 27,
+      selectedFaction: "hackeri",
+      selectedStructure: "hackeři",
+      factionLocked: true
+    })).toBe(ENTRY_FLOW_TARGETS.game);
     expect(getEntryFlowTarget({
       identity: "Boss",
       activeServerId: "war-eu-01",
@@ -167,12 +175,13 @@ describe("page auth flow", () => {
       selectedFaction: "hackeri",
       selectedStructure: "hackeři",
       factionLocked: true
-    })).toBe(ENTRY_FLOW_TARGETS.game);
-    expect(getActiveServerRegistration({ serverId: "war-eu-01" })).toMatchObject({
-      serverId: CANONICAL_WAR_SERVER_ID,
-      serverInstanceId: CANONICAL_WAR_SERVER_ID,
-      serverName: "Vortex City WAR-01"
+    })).toBe(ENTRY_FLOW_TARGETS.lobby);
+    expect(getActiveServerRegistration({ serverId: "free-eu-01" })).toMatchObject({
+      serverId: CANONICAL_FREE_SERVER_ID,
+      serverInstanceId: CANONICAL_FREE_SERVER_ID,
+      serverName: "Neon Docks FREE-01"
     });
+    expect(getActiveServerRegistration({ serverId: "war-eu-01" })).toBeNull();
     expect(hasLockedFaction({
       factionId: "hackeri",
       structure: "hackeři",
@@ -203,7 +212,9 @@ describe("page auth flow", () => {
     });
     expect(SERVER_CATALOG.find((server) => server.mode === "war")).toMatchObject({
       id: CANONICAL_WAR_SERVER_ID,
-      badge: "WAR Mode"
+      badge: "PŘIPRAVUJEME",
+      joinPolicy: "closed",
+      locked: true
     });
   });
 
@@ -213,7 +224,7 @@ describe("page auth flow", () => {
       password: "secret",
       isGuest: false,
       gangName: "Lobby Crew",
-      mode: "war"
+      mode: "free"
     });
     window.localStorage.setItem(
       SESSION_STORAGE_KEY,
@@ -229,22 +240,22 @@ describe("page auth flow", () => {
       })
     );
 
-    const session = saveLobbyStep({ serverId: "war-eu-01", districtId: 27 });
+    const session = saveLobbyStep({ serverId: "free-eu-01", districtId: 27 });
 
     expect(session.registration).toMatchObject({
       identity: "Lobby Boss",
       gangName: "Lobby Crew",
       isGuest: false,
       loginKind: "account",
-      activeServerId: CANONICAL_WAR_SERVER_ID,
-      activeServerInstanceId: CANONICAL_WAR_SERVER_ID,
-      activeServerName: "Vortex City WAR-01",
-      activeServerMode: "war",
+      activeServerId: CANONICAL_FREE_SERVER_ID,
+      activeServerInstanceId: CANONICAL_FREE_SERVER_ID,
+      activeServerName: "Neon Docks FREE-01",
+      activeServerMode: "free",
       activeServerRegion: "EU Central",
       activeServerStatus: "ONLINE",
-      serverId: CANONICAL_WAR_SERVER_ID,
-      serverInstanceId: CANONICAL_WAR_SERVER_ID,
-      serverMode: "war",
+      serverId: CANONICAL_FREE_SERVER_ID,
+      serverInstanceId: CANONICAL_FREE_SERVER_ID,
+      serverMode: "free",
       preferredStartDistrictId: 27,
       startDistrictId: 27,
       lobbyLockedAt: "2026-04-26T10:00:00.000Z",
@@ -291,7 +302,7 @@ describe("page auth flow", () => {
     expect(session.world.ownedDistrictIds).toEqual([]);
   });
 
-  it("migrates legacy selected server objects to canonical serverInstanceId fields", () => {
+  it("does not persist closed legacy war selected server objects", () => {
     saveLoginStep({
       identity: "Legacy Summary Boss",
       isGuest: true,
@@ -311,12 +322,6 @@ describe("page auth flow", () => {
       }
     });
 
-    expect(session.registration).toMatchObject({
-      activeServerId: CANONICAL_WAR_SERVER_ID,
-      activeServerInstanceId: CANONICAL_WAR_SERVER_ID,
-      serverId: CANONICAL_WAR_SERVER_ID,
-      serverInstanceId: CANONICAL_WAR_SERVER_ID,
-      preferredStartDistrictId: 32
-    });
+    expect(session).toBeNull();
   });
 });

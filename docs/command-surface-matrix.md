@@ -10,10 +10,10 @@
 | run-building-action | yes | yes | yes | building validation | building actions | building button | existing | server |
 | collect-production | yes | yes | yes | collect validation | slot production | collect button | existing | server |
 | craft-item | yes | yes | yes | craft validation | craft options | craft button | existing | server |
-| rob-district | yes | yes | yes | map validator | robTargets | district button | added | legacy local robbery blocked when server slice is ready |
-| heist-district | yes | yes | yes | map validator | heistTargets | district button | added | legacy preview only |
-| place-defense | yes | yes | yes | map validator | placeDefense | district button | added | legacy defense mutation blocked when server slice is ready |
-| remove-defense | yes | yes | yes | map validator | removeDefense | district button | added | legacy defense mutation blocked when server slice is ready |
+| rob-district | yes | yes | yes | map validator | robTargets | district button | targeted transport + handler tests | server-authoritative fixed-loot alpha; legacy local robbery blocked when server slice is ready |
+| heist-district | yes | yes | yes | map validator | heistTargets | district button | targeted transport + handler tests | server-authoritative instant alpha; legacy preview only |
+| place-defense | yes | yes | yes | map validator | placeDefense | district button | targeted transport + handler tests | own-district only; allied disabled with `ALLIANCE_DEFENSE_NOT_IMPLEMENTED` |
+| remove-defense | yes | yes | yes | map validator | removeDefense | district button | targeted transport + handler tests | own-district only; allied disabled with `ALLIANCE_DEFENSE_NOT_IMPLEMENTED` |
 | relocate-trap | no | no | no | map validator only | capability only | no closed-alpha button | not ready | not ready |
 | market action | legacy/system-specific | partial | legacy market rules | market rules | market views | legacy modal | existing market tests | not part of this pass |
 | bounty action | legacy-only | no | no core command | no | legacy bounty UI | legacy modal | page smoke only | not closed-alpha authoritative |

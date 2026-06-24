@@ -15,6 +15,7 @@ This document defines the mobile overlay behavior for `game.html` and the legacy
 - Backdrop taps close only the overlay they belong to.
 - Backdrop taps must call the same close flow as the close button.
 - Backdrop taps must call `preventDefault()` and `stopPropagation()`.
+- Legacy backdrop/close controls also stop immediate propagation on pointer and click events.
 - After a backdrop close, map input is suppressed long enough to absorb ghost clicks.
 - A tap on backdrop must never select or reopen a district underneath.
 
@@ -24,6 +25,7 @@ This document defines the mobile overlay behavior for `game.html` and the legacy
 - The scroll position is restored when the last overlay closes.
 - The sheet body/card may scroll internally.
 - Opening, focusing, and closing overlays must not cause page scroll jumps.
+- Legacy `game.html` overlays use the shared `EmpireLegacyOverlay` coordinator for the body lock and ghost-click suppression.
 
 ## Focus Management
 

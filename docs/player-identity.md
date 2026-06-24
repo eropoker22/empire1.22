@@ -18,6 +18,7 @@ Required invariants:
 - concurrent joins for the same account and server resolve to the same registration
 
 The server may accept legacy `playerId` fields for compatibility, but only as deprecated input. Load and command authorization are resolved from the gameplay session.
+`LoadGameplaySliceRequest.playerId` is optional and deprecated; it is never used as proof of identity.
 
 ## Dev Auth
 

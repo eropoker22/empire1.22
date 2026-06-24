@@ -30,7 +30,7 @@ describe("public server matchmaking", () => {
     });
   });
 
-  it("migrates legacy preferred server aliases before reserving", () => {
+  it("migrates legacy war aliases and rejects the closed server", () => {
     const server = createServerApp({
       clock: createFixedClock("2026-05-21T06:00:00.000Z")
     });
@@ -41,18 +41,16 @@ describe("public server matchmaking", () => {
       preferredServerInstanceId: "war-eu-01"
     });
 
-    expect(response.reservation?.serverInstanceId).toBe("instance:war:eu-central:public-1");
+    expect(response).toMatchObject({
+      accepted: false,
+      reservation: null,
+      errors: [expect.objectContaining({ code: "matchmaking.server_closed" })]
+    });
   });
 
-  it("rejects full, closed, or stopped public servers", () => {
+  it("rejects closed war mode before creating a reservation", () => {
     const server = createServerApp();
     ensureDefaultLobbyServers(server);
-    server.instanceManager.closeInstanceForJoin("instance:war:eu-central:public-1");
-    server.instanceManager.stopInstance("instance:free:eu-central:public-1");
-    const freeTwo = server.instanceManager.getInstanceById("instance:free:eu-central:public-2")!;
-    freeTwo.lobby.maxPlayers = 1;
-    freeTwo.state.root.playerIds = ["player:existing"];
-    freeTwo.state.playersById["player:existing"] = {} as never;
 
     expect(server.publicServerMatchmaking.reservePublicServer({
       playerId: "player:mm:war",
@@ -60,8 +58,23 @@ describe("public server matchmaking", () => {
     })).toMatchObject({
       accepted: false,
       reservation: null,
-      errors: [expect.objectContaining({ code: "matchmaking.no_public_server" })]
+      errors: [expect.objectContaining({
+        code: "matchmaking.server_closed",
+        message: "War server je dočasně uzavřený. Teď testujeme Free režim."
+      })]
     });
+
+    expect(server.publicServerMatchmaking.listActiveReservations()).toEqual([]);
+  });
+
+  it("rejects full or stopped public servers", () => {
+    const server = createServerApp();
+    ensureDefaultLobbyServers(server);
+    server.instanceManager.stopInstance("instance:free:eu-central:public-1");
+    const freeTwo = server.instanceManager.getInstanceById("instance:free:eu-central:public-2")!;
+    freeTwo.lobby.maxPlayers = 1;
+    freeTwo.state.root.playerIds = ["player:existing"];
+    freeTwo.state.playersById["player:existing"] = {} as never;
 
     expect(server.publicServerMatchmaking.reservePublicServer({
       playerId: "player:mm:free",

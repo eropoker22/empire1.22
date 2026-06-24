@@ -197,10 +197,11 @@ Implemented:
 - Command reservation by `(server_instance_id, command_id)` before `applyCommand()` in the async submit path.
 - Snapshot latest compare-and-swap by `rootVersion`.
 - Distributed tick lock helper and tick-orchestrator integration.
+- Identity/session schema for player registrations, join tickets and gameplay sessions in `003_gameplay_identity_sessions.sql`.
 - Optional live Postgres smoke test.
 
 Known follow-up:
 
-- `empire_player_registrations` exists in the schema, but player registration/session reservation is not yet represented by a dedicated persistence repository. Current membership state is restored through snapshots/snapshot tokens.
-- Exactly-once command id execution is implemented for the Postgres-backed async submit path, but command dispatch still does not write latest snapshot/state and reservation updates inside one Postgres transaction. Full cross-command serialization/latest snapshot transaction remains a follow-up.
+- The identity/session schema exists, but player registration, join ticket and gameplay session repository wiring is not yet production-ready. Until then, production gameplay session traffic fails closed unless a production-ready session service is injected.
+- Exactly-once command id behavior is implemented for the async submit path, but command dispatch still does not write latest snapshot/state and reservation updates inside one Postgres transaction. The Postgres adapter is therefore marked `best-effort` for command atomicity and production command submit must fail closed until a transaction-aware command service is wired.
 - Command/event/diagnostic logs may remain best-effort in some lifecycle paths, but command reservation `reserve()`, `markApplied()`, and `markRejected()` are awaited in the command correctness path.

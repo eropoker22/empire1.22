@@ -65,6 +65,35 @@ describe("basic action transport payload validation", () => {
     ]);
   });
 
+  it("rejects forced rob and defense mutation result fields", () => {
+    const rob = validateSubmitGameplayCommandRequest(createSubmitRequest("rob-district", {
+      targetDistrictId: "district:2",
+      sourceDistrictId: "district:1",
+      loot: { cash: 9999 },
+      heatGained: 0,
+      result: "success"
+    }));
+    const defense = validateSubmitGameplayCommandRequest(createSubmitRequest("place-defense", {
+      targetDistrictId: "district:1",
+      defenseItemId: "barricades",
+      amount: 1,
+      ownerPlayerId: "player:2",
+      defenseLoadout: { barricades: 999 }
+    }));
+
+    expect(rob.accepted).toBe(false);
+    expect(rob.errors.map((error) => error.details?.field)).toEqual([
+      "command.payload.loot",
+      "command.payload.heatGained",
+      "command.payload.result"
+    ]);
+    expect(defense.accepted).toBe(false);
+    expect(defense.errors.map((error) => error.details?.field)).toEqual([
+      "command.payload.ownerPlayerId",
+      "command.payload.defenseLoadout"
+    ]);
+  });
+
   it("rejects invalid heist style and defense amount", () => {
     const heist = validateSubmitGameplayCommandRequest(createSubmitRequest("heist-district", {
       targetDistrictId: "district:2",

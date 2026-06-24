@@ -42,7 +42,7 @@ export const publicServerRegistry = Object.freeze([
     displayName: "Vortex City WAR-01",
     capacity: 150,
     mapComposition: DEFAULT_PUBLIC_MAP_COMPOSITION,
-    joinPolicy: "open",
+    joinPolicy: "closed",
     isPublic: true,
     legacyAliases: Object.freeze([
       "war-eu-01",

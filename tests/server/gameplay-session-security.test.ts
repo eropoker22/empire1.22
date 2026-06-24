@@ -41,6 +41,19 @@ describe("gameplay session security", () => {
     expect(load.json.sessionToken ?? null).toBeNull();
   });
 
+  it("rejects load without playerId when no gameplay session exists", async () => {
+    const handler = createGameplaySliceFunctionHandler({ environment: env });
+    const load = await readBody(handler(postEvent("/api/gameplay-slice/load", {
+      serverInstanceId,
+      districtId: "district:1"
+    })));
+
+    expect(load.statusCode).toBe(200);
+    expect(load.json.accepted).toBe(false);
+    expect(load.json.readModel).toBeNull();
+    expect(load.json.errors[0].code).toBe("SESSION_REQUIRED");
+  });
+
   it("uses a join ticket once and binds load/submit/logout to the server session", async () => {
     const handler = createGameplaySliceFunctionHandler({ environment: env });
     const reserve = await readBody(handler(postEvent("/api/matchmaking/reserve", {

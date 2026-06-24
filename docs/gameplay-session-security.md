@@ -23,7 +23,7 @@ The signed transport token includes `sessionId`, but it is not sufficient by its
 
 ## Load And Submit
 
-`load` ignores client identity claims. It derives `playerId` from the gameplay session and returns only that player's read-model.
+`load` ignores client identity claims. `LoadGameplaySliceRequest.playerId` is a deprecated compatibility hint and may be omitted. The server derives `playerId` from the gameplay session and returns only that player's read-model.
 
 `submit` requires a valid gameplay session. If a command still contains `playerId` for compatibility, it must exactly match the session. Forged command identity is rejected with `PLAYER_IDENTITY_MISMATCH`.
 
@@ -45,3 +45,5 @@ Production must reject gameplay session traffic when any of these are missing:
 - player registration repository
 
 There is no production fallback that trusts `playerId`, `accountId`, localStorage, names, email or snapshot token.
+
+The Postgres schema for `empire_player_registrations`, `empire_join_tickets` and `empire_gameplay_sessions` exists in `003_gameplay_identity_sessions.sql`. The current production guard still requires a production-ready session service before public traffic is accepted; the default in-memory service is for dev/test only.

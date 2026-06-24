@@ -40,7 +40,7 @@ export interface PostgresRuntimePersistenceRepositories {
   diagnosticLogRepository: DiagnosticLogRepository;
   snapshotRepository: SnapshotRepository;
   tickLock: RuntimeTickLock;
-  atomicCommandPersistenceMode: "transactional";
+  atomicCommandPersistenceMode: "best-effort";
   close(): Promise<void>;
 }
 
@@ -67,7 +67,7 @@ export const createPostgresRuntimePersistenceRepositories = (
       ownerId: options.tickLockOwnerId,
       ttlMs: options.tickLockTtlMs
     }),
-    atomicCommandPersistenceMode: "transactional",
+    atomicCommandPersistenceMode: "best-effort",
     close: () => database.close()
   };
 };

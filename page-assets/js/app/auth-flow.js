@@ -33,13 +33,13 @@ const getServerModeLabel = (mode) => mode === "war" ? "WAR Mode" : "FREE Battle 
 
 const getServerStartLabel = (serverEntry, locked) => {
   if (locked) {
-    return serverEntry.mode === "war" ? "Premium režim uzamčen" : "Uzavřeno";
+    return serverEntry.mode === "war" ? "PŘIPRAVUJEME" : "Uzavřeno";
   }
   return serverEntry.mode === "war" ? "Premium režim / dev vstup" : "Začni zdarma";
 };
 
 const getServerDescription = (serverEntry, map) => serverEntry.mode === "war"
-  ? "WAR Mode: Premium režim. Delší válka, jiné cooldowny. Viditelné pro dev/test, ne pro defaultní start."
+  ? "War režim ladíme. Pro testování je teď otevřený Free server."
   : `FREE Battle Royale: 20 hráčů, ${map.totalDistricts || 161} districtů, ${map.downtownDistricts || 8} downtown. Rychlý neonový start zdarma.`;
 
 const createFallbackServerFromRegistry = (serverEntry) => {
@@ -57,10 +57,12 @@ const createFallbackServerFromRegistry = (serverEntry) => {
     players,
     capacity,
     startLabel: getServerStartLabel(serverEntry, locked),
-    badge: getServerModeLabel(serverEntry.mode),
+    badge: serverEntry.mode === "war" && locked ? "PŘIPRAVUJEME" : getServerModeLabel(serverEntry.mode),
     status: locked ? "LOCKED" : "ONLINE",
     activity: "LOW",
+    joinPolicy: serverEntry.joinPolicy,
     locked,
+    closed: locked,
     riskPercent: Math.round((players / capacity) * 100),
     description: getServerDescription(serverEntry, map),
     map
@@ -131,6 +133,9 @@ export function getActiveServerRegistration(registration = getRegistrationDraft(
   }
 
   const server = getSelectedServer(serverId);
+  if (server?.joinPolicy === "closed" || server?.locked || server?.closed) {
+    return null;
+  }
   const preferredStartDistrictId = normalizeDistrictId(
     registration?.preferredStartDistrictId || registration?.startDistrictId
   );
@@ -285,9 +290,19 @@ export function saveLoginStep({ identity, isGuest = false, gangName = "", mode =
 
 export function saveLobbyStep({ serverId, districtId, server: selectedServer = null }) {
   const server = selectedServer || getSelectedServer(serverId);
+  const catalogServer = getSelectedServer(server?.serverInstanceId || server?.id || serverId);
   const preferredStartDistrictId = normalizeDistrictId(districtId);
 
-  if (!server || preferredStartDistrictId <= 0) {
+  if (
+    !server
+    || server.joinPolicy === "closed"
+    || server.locked
+    || server.closed
+    || catalogServer?.joinPolicy === "closed"
+    || catalogServer?.locked
+    || catalogServer?.closed
+    || preferredStartDistrictId <= 0
+  ) {
     return null;
   }
 

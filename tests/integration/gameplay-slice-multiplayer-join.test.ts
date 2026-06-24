@@ -6,15 +6,20 @@ import { createServerApp } from "../../apps/server/src/app";
 import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap/gameplay-slice-session-bootstrap";
 import { sharedCitySpawnDistrictIds } from "../../apps/server/src/bootstrap/gameplay-slice-shared-city-seed";
 
+type TestLoadRequest = LoadGameplaySliceRequest & {
+  playerId: string;
+  serverInstanceId: string;
+};
+
 const createLoadRequest = (
   index: number,
   overrides: Partial<LoadGameplaySliceRequest> = {}
-): LoadGameplaySliceRequest => ({
-  serverInstanceId: "instance:free-multiplayer-join",
-  playerId: `player:join:${index}`,
+): TestLoadRequest => ({
   districtId: null,
   factionId: "mafian",
-  ...overrides
+  ...overrides,
+  serverInstanceId: overrides.serverInstanceId ?? "instance:free-multiplayer-join",
+  playerId: overrides.playerId ?? `player:join:${index}`
 });
 
 describe("gameplay slice multiplayer join bootstrap", () => {
@@ -162,7 +167,7 @@ const createSelectSpawnCommand = (
   id,
   type: "select-spawn-district",
   mode: "free",
-  playerId: request.playerId,
+  playerId: request.playerId!,
   serverInstanceId: request.serverInstanceId,
   issuedAt: new Date(0).toISOString(),
   payload: { districtId },

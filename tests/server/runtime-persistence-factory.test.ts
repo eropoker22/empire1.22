@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { createServerApp } from "../../apps/server/src/app";
+import { createInMemoryRuntimePersistenceRepositories } from "../../apps/server/src/runtime";
 import { createRuntimePersistenceRepositoriesFromEnvironment } from "../../apps/server/src/runtime/instance-manager/instance-factory";
 
 describe("runtime persistence factory", () => {
@@ -21,7 +23,23 @@ describe("runtime persistence factory", () => {
     expect(repositories.diagnosticLogRepository).toBeDefined();
     expect(repositories.snapshotRepository).toBeDefined();
     expect(repositories.tickLock).toBeDefined();
+    expect(repositories.atomicCommandPersistenceMode).toBe("best-effort");
     await repositories.close?.();
+  });
+
+  it("strips non-transactional command persistence from production app composition", () => {
+    const server = createServerApp({
+      environment: { NODE_ENV: "production" },
+      persistence: {
+        ...createInMemoryRuntimePersistenceRepositories(),
+        atomicCommandPersistenceMode: "best-effort"
+      }
+    });
+
+    const repositories = server.instanceManager.getPersistenceRepositories();
+    expect(repositories.commandReservationRepository).toBeUndefined();
+    expect(repositories.commandResultRepository).toBeUndefined();
+    expect(repositories.outboxRepository).toBeUndefined();
   });
 
   it("rejects unknown persistence drivers with a clear error", () => {

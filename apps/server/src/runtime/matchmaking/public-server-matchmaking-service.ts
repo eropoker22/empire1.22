@@ -36,6 +36,9 @@ export const createPublicServerMatchmakingService = (
       const playerId = normalizeText(request.playerId);
       if (!playerId) return reject("matchmaking.invalid_request", "Matchmaking request requires playerId.");
 
+      const closedServerError = getClosedPublicServerError(request);
+      if (closedServerError) return closedServerError;
+
       const candidates = createCandidates(instanceManager, request, reservations);
       if (candidates.length === 0) {
         return reject("matchmaking.no_public_server", "No public server is currently available for this request.");
@@ -57,6 +60,27 @@ export const createPublicServerMatchmakingService = (
   };
 };
 
+const getClosedPublicServerError = (
+  request: PublicServerMatchmakingRequest
+): PublicServerMatchmakingResponse | null => {
+  const mode = normalizeMode(request.mode);
+  const preferredServerInstanceId = resolvePublicServerInstanceId(normalizeText(request.preferredServerInstanceId));
+  if (preferredServerInstanceId) {
+    const preferredServer = publicServerRegistry.find((entry) => entry.serverInstanceId === preferredServerInstanceId);
+    if (preferredServer && preferredServer.joinPolicy !== "open") {
+      return reject("matchmaking.server_closed", "War server je dočasně uzavřený. Teď testujeme Free režim.");
+    }
+    return null;
+  }
+
+  if (!mode) return null;
+  const matchingPublicServers = publicServerRegistry.filter((entry) => entry.isPublic && entry.mode === mode);
+  if (matchingPublicServers.length > 0 && matchingPublicServers.every((entry) => entry.joinPolicy !== "open")) {
+    return reject("matchmaking.server_closed", "War server je dočasně uzavřený. Teď testujeme Free režim.");
+  }
+  return null;
+};
+
 const createCandidates = (
   instanceManager: ServerInstanceManager,
   request: PublicServerMatchmakingRequest,
@@ -65,10 +89,17 @@ const createCandidates = (
   const mode = normalizeMode(request.mode);
   const preferredRegion = normalizeText(request.preferredRegion).toLowerCase();
   const preferredServerInstanceId = resolvePublicServerInstanceId(normalizeText(request.preferredServerInstanceId));
+  if (preferredServerInstanceId) {
+    const preferredServer = publicServerRegistry.find((entry) => entry.serverInstanceId === preferredServerInstanceId);
+    if (preferredServer && preferredServer.joinPolicy !== "open") {
+      return [];
+    }
+  }
   const latencyByRegion = normalizeLatencyMap(request.regionLatencyMs);
   const publicEntries = publicServerRegistry.filter((entry) =>
     entry.isPublic &&
     (!mode || entry.mode === mode) &&
+    entry.joinPolicy === "open" &&
     (!preferredServerInstanceId || entry.serverInstanceId === preferredServerInstanceId)
   );
 

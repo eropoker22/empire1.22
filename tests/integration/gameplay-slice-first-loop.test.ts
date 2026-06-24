@@ -15,16 +15,20 @@ import { createServerApp } from "../../apps/server/src/app";
 import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap/gameplay-slice-session-bootstrap";
 
 const serverInstanceId = "instance:free-first-loop";
+type TestLoadRequest = LoadGameplaySliceRequest & {
+  playerId: string;
+  serverInstanceId: string;
+};
 
 const createLoadRequest = (
   index: number,
   overrides: Partial<LoadGameplaySliceRequest> = {}
-): LoadGameplaySliceRequest => ({
-  serverInstanceId,
-  playerId: `player:first-loop:${index}`,
+): TestLoadRequest => ({
   districtId: `district:requested:${index}`,
   factionId: "mafian",
-  ...overrides
+  ...overrides,
+  serverInstanceId: overrides.serverInstanceId ?? serverInstanceId,
+  playerId: overrides.playerId ?? `player:first-loop:${index}`
 });
 
 describe("gameplay slice first 10 minutes shared city loop", () => {
@@ -87,7 +91,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
 
   it("loads without a concrete district focus but rejects server-assigned submit focus", async () => {
     const server = createServerApp();
-    const request: LoadGameplaySliceRequest = {
+    const request: TestLoadRequest = {
       serverInstanceId,
       playerId: "player:first-loop:no-focus",
       factionId: "mafian"

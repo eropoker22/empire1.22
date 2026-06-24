@@ -10,6 +10,9 @@ const FOCUSABLE_SELECTOR = [
 
 const overlayStack = [];
 let suppressMapInputUntil = 0;
+const LOCKED_BODY_DATA_ATTRIBUTE = "legacyOverlayScrollLocked";
+const LOCKED_BODY_CLASS = "game-modal-scroll-locked";
+let bodyStyleSnapshot = null;
 
 function getElementView(element) {
   return element?.ownerDocument?.defaultView || (typeof window !== "undefined" ? window : null);
@@ -30,6 +33,55 @@ function now() {
     return window.performance.now();
   }
   return Date.now();
+}
+
+function getBody(element) {
+  return element?.ownerDocument?.body || (typeof document !== "undefined" ? document.body : null);
+}
+
+function lockBodyScroll(element) {
+  const body = getBody(element);
+  const view = body?.ownerDocument?.defaultView || (typeof window !== "undefined" ? window : null);
+  if (!body || !view || body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] === "true") {
+    return;
+  }
+
+  const scrollY = view.scrollY || 0;
+  bodyStyleSnapshot = {
+    scrollY,
+    left: body.style.left,
+    position: body.style.position,
+    right: body.style.right,
+    top: body.style.top,
+    width: body.style.width
+  };
+
+  body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "true";
+  body.classList.add(LOCKED_BODY_CLASS);
+  body.style.position = "fixed";
+  body.style.top = `-${scrollY}px`;
+  body.style.left = "0";
+  body.style.right = "0";
+  body.style.width = "100%";
+}
+
+function unlockBodyScroll(element) {
+  const body = getBody(element);
+  const view = body?.ownerDocument?.defaultView || (typeof window !== "undefined" ? window : null);
+  if (!body || !view || body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] !== "true") {
+    return;
+  }
+
+  const savedStyles = bodyStyleSnapshot;
+  body.style.left = savedStyles?.left || "";
+  body.style.position = savedStyles?.position || "";
+  body.style.right = savedStyles?.right || "";
+  body.style.top = savedStyles?.top || "";
+  body.style.width = savedStyles?.width || "";
+  body.classList.remove(LOCKED_BODY_CLASS);
+  delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
+  bodyStyleSnapshot = null;
+  view.scrollTo(0, savedStyles?.scrollY || 0);
 }
 
 function isElementVisible(element) {
@@ -81,10 +133,16 @@ function resolveFocusTarget(element, preferredFocus) {
 }
 
 function pruneClosedOverlays() {
+  const previousLength = overlayStack.length;
+  let lastPrunedElement = null;
   for (let index = overlayStack.length - 1; index >= 0; index -= 1) {
     if (!isElementVisible(overlayStack[index].element)) {
+      lastPrunedElement = overlayStack[index].element;
       overlayStack.splice(index, 1);
     }
+  }
+  if (previousLength > 0 && overlayStack.length === 0) {
+    unlockBodyScroll(lastPrunedElement);
   }
 }
 
@@ -107,6 +165,7 @@ export function shouldSuppressMapInput(event) {
   if (suppressed) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
+    event?.stopImmediatePropagation?.();
   }
   return suppressed;
 }
@@ -134,6 +193,9 @@ export function openOverlay(element, options = {}) {
     element.setAttribute("tabindex", "-1");
   }
 
+  if (overlayStack.length === 0) {
+    lockBodyScroll(element);
+  }
   overlayStack.push(entry);
 
   const focusTarget = resolveFocusTarget(element, options.focusTarget);
@@ -163,6 +225,10 @@ export function closeOverlay(element, options = {}) {
     && !focusTarget.hidden
   ) {
     safeFocus(focusTarget);
+  }
+
+  if (overlayStack.length === 0) {
+    unlockBodyScroll(element);
   }
 
   return true;

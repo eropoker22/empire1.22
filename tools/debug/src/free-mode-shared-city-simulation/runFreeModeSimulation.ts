@@ -231,7 +231,7 @@ const refreshGameplaySessionToken = (
   sessionTokensByPlayerId: Map<PlayerId, string>
 ): void => {
   const response = server.gameplaySliceTransport.load(request);
-  if (response.sessionToken) sessionTokensByPlayerId.set(request.playerId, response.sessionToken);
+  if (response.sessionToken && request.playerId) sessionTokensByPlayerId.set(request.playerId, response.sessionToken);
 };
 
 const roundMinutes = (tick: number, tickRateMs: number): number =>

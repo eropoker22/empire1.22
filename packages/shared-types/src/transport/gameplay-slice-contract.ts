@@ -19,7 +19,11 @@ export type ServerAssignedFocusDistrictId = typeof SERVER_ASSIGNED_FOCUS_DISTRIC
  */
 export interface LoadGameplaySliceRequest {
   serverInstanceId: ServerInstanceId;
-  playerId: PlayerId;
+  /**
+   * @deprecated Compatibility-only hint for old clients. Server load authority
+   * derives the player from the gameplay session, never from this field.
+   */
+  playerId?: PlayerId | null;
   districtId?: DistrictId | ServerAssignedFocusDistrictId | null;
   preferredStartDistrictId?: DistrictId | string | null;
   factionId?: PlayerFactionId | string | null;

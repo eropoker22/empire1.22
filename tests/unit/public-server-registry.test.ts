@@ -66,4 +66,20 @@ describe("public server registry", () => {
     });
     expect(resolvePublicServerInstanceId("war-eu-01")).toBe("instance:war:eu-central:public-1");
   });
+
+  it("marks war server as closed while still keeping it visible", () => {
+    const warServer = publicServerRegistry.find((server) => server.mode === "war");
+    expect(warServer).toMatchObject({
+      mode: "war",
+      joinPolicy: "closed",
+      isPublic: true
+    });
+    expect(warServer?.legacyAliases).toEqual([
+      "war-eu-01",
+      "war-eu-02",
+      "war-eu-03",
+      "war-eu-04",
+      "war-eu-05"
+    ]);
+  });
 });

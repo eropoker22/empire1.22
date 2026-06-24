@@ -17,6 +17,8 @@ type OverlayEntry = {
 
 const overlayStack: OverlayEntry[] = [];
 const LOCKED_BODY_DATA_ATTRIBUTE = "overlayScrollLocked";
+const DEFAULT_GHOST_CLICK_SUPPRESSION_MS = 250;
+let suppressMapInputUntil = 0;
 
 interface BodyStyleSnapshot {
   scrollY: number;
@@ -81,7 +83,6 @@ const unlockBodyScroll = (): void => {
   }
 
   const { scrollY, left, position, right, top, width } = savedStyles;
-  window.scrollTo(0, scrollY);
   body.style.left = left;
   body.style.position = position;
   body.style.right = right;
@@ -90,6 +91,26 @@ const unlockBodyScroll = (): void => {
   body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "";
   delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
   bodyStyleSnapshot.delete(body);
+  window.scrollTo(0, scrollY);
+};
+
+const now = (): number =>
+  typeof window !== "undefined" && window.performance?.now
+    ? window.performance.now()
+    : Date.now();
+
+export const suppressMapInputFor = (ms = DEFAULT_GHOST_CLICK_SUPPRESSION_MS): void => {
+  suppressMapInputUntil = Math.max(suppressMapInputUntil, now() + ms);
+};
+
+export const shouldSuppressMapInput = (event?: Event | null): boolean => {
+  const suppressed = isOverlayOpen() || now() < suppressMapInputUntil;
+  if (suppressed) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    event?.stopImmediatePropagation();
+  }
+  return suppressed;
 };
 
 export const openOverlay = (type: OverlayType): void => {
@@ -104,6 +125,7 @@ export const closeOverlay = (_reason: string): void => {
   if (overlayStack.length > 0) {
     overlayStack.pop();
   }
+  suppressMapInputFor();
   if (overlayStack.length === 0) {
     unlockBodyScroll();
   }

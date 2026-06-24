@@ -151,16 +151,22 @@ export function bindDistrictModalCloseControls(closeElements = [], closeHandler)
   }
 
   let boundCount = 0;
+  const guardCloseEvent = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
+  };
   for (const closeElement of closeElements || []) {
     if (!closeElement || typeof closeElement.addEventListener !== "function") {
       continue;
     }
+    closeElement.addEventListener("pointerdown", guardCloseEvent);
+    closeElement.addEventListener("pointerup", guardCloseEvent);
     closeElement.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
+      guardCloseEvent(event);
       closeHandler();
     });
-    boundCount += 1;
+    boundCount += 3;
   }
   return boundCount;
 }
@@ -229,15 +235,51 @@ export function bindDistrictResultModalCloseControls(entries = [], closers = {})
       if (!control || typeof control.addEventListener !== "function") {
         continue;
       }
-      control.addEventListener("click", (event) => {
+      const guardCloseEvent = (event) => {
         event.preventDefault();
         event.stopPropagation();
+        event.stopImmediatePropagation?.();
+      };
+      control.addEventListener("pointerdown", guardCloseEvent);
+      control.addEventListener("pointerup", guardCloseEvent);
+      control.addEventListener("click", (event) => {
+        guardCloseEvent(event);
         entry.close();
       });
-      boundCount += 1;
+      boundCount += 3;
     }
   }
 
+  return boundCount;
+}
+
+export function bindDistrictModalContentGuards(documentRef) {
+  if (!documentRef?.querySelectorAll) {
+    return 0;
+  }
+
+  const contentSelectors = [
+    "[data-district-popup-card]",
+    "[data-attack-setup-card]",
+    "[data-attack-confirm-card]",
+    "[data-robbery-setup-card]",
+    "[data-robbery-confirm-card]",
+    "[data-defense-setup-card]",
+    "[data-trap-confirm-card]",
+    "[data-spy-confirm-card]",
+    "[data-occupy-confirm-card]",
+    ".district-action-confirm-popup-card",
+    ".buildings-popup-card"
+  ].join(",");
+  const guardContentEvent = (event) => {
+    event.stopPropagation();
+  };
+  let boundCount = 0;
+  for (const element of Array.from(documentRef.querySelectorAll(contentSelectors))) {
+    element.addEventListener("pointerdown", guardContentEvent);
+    element.addEventListener("click", guardContentEvent);
+    boundCount += 2;
+  }
   return boundCount;
 }
 
@@ -275,6 +317,7 @@ export function bindDistrictPopupPresentationControls(options = {}) {
 
   const modalCloseCount = bindDistrictPopupModalCloseControls(elements, closeHandlers);
   const resultCloseCount = bindDistrictResultModalCloseControls(elements, resultHandlers);
+  const contentGuardCount = bindDistrictModalContentGuards(documentRef);
   const escapeBound = bindEscapeKeyHandlers(documentRef, createDistrictPopupEscapeHandlers({
     elements,
     closeHandlers,
@@ -284,6 +327,7 @@ export function bindDistrictPopupPresentationControls(options = {}) {
   return {
     modalCloseCount,
     resultCloseCount,
+    contentGuardCount,
     escapeBound
   };
 }

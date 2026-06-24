@@ -74,7 +74,7 @@ const resolveInitialLobbyMode = (registration, activeServerRegistration) => {
 
 const getServerModeLabel = (mode) => mode === "war" ? "WAR Mode" : "FREE Battle Royale";
 const getServerCardSubtitle = (server) => server?.mode === "war"
-  ? "Premium režim / Coming soon"
+  ? "WAR režim • Coming soon / PŘIPRAVUJEME"
   : "20 hráčů / 161 districtů / Začni zdarma";
 
 function createServerFromSummary(summary) {
@@ -114,16 +114,18 @@ function createServerFromSummary(summary) {
     capacity: maxPlayers,
     startLabel: joinable
       ? (mode === "war" ? "Premium režim / dev vstup" : "Začni zdarma")
-      : status,
-    badge: mode === "war" ? "WAR Mode" : "FREE Battle Royale",
+      : mode === "war" ? "UZAVŘENO" : status,
+    badge: mode === "war" && !joinable ? "PŘIPRAVUJEME" : mode === "war" ? "WAR Mode" : "FREE Battle Royale",
+    joinPolicy: String(summary.joinPolicy || (joinable ? "open" : "closed")).toLowerCase(),
     status,
     activity: playerCount / maxPlayers > 0.75 ? "HIGH" : playerCount / maxPlayers > 0.35 ? "MEDIUM" : "LOW",
     full,
+    closed: !joinable && !full,
     locked: !joinable && !full,
     offline: ["STOPPED", "ENDED", "DESTROYED", "CRASHED"].includes(status),
     riskPercent: Math.round((playerCount / maxPlayers) * 100),
     description: mode === "war"
-      ? "WAR Mode: Premium režim. Delší válka, jiné cooldowny. Viditelné pro dev/test, ne pro defaultní start."
+      ? "WAR Mode: PŘIPRAVUJEME. War režim není dočasně dostupný pro veřejné hráče."
       : `FREE Battle Royale: 20 hráčů, ${map?.totalDistricts || 161} districtů, ${map?.downtownDistricts || 8} downtown. Začni zdarma, město tě rozřeže rychle.`,
     map
   };
@@ -631,8 +633,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     state.isReservingServer = false;
 
+    if (!session) {
+      updateLobbySummary();
+      updateDetailModal();
+      return;
+    }
+
     markLeavingLobby();
-    window.location.href = session ? getEntryDestinationHref() : FACTION_ENTRY_HREF;
+    window.location.href = getEntryDestinationHref();
   };
 
   const confirmDetailDistrictSelection = () => {
@@ -921,7 +929,7 @@ document.addEventListener("DOMContentLoaded", () => {
         lobbyEnterSelectedButton.textContent = "REZERVUJI SERVER...";
       } else {
         lobbyEnterSelectedButton.innerHTML = server?.mode === "war"
-          ? "VSTOUPIT DO WAR / DEV <span>›</span>"
+          ? (isServerUnavailable(server) ? "UZAVŘENO" : "VSTOUPIT DO WAR / DEV <span>›</span>")
           : "ZAČNI ZDARMA <span>›</span>";
       }
     }
@@ -1056,7 +1064,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (detailModalMaterials instanceof HTMLElement) {
       detailModalMaterials.innerHTML = [
         server.mode === "war"
-          ? "<li>WAR Mode je premium/dev cesta: delší válka, jiné cooldowny, mimo defaultní onboarding.</li>"
+          ? "<li>WAR režim je zatím v přípravě. Veřejný přístup je dočasně uzavřený.</li>"
           : "<li>FREE Battle Royale: 20 hráčů, 161 districtů, 8 downtown. Začni zdarma.</li>",
         "<li>Gameplay start a finální spawn potvrzuje server při joinu.</li>",
         `<li>Mapa: ${server.map?.totalDistricts || geometry.districts.length} districtů, ${server.map?.downtownDistricts || getDistrictTypeCounts(server).find(([type]) => type === "downtown")?.[1] || 0} downtown.</li>`
@@ -1077,7 +1085,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const recommendedServer = servers.find((server) => !isServerUnavailable(server)) || servers[0] || null;
     list.innerHTML = servers.map((server) => `
       <button type="button" class="auth-server-card ${server.id === state.serverId ? "is-selected" : ""} ${recommendedServer?.id === server.id ? "is-recommended" : ""} ${server.locked ? "is-locked" : ""} ${server.full ? "is-full" : ""} ${server.offline ? "is-offline" : ""}" data-server-card="${server.id}" data-server-mode="${server.mode}" ${recommendedServer?.id === server.id ? "data-recommended-server=\"true\"" : ""} data-testid="server-card-${server.id}">
-        ${recommendedServer?.id === server.id ? "<span class=\"auth-server-card__badge\">Doporučený start</span>" : ""}
+        ${recommendedServer?.id === server.id ? "<span class=\"auth-server-card__badge\">Doporučený start</span>" : server.badge ? `<span class="auth-server-card__badge">${server.badge}</span>` : ""}
         <span class="auth-server-card__label">${server.name}</span>
         <span class="auth-server-card__subtitle">${getServerCardSubtitle(server)}</span>
         <span class="auth-server-card__meta">${server.region} • ${getServerModeLabel(server.mode)} • ${server.players}/${server.capacity}</span>
