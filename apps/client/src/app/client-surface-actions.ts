@@ -12,6 +12,7 @@ import {
 import {
   resolveClientSurfaceAction
 } from "./client-surface-action-resolver";
+import { isOverlayOpen } from "../modals";
 import type {
   ClientSurfaceAction,
   ClientSurfaceActionElement,
@@ -43,6 +44,10 @@ export const createClientSurfaceActionRouter = (
     }
 
     if (action.kind === "select-district") {
+      if (isOverlayOpen()) {
+        return null;
+      }
+
       return options.client.selectDistrict(action.districtId);
     }
 

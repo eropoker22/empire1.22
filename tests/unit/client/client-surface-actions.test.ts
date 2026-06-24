@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GameplaySliceView } from "@empire/shared-types";
+import { closeOverlay, getTopOverlay, isOverlayOpen, openOverlay } from "../../../apps/client/src/modals";
 import {
   createClientSurfaceActionRouter,
   resolveClientSurfaceAction,
@@ -190,6 +191,12 @@ const createMockElement = (
 };
 
 describe("client surface actions", () => {
+  afterEach(() => {
+    while (isOverlayOpen()) {
+      closeOverlay("test:cleanup");
+    }
+  });
+
   it("resolves spy, occupy, and trap click targets from surface dataset hooks", () => {
     const spyButton = createMockElement({ spyTargetId: "district:2" });
     spyButton.setClosest("button[data-spy-target-id]", spyButton.element);
@@ -694,5 +701,43 @@ describe("client surface actions", () => {
 
     expect(selected).toEqual(["district:2"]);
     expect(dispatched).toEqual(["place-trap"]);
+  });
+
+  it("blocks district selection while a mobile overlay is open and allows it after closing", async () => {
+    const slice = createGameplaySliceFixture();
+    const renderState = createInitialClientRenderState();
+    const selected: string[] = [];
+
+    const router = createClientSurfaceActionRouter({
+      client: {
+        load: async () => renderState,
+        selectDistrict: async (districtId) => {
+          selected.push(districtId);
+          return renderState;
+        },
+        selectBuilding: async () => renderState,
+        dispatch: async () => renderState,
+        getRenderState: () => renderState,
+        getGameplaySlice: () => slice
+      },
+      createCommandId: (prefix) => `${prefix}:1`,
+      getIssuedAt: () => new Date(0).toISOString()
+    });
+
+    const districtButton = createMockElement({ districtId: "district:2" });
+    districtButton.setClosest("button[data-district-id]", districtButton.element);
+
+    openOverlay("district_sheet");
+    expect(isOverlayOpen()).toBe(true);
+    expect(getTopOverlay()).toBe("district_sheet");
+
+    await router.handleTarget(districtButton.element);
+    expect(selected).toEqual([]);
+
+    closeOverlay("confirmation closed");
+    expect(isOverlayOpen()).toBe(false);
+
+    await router.handleTarget(districtButton.element);
+    expect(selected).toEqual(["district:2"]);
   });
 });
