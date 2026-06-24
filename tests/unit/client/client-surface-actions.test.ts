@@ -703,7 +703,7 @@ describe("client surface actions", () => {
     expect(dispatched).toEqual(["place-trap"]);
   });
 
-  it("blocks district selection while a mobile overlay is open and allows it after closing", async () => {
+  it("keeps bottom sheet open when closing a stacked modal overlay", async () => {
     const slice = createGameplaySliceFixture();
     const renderState = createInitialClientRenderState();
     const selected: string[] = [];
@@ -728,14 +728,23 @@ describe("client surface actions", () => {
     districtButton.setClosest("button[data-district-id]", districtButton.element);
 
     openOverlay("district_sheet");
+    openOverlay("confirmation_modal");
+    expect(isOverlayOpen()).toBe(true);
+    expect(getTopOverlay()).toBe("confirmation_modal");
+
+    await router.handleTarget(districtButton.element);
+    expect(selected).toEqual([]);
+
+    closeOverlay("close confirmation");
     expect(isOverlayOpen()).toBe(true);
     expect(getTopOverlay()).toBe("district_sheet");
 
     await router.handleTarget(districtButton.element);
     expect(selected).toEqual([]);
 
-    closeOverlay("confirmation closed");
+    closeOverlay("close sheet");
     expect(isOverlayOpen()).toBe(false);
+    expect(getTopOverlay()).toBe(null);
 
     await router.handleTarget(districtButton.element);
     expect(selected).toEqual(["district:2"]);
