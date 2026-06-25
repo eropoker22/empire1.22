@@ -16,6 +16,8 @@ export interface CreateClientAppOptions {
   transport: ClientTransport;
 }
 
+const spawnSelectionFeature = "spawn-selection";
+
 export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAppShell => {
   const store = createClientStore(createInitialClientUiState());
   const dispatcher = createCommandDispatcher(transport);
@@ -39,10 +41,13 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
         response.readModel.player.homeDistrictId ??
         selectedDistrictId ??
         null;
+      const activeSidePanel = response.readModel.spawnSelection?.status === "awaiting_spawn_selection"
+        ? spawnSelectionFeature
+        : districtPanelFeature;
       store.setGameplaySlice(response.readModel);
       store.patchUiState({
         selectedDistrictId: serverSelectedDistrictId,
-        activeSidePanel: districtPanelFeature
+        activeSidePanel
       });
     }
 

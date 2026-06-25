@@ -11,6 +11,12 @@
   --slice-ink: #f2efe8;
   --slice-muted: #a9b0ba;
   --slice-dim: #6d7582;
+  --z-map: 1;
+  --z-map-ui: 2;
+  --z-backdrop: 30;
+  --z-sheet: 40;
+  --z-modal: 50;
+  --z-toast: 60;
   display: grid;
   gap: 10px;
   padding: 10px;
@@ -56,6 +62,60 @@ body[data-page="game"] .gameplay-slice-client,
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
+}
+
+body[data-page="game"] .gameplay-slice-client[data-spawn-selection-visible="true"],
+.game-body .gameplay-slice-client[data-spawn-selection-visible="true"] {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+  z-index: 39 !important;
+}
+
+body[data-page="game"] .gameplay-slice-client[data-spawn-selection-visible="true"] .gameplay-slice-client__status,
+body[data-page="game"] .gameplay-slice-client[data-spawn-selection-visible="true"] .gameplay-slice-client__topbar,
+body[data-page="game"] .gameplay-slice-client[data-spawn-selection-visible="true"] .gameplay-slice-client__map,
+.game-body .gameplay-slice-client[data-spawn-selection-visible="true"] .gameplay-slice-client__status,
+.game-body .gameplay-slice-client[data-spawn-selection-visible="true"] .gameplay-slice-client__topbar,
+.game-body .gameplay-slice-client[data-spawn-selection-visible="true"] .gameplay-slice-client__map {
+  display: none !important;
+}
+
+body[data-page="game"] .gameplay-slice-client[data-spawn-selection-visible="true"] .gameplay-slice-client__panel,
+.game-body .gameplay-slice-client[data-spawn-selection-visible="true"] .gameplay-slice-client__panel {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(78svh, 720px);
+  overflow: hidden;
+  padding-right: 0;
+  pointer-events: auto;
+  z-index: var(--z-sheet);
+}
+
+body[data-page="game"] .gameplay-slice-client[data-spawn-selection-visible="true"] .side-panel-shell,
+.game-body .gameplay-slice-client[data-spawn-selection-visible="true"] .side-panel-shell {
+  max-height: inherit;
+  overflow: hidden;
+}
+
+body[data-page="game"] .gameplay-slice-client[data-spawn-selection-visible="true"] .mobile-sheet__body,
+.game-body .gameplay-slice-client[data-spawn-selection-visible="true"] .mobile-sheet__body {
+  max-height: min(78svh, 720px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .gameplay-slice-client *,
@@ -143,17 +203,17 @@ body[data-city-phase="night"] .gameplay-slice-client {
   position: relative;
   overflow: auto;
   scrollbar-color: rgba(217, 182, 107, 0.48) rgba(255, 255, 255, 0.06);
-  z-index: 1;
+  z-index: var(--z-map);
 }
 
 .gameplay-slice-client__map {
-  z-index: 1;
+  z-index: var(--z-map);
   max-height: 224px;
   padding: 1px;
 }
 
 .gameplay-slice-client__panel {
-  z-index: 3;
+  z-index: var(--z-map-ui);
   max-height: 560px;
   padding-right: 2px;
 }
@@ -163,7 +223,7 @@ body[data-city-phase="night"] .gameplay-slice-client {
 .gameplay-slice-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 2;
+  z-index: var(--z-backdrop);
   pointer-events: auto;
   background: rgba(4, 6, 12, 0.22);
   opacity: 1;
@@ -949,7 +1009,7 @@ body[data-city-phase="night"] .gameplay-slice-client {
     bottom: 0;
     width: 100%;
     max-height: 82dvh;
-    z-index: 3;
+    z-index: var(--z-sheet);
     overflow: hidden;
     overscroll-behavior: contain;
     padding-bottom: env(safe-area-inset-bottom);

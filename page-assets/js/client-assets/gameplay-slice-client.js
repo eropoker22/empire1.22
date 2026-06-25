@@ -563,7 +563,7 @@ var EmpireGameplaySliceClient = function(exports) {
     renderTargetSection({
       attribute: "data-heist-targets",
       title: "Cíle heistu",
-      copy: "Heist krade zdroje bez převzetí území. Výsledek počítá server.",
+      copy: "Okamžitý alpha heist krade zdroje bez převzetí území. Výsledek počítá server.",
       emptyCopy: "Z tohoto distriktu není dostupný nepřátelský cíl heistu.",
       targetAttribute: "data-heist-target-id",
       buttonModifier: "heist",
@@ -866,6 +866,8 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const overlayStack = [];
   const LOCKED_BODY_DATA_ATTRIBUTE = "overlayScrollLocked";
+  const DEFAULT_GHOST_CLICK_SUPPRESSION_MS = 250;
+  let suppressMapInputUntil = 0;
   const bodyStyleSnapshot = /* @__PURE__ */ new WeakMap();
   const getBody = () => {
     if (typeof document === "undefined") {
@@ -910,7 +912,6 @@ var EmpireGameplaySliceClient = function(exports) {
       return;
     }
     const { scrollY, left, position, right, top, width } = savedStyles;
-    window.scrollTo(0, scrollY);
     body.style.left = left;
     body.style.position = position;
     body.style.right = right;
@@ -919,6 +920,23 @@ var EmpireGameplaySliceClient = function(exports) {
     body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "";
     delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
     bodyStyleSnapshot.delete(body);
+    window.scrollTo(0, scrollY);
+  };
+  const now = () => {
+    var _a;
+    return typeof window !== "undefined" && ((_a = window.performance) == null ? void 0 : _a.now) ? window.performance.now() : Date.now();
+  };
+  const suppressMapInputFor = (ms = DEFAULT_GHOST_CLICK_SUPPRESSION_MS) => {
+    suppressMapInputUntil = Math.max(suppressMapInputUntil, now() + ms);
+  };
+  const shouldSuppressMapInput = (event) => {
+    const suppressed = isOverlayOpen() || now() < suppressMapInputUntil;
+    if (suppressed) {
+      event == null ? void 0 : event.preventDefault();
+      event == null ? void 0 : event.stopPropagation();
+      event == null ? void 0 : event.stopImmediatePropagation();
+    }
+    return suppressed;
   };
   const openOverlay = (type) => {
     if (overlayStack.length === 0) {
@@ -930,6 +948,7 @@ var EmpireGameplaySliceClient = function(exports) {
     if (overlayStack.length > 0) {
       overlayStack.pop();
     }
+    suppressMapInputFor();
     if (overlayStack.length === 0) {
       unlockBodyScroll();
     }
@@ -951,9 +970,14 @@ var EmpireGameplaySliceClient = function(exports) {
       event.stopImmediatePropagation();
     };
     const handleClick = (event) => {
+      var _a;
       handlePointerInteraction(event);
       if (isOverlayOpen()) {
+        const topOverlay = getTopOverlay();
         closeOverlay();
+        if (topOverlay) {
+          (_a = options.onCloseTopOverlay) == null ? void 0 : _a.call(options, topOverlay);
+        }
         sync();
       }
     };
@@ -1220,13 +1244,14 @@ var EmpireGameplaySliceClient = function(exports) {
         throw new Error("Fetch transport is unavailable in this runtime.");
       }
       const requestWithTokens = attachStoredGameplaySliceTokens(route, request, storage);
-      const endpointRoute = resolveEndpointRoute(route, requestWithTokens, storage);
+      const endpointRoute = resolveEndpointRoute(route, requestWithTokens);
       const endpoint = `${endpointBase}/${endpointRoute}`;
       const response = await fetchJson(endpoint, {
         method: "POST",
         headers: {
           "content-type": "application/json"
         },
+        credentials: "same-origin",
         body: JSON.stringify(requestWithTokens)
       });
       if (!response.ok) {
@@ -1243,13 +1268,10 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const attachStoredGameplaySliceTokens = (route, request, storage) => {
     const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
-    const sessionKey = createGameplaySliceTokenStorageKey("session", request);
     const snapshotToken = snapshotKey ? readToken(storage, snapshotKey) : null;
-    const sessionToken = sessionKey ? readToken(storage, sessionKey) : null;
-    return snapshotToken || sessionToken ? {
+    return snapshotToken ? {
       ...request,
-      ...snapshotToken ? { snapshotToken } : {},
-      ...sessionToken ? { sessionToken } : {}
+      snapshotToken
     } : request;
   };
   const resolveEndpointRoute = (route, request, storage) => {
@@ -1257,28 +1279,13 @@ var EmpireGameplaySliceClient = function(exports) {
       return route;
     }
     const record = request;
-    const sessionKey = createGameplaySliceTokenStorageKey("session", request);
-    const sessionToken = sessionKey ? readToken(storage, sessionKey) : null;
-    return !sessionToken && String(record.joinTicket ?? "").trim() ? "join" : "load";
+    return String(record.joinTicket ?? "").trim() ? "join" : "load";
   };
   const persistGameplaySliceTokens = (request, response, storage) => {
-    var _a, _b;
     const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
-    const sessionKey = createGameplaySliceTokenStorageKey("session", request);
     const snapshotToken = String(response.snapshotToken ?? "").trim();
-    const sessionToken = String(response.sessionToken ?? "").trim();
     if (snapshotKey && snapshotToken) {
       writeToken(storage, snapshotKey, snapshotToken);
-    }
-    if (sessionKey && sessionToken) {
-      writeToken(storage, sessionKey, sessionToken);
-    }
-    const serverSessionKey = createGameplaySliceTokenStorageKey("session", {
-      serverInstanceId: (_a = response.readModel) == null ? void 0 : _a.server.serverInstanceId,
-      playerId: (_b = response.readModel) == null ? void 0 : _b.player.playerId
-    });
-    if (serverSessionKey && sessionToken) {
-      writeToken(storage, serverSessionKey, sessionToken);
     }
   };
   const readToken = (storage, key) => {
@@ -2012,12 +2019,13 @@ var EmpireGameplaySliceClient = function(exports) {
     const serverHash = (slice == null ? void 0 : slice.server.mapManifestHash) ?? null;
     return Boolean(serverHash && serverHash !== empireCityMapManifestHash);
   };
+  const spawnSelectionFeature = "spawn-selection";
   const createClientApp = ({ transport }) => {
     const store = createClientStore(createInitialClientUiState());
     const dispatcher = createCommandDispatcher(transport);
     let renderState = createInitialClientRenderState();
     const commitResponse = (response, selectedDistrictId, commandId) => {
-      var _a, _b;
+      var _a, _b, _c;
       const hasAuthoritativeReadModel = Boolean(response.readModel);
       const missingReadModelMessage = "Gameplay slice response did not include an authoritative read model.";
       const mapManifestMismatch = getMapManifestMismatch(response);
@@ -2025,10 +2033,11 @@ var EmpireGameplaySliceClient = function(exports) {
       const firstErrorMessage = ((_a = responseErrors[0]) == null ? void 0 : _a.message) ?? null;
       if (response.readModel) {
         const serverSelectedDistrictId = ((_b = response.readModel.district) == null ? void 0 : _b.districtId) ?? response.readModel.player.homeDistrictId ?? selectedDistrictId ?? null;
+        const activeSidePanel = ((_c = response.readModel.spawnSelection) == null ? void 0 : _c.status) === "awaiting_spawn_selection" ? spawnSelectionFeature : districtPanelFeature;
         store.setGameplaySlice(response.readModel);
         store.patchUiState({
           selectedDistrictId: serverSelectedDistrictId,
-          activeSidePanel: districtPanelFeature
+          activeSidePanel
         });
       }
       if (commandId) {
@@ -2206,6 +2215,7 @@ var EmpireGameplaySliceClient = function(exports) {
       (registration == null ? void 0 : registration.lastServerConfirmedDistrictId) || (registration == null ? void 0 : registration.assignedHomeDistrictId)
     );
     const playerId = normalizePlayerId((registration == null ? void 0 : registration.identity) || (registration == null ? void 0 : registration.gangName));
+    const accountId = normalizeToken((registration == null ? void 0 : registration.accountId) || (registration == null ? void 0 : registration.identity) || (registration == null ? void 0 : registration.gangName));
     const factionId = normalizeFactionId((registration == null ? void 0 : registration.factionId) || (registration == null ? void 0 : registration.selectedFaction));
     const joinTicket = normalizeToken(registration == null ? void 0 : registration.joinTicket);
     if (!serverInstanceId || !playerId) {
@@ -2214,6 +2224,7 @@ var EmpireGameplaySliceClient = function(exports) {
     return {
       serverInstanceId,
       playerId,
+      ...accountId ? { accountId } : {},
       ...districtId ? { districtId } : {},
       ...preferredStartDistrictId ? { preferredStartDistrictId } : {},
       factionId,
@@ -2223,11 +2234,13 @@ var EmpireGameplaySliceClient = function(exports) {
   const createExplicitRequest = (dataset) => {
     const serverInstanceId = normalizeToken(dataset.serverInstanceId);
     const playerId = normalizeToken(dataset.playerId);
+    const accountId = normalizeToken(dataset.accountId);
     const districtId = normalizeDistrictId(dataset.districtId);
     const factionId = normalizeFactionId(dataset.factionId);
     return serverInstanceId && playerId ? {
       serverInstanceId,
       playerId,
+      ...accountId ? { accountId } : {},
       ...districtId ? { districtId } : {},
       factionId
     } : null;
@@ -2343,7 +2356,14 @@ var EmpireGameplaySliceClient = function(exports) {
       }
       isDistrictSheetOpen = false;
     };
-    return { syncFromState, closeOnDestroy, isOpen: () => isDistrictSheetOpen };
+    return {
+      syncFromState,
+      closeOnDestroy,
+      isOpen: () => isDistrictSheetOpen,
+      markClosedByBackdrop: () => {
+        isDistrictSheetOpen = false;
+      }
+    };
   };
   const setGameplayRuntimeMarker = (root, marker, details = {}) => {
     root.dataset.gameplayRuntime = marker;
@@ -2414,13 +2434,27 @@ var EmpireGameplaySliceClient = function(exports) {
     });
     const mounts = resolveMounts(options.root);
     let currentLoadRequest = request;
-    const overlayBackdrop = createOverlayBackdrop({ mount: options.root });
     const districtSheetOverlay = createDistrictSheetOverlayController();
     let pointerOrigin = null;
     let lastPointerTapIsValid = true;
     let lastDistrictTap = { districtId: null, atMs: 0 };
     let pendingDistrictSelection = { districtId: null };
     let activeDistrictSheetId = null;
+    const overlayBackdrop = createOverlayBackdrop({
+      mount: options.root,
+      onCloseTopOverlay: (type) => {
+        if (type !== "district_sheet") {
+          return;
+        }
+        activeDistrictSheetId = null;
+        currentLoadRequest = {
+          ...currentLoadRequest,
+          districtId: void 0
+        };
+        districtSheetOverlay.markClosedByBackdrop();
+        client.load(currentLoadRequest).then(render).catch(() => void 0);
+      }
+    });
     const hideUnavailableGameplaySlice = (state = null) => {
       const message = (state == null ? void 0 : state.connection.lastErrorMessage) || "Gameplay slice did not return an authoritative read model.";
       const endpoint = `${endpointBase}/load`;
@@ -2444,8 +2478,8 @@ var EmpireGameplaySliceClient = function(exports) {
         });
       }
     };
-    const render = (state) => {
-      var _a, _b, _c;
+    function render(state) {
+      var _a, _b, _c, _d;
       const gameplaySlice = client.getGameplaySlice();
       if (!gameplaySlice && state.connection.status === "error") {
         hideUnavailableGameplaySlice(state);
@@ -2454,7 +2488,12 @@ var EmpireGameplaySliceClient = function(exports) {
       delete options.root.dataset.gameplaySliceUnavailable;
       setGameplayRuntimeMarker(options.root, "server-authoritative-ready");
       options.root.hidden = false;
-      if ((_a = state.districtPanel) == null ? void 0 : _a.districtId) {
+      if (((_a = gameplaySlice == null ? void 0 : gameplaySlice.spawnSelection) == null ? void 0 : _a.status) === "awaiting_spawn_selection" && !gameplaySlice.player.homeDistrictId) {
+        options.root.dataset.spawnSelectionVisible = "true";
+      } else {
+        delete options.root.dataset.spawnSelectionVisible;
+      }
+      if ((_b = state.districtPanel) == null ? void 0 : _b.districtId) {
         activeDistrictSheetId = state.districtPanel.districtId;
         currentLoadRequest = {
           ...currentLoadRequest,
@@ -2468,7 +2507,7 @@ var EmpireGameplaySliceClient = function(exports) {
         options.root.dataset.sessionStorageKey,
         client.getGameplaySlice()
       );
-      const phase = (_c = (_b = state.player) == null ? void 0 : _b.dayNight) == null ? void 0 : _c.uiThemeHint;
+      const phase = (_d = (_c = state.player) == null ? void 0 : _c.dayNight) == null ? void 0 : _d.uiThemeHint;
       if (phase) {
         document.body.dataset.cityPhase = phase;
       }
@@ -2480,7 +2519,7 @@ var EmpireGameplaySliceClient = function(exports) {
       refreshLiveCooldownLabels(options.root);
       districtSheetOverlay.syncFromState(state);
       overlayBackdrop.sync();
-    };
+    }
     const isInsideMobileSheet = (target) => target instanceof HTMLElement && Boolean(target.closest(MOBILE_SHEET_SELECTOR));
     const handlePointerDown = (event) => {
       const target = event.target;
@@ -2489,6 +2528,8 @@ var EmpireGameplaySliceClient = function(exports) {
       }
       if (isInsideMobileSheet(target)) {
         event.stopPropagation();
+      } else if (shouldSuppressMapInput(event)) {
+        return;
       }
       pointerOrigin = {
         pointerId: event.pointerId,
@@ -2500,6 +2541,12 @@ var EmpireGameplaySliceClient = function(exports) {
     };
     const handlePointerUp = (event) => {
       if (!(event instanceof PointerEvent) || !pointerOrigin || event.pointerId !== pointerOrigin.pointerId) {
+        return;
+      }
+      const target = event.target;
+      if (target instanceof HTMLElement && !isInsideMobileSheet(target) && shouldSuppressMapInput(event)) {
+        pointerOrigin = null;
+        lastPointerTapIsValid = false;
         return;
       }
       const dx = event.clientX - pointerOrigin.x;
@@ -2527,6 +2574,9 @@ var EmpireGameplaySliceClient = function(exports) {
       }
       const action = resolveClientSurfaceAction(target);
       if ((action == null ? void 0 : action.kind) === "select-district") {
+        if (!insideSheet && shouldSuppressMapInput(event)) {
+          return;
+        }
         if (!canUsePointerTapForDistrictSelection) {
           return;
         }
