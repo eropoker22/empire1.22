@@ -73,9 +73,6 @@ const resolveInitialLobbyMode = (registration, activeServerRegistration) => {
 };
 
 const getServerModeLabel = (mode) => mode === "war" ? "WAR Mode" : "FREE Battle Royale";
-const getServerCardSubtitle = (server) => server?.mode === "war"
-  ? "WAR režim • Coming soon / PŘIPRAVUJEME"
-  : "20 hráčů / 161 districtů / Začni zdarma";
 
 function createServerFromSummary(summary) {
   if (!summary || typeof summary !== "object") {
@@ -214,6 +211,7 @@ document.addEventListener("DOMContentLoaded", () => {
   installLobbyBackLogoutGuard();
 
   const registration = getRegistrationDraft();
+  const lobbyRoot = document.querySelector("#lobby-root");
   const tabs = Array.from(document.querySelectorAll("[data-server-mode-tab]"));
   const list = document.querySelector("[data-server-list]");
   const userLabel = document.querySelector("[data-lobby-user]");
@@ -347,7 +345,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const renderStatusCount = (value, isScrambling = false) => {
       const countText = typeof value === "string" ? value : formatLobbyPlayerCount(value);
-      lobbyStatusCount.textContent = `ONLINE - ${countText} hráčů`;
+      lobbyStatusCount.textContent = `${countText} hráčů`;
       lobbyStatusCount.classList.toggle("is-scrambling", isScrambling);
     };
 
@@ -416,9 +414,75 @@ document.addEventListener("DOMContentLoaded", () => {
     context.closePath();
   };
 
-  const getDistrictBaseColor = (districtType) => {
-    if (districtType === "downtown") return "rgba(255, 78, 196, 0.28)";
-    return "rgba(168, 176, 190, 0.16)";
+  const getDistrictVisuals = (districtType) => {
+    switch (districtType) {
+      case "downtown":
+        return {
+          idleFill: "rgba(255, 78, 196, 0.08)",
+          idleStroke: "rgba(255, 103, 208, 0.3)",
+          hoverFill: "rgba(255, 78, 196, 0.24)",
+          hoverStroke: "rgba(255, 128, 220, 0.98)",
+          selectedFill: "rgba(255, 78, 196, 0.34)",
+          selectedStroke: "rgba(255, 181, 234, 0.98)",
+          glow: "rgba(255, 78, 196, 0.62)",
+          label: "#ffe2f6"
+        };
+      case "park":
+        return {
+          idleFill: "rgba(75, 214, 126, 0.08)",
+          idleStroke: "rgba(98, 231, 147, 0.28)",
+          hoverFill: "rgba(75, 214, 126, 0.22)",
+          hoverStroke: "rgba(144, 255, 184, 0.96)",
+          selectedFill: "rgba(75, 214, 126, 0.3)",
+          selectedStroke: "rgba(196, 255, 214, 0.98)",
+          glow: "rgba(75, 214, 126, 0.56)",
+          label: "#e6ffe9"
+        };
+      case "industrial":
+        return {
+          idleFill: "rgba(156, 163, 175, 0.08)",
+          idleStroke: "rgba(196, 203, 212, 0.26)",
+          hoverFill: "rgba(156, 163, 175, 0.2)",
+          hoverStroke: "rgba(221, 227, 234, 0.94)",
+          selectedFill: "rgba(156, 163, 175, 0.28)",
+          selectedStroke: "rgba(244, 247, 250, 0.98)",
+          glow: "rgba(196, 203, 212, 0.44)",
+          label: "#f3f6fa"
+        };
+      case "commercial":
+        return {
+          idleFill: "rgba(68, 172, 255, 0.08)",
+          idleStroke: "rgba(94, 191, 255, 0.26)",
+          hoverFill: "rgba(68, 172, 255, 0.22)",
+          hoverStroke: "rgba(144, 216, 255, 0.96)",
+          selectedFill: "rgba(68, 172, 255, 0.3)",
+          selectedStroke: "rgba(212, 241, 255, 0.98)",
+          glow: "rgba(68, 172, 255, 0.56)",
+          label: "#e4f6ff"
+        };
+      case "residential":
+        return {
+          idleFill: "rgba(244, 196, 48, 0.08)",
+          idleStroke: "rgba(255, 214, 88, 0.28)",
+          hoverFill: "rgba(244, 196, 48, 0.24)",
+          hoverStroke: "rgba(255, 226, 128, 0.98)",
+          selectedFill: "rgba(244, 196, 48, 0.34)",
+          selectedStroke: "rgba(255, 241, 187, 0.98)",
+          glow: "rgba(244, 196, 48, 0.62)",
+          label: "#fff2c6"
+        };
+      default:
+        return {
+          idleFill: "rgba(168, 176, 190, 0.12)",
+          idleStroke: "rgba(148, 163, 184, 0.18)",
+          hoverFill: "rgba(168, 176, 190, 0.2)",
+          hoverStroke: "rgba(214, 221, 229, 0.92)",
+          selectedFill: "rgba(201, 214, 228, 0.28)",
+          selectedStroke: "rgba(244, 247, 250, 0.96)",
+          glow: "rgba(201, 214, 228, 0.42)",
+          label: "#f4f7fa"
+        };
+    }
   };
 
   const formatRemaining = (ms) => {
@@ -466,7 +530,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const renderTypeCountMarkup = (server = getSelectedServer()) => getDistrictTypeCounts(server).map(([type, count]) => `
-    <span class="server-detail-modal__type-count ${type === "downtown" ? "is-downtown" : ""}">
+    <span class="server-detail-modal__type-count is-${type}">
       <strong>${type}</strong>
       <b>${count}</b>
     </span>
@@ -723,18 +787,19 @@ document.addEventListener("DOMContentLoaded", () => {
       const isSelectable = isSelectableSpawnDistrict(district);
       const isSelected = district.id === state.selectedDistrictId;
       const isHovered = district.id === state.hoveredDistrictId;
+      const districtVisuals = getDistrictVisuals(district.districtType);
 
       drawPolygon(context, district.polygon);
       context.fillStyle = isDisabled
         ? "rgba(148, 163, 184, 0.08)"
         : isSelected
-          ? "rgba(255, 154, 61, 0.34)"
+          ? districtVisuals.selectedFill
           : isHovered
-            ? "rgba(255, 51, 71, 0.26)"
+            ? districtVisuals.hoverFill
           : isSelectable
             ? "rgba(103, 225, 255, 0.11)"
-            : district.districtType === "downtown"
-              ? "rgba(255, 78, 196, 0.06)"
+            : districtVisuals.idleFill
+              ? districtVisuals.idleFill
               : "rgba(9, 16, 28, 0.22)";
       context.fill();
 
@@ -742,17 +807,15 @@ document.addEventListener("DOMContentLoaded", () => {
       context.strokeStyle = isDisabled
         ? "rgba(148, 163, 184, 0.24)"
         : isSelected
-          ? "rgba(255, 154, 61, 0.96)"
+          ? districtVisuals.selectedStroke
           : isHovered
-            ? "rgba(255, 94, 111, 1)"
+            ? districtVisuals.hoverStroke
           : isSelectable
             ? "rgba(245, 250, 255, 0.74)"
-            : district.districtType === "downtown"
-              ? "rgba(255, 103, 208, 0.28)"
-              : "rgba(148, 163, 184, 0.18)";
+            : districtVisuals.idleStroke;
       context.lineWidth = isSelected ? 3 : isHovered ? 2.8 : isSelectable ? 1.15 : 0.9;
       context.shadowBlur = isHovered ? 16 : 0;
-      context.shadowColor = isHovered ? "rgba(255, 51, 71, 0.62)" : "transparent";
+      context.shadowColor = isHovered ? districtVisuals.glow : "transparent";
       context.stroke();
       context.shadowBlur = 0;
 
@@ -761,9 +824,9 @@ document.addEventListener("DOMContentLoaded", () => {
         context.font = "700 18px Bahnschrift, Segoe UI, sans-serif";
         context.textAlign = "center";
         context.textBaseline = "middle";
-        context.fillStyle = isSelected ? "#ffd7c2" : "#ffd9dd";
+        context.fillStyle = districtVisuals.label;
         context.shadowBlur = isSelected ? 18 : 14;
-        context.shadowColor = isSelected ? "rgba(255, 154, 61, 0.65)" : "rgba(255, 51, 71, 0.58)";
+        context.shadowColor = districtVisuals.glow;
         context.fillText(`D${district.id}`, district.centerX, district.centerY);
         context.restore();
       }
@@ -866,7 +929,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (summaryDistrict) {
       summaryDistrict.textContent = state.selectedDistrictId
         ? `Preferovaná oblast: District ${state.selectedDistrictId}`
-        : "Nevybrána";
+        : "Nevybrán";
     }
 
     if (summaryMode) {
@@ -894,7 +957,7 @@ document.addEventListener("DOMContentLoaded", () => {
       lobbyDetailRegion.textContent = server?.region || "EU Central";
     }
     if (lobbyDetailStatus) {
-      lobbyDetailStatus.textContent = server?.status || "Nevybrán";
+      lobbyDetailStatus.textContent = server ? String(server.map?.totalDistricts || 0) : "-";
     }
     if (lobbyDetailMode) {
       lobbyDetailMode.textContent = getServerModeLabel(server?.mode || state.mode || DEFAULT_PUBLIC_SERVER_MODE);
@@ -949,6 +1012,11 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const syncModeTabs = () => {
+    if (lobbyRoot instanceof HTMLElement) {
+      lobbyRoot.setAttribute("data-lobby-mode", state.mode);
+    }
+    document.body?.setAttribute("data-lobby-mode", state.mode);
+
     tabs.forEach((tab) => {
       const isActive = String(tab.getAttribute("data-server-mode-tab") || "") === state.mode;
       tab.classList.toggle("is-active", isActive);
@@ -1048,8 +1116,8 @@ document.addEventListener("DOMContentLoaded", () => {
       detailModalHint.textContent = serverUnavailable
         ? (server.full ? "Server je plný" : server.offline ? "Server je offline" : "Server se připravuje")
         : state.selectedDistrictId
-          ? `Preferovaná startovní oblast: District ${state.selectedDistrictId}. Server přidělí finální spawn při vstupu.`
-          : "Vyber preferovanou oblast na okraji mapy. Finální spawn potvrzuje server.";
+          ? `District ${state.selectedDistrictId} vybrán. Finální spawn potvrdí server.`
+          : "Vyber okrajový district. Finální spawn potvrdí server.";
       detailModalHint.classList.toggle("is-required", serverUnavailable || !state.selectedDistrictId);
     }
     if (detailContinueButton instanceof HTMLButtonElement) {
@@ -1064,10 +1132,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (detailModalMaterials instanceof HTMLElement) {
       detailModalMaterials.innerHTML = [
         server.mode === "war"
-          ? "<li>WAR režim je zatím v přípravě. Veřejný přístup je dočasně uzavřený.</li>"
-          : "<li>FREE Battle Royale: 20 hráčů, 161 districtů, 8 downtown. Začni zdarma.</li>",
-        "<li>Gameplay start a finální spawn potvrzuje server při joinu.</li>",
-        `<li>Mapa: ${server.map?.totalDistricts || geometry.districts.length} districtů, ${server.map?.downtownDistricts || getDistrictTypeCounts(server).find(([type]) => type === "downtown")?.[1] || 0} downtown.</li>`
+          ? "<li>WAR režim se připravuje.</li>"
+          : "<li>FREE BR: 20 hráčů.</li>",
+        "<li>Spawn potvrdí server.</li>",
+        `<li>${server.map?.totalDistricts || geometry.districts.length} districtů, ${server.map?.downtownDistricts || getDistrictTypeCounts(server).find(([type]) => type === "downtown")?.[1] || 0} downtown.</li>`
       ].join("");
     }
   };
@@ -1085,13 +1153,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const recommendedServer = servers.find((server) => !isServerUnavailable(server)) || servers[0] || null;
     list.innerHTML = servers.map((server) => `
       <button type="button" class="auth-server-card ${server.id === state.serverId ? "is-selected" : ""} ${recommendedServer?.id === server.id ? "is-recommended" : ""} ${server.locked ? "is-locked" : ""} ${server.full ? "is-full" : ""} ${server.offline ? "is-offline" : ""}" data-server-card="${server.id}" data-server-mode="${server.mode}" ${recommendedServer?.id === server.id ? "data-recommended-server=\"true\"" : ""} data-testid="server-card-${server.id}">
-        ${recommendedServer?.id === server.id ? "<span class=\"auth-server-card__badge\">Doporučený start</span>" : server.badge ? `<span class="auth-server-card__badge">${server.badge}</span>` : ""}
         <span class="auth-server-card__label">${server.name}</span>
-        <span class="auth-server-card__subtitle">${getServerCardSubtitle(server)}</span>
-        <span class="auth-server-card__meta">${server.region} • ${getServerModeLabel(server.mode)} • ${server.players}/${server.capacity}</span>
-        <span class="auth-server-card__schedule">${server.status || "ONLINE"}</span>
+        <span class="auth-server-card__meta">${server.region} • ${server.players}/${server.capacity}</span>
+        <span class="auth-server-card__status">${server.status || "ONLINE"}</span>
         <span class="auth-server-card__countdown" data-server-countdown="${server.id}">${getServerCountdownText(server.id)}</span>
-        <span class="auth-server-card__schedule">${server.map?.totalDistricts ? `${server.map.totalDistricts} districtů / ${server.map.downtownDistricts} downtown` : serverListSource === SERVER_LIST_FALLBACK_SOURCE ? "DEV fallback katalog" : ""}</span>
+        <span class="auth-server-card__subtitle">${server.map?.totalDistricts ? `${server.map.totalDistricts} districtů / ${server.map.downtownDistricts} downtown` : serverListSource === SERVER_LIST_FALLBACK_SOURCE ? "DEV fallback katalog" : ""}</span>
         <span class="auth-server-card__signal is-${String(server.activity || "medium").toLowerCase()}"><i></i><i></i><i></i><i></i></span>
       </button>
     `).join("");
@@ -1165,7 +1231,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    lobbyRefreshCountdown.textContent = `${state.serverRefreshSecondsRemaining}s`;
+    lobbyRefreshCountdown.textContent = `${state.serverRefreshSecondsRemaining} s`;
     lobbyRefreshCountdown.parentElement?.classList.toggle("is-refreshing", isRefreshing);
   };
 

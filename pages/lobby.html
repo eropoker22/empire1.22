@@ -17,7 +17,8 @@
 
       <section class="lobby-hud-panel lobby-status-card" aria-label="Server status">
         <i aria-hidden="true"></i>
-        <strong data-lobby-status-count>ONLINE - 4 200 hráčů</strong>
+        <span class="lobby-status-card__label">ONLINE</span>
+        <strong data-lobby-status-count>4 200 hráčů</strong>
       </section>
 
       <aside class="lobby-side lobby-side--left" aria-label="Stav města">
@@ -52,12 +53,13 @@
       <section class="lobby-command-shell" aria-label="Výběr serveru">
         <header class="lobby-topbar">
           <nav class="lobby-terminal-nav" data-lobby-nav aria-label="Lobby menu">
-            <button class="is-active" type="button" data-lobby-nav-target="city" aria-pressed="true"><span aria-hidden="true">▣</span> SERVER</button>
-            <button type="button" data-lobby-nav-target="gang" aria-pressed="false"><span aria-hidden="true">♟</span> MŮJ GANG</button>
-            <button class="is-locked" type="button" data-lobby-nav-target="market" aria-pressed="false" aria-disabled="true" disabled title="Obchod je uzamčený"><span aria-hidden="true">▱</span> OBCHOD LOCK</button>
-            <button type="button" data-lobby-nav-target="settings" aria-pressed="false"><span aria-hidden="true">⚙</span> NASTAVENÍ</button>
+            <button class="is-active" type="button" data-lobby-nav-target="city" aria-pressed="true">SERVER</button>
+            <button type="button" data-lobby-nav-target="gang" aria-pressed="false">MŮJ GANG</button>
+            <button class="is-locked" type="button" data-lobby-nav-target="market" aria-pressed="false" aria-disabled="true" disabled title="Obchod je uzamčený">OBCHOD LOCK</button>
+            <button type="button" data-lobby-nav-target="settings" aria-pressed="false">NASTAVENÍ</button>
           </nav>
           <div class="lobby-top-player">
+            <span class="lobby-top-player__label">HRÁČ</span>
             <strong data-lobby-top-user>Host</strong>
           </div>
         </header>
@@ -67,8 +69,8 @@
             <div class="lobby-title-block">
               <h1>Vyber server</h1>
               <div class="lobby-refresh-countdown" aria-live="polite">
-                <span>REFRESH</span>
-                <strong data-lobby-refresh-countdown>20s</strong>
+                <span>DALŠÍ OBNOVA ZA</span>
+                <strong data-lobby-refresh-countdown>20 s</strong>
               </div>
             </div>
 
@@ -87,7 +89,7 @@
               <div class="lobby-active-server-card__copy">
                 <span>Jsi zapsaný na serveru.</span>
                 <h2 data-active-server-name>Server</h2>
-                <p data-active-server-note>Tvoje frakce je pro tento server uzamčená.</p>
+                <p class="lobby-active-server-card__warning" data-active-server-note>Tvoje frakce je pro tento server uzamčená.</p>
               </div>
               <div class="lobby-active-server-card__meta" aria-label="Aktivní server">
                 <span>REŽIM <strong data-active-server-mode>WAR</strong></span>
@@ -123,16 +125,17 @@
                 </div>
               </div>
               <div class="lobby-detail-grid">
-                <span>REGION <strong data-lobby-detail-region>EU Central</strong></span>
-                <span>STATUS <strong data-lobby-detail-status>ONLINE</strong></span>
-                <span>REŽIM <strong data-lobby-detail-mode>FREE Battle Royale</strong></span>
-                <span>HRÁČŮ ONLINE <strong data-lobby-detail-capacity>0 / 20</strong></span>
+                <span data-lobby-detail-stat="region">REGION <strong data-lobby-detail-region>EU Central</strong></span>
+                <span data-lobby-detail-stat="districts">DISTRICTŮ <strong data-lobby-detail-status>161</strong></span>
+                <span data-lobby-detail-stat="mode">REŽIM <strong data-lobby-detail-mode>FREE Battle Royale</strong></span>
+                <span data-lobby-detail-stat="capacity">HRÁČŮ ONLINE <strong data-lobby-detail-capacity>0 / 20</strong></span>
               </div>
+              <p class="lobby-detail-description" data-lobby-detail-description>Vyber server pro detail.</p>
               <div class="lobby-detail-actions">
                 <button class="lobby-primary-cta" type="button" data-lobby-open-selected data-testid="open-server-district-select">VYBRAT DISTRICT <span>›</span></button>
                 <button class="lobby-primary-cta lobby-primary-cta--enter" type="button" data-lobby-enter-selected data-testid="enter-selected-server" disabled>VSTOUPIT NA SERVER <span>›</span></button>
               </div>
-              <p>⚠ Po výběru již nelze district změnit.</p>
+              <p class="lobby-server-detail-card__notice">⚠ Po výběru již nelze district změnit.</p>
             </section>
           </aside>
 

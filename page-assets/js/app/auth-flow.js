@@ -44,9 +44,18 @@ const getServerDescription = (serverEntry, map) => serverEntry.mode === "war"
 
 const createFallbackServerFromRegistry = (serverEntry) => {
   const locked = serverEntry.joinPolicy !== "open";
-  const players = 0;
-  const capacity = Math.max(1, Number(serverEntry.capacity || 1) || 1);
-  const map = createMapSummary(serverEntry.mapComposition);
+  const isLockedWar = serverEntry.mode === "war" && locked;
+  const players = isLockedWar ? 50 : 0;
+  const capacity = isLockedWar
+    ? 50
+    : Math.max(1, Number(serverEntry.capacity || 1) || 1);
+  const baseMap = createMapSummary(serverEntry.mapComposition);
+  const map = isLockedWar
+    ? {
+        ...baseMap,
+        totalDistricts: 460
+      }
+    : baseMap;
 
   return Object.freeze({
     id: serverEntry.serverInstanceId,
