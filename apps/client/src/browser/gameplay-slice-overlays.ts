@@ -5,6 +5,7 @@ export interface DistrictSheetOverlayController {
   syncFromState(state: ClientRenderState): void;
   closeOnDestroy(): void;
   isOpen(): boolean;
+  markClosedByBackdrop(): void;
 }
 
 export const createDistrictSheetOverlayController = (): DistrictSheetOverlayController => {
@@ -33,6 +34,12 @@ export const createDistrictSheetOverlayController = (): DistrictSheetOverlayCont
     isDistrictSheetOpen = false;
   };
 
-  return { syncFromState, closeOnDestroy, isOpen: () => isDistrictSheetOpen };
+  return {
+    syncFromState,
+    closeOnDestroy,
+    isOpen: () => isDistrictSheetOpen,
+    markClosedByBackdrop: () => {
+      isDistrictSheetOpen = false;
+    }
+  };
 };
-

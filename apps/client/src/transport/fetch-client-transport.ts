@@ -39,6 +39,7 @@ export const createFetchClientTransport = (
       headers: {
         "content-type": "application/json"
       },
+      credentials: "same-origin",
       body: JSON.stringify(requestWithTokens)
     });
 
@@ -63,15 +64,12 @@ const attachStoredGameplaySliceTokens = <TRequest>(
   storage: Storage | null
 ): TRequest => {
   const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
-  const sessionKey = createGameplaySliceTokenStorageKey("session", request);
   const snapshotToken = snapshotKey ? readToken(storage, snapshotKey) : null;
-  const sessionToken = sessionKey ? readToken(storage, sessionKey) : null;
 
-  return snapshotToken || sessionToken
+  return snapshotToken
     ? {
         ...(request as Record<string, unknown>),
-        ...(snapshotToken ? { snapshotToken } : {}),
-        ...(sessionToken ? { sessionToken } : {})
+        snapshotToken
       } as TRequest
     : request;
 };
@@ -85,9 +83,7 @@ const resolveEndpointRoute = <TRequest>(
     return route;
   }
   const record = request as { joinTicket?: unknown };
-  const sessionKey = createGameplaySliceTokenStorageKey("session", request);
-  const sessionToken = sessionKey ? readToken(storage, sessionKey) : null;
-  return !sessionToken && String(record.joinTicket ?? "").trim()
+  return String(record.joinTicket ?? "").trim()
     ? "join"
     : "load";
 };
@@ -98,23 +94,10 @@ const persistGameplaySliceTokens = (
   storage: Storage | null
 ): void => {
   const snapshotKey = createGameplaySliceTokenStorageKey("snapshot", request);
-  const sessionKey = createGameplaySliceTokenStorageKey("session", request);
   const snapshotToken = String(response.snapshotToken ?? "").trim();
-  const sessionToken = String(response.sessionToken ?? "").trim();
 
   if (snapshotKey && snapshotToken) {
     writeToken(storage, snapshotKey, snapshotToken);
-  }
-
-  if (sessionKey && sessionToken) {
-    writeToken(storage, sessionKey, sessionToken);
-  }
-  const serverSessionKey = createGameplaySliceTokenStorageKey("session", {
-    serverInstanceId: response.readModel?.server.serverInstanceId,
-    playerId: response.readModel?.player.playerId
-  });
-  if (serverSessionKey && sessionToken) {
-    writeToken(storage, serverSessionKey, sessionToken);
   }
 };
 
@@ -139,7 +122,7 @@ const writeToken = (
 };
 
 const createGameplaySliceTokenStorageKey = (
-  kind: "snapshot" | "session",
+  kind: "snapshot",
   request: unknown
 ): string | null => {
   const record = request as {

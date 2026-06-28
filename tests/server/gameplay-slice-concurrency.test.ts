@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createServerApp } from "../../apps/server/src/app";
-import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap";
 import { createPlaceTrapCommandFixture } from "../fixtures/command-fixtures";
+import { loadWithDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 describe("gameplay slice optimistic concurrency", () => {
   it("accepts commands with the current state version and returns advanced metadata", async () => {
@@ -10,21 +10,16 @@ describe("gameplay slice optimistic concurrency", () => {
     const playerId = "player:concurrency:current";
     const districtId = "district:concurrency:current";
 
-    await ensureGameplaySliceSessionResult(server.instanceManager, {
+    const { response: load, sessionToken } = await loadWithDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId,
-      districtId
-    });
-
-    const load = server.gameplaySliceTransport.load({
-      serverInstanceId: instanceId,
-      playerId,
-      districtId
+      districtId,
+      autoSelectSpawn: true
     });
     const confirmedDistrictId = load.readModel?.district?.districtId ?? districtId;
     const expectedStateVersion = load.metadata?.stateVersion;
     const response = await server.gameplaySliceTransport.submit({
-      sessionToken: load.sessionToken,
+      sessionToken,
       expectedStateVersion,
       focusDistrictId: confirmedDistrictId,
       command: createPlaceTrapCommandFixture({
@@ -48,21 +43,16 @@ describe("gameplay slice optimistic concurrency", () => {
     const playerId = "player:concurrency:stale";
     const districtId = "district:concurrency:stale";
 
-    await ensureGameplaySliceSessionResult(server.instanceManager, {
+    const { response: load, sessionToken } = await loadWithDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId,
-      districtId
-    });
-
-    const load = server.gameplaySliceTransport.load({
-      serverInstanceId: instanceId,
-      playerId,
-      districtId
+      districtId,
+      autoSelectSpawn: true
     });
     const confirmedDistrictId = load.readModel?.district?.districtId ?? districtId;
     const staleStateVersion = load.metadata?.stateVersion ?? 0;
     const accepted = await server.gameplaySliceTransport.submit({
-      sessionToken: load.sessionToken,
+      sessionToken,
       expectedStateVersion: staleStateVersion,
       focusDistrictId: confirmedDistrictId,
       command: createPlaceTrapCommandFixture({
@@ -79,7 +69,7 @@ describe("gameplay slice optimistic concurrency", () => {
     expect(accepted.accepted).toBe(true);
 
     const stale = await server.gameplaySliceTransport.submit({
-      sessionToken: accepted.sessionToken,
+      sessionToken,
       expectedStateVersion: staleStateVersion,
       focusDistrictId: confirmedDistrictId,
       command: createPlaceTrapCommandFixture({
@@ -104,22 +94,17 @@ describe("gameplay slice optimistic concurrency", () => {
     expect(stale.metadata?.stateVersion).toBe(accepted.metadata?.stateVersion);
   });
 
-  it("keeps duplicate command id rejection distinct from stale version rejection", async () => {
+  it("keeps duplicate command id replay distinct from stale version rejection", async () => {
     const server = createServerApp();
     const instanceId = "instance:free:concurrency:duplicate";
     const playerId = "player:concurrency:duplicate";
     const districtId = "district:concurrency:duplicate";
 
-    await ensureGameplaySliceSessionResult(server.instanceManager, {
+    const { response: load, sessionToken } = await loadWithDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId,
-      districtId
-    });
-
-    const load = server.gameplaySliceTransport.load({
-      serverInstanceId: instanceId,
-      playerId,
-      districtId
+      districtId,
+      autoSelectSpawn: true
     });
     const confirmedDistrictId = load.readModel?.district?.districtId ?? districtId;
     const expectedStateVersion = load.metadata?.stateVersion;
@@ -132,13 +117,13 @@ describe("gameplay slice optimistic concurrency", () => {
       }
     });
     const accepted = await server.gameplaySliceTransport.submit({
-      sessionToken: load.sessionToken,
+      sessionToken,
       expectedStateVersion,
       focusDistrictId: confirmedDistrictId,
       command
     });
     const duplicate = await server.gameplaySliceTransport.submit({
-      sessionToken: accepted.sessionToken,
+      sessionToken,
       expectedStateVersion: accepted.metadata?.stateVersion,
       focusDistrictId: confirmedDistrictId,
       command
@@ -146,8 +131,10 @@ describe("gameplay slice optimistic concurrency", () => {
 
     expect(accepted.errors).toEqual([]);
     expect(accepted.accepted).toBe(true);
-    expect(duplicate.accepted).toBe(false);
-    expect(duplicate.errors[0]?.code).toBe("server.command_already_applied");
+    expect(duplicate.accepted).toBe(true);
+    expect(duplicate.errors).toEqual([]);
+    expect(duplicate.commandResult?.commandId).toBe(command.id);
+    expect(duplicate.commandResult?.status).toBe("applied");
     expect(duplicate.metadata?.stateVersion).toBe(accepted.metadata?.stateVersion);
   });
 
@@ -157,16 +144,11 @@ describe("gameplay slice optimistic concurrency", () => {
     const playerId = "player:concurrency:payload-conflict";
     const districtId = "district:concurrency:payload-conflict";
 
-    await ensureGameplaySliceSessionResult(server.instanceManager, {
+    const { response: load, sessionToken } = await loadWithDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId,
-      districtId
-    });
-
-    const load = server.gameplaySliceTransport.load({
-      serverInstanceId: instanceId,
-      playerId,
-      districtId
+      districtId,
+      autoSelectSpawn: true
     });
     const confirmedDistrictId = load.readModel?.district?.districtId ?? districtId;
     const expectedStateVersion = load.metadata?.stateVersion;
@@ -179,14 +161,14 @@ describe("gameplay slice optimistic concurrency", () => {
       }
     });
     const accepted = await server.gameplaySliceTransport.submit({
-      sessionToken: load.sessionToken,
+      sessionToken,
       expectedStateVersion,
       focusDistrictId: confirmedDistrictId,
       command
     });
     const rootAfterAccepted = server.instanceManager.getInstanceById(instanceId)!.state.root.version;
     const conflict = await server.gameplaySliceTransport.submit({
-      sessionToken: accepted.sessionToken,
+      sessionToken,
       expectedStateVersion: accepted.metadata?.stateVersion,
       focusDistrictId: confirmedDistrictId,
       command: {

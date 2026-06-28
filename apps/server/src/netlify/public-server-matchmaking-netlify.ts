@@ -2,12 +2,12 @@ import type { PublicServerMatchmakingRequest } from "@empire/shared-types";
 import type { ServerApp } from "../app";
 import { createJsonResponse, type NetlifyFunctionResponse } from "./netlify-json-response";
 
-export const handlePublicServerMatchmakingReserve = (
+export const handlePublicServerMatchmakingReserve = async (
   server: ServerApp,
   method: string,
   body: unknown,
   headers?: Record<string, string | string[] | undefined>
-): NetlifyFunctionResponse => {
+): Promise<NetlifyFunctionResponse> => {
   if (method.toUpperCase() !== "POST") {
     return createJsonResponse(405, {
       accepted: false,
@@ -34,7 +34,7 @@ export const handlePublicServerMatchmakingReserve = (
   if (!reservationResponse.accepted || !reservationResponse.reservation) {
     return createJsonResponse(200, reservationResponse);
   }
-  const ticket = server.gameplaySessionService.createJoinTicket({
+  const ticket = await server.gameplaySessionService.createJoinTicket({
     accountId: identity.accountId,
     serverInstanceId: reservationResponse.reservation.serverInstanceId,
     mode: reservationResponse.reservation.mode,

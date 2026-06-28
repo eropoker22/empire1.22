@@ -8448,10 +8448,6 @@ function bindDistrictCanvas(root) {
     }
   });
 
-  for (const closeElement of popupCloseElements) {
-    closeElement.addEventListener("click", closePopup);
-  }
-
   bindDistrictAtmosphereWindowControls({
     trigger: popupAtmosphereHero,
     windowElement: popupAtmosphereWindow,
@@ -8844,14 +8840,6 @@ function bindDistrictCanvas(root) {
         });
       }
     });
-  }
-
-  for (const closeElement of attackSetupCloseElements) {
-    closeElement.addEventListener("click", closeAttackSetupPopup);
-  }
-
-  for (const closeElement of attackConfirmCloseElements) {
-    closeElement.addEventListener("click", closeAttackConfirmPopup);
   }
 
   if (robberySourceSelect instanceof HTMLSelectElement) {

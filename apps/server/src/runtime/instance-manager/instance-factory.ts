@@ -36,6 +36,7 @@ import { createInstanceScheduler } from "../scheduling/instance-scheduler";
 import { createGameStateRepository } from "../snapshots/game-state-repository";
 import { createSnapshotController } from "../snapshots/instance-snapshot-controller";
 import type { ServerInstanceRuntime } from "../instance/server-instance-runtime";
+import type { AtomicCommandTransactionBoundary } from "./atomic-command-transaction";
 
 export interface ServerRuntimePersistenceRepositories {
   commandLogRepository: CommandLogRepository;
@@ -45,6 +46,7 @@ export interface ServerRuntimePersistenceRepositories {
   commandReservationRepository?: CommandReservationRepository;
   commandResultRepository?: CommandResultRepository;
   outboxRepository?: RuntimeOutboxRepository;
+  atomicCommandTransaction?: AtomicCommandTransactionBoundary;
   tickLock?: RuntimeTickLock;
   atomicCommandPersistenceMode?: "transactional" | "best-effort" | "unavailable";
   close?(): Promise<void>;
@@ -66,7 +68,7 @@ export const createInMemoryRuntimePersistenceRepositories = (): ServerRuntimePer
   outboxRepository: createInMemoryRuntimeOutboxRepository(),
   diagnosticLogRepository: createInMemoryDiagnosticLogRepository(),
   snapshotRepository: createInMemorySnapshotRepository(),
-  atomicCommandPersistenceMode: "transactional"
+  atomicCommandPersistenceMode: "best-effort"
 });
 
 export interface FileRuntimePersistenceOptions {
@@ -174,9 +176,13 @@ export const createServerInstanceRuntime = (
     scheduler,
     clock,
     snapshotController,
+    commandLogRepository: persistence.commandLogRepository,
+    eventLogRepository: persistence.eventLogRepository,
+    snapshotRepository: persistence.snapshotRepository,
     commandReservationRepository: persistence.commandReservationRepository,
     commandResultRepository: persistence.commandResultRepository,
     outboxRepository: persistence.outboxRepository,
+    atomicCommandTransaction: persistence.atomicCommandTransaction,
     processedCommandIds,
     commandRateLimitWindow
   };

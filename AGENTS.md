@@ -23,3 +23,14 @@ These instructions apply to the whole repository unless a more specific `AGENTS.
   - or recommend the specific test that would make sense to run manually.
 
 The goal is not to avoid testing. The goal is to choose verification proportional to the risk and avoid spending time on slow E2E runs when a targeted check is enough.
+
+## Identity/session security policy
+
+- `playerId` from a request is never proof of identity.
+- `accountId` from a request is never proof of identity.
+- Gameplay `load` must derive the player from a validated gameplay session.
+- Gameplay `submit` must derive authority from a validated gameplay session and reject forged command `playerId`.
+- Snapshot tokens restore instance state only; they must not authorize `load`, `submit`, join, or logout.
+- Production must fail closed without a production-ready account identity provider and production-ready gameplay session repository.
+- The dev account identity provider is for local/dev/test only and must not be the production default.
+- Logout must revoke the gameplay session, not merely clear a client token.

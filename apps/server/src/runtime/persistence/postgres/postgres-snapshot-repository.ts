@@ -6,9 +6,22 @@ import { ensurePostgresServerInstanceRow } from "./postgres-server-instance-row"
 
 export const createPostgresSnapshotRepository = (
   database: PostgresDatabase
+): SnapshotRepository => createPostgresSnapshotRepositoryForQueryable(database, {
+  wrapWritesInTransaction: true
+});
+
+export const createPostgresSnapshotRepositoryForTransaction = (
+  client: PostgresQueryable
+): SnapshotRepository => createPostgresSnapshotRepositoryForQueryable(client, {
+  wrapWritesInTransaction: false
+});
+
+const createPostgresSnapshotRepositoryForQueryable = (
+  database: PostgresQueryable,
+  options: { wrapWritesInTransaction: boolean }
 ): SnapshotRepository => ({
   save: async (snapshot) => {
-    await database.transaction(async (client) => {
+    await withOptionalTransaction(database, options, async (client) => {
       await ensurePostgresServerInstanceRow(client, snapshot.instanceId, {
         mode: snapshot.mode,
         status: snapshot.metadata.status,
@@ -81,6 +94,17 @@ export const createPostgresSnapshotRepository = (
     return row ? coercePayload<InstanceSnapshotDto>(row.payload) : null;
   }
 });
+
+const withOptionalTransaction = async <TResult>(
+  database: PostgresQueryable,
+  options: { wrapWritesInTransaction: boolean },
+  callback: (client: PostgresQueryable) => Promise<TResult>
+): Promise<TResult> => {
+  if (options.wrapWritesInTransaction && "transaction" in database && typeof database.transaction === "function") {
+    return database.transaction(callback);
+  }
+  return callback(database);
+};
 
 const throwStaleSnapshotError = async (
   database: PostgresQueryable,

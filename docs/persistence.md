@@ -88,6 +88,7 @@ Tables use `payload jsonb`, `created_at timestamptz`, `updated_at` where rows ca
 - `outboxRepository`
 - `diagnosticLogRepository`
 - `snapshotRepository`
+- `atomicCommandTransaction`
 - `tickLock`
 - `close()`
 
@@ -153,6 +154,31 @@ If a runtime does not have a `commandReservationRepository`, command submit fail
 
 Restore currently uses latest snapshot persistence where the runtime calls `ServerInstanceManager.restoreInstance()` or `runtime.snapshotController.restore()`. The gameplay slice serverless transport still supports snapshot-token restore for cold HTTP flow; database-backed session/player registration orchestration is a separate follow-up.
 
+### Atomic Command Transaction
+
+The Postgres adapter is the production command-submit persistence path. It reports `atomicCommandPersistenceMode: "transactional"` and exposes `atomicCommandTransaction`.
+
+For each submitted command, the dispatcher enters one `PostgresDatabase.transaction()` and locks the server instance row:
+
+```sql
+SELECT id
+FROM empire_server_instances
+WHERE server_instance_id = $1
+FOR UPDATE
+```
+
+The transaction-scoped repository set is built from the transaction client, so reservation, duplicate/replay reads, command audit log, event log, latest snapshot save, command result, `markApplied()` or `markRejected()`, and outbox append commit or roll back together.
+
+`runtime.state` is not assigned until the transaction commits. Runtime publication reads the durable outbox only after commit. If publish fails after commit, the command stays applied and the outbox row stays unpublished for later delivery.
+
+Duplicate handling is also durable:
+
+- same `commandId` and same payload hash returns the stored applied result without calling `applyCommand()` again
+- same `commandId` and different payload hash returns `server.command_payload_conflict`
+- rejected command replay returns the stored rejection errors
+
+Memory and file drivers keep development parity but are not public production safe. Memory relies on one-process locks. File persistence writes multiple local files and cannot provide one shared DB transaction across serverless hosts. In production app composition, non-transactional command persistence has command-submit repositories removed so command submit fails closed instead of silently using a dev-only path.
+
 ## Tick Lock
 
 The Postgres driver exposes a distributed tick lock and the tick orchestrator uses it when present.
@@ -195,6 +221,8 @@ Implemented:
 - DB-backed command/event/diagnostic/snapshot repositories.
 - Command append idempotence by `(server_instance_id, command_id)`.
 - Command reservation by `(server_instance_id, command_id)` before `applyCommand()` in the async submit path.
+- Transactional Postgres command submit covering reservation, command result, event log, latest snapshot, outbox, and reservation terminal state.
+- Row-level server instance lock for production command submit.
 - Snapshot latest compare-and-swap by `rootVersion`.
 - Distributed tick lock helper and tick-orchestrator integration.
 - Identity/session schema for player registrations, join tickets and gameplay sessions in `003_gameplay_identity_sessions.sql`.
@@ -203,5 +231,5 @@ Implemented:
 Known follow-up:
 
 - The identity/session schema exists, but player registration, join ticket and gameplay session repository wiring is not yet production-ready. Until then, production gameplay session traffic fails closed unless a production-ready session service is injected.
-- Exactly-once command id behavior is implemented for the async submit path, but command dispatch still does not write latest snapshot/state and reservation updates inside one Postgres transaction. The Postgres adapter is therefore marked `best-effort` for command atomicity and production command submit must fail closed until a transaction-aware command service is wired.
-- Command/event/diagnostic logs may remain best-effort in some lifecycle paths, but command reservation `reserve()`, `markApplied()`, and `markRejected()` are awaited in the command correctness path.
+- Memory and file persistence remain development-only for public command submit. They can exercise the command lifecycle locally, but only Postgres provides cross-host transaction atomicity.
+- Diagnostic logs may remain best-effort in some lifecycle paths because they are audit-only. Command correctness writes are inside the Postgres transaction boundary.

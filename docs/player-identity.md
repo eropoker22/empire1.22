@@ -20,8 +20,18 @@ Required invariants:
 The server may accept legacy `playerId` fields for compatibility, but only as deprecated input. Load and command authorization are resolved from the gameplay session.
 `LoadGameplaySliceRequest.playerId` is optional and deprecated; it is never used as proof of identity.
 
+Registration is created through the async `GameplaySessionService.consumeJoinTicket` flow. In production this is backed by the Postgres `GameplayIdentitySessionRepository`, so join ticket consumption and get-or-create registration share a persistent transaction boundary. Dev and test use the in-memory service only outside production.
+
+## Gameplay Sessions
+
+`GameplaySessionService` is async. Its production implementation is `createPersistentGameplaySessionService(...)` wired to `createPostgresGameplayIdentitySessionRepository(...)` from `createServerApp` when `NODE_ENV=production` and `EMPIRE_DATABASE_URL` or `GAMEPLAY_DATABASE_URL` is configured.
+
+Production without a configured persistent repository fails closed through an unavailable session service. It does not fall back to in-memory identity or request-provided `accountId` / `playerId`.
+
+Production gameplay session identity is carried by the HttpOnly `empire_gameplay_session` cookie. The deprecated `sessionToken` request/response field exists only for dev/test compatibility and is not a production identity fallback.
+
 ## Dev Auth
 
 When no production account provider exists, the dev provider can resolve `accountId` from `x-empire-account-id`, `accountId`, or legacy `playerId`.
 
-This provider is allowed only outside production, or when an explicit dev auth flag is enabled. Production must reject joins without a real account identity provider.
+This provider is allowed only outside production. Production must reject joins without a real account identity provider and must not fall back to request-supplied `accountId` or `playerId`.

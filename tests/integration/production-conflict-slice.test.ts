@@ -15,6 +15,7 @@ import {
   createSpyDistrictCommandFixture as createCoreSpyDistrictCommandFixture
 } from "../fixtures/command-fixtures";
 import { createCombatStateFixture } from "../fixtures/game-state-fixtures";
+import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 describe("production conflict gameplay slice", () => {
   it("keeps trap state hidden from enemies, reveals it via spy report, and renders reports from server-fed data", async () => {
@@ -38,23 +39,21 @@ describe("production conflict gameplay slice", () => {
     const defenderClient = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
     });
-
-    await attackerClient.load({
+    const attackerSession = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId: attackerId,
       districtId: sourceDistrictId
     });
-    await defenderClient.load({
+    const defenderSession = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId: defenderId,
       districtId: targetDistrictId
     });
 
-    const defenderSlice = server.gameplaySliceTransport.load({
-      serverInstanceId: instanceId,
-      playerId: defenderId,
-      districtId: targetDistrictId
-    }).readModel as GameplaySliceView;
+    await attackerClient.load(attackerSession.loadRequest);
+    await defenderClient.load(defenderSession.loadRequest);
+
+    const defenderSlice = (await server.gameplaySliceTransport.load(defenderSession.loadRequest)).readModel as GameplaySliceView;
 
     const trapped = await defenderClient.dispatch(
       createPlaceTrapCommand({
@@ -67,19 +66,14 @@ describe("production conflict gameplay slice", () => {
     expect(trapped.errors).toEqual([]);
     expect(trapped.districtPanel?.trap?.activeLabel).toContain("Hidden trap armed");
 
-    const enemyProjection = server.gameplaySliceTransport.load({
-      serverInstanceId: instanceId,
-      playerId: attackerId,
+    const enemyProjection = (await server.gameplaySliceTransport.load({
+      ...attackerSession.loadRequest,
       districtId: targetDistrictId
-    }).readModel;
+    })).readModel;
 
     expect(enemyProjection?.district?.trap).toBeNull();
 
-    await attackerClient.load({
-      serverInstanceId: instanceId,
-      playerId: attackerId,
-      districtId: sourceDistrictId
-    });
+    await attackerClient.load(attackerSession.loadRequest);
     const attackerSlice = attackerClient.getGameplaySlice() as GameplaySliceView;
 
     expect(attackerSlice.district?.attackTargets).toContainEqual(expect.objectContaining({
@@ -100,11 +94,10 @@ describe("production conflict gameplay slice", () => {
 
     expect(spied.errors).toEqual([]);
     expect(
-      server.gameplaySliceTransport.load({
-        serverInstanceId: instanceId,
-        playerId: attackerId,
+      (await server.gameplaySliceTransport.load({
+        ...attackerSession.loadRequest,
         districtId: sourceDistrictId
-      }).readModel?.reports[0]
+      })).readModel?.reports[0]
     ).toMatchObject({
       reportType: "spy",
       targetDistrictId,
@@ -138,11 +131,10 @@ describe("production conflict gameplay slice", () => {
 
     expect(attacked.errors).toEqual([]);
     expect(
-      server.gameplaySliceTransport.load({
-        serverInstanceId: instanceId,
-        playerId: attackerId,
+      (await server.gameplaySliceTransport.load({
+        ...attackerSession.loadRequest,
         districtId: sourceDistrictId
-      }).readModel?.reports[0]
+      })).readModel?.reports[0]
     ).toMatchObject({
       reportType: "battle",
       targetDistrictId,
@@ -158,8 +150,11 @@ describe("production conflict gameplay slice", () => {
     const sourceDistrictId = "district:1";
     const targetDistrictId = "district:2";
     const runtime = server.instanceManager.createInstance(instanceId, "free");
+    const worldSeed = findSpyOutcomeSeed("success");
 
+    expect(worldSeed, "Expected at least one deterministic successful spy seed.").toBeTruthy();
     runtime.state = createCombatStateFixture(instanceId);
+    runtime.state.serverInstance.worldSeed = worldSeed!;
     runtime.state.districtsById[targetDistrictId] = {
       ...runtime.state.districtsById[targetDistrictId],
       defenseLoadout: {}
@@ -169,11 +164,26 @@ describe("production conflict gameplay slice", () => {
     const attackerClient = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
     });
-
-    await attackerClient.load({
+    const attackerSession = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId: attackerId,
       districtId: sourceDistrictId
+    });
+
+    await attackerClient.load(attackerSession.loadRequest);
+    const spied = await attackerClient.dispatch(
+      createSpyDistrictCommand({
+        commandId: "command:spy:capture:district:2",
+        slice: attackerClient.getGameplaySlice() as GameplaySliceView,
+        targetDistrictId,
+        issuedAt: new Date(0).toISOString()
+      })
+    );
+
+    expect(spied.errors).toEqual([]);
+    expect(spied.reports[0]).toMatchObject({
+      category: "spy",
+      result: "success"
     });
 
     const attacked = await attackerClient.dispatch(
@@ -187,11 +197,10 @@ describe("production conflict gameplay slice", () => {
 
     expect(attacked.errors).toEqual([]);
     expect(
-      server.gameplaySliceTransport.load({
-        serverInstanceId: instanceId,
-        playerId: attackerId,
+      (await server.gameplaySliceTransport.load({
+        ...attackerSession.loadRequest,
         districtId: sourceDistrictId
-      }).readModel?.reports[0]
+      })).readModel?.reports[0]
     ).toMatchObject({
       reportType: "battle",
       targetDistrictId,
@@ -234,11 +243,12 @@ describe("production conflict gameplay slice", () => {
     const attackerClient = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
     });
-    const initialRender = await attackerClient.load({
+    const attackerSession = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId: attackerId,
       districtId: sourceDistrictId
     });
+    const initialRender = await attackerClient.load(attackerSession.loadRequest);
     const initialSlice = attackerClient.getGameplaySlice() as GameplaySliceView;
 
     expect(initialRender.districtPanel?.spyTargets).toContainEqual(expect.objectContaining({
@@ -297,7 +307,9 @@ describe("production conflict gameplay slice", () => {
     const sourceDistrictId = "district:1";
     const targetDistrictId = "district:2";
     const runtime = server.instanceManager.createInstance(instanceId, "free");
+    const worldSeed = findSpyOutcomeSeed("success");
 
+    expect(worldSeed, "Expected at least one deterministic successful spy seed.").toBeTruthy();
     runtime.config = {
       ...runtime.config,
       balance: {
@@ -309,16 +321,32 @@ describe("production conflict gameplay slice", () => {
       }
     };
     runtime.state = createCombatStateFixture(instanceId);
+    runtime.state.serverInstance.worldSeed = worldSeed!;
     server.instanceManager.startInstance(instanceId);
 
     const attackerClient = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
     });
-
-    await attackerClient.load({
+    const attackerSession = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId: attackerId,
       districtId: sourceDistrictId
+    });
+
+    await attackerClient.load(attackerSession.loadRequest);
+    const spied = await attackerClient.dispatch(
+      createSpyDistrictCommand({
+        commandId: "command:spy:catastrophe:district:2",
+        slice: attackerClient.getGameplaySlice() as GameplaySliceView,
+        targetDistrictId,
+        issuedAt: new Date(0).toISOString()
+      })
+    );
+
+    expect(spied.errors).toEqual([]);
+    expect(spied.reports[0]).toMatchObject({
+      category: "spy",
+      result: "success"
     });
 
     const attacked = await attackerClient.dispatch(

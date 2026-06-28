@@ -40,6 +40,10 @@ describe("client HTML render escaping", () => {
       ],
       occupyTargets: [],
       attackTargets: [],
+      robTargets: [],
+      heistTargets: [],
+      placeDefense: null,
+      removeDefense: null,
       buildings: [
         {
           buildingId: attrBreakout,

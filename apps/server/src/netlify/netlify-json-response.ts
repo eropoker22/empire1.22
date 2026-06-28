@@ -6,13 +6,15 @@ export interface NetlifyFunctionResponse {
 
 export const createJsonResponse = <TBody>(
   statusCode: number,
-  body: TBody | null
+  body: TBody | null,
+  headers: Record<string, string> = {}
 ): NetlifyFunctionResponse => ({
   statusCode,
   headers: {
-    "access-control-allow-headers": "content-type, x-empire-admin-token",
+    "access-control-allow-headers": "content-type, x-empire-admin-secret",
     "access-control-allow-methods": "GET, POST, OPTIONS",
-    "content-type": "application/json; charset=utf-8"
+    "content-type": "application/json; charset=utf-8",
+    ...headers
   },
   body: body ? JSON.stringify(body) : ""
 });

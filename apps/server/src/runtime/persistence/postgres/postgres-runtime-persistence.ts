@@ -8,6 +8,8 @@ import type {
   SnapshotRepository
 } from "../repositories";
 import type { RuntimeTickLock } from "../tick-lock";
+import type { AtomicCommandTransactionBoundary } from "../../instance-manager/atomic-command-transaction";
+import { createPostgresAtomicCommandTransaction } from "./postgres-atomic-command-transaction";
 import {
   createPostgresDatabase,
   validatePostgresDatabaseUrl,
@@ -37,10 +39,11 @@ export interface PostgresRuntimePersistenceRepositories {
   commandResultRepository: CommandResultRepository;
   eventLogRepository: EventLogRepository;
   outboxRepository: RuntimeOutboxRepository;
+  atomicCommandTransaction: AtomicCommandTransactionBoundary;
   diagnosticLogRepository: DiagnosticLogRepository;
   snapshotRepository: SnapshotRepository;
   tickLock: RuntimeTickLock;
-  atomicCommandPersistenceMode: "best-effort";
+  atomicCommandPersistenceMode: "transactional";
   close(): Promise<void>;
 }
 
@@ -61,13 +64,14 @@ export const createPostgresRuntimePersistenceRepositories = (
     commandResultRepository: createPostgresCommandResultRepository(database),
     eventLogRepository: createPostgresEventLogRepository(database),
     outboxRepository: createPostgresRuntimeOutboxRepository(database),
+    atomicCommandTransaction: createPostgresAtomicCommandTransaction(database),
     diagnosticLogRepository: createPostgresDiagnosticLogRepository(database),
     snapshotRepository: createPostgresSnapshotRepository(database),
     tickLock: createPostgresRuntimeTickLock(database, {
       ownerId: options.tickLockOwnerId,
       ttlMs: options.tickLockTtlMs
     }),
-    atomicCommandPersistenceMode: "best-effort",
+    atomicCommandPersistenceMode: "transactional",
     close: () => database.close()
   };
 };

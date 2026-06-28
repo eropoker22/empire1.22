@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { GameplaySliceView } from "@empire/shared-types";
 import { createServerApp } from "../../apps/server/src/app";
 import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap";
-import { createAttackDistrictCommandFixture } from "../fixtures/command-fixtures";
+import { sharedCitySpawnDistrictIds } from "../../apps/server/src/bootstrap/gameplay-slice-shared-city-seed";
+import {
+  createAttackDistrictCommandFixture,
+  createSelectSpawnDistrictCommandFixture
+} from "../fixtures/command-fixtures";
 
 describe("admin monitoring facade", () => {
   it("returns an empty monitoring list when no runtime instances exist", async () => {
@@ -80,38 +83,27 @@ describe("admin monitoring facade", () => {
     };
 
     await ensureGameplaySliceSessionResult(server.instanceManager, request);
-    const load = server.gameplaySliceTransport.load(request);
-    const readModel = load.readModel as GameplaySliceView;
-    const focusDistrictId = readModel.district!.districtId;
-    const building = readModel.district!.buildings.find((candidate) => candidate.actions.length > 0)!;
-    const action = building.actions[0]!;
-    const response = await server.gameplaySliceTransport.submit({
-      sessionToken: load.sessionToken,
-      focusDistrictId,
-      command: {
-        id: "command:admin-facade:building-action:1",
-        type: "run-building-action",
-        mode: "free",
+    const spawnDistrictId = sharedCitySpawnDistrictIds[0] ?? "district:1";
+    const response = await server.instanceManager.dispatchCommand(
+      request.serverInstanceId,
+      createSelectSpawnDistrictCommandFixture({
+        id: "command:admin-facade:spawn:1",
         playerId: request.playerId,
         serverInstanceId: request.serverInstanceId,
-        issuedAt: new Date(0).toISOString(),
         payload: {
-          districtId: focusDistrictId,
-          buildingId: building.buildingId,
-          actionId: action.actionId
-        },
-        clientRequestId: null
-      }
-    });
+          districtId: spawnDistrictId
+        }
+      })
+    );
 
     const commandVolume = await server.adminMonitoring.getCommandVolumeSummary(request.serverInstanceId);
     const events = await server.adminMonitoring.listRecentEventRecords(request.serverInstanceId);
 
-    expect(response.accepted).toBe(true);
+    expect(response?.errors ?? []).toEqual([]);
     expect(commandVolume.totalCommands).toBe(1);
     expect(events).toContainEqual(expect.objectContaining({
       instanceId: request.serverInstanceId,
-      causedByCommandId: "command:admin-facade:building-action:1",
+      causedByCommandId: "command:admin-facade:spawn:1",
       tickAtEmit: 0
     }));
   });

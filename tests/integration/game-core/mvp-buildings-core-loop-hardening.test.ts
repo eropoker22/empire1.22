@@ -172,10 +172,10 @@ describe("MVP buildings core loop hardening", () => {
       severity: "high",
       payload: {
         actionId: "produce_neon_dust",
-        buildingTypeId: "drug_lab",
-        heatGain: 2
+        buildingTypeId: "drug_lab"
       }
     });
+    expect(once[0]?.payload).not.toHaveProperty("heatGain");
     expect(twice).toHaveLength(once.length);
   });
 

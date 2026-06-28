@@ -120,13 +120,14 @@ describe("building panel rendering", () => {
       ]
     });
 
-    expect(mount.children).toHaveLength(2);
+    expect(mount.children).toHaveLength(3);
     expect(mount.children[0].dataset.buildingsDistrictType).toBe("resident");
     expect(mount.children[0].classList.contains("is-active")).toBe(true);
     expect(mount.children[1].children[1].textContent).toBe("Bez vlastního districtu");
     expect(mount.children[1].disabled).toBe(true);
     expect(mount.children[1].classList.contains("is-locked")).toBe(true);
     expect(mount.children[1].dataset.buildingsDistrictType).toBeUndefined();
+    expect(mount.children[2].classList.contains("buildings-popup__mobile-type-caption")).toBe(true);
   });
 
   it("renders building popup detail for empty and populated states", () => {

@@ -12,8 +12,15 @@ class FakeElement {
   constructor() {
     this.children = [];
     this.classList = new FakeClassList();
+    this.attributes = new Map();
     this.textContent = "";
     this.innerHTML = "";
+  }
+  setAttribute(name, value) {
+    this.attributes.set(name, String(value));
+  }
+  removeAttribute(name) {
+    this.attributes.delete(name);
   }
   querySelectorAll() {
     return [];

@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createOverlayBackdrop } from "../../../apps/client/src/modals/overlay-backdrop";
-import { closeOverlay, getTopOverlay, isOverlayOpen, openOverlay } from "../../../apps/client/src/modals/overlay-state";
+import { closeOverlay, getTopOverlay, isOverlayOpen, openOverlay, resetOverlayStateForTests } from "../../../apps/client/src/modals/overlay-state";
 
 const setWindowScrollY = (value: number): void => {
   Object.defineProperty(window, "scrollY", {
@@ -38,6 +38,7 @@ describe("overlay backdrop", () => {
       closeOverlay("test:cleanup");
     }
 
+    resetOverlayStateForTests();
     vi.restoreAllMocks();
     restoreBodyStyles({
       left: "",
@@ -94,6 +95,22 @@ describe("overlay backdrop", () => {
     expect(backdrop.element.hidden).toBe(true);
   });
 
+  it("backdrop close callback dostane jen zavřený topmost overlay", () => {
+    const root = document.createElement("div");
+    const onCloseTopOverlay = vi.fn();
+    const backdrop = createOverlayBackdrop({ mount: root, onCloseTopOverlay });
+
+    openOverlay("district_sheet");
+    openOverlay("confirmation_modal");
+    backdrop.sync();
+
+    backdrop.element.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    expect(onCloseTopOverlay).toHaveBeenCalledTimes(1);
+    expect(onCloseTopOverlay).toHaveBeenCalledWith("confirmation_modal");
+    expect(getTopOverlay()).toBe("district_sheet");
+  });
+
   it("tap na backdrop neotevře mapu pod ním", () => {
     const root = document.createElement("div");
     const mapButton = document.createElement("button");
@@ -110,7 +127,7 @@ describe("overlay backdrop", () => {
 
     backdrop.element.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     expect(districtClickedUnderBackdrop).toBe(false);
-    expect(backdrop.element.hidden).toBe(false);
+    expect(backdrop.element.hidden).toBe(true);
   });
 
   it("tap uvnitř sheetu backdrop nezavře", () => {
@@ -142,8 +159,8 @@ describe("overlay backdrop", () => {
 
     expect(document.body.style.position).toBe("fixed");
     expect(document.body.style.top).toBe(`-${initialScrollY}px`);
-    expect(document.body.style.left).toBe("0");
-    expect(document.body.style.right).toBe("0");
+    expect(document.body.style.left).toBe("0px");
+    expect(document.body.style.right).toBe("0px");
     expect(document.body.style.width).toBe("100%");
     expect(window.scrollY).toBe(initialScrollY);
   });

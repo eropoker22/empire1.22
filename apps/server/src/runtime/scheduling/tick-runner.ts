@@ -3,6 +3,7 @@ import type { InstanceRuntimeEvent } from "@empire/shared-types";
 import type { ServerInstanceRuntime } from "../instance/server-instance-runtime";
 import { writeDiagnosticLog } from "../logging";
 import { systemClock, type Clock } from "./clock";
+import { isInstanceTickDue } from "./instance-scheduler";
 
 /**
  * Responsibility: Executes one safe tick for a single instance runtime.
@@ -14,6 +15,10 @@ export const runInstanceTick = (
   clock: Clock = systemClock
 ): ServerInstanceRuntime => {
   if (!runtime.scheduler.isRunning || runtime.scheduler.tickInProgress) {
+    return runtime;
+  }
+  const tickNow = clock.now();
+  if (!isInstanceTickDue(runtime.scheduler, tickNow)) {
     return runtime;
   }
 
@@ -39,6 +44,7 @@ export const runInstanceTick = (
     runtime.eventQueue.enqueue(tickEvent);
     runtime.eventPublisher.publish(tickEvent);
     runtime.runtimeHealth.lastTickCompletedAt = clock.nowIso();
+    runtime.scheduler.lastTickAtMs = tickNow.getTime();
     void writeDiagnosticLog(
       runtime.replayLogWriter,
       runtime.record.id,

@@ -1,27 +1,39 @@
 import { describe, expect, it } from "vitest";
 import { createServerApp } from "../../apps/server/src/app";
-import { ServerInstanceManager } from "../../apps/server/src/runtime";
 import { createGameplaySliceTransport } from "../../apps/server/src/transport";
 import { createPlaceTrapCommandFixture } from "../fixtures/command-fixtures";
+import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 describe("gameplay slice transport identity boundary", () => {
   it("rejects submit before command ingress when auth context does not match command.playerId", async () => {
     let ingressCalls = 0;
+    const server = createServerApp();
+    const session = await createDevGameplaySession(server, {
+      serverInstanceId: "instance:transport-identity",
+      playerId: "player:victim",
+      autoSelectSpawn: true
+    });
     const transport = createGameplaySliceTransport(
-      new ServerInstanceManager(),
+      server.instanceManager,
       {
         submit: async () => {
           ingressCalls += 1;
           return undefined;
         }
+      },
+      {
+        sessionTokenCodec: server.gameplaySessionTokenCodec,
+        gameplaySessionService: server.gameplaySessionService
       }
     );
 
     const response = await transport.submit(
       {
+        sessionToken: session.sessionToken,
         focusDistrictId: "district:2",
         command: createPlaceTrapCommandFixture({
-          playerId: "player:victim"
+          playerId: "player:victim",
+          serverInstanceId: "instance:transport-identity"
         })
       },
       {
@@ -35,7 +47,7 @@ describe("gameplay slice transport identity boundary", () => {
       readModel: null,
       errors: [
         {
-          code: "transport.player_identity_mismatch"
+          code: "PLAYER_IDENTITY_MISMATCH"
         }
       ]
     });
@@ -67,7 +79,7 @@ describe("gameplay slice transport identity boundary", () => {
       readModel: null,
       errors: [
         {
-          code: "transport.session_token_invalid"
+          code: "SESSION_INVALID"
         }
       ]
     });
@@ -76,7 +88,7 @@ describe("gameplay slice transport identity boundary", () => {
     expect(diagnostics.at(-1)).toMatchObject({
       level: "warn",
       category: "transport_rejected",
-      message: "Command rejected by transport identity guard.",
+      message: "Command rejected by transport session guard.",
       context: {
         commandId: command.id,
         commandType: "place-trap",
@@ -84,7 +96,7 @@ describe("gameplay slice transport identity boundary", () => {
         serverInstanceId: runtime.record.id,
         currentTick: runtime.state.root.tick,
         rootVersion: runtime.state.root.version,
-        errorCodes: ["transport.session_token_invalid"],
+        errorCodes: ["SESSION_INVALID"],
         expectedStateVersion: runtime.state.root.version,
         currentStateVersion: runtime.state.root.version,
         focusDistrictId: "district:2",

@@ -3,6 +3,7 @@ export const ONBOARDING_VERSION = "v2";
 export const ONBOARDING_REQUIRED_STEP_IDS = Object.freeze([
   "welcome",
   "win-condition",
+  "spawn-selection",
   "your-district",
   "district-stats",
   "buildings",
@@ -25,7 +26,7 @@ export const ONBOARDING_REQUIRED_STEP_IDS = Object.freeze([
   "next-plan"
 ]);
 
-export const ONBOARDING_STEPS = Object.freeze([
+const RAW_ONBOARDING_STEPS = Object.freeze([
   Object.freeze({
     id: "welcome",
     title: "Vítej, králi kanálu",
@@ -67,6 +68,27 @@ export const ONBOARDING_STEPS = Object.freeze([
     task: "Pochop cíl války.",
     taskLabel: "Najdi cíl hry",
     warning: "Bez mapy máš jen prachy a dobrý důvod brečet."
+  }),
+  Object.freeze({
+    id: "spawn-selection",
+    title: "Vyber spawn district",
+    phase: "Základy",
+    badge: "SPAWN",
+    kind: "map",
+    subtitle: "První blok rozhodne tempo startu.",
+    body: "Pokud server čeká na spawn, vyber dostupný district. Server pak potvrdí tvoji základnu.",
+    targetSelector: "[data-feature=\"spawn-selection\"], [data-select-spawn-district-id]",
+    placement: "bottom-right",
+    completionCondition: "manual",
+    fallbackTitle: "Čekám na mapu/server.",
+    fallbackBody: "Spawn panel se ukáže, jakmile server pošle aktuální mapu a dostupné startovní distrikty.",
+    canSkip: true,
+    highlightType: "map",
+    optionalActionHint: "Vyber okrajový district, který je označený jako dostupný.",
+    detail: "District je tvoje základna. Drž ho, vydělávej a rozšiřuj se ze sousedství.",
+    task: "Vyber startovní district.",
+    taskLabel: "Vyber spawn",
+    targetLabel: "Spawn panel"
   }),
   Object.freeze({
     id: "your-district",
@@ -478,6 +500,257 @@ export const ONBOARDING_STEPS = Object.freeze([
     cta: "Jdu pro město"
   })
 ]);
+
+const FIRST_PLAYER_ONBOARDING_COPY = Object.freeze({
+  welcome: Object.freeze({
+    title: "Vítej v Empire Streets",
+    subtitle: "Ulice drží ten, kdo čte mapu.",
+    body: "Clean cash drží provoz, dirty cash vydělá rychle, influence otevírá tahy a heat je stopa pro policii.",
+    optionalActionHint: "Projdi krátký briefing. Každý krok je jen UI guidance, výsledky dál potvrzuje server.",
+    detail: "Začni malým district, sleduj zdroje a nespouštěj risk akce naslepo.",
+    task: "Pochop základní zdroje.",
+    taskLabel: "Start briefing",
+    warning: "Tutorial nic nemění ve hře. Jen ukazuje, kam kliknout.",
+    cta: "Pokračovat"
+  }),
+  "win-condition": Object.freeze({
+    title: "Cíl Free alpha",
+    subtitle: "Přežít, růst a zůstat relevantní.",
+    body: "Ve Free režimu rozhoduje impérium: distrikty, budovy, zdroje, vliv a schopnost přežít Final Lockdown.",
+    fallbackBody: "Cíl platí i bez panelu: drž území, zvyšuj skóre a nenech heat zničit tempo.",
+    optionalActionHint: "Otevři Battle Royale info nebo leaderboard, pokud je panel dostupný.",
+    detail: "Cash pomáhá, ale město počítá celé impérium.",
+    task: "Zkontroluj cíl serveru.",
+    taskLabel: "Cíl hry",
+    warning: "Nejslabší hráči postupně mizí z mapy."
+  }),
+  "spawn-selection": Object.freeze({
+    title: "Vyber spawn district",
+    subtitle: "První blok je tvoje základna.",
+    body: "Pokud server čeká na spawn, vyber dostupný district. Server pak potvrdí tvoji home oblast.",
+    fallbackBody: "Čekám na mapu/server. Spawn panel se ukáže, jakmile je dostupný autoritativní stav.",
+    optionalActionHint: "Vyber dostupný okrajový district.",
+    detail: "District je tvoje základna. Drž ho, vydělávej a rozšiřuj se ze sousedství.",
+    task: "Vyber startovní district.",
+    taskLabel: "Spawn"
+  }),
+  "your-district": Object.freeze({
+    title: "Klikni na svůj district",
+    subtitle: "Tady začíná tvoje impérium.",
+    body: "Po spawnu klikni na vlastní district a otevři detail. Uvidíš příjem, heat, obranu, budovy a sousedy.",
+    fallbackBody: "Server zatím neposlal home district. Jakmile dorazí mapa, pokračuj vlastním blokem.",
+    optionalActionHint: "Klikni na svůj označený district.",
+    detail: "Vlastní district je místo, odkud plánuješ první expanzi.",
+    task: "Otevři svůj district.",
+    taskLabel: "Vlastní district",
+    targetLabel: "Tvoje území"
+  }),
+  "district-stats": Object.freeze({
+    title: "Přečti čísla districtu",
+    subtitle: "Bez informací je každý tah drahý.",
+    body: "Sleduj ownera, typ zóny, příjem, heat, vliv, budovy a sousedy. Tyhle hodnoty určují další bezpečný krok.",
+    fallbackBody: "Detail districtu teď není dostupný. Jakmile ho otevřeš, začni ownerem, heatem a sousedy.",
+    optionalActionHint: "Přečti ownera, zone, heat, influence a budovy.",
+    detail: "Sousedé jsou první možné cíle, ale server rozhoduje, které akce jsou enabled.",
+    task: "Zkontroluj statistiky.",
+    taskLabel: "Intel"
+  }),
+  buildings: Object.freeze({
+    title: "Najdi budovy",
+    subtitle: "Budovy drží ekonomiku při životě.",
+    body: "Budovy dávají income, produkci, vliv, obranu nebo nové akce. Začni tím, co už má vlastní district.",
+    fallbackBody: "Budovy se ukážou v detailu districtu nebo v panelu Budovy.",
+    optionalActionHint: "Otevři první dostupnou budovu.",
+    detail: "Income, heat a produkce tečou přes autoritativní model, ne přes UI.",
+    task: "Otevři budovu.",
+    taskLabel: "Budovy"
+  }),
+  cash: Object.freeze({
+    title: "Sleduj cash",
+    subtitle: "Čisté drží provoz, špinavé zrychluje start.",
+    body: "Clean cash je stabilní rozpočet. Dirty cash roste rychleji, ale může zvedat heat a policejní tlak.",
+    fallbackBody: "Cash lišta není vidět, ale pravidlo platí: rychlý zisk často nechává stopu.",
+    optionalActionHint: "Počkej na income tick nebo použij dostupný collect.",
+    detail: "Dirty cash vydělá rychle, ale policie si toho všimne.",
+    task: "Zkontroluj peníze.",
+    taskLabel: "Cash"
+  }),
+  production: Object.freeze({
+    title: "Najdi první produkci",
+    subtitle: "Materiál je tempo do dalších tahů.",
+    body: "Chemicals, biomass, metal parts a tech core krmí budovy, výbavu a silnější akce.",
+    fallbackBody: "Produkční slot teď nemusí být dostupný. Pokud ho nemáš, pokračuj přes income a sousedy.",
+    optionalActionHint: "Vyber nebo seber produkci, pokud je akce enabled.",
+    detail: "Plný sklad je promarněný tick.",
+    task: "Zkontroluj produkci.",
+    taskLabel: "Produkce"
+  }),
+  people: Object.freeze({
+    title: "Zkontroluj lidi",
+    subtitle: "Bez lidí neudržíš ulici.",
+    body: "Population a gang members určují, co zvládneš obsadit, bránit nebo riskovat.",
+    fallbackBody: "Crew panel není vidět. Vrať se k němu před agresivní akcí.",
+    optionalActionHint: "Zkontroluj gang members a population.",
+    detail: "Každý ztracený člen zpomaluje další tahy.",
+    task: "Přečti stav lidí.",
+    taskLabel: "Crew"
+  }),
+  heat: Object.freeze({
+    title: "Pozor na heat",
+    subtitle: "Heat je stopa, kterou po sobě necháš.",
+    body: "Agresivní akce, dirty cash a risk produkce zvyšují policejní tlak. Vysoký heat umí zlomit tempo.",
+    fallbackBody: "Heat badge není vidět. Sleduj ho před každou risk akcí.",
+    optionalActionHint: "Otevři nebo přečti heat badge.",
+    detail: "Heat není dekorace. Je to varování před zásahem.",
+    task: "Zkontroluj heat.",
+    taskLabel: "Heat",
+    warning: "Když heat roste rychleji než impérium, zpomal."
+  }),
+  "day-night": Object.freeze({
+    title: "Sleduj čas města",
+    subtitle: "Den a noc mění rytmus rizika.",
+    body: "Některé tahy dávají jiný smysl podle fáze města. Čas je součást strategie.",
+    fallbackBody: "Časový panel teď není vidět. Pokračuj a sleduj ho, až se zobrazí.",
+    optionalActionHint: "Zkontroluj fázi dne.",
+    detail: "Timing rozhoduje, kdy sbírat, špehovat nebo tlačit na sousedy.",
+    task: "Zkontroluj fázi.",
+    taskLabel: "Čas"
+  }),
+  "neighbor-districts": Object.freeze({
+    title: "Najdi souseda",
+    subtitle: "Expanze začíná vedle tebe.",
+    body: "Klikni na sousední district a zjisti, jestli je prázdný, cizí, bráněný nebo vhodný pro intel.",
+    fallbackBody: "Soused zatím není označený. Jakmile mapa reaguje, vyber blok vedle svého districtu.",
+    optionalActionHint: "Klikni na sousední district.",
+    detail: "Bez adjacency není expanze plán, jen klikání.",
+    task: "Vyber souseda.",
+    taskLabel: "Soused",
+    targetLabel: "Další cíl"
+  }),
+  spy: Object.freeze({
+    title: "Pošli špeha",
+    subtitle: "Pošli špeha, než pošleš lidi.",
+    body: "Spy je první bezpečný krok před útokem. Ukáže obranu, riziko a někdy i pasti.",
+    fallbackBody: "Spy akce se ukáže, až server povolí vhodný cíl a podmínky.",
+    optionalActionHint: "Otevři spy na sousední district, pokud je enabled.",
+    detail: "Úspěch, partial i fail jsou informace. Nepředstírej jistotu.",
+    task: "Otevři spy.",
+    taskLabel: "Spy"
+  }),
+  robbery: Object.freeze({
+    title: "Vykradení je loot",
+    subtitle: "Rychlý zisk, větší stopa.",
+    body: "Robbery nebere district. Bere cash a materiál, ale může stát lidi a heat.",
+    fallbackBody: "Vykradení potřebuje vhodný cíl. Pokud není enabled, zůstaň u intel a income.",
+    optionalActionHint: "Otevři robbery preview, pokud je dostupné.",
+    detail: "Čti risk preview před potvrzením.",
+    task: "Přečti robbery preview.",
+    taskLabel: "Robbery",
+    warning: "Nespouštěj risk akci bez preview."
+  }),
+  "occupy-attack": Object.freeze({
+    title: "Útok bere mapu",
+    subtitle: "Tady už nejde jen o loot.",
+    body: "Attack nebo occupy mění držení districtu jen tehdy, když server akci povolí a command projde.",
+    fallbackBody: "Bojový panel se otevře jen u cíle, který dovolí server.",
+    optionalActionHint: "Otevři attack nebo occupy, pokud je enabled.",
+    detail: "Zbraně, obrana, pasti a cooldowny se počítají na serveru.",
+    task: "Přečti bojový panel.",
+    taskLabel: "Útok",
+    warning: "Útok bez intel je drahý hazard."
+  }),
+  traps: Object.freeze({
+    title: "Pasti brání hranice",
+    subtitle: "Tichá obrana trestá první chybu.",
+    body: "Past čeká na cizí akci v districtu. Používej ji na místech, která chceš opravdu držet.",
+    fallbackBody: "Trap akce teď není dostupná. Vrať se k ní, až ji server nabídne.",
+    optionalActionHint: "Najdi trap v akcích districtu.",
+    detail: "Pasti jsou obrana, ne náhrada plánu.",
+    task: "Zkontroluj past.",
+    taskLabel: "Pasti"
+  }),
+  "city-feed": Object.freeze({
+    title: "Čti city feed",
+    subtitle: "Město mluví v signálech.",
+    body: "Feed míchá události, drby a varování. Ne všechno je jisté, ale ignorovat ho je chyba.",
+    fallbackBody: "Feed teď není dostupný. Sleduj ho, až se otevře v districtu nebo panelu.",
+    optionalActionHint: "Přečti poslední události nebo drby.",
+    detail: "Přesnou pravdu potvrdí špeh, akce nebo riziko.",
+    task: "Zkontroluj feed.",
+    taskLabel: "Feed"
+  }),
+  market: Object.freeze({
+    title: "Market je volitelný",
+    subtitle: "Zdroje mají cenu, když chybí.",
+    body: "Market a black market pomůžou, když potřebuješ materiál nebo chceš prodat přebytek.",
+    fallbackBody: "Market UI teď nemusí být dostupné. Není nutný pro první tah.",
+    optionalActionHint: "Otevři market, pokud je dostupný.",
+    detail: "Nakupuj jen to, co podporuje další konkrétní krok.",
+    task: "Zkontroluj market.",
+    taskLabel: "Market"
+  }),
+  alliance: Object.freeze({
+    title: "Aliance jsou pozdější vrstva",
+    subtitle: "Síla, ochrana i riziko dohody.",
+    body: "Aliance může pomoci přežít tlak, ale první minuty zvládneš přes district, income a intel.",
+    fallbackBody: "Alliance UI teď není dostupné. Vrať se k němu po prvních tazích.",
+    optionalActionHint: "Otevři aliance nebo profil gangu.",
+    detail: "Důvěra je výhoda jen do chvíle, kdy se vyplatí zrada.",
+    task: "Zkontroluj alianci.",
+    taskLabel: "Aliance"
+  }),
+  elimination: Object.freeze({
+    title: "Sleduj eliminace",
+    subtitle: "Slabí postupně mizí.",
+    body: "Battle Royale tlak řeší, kdo přežije do pozdější fáze. Nezůstávej dlouho dole.",
+    fallbackBody: "Elimination panel teď není vidět. Pravidlo zůstává: drž tempo a skóre.",
+    optionalActionHint: "Otevři Battle Royale info.",
+    detail: "Poslední fáze zvýhodní stabilní impérium, ne náhodný klik.",
+    task: "Přečti eliminační stav.",
+    taskLabel: "Eliminace",
+    warning: "Danger zone není kosmetika."
+  }),
+  "danger-zone": Object.freeze({
+    title: "Nezůstávej v danger zone",
+    subtitle: "Nízké skóre je varování.",
+    body: "Když jsi v danger zone, získej district, posil income, drž aktivitu a sniž zbytečný heat.",
+    fallbackBody: "Risk data teď nejsou dostupná. Plán je stejný: území, income, intel, další tah.",
+    optionalActionHint: "Najdi svůj risk v Battle Royale info nebo leaderboardu.",
+    detail: "Safe znamená tempo. Critical znamená, že musíš rychle změnit plán.",
+    task: "Zkontroluj risk.",
+    taskLabel: "Risk",
+    warning: "Když svítíš dole, hraj jednoduše a bezpečně."
+  }),
+  downtown: Object.freeze({
+    title: "Downtown je pozdější cíl",
+    subtitle: "Velké páky, velké riziko.",
+    body: "Downtown budovy mění tlak na serveru, ale první kroky patří základně, sousedům a income.",
+    fallbackBody: "Downtown nemusí být v záběru. Stačí vědět, že nejde o běžný district.",
+    optionalActionHint: "Hledej Downtown a high-value budovy, až budeš stabilní.",
+    detail: "Banky, soudy a letiště jsou strategické páky pro pozdější fázi.",
+    task: "Zapamatuj si high-value cíle.",
+    taskLabel: "Downtown"
+  }),
+  "next-plan": Object.freeze({
+    title: "Další plán",
+    subtitle: "Teď hraj první smysluplný cyklus.",
+    body: "Drž district. Seber income. Hlídej heat. Pošli špeha na souseda. Pak teprve zvaž robbery, occupy nebo útok.",
+    fallbackBody: "Mapa teď mlčí. Plán zůstává: district, income, heat, soused, enabled akce.",
+    optionalActionHint: "Klikni vlastní district, zkontroluj budovy, seber produkci, sleduj heat a najdi souseda.",
+    detail: "Checklist: území, budovy, produkce, heat, špeh, další tah.",
+    task: "Začni první cyklus.",
+    taskLabel: "Dokončit briefing",
+    warning: "Server vždy potvrzuje, co se opravdu stalo.",
+    cta: "Jdu hrát"
+  })
+});
+
+export const ONBOARDING_STEPS = Object.freeze(RAW_ONBOARDING_STEPS.map((step) =>
+  Object.freeze({
+    ...step,
+    ...(FIRST_PLAYER_ONBOARDING_COPY[step.id] || {})
+  })
+));
 
 export function getOnboardingStep(stepId) {
   return ONBOARDING_STEPS.find((step) => step.id === stepId) || null;

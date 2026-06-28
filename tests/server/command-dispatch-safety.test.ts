@@ -6,7 +6,6 @@ import {
   type GameplaySliceView
 } from "@empire/shared-types";
 import { createServerApp, type ServerApp } from "../../apps/server/src/app";
-import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap";
 import {
   createCommandReservationPayload,
   createCommandReservationPayloadHash,
@@ -17,9 +16,12 @@ import {
   type CommandReservationReserveResult
 } from "../../apps/server/src/runtime";
 import {
-  createAttackDistrictCommandFixture,
   createPlaceTrapCommandFixture
 } from "../fixtures/command-fixtures";
+import {
+  createDevGameplaySession,
+  seedDevSpawnSelection
+} from "../helpers/gameplay-session-test-helpers";
 
 describe("command dispatch reservation safety", () => {
   it("fails production submit safely when commandReservationRepository is unavailable", async () => {
@@ -65,8 +67,8 @@ describe("command dispatch reservation safety", () => {
     });
 
     expect(first.body.accepted).toBe(true);
-    expect(second.body.accepted).toBe(false);
-    expect(second.body.errors[0]?.code).toBe("server.command_already_applied");
+    expect(second.body.accepted).toBe(true);
+    expect(second.body.errors).toEqual([]);
     expect(fixture.runtime.state.root.version).toBe(rootAfterFirst);
     expect(reservations.calls.reserve).toBe(2);
     expect(reservations.calls.markApplied).toBe(1);
@@ -167,7 +169,7 @@ describe("command dispatch reservation safety", () => {
     expect(reservations.calls.markRejected).toBe(0);
   });
 
-  it("does not reserve commands rejected by pre-dispatch gates", async () => {
+  it("records rejected reservations for dispatch gates without mutating state", async () => {
     const reservations = createTrackingReservationRepository();
     const server = createServerWithTrackingReservation(reservations.repository);
     const fixture = await createJsonSubmitFixture(server, {
@@ -176,21 +178,24 @@ describe("command dispatch reservation safety", () => {
       districtId: "district:safety:pre-gate",
       commandId: "command:safety:pre-gate"
     });
-    const assertNoReservationWork = () => {
-      expect(reservations.calls.reserve).toBe(0);
+    const assertRejectedReservationWithoutMutation = (rootBefore: number) => {
+      expect(fixture.runtime.state.root.version).toBe(rootBefore);
+      expect(reservations.calls.reserve).toBe(1);
       expect(reservations.calls.markApplied).toBe(0);
-      expect(reservations.calls.markRejected).toBe(0);
+      expect(reservations.calls.markRejected).toBe(1);
     };
 
     reservations.reset();
+    const staleRootBefore = fixture.runtime.state.root.version;
     const stale = await submitJsonCommand(server, {
       ...fixture,
       expectedStateVersion: fixture.runtime.state.root.version + 1
     });
     expect(stale.body.errors[0]?.code).toBe("server.state_version_conflict");
-    assertNoReservationWork();
+    assertRejectedReservationWithoutMutation(staleRootBefore);
 
     reservations.reset();
+    const modeRootBefore = fixture.runtime.state.root.version;
     const modeMismatch = await submitJsonCommand(server, {
       ...fixture,
       command: {
@@ -200,10 +205,11 @@ describe("command dispatch reservation safety", () => {
       }
     });
     expect(modeMismatch.body.errors[0]?.code).toBe("server.mode_mismatch");
-    assertNoReservationWork();
+    assertRejectedReservationWithoutMutation(modeRootBefore);
 
     reservations.reset();
     fixture.runtime.state.root.phase = PRODUCTION_GAME_LIFECYCLE_PHASES.resolved;
+    const resolvedRootBefore = fixture.runtime.state.root.version;
     const resolved = await submitJsonCommand(server, {
       ...fixture,
       command: {
@@ -212,7 +218,7 @@ describe("command dispatch reservation safety", () => {
       }
     });
     expect(resolved.body.errors[0]?.code).toBe("server.instance_resolved");
-    assertNoReservationWork();
+    assertRejectedReservationWithoutMutation(resolvedRootBefore);
     fixture.runtime.state.root.phase = PRODUCTION_GAME_LIFECYCLE_PHASES.live;
 
     reservations.reset();
@@ -222,6 +228,7 @@ describe("command dispatch reservation safety", () => {
         [fixture.command.playerId]: 5
       }
     };
+    const rateRootBefore = fixture.runtime.state.root.version;
     const rateLimited = await submitJsonCommand(server, {
       ...fixture,
       command: {
@@ -230,7 +237,7 @@ describe("command dispatch reservation safety", () => {
       }
     });
     expect(rateLimited.body.errors[0]?.code).toBe("server.rate_limited");
-    assertNoReservationWork();
+    assertRejectedReservationWithoutMutation(rateRootBefore);
   });
 
   it("marks core rejection as rejected and reuses stored errors for duplicates", async () => {
@@ -242,11 +249,14 @@ describe("command dispatch reservation safety", () => {
       districtId: "district:safety:core-rejection",
       commandId: "command:safety:core-rejection"
     });
-    const rejectedCommand = createAttackDistrictCommandFixture({
+    const rejectedCommand = createPlaceTrapCommandFixture({
       id: fixture.command.id,
       mode: fixture.runtime.record.mode,
       playerId: fixture.playerId,
-      serverInstanceId: fixture.instanceId
+      serverInstanceId: fixture.instanceId,
+      payload: {
+        districtId: "district:safety:core-rejection:missing"
+      }
     });
     const rootBefore = fixture.runtime.state.root.version;
 
@@ -260,7 +270,7 @@ describe("command dispatch reservation safety", () => {
     });
 
     expect(first.body.accepted).toBe(false);
-    expect(first.body.errors[0]?.code).toBe("district_not_found");
+    expect(first.body.errors[0]?.code).toBe("trap_district_not_found");
     expect(second.body.accepted).toBe(false);
     expect(second.body.errors).toEqual(first.body.errors);
     expect(fixture.runtime.state.root.version).toBe(rootBefore);
@@ -272,7 +282,7 @@ describe("command dispatch reservation safety", () => {
         status: "rejected",
         rejectionErrors: [
           {
-            code: "district_not_found"
+            code: "trap_district_not_found"
           }
         ]
       });
@@ -345,19 +355,23 @@ const createJsonSubmitFixture = async (
     commandId: string;
   }
 ): Promise<JsonSubmitFixture> => {
-  await ensureGameplaySliceSessionResult(server.instanceManager, {
+  const session = await createDevGameplaySession(server, {
     serverInstanceId: options.instanceId,
     playerId: options.playerId,
     districtId: options.districtId
+  });
+  const spawnDistrictId = seedDevSpawnSelection(server, {
+    serverInstanceId: options.instanceId,
+    playerId: options.playerId,
+    requestedDistrictId: options.districtId
   });
 
   const load = await server.gameplaySliceJsonHandler.handle({
     method: "POST",
     path: "/api/gameplay-slice/load",
     body: {
-      serverInstanceId: options.instanceId,
-      playerId: options.playerId,
-      districtId: options.districtId
+      ...session.loadRequest,
+      districtId: spawnDistrictId
     }
   });
   const readModel = load.body.readModel as GameplaySliceView | null;
@@ -367,14 +381,14 @@ const createJsonSubmitFixture = async (
     throw new Error("Failed to create gameplay slice submit fixture.");
   }
 
-  const focusDistrictId = readModel.district?.districtId ?? options.districtId;
+  const focusDistrictId = readModel.district?.districtId ?? spawnDistrictId;
 
   return {
     server,
     instanceId: options.instanceId,
     playerId: options.playerId,
     focusDistrictId,
-    sessionToken: load.body.sessionToken,
+    sessionToken: session.sessionToken,
     expectedStateVersion: load.body.metadata?.stateVersion,
     command: createPlaceTrapCommandFixture({
       id: options.commandId,

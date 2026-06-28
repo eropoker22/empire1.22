@@ -1,4 +1,4 @@
-import { closeOverlay, isOverlayOpen } from "./overlay-state";
+import { closeOverlay, getTopOverlay, isOverlayOpen, type OverlayType } from "./overlay-state";
 
 const OVERLAY_BACKDROP_ATTRIBUTE = "overlayBackdrop";
 
@@ -10,6 +10,7 @@ export interface OverlayBackdrop {
 
 export interface CreateOverlayBackdropOptions {
   mount?: HTMLElement;
+  onCloseTopOverlay?: (type: OverlayType) => void;
 }
 
 /**
@@ -36,7 +37,11 @@ export const createOverlayBackdrop = (
     handlePointerInteraction(event);
 
     if (isOverlayOpen()) {
+      const topOverlay = getTopOverlay();
       closeOverlay("backdrop click");
+      if (topOverlay) {
+        options.onCloseTopOverlay?.(topOverlay);
+      }
       sync();
     }
   };

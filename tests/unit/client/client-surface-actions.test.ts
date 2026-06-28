@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GameplaySliceView } from "@empire/shared-types";
 import { empireStreetsCityMapManifestHash } from "@empire/game-config";
-import { closeOverlay, getTopOverlay, isOverlayOpen, openOverlay } from "../../../apps/client/src/modals";
+import { closeOverlay, getTopOverlay, isOverlayOpen, openOverlay, resetOverlayStateForTests } from "../../../apps/client/src/modals";
 import {
   createClientSurfaceActionRouter,
   resolveClientSurfaceAction,
@@ -199,6 +199,8 @@ describe("client surface actions", () => {
     while (isOverlayOpen()) {
       closeOverlay("test:cleanup");
     }
+
+    resetOverlayStateForTests();
   });
 
   it("resolves spy, occupy, and trap click targets from surface dataset hooks", () => {

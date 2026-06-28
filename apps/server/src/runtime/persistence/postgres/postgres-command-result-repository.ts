@@ -1,11 +1,11 @@
 import type { ServerInstanceId } from "@empire/shared-types";
 import type { CommandResultRecord } from "../dto";
 import type { CommandResultRepository } from "../repositories";
-import type { PostgresDatabase, PostgresQueryable } from "./postgres-client";
+import type { PostgresQueryable } from "./postgres-client";
 import { ensurePostgresServerInstanceRow } from "./postgres-server-instance-row";
 
 export const createPostgresCommandResultRepository = (
-  database: PostgresDatabase
+  database: PostgresQueryable
 ): CommandResultRepository => ({
   save: async (record) => {
     await ensurePostgresServerInstanceRow(database, record.serverInstanceId, {
@@ -85,4 +85,3 @@ const coercePayload = <TPayload>(payload: unknown): TPayload =>
 
 const createCommandResultId = (instanceId: ServerInstanceId, commandId: string): string =>
   `command-result:${instanceId}:${commandId}`;
-

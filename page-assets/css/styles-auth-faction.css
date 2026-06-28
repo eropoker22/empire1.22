@@ -1255,6 +1255,10 @@ body.servers-page .auth-server-card.is-selected {
 .auth-body--faction {
   --faction-accent: rgba(34, 211, 238, 0.94);
   --faction-accent-alt: rgba(217, 70, 239, 0.32);
+  background:
+    linear-gradient(180deg, rgba(3, 7, 14, 0.7), rgba(3, 7, 14, 0.86)),
+    url("../../img/tapetafrakce.png") center center / cover no-repeat fixed;
+  background-color: #040a13;
 }
 
 .matrix-canvas {
@@ -3839,5 +3843,609 @@ html:has(body.auth-body--faction) .matrix-canvas {
 
   .auth-body--faction .avatar-track {
     grid-auto-rows: minmax(138px, var(--avatar-row-height, 1fr));
+  }
+}
+
+/* Final faction page polish */
+.auth-body--faction {
+  --faction-cyan: #00c4d4;
+  --faction-cyan-soft: rgba(0, 196, 212, 0.16);
+  --faction-gold: #f4c430;
+  --faction-silver: #c9d6e4;
+  --faction-ink: rgba(2, 7, 15, 0.42);
+  --faction-panel-border: rgba(0, 196, 212, 0.2);
+  --faction-panel-glow: 0 0 24px rgba(0, 196, 212, 0.08), inset 0 0 28px rgba(0, 196, 212, 0.035);
+}
+
+.auth-body--faction::before {
+  background:
+    radial-gradient(circle at 20% 0%, rgba(0, 196, 212, 0.1), transparent 28%),
+    radial-gradient(circle at 82% 8%, rgba(244, 196, 48, 0.1), transparent 24%),
+    linear-gradient(180deg, rgba(2, 6, 13, 0.22), rgba(2, 6, 13, 0.62));
+}
+
+.auth-body--faction .auth-card--faction {
+  border-color: rgba(0, 196, 212, 0.24);
+  background:
+    linear-gradient(135deg, rgba(0, 196, 212, 0.055), transparent 28% 74%, rgba(201, 214, 228, 0.045)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 18% 84%, rgba(0, 0, 0, 0.18)),
+    linear-gradient(180deg, rgba(4, 10, 20, 0.58), rgba(1, 5, 12, 0.42)),
+    rgba(1, 3, 8, 0.32) !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 196, 212, 0.1),
+    0 28px 82px rgba(0, 0, 0, 0.66),
+    0 0 36px rgba(0, 196, 212, 0.08),
+    inset 0 0 56px rgba(0, 196, 212, 0.035),
+    inset 0 0 1px rgba(232, 240, 255, 0.14);
+  backdrop-filter: blur(18px) saturate(1.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.08);
+}
+
+.auth-body--faction .auth-card--faction::before {
+  background:
+    linear-gradient(90deg, transparent 0 4%, rgba(0, 196, 212, 0.48) 10%, transparent 28% 74%, rgba(244, 196, 48, 0.24) 90%, transparent 97%) top / 100% 1px no-repeat,
+    linear-gradient(90deg, transparent 0 8%, rgba(201, 214, 228, 0.28) 14%, transparent 36% 68%, rgba(0, 196, 212, 0.3) 88%, transparent 95%) bottom / 100% 1px no-repeat,
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(90deg, rgba(0, 196, 212, 0.014) 0 1px, transparent 1px 22px);
+  opacity: 0.62;
+}
+
+.auth-body--faction .auth-card--faction::after {
+  border-color: rgba(0, 196, 212, 0.14);
+  opacity: 0.72;
+}
+
+.auth-body--faction .faction-selected-avatar-bg {
+  opacity: 0.16;
+  filter: saturate(1.02) blur(1.2px) !important;
+}
+
+.auth-body--faction .brand {
+  color: #f5fbff;
+}
+
+.auth-body--faction .brand__logo {
+  border-color: rgba(0, 196, 212, 0.34);
+  box-shadow:
+    0 0 18px rgba(0, 196, 212, 0.1),
+    inset 0 0 14px rgba(255, 255, 255, 0.04);
+}
+
+.auth-body--faction .brand__name {
+  color: #f7fbff;
+  text-shadow:
+    0 0 12px rgba(201, 214, 228, 0.16),
+    0 0 18px rgba(0, 196, 212, 0.1);
+}
+
+.auth-body--faction .faction-hero,
+.auth-body--faction .faction-detail,
+.auth-body--faction .gang-color-card,
+.auth-body--faction .avatar-card {
+  border: 1px solid var(--faction-panel-border);
+  background:
+    linear-gradient(135deg, rgba(0, 196, 212, 0.055), transparent 34% 76%, rgba(201, 214, 228, 0.035)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.022), transparent 36%),
+    rgba(2, 7, 15, 0.34) !important;
+  box-shadow: var(--faction-panel-glow), 0 14px 34px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(12px) saturate(1.04);
+  -webkit-backdrop-filter: blur(12px) saturate(1.04);
+}
+
+.auth-body--faction .faction-hero {
+  border-color: rgba(0, 196, 212, 0.24);
+}
+
+.auth-body--faction .faction-hero::before,
+.auth-body--faction .faction-detail::before,
+.auth-body--faction .faction-bonus::before {
+  background:
+    linear-gradient(90deg, transparent 0 84%, rgba(0, 196, 212, 0.08) 84% 85%, transparent 85%),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 8px);
+  opacity: 0.5;
+}
+
+.auth-body--faction .faction-hero__title {
+  color: #f7fbff;
+  background: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  font-family: "Bahnschrift", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.65rem;
+  letter-spacing: 0.02em;
+  text-shadow:
+    0 0 14px rgba(0, 196, 212, 0.28),
+    0 0 28px rgba(0, 196, 212, 0.12);
+}
+
+.auth-body--faction .faction-hero__copy {
+  color: rgba(201, 214, 228, 0.82);
+  font-size: 0.78rem;
+  text-shadow: none;
+}
+
+.auth-body--faction .structure-card {
+  border-color: rgba(110, 146, 178, 0.22);
+  background:
+    linear-gradient(180deg, rgba(1, 4, 10, 0.12), rgba(1, 4, 10, 0.44)),
+    linear-gradient(135deg, rgba(0, 196, 212, 0.045), transparent 48%, color-mix(in srgb, var(--structure-accent) 9%, transparent)),
+    linear-gradient(180deg, rgba(5, 12, 22, 0.55), rgba(2, 6, 13, 0.64)),
+    var(--structure-card-image, none);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    inset 0 0 18px rgba(0, 196, 212, 0.025),
+    0 10px 24px rgba(0, 0, 0, 0.28);
+  filter: saturate(0.96) brightness(0.94);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+}
+
+.auth-body--faction .structure-card[data-faction-id="mafian"] { --structure-card-image: url("../../img/btnfaction/mafia.JPG") center / cover; }
+.auth-body--faction .structure-card[data-faction-id="kartel"] { --structure-card-image: url("../../img/btnfaction/cartel.JPG") center / cover; }
+.auth-body--faction .structure-card[data-faction-id="kult"] { --structure-card-image: url("../../img/btnfaction/street.JPG") center / cover; }
+.auth-body--faction .structure-card[data-faction-id="tajna-organizace"] { --structure-card-image: url("../../img/btnfaction/secret.JPG") center / cover; }
+.auth-body--faction .structure-card[data-faction-id="hackeri"] { --structure-card-image: url("../../img/btnfaction/hackers.JPG") center / cover; }
+.auth-body--faction .structure-card[data-faction-id="motorkarsky-gang"] { --structure-card-image: url("../../img/btnfaction/moto.JPG") center / cover; }
+.auth-body--faction .structure-card[data-faction-id="soukroma-armada"] { --structure-card-image: url("../../img/btnfaction/army.JPG") center / cover; }
+.auth-body--faction .structure-card[data-faction-id="korporace"] { --structure-card-image: url("../../img/btnfaction/corporate.JPG") center / cover; }
+
+.auth-body--faction .structure-card::before {
+  background:
+    linear-gradient(180deg, rgba(2, 7, 15, 0.28), rgba(2, 7, 15, 0.42)),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.026) 0 1px, transparent 1px 8px);
+  opacity: 0.62;
+}
+
+.auth-body--faction .structure-card::after {
+  background:
+    linear-gradient(90deg, transparent, rgba(0, 196, 212, 0.72), transparent) bottom 11px left 14px / calc(100% - 28px) 2px no-repeat,
+    linear-gradient(180deg, rgba(201, 214, 228, 0.48), transparent) top 10px right 12px / 2px 18px no-repeat,
+    linear-gradient(90deg, transparent, rgba(201, 214, 228, 0.48)) top 10px right 12px / 18px 2px no-repeat;
+  filter: drop-shadow(0 0 8px rgba(0, 196, 212, 0.18));
+  opacity: 0.72;
+}
+
+.auth-body--faction .structure-card__title {
+  color: #f7fbff;
+  background: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  font-family: "Bahnschrift", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.02rem;
+  letter-spacing: 0.03em;
+  text-shadow:
+    0 0 12px rgba(0, 196, 212, 0.22),
+    0 0 18px rgba(0, 0, 0, 0.4);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .auth-body--faction .structure-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(0, 196, 212, 0.42);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      inset 0 0 20px rgba(0, 196, 212, 0.05),
+      0 14px 30px rgba(0, 0, 0, 0.34),
+      0 0 22px rgba(0, 196, 212, 0.14);
+    filter: saturate(1.04) brightness(1.02);
+  }
+}
+
+.auth-body--faction .structure-card--active,
+.auth-body--faction .structure-card.is-active {
+  border-color: rgba(0, 196, 212, 0.72);
+  background:
+    linear-gradient(180deg, rgba(0, 196, 212, 0.08), rgba(1, 4, 10, 0.36)),
+    linear-gradient(135deg, rgba(0, 196, 212, 0.12), transparent 50%, rgba(244, 196, 48, 0.08)),
+    linear-gradient(180deg, rgba(5, 12, 22, 0.52), rgba(2, 6, 13, 0.62)),
+    var(--structure-card-image, none);
+  box-shadow:
+    inset 0 0 0 1px rgba(178, 247, 255, 0.18),
+    inset 0 0 22px rgba(0, 196, 212, 0.08),
+    0 16px 34px rgba(0, 0, 0, 0.38),
+    0 0 24px rgba(0, 196, 212, 0.22),
+    0 0 40px rgba(0, 196, 212, 0.1);
+  filter: saturate(1.08) brightness(1.08);
+  animation: none !important;
+}
+
+.auth-body--faction .structure-card--active::after,
+.auth-body--faction .structure-card.is-active::after {
+  background:
+    linear-gradient(90deg, transparent, #84f0ff, transparent) bottom 11px left 14px / calc(100% - 28px) 2px no-repeat,
+    linear-gradient(180deg, rgba(244, 196, 48, 0.75), transparent) top 10px right 12px / 2px 18px no-repeat,
+    linear-gradient(90deg, transparent, rgba(244, 196, 48, 0.75)) top 10px right 12px / 18px 2px no-repeat;
+}
+
+.auth-body--faction .structure-card--active .structure-card__title,
+.auth-body--faction .structure-card.is-active .structure-card__title {
+  color: #ffffff;
+  text-shadow:
+    0 0 12px rgba(0, 196, 212, 0.46),
+    0 0 24px rgba(0, 196, 212, 0.18),
+    0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.auth-body--faction .faction-detail {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 196, 212, 0.64) rgba(3, 8, 18, 0.52);
+}
+
+.auth-body--faction .faction-detail::-webkit-scrollbar,
+.auth-body--faction .avatar-marquee::-webkit-scrollbar {
+  width: 6px;
+}
+
+.auth-body--faction .faction-detail::-webkit-scrollbar-track,
+.auth-body--faction .avatar-marquee::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(3, 8, 18, 0.52);
+}
+
+.auth-body--faction .faction-detail::-webkit-scrollbar-thumb,
+.auth-body--faction .avatar-marquee::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(0, 196, 212, 0.8), rgba(201, 214, 228, 0.54));
+}
+
+.auth-body--faction #faction-title {
+  color: #f7fbff;
+  font-family: "Bahnschrift", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.42rem;
+  letter-spacing: 0.02em;
+  text-shadow:
+    0 0 12px rgba(0, 196, 212, 0.24),
+    0 0 22px rgba(0, 196, 212, 0.08);
+}
+
+.auth-body--faction #faction-title::after {
+  background: linear-gradient(90deg, var(--faction-cyan), rgba(244, 196, 48, 0.7), transparent);
+  box-shadow: 0 0 14px rgba(0, 196, 212, 0.24);
+}
+
+.auth-body--faction #faction-desc {
+  border-color: rgba(0, 196, 212, 0.16);
+  background:
+    linear-gradient(135deg, rgba(0, 196, 212, 0.055), transparent 54%, rgba(201, 214, 228, 0.035)),
+    rgba(3, 8, 17, 0.46);
+  color: rgba(231, 238, 247, 0.94);
+  line-height: 1.58;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 22px rgba(0, 0, 0, 0.18);
+}
+
+.auth-body--faction .faction-bonus {
+  border-color: rgba(0, 196, 212, 0.16);
+  background:
+    linear-gradient(135deg, rgba(0, 196, 212, 0.055), transparent 58%, rgba(244, 196, 48, 0.045)),
+    rgba(3, 8, 17, 0.44);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 22px rgba(0, 0, 0, 0.18);
+}
+
+.auth-body--faction .faction-bonus__icon {
+  border-color: rgba(244, 196, 48, 0.34);
+  color: #ffe49a;
+  background:
+    linear-gradient(135deg, rgba(244, 196, 48, 0.16), rgba(0, 196, 212, 0.08)),
+    rgba(5, 10, 18, 0.6);
+  box-shadow:
+    0 0 16px rgba(244, 196, 48, 0.12),
+    inset 0 0 14px rgba(0, 196, 212, 0.04);
+  animation: none !important;
+}
+
+.auth-body--faction .faction-bonus__copy {
+  color: rgba(224, 234, 246, 0.92);
+  line-height: 1.55;
+}
+
+.auth-body--faction .faction-bonus__copy strong {
+  min-height: 25px;
+  border-color: rgba(0, 196, 212, 0.22);
+  background:
+    linear-gradient(135deg, rgba(0, 196, 212, 0.12), rgba(201, 214, 228, 0.035)),
+    rgba(4, 10, 18, 0.58);
+  color: #eaffff;
+  font-family: "Bahnschrift", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.09em;
+  box-shadow: inset 0 0 12px rgba(0, 196, 212, 0.04);
+}
+
+.auth-body--faction .gang-color-card h2,
+.auth-body--faction .avatar-card h2 {
+  color: #f7fbff;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 0 12px rgba(0, 196, 212, 0.18);
+}
+
+.auth-body--faction .gang-color-card .muted,
+.auth-body--faction .avatar-card .muted {
+  color: rgba(183, 199, 217, 0.78);
+}
+
+.auth-body--faction .gang-color-grid {
+  align-items: center;
+}
+
+.auth-body--faction .gang-color-swatch {
+  border: 1px solid rgba(201, 214, 228, 0.34);
+  border-radius: 8px;
+  box-shadow:
+    inset 0 0 0 1px rgba(2, 6, 13, 0.42),
+    inset 0 -14px 24px rgba(2, 6, 13, 0.34),
+    0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
+.auth-body--faction .gang-color-swatch:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0, 196, 212, 0.66);
+  box-shadow:
+    0 0 0 1px rgba(0, 196, 212, 0.2),
+    0 0 18px rgba(0, 196, 212, 0.14),
+    inset 0 0 0 1px rgba(2, 6, 13, 0.38),
+    inset 0 -14px 24px rgba(2, 6, 13, 0.3);
+}
+
+.auth-body--faction .gang-color-swatch.is-selected {
+  border-color: rgba(244, 196, 48, 0.86);
+  box-shadow:
+    0 0 14px rgba(244, 196, 48, 0.46),
+    0 0 28px rgba(244, 196, 48, 0.28),
+    0 0 38px rgba(0, 196, 212, 0.18),
+    inset 0 -14px 24px rgba(2, 6, 13, 0.18);
+}
+
+.auth-body--faction .gang-color-swatch.is-selected::before {
+  content: none;
+}
+
+.auth-body--faction .gang-color-meta {
+  display: none;
+}
+
+.auth-body--faction .avatar-marquee {
+  border-color: rgba(0, 196, 212, 0.18);
+  background:
+    linear-gradient(135deg, rgba(0, 196, 212, 0.035), transparent 52%, rgba(201, 214, 228, 0.03)),
+    rgba(2, 7, 15, 0.34);
+  box-shadow:
+    inset 0 0 18px rgba(0, 196, 212, 0.035),
+    0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+.auth-body--faction .avatar-item {
+  position: relative;
+  border: 1px solid rgba(110, 146, 178, 0.24);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+    rgba(3, 8, 18, 0.58);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.025),
+    0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
+.auth-body--faction .avatar-item img {
+  filter: saturate(1.04) contrast(1.02);
+}
+
+.auth-body--faction .avatar-item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 196, 212, 0.5);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+    0 12px 24px rgba(0, 0, 0, 0.28),
+    0 0 20px rgba(0, 196, 212, 0.14);
+}
+
+.auth-body--faction .avatar-item:hover img {
+  transform: scale(1.035);
+}
+
+.auth-body--faction .avatar-item.is-selected {
+  border-color: rgba(0, 196, 212, 0.74);
+  box-shadow:
+    0 0 0 1px rgba(0, 196, 212, 0.24),
+    0 0 22px rgba(0, 196, 212, 0.18),
+    0 0 28px rgba(244, 196, 48, 0.08),
+    inset 0 0 18px rgba(0, 196, 212, 0.06);
+}
+
+.auth-body--faction .avatar-item.is-selected::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--faction-gold);
+  box-shadow: 0 0 12px rgba(244, 196, 48, 0.62);
+}
+
+.auth-body--faction .avatar-track__hint {
+  color: rgba(201, 214, 228, 0.78);
+}
+
+.auth-body--faction .faction-links {
+  gap: 10px;
+}
+
+.auth-body--faction .faction-link {
+  height: 46px;
+  border-radius: 8px;
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  font-family: "Bahnschrift", "Segoe UI", system-ui, sans-serif;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.auth-body--faction .faction-link--secondary {
+  border-color: rgba(201, 214, 228, 0.26);
+  background:
+    linear-gradient(135deg, rgba(201, 214, 228, 0.08), transparent 56%, rgba(0, 196, 212, 0.04)),
+    rgba(4, 10, 18, 0.42);
+  color: rgba(229, 237, 245, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 0 18px rgba(201, 214, 228, 0.035),
+    0 0 14px rgba(0, 0, 0, 0.14);
+}
+
+.auth-body--faction #go-game {
+  border-color: rgba(0, 196, 212, 0.48);
+  background:
+    linear-gradient(135deg, rgba(40, 227, 245, 0.32), rgba(15, 102, 125, 0.36) 52%, rgba(201, 214, 228, 0.1)),
+    rgba(4, 12, 20, 0.68);
+  color: #eaffff;
+  box-shadow:
+    0 0 18px rgba(0, 196, 212, 0.18),
+    0 0 34px rgba(0, 196, 212, 0.12),
+    inset 0 0 22px rgba(0, 196, 212, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.auth-body--faction .faction-link:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0, 196, 212, 0.5);
+  box-shadow:
+    0 0 22px rgba(0, 196, 212, 0.2),
+    inset 0 0 18px rgba(0, 196, 212, 0.06);
+}
+
+.auth-body--faction .faction-link--secondary:hover {
+  border-color: rgba(201, 214, 228, 0.38);
+  box-shadow:
+    0 0 18px rgba(201, 214, 228, 0.13),
+    inset 0 0 18px rgba(201, 214, 228, 0.05);
+}
+
+.auth-body--faction .faction-link--disabled,
+.auth-body--faction #go-game.faction-link--disabled {
+  opacity: 0.52;
+  border-color: rgba(110, 146, 178, 0.18);
+  color: rgba(149, 167, 188, 0.78);
+  background:
+    linear-gradient(135deg, rgba(110, 146, 178, 0.04), transparent 60%, rgba(201, 214, 228, 0.025)),
+    rgba(3, 8, 15, 0.3);
+  box-shadow:
+    inset 0 0 14px rgba(110, 146, 178, 0.02),
+    0 0 10px rgba(0, 0, 0, 0.1);
+  filter: none;
+}
+
+.auth-body--faction .faction-note,
+.auth-body--faction .faction-page__status {
+  min-height: 26px;
+  padding: 6px 10px;
+  border: 1px solid rgba(244, 196, 48, 0.16);
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, rgba(244, 196, 48, 0.07), transparent 72%),
+    rgba(20, 16, 7, 0.24);
+  color: rgba(235, 218, 174, 0.86);
+  font-weight: 800;
+}
+
+.auth-body--faction .faction-page__status.hidden {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .auth-body--faction .auth-card--faction {
+    background:
+      linear-gradient(135deg, rgba(0, 196, 212, 0.045), transparent 30% 72%, rgba(201, 214, 228, 0.035)),
+      rgba(1, 5, 12, 0.34) !important;
+    backdrop-filter: blur(10px) saturate(1.04);
+    -webkit-backdrop-filter: blur(10px) saturate(1.04);
+  }
+
+  .auth-body--faction .faction-hero__title {
+    font-size: 1.35rem;
+  }
+
+  .auth-body--faction .structure-card__title {
+    font-size: 0.9rem;
+  }
+
+  .auth-body--faction .faction-link {
+    height: 44px;
+    font-size: 0.72rem;
+  }
+}
+
+@media (min-width: 901px) and (max-height: 760px) {
+  .auth-body--faction .faction-hero__title {
+    font-size: 1.25rem;
+  }
+
+  .auth-body--faction .structure-card__title {
+    font-size: 0.84rem;
+  }
+
+  .auth-body--faction .faction-link {
+    height: 40px;
+  }
+}
+
+.auth-body--faction .structure-card__recommendation {
+  position: relative;
+  z-index: 2;
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 4px 7px;
+  border: 1px solid rgba(250, 204, 21, 0.46);
+  border-radius: 999px;
+  background: rgba(12, 10, 4, 0.54);
+  color: #fde68a;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 0 14px rgba(250, 204, 21, 0.14);
+}
+
+.auth-body--faction .faction-bonus__copy--rows {
+  display: grid;
+  gap: 9px;
+}
+
+.auth-body--faction .faction-bonus__row {
+  display: grid;
+  grid-template-columns: minmax(108px, 0.38fr) 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 8px 10px;
+  border: 1px solid rgba(103, 232, 249, 0.12);
+  border-radius: 8px;
+  background: rgba(2, 8, 16, 0.42);
+}
+
+.auth-body--faction .faction-bonus__row strong {
+  color: #f8fafc;
+  font-size: 0.64rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.auth-body--faction .faction-bonus__row span {
+  color: rgba(214, 244, 255, 0.78);
+  line-height: 1.42;
+}
+
+.auth-body--faction .faction-bonus__row em {
+  color: #fde68a;
+  font-style: normal;
+  font-weight: 800;
+}
+
+@media (max-width: 640px) {
+  .auth-body--faction .faction-bonus__row {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 }

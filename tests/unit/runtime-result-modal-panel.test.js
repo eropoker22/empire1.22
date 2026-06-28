@@ -64,6 +64,10 @@ class FakeElement {
     }
   }
 
+  removeAttribute(name) {
+    this.attributes.delete(name);
+  }
+
   matches(selector) {
     if (selector.startsWith("#")) {
       return this.id === selector.slice(1);

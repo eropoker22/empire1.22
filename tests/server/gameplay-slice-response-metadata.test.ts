@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { createServerApp } from "../../apps/server/src/app";
-import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap";
 import { createPlaceTrapCommandFixture } from "../fixtures/command-fixtures";
+import { createDevGameplaySession, loadWithDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 describe("gameplay slice response metadata", () => {
   it("load response carries the current server tick and state version", async () => {
     const server = createServerApp();
     const instanceId = "instance:metadata:load";
 
-    await ensureGameplaySliceSessionResult(server.instanceManager, {
+    const session = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId: "player:metadata:load",
       districtId: "district:501"
@@ -23,11 +23,7 @@ describe("gameplay slice response metadata", () => {
     runtime.state.root.tick = 17;
     runtime.state.root.version = 23;
 
-    const response = server.gameplaySliceTransport.load({
-      serverInstanceId: instanceId,
-      playerId: "player:metadata:load",
-      districtId: "district:501"
-    });
+    const response = await server.gameplaySliceTransport.load(session.loadRequest);
 
     expect(response.accepted).toBe(true);
     expect(response.metadata).toEqual({
@@ -40,7 +36,7 @@ describe("gameplay slice response metadata", () => {
     const server = createServerApp();
     const instanceId = "instance:metadata:submit";
 
-    await ensureGameplaySliceSessionResult(server.instanceManager, {
+    const { sessionToken } = await loadWithDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId: "player:metadata:submit",
       districtId: "district:601"
@@ -54,14 +50,8 @@ describe("gameplay slice response metadata", () => {
 
     runtime.state.root.tick = 31;
     runtime.state.root.version = 41;
-    const load = server.gameplaySliceTransport.load({
-      serverInstanceId: instanceId,
-      playerId: "player:metadata:submit",
-      districtId: "district:601"
-    });
-
     const response = await server.gameplaySliceTransport.submit({
-      sessionToken: load.sessionToken,
+      sessionToken,
       focusDistrictId: "district:601",
       command: createPlaceTrapCommandFixture({
         id: "command:metadata:submit:1",

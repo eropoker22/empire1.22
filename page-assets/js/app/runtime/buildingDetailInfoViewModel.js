@@ -143,7 +143,10 @@ export function createBuildingDetailInfoRows({
       createInfoLine("Další level", "Budova už je na maximu.")
     ];
   } else if (mechanics.mechanicsType === "school") {
-    return [];
+    return [
+      createInfoLine("Výsledek talentu", "Úspěšný trénink: zapíše se do uličních zpráv."),
+      createInfoLine("Pravidla", "Škola je podpůrná budova; autoritativní efekt dál potvrzuje server.")
+    ];
   } else if (mechanics.mechanicsType === "warehouse") {
     rows.push(
       createInfoLine("Vlastněné sklady", `${mechanics.ownedWarehouses}/18`),

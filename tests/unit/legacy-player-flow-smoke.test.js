@@ -12,7 +12,7 @@ import { STORAGE_KEYS } from "../../page-assets/js/config.js";
 
 const root = process.cwd();
 const SESSION_STORAGE_KEY = STORAGE_KEYS.session;
-const CANONICAL_WAR_SERVER_ID = "instance:war:eu-central:public-1";
+const CANONICAL_FREE_SERVER_ID = "instance:free:eu-central:public-1";
 
 const read = (relativePath) => readFileSync(resolve(root, relativePath), "utf8");
 const page = (name) => read(`pages/${name}`);
@@ -77,22 +77,22 @@ describe("legacy player flow smoke guard", () => {
       identity: "Flow Boss",
       isGuest: false,
       gangName: "Flow Crew",
-      mode: "war"
+      mode: "free"
     });
 
     expect(readSession().registration).toMatchObject({
       identity: "Flow Boss",
       gangName: "Flow Crew",
-      serverMode: "war",
+      serverMode: "free",
       loginKind: "account"
     });
 
-    saveLobbyStep({ serverId: "war-eu-01", districtId: 27 });
+    saveLobbyStep({ serverId: "free-eu-01", districtId: 27 });
     expect(readSession().registration).toMatchObject({
-      activeServerId: CANONICAL_WAR_SERVER_ID,
-      activeServerInstanceId: CANONICAL_WAR_SERVER_ID,
-      serverId: CANONICAL_WAR_SERVER_ID,
-      serverInstanceId: CANONICAL_WAR_SERVER_ID,
+      activeServerId: CANONICAL_FREE_SERVER_ID,
+      activeServerInstanceId: CANONICAL_FREE_SERVER_ID,
+      serverId: CANONICAL_FREE_SERVER_ID,
+      serverInstanceId: CANONICAL_FREE_SERVER_ID,
       preferredStartDistrictId: 27,
       startDistrictId: 27,
       serverRegistrationStatus: "server_selected"

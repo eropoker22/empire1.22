@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="../page-assets/css/styles-static-hover.css">
   </head>
   <body class="auth-body auth-body--login auth-body--free servers-page lobby-command-body">
-    <main id="lobby-root" class="lobby-command" data-page="lobby" data-testid="lobby-page">
+    <main id="lobby-roaž to celot" class="lobby-command" data-page="lobby" data-testid="lobby-page">
       <div class="lobby-bg" aria-hidden="true">
         <span class="lobby-scan"></span>
       </div>
@@ -75,9 +75,6 @@
             </div>
 
             <section class="lobby-profile-card" aria-label="Hráč a výběr" data-lobby-profile-card>
-              <div>
-                <strong class="lobby-profile-card__name" data-lobby-user>Host</strong>
-              </div>
               <div class="lobby-profile-card__summary">
                 <span data-lobby-summary-cell="server">SERVER <strong data-lobby-summary-server>Nevybrán</strong></span>
                 <span data-lobby-summary-cell="mode">REŽIM <strong data-lobby-summary-mode>FREE Battle Royale</strong></span>
@@ -119,7 +116,10 @@
                 <span>ONLINE</span>
               </div>
               <div class="lobby-detail-heat">
-                <span>RIZIKO</span>
+                <div class="lobby-detail-heat__copy">
+                  <span>RIZIKO</span>
+                  <p data-lobby-risk-note>Klidný start</p>
+                </div>
                 <div class="lobby-risk-ring" data-lobby-risk-ring style="--risk-value: 0%" aria-label="Riziko 0 procent">
                   <strong data-lobby-risk-value>0 %</strong>
                 </div>
@@ -133,7 +133,7 @@
               <p class="lobby-detail-description" data-lobby-detail-description>Vyber server pro detail.</p>
               <div class="lobby-detail-actions">
                 <button class="lobby-primary-cta" type="button" data-lobby-open-selected data-testid="open-server-district-select">VYBRAT DISTRICT <span>›</span></button>
-                <button class="lobby-primary-cta lobby-primary-cta--enter" type="button" data-lobby-enter-selected data-testid="enter-selected-server" disabled>VSTOUPIT NA SERVER <span>›</span></button>
+                <button class="lobby-primary-cta lobby-primary-cta--enter" type="button" data-lobby-enter-selected data-testid="enter-selected-server" disabled>ZAČNI ZDARMA <span>›</span></button>
               </div>
               <p class="lobby-server-detail-card__notice">⚠ Po výběru již nelze district změnit.</p>
             </section>

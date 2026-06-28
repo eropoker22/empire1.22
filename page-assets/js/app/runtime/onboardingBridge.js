@@ -98,6 +98,7 @@ function eventCompletesStep(eventType = "", detail = {}) {
   const actionId = String(detail.actionId || detail.kind || "").trim();
   if (eventType === "onboarding:next") return detail.stepId;
   if (eventType === "win-condition:read") return "win-condition";
+  if (eventType === "spawn:selected" || eventType === "spawn:confirmed") return "spawn-selection";
   if (eventType === "district:own-opened" || eventType === "empire:district-opened") return "your-district";
   if (eventType === "district:stats-read") return "district-stats";
   if (eventType === "building:opened" || eventType === "empire:building-opened") return "buildings";
@@ -359,6 +360,10 @@ export function createOnboardingBridge(deps = {}) {
       }
       if (target.closest("[data-br-info-open]")) {
         update({ type: "elimination:opened" });
+        return;
+      }
+      if (target.closest("[data-select-spawn-district-id]")) {
+        update({ type: "spawn:selected" });
         return;
       }
       const actionButton = target.closest("[data-district-action-id]");

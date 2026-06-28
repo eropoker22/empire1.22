@@ -5,7 +5,7 @@ describe("gameplay slice json handler", () => {
   it("routes load and submit requests to the gameplay slice transport", async () => {
     const calls: string[] = [];
     const handler = createGameplaySliceJsonHandler({
-      load: (request) => {
+      load: async (request) => {
         calls.push(`load:${request.districtId}`);
         return {
           accepted: true,
@@ -156,7 +156,7 @@ describe("gameplay slice json handler", () => {
   it("allows first load without a concrete district and rejects server-assigned focus on submit", async () => {
     const calls: string[] = [];
     const handler = createGameplaySliceJsonHandler({
-      load: (request) => {
+      load: async (request) => {
         calls.push(`load:${request.districtId ?? "server-assigned"}`);
         return {
           accepted: true,

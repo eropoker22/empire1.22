@@ -5,6 +5,7 @@ import type { GameplaySliceView, LoadGameplaySliceRequest, SelectSpawnDistrictCo
 import { createServerApp } from "../../apps/server/src/app";
 import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap/gameplay-slice-session-bootstrap";
 import { sharedCitySpawnDistrictIds } from "../../apps/server/src/bootstrap/gameplay-slice-shared-city-seed";
+import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 type TestLoadRequest = LoadGameplaySliceRequest & {
   playerId: string;
@@ -48,7 +49,7 @@ describe("gameplay slice multiplayer join bootstrap", () => {
     await ensureGameplaySliceSessionResult(server.instanceManager, secondRequest);
 
     const firstSpawn = await submitSelectSpawn(server, firstRequest, sharedCitySpawnDistrictIds[0]);
-    const secondRead = server.gameplaySliceTransport.load(secondRequest).readModel as GameplaySliceView;
+    const secondRead = (await loadGameplaySlice(server, secondRequest)).readModel as GameplaySliceView;
 
     expect(firstSpawn.accepted).toBe(true);
     expect(secondRead.spawnSelection?.status).toBe("awaiting_spawn_selection");
@@ -72,7 +73,7 @@ describe("gameplay slice multiplayer join bootstrap", () => {
 
     const response = await submitSelectSpawn(server, request, sharedCitySpawnDistrictIds[5]);
     const runtime = server.instanceManager.getInstanceById(request.serverInstanceId)!;
-    const readModel = server.gameplaySliceTransport.load(request).readModel as GameplaySliceView;
+    const readModel = (await loadGameplaySlice(server, request)).readModel as GameplaySliceView;
 
     expect(response.accepted).toBe(true);
     expect(runtime.state.playersById[request.playerId]?.homeDistrictId).toBe(sharedCitySpawnDistrictIds[5]);
@@ -180,13 +181,35 @@ const submitSelectSpawn = async (
   districtId: string,
   commandId?: string
 ) => {
-  const load = server.gameplaySliceTransport.load(request);
+  const sessionRequest = await withDevSession(server, request);
+  const load = await server.gameplaySliceTransport.load(sessionRequest);
   return server.gameplaySliceTransport.submit({
     command: createSelectSpawnCommand(request, districtId, commandId),
     expectedStateVersion: load.metadata?.stateVersion ?? null,
-    sessionToken: load.sessionToken,
+    sessionToken: sessionRequest.sessionToken,
     focusDistrictId: districtId
   });
+};
+
+const loadGameplaySlice = async (
+  server: ReturnType<typeof createServerApp>,
+  request: LoadGameplaySliceRequest
+) => server.gameplaySliceTransport.load(await withDevSession(server, request));
+
+const withDevSession = async (
+  server: ReturnType<typeof createServerApp>,
+  request: LoadGameplaySliceRequest
+): Promise<LoadGameplaySliceRequest> => {
+  if (request.sessionToken) {
+    return request;
+  }
+  return (await createDevGameplaySession(server, {
+    serverInstanceId: request.serverInstanceId,
+    playerId: request.playerId ?? "",
+    districtId: request.districtId,
+    preferredStartDistrictId: request.preferredStartDistrictId,
+    factionId: request.factionId
+  })).loadRequest;
 };
 
 const getClaimedSpawnDistrictIds = (state: CoreGameState): string[] =>

@@ -268,17 +268,17 @@ describe("free-mode shared city simulation harness", () => {
       .toEqual(expect.arrayContaining(["no-accepted-actions", "first-action-deadlock"]));
   });
 
-  it("selects actions according to deterministic bot profile policies", () => {
+  it("selects actions according to deterministic bot profile policies", async () => {
     const runtime = createPolicyRuntime();
     const loadView = () => createPolicyView();
     const spiedRoutes = new Set<string>();
 
-    expect(selectSimulationAction(runtime, "player:policy", 1, 0, spiedRoutes, "scout", loadView)?.command.type).toBe("spy-district");
-    expect(selectSimulationAction(runtime, "player:policy", 1, 0, spiedRoutes, "aggressor", loadView)?.command.type).toBe("attack-district");
-    expect(selectSimulationAction(runtime, "player:policy", 1, 0, spiedRoutes, "economy", loadView)?.command.type).toBe("collect-production");
-    expect(selectSimulationAction(runtime, "player:policy", 3, 0, spiedRoutes, "balanced", loadView)?.command.type).toBe("attack-district");
-    expect(selectSimulationAction(runtime, "player:policy", 1, 0, spiedRoutes, "balanced", loadView)?.command.type).toBe("spy-district");
-    expect(selectSimulationAction(runtime, "player:policy", 2, 0, spiedRoutes, "balanced", loadView)?.command.type).toBe("collect-production");
+    expect((await selectSimulationAction(runtime, "player:policy", 1, 0, spiedRoutes, "scout", loadView))?.command.type).toBe("spy-district");
+    expect((await selectSimulationAction(runtime, "player:policy", 1, 0, spiedRoutes, "aggressor", loadView))?.command.type).toBe("attack-district");
+    expect((await selectSimulationAction(runtime, "player:policy", 1, 0, spiedRoutes, "economy", loadView))?.command.type).toBe("collect-production");
+    expect((await selectSimulationAction(runtime, "player:policy", 3, 0, spiedRoutes, "balanced", loadView))?.command.type).toBe("attack-district");
+    expect((await selectSimulationAction(runtime, "player:policy", 1, 0, spiedRoutes, "balanced", loadView))?.command.type).toBe("spy-district");
+    expect((await selectSimulationAction(runtime, "player:policy", 2, 0, spiedRoutes, "balanced", loadView))?.command.type).toBe("collect-production");
   });
 
   it("assigns mixed bot profiles deterministically", () => {

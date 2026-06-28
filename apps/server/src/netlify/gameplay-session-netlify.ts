@@ -10,6 +10,11 @@ import { ensureGameplaySliceSessionResult } from "../bootstrap";
 import type { SnapshotTokenCodec } from "../runtime/persistence/services";
 import type { GameplaySessionTokenCodec } from "../transport/gameplay-session-token-codec";
 import { createJsonResponse, type NetlifyFunctionResponse } from "./netlify-json-response";
+import {
+  createGameplaySessionClearCookie,
+  createGameplaySessionSetCookie,
+  readGameplaySessionCookie
+} from "./gameplay-session-cookie";
 
 interface GameplaySessionNetlifyHandlersOptions {
   server: ServerApp;
@@ -25,7 +30,8 @@ export const createGameplaySessionNetlifyHandlers = (
 ) => ({
   handleJoin: (body: unknown, headers?: Record<string, string | string[] | undefined>) =>
     handleJoin(options, body, headers),
-  handleLogout: (body: unknown) => handleLogout(options, body),
+  handleLogout: (body: unknown, headers?: Record<string, string | string[] | undefined>) =>
+    handleLogout(options, body, headers),
   validateProductionSessionRuntime: () => validateProductionSessionRuntime(options)
 });
 
@@ -42,7 +48,7 @@ const handleJoin = async (
   if (!identity) {
     return createJsonResponse(200, createErrorResponse("SESSION_REQUIRED", "Account identity is required for join."));
   }
-  const consumed = options.server.gameplaySessionService.consumeJoinTicket({
+  const consumed = await options.server.gameplaySessionService.consumeJoinTicket({
     ticketId: String(request.joinTicket ?? ""),
     accountId: identity.accountId,
     serverInstanceId: String(request.serverInstanceId ?? ""),
@@ -69,7 +75,7 @@ const handleJoin = async (
   if (!runtime) {
     return createJsonResponse(200, createErrorResponse("server.instance_not_found", "Joined runtime was not found."));
   }
-  const session = options.server.gameplaySessionService.createSession({
+  const session = await options.server.gameplaySessionService.createSession({
     registration: consumed.registration,
     nowIso: runtime.clock.nowIso(),
     ttlMs: runtime.config.technical.sessionTtlMs
@@ -94,30 +100,54 @@ const handleJoin = async (
       sessionToken
     }
   });
-  return options.toFunctionResponse({
+  const bodySessionToken = options.environment?.NODE_ENV === "production" ? null : sessionToken;
+  const functionResponse = await options.toFunctionResponse({
     status: response.status,
     body: {
       ...response.body,
-      sessionToken
+      sessionToken: bodySessionToken
     }
   }, session.serverInstanceId);
+  return {
+    ...functionResponse,
+    headers: {
+      ...functionResponse.headers,
+      "set-cookie": createGameplaySessionSetCookie(sessionToken, session.expiresAt, options.environment)
+    }
+  };
 };
 
-const handleLogout = (
+const handleLogout = async (
   options: GameplaySessionNetlifyHandlersOptions,
-  body: unknown
-): NetlifyFunctionResponse => {
+  body: unknown,
+  headers?: Record<string, string | string[] | undefined>
+): Promise<NetlifyFunctionResponse> => {
   const request = (isRecord(body) ? body : {}) as unknown as LogoutGameplaySliceRequest;
-  const tokenPayload = options.sessionTokenCodec.open(String(request.sessionToken ?? ""));
-  if (!tokenPayload) {
-    return createJsonResponse(200, createErrorResponse("SESSION_INVALID", "Gameplay session is invalid."));
+  const token = resolveRequestSessionToken(headers, request.sessionToken, options.environment);
+  if (!token) {
+    return createJsonResponse(200, {
+      accepted: true,
+      readModel: null,
+      errors: [],
+      sessionToken: null
+    }, {
+      "set-cookie": createGameplaySessionClearCookie(options.environment)
+    });
   }
-  options.server.gameplaySessionService.revokeSession(String(tokenPayload.sessionId), new Date().toISOString());
+  const tokenPayload = options.sessionTokenCodec.open(token);
+  if (!tokenPayload) {
+    return createJsonResponse(200, createErrorResponse("SESSION_INVALID", "Gameplay session is invalid."), {
+      "set-cookie": createGameplaySessionClearCookie(options.environment)
+    });
+  }
+  await options.server.gameplaySessionService.revokeSession(String(tokenPayload.sessionId), new Date().toISOString());
   return createJsonResponse(200, {
     accepted: true,
     readModel: null,
     errors: [],
     sessionToken: null
+  }, {
+    "set-cookie": createGameplaySessionClearCookie(options.environment)
   });
 };
 
@@ -131,6 +161,12 @@ const validateProductionSessionRuntime = (
     return {
       code: "SESSION_INVALID",
       message: "Production gameplay session repository is not configured."
+    };
+  }
+  if (!options.server.accountIdentityProvider.productionReady) {
+    return {
+      code: "SESSION_INVALID",
+      message: "Production account identity provider is not configured."
     };
   }
   return null;
@@ -155,3 +191,14 @@ const createErrorResponseFromErrors = (
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+const resolveRequestSessionToken = (
+  headers: Record<string, string | string[] | undefined> | undefined,
+  bodySessionToken: unknown,
+  environment?: Record<string, string | undefined>
+): string | null => {
+  const cookieToken = String(readGameplaySessionCookie(headers) ?? "").trim();
+  if (cookieToken) return cookieToken;
+  if (environment?.NODE_ENV === "production") return null;
+  return String(bodySessionToken ?? "").trim() || null;
+};

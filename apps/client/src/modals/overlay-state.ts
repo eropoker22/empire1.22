@@ -134,3 +134,25 @@ export const closeOverlay = (_reason: string): void => {
 export const isOverlayOpen = (): boolean => overlayStack.length > 0;
 
 export const getTopOverlay = (): OverlayType | null => overlayStack.at(-1)?.type ?? null;
+
+export const resetOverlayStateForTests = (): void => {
+  overlayStack.splice(0, overlayStack.length);
+  suppressMapInputUntil = 0;
+
+  const body = getBody();
+  if (!body) {
+    return;
+  }
+
+  const savedStyles = bodyStyleSnapshot.get(body);
+  if (savedStyles) {
+    body.style.left = savedStyles.left;
+    body.style.position = savedStyles.position;
+    body.style.right = savedStyles.right;
+    body.style.top = savedStyles.top;
+    body.style.width = savedStyles.width;
+    bodyStyleSnapshot.delete(body);
+  }
+
+  delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
+};

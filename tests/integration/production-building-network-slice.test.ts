@@ -7,6 +7,7 @@ import {
 import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 import { createServerApp } from "../../apps/server/src/app";
 import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
+import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 describe("production building network gameplay slice", () => {
   it("exposes pharmacy, drug lab, factory and armory as fixed production/craft slots", async () => {
@@ -33,11 +34,12 @@ describe("production building network gameplay slice", () => {
     const client = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
     });
-    const initialRender = await client.load({
+    const session = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId,
       districtId
     });
+    const initialRender = await client.load(session.loadRequest);
 
     expect(initialRender.sidePanelHtml).toContain("Produkční sloty");
     expect(initialRender.sidePanelHtml).toContain('data-slot-building-type="pharmacy"');

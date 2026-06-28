@@ -26,7 +26,7 @@ export interface GameplaySliceTransportOptions {
  * Does not belong here: gameplay rules or client rendering.
  */
 export interface GameplaySliceTransport {
-  load(request: LoadGameplaySliceRequest): GameplaySliceResponse;
+  load(request: LoadGameplaySliceRequest): Promise<GameplaySliceResponse>;
   submit(request: SubmitGameplayCommandRequest, authContext?: AuthContext | null): Promise<GameplaySliceResponse>;
 }
 
@@ -36,8 +36,13 @@ export const createGameplaySliceTransport = (
   options: GameplaySliceTransportOptions = {}
 ): GameplaySliceTransport => {
   return {
-    load: (request) => {
-      const sessionResult = validateRequestSession(request.sessionToken, request.serverInstanceId);
+    load: async (request) => {
+      const runtime = instanceManager.getInstanceById(request.serverInstanceId);
+      const sessionResult = await validateRequestSession(
+        request.sessionToken,
+        request.serverInstanceId,
+        runtime?.clock.nowIso()
+      );
       if (!sessionResult.accepted) {
         return {
           accepted: false,
@@ -45,7 +50,6 @@ export const createGameplaySliceTransport = (
           errors: sessionResult.errors
         };
       }
-      const runtime = instanceManager.getInstanceById(request.serverInstanceId);
 
       if (!runtime) {
         return createNotFoundResponse("Slice runtime or projection was not found.");
@@ -59,9 +63,25 @@ export const createGameplaySliceTransport = (
       };
     },
     submit: async (request, authContext) => {
-      const tokenPayload = options.sessionTokenCodec?.open(String(request.sessionToken ?? ""));
-      const sessionResult = validateRequestSession(tokenPayload?.sessionId, request.command.serverInstanceId);
+      const runtimeForSession = instanceManager.getInstanceById(request.command.serverInstanceId);
+      const sessionResult = await validateRequestSession(
+        request.sessionToken,
+        request.command.serverInstanceId,
+        runtimeForSession?.clock.nowIso()
+      );
       if (!sessionResult.accepted) {
+        const runtime = runtimeForSession;
+        if (runtime) {
+          void writeCommandRejectionDiagnostic({
+            runtime,
+            command: request.command,
+            errors: sessionResult.errors,
+            category: "transport_rejected",
+            message: "Command rejected by transport session guard.",
+            expectedStateVersion: request.expectedStateVersion,
+            focusDistrictId: request.focusDistrictId
+          });
+        }
         return {
           accepted: false,
           readModel: null,
@@ -173,9 +193,10 @@ export const createGameplaySliceTransport = (
     }
   };
 
-  function validateRequestSession(
+  async function validateRequestSession(
     sessionTokenOrId: string | null | undefined,
-    serverInstanceId: string
+    serverInstanceId: string,
+    nowIso = new Date().toISOString()
   ): ReturnType<GameplaySessionService["validateSession"]> {
     if (!options.gameplaySessionService) {
       return {
@@ -186,11 +207,21 @@ export const createGameplaySliceTransport = (
         }]
       };
     }
-    const tokenPayload = options.sessionTokenCodec?.open(String(sessionTokenOrId ?? ""));
+    const rawSessionTokenOrId = String(sessionTokenOrId ?? "").trim();
+    const tokenPayload = options.sessionTokenCodec?.open(rawSessionTokenOrId);
+    if (options.sessionTokenCodec && rawSessionTokenOrId && !tokenPayload) {
+      return {
+        accepted: false,
+        errors: [{
+          code: "SESSION_INVALID",
+          message: "Gameplay session token is invalid."
+        }]
+      };
+    }
     return options.gameplaySessionService.validateSession({
       sessionId: tokenPayload?.sessionId ?? sessionTokenOrId,
       serverInstanceId,
-      nowIso: new Date().toISOString()
+      nowIso
     });
   }
 };

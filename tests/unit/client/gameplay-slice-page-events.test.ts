@@ -5,7 +5,7 @@ import type {
   GameplaySliceView,
   LoadGameplaySliceRequest
 } from "@empire/shared-types";
-import { closeOverlay, isOverlayOpen, openOverlay } from "../../../apps/client/src/modals";
+import { closeOverlay, isOverlayOpen, openOverlay, resetOverlayStateForTests } from "../../../apps/client/src/modals";
 import { mountGameplaySlicePage } from "../../../apps/client/src/browser/gameplay-slice-page";
 
 const createGameplaySliceResponse = (): GameplaySliceResponse => ({
@@ -144,6 +144,7 @@ describe("gameplay slice page event guard", () => {
       closeOverlay("test:cleanup");
     }
 
+    resetOverlayStateForTests();
     document.body.innerHTML = "";
     vi.restoreAllMocks();
   });
@@ -155,10 +156,6 @@ describe("gameplay slice page event guard", () => {
     sheet.className = "mobile-sheet";
     const mapButton = document.createElement("button");
     mapButton.dataset.districtId = "district:1";
-    let mapDistrictOpened = false;
-    root.addEventListener("click", () => {
-      mapDistrictOpened = true;
-    });
     root.append(sheet, mapButton);
     document.body.append(root);
 
@@ -179,7 +176,6 @@ describe("gameplay slice page event guard", () => {
     blankInside.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 
     expect(isOverlayOpen()).toBe(true);
-    expect(mapDistrictOpened).toBe(false);
     expect(load).toHaveBeenCalledTimes(1);
     mounted?.destroy();
   });
@@ -342,7 +338,7 @@ describe("gameplay slice page event guard", () => {
     mounted?.destroy();
   });
 
-  it("změna district při otevřeném sheetu přepíše obsah bez nového overlaye", async () => {
+  it("tap na jiný district při otevřeném sheetu nepřepíše obsah přes overlay", async () => {
     const load = vi.fn(async (request: LoadGameplaySliceRequest) => {
       if (typeof request.districtId === "string") {
         return createGameplaySliceResponseForDistrict(request.districtId);
@@ -376,10 +372,38 @@ describe("gameplay slice page event guard", () => {
     mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
     await flushMicrotasks();
 
-    expect(load).toHaveBeenCalledTimes(3);
+    expect(load).toHaveBeenCalledTimes(2);
     expect(document.querySelectorAll('[data-feature="district-panel"]').length).toBe(1);
     const districtPanel = document.querySelector('[data-feature="district-panel"]') as HTMLElement | null;
-    expect(districtPanel?.dataset.districtId).toBe("district:map:2");
+    expect(districtPanel?.dataset.districtId).toBe("district:map:1");
+    mounted?.destroy();
+  });
+
+  it("ghost click po zavření overlaye neotevře district pod ním", async () => {
+    const load = vi.fn(async () => createGameplaySliceResponse());
+    const root = createRoot();
+    const mapButton = document.createElement("button");
+    mapButton.dataset.districtId = "district:map:1";
+    root.append(mapButton);
+    document.body.append(root);
+
+    const mounted = mountGameplaySlicePage({
+      root,
+      transport: {
+        load,
+        send: async () => createGameplaySliceResponse()
+      }
+    });
+    await flushMicrotasks();
+
+    openOverlay("district_sheet");
+    closeOverlay("test close");
+    const ghostClick = new MouseEvent("click", { bubbles: true, cancelable: true });
+    mapButton.dispatchEvent(ghostClick);
+    await flushMicrotasks();
+
+    expect(ghostClick.defaultPrevented).toBe(true);
+    expect(load).toHaveBeenCalledTimes(1);
     mounted?.destroy();
   });
 

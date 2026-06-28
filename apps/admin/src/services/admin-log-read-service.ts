@@ -6,8 +6,10 @@ export interface AdminCommandLogEntry {
   commandId: string;
   commandType: string;
   actorId: string;
+  correlationId: string | null;
   receivedAt: string;
   tickAtReceive: number;
+  status: string;
 }
 
 export interface AdminEventLogEntry {
@@ -42,6 +44,7 @@ export interface AdminLogReadFacade {
       type: string;
     };
     actorId: string;
+    correlationId: string | null;
     receivedAt: string;
     tickAtReceive: number;
   }>>;
@@ -76,8 +79,10 @@ export const createAdminLogReadService = (options: {
       commandId: record.command.id,
       commandType: record.command.type,
       actorId: record.actorId,
+      correlationId: record.correlationId,
       receivedAt: record.receivedAt,
-      tickAtReceive: record.tickAtReceive
+      tickAtReceive: record.tickAtReceive,
+      status: "recorded"
     })),
   listRecentEventLogs: async (instanceId, limit) =>
     (await options.facade?.listRecentEventRecords(instanceId, limit) ?? []).map((record) => ({

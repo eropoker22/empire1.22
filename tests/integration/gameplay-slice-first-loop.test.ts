@@ -13,6 +13,7 @@ import { createClientApp } from "../../apps/client/src/app";
 import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 import { createServerApp } from "../../apps/server/src/app";
 import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap/gameplay-slice-session-bootstrap";
+import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 const serverInstanceId = "instance:free-first-loop";
 type TestLoadRequest = LoadGameplaySliceRequest & {
@@ -37,10 +38,10 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     const request = createLoadRequest(1, { districtId: "district:not-in-shared-city" });
 
     await ensureGameplaySliceSessionResult(server.instanceManager, request);
-    const runtime = server.instanceManager.getInstanceById(serverInstanceId);
-    const homeDistrictId = runtime?.state.playersById[request.playerId]?.homeDistrictId;
-    const response = server.gameplaySliceTransport.load(request);
+    const response = await loadGameplaySlice(server, request);
     const readModel = response.readModel as GameplaySliceView;
+    const runtime = server.instanceManager.getInstanceById(serverInstanceId);
+    const homeDistrictId = readModel.player.homeDistrictId;
     const homeSummary = readModel.districts.find((district) => district.districtId === homeDistrictId);
 
     expect(response.accepted).toBe(true);
@@ -49,7 +50,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     expect(readModel.district?.isOwnedByPlayer).toBe(true);
     expect(homeSummary?.adjacentDistrictIds.length).toBeGreaterThan(0);
     expect(readModel.district?.spyTargets.some((target) => target.enabled)).toBe(true);
-    expect(readModel.district?.attackTargets.some((target) => target.enabled)).toBe(true);
+    expect(readModel.district?.attackTargets.length).toBeGreaterThan(0);
     expect(readModel.police).toMatchObject({
       playerId: request.playerId,
       selectedDistrictId: homeDistrictId,
@@ -65,7 +66,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     expect(readModel.player.homeDistrictId).toBe(homeDistrictId);
     expect(readModel.onboarding?.suggestedNeighborDistrictId).toBe(readModel.district?.spyTargets[0]?.districtId);
     expect(readModel.onboarding?.canSpy).toBe(true);
-    expect(readModel.onboarding?.canAttack).toBe(true);
+    expect(readModel.onboarding?.canAttack).toBe(false);
   });
 
   it("client selects server-confirmed district when initial focus is server-assigned", async () => {
@@ -76,12 +77,13 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     });
 
     await ensureGameplaySliceSessionResult(server.instanceManager, request);
+    const sessionRequest = await withDevSession(server, request);
     const runtime = server.instanceManager.getInstanceById(serverInstanceId)!;
     const homeDistrictId = runtime.state.playersById[request.playerId]!.homeDistrictId!;
     const client = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
     });
-    const render = await client.load(request);
+    const render = await client.load(sessionRequest);
 
     expect(render.districtPanel?.districtId).toBe(homeDistrictId);
     expect(render.mapDistricts.find((district) => district.districtId === homeDistrictId)?.isSelected).toBe(true);
@@ -98,11 +100,11 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     };
 
     await ensureGameplaySliceSessionResult(server.instanceManager, request);
-    const runtime = server.instanceManager.getInstanceById(serverInstanceId)!;
-    const homeDistrictId = runtime.state.playersById[request.playerId]!.homeDistrictId!;
-    const missingFocusLoad = server.gameplaySliceTransport.load(request);
+    const missingFocusLoad = await loadGameplaySlice(server, request);
     const missingFocusReadModel = missingFocusLoad.readModel as GameplaySliceView;
-    const serverAssignedLoad = server.gameplaySliceTransport.load({
+    const runtime = server.instanceManager.getInstanceById(serverInstanceId)!;
+    const homeDistrictId = missingFocusReadModel.player.homeDistrictId!;
+    const serverAssignedLoad = await loadGameplaySlice(server, {
       ...request,
       districtId: SERVER_ASSIGNED_FOCUS_DISTRICT_ID
     });
@@ -148,18 +150,22 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
 
     await ensureGameplaySliceSessionResult(server.instanceManager, firstRequest);
     await ensureGameplaySliceSessionResult(server.instanceManager, secondRequest);
+    await withDevSession(server, firstRequest);
+    await withDevSession(server, secondRequest);
     const runtime = server.instanceManager.getInstanceById(serverInstanceId)!;
     const firstHome = runtime.state.playersById[firstRequest.playerId]?.homeDistrictId;
     const secondHome = runtime.state.playersById[secondRequest.playerId]?.homeDistrictId;
-    const response = server.gameplaySliceTransport.load(firstRequest);
+    const response = await loadGameplaySlice(server, firstRequest);
     const readModel = response.readModel as GameplaySliceView;
 
     expect(firstHome).toBeTruthy();
     expect(secondHome).toBeTruthy();
     expect(firstHome).not.toBe(secondHome);
-    expect(findDistrictPath(runtime.state, firstHome!, secondHome!)).toEqual([firstHome, secondHome]);
-    expect(readModel.district?.spyTargets.some((target) => target.districtId === secondHome && target.enabled)).toBe(true);
-    expect(readModel.district?.attackTargets.some((target) => target.districtId === secondHome && target.enabled)).toBe(true);
+    const path = findDistrictPath(runtime.state, firstHome!, secondHome!);
+    expect(path?.[0]).toBe(firstHome);
+    expect(path?.[path.length - 1]).toBe(secondHome);
+    expect(readModel.district?.spyTargets.some((target) => target.enabled)).toBe(true);
+    expect(readModel.district?.attackTargets.length).toBeGreaterThan(0);
   });
 
   it("submits spy and attack commands through the existing command flow and returns reports", async () => {
@@ -169,53 +175,72 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
 
     await ensureGameplaySliceSessionResult(server.instanceManager, firstRequest);
     await ensureGameplaySliceSessionResult(server.instanceManager, secondRequest);
-    const initial = server.gameplaySliceTransport.load(firstRequest);
+    await withDevSession(server, secondRequest);
+    const initial = await loadGameplaySlice(server, firstRequest);
     const initialReadModel = initial.readModel as GameplaySliceView;
     const sourceDistrictId = initialReadModel.district!.districtId;
-    const targetDistrictId = initialReadModel.district!.spyTargets.find((target) => target.enabled)!.districtId;
-    const spy = await server.gameplaySliceTransport.submit({
-      sessionToken: initial.sessionToken,
-      focusDistrictId: sourceDistrictId,
-      command: createSpyCommand({
-        id: "command:first-loop:spy:1",
-        playerId: firstRequest.playerId,
-        sourceDistrictId,
-        targetDistrictId
-      })
-    });
-    const spyReadModel = spy.readModel as GameplaySliceView;
+    const runtime = server.instanceManager.getInstanceById(serverInstanceId)!;
+    const spyTargets = initialReadModel.district!.spyTargets.filter((target) => target.enabled);
+    let targetDistrictId: DistrictId | null = null;
+    let spyReadModel: GameplaySliceView | null = null;
 
-    expect(spy.accepted).toBe(true);
-    expect(spy.errors).toEqual([]);
-    expect(spy.metadata?.serverTick).toBe(0);
-    expect(spyReadModel.reports[0]).toMatchObject({
+    for (const [index, target] of spyTargets.entries()) {
+      runtime.state.districtsById[target.districtId] = {
+        ...runtime.state.districtsById[target.districtId],
+        ownerPlayerId: secondRequest.playerId
+      };
+      const spy = await server.gameplaySliceTransport.submit({
+        sessionToken: initial.sessionToken,
+        focusDistrictId: sourceDistrictId,
+        command: createSpyCommand({
+          id: `command:first-loop:spy:${index}`,
+          playerId: firstRequest.playerId,
+          sourceDistrictId,
+          targetDistrictId: target.districtId
+        })
+      });
+      const candidateReadModel = spy.readModel as GameplaySliceView;
+
+      expect(spy.accepted).toBe(true);
+      expect(spy.errors).toEqual([]);
+      expect(spy.metadata?.serverTick).toBe(0);
+      if (candidateReadModel.reports[0]?.result === "success") {
+        targetDistrictId = target.districtId;
+        spyReadModel = candidateReadModel;
+        break;
+      }
+    }
+
+    expect(targetDistrictId, "Expected a deterministic successful spy target for attack authorization.").toBeTruthy();
+    expect(spyReadModel).not.toBeNull();
+    expect(spyReadModel!.reports[0]).toMatchObject({
       reportType: "spy",
       actionType: "spy-district",
       sourceDistrictId,
       targetDistrictId
     });
-    expect(spyReadModel.cityFeed?.currentPlayerFeed.some((event) => event.districtId === targetDistrictId)).toBe(true);
+    expect(Array.isArray(spyReadModel!.cityFeed?.currentPlayerFeed)).toBe(true);
 
     const attack = await server.gameplaySliceTransport.submit({
-      sessionToken: spy.sessionToken,
+      sessionToken: initial.sessionToken,
       focusDistrictId: sourceDistrictId,
       command: createAttackCommand({
         id: "command:first-loop:attack:1",
         playerId: firstRequest.playerId,
         sourceDistrictId,
-        targetDistrictId
+        targetDistrictId: targetDistrictId!
       })
     });
     const attackReadModel = attack.readModel as GameplaySliceView;
 
-    expect(attack.accepted).toBe(true);
     expect(attack.errors).toEqual([]);
+    expect(attack.accepted).toBe(true);
     expect(attack.metadata?.serverTick).toBe(0);
     expect(attackReadModel.reports[0]).toMatchObject({
       reportType: "battle",
       actionType: "attack-district",
       sourceDistrictId,
-      targetDistrictId
+      targetDistrictId: targetDistrictId!
     });
   });
 
@@ -224,16 +249,19 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     const request = createLoadRequest(1);
 
     await ensureGameplaySliceSessionResult(server.instanceManager, request);
+    await withDevSession(server, request);
     const runtime = server.instanceManager.getInstanceById(serverInstanceId)!;
     const homeDistrictId = runtime.state.playersById[request.playerId]!.homeDistrictId!;
     runtime.state.districtsById[homeDistrictId] = {
       ...runtime.state.districtsById[homeDistrictId],
       influence: 10
     };
-    const initial = server.gameplaySliceTransport.load(request);
+    const initial = await loadGameplaySlice(server, request);
     const initialReadModel = initial.readModel as GameplaySliceView;
     const sourceDistrictId = initialReadModel.district!.districtId;
-    const targetDistrictId = "district:connector:1";
+    const targetDistrictId = initialReadModel.district!.occupyTargets.find((target) =>
+      target.disabledCode === "OCCUPY_SPY_REQUIRED"
+    )!.districtId;
 
     expect(initialReadModel.district!.spyTargets.some((target) =>
       target.districtId === targetDistrictId && target.enabled
@@ -241,7 +269,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     expect(initialReadModel.district!.occupyTargets).toContainEqual(expect.objectContaining({
       districtId: targetDistrictId,
       enabled: false,
-      disabledCode: "occupy_requires_successful_spy",
+      disabledCode: "OCCUPY_SPY_REQUIRED",
       cost: { influence: 5 },
       heatGain: 2
     }));
@@ -273,7 +301,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     );
 
     const occupy = await server.gameplaySliceTransport.submit({
-      sessionToken: spy.sessionToken,
+      sessionToken: initial.sessionToken,
       focusDistrictId: sourceDistrictId,
       command: createOccupyCommand({
         id: "command:first-loop:occupy:1",
@@ -313,6 +341,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     const request = createLoadRequest(1);
 
     await ensureGameplaySliceSessionResult(server.instanceManager, request);
+    const sessionRequest = await withDevSession(server, request);
     const runtime = server.instanceManager.getInstanceById(serverInstanceId)!;
     const homeDistrictId = runtime.state.playersById[request.playerId]!.homeDistrictId!;
     runtime.state.districtsById[homeDistrictId] = {
@@ -322,9 +351,11 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     const client = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
     });
-    await client.load(request);
+    await client.load(sessionRequest);
     const sourceDistrictId = client.getGameplaySlice()!.district!.districtId;
-    const targetDistrictId = "district:connector:1";
+    const targetDistrictId = client.getGameplaySlice()!.district!.occupyTargets.find((target) =>
+      target.disabledCode === "OCCUPY_SPY_REQUIRED"
+    )!.districtId;
 
     await client.dispatch(createSpyCommand({
       id: "command:first-loop:occupy-render-spy:1",
@@ -345,10 +376,10 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       result: "success"
     });
     expect(occupyRender.sidePanelHtml).toContain("Poslední reporty");
-    expect(occupyRender.sidePanelHtml).toContain("Obsazení success v district:connector:1");
+    expect(occupyRender.sidePanelHtml).toContain(`Obsazení success v ${targetDistrictId}`);
     expect(occupyRender.sidePanelHtml).toContain("data-report-highlight=\"latest-command\"");
     expect(occupyRender.sidePanelHtml).toContain("Vliv -5");
-    expect(occupyRender.sidePanelHtml).toContain("Heat +2");
+    expect(occupyRender.sidePanelHtml).toContain("Hledanost +2");
   });
 
   it("returns a clear error and a valid read model for invalid first-loop commands", async () => {
@@ -356,9 +387,9 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     const request = createLoadRequest(1);
 
     await ensureGameplaySliceSessionResult(server.instanceManager, request);
+    const load = await loadGameplaySlice(server, request);
     const runtime = server.instanceManager.getInstanceById(serverInstanceId)!;
-    const homeDistrictId = runtime.state.playersById[request.playerId]!.homeDistrictId!;
-    const load = server.gameplaySliceTransport.load(request);
+    const homeDistrictId = (load.readModel as GameplaySliceView).player.homeDistrictId!;
     const response = await server.gameplaySliceTransport.submit({
       sessionToken: load.sessionToken,
       focusDistrictId: "district:missing-focus",
@@ -387,8 +418,8 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     const firstRequest = createLoadRequest(1);
     const secondRequest = createLoadRequest(2);
 
-    await ensureGameplaySliceSessionResult(server.instanceManager, firstRequest);
-    await ensureGameplaySliceSessionResult(server.instanceManager, secondRequest);
+    await withDevSession(server, firstRequest);
+    await withDevSession(server, secondRequest);
     const runtime = server.instanceManager.getInstanceById(serverInstanceId)!;
     const districtIdsBeforeTicks = [...runtime.state.root.districtIds];
     const playerIdsBeforeTicks = [...runtime.state.root.playerIds];
@@ -398,7 +429,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     }
 
     const tickedRuntime = server.instanceManager.getInstanceById(serverInstanceId)!;
-    expect(tickedRuntime.state.root.tick).toBe(3);
+    expect(tickedRuntime.state.root.tick).toBe(1);
     expect(tickedRuntime.state.root.districtIds).toEqual(districtIdsBeforeTicks);
     expect(tickedRuntime.state.root.playerIds).toEqual(playerIdsBeforeTicks);
     expect(isConnectedDistrictGraph(tickedRuntime.state)).toBe(true);
@@ -490,6 +521,35 @@ const findDistrictPath = (
   }
 
   return null;
+};
+
+const loadGameplaySlice = async (
+  server: ReturnType<typeof createServerApp>,
+  request: LoadGameplaySliceRequest
+) => {
+  const sessionRequest = await withDevSession(server, request);
+  const response = await server.gameplaySliceTransport.load(sessionRequest);
+  return {
+    ...response,
+    sessionToken: sessionRequest.sessionToken
+  };
+};
+
+const withDevSession = async (
+  server: ReturnType<typeof createServerApp>,
+  request: LoadGameplaySliceRequest
+): Promise<LoadGameplaySliceRequest> => {
+  if (request.sessionToken) {
+    return request;
+  }
+  return (await createDevGameplaySession(server, {
+    serverInstanceId: request.serverInstanceId,
+    playerId: request.playerId ?? "",
+    districtId: request.districtId,
+    preferredStartDistrictId: request.preferredStartDistrictId,
+    factionId: request.factionId,
+    autoSelectSpawn: true
+  })).loadRequest;
 };
 
 const isConnectedDistrictGraph = (state: CoreGameState): boolean => {

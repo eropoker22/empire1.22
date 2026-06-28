@@ -180,6 +180,7 @@ describe("free session MVP flow", () => {
 
     update({ world: { ownedDistrictIds: [1] } }, { type: "onboarding:next", detail: { stepId: "welcome" } });
     update({ world: { ownedDistrictIds: [1] } }, { type: "onboarding:next", detail: { stepId: "win-condition" } });
+    update({ world: { ownedDistrictIds: [1] } }, { type: "spawn:selected" });
     update({ world: { ownedDistrictIds: [1] } }, { type: "district:own-opened", detail: { district: { id: 1 } } });
     update({ world: { ownedDistrictIds: [1] } }, { type: "district:stats-read" });
     update({ world: { ownedDistrictIds: [1] } }, { type: "building:opened", detail: { buildingName: "Armory" } });

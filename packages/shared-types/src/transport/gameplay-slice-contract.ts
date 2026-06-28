@@ -24,10 +24,19 @@ export interface LoadGameplaySliceRequest {
    * derives the player from the gameplay session, never from this field.
    */
   playerId?: PlayerId | null;
+  /**
+   * @deprecated Dev/test compatibility only. Server load authority on join
+   * depends on authenticated account id, not this field.
+   */
+  accountId?: string | null;
   districtId?: DistrictId | ServerAssignedFocusDistrictId | null;
   preferredStartDistrictId?: DistrictId | string | null;
   factionId?: PlayerFactionId | string | null;
   snapshotToken?: string | null;
+  /**
+   * @deprecated Dev/test compatibility only. Production gameplay session
+   * authority is the HttpOnly gameplay session cookie.
+   */
   sessionToken?: string | null;
   joinTicket?: string | null;
 }
@@ -35,12 +44,17 @@ export interface LoadGameplaySliceRequest {
 export interface JoinGameplaySliceRequest {
   joinTicket: string;
   serverInstanceId: ServerInstanceId;
+  accountId?: string | null;
   factionId?: PlayerFactionId | string | null;
   preferredStartDistrictId?: DistrictId | string | null;
 }
 
 export interface LogoutGameplaySliceRequest {
   serverInstanceId?: ServerInstanceId | string | null;
+  /**
+   * @deprecated Dev/test compatibility only. Production logout reads the
+   * HttpOnly gameplay session cookie and clears it server-side.
+   */
   sessionToken?: string | null;
 }
 
@@ -49,6 +63,10 @@ export interface SubmitGameplayCommandRequest {
   focusDistrictId: DistrictId;
   expectedStateVersion?: number | null;
   snapshotToken?: string | null;
+  /**
+   * @deprecated Dev/test compatibility only. Production command identity is
+   * authorized by the HttpOnly gameplay session cookie.
+   */
   sessionToken?: string | null;
 }
 
@@ -59,6 +77,10 @@ export interface GameplaySliceResponse {
   metadata?: GameplaySliceResponseMetadata;
   commandResult?: GameplayCommandResultMetadata | null;
   snapshotToken?: string | null;
+  /**
+   * @deprecated Dev/test compatibility only. Production responses must not
+   * expose the gameplay session token in JSON.
+   */
   sessionToken?: string | null;
 }
 

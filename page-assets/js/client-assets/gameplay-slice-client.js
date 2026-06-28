@@ -1972,7 +1972,7 @@ var EmpireGameplaySliceClient = function(exports) {
         `<article class="spawn-selection-panel__item" data-spawn-status="${escapeAttribute(district.status)}">`,
         `<h3>${escapeHtml(district.districtName)}</h3>`,
         `<p>Typ: ${escapeHtml(district.districtType)} · Budova: ${escapeHtml(district.buildingType ?? "Neznámá")} · Sousedé: ${district.neighborCount}</p>`,
-        `<p>Spawn zóna: ${escapeHtml(district.spawnZones.join(", "))}</p>`,
+        `<p>Spawn zóna: ${escapeHtml((district.spawnZones ?? []).join(", ") || "-")}</p>`,
         district.ownerPublicName ? `<p>Obsazeno: ${escapeHtml(district.ownerPublicName)}</p>` : "",
         district.status === "available" ? `<button type="button" data-select-spawn-district-id="${escapeAttribute(district.districtId)}">POTVRDIT A ZABRAT</button>` : `<button type="button" disabled>${escapeHtml(formatSpawnStatus(district.status))}</button>`,
         `</article>`

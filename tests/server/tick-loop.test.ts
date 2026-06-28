@@ -166,6 +166,27 @@ describe("server instance tick runner", () => {
     expect(runtime.scheduler.tickInProgress).toBe(false);
   });
 
+  it("gates actual instance ticks by each mode scheduler cadence", () => {
+    const server = createServerApp();
+    const freeRuntime = server.instanceManager.createInstance("instance:tick:free-cadence", "free");
+    const warRuntime = server.instanceManager.createInstance("instance:tick:war-cadence", "war");
+    server.instanceManager.startInstance(freeRuntime.record.id);
+    server.instanceManager.startInstance(warRuntime.record.id);
+
+    runInstanceTick(freeRuntime, createFixedClock("2026-05-15T05:00:00.000Z"));
+    runInstanceTick(warRuntime, createFixedClock("2026-05-15T05:00:00.000Z"));
+    expect(freeRuntime.state.root.tick).toBe(1);
+    expect(warRuntime.state.root.tick).toBe(1);
+
+    runInstanceTick(freeRuntime, createFixedClock("2026-05-15T05:00:05.000Z"));
+    runInstanceTick(warRuntime, createFixedClock("2026-05-15T05:00:05.000Z"));
+    expect(freeRuntime.state.root.tick).toBe(2);
+    expect(warRuntime.state.root.tick).toBe(1);
+
+    runInstanceTick(warRuntime, createFixedClock("2026-05-15T05:00:15.000Z"));
+    expect(warRuntime.state.root.tick).toBe(2);
+  });
+
   it("marks the instance crashed and stops scheduler when tick execution throws", () => {
     const server = createServerApp();
     const runtime = server.instanceManager.createInstance("instance:tick:crash", "free");

@@ -84,12 +84,10 @@ export const createDistrictDefenseActionView = (
     targetDistrictId: district.id,
     action
   });
-  const disabledCode = validation.allowed && validation.relation === "ally"
-    ? "ALLIANCE_DEFENSE_NOT_IMPLEMENTED"
-    : validation.reasonCode ?? null;
+  const disabledCode = validation.reasonCode ?? null;
 
   return {
-    enabled: validation.allowed && validation.relation === "self",
+    enabled: validation.allowed,
     disabledCode,
     disabledReason: disabledCode ? formatActionReason(disabledCode) : null,
     expectedTargetVersion: district.version

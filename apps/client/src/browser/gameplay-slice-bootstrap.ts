@@ -19,6 +19,7 @@ const LEGACY_PUBLIC_SERVER_ID_MIGRATIONS: Record<string, string> = {
 export interface GameplaySliceBootstrapDataset {
   serverInstanceId?: string;
   playerId?: string;
+  accountId?: string;
   districtId?: string;
   factionId?: string;
   sessionStorageKey?: string;
@@ -31,6 +32,7 @@ export interface BrowserStorageReader {
 interface LegacyGameplaySession {
   registration?: {
     identity?: unknown;
+    accountId?: unknown;
     gangName?: unknown;
     serverInstanceId?: unknown;
     activeServerInstanceId?: unknown;
@@ -77,6 +79,7 @@ export const resolveGameplaySliceBootstrapRequest = (
     registration?.lastServerConfirmedDistrictId || registration?.assignedHomeDistrictId
   );
   const playerId = normalizePlayerId(registration?.identity || registration?.gangName);
+  const accountId = normalizeToken(registration?.accountId || registration?.identity || registration?.gangName);
   const factionId = normalizeFactionId(registration?.factionId || registration?.selectedFaction);
   const joinTicket = normalizeToken(registration?.joinTicket);
 
@@ -87,6 +90,7 @@ export const resolveGameplaySliceBootstrapRequest = (
   return {
     serverInstanceId,
     playerId,
+    ...(accountId ? { accountId } : {}),
     ...(districtId ? { districtId } : {}),
     ...(preferredStartDistrictId ? { preferredStartDistrictId } : {}),
     factionId,
@@ -99,6 +103,7 @@ const createExplicitRequest = (
 ): LoadGameplaySliceRequest | null => {
   const serverInstanceId = normalizeToken(dataset.serverInstanceId);
   const playerId = normalizeToken(dataset.playerId);
+  const accountId = normalizeToken(dataset.accountId);
   const districtId = normalizeDistrictId(dataset.districtId);
   const factionId = normalizeFactionId(dataset.factionId);
 
@@ -106,6 +111,7 @@ const createExplicitRequest = (
     ? {
         serverInstanceId,
         playerId,
+        ...(accountId ? { accountId } : {}),
         ...(districtId ? { districtId } : {}),
         factionId
       }

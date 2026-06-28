@@ -35,7 +35,12 @@ function createRoot(foundSelectors = []) {
 describe("Empire onboarding flow", () => {
   it("step registry contains every mandatory onboarding chapter", () => {
     expect(ONBOARDING_STEPS.map((step) => step.id)).toEqual([...ONBOARDING_REQUIRED_STEP_IDS]);
-    expect(ONBOARDING_STEPS).toHaveLength(22);
+    expect(ONBOARDING_STEPS).toHaveLength(23);
+    expect(ONBOARDING_STEPS.find((step) => step.id === "spawn-selection")).toEqual(expect.objectContaining({
+      targetSelector: expect.stringContaining("spawn-selection"),
+      body: expect.stringContaining("server")
+    }));
+    expect(ONBOARDING_STEPS.find((step) => step.id === "spy")?.title).toBe("Pošli špeha");
   });
 
   it("every onboarding step has the required registry fields and copy", () => {

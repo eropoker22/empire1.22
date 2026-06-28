@@ -47,7 +47,7 @@ const createGameplayApiMiddleware = (): Plugin => {
           const result = await handler({
             httpMethod: request.method || "GET",
             path,
-            body: await readRequestBody(request),
+            body: await readRequestBody(request, request.method),
             headers: normalizeRequestHeaders(request.headers)
           });
 
@@ -76,8 +76,15 @@ const createGameplayApiMiddleware = (): Plugin => {
   };
 };
 
-const readRequestBody = (request: { on(event: string, listener: (chunk?: unknown) => void): void }): Promise<string | null> =>
-  new Promise((resolveBody, rejectBody) => {
+const readRequestBody = (
+  request: { on(event: string, listener: (chunk?: unknown) => void): void },
+  method = "GET"
+): Promise<string | null> => {
+  if (method.toUpperCase() === "GET" || method.toUpperCase() === "HEAD") {
+    return Promise.resolve(null);
+  }
+
+  return new Promise((resolveBody, rejectBody) => {
     const chunks: Buffer[] = [];
     request.on("data", (chunk) => {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk ?? "")));
@@ -89,6 +96,7 @@ const readRequestBody = (request: { on(event: string, listener: (chunk?: unknown
       rejectBody(error);
     });
   });
+};
 
 const normalizeRequestHeaders = (
   headers: Record<string, string | string[] | number | undefined>

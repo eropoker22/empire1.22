@@ -8,6 +8,7 @@ import {
 import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 import { createGameplaySessionTokenCodec } from "../../apps/server/src/transport";
 import { createPlaceTrapCommandFixture } from "../fixtures/command-fixtures";
+import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 describe("faction gameplay slice bootstrap", () => {
   it("persists requested faction without local starting package authority", async () => {
@@ -24,7 +25,8 @@ describe("faction gameplay slice bootstrap", () => {
     };
 
     await ensureGameplaySliceSession(server.instanceManager, request);
-    await client.load(request);
+    const session = await createDevGameplaySession(server, request);
+    await client.load(session.loadRequest);
 
     const runtime = server.instanceManager.getInstanceById("instance:free-faction-foundation");
     const player = runtime?.state.playersById["player:faction-test"];
@@ -52,7 +54,8 @@ describe("faction gameplay slice bootstrap", () => {
     };
 
     const result = await ensureGameplaySliceSessionResult(server.instanceManager, request);
-    const response = server.gameplaySliceTransport.load(request);
+    const session = await createDevGameplaySession(server, request);
+    const response = await server.gameplaySliceTransport.load(session.loadRequest);
     const runtime = server.instanceManager.getInstanceById(request.serverInstanceId);
 
     expect(result).toMatchObject({
@@ -82,7 +85,8 @@ describe("faction gameplay slice bootstrap", () => {
 
     const first = await ensureGameplaySliceSessionResult(server.instanceManager, firstRequest);
     const second = await ensureGameplaySliceSessionResult(server.instanceManager, secondRequest);
-    const response = server.gameplaySliceTransport.load(secondRequest);
+    const session = await createDevGameplaySession(server, secondRequest);
+    const response = await server.gameplaySliceTransport.load(session.loadRequest);
     const runtime = server.instanceManager.getInstanceById(firstRequest.serverInstanceId);
 
     expect(first.joinedPlayer).toBe(true);
@@ -111,8 +115,9 @@ describe("faction gameplay slice bootstrap", () => {
     };
 
     await ensureGameplaySliceSessionResult(server.instanceManager, request);
-    const load = server.gameplaySliceTransport.load(request);
-    const payload = codec.open(load.sessionToken ?? "");
+    const session = await createDevGameplaySession(server, request);
+    const load = await server.gameplaySliceTransport.load(session.loadRequest);
+    const payload = codec.open(session.sessionToken);
 
     expect(load.readModel?.player.factionId).toBe("kartel");
     expect(payload).toMatchObject({
@@ -122,7 +127,7 @@ describe("faction gameplay slice bootstrap", () => {
     });
 
     const submit = await server.gameplaySliceTransport.submit({
-      sessionToken: load.sessionToken,
+      sessionToken: session.sessionToken,
       focusDistrictId: load.readModel?.district?.districtId ?? "district:server-assigned",
       command: createPlaceTrapCommandFixture({
         id: "command:faction-token:trap",
@@ -165,6 +170,6 @@ describe("faction gameplay slice bootstrap", () => {
     const response = await server.gameplaySliceTransport.submit(request);
 
     expect(response.accepted).toBe(false);
-    expect(response.errors[0]?.code).toBe("transport.session_token_missing");
+    expect(response.errors[0]?.code).toBe("SESSION_REQUIRED");
   });
 });

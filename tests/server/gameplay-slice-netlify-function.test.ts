@@ -1,12 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { webcrypto } from "node:crypto";
+import { createServerApp, type ServerApp } from "../../apps/server/src/app";
+import { enabledSharedCitySpawnDistrictIds } from "../../apps/server/src/bootstrap/gameplay-slice-spawn-pool";
 import { createGameplaySliceFunctionHandler } from "../../apps/server/src/netlify/gameplay-slice-function";
 import { createGameplaySessionTokenCodec } from "../../apps/server/src/transport";
 
-const postEvent = (path: string, body: unknown) => ({
+const PUBLIC_FREE_SERVER_INSTANCE_ID = "instance:free:eu-central:public-1";
+const DEFAULT_SPAWN_DISTRICT_ID = enabledSharedCitySpawnDistrictIds[0]!;
+
+const postEvent = (
+  path: string,
+  body: unknown,
+  headers?: Record<string, string | string[] | undefined>
+) => ({
   httpMethod: "POST",
   path,
-  body: JSON.stringify(body)
+  body: JSON.stringify(body),
+  headers
 });
 
 type GameplaySliceFunctionHandler = ReturnType<typeof createGameplaySliceFunctionHandler>;
@@ -19,25 +29,125 @@ const readBody = async (responsePromise: ReturnType<GameplaySliceFunctionHandler
   };
 };
 
+const joinPublicFreeSession = async (
+  handler: GameplaySliceFunctionHandler,
+  input: {
+    accountId: string;
+    preferredStartDistrictId?: string;
+    factionId?: string;
+  }
+) => {
+  const preferredStartDistrictId = input.preferredStartDistrictId ?? DEFAULT_SPAWN_DISTRICT_ID;
+  const reserve = await readBody(
+    handler(
+      postEvent("/api/matchmaking/reserve", {
+        accountId: input.accountId,
+        mode: "free",
+        preferredServerInstanceId: PUBLIC_FREE_SERVER_INSTANCE_ID
+      })
+    )
+  );
+  expect(reserve.statusCode).toBe(200);
+  if (!reserve.json.accepted) {
+    throw new Error(`Expected matchmaking reserve to be accepted: ${JSON.stringify(reserve.json.errors)}`);
+  }
+
+  const join = await readBody(
+    handler(
+      postEvent("/api/gameplay-slice/join", {
+        accountId: input.accountId,
+        joinTicket: reserve.json.reservation.joinTicket,
+        serverInstanceId: PUBLIC_FREE_SERVER_INSTANCE_ID,
+        preferredStartDistrictId,
+        factionId: input.factionId ?? "mafian"
+      })
+    )
+  );
+  expect(join.statusCode).toBe(200);
+  if (!join.json.accepted) {
+    throw new Error(`Expected gameplay join to be accepted: ${JSON.stringify(join.json.errors)}`);
+  }
+
+  return {
+    reserve,
+    join,
+    accountId: input.accountId,
+    serverInstanceId: PUBLIC_FREE_SERVER_INSTANCE_ID,
+    playerId: String(join.json.readModel.player.playerId),
+    sessionToken: String(join.json.sessionToken),
+    snapshotToken: String(join.json.snapshotToken),
+    focusDistrictId: preferredStartDistrictId,
+    readModel: join.json.readModel
+  };
+};
+
+const selectSpawnDistrict = async (
+  handler: GameplaySliceFunctionHandler,
+  session: Awaited<ReturnType<typeof joinPublicFreeSession>>,
+  commandId: string
+) => {
+  const response = await readBody(
+    handler(
+      postEvent("/api/gameplay-slice/submit", {
+        snapshotToken: session.snapshotToken,
+        sessionToken: session.sessionToken,
+        focusDistrictId: session.focusDistrictId,
+        command: {
+          id: commandId,
+          type: "select-spawn-district",
+          mode: "free",
+          playerId: session.playerId,
+          serverInstanceId: session.serverInstanceId,
+          issuedAt: new Date(0).toISOString(),
+          payload: {
+            districtId: session.focusDistrictId
+          },
+          clientRequestId: null
+        }
+      })
+    )
+  );
+  expect(response.statusCode).toBe(200);
+  if (!response.json.accepted) {
+    throw new Error(`Expected spawn selection to be accepted: ${JSON.stringify(response.json.errors)}`);
+  }
+  return {
+    ...session,
+    snapshotToken: String(response.json.snapshotToken),
+    sessionToken: String(response.json.sessionToken ?? session.sessionToken),
+    readModel: response.json.readModel
+  };
+};
+
+const createPlaceTrapBody = (
+  session: Pick<Awaited<ReturnType<typeof joinPublicFreeSession>>, "playerId" | "serverInstanceId" | "focusDistrictId">,
+  commandId: string
+) => ({
+  id: commandId,
+  type: "place-trap",
+  mode: "free",
+  playerId: session.playerId,
+  serverInstanceId: session.serverInstanceId,
+  issuedAt: new Date(0).toISOString(),
+  payload: {
+    districtId: session.focusDistrictId
+  },
+  clientRequestId: null
+});
+
 describe("gameplay slice Netlify function", () => {
   it("allows the explicit dev/test snapshot secret fallback outside production", async () => {
     const handler = createTestHandler({
       NODE_ENV: "test"
     });
-    const load = await readBody(
-      handler(
-        postEvent("/api/gameplay-slice/load", {
-          serverInstanceId: "instance:function-dev-secret-fallback",
-          playerId: "player:function-dev-secret-fallback",
-          districtId: "district:function-dev-secret-fallback"
-        })
-      )
-    );
+    const session = await joinPublicFreeSession(handler, {
+      accountId: "function-dev-secret-fallback"
+    });
 
-    expect(load.statusCode).toBe(200);
-    expect(load.json.accepted).toBe(true);
-    expect(load.json.snapshotToken).toEqual(expect.any(String));
-    expect(load.json.sessionToken).toEqual(expect.any(String));
+    expect(session.join.statusCode).toBe(200);
+    expect(session.join.json.accepted).toBe(true);
+    expect(session.join.json.snapshotToken).toEqual(expect.any(String));
+    expect(session.join.json.sessionToken).toEqual(expect.any(String));
   });
 
   it("rejects production requests when the snapshot secret is missing", async () => {
@@ -68,7 +178,7 @@ describe("gameplay slice Netlify function", () => {
     });
   });
 
-  it("rejects unknown production loads by default even when the snapshot secret is configured", async () => {
+  it("rejects production loads by default when the gameplay session runtime is not production-ready", async () => {
     const handler = createTestHandler({
       NODE_ENV: "production",
       GAMEPLAY_SLICE_SNAPSHOT_SECRET: "test-production-snapshot-secret"
@@ -83,12 +193,12 @@ describe("gameplay slice Netlify function", () => {
       )
     );
 
-    expect(load.statusCode).toBe(200);
+    expect(load.statusCode).toBe(500);
     expect(load.json.accepted).toBe(false);
-    expect(load.json.errors[0].code).toBe("server.instance_not_found");
+    expect(load.json.errors[0].code).toBe("SESSION_INVALID");
   });
 
-  it("can explicitly allow implicit production loads for compatibility tests", async () => {
+  it("keeps production fail-closed even if implicit instance creation is enabled for a test handler", async () => {
     const handler = createTestHandler({
       NODE_ENV: "production",
       GAMEPLAY_SLICE_SNAPSHOT_SECRET: "test-production-snapshot-secret"
@@ -105,34 +215,30 @@ describe("gameplay slice Netlify function", () => {
       )
     );
 
-    expect(load.statusCode).toBe(200);
-    expect(load.json.accepted).toBe(true);
-    expect(load.json.snapshotToken).toEqual(expect.any(String));
-    expect(load.json.sessionToken).toEqual(expect.any(String));
+    expect(load.statusCode).toBe(500);
+    expect(load.json.accepted).toBe(false);
+    expect(load.json.errors[0].code).toBe("SESSION_INVALID");
   });
 
   it("uses an explicit gameplay session secret separately from the snapshot secret", async () => {
     const handler = createTestHandler({
-      NODE_ENV: "production",
+      NODE_ENV: "test",
       GAMEPLAY_SLICE_SNAPSHOT_SECRET: "test-production-snapshot-secret",
       GAMEPLAY_SLICE_SESSION_SECRET: "test-production-session-secret"
-    }, {
-      allowImplicitInstanceCreation: true
     });
-    const load = await readBody(
-      handler(
-        postEvent("/api/gameplay-slice/load", {
-          serverInstanceId: "instance:function-production-session-secret",
-          playerId: "player:function-production-session-secret",
-          districtId: "district:function-production-session-secret"
-        })
-      )
+    const joined = await joinPublicFreeSession(handler, {
+      accountId: "function-production-session-secret"
+    });
+    const spawned = await selectSpawnDistrict(
+      handler,
+      joined,
+      "command:function:wrong-session-secret:spawn"
     );
     const wrongSecretToken = createGameplaySessionTokenCodec({
       secret: "test-production-snapshot-secret"
     }).seal({
-      serverInstanceId: "instance:function-production-session-secret",
-      playerId: "player:function-production-session-secret",
+      serverInstanceId: spawned.serverInstanceId,
+      playerId: spawned.playerId,
       issuedAt: "2026-05-21T00:00:00.000Z",
       expiresAt: "2099-05-21T00:00:00.000Z"
     });
@@ -140,15 +246,15 @@ describe("gameplay slice Netlify function", () => {
     const submit = await readBody(
       handler(
         postEvent("/api/gameplay-slice/submit", {
-          snapshotToken: load.json.snapshotToken,
+          snapshotToken: spawned.snapshotToken,
           sessionToken: wrongSecretToken,
-          focusDistrictId: load.json.readModel.district.districtId,
+          focusDistrictId: spawned.focusDistrictId,
           command: {
             id: "command:function:wrong-session-secret:1",
             type: "unknown-command-type",
             mode: "free",
-            playerId: "player:function-production-session-secret",
-            serverInstanceId: "instance:function-production-session-secret",
+            playerId: spawned.playerId,
+            serverInstanceId: spawned.serverInstanceId,
             issuedAt: new Date(0).toISOString(),
             payload: {},
             clientRequestId: null
@@ -157,9 +263,9 @@ describe("gameplay slice Netlify function", () => {
       )
     );
 
-    expect(load.statusCode).toBe(200);
-    expect(load.json.sessionToken).toEqual(expect.any(String));
-    expect(submit.json.errors[0].code).toBe("transport.session_token_invalid");
+    expect(joined.join.statusCode).toBe(200);
+    expect(joined.join.json.sessionToken).toEqual(expect.any(String));
+    expect(submit.json.errors[0].code).toBe("SESSION_INVALID");
   });
 
   it("returns lobby-safe server summaries with map composition", async () => {
@@ -253,7 +359,7 @@ describe("gameplay slice Netlify function", () => {
       NODE_ENV: "production",
       GAMEPLAY_SLICE_SNAPSHOT_SECRET: "test-production-snapshot-secret",
       GAMEPLAY_SLICE_SESSION_SECRET: "test-production-session-secret",
-      ADMIN_MONITORING_SECRET: "correct-admin-token"
+      EMPIRE_ADMIN_SECRET: "correct-admin-secret"
     });
     const response = await readBody(
       handler({
@@ -261,22 +367,22 @@ describe("gameplay slice Netlify function", () => {
         path: "/api/admin/monitoring",
         body: null,
         headers: {
-          "x-empire-admin-token": "wrong-admin-token"
+          "x-empire-admin-secret": "wrong-admin-secret"
         }
       })
     );
 
     expect(response.statusCode).toBe(403);
     expect(response.json.errors[0].code).toBe("transport.admin_monitoring_unauthorized");
-    expect(JSON.stringify(response.json)).not.toContain("correct-admin-token");
+    expect(JSON.stringify(response.json)).not.toContain("correct-admin-secret");
   });
 
-  it("returns production admin monitoring with the configured admin token", async () => {
+  it("returns production admin monitoring with the configured admin secret", async () => {
     const handler = createTestHandler({
       NODE_ENV: "production",
       GAMEPLAY_SLICE_SNAPSHOT_SECRET: "test-production-snapshot-secret",
       GAMEPLAY_SLICE_SESSION_SECRET: "test-production-session-secret",
-      EMPIRE_ADMIN_MONITORING_SECRET: "correct-admin-token"
+      EMPIRE_ADMIN_SECRET: "correct-admin-secret"
     });
     const response = await readBody(
       handler({
@@ -284,7 +390,7 @@ describe("gameplay slice Netlify function", () => {
         path: "/api/admin/monitoring",
         body: null,
         headers: {
-          "X-Empire-Admin-Token": "correct-admin-token"
+          "X-Empire-Admin-Secret": "correct-admin-secret"
         }
       })
     );
@@ -403,49 +509,19 @@ describe("gameplay slice Netlify function", () => {
     });
   });
 
-  it("loads and submits the first gameplay slice through cold HTTP adapters", async () => {
-    const loadHandler = createTestHandler();
-    const load = await readBody(
-      loadHandler(
-        postEvent("/api/gameplay-slice/load", {
-          serverInstanceId: "instance:function-slice",
-          playerId: "player:function-slice",
-          districtId: "district:31"
-        })
-      )
-    );
-
-    expect(load.statusCode).toBe(200);
-    const focusDistrictId = load.json.readModel.district.districtId;
-    expect(focusDistrictId).toBe("district:spawn:1");
-    expect(load.json.snapshotToken).toEqual(expect.any(String));
-    expect(load.json.sessionToken).toEqual(expect.any(String));
-
-    const building = load.json.readModel.district.buildings.find(
-      (candidate: { actions: unknown[] }) => candidate.actions.length > 0
-    );
-    const action = building.actions[0];
-    const command = {
-      id: "command:function:building-action:1",
-      type: "run-building-action",
-      mode: load.json.readModel.mode.mode,
-      playerId: "player:function-slice",
-      serverInstanceId: "instance:function-slice",
-      issuedAt: new Date(0).toISOString(),
-      payload: {
-        districtId: focusDistrictId,
-        buildingId: building.buildingId,
-        actionId: action.actionId
-      },
-      clientRequestId: null
-    };
-    const submitHandler = createTestHandler();
+  it("loads and submits the first gameplay slice through the HTTP adapters", async () => {
+    const handler = createTestHandler();
+    const joined = await joinPublicFreeSession(handler, {
+      accountId: "function-slice"
+    });
+    const spawned = await selectSpawnDistrict(handler, joined, "command:function:spawn:1");
+    const command = createPlaceTrapBody(spawned, "command:function:place-trap:1");
     const submit = await readBody(
-      submitHandler(
+      handler(
         postEvent("/api/gameplay-slice/submit", {
-          snapshotToken: load.json.snapshotToken,
-          sessionToken: load.json.sessionToken,
-          focusDistrictId,
+          snapshotToken: spawned.snapshotToken,
+          sessionToken: spawned.sessionToken,
+          focusDistrictId: spawned.focusDistrictId,
           command
         })
       )
@@ -453,51 +529,43 @@ describe("gameplay slice Netlify function", () => {
 
     expect(submit.statusCode).toBe(200);
     expect(submit.json.accepted).toBe(true);
-    expect(submit.json.readModel.reports[0].reportType).toBe("building-action");
+    expect(submit.json.readModel).not.toBeNull();
     expect(submit.json.snapshotToken).toEqual(expect.any(String));
-    expect(submit.json.sessionToken).toEqual(expect.any(String));
 
-    const duplicateHandler = createTestHandler();
     const duplicate = await readBody(
-      duplicateHandler(
+      handler(
         postEvent("/api/gameplay-slice/submit", {
           snapshotToken: submit.json.snapshotToken,
-          sessionToken: submit.json.sessionToken,
-          focusDistrictId,
+          sessionToken: spawned.sessionToken,
+          focusDistrictId: spawned.focusDistrictId,
           command
         })
       )
     );
 
     expect(duplicate.statusCode).toBe(200);
-    expect(duplicate.json.accepted).toBe(false);
-    expect(duplicate.json.errors[0].code).toBe("server.duplicate_command");
+    expect(duplicate.json.accepted).toBe(true);
+    expect(duplicate.json.errors).toEqual([]);
   });
 
   it("passes unknown command types with a valid envelope to the unsupported-command path", async () => {
     const handler = createTestHandler();
-    const load = await readBody(
-      handler(
-        postEvent("/api/gameplay-slice/load", {
-          serverInstanceId: "instance:free-function-unknown-command",
-          playerId: "player:function-unknown-command",
-          districtId: "district:function-unknown-command"
-        })
-      )
-    );
-    const focusDistrictId = load.json.readModel.district.districtId;
+    const joined = await joinPublicFreeSession(handler, {
+      accountId: "function-unknown-command"
+    });
+    const spawned = await selectSpawnDistrict(handler, joined, "command:function:unknown:spawn");
     const submit = await readBody(
       handler(
         postEvent("/api/gameplay-slice/submit", {
-          snapshotToken: load.json.snapshotToken,
-          sessionToken: load.json.sessionToken,
-          focusDistrictId,
+          snapshotToken: spawned.snapshotToken,
+          sessionToken: spawned.sessionToken,
+          focusDistrictId: spawned.focusDistrictId,
           command: {
             id: "command:function:unknown:1",
             type: "unknown-command-type",
             mode: "free",
-            playerId: "player:function-unknown-command",
-            serverInstanceId: "instance:free-function-unknown-command",
+            playerId: spawned.playerId,
+            serverInstanceId: spawned.serverInstanceId,
             issuedAt: new Date(0).toISOString(),
             payload: {},
             clientRequestId: null
@@ -513,47 +581,24 @@ describe("gameplay slice Netlify function", () => {
   });
 
   it("preserves factionId through cold snapshot submit flow", async () => {
-    const loadHandler = createTestHandler();
-    const load = await readBody(
-      loadHandler(
-        postEvent("/api/gameplay-slice/load", {
-          serverInstanceId: "instance:function-faction-snapshot",
-          playerId: "player:function-faction-snapshot",
-          districtId: "district:44",
-          factionId: "kartel"
-        })
-      )
+    const handler = createTestHandler();
+    const joined = await joinPublicFreeSession(handler, {
+      accountId: "function-faction-snapshot",
+      factionId: "kartel"
+    });
+    const spawned = await selectSpawnDistrict(
+      handler,
+      joined,
+      "command:function:faction-snapshot:spawn"
     );
-
-    expect(load.statusCode).toBe(200);
-    expect(load.json.readModel.player.factionId).toBe("kartel");
-    const focusDistrictId = load.json.readModel.district.districtId;
-
-    const building = load.json.readModel.district.buildings.find(
-      (candidate: { actions: unknown[] }) => candidate.actions.length > 0
-    );
-    const action = building.actions[0];
-    const command = {
-      id: "command:function:faction-snapshot-submit:1",
-      type: "run-building-action",
-      mode: load.json.readModel.mode.mode,
-      playerId: "player:function-faction-snapshot",
-      serverInstanceId: "instance:function-faction-snapshot",
-      issuedAt: new Date(0).toISOString(),
-      payload: {
-        districtId: focusDistrictId,
-        buildingId: building.buildingId,
-        actionId: action.actionId
-      },
-      clientRequestId: null
-    };
-    const submitHandler = createTestHandler();
+    expect(spawned.readModel.player.factionId).toBe("kartel");
+    const command = createPlaceTrapBody(spawned, "command:function:faction-snapshot-submit:1");
     const submit = await readBody(
-      submitHandler(
+      handler(
         postEvent("/api/gameplay-slice/submit", {
-          snapshotToken: load.json.snapshotToken,
-          sessionToken: load.json.sessionToken,
-          focusDistrictId,
+          snapshotToken: spawned.snapshotToken,
+          sessionToken: spawned.sessionToken,
+          focusDistrictId: spawned.focusDistrictId,
           command
         })
       )
@@ -566,40 +611,21 @@ describe("gameplay slice Netlify function", () => {
 
   it("rejects submit without a gameplay session token before command handling", async () => {
     const handler = createTestHandler();
-    const load = await readBody(
-      handler(
-        postEvent("/api/gameplay-slice/load", {
-          serverInstanceId: "instance:function-submit-without-session-token",
-          playerId: "player:function-submit-without-session-token",
-          districtId: "district:55"
-        })
-      )
+    const joined = await joinPublicFreeSession(handler, {
+      accountId: "function-submit-without-session-token"
+    });
+    const spawned = await selectSpawnDistrict(
+      handler,
+      joined,
+      "command:function:submit-without-session-token:spawn"
     );
-    const focusDistrictId = load.json.readModel.district.districtId;
-    const building = load.json.readModel.district.buildings.find(
-      (candidate: { actions: unknown[] }) => candidate.actions.length > 0
-    );
-    const action = building.actions[0];
 
     const submit = await readBody(
       handler(
         postEvent("/api/gameplay-slice/submit", {
-          snapshotToken: load.json.snapshotToken,
-          focusDistrictId,
-          command: {
-            id: "command:function:submit-without-session-token:1",
-            type: "run-building-action",
-            mode: "free",
-            playerId: "player:function-submit-without-session-token",
-            serverInstanceId: "instance:function-submit-without-session-token",
-            issuedAt: new Date(0).toISOString(),
-            payload: {
-              districtId: focusDistrictId,
-              buildingId: building.buildingId,
-              actionId: action.actionId
-            },
-            clientRequestId: null
-          }
+          snapshotToken: spawned.snapshotToken,
+          focusDistrictId: spawned.focusDistrictId,
+          command: createPlaceTrapBody(spawned, "command:function:submit-without-session-token:1")
         })
       )
     );
@@ -610,7 +636,7 @@ describe("gameplay slice Netlify function", () => {
       readModel: null,
       errors: [
         {
-          code: "transport.session_token_missing"
+          code: "SESSION_REQUIRED"
         }
       ]
     });
@@ -618,28 +644,23 @@ describe("gameplay slice Netlify function", () => {
 
   it("rejects submit when the gameplay session token belongs to another player or instance", async () => {
     const handler = createTestHandler();
-    const load = await readBody(
-      handler(
-        postEvent("/api/gameplay-slice/load", {
-          serverInstanceId: "instance:function-session-identity",
-          playerId: "player:function-session-owner",
-          districtId: "district:56"
-        })
-      )
-    );
+    const joined = await joinPublicFreeSession(handler, {
+      accountId: "function-session-owner"
+    });
+    const spawned = await selectSpawnDistrict(handler, joined, "command:function:session-identity:spawn");
 
     const wrongPlayer = await readBody(
       handler(
         postEvent("/api/gameplay-slice/submit", {
-          snapshotToken: load.json.snapshotToken,
-          sessionToken: load.json.sessionToken,
-          focusDistrictId: load.json.readModel.district.districtId,
+          snapshotToken: spawned.snapshotToken,
+          sessionToken: spawned.sessionToken,
+          focusDistrictId: spawned.focusDistrictId,
           command: {
             id: "command:function:session-wrong-player:1",
             type: "unknown-command-type",
             mode: "free",
             playerId: "player:function-session-attacker",
-            serverInstanceId: "instance:function-session-identity",
+            serverInstanceId: spawned.serverInstanceId,
             issuedAt: new Date(0).toISOString(),
             payload: {},
             clientRequestId: null
@@ -651,13 +672,13 @@ describe("gameplay slice Netlify function", () => {
     const wrongInstance = await readBody(
       handler(
         postEvent("/api/gameplay-slice/submit", {
-          sessionToken: load.json.sessionToken,
-          focusDistrictId: load.json.readModel.district.districtId,
+          sessionToken: spawned.sessionToken,
+          focusDistrictId: spawned.focusDistrictId,
           command: {
             id: "command:function:session-wrong-instance:1",
             type: "unknown-command-type",
             mode: "free",
-            playerId: "player:function-session-owner",
+            playerId: spawned.playerId,
             serverInstanceId: "instance:function-session-other",
             issuedAt: new Date(0).toISOString(),
             payload: {},
@@ -667,38 +688,33 @@ describe("gameplay slice Netlify function", () => {
       )
     );
 
-    expect(wrongPlayer.json.errors[0].code).toBe("transport.session_identity_mismatch");
+    expect(wrongPlayer.json.errors[0].code).toBe("PLAYER_IDENTITY_MISMATCH");
     expect(wrongPlayer.json.readModel).toBeNull();
-    expect(wrongInstance.json.errors[0].code).toBe("transport.session_identity_mismatch");
+    expect(wrongInstance.json.errors[0].code).toBe("PLAYER_IDENTITY_MISMATCH");
     expect(wrongInstance.json.readModel).toBeNull();
   });
 
   it("rejects tampered gameplay session tokens", async () => {
     const handler = createTestHandler();
-    const load = await readBody(
-      handler(
-        postEvent("/api/gameplay-slice/load", {
-          serverInstanceId: "instance:function-session-tamper",
-          playerId: "player:function-session-tamper",
-          districtId: "district:57"
-        })
-      )
-    );
-    const token = String(load.json.sessionToken);
+    const joined = await joinPublicFreeSession(handler, {
+      accountId: "function-session-tamper"
+    });
+    const spawned = await selectSpawnDistrict(handler, joined, "command:function:session-tamper:spawn");
+    const token = spawned.sessionToken;
     const tamperedToken = `${token.slice(0, -1)}${token.endsWith("x") ? "y" : "x"}`;
 
     const submit = await readBody(
       handler(
         postEvent("/api/gameplay-slice/submit", {
-          snapshotToken: load.json.snapshotToken,
+          snapshotToken: spawned.snapshotToken,
           sessionToken: tamperedToken,
-          focusDistrictId: load.json.readModel.district.districtId,
+          focusDistrictId: spawned.focusDistrictId,
           command: {
             id: "command:function:session-tamper:1",
             type: "unknown-command-type",
             mode: "free",
-            playerId: "player:function-session-tamper",
-            serverInstanceId: "instance:function-session-tamper",
+            playerId: spawned.playerId,
+            serverInstanceId: spawned.serverInstanceId,
             issuedAt: new Date(0).toISOString(),
             payload: {},
             clientRequestId: null
@@ -712,7 +728,7 @@ describe("gameplay slice Netlify function", () => {
       readModel: null,
       errors: [
         {
-          code: "transport.session_token_invalid"
+          code: "SESSION_INVALID"
         }
       ]
     });
@@ -724,18 +740,13 @@ describe("gameplay slice Netlify function", () => {
       NODE_ENV: "test",
       GAMEPLAY_SLICE_SNAPSHOT_SECRET: secret
     });
-    const load = await readBody(
-      handler(
-        postEvent("/api/gameplay-slice/load", {
-          serverInstanceId: "instance:function-session-expired",
-          playerId: "player:function-session-expired",
-          districtId: "district:58"
-        })
-      )
-    );
+    const joined = await joinPublicFreeSession(handler, {
+      accountId: "function-session-expired"
+    });
+    const spawned = await selectSpawnDistrict(handler, joined, "command:function:session-expired:spawn");
     const expiredToken = createGameplaySessionTokenCodec({ secret }).seal({
-      serverInstanceId: "instance:function-session-expired",
-      playerId: "player:function-session-expired",
+      serverInstanceId: spawned.serverInstanceId,
+      playerId: spawned.playerId,
       issuedAt: "2020-01-01T00:00:00.000Z",
       expiresAt: "2020-01-01T00:00:01.000Z"
     });
@@ -743,15 +754,15 @@ describe("gameplay slice Netlify function", () => {
     const submit = await readBody(
       handler(
         postEvent("/api/gameplay-slice/submit", {
-          snapshotToken: load.json.snapshotToken,
+          snapshotToken: spawned.snapshotToken,
           sessionToken: expiredToken,
-          focusDistrictId: load.json.readModel.district.districtId,
+          focusDistrictId: spawned.focusDistrictId,
           command: {
             id: "command:function:session-expired:1",
             type: "unknown-command-type",
             mode: "free",
-            playerId: "player:function-session-expired",
-            serverInstanceId: "instance:function-session-expired",
+            playerId: spawned.playerId,
+            serverInstanceId: spawned.serverInstanceId,
             issuedAt: new Date(0).toISOString(),
             payload: {},
             clientRequestId: null
@@ -760,7 +771,7 @@ describe("gameplay slice Netlify function", () => {
       )
     );
 
-    expect(submit.json.errors[0].code).toBe("transport.session_token_invalid");
+    expect(submit.json.errors[0].code).toBe("SESSION_INVALID");
     expect(submit.json.readModel).toBeNull();
   });
 
@@ -790,33 +801,56 @@ describe("gameplay slice Netlify function", () => {
     expect(submit.statusCode).toBe(200);
     expect(submit.json.accepted).toBe(false);
     expect(submit.json.readModel).toBeNull();
-    expect(submit.json.errors[0].code).toBe("transport.session_token_missing");
+    expect(submit.json.errors[0].code).toBe("SESSION_REQUIRED");
   });
 
   it("rejects the 21st free mode player with a domain error", async () => {
-    const handler = createTestHandler();
+    const environment = {
+      NODE_ENV: "test",
+      GAMEPLAY_SLICE_SNAPSHOT_SECRET: "test-capacity-snapshot-secret",
+      GAMEPLAY_SLICE_SESSION_SECRET: "test-capacity-session-secret"
+    };
+    const server = createServerApp({ environment });
+    const handler = createTestHandler(environment, { server });
 
     for (let index = 1; index <= 20; index += 1) {
-      const load = await readBody(
+      const accountId = `dev:function-capacity:${index}`;
+      const ticket = await server.gameplaySessionService.createJoinTicket({
+        accountId,
+        serverInstanceId: PUBLIC_FREE_SERVER_INSTANCE_ID,
+        mode: "free",
+        nowIso: new Date().toISOString()
+      });
+      const join = await readBody(
         handler(
-          postEvent("/api/gameplay-slice/load", {
-            serverInstanceId: "instance:function-free-capacity",
-            playerId: `player:function-capacity:${index}`,
-            districtId: `district:${2000 + index * 10}`
+          postEvent("/api/gameplay-slice/join", {
+            accountId: `function-capacity:${index}`,
+            joinTicket: ticket.ticketId,
+            serverInstanceId: PUBLIC_FREE_SERVER_INSTANCE_ID,
+            preferredStartDistrictId: DEFAULT_SPAWN_DISTRICT_ID
           })
         )
       );
 
-      expect(load.statusCode).toBe(200);
-      expect(load.json.accepted).toBe(true);
+      expect(join.statusCode).toBe(200);
+      if (!join.json.accepted) {
+        throw new Error(`Expected capacity join ${index} to be accepted: ${JSON.stringify(join.json.errors)}`);
+      }
     }
 
+    const rejectedTicket = await server.gameplaySessionService.createJoinTicket({
+      accountId: "dev:function-capacity:21",
+      serverInstanceId: PUBLIC_FREE_SERVER_INSTANCE_ID,
+      mode: "free",
+      nowIso: new Date().toISOString()
+    });
     const rejected = await readBody(
       handler(
-        postEvent("/api/gameplay-slice/load", {
-          serverInstanceId: "instance:function-free-capacity",
-          playerId: "player:function-capacity:21",
-          districtId: "district:2210"
+        postEvent("/api/gameplay-slice/join", {
+          accountId: "function-capacity:21",
+          joinTicket: rejectedTicket.ticketId,
+          serverInstanceId: PUBLIC_FREE_SERVER_INSTANCE_ID,
+          preferredStartDistrictId: DEFAULT_SPAWN_DISTRICT_ID
         })
       )
     );
@@ -842,9 +876,11 @@ const createTestHandler = (
   environment?: Record<string, string | undefined>,
   options: {
     allowImplicitInstanceCreation?: boolean;
+    server?: ServerApp;
   } = {}
 ) => createGameplaySliceFunctionHandler({
   cryptoProvider: () => webcrypto,
   environment,
-  allowImplicitInstanceCreation: options.allowImplicitInstanceCreation
+  allowImplicitInstanceCreation: options.allowImplicitInstanceCreation,
+  server: options.server
 });

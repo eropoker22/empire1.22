@@ -309,6 +309,31 @@ export async function openLobbyPage(page, options = {}) {
   await expect(page.getByTestId("server-list")).toBeVisible();
 }
 
+export async function resolveJoinableFreeServerId(page) {
+  await expect(page.getByTestId("server-list")).toBeVisible();
+
+  const serverId = await page.evaluate(() => {
+    const cards = Array.from(document.querySelectorAll("[data-server-card][data-server-mode='free']"));
+    const normalize = (value) => String(value || "");
+    const isJoinable = (element) => !element.classList.contains("is-locked")
+      && !element.classList.contains("is-full")
+      && !element.classList.contains("is-offline");
+
+    const recommended = cards.find((element) =>
+      normalize(element.getAttribute("data-recommended-server")) === "true" && isJoinable(element)
+    );
+    if (recommended) {
+      return normalize(recommended.getAttribute("data-server-card"));
+    }
+
+    const fallback = cards.find((element) => isJoinable(element));
+    return fallback ? normalize(fallback.getAttribute("data-server-card")) : "";
+  });
+
+  expect(serverId, "A joinable Free server should exist in the lobby.").toBeTruthy();
+  return serverId;
+}
+
 export async function openFactionPage(page) {
   await seedE2eSession(page, {
     registration: {

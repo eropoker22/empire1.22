@@ -50,7 +50,7 @@ export const createGameplaySliceJsonHandler = (
 
       return {
         status: 200,
-        body: transport.load(validation.request)
+        body: await transport.load(validation.request)
       };
     }
 

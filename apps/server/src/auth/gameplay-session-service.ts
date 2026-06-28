@@ -7,6 +7,7 @@ export interface AccountIdentity {
 }
 
 export interface AccountIdentityProvider {
+  readonly productionReady: boolean;
   resolve(input: { headers?: Record<string, string | string[] | undefined>; body?: unknown }): AccountIdentity | null;
 }
 
@@ -53,28 +54,50 @@ export interface GameplaySessionService {
     mode: GameModeId;
     factionId?: PlayerFactionId | string | null;
     nowIso: string;
-  }): JoinTicketRecord;
+  }): Promise<JoinTicketRecord>;
   consumeJoinTicket(input: {
     ticketId: string;
     accountId: string;
     serverInstanceId: ServerInstanceId;
     nowIso: string;
-  }): { accepted: true; ticket: JoinTicketRecord; registration: PlayerRegistrationRecord } | { accepted: false; errors: DomainError[] };
-  createSession(input: { registration: PlayerRegistrationRecord; nowIso: string; ttlMs: number }): GameplaySessionRecord;
+  }): Promise<{ accepted: true; ticket: JoinTicketRecord; registration: PlayerRegistrationRecord } | { accepted: false; errors: DomainError[] }>;
+  createSession(input: { registration: PlayerRegistrationRecord; nowIso: string; ttlMs: number }): Promise<GameplaySessionRecord>;
   validateSession(input: {
     sessionId: string | null | undefined;
     accountId?: string | null;
     serverInstanceId?: string | null;
     nowIso: string;
-  }): { accepted: true; session: GameplaySessionRecord } | { accepted: false; errors: DomainError[] };
-  revokeSession(sessionId: string, nowIso: string): boolean;
-  revokePlayerSessions(playerId: string, nowIso: string): number;
-  listRegistrations(): PlayerRegistrationRecord[];
+  }): Promise<{ accepted: true; session: GameplaySessionRecord } | { accepted: false; errors: DomainError[] }>;
+  revokeSession(sessionId: string, nowIso: string): Promise<boolean>;
+  revokePlayerSessions(playerId: string, nowIso: string): Promise<number>;
+  listRegistrations(): Promise<PlayerRegistrationRecord[]>;
+}
+
+export interface GameplayIdentitySessionRepository {
+  createJoinTicket(input: JoinTicketRecord): Promise<JoinTicketRecord>;
+  consumeJoinTicket(input: {
+    ticketId: string;
+    accountId: string;
+    serverInstanceId: ServerInstanceId;
+    consumedAt: string;
+  }): Promise<{ ticket: JoinTicketRecord; registration: PlayerRegistrationRecord } | null>;
+  getOrCreateRegistration(input: {
+    accountId: string;
+    serverInstanceId: ServerInstanceId;
+    nowIso: string;
+  }): Promise<PlayerRegistrationRecord>;
+  createSession(input: GameplaySessionRecord): Promise<GameplaySessionRecord>;
+  getSessionById(sessionId: string): Promise<GameplaySessionRecord | null>;
+  touchSession(sessionId: string, lastSeenAt: string): Promise<GameplaySessionRecord | null>;
+  revokeSession(sessionId: string, revokedAt: string): Promise<boolean>;
+  revokePlayerSessions(playerId: string, revokedAt: string): Promise<number>;
+  listRegistrations(): Promise<PlayerRegistrationRecord[]>;
 }
 
 export const createDevAccountIdentityProvider = (
   options: { allow: boolean }
 ): AccountIdentityProvider => ({
+  productionReady: false,
   resolve: ({ headers, body }) => {
     if (!options.allow) return null;
     const headerAccount = normalizeHeader(headers?.["x-empire-account-id"]);
@@ -84,6 +107,105 @@ export const createDevAccountIdentityProvider = (
     return accountId ? { accountId: `dev:${accountId}`, provider: "dev" } : null;
   }
 });
+
+export const createUnavailableAccountIdentityProvider = (): AccountIdentityProvider => ({
+  productionReady: false,
+  resolve: () => null
+});
+
+export const createUnavailableGameplaySessionService = (): GameplaySessionService => ({
+  productionReady: false,
+  createJoinTicket: async () => {
+    throw new Error("Gameplay session repository is not configured.");
+  },
+  consumeJoinTicket: async () => reject("SESSION_INVALID", "Gameplay session repository is not configured."),
+  createSession: async () => {
+    throw new Error("Gameplay session repository is not configured.");
+  },
+  validateSession: async () => reject("SESSION_INVALID", "Gameplay session repository is not configured."),
+  revokeSession: async () => false,
+  revokePlayerSessions: async () => 0,
+  listRegistrations: async () => []
+});
+
+export const createPersistentGameplaySessionService = (
+  repository: GameplayIdentitySessionRepository,
+  options: { ticketTtlMs?: number; productionReady?: boolean } = {}
+): GameplaySessionService => {
+  const ticketTtlMs = options.ticketTtlMs ?? 5 * 60 * 1000;
+
+  return {
+    productionReady: options.productionReady ?? true,
+    createJoinTicket: async (input) => {
+      const ticket: JoinTicketRecord = {
+        ticketId: `join:${randomToken()}`,
+        accountId: input.accountId,
+        serverInstanceId: input.serverInstanceId,
+        mode: input.mode,
+        factionId: input.factionId ?? null,
+        issuedAt: input.nowIso,
+        expiresAt: new Date(Date.parse(input.nowIso) + ticketTtlMs).toISOString(),
+        consumedAt: null,
+        nonce: randomToken()
+      };
+      return repository.createJoinTicket(ticket);
+    },
+    consumeJoinTicket: async (input) => {
+      const consumed = await repository.consumeJoinTicket({
+        ticketId: input.ticketId,
+        accountId: input.accountId,
+        serverInstanceId: input.serverInstanceId,
+        consumedAt: input.nowIso
+      });
+      if (!consumed) {
+        return reject("JOIN_TICKET_INVALID", "Join ticket is invalid, expired, or already used.");
+      }
+      return {
+        accepted: true,
+        ticket: consumed.ticket,
+        registration: consumed.registration
+      };
+    },
+    createSession: async (input) => {
+      const session: GameplaySessionRecord = {
+        sessionId: `session:${randomToken()}`,
+        registrationId: input.registration.id,
+        accountId: input.registration.accountId,
+        playerId: input.registration.playerId,
+        serverInstanceId: input.registration.serverInstanceId,
+        createdAt: input.nowIso,
+        expiresAt: new Date(Date.parse(input.nowIso) + input.ttlMs).toISOString(),
+        lastSeenAt: input.nowIso,
+        revokedAt: null,
+        version: 1
+      };
+      return repository.createSession(session);
+    },
+    validateSession: async (input) => {
+      const sessionId = normalizeText(input.sessionId);
+      if (!sessionId) return reject("SESSION_REQUIRED", "Gameplay session is required.");
+      const session = await repository.getSessionById(sessionId);
+      if (!session) return reject("SESSION_INVALID", "Gameplay session is invalid.");
+      if (input.accountId && session.accountId !== input.accountId) {
+        return reject("ACCOUNT_IDENTITY_MISMATCH", "Gameplay session account does not match authenticated account.");
+      }
+      if (input.serverInstanceId && session.serverInstanceId !== input.serverInstanceId) {
+        return reject("SESSION_INSTANCE_MISMATCH", "Gameplay session server does not match request server.");
+      }
+      if (session.revokedAt) return reject("SESSION_REVOKED", "Gameplay session was revoked.");
+      if (Date.parse(session.expiresAt) <= Date.parse(input.nowIso)) {
+        return reject("SESSION_EXPIRED", "Gameplay session expired.");
+      }
+      const touched = await repository.touchSession(sessionId, input.nowIso);
+      return touched
+        ? { accepted: true, session: touched }
+        : reject("SESSION_INVALID", "Gameplay session is invalid.");
+    },
+    revokeSession: (sessionId, nowIso) => repository.revokeSession(sessionId, nowIso),
+    revokePlayerSessions: (playerId, nowIso) => repository.revokePlayerSessions(playerId, nowIso),
+    listRegistrations: () => repository.listRegistrations()
+  };
+};
 
 export const createInMemoryGameplaySessionService = (
   options: { productionReady?: boolean; ticketTtlMs?: number } = {}
@@ -96,7 +218,7 @@ export const createInMemoryGameplaySessionService = (
 
   return {
     productionReady: Boolean(options.productionReady),
-    createJoinTicket: (input) => {
+    createJoinTicket: async (input) => {
       const ticket: JoinTicketRecord = {
         ticketId: `join:${randomToken()}`,
         accountId: input.accountId,
@@ -111,7 +233,7 @@ export const createInMemoryGameplaySessionService = (
       tickets.set(ticket.ticketId, ticket);
       return ticket;
     },
-    consumeJoinTicket: (input) => {
+    consumeJoinTicket: async (input) => {
       const ticket = tickets.get(input.ticketId);
       if (!ticket || ticket.accountId !== input.accountId || ticket.serverInstanceId !== input.serverInstanceId) {
         return reject("JOIN_TICKET_INVALID", "Join ticket is invalid.");
@@ -128,7 +250,7 @@ export const createInMemoryGameplaySessionService = (
       });
       return { accepted: true, ticket, registration };
     },
-    createSession: (input) => {
+    createSession: async (input) => {
       const session: GameplaySessionRecord = {
         sessionId: `session:${randomToken()}`,
         registrationId: input.registration.id,
@@ -144,7 +266,7 @@ export const createInMemoryGameplaySessionService = (
       sessionsById.set(session.sessionId, session);
       return session;
     },
-    validateSession: (input) => {
+    validateSession: async (input) => {
       const sessionId = normalizeText(input.sessionId);
       if (!sessionId) return reject("SESSION_REQUIRED", "Gameplay session is required.");
       const session = sessionsById.get(sessionId);
@@ -163,14 +285,14 @@ export const createInMemoryGameplaySessionService = (
       session.version += 1;
       return { accepted: true, session };
     },
-    revokeSession: (sessionId, nowIso) => {
+    revokeSession: async (sessionId, nowIso) => {
       const session = sessionsById.get(sessionId);
       if (!session || session.revokedAt) return false;
       session.revokedAt = nowIso;
       session.version += 1;
       return true;
     },
-    revokePlayerSessions: (playerId, nowIso) => {
+    revokePlayerSessions: async (playerId, nowIso) => {
       let count = 0;
       for (const session of sessionsById.values()) {
         if (session.playerId === playerId && !session.revokedAt) {
@@ -181,7 +303,7 @@ export const createInMemoryGameplaySessionService = (
       }
       return count;
     },
-    listRegistrations: () => [...registrationsById.values()]
+    listRegistrations: async () => [...registrationsById.values()]
   };
 
   function getOrCreateRegistration(input: { accountId: string; serverInstanceId: string; nowIso: string }): PlayerRegistrationRecord {

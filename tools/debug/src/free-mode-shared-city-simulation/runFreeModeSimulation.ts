@@ -76,7 +76,7 @@ export const runFreeModeSimulation = async (
       seedApplied = true;
     }
 
-    refreshGameplaySessionToken(server, createLoadRequest(instanceId, playerId, index + 1, options.factionRotation), sessionTokensByPlayerId);
+    await refreshGameplaySessionToken(server, createLoadRequest(instanceId, playerId, index + 1, options.factionRotation), sessionTokensByPlayerId);
   }
 
   for (let round = 1; round <= rounds; round += 1) {
@@ -84,7 +84,7 @@ export const runFreeModeSimulation = async (
       const runtime = server.instanceManager.getInstanceById(instanceId);
       if (!runtime || runtime.state.playersById[playerId]?.status !== "active") continue;
       const profile = playerProfiles.get(playerId) ?? getBotProfileForPlayer(playerIndex, options);
-      const action = selectSimulationAction(
+      const action = await selectSimulationAction(
         runtime,
         playerId,
         round,
@@ -208,14 +208,14 @@ const submitInvalidProbe = async (
   );
 };
 
-const loadGameplaySliceView = (
+const loadGameplaySliceView = async (
   server: ReturnType<typeof createServerApp>,
   instanceId: ServerInstanceId,
   playerId: PlayerId,
   districtId: DistrictId,
   sessionTokensByPlayerId: Map<PlayerId, string>
-): GameplaySliceView | null => {
-  const response = server.gameplaySliceTransport.load({
+): Promise<GameplaySliceView | null> => {
+  const response = await server.gameplaySliceTransport.load({
     serverInstanceId: instanceId,
     playerId,
     districtId,
@@ -225,12 +225,12 @@ const loadGameplaySliceView = (
   return response.readModel;
 };
 
-const refreshGameplaySessionToken = (
+const refreshGameplaySessionToken = async (
   server: ReturnType<typeof createServerApp>,
   request: LoadGameplaySliceRequest,
   sessionTokensByPlayerId: Map<PlayerId, string>
-): void => {
-  const response = server.gameplaySliceTransport.load(request);
+): Promise<void> => {
+  const response = await server.gameplaySliceTransport.load(request);
   if (response.sessionToken && request.playerId) sessionTokensByPlayerId.set(request.playerId, response.sessionToken);
 };
 

@@ -7,6 +7,8 @@ export interface AdminDiagnosticLogEntry {
   category: string;
   message: string;
   occurredAt: string;
+  commandId?: string | null;
+  correlationId?: string | null;
 }
 
 /**
@@ -30,6 +32,8 @@ export interface AdminDiagnosticsReadFacade {
     category: string;
     message: string;
     occurredAt: string;
+    commandId?: string | null;
+    correlationId?: string | null;
   }>>;
 }
 
@@ -55,6 +59,8 @@ export const createAdminDiagnosticsReadService = (options: {
       level: record.level,
       category: record.category,
       message: record.message,
-      occurredAt: record.occurredAt
+      occurredAt: record.occurredAt,
+      commandId: record.commandId ?? null,
+      correlationId: record.correlationId ?? null
     }))
 });

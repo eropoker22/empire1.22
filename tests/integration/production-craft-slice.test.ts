@@ -4,6 +4,7 @@ import { createRunBuildingActionCommand } from "../../apps/client/src/features";
 import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 import { createServerApp } from "../../apps/server/src/app";
 import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
+import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 describe("production craft gameplay slice", () => {
   it("runs a fixed pharmacy stim-pack action and returns resources, cooldown, and report projection", async () => {
@@ -24,12 +25,13 @@ describe("production craft gameplay slice", () => {
     const client = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
     });
-
-    const initialRender = await client.load({
+    const session = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId,
       districtId
     });
+
+    const initialRender = await client.load(session.loadRequest);
 
     const buildingId = initialRender.districtPanel?.buildings.find(
       (building) => building.buildingTypeId === "pharmacy"
@@ -60,11 +62,9 @@ describe("production craft gameplay slice", () => {
     expect(crafted.topBarHtml).toContain("Alerts: 1");
     expect(crafted.reports[0]?.category).toBe("building-action");
     expect(
-      server.gameplaySliceTransport.load({
-        serverInstanceId: instanceId,
-        playerId,
-        districtId
-      }).readModel?.player.economy.materials["stim-pack"]
+      (await server.gameplaySliceTransport.load({
+        ...session.loadRequest
+      })).readModel?.player.economy.materials["stim-pack"]
     ).toBe(1);
     expect(
       server.instanceManager.getInstanceById(instanceId)?.state.resourceStatesById[`resource:${playerId}`]?.balances.chemicals

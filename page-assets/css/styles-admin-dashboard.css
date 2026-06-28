@@ -1114,3 +1114,272 @@ button {
     grid-template-columns: 96px minmax(0, 1fr) 36px;
   }
 }
+
+.admin-monitoring {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  gap: 18px;
+}
+
+.admin-monitoring__hero,
+.admin-monitoring__panel,
+.admin-monitoring__metric,
+.admin-monitoring__card,
+.admin-monitoring__empty {
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius);
+  background: var(--admin-panel);
+  box-shadow: var(--admin-shadow);
+  backdrop-filter: blur(18px);
+}
+
+.admin-monitoring__hero,
+.admin-monitoring__panel,
+.admin-monitoring__card,
+.admin-monitoring__empty {
+  padding: 18px;
+}
+
+.admin-monitoring__hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.admin-monitoring__hero h1,
+.admin-monitoring__panel h2,
+.admin-monitoring__panel h3,
+.admin-monitoring__empty h2 {
+  margin: 4px 0 0;
+}
+
+.admin-monitoring__hero p:last-child,
+.admin-monitoring__empty p,
+.admin-monitoring__warnings p,
+.admin-monitoring__mini-list span {
+  color: var(--admin-muted);
+}
+
+.admin-monitoring__hero-badges,
+.admin-monitoring__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-monitoring__metrics,
+.admin-monitoring__card-grid,
+.admin-monitoring__split,
+.admin-monitoring__layout {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-monitoring__metrics {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.admin-monitoring__metric {
+  padding: 16px;
+  min-height: 124px;
+  display: grid;
+  align-content: space-between;
+  gap: 10px;
+}
+
+.admin-monitoring__metric span,
+.admin-monitoring__kv dt,
+.admin-monitoring__checklist li::before {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.admin-monitoring__metric strong {
+  font-size: 24px;
+  overflow-wrap: anywhere;
+}
+
+.admin-monitoring__card-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-monitoring__layout {
+  grid-template-columns: minmax(0, 1.75fr) minmax(320px, 0.95fr);
+}
+
+.admin-monitoring__main,
+.admin-monitoring__side,
+.admin-monitoring__warnings {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-monitoring__panel--sticky {
+  position: sticky;
+  top: 24px;
+}
+
+.admin-monitoring__card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.admin-monitoring__card-head p,
+.admin-monitoring__card-head h3,
+.admin-monitoring__warnings strong {
+  margin: 0;
+}
+
+.admin-monitoring__split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-monitoring__kv {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-monitoring__kv div {
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--admin-radius);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.admin-monitoring__kv dt,
+.admin-monitoring__kv dd {
+  margin: 0;
+}
+
+.admin-monitoring__kv dd {
+  margin-top: 6px;
+  color: var(--admin-text);
+  overflow-wrap: anywhere;
+}
+
+.admin-monitoring__warnings ul,
+.admin-monitoring__checklist,
+.admin-monitoring__mini-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.admin-monitoring__secret-form,
+.admin-monitoring__secret-field {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-monitoring__secret-form {
+  max-width: 420px;
+  margin: 16px 0;
+}
+
+.admin-monitoring__secret-field span {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.admin-monitoring__secret-field input,
+.admin-monitoring__secret-form button {
+  min-height: 40px;
+  border: 1px solid rgba(54, 244, 255, 0.28);
+  border-radius: var(--admin-radius);
+  color: var(--admin-text);
+  background: rgba(5, 10, 20, 0.78);
+  padding: 0 12px;
+}
+
+.admin-monitoring__secret-form button {
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-monitoring__checklist li,
+.admin-monitoring__warnings li,
+.admin-monitoring__mini-list li {
+  margin: 0 0 10px;
+}
+
+.admin-monitoring__mini-list strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.admin-monitoring__table-wrap {
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--admin-radius);
+}
+
+.admin-monitoring__table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+}
+
+.admin-monitoring__table th,
+.admin-monitoring__table td {
+  padding: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  vertical-align: top;
+  font-size: 12px;
+}
+
+.admin-monitoring__table th {
+  color: var(--admin-muted);
+  background: rgba(6, 10, 18, 0.96);
+  text-transform: uppercase;
+}
+
+.admin-monitoring__table td {
+  color: #dceaff;
+}
+
+@media (max-width: 1180px) {
+  .admin-monitoring__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-monitoring__layout,
+  .admin-monitoring__card-grid,
+  .admin-monitoring__split {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-monitoring__panel--sticky {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-monitoring {
+    padding: 12px;
+  }
+
+  .admin-monitoring__hero,
+  .admin-monitoring__panel-head,
+  .admin-monitoring__card-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .admin-monitoring__metrics,
+  .admin-monitoring__kv {
+    grid-template-columns: 1fr;
+  }
+}

@@ -19,9 +19,16 @@ import { createRuntimePersistenceRepositoriesFromEnvironment } from "../runtime/
 import {
   createDevAccountIdentityProvider,
   createInMemoryGameplaySessionService,
+  createPersistentGameplaySessionService,
+  createUnavailableAccountIdentityProvider,
+  createUnavailableGameplaySessionService,
   type AccountIdentityProvider,
   type GameplaySessionService
 } from "../auth";
+import {
+  createPostgresDatabase,
+  createPostgresGameplayIdentitySessionRepository
+} from "../runtime/persistence/postgres";
 
 /**
  * Responsibility: Top-level server application composition root.
@@ -47,7 +54,8 @@ export const createServerApp = (options: ServerAppOptions = {}) => {
         ...selectedPersistence,
         commandReservationRepository: undefined,
         commandResultRepository: undefined,
-        outboxRepository: undefined
+        outboxRepository: undefined,
+        atomicCommandTransaction: undefined
       }
     : selectedPersistence;
   const instanceManager = new ServerInstanceManager({
@@ -65,11 +73,14 @@ export const createServerApp = (options: ServerAppOptions = {}) => {
         clock: options.clock
       })
     : null;
-  const accountIdentityProvider = options.accountIdentityProvider ?? createDevAccountIdentityProvider({
-    allow: !isProduction || options.environment?.EMPIRE_DEV_AUTH_ENABLED === "true"
-  });
-  const gameplaySessionService = options.gameplaySessionService ?? createInMemoryGameplaySessionService({
-    productionReady: !isProduction
+  const accountIdentityProvider = options.accountIdentityProvider ?? (
+    isProduction
+      ? createUnavailableAccountIdentityProvider()
+      : createDevAccountIdentityProvider({ allow: true })
+  );
+  const gameplaySessionService = options.gameplaySessionService ?? createDefaultGameplaySessionService({
+    environment: options.environment,
+    isProduction
   });
   const gameplaySliceTransport = createGameplaySliceTransport(instanceManager, commandIngress, {
     sessionTokenCodec: gameplaySessionTokenCodec,
@@ -83,6 +94,8 @@ export const createServerApp = (options: ServerAppOptions = {}) => {
   });
   const tickLoop = createTickLoop({
     tickOrchestrator,
+    // Poll at the fastest public cadence; each instance scheduler gates actual
+    // ticks with its own mode config tickRateMs.
     intervalMs: resolveModeConfig("free").tickRateMs
   });
   const snapshotOrchestrator = createSnapshotOrchestrator(instanceManager);
@@ -112,3 +125,30 @@ export const createServerApp = (options: ServerAppOptions = {}) => {
 };
 
 export type ServerApp = ReturnType<typeof createServerApp>;
+
+const createDefaultGameplaySessionService = (
+  options: {
+    environment?: Record<string, string | undefined>;
+    isProduction: boolean;
+  }
+): GameplaySessionService => {
+  if (!options.isProduction) {
+    return createInMemoryGameplaySessionService({ productionReady: true });
+  }
+
+  const databaseUrl = String(
+    options.environment?.EMPIRE_DATABASE_URL ??
+    options.environment?.GAMEPLAY_DATABASE_URL ??
+    ""
+  ).trim();
+
+  if (!databaseUrl) {
+    return createUnavailableGameplaySessionService();
+  }
+
+  const database = createPostgresDatabase(databaseUrl);
+  return createPersistentGameplaySessionService(
+    createPostgresGameplayIdentitySessionRepository(database),
+    { productionReady: true }
+  );
+};

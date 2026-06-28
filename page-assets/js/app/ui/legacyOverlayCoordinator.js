@@ -41,6 +41,7 @@ function getBody(element) {
 
 function lockBodyScroll(element) {
   const body = getBody(element);
+  const html = body?.ownerDocument?.documentElement || null;
   const view = body?.ownerDocument?.defaultView || (typeof window !== "undefined" ? window : null);
   if (!body || !view || body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] === "true") {
     return;
@@ -57,6 +58,7 @@ function lockBodyScroll(element) {
   };
 
   body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "true";
+  html?.classList?.add(LOCKED_BODY_CLASS);
   body.classList.add(LOCKED_BODY_CLASS);
   body.style.position = "fixed";
   body.style.top = `-${scrollY}px`;
@@ -67,6 +69,7 @@ function lockBodyScroll(element) {
 
 function unlockBodyScroll(element) {
   const body = getBody(element);
+  const html = body?.ownerDocument?.documentElement || null;
   const view = body?.ownerDocument?.defaultView || (typeof window !== "undefined" ? window : null);
   if (!body || !view || body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] !== "true") {
     return;
@@ -78,6 +81,7 @@ function unlockBodyScroll(element) {
   body.style.right = savedStyles?.right || "";
   body.style.top = savedStyles?.top || "";
   body.style.width = savedStyles?.width || "";
+  html?.classList?.remove(LOCKED_BODY_CLASS);
   body.classList.remove(LOCKED_BODY_CLASS);
   delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
   bodyStyleSnapshot = null;
@@ -148,6 +152,10 @@ function pruneClosedOverlays() {
 
 export function suppressMapInput(ms = DEFAULT_GHOST_CLICK_SUPPRESSION_MS) {
   suppressMapInputUntil = Math.max(suppressMapInputUntil, now() + ms);
+}
+
+export function suppressMapInputFor(ms = DEFAULT_GHOST_CLICK_SUPPRESSION_MS) {
+  suppressMapInput(ms);
 }
 
 export function isOverlayOpen() {
@@ -250,14 +258,21 @@ export function closeTopOverlay(options = {}) {
   return true;
 }
 
+export function isTopOverlayElement(element) {
+  const topOverlay = getTopOverlay();
+  return Boolean(topOverlay?.element === element);
+}
+
 if (typeof window !== "undefined") {
   window.EmpireLegacyOverlay = {
     closeOverlay,
     closeTopOverlay,
     getTopOverlay,
     isOverlayOpen,
+    isTopOverlayElement,
     openOverlay,
     shouldSuppressMapInput,
-    suppressMapInput
+    suppressMapInput,
+    suppressMapInputFor
   };
 }

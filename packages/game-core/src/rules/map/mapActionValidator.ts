@@ -120,12 +120,18 @@ export const validateMapAction = (
       }
       return allowed(relation, isAdjacentToOwnedDistrict, target.id);
     case "place_defense":
-      if (relation !== "self" && relation !== "ally") {
+      if (relation === "ally") {
+        return blocked("ALLIANCE_DEFENSE_NOT_IMPLEMENTED", relation, isAdjacentToOwnedDistrict);
+      }
+      if (relation !== "self") {
         return blocked("ALLIANCE_REQUIRED", relation, isAdjacentToOwnedDistrict);
       }
       return allowed(relation, isAdjacentToOwnedDistrict, target.id);
     case "remove_defense":
-      if (relation !== "self" && relation !== "ally") {
+      if (relation === "ally") {
+        return blocked("ALLIANCE_DEFENSE_NOT_IMPLEMENTED", relation, isAdjacentToOwnedDistrict);
+      }
+      if (relation !== "self") {
         return blocked("DEFENSE_NOT_OWNED", relation, isAdjacentToOwnedDistrict);
       }
       return allowed(relation, isAdjacentToOwnedDistrict, target.id);

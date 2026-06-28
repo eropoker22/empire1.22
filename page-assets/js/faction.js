@@ -225,6 +225,17 @@ const FACTION_META = {
 };
 
 const factionOrder = ["mafian", "kartel", "kult", "tajna-organizace", "hackeri", "motorkarsky-gang", "soukroma-armada", "korporace"];
+const RECOMMENDED_START_FACTIONS = new Set(["mafian", "korporace", "soukroma-armada"]);
+const FACTION_PLAYER_GUIDE = Object.freeze({
+  mafian: { style: "Stabilní vliv a bezpečnější tempo", difficulty: "Lehká" },
+  kartel: { style: "Rychlý dirty cash a tvrdá expanze", difficulty: "Střední" },
+  kult: { style: "Influence, populace a obrana", difficulty: "Střední" },
+  "tajna-organizace": { style: "Intel, špehování a pasti", difficulty: "Těžší" },
+  hackeri: { style: "Informace, kamery a technická obrana", difficulty: "Střední" },
+  "motorkarsky-gang": { style: "Rychlé cooldowny a agresivní tlak", difficulty: "Těžší" },
+  "soukroma-armada": { style: "Přímý boj, obrana a obsazování", difficulty: "Lehká" },
+  korporace: { style: "Clean cash, obchod a nižší policejní dopady", difficulty: "Lehká" }
+});
 
 const qs = (selector) => document.querySelector(selector);
 
@@ -342,6 +353,29 @@ document.addEventListener("DOMContentLoaded", () => {
     return FACTION_META[factionId] || FACTION_META.mafian;
   }
 
+  function getFactionGuide(factionId) {
+    return FACTION_PLAYER_GUIDE[factionId] || { style: "Vyvážený pouliční profil", difficulty: "Střední" };
+  }
+
+  function formatPlayerEffectList(items, fallback) {
+    return (items || []).filter(Boolean).join(" • ") || fallback;
+  }
+
+  function renderFactionRecommendations() {
+    structureGrid?.querySelectorAll(".structure-card").forEach((button) => {
+      if (!RECOMMENDED_START_FACTIONS.has(button.dataset.factionId)) {
+        return;
+      }
+      if (button.querySelector(".structure-card__recommendation")) {
+        return;
+      }
+      const badge = document.createElement("span");
+      badge.className = "structure-card__recommendation";
+      badge.textContent = "Doporučeno pro start";
+      button.appendChild(badge);
+    });
+  }
+
   function getAvailableAvatars() {
     if (!selectedFactionId) return [];
     return getFactionMeta(selectedFactionId).avatars || [];
@@ -389,9 +423,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const registration = getRegistrationDraft();
     const activeServer = getActiveServerRegistration(registration);
     if (authFlowTitle) {
-      authFlowTitle.textContent = activeServer?.serverName
-        ? `Vyber frakci pro ${activeServer.serverName}`
-        : "Vyber frakci pro tuto válku";
+      authFlowTitle.textContent = activeServer?.serverMode === "war"
+        ? "Vyber frakci pro tuto válku"
+        : "Vyber frakci pro tento server";
     }
     if (authIdentity) {
       authIdentity.textContent = registration?.identity || "Host";
@@ -419,7 +453,8 @@ document.addEventListener("DOMContentLoaded", () => {
     return (items || []).map((item) => `${item} (${label})`);
   }
 
-  function renderFactionPreview(factionId) {
+function renderFactionPreview(factionId) {
+    // Source guard: special faction actions remain planned/display-only until core-backed.
     const faction = FACTION_CATALOG[factionId] || FACTION_CATALOG.mafian;
     const meta = getFactionMeta(factionId);
     if (factionInput) factionInput.value = factionId;
@@ -429,26 +464,29 @@ document.addEventListener("DOMContentLoaded", () => {
     if (desc) desc.textContent = meta.desc || faction.description;
     if (bonus) {
       const action = faction.specialAction;
+      const guide = getFactionGuide(factionId);
       const actionLabel = action?.status === "implemented" ? "Aktivní" : "Preview";
       const actionTitle = action?.name || meta.bonus;
       const actionCopy = action?.description || meta.bonusCopy;
-      const advantageCopy = (faction.advantages || []).join(" • ");
-      const plannedAdvantageCopy = (faction.plannedAdvantages || []).join(" • ");
-      const disadvantageCopy = (faction.disadvantages || []).join(" • ");
-      const plannedDisadvantageCopy = (faction.plannedDisadvantages || []).join(" • ");
-      const coreBackedCopy = (faction.coreBackedEffects || []).join(" • ");
-      const plannedCopy = (faction.plannedEffects || []).join(" • ");
+      const activeBonusCopy = formatPlayerEffectList([
+        ...(faction.coreBackedEffects || []),
+        ...(faction.advantages || [])
+      ], "Základní frakční profil je aktivní.");
+      const disadvantageCopy = formatPlayerEffectList(faction.disadvantages, "Bez výrazné úvodní nevýhody.");
+      const plannedCopy = formatPlayerEffectList([
+        ...(faction.plannedEffects || []),
+        ...(faction.plannedAdvantages || []),
+        ...(faction.plannedDisadvantages || [])
+      ], "Speciální schopnosti jsou zatím preview.");
       bonus.innerHTML = `
         <span class="faction-bonus__icon" aria-hidden="true">✦</span>
-        <span class="faction-bonus__copy">
-          <strong>Styl:</strong> ${faction.playstyleSummary || "pasivní frakční profil"}<br>
-          <strong>Výhody:</strong> ${advantageCopy || "bez samostatné výhody"}<br>
-          ${plannedAdvantageCopy ? `<strong>Plánované výhody:</strong> ${plannedAdvantageCopy}<br>` : ""}
-          <strong>Nevýhody:</strong> ${disadvantageCopy || "bez samostatné nevýhody"}<br>
-          ${plannedDisadvantageCopy ? `<strong>Plánované nevýhody:</strong> ${plannedDisadvantageCopy}<br>` : ""}
-          <strong>Core-backed:</strong> ${coreBackedCopy || "zatím žádné core-backed efekty"}<br>
-          ${plannedCopy ? `<strong>Planned/display-only:</strong> ${plannedCopy}<br>` : ""}
-          <strong>${actionTitle}</strong> ${actionCopy} <em>${actionLabel}: ${action?.status === "implemented" ? "core-backed." : "planned/preview-only."}</em>
+        <span class="faction-bonus__copy faction-bonus__copy--rows">
+          <span class="faction-bonus__row"><strong>Styl hry</strong><span>${guide.style || faction.playstyleSummary || "Vyvážený pouliční profil"}</span></span>
+          <span class="faction-bonus__row"><strong>Obtížnost</strong><span>${guide.difficulty}</span></span>
+          <span class="faction-bonus__row"><strong>Aktivní bonusy</strong><span>${activeBonusCopy}</span></span>
+          <span class="faction-bonus__row"><strong>Nevýhody</strong><span>${disadvantageCopy}</span></span>
+          <span class="faction-bonus__row"><strong>Připravujeme</strong><span>${plannedCopy}</span></span>
+          <span class="faction-bonus__row"><strong>Speciální schopnost</strong><span>${actionTitle}: ${actionCopy} <em>${actionLabel}</em></span></span>
         </span>
       `;
     }
@@ -457,12 +495,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (influenceEl) influenceEl.textContent = "Frakce upravuje pouze styl a pasivy";
     if (heatEl) heatEl.textContent = "Schopnosti jsou zatím preview-only";
     replaceList(advantagesEl, [
-      ...formatLabeledEffects(faction.advantages, "core-backed"),
-      ...formatLabeledEffects(faction.plannedAdvantages, "planned/display-only")
+      ...formatLabeledEffects(faction.advantages, "aktivní"),
+      ...formatLabeledEffects(faction.plannedAdvantages, "připravujeme")
     ]);
     replaceList(disadvantagesEl, [
-      ...formatLabeledEffects(faction.disadvantages, "core-backed"),
-      ...formatLabeledEffects(faction.plannedDisadvantages, "planned/display-only")
+      ...formatLabeledEffects(faction.disadvantages, "aktivní"),
+      ...formatLabeledEffects(faction.plannedDisadvantages, "připravujeme")
     ]);
   }
 
@@ -473,7 +511,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (tagline) tagline.textContent = "";
     if (desc) desc.textContent = "";
     if (bonus) {
-      bonus.innerHTML = '<span class="faction-bonus__icon" aria-hidden="true">✦</span><span class="faction-bonus__copy"><strong>Signál frakce</strong> Každá volba má vlastní pasivní rytmus, slabinu a preview speciální akce.</span>';
+      bonus.innerHTML = '<span class="faction-bonus__icon" aria-hidden="true">✦</span><span class="faction-bonus__copy"><strong>Aktivní bonusy</strong> Každá frakce má vlastní styl, slabinu a preview speciální schopnosti.</span>';
     }
     if (cleanMoneyEl) cleanMoneyEl.textContent = "-";
     if (dirtyMoneyEl) dirtyMoneyEl.textContent = "-";
@@ -565,9 +603,8 @@ document.addEventListener("DOMContentLoaded", () => {
       button.classList.toggle("is-selected", normalizeHexColor(button.dataset.gangColor) === color);
     });
     if (gangColorValue) {
-      const option = COLOR_OPTIONS.find((entry) => entry.value === color);
-      gangColorValue.textContent = option?.name || "Nevybráno";
-      gangColorValue.style.color = color || "";
+      gangColorValue.textContent = "";
+      gangColorValue.style.removeProperty("color");
     }
   }
 
@@ -851,6 +888,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  renderFactionRecommendations();
   renderGangColorOptions();
   renderGangColorSelectionState(selectedGangColor);
   if (selectedFactionId) {

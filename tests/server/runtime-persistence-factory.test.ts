@@ -23,20 +23,31 @@ describe("runtime persistence factory", () => {
     expect(repositories.diagnosticLogRepository).toBeDefined();
     expect(repositories.snapshotRepository).toBeDefined();
     expect(repositories.tickLock).toBeDefined();
-    expect(repositories.atomicCommandPersistenceMode).toBe("best-effort");
+    expect(repositories.atomicCommandPersistenceMode).toBe("transactional");
+    expect(repositories.atomicCommandTransaction).toBeDefined();
     await repositories.close?.();
   });
 
   it("strips non-transactional command persistence from production app composition", () => {
     const server = createServerApp({
       environment: { NODE_ENV: "production" },
-      persistence: {
-        ...createInMemoryRuntimePersistenceRepositories(),
-        atomicCommandPersistenceMode: "best-effort"
-      }
+      persistence: createInMemoryRuntimePersistenceRepositories()
     });
 
     const repositories = server.instanceManager.getPersistenceRepositories();
+    expect(repositories.commandReservationRepository).toBeUndefined();
+    expect(repositories.commandResultRepository).toBeUndefined();
+    expect(repositories.outboxRepository).toBeUndefined();
+    expect(repositories.atomicCommandTransaction).toBeUndefined();
+  });
+
+  it("treats default memory persistence as non-production command persistence", () => {
+    const server = createServerApp({
+      environment: { NODE_ENV: "production" }
+    });
+
+    const repositories = server.instanceManager.getPersistenceRepositories();
+    expect(repositories.atomicCommandPersistenceMode).toBe("best-effort");
     expect(repositories.commandReservationRepository).toBeUndefined();
     expect(repositories.commandResultRepository).toBeUndefined();
     expect(repositories.outboxRepository).toBeUndefined();

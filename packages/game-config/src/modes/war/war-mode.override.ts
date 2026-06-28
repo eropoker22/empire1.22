@@ -3,6 +3,8 @@ import { basePoliceConfig } from "../../base/base-police-config";
 import { createDayNightConfig } from "../../public/day-night-config";
 
 const WAR_MODE_TICK_RATE_MS = 15000;
+// 960 ticks at a 15s War tick rate is 4 hours per day/night phase.
+const WAR_MODE_DAY_NIGHT_PHASE_TICKS = 960;
 const WAR_MODE_RAID_DURATION_TICKS = Math.ceil((30 * 60 * 1000) / WAR_MODE_TICK_RATE_MS);
 
 /**
@@ -75,11 +77,11 @@ export const warModeOverride: Partial<ResolvedGameModeConfig> = {
     policePressureMultiplier: 1.1,
     raidIntensityMultiplier: 1.15,
     expansionSpeedMultiplier: 0.85,
-    dayLengthTicks: 16,
-    nightLengthTicks: 16,
+    dayLengthTicks: WAR_MODE_DAY_NIGHT_PHASE_TICKS,
+    nightLengthTicks: WAR_MODE_DAY_NIGHT_PHASE_TICKS,
     dayNight: createDayNightConfig({
-      dayDurationTicks: 960,
-      nightDurationTicks: 960
+      dayDurationTicks: WAR_MODE_DAY_NIGHT_PHASE_TICKS,
+      nightDurationTicks: WAR_MODE_DAY_NIGHT_PHASE_TICKS
     }),
     police: {
       ...basePoliceConfig,

@@ -17,3 +17,12 @@
 | relocate-trap | no | no | no | map validator only | capability only | no closed-alpha button | not ready | not ready |
 | market action | legacy/system-specific | partial | legacy market rules | market rules | market views | legacy modal | existing market tests | not part of this pass |
 | bounty action | legacy-only | no | no core command | no | legacy bounty UI | legacy modal | page smoke only | not closed-alpha authoritative |
+
+## Basic Actions Detail
+
+| Action | Server-authoritative | Closed-alpha ready | Placeholder | Legacy mutation blocked | Known follow-up |
+| --- | --- | --- | --- | --- | --- |
+| rob-district | yes | yes | fixed alpha loot | yes | Move from fixed loot to balanced server loot rules. |
+| heist-district | yes | yes, instant alpha only | async lifecycle not implemented | yes | Implement recoverable pending heist start/resolve before timers. |
+| place-defense | yes | own district only | allied defense disabled | yes | Owner-aware alliance defense contributions and cleanup. |
+| remove-defense | yes | own district only | allied defense disabled | yes | Owner-aware alliance defense removal and cleanup. |

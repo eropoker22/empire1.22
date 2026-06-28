@@ -18,11 +18,9 @@ const ACTIVE_EVENTS_REFRESH_MS = 35000;
 
 const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
   {
-    id: "night-vultures",
-    name: "Night Vultures",
-    gangName: "Downtown cartel",
-    faction: "Mafia",
-    alliance: "Black Sun Pact",
+    id: "kr-vlado",
+    name: "KrVlado",
+    subtitle: "Black Harbor",
     server: "WAR-01",
     rank: 1,
     score: 14820,
@@ -31,14 +29,12 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 420,
     cleanMoney: 245000,
     dirtyMoney: 388000,
-    status: "Kontrolují Downtown a drží největší vliv v městském jádru."
+    status: "Drží tlak na Downtown a sbírá respekt rychleji než zbytek lobby."
   },
   {
-    id: "blood-kings",
-    name: "Blood Kings",
-    gangName: "Harbor runners",
-    faction: "Kartel",
-    alliance: "Iron Parish",
+    id: "neon-boss",
+    name: "NeonBoss",
+    subtitle: "Chrome Royals",
     server: "WAR-01",
     rank: 2,
     score: 13640,
@@ -47,14 +43,12 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 970,
     cleanMoney: 122000,
     dirtyMoney: 410000,
-    status: "Public Enemy kandidát. Policie je sleduje po sérii krvavých přepadů."
+    status: "Točí čistý cash ve velkém a drží tempo i pod vysokým Heat tlakem."
   },
   {
-    id: "iron-syndicate",
-    name: "Iron Syndicate",
-    gangName: "Industrial bloc",
-    faction: "Soukromá armáda",
-    alliance: "Iron Parish",
+    id: "street-wolf",
+    name: "StreetWolf",
+    subtitle: "Wolf District",
     server: "WAR-01",
     rank: 3,
     score: 12975,
@@ -63,14 +57,12 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 540,
     cleanMoney: 192000,
     dirtyMoney: 225000,
-    status: "Těžká obrana, hodně districtů a stabilní průmyslový cashflow."
+    status: "Agresivní postup a tlak na hranice z něj dělají nejhlasitější jméno sezony."
   },
   {
-    id: "purple-cobras",
-    name: "Purple Cobras",
-    gangName: "Market pressure",
-    faction: "Korporace",
-    alliance: "Velvet Accord",
+    id: "toxic-king",
+    name: "ToxicKing",
+    subtitle: "Toxic Crown",
     server: "FREE-01",
     rank: 4,
     score: 11730,
@@ -79,14 +71,12 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 72,
     cleanMoney: 420000,
     dirtyMoney: 102000,
-    status: "Tichý boss. Nebezpečný, protože nepřitahuje pozornost."
+    status: "Rozšiřuje se rychle, bere volné distrikty a zbytečně neztrácí tahy."
   },
   {
-    id: "ghost-crew",
-    name: "Ghost Crew",
-    gangName: "Silent expansion",
-    faction: "Tajná organizace",
-    alliance: "Black Sun Pact",
+    id: "ghost-dealer",
+    name: "GhostDealer",
+    subtitle: "Ghost Exchange",
     server: "WAR-01",
     rank: 5,
     score: 10420,
@@ -95,14 +85,12 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 260,
     cleanMoney: 82000,
     dirtyMoney: 116000,
-    status: "Rostou potichu. K TOP 3 jim chybí hlavně další distrikty."
+    status: "Na black marketu vydělává bez hluku a posouvá se vzhůru přes ekonomiku."
   },
   {
-    id: "neon-saints",
-    name: "Neon Saints",
-    gangName: "Free mode surge",
-    faction: "Motogang",
-    alliance: "Chrome Choir",
+    id: "iron-mike",
+    name: "IronMike",
+    subtitle: "Iron Chapel",
     server: "FREE-01",
     rank: 6,
     score: 9980,
@@ -111,14 +99,12 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 880,
     cleanMoney: 72000,
     dirtyMoney: 232000,
-    status: "Agresivní hráči. Nečekej klid, když se objeví vedle tvého districtu."
+    status: "Bere sousední území potichu a nechává za sebou minimum stop."
   },
   {
-    id: "black-circuit",
-    name: "Black Circuit",
-    gangName: "Tech core control",
-    faction: "Hackeři",
-    alliance: "Chrome Choir",
+    id: "cyber-saint",
+    name: "CyberSaint",
+    subtitle: "Saint Protocol",
     server: "FREE-02",
     rank: 7,
     score: 9260,
@@ -127,14 +113,12 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 205,
     cleanMoney: 175000,
     dirtyMoney: 98000,
-    status: "Silný vliv přes tech trh. Útočí méně, ale přesně."
+    status: "Hraje na hraně Heat limitu a pořád drží stabilní růst bez kolapsu."
   },
   {
-    id: "chrome-wolf",
-    name: "Chrome Wolf",
-    gangName: "Neon block scout",
-    faction: "Hackeři",
-    alliance: "Chrome Choir",
+    id: "black-mamba",
+    name: "BlackMamba",
+    subtitle: "Mamba Circle",
     server: "FREE-01",
     rank: 8,
     score: 8940,
@@ -143,14 +127,12 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 310,
     cleanMoney: 154000,
     dirtyMoney: 187000,
-    status: "Drží síť průzkumníků a prodává informace dřív, než začne přestřelka."
+    status: "Vyhledává slabé distrikty a trestá každou díru v obraně."
   },
   {
-    id: "velvet-snake",
-    name: "Velvet Snake",
-    gangName: "Silent broker",
-    faction: "Tajná organizace",
-    alliance: "Velvet Accord",
+    id: "vulture-x",
+    name: "VultureX",
+    subtitle: "Vanta Vultures",
     server: "FREE-01",
     rank: 9,
     score: 8510,
@@ -159,14 +141,12 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 130,
     cleanMoney: 205000,
     dirtyMoney: 77000,
-    status: "Kupuje loajalitu potichu. Nízký wanted z něj dělá nebezpečný stín."
+    status: "Leze žebříčkem ve Free modu čistě přes tempo, scouting a přesné načasování."
   },
   {
-    id: "rust-bishop",
-    name: "Rust Bishop",
-    gangName: "Rusted parish",
-    faction: "Kult",
-    alliance: "Iron Parish",
+    id: "district-zero",
+    name: "DistrictZero",
+    subtitle: "Zero Block",
     server: "FREE-02",
     rank: 10,
     score: 8120,
@@ -175,14 +155,12 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 455,
     cleanMoney: 94000,
     dirtyMoney: 149000,
-    status: "Drží staré bloky přes strach a rituální loajalitu."
+    status: "Veterán z WAR lobby, který body tahá hlavně z disciplíny a obranné hry."
   },
   {
-    id: "district-rat",
-    name: "District Rat",
-    gangName: "Sewer kings",
-    faction: "Kult",
-    alliance: "Ghost Market",
+    id: "cash-reaper",
+    name: "CashReaper",
+    subtitle: "Cash Syndics",
     server: "FREE-02",
     rank: 11,
     score: 7880,
@@ -191,14 +169,12 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 240,
     cleanMoney: 68000,
     dirtyMoney: 174000,
-    status: "Není nápadný, ale jeho tunely propojují víc districtů, než policie tuší."
+    status: "Noční raidy mu vydělávají body i zdroje, aniž by přepálil celé kolo."
   },
   {
-    id: "zero-prophet",
-    name: "Zero Prophet",
-    gangName: "Afterglow circuit",
-    faction: "Hackeři",
-    alliance: "Chrome Choir",
+    id: "zero-shade",
+    name: "ZeroShade",
+    subtitle: "Shade Wire",
     server: "FREE-02",
     rank: 12,
     score: 7540,
@@ -207,14 +183,12 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 205,
     cleanMoney: 175000,
     dirtyMoney: 98000,
-    status: "Silný vliv přes datové úniky. Když promluví, trh se pohne."
+    status: "Rád hraje přes informace a rušení, takže protivníci často reagují pozdě."
   },
   {
     id: "switch-runner",
-    name: "Switch Runner",
-    gangName: "Rail yard deals",
-    faction: "Korporace",
-    alliance: "Ghost Market",
+    name: "SwitchRunner",
+    subtitle: "Rail Switch",
     server: "FREE-03",
     rank: 13,
     score: 7210,
@@ -223,14 +197,12 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 88,
     cleanMoney: 262000,
     dirtyMoney: 54000,
-    status: "Slabší na mapě, silný v cashflow. Nikdy nevíš, komu právě prodal cestu ven."
+    status: "Body tahá přes rail line loot a chytré rotace mezi slabšími bloky."
   },
   {
-    id: "ghost-dealer",
-    name: "Ghost Dealer",
-    gangName: "Quiet market",
-    faction: "Kartel",
-    alliance: "Ghost Market",
+    id: "silent-ace",
+    name: "SilentAce",
+    subtitle: "Ace Division",
     server: "FREE-01",
     rank: 14,
     score: 6980,
@@ -239,14 +211,12 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 58,
     cleanMoney: 336000,
     dirtyMoney: 92000,
-    status: "Tichý boss. Vydělává bez sirén a bez zbytečných stop."
+    status: "Tlačí bez hluku, nedává protivníkům čitelný pattern a sbírá stabilní rating."
   },
   {
     id: "black-lotus",
-    name: "Black Lotus",
-    gangName: "Clean money front",
-    faction: "Korporace",
-    alliance: "Velvet Accord",
+    name: "BlackLotus",
+    subtitle: "Lotus Noir",
     server: "WAR-01",
     rank: 15,
     score: 6720,
@@ -255,14 +225,12 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 72,
     cleanMoney: 420000,
     dirtyMoney: 102000,
-    status: "Legalizuje špinavé proudy tak čistě, že policie vidí jen účtenky."
+    status: "Když trefí slabý vault, umí během pár tahů otočit celé pořadí."
   },
   {
     id: "iron-saint",
-    name: "Iron Saint",
-    gangName: "Private army",
-    faction: "Soukromá armáda",
-    alliance: "Iron Parish",
+    name: "IronSaint",
+    subtitle: "Iron Saints",
     server: "WAR-01",
     rank: 16,
     score: 6390,
@@ -271,14 +239,12 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 540,
     cleanMoney: 192000,
     dirtyMoney: 225000,
-    status: "Těžká obrana a tvrdá disciplína. Útok na něj stojí víc, než vypadá."
+    status: "Drží linii pod tlakem a ztrácí minimum districtů i v dlouhých výměnách."
   },
   {
-    id: "neon-butcher",
-    name: "Neon Butcher",
-    gangName: "Red alley raids",
-    faction: "Motogang",
-    alliance: "Chrome Choir",
+    id: "neon-reaper",
+    name: "NeonReaper",
+    subtitle: "Afterglow Crew",
     server: "WAR-02",
     rank: 17,
     score: 6040,
@@ -287,7 +253,7 @@ const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
     wanted: 880,
     cleanMoney: 72000,
     dirtyMoney: 232000,
-    status: "Agresivní hráč. Nečekej klid, když se jeho jméno objeví ve feedu."
+    status: "Dohrává rozjeté konflikty a bere body tam, kde už ostatní krvácí."
   }
 ]);
 
@@ -355,6 +321,8 @@ document.addEventListener("DOMContentLoaded", () => {
   bindPasswordToggle();
   bindSoundToggle();
   bindForgotPassword();
+  bindLoginAboutModal();
+  bindLoginInfoModals();
   bindLoginLeaderboard();
   startServerStatusCycle();
   startLoginActiveEventsCycle();
@@ -625,6 +593,72 @@ function bindForgotPassword() {
   });
 }
 
+function bindLoginAboutModal() {
+  const openButton = document.querySelector("[data-login-about-open]");
+  const overlay = document.querySelector("[data-login-about-overlay]");
+  const dialog = overlay?.querySelector(".login-about-dialog");
+  if (!(openButton instanceof HTMLButtonElement) || !(overlay instanceof HTMLElement)) {
+    return;
+  }
+
+  const openAbout = () => {
+    overlay.hidden = false;
+    if (dialog instanceof HTMLElement) {
+      dialog.focus();
+    }
+  };
+  const closeAbout = () => {
+    overlay.hidden = true;
+    openButton.focus();
+  };
+
+  openButton.addEventListener("click", openAbout);
+  document.querySelectorAll("[data-login-about-close]").forEach((element) => {
+    element.addEventListener("click", closeAbout);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !overlay.hidden) {
+      closeAbout();
+    }
+  });
+}
+
+function bindLoginInfoModals() {
+  document.querySelectorAll("[data-login-info-open]").forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+
+    const modalId = String(button.getAttribute("data-login-info-open") || "");
+    const overlay = document.querySelector(`[data-login-info-overlay="${modalId}"]`);
+    const dialog = overlay?.querySelector(".login-about-dialog");
+    if (!(overlay instanceof HTMLElement)) {
+      return;
+    }
+
+    const openModal = () => {
+      overlay.hidden = false;
+      if (dialog instanceof HTMLElement) {
+        dialog.focus();
+      }
+    };
+    const closeModal = () => {
+      overlay.hidden = true;
+      button.focus();
+    };
+
+    button.addEventListener("click", openModal);
+    overlay.querySelectorAll("[data-login-info-close]").forEach((element) => {
+      element.addEventListener("click", closeModal);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !overlay.hidden) {
+        closeModal();
+      }
+    });
+  });
+}
+
 function runAccessSequence({ form = null, button = null, identity, gangName, isGuest }) {
   if (state.isSubmitting) {
     return;
@@ -741,7 +775,7 @@ function openLoginLeaderboardDetail(playerId) {
     name.textContent = player.name;
   }
   if (meta) {
-    meta.textContent = `${player.gangName} · ${player.faction}`;
+    meta.textContent = `${player.subtitle} · ${player.server}`;
   }
   if (status) {
     status.textContent = player.status;

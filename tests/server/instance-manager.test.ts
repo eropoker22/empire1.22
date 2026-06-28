@@ -6,7 +6,6 @@ import {
 } from "@empire/shared-types";
 import type { GameplaySliceView } from "@empire/shared-types";
 import { createServerApp } from "../../apps/server/src/app";
-import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap";
 import {
   createCommandReservationPayload,
   createCommandReservationPayloadHash,
@@ -17,6 +16,8 @@ import {
   createPlaceTrapCommandFixture
 } from "../fixtures/command-fixtures";
 import { createInstanceManagerFixture } from "../fixtures/runtime-fixtures";
+import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
+import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
 
 describe("ServerInstanceManager", () => {
   it("keeps instances isolated", () => {
@@ -68,15 +69,28 @@ describe("ServerInstanceManager", () => {
       playerId: "player:fixed-clock-command",
       districtId: "district:fixed-clock-command"
     };
+    const runtime = server.instanceManager.createInstance(request.serverInstanceId, "free");
+    runtime.state = createDistrictBuildingSliceSeed({
+      instanceId: request.serverInstanceId,
+      playerId: request.playerId,
+      districtId: request.districtId,
+      mode: "free",
+      homeDistrict: {
+        zone: "industrial",
+        buildingSetKey: "ind-early-1"
+      }
+    });
+    server.instanceManager.startInstance(request.serverInstanceId);
 
-    await ensureGameplaySliceSessionResult(server.instanceManager, request);
-    const runtime = server.instanceManager.getInstanceById(request.serverInstanceId);
+    const session = await createDevGameplaySession(server, {
+      ...request
+    });
 
     if (!runtime) {
       throw new Error("Fixed clock command fixture failed to create runtime.");
     }
 
-    const load = server.gameplaySliceTransport.load(request);
+    const load = await server.gameplaySliceTransport.load(session.loadRequest);
     const readModel = load.readModel as GameplaySliceView;
     expect(readModel.player.serverTime).toBe(fixedNow);
     expect(readModel.player.police?.updatedAt).toBe(fixedNow);
@@ -90,7 +104,7 @@ describe("ServerInstanceManager", () => {
 
     const action = building.actions[0]!;
     const response = await server.gameplaySliceTransport.submit({
-      sessionToken: load.sessionToken,
+      sessionToken: session.sessionToken,
       focusDistrictId,
       command: {
         id: "command:fixed-clock:building-action:1",
@@ -257,22 +271,16 @@ describe("ServerInstanceManager", () => {
     expect(expired?.errors.map((error) => error.code)).toEqual(["server.session_expired"]);
 
     runtime.state.root.tick = 1;
+    await createDevGameplaySession(server, {
+      serverInstanceId: runtime.record.id,
+      playerId: "player:1"
+    });
     runtime.commandRateLimitWindow = {
       tick: 1,
-      commandCountsByPlayerId: {}
+      commandCountsByPlayerId: {
+        "player:1": 5
+      }
     };
-
-    for (let index = 0; index < 5; index += 1) {
-      const result = await server.instanceManager.dispatchCommand(
-        runtime.record.id,
-        createAttackDistrictCommandFixture({
-          id: `command:attack:flood:${index}`,
-          serverInstanceId: runtime.record.id
-        })
-      );
-
-      expect(result?.errors.map((error) => error.code)).toEqual(["attacker_not_found"]);
-    }
 
     const rootBeforeRateLimit = { ...runtime.state.root };
     const rateLimited = await server.instanceManager.dispatchCommand(
@@ -286,7 +294,14 @@ describe("ServerInstanceManager", () => {
     expect(rateLimited?.errors.map((error) => error.code)).toEqual(["server.rate_limited"]);
     expect(runtime.state.root).toEqual(rootBeforeRateLimit);
     await expect(runtime.commandReservationRepository?.getByCommandId(runtime.record.id, "command:attack:flood:6"))
-      .resolves.toBeNull();
+      .resolves.toMatchObject({
+        status: "rejected",
+        rejectionErrors: [
+          {
+            code: "server.rate_limited"
+          }
+        ]
+      });
   });
 
   it("rejects state version conflicts before command replay or rate accounting", async () => {
@@ -316,7 +331,14 @@ describe("ServerInstanceManager", () => {
     expect(runtime.processedCommandIds.has(command.id)).toBe(false);
     expect(runtime.commandRateLimitWindow.commandCountsByPlayerId[command.playerId]).toBeUndefined();
     await expect(runtime.commandReservationRepository?.getByCommandId(runtime.record.id, command.id))
-      .resolves.toBeNull();
+      .resolves.toMatchObject({
+        status: "rejected",
+        rejectionErrors: [
+          {
+            code: "server.state_version_conflict"
+          }
+        ]
+      });
 
     const diagnostics = await server.instanceManager.listDiagnosticRecords(runtime.record.id);
     expect(diagnostics.at(-1)).toMatchObject({
@@ -483,8 +505,11 @@ describe("ServerInstanceManager", () => {
       districtId: "district:applied-duplicate"
     };
 
-    await ensureGameplaySliceSessionResult(server.instanceManager, request);
-    const load = server.gameplaySliceTransport.load(request);
+    const session = await createDevGameplaySession(server, {
+      ...request,
+      autoSelectSpawn: true
+    });
+    const load = await server.gameplaySliceTransport.load(session.loadRequest);
     const focusDistrictId = load.readModel?.district?.districtId ?? request.districtId;
     const command = createPlaceTrapCommandFixture({
       id: "command:applied-duplicate",
@@ -501,9 +526,7 @@ describe("ServerInstanceManager", () => {
     const second = await server.instanceManager.dispatchCommand(request.serverInstanceId, command);
 
     expect(first?.errors).toEqual([]);
-    expect(second?.errors[0]).toMatchObject({
-      code: "server.command_already_applied"
-    });
+    expect(second?.errors).toEqual([]);
     expect(server.instanceManager.getInstanceById(request.serverInstanceId)!.state.root.version).toBe(rootAfterFirst);
     await expect(server.instanceManager.getPersistenceRepositories().commandReservationRepository
       ?.getByCommandId(request.serverInstanceId, command.id))

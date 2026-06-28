@@ -2,7 +2,7 @@ import type { DomainError } from "@empire/shared-types";
 import type { ServerApp } from "../app/server-app";
 import { createJsonResponse, type NetlifyFunctionResponse } from "./netlify-json-response";
 
-export const ADMIN_MONITORING_TOKEN_HEADER = "x-empire-admin-token";
+export const ADMIN_MONITORING_SECRET_HEADER = "x-empire-admin-secret";
 
 export interface AdminMonitoringAccessRequest {
   headers?: Record<string, string | string[] | undefined>;
@@ -42,8 +42,8 @@ export const validateAdminMonitoringAccess = (
         };
   }
 
-  const requestToken = readHeader(request.headers, ADMIN_MONITORING_TOKEN_HEADER)?.trim() ?? "";
-  return timingSafeEquals(requestToken, configuredSecret)
+  const requestSecret = readHeader(request.headers, ADMIN_MONITORING_SECRET_HEADER)?.trim() ?? "";
+  return timingSafeEquals(requestSecret, configuredSecret)
     ? {
         accepted: true,
         statusCode: 200,
@@ -54,12 +54,30 @@ export const validateAdminMonitoringAccess = (
 
 export const createAdminMonitoringPayload = async (server: ServerApp) => {
   const summaries = await server.adminMonitoring.listInstanceMonitoringSummaries();
+  const serverSummaries = server.adminMonitoring.listServerSummaries();
+  const healthSummary = server.adminMonitoring.getHealthSummary();
   const selectedInstanceId = summaries[0]?.instanceId ?? null;
+  const [selectedHealth, selectedDiagnostics, selectedLogs] = selectedInstanceId
+    ? await Promise.all([
+        Promise.resolve(server.adminMonitoring.getInstanceHealthSummary(selectedInstanceId)),
+        server.adminMonitoring.getDiagnosticsSummary(selectedInstanceId),
+        createSelectedLogs(server, selectedInstanceId)
+      ])
+    : [null, null, {
+        instanceId: null,
+        commands: [],
+        events: [],
+        diagnostics: []
+      }];
 
   return {
     accepted: true,
     instances: summaries,
+    serverSummaries,
+    healthSummary,
     overview: {
+      serverSummaries,
+      healthSummary,
       instances: summaries.map((summary) => ({
         instanceId: summary.instanceId,
         mode: summary.mode,
@@ -86,14 +104,9 @@ export const createAdminMonitoringPayload = async (server: ServerApp) => {
         queuedEventCount: summary.queuedEventCount
       })),
       selectedInstanceId,
-      selectedLogs: selectedInstanceId
-        ? await createSelectedLogs(server, selectedInstanceId)
-        : {
-            instanceId: null,
-            commands: [],
-            events: [],
-            diagnostics: []
-          }
+      selectedHealth,
+      selectedDiagnostics,
+      selectedLogs
     },
     errors: []
   };
@@ -102,8 +115,7 @@ export const createAdminMonitoringPayload = async (server: ServerApp) => {
 const readAdminMonitoringSecret = (
   environment: Record<string, string | undefined>
 ): string | null =>
-  environment.ADMIN_MONITORING_SECRET?.trim()
-    || environment.EMPIRE_ADMIN_MONITORING_SECRET?.trim()
+  environment.EMPIRE_ADMIN_SECRET?.trim()
     || null;
 
 const readHeader = (
@@ -163,9 +175,9 @@ const createSelectedLogs = async (
   instanceId: string
 ) => {
   const [commands, events, diagnostics] = await Promise.all([
-    server.adminMonitoring.listRecentCommandRecords(instanceId, 5),
-    server.adminMonitoring.listRecentEventRecords(instanceId, 5),
-    server.adminMonitoring.listRecentDiagnosticRecords(instanceId, 5)
+    server.adminMonitoring.listRecentCommandRecords(instanceId, 20),
+    server.adminMonitoring.listRecentEventRecords(instanceId, 20),
+    server.adminMonitoring.listRecentDiagnosticRecords(instanceId, 20)
   ]);
 
   return {
@@ -176,8 +188,10 @@ const createSelectedLogs = async (
       commandId: record.command.id,
       commandType: record.command.type,
       actorId: record.actorId,
+      correlationId: record.correlationId,
       receivedAt: record.receivedAt,
-      tickAtReceive: record.tickAtReceive
+      tickAtReceive: record.tickAtReceive,
+      status: "recorded"
     })),
     events: events.map((record) => ({
       id: record.id,
@@ -193,7 +207,9 @@ const createSelectedLogs = async (
       level: record.level,
       category: record.category,
       message: record.message,
-      occurredAt: record.occurredAt
+      occurredAt: record.occurredAt,
+      commandId: typeof record.context.commandId === "string" ? record.context.commandId : null,
+      correlationId: typeof record.context.correlationId === "string" ? record.context.correlationId : null
     }))
   };
 };

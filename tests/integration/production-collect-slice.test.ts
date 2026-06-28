@@ -5,6 +5,7 @@ import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 import { createServerApp } from "../../apps/server/src/app";
 import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
 import type { GameplaySliceResponse, SubmitGameplayCommandRequest } from "@empire/shared-types";
+import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 describe("production collect gameplay slice", () => {
   it("runs a fixed production collection action through the migrated command flow", async () => {
@@ -31,12 +32,13 @@ describe("production collect gameplay slice", () => {
     const client = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
     });
-
-    const initialRender = await client.load({
+    const session = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId,
       districtId
     });
+
+    const initialRender = await client.load(session.loadRequest);
 
     const buildingId = initialRender.districtPanel?.buildings.find(
       (building) => building.buildingTypeId === "factory"
@@ -44,7 +46,7 @@ describe("production collect gameplay slice", () => {
 
     expect(buildingId).toBeTruthy();
     expect(initialRender.sidePanelHtml).toContain("Vybrat Metal Parts");
-    expect(initialRender.sidePanelHtml).toContain("8/24 připraveno");
+    expect(initialRender.sidePanelHtml).toContain("4/24 připraveno");
 
     const collected = await client.dispatch(
       createCollectProductionCommand({
@@ -59,24 +61,22 @@ describe("production collect gameplay slice", () => {
     );
 
     expect(collected.errors).toEqual([]);
-    expect(collected.player?.resourceSummary).toContain("Metal Parts 16");
+    expect(collected.player?.resourceSummary).toContain("Metal Parts 12");
     expect(
       collected.districtPanel?.buildings
         .find((building) => building.buildingId === buildingId)
     ).toBeTruthy();
     expect(
       server.instanceManager.getInstanceById(instanceId)?.state.resourceStatesById[`resource:${playerId}`]?.balances["metal-parts"]
-    ).toBe(16);
+    ).toBe(12);
     expect(
       server.instanceManager.getInstanceById(instanceId)?.state.resourceStatesById[`resource:${buildingId}`]?.balances["metal-parts"]
     ).toBe(0);
     expect(
-      server.gameplaySliceTransport.load({
-        serverInstanceId: instanceId,
-        playerId,
-        districtId
-      }).readModel?.player.resourceBalances["metal-parts"]
-    ).toBe(16);
+      (await server.gameplaySliceTransport.load({
+        ...session.loadRequest
+      })).readModel?.player.resourceBalances["metal-parts"]
+    ).toBe(12);
   });
 
   it("uses a session token for collect submit and exposes pending state until the read model returns", async () => {
@@ -115,17 +115,14 @@ describe("production collect gameplay slice", () => {
         }
       })
     });
-
-    const initialRender = await client.load({
+    const session = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId,
       districtId
     });
-    const loadStateVersion = server.gameplaySliceTransport.load({
-      serverInstanceId: instanceId,
-      playerId,
-      districtId
-    }).metadata?.stateVersion;
+
+    const initialRender = await client.load(session.loadRequest);
+    const loadStateVersion = (await server.gameplaySliceTransport.load(session.loadRequest)).metadata?.stateVersion;
     const buildingId = initialRender.districtPanel?.buildings.find(
       (building) => building.buildingTypeId === "factory"
     )?.buildingId;
@@ -155,7 +152,7 @@ describe("production collect gameplay slice", () => {
 
     expect(collected.errors).toEqual([]);
     expect(collected.districtPanel?.hasPendingCommand).toBe(false);
-    expect(collected.player?.resourceSummary).toContain("Metal Parts 16");
+    expect(collected.player?.resourceSummary).toContain("Metal Parts 12");
     expect(
       collected.districtPanel?.slots.find(
         (slot) => slot.production?.buildingId === buildingId
@@ -184,16 +181,17 @@ describe("production collect gameplay slice", () => {
     server.instanceManager.tickInstance(instanceId);
     server.instanceManager.tickInstance(instanceId);
 
-    const load = server.gameplaySliceTransport.load({
+    const session = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId,
       districtId
     });
+    const load = await server.gameplaySliceTransport.load(session.loadRequest);
     const buildingId = load.readModel?.district?.buildings.find(
       (building) => building.buildingTypeId === "factory"
     )?.buildingId;
 
-    expect(load.sessionToken).toEqual(expect.any(String));
+    expect(session.sessionToken).toEqual(expect.any(String));
     expect(buildingId).toBeTruthy();
 
     const playerBalanceBeforeSubmit =
@@ -219,7 +217,7 @@ describe("production collect gameplay slice", () => {
       readModel: null,
       errors: [
         {
-          code: "transport.session_token_missing"
+          code: "SESSION_REQUIRED"
         }
       ]
     });

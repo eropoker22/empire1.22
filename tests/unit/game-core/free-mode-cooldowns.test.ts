@@ -29,6 +29,7 @@ describe("Free BR strategic cooldowns", () => {
 
   it("applies day and night attack modifiers without breaking the Free guardrail", () => {
     const dayState = createCombatStateFixture();
+    seedSuccessfulSpyIntel(dayState, "player:1", "district:1", "district:2", "attack_owned_district");
     const dayResult = applyCommand(dayState, createAttackDistrictCommandFixture(), context);
     expect(dayResult.errors).toEqual([]);
     expect(dayResult.events.find((event) => event.type === "district-attacked")?.payload).toMatchObject({
@@ -37,6 +38,7 @@ describe("Free BR strategic cooldowns", () => {
 
     const nightState = createCombatStateFixture();
     nightState.root.tick = freeConfig.balance.dayLengthTicks;
+    seedSuccessfulSpyIntel(nightState, "player:1", "district:1", "district:2", "attack_owned_district");
     const nightResult = applyCommand(nightState, createAttackDistrictCommandFixture(), context);
     expect(nightResult.errors).toEqual([]);
     expect(nightResult.events.find((event) => event.type === "district-attacked")?.payload).toMatchObject({
@@ -47,6 +49,7 @@ describe("Free BR strategic cooldowns", () => {
     maxReductionState.root.tick = freeConfig.balance.dayLengthTicks;
     addOwnedBuildings(maxReductionState, "garage", 8);
     addOwnedBuildings(maxReductionState, "car_dealer", 7);
+    seedSuccessfulSpyIntel(maxReductionState, "player:1", "district:1", "district:2", "attack_owned_district");
     const reducedResult = applyCommand(maxReductionState, createAttackDistrictCommandFixture(), context);
     const reducedPayload = reducedResult.events.find((event) => event.type === "district-attacked")?.payload as
       | { attackDurationTicks?: number }
@@ -69,7 +72,7 @@ describe("Free BR strategic cooldowns", () => {
     const occupyState = createNeutralOccupyState();
     addOwnedBuildings(occupyState, "garage", 8);
     addOwnedBuildings(occupyState, "car_dealer", 7);
-    seedSuccessfulSpyIntel(occupyState, "player:1", "district:1", "district:2");
+    seedSuccessfulSpyIntel(occupyState, "player:1", "district:1", "district:2", "occupy_empty_district");
     const occupyResult = applyCommand(occupyState, createOccupyDistrictCommandFixture(), context);
 
     expect(occupyResult.errors).toEqual([]);
@@ -179,8 +182,10 @@ const seedSuccessfulSpyIntel = (
   state: CoreGameState,
   playerId: string,
   sourceDistrictId: string,
-  targetDistrictId: string
+  targetDistrictId: string,
+  purpose: "attack_owned_district" | "occupy_empty_district"
 ): void => {
+  const targetDistrict = state.districtsById[targetDistrictId];
   const notificationId = `notification:spy-success:${playerId}:${targetDistrictId}`;
   state.notificationsById[notificationId] = {
     id: notificationId,
@@ -198,6 +203,11 @@ const seedSuccessfulSpyIntel = (
       sourceDistrictId,
       targetDistrictId,
       result: "success",
+      purpose,
+      attackAuthorizationExpiresAtTick: state.root.tick + 120,
+      targetOwnerPlayerId: targetDistrict?.ownerPlayerId ?? null,
+      targetStateAtSpy: targetDistrict?.ownerPlayerId ? "owned" : "empty",
+      targetVersionAtSpy: targetDistrict?.version,
       detectedDefense: {},
       trapDetected: false,
       tick: state.root.tick,

@@ -4,6 +4,7 @@ import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 import { createServerApp } from "../../apps/server/src/app";
 import { resolveLiveGameplaySliceBootstrap } from "../../tools/debug/src/live-gameplay-slice-bootstrap";
 import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
+import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 describe("onboarding gameplay bootstrap", () => {
   afterEach(() => {
@@ -78,11 +79,12 @@ describe("onboarding gameplay bootstrap", () => {
     const client = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
     });
-    const render = await client.load({
+    const session = await createDevGameplaySession(server, {
       serverInstanceId: bootstrap.instanceId,
       playerId: bootstrap.playerId,
       districtId: bootstrap.districtId
     });
+    const render = await client.load(session.loadRequest);
     const player = runtime.state.playersById[bootstrap.playerId];
 
     expect(player?.factionId).toBe("hackeri");

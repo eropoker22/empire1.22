@@ -22,7 +22,13 @@ export const createInMemoryClientTransport = (
 
   return {
     load: async (request) => {
-      const response = await endpoint.load(request);
+      const sessionToken = request.sessionToken ?? sessionTokensByKey.get(createSessionKey(request));
+      const response = await endpoint.load(sessionToken
+        ? {
+            ...request,
+            sessionToken
+          }
+        : request);
       persistSessionToken(request, response, sessionTokensByKey);
       return response;
     },
@@ -45,7 +51,7 @@ const persistSessionToken = (
   response: GameplaySliceResponse,
   sessionTokensByKey: Map<string, string>
 ): void => {
-  const sessionToken = String(response.sessionToken ?? "").trim();
+  const sessionToken = String(response.sessionToken ?? request.sessionToken ?? "").trim();
   if (sessionToken) {
     sessionTokensByKey.set(createSessionKey(request), sessionToken);
   }

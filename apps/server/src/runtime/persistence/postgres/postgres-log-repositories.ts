@@ -5,11 +5,11 @@ import type {
   DiagnosticLogRepository,
   EventLogRepository
 } from "../repositories";
-import type { PostgresDatabase, PostgresQueryable } from "./postgres-client";
+import type { PostgresQueryable } from "./postgres-client";
 import { ensurePostgresServerInstanceRow } from "./postgres-server-instance-row";
 
 export const createPostgresCommandLogRepository = (
-  database: PostgresDatabase
+  database: PostgresQueryable
 ): CommandLogRepository => ({
   append: async (record) => {
     const commandId = normalizeCommandId(record);
@@ -44,7 +44,7 @@ export const createPostgresCommandLogRepository = (
 });
 
 export const createPostgresEventLogRepository = (
-  database: PostgresDatabase
+  database: PostgresQueryable
 ): EventLogRepository => ({
   append: async (record) => {
     await ensurePostgresServerInstanceRow(database, record.instanceId, {
@@ -76,7 +76,7 @@ export const createPostgresEventLogRepository = (
 });
 
 export const createPostgresDiagnosticLogRepository = (
-  database: PostgresDatabase
+  database: PostgresQueryable
 ): DiagnosticLogRepository => ({
   append: async (record) => {
     await ensurePostgresServerInstanceRow(database, record.instanceId, {

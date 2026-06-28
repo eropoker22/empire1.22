@@ -25,6 +25,19 @@ test.describe("login smoke", () => {
     await page.locator("[data-tab-link='register']").click();
     await expect(page.getByTestId("register-form")).toBeVisible();
 
+    await page.locator("[data-login-about-open]").click();
+    await expect(page.locator("[data-login-about-overlay]")).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "O hře" })).toContainText("Město sleduje každý tvůj krok.");
+    await page.locator("[data-login-about-overlay] .login-about-close").click();
+    await expect(page.locator("[data-login-about-overlay]")).toBeHidden();
+
+    await page.locator("[data-login-info-open='news']").click();
+    await expect(page.locator("[data-login-info-overlay='news']")).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Novinky" })).toBeVisible();
+    await page.locator("[data-login-info-overlay='news'] .login-about-close").click();
+    await expect(page.locator("[data-login-info-overlay='news']")).toBeHidden();
+    await expect(page).not.toHaveURL(/about-game\.html/u);
+
     await assertNoRuntimeErrors(errors);
   });
 

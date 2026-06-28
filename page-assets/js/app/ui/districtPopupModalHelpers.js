@@ -173,7 +173,10 @@ export function bindDistrictModalCloseControls(closeElements = [], closeHandler)
 
 export function bindDistrictPopupModalCloseControls(elements = {}, closeHandlers = {}) {
   return [
+    bindDistrictModalCloseControls(elements.popupCloseElements, closeHandlers.closePopup),
     bindDistrictModalCloseControls(elements.buildingsPopupCloseElements, closeHandlers.closeBuildingsPopup),
+    bindDistrictModalCloseControls(elements.attackSetupCloseElements, closeHandlers.closeAttackSetupPopup),
+    bindDistrictModalCloseControls(elements.attackConfirmCloseElements, closeHandlers.closeAttackConfirmPopup),
     bindDistrictModalCloseControls(elements.robberySetupCloseElements, closeHandlers.closeRobberySetupPopup),
     bindDistrictModalCloseControls(elements.robberyConfirmCloseElements, closeHandlers.closeRobberyConfirmPopup),
     bindDistrictModalCloseControls(elements.defenseSetupCloseElements, closeHandlers.closeDefenseSetupPopup),
@@ -277,8 +280,9 @@ export function bindDistrictModalContentGuards(documentRef) {
   let boundCount = 0;
   for (const element of Array.from(documentRef.querySelectorAll(contentSelectors))) {
     element.addEventListener("pointerdown", guardContentEvent);
+    element.addEventListener("pointerup", guardContentEvent);
     element.addEventListener("click", guardContentEvent);
-    boundCount += 2;
+    boundCount += 3;
   }
   return boundCount;
 }

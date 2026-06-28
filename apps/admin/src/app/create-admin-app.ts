@@ -1,6 +1,12 @@
 import { createAdminAppShell } from "./admin-app-shell";
-import { resolveAdminMonitoringToken } from "./admin-monitoring-token";
-import type { InstanceMonitoringSummary } from "@empire/shared-types";
+import {
+  bindAdminSecretForm,
+  fetchAdminOverviewFromEndpoint,
+  renderAdminError
+} from "./admin-monitoring-client";
+import type {
+  InstanceMonitoringSummary
+} from "@empire/shared-types";
 import {
   createAdminOverviewViewModel,
   createAdminInstanceViewModel,
@@ -26,6 +32,8 @@ export interface AdminAppReadFacades {
 export interface AdminAppOptions {
   facades?: AdminAppReadFacades;
   monitoringEndpoint?: string;
+  adminMonitoringSecret?: string;
+  /** @deprecated use adminMonitoringSecret */
   adminMonitoringToken?: string;
   fetchAdminOverview?: () => Promise<AdminOverviewViewModel>;
   fetchMonitoringSummaries?: () => Promise<InstanceMonitoringSummary[]>;
@@ -60,6 +68,7 @@ export const createAdminApp = (options: AdminAppOptions = {}) => {
         mountTarget.innerHTML = renderInstanceListPage(await loadAdminOverview());
       } catch (error) {
         mountTarget.innerHTML = renderAdminError(error);
+        bindAdminSecretForm(mountTarget, () => createAdminApp(options).mount(mountTarget));
       }
     }
   });
@@ -72,7 +81,7 @@ export const createAdminApp = (options: AdminAppOptions = {}) => {
     if (!options.fetchMonitoringSummaries && !options.facades?.instance) {
       const endpointOverview = await fetchAdminOverviewFromEndpoint(
         options.monitoringEndpoint ?? "/api/admin/monitoring",
-        options.adminMonitoringToken
+        options.adminMonitoringSecret ?? options.adminMonitoringToken
       );
       if (endpointOverview) {
         return endpointOverview;
@@ -87,15 +96,17 @@ export const createAdminApp = (options: AdminAppOptions = {}) => {
 
     return createAdminOverviewViewModel(
       viewModels,
-      selectedInstanceId ? await loadSelectedLogs(selectedInstanceId) : undefined
+      {
+        selectedLogs: selectedInstanceId ? await loadSelectedLogs(selectedInstanceId) : undefined
+      }
     );
   }
 
   async function loadSelectedLogs(instanceId: string) {
     const [commands, events, diagnostics] = await Promise.all([
-      logReadService.listRecentCommandLogs(instanceId, 5),
-      logReadService.listRecentEventLogs(instanceId, 5),
-      diagnosticsReadService.listRecentDiagnosticLogs(instanceId, 5)
+      logReadService.listRecentCommandLogs(instanceId, 20),
+      logReadService.listRecentEventLogs(instanceId, 20),
+      diagnosticsReadService.listRecentDiagnosticLogs(instanceId, 20)
     ]);
 
     return {
@@ -143,7 +154,7 @@ const loadMonitoringSummaries = async (
 
   return (await fetchAdminOverviewFromEndpoint(
     options.monitoringEndpoint ?? "/api/admin/monitoring",
-    options.adminMonitoringToken
+    options.adminMonitoringSecret ?? options.adminMonitoringToken
   ))?.instances
     .map((instance) => ({
       instanceId: instance.instanceId,
@@ -168,62 +179,7 @@ const loadMonitoringSummaries = async (
     })) ?? [];
 };
 
-const fetchAdminOverviewFromEndpoint = async (
-  endpoint: string,
-  configuredToken?: string
-): Promise<AdminOverviewViewModel | null> => {
-  if (typeof fetch === "undefined") {
-    return null;
-  }
-
-  const token = resolveAdminMonitoringToken(configuredToken);
-  const headers: Record<string, string> = {
-    accept: "application/json"
-  };
-  if (token) {
-    headers["x-empire-admin-token"] = token;
-  }
-
-  const response = await fetch(endpoint, {
-    headers
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const payload = await response.json() as {
-    overview?: AdminOverviewViewModel;
-    instances?: InstanceMonitoringSummary[];
-  };
-  if (payload.overview?.instances) {
-    return payload.overview;
-  }
-
-  return Array.isArray(payload.instances)
-    ? createAdminOverviewViewModel(payload.instances.map(createAdminInstanceViewModelFromMonitoringSummary))
-    : null;
-};
-
 const resolveDefaultMountTarget = (): HTMLElement | null =>
   typeof document === "undefined"
     ? null
     : document.getElementById("admin-dashboard-root");
-
-const renderAdminError = (error: unknown): string => `
-  <section class="admin-monitoring" role="alert">
-    <p class="admin-boot__eyebrow">Runtime monitoring</p>
-    <h1>Empire Streets Admin</h1>
-    <p>Admin monitoring se nepodařilo načíst.</p>
-    <pre>${escapeHtml(error instanceof Error ? error.message : String(error))}</pre>
-  </section>
-`;
-
-const escapeHtml = (value: string): string =>
-  value.replace(/[&<>"']/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "\"": "&quot;",
-    "'": "&#39;"
-  })[character] ?? character);

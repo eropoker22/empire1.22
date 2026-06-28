@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyCommand, createDistrictPanelView, type CoreGameState } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
-import { createCombatStateFixture } from "../../fixtures/game-state-fixtures";
+import { createAllianceFixture, createCombatStateFixture } from "../../fixtures/game-state-fixtures";
 import {
   createHeistDistrictCommandFixture,
   createPlaceDefenseCommandFixture,
@@ -83,6 +83,38 @@ describe("authoritative basic action commands", () => {
     expect(removed.nextState.resourceStatesById["resource:1"].balances.barricades).toBe(2);
   });
 
+  it("disables allied defense until owner-aware contribution records exist", () => {
+    const state = createAlliedDefenseState();
+    state.resourceStatesById["resource:1"].balances.barricades = 2;
+
+    const placed = applyCommand(state, createPlaceDefenseCommandFixture({
+      payload: {
+        targetDistrictId: "district:2",
+        defenseItemId: "barricades",
+        amount: 1
+      }
+    }), context);
+    expect(placed.errors).toMatchObject([{ code: "ALLIANCE_DEFENSE_NOT_IMPLEMENTED" }]);
+    expect(placed.nextState).toBe(state);
+
+    const panel = createDistrictPanelView(state, {
+      districtId: "district:2",
+      playerId: "player:1",
+      issuedAt: new Date(0).toISOString(),
+      ...minimalPanelConfig()
+    });
+    expect(panel?.placeDefense).toEqual(expect.objectContaining({
+      enabled: false,
+      disabledCode: "ALLIANCE_DEFENSE_NOT_IMPLEMENTED"
+    }));
+    expect(panel?.removeDefense).toEqual(expect.objectContaining({
+      enabled: false,
+      disabledCode: "ALLIANCE_DEFENSE_NOT_IMPLEMENTED"
+    }));
+    expect(panel?.capabilities?.canPlaceDefense).toBe(false);
+    expect(panel?.capabilities?.reasons.place_defense).toBe("ALLIANCE_DEFENSE_NOT_IMPLEMENTED");
+  });
+
   it("projects rob, heist and defense capabilities into the district panel", () => {
     const state = createHeistState();
     state.resourceStatesById["resource:1"].balances.barricades = 1;
@@ -143,6 +175,26 @@ const createHeistState = (): CoreGameState => {
     ...state.districtsById["district:1"],
     defenseLoadout: {}
   };
+  return state;
+};
+
+const createAlliedDefenseState = (): CoreGameState => {
+  const state = createHeistState();
+  state.playersById["player:1"] = {
+    ...state.playersById["player:1"],
+    allianceId: "alliance:1"
+  };
+  state.playersById["player:2"] = {
+    ...state.playersById["player:2"],
+    allianceId: "alliance:1"
+  };
+  state.alliancesById["alliance:1"] = createAllianceFixture({
+    id: "alliance:1",
+    memberIds: ["player:1", "player:2"],
+    ownerPlayerId: "player:1",
+    status: "active"
+  });
+  state.root.allianceIds.push("alliance:1");
   return state;
 };
 

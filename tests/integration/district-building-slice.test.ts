@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { createClientApp } from "../../apps/client/src/app";
 import {
-  createAttackDistrictCommand,
   createRunBuildingActionCommand,
   districtPanelFeature
 } from "../../apps/client/src/features";
 import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 import { createServerApp } from "../../apps/server/src/app";
 import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
+import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 describe("district building gameplay slice", () => {
   it("loads fixed district buildings and rerenders after a building action command", async () => {
@@ -56,12 +56,13 @@ describe("district building gameplay slice", () => {
     const client = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
     });
-
-    const initialRender = await client.load({
+    const session = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId,
       districtId
     });
+
+    const initialRender = await client.load(session.loadRequest);
 
     expect(initialRender.player?.playerId).toBe(playerId);
     expect(initialRender.districtPanel?.districtId).toBe(districtId);
@@ -78,8 +79,8 @@ describe("district building gameplay slice", () => {
     expect(initialRender.sidePanelHtml).toContain("Cíle útoku");
     expect(initialRender.sidePanelHtml).toContain("data-attack-target-id=\"district:enemy\"");
     expect(initialRender.sidePanelHtml).toContain("data-attack-target-id=\"district:neutral\"");
-    expect(initialRender.mapDistricts.find((district) => district.districtId === enemyDistrictId)?.attackEnabled).toBe(true);
-    expect(initialRender.mapDistricts.find((district) => district.districtId === neutralDistrictId)?.attackEnabled).toBe(true);
+    expect(initialRender.mapDistricts.find((district) => district.districtId === enemyDistrictId)?.attackEnabled).toBe(false);
+    expect(initialRender.mapDistricts.find((district) => district.districtId === neutralDistrictId)?.attackEnabled).toBe(false);
     expect(initialRender.sidePanelHtml).toContain("Starter District");
     expect(initialRender.sidePanelHtml).toContain("Budovy distriktu");
     expect(initialRender.sidePanelHtml).toContain("Pulse Pharmacy");
@@ -142,36 +143,14 @@ describe("district building gameplay slice", () => {
     expect(server.instanceManager.getInstanceById(instanceId)?.state.districtsById[districtId].buildingIds).toHaveLength(2);
     expect(server.instanceManager.getInstanceById(instanceId)?.state.districtsById[districtId].heat).toBe(0.96);
     expect(server.instanceManager.getInstanceById(instanceId)?.state.resourceStatesById[`resource:${playerId}`]?.balances.chemicals).toBe(16);
-    expect(server.gameplaySliceTransport.load({
-      serverInstanceId: instanceId,
-      playerId,
-      districtId
-    }).readModel?.district?.buildings.find((building) => building.buildingId === pharmacyBuildingId)?.actions.find((action) => action.actionId === "produce_chemicals")?.enabled).toBe(false);
-    expect(server.gameplaySliceTransport.load({
-      serverInstanceId: instanceId,
-      playerId,
-      districtId
-    }).readModel?.districts.find((district) => district.districtId === districtId)?.heat).toBe(0.96);
+    expect((await server.gameplaySliceTransport.load(session.loadRequest)).readModel?.district?.buildings.find((building) => building.buildingId === pharmacyBuildingId)?.actions.find((action) => action.actionId === "produce_chemicals")?.enabled).toBe(false);
+    expect((await server.gameplaySliceTransport.load(session.loadRequest)).readModel?.districts.find((district) => district.districtId === districtId)?.heat).toBe(0.96);
 
-    const attackCommand = createAttackDistrictCommand({
-      commandId: "command:attack:neutral",
-      slice: client.getGameplaySlice()!,
-      targetDistrictId: neutralDistrictId,
-      issuedAt: new Date(0).toISOString()
-    });
-    const attackedRender = await client.dispatch(attackCommand);
-
-    expect(attackedRender.errors).toEqual([]);
-    expect(attackedRender.mapDistricts.find((district) => district.districtId === neutralDistrictId)?.isOwnedByPlayer).toBe(true);
-    expect(attackedRender.mapDistricts.find((district) => district.districtId === neutralDistrictId)?.attackEnabled).toBe(false);
-    expect(attackedRender.mapHtml).toContain("Player cannot attack a district they already own.");
-    expect(server.instanceManager.getInstanceById(instanceId)?.state.districtsById[neutralDistrictId].ownerPlayerId).toBe(playerId);
-    expect(server.instanceManager.getInstanceById(instanceId)?.state.districtsById[neutralDistrictId].status).toBe("claimed");
-    expect(server.gameplaySliceTransport.load({
-      serverInstanceId: instanceId,
-      playerId,
-      districtId
-    }).readModel?.district?.attackTargets.find((target) => target.districtId === neutralDistrictId)?.enabled).toBe(false);
+    expect(updatedRender.mapDistricts.find((district) => district.districtId === neutralDistrictId)?.isOwnedByPlayer).toBe(false);
+    expect(updatedRender.mapDistricts.find((district) => district.districtId === neutralDistrictId)?.attackEnabled).toBe(false);
+    expect(server.instanceManager.getInstanceById(instanceId)?.state.districtsById[neutralDistrictId].ownerPlayerId).toBeNull();
+    expect(server.instanceManager.getInstanceById(instanceId)?.state.districtsById[neutralDistrictId].status).toBe("neutral");
+    expect((await server.gameplaySliceTransport.load(session.loadRequest)).readModel?.district?.attackTargets.find((target) => target.districtId === neutralDistrictId)?.enabled).toBe(false);
     expect(districtPanelFeature).toBe("district-panel");
   });
 
@@ -197,11 +176,12 @@ describe("district building gameplay slice", () => {
     const client = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
     });
-    const render = await client.load({
+    const session = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId,
       districtId
     });
+    const render = await client.load(session.loadRequest);
     const streetDealerAction = render.districtPanel?.buildings
       .find((building) => building.buildingTypeId === "street_dealers")
       ?.actions.find((action) => action.actionId === "start_drug_sale");

@@ -91,6 +91,10 @@ class FakeElement {
     this.attributes.set(name, String(value));
   }
 
+  removeAttribute(name) {
+    this.attributes.delete(name);
+  }
+
   addEventListener(name, listener) {
     if (!this.listeners.has(name)) {
       this.listeners.set(name, []);

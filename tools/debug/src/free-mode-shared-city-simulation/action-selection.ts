@@ -20,18 +20,18 @@ export interface SelectedSimulationAction {
   routeKey?: string;
 }
 
-export const selectSimulationAction = (
+export const selectSimulationAction = async (
   runtime: ServerInstanceRuntime,
   playerId: PlayerId,
   round: number,
   playerIndex: number,
   spiedRoutes: Set<string>,
   profile: SimulationBotProfile,
-  loadView: (districtId: DistrictId) => GameplaySliceView | null
-): SelectedSimulationAction | null => {
-  const views = getOwnedDistrictIds(runtime.state, playerId)
-    .map((districtId) => loadView(districtId))
-    .filter((view): view is GameplaySliceView => Boolean(view));
+  loadView: (districtId: DistrictId) => GameplaySliceView | null | Promise<GameplaySliceView | null>
+): Promise<SelectedSimulationAction | null> => {
+  const views = (await Promise.all(
+    getOwnedDistrictIds(runtime.state, playerId).map((districtId) => loadView(districtId))
+  )).filter((view): view is GameplaySliceView => Boolean(view));
   for (const actionType of createActionPolicy(profile, round, playerIndex)) {
     const action = findActionByType(runtime, playerId, views, round, playerIndex, spiedRoutes, actionType);
     if (action) return action;

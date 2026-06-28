@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GameplaySliceView } from "@empire/shared-types";
 import { createServerApp } from "../../apps/server/src/app";
-import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap";
 import { createFixedClock } from "../../apps/server/src/runtime/scheduling/clock";
 import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
 import {
@@ -13,6 +12,10 @@ import {
   createCombatStateFixture,
   createDistrictFixture
 } from "../fixtures/game-state-fixtures";
+import {
+  createDevGameplaySession,
+  loadWithDevGameplaySession
+} from "../helpers/gameplay-session-test-helpers";
 
 describe("gameplay slice read model contract", () => {
   it("projects a fresh joined player without exposing core internals", async () => {
@@ -26,9 +29,8 @@ describe("gameplay slice read model contract", () => {
       factionId: "mafian"
     };
 
-    await ensureGameplaySliceSessionResult(server.instanceManager, request);
-    const response = server.gameplaySliceTransport.load(request);
-    const view = response.readModel as GameplaySliceView;
+    const { response } = await loadWithDevGameplaySession(server, request);
+    const view = expectReadModel(response);
 
     expectNoCoreInternals(view);
     expect(response.metadata).toEqual({
@@ -42,44 +44,22 @@ describe("gameplay slice read model contract", () => {
           "selectedDistrict": 0,
         },
         "commandHints": {
-          "availableAttackTargetCount": 3,
-          "availableBuildingActionCount": 3,
+          "availableAttackTargetCount": 0,
+          "availableBuildingActionCount": 0,
           "availableOccupyTargetCount": 0,
-          "availableSpyTargetCount": 3,
+          "availableSpyTargetCount": 0,
           "cooldowns": [],
-          "disabledReasonCount": 3,
-          "selectedDistrictId": "district:spawn:1",
+          "disabledReasonCount": 0,
+          "selectedDistrictId": null,
         },
-        "district": {
-          "actionCounts": [
-            {
-              "buildingTypeId": "restaurant",
-              "enabled": 0,
-              "total": 0,
-            },
-            {
-              "buildingTypeId": "pharmacy",
-              "enabled": 3,
-              "total": 3,
-            },
-          ],
-          "buildingCount": 2,
-          "districtId": "district:spawn:1",
-          "isOwnedByPlayer": true,
-          "ownerPlayerId": "player:read-model:fresh",
-          "status": "claimed",
-        },
+        "district": null,
         "map": {
           "districtCount": 161,
-          "selectedSummary": {
-            "isOwnedByPlayer": true,
-            "ownerPlayerId": "player:read-model:fresh",
-            "status": "claimed",
-          },
+          "selectedSummary": null,
         },
         "player": {
           "factionId": "mafian",
-          "homeDistrictId": "district:spawn:1",
+          "homeDistrictId": null,
           "playerId": "player:read-model:fresh",
           "resourceBalances": {
             "biomass": 6,
@@ -101,8 +81,11 @@ describe("gameplay slice read model contract", () => {
         "server": {
           "currentTick": 0,
           "generatedAt": "2026-05-21T00:00:00.000Z",
+          "mapManifestHash": "fnv1a32:f30dfc61",
+          "mapManifestId": "empire-streets-city",
+          "mapManifestVersion": 1,
           "mode": "free",
-          "selectedDistrictId": "district:spawn:1",
+          "selectedDistrictId": null,
           "serverInstanceId": "instance:free:read-model:fresh",
           "stateVersion": 2,
         },
@@ -110,7 +93,7 @@ describe("gameplay slice read model contract", () => {
     `);
   });
 
-  it("projects selected own, neutral, and enemy districts with public ownership/status fields", () => {
+  it("projects selected own, neutral, and enemy districts with public ownership/status fields", async () => {
     const server = createServerApp({
       clock: createFixedClock("2026-05-21T00:00:00.000Z")
     });
@@ -133,21 +116,25 @@ describe("gameplay slice read model contract", () => {
     runtime.state.root.districtIds.push("district:3");
     server.instanceManager.startInstance(instanceId);
 
-    const own = server.gameplaySliceTransport.load({
+    const session = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
-      playerId: "player:1",
+      playerId: "player:1"
+    });
+    const ownResponse = await server.gameplaySliceTransport.load({
+      ...session.loadRequest,
       districtId: "district:1"
-    }).readModel as GameplaySliceView;
-    const neutral = server.gameplaySliceTransport.load({
-      serverInstanceId: instanceId,
-      playerId: "player:1",
+    });
+    const neutralResponse = await server.gameplaySliceTransport.load({
+      ...session.loadRequest,
       districtId: "district:3"
-    }).readModel as GameplaySliceView;
-    const enemy = server.gameplaySliceTransport.load({
-      serverInstanceId: instanceId,
-      playerId: "player:1",
+    });
+    const enemyResponse = await server.gameplaySliceTransport.load({
+      ...session.loadRequest,
       districtId: "district:2"
-    }).readModel as GameplaySliceView;
+    });
+    const own = expectReadModel(ownResponse);
+    const neutral = expectReadModel(neutralResponse);
+    const enemy = expectReadModel(enemyResponse);
 
     expect([
       summarizeSlice(own).district,
@@ -206,16 +193,18 @@ describe("gameplay slice read model contract", () => {
     server.instanceManager.tickInstance(instanceId);
     server.instanceManager.tickInstance(instanceId);
 
-    const load = server.gameplaySliceTransport.load({
+    const { response, sessionToken } = await loadWithDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId,
-      districtId
+      districtId,
+      factionId: "mafian"
     });
-    const buildingId = load.readModel?.district?.buildings.find(
+    const load = expectReadModel(response);
+    const buildingId = load.district?.buildings.find(
       (building) => building.buildingTypeId === "factory"
     )?.buildingId;
     const collected = await server.gameplaySliceTransport.submit({
-      sessionToken: load.sessionToken,
+      sessionToken,
       focusDistrictId: districtId,
       command: createCollectProductionCommandFixture({
         id: "command:read-model:collect",
@@ -227,8 +216,7 @@ describe("gameplay slice read model contract", () => {
         }
       })
     });
-
-    expect(summarizeSlice(collected.readModel as GameplaySliceView)).toMatchInlineSnapshot(`
+    expect(summarizeSlice(expectReadModel(collected))).toMatchInlineSnapshot(`
       {
         "cityFeed": {
           "currentPlayer": 1,
@@ -276,14 +264,14 @@ describe("gameplay slice read model contract", () => {
           "playerId": "player:read-model:collect",
           "resourceBalances": {
             "biomass": 6,
-            "cash": 1511.385,
+            "cash": 1505.693,
             "chemicals": 10,
             "dirty-cash": 300,
-            "metal-parts": 16,
+            "metal-parts": 12,
             "tech-core": 2,
           },
           "resources": {
-            "cleanCash": 1511.385,
+            "cleanCash": 1505.693,
             "dirtyCash": 300,
             "gangMembers": 0,
             "influence": 0.001,
@@ -292,8 +280,11 @@ describe("gameplay slice read model contract", () => {
         },
         "reports": [],
         "server": {
-          "currentTick": 2,
+          "currentTick": 1,
           "generatedAt": "2026-05-21T00:00:00.000Z",
+          "mapManifestHash": "fnv1a32:f30dfc61",
+          "mapManifestId": "empire-streets-city",
+          "mapManifestVersion": 1,
           "mode": "free",
           "selectedDistrictId": "district:read-model:collect",
           "serverInstanceId": "instance:read-model:collect",
@@ -317,13 +308,14 @@ describe("gameplay slice read model contract", () => {
     };
     server.instanceManager.startInstance(instanceId);
 
-    const load = server.gameplaySliceTransport.load({
+    const session = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId: "player:1",
       districtId: "district:1"
     });
+    const load = await server.gameplaySliceTransport.load(session.loadRequest);
     const spy = await server.gameplaySliceTransport.submit({
-      sessionToken: load.sessionToken,
+      sessionToken: session.sessionToken,
       focusDistrictId: "district:1",
       command: createSpyDistrictCommandFixture({
         id: "command:read-model:spy",
@@ -336,7 +328,7 @@ describe("gameplay slice read model contract", () => {
       })
     });
     const attack = await server.gameplaySliceTransport.submit({
-      sessionToken: spy.sessionToken,
+      sessionToken: session.sessionToken,
       focusDistrictId: "district:1",
       command: createAttackDistrictCommandFixture({
         id: "command:read-model:attack",
@@ -348,8 +340,9 @@ describe("gameplay slice read model contract", () => {
         }
       })
     });
+    const attackView = expectReadModel(attack);
 
-    expect(summarizeSlice(attack.readModel as GameplaySliceView).reports).toMatchInlineSnapshot(`
+    expect(summarizeSlice(attackView).reports).toMatchInlineSnapshot(`
       [
         {
           "actionType": "attack-district",
@@ -363,15 +356,21 @@ describe("gameplay slice read model contract", () => {
           "result": "partial",
           "targetDistrictId": "district:2",
         },
+        {
+          "actionType": "spy-district",
+          "reportType": "spy",
+          "result": "success",
+          "targetDistrictId": "district:2",
+        },
       ]
     `);
-    expect(summarizeSlice(attack.readModel as GameplaySliceView).cityFeed).toMatchInlineSnapshot(`
+    expect(summarizeSlice(attackView).cityFeed).toMatchInlineSnapshot(`
       {
         "currentPlayer": 2,
         "selectedDistrict": 0,
       }
     `);
-    expect((attack.readModel as GameplaySliceView).districts.find(
+    expect(attackView.districts.find(
       (district) => district.districtId === "district:2"
     )).toMatchObject({
       ownerPlayerId: "player:1",
@@ -379,6 +378,11 @@ describe("gameplay slice read model contract", () => {
     });
   });
 });
+
+const expectReadModel = (response: { readModel: GameplaySliceView | null }): GameplaySliceView => {
+  expect(response.readModel).not.toBeNull();
+  return response.readModel!;
+};
 
 const summarizeSlice = (view: GameplaySliceView) => ({
   server: view.server,

@@ -11,11 +11,15 @@ import type { InstanceScheduler } from "../scheduling/instance-scheduler";
 import type { Clock } from "../scheduling/clock";
 import type { InstanceSnapshotController } from "../snapshots/instance-snapshot-controller";
 import type {
+  CommandLogRepository,
   CommandReservationRepository,
   CommandResultRepository,
-  RuntimeOutboxRepository
+  EventLogRepository,
+  RuntimeOutboxRepository,
+  SnapshotRepository
 } from "../persistence/repositories";
 import type { AtomicCommandCrashPoint } from "../instance-manager/atomic-command-dispatcher";
+import type { AtomicCommandTransactionBoundary } from "../instance-manager/atomic-command-transaction";
 
 /**
  * Responsibility: In-memory runtime container for one isolated game instance.
@@ -35,9 +39,13 @@ export interface ServerInstanceRuntime {
   scheduler: InstanceScheduler;
   clock: Clock;
   snapshotController: InstanceSnapshotController;
+  commandLogRepository?: CommandLogRepository;
+  eventLogRepository?: EventLogRepository;
+  snapshotRepository?: SnapshotRepository;
   commandReservationRepository?: CommandReservationRepository;
   commandResultRepository?: CommandResultRepository;
   outboxRepository?: RuntimeOutboxRepository;
+  atomicCommandTransaction?: AtomicCommandTransactionBoundary;
   atomicCommandCrashInjector?: (point: AtomicCommandCrashPoint) => void | Promise<void>;
   processedCommandIds: Set<string>;
   commandRateLimitWindow: CommandRateLimitWindow;

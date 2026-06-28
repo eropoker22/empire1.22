@@ -11,10 +11,11 @@ import {
   openGamePage,
   openDistrictPopup,
   openLoginPage,
+  resolveJoinableFreeServerId,
   selectLobbyDistrict,
   waitForMapReady
 } from "./helpers/empireSmokeHelpers.js";
-const CANONICAL_FREE_SERVER_ID = "instance:free:eu-central:public-1";
+const DEFAULT_FREE_SERVER_ID = "instance:free:eu-central:public-1";
 const DISTRICT_ACTION_SELECTOR = [
   "button[data-attack-target-id]:not([disabled])",
   "button[data-occupy-target-id]:not([disabled])",
@@ -271,7 +272,7 @@ function pickOwnedDistrictId(readModel) {
 async function submitFallbackAction(page, baseReadModel) {
   const serverInstanceId = baseReadModel?.server?.serverInstanceId
     ?? baseReadModel?.player?.instanceId
-    ?? CANONICAL_FREE_SERVER_ID;
+    ?? DEFAULT_FREE_SERVER_ID;
   const playerId = baseReadModel?.player?.playerId ?? null;
   const mode = baseReadModel?.mode?.mode ?? "free";
   const playerSourceIds = pickOwnedDistrictId(baseReadModel);
@@ -300,6 +301,20 @@ async function submitFallbackAction(page, baseReadModel) {
       issuedAt: new Date().toISOString(),
       sourceDistrictId: district.districtId
     };
+
+    if (district.spyTargets?.some((target) => target?.enabled)) {
+      const target = district.spyTargets.find((entry) => entry?.enabled);
+      const command = createSpyDistrictCommand({
+        ...commandBase,
+        commandId: `smoke-action:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`,
+        targetDistrictId: target.districtId
+      });
+      return postGameplaySliceRequest(page, "submit", {
+        command,
+        focusDistrictId: district.districtId,
+        expectedStateVersion: districtLoad.server?.stateVersion ?? null
+      });
+    }
 
     if (district.attackTargets?.some((target) => target?.enabled)) {
       const target = district.attackTargets.find((entry) => entry?.enabled);
@@ -350,19 +365,6 @@ async function submitFallbackAction(page, baseReadModel) {
       });
     }
 
-    if (district.spyTargets?.some((target) => target?.enabled)) {
-      const target = district.spyTargets.find((entry) => entry?.enabled);
-      const command = createSpyDistrictCommand({
-        ...commandBase,
-        commandId: `smoke-action:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`,
-        targetDistrictId: target.districtId
-      });
-      return postGameplaySliceRequest(page, "submit", {
-        command,
-        focusDistrictId: district.districtId,
-        expectedStateVersion: districtLoad.server?.stateVersion ?? null
-      });
-    }
   }
 
   if (!fallbackTargetCandidate || !playerSourceIds.length) {
@@ -393,7 +395,8 @@ async function openGameFromFlow(page, options = {}) {
     options.gang ?? "Smoke Crew"
   );
 
-  const freeCard = page.getByTestId(`server-card-${CANONICAL_FREE_SERVER_ID}`);
+  const serverId = await resolveJoinableFreeServerId(page);
+  const freeCard = page.getByTestId(`server-card-${serverId}`);
   await expect(page.locator("[data-recommended-server='true']")).toHaveAttribute("data-server-mode", "free");
   await expect(freeCard).toBeVisible();
   await expect(freeCard).not.toHaveClass(/is-locked|is-full|is-offline/);
@@ -489,6 +492,7 @@ test.describe("main game browser protection", () => {
       gang: `Spawn Crew ${runId}`
     });
     expect(bootstrapReadModel?.spawnSelection?.status).toBe("awaiting_spawn_selection");
+    expect(bootstrapReadModel?.player?.homeDistrictId ?? null).toBeNull();
 
     const spawnPanel = page.locator("[data-feature='spawn-selection']");
     if (process.env.SMOKE_DEBUG === "1") {
@@ -557,7 +561,7 @@ test.describe("main game browser protection", () => {
             commandId: `smoke-spawn:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`,
             mode: bootstrapReadModel?.mode?.mode ?? "free",
             playerId: bootstrapReadModel?.player?.playerId ?? null,
-            serverInstanceId: bootstrapReadModel?.server?.serverInstanceId ?? CANONICAL_FREE_SERVER_ID,
+            serverInstanceId: bootstrapReadModel?.server?.serverInstanceId ?? DEFAULT_FREE_SERVER_ID,
             issuedAt: new Date().toISOString(),
             districtId: spawnDistrict.districtId
           }),
@@ -592,14 +596,14 @@ test.describe("main game browser protection", () => {
       errors: expect.any(Array),
       readModel: expect.any(Object)
     });
+    expect(
+      fallbackSubmit.payload?.accepted,
+      `First guided action rejected: ${JSON.stringify(fallbackSubmit.payload?.errors?.[0] ?? {})}`
+    ).toBe(true);
     if (fallbackSubmit.payload?.readModel?.server?.stateVersion != null) {
       expect(fallbackSubmit.payload.readModel.server.stateVersion).toBeGreaterThanOrEqual(
         bootstrapReadModel?.server?.stateVersion ?? 0
       );
-    }
-    if (!fallbackSubmit.payload.accepted) {
-      const firstReason = fallbackSubmit.payload.errors?.[0]?.code;
-      expect(firstReason).not.toBe("AWAITING_SPAWN_SELECTION");
     }
 
     await clickDistrictById(page, DISTRICT_ID_CANDIDATES[0]);

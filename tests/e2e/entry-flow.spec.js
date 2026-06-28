@@ -6,12 +6,12 @@ import {
   clearStorageOnBoot,
   createRuntimeErrorMonitor,
   openLoginPage,
+  resolveJoinableFreeServerId,
   seedE2eSession,
   selectLobbyDistrict,
   waitForMapReady
 } from "./helpers/empireSmokeHelpers.js";
 
-const CANONICAL_FREE_SERVER_ID = "instance:free:eu-central:public-1";
 const CANONICAL_WAR_SERVER_ID = "instance:war:eu-central:public-1";
 
 test.afterEach(async ({ page }, testInfo) => {
@@ -33,10 +33,14 @@ async function chooseServerAndEnter(page) {
   await expect(page.getByTestId("server-list")).toBeVisible();
   await expect(page.locator("[data-recommended-server='true']")).toHaveAttribute("data-server-mode", "free");
   await expect(page.locator("[data-recommended-server='true']")).not.toHaveAttribute("data-server-card", CANONICAL_WAR_SERVER_ID);
-  await page.getByTestId(`server-card-${CANONICAL_FREE_SERVER_ID}`).click();
+  const serverId = await resolveJoinableFreeServerId(page);
+  const freeCard = page.getByTestId(`server-card-${serverId}`);
+  await expect(freeCard).not.toHaveClass(/is-locked|is-full|is-offline/);
+  await freeCard.click();
   await selectLobbyDistrict(page);
   await expect(page.getByTestId("enter-selected-server")).toBeEnabled();
   await page.getByTestId("enter-selected-server").click();
+  return serverId;
 }
 
 async function chooseFactionAndEnter(page) {
@@ -97,14 +101,14 @@ test.describe("entry flow", () => {
     await clearStorageOnBoot(page);
 
     await loginAsGuest(page, "New Entry Host", "New Entry Crew");
-    await chooseServerAndEnter(page);
+    const serverId = await chooseServerAndEnter(page);
     await expect(page).toHaveURL(/\/pages\/faction\.html$/);
     await chooseFactionAndEnter(page);
 
     const session = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)), SESSION_STORAGE_KEY);
     expect(session.registration).toMatchObject({
-      activeServerId: CANONICAL_FREE_SERVER_ID,
-      activeServerInstanceId: CANONICAL_FREE_SERVER_ID,
+      activeServerId: serverId,
+      activeServerInstanceId: serverId,
       selectedFaction: "mafian",
       selectedStructure: "mafián",
       factionLocked: true,

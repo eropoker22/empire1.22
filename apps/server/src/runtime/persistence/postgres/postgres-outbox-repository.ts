@@ -1,11 +1,11 @@
 import type { ServerInstanceId } from "@empire/shared-types";
 import type { RuntimeOutboxRecord } from "../dto";
 import type { RuntimeOutboxRepository } from "../repositories";
-import type { PostgresDatabase } from "./postgres-client";
+import type { PostgresQueryable } from "./postgres-client";
 import { ensurePostgresServerInstanceRow } from "./postgres-server-instance-row";
 
 export const createPostgresRuntimeOutboxRepository = (
-  database: PostgresDatabase
+  database: PostgresQueryable
 ): RuntimeOutboxRepository => ({
   append: async (record) => {
     await ensurePostgresServerInstanceRow(database, record.serverInstanceId, {
@@ -93,4 +93,3 @@ export const createPostgresRuntimeOutboxRepository = (
     );
   }
 });
-

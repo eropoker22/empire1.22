@@ -120,6 +120,7 @@ function createServerFromSummary(summary) {
     closed: !joinable && !full,
     locked: !joinable && !full,
     offline: ["STOPPED", "ENDED", "DESTROYED", "CRASHED"].includes(status),
+    mapPending: mode === "war" && !joinable,
     riskPercent: Math.round((playerCount / maxPlayers) * 100),
     description: mode === "war"
       ? "WAR Mode: PŘIPRAVUJEME. War režim není dočasně dostupný pro veřejné hráče."
@@ -238,6 +239,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const lobbyDetailDescription = document.querySelector("[data-lobby-detail-description]");
   const lobbyRiskRing = document.querySelector("[data-lobby-risk-ring]");
   const lobbyRiskValue = document.querySelector("[data-lobby-risk-value]");
+  const lobbyRiskNote = document.querySelector("[data-lobby-risk-note]");
   const lobbyOpenSelectedButton = document.querySelector("[data-lobby-open-selected]");
   const lobbyEnterSelectedButton = document.querySelector("[data-lobby-enter-selected]");
   const lobbyStatusCount = document.querySelector("[data-lobby-status-count]");
@@ -529,12 +531,19 @@ document.addEventListener("DOMContentLoaded", () => {
     return Array.from(counts.entries());
   };
 
-  const renderTypeCountMarkup = (server = getSelectedServer()) => getDistrictTypeCounts(server).map(([type, count]) => `
-    <span class="server-detail-modal__type-count is-${type}">
-      <strong>${type}</strong>
-      <b>${count}</b>
-    </span>
-  `).join("");
+  const renderTypeCountMarkup = (server = getSelectedServer()) => server?.mapPending
+    ? `
+      <span class="server-detail-modal__type-count is-war-pending">
+        <strong>war mapa</strong>
+        <b>připravuje se</b>
+      </span>
+    `
+    : getDistrictTypeCounts(server).map(([type, count]) => `
+      <span class="server-detail-modal__type-count is-${type}">
+        <strong>${type}</strong>
+        <b>${count}</b>
+      </span>
+    `).join("");
 
   const getNearestDistrict = (point) => {
     if (!point) {
@@ -957,7 +966,9 @@ document.addEventListener("DOMContentLoaded", () => {
       lobbyDetailRegion.textContent = server?.region || "EU Central";
     }
     if (lobbyDetailStatus) {
-      lobbyDetailStatus.textContent = server ? String(server.map?.totalDistricts || 0) : "-";
+      lobbyDetailStatus.textContent = server
+        ? (server.mapPending ? "PŘIPRAVUJE SE" : String(server.map?.totalDistricts || 0))
+        : "-";
     }
     if (lobbyDetailMode) {
       lobbyDetailMode.textContent = getServerModeLabel(server?.mode || state.mode || DEFAULT_PUBLIC_SERVER_MODE);
@@ -978,9 +989,21 @@ document.addEventListener("DOMContentLoaded", () => {
       if (lobbyRiskRing instanceof HTMLElement) {
         lobbyRiskRing.style.setProperty("--risk-value", `${riskPercent}%`);
         lobbyRiskRing.setAttribute("aria-label", `Riziko ${riskPercent} procent`);
+        const riskLevel = riskPercent >= 70 ? "high" : riskPercent >= 35 ? "medium" : riskPercent > 0 ? "low" : "none";
+        lobbyRiskRing.setAttribute("data-risk-level", riskLevel);
+        lobbyRiskRing.closest(".lobby-detail-heat")?.setAttribute("data-risk-level", riskLevel);
       }
       if (lobbyRiskValue) {
         lobbyRiskValue.textContent = `${riskPercent} %`;
+      }
+      if (lobbyRiskNote instanceof HTMLElement) {
+        lobbyRiskNote.textContent = riskPercent >= 70
+          ? "Vysoké napětí v oblasti"
+          : riskPercent >= 35
+            ? "Zvýšená aktivita v okolí"
+            : riskPercent > 0
+              ? "Nízké napětí v oblasti"
+              : "Klidný start";
       }
     }
     if (lobbyOpenSelectedButton instanceof HTMLButtonElement) {
@@ -1135,7 +1158,9 @@ document.addEventListener("DOMContentLoaded", () => {
           ? "<li>WAR režim se připravuje.</li>"
           : "<li>FREE BR: 20 hráčů.</li>",
         "<li>Spawn potvrdí server.</li>",
-        `<li>${server.map?.totalDistricts || geometry.districts.length} districtů, ${server.map?.downtownDistricts || getDistrictTypeCounts(server).find(([type]) => type === "downtown")?.[1] || 0} downtown.</li>`
+        server.mapPending
+          ? "<li>War mapa se připravuje pro větší veřejný test.</li>"
+          : `<li>${server.map?.totalDistricts || geometry.districts.length} districtů, ${server.map?.downtownDistricts || getDistrictTypeCounts(server).find(([type]) => type === "downtown")?.[1] || 0} downtown.</li>`
       ].join("");
     }
   };
@@ -1157,7 +1182,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <span class="auth-server-card__meta">${server.region} • ${server.players}/${server.capacity}</span>
         <span class="auth-server-card__status">${server.status || "ONLINE"}</span>
         <span class="auth-server-card__countdown" data-server-countdown="${server.id}">${getServerCountdownText(server.id)}</span>
-        <span class="auth-server-card__subtitle">${server.map?.totalDistricts ? `${server.map.totalDistricts} districtů / ${server.map.downtownDistricts} downtown` : serverListSource === SERVER_LIST_FALLBACK_SOURCE ? "DEV fallback katalog" : ""}</span>
+        <span class="auth-server-card__subtitle">${server.mapPending ? "War mapa se připravuje" : server.map?.totalDistricts ? `${server.map.totalDistricts} districtů / ${server.map.downtownDistricts} downtown` : serverListSource === SERVER_LIST_FALLBACK_SOURCE ? "DEV fallback katalog" : ""}</span>
         <span class="auth-server-card__signal is-${String(server.activity || "medium").toLowerCase()}"><i></i><i></i><i></i><i></i></span>
       </button>
     `).join("");

@@ -1,50 +1,26 @@
 (function() {
   "use strict";
   const createAdminAppShell = (shell) => shell;
-  const ADMIN_MONITORING_TOKEN_STORAGE_KEY = "empire.adminMonitoringToken";
-  const resolveAdminMonitoringToken = (configuredToken) => {
-    const explicitToken = configuredToken == null ? void 0 : configuredToken.trim();
-    if (explicitToken) {
-      return explicitToken;
+  let runtimeAdminMonitoringSecret = null;
+  const resolveAdminMonitoringSecret = (configuredSecret) => {
+    const explicitSecret = configuredSecret == null ? void 0 : configuredSecret.trim();
+    if (explicitSecret) {
+      return explicitSecret;
     }
-    const runtimeToken = readRuntimeAdminMonitoringToken();
-    if (runtimeToken) {
-      return runtimeToken;
+    const runtimeSecret = readRuntimeAdminMonitoringSecret();
+    if (runtimeSecret) {
+      return runtimeSecret;
     }
-    const queryToken = readQueryAdminMonitoringToken();
-    if (queryToken) {
-      writeSessionAdminMonitoringToken(queryToken);
-      return queryToken;
-    }
-    return readSessionAdminMonitoringToken();
+    return runtimeAdminMonitoringSecret;
   };
-  const readRuntimeAdminMonitoringToken = () => {
+  const setRuntimeAdminMonitoringSecret = (secret) => {
+    const normalizedSecret = String(secret ?? "").trim();
+    runtimeAdminMonitoringSecret = normalizedSecret || null;
+  };
+  const readRuntimeAdminMonitoringSecret = () => {
     var _a;
-    const token = (_a = globalThis.__EMPIRE_ADMIN_MONITORING_TOKEN__) == null ? void 0 : _a.trim();
-    return token || null;
-  };
-  const readQueryAdminMonitoringToken = () => {
-    var _a, _b;
-    const search = typeof window === "undefined" ? "" : window.location.search;
-    if (!search) {
-      return null;
-    }
-    const params = new URLSearchParams(search);
-    return ((_a = params.get("adminToken")) == null ? void 0 : _a.trim()) || ((_b = params.get("empireAdminToken")) == null ? void 0 : _b.trim()) || null;
-  };
-  const readSessionAdminMonitoringToken = () => {
-    var _a;
-    try {
-      return ((_a = sessionStorage.getItem(ADMIN_MONITORING_TOKEN_STORAGE_KEY)) == null ? void 0 : _a.trim()) || null;
-    } catch (_error) {
-      return null;
-    }
-  };
-  const writeSessionAdminMonitoringToken = (token) => {
-    try {
-      sessionStorage.setItem(ADMIN_MONITORING_TOKEN_STORAGE_KEY, token);
-    } catch (_error) {
-    }
+    const secret = (_a = globalThis.__EMPIRE_ADMIN_SECRET__) == null ? void 0 : _a.trim();
+    return secret || null;
   };
   const createAdminInstanceViewModel = (summary, health, diagnostics, activity = {
     commandCount: 0,
@@ -100,155 +76,95 @@
     queuedEvents: summary.queuedEventCount,
     queuedEventCount: summary.queuedEventCount
   });
-  const createAdminOverviewViewModel = (instances, selectedLogs) => {
-    var _a;
-    const selectedInstanceId = (selectedLogs == null ? void 0 : selectedLogs.instanceId) ?? ((_a = instances[0]) == null ? void 0 : _a.instanceId) ?? null;
+  const createAdminOverviewViewModel = (instances, options = {}) => {
+    var _a, _b, _c, _d, _e;
+    const selectedInstanceId = ((_a = options.selectedLogs) == null ? void 0 : _a.instanceId) ?? ((_b = instances[0]) == null ? void 0 : _b.instanceId) ?? null;
     return {
       instances,
+      serverSummaries: options.serverSummaries ?? [],
+      healthSummary: options.healthSummary ?? {
+        totalInstances: instances.length,
+        runningInstances: instances.filter((instance) => instance.status === "running").length,
+        crashedInstances: instances.filter((instance) => instance.status === "crashed").length
+      },
       selectedInstanceId,
+      selectedHealth: options.selectedHealth ?? null,
+      selectedDiagnostics: options.selectedDiagnostics ?? null,
       selectedLogs: {
         instanceId: selectedInstanceId,
-        commands: (selectedLogs == null ? void 0 : selectedLogs.commands) ?? [],
-        events: (selectedLogs == null ? void 0 : selectedLogs.events) ?? [],
-        diagnostics: (selectedLogs == null ? void 0 : selectedLogs.diagnostics) ?? []
+        commands: ((_c = options.selectedLogs) == null ? void 0 : _c.commands) ?? [],
+        events: ((_d = options.selectedLogs) == null ? void 0 : _d.events) ?? [],
+        diagnostics: ((_e = options.selectedLogs) == null ? void 0 : _e.diagnostics) ?? []
       }
     };
   };
-  const renderInstanceListPage = (input) => {
-    var _a, _b;
-    const overview = Array.isArray(input) ? {
-      instances: input,
-      selectedInstanceId: ((_a = input[0]) == null ? void 0 : _a.instanceId) ?? null,
-      selectedLogs: {
-        instanceId: ((_b = input[0]) == null ? void 0 : _b.instanceId) ?? null,
-        commands: [],
-        events: [],
-        diagnostics: []
-      }
-    } : input;
-    return `
-  <section class="admin-monitoring" aria-labelledby="admin-monitoring-title">
-    <div class="admin-monitoring__header">
-      <p class="admin-boot__eyebrow">Runtime monitoring</p>
-      <h1 id="admin-monitoring-title">Empire Streets Admin</h1>
-      <p>${overview.instances.length === 0 ? "Nejsou spuštěné žádné server instance." : `Běží ${overview.instances.length} server instancí.`}</p>
-    </div>
-    ${overview.instances.length === 0 ? renderEmptyState() : `${renderInstanceTable(overview.instances)}${renderInstanceLogDetail(overview)}`}
-  </section>
-`;
+  const fetchAdminOverviewFromEndpoint = async (endpoint, configuredSecret) => {
+    var _a;
+    if (typeof fetch === "undefined") {
+      return null;
+    }
+    const secret = resolveAdminMonitoringSecret(configuredSecret);
+    const headers = {
+      accept: "application/json"
+    };
+    if (secret) {
+      headers["x-empire-admin-secret"] = secret;
+    }
+    const response = await fetch(endpoint, { headers });
+    if (!response.ok) {
+      throw await createAdminMonitoringError(response);
+    }
+    const payload = await response.json();
+    if ((_a = payload.overview) == null ? void 0 : _a.instances) {
+      return payload.overview;
+    }
+    return Array.isArray(payload.instances) ? createAdminOverviewViewModel(payload.instances.map(createAdminInstanceViewModelFromMonitoringSummary), {
+      serverSummaries: payload.serverSummaries ?? [],
+      healthSummary: payload.healthSummary
+    }) : null;
   };
-  const renderEmptyState = () => `
-  <div class="admin-monitoring__empty" role="status">
-    <h2>Žádné instance</h2>
-    <p>Monitoring je připojený, ale server runtime zatím nevrací žádné instance.</p>
-  </div>
-`;
-  const renderInstanceTable = (instances) => `
-  <div class="admin-monitoring__table-wrap">
-    <table class="admin-monitoring__table">
-      <thead>
-        <tr>
-          <th scope="col">Instance</th>
-          <th scope="col">Mode</th>
-          <th scope="col">Region</th>
-          <th scope="col">Status</th>
-          <th scope="col">Tick</th>
-          <th scope="col">Players</th>
-          <th scope="col">Alliances</th>
-          <th scope="col">Health</th>
-          <th scope="col">Crashes</th>
-          <th scope="col">Queue</th>
-          <th scope="col">Snapshot</th>
-          <th scope="col">Last tick</th>
-          <th scope="col">Logs</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${instances.map(renderInstanceRow).join("")}
-      </tbody>
-    </table>
-  </div>
-`;
-  const renderInstanceRow = (instance) => `
-  <tr>
-    <td>
-      <strong>${escapeHtml$1(instance.displayName)}</strong>
-      <span>${escapeHtml$1(instance.instanceId)}</span>
-    </td>
-    <td>${escapeHtml$1(instance.mode)}</td>
-    <td>${escapeHtml$1(instance.region)}</td>
-    <td>${escapeHtml$1(instance.status)}</td>
-    <td>${instance.currentTick}</td>
-    <td>${instance.playerCount}</td>
-    <td>${instance.allianceCount}</td>
-    <td>
-      <span>${escapeHtml$1(instance.healthStatus)}</span>
-      <span>warn ${instance.warningCount}</span>
-    </td>
-    <td>${instance.crashCount}</td>
-    <td>${instance.queuedEventCount}</td>
-    <td>${formatNullableIso(instance.lastSnapshotAt)}</td>
-    <td>
-      <span>start ${formatNullableIso(instance.lastTickStartedAt)}</span>
-      <span>end ${formatNullableIso(instance.lastTickCompletedAt)}</span>
-    </td>
-    <td>
-      <span>cmd ${instance.commandCount}</span>
-      <span>evt ${instance.eventCount}</span>
-      <span>err ${instance.diagnosticErrorCount}</span>
-    </td>
-  </tr>
-`;
-  const renderInstanceLogDetail = (overview) => `
-  <section class="admin-monitoring__detail" aria-label="Instance log detail">
-    <h2>Detail instance ${escapeHtml$1(overview.selectedInstanceId ?? "n/a")}</h2>
-    <div class="admin-monitoring__log-grid">
-      ${renderCommandLogs(overview.selectedLogs.commands)}
-      ${renderEventLogs(overview.selectedLogs.events)}
-      ${renderDiagnosticLogs(overview.selectedLogs.diagnostics)}
-    </div>
+  const renderAdminError = (error) => `
+  <section class="admin-monitoring" role="alert">
+    <p class="admin-boot__eyebrow">Runtime monitoring</p>
+    <h1>Empire Streets Admin</h1>
+    <p>Admin monitoring se nepodařilo načíst.</p>
+    ${isAdminUnauthorizedError(error) ? `
+      <form class="admin-monitoring__secret-form" data-admin-secret-form>
+        <label class="admin-monitoring__secret-field">
+          <span>Admin secret</span>
+          <input data-admin-secret-input type="password" autocomplete="off" placeholder="Zadej EMPIRE_ADMIN_SECRET">
+        </label>
+        <button type="submit">Retry with secret</button>
+        <p>Secret se drží jen v paměti stránky a posílá se pouze v headeru <code>x-empire-admin-secret</code>.</p>
+      </form>
+    ` : ""}
+    <pre>${escapeHtml$1(error instanceof Error ? error.message : String(error))}</pre>
   </section>
 `;
-  const renderCommandLogs = (logs) => `
-  <article class="admin-monitoring__log-panel">
-    <h3>Recent commands</h3>
-    ${logs.length === 0 ? "<p>Žádné command logy.</p>" : `
-      <ol>${logs.map((log) => `
-        <li>
-          <strong>${escapeHtml$1(log.commandType)}</strong>
-          <span>${escapeHtml$1(log.commandId)} · ${escapeHtml$1(log.actorId)} · tick ${log.tickAtReceive}</span>
-        </li>
-      `).join("")}</ol>
-    `}
-  </article>
-`;
-  const renderEventLogs = (logs) => `
-  <article class="admin-monitoring__log-panel">
-    <h3>Recent events</h3>
-    ${logs.length === 0 ? "<p>Žádné event logy.</p>" : `
-      <ol>${logs.map((log) => `
-        <li>
-          <strong>${escapeHtml$1(log.eventType)}</strong>
-          <span>${escapeHtml$1(log.causedByCommandId ?? "manual")} · tick ${log.tickAtEmit}</span>
-        </li>
-      `).join("")}</ol>
-    `}
-  </article>
-`;
-  const renderDiagnosticLogs = (logs) => `
-  <article class="admin-monitoring__log-panel">
-    <h3>Recent diagnostics</h3>
-    ${logs.length === 0 ? "<p>Žádné diagnostic logy.</p>" : `
-      <ol>${logs.map((log) => `
-        <li>
-          <strong>${escapeHtml$1(log.level)} · ${escapeHtml$1(log.category)}</strong>
-          <span>${escapeHtml$1(log.message)} · ${formatNullableIso(log.occurredAt)}</span>
-        </li>
-      `).join("")}</ol>
-    `}
-  </article>
-`;
-  const formatNullableIso = (value) => value ? escapeHtml$1(value) : "n/a";
+  const bindAdminSecretForm = (target, retry) => {
+    if (typeof target.querySelector !== "function") {
+      return;
+    }
+    const form = target.querySelector("[data-admin-secret-form]");
+    const input = target.querySelector("[data-admin-secret-input]");
+    if (!form || !input) {
+      return;
+    }
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      setRuntimeAdminMonitoringSecret(input.value);
+      void retry();
+    });
+  };
+  const createAdminMonitoringError = async (response) => {
+    var _a, _b;
+    const payload = await response.json().catch(() => null);
+    const message = ((_b = (_a = payload == null ? void 0 : payload.errors) == null ? void 0 : _a[0]) == null ? void 0 : _b.message) ?? `Admin monitoring request failed with HTTP ${response.status}.`;
+    const error = new Error(message);
+    error.statusCode = response.status;
+    return error;
+  };
+  const isAdminUnauthorizedError = (error) => error instanceof Error && typeof error.statusCode === "number" && error.statusCode === 403;
   const escapeHtml$1 = (value) => value.replace(/[&<>"']/g, (character) => ({
     "&": "&amp;",
     "<": "&lt;",
@@ -256,6 +172,194 @@
     '"': "&quot;",
     "'": "&#39;"
   })[character] ?? character);
+  const CHECKLIST_ITEMS = [
+    "verify:closed-alpha: PASSED",
+    "E2E smoke: 14 passed",
+    "Spawn UI: verified without API fallback",
+    "War: closed",
+    "Server action: verified",
+    "Prod-like Postgres smoke: prepared, waiting for EMPIRE_TEST_DATABASE_URL",
+    "Admin mode: read-only"
+  ];
+  const renderInstanceListPage = (input) => {
+    var _a, _b;
+    const overview = Array.isArray(input) ? {
+      instances: input,
+      serverSummaries: [],
+      healthSummary: {
+        totalInstances: input.length,
+        runningInstances: input.filter((instance) => instance.status === "running").length,
+        crashedInstances: input.filter((instance) => instance.status === "crashed").length
+      },
+      selectedInstanceId: ((_a = input[0]) == null ? void 0 : _a.instanceId) ?? null,
+      selectedHealth: null,
+      selectedDiagnostics: null,
+      selectedLogs: { instanceId: ((_b = input[0]) == null ? void 0 : _b.instanceId) ?? null, commands: [], events: [], diagnostics: [] }
+    } : input;
+    const selectedInstance = overview.instances.find((instance) => instance.instanceId === overview.selectedInstanceId) ?? overview.instances[0] ?? null;
+    const selectedServer = overview.serverSummaries.find((server) => server.serverInstanceId === (selectedInstance == null ? void 0 : selectedInstance.instanceId)) ?? null;
+    const freeServer = overview.serverSummaries.find((server) => server.mode === "free") ?? null;
+    const warServer = overview.serverSummaries.find((server) => server.mode === "war") ?? null;
+    const latestCommand = overview.selectedLogs.commands.at(-1) ?? null;
+    const latestError = overview.selectedLogs.diagnostics.filter((diagnostic) => diagnostic.level === "error" || diagnostic.level === "warn").at(-1) ?? null;
+    return `
+  <section class="admin-monitoring" aria-labelledby="admin-monitoring-title">
+    <header class="admin-monitoring__hero">
+      <div>
+        <p class="admin-boot__eyebrow">Read-only control tower</p>
+        <h1 id="admin-monitoring-title">Empire Streets Admin</h1>
+        <p>Interní closed-alpha monitoring nad runtime daty. Dashboard nic nemění a nezobrazuje session ani tajné tokeny.</p>
+      </div>
+      <div class="admin-monitoring__hero-badges">
+        ${renderBadge("FREE", (freeServer == null ? void 0 : freeServer.joinable) ? "success" : "warning")}
+        ${renderBadge("WAR CLOSED", (warServer == null ? void 0 : warServer.joinable) ? "danger" : "critical")}
+        ${renderBadge("READ ONLY", "info")}
+      </div>
+    </header>
+    ${overview.instances.length === 0 ? renderEmptyState() : `
+      ${renderTopMetrics({
+      overview,
+      freeJoinable: (freeServer == null ? void 0 : freeServer.joinable) ?? false,
+      warJoinable: (warServer == null ? void 0 : warServer.joinable) ?? false,
+      latestCommand: (latestCommand == null ? void 0 : latestCommand.commandType) ?? "Není dostupné",
+      latestError: (latestError == null ? void 0 : latestError.message) ?? (selectedInstance == null ? void 0 : selectedInstance.lastErrorAt) ?? "No recent error",
+      currentTick: (selectedInstance == null ? void 0 : selectedInstance.currentTick) ?? 0
+    })}
+      <div class="admin-monitoring__layout">
+        <div class="admin-monitoring__main">
+          ${renderServerOverview(overview)}
+          ${renderSelectedInstanceHealth(selectedInstance, selectedServer, overview)}
+          ${renderLogs("Recent commands", overview.selectedLogs.commands.map((log) => `
+            <tr><td>${escapeHtml(log.commandType)}</td><td>${escapeHtml(log.commandId)}</td><td>${escapeHtml(log.actorId)}</td><td>${log.tickAtReceive}</td><td>${escapeHtml(log.receivedAt)}</td><td>${escapeHtml(log.correlationId ?? "Není dostupné")}</td><td>${escapeHtml(log.status)}</td></tr>
+          `).join(""), '<tr><td colspan="7">Žádné command logy.</td></tr>', ["Type", "Command", "Actor / playerId", "Tick", "Received", "Correlation", "Status"])}
+          ${renderLogs("Recent diagnostics / errors", overview.selectedLogs.diagnostics.map((log) => `
+            <tr><td>${escapeHtml(log.level)}</td><td>${escapeHtml(log.category)}</td><td>${escapeHtml(log.message)}</td><td>${escapeHtml(log.occurredAt)}</td><td>${escapeHtml(log.commandId ?? "Není dostupné")}</td><td>${escapeHtml(log.correlationId ?? "Není dostupné")}</td></tr>
+          `).join(""), '<tr><td colspan="6">Žádné diagnostics.</td></tr>', ["Level", "Category", "Message", "Occurred", "Command", "Correlation"])}
+        </div>
+        <aside class="admin-monitoring__side">
+          ${renderChecklist()}
+          ${renderEvents(overview)}
+        </aside>
+      </div>
+    `}
+  </section>
+`;
+  };
+  const renderEmptyState = () => `
+  <div class="admin-monitoring__empty" role="status">
+    <h2>Žádné instance</h2>
+    <p>Monitoring endpoint odpověděl, ale runtime zatím nevrací žádné server instance.</p>
+  </div>
+`;
+  const renderTopMetrics = (input) => `
+  <section class="admin-monitoring__metrics">
+    ${renderMetric("Free status", input.freeJoinable ? "Open / joinable" : "Není dostupné", "První viewport signal")}
+    ${renderMetric("War status", input.warJoinable ? "Unexpected open" : "Closed / not joinable", "Guard musí zůstat zavřený")}
+    ${renderMetric("Players", String(input.overview.instances.reduce((sum, instance) => sum + instance.playerCount, 0)), `${input.overview.healthSummary.runningInstances}/${input.overview.healthSummary.totalInstances} running`)}
+    ${renderMetric("Health", input.overview.healthSummary.crashedInstances > 0 ? "Unhealthy" : "Healthy", `${input.overview.healthSummary.crashedInstances} crashed`)}
+    ${renderMetric("Last error", input.latestError, "Selected instance")}
+    ${renderMetric("Latest command", input.latestCommand, "Selected instance tail")}
+    ${renderMetric("Current tick", String(input.currentTick), "Selected instance")}
+  </section>
+`;
+  const renderServerOverview = (overview) => `
+  <section class="admin-monitoring__panel">
+    <div class="admin-monitoring__panel-head">
+      <div><p class="admin-boot__eyebrow">Server overview</p><h2>Free / War runtime overview</h2></div>
+      ${renderBadge("WAR CLOSED", "critical")}
+    </div>
+    <div class="admin-monitoring__card-grid">
+      ${overview.instances.map((instance) => {
+    var _a;
+    const server = overview.serverSummaries.find((entry) => entry.serverInstanceId === instance.instanceId);
+    return `
+          <article class="admin-monitoring__card">
+            <div class="admin-monitoring__card-head">
+              <div><h3>${escapeHtml((server == null ? void 0 : server.displayName) ?? instance.displayName)}</h3><p>${escapeHtml(instance.instanceId)}</p></div>
+              ${renderBadge(((_a = server == null ? void 0 : server.mode) == null ? void 0 : _a.toUpperCase()) ?? instance.mode.toUpperCase(), (server == null ? void 0 : server.mode) === "war" ? "critical" : "success")}
+            </div>
+            <dl class="admin-monitoring__kv">
+              ${renderKv("Region", (server == null ? void 0 : server.region) ?? instance.region)}
+              ${renderKv("Status", instance.status)}
+              ${renderKv("Join policy", (server == null ? void 0 : server.joinPolicy) ?? "Není dostupné")}
+              ${renderKv("Joinable", server ? server.joinable ? "Ano" : "Ne" : "Není dostupné")}
+              ${renderKv("Players", String(instance.playerCount))}
+              ${renderKv("Max players", String((server == null ? void 0 : server.maxPlayers) ?? "Není dostupné"))}
+              ${renderKv("Current tick", String(instance.currentTick))}
+              ${renderKv("Health", instance.healthStatus)}
+              ${renderKv("Warnings", String(instance.warningCount))}
+            </dl>
+          </article>
+        `;
+  }).join("")}
+    </div>
+  </section>
+`;
+  const renderSelectedInstanceHealth = (selectedInstance, selectedServer, overview) => {
+    var _a, _b, _c, _d, _e;
+    return `
+  <section class="admin-monitoring__panel">
+    <div class="admin-monitoring__panel-head">
+      <div><p class="admin-boot__eyebrow">Instance health</p><h2>${escapeHtml((selectedServer == null ? void 0 : selectedServer.displayName) ?? (selectedInstance == null ? void 0 : selectedInstance.displayName) ?? "Není dostupné")}</h2></div>
+      ${renderBadge((selectedInstance == null ? void 0 : selectedInstance.healthStatus) ?? "unhealthy", (selectedInstance == null ? void 0 : selectedInstance.healthStatus) === "healthy" ? "success" : "warning")}
+    </div>
+    <div class="admin-monitoring__split">
+      <div class="admin-monitoring__card">
+        <dl class="admin-monitoring__kv">
+          ${renderKv("Healthy", (selectedInstance == null ? void 0 : selectedInstance.healthStatus) ?? "Není dostupné")}
+          ${renderKv("Warning count", String((selectedInstance == null ? void 0 : selectedInstance.warningCount) ?? 0))}
+          ${renderKv("Last error", (selectedInstance == null ? void 0 : selectedInstance.lastErrorAt) ?? "Není dostupné")}
+          ${renderKv("Last tick started", (selectedInstance == null ? void 0 : selectedInstance.lastTickStartedAt) ?? "Není dostupné")}
+          ${renderKv("Last tick completed", (selectedInstance == null ? void 0 : selectedInstance.lastTickCompletedAt) ?? "Není dostupné")}
+          ${renderKv("Queued events", String((selectedInstance == null ? void 0 : selectedInstance.queuedEventCount) ?? 0))}
+          ${renderKv("Crash count", String((selectedInstance == null ? void 0 : selectedInstance.crashCount) ?? 0))}
+        </dl>
+        <div class="admin-monitoring__warnings">
+          <strong>Warnings</strong>
+          ${(((_b = (_a = overview.selectedHealth) == null ? void 0 : _a.warnings) == null ? void 0 : _b.length) ?? 0) > 0 ? `<ul>${overview.selectedHealth.warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join("")}</ul>` : "<p>Žádná runtime warning hlášení.</p>"}
+        </div>
+      </div>
+      <div class="admin-monitoring__card">
+        <div class="admin-monitoring__panel-head"><h3>Snapshot / persistence info</h3></div>
+        <dl class="admin-monitoring__kv">
+          ${renderKv("Last snapshot at", (selectedInstance == null ? void 0 : selectedInstance.lastSnapshotAt) ?? "Není dostupné")}
+          ${renderKv("Snapshot schema version", String(((_c = overview.selectedDiagnostics) == null ? void 0 : _c.snapshotSchemaVersion) ?? "Není dostupné"))}
+          ${renderKv("Diagnostic error count", String(((_d = overview.selectedDiagnostics) == null ? void 0 : _d.diagnosticErrorCount) ?? (selectedInstance == null ? void 0 : selectedInstance.diagnosticErrorCount) ?? 0))}
+          ${renderKv("Command count", String((selectedInstance == null ? void 0 : selectedInstance.commandCount) ?? 0))}
+          ${renderKv("Event count", String((selectedInstance == null ? void 0 : selectedInstance.eventCount) ?? 0))}
+          ${renderKv("Last crash at", ((_e = overview.selectedDiagnostics) == null ? void 0 : _e.lastCrashAt) ?? "Není dostupné")}
+        </dl>
+      </div>
+    </div>
+  </section>
+`;
+  };
+  const renderChecklist = () => `
+  <section class="admin-monitoring__panel admin-monitoring__panel--sticky">
+    <div class="admin-monitoring__panel-head"><div><p class="admin-boot__eyebrow">Closed-alpha checklist</p><h2>Readiness</h2></div></div>
+    <ul class="admin-monitoring__checklist">${CHECKLIST_ITEMS.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+  </section>
+`;
+  const renderEvents = (overview) => `
+  <section class="admin-monitoring__panel">
+    <div class="admin-monitoring__panel-head"><div><p class="admin-boot__eyebrow">Recent events</p><h2>Selected instance</h2></div></div>
+    ${overview.selectedLogs.events.length === 0 ? "<p>Není dostupné.</p>" : `<ul class="admin-monitoring__mini-list">${overview.selectedLogs.events.map((event) => `<li><strong>${escapeHtml(event.eventType)}</strong><span>${escapeHtml(event.causedByCommandId ?? "manual")} · tick ${event.tickAtEmit}</span></li>`).join("")}</ul>`}
+  </section>
+`;
+  const renderLogs = (title, rows, empty, headers) => `
+  <section class="admin-monitoring__panel">
+    <div class="admin-monitoring__panel-head"><div><p class="admin-boot__eyebrow">Selected instance</p><h2>${escapeHtml(title)}</h2></div></div>
+    <div class="admin-monitoring__table-wrap">
+      <table class="admin-monitoring__table"><thead><tr>${headers.map((header) => `<th scope="col">${escapeHtml(header)}</th>`).join("")}</tr></thead><tbody>${rows || empty}</tbody></table>
+    </div>
+  </section>
+`;
+  const renderMetric = (label, value, detail) => `
+  <article class="admin-monitoring__metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(detail)}</small></article>
+`;
+  const renderKv = (label, value) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`;
+  const renderBadge = (label, tone) => `<span class="admin-badge admin-badge--${tone}">${escapeHtml(label)}</span>`;
+  const escapeHtml = (value) => value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ?? character);
   const createAdminDiagnosticsReadService = (options = {}) => ({
     getDiagnosticsSummary: async (instanceId) => {
       var _a;
@@ -283,7 +387,9 @@
         level: record.level,
         category: record.category,
         message: record.message,
-        occurredAt: record.occurredAt
+        occurredAt: record.occurredAt,
+        commandId: record.commandId ?? null,
+        correlationId: record.correlationId ?? null
       }));
     }
   });
@@ -353,8 +459,10 @@
         commandId: record.command.id,
         commandType: record.command.type,
         actorId: record.actorId,
+        correlationId: record.correlationId,
         receivedAt: record.receivedAt,
-        tickAtReceive: record.tickAtReceive
+        tickAtReceive: record.tickAtReceive,
+        status: "recorded"
       }));
     },
     listRecentEventLogs: async (instanceId, limit) => {
@@ -391,6 +499,7 @@
           mountTarget.innerHTML = renderInstanceListPage(await loadAdminOverview());
         } catch (error) {
           mountTarget.innerHTML = renderAdminError(error);
+          bindAdminSecretForm(mountTarget, () => createAdminApp(options).mount(mountTarget));
         }
       }
     });
@@ -402,7 +511,7 @@
       if (!options.fetchMonitoringSummaries && !((_a2 = options.facades) == null ? void 0 : _a2.instance)) {
         const endpointOverview = await fetchAdminOverviewFromEndpoint(
           options.monitoringEndpoint ?? "/api/admin/monitoring",
-          options.adminMonitoringToken
+          options.adminMonitoringSecret ?? options.adminMonitoringToken
         );
         if (endpointOverview) {
           return endpointOverview;
@@ -413,14 +522,16 @@
       const selectedInstanceId = ((_b2 = viewModels[0]) == null ? void 0 : _b2.instanceId) ?? null;
       return createAdminOverviewViewModel(
         viewModels,
-        selectedInstanceId ? await loadSelectedLogs(selectedInstanceId) : void 0
+        {
+          selectedLogs: selectedInstanceId ? await loadSelectedLogs(selectedInstanceId) : void 0
+        }
       );
     }
     async function loadSelectedLogs(instanceId) {
       const [commands, events, diagnostics] = await Promise.all([
-        logReadService.listRecentCommandLogs(instanceId, 5),
-        logReadService.listRecentEventLogs(instanceId, 5),
-        diagnosticsReadService.listRecentDiagnosticLogs(instanceId, 5)
+        logReadService.listRecentCommandLogs(instanceId, 20),
+        logReadService.listRecentEventLogs(instanceId, 20),
+        diagnosticsReadService.listRecentDiagnosticLogs(instanceId, 20)
       ]);
       return {
         instanceId,
@@ -460,7 +571,7 @@
     }
     return ((_d = await fetchAdminOverviewFromEndpoint(
       options.monitoringEndpoint ?? "/api/admin/monitoring",
-      options.adminMonitoringToken
+      options.adminMonitoringSecret ?? options.adminMonitoringToken
     )) == null ? void 0 : _d.instances.map((instance) => ({
       instanceId: instance.instanceId,
       mode: instance.mode,
@@ -483,45 +594,6 @@
       lastSnapshotAt: instance.lastSnapshotAt
     }))) ?? [];
   };
-  const fetchAdminOverviewFromEndpoint = async (endpoint, configuredToken) => {
-    var _a;
-    if (typeof fetch === "undefined") {
-      return null;
-    }
-    const token = resolveAdminMonitoringToken(configuredToken);
-    const headers = {
-      accept: "application/json"
-    };
-    if (token) {
-      headers["x-empire-admin-token"] = token;
-    }
-    const response = await fetch(endpoint, {
-      headers
-    });
-    if (!response.ok) {
-      return null;
-    }
-    const payload = await response.json();
-    if ((_a = payload.overview) == null ? void 0 : _a.instances) {
-      return payload.overview;
-    }
-    return Array.isArray(payload.instances) ? createAdminOverviewViewModel(payload.instances.map(createAdminInstanceViewModelFromMonitoringSummary)) : null;
-  };
   const resolveDefaultMountTarget = () => typeof document === "undefined" ? null : document.getElementById("admin-dashboard-root");
-  const renderAdminError = (error) => `
-  <section class="admin-monitoring" role="alert">
-    <p class="admin-boot__eyebrow">Runtime monitoring</p>
-    <h1>Empire Streets Admin</h1>
-    <p>Admin monitoring se nepodařilo načíst.</p>
-    <pre>${escapeHtml(error instanceof Error ? error.message : String(error))}</pre>
-  </section>
-`;
-  const escapeHtml = (value) => value.replace(/[&<>"']/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  })[character] ?? character);
   void createAdminApp().mount();
 })();

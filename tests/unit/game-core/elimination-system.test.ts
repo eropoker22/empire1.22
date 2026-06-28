@@ -9,7 +9,10 @@ import {
 } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
 import type { CoreGameState } from "@empire/game-core";
-import { createAttackDistrictCommandFixture } from "../../fixtures/command-fixtures";
+import {
+  createAttackDistrictCommandFixture,
+  createOccupyDistrictCommandFixture
+} from "../../fixtures/command-fixtures";
 import {
   createPlayerFixture,
   createResourceStateFixture,
@@ -222,6 +225,10 @@ describe("scheduled elimination system", () => {
       defenseLoadout: {},
       buildingIds: [buildingId]
     };
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      influence: 10
+    };
     state.buildingsById[buildingId] = createFixedBuildingFixture("restaurant", {
       id: buildingId,
       districtId: "district:2",
@@ -232,8 +239,9 @@ describe("scheduled elimination system", () => {
         defeatedOwnerPlayerId: "player:2"
       }
     });
+    seedSuccessfulOccupySpyIntel(state, "player:1", "district:2");
 
-    const result = applyCommand(state, createAttackDistrictCommandFixture(), {
+    const result = applyCommand(state, createOccupyDistrictCommandFixture(), {
       config: {
         ...config,
         balance: {
@@ -421,4 +429,43 @@ const addDistrict = (
     });
     state.buildingsById[building.id] = building;
   }
+};
+
+const seedSuccessfulOccupySpyIntel = (
+  state: CoreGameState,
+  playerId: string,
+  targetDistrictId: string
+): void => {
+  const targetDistrict = state.districtsById[targetDistrictId];
+  const notificationId = `notification:spy-success:${playerId}:${targetDistrictId}`;
+  state.notificationsById[notificationId] = {
+    id: notificationId,
+    recipientType: "player",
+    recipientId: playerId,
+    category: "report.spy",
+    title: `Spy report: ${targetDistrictId}`,
+    bodyKey: "report.spy",
+    payload: {
+      reportId: `report:spy-success:${playerId}:${targetDistrictId}`,
+      reportType: "spy",
+      actionType: "spy-district",
+      playerId,
+      attackerPlayerId: playerId,
+      sourceDistrictId: "district:1",
+      targetDistrictId,
+      result: "success",
+      purpose: "occupy_empty_district",
+      attackAuthorizationExpiresAtTick: state.root.tick + 120,
+      targetStateAtSpy: "empty",
+      targetVersionAtSpy: targetDistrict?.version,
+      detectedDefense: {},
+      trapDetected: false,
+      tick: state.root.tick,
+      createdAt: new Date(0).toISOString(),
+      eventId: null
+    },
+    createdAt: new Date(0).toISOString(),
+    readAt: null
+  };
+  state.root.notificationIds.push(notificationId);
 };

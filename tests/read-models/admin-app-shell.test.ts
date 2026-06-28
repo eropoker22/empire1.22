@@ -1,6 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 import { createAdminApp } from "../../apps/admin/src/app";
 
+const createBaseOverview = () => ({
+  serverSummaries: [],
+  healthSummary: {
+    totalInstances: 1,
+    runningInstances: 1,
+    crashedInstances: 0
+  },
+  selectedHealth: null,
+  selectedDiagnostics: null
+});
+
 describe("createAdminApp", () => {
   it("renders empty monitoring state without a server facade", async () => {
     const target = { innerHTML: "" } as HTMLElement;
@@ -43,6 +54,7 @@ describe("createAdminApp", () => {
     expect(target.innerHTML).toContain("Admin App Server");
     expect(target.innerHTML).toContain("instance:admin-app:1");
     expect(target.innerHTML).toContain("Recent commands");
+    expect(target.innerHTML).toContain("WAR CLOSED");
   });
 
   it("renders degraded diagnostics and queue backlog", async () => {
@@ -50,6 +62,7 @@ describe("createAdminApp", () => {
 
     await createAdminApp({
       fetchAdminOverview: async () => ({
+        ...createBaseOverview(),
         selectedInstanceId: "instance:admin-app:error",
         instances: [{
           instanceId: "instance:admin-app:error",
@@ -76,6 +89,19 @@ describe("createAdminApp", () => {
           queuedEvents: 7,
           queuedEventCount: 7
         }],
+        selectedHealth: {
+          instanceId: "instance:admin-app:error",
+          status: "degraded",
+          warnings: ["Queue backlog detected.", "Last tick exceeded threshold."],
+          lastErrorAt: "2026-05-21T10:00:03.000Z"
+        },
+        selectedDiagnostics: {
+          instanceId: "instance:admin-app:error",
+          lastSnapshotAt: "2026-05-21T10:00:00.000Z",
+          snapshotSchemaVersion: 4,
+          lastCrashAt: null,
+          diagnosticErrorCount: 1
+        },
         selectedLogs: {
           instanceId: "instance:admin-app:error",
           commands: [],
@@ -94,8 +120,8 @@ describe("createAdminApp", () => {
 
     expect(target.innerHTML).toContain("Error Instance");
     expect(target.innerHTML).toContain("degraded");
-    expect(target.innerHTML).toContain("warn 2");
-    expect(target.innerHTML).toContain("<td>7</td>");
+    expect(target.innerHTML).toContain("Queue backlog detected.");
+    expect(target.innerHTML).toContain("7");
     expect(target.innerHTML).toContain("Tick failed.");
   });
 
@@ -104,6 +130,7 @@ describe("createAdminApp", () => {
 
     await createAdminApp({
       fetchAdminOverview: async () => ({
+        ...createBaseOverview(),
         selectedInstanceId: "instance:admin-app:logs",
         instances: [{
           instanceId: "instance:admin-app:logs",
@@ -138,8 +165,10 @@ describe("createAdminApp", () => {
             commandId: "command:admin:1",
             commandType: "collect-production",
             actorId: "player:admin",
+            correlationId: "corr:admin:1",
             receivedAt: "2026-05-21T10:00:00.000Z",
-            tickAtReceive: 3
+            tickAtReceive: 3,
+            status: "recorded"
           }],
           events: [{
             id: "event-log:1",
@@ -156,10 +185,12 @@ describe("createAdminApp", () => {
 
     expect(target.innerHTML).toContain("collect-production");
     expect(target.innerHTML).toContain("command:admin:1");
+    expect(target.innerHTML).toContain("corr:admin:1");
+    expect(target.innerHTML).toContain("recorded");
     expect(target.innerHTML).toContain("production-collected");
   });
 
-  it("sends an admin monitoring token header when configured", async () => {
+  it("sends an admin monitoring secret header when configured", async () => {
     const target = { innerHTML: "" } as HTMLElement;
     const previousFetch = globalThis.fetch;
     const fetchMock = vi.fn(async () => ({
@@ -167,6 +198,7 @@ describe("createAdminApp", () => {
       json: async () => ({
         accepted: true,
         overview: {
+          ...createBaseOverview(),
           selectedInstanceId: null,
           instances: [],
           selectedLogs: {
@@ -183,7 +215,7 @@ describe("createAdminApp", () => {
 
     try {
       await createAdminApp({
-        adminMonitoringToken: "configured-admin-token"
+        adminMonitoringSecret: "configured-admin-secret"
       }).mount(target);
     } finally {
       globalThis.fetch = previousFetch;
@@ -192,8 +224,33 @@ describe("createAdminApp", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/monitoring", {
       headers: {
         accept: "application/json",
-        "x-empire-admin-token": "configured-admin-token"
+        "x-empire-admin-secret": "configured-admin-secret"
       }
     });
+  });
+
+  it("renders an in-memory secret retry form after admin authorization failure", async () => {
+    const target = { innerHTML: "" } as HTMLElement;
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 403,
+      json: async () => ({
+        accepted: false,
+        readModel: null,
+        errors: [{ message: "Admin monitoring is unavailable." }]
+      })
+    })) as unknown as typeof fetch;
+
+    try {
+      await createAdminApp().mount(target);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+
+    expect(target.innerHTML).toContain("x-empire-admin-secret");
+    expect(target.innerHTML).toContain("Retry with secret");
+    expect(target.innerHTML).not.toContain("sessionStorage");
+    expect(target.innerHTML).not.toContain("adminToken");
   });
 });

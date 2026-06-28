@@ -244,7 +244,7 @@ describe("authoritative gameplay rules", () => {
 
     expect(result.errors).toMatchObject([
       {
-        code: "target_not_adjacent"
+        code: "TARGET_NOT_ADJACENT"
       }
     ]);
   });

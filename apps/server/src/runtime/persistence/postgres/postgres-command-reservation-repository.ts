@@ -9,9 +9,22 @@ import { mapReservationRow, type CommandReservationRow } from "./postgres-comman
 
 export const createPostgresCommandReservationRepository = (
   database: PostgresDatabase
+): CommandReservationRepository => createPostgresCommandReservationRepositoryForQueryable(database, {
+  wrapWritesInTransaction: true
+});
+
+export const createPostgresCommandReservationRepositoryForTransaction = (
+  client: PostgresQueryable
+): CommandReservationRepository => createPostgresCommandReservationRepositoryForQueryable(client, {
+  wrapWritesInTransaction: false
+});
+
+const createPostgresCommandReservationRepositoryForQueryable = (
+  database: PostgresQueryable,
+  options: { wrapWritesInTransaction: boolean }
 ): CommandReservationRepository => ({
   reserve: async (record) =>
-    database.transaction(async (client) => {
+    withOptionalTransaction(database, options, async (client) => {
       await ensurePostgresServerInstanceRow(client, record.serverInstanceId, {
         mode: "unknown",
         status: "unknown"
@@ -79,7 +92,7 @@ export const createPostgresCommandReservationRepository = (
     return result.rows.map(mapReservationRow);
   },
   markApplied: async (instanceId, commandId, metadata) =>
-    database.transaction(async (client) => {
+    withOptionalTransaction(database, options, async (client) => {
       const existing = await requireReservation(client, instanceId, commandId);
       if (existing.status === "rejected") {
         throw new Error("Cannot mark a rejected command reservation as applied.");
@@ -113,7 +126,7 @@ export const createPostgresCommandReservationRepository = (
       return mapReservationRow(updated.rows[0] ?? await requireReservationRow(client, instanceId, commandId));
     }),
   markRejected: async (instanceId, commandId, errors) =>
-    database.transaction(async (client) => {
+    withOptionalTransaction(database, options, async (client) => {
       const existing = await requireReservation(client, instanceId, commandId);
       if (existing.status === "applied") {
         throw new Error("Cannot mark an applied command reservation as rejected.");
@@ -147,6 +160,17 @@ export const createPostgresCommandReservationRepository = (
       return mapReservationRow(updated.rows[0] ?? await requireReservationRow(client, instanceId, commandId));
     })
 });
+
+const withOptionalTransaction = async <TResult>(
+  database: PostgresQueryable,
+  options: { wrapWritesInTransaction: boolean },
+  callback: (client: PostgresQueryable) => Promise<TResult>
+): Promise<TResult> => {
+  if (options.wrapWritesInTransaction && "transaction" in database && typeof database.transaction === "function") {
+    return database.transaction(callback);
+  }
+  return callback(database);
+};
 
 const selectReservation = async (
   client: PostgresQueryable,

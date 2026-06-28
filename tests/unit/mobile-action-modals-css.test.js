@@ -114,7 +114,8 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("place-items: center !important;");
       expect(stylesheet).toContain("height: var(--mobile-locked-vh, 100dvh) !important;");
     }
-    expect(mobileRuntime).toContain('const MOBILE_BODY_FREEZE_EXEMPT_SELECTOR = ".district-popup-shell";');
+    expect(mobileRuntime).toContain('const MOBILE_OVERLAY_SELECTOR = [');
+    expect(mobileRuntime).toContain('".district-popup-shell",');
     expect(mobileRuntime).toContain('root.style.setProperty("--mobile-overlay-top-offset", `${topbarOffset}px`);');
   });
 });

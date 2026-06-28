@@ -41,6 +41,7 @@ describe("gameplay slice browser bootstrap", () => {
     ).toEqual({
       serverInstanceId: "instance:war:eu-central:public-1",
       playerId: "player:host-alpha",
+      accountId: "Host Alpha",
       preferredStartDistrictId: "district:27",
       factionId: null
     });
@@ -62,6 +63,7 @@ describe("gameplay slice browser bootstrap", () => {
     ).toEqual({
       serverInstanceId: "instance:war:eu-central:public-1",
       playerId: "player:host-alpha",
+      accountId: "Host Alpha",
       districtId: "district:spawn:1",
       preferredStartDistrictId: "district:27",
       factionId: null
@@ -84,6 +86,7 @@ describe("gameplay slice browser bootstrap", () => {
     ).toEqual({
       serverInstanceId: "instance:war:eu-central:public-1",
       playerId: "player:host-alpha",
+      accountId: "Host Alpha",
       districtId: "district:connector:1",
       factionId: null
     });
@@ -107,6 +110,7 @@ describe("gameplay slice browser bootstrap", () => {
     ).toEqual({
       serverInstanceId: "instance:free:eu-central:public-1",
       playerId: "player:host-alpha",
+      accountId: "Host Alpha",
       districtId: "district:spawn:2",
       preferredStartDistrictId: "district:27",
       factionId: "red-syndicate"
