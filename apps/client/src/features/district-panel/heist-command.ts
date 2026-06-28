@@ -15,8 +15,8 @@ export const createHeistDistrictCommand = (
   const target = district?.heistTargets?.find((entry) => entry.districtId === input.targetDistrictId);
   const style = target?.styles.find((entry) => entry.style === "balanced") ?? target?.styles[0];
 
-  if (!district || !target || !target.enabled || !style) {
-    throw new Error("Heist commands can only be created from enabled heist targets present in the current server-fed slice.");
+  if (!district || !target || !style) {
+    throw new Error("Heist command cannot be created from missing district/target context.");
   }
 
   return {

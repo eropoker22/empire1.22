@@ -14,6 +14,7 @@ const context = { config: resolveModeConfig("free") };
 describe("authoritative basic action commands", () => {
   it("robs an adjacent neutral district without changing ownership", () => {
     const state = createNeutralRobState();
+    state.playersById["player:1"] = { ...state.playersById["player:1"], population: 2 };
     const result = applyCommand(state, createRobDistrictCommandFixture(), context);
 
     expect(result.errors).toEqual([]);
@@ -36,9 +37,19 @@ describe("authoritative basic action commands", () => {
 
   it("rejects robbing enemy districts and leaves state unchanged", () => {
     const state = createCombatStateFixture();
+    state.playersById["player:1"] = { ...state.playersById["player:1"], population: 2 };
     const result = applyCommand(state, createRobDistrictCommandFixture(), context);
 
     expect(result.errors).toMatchObject([{ code: "TARGET_NOT_EMPTY" }]);
+    expect(result.nextState).toBe(state);
+  });
+
+  it("rejects rob when player does not have enough population", () => {
+    const state = createNeutralRobState();
+    state.playersById["player:1"] = { ...state.playersById["player:1"], population: 0 };
+    const result = applyCommand(state, createRobDistrictCommandFixture(), context);
+
+    expect(result.errors).toMatchObject([{ code: "INSUFFICIENT_POPULATION" }]);
     expect(result.nextState).toBe(state);
   });
 
@@ -140,6 +151,25 @@ describe("authoritative basic action commands", () => {
       })
     ]);
     expect(panel?.placeDefense).toEqual(expect.objectContaining({ enabled: true }));
+  });
+
+  it("disables rob targets when player has no population", () => {
+    const state = createNeutralRobState();
+    state.playersById["player:1"] = { ...state.playersById["player:1"], population: 0 };
+    const panel = createDistrictPanelView(state, {
+      districtId: "district:1",
+      playerId: "player:1",
+      issuedAt: new Date(0).toISOString(),
+      ...minimalPanelConfig()
+    });
+
+    expect(panel?.robTargets).toEqual([
+      expect.objectContaining({
+        districtId: "district:2",
+        enabled: false,
+        disabledCode: "INSUFFICIENT_POPULATION"
+      })
+    ]);
   });
 });
 

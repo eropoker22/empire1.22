@@ -146,17 +146,20 @@ describe("conflict command factories", () => {
     });
   });
 
-  it("rejects attack commands for disabled targets in the current server-fed slice", () => {
-    expect(() =>
-      createAttackDistrictCommand({
-        commandId: "command:attack:district:2",
-        slice: createGameplaySliceFixture({ attackEnabled: false }),
-        targetDistrictId: "district:2",
-        issuedAt: new Date(0).toISOString()
-      })
-    ).toThrow(
-      "Attack commands can only be created from enabled attack targets present in the current server-fed slice."
-    );
+  it("builds the attack command even when target is disabled in server-fed slice", () => {
+    const command = createAttackDistrictCommand({
+      commandId: "command:attack:district:2",
+      slice: createGameplaySliceFixture({ attackEnabled: false }),
+      targetDistrictId: "district:2",
+      issuedAt: new Date(0).toISOString()
+    });
+
+    expect(command.type).toBe("attack-district");
+    expect(command.serverInstanceId).toBe("instance:1");
+    expect(command.payload).toEqual({
+      districtId: "district:2",
+      sourceDistrictId: "district:1"
+    });
   });
 
   it("builds the spy command from the current server-fed gameplay slice", () => {
@@ -176,17 +179,20 @@ describe("conflict command factories", () => {
     });
   });
 
-  it("rejects spy commands for disabled targets in the current server-fed slice", () => {
-    expect(() =>
-      createSpyDistrictCommand({
-        commandId: "command:spy:district:2",
-        slice: createGameplaySliceFixture({ spyEnabled: false }),
-        targetDistrictId: "district:2",
-        issuedAt: new Date(0).toISOString()
-      })
-    ).toThrow(
-      "Spy commands can only be created from enabled spy targets present in the current server-fed slice."
-    );
+  it("builds the spy command even when target is disabled in server-fed slice", () => {
+    const command = createSpyDistrictCommand({
+      commandId: "command:spy:district:2",
+      slice: createGameplaySliceFixture({ spyEnabled: false }),
+      targetDistrictId: "district:2",
+      issuedAt: new Date(0).toISOString()
+    });
+
+    expect(command.type).toBe("spy-district");
+    expect(command.serverInstanceId).toBe("instance:1");
+    expect(command.payload).toEqual({
+      districtId: "district:2",
+      sourceDistrictId: "district:1"
+    });
   });
 
   it("builds the trap command from the current server-fed gameplay slice", () => {
@@ -237,7 +243,7 @@ describe("conflict command factories", () => {
     });
   });
 
-  it("rejects occupy commands for disabled targets in the current server-fed slice", () => {
+  it("builds the occupy command even when target is disabled in server-fed slice", () => {
     const slice = createGameplaySliceFixture();
     slice.district!.occupyTargets = [
       {
@@ -256,27 +262,32 @@ describe("conflict command factories", () => {
       }
     ];
 
-    expect(() =>
-      createOccupyDistrictCommand({
-        commandId: "command:occupy:district:3",
-        slice,
-        targetDistrictId: "district:3",
-        issuedAt: new Date(0).toISOString()
-      })
-    ).toThrow(
-      "Occupy commands can only be created from enabled occupy targets present in the current server-fed slice."
-    );
+    const command = createOccupyDistrictCommand({
+      commandId: "command:occupy:district:3",
+      slice,
+      targetDistrictId: "district:3",
+      issuedAt: new Date(0).toISOString()
+    });
+
+    expect(command.type).toBe("occupy-district");
+    expect(command.serverInstanceId).toBe("instance:1");
+    expect(command.payload).toEqual({
+      districtId: "district:3",
+      sourceDistrictId: "district:1"
+    });
   });
 
-  it("rejects trap commands when trap placement is disabled in the current server-fed slice", () => {
-    expect(() =>
-      createPlaceTrapCommand({
-        commandId: "command:trap:district:1",
-        slice: createGameplaySliceFixture({ trapEnabled: false }),
-        issuedAt: new Date(0).toISOString()
-      })
-    ).toThrow(
-      "Trap commands can only be created from an enabled trap action present in the current server-fed slice."
-    );
+  it("builds the trap command when placement is disabled in server-fed slice", () => {
+    const command = createPlaceTrapCommand({
+      commandId: "command:trap:district:1",
+      slice: createGameplaySliceFixture({ trapEnabled: false }),
+      issuedAt: new Date(0).toISOString()
+    });
+
+    expect(command.type).toBe("place-trap");
+    expect(command.serverInstanceId).toBe("instance:1");
+    expect(command.payload).toEqual({
+      districtId: "district:1"
+    });
   });
 });

@@ -19,8 +19,8 @@ export const createSpyDistrictCommand = (
   const district = input.slice.district;
   const target = district?.spyTargets.find((entry) => entry.districtId === input.targetDistrictId);
 
-  if (!district || !target || !target.enabled) {
-    throw new Error("Spy commands can only be created from enabled spy targets present in the current server-fed slice.");
+  if (!district || !target) {
+    throw new Error("Spy command cannot be created from missing district/target context.");
   }
 
   return {

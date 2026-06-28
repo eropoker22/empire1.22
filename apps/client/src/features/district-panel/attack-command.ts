@@ -19,8 +19,8 @@ export const createAttackDistrictCommand = (
   const district = input.slice.district;
   const target = district?.attackTargets.find((entry) => entry.districtId === input.targetDistrictId);
 
-  if (!district || !target || !target.enabled) {
-    throw new Error("Attack commands can only be created from enabled attack targets present in the current server-fed slice.");
+  if (!district || !target) {
+    throw new Error("Attack command cannot be created from missing district/target context.");
   }
 
   return {

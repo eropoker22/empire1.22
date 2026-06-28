@@ -19,8 +19,8 @@ export const createOccupyDistrictCommand = (
   const district = input.slice.district;
   const target = district?.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId);
 
-  if (!district || !target || !target.enabled) {
-    throw new Error("Occupy commands can only be created from enabled occupy targets present in the current server-fed slice.");
+  if (!district || !target) {
+    throw new Error("Occupy command cannot be created from missing district/target context.");
   }
 
   return {

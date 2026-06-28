@@ -18,8 +18,8 @@ export const createPlaceDefenseCommand = (
   input: CreateDefenseCommandInput
 ): PlaceDefenseCommand => {
   const district = input.slice.district;
-  if (!district?.placeDefense?.enabled) {
-    throw new Error("Place defense commands can only be created from an enabled defense action present in the current server-fed slice.");
+  if (!district || !district.placeDefense) {
+    throw new Error("Place defense command cannot be created from missing district/defense context.");
   }
 
   return {
@@ -43,8 +43,8 @@ export const createRemoveDefenseCommand = (
   input: CreateDefenseCommandInput
 ): RemoveDefenseCommand => {
   const district = input.slice.district;
-  if (!district?.removeDefense?.enabled) {
-    throw new Error("Remove defense commands can only be created from an enabled defense action present in the current server-fed slice.");
+  if (!district || !district.removeDefense) {
+    throw new Error("Remove defense command cannot be created from missing district/defense context.");
   }
 
   return {

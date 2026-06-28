@@ -17,8 +17,8 @@ export const createPlaceTrapCommand = (
 ): PlaceTrapCommand => {
   const district = input.slice.district;
 
-  if (!district?.trap || !district.trap.enabled) {
-    throw new Error("Trap commands can only be created from an enabled trap action present in the current server-fed slice.");
+  if (!district?.trap) {
+    throw new Error("Trap command cannot be created from missing district/trap context.");
   }
 
   return {

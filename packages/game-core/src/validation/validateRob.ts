@@ -27,6 +27,36 @@ export const validateRob = (
     expectedOriginVersion: command.payload.expectedSourceVersion
   });
 
+  const player = state.playersById[command.playerId];
+  if (!player) {
+    return [{
+      code: "PLAYER_NOT_FOUND",
+      message: "Rob command can only be executed by an existing player.",
+      details: { playerId: command.playerId }
+    }];
+  }
+
+  if (result.reasonCode !== "NO_VALID_ORIGIN") {
+    const availablePopulation = Math.floor(
+      Number(
+        player.population ??
+        state.resourceStatesById[player.resourceStateId]?.balances?.population ??
+        0
+      )
+    );
+
+    if (!Number.isFinite(availablePopulation) || availablePopulation < 1) {
+      return [{
+        code: "INSUFFICIENT_POPULATION",
+        message: "Rob command requires at least one person from population.",
+        details: {
+          requiredPopulation: 1,
+          availablePopulation
+        }
+      }];
+    }
+  }
+
   if (result.allowed) return [];
 
   return [{

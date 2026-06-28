@@ -8,6 +8,15 @@ export const createDistrictRobTargetViews = (
 ) => {
   const source = state.districtsById[sourceDistrictId];
   if (!source) return [];
+  const player = state.playersById[playerId];
+  const availablePopulation = Math.floor(
+    Number(
+      player?.population ??
+      state.resourceStatesById[player?.resourceStateId]?.balances?.population ??
+      0
+    )
+  );
+  const hasPopulationForRob = Number.isFinite(availablePopulation) && availablePopulation >= 1;
 
   return source.adjacentDistrictIds
     .map((districtId) => state.districtsById[districtId])
@@ -19,14 +28,19 @@ export const createDistrictRobTargetViews = (
         originDistrictId: source.id,
         action: "rob"
       });
+      const populationBlocked = hasPopulationForRob ? null : "INSUFFICIENT_POPULATION";
+      const actionAllowed = validation.allowed && !populationBlocked;
+
       return {
         districtId: target.id,
         name: target.name,
         ownerPlayerId: target.ownerPlayerId,
         status: target.status,
-        enabled: validation.allowed,
-        disabledCode: validation.reasonCode ?? null,
-        disabledReason: validation.allowed ? null : formatActionReason(validation.reasonCode),
+        enabled: actionAllowed,
+        disabledCode: actionAllowed ? null : populationBlocked ?? validation.reasonCode,
+        disabledReason: actionAllowed
+          ? null
+          : formatActionReason(populationBlocked ?? validation.reasonCode),
         expectedTargetVersion: target.version,
         expectedSourceVersion: source.version
       };

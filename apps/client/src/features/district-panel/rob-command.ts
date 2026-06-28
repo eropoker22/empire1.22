@@ -14,8 +14,8 @@ export const createRobDistrictCommand = (
   const district = input.slice.district;
   const target = district?.robTargets?.find((entry) => entry.districtId === input.targetDistrictId);
 
-  if (!district || !target || !target.enabled) {
-    throw new Error("Rob commands can only be created from enabled rob targets present in the current server-fed slice.");
+  if (!district || !input.targetDistrictId) {
+    throw new Error("Rob command cannot be created from missing district/target context.");
   }
 
   return {
@@ -28,8 +28,8 @@ export const createRobDistrictCommand = (
     payload: {
       targetDistrictId: input.targetDistrictId,
       sourceDistrictId: district.districtId,
-      expectedTargetVersion: target.expectedTargetVersion,
-      expectedSourceVersion: target.expectedSourceVersion
+      expectedTargetVersion: target?.expectedTargetVersion,
+      expectedSourceVersion: target?.expectedSourceVersion
     },
     clientRequestId: input.clientRequestId ?? null
   };

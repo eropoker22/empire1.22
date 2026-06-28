@@ -579,7 +579,7 @@ describe("client surface actions", () => {
     ]);
   });
 
-  it("rejects attack commands for disabled server-fed targets before dispatch", async () => {
+  it("dispatches attack commands for disabled server-fed targets", async () => {
     const slice = createGameplaySliceFixture();
     slice.district!.attackTargets[0] = {
       ...slice.district!.attackTargets[0],
@@ -608,10 +608,8 @@ describe("client surface actions", () => {
     const attackButton = createMockElement({ attackTargetId: "district:2" });
     attackButton.setClosest("button[data-attack-target-id]", attackButton.element);
 
-    await expect(router.handleTarget(attackButton.element)).rejects.toThrow(
-      "Attack commands can only be created from enabled attack targets present in the current server-fed slice."
-    );
-    expect(dispatched).toEqual([]);
+    await router.handleTarget(attackButton.element);
+    expect(dispatched).toEqual(["attack-district"]);
   });
 
   it("dispatches occupy commands through the migrated client router", async () => {
