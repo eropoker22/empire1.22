@@ -17,9 +17,8 @@ export const createOccupyDistrictCommand = (
   input: CreateOccupyDistrictCommandInput
 ): OccupyDistrictCommand => {
   const district = input.slice.district;
-  const target = district?.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId);
 
-  if (!district || !target) {
+  if (!district) {
     throw new Error("Occupy command cannot be created from missing district/target context.");
   }
 

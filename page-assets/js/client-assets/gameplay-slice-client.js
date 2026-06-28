@@ -357,8 +357,7 @@ var EmpireGameplaySliceClient = function(exports) {
   ].join("") : escapeHtml(action.cooldownLabel);
   const createAttackDistrictCommand = (input) => {
     const district = input.slice.district;
-    const target = district == null ? void 0 : district.attackTargets.find((entry) => entry.districtId === input.targetDistrictId);
-    if (!district || !target || !target.enabled) {
+    if (!district) {
       throw new Error("Attack commands can only be created from enabled attack targets present in the current server-fed slice.");
     }
     return {
@@ -380,7 +379,7 @@ var EmpireGameplaySliceClient = function(exports) {
   const createPlaceDefenseCommand = (input) => {
     var _a;
     const district = input.slice.district;
-    if (!((_a = district == null ? void 0 : district.placeDefense) == null ? void 0 : _a.enabled)) {
+    if (!((_a = district == null ? void 0 : district.placeDefense) == null ? void 0 : _a.expectedTargetVersion)) {
       throw new Error("Place defense commands can only be created from an enabled defense action present in the current server-fed slice.");
     }
     return {
@@ -402,7 +401,7 @@ var EmpireGameplaySliceClient = function(exports) {
   const createRemoveDefenseCommand = (input) => {
     var _a;
     const district = input.slice.district;
-    if (!((_a = district == null ? void 0 : district.removeDefense) == null ? void 0 : _a.enabled)) {
+    if (!((_a = district == null ? void 0 : district.removeDefense) == null ? void 0 : _a.expectedTargetVersion)) {
       throw new Error("Remove defense commands can only be created from an enabled defense action present in the current server-fed slice.");
     }
     return {
@@ -425,8 +424,11 @@ var EmpireGameplaySliceClient = function(exports) {
     var _a;
     const district = input.slice.district;
     const target = (_a = district == null ? void 0 : district.heistTargets) == null ? void 0 : _a.find((entry) => entry.districtId === input.targetDistrictId);
-    const style = (target == null ? void 0 : target.styles.find((entry) => entry.style === "balanced")) ?? (target == null ? void 0 : target.styles[0]);
-    if (!district || !target || !target.enabled || !style) {
+    const style = (target == null ? void 0 : target.styles.find((entry) => entry.style === "balanced")) ?? (target == null ? void 0 : target.styles[0]) ?? {
+      style: "balanced",
+      defaultGangMembersSent: 1
+    };
+    if (!district) {
       throw new Error("Heist commands can only be created from enabled heist targets present in the current server-fed slice.");
     }
     return {
@@ -441,16 +443,15 @@ var EmpireGameplaySliceClient = function(exports) {
         sourceDistrictId: district.districtId,
         style: style.style,
         gangMembersSent: style.defaultGangMembersSent,
-        expectedTargetVersion: target.expectedTargetVersion,
-        expectedSourceVersion: target.expectedSourceVersion
+        ...(target == null ? void 0 : target.expectedTargetVersion) === void 0 ? {} : { expectedTargetVersion: target.expectedTargetVersion },
+        ...(target == null ? void 0 : target.expectedSourceVersion) === void 0 ? {} : { expectedSourceVersion: target.expectedSourceVersion }
       },
       clientRequestId: input.clientRequestId ?? null
     };
   };
   const createOccupyDistrictCommand = (input) => {
     const district = input.slice.district;
-    const target = district == null ? void 0 : district.occupyTargets.find((entry) => entry.districtId === input.targetDistrictId);
-    if (!district || !target || !target.enabled) {
+    if (!district) {
       throw new Error("Occupy commands can only be created from enabled occupy targets present in the current server-fed slice.");
     }
     return {
@@ -471,7 +472,7 @@ var EmpireGameplaySliceClient = function(exports) {
     var _a;
     const district = input.slice.district;
     const target = (_a = district == null ? void 0 : district.robTargets) == null ? void 0 : _a.find((entry) => entry.districtId === input.targetDistrictId);
-    if (!district || !target || !target.enabled) {
+    if (!district) {
       throw new Error("Rob commands can only be created from enabled rob targets present in the current server-fed slice.");
     }
     return {
@@ -484,8 +485,8 @@ var EmpireGameplaySliceClient = function(exports) {
       payload: {
         targetDistrictId: input.targetDistrictId,
         sourceDistrictId: district.districtId,
-        expectedTargetVersion: target.expectedTargetVersion,
-        expectedSourceVersion: target.expectedSourceVersion
+        ...(target == null ? void 0 : target.expectedTargetVersion) === void 0 ? {} : { expectedTargetVersion: target.expectedTargetVersion },
+        ...(target == null ? void 0 : target.expectedSourceVersion) === void 0 ? {} : { expectedSourceVersion: target.expectedSourceVersion }
       },
       clientRequestId: input.clientRequestId ?? null
     };
@@ -514,7 +515,7 @@ var EmpireGameplaySliceClient = function(exports) {
   const createSpyDistrictCommand = (input) => {
     const district = input.slice.district;
     const target = district == null ? void 0 : district.spyTargets.find((entry) => entry.districtId === input.targetDistrictId);
-    if (!district || !target || !target.enabled) {
+    if (!district) {
       throw new Error("Spy commands can only be created from enabled spy targets present in the current server-fed slice.");
     }
     return {
@@ -533,7 +534,7 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const createPlaceTrapCommand = (input) => {
     const district = input.slice.district;
-    if (!(district == null ? void 0 : district.trap) || !district.trap.enabled) {
+    if (!(district == null ? void 0 : district.trap)) {
       throw new Error("Trap commands can only be created from an enabled trap action present in the current server-fed slice.");
     }
     return {

@@ -17,9 +17,8 @@ export const createAttackDistrictCommand = (
   input: CreateAttackDistrictCommandInput
 ): AttackDistrictCommand => {
   const district = input.slice.district;
-  const target = district?.attackTargets.find((entry) => entry.districtId === input.targetDistrictId);
 
-  if (!district || !target) {
+  if (!district) {
     throw new Error("Attack command cannot be created from missing district/target context.");
   }
 

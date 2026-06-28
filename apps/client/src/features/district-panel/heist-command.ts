@@ -1,4 +1,8 @@
-import type { GameplaySliceView, HeistDistrictCommand } from "@empire/shared-types";
+import type {
+  GameplaySliceView,
+  HeistDistrictCommand,
+  HeistDistrictStyle
+} from "@empire/shared-types";
 
 export interface CreateHeistDistrictCommandInput {
   commandId: string;
@@ -13,9 +17,10 @@ export const createHeistDistrictCommand = (
 ): HeistDistrictCommand => {
   const district = input.slice.district;
   const target = district?.heistTargets?.find((entry) => entry.districtId === input.targetDistrictId);
-  const style = target?.styles.find((entry) => entry.style === "balanced") ?? target?.styles[0];
+  const styleFallback = { style: "balanced" as HeistDistrictStyle, defaultGangMembersSent: 1 };
+  const style = target?.styles.find((entry) => entry.style === "balanced") ?? target?.styles[0] ?? styleFallback;
 
-  if (!district || !target || !style) {
+  if (!district) {
     throw new Error("Heist command cannot be created from missing district/target context.");
   }
 
@@ -31,8 +36,8 @@ export const createHeistDistrictCommand = (
       sourceDistrictId: district.districtId,
       style: style.style,
       gangMembersSent: style.defaultGangMembersSent,
-      expectedTargetVersion: target.expectedTargetVersion,
-      expectedSourceVersion: target.expectedSourceVersion
+      ...(target?.expectedTargetVersion !== undefined ? { expectedTargetVersion: target.expectedTargetVersion } : {}),
+      ...(target?.expectedSourceVersion !== undefined ? { expectedSourceVersion: target.expectedSourceVersion } : {})
     },
     clientRequestId: input.clientRequestId ?? null
   };

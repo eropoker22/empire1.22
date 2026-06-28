@@ -455,6 +455,51 @@ describe("client surface actions", () => {
     ]);
   });
 
+  it("dispatches rob commands when the rob target is stale or absent from the local slice", async () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.robTargets = [];
+    const renderState = createInitialClientRenderState();
+    const dispatched: Array<{ type: string; payload: Record<string, unknown>; playerId: string; serverInstanceId: string }> = [];
+
+    const router = createClientSurfaceActionRouter({
+      client: {
+        load: async () => renderState,
+        selectDistrict: async () => renderState,
+        selectBuilding: async () => renderState,
+        dispatch: async (command) => {
+          dispatched.push({
+            type: command.type,
+            payload: command.payload as unknown as Record<string, unknown>,
+            playerId: command.playerId,
+            serverInstanceId: command.serverInstanceId
+          });
+          return renderState;
+        },
+        getRenderState: () => renderState,
+        getGameplaySlice: () => slice
+      },
+      createCommandId: (prefix) => `${prefix}:1`,
+      getIssuedAt: () => new Date(0).toISOString()
+    });
+
+    const robButton = createMockElement({ robTargetId: "district:2" });
+    robButton.setClosest("button[data-rob-target-id]", robButton.element);
+
+    await router.handleTarget(robButton.element);
+
+    expect(dispatched).toEqual([
+      {
+        type: "rob-district",
+        playerId: "player:1",
+        serverInstanceId: "instance:1",
+        payload: {
+          targetDistrictId: "district:2",
+          sourceDistrictId: "district:1"
+        }
+      }
+    ]);
+  });
+
   it("opens district building cards through the migrated client router", async () => {
     const slice = createGameplaySliceFixture();
     const renderState = createInitialClientRenderState();
@@ -530,6 +575,107 @@ describe("client surface actions", () => {
         payload: {
           districtId: "district:2",
           sourceDistrictId: "district:1"
+        }
+      }
+    ]);
+  });
+
+  it("dispatches heist commands when heist styles are missing in local data", async () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.heistTargets = [
+      {
+        districtId: "district:4",
+        name: "Heist Target",
+        ownerPlayerId: "player:4",
+        status: "claimed",
+        enabled: false,
+        disabledCode: null,
+        disabledReason: null,
+        expectedTargetVersion: 9,
+        expectedSourceVersion: 7,
+        styles: []
+      }
+    ];
+    const renderState = createInitialClientRenderState();
+    const dispatched: Array<{ type: string; payload: Record<string, unknown> }> = [];
+
+    const router = createClientSurfaceActionRouter({
+      client: {
+        load: async () => renderState,
+        selectDistrict: async () => renderState,
+        selectBuilding: async () => renderState,
+        dispatch: async (command) => {
+          dispatched.push({
+            type: command.type,
+            payload: command.payload as unknown as Record<string, unknown>
+          });
+          return renderState;
+        },
+        getRenderState: () => renderState,
+        getGameplaySlice: () => slice
+      },
+      createCommandId: (prefix) => `${prefix}:1`,
+      getIssuedAt: () => new Date(0).toISOString()
+    });
+
+    const heistButton = createMockElement({ heistTargetId: "district:4" });
+    heistButton.setClosest("button[data-heist-target-id]", heistButton.element);
+
+    await router.handleTarget(heistButton.element);
+
+    expect(dispatched).toEqual([
+      {
+        type: "heist-district",
+        payload: {
+          targetDistrictId: "district:4",
+          sourceDistrictId: "district:1",
+          expectedTargetVersion: 9,
+          expectedSourceVersion: 7,
+          style: "balanced",
+          gangMembersSent: 1
+        }
+      }
+    ]);
+  });
+
+  it("dispatches heist commands when the heist target is absent from the local slice", async () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.heistTargets = [];
+    const renderState = createInitialClientRenderState();
+    const dispatched: Array<{ type: string; payload: Record<string, unknown> }> = [];
+
+    const router = createClientSurfaceActionRouter({
+      client: {
+        load: async () => renderState,
+        selectDistrict: async () => renderState,
+        selectBuilding: async () => renderState,
+        dispatch: async (command) => {
+          dispatched.push({
+            type: command.type,
+            payload: command.payload as unknown as Record<string, unknown>
+          });
+          return renderState;
+        },
+        getRenderState: () => renderState,
+        getGameplaySlice: () => slice
+      },
+      createCommandId: (prefix) => `${prefix}:1`,
+      getIssuedAt: () => new Date(0).toISOString()
+    });
+
+    const heistButton = createMockElement({ heistTargetId: "district:4" });
+    heistButton.setClosest("button[data-heist-target-id]", heistButton.element);
+
+    await router.handleTarget(heistButton.element);
+
+    expect(dispatched).toEqual([
+      {
+        type: "heist-district",
+        payload: {
+          targetDistrictId: "district:4",
+          sourceDistrictId: "district:1",
+          style: "balanced",
+          gangMembersSent: 1
         }
       }
     ]);
@@ -612,6 +758,96 @@ describe("client surface actions", () => {
     expect(dispatched).toEqual(["attack-district"]);
   });
 
+  it("dispatches attack commands when the target is absent from the local slice", async () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.attackTargets = [];
+    const renderState = createInitialClientRenderState();
+    const dispatched: Array<{ type: string; payload: Record<string, unknown>; playerId: string; serverInstanceId: string }> = [];
+
+    const router = createClientSurfaceActionRouter({
+      client: {
+        load: async () => renderState,
+        selectDistrict: async () => renderState,
+        selectBuilding: async () => renderState,
+        dispatch: async (command) => {
+          dispatched.push({
+            type: command.type,
+            payload: command.payload as unknown as Record<string, unknown>,
+            playerId: command.playerId,
+            serverInstanceId: command.serverInstanceId
+          });
+          return renderState;
+        },
+        getRenderState: () => renderState,
+        getGameplaySlice: () => slice
+      },
+      createCommandId: (prefix) => `${prefix}:1`,
+      getIssuedAt: () => new Date(0).toISOString()
+    });
+
+    const attackButton = createMockElement({ attackTargetId: "district:2" });
+    attackButton.setClosest("button[data-attack-target-id]", attackButton.element);
+
+    await router.handleTarget(attackButton.element);
+
+    expect(dispatched).toEqual([
+      {
+        type: "attack-district",
+        playerId: "player:1",
+        serverInstanceId: "instance:1",
+        payload: {
+          districtId: "district:2",
+          sourceDistrictId: "district:1"
+        }
+      }
+    ]);
+  });
+
+  it("dispatches spy commands when target is absent from the local slice", async () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.spyTargets = [];
+    const renderState = createInitialClientRenderState();
+    const dispatched: Array<{ type: string; payload: Record<string, unknown>; playerId: string; serverInstanceId: string }> = [];
+
+    const router = createClientSurfaceActionRouter({
+      client: {
+        load: async () => renderState,
+        selectDistrict: async () => renderState,
+        selectBuilding: async () => renderState,
+        dispatch: async (command) => {
+          dispatched.push({
+            type: command.type,
+            payload: command.payload as unknown as Record<string, unknown>,
+            playerId: command.playerId,
+            serverInstanceId: command.serverInstanceId
+          });
+          return renderState;
+        },
+        getRenderState: () => renderState,
+        getGameplaySlice: () => slice
+      },
+      createCommandId: (prefix) => `${prefix}:1`,
+      getIssuedAt: () => new Date(0).toISOString()
+    });
+
+    const spyButton = createMockElement({ spyTargetId: "district:2" });
+    spyButton.setClosest("button[data-spy-target-id]", spyButton.element);
+
+    await router.handleTarget(spyButton.element);
+
+    expect(dispatched).toEqual([
+      {
+        type: "spy-district",
+        playerId: "player:1",
+        serverInstanceId: "instance:1",
+        payload: {
+          districtId: "district:2",
+          sourceDistrictId: "district:1"
+        }
+      }
+    ]);
+  });
+
   it("dispatches occupy commands through the migrated client router", async () => {
     const slice = createGameplaySliceFixture();
     slice.district!.occupyTargets = [
@@ -630,6 +866,47 @@ describe("client surface actions", () => {
         cooldownRemainingTicks: 0
       }
     ];
+    const renderState = createInitialClientRenderState();
+    const dispatched: Array<{ type: string; payload: Record<string, unknown> }> = [];
+
+    const router = createClientSurfaceActionRouter({
+      client: {
+        load: async () => renderState,
+        selectDistrict: async () => renderState,
+        selectBuilding: async () => renderState,
+        dispatch: async (command) => {
+          dispatched.push({
+            type: command.type,
+            payload: command.payload as unknown as Record<string, unknown>
+          });
+          return renderState;
+        },
+        getRenderState: () => renderState,
+        getGameplaySlice: () => slice
+      },
+      createCommandId: (prefix) => `${prefix}:1`,
+      getIssuedAt: () => new Date(0).toISOString()
+    });
+
+    const occupyButton = createMockElement({ occupyTargetId: "district:3" });
+    occupyButton.setClosest("button[data-occupy-target-id]", occupyButton.element);
+
+    await router.handleTarget(occupyButton.element);
+
+    expect(dispatched).toEqual([
+      {
+        type: "occupy-district",
+        payload: {
+          districtId: "district:3",
+          sourceDistrictId: "district:1"
+        }
+      }
+    ]);
+  });
+
+  it("dispatches occupy commands when the occupy target is stale in the local slice", async () => {
+    const slice = createGameplaySliceFixture();
+    slice.district!.occupyTargets = [];
     const renderState = createInitialClientRenderState();
     const dispatched: Array<{ type: string; payload: Record<string, unknown> }> = [];
 
