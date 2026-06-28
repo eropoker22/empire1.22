@@ -2998,7 +2998,7 @@ body.login-body::after {
       radial-gradient(circle at 50% 35%, rgba(var(--cyan-rgb), 0.12), transparent 36%),
       linear-gradient(120deg, #02040a 0%, #07111f 54%, #02030a 100%);
     background-position: 44% top;
-    background-position-y: -5vh;
+    background-position-y: -2vh;
   }
 
   .login-terminal {
