@@ -58,4 +58,5 @@ export interface NormalizedGameState {
   finalLockdownState: FinalLockdownState | null;
   victoryState: VictoryState | null;
   matchResult: MatchResult | null;
+  market?: Record<string, unknown>;
 }

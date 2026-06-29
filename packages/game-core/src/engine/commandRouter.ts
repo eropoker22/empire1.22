@@ -10,6 +10,7 @@ import {
   handleCollectProduction,
   handleCraftItem,
   handleHeistDistrict,
+  handleMarketCommand,
   handleOccupyDistrict,
   handlePlaceDefense,
   handlePlaceTrap,
@@ -85,6 +86,9 @@ export const routeCommand = (
       return handleCraftItem(state, command, context);
     case "heist-district":
       return handleHeistDistrict(state, command, context);
+    case "buy-market-resource":
+    case "sell-market-resource":
+      return handleMarketCommand(state, command, context);
     case "occupy-district":
       return handleOccupyDistrict(state, command, context);
     case "place-defense":

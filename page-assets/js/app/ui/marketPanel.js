@@ -492,7 +492,14 @@ function createMarketItemRow(ownerDocument, item, callbacks = {}) {
   const actions = createElement(ownerDocument, "div", "market-popup-row__actions");
   const buyAction = createElement(ownerDocument, "button", "button market-popup-row__buy");
   buyAction.type = "button";
-  buyAction.textContent = "Koupit";
+  buyAction.textContent = item.showCleanBuyAction ? "Koupit dirty" : "Koupit";
+  const cleanBuyAction = item.showCleanBuyAction
+    ? createElement(ownerDocument, "button", "button market-popup-row__buy market-popup-row__buy--clean")
+    : null;
+  if (cleanBuyAction) {
+    cleanBuyAction.type = "button";
+    cleanBuyAction.textContent = "Koupit clean";
+  }
   const sellAction = createElement(ownerDocument, "button", "button market-popup-row__sell");
   sellAction.type = "button";
   sellAction.textContent = "Prodat";
@@ -503,6 +510,10 @@ function createMarketItemRow(ownerDocument, item, callbacks = {}) {
     quantityInput.value = String(requestedQuantity);
     const state = callbacks.getTradeState?.(item, requestedQuantity) || {};
     buyAction.disabled = Boolean(state.buyDisabled);
+    if (cleanBuyAction) {
+      cleanBuyAction.disabled = item.canBuyClean === false;
+      cleanBuyAction.title = cleanBuyAction.disabled ? "Nemáš dost clean cash." : "Koupit přes black market za clean cash.";
+    }
     sellAction.disabled = Boolean(state.sellDisabled);
     buyAction.title = state.buyTitle || "";
     sellAction.title = state.sellTitle || "";
@@ -512,10 +523,14 @@ function createMarketItemRow(ownerDocument, item, callbacks = {}) {
   quantityInput.addEventListener("input", updateRowTradeState);
   quantityInput.addEventListener("change", updateRowTradeState);
   buyAction.addEventListener("click", () => callbacks.onBuyItem?.(item, getRequestedQuantity(), updateRowTradeState));
+  cleanBuyAction?.addEventListener("click", () => callbacks.onBuyItem?.({
+    ...item,
+    paymentType: "cleanCash"
+  }, getRequestedQuantity(), updateRowTradeState));
   sellAction.addEventListener("click", () => callbacks.onSellItem?.(item, getRequestedQuantity(), updateRowTradeState));
   updateRowTradeState();
 
-  appendChildren(actions, buyAction, sellAction);
+  appendChildren(actions, ...[buyAction, cleanBuyAction, sellAction].filter(Boolean));
   appendChildren(trade, quantityWrap, totals, actions);
   appendChildren(row, info, trade);
   return row;

@@ -1,6 +1,7 @@
 import type { DistrictPanelView } from "./district-panel-view";
 import type { DistrictSummaryView } from "./district-summary-view";
 import type { GameplayModeView } from "./gameplay-mode-view";
+import type { MarketReadModel } from "./market-read-model-view";
 import type { PlayerView } from "./player-view";
 import type { PoliceReadModel } from "./police-read-model-view";
 import type { ConflictReportView } from "./report-view";
@@ -29,6 +30,7 @@ export interface GameplaySliceView {
   elimination?: EliminationReadModel | null;
   onboarding?: OnboardingReadModel | null;
   police?: PoliceReadModel | null;
+  market?: MarketReadModel | null;
   cityFeed?: CityFeedProjectionView | null;
   districts: DistrictSummaryView[];
   district: DistrictPanelView | null;
@@ -45,6 +47,7 @@ export interface GameplaySliceServerMetadataView {
   mode: string;
   currentTick: number;
   stateVersion: number;
+  maxPlayersPerServer?: number;
   selectedDistrictId: string | null;
   mapManifestId: string;
   mapManifestVersion: number;

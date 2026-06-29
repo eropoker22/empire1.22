@@ -9,6 +9,7 @@ export * from "./gameplay-mode-view";
 export * from "./gameplay-slice-view";
 export * from "./map-capabilities-view";
 export * from "./game-snapshot-view";
+export * from "./market-read-model-view";
 export * from "./onboarding-read-model-view";
 export * from "./player-economy-view";
 export * from "./player-view";

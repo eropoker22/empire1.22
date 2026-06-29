@@ -59,6 +59,15 @@ function formatPercentShare(value = 0) {
   return `${Math.round(Math.max(0, Number(value || 0)) * 100)}`;
 }
 
+function formatMultiplierIncreasePercent(value = 1) {
+  const multiplier = Number(value);
+  if (!Number.isFinite(multiplier)) {
+    return "+0 %";
+  }
+  const percent = Math.round((multiplier - 1) * 100);
+  return `${percent >= 0 ? "+" : ""}${percent} %`;
+}
+
 function hasBuildingUpgradeCapability(mechanics = {}) {
   const maxLevel = Number(mechanics?.maxLevel);
   if (Number.isFinite(maxLevel)) {
@@ -202,7 +211,7 @@ const FOCUSED_BUILDING_DETAIL_BADGES = Object.freeze({
   "recruitment-center": "Nábor",
   clinic: "Recovery",
   arcade: "Dirty cash",
-  school: "Talenty",
+  school: "Vzdělání",
   restaurant: "Lokální cashflow",
   "fitness-club": "Síla gangu",
   exchange: "Praní peněz",
@@ -309,7 +318,6 @@ export function createBuildingDetailStatRows({
       createStat("Clean / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
       createStat("Studenti", `${mechanics.schoolWholeStudents}/${mechanics.schoolCapacity}`),
       createStat("Do naplnění", mechanics.schoolIsFull ? "Plná kapacita" : formatDistrictBuildingCooldown(mechanics.schoolTimeToFullMs)),
-      createStat("Talent", `${mechanics.schoolTalentChancePct}%`),
       createStat("Školy", `${mechanics.ownedSchools}/${SCHOOL_CONFIG.countOnMap}`)
     );
   } else if (mechanics.mechanicsType === "exchange") {
@@ -489,8 +497,7 @@ export function createBuildingDetailMechanicRows({
     mechanicRows.push(
       createMechanic("Produkce", `+${mechanics.schoolPopulationPerMinute.toFixed(2)} studentů/min`),
       createMechanic("Síť škol", `kapacita x${mechanics.schoolNetwork.studentCapacityMultiplier.toFixed(2)} · income x${mechanics.schoolNetwork.incomeMultiplier.toFixed(2)}`),
-      createMechanic("Večerní kurz", mechanics.schoolEveningCourseActive ? `aktivní ${formatDistrictBuildingCooldown(mechanics.schoolEveningCourseRemainingMs)}` : "akce zrychlí studenty a talenty"),
-      createMechanic("Pravidla", "žádný dirty cash · žádný heat · žádné praní")
+      createMechanic("Večerní kurz", mechanics.schoolEveningCourseActive ? `bytové bloky zrychlené ${formatDistrictBuildingCooldown(mechanics.schoolEveningCourseRemainingMs)}` : "zrychlí výrobu lidí v bytových blocích")
     );
   } else if (mechanics.mechanicsType === "warehouse") {
     mechanicRows.push(
@@ -510,15 +517,13 @@ export function createBuildingDetailMechanicRows({
     mechanicRows.push(
       createMechanic("Populace", "zlepšuje tempo a kapacitu bytových bloků"),
       createMechanic("Útok", "posiluje efekt zbraní v boji"),
-      createMechanic("Obrana", "zvedá hodnotu obranného vybavení"),
-      createMechanic("Pravidla", "bez dirty cash · bez praní · bez speciální akce")
+      createMechanic("Obrana", "zvedá hodnotu obranného vybavení")
     );
   } else if (mechanics.mechanicsType === "garage") {
     mechanicRows.push(
-      createMechanic("Síť garáží", `income x${mechanics.garageNetwork.incomeMultiplier.toFixed(2)} · heat x${mechanics.garageNetwork.heatMultiplier.toFixed(2)}`),
-      createMechanic("Plný bonus", "pohyb, útok, obsazení, přesuny, obrana"),
-      createMechanic("Poloviční bonus", "špionáž, pasti, klinika, továrna, zbrojovka"),
-      createMechanic("Bez bonusu", "praní peněz, VIP, drby, pasivní produkce")
+      createMechanic("Síť garáží", `Každá další garáž zvedá čistý výnos o ${formatMultiplierIncreasePercent(mechanics.garageNetwork.incomeMultiplier)} a heat o ${formatMultiplierIncreasePercent(mechanics.garageNetwork.heatMultiplier)}.`),
+      createMechanic("Plný cooldown bonus", "Nejvíc zkracuje pohyb gangu, útoky, obsazení districtů, přesuny zásob a obranné přesuny."),
+      createMechanic("Částečný cooldown bonus", "Menší zkrácení dostane špionáž, pasti, klinika, továrna a zbrojovka.")
     );
   } else if (mechanics.mechanicsType === "retail" || buildingKey === "obchodni centrum") {
     mechanicRows.push(

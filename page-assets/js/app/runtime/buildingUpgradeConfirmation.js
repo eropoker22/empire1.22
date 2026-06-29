@@ -35,7 +35,7 @@ export function createBuildingUpgradeConfirmationController({
 
   const eyebrow = documentRef.createElement("span");
   eyebrow.className = "building-upgrade-confirm__eyebrow";
-  eyebrow.textContent = "Potvrzení upgradu";
+  eyebrow.textContent = "POTVRZENÍ UPGRADU";
 
   const title = documentRef.createElement("h4");
   title.className = "building-upgrade-confirm__title";
@@ -47,22 +47,30 @@ export function createBuildingUpgradeConfirmationController({
   grid.className = "building-upgrade-confirm__grid";
 
   const costCard = documentRef.createElement("article");
-  costCard.className = "building-upgrade-confirm__stat";
+  costCard.className = "building-upgrade-confirm__stat building-upgrade-confirm__stat--cost";
   const costLabel = documentRef.createElement("span");
   costLabel.textContent = "Cena";
   const costValue = documentRef.createElement("strong");
   costCard.append(costLabel, costValue);
 
+  const upgradeCard = documentRef.createElement("article");
+  upgradeCard.className = "building-upgrade-confirm__stat building-upgrade-confirm__stat--level";
+  const upgradeLabel = documentRef.createElement("span");
+  upgradeLabel.textContent = "Upgrade";
+  const upgradeValue = documentRef.createElement("strong");
+  upgradeCard.append(upgradeLabel, upgradeValue);
+
   const benefitCard = documentRef.createElement("article");
-  benefitCard.className = "building-upgrade-confirm__stat";
+  benefitCard.className = "building-upgrade-confirm__stat building-upgrade-confirm__stat--benefits";
   const benefitLabel = documentRef.createElement("span");
   benefitLabel.textContent = "Získáš";
-  const benefitValue = documentRef.createElement("strong");
-  benefitCard.append(benefitLabel, benefitValue);
-  grid.append(costCard, benefitCard);
+  const benefitList = documentRef.createElement("div");
+  benefitList.className = "building-upgrade-confirm__benefits";
+  benefitCard.append(benefitLabel, benefitList);
+  grid.append(costCard, upgradeCard, benefitCard);
 
   const note = documentRef.createElement("p");
-  note.className = "building-upgrade-confirm__note";
+  note.className = "building-upgrade-confirm__note building-upgrade-confirm__payment-strip";
 
   const actions = documentRef.createElement("div");
   actions.className = "building-upgrade-confirm__actions";
@@ -104,12 +112,48 @@ export function createBuildingUpgradeConfirmationController({
     description = "",
     noteLabel = "",
     titleLabel = "",
-    benefitLabel: nextBenefitLabel = ""
+    benefitLabel: nextBenefitLabel = "",
+    benefits = [],
+    hiddenBenefitCount = 0,
+    upgradeLabel: nextUpgradeLabel = ""
   } = {}) => {
-    setText(title, titleLabel || `${buildingLabel} -> upgrade`);
+    setText(title, titleLabel || `${buildingLabel} · upgrade`);
     setText(copy, description || `Opravdu chceš upgradovat ${buildingLabel.toLowerCase()}?`);
     setText(costValue, nextCostLabel);
-    setText(benefitValue, nextBenefitLabel);
+    setText(upgradeValue, nextUpgradeLabel || "Vyšší level");
+    benefitList.replaceChildren();
+    const normalizedBenefits = Array.isArray(benefits) && benefits.length > 0
+      ? benefits
+      : nextBenefitLabel
+        ? [{ icon: "+", label: "Bonus", value: nextBenefitLabel, detail: "" }]
+        : [];
+    for (const benefit of normalizedBenefits) {
+      const row = documentRef.createElement("div");
+      row.className = `building-upgrade-confirm__benefit building-upgrade-confirm__benefit--${benefit.tone || "positive"}`;
+      const icon = documentRef.createElement("span");
+      icon.className = "building-upgrade-confirm__benefit-icon";
+      icon.textContent = benefit.icon || "+";
+      const body = documentRef.createElement("span");
+      body.className = "building-upgrade-confirm__benefit-body";
+      const label = documentRef.createElement("span");
+      label.className = "building-upgrade-confirm__benefit-label";
+      label.textContent = benefit.label || "Bonus";
+      const value = documentRef.createElement("strong");
+      value.className = "building-upgrade-confirm__benefit-value";
+      value.textContent = benefit.value || "";
+      body.append(label, value);
+      if (benefit.detail) {
+        row.title = benefit.detail;
+      }
+      row.append(icon, body);
+      benefitList.append(row);
+    }
+    if (hiddenBenefitCount > 0) {
+      const more = documentRef.createElement("div");
+      more.className = "building-upgrade-confirm__benefit building-upgrade-confirm__benefit--more";
+      more.textContent = `+ ${hiddenBenefitCount} další bonusy v detailu`;
+      benefitList.append(more);
+    }
     setText(note, noteLabel);
     confirmButton.textContent = confirmLabel;
     confirmButton.disabled = !canConfirm;

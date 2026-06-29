@@ -18,10 +18,9 @@ export interface EliminationResult {
 
 const createEliminationTitle = (gangName: string): string => `Očista proběhla: ${gangName}`;
 const createEliminationBody = (gangName: string): string =>
-  `Policie rozdrtila gang ${gangName}. Jeho území přechází do lockdownu.`;
+  `Policie rozdrtila gang ${gangName}. Jeho území se vrací pod kontrolu města.`;
 const createEliminationFeedMessage = (gangName: string): string =>
   `Očista proběhla. Gang ${gangName} byl odstraněn z města.`;
-
 export const runScheduledElimination = (
   state: CoreGameState,
   context: GameCoreContext
@@ -122,7 +121,9 @@ export const runScheduledElimination = (
         score: weakest.score,
         controlledDistricts: weakest.controlledDistricts,
         nextEliminationTick,
-        activePlayersRemaining: activePlayerIds.length - 1
+        activePlayersRemaining: activePlayerIds.length - 1,
+        remainingPlayers: activePlayerIds.length - 1,
+        serverCapacity: context.config.balance.maxPlayersPerServer
       }),
       createEvent(CORE_EVENT_TYPES.notificationCreated, {
         notificationId: notification.id,
@@ -212,7 +213,6 @@ const createEliminationNotification = (
   createdAt: new Date(0).toISOString(),
   readAt: null
 });
-
 const createEliminationFeedEvent = (
   state: CoreGameState,
   score: PlayerEliminationScore,
@@ -240,7 +240,8 @@ const createEliminationFeedEvent = (
       body: createEliminationBody(score.gangName),
       reason: "scheduled_weakest_player",
       score: score.score,
-      controlledDistricts: score.controlledDistricts
+      controlledDistricts: score.controlledDistricts,
+      remainingPlayers: Math.max(0, state.root.playerIds.filter((id) => state.playersById[id]?.status === "active").length - 1)
     }
   };
 };

@@ -112,6 +112,30 @@ export const createCityFeedEventsFromCoreEvent = (
       return createBuildingActionFeedEvents(state, event, payload);
     case "item-crafted":
       return createCraftFeedEvents(state, event, payload);
+    case "market-transaction-resolved":
+      return [createFeedEvent(state, event, {
+        sourceType: "market",
+        category: "economy",
+        severity: stringValue(payload.marketType) === "black" || numericValue(payload.heatAdded) > 0 ? "medium" : "low",
+        truthiness: "confirmed",
+        intelType: "confirmed_event",
+        visibility: "player",
+        playerId: stringValue(payload.playerId),
+        messageKey: stringValue(payload.marketType) === "black" ? "black_market" : "market",
+        payload: {
+          transactionId: stringValue(payload.transactionId),
+          transactionType: stringValue(payload.transactionType),
+          resourceId: stringValue(payload.resourceId),
+          amount: numericValue(payload.amount),
+          marketType: stringValue(payload.marketType),
+          paymentType: stringValue(payload.paymentType),
+          unitPrice: numericValue(payload.unitPrice),
+          totalPrice: numericValue(payload.totalPrice),
+          heatAdded: numericValue(payload.heatAdded),
+          policeSuspicionAdded: numericValue(payload.policeSuspicionAdded),
+          marketCategory: stringValue(payload.resourceId)
+        }
+      })];
     default:
       return [];
   }

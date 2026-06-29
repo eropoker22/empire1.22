@@ -195,9 +195,8 @@ function formatRewardSummary(actionProfile = {}) {
   if (Number(actionProfile.cleanIncomeBoostPct || 0) > 0) rewards.push(`Clean income +${formatNumberValue(actionProfile.cleanIncomeBoostPct)}%`);
   if (Number(actionProfile.dirtyIncomeBoostPct || 0) > 0) rewards.push(`Dirty income +${formatNumberValue(actionProfile.dirtyIncomeBoostPct)}%`);
   if (Number(actionProfile.influenceBoostPct || 0) > 0) rewards.push(`Vliv +${formatNumberValue(actionProfile.influenceBoostPct)}%`);
+  if (Number(actionProfile.apartmentPopulationBoostPct || 0) > 0) rewards.push(`Bytové bloky +${formatNumberValue(actionProfile.apartmentPopulationBoostPct)}% výroba lidí`);
   if (Number(actionProfile.populationBoostPct || 0) > 0) rewards.push(`Studenti +${formatNumberValue(actionProfile.populationBoostPct)}%`);
-  if (Number(actionProfile.talentChanceBonusPct || 0) > 0) rewards.push(`Talent +${formatNumberValue(actionProfile.talentChanceBonusPct)}%`);
-  if (Number(actionProfile.betterTalentChancePct || 0) > 0) rewards.push(`Lepší talent +${formatNumberValue(actionProfile.betterTalentChancePct)}%`);
   if (Number(actionProfile.dirtySharePct || 0) > 0) rewards.push(`Praní ${formatNumberValue(actionProfile.dirtySharePct)}% dirty cash`);
   if (Number(actionProfile.maxDirty || 0) > 0) rewards.push(`Limit ${formatDistrictBuildingMoney(actionProfile.maxDirty)}`);
   if (Number(actionProfile.feePct || 0) > 0) rewards.push(`Fee ${formatNumberValue(actionProfile.feePct)}%`);

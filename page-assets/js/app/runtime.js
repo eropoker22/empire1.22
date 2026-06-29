@@ -625,6 +625,7 @@ import {
   resolveBuildingSpecialActionDefinition
 } from "./runtime/buildingSpecialActionRegistry.js";
 import { createBuildingSpecialActionConfirmationController } from "./runtime/buildingSpecialActionConfirmation.js";
+import { createBuildingUpgradeConfirmationViewModel } from "./runtime/buildingUpgradeBenefits.js";
 import {
   DISTRICT_GOSSIP_SEED_LIBRARY,
   POLICE_ACTION_SPECIALTY_QUOTES,
@@ -891,6 +892,119 @@ const eliminationResultPopupsByRoot = new WeakMap();
 const eliminationCountdownWarningsByRoot = new WeakMap();
 const ELIMINATION_RESULT_POPUP_SELECTOR = "[data-elimination-result-popup]";
 let latestGameplaySliceReadModel = null;
+
+function getServerMarketReadModel() {
+  return latestGameplaySliceReadModel?.market || null;
+}
+
+function getServerPlayerView() {
+  return latestGameplaySliceReadModel?.player || null;
+}
+
+function createGameplaySliceCommandId(prefix = "command:market") {
+  return `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function getGameplaySliceEndpointBase() {
+  const root = typeof document === "undefined"
+    ? null
+    : document.querySelector?.("[data-gameplay-slice-client]");
+  return String(root?.dataset?.gameplaySliceEndpointBase || "/api/gameplay-slice").replace(/\/+$/u, "");
+}
+
+function getGameplaySliceSnapshotToken(serverInstanceId, playerId) {
+  try {
+    return window.sessionStorage?.getItem?.(`empire:gameplay-slice:snapshot:${serverInstanceId}:${playerId}`) || null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function setGameplaySliceSnapshotToken(serverInstanceId, playerId, token) {
+  const normalizedToken = String(token || "").trim();
+  if (!normalizedToken) {
+    return false;
+  }
+  try {
+    window.sessionStorage?.setItem?.(`empire:gameplay-slice:snapshot:${serverInstanceId}:${playerId}`, normalizedToken);
+    return true;
+  } catch (_error) {
+    return false;
+  }
+}
+
+async function submitServerMarketCommand({ action, resourceId, amount, marketType = "normal", paymentType = "cleanCash" } = {}) {
+  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return {
+      accepted: false,
+      errors: [{ message: "Server-authoritative gameplay runtime není připravený." }]
+    };
+  }
+
+  const slice = latestGameplaySliceReadModel || null;
+  const player = slice?.player || null;
+  const focusDistrictId = slice?.district?.districtId || player?.homeDistrictId || null;
+  if (!slice || !player || !focusDistrictId) {
+    return {
+      accepted: false,
+      errors: [{ message: "Market command nejde odeslat bez server slice kontextu." }]
+    };
+  }
+
+  const normalizedAction = action === "sell" ? "sell" : "buy";
+  const command = {
+    id: createGameplaySliceCommandId(normalizedAction === "sell" ? "command:market-sell" : "command:market-buy"),
+    type: normalizedAction === "sell" ? "sell-market-resource" : "buy-market-resource",
+    mode: player.mode || slice.mode?.mode || "free",
+    playerId: player.playerId,
+    serverInstanceId: player.instanceId,
+    issuedAt: new Date().toISOString(),
+    payload: normalizedAction === "sell"
+      ? {
+          resourceId,
+          amount
+        }
+      : {
+          resourceId,
+          amount,
+          marketType,
+          paymentType
+        },
+    clientRequestId: null
+  };
+  const request = {
+    command,
+    focusDistrictId,
+    expectedStateVersion: slice.server?.stateVersion ?? null
+  };
+  const snapshotToken = getGameplaySliceSnapshotToken(player.instanceId, player.playerId);
+  if (snapshotToken) {
+    request.snapshotToken = snapshotToken;
+  }
+
+  const response = await fetch(`${getGameplaySliceEndpointBase()}/submit`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    credentials: "same-origin",
+    body: JSON.stringify(request)
+  }).then((payload) => payload.json());
+
+  if (response?.snapshotToken) {
+    setGameplaySliceSnapshotToken(player.instanceId, player.playerId, response.snapshotToken);
+  }
+  if (response?.readModel) {
+    latestGameplaySliceReadModel = response.readModel;
+    document.dispatchEvent(new CustomEvent("empire:gameplay-slice-rendered", {
+      detail: {
+        gameplaySlice: response.readModel,
+        playerView: response.readModel.player || null
+      }
+    }));
+  }
+  return response;
+}
 
 function getDefaultRuntimeRoot() {
   return getDefaultRuntimeRootElement(PAGE_ROOT_SELECTOR);
@@ -3866,6 +3980,8 @@ const {
   getResolvedEconomyState,
   getResolvedGangState,
   getResolvedMarketPriceState,
+  getServerMarketReadModel,
+  getServerPlayerView,
   getShoppingMallMarketDiscountForTab: (...args) => getShoppingMallMarketDiscountForTab(...args),
   getSuggestedPlayerMarketUnitPrice,
   normalizeMarketStockState,
@@ -3894,6 +4010,7 @@ const {
   setInventoryAmount,
   setStoredEconomyState,
   setStoredMarketPriceState,
+  submitServerMarketCommand,
   syncMarketTabs,
   windowRef: typeof window === "undefined" ? null : window
 });
@@ -3978,11 +4095,31 @@ function neutralizeLaunchPlayerDistricts(root, ownerId) {
 function enrichEliminationResultForLaunchMap(root, result = {}) {
   const ownerId = normalizeEliminationOwnerId(result.ownerId || result.playerId);
   const districtsNeutralized = neutralizeLaunchPlayerDistricts(root, ownerId);
+  const populationSnapshot = resolveEliminationPopulationSnapshot(result);
   return {
     ownerId,
     gangName: result.gangName || (ownerId ? getLaunchPlayerName(ownerId) : "neznámý gang"),
     avatarSrc: result.avatarSrc || (ownerId ? getLaunchPlayerAvatar(ownerId) : ""),
-    districtsNeutralized
+    districtsNeutralized,
+    remainingPlayers: result.remainingPlayers ?? result.activePlayersRemaining ?? populationSnapshot.remainingPlayers,
+    activePlayersRemaining: result.activePlayersRemaining ?? result.remainingPlayers ?? populationSnapshot.remainingPlayers,
+    serverCapacity: result.serverCapacity ?? result.maxPlayersPerServer ?? populationSnapshot.serverCapacity
+  };
+}
+
+function resolveEliminationPopulationSnapshot(result = {}) {
+  const elimination = latestGameplaySliceReadModel?.elimination
+    || latestGameplaySliceReadModel?.player?.elimination
+    || {};
+  return {
+    remainingPlayers: result.remainingPlayers
+      ?? result.activePlayersRemaining
+      ?? elimination.activePlayersRemaining
+      ?? null,
+    serverCapacity: result.serverCapacity
+      ?? result.maxPlayersPerServer
+      ?? latestGameplaySliceReadModel?.server?.maxPlayersPerServer
+      ?? null
   };
 }
 
@@ -3996,7 +4133,7 @@ function createEliminationStreetNewsPayload(result = {}) {
     ...result,
     tone: "warning",
     title: result.title || `Očista proběhla: ${gangName}`,
-    summary: result.body || `Policie rozdrtila gang ${gangName}. Jeho území přechází do lockdownu.`,
+    summary: result.body || `Policie rozdrtila gang ${gangName}. Jeho území se vrací pod kontrolu města.`,
     badge: "Očista dokončena",
     rows: [
       { label: "Gang", value: gangName },
@@ -4826,6 +4963,47 @@ function setStoredDistrictBuildingDetailState(payload) {
   saveDistrictBuildingDetailState(payload);
 }
 
+const SCHOOL_APARTMENT_BOOST_STATE_KEY = "__schoolApartmentBoost";
+
+function getSchoolApartmentBoostDurationMs(level = 1, actionProfile = {}) {
+  const baseDurationMs = Math.max(0, Number(actionProfile.durationMs || SCHOOL_CONFIG.eveningCourseDurationMs || 0));
+  const durationBonusMsPerLevel = Math.max(0, Number(actionProfile.durationBonusMsPerLevel || SCHOOL_CONFIG.eveningCourseDurationBonusMsPerLevel || 0));
+  const levelBonusSteps = Math.max(0, Math.floor(Number(level || 1)) - 1);
+  return baseDurationMs + levelBonusSteps * durationBonusMsPerLevel;
+}
+
+function getActiveSchoolApartmentBoost(now = Date.now()) {
+  const state = getStoredDistrictBuildingDetailState();
+  const boost = state[SCHOOL_APARTMENT_BOOST_STATE_KEY];
+  if (!boost || typeof boost !== "object") {
+    return null;
+  }
+  const expiresAt = Number(boost.expiresAt || 0);
+  if (!Number.isFinite(expiresAt) || expiresAt <= now) {
+    return null;
+  }
+  return {
+    ...boost,
+    expiresAt,
+    startedAt: Number.isFinite(Number(boost.startedAt)) ? Number(boost.startedAt) : now,
+    apartmentPopulationBoostPct: Math.max(0, Number(boost.apartmentPopulationBoostPct || 0)),
+    durationMs: Math.max(0, Number(boost.durationMs || 0))
+  };
+}
+
+function setActiveSchoolApartmentBoost(payload = {}) {
+  const state = getStoredDistrictBuildingDetailState();
+  state[SCHOOL_APARTMENT_BOOST_STATE_KEY] = {
+    startedAt: Number(payload.startedAt || Date.now()),
+    expiresAt: Number(payload.expiresAt || 0),
+    durationMs: Number(payload.durationMs || 0),
+    apartmentPopulationBoostPct: Math.max(0, Number(payload.apartmentPopulationBoostPct || 0)),
+    sourceDistrictId: payload.sourceDistrictId ?? null,
+    sourceBuildingName: payload.sourceBuildingName || "Škola"
+  };
+  setStoredDistrictBuildingDetailState(state);
+}
+
 function hasStoredDistrictBuildingDetailEntry(district, buildingName) {
   const state = getStoredDistrictBuildingDetailState();
   const key = getDistrictBuildingDetailStorageKey(district, buildingName);
@@ -4929,8 +5107,11 @@ function renderDistrictBuildingInfoSection(infoElement, {
   renderBuildingDetailInfoSectionPanel(infoElement, viewModel);
 }
 
-function resolveDistrictBuildingDetailMechanics(district, buildingName) {
-  const entry = getDistrictBuildingDetailEntry(district, buildingName);
+function resolveDistrictBuildingDetailMechanics(district, buildingName, options = {}) {
+  const entry = {
+    ...getDistrictBuildingDetailEntry(district, buildingName),
+    ...(options.entryOverride || {})
+  };
   const mechanicsType = resolveDistrictBuildingDetailMechanicsType(buildingName);
   const buildingLookupKey = resolveDistrictBuildingCanonicalLookupKey(buildingName);
   const ownedBuildingCount = getOwnedDistrictBuildingCountByBaseName(buildingLookupKey);
@@ -4962,6 +5143,10 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
   const schoolNetwork = mechanicsType === "school" ? getSchoolNetworkMultipliers(ownedSchools) : null;
   const schoolEveningCourseActive = mechanicsType === "school" && Number(entry.schoolEveningCourseExpiresAt || 0) > now;
   const schoolTalentChancePct = mechanicsType === "school" ? getSchoolTalentChancePct(ownedSchools, schoolEveningCourseActive) : 0;
+  const schoolApartmentBoost = mechanicsType === "apartment-block" ? getActiveSchoolApartmentBoost(now) : null;
+  const schoolApartmentBoostMultiplier = schoolApartmentBoost
+    ? 1 + Math.max(0, Number(schoolApartmentBoost.apartmentPopulationBoostPct || 0)) / 100
+    : 1;
   const ownedWarehouses = mechanicsType === "warehouse" ? getOwnedWarehouseCount() : 0;
   const warehouseNetwork = mechanicsType === "warehouse" ? getWarehouseNetworkMultipliers(ownedWarehouses) : null;
   const warehouseCapacity = mechanicsType === "warehouse" ? getWarehouseCapacityBreakdown(ownedWarehouses) : null;
@@ -5020,7 +5205,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     : garageNetwork
     ? garageNetwork.incomeMultiplier
     : schoolNetwork
-    ? schoolNetwork.incomeMultiplier * (schoolEveningCourseActive ? SCHOOL_CONFIG.eveningCourseCleanIncomeMultiplier : 1)
+    ? schoolNetwork.incomeMultiplier
     : autoSalonNetwork
     ? autoSalonNetwork.cleanIncomeMultiplier
     : casinoUpgrade
@@ -5065,11 +5250,19 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
   const apartmentStoredBase = mechanicsType === "apartment-block"
     ? Math.min(apartmentCapacity, Math.max(0, Number(entry.storedPopulation || 0)))
     : 0;
-  const apartmentPopulationPerMinute = apartmentNetwork
+  const apartmentBasePopulationPerMinute = apartmentNetwork
     ? APARTMENT_BLOCK_POPULATION_PER_MINUTE * apartmentNetwork.populationProductionMultiplier
     : 0;
+  const apartmentPopulationPerMinute = apartmentBasePopulationPerMinute * schoolApartmentBoostMultiplier;
+  const apartmentBoostedElapsedMs = schoolApartmentBoost
+    ? Math.max(0, now - Math.max(Number(entry.populationLastUpdatedAt || entry.lastCollectedAt || now), Number(schoolApartmentBoost.startedAt || now)))
+    : 0;
+  const apartmentProducedPopulation = apartmentStoredBase >= apartmentCapacity
+    ? 0
+    : apartmentBasePopulationPerMinute * apartmentElapsedMs / 60000
+      + apartmentBasePopulationPerMinute * (schoolApartmentBoostMultiplier - 1) * apartmentBoostedElapsedMs / 60000;
   const apartmentStoredPopulation = mechanicsType === "apartment-block"
-    ? Math.min(apartmentCapacity, apartmentStoredBase + (apartmentStoredBase >= apartmentCapacity ? 0 : apartmentPopulationPerMinute * apartmentElapsedMs / 60000))
+    ? Math.min(apartmentCapacity, apartmentStoredBase + apartmentProducedPopulation)
     : 0;
   const apartmentWholePopulation = Math.max(0, Math.floor(apartmentStoredPopulation));
   const apartmentIsFull = mechanicsType === "apartment-block" && apartmentCapacity > 0 && apartmentStoredPopulation >= apartmentCapacity;
@@ -5086,7 +5279,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     ? Math.min(schoolCapacity, Math.max(0, Number(entry.storedStudents || 0)))
     : 0;
   const schoolPopulationPerMinute = schoolNetwork
-    ? SCHOOL_CONFIG.populationPerMinute * schoolNetwork.populationProductionMultiplier * (schoolEveningCourseActive ? SCHOOL_CONFIG.eveningCoursePopulationMultiplier : 1)
+    ? SCHOOL_CONFIG.populationPerMinute * schoolNetwork.populationProductionMultiplier
     : 0;
   const schoolStoredStudents = mechanicsType === "school"
     ? Math.min(schoolCapacity, schoolStoredBase + (schoolStoredBase >= schoolCapacity ? 0 : schoolPopulationPerMinute * schoolElapsedMs / 60000))
@@ -5137,11 +5330,10 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     mechanicsType === "apartment-block" ? `Populace +${apartmentPopulationPerMinute.toFixed(2)}/min` : "",
     mechanicsType === "school" ? `Studenti +${schoolPopulationPerMinute.toFixed(2)}/min` : "",
     mechanicsType === "smuggling-tunnel" ? `Kontraband Flow ${smugglingContrabandFlowLabel} · Dealer Supply +${smugglingDealerSupplyBonusPct}%` : "",
-    isGarage ? `Cooldowny -${garageSupport?.cooldownReductionPct || 0}% · cap -${GARAGE_SUPPORT_CONFIG.maxCooldownReductionPct}%` : "",
+    isGarage ? `Cooldowny -${garageSupport?.cooldownReductionPct || 0}% · maximum zkrácení -${GARAGE_SUPPORT_CONFIG.maxCooldownReductionPct}%` : "",
     apartmentIsFull ? "Plná kapacita · Bytový blok je plný. Obyvatelé čekají na vybrání." : "",
     schoolIsFull ? "Plná kapacita · Škola je plná. Studenti čekají na vybrání." : "",
     mechanicsType === "smuggling-tunnel" && smugglingOpenChannelActive ? `Otevřený kanál aktivní ${formatDistrictBuildingCooldown(Number(entry.openChannelExpiresAt || entry.silentChannelExpiresAt || 0) - now)}` : "",
-    mechanicsType === "school" ? `Talent chance ${schoolTalentChancePct}%` : "",
     ...warehouseWarnings,
     dailyHeat > 0 ? `Heat +${dailyHeat}/den` : "",
     dailyInfluence > 0 ? `Vliv +${dailyInfluence}/den` : "",
@@ -5177,6 +5369,9 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     apartmentStoredPopulation,
     apartmentCapacity,
     apartmentPopulationPerMinute,
+    schoolApartmentBoostActive: Boolean(schoolApartmentBoost),
+    schoolApartmentBoostRemainingMs: schoolApartmentBoost ? Math.max(0, Number(schoolApartmentBoost.expiresAt || 0) - now) : 0,
+    schoolApartmentBoostPct: schoolApartmentBoost ? Math.max(0, Number(schoolApartmentBoost.apartmentPopulationBoostPct || 0)) : 0,
     apartmentWholePopulation,
     apartmentIsFull,
     apartmentTimeToFullMs,
@@ -5548,7 +5743,6 @@ function collectDistrictBuildingDetailOutput(root, shell) {
       return;
     }
     const gangState = getResolvedGangState();
-    const talent = rollSchoolTalent(mechanics.schoolTalentChancePct, mechanics.schoolEveningCourseActive);
     setStoredGangState({ members: Math.max(0, Math.floor(Number(gangState.members || 0)) + collectedStudents) });
     renderGangMembersState(root);
     updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
@@ -5559,29 +5753,22 @@ function collectDistrictBuildingDetailOutput(root, shell) {
       studentFullNotifiedAt: 0,
       lastCollectedAt: Date.now()
     }));
-    const talentLine = talent
-      ? `Uliční zpráva: ${talent.label} · ${talent.summary}`
-      : `Talent nepadl (${mechanics.schoolTalentChancePct}% šance).`;
     setBuildingActionFeedback(
       root,
       "success",
       context.buildingName,
       `Vybral jsi ${collectedStudents} obyvatel ze Školy.`,
-      talentLine
+      "Obyvatelé byli přidáni do gangu."
     );
     appendBuildingActionResultEntry(root, "police", {
-      tone: talent ? "positive" : "event",
-      title: `${context.buildingName}: Talent Pool`,
+      tone: "event",
+      title: `${context.buildingName}: Výběr studentů`,
       badge: "Škola",
-      summary: talent
-        ? `${talent.label}: ${talent.summary}`
-        : `Vybral jsi ${collectedStudents} obyvatel ze Školy. Talent tentokrát nepadl.`,
+      summary: `Vybral jsi ${collectedStudents} obyvatel ze Školy.`,
       rows: [
         { label: "Budova", value: context.buildingName },
         context.district?.id ? { label: "District", value: `District ${context.district.id}` } : null,
-        { label: "Vybráno", value: `${collectedStudents} obyvatel`, nowrap: true },
-        { label: "Talent", value: talent ? talent.label : "nepadl", nowrap: true },
-        talent ? { label: "Uliční zpráva", value: talent.summary } : null
+        { label: "Vybráno", value: `${collectedStudents} obyvatel`, nowrap: true }
       ].filter(Boolean)
     }, {}, { syncPreview: true, forceLog: true });
     dispatchDistrictBuildingProductionCollected(root, context, {
@@ -5736,19 +5923,6 @@ function getDistrictBuildingDetailUpgradeConfirmation(root, shell) {
   return controller;
 }
 
-function getDistrictBuildingUpgradeBenefitLabel(mechanics) {
-  if (mechanics?.nextCasinoUpgrade) {
-    const next = mechanics.nextCasinoUpgrade;
-    return [
-      next.incomeBonusPct > 0 ? `Income +${next.incomeBonusPct}%` : "",
-      next.launderingLimitBonusPct > 0 ? `Laundering +${next.launderingLimitBonusPct}%` : "",
-      next.launderingFeeReductionPct > 0 ? `Fee -${next.launderingFeeReductionPct}%` : ""
-    ].filter(Boolean).join(" · ") || `Level ${mechanics.nextLevel}`;
-  }
-
-  return `Level ${mechanics.nextLevel} · silnější cashflow a lokální efekty`;
-}
-
 function getDistrictBuildingUpgradeResourceStatus(mechanics) {
   const economy = getResolvedEconomyState();
   const cleanMoney = Math.max(0, Math.floor(Number(economy.cleanMoney || 0)));
@@ -5791,18 +5965,23 @@ async function confirmDistrictBuildingDetailUpgrade(root, shell) {
 
   const displayLabel = String(context.displayName || context.buildingName || "Budova").trim() || "Budova";
   const resourceStatus = getDistrictBuildingUpgradeResourceStatus(mechanics);
+  const nextMechanics = resolveDistrictBuildingDetailMechanics(context.district, context.buildingName, {
+    entryOverride: {
+      level: mechanics.nextLevel
+    }
+  });
+  const confirmationViewModel = createBuildingUpgradeConfirmationViewModel({
+    buildingName: context.buildingName,
+    displayName: displayLabel,
+    currentMechanics: mechanics,
+    nextMechanics,
+    resourceStatus
+  });
   const confirmation = getDistrictBuildingDetailUpgradeConfirmation(root, shell);
   const confirmed = await confirmation.open({
-    benefitLabel: getDistrictBuildingUpgradeBenefitLabel(mechanics),
-    buildingLabel: displayLabel,
+    ...confirmationViewModel,
     canConfirm: resourceStatus.canConfirm,
-    confirmLabel: resourceStatus.canConfirm ? "Potvrdit upgrade" : "Chybí zdroje",
-    costLabel: mechanics.upgradeCostLabel,
-    description: `${displayLabel} přejde na level ${mechanics.nextLevel} a posílí svoje efekty podle typu budovy.`,
-    noteLabel: resourceStatus.canConfirm
-      ? `Po potvrzení zaplatíš ${mechanics.upgradeCostLabel}.`
-      : `Chybí ${resourceStatus.missing.join(" + ")}.`,
-    titleLabel: `${displayLabel} · L${mechanics.level} -> L${mechanics.nextLevel}`
+    confirmLabel: resourceStatus.canConfirm ? "Potvrdit upgrade" : "Chybí zdroje"
   });
 
   if (confirmed) {
@@ -5945,20 +6124,31 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
       return null;
     }
     cleanMoney -= cost;
-    const expiresAt = Date.now() + SCHOOL_CONFIG.eveningCourseDurationMs;
+    const now = Date.now();
+    const durationMs = getSchoolApartmentBoostDurationMs(mechanics.level, actionProfile);
+    const apartmentPopulationBoostPct = Math.max(0, Number(actionProfile.apartmentPopulationBoostPct || 0));
+    const expiresAt = now + durationMs;
     updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
       ...entry,
       schoolEveningCourseExpiresAt: expiresAt,
-      schoolLastUpdatedAt: Date.now(),
+      schoolLastUpdatedAt: now,
       actionCooldowns: {
         ...(entry.actionCooldowns || {}),
-        schoolEveningCourse: Date.now() + SCHOOL_CONFIG.eveningCourseCooldownMs,
+        schoolEveningCourse: now + SCHOOL_CONFIG.eveningCourseCooldownMs,
         schoolEveningCourseActiveUntil: expiresAt
       }
     }));
+    setActiveSchoolApartmentBoost({
+      startedAt: now,
+      expiresAt,
+      durationMs,
+      apartmentPopulationBoostPct,
+      sourceDistrictId: context.district?.id ?? null,
+      sourceBuildingName: context.buildingName
+    });
     economyChanged = true;
-    summaryParts.push(`Večerní kurz aktivní na ${formatDistrictBuildingCooldown(SCHOOL_CONFIG.eveningCourseDurationMs)}.`);
-    summaryParts.push(`Studenti +${actionProfile.populationBoostPct}% · talent +${actionProfile.talentChanceBonusPct}% · clean income +${actionProfile.cleanIncomeBoostPct}%.`);
+    summaryParts.push(`Večerní kurz aktivní na ${formatDistrictBuildingCooldown(durationMs)}.`);
+    summaryParts.push(`Bytové bloky vyrábí lidi o ${apartmentPopulationBoostPct}% rychleji.`);
   }
 
   if (actionProfile.clinicStabilizationProtocol) {
@@ -10077,7 +10267,7 @@ function publicOpenBuildingDetail(districtIdOrBuildingName, buildingName = "", o
   return getRuntimeDistrictApi()?.openBuildingDetail?.(districtIdOrBuildingName, buildingName, options) || false;
 }
 
-function tryOpenDevApartmentBlockCardOnInit() {
+function tryOpenDevBuildingCardOnInit() {
   const districtApi = getRuntimeDistrictApi();
   if (!districtApi?.getDistrictById || !districtApi?.getDistrictBuildingProfile || !districtApi?.getAllDistricts) {
     return false;
@@ -10105,16 +10295,16 @@ function tryOpenDevApartmentBlockCardOnInit() {
 
   for (const district of candidateDistricts) {
     const buildingProfile = districtApi.getDistrictBuildingProfile(district.id);
-    const apartmentBlock = Array.isArray(buildingProfile?.buildings)
-      ? buildingProfile.buildings.find((building) => normalizeBuildingLookupKey(building?.baseName) === "bytovy blok")
+    const targetBuilding = Array.isArray(buildingProfile?.buildings)
+      ? buildingProfile.buildings.find((building) => normalizeBuildingLookupKey(building?.baseName) === "skola")
       : null;
 
-    if (!apartmentBlock?.baseName) {
+    if (!targetBuilding?.baseName) {
       continue;
     }
 
-    return publicOpenBuildingDetail(district.id, apartmentBlock.baseName, {
-      displayName: apartmentBlock.displayName || apartmentBlock.baseName,
+    return publicOpenBuildingDetail(district.id, targetBuilding.baseName, {
+      displayName: targetBuilding.displayName || targetBuilding.baseName,
       preferGenericDetail: true
     });
   }
@@ -10122,8 +10312,8 @@ function tryOpenDevApartmentBlockCardOnInit() {
   return false;
 }
 
-function scheduleDevApartmentBlockCardOpen(attempt = 0) {
-  if (tryOpenDevApartmentBlockCardOnInit()) {
+function scheduleDevBuildingCardOpen(attempt = 0) {
+  if (tryOpenDevBuildingCardOnInit()) {
     return true;
   }
 
@@ -10132,7 +10322,7 @@ function scheduleDevApartmentBlockCardOpen(attempt = 0) {
   }
 
   window.setTimeout(() => {
-    scheduleDevApartmentBlockCardOpen(attempt + 1);
+    scheduleDevBuildingCardOpen(attempt + 1);
   }, 80);
   return false;
 }
@@ -10282,7 +10472,7 @@ function initRuntime(root = getDefaultRuntimeRoot()) {
     const context = runtimeContextsByRoot.get(resolvedRoot) || createPageContext(resolvedRoot);
     syncRuntimePassiveProductionState({ root: resolvedRoot, force: true });
     refreshAllUi(hydrateInitialState(resolvedRoot));
-    scheduleDevApartmentBlockCardOpen();
+    scheduleDevBuildingCardOpen();
     return context;
   }
 
@@ -10294,7 +10484,7 @@ function initRuntime(root = getDefaultRuntimeRoot()) {
   syncRuntimePassiveProductionState({ root: resolvedRoot, force: true });
   applySettingsState(getSettingsState());
   refreshAllUi(hydrateInitialState(resolvedRoot));
-  scheduleDevApartmentBlockCardOpen();
+  scheduleDevBuildingCardOpen();
   resolvedRoot.dataset.bootstrap = "ready";
   resolvedRoot.dataset.runtimeInit = "ready";
   document.documentElement.dataset.page = context.name;

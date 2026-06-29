@@ -31,7 +31,7 @@ export const BUILDING_POPUP_TARGETS = Object.freeze([
 
 const GARAGE_DETAIL_PROFILE = Object.freeze({
   role: "Logistika",
-  info: "Garáž je pasivní logistické zázemí. Generuje clean cash, zvedá heat a každá vlastněná garáž zkracuje cooldowny pohybu, útoku, obsazení, přesunů a části support akcí. Nemá dirty cash, vliv, populaci, audit, speciální akce ani upgrade.",
+  info: "Garáž je pasivní logistické zázemí. Generuje clean cash, zvedá heat a každá vlastněná garáž zkracuje cooldowny pohybu, útoku, obsazení, přesunů a části support akcí.",
   actions: Object.freeze([])
 });
 
@@ -54,8 +54,8 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
     actions: Object.freeze(["Stabilizační protokol"])
   }),
   skola: Object.freeze({
-    role: "Talenty",
-    info: "Škola pomalu přidává obyvatele, malé clean cash a šanci na talent při výběru studentů. Večerní kurz dočasně zrychlí růst a zvýší šanci na lepší talent.",
+    role: "Vzdělání",
+    info: "Škola pomalu přidává obyvatele a malé clean cash. Večerní kurz dočasně zrychlí výrobu lidí v bytových blocích.",
     actions: Object.freeze(["Večerní kurz"])
   }),
   restaurace: Object.freeze({
@@ -211,7 +211,7 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
     Object.freeze({ apartmentCollectPopulation: true, cooldownMs: 0, summary: "Přesune lokálně uložené obyvatele do globální populace gangu." })
   ]),
   skola: Object.freeze([
-    Object.freeze({ schoolEveningCourse: true, cleanCost: 600, durationMs: 8 * 60 * 1000, cooldownMs: 20 * 60 * 1000, populationBoostPct: 60, talentChanceBonusPct: 12, betterTalentChancePct: 20, cleanIncomeBoostPct: 20, summary: "Večerní kurz zvedne studenty, šanci na talent a čistý příjem Školy." })
+    Object.freeze({ schoolEveningCourse: true, cleanCost: 600, durationMs: 20 * 60 * 1000, durationBonusMsPerLevel: 2 * 60 * 1000, cooldownMs: 35 * 60 * 1000, apartmentPopulationBoostPct: 60, summary: "Večerní kurz zrychlí výrobu lidí v bytových blocích." })
   ]),
   restaurace: Object.freeze([
     Object.freeze({ clean: 180, dirty: 90, heat: 1, durationMs: 30 * 60 * 1000, cooldownMs: 30 * 60 * 1000, summary: "Lokální tržby přepsány do zdrojů." }),
@@ -378,15 +378,16 @@ export const SCHOOL_CONFIG = Object.freeze({
   maxPopulationProductionMultiplier: 1.4,
   maxStudentCapacityMultiplier: 1.5,
   maxIncomeMultiplier: 1.2,
-  baseTalentChancePct: 12,
-  talentChancePctPerExtraSchool: 5,
-  maxTalentChancePct: 38,
-  eveningCourseTalentChanceBonusPct: 12,
-  eveningCourseDurationMs: 8 * 60 * 1000,
-  eveningCourseCooldownMs: 20 * 60 * 1000,
+  baseTalentChancePct: 0,
+  talentChancePctPerExtraSchool: 0,
+  maxTalentChancePct: 0,
+  eveningCourseTalentChanceBonusPct: 0,
+  eveningCourseDurationMs: 20 * 60 * 1000,
+  eveningCourseDurationBonusMsPerLevel: 2 * 60 * 1000,
+  eveningCourseCooldownMs: 35 * 60 * 1000,
   eveningCourseCleanCost: 600,
   eveningCoursePopulationMultiplier: 1.6,
-  eveningCourseCleanIncomeMultiplier: 1.2
+  eveningCourseCleanIncomeMultiplier: 1
 });
 export const WAREHOUSE_BASE_STORAGE_CAPACITIES = Object.freeze({
   genericResources: 500,

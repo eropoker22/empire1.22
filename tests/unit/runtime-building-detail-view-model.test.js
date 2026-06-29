@@ -38,6 +38,18 @@ describe("building detail view-model builder", () => {
     expect(restaurantActions.every((action) => action.cooldownMs === 30 * 60 * 1000)).toBe(true);
   });
 
+  it("defines school evening course as apartment population speed boost without talents", () => {
+    const [schoolAction] = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.skola;
+
+    expect(schoolAction.schoolEveningCourse).toBe(true);
+    expect(schoolAction.durationMs).toBe(20 * 60 * 1000);
+    expect(schoolAction.durationBonusMsPerLevel).toBe(2 * 60 * 1000);
+    expect(schoolAction.cooldownMs).toBe(35 * 60 * 1000);
+    expect(schoolAction.apartmentPopulationBoostPct).toBe(60);
+    expect(schoolAction.talentChanceBonusPct).toBeUndefined();
+    expect(schoolAction.betterTalentChancePct).toBeUndefined();
+  });
+
   it("builds the generic building detail view model without DOM access", () => {
     const model = createBuildingDetailViewModel({
       district: { id: 7 },
@@ -114,7 +126,7 @@ describe("building detail view-model builder", () => {
       schoolIsFull: false,
       schoolTimeToFullMs: 120000,
       ownedSchools: 3,
-      schoolTalentChancePct: 12,
+      schoolTalentChancePct: 0,
       schoolNetwork: {
         incomeMultiplier: 1.1,
         studentCapacityMultiplier: 1.2
@@ -126,7 +138,13 @@ describe("building detail view-model builder", () => {
       label: "Clean / min",
       value: "+$10"
     });
-    expect(createBuildingDetailMechanicRows({ buildingName: "Škola", mechanics: schoolMechanics }).some((row) => row.label === "Večerní kurz")).toBe(true);
+    const stats = createBuildingDetailStatRows({ buildingName: "Škola", mechanics: schoolMechanics });
+    const mechanics = createBuildingDetailMechanicRows({ buildingName: "Škola", mechanics: schoolMechanics });
+    expect(stats.some((row) => row.label === "Talent")).toBe(false);
+    expect(mechanics.find((row) => row.label === "Večerní kurz")?.value).toBe("zrychlí výrobu lidí v bytových blocích");
+    expect(mechanics.some((row) => row.label === "Pravidla")).toBe(false);
+    expect(JSON.stringify(mechanics)).not.toContain("žádný dirty cash");
+    expect(JSON.stringify({ stats, mechanics })).not.toContain("talent");
   });
 
   it("formats restaurant network effects as percent bonus copy", () => {
@@ -343,7 +361,8 @@ describe("building detail view-model builder", () => {
     expect(model.upgrade.visible).toBe(false);
     expect(model.upgrade.disabled).toBe(true);
     expect(model.stats.map((row) => row.label)).toEqual(["Clean / min", "Heat / min", "Garáže", "Cooldowny"]);
-    expect(model.mechanics.find((row) => row.label === "Plný bonus")?.value).toContain("útok");
+    expect(model.mechanics.find((row) => row.label === "Síť garáží")?.value).toBe("Každá další garáž zvedá čistý výnos o +6 % a heat o +4 %.");
+    expect(model.mechanics.find((row) => row.label === "Plný cooldown bonus")?.value).toContain("útoky");
     expect(model.mechanics.find((row) => row.label === "Upgrade")).toBeUndefined();
     expect(model.actions).toEqual([]);
 

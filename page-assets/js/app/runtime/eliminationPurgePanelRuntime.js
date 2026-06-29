@@ -22,6 +22,7 @@ const RESULT_POPUP_SELECTOR = "[data-elimination-result-popup]";
 const RESULT_POPUP_BODY_SELECTOR = "[data-elimination-result-popup-body]";
 const RESULT_POPUP_CARD_SELECTOR = ".elimination-result-popup__card";
 const RESULT_POPUP_CLOSE_SELECTOR = "[data-elimination-result-popup-close]";
+const RESULT_POPUP_AVATAR_SELECTOR = "[data-elimination-result-popup-avatar]";
 const MOCK_ELIMINATION_RESET_COUNTDOWN_MS = 4 * 60 * 60 * 1000;
 const COUNTDOWN_WARNING_THRESHOLD_MS = 300000;
 const COUNTDOWN_WARNING_REOPEN_THRESHOLD_MS = 60000;
@@ -132,7 +133,33 @@ function createEliminationResultTitle(gangName) {
 }
 
 function createEliminationResultBody(gangName) {
-  return `Policie rozdrtila gang ${gangName}. Jeho území přechází do lockdownu.`;
+  return `Policie rozdrtila gang ${gangName}. Jeho území se vrací pod kontrolu města.`;
+}
+
+function getFiniteNumber(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function formatRemainingPlayers(remainingPlayers, serverCapacity) {
+  const remaining = getFiniteNumber(remainingPlayers);
+  if (remaining === null) return "—";
+  const safeRemaining = Math.max(0, Math.floor(remaining));
+  const capacity = getFiniteNumber(serverCapacity);
+  if (capacity !== null && capacity > 0) {
+    return `${safeRemaining}/${Math.max(1, Math.floor(capacity))}`;
+  }
+  return `${safeRemaining} hráčů`;
+}
+
+function renderResultTitle(title, gangName) {
+  const safeTitle = String(title || createEliminationResultTitle(gangName));
+  const safeGangName = String(gangName || "").trim();
+  if (!safeGangName || !safeTitle.includes(safeGangName)) {
+    return escapeHtml(safeTitle);
+  }
+  const [prefix, ...rest] = safeTitle.split(safeGangName);
+  return `${escapeHtml(prefix)}<span>${escapeHtml(safeGangName)}</span>${escapeHtml(rest.join(safeGangName))}`;
 }
 
 function normalizeStatus(value) {
@@ -324,6 +351,8 @@ function normalizeEliminationResult(result = {}, fallbackEntry = {}) {
     score: result.score ?? fallbackEntry.score ?? "",
     controlledDistricts: result.controlledDistricts ?? fallbackEntry.controlledDistricts ?? null,
     districtsNeutralized: Number(result.districtsNeutralized ?? fallbackEntry.districtsNeutralized ?? 0) || null,
+    remainingPlayers: result.remainingPlayers ?? result.activePlayersRemaining ?? fallbackEntry.remainingPlayers ?? fallbackEntry.activePlayersRemaining ?? null,
+    serverCapacity: result.serverCapacity ?? result.maxPlayersPerServer ?? fallbackEntry.serverCapacity ?? fallbackEntry.maxPlayersPerServer ?? null,
     title: result.title || createEliminationResultTitle(gangName),
     body: result.body || createEliminationResultBody(gangName)
   };
@@ -382,22 +411,40 @@ export function renderEliminationResultPopupBody(result = {}) {
   const avatarSrc = String(result.avatarSrc || "").trim();
   const escapedAvatarSrc = escapeUrlAttribute(avatarSrc);
   const avatarFallback = String(result.avatarFallback || getInitials(gangName)).trim();
-  const districtCount = Number(result.districtsNeutralized);
-  const districtLine = Number.isFinite(districtCount) && districtCount > 0
-    ? `<span class="elimination-result-popup__meta">${escapeHtml(districtCount)} districtů je teď neobsazených</span>`
-    : "";
+  const remainingPlayersLabel = formatRemainingPlayers(
+    result.remainingPlayers ?? result.activePlayersRemaining,
+    result.serverCapacity ?? result.maxPlayersPerServer
+  );
   return `
     <article class="elimination-result-popup__notice" role="alert" aria-live="assertive">
-      <div class="elimination-result-popup__avatar" aria-hidden="true">
+      <button type="button" class="elimination-result-popup__avatar" data-elimination-result-popup-avatar aria-label="Zvětšit avatar vypadlého hráče">
         ${escapedAvatarSrc
           ? `<img src="${escapedAvatarSrc}" alt="">`
           : `<span>${escapeHtml(avatarFallback)}</span>`}
-      </div>
+      </button>
       <div class="elimination-result-popup__copy">
-        <span class="elimination-result-popup__eyebrow">Očista dokončena</span>
-        <strong>${escapeHtml(result.title || createEliminationResultTitle(gangName))}</strong>
-        <p>${escapeHtml(result.body || createEliminationResultBody(gangName))}</p>
-        ${districtLine}
+        <div class="elimination-result-popup__copy-main">
+          <span class="elimination-result-popup__eyebrow">OČISTA DOKONČENA</span>
+          <strong>${renderResultTitle(result.title || createEliminationResultTitle(gangName), gangName)}</strong>
+          <p>${escapeHtml(result.body || createEliminationResultBody(gangName))}</p>
+        </div>
+      </div>
+      <div class="elimination-result-popup__chips" aria-label="Výsledek očisty">
+        <span class="elimination-result-popup__chip">
+          <i aria-hidden="true">!</i>
+          <span>Status:</span>
+          <strong>Gang eliminován</strong>
+        </span>
+        <span class="elimination-result-popup__chip">
+          <i aria-hidden="true">⌂</i>
+          <span>Důsledek:</span>
+          <strong>Území patří znovu městu</strong>
+        </span>
+        <span class="elimination-result-popup__chip">
+          <i aria-hidden="true">#</i>
+          <span>Zbývá hráčů:</span>
+          <strong>${escapeHtml(remainingPlayersLabel)}</strong>
+        </span>
       </div>
     </article>
   `;
@@ -625,6 +672,7 @@ export function bindEliminationResultPopup(root, deps = {}) {
   const close = () => {
     popup.hidden = true;
     popup.classList?.remove?.("is-open");
+    card?.classList?.remove?.("is-avatar-expanded");
     documentRef?.body?.classList?.remove?.("elimination-result-popup-open");
     documentRef?.removeEventListener?.("keydown", handleKeydown);
     lastTrigger?.focus?.();
@@ -645,11 +693,20 @@ export function bindEliminationResultPopup(root, deps = {}) {
   function handleKeydown(event) {
     if (event.key === "Escape") {
       event.preventDefault?.();
+      if (card?.classList?.contains?.("is-avatar-expanded")) {
+        card.classList.remove("is-avatar-expanded");
+        return;
+      }
       close();
     }
   }
 
   const handleClick = (event) => {
+    if (event.target?.closest?.(RESULT_POPUP_AVATAR_SELECTOR)) {
+      event.preventDefault?.();
+      card?.classList?.toggle?.("is-avatar-expanded");
+      return;
+    }
     if (event.target?.closest?.(RESULT_POPUP_CLOSE_SELECTOR)) {
       event.preventDefault?.();
       close();

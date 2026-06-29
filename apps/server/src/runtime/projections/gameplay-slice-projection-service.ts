@@ -1,10 +1,4 @@
-import {
-  createCityFeedProjection,
-  createConflictReportViews,
-  createPlayerFrontierSummaryView,
-  createOnboardingReadModel,
-  createPoliceReadModel
-} from "@empire/game-core";
+import { createCityFeedProjection, createConflictReportViews, createOnboardingReadModel, createPlayerFrontierSummaryView, createPoliceReadModel, getMarketViewModel } from "@empire/game-core";
 import {
   empireStreetsCityMapManifestHash,
   empireStreetsCityMapManifestId,
@@ -46,10 +40,7 @@ export const createGameplaySliceProjection = (
   };
   const basePlayer = createPlayerProjection(runtime, playerId);
   const selectedDistrictId = resolveSelectedDistrictId(runtime, playerId, districtId);
-  const police = createPoliceReadModel(runtime.state, playerId, {
-    config: runtime.config,
-    clock: runtime.clock
-  }, {
+  const police = createPoliceReadModel(runtime.state, playerId, { config: runtime.config, clock: runtime.clock }, {
     ...(selectedDistrictId ? { selectedDistrictId } : {})
   });
   const player = {
@@ -66,6 +57,7 @@ export const createGameplaySliceProjection = (
       mode: runtime.record.mode,
       currentTick: runtime.state.root.tick,
       stateVersion: runtime.state.root.version,
+      maxPlayersPerServer: runtime.config.balance.maxPlayersPerServer,
       selectedDistrictId: district?.districtId ?? null,
       mapManifestId: empireStreetsCityMapManifestId,
       mapManifestVersion: empireStreetsCityMapManifestVersion,
@@ -79,11 +71,9 @@ export const createGameplaySliceProjection = (
     frontier: createPlayerFrontierSummaryView(runtime.state, playerId),
     dayNight: player.dayNight ?? null,
     elimination: player.elimination ?? null,
-    onboarding: createOnboardingReadModel(runtime.state, playerId, {
-      config: runtime.config,
-      clock: runtime.clock
-    }),
+    onboarding: createOnboardingReadModel(runtime.state, playerId, { config: runtime.config, clock: runtime.clock }),
     police,
+    market: getMarketViewModel(runtime.state, runtime.state.playersById[playerId] ?? {}),
     cityFeed: createCityFeedProjection(runtime.state, {
       playerId,
       ...(selectedDistrictId ? { selectedDistrictId } : {}),

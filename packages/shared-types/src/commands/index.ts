@@ -7,6 +7,7 @@ export * from "./collect-production-command";
 export * from "./craft-item-command";
 export * from "./game-command";
 export * from "./heist-district-command";
+export * from "./market-command";
 export * from "./occupy-district-command";
 export * from "./place-defense-command";
 export * from "./place-trap-command";

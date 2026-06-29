@@ -5,6 +5,7 @@ import type { BuildStructureCommand } from "./build-structure-command";
 import type { CollectProductionCommand } from "./collect-production-command";
 import type { CraftItemCommand } from "./craft-item-command";
 import type { HeistDistrictCommand } from "./heist-district-command";
+import type { MarketCommand } from "./market-command";
 import type { OccupyDistrictCommand } from "./occupy-district-command";
 import type { PlaceDefenseCommand } from "./place-defense-command";
 import type { PlaceTrapCommand } from "./place-trap-command";
@@ -27,6 +28,7 @@ export type GameCommand =
   | CollectProductionCommand
   | CraftItemCommand
   | HeistDistrictCommand
+  | MarketCommand
   | OccupyDistrictCommand
   | PlaceDefenseCommand
   | PlaceTrapCommand

@@ -54,7 +54,9 @@ describe("scheduled elimination system", () => {
       playerId: "player:3",
       gangName: "Player 3",
       title: "Očista proběhla: Player 3",
-      body: "Policie rozdrtila gang Player 3. Jeho území přechází do lockdownu."
+      body: "Policie rozdrtila gang Player 3. Jeho území se vrací pod kontrolu města.",
+      remainingPlayers: 8,
+      serverCapacity: config.balance.maxPlayersPerServer
     });
     expect(Object.values(result.nextState.notificationsById)
       .find((notification) => notification.category === "elimination.defeated")?.payload).toMatchObject({
@@ -207,7 +209,8 @@ describe("scheduled elimination system", () => {
       payload: expect.objectContaining({
         gangName: "Player 3",
         title: "Očista proběhla: Player 3",
-        body: "Policie rozdrtila gang Player 3. Jeho území přechází do lockdownu."
+        body: "Policie rozdrtila gang Player 3. Jeho území se vrací pod kontrolu města.",
+        remainingPlayers: 8
       })
     });
     expect(feedEvent?.message).toContain("Player 3");

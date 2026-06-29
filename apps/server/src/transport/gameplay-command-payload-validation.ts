@@ -7,6 +7,10 @@ import {
   isBasicActionCommandType,
   validateBasicActionCommandPayload
 } from "./gameplay-basic-action-payload-validation";
+import {
+  isMarketCommandType,
+  validateMarketCommandPayload
+} from "./gameplay-market-payload-validation";
 
 type GameplaySliceRequestKind = "submit";
 
@@ -30,6 +34,10 @@ export const validateGameCommandPayload = (
   }
 
   if (validateAllianceCommandPayload(errors, type, payload)) {
+    return;
+  }
+
+  if (validateMarketCommandPayload(errors, type, payload)) {
     return;
   }
 
@@ -102,7 +110,7 @@ const hasPayloadSchema = (type: string): boolean =>
     "collect-production",
     "craft-item",
     "run-building-action"
-  ].includes(type) || isBasicActionCommandType(type) || isAllianceCommandType(type);
+  ].includes(type) || isBasicActionCommandType(type) || isAllianceCommandType(type) || isMarketCommandType(type);
 
 const validateRunBuildingActionOptionalPayload = (
   errors: DomainError[],

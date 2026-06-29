@@ -18,6 +18,7 @@ export const CORE_EVENT_TYPES = {
   productionCollected: "production-collected",
   itemProcessingStarted: "item-processing-started",
   itemCrafted: "item-crafted",
+  marketTransactionResolved: "market-transaction-resolved",
   policeRaidAcknowledged: "police-raid-acknowledged",
   policeRaidExpired: "police-raid-expired",
   policeRaidResolved: "police-raid-resolved",

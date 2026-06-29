@@ -1892,38 +1892,41 @@
   --upgrade-confirm-rgb-soft: 250, 204, 21;
   position: relative;
   z-index: 1;
-  width: min(100%, 420px);
+  width: min(100%, 560px);
   display: grid;
-  gap: 12px;
-  padding: 18px;
-  border-radius: 18px;
-  border: 1px solid rgba(var(--upgrade-confirm-rgb), 0.42);
+  gap: 15px;
+  padding: 22px;
+  border-radius: 20px;
+  border: 1px solid rgba(var(--upgrade-confirm-rgb), 0.48);
   background:
-    radial-gradient(circle at 100% 0%, rgba(var(--upgrade-confirm-rgb), 0.18), transparent 42%),
-    radial-gradient(circle at 0% 100%, rgba(var(--upgrade-confirm-rgb-soft), 0.12), transparent 48%),
-    linear-gradient(145deg, rgba(255, 184, 77, 0.1), rgba(120, 53, 15, 0.12) 42%, rgba(22, 11, 5, 0.62)),
-    rgba(18, 9, 5, 0.58);
+    radial-gradient(circle at 92% 8%, rgba(var(--upgrade-confirm-rgb), 0.22), transparent 38%),
+    radial-gradient(circle at 5% 100%, rgba(var(--upgrade-confirm-rgb-soft), 0.1), transparent 48%),
+    linear-gradient(145deg, rgba(251, 146, 60, 0.085), rgba(15, 23, 42, 0.3) 42%, rgba(2, 6, 14, 0.54)),
+    rgba(5, 8, 15, 0.5);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
     0 20px 44px rgba(2, 6, 23, 0.44),
-    0 0 28px rgba(var(--upgrade-confirm-rgb), 0.18);
-  backdrop-filter: blur(18px) saturate(1.2);
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    0 0 32px rgba(var(--upgrade-confirm-rgb), 0.2),
+    0 0 0 1px rgba(var(--upgrade-confirm-rgb), 0.08);
+  backdrop-filter: blur(20px) saturate(1.24);
+  -webkit-backdrop-filter: blur(20px) saturate(1.24);
 }
 
 .building-upgrade-confirm__eyebrow {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0;
   text-transform: uppercase;
-  color: rgba(255, 237, 213, 0.82);
+  color: rgba(254, 215, 170, 0.88);
+  text-shadow: 0 0 12px rgba(251, 146, 60, 0.16);
 }
 
 .building-upgrade-confirm__title {
   margin: 0;
-  font-size: 21px;
+  font-size: clamp(22px, 3vw, 30px);
   line-height: 1.15;
   color: #fff7ed;
+  text-shadow: 0 0 18px rgba(251, 146, 60, 0.14);
 }
 
 .building-upgrade-confirm__copy,
@@ -1936,19 +1939,23 @@
 
 .building-upgrade-confirm__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1.4fr);
+  gap: 12px;
 }
 
 .building-upgrade-confirm__stat {
   display: grid;
-  gap: 5px;
-  padding: 11px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 196, 107, 0.22);
+  gap: 8px;
+  align-content: start;
+  padding: 13px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 196, 107, 0.2);
   background:
     linear-gradient(135deg, rgba(255, 184, 77, 0.08), transparent 62%),
-    rgba(255, 255, 255, 0.035);
+    rgba(2, 6, 14, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 10px 22px rgba(2, 6, 23, 0.2);
 }
 
 .building-upgrade-confirm__stat span {
@@ -1960,6 +1967,93 @@
 .building-upgrade-confirm__stat strong {
   font-size: 15px;
   color: #fff7ed;
+}
+
+.building-upgrade-confirm__stat--benefits {
+  min-width: 0;
+}
+
+.building-upgrade-confirm__benefits {
+  display: grid;
+  gap: 8px;
+}
+
+.building-upgrade-confirm__benefit {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 8px;
+  border-radius: 11px;
+  border: 1px solid rgba(251, 191, 36, 0.16);
+  background:
+    linear-gradient(135deg, rgba(251, 146, 60, 0.1), rgba(15, 23, 42, 0.22)),
+    rgba(255, 255, 255, 0.025);
+}
+
+.building-upgrade-confirm__benefit--risk {
+  border-color: rgba(248, 113, 113, 0.22);
+  background:
+    linear-gradient(135deg, rgba(248, 113, 113, 0.11), rgba(15, 23, 42, 0.22)),
+    rgba(255, 255, 255, 0.025);
+}
+
+.building-upgrade-confirm__benefit--neutral,
+.building-upgrade-confirm__benefit--more {
+  border-color: rgba(148, 163, 184, 0.2);
+  background:
+    linear-gradient(135deg, rgba(148, 163, 184, 0.1), rgba(15, 23, 42, 0.22)),
+    rgba(255, 255, 255, 0.025);
+}
+
+.building-upgrade-confirm__benefit-icon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(251, 146, 60, 0.14);
+  color: #fed7aa;
+  font-size: 11px;
+  font-weight: 900;
+  box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.18);
+}
+
+.building-upgrade-confirm__benefit-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.building-upgrade-confirm__benefit-label {
+  color: rgba(255, 237, 213, 0.62);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.building-upgrade-confirm__benefit-value {
+  min-width: 0;
+  color: #fff7ed;
+  font-size: 14px;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.building-upgrade-confirm__benefit--more {
+  display: block;
+  color: rgba(255, 237, 213, 0.68);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.building-upgrade-confirm__payment-strip {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(251, 146, 60, 0.18);
+  background: rgba(2, 6, 14, 0.28);
 }
 
 .building-upgrade-confirm__actions {
@@ -2004,6 +2098,31 @@
   box-shadow:
     0 0 0 1px rgba(251, 146, 60, 0.22),
     0 10px 24px rgba(154, 52, 18, 0.34);
+}
+
+@media (max-width: 720px) {
+  .building-upgrade-confirm {
+    padding: 12px;
+  }
+
+  .building-upgrade-confirm__dialog {
+    width: min(100%, 430px);
+    gap: 12px;
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .building-upgrade-confirm__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .building-upgrade-confirm__actions {
+    flex-direction: column-reverse;
+  }
+
+  .building-upgrade-confirm__button {
+    width: 100%;
+  }
 }
 
 .building-upgrade-confirm__button:disabled {
@@ -6244,18 +6363,69 @@
     padding: 10px 12px;
   }
 
+  .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-mechanics {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    gap: 8px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-mechanic-row {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-mechanic-row strong {
+    text-align: center;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-card [data-district-building-detail-effects-section] > h5 {
+    margin-bottom: 110px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-mechanics {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    gap: 8px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-mechanic-row {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-mechanic-row strong {
+    text-align: center;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-card [data-district-building-detail-effects-section] > h5 {
+    margin-bottom: 80px;
+  }
+
   .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanics {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
     gap: 8px;
   }
 
   .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row {
     display: flex;
     width: 100%;
-    justify-content: flex-start;
+    justify-content: center;
     border-radius: 10px;
     padding: 10px 12px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row strong {
+    text-align: center;
   }
 
   .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card [data-district-building-detail-effects-section] > h5 {
@@ -6283,6 +6453,42 @@
 }
 
 @media (max-width: 720px) {
+  .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-mechanics {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    gap: 6px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-mechanic-row {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    border-radius: 10px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-mechanic-row strong {
+    text-align: center;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-mechanics {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    gap: 6px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-mechanic-row {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    border-radius: 10px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-mechanic-row strong {
+    text-align: center;
+  }
+
   .district-building-detail-shell[data-building-mechanics-type="exchange"] .district-building-detail-mechanics,
   .district-building-detail-shell[data-building-mechanics-type="exchange"] .district-building-detail-card .building-info-card__effects {
     justify-content: center;

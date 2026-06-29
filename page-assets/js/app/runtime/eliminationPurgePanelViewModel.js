@@ -21,7 +21,7 @@ function createEliminationResultTitle(gangName) {
 }
 
 function createEliminationResultBody(gangName) {
-  return `Policie rozdrtila gang ${gangName}. Jeho území přechází do lockdownu.`;
+  return `Policie rozdrtila gang ${gangName}. Jeho území se vrací pod kontrolu města.`;
 }
 
 function createMockFinalLockdownViewModel() {

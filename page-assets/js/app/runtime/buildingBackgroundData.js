@@ -31,6 +31,14 @@ const RECRUITMENT_CENTER_BG_1 = getAssetPath("budovy/residental/rekcentrum/rek1.
 const RECRUITMENT_CENTER_BG_2 = getAssetPath("budovy/residental/rekcentrum/rek2.png");
 const RECRUITMENT_CENTER_BG_3 = getAssetPath("budovy/residental/rekcentrum/rek3.png");
 const RECRUITMENT_CENTER_BG_4 = getAssetPath("budovy/residental/rekcentrum/rek4.png");
+const GARAGE_BG_1 = getAssetPath("budovy/residental/garage/gar1.png");
+const GARAGE_BG_2 = getAssetPath("budovy/residental/garage/gar2.png");
+const GARAGE_BG_3 = getAssetPath("budovy/residental/garage/gar3.png");
+const GARAGE_BG_4 = getAssetPath("budovy/residental/garage/gar4.png");
+const SCHOOL_BG_1 = getAssetPath("budovy/residental/skola/sko1.png");
+const SCHOOL_BG_2 = getAssetPath("budovy/residental/skola/sko2.png");
+const SCHOOL_BG_3 = getAssetPath("budovy/residental/skola/sko3.png");
+const SCHOOL_BG_4 = getAssetPath("budovy/residental/skola/sko4.png");
 const APARTMENT_BLOCK_BG_1 = getAssetPath("budovy/residental/blok/blok1.png");
 const APARTMENT_BLOCK_BG_2 = getAssetPath("budovy/residental/blok/blok2.png");
 const APARTMENT_BLOCK_BG_3 = getAssetPath("budovy/residental/blok/blok3.png");
@@ -79,6 +87,18 @@ export const DISTRICT_BUILDING_BACKGROUND_IMAGES_BY_BASE_NAME = Object.freeze({
     RECRUITMENT_CENTER_BG_2,
     RECRUITMENT_CENTER_BG_3,
     RECRUITMENT_CENTER_BG_4
+  ]),
+  Garage: Object.freeze([
+    GARAGE_BG_1,
+    GARAGE_BG_2,
+    GARAGE_BG_3,
+    GARAGE_BG_4
+  ]),
+  "Škola": Object.freeze([
+    SCHOOL_BG_1,
+    SCHOOL_BG_2,
+    SCHOOL_BG_3,
+    SCHOOL_BG_4
   ]),
   "Obchodní centrum": Object.freeze([
     MALL_BG_1,
@@ -206,5 +226,28 @@ export const DISTRICT_BUILDING_BACKGROUND_IMAGE_BY_VARIANT_NAME = Object.freeze(
   "Urban Soldiers Hub": RECRUITMENT_CENTER_BG_3,
   "Vortex Recruit Base": RECRUITMENT_CENTER_BG_3,
   "Frontline Enlistment": RECRUITMENT_CENTER_BG_4,
-  "No Mercy Recruitment": RECRUITMENT_CENTER_BG_4
+  "No Mercy Recruitment": RECRUITMENT_CENTER_BG_4,
+  "Iron Garage": GARAGE_BG_1,
+  "Street Wheels Hub": GARAGE_BG_1,
+  "BlackTorque Garage": GARAGE_BG_2,
+  "Ghost Garage": GARAGE_BG_2,
+  "NightRide Workshop": GARAGE_BG_3,
+  "SteelDrive Garage": GARAGE_BG_3,
+  "BackAlley Garage": GARAGE_BG_4,
+  "Velocity Garage": GARAGE_BG_4,
+  "Shadow Wheels": GARAGE_BG_4,
+  "Street Academy": SCHOOL_BG_1,
+  "Neon Learning Center": SCHOOL_BG_1,
+  "Urban Knowledge Hub": SCHOOL_BG_1,
+  "IronMind School": SCHOOL_BG_1,
+  "Shadow Education": SCHOOL_BG_2,
+  "Vortex Academy": SCHOOL_BG_2,
+  "CoreSkill Institute": SCHOOL_BG_2,
+  "Future Minds School": SCHOOL_BG_2,
+  "BlackBoard Academy": SCHOOL_BG_3,
+  "City Knowledge Center": SCHOOL_BG_3,
+  "BrainCore School": SCHOOL_BG_3,
+  "NextGen Academy": SCHOOL_BG_4,
+  "StreetWise Institute": SCHOOL_BG_4,
+  "LogicLab School": SCHOOL_BG_4
 });

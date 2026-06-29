@@ -435,16 +435,22 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         const speedGainPct = Math.max(0, Math.round((Number(nextMultiplier || currentMultiplier || 1) - Number(currentMultiplier || 1)) * 100));
         const hasEnoughMoney = Number(economyState.cleanMoney || 0) >= upgradeCost;
         const confirmed = await upgradeConfirmation.open({
-          benefitLabel: `+${speedGainPct}% rychlost · x${Number(nextMultiplier || currentMultiplier || 1).toFixed(2)}`,
+          benefits: [{
+            icon: "x",
+            label: "Rychlost výroby",
+            value: `+${speedGainPct}%`,
+            detail: `x${Number(currentMultiplier || 1).toFixed(2)} → x${Number(nextMultiplier || currentMultiplier || 1).toFixed(2)}`
+          }],
           buildingLabel: config?.label || "Budova",
           canConfirm: hasEnoughMoney,
           confirmLabel: hasEnoughMoney ? "Potvrdit upgrade" : "Nedostatek clean cash",
           costLabel: deps.formatCurrency?.(upgradeCost) || String(upgradeCost),
-          description: `${config?.label || "Budova"} přejde na level ${nextLevel} a zrychlí všechny své výrobní sloty.`,
+          description: "Potvrzením posuneš typ budovy na vyšší úroveň a okamžitě získáš nové bonusy.",
           noteLabel: hasEnoughMoney
             ? `Po potvrzení zaplatíš ${deps.formatCurrency?.(upgradeCost) || upgradeCost} clean cash.`
             : `Chybí ${deps.formatCurrency?.(upgradeCost - Number(economyState.cleanMoney || 0)) || (upgradeCost - Number(economyState.cleanMoney || 0))} clean cash.`,
-          titleLabel: `${config?.label || "Budova"} · Lv ${currentState.level} -> Lv ${nextLevel}`
+          titleLabel: `${config?.label || "Budova"} · L${currentState.level} → L${nextLevel}`,
+          upgradeLabel: `L${currentState.level} → L${nextLevel}`
         });
 
         if (!confirmed) {

@@ -122,7 +122,23 @@ function createResultPopupFixture() {
   const popupListeners = new Map();
   const documentListeners = new Map();
   const body = { innerHTML: "" };
-  const card = { focus: vi.fn() };
+  const cardClasses = new Set();
+  const card = {
+    focus: vi.fn(),
+    classList: {
+      add: vi.fn((value) => cardClasses.add(value)),
+      remove: vi.fn((value) => cardClasses.delete(value)),
+      contains: vi.fn((value) => cardClasses.has(value)),
+      toggle: vi.fn((value) => {
+        if (cardClasses.has(value)) {
+          cardClasses.delete(value);
+          return false;
+        }
+        cardClasses.add(value);
+        return true;
+      })
+    }
+  };
   const popupClassList = { add: vi.fn(), remove: vi.fn(), contains: vi.fn(() => false) };
   const popup = {
     hidden: true,
@@ -156,6 +172,7 @@ function createResultPopupFixture() {
   return {
     body,
     card,
+    cardClasses,
     documentListeners,
     listeners,
     popup,
@@ -362,22 +379,77 @@ describe("elimination purge panel runtime", () => {
     runtime.open({
       gangName: "LowKeyLad",
       title: "Očista proběhla: LowKeyLad",
-      body: "Policie rozdrtila gang LowKeyLad. Jeho území přechází do lockdownu.",
+      body: "Policie rozdrtila gang LowKeyLad. Jeho území se vrací pod kontrolu města.",
       avatarSrc: "../img/avatars/lowkey.jpg",
-      districtsNeutralized: 4
+      districtsNeutralized: 4,
+      remainingPlayers: 17,
+      serverCapacity: 20
     }, trigger);
 
     expect(fixture.popup.hidden).toBe(false);
     expect(fixture.root.ownerDocument.body.classList.add).toHaveBeenCalledWith("elimination-result-popup-open");
     expect(fixture.card.focus).toHaveBeenCalled();
-    expect(fixture.body.innerHTML).toContain("Očista proběhla: LowKeyLad");
-    expect(fixture.body.innerHTML).toContain("Policie rozdrtila gang LowKeyLad. Jeho území přechází do lockdownu.");
+    expect(fixture.body.innerHTML).toContain("Očista proběhla:");
+    expect(fixture.body.innerHTML).toContain("<span>LowKeyLad</span>");
+    expect(fixture.body.innerHTML).toContain("Policie rozdrtila gang LowKeyLad. Jeho území se vrací pod kontrolu města.");
     expect(fixture.body.innerHTML).toContain("../img/avatars/lowkey.jpg");
-    expect(fixture.body.innerHTML).toContain("4 districtů je teď neobsazených");
+    expect(fixture.body.innerHTML).toContain("Status:");
+    expect(fixture.body.innerHTML).toContain("Gang eliminován");
+    expect(fixture.body.innerHTML).toContain("Důsledek:");
+    expect(fixture.body.innerHTML).toContain("Území patří znovu městu");
+    expect(fixture.body.innerHTML).toContain("Zbývá hráčů:");
+    expect(fixture.body.innerHTML).toContain("17/20");
+    expect(fixture.body.innerHTML).not.toContain("lockdownu");
+    expect(fixture.body.innerHTML).not.toContain("Území v lockdownu");
+    expect(fixture.body.innerHTML).not.toContain("Policejní kontrola");
 
     fixture.documentListeners.get("keydown")({ key: "Escape", preventDefault: vi.fn() });
     expect(fixture.popup.hidden).toBe(true);
     expect(trigger.focus).toHaveBeenCalled();
+  });
+
+  it("lets players enlarge the eliminated avatar before closing the popup", () => {
+    const fixture = createResultPopupFixture();
+    const avatarTarget = createTarget("[data-elimination-result-popup-avatar]");
+    const runtime = bindEliminationResultPopup(fixture.root);
+
+    runtime.open({
+      gangName: "LowKeyLad",
+      avatarSrc: "../img/avatars/Mafia/grok_image_1773619750005.jpg"
+    });
+
+    fixture.listeners.get("click")({ target: avatarTarget, preventDefault: vi.fn() });
+    expect(fixture.card.classList.toggle).toHaveBeenCalledWith("is-avatar-expanded");
+    expect(fixture.cardClasses.has("is-avatar-expanded")).toBe(true);
+
+    fixture.documentListeners.get("keydown")({ key: "Escape", preventDefault: vi.fn() });
+    expect(fixture.popup.hidden).toBe(false);
+    expect(fixture.cardClasses.has("is-avatar-expanded")).toBe(false);
+
+    fixture.documentListeners.get("keydown")({ key: "Escape", preventDefault: vi.fn() });
+    expect(fixture.popup.hidden).toBe(true);
+  });
+
+  it("formats eliminated player count fallbacks without fake values", () => {
+    const withCapacity = renderEliminationResultPopupBody({
+      gangName: "LowKeyLad",
+      remainingPlayers: 17,
+      serverCapacity: 20
+    });
+    const withoutCapacity = renderEliminationResultPopupBody({
+      gangName: "LowKeyLad",
+      remainingPlayers: 17
+    });
+    const withoutRemaining = renderEliminationResultPopupBody({
+      gangName: "LowKeyLad"
+    });
+
+    expect(withCapacity).toContain("17/20");
+    expect(withoutCapacity).toContain("17 hráčů");
+    expect(withoutRemaining).toContain("—");
+    expect(withCapacity).toContain("OČISTA DOKONČENA");
+    expect(withCapacity).not.toContain("Režim:");
+    expect(withCapacity).not.toContain("Území v lockdownu");
   });
 
   it("blocks script avatar URLs in the eliminated gang result popup", () => {
