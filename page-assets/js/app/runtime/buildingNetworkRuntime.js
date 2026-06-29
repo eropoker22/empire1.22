@@ -53,6 +53,18 @@ export function createBuildingNetworkRuntime(deps = {}) {
     };
   };
 
+  const getOwnedRestaurantCount = () => countOwnedBuildingByBaseName("restaurace");
+  const getRestaurantNetworkMultipliers = (count = getOwnedRestaurantCount()) => {
+    const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
+    const config = deps.restaurantNetworkConfig;
+    return {
+      incomeMultiplier: Math.min(config.maxIncomeMultiplier, 1 + extra * config.incomeBonusPctPerExtraRestaurant / 100),
+      influenceMultiplier: Math.min(config.maxInfluenceMultiplier, 1 + extra * config.influenceBonusPctPerExtraRestaurant / 100),
+      rumorMultiplier: Math.min(config.maxRumorMultiplier, 1 + extra * config.rumorChanceBonusPctPerExtraRestaurant / 100),
+      heatMultiplier: Math.min(config.maxHeatMultiplier, 1 + extra * config.heatBonusPctPerExtraRestaurant / 100)
+    };
+  };
+
   const getOwnedAutoSalonCount = () => countOwnedBuildingByBaseName("autosalon");
   const getAutoSalonNetworkMultipliers = (count = getOwnedAutoSalonCount()) => {
     const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
@@ -283,10 +295,12 @@ export function createBuildingNetworkRuntime(deps = {}) {
     getOwnedExchangeOfficeCount,
     getOwnedFitnessClubCount,
     getOwnedGarageCount,
+    getOwnedRestaurantCount,
     getOwnedSchoolCount,
     getOwnedShoppingMallCountForMarket,
     getOwnedSmugglingTunnelCount,
     getOwnedWarehouseCount,
+    getRestaurantNetworkMultipliers,
     getSchoolNetworkMultipliers,
     getSchoolTalentChancePct,
     getShoppingMallMarketDiscountForTab,

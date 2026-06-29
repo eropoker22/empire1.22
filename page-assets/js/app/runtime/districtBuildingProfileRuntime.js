@@ -122,6 +122,54 @@ export function createDistrictBuildingProfileRuntime(deps = {}) {
     return variants[Math.abs(seed) % variants.length] || baseName;
   };
 
+  const getDistrictBuildingVariantSelection = (district, buildingName, occurrenceIndex = 0) => {
+    const baseName = String(buildingName || "Neznámá budova").trim() || "Neznámá budova";
+    const variants = deps.variantNamesByBaseName?.[baseName];
+    if (!Array.isArray(variants) || variants.length <= 0) {
+      return {
+        displayName: baseName,
+        variantIndex: -1
+      };
+    }
+
+    const districtId = Number(district?.id || 0) || 0;
+    const startIndex = Math.abs(
+      getDistrictBuildingSeed(district)
+      + (districtId * 31)
+      + (baseName.length * 17)
+    ) % variants.length;
+    const safeOccurrenceIndex = Math.max(0, Number(occurrenceIndex || 0));
+    const variantIndex = (startIndex + safeOccurrenceIndex) % variants.length;
+    const cycleIndex = Math.floor(safeOccurrenceIndex / variants.length);
+    const variantBaseName = variants[variantIndex] || baseName;
+    const displayName = cycleIndex > 0
+      ? `${variantBaseName} #${cycleIndex + 1}`
+      : variantBaseName;
+
+    return {
+      displayName,
+      variantIndex
+    };
+  };
+
+  const getDistrictBuildingImagePath = (baseName, variantIndex = -1, buildingIndex = 0) => {
+    const imagePaths = deps.backgroundImagesByBaseName?.[baseName];
+    if (!Array.isArray(imagePaths) || imagePaths.length <= 0) {
+      return null;
+    }
+
+    const variants = deps.variantNamesByBaseName?.[baseName];
+    const safeIndex = Number.isFinite(variantIndex) && variantIndex >= 0 ? variantIndex : Math.max(0, Number(buildingIndex || 0));
+    const poolIndex = Array.isArray(variants) && variants.length > 0
+      ? Math.min(
+          imagePaths.length - 1,
+          Math.floor((safeIndex * imagePaths.length) / Math.max(1, variants.length))
+        )
+      : safeIndex % imagePaths.length;
+
+    return imagePaths[poolIndex] || imagePaths[0] || null;
+  };
+
   const resolveDistrictBuildingPackage = (district) => {
     const districtType = deps.districtBuildingTypeMeta[district?.districtType] ? district.districtType : "resident";
     const fixedDowntownPackage = districtType === "downtown"
@@ -156,16 +204,33 @@ export function createDistrictBuildingProfileRuntime(deps = {}) {
     const districtType = deps.districtBuildingTypeMeta[district.districtType] ? district.districtType : "resident";
     const typeMeta = deps.districtBuildingTypeMeta[districtType] || deps.districtBuildingTypeMeta.resident;
     const packageMeta = resolveDistrictBuildingPackage({ ...district, districtType });
+    const buildingOccurrencesByBaseName = Array.isArray(packageMeta.buildings)
+      ? packageMeta.buildings.reduce((accumulator, buildingName) => {
+          const baseName = String(buildingName || "Neznámá budova").trim() || "Neznámá budova";
+          accumulator.set(baseName, (accumulator.get(baseName) || 0) + 1);
+          return accumulator;
+        }, new Map())
+      : new Map();
+    const consumedOccurrencesByBaseName = new Map();
     const buildings = Array.isArray(packageMeta.buildings)
       ? packageMeta.buildings.map((buildingName, index) => {
           const baseName = String(buildingName || "Neznámá budova").trim() || "Neznámá budova";
-          const displayName = getDistrictBuildingVariantName(district, baseName, index);
+          const occurrenceIndex = consumedOccurrencesByBaseName.get(baseName) || 0;
+          consumedOccurrencesByBaseName.set(baseName, occurrenceIndex + 1);
+          const variantSelection = (buildingOccurrencesByBaseName.get(baseName) || 0) > 1
+            ? getDistrictBuildingVariantSelection(district, baseName, occurrenceIndex, index)
+            : {
+                displayName: getDistrictBuildingVariantName(district, baseName, index),
+                variantIndex: -1
+              };
+          const displayName = variantSelection.displayName;
 
           return {
             index,
             baseName,
             displayName,
-            variantName: displayName !== baseName ? displayName : null
+            variantName: displayName !== baseName ? displayName : null,
+            imagePath: getDistrictBuildingImagePath(baseName, variantSelection.variantIndex, index)
           };
         })
       : [];

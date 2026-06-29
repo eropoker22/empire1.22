@@ -3,7 +3,7 @@ export function createAuthoritySessionAccessors(deps = {}) {
   const updateStoredPreviewSession = typeof deps.updateStoredPreviewSession === "function" ? deps.updateStoredPreviewSession : () => {};
   const documentRef = deps.documentRef || (typeof document === "undefined" ? null : document);
   const CustomEventCtor = deps.CustomEventCtor || globalThis.CustomEvent;
-  const defaultEconomyState = deps.defaultEconomyState || { cleanMoney: 1500, dirtyMoney: 300 };
+  const defaultEconomyState = deps.defaultEconomyState || { cleanMoney: 25000, dirtyMoney: 300 };
 
   const getStoredWeaponInventory = () => getAuthoritySession().inventory.weapons;
   const setStoredWeaponInventory = (payload) => updateStoredPreviewSession((session) => ({

@@ -60,7 +60,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   }),
   restaurace: Object.freeze({
     role: "Lokální cashflow",
-    info: "Restaurace generuje stabilní čistý i špinavý cashflow a slouží jako lokální kontaktní bod.",
+    info: "Restaurace generuje prachy a funguje jako místo pro schůzky všeho druhu.",
     actions: Object.freeze(["Vybrat tržby", "Krýt schůzky", "Posílit lokální síť"])
   }),
   "fitness club": Object.freeze({
@@ -80,7 +80,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   }),
   autosalon: Object.freeze({
     role: "Mobilita",
-    info: "Autosalon generuje peníze a zlepšuje mobilitu gangu. Lesklé kapoty vpředu, falešné smlouvy vzadu a klíče od aut, která nikdy neuvidí papíry. Autosalon není jen showroom. Je to úniková trasa na kolech.",
+    info: "Autosalon generuje peníze a zlepšuje mobilitu gangu. Lesklé kapoty vpředu, falešné smlouvy vzadu a klíče od aut, která nikdy neuvidí papíry. Autosalon není jen showroom. Je to strategická budova k mobilitě hráče.",
     actions: Object.freeze([])
   }),
   "obchodni centrum": Object.freeze({
@@ -96,7 +96,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   "poulicni dealeri": Object.freeze({
     role: "Distribuce",
     info: "Pouliční dealeři generují slabší dirty cash a prodávají látky z Drug Labu za špinavé peníze. Lab vyrobí produkt. Pouliční dealeři ho promění v peníze.",
-    actions: Object.freeze(["Spustit prodej"])
+    actions: Object.freeze(["Spustit prodej", "Vybrat hot cash", "Přesunout stash"])
   }),
   vecerka: Object.freeze({
     role: "Pouliční provoz",
@@ -112,6 +112,11 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
     role: "Ultra rare / economy / market control / financial power",
     info: "Burza je jediná na mapě. Neprodává zboží. Ovládá ceny, poplatky a rytmus celé ekonomiky. Skleněná věž v Downtownu, kde se války nevedou noži, ale grafy.",
     actions: Object.freeze(["Spekulativní nákup", "Tržní tlak", "Insider Window"])
+  }),
+  "centralni banka": Object.freeze({
+    role: "Ultra rare / finance / reserve / market stability",
+    info: "Centrální banka drží rezervy města pod zámkem. Kdo ovládá likviditu, přežije i drahou krizi.",
+    actions: Object.freeze(["Likviditní injekce", "Zmrazené účty", "Kurzovní intervence"])
   }),
   magistrat: Object.freeze({
     role: "Ultra rare / politics / city control / heat management",
@@ -209,9 +214,9 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
     Object.freeze({ schoolEveningCourse: true, cleanCost: 600, durationMs: 8 * 60 * 1000, cooldownMs: 20 * 60 * 1000, populationBoostPct: 60, talentChanceBonusPct: 12, betterTalentChancePct: 20, cleanIncomeBoostPct: 20, summary: "Večerní kurz zvedne studenty, šanci na talent a čistý příjem Školy." })
   ]),
   restaurace: Object.freeze([
-    Object.freeze({ clean: 180, dirty: 90, heat: 1, summary: "Lokální tržby přepsány do zdrojů." }),
-    Object.freeze({ durationMs: 2 * 60 * 60 * 1000, incomeBoostPct: 18, influence: 2, heat: 1, summary: "Schůzky zvedly dočasný income budovy." }),
-    Object.freeze({ influence: 4, heat: 2, durationMs: 60 * 60 * 1000, influenceBoostPct: 12, summary: "Lokální síť posílila vliv districtu." })
+    Object.freeze({ clean: 180, dirty: 90, heat: 1, durationMs: 30 * 60 * 1000, cooldownMs: 30 * 60 * 1000, summary: "Lokální tržby přepsány do zdrojů." }),
+    Object.freeze({ durationMs: 30 * 60 * 1000, cooldownMs: 30 * 60 * 1000, incomeBoostPct: 18, influence: 2, heat: 1, summary: "Schůzky zvedly dočasný income budovy." }),
+    Object.freeze({ influence: 4, heat: 2, durationMs: 30 * 60 * 1000, cooldownMs: 30 * 60 * 1000, influenceBoostPct: 12, summary: "Lokální síť posílila vliv districtu." })
   ]),
   "fitness club": Object.freeze([]),
   klinika: Object.freeze([
@@ -354,6 +359,7 @@ export const ARCADE_NETWORK_CONFIG = Object.freeze({
 });
 export const APARTMENT_BLOCK_BASE_CAPACITY = 50;
 export const APARTMENT_BLOCK_POPULATION_PER_MINUTE = 2;
+export const APARTMENT_BLOCK_MIN_COLLECT_POPULATION = 10;
 export const APARTMENT_BLOCK_NETWORK_CONFIG = Object.freeze({
   populationProductionBonusPctPerExtraBlock: 6,
   capacityBonusPctPerExtraBlock: 8,
@@ -410,6 +416,17 @@ export const SHOPPING_MALL_NETWORK_CONFIG = Object.freeze({
   maxDirtyIncomeMultiplier: 1.3,
   maxInfluenceMultiplier: 1.24,
   maxHeatMultiplier: 1.18
+});
+export const RESTAURANT_NETWORK_CONFIG = Object.freeze({
+  countOnMap: 36,
+  incomeBonusPctPerExtraRestaurant: 2.5,
+  influenceBonusPctPerExtraRestaurant: 3,
+  rumorChanceBonusPctPerExtraRestaurant: 4,
+  heatBonusPctPerExtraRestaurant: 2,
+  maxIncomeMultiplier: 1.25,
+  maxInfluenceMultiplier: 1.3,
+  maxRumorMultiplier: 1.4,
+  maxHeatMultiplier: 1.2
 });
 export const GARAGE_SUPPORT_CONFIG = Object.freeze({
   countOnMap: 16,
@@ -473,12 +490,28 @@ export const FITNESS_CLUB_SUPPORT_CONFIG = Object.freeze({
   countOnMap: 5,
   cleanCashPerMinute: 72,
   heatPerMinute: 0.04,
-  attackStrengthBonusPctPerClub: 4,
-  defenseStrengthBonusPctPerClub: 3,
-  maxAttackStrengthBonusPct: 20,
-  maxDefenseStrengthBonusPct: 15,
-  combinedRecruitmentFitnessAttackCapPct: 30,
-  combinedRecruitmentFitnessDefenseCapPct: 24,
+  attackStrengthBonusPctPerClub: 3,
+  defenseStrengthBonusPctPerClub: 2,
+  maxAttackStrengthBonusPct: 15,
+  maxDefenseStrengthBonusPct: 10,
+  combinedRecruitmentFitnessAttackCapPct: 24,
+  combinedRecruitmentFitnessDefenseCapPct: 18,
+  attackApplication: Object.freeze({
+    baseGangMemberAttack: 0.75,
+    "baseball-bat": 0.75,
+    pistol: 0.35,
+    grenade: 0.15,
+    smg: 0.25,
+    bazooka: 0.1
+  }),
+  defenseApplication: Object.freeze({
+    baseGangMemberDefense: 0.75,
+    vest: 0.4,
+    barricades: 0.2,
+    cameras: 0,
+    "defense-tower": 0,
+    alarm: 0
+  }),
   incomeBonusPctPerExtraClub: 5,
   heatBonusPctPerExtraClub: 3,
   maxIncomeMultiplier: 1.2,
@@ -543,10 +576,16 @@ export const DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES = Object.freeze({
   "poulicni dealeri": "street-dealers",
   vecerka: "convenience-store",
   "pasovaci tunel": "smuggling-tunnel",
+  burza: "stock-exchange",
   "centralni banka": "central-bank",
   magistrat: "city-hall",
+  "lobby klub": "lobby-club",
+  "lobby club": "lobby-club",
   "vip salonek": "vip-lounge",
   letiste: "airport",
+  pristav: "port",
+  parlament: "parliament",
+  soud: "court",
   "strip club": "strip-club",
   sklad: "warehouse",
   "energeticka stanice": "power-plant",

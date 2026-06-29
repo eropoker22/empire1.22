@@ -2690,7 +2690,8 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     overscroll-behavior-y: contain !important;
     scrollbar-gutter: stable;
     -webkit-overflow-scrolling: touch !important;
-    touch-action: pan-y !important;
+    touch-action: pan-y pinch-zoom !important;
+    pointer-events: auto !important;
   }
 
   .district-building-detail-shell:not([hidden]) {
@@ -2713,7 +2714,8 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     overflow-y: auto !important;
     overscroll-behavior-y: contain !important;
     -webkit-overflow-scrolling: touch !important;
-    touch-action: pan-y !important;
+    touch-action: pan-y pinch-zoom !important;
+    pointer-events: auto !important;
   }
 
   .district-building-detail-shell:not([hidden]) .district-building-detail-card .district-building-detail-panel:not(.hidden):not([hidden]) {
@@ -2722,7 +2724,8 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     overflow-y: auto !important;
     overscroll-behavior-y: contain !important;
     -webkit-overflow-scrolling: touch !important;
-    touch-action: pan-y !important;
+    touch-action: pan-y pinch-zoom !important;
+    pointer-events: auto !important;
   }
 
   body.game-modal-scroll-locked .district-building-detail-tabs {
@@ -2738,7 +2741,8 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     overscroll-behavior-y: contain !important;
     padding-bottom: max(18px, env(safe-area-inset-bottom)) !important;
     -webkit-overflow-scrolling: touch !important;
-    touch-action: pan-y !important;
+    touch-action: pan-y pinch-zoom !important;
+    pointer-events: auto !important;
   }
 
   body.game-modal-scroll-locked .district-building-detail-card [data-district-building-detail-effects-section],
@@ -2756,22 +2760,30 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     white-space: normal !important;
     overflow-wrap: anywhere !important;
     line-height: 1.42 !important;
+    justify-content: center !important;
+  }
+
+  body.game-modal-scroll-locked .district-building-detail-card [data-district-building-detail-effects-section] > h5 {
+    margin-bottom: 14px !important;
   }
 
   body.game-modal-scroll-locked .district-building-detail-mechanics {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
     gap: 8px !important;
+    justify-content: center !important;
   }
 
   body.game-modal-scroll-locked .district-building-detail-mechanic-row {
-    grid-template-columns: 1fr !important;
-    align-content: start !important;
-    align-items: start !important;
-    gap: 5px !important;
+    display: inline-flex !important;
+    align-content: center !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0 !important;
     min-width: 0 !important;
-    min-height: 72px !important;
-    padding: 10px 11px !important;
+    min-height: 0 !important;
+    padding: 9px 12px !important;
+    border-radius: 999px !important;
   }
 
   body.game-modal-scroll-locked .district-building-detail-mechanic-row span,
@@ -2779,18 +2791,16 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     min-width: 0 !important;
     max-width: 100% !important;
     overflow-wrap: anywhere !important;
-    text-align: left !important;
+    text-align: center !important;
   }
 
   body.game-modal-scroll-locked .district-building-detail-mechanic-row span {
-    font-size: 0.6rem !important;
-    line-height: 1.18 !important;
-    letter-spacing: 0.045em !important;
+    display: none !important;
   }
 
   body.game-modal-scroll-locked .district-building-detail-mechanic-row strong {
-    font-size: 0.72rem !important;
-    line-height: 1.28 !important;
+    font-size: 0.83rem !important;
+    line-height: 1.12 !important;
   }
 
   body.game-modal-scroll-locked .buildings-popup-card.buildings-modal__content {
@@ -2808,7 +2818,12 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
   body.game-modal-scroll-locked .buildings-popup__body {
     flex: 1 1 auto !important;
     min-height: 0 !important;
-    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y pinch-zoom !important;
+    pointer-events: auto !important;
   }
 
   body.game-modal-scroll-locked .buildings-popup__layout.buildings-modal__layout {
@@ -2817,7 +2832,12 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     grid-template-rows: auto minmax(0, 1fr) !important;
     height: 100% !important;
     min-height: 0 !important;
-    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y pinch-zoom !important;
+    pointer-events: auto !important;
   }
 
   body.game-modal-scroll-locked .buildings-popup__types.buildings-modal__types,
@@ -2827,7 +2847,8 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     overflow-y: auto !important;
     overscroll-behavior-y: contain !important;
     -webkit-overflow-scrolling: touch !important;
-    touch-action: pan-y !important;
+    touch-action: pan-y pinch-zoom !important;
+    pointer-events: auto !important;
   }
 
   body.game-modal-scroll-locked .buildings-popup__types.buildings-modal__types {
@@ -3230,12 +3251,12 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
     left: auto !important;
     inset: 6px 2px auto auto !important;
     z-index: 96 !important;
-    width: 28px !important;
-    min-width: 28px !important;
-    max-width: 28px !important;
-    height: 28px !important;
-    min-height: 28px !important;
-    max-height: 28px !important;
+    width: 22px !important;
+    min-width: 22px !important;
+    max-width: 22px !important;
+    height: 22px !important;
+    min-height: 22px !important;
+    max-height: 22px !important;
     margin: 0 !important;
     border: 0 !important;
     border-radius: 999px !important;
@@ -3246,7 +3267,7 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
   }
 
   html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .modal__close::after {
-    inset: 4px !important;
+    inset: 3px !important;
     border: 1px solid rgba(var(--mobile-building-scroll-rgb), 0.78) !important;
     background:
       radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.28), transparent 42%),
@@ -3259,7 +3280,7 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popu
   }
 
   html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .modal__close::before {
-    inset: 4px !important;
+    inset: 3px !important;
     display: block !important;
     background:
       linear-gradient(45deg, transparent 43%, currentColor 46%, currentColor 54%, transparent 57%),
@@ -4079,6 +4100,17 @@ html body .district-popup-card .district-atmosphere-window > .district-atmospher
     opacity: 0 !important;
     transform: none !important;
     pointer-events: none !important;
+  }
+
+  html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .modal__close {
+    color: rgb(var(--building-window-accent-rgb)) !important;
+  }
+
+  html body .district-building-detail-shell:not([hidden]) .district-building-detail-card .modal__close::before {
+    color: rgb(var(--building-window-accent-rgb)) !important;
+    text-shadow:
+      0 0 8px rgba(var(--building-window-accent-rgb), 0.52),
+      0 0 14px rgba(var(--building-window-secondary-rgb), 0.24) !important;
   }
 }
 
@@ -5522,25 +5554,21 @@ html body #police-action-result-modal:not(.hidden):not([hidden]) .modal__body {
     line-height: 1.28 !important;
   }
 
-  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-mechanics,
-  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-info-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-mechanics {
+    display: flex !important;
+    flex-wrap: wrap !important;
     gap: 6px !important;
   }
 
-  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-mechanic-row,
-  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-info-line {
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-mechanic-row {
     min-height: 0 !important;
-    gap: 4px !important;
-    padding: 8px 8px !important;
-    border-radius: 8px !important;
+    gap: 0 !important;
+    padding: 8px 10px !important;
+    border-radius: 999px !important;
   }
 
-  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-mechanic-row span,
-  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-info-line span {
-    font-size: 0.56rem !important;
-    line-height: 1.08 !important;
-    text-align: center !important;
+  html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-mechanic-row span {
+    display: none !important;
   }
 
   html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-mechanic-row strong,

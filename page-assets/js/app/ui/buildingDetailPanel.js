@@ -33,8 +33,39 @@ function createMechanicRow(scopeElement, row = {}) {
   label.textContent = row.label || "";
   value.textContent = row.value || "";
   element.dataset.detailRowLabel = normalizeDetailRowLabel(row.label);
+  if (row.tone) {
+    element.dataset.mechanicTone = String(row.tone);
+  }
   element.append(label, value);
   return element;
+}
+
+function createEffectCell(scopeElement, effect = "", effectIndex = 0) {
+  const element = createElement(scopeElement, "div", "district-building-detail-effect-cell");
+  const text = createElement(scopeElement, "strong");
+  if (!element || !text) return null;
+  const value = typeof effect === "string" ? effect : effect?.text || "";
+  const tone = typeof effect === "string" ? "" : String(effect?.tone || "").trim();
+  text.textContent = value || "";
+  element.dataset.effectIndex = String(effectIndex);
+  if (tone) {
+    element.dataset.effectTone = tone;
+  }
+  element.append(text);
+  return element;
+}
+
+function resolveBuildingDetailBackgroundUrl(scopeElement, imagePath = "") {
+  const value = String(imagePath || "").trim();
+  if (!value) return "";
+  if (/^(?:data|blob|https?):/iu.test(value)) return value;
+  const baseUri = getDocument(scopeElement)?.baseURI || "";
+  if (!baseUri || typeof URL === "undefined") return value;
+  try {
+    return new URL(value, baseUri).href;
+  } catch {
+    return value;
+  }
 }
 
 const SINGLE_PANEL_BUILDING_DETAIL_TYPES = new Set([
@@ -184,7 +215,7 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
   const effectsSection = createElement(root, "div", "building-info-card__section");
   if (effectsSection) effectsSection.dataset.districtBuildingDetailEffectsSection = "true";
   const effectsTitle = createElement(root, "h5");
-  const effects = createElement(root, "p", "building-info-card__effects");
+  const effects = createElement(root, "div", "building-info-card__effects district-building-detail-effects-list");
   if (effectsTitle) effectsTitle.textContent = "Efekty";
   if (effects) effects.dataset.districtBuildingDetailEffects = "true";
   if (effectsSection) effectsSection.append(effectsTitle, effects);
@@ -237,7 +268,17 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
     const actionButton = target.closest("[data-district-building-detail-action-index]");
     if (actionButton instanceof HTMLButtonElement && typeof callbacks.onRunAction === "function") {
       const actionIndex = Number.parseInt(actionButton.dataset.districtBuildingDetailActionIndex || "", 10);
-      if (Number.isFinite(actionIndex)) callbacks.onRunAction(shell, actionIndex);
+      if (Number.isFinite(actionIndex)) {
+        callbacks.onRunAction(shell, {
+          shell,
+          actionIndex,
+          actionId: actionButton.dataset.districtBuildingDetailActionId || "",
+          buildingTypeId: actionButton.dataset.districtBuildingDetailBuildingTypeId || "",
+          districtId: shell.dataset.districtBuildingDetailDistrictId || "",
+          buildingId: shell.dataset.districtBuildingDetailName || "",
+          buildingName: shell.dataset.districtBuildingDetailDisplayName || ""
+        });
+      }
     }
   });
   getDocument(root)?.addEventListener?.("keydown", (event) => {
@@ -277,6 +318,22 @@ function moveElementToStart(parent, child) {
   }
   if (typeof parent.replaceChildren === "function") {
     parent.replaceChildren(child, ...(Array.from(parent.children || []).filter((item) => item !== child)));
+  }
+}
+
+function moveElementToEnd(parent, child) {
+  if (!parent || !child) return;
+  const children = Array.from(parent.children || []);
+  if (child.parentNode === parent && children[children.length - 1] === child) return;
+  if (child.parentNode && child.parentNode !== parent && typeof child.remove === "function") {
+    child.remove();
+  }
+  if (child.parentNode === parent && typeof parent.replaceChildren === "function") {
+    parent.replaceChildren(...children.filter((item) => item !== child), child);
+    return;
+  }
+  if (typeof parent.append === "function") {
+    parent.append(child);
   }
 }
 
@@ -337,7 +394,9 @@ export function renderBuildingActions(buildingViewModel = {}, callbacks = {}, op
   const mount = buildingViewModel.actionsMount || options.mount || null;
   if (!mount) return false;
   mount.replaceChildren();
-  for (const rowView of Array.isArray(buildingViewModel.actions) ? buildingViewModel.actions : []) {
+  const rows = Array.isArray(buildingViewModel.actions) ? buildingViewModel.actions : [];
+  mount.dataset.districtBuildingDetailActionCount = String(rows.length);
+  for (const rowView of rows) {
     const row = createElement(mount, "button", "building-info-action-row");
     const title = createElement(mount, "strong", "building-info-action-row__title");
     const description = createElement(mount, "span", "building-info-action-row__desc");
@@ -345,14 +404,25 @@ export function renderBuildingActions(buildingViewModel = {}, callbacks = {}, op
     if (!row || !title || !description || !cooldown) continue;
     row.type = "button";
     row.dataset.districtBuildingDetailActionIndex = String(rowView.index ?? "");
+    row.dataset.districtBuildingDetailActionId = String(rowView.actionId || "");
+    row.dataset.districtBuildingDetailBuildingTypeId = String(rowView.buildingTypeId || "");
+    row.dataset.districtBuildingDetailActionState = Number(rowView.cooldownRemainingMs || 0) > 0
+      ? "cooldown"
+      : rowView.disabled
+        ? "disabled"
+        : "ready";
+    row.dataset.districtBuildingDetailSingleAction = rows.length === 1 ? "true" : "false";
+    row.dataset.districtBuildingDetailDisabledTone = String(rowView.disabledTone || "");
     row.disabled = Boolean(rowView.disabled);
+    if (rowView.disabledReason) {
+      row.title = rowView.disabledReason;
+      row.setAttribute("aria-label", `${rowView.title || "Akce"}: ${rowView.disabledReason}`);
+    }
     title.textContent = rowView.title || "";
-    description.textContent = rowView.description || "";
+    description.textContent = rowView.buttonCostLabel || "";
+    description.hidden = !rowView.buttonCostLabel;
     cooldown.textContent = rowView.cooldownLabel || "";
     row.append(title, description, cooldown);
-    if (typeof callbacks.onRunAction === "function") {
-      row.addEventListener("click", () => callbacks.onRunAction(rowView.index, rowView));
-    }
     mount.append(row);
   }
   return true;
@@ -456,6 +526,14 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
   shell.classList.toggle("is-downtown-building-detail", isDowntownBuilding);
   if (card instanceof HTMLElement) {
     card.classList.toggle("is-downtown-building-card", isDowntownBuilding);
+    const backgroundImagePath = resolveBuildingDetailBackgroundUrl(card, buildingViewModel.backgroundImagePath);
+    if (backgroundImagePath) {
+      card.style.setProperty("--building-detail-background-image", `url("${backgroundImagePath.replace(/"/g, '\\"')}")`);
+      card.dataset.buildingHasCustomBackground = "true";
+    } else {
+      card.style.removeProperty("--building-detail-background-image");
+      delete card.dataset.buildingHasCustomBackground;
+    }
   }
 
   const setText = (selector, value) => {
@@ -468,7 +546,23 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
   setText("[data-district-building-detail-level]", buildingViewModel.levelLabel || "L1");
   setText("[data-district-building-detail-name]", buildingViewModel.name || buildingViewModel.title || "Budova");
   setText("[data-district-building-detail-meta]", buildingViewModel.meta || "");
-  setText("[data-district-building-detail-effects]", buildingViewModel.effectsLabel || "Žádné aktivní mechaniky.");
+  const levelBadge = shell.querySelector("[data-district-building-detail-level]");
+  if (levelBadge instanceof HTMLElement) {
+    const showLevel = buildingViewModel.showLevel !== false;
+    levelBadge.hidden = !showLevel;
+    levelBadge.style.display = showLevel ? "" : "none";
+  }
+  const effectsMount = shell.querySelector("[data-district-building-detail-effects]");
+  if (effectsMount) {
+    const effects = Array.isArray(buildingViewModel.effects) && buildingViewModel.effects.length > 0
+      ? buildingViewModel.effects
+      : String(buildingViewModel.effectsLabel || "Žádné aktivní mechaniky.")
+        .split(" · ")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => ({ text: item, tone: "" }));
+    effectsMount.replaceChildren(...effects.map((item, effectIndex) => createEffectCell(effectsMount, item, effectIndex)).filter(Boolean));
+  }
 
   const collectButton = shell.querySelector("[data-district-building-detail-collect]");
   if (collectButton instanceof HTMLButtonElement) {
@@ -537,6 +631,9 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
   } else {
     restoreTabbedBuildingDetail(shell);
     syncBuildingDetailTabs(shell, shell.dataset.activeDistrictBuildingDetailTab === "all" ? "stats" : shell.dataset.activeDistrictBuildingDetailTab || "stats");
+  }
+  if (hasSpecialActions && actionSection instanceof HTMLElement && statsPanel instanceof HTMLElement) {
+    moveElementToEnd(statsPanel, actionSection);
   }
   shell.hidden = false;
   return true;

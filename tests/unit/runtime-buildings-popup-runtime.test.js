@@ -95,7 +95,7 @@ describe("buildings popup runtime", () => {
         }),
         expect.objectContaining({
           districtId: 3,
-          isOwnedByCurrentPlayer: false
+          isOwnedByCurrentPlayer: true
         })
       ]
     }));
@@ -120,6 +120,32 @@ describe("buildings popup runtime", () => {
           disabled: true,
           ownedDistrictCount: 0,
           meta: ""
+        })
+      ])
+    }));
+  });
+
+  it("treats all building types as owned in live phase", () => {
+    const { runtime, renderBuildingsPopupTypesPanel } = createRuntime({
+      getCurrentPlayerOwnedDistrictIds: () => new Set([1]),
+      getInteractionState: () => ({ gamePhase: "live", destroyedDistrictIds: new Set() })
+    });
+
+    runtime.renderBuildingsPopup("resident");
+
+    expect(renderBuildingsPopupTypesPanel).toHaveBeenLastCalledWith(undefined, expect.objectContaining({
+      types: expect.arrayContaining([
+        expect.objectContaining({
+          typeKey: "resident",
+          disabled: false,
+          ownedDistrictCount: 2,
+          meta: "(2)"
+        }),
+        expect.objectContaining({
+          typeKey: "industrial",
+          disabled: false,
+          ownedDistrictCount: 1,
+          meta: "(1)"
         })
       ])
     }));

@@ -120,9 +120,10 @@ export function renderDistrictBuildingList(elements = {}, view = {}) {
     }
     chip.type = "button";
     chip.dataset.districtBuildingName = building.name || building.displayName || "";
-    chip.textContent = building.name || building.displayName || "Budova";
-    if (building.displayName && building.displayName !== building.name) {
-      chip.title = building.displayName;
+    chip.dataset.districtBuildingDisplayName = building.displayName || building.name || "";
+    chip.textContent = building.displayName || building.name || "Budova";
+    if (building.name && building.displayName && building.displayName !== building.name) {
+      chip.title = building.name;
     }
     list.append(chip);
   }

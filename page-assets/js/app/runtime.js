@@ -509,6 +509,10 @@ import {
 } from "./runtime/formatters.js";
 import { DISTRICT_BUILDING_VARIANT_NAMES_BY_BASE_NAME } from "./runtime/buildingDisplayData.js";
 import {
+  DISTRICT_BUILDING_BACKGROUND_IMAGE_BY_VARIANT_NAME,
+  DISTRICT_BUILDING_BACKGROUND_IMAGES_BY_BASE_NAME
+} from "./runtime/buildingBackgroundData.js";
+import {
   applyHexAlpha,
   clamp,
   createSeededRandom,
@@ -577,6 +581,7 @@ import {
 } from "./runtime/districtBuildingData.js";
 import {
   APARTMENT_BLOCK_BASE_CAPACITY,
+  APARTMENT_BLOCK_MIN_COLLECT_POPULATION,
   APARTMENT_BLOCK_NETWORK_CONFIG,
   APARTMENT_BLOCK_POPULATION_PER_MINUTE,
   ARCADE_BASE_AUDIT_RISK_PCT,
@@ -606,12 +611,20 @@ import {
   EXCHANGE_OFFICE_NETWORK_CONFIG,
   FITNESS_CLUB_SUPPORT_CONFIG,
   GARAGE_SUPPORT_CONFIG,
+  RESTAURANT_NETWORK_CONFIG,
   SCHOOL_CONFIG,
   SHOPPING_MALL_NETWORK_CONFIG,
   SMUGGLING_TUNNEL_CONFIG,
   WAREHOUSE_BASE_STORAGE_CAPACITIES,
   WAREHOUSE_NETWORK_CONFIG
 } from "./runtime/buildingDetailData.js";
+import {
+  getBuildingSpecialActionCooldownUntil,
+  getRecyclingSalvagePoolView,
+  hasLegacyBuildingSpecialActionHandler,
+  resolveBuildingSpecialActionDefinition
+} from "./runtime/buildingSpecialActionRegistry.js";
+import { createBuildingSpecialActionConfirmationController } from "./runtime/buildingSpecialActionConfirmation.js";
 import {
   DISTRICT_GOSSIP_SEED_LIBRARY,
   POLICE_ACTION_SPECIALTY_QUOTES,
@@ -752,6 +765,7 @@ import {
 import { createPhaseToggleRuntime } from "./runtime/phaseToggleRuntime.js";
 import { createProductionBuildingPopupRuntime } from "./runtime/productionBuildingPopupRuntime.js";
 import { createFactoryPopupRuntime } from "./runtime/factoryPopupRuntime.js";
+import { createBuildingUpgradeConfirmationController } from "./runtime/buildingUpgradeConfirmation.js";
 import { createResultModalRuntime } from "./runtime/resultModalRuntime.js";
 import { createMarketPopupRuntime } from "./runtime/marketPopupRuntime.js";
 import { createAuthRegistrationRuntime } from "./runtime/authRegistrationRuntime.js";
@@ -4068,6 +4082,7 @@ const {
   remapDistrictId,
   remapDistrictType,
   startPhaseOwnerByDistrictId: START_PHASE_OWNER_BY_DISTRICT_ID,
+  backgroundImagesByBaseName: DISTRICT_BUILDING_BACKGROUND_IMAGES_BY_BASE_NAME,
   variantNamesByBaseName: DISTRICT_BUILDING_VARIANT_NAMES_BY_BASE_NAME
 });
 
@@ -4090,10 +4105,12 @@ const {
   getOwnedExchangeOfficeCount,
   getOwnedFitnessClubCount,
   getOwnedGarageCount,
+  getOwnedRestaurantCount,
   getOwnedSchoolCount,
   getOwnedShoppingMallCountForMarket,
   getOwnedSmugglingTunnelCount,
   getOwnedWarehouseCount,
+  getRestaurantNetworkMultipliers,
   getSchoolNetworkMultipliers,
   getSchoolTalentChancePct,
   getShoppingMallMarketDiscountForTab,
@@ -4123,6 +4140,7 @@ const {
   getStoredMaterialInventory,
   getStoredWeaponInventory,
   normalizeBuildingLookupKey,
+  restaurantNetworkConfig: RESTAURANT_NETWORK_CONFIG,
   resolveDistrictBuildingProfile,
   schoolConfig: SCHOOL_CONFIG,
   shoppingMallNetworkConfig: SHOPPING_MALL_NETWORK_CONFIG,
@@ -4131,6 +4149,33 @@ const {
   warehouseBaseStorageCapacities: WAREHOUSE_BASE_STORAGE_CAPACITIES,
   warehouseNetworkConfig: WAREHOUSE_NETWORK_CONFIG
 });
+
+function getOwnedDistrictBuildingCountByBaseName(baseName) {
+  const normalizedBaseName = normalizeBuildingLookupKey(baseName);
+  if (!normalizedBaseName) {
+    return 0;
+  }
+
+  const worldState = getResolvedWorldState();
+  const interactionState = {
+    ownedDistrictIds: new Set(worldState.ownedDistrictIds || []),
+    gamePhase: worldState.phase || "live"
+  };
+  const ownedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+
+  return getDistrictResourceCatalog().reduce((count, district) => {
+    if (!ownedDistrictIds.has(Number(district.id))) {
+      return count;
+    }
+
+    const profile = resolveDistrictBuildingProfile(district);
+    const matchingCount = (profile?.buildings || []).reduce((total, building) => (
+      normalizeBuildingLookupKey(building?.baseName) === normalizedBaseName ? total + 1 : total
+    ), 0);
+
+    return count + matchingCount;
+  }, 0);
+}
 
 function applyShoppingMallMarketDiscountToPrice(basePrice, discount) {
   const safeBasePrice = Math.max(1, Math.round(Number(basePrice || 1)));
@@ -4560,8 +4605,41 @@ function getDistrictBuildingSpecialActionProfile(buildingName, actionIndex) {
   return profiles[actionIndex] || null;
 }
 
+function getDistrictBuildingDetailBackgroundPath(district, buildingName, displayName = buildingName, activeBuilding = null) {
+  const exactVariantPath = String(
+    DISTRICT_BUILDING_BACKGROUND_IMAGE_BY_VARIANT_NAME[displayName]
+    || DISTRICT_BUILDING_BACKGROUND_IMAGE_BY_VARIANT_NAME[buildingName]
+    || ""
+  ).trim();
+  if (exactVariantPath) {
+    return exactVariantPath;
+  }
+
+  const explicitPath = String(activeBuilding?.imagePath || "").trim();
+  if (explicitPath) {
+    return explicitPath;
+  }
+
+  const baseName = resolveDistrictBuildingVariantBaseName(buildingName)
+    || resolveDistrictBuildingVariantBaseName(displayName)
+    || String(activeBuilding?.baseName || buildingName || displayName || "").trim();
+  const imagePaths = DISTRICT_BUILDING_BACKGROUND_IMAGES_BY_BASE_NAME[baseName] || [];
+  if (!Array.isArray(imagePaths) || imagePaths.length <= 0) {
+    return null;
+  }
+
+  const seed = `${district?.id ?? 0}:${baseName}:${displayName || buildingName}`;
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = ((hash * 31) + seed.charCodeAt(index)) >>> 0;
+  }
+  return imagePaths[hash % imagePaths.length] || imagePaths[0] || null;
+}
+
 const districtBuildingDetailContextByShell = new WeakMap();
 const districtBuildingDetailLiveRefreshTimers = new WeakMap();
+const districtBuildingDetailUpgradeConfirmations = new WeakMap();
+const districtBuildingDetailActionConfirmations = new WeakMap();
 const DISTRICT_BUILDING_DETAIL_LIVE_REFRESH_MS = 1000;
 
 function getDistrictBuildingRule(ruleSet, buildingName, fallback) {
@@ -4855,9 +4933,11 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
   const entry = getDistrictBuildingDetailEntry(district, buildingName);
   const mechanicsType = resolveDistrictBuildingDetailMechanicsType(buildingName);
   const buildingLookupKey = resolveDistrictBuildingCanonicalLookupKey(buildingName);
+  const ownedBuildingCount = getOwnedDistrictBuildingCountByBaseName(buildingLookupKey);
   const isShoppingMall = buildingLookupKey === "obchodni centrum";
   const isAutoSalon = buildingLookupKey === "autosalon";
   const isFitnessClub = buildingLookupKey === "fitness club";
+  const isRestaurant = mechanicsType === "restaurant" || buildingLookupKey === "restaurace";
   const isGarage = mechanicsType === "garage";
   const income = getDistrictBuildingRule(DISTRICT_BUILDING_MINUTE_INCOME_RULES_EMPIRE2, buildingName, { clean: 0, dirty: 0 });
   const heatRule = getDistrictBuildingRule(DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2, buildingName, { heat: 0 });
@@ -4890,7 +4970,11 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
   const ownedClinics = mechanicsType === "clinic" ? getOwnedClinicCount() : 0;
   const clinicNetwork = mechanicsType === "clinic" ? getClinicNetworkMultipliers(ownedClinics) : null;
   const clinicRecoveryRatePct = mechanicsType === "clinic" ? getClinicRecoveryRatePct(ownedClinics) : 0;
-  const clinicRecoveryPool = mechanicsType === "clinic" ? getClinicRecoveryPoolView(now) : null;
+  const recoveryPoolView = mechanicsType === "clinic" || mechanicsType === "recycling-center"
+    ? getClinicRecoveryPoolView(now)
+    : null;
+  const clinicRecoveryPool = mechanicsType === "clinic" ? recoveryPoolView : null;
+  const recyclingSalvagePool = mechanicsType === "recycling-center" ? recoveryPoolView : null;
   const ownedShoppingMalls = isShoppingMall ? getOwnedShoppingMallCountForMarket() : 0;
   const shoppingMallMarketDiscount = isShoppingMall ? getShoppingMallMarketDiscountForTab("market") : null;
   const shoppingMallBlackMarketDiscount = isShoppingMall ? getShoppingMallMarketDiscountForTab("black-market") : null;
@@ -4901,6 +4985,8 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
   const ownedFitnessClubs = isFitnessClub ? getOwnedFitnessClubCount() : 0;
   const fitnessClubNetwork = isFitnessClub ? getFitnessClubNetworkMultipliers(ownedFitnessClubs) : null;
   const fitnessClubSupport = isFitnessClub ? getFitnessClubSupportStats(ownedFitnessClubs) : null;
+  const ownedRestaurants = isRestaurant ? getOwnedRestaurantCount() : 0;
+  const restaurantNetwork = isRestaurant ? getRestaurantNetworkMultipliers(ownedRestaurants) : null;
   const ownedGarages = isGarage ? getOwnedGarageCount() : 0;
   const garageNetwork = isGarage ? getGarageNetworkMultipliers(ownedGarages) : null;
   const garageSupport = isGarage ? getGarageSupportStats(ownedGarages) : null;
@@ -4929,6 +5015,8 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     ? clinicNetwork.incomeMultiplier
     : fitnessClubNetwork
     ? fitnessClubNetwork.incomeMultiplier
+    : restaurantNetwork
+    ? restaurantNetwork.incomeMultiplier
     : garageNetwork
     ? garageNetwork.incomeMultiplier
     : schoolNetwork
@@ -5028,13 +5116,13 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
   const smugglingTimeToFullMs = mechanicsType === "smuggling-tunnel" && !smugglingIsFull && smugglingDirtyPerMinute > 0
     ? Math.ceil((smugglingBatchCapacity - smugglingStoredDirtyCash) / smugglingDirtyPerMinute * 60000)
     : 0;
-  const dailyHeat = Math.round(Number(heatRule.heat || 0) * (smugglingTunnelNetwork?.heatMultiplier || smugglingTunnelNetwork?.passiveHeatMultiplier || garageNetwork?.heatMultiplier || fitnessClubNetwork?.heatMultiplier || autoSalonNetwork?.heatMultiplier || clinicNetwork?.heatMultiplier || warehouseNetwork?.heatMultiplier || arcadeNetwork?.heatMultiplier || exchangeNetwork?.heatMultiplier || 1) * 1440 * 10) / 10;
-  const dailyInfluence = Math.round(Number(influenceRule.influence || 0) * 1440 * 10) / 10;
+  const dailyHeat = Math.round(Number(heatRule.heat || 0) * (smugglingTunnelNetwork?.heatMultiplier || smugglingTunnelNetwork?.passiveHeatMultiplier || garageNetwork?.heatMultiplier || fitnessClubNetwork?.heatMultiplier || restaurantNetwork?.heatMultiplier || autoSalonNetwork?.heatMultiplier || clinicNetwork?.heatMultiplier || warehouseNetwork?.heatMultiplier || arcadeNetwork?.heatMultiplier || exchangeNetwork?.heatMultiplier || 1) * 1440 * 10) / 10;
+  const dailyInfluence = Math.round(Number(influenceRule.influence || 0) * (restaurantNetwork?.influenceMultiplier || 1) * 1440 * 10) / 10;
   const activeEffectLabels = (entry.activeEffects || [])
     .map((effect) => `${effect.label || "Efekt"} ${formatDistrictBuildingCooldown(Number(effect.expiresAt || 0) - Date.now())}`)
     .filter(Boolean);
   const canCollect =
-    mechanicsType === "apartment-block" && apartmentWholePopulation > 0
+    mechanicsType === "apartment-block" && apartmentWholePopulation >= APARTMENT_BLOCK_MIN_COLLECT_POPULATION
     || mechanicsType === "school" && schoolWholeStudents > 0;
   const hasManualCollect =
     mechanicsType === "apartment-block"
@@ -5058,7 +5146,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     dailyHeat > 0 ? `Heat +${dailyHeat}/den` : "",
     dailyInfluence > 0 ? `Vliv +${dailyInfluence}/den` : "",
     ...activeEffectLabels,
-    `Level multiplier x${multiplier.toFixed(2)}`
+    `${restaurantNetwork ? "Network multiplier" : "Level multiplier"} x${multiplier.toFixed(2)}`
   ].filter(Boolean).join(" · ");
 
   return {
@@ -5112,6 +5200,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     clinicNetwork,
     clinicRecoveryRatePct,
     clinicRecoveryPool,
+    recyclingSalvagePool,
     ownedShoppingMalls,
     shoppingMallMarketDiscount,
     shoppingMallBlackMarketDiscount,
@@ -5122,6 +5211,8 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     ownedFitnessClubs,
     fitnessClubNetwork,
     fitnessClubSupport,
+    ownedRestaurants,
+    restaurantNetwork,
     ownedGarages,
     garageNetwork,
     garageSupport,
@@ -5151,6 +5242,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName) {
     moneyActionAmount,
     dailyHeat,
     dailyInfluence,
+    ownedBuildingCount,
     canCollect,
     hasManualCollect,
     storedOutputLabel,
@@ -5357,7 +5449,10 @@ function stopDistrictBuildingDetailLiveRefresh(shell) {
 }
 
 function syncDistrictBuildingDetailLiveRefresh(root, shell, mechanics = {}) {
-  const shouldRefresh = Boolean(mechanics.hasManualCollect);
+  const now = Date.now();
+  const hasActiveActionCooldown = Object.values(mechanics.actionCooldowns || {})
+    .some((value) => Number(value || 0) > now);
+  const shouldRefresh = Boolean(mechanics.hasManualCollect || hasActiveActionCooldown);
   if (!shell || !shouldRefresh) {
     stopDistrictBuildingDetailLiveRefresh(shell);
     return;
@@ -5412,8 +5507,8 @@ function collectDistrictBuildingDetailOutput(root, shell) {
 
   if (mechanics.mechanicsType === "apartment-block") {
     const collectedPopulation = Math.max(0, Math.floor(Number(mechanics.apartmentStoredPopulation || 0)));
-    if (collectedPopulation <= 0) {
-      setBuildingActionFeedback(root, "warning", context.buildingName, "Bytový blok zatím nemá obyvatele k vybrání.", "Počkej na další produkci.");
+    if (collectedPopulation < APARTMENT_BLOCK_MIN_COLLECT_POPULATION) {
+      setBuildingActionFeedback(root, "warning", context.buildingName, `Bytový blok potřebuje alespoň ${APARTMENT_BLOCK_MIN_COLLECT_POPULATION} lidí k výběru.`, `${collectedPopulation}/${APARTMENT_BLOCK_MIN_COLLECT_POPULATION} připraveno`);
       return;
     }
     const gangState = getResolvedGangState();
@@ -5625,7 +5720,107 @@ function upgradeDistrictBuildingDetail(root, shell) {
   refreshDistrictBuildingDetailPopup(root, shell);
 }
 
+function getDistrictBuildingDetailUpgradeConfirmation(root, shell) {
+  const existing = districtBuildingDetailUpgradeConfirmations.get(shell);
+  if (existing) {
+    return existing;
+  }
+
+  const documentRef = shell?.ownerDocument || root?.ownerDocument || (typeof document !== "undefined" ? document : null);
+  const controller = createBuildingUpgradeConfirmationController({
+    documentRef,
+    host: shell,
+    variant: "district"
+  });
+  districtBuildingDetailUpgradeConfirmations.set(shell, controller);
+  return controller;
+}
+
+function getDistrictBuildingUpgradeBenefitLabel(mechanics) {
+  if (mechanics?.nextCasinoUpgrade) {
+    const next = mechanics.nextCasinoUpgrade;
+    return [
+      next.incomeBonusPct > 0 ? `Income +${next.incomeBonusPct}%` : "",
+      next.launderingLimitBonusPct > 0 ? `Laundering +${next.launderingLimitBonusPct}%` : "",
+      next.launderingFeeReductionPct > 0 ? `Fee -${next.launderingFeeReductionPct}%` : ""
+    ].filter(Boolean).join(" · ") || `Level ${mechanics.nextLevel}`;
+  }
+
+  return `Level ${mechanics.nextLevel} · silnější cashflow a lokální efekty`;
+}
+
+function getDistrictBuildingUpgradeResourceStatus(mechanics) {
+  const economy = getResolvedEconomyState();
+  const cleanMoney = Math.max(0, Math.floor(Number(economy.cleanMoney || 0)));
+  const missing = [];
+
+  if (cleanMoney < mechanics.upgradeCost) {
+    missing.push(`${formatDistrictBuildingMoney(mechanics.upgradeCost - cleanMoney)} clean cash`);
+  }
+
+  if (mechanics.mechanicsType === "casino" && mechanics.nextLevel) {
+    const upgrade = getCasinoDetailUpgrade(mechanics.nextLevel);
+    const supplies = getStoredFactorySupplies();
+    const techCore = Math.max(0, Math.floor(Number(supplies.techCore || 0)));
+    const combatModule = Math.max(0, Math.floor(Number(supplies.combatModule || 0)));
+    if (techCore < upgrade.techCore) {
+      missing.push(`${upgrade.techCore - techCore} Tech Core`);
+    }
+    if (combatModule < upgrade.combatModule) {
+      missing.push(`${upgrade.combatModule - combatModule} Combat Module`);
+    }
+  }
+
+  return {
+    canConfirm: missing.length <= 0,
+    missing
+  };
+}
+
+async function confirmDistrictBuildingDetailUpgrade(root, shell) {
+  const context = districtBuildingDetailContextByShell.get(shell);
+  if (!context) {
+    return;
+  }
+
+  const mechanics = resolveDistrictBuildingDetailMechanics(context.district, context.buildingName);
+  if (mechanics.mechanicsType === "garage" || !mechanics.nextLevel) {
+    upgradeDistrictBuildingDetail(root, shell);
+    return;
+  }
+
+  const displayLabel = String(context.displayName || context.buildingName || "Budova").trim() || "Budova";
+  const resourceStatus = getDistrictBuildingUpgradeResourceStatus(mechanics);
+  const confirmation = getDistrictBuildingDetailUpgradeConfirmation(root, shell);
+  const confirmed = await confirmation.open({
+    benefitLabel: getDistrictBuildingUpgradeBenefitLabel(mechanics),
+    buildingLabel: displayLabel,
+    canConfirm: resourceStatus.canConfirm,
+    confirmLabel: resourceStatus.canConfirm ? "Potvrdit upgrade" : "Chybí zdroje",
+    costLabel: mechanics.upgradeCostLabel,
+    description: `${displayLabel} přejde na level ${mechanics.nextLevel} a posílí svoje efekty podle typu budovy.`,
+    noteLabel: resourceStatus.canConfirm
+      ? `Po potvrzení zaplatíš ${mechanics.upgradeCostLabel}.`
+      : `Chybí ${resourceStatus.missing.join(" + ")}.`,
+    titleLabel: `${displayLabel} · L${mechanics.level} -> L${mechanics.nextLevel}`
+  });
+
+  if (confirmed) {
+    upgradeDistrictBuildingDetail(root, shell);
+  }
+}
+
 function applyDistrictBuildingSpecialAction(root, context, action, actionProfile, mechanics) {
+  if (!hasLegacyBuildingSpecialActionHandler(actionProfile)) {
+    setBuildingActionFeedback(root, "warning", action, "Akce zatím nemá bezpečný handler. Odměna nebyla připsána.", context.buildingName);
+    console.warn("[Empire Streets] Unknown building special action handler", {
+      buildingName: context?.buildingName,
+      action,
+      actionProfile
+    });
+    return null;
+  }
+
   const economy = getResolvedEconomyState();
   const gangState = getResolvedGangState();
   let cleanMoney = Math.max(0, Math.floor(Number(economy.cleanMoney || 0)));
@@ -5637,8 +5832,8 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
 
   if (actionProfile.apartmentCollectPopulation) {
     const collectedPopulation = Math.max(0, Math.floor(Number(mechanics.apartmentStoredPopulation || 0)));
-    if (collectedPopulation <= 0) {
-      setBuildingActionFeedback(root, "warning", action, "Bytový blok zatím nemá obyvatele k vybrání.", context.buildingName);
+    if (collectedPopulation < APARTMENT_BLOCK_MIN_COLLECT_POPULATION) {
+      setBuildingActionFeedback(root, "warning", action, `Bytový blok potřebuje alespoň ${APARTMENT_BLOCK_MIN_COLLECT_POPULATION} lidí k výběru.`, `${collectedPopulation}/${APARTMENT_BLOCK_MIN_COLLECT_POPULATION} připraveno`);
       return null;
     }
     const remainingPopulation = Math.max(0, Number(mechanics.apartmentStoredPopulation || 0) - collectedPopulation);
@@ -5885,6 +6080,100 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
     summaryParts.push(`Cena ${formatDistrictBuildingMoney(cost)}`);
   }
 
+  if (actionProfile.recyclingExtractLosses) {
+    const cost = Math.max(0, Math.floor(Number(actionProfile.cleanCost || 0)));
+    if (cleanMoney < cost) {
+      setBuildingActionFeedback(root, "warning", action, `Chybí ${formatDistrictBuildingMoney(cost - cleanMoney)} clean cash.`, context.buildingName);
+      return null;
+    }
+
+    const poolView = mechanics.recyclingSalvagePool || getClinicRecoveryPoolView(Date.now());
+    const salvageFresh = getRecyclingSalvagePoolView(poolView).fresh;
+    if (salvageFresh.length <= 0) {
+      setBuildingActionFeedback(root, "warning", action, "Nemáš žádné ztráty k vytěžení.", context.buildingName);
+      return null;
+    }
+
+    const retainedForClinic = (poolView.fresh || [])
+      .filter((entry) => !salvageFresh.some((salvageEntry) => salvageEntry.id === entry.id));
+    const acceptedByType = {};
+    const lostByCapacity = {};
+    const salvageRate = 0.12;
+    const warehouseCapacity = getWarehouseCapacityBreakdown();
+    const warehouseUsage = getWarehouseStorageUsage(warehouseCapacity);
+    const groupUsage = { ...warehouseUsage };
+
+    for (const entry of salvageFresh) {
+      const itemId = normalizeClinicRecoverableItem(entry.itemType);
+      const rawAmount = Math.max(0, Number(entry.amount || 0)) * salvageRate;
+      let recoverAmount = Math.floor(rawAmount);
+      if (recoverAmount <= 0 && rawAmount > 0 && Math.random() < rawAmount) {
+        recoverAmount = 1;
+      }
+      if (recoverAmount <= 0) continue;
+
+      const cap = getClinicWarehouseCapacityForItem(itemId, warehouseCapacity);
+      const usageKey = itemId === "chemicals" || itemId === "biomass"
+        ? itemId
+        : itemId === "metal-parts"
+          ? "metalParts"
+          : itemId === "tech-core"
+            ? "techCore"
+            : itemId === "combat-module"
+              ? "combatModule"
+              : ["neon-dust", "pulse-shot", "velvet-smoke", "ghost-serum", "overdrive-x"].includes(itemId)
+                ? "drugsAndBoosts"
+                : ["baseball-bat", "pistol", "grenade", "smg", "bazooka", "vest", "barricades", "cameras", "defense-tower", "alarm"].includes(itemId)
+                  ? "weaponsAndDefense"
+                  : "genericResources";
+      const currentUsage = Math.max(0, Math.floor(Number(groupUsage[usageKey] || 0)));
+      const accepted = Number.isFinite(cap) ? Math.max(0, Math.min(recoverAmount, cap - currentUsage)) : recoverAmount;
+      const overflow = Math.max(0, recoverAmount - accepted);
+      if (accepted > 0) {
+        groupUsage[usageKey] = currentUsage + accepted;
+        acceptedByType[itemId] = Math.max(0, Math.floor(Number(acceptedByType[itemId] || 0)) + accepted);
+      }
+      if (overflow > 0) {
+        lostByCapacity[itemId] = Math.max(0, Math.floor(Number(lostByCapacity[itemId] || 0)) + overflow);
+      }
+    }
+
+    if (Object.keys(acceptedByType).length <= 0) {
+      setBuildingActionFeedback(root, "warning", action, "Salvage pool je příliš malý na vytěžení použitelných itemů.", context.buildingName);
+      return null;
+    }
+
+    cleanMoney -= cost;
+    setStoredEconomyState({ cleanMoney, dirtyMoney });
+    applyTopbarEconomy(root);
+    const supplies = getStoredFactorySupplies();
+    const nextSupplies = { ...supplies };
+    for (const [itemId, amount] of Object.entries(acceptedByType)) {
+      const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
+      if (safeAmount <= 0) continue;
+      if (itemId === "metal-parts") {
+        nextSupplies.metalParts = Math.max(0, Math.floor(Number(nextSupplies.metalParts || 0)) + safeAmount);
+      } else if (itemId === "tech-core") {
+        nextSupplies.techCore = Math.max(0, Math.floor(Number(nextSupplies.techCore || 0)) + safeAmount);
+      } else if (itemId === "combat-module") {
+        nextSupplies.combatModule = Math.max(0, Math.floor(Number(nextSupplies.combatModule || 0)) + safeAmount);
+      } else if (["neon-dust", "pulse-shot", "velvet-smoke", "ghost-serum", "overdrive-x"].includes(itemId)) {
+        applyInventoryOutput({ inventory: "drugs", itemId, amount: safeAmount });
+      } else if (["baseball-bat", "pistol", "grenade", "smg", "bazooka", "vest", "barricades", "cameras", "defense-tower", "alarm"].includes(itemId)) {
+        applyInventoryOutput({ inventory: "weapons", itemId, amount: safeAmount });
+      } else {
+        applyInventoryOutput({ inventory: "materials", itemId, amount: safeAmount });
+      }
+    }
+    setStoredFactorySupplies(nextSupplies);
+    setStoredClinicRecoveryPool(retainedForClinic);
+    economyChanged = true;
+    summaryParts.push(`Vytěženo ${Object.entries(acceptedByType).map(([itemId, amount]) => `${getProductionResourceLabel(itemId)} x${amount}`).join(", ")}`);
+    const capacityLoss = Object.values(lostByCapacity).reduce((total, amount) => total + Math.max(0, Math.floor(Number(amount || 0))), 0);
+    if (capacityLoss > 0) summaryParts.push(`Propadlo kvůli skladu ${capacityLoss}`);
+    summaryParts.push(`Cena ${formatDistrictBuildingMoney(cost)}`);
+  }
+
   if (actionProfile.casinoQuietBackroom) {
     if (dirtyMoney < Math.max(0, Number(actionProfile.minimumDirty || 0))) {
       setBuildingActionFeedback(root, "warning", action, `Potřebuješ alespoň ${formatDistrictBuildingMoney(actionProfile.minimumDirty)} dirty cash.`, context.buildingName);
@@ -6028,10 +6317,11 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
   }
 
   if (actionProfile.influence) {
-    setGangInfluenceValue(Number(gangState.influence || 0) + Math.floor(Number(actionProfile.influence || 0)));
+    const influenceGain = Math.max(0, Number(actionProfile.influence || 0));
+    setGangInfluenceValue(Number(gangState.influence || 0) + influenceGain);
     renderSpyResourceState(root, { animate: true });
     influenceChanged = true;
-    summaryParts.push(`Vliv +${Math.floor(Number(actionProfile.influence || 0))}`);
+    summaryParts.push(`Vliv +${Number.isInteger(influenceGain) ? String(influenceGain) : influenceGain.toFixed(1).replace(/\.0$/u, "")}`);
   }
 
   if (actionProfile.heat) {
@@ -6079,10 +6369,11 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
   }
 
   const durationMs = Math.max(0, Number(actionProfile.durationMs || 0));
-  const activeEffect = durationMs > 0
+  const effectDurationMs = Math.max(durationMs, Number(actionProfile.auditRiskDurationMs || 0));
+  const activeEffect = effectDurationMs > 0
     ? {
         label: action,
-        expiresAt: Date.now() + durationMs,
+        expiresAt: Date.now() + effectDurationMs,
         incomeBoostPct: Math.max(0, Number(actionProfile.incomeBoostPct || 0)),
         cleanIncomeBoostPct: Math.max(0, Number(actionProfile.cleanIncomeBoostPct || 0)),
         dirtyIncomeBoostPct: Math.max(0, Number(actionProfile.dirtyIncomeBoostPct || 0)),
@@ -6096,14 +6387,7 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
     : null;
 
   if (activeEffect) {
-    summaryParts.push(`Efekt ${formatDistrictBuildingCooldown(durationMs)}`);
-  }
-
-  if (!economyChanged && !influenceChanged && !membersChanged && !actionProfile.heat && !activeEffect && summaryParts.length <= 0) {
-    const influenceGain = Math.max(1, Math.floor(mechanics.influenceActionGain / 2));
-    setGangInfluenceValue(Number(gangState.influence || 0) + influenceGain);
-    renderSpyResourceState(root, { animate: true });
-    summaryParts.push(`Vliv +${influenceGain}`);
+    summaryParts.push(`Efekt ${formatDistrictBuildingCooldown(effectDurationMs)}`);
   }
 
   return {
@@ -6112,31 +6396,129 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
   };
 }
 
-function runDistrictBuildingDetailAction(root, shell, actionIndex) {
+function getDistrictBuildingSpecialActionConfirmation(root, shell) {
+  const existing = districtBuildingDetailActionConfirmations.get(shell);
+  if (existing) {
+    return existing;
+  }
+
+  const documentRef = shell?.ownerDocument || root?.ownerDocument || (typeof document !== "undefined" ? document : null);
+  const controller = createBuildingSpecialActionConfirmationController({
+    documentRef,
+    host: shell
+  });
+  districtBuildingDetailActionConfirmations.set(shell, controller);
+  return controller;
+}
+
+function resolveDistrictBuildingActionRequest(context, request = {}) {
+  const actionIndex = Number.isFinite(Number(request?.actionIndex))
+    ? Number(request.actionIndex)
+    : Number.isFinite(Number(request))
+      ? Number(request)
+      : -1;
+  const profile = getDistrictBuildingDetailProfile(context.buildingName);
+  const action = profile.actions[actionIndex];
+  const actionProfile = getDistrictBuildingSpecialActionProfile(context.buildingName, actionIndex);
+  const definition = resolveBuildingSpecialActionDefinition({
+    buildingName: context.buildingName,
+    actionLabel: action,
+    actionIndex,
+    actionProfile
+  });
+  return {
+    actionIndex,
+    action,
+    actionProfile,
+    definition,
+    profile
+  };
+}
+
+async function confirmAndRunDistrictBuildingDetailAction(root, shell, request) {
+  const context = districtBuildingDetailContextByShell.get(shell);
+  if (!context) {
+    return false;
+  }
+
+  const resolved = resolveDistrictBuildingActionRequest(context, request);
+  if (!resolved.action) {
+    return false;
+  }
+
+  const mechanics = resolveDistrictBuildingDetailMechanics(context.district, context.buildingName);
+  const cooldownUntil = getBuildingSpecialActionCooldownUntil(mechanics.actionCooldowns, resolved.definition.actionId, resolved.actionIndex);
+  const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
+  const disabledReason = resolved.definition.disabledReason
+    || (cooldownRemaining > 0 ? `Cooldown ${formatDistrictBuildingCooldown(cooldownRemaining)}.` : "");
+  const controller = getDistrictBuildingSpecialActionConfirmation(root, shell);
+  const confirmed = await controller.open({
+    titleLabel: resolved.definition.confirmTitle,
+    buildingLabel: context.displayName || context.buildingName,
+    districtLabel: context.district?.id ? `District ${context.district.id}` : "",
+    description: resolved.definition.confirmBody,
+    costSummary: resolved.definition.costSummary,
+    rewardSummary: resolved.definition.rewardSummary,
+    riskSummary: resolved.definition.riskSummary,
+    cooldownLabel: resolved.definition.cooldownMs > 0 ? formatDistrictBuildingCooldown(resolved.definition.cooldownMs) : "Ready",
+    disabledReason,
+    canConfirm: !disabledReason
+  });
+  if (!confirmed) {
+    return false;
+  }
+
+  return runDistrictBuildingActionFromContext(root, context, {
+    ...request,
+    actionIndex: resolved.actionIndex,
+    actionId: resolved.definition.actionId
+  }, { shell });
+}
+
+function runDistrictBuildingDetailAction(root, shell, request) {
   const context = districtBuildingDetailContextByShell.get(shell);
   if (!context) {
     return;
   }
 
-  runDistrictBuildingActionFromContext(root, context, actionIndex, { shell });
+  confirmAndRunDistrictBuildingDetailAction(root, shell, request);
 }
 
-function runDistrictBuildingActionFromContext(root, context, actionIndex, options = {}) {
-  const profile = getDistrictBuildingDetailProfile(context.buildingName);
-  const action = profile.actions[actionIndex];
+function runDistrictBuildingActionFromContext(root, context, request, options = {}) {
+  const resolved = resolveDistrictBuildingActionRequest(context, request);
+  const { actionIndex, action, actionProfile, definition } = resolved;
   if (!action) {
     return false;
   }
 
   const mechanics = resolveDistrictBuildingDetailMechanics(context.district, context.buildingName);
-  const cooldownUntil = Number(mechanics.actionCooldowns?.[actionIndex] || 0);
+  if (request?.actionId && request.actionId !== definition.actionId) {
+    setBuildingActionFeedback(root, "warning", action, "Neplatná identita akce. Akce nebyla spuštěna.", context.buildingName);
+    console.warn("[Empire Streets] Building actionId mismatch", {
+      expected: definition.actionId,
+      received: request.actionId,
+      buildingName: context.buildingName,
+      actionIndex
+    });
+    return false;
+  }
+
+  if (definition.status !== "implemented" || !hasLegacyBuildingSpecialActionHandler(actionProfile || {})) {
+    setBuildingActionFeedback(root, "warning", action, definition.disabledReason || "Akce zatím není připravená.", context.buildingName);
+    console.warn("[Empire Streets] Blocked unimplemented building action", {
+      actionId: definition.actionId,
+      buildingName: context.buildingName
+    });
+    return false;
+  }
+
+  const cooldownUntil = getBuildingSpecialActionCooldownUntil(mechanics.actionCooldowns, definition.actionId, actionIndex);
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
   if (cooldownRemaining > 0) {
     setBuildingActionFeedback(root, "warning", action, `Akce má cooldown ${formatDistrictBuildingCooldown(cooldownRemaining)}.`, context.buildingName);
     return false;
   }
 
-  const actionProfile = getDistrictBuildingSpecialActionProfile(context.buildingName, actionIndex);
   if (actionProfile?.casinoVipNight) {
     const activeVip = getDistrictBuildingDetailEntry(context.district, context.buildingName)
       .activeEffects?.find((effect) => effect.label === action && Number(effect.expiresAt || 0) > Date.now());
@@ -6175,7 +6557,7 @@ function runDistrictBuildingActionFromContext(root, context, actionIndex, option
       : (entry.activeEffects || []),
     actionCooldowns: {
       ...(entry.actionCooldowns || {}),
-      [actionIndex]: Date.now() + actionCooldownMs
+      [definition.actionId]: Date.now() + actionCooldownMs
     }
   }));
 
@@ -6186,6 +6568,25 @@ function runDistrictBuildingActionFromContext(root, context, actionIndex, option
     actionResult.summary,
     context.district?.id ? `${context.buildingName} · District ${context.district.id}` : context.buildingName
   );
+  appendBuildingActionResultEntry(root, "police", {
+    title: `${context.buildingName}: ${action}`,
+    summary: actionResult.summary,
+    badge: context.district?.id ? `District ${context.district.id}` : "Budova",
+    tone: "success",
+    items: [
+      { label: "Budova", value: context.displayName || context.buildingName },
+      { label: "Akce", value: action },
+      { label: "Cooldown", value: actionCooldownMs > 0 ? formatDistrictBuildingCooldown(actionCooldownMs) : "Ready" }
+    ],
+    meta: context.district?.id ? `District ${context.district.id}` : "",
+    actionId: definition.actionId,
+    buildingTypeId: definition.buildingTypeId
+  }, {
+    tone: "success",
+    title: `${context.buildingName}: ${action}`,
+    summary: actionResult.summary,
+    meta: context.district?.id ? `District ${context.district.id}` : "Budova"
+  }, { syncPreview: true, forceLog: true, refresh: false });
   if (options.shell) {
     refreshDistrictBuildingDetailPopup(root, options.shell);
   }
@@ -6231,7 +6632,7 @@ function ensureDistrictBuildingDetailPopup(root, popupKey = "") {
       syncBuildingDetailTopbarVisibility(root);
     },
     onCollect: (shell) => collectDistrictBuildingDetailOutput(root, shell),
-    onUpgrade: (shell) => upgradeDistrictBuildingDetail(root, shell),
+    onUpgrade: (shell) => confirmDistrictBuildingDetailUpgrade(root, shell),
     onRunAction: (shell, actionIndex) => runDistrictBuildingDetailAction(root, shell, actionIndex)
   }, { popupKey });
 }
@@ -6244,10 +6645,25 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
   const detailEntry = getDistrictBuildingDetailEntry(district, buildingName);
   const buildingProfile = resolveDistrictBuildingProfile(district);
   const displayLabel = String(displayName || buildingName || "Budova").trim() || "Budova";
+  const displayLookupKey = normalizeBuildingLookupKey(displayLabel);
+  const buildingLookupKey = normalizeBuildingLookupKey(buildingName);
+  const variantBaseLookupKey = normalizeBuildingLookupKey(resolveDistrictBuildingVariantBaseName(displayLabel) || resolveDistrictBuildingVariantBaseName(buildingName));
+  const activeBuilding = Array.isArray(buildingProfile?.buildings)
+    ? buildingProfile.buildings.find((building) => building.displayName === displayLabel || building.baseName === buildingName)
+      || buildingProfile.buildings.find((building) => {
+        const candidateDisplayKey = normalizeBuildingLookupKey(building?.displayName);
+        const candidateBaseKey = normalizeBuildingLookupKey(building?.baseName);
+        return candidateDisplayKey === displayLookupKey
+          || candidateBaseKey === buildingLookupKey
+          || candidateBaseKey === variantBaseLookupKey;
+      })
+    : null;
+  const buildingBackgroundPath = getDistrictBuildingDetailBackgroundPath(district, buildingName, displayLabel, activeBuilding);
 
   districtBuildingDetailContextByShell.set(shell, { district, buildingName, displayName: displayLabel });
   shell.dataset.districtBuildingDetailKey = popupKey;
   shell.dataset.districtBuildingDetailName = normalizeBuildingLookupKey(buildingName) || "building";
+  shell.dataset.districtBuildingDetailDisplayName = displayLabel;
   shell.dataset.districtBuildingDetailDistrictId = district?.id == null ? "unknown" : String(district.id);
   shell.dataset.buildingDistrictType = buildingProfile?.typeKey || district?.districtType || "unknown";
   shell.dataset.buildingMechanicsType = mechanics.mechanicsType;
@@ -6349,6 +6765,7 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
     mechanics,
     detailEntry,
     buildingProfile,
+    buildingBackgroundPath,
     economyState: getResolvedEconomyState(),
     playerHeat: getResolvedGangState().heat,
     actionProfiles: (Array.isArray(profile.actions) ? profile.actions : []).map((_, actionIndex) => getDistrictBuildingSpecialActionProfile(buildingName, actionIndex)),
@@ -8473,6 +8890,7 @@ function bindDistrictCanvas(root) {
       }
 
       openDistrictBuildingDetail(selectedDistrict, chipButton.dataset.districtBuildingName || "", {
+        displayName: chipButton.dataset.districtBuildingDisplayName || "",
         preferGenericDetail: true
       });
     });
@@ -9659,6 +10077,66 @@ function publicOpenBuildingDetail(districtIdOrBuildingName, buildingName = "", o
   return getRuntimeDistrictApi()?.openBuildingDetail?.(districtIdOrBuildingName, buildingName, options) || false;
 }
 
+function tryOpenDevApartmentBlockCardOnInit() {
+  const districtApi = getRuntimeDistrictApi();
+  if (!districtApi?.getDistrictById || !districtApi?.getDistrictBuildingProfile || !districtApi?.getAllDistricts) {
+    return false;
+  }
+
+  const candidateDistricts = [];
+  const seenDistrictIds = new Set();
+
+  const addDistrict = (district) => {
+    const districtId = Number(district?.id || 0);
+    if (!districtId || seenDistrictIds.has(districtId)) {
+      return;
+    }
+    seenDistrictIds.add(districtId);
+    candidateDistricts.push(district);
+  };
+
+  addDistrict(districtApi.getSelectedDistrict?.() || null);
+  for (const districtId of normalizeWorldOwnedDistrictIds(getResolvedWorldState())) {
+    addDistrict(districtApi.getDistrictById(districtId));
+  }
+  for (const district of districtApi.getAllDistricts()) {
+    addDistrict(district);
+  }
+
+  for (const district of candidateDistricts) {
+    const buildingProfile = districtApi.getDistrictBuildingProfile(district.id);
+    const apartmentBlock = Array.isArray(buildingProfile?.buildings)
+      ? buildingProfile.buildings.find((building) => normalizeBuildingLookupKey(building?.baseName) === "bytovy blok")
+      : null;
+
+    if (!apartmentBlock?.baseName) {
+      continue;
+    }
+
+    return publicOpenBuildingDetail(district.id, apartmentBlock.baseName, {
+      displayName: apartmentBlock.displayName || apartmentBlock.baseName,
+      preferGenericDetail: true
+    });
+  }
+
+  return false;
+}
+
+function scheduleDevApartmentBlockCardOpen(attempt = 0) {
+  if (tryOpenDevApartmentBlockCardOnInit()) {
+    return true;
+  }
+
+  if (attempt >= 8 || typeof window === "undefined" || typeof window.setTimeout !== "function") {
+    return false;
+  }
+
+  window.setTimeout(() => {
+    scheduleDevApartmentBlockCardOpen(attempt + 1);
+  }, 80);
+  return false;
+}
+
 function publicCollectProduction() {
   const root = getPublicRuntimeRoot();
   const clicked = clickFirstRuntimeElement(root, [
@@ -9804,6 +10282,7 @@ function initRuntime(root = getDefaultRuntimeRoot()) {
     const context = runtimeContextsByRoot.get(resolvedRoot) || createPageContext(resolvedRoot);
     syncRuntimePassiveProductionState({ root: resolvedRoot, force: true });
     refreshAllUi(hydrateInitialState(resolvedRoot));
+    scheduleDevApartmentBlockCardOpen();
     return context;
   }
 
@@ -9815,6 +10294,7 @@ function initRuntime(root = getDefaultRuntimeRoot()) {
   syncRuntimePassiveProductionState({ root: resolvedRoot, force: true });
   applySettingsState(getSettingsState());
   refreshAllUi(hydrateInitialState(resolvedRoot));
+  scheduleDevApartmentBlockCardOpen();
   resolvedRoot.dataset.bootstrap = "ready";
   resolvedRoot.dataset.runtimeInit = "ready";
   document.documentElement.dataset.page = context.name;

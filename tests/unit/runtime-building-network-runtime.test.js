@@ -38,6 +38,7 @@ function createRuntime(overrides = {}) {
     getStoredMaterialInventory: () => ({ chemicals: 3, biomass: 4, "metal-parts": 5, "tech-core": 6, "combat-module": 7, "stim-pack": 1 }),
     getStoredWeaponInventory: () => ({ pistol: 2 }),
     normalizeBuildingLookupKey: (value) => String(value || "").toLowerCase(),
+    restaurantNetworkConfig: { maxIncomeMultiplier: 2, incomeBonusPctPerExtraRestaurant: 10, maxInfluenceMultiplier: 2, influenceBonusPctPerExtraRestaurant: 10, maxRumorMultiplier: 2, rumorChanceBonusPctPerExtraRestaurant: 10, maxHeatMultiplier: 2, heatBonusPctPerExtraRestaurant: 10 },
     resolveDistrictBuildingProfile: (district) => ({ buildings: profiles[district.id] || [] }),
     schoolConfig: { maxPopulationProductionMultiplier: 2, populationProductionBonusPctPerExtraSchool: 10, maxStudentCapacityMultiplier: 2, studentCapacityBonusPctPerExtraSchool: 10, maxIncomeMultiplier: 2, incomeBonusPctPerExtraSchool: 10, maxTalentChancePct: 50, baseTalentChancePct: 10, talentChancePctPerExtraSchool: 5, eveningCourseTalentChanceBonusPct: 20 },
     shoppingMallNetworkConfig: { maxCleanIncomeMultiplier: 2, cleanIncomeBonusPctPerExtraMall: 10, maxDirtyIncomeMultiplier: 2, dirtyIncomeBonusPctPerExtraMall: 10, maxInfluenceMultiplier: 2, influenceBonusPctPerExtraMall: 10, maxHeatMultiplier: 2, heatBonusPctPerExtraMall: 10 },
@@ -57,6 +58,26 @@ describe("building network runtime", () => {
     expect(runtime.getOwnedShoppingMallCountForMarket()).toBe(1);
     expect(runtime.getAutoSalonNetworkMultipliers(2).cleanIncomeMultiplier).toBe(1.1);
     expect(runtime.getAutoSalonSupportStats(2).mobilityBonusPct).toBe(10);
+  });
+
+  it("counts owned restaurants and resolves restaurant network multipliers", () => {
+    const runtime = createRuntime({
+      resolveDistrictBuildingProfile: (district) => ({
+        buildings: {
+          1: [{ baseName: "Restaurace" }],
+          2: [{ baseName: "restaurace" }],
+          3: [{ baseName: "Restaurace" }]
+        }[district.id] || []
+      })
+    });
+
+    expect(runtime.getOwnedRestaurantCount()).toBe(2);
+    expect(runtime.getRestaurantNetworkMultipliers(2)).toMatchObject({
+      incomeMultiplier: 1.1,
+      influenceMultiplier: 1.1,
+      rumorMultiplier: 1.1,
+      heatMultiplier: 1.1
+    });
   });
 
   it("keeps warehouse capacity and usage helpers deterministic", () => {

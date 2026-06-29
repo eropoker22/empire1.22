@@ -11,9 +11,9 @@ function createElement(dataset = {}) {
     addEventListener: vi.fn((type, listener) => {
       listeners.set(type, [...(listeners.get(type) || []), listener]);
     }),
-    dispatch(type) {
+    async dispatch(type) {
       for (const listener of listeners.get(type) || []) {
-        listener({ key: "Escape", type });
+        await listener({ key: "Escape", type });
       }
     },
     querySelector: vi.fn(),
@@ -199,6 +199,103 @@ describe("factory popup runtime", () => {
       queuedAmount: 0,
       productionRemainder: 0,
       producedAmount: 2
+    }));
+  });
+
+  it("waits for upgrade confirmation before spending factory cash", async () => {
+    const open = createElement();
+    const popup = createElement();
+    const close = createElement();
+    const collect = createElement();
+    const upgrade = createElement();
+    const setStoredEconomyState = vi.fn();
+    const setStoredFactoryState = vi.fn();
+    const createUpgradeConfirmationController = vi.fn(() => ({
+      close: vi.fn(),
+      isOpen: vi.fn(() => false),
+      open: vi.fn(() => Promise.resolve(false))
+    }));
+    const runtime = createRuntime({
+      createUpgradeConfirmationController,
+      setStoredEconomyState,
+      setStoredFactoryState,
+      syncBuildingDetailTopbarVisibility: vi.fn()
+    });
+    const root = createRoot({
+      ".collect": collect,
+      ".combat": createElement(),
+      ".header": createElement(),
+      ".level": createElement(),
+      ".metal": createElement(),
+      ".multiplier": createElement(),
+      ".open": open,
+      ".owned": createElement(),
+      ".popup": popup,
+      ".slots": createElement(),
+      ".supply-combat": createElement(),
+      ".supply-metal": createElement(),
+      ".supply-tech": createElement(),
+      ".tech": createElement(),
+      ".upgrade": upgrade,
+      ".upgrade-cost": createElement()
+    }, {
+      ".close": [close]
+    });
+
+    expect(runtime.bindFactoryPopup(root)).toBe(true);
+    await upgrade.dispatch("click");
+
+    expect(createUpgradeConfirmationController).toHaveBeenCalled();
+    expect(setStoredEconomyState).not.toHaveBeenCalled();
+    expect(setStoredFactoryState).not.toHaveBeenCalled();
+  });
+
+  it("upgrades factory after confirmation", async () => {
+    const open = createElement();
+    const popup = createElement();
+    const close = createElement();
+    const collect = createElement();
+    const upgrade = createElement();
+    const setStoredEconomyState = vi.fn();
+    const setStoredFactoryState = vi.fn();
+    const createUpgradeConfirmationController = vi.fn(() => ({
+      close: vi.fn(),
+      isOpen: vi.fn(() => false),
+      open: vi.fn(() => Promise.resolve(true))
+    }));
+    const runtime = createRuntime({
+      createUpgradeConfirmationController,
+      setStoredEconomyState,
+      setStoredFactoryState,
+      syncBuildingDetailTopbarVisibility: vi.fn()
+    });
+    const root = createRoot({
+      ".collect": collect,
+      ".combat": createElement(),
+      ".header": createElement(),
+      ".level": createElement(),
+      ".metal": createElement(),
+      ".multiplier": createElement(),
+      ".open": open,
+      ".owned": createElement(),
+      ".popup": popup,
+      ".slots": createElement(),
+      ".supply-combat": createElement(),
+      ".supply-metal": createElement(),
+      ".supply-tech": createElement(),
+      ".tech": createElement(),
+      ".upgrade": upgrade,
+      ".upgrade-cost": createElement()
+    }, {
+      ".close": [close]
+    });
+
+    expect(runtime.bindFactoryPopup(root)).toBe(true);
+    await upgrade.dispatch("click");
+
+    expect(setStoredEconomyState).toHaveBeenCalledWith({ cleanMoney: 900 });
+    expect(setStoredFactoryState).toHaveBeenCalledWith(expect.objectContaining({
+      level: 2
     }));
   });
 });

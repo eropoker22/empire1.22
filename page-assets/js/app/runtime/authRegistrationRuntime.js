@@ -85,7 +85,7 @@ export function createAuthRegistrationRuntime(deps = {}) {
       const identity = identityInput.value.trim() || "Host";
       const factionId = factionInput.value in deps.FACTION_CATALOG ? factionInput.value : "mafian";
       const now = new Date().toISOString();
-      const defaultEconomy = deps.DEFAULT_ECONOMY_STATE || { cleanMoney: 1500, dirtyMoney: 300 };
+      const defaultEconomy = deps.DEFAULT_ECONOMY_STATE || { cleanMoney: 25000, dirtyMoney: 300 };
       const defaultGangState = deps.DEFAULT_GANG_STATE || { influence: 0, heat: 0 };
 
       deps.setStoredRegistration?.({ identity, factionId, lockedAt: now });

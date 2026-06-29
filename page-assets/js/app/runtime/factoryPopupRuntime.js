@@ -1,3 +1,5 @@
+import { createBuildingUpgradeConfirmationController } from "./buildingUpgradeConfirmation.js";
+
 function queryAll(root, selector) {
   return selector ? Array.from(root?.querySelectorAll?.(selector) || []) : [];
 }
@@ -55,6 +57,15 @@ export function createFactoryPopupRuntime(deps = {}) {
     const tabButtons = queryAll(popup, selectors.tab);
     const panels = queryAll(popup, selectors.panel);
     const infoPanel = popup.querySelector('[data-factory-panel="info"]');
+    const upgradeConfirmation = deps.createUpgradeConfirmationController?.({
+      documentRef,
+      host: popup,
+      variant: "factory"
+    }) || createBuildingUpgradeConfirmationController({
+      documentRef,
+      host: popup,
+      variant: "factory"
+    });
 
     const setActiveTab = (tabName = "stats") => {
       for (const button of tabButtons) {
@@ -145,6 +156,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     };
 
     const closePopup = () => {
+      upgradeConfirmation.close?.();
       popup.hidden = true;
       deps.syncBuildingDetailTopbarVisibility?.(root);
     };
@@ -182,7 +194,7 @@ export function createFactoryPopupRuntime(deps = {}) {
       }));
     });
 
-    upgradeButton.addEventListener("click", () => {
+    upgradeButton.addEventListener("click", async () => {
       const factoryState = deps.getStoredFactoryState?.() || {};
       if (factoryState.level >= deps.FACTORY_CONFIG.maxLevel) {
         return;
@@ -190,13 +202,35 @@ export function createFactoryPopupRuntime(deps = {}) {
       const nextLevel = factoryState.level + 1;
       const upgradeCost = deps.getFactoryUpgradeCost?.(nextLevel) || 0;
       const economyState = deps.getResolvedEconomyState?.() || {};
-      if (Number(economyState.cleanMoney || 0) < upgradeCost) {
-        deps.setBuildingActionFeedback?.(root, "warning", "Továrna", `Na upgrade chybí ${deps.formatCurrency?.(upgradeCost - economyState.cleanMoney)}.`);
+      const currentMultiplier = deps.getFactoryLevelMultiplier?.(factoryState.level) || 1;
+      const nextMultiplier = deps.getFactoryLevelMultiplier?.(nextLevel) || currentMultiplier;
+      const speedGainPct = Math.max(0, Math.round((Number(nextMultiplier || currentMultiplier || 1) - Number(currentMultiplier || 1)) * 100));
+      const hasEnoughMoney = Number(economyState.cleanMoney || 0) >= upgradeCost;
+      const confirmed = await upgradeConfirmation.open({
+        benefitLabel: `+${speedGainPct}% rychlost · x${Number(nextMultiplier || currentMultiplier || 1).toFixed(2)}`,
+        buildingLabel: "Továrna",
+        canConfirm: hasEnoughMoney,
+        confirmLabel: hasEnoughMoney ? "Potvrdit upgrade" : "Nedostatek clean cash",
+        costLabel: deps.formatCurrency?.(upgradeCost) || String(upgradeCost),
+        description: `Továrna přejde na level ${nextLevel} a zrychlí všechny výrobní sloty.`,
+        noteLabel: hasEnoughMoney
+          ? `Po potvrzení zaplatíš ${deps.formatCurrency?.(upgradeCost) || upgradeCost} clean cash.`
+          : `Chybí ${deps.formatCurrency?.(upgradeCost - Number(economyState.cleanMoney || 0)) || (upgradeCost - Number(economyState.cleanMoney || 0))} clean cash.`,
+        titleLabel: `Továrna · Lv ${factoryState.level} -> Lv ${nextLevel}`
+      });
+
+      if (!confirmed) {
+        return;
+      }
+
+      const freshEconomyState = deps.getResolvedEconomyState?.() || {};
+      if (Number(freshEconomyState.cleanMoney || 0) < upgradeCost) {
+        deps.setBuildingActionFeedback?.(root, "warning", "Továrna", `Na upgrade chybí ${deps.formatCurrency?.(upgradeCost - freshEconomyState.cleanMoney)}.`);
         return;
       }
       deps.setStoredEconomyState?.({
-        ...economyState,
-        cleanMoney: economyState.cleanMoney - upgradeCost
+        ...freshEconomyState,
+        cleanMoney: freshEconomyState.cleanMoney - upgradeCost
       });
       deps.applyTopbarEconomy?.(root);
       deps.setStoredFactoryState?.({
@@ -214,6 +248,10 @@ export function createFactoryPopupRuntime(deps = {}) {
 
     documentRef?.addEventListener?.("keydown", (event) => {
       if (event.key === "Escape" && !popup.hidden) {
+        if (upgradeConfirmation.isOpen?.()) {
+          upgradeConfirmation.close?.();
+          return;
+        }
         closePopup();
       }
     });

@@ -13,6 +13,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
   const getCurrentPlayerOwnedDistrictIds = typeof deps.getCurrentPlayerOwnedDistrictIds === "function"
     ? deps.getCurrentPlayerOwnedDistrictIds
     : () => new Set();
+  const isLivePhase = (interactionState = {}) => String(interactionState.gamePhase || "launch").trim().toLowerCase() === "live";
 
   const renderDistrictPopupBuildings = (district) => {
     if (!district) {
@@ -112,6 +113,11 @@ export function createBuildingsPopupRuntime(deps = {}) {
       return 0;
     }
     const interactionState = getInteractionState();
+    if (isLivePhase(interactionState)) {
+      return geometry.districts
+        .filter((district) => !typeKey || district.districtType === typeKey)
+        .length;
+    }
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
     return geometry.districts
       .filter((district) => !typeKey || district.districtType === typeKey)
@@ -127,6 +133,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
     const districts = getSourceDistrictsForBuildingType(typeKey);
     const interactionState = getInteractionState();
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+    const treatAllBuildingsAsOwned = isLivePhase(interactionState);
     const entries = [];
 
     for (const district of districts) {
@@ -147,7 +154,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
           districtId: Number(district.id) || 0,
           districtLabel,
           districtType: buildingProfile.typeKey,
-          isOwnedByCurrentPlayer: currentPlayerOwnedDistrictIds.has(Number(district.id)),
+          isOwnedByCurrentPlayer: treatAllBuildingsAsOwned || currentPlayerOwnedDistrictIds.has(Number(district.id)),
           setTitle: buildingProfile.setTitle,
           tier: buildingProfile.tier
         });
@@ -167,7 +174,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
         const meta = deps.districtBuildingTypeMeta[typeKey] || deps.districtBuildingTypeMeta.resident;
         const districtCount = getSourceDistrictsForBuildingType(typeKey).length;
         const ownedDistrictCount = getOwnedDistrictCountForBuildingType(typeKey);
-        const disabled = ownedDistrictCount <= 0;
+        const disabled = districtCount <= 0;
         return {
           typeKey,
           label: meta.shortLabel,

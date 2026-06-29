@@ -1,3 +1,5 @@
+import { createBuildingUpgradeConfirmationController } from "./buildingUpgradeConfirmation.js";
+
 function isButtonElement(element, ButtonCtor) {
   if (!element) {
     return false;
@@ -300,6 +302,15 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       .filter((button) => String(button.dataset.productionBuildingTab || "").startsWith(`${buildingName}:`));
     const panels = queryAll(popup, selectors.panel)
       .filter((panel) => String(panel.dataset.productionBuildingPanel || "").startsWith(`${buildingName}:`));
+    const upgradeConfirmation = deps.createUpgradeConfirmationController?.({
+      documentRef,
+      host: popup,
+      variant: "production"
+    }) || createBuildingUpgradeConfirmationController({
+      documentRef,
+      host: popup,
+      variant: "production"
+    });
 
     const setActiveTab = (tabName = "stats") => {
       for (const button of tabButtons) {
@@ -322,6 +333,10 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         : multiplier;
       const readyCount = deps.getProductionBuildingReadyCount?.(buildingName, recipes) || 0;
       const upgradeCost = state.level < maxLevel ? deps.getProductionBuildingUpgradeCost?.(buildingName, state.level + 1) || 0 : 0;
+      const speedGainPct = Math.max(0, Math.round((Number(nextMultiplier || multiplier || 1) - Number(multiplier || 1)) * 100));
+      const upgradeBenefitLabel = state.level < maxLevel
+        ? `+${speedGainPct}% rychlost · x${Number(nextMultiplier || multiplier || 1).toFixed(2)}`
+        : "Max level";
 
       if (levelElement) levelElement.textContent = String(state.level);
       if (headerLevelElement) headerLevelElement.textContent = `Lv ${state.level}`;
@@ -330,10 +345,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       if (upgradeCostElement) upgradeCostElement.textContent = state.level < maxLevel ? deps.formatCurrency?.(upgradeCost) : "MAX";
       if (infoUpgradeCostElement) infoUpgradeCostElement.textContent = state.level < maxLevel ? deps.formatCurrency?.(upgradeCost) : "MAX";
       if (infoUpgradeBenefitElement) {
-        const speedGainPct = Math.max(0, Math.round((Number(nextMultiplier || multiplier || 1) - Number(multiplier || 1)) * 100));
-        infoUpgradeBenefitElement.textContent = state.level < maxLevel
-          ? `+${speedGainPct}% rychlost · x${Number(nextMultiplier || multiplier || 1).toFixed(2)}`
-          : "Max level";
+        infoUpgradeBenefitElement.textContent = upgradeBenefitLabel;
       }
       if (effectsElement) effectsElement.textContent = deps.getProductionBuildingEffectsLabel?.(buildingName, state.level);
 
@@ -407,7 +419,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     }
 
     if (isButtonElement(upgradeButton, ButtonCtor)) {
-      upgradeButton.addEventListener("click", () => {
+      upgradeButton.addEventListener("click", async () => {
         const currentState = deps.getStoredProductionBuildingState?.(buildingName) || {};
 
         if (currentState.level >= maxLevel) {
@@ -418,16 +430,38 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         const nextLevel = currentState.level + 1;
         const upgradeCost = deps.getProductionBuildingUpgradeCost?.(buildingName, nextLevel) || 0;
         const economyState = deps.getResolvedEconomyState?.() || {};
+        const currentMultiplier = deps.getProductionBuildingMultiplier?.(buildingName, currentState.level) || 1;
+        const nextMultiplier = deps.getProductionBuildingMultiplier?.(buildingName, nextLevel) || currentMultiplier;
+        const speedGainPct = Math.max(0, Math.round((Number(nextMultiplier || currentMultiplier || 1) - Number(currentMultiplier || 1)) * 100));
+        const hasEnoughMoney = Number(economyState.cleanMoney || 0) >= upgradeCost;
+        const confirmed = await upgradeConfirmation.open({
+          benefitLabel: `+${speedGainPct}% rychlost · x${Number(nextMultiplier || currentMultiplier || 1).toFixed(2)}`,
+          buildingLabel: config?.label || "Budova",
+          canConfirm: hasEnoughMoney,
+          confirmLabel: hasEnoughMoney ? "Potvrdit upgrade" : "Nedostatek clean cash",
+          costLabel: deps.formatCurrency?.(upgradeCost) || String(upgradeCost),
+          description: `${config?.label || "Budova"} přejde na level ${nextLevel} a zrychlí všechny své výrobní sloty.`,
+          noteLabel: hasEnoughMoney
+            ? `Po potvrzení zaplatíš ${deps.formatCurrency?.(upgradeCost) || upgradeCost} clean cash.`
+            : `Chybí ${deps.formatCurrency?.(upgradeCost - Number(economyState.cleanMoney || 0)) || (upgradeCost - Number(economyState.cleanMoney || 0))} clean cash.`,
+          titleLabel: `${config?.label || "Budova"} · Lv ${currentState.level} -> Lv ${nextLevel}`
+        });
 
-        if (Number(economyState.cleanMoney || 0) < upgradeCost) {
-          deps.setBuildingActionFeedback?.(root, "warning", config?.label || "Budova", `Na upgrade chybí ${deps.formatCurrency?.(upgradeCost - economyState.cleanMoney)}.`);
+        if (!confirmed) {
+          return;
+        }
+
+        const freshEconomyState = deps.getResolvedEconomyState?.() || {};
+
+        if (Number(freshEconomyState.cleanMoney || 0) < upgradeCost) {
+          deps.setBuildingActionFeedback?.(root, "warning", config?.label || "Budova", `Na upgrade chybí ${deps.formatCurrency?.(upgradeCost - freshEconomyState.cleanMoney)}.`);
           renderDashboard();
           return;
         }
 
         deps.setStoredEconomyState?.({
-          ...economyState,
-          cleanMoney: economyState.cleanMoney - upgradeCost
+          ...freshEconomyState,
+          cleanMoney: freshEconomyState.cleanMoney - upgradeCost
         });
         deps.setStoredProductionBuildingState?.(buildingName, {
           level: nextLevel
@@ -452,6 +486,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     };
 
     const closePopup = () => {
+      upgradeConfirmation.close?.();
       popup.hidden = true;
       deps.syncBuildingDetailTopbarVisibility?.(root);
     };
@@ -464,6 +499,10 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
     documentRef?.addEventListener?.("keydown", (event) => {
       if (event.key === "Escape" && !popup.hidden) {
+        if (upgradeConfirmation.isOpen?.()) {
+          upgradeConfirmation.close?.();
+          return;
+        }
         closePopup();
       }
     });

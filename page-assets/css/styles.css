@@ -349,6 +349,308 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
   }
 }
 
+/* Final loaded override: custom building photo cards must stay visible under glass UI. */
+html body.game-body .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] {
+  position: relative !important;
+  overflow: hidden !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0.004) 24%, rgba(2, 6, 14, 0.12) 100%),
+    linear-gradient(135deg, rgba(var(--building-window-accent-rgb), 0.04), rgba(2, 6, 14, 0.08) 38%, rgba(var(--building-window-danger-rgb), 0.024) 100%),
+    var(--building-detail-background-image) center/cover,
+    rgba(4, 8, 16, 0.46) !important;
+}
+
+html body.game-body .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"]::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  display: block !important;
+  border-radius: inherit !important;
+  background: var(--building-detail-background-image) center/cover no-repeat !important;
+  opacity: 0.78 !important;
+  pointer-events: none !important;
+}
+
+html body.game-body .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"]::before {
+  z-index: 1 !important;
+  opacity: 0.16 !important;
+  background:
+    linear-gradient(180deg, rgba(2, 6, 14, 0.035), transparent 34%, rgba(2, 6, 14, 0.08)),
+    linear-gradient(90deg, transparent 0 10%, rgba(var(--building-window-accent-rgb), 0.14) 20%, rgba(var(--building-window-secondary-rgb), 0.08) 50%, rgba(var(--building-window-accent-rgb), 0.12) 80%, transparent 90%) !important;
+}
+
+html body.game-body .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] > * {
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+html body.game-body .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .modal__header,
+html body.game-body .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-panel,
+html body.game-body .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-panel--merged,
+html body.game-body .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-info-card__section,
+html body.game-body .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-mechanic-row,
+html body.game-body .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-info-card,
+html body.game-body .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-info-card__effects,
+html body.game-body .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-detail-info-text {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0.002)),
+    rgba(3, 8, 16, 0.14) !important;
+  backdrop-filter: blur(1px) saturate(1.02) !important;
+  -webkit-backdrop-filter: blur(1px) saturate(1.02) !important;
+}
+
+html body.game-body .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-info-card__section::before,
+html body.game-body .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-info-card::before {
+  opacity: 0.05 !important;
+}
+
+html body.game-body .district-building-detail-card .building-detail-info-text,
+html body.game-body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-panel--merged > .building-detail-info-text {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.004)),
+    rgba(2, 6, 14, 0.52) !important;
+  border-color: rgba(var(--building-window-accent-rgb), 0.24) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 18px rgba(0, 0, 0, 0.2) !important;
+}
+
+html body.game-body .district-building-detail-card [data-district-building-detail-action-section] > h5 {
+  color: #facc15 !important;
+  text-shadow:
+    0 0 10px rgba(250, 204, 21, 0.16),
+    0 0 18px rgba(234, 179, 8, 0.1) !important;
+}
+
+@media (min-width: 721px) {
+  html body.game-body .district-building-detail-card [data-district-building-detail-action-section] > h5 {
+    margin-bottom: 120px !important;
+  }
+}
+
+/* Restaurant card lock: keep the approved visual treatment stable for this building. */
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0.004) 24%, rgba(2, 6, 14, 0.12) 100%),
+    linear-gradient(135deg, rgba(var(--building-window-accent-rgb), 0.04), rgba(2, 6, 14, 0.08) 38%, rgba(var(--building-window-danger-rgb), 0.024) 100%),
+    var(--building-detail-background-image) center/cover,
+    rgba(4, 8, 16, 0.46) !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"]::after {
+  opacity: 0.78 !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"]::before {
+  opacity: 0.16 !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .modal__header,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-panel,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-panel--merged,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-info-card__section,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-mechanic-row,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-info-card,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-info-card__effects,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-detail-info-text {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0.002)),
+    rgba(3, 8, 16, 0.14) !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card .building-detail-info-text,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"].is-building-detail-single-panel .district-building-detail-panel--merged > .building-detail-info-text {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.004)),
+    rgba(2, 6, 14, 0.52) !important;
+  border-color: rgba(var(--building-window-accent-rgb), 0.24) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 18px rgba(0, 0, 0, 0.2) !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
+  color: #facc15 !important;
+  text-shadow:
+    0 0 10px rgba(250, 204, 21, 0.16),
+    0 0 18px rgba(234, 179, 8, 0.1) !important;
+}
+
+@media (min-width: 721px) {
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
+    margin-bottom: 120px !important;
+  }
+}
+
+/* Casino card lock: keep the approved visual treatment stable for this building. */
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0.004) 24%, rgba(2, 6, 14, 0.12) 100%),
+    linear-gradient(135deg, rgba(var(--building-window-accent-rgb), 0.04), rgba(2, 6, 14, 0.08) 38%, rgba(var(--building-window-danger-rgb), 0.024) 100%),
+    var(--building-detail-background-image) center/cover,
+    rgba(4, 8, 16, 0.46) !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"]::after {
+  opacity: 0.78 !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"]::before {
+  opacity: 0.16 !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .modal__header,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-panel,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-panel--merged,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-info-card__section,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-mechanic-row,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-info-card,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-info-card__effects,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-detail-info-text {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0.002)),
+    rgba(3, 8, 16, 0.14) !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-card .building-detail-info-text,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"].is-building-detail-single-panel .district-building-detail-panel--merged > .building-detail-info-text {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.004)),
+    rgba(2, 6, 14, 0.52) !important;
+  border-color: rgba(var(--building-window-accent-rgb), 0.24) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 18px rgba(0, 0, 0, 0.2) !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
+  color: #facc15 !important;
+  text-shadow:
+    0 0 10px rgba(250, 204, 21, 0.16),
+    0 0 18px rgba(234, 179, 8, 0.1) !important;
+}
+
+@media (min-width: 721px) {
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
+    margin-bottom: 120px !important;
+  }
+}
+
+/* Auto salon card lock: keep the approved visual treatment stable for this building. */
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0.004) 24%, rgba(2, 6, 14, 0.12) 100%),
+    linear-gradient(135deg, rgba(var(--building-window-accent-rgb), 0.04), rgba(2, 6, 14, 0.08) 38%, rgba(var(--building-window-danger-rgb), 0.024) 100%),
+    var(--building-detail-background-image) center/cover,
+    rgba(4, 8, 16, 0.46) !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"]::after {
+  opacity: 0.78 !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"]::before {
+  opacity: 0.16 !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .modal__header,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-panel,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-panel--merged,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-info-card__section,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-mechanic-row,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-info-card,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-info-card__effects,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-detail-info-text {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0.002)),
+    rgba(3, 8, 16, 0.14) !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card .building-detail-info-text,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="auto-salon"].is-building-detail-single-panel .district-building-detail-panel--merged > .building-detail-info-text {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.004)),
+    rgba(2, 6, 14, 0.52) !important;
+  border-color: rgba(var(--building-window-accent-rgb), 0.24) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 18px rgba(0, 0, 0, 0.2) !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
+  color: #facc15 !important;
+  text-shadow:
+    0 0 10px rgba(250, 204, 21, 0.16),
+    0 0 18px rgba(234, 179, 8, 0.1) !important;
+}
+
+@media (min-width: 721px) {
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
+    margin-bottom: 120px !important;
+  }
+}
+
+/* Shopping mall card lock: keep the approved visual treatment stable for this building. */
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0.004) 24%, rgba(2, 6, 14, 0.12) 100%),
+    linear-gradient(135deg, rgba(var(--building-window-accent-rgb), 0.04), rgba(2, 6, 14, 0.08) 38%, rgba(var(--building-window-danger-rgb), 0.024) 100%),
+    var(--building-detail-background-image) center/cover,
+    rgba(4, 8, 16, 0.46) !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"]::after {
+  opacity: 0.78 !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"]::before {
+  opacity: 0.16 !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .modal__header,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-panel,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-panel--merged,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-info-card__section,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-mechanic-row,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .district-building-detail-info-card,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-info-card__effects,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-detail-info-text {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0.002)),
+    rgba(3, 8, 16, 0.14) !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card .building-detail-info-text,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="retail"].is-building-detail-single-panel .district-building-detail-panel--merged > .building-detail-info-text {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.004)),
+    rgba(2, 6, 14, 0.52) !important;
+  border-color: rgba(var(--building-window-accent-rgb), 0.24) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 18px rgba(0, 0, 0, 0.2) !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
+  color: #facc15 !important;
+  text-shadow:
+    0 0 10px rgba(250, 204, 21, 0.16),
+    0 0 18px rgba(234, 179, 8, 0.1) !important;
+}
+
+@media (min-width: 721px) {
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
+    margin-bottom: 120px !important;
+  }
+}
+
+@media (min-width: 721px) {
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="exchange"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
+    margin-bottom: 44px !important;
+  }
+}
+
 @media (max-width: 780px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
   html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content > .modal__header {
     position: absolute !important;

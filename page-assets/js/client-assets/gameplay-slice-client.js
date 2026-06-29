@@ -358,7 +358,7 @@ var EmpireGameplaySliceClient = function(exports) {
   const createAttackDistrictCommand = (input) => {
     const district = input.slice.district;
     if (!district) {
-      throw new Error("Attack commands can only be created from enabled attack targets present in the current server-fed slice.");
+      throw new Error("Attack command cannot be created from missing district/target context.");
     }
     return {
       id: input.commandId,
@@ -377,10 +377,9 @@ var EmpireGameplaySliceClient = function(exports) {
   const DEFAULT_DEFENSE_ITEM_ID = "barricades";
   const DEFAULT_DEFENSE_AMOUNT = 1;
   const createPlaceDefenseCommand = (input) => {
-    var _a;
     const district = input.slice.district;
-    if (!((_a = district == null ? void 0 : district.placeDefense) == null ? void 0 : _a.expectedTargetVersion)) {
-      throw new Error("Place defense commands can only be created from an enabled defense action present in the current server-fed slice.");
+    if (!district || !district.placeDefense) {
+      throw new Error("Place defense command cannot be created from missing district/defense context.");
     }
     return {
       id: input.commandId,
@@ -399,10 +398,9 @@ var EmpireGameplaySliceClient = function(exports) {
     };
   };
   const createRemoveDefenseCommand = (input) => {
-    var _a;
     const district = input.slice.district;
-    if (!((_a = district == null ? void 0 : district.removeDefense) == null ? void 0 : _a.expectedTargetVersion)) {
-      throw new Error("Remove defense commands can only be created from an enabled defense action present in the current server-fed slice.");
+    if (!district || !district.removeDefense) {
+      throw new Error("Remove defense command cannot be created from missing district/defense context.");
     }
     return {
       id: input.commandId,
@@ -424,12 +422,10 @@ var EmpireGameplaySliceClient = function(exports) {
     var _a;
     const district = input.slice.district;
     const target = (_a = district == null ? void 0 : district.heistTargets) == null ? void 0 : _a.find((entry) => entry.districtId === input.targetDistrictId);
-    const style = (target == null ? void 0 : target.styles.find((entry) => entry.style === "balanced")) ?? (target == null ? void 0 : target.styles[0]) ?? {
-      style: "balanced",
-      defaultGangMembersSent: 1
-    };
+    const styleFallback = { style: "balanced", defaultGangMembersSent: 1 };
+    const style = (target == null ? void 0 : target.styles.find((entry) => entry.style === "balanced")) ?? (target == null ? void 0 : target.styles[0]) ?? styleFallback;
     if (!district) {
-      throw new Error("Heist commands can only be created from enabled heist targets present in the current server-fed slice.");
+      throw new Error("Heist command cannot be created from missing district/target context.");
     }
     return {
       id: input.commandId,
@@ -443,8 +439,8 @@ var EmpireGameplaySliceClient = function(exports) {
         sourceDistrictId: district.districtId,
         style: style.style,
         gangMembersSent: style.defaultGangMembersSent,
-        ...(target == null ? void 0 : target.expectedTargetVersion) === void 0 ? {} : { expectedTargetVersion: target.expectedTargetVersion },
-        ...(target == null ? void 0 : target.expectedSourceVersion) === void 0 ? {} : { expectedSourceVersion: target.expectedSourceVersion }
+        ...(target == null ? void 0 : target.expectedTargetVersion) !== void 0 ? { expectedTargetVersion: target.expectedTargetVersion } : {},
+        ...(target == null ? void 0 : target.expectedSourceVersion) !== void 0 ? { expectedSourceVersion: target.expectedSourceVersion } : {}
       },
       clientRequestId: input.clientRequestId ?? null
     };
@@ -452,7 +448,7 @@ var EmpireGameplaySliceClient = function(exports) {
   const createOccupyDistrictCommand = (input) => {
     const district = input.slice.district;
     if (!district) {
-      throw new Error("Occupy commands can only be created from enabled occupy targets present in the current server-fed slice.");
+      throw new Error("Occupy command cannot be created from missing district/target context.");
     }
     return {
       id: input.commandId,
@@ -473,7 +469,7 @@ var EmpireGameplaySliceClient = function(exports) {
     const district = input.slice.district;
     const target = (_a = district == null ? void 0 : district.robTargets) == null ? void 0 : _a.find((entry) => entry.districtId === input.targetDistrictId);
     if (!district) {
-      throw new Error("Rob commands can only be created from enabled rob targets present in the current server-fed slice.");
+      throw new Error("Rob command cannot be created from missing district/target context.");
     }
     return {
       id: input.commandId,
@@ -485,8 +481,8 @@ var EmpireGameplaySliceClient = function(exports) {
       payload: {
         targetDistrictId: input.targetDistrictId,
         sourceDistrictId: district.districtId,
-        ...(target == null ? void 0 : target.expectedTargetVersion) === void 0 ? {} : { expectedTargetVersion: target.expectedTargetVersion },
-        ...(target == null ? void 0 : target.expectedSourceVersion) === void 0 ? {} : { expectedSourceVersion: target.expectedSourceVersion }
+        ...(target == null ? void 0 : target.expectedTargetVersion) !== void 0 ? { expectedTargetVersion: target.expectedTargetVersion } : {},
+        ...(target == null ? void 0 : target.expectedSourceVersion) !== void 0 ? { expectedSourceVersion: target.expectedSourceVersion } : {}
       },
       clientRequestId: input.clientRequestId ?? null
     };
@@ -514,9 +510,8 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const createSpyDistrictCommand = (input) => {
     const district = input.slice.district;
-    const target = district == null ? void 0 : district.spyTargets.find((entry) => entry.districtId === input.targetDistrictId);
     if (!district) {
-      throw new Error("Spy commands can only be created from enabled spy targets present in the current server-fed slice.");
+      throw new Error("Spy command cannot be created from missing district/target context.");
     }
     return {
       id: input.commandId,
@@ -535,7 +530,7 @@ var EmpireGameplaySliceClient = function(exports) {
   const createPlaceTrapCommand = (input) => {
     const district = input.slice.district;
     if (!(district == null ? void 0 : district.trap)) {
-      throw new Error("Trap commands can only be created from an enabled trap action present in the current server-fed slice.");
+      throw new Error("Trap command cannot be created from missing district/trap context.");
     }
     return {
       id: input.commandId,

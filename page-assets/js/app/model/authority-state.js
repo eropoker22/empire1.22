@@ -21,13 +21,14 @@ import {
 
 const DEFAULT_MARKET_SERVER_ID = "preview-server";
 const DEFAULT_PREVIEW_ECONOMY = Object.freeze({
-  cleanMoney: 1500,
+  cleanMoney: 25000,
   dirtyMoney: 300
 });
 const DEFAULT_PREVIEW_GANG = Object.freeze({
   influence: 0,
   heat: 0
 });
+let hasAppliedRefreshPreviewEconomyOverride = false;
 
 function normalizeMarketServerId(serverId) {
   const normalizedServerId = String(serverId || "").trim();
@@ -372,7 +373,24 @@ export function hasServerAuthority() {
 
 export function getStoredPreviewSession() {
   const storedSession = loadState(null, null);
-  return storedSession ? normalizePreviewSession(storedSession) : createDefaultPreviewSession();
+  if (!storedSession) {
+    return createDefaultPreviewSession();
+  }
+
+  if (!hasAppliedRefreshPreviewEconomyOverride) {
+    hasAppliedRefreshPreviewEconomyOverride = true;
+    const nextSession = normalizePreviewSession({
+      ...storedSession,
+      economy: {
+        ...(storedSession.economy || {}),
+        cleanMoney: DEFAULT_PREVIEW_ECONOMY.cleanMoney
+      }
+    });
+    saveState(null, null, nextSession);
+    return nextSession;
+  }
+
+  return normalizePreviewSession(storedSession);
 }
 
 export function setStoredPreviewSession(session) {

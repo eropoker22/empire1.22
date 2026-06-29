@@ -212,9 +212,10 @@ describe("district panel rendering", () => {
 
     expect(list.children).toHaveLength(3);
     expect(list.children[0].dataset.districtBuildingName).toBe("Autosalon");
-    expect(list.children[0].textContent).toBe("Autosalon");
-    expect(list.children[0].title).toBe("Neon Cars");
-    expect(list.children[1].textContent).toBe("Lékárna");
+    expect(list.children[0].dataset.districtBuildingDisplayName).toBe("Neon Cars");
+    expect(list.children[0].textContent).toBe("Neon Cars");
+    expect(list.children[0].title).toBe("Autosalon");
+    expect(list.children[1].textContent).toBe("Noční Lékárna");
     expect(list.children[2].classList.contains("district-popup-buildings__chip--trap")).toBe(true);
   });
 

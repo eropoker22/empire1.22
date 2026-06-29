@@ -32,6 +32,14 @@ function createInfoLine(label, value) {
   return { label, value };
 }
 
+function hasBuildingUpgradeCapability(mechanics = {}) {
+  const maxLevel = Number(mechanics?.maxLevel);
+  if (Number.isFinite(maxLevel)) {
+    return maxLevel > 1;
+  }
+  return Boolean(mechanics?.nextLevel);
+}
+
 const SINGLE_PANEL_INFO_MECHANICS_TYPES = new Set([
   "apartment-block",
   "garage",
@@ -100,15 +108,20 @@ export function createBuildingDetailInfoRows({
   now = Date.now()
 } = {}) {
   const buildingKey = normalizeBuildingLookupKey(buildingName);
+  const canUpgrade = hasBuildingUpgradeCapability(mechanics);
   const nextMultiplier = getNextLevelMultiplier(mechanics);
   const rows = [
     createInfoLine("Role", `${profile.role} · ${buildingName}`),
     createInfoLine("Pasivně", mechanics.effectsLabel || "Bez pasivního výstupu."),
     createInfoLine("Vybrání", mechanics.storedOutputLabel),
-    createInfoLine("Upgrade", mechanics.nextLevel ? `${mechanics.upgradeCostLabel} -> L${mechanics.nextLevel}` : "Max level"),
-    createInfoLine("Další level", nextMultiplier ? `Multiplier x${nextMultiplier.toFixed(2)}, vyšší výnos a akční hodnoty.` : "Budova už je na maximu."),
     createInfoLine("Riziko", `Heat +${mechanics.dailyHeat}/den · vliv +${mechanics.dailyInfluence}/den`)
   ];
+  if (canUpgrade) {
+    rows.splice(3, 0,
+      createInfoLine("Upgrade", mechanics.nextLevel ? `${mechanics.upgradeCostLabel} -> L${mechanics.nextLevel}` : "Max level"),
+      createInfoLine("Další level", nextMultiplier ? `Multiplier x${nextMultiplier.toFixed(2)}, vyšší výnos a akční hodnoty.` : "Budova už je na maximu.")
+    );
+  }
 
   if (SINGLE_PANEL_INFO_MECHANICS_TYPES.has(mechanics.mechanicsType) && mechanics.mechanicsType !== "apartment-block") {
     return [];
@@ -134,14 +147,7 @@ export function createBuildingDetailInfoRows({
   } else if (mechanics.mechanicsType === "arcade") {
     return [];
   } else if (mechanics.mechanicsType === "apartment-block") {
-    return [
-      createInfoLine("Čas do naplnění", mechanics.apartmentIsFull ? "Plná kapacita" : formatDistrictBuildingCooldown(mechanics.apartmentTimeToFullMs)),
-      createInfoLine("Vlastněné bloky", `${mechanics.ownedApartmentBlocks}/29`),
-      createInfoLine("Upgrade", "Max level"),
-      createInfoLine("Network multiplier", `Produkce x${mechanics.apartmentNetwork.populationProductionMultiplier.toFixed(2)} · kapacita x${mechanics.apartmentNetwork.capacityMultiplier.toFixed(2)}`),
-      createInfoLine("Síť", mechanics.ownedApartmentBlocks > 1 ? "Zvyšuje produkci a kapacitu" : "První bytový blok"),
-      createInfoLine("Další level", "Budova už je na maximu.")
-    ];
+    return [];
   } else if (mechanics.mechanicsType === "school") {
     return [
       createInfoLine("Výsledek talentu", "Úspěšný trénink: zapíše se do uličních zpráv."),

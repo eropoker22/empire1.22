@@ -30,6 +30,7 @@ function createRuntime(overrides = {}) {
     remapDistrictType: (id, typeByDistrictId) => typeByDistrictId.get(id),
     startPhaseOwnerByDistrictId: new Map([[2, 2]]),
     variantNamesByBaseName: { Kasino: ["Kasino A"] },
+    backgroundImagesByBaseName: {},
     ...overrides
   });
 }
@@ -65,5 +66,89 @@ describe("district building profile runtime", () => {
 
     expect(hiddenRuntime.isDistrictTypeHidden(district, { gamePhase: "launch" })).toBe(true);
     expect(revealedRuntime.isDistrictTypeHidden(district, { gamePhase: "launch" })).toBe(false);
+  });
+
+  it("distributes restaurant backgrounds evenly across named variants", () => {
+    const runtime = createRuntime({
+      districtBuildingPackagePools: {
+        resident: {
+          early: [{
+            key: "resident-early",
+            tier: "early",
+            title: "Start",
+            buildings: ["Restaurace", "Restaurace", "Restaurace", "Restaurace"]
+          }]
+        }
+      },
+      backgroundImagesByBaseName: {
+        Restaurace: ["bg-1", "bg-2", "bg-3", "bg-4"]
+      },
+      variantNamesByBaseName: {
+        Restaurace: ["R1", "R2", "R3", "R4"]
+      }
+    });
+
+    const profile = runtime.resolveDistrictBuildingProfile({ id: 1, rowIndex: 0, columnIndex: 0, districtType: "resident" });
+
+    expect(profile.buildings.map((building) => ({
+      displayName: building.displayName,
+      imagePath: building.imagePath
+    }))).toEqual([
+      { displayName: "R4", imagePath: "bg-4" },
+      { displayName: "R1", imagePath: "bg-1" },
+      { displayName: "R2", imagePath: "bg-2" },
+      { displayName: "R3", imagePath: "bg-3" }
+    ]);
+  });
+
+  it("assigns unique variant names to repeated building bases", () => {
+    const runtime = createRuntime({
+      districtBuildingPackagePools: {
+        resident: {
+          early: [{
+            key: "resident-early",
+            tier: "early",
+            title: "Start",
+            buildings: ["Sklad", "Sklad", "Sklad"]
+          }]
+        }
+      },
+      variantNamesByBaseName: {
+        Sklad: ["Depot A", "Depot B", "Depot C"]
+      }
+    });
+
+    const profile = runtime.resolveDistrictBuildingProfile({ id: 1, rowIndex: 0, columnIndex: 0, districtType: "resident" });
+    const displayNames = profile.buildings.map((building) => building.displayName);
+
+    expect(displayNames).toEqual(["Depot B", "Depot C", "Depot A"]);
+    expect(new Set(displayNames).size).toBe(displayNames.length);
+  });
+
+  it("adds a suffix when repeated buildings outnumber named variants", () => {
+    const runtime = createRuntime({
+      districtBuildingPackagePools: {
+        resident: {
+          early: [{
+            key: "resident-early",
+            tier: "early",
+            title: "Start",
+            buildings: ["Sklad", "Sklad", "Sklad", "Sklad"]
+          }]
+        }
+      },
+      variantNamesByBaseName: {
+        Sklad: ["Depot A", "Depot B"]
+      }
+    });
+
+    const profile = runtime.resolveDistrictBuildingProfile({ id: 1, rowIndex: 0, columnIndex: 0, districtType: "resident" });
+
+    expect(profile.buildings.map((building) => building.displayName)).toEqual([
+      "Depot A",
+      "Depot B",
+      "Depot A #2",
+      "Depot B #2"
+    ]);
   });
 });

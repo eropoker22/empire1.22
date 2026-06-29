@@ -63,7 +63,15 @@ class FakeElement {
     this.type = "";
     this.title = "";
     this.tabIndex = 0;
-    this.style = {};
+    this.style = {
+      values: new Map(),
+      setProperty(name, value) {
+        this.values.set(name, String(value));
+      },
+      removeProperty(name) {
+        this.values.delete(name);
+      }
+    };
     this._className = "";
   }
 
@@ -275,6 +283,28 @@ describe("building detail, production and recipe UI modules", () => {
     expect(card.dataset.buildingDistrictType).toBe("downtown");
     expect(shell.classList.contains("is-downtown-building-detail")).toBe(true);
     expect(card.classList.contains("is-downtown-building-card")).toBe(true);
+    expect(card.dataset.buildingHasCustomBackground).toBeUndefined();
+
+    renderBuildingDetailPanel({
+      shell,
+      title: "Restaurace",
+      badge: "Lokální cashflow",
+      levelLabel: "L1",
+      districtType: "commercial",
+      backgroundImagePath: "../img/budovy/commercial/restaurace/res1.png",
+      stats: [],
+      mechanics: [],
+      collect: { visible: false },
+      upgrade: { disabled: true, title: "" },
+      actions: []
+    });
+
+    expect(shell.dataset.buildingDistrictType).toBe("commercial");
+    expect(card.dataset.buildingDistrictType).toBe("commercial");
+    expect(shell.classList.contains("is-downtown-building-detail")).toBe(false);
+    expect(card.classList.contains("is-downtown-building-card")).toBe(false);
+    expect(card.dataset.buildingHasCustomBackground).toBe("true");
+    expect(card.style.values.get("--building-detail-background-image")).toContain("../img/budovy/commercial/restaurace/res1.png");
 
     renderBuildingDetailPanel({
       shell,
@@ -289,10 +319,8 @@ describe("building detail, production and recipe UI modules", () => {
       actions: []
     });
 
-    expect(shell.dataset.buildingDistrictType).toBe("commercial");
-    expect(card.dataset.buildingDistrictType).toBe("commercial");
-    expect(shell.classList.contains("is-downtown-building-detail")).toBe(false);
-    expect(card.classList.contains("is-downtown-building-card")).toBe(false);
+    expect(card.dataset.buildingHasCustomBackground).toBeUndefined();
+    expect(card.style.values.has("--building-detail-background-image")).toBe(false);
   });
 
   it("hides the upgrade button when a passive building cannot be upgraded", () => {
@@ -446,6 +474,58 @@ describe("building detail, production and recipe UI modules", () => {
     expect(infoPanel.hidden).toBe(true);
     expect(actions).toHaveLength(1);
     expect(actions[0].querySelector(".building-info-action-row__title").textContent).toBe("Tichá herna");
+  });
+
+  it("dispatches district building detail actions through one delegated actionId payload", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const onRunAction = vi.fn();
+    const shell = ensureBuildingDetailPanel(root, { onRunAction }, { popupKey: "12:casino" });
+    shell.dataset.districtBuildingDetailDistrictId = "12";
+    shell.dataset.districtBuildingDetailName = "kasino";
+    shell.dataset.districtBuildingDetailDisplayName = "Kasino";
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "casino",
+      title: "Kasino",
+      badge: "High-risk praní",
+      levelLabel: "L2",
+      name: "Kasino",
+      meta: "",
+      stats: [],
+      mechanics: [],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { disabled: false, title: "Upgrade na L3" },
+      showActionsInSinglePanel: true,
+      actions: [{
+        index: 1,
+        actionId: "vip_night",
+        buildingTypeId: "casino",
+        title: "VIP noc",
+        description: "Dlouhý popis nesmí být na tlačítku.",
+        cooldownLabel: "Ready"
+      }]
+    });
+
+    const action = shell.querySelector("[data-district-building-detail-action-index]");
+    const body = shell.querySelector(".district-building-detail-body");
+    for (const handler of body.eventListeners.get("click") || []) {
+      handler({ target: action });
+    }
+
+    expect(action.querySelector(".building-info-action-row__desc").textContent).toBe("");
+    expect(onRunAction).toHaveBeenCalledTimes(1);
+    const [receivedShell, payload] = onRunAction.mock.calls[0];
+    expect(receivedShell).toBe(shell);
+    expect(payload).toEqual(expect.objectContaining({
+      actionId: "vip_night",
+      actionIndex: 1,
+      buildingTypeId: "casino",
+      districtId: "12",
+      buildingId: "kasino",
+      buildingName: "Kasino"
+    }));
   });
 
   it("renders infrastructure buildings as one merged panel with support actions", () => {

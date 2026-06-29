@@ -171,7 +171,7 @@ describe("elimination purge panel runtime", () => {
     expect(html).not.toContain("OČISTA / PURGE OKNO");
     expect(html).not.toContain("PURGE-07");
     expect(html).toContain("Očista za");
-    expect(html).toContain("6min 01s");
+    expect(html).toContain("15min 00s");
     expect(html).toContain("Nejslabší gang vypadne");
     expect(html).toContain("Poslední 3 hráči");
     expect(html).toContain("StreetPhantom");
@@ -245,7 +245,7 @@ describe("elimination purge panel runtime", () => {
       title: "OČISTA / PURGE OKNO",
       unitLabel: "PURGE-07",
       countdownLabel: "Očista za",
-      countdownValue: "6min 01s"
+      countdownValue: "15min 00s"
     });
     expect(viewModel.metrics).toHaveLength(4);
     expect(viewModel.metrics.some((metric) => metric.key === "heat")).toBe(false);
@@ -294,13 +294,13 @@ describe("elimination purge panel runtime", () => {
     expect(fixture.title.textContent).toBe("");
     expect(fixture.status.textContent).toBe("DANGER");
     expect(fixture.card.classList.add).toHaveBeenCalledWith("is-danger");
-    expect(fixture.body.innerHTML).toContain("6min 01s");
+    expect(fixture.body.innerHTML).toContain("15min 00s");
     expect(fixture.body.innerHTML).toContain("NeonViper (TY)");
     expect(timerApi.setInterval).toHaveBeenCalledWith(expect.any(Function), 1000);
 
     currentTime += 1000;
     intervalCallback();
-    expect(fixture.body.innerHTML).toContain("6min 00s");
+    expect(fixture.body.innerHTML).toContain("14min 59s");
 
     const closeTarget = createTarget("[data-elimination-ai-panel-close]");
     fixture.listeners.get("click")({ target: closeTarget, preventDefault: vi.fn() });

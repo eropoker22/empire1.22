@@ -1,4 +1,4 @@
-export const MOCK_ELIMINATION_COUNTDOWN_MS = 361000;
+export const MOCK_ELIMINATION_COUNTDOWN_MS = 15 * 60 * 1000;
 
 function formatCountdown(value) {
   const totalSeconds = Math.max(0, Math.ceil(Number(value || 0) / 1000));
