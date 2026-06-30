@@ -100,6 +100,10 @@ function formatMoney(amount) {
   return `${Math.max(0, Math.floor(Number(amount || 0))).toLocaleString("cs-CZ")}$`;
 }
 
+function formatRewardValue(amount) {
+  return `${Math.max(0, Math.floor(Number(amount || 0))).toLocaleString("cs-CZ")} $`;
+}
+
 function formatDurationMs(ms) {
   const totalSeconds = Math.max(0, Math.ceil(Number(ms || 0) / 1000));
   if (totalSeconds <= 0) {
@@ -117,6 +121,48 @@ function formatDurationMs(ms) {
 
 function formatObjectiveLabel(objectiveType) {
   return OBJECTIVE_COPY[objectiveType]?.label || OBJECTIVE_COPY["attack-player"].label;
+}
+
+function formatObjectiveIcon(objectiveType) {
+  if (objectiveType === "attack-district") {
+    return "♜";
+  }
+  if (objectiveType === "destroy-player-district") {
+    return "✹";
+  }
+  if (objectiveType === "destroy-selected-district") {
+    return "⌁";
+  }
+  return "⌖";
+}
+
+function formatBountyStatus(status) {
+  if (status === "claimed") {
+    return "Splněno";
+  }
+  if (status === "expired") {
+    return "Vypršelo";
+  }
+  if (status === "cancelled") {
+    return "Zrušeno";
+  }
+  return "Aktivní";
+}
+
+function formatBountyCreator(entry) {
+  const rawLabel = String(entry?.createdByLabel || entry?.createdByPlayerName || entry?.createdByPlayerId || "").trim();
+  if (entry?.isAnonymous || /^anonym/i.test(rawLabel)) {
+    return "◓ Anonymní";
+  }
+  return rawLabel || "—";
+}
+
+function getBountyTargetInitials(label) {
+  const cleanLabel = String(label || "").trim();
+  if (!cleanLabel || cleanLabel === "—") {
+    return "??";
+  }
+  return cleanLabel.slice(0, 2).toUpperCase();
 }
 
 function resolveObjectiveConfig(objectiveType) {
@@ -266,6 +312,7 @@ function initBountyRuntime() {
   const cashPresetButtons = Array.from(modal?.querySelectorAll("[data-bounty-cash-preset]") || []);
   const objectiveInputs = Array.from(modal?.querySelectorAll('input[name="bounty-objective"]') || []);
   const durationInputs = Array.from(modal?.querySelectorAll('input[name="bounty-duration"]') || []);
+  const tabButtons = Array.from(modal?.querySelectorAll("[data-bounty-tab]") || []);
 
   if (
     !modal
@@ -297,7 +344,9 @@ function initBountyRuntime() {
     bounty: createEmptyBountyReadModel(),
     localDemoBounties: [],
     pendingPreview: null,
-    isSubmitting: false
+    isSubmitting: false,
+    isTargetPickerOpen: false,
+    activeTab: "create"
   };
 
   const syncFromGlobalReadModel = () => {
@@ -339,6 +388,7 @@ function initBountyRuntime() {
     if (!targetPicker) {
       return;
     }
+    targetPicker.classList.toggle("is-open", uiState.isTargetPickerOpen);
     const selectedValue = String(targetSelect.value || "");
     for (const button of Array.from(targetPicker.querySelectorAll("[data-bounty-target-option]"))) {
       const isSelected = String(button.dataset.bountyTargetOption || "") === selectedValue;
@@ -366,13 +416,22 @@ function initBountyRuntime() {
     }
 
     if (targetPicker) {
-      targetPicker.innerHTML = targets.length
-        ? targets.map((target) => `
-            <button class="bounty-board__target-option${target.canTarget ? "" : " is-disabled"}" type="button" data-bounty-target-option="${escapeHtml(target.playerId)}" aria-pressed="false"${target.canTarget ? "" : " disabled"}>
-              <span class="bounty-board__target-option-name">${escapeHtml(target.name)}</span>
-              <span class="bounty-board__target-option-meta">${escapeHtml(target.disabledReason || `${target.activeDistrictCount} districtů`)}</span>
+      const selectedTarget = targets.find((target) => String(target.playerId) === String(targetSelect.value || "")) || targets[0] || null;
+      targetPicker.innerHTML = targets.length && selectedTarget
+        ? `
+            <button class="bounty-board__target-current" type="button" data-bounty-target-toggle aria-expanded="${uiState.isTargetPickerOpen ? "true" : "false"}">
+              <span class="bounty-board__target-option-name">${escapeHtml(selectedTarget.name)}</span>
+              <span class="bounty-board__target-option-meta">${escapeHtml(selectedTarget.disabledReason || `${selectedTarget.activeDistrictCount} districtů`)}</span>
             </button>
-          `).join("")
+            <div class="bounty-board__target-menu" role="listbox" aria-label="Dostupné bounty cíle">
+              ${targets.map((target) => `
+                <button class="bounty-board__target-option${target.canTarget ? "" : " is-disabled"}" type="button" data-bounty-target-option="${escapeHtml(target.playerId)}" aria-pressed="false"${target.canTarget ? "" : " disabled"}>
+                  <span class="bounty-board__target-option-name">${escapeHtml(target.name)}</span>
+                  <span class="bounty-board__target-option-meta">${escapeHtml(target.disabledReason || `${target.activeDistrictCount} districtů`)}</span>
+                </button>
+              `).join("")}
+            </div>
+          `
         : '<div class="bounty-board__target-empty">Dev fallback zatím nenašel dostupné cíle.</div>';
       syncTargetPickerSelection();
     }
@@ -539,22 +598,45 @@ function initBountyRuntime() {
 
     boardBody.innerHTML = activeEntries.map((entry) => {
       const canCancel = Boolean(entry.canCancel);
-      const districtLabel = entry.targetDistrictName || entry.targetDistrictId || "Jakýkoli";
-      const statusLabel = [
-        entry.status,
-        entry.createdByLabel || "-",
-        entry.status === "active" ? formatDurationMs(entry.remainingMs) : "",
-        canCancel ? "Zrušit" : ""
-      ].filter(Boolean).join(" · ");
+      const objectiveType = String(entry.objectiveType || "attack-player");
+      const objectiveLabel = entry.objectiveLabel || formatObjectiveLabel(objectiveType);
+      const objectiveIcon = formatObjectiveIcon(objectiveType);
+      const targetLabel = entry.targetPlayerName || entry.targetDistrictName || entry.targetPlayerId || "Neznámý cíl";
+      const targetMeta = entry.targetDistrictName && entry.targetPlayerName ? entry.targetDistrictName : "Bounty cíl";
+      const needsDistrict = objectiveType === "attack-district" || objectiveType === "destroy-selected-district";
+      const districtLabel = needsDistrict ? (entry.targetDistrictName || entry.targetDistrictId || "—") : "—";
+      const status = String(entry.status || "active");
+      const statusLabel = formatBountyStatus(status);
+      const creatorLabel = formatBountyCreator(entry);
+      const remainingLabel = status === "active" && entry.remainingMs ? formatDurationMs(entry.remainingMs) : "";
       return `
-        <tr data-bounty-row="${escapeHtml(entry.bountyId)}" data-bounty-status="${escapeHtml(entry.status)}">
-          <td data-label="Cíl">${escapeHtml(entry.targetPlayerName || entry.targetPlayerId)}</td>
-          <td data-label="Typ">${escapeHtml(entry.objectiveLabel || formatObjectiveLabel(entry.objectiveType))}</td>
-          <td data-label="District">${escapeHtml(districtLabel)}</td>
-          <td data-label="Odměna">${escapeHtml(formatMoney(entry.rewardCleanCash))}</td>
-          <td data-label="Stav">
-            <span class="bounty-board__status-pill" data-bounty-status-pill="${escapeHtml(entry.status)}">${escapeHtml(statusLabel)}</span>
-            <button type="button" class="bounty-board__row-action" data-bounty-cancel="${escapeHtml(entry.bountyId)}"${canCancel ? "" : " disabled"}>${canCancel ? "Zrušit" : "Mapa TODO"}</button>
+        <tr data-bounty-row="${escapeHtml(entry.bountyId)}" data-bounty-status="${escapeHtml(status)}">
+          <td data-label="CÍL">
+            <span class="bounty-board__target-cell">
+              <span class="bounty-board__target-mini-avatar" aria-hidden="true">${escapeHtml(getBountyTargetInitials(targetLabel))}</span>
+              <span class="bounty-board__target-mini-copy">
+                <strong>${escapeHtml(targetLabel)}</strong>
+                <small>${escapeHtml(targetMeta)}</small>
+              </span>
+            </span>
+          </td>
+          <td data-label="TYP">
+            <span class="bounty-board__type-cell">
+              <span class="bounty-board__type-icon" aria-hidden="true">${escapeHtml(objectiveIcon)}</span>
+              <span>${escapeHtml(objectiveLabel)}</span>
+            </span>
+          </td>
+          <td data-label="DISTRICT">${escapeHtml(districtLabel)}</td>
+          <td data-label="ODMĚNA"><span class="bounty-board__reward-value">${escapeHtml(formatRewardValue(entry.rewardCleanCash))}</span></td>
+          <td data-label="STATUS / VYPSAL">
+            <span class="bounty-board__status-stack">
+              <span class="bounty-board__status-chip" data-bounty-status-chip="${escapeHtml(status)}">${escapeHtml(statusLabel)}</span>
+              <span class="bounty-board__creator-line">
+                <span>${escapeHtml(creatorLabel)}</span>
+                ${remainingLabel ? `<small>${escapeHtml(remainingLabel)}</small>` : ""}
+              </span>
+            </span>
+            <button type="button" class="bounty-board__row-action" data-bounty-cancel="${escapeHtml(entry.bountyId)}"${canCancel ? "" : " disabled"}>${canCancel ? "Zrušit" : "Mapa"}</button>
           </td>
         </tr>
       `;
@@ -579,6 +661,15 @@ function initBountyRuntime() {
     }
   };
 
+  const syncTabs = () => {
+    modal.dataset.bountyTab = uiState.activeTab;
+    for (const button of tabButtons) {
+      const isActive = String(button.dataset.bountyTab || "") === uiState.activeTab;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-selected", isActive ? "true" : "false");
+    }
+  };
+
   const refreshView = () => {
     syncFromGlobalReadModel();
     renderTargetOptions();
@@ -592,6 +683,7 @@ function initBountyRuntime() {
   const openModal = () => {
     modal.classList.remove("hidden");
     uiState.isOpen = true;
+    syncTabs();
     refreshView();
   };
 
@@ -796,17 +888,33 @@ function initBountyRuntime() {
   confirmCancelBtn?.addEventListener("click", closeConfirmModal);
   confirmSubmitBtn.addEventListener("click", () => void confirmSubmit());
   submitBtn.addEventListener("click", handleSubmit);
+  tabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextTab = String(button.dataset.bountyTab || "create");
+      uiState.activeTab = nextTab === "active" ? "active" : "create";
+      syncTabs();
+    });
+  });
   targetSelect.addEventListener("change", () => {
+    uiState.isTargetPickerOpen = false;
     syncTargetPickerSelection();
     renderDistrictOptions();
     syncPreview();
   });
   targetPicker?.addEventListener("click", (event) => {
+    const toggle = event.target?.closest?.("[data-bounty-target-toggle]");
+    if (toggle) {
+      uiState.isTargetPickerOpen = !uiState.isTargetPickerOpen;
+      syncTargetPickerSelection();
+      return;
+    }
     const button = event.target?.closest?.("[data-bounty-target-option]");
     if (!button || button.disabled) {
       return;
     }
-    targetSelect.value = String(button.dataset.bountyTargetOption || "");
+    const nextValue = String(button.dataset.bountyTargetOption || "");
+    targetSelect.value = nextValue;
+    uiState.isTargetPickerOpen = false;
     syncTargetPickerSelection();
     renderDistrictOptions();
     syncPreview();

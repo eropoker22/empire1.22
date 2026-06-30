@@ -1754,8 +1754,10 @@
         <div class="modal__content bounty-board__content">
           <header class="bounty-board__header">
             <div class="bounty-board__header-copy">
-              <div class="bounty-board__eyebrow">BOUNTY BOARD</div>
-              <h3>VYPSAT BOUNTY</h3>
+              <div class="bounty-board__tabs" role="tablist" aria-label="Bounty panel">
+                <button class="bounty-board__tab is-active" type="button" role="tab" aria-selected="true" data-bounty-tab="create">Vypsat bounty</button>
+                <button class="bounty-board__tab" type="button" role="tab" aria-selected="false" data-bounty-tab="active">Aktivní bounty</button>
+              </div>
             </div>
             <button id="bounty-modal-close" class="modal__close" type="button" aria-label="Zavřít">×</button>
           </header>
@@ -1792,6 +1794,10 @@
                 <div class="bounty-board__panel-head">
                   <span class="bounty-board__step">2</span>
                   <strong>Typ bounty</strong>
+                  <label id="bounty-district-field" class="bounty-board__field bounty-board__field--district-inline" hidden>
+                    <span>District</span>
+                    <select id="bounty-modal-district" class="bounty-board__input"></select>
+                  </label>
                 </div>
                 <div class="bounty-board__choice-grid">
                   <label class="bounty-board__choice">
@@ -1815,10 +1821,6 @@
                     <span>Zničit vybraný district</span>
                   </label>
                 </div>
-                <label id="bounty-district-field" class="bounty-board__field" hidden>
-                  <span>Konkrétní district</span>
-                  <select id="bounty-modal-district" class="bounty-board__input"></select>
-                </label>
               </div>
 
               <div class="bounty-board__panel bounty-board__panel--reward">
@@ -1905,16 +1907,19 @@
 
               <div class="bounty-board__panel bounty-board__table-panel">
                 <div class="bounty-board__panel-head">
-                  <span class="bounty-board__eyebrow">AKTIVNÍ BOUNTY</span>
+                  <strong>Aktivní bounty</strong>
                 </div>
                 <div class="bounty-board__table-wrap">
                   <table class="bounty-board__table">
                     <thead>
-                      <tr><th>Cíl</th><th>Typ</th><th>District</th><th>Odměna</th><th>Status / Vypsal</th></tr>
+                      <tr><th>CÍL</th><th>TYP</th><th>DISTRICT</th><th>ODMĚNA</th><th>STATUS / VYPSAL</th></tr>
                     </thead>
                     <tbody id="bounty-board-body"></tbody>
                   </table>
-                  <div id="bounty-board-empty" class="bounty-board__empty">Zatím tu není žádná aktivní bounty.</div>
+                  <div id="bounty-board-empty" class="bounty-board__empty">
+                    <strong>Žádné aktivní bounty</strong>
+                    <span>Zatím nikdo nevypsal odměnu.</span>
+                  </div>
                 </div>
               </div>
             </section>
