@@ -22,9 +22,9 @@ Legend:
 | Kasino | quiet_backroom | Tichá herna | ano | ano | ano | ano | ano | ano | ano | implemented | Praní dirty cash odpovídá legacy handleru. |
 | Kasino | vip_night | VIP noc | ano | ano | ano | ano | ano | ano | ano | implemented | Aktivní boost se nestackuje. |
 | Kasino | bribed_inspector | Podplacený inspektor | ano | ano | ano | ano | ano | ano | ano | implemented | Úspěch/selhání řeší runtime. |
-| Pouliční dealeři | start_drug_sale | Spustit prodej | ano | ano | ano | ano | default | ano | ano | implemented | V legacy kartě spouští dostupný profil; serverový slot flow zůstává mimo sprint. |
-| Pouliční dealeři | street_dealers_collect_hot_cash | Vybrat hot cash | ano | ano | ano | ne | default | ano | ano | implemented | Dříve nedostupný profil je nyní v UI. |
-| Pouliční dealeři | street_dealers_move_stash | Přesunout stash | ano | ano | ano | ne | default | ano | ano | implemented | Dříve nedostupný profil je nyní v UI. |
+| Pouliční dealeři | start_drug_sale | Spustit prodej | ano | ano | ano | ano | default | ano | ano | implemented | Serverový dealer slot flow; karta už neslibuje fixed local reward. |
+| Pouliční dealeři | street_dealers_collect_hot_cash | Vybrat hot cash | ano | ano | ano | ano | default | ano | ano | implemented | Server grant: +280 dirty cash, heat +3, cooldown 10 minut. |
+| Pouliční dealeři | street_dealers_move_stash | Přesunout stash | ano | ano | ano | ano | default | ano | ano | implemented | Server validuje 3 biomass, grantuje +1000 dirty cash, heat +1, cooldown 10 minut. |
 | Pašovací tunel | open_channel | Otevřít kanál | ano | ano | ano | ano | ano | ano | ano | implemented | Dirty cost, aktivní kanál a cooldown se validují. |
 | Burza | speculative_buy | Spekulativní nákup | ano | ano | ne | ano | ano | ano | ne | disabled as coming soon | Legacy runtime nemá bezpečný stock handler, fallback zakázán. |
 | Burza | market_pressure | Tržní tlak | ano | ano | ne | ano | ano | ano | ne | disabled as coming soon | Čeká na server-authoritative market action. |
@@ -43,30 +43,23 @@ Legend:
 | Letiště | evacuation_corridor | Evakuační koridor | ano | ano | ne | ano | ano | ano | ne | disabled as coming soon | Čeká na server command. |
 | Přístav | port_container_cut | Container Cut | ano | ano | ano | ano | ano | ano | ano | implemented | Generic dirty/material/influence/heat handler. |
 | Parlament | parliament_policy_window | Policy Window | ano | ano | ano | ano | ano | ano | ano | implemented | Generic clean/influence/heat handler. |
-| Strip club | strip_club_collect_cash | Vybrat cash | ano | ano | ano | ne | default | ano | ano | implemented | Legacy dirty/heat handler. |
-| Strip club | vip_lounge | Hostit VIP klienty | ano | ano | ano | ano | default | ano | ano | implemented | Legacy duration/influence/heat handler. |
-| Strip club | private_party | Získat kompromat | ano | ano | ano | ano | default | ano | ano | implemented | Legacy influence/heat handler. |
-| Energetická stanice | backup_grid_switch | Stabilizovat síť | ano | ano | ano | ano | default | ano | ano | implemented | Legacy duration/heat handler. |
-| Energetická stanice | power_station_feed_production | Napájet výrobu | ano | ano | ano | ne | default | ano | ano | implemented | Legacy clean boost handler. |
-| Energetická stanice | power_station_reduce_outages | Snížit výpadky | ano | ano | ano | ne | default | ano | ano | implemented | Legacy heat reduction handler. |
+| Strip club | strip_club_collect_cash | Vybrat cash | ano | ano | ano | ano | default | ano | ano | implemented | Server grant: +360 dirty cash, heat +3, cooldown 10 minut. |
+| Strip club | vip_lounge | Hostit VIP klienty | ano | ano | ano | ano | default | ano | ano | implemented | Server duration boost, clean cost, cooldown a rumor chance. |
+| Strip club | private_party | Získat kompro | ano | ano | ano | ano | default | ano | ano | implemented | Server private_party: vliv, influence boost, heat a scandal risk. |
+| Energetická stanice | backup_grid_switch | Stabilizovat síť | ano | ano | ano | ano | default | ano | ano | implemented | Server infrastructure/defense/production boost. |
+| Energetická stanice | power_station_feed_production | Napájet výrobu | ano | ano | ano | ano | default | ano | ano | implemented | Server timed clean-income boost, heat +2, cooldown 60 minut. |
+| Energetická stanice | power_station_reduce_heat | Snížit heat | ano | ano | ano | ano | default | ano | ano | implemented | Serverově sníží heat o 2 a spustí cooldown 60 minut. |
 | Recyklační centrum | extract_losses | Vytěžit ztráty | ano | ano | ano | ano | ano | ano | ano | implemented | Disabled jen při prázdném salvage poolu / chybějícím clean cash / cooldownu. |
-| Lékárna | pharmacy_stim_pack | Vyrobit stim pack | ano | ano | ano | ne | default | ano | ano | implemented | Production/craft flow mimo sprint nezměněn. |
-| Lékárna | pharmacy_black_market_medkit | Black market med kit | ano | ano | ano | ne | default | ano | ano | implemented | Legacy inventory/cash/heat handler. |
-| Lékárna | pharmacy_medical_cover | Medical cover | ano | ano | ano | ne | default | ano | ano | implemented | Legacy heat/influence/effect handler. |
-| Drug lab | drug_lab_overclock_batch | Overclock batch | ano | ano | ano | ne | default | ano | ano | implemented | Production/craft flow mimo sprint nezměněn. |
-| Drug lab | drug_lab_clean_batch | Clean batch | ano | ano | ano | ne | default | ano | ano | implemented | Legacy drugs/cash/heat handler. |
-| Drug lab | drug_lab_hidden_operation | Hidden operation | ano | ano | ano | ne | default | ano | ano | implemented | Legacy drugs/heat/influence/effect handler. |
-| Továrna | factory_combat_module_run | Combat module run | ano | ano | ano | ne | default | ano | ano | implemented | Production flow mimo sprint nezměněn. |
-| Továrna | factory_rapid_assembly | Rapid assembly | ano | ano | ano | ne | default | ano | ano | implemented | Legacy factory supplies/effect handler. |
-| Továrna | factory_industrial_overdrive | Industrial overdrive | ano | ano | ano | ne | default | ano | ano | implemented | Legacy factory supplies/effect handler. |
-| Zbrojovka | armory_attack_loadout | Attack loadout | ano | ano | ano | ne | default | ano | ano | implemented | Craft/attack flow mimo sprint nezměněn. |
-| Zbrojovka | armory_defense_kit | Defense kit | ano | ano | ano | ne | default | ano | ano | implemented | Legacy weapons/influence/heat handler. |
-| Zbrojovka | armory_fortify_district | Fortify district | ano | ano | ano | ne | default | ano | ano | implemented | Legacy weapons/heat/influence/effect handler. |
+| Lékárna | n/a | n/a | ne | ne | n/a | n/a | n/a | n/a | n/a | removed from detail card | Lékárna používá samostatný pharmacy/production flow, ne special action rows. |
+| Drug lab / Lab | n/a | n/a | ne | ne | n/a | n/a | n/a | n/a | n/a | removed from detail card | Drug lab používá samostatný drug production flow, ne special action rows. |
+| Továrna | n/a | n/a | ne | ne | n/a | n/a | n/a | n/a | n/a | removed from detail card | Továrna používá samostatný production flow, ne special action rows. |
+| Zbrojovka | n/a | n/a | ne | ne | n/a | n/a | n/a | n/a | n/a | removed from detail card | Zbrojovka používá samostatný craft/combat flow, ne special action rows. |
 
 ## Findings
 
 - The old click path could dispatch `(rowView.index, rowView)` instead of `(shell, actionIndex)`. It is now removed for district detail actions.
 - The old runtime fallback granted generic influence on unknown actions. It is now blocked.
 - Recyklační centrum was permanently disabled because the view-model never checked salvage pool state. It now reads item losses from the existing recovery pool.
-- Pouliční dealeři had three profiles and one UI action. UI now exposes all three legacy profiles.
+- Pouliční dealeři had three profiles and one UI action. UI now exposes all three as server-backed actions.
+- Továrna, Drug lab/Lab, Zbrojovka and Lékárna no longer expose detail-card special rows; their separate production/craft/pharmacy flows remain separate.
 - Burza, Centrální banka, Magistrát, Lobby klub and Letiště have game-config actions, but no safe legacy runtime handler. They are disabled as coming soon instead of executing fake fallback effects.

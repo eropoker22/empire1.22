@@ -50,42 +50,25 @@ const SERVER_ACTIONS = new Map([
   ["strip club::hostit vip klienty", ["vip_lounge", "strip_club"]],
   ["strip club::ziskat kompro", ["private_party", "strip_club"]],
   ["strip club::ziskat kompromat", ["private_party", "strip_club"]],
+  ["strip club::vybrat cash", ["strip_club_collect_cash", "strip_club"]],
   ["recyklacni centrum::vytezit ztraty", ["extract_losses", "recycling_center"]],
   ["klinika::stabilizacni protokol", ["stabilization_protocol", "clinic"]],
   ["skola::vecerni kurz", ["evening_course", "school"]],
   ["bytovy blok::vybrat obyvatele", ["collect_population", "apartment_block"]],
   ["energeticka stanice::stabilizovat sit", ["backup_grid_switch", "power_station"]],
+  ["energeticka stanice::napajet vyrobu", ["power_station_feed_production", "power_station"]],
+  ["energeticka stanice::snizit heat", ["power_station_reduce_heat", "power_station"]],
+  ["energeticka stanice::snizit vypadky", ["power_station_reduce_heat", "power_station"]],
   ["pasovaci tunel::otevrit kanal", ["open_channel", "smuggling_tunnel"]],
-  ["poulicni dealeri::spustit prodej", ["start_drug_sale", "street_dealers"]]
+  ["poulicni dealeri::spustit prodej", ["start_drug_sale", "street_dealers"]],
+  ["poulicni dealeri::vybrat hot cash", ["street_dealers_collect_hot_cash", "street_dealers"]],
+  ["poulicni dealeri::presunout stash", ["street_dealers_move_stash", "street_dealers"]]
 ]);
 
 const LEGACY_ACTION_IDS = new Map([
   ["restaurace::vybrat trzby", "restaurant_collect_revenue"],
   ["restaurace::kryt schuzky", "restaurant_cover_meetings"],
-  ["restaurace::posilit lokalni sit", "restaurant_local_network"],
-  ["poulicni dealeri::vybrat hot cash", "street_dealers_collect_hot_cash"],
-  ["poulicni dealeri::presunout stash", "street_dealers_move_stash"],
-  ["strip club::vybrat cash", "strip_club_collect_cash"],
-  ["strip club::ziskat kompro", "strip_club_compromat"],
-  ["strip club::ziskat kompromat", "strip_club_compromat"],
-  ["energeticka stanice::napajet vyrobu", "power_station_feed_production"],
-  ["energeticka stanice::snizit heat", "power_station_reduce_outages"],
-  ["energeticka stanice::snizit vypadky", "power_station_reduce_outages"],
-  ["lekarna::vyrobit stim pack", "pharmacy_stim_pack"],
-  ["lekarna::black market med kit", "pharmacy_black_market_medkit"],
-  ["lekarna::medical cover", "pharmacy_medical_cover"],
-  ["drug lab::overclock batch", "drug_lab_overclock_batch"],
-  ["drug lab::clean batch", "drug_lab_clean_batch"],
-  ["drug lab::hidden operation", "drug_lab_hidden_operation"],
-  ["lab::overclock batch", "drug_lab_overclock_batch"],
-  ["lab::clean batch", "drug_lab_clean_batch"],
-  ["lab::hidden operation", "drug_lab_hidden_operation"],
-  ["tovarna::combat module run", "factory_combat_module_run"],
-  ["tovarna::rapid assembly", "factory_rapid_assembly"],
-  ["tovarna::industrial overdrive", "factory_industrial_overdrive"],
-  ["zbrojovka::attack loadout", "armory_attack_loadout"],
-  ["zbrojovka::defense kit", "armory_defense_kit"],
-  ["zbrojovka::fortify district", "armory_fortify_district"]
+  ["restaurace::posilit lokalni sit", "restaurant_local_network"]
 ]);
 
 const PROFILE_MARKERS_REQUIRING_SERVER = Object.freeze([
@@ -201,6 +184,8 @@ function formatMultiplierPercentDelta(multiplier) {
 
 function formatRewardSummary(actionProfile = {}) {
   const rewards = [];
+  const serverEffectSummary = String(actionProfile.serverEffectSummary || "").trim();
+  if (serverEffectSummary) rewards.push(serverEffectSummary);
   if (Number(actionProfile.clean || 0) > 0) rewards.push(`Clean +${formatDistrictBuildingMoney(actionProfile.clean)}`);
   if (Number(actionProfile.dirty || 0) > 0) rewards.push(`Dirty cash +${formatDistrictBuildingMoney(actionProfile.dirty)}`);
   if (Number(actionProfile.influence || 0) > 0) rewards.push(`Vliv +${Math.floor(Number(actionProfile.influence))}`);

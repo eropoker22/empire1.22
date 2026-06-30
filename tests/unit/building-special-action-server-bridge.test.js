@@ -115,6 +115,44 @@ describe("Downtown building special action server bridge", () => {
     }
   });
 
+  it("dispatches hardened Park and Industrial actions through run-building-action", () => {
+    const actions = [
+      ["Pouliční dealeři", "Spustit prodej", 0, "street_dealers", { dealerSlotId: "slot-1", itemId: "neon-dust", amount: 1 }],
+      ["Pouliční dealeři", "Vybrat hot cash", 1, "street_dealers", {}],
+      ["Pouliční dealeři", "Přesunout stash", 2, "street_dealers", {}],
+      ["Strip club", "Vybrat cash", 0, "strip_club", {}],
+      ["Energetická stanice", "Napájet výrobu", 1, "power_station", {}],
+      ["Energetická stanice", "Snížit heat", 2, "power_station", {}]
+    ];
+
+    for (const [buildingName, actionLabel, actionIndex, buildingTypeId, expectedDefaults] of actions) {
+      const definition = createDefinition(buildingName, actionLabel, actionIndex);
+      const request = createServerBuildingActionSubmitRequest({
+        slice: createSlice({
+          buildingTypeId,
+          buildingId: `building:district-42:${buildingTypeId}:1`,
+          actionId: definition.actionId
+        }),
+        target: {
+          districtId: "district:42",
+          buildingId: `building:district-42:${buildingTypeId}:1`
+        },
+        definition,
+        actionProfile: getActionProfile(buildingName, actionIndex),
+        commandId: `command:${definition.actionId}`,
+        issuedAt: "2026-06-29T18:00:00.000Z"
+      });
+
+      expect(request.command.type, `${buildingName} / ${actionLabel}`).toBe("run-building-action");
+      expect(request.command.payload, `${buildingName} / ${actionLabel}`).toMatchObject({
+        districtId: "district:42",
+        buildingId: `building:district-42:${buildingTypeId}:1`,
+        actionId: definition.actionId,
+        ...expectedDefaults
+      });
+    }
+  });
+
   it("does not submit disabled Downtown actions and surfaces the server disabled reason", async () => {
     const definition = createDefinition("Burza", "Tržní tlak", 1);
     const fetchJson = vi.fn();

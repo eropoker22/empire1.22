@@ -181,27 +181,27 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   lekarna: Object.freeze({
     role: "Chemická podpora",
     info: "Lékárna vyrábí základní chemii, biomass a stim packy pro další crafting a podporu posádky.",
-    actions: Object.freeze(["Vyrobit stim pack", "Black market med kit", "Medical cover"])
+    actions: Object.freeze([])
   }),
   "drug lab": Object.freeze({
     role: "Drug výroba",
     info: "Drug lab převádí materiály na hotové substance a drží nejvyšší dirty cash potenciál v districtu.",
-    actions: Object.freeze(["Overclock batch", "Clean batch", "Hidden operation"])
+    actions: Object.freeze([])
   }),
   lab: Object.freeze({
     role: "Drug výroba",
     info: "Lab převádí materiály na hotové substance a drží nejvyšší dirty cash potenciál v districtu.",
-    actions: Object.freeze(["Overclock batch", "Clean batch", "Hidden operation"])
+    actions: Object.freeze([])
   }),
   tovarna: Object.freeze({
     role: "Průmyslová výroba",
     info: "Továrna vyrábí Metal Parts, Tech Core a Combat Module pro zbrojovku, útoky a průmyslové linky.",
-    actions: Object.freeze(["Combat module run", "Rapid assembly", "Industrial overdrive"])
+    actions: Object.freeze([])
   }),
   zbrojovka: Object.freeze({
     role: "Výzbroj",
     info: "Zbrojovka mění průmyslové zásoby na útočnou i obrannou výzbroj použitelnou v attack a defense flow.",
-    actions: Object.freeze(["Attack loadout", "Defense kit", "Fortify district"])
+    actions: Object.freeze([])
   })
 });
 
@@ -237,7 +237,7 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
     Object.freeze({ casinoBribedInspector: true, cleanCost: 5500, failureChancePct: 14, durationMs: 12 * 60 * 1000, cooldownMs: 32 * 60 * 1000, heatSuccess: -16, heatFailure: 12, influenceSuccess: 4, auditRiskReductionPct: 35, auditRiskFailurePct: 10, summary: "Podplacený inspektor je drahá ochrana s rizikem selhání." })
   ]),
   "poulicni dealeri": Object.freeze([
-    Object.freeze({ dirty: 1000, heat: 4, durationMs: 30 * 60 * 1000, cooldownMs: 60 * 60 * 1000, dirtyIncomeBoostPct: 35, summary: "Distribuce zvedla dirty cash a income." }),
+    Object.freeze({ cooldownMs: 0, serverEffectSummary: "Dealer slot prodá vybranou látku za serverově spočítaný dirty cash.", summary: "Spustí serverový prodej látky přes dealer slot." }),
     Object.freeze({ dirty: 280, heat: 3, cooldownMs: 10 * 60 * 1000, summary: "Hotový cash byl vybrán." }),
     Object.freeze({ materialCost: { biomass: 3 }, dirty: 1000, heat: 1, cooldownMs: 10 * 60 * 1000, summary: "Stash proměněn na dirty cash." })
   ]),
@@ -284,43 +284,23 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
   ]),
   "strip club": Object.freeze([
     Object.freeze({ dirty: 360, heat: 3, cooldownMs: 10 * 60 * 1000, summary: "Noční cash vybrán." }),
-    Object.freeze({ durationMs: 30 * 60 * 1000, cooldownMs: 60 * 60 * 1000, incomeBoostPct: 35, influence: 5, heat: 4, summary: "VIP klienti zvedli income i vliv." }),
-    Object.freeze({ influence: 7, heat: 3, cooldownMs: 30 * 60 * 1000, summary: "Kompro přidalo vliv." })
+    Object.freeze({ cleanCost: 800, durationMs: 30 * 60 * 1000, cooldownMs: 60 * 60 * 1000, cleanIncomeBoostPct: 45, dirtyIncomeBoostPct: 35, influenceBoostPct: 55, heatMultiplier: 1.5, serverEffectSummary: "Šance na drb +10 %", summary: "VIP klienti dočasně zvednou cashflow, vliv, heat a drby." }),
+    Object.freeze({ cleanCost: 1500, influence: 8, heat: 6, durationMs: 10 * 60 * 1000, cooldownMs: 30 * 60 * 1000, influenceBoostPct: 70, failureChancePct: 12, serverEffectSummary: "Kontakt / extra drb / riziko skandálu", summary: "Kompro přidá vliv, dočasný influence boost a může přinést kontakt, extra drb nebo skandál." })
   ]),
   sklad: Object.freeze([]),
   "energeticka stanice": Object.freeze([
-    Object.freeze({ durationMs: 25 * 60 * 1000, cooldownMs: 60 * 60 * 1000, incomeBoostPct: 12, heat: 1, summary: "Síť stabilizována, income běží rychleji." }),
-    Object.freeze({ durationMs: 25 * 60 * 1000, cooldownMs: 60 * 60 * 1000, cleanIncomeBoostPct: 18, heat: 2, summary: "Výroba dostala napájecí boost." }),
-    Object.freeze({ cooldownMs: 60 * 60 * 1000, heat: -2, summary: "Heat byl snížený." })
+    Object.freeze({ cleanCost: 1200, durationMs: 25 * 60 * 1000, cooldownMs: 60 * 60 * 1000, heat: 3, serverEffectSummary: "Infrastructure +12% · kamery +20% · alarm +20% · výroba +10%", summary: "Záložní síť dočasně posílí infrastrukturu, obranu a průmyslovou výrobu." }),
+    Object.freeze({ durationMs: 25 * 60 * 1000, cooldownMs: 60 * 60 * 1000, cleanIncomeBoostPct: 18, heat: 2, summary: "Napájení dočasně zvedne čistý provoz districtu." }),
+    Object.freeze({ cooldownMs: 60 * 60 * 1000, heat: -2, summary: "Serverově sníží heat districtu." })
   ]),
   "recyklacni centrum": Object.freeze([
     Object.freeze({ recyclingExtractLosses: true, cleanCost: 900, heat: 2, cooldownMs: 16 * 60 * 1000, summary: "Vytěží část neexpirovaných itemových ztrát." })
   ]),
-  lekarna: Object.freeze([
-    Object.freeze({ materials: { "stim-pack": 3, chemicals: 2 }, heat: 1, summary: "Lékárna přepsala stim packy a chemii do zásob." }),
-    Object.freeze({ clean: 180, dirty: 120, materials: { "stim-pack": 1 }, heat: 2, summary: "Black market med kit přidal cash i support zásoby." }),
-    Object.freeze({ heat: -3, influence: 2, durationMs: 2 * 60 * 60 * 1000, heatMultiplier: 0.85, summary: "Medical cover snížil heat a kryje district." })
-  ]),
-  "drug lab": Object.freeze([
-    Object.freeze({ drugs: { "neon-dust": 4, "pulse-shot": 3 }, dirty: 280, heat: 5, durationMs: 90 * 60 * 1000, dirtyIncomeBoostPct: 30, summary: "Overclock batch přidal drogy a dočasný dirty income." }),
-    Object.freeze({ drugs: { "velvet-smoke": 3, "ghost-serum": 1 }, clean: 160, heat: 2, summary: "Clean batch přepsal hotové substance a clean cash." }),
-    Object.freeze({ drugs: { "overdrive-x": 1 }, heat: -2, influence: 3, durationMs: 2 * 60 * 60 * 1000, heatMultiplier: 0.9, summary: "Hidden operation drží lab pod radarem." })
-  ]),
-  lab: Object.freeze([
-    Object.freeze({ drugs: { "neon-dust": 4, "pulse-shot": 3 }, dirty: 280, heat: 5, durationMs: 90 * 60 * 1000, dirtyIncomeBoostPct: 30, summary: "Overclock batch přidal drogy a dočasný dirty income." }),
-    Object.freeze({ drugs: { "velvet-smoke": 3, "ghost-serum": 1 }, clean: 160, heat: 2, summary: "Clean batch přepsal hotové substance a clean cash." }),
-    Object.freeze({ drugs: { "overdrive-x": 1 }, heat: -2, influence: 3, durationMs: 2 * 60 * 60 * 1000, heatMultiplier: 0.9, summary: "Hidden operation drží lab pod radarem." })
-  ]),
-  tovarna: Object.freeze([
-    Object.freeze({ factorySupplies: { combatModule: 1 }, materials: { "metal-parts": 3, "tech-core": 1 }, heat: 3, summary: "Combat module run přidal průmyslové zásoby." }),
-    Object.freeze({ factorySupplies: { metalParts: 5, techCore: 2 }, durationMs: 90 * 60 * 1000, cleanIncomeBoostPct: 18, heat: 2, summary: "Rapid assembly zrychlil průmyslový výstup." }),
-    Object.freeze({ factorySupplies: { combatModule: 2 }, durationMs: 2 * 60 * 60 * 1000, incomeBoostPct: 20, heat: 5, summary: "Industrial overdrive zvýšil income i combat modules." })
-  ]),
-  zbrojovka: Object.freeze([
-    Object.freeze({ weapons: { pistol: 2, smg: 1, grenade: 1 }, heat: 4, durationMs: 90 * 60 * 1000, influenceBoostPct: 10, summary: "Attack loadout přidal útočnou výzbroj." }),
-    Object.freeze({ weapons: { vest: 2, barricades: 2, cameras: 1 }, heat: 2, influence: 2, summary: "Defense kit přidal obrannou výzbroj." }),
-    Object.freeze({ weapons: { "defense-tower": 1, alarm: 2 }, heat: -2, influence: 3, durationMs: 2 * 60 * 60 * 1000, heatMultiplier: 0.9, summary: "Fortify district přidal obranu a snížil heat." })
-  ])
+  lekarna: Object.freeze([]),
+  "drug lab": Object.freeze([]),
+  lab: Object.freeze([]),
+  tovarna: Object.freeze([]),
+  zbrojovka: Object.freeze([])
 });
 
 

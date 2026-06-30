@@ -117,7 +117,7 @@ describe("building special action registry", () => {
     expect(definition.riskSummary).toContain("Audit fail +10%");
   });
 
-  it("keeps all street dealer card actions implemented with concrete effects", () => {
+  it("keeps all street dealer card actions server-backed with concrete effects", () => {
     const streetDealerProfiles = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["poulicni dealeri"];
     const sale = resolveBuildingSpecialActionDefinition({
       buildingName: "Pouliční dealeři",
@@ -138,18 +138,24 @@ describe("building special action registry", () => {
       actionProfile: streetDealerProfiles[2]
     });
 
-    expect(streetDealerProfiles[0].dirty).toBe(1000);
+    expect(streetDealerProfiles[0].dirty).toBeUndefined();
     expect([sale.status, collect.status, stash.status]).toEqual(["implemented", "implemented", "implemented"]);
     expect([sale.actionId, collect.actionId, stash.actionId]).toEqual([
       "start_drug_sale",
       "street_dealers_collect_hot_cash",
       "street_dealers_move_stash"
     ]);
-    expect(sale.rewardSummary).toContain("Dirty cash +$1000");
-    expect(sale.rewardSummary).toContain("Dirty income +35%");
-    expect(sale.rewardSummary).toContain("Efekt 30m 00s");
-    expect(sale.riskSummary).toBe("Heat +4");
-    expect(sale.cooldownMs).toBe(60 * 60 * 1000);
+    expect([sale.handlerId, collect.handlerId, stash.handlerId]).toEqual([
+      "server-run-building-action",
+      "server-run-building-action",
+      "server-run-building-action"
+    ]);
+    expect(sale.rewardSummary).toContain("Dealer slot prodá vybranou látku");
+    expect(sale.inputSummary).toContain("Slot: slot-1");
+    expect(sale.inputSummary).toContain("Produkt: neon-dust");
+    expect(sale.inputSummary).toContain("Množství: 1");
+    expect(sale.riskSummary).toBe("Bez přímého heat rizika");
+    expect(sale.cooldownMs).toBe(0);
     expect(collect.rewardSummary).toContain("Dirty");
     expect(collect.riskSummary).toBe("Heat +3");
     expect(collect.cooldownMs).toBe(10 * 60 * 1000);
@@ -181,7 +187,7 @@ describe("building special action registry", () => {
     expect(openChannel.cooldownMs).toBe(30 * 60 * 1000);
   });
 
-  it("keeps strip club action labels and timings aligned with card actions", () => {
+  it("keeps strip club card actions server-backed and aligned", () => {
     const stripProfiles = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["strip club"];
     const collect = resolveBuildingSpecialActionDefinition({
       buildingName: "Strip club",
@@ -208,9 +214,24 @@ describe("building special action registry", () => {
       "vip_lounge",
       "private_party"
     ]);
+    expect([collect.handlerId, vip.handlerId, kompro.handlerId]).toEqual([
+      "server-run-building-action",
+      "server-run-building-action",
+      "server-run-building-action"
+    ]);
+    expect(collect.rewardSummary).toContain("Dirty cash +$360");
+    expect(collect.riskSummary).toBe("Heat +3");
+    expect(vip.costSummary).toBe("$800 clean cash");
+    expect(vip.rewardSummary).toContain("Clean income +45%");
+    expect(vip.rewardSummary).toContain("Dirty income +35%");
+    expect(vip.rewardSummary).toContain("Vliv +55%");
     expect(collect.cooldownMs).toBe(10 * 60 * 1000);
     expect(vip.cooldownMs).toBe(60 * 60 * 1000);
     expect(vip.rewardSummary).toContain("Efekt 30m 00s");
+    expect(kompro.costSummary).toBe("$1500 clean cash");
+    expect(kompro.rewardSummary).toContain("Vliv +8");
+    expect(kompro.rewardSummary).toContain("Vliv +70%");
+    expect(kompro.riskSummary).toContain("Heat +6");
     expect(kompro.cooldownMs).toBe(30 * 60 * 1000);
   });
 
@@ -233,7 +254,7 @@ describe("building special action registry", () => {
     expect(definition.rewardSummary).toContain("Clean +$180");
   });
 
-  it("maps renamed power station heat action to the existing legacy handler", () => {
+  it("maps renamed power station heat action to a server handler", () => {
     const definition = resolveBuildingSpecialActionDefinition({
       buildingName: "Energetická stanice",
       actionLabel: "Snížit heat",
@@ -241,10 +262,48 @@ describe("building special action registry", () => {
       actionProfile: { cooldownMs: 60 * 60 * 1000, heat: -2, summary: "Heat byl snížený." }
     });
 
-    expect(definition.actionId).toBe("power_station_reduce_outages");
+    expect(definition.actionId).toBe("power_station_reduce_heat");
     expect(definition.status).toBe("implemented");
+    expect(definition.handlerId).toBe("server-run-building-action");
+    expect(definition.disabledReason).toBe("");
     expect(definition.rewardSummary).toBe("Efekt podle akce");
     expect(definition.riskSummary).toBe("Heat -2");
     expect(definition.confirmTitle).toBe("Snížit heat");
+  });
+
+  it("keeps Park and Industrial design actions on server handlers", () => {
+    const serverActions = [
+      ["Pouliční dealeři", "Vybrat hot cash", 1],
+      ["Pouliční dealeři", "Přesunout stash", 2],
+      ["Strip club", "Vybrat cash", 0],
+      ["Energetická stanice", "Napájet výrobu", 1],
+      ["Energetická stanice", "Snížit heat", 2]
+    ];
+
+    for (const [buildingName, actionLabel, actionIndex] of serverActions) {
+      const key = String(buildingName)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+      const actionProfile = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES[key]?.[actionIndex] || {};
+      const definition = resolveBuildingSpecialActionDefinition({
+        buildingName,
+        actionLabel,
+        actionIndex,
+        actionProfile
+      });
+
+      expect(definition.status, `${buildingName} / ${actionLabel}`).toBe("implemented");
+      expect(definition.handlerId, `${buildingName} / ${actionLabel}`).toBe("server-run-building-action");
+      expect(definition.disabledReason, `${buildingName} / ${actionLabel}`).toBe("");
+    }
+  });
+
+  it("removes production and craft building special rows from detail cards", () => {
+    expect(DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.lekarna).toEqual([]);
+    expect(DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["drug lab"]).toEqual([]);
+    expect(DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.lab).toEqual([]);
+    expect(DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.tovarna).toEqual([]);
+    expect(DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.zbrojovka).toEqual([]);
   });
 });

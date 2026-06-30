@@ -132,6 +132,39 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     allowedIfContested: false,
     reportText: "Záložní síť aktivní. Infrastructure a defense systémy jsou dočasně posílené."
   },
+  power_station_feed_production: {
+    actionId: "power_station_feed_production",
+    buildingType: "power_station",
+    label: "Napájet výrobu",
+    description: "Na 25 minut dočasně zvýší čistý provoz districtu. Nejde o lokální production reward.",
+    durationMs: 25 * 60 * 1000,
+    cooldownMs: 60 * 60 * 1000,
+    inputCost: {},
+    outputGain: {},
+    heatGain: 2,
+    influenceChange: 0,
+    effectModifiers: {
+      cleanIncomeMultiplier: 1.18
+    },
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Napájení výroby dočasně zvýšilo čistý provoz districtu. Heat +2."
+  },
+  power_station_reduce_heat: {
+    actionId: "power_station_reduce_heat",
+    buildingType: "power_station",
+    label: "Snížit heat",
+    description: "Serverově sníží heat districtu o 2 body.",
+    durationMs: 0,
+    cooldownMs: 60 * 60 * 1000,
+    inputCost: {},
+    outputGain: {},
+    heatGain: -2,
+    influenceChange: 0,
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Energetická stanice stabilizovala provoz a snížila heat districtu o 2."
+  },
   start_drug_sale: {
     actionId: "start_drug_sale",
     buildingType: "street_dealers",
@@ -146,5 +179,35 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     requiredOwner: true,
     allowedIfContested: false,
     reportText: "Pouliční dealeři spustili prodej přes vybraný slot."
+  },
+  street_dealers_collect_hot_cash: {
+    actionId: "street_dealers_collect_hot_cash",
+    buildingType: "street_dealers",
+    label: "Vybrat hot cash",
+    description: "Okamžitě vybere menší balík špinavých peněz z ulice.",
+    durationMs: 0,
+    cooldownMs: 10 * 60 * 1000,
+    inputCost: {},
+    outputGain: { "dirty-cash": 280 },
+    heatGain: 3,
+    influenceChange: 0,
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Pouliční dealeři vybrali 280 dirty cash. Heat +3."
+  },
+  street_dealers_move_stash: {
+    actionId: "street_dealers_move_stash",
+    buildingType: "street_dealers",
+    label: "Přesunout stash",
+    description: "Spotřebuje 3 biomass a promění přesunutý stash na dirty cash.",
+    durationMs: 0,
+    cooldownMs: 10 * 60 * 1000,
+    inputCost: { biomass: 3 },
+    outputGain: { "dirty-cash": 1000 },
+    heatGain: 1,
+    influenceChange: 0,
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Stash přesunut: -3 biomass, +1000 dirty cash, heat +1."
   }
 };

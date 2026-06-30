@@ -85,6 +85,21 @@ export const freeModeVenueBuildingActions: NonNullable<ResolvedGameModeConfig["b
     allowedIfContested: false,
     reportText: "Heat control akce s rizikem selhání."
   },
+  strip_club_collect_cash: {
+    actionId: "strip_club_collect_cash",
+    buildingType: "strip_club",
+    label: "Vybrat cash",
+    description: "Okamžitě vybere noční dirty cash ze Strip Clubu.",
+    durationMs: 0,
+    cooldownMs: 10 * 60 * 1000,
+    inputCost: {},
+    outputGain: { "dirty-cash": 360 },
+    heatGain: 3,
+    influenceChange: 0,
+    requiredOwner: true,
+    allowedIfContested: false,
+    reportText: "Strip Club vybral 360 dirty cash. Heat +3."
+  },
   vip_lounge: {
     actionId: "vip_lounge",
     buildingType: "strip_club",

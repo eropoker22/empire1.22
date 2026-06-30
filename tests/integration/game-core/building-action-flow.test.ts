@@ -263,6 +263,85 @@ describe("run-building-action command flow", () => {
     });
   });
 
+  it("runs Street Dealer hot cash and stash actions through server state", () => {
+    const { state, building } = createStateWithFixedBuilding("street_dealers", {
+      playerBalances: {
+        cash: 0,
+        "dirty-cash": 0,
+        biomass: 3
+      }
+    });
+    const hotCash = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:street-dealers:hot-cash",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "street_dealers_collect_hot_cash"
+        }
+      }),
+      context
+    );
+    const stashState = createStateWithFixedBuilding("street_dealers", {
+      playerBalances: {
+        cash: 0,
+        "dirty-cash": 0,
+        biomass: 3
+      }
+    });
+    const stash = applyCommand(
+      stashState.state,
+      createRunBuildingActionCommandFixture({
+        id: "command:street-dealers:stash",
+        payload: {
+          districtId: "district:1",
+          buildingId: stashState.building.id,
+          actionId: "street_dealers_move_stash"
+        }
+      }),
+      context
+    );
+    const rejected = applyCommand(
+      createStateWithFixedBuilding("street_dealers", {
+        playerBalances: {
+          cash: 0,
+          "dirty-cash": 0,
+          biomass: 2
+        }
+      }).state,
+      createRunBuildingActionCommandFixture({
+        id: "command:street-dealers:stash:reject",
+        payload: {
+          districtId: "district:1",
+          buildingId: stashState.building.id,
+          actionId: "street_dealers_move_stash"
+        }
+      }),
+      context
+    );
+
+    expect(hotCash.errors).toEqual([]);
+    expect(hotCash.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(280);
+    expect(hotCash.nextState.districtsById["district:1"].heat).toBe(2);
+    expect(hotCash.nextState.buildingsById[building.id].actionCooldowns.street_dealers_collect_hot_cash).toBe(
+      cooldownTicksForMs(10 * 60 * 1000)
+    );
+
+    expect(stash.errors).toEqual([]);
+    expect(stash.nextState.resourceStatesById["resource:1"].balances.biomass).toBe(0);
+    expect(stash.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(1000);
+    expect(stash.nextState.districtsById["district:1"].heat).toBe(0);
+    expect(stash.nextState.buildingsById[stashState.building.id].actionCooldowns.street_dealers_move_stash).toBe(
+      cooldownTicksForMs(10 * 60 * 1000)
+    );
+
+    expect(rejected.errors.map((error) => error.code)).toContain("building_action_insufficient_resources");
+    expect(rejected.nextState.resourceStatesById["resource:1"].balances.biomass).toBe(2);
+    expect(rejected.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(0);
+    expect(rejected.nextState.buildingsById[stashState.building.id].actionCooldowns.street_dealers_move_stash).toBeUndefined();
+  });
+
   it("applies smuggling tunnel Dealer Supply bonuses to street dealer sale previews", () => {
     const { state, building } = createStateWithFixedBuilding("street_dealers", {
       playerBalances: {
@@ -2337,6 +2416,39 @@ describe("run-building-action command flow", () => {
     expect(secondMetadata?.rumorEvents).toHaveLength(1);
   });
 
+  it("runs Strip Club cash collection through server state", () => {
+    const { state, building } = createStateWithFixedBuilding("strip_club", {
+      playerBalances: {
+        cash: 0,
+        "dirty-cash": 0
+      }
+    });
+    const result = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:strip:collect-cash",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "strip_club_collect_cash"
+        }
+      }),
+      context
+    );
+    const report = createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })[0];
+
+    expect(result.errors).toEqual([]);
+    expect(result.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(360);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 3);
+    expect(result.nextState.buildingsById[building.id].actionCooldowns.strip_club_collect_cash).toBe(
+      cooldownTicksForMs(10 * 60 * 1000)
+    );
+    expect(report).toMatchObject({
+      reportType: "building-action",
+      buildingActionId: "strip_club_collect_cash"
+    });
+  });
+
   it("runs Restaurant as passive clean, influence, heat, and rumor building without dirty cash or actions", () => {
     const { state, building } = createStateWithFixedBuilding("restaurant", {
       id: "building:district-1:restaurant:1",
@@ -2728,6 +2840,71 @@ describe("run-building-action command flow", () => {
         temporaryInfrastructureBonusPct: 12
       }
     });
+  });
+
+  it("runs Power Station production boost and heat reduction through server state", () => {
+    const { state, building } = createStateWithFixedBuilding("power_station", {
+      playerBalances: {
+        cash: 0,
+        "dirty-cash": 0
+      }
+    });
+    const boost = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:power:feed-production",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "power_station_feed_production"
+        }
+      }),
+      context
+    );
+    const effectState = boost.nextState.effectStatesById["effect:district:1"];
+    const heatState = {
+      ...state,
+      districtsById: {
+        ...state.districtsById,
+        "district:1": {
+          ...state.districtsById["district:1"],
+          heat: 7
+        }
+      }
+    };
+    const reduced = applyCommand(
+      heatState,
+      createRunBuildingActionCommandFixture({
+        id: "command:power:reduce-heat",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "power_station_reduce_heat"
+        }
+      }),
+      context
+    );
+
+    expect(boost.errors).toEqual([]);
+    expectMafianHeat(boost.nextState.districtsById["district:1"].heat, 2);
+    expect(boost.nextState.buildingsById[building.id].actionCooldowns.power_station_feed_production).toBe(
+      cooldownTicksForMs(60 * 60 * 1000)
+    );
+    expect(effectState.effects).toEqual([
+      expect.objectContaining({
+        stackPolicyKey: "power_station_feed_production",
+        payload: expect.objectContaining({
+          actionId: "power_station_feed_production",
+          cleanIncomeMultiplier: 1.18
+        })
+      })
+    ]);
+
+    expect(reduced.errors).toEqual([]);
+    expect(reduced.nextState.districtsById["district:1"].heat).toBe(5);
+    expect(reduced.nextState.buildingsById[building.id].actionCooldowns.power_station_reduce_heat).toBe(
+      cooldownTicksForMs(60 * 60 * 1000)
+    );
   });
 
   it("applies Power Station infrastructure bonus to factory production", () => {

@@ -158,11 +158,14 @@ export const handleUseBuildingAction = (
     };
   }
   const factionModifiers = getFactionPassiveModifiers(state, player.id, context);
+  const adjustedHeatGain = resolvedAction.heatGain < 0
+    ? resolvedAction.heatGain
+    : isFactionIllegalActionBuilding(building.buildingTypeId)
+      ? applyFactionIllegalActionHeatGain(resolvedAction.heatGain, factionModifiers)
+      : applyFactionHeatGain(resolvedAction.heatGain, factionModifiers);
   resolvedAction = {
     ...resolvedAction,
-    heatGain: isFactionIllegalActionBuilding(building.buildingTypeId)
-      ? applyFactionIllegalActionHeatGain(resolvedAction.heatGain, factionModifiers)
-      : applyFactionHeatGain(resolvedAction.heatGain, factionModifiers),
+    heatGain: adjustedHeatGain,
     influenceChange: applyFactionInfluenceGain(resolvedAction.influenceChange, factionModifiers)
   };
 

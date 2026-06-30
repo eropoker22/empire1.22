@@ -66,18 +66,18 @@ describe("building detail view-model builder", () => {
     const smugglingTunnelActions = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["pasovaci tunel"];
 
     expect(streetDealerActions.map((action) => action.cooldownMs)).toEqual([
-      60 * 60 * 1000,
+      0,
       10 * 60 * 1000,
       10 * 60 * 1000
     ]);
-    expect(streetDealerActions.map((action) => action.heat)).toEqual([4, 3, 1]);
-    expect(streetDealerActions.map((action) => action.dirty || 0)).toEqual([1000, 280, 1000]);
+    expect(streetDealerActions.map((action) => action.heat || 0)).toEqual([0, 3, 1]);
+    expect(streetDealerActions.map((action) => action.dirty || 0)).toEqual([0, 280, 1000]);
     expect(stripClubActions.map((action) => action.cooldownMs)).toEqual([
       10 * 60 * 1000,
       60 * 60 * 1000,
       30 * 60 * 1000
     ]);
-    expect(stripClubActions.map((action) => action.heat)).toEqual([3, 4, 3]);
+    expect(stripClubActions.map((action) => action.heat)).toEqual([3, undefined, 6]);
     expect(smugglingTunnelActions).toHaveLength(1);
     expect(smugglingTunnelActions[0]).toMatchObject({
       cleanCost: 800,
@@ -859,11 +859,7 @@ describe("building detail view-model builder", () => {
       profile: { actions: ["Spustit prodej", "Vybrat hot cash", "Přesunout stash"] },
       mechanics: { ...baseMechanics, mechanicsType: "street-dealers" },
       economyState: { cleanMoney: 0, dirtyMoney: 0, materials },
-      actionProfiles: [
-        { dirty: 1000, heat: 4, durationMs: 30 * 60 * 1000, cooldownMs: 60 * 60 * 1000, dirtyIncomeBoostPct: 35 },
-        { dirty: 280, heat: 3, cooldownMs: 10 * 60 * 1000 },
-        { materialCost: { biomass: 3 }, dirty: 1000, heat: 1, cooldownMs: 10 * 60 * 1000 }
-      ],
+      actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["poulicni dealeri"],
       now: 1000
     });
     const rows = createRows();
@@ -876,8 +872,9 @@ describe("building detail view-model builder", () => {
       "street_dealers_move_stash"
     ]);
     expect(rows.every((row) => !row.disabled)).toBe(true);
-    expect(rows.map((row) => row.cooldownMs)).toEqual([60 * 60 * 1000, 10 * 60 * 1000, 10 * 60 * 1000]);
-    expect(rows[0].rewardSummary).toContain("Efekt 30m 00s");
+    expect(rows.every((row) => row.handlerId === "server-run-building-action")).toBe(true);
+    expect(rows.map((row) => row.cooldownMs)).toEqual([0, 10 * 60 * 1000, 10 * 60 * 1000]);
+    expect(rows[0].rewardSummary).toContain("Dealer slot prodá vybranou látku");
     expect(rows[2].costSummary).toBe("biomass x3");
     expect(rows[2].rewardSummary).toContain("Dirty cash +$1000");
     expect(missingBiomassRows[2]).toMatchObject({
@@ -885,6 +882,24 @@ describe("building detail view-model builder", () => {
       disabledReason: "Potřebuješ biomass x3.",
       disabledTone: "insufficient-funds"
     });
+  });
+
+  it("removes production and craft special action rows from building detail cards", () => {
+    for (const buildingName of ["Lékárna", "Drug lab", "Lab", "Továrna", "Zbrojovka"]) {
+      const key = buildingName
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+      const rows = createBuildingDetailActionRows({
+        buildingName,
+        profile: { actions: [] },
+        mechanics: { ...baseMechanics, mechanicsType: "generic" },
+        actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES[key] || [],
+        now: 1000
+      });
+
+      expect(rows, buildingName).toEqual([]);
+    }
   });
 
   it("renders action cooldown countdown from stored actionId deadlines", () => {

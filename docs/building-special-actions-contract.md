@@ -27,6 +27,14 @@ Scope: district building detail special actions in the legacy `game.html` UI.
 - `buildingDetailPanel.js` uses one delegated click path on the shell/body.
 - Direct per-button listeners are not used for district building detail special actions.
 - Runtime resolves the request through `buildingSpecialActionRegistry.js`.
+- Server-backed actions use `handlerId: "server-run-building-action"` and submit only the action intent; server/core owns reward, cost, heat and cooldown.
+- Detail-card rows must not use local reward handlers for Park or Industrial alpha actions.
+
+## Removed Rows
+
+- If a building's design uses a separate production/craft/drug/pharmacy flow, it must not expose special action rows in the detail card.
+- `Továrna`, `Drug lab` / `Lab`, `Zbrojovka` and `Lékárna` are handled this way: production/craft UI may exist elsewhere, but the building detail special-action section is empty.
+- These rows should not be shown as `Připravujeme serverový handler`, because they are not planned card actions.
 
 ## Cooldown
 
@@ -48,4 +56,5 @@ Scope: district building detail special actions in the legacy `game.html` UI.
 
 - Allowed fallback: a safe warning result with no reward, no cooldown and no success street-news entry.
 - Forbidden fallback: silently granting generic influence/cash/effect when the action handler is missing.
-- Actions that are present in card data but do not have a legacy-safe handler are disabled as `Připravujeme serverový handler.`
+- Actions that are present in card data but do not have a server-safe handler are disabled as `Připravujeme serverový handler.`
+- Actions that are no longer part of the building card design must be removed from card data instead of disabled.

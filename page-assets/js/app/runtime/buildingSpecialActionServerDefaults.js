@@ -4,6 +4,9 @@ const DEFAULT_CATEGORY = "materials";
 const DEFAULT_PRESSURE_MODE = "pump";
 const DEFAULT_DECREE_MODE = "suspended_checks";
 const DEFAULT_SPECULATIVE_INVESTMENT_CLEAN_CASH = 1000;
+const DEFAULT_DEALER_SLOT_ID = "slot-1";
+const DEFAULT_DEALER_ITEM_ID = "neon-dust";
+const DEFAULT_DEALER_AMOUNT = 1;
 
 export function createServerBuildingActionDefaultPayload(actionId = "", actionProfile = {}) {
   const payload = {};
@@ -30,6 +33,12 @@ export function createServerBuildingActionDefaultPayload(actionId = "", actionPr
     case "emergency_decree":
       payload.mode = DEFAULT_DECREE_MODE;
       break;
+    case "start_drug_sale":
+      payload.dealerSlotId = DEFAULT_DEALER_SLOT_ID;
+      payload.slotId = DEFAULT_DEALER_SLOT_ID;
+      payload.itemId = DEFAULT_DEALER_ITEM_ID;
+      payload.amount = DEFAULT_DEALER_AMOUNT;
+      break;
     default:
       break;
   }
@@ -49,6 +58,15 @@ export function formatServerBuildingActionDefaultInputSummary(actionId = "", act
   }
   if (Number(payload.investmentCleanCash || 0) > 0) {
     parts.push(`Investice: ${formatDistrictBuildingMoney(payload.investmentCleanCash)} clean cash`);
+  }
+  if (payload.dealerSlotId) {
+    parts.push(`Slot: ${payload.dealerSlotId}`);
+  }
+  if (payload.itemId) {
+    parts.push(`Produkt: ${payload.itemId}`);
+  }
+  if (Number(payload.amount || 0) > 0) {
+    parts.push(`Množství: ${payload.amount}`);
   }
 
   return parts.join(" · ");
