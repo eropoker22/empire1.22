@@ -86,9 +86,13 @@ The UI must render targets and district choices from this read model. It must no
 
 ## UI Responsibilities
 
-The UI may preview reward, target and duration, then open a confirmation modal. The first submit click must not spend cash. Confirm submits `create-bounty` through `/api/gameplay-slice/submit`.
+Status: Bounty Board UI is ready for the server-authoritative MVP.
 
-The active bounty table renders server read model entries. Cancel submits `cancel-bounty`.
+The UI previews reward, target, objective and duration, then opens a confirmation modal. The first submit click must not spend cash. Confirm submits `create-bounty` through `/api/gameplay-slice/submit`.
+
+The create tab renders the player target profile, target picker, district picker when the selected objective requires it, clean-cash reward controls, anonymous flag and confirm card without introducing client authority.
+
+The active bounty tab renders server read model entries in the ready Bounty Board layout. Desktop uses the full-width active bounty table; mobile uses compact bounty cards. Cancel submits `cancel-bounty` from active bounty rows when available.
 
 Legacy `window.empireStreetsBountyState` remains only as a map badge adapter backed by `readModel.bounty`.
 

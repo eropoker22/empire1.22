@@ -61,6 +61,9 @@ export const createAllianceBoardReadModel = (
     const isLeader = currentMembership?.role === "leader";
     const joinEligibility = canJoinOrCreateAlliance(inputState, currentPlayerId, "join", currentNowIso);
     const canJoin = !currentMembership && joinEligibility === true && alliance.memberIds.length < inputContext.config.balance.maxAllianceSize;
+    const activeVote = currentMembership?.activeVoteId ? alliance.kickVotesById?.[currentMembership.activeVoteId] ?? null : null;
+    const eligibleVotes = Object.values(alliance.kickVotesById ?? {})
+      .filter((vote) => vote.status === "pending" && vote.eligibleVoterIds.includes(currentPlayerId));
 
     return {
       allianceId: alliance.id,
@@ -85,14 +88,16 @@ export const createAllianceBoardReadModel = (
       canLeave: Boolean(currentMembership),
       canDisband: Boolean(isLeader),
       canConfirmReady: Boolean(currentMembership && ["due_soon", "overdue", "vote_eligible", "vote_pending"].includes(
-        deriveAllianceMembershipStatus(currentMembership, currentNowIso, config, currentMembership.activeVoteId ? alliance.kickVotesById?.[currentMembership.activeVoteId] : null)
+        deriveAllianceMembershipStatus(currentMembership, currentNowIso, config, activeVote)
       )),
       readyReasonCode: currentMembership ? deriveAllianceMembershipStatus(
         currentMembership,
         currentNowIso,
         config,
-        currentMembership.activeVoteId ? alliance.kickVotesById?.[currentMembership.activeVoteId] : null
+        activeVote
       ) : null,
+      activeVote,
+      eligibleVotes,
       members: alliance.memberIds.map((memberId) => {
         const membership = alliance.membershipByPlayerId?.[memberId];
         const member = inputState.playersById[memberId];

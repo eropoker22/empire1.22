@@ -1738,3 +1738,147 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
     overflow-wrap: anywhere !important;
   }
 }
+
+/* Final loaded parity pass: district action buttons keep desktop colors on phones. */
+@media (max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body .district-popup-action[data-district-action-id] {
+    border-color: rgba(var(--district-action-rgb), 0.34) !important;
+    background:
+      linear-gradient(135deg, rgba(var(--district-action-rgb), 0.17), rgba(var(--district-action-secondary-rgb), 0.08) 46%, rgba(6, 10, 18, 0.66)),
+      rgba(6, 10, 18, 0.44) !important;
+    color: var(--district-action-text) !important;
+    text-shadow: 0 0 8px rgba(var(--district-action-rgb), 0.24) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 8px 18px rgba(2, 6, 23, 0.22),
+      0 0 14px rgba(var(--district-action-rgb), 0.11) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id]::before {
+    inset: 0 !important;
+    width: auto !important;
+    border-radius: inherit !important;
+    background:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.13), transparent 30%, transparent 78%, rgba(var(--district-action-rgb), 0.12)),
+      repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 8px) !important;
+    opacity: 0.26 !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id]::after {
+    inset: 0 auto 0 0 !important;
+    width: 2px !important;
+    border-radius: 0 !important;
+    background: linear-gradient(180deg, rgb(var(--district-action-rgb)), rgb(var(--district-action-secondary-rgb))) !important;
+    box-shadow: 0 0 12px rgba(var(--district-action-rgb), 0.62) !important;
+    opacity: 1 !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="defense"] {
+    --district-action-rgb: 96, 165, 250;
+    --district-action-secondary-rgb: 34, 211, 238;
+    --district-action-text: #eaf5ff;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="trap"] {
+    --district-action-rgb: 45, 212, 191;
+    --district-action-secondary-rgb: 34, 197, 94;
+    --district-action-text: #eafff8;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="spy"] {
+    --district-action-rgb: 250, 204, 21;
+    --district-action-secondary-rgb: 236, 72, 153;
+    --district-action-text: #fff9d7;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="rob"] {
+    --district-action-rgb: 34, 211, 238;
+    --district-action-secondary-rgb: 168, 85, 247;
+    --district-action-text: #e8fdff;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="heist"] {
+    --district-action-rgb: 244, 114, 182;
+    --district-action-secondary-rgb: 168, 85, 247;
+    --district-action-text: #fff0fa;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="attack"] {
+    --district-action-rgb: 248, 113, 113;
+    --district-action-secondary-rgb: 251, 146, 60;
+    --district-action-text: #fff1f2;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="occupy"] {
+    --district-action-rgb: 220, 20, 60;
+    --district-action-secondary-rgb: 136, 19, 55;
+    --district-action-text: #ffe7ee;
+  }
+}
+
+/* Final interaction guard: overlays behave like app sheets and never leak taps to the map/topbar behind them. */
+html body.game-body {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html body.game-body,
+html body.game-body * {
+  -webkit-touch-callout: none;
+}
+
+@media (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body,
+  html body.game-body *:not(input):not(textarea):not(select):not([contenteditable="true"]) {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  html body.game-body button,
+  html body.game-body [role="button"],
+  html body.game-body .button,
+  html body.game-body .district-popup-card,
+  html body.game-body .modal__content,
+  html body.game-body .storage-popup-card {
+    touch-action: manipulation;
+  }
+
+  html body.game-modal-scroll-locked .game-resource-strip,
+  html body.game-modal-scroll-locked .resource-pill,
+  html body.game-modal-scroll-locked .game-toolbar-button,
+  html body.game-modal-scroll-locked .game-topbar,
+  html body.game-modal-scroll-locked #game-header {
+    pointer-events: none !important;
+  }
+}
+
+html body.game-body .storage-popup-shell[data-storage-popup]:not([hidden]) {
+  z-index: 18000 !important;
+  pointer-events: auto !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+}
+
+html body.game-body .storage-popup-shell[data-storage-popup]:not([hidden]) .storage-popup-backdrop {
+  z-index: 18001 !important;
+  pointer-events: auto !important;
+}
+
+html body.game-body .storage-popup-shell[data-storage-popup]:not([hidden]) .storage-popup-card {
+  z-index: 18002 !important;
+  pointer-events: auto !important;
+}
+
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body .storage-popup-shell[data-storage-popup]:not([hidden]) {
+    padding: max(10px, env(safe-area-inset-top)) 8px max(10px, env(safe-area-inset-bottom)) !important;
+  }
+
+  html body.game-body .storage-popup-shell[data-storage-popup]:not([hidden]) .storage-popup-card {
+    top: 50% !important;
+    left: 50% !important;
+    margin: 0 !important;
+    max-height: calc(100dvh - max(20px, env(safe-area-inset-top)) - max(20px, env(safe-area-inset-bottom))) !important;
+    transform: translate(-50%, -50%) !important;
+  }
+}

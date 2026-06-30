@@ -13,7 +13,8 @@ const STRUCTURE_STORAGE_KEY = STORAGE_KEYS.structure;
 const ACTIVE_AUTH_MODE_KEY = STORAGE_KEYS.activeAuthMode;
 const ACTIVE_GUEST_MODE_KEY = STORAGE_KEYS.activeGuestMode;
 const LOBBY_ENTRY_HREF = "./lobby.html";
-const ACCESS_DENIED_MESSAGE = "ACCESS DENIED — IDENTITA NENALEZENA";
+const LOGIN_REQUIRED_MESSAGE = "Vyplň přístupové údaje.";
+const RESET_UNAVAILABLE_MESSAGE = "Reset terminál zatím není aktivní.";
 const ACTIVE_EVENTS_REFRESH_MS = 35000;
 
 const LOGIN_LEADERBOARD_PLAYERS = Object.freeze([
@@ -480,7 +481,7 @@ function bindForms() {
     const password = getInputValue("login-password");
 
     if (!username || !password) {
-      showError(ACCESS_DENIED_MESSAGE);
+      showError(LOGIN_REQUIRED_MESSAGE);
       return;
     }
 
@@ -499,7 +500,7 @@ function bindForms() {
     const password = getInputValue("register-password");
 
     if (!username || !gangName || !password) {
-      showError(ACCESS_DENIED_MESSAGE);
+      showError(LOGIN_REQUIRED_MESSAGE);
       return;
     }
 
@@ -526,7 +527,7 @@ function bindGuest() {
     const gangName = sanitizeGuestValue(guestGangInput.value, 32);
 
     if (!username || !gangName) {
-      showError(ACCESS_DENIED_MESSAGE);
+      showError(LOGIN_REQUIRED_MESSAGE);
       return;
     }
 
@@ -589,7 +590,7 @@ function bindForgotPassword() {
   }
 
   button.addEventListener("click", () => {
-    showError("POLICE WARNING — RESET TERMINÁL NENÍ V MOCKU AKTIVNÍ");
+    showError(RESET_UNAVAILABLE_MESSAGE);
   });
 }
 
@@ -676,7 +677,7 @@ function runAccessSequence({ form = null, button = null, identity, gangName, isG
   submitButton.textContent = "PŘIPOJOVÁNÍ…";
 
   window.setTimeout(() => {
-    submitButton.textContent = "ACCESS GRANTED";
+    submitButton.textContent = "VSTUP POVOLEN";
   }, 520);
 
   window.setTimeout(() => {
@@ -699,6 +700,7 @@ function runAccessSequence({ form = null, button = null, identity, gangName, isG
 function showAccessOverlay() {
   const overlay = document.querySelector("[data-access-overlay]");
   if (overlay instanceof HTMLElement) {
+    overlay.dataset.mode = state.activeMode === "war" ? "war" : "free";
     overlay.hidden = false;
   }
 }
@@ -710,6 +712,7 @@ function showError(message) {
   }
 
   error.textContent = message;
+  error.dataset.state = "error";
   error.classList.remove("hidden");
 }
 
@@ -720,6 +723,7 @@ function hideError() {
   }
 
   error.textContent = "";
+  delete error.dataset.state;
   error.classList.add("hidden");
 }
 

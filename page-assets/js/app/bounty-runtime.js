@@ -4,11 +4,13 @@ const PAGE_SELECTOR = 'main[data-page="game"]';
 const BOUNTY_STORAGE_KEY = "empireStreets.bounty.v1";
 const BOUNTY_MINIMUM_CASH = 5_000;
 const BOUNTY_REFRESH_MS = 1_000;
+const LOWKEYLAD_AVATAR_SRC = "../img/avatars/Mafia/grok_image_1773619750005.jpg";
 
 const DEV_BOUNTY_TARGETS = Object.freeze([
   {
     playerId: "dev-bounty-lowkeylad",
     name: "LowKeyLad",
+    avatarSrc: LOWKEYLAD_AVATAR_SRC,
     factionLabel: "Street Crew",
     allianceId: null,
     isAlly: false,
@@ -152,7 +154,7 @@ function formatBountyStatus(status) {
 function formatBountyCreator(entry) {
   const rawLabel = String(entry?.createdByLabel || entry?.createdByPlayerName || entry?.createdByPlayerId || "").trim();
   if (entry?.isAnonymous || /^anonym/i.test(rawLabel)) {
-    return "◓ Anonymní";
+    return "Anonymní";
   }
   return rawLabel || "—";
 }
@@ -163,6 +165,19 @@ function getBountyTargetInitials(label) {
     return "??";
   }
   return cleanLabel.slice(0, 2).toUpperCase();
+}
+
+function resolveBountyAvatarSrc(entry, targets = []) {
+  const directAvatar = String(entry?.avatarSrc || entry?.targetAvatarSrc || entry?.targetPlayerAvatarSrc || entry?.targetPlayerAvatarUrl || "").trim();
+  if (directAvatar) {
+    return directAvatar;
+  }
+  const targetId = String(entry?.targetPlayerId || "").trim();
+  const targetName = String(entry?.targetPlayerName || "").trim();
+  const target = targets.find((candidate) => {
+    return String(candidate?.playerId || "") === targetId || String(candidate?.name || "") === targetName;
+  });
+  return String(target?.avatarSrc || target?.avatarUrl || "").trim();
 }
 
 function resolveObjectiveConfig(objectiveType) {
@@ -275,6 +290,7 @@ function initBountyRuntime() {
   const targetSelect = document.getElementById("bounty-modal-target");
   const targetPicker = document.getElementById("bounty-target-picker");
   const districtSelect = document.getElementById("bounty-modal-district");
+  const districtPicker = document.getElementById("bounty-district-picker");
   const cashRange = document.getElementById("bounty-cash-range");
   const cashInput = document.getElementById("bounty-cash-input");
   const cashAvailable = document.getElementById("bounty-cash-available");
@@ -300,6 +316,7 @@ function initBountyRuntime() {
   const submitBtn = document.getElementById("bounty-modal-submit");
   const boardBody = document.getElementById("bounty-board-body");
   const boardEmpty = document.getElementById("bounty-board-empty");
+  const boardLoading = document.getElementById("bounty-board-loading");
   const huntState = document.getElementById("bounty-hunt-state");
   const huntFill = document.getElementById("bounty-hunt-progress-fill");
   const huntLabel = document.getElementById("bounty-hunt-progress-label");
@@ -308,6 +325,7 @@ function initBountyRuntime() {
   const previewSummary = document.getElementById("bounty-preview-summary");
   const escrowValue = document.getElementById("bounty-escrow-value");
   const activeCount = document.getElementById("bounty-active-count");
+  const activeCountBadges = Array.from(document.querySelectorAll("[data-bounty-active-count]"));
   const submitHint = document.getElementById("bounty-submit-hint");
   const cashPresetButtons = Array.from(modal?.querySelectorAll("[data-bounty-cash-preset]") || []);
   const objectiveInputs = Array.from(modal?.querySelectorAll('input[name="bounty-objective"]') || []);
@@ -345,7 +363,9 @@ function initBountyRuntime() {
     localDemoBounties: [],
     pendingPreview: null,
     isSubmitting: false,
+    isBoardLoading: false,
     isTargetPickerOpen: false,
+    isDistrictPickerOpen: false,
     activeTab: "create"
   };
 
@@ -392,6 +412,19 @@ function initBountyRuntime() {
     const selectedValue = String(targetSelect.value || "");
     for (const button of Array.from(targetPicker.querySelectorAll("[data-bounty-target-option]"))) {
       const isSelected = String(button.dataset.bountyTargetOption || "") === selectedValue;
+      button.classList.toggle("is-selected", isSelected);
+      button.setAttribute("aria-pressed", isSelected ? "true" : "false");
+    }
+  };
+
+  const syncDistrictPickerSelection = () => {
+    if (!districtPicker) {
+      return;
+    }
+    districtPicker.classList.toggle("is-open", uiState.isDistrictPickerOpen);
+    const selectedValue = String(districtSelect.value || "");
+    for (const button of Array.from(districtPicker.querySelectorAll("[data-bounty-district-option]"))) {
+      const isSelected = String(button.dataset.bountyDistrictOption || "") === selectedValue;
       button.classList.toggle("is-selected", isSelected);
       button.setAttribute("aria-pressed", isSelected ? "true" : "false");
     }
@@ -461,6 +494,27 @@ function initBountyRuntime() {
     const needsDistrict = resolveObjectiveConfig(objective).requiresDistrict;
     districtField.hidden = !needsDistrict;
     districtSelect.disabled = !needsDistrict;
+    uiState.isDistrictPickerOpen = needsDistrict ? uiState.isDistrictPickerOpen : false;
+    if (districtPicker) {
+      const selectedDistrict = districts.find((district) => String(district.districtId) === String(districtSelect.value || "")) || null;
+      districtPicker.innerHTML = needsDistrict && districts.length
+        ? `
+            <button class="bounty-board__district-current" type="button" data-bounty-district-toggle aria-expanded="${uiState.isDistrictPickerOpen ? "true" : "false"}">
+              <span class="bounty-board__district-option-name">${escapeHtml(selectedDistrict?.name || "Vyber district")}</span>
+              <span class="bounty-board__district-option-meta">${escapeHtml(selectedDistrict?.zone || "Cíl musí mít aktivní district")}</span>
+            </button>
+            <div class="bounty-board__district-menu" role="listbox" aria-label="Dostupné districty">
+              ${districts.map((district) => `
+                <button class="bounty-board__district-option" type="button" data-bounty-district-option="${escapeHtml(district.districtId)}" aria-pressed="false">
+                  <span class="bounty-board__district-option-name">${escapeHtml(district.name)}</span>
+                  <span class="bounty-board__district-option-meta">${escapeHtml(district.zone)}</span>
+                </button>
+              `).join("")}
+            </div>
+          `
+        : "";
+      syncDistrictPickerSelection();
+    }
   };
 
   const syncInputs = () => {
@@ -512,8 +566,9 @@ function initBountyRuntime() {
     targetActivity.textContent = target.canTarget ? "Status: dostupný cíl" : `Status: ${target.disabledReason || "blokováno"}`;
     targetThreat.textContent = target.canTarget ? `${target.activeDistrictCount} DISTRICTS` : "BLOCKED";
     targetThreat.dataset.tone = target.canTarget ? threatTone : "low";
-    targetAvatar.src = "";
-    targetAvatar.classList.add("is-empty");
+    const avatarSrc = String(target.avatarSrc || target.avatarUrl || "").trim();
+    targetAvatar.src = avatarSrc;
+    targetAvatar.classList.toggle("is-empty", !avatarSrc);
     targetAvatarFallback.textContent = target.name.slice(0, 2).toUpperCase();
     if (targetStatus) {
       targetStatus.textContent = target.canTarget
@@ -592,9 +647,15 @@ function initBountyRuntime() {
     const activeEntries = entries
       .sort((left, right) => Number(right.rewardCleanCash || 0) - Number(left.rewardCleanCash || 0))
       .slice(0, 20);
+    const targets = getTargets();
     const activeTotal = activeEntries
       .filter((entry) => entry.status === "active")
       .reduce((sum, entry) => sum + Math.max(0, Number(entry.rewardCleanCash || 0)), 0);
+    const liveCount = activeEntries.filter((entry) => entry.status === "active").length;
+
+    if (boardLoading) {
+      boardLoading.hidden = !uiState.isBoardLoading;
+    }
 
     boardBody.innerHTML = activeEntries.map((entry) => {
       const canCancel = Boolean(entry.canCancel);
@@ -602,18 +663,20 @@ function initBountyRuntime() {
       const objectiveLabel = entry.objectiveLabel || formatObjectiveLabel(objectiveType);
       const objectiveIcon = formatObjectiveIcon(objectiveType);
       const targetLabel = entry.targetPlayerName || entry.targetDistrictName || entry.targetPlayerId || "Neznámý cíl";
+      const targetAvatarSrc = resolveBountyAvatarSrc(entry, targets);
       const targetMeta = entry.targetDistrictName && entry.targetPlayerName ? entry.targetDistrictName : "Bounty cíl";
       const needsDistrict = objectiveType === "attack-district" || objectiveType === "destroy-selected-district";
       const districtLabel = needsDistrict ? (entry.targetDistrictName || entry.targetDistrictId || "—") : "—";
       const status = String(entry.status || "active");
       const statusLabel = formatBountyStatus(status);
       const creatorLabel = formatBountyCreator(entry);
+      const isAnonymousCreator = creatorLabel === "Anonymní";
       const remainingLabel = status === "active" && entry.remainingMs ? formatDurationMs(entry.remainingMs) : "";
       return `
         <tr data-bounty-row="${escapeHtml(entry.bountyId)}" data-bounty-status="${escapeHtml(status)}">
           <td data-label="CÍL">
             <span class="bounty-board__target-cell">
-              <span class="bounty-board__target-mini-avatar" aria-hidden="true">${escapeHtml(getBountyTargetInitials(targetLabel))}</span>
+              <span class="bounty-board__target-mini-avatar" aria-hidden="true">${targetAvatarSrc ? `<img src="${escapeHtml(targetAvatarSrc)}" alt="">` : escapeHtml(getBountyTargetInitials(targetLabel))}</span>
               <span class="bounty-board__target-mini-copy">
                 <strong>${escapeHtml(targetLabel)}</strong>
                 <small>${escapeHtml(targetMeta)}</small>
@@ -632,7 +695,7 @@ function initBountyRuntime() {
             <span class="bounty-board__status-stack">
               <span class="bounty-board__status-chip" data-bounty-status-chip="${escapeHtml(status)}">${escapeHtml(statusLabel)}</span>
               <span class="bounty-board__creator-line">
-                <span>${escapeHtml(creatorLabel)}</span>
+                <span>${isAnonymousCreator ? '<span class="bounty-board__creator-mask" aria-hidden="true">◓</span>' : ""}${escapeHtml(creatorLabel)}</span>
                 ${remainingLabel ? `<small>${escapeHtml(remainingLabel)}</small>` : ""}
               </span>
             </span>
@@ -647,7 +710,10 @@ function initBountyRuntime() {
       escrowValue.textContent = formatMoney(activeTotal);
     }
     if (activeCount) {
-      activeCount.textContent = String(activeEntries.filter((entry) => entry.status === "active").length);
+      activeCount.textContent = String(liveCount);
+    }
+    for (const badge of activeCountBadges) {
+      badge.textContent = String(liveCount);
     }
     if (huntState && huntFill && huntLabel) {
       huntState.textContent = getBountyReadModel().isDevOnlyFallback ? "DEV UI DEMO" : "SERVER ESCROW";
@@ -719,6 +785,7 @@ function initBountyRuntime() {
       bountyId: `dev-bounty-${now}`,
       targetPlayerId: preview.target.playerId,
       targetPlayerName: preview.target.name,
+      targetAvatarSrc: preview.target.avatarSrc || preview.target.avatarUrl || null,
       targetDistrictId: preview.selectedDistrictId || null,
       targetDistrictName,
       objectiveType: preview.objectiveType,
@@ -806,21 +873,28 @@ function initBountyRuntime() {
       return;
     }
     if (normalizedId.startsWith("dev-bounty-")) {
+      uiState.isBoardLoading = true;
+      renderBoard();
       uiState.localDemoBounties = uiState.localDemoBounties.filter((entry) => entry.bountyId !== normalizedId);
       uiState.bounty = {
         ...getBountyReadModel(),
         activeBounties: (getBountyReadModel().activeBounties || []).filter((entry) => entry.bountyId !== normalizedId)
       };
+      uiState.isBoardLoading = false;
       refreshView();
       pushBountyStatus(root, "Bounty demo", "Dev bounty zrušena lokálně.", normalizedId);
       return;
     }
     pushBountyStatus(root, "Bounty", "Posílám zrušení bounty na server...", normalizedId);
+    uiState.isBoardLoading = true;
+    renderBoard();
     const response = await submitServerBountyCommand({
       action: "cancel",
       payload: { bountyId: normalizedId }
     });
+    uiState.isBoardLoading = false;
     if (!response?.accepted) {
+      renderBoard();
       pushBountyStatus(root, "Bounty odmítnuta", response?.errors?.[0]?.message || "Bounty nejde zrušit.", "Escrow se neměnil");
       return;
     }
@@ -897,6 +971,7 @@ function initBountyRuntime() {
   });
   targetSelect.addEventListener("change", () => {
     uiState.isTargetPickerOpen = false;
+    uiState.isDistrictPickerOpen = false;
     syncTargetPickerSelection();
     renderDistrictOptions();
     syncPreview();
@@ -905,7 +980,9 @@ function initBountyRuntime() {
     const toggle = event.target?.closest?.("[data-bounty-target-toggle]");
     if (toggle) {
       uiState.isTargetPickerOpen = !uiState.isTargetPickerOpen;
+      uiState.isDistrictPickerOpen = false;
       syncTargetPickerSelection();
+      syncDistrictPickerSelection();
       return;
     }
     const button = event.target?.closest?.("[data-bounty-target-option]");
@@ -915,8 +992,27 @@ function initBountyRuntime() {
     const nextValue = String(button.dataset.bountyTargetOption || "");
     targetSelect.value = nextValue;
     uiState.isTargetPickerOpen = false;
+    uiState.isDistrictPickerOpen = false;
     syncTargetPickerSelection();
     renderDistrictOptions();
+    syncPreview();
+  });
+  districtPicker?.addEventListener("click", (event) => {
+    const toggle = event.target?.closest?.("[data-bounty-district-toggle]");
+    if (toggle) {
+      uiState.isDistrictPickerOpen = !uiState.isDistrictPickerOpen;
+      uiState.isTargetPickerOpen = false;
+      syncTargetPickerSelection();
+      syncDistrictPickerSelection();
+      return;
+    }
+    const button = event.target?.closest?.("[data-bounty-district-option]");
+    if (!button || button.disabled) {
+      return;
+    }
+    districtSelect.value = String(button.dataset.bountyDistrictOption || "");
+    uiState.isDistrictPickerOpen = false;
+    syncDistrictPickerSelection();
     syncPreview();
   });
   districtSelect.addEventListener("change", syncPreview);
@@ -943,6 +1039,7 @@ function initBountyRuntime() {
   });
   anonymousInput.addEventListener("change", syncPreview);
   objectiveInputs.forEach((input) => input.addEventListener("change", () => {
+    uiState.isDistrictPickerOpen = false;
     renderDistrictOptions();
     syncPreview();
   }));
@@ -1002,10 +1099,6 @@ function initBountyRuntime() {
   syncFromGlobalReadModel();
   closeModal();
   publishBountyState();
-
-  window.setTimeout(() => {
-    document.dispatchEvent(new CustomEvent("empire:open-bounty-modal"));
-  }, 350);
 }
 
 if (typeof document !== "undefined") {

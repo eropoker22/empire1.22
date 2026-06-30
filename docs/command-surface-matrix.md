@@ -16,9 +16,13 @@
 | remove-defense | yes | yes | yes | map validator | removeDefense | district button | targeted transport + handler tests | own-district only; allied disabled with `ALLIANCE_DEFENSE_NOT_IMPLEMENTED` |
 | relocate-trap | no | no | no | map validator only | capability only | no closed-alpha button | not ready | not ready |
 | market action | legacy/system-specific | partial | legacy market rules | market rules | market views | legacy modal | existing market tests | not part of this pass |
-| create-bounty | yes | yes | yes | bounty payload + core target/escrow validation | bounty read model | bounty board | bounty core + transport tests | server-authoritative MVP |
-| cancel-bounty | yes | yes | yes | bounty payload + core ownership/status validation | bounty read model | bounty board row action | bounty core + transport tests | server-authoritative MVP |
-| bounty claim | core side-effect | no browser command | yes | post-action claim matching | bounty read model/events | board status | bounty core tests | server-authoritative side-effect after attack/destroy |
+| create-bounty | yes | yes | yes | bounty payload + core target/escrow validation | bounty read model | Bounty Board create tab ready | bounty core + transport tests + page smoke | server-authoritative MVP |
+| cancel-bounty | yes | yes | yes | bounty payload + core ownership/status validation | bounty read model | Bounty Board active tab ready | bounty core + transport tests + page smoke | server-authoritative MVP |
+| bounty claim | core side-effect | no browser command | yes | post-action claim matching | bounty read model/events | Bounty Board active status ready | bounty core tests | server-authoritative side-effect after attack/destroy |
+| create/join alliance | yes | yes | yes | alliance payload + lifecycle eligibility | allianceBoard | Alliance card ready | alliance lifecycle + transport tests + page smoke | server-authoritative MVP |
+| alliance invite/respond | yes | yes | yes | alliance payload + membership authority | allianceBoard | Alliance management ready | alliance lifecycle + transport tests + page smoke | server-authoritative MVP |
+| alliance ready/kick vote | yes | yes | yes | lifecycle payload + vote authority | allianceBoard + lifecycle projection | Alliance card and management ready | alliance lifecycle + transport tests + page smoke | server-authoritative MVP |
+| leave/disband alliance | yes | yes | yes | lifecycle payload + membership authority | allianceBoard | Alliance leave modal ready | alliance lifecycle + transport tests + page smoke | server-authoritative MVP |
 
 ## Basic Actions Detail
 

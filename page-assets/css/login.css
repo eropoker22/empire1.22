@@ -1668,25 +1668,47 @@ body.login-body::after {
 }
 
 .auth-error {
-  max-width: 490px;
-  display: inline-block;
-  margin: 7px 0 0;
-  width: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(100%, 490px);
   max-width: 100%;
-  padding: 7px 9px;
-  border: 1px solid color-mix(in srgb, var(--red) 68%, rgba(0, 245, 255, 0.38));
-  border-radius: 12px;
-  color: #ffe4ec;
+  margin: 9px auto 0;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 82, 110, 0.34);
+  border-radius: 14px;
+  color: rgba(255, 232, 238, 0.95);
   background:
-    linear-gradient(90deg, rgba(255, 51, 71, 0.24), rgba(244, 196, 48, 0.14)),
-    rgba(80, 4, 12, 0.86);
-  box-shadow: 0 0 0 1px rgba(244, 196, 48, 0.2), 0 0 24px rgba(255, 51, 71, 0.32), inset 0 0 18px rgba(244, 196, 48, 0.18);
+    linear-gradient(135deg, rgba(92, 10, 20, 0.78), rgba(6, 10, 18, 0.78)),
+    radial-gradient(circle at 0% 0%, rgba(255, 51, 71, 0.2), transparent 42%);
+  backdrop-filter: blur(14px) saturate(130%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.035),
+    0 14px 32px rgba(0, 0, 0, 0.32),
+    0 0 24px rgba(255, 51, 71, 0.18);
   font-weight: 900;
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
-  line-height: 1.26;
+  font-size: 0.64rem;
+  letter-spacing: 0.07em;
+  line-height: 1.28;
   text-transform: uppercase;
-  text-shadow: 0 0 8px rgba(255, 51, 71, 0.8), 0 0 16px rgba(0, 245, 255, 0.2);
+  text-align: left;
+  text-shadow: 0 0 10px rgba(255, 51, 71, 0.46);
+}
+
+.auth-error::before {
+  content: "!";
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border: 1px solid rgba(255, 223, 75, 0.36);
+  border-radius: 50%;
+  color: var(--yellow);
+  background: rgba(5, 8, 15, 0.72);
+  font-size: 0.72rem;
+  box-shadow: 0 0 14px rgba(255, 51, 71, 0.2);
 }
 
 .server-status {
@@ -2577,8 +2599,11 @@ body.login-body::after {
   z-index: 50;
   display: grid;
   place-items: center;
-  background: rgba(1, 4, 10, 0.72);
-  backdrop-filter: blur(10px);
+  padding: 20px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(var(--cyan-rgb), 0.12), transparent 42%),
+    rgba(1, 4, 10, 0.74);
+  backdrop-filter: blur(14px) saturate(128%);
 }
 
 .access-overlay[hidden] {
@@ -2586,28 +2611,57 @@ body.login-body::after {
 }
 
 .access-overlay div {
-  min-width: min(520px, calc(100vw - 40px));
-  padding: 34px;
-  border: 1px solid var(--green);
-  border-radius: 22px;
+  --access-accent: var(--cyan);
+  --access-accent-rgb: var(--cyan-rgb);
+  width: min(520px, 100%);
+  min-width: 0;
+  padding: clamp(24px, 4vw, 36px);
+  border: 1px solid color-mix(in srgb, var(--access-accent) 56%, rgba(255, 255, 255, 0.12));
+  border-radius: 24px;
   text-align: center;
-  background: rgba(0, 18, 10, 0.86);
-  box-shadow: 0 0 32px rgba(57, 255, 136, 0.6), inset 0 0 30px rgba(57, 255, 136, 0.12);
+  background:
+    linear-gradient(135deg, rgba(8, 14, 26, 0.9), rgba(3, 7, 14, 0.82)),
+    radial-gradient(circle at 50% 0%, rgba(var(--access-accent-rgb), 0.22), transparent 44%),
+    radial-gradient(circle at 50% 112%, rgba(var(--access-accent-rgb), 0.18), transparent 36%);
+  backdrop-filter: blur(18px) saturate(138%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 0 34px rgba(var(--access-accent-rgb), 0.08),
+    0 24px 80px rgba(0, 0, 0, 0.56),
+    0 0 42px rgba(var(--access-accent-rgb), 0.32);
+}
+
+.access-overlay[data-mode="war"] {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(var(--pink-rgb), 0.13), transparent 42%),
+    rgba(1, 4, 10, 0.74);
+}
+
+.access-overlay[data-mode="war"] div {
+  --access-accent: var(--pink);
+  --access-accent-rgb: var(--pink-rgb);
 }
 
 .access-overlay span,
 .access-overlay strong {
   display: block;
-  color: var(--green);
+  color: color-mix(in srgb, var(--access-accent) 84%, #ffffff 12%);
   font-weight: 1000;
   letter-spacing: 0.12em;
-  text-shadow: 0 0 18px rgba(57, 255, 136, 0.72);
+  text-shadow:
+    0 0 14px rgba(var(--access-accent-rgb), 0.48),
+    0 0 30px rgba(var(--access-accent-rgb), 0.22);
+}
+
+.access-overlay span {
+  margin-bottom: 10px;
+  font-size: 0.72rem;
 }
 
 .access-overlay strong {
-  margin-top: 10px;
-  color: var(--text);
-  font-size: 1.55rem;
+  color: #f8fbff;
+  font-size: clamp(1.28rem, 3.7vw, 1.78rem);
+  line-height: 1.08;
 }
 
 @keyframes backgroundPulse {

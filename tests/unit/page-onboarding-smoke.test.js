@@ -138,7 +138,7 @@ describe("page onboarding smoke", () => {
     expect(gameHtml).not.toContain("Overlay roots");
     expect(gameHtml).not.toContain("mount-point--overlay");
     expect(gameHtml).toContain('src="../page-assets/js/app/battle-royale-info-runtime.js"');
-    expect(gameHtml).toContain("<tr><th>Cíl</th><th>Typ</th><th>District</th><th>Odměna</th><th>Status / Vypsal</th></tr>");
+    expect(gameHtml).toContain("<tr><th>CÍL</th><th>TYP</th><th>DISTRICT</th><th>ODMĚNA</th><th>STATUS / VYPSAL</th></tr>");
     const allianceRuntimeSource = readFileSync(resolve(root, "page-assets/js/app/alliance-runtime.js"), "utf8");
     expect(allianceRuntimeSource).toContain("submitServerAllianceCommand");
     expect(allianceRuntimeSource).toContain("localStorage.removeItem(LOCAL_ALLIANCE_KEY)");

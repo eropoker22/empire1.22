@@ -392,6 +392,7 @@ function bindStoragePopup(root) {
   const scope = root.ownerDocument || document;
   const openButton = scope.querySelector(STORAGE_POPUP_OPEN_SELECTOR);
   const popup = root.querySelector(STORAGE_POPUP_SELECTOR);
+  const popupCard = popup?.querySelector(".storage-popup-card");
   const closeElements = Array.from(root.querySelectorAll(STORAGE_POPUP_CLOSE_SELECTOR));
 
   if (!openButton || !popup || closeElements.length === 0) {
@@ -417,6 +418,12 @@ function bindStoragePopup(root) {
   };
 
   openButton.addEventListener("click", openPopup);
+  popupCard?.addEventListener("pointerdown", (event) => {
+    event.stopPropagation();
+  });
+  popupCard?.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
 
   for (const closeElement of closeElements) {
     closeElement.addEventListener("click", closePopup);

@@ -1,3 +1,5 @@
+import type { AllianceKickVote } from "../entities/alliance";
+
 export interface AllianceBoardReadModel {
   maxAllianceSize: number;
   currentPlayerId: string;
@@ -25,6 +27,8 @@ export interface AllianceBoardAllianceView {
   canDisband: boolean;
   canConfirmReady: boolean;
   readyReasonCode: string | null;
+  activeVote: AllianceKickVote | null;
+  eligibleVotes: AllianceKickVote[];
   members: AllianceBoardMemberView[];
   pendingInvites: AllianceBoardInviteView[];
   chatMessages: AllianceBoardChatMessageView[];

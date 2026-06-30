@@ -50,6 +50,16 @@ Inactive leader kick is supported by the same vote path. Before removal, leaders
 
 Disband removes all members with reason `alliance_disbanded`. It does not apply betrayal debuffs. It may apply only the configured short technical lockout and former ally truce.
 
-## Legacy Runtime
+## Client Runtime
 
-`page-assets/js/app/alliance-runtime.js` is legacy compatibility UI/demo state. It must not be treated as authority for new gameplay rules and must not bypass server commands for lifecycle state. New gameplay integrations must read the server player alliance view and submit lifecycle commands.
+`page-assets/js/app/alliance-runtime.js` renders the server `allianceBoard` read model and submits lifecycle commands through the gameplay slice submit path. It is not authority for membership, READY, vote, leave, penalty, truce, or cleanup state.
+
+The current client runtime is wired for:
+
+- create and join alliance,
+- direct invite accept/reject,
+- leader invite from eligible server targets,
+- READY confirmation,
+- inactive kick vote start,
+- inactive kick vote yes/no cast,
+- leave or disband through server commands.
