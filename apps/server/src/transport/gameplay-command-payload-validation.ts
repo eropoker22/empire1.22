@@ -70,6 +70,10 @@ export const validateGameCommandPayload = (
       requireStringField(errors, "submit", payload, "actionId", "command.payload.actionId");
       validateRunBuildingActionOptionalPayload(errors, payload);
       break;
+    case "upgrade-building":
+      rejectUnknownPayloadFields(errors, payload, ["districtId", "buildingId"]);
+      validateBuildingPayload(errors, payload);
+      break;
   }
 };
 
@@ -105,7 +109,8 @@ const hasPayloadSchema = (type: string): boolean =>
     "select-spawn-district",
     "collect-production",
     "craft-item",
-    "run-building-action"
+    "run-building-action",
+    "upgrade-building"
   ].includes(type) || isBasicActionCommandType(type) || isAllianceCommandType(type) || isMarketCommandType(type) || isBountyCommandType(type);
 
 const validateRunBuildingActionOptionalPayload = (

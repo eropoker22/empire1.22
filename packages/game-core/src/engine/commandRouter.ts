@@ -19,6 +19,7 @@ import {
   handleRobDistrict,
   handleSelectSpawnDistrict,
   handleSpyDistrict,
+  handleUpgradeBuilding,
   handleUseBuildingAction
 } from "../handlers";
 import type { GameCoreContext } from "./context";
@@ -114,6 +115,8 @@ export const routeCommand = (
       return handleSelectSpawnDistrict(state, command, context);
     case "spy-district":
       return handleSpyDistrict(state, command, context);
+    case "upgrade-building":
+      return handleUpgradeBuilding(state, command, context);
     default:
       return {
         nextState: state,

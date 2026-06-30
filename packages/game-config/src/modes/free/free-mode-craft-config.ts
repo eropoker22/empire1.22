@@ -3,6 +3,12 @@ import { baseCooldownTicksForFinalMinutes } from "./free-mode-timing";
 
 export const freeModeCraftBuildings: NonNullable<BalanceConfig["craftBuildings"]> = {
   pharmacy: {
+    upgrade: {
+      maxLevel: 14,
+      upgradeBaseCost: 3200,
+      costGrowth: 1.42,
+      productionMultiplierPerLevel: 10
+    },
     recipes: {
       "stim-pack": {
         label: "Stim Pack",
@@ -17,6 +23,12 @@ export const freeModeCraftBuildings: NonNullable<BalanceConfig["craftBuildings"]
     }
   },
   drug_lab: {
+    upgrade: {
+      maxLevel: 14,
+      upgradeBaseCost: 4200,
+      costGrowth: 1.42,
+      productionMultiplierPerLevel: 10
+    },
     recipes: {
       "neon-dust": {
         label: "Neon Dust",
@@ -77,6 +89,13 @@ export const freeModeCraftBuildings: NonNullable<BalanceConfig["craftBuildings"]
     }
   },
   factory: {
+    upgrade: {
+      maxLevel: 14,
+      upgradeBaseCost: 5000,
+      costGrowth: 1.47,
+      productionMultiplierPerLevel: 10,
+      roundCostTo: 100
+    },
     recipes: {
       "tech-core": {
         label: "Tech Core",
@@ -102,6 +121,12 @@ export const freeModeCraftBuildings: NonNullable<BalanceConfig["craftBuildings"]
     }
   },
   armory: {
+    upgrade: {
+      maxLevel: 14,
+      upgradeBaseCost: 5200,
+      costGrowth: 1.42,
+      productionMultiplierPerLevel: 10
+    },
     recipes: {
       "baseball-bat": {
         label: "Baseball Bat",

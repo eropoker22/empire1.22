@@ -104,7 +104,7 @@ describe("page onboarding smoke", () => {
     expect(page("game.html")).toContain('data-district-popup-atmosphere');
     expect(page("game.html")).toContain('role="button" tabindex="0"');
     expect(page("game.html")).toContain('data-district-atmosphere-window');
-    expect(page("game.html")).toContain("Vypsat odměnu");
+    expect(page("game.html")).toContain("VYPSAT BOUNTY");
     expect(page("game.html")).toContain('id="bounty-target-picker"');
     expect(page("game.html")).toContain('data-br-info-open');
     expect(page("game.html")).toContain('id="battle-royale-info-modal"');
@@ -138,7 +138,7 @@ describe("page onboarding smoke", () => {
     expect(gameHtml).not.toContain("Overlay roots");
     expect(gameHtml).not.toContain("mount-point--overlay");
     expect(gameHtml).toContain('src="../page-assets/js/app/battle-royale-info-runtime.js"');
-    expect(gameHtml).toContain("<tr><th>Cíl</th><th>Typ bounty</th><th>District</th><th>Odměna</th><th>Vypsal</th><th>Zbývá</th><th>Status</th><th>Akce</th></tr>");
+    expect(gameHtml).toContain("<tr><th>Cíl</th><th>Typ</th><th>District</th><th>Odměna</th><th>Status / Vypsal</th></tr>");
     const allianceRuntimeSource = readFileSync(resolve(root, "page-assets/js/app/alliance-runtime.js"), "utf8");
     expect(allianceRuntimeSource).toContain("submitServerAllianceCommand");
     expect(allianceRuntimeSource).toContain("localStorage.removeItem(LOCAL_ALLIANCE_KEY)");

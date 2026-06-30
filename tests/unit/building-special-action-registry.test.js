@@ -49,7 +49,29 @@ describe("building special action registry", () => {
     expect(downtownRows.every((row) => row.note === "Server-authoritative handler")).toBe(true);
   });
 
-  it("keeps generic legacy output actions executable", () => {
+  it("does not expose missing-handler placeholder special action rows", () => {
+    const rows = createBuildingSpecialActionAuditRows();
+
+    expect(rows.every((row) => row.status === "implemented")).toBe(true);
+    expect(rows.every((row) => row.hasRuntimeHandler)).toBe(true);
+    expect(JSON.stringify(rows)).not.toContain("missing-handler");
+  });
+
+  it("keeps Restaurant detail card actions server-authoritative", () => {
+    const restaurantRows = createBuildingSpecialActionAuditRows()
+      .filter((row) => row.buildingName === "restaurace");
+
+    expect(restaurantRows).toHaveLength(3);
+    expect(restaurantRows.map((row) => row.actionId)).toEqual([
+      "restaurant_collect_revenue",
+      "restaurant_cover_meetings",
+      "restaurant_local_network"
+    ]);
+    expect(restaurantRows.every((row) => row.hasServerConfig)).toBe(true);
+    expect(restaurantRows.every((row) => row.note === "Server-authoritative handler")).toBe(true);
+  });
+
+  it("keeps generic output actions executable only through server config", () => {
     const definition = resolveBuildingSpecialActionDefinition({
       buildingName: "Přístav",
       actionLabel: "Container Cut",
@@ -59,6 +81,7 @@ describe("building special action registry", () => {
 
     expect(definition.actionId).toBe("port_container_cut");
     expect(definition.status).toBe("implemented");
+    expect(definition.handlerId).toBe("server-run-building-action");
     expect(hasLegacyBuildingSpecialActionHandler({ dirty: 160, materials: { "metal-parts": 3 }, influence: 1, heat: 6 })).toBe(true);
   });
 

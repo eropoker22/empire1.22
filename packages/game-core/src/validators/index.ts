@@ -24,6 +24,8 @@ export const validateCommand = (
       return validateCollect(state, command, context);
     case "craft-item":
       return validateCraft(state, command, context);
+    case "upgrade-building":
+      return [];
     default:
       return [];
   }

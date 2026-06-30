@@ -9,7 +9,7 @@ export const freeModeRestaurantConfig: RestaurantBalanceConfig = {
   dirtyCashPerMinute: 0,
   influencePerMinute: 0.12,
   heatPerMinute: 0.04,
-  noSpecialActions: true,
+  noSpecialActions: false,
   noLaundering: true,
   noAuditRisk: true,
   passiveRumorIntervalMinutes: 10,

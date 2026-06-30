@@ -1753,28 +1753,23 @@
         <div id="bounty-modal-backdrop" class="modal__backdrop"></div>
         <div class="modal__content bounty-board__content">
           <header class="bounty-board__header">
-              <div class="bounty-board__header-copy">
+            <div class="bounty-board__header-copy">
               <div class="bounty-board__eyebrow">BOUNTY BOARD</div>
-              <h3>BOUNTY BOARD</h3>
-              <p>Vyber cíl, zamkni escrow a pošli město po jeho území.</p>
-            </div>
-            <div class="bounty-board__header-status" aria-label="Bounty board status">
-              <span>CONTRACT NODE</span>
-              <strong>SERVER ESCROW</strong>
+              <h3>VYPSAT BOUNTY</h3>
             </div>
             <button id="bounty-modal-close" class="modal__close" type="button" aria-label="Zavřít">×</button>
           </header>
 
           <div class="bounty-board__layout">
-            <section class="bounty-board__column bounty-board__column--left">
-              <div class="bounty-board__panel">
+            <section class="bounty-board__form-grid" aria-label="Vypsat bounty">
+              <div class="bounty-board__panel bounty-board__panel--target">
                 <div class="bounty-board__panel-head">
-                  <span class="bounty-board__kicker">Target</span>
-                  <strong>Nepřátelský hráč</strong>
+                  <span class="bounty-board__step">1</span>
+                  <strong>Cíl</strong>
                 </div>
-                <label class="bounty-board__field">
+                <label class="bounty-board__field bounty-board__field--select">
                   <span>Hráč</span>
-                  <select id="bounty-modal-target" class="bounty-board__input"></select>
+                  <select id="bounty-modal-target" class="bounty-board__input" aria-label="Vyber cílového hráče"></select>
                 </label>
                 <div id="bounty-target-picker" class="bounty-board__target-picker" aria-label="Vyber nepřátelského hráče"></div>
                 <div class="bounty-board__target-card">
@@ -1786,147 +1781,142 @@
                     <div id="bounty-target-name" class="bounty-board__target-name">Nevybrán cíl</div>
                     <div id="bounty-target-alliance" class="bounty-board__target-meta">Aliance: Bez aliance</div>
                     <div id="bounty-target-districts" class="bounty-board__target-meta">Districtů: 0</div>
-                    <div id="bounty-target-activity" class="bounty-board__target-meta">Poslední aktivita: -</div>
+                    <div id="bounty-target-activity" class="bounty-board__target-meta">Status: -</div>
                   </div>
                   <div id="bounty-target-threat" class="bounty-board__threat" data-tone="low">Low threat</div>
                 </div>
                 <div id="bounty-target-status" class="bounty-board__status-line">Vyber target pro bounty kontrakt.</div>
               </div>
 
-              <div class="bounty-board__panel">
+              <div class="bounty-board__panel bounty-board__panel--type">
                 <div class="bounty-board__panel-head">
-                  <span class="bounty-board__kicker">Nastavení odměny</span>
-                  <strong>Escrow clean cash</strong>
-                </div>
-                <div class="bounty-board__resource-list">
-                  <div class="bounty-board__resource-row">
-                    <div class="bounty-board__resource-head">
-                      <span class="bounty-board__resource-icon">$</span>
-                      <div>
-                        <div class="bounty-board__resource-name">Clean cash</div>
-                        <div id="bounty-cash-available" class="bounty-board__resource-have">Máš: 0$</div>
-                      </div>
-                    </div>
-                    <div class="bounty-board__resource-controls bounty-board__resource-controls--cash">
-                      <input id="bounty-cash-range" class="bounty-board__range" type="range" min="0" max="0" step="100" value="0">
-                      <input id="bounty-cash-input" class="bounty-board__input bounty-board__input--number" type="number" min="0" max="0" step="100" value="0">
-                    </div>
-                    <div class="bounty-board__quick-row" aria-label="Rychlé nastavení bounty částky">
-                      <button type="button" class="bounty-board__quick" data-bounty-cash-preset="5000">5k</button>
-                      <button type="button" class="bounty-board__quick" data-bounty-cash-preset="10000">10k</button>
-                      <button type="button" class="bounty-board__quick" data-bounty-cash-preset="max">MAX</button>
-                    </div>
-                  </div>
-
-                </div>
-                <div id="bounty-form-status" class="bounty-board__form-status" data-state="idle">Minimum escrow: 5 000$ clean cash.</div>
-              </div>
-
-              <div class="bounty-board__settings">
-                <div class="bounty-board__panel bounty-board__panel--compact">
-                  <div class="bounty-board__panel-head">
-                    <span class="bounty-board__kicker">Trvání</span>
-                  </div>
-                  <div class="bounty-board__segment-grid">
-                    <label class="bounty-board__segment"><input type="radio" name="bounty-duration" value="1"><span>1h</span></label>
-                    <label class="bounty-board__segment"><input type="radio" name="bounty-duration" value="6"><span>6h</span></label>
-                    <label class="bounty-board__segment"><input type="radio" name="bounty-duration" value="12" checked><span>12h</span></label>
-                    <label class="bounty-board__segment"><input type="radio" name="bounty-duration" value="24"><span>24h</span></label>
-                  </div>
-                </div>
-
-                <div class="bounty-board__panel bounty-board__panel--compact">
-                  <div class="bounty-board__panel-head">
-                    <span class="bounty-board__kicker">Anonymita</span>
-                  </div>
-                  <label class="bounty-board__toggle">
-                    <input id="bounty-anonymous-input" type="checkbox" checked>
-                    <span>Anonymní vypsání odměny</span>
-                    <small>OFF = target vidí, kdo ho označil.</small>
-                  </label>
-                </div>
-              </div>
-
-              <div class="bounty-board__panel">
-                <div class="bounty-board__panel-head">
-                  <span class="bounty-board__kicker">Typ bounty</span>
-                  <strong>Cíl kontraktu</strong>
-                </div>
-                <div class="bounty-board__choice-grid">
-                  <label class="bounty-board__choice">
-                    <input type="radio" name="bounty-target-scope" value="player" checked>
-                    <span>Celý hráč</span>
-                  </label>
-                  <label class="bounty-board__choice">
-                    <input type="radio" name="bounty-target-scope" value="district">
-                    <span>Konkrétní district</span>
-                  </label>
+                  <span class="bounty-board__step">2</span>
+                  <strong>Typ bounty</strong>
                 </div>
                 <div class="bounty-board__choice-grid">
                   <label class="bounty-board__choice">
                     <input type="radio" name="bounty-objective" value="attack-player" checked>
+                    <span class="bounty-board__choice-icon" aria-hidden="true">⌖</span>
                     <span>Útok na hráče</span>
                   </label>
                   <label class="bounty-board__choice">
                     <input type="radio" name="bounty-objective" value="attack-district">
-                    <span>Útok na district</span>
+                    <span class="bounty-board__choice-icon" aria-hidden="true">♜</span>
+                    <span>Obsadit district</span>
                   </label>
                   <label class="bounty-board__choice">
                     <input type="radio" name="bounty-objective" value="destroy-player-district">
-                    <span>Zničení districtu</span>
+                    <span class="bounty-board__choice-icon" aria-hidden="true">✹</span>
+                    <span>Zničit jakýkoli district</span>
+                  </label>
+                  <label class="bounty-board__choice">
+                    <input type="radio" name="bounty-objective" value="destroy-selected-district">
+                    <span class="bounty-board__choice-icon" aria-hidden="true">⌖</span>
+                    <span>Zničit vybraný district</span>
                   </label>
                 </div>
-                <label id="bounty-district-field" class="bounty-board__field">
+                <label id="bounty-district-field" class="bounty-board__field" hidden>
                   <span>Konkrétní district</span>
                   <select id="bounty-modal-district" class="bounty-board__input"></select>
                 </label>
               </div>
-            </section>
 
-            <section class="bounty-board__column bounty-board__column--right">
-              <div class="bounty-board__panel bounty-board__preview">
-                <div id="bounty-preview-target" class="bounty-board__preview-target">Nevybrán cíl</div>
-                <div id="bounty-preview-value" class="bounty-board__preview-value">$0</div>
-                <div id="bounty-preview-summary" class="bounty-board__preview-summary">Kontrakt ještě není připravený.</div>
-                <div class="bounty-board__preview-grid">
-                  <div><span>Typ</span><strong id="bounty-preview-type">Za obsazení districtu</strong></div>
+              <div class="bounty-board__panel bounty-board__panel--reward">
+                <div class="bounty-board__panel-head">
+                  <span class="bounty-board__step">3</span>
+                  <strong>Odměna</strong>
+                </div>
+                <div class="bounty-board__resource-row">
+                  <div class="bounty-board__resource-head">
+                    <span class="bounty-board__resource-icon">$</span>
+                    <div>
+                      <div class="bounty-board__resource-name">Clean cash</div>
+                      <div id="bounty-cash-available" class="bounty-board__resource-have">Máš: 0$</div>
+                    </div>
+                  </div>
+                  <div class="bounty-board__resource-controls bounty-board__resource-controls--cash">
+                    <input id="bounty-cash-range" class="bounty-board__range" type="range" min="0" max="0" step="100" value="0" aria-label="Výše bounty odměny">
+                    <input id="bounty-cash-input" class="bounty-board__input bounty-board__input--number" type="number" min="5000" max="0" step="100" value="5000" aria-label="Clean cash bounty odměna">
+                  </div>
+                  <div class="bounty-board__quick-row" aria-label="Rychlé nastavení bounty částky">
+                    <button type="button" class="bounty-board__quick" data-bounty-cash-preset="5000">5k</button>
+                    <button type="button" class="bounty-board__quick" data-bounty-cash-preset="10000">10k</button>
+                    <button type="button" class="bounty-board__quick" data-bounty-cash-preset="25000">25k</button>
+                    <button type="button" class="bounty-board__quick" data-bounty-cash-preset="max">MAX</button>
+                  </div>
+                </div>
+                <div id="bounty-form-status" class="bounty-board__form-status" data-state="idle">Min. 5 000 clean cash</div>
+              </div>
+
+              <div class="bounty-board__panel bounty-board__panel--duration">
+                <div class="bounty-board__panel-head">
+                  <span class="bounty-board__step">4</span>
+                  <strong>Trvání</strong>
+                </div>
+                <div class="bounty-board__segment-grid">
+                  <label class="bounty-board__segment"><input type="radio" name="bounty-duration" value="1"><span>1h</span></label>
+                  <label class="bounty-board__segment"><input type="radio" name="bounty-duration" value="6"><span>6h</span></label>
+                  <label class="bounty-board__segment"><input type="radio" name="bounty-duration" value="12" checked><span>12h</span></label>
+                  <label class="bounty-board__segment"><input type="radio" name="bounty-duration" value="24"><span>24h</span></label>
+                </div>
+              </div>
+
+              <div class="bounty-board__panel bounty-board__panel--anonymous">
+                <div class="bounty-board__panel-head">
+                  <span class="bounty-board__step">5</span>
+                  <strong>Anonymita</strong>
+                </div>
+                <label class="bounty-board__toggle">
+                  <input id="bounty-anonymous-input" type="checkbox" checked>
+                  <span class="bounty-board__mask" aria-hidden="true">◓</span>
+                  <span>Anonymně</span>
+                </label>
+              </div>
+
+              <div class="bounty-board__live-preview" aria-live="polite">
+                <div class="bounty-board__summary-head">
+                  <span>Souhrn</span>
+                  <strong id="bounty-preview-value">$0</strong>
+                </div>
+                <div id="bounty-preview-summary" class="bounty-board__summary-copy">Kontrakt ještě není připravený.</div>
+                <div class="bounty-board__summary-grid">
+                  <div><span>Cíl</span><strong id="bounty-preview-target">Nevybrán cíl</strong></div>
+                  <div><span>Typ</span><strong id="bounty-preview-type">Útok na hráče</strong></div>
                   <div><span>Trvání</span><strong id="bounty-preview-duration">12h</strong></div>
                   <div><span>Anonymita</span><strong id="bounty-preview-anonymous">Anonymní</strong></div>
                 </div>
+                <div class="bounty-board__summary-meta">
+                  <span id="bounty-hunt-state" data-mode="charging">Escrow</span>
+                  <strong id="bounty-escrow-value">$0</strong>
+                </div>
+                <div class="bounty-board__summary-meta">
+                  <span>Aktivní bounty</span>
+                  <strong id="bounty-active-count">0</strong>
+                </div>
+                <div id="bounty-hunt-progress-label" class="bounty-board__summary-note">Min. 5 000 clean cash</div>
+                <span class="bounty-board__progress" aria-hidden="true"><span id="bounty-hunt-progress-fill" class="bounty-board__progress-fill"></span></span>
               </div>
 
-              <div class="bounty-board__panel">
-                <div id="bounty-hunt-state" class="bounty-board__hunt-state" data-mode="charging">Hunt mode se plní</div>
-                <div class="bounty-board__progress"><div id="bounty-hunt-progress-fill" class="bounty-board__progress-fill"></div></div>
-                <div id="bounty-hunt-progress-label" class="bounty-board__progress-label">Do HUNT MODE zbývá $10,000.</div>
-                <div class="bounty-board__stat-grid">
-                  <div><span>Minimum</span><strong>5 000$</strong></div>
-                  <div><span>Escrow</span><strong id="bounty-escrow-value">$0</strong></div>
-                  <div><span>Aktivní</span><strong id="bounty-active-count">0</strong></div>
-                </div>
+              <div class="bounty-board__actions">
+                <button id="bounty-modal-submit" class="btn bounty-board__submit" type="button">VYPSAT BOUNTY</button>
+                <button id="bounty-modal-cancel" class="btn bounty-board__cancel" type="button">Zrušit</button>
               </div>
+              <div id="bounty-submit-hint" class="bounty-board__submit-hint">Vyber cíl a nastav escrow.</div>
 
               <div class="bounty-board__panel bounty-board__table-panel">
                 <div class="bounty-board__panel-head">
-                  <span class="bounty-board__kicker">Aktivní odměny</span>
-                  <strong>Hráči a odměny</strong>
+                  <span class="bounty-board__eyebrow">AKTIVNÍ BOUNTY</span>
                 </div>
                 <div class="bounty-board__table-wrap">
                   <table class="bounty-board__table">
                     <thead>
-                      <tr><th>Cíl</th><th>Typ bounty</th><th>District</th><th>Odměna</th><th>Vypsal</th><th>Zbývá</th><th>Status</th><th>Akce</th></tr>
+                      <tr><th>Cíl</th><th>Typ</th><th>District</th><th>Odměna</th><th>Status / Vypsal</th></tr>
                     </thead>
                     <tbody id="bounty-board-body"></tbody>
                   </table>
                   <div id="bounty-board-empty" class="bounty-board__empty">Zatím tu není žádná aktivní bounty.</div>
                 </div>
               </div>
-
-              <div class="bounty-board__actions">
-                <button id="bounty-modal-cancel" class="btn bounty-board__cancel" type="button">Zrušit</button>
-                <button id="bounty-modal-submit" class="btn bounty-board__submit" type="button">Vypsat odměnu</button>
-              </div>
-              <div id="bounty-submit-hint" class="bounty-board__submit-hint">Vyber cíl a nastav escrow.</div>
             </section>
           </div>
         </div>

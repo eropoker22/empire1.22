@@ -3,6 +3,7 @@ import { resolveModeConfig } from "@empire/game-config";
 import type { DomainError } from "@empire/shared-types";
 import {
   addPlayerToGameplaySliceState,
+  ensureLiveBountyTarget,
   type GameplaySliceMembershipRequest
 } from "./gameplay-slice-session-seed";
 
@@ -32,6 +33,8 @@ export const ensureGameplaySliceMembershipInState = (
   request: GameplaySliceMembershipRequest
 ): GameplaySliceMembershipResult => {
   if (state.playersById[request.playerId]) {
+    ensureLiveBountyTarget(state, request);
+
     return {
       accepted: true,
       state,

@@ -17,6 +17,10 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
   const ButtonCtor = deps.HTMLButtonElement || (typeof HTMLButtonElement !== "undefined" ? HTMLButtonElement : null);
   const documentRef = deps.documentRef || (typeof document !== "undefined" ? document : null);
   const maxLevel = Number(deps.maxLevel || 14);
+  const allowLegacyLocalProduction = deps.allowLegacyLocalProduction !== false;
+  const allowLegacyProductionUpgrade = deps.allowLegacyProductionUpgrade !== false;
+  const productionBridgeMessage = "Výrobní panel používá serverový production/craft flow. Legacy lokální výroba je vypnutá.";
+  const productionUpgradeMessage = "Serverový upgrade se provádí přes konkrétní kartu budovy v districtu.";
 
   const getProductionSlotState = (job) => {
     if (!job) {
@@ -103,14 +107,24 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       outputCap,
       visual: deps.PRODUCTION_SLOT_VISUALS?.[buildingName]?.[recipeId] || null,
       inputAmounts,
-      canStart: deps.hasEnoughMaterials?.(recipe?.inputs || {}) || false,
-      maxBatches: getMaxBatches(),
-      maxSelectableBatches: buildingName === "druglab" ? 99 : getMaxBatches(),
-      allowStartWithMissingInputs: buildingName === "druglab"
+      canStart: allowLegacyLocalProduction && (deps.hasEnoughMaterials?.(recipe?.inputs || {}) || false),
+      maxBatches: allowLegacyLocalProduction ? getMaxBatches() : 0,
+      maxSelectableBatches: allowLegacyLocalProduction ? (buildingName === "druglab" ? 99 : getMaxBatches()) : 0,
+      allowStartWithMissingInputs: allowLegacyLocalProduction && buildingName === "druglab"
     };
     const card = deps.renderRecipeCard?.(viewModel, {
       getMaxBatches,
       onStart: ({ batchCount }) => {
+        if (!allowLegacyLocalProduction) {
+          deps.setBuildingActionFeedback?.(
+            root,
+            "warning",
+            deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
+            productionBridgeMessage
+          );
+          rerender?.();
+          return;
+        }
         let currentJob = deps.getProductionJob?.(recipeKey);
         if (currentJob?.status === "ready") {
           deps.applyInventoryOutput?.(currentJob.output);
@@ -190,6 +204,16 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         deps.scheduleProductionJob?.(recipeKey, rerender);
       },
       onStop: () => {
+        if (!allowLegacyLocalProduction) {
+          deps.setBuildingActionFeedback?.(
+            root,
+            "warning",
+            deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
+            productionBridgeMessage
+          );
+          rerender?.();
+          return;
+        }
         const currentJob = deps.getProductionJob?.(recipeKey);
         if (!currentJob || currentJob.status !== "running") return rerender?.();
         const quantity = Math.max(1, Math.floor(Number(currentJob.quantity || 1)));
@@ -217,6 +241,16 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         rerender?.();
       },
       onCollect: () => {
+        if (!allowLegacyLocalProduction) {
+          deps.setBuildingActionFeedback?.(
+            root,
+            "warning",
+            deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
+            productionBridgeMessage
+          );
+          rerender?.();
+          return;
+        }
         const currentJob = deps.getProductionJob?.(recipeKey);
         if (!currentJob || currentJob.status !== "ready") return rerender?.();
         deps.applyInventoryOutput?.(currentJob.output);
@@ -362,9 +396,11 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       });
 
       if (isButtonElement(collectButton, ButtonCtor)) {
-        collectButton.disabled = readyCount <= 0;
+        collectButton.disabled = !allowLegacyLocalProduction || readyCount <= 0;
         collectButton.textContent = "+";
-        const collectLabel = readyCount > 0
+        const collectLabel = !allowLegacyLocalProduction
+          ? productionBridgeMessage
+          : readyCount > 0
           ? `Vybrat hotové do skladu (${readyCount})`
           : "Vybrat hotové do skladu";
         collectButton.title = collectLabel;
@@ -372,9 +408,11 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       }
 
       if (isButtonElement(upgradeButton, ButtonCtor)) {
-        upgradeButton.disabled = state.level >= maxLevel;
+        upgradeButton.disabled = !allowLegacyProductionUpgrade || state.level >= maxLevel;
         upgradeButton.textContent = state.level >= maxLevel ? "MAX" : "⇪";
-        const upgradeLabel = state.level >= maxLevel
+        const upgradeLabel = !allowLegacyProductionUpgrade
+          ? productionUpgradeMessage
+          : state.level >= maxLevel
           ? "Max level"
           : `Upgrade budovy (${deps.formatCurrency?.(upgradeCost)})`;
         upgradeButton.title = upgradeLabel;
@@ -393,6 +431,11 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
     if (isButtonElement(collectButton, ButtonCtor)) {
       collectButton.addEventListener("click", () => {
+        if (!allowLegacyLocalProduction) {
+          deps.setBuildingActionFeedback?.(root, "warning", config?.label || "Budova", productionBridgeMessage);
+          renderDashboard();
+          return;
+        }
         const collected = deps.collectReadyProductionForBuilding?.(buildingName, recipes) || { total: 0, items: [] };
         renderDashboard();
 
@@ -420,6 +463,11 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
     if (isButtonElement(upgradeButton, ButtonCtor)) {
       upgradeButton.addEventListener("click", async () => {
+        if (!allowLegacyProductionUpgrade) {
+          deps.setBuildingActionFeedback?.(root, "warning", config?.label || "Budova", productionUpgradeMessage);
+          renderDashboard();
+          return;
+        }
         const currentState = deps.getStoredProductionBuildingState?.(buildingName) || {};
 
         if (currentState.level >= maxLevel) {

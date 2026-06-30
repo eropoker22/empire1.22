@@ -14,6 +14,7 @@ export const CORE_EVENT_TYPES = {
   trapPlaced: "trap-placed",
   trapTriggered: "trap-triggered",
   buildingActionResolved: "building-action-resolved",
+  buildingUpgraded: "building-upgraded",
   allianceCreated: "alliance-created",
   allianceJoined: "alliance-joined",
   allianceInviteCreated: "alliance-invite-created",

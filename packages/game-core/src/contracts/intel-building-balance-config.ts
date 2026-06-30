@@ -75,7 +75,7 @@ export interface RestaurantBalanceConfig {
   dirtyCashPerMinute: 0;
   influencePerMinute: number;
   heatPerMinute: number;
-  noSpecialActions: true;
+  noSpecialActions: boolean;
   noLaundering: true;
   noAuditRisk: true;
   passiveRumorIntervalMinutes: number;

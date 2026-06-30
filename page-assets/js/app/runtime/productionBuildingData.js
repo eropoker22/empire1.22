@@ -4,14 +4,14 @@ export const PRODUCTION_BUILDING_CONFIG = Object.freeze({
     title: "Výroba látek",
     upgradeBaseCost: 3200,
     infoText: "Lékárna vyrábí základní materiály pro Lab: Chemicals, Biomass a Stim Pack.",
-    infoActions: Object.freeze(["+ Vybrat hotové přesune dokončené dávky do skladu materiálů.", "⇪ Upgrade zvyšuje rychlost výroby celé budovy o 10 % za level.", "Chemicals, Biomass a Stim Pack napájí recepty v Labu."])
+    infoActions: Object.freeze(["+ Vybrat hotové patří do serverového production/collect flow.", "⇪ Každý level zvedá serverovou produkci a craft rychlost o 10%.", "Chemicals, Biomass a Stim Pack napájí recepty v Labu."])
   }),
   druglab: Object.freeze({
     label: "Lab",
     title: "Výroba drug balíků",
     upgradeBaseCost: 4200,
     infoText: "Lab míchá lékárenské vstupy do drog a podpůrných směsí pro další byznys.",
-    infoActions: Object.freeze(["+ Vybrat hotové přesune dokončené balíky do skladu drog.", "⇪ Upgrade zvyšuje rychlost craftu všech receptů v Labu.", "Lab spotřebovává Chemicals, Biomass a Stim Pack z materiálového skladu."])
+    infoActions: Object.freeze(["+ Vybrat hotové patří do serverového production/collect flow.", "⇪ Každý level zvedá serverovou produkci a craft rychlost o 10%.", "Lab spotřebovává Chemicals, Biomass a Stim Pack z materiálového skladu."])
   }),
   armory: Object.freeze({
     label: "Zbrojovka",
@@ -19,7 +19,7 @@ export const PRODUCTION_BUILDING_CONFIG = Object.freeze({
     upgradeBaseCost: 5200,
     outputCap: 15,
     infoText: "Zbrojovka vyrábí útočnou i obrannou výzbroj z Metal Parts a Tech Core.",
-    infoActions: Object.freeze(["+ Vybrat hotové přesune zbraně do skladu výzbroje.", "⇪ Upgrade zvyšuje rychlost výroby zbrojovky o 10 % za level.", "Zbrojovka bere Metal Parts a Tech Core z materiálového skladu."])
+    infoActions: Object.freeze(["+ Vybrat hotové patří do serverového craft flow.", "⇪ Každý level zvedá serverovou craft rychlost o 10%.", "Zbrojovka bere Metal Parts a Tech Core z materiálového skladu."])
   })
 });
 

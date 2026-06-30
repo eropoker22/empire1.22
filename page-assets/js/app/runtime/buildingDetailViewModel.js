@@ -33,6 +33,7 @@ import {
 import {
   getBuildingSpecialActionCooldownUntil,
   getRecyclingSalvagePoolView,
+  isBuildingSpecialActionImplemented,
   resolveBuildingSpecialActionDefinition
 } from "./buildingSpecialActionRegistry.js";
 
@@ -682,8 +683,11 @@ export function createBuildingDetailActionRows({
   actionProfiles = [],
   now = Date.now()
 } = {}) {
-  return (Array.isArray(profile.actions) ? profile.actions : []).map((action, actionIndex) => {
+  return (Array.isArray(profile.actions) ? profile.actions : []).flatMap((action, actionIndex) => {
     const actionProfile = actionProfiles[actionIndex] || null;
+    if (!isBuildingSpecialActionImplemented(buildingName, action, actionProfile || {})) {
+      return [];
+    }
     const actionDefinition = resolveBuildingSpecialActionDefinition({
       buildingName,
       actionLabel: action,
@@ -773,7 +777,7 @@ export function createBuildingDetailActionRows({
           formatCooldown: formatDistrictBuildingCooldown
         })
       : "";
-    return {
+    return [{
       index: actionIndex,
       actionId: actionDefinition.actionId,
       buildingTypeId: actionDefinition.buildingTypeId,
@@ -804,7 +808,7 @@ export function createBuildingDetailActionRows({
             : actionDefinition.cooldownMs > 0
               ? `Cooldown ${formatDistrictBuildingCooldown(actionDefinition.cooldownMs)}`
               : "Ready"
-    };
+    }];
   });
 }
 

@@ -13,6 +13,7 @@ import { createDistrictCapabilitiesView } from "./district-capabilities-projecti
 import { createDistrictPanelBuildingViews } from "./district-building-action-projection";
 import { createDistrictOccupyTargetViews } from "./district-occupy-target-projection";
 import type { DistrictPanelProjectionInput } from "./district-panel-projection-types";
+import { resolveProjectionProductionLevelMultiplier } from "./production-level-projection";
 import { createDistrictSpyTargetViews } from "./district-spy-target-projection";
 
 export type { DistrictPanelProjectionInput } from "./district-panel-projection-types";
@@ -132,11 +133,19 @@ export const createDistrictPanelView = (
                 resourceLabel: productionProfile.resourceLabel,
                 storedAmount,
                 storageCap: productionProfile.storageCap,
-                amountPerTick: Math.max(0, Math.floor(productionProfile.amountPerTick * input.productionMultiplier * resolveProductionInfrastructureMultiplier({
-                  state,
-                  building,
-                  powerStationConfig: input.powerStationConfig
-                }))),
+                amountPerTick: Math.max(0, Math.floor(
+                  productionProfile.amountPerTick
+                    * input.productionMultiplier
+                    * resolveProjectionProductionLevelMultiplier(
+                      building.level,
+                      productionProfile.upgrade ?? craftProfile?.upgrade
+                    )
+                    * resolveProductionInfrastructureMultiplier({
+                      state,
+                      building,
+                      powerStationConfig: input.powerStationConfig
+                    })
+                )),
                 canCollect: isOwnedByPlayer && building.ownerPlayerId === input.playerId && building.status === "active" && storedAmount > 0,
                 collectDisabledReason: !isOwnedByPlayer || building.ownerPlayerId !== input.playerId
                   ? "Only the building owner can collect production here."

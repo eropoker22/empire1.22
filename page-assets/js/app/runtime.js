@@ -943,6 +943,7 @@ function syncGameplaySliceResponse(response) {
   }
   if (response?.readModel) {
     latestGameplaySliceReadModel = response.readModel;
+    window.empireStreetsGameplaySliceReadModel = response.readModel;
     document.dispatchEvent(new CustomEvent("empire:gameplay-slice-rendered", {
       detail: {
         gameplaySlice: response.readModel,
@@ -1132,6 +1133,23 @@ function normalizeServerBuildingTypeId(value = "") {
   return String(value || "").trim().replace(/-/g, "_");
 }
 
+const SERVER_BUILDING_UPGRADE_MAX_LEVEL_BY_TYPE = Object.freeze({
+  casino: 4,
+  warehouse: 4,
+  port: 5,
+  parliament: 5,
+  pharmacy: 14,
+  drug_lab: 14,
+  druglab: 14,
+  factory: 14,
+  armory: 14
+});
+
+function getServerAuthoritativeBuildingUpgradeMaxLevel(mechanicsType = "") {
+  const serverType = getServerBuildingTypeIdForDetailMechanics(mechanicsType);
+  return Math.max(1, Math.floor(Number(SERVER_BUILDING_UPGRADE_MAX_LEVEL_BY_TYPE[serverType] || 1)));
+}
+
 async function loadServerGameplaySliceForDistrict(districtId) {
   if (!isServerAuthoritativeGameplayRuntimeReady()) {
     return {
@@ -1238,6 +1256,113 @@ function createServerBuildingActionPayload(target, definition, actionProfile = {
     actionId: definition.actionId,
     ...createServerBuildingActionDefaultPayload(definition.actionId, actionProfile)
   };
+}
+
+function getServerBuildingTypeIdForDetailMechanics(mechanicsType = "") {
+  const normalized = normalizeServerBuildingTypeId(mechanicsType);
+  const aliases = {
+    "auto_salon": "car_dealer",
+    retail: "shopping_mall",
+    "power_plant": "power_station",
+    "drug_lab": "drug_lab"
+  };
+  return aliases[normalized] || normalized;
+}
+
+async function resolveServerBuildingUpgradeTarget(context, mechanics = {}) {
+  const districtId = resolveServerDistrictIdFromBuildingContext(context);
+  if (!districtId) {
+    return { ok: false, message: "Chybí server district id pro upgrade." };
+  }
+
+  const loadResponse = await loadServerGameplaySliceForDistrict(districtId);
+  if (!loadResponse?.accepted && !loadResponse?.readModel) {
+    return {
+      ok: false,
+      message: loadResponse?.errors?.[0]?.message || "Server district detail nejde načíst."
+    };
+  }
+
+  const slice = latestGameplaySliceReadModel || loadResponse.readModel || null;
+  const district = slice?.district || null;
+  if (!district || district.districtId !== districtId) {
+    return { ok: false, message: "Server nevrátil detail vybraného districtu." };
+  }
+
+  const expectedType = getServerBuildingTypeIdForDetailMechanics(mechanics.mechanicsType || resolveDistrictBuildingDetailMechanicsType(context.buildingName));
+  const building = (district.buildings || []).find((candidate) =>
+    normalizeServerBuildingTypeId(candidate?.buildingTypeId) === expectedType
+  );
+
+  if (!building?.buildingId) {
+    return { ok: false, message: "Server v districtu nenašel odpovídající budovu pro upgrade." };
+  }
+
+  return {
+    ok: true,
+    districtId,
+    buildingId: building.buildingId,
+    building
+  };
+}
+
+async function submitServerBuildingUpgradeCommand({ context, mechanics } = {}) {
+  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return {
+      accepted: false,
+      errors: [{ message: "Server-authoritative gameplay runtime není připravený." }]
+    };
+  }
+
+  const target = await resolveServerBuildingUpgradeTarget(context, mechanics);
+  if (!target.ok) {
+    return {
+      accepted: false,
+      errors: [{ message: target.message }]
+    };
+  }
+
+  const slice = latestGameplaySliceReadModel || null;
+  const player = slice?.player || null;
+  if (!slice || !player?.playerId || !player?.instanceId) {
+    return {
+      accepted: false,
+      errors: [{ message: "Server slice kontext není připravený." }]
+    };
+  }
+
+  const request = {
+    command: {
+      id: createGameplaySliceCommandId("command:upgrade-building"),
+      type: "upgrade-building",
+      mode: player.mode || slice.mode?.mode || "free",
+      playerId: player.playerId,
+      serverInstanceId: player.instanceId,
+      issuedAt: new Date().toISOString(),
+      payload: {
+        districtId: target.districtId,
+        buildingId: target.buildingId
+      },
+      clientRequestId: null
+    },
+    focusDistrictId: target.districtId,
+    expectedStateVersion: slice.server?.stateVersion ?? null
+  };
+  const snapshotToken = getGameplaySliceSnapshotToken(player.instanceId, player.playerId);
+  if (snapshotToken) {
+    request.snapshotToken = snapshotToken;
+  }
+
+  const response = await fetch(`${getGameplaySliceEndpointBase()}/submit`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    credentials: "same-origin",
+    body: JSON.stringify(request)
+  }).then((payload) => payload.json());
+  syncGameplaySliceResponse(response);
+  return response;
 }
 
 async function submitServerBuildingActionCommand({ context, actionProfile, definition } = {}) {
@@ -3477,6 +3602,8 @@ const {
   renderProductionBuildingInfo,
   renderProductionPanel
 } = createProductionBuildingPopupRuntime({
+  allowLegacyLocalProduction: false,
+  allowLegacyProductionUpgrade: false,
   ARMORY_POPUP_CLOSE_SELECTOR,
   ARMORY_POPUP_OPEN_SELECTOR,
   ARMORY_POPUP_SELECTOR,
@@ -5426,11 +5553,12 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
   const now = Date.now();
   const elapsedMs = Math.min(DISTRICT_BUILDING_DETAIL_COLLECT_CAP_MS, Math.max(0, now - entry.lastCollectedAt));
   const elapsedHours = elapsedMs / (60 * 60 * 1000);
-  const maxLevel = mechanicsType === "casino"
+  const localMaxLevel = mechanicsType === "casino"
     ? CASINO_DETAIL_MAX_LEVEL
     : (mechanicsType === "apartment-block" || mechanicsType === "school" || isGarage)
       ? 1
       : DISTRICT_BUILDING_DETAIL_MAX_LEVEL;
+  const maxLevel = Math.min(localMaxLevel, getServerAuthoritativeBuildingUpgradeMaxLevel(mechanicsType));
   const level = Math.max(1, Math.min(maxLevel, Math.floor(Number(entry.level || 1))));
   const casinoUpgrade = mechanicsType === "casino" ? getCasinoDetailUpgrade(level) : null;
   const ownedExchangeOffices = mechanicsType === "exchange" ? getOwnedExchangeOfficeCount() : 0;
@@ -6132,7 +6260,7 @@ function collectDistrictBuildingDetailOutput(root, shell) {
   refreshDistrictBuildingDetailPopup(root, shell);
 }
 
-function upgradeDistrictBuildingDetail(root, shell) {
+async function upgradeDistrictBuildingDetail(root, shell) {
   const context = districtBuildingDetailContextByShell.get(shell);
   if (!context) {
     return;
@@ -6145,6 +6273,26 @@ function upgradeDistrictBuildingDetail(root, shell) {
   }
   if (!mechanics.nextLevel) {
     setBuildingActionFeedback(root, "warning", context.buildingName, "Budova je na maximálním levelu.", `L${mechanics.level}`);
+    return;
+  }
+
+  if (isServerAuthoritativeGameplayRuntimeReady()) {
+    const response = await submitServerBuildingUpgradeCommand({ context, mechanics });
+    if (!response?.accepted) {
+      const message = response?.errors?.map((error) => error?.message || error?.code).filter(Boolean).join(" · ")
+        || "Server upgrade odmítl.";
+      setBuildingActionFeedback(root, "warning", `${context.buildingName}: upgrade nejde`, message, `L${mechanics.level} → L${mechanics.nextLevel}`);
+      return;
+    }
+
+    setBuildingActionFeedback(
+      root,
+      "success",
+      `${context.buildingName}: upgrade`,
+      `Server potvrdil upgrade na level ${mechanics.nextLevel}.`,
+      `Cena ${mechanics.upgradeCostLabel}`
+    );
+    refreshDistrictBuildingDetailPopup(root, shell);
     return;
   }
 
@@ -6259,7 +6407,7 @@ async function confirmDistrictBuildingDetailUpgrade(root, shell) {
 
   const mechanics = resolveDistrictBuildingDetailMechanics(context.district, context.buildingName);
   if (mechanics.mechanicsType === "garage" || !mechanics.nextLevel) {
-    upgradeDistrictBuildingDetail(root, shell);
+    await upgradeDistrictBuildingDetail(root, shell);
     return;
   }
 
@@ -6285,7 +6433,7 @@ async function confirmDistrictBuildingDetailUpgrade(root, shell) {
   });
 
   if (confirmed) {
-    upgradeDistrictBuildingDetail(root, shell);
+    await upgradeDistrictBuildingDetail(root, shell);
   }
 }
 
@@ -10275,6 +10423,8 @@ const {
 const {
   bindFactoryPopup
 } = createFactoryPopupRuntime({
+  allowLegacyLocalProduction: false,
+  allowLegacyProductionUpgrade: false,
   FACTORY_CONFIG,
   FACTORY_SLOT_CONFIG,
   FACTORY_SLOT_STORAGE_CAP,

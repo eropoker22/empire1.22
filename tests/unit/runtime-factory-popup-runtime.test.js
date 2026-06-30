@@ -141,6 +141,55 @@ describe("factory popup runtime", () => {
     );
   });
 
+  it("blocks legacy local factory collection when the server bridge owns production", async () => {
+    const open = createElement();
+    const popup = createElement();
+    const close = createElement();
+    const collect = createElement();
+    const upgrade = createElement();
+    const collectFactoryOutputsToSupplies = vi.fn(() => ({ items: [], total: 1 }));
+    const setBuildingActionFeedback = vi.fn();
+    const runtime = createRuntime({
+      allowLegacyLocalProduction: false,
+      collectFactoryOutputsToSupplies,
+      setBuildingActionFeedback,
+      syncBuildingDetailTopbarVisibility: vi.fn()
+    });
+    const root = createRoot({
+      ".collect": collect,
+      ".combat": createElement(),
+      ".header": createElement(),
+      ".level": createElement(),
+      ".metal": createElement(),
+      ".multiplier": createElement(),
+      ".open": open,
+      ".owned": createElement(),
+      ".popup": popup,
+      ".slots": createElement(),
+      ".supply-combat": createElement(),
+      ".supply-metal": createElement(),
+      ".supply-tech": createElement(),
+      ".tech": createElement(),
+      ".upgrade": upgrade,
+      ".upgrade-cost": createElement()
+    }, {
+      ".close": [close]
+    });
+
+    expect(runtime.bindFactoryPopup(root)).toBe(true);
+    open.dispatch("click");
+    await collect.dispatch("click");
+
+    expect(collect.disabled).toBe(true);
+    expect(collectFactoryOutputsToSupplies).not.toHaveBeenCalled();
+    expect(setBuildingActionFeedback).toHaveBeenCalledWith(
+      root,
+      "warning",
+      "Továrna",
+      expect.stringContaining("serverový production/craft flow")
+    );
+  });
+
   it("cancels factory slot queue instead of only pausing it", () => {
     const open = createElement();
     const popup = createElement();

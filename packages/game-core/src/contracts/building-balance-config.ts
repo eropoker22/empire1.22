@@ -3,6 +3,7 @@ export interface ProductionBuildingBalanceConfig {
   resourceLabel: string;
   amountPerTick: number;
   storageCap: number;
+  upgrade?: BuildingUpgradeBalanceConfig;
 }
 
 export interface CraftRecipeBalanceConfig {
@@ -16,6 +17,15 @@ export interface CraftRecipeBalanceConfig {
 
 export interface CraftBuildingBalanceConfig {
   recipes: Record<string, CraftRecipeBalanceConfig>;
+  upgrade?: BuildingUpgradeBalanceConfig;
+}
+
+export interface BuildingUpgradeBalanceConfig {
+  maxLevel: number;
+  upgradeBaseCost: number;
+  costGrowth: number;
+  productionMultiplierPerLevel?: number;
+  roundCostTo?: number;
 }
 
 export interface ConflictBalanceConfig {

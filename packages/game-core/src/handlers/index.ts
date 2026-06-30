@@ -23,4 +23,5 @@ export * from "./spyDistrict";
 export * from "./streetDealersBuildingActions";
 export * from "./stockExchangeBuildingActions";
 export * from "./useBuildingAction";
+export * from "./upgradeBuilding";
 export * from "./vipLoungeBuildingActions";

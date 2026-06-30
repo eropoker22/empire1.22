@@ -46,24 +46,24 @@ Proto je rozdil ocekavany, pokud je zapnuta live faze a soucasne se divas na map
 
 | Zona | Budovy | Stav karet | Server/action stav |
 |---|---|---|---|
-| Commercial | Restaurace, Kasino, Autosalon, Obchodni centrum, Smenarna, Fitness Club | Pripravene/uzamcene pro aktualni vizualni styl | Kasino, Smenarna maji server actions. Restaurace je legacy/local. Ostatni jsou hlavne pasivni/support. |
+| Commercial | Restaurace, Kasino, Autosalon, Obchodni centrum, Smenarna, Fitness Club | Pripravene/uzamcene pro aktualni vizualni styl | Kasino, Smenarna a Restaurace maji server actions. Ostatni jsou hlavne pasivni/support. |
 | Residential | Bytovy blok, Herna, Rekrutacni centrum, Garage, Skola, Klinika | Pripravene/uzamcene | Bytovy blok, Herna, Skola, Klinika maji server actions. Garage/Rekrutacni centrum jsou pasivni/support. |
-| Park | Poulicni dealeri, Strip club, Vecerka, Pasovaci tunel | Pripravene/uzamcene | Pasovaci tunel server. Poulicni dealeri mix server + legacy. Strip club mix server + legacy. Vecerka pasivni/rumor. |
-| Industrial | Sklad, Energeticka stanice, Recyklacni centrum | Pripravene/uzamcene | Recyklacni centrum a hlavni power action server. Energeticka stanice ma 2 legacy UI akce. Sklad pasivni kapacita. |
+| Park | Poulicni dealeri, Strip club, Vecerka, Pasovaci tunel | Pripravene/uzamcene | Pasovaci tunel, Poulicni dealeri a Strip club server-backed. Vecerka pasivni/rumor. |
+| Industrial | Sklad, Energeticka stanice, Recyklacni centrum | Pripravene/uzamcene | Recyklacni centrum a Energeticka stanice server-backed. Sklad pasivni kapacita. |
 | Industrial special | Tovarna, Zbrojovka | Vizualne mimo soucasny standard district-card sprintu | Production/craft legacy flow, potrebuje samostatny server-authoritative audit pred alpha. |
 | Park special | Drug lab/Lab | Vizualne mimo soucasny standard district-card sprintu | Production/drug flow legacy, potrebuje samostatny server-authoritative audit. |
 | Commercial special | Lekarna | Zamerne zatim neresena | Production/craft legacy flow, potrebuje samostatny server-authoritative audit. |
-| Downtown | Burza, Centralni banka, Magistrat, Lobby klub, Letiste, Pristav, Parlament, Soud, VIP salonek | Nepripravene pro final UI pass | Core/config ma handlery pro Burzu, Banku, Magistrat, Lobby, Letiste; UI registry je stale oznacuje jako coming-soon. Pristav/Parlament maji actionId, ale je potreba potvrdit end-to-end server path. Soud/VIP jsou pasivni/special intel. |
+| Downtown | Burza, Centralni banka, Magistrat, Lobby klub, Letiste, Pristav, Parlament, Soud, VIP salonek | Pripravene pro dalsi vizualni pass | Burza, Banka, Magistrat, Lobby, Letiste, Pristav a Parlament jsou napojene pres server actions. Soud/VIP jsou pasivni/special intel. |
 
 ## Special actions podle registry
 
 | Skupina | Stav |
 |---|---|
-| Server-ready a pouzivane | Bytovy blok, Herna, Kasino, Smenarna, Klinika, Skola, Recyklacni centrum, Pasovaci tunel, hlavni Energeticka stanice action |
-| Mix server + legacy | Poulicni dealeri, Strip club, Energeticka stanice |
-| Legacy/local | Restaurace, Lekarna, Drug lab/Lab, Tovarna, Zbrojovka |
-| Core existuje, UI je stale coming-soon | Burza, Centralni banka, Magistrat, Lobby klub, Letiste |
-| Potrebuje overeni server end-to-end | Pristav, Parlament |
+| Server-ready a pouzivane | Bytovy blok, Herna, Kasino, Smenarna, Klinika, Skola, Restaurace, Recyklacni centrum, Pasovaci tunel, Energeticka stanice, Poulicni dealeri, Strip club, Burza, Centralni banka, Magistrat, Lobby klub, Letiste, Pristav, Parlament |
+| Mix server + legacy | Zadna viditelna special action v kartach nesmi zustat v tomto stavu. |
+| Legacy/local | Lekarna, Drug lab/Lab, Tovarna, Zbrojovka pouzivaji oddeleny production/craft flow a nemaji detail-card special action rows. |
+| Missing handler rows | Skryte z detail karet, dokud nebudou server-backed. |
+| Potrebuje overeni server end-to-end | Jen nove budouci akce pred vystavenim v karte. |
 | Pasivni/no action | Sklad, Garage, Rekrutacni centrum, Fitness Club, Autosalon, Obchodni centrum, Vecerka, Soud, VIP salonek |
 
 ## Doporučení
@@ -71,6 +71,6 @@ Proto je rozdil ocekavany, pokud je zapnuta live faze a soucasne se divas na map
 1. Rozhodnout product pravidlo pro live fazi:
    - debug katalog: modal **Budovy** dal ukazuje vsechny budovy,
    - nebo alpha-realita: modal pocita jen realne vlastnene a ne-neutralizovane distrikty.
-2. Pred Downtown sprintem sladit UI registry s core handlery pro Burzu, Banku, Magistrat, Lobby a Letiste, aby nezustaly jako `coming-soon`, pokud je server umi.
-3. Special production budovy (`Lekarna`, `Drug lab`, `Tovarna`, `Zbrojovka`) resit oddelenym production/craft server-authoritative sprintem.
-4. Pro Park/Industrial uz pokracovat v UI upravach, ale u mix legacy actions vzdy pred zamcenim overit realny efekt a cenu proti runtime/core.
+2. Pred dalsim Downtown vizualnim sprintem kontrolovat jen copy a inputy proti server action configu; registry uz je server-backed.
+3. Special production budovy (`Lekarna`, `Drug lab`, `Tovarna`, `Zbrojovka`) drzet v oddelenem production/craft flow bez detail-card special rows.
+4. Pro Park/Industrial uz pokracovat v UI upravach jen proti server-backed akcim a testum registry.

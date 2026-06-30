@@ -2449,7 +2449,7 @@ describe("run-building-action command flow", () => {
     });
   });
 
-  it("runs Restaurant as passive clean, influence, heat, and rumor building without dirty cash or actions", () => {
+  it("runs Restaurant as passive clean, influence, heat, and rumor building with server-backed detail actions", () => {
     const { state, building } = createStateWithFixedBuilding("restaurant", {
       id: "building:district-1:restaurant:1",
       playerBalances: {
@@ -2479,12 +2479,59 @@ describe("run-building-action command flow", () => {
     expect(result.districtsById["district:1"].heat).toBeGreaterThan(0);
     expect(result.districtsById["district:1"].influence).toBeGreaterThan(0);
     expect(context.config.balance.restaurant).toMatchObject({
-      noSpecialActions: true,
+      noSpecialActions: false,
       noLaundering: true,
       noAuditRisk: true,
       dirtyCashPerMinute: 0
     });
-    expect((context.config.balance.buildingActions ?? {}).restaurant_collect_revenue).toBeUndefined();
+    expect((context.config.balance.buildingActions ?? {}).restaurant_collect_revenue).toMatchObject({
+      actionId: "restaurant_collect_revenue",
+      buildingType: "restaurant",
+      outputGain: {
+        cash: 180,
+        "dirty-cash": 90
+      }
+    });
+  });
+
+  it("runs Restaurant detail revenue action through server state", () => {
+    const { state, building } = createStateWithFixedBuilding("restaurant", {
+      id: "building:district-1:restaurant:1",
+      playerBalances: {
+        cash: 0,
+        "dirty-cash": 0,
+        influence: 0
+      }
+    });
+
+    const result = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:restaurant:collect-revenue",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "restaurant_collect_revenue"
+        }
+      }),
+      context
+    );
+
+    expect(result.errors).toEqual([]);
+    expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(180);
+    expect(result.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(90);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 1);
+    expect(result.nextState.buildingsById[building.id].actionCooldowns.restaurant_collect_revenue).toBe(
+      cooldownTicksForMs(30 * 60 * 1000)
+    );
+    expect(result.events[0]).toMatchObject({
+      type: "building-action-resolved",
+      payload: {
+        actionId: "restaurant_collect_revenue",
+        cashDelta: 180,
+        dirtyCashDelta: 90
+      }
+    });
   });
 
   it("generates Restaurant passive rumors without reliability visibility", () => {

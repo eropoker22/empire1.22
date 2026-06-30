@@ -7,6 +7,10 @@ function queryAll(root, selector) {
 export function createFactoryPopupRuntime(deps = {}) {
   const selectors = deps.selectors || {};
   const documentRef = deps.documentRef || (typeof document !== "undefined" ? document : null);
+  const allowLegacyLocalProduction = deps.allowLegacyLocalProduction !== false;
+  const allowLegacyProductionUpgrade = deps.allowLegacyProductionUpgrade !== false;
+  const productionBridgeMessage = "Továrna používá serverový production/craft flow. Legacy lokální výroba je vypnutá.";
+  const productionUpgradeMessage = "Serverový upgrade Továrny se provádí přes konkrétní kartu budovy v districtu.";
 
   const getFactoryCollectableAmount = (factoryState) => (factoryState?.slots || []).reduce((total, slot) => (
     total + Math.max(0, Math.floor(Number(slot?.producedAmount || 0)))
@@ -87,6 +91,10 @@ export function createFactoryPopupRuntime(deps = {}) {
       const collectableAmount = getFactoryCollectableAmount(factoryState);
 
       const cancelFactorySlotProduction = (slotId) => {
+        if (!allowLegacyLocalProduction) {
+          deps.setBuildingActionFeedback?.(root, "warning", "Továrna", productionBridgeMessage);
+          return;
+        }
         const nextState = deps.getStoredFactoryState?.() || {};
         const targetSlot = (nextState.slots || []).find((item) => item.id === slotId);
         if (!targetSlot) return;
@@ -99,6 +107,10 @@ export function createFactoryPopupRuntime(deps = {}) {
         renderFactoryDashboard();
       };
       const queueFactorySlotProduction = (slotView, batchCount = 1) => {
+        if (!allowLegacyLocalProduction) {
+          deps.setBuildingActionFeedback?.(root, "warning", "Továrna", productionBridgeMessage);
+          return;
+        }
         const nextState = deps.getStoredFactoryState?.() || {};
         const targetSlot = (nextState.slots || []).find((item) => item.id === slotView?.slot?.id);
         if (!targetSlot) return;
@@ -146,6 +158,16 @@ export function createFactoryPopupRuntime(deps = {}) {
         onPauseSlot: (slotView) => cancelFactorySlotProduction(slotView.slot?.id),
         onStartSlot: (slotView, payload) => queueFactorySlotProduction(slotView, payload?.batchCount || 1)
       });
+      if (!allowLegacyLocalProduction && collectButton) {
+        collectButton.disabled = true;
+        collectButton.title = productionBridgeMessage;
+        collectButton.setAttribute?.("aria-label", productionBridgeMessage);
+      }
+      if (!allowLegacyProductionUpgrade && upgradeButton) {
+        upgradeButton.disabled = true;
+        upgradeButton.title = productionUpgradeMessage;
+        upgradeButton.setAttribute?.("aria-label", productionUpgradeMessage);
+      }
     };
 
     const openPopup = () => {
@@ -170,6 +192,11 @@ export function createFactoryPopupRuntime(deps = {}) {
     }
 
     collectButton.addEventListener("click", () => {
+      if (!allowLegacyLocalProduction) {
+        deps.setBuildingActionFeedback?.(root, "warning", "Továrna", productionBridgeMessage);
+        renderFactoryDashboard();
+        return;
+      }
       const collected = deps.collectFactoryOutputsToSupplies?.() || { total: 0, items: [] };
       renderFactoryDashboard();
 
@@ -195,6 +222,11 @@ export function createFactoryPopupRuntime(deps = {}) {
     });
 
     upgradeButton.addEventListener("click", async () => {
+      if (!allowLegacyProductionUpgrade) {
+        deps.setBuildingActionFeedback?.(root, "warning", "Továrna", productionUpgradeMessage);
+        renderFactoryDashboard();
+        return;
+      }
       const factoryState = deps.getStoredFactoryState?.() || {};
       if (factoryState.level >= deps.FACTORY_CONFIG.maxLevel) {
         return;

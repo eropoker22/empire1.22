@@ -41,6 +41,7 @@ const SERVER_ACTIONS = new Map([
   ["letiste::evakuacni koridor", ["evacuation_corridor", "airport"]],
   ["pristav::container cut", ["port_container_cut", "port"]],
   ["parlament::policy window", ["parliament_policy_window", "parliament"]],
+  ["kasino::tichy backroom", ["quiet_backroom", "casino"]],
   ["kasino::ticha herna", ["quiet_backroom", "casino"]],
   ["kasino::vip noc", ["vip_night", "casino"]],
   ["kasino::podplaceny inspektor", ["bribed_inspector", "casino"]],
@@ -62,7 +63,10 @@ const SERVER_ACTIONS = new Map([
   ["pasovaci tunel::otevrit kanal", ["open_channel", "smuggling_tunnel"]],
   ["poulicni dealeri::spustit prodej", ["start_drug_sale", "street_dealers"]],
   ["poulicni dealeri::vybrat hot cash", ["street_dealers_collect_hot_cash", "street_dealers"]],
-  ["poulicni dealeri::presunout stash", ["street_dealers_move_stash", "street_dealers"]]
+  ["poulicni dealeri::presunout stash", ["street_dealers_move_stash", "street_dealers"]],
+  ["restaurace::vybrat trzby", ["restaurant_collect_revenue", "restaurant"]],
+  ["restaurace::kryt schuzky", ["restaurant_cover_meetings", "restaurant"]],
+  ["restaurace::posilit lokalni sit", ["restaurant_local_network", "restaurant"]]
 ]);
 
 const LEGACY_ACTION_IDS = new Map([
@@ -115,6 +119,11 @@ export function getBuildingSpecialActionBuildingTypeId(buildingName, actionLabel
 
 export function hasServerBuildingSpecialActionHandler(buildingName, actionLabel) {
   return Boolean(getServerBuildingSpecialActionEntry(buildingName, actionLabel));
+}
+
+export function isBuildingSpecialActionImplemented(buildingName, actionLabel, actionProfile = {}) {
+  void actionProfile;
+  return hasServerBuildingSpecialActionHandler(buildingName, actionLabel);
 }
 
 function profileRequiresServerHandler(actionProfile = {}) {
@@ -250,9 +259,8 @@ export function resolveBuildingSpecialActionDefinition({
   const actionId = resolveBuildingSpecialActionActionId(buildingName, actionLabel, actionIndex);
   const buildingTypeId = getBuildingSpecialActionBuildingTypeId(buildingName, actionLabel);
   const hasServerConfig = hasServerBuildingSpecialActionHandler(buildingName, actionLabel);
-  const hasLegacyHandler = hasLegacyBuildingSpecialActionHandler(profile);
-  const implemented = hasLegacyHandler || hasServerConfig;
-  const handlerId = hasServerConfig ? "server-run-building-action" : hasLegacyHandler ? "legacy-runtime" : "";
+  const implemented = hasServerConfig;
+  const handlerId = hasServerConfig ? "server-run-building-action" : "";
   const cooldownMs = Object.prototype.hasOwnProperty.call(profile, "cooldownMs")
     ? Math.max(0, Number(profile.cooldownMs || 0))
     : DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS;
@@ -261,20 +269,20 @@ export function resolveBuildingSpecialActionDefinition({
     actionId,
     buildingTypeId,
     label: String(actionLabel || "Akce").trim() || "Akce",
-    shortDescription: implemented ? "Akce se spustí po potvrzení." : "Akce čeká na serverový handler.",
+    shortDescription: implemented ? "Akce se spustí po potvrzení." : "",
     confirmTitle: String(actionLabel || "Potvrdit akci").trim() || "Potvrdit akci",
     confirmBody: implemented
       ? hasServerConfig
-        ? "Po potvrzení se akce odešle na server. Cena, efekt, riziko a cooldown jsou uvedené níže."
+        ? "Po potvrzení se akce spustí přes server. Cena, efekt, riziko a cooldown jsou uvedené níže."
         : "Po potvrzení se akce spustí. Cena, efekt, riziko a cooldown jsou uvedené níže."
-      : "Tuhle akci zatím nelze spustit, protože čeká na serverový handler.",
+      : "",
     costSummary: formatCostSummary(profile),
     rewardSummary: formatRewardSummary(profile),
     riskSummary: formatRiskSummary(profile),
     inputSummary: hasServerConfig ? formatServerBuildingActionDefaultInputSummary(actionId, profile) : "",
     cooldownMs,
-    status: implemented ? "implemented" : "coming-soon",
-    disabledReason: implemented ? "" : "Připravujeme serverový handler.",
+    status: implemented ? "implemented" : "missing-handler",
+    disabledReason: "",
     handlerId,
     hasServerConfig
   };
@@ -328,7 +336,9 @@ export function createBuildingSpecialActionAuditRows() {
         hasServerConfig: definition.hasServerConfig,
         cooldownMs: definition.cooldownMs,
         status: definition.status,
-        note: definition.disabledReason || (definition.handlerId === "server-run-building-action" ? "Server-authoritative handler" : "Legacy runtime handler")
+        note: definition.handlerId === "server-run-building-action"
+          ? "Server-authoritative handler"
+          : "Missing handler - hidden from card UI"
       });
     }
   }

@@ -7,6 +7,7 @@ import {
   getFactionPassiveModifiers,
   resolveFactionProductionMultiplier
 } from "../factions/factionRules";
+import { resolveProductionBuildingLevelMultiplier } from "../buildings/buildingUpgradeRules";
 
 /**
  * Responsibility: Resolves completed production entries during ticks.
@@ -66,11 +67,13 @@ export const completeProduction = (
           target: productionTarget
         })
       : 1;
+    const levelMultiplier = resolveProductionBuildingLevelMultiplier(building, context);
     const baseProducedPerTick = Math.max(
       0,
       Math.floor(
         profile.amountPerTick
           * context.config.balance.productionMultiplier
+          * levelMultiplier
           * infrastructureMultiplier
           * factionProductionMultiplier
       )

@@ -317,7 +317,8 @@ describe("gameplay slice json handler", () => {
     ["place-trap", {}, "command.payload.districtId"],
     ["collect-production", { districtId: "district:1" }, "command.payload.buildingId"],
     ["craft-item", { districtId: "district:1", buildingId: "building:1" }, "command.payload.recipeId"],
-    ["run-building-action", { districtId: "district:1", buildingId: "building:1" }, "command.payload.actionId"]
+    ["run-building-action", { districtId: "district:1", buildingId: "building:1" }, "command.payload.actionId"],
+    ["upgrade-building", { districtId: "district:1" }, "command.payload.buildingId"]
   ])("rejects invalid %s payload shape before transport dispatch", async (type, payload, field) => {
     const handler = createGameplaySliceJsonHandler({
       load: () => {
@@ -405,6 +406,62 @@ describe("gameplay slice json handler", () => {
         }
       ]
     });
+  });
+
+  it("rejects client-injected upgrade result fields before transport dispatch", async () => {
+    const handler = createGameplaySliceJsonHandler({
+      load: () => {
+        throw new Error("unexpected load");
+      },
+      submit: async () => {
+        throw new Error("invalid upgrade command reached transport");
+      }
+    });
+
+    const response = await handler.handle({
+      method: "POST",
+      path: "/api/gameplay-slice/submit",
+      body: {
+        focusDistrictId: "district:1",
+        command: {
+          id: "command:upgrade-building:forged",
+          type: "upgrade-building",
+          mode: "free",
+          playerId: "player:1",
+          serverInstanceId: "instance:1",
+          issuedAt: new Date(0).toISOString(),
+          payload: {
+            districtId: "district:1",
+            buildingId: "building:district-1:casino:1",
+            newLevel: 4,
+            price: 1,
+            effect: { incomeMultiplier: 99 },
+            nextState: {}
+          },
+          clientRequestId: null
+        }
+      }
+    });
+
+    expect(response).toMatchObject({
+      status: 200,
+      body: {
+        accepted: false,
+        readModel: null
+      }
+    });
+    expect(response.body.errors).toContainEqual(expect.objectContaining({
+      code: "transport.invalid_request",
+      details: {
+        field: "command.payload.newLevel"
+      }
+    }));
+    expect(response.body.errors).toContainEqual(expect.objectContaining({
+      code: "transport.invalid_request",
+      details: {
+        field: "command.payload.price"
+      }
+    }));
   });
 
   it("rejects client-injected attack result payload fields before transport dispatch", async () => {

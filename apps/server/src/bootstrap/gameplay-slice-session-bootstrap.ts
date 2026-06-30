@@ -17,6 +17,7 @@ import {
 } from "../runtime/instance-manager/server-instance-joinability";
 import { inferModeFromInstanceId } from "./gameplay-slice-bootstrap-format";
 import { ensureGameplaySliceMembershipInState } from "./gameplay-slice-session-membership";
+import { ensureLiveBountyTarget } from "./gameplay-slice-session-seed";
 import {
   restoreGameplaySliceSessionFromSnapshot,
   type EnsureGameplaySliceSessionOptions
@@ -92,7 +93,13 @@ export const ensureGameplaySliceSessionResult = async (
     ...sessionRequest,
     mode
   });
-  instanceManager.startInstance(sessionRequest.serverInstanceId);
+  const startedRuntime = instanceManager.startInstance(sessionRequest.serverInstanceId);
+  if (startedRuntime) {
+    ensureLiveBountyTarget(startedRuntime.state, {
+      ...sessionRequest,
+      mode
+    });
+  }
 
   return {
     accepted: true,

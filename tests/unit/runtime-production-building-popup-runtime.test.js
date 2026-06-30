@@ -95,6 +95,51 @@ describe("production building popup runtime", () => {
     }));
   });
 
+  it("blocks legacy local production callbacks when the server bridge owns production", () => {
+    const recipeCallbacks = {};
+    const persistProductionJob = vi.fn();
+    const setBuildingActionFeedback = vi.fn();
+    const renderRecipeCard = vi.fn((viewModel, callbacks) => {
+      Object.assign(recipeCallbacks, callbacks);
+      return { viewModel };
+    });
+    const runtime = createProductionBuildingPopupRuntime({
+      allowLegacyLocalProduction: false,
+      getInventoryAmount: () => 10,
+      getProductionBuildingMultiplier: () => 1,
+      getProductionJob: () => null,
+      getResolvedEconomyState: () => ({ cleanMoney: 100 }),
+      getScaledProductionInputs: vi.fn(),
+      getStoredProductionBuildingState: () => ({ level: 1 }),
+      hasEnoughMaterials: () => true,
+      persistProductionJob,
+      renderProductionPanelUi: vi.fn(() => true),
+      renderRecipeCard,
+      setBuildingActionFeedback,
+      syncCompletedProductionJobs: vi.fn()
+    });
+    const root = createRoot({
+      '[data-production-panel="pharmacy"]': {}
+    });
+
+    expect(runtime.renderProductionPanel(root, "pharmacy", {
+      tonic: {
+        durationMs: 1000,
+        inputs: { chemicals: 1 },
+        output: { inventory: "materials", itemId: "chemicals", amount: 1 }
+      }
+    })).toBe(true);
+    recipeCallbacks.onStart({ batchCount: 1 });
+
+    expect(persistProductionJob).not.toHaveBeenCalled();
+    expect(setBuildingActionFeedback).toHaveBeenCalledWith(
+      root,
+      "warning",
+      "Budova",
+      expect.stringContaining("serverový production/craft flow")
+    );
+  });
+
   it("cancels pharmacy production and refunds queued costs", () => {
     const recipeCallbacks = {};
     const clearProductionJob = vi.fn();

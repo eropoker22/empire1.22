@@ -8,6 +8,7 @@ import { resolveCraftProcessingDurationTicks } from "../rules/production/product
 import { validateCraft } from "../validation";
 import { applyGarageCooldownReductionTicks } from "./garageBuildingActions";
 import { resolvePowerStationInfrastructureMultiplier } from "./powerStationBuildingActions";
+import { resolveProductionBuildingLevelMultiplier } from "../rules/buildings/buildingUpgradeRules";
 
 /**
  * Responsibility: Command-scoped orchestration for the first migrated craft-item processing flow.
@@ -62,7 +63,7 @@ export const handleCraftItem = (
     const baseDurationTicks = Math.max(1, Math.ceil(resolveCraftProcessingDurationTicks(
       recipe.durationTicks,
       context.config.balance.cooldownMultiplier
-    ) / infrastructureMultiplier));
+    ) / infrastructureMultiplier / resolveProductionBuildingLevelMultiplier(building, context)));
     const garageCategory = building.buildingTypeId === "armory"
       ? "armoryProductionActions"
       : building.buildingTypeId === "factory"
@@ -149,7 +150,7 @@ const resolveCraftDurationTicks = (input: {
   const baseDurationTicks = Math.max(1, Math.ceil(resolveCraftProcessingDurationTicks(
     input.recipeDurationTicks,
     input.context.config.balance.cooldownMultiplier
-  ) / infrastructureMultiplier));
+  ) / infrastructureMultiplier / resolveProductionBuildingLevelMultiplier(input.building, input.context)));
   const garageCategory = input.building.buildingTypeId === "armory"
     ? "armoryProductionActions"
     : input.building.buildingTypeId === "factory"

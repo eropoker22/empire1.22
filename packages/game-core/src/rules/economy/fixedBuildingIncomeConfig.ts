@@ -28,13 +28,8 @@ import { applyVipLoungeIncomeModifiers } from "../../handlers/vipLoungeBuildingA
 import { applyWarehouseIncomeModifiers } from "../../handlers/warehouseBuilding";
 import { applyDayNightBuildingIncomeModifiers } from "../day-night/dayNight";
 import { getFactionPassiveModifiers } from "../factions/factionRules";
-
-interface FixedBuildingIncomeValues {
-  cleanPerHour: number;
-  dirtyPerHour: number;
-  heatPerDay: number;
-  influencePerDay: number;
-}
+import { applyGenericFixedBuildingLevelMultiplier } from "../buildings/buildingUpgradeRules";
+import { type FixedBuildingIncomeValues, toIncomeModifierInput } from "./fixedBuildingIncomeValues";
 
 export const resolveFixedBuildingIncomeConfig = (input: {
   state: CoreGameState;
@@ -260,13 +255,11 @@ export const resolveFixedBuildingIncomeConfig = (input: {
     state,
     context,
     buildingTypeId: building.buildingTypeId,
-    ...toIncomeModifierInput(courthouseConfig)
+    ...applyGenericFixedBuildingLevelMultiplier({
+      building,
+      config,
+      ...toIncomeModifierInput(courthouseConfig)
+    })
   });
 };
 
-const toIncomeModifierInput = (config: FixedBuildingIncomeValues) => ({
-  cleanPerHour: config.cleanPerHour,
-  dirtyPerHour: config.dirtyPerHour,
-  heatPerDay: config.heatPerDay,
-  influencePerDay: config.influencePerDay
-});

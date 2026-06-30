@@ -79,16 +79,16 @@ describe("production info view models", () => {
       getFactoryLevelMultiplier: () => 1.5
     });
 
-    expect(viewModel.rows[0]).toEqual({ label: "Level", value: "L2 · multiplier x1.25" });
+    expect(viewModel.rows[0]).toEqual({ label: "Level", value: "L2" });
     expect(viewModel.rows[1]).toEqual({ label: "Upgrade", value: "100$ -> L3" });
-    expect(viewModel.rows[2].value).toBe("Multiplier x1.50, vyšší rychlost linek.");
+    expect(viewModel.rows[2].value).toBe("Produkce a craft rychlost x1.50.");
     expect(viewModel.rows[4].value).toBe("4 ks hotovo do skladu");
-    expect(viewModel.actions[1].description).toBe("Stojí 100$ clean cash a zvedne multiplier na x1.50.");
+    expect(viewModel.actions[1].description).toBe("Stojí 100$ clean cash a zvedne produkci na x1.50.");
     expect(viewModel.description).toContain("technické komponenty");
-    expect(viewModel.effectsLabel).toBe("Multiplier x1.25 · další level x1.50");
+    expect(viewModel.effectsLabel).toBe("Serverový production flow · další level +25% rychlost");
     expect(viewModel.effectsLabel).not.toContain("Výroba běží přes sloty");
     expect(viewModel.effectsLabel).not.toContain("fronta po kusech");
-    expect(viewModel.upgrade).toEqual({ costLabel: "100$", benefitLabel: "L3 · x1.50 rychlost" });
+    expect(viewModel.upgrade).toEqual({ costLabel: "100$", benefitLabel: "L3 · produkce x1.50" });
     expect(viewModel.products).toHaveLength(3);
     expect(viewModel.products[0]).toMatchObject({
       id: "metal-parts",

@@ -11,7 +11,8 @@ import type {
   RobDistrictCommand,
   RunBuildingActionCommand,
   SelectSpawnDistrictCommand,
-  SpyDistrictCommand
+  SpyDistrictCommand,
+  UpgradeBuildingCommand
 } from "@empire/shared-types";
 
 export const createBuildStructureCommandFixture = (
@@ -97,6 +98,23 @@ export const createRunBuildingActionCommandFixture = (
     districtId: "district:1",
     buildingId: "building:district-1:pharmacy:1",
     actionId: "produce_chemicals"
+  },
+  clientRequestId: null,
+  ...overrides
+});
+
+export const createUpgradeBuildingCommandFixture = (
+  overrides: Partial<UpgradeBuildingCommand> = {}
+): UpgradeBuildingCommand => ({
+  id: "command:upgrade-building:1",
+  type: "upgrade-building",
+  mode: "free",
+  playerId: "player:1",
+  serverInstanceId: "instance:1",
+  issuedAt: new Date(0).toISOString(),
+  payload: {
+    districtId: "district:1",
+    buildingId: "building:district-1:casino:1"
   },
   clientRequestId: null,
   ...overrides

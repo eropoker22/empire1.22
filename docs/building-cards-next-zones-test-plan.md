@@ -5,7 +5,7 @@ Scope: preparation for the next building-card passes after Residential. This doc
 ## Shared Test Rules
 
 - Every rendered special action needs a stable `actionId`.
-- A card must not promise an action without either a runtime/server handler or a clear disabled `Připravujeme serverový handler` state.
+- A card must not promise an action without a server-backed handler. Missing-handler rows stay out of the card UI until they are implemented.
 - Buttons stay compact: label, optional cost, cooldown badge, disabled state. Detail belongs in confirmation modal.
 - Cooldowns must come from action state/deadline, not a visual-only timer.
 - Upgrade confirmation must use type label and concrete before/after benefit rows or safe fallback.
@@ -26,15 +26,15 @@ Scope: preparation for the next building-card passes after Residential. This doc
 
 | Budova | Co má karta ukazovat | Reálné efekty | Special actions | Readiness | Testy | Rizika |
 | --- | --- | --- | --- | --- | --- | --- |
-| Burza | Market control role, server-only actions disabled until handler ready. | Market category investment/pressure/insider effects only when server-authoritative handler is active. | `speculative_buy`, `market_pressure`, `insider_window`. | Coming soon disabled. | Registry says coming-soon; button disabled; no legacy fallback reward. | Highest exploit risk if fallback gives cash/influence. |
-| Letiště | Logistics/import/mobility role. | Express import, black charter, evacuation effects when server-ready. | `express_import`, `black_charter`, `evacuation_corridor`. | Coming soon disabled for server-only profiles. | Disabled action rows; confirm modal can preview but not execute. | Import/black market offers need server authority. |
-| Magistrát | Politics/heat control. | Official cover, city contract, emergency decree. | `official_cover`, `city_contract`, `emergency_decree`. | Coming soon disabled. | No fallback, costs shown, server handler required. | Heat/police-control effects must not be client-side truth. |
-| Přístav | Container logistics. | Dirty cash, metal parts, influence, heat from current profile. | `port_container_cut`. | Legacy-ready. | Stable actionId and implemented status; cooldown/street news. | Material id normalization (`metal-parts` vs `metalParts`). |
+| Burza | Market control role with server-backed actions. | Market category investment/pressure/insider effects from core config. | `speculative_buy`, `market_pressure`, `insider_window`. | Server-backed. | Registry says implemented; submit uses `run-building-action`; no fallback reward. | Keep copy aligned with server market effect summaries. |
+| Letiště | Logistics/import/mobility role. | Express import, black charter, evacuation effects from server action config. | `express_import`, `black_charter`, `evacuation_corridor`. | Server-backed. | Registry says implemented; required inputs visible in confirm modal. | Import/black market offers need server authority. |
+| Magistrát | Politics/heat control. | Official cover, city contract, emergency decree from server action config. | `official_cover`, `city_contract`, `emergency_decree`. | Server-backed. | No fallback, costs shown, dispatch uses `run-building-action`. | Heat/police-control effects must not be client-side truth. |
+| Přístav | Container logistics. | Dirty cash, metal parts, influence, heat from server action config. | `port_container_cut`. | Server-backed. | Stable actionId and implemented status; cooldown/street news. | Material id normalization (`metal-parts` vs `metalParts`). |
 | VIP salonek | Passive rumor/intel/influence role. | Passive intel/rumor truth if configured. | Žádné v current detail profile. | Passive-ready. | No action rows, no fake special action. | Do not invent VIP active action before config exists. |
-| Centrální banka | Financial reserve/stability role. | Liquidity, account protection, currency intervention only server-side. | `liquidity_injection`, `frozen_accounts`, `currency_intervention`. | Coming soon disabled. | Registry disabled and no fallback. | Cash/fine/market-fee effects must be server-authoritative. |
-| Lobby klub | Influence/lobbying support. | Political cooldown/risk/rumor effects only server-side. | `backroom_pressure`, `quiet_negotiation`, `media_screen`. | Coming soon disabled. | Disabled rows, no fallback reward. | Cross-action cooldown reduction can be exploited if client-owned. |
+| Centrální banka | Financial reserve/stability role. | Liquidity, account protection, currency intervention from server action config. | `liquidity_injection`, `frozen_accounts`, `currency_intervention`. | Server-backed. | Registry says implemented; no fallback reward. | Cash/fine/market-fee effects must be server-authoritative. |
+| Lobby klub | Influence/lobbying support. | Political cooldown/risk/rumor effects from server action config. | `backroom_pressure`, `quiet_negotiation`, `media_screen`. | Server-backed. | Registry says implemented; no fallback reward. | Cross-action cooldown reduction can be exploited if client-owned. |
 | Soud | Passive legal protection. | Raid/fine mitigation and influence if config supports it. | Žádné. | Passive-ready. | No action rows; upgrade fallback/concrete benefit test. | Avoid showing police immunity copy. |
-| Parlament | Political power. | Clean/influence current profile output. | `parliament_policy_window`. | Legacy-ready for current generic output, needs server review. | Stable actionId, implemented status, cooldown/street news. | Political effects likely need server-owned long-term state later. |
+| Parlament | Political power. | Clean/influence current profile output. | `parliament_policy_window`. | Server-backed. | Stable actionId, implemented status, cooldown/street news. | Political effects likely need server-owned long-term state later. |
 
 ## Park
 
@@ -49,7 +49,7 @@ Scope: preparation for the next building-card passes after Residential. This doc
 - `tests/unit/helpers/building-card-test-helpers.js` centralizes forbidden generic copy checks and a base mechanics fixture.
 - `tests/unit/building-cards-next-zones-readiness.test.js` now guards current Industrial/Downtown/Park mapping:
   - existing Industrial cards build without runtime errors,
-  - Downtown server-only profiles remain disabled/coming soon,
+  - Downtown profiles are server-backed or absent from the card,
   - Park actions/profiles stay aligned,
   - Datové centrum is explicitly tracked as a data gap instead of faked.
 

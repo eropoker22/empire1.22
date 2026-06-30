@@ -123,4 +123,69 @@ describe("craft-item command flow", () => {
     expect(nextState.buildingsById[buildingId]?.processing).toBeNull();
     expect(nextState.resourceStatesById["resource:1"]?.balances[outputResourceKey]).toBe(outputAmount);
   });
+
+  it.each([
+    ["pharmacy", "stim-pack", {}],
+    ["drug_lab", "pulse-shot", { chemicals: 1, biomass: 0 }],
+    ["factory", "tech-core", { "metal-parts": 3 }],
+    ["armory", "pistol", { "metal-parts": 2, "tech-core": 0 }]
+  ])("rejects %s recipe %s without required inputs", (
+    buildingTypeId,
+    recipeId,
+    playerBalances
+  ) => {
+    const { state, building } = createCoreStateWithFixedBuildingFixture(buildingTypeId, {
+      playerBalances
+    });
+
+    const crafted = applyCommand(
+      state,
+      createCraftItemCommandFixture({
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          recipeId
+        }
+      }),
+      context
+    );
+
+    expect(crafted.nextState).toBe(state);
+    expect(crafted.events).toEqual([]);
+    expect(crafted.errors.map((error) => error.code)).toContain("craft_missing_inputs");
+  });
+
+  it("does not credit a completed craft job twice after processing is cleared", () => {
+    const { state, building } = createCoreStateWithFixedBuildingFixture("factory", {
+      playerBalances: {
+        "metal-parts": 10
+      }
+    });
+    const crafted = applyCommand(
+      state,
+      createCraftItemCommandFixture({
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          recipeId: "tech-core"
+        }
+      }),
+      context
+    );
+
+    expect(crafted.errors).toEqual([]);
+
+    let nextState = crafted.nextState;
+    for (let index = 0; index < 6 * TICKS_PER_MINUTE; index += 1) {
+      nextState = runTick(nextState, context).nextState;
+    }
+
+    expect(nextState.buildingsById[building.id]?.processing).toBeNull();
+    expect(nextState.resourceStatesById["resource:1"]?.balances["tech-core"]).toBe(1);
+
+    const repeatedTick = runTick(nextState, context);
+
+    expect(repeatedTick.events.filter((event) => event.type === "item-crafted")).toEqual([]);
+    expect(repeatedTick.nextState.resourceStatesById["resource:1"]?.balances["tech-core"]).toBe(1);
+  });
 });

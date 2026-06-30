@@ -264,8 +264,7 @@ describe("building detail view-model builder", () => {
     expect(model.stats.find((row) => row.label === "Čisté / hod")?.value).toBe("$120");
     expect(model.mechanics.find((row) => row.label === "Výnos")?.value).toBe("$165 / hod");
     expect(model.effects).toEqual([{ text: "Žádné aktivní mechaniky.", tone: "neutral" }]);
-    expect(model.actions).toHaveLength(1);
-    expect(model.actions[0].index).toBe(0);
+    expect(model.actions).toEqual([]);
   });
 
   it("marks downtown district buildings for the premium card treatment", () => {

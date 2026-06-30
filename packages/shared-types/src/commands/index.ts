@@ -18,3 +18,4 @@ export * from "./rob-district-command";
 export * from "./run-building-action-command";
 export * from "./select-spawn-district-command";
 export * from "./spy-district-command";
+export * from "./upgrade-building-command";

@@ -15,6 +15,7 @@ import type { RobDistrictCommand } from "./rob-district-command";
 import type { RunBuildingActionCommand } from "./run-building-action-command";
 import type { SelectSpawnDistrictCommand } from "./select-spawn-district-command";
 import type { SpyDistrictCommand } from "./spy-district-command";
+import type { UpgradeBuildingCommand } from "./upgrade-building-command";
 
 /**
  * Responsibility: Shared discriminated union for player-issued game commands.
@@ -38,4 +39,5 @@ export type GameCommand =
   | RobDistrictCommand
   | RunBuildingActionCommand
   | SelectSpawnDistrictCommand
-  | SpyDistrictCommand;
+  | SpyDistrictCommand
+  | UpgradeBuildingCommand;

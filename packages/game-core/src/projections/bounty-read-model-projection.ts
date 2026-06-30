@@ -32,7 +32,7 @@ export const createBountyReadModel = (
     minRewardCleanCash: BOUNTY_MIN_REWARD_CLEAN_CASH,
     durationOptionsHours: [...BOUNTY_DURATION_OPTIONS_HOURS],
     currentPlayerCleanCash: Math.max(0, Math.floor(Number(resourceState?.balances.cash ?? 0))),
-    eligibleTargets: state.root.playerIds
+    eligibleTargets: getBountyTargetCandidatePlayerIds(state)
       .map((candidatePlayerId) => state.playersById[candidatePlayerId])
       .filter((candidate) => candidate !== undefined)
       .map((candidate) => {
@@ -75,6 +75,18 @@ export const createBountyReadModel = (
       .map((bounty) => createBountyBoardEntryView(state, bounty, playerId, nowTick, tickRateMs)),
     recentBountyEvents: []
   };
+};
+
+const getBountyTargetCandidatePlayerIds = (state: CoreGameState): string[] => {
+  const candidateIds = new Set(state.root.playerIds);
+
+  for (const player of Object.values(state.playersById)) {
+    if (player?.metadata?.systemBountyTarget === true) {
+      candidateIds.add(player.id);
+    }
+  }
+
+  return [...candidateIds];
 };
 
 const resolveTargetDisabledReason = ({
