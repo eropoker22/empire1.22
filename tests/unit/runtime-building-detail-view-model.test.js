@@ -12,6 +12,7 @@ import {
 import {
   DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES
 } from "../../page-assets/js/app/runtime/buildingDetailData.js";
+import { expectNoGenericBuildingCardCopy } from "./helpers/building-card-test-helpers.js";
 
 const baseMechanics = {
   level: 2,
@@ -36,6 +37,192 @@ describe("building detail view-model builder", () => {
     expect(restaurantActions).toHaveLength(3);
     expect(restaurantActions.every((action) => action.durationMs === 30 * 60 * 1000)).toBe(true);
     expect(restaurantActions.every((action) => action.cooldownMs === 30 * 60 * 1000)).toBe(true);
+  });
+
+  it("keeps strip club special action timings aligned with card copy", () => {
+    const stripClubActions = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["strip club"];
+
+    expect(stripClubActions).toHaveLength(3);
+    expect(stripClubActions[0].cooldownMs).toBe(10 * 60 * 1000);
+    expect(stripClubActions[1].durationMs).toBe(30 * 60 * 1000);
+    expect(stripClubActions[1].cooldownMs).toBe(60 * 60 * 1000);
+    expect(stripClubActions[2].cooldownMs).toBe(30 * 60 * 1000);
+  });
+
+  it("keeps smuggling tunnel open channel cost, duration, and cooldown aligned with card copy", () => {
+    const [openChannel] = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["pasovaci tunel"];
+
+    expect(openChannel.smugglingOpenChannel).toBe(true);
+    expect(openChannel.cleanCost).toBe(800);
+    expect(openChannel.heat).toBe(5);
+    expect(openChannel.durationMs).toBe(15 * 60 * 1000);
+    expect(openChannel.cooldownMs).toBe(30 * 60 * 1000);
+    expect(openChannel.dirtyIncomeBoostPct).toBe(45);
+  });
+
+  it("keeps park special action profiles explicit for action, income, heat, and cooldown", () => {
+    const streetDealerActions = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["poulicni dealeri"];
+    const stripClubActions = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["strip club"];
+    const smugglingTunnelActions = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["pasovaci tunel"];
+
+    expect(streetDealerActions.map((action) => action.cooldownMs)).toEqual([
+      60 * 60 * 1000,
+      10 * 60 * 1000,
+      10 * 60 * 1000
+    ]);
+    expect(streetDealerActions.map((action) => action.heat)).toEqual([4, 3, 1]);
+    expect(streetDealerActions.map((action) => action.dirty || 0)).toEqual([1000, 280, 1000]);
+    expect(stripClubActions.map((action) => action.cooldownMs)).toEqual([
+      10 * 60 * 1000,
+      60 * 60 * 1000,
+      30 * 60 * 1000
+    ]);
+    expect(stripClubActions.map((action) => action.heat)).toEqual([3, 4, 3]);
+    expect(smugglingTunnelActions).toHaveLength(1);
+    expect(smugglingTunnelActions[0]).toMatchObject({
+      cleanCost: 800,
+      heat: 5,
+      durationMs: 15 * 60 * 1000,
+      cooldownMs: 30 * 60 * 1000
+    });
+    expect(DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.vecerka).toEqual([]);
+  });
+
+  it("shows strip club passive rumor cadence in mechanics", () => {
+    const mechanics = createBuildingDetailMechanicRows({
+      buildingName: "Strip club",
+      mechanics: { ...baseMechanics, mechanicsType: "strip-club" }
+    });
+
+    expect(mechanics.some((row) =>
+      row.label === "Drby" && row.value === "každý Strip club vytvoří 1 drb každých 30 min"
+    )).toBe(true);
+  });
+
+  it("shows warehouse capacities as separate mechanic rows with base capacity at zero owned warehouses", () => {
+    const mechanics = createBuildingDetailMechanicRows({
+      buildingName: "Sklad",
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "warehouse",
+        ownedWarehouses: 0,
+        warehouseCapacity: {
+          genericResources: 0,
+          chemicals: 0,
+          biomass: 0,
+          metalParts: 0,
+          techCore: 0,
+          combatModule: 0,
+          drugsAndBoosts: 0,
+          weaponsAndDefense: 0
+        },
+        warehouseUsage: {
+          chemicals: 0,
+          biomass: 0,
+          metalParts: 0,
+          techCore: 0,
+          combatModule: 0,
+          drugsAndBoosts: 0,
+          weaponsAndDefense: 0
+        },
+        warehouseWarnings: []
+      }
+    });
+
+    expect(mechanics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "Materiál", value: "Chemicals 0/350" }),
+      expect.objectContaining({ label: "Materiál", value: "Biomass 0/350" }),
+      expect.objectContaining({ label: "Materiál", value: "Metal parts 0/400" }),
+      expect.objectContaining({ label: "Materiál", value: "Tech core 0/120" }),
+      expect.objectContaining({ label: "Materiál", value: "Combat modules 0/80" }),
+      expect.objectContaining({ label: "Materiál", value: "Drogy a boosty 0/220" }),
+      expect.objectContaining({ label: "Materiál", value: "Zbraně a obrana 0/160" }),
+      expect.objectContaining({ label: "Stav kapacity", value: "Kapacity jsou v pořádku." })
+    ]));
+    expect(mechanics.some((row) => row.value === "vlastníš 0/18 skladů")).toBe(false);
+    expect(mechanics.filter((row) => row.label === "Materiál").every((row) => row.tone === "warehouse-low")).toBe(true);
+  });
+
+  it("colors warehouse material mechanic rows by used capacity", () => {
+    const mechanics = createBuildingDetailMechanicRows({
+      buildingName: "Sklad",
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "warehouse",
+        warehouseCapacity: {
+          chemicals: 100,
+          biomass: 100,
+          metalParts: 100,
+          techCore: 100,
+          combatModule: 100,
+          drugsAndBoosts: 100,
+          weaponsAndDefense: 100
+        },
+        warehouseUsage: {
+          chemicals: 30,
+          biomass: 31,
+          metalParts: 85,
+          techCore: 86,
+          combatModule: 0,
+          drugsAndBoosts: 70,
+          weaponsAndDefense: 99
+        },
+        warehouseWarnings: []
+      }
+    });
+
+    expect(mechanics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ value: "Chemicals 30/100", tone: "warehouse-low" }),
+      expect.objectContaining({ value: "Biomass 31/100", tone: "warehouse-medium" }),
+      expect.objectContaining({ value: "Metal parts 85/100", tone: "warehouse-medium" }),
+      expect.objectContaining({ value: "Tech core 86/100", tone: "warehouse-high" }),
+      expect.objectContaining({ value: "Combat modules 0/100", tone: "warehouse-low" }),
+      expect.objectContaining({ value: "Drogy a boosty 70/100", tone: "warehouse-medium" }),
+      expect.objectContaining({ value: "Zbraně a obrana 99/100", tone: "warehouse-high" })
+    ]));
+  });
+
+  it("does not show generic infrastructure restriction copy in power station mechanics", () => {
+    const mechanics = createBuildingDetailMechanicRows({
+      buildingName: "Energetická stanice",
+      mechanics: { ...baseMechanics, mechanicsType: "power-plant" }
+    });
+
+    expect(JSON.stringify(mechanics)).not.toContain("infrastruktura bez skladu");
+    expect(mechanics.map((row) => row.label)).toEqual([
+      "Stabilizovat síť",
+      "Napájet výrobu",
+      "Snížit heat"
+    ]);
+  });
+
+  it("keeps power station action cooldowns and durations aligned with card copy", () => {
+    const powerStationActions = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["energeticka stanice"];
+
+    expect(powerStationActions).toHaveLength(3);
+    expect(powerStationActions.every((action) => action.cooldownMs === 60 * 60 * 1000)).toBe(true);
+    expect(powerStationActions[0].durationMs).toBe(25 * 60 * 1000);
+    expect(powerStationActions[1].durationMs).toBe(25 * 60 * 1000);
+    expect(powerStationActions[2].durationMs).toBeUndefined();
+    expect(powerStationActions[2].heat).toBe(-2);
+  });
+
+  it("keeps recycling center card copy focused on item recovery", () => {
+    const stats = createBuildingDetailStatRows({
+      buildingName: "Recyklační centrum",
+      mechanics: { ...baseMechanics, mechanicsType: "recycling-center" }
+    });
+    const mechanics = createBuildingDetailMechanicRows({
+      buildingName: "Recyklační centrum",
+      mechanics: { ...baseMechanics, mechanicsType: "recycling-center" }
+    });
+    const [extractLosses] = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["recyklacni centrum"];
+    const copy = JSON.stringify({ stats, mechanics, extractLosses });
+
+    expect(stats.find((row) => row.label === "Akce")?.value).toBe("itemové ztráty");
+    expect(copy).not.toContain("salvage pool");
+    expect(copy).not.toContain("populaci ani");
+    expect(copy).not.toContain("členy gangu");
   });
 
   it("defines school evening course as apartment population speed boost without talents", () => {
@@ -506,7 +693,7 @@ describe("building detail view-model builder", () => {
       {
         buildingName: "Energetická stanice",
         mechanics: { ...baseMechanics, mechanicsType: "power-plant" },
-        profile: { role: "Infrastruktura", info: "Energetická stanice drží provoz districtu stabilní.", actions: ["Stabilizovat síť", "Napájet výrobu", "Snížit výpadky"] },
+        profile: { role: "Infrastruktura", info: "Energetická stanice drží provoz districtu stabilní.", actions: ["Stabilizovat síť", "Napájet výrobu", "Snížit heat"] },
         expectedTitle: "Energetická stanice",
         expectedBadge: "Infrastruktura",
         expectedActionCount: 3
@@ -556,7 +743,7 @@ describe("building detail view-model builder", () => {
       {
         buildingName: "Strip club",
         mechanics: { ...baseMechanics, mechanicsType: "strip-club" },
-        profile: { role: "Noční provoz", info: "Strip club generuje cashflow, kontakty a vliv.", actions: ["Vybrat cash", "Hostit VIP klienty", "Získat kompromat"] },
+        profile: { role: "Noční provoz", info: "Strip club generuje cashflow, kontakty a vliv.", actions: ["Vybrat cash", "Hostit VIP klienty", "Získat kompro"] },
         expectedTitle: "Strip club",
         expectedBadge: "Noční provoz",
         expectedActionCount: 3
@@ -600,16 +787,19 @@ describe("building detail view-model builder", () => {
         smugglingOpenChannelActive: false,
         smugglingOpenChannelRemainingMs: 0
       },
-      economyState: { dirtyMoney: 0 },
-      actionProfiles: [{ smugglingOpenChannel: true, dirtyCost: 800, cooldownMs: 18 * 60 * 1000 }],
+      economyState: { cleanMoney: 0, dirtyMoney: 1000 },
+      actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["pasovaci tunel"],
       now: 1000
     });
 
     expect(rows[0].disabled).toBe(true);
-    expect(rows[0].description).toContain("dirty cash");
+    expect(rows[0].description).toContain("clean cash");
+    expect(rows[0].buttonCostLabel).toBe("$800 clean cash");
+    expect(rows[0].cooldownMs).toBe(30 * 60 * 1000);
+    expect(rows[0].rewardSummary).toContain("Efekt 15m 00s");
   });
 
-  it("adds stable action ids and disables missing legacy handlers instead of promising fallback rewards", () => {
+  it("adds stable action ids and keeps server-backed downtown actions out of legacy fallback", () => {
     const rows = createBuildingDetailActionRows({
       buildingName: "Burza",
       profile: { actions: ["Spekulativní nákup", "Tržní tlak", "Insider Window"] },
@@ -624,8 +814,8 @@ describe("building detail view-model builder", () => {
     });
 
     expect(rows.map((row) => row.actionId)).toEqual(["speculative_buy", "market_pressure", "insider_window"]);
-    expect(rows.every((row) => row.disabled)).toBe(true);
-    expect(rows.every((row) => row.disabledReason.includes("serverový handler"))).toBe(true);
+    expect(rows.every((row) => row.disabledReason.includes("serverový handler"))).toBe(false);
+    expect(rows.some((row) => !row.disabled)).toBe(true);
   });
 
   it("enables recycling extract losses only when item salvage exists", () => {
@@ -664,18 +854,20 @@ describe("building detail view-model builder", () => {
   });
 
   it("keeps street dealer UI actions aligned with all special action profiles", () => {
-    const rows = createBuildingDetailActionRows({
+    const createRows = (materials = { biomass: 3 }) => createBuildingDetailActionRows({
       buildingName: "Pouliční dealeři",
       profile: { actions: ["Spustit prodej", "Vybrat hot cash", "Přesunout stash"] },
       mechanics: { ...baseMechanics, mechanicsType: "street-dealers" },
-      economyState: { cleanMoney: 0, dirtyMoney: 0 },
+      economyState: { cleanMoney: 0, dirtyMoney: 0, materials },
       actionProfiles: [
-        { dirty: 360, heat: 4, durationMs: 2 * 60 * 60 * 1000, dirtyIncomeBoostPct: 35 },
-        { dirty: 280, heat: 3 },
-        { materials: { biomass: 2 }, heat: 1 }
+        { dirty: 1000, heat: 4, durationMs: 30 * 60 * 1000, cooldownMs: 60 * 60 * 1000, dirtyIncomeBoostPct: 35 },
+        { dirty: 280, heat: 3, cooldownMs: 10 * 60 * 1000 },
+        { materialCost: { biomass: 3 }, dirty: 1000, heat: 1, cooldownMs: 10 * 60 * 1000 }
       ],
       now: 1000
     });
+    const rows = createRows();
+    const missingBiomassRows = createRows({ biomass: 2 });
 
     expect(rows).toHaveLength(3);
     expect(rows.map((row) => row.actionId)).toEqual([
@@ -684,6 +876,15 @@ describe("building detail view-model builder", () => {
       "street_dealers_move_stash"
     ]);
     expect(rows.every((row) => !row.disabled)).toBe(true);
+    expect(rows.map((row) => row.cooldownMs)).toEqual([60 * 60 * 1000, 10 * 60 * 1000, 10 * 60 * 1000]);
+    expect(rows[0].rewardSummary).toContain("Efekt 30m 00s");
+    expect(rows[2].costSummary).toBe("biomass x3");
+    expect(rows[2].rewardSummary).toContain("Dirty cash +$1000");
+    expect(missingBiomassRows[2]).toMatchObject({
+      disabled: true,
+      disabledReason: "Potřebuješ biomass x3.",
+      disabledTone: "insufficient-funds"
+    });
   });
 
   it("renders action cooldown countdown from stored actionId deadlines", () => {
@@ -816,5 +1017,189 @@ describe("building detail view-model builder", () => {
     });
 
     expect(rows).toEqual([]);
+  });
+
+  it("renders school evening course availability, resource lock and cooldown from real state", () => {
+    const schoolActionProfile = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.skola[0];
+    const profile = { role: "Vzdělání", actions: ["Večerní kurz"] };
+    const createRows = ({ cleanMoney = 600, active = false, cooldownUntil = 0 } = {}) => createBuildingDetailActionRows({
+      buildingName: "Škola",
+      profile,
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "school",
+        schoolEveningCourseActive: active,
+        schoolEveningCourseRemainingMs: 90_000,
+        actionCooldowns: cooldownUntil > 0 ? { evening_course: cooldownUntil } : {}
+      },
+      economyState: { cleanMoney },
+      actionProfiles: [schoolActionProfile],
+      now: 1_000
+    });
+
+    const ready = createRows();
+    expect(ready).toHaveLength(1);
+    expect(ready[0]).toMatchObject({
+      actionId: "evening_course",
+      title: "Večerní kurz",
+      disabled: false,
+      cooldownLabel: "Cooldown 35m 00s"
+    });
+    expect(ready[0].description).not.toContain("talent");
+
+    const withoutCash = createRows({ cleanMoney: 599 });
+    expect(withoutCash[0].disabled).toBe(true);
+    expect(withoutCash[0].disabledReason).toContain("$600");
+
+    const active = createRows({ active: true });
+    expect(active[0].disabled).toBe(true);
+    expect(active[0].disabledReason).toContain("Večerní kurz běží");
+
+    const coolingDown = createRows({ cooldownUntil: 61_000 });
+    expect(coolingDown[0].disabled).toBe(true);
+    expect(coolingDown[0].cooldownRemainingMs).toBe(60_000);
+    expect(coolingDown[0].cooldownLabel).toBe("Zbývá 1m 00s");
+  });
+
+  it("renders clinic stabilization disabled only when recovery pool or cash is missing", () => {
+    const clinicActionProfile = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.klinika[0];
+    const profile = { role: "Recovery", actions: ["Stabilizační protokol"] };
+    const createRows = ({ cleanMoney = 1_200, fresh = [], cooldownUntil = 0 } = {}) => createBuildingDetailActionRows({
+      buildingName: "Klinika",
+      profile,
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "clinic",
+        actionCooldowns: cooldownUntil > 0 ? { stabilization_protocol: cooldownUntil } : {},
+        clinicRecoveryPool: {
+          totalFreshAmount: fresh.reduce((total, entry) => total + entry.amount, 0),
+          fresh,
+          nextExpiryMs: fresh.length > 0 ? 120_000 : null
+        }
+      },
+      economyState: { cleanMoney },
+      actionProfiles: [clinicActionProfile],
+      now: 1_000
+    });
+
+    const empty = createRows();
+    expect(empty[0]).toMatchObject({
+      actionId: "stabilization_protocol",
+      disabled: true,
+      disabledReason: "Recovery pool je prázdný."
+    });
+
+    const ready = createRows({ fresh: [{ itemType: "gang-members", amount: 3 }] });
+    expect(ready[0].disabled).toBe(false);
+    expect(ready[0].cooldownLabel).toBe("Cooldown 18m 00s");
+
+    const withoutCash = createRows({ cleanMoney: 1_199, fresh: [{ itemType: "gang-members", amount: 3 }] });
+    expect(withoutCash[0].disabled).toBe(true);
+    expect(withoutCash[0].disabledReason).toContain("$1200");
+
+    const coolingDown = createRows({ fresh: [{ itemType: "population", amount: 4 }], cooldownUntil: 61_000 });
+    expect(coolingDown[0].disabled).toBe(true);
+    expect(coolingDown[0].cooldownLabel).toBe("Zbývá 1m 00s");
+  });
+
+  it("keeps recruitment center passive and free of nonexistent special actions", () => {
+    const model = createBuildingDetailViewModel({
+      buildingName: "Rekrutační centrum",
+      displayName: "Urban Soldiers Hub",
+      profile: {
+        role: "Nábor",
+        info: "Rekrutační centrum není zdroj populace.",
+        actions: []
+      },
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "recruitment-center",
+        cleanHourly: 2_100,
+        dailyHeat: 100.8
+      }
+    });
+
+    expect(model.title).toBe("Rekrutační centrum");
+    expect(model.badge).toBe("Nábor");
+    expect(model.actions).toEqual([]);
+    expect(model.mechanics.map((row) => row.label)).toEqual(["Populace", "Útok", "Obrana"]);
+    expectNoGenericBuildingCardCopy(model);
+  });
+
+  it("keeps residential cards on type labels and without generic upgrade copy", () => {
+    const residentialModels = [
+      createBuildingDetailViewModel({
+        buildingName: "Bytový blok",
+        displayName: "First Tower",
+        profile: { role: "Členové gangu", actions: ["Vybrat obyvatele"] },
+        mechanics: {
+          ...baseMechanics,
+          mechanicsType: "apartment-block",
+          apartmentWholePopulation: 10,
+          apartmentCapacity: 50,
+          apartmentPopulationPerMinute: 2,
+          apartmentIsFull: false,
+          apartmentTimeToFullMs: 60_000,
+          canCollect: true,
+          ownedApartmentBlocks: 1,
+          apartmentNetwork: {
+            populationProductionMultiplier: 1,
+            capacityMultiplier: 1
+          }
+        },
+        actionProfiles: [{ apartmentCollectPopulation: true }]
+      }),
+      createBuildingDetailViewModel({
+        buildingName: "Rekrutační centrum",
+        displayName: "Urban Soldiers Hub",
+        profile: { role: "Nábor", actions: [] },
+        mechanics: { ...baseMechanics, mechanicsType: "recruitment-center" }
+      }),
+      createBuildingDetailViewModel({
+        buildingName: "Škola",
+        displayName: "Backstreet Academy",
+        profile: { role: "Vzdělání", actions: ["Večerní kurz"] },
+        mechanics: {
+          ...baseMechanics,
+          mechanicsType: "school",
+          schoolWholeStudents: 4,
+          schoolCapacity: 12,
+          schoolPopulationPerMinute: 0.25,
+          schoolIsFull: false,
+          schoolTimeToFullMs: 120_000,
+          ownedSchools: 1,
+          schoolNetwork: {
+            incomeMultiplier: 1,
+            studentCapacityMultiplier: 1
+          },
+          schoolEveningCourseActive: false
+        },
+        actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.skola
+      }),
+      createBuildingDetailViewModel({
+        buildingName: "Klinika",
+        displayName: "BlackCross Medical",
+        profile: { role: "Recovery", actions: ["Stabilizační protokol"] },
+        mechanics: {
+          ...baseMechanics,
+          mechanicsType: "clinic",
+          ownedClinics: 1,
+          clinicNetwork: { incomeMultiplier: 1, heatMultiplier: 1 },
+          clinicRecoveryRatePct: 15,
+          clinicRecoveryPool: { totalFreshAmount: 0, fresh: [], nextExpiryMs: null }
+        },
+        actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.klinika
+      })
+    ];
+
+    expect(residentialModels.map((model) => model.title)).toEqual([
+      "Bytový blok",
+      "Rekrutační centrum",
+      "Škola",
+      "Klinika"
+    ]);
+    for (const model of residentialModels) {
+      expectNoGenericBuildingCardCopy(model);
+    }
   });
 });

@@ -9,6 +9,7 @@ import {
   formatDistrictBuildingCooldown,
   formatDistrictBuildingMoney
 } from "./formatters.js";
+import { formatServerBuildingActionDefaultInputSummary } from "./buildingSpecialActionServerDefaults.js";
 
 export function normalizeBuildingSpecialActionKey(value) {
   return String(value || "")
@@ -47,6 +48,7 @@ const SERVER_ACTIONS = new Map([
   ["herna::zadni pokladna", ["back_cashdesk", "arcade"]],
   ["smenarna::vyhodny kurz", ["good_rate", "exchange"]],
   ["strip club::hostit vip klienty", ["vip_lounge", "strip_club"]],
+  ["strip club::ziskat kompro", ["private_party", "strip_club"]],
   ["strip club::ziskat kompromat", ["private_party", "strip_club"]],
   ["recyklacni centrum::vytezit ztraty", ["extract_losses", "recycling_center"]],
   ["klinika::stabilizacni protokol", ["stabilization_protocol", "clinic"]],
@@ -64,8 +66,10 @@ const LEGACY_ACTION_IDS = new Map([
   ["poulicni dealeri::vybrat hot cash", "street_dealers_collect_hot_cash"],
   ["poulicni dealeri::presunout stash", "street_dealers_move_stash"],
   ["strip club::vybrat cash", "strip_club_collect_cash"],
+  ["strip club::ziskat kompro", "strip_club_compromat"],
   ["strip club::ziskat kompromat", "strip_club_compromat"],
   ["energeticka stanice::napajet vyrobu", "power_station_feed_production"],
+  ["energeticka stanice::snizit heat", "power_station_reduce_outages"],
   ["energeticka stanice::snizit vypadky", "power_station_reduce_outages"],
   ["lekarna::vyrobit stim pack", "pharmacy_stim_pack"],
   ["lekarna::black market med kit", "pharmacy_black_market_medkit"],
@@ -102,23 +106,32 @@ const PROFILE_MARKERS_REQUIRING_SERVER = Object.freeze([
   "airportEvacuationCorridor"
 ]);
 
-export function resolveBuildingSpecialActionActionId(buildingName, actionLabel, actionIndex = 0) {
+function getServerBuildingSpecialActionEntry(buildingName, actionLabel) {
   const buildingKey = normalizeBuildingSpecialActionKey(buildingName);
   const actionKey = normalizeBuildingSpecialActionKey(actionLabel);
-  const explicit = SERVER_ACTIONS.get(`${buildingKey}::${actionKey}`) || null;
+  return SERVER_ACTIONS.get(`${buildingKey}::${actionKey}`) || null;
+}
+
+export function resolveBuildingSpecialActionActionId(buildingName, actionLabel, actionIndex = 0) {
+  const explicit = getServerBuildingSpecialActionEntry(buildingName, actionLabel);
   if (explicit) return explicit[0];
+  const buildingKey = normalizeBuildingSpecialActionKey(buildingName);
+  const actionKey = normalizeBuildingSpecialActionKey(actionLabel);
   const legacy = LEGACY_ACTION_IDS.get(`${buildingKey}::${actionKey}`);
   if (legacy) return legacy;
   return `${buildingKey || "building"}_${actionKey || `action_${actionIndex}`}`.replace(/\s+/g, "_");
 }
 
 export function getBuildingSpecialActionBuildingTypeId(buildingName, actionLabel = "") {
-  const buildingKey = normalizeBuildingSpecialActionKey(buildingName);
-  const actionKey = normalizeBuildingSpecialActionKey(actionLabel);
-  const explicit = SERVER_ACTIONS.get(`${buildingKey}::${actionKey}`) || null;
+  const explicit = getServerBuildingSpecialActionEntry(buildingName, actionLabel);
   if (explicit?.[1]) return explicit[1];
+  const buildingKey = normalizeBuildingSpecialActionKey(buildingName);
   const mechanicsType = DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES[buildingKey] || "district-asset";
   return mechanicsType.replace(/-/g, "_");
+}
+
+export function hasServerBuildingSpecialActionHandler(buildingName, actionLabel) {
+  return Boolean(getServerBuildingSpecialActionEntry(buildingName, actionLabel));
 }
 
 function profileRequiresServerHandler(actionProfile = {}) {
@@ -158,6 +171,10 @@ function formatCostSummary(actionProfile = {}) {
   const costs = [];
   if (Number(actionProfile.cleanCost || 0) > 0) costs.push(`${formatDistrictBuildingMoney(actionProfile.cleanCost)} clean cash`);
   if (Number(actionProfile.dirtyCost || 0) > 0) costs.push(`${formatDistrictBuildingMoney(actionProfile.dirtyCost)} dirty cash`);
+  for (const [itemId, amount] of Object.entries(actionProfile.materialCost || {})) {
+    const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
+    if (safeAmount > 0) costs.push(`${itemId} x${safeAmount}`);
+  }
   if (
     costs.length === 0
     && Number(actionProfile.minimumDirty || 0) > 0
@@ -185,7 +202,7 @@ function formatMultiplierPercentDelta(multiplier) {
 function formatRewardSummary(actionProfile = {}) {
   const rewards = [];
   if (Number(actionProfile.clean || 0) > 0) rewards.push(`Clean +${formatDistrictBuildingMoney(actionProfile.clean)}`);
-  if (Number(actionProfile.dirty || 0) > 0) rewards.push(`Dirty +${formatDistrictBuildingMoney(actionProfile.dirty)}`);
+  if (Number(actionProfile.dirty || 0) > 0) rewards.push(`Dirty cash +${formatDistrictBuildingMoney(actionProfile.dirty)}`);
   if (Number(actionProfile.influence || 0) > 0) rewards.push(`Vliv +${Math.floor(Number(actionProfile.influence))}`);
   if (Number(actionProfile.members || 0) > 0) rewards.push(`Členové +${Math.floor(Number(actionProfile.members))}`);
   if (Number(actionProfile.heatSuccess || 0) !== 0) rewards.push(`Heat ${Number(actionProfile.heatSuccess) > 0 ? "+" : ""}${Math.floor(Number(actionProfile.heatSuccess))}`);
@@ -218,7 +235,7 @@ function formatRewardSummary(actionProfile = {}) {
   for (const [itemId, amount] of Object.entries(actionProfile.weapons || {})) rewards.push(`${itemId} x${amount}`);
   for (const [itemId, amount] of Object.entries(actionProfile.factorySupplies || {})) rewards.push(`${itemId} x${amount}`);
   if (Number(actionProfile.durationMs || 0) > 0) rewards.push(`Efekt ${formatDistrictBuildingCooldown(actionProfile.durationMs)}`);
-  return rewards.join(" · ") || actionProfile.summary || "Efekt podle akce";
+  return rewards.join(" · ") || "Efekt podle akce";
 }
 
 function formatRiskSummary(actionProfile = {}) {
@@ -247,7 +264,10 @@ export function resolveBuildingSpecialActionDefinition({
   const profile = actionProfile || {};
   const actionId = resolveBuildingSpecialActionActionId(buildingName, actionLabel, actionIndex);
   const buildingTypeId = getBuildingSpecialActionBuildingTypeId(buildingName, actionLabel);
-  const implemented = hasLegacyBuildingSpecialActionHandler(profile);
+  const hasServerConfig = hasServerBuildingSpecialActionHandler(buildingName, actionLabel);
+  const hasLegacyHandler = hasLegacyBuildingSpecialActionHandler(profile);
+  const implemented = hasLegacyHandler || hasServerConfig;
+  const handlerId = hasServerConfig ? "server-run-building-action" : hasLegacyHandler ? "legacy-runtime" : "";
   const cooldownMs = Object.prototype.hasOwnProperty.call(profile, "cooldownMs")
     ? Math.max(0, Number(profile.cooldownMs || 0))
     : DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS;
@@ -256,17 +276,22 @@ export function resolveBuildingSpecialActionDefinition({
     actionId,
     buildingTypeId,
     label: String(actionLabel || "Akce").trim() || "Akce",
-    shortDescription: profile.summary || (implemented ? "Spustí speciální akci budovy." : "Akce čeká na serverový handler."),
+    shortDescription: implemented ? "Akce se spustí po potvrzení." : "Akce čeká na serverový handler.",
     confirmTitle: String(actionLabel || "Potvrdit akci").trim() || "Potvrdit akci",
-    confirmBody: profile.summary || "Potvrď spuštění speciální akce.",
+    confirmBody: implemented
+      ? hasServerConfig
+        ? "Po potvrzení se akce odešle na server. Cena, efekt, riziko a cooldown jsou uvedené níže."
+        : "Po potvrzení se akce spustí. Cena, efekt, riziko a cooldown jsou uvedené níže."
+      : "Tuhle akci zatím nelze spustit, protože čeká na serverový handler.",
     costSummary: formatCostSummary(profile),
     rewardSummary: formatRewardSummary(profile),
     riskSummary: formatRiskSummary(profile),
+    inputSummary: hasServerConfig ? formatServerBuildingActionDefaultInputSummary(actionId, profile) : "",
     cooldownMs,
     status: implemented ? "implemented" : "coming-soon",
     disabledReason: implemented ? "" : "Připravujeme serverový handler.",
-    handlerId: implemented ? "legacy-runtime" : "",
-    hasServerConfig: SERVER_ACTIONS.has(`${normalizeBuildingSpecialActionKey(buildingName)}::${normalizeBuildingSpecialActionKey(actionLabel)}`)
+    handlerId,
+    hasServerConfig
   };
 }
 
@@ -318,7 +343,7 @@ export function createBuildingSpecialActionAuditRows() {
         hasServerConfig: definition.hasServerConfig,
         cooldownMs: definition.cooldownMs,
         status: definition.status,
-        note: definition.disabledReason || "Legacy runtime handler"
+        note: definition.disabledReason || (definition.handlerId === "server-run-building-action" ? "Server-authoritative handler" : "Legacy runtime handler")
       });
     }
   }

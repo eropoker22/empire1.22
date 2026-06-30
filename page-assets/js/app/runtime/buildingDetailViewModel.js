@@ -12,7 +12,9 @@ import {
   RESTAURANT_NETWORK_CONFIG,
   SCHOOL_CONFIG,
   SHOPPING_MALL_NETWORK_CONFIG,
-  SMUGGLING_TUNNEL_CONFIG
+  SMUGGLING_TUNNEL_CONFIG,
+  WAREHOUSE_BASE_STORAGE_CAPACITIES,
+  WAREHOUSE_NETWORK_CONFIG
 } from "./buildingDetailData.js";
 import { formatDistrictBuildingTierLabel } from "./districtBuildingData.js";
 import {
@@ -66,6 +68,39 @@ function formatMultiplierIncreasePercent(value = 1) {
   }
   const percent = Math.round((multiplier - 1) * 100);
   return `${percent >= 0 ? "+" : ""}${percent} %`;
+}
+
+function resolveWarehouseDisplayCapacity(capacity = {}) {
+  const fallback = WAREHOUSE_BASE_STORAGE_CAPACITIES;
+  const valueOrBase = (key) => {
+    const value = Math.max(0, Math.floor(Number(capacity?.[key] || 0)));
+    return value > 0 ? value : Math.max(0, Math.floor(Number(fallback[key] || 0)));
+  };
+  return {
+    genericResources: valueOrBase("genericResources"),
+    chemicals: valueOrBase("chemicals"),
+    biomass: valueOrBase("biomass"),
+    metalParts: valueOrBase("metalParts"),
+    techCore: valueOrBase("techCore"),
+    combatModule: valueOrBase("combatModule"),
+    drugsAndBoosts: valueOrBase("drugsAndBoosts"),
+    weaponsAndDefense: valueOrBase("weaponsAndDefense")
+  };
+}
+
+function resolveWarehouseCapacityTone(used = 0, capacity = 0) {
+  const maxCapacity = Math.max(0, Number(capacity || 0));
+  if (!maxCapacity) {
+    return "warehouse-low";
+  }
+  const fillPct = Math.max(0, Number(used || 0)) / maxCapacity * 100;
+  if (fillPct > 85) {
+    return "warehouse-high";
+  }
+  if (fillPct > 30) {
+    return "warehouse-medium";
+  }
+  return "warehouse-low";
 }
 
 function hasBuildingUpgradeCapability(mechanics = {}) {
@@ -341,12 +376,13 @@ export function createBuildingDetailStatRows({
       createStat("Audit risk", mechanics.arcadeAuditRisk)
     );
   } else if (mechanics.mechanicsType === "warehouse") {
+    const warehouseCapacity = resolveWarehouseDisplayCapacity(mechanics.warehouseCapacity);
     statRows.splice(0, statRows.length,
       createStat("Čisté / min", `+${formatDistrictBuildingMoney(45 * mechanics.warehouseNetwork.incomeMultiplier)}`),
       createStat("Heat / min", `+${(0.06 * mechanics.warehouseNetwork.heatMultiplier).toFixed(3)}`),
-      createStat("Sklady", `${mechanics.ownedWarehouses}/18`),
+      createStat("Sklady", `${mechanics.ownedWarehouses}/${WAREHOUSE_NETWORK_CONFIG.countOnMap}`),
       createStat("Síť skladu", `income x${mechanics.warehouseNetwork.incomeMultiplier.toFixed(2)} · kapacita x${mechanics.warehouseNetwork.storageCapacityMultiplier.toFixed(2)}`),
-      createStat("Kapacita zásob", `+${mechanics.warehouseCapacity.genericResources}`),
+      createStat("Kapacita zásob", `+${warehouseCapacity.genericResources}`),
       createStat("Dirty / vliv", "0 / 0"),
       createStat("Akce", "Žádné")
     );
@@ -431,8 +467,7 @@ export function createBuildingDetailStatRows({
       createStat("Čisté / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
       createStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
       createStat("Vliv / den", `+${mechanics.dailyInfluence}`),
-      createStat("Akce", "salvage pool"),
-      createStat("Nevrací", "lidi ani populaci"),
+      createStat("Akce", "itemové ztráty"),
       createStat("Upgrade", mechanics.nextLevel ? `${mechanics.upgradeCostLabel} -> L${mechanics.nextLevel}` : "Max level")
     );
   } else if (mechanics.mechanicsType === "street-dealers" || buildingKey === "poulicni dealeri") {
@@ -500,18 +535,23 @@ export function createBuildingDetailMechanicRows({
       createMechanic("Večerní kurz", mechanics.schoolEveningCourseActive ? `bytové bloky zrychlené ${formatDistrictBuildingCooldown(mechanics.schoolEveningCourseRemainingMs)}` : "zrychlí výrobu lidí v bytových blocích")
     );
   } else if (mechanics.mechanicsType === "warehouse") {
+    const warehouseCapacity = resolveWarehouseDisplayCapacity(mechanics.warehouseCapacity);
+    const warehouseUsage = mechanics.warehouseUsage || {};
     mechanicRows.push(
-      createMechanic("Materiály", `chem ${mechanics.warehouseUsage.chemicals}/${mechanics.warehouseCapacity.chemicals} · bio ${mechanics.warehouseUsage.biomass}/${mechanics.warehouseCapacity.biomass}`),
-      createMechanic("Průmysl", `metal ${mechanics.warehouseUsage.metalParts}/${mechanics.warehouseCapacity.metalParts} · tech ${mechanics.warehouseUsage.techCore}/${mechanics.warehouseCapacity.techCore}`),
-      createMechanic("Výzbroj", `boosty/drogy ${mechanics.warehouseUsage.drugsAndBoosts}/${mechanics.warehouseCapacity.drugsAndBoosts} · zbraně ${mechanics.warehouseUsage.weaponsAndDefense}/${mechanics.warehouseCapacity.weaponsAndDefense}`),
-      createMechanic("Kapacita", mechanics.warehouseWarnings.join(" · ") || "Kapacity jsou v pořádku.")
+      createMechanicWithTone("Materiál", `Chemicals ${warehouseUsage.chemicals || 0}/${warehouseCapacity.chemicals}`, resolveWarehouseCapacityTone(warehouseUsage.chemicals, warehouseCapacity.chemicals)),
+      createMechanicWithTone("Materiál", `Biomass ${warehouseUsage.biomass || 0}/${warehouseCapacity.biomass}`, resolveWarehouseCapacityTone(warehouseUsage.biomass, warehouseCapacity.biomass)),
+      createMechanicWithTone("Materiál", `Metal parts ${warehouseUsage.metalParts || 0}/${warehouseCapacity.metalParts}`, resolveWarehouseCapacityTone(warehouseUsage.metalParts, warehouseCapacity.metalParts)),
+      createMechanicWithTone("Materiál", `Tech core ${warehouseUsage.techCore || 0}/${warehouseCapacity.techCore}`, resolveWarehouseCapacityTone(warehouseUsage.techCore, warehouseCapacity.techCore)),
+      createMechanicWithTone("Materiál", `Combat modules ${warehouseUsage.combatModule || 0}/${warehouseCapacity.combatModule}`, resolveWarehouseCapacityTone(warehouseUsage.combatModule, warehouseCapacity.combatModule)),
+      createMechanicWithTone("Materiál", `Drogy a boosty ${warehouseUsage.drugsAndBoosts || 0}/${warehouseCapacity.drugsAndBoosts}`, resolveWarehouseCapacityTone(warehouseUsage.drugsAndBoosts, warehouseCapacity.drugsAndBoosts)),
+      createMechanicWithTone("Materiál", `Zbraně a obrana ${warehouseUsage.weaponsAndDefense || 0}/${warehouseCapacity.weaponsAndDefense}`, resolveWarehouseCapacityTone(warehouseUsage.weaponsAndDefense, warehouseCapacity.weaponsAndDefense)),
+      createMechanic("Stav kapacity", (mechanics.warehouseWarnings || []).join(" · ") || "Kapacity jsou v pořádku.")
     );
   } else if (mechanics.mechanicsType === "clinic") {
     mechanicRows.push(
       createMechanic("Stabilizace", mechanics.clinicRecoveryPool.totalFreshAmount > 0 ? "připravená" : "čeká na čerstvé ztráty"),
       createMechanic("Expirace poolu", mechanics.clinicRecoveryPool.nextExpiryMs ? formatDistrictBuildingCooldown(mechanics.clinicRecoveryPool.nextExpiryMs) : "nic nečeká"),
-      createMechanic("Síť klinik", `income x${mechanics.clinicNetwork.incomeMultiplier.toFixed(2)} · heat x${mechanics.clinicNetwork.heatMultiplier.toFixed(2)}`),
-      createMechanic("Pravidla", "žádný dirty cash · žádné praní · žádný audit")
+      createMechanic("Síť klinik", `income x${mechanics.clinicNetwork.incomeMultiplier.toFixed(2)} · heat x${mechanics.clinicNetwork.heatMultiplier.toFixed(2)}`)
     );
   } else if (mechanics.mechanicsType === "recruitment-center") {
     mechanicRows.push(
@@ -572,13 +612,11 @@ export function createBuildingDetailMechanicRows({
     mechanicRows.push(
       createMechanic("Stabilizovat síť", "dočasně zvedne income districtu"),
       createMechanic("Napájet výrobu", "posílí čistý výrobní výkon"),
-      createMechanic("Snížit výpadky", "okamžitě sníží heat"),
-      createMechanic("Pravidla", "infrastruktura bez skladu, praní a populace")
+      createMechanic("Snížit heat", "okamžitě sníží heat")
     );
   } else if (mechanics.mechanicsType === "recycling-center" || buildingKey === "recyklacni centrum") {
     mechanicRows.push(
-      createMechanic("Vytěžit ztráty", "vrací část itemových ztrát ze salvage poolu"),
-      createMechanic("Nevrací", "populaci ani členy gangu"),
+      createMechanic("Vytěžit ztráty", "vrací část itemových ztrát"),
       createMechanic("Materiály", "železo, zbraně, moduly a obranné vybavení podle ztrát"),
       createMechanic("Riziko", "akce stojí clean cash a přidá heat")
     );
@@ -593,23 +631,27 @@ export function createBuildingDetailMechanicRows({
     mechanicRows.push(
       createMechanic("Cashflow", "malý clean a dirty příjem"),
       createMechanic("Drby", "lokální pouliční signál pro district"),
-      createMechanic("Vliv", "drobný pasivní vliv z provozu"),
-      createMechanic("Pravidla", "bez speciální akce, praní a auditu")
+      createMechanic("Generuje drby", "každých 10 minut vytvoří pouliční drb"),
+      createMechanic("Vliv", "drobný pasivní vliv z provozu")
     );
   } else if (mechanics.mechanicsType === "strip-club" || buildingKey === "strip club") {
     mechanicRows.push(
       createMechanic("Noční cash", "přímý dirty výběr"),
       createMechanic("VIP klienti", "dočasně zvednou income a vliv"),
+      createMechanic("Drby", "každý Strip club vytvoří 1 drb každých 30 min"),
       createMechanic("Kompromat", "přidá vliv za heat"),
       createMechanic("Riziko", "noční provoz zvedá tlak districtu")
     );
   } else if (mechanics.mechanicsType === "smuggling-tunnel") {
+    const dealerSalePriceBoostPct = mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySalePriceSharePct / 100;
+    const dealerSaleSpeedBoostPct = mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleSpeedSharePct / 100;
+    const streetRiskReductionPct = mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplyStreetRiskReductionSharePct / 100;
+    const dealerHeatBoostPct = mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleHeatRiskSharePct / 100;
     mechanicRows.push(
-      createMechanic("Dealer Supply", `sale price +${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySalePriceSharePct / 100}% · speed +${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleSpeedSharePct / 100}%`),
-      createMechanic("Street risk", `-${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplyStreetRiskReductionSharePct / 100}% relativně · heat +${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleHeatRiskSharePct / 100}%`),
-      createMechanic("Otevřít kanál", mechanics.smugglingOpenChannelActive ? `Aktivní ${formatDistrictBuildingCooldown(mechanics.smugglingOpenChannelRemainingMs)}` : `Cena ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.openChannelDirtyCost)} dirty`),
-      createMechanic("Boost risk", `heat +${SMUGGLING_TUNNEL_CONFIG.openChannelHeatGain} · incident risk +${SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct}%`),
-      createMechanic("Pravidla", "Pouze dirty cash a heat; žádné clean, vliv, populace, Intel, praní ani audit")
+      createMechanic("Tok dirty cash", `tunel pasivně ukládá dirty cash do zásoby`),
+      createMechanic("Síť tunelů", `víc tunelů zvyšuje tok a kapacitu kontrabandu`),
+      createMechanic("Podpora dealerů", `prodejní cena z labu: +${dealerSalePriceBoostPct}% · rychlost prodeje +${dealerSaleSpeedBoostPct}%`),
+      createMechanic("Menší pouliční riziko", `riziko při prodeji -${streetRiskReductionPct}% · heat z prodeje +${dealerHeatBoostPct}%`)
     );
   } else if (mechanics.mechanicsType === "arcade") {
     mechanicRows.push(
@@ -670,8 +712,10 @@ export function createBuildingDetailActionRows({
       || (actionProfile?.casinoQuietBackroom && Number(economyState.dirtyMoney || 0) < Number(actionProfile.minimumDirty || 0))
       || (actionProfile?.exchangeOfficeGoodRate && Number(economyState.dirtyMoney || 0) < Number(actionProfile.minimumDirty || 0))
       || (actionProfile?.arcadeBackCashdesk && Number(economyState.dirtyMoney || 0) < Number(actionProfile.minimumDirty || 0))
-      || (actionProfile?.smugglingOpenChannel && Number(economyState.dirtyMoney || 0) < SMUGGLING_TUNNEL_CONFIG.openChannelDirtyCost)
     );
+    const missingMaterialCost = Object.entries(actionProfile?.materialCost || {}).find(([itemId, amount]) =>
+      Number(economyState.materials?.[itemId] || 0) < Math.max(0, Math.floor(Number(amount || 0)))
+    ) || null;
     const casinoDisabledReason = actionDefinition.disabledReason
       || (cooldownRemaining > 0 ? `Cooldown ${formatDistrictBuildingCooldown(cooldownRemaining)}.` : "")
       || (hasMissingCleanCash && actionProfile?.cleanCost
@@ -679,6 +723,9 @@ export function createBuildingDetailActionRows({
         : "")
       || (hasMissingDirtyCash && actionProfile?.dirtyCost
         ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.dirtyCost)} dirty cash.`
+        : "")
+      || (missingMaterialCost
+        ? `Potřebuješ ${missingMaterialCost[0]} x${Math.max(0, Math.floor(Number(missingMaterialCost[1] || 0)))}.`
         : "")
       || (actionProfile?.casinoQuietBackroom && Number(economyState.dirtyMoney || 0) < Number(actionProfile.minimumDirty || 0)
       ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.minimumDirty)} dirty cash.`
@@ -690,8 +737,8 @@ export function createBuildingDetailActionRows({
         ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.cleanCost)} clean cash.`
       : actionProfile?.apartmentCollectPopulation && Number(mechanics.apartmentWholePopulation || 0) < APARTMENT_BLOCK_MIN_COLLECT_POPULATION
         ? `Bytový blok potřebuje alespoň ${APARTMENT_BLOCK_MIN_COLLECT_POPULATION} lidí k výběru.`
-      : actionProfile?.smugglingOpenChannel && Number(economyState.dirtyMoney || 0) < SMUGGLING_TUNNEL_CONFIG.openChannelDirtyCost
-        ? `Potřebuješ ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.openChannelDirtyCost)} dirty cash.`
+      : actionProfile?.smugglingOpenChannel && Number(economyState.cleanMoney || 0) < SMUGGLING_TUNNEL_CONFIG.openChannelCleanCost
+        ? `Potřebuješ ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.openChannelCleanCost)} clean cash.`
       : actionProfile?.smugglingOpenChannel && mechanics.smugglingOpenChannelActive
         ? `Otevřený kanál běží. Zbývá ${formatDistrictBuildingCooldown(mechanics.smugglingOpenChannelRemainingMs)}.`
       : actionProfile?.schoolEveningCourse && Number(economyState.cleanMoney || 0) < Number(actionProfile.cleanCost || 0)
@@ -730,6 +777,7 @@ export function createBuildingDetailActionRows({
       index: actionIndex,
       actionId: actionDefinition.actionId,
       buildingTypeId: actionDefinition.buildingTypeId,
+      handlerId: actionDefinition.handlerId,
       title: actionUi.label,
       disabled: cooldownRemaining > 0 || Boolean(activeSameCasinoBoost) || Boolean(activeSameArcadeBoost) || Boolean(casinoDisabledReason),
       disabledReason: casinoDisabledReason,
@@ -738,10 +786,11 @@ export function createBuildingDetailActionRows({
       confirmTitle: actionDefinition.confirmTitle,
       confirmBody: actionDefinition.confirmBody,
       costSummary: actionDefinition.costSummary,
-      buttonCostLabel: mechanics.mechanicsType === "casino" ? actionDefinition.costSummary : "",
+      inputSummary: actionDefinition.inputSummary,
+      buttonCostLabel: mechanics.mechanicsType === "casino" || mechanics.mechanicsType === "smuggling-tunnel" ? actionDefinition.costSummary : "",
       rewardSummary: actionDefinition.rewardSummary,
       riskSummary: actionDefinition.riskSummary,
-      disabledTone: mechanics.mechanicsType === "casino" && (hasMissingCleanCash || hasMissingDirtyCash)
+      disabledTone: hasMissingCleanCash || hasMissingDirtyCash || Boolean(missingMaterialCost)
         ? "insufficient-funds"
         : "",
       cooldownMs: actionDefinition.cooldownMs,

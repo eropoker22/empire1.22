@@ -48,7 +48,10 @@ test.describe("login smoke", () => {
     await openLoginPage(page);
     await page.locator("#guest-username").fill("E2E Host");
     await page.getByPlaceholder("Ghost Crew").fill("E2E Crew");
-    await page.getByTestId("guest-login-button").click();
+    await Promise.all([
+      page.waitForURL(/\/pages\/lobby\.html\?mode=free$/, { waitUntil: "domcontentloaded" }),
+      page.getByTestId("guest-login-button").click({ noWaitAfter: true })
+    ]);
 
     await expect(page).toHaveURL(/\/pages\/lobby\.html\?mode=free$/);
     await expect(page.getByTestId("lobby-page")).toBeVisible();

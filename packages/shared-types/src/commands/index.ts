@@ -3,6 +3,7 @@ export * from "./alliance-lifecycle-command";
 export * from "./attack-district-command";
 export * from "./action-command";
 export * from "./build-structure-command";
+export * from "./bounty-command";
 export * from "./collect-production-command";
 export * from "./craft-item-command";
 export * from "./game-command";

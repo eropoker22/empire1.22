@@ -21,7 +21,8 @@ describe("runtime building detail identity", () => {
     expect(resolveDistrictBuildingDetailMechanicsType("BlackCross Medical")).toBe("clinic");
     expect(resolveDistrictBuildingDetailMechanicsType("Garáž")).toBe("garage");
     expect(getDistrictBuildingDetailProfile("Garáž").role).toBe("Logistika");
-    expect(getDistrictBuildingDetailProfile("Garáž").info).toContain("ani upgrade");
+    expect(getDistrictBuildingDetailProfile("Garáž").info).toContain("zkracuje cooldowny");
+    expect(getDistrictBuildingDetailProfile("Garáž").info).not.toContain("ani upgrade");
     expect(resolveDistrictBuildingDetailMechanicsType("Neznámá budova")).toBe("district-asset");
   });
 

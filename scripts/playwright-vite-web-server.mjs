@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 const childArgs = ["scripts/run-local-bin.mjs", "vite/bin/vite.js", ...process.argv.slice(2)];
 const tail = [];
@@ -60,7 +60,11 @@ function terminate(signal) {
   }
   exiting = true;
   dump(signal);
-  child.kill(signal);
+  if (process.platform === "win32" && child.pid) {
+    spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+  } else {
+    child.kill(signal);
+  }
   setTimeout(() => process.exit(signal === "SIGTERM" ? 143 : 130), 3000).unref();
 }
 

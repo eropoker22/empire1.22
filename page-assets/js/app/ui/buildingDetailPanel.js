@@ -419,8 +419,9 @@ export function renderBuildingActions(buildingViewModel = {}, callbacks = {}, op
       row.setAttribute("aria-label", `${rowView.title || "Akce"}: ${rowView.disabledReason}`);
     }
     title.textContent = rowView.title || "";
-    description.textContent = rowView.buttonCostLabel || "";
-    description.hidden = !rowView.buttonCostLabel;
+    const inlineDescription = rowView.buttonCostLabel || (rowView.disabled ? rowView.disabledReason : "");
+    description.textContent = inlineDescription || "";
+    description.hidden = !inlineDescription;
     cooldown.textContent = rowView.cooldownLabel || "";
     row.append(title, description, cooldown);
     mount.append(row);

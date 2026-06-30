@@ -1,4 +1,6 @@
 export * from "./city-feed-view";
+export * from "./alliance-board-view";
+export * from "./bounty-read-model-view";
 export * from "./day-night-read-model-view";
 export * from "./district-panel-view";
 export * from "./district-summary-view";

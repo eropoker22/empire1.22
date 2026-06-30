@@ -1579,6 +1579,84 @@ html body.game-body .city-status-bar .city-status-pill:nth-child(4) .city-status
   }
 }
 
+/* Final loaded building-card overrides: keep warehouse mobile layout and industrial close color stable. */
+html body.game-body .district-building-detail-shell[data-building-district-type="industrial"] .district-building-detail-card .modal__close,
+html body.game-body .district-building-detail-shell[data-building-district-type="industry"] .district-building-detail-card .modal__close,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-card .modal__close {
+  color: #ffffff !important;
+  text-shadow:
+    0 0 8px rgba(255, 255, 255, 0.48),
+    0 0 14px rgba(226, 232, 240, 0.28) !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-district-type="industrial"] .district-building-detail-card .modal__close:hover,
+html body.game-body .district-building-detail-shell[data-building-district-type="industrial"] .district-building-detail-card .modal__close:focus-visible,
+html body.game-body .district-building-detail-shell[data-building-district-type="industry"] .district-building-detail-card .modal__close:hover,
+html body.game-body .district-building-detail-shell[data-building-district-type="industry"] .district-building-detail-card .modal__close:focus-visible,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-card .modal__close:hover,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-card .modal__close:focus-visible {
+  color: #ffffff !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-district-type="industrial"] .district-building-detail-card .modal__close::before,
+html body.game-body .district-building-detail-shell[data-building-district-type="industry"] .district-building-detail-card .modal__close::before,
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-card .modal__close::before {
+  color: #ffffff !important;
+  text-shadow:
+    0 0 8px rgba(255, 255, 255, 0.62),
+    0 0 14px rgba(226, 232, 240, 0.34) !important;
+  filter: none !important;
+}
+
+@media (max-width: 720px) {
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="power-plant"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged {
+    gap: 4px !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="power-plant"] .district-building-detail-card .building-info-card__section {
+    gap: 3px !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="power-plant"] .district-building-detail-card [data-district-building-detail-effects-section] {
+    margin-top: 0 !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="power-plant"] .district-building-detail-card [data-district-building-detail-effects-section] > h5 {
+    margin-bottom: 3px !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="power-plant"] .district-building-detail-card .building-info-card__effects {
+    margin-top: 0 !important;
+    gap: 5px !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-mechanics {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    justify-items: stretch !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-mechanic-row {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 8px 6px !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-mechanic-row strong {
+    min-width: 0 !important;
+    font-size: 0.68rem !important;
+    line-height: 1.12 !important;
+    overflow-wrap: anywhere !important;
+  }
+}
+
 /* Final loaded override: desktop street news shows three readable rows, then scrolls. */
 @media (min-width: 721px) and (hover: hover) and (pointer: fine) {
   html body.game-body .building-action-status__feed {
@@ -1616,5 +1694,47 @@ html body.game-body .city-status-bar .city-status-pill:nth-child(4) .city-status
     overflow-wrap: anywhere !important;
     -webkit-line-clamp: unset !important;
     line-clamp: unset !important;
+  }
+}
+
+/* Final loaded override: mobile player profile info uses two compact columns. */
+@media (max-width: 720px) {
+  html body.game-body .player-popup-body {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+    align-content: start !important;
+  }
+
+  html body.game-body .player-popup-row {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    min-width: 0 !important;
+    min-height: 48px !important;
+    padding: 7px 8px !important;
+  }
+
+  html body.game-body .player-popup-row span,
+  html body.game-body .player-popup-row strong {
+    max-width: 100% !important;
+    width: 100% !important;
+    text-align: left !important;
+    white-space: normal !important;
+  }
+
+  html body.game-body .player-popup-row span {
+    font-size: 9.5px !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    color: rgba(186, 230, 253, 0.78) !important;
+  }
+
+  html body.game-body .player-popup-row strong {
+    font-size: 12px !important;
+    line-height: 1.15 !important;
+    overflow-wrap: anywhere !important;
   }
 }

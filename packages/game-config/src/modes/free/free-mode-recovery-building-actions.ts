@@ -10,10 +10,10 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     actionId: "open_channel",
     buildingType: "smuggling_tunnel",
     label: "Otevřít kanál",
-    description: "Na 7 minut globálně posílí dirty cash produkci Pašovacích tunelů a prodej Pouličních dealerů. Nestackuje se.",
+    description: "Na 15 minut globálně posílí dirty cash produkci Pašovacích tunelů a prodej Pouličních dealerů. Nestackuje se.",
     durationMs: freeModeSmugglingTunnelConfig.openChannel.durationMinutes * 60 * 1000,
     cooldownMs: freeModeSmugglingTunnelConfig.openChannel.cooldownMinutes * 60 * 1000,
-    inputCost: { "dirty-cash": freeModeSmugglingTunnelConfig.openChannel.costDirtyCash },
+    inputCost: { cash: freeModeSmugglingTunnelConfig.openChannel.costCleanCash },
     outputGain: {},
     heatGain: freeModeSmugglingTunnelConfig.openChannel.heatGain,
     influenceChange: 0,
@@ -70,7 +70,7 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     actionId: "collect_students",
     buildingType: "school",
     label: "Vybrat studenty",
-    description: "Přesune lokálně uložené studenty ze Školy do globální populace a spustí Talent Pool roll.",
+    description: "Přesune lokálně uložené studenty ze Školy do globální populace.",
     durationMs: 0,
     cooldownMs: 0,
     inputCost: {},
@@ -79,13 +79,13 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     influenceChange: 0,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Vybere studenty ze Školy a zkusí najít talent."
+    reportText: "Vybere studenty ze Školy do globální populace."
   },
   evening_course: {
     actionId: "evening_course",
     buildingType: "school",
     label: "Večerní kurz",
-    description: "Na 8 minut zvýší produkci studentů, šanci na talent a čistý příjem konkrétní Školy.",
+    description: "Na 20 minut zvýší produkci lidí. Nestackuje se.",
     durationMs: freeModeSchoolConfig.eveningCourse.durationMinutes * 60 * 1000,
     cooldownMs: freeModeSchoolConfig.eveningCourse.cooldownMinutes * 60 * 1000,
     inputCost: { cash: freeModeSchoolConfig.eveningCourse.costCleanCash },
@@ -94,7 +94,7 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     influenceChange: 0,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Večerní kurz dočasně zvedne studenty, talent roll a clean income Školy."
+    reportText: "Večerní kurz dočasně zvedne produkci lidí."
   },
   night_machines: {
     actionId: "night_machines",

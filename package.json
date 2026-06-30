@@ -74,7 +74,7 @@
     "test:persistence:postgres:smoke": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/persistence/postgres-prod-like-smoke.test.ts",
     "test:read-models": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/read-models",
     "test:e2e": "npm run test:e2e:smoke",
-    "test:e2e:smoke": "playwright test tests/e2e/login-smoke.spec.js tests/e2e/onboarding-smoke.spec.js tests/e2e/entry-flow.spec.js tests/e2e/game-flow.spec.js",
+    "test:e2e:smoke": "node scripts/run-playwright-e2e-smoke.mjs",
     "test:e2e:full": "playwright test",
     "coverage:check": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/unit tests/integration tests/server tests/persistence tests/read-models --coverage --exclude tests/unit/game-core/free-session-balance-anti-snowball.test.ts --exclude tests/unit/game-core/faction-foundation-simulation.test.ts --exclude tests/unit/game-core/police-free-session-simulation.test.ts --exclude tests/unit/tools/free-mode-pacing-sim.test.ts --exclude tests/integration/free-mode-shared-city-simulation.test.ts",
     "quality": "npm run lint && npm run smoke:ui && npm run typecheck && npm run test:full && npm run coverage:check",

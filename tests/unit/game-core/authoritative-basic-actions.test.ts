@@ -94,7 +94,7 @@ describe("authoritative basic action commands", () => {
     expect(removed.nextState.resourceStatesById["resource:1"].balances.barricades).toBe(2);
   });
 
-  it("disables allied defense until owner-aware contribution records exist", () => {
+  it("allows allied defense with owner-aware contribution records", () => {
     const state = createAlliedDefenseState();
     state.resourceStatesById["resource:1"].balances.barricades = 2;
 
@@ -105,8 +105,19 @@ describe("authoritative basic action commands", () => {
         amount: 1
       }
     }), context);
-    expect(placed.errors).toMatchObject([{ code: "ALLIANCE_DEFENSE_NOT_IMPLEMENTED" }]);
-    expect(placed.nextState).toBe(state);
+    expect(placed.errors).toEqual([]);
+    expect(placed.nextState.districtsById["district:2"].defenseLoadout.barricades).toBe(
+      Number(state.districtsById["district:2"].defenseLoadout.barricades || 0) + 1
+    );
+    expect(Object.values(placed.nextState.allianceDefenseContributionsById ?? {})[0]).toMatchObject({
+      allianceId: "alliance:1",
+      ownerPlayerId: "player:1",
+      hostPlayerId: "player:2",
+      districtId: "district:2",
+      itemId: "barricades",
+      amount: 1,
+      status: "active"
+    });
 
     const panel = createDistrictPanelView(state, {
       districtId: "district:2",
@@ -115,15 +126,10 @@ describe("authoritative basic action commands", () => {
       ...minimalPanelConfig()
     });
     expect(panel?.placeDefense).toEqual(expect.objectContaining({
-      enabled: false,
-      disabledCode: "ALLIANCE_DEFENSE_NOT_IMPLEMENTED"
+      enabled: true,
+      disabledCode: null
     }));
-    expect(panel?.removeDefense).toEqual(expect.objectContaining({
-      enabled: false,
-      disabledCode: "ALLIANCE_DEFENSE_NOT_IMPLEMENTED"
-    }));
-    expect(panel?.capabilities?.canPlaceDefense).toBe(false);
-    expect(panel?.capabilities?.reasons.place_defense).toBe("ALLIANCE_DEFENSE_NOT_IMPLEMENTED");
+    expect(panel?.capabilities?.canPlaceDefense).toBe(true);
   });
 
   it("projects rob, heist and defense capabilities into the district panel", () => {

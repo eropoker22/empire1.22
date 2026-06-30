@@ -5,7 +5,8 @@ const HOST = "127.0.0.1";
 const baseURL = `http://${HOST}:${PORT}`;
 const healthURL = `${baseURL}/api/servers`;
 const nodeExecutable = JSON.stringify(process.execPath);
-const webServerCommand = `${nodeExecutable} scripts/playwright-vite-web-server.mjs --config vite.game.config.ts --host ${HOST} --port ${PORT}`;
+const webServerCommand = `${nodeExecutable} scripts/run-local-bin.mjs vite/bin/vite.js --config vite.game.config.ts --host ${HOST} --port ${PORT}`;
+const shouldUseManagedWebServer = process.env.PLAYWRIGHT_SKIP_WEB_SERVER !== "1";
 
 process.env.PLAYWRIGHT_E2E_WEB_SERVER_COMMAND = webServerCommand;
 process.env.PLAYWRIGHT_E2E_BASE_URL = baseURL;
@@ -37,10 +38,10 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] }
     }
   ],
-  webServer: {
+  webServer: shouldUseManagedWebServer ? {
     command: webServerCommand,
-    url: healthURL,
+    port: PORT,
     reuseExistingServer: !process.env.CI,
     timeout: 240_000
-  }
+  } : undefined
 });

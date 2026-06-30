@@ -1,9 +1,10 @@
-import type { ApartmentBlockBalanceConfig, PowerStationBalanceConfig, RecruitmentCenterBalanceConfig } from "../contracts";
+import type { ApartmentBlockBalanceConfig, PowerStationBalanceConfig, RecruitmentCenterBalanceConfig, SchoolBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import { applyFactionPopulationGeneration, getFactionPassiveModifiers } from "../rules/factions/factionRules";
 import { resolvePowerStationInfrastructureMultiplier } from "./powerStationBuildingActions";
 import { resolveRecruitmentCenterSupportBonuses } from "./recruitmentCenterBuildingActions";
+import { resolveSchoolEveningCourseApartmentProductionMultiplier } from "./schoolBuildingActions";
 
 export interface ApartmentBlockActionResolution {
   balances: Record<string, number>;
@@ -66,6 +67,7 @@ export const applyApartmentBlockPopulationProduction = (
   tickRateMs: number,
   powerStationConfig?: PowerStationBalanceConfig,
   recruitmentCenterConfig?: RecruitmentCenterBalanceConfig,
+  schoolConfig?: SchoolBalanceConfig,
   context?: GameCoreContext
 ): CoreGameState => {
   let buildingsById = state.buildingsById;
@@ -92,13 +94,26 @@ export const applyApartmentBlockPopulationProduction = (
       tick: state.root.tick,
       target: "apartmentPopulationProduction"
     });
+    const schoolEveningCourseMultiplier = resolveSchoolEveningCourseApartmentProductionMultiplier({
+      state,
+      playerId: building.ownerPlayerId,
+      config: schoolConfig,
+      tick: state.root.tick
+    });
     const recruitmentPopulationMultiplier = 1 + recruitmentBonuses.populationProductionBonusPct / 100;
     const recruitmentCapacityMultiplier = 1 + recruitmentBonuses.apartmentCapacityBonusPct / 100;
     const capacity = Math.max(1, Math.floor(config.baseCapacity * multipliers.capacityMultiplier * recruitmentCapacityMultiplier + 1e-9));
     const currentStored = Math.min(capacity, metadata.storedPopulation);
     const baseGain = currentStored >= capacity
       ? 0
-      : config.populationPerMinute * multipliers.populationProductionMultiplier * recruitmentPopulationMultiplier * infrastructureMultiplier * elapsedTicks * Math.max(1, tickRateMs) / 60000;
+      : config.populationPerMinute
+        * multipliers.populationProductionMultiplier
+        * recruitmentPopulationMultiplier
+        * infrastructureMultiplier
+        * schoolEveningCourseMultiplier
+        * elapsedTicks
+        * Math.max(1, tickRateMs)
+        / 60000;
     const gain = context
       ? applyFactionPopulationGeneration(baseGain, getFactionPassiveModifiers(state, building.ownerPlayerId, context))
       : baseGain;
@@ -185,8 +200,13 @@ export const validateApartmentBlockAction = (input: {
   if (!config || input.building.buildingTypeId !== config.buildingTypeId || input.actionId !== config.collectPopulation.actionId) {
     return null;
   }
-  if (Math.floor(getApartmentBlockMetadata(input.building).storedPopulation) <= 0) {
+  const storedPopulation = Math.floor(getApartmentBlockMetadata(input.building).storedPopulation);
+  const minCollectPopulation = Math.max(1, Math.floor(Number(config.collectPopulation.minCollectPopulation || 1)));
+  if (storedPopulation <= 0) {
     return "apartment_block_no_population";
+  }
+  if (storedPopulation < minCollectPopulation) {
+    return "apartment_block_insufficient_population";
   }
   return null;
 };

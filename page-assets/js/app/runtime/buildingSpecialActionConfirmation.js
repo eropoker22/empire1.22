@@ -59,9 +59,10 @@ export function createBuildingSpecialActionConfirmationController({
   grid.className = "building-special-action-confirm__grid";
   const cost = createInfoRow(documentRef, "Cena");
   const reward = createInfoRow(documentRef, "Efekt");
+  const input = createInfoRow(documentRef, "Volba");
   const risk = createInfoRow(documentRef, "Riziko");
   const cooldown = createInfoRow(documentRef, "Cooldown");
-  grid.append(cost.row, reward.row, risk.row, cooldown.row);
+  grid.append(cost.row, reward.row, input.row, risk.row, cooldown.row);
 
   const reason = documentRef.createElement("p");
   reason.className = "building-special-action-confirm__reason";
@@ -111,6 +112,7 @@ export function createBuildingSpecialActionConfirmationController({
     description = "",
     costSummary = "Bez ceny",
     rewardSummary = "Efekt podle akce",
+    inputSummary = "",
     riskSummary = "Bez přímého heat rizika",
     cooldownLabel = "Ready",
     disabledReason = "",
@@ -121,6 +123,8 @@ export function createBuildingSpecialActionConfirmationController({
     setText(copy, description || "Potvrď spuštění speciální akce.");
     setText(cost.value, costSummary);
     setText(reward.value, rewardSummary);
+    setText(input.value, inputSummary);
+    input.row.hidden = !inputSummary;
     setText(risk.value, riskSummary);
     setText(cooldown.value, cooldownLabel);
     setText(reason, disabledReason);

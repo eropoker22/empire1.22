@@ -138,7 +138,13 @@ describe("page onboarding smoke", () => {
     expect(gameHtml).not.toContain("Overlay roots");
     expect(gameHtml).not.toContain("mount-point--overlay");
     expect(gameHtml).toContain('src="../page-assets/js/app/battle-royale-info-runtime.js"');
-    expect(gameHtml).toContain("<tr><th>Cíl</th><th>Typ</th><th>Odměna</th><th>Do</th></tr>");
+    expect(gameHtml).toContain("<tr><th>Cíl</th><th>Typ bounty</th><th>District</th><th>Odměna</th><th>Vypsal</th><th>Zbývá</th><th>Status</th><th>Akce</th></tr>");
+    const allianceRuntimeSource = readFileSync(resolve(root, "page-assets/js/app/alliance-runtime.js"), "utf8");
+    expect(allianceRuntimeSource).toContain("submitServerAllianceCommand");
+    expect(allianceRuntimeSource).toContain("localStorage.removeItem(LOCAL_ALLIANCE_KEY)");
+    expect(allianceRuntimeSource).toContain("allianceBoard");
+    expect(allianceRuntimeSource).not.toContain("createLocalAlliance");
+    expect(allianceRuntimeSource).not.toContain("joinLocalAlliance");
     expect(gameHtml).toMatch(/src="\.\.\/page-assets\/js\/app\.js(?:\?[^"]*)?"/u);
     expect(gameHtml).toContain('src="../page-assets/js/app/game-admin-slice-launcher.js"');
     expect(gameHtml).not.toContain('src="../page-assets/js/admin-assets/admin-slice-demo.js"');
@@ -197,7 +203,8 @@ describe("page onboarding smoke", () => {
     expect(bountyCssSource).toContain("#bounty-modal .bounty-board__target-card");
     expect(bountyCssSource).toContain(".bounty-board__target-picker");
     expect(bountyRuntimeSource).toContain("data-bounty-target-option");
-    expect(bountyCssSource).toMatch(/#bounty-confirm-modal \{\r?\n\s*display: none !important;/u);
+    expect(bountyCssSource).toContain("#bounty-confirm-modal.bounty-board-modal:not(.hidden)");
+    expect(bountyRuntimeSource).toContain("submitServerBountyCommand");
     const loginCssSource = readFileSync(resolve(root, "page-assets/css/login.css"), "utf8");
     expect(loginCssSource).toContain(".mode-card--free");
     expect(loginCssSource).toContain("linear-gradient(145deg, rgba(3, 16, 31, 0.94), rgba(1, 6, 16, 0.98))");

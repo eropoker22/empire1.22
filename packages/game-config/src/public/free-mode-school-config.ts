@@ -39,14 +39,14 @@ export const freeModeSchoolConfig: SchoolBalanceConfig = {
   },
   eveningCourse: {
     actionId: "evening_course",
-    cooldownMinutes: 20,
-    durationMinutes: 8,
+    cooldownMinutes: 35,
+    durationMinutes: 20,
     costCleanCash: 600,
     heatGain: 0,
     populationProductionMultiplier: 1.6,
-    talentChanceFlatBonusPct: 12,
-    betterTalentChanceBonusPct: 20,
-    cleanIncomeMultiplier: 1.2,
+    talentChanceFlatBonusPct: 0,
+    betterTalentChanceBonusPct: 0,
+    cleanIncomeMultiplier: 1,
     stackable: false
   }
 };

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createEventRumorBridge } from "../../page-assets/js/app/runtime/eventRumorBridge.js";
+import {
+  createEventRumorBridge,
+  createRumorStreetNewsPayload
+} from "../../page-assets/js/app/runtime/eventRumorBridge.js";
 
 class FakeClassList {
   constructor() {
@@ -92,6 +95,21 @@ class FakeStorage {
 }
 
 describe("event rumor bridge", () => {
+  it("creates a clickable street-news payload with district, player and rumor text", () => {
+    const payload = createRumorStreetNewsPayload({
+      districtId: "district:12",
+      playerName: "LowKeyLad",
+      message: "Někdo přesouvá stash za klubem."
+    });
+
+    expect(payload.title).toBe("Drb z ulice");
+    expect(payload.rows).toEqual([
+      { label: "District", value: "District 12" },
+      { label: "Hráč", value: "LowKeyLad" },
+      { label: "Drb", value: "Někdo přesouvá stash za klubem." }
+    ]);
+  });
+
   it("uses server core feed without generating local runtime action rumors", () => {
     const document = new FakeDocument();
     const storage = new FakeStorage();
@@ -160,5 +178,58 @@ describe("event rumor bridge", () => {
     document.dispatch("empire:district-opened", { districtId: "district:2" });
     expect(districtPanel.hidden).toBe(false);
     expect(districtList.children).toHaveLength(1);
+  });
+
+  it("mirrors server rumor feed into clickable street-news once", () => {
+    const document = new FakeDocument();
+    const root = new FakeElement("main");
+    const districtPanel = new FakeElement("section");
+    const districtList = new FakeElement("div");
+    const streetNewsEntries = [];
+    districtPanel.ownerDocument = document;
+    districtList.ownerDocument = document;
+    root.querySelector = (selector) => {
+      if (selector === "[data-district-popup-gossip]") return districtPanel;
+      if (selector === "[data-district-popup-gossip-list]") return districtList;
+      return null;
+    };
+
+    const bridge = createEventRumorBridge({
+      root,
+      documentRef: document,
+      appendBuildingActionResultEntry: (...args) => streetNewsEntries.push(args),
+      getLaunchPlayerName: (ownerId) => `Player ${ownerId}`,
+      getState: () => ({
+        cityFeed: {
+          currentPlayerFeed: [{
+            id: "city-feed:rumor",
+            sourceEventId: "rumor:1",
+            sourceType: "building_action",
+            category: "rumor",
+            intelType: "rumor",
+            districtId: "district:7",
+            targetPlayerId: "player:3",
+            createdAtTick: 8,
+            message: "Dealerům došel klid na rohu."
+          }]
+        }
+      })
+    });
+
+    bridge.init();
+    bridge.render();
+
+    expect(streetNewsEntries).toHaveLength(1);
+    expect(streetNewsEntries[0][1]).toBe("police");
+    expect(streetNewsEntries[0][2].rows).toEqual([
+      { label: "District", value: "District 7" },
+      { label: "Hráč", value: "Player 3" },
+      { label: "Drb", value: "Dealerům došel klid na rohu." }
+    ]);
+    expect(streetNewsEntries[0][3]).toMatchObject({
+      id: "rumor-street-news:rumor:1",
+      title: "Drb z ulice",
+      meta: "District 7 · Player 3"
+    });
   });
 });

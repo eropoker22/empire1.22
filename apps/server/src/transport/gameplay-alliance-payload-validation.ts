@@ -6,6 +6,30 @@ export const validateAllianceCommandPayload = (
   payload: Record<string, unknown>
 ): boolean => {
   switch (commandType) {
+    case "create-alliance":
+      rejectUnknownPayloadFields(errors, payload, ["name", "tag"]);
+      requireStringField(errors, payload, "name", "command.payload.name");
+      requireOptionalStringField(errors, payload, "tag", "command.payload.tag");
+      return true;
+    case "join-alliance":
+      rejectUnknownPayloadFields(errors, payload, ["allianceId"]);
+      requireStringField(errors, payload, "allianceId", "command.payload.allianceId");
+      return true;
+    case "invite-alliance-member":
+      rejectUnknownPayloadFields(errors, payload, ["allianceId", "targetPlayerId"]);
+      requireStringField(errors, payload, "allianceId", "command.payload.allianceId");
+      requireStringField(errors, payload, "targetPlayerId", "command.payload.targetPlayerId");
+      return true;
+    case "respond-alliance-invite":
+      rejectUnknownPayloadFields(errors, payload, ["inviteId", "response"]);
+      requireStringField(errors, payload, "inviteId", "command.payload.inviteId");
+      requireChoiceField(errors, payload, "response", "command.payload.response", ["accept", "reject"]);
+      return true;
+    case "send-alliance-chat-message":
+      rejectUnknownPayloadFields(errors, payload, ["allianceId", "body"]);
+      requireStringField(errors, payload, "allianceId", "command.payload.allianceId");
+      requireStringField(errors, payload, "body", "command.payload.body");
+      return true;
     case "confirm-alliance-ready":
       rejectUnknownPayloadFields(errors, payload, ["allianceId", "expectedMembershipVersion"]);
       requireStringField(errors, payload, "allianceId", "command.payload.allianceId");
@@ -40,6 +64,11 @@ export const validateAllianceCommandPayload = (
 
 export const isAllianceCommandType = (commandType: string): boolean =>
   [
+    "create-alliance",
+    "join-alliance",
+    "invite-alliance-member",
+    "respond-alliance-invite",
+    "send-alliance-chat-message",
     "confirm-alliance-ready",
     "start-alliance-kick-vote",
     "cast-alliance-kick-vote",

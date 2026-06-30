@@ -5,6 +5,7 @@ import {
   createBuildingUpgradeConfirmationViewModel,
   resolveBuildingUpgradeBenefits
 } from "../../page-assets/js/app/runtime/buildingUpgradeBenefits.js";
+import { expectNoGenericBuildingCardCopy } from "./helpers/building-card-test-helpers.js";
 
 describe("building upgrade confirmation benefits", () => {
   it("uses building type label in the headline instead of the instance name", () => {
@@ -126,6 +127,75 @@ describe("building upgrade confirmation benefits", () => {
     expect(benefits.map((benefit) => benefit.label)).toEqual(["Populace / min", "Kapacita obyvatel", "Level bonus"]);
   });
 
+  it("returns concrete recruitment center support benefits when supplied", () => {
+    const { benefits } = resolveBuildingUpgradeBenefits({
+      currentMechanics: {
+        mechanicsType: "recruitment-center",
+        level: 1,
+        recruitmentSupport: {
+          populationProductionBonusPct: 3,
+          apartmentCapacityBonusPct: 4,
+          attackWeaponStrengthBonusPct: 2,
+          defenseItemStrengthBonusPct: 1.5
+        }
+      },
+      nextMechanics: {
+        mechanicsType: "recruitment-center",
+        level: 2,
+        recruitmentSupport: {
+          populationProductionBonusPct: 6,
+          apartmentCapacityBonusPct: 8,
+          attackWeaponStrengthBonusPct: 4,
+          defenseItemStrengthBonusPct: 3
+        }
+      }
+    });
+
+    expect(benefits.map((benefit) => benefit.label)).toEqual(["Nábor obyvatel", "Kapacita bloků", "Síla útoku"]);
+    expect(benefits.find((benefit) => benefit.label === "Nábor obyvatel")?.value).toBe("+3%");
+    expect(benefits.find((benefit) => benefit.label === "Síla útoku")?.detail).toBe("2% → 4%");
+  });
+
+  it("returns concrete school student production and capacity benefits when supplied", () => {
+    const { benefits } = resolveBuildingUpgradeBenefits({
+      currentMechanics: {
+        mechanicsType: "school",
+        level: 1,
+        schoolPopulationPerMinute: 0.25,
+        schoolCapacity: 12
+      },
+      nextMechanics: {
+        mechanicsType: "school",
+        level: 2,
+        schoolPopulationPerMinute: 0.29,
+        schoolCapacity: 15
+      }
+    });
+
+    expect(benefits.map((benefit) => benefit.label)).toEqual(["Studenti / min", "Kapacita studentů", "Level bonus"]);
+    expect(benefits.find((benefit) => benefit.label === "Studenti / min")?.value).toBe("+0.04");
+  });
+
+  it("returns concrete clinic recovery and income benefits when supplied", () => {
+    const { benefits } = resolveBuildingUpgradeBenefits({
+      currentMechanics: {
+        mechanicsType: "clinic",
+        level: 1,
+        cleanHourly: 3300,
+        clinicRecoveryRatePct: 15
+      },
+      nextMechanics: {
+        mechanicsType: "clinic",
+        level: 2,
+        cleanHourly: 3465,
+        clinicRecoveryRatePct: 18
+      }
+    });
+
+    expect(benefits.map((benefit) => benefit.label)).toEqual(["Recovery rate", "Clean cash", "Level bonus"]);
+    expect(benefits.find((benefit) => benefit.label === "Recovery rate")?.value).toBe("+3%");
+  });
+
   it("returns concrete exchange laundering benefit when supplied", () => {
     const { benefits } = resolveBuildingUpgradeBenefits({
       currentMechanics: {
@@ -162,6 +232,34 @@ describe("building upgrade confirmation benefits", () => {
     expect(result.hasFallback).toBe(true);
     expect(result.benefits[0].value).toBe("Zatím není definovaný");
     expect(JSON.stringify(result)).not.toContain("+12");
+    expectNoGenericBuildingCardCopy(result);
+  });
+
+  it("keeps residential upgrade modal headline on type label and concrete benefits", () => {
+    const model = createBuildingUpgradeConfirmationViewModel({
+      buildingName: "Klinika",
+      displayName: "BlackCross Medical",
+      currentMechanics: {
+        mechanicsType: "clinic",
+        level: 1,
+        nextLevel: 2,
+        upgradeCostLabel: "$6,500",
+        cleanHourly: 3300,
+        clinicRecoveryRatePct: 15
+      },
+      nextMechanics: {
+        mechanicsType: "clinic",
+        level: 2,
+        cleanHourly: 3465,
+        clinicRecoveryRatePct: 18
+      },
+      resourceStatus: { canConfirm: true, missing: [] }
+    });
+
+    expect(model.titleLabel).toBe("Klinika · L1 → L2");
+    expect(model.titleLabel).not.toContain("BlackCross Medical");
+    expect(model.benefits.map((benefit) => benefit.label)).toContain("Recovery rate");
+    expectNoGenericBuildingCardCopy(model);
   });
 
   it("renders the modern modal structure with price, upgrade, benefits and buttons", () => {

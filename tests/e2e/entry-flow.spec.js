@@ -72,11 +72,13 @@ const withoutFaction = {
 
 const withoutServer = {
   activeServerId: undefined,
+  activeServerInstanceId: undefined,
   activeServerName: undefined,
   activeServerMode: undefined,
   activeServerRegion: undefined,
   activeServerStatus: undefined,
   serverId: undefined,
+  serverInstanceId: undefined,
   serverLabel: undefined,
   serverRegion: undefined,
   preferredStartDistrictId: undefined,
@@ -170,7 +172,7 @@ test.describe("entry flow", () => {
       }
     });
 
-    await page.goto("/pages/game.html");
+    await page.goto("/pages/game.html", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/pages\/lobby\.html$/);
     await expect(page.getByTestId("lobby-page")).toBeVisible();
     await expect(page.getByTestId("server-list")).toBeVisible();

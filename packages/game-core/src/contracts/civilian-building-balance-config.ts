@@ -23,6 +23,7 @@ export interface ApartmentBlockBalanceConfig {
   collectPopulation: {
     actionId: string;
     cooldownMinutes: number;
+    minCollectPopulation: number;
   };
 }
 

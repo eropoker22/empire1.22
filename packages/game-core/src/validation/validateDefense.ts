@@ -55,12 +55,5 @@ const validateDefenseCommand = (
     }];
   }
 
-  if (result.relation === "ally") {
-    return [{
-      code: "ALLIANCE_DEFENSE_NOT_IMPLEMENTED",
-      message: "Allied defense placement requires owner-aware defense records before it can be enabled."
-    }];
-  }
-
   return [];
 };

@@ -41,8 +41,13 @@ const BENEFIT_PRIORITY = Object.freeze({
   "population-capacity": 11,
   "student-rate": 12,
   "student-capacity": 13,
+  "recruitment-population": 14,
+  "recruitment-capacity": 15,
+  "recruitment-attack": 16,
+  "recruitment-defense": 17,
   "laundering-capacity": 18,
   "laundering-fee": 19,
+  "clinic-recovery": 19,
   "dirty-flow": 20,
   "batch-capacity": 21,
   "dealer-supply": 22,
@@ -196,6 +201,8 @@ function addCommonBenefitDeltas(benefits, currentMechanics, nextMechanics) {
 }
 
 function addRoleBenefitDeltas(benefits, currentMechanics, nextMechanics) {
+  const currentRecruitmentSupport = currentMechanics.recruitmentSupport || currentMechanics.recruitmentCenterSupport || {};
+  const nextRecruitmentSupport = nextMechanics.recruitmentSupport || nextMechanics.recruitmentCenterSupport || {};
   addNumericDelta(benefits, {
     id: "population-rate",
     icon: "+",
@@ -231,6 +238,51 @@ function addRoleBenefitDeltas(benefits, currentMechanics, nextMechanics) {
     after: nextMechanics.schoolCapacity,
     formatter: formatInteger,
     valueFormatter: formatInteger
+  });
+  addNumericDelta(benefits, {
+    id: "recruitment-population",
+    icon: "%",
+    label: "Nábor obyvatel",
+    before: currentRecruitmentSupport.populationProductionBonusPct ?? currentMechanics.recruitmentPopulationProductionBonusPct,
+    after: nextRecruitmentSupport.populationProductionBonusPct ?? nextMechanics.recruitmentPopulationProductionBonusPct,
+    formatter: formatPct,
+    valueFormatter: formatPct
+  });
+  addNumericDelta(benefits, {
+    id: "recruitment-capacity",
+    icon: "%",
+    label: "Kapacita bloků",
+    before: currentRecruitmentSupport.apartmentCapacityBonusPct ?? currentMechanics.recruitmentApartmentCapacityBonusPct,
+    after: nextRecruitmentSupport.apartmentCapacityBonusPct ?? nextMechanics.recruitmentApartmentCapacityBonusPct,
+    formatter: formatPct,
+    valueFormatter: formatPct
+  });
+  addNumericDelta(benefits, {
+    id: "recruitment-attack",
+    icon: "%",
+    label: "Síla útoku",
+    before: currentRecruitmentSupport.attackWeaponStrengthBonusPct ?? currentMechanics.recruitmentAttackWeaponStrengthBonusPct,
+    after: nextRecruitmentSupport.attackWeaponStrengthBonusPct ?? nextMechanics.recruitmentAttackWeaponStrengthBonusPct,
+    formatter: formatPct,
+    valueFormatter: formatPct
+  });
+  addNumericDelta(benefits, {
+    id: "recruitment-defense",
+    icon: "%",
+    label: "Síla obrany",
+    before: currentRecruitmentSupport.defenseItemStrengthBonusPct ?? currentMechanics.recruitmentDefenseItemStrengthBonusPct,
+    after: nextRecruitmentSupport.defenseItemStrengthBonusPct ?? nextMechanics.recruitmentDefenseItemStrengthBonusPct,
+    formatter: formatPct,
+    valueFormatter: formatPct
+  });
+  addNumericDelta(benefits, {
+    id: "clinic-recovery",
+    icon: "+",
+    label: "Recovery rate",
+    before: currentMechanics.clinicRecoveryRatePct,
+    after: nextMechanics.clinicRecoveryRatePct,
+    formatter: formatPct,
+    valueFormatter: formatPct
   });
   addNumericDelta(benefits, {
     id: "laundering-capacity",

@@ -158,6 +158,68 @@ describe("alliance lifecycle", () => {
     expect(penalties.every((penalty) => penalty.influenceGenerationMultiplier === 1)).toBe(true);
   });
 
+  it("creates, joins, invites and writes server alliance chat", () => {
+    const state = createInitialState("instance:1", "free");
+    for (const playerId of ["player:1", "player:2", "player:3"]) {
+      state.playersById[playerId] = createPlayerFixture({
+        id: playerId,
+        accountId: `account:${playerId}`,
+        name: playerId,
+        resourceStateId: `resource:${playerId}`,
+        cooldownStateId: `cooldown:${playerId}`,
+        effectStateId: `effect:${playerId}`,
+        policeStateId: `police:${playerId}`
+      }) as Player;
+      state.root.playerIds.push(playerId);
+    }
+
+    const created = applyCommand(
+      state,
+      command("create-alliance", "player:1", { name: "Neon Pact", tag: "NP" }, "command:create-alliance"),
+      context(BASE_TIME)
+    );
+    const allianceId = Object.keys(created.nextState.alliancesById)[0];
+    expect(created.errors).toEqual([]);
+    expect(created.nextState.playersById["player:1"].allianceId).toBe(allianceId);
+
+    const joined = applyCommand(
+      created.nextState,
+      command("join-alliance", "player:2", { allianceId }, "command:join-alliance"),
+      context(BASE_TIME)
+    );
+    expect(joined.errors).toEqual([]);
+    expect(joined.nextState.alliancesById[allianceId].memberIds).toContain("player:2");
+
+    const invited = applyCommand(
+      joined.nextState,
+      command("invite-alliance-member", "player:1", { allianceId, targetPlayerId: "player:3" }, "command:invite-alliance"),
+      context(BASE_TIME)
+    );
+    const inviteId = Object.keys(invited.nextState.allianceInvitesById ?? {})[0];
+    expect(invited.errors).toEqual([]);
+    expect(invited.nextState.allianceInvitesById?.[inviteId].status).toBe("pending");
+
+    const accepted = applyCommand(
+      invited.nextState,
+      command("respond-alliance-invite", "player:3", { inviteId, response: "accept" }, "command:accept-invite"),
+      context(BASE_TIME)
+    );
+    expect(accepted.errors).toEqual([]);
+    expect(accepted.nextState.playersById["player:3"].allianceId).toBe(allianceId);
+
+    const chatted = applyCommand(
+      accepted.nextState,
+      command("send-alliance-chat-message", "player:2", { allianceId, body: "Ready." }, "command:chat"),
+      context(BASE_TIME)
+    );
+    expect(chatted.errors).toEqual([]);
+    expect(Object.values(chatted.nextState.allianceChatMessagesById ?? {})[0]).toMatchObject({
+      allianceId,
+      authorPlayerId: "player:2",
+      body: "Ready."
+    });
+  });
+
   it("scheduled processing emits readiness notifications once per cycle", () => {
     const { state } = createAllianceState(["player:1", "player:2"]);
     const first = runTick(state, context(addHours(BASE_TIME, 5.1)));

@@ -1,4 +1,4 @@
-import { createCityFeedProjection, createConflictReportViews, createOnboardingReadModel, createPlayerFrontierSummaryView, createPoliceReadModel, getMarketViewModel } from "@empire/game-core";
+import { createAllianceBoardReadModel, createBountyReadModel, createCityFeedProjection, createConflictReportViews, createOnboardingReadModel, createPlayerFrontierSummaryView, createPoliceReadModel, getMarketViewModel } from "@empire/game-core";
 import {
   empireStreetsCityMapManifestHash,
   empireStreetsCityMapManifestId,
@@ -73,7 +73,12 @@ export const createGameplaySliceProjection = (
     elimination: player.elimination ?? null,
     onboarding: createOnboardingReadModel(runtime.state, playerId, { config: runtime.config, clock: runtime.clock }),
     police,
+    allianceBoard: createAllianceBoardReadModel(runtime.state, playerId, { config: runtime.config, clock: runtime.clock }),
     market: getMarketViewModel(runtime.state, runtime.state.playersById[playerId] ?? {}),
+    bounty: createBountyReadModel(runtime.state, playerId, {
+      nowTick: runtime.state.root.tick,
+      tickRateMs: runtime.config.tickRateMs
+    }),
     cityFeed: createCityFeedProjection(runtime.state, {
       playerId,
       ...(selectedDistrictId ? { selectedDistrictId } : {}),

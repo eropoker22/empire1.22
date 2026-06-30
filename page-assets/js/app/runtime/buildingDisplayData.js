@@ -369,7 +369,9 @@ const namedParkStripClubs = [
   "Forbidden Lounge",
   "Lust District",
   "Golden Sinners",
-  "Vice Lounge"
+  "Vice Lounge",
+  "Scarlet Pulse",
+  "Afterdark Velvet"
 ];
 
 const namedParkConvenienceStores = [

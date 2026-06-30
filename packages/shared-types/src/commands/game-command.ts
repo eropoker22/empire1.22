@@ -1,6 +1,7 @@
 import type { AttackDistrictCommand } from "./attack-district-command";
 import type { AcknowledgePendingRaidCommand } from "./acknowledge-pending-raid-command";
 import type { AllianceLifecycleCommand } from "./alliance-lifecycle-command";
+import type { BountyCommand } from "./bounty-command";
 import type { BuildStructureCommand } from "./build-structure-command";
 import type { CollectProductionCommand } from "./collect-production-command";
 import type { CraftItemCommand } from "./craft-item-command";
@@ -23,6 +24,7 @@ import type { SpyDistrictCommand } from "./spy-district-command";
 export type GameCommand =
   | AcknowledgePendingRaidCommand
   | AllianceLifecycleCommand
+  | BountyCommand
   | AttackDistrictCommand
   | BuildStructureCommand
   | CollectProductionCommand

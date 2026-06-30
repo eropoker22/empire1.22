@@ -233,19 +233,19 @@ export const resolveSmugglingTunnelAction = (input: {
   return {
     balances: {
       ...input.balances,
-      "dirty-cash": Math.max(0, Number(input.balances["dirty-cash"] || 0) - input.config.openChannel.costDirtyCash)
+      cash: Math.max(0, Number(input.balances.cash || 0) - input.config.openChannel.costCleanCash)
     },
     playerMetadata: withSmugglingTunnelPlayerMetadata(input.player, nextMetadata),
     heatGain: input.config.openChannel.heatGain,
     influenceChange: 0,
-    inputCost: { "dirty-cash": input.config.openChannel.costDirtyCash },
+    inputCost: { cash: input.config.openChannel.costCleanCash },
     outputGain: {},
     reportText: "Otevřený kanál běží. Tunely zvedají dirty cash a Pouliční dealeři prodávají rychleji za víc, ale s vyšší heat a incident risk.",
     smugglingTunnelResult: {
       type: "open_channel",
       activeUntilTick: expiresAtTick,
       durationTicks,
-      dirtyCashCost: input.config.openChannel.costDirtyCash,
+      cleanCashCost: input.config.openChannel.costCleanCash,
       heatGain: input.config.openChannel.heatGain,
       tunnelDirtyProductionBonusPct: input.config.openChannel.tunnelDirtyProductionBonusPct,
       dealerSalePriceBonusPct: input.config.openChannel.dealerSalePriceBonusPct,
@@ -272,8 +272,8 @@ export const validateSmugglingTunnelAction = (input: {
   if (isOpenChannelActiveForPlayer({ state: input.state, playerId: input.player.id, config, tick: input.state.root.tick })) {
     return "smuggling_tunnel_open_channel_active";
   }
-  if (Math.max(0, Number(input.balances["dirty-cash"] || 0)) < config.openChannel.costDirtyCash) {
-    return "smuggling_tunnel_insufficient_dirty_cash";
+  if (Math.max(0, Number(input.balances.cash || 0)) < config.openChannel.costCleanCash) {
+    return "smuggling_tunnel_insufficient_clean_cash";
   }
   return null;
 };

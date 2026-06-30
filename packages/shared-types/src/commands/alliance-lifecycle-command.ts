@@ -1,6 +1,40 @@
 import type { AllianceId, PlayerId } from "../ids/entity-id";
 import type { ActionCommand } from "./action-command";
 
+export interface CreateAlliancePayload {
+  name: string;
+  tag?: string;
+}
+
+export type CreateAllianceCommand = ActionCommand<"create-alliance", CreateAlliancePayload>;
+
+export interface JoinAlliancePayload {
+  allianceId: AllianceId;
+}
+
+export type JoinAllianceCommand = ActionCommand<"join-alliance", JoinAlliancePayload>;
+
+export interface InviteAllianceMemberPayload {
+  allianceId: AllianceId;
+  targetPlayerId: PlayerId;
+}
+
+export type InviteAllianceMemberCommand = ActionCommand<"invite-alliance-member", InviteAllianceMemberPayload>;
+
+export interface RespondAllianceInvitePayload {
+  inviteId: string;
+  response: "accept" | "reject";
+}
+
+export type RespondAllianceInviteCommand = ActionCommand<"respond-alliance-invite", RespondAllianceInvitePayload>;
+
+export interface SendAllianceChatMessagePayload {
+  allianceId: AllianceId;
+  body: string;
+}
+
+export type SendAllianceChatMessageCommand = ActionCommand<"send-alliance-chat-message", SendAllianceChatMessagePayload>;
+
 export interface ConfirmAllianceReadyPayload {
   allianceId: AllianceId;
   expectedMembershipVersion?: number;
@@ -39,6 +73,11 @@ export interface DisbandAlliancePayload {
 export type DisbandAllianceCommand = ActionCommand<"disband-alliance", DisbandAlliancePayload>;
 
 export type AllianceLifecycleCommand =
+  | CreateAllianceCommand
+  | JoinAllianceCommand
+  | InviteAllianceMemberCommand
+  | RespondAllianceInviteCommand
+  | SendAllianceChatMessageCommand
   | ConfirmAllianceReadyCommand
   | StartAllianceKickVoteCommand
   | CastAllianceKickVoteCommand

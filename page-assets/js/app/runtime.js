@@ -624,6 +624,8 @@ import {
   hasLegacyBuildingSpecialActionHandler,
   resolveBuildingSpecialActionDefinition
 } from "./runtime/buildingSpecialActionRegistry.js";
+import { createServerBuildingActionDefaultPayload } from "./runtime/buildingSpecialActionServerDefaults.js";
+import { submitServerBuildingActionCommandBridge } from "./runtime/buildingSpecialActionServerBridge.js";
 import { createBuildingSpecialActionConfirmationController } from "./runtime/buildingSpecialActionConfirmation.js";
 import { createBuildingUpgradeConfirmationViewModel } from "./runtime/buildingUpgradeBenefits.js";
 import {
@@ -829,7 +831,7 @@ import {
 import { normalizeActionResult } from "./runtime/actionResultOrchestrator.js";
 import { createOnboardingBridge } from "./runtime/onboardingBridge.js";
 import { createPoliceHeatBridge, resolvePoliceHeatFeedback } from "./runtime/policeHeatBridge.js";
-import { createEventRumorBridge } from "./runtime/eventRumorBridge.js";
+import { createEventRumorBridge, createRumorStreetNewsPayload } from "./runtime/eventRumorBridge.js";
 import { renderRecipeCard } from "./ui/recipePanel.js";
 import {
   getActionDescription,
@@ -933,6 +935,23 @@ function setGameplaySliceSnapshotToken(serverInstanceId, playerId, token) {
   }
 }
 
+function syncGameplaySliceResponse(response) {
+  const player = latestGameplaySliceReadModel?.player || null;
+  const responsePlayer = response?.readModel?.player || player;
+  if (response?.snapshotToken && responsePlayer?.instanceId && responsePlayer?.playerId) {
+    setGameplaySliceSnapshotToken(responsePlayer.instanceId, responsePlayer.playerId, response.snapshotToken);
+  }
+  if (response?.readModel) {
+    latestGameplaySliceReadModel = response.readModel;
+    document.dispatchEvent(new CustomEvent("empire:gameplay-slice-rendered", {
+      detail: {
+        gameplaySlice: response.readModel,
+        playerView: response.readModel.player || null
+      }
+    }));
+  }
+}
+
 async function submitServerMarketCommand({ action, resourceId, amount, marketType = "normal", paymentType = "cleanCash" } = {}) {
   if (!isServerAuthoritativeGameplayRuntimeReady()) {
     return {
@@ -991,19 +1010,256 @@ async function submitServerMarketCommand({ action, resourceId, amount, marketTyp
     body: JSON.stringify(request)
   }).then((payload) => payload.json());
 
-  if (response?.snapshotToken) {
-    setGameplaySliceSnapshotToken(player.instanceId, player.playerId, response.snapshotToken);
-  }
-  if (response?.readModel) {
-    latestGameplaySliceReadModel = response.readModel;
-    document.dispatchEvent(new CustomEvent("empire:gameplay-slice-rendered", {
-      detail: {
-        gameplaySlice: response.readModel,
-        playerView: response.readModel.player || null
-      }
-    }));
-  }
+  syncGameplaySliceResponse(response);
   return response;
+}
+
+async function submitServerBountyCommand({ action = "create", payload = {} } = {}) {
+  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return {
+      accepted: false,
+      errors: [{ message: "Server-authoritative gameplay runtime není připravený." }]
+    };
+  }
+
+  const slice = latestGameplaySliceReadModel || null;
+  const player = slice?.player || null;
+  const focusDistrictId = slice?.district?.districtId || player?.homeDistrictId || null;
+  if (!slice || !player || !focusDistrictId) {
+    return {
+      accepted: false,
+      errors: [{ message: "Bounty command nejde odeslat bez server slice kontextu." }]
+    };
+  }
+
+  const normalizedAction = action === "cancel" ? "cancel" : "create";
+  const command = {
+    id: createGameplaySliceCommandId(normalizedAction === "cancel" ? "command:bounty-cancel" : "command:bounty-create"),
+    type: normalizedAction === "cancel" ? "cancel-bounty" : "create-bounty",
+    mode: player.mode || slice.mode?.mode || "free",
+    playerId: player.playerId,
+    serverInstanceId: player.instanceId,
+    issuedAt: new Date().toISOString(),
+    payload,
+    clientRequestId: null
+  };
+  const request = {
+    command,
+    focusDistrictId,
+    expectedStateVersion: slice.server?.stateVersion ?? null
+  };
+  const snapshotToken = getGameplaySliceSnapshotToken(player.instanceId, player.playerId);
+  if (snapshotToken) {
+    request.snapshotToken = snapshotToken;
+  }
+
+  const response = await fetch(`${getGameplaySliceEndpointBase()}/submit`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    credentials: "same-origin",
+    body: JSON.stringify(request)
+  }).then((payloadResponse) => payloadResponse.json());
+
+  syncGameplaySliceResponse(response);
+  return response;
+}
+
+async function submitServerAllianceCommand({ type = "", payload = {} } = {}) {
+  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return {
+      accepted: false,
+      errors: [{ message: "Server-authoritative gameplay runtime není připravený." }]
+    };
+  }
+
+  const slice = latestGameplaySliceReadModel || null;
+  const player = slice?.player || null;
+  const focusDistrictId = slice?.district?.districtId || player?.homeDistrictId || null;
+  if (!slice || !player || !focusDistrictId) {
+    return {
+      accepted: false,
+      errors: [{ message: "Alliance command nejde odeslat bez server slice kontextu." }]
+    };
+  }
+
+  const command = {
+    id: createGameplaySliceCommandId(`command:alliance:${String(type || "action")}`),
+    type,
+    mode: player.mode || slice.mode?.mode || "free",
+    playerId: player.playerId,
+    serverInstanceId: player.instanceId,
+    issuedAt: new Date().toISOString(),
+    payload,
+    clientRequestId: null
+  };
+  const request = {
+    command,
+    focusDistrictId,
+    expectedStateVersion: slice.server?.stateVersion ?? null
+  };
+  const snapshotToken = getGameplaySliceSnapshotToken(player.instanceId, player.playerId);
+  if (snapshotToken) {
+    request.snapshotToken = snapshotToken;
+  }
+
+  const response = await fetch(`${getGameplaySliceEndpointBase()}/submit`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    credentials: "same-origin",
+    body: JSON.stringify(request)
+  }).then((payloadResponse) => payloadResponse.json());
+
+  syncGameplaySliceResponse(response);
+  return response;
+}
+
+function resolveServerDistrictIdFromBuildingContext(context = {}) {
+  const rawId = context?.serverDistrictId
+    || context?.district?.serverDistrictId
+    || context?.district?.districtId
+    || context?.district?.id
+    || "";
+  const text = String(rawId || "").trim();
+  if (!text) return "";
+  return text.startsWith("district:") ? text : `district:${text}`;
+}
+
+function normalizeServerBuildingTypeId(value = "") {
+  return String(value || "").trim().replace(/-/g, "_");
+}
+
+async function loadServerGameplaySliceForDistrict(districtId) {
+  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return {
+      accepted: false,
+      errors: [{ message: "Server-authoritative gameplay runtime není připravený." }]
+    };
+  }
+
+  const slice = latestGameplaySliceReadModel || null;
+  const player = slice?.player || null;
+  if (!slice || !player?.instanceId || !player?.playerId) {
+    return {
+      accepted: false,
+      errors: [{ message: "Server slice kontext není připravený." }]
+    };
+  }
+
+  if (slice?.district?.districtId === districtId) {
+    return { accepted: true, readModel: slice, errors: [] };
+  }
+
+  const request = {
+    serverInstanceId: player.instanceId,
+    playerId: player.playerId,
+    districtId
+  };
+  const snapshotToken = getGameplaySliceSnapshotToken(player.instanceId, player.playerId);
+  if (snapshotToken) {
+    request.snapshotToken = snapshotToken;
+  }
+
+  const response = await fetch(`${getGameplaySliceEndpointBase()}/load`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    credentials: "same-origin",
+    body: JSON.stringify(request)
+  }).then((payload) => payload.json());
+
+  syncGameplaySliceResponse(response);
+  return response;
+}
+
+async function resolveServerBuildingActionTarget(context, definition) {
+  const districtId = resolveServerDistrictIdFromBuildingContext(context);
+  if (!districtId) {
+    return { ok: false, message: "Chybí server district id pro spuštění akce." };
+  }
+
+  const loadResponse = await loadServerGameplaySliceForDistrict(districtId);
+  if (!loadResponse?.accepted && !loadResponse?.readModel) {
+    return {
+      ok: false,
+      message: loadResponse?.errors?.[0]?.message || "Server district detail nejde načíst."
+    };
+  }
+
+  const slice = latestGameplaySliceReadModel || loadResponse.readModel || null;
+  const district = slice?.district || null;
+  if (!district || district.districtId !== districtId) {
+    return { ok: false, message: "Server nevrátil detail vybraného districtu." };
+  }
+
+  const expectedType = normalizeServerBuildingTypeId(definition?.buildingTypeId);
+  const building = (district.buildings || []).find((candidate) =>
+    normalizeServerBuildingTypeId(candidate?.buildingTypeId) === expectedType
+      && Array.isArray(candidate?.actions)
+      && candidate.actions.some((action) => action?.actionId === definition.actionId)
+  ) || (district.buildings || []).find((candidate) =>
+    normalizeServerBuildingTypeId(candidate?.buildingTypeId) === expectedType
+  );
+
+  if (!building?.buildingId) {
+    return { ok: false, message: "Server v districtu nenašel odpovídající budovu." };
+  }
+
+  const actionView = (building.actions || []).find((action) => action?.actionId === definition.actionId) || null;
+  if (!actionView) {
+    return { ok: false, message: "Server v budově nenašel tuhle akci." };
+  }
+
+  return {
+    ok: true,
+    districtId,
+    buildingId: building.buildingId,
+    building,
+    actionView
+  };
+}
+
+function formatServerBuildingActionDisabledReason(actionView) {
+  const cooldownTicks = Math.max(0, Math.floor(Number(actionView?.cooldownRemainingTicks || 0)));
+  if (cooldownTicks > 0) {
+    return `Cooldown ${formatDistrictBuildingCooldown(cooldownTicks * 5000)}.`;
+  }
+  return String(actionView?.disabledReason || "").trim();
+}
+
+function createServerBuildingActionPayload(target, definition, actionProfile = {}) {
+  return {
+    districtId: target.districtId,
+    buildingId: target.buildingId,
+    actionId: definition.actionId,
+    ...createServerBuildingActionDefaultPayload(definition.actionId, actionProfile)
+  };
+}
+
+async function submitServerBuildingActionCommand({ context, actionProfile, definition } = {}) {
+  return submitServerBuildingActionCommandBridge({ context, actionProfile, definition }, {
+    isReady: isServerAuthoritativeGameplayRuntimeReady,
+    getSlice: () => latestGameplaySliceReadModel,
+    loadSliceForDistrict: loadServerGameplaySliceForDistrict,
+    formatCooldown: formatDistrictBuildingCooldown,
+    createCommandId: createGameplaySliceCommandId,
+    nowIso: () => new Date().toISOString(),
+    getSnapshotToken: getGameplaySliceSnapshotToken,
+    getEndpointBase: getGameplaySliceEndpointBase,
+    fetchJson: (url, request) => fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      credentials: "same-origin",
+      body: JSON.stringify(request)
+    }).then((payload) => payload.json()),
+    syncResponse: syncGameplaySliceResponse
+  });
 }
 
 function getDefaultRuntimeRoot() {
@@ -1711,7 +1967,45 @@ function ensureDistrictPassiveGossip(district) {
 }
 
 function recordDistrictIntelEvent(payload = {}) {
-  return getDistrictGossipRuntime().recordDistrictIntelEvent(payload);
+  const entry = getDistrictGossipRuntime().recordDistrictIntelEvent(payload);
+  if (entry) {
+    appendDistrictGossipStreetNews({
+      ...entry,
+      districtId: payload.districtId,
+      playerId: payload.playerId,
+      playerName: payload.playerName || getResultDistrictOwnerLabel(payload.districtId, "Neznámý hráč"),
+      targetPlayerId: payload.targetPlayerId,
+      targetPlayerName: payload.targetPlayerName,
+      sourceEventId: entry.id,
+      sourceType: "district_gossip",
+      category: "rumor",
+      message: entry.text,
+      timestampMs: entry.createdAt
+    });
+  }
+  return entry;
+}
+
+function appendDistrictGossipStreetNews(event = {}) {
+  const root = resolveRuntimeRoot(getDefaultRuntimeRoot());
+  if (!root) {
+    return false;
+  }
+
+  const payload = createRumorStreetNewsPayload(event, { getLaunchPlayerName });
+  appendBuildingActionResultEntry(root, "police", payload, {
+    id: `rumor-street-news:${event.sourceEventId || event.id || event.timestampMs || Date.now()}`,
+    tone: "event",
+    title: payload.title,
+    summary: payload.summary,
+    meta: payload.meta,
+    timestampMs: event.timestampMs || event.createdAt || Date.now()
+  }, {
+    syncPreview: true,
+    forceLog: true,
+    refresh: false
+  });
+  return true;
 }
 
 function getResolvedPhaseState() {
@@ -4296,9 +4590,15 @@ function getOwnedDistrictBuildingCountByBaseName(baseName) {
   const worldState = getResolvedWorldState();
   const interactionState = {
     ownedDistrictIds: new Set(worldState.ownedDistrictIds || []),
-    gamePhase: worldState.phase || "live"
+    gamePhase: worldState.phaseState?.gamePhase === "launch" ? "launch" : "live",
+    launchOwnerByDistrictId: START_PHASE_OWNER_BY_DISTRICT_ID
   };
-  const ownedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+  const destroyedDistrictIds = new Set(worldState.destroyedDistrictIds || []);
+  const ownedDistrictIds = new Set(
+    Array.from(getCurrentPlayerOwnedDistrictIds(interactionState) || [])
+      .map((districtId) => Number(districtId))
+      .filter((districtId) => districtId > 0 && !destroyedDistrictIds.has(districtId))
+  );
 
   return getDistrictResourceCatalog().reduce((count, district) => {
     if (!ownedDistrictIds.has(Number(district.id))) {
@@ -6009,6 +6309,23 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
   let membersChanged = false;
   const summaryParts = [];
 
+  for (const [itemId, amount] of Object.entries(actionProfile.materialCost || {})) {
+    const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
+    if (safeAmount <= 0) continue;
+    const currentAmount = Math.max(0, Math.floor(Number(getInventoryAmount("materials", itemId) || 0)));
+    if (currentAmount < safeAmount) {
+      setBuildingActionFeedback(root, "warning", action, `Chybí ${getProductionResourceLabel(itemId)} x${safeAmount - currentAmount}.`, context.buildingName);
+      return null;
+    }
+  }
+
+  for (const [itemId, amount] of Object.entries(actionProfile.materialCost || {})) {
+    const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
+    if (safeAmount <= 0) continue;
+    setInventoryAmount("materials", itemId, Math.max(0, Math.floor(Number(getInventoryAmount("materials", itemId) || 0)) - safeAmount));
+    summaryParts.push(`Cena ${getProductionResourceLabel(itemId)} x${safeAmount}`);
+  }
+
   if (actionProfile.apartmentCollectPopulation) {
     const collectedPopulation = Math.max(0, Math.floor(Number(mechanics.apartmentStoredPopulation || 0)));
     if (collectedPopulation < APARTMENT_BLOCK_MIN_COLLECT_POPULATION) {
@@ -6082,17 +6399,17 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
   }
 
   if (actionProfile.smugglingOpenChannel) {
-    const cost = Math.max(0, Math.floor(Number(actionProfile.dirtyCost || SMUGGLING_TUNNEL_CONFIG.openChannelDirtyCost || 0)));
+    const cost = Math.max(0, Math.floor(Number(actionProfile.cleanCost || SMUGGLING_TUNNEL_CONFIG.openChannelCleanCost || 0)));
     const activeUntil = Number(mechanics.actionCooldowns?.openChannelActiveUntil || 0);
     if (activeUntil > Date.now()) {
       setBuildingActionFeedback(root, "warning", action, `Otevřený kanál už běží. Zbývá ${formatDistrictBuildingCooldown(activeUntil - Date.now())}.`, context.buildingName);
       return null;
     }
-    if (dirtyMoney < cost) {
-      setBuildingActionFeedback(root, "warning", action, `Chybí ${formatDistrictBuildingMoney(cost - dirtyMoney)} dirty cash.`, context.buildingName);
+    if (cleanMoney < cost) {
+      setBuildingActionFeedback(root, "warning", action, `Chybí ${formatDistrictBuildingMoney(cost - cleanMoney)} clean cash.`, context.buildingName);
       return null;
     }
-    dirtyMoney -= cost;
+    cleanMoney -= cost;
     setStoredEconomyState({ cleanMoney, dirtyMoney });
     applyTopbarEconomy(root);
     addGangHeat(root, SMUGGLING_TUNNEL_CONFIG.openChannelHeatGain, "Otevřený pašovací kanál");
@@ -6491,7 +6808,7 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
   if (actionProfile.dirty) {
     dirtyMoney += Math.max(0, Math.floor(Number(actionProfile.dirty || 0)));
     economyChanged = true;
-    summaryParts.push(`Dirty +${formatDistrictBuildingMoney(actionProfile.dirty)}`);
+    summaryParts.push(`Dirty cash +${formatDistrictBuildingMoney(actionProfile.dirty)}`);
   }
 
   if (economyChanged) {
@@ -6639,8 +6956,19 @@ async function confirmAndRunDistrictBuildingDetailAction(root, shell, request) {
   const mechanics = resolveDistrictBuildingDetailMechanics(context.district, context.buildingName);
   const cooldownUntil = getBuildingSpecialActionCooldownUntil(mechanics.actionCooldowns, resolved.definition.actionId, resolved.actionIndex);
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
-  const disabledReason = resolved.definition.disabledReason
+  let disabledReason = resolved.definition.disabledReason
     || (cooldownRemaining > 0 ? `Cooldown ${formatDistrictBuildingCooldown(cooldownRemaining)}.` : "");
+  if (!disabledReason && resolved.definition.handlerId === "server-run-building-action") {
+    const target = await resolveServerBuildingActionTarget(context, resolved.definition);
+    if (!target.ok) {
+      disabledReason = target.message;
+    } else {
+      const serverDisabledReason = formatServerBuildingActionDisabledReason(target.actionView);
+      if (!target.actionView.enabled || serverDisabledReason) {
+        disabledReason = serverDisabledReason || "Server akci teď nepovoluje.";
+      }
+    }
+  }
   const controller = getDistrictBuildingSpecialActionConfirmation(root, shell);
   const confirmed = await controller.open({
     titleLabel: resolved.definition.confirmTitle,
@@ -6649,6 +6977,7 @@ async function confirmAndRunDistrictBuildingDetailAction(root, shell, request) {
     description: resolved.definition.confirmBody,
     costSummary: resolved.definition.costSummary,
     rewardSummary: resolved.definition.rewardSummary,
+    inputSummary: resolved.definition.inputSummary,
     riskSummary: resolved.definition.riskSummary,
     cooldownLabel: resolved.definition.cooldownMs > 0 ? formatDistrictBuildingCooldown(resolved.definition.cooldownMs) : "Ready",
     disabledReason,
@@ -6674,7 +7003,7 @@ function runDistrictBuildingDetailAction(root, shell, request) {
   confirmAndRunDistrictBuildingDetailAction(root, shell, request);
 }
 
-function runDistrictBuildingActionFromContext(root, context, request, options = {}) {
+async function runDistrictBuildingActionFromContext(root, context, request, options = {}) {
   const resolved = resolveDistrictBuildingActionRequest(context, request);
   const { actionIndex, action, actionProfile, definition } = resolved;
   if (!action) {
@@ -6693,7 +7022,7 @@ function runDistrictBuildingActionFromContext(root, context, request, options = 
     return false;
   }
 
-  if (definition.status !== "implemented" || !hasLegacyBuildingSpecialActionHandler(actionProfile || {})) {
+  if (definition.status !== "implemented") {
     setBuildingActionFeedback(root, "warning", action, definition.disabledReason || "Akce zatím není připravená.", context.buildingName);
     console.warn("[Empire Streets] Blocked unimplemented building action", {
       actionId: definition.actionId,
@@ -6706,6 +7035,78 @@ function runDistrictBuildingActionFromContext(root, context, request, options = 
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
   if (cooldownRemaining > 0) {
     setBuildingActionFeedback(root, "warning", action, `Akce má cooldown ${formatDistrictBuildingCooldown(cooldownRemaining)}.`, context.buildingName);
+    return false;
+  }
+
+  const actionCooldownMs = actionProfile && Object.prototype.hasOwnProperty.call(actionProfile, "cooldownMs")
+    ? Math.max(0, Number(actionProfile.cooldownMs || 0))
+    : DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS;
+
+  if (definition.handlerId === "server-run-building-action") {
+    const response = await submitServerBuildingActionCommand({
+      context,
+      actionProfile: actionProfile || {},
+      definition
+    });
+    if (!response?.accepted) {
+      const message = response?.errors?.map((error) => error?.message || error?.code).filter(Boolean).join(" · ")
+        || "Server akci odmítl.";
+      setBuildingActionFeedback(root, "warning", action, message, context.buildingName);
+      return false;
+    }
+
+    const reportSummary = response?.readModel?.reports?.[0]?.summary
+      || response?.readModel?.reports?.[0]?.description
+      || response?.readModel?.reports?.[0]?.title
+      || actionProfile?.summary
+      || definition.rewardSummary
+      || "Server akci přijal.";
+    updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
+      ...entry,
+      actionCooldowns: {
+        ...(entry.actionCooldowns || {}),
+        [definition.actionId]: Date.now() + actionCooldownMs
+      }
+    }));
+    setBuildingActionFeedback(
+      root,
+      "success",
+      action,
+      reportSummary,
+      context.district?.id ? `${context.buildingName} · District ${context.district.id}` : context.buildingName
+    );
+    appendBuildingActionResultEntry(root, "police", {
+      title: `${context.buildingName}: ${action}`,
+      summary: reportSummary,
+      badge: context.district?.id ? `District ${context.district.id}` : "Server",
+      tone: "success",
+      items: [
+        { label: "Budova", value: context.displayName || context.buildingName },
+        { label: "Akce", value: action },
+        { label: "Handler", value: "Server" },
+        { label: "Cooldown", value: actionCooldownMs > 0 ? formatDistrictBuildingCooldown(actionCooldownMs) : "Ready" }
+      ],
+      meta: context.district?.id ? `District ${context.district.id}` : "",
+      actionId: definition.actionId,
+      buildingTypeId: definition.buildingTypeId
+    }, {
+      tone: "success",
+      title: `${context.buildingName}: ${action}`,
+      summary: reportSummary,
+      meta: context.district?.id ? `District ${context.district.id}` : "Server"
+    }, { syncPreview: true, forceLog: true, refresh: false });
+    if (options.shell) {
+      refreshDistrictBuildingDetailPopup(root, options.shell);
+    }
+    return true;
+  }
+
+  if (!hasLegacyBuildingSpecialActionHandler(actionProfile || {})) {
+    setBuildingActionFeedback(root, "warning", action, definition.disabledReason || "Akce zatím není připravená.", context.buildingName);
+    console.warn("[Empire Streets] Blocked building action without legacy handler", {
+      actionId: definition.actionId,
+      buildingName: context.buildingName
+    });
     return false;
   }
 
@@ -6725,9 +7126,6 @@ function runDistrictBuildingActionFromContext(root, context, request, options = 
       return false;
     }
   }
-  const actionCooldownMs = actionProfile && Object.prototype.hasOwnProperty.call(actionProfile, "cooldownMs")
-    ? Math.max(0, Number(actionProfile.cooldownMs || 0))
-    : DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS;
   const actionResult = applyDistrictBuildingSpecialAction(
     root,
     context,
@@ -6956,7 +7354,10 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
     detailEntry,
     buildingProfile,
     buildingBackgroundPath,
-    economyState: getResolvedEconomyState(),
+    economyState: {
+      ...getResolvedEconomyState(),
+      materials: getResolvedMaterialInventory()
+    },
     playerHeat: getResolvedGangState().heat,
     actionProfiles: (Array.isArray(profile.actions) ? profile.actions : []).map((_, actionIndex) => getDistrictBuildingSpecialActionProfile(buildingName, actionIndex)),
     now
@@ -10196,6 +10597,8 @@ function bindEventRumorFeed(root) {
   const bridge = createEventRumorBridge({
     root,
     documentRef: document,
+    appendBuildingActionResultEntry,
+    getLaunchPlayerName,
     getState: () => createFreeSessionUiContext(root)
   });
   eventRumorBridgesByRoot.set(root, bridge);
@@ -10267,7 +10670,34 @@ function publicOpenBuildingDetail(districtIdOrBuildingName, buildingName = "", o
   return getRuntimeDistrictApi()?.openBuildingDetail?.(districtIdOrBuildingName, buildingName, options) || false;
 }
 
+function resolveDevBuildingCardAutoOpenKey() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  if (window.navigator?.webdriver || String(window.name || "").includes("empire-e2e-")) {
+    return "";
+  }
+  const params = new URLSearchParams(window.location.search || "");
+  const requested = params.get("devBuildingCard")
+    || params.get("openBuildingCard")
+    || params.get("buildingCard")
+    || "";
+  const normalized = normalizeBuildingLookupKey(requested);
+  if (!normalized || normalized === "0" || normalized === "false" || normalized === "off") {
+    return "";
+  }
+  if (normalized === "1" || normalized === "true" || normalized === "clinic") {
+    return "klinika";
+  }
+  return normalized;
+}
+
 function tryOpenDevBuildingCardOnInit() {
+  const targetBuildingKey = resolveDevBuildingCardAutoOpenKey();
+  if (!targetBuildingKey) {
+    return false;
+  }
+
   const districtApi = getRuntimeDistrictApi();
   if (!districtApi?.getDistrictById || !districtApi?.getDistrictBuildingProfile || !districtApi?.getAllDistricts) {
     return false;
@@ -10296,7 +10726,7 @@ function tryOpenDevBuildingCardOnInit() {
   for (const district of candidateDistricts) {
     const buildingProfile = districtApi.getDistrictBuildingProfile(district.id);
     const targetBuilding = Array.isArray(buildingProfile?.buildings)
-      ? buildingProfile.buildings.find((building) => normalizeBuildingLookupKey(building?.baseName) === "skola")
+      ? buildingProfile.buildings.find((building) => normalizeBuildingLookupKey(building?.baseName) === targetBuildingKey)
       : null;
 
     if (!targetBuilding?.baseName) {
@@ -10881,6 +11311,8 @@ export {
   setStoredSpyIntel,
   setStoredSpyState,
   setStoredWeaponInventory,
+  submitServerAllianceCommand,
+  submitServerBountyCommand,
   usePharmacyBoost,
   updateTopbarResources,
   showAttackToast,

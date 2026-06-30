@@ -150,6 +150,7 @@ export function getActiveServerRegistration(registration = getRegistrationDraft(
     serverMode: normalizeMode(registration?.activeServerMode || registration?.serverMode || server?.mode) || DEFAULT_PUBLIC_SERVER_MODE,
     serverRegion: normalizeText(registration?.activeServerRegion || registration?.serverRegion || server?.region),
     serverStatus: normalizeText(registration?.activeServerStatus || server?.status || "ONLINE"),
+    joinTicket: normalizeText(registration?.joinTicket),
     preferredStartDistrictId,
     startDistrictId: preferredStartDistrictId,
     assignedHomeDistrictId: normalizeText(registration?.assignedHomeDistrictId),

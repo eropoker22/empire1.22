@@ -12,6 +12,7 @@ import {
 } from "../rules/factions/factionRules";
 import { validateOccupy } from "../validation";
 import { createPlayerCooldownState, reassignCapturedDistrictBuildings } from "./attackDistrictHelpers";
+import { resolveBountyClaims } from "./bountyCommands";
 import { applyCarDealerCooldownReductionTicks } from "./carDealerBuildingActions";
 import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { composeEntityId } from "../utils";
@@ -74,8 +75,7 @@ export const handleOccupyDistrict = (
     eventId
   });
 
-  return {
-    nextState: {
+  const capturedState: CoreGameState = {
       ...state,
       playersById: {
         ...state.playersById,
@@ -127,8 +127,8 @@ export const handleOccupyDistrict = (
         notificationIds: [...state.root.notificationIds, report.id],
         version: state.root.version + 1
       }
-    },
-    events: [
+    };
+  const captureEvents = [
       createEvent(CORE_EVENT_TYPES.districtCaptured, {
         attackerPlayerId: player.id,
         districtId: targetDistrict.id,
@@ -144,7 +144,21 @@ export const handleOccupyDistrict = (
         recipientId: player.id,
         category: report.category
       })
-    ],
+    ];
+  const bountyResult = resolveBountyClaims(capturedState, {
+    actorPlayerId: player.id,
+    targetPlayerId: targetDistrict.ownerPlayerId,
+    targetDistrictId: targetDistrict.id,
+    actionType: "occupy-district",
+    successfulAttack: false,
+    capturesDistrict: true,
+    destroysDistrict: false,
+    commandId: command.id
+  });
+
+  return {
+    nextState: bountyResult.nextState,
+    events: [...captureEvents, ...bountyResult.events],
     errors: []
   };
 };

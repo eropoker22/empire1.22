@@ -94,7 +94,7 @@ export interface SmugglingTunnelBalanceConfig {
     actionId: "open_channel";
     cooldownMinutes: number;
     durationMinutes: number;
-    costDirtyCash: number;
+    costCleanCash: number;
     heatGain: number;
     tunnelDirtyProductionBonusPct: number;
     dealerSalePriceBonusPct: number;

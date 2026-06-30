@@ -41,6 +41,7 @@ import { appendRecoveryPoolEntries, createRecoveryEntriesFromLosses } from "./cl
 import { appendSalvagePoolEntries, createSalvageEntriesFromLosses } from "./recyclingCenterBuildingActions";
 import { resolveAirportEvacuationSupport } from "./airportBuildingActions";
 import { resolveAttackEscapeMitigation } from "./attackEscapeMitigation";
+import { resolveBountyClaims } from "./bountyCommands";
 import { applyCarDealerCooldownReductionTicks, resolveCarDealerEscapeChanceBonusPct } from "./carDealerBuildingActions";
 import { resolveCombinedCameraAlarmBonuses, resolveRecruitmentCenterSupportBonuses } from "./recruitmentCenterBuildingActions";
 import { resolveFitnessAttackWeaponModifiers, resolveFitnessDefenseItemModifiers } from "./fitnessClubBuildingActions";
@@ -396,11 +397,9 @@ export const handleAttackDistrict = (
     }
   });
 
-  return {
-    nextState: recoveryState,
-    events,
-    errors: []
-  };
+  const bountyResult = resolveBountyClaims(recoveryState, { actorPlayerId: attacker.id, targetPlayerId: targetDistrict.ownerPlayerId, targetDistrictId: targetDistrict.id, actionType: districtDestroyed ? "destroy-district" : "attack-district", successfulAttack: attackSucceeded || districtDestroyed, capturesDistrict: attackSucceeded, destroysDistrict: districtDestroyed, commandId: command.id });
+
+  return { nextState: bountyResult.nextState, events: [...events, ...bountyResult.events], errors: [] };
 };
 
 const applyFactionEquipmentLossesToLoadout = (

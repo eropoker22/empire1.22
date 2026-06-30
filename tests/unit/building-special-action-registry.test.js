@@ -4,6 +4,7 @@ import {
   hasLegacyBuildingSpecialActionHandler,
   resolveBuildingSpecialActionDefinition
 } from "../../page-assets/js/app/runtime/buildingSpecialActionRegistry.js";
+import { DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES } from "../../page-assets/js/app/runtime/buildingDetailData.js";
 
 describe("building special action registry", () => {
   it("assigns every audited card/profile action a stable action id", () => {
@@ -13,7 +14,7 @@ describe("building special action registry", () => {
     expect(rows.every((row) => typeof row.actionId === "string" && row.actionId.length > 0)).toBe(true);
   });
 
-  it("marks stock exchange server-only actions as coming soon instead of legacy handled", () => {
+  it("marks stock exchange server-only actions as server-authoritative instead of coming soon", () => {
     const definition = resolveBuildingSpecialActionDefinition({
       buildingName: "Burza",
       actionLabel: "Spekulativní nákup",
@@ -22,9 +23,30 @@ describe("building special action registry", () => {
     });
 
     expect(definition.actionId).toBe("speculative_buy");
-    expect(definition.status).toBe("coming-soon");
-    expect(definition.disabledReason).toContain("serverový handler");
+    expect(definition.status).toBe("implemented");
+    expect(definition.disabledReason).toBe("");
+    expect(definition.handlerId).toBe("server-run-building-action");
+    expect(definition.hasServerConfig).toBe(true);
+    expect(definition.inputSummary).toContain("Kategorie: materials");
+    expect(definition.inputSummary).toContain("Investice: $1000 clean cash");
     expect(hasLegacyBuildingSpecialActionHandler({ stockSpeculativeBuy: true, heat: 5 })).toBe(false);
+  });
+
+  it("keeps Downtown server action rows executable when core has a handler", () => {
+    const rows = createBuildingSpecialActionAuditRows();
+    const downtownRows = rows.filter((row) => [
+      "burza",
+      "centralni banka",
+      "magistrat",
+      "lobby klub",
+      "lobby club",
+      "letiste"
+    ].includes(row.buildingName));
+
+    expect(downtownRows.length).toBeGreaterThan(10);
+    expect(downtownRows.every((row) => row.hasServerConfig)).toBe(true);
+    expect(downtownRows.every((row) => row.status === "implemented")).toBe(true);
+    expect(downtownRows.every((row) => row.note === "Server-authoritative handler")).toBe(true);
   });
 
   it("keeps generic legacy output actions executable", () => {
@@ -93,5 +115,136 @@ describe("building special action registry", () => {
     expect(definition.riskSummary).toContain("Selhání 14%");
     expect(definition.riskSummary).toContain("Fail heat +12");
     expect(definition.riskSummary).toContain("Audit fail +10%");
+  });
+
+  it("keeps all street dealer card actions implemented with concrete effects", () => {
+    const streetDealerProfiles = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["poulicni dealeri"];
+    const sale = resolveBuildingSpecialActionDefinition({
+      buildingName: "Pouliční dealeři",
+      actionLabel: "Spustit prodej",
+      actionIndex: 0,
+      actionProfile: streetDealerProfiles[0]
+    });
+    const collect = resolveBuildingSpecialActionDefinition({
+      buildingName: "Pouliční dealeři",
+      actionLabel: "Vybrat hot cash",
+      actionIndex: 1,
+      actionProfile: streetDealerProfiles[1]
+    });
+    const stash = resolveBuildingSpecialActionDefinition({
+      buildingName: "Pouliční dealeři",
+      actionLabel: "Přesunout stash",
+      actionIndex: 2,
+      actionProfile: streetDealerProfiles[2]
+    });
+
+    expect(streetDealerProfiles[0].dirty).toBe(1000);
+    expect([sale.status, collect.status, stash.status]).toEqual(["implemented", "implemented", "implemented"]);
+    expect([sale.actionId, collect.actionId, stash.actionId]).toEqual([
+      "start_drug_sale",
+      "street_dealers_collect_hot_cash",
+      "street_dealers_move_stash"
+    ]);
+    expect(sale.rewardSummary).toContain("Dirty cash +$1000");
+    expect(sale.rewardSummary).toContain("Dirty income +35%");
+    expect(sale.rewardSummary).toContain("Efekt 30m 00s");
+    expect(sale.riskSummary).toBe("Heat +4");
+    expect(sale.cooldownMs).toBe(60 * 60 * 1000);
+    expect(collect.rewardSummary).toContain("Dirty");
+    expect(collect.riskSummary).toBe("Heat +3");
+    expect(collect.cooldownMs).toBe(10 * 60 * 1000);
+    expect(stash.costSummary).toBe("biomass x3");
+    expect(stash.rewardSummary).toContain("Dirty cash +$1000");
+    expect(stash.riskSummary).toBe("Heat +1");
+    expect(stash.cooldownMs).toBe(10 * 60 * 1000);
+  });
+
+  it("keeps smuggling tunnel open channel implemented with concrete cost, effect, heat, and cooldown", () => {
+    const [openChannelProfile] = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["pasovaci tunel"];
+    const openChannel = resolveBuildingSpecialActionDefinition({
+      buildingName: "Pašovací tunel",
+      actionLabel: "Otevřít kanál",
+      actionIndex: 0,
+      actionProfile: openChannelProfile
+    });
+
+    expect(openChannel.status).toBe("implemented");
+    expect(openChannel.actionId).toBe("open_channel");
+    expect(openChannel.costSummary).toBe("$800 clean cash");
+    expect(openChannel.rewardSummary).toContain("Dirty income +45%");
+    expect(openChannel.rewardSummary).toContain("Dealer price +12%");
+    expect(openChannel.rewardSummary).toContain("Dealer speed +10%");
+    expect(openChannel.rewardSummary).toContain("Dealer reward +10%");
+    expect(openChannel.rewardSummary).toContain("Efekt 15m 00s");
+    expect(openChannel.riskSummary).toContain("Heat +5");
+    expect(openChannel.riskSummary).toContain("Incident +5%");
+    expect(openChannel.cooldownMs).toBe(30 * 60 * 1000);
+  });
+
+  it("keeps strip club action labels and timings aligned with card actions", () => {
+    const stripProfiles = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["strip club"];
+    const collect = resolveBuildingSpecialActionDefinition({
+      buildingName: "Strip club",
+      actionLabel: "Vybrat cash",
+      actionIndex: 0,
+      actionProfile: stripProfiles[0]
+    });
+    const vip = resolveBuildingSpecialActionDefinition({
+      buildingName: "Strip club",
+      actionLabel: "Hostit VIP klienty",
+      actionIndex: 1,
+      actionProfile: stripProfiles[1]
+    });
+    const kompro = resolveBuildingSpecialActionDefinition({
+      buildingName: "Strip club",
+      actionLabel: "Získat kompro",
+      actionIndex: 2,
+      actionProfile: stripProfiles[2]
+    });
+
+    expect([collect.status, vip.status, kompro.status]).toEqual(["implemented", "implemented", "implemented"]);
+    expect([collect.actionId, vip.actionId, kompro.actionId]).toEqual([
+      "strip_club_collect_cash",
+      "vip_lounge",
+      "private_party"
+    ]);
+    expect(collect.cooldownMs).toBe(10 * 60 * 1000);
+    expect(vip.cooldownMs).toBe(60 * 60 * 1000);
+    expect(vip.rewardSummary).toContain("Efekt 30m 00s");
+    expect(kompro.cooldownMs).toBe(30 * 60 * 1000);
+  });
+
+  it("uses future-tense confirmation copy instead of completed-action summaries", () => {
+    const definition = resolveBuildingSpecialActionDefinition({
+      buildingName: "Restaurace",
+      actionLabel: "Vybrat tržby",
+      actionIndex: 0,
+      actionProfile: {
+        clean: 180,
+        dirty: 120,
+        cooldownMs: 30 * 60 * 1000,
+        summary: "Tržby byly vybrané."
+      }
+    });
+
+    expect(definition.confirmBody).toContain("Po potvrzení se akce spustí");
+    expect(definition.confirmBody).not.toContain("byly");
+    expect(definition.shortDescription).toBe("Akce se spustí po potvrzení.");
+    expect(definition.rewardSummary).toContain("Clean +$180");
+  });
+
+  it("maps renamed power station heat action to the existing legacy handler", () => {
+    const definition = resolveBuildingSpecialActionDefinition({
+      buildingName: "Energetická stanice",
+      actionLabel: "Snížit heat",
+      actionIndex: 2,
+      actionProfile: { cooldownMs: 60 * 60 * 1000, heat: -2, summary: "Heat byl snížený." }
+    });
+
+    expect(definition.actionId).toBe("power_station_reduce_outages");
+    expect(definition.status).toBe("implemented");
+    expect(definition.rewardSummary).toBe("Efekt podle akce");
+    expect(definition.riskSummary).toBe("Heat -2");
+    expect(definition.confirmTitle).toBe("Snížit heat");
   });
 });

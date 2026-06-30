@@ -16,7 +16,9 @@
 | remove-defense | yes | yes | yes | map validator | removeDefense | district button | targeted transport + handler tests | own-district only; allied disabled with `ALLIANCE_DEFENSE_NOT_IMPLEMENTED` |
 | relocate-trap | no | no | no | map validator only | capability only | no closed-alpha button | not ready | not ready |
 | market action | legacy/system-specific | partial | legacy market rules | market rules | market views | legacy modal | existing market tests | not part of this pass |
-| bounty action | legacy-only | no | no core command | no | legacy bounty UI | legacy modal | page smoke only | not closed-alpha authoritative |
+| create-bounty | yes | yes | yes | bounty payload + core target/escrow validation | bounty read model | bounty board | bounty core + transport tests | server-authoritative MVP |
+| cancel-bounty | yes | yes | yes | bounty payload + core ownership/status validation | bounty read model | bounty board row action | bounty core + transport tests | server-authoritative MVP |
+| bounty claim | core side-effect | no browser command | yes | post-action claim matching | bounty read model/events | board status | bounty core tests | server-authoritative side-effect after attack/destroy |
 
 ## Basic Actions Detail
 

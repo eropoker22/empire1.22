@@ -1,6 +1,8 @@
 import type { DistrictPanelView } from "./district-panel-view";
 import type { DistrictSummaryView } from "./district-summary-view";
 import type { GameplayModeView } from "./gameplay-mode-view";
+import type { AllianceBoardReadModel } from "./alliance-board-view";
+import type { BountyReadModel } from "./bounty-read-model-view";
 import type { MarketReadModel } from "./market-read-model-view";
 import type { PlayerView } from "./player-view";
 import type { PoliceReadModel } from "./police-read-model-view";
@@ -30,7 +32,9 @@ export interface GameplaySliceView {
   elimination?: EliminationReadModel | null;
   onboarding?: OnboardingReadModel | null;
   police?: PoliceReadModel | null;
+  allianceBoard?: AllianceBoardReadModel | null;
   market?: MarketReadModel | null;
+  bounty?: BountyReadModel | null;
   cityFeed?: CityFeedProjectionView | null;
   districts: DistrictSummaryView[];
   district: DistrictPanelView | null;

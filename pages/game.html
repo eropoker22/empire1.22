@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <title>Empire Streets | Game Shell</title>
-    <link rel="stylesheet" href="../page-assets/css/styles.css?v=purge-btn-blink-20260528">
+    <link rel="stylesheet" href="../page-assets/css/styles.css?v=industrial-close-mobile-20260629">
     <link rel="stylesheet" href="../page-assets/css/styles-game-admin-slice.css">
     <link rel="stylesheet" href="../page-assets/css/styles-gameplay-slice-client.css?v=result-popup-center-20260528">
   </head>
@@ -1640,6 +1640,7 @@
               </button>
               <button class="events-agent" data-agent="leon" type="button">
                 <img src="../img/events/leon.png" alt="Leon Switch" loading="lazy">
+                <span class="events-agent__unlock-badge">Vliv: 100+</span>
                 <div class="events-agent__info">
                   <div class="events-agent__name">Leon Switch Varga</div>
                   <div class="events-agent__type">Fixer / obchodník</div>
@@ -1647,6 +1648,7 @@
               </button>
               <button class="events-agent" data-agent="nira" type="button">
                 <img src="../img/events/nira.png" alt="Nyra Vale" loading="lazy">
+                <span class="events-agent__unlock-badge">Vliv: 300+</span>
                 <div class="events-agent__info">
                   <div class="events-agent__name">Nyra Vale</div>
                   <div class="events-agent__type">Informační síť / vliv</div>
@@ -1690,8 +1692,8 @@
               <div class="event-detail-modal__chips" id="event-detail-risk"></div>
             </div>
             <div class="event-detail-modal__actions">
-              <button class="button" id="event-detail-accept" type="button">Accept</button>
-              <button class="button" id="event-detail-decline" type="button">Decline</button>
+              <button class="button" id="event-detail-decline" type="button">Zrušit</button>
+              <button class="button" id="event-detail-accept" type="button">Začít</button>
             </div>
           </div>
         </div>
@@ -1751,14 +1753,14 @@
         <div id="bounty-modal-backdrop" class="modal__backdrop"></div>
         <div class="modal__content bounty-board__content">
           <header class="bounty-board__header">
-            <div class="bounty-board__header-copy">
-              <div class="bounty-board__eyebrow">Bounty board</div>
-              <h3>VYPSAT BOUNTY</h3>
-              <p>Vyber nepřátelského hráče nebo jeho district, nastav odměnu a typ bounty.</p>
+              <div class="bounty-board__header-copy">
+              <div class="bounty-board__eyebrow">BOUNTY BOARD</div>
+              <h3>BOUNTY BOARD</h3>
+              <p>Vyber cíl, zamkni escrow a pošli město po jeho území.</p>
             </div>
             <div class="bounty-board__header-status" aria-label="Bounty board status">
               <span>CONTRACT NODE</span>
-              <strong>LOCAL ESCROW</strong>
+              <strong>SERVER ESCROW</strong>
             </div>
             <button id="bounty-modal-close" class="modal__close" type="button" aria-label="Zavřít">×</button>
           </header>
@@ -1826,6 +1828,7 @@
                     <span class="bounty-board__kicker">Trvání</span>
                   </div>
                   <div class="bounty-board__segment-grid">
+                    <label class="bounty-board__segment"><input type="radio" name="bounty-duration" value="1"><span>1h</span></label>
                     <label class="bounty-board__segment"><input type="radio" name="bounty-duration" value="6"><span>6h</span></label>
                     <label class="bounty-board__segment"><input type="radio" name="bounty-duration" value="12" checked><span>12h</span></label>
                     <label class="bounty-board__segment"><input type="radio" name="bounty-duration" value="24"><span>24h</span></label>
@@ -1861,16 +1864,16 @@
                 </div>
                 <div class="bounty-board__choice-grid">
                   <label class="bounty-board__choice">
-                    <input type="radio" name="bounty-objective" value="occupy-sector" checked>
-                    <span>Za obsazení districtu</span>
+                    <input type="radio" name="bounty-objective" value="attack-player" checked>
+                    <span>Útok na hráče</span>
                   </label>
                   <label class="bounty-board__choice">
-                    <input type="radio" name="bounty-objective" value="successful-attack">
-                    <span>Za úspěšný útok</span>
+                    <input type="radio" name="bounty-objective" value="attack-district">
+                    <span>Útok na district</span>
                   </label>
                   <label class="bounty-board__choice">
-                    <input type="radio" name="bounty-objective" value="destroy-units">
-                    <span>Za zničení obrany</span>
+                    <input type="radio" name="bounty-objective" value="destroy-player-district">
+                    <span>Zničení districtu</span>
                   </label>
                 </div>
                 <label id="bounty-district-field" class="bounty-board__field">
@@ -1911,7 +1914,7 @@
                 <div class="bounty-board__table-wrap">
                   <table class="bounty-board__table">
                     <thead>
-                      <tr><th>Cíl</th><th>Typ</th><th>Odměna</th><th>Do</th></tr>
+                      <tr><th>Cíl</th><th>Typ bounty</th><th>District</th><th>Odměna</th><th>Vypsal</th><th>Zbývá</th><th>Status</th><th>Akce</th></tr>
                     </thead>
                     <tbody id="bounty-board-body"></tbody>
                   </table>
@@ -1936,7 +1939,7 @@
             <div class="bounty-board__header-copy">
               <div class="bounty-board__eyebrow">Bounty confirm</div>
               <h3>Potvrdit vypsání bounty</h3>
-              <p>Po potvrzení se odměna uloží na board. Hráč, který splní podmínky, ji dostane připsanou na účet a do skladu.</p>
+              <p>Po potvrzení se částka zamkne v server escrow. Vyplacení řeší jen server po skutečné akci.</p>
             </div>
             <button id="bounty-confirm-modal-close" class="modal__close" type="button" aria-label="Zavřít">×</button>
           </header>

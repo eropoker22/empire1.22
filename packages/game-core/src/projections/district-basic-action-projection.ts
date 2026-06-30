@@ -30,6 +30,7 @@ export const createDistrictRobTargetViews = (
       });
       const populationBlocked = hasPopulationForRob ? null : "INSUFFICIENT_POPULATION";
       const actionAllowed = validation.allowed && !populationBlocked;
+      const disabledCode = actionAllowed ? null : populationBlocked ?? validation.reasonCode ?? null;
 
       return {
         districtId: target.id,
@@ -37,10 +38,8 @@ export const createDistrictRobTargetViews = (
         ownerPlayerId: target.ownerPlayerId,
         status: target.status,
         enabled: actionAllowed,
-        disabledCode: actionAllowed ? null : populationBlocked ?? validation.reasonCode,
-        disabledReason: actionAllowed
-          ? null
-          : formatActionReason(populationBlocked ?? validation.reasonCode),
+        disabledCode,
+        disabledReason: disabledCode ? formatActionReason(disabledCode) : null,
         expectedTargetVersion: target.version,
         expectedSourceVersion: source.version
       };

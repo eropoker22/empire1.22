@@ -80,6 +80,47 @@ describe("building network runtime", () => {
     });
   });
 
+  it("uses phaseState gamePhase and ignores destroyed districts when counting owned buildings", () => {
+    const runtime = createRuntime({
+      getResolvedWorldState: () => ({
+        ownedDistrictIds: [],
+        destroyedDistrictIds: [2],
+        phaseState: { gamePhase: "launch" }
+      }),
+      getCurrentPlayerOwnedDistrictIds: (interactionState = {}) => {
+        const ownedDistrictIds = new Set(interactionState.ownedDistrictIds || []);
+        if (interactionState.gamePhase === "launch") {
+          for (const [districtId, ownerId] of interactionState.launchOwnerByDistrictId || []) {
+            if (Number(ownerId) === 1) ownedDistrictIds.add(Number(districtId));
+          }
+        }
+        return ownedDistrictIds;
+      }
+    });
+
+    expect(runtime.getOwnedAutoSalonCount()).toBe(1);
+  });
+
+  it("counts shopping malls from the same ownership source as other building networks", () => {
+    const runtime = createRuntime({
+      getResolvedWorldState: () => ({
+        ownedDistrictIds: [3],
+        destroyedDistrictIds: [],
+        phaseState: { gamePhase: "live" }
+      }),
+      getCurrentPlayerOwnedDistrictIds: (interactionState = {}) => new Set(interactionState.ownedDistrictIds || []),
+      resolveDistrictBuildingProfile: (district) => ({
+        buildings: {
+          1: [],
+          2: [],
+          3: [{ baseName: "obchodni centrum" }]
+        }[district.id] || []
+      })
+    });
+
+    expect(runtime.getOwnedShoppingMallCountForMarket()).toBe(1);
+  });
+
   it("keeps warehouse capacity and usage helpers deterministic", () => {
     const runtime = createRuntime();
     const capacity = runtime.getWarehouseCapacityBreakdown(1);

@@ -109,6 +109,33 @@ export const isEveningCourseActive = (
 ): boolean =>
   Math.max(0, Number(metadata.eveningCourseExpiresAtTick || 0)) > tick;
 
+export const resolveSchoolEveningCourseApartmentProductionMultiplier = (input: {
+  state: CoreGameState;
+  playerId: string | null | undefined;
+  config?: SchoolBalanceConfig;
+  tick: number;
+}): number => {
+  if (!input.config || !input.playerId) {
+    return 1;
+  }
+
+  const hasActiveEveningCourse = Object.values(input.state.buildingsById).some((building) => {
+    if (
+      building.buildingTypeId !== input.config?.buildingTypeId
+      || building.ownerPlayerId !== input.playerId
+      || building.status !== "active"
+    ) {
+      return false;
+    }
+
+    return isEveningCourseActive(getSchoolMetadata(building, input.tick), input.tick);
+  });
+
+  return hasActiveEveningCourse
+    ? Math.max(1, Number(input.config.eveningCourse.populationProductionMultiplier || 1))
+    : 1;
+};
+
 export const resolveSchoolTalentChancePct = (input: {
   ownedCount: number;
   config: SchoolBalanceConfig;
@@ -323,7 +350,7 @@ export const resolveSchoolAction = (input: {
     influenceChange: 0,
     inputCost: { cash: input.config.eveningCourse.costCleanCash },
     outputGain: {},
-    reportText: "Večerní kurz běží. Škola dočasně zvedá studenty, talent roll a clean income.",
+    reportText: "Večerní kurz běží. Škola dočasně zvedá výrobu lidí v bytových blocích.",
     schoolResult: {
       type: "education_boost",
       expiresAtTick: nextMetadata.eveningCourseExpiresAtTick,

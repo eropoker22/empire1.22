@@ -20,6 +20,7 @@ import type { CoreError } from "../../errors";
 import type { GameCoreContext } from "../../engine/context";
 import type { CoreEvent } from "../../events";
 import type { AllianceLifecycleBalanceConfig } from "../../contracts/game-mode-config";
+import { cleanupAllianceDefense } from "./allianceDefenseCleanup";
 
 export const ALLIANCE_READY_TOO_EARLY = "READY_TOO_EARLY";
 
@@ -781,44 +782,6 @@ const cleanupAllianceExitEffects = (
   };
 
   return cleanupAllianceDefense(invalidateFormerAllySpyAuth(nextState, input.playerId, input.previousAllies), input);
-};
-
-const cleanupAllianceDefense = (
-  state: CoreGameState,
-  input: { allianceId: string; playerId: string; previousAllies: string[]; sourceEventId: string; nowIso: string }
-): CoreGameState => {
-  const contributions = { ...(state.allianceDefenseContributionsById ?? {}) };
-  const districtsById = { ...state.districtsById };
-  for (const contribution of Object.values(contributions)) {
-    const shouldReturn = contribution.allianceId === input.allianceId
-      && contribution.status === "active"
-      && (contribution.ownerPlayerId === input.playerId || contribution.hostPlayerId === input.playerId);
-    if (!shouldReturn || contribution.combatSnapshotId) continue;
-    contributions[contribution.id] = {
-      ...contribution,
-      status: "returned",
-      returnedAt: input.nowIso,
-      sourceEventId: input.sourceEventId,
-      version: contribution.version + 1
-    };
-    const district = districtsById[contribution.districtId];
-    if (district) {
-      const currentAmount = Number(district.defenseLoadout[contribution.itemId as keyof typeof district.defenseLoadout] ?? 0);
-      districtsById[district.id] = {
-        ...district,
-        defenseLoadout: {
-          ...district.defenseLoadout,
-          [contribution.itemId]: Math.max(0, currentAmount - contribution.amount)
-        },
-        version: district.version + 1
-      };
-    }
-  }
-  return {
-    ...state,
-    districtsById,
-    allianceDefenseContributionsById: contributions
-  };
 };
 
 const invalidateFormerAllySpyAuth = (

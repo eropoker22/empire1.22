@@ -24,6 +24,7 @@ export const freeModeApartmentBlockConfig: ApartmentBlockBalanceConfig = {
   },
   collectPopulation: {
     actionId: "collect_population",
-    cooldownMinutes: 0
+    cooldownMinutes: 0,
+    minCollectPopulation: 10
   }
 };

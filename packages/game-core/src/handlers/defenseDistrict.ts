@@ -1,4 +1,4 @@
-import type { PlaceDefenseCommand, RemoveDefenseCommand } from "@empire/shared-types";
+import type { AllianceDefenseContribution, PlaceDefenseCommand, RemoveDefenseCommand } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreError } from "../errors";
@@ -16,6 +16,7 @@ export const handlePlaceDefense = (
 
   const player = state.playersById[command.playerId]!;
   const district = state.districtsById[command.payload.targetDistrictId]!;
+  const isAlliedDistrict = district.ownerPlayerId !== player.id;
   const resource = state.resourceStatesById[player.resourceStateId];
   const currentInventory = Math.max(0, Number(resource?.balances[command.payload.defenseItemId] || 0));
   if (!resource || currentInventory < command.payload.amount) {
@@ -29,6 +30,21 @@ export const handlePlaceDefense = (
       }]
     };
   }
+
+  const contribution: AllianceDefenseContribution | null = isAlliedDistrict && player.allianceId && district.ownerPlayerId
+    ? {
+        id: `alliance-defense:${command.id}`,
+        allianceId: player.allianceId,
+        ownerPlayerId: player.id,
+        hostPlayerId: district.ownerPlayerId,
+        districtId: district.id,
+        itemId: command.payload.defenseItemId,
+        amount: command.payload.amount,
+        status: "active",
+        createdAt: command.issuedAt,
+        version: 1
+      }
+    : null;
 
   return {
     nextState: {
@@ -60,6 +76,12 @@ export const handlePlaceDefense = (
           version: resource.version + 1
         }
       },
+      allianceDefenseContributionsById: contribution
+        ? {
+            ...(state.allianceDefenseContributionsById ?? {}),
+            [contribution.id]: contribution
+          }
+        : state.allianceDefenseContributionsById,
       root: { ...state.root, version: state.root.version + 1 }
     },
     events: [
@@ -84,7 +106,22 @@ export const handleRemoveDefense = (
 
   const player = state.playersById[command.playerId]!;
   const district = state.districtsById[command.payload.targetDistrictId]!;
+  const isAlliedDistrict = district.ownerPlayerId !== player.id;
   const currentPlaced = Math.max(0, Number(district.defenseLoadout[command.payload.defenseItemId] || 0));
+  const ownContributionAmount = isAlliedDistrict
+    ? sumActiveContributionAmount(state, player.id, district.id, command.payload.defenseItemId)
+    : currentPlaced;
+  if (ownContributionAmount < command.payload.amount) {
+    return {
+      nextState: state,
+      events: [],
+      errors: [{
+        code: "DEFENSE_NOT_OWNED",
+        message: "Not enough owned defense contribution to remove.",
+        details: { defenseItemId: command.payload.defenseItemId, amount: command.payload.amount }
+      }]
+    };
+  }
   if (currentPlaced < command.payload.amount) {
     return {
       nextState: state,
@@ -106,6 +143,9 @@ export const handleRemoveDefense = (
     lastUpdatedTick: state.root.tick,
     version: 1
   };
+  const nextContributions = isAlliedDistrict
+    ? removeContributionAmount(state, player.id, district.id, command.payload.defenseItemId, command.payload.amount, command.issuedAt)
+    : state.allianceDefenseContributionsById;
 
   return {
     nextState: {
@@ -137,6 +177,7 @@ export const handleRemoveDefense = (
           version: resource.version + (state.resourceStatesById[resource.id] ? 1 : 0)
         }
       },
+      allianceDefenseContributionsById: nextContributions,
       root: { ...state.root, version: state.root.version + 1 }
     },
     events: [
@@ -149,4 +190,49 @@ export const handleRemoveDefense = (
     ],
     errors: []
   };
+};
+
+const sumActiveContributionAmount = (
+  state: CoreGameState,
+  ownerPlayerId: string,
+  districtId: string,
+  itemId: string
+): number =>
+  Object.values(state.allianceDefenseContributionsById ?? {})
+    .filter((contribution) =>
+      contribution.status === "active"
+      && contribution.ownerPlayerId === ownerPlayerId
+      && contribution.districtId === districtId
+      && contribution.itemId === itemId
+    )
+    .reduce((total, contribution) => total + Math.max(0, Number(contribution.amount || 0)), 0);
+
+const removeContributionAmount = (
+  state: CoreGameState,
+  ownerPlayerId: string,
+  districtId: string,
+  itemId: string,
+  amount: number,
+  returnedAt: string
+): CoreGameState["allianceDefenseContributionsById"] => {
+  let remaining = amount;
+  const nextContributions = { ...(state.allianceDefenseContributionsById ?? {}) };
+  for (const contribution of Object.values(nextContributions)) {
+    if (
+      remaining <= 0
+      || contribution.status !== "active"
+      || contribution.ownerPlayerId !== ownerPlayerId
+      || contribution.districtId !== districtId
+      || contribution.itemId !== itemId
+    ) {
+      continue;
+    }
+    const contributionAmount = Math.max(0, Number(contribution.amount || 0));
+    const removedAmount = Math.min(remaining, contributionAmount);
+    remaining -= removedAmount;
+    nextContributions[contribution.id] = removedAmount >= contributionAmount
+      ? { ...contribution, status: "returned", returnedAt, version: contribution.version + 1 }
+      : { ...contribution, amount: contributionAmount - removedAmount, version: contribution.version + 1 };
+  }
+  return nextContributions;
 };

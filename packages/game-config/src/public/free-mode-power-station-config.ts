@@ -42,8 +42,8 @@ export const freeModePowerStationConfig: PowerStationBalanceConfig = {
   },
   backupGridSwitch: {
     actionId: "backup_grid_switch",
-    cooldownMinutes: 22,
-    durationMinutes: 8,
+    cooldownMinutes: 60,
+    durationMinutes: 25,
     cleanCashCost: 1200,
     heatGain: 3,
     temporaryInfrastructureBonusPct: 12,

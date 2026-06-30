@@ -1,11 +1,27 @@
 export function createBuildingNetworkRuntime(deps = {}) {
-  const countOwnedBuildingByBaseName = (baseName) => {
+  const resolveWorldGamePhase = (worldState = {}) => (
+    String(worldState.phaseState?.gamePhase || worldState.phase || "live").trim().toLowerCase() === "launch"
+      ? "launch"
+      : "live"
+  );
+
+  const getOwnedDistrictIdsForBuildingCounts = () => {
     const worldState = deps.getResolvedWorldState();
     const interactionState = {
       ownedDistrictIds: new Set(worldState.ownedDistrictIds || []),
-      gamePhase: worldState.phase || "live"
+      gamePhase: resolveWorldGamePhase(worldState),
+      launchOwnerByDistrictId: deps.startPhaseOwnerByDistrictId
     };
-    const ownedDistrictIds = deps.getCurrentPlayerOwnedDistrictIds(interactionState);
+    const destroyedDistrictIds = new Set(worldState.destroyedDistrictIds || []);
+    return new Set(
+      Array.from(deps.getCurrentPlayerOwnedDistrictIds(interactionState) || [])
+        .map((districtId) => Number(districtId))
+        .filter((districtId) => districtId > 0 && !destroyedDistrictIds.has(districtId))
+    );
+  };
+
+  const countOwnedBuildingByBaseName = (baseName) => {
+    const ownedDistrictIds = getOwnedDistrictIdsForBuildingCounts();
     return deps.getDistrictResourceCatalog().reduce((count, district) => {
       if (!ownedDistrictIds.has(Number(district.id))) return count;
       const profile = deps.resolveDistrictBuildingProfile(district);
@@ -14,17 +30,7 @@ export function createBuildingNetworkRuntime(deps = {}) {
     }, 0);
   };
 
-  const getOwnedShoppingMallCountForMarket = () => deps.getDistrictResourceCatalog().reduce((total, district) => {
-    const ownerId = Number(deps.startPhaseOwnerByDistrictId.get(Number(district.id)) || 0);
-    if (ownerId !== deps.currentPlayerId) {
-      return total;
-    }
-    const profile = deps.resolveDistrictBuildingProfile(district);
-    const mallCount = (profile?.buildings || []).filter((building) =>
-      deps.normalizeBuildingLookupKey(building.baseName) === "obchodni centrum"
-    ).length;
-    return total + mallCount;
-  }, 0);
+  const getOwnedShoppingMallCountForMarket = () => countOwnedBuildingByBaseName("obchodni centrum");
 
   const getShoppingMallMarketDiscountForTab = (tabId) => {
     const ownedMalls = getOwnedShoppingMallCountForMarket();

@@ -1,11 +1,14 @@
 import type {
   Alliance,
   AllianceAuditEvent,
+  AllianceChatMessage,
   AllianceDefenseContribution,
   AllianceExitPenalty,
+  AllianceInvite,
   AllianceId,
   Building,
   BuildingId,
+  Bounty,
   CityFeedEvent,
   CooldownState,
   District,
@@ -40,12 +43,15 @@ export interface NormalizedGameState {
   root: GameStateRoot;
   playersById: Record<PlayerId, Player>;
   alliancesById: Record<AllianceId, Alliance>;
+  allianceInvitesById?: Record<string, AllianceInvite>;
+  allianceChatMessagesById?: Record<string, AllianceChatMessage>;
   allianceExitPenaltiesById?: Record<string, AllianceExitPenalty>;
   formerAllianceTrucesById?: Record<string, FormerAllianceTruce>;
   allianceDefenseContributionsById?: Record<string, AllianceDefenseContribution>;
   allianceAuditEventsById?: Record<string, AllianceAuditEvent>;
   districtsById: Record<DistrictId, District>;
   buildingsById: Record<BuildingId, Building>;
+  bountiesById?: Record<string, Bounty>;
   resourceStatesById: Record<string, ResourceState>;
   cooldownStatesById: Record<string, CooldownState>;
   effectStatesById: Record<string, EffectState>;

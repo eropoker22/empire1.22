@@ -17,6 +17,9 @@ const context = {
 const MAFIAN_HEAT_GAIN_MULTIPLIER = 0.96;
 
 const mafianHeat = (baseHeat: number): number => baseHeat * MAFIAN_HEAT_GAIN_MULTIPLIER;
+const ticksForMs = (ms: number): number => Math.ceil(ms / context.config.tickRateMs);
+const cooldownTicksForMs = (ms: number): number =>
+  Math.ceil(ticksForMs(ms) * context.config.balance.cooldownMultiplier);
 
 const expectMafianHeat = (actual: number, baseHeat: number): void => {
   expect(actual).toBeCloseTo(mafianHeat(baseHeat), 5);
@@ -637,6 +640,28 @@ describe("run-building-action command flow", () => {
       nextInfluenceDiscountPct: 8,
       nextInfluenceDiscountExpiresAtTick: 96,
       riskEvents: [{ actionId: "quiet_negotiation", riskPct: 6 }]
+    });
+
+    const media = applyCommand(
+      quietState,
+      createRunBuildingActionCommandFixture({
+        id: "command:lobby:media",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "media_screen"
+        }
+      }),
+      context
+    );
+
+    expect(media.errors).toEqual([]);
+    expect(media.nextState.resourceStatesById["resource:1"].balances.cash).toBe(3000);
+    expect(media.nextState.districtsById["district:1"].influence).toBe(80);
+    expectMafianHeat(media.nextState.districtsById["district:1"].heat, 4);
+    expect(media.nextState.buildingsById[building.id].metadata?.lobbyClub).toMatchObject({
+      mediaScreenExpiresAtTick: 96,
+      riskEvents: [{ actionId: "media_screen", riskPct: 7 }]
     });
   });
 
@@ -1811,10 +1836,12 @@ describe("run-building-action command flow", () => {
 
     expect(first.errors).toEqual([]);
     expect(first.nextState.resourceStatesById["resource:1"].balances.cash).toBe(400);
+    const schoolAction = context.config.balance.buildingActions?.evening_course;
+    expect(schoolAction).toBeDefined();
     expect(first.nextState.buildingsById[building.id].metadata?.school).toMatchObject({
-      eveningCourseExpiresAtTick: 96
+      eveningCourseExpiresAtTick: ticksForMs(schoolAction?.durationMs ?? 0)
     });
-    expect(first.nextState.buildingsById[building.id].actionCooldowns.evening_course).toBe(192);
+    expect(first.nextState.buildingsById[building.id].actionCooldowns.evening_course).toBe(cooldownTicksForMs(schoolAction?.cooldownMs ?? 0));
     expect(second.errors.map((error) => error.code)).toContain("building_action_cooldown");
     expect(second.errors.map((error) => error.code)).toContain("school_evening_course_active");
     expect(report).toMatchObject({
@@ -2171,9 +2198,16 @@ describe("run-building-action command flow", () => {
   });
 
   it("activates smuggling tunnel open channel and blocks stacking while active", () => {
+    const openChannelConfig = context.config.balance.smugglingTunnel?.openChannel;
+    expect(openChannelConfig).toMatchObject({
+      durationMinutes: 15,
+      cooldownMinutes: 30,
+      costCleanCash: 800,
+      heatGain: 5
+    });
     const { state, building } = createStateWithFixedBuilding("smuggling_tunnel", {
       playerBalances: {
-        cash: 0,
+        cash: 1000,
         "dirty-cash": 1000
       }
     });
@@ -2205,12 +2239,16 @@ describe("run-building-action command flow", () => {
     const report = createConflictReportViews(first.nextState, { playerId: "player:1", limit: 1 })[0];
 
     expect(first.errors).toEqual([]);
-    expect(first.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(200);
+    expect(first.nextState.resourceStatesById["resource:1"].balances.cash).toBe(200);
+    expect(first.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(1000);
     expect(first.nextState.playersById["player:1"].metadata?.smugglingTunnel).toMatchObject({
       openChannelStartedAtTick: 0,
-      openChannelExpiresAtTick: 84
+      openChannelExpiresAtTick: ticksForMs((openChannelConfig?.durationMinutes ?? 0) * 60 * 1000)
     });
-    expect(first.nextState.buildingsById[building.id].actionCooldowns.open_channel).toBe(173);
+    expect(first.nextState.buildingsById[building.id].actionCooldowns.open_channel).toBe(
+      cooldownTicksForMs((openChannelConfig?.cooldownMinutes ?? 0) * 60 * 1000)
+    );
+    expect(first.nextState.districtsById["district:1"].heat).toBe(4);
     expect(second.errors.map((error) => error.code)).toContain("building_action_cooldown");
     expect(second.errors.map((error) => error.code)).toContain("smuggling_tunnel_open_channel_active");
     expect(report).toMatchObject({
@@ -2218,7 +2256,9 @@ describe("run-building-action command flow", () => {
       buildingActionId: "open_channel",
       smugglingTunnelResult: {
         type: "open_channel",
-        dirtyCashCost: 800,
+        cleanCashCost: 800,
+        durationTicks: ticksForMs((openChannelConfig?.durationMinutes ?? 0) * 60 * 1000),
+        heatGain: 5,
         tunnelDirtyProductionBonusPct: 45,
         dealerSalePriceBonusPct: 12,
         streetIncidentFlatRiskPct: 5
@@ -2255,6 +2295,46 @@ describe("run-building-action command flow", () => {
     expect(result.districtsById["district:1"].influence).toBeGreaterThan(0);
     expect(context.config.balance.stripClub?.noLaundering).toBe(true);
     expect(context.config.balance.stripClub?.noAuditRisk).toBe(true);
+  });
+
+  it("generates one Strip Club passive rumor per owned club every thirty minutes", () => {
+    const { state, building } = createStateWithFixedBuilding("strip_club", {
+      id: "building:district-1:strip_club:1",
+      metadata: {
+        stripClub: {
+          lastPassiveRumorCheckTick: 0,
+          rumorEvents: []
+        }
+      }
+    });
+    const secondClub = {
+      ...building,
+      id: "building:district-2:strip_club:2",
+      districtId: "district:2",
+      metadata: {
+        stripClub: {
+          lastPassiveRumorCheckTick: 0,
+          rumorEvents: []
+        }
+      }
+    };
+    state.buildingsById[secondClub.id] = secondClub;
+    state.districtsById["district:2"] = createDistrictFixture({
+      id: "district:2",
+      buildingIds: [secondClub.id],
+      ownerPlayerId: "player:1"
+    });
+    state.root.districtIds.push("district:2");
+    state.root.tick = ticksForMs(30 * 60 * 1000);
+
+    const result = collectIncome(state, context);
+    const firstMetadata = result.buildingsById[building.id].metadata?.stripClub as { rumorEvents?: unknown[] } | undefined;
+    const secondMetadata = result.buildingsById[secondClub.id].metadata?.stripClub as { rumorEvents?: unknown[] } | undefined;
+
+    expect(context.config.balance.stripClub?.passiveRumorIntervalMinutes).toBe(30);
+    expect(context.config.balance.stripClub?.baseRumorChancePct).toBe(100);
+    expect(firstMetadata?.rumorEvents).toHaveLength(1);
+    expect(secondMetadata?.rumorEvents).toHaveLength(1);
   });
 
   it("runs Restaurant as passive clean, influence, heat, and rumor building without dirty cash or actions", () => {
@@ -2475,7 +2555,7 @@ describe("run-building-action command flow", () => {
     expect(first.errors).toEqual([]);
     expect(first.nextState.resourceStatesById["resource:1"].balances.cash).toBe(4200);
     expect(first.nextState.buildingsById[building.id].metadata?.stripClub).toMatchObject({
-      vipLoungeExpiresAtTick: 96
+      vipLoungeExpiresAtTick: ticksForMs((context.config.balance.stripClub?.vipLounge.durationMinutes ?? 0) * 60 * 1000)
     });
     expect(second.errors.map((error) => error.code)).toContain("building_action_cooldown");
     expect(second.errors.map((error) => error.code)).toContain("strip_club_vip_lounge_active");
@@ -2636,9 +2716,9 @@ describe("run-building-action command flow", () => {
     expectMafianHeat(first.nextState.districtsById["district:1"].heat, 3);
     expect(first.nextState.districtsById["district:1"].influence).toBe(0);
     expect(first.nextState.buildingsById[building.id].metadata?.powerStation).toMatchObject({
-      backupGridSwitchExpiresAtTick: 96
+      backupGridSwitchExpiresAtTick: ticksForMs(25 * 60 * 1000)
     });
-    expect(first.nextState.buildingsById[building.id].actionCooldowns.backup_grid_switch).toBe(212);
+    expect(first.nextState.buildingsById[building.id].actionCooldowns.backup_grid_switch).toBe(cooldownTicksForMs(60 * 60 * 1000));
     expect(second.errors.map((error) => error.code)).toContain("building_action_cooldown");
     expect(second.errors.map((error) => error.code)).toContain("power_station_backup_grid_active");
     expect(report).toMatchObject({

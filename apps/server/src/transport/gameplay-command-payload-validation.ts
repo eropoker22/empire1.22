@@ -1,16 +1,8 @@
 import type { DomainError } from "@empire/shared-types";
-import {
-  isAllianceCommandType,
-  validateAllianceCommandPayload
-} from "./gameplay-alliance-payload-validation";
-import {
-  isBasicActionCommandType,
-  validateBasicActionCommandPayload
-} from "./gameplay-basic-action-payload-validation";
-import {
-  isMarketCommandType,
-  validateMarketCommandPayload
-} from "./gameplay-market-payload-validation";
+import { isAllianceCommandType, validateAllianceCommandPayload } from "./gameplay-alliance-payload-validation";
+import { isBasicActionCommandType, validateBasicActionCommandPayload } from "./gameplay-basic-action-payload-validation";
+import { isBountyCommandType, validateBountyCommandPayload } from "./gameplay-bounty-payload-validation";
+import { isMarketCommandType, validateMarketCommandPayload } from "./gameplay-market-payload-validation";
 
 type GameplaySliceRequestKind = "submit";
 
@@ -38,6 +30,10 @@ export const validateGameCommandPayload = (
   }
 
   if (validateMarketCommandPayload(errors, type, payload)) {
+    return;
+  }
+
+  if (validateBountyCommandPayload(errors, type, payload)) {
     return;
   }
 
@@ -110,7 +106,7 @@ const hasPayloadSchema = (type: string): boolean =>
     "collect-production",
     "craft-item",
     "run-building-action"
-  ].includes(type) || isBasicActionCommandType(type) || isAllianceCommandType(type) || isMarketCommandType(type);
+  ].includes(type) || isBasicActionCommandType(type) || isAllianceCommandType(type) || isMarketCommandType(type) || isBountyCommandType(type);
 
 const validateRunBuildingActionOptionalPayload = (
   errors: DomainError[],

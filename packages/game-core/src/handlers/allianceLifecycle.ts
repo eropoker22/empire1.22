@@ -12,6 +12,7 @@ import {
   leaveAlliance,
   startInactiveMemberKickVote
 } from "../rules/alliances/allianceLifecycle";
+import { handleAllianceMembershipCommand } from "./allianceMembership";
 
 export const handleAllianceLifecycleCommand = (
   state: CoreGameState,
@@ -19,6 +20,12 @@ export const handleAllianceLifecycleCommand = (
   context: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
   switch (command.type) {
+    case "create-alliance":
+    case "join-alliance":
+    case "invite-alliance-member":
+    case "respond-alliance-invite":
+    case "send-alliance-chat-message":
+      return handleAllianceMembershipCommand(state, command, context);
     case "confirm-alliance-ready":
       return confirmAllianceReady(state, command, context);
     case "start-alliance-kick-vote":

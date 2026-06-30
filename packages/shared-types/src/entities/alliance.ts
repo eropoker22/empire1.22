@@ -149,3 +149,23 @@ export interface AllianceAuditEvent {
   createdAt: string;
   payload: Record<string, unknown>;
 }
+
+export interface AllianceInvite {
+  id: string;
+  allianceId: AllianceId;
+  invitedByPlayerId: PlayerId;
+  targetPlayerId: PlayerId;
+  status: "pending" | "accepted" | "rejected" | "cancelled" | "expired";
+  createdAt: string;
+  respondedAt?: string | null;
+  version: number;
+}
+
+export interface AllianceChatMessage {
+  id: string;
+  allianceId: AllianceId;
+  authorPlayerId: PlayerId;
+  body: string;
+  createdAt: string;
+  version: number;
+}

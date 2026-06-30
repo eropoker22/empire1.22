@@ -528,6 +528,43 @@ describe("building detail, production and recipe UI modules", () => {
     }));
   });
 
+  it("shows disabled action reason directly inside the grey action button", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "2:dealers" });
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "street-dealers",
+      title: "Pouliční dealeři",
+      badge: "Distribuce",
+      levelLabel: "L1",
+      name: "Pouliční dealeři",
+      meta: "",
+      stats: [],
+      mechanics: [],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { disabled: true, title: "" },
+      showActionsInSinglePanel: true,
+      actions: [{
+        index: 2,
+        actionId: "street_dealers_move_stash",
+        buildingTypeId: "street_dealers",
+        title: "Přesunout stash",
+        disabled: true,
+        disabledReason: "Potřebuješ biomass x3.",
+        disabledTone: "insufficient-funds",
+        cooldownLabel: "Cooldown 10m 00s"
+      }]
+    });
+
+    const action = shell.querySelector("[data-district-building-detail-action-id='street_dealers_move_stash']");
+    expect(action.disabled).toBe(true);
+    expect(action.dataset.districtBuildingDetailDisabledTone).toBe("insufficient-funds");
+    expect(action.querySelector(".building-info-action-row__desc").hidden).toBe(false);
+    expect(action.querySelector(".building-info-action-row__desc").textContent).toBe("Potřebuješ biomass x3.");
+  });
+
   it("renders infrastructure buildings as one merged panel with support actions", () => {
     const document = setupDocument();
     const root = document.createElement("div");
@@ -555,7 +592,7 @@ describe("building detail, production and recipe UI modules", () => {
       actions: [
         { index: 0, title: "Stabilizovat síť", description: "Zvedne income.", cooldownLabel: "Cooldown: 0s" },
         { index: 1, title: "Napájet výrobu", description: "Podpoří výrobu.", cooldownLabel: "Cooldown: 0s" },
-        { index: 2, title: "Snížit výpadky", description: "Sníží heat.", cooldownLabel: "Cooldown: 0s" }
+        { index: 2, title: "Snížit heat", description: "Sníží heat.", cooldownLabel: "Cooldown: 0s" }
       ]
     });
 
@@ -567,7 +604,7 @@ describe("building detail, production and recipe UI modules", () => {
     expect(shell.classList.contains("is-building-detail-single-panel")).toBe(true);
     expect(infoPanel.hidden).toBe(true);
     expect(actions).toHaveLength(3);
-    expect(actions[2].querySelector(".building-info-action-row__title").textContent).toBe("Snížit výpadky");
+    expect(actions[2].querySelector(".building-info-action-row__title").textContent).toBe("Snížit heat");
   });
 
   it("renders street economy buildings as one merged panel with actions", () => {

@@ -1,5 +1,6 @@
 export * from "./alliance";
 export * from "./building";
+export * from "./bounty";
 export * from "./city-feed-event";
 export * from "./cooldown-state";
 export * from "./district";

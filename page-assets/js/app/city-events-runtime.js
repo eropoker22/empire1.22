@@ -87,6 +87,7 @@ const AGENTS = Object.freeze({
     type: "Pouliční boss",
     desc: "Bývalý vyhazovač, co si vymlátil vlastní teritorium. Neřeší kecy, jen výsledky. Respekt si bere silou.",
     quote: "Buď to vezmeš nebo to vezme někdo jinej.",
+    requiredInfluence: 0,
     tasks: victorTasks
   }),
   leon: Object.freeze({
@@ -94,6 +95,7 @@ const AGENTS = Object.freeze({
     type: "Fixer / obchodník",
     desc: "Všechno ví, všechno zařídí. Má kontakty v každém sektoru a nikdy nepracuje zadarmo.",
     quote: "Nejde o to, co máš. Jde o to, co z toho vytěžíš.",
+    requiredInfluence: 100,
     tasks: leonTasks
   }),
   nira: Object.freeze({
@@ -101,6 +103,7 @@ const AGENTS = Object.freeze({
     type: "Informační síť / vliv",
     desc: "Vlastní několik klubů a ví o každém všechno. Usmívá se ale tahá za nitky v pozadí.",
     quote: "Informace jsou dražší než krev. A já jich mám dost.",
+    requiredInfluence: 300,
     tasks: nyraTasks
   })
 });
@@ -195,6 +198,22 @@ function getCityEventRunState(taskId) {
   return {
     active: remainingMs > 0,
     remainingSec: Math.max(0, Math.ceil(remainingMs / 1000))
+  };
+}
+
+function getActiveCityEventRun(nowMs = Date.now()) {
+  const activeRuns = getStoredCityEventsState().activeRuns
+    .filter((entry) => Number(entry?.endsAt || 0) > nowMs)
+    .sort((left, right) => Number(left?.endsAt || 0) - Number(right?.endsAt || 0));
+  const run = activeRuns[0] || null;
+  if (!run) {
+    return { active: false, run: null, task: null, remainingSec: 0 };
+  }
+  return {
+    active: true,
+    run,
+    task: taskLookup.get(String(run.taskId || run.id || "")) || null,
+    remainingSec: Math.max(0, Math.ceil((Number(run.endsAt || 0) - nowMs) / 1000))
   };
 }
 
@@ -339,6 +358,16 @@ function getTopbarInfluenceValue(root) {
   const influenceElement = root.querySelector("[data-topbar-influence]");
   const raw = influenceElement?.dataset.influenceValue || influenceElement?.textContent || "0";
   return Math.max(0, Math.floor(Number(raw || 0) || 0));
+}
+
+function resolveAgentUnlockState(root, agent) {
+  const requiredInfluence = Math.max(0, Math.floor(Number(agent?.requiredInfluence || 0)));
+  const currentInfluence = getTopbarInfluenceValue(root);
+  return {
+    requiredInfluence,
+    currentInfluence,
+    unlocked: currentInfluence >= requiredInfluence
+  };
 }
 
 function setTopbarInfluenceValue(root, nextValue) {
@@ -521,6 +550,32 @@ function initCityEventsRuntime() {
     }
   };
 
+  const syncAgentUnlockBadges = () => {
+    agentButtons.forEach((button) => {
+      const agentKey = String(button.dataset.agent || "");
+      const agent = AGENTS[agentKey];
+      if (!agent) return;
+      const unlockState = resolveAgentUnlockState(root, agent);
+      button.dataset.agentLocked = unlockState.unlocked ? "false" : "true";
+      button.setAttribute("aria-disabled", unlockState.unlocked ? "false" : "true");
+      const badge = button.querySelector(".events-agent__unlock-badge");
+      if (badge) {
+        const required = unlockState.requiredInfluence;
+        badge.textContent = required > 0
+          ? `Vliv: ${required}+`
+          : "";
+        badge.hidden = required <= 0;
+      }
+      if (unlockState.requiredInfluence > 0) {
+        button.title = unlockState.unlocked
+          ? `Questy odemčené. Vliv ${unlockState.currentInfluence}/${unlockState.requiredInfluence}.`
+          : `Questy zamčené. Potřebuješ ${unlockState.requiredInfluence} vliv. Teď máš ${unlockState.currentInfluence}.`;
+      } else {
+        button.removeAttribute("title");
+      }
+    });
+  };
+
   const closeEventDetailModal = () => {
     detailModal.classList.add("hidden");
     selectedEventTask = null;
@@ -531,11 +586,16 @@ function initCityEventsRuntime() {
     selectedEventTask = task;
     const difficulty = resolveEventDifficultyMeta(task.successRate);
     const runState = getCityEventRunState(task.id);
+    const activeRun = getActiveCityEventRun();
+    const isBlockedByOtherRun = activeRun.active && !runState.active;
+    const disabledReason = isBlockedByOtherRun
+      ? `Jiný event probíhá (${activeRun.remainingSec}s)`
+      : "";
     if (detailTitle) detailTitle.textContent = String(task.title || "Detail eventu");
     if (detailGiver) detailGiver.textContent = String(task.giver || AGENTS[task.agentKey || ""]?.name || "-");
     if (detailStats) {
       detailStats.innerHTML = `
-        <span>Úspěšnost ${Math.max(0, Math.floor(Number(task.successRate || 0)))}% • ${Math.max(1, Math.floor(Number(task.durationSec || 1)))} s${runState.active ? ` • Zamčeno ${runState.remainingSec}s` : ""}</span>
+        <span>Úspěšnost ${Math.max(0, Math.floor(Number(task.successRate || 0)))}% • ${Math.max(1, Math.floor(Number(task.durationSec || 1)))} s${runState.active ? ` • Probíhá ${runState.remainingSec}s` : ""}${disabledReason ? ` • ${disabledReason}` : ""}</span>
         <span class="event-difficulty event-difficulty--${difficulty.key}">${difficulty.label}</span>
       `;
     }
@@ -543,10 +603,12 @@ function initCityEventsRuntime() {
     renderDetailChips(detailGains, task.gains, "gain");
     renderDetailChips(detailRisk, task.risk ? [task.risk] : [], "risk");
     if (detailAcceptBtn) {
-      detailAcceptBtn.disabled = runState.active;
+      detailAcceptBtn.disabled = runState.active || isBlockedByOtherRun;
       detailAcceptBtn.textContent = runState.active
         ? `Probíhá (${runState.remainingSec}s)`
-        : "Accept";
+        : isBlockedByOtherRun
+        ? `Počkej ${activeRun.remainingSec}s`
+        : "Začít";
     }
     detailModal.classList.remove("hidden");
   };
@@ -554,6 +616,7 @@ function initCityEventsRuntime() {
   const renderTasks = (agentKey) => {
     const agent = AGENTS[agentKey];
     if (!agent) return;
+    syncAgentUnlockBadges();
     selectedAgentKey = agentKey;
     agentButtons.forEach((btn) => btn.classList.toggle("is-active", btn.dataset.agent === agentKey));
     if (agentName) agentName.textContent = agent.name;
@@ -561,15 +624,32 @@ function initCityEventsRuntime() {
     if (agentDesc) agentDesc.textContent = agent.desc;
     if (agentQuote) agentQuote.textContent = agent.quote;
 
+    const unlockState = resolveAgentUnlockState(root, agent);
+    if (!unlockState.unlocked) {
+      if (agentDesc) {
+        agentDesc.textContent = `${agent.desc} Questy se odemknou až při ${unlockState.requiredInfluence} vlivu. Teď máš ${unlockState.currentInfluence}.`;
+      }
+      tasklist.innerHTML = `
+        <div class="events-task events-task--agent-locked">
+          <div class="events-task__title">Questy zamčené</div>
+          <div class="events-task__desc">Potřebuješ alespoň ${unlockState.requiredInfluence} vliv. Aktuálně máš ${unlockState.currentInfluence}.</div>
+        </div>
+      `;
+      modal.classList.remove("events-modal--compact");
+      return;
+    }
+
     const visibleTasks = resolveVisibleCharacterTasks(agentKey, agent.tasks);
+    const activeRun = getActiveCityEventRun();
     tasklist.innerHTML = visibleTasks.map((task) => {
       const successRate = Math.max(0, Math.min(100, Math.floor(Number(task?.successRate || 0))));
       const durationSec = Math.max(1, Math.floor(Number(task?.durationSec || 1)));
       const difficulty = resolveEventDifficultyMeta(successRate);
       const runState = getCityEventRunState(task?.id);
-      const metaLabel = `Úspěšnost ${successRate}% • ${durationSec}s${runState.active ? ` • Zamčeno ${runState.remainingSec}s` : ""}`;
+      const isBlockedByOtherRun = activeRun.active && !runState.active;
+      const metaLabel = `Úspěšnost ${successRate}% • ${durationSec}s${runState.active ? ` • Probíhá ${runState.remainingSec}s` : ""}${isBlockedByOtherRun ? ` • Čekej ${activeRun.remainingSec}s` : ""}`;
       return `
-        <div class="events-task${runState.active ? " events-task--locked" : ""}" data-event-open="${escapeHtml(task.id || "")}">
+        <div class="events-task${runState.active ? " events-task--locked" : ""}${isBlockedByOtherRun ? " events-task--queue-locked" : ""}" data-event-open="${escapeHtml(task.id || "")}">
           <div class="events-task__title">${escapeHtml(task.title)}</div>
           <div class="events-task__desc">${escapeHtml(task.desc)}</div>
           <div class="events-task__meta">
@@ -583,6 +663,7 @@ function initCityEventsRuntime() {
   };
 
   const openModal = () => {
+    syncAgentUnlockBadges();
     agentButtons.forEach((btn) => btn.classList.remove("is-active"));
     if (agentName) agentName.textContent = "Vyber postavu";
     if (agentType) agentType.textContent = "Každá má jiné questy";
@@ -647,9 +728,21 @@ function initCityEventsRuntime() {
   const startCityEventRun = (task) => {
     const taskId = String(task?.id || "").trim();
     if (!taskId) return false;
+    const agent = AGENTS[task?.agentKey || ""];
+    const unlockState = resolveAgentUnlockState(root, agent);
+    if (!unlockState.unlocked) {
+      writeCityEventsInfo(`Quest je zamčený. Potřebuješ ${unlockState.requiredInfluence} vliv, teď máš ${unlockState.currentInfluence}.`);
+      return false;
+    }
     const currentState = getStoredCityEventsState();
     if (currentState.activeRuns.some((entry) => String(entry?.id || "") === taskId)) {
       writeCityEventsInfo(`Event ${task.title} už běží.`);
+      return false;
+    }
+    const activeRun = getActiveCityEventRun();
+    if (activeRun.active) {
+      const activeTitle = activeRun.task?.title || "jiný event";
+      writeCityEventsInfo(`Nejdřív musí doběhnout ${activeTitle}. Další event můžeš vybrat za ${activeRun.remainingSec}s.`);
       return false;
     }
     const durationSec = Math.max(1, Math.floor(Number(task?.durationSec || 1)));
@@ -763,6 +856,7 @@ function initCityEventsRuntime() {
   });
 
   const tick = (nowMs = Date.now()) => {
+    syncAgentUnlockBadges();
     const state = getStoredCityEventsState();
     const expiredRuns = state.activeRuns.filter((entry) => Number(entry?.endsAt || 0) <= nowMs);
     expiredRuns.forEach((entry) => finalizeCityEventRun(entry.id));

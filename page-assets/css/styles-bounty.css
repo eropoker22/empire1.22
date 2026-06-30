@@ -2639,3 +2639,172 @@
     border-bottom-color: rgba(255, 116, 146, 0.14);
   }
 }
+
+/* Server-authoritative bounty MVP: restore full board and confirm modal. */
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__header-status,
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__target-card,
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__status-line,
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__quick-row,
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__settings,
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__preview,
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__column--right > .bounty-board__panel:not(.bounty-board__table-panel),
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__cancel,
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__submit-hint {
+  display: revert !important;
+}
+
+#bounty-confirm-modal.bounty-board-modal:not(.hidden) {
+  display: flex !important;
+}
+
+#bounty-confirm-modal.bounty-board-modal:not(.hidden) .bounty-board__content,
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__content {
+  border: 1px solid rgba(255, 69, 102, 0.62) !important;
+  background:
+    radial-gradient(circle at 85% 8%, rgba(255, 119, 58, 0.17), transparent 30%),
+    radial-gradient(circle at 12% 0%, rgba(225, 29, 72, 0.23), transparent 28%),
+    linear-gradient(135deg, rgba(22, 4, 13, 0.84), rgba(7, 2, 8, 0.82) 55%, rgba(18, 7, 2, 0.78)) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  backdrop-filter: blur(20px) saturate(1.3);
+  box-shadow:
+    0 28px 82px rgba(0, 0, 0, 0.72),
+    0 0 38px rgba(225, 29, 72, 0.24),
+    0 0 30px rgba(245, 158, 11, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.055) !important;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__content {
+  width: min(1120px, calc(100vw - 42px)) !important;
+  max-height: min(760px, calc(100dvh - 46px)) !important;
+  padding: 18px !important;
+}
+
+#bounty-confirm-modal.bounty-board-modal:not(.hidden) .bounty-board__content {
+  width: min(620px, calc(100vw - 32px)) !important;
+  padding: 18px !important;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__layout {
+  grid-template-columns: minmax(360px, 0.95fr) minmax(430px, 1.05fr) !important;
+  gap: 16px !important;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__column,
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__settings {
+  gap: 12px !important;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__panel,
+#bounty-confirm-modal.bounty-board-modal:not(.hidden) .bounty-board__panel {
+  border: 1px solid rgba(255, 105, 135, 0.24) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 43, 91, 0.11), transparent 48%),
+    rgba(15, 3, 10, 0.58) !important;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__header,
+#bounty-confirm-modal.bounty-board-modal:not(.hidden) .bounty-board__header {
+  border: 1px solid rgba(255, 83, 112, 0.32) !important;
+  background:
+    linear-gradient(90deg, rgba(92, 8, 31, 0.6), rgba(14, 3, 10, 0.5) 60%, rgba(245, 158, 11, 0.16)) !important;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__header h3,
+#bounty-confirm-modal.bounty-board-modal:not(.hidden) .bounty-board__header h3 {
+  color: #fff1f2;
+  text-shadow: 0 0 18px rgba(255, 42, 92, 0.34);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__eyebrow,
+#bounty-confirm-modal.bounty-board-modal:not(.hidden) .bounty-board__eyebrow,
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__kicker {
+  color: #fbbf24 !important;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__header-status {
+  align-self: center;
+  padding: 8px 12px;
+  border: 1px solid rgba(251, 191, 36, 0.24);
+  border-radius: 12px;
+  background: rgba(28, 7, 12, 0.48);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__target-card {
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255, 105, 135, 0.22);
+  border-radius: 14px;
+  background: rgba(8, 2, 8, 0.42);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__avatar-wrap {
+  width: 54px;
+  height: 54px;
+  border-color: rgba(251, 113, 133, 0.5);
+  box-shadow: 0 0 20px rgba(225, 29, 72, 0.22);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__choice:has(input:checked),
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__segment:has(input:checked) {
+  border-color: rgba(251, 191, 36, 0.5) !important;
+  background:
+    linear-gradient(135deg, rgba(245, 158, 11, 0.24), rgba(153, 27, 27, 0.22)) !important;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__row-action {
+  min-height: 26px;
+  padding: 4px 8px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  border-radius: 8px;
+  background: rgba(26, 8, 8, 0.72);
+  color: #fde68a;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__row-action:disabled {
+  border-color: rgba(148, 163, 184, 0.2);
+  color: rgba(226, 232, 240, 0.42);
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__table {
+  min-width: 780px !important;
+}
+
+#bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__table-wrap {
+  overflow: auto;
+}
+
+@media (max-width: 720px) {
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__content {
+    width: calc(100vw - 14px) !important;
+    max-height: calc(var(--mobile-locked-vh, 100svh) - 14px) !important;
+    padding: 12px !important;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__header-status {
+    display: none !important;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__target-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__threat {
+    grid-column: 1 / -1;
+  }
+
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__table th:nth-child(2),
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__table td:nth-child(2),
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__table th:nth-child(4),
+  #bounty-modal.bounty-board-modal:not(.hidden) .bounty-board__table td:nth-child(4) {
+    display: table-cell;
+  }
+}

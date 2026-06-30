@@ -6,6 +6,7 @@ import {
   handleAcknowledgePendingRaid,
   handleAllianceLifecycleCommand,
   handleAttackDistrict,
+  handleBountyCommand,
   handleBuildStructure,
   handleCollectProduction,
   handleCraftItem,
@@ -69,6 +70,11 @@ export const routeCommand = (
   switch (command.type) {
     case "acknowledge-pending-raid":
       return handleAcknowledgePendingRaid(state, command, context);
+    case "create-alliance":
+    case "join-alliance":
+    case "invite-alliance-member":
+    case "respond-alliance-invite":
+    case "send-alliance-chat-message":
     case "confirm-alliance-ready":
     case "start-alliance-kick-vote":
     case "cast-alliance-kick-vote":
@@ -80,6 +86,9 @@ export const routeCommand = (
     case "build-structure":
       // Deprecated dev-only compatibility path. Main gameplay uses fixed district.buildingIds.
       return handleBuildStructure(state, command, context);
+    case "create-bounty":
+    case "cancel-bounty":
+      return handleBountyCommand(state, command, context);
     case "collect-production":
       return handleCollectProduction(state, command, context);
     case "craft-item":

@@ -2,6 +2,7 @@ export * from "./acknowledgePendingRaid";
 export * from "./allianceLifecycle";
 export * from "./attackDistrict";
 export * from "./airportBuildingActions";
+export * from "./bountyCommands";
 export * from "./buildStructure";
 export * from "./centralBankBuildingActions";
 export * from "./cityHallBuildingActions";

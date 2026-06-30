@@ -88,8 +88,8 @@ export const freeModeVenueBuildingActions: NonNullable<ResolvedGameModeConfig["b
   vip_lounge: {
     actionId: "vip_lounge",
     buildingType: "strip_club",
-    label: "VIP salonek",
-    description: "Na 8 minut zvýší produkci Strip Clubu, vliv, heat a šanci na drb.",
+    label: "Hostit VIP klienty",
+    description: "Na 30 minut zvýší produkci Strip Clubu, vliv, heat a šanci na drb.",
     durationMs: freeModeStripClubConfig.vipLounge.durationMinutes * 60 * 1000,
     cooldownMs: freeModeStripClubConfig.vipLounge.cooldownMinutes * 60 * 1000,
     inputCost: { cash: freeModeStripClubConfig.vipLounge.cleanCashCost },
@@ -104,7 +104,7 @@ export const freeModeVenueBuildingActions: NonNullable<ResolvedGameModeConfig["b
     },
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "VIP salonek aktivní. Boost se sám se sebou nestackuje."
+    reportText: "VIP klienti jsou aktivní. Boost se sám se sebou nestackuje."
   },
   bar_whispers: {
     actionId: "bar_whispers",
@@ -124,7 +124,7 @@ export const freeModeVenueBuildingActions: NonNullable<ResolvedGameModeConfig["b
   private_party: {
     actionId: "private_party",
     buildingType: "strip_club",
-    label: "Soukromá party",
+    label: "Získat kompro",
     description: "Přidá vliv, dočasný influence boost a může přinést kontakt, extra drb nebo skandál.",
     durationMs: freeModeStripClubConfig.privateParty.durationMinutes * 60 * 1000,
     cooldownMs: freeModeStripClubConfig.privateParty.cooldownMinutes * 60 * 1000,
