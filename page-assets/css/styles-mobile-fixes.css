@@ -5789,3 +5789,32 @@ html body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle--with
   content: none !important;
   display: none !important;
 }
+
+/* Final stable card backdrop: opening cards must not dim or shift the page behind them. */
+html body.game-body :is(
+  .modal__backdrop,
+  .district-popup-backdrop,
+  .attack-setup-popup-backdrop,
+  .buildings-popup-backdrop,
+  .wanted-popup-backdrop,
+  .player-popup-backdrop,
+  .armory-popup-backdrop,
+  .pharmacy-popup-backdrop,
+  .druglab-popup-backdrop,
+  .factory-popup-backdrop,
+  .market-popup-backdrop,
+  .leaderboard-popup-backdrop,
+  .leaderboard-player-detail-backdrop,
+  .storage-popup-backdrop,
+  .avatar-lightbox__backdrop,
+  .district-building-detail-backdrop,
+  .game-admin-slice-overlay__backdrop,
+  .elimination-ai-panel__backdrop,
+  .elimination-result-popup__backdrop
+) {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}

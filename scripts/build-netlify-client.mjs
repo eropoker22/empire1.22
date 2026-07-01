@@ -16,6 +16,7 @@ const staticDirs = [
 ];
 const requiredPublishFiles = [
   "pages/login.html",
+  "social/empire-streets-og.png",
   "page-assets/js/login.js",
   "page-assets/js/client-assets/gameplay-slice-client.js",
   "page-assets/js/app/auth-flow.js",

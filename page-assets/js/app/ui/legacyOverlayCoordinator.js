@@ -41,7 +41,14 @@ function getBody(element) {
 
 function getScrollY(view, body) {
   const root = body?.ownerDocument?.documentElement || null;
-  return Math.max(0, Math.floor(view?.scrollY || view?.pageYOffset || root?.scrollTop || body?.scrollTop || 0));
+  const lockedTop = Number.parseFloat(body?.style?.top || "");
+  const lockedScrollY = body?.style?.position === "fixed" && Number.isFinite(lockedTop) && lockedTop < 0
+    ? Math.abs(lockedTop)
+    : 0;
+  return Math.max(
+    0,
+    Math.floor(view?.scrollY || view?.pageYOffset || root?.scrollTop || body?.scrollTop || lockedScrollY || 0)
+  );
 }
 
 function restorePageScroll(view, body, scrollY) {
@@ -114,7 +121,9 @@ function unlockBodyScroll(element) {
     return;
   }
 
+  const fallbackScrollY = getScrollY(view, body);
   const savedStyles = bodyStyleSnapshot;
+  const restoreScrollY = savedStyles?.scrollY ?? fallbackScrollY;
   body.style.left = savedStyles?.left || "";
   body.style.position = savedStyles?.position || "";
   body.style.right = savedStyles?.right || "";
@@ -124,7 +133,7 @@ function unlockBodyScroll(element) {
   body.classList.remove(LOCKED_BODY_CLASS);
   delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
   bodyStyleSnapshot = null;
-  schedulePageScrollRestore(view, body, savedStyles?.scrollY || Math.abs(Number.parseFloat(body.style.top || "0")) || 0);
+  schedulePageScrollRestore(view, body, restoreScrollY);
 }
 
 function isElementVisible(element) {
@@ -230,7 +239,8 @@ export function openOverlay(element, options = {}) {
   const entry = {
     element,
     type: options.type || "modal",
-    restoreFocusTo: isHtmlElement(restoreFocusTo) ? restoreFocusTo : null
+    restoreFocusTo: isHtmlElement(restoreFocusTo) ? restoreFocusTo : null,
+    restoreFocusOnClose: options.restoreFocusOnClose !== false
   };
 
   element.setAttribute("role", options.role || "dialog");
@@ -263,7 +273,7 @@ export function closeOverlay(element, options = {}) {
     suppressMapInput(options.suppressionMs);
   }
 
-  const shouldRestoreFocus = options.restoreFocus !== false;
+  const shouldRestoreFocus = options.restoreFocus !== false && entry?.restoreFocusOnClose !== false;
   const focusTarget = entry?.restoreFocusTo;
   if (
     shouldRestoreFocus

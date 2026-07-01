@@ -275,8 +275,14 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
 
   const getScrollY = () => Math.max(
     0,
-    Math.floor(windowObj.scrollY || windowObj.pageYOffset || root.scrollTop || documentObj.body.scrollTop || 0)
+    Math.floor(windowObj.scrollY || windowObj.pageYOffset || root.scrollTop || documentObj.body.scrollTop || getLockedBodyScrollY() || 0)
   );
+  const getLockedBodyScrollY = () => {
+    const lockedTop = Number.parseFloat(documentObj.body.style.top || "");
+    return documentObj.body.style.position === "fixed" && Number.isFinite(lockedTop) && lockedTop < 0
+      ? Math.abs(lockedTop)
+      : 0;
+  };
   let lastKnownScrollY = getScrollY();
 
   const restorePageScroll = (nextScrollY) => {

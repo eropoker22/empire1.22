@@ -24,6 +24,12 @@ describe("mobile action modal CSS", () => {
   const clientGameplaySliceClient = readText("client/page-assets/js/client-assets/gameplay-slice-client.js");
   const legacyOverlayCoordinator = readText("page-assets/js/app/ui/legacyOverlayCoordinator.js");
   const clientLegacyOverlayCoordinator = readText("client/page-assets/js/app/ui/legacyOverlayCoordinator.js");
+  const modalHelpers = readText("page-assets/js/app/ui/modalHelpers.js");
+  const clientModalHelpers = readText("client/page-assets/js/app/ui/modalHelpers.js");
+  const districtPopupModalHelpers = readText("page-assets/js/app/ui/districtPopupModalHelpers.js");
+  const clientDistrictPopupModalHelpers = readText("client/page-assets/js/app/ui/districtPopupModalHelpers.js");
+  const buildingsPopupRuntime = readText("page-assets/js/app/runtime/buildingsPopupRuntime.js");
+  const clientBuildingsPopupRuntime = readText("client/page-assets/js/app/runtime/buildingsPopupRuntime.js");
   const onboardingCss = readText("page-assets/css/styles-onboarding.css");
   const cityEventsCss = readText("page-assets/css/styles-city-events.css");
   const clientCityEventsCss = readText("client/page-assets/css/styles-city-events.css");
@@ -181,7 +187,7 @@ describe("mobile action modal CSS", () => {
     }
   });
 
-  it("hides the mobile topbar while popup cards are open without moving layout", () => {
+  it("keeps the mobile page visually stable while popup cards are open", () => {
     for (const stylesheet of [css, clientCss]) {
       expect(stylesheet).toContain("--mobile-topbar-offset: 0px !important;");
       expect(stylesheet).toContain("--mobile-overlay-card-top: max(env(safe-area-inset-top), 0px);");
@@ -193,6 +199,13 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("body.game-modal-scroll-locked .game-resource-strip");
       expect(stylesheet).toContain("visibility: hidden !important;");
       expect(stylesheet).toContain("opacity: 0 !important;");
+      expect(stylesheet).toContain("Final stable card backdrop: opening cards must not dim or shift the page behind them.");
+      expect(stylesheet).not.toContain("Final stable page background: opening game cards must not visually change the page behind them.");
+      expect(stylesheet).not.toContain("visibility: visible !important;\n  opacity: 1 !important;\n  filter: none !important;\n  transform: none !important;");
+      expect(stylesheet).toContain(".district-popup-backdrop");
+      expect(stylesheet).toContain(".storage-popup-backdrop");
+      expect(stylesheet).toContain("background: transparent !important;");
+      expect(stylesheet).toContain("backdrop-filter: none !important;");
       expect(stylesheet).toContain("body.game-modal-scroll-locked .robbery-setup-popup-shell");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked #spy-confirm-modal");
       expect(stylesheet).toContain("padding-top: calc(var(--mobile-overlay-card-top) + var(--mobile-overlay-card-gap)) !important;");
@@ -223,10 +236,24 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("place-items: center !important;");
       expect(stylesheet).toContain("height: var(--mobile-locked-vh, 100dvh) !important;");
     }
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain("Final stable card backdrop: opening cards must not dim or shift the page behind them.");
+      expect(stylesheet).not.toContain("Final stable page background: opening game cards must not visually change the page behind them.");
+      expect(stylesheet).not.toContain("visibility: visible !important;\n  opacity: 1 !important;\n  filter: none !important;\n  transform: none !important;");
+      expect(stylesheet).toContain(".district-popup-backdrop");
+      expect(stylesheet).toContain(".buildings-popup-backdrop");
+      expect(stylesheet).toContain(".market-popup-backdrop");
+      expect(stylesheet).toContain(".pharmacy-popup-backdrop");
+      expect(stylesheet).toContain("background: transparent !important;");
+      expect(stylesheet).toContain("-webkit-backdrop-filter: none !important;");
+    }
     expect(mobileRuntime).toContain('const MOBILE_OVERLAY_SELECTOR = [');
     expect(mobileRuntime).toContain('".district-popup-shell",');
     expect(mobileRuntime).toContain('root.style.setProperty("--mobile-overlay-top-offset", `${topbarOffset}px`);');
     expect(mobileRuntime).toContain("let lastKnownScrollY = getScrollY();");
+    expect(mobileRuntime).toContain("const getLockedBodyScrollY = () => {");
+    expect(mobileRuntime).toContain('documentObj.body.style.position === "fixed"');
+    expect(mobileRuntime).toContain("getLockedBodyScrollY() || 0");
     expect(mobileRuntime).toContain("const restorePageScroll = (nextScrollY) => {");
     expect(mobileRuntime).toContain("const restoreScrollPosition = () => {");
     expect(mobileRuntime).toContain("root.scrollTop = nextScrollY;");
@@ -253,12 +280,36 @@ describe("mobile action modal CSS", () => {
 
     for (const source of [legacyOverlayCoordinator, clientLegacyOverlayCoordinator]) {
       expect(source).toContain("function getScrollY(view, body)");
+      expect(source).toContain('body?.style?.position === "fixed"');
+      expect(source).toContain("lockedScrollY || 0");
       expect(source).toContain("function restorePageScroll(view, body, scrollY)");
       expect(source).toContain("function schedulePageScrollRestore(view, body, scrollY)");
+      expect(source).toContain("restoreFocusOnClose: options.restoreFocusOnClose !== false");
+      expect(source).toContain("options.restoreFocus !== false && entry?.restoreFocusOnClose !== false");
+      expect(source).toContain("const fallbackScrollY = getScrollY(view, body);");
+      expect(source).toContain("const restoreScrollY = savedStyles?.scrollY ?? fallbackScrollY;");
       expect(source).toContain("root.scrollTop = scrollY;");
       expect(source).toContain("body.scrollTop = scrollY;");
       expect(source).toContain("view?.setTimeout?.(restore, 80);");
       expect(source).toContain("view?.setTimeout?.(restore, 180);");
+    }
+
+    for (const source of [modalHelpers, clientModalHelpers]) {
+      expect(source).toContain("export function hideElement(element, options = {})");
+      expect(source).toContain("closeOverlay(element, options);");
+      expect(source).toContain("export function hideElements(elements = [], options = {})");
+      expect(source).toContain("hideElement(element, options)");
+    }
+
+    for (const source of [districtPopupModalHelpers, clientDistrictPopupModalHelpers]) {
+      expect(source).toContain("restoreFocusOnClose: false");
+      expect(source).toContain("return hideElement(element, { restoreFocus: false });");
+      expect(source).toContain("], { restoreFocus: false });");
+    }
+
+    for (const source of [buildingsPopupRuntime, clientBuildingsPopupRuntime]) {
+      expect(source).toContain("closeOverlay(elements.buildingsPopup, { restoreFocus: false });");
+      expect(source).toContain("openOverlay(elements.buildingsPopup, { type: \"modal\", ariaModal: true, restoreFocusOnClose: false });");
     }
   });
 });

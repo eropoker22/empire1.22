@@ -16,12 +16,13 @@ import {
 export function showDistrictPopupModal(element) {
   return showElementAsOverlay(element, {
     type: element?.matches?.("[data-district-popup]") ? "mobile-sheet" : "modal",
-    ariaModal: true
+    ariaModal: true,
+    restoreFocusOnClose: false
   });
 }
 
 export function hideDistrictPopupModal(element) {
-  return hideElement(element);
+  return hideElement(element, { restoreFocus: false });
 }
 
 export function hideDistrictPopupModalStack(options = {}) {
@@ -48,7 +49,7 @@ export function hideDistrictPopupModalStack(options = {}) {
     popup,
     popupAtmosphereWindow,
     ...modals
-  ]);
+  ], { restoreFocus: false });
 }
 
 export function hasVisibleDistrictPopupModal(elements = []) {

@@ -269,7 +269,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
 
   const closeBuildingsPopup = () => {
     if (elements.buildingsPopup) {
-      closeOverlay(elements.buildingsPopup);
+      closeOverlay(elements.buildingsPopup, { restoreFocus: false });
       elements.buildingsPopup.hidden = true;
     }
   };
@@ -282,7 +282,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
     selectedBuildingBaseNameByType.clear();
     renderBuildingsPopup(null);
     elements.buildingsPopup.hidden = false;
-    openOverlay(elements.buildingsPopup, { type: "modal", ariaModal: true });
+    openOverlay(elements.buildingsPopup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     const ownerDocument = elements.buildingsPopup.ownerDocument || (typeof document !== "undefined" ? document : null);
     ownerDocument?.dispatchEvent?.(new CustomEvent("empire:buildings-popup-opened", { detail: { open: true } }));
   };

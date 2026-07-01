@@ -3,20 +3,20 @@ import {
   openOverlay
 } from "./legacyOverlayCoordinator.js";
 
-export function hideElement(element) {
+export function hideElement(element, options = {}) {
   if (!element) {
     return false;
   }
 
-  closeOverlay(element);
+  closeOverlay(element, options);
   element.hidden = true;
   return true;
 }
 
-export function hideElements(elements = []) {
+export function hideElements(elements = [], options = {}) {
   let changed = false;
   for (const element of elements) {
-    changed = hideElement(element) || changed;
+    changed = hideElement(element, options) || changed;
   }
   return changed;
 }
