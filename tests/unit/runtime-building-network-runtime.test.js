@@ -3,7 +3,7 @@ import { createBuildingNetworkRuntime } from "../../page-assets/js/app/runtime/b
 
 function createRuntime(overrides = {}) {
   const profiles = {
-    1: [{ baseName: "autosalon" }, { baseName: "sklad" }, { baseName: "obchodni centrum" }],
+    1: [{ baseName: "autosalon" }, { baseName: "skladiste" }, { baseName: "obchodni centrum" }],
     2: [{ baseName: "autosalon" }, { baseName: "klinika" }],
     3: [{ baseName: "skola" }]
   };
@@ -139,6 +139,6 @@ describe("building network runtime", () => {
       weaponsAndDefense: 0,
       genericResources: 0,
       capacity
-    })).toContain("Skladové zásoby se blíží maximu.");
+    })).toContain("Zásoby ve skladištích se blíží maximu.");
   });
 });

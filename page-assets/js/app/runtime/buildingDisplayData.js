@@ -417,6 +417,7 @@ export const DISTRICT_BUILDING_VARIANT_NAMES_BY_BASE_NAME = Object.freeze({
   Kasino: namedCommercialCasinos,
   "Energetická stanice": namedIndustrialPowerStations,
   Sklad: namedIndustrialStorages,
+  Skladiště: namedIndustrialStorages,
   "Továrna": namedIndustrialFactories,
   "Zbrojovka": namedIndustrialArmories,
   "Recyklační centrum": namedIndustrialRecyclingCenters,

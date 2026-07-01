@@ -18,7 +18,7 @@ import {
 describe("next zone building card readiness", () => {
   it("builds existing Industrial card data without runtime errors or generic upgrade copy", () => {
     const fixtures = [
-      createIndustrialFixture("Sklad", "sklad", {
+      createIndustrialFixture("Skladiště", "sklad", {
         mechanicsType: "warehouse",
         ownedWarehouses: 2,
         warehouseNetwork: { incomeMultiplier: 1.05, storageCapacityMultiplier: 1.08, heatMultiplier: 1.02 },

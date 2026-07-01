@@ -155,7 +155,7 @@ export function createBuildingDetailInfoRows({
     ];
   } else if (mechanics.mechanicsType === "warehouse") {
     rows.push(
-      createInfoLine("Vlastněné sklady", `${mechanics.ownedWarehouses}/18`),
+      createInfoLine("Vlastněná skladiště", `${mechanics.ownedWarehouses}/18`),
       createInfoLine("Network multiplier", `Income x${mechanics.warehouseNetwork.incomeMultiplier.toFixed(2)} · storage x${mechanics.warehouseNetwork.storageCapacityMultiplier.toFixed(2)} · heat x${mechanics.warehouseNetwork.heatMultiplier.toFixed(2)}`),
       createInfoLine("Kapacity", `Chem ${mechanics.warehouseCapacity.chemicals} · bio ${mechanics.warehouseCapacity.biomass} · metal ${mechanics.warehouseCapacity.metalParts} · tech ${mechanics.warehouseCapacity.techCore}`),
       createInfoLine("Výzbroj a balíky", `Boosty/drogy ${mechanics.warehouseCapacity.drugsAndBoosts} · zbraně/obrana ${mechanics.warehouseCapacity.weaponsAndDefense}`),

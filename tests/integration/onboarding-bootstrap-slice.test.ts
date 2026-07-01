@@ -47,7 +47,7 @@ describe("onboarding gameplay bootstrap", () => {
             id: 28,
             name: "Neighbor 28",
             type: "industrial",
-            buildings: ["Sklad"],
+            buildings: ["Skladiště"],
             buildingSetKey: "ind-early-1"
           }
         ]

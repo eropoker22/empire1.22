@@ -164,8 +164,13 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
     actions: Object.freeze(["Vybrat cash", "Hostit VIP klienty", "Získat kompro"])
   }),
   sklad: Object.freeze({
-    role: "Sklad zásob",
-    info: "Sklad drží zásoby města pohromadě. Negeneruje špinavé peníze ani vliv, ale bez skladů se impérium zadusí vlastním materiálem.",
+    role: "Skladiště zásob",
+    info: "Skladiště drží zásoby města pohromadě. Negeneruje špinavé peníze ani vliv, ale bez skladišť se impérium zadusí vlastním materiálem.",
+    actions: Object.freeze([])
+  }),
+  skladiste: Object.freeze({
+    role: "Skladiště zásob",
+    info: "Skladiště drží zásoby města pohromadě. Negeneruje špinavé peníze ani vliv, ale bez skladišť se impérium zadusí vlastním materiálem.",
     actions: Object.freeze([])
   }),
   "energeticka stanice": Object.freeze({
@@ -288,6 +293,7 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
     Object.freeze({ cleanCost: 1500, influence: 8, heat: 6, durationMs: 10 * 60 * 1000, cooldownMs: 30 * 60 * 1000, influenceBoostPct: 70, failureChancePct: 12, serverEffectSummary: "Kontakt / extra drb / riziko skandálu", summary: "Kompro přidá vliv, dočasný influence boost a může přinést kontakt, extra drb nebo skandál." })
   ]),
   sklad: Object.freeze([]),
+  skladiste: Object.freeze([]),
   "energeticka stanice": Object.freeze([
     Object.freeze({ cleanCost: 1200, durationMs: 25 * 60 * 1000, cooldownMs: 60 * 60 * 1000, heat: 3, serverEffectSummary: "Infrastructure +12% · kamery +20% · alarm +20% · výroba +10%", summary: "Záložní síť dočasně posílí infrastrukturu, obranu a průmyslovou výrobu." }),
     Object.freeze({ durationMs: 25 * 60 * 1000, cooldownMs: 60 * 60 * 1000, cleanIncomeBoostPct: 18, heat: 2, summary: "Napájení dočasně zvedne čistý provoz districtu." }),
@@ -570,6 +576,7 @@ export const DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES = Object.freeze({
   soud: "court",
   "strip club": "strip-club",
   sklad: "warehouse",
+  skladiste: "warehouse",
   "energeticka stanice": "power-plant",
   "recyklacni centrum": "recycling-center",
   lekarna: "pharmacy",

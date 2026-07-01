@@ -205,7 +205,11 @@ export function createBuildingNetworkRuntime(deps = {}) {
     return Math.min(100, baseChance + (eveningCourseActive ? config.eveningCourseTalentChanceBonusPct : 0));
   };
 
-  const getOwnedWarehouseCount = () => countOwnedBuildingByBaseName("sklad");
+  const getOwnedWarehouseCount = () => {
+    const legacyWarehouses = countOwnedBuildingByBaseName("sklad");
+    const renamedWarehouses = countOwnedBuildingByBaseName("skladiste");
+    return legacyWarehouses + renamedWarehouses;
+  };
   const getWarehouseNetworkMultipliers = (count = getOwnedWarehouseCount()) => {
     const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
     const config = deps.warehouseNetworkConfig;
@@ -263,9 +267,9 @@ export function createBuildingNetworkRuntime(deps = {}) {
     const full = pairs.some(([, current, cap]) => Number(cap || 0) > 0 && Number(current || 0) >= Number(cap || 0));
     const near = pairs.some(([, current, cap]) => Number(cap || 0) > 0 && Number(current || 0) >= Number(cap || 0) * 0.85);
     return [
-      near && !full ? "Skladové zásoby se blíží maximu." : "",
-      full ? "Sklad je plný. Produkce některých surovin je pozastavena." : "",
-      near || full ? "Získej další sklad nebo spotřebuj zásoby." : ""
+      near && !full ? "Zásoby ve skladištích se blíží maximu." : "",
+      full ? "Skladiště je plné. Produkce některých surovin je pozastavena." : "",
+      near || full ? "Získej další skladiště nebo spotřebuj zásoby." : ""
     ].filter(Boolean);
   };
 

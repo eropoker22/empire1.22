@@ -71,27 +71,27 @@ export const DISTRICT_BUILDING_PACKAGE_POOLS = Object.freeze({
   }),
   industrial: Object.freeze({
     early: Object.freeze([
-      Object.freeze({ key: "ind-early-1", tier: "early", title: "Základní výroba", buildings: Object.freeze(["Továrna", "Sklad"]) }),
+      Object.freeze({ key: "ind-early-1", tier: "early", title: "Základní výroba", buildings: Object.freeze(["Továrna", "Skladiště"]) }),
       Object.freeze({ key: "ind-early-2", tier: "early", title: "Napájená produkce", buildings: Object.freeze(["Továrna", "Energetická stanice"]) }),
       Object.freeze({ key: "ind-early-3", tier: "early", title: "První militarizace", buildings: Object.freeze(["Továrna", "Zbrojovka"]) }),
-      Object.freeze({ key: "ind-early-4", tier: "early", title: "Zásobovací uzel", buildings: Object.freeze(["Sklad", "Energetická stanice"]) }),
+      Object.freeze({ key: "ind-early-4", tier: "early", title: "Zásobovací uzel", buildings: Object.freeze(["Skladiště", "Energetická stanice"]) }),
       Object.freeze({ key: "ind-early-5", tier: "early", title: "Základní recyklace", buildings: Object.freeze(["Továrna", "Recyklační centrum"]) }),
-      Object.freeze({ key: "ind-early-6", tier: "early", title: "Recyklační tok", buildings: Object.freeze(["Sklad", "Recyklační centrum"]) })
+      Object.freeze({ key: "ind-early-6", tier: "early", title: "Recyklační tok", buildings: Object.freeze(["Skladiště", "Recyklační centrum"]) })
     ]),
     mid: Object.freeze([
-      Object.freeze({ key: "ind-mid-1", tier: "mid", title: "Vojenská výroba", buildings: Object.freeze(["Zbrojovka", "Sklad"]) }),
+      Object.freeze({ key: "ind-mid-1", tier: "mid", title: "Vojenská výroba", buildings: Object.freeze(["Zbrojovka", "Skladiště"]) }),
       Object.freeze({ key: "ind-mid-2", tier: "mid", title: "Technický provoz", buildings: Object.freeze(["Továrna", "Recyklační centrum"]) }),
-      Object.freeze({ key: "ind-mid-3", tier: "mid", title: "Efektivní řetězec", buildings: Object.freeze(["Továrna", "Sklad", "Energetická stanice"]) }),
-      Object.freeze({ key: "ind-mid-4", tier: "mid", title: "Zbrojní logistika", buildings: Object.freeze(["Zbrojovka", "Sklad", "Energetická stanice"]) }),
-      Object.freeze({ key: "ind-mid-5", tier: "mid", title: "Recyklační sklad", buildings: Object.freeze(["Sklad", "Recyklační centrum"]) }),
+      Object.freeze({ key: "ind-mid-3", tier: "mid", title: "Efektivní řetězec", buildings: Object.freeze(["Továrna", "Skladiště", "Energetická stanice"]) }),
+      Object.freeze({ key: "ind-mid-4", tier: "mid", title: "Zbrojní logistika", buildings: Object.freeze(["Zbrojovka", "Skladiště", "Energetická stanice"]) }),
+      Object.freeze({ key: "ind-mid-5", tier: "mid", title: "Recyklační skladiště", buildings: Object.freeze(["Skladiště", "Recyklační centrum"]) }),
       Object.freeze({ key: "ind-mid-6", tier: "mid", title: "Recyklace a obrana", buildings: Object.freeze(["Recyklační centrum", "Zbrojovka"]) }),
-      Object.freeze({ key: "ind-mid-7", tier: "mid", title: "Obnova zdrojů", buildings: Object.freeze(["Továrna", "Recyklační centrum", "Sklad"]) })
+      Object.freeze({ key: "ind-mid-7", tier: "mid", title: "Obnova zdrojů", buildings: Object.freeze(["Továrna", "Recyklační centrum", "Skladiště"]) })
     ]),
     top: Object.freeze([
-      Object.freeze({ key: "ind-top-1", tier: "top", title: "Arms grid", buildings: Object.freeze(["Továrna", "Zbrojovka", "Sklad"]) }),
+      Object.freeze({ key: "ind-top-1", tier: "top", title: "Arms grid", buildings: Object.freeze(["Továrna", "Zbrojovka", "Skladiště"]) }),
       Object.freeze({ key: "ind-top-2", tier: "top", title: "Power forge", buildings: Object.freeze(["Továrna", "Zbrojovka", "Energetická stanice"]) }),
-      Object.freeze({ key: "ind-top-3", tier: "top", title: "Scrap foundry", buildings: Object.freeze(["Zbrojovka", "Recyklační centrum", "Sklad"]) }),
-      Object.freeze({ key: "ind-top-4", tier: "top", title: "Critical recovery", buildings: Object.freeze(["Energetická stanice", "Recyklační centrum", "Sklad"]) }),
+      Object.freeze({ key: "ind-top-3", tier: "top", title: "Scrap foundry", buildings: Object.freeze(["Zbrojovka", "Recyklační centrum", "Skladiště"]) }),
+      Object.freeze({ key: "ind-top-4", tier: "top", title: "Critical recovery", buildings: Object.freeze(["Energetická stanice", "Recyklační centrum", "Skladiště"]) }),
       Object.freeze({ key: "ind-top-5", tier: "top", title: "Heavy recycle", buildings: Object.freeze(["Zbrojovka", "Recyklační centrum", "Továrna"]) })
     ])
   }),

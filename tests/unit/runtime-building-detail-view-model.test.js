@@ -101,7 +101,7 @@ describe("building detail view-model builder", () => {
 
   it("shows warehouse capacities as separate mechanic rows with base capacity at zero owned warehouses", () => {
     const mechanics = createBuildingDetailMechanicRows({
-      buildingName: "Sklad",
+      buildingName: "Skladiště",
       mechanics: {
         ...baseMechanics,
         mechanicsType: "warehouse",
@@ -145,7 +145,7 @@ describe("building detail view-model builder", () => {
 
   it("colors warehouse material mechanic rows by used capacity", () => {
     const mechanics = createBuildingDetailMechanicRows({
-      buildingName: "Sklad",
+      buildingName: "Skladiště",
       mechanics: {
         ...baseMechanics,
         mechanicsType: "warehouse",
@@ -659,7 +659,7 @@ describe("building detail view-model builder", () => {
         expectedActionCount: 1
       },
       {
-        buildingName: "Sklad",
+        buildingName: "Skladiště",
         mechanics: {
           ...baseMechanics,
           mechanicsType: "warehouse",
@@ -687,9 +687,9 @@ describe("building detail view-model builder", () => {
           },
           warehouseWarnings: []
         },
-        profile: { role: "Sklad zásob", info: "Sklad drží zásoby města pohromadě.", actions: [] },
-        expectedTitle: "Sklad",
-        expectedBadge: "Sklad zásob",
+        profile: { role: "Skladiště zásob", info: "Skladiště drží zásoby města pohromadě.", actions: [] },
+        expectedTitle: "Skladiště",
+        expectedBadge: "Skladiště zásob",
         expectedActionCount: 0
       },
       {

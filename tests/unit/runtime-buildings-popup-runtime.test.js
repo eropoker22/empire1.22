@@ -32,7 +32,7 @@ function createRuntime(overrides = {}) {
       renderBuildingsPopupTypesPanel,
       renderDistrictBuildingList,
       resolveDistrictBuildingProfile: (district) => ({
-        buildings: [{ baseName: "Sklad", displayName: `Sklad ${district.id}` }],
+        buildings: [{ baseName: "Skladiště", displayName: `Skladiště ${district.id}` }],
         districtLabel: `District ${district.id}`,
         setTitle: "Sada",
         tier: "early",
@@ -57,7 +57,7 @@ describe("buildings popup runtime", () => {
     }));
     expect(renderBuildingsPopupDetailPanel).toHaveBeenCalledWith(undefined, expect.objectContaining({
       selectedType: "resident",
-      activeBaseName: "Sklad"
+      activeBaseName: "Skladiště"
     }));
 
     runtime.renderDistrictPopupBuildings({ id: 1, districtType: "resident" });

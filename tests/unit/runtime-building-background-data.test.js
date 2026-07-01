@@ -74,7 +74,7 @@ describe("building background data", () => {
       return accumulator;
     }, {});
 
-    expect(Object.values(counts).sort((left, right) => right - left)).toEqual([8, 7, 7, 7, 7]);
+    expect(Object.values(counts).sort((left, right) => right - left)).toEqual([4, 4, 4, 4, 4, 4, 4, 4, 4]);
   });
 
   it("assigns restaurant backgrounds explicitly and evenly across the available wallpaper set", () => {
@@ -89,7 +89,7 @@ describe("building background data", () => {
       return accumulator;
     }, {});
 
-    expect(Object.values(counts).sort((left, right) => right - left)).toEqual([7, 7, 7, 6]);
+    expect(Object.values(counts).sort((left, right) => right - left)).toEqual([4, 4, 4, 3, 3, 3, 3, 3]);
   });
 
   it("assigns casino backgrounds explicitly across the available wallpaper set", () => {
@@ -119,7 +119,7 @@ describe("building background data", () => {
       return accumulator;
     }, {});
 
-    expect(Object.values(counts).sort((left, right) => right - left)).toEqual([2, 2, 2, 1]);
+    expect(Object.values(counts).sort((left, right) => right - left)).toEqual([1, 1, 1, 1, 1, 1, 1]);
   });
 
   it("assigns recruitment center backgrounds explicitly and evenly across the residential wallpaper set", () => {
@@ -198,9 +198,10 @@ describe("building background data", () => {
   });
 
   it("assigns warehouse backgrounds explicitly and evenly across the industrial wallpaper set", () => {
-    const warehouses = DISTRICT_BUILDING_VARIANT_NAMES_BY_BASE_NAME.Sklad || [];
+    const warehouses = DISTRICT_BUILDING_VARIANT_NAMES_BY_BASE_NAME.Skladiště || [];
     const assignedBackgrounds = warehouses.map((name) => DISTRICT_BUILDING_BACKGROUND_IMAGE_BY_VARIANT_NAME[name]);
 
+    expect(DISTRICT_BUILDING_VARIANT_NAMES_BY_BASE_NAME.Sklad).toEqual(warehouses);
     expect(warehouses).toHaveLength(21);
     expect(assignedBackgrounds.every(Boolean)).toBe(true);
 

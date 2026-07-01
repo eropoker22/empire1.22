@@ -13,7 +13,7 @@ const BUILDING_TYPE_LABELS = Object.freeze({
   "auto-salon": "Autosalon",
   retail: "Obchodní centrum",
   casino: "Kasino",
-  warehouse: "Sklad",
+  warehouse: "Skladiště",
   "power-plant": "Energetická stanice",
   "recycling-center": "Recyklační centrum",
   "street-dealers": "Pouliční dealeři",
@@ -315,7 +315,7 @@ function addRoleBenefitDeltas(benefits, currentMechanics, nextMechanics) {
   addNumericDelta(benefits, {
     id: "storage",
     icon: "#",
-    label: "Kapacita skladu",
+    label: "Kapacita skladiště",
     before: currentMechanics.warehouseCapacity?.genericResources,
     after: nextMechanics.warehouseCapacity?.genericResources,
     formatter: formatInteger,

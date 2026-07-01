@@ -199,13 +199,15 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("body.game-modal-scroll-locked .game-resource-strip");
       expect(stylesheet).toContain("visibility: hidden !important;");
       expect(stylesheet).toContain("opacity: 0 !important;");
-      expect(stylesheet).toContain("Final stable card backdrop: opening cards must not dim or shift the page behind them.");
+      expect(stylesheet).toContain("Mobile overlay backdrop guard: main cards cover fixed-scroll artifacts behind them.");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked #events-modal:not(.hidden) > .modal__backdrop");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popup-backdrop");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked .market-popup-shell:not([hidden]) > .market-popup-backdrop");
+      expect(stylesheet).toContain("linear-gradient(180deg, rgba(2, 6, 14, 0.68), rgba(2, 6, 14, 0.82)) !important;");
+      expect(stylesheet).toContain("backdrop-filter: blur(8px) saturate(126%) !important;");
       expect(stylesheet).not.toContain("Final stable page background: opening game cards must not visually change the page behind them.");
+      expect(stylesheet).not.toContain("Final stable card backdrop: opening cards must not dim or shift the page behind them.");
       expect(stylesheet).not.toContain("visibility: visible !important;\n  opacity: 1 !important;\n  filter: none !important;\n  transform: none !important;");
-      expect(stylesheet).toContain(".district-popup-backdrop");
-      expect(stylesheet).toContain(".storage-popup-backdrop");
-      expect(stylesheet).toContain("background: transparent !important;");
-      expect(stylesheet).toContain("backdrop-filter: none !important;");
       expect(stylesheet).toContain("body.game-modal-scroll-locked .robbery-setup-popup-shell");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked #spy-confirm-modal");
       expect(stylesheet).toContain("padding-top: calc(var(--mobile-overlay-card-top) + var(--mobile-overlay-card-gap)) !important;");
@@ -237,15 +239,9 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("height: var(--mobile-locked-vh, 100dvh) !important;");
     }
     for (const stylesheet of [mainCss, clientMainCss]) {
-      expect(stylesheet).toContain("Final stable card backdrop: opening cards must not dim or shift the page behind them.");
       expect(stylesheet).not.toContain("Final stable page background: opening game cards must not visually change the page behind them.");
+      expect(stylesheet).not.toContain("Final stable card backdrop: opening cards must not dim or shift the page behind them.");
       expect(stylesheet).not.toContain("visibility: visible !important;\n  opacity: 1 !important;\n  filter: none !important;\n  transform: none !important;");
-      expect(stylesheet).toContain(".district-popup-backdrop");
-      expect(stylesheet).toContain(".buildings-popup-backdrop");
-      expect(stylesheet).toContain(".market-popup-backdrop");
-      expect(stylesheet).toContain(".pharmacy-popup-backdrop");
-      expect(stylesheet).toContain("background: transparent !important;");
-      expect(stylesheet).toContain("-webkit-backdrop-filter: none !important;");
     }
     expect(mobileRuntime).toContain('const MOBILE_OVERLAY_SELECTOR = [');
     expect(mobileRuntime).toContain('".district-popup-shell",');

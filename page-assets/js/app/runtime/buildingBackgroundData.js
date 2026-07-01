@@ -217,6 +217,12 @@ export const DISTRICT_BUILDING_BACKGROUND_IMAGES_BY_BASE_NAME = Object.freeze({
     WAREHOUSE_BG_3,
     WAREHOUSE_BG_4
   ]),
+  Skladiště: Object.freeze([
+    WAREHOUSE_BG_1,
+    WAREHOUSE_BG_2,
+    WAREHOUSE_BG_3,
+    WAREHOUSE_BG_4
+  ]),
   "Energetická stanice": Object.freeze([
     POWER_STATION_BG_1,
     POWER_STATION_BG_2,

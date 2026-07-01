@@ -5790,31 +5790,22 @@ html body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle--with
   display: none !important;
 }
 
-/* Final stable card backdrop: opening cards must not dim or shift the page behind them. */
-html body.game-body :is(
-  .modal__backdrop,
-  .district-popup-backdrop,
-  .attack-setup-popup-backdrop,
-  .buildings-popup-backdrop,
-  .wanted-popup-backdrop,
-  .player-popup-backdrop,
-  .armory-popup-backdrop,
-  .pharmacy-popup-backdrop,
-  .druglab-popup-backdrop,
-  .factory-popup-backdrop,
-  .market-popup-backdrop,
-  .leaderboard-popup-backdrop,
-  .leaderboard-player-detail-backdrop,
-  .storage-popup-backdrop,
-  .avatar-lightbox__backdrop,
-  .district-building-detail-backdrop,
-  .game-admin-slice-overlay__backdrop,
-  .elimination-ai-panel__backdrop,
-  .elimination-result-popup__backdrop
-) {
-  background: transparent !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  box-shadow: none !important;
-  opacity: 1 !important;
+/* Mobile overlay backdrop guard: main cards cover fixed-scroll artifacts behind them. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-modal-scroll-locked #events-modal:not(.hidden) > .modal__backdrop,
+  html body.game-modal-scroll-locked #event-detail-modal:not(.hidden) > .modal__backdrop,
+  html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popup-backdrop,
+  html body.game-modal-scroll-locked .market-popup-shell:not([hidden]) > .market-popup-backdrop {
+    position: absolute !important;
+    inset: 0 !important;
+    background:
+      radial-gradient(circle at 18% 0%, rgba(34, 211, 238, 0.16), transparent 38%),
+      radial-gradient(circle at 82% 100%, rgba(244, 114, 182, 0.14), transparent 42%),
+      linear-gradient(180deg, rgba(2, 6, 14, 0.68), rgba(2, 6, 14, 0.82)) !important;
+    backdrop-filter: blur(8px) saturate(126%) !important;
+    -webkit-backdrop-filter: blur(8px) saturate(126%) !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
 }

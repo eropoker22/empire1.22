@@ -9,7 +9,7 @@ function createRuntime(overrides = {}) {
     districtBuildingPackagePools: {
       resident: {
         early: [{ key: "resident-early", tier: "early", title: "Start", buildings: ["Kasino"] }],
-        mid: [{ key: "resident-mid", tier: "mid", title: "Mid", buildings: ["Sklad"] }]
+        mid: [{ key: "resident-mid", tier: "mid", title: "Mid", buildings: ["Skladiště"] }]
       },
       downtown: {
         core: [{ key: "downtown-core", tier: "core", title: "Core", buildings: ["Mall"] }]
@@ -109,19 +109,19 @@ describe("district building profile runtime", () => {
             key: "resident-early",
             tier: "early",
             title: "Start",
-            buildings: ["Sklad", "Sklad", "Sklad"]
+            buildings: ["Skladiště", "Skladiště", "Skladiště"]
           }]
         }
       },
       variantNamesByBaseName: {
-        Sklad: ["Depot A", "Depot B", "Depot C"]
+        Skladiště: ["Depot A", "Depot B", "Depot C"]
       }
     });
 
     const profile = runtime.resolveDistrictBuildingProfile({ id: 1, rowIndex: 0, columnIndex: 0, districtType: "resident" });
     const displayNames = profile.buildings.map((building) => building.displayName);
 
-    expect(displayNames).toEqual(["Depot B", "Depot C", "Depot A"]);
+    expect(displayNames).toEqual(["Depot A", "Depot B", "Depot C"]);
     expect(new Set(displayNames).size).toBe(displayNames.length);
   });
 
@@ -133,12 +133,12 @@ describe("district building profile runtime", () => {
             key: "resident-early",
             tier: "early",
             title: "Start",
-            buildings: ["Sklad", "Sklad", "Sklad", "Sklad"]
+            buildings: ["Skladiště", "Skladiště", "Skladiště", "Skladiště"]
           }]
         }
       },
       variantNamesByBaseName: {
-        Sklad: ["Depot A", "Depot B"]
+        Skladiště: ["Depot A", "Depot B"]
       }
     });
 

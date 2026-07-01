@@ -298,7 +298,7 @@ function createEvents() {
 }
 
 function createBuildings() {
-  const names = ["Lékárna", "Drug Lab", "Továrna", "Zbrojovka", "Pašovací tunel", "Pouliční dealeři", "Strip club", "Večerka", "Energetická stanice", "Sklad", "Fitness Club", "Kasino", "Herna", "Autosalon", "Směnárna", "Restaurace", "Bytový blok", "Klinika"];
+  const names = ["Lékárna", "Drug Lab", "Továrna", "Zbrojovka", "Pašovací tunel", "Pouliční dealeři", "Strip club", "Večerka", "Energetická stanice", "Skladiště", "Fitness Club", "Kasino", "Herna", "Autosalon", "Směnárna", "Restaurace", "Bytový blok", "Klinika"];
   const zones = Object.keys(ZONE_META);
   return names.map((name, index) => ({
     id: `building-${index + 1}`,
@@ -419,7 +419,7 @@ function createSecurity(logs) {
 }
 
 function pickBuildings(index) {
-  const pool = ["Lékárna", "Drug Lab", "Továrna", "Zbrojovka", "Sklad", "Kasino", "Energetická stanice", "Klinika", "Pašovací tunel"];
+  const pool = ["Lékárna", "Drug Lab", "Továrna", "Zbrojovka", "Skladiště", "Kasino", "Energetická stanice", "Klinika", "Pašovací tunel"];
   return [pool[index % pool.length], pool[(index + 3) % pool.length], pool[(index + 6) % pool.length]];
 }
 
