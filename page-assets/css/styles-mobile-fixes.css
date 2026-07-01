@@ -5790,20 +5790,31 @@ html body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle--with
   display: none !important;
 }
 
-/* Mobile overlay backdrop guard: main cards cover fixed-scroll artifacts behind them. */
+/* Mobile overlay backdrop stability: keep the real page visible behind game cards. */
 @media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-modal-scroll-locked .modal:not(.hidden):not([hidden]) > .modal__backdrop,
+  html body.game-modal-scroll-locked .district-popup-shell:not([hidden]) > .district-popup-backdrop,
+  html body.game-modal-scroll-locked .attack-setup-popup-shell:not([hidden]) > .attack-setup-popup-backdrop,
+  html body.game-modal-scroll-locked .robbery-setup-popup-shell:not([hidden]) > .attack-setup-popup-backdrop,
+  html body.game-modal-scroll-locked .wanted-popup-shell:not([hidden]) > .wanted-popup-backdrop,
+  html body.game-modal-scroll-locked .player-popup-shell:not([hidden]) > .player-popup-backdrop,
+  html body.game-modal-scroll-locked .armory-popup-shell:not([hidden]) > .armory-popup-backdrop,
+  html body.game-modal-scroll-locked .pharmacy-popup-shell:not([hidden]) > .pharmacy-popup-backdrop,
+  html body.game-modal-scroll-locked .druglab-popup-shell:not([hidden]) > .druglab-popup-backdrop,
+  html body.game-modal-scroll-locked .factory-popup-shell:not([hidden]) > .factory-popup-backdrop,
+  html body.game-modal-scroll-locked .leaderboard-popup-shell:not([hidden]) > .leaderboard-popup-backdrop,
+  html body.game-modal-scroll-locked .storage-popup-shell:not([hidden]) > .storage-popup-backdrop,
+  html body.game-modal-scroll-locked .district-building-detail-shell:not([hidden]) > .district-building-detail-backdrop,
   html body.game-modal-scroll-locked #events-modal:not(.hidden) > .modal__backdrop,
   html body.game-modal-scroll-locked #event-detail-modal:not(.hidden) > .modal__backdrop,
   html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popup-backdrop,
   html body.game-modal-scroll-locked .market-popup-shell:not([hidden]) > .market-popup-backdrop {
     position: absolute !important;
     inset: 0 !important;
-    background:
-      radial-gradient(circle at 18% 0%, rgba(34, 211, 238, 0.16), transparent 38%),
-      radial-gradient(circle at 82% 100%, rgba(244, 114, 182, 0.14), transparent 42%),
-      linear-gradient(180deg, rgba(2, 6, 14, 0.68), rgba(2, 6, 14, 0.82)) !important;
-    backdrop-filter: blur(8px) saturate(126%) !important;
-    -webkit-backdrop-filter: blur(8px) saturate(126%) !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    filter: none !important;
     box-shadow: none !important;
     opacity: 1 !important;
     pointer-events: auto !important;

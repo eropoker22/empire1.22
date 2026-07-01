@@ -165,21 +165,23 @@ describe("overlay backdrop", () => {
     expect(getTopOverlay()).toBe("district_sheet");
   });
 
-  it("otevření prvního overlaye nezmění scrollY a zamkne body", () => {
+  it("otevření prvního overlaye nezmění scroll ani inline body styly", () => {
+    const originalBodyStyles = captureBodyStyles();
     const initialScrollY = 77;
     setWindowScrollY(initialScrollY);
 
     openOverlay("district_sheet");
 
-    expect(document.body.style.position).toBe("fixed");
-    expect(document.body.style.top).toBe(`-${initialScrollY}px`);
-    expect(document.body.style.left).toBe("0px");
-    expect(document.body.style.right).toBe("0px");
-    expect(document.body.style.width).toBe("100%");
+    expect(document.body.dataset.overlayScrollLocked).toBe("true");
+    expect(document.body.style.position).toBe(originalBodyStyles.position);
+    expect(document.body.style.top).toBe(originalBodyStyles.top);
+    expect(document.body.style.left).toBe(originalBodyStyles.left);
+    expect(document.body.style.right).toBe(originalBodyStyles.right);
+    expect(document.body.style.width).toBe(originalBodyStyles.width);
     expect(window.scrollY).toBe(initialScrollY);
   });
 
-  it("zavření posledního overlaye obnoví scrollY a původní style", () => {
+  it("zavření posledního overlaye obnoví scrollY bez přepisování style", () => {
     const originalBodyStyles = captureBodyStyles();
     const initialScrollY = 141;
     setWindowScrollY(initialScrollY);
@@ -189,6 +191,7 @@ describe("overlay backdrop", () => {
     closeOverlay("close overlay");
 
     expect(scrollTo).toHaveBeenCalledWith({ top: initialScrollY, left: 0, behavior: "auto" });
+    expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
     expect(document.body.style.position).toBe(originalBodyStyles.position);
     expect(document.body.style.top).toBe(originalBodyStyles.top);
     expect(document.body.style.left).toBe(originalBodyStyles.left);
@@ -204,16 +207,19 @@ describe("overlay backdrop", () => {
     openOverlay("district_sheet");
     openOverlay("confirmation_modal");
 
-    expect(document.body.style.position).toBe("fixed");
-    expect(document.body.style.top).toBe(`-${initialScrollY}px`);
+    expect(document.body.dataset.overlayScrollLocked).toBe("true");
+    expect(document.body.style.position).toBe("");
+    expect(document.body.style.top).toBe("");
 
     closeOverlay("close top");
     expect(scrollTo).not.toHaveBeenCalled();
-    expect(document.body.style.position).toBe("fixed");
-    expect(document.body.style.top).toBe(`-${initialScrollY}px`);
+    expect(document.body.dataset.overlayScrollLocked).toBe("true");
+    expect(document.body.style.position).toBe("");
+    expect(document.body.style.top).toBe("");
 
     closeOverlay("close bottom");
     expect(scrollTo).toHaveBeenCalledWith({ top: initialScrollY, left: 0, behavior: "auto" });
+    expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
     expect(document.body.style.position).toBe("");
     expect(document.body.style.top).toBe("");
     expect(document.body.style.left).toBe("");

@@ -864,7 +864,7 @@ var EmpireGameplaySliceClient = function(exports) {
   const LOCKED_BODY_DATA_ATTRIBUTE = "overlayScrollLocked";
   const DEFAULT_GHOST_CLICK_SUPPRESSION_MS = 250;
   let suppressMapInputUntil = 0;
-  const bodyStyleSnapshot = /* @__PURE__ */ new WeakMap();
+  let lockedPageScrollY = null;
   const getBody = () => {
     if (typeof document === "undefined") {
       return null;
@@ -903,9 +903,7 @@ var EmpireGameplaySliceClient = function(exports) {
     const restore = () => restorePageScroll(scrollY);
     restore();
     window.requestAnimationFrame?.(restore);
-    window.requestAnimationFrame?.(() => window.requestAnimationFrame?.(restore));
     window.setTimeout?.(restore, 80);
-    window.setTimeout?.(restore, 180);
   };
   const lockBodyScroll = () => {
     const body = getBody();
@@ -915,21 +913,9 @@ var EmpireGameplaySliceClient = function(exports) {
     if (body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] === "true") {
       return;
     }
-    bodyStyleSnapshot.set(body, {
-      scrollY: getScrollY(),
-      left: body.style.left,
-      position: body.style.position,
-      right: body.style.right,
-      top: body.style.top,
-      width: body.style.width
-    });
     const scrollY = getScrollY();
+    lockedPageScrollY = scrollY;
     body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "true";
-    body.style.position = "fixed";
-    body.style.top = `-${scrollY}px`;
-    body.style.left = "0";
-    body.style.right = "0";
-    body.style.width = "100%";
   };
   const unlockBodyScroll = () => {
     const body = getBody();
@@ -939,23 +925,10 @@ var EmpireGameplaySliceClient = function(exports) {
     if (body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] !== "true") {
       return;
     }
-    const savedStyles = bodyStyleSnapshot.get(body) ?? {
-      scrollY: Math.abs(Number.parseFloat(body.style.top || "0")) || getScrollY(),
-      left: "",
-      position: "",
-      right: "",
-      top: "",
-      width: ""
-    };
-    const { scrollY, left, position, right, top, width } = savedStyles;
-    body.style.left = left;
-    body.style.position = position;
-    body.style.right = right;
-    body.style.top = top;
-    body.style.width = width;
+    const scrollY = lockedPageScrollY ?? getScrollY();
     body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "";
     delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
-    bodyStyleSnapshot.delete(body);
+    lockedPageScrollY = null;
     schedulePageScrollRestore(scrollY);
   };
   const now = () => {

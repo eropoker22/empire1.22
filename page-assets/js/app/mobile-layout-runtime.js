@@ -275,14 +275,8 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
 
   const getScrollY = () => Math.max(
     0,
-    Math.floor(windowObj.scrollY || windowObj.pageYOffset || root.scrollTop || documentObj.body.scrollTop || getLockedBodyScrollY() || 0)
+    Math.floor(windowObj.scrollY || windowObj.pageYOffset || root.scrollTop || documentObj.body.scrollTop || 0)
   );
-  const getLockedBodyScrollY = () => {
-    const lockedTop = Number.parseFloat(documentObj.body.style.top || "");
-    return documentObj.body.style.position === "fixed" && Number.isFinite(lockedTop) && lockedTop < 0
-      ? Math.abs(lockedTop)
-      : 0;
-  };
   let lastKnownScrollY = getScrollY();
 
   const restorePageScroll = (nextScrollY) => {
@@ -313,11 +307,6 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
     const currentScrollY = getScrollY();
     lockedScrollY = currentScrollY > 0 || lastKnownScrollY <= 0 ? currentScrollY : lastKnownScrollY;
     lastKnownScrollY = lockedScrollY;
-    documentObj.body.style.position = "fixed";
-    documentObj.body.style.top = `-${lockedScrollY}px`;
-    documentObj.body.style.left = "0";
-    documentObj.body.style.right = "0";
-    documentObj.body.style.width = "100%";
   };
 
   const unlockPageScroll = () => {
@@ -331,16 +320,9 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
     const restoreScrollPosition = () => {
       restorePageScroll(nextScrollY);
     };
-    documentObj.body.style.removeProperty("position");
-    documentObj.body.style.removeProperty("top");
-    documentObj.body.style.removeProperty("left");
-    documentObj.body.style.removeProperty("right");
-    documentObj.body.style.removeProperty("width");
     restoreScrollPosition();
     windowObj.requestAnimationFrame(restoreScrollPosition);
-    windowObj.requestAnimationFrame(() => windowObj.requestAnimationFrame(restoreScrollPosition));
     windowObj.setTimeout(restoreScrollPosition, 80);
-    windowObj.setTimeout(restoreScrollPosition, 180);
   };
 
   const rememberScrollY = () => {

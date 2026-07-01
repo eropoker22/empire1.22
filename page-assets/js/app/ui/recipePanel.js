@@ -426,15 +426,13 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     const icon = createElement(options.mount, "span", `pharmacy-slot__icon ${visual?.iconToneClass || "pharmacy-slot__icon--cyan"} ${visual?.iconGlyphClass || "pharmacy-slot__icon--flask"}`);
     const titleWrap = createElement(options.mount, "div", "pharmacy-slot__title-wrap");
     const title = createElement(options.mount, "strong", "pharmacy-slot__title");
-    const product = createElement(options.mount, "span", "pharmacy-slot__product");
     const state = createElement(options.mount, "span", "pharmacy-slot__state");
     const metrics = createElement(options.mount, "div", "pharmacy-slot__metrics");
     const actions = createElement(options.mount, "div", "pharmacy-slot__actions");
     if (icon) icon.setAttribute("aria-hidden", "true");
     if (title) title.textContent = recipe.name || "";
-    if (product) product.textContent = visual?.productLabel || "Materiál";
     if (state) state.textContent = slotState.label;
-    appendChildren(titleWrap, [title, product]);
+    appendChildren(titleWrap, [title]);
     appendChildren(titleLine, [icon, titleWrap]);
     appendChildren(head, [titleLine, state]);
     const timeMetric = createPharmacyMetricBlock(options.mount, "Čas", formatRecipeSlotTime(job, effectiveDurationMs, 1, options));

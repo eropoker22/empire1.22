@@ -3942,8 +3942,20 @@
   align-items: center;
 }
 
+.pharmacy-popup-card.building-detail-modal__content .pharmacy-slot__title-line,
+.druglab-popup-card.building-detail-modal__content .drug-production-slot__title-wrap {
+  align-items: center;
+}
+
 .factory-popup-card.building-detail-modal__content .factory-slot .drug-production-slot__titles {
   padding-top: 2px;
+}
+
+.pharmacy-popup-card.building-detail-modal__content .pharmacy-slot__title-wrap,
+.druglab-popup-card.building-detail-modal__content .drug-production-slot__titles {
+  display: flex;
+  align-items: center;
+  padding-top: 0;
 }
 
 .armory-popup-card.building-detail-modal__content .armory-slot .drug-production-slot__product {

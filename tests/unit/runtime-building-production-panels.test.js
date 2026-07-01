@@ -1022,6 +1022,9 @@ describe("building detail, production and recipe UI modules", () => {
       formatDurationLabel: (value) => `${Math.ceil(Number(value || 0) / 60000)}m`
     });
 
+    expect(card.querySelector(".pharmacy-slot__product")).toBe(null);
+    expect(card.querySelector(".pharmacy-slot__title")?.textContent).toBe("Chemicals");
+
     const quantityButtons = card.querySelectorAll(".pharmacy-slot__quantity-btn");
     quantityButtons[1].click();
     quantityButtons[1].click();

@@ -12,7 +12,7 @@ const overlayStack = [];
 let suppressMapInputUntil = 0;
 const LOCKED_BODY_DATA_ATTRIBUTE = "legacyOverlayScrollLocked";
 const LOCKED_BODY_CLASS = "game-modal-scroll-locked";
-let bodyStyleSnapshot = null;
+let lockedPageScrollY = null;
 
 function getElementView(element) {
   return element?.ownerDocument?.defaultView || (typeof window !== "undefined" ? window : null);
@@ -41,13 +41,9 @@ function getBody(element) {
 
 function getScrollY(view, body) {
   const root = body?.ownerDocument?.documentElement || null;
-  const lockedTop = Number.parseFloat(body?.style?.top || "");
-  const lockedScrollY = body?.style?.position === "fixed" && Number.isFinite(lockedTop) && lockedTop < 0
-    ? Math.abs(lockedTop)
-    : 0;
   return Math.max(
     0,
-    Math.floor(view?.scrollY || view?.pageYOffset || root?.scrollTop || body?.scrollTop || lockedScrollY || 0)
+    Math.floor(view?.scrollY || view?.pageYOffset || root?.scrollTop || body?.scrollTop || 0)
   );
 }
 
@@ -80,9 +76,7 @@ function schedulePageScrollRestore(view, body, scrollY) {
   const restore = () => restorePageScroll(view, body, scrollY);
   restore();
   view?.requestAnimationFrame?.(restore);
-  view?.requestAnimationFrame?.(() => view?.requestAnimationFrame?.(restore));
   view?.setTimeout?.(restore, 80);
-  view?.setTimeout?.(restore, 180);
 }
 
 function lockBodyScroll(element) {
@@ -94,23 +88,10 @@ function lockBodyScroll(element) {
   }
 
   const scrollY = getScrollY(view, body);
-  bodyStyleSnapshot = {
-    scrollY,
-    left: body.style.left,
-    position: body.style.position,
-    right: body.style.right,
-    top: body.style.top,
-    width: body.style.width
-  };
-
+  lockedPageScrollY = scrollY;
   body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "true";
   html?.classList?.add(LOCKED_BODY_CLASS);
   body.classList.add(LOCKED_BODY_CLASS);
-  body.style.position = "fixed";
-  body.style.top = `-${scrollY}px`;
-  body.style.left = "0";
-  body.style.right = "0";
-  body.style.width = "100%";
 }
 
 function unlockBodyScroll(element) {
@@ -122,17 +103,11 @@ function unlockBodyScroll(element) {
   }
 
   const fallbackScrollY = getScrollY(view, body);
-  const savedStyles = bodyStyleSnapshot;
-  const restoreScrollY = savedStyles?.scrollY ?? fallbackScrollY;
-  body.style.left = savedStyles?.left || "";
-  body.style.position = savedStyles?.position || "";
-  body.style.right = savedStyles?.right || "";
-  body.style.top = savedStyles?.top || "";
-  body.style.width = savedStyles?.width || "";
+  const restoreScrollY = lockedPageScrollY ?? fallbackScrollY;
   html?.classList?.remove(LOCKED_BODY_CLASS);
   body.classList.remove(LOCKED_BODY_CLASS);
   delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
-  bodyStyleSnapshot = null;
+  lockedPageScrollY = null;
   schedulePageScrollRestore(view, body, restoreScrollY);
 }
 

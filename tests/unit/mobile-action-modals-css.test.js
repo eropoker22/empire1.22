@@ -199,12 +199,16 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("body.game-modal-scroll-locked .game-resource-strip");
       expect(stylesheet).toContain("visibility: hidden !important;");
       expect(stylesheet).toContain("opacity: 0 !important;");
-      expect(stylesheet).toContain("Mobile overlay backdrop guard: main cards cover fixed-scroll artifacts behind them.");
+      expect(stylesheet).toContain("Mobile overlay backdrop stability: keep the real page visible behind game cards.");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked .district-popup-shell:not([hidden]) > .district-popup-backdrop");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked .pharmacy-popup-shell:not([hidden]) > .pharmacy-popup-backdrop");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked .storage-popup-shell:not([hidden]) > .storage-popup-backdrop");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked #events-modal:not(.hidden) > .modal__backdrop");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) > .buildings-popup-backdrop");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked .market-popup-shell:not([hidden]) > .market-popup-backdrop");
-      expect(stylesheet).toContain("linear-gradient(180deg, rgba(2, 6, 14, 0.68), rgba(2, 6, 14, 0.82)) !important;");
-      expect(stylesheet).toContain("backdrop-filter: blur(8px) saturate(126%) !important;");
+      expect(stylesheet).toContain("background: transparent !important;");
+      expect(stylesheet).toContain("backdrop-filter: none !important;");
+      expect(stylesheet).toContain("filter: none !important;");
       expect(stylesheet).not.toContain("Final stable page background: opening game cards must not visually change the page behind them.");
       expect(stylesheet).not.toContain("Final stable card backdrop: opening cards must not dim or shift the page behind them.");
       expect(stylesheet).not.toContain("visibility: visible !important;\n  opacity: 1 !important;\n  filter: none !important;\n  transform: none !important;");
@@ -247,9 +251,12 @@ describe("mobile action modal CSS", () => {
     expect(mobileRuntime).toContain('".district-popup-shell",');
     expect(mobileRuntime).toContain('root.style.setProperty("--mobile-overlay-top-offset", `${topbarOffset}px`);');
     expect(mobileRuntime).toContain("let lastKnownScrollY = getScrollY();");
-    expect(mobileRuntime).toContain("const getLockedBodyScrollY = () => {");
-    expect(mobileRuntime).toContain('documentObj.body.style.position === "fixed"');
-    expect(mobileRuntime).toContain("getLockedBodyScrollY() || 0");
+    expect(mobileRuntime).toContain("let lockedScrollY = null;");
+    expect(mobileRuntime).toContain("const lockPageScroll = () => {");
+    expect(mobileRuntime).toContain("lockedScrollY = currentScrollY > 0 || lastKnownScrollY <= 0 ? currentScrollY : lastKnownScrollY;");
+    expect(mobileRuntime).not.toContain("const getLockedBodyScrollY = () => {");
+    expect(mobileRuntime).not.toContain('documentObj.body.style.position = "fixed"');
+    expect(mobileRuntime).not.toContain("getLockedBodyScrollY() || 0");
     expect(mobileRuntime).toContain("const restorePageScroll = (nextScrollY) => {");
     expect(mobileRuntime).toContain("const restoreScrollPosition = () => {");
     expect(mobileRuntime).toContain("root.scrollTop = nextScrollY;");
@@ -257,9 +264,9 @@ describe("mobile action modal CSS", () => {
     expect(mobileRuntime).toContain("lastKnownScrollY = nextScrollY;");
     expect(mobileRuntime).toContain("restoreScrollPosition();");
     expect(mobileRuntime).toContain("windowObj.requestAnimationFrame(restoreScrollPosition);");
-    expect(mobileRuntime).toContain("windowObj.requestAnimationFrame(() => windowObj.requestAnimationFrame(restoreScrollPosition));");
     expect(mobileRuntime).toContain("windowObj.setTimeout(restoreScrollPosition, 80);");
-    expect(mobileRuntime).toContain("windowObj.setTimeout(restoreScrollPosition, 180);");
+    expect(mobileRuntime).not.toContain("windowObj.requestAnimationFrame(() => windowObj.requestAnimationFrame(restoreScrollPosition));");
+    expect(mobileRuntime).not.toContain("windowObj.setTimeout(restoreScrollPosition, 180);");
     expect(mobileRuntime).toContain('windowObj.addEventListener("scroll", rememberScrollY, { passive: true });');
   });
 
@@ -268,26 +275,30 @@ describe("mobile action modal CSS", () => {
       expect(source).toContain("const getScrollY");
       expect(source).toContain("const restorePageScroll");
       expect(source).toContain("const schedulePageScrollRestore");
+      expect(source).toContain("let lockedPageScrollY");
       expect(source).toContain("document.documentElement.scrollTop = scrollY;");
       expect(source).toContain("document.body.scrollTop = scrollY;");
       expect(source).toContain("window.setTimeout?.(restore, 80);");
-      expect(source).toContain("window.setTimeout?.(restore, 180);");
+      expect(source).not.toContain('body.style.position = "fixed"');
+      expect(source).not.toContain("window.setTimeout?.(restore, 180);");
     }
 
     for (const source of [legacyOverlayCoordinator, clientLegacyOverlayCoordinator]) {
       expect(source).toContain("function getScrollY(view, body)");
-      expect(source).toContain('body?.style?.position === "fixed"');
-      expect(source).toContain("lockedScrollY || 0");
+      expect(source).toContain("let lockedPageScrollY = null;");
+      expect(source).not.toContain('body?.style?.position === "fixed"');
+      expect(source).not.toContain("lockedScrollY || 0");
+      expect(source).not.toContain('body.style.position = "fixed"');
       expect(source).toContain("function restorePageScroll(view, body, scrollY)");
       expect(source).toContain("function schedulePageScrollRestore(view, body, scrollY)");
       expect(source).toContain("restoreFocusOnClose: options.restoreFocusOnClose !== false");
       expect(source).toContain("options.restoreFocus !== false && entry?.restoreFocusOnClose !== false");
       expect(source).toContain("const fallbackScrollY = getScrollY(view, body);");
-      expect(source).toContain("const restoreScrollY = savedStyles?.scrollY ?? fallbackScrollY;");
+      expect(source).toContain("const restoreScrollY = lockedPageScrollY ?? fallbackScrollY;");
       expect(source).toContain("root.scrollTop = scrollY;");
       expect(source).toContain("body.scrollTop = scrollY;");
       expect(source).toContain("view?.setTimeout?.(restore, 80);");
-      expect(source).toContain("view?.setTimeout?.(restore, 180);");
+      expect(source).not.toContain("view?.setTimeout?.(restore, 180);");
     }
 
     for (const source of [modalHelpers, clientModalHelpers]) {
