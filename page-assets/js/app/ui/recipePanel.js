@@ -146,6 +146,14 @@ function formatReadyOutput(job = null, recipe = {}, options = {}) {
     : "0 ks";
 }
 
+function formatCapacityOutput(job = null, recipe = {}, options = {}) {
+  const outputCap = Math.max(0, Math.floor(Number(options.outputCap || 0)));
+  const readyAmount = job?.status === "ready"
+    ? getQueuedOutputAmount(job, recipe, options)
+    : 0;
+  return outputCap > 0 ? `${Math.min(outputCap, readyAmount)}/${outputCap} ks` : `${readyAmount} ks`;
+}
+
 function createMetricBlock(scopeElement, { label, value, inline = false } = {}) {
   const metric = createElement(scopeElement, "div", inline
     ? "drug-production-slot__metric drug-production-slot__metric--inline"
@@ -435,7 +443,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     const cleanCost = Math.max(0, Number(recipe.cleanMoneyCost || 0));
     const costMetric = createPharmacyMetricBlock(options.mount, "Cena", cleanCost ? `${formatMoney(cleanCost, options)} clean` : "-");
     appendChildren(metrics, [
-      createPharmacyMetricBlock(options.mount, "Výstup", formatReadyOutput(job, recipe, { useQuantityAsOutput: true })),
+      createPharmacyMetricBlock(options.mount, "Vyrobeno", formatCapacityOutput(job, recipe, { useQuantityAsOutput: true, outputCap: viewModel.outputCap })),
       timeMetric,
       costMetric,
       queueMetric
@@ -478,7 +486,10 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     const timeMetric = createMetricBlock(options.mount, { label: "Čas", value: formatRecipeSlotTime(job, effectiveDurationMs, 1, options) });
     const queueMetric = createMetricBlock(options.mount, { label: "Ve frontě", value: formatQueuedOutput(job, recipe, { outputCap: viewModel.outputCap }), inline: true });
     appendChildren(metrics, [
-      createMetricBlock(options.mount, { label: "Výstup", value: isArmory ? formatReadyOutput(job, recipe, { outputCap: viewModel.outputCap }) : `${recipe.output?.amount || 0} ks` }),
+      createMetricBlock(options.mount, {
+        label: "Vyrobeno",
+        value: formatCapacityOutput(job, recipe, { outputCap: viewModel.outputCap })
+      }),
       timeMetric,
       createMetricBlock(options.mount, { label: "Ve skladu", value: `${outputInventoryAmount} ks`, inline: true }),
       queueMetric

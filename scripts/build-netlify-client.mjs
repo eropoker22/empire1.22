@@ -38,6 +38,14 @@ for (const dir of staticDirs) {
   await cp(resolve(rootDir, dir), targetDir, { recursive: true });
 }
 
+try {
+  await cp(resolve(rootDir, "public"), publishDir, { recursive: true });
+} catch (error) {
+  if (error?.code !== "ENOENT") {
+    throw error;
+  }
+}
+
 await writeFile(
   resolve(publishDir, "_redirects"),
   [

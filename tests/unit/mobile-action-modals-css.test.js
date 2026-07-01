@@ -3,13 +3,30 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
+const readText = (path) => readFileSync(resolve(root, path), "utf8").replace(/\r\n/g, "\n");
 
 describe("mobile action modal CSS", () => {
-  const css = readFileSync(resolve(root, "page-assets/css/styles-mobile-fixes.css"), "utf8");
-  const clientCss = readFileSync(resolve(root, "client/page-assets/css/styles-mobile-fixes.css"), "utf8");
-  const actionCss = readFileSync(resolve(root, "page-assets/css/styles-action-results.css"), "utf8");
-  const clientActionCss = readFileSync(resolve(root, "client/page-assets/css/styles-action-results.css"), "utf8");
-  const mobileRuntime = readFileSync(resolve(root, "page-assets/js/app/mobile-layout-runtime.js"), "utf8");
+  const css = readText("page-assets/css/styles-mobile-fixes.css");
+  const clientCss = readText("client/page-assets/css/styles-mobile-fixes.css");
+  const mainCss = readText("page-assets/css/styles.css");
+  const clientMainCss = readText("client/page-assets/css/styles.css");
+  const popupCss = readText("page-assets/css/styles-popups.css");
+  const clientPopupCss = readText("client/page-assets/css/styles-popups.css");
+  const buildingModalCss = readText("page-assets/css/styles-building-modals.css");
+  const clientBuildingModalCss = readText("client/page-assets/css/styles-building-modals.css");
+  const gameHtml = readText("pages/game.html");
+  const clientGameHtml = readText("client/pages/game.html");
+  const actionCss = readText("page-assets/css/styles-action-results.css");
+  const clientActionCss = readText("client/page-assets/css/styles-action-results.css");
+  const mobileRuntime = readText("page-assets/js/app/mobile-layout-runtime.js");
+  const overlayState = readText("apps/client/src/modals/overlay-state.ts");
+  const gameplaySliceClient = readText("page-assets/js/client-assets/gameplay-slice-client.js");
+  const clientGameplaySliceClient = readText("client/page-assets/js/client-assets/gameplay-slice-client.js");
+  const legacyOverlayCoordinator = readText("page-assets/js/app/ui/legacyOverlayCoordinator.js");
+  const clientLegacyOverlayCoordinator = readText("client/page-assets/js/app/ui/legacyOverlayCoordinator.js");
+  const onboardingCss = readText("page-assets/css/styles-onboarding.css");
+  const cityEventsCss = readText("page-assets/css/styles-city-events.css");
+  const clientCityEventsCss = readText("client/page-assets/css/styles-city-events.css");
 
   it("keeps action result dialogs compact on mobile", () => {
     expect(css).toContain("Compact mobile action/result modals");
@@ -72,6 +89,98 @@ describe("mobile action modal CSS", () => {
     }
   });
 
+  it("keeps mobile district action buttons on desktop action skins", () => {
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain("Final mobile desktop parity: district action buttons use desktop action skins.");
+      expect(stylesheet).toContain("html body.game-body .district-popup-action[data-district-action-id]");
+      expect(stylesheet).toContain("min-height: 46px !important;");
+      expect(stylesheet).toContain("border-radius: 7px !important;");
+      expect(stylesheet).toContain("linear-gradient(135deg, rgba(120, 53, 15, 0.96), rgba(161, 98, 7, 0.9)) !important;");
+      expect(stylesheet).toContain("linear-gradient(135deg, rgba(8, 47, 73, 0.96), rgba(15, 118, 110, 0.9)) !important;");
+      expect(stylesheet).toContain("linear-gradient(135deg, rgba(136, 19, 55, 0.96), rgba(64, 8, 24, 0.92)) !important;");
+      expect(stylesheet).toContain("linear-gradient(135deg, rgba(127, 29, 29, 0.96), rgba(24, 24, 27, 0.94)) !important;");
+    }
+  });
+
+  it("keeps armory info power values on the same row as weapon names", () => {
+    for (const html of [gameHtml, clientGameHtml]) {
+      expect(html).toContain('class="pharmacy-info-output__head"');
+      expect(html).toContain('class="pharmacy-info-output-column pharmacy-info-output-column--attack"');
+      expect(html).toContain('class="pharmacy-info-output-column pharmacy-info-output-column--defense"');
+      expect(html).toContain('<span class="pharmacy-info-output__power"><span>Síla útoku:</span><strong>5</strong></span>');
+      expect(html).toContain('<span class="pharmacy-info-output__power"><span>Síla obrany:</span><strong>20</strong></span>');
+    }
+
+    for (const stylesheet of [buildingModalCss, clientBuildingModalCss]) {
+      expect(stylesheet).toContain(".pharmacy-info-output__head");
+      expect(stylesheet).toContain("justify-content: space-between;");
+      expect(stylesheet).toContain(".pharmacy-info-output__power strong");
+      expect(stylesheet).toContain(".pharmacy-info-output__power > span");
+      expect(stylesheet).toContain("font-size: 6.2px !important;");
+      expect(stylesheet).toContain("font-size: 1.32em !important;");
+      expect(stylesheet).toContain(".pharmacy-info-output-column");
+      expect(stylesheet).toContain("grid-template-columns: repeat(2, minmax(0, 1fr));");
+      expect(stylesheet).toContain(".armory-popup-card.building-detail-modal__content .building-tech-popup-stat-card:nth-child(3)");
+      expect(stylesheet).toContain("border-color: rgba(251, 191, 36, 0.36);");
+    }
+  });
+
+  it("keeps the storage close button inside the defense inventory block", () => {
+    for (const html of [gameHtml, clientGameHtml]) {
+      expect(html).toContain('<h3 class="storage-popup-subtitle storage-popup-subtitle--with-close">');
+      expect(html).toContain('<span>Obrana</span>');
+      expect(html).toContain('<button type="button" class="button storage-popup-close" data-storage-popup-close aria-label="Zavřít sklad">✕</button>');
+      expect(html).not.toContain('<div class="storage-popup-heading">\n            <span class="storage-popup-eyebrow">Sklad</span>\n            <button type="button" class="button storage-popup-close"');
+    }
+
+    for (const stylesheet of [popupCss, clientPopupCss]) {
+      expect(stylesheet).toContain(".storage-popup-subtitle--with-close");
+      expect(stylesheet).toContain(".storage-popup-subtitle--with-close .storage-popup-close");
+      expect(stylesheet).toContain("position: absolute;");
+      expect(stylesheet).toContain("width: 22px;");
+    }
+
+    for (const stylesheet of [css, clientCss]) {
+      expect(stylesheet).toContain("Storage modal: keep close control inside the Defense block header.");
+      expect(stylesheet).toContain("html body .storage-popup-shell[data-storage-popup] .storage-popup-grid");
+      expect(stylesheet).toContain("padding-right: 0 !important;");
+      expect(stylesheet).toContain("html body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle--with-close .storage-popup-close");
+      expect(stylesheet).toContain("position: absolute !important;");
+      expect(stylesheet).toContain("margin: 0 !important;");
+      expect(stylesheet).toContain("width: 17px !important;");
+      expect(stylesheet).toContain("font-size: 13px !important;");
+      expect(stylesheet).toContain("line-height: 0.92 !important;");
+    }
+  });
+
+  it("keeps mobile City Events tappable above onboarding and modal scroll lock", () => {
+    expect(onboardingCss).toContain("inset: auto 12px calc(76px + env(safe-area-inset-bottom, 0px)) 12px;");
+    expect(onboardingCss).toContain("max-height: min(64dvh, calc(100dvh - 148px));");
+    expect(mobileRuntime).toContain('const cityEventsAnchor = documentObj.getElementById("city-events-card-anchor");');
+    expect(mobileRuntime).toContain("moveElementAfterAnchor(cityEventsAnchor, cityEventsCard);");
+    for (const stylesheet of [css, clientCss]) {
+      expect(stylesheet).toContain("body.game-modal-scroll-locked #events-modal");
+      expect(stylesheet).toContain("body.game-modal-scroll-locked #event-detail-modal");
+      expect(stylesheet).toContain("#events-modal .modal__close,\n  #event-detail-modal .modal__close");
+      expect(stylesheet).toContain("position: static !important;");
+      expect(stylesheet).toContain("z-index: 9700 !important;");
+      expect(stylesheet).toContain("z-index: 9710 !important;");
+    }
+    for (const stylesheet of [cityEventsCss, clientCityEventsCss]) {
+      expect(stylesheet).toContain("#events-modal:not(.hidden)");
+      expect(stylesheet).toContain("#event-detail-modal:not(.hidden)");
+      expect(stylesheet).toContain("display: grid;");
+      expect(stylesheet).toContain("#events-modal .events-modal__content");
+      expect(stylesheet).toContain("#events-modal .events-modal__content > .modal__header");
+      expect(stylesheet).toContain("#event-detail-modal .event-detail-modal__content > .modal__header");
+      expect(stylesheet).toContain("justify-content: space-between;");
+      expect(stylesheet).toContain("#events-modal .modal__close {\n  position: static;");
+      expect(stylesheet).toContain("#event-detail-modal .modal__close {\n  position: static;");
+      expect(stylesheet).toContain("transform: translate(-50%, -50%);");
+      expect(stylesheet).toContain("max-height: min(84vh, 760px);");
+    }
+  });
+
   it("hides the mobile topbar while popup cards are open without moving layout", () => {
     for (const stylesheet of [css, clientCss]) {
       expect(stylesheet).toContain("--mobile-topbar-offset: 0px !important;");
@@ -117,5 +226,39 @@ describe("mobile action modal CSS", () => {
     expect(mobileRuntime).toContain('const MOBILE_OVERLAY_SELECTOR = [');
     expect(mobileRuntime).toContain('".district-popup-shell",');
     expect(mobileRuntime).toContain('root.style.setProperty("--mobile-overlay-top-offset", `${topbarOffset}px`);');
+    expect(mobileRuntime).toContain("let lastKnownScrollY = getScrollY();");
+    expect(mobileRuntime).toContain("const restorePageScroll = (nextScrollY) => {");
+    expect(mobileRuntime).toContain("const restoreScrollPosition = () => {");
+    expect(mobileRuntime).toContain("root.scrollTop = nextScrollY;");
+    expect(mobileRuntime).toContain("documentObj.body.scrollTop = nextScrollY;");
+    expect(mobileRuntime).toContain("lastKnownScrollY = nextScrollY;");
+    expect(mobileRuntime).toContain("restoreScrollPosition();");
+    expect(mobileRuntime).toContain("windowObj.requestAnimationFrame(restoreScrollPosition);");
+    expect(mobileRuntime).toContain("windowObj.requestAnimationFrame(() => windowObj.requestAnimationFrame(restoreScrollPosition));");
+    expect(mobileRuntime).toContain("windowObj.setTimeout(restoreScrollPosition, 80);");
+    expect(mobileRuntime).toContain("windowObj.setTimeout(restoreScrollPosition, 180);");
+    expect(mobileRuntime).toContain('windowObj.addEventListener("scroll", rememberScrollY, { passive: true });');
+  });
+
+  it("restores page scroll after closing every mobile overlay coordinator", () => {
+    for (const source of [overlayState, gameplaySliceClient, clientGameplaySliceClient]) {
+      expect(source).toContain("const getScrollY");
+      expect(source).toContain("const restorePageScroll");
+      expect(source).toContain("const schedulePageScrollRestore");
+      expect(source).toContain("document.documentElement.scrollTop = scrollY;");
+      expect(source).toContain("document.body.scrollTop = scrollY;");
+      expect(source).toContain("window.setTimeout?.(restore, 80);");
+      expect(source).toContain("window.setTimeout?.(restore, 180);");
+    }
+
+    for (const source of [legacyOverlayCoordinator, clientLegacyOverlayCoordinator]) {
+      expect(source).toContain("function getScrollY(view, body)");
+      expect(source).toContain("function restorePageScroll(view, body, scrollY)");
+      expect(source).toContain("function schedulePageScrollRestore(view, body, scrollY)");
+      expect(source).toContain("root.scrollTop = scrollY;");
+      expect(source).toContain("body.scrollTop = scrollY;");
+      expect(source).toContain("view?.setTimeout?.(restore, 80);");
+      expect(source).toContain("view?.setTimeout?.(restore, 180);");
+    }
   });
 });

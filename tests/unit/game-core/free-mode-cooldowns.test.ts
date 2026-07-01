@@ -85,9 +85,12 @@ describe("Free BR strategic cooldowns", () => {
     const finalDurationTicks = (durationTicks: number): number =>
       Math.ceil(durationTicks * freeConfig.balance.cooldownMultiplier);
 
-    expect(finalDurationTicks(recipes.pharmacy.recipes["stim-pack"].durationTicks)).toBe(4 * TICKS_PER_MINUTE);
-    expect(finalDurationTicks(recipes.drug_lab.recipes["neon-dust"].durationTicks)).toBe(4 * TICKS_PER_MINUTE);
-    expect(finalDurationTicks(recipes.drug_lab.recipes["overdrive-x"].durationTicks)).toBe(10 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(recipes.pharmacy.recipes["stim-pack"].durationTicks)).toBe(10 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(recipes.drug_lab.recipes["neon-dust"].durationTicks)).toBe(5 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(recipes.drug_lab.recipes["pulse-shot"].durationTicks)).toBe(8 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(recipes.drug_lab.recipes["velvet-smoke"].durationTicks)).toBe(15 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(recipes.drug_lab.recipes["ghost-serum"].durationTicks)).toBe(20 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(recipes.drug_lab.recipes["overdrive-x"].durationTicks)).toBe(20 * TICKS_PER_MINUTE);
     expect(finalDurationTicks(recipes.factory.recipes["tech-core"].durationTicks)).toBe(6 * TICKS_PER_MINUTE);
     expect(finalDurationTicks(recipes.factory.recipes["combat-module"].durationTicks)).toBe(12 * TICKS_PER_MINUTE);
     expect(finalDurationTicks(recipes.armory.recipes.bazooka.durationTicks)).toBe(14 * TICKS_PER_MINUTE);

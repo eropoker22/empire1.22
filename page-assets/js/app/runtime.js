@@ -266,6 +266,7 @@ import {
   WANTED_POPUP_FEEDBACK_SELECTOR,
   WANTED_POPUP_DIRTY_ACTION_SELECTOR,
   WANTED_POPUP_CLEAN_ACTION_SELECTOR,
+  WANTED_POPUP_INFLUENCE_ACTION_SELECTOR,
   WANTED_POPUP_CLEAR_LOG_SELECTOR,
   PLAYER_PROFILE_OPEN_SELECTOR,
   PLAYER_POPUP_SELECTOR,
@@ -560,6 +561,8 @@ import {
   GANG_HEAT_DIRTY_REDUCTION,
   GANG_HEAT_DIRTY_TRIGGER_COUNT,
   GANG_HEAT_DIRTY_TRIGGER_WINDOW_MS,
+  GANG_HEAT_INFLUENCE_COST,
+  GANG_HEAT_INFLUENCE_REDUCTION,
   GANG_HEAT_JOURNAL_LIMIT,
   GANG_HEAT_POLICE_DURATION_MS,
   GANG_HEAT_RAID_PROTECTION_MS,
@@ -865,6 +868,10 @@ const robberyMissionTimers = new Map();
 function isServerAuthoritativeGameplayRuntimeReady() {
   if (typeof document === "undefined") {
     return false;
+  }
+
+  if (latestGameplaySliceReadModel?.player?.playerId && latestGameplaySliceReadModel?.player?.instanceId) {
+    return true;
   }
 
   if (document.body?.dataset?.gameplayRuntime === "server-authoritative-ready") {
@@ -2753,11 +2760,77 @@ function openPoliceActionResultModal(root, payload = {}) {
   }
 }
 
+function normalizeStreetNewsDistrictType(value = "") {
+  const text = String(value || "").trim().toLowerCase().replace(/_/g, "-");
+  return text.replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "";
+}
+
+function resolveStreetNewsDistrictId(payload = {}, snapshot = {}) {
+  const directValue = snapshot.districtId
+    || payload.districtId
+    || payload.targetDistrictId
+    || payload.sourceDistrictId
+    || payload.district?.id
+    || payload.districtName
+    || "";
+  const directId = Number.parseInt(String(directValue || "").replace("district:", ""), 10);
+  if (Number.isFinite(directId) && directId > 0) {
+    return directId;
+  }
+
+  for (const row of Array.isArray(payload.rows) ? payload.rows : []) {
+    const label = String(row?.label || "").trim().toLowerCase();
+    if (!["district", "cil", "cíl", "target"].includes(label)) {
+      continue;
+    }
+    const rowId = Number.parseInt(String(row?.value || "").replace("district:", ""), 10);
+    if (Number.isFinite(rowId) && rowId > 0) {
+      return rowId;
+    }
+  }
+
+  const textCandidates = [
+    payload.districtName,
+    payload.summary,
+    payload.title,
+    snapshot.summary,
+    snapshot.title,
+    snapshot.meta
+  ];
+  for (const candidate of textCandidates) {
+    const match = String(candidate || "").match(/district\s*:?\s*(\d+)/i);
+    const textId = Number.parseInt(match?.[1] || "", 10);
+    if (Number.isFinite(textId) && textId > 0) {
+      return textId;
+    }
+  }
+
+  return 0;
+}
+
+function resolveStreetNewsDistrictType(payload = {}, snapshot = {}) {
+  const directType = normalizeStreetNewsDistrictType(
+    snapshot.districtType
+    || payload.districtType
+    || payload.targetDistrictType
+    || payload.sourceDistrictType
+    || payload.district?.districtType
+  );
+  if (directType) {
+    return directType;
+  }
+
+  const districtId = resolveStreetNewsDistrictId(payload, snapshot);
+  const district = districtId ? getRuntimeDistrictApi()?.getDistrictById?.(districtId) : null;
+  return normalizeStreetNewsDistrictType(district?.districtType) || "unknown";
+}
+
 function appendBuildingActionResultEntry(root, kind, payload, snapshot = {}, options = {}) {
   const normalizedPayload = cloneBuildingActionResultPayload(payload);
   const title = String(payload?.title || snapshot.title || "Uliční zpráva").trim();
   const summary = String(payload?.summary || snapshot.summary || "Bez detailu.").trim();
   const meta = String(snapshot.meta || "").trim();
+  const districtType = resolveStreetNewsDistrictType(normalizedPayload || payload || {}, snapshot);
 
   appendBuildingActionEntry(root, {
     ...snapshot,
@@ -2765,6 +2838,7 @@ function appendBuildingActionResultEntry(root, kind, payload, snapshot = {}, opt
     title,
     summary,
     meta,
+    districtType,
     resultKind: kind,
     resultPayload: normalizedPayload
   }, { syncPreview: Boolean(options.syncPreview), forceLog: Boolean(options.forceLog) });
@@ -3637,6 +3711,9 @@ const {
   getProductionBuildingUpgradeCost,
   getProductionJob,
   getProductionResourceLabel,
+  getOwnedArmoryCount: () => getOwnedDistrictBuildingCountByBaseName("zbrojovka"),
+  getOwnedDrugLabCount: () => getOwnedDistrictBuildingCountByBaseName("drug lab"),
+  getOwnedPharmacyCount: () => getOwnedDistrictBuildingCountByBaseName("lekarna"),
   getResolvedEconomyState,
   getScaledProductionInputs,
   getStoredProductionBuildingState,
@@ -8146,6 +8223,7 @@ function bindDistrictCanvas(root) {
     formatDistrictGossipTimestamp,
     getCurrentPlayerOwnedDistrictIds,
     getDistrictEconomySnapshot,
+    ensureDistrictPassiveGossip,
     getDistrictGossipEntries,
     getInteractionState: () => interactionState,
     getResolvedSpyIntel,
@@ -9474,22 +9552,26 @@ function bindDistrictCanvas(root) {
     const policeRaidPayload = isOwnedDistrict
       ? createOwnedDistrictPoliceRaidAlertPayload(district, marker)
       : createDistrictPoliceRaidWarningPayload(district, marker);
-    const districtLabel = formatDistrictReference(marker.districtId);
 
+    if (!isOwnedDistrict) {
+      return;
+    }
+
+    const districtLabel = formatDistrictReference(marker.districtId);
     appendBuildingActionResultEntry(root, "police", policeRaidPayload, {
       tone: "warning",
       title: "Spuštěna policejní razie",
       summary: `${districtLabel} je právě pod policejním zásahem.`,
       meta: policeRaidPayload.badge || "Policejní zásah"
     }, {
-      refresh: false
+      refresh: false,
+      syncPreview: true
     });
 
-    if (!isOwnedDistrict) {
-      return;
-    }
-
-    openPoliceActionResultModal(root, policeRaidPayload);
+    openPoliceActionResultModal(root, {
+      ...policeRaidPayload,
+      syncToBuildingAction: false
+    });
   });
   let hoverPointerFrameId = null;
   let pendingHoverEvent = null;
@@ -10324,6 +10406,7 @@ const {
 } = createGangWantedStatusRuntime({
   cleanActionCost: GANG_HEAT_CLEAN_COST,
   dirtyActionCost: GANG_HEAT_DIRTY_COST,
+  influenceActionCost: GANG_HEAT_INFLUENCE_COST,
   formatGangHeatProtectionLabel,
   gangHeatTiers: GANG_HEAT_TIERS,
   getPoliceTierShortEffect,
@@ -10374,6 +10457,24 @@ const {
     renderFeedback("success", `Heat snížen na ${nextHeat}. Legal cover stáhlo policejní tlak.`);
     syncWantedStatus();
   },
+  onInfluenceAction: ({ renderFeedback, root, syncWantedStatus }) => {
+    const gangState = getResolvedGangState();
+    const currentInfluence = Math.max(0, Math.floor(Number(gangState.influence || 0)));
+    if (currentInfluence < GANG_HEAT_INFLUENCE_COST) {
+      renderFeedback("warning", `Chybí ${GANG_HEAT_INFLUENCE_COST - currentInfluence} vlivu.`);
+      syncWantedStatus();
+      return;
+    }
+
+    setGangInfluenceValue(currentInfluence - GANG_HEAT_INFLUENCE_COST);
+    const nextHeat = setGangHeatValue(getResolvedGangState().heat - GANG_HEAT_INFLUENCE_REDUCTION, {
+      reason: "Vlivové kontakty stáhly policejní tlak.",
+      type: "fall"
+    });
+    applyTopbarEconomy(root);
+    renderFeedback("success", `Heat snížen na ${nextHeat}. Vlivové kontakty stáhly policejní tlak.`);
+    syncWantedStatus();
+  },
   onClearLog: ({ renderFeedback, syncWantedStatus }) => {
     clearGangHeatJournal();
     renderFeedback("success", "Heat log je vyčištěný.");
@@ -10383,6 +10484,7 @@ const {
     cleanAction: WANTED_POPUP_CLEAN_ACTION_SELECTOR,
     clearLog: WANTED_POPUP_CLEAR_LOG_SELECTOR,
     dirtyAction: WANTED_POPUP_DIRTY_ACTION_SELECTOR,
+    influenceAction: WANTED_POPUP_INFLUENCE_ACTION_SELECTOR,
     gangHeat: GANG_HEAT_SELECTOR,
     gangStar: GANG_STAR_SELECTOR,
     gangStars: GANG_STARS_SELECTOR,

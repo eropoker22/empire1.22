@@ -1,5 +1,5 @@
 /* @vitest-environment jsdom */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createOverlayBackdrop } from "../../../apps/client/src/modals/overlay-backdrop";
 import { closeOverlay, getTopOverlay, isOverlayOpen, openOverlay, resetOverlayStateForTests } from "../../../apps/client/src/modals/overlay-state";
 
@@ -33,13 +33,27 @@ const restoreBodyStyles = (styles: Record<string, string>): void => {
 };
 
 describe("overlay backdrop", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    Object.defineProperty(window, "requestAnimationFrame", {
+      configurable: true,
+      value: vi.fn((callback: FrameRequestCallback) => {
+        callback(0);
+        return 1;
+      })
+    });
+  });
+
   afterEach(() => {
     while (isOverlayOpen()) {
       closeOverlay("test:cleanup");
     }
+    vi.runOnlyPendingTimers();
 
     resetOverlayStateForTests();
     vi.restoreAllMocks();
+    vi.useRealTimers();
     restoreBodyStyles({
       left: "",
       position: "",
@@ -174,8 +188,7 @@ describe("overlay backdrop", () => {
     openOverlay("district_sheet");
     closeOverlay("close overlay");
 
-    expect(scrollTo).toHaveBeenCalledTimes(1);
-    expect(scrollTo).toHaveBeenCalledWith(0, initialScrollY);
+    expect(scrollTo).toHaveBeenCalledWith({ top: initialScrollY, left: 0, behavior: "auto" });
     expect(document.body.style.position).toBe(originalBodyStyles.position);
     expect(document.body.style.top).toBe(originalBodyStyles.top);
     expect(document.body.style.left).toBe(originalBodyStyles.left);
@@ -200,7 +213,7 @@ describe("overlay backdrop", () => {
     expect(document.body.style.top).toBe(`-${initialScrollY}px`);
 
     closeOverlay("close bottom");
-    expect(scrollTo).toHaveBeenCalledWith(0, initialScrollY);
+    expect(scrollTo).toHaveBeenCalledWith({ top: initialScrollY, left: 0, behavior: "auto" });
     expect(document.body.style.position).toBe("");
     expect(document.body.style.top).toBe("");
     expect(document.body.style.left).toBe("");

@@ -6,8 +6,10 @@ function createElement(dataset = {}) {
 
   return {
     dataset,
+    disabled: false,
     hidden: false,
     textContent: "",
+    title: "",
     addEventListener: vi.fn((type, listener) => {
       listeners.set(type, [...(listeners.get(type) || []), listener]);
     }),
@@ -138,6 +140,52 @@ describe("factory popup runtime", () => {
       expect.objectContaining({ buildingLabel: "Továrna" }),
       {},
       { syncPreview: true, forceLog: true }
+    );
+  });
+
+  it("keeps factory upgrade button clickable in server-owned mode to explain the route", async () => {
+    const open = createElement();
+    const popup = createElement();
+    const close = createElement();
+    const collect = createElement();
+    const upgrade = createElement();
+    const setBuildingActionFeedback = vi.fn();
+    const runtime = createRuntime({
+      allowLegacyProductionUpgrade: false,
+      setBuildingActionFeedback,
+      syncBuildingDetailTopbarVisibility: vi.fn()
+    });
+    const root = createRoot({
+      ".collect": collect,
+      ".combat": createElement(),
+      ".header": createElement(),
+      ".level": createElement(),
+      ".metal": createElement(),
+      ".multiplier": createElement(),
+      ".open": open,
+      ".owned": createElement(),
+      ".popup": popup,
+      ".slots": createElement(),
+      ".supply-combat": createElement(),
+      ".supply-metal": createElement(),
+      ".supply-tech": createElement(),
+      ".tech": createElement(),
+      ".upgrade": upgrade,
+      ".upgrade-cost": createElement()
+    }, {
+      ".close": [close]
+    });
+
+    expect(runtime.bindFactoryPopup(root)).toBe(true);
+    await open.dispatch("click");
+    expect(upgrade.disabled).toBe(false);
+
+    await upgrade.dispatch("click");
+    expect(setBuildingActionFeedback).toHaveBeenCalledWith(
+      root,
+      "warning",
+      "Továrna",
+      expect.stringContaining("konkrétní kartu budovy")
     );
   });
 

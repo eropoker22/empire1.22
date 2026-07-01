@@ -249,21 +249,19 @@ export function createDistrictPopupMetricsRuntime(deps = {}) {
       return;
     }
 
-    const entries = deps.getDistrictGossipEntries(district);
-    const hasRealGossip = entries.some((entry) => String(entry?.intelType || "").trim().toLowerCase() !== "district_seed");
+    const entries = typeof deps.ensureDistrictPassiveGossip === "function"
+      ? deps.ensureDistrictPassiveGossip(district)
+      : deps.getDistrictGossipEntries(district);
+    const visibleEntries = entries.filter((entry) => String(entry?.text || "").trim());
 
-    elements.popupGossip.hidden = !hasRealGossip;
+    elements.popupGossip.hidden = visibleEntries.length <= 0;
     elements.popupGossipList.replaceChildren();
 
-    if (!hasRealGossip) {
+    if (visibleEntries.length <= 0) {
       return;
     }
 
-    for (const entry of entries) {
-      if (String(entry?.intelType || "").trim().toLowerCase() === "district_seed") {
-        continue;
-      }
-
+    for (const entry of visibleEntries) {
       const item = createElement(elements.popupGossipList, "div", "district-popup-gossip__item");
       const text = createElement(elements.popupGossipList, "div", "district-popup-gossip__text");
       const metaRow = createElement(elements.popupGossipList, "div", "district-popup-gossip__meta-row");

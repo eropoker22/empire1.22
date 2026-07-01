@@ -871,6 +871,42 @@ var EmpireGameplaySliceClient = function(exports) {
     }
     return document.body;
   };
+  const getScrollY = () => {
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return 0;
+    }
+    return Math.max(
+      0,
+      Math.floor(window.scrollY || window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0)
+    );
+  };
+  const restorePageScroll = (scrollY) => {
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return;
+    }
+    document.documentElement.scrollTop = scrollY;
+    document.body.scrollTop = scrollY;
+    try {
+      window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
+    } catch {
+      window.scrollTo(0, scrollY);
+    }
+    if (Math.abs(getScrollY() - scrollY) > 1) {
+      try {
+        window.scrollTo(0, scrollY);
+      } catch {
+        // Older embedded browsers can reject scrollTo while layout is settling.
+      }
+    }
+  };
+  const schedulePageScrollRestore = (scrollY) => {
+    const restore = () => restorePageScroll(scrollY);
+    restore();
+    window.requestAnimationFrame?.(restore);
+    window.requestAnimationFrame?.(() => window.requestAnimationFrame?.(restore));
+    window.setTimeout?.(restore, 80);
+    window.setTimeout?.(restore, 180);
+  };
   const lockBodyScroll = () => {
     const body = getBody();
     if (!body || typeof window === "undefined") {
@@ -880,14 +916,14 @@ var EmpireGameplaySliceClient = function(exports) {
       return;
     }
     bodyStyleSnapshot.set(body, {
-      scrollY: window.scrollY ?? 0,
+      scrollY: getScrollY(),
       left: body.style.left,
       position: body.style.position,
       right: body.style.right,
       top: body.style.top,
       width: body.style.width
     });
-    const scrollY = window.scrollY ?? 0;
+    const scrollY = getScrollY();
     body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "true";
     body.style.position = "fixed";
     body.style.top = `-${scrollY}px`;
@@ -903,10 +939,14 @@ var EmpireGameplaySliceClient = function(exports) {
     if (body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] !== "true") {
       return;
     }
-    const savedStyles = bodyStyleSnapshot.get(body);
-    if (!savedStyles) {
-      return;
-    }
+    const savedStyles = bodyStyleSnapshot.get(body) ?? {
+      scrollY: Math.abs(Number.parseFloat(body.style.top || "0")) || getScrollY(),
+      left: "",
+      position: "",
+      right: "",
+      top: "",
+      width: ""
+    };
     const { scrollY, left, position, right, top, width } = savedStyles;
     body.style.left = left;
     body.style.position = position;
@@ -916,7 +956,7 @@ var EmpireGameplaySliceClient = function(exports) {
     body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "";
     delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
     bodyStyleSnapshot.delete(body);
-    window.scrollTo(0, scrollY);
+    schedulePageScrollRestore(scrollY);
   };
   const now = () => {
     var _a;

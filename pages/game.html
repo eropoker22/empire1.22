@@ -928,10 +928,12 @@
               <div class="wanted-popup-actions">
                 <button type="button" class="button wanted-popup-action wanted-popup-action--dirty" data-wanted-popup-dirty>Snížit dirty cash</button>
                 <button type="button" class="button wanted-popup-action wanted-popup-action--clean" data-wanted-popup-clean>Snížit clean cash</button>
+                <button type="button" class="button wanted-popup-action wanted-popup-action--influence" data-wanted-popup-influence>Snížit vlivem</button>
               </div>
               <div class="wanted-popup-cost-row">
                 <span class="wanted-popup-cost" data-wanted-popup-dirty-cost>$500 dirty • -10 heat</span>
                 <span class="wanted-popup-cost" data-wanted-popup-clean-cost>$300 clean • -15 heat</span>
+                <span class="wanted-popup-cost" data-wanted-popup-influence-cost>20 vliv • -10 heat</span>
               </div>
             </div>
           </div>
@@ -1136,7 +1138,7 @@
             <div class="building-detail-panel" data-production-building-panel="armory:stats">
               <div class="building-tech-popup-overview-grid">
                 <article class="building-tech-popup-stat-card">
-                  <span class="building-tech-popup-stat-card__label">Level</span>
+                  <span class="building-tech-popup-stat-card__label">Síť</span>
                   <strong class="building-tech-popup-stat-card__value" data-production-building-level>1</strong>
                 </article>
                 <article class="building-tech-popup-stat-card">
@@ -1179,56 +1181,80 @@
               </div>
               <div class="building-info-card__section">
                 <div class="pharmacy-info-output-list pharmacy-info-output-list--armory">
-                  <article class="pharmacy-info-output" data-resource-color="baseball-bat">
-                    <strong>Baseballová pálka</strong>
-                    <span class="pharmacy-info-output__power">Síla útoku: 5</span>
-                    <span>Levná základní zbraň pro první pouliční útoky. Spolehlivý filler pro rychlé posílení slabší akce.</span>
-                  </article>
-                  <article class="pharmacy-info-output" data-resource-color="pistol">
-                    <strong>Pistole</strong>
-                    <span class="pharmacy-info-output__power">Síla útoku: 10</span>
-                    <span>Silnější early-game zbraň s dobrým poměrem síly na jednoho obyvatele. Ideální pro rychlé útoky.</span>
-                  </article>
-                  <article class="pharmacy-info-output" data-resource-color="grenade">
-                    <strong>Granát</strong>
-                    <span class="pharmacy-info-output__power">Síla útoku: 14</span>
-                    <span>Výbušná burst zbraň za jednoho obyvatele. Dobrá proti bráněným districtům, když potřebuješ prorazit.</span>
-                  </article>
-                  <article class="pharmacy-info-output" data-resource-color="smg">
-                    <strong>SMG</strong>
-                    <span class="pharmacy-info-output__power">Síla útoku: 18</span>
-                    <span>Silná útočná zbraň pro větší gangové akce. Nejlépe funguje v kombinaci s další výbavou.</span>
-                  </article>
-                  <article class="pharmacy-info-output" data-resource-color="bazooka">
-                    <strong>Bazuka</strong>
-                    <span class="pharmacy-info-output__power">Síla útoku: 30</span>
-                    <span>Nejsilnější útočná zbraň ve hře. Drahá výbava pro prolomení těžké obrany a klíčových districtů.</span>
-                  </article>
-                  <article class="pharmacy-info-output" data-resource-color="vest">
-                    <strong>Vesta</strong>
-                    <span class="pharmacy-info-output__power">Síla obrany: 6</span>
-                    <span>Základní ochrana obránců. Levná obranná výbava pro držení districtu při menších útocích.</span>
-                  </article>
-                  <article class="pharmacy-info-output" data-resource-color="barricades">
-                    <strong>Barikády</strong>
-                    <span class="pharmacy-info-output__power">Síla obrany: 12</span>
-                    <span>Pevná pouliční obrana, která z districtu udělá tvrdší cíl. Dobrá pro stabilní držení důležitých míst.</span>
-                  </article>
-                  <article class="pharmacy-info-output" data-resource-color="cameras">
-                    <strong>Kamery</strong>
-                    <span class="pharmacy-info-output__power">Síla obrany: 6</span>
-                    <span>Technická bezpečnostní obrana pro lepší kontrolu districtu. Podpůrný prvek proti nečekaným akcím.</span>
-                  </article>
-                  <article class="pharmacy-info-output" data-resource-color="defense-tower">
-                    <strong>Defense Tower</strong>
-                    <span class="pharmacy-info-output__power">Síla obrany: 20</span>
-                    <span>Nejsilnější obranný prvek pro klíčové districty. Tvrdě posiluje obranu a může snížit sílu útočníka.</span>
-                  </article>
-                  <article class="pharmacy-info-output" data-resource-color="alarm">
-                    <strong>Alarm</strong>
-                    <span class="pharmacy-info-output__power">Síla obrany: 10</span>
-                    <span>Solidní technická obrana, která rychle upozorní na nebezpečí. Sedí k hackerské a bezpečnostní strategii.</span>
-                  </article>
+                  <div class="pharmacy-info-output-column pharmacy-info-output-column--attack">
+                    <article class="pharmacy-info-output" data-resource-color="baseball-bat">
+                      <div class="pharmacy-info-output__head">
+                        <strong>Baseballová pálka</strong>
+                        <span class="pharmacy-info-output__power"><span>Síla útoku:</span><strong>5</strong></span>
+                      </div>
+                      <span>Levná základní zbraň pro první pouliční útoky. Spolehlivý filler pro rychlé posílení slabší akce.</span>
+                    </article>
+                    <article class="pharmacy-info-output" data-resource-color="pistol">
+                      <div class="pharmacy-info-output__head">
+                        <strong>Pistole</strong>
+                        <span class="pharmacy-info-output__power"><span>Síla útoku:</span><strong>10</strong></span>
+                      </div>
+                      <span>Silnější early-game zbraň s dobrým poměrem síly na jednoho obyvatele. Ideální pro rychlé útoky.</span>
+                    </article>
+                    <article class="pharmacy-info-output" data-resource-color="grenade">
+                      <div class="pharmacy-info-output__head">
+                        <strong>Granát</strong>
+                        <span class="pharmacy-info-output__power"><span>Síla útoku:</span><strong>14</strong></span>
+                      </div>
+                      <span>Výbušná burst zbraň za jednoho obyvatele. Dobrá proti bráněným districtům, když potřebuješ prorazit.</span>
+                    </article>
+                    <article class="pharmacy-info-output" data-resource-color="smg">
+                      <div class="pharmacy-info-output__head">
+                        <strong>SMG</strong>
+                        <span class="pharmacy-info-output__power"><span>Síla útoku:</span><strong>18</strong></span>
+                      </div>
+                      <span>Silná útočná zbraň pro větší gangové akce. Nejlépe funguje v kombinaci s další výbavou.</span>
+                    </article>
+                    <article class="pharmacy-info-output" data-resource-color="bazooka">
+                      <div class="pharmacy-info-output__head">
+                        <strong>Bazuka</strong>
+                        <span class="pharmacy-info-output__power"><span>Síla útoku:</span><strong>30</strong></span>
+                      </div>
+                      <span>Nejsilnější útočná zbraň ve hře. Drahá výbava pro prolomení těžké obrany a klíčových districtů.</span>
+                    </article>
+                  </div>
+                  <div class="pharmacy-info-output-column pharmacy-info-output-column--defense">
+                    <article class="pharmacy-info-output" data-resource-color="vest">
+                      <div class="pharmacy-info-output__head">
+                        <strong>Vesta</strong>
+                        <span class="pharmacy-info-output__power"><span>Síla obrany:</span><strong>6</strong></span>
+                      </div>
+                      <span>Základní ochrana obránců. Levná obranná výbava pro držení districtu při menších útocích.</span>
+                    </article>
+                    <article class="pharmacy-info-output" data-resource-color="barricades">
+                      <div class="pharmacy-info-output__head">
+                        <strong>Barikády</strong>
+                        <span class="pharmacy-info-output__power"><span>Síla obrany:</span><strong>12</strong></span>
+                      </div>
+                      <span>Pevná pouliční obrana, která z districtu udělá tvrdší cíl. Dobrá pro stabilní držení důležitých míst.</span>
+                    </article>
+                    <article class="pharmacy-info-output" data-resource-color="cameras">
+                      <div class="pharmacy-info-output__head">
+                        <strong>Kamery</strong>
+                        <span class="pharmacy-info-output__power"><span>Síla obrany:</span><strong>6</strong></span>
+                      </div>
+                      <span>Technická bezpečnostní obrana pro lepší kontrolu districtu. Podpůrný prvek proti nečekaným akcím.</span>
+                    </article>
+                    <article class="pharmacy-info-output" data-resource-color="defense-tower">
+                      <div class="pharmacy-info-output__head">
+                        <strong>Defense Tower</strong>
+                        <span class="pharmacy-info-output__power"><span>Síla obrany:</span><strong>20</strong></span>
+                      </div>
+                      <span>Nejsilnější obranný prvek pro klíčové districty. Tvrdě posiluje obranu a může snížit sílu útočníka.</span>
+                    </article>
+                    <article class="pharmacy-info-output" data-resource-color="alarm">
+                      <div class="pharmacy-info-output__head">
+                        <strong>Alarm</strong>
+                        <span class="pharmacy-info-output__power"><span>Síla obrany:</span><strong>10</strong></span>
+                      </div>
+                      <span>Solidní technická obrana, která rychle upozorní na nebezpečí. Sedí k hackerské a bezpečnostní strategii.</span>
+                    </article>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1262,7 +1288,7 @@
             <div class="building-detail-panel" data-production-building-panel="pharmacy:stats">
               <div class="building-tech-popup-overview-grid">
                 <article class="building-tech-popup-stat-card">
-                  <span class="building-tech-popup-stat-card__label">Level</span>
+                  <span class="building-tech-popup-stat-card__label">Síť lékáren</span>
                   <strong class="building-tech-popup-stat-card__value" data-production-building-level>1</strong>
                 </article>
                 <article class="building-tech-popup-stat-card">
@@ -1350,12 +1376,12 @@
             <div class="building-detail-panel" data-production-building-panel="druglab:stats">
               <div class="building-tech-popup-overview-grid building-tech-popup-overview-grid--lab building-tech-popup-overview-grid--lab-upgrade">
                 <article class="building-tech-popup-stat-card">
-                  <span class="building-tech-popup-stat-card__label">Multiplier</span>
-                  <strong class="building-tech-popup-stat-card__value" data-production-building-multiplier>1.00x</strong>
+                  <span class="building-tech-popup-stat-card__label">Síť</span>
+                  <strong class="building-tech-popup-stat-card__value" data-production-building-level>1</strong>
                 </article>
                 <article class="building-tech-popup-stat-card">
-                  <span class="building-tech-popup-stat-card__label">Hotové</span>
-                  <strong class="building-tech-popup-stat-card__value" data-production-building-ready>0/5</strong>
+                  <span class="building-tech-popup-stat-card__label">Multiplier</span>
+                  <strong class="building-tech-popup-stat-card__value" data-production-building-multiplier>1.00x</strong>
                 </article>
                 <article class="building-tech-popup-stat-card">
                   <span class="building-tech-popup-stat-card__label">Upgrade</span>
@@ -1447,16 +1473,12 @@
           <div class="building-detail-panel" data-factory-panel="stats">
           <div class="building-tech-popup-overview-grid factory-overview-grid">
             <article class="building-tech-popup-stat-card factory-stat-card">
-              <span class="building-tech-popup-stat-card__label factory-stat-card__label">Level</span>
-              <strong class="building-tech-popup-stat-card__value factory-stat-card__value" data-factory-level>1</strong>
+              <span class="building-tech-popup-stat-card__label factory-stat-card__label">Síť továren</span>
+              <strong class="building-tech-popup-stat-card__value factory-stat-card__value" data-factory-owned-count>1</strong>
             </article>
             <article class="building-tech-popup-stat-card factory-stat-card">
               <span class="building-tech-popup-stat-card__label factory-stat-card__label">Multiplier</span>
               <strong class="building-tech-popup-stat-card__value factory-stat-card__value" data-factory-multiplier>1.00x</strong>
-            </article>
-            <article class="building-tech-popup-stat-card factory-stat-card">
-              <span class="building-tech-popup-stat-card__label factory-stat-card__label">Síť továren</span>
-              <strong class="building-tech-popup-stat-card__value factory-stat-card__value" data-factory-owned-count>1</strong>
             </article>
             <article class="building-tech-popup-stat-card factory-stat-card">
               <span class="building-tech-popup-stat-card__label factory-stat-card__label">Upgrade</span>
@@ -1466,7 +1488,7 @@
 
           <div class="building-detail-actions building-detail-actions--factory">
             <div class="building-detail-actions__group">
-              <div class="building-detail-actions__label">Výstup</div>
+              <div class="building-detail-actions__label">Vyrobeno</div>
               <div class="factory-resource-strip">
                 <div class="factory-resource-pill" data-resource-color="metal-parts">
                   <span>Metal Parts</span>
@@ -1499,7 +1521,7 @@
               </div>
               <div class="building-info-card__section">
                 <h5>Popis budovy</h5>
-                <p class="building-detail-info-text">Továrna tvoří materiálovou páteř pro Zbrojovku a další bojové systémy. Produkce běží přes tři sloty stejně jako v referenční verzi.</p>
+                <p class="building-detail-info-text">Továrna vyrábí technické komponenty pro zbraně, obranu a boost. Výroba v továrně je za čisté peníze.</p>
               </div>
               <div class="building-info-card__section">
                 <h5>Aktivní mechaniky</h5>
@@ -2059,7 +2081,6 @@
         <div class="storage-popup-card" role="dialog" aria-modal="true" aria-label="Sklad zbraní">
           <div class="storage-popup-heading">
             <span class="storage-popup-eyebrow">Sklad</span>
-            <button type="button" class="button storage-popup-close" data-storage-popup-close aria-label="Zavřít sklad">✕</button>
           </div>
           <div class="storage-popup-grid">
             <section class="storage-popup-section storage-popup-section--attack">
@@ -2073,7 +2094,10 @@
               </div>
             </section>
             <section class="storage-popup-section storage-popup-section--defense">
-              <h3 class="storage-popup-subtitle">Obrana</h3>
+              <h3 class="storage-popup-subtitle storage-popup-subtitle--with-close">
+                <span>Obrana</span>
+                <button type="button" class="button storage-popup-close" data-storage-popup-close aria-label="Zavřít sklad">✕</button>
+              </h3>
               <div class="storage-popup-list">
                 <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="vest">Vesta <span data-storage-weapon-count="vest">0 ks</span></p>
                 <p class="storage-popup-row" data-storage-tone="cyan" data-storage-resource="barricades">Barikády <span data-storage-weapon-count="barricades">0 ks</span></p>

@@ -196,6 +196,9 @@ export function renderWantedPanel(wantedViewModel = {}, options = {}) {
   if (mounts.cleanActionButton && "disabled" in mounts.cleanActionButton) {
     mounts.cleanActionButton.disabled = Boolean(wantedViewModel.cleanActionDisabled);
   }
+  if (mounts.influenceActionButton && "disabled" in mounts.influenceActionButton) {
+    mounts.influenceActionButton.disabled = Boolean(wantedViewModel.influenceActionDisabled);
+  }
 
   return true;
 }

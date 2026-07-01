@@ -851,11 +851,11 @@ export function createBuildingDetailViewModel({
     ? ""
     : [
       displayLabel !== buildingName ? buildingName : "",
-      profile.role,
+      isDowntownBuilding ? "" : profile.role,
       district?.id ? `District ${district.id}` : "",
       buildingProfile?.setTitle || ""
     ].filter(Boolean).join(" · ");
-  const badge = FOCUSED_BUILDING_DETAIL_BADGES[mechanics.mechanicsType] || profile.role;
+  const badge = FOCUSED_BUILDING_DETAIL_BADGES[mechanics.mechanicsType] || (isDowntownBuilding ? "" : profile.role);
   const suppressSinglePanelActions = SUPPRESS_SINGLE_PANEL_ACTIONS.has(mechanics.mechanicsType);
   const canUpgrade = hasBuildingUpgradeCapability(mechanics);
 

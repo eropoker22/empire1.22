@@ -16,6 +16,7 @@ const BENIGN_CONSOLE_ERROR_PATTERNS = [
 ];
 
 const PAGE_MONITOR_KEY = "__empireStreetsE2eMonitor";
+const RESERVE_TIMEOUT_MS = Number(process.env.PLAYWRIGHT_E2E_RESERVE_TIMEOUT_MS || 180_000);
 
 async function installE2eStabilityScript(page) {
   await page.addInitScript(() => {
@@ -335,7 +336,7 @@ async function attachE2eJoinTicket(page, session) {
       preferredServerInstanceId: serverInstanceId,
       factionId: registration.factionId || registration.selectedFaction || null
     },
-    timeout: 90_000
+    timeout: RESERVE_TIMEOUT_MS
   });
   const body = await response.json().catch(() => null);
   if (!response.ok() || !body?.accepted || !body?.reservation?.joinTicket) {

@@ -180,6 +180,43 @@ describe("event rumor bridge", () => {
     expect(districtList.children).toHaveLength(1);
   });
 
+  it("preserves popup fallback gossip when the server feed has no district match", () => {
+    const document = new FakeDocument();
+    const root = new FakeElement("main");
+    const districtPanel = new FakeElement("section");
+    const districtList = new FakeElement("div");
+    districtPanel.hidden = false;
+    districtList.append(new FakeElement("div"));
+    root.querySelector = (selector) => {
+      if (selector === "[data-district-popup-gossip]") return districtPanel;
+      if (selector === "[data-district-popup-gossip-list]") return districtList;
+      return null;
+    };
+
+    const bridge = createEventRumorBridge({
+      root,
+      documentRef: document,
+      getState: () => ({
+        cityFeed: {
+          currentPlayerFeed: [{
+            id: "city-feed:other",
+            sourceEventId: "rumor:other",
+            category: "rumor",
+            districtId: "district:9",
+            createdAtTick: 1,
+            message: "Jiný district mluví."
+          }]
+        }
+      })
+    });
+
+    bridge.init();
+    document.dispatch("empire:district-opened", { districtId: "district:7" });
+
+    expect(districtPanel.hidden).toBe(false);
+    expect(districtList.children).toHaveLength(1);
+  });
+
   it("mirrors server rumor feed into clickable street-news once", () => {
     const document = new FakeDocument();
     const root = new FakeElement("main");

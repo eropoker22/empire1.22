@@ -39,6 +39,45 @@ function getBody(element) {
   return element?.ownerDocument?.body || (typeof document !== "undefined" ? document.body : null);
 }
 
+function getScrollY(view, body) {
+  const root = body?.ownerDocument?.documentElement || null;
+  return Math.max(0, Math.floor(view?.scrollY || view?.pageYOffset || root?.scrollTop || body?.scrollTop || 0));
+}
+
+function restorePageScroll(view, body, scrollY) {
+  const root = body?.ownerDocument?.documentElement || null;
+  if (root) {
+    root.scrollTop = scrollY;
+  }
+  if (body) {
+    body.scrollTop = scrollY;
+  }
+  if (typeof view?.scrollTo !== "function") {
+    return;
+  }
+  try {
+    view.scrollTo({ top: scrollY, left: 0, behavior: "instant" });
+  } catch {
+    view.scrollTo(0, scrollY);
+  }
+  if (Math.abs(getScrollY(view, body) - scrollY) > 1) {
+    try {
+      view.scrollTo(0, scrollY);
+    } catch {
+      // Older embedded browsers can reject scrollTo while layout is settling.
+    }
+  }
+}
+
+function schedulePageScrollRestore(view, body, scrollY) {
+  const restore = () => restorePageScroll(view, body, scrollY);
+  restore();
+  view?.requestAnimationFrame?.(restore);
+  view?.requestAnimationFrame?.(() => view?.requestAnimationFrame?.(restore));
+  view?.setTimeout?.(restore, 80);
+  view?.setTimeout?.(restore, 180);
+}
+
 function lockBodyScroll(element) {
   const body = getBody(element);
   const html = body?.ownerDocument?.documentElement || null;
@@ -47,7 +86,7 @@ function lockBodyScroll(element) {
     return;
   }
 
-  const scrollY = view.scrollY || 0;
+  const scrollY = getScrollY(view, body);
   bodyStyleSnapshot = {
     scrollY,
     left: body.style.left,
@@ -85,7 +124,7 @@ function unlockBodyScroll(element) {
   body.classList.remove(LOCKED_BODY_CLASS);
   delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
   bodyStyleSnapshot = null;
-  view.scrollTo(0, savedStyles?.scrollY || 0);
+  schedulePageScrollRestore(view, body, savedStyles?.scrollY || Math.abs(Number.parseFloat(body.style.top || "0")) || 0);
 }
 
 function isElementVisible(element) {

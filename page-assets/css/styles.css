@@ -1695,6 +1695,76 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
     -webkit-line-clamp: unset !important;
     line-clamp: unset !important;
   }
+
+  html body.game-body .building-action-status__item--clickable {
+    min-height: 38px !important;
+    padding-block: 8px !important;
+    gap: 0 !important;
+  }
+
+  html body.game-body .building-action-status__item--clickable .building-action-status__item-title {
+    font-size: 0.62rem !important;
+    line-height: 1.18 !important;
+  }
+
+  html body.game-body .building-action-status__item--clickable .building-action-status__item-summary,
+  html body.game-body .building-action-status__item--clickable .building-action-status__item-meta {
+    display: none !important;
+  }
+}
+
+html body.game-body .building-action-status__item--clickable {
+  --street-news-action-rgb: 103, 232, 249;
+  border-color: rgba(var(--street-news-action-rgb), 0.2) !important;
+  background: rgba(var(--street-news-action-rgb), 0.1) !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--street-news-action-rgb), 0.05) !important;
+}
+
+html body.game-body .building-action-status__item--clickable::before {
+  background: rgb(var(--street-news-action-rgb)) !important;
+  box-shadow: none !important;
+}
+
+html body.game-body .building-action-status__item--clickable .building-action-status__item-title {
+  color: color-mix(in srgb, rgb(var(--street-news-action-rgb)) 24%, #f8fafc) !important;
+  text-shadow: none !important;
+}
+
+html body.game-body .building-action-status__item--clickable:hover,
+html body.game-body .building-action-status__item--clickable:focus-visible {
+  border-color: rgba(var(--street-news-action-rgb), 0.32) !important;
+  background: rgba(var(--street-news-action-rgb), 0.14) !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--street-news-action-rgb), 0.08) !important;
+}
+
+html body.game-body .building-action-status__item--kind-police {
+  --street-news-action-rgb: 59, 130, 246;
+}
+
+html body.game-body .building-action-status__item--kind-attack,
+html body.game-body .building-action-status__item--kind-attack-warning {
+  --street-news-action-rgb: 239, 68, 68;
+}
+
+html body.game-body .building-action-status__item--kind-raid {
+  --street-news-action-rgb: 245, 158, 11;
+}
+
+html body.game-body .building-action-status__item--kind-spy,
+html body.game-body .building-action-status__item--kind-spy-alert {
+  --street-news-action-rgb: 34, 211, 238;
+}
+
+html body.game-body .building-action-status__item--kind-occupy {
+  --street-news-action-rgb: 34, 197, 94;
+}
+
+html body.game-body .building-action-status__item--kind-market {
+  --street-news-action-rgb: 250, 204, 21;
+}
+
+html body.game-body .building-action-status__item--kind-elimination {
+  --street-news-action-rgb: 168, 85, 247;
 }
 
 /* Final loaded override: mobile player profile info uses two compact columns. */
@@ -1880,5 +1950,213 @@ html body.game-body .storage-popup-shell[data-storage-popup]:not([hidden]) .stor
     margin: 0 !important;
     max-height: calc(100dvh - max(20px, env(safe-area-inset-top)) - max(20px, env(safe-area-inset-bottom))) !important;
     transform: translate(-50%, -50%) !important;
+  }
+}
+
+/* Final mobile desktop parity: district action buttons use desktop action skins. */
+@media (max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body .district-popup-actions {
+    gap: 6px !important;
+    padding-top: 6px !important;
+    border-top-color: rgba(var(--district-accent-rgb), 0.22) !important;
+  }
+
+  html body.game-body .district-popup-action-row {
+    min-width: 0 !important;
+    display: grid !important;
+    gap: 3px !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id] {
+    width: 100% !important;
+    min-height: 46px !important;
+    grid-column: auto !important;
+    padding: 8px 10px 9px !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(var(--district-action-rgb), 0.34) !important;
+    border-radius: 7px !important;
+    background:
+      linear-gradient(135deg, rgba(var(--district-action-rgb), 0.17), rgba(var(--district-action-secondary-rgb), 0.08) 46%, rgba(6, 10, 18, 0.66)),
+      rgba(6, 10, 18, 0.44) !important;
+    color: var(--district-action-text) !important;
+    text-align: left !important;
+    letter-spacing: 0 !important;
+    text-shadow: 0 0 8px rgba(var(--district-action-rgb), 0.24) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 8px 18px rgba(2, 6, 23, 0.22),
+      0 0 14px rgba(var(--district-action-rgb), 0.11) !important;
+    backdrop-filter: blur(12px) saturate(130%) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(130%) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id]::before {
+    inset: 0 !important;
+    width: auto !important;
+    border-radius: inherit !important;
+    background:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.13), transparent 30%, transparent 78%, rgba(var(--district-action-rgb), 0.12)),
+      repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 8px) !important;
+    opacity: 0.26 !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id]::after {
+    inset: 0 auto 0 0 !important;
+    width: 2px !important;
+    border-radius: 0 !important;
+    background: linear-gradient(180deg, rgb(var(--district-action-rgb)), rgb(var(--district-action-secondary-rgb))) !important;
+    box-shadow: 0 0 12px rgba(var(--district-action-rgb), 0.62) !important;
+    opacity: 1 !important;
+  }
+
+  html body.game-body .district-popup-action__label {
+    max-width: 100% !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    color: inherit !important;
+    font-size: 0.66rem !important;
+    font-weight: 850 !important;
+    letter-spacing: 0 !important;
+    line-height: 1.08 !important;
+  }
+
+  html body.game-body .district-popup-action__sub {
+    max-width: 100% !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    color: rgba(236, 248, 255, 0.68) !important;
+    font-size: 0.54rem !important;
+    letter-spacing: 0 !important;
+    line-height: 1.18 !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="defense"] {
+    --district-action-rgb: 96, 165, 250;
+    --district-action-secondary-rgb: 34, 211, 238;
+    --district-action-text: #d9f7ff;
+    border-color: rgba(96, 165, 250, 0.42) !important;
+    background:
+      linear-gradient(180deg, rgba(37, 99, 235, 0.96), rgba(29, 78, 216, 0.76)) !important;
+    color: #d9f7ff !important;
+    box-shadow:
+      0 16px 34px rgba(37, 99, 235, 0.24),
+      inset 0 1px 0 rgba(191, 219, 254, 0.26),
+      inset 0 0 0 1px rgba(59, 130, 246, 0.14) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="trap"] {
+    --district-action-rgb: 45, 212, 191;
+    --district-action-secondary-rgb: 34, 197, 94;
+    --district-action-text: #d1fae5;
+    border-color: rgba(45, 212, 191, 0.34) !important;
+    background:
+      linear-gradient(180deg, rgba(17, 94, 89, 0.94), rgba(15, 118, 110, 0.74)) !important;
+    color: #d1fae5 !important;
+    box-shadow:
+      0 16px 34px rgba(13, 148, 136, 0.2),
+      inset 0 1px 0 rgba(153, 246, 228, 0.18) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="trap"][data-district-trap-state="active"] {
+    border-color: rgba(20, 83, 45, 0.42) !important;
+    background:
+      linear-gradient(180deg, rgba(6, 24, 22, 0.96), rgba(15, 23, 42, 0.9)) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="trap"][data-district-trap-state="cooldown"] .district-popup-action__sub {
+    color: rgba(167, 243, 208, 0.88) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="spy"] {
+    --district-action-rgb: 251, 191, 36;
+    --district-action-secondary-rgb: 161, 98, 7;
+    --district-action-text: #fff8e1;
+    border-color: rgba(251, 191, 36, 0.42) !important;
+    background:
+      linear-gradient(135deg, rgba(120, 53, 15, 0.96), rgba(161, 98, 7, 0.9)) !important;
+    color: #fff8e1 !important;
+    box-shadow:
+      0 18px 36px rgba(180, 83, 9, 0.24),
+      0 0 18px rgba(251, 191, 36, 0.14),
+      inset 0 1px 0 rgba(254, 243, 199, 0.14) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="spy"] .district-popup-action__sub {
+    color: rgba(255, 243, 173, 0.92) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="rob"] {
+    --district-action-rgb: 34, 211, 238;
+    --district-action-secondary-rgb: 15, 118, 110;
+    --district-action-text: #ecfeff;
+    border-color: rgba(34, 211, 238, 0.4) !important;
+    background:
+      linear-gradient(135deg, rgba(8, 47, 73, 0.96), rgba(15, 118, 110, 0.9)) !important;
+    color: #ecfeff !important;
+    box-shadow:
+      0 18px 36px rgba(8, 145, 178, 0.24),
+      0 0 18px rgba(34, 211, 238, 0.14),
+      inset 0 1px 0 rgba(207, 250, 254, 0.14) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="heist"] {
+    --district-action-rgb: 244, 114, 182;
+    --district-action-secondary-rgb: 168, 85, 247;
+    --district-action-text: #fff0fa;
+    border-color: rgba(244, 114, 182, 0.42) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="attack"] {
+    --district-action-rgb: 248, 113, 113;
+    --district-action-secondary-rgb: 127, 29, 29;
+    --district-action-text: #fff1f2;
+    border-color: rgba(248, 113, 113, 0.42) !important;
+    background:
+      linear-gradient(135deg, rgba(127, 29, 29, 0.96), rgba(24, 24, 27, 0.94)) !important;
+    color: #fff1f2 !important;
+    box-shadow:
+      0 18px 36px rgba(127, 29, 29, 0.3),
+      0 0 20px rgba(248, 113, 113, 0.16),
+      inset 0 1px 0 rgba(254, 202, 202, 0.12) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="occupy"] {
+    --district-action-rgb: 220, 20, 60;
+    --district-action-secondary-rgb: 136, 19, 55;
+    --district-action-text: #ffe7ee;
+    border-color: rgba(220, 20, 60, 0.5) !important;
+    background:
+      linear-gradient(135deg, rgba(136, 19, 55, 0.96), rgba(64, 8, 24, 0.92)) !important;
+    color: #ffe7ee !important;
+    box-shadow:
+      0 18px 36px rgba(136, 19, 55, 0.28),
+      0 0 20px rgba(220, 20, 60, 0.18),
+      inset 0 1px 0 rgba(255, 205, 217, 0.14) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="attack"]::before {
+    background: linear-gradient(120deg, rgba(254, 202, 202, 0.08), transparent 38%, transparent 72%, rgba(248, 113, 113, 0.12)) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="rob"]::before {
+    background: linear-gradient(120deg, rgba(125, 211, 252, 0.14), transparent 36%, transparent 72%, rgba(45, 212, 191, 0.12)) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="spy"]::before {
+    background: linear-gradient(120deg, rgba(253, 224, 71, 0.14), transparent 36%, transparent 72%, rgba(251, 191, 36, 0.12)) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="occupy"]::before {
+    background: linear-gradient(120deg, rgba(255, 205, 217, 0.12), transparent 36%, transparent 72%, rgba(220, 20, 60, 0.16)) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="defense"]::before {
+    background: linear-gradient(120deg, rgba(125, 211, 252, 0.18), transparent 36%, transparent 68%, rgba(191, 219, 254, 0.16)) !important;
+  }
+
+  html body.game-body .district-popup-action[data-district-action-id="trap"]::before {
+    background: linear-gradient(120deg, rgba(153, 246, 228, 0.16), transparent 36%, transparent 68%, rgba(45, 212, 191, 0.12)) !important;
   }
 }

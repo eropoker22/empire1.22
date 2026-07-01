@@ -7,26 +7,26 @@ function getFactorySlotPerHour(slot = {}, rates = {}) {
 const FACTORY_SLOT_DISPLAY_INFO = Object.freeze({
   metalParts: Object.freeze({
     durationLabel: "4 min",
-    priceLabel: "120 Dirty Cash",
+    priceLabel: "120",
     storageCap: 20,
-    displayCost: Object.freeze({ dirtyCash: 120, techCore: 0 }),
-    primaryLine: "120 Dirty Cash",
+    displayCost: Object.freeze({ cleanCash: 120, techCore: 0 }),
+    primaryLine: "120",
     secondaryLine: "4 min"
   }),
   techCore: Object.freeze({
     durationLabel: "8 min",
-    priceLabel: "300 Dirty Cash",
+    priceLabel: "300",
     storageCap: 10,
-    displayCost: Object.freeze({ dirtyCash: 300, techCore: 0 }),
-    primaryLine: "300 Dirty Cash",
+    displayCost: Object.freeze({ cleanCash: 300, techCore: 0 }),
+    primaryLine: "300",
     secondaryLine: "8 min"
   }),
   combatModule: Object.freeze({
     durationLabel: "15 min",
-    priceLabel: "650 Dirty Cash + 1 Tech Core",
+    priceLabel: "650 + 1 Tech Core",
     storageCap: 5,
-    displayCost: Object.freeze({ dirtyCash: 650, techCore: 1 }),
-    primaryLine: "650 Dirty Cash + 1 Tech Core",
+    displayCost: Object.freeze({ cleanCash: 650, techCore: 1 }),
+    primaryLine: "650 + 1 Tech Core",
     secondaryLine: "15 min"
   })
 });
@@ -146,8 +146,9 @@ export function buildFactoryDashboardViewModel({
     },
     effectsLabel: "",
     upgradeButton: {
+      visible: !isMaxLevel,
       disabled: isMaxLevel,
-      text: isMaxLevel ? "MAX" : "⇪",
+      text: "⇪",
       title: isMaxLevel ? "Max level" : `Upgrade budovy (${formatCurrency(nextUpgradeCost)})`
     },
     collectButton: {
@@ -163,7 +164,7 @@ export function buildFactoryDashboardViewModel({
         slot,
         title: slotMeta?.label || slot.resourceKey,
         perHour: getFactorySlotPerHour(slot, syncResult.rates || {}),
-        slotStorageCap,
+        slotStorageCap: Math.max(1, Math.floor(Number(slot.slotCap || getFactorySlotDisplayInfo(slot).storageCap || slotStorageCap || 1))),
         resourceColor: normalizeResourceColorKey(slot.resourceKey),
         queuedAmount: Math.max(0, Math.floor(Number(slot.queuedAmount || 0))),
         unitCost: {

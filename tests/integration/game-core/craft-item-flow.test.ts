@@ -50,7 +50,7 @@ describe("craft-item command flow", () => {
     expect(crafted.nextState.buildingsById[buildingId]?.processing).toEqual({
       recipeId: "stim-pack",
       startedAtTick: 2,
-      completesAtTick: 2 + 4 * TICKS_PER_MINUTE
+      completesAtTick: 2 + 10 * TICKS_PER_MINUTE
     });
     expect(crafted.events).toHaveLength(1);
     expect(crafted.events[0]?.type).toBe("item-processing-started");
@@ -62,7 +62,7 @@ describe("craft-item command flow", () => {
     expect(afterOneTick.events).toEqual([]);
 
     let completionTick = afterOneTick;
-    for (let index = 1; index < 4 * TICKS_PER_MINUTE; index += 1) {
+    for (let index = 1; index < 10 * TICKS_PER_MINUTE; index += 1) {
       completionTick = runTick(completionTick.nextState, context);
     }
 
@@ -80,7 +80,7 @@ describe("craft-item command flow", () => {
 
   it.each([
     ["factory", "combat-module", { "metal-parts": 10, "tech-core": 3 }, "combat-module", 1, 12],
-    ["drug_lab", "ghost-serum", { chemicals: 4, biomass: 2, "stim-pack": 2 }, "ghost-serum", 1, 8],
+    ["drug_lab", "ghost-serum", { chemicals: 4, biomass: 2, "stim-pack": 2 }, "ghost-serum", 1, 20],
     ["armory", "pistol", { "metal-parts": 6, "tech-core": 2 }, "pistol", 2, 5],
     ["armory", "bazooka", { "metal-parts": 10, "tech-core": 4 }, "bazooka", 1, 14],
     ["armory", "defense-tower", { "metal-parts": 10, "tech-core": 4 }, "defense-tower", 1, 16]

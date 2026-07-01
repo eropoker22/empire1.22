@@ -204,12 +204,13 @@ function initMobilePrimaryActionCardsPlacement(documentObj = document) {
     return;
   }
 
-  const restoreToLeftRail = () => {
+  const applyPlacement = () => {
     moveElementAfterAnchor(cityEventsAnchor, cityEventsCard);
     moveElementAfterAnchor(buildingsAnchor, buildingsCard);
     moveElementAfterAnchor(marketAnchor, marketCard);
   };
-  restoreToLeftRail();
+
+  applyPlacement();
 }
 
 function initMobileLeaderboardPlacement(windowObj = window, documentObj = document) {
@@ -276,13 +277,36 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
     0,
     Math.floor(windowObj.scrollY || windowObj.pageYOffset || root.scrollTop || documentObj.body.scrollTop || 0)
   );
+  let lastKnownScrollY = getScrollY();
+
+  const restorePageScroll = (nextScrollY) => {
+    root.scrollTop = nextScrollY;
+    documentObj.body.scrollTop = nextScrollY;
+    if (typeof windowObj.scrollTo !== "function") {
+      return;
+    }
+    try {
+      windowObj.scrollTo({ top: nextScrollY, left: 0, behavior: "instant" });
+    } catch {
+      windowObj.scrollTo(0, nextScrollY);
+    }
+    if (Math.abs(getScrollY() - nextScrollY) > 1) {
+      try {
+        windowObj.scrollTo(0, nextScrollY);
+      } catch {
+        // Older embedded browsers can reject scrollTo while layout is settling.
+      }
+    }
+  };
 
   const lockPageScroll = () => {
     if (lockedScrollY !== null) {
       return;
     }
 
-    lockedScrollY = getScrollY();
+    const currentScrollY = getScrollY();
+    lockedScrollY = currentScrollY > 0 || lastKnownScrollY <= 0 ? currentScrollY : lastKnownScrollY;
+    lastKnownScrollY = lockedScrollY;
     documentObj.body.style.position = "fixed";
     documentObj.body.style.top = `-${lockedScrollY}px`;
     documentObj.body.style.left = "0";
@@ -297,14 +321,26 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
 
     const nextScrollY = lockedScrollY;
     lockedScrollY = null;
+    lastKnownScrollY = nextScrollY;
+    const restoreScrollPosition = () => {
+      restorePageScroll(nextScrollY);
+    };
     documentObj.body.style.removeProperty("position");
     documentObj.body.style.removeProperty("top");
     documentObj.body.style.removeProperty("left");
     documentObj.body.style.removeProperty("right");
     documentObj.body.style.removeProperty("width");
-    windowObj.requestAnimationFrame(() => {
-      windowObj.scrollTo({ top: nextScrollY, left: 0, behavior: "instant" });
-    });
+    restoreScrollPosition();
+    windowObj.requestAnimationFrame(restoreScrollPosition);
+    windowObj.requestAnimationFrame(() => windowObj.requestAnimationFrame(restoreScrollPosition));
+    windowObj.setTimeout(restoreScrollPosition, 80);
+    windowObj.setTimeout(restoreScrollPosition, 180);
+  };
+
+  const rememberScrollY = () => {
+    if (lockedScrollY === null) {
+      lastKnownScrollY = getScrollY();
+    }
   };
 
   const isOpenOverlay = (element) => {
@@ -372,6 +408,7 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
       attributeFilter: ["class", "hidden", "style", "aria-hidden"]
     });
   }
+  windowObj.addEventListener("scroll", rememberScrollY, { passive: true });
   windowObj.addEventListener("resize", requestApply);
   if (typeof media.addEventListener === "function") {
     media.addEventListener("change", requestApply);

@@ -128,6 +128,8 @@ describe("page onboarding smoke", () => {
     expect(page("game.html")).toContain('data-mobile-short=""></span>');
     expect(page("game.html")).not.toContain(">DEV-ONLY<");
     const gameHtml = page("game.html");
+    expect(gameHtml.indexOf('id="city-events-card-anchor"')).toBeLessThan(gameHtml.indexOf('id="city-events-card"'));
+    expect(gameHtml.indexOf('id="city-events-card"')).toBeLessThan(gameHtml.indexOf('id="buildings-card"'));
     expect(gameHtml).toContain('data-onboarding-launch');
     expect(gameHtml).toContain('id="onboarding-launch-button"');
     expect(gameHtml).toContain('id="settings-onboarding-btn"');
@@ -205,6 +207,9 @@ describe("page onboarding smoke", () => {
     expect(bountyRuntimeSource).toContain("data-bounty-target-option");
     expect(bountyCssSource).toContain("#bounty-confirm-modal.bounty-board-modal:not(.hidden)");
     expect(bountyRuntimeSource).toContain("submitServerBountyCommand");
+    expect(bountyRuntimeSource).toContain("revealedTypeDistrictIds");
+    expect(bountyRuntimeSource).toContain("formatBountyDistrictOptionLabel");
+    expect(bountyRuntimeSource).toContain("formatBountyDistrictTypeLabel");
     const loginCssSource = readFileSync(resolve(root, "page-assets/css/login.css"), "utf8");
     expect(loginCssSource).toContain(".mode-card--free");
     expect(loginCssSource).toContain("linear-gradient(145deg, rgba(3, 16, 31, 0.94), rgba(1, 6, 16, 0.98))");

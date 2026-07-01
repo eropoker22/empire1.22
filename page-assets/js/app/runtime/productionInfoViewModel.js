@@ -94,10 +94,10 @@ export function createFactoryBuildingInfoViewModel({
   const currentMultiplier = Number(syncResult.productionMultiplier || 0);
   const safeNextMultiplier = Number(nextMultiplier || 0);
   return {
-    description: "Továrna vyrábí technické komponenty pro zbraně, obranu a vyšší tier výbavy přes serverový production/craft flow.",
+    description: "Továrna vyrábí technické komponenty pro zbraně, obranu a boost. Výroba v továrně je za čisté peníze.",
     effectsLabel: nextLevel
-      ? `Serverový production flow · další level +${Math.round((safeNextMultiplier - currentMultiplier) * 100)}% rychlost`
-      : `Serverový production flow · max level`,
+      ? `Další level +${Math.round((safeNextMultiplier - currentMultiplier) * 100)}% rychlost`
+      : "Max level",
     upgrade: {
       costLabel: nextLevel ? formatCurrency(upgradeCost) : "MAX",
       benefitLabel: nextLevel ? `L${nextLevel} · produkce x${safeNextMultiplier.toFixed(2)}` : "Max level"
@@ -108,21 +108,21 @@ export function createFactoryBuildingInfoViewModel({
         title: "Metal Parts",
         description: "Základní kovové díly pro výrobu zbraní, obrany a technického vybavení. Levný základ každé pouliční války.",
         durationLabel: "4 min",
-        costLabel: "120 Dirty Cash"
+        costLabel: "120 Clean Cash"
       },
       {
         id: "tech-core",
         title: "Tech Core",
         description: "Pokročilé technologické jádro používané pro kamery, alarmy, turrety a silnější zbraně. Dražší, ale otevírá vyšší tier výbavy.",
         durationLabel: "8 min",
-        costLabel: "300 Dirty Cash"
+        costLabel: "300 Clean Cash"
       },
       {
         id: "combat-module",
         title: "Combat Module",
         description: "Vojenský bojový modul pro high-tech zbraně, automatickou obranu a těžkou výbavu. Vzácný komponent pro hráče, kteří chtějí dominovat silou.",
         durationLabel: "15 min",
-        costLabel: "650 Dirty Cash + 1 Tech Core"
+        costLabel: "650 Clean Cash + 1 Tech Core"
       }
     ],
     rows: [

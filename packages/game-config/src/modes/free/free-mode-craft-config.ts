@@ -12,7 +12,7 @@ export const freeModeCraftBuildings: NonNullable<BalanceConfig["craftBuildings"]
     recipes: {
       "stim-pack": {
         label: "Stim Pack",
-        durationTicks: baseCooldownTicksForFinalMinutes(4),
+        durationTicks: baseCooldownTicksForFinalMinutes(10),
         inputCosts: {
           chemicals: 6
         },
@@ -32,7 +32,7 @@ export const freeModeCraftBuildings: NonNullable<BalanceConfig["craftBuildings"]
     recipes: {
       "neon-dust": {
         label: "Neon Dust",
-        durationTicks: baseCooldownTicksForFinalMinutes(4),
+        durationTicks: baseCooldownTicksForFinalMinutes(5),
         inputCosts: {
           chemicals: 1
         },
@@ -42,7 +42,7 @@ export const freeModeCraftBuildings: NonNullable<BalanceConfig["craftBuildings"]
       },
       "pulse-shot": {
         label: "Pulse Shot",
-        durationTicks: baseCooldownTicksForFinalMinutes(5),
+        durationTicks: baseCooldownTicksForFinalMinutes(8),
         inputCosts: {
           chemicals: 2,
           biomass: 1
@@ -53,7 +53,7 @@ export const freeModeCraftBuildings: NonNullable<BalanceConfig["craftBuildings"]
       },
       "velvet-smoke": {
         label: "Velvet Smoke",
-        durationTicks: baseCooldownTicksForFinalMinutes(6),
+        durationTicks: baseCooldownTicksForFinalMinutes(15),
         inputCosts: {
           biomass: 2,
           chemicals: 1
@@ -64,7 +64,7 @@ export const freeModeCraftBuildings: NonNullable<BalanceConfig["craftBuildings"]
       },
       "ghost-serum": {
         label: "Ghost Serum",
-        durationTicks: baseCooldownTicksForFinalMinutes(8),
+        durationTicks: baseCooldownTicksForFinalMinutes(20),
         inputCosts: {
           chemicals: 2,
           biomass: 1,
@@ -76,7 +76,7 @@ export const freeModeCraftBuildings: NonNullable<BalanceConfig["craftBuildings"]
       },
       "overdrive-x": {
         label: "Overdrive X",
-        durationTicks: baseCooldownTicksForFinalMinutes(10),
+        durationTicks: baseCooldownTicksForFinalMinutes(20),
         inputCosts: {
           chemicals: 3,
           biomass: 2,

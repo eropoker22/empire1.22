@@ -189,6 +189,43 @@ function normalizeDistrictNumericId(districtId) {
   return match ? Number(match[1]) : districtId;
 }
 
+function normalizeDistrictIdList(values) {
+  return Array.isArray(values)
+    ? values
+        .map((value) => normalizeDistrictNumericId(value))
+        .filter((value) => value !== "" && value !== null && value !== undefined)
+    : [];
+}
+
+function getBountySpyIntel() {
+  if (typeof window === "undefined") {
+    return {};
+  }
+  return window.empireStreetsPage?.spyIntel
+    || window.empireStreetsPage?.session?.missions?.spyIntel
+    || window.empireStreetsGameplaySliceReadModel?.spyIntel
+    || {};
+}
+
+function isBountyDistrictTypeRevealed(districtId, spyIntel = getBountySpyIntel()) {
+  const normalizedDistrictId = normalizeDistrictNumericId(districtId);
+  return normalizeDistrictIdList(spyIntel?.revealedTypeDistrictIds)
+    .some((revealedId) => String(revealedId) === String(normalizedDistrictId));
+}
+
+function formatBountyDistrictTypeLabel(district, spyIntel = getBountySpyIntel()) {
+  if (!district || !isBountyDistrictTypeRevealed(district.districtId, spyIntel)) {
+    return "";
+  }
+  return String(district.zone || "").trim();
+}
+
+function formatBountyDistrictOptionLabel(district, spyIntel = getBountySpyIntel()) {
+  const districtName = String(district?.name || district?.districtId || "").trim();
+  const typeLabel = formatBountyDistrictTypeLabel(district, spyIntel);
+  return typeLabel ? `${districtName} · ${typeLabel}` : districtName;
+}
+
 function isDevOnlyBountyFallbackEnabled() {
   if (typeof window === "undefined") {
     return false;
@@ -475,12 +512,13 @@ function initBountyRuntime() {
     const previous = String(districtSelect.value || "").trim();
     const districts = Array.isArray(target?.districts) ? target.districts : [];
     const objective = getSelectedObjectiveType();
+    const spyIntel = getBountySpyIntel();
 
     districtSelect.innerHTML = [
       resolveObjectiveConfig(objective).requiresDistrict
         ? '<option value="">Vyber district</option>'
         : '<option value="">Jakýkoli district</option>',
-      ...districts.map((district) => `<option value="${escapeHtml(district.districtId)}">${escapeHtml(`${district.name} · ${district.zone}`)}</option>`)
+      ...districts.map((district) => `<option value="${escapeHtml(district.districtId)}">${escapeHtml(formatBountyDistrictOptionLabel(district, spyIntel))}</option>`)
     ].join("");
 
     if (districts.some((district) => String(district.districtId) === previous)) {
@@ -497,19 +535,23 @@ function initBountyRuntime() {
     uiState.isDistrictPickerOpen = needsDistrict ? uiState.isDistrictPickerOpen : false;
     if (districtPicker) {
       const selectedDistrict = districts.find((district) => String(district.districtId) === String(districtSelect.value || "")) || null;
+      const selectedDistrictTypeLabel = formatBountyDistrictTypeLabel(selectedDistrict, spyIntel);
       districtPicker.innerHTML = needsDistrict && districts.length
         ? `
             <button class="bounty-board__district-current" type="button" data-bounty-district-toggle aria-expanded="${uiState.isDistrictPickerOpen ? "true" : "false"}">
               <span class="bounty-board__district-option-name">${escapeHtml(selectedDistrict?.name || "Vyber district")}</span>
-              <span class="bounty-board__district-option-meta">${escapeHtml(selectedDistrict?.zone || "Cíl musí mít aktivní district")}</span>
+              ${selectedDistrictTypeLabel ? `<span class="bounty-board__district-option-meta">${escapeHtml(selectedDistrictTypeLabel)}</span>` : ""}
             </button>
             <div class="bounty-board__district-menu" role="listbox" aria-label="Dostupné districty">
-              ${districts.map((district) => `
+              ${districts.map((district) => {
+                const districtTypeLabel = formatBountyDistrictTypeLabel(district, spyIntel);
+                return `
                 <button class="bounty-board__district-option" type="button" data-bounty-district-option="${escapeHtml(district.districtId)}" aria-pressed="false">
                   <span class="bounty-board__district-option-name">${escapeHtml(district.name)}</span>
-                  <span class="bounty-board__district-option-meta">${escapeHtml(district.zone)}</span>
+                  ${districtTypeLabel ? `<span class="bounty-board__district-option-meta">${escapeHtml(districtTypeLabel)}</span>` : ""}
                 </button>
-              `).join("")}
+              `;
+              }).join("")}
             </div>
           `
         : "";

@@ -56,6 +56,30 @@ async function getSelectedDistrictId(page) {
   return page.evaluate(() => window.empireStreetsDistrictState?.getSelectedDistrict?.()?.id ?? null);
 }
 
+async function getLockedPageScrollY(page) {
+  return page.evaluate(() => {
+    const fixedTop = Number.parseFloat((document.body.style.top || "0").replace("px", ""));
+    if (Number.isFinite(fixedTop) && fixedTop < 0) {
+      return Math.round(Math.abs(fixedTop));
+    }
+    return Math.round(window.scrollY || window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0);
+  });
+}
+
+async function expectPageScrollPreserved(page, expectedY, tolerance = 2) {
+  await expect.poll(async () => {
+    const currentY = await page.evaluate(() => Math.round(window.scrollY || window.pageYOffset || 0));
+    return Math.abs(currentY - expectedY) <= tolerance;
+  }, { timeout: 2500 }).toBe(true);
+}
+
+async function expectLockedScrollPreserved(page, expectedY, tolerance = 2) {
+  await expect.poll(async () => {
+    const currentY = await getLockedPageScrollY(page);
+    return Math.abs(currentY - expectedY) <= tolerance;
+  }, { timeout: 2500 }).toBe(true);
+}
+
 async function tapBackdropTop(page, testId) {
   const box = await page.getByTestId(testId).boundingBox();
   expect(box, `${testId} backdrop box`).toBeTruthy();
@@ -79,15 +103,23 @@ test.describe("mobile overlay UX", () => {
     await openGamePage(page);
     await expect(page.getByTestId("district-popup")).toBeHidden();
 
+    await page.evaluate(() => {
+      const maxScrollY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      window.scrollTo(0, Math.min(760, maxScrollY));
+    });
+    await page.waitForTimeout(120);
     await tapDistrict(page);
     await expect(page.getByTestId("district-popup")).toBeVisible();
     await expect(page.getByTestId("district-popup-card")).toHaveAttribute("role", "dialog");
     await expect(page.getByTestId("district-popup-card")).toHaveAttribute("aria-modal", "true");
+    const scrollBeforeDistrictClose = await getLockedPageScrollY(page);
+    expect(scrollBeforeDistrictClose).toBeGreaterThan(0);
 
     await tapBackdropTop(page, "district-popup-backdrop");
     await expect(page.getByTestId("district-popup")).toBeHidden();
     await page.waitForTimeout(520);
     await expect(page.getByTestId("district-popup")).toBeHidden();
+    await expectPageScrollPreserved(page, scrollBeforeDistrictClose);
     await expect.poll(() => getSelectedDistrictId(page)).toBe(null);
 
     await tapDistrict(page);
@@ -104,6 +136,8 @@ test.describe("mobile overlay UX", () => {
       Boolean(window.empireStreetsDistrictState?.openAttackPanel?.(id))
     ), TEST_DISTRICT_ID)).toBe(true);
     await expect(page.getByTestId("attack-setup-modal")).toBeVisible();
+    const scrollBeforeAttackClose = await getLockedPageScrollY(page);
+    expect(scrollBeforeAttackClose).toBeGreaterThan(0);
 
     const defenseBackdrop = page.locator("[data-attack-setup-popup] [data-attack-setup-close]").first();
     const defenseBackdropBox = await defenseBackdrop.boundingBox();
@@ -116,7 +150,14 @@ test.describe("mobile overlay UX", () => {
     await expect(page.getByTestId("district-popup-card")).toBeVisible();
     await page.waitForTimeout(520);
     await expect(page.getByTestId("district-popup-card")).toBeVisible();
+    await expectLockedScrollPreserved(page, scrollBeforeAttackClose);
     await expect.poll(() => getSelectedDistrictId(page)).toBe(TEST_DISTRICT_ID);
+
+    await tapBackdropTop(page, "district-popup-backdrop");
+    await expect(page.getByTestId("district-popup")).toBeHidden();
+    await page.waitForTimeout(520);
+    await expectPageScrollPreserved(page, scrollBeforeAttackClose);
+    await expect.poll(() => getSelectedDistrictId(page)).toBe(null);
 
     await assertNoRuntimeErrors(errors);
   });

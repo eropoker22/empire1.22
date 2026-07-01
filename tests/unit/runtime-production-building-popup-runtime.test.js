@@ -8,6 +8,7 @@ function createElement(dataset = {}) {
     dataset,
     disabled: false,
     hidden: false,
+    style: {},
     textContent: "",
     title: "",
     addEventListener: vi.fn((type, listener) => {
@@ -138,6 +139,394 @@ describe("production building popup runtime", () => {
       "Budova",
       expect.stringContaining("serverový production/craft flow")
     );
+  });
+
+  it("keeps production upgrade button clickable in server-owned mode to explain the route", async () => {
+    const openButton = createElement();
+    const popup = createElement();
+    const closeButton = createElement();
+    const collectButton = createElement();
+    const upgradeButton = createElement();
+    const setBuildingActionFeedback = vi.fn();
+    const upgradeConfirmation = {
+      close: vi.fn(),
+      isOpen: vi.fn(() => false),
+      open: vi.fn(() => Promise.resolve(true))
+    };
+    const createUpgradeConfirmationController = vi.fn(() => upgradeConfirmation);
+    popup.querySelector = vi.fn((selector) => ({
+      "[data-production-building-level]": createElement(),
+      "[data-production-building-header-level]": createElement(),
+      "[data-production-building-multiplier]": createElement(),
+      "[data-production-building-ready]": createElement(),
+      "[data-production-building-upgrade-cost]": createElement(),
+      "[data-production-building-effects]": createElement(),
+      "[data-production-building-collect]": collectButton,
+      "[data-production-building-upgrade]": upgradeButton,
+      "[data-production-building-info-text]": createElement(),
+      "[data-production-building-info-effects]": createElement(),
+      "[data-production-building-info-actions]": createElement(),
+      "[data-production-building-info-upgrade-cost]": createElement(),
+      "[data-production-building-info-upgrade-benefit]": createElement()
+    }[selector] || null));
+    popup.querySelectorAll = vi.fn(() => []);
+
+    const runtime = createProductionBuildingPopupRuntime({
+      PRODUCTION_BUILDING_CONFIG: { pharmacy: { label: "Lékárna" } },
+      allowLegacyProductionUpgrade: false,
+      createUpgradeConfirmationController,
+      formatCurrency: (value) => `$${value}`,
+      getProductionBuildingEffectsLabel: () => "x1.00",
+      getProductionBuildingMultiplier: () => 1,
+      getProductionBuildingReadyCount: () => 0,
+      getProductionBuildingUpgradeCost: () => 100,
+      getStoredProductionBuildingState: () => ({ level: 1 }),
+      renderProductionBuildingInfoPanel: vi.fn(),
+      renderProductionPanelUi: vi.fn(() => true),
+      selectors: {
+        collect: "[data-production-building-collect]",
+        effects: "[data-production-building-effects]",
+        headerLevel: "[data-production-building-header-level]",
+        infoActions: "[data-production-building-info-actions]",
+        infoEffects: "[data-production-building-info-effects]",
+        infoText: "[data-production-building-info-text]",
+        level: "[data-production-building-level]",
+        multiplier: "[data-production-building-multiplier]",
+        panel: "[data-production-building-panel]",
+        ready: "[data-production-building-ready]",
+        tab: "[data-production-building-tab]",
+        upgrade: "[data-production-building-upgrade]",
+        upgradeCost: "[data-production-building-upgrade-cost]"
+      },
+      setBuildingActionFeedback,
+      syncBuildingDetailTopbarVisibility: vi.fn(),
+      syncCompletedProductionJobs: vi.fn()
+    });
+    const root = createRoot({
+      ".open": openButton,
+      ".popup": popup,
+      ".close": [closeButton],
+      '[data-production-panel="pharmacy"]': {}
+    });
+
+    expect(runtime.bindProductionBuildingPopup(root, {
+      buildingName: "pharmacy",
+      closeSelector: ".close",
+      openSelector: ".open",
+      popupSelector: ".popup",
+      recipes: {}
+    })).toBe(true);
+
+    await openButton.dispatch("click");
+    expect(upgradeButton.disabled).toBe(false);
+
+    await upgradeButton.dispatch("click");
+    expect(upgradeConfirmation.open).not.toHaveBeenCalled();
+    expect(setBuildingActionFeedback).toHaveBeenCalledWith(
+      root,
+      "warning",
+      "Lékárna",
+      expect.stringContaining("konkrétní kartu budovy")
+    );
+  });
+
+  it("shows owned pharmacy network count in the pharmacy overview level slot", async () => {
+    const openButton = createElement();
+    const popup = createElement();
+    const closeButton = createElement();
+    const levelElement = createElement();
+    const headerLevelElement = createElement();
+    const multiplierElement = createElement();
+    popup.querySelector = vi.fn((selector) => ({
+      "[data-production-building-level]": levelElement,
+      "[data-production-building-header-level]": headerLevelElement,
+      "[data-production-building-multiplier]": multiplierElement,
+      "[data-production-building-ready]": createElement(),
+      "[data-production-building-upgrade-cost]": createElement(),
+      "[data-production-building-effects]": createElement(),
+      "[data-production-building-collect]": createElement(),
+      "[data-production-building-upgrade]": createElement(),
+      "[data-production-building-info-text]": createElement(),
+      "[data-production-building-info-effects]": createElement(),
+      "[data-production-building-info-actions]": createElement(),
+      "[data-production-building-info-upgrade-cost]": createElement(),
+      "[data-production-building-info-upgrade-benefit]": createElement()
+    }[selector] || null));
+    popup.querySelectorAll = vi.fn(() => []);
+
+    const runtime = createProductionBuildingPopupRuntime({
+      PRODUCTION_BUILDING_CONFIG: { pharmacy: { label: "Lékárna" } },
+      formatCurrency: (value) => `$${value}`,
+      getOwnedPharmacyCount: () => 4,
+      getProductionBuildingEffectsLabel: () => "x1.10",
+      getProductionBuildingMultiplier: (_name, level = 1) => 1 + ((level - 1) * 0.1),
+      getProductionBuildingReadyCount: () => 0,
+      getProductionBuildingUpgradeCost: () => 100,
+      getStoredProductionBuildingState: () => ({ level: 2 }),
+      renderProductionBuildingInfoPanel: vi.fn(),
+      renderProductionPanelUi: vi.fn(() => true),
+      selectors: {
+        collect: "[data-production-building-collect]",
+        effects: "[data-production-building-effects]",
+        headerLevel: "[data-production-building-header-level]",
+        infoActions: "[data-production-building-info-actions]",
+        infoEffects: "[data-production-building-info-effects]",
+        infoText: "[data-production-building-info-text]",
+        level: "[data-production-building-level]",
+        multiplier: "[data-production-building-multiplier]",
+        panel: "[data-production-building-panel]",
+        ready: "[data-production-building-ready]",
+        tab: "[data-production-building-tab]",
+        upgrade: "[data-production-building-upgrade]",
+        upgradeCost: "[data-production-building-upgrade-cost]"
+      },
+      syncBuildingDetailTopbarVisibility: vi.fn(),
+      syncCompletedProductionJobs: vi.fn()
+    });
+    const root = createRoot({
+      ".open": openButton,
+      ".popup": popup,
+      ".close": [closeButton],
+      '[data-production-panel="pharmacy"]': {}
+    });
+
+    expect(runtime.bindProductionBuildingPopup(root, {
+      buildingName: "pharmacy",
+      closeSelector: ".close",
+      openSelector: ".open",
+      popupSelector: ".popup",
+      recipes: {}
+    })).toBe(true);
+
+    await openButton.dispatch("click");
+
+    expect(levelElement.textContent).toBe("4");
+    expect(headerLevelElement.textContent).toBe("Lv 2");
+    expect(multiplierElement.textContent).toBe("1.10x");
+  });
+
+  it("shows owned drug lab network count in the lab overview network slot", async () => {
+    const openButton = createElement();
+    const popup = createElement();
+    const closeButton = createElement();
+    const levelElement = createElement();
+    const headerLevelElement = createElement();
+    const multiplierElement = createElement();
+    popup.querySelector = vi.fn((selector) => ({
+      "[data-production-building-level]": levelElement,
+      "[data-production-building-header-level]": headerLevelElement,
+      "[data-production-building-multiplier]": multiplierElement,
+      "[data-production-building-ready]": createElement(),
+      "[data-production-building-upgrade-cost]": createElement(),
+      "[data-production-building-effects]": createElement(),
+      "[data-production-building-collect]": createElement(),
+      "[data-production-building-upgrade]": createElement(),
+      "[data-production-building-info-text]": createElement(),
+      "[data-production-building-info-effects]": createElement(),
+      "[data-production-building-info-actions]": createElement(),
+      "[data-production-building-info-upgrade-cost]": createElement(),
+      "[data-production-building-info-upgrade-benefit]": createElement()
+    }[selector] || null));
+    popup.querySelectorAll = vi.fn(() => []);
+
+    const runtime = createProductionBuildingPopupRuntime({
+      PRODUCTION_BUILDING_CONFIG: { druglab: { label: "Lab" } },
+      formatCurrency: (value) => `$${value}`,
+      getOwnedDrugLabCount: () => 3,
+      getProductionBuildingEffectsLabel: () => "x1.20",
+      getProductionBuildingMultiplier: (_name, level = 1) => 1 + ((level - 1) * 0.1),
+      getProductionBuildingReadyCount: () => 0,
+      getProductionBuildingUpgradeCost: () => 100,
+      getStoredProductionBuildingState: () => ({ level: 2 }),
+      renderProductionBuildingInfoPanel: vi.fn(),
+      renderProductionPanelUi: vi.fn(() => true),
+      selectors: {
+        collect: "[data-production-building-collect]",
+        effects: "[data-production-building-effects]",
+        headerLevel: "[data-production-building-header-level]",
+        infoActions: "[data-production-building-info-actions]",
+        infoEffects: "[data-production-building-info-effects]",
+        infoText: "[data-production-building-info-text]",
+        level: "[data-production-building-level]",
+        multiplier: "[data-production-building-multiplier]",
+        panel: "[data-production-building-panel]",
+        ready: "[data-production-building-ready]",
+        tab: "[data-production-building-tab]",
+        upgrade: "[data-production-building-upgrade]",
+        upgradeCost: "[data-production-building-upgrade-cost]"
+      },
+      syncBuildingDetailTopbarVisibility: vi.fn(),
+      syncCompletedProductionJobs: vi.fn()
+    });
+    const root = createRoot({
+      ".open": openButton,
+      ".popup": popup,
+      ".close": [closeButton],
+      '[data-production-panel="druglab"]': {}
+    });
+
+    expect(runtime.bindProductionBuildingPopup(root, {
+      buildingName: "druglab",
+      closeSelector: ".close",
+      openSelector: ".open",
+      popupSelector: ".popup",
+      recipes: {}
+    })).toBe(true);
+
+    await openButton.dispatch("click");
+
+    expect(levelElement.textContent).toBe("3");
+    expect(headerLevelElement.textContent).toBe("Lv 2");
+    expect(multiplierElement.textContent).toBe("1.10x");
+  });
+
+  it("shows owned armory network count in the armory overview network slot", async () => {
+    const openButton = createElement();
+    const popup = createElement();
+    const closeButton = createElement();
+    const levelElement = createElement();
+    const headerLevelElement = createElement();
+    const multiplierElement = createElement();
+    popup.querySelector = vi.fn((selector) => ({
+      "[data-production-building-level]": levelElement,
+      "[data-production-building-header-level]": headerLevelElement,
+      "[data-production-building-multiplier]": multiplierElement,
+      "[data-production-building-ready]": createElement(),
+      "[data-production-building-upgrade-cost]": createElement(),
+      "[data-production-building-effects]": createElement(),
+      "[data-production-building-collect]": createElement(),
+      "[data-production-building-upgrade]": createElement(),
+      "[data-production-building-info-text]": createElement(),
+      "[data-production-building-info-effects]": createElement(),
+      "[data-production-building-info-actions]": createElement(),
+      "[data-production-building-info-upgrade-cost]": createElement(),
+      "[data-production-building-info-upgrade-benefit]": createElement()
+    }[selector] || null));
+    popup.querySelectorAll = vi.fn(() => []);
+
+    const runtime = createProductionBuildingPopupRuntime({
+      PRODUCTION_BUILDING_CONFIG: { armory: { label: "Zbrojovka" } },
+      formatCurrency: (value) => `$${value}`,
+      getOwnedArmoryCount: () => 5,
+      getProductionBuildingEffectsLabel: () => "x1.30",
+      getProductionBuildingMultiplier: (_name, level = 1) => 1 + ((level - 1) * 0.1),
+      getProductionBuildingReadyCount: () => 0,
+      getProductionBuildingUpgradeCost: () => 100,
+      getStoredProductionBuildingState: () => ({ level: 3 }),
+      renderProductionBuildingInfoPanel: vi.fn(),
+      renderProductionPanelUi: vi.fn(() => true),
+      selectors: {
+        collect: "[data-production-building-collect]",
+        effects: "[data-production-building-effects]",
+        headerLevel: "[data-production-building-header-level]",
+        infoActions: "[data-production-building-info-actions]",
+        infoEffects: "[data-production-building-info-effects]",
+        infoText: "[data-production-building-info-text]",
+        level: "[data-production-building-level]",
+        multiplier: "[data-production-building-multiplier]",
+        panel: "[data-production-building-panel]",
+        ready: "[data-production-building-ready]",
+        tab: "[data-production-building-tab]",
+        upgrade: "[data-production-building-upgrade]",
+        upgradeCost: "[data-production-building-upgrade-cost]"
+      },
+      syncBuildingDetailTopbarVisibility: vi.fn(),
+      syncCompletedProductionJobs: vi.fn()
+    });
+    const root = createRoot({
+      ".open": openButton,
+      ".popup": popup,
+      ".close": [closeButton],
+      '[data-production-panel="armory"]': {}
+    });
+
+    expect(runtime.bindProductionBuildingPopup(root, {
+      buildingName: "armory",
+      closeSelector: ".close",
+      openSelector: ".open",
+      popupSelector: ".popup",
+      recipes: {}
+    })).toBe(true);
+
+    await openButton.dispatch("click");
+
+    expect(levelElement.textContent).toBe("5");
+    expect(headerLevelElement.textContent).toBe("Lv 3");
+    expect(multiplierElement.textContent).toBe("1.20x");
+  });
+
+  it("hides production upgrade button when no next upgrade exists", async () => {
+    const openButton = createElement();
+    const popup = createElement();
+    const closeButton = createElement();
+    const collectButton = createElement();
+    const upgradeButton = createElement();
+    popup.querySelector = vi.fn((selector) => ({
+      "[data-production-building-level]": createElement(),
+      "[data-production-building-header-level]": createElement(),
+      "[data-production-building-multiplier]": createElement(),
+      "[data-production-building-ready]": createElement(),
+      "[data-production-building-upgrade-cost]": createElement(),
+      "[data-production-building-effects]": createElement(),
+      "[data-production-building-collect]": collectButton,
+      "[data-production-building-upgrade]": upgradeButton,
+      "[data-production-building-info-text]": createElement(),
+      "[data-production-building-info-effects]": createElement(),
+      "[data-production-building-info-actions]": createElement(),
+      "[data-production-building-info-upgrade-cost]": createElement(),
+      "[data-production-building-info-upgrade-benefit]": createElement()
+    }[selector] || null));
+    popup.querySelectorAll = vi.fn(() => []);
+
+    const runtime = createProductionBuildingPopupRuntime({
+      PRODUCTION_BUILDING_CONFIG: { pharmacy: { label: "Lékárna" } },
+      formatCurrency: (value) => `$${value}`,
+      getProductionBuildingEffectsLabel: () => "x1.00",
+      getProductionBuildingMultiplier: () => 1,
+      getProductionBuildingReadyCount: () => 0,
+      getProductionBuildingUpgradeCost: () => 100,
+      getStoredProductionBuildingState: () => ({ level: 1 }),
+      maxLevel: 1,
+      renderProductionBuildingInfoPanel: vi.fn(),
+      renderProductionPanelUi: vi.fn(() => true),
+      selectors: {
+        collect: "[data-production-building-collect]",
+        effects: "[data-production-building-effects]",
+        headerLevel: "[data-production-building-header-level]",
+        infoActions: "[data-production-building-info-actions]",
+        infoEffects: "[data-production-building-info-effects]",
+        infoText: "[data-production-building-info-text]",
+        level: "[data-production-building-level]",
+        multiplier: "[data-production-building-multiplier]",
+        panel: "[data-production-building-panel]",
+        ready: "[data-production-building-ready]",
+        tab: "[data-production-building-tab]",
+        upgrade: "[data-production-building-upgrade]",
+        upgradeCost: "[data-production-building-upgrade-cost]"
+      },
+      syncBuildingDetailTopbarVisibility: vi.fn(),
+      syncCompletedProductionJobs: vi.fn()
+    });
+    const root = createRoot({
+      ".open": openButton,
+      ".popup": popup,
+      ".close": [closeButton],
+      '[data-production-panel="pharmacy"]': {}
+    });
+
+    expect(runtime.bindProductionBuildingPopup(root, {
+      buildingName: "pharmacy",
+      closeSelector: ".close",
+      openSelector: ".open",
+      popupSelector: ".popup",
+      recipes: {}
+    })).toBe(true);
+
+    await openButton.dispatch("click");
+
+    expect(upgradeButton.hidden).toBe(true);
+    expect(upgradeButton.style.display).toBe("none");
+    expect(upgradeButton.disabled).toBe(true);
   });
 
   it("cancels pharmacy production and refunds queued costs", () => {

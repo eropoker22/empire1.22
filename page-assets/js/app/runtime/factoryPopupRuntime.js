@@ -50,7 +50,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     const collectButton = root?.querySelector?.(selectors.collect);
 
     if (
-      !openButton || !popup || closeElements.length === 0 || !slotList || !levelElement || !multiplierElement
+      !openButton || !popup || closeElements.length === 0 || !slotList || !multiplierElement
       || !ownedCountElement || !upgradeCostElement || !metalElement || !techElement || !combatElement
       || !upgradeButton
       || !collectButton
@@ -163,8 +163,8 @@ export function createFactoryPopupRuntime(deps = {}) {
         collectButton.title = productionBridgeMessage;
         collectButton.setAttribute?.("aria-label", productionBridgeMessage);
       }
-      if (!allowLegacyProductionUpgrade && upgradeButton) {
-        upgradeButton.disabled = true;
+      if (!allowLegacyProductionUpgrade && upgradeButton && !upgradeButton.hidden) {
+        upgradeButton.disabled = false;
         upgradeButton.title = productionUpgradeMessage;
         upgradeButton.setAttribute?.("aria-label", productionUpgradeMessage);
       }

@@ -121,7 +121,7 @@ export async function submitServerBuildingActionCommandBridge({ context, actionP
   if (!deps.isReady?.()) {
     return {
       accepted: false,
-      errors: [{ message: "Server-authoritative gameplay runtime není připravený." }]
+      errors: [{ message: "Serverový herní stav ještě není načtený. Zkus akci potvrdit za chvíli." }]
     };
   }
 

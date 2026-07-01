@@ -57,6 +57,7 @@ describe("gang wanted status runtime", () => {
       economyState: { cleanMoney: 20, dirtyMoney: 4 },
       gangState: {
         heat: 72,
+        influence: 12,
         heatJournal: [],
         policeRaidProtectionUntil: 123
       },
@@ -74,6 +75,7 @@ describe("gang wanted status runtime", () => {
     }, {
       cleanActionCost: 10,
       dirtyActionCost: 8,
+      influenceActionCost: 20,
       formatProtectionLabel: () => "chráněno",
       getTierEffect: () => "vyšší kontroly",
       now: () => 1000
@@ -86,6 +88,7 @@ describe("gang wanted status runtime", () => {
       activePoliceActionCount: 1,
       dirtyActionDisabled: true,
       cleanActionDisabled: false,
+      influenceActionDisabled: true,
       protectionLabel: "chráněno"
     });
     expect(viewModel.pendingRaid).toMatchObject({ raidId: "raid:1" });
@@ -110,6 +113,7 @@ describe("gang wanted status runtime", () => {
       popupFeedback: new FakeElement(),
       dirty: new FakeElement(),
       clean: new FakeElement(),
+      influence: new FakeElement(),
       clear: new FakeElement(),
       close: new FakeElement(),
       star: new FakeElement()
@@ -129,6 +133,7 @@ describe("gang wanted status runtime", () => {
       "[popup-feedback]": elements.popupFeedback,
       "[dirty]": elements.dirty,
       "[clean]": elements.clean,
+      "[influence]": elements.influence,
       "[clear]": elements.clear
     }, {
       "[star]": [elements.star],
@@ -136,10 +141,12 @@ describe("gang wanted status runtime", () => {
     });
     globalThis.document = { addEventListener: vi.fn() };
     const onDirtyAction = vi.fn();
+    const onInfluenceAction = vi.fn();
     const renderHeatBadge = vi.fn();
     const runtime = createGangWantedStatusRuntime({
       cleanActionCost: 10,
       dirtyActionCost: 10,
+      influenceActionCost: 20,
       gangHeatTiers: [{ id: 1, label: "I", title: "Nízký" }],
       getPoliceTierShortEffect: () => "effect",
       getResolvedDistrictPoliceActions: () => ({ 2: { districtId: 2 } }),
@@ -154,11 +161,13 @@ describe("gang wanted status runtime", () => {
         pendingRaid: { raidId: "raid:1", status: "pending" }
       }),
       resolveGangHeatTier: () => ({ id: 1, label: "I", title: "Nízký", description: "Klid" }),
-      syncGangHeatDecay: () => ({ heat: 12, heatJournal: [] }),
+      onInfluenceAction,
+      syncGangHeatDecay: () => ({ heat: 12, influence: 25, heatJournal: [] }),
       selectors: {
         cleanAction: "[clean]",
         clearLog: "[clear]",
         dirtyAction: "[dirty]",
+        influenceAction: "[influence]",
         gangHeat: "[heat]",
         gangStar: "[star]",
         gangStars: "[stars]",
@@ -179,9 +188,14 @@ describe("gang wanted status runtime", () => {
     expect(runtime.bindGangWantedStatus(root)).toBe(true);
     elements.heat.dispatch("click");
     elements.dirty.dispatch("click");
+    elements.influence.dispatch("click");
 
     expect(elements.popup.hidden).toBe(false);
     expect(onDirtyAction).toHaveBeenCalledWith(expect.objectContaining({
+      root,
+      syncWantedStatus: expect.any(Function)
+    }));
+    expect(onInfluenceAction).toHaveBeenCalledWith(expect.objectContaining({
       root,
       syncWantedStatus: expect.any(Function)
     }));

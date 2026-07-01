@@ -82,6 +82,7 @@ export const WANTED_POPUP_FALL_LIST_SELECTOR = "[data-wanted-popup-fall-list]";
 export const WANTED_POPUP_FEEDBACK_SELECTOR = "[data-wanted-popup-feedback]";
 export const WANTED_POPUP_DIRTY_ACTION_SELECTOR = "[data-wanted-popup-dirty]";
 export const WANTED_POPUP_CLEAN_ACTION_SELECTOR = "[data-wanted-popup-clean]";
+export const WANTED_POPUP_INFLUENCE_ACTION_SELECTOR = "[data-wanted-popup-influence]";
 export const WANTED_POPUP_CLEAR_LOG_SELECTOR = "[data-wanted-popup-clear-log]";
 export const PLAYER_PROFILE_OPEN_SELECTOR = "[data-player-profile-open]";
 export const PLAYER_POPUP_SELECTOR = "[data-player-popup]";

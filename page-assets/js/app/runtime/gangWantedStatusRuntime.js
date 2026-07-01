@@ -32,6 +32,7 @@ export function buildGangWantedStatusViewModel({
     fallEntries: (Array.isArray(journal) ? journal : []).filter((entry) => entry.type === "fall").slice(0, 6),
     dirtyActionDisabled: Number(economyState.dirtyMoney || 0) < Number(options.dirtyActionCost || 0),
     cleanActionDisabled: Number(economyState.cleanMoney || 0) < Number(options.cleanActionCost || 0),
+    influenceActionDisabled: Number(gangState.influence || 0) < Number(options.influenceActionCost || 0),
     now: typeof options.now === "function" ? options.now() : Date.now()
   };
 }
@@ -57,6 +58,7 @@ function resolveWantedElements(root, selectors = {}) {
     popupFeedback: root.querySelector(selectors.popupFeedback),
     dirtyActionButton: root.querySelector(selectors.dirtyAction),
     cleanActionButton: root.querySelector(selectors.cleanAction),
+    influenceActionButton: root.querySelector(selectors.influenceAction),
     clearLogButton: root.querySelector(selectors.clearLog),
     popupCloseElements: Array.from(root.querySelectorAll(selectors.popupClose))
   };
@@ -133,6 +135,7 @@ export function createGangWantedStatusRuntime(deps = {}) {
       }, {
         cleanActionCost: deps.cleanActionCost,
         dirtyActionCost: deps.dirtyActionCost,
+        influenceActionCost: deps.influenceActionCost,
         formatProtectionLabel: deps.formatGangHeatProtectionLabel,
         getTierEffect: deps.getPoliceTierShortEffect,
         now: deps.now
@@ -154,7 +157,8 @@ export function createGangWantedStatusRuntime(deps = {}) {
           popupRiseList: elements.popupRiseList,
           popupFallList: elements.popupFallList,
           dirtyActionButton: elements.dirtyActionButton,
-          cleanActionButton: elements.cleanActionButton
+          cleanActionButton: elements.cleanActionButton,
+          influenceActionButton: elements.influenceActionButton
         }
       });
       return wantedViewModel;
@@ -176,6 +180,9 @@ export function createGangWantedStatusRuntime(deps = {}) {
     });
     elements.cleanActionButton?.addEventListener("click", () => {
       deps.onCleanAction?.({ renderFeedback, root, syncWantedStatus });
+    });
+    elements.influenceActionButton?.addEventListener("click", () => {
+      deps.onInfluenceAction?.({ renderFeedback, root, syncWantedStatus });
     });
     elements.clearLogButton?.addEventListener("click", () => {
       deps.onClearLog?.({ renderFeedback, root, syncWantedStatus });

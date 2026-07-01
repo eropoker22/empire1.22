@@ -704,21 +704,21 @@ describe("building detail, production and recipe UI modules", () => {
           title: "Metal Parts",
           description: "Kovové díly pro zbraně.",
           durationLabel: "4 min",
-          costLabel: "120 Dirty Cash"
+          costLabel: "120 Clean Cash"
         },
         {
           id: "tech-core",
           title: "Tech Core",
           description: "Technologické jádro.",
           durationLabel: "8 min",
-          costLabel: "300 Dirty Cash"
+          costLabel: "300 Clean Cash"
         },
         {
           id: "combat-module",
           title: "Combat Module",
           description: "High-tech bojový modul.",
           durationLabel: "15 min",
-          costLabel: "650 Dirty Cash + 1 Tech Core"
+          costLabel: "650 Clean Cash + 1 Tech Core"
         }
       ]
     })).toBe(true);
@@ -732,7 +732,7 @@ describe("building detail, production and recipe UI modules", () => {
     expect(products[0].dataset.resourceColor).toBe("metal-parts");
     expect(products[0].children[0].textContent).toBe("Metal Parts");
     expect(products[0].querySelectorAll(".factory-info-output__meta-item")[0].children[1].textContent).toBe("4 min");
-    expect(products[2].querySelectorAll(".factory-info-output__meta-item")[1].children[1].textContent).toBe("650 Dirty Cash + 1 Tech Core");
+    expect(products[2].querySelectorAll(".factory-info-output__meta-item")[1].children[1].textContent).toBe("650 Clean Cash + 1 Tech Core");
   });
 
   it("renders recipe requirements with enough and missing resources", () => {
@@ -808,20 +808,44 @@ describe("building detail, production and recipe UI modules", () => {
       recipeId: "neon-dust",
       recipe,
       inputAmounts: { chemicals: 10 },
+      outputCap: 15,
       maxBatches: 3,
       canStart: true
     }, {}, { mount });
-    expect(findMetricValue(idleCard, "Ve frontě")).toBe("0 ks");
+    expect(findMetricValue(idleCard, "Vyrobeno")).toBe("0/15 ks");
+    expect(findMetricValue(idleCard, "Výstup")).toBe(null);
+    expect(findMetricValue(idleCard, "Ve frontě")).toBe("0/15 ks");
     idleCard.querySelectorAll(".armory-slot__quantity-btn")[1].click();
-    expect(findMetricValue(idleCard, "Ve frontě")).toBe("0 ks");
+    expect(findMetricValue(idleCard, "Ve frontě")).toBe("0/15 ks");
+
+    const runningLab = renderRecipeCard({
+      buildingName: "druglab",
+      recipeId: "neon-dust",
+      recipe,
+      outputCap: 15,
+      job: { status: "running", output: { inventory: "drugs", itemId: "neon-dust", amount: 12 }, quantity: 2, durationMs: 2000 }
+    }, {}, { mount });
+    expect(findMetricValue(runningLab, "Vyrobeno")).toBe("0/15 ks");
+    expect(findMetricValue(runningLab, "Ve frontě")).toBe("12/15 ks");
+
+    const readyLab = renderRecipeCard({
+      buildingName: "druglab",
+      recipeId: "neon-dust",
+      recipe,
+      outputCap: 15,
+      job: { status: "ready", output: { inventory: "drugs", itemId: "neon-dust", amount: 12 }, quantity: 2, durationMs: 2000 }
+    }, {}, { mount });
+    expect(findMetricValue(readyLab, "Vyrobeno")).toBe("12/15 ks");
+    expect(findMetricValue(readyLab, "Ve frontě")).toBe("0/15 ks");
 
     const runningPharmacy = renderRecipeCard({
       buildingName: "pharmacy",
       recipeId: "chemicals",
       recipe: { ...recipe, output: { inventory: "materials", itemId: "chemicals", amount: 20 } },
+      outputCap: 15,
       job: { status: "running", output: { inventory: "materials", itemId: "chemicals", amount: 40 }, quantity: 2, durationMs: 2000 }
     }, {}, { mount });
-    expect(findMetricValue(runningPharmacy, "Ve frontě")).toBe("2 ks");
+    expect(findMetricValue(runningPharmacy, "Ve frontě")).toBe("2/15 ks");
   });
 
   it("updates drug lab input requirements with selected production quantity", () => {
@@ -839,6 +863,7 @@ describe("building detail, production and recipe UI modules", () => {
       recipeId: "neon-dust",
       recipe,
       inputAmounts: { chemicals: 12, biomass: 12 },
+      outputCap: 15,
       maxBatches: 4,
       canStart: true
     }, {}, { mount });
@@ -851,7 +876,8 @@ describe("building detail, production and recipe UI modules", () => {
     quantityButtons[1].click();
 
     expect(card.querySelectorAll(".drug-production-slot__supply-value").map((item) => item.textContent)).toEqual(["9/12", "6/12"]);
-    expect(findMetricValue(card, "Ve frontě")).toBe("0 ks");
+    expect(findMetricValue(card, "Vyrobeno")).toBe("0/15 ks");
+    expect(findMetricValue(card, "Ve frontě")).toBe("0/15 ks");
   });
 
   it("updates armory material requirements with selected production quantity", () => {
@@ -954,6 +980,7 @@ describe("building detail, production and recipe UI modules", () => {
       recipeId: "chemicals",
       recipe,
       inputAmounts: { biomass: 10 },
+      outputCap: 15,
       maxBatches: 5,
       canStart: true
     }, { onStart, getMaxBatches: () => 5 }, {
@@ -967,7 +994,7 @@ describe("building detail, production and recipe UI modules", () => {
     quantityButtons[1].click();
 
     expect(findMetricValue(card, "Cena")).toBe("$1080 clean");
-    expect(findMetricValue(card, "Výstup")).toBe("0 ks");
+    expect(findMetricValue(card, "Vyrobeno")).toBe("0/15 ks");
 
     card.querySelector(".pharmacy-slot__btn--start").click();
 
@@ -1095,7 +1122,8 @@ describe("building detail, production and recipe UI modules", () => {
     }, {}, { mount });
 
     expect(findMetricValue(card, "Ve frontě")).toBe("10/15 ks");
-    expect(findMetricValue(card, "Výstup")).toBe("0 ks");
+    expect(findMetricValue(card, "Vyrobeno")).toBe("0/15 ks");
+    expect(findMetricValue(card, "Výstup")).toBe(null);
   });
 
   it("shows armory output as ready-to-collect amount only and marks attack/defense slot tone", () => {
@@ -1139,8 +1167,9 @@ describe("building detail, production and recipe UI modules", () => {
       outputCap: 15
     }, {}, { mount });
 
-    expect(findMetricValue(idleCard, "Výstup")).toBe("0 ks");
-    expect(findMetricValue(readyCard, "Výstup")).toBe("2 ks");
+    expect(findMetricValue(idleCard, "Vyrobeno")).toBe("0/15 ks");
+    expect(findMetricValue(readyCard, "Vyrobeno")).toBe("2/15 ks");
+    expect(findMetricValue(readyCard, "Výstup")).toBe(null);
     expect(readyCard.querySelectorAll(".drug-lab-mini-btn")[1].textContent).toBe("Zrušit");
     expect(readyCard.querySelectorAll(".drug-lab-mini-btn")[1].disabled).toBe(true);
     expect(idleCard.className).toContain("armory-slot--attack");
@@ -1167,24 +1196,24 @@ describe("building detail, production and recipe UI modules", () => {
       typeLabel: "",
       secondaryLine: "15 min",
       durationMs: 900000,
-      priceLabel: "650 Dirty Cash + 1 Tech Core",
+      priceLabel: "650 + 1 Tech Core",
       unitCost: { metalParts: 2, techCore: 1 },
-      displayCost: { dirtyCash: 650, techCore: 1 },
+      displayCost: { cleanCash: 650, techCore: 1 },
       queuedAmount: 1,
-      slotStorageCap: 20
+      slotStorageCap: 5
     }, { onStartSlot, onPauseSlot }, { mount, now: 100000 });
 
     expect(findMetricValue(card, "Výstup")).toBe(null);
     expect(card.querySelector(".drug-production-slot__product")).toBe(null);
     expect(findMetricValue(card, "Čas")).toBe("7m 30s");
-    expect(findMetricValue(card, "Cena")).toBe("650 Dirty Cash + 1 Tech Core");
-    expect(findMetricValue(card, "Ve frontě")).toBe("1 ks");
+    expect(findMetricValue(card, "Cena")).toBe("650 + 1 Tech Core");
+    expect(findMetricValue(card, "Ve frontě")).toBe("1/5 ks");
     expect(card.querySelector("[data-factory-slot-toggle-state=\"start\"]").textContent).toBe("Spustit");
     expect(card.querySelector("[data-factory-slot-toggle-state=\"stop\"]").textContent).toBe("Zrušit");
 
     card.querySelectorAll(".factory-slot__quantity-btn")[1].click();
 
-    expect(findMetricValue(card, "Cena")).toBe("1300 Dirty Cash + 2 Tech Core");
+    expect(findMetricValue(card, "Cena")).toBe("1300 + 2 Tech Core");
 
     card.querySelector("[data-factory-slot-toggle-state=\"start\"]").click();
 
@@ -1194,7 +1223,7 @@ describe("building detail, production and recipe UI modules", () => {
     expect(onPauseSlot).toHaveBeenCalledWith(expect.any(Object));
   });
 
-  it("shows pharmacy output as ready-to-collect amount only", () => {
+  it("shows pharmacy output as ready-to-collect capacity without unit text", () => {
     const document = setupDocument();
     const mount = document.createElement("div");
     const recipe = {
@@ -1208,6 +1237,7 @@ describe("building detail, production and recipe UI modules", () => {
       buildingName: "pharmacy",
       recipeId: "chemicals",
       recipe,
+      outputCap: 15,
       job: {
         status: "running",
         output: { inventory: "materials", itemId: "chemicals", amount: 2 },
@@ -1219,6 +1249,7 @@ describe("building detail, production and recipe UI modules", () => {
       buildingName: "pharmacy",
       recipeId: "chemicals",
       recipe,
+      outputCap: 15,
       job: {
         status: "ready",
         output: { inventory: "materials", itemId: "chemicals", amount: 2 },
@@ -1227,11 +1258,11 @@ describe("building detail, production and recipe UI modules", () => {
       }
     }, {}, { mount });
 
-    expect(findMetricValue(runningCard, "Výstup")).toBe("0 ks");
-    expect(findMetricValue(readyCard, "Výstup")).toBe("2 ks");
+    expect(findMetricValue(runningCard, "Vyrobeno")).toBe("0/15 ks");
+    expect(findMetricValue(readyCard, "Vyrobeno")).toBe("2/15 ks");
     expect(readyCard.querySelector(".pharmacy-slot__btn--start").textContent).toBe("Spustit");
     expect(readyCard.querySelector(".pharmacy-slot__btn--start").disabled).toBe(false);
-    expect(findMetricValue(readyCard, "Ve frontě")).toBe("0 ks");
+    expect(findMetricValue(readyCard, "Ve frontě")).toBe("0/15 ks");
   });
 
   it("keeps pharmacy info tab concise and focused on active mechanics", () => {
@@ -1259,8 +1290,8 @@ describe("building detail, production and recipe UI modules", () => {
     }, {}, { mount: document.body, formatCurrency: (value) => `$${value}` });
 
     expect(infoTextElement.textContent).toBe("Lékárna vyrábí základní materiály pro Lab.");
-    expect(infoEffectsElement.textContent).toContain("fronta po kusech");
-    expect(infoEffectsElement.textContent).toContain("zrušení vrací náklady");
+    expect(infoEffectsElement.textContent).not.toContain("fronta po kusech");
+    expect(infoEffectsElement.textContent).not.toContain("zrušení vrací náklady");
     expect(infoTextElement.textContent).not.toContain("Hotovo k vyzvednutí");
     expect(infoActionsElement.children).toHaveLength(0);
   });
@@ -1291,7 +1322,37 @@ describe("building detail, production and recipe UI modules", () => {
 
     expect(infoTextElement.textContent).toBe("Zbrojovka vyrábí výzbroj.");
     expect(infoEffectsElement.textContent).toContain("max výstup 15 ks");
+    expect(infoEffectsElement.textContent).not.toContain("vstupy podle množství");
     expect(infoEffectsElement.textContent).not.toContain("Speciální akce");
+    expect(infoActionsElement.children).toHaveLength(0);
+  });
+
+  it("keeps lab info tab focused on current mechanics", () => {
+    const document = setupDocument();
+    const infoTextElement = document.createElement("p");
+    const infoEffectsElement = document.createElement("p");
+    const infoActionsElement = document.createElement("ul");
+
+    renderProductionBuildingInfo({
+      infoTextElement,
+      infoEffectsElement,
+      infoActionsElement,
+      buildingName: "druglab",
+      config: {
+        infoText: "Lab míchá výrobu z Lékarny do drog a podpůrných směsí pro další byznys a boost."
+      },
+      state: { level: 2 },
+      maxLevel: 14,
+      multiplier: 1.1,
+      nextMultiplier: 1.2,
+      effectsLabel: "Lab · produkce +10%",
+      readyCount: 1,
+      upgradeCost: 100
+    }, {}, { mount: document.body, formatCurrency: (value) => `$${value}` });
+
+    expect(infoTextElement.textContent).toBe("Lab míchá výrobu z Lékarny do drog a podpůrných směsí pro další byznys a boost.");
+    expect(infoEffectsElement.textContent).not.toContain("fronta po dávkách");
+    expect(infoEffectsElement.textContent).not.toContain("vstupy podle množství");
     expect(infoActionsElement.children).toHaveLength(0);
   });
 

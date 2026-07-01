@@ -6,6 +6,8 @@ class FakeElement {
   constructor() {
     this.textContent = "";
     this.disabled = false;
+    this.hidden = false;
+    this.style = {};
     this.title = "";
     this.attributes = new Map();
   }
@@ -52,14 +54,15 @@ describe("factory dashboard view model and panel", () => {
       title: "Metal line",
       perHour: 1,
       resourceColor: "color:metalParts",
-      priceLabel: "120 Dirty Cash",
+      priceLabel: "120",
       secondaryLine: "4 min",
-      displayCost: { dirtyCash: 120, techCore: 0 }
+      displayCost: { cleanCash: 120, techCore: 0 }
     });
     expect(viewModel.slots[0].typeLabel).toBe("");
-    expect(viewModel.slots[1].primaryLine).toBe("650 Dirty Cash + 1 Tech Core");
-    expect(viewModel.slots[1].priceLabel).toBe("650 Dirty Cash + 1 Tech Core");
+    expect(viewModel.slots[1].primaryLine).toBe("650 + 1 Tech Core");
+    expect(viewModel.slots[1].priceLabel).toBe("650 + 1 Tech Core");
     expect(viewModel.slots[1].secondaryLine).toBe("15 min");
+    expect(viewModel.slots[1].slotStorageCap).toBe(5);
   });
 
   it("renders dashboard elements and forwards callbacks", () => {
@@ -107,5 +110,20 @@ describe("factory dashboard view model and panel", () => {
     expect(elements.collectButton.disabled).toBe(true);
     expect(renderFactoryBuildingInfo).toHaveBeenCalledTimes(1);
     expect(renderFactorySlotList).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides the factory upgrade button when no next upgrade exists", () => {
+    const elements = {
+      upgradeButton: new FakeElement()
+    };
+
+    expect(renderFactoryDashboardPanel(elements, {
+      upgradeButton: { visible: false, disabled: true, text: "⇪", title: "Max level" }
+    })).toBe(true);
+
+    expect(elements.upgradeButton.hidden).toBe(true);
+    expect(elements.upgradeButton.style.display).toBe("none");
+    expect(elements.upgradeButton.disabled).toBe(true);
+    expect(elements.upgradeButton.title).toBe("Max level");
   });
 });

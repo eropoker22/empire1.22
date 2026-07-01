@@ -17,7 +17,10 @@ export function renderFactoryDashboardPanel(elements = {}, viewModel = {}, callb
   if (elements.effectsLabel) elements.effectsLabel.textContent = viewModel.effectsLabel || "";
 
   if (elements.upgradeButton) {
-    elements.upgradeButton.disabled = Boolean(viewModel.upgradeButton?.disabled);
+    const showUpgrade = viewModel.upgradeButton?.visible !== false;
+    elements.upgradeButton.hidden = !showUpgrade;
+    elements.upgradeButton.style.display = showUpgrade ? "" : "none";
+    elements.upgradeButton.disabled = !showUpgrade || Boolean(viewModel.upgradeButton?.disabled);
     elements.upgradeButton.textContent = viewModel.upgradeButton?.text || "⇪";
     elements.upgradeButton.title = viewModel.upgradeButton?.title || "";
     elements.upgradeButton.setAttribute?.("aria-label", elements.upgradeButton.title);

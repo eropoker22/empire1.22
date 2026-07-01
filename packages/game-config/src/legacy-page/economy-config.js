@@ -29,8 +29,8 @@ export const MARKET_PRICE_REFRESH_MS = 45_000;
 
 export const PHARMACY_RECIPES = {
   chemicals: { name: "Chemicals", cleanMoneyCost: 360, output: { inventory: "materials", itemId: "chemicals", amount: 20 }, durationMs: 2 * 60 * 1000 },
-  biomass: { name: "Biomass", cleanMoneyCost: 320, output: { inventory: "materials", itemId: "biomass", amount: 16 }, durationMs: 2 * 60 * 1000 },
-  "stim-pack": { name: "Stim Pack", cleanMoneyCost: 780, output: { inventory: "materials", itemId: "stim-pack", amount: 8 }, durationMs: 4 * 60 * 1000 }
+  biomass: { name: "Biomass", cleanMoneyCost: 320, output: { inventory: "materials", itemId: "biomass", amount: 16 }, durationMs: 4 * 60 * 1000 },
+  "stim-pack": { name: "Stim Pack", cleanMoneyCost: 780, output: { inventory: "materials", itemId: "stim-pack", amount: 8 }, durationMs: 10 * 60 * 1000 }
 };
 
 export const FACTORY_CONFIG = Object.freeze({
@@ -100,11 +100,11 @@ export const FACTORY_SLOT_CONFIG = Object.freeze([
 ]);
 
 export const DRUGLAB_RECIPES = {
-  "neon-dust": { name: "Neon Dust", inputs: { chemicals: 3, biomass: 2 }, output: { inventory: "drugs", itemId: "neon-dust", amount: 6 }, durationMs: 4 * 60 * 1000 },
-  "pulse-shot": { name: "Pulse Shot", inputs: { chemicals: 2, "stim-pack": 1 }, output: { inventory: "drugs", itemId: "pulse-shot", amount: 5 }, durationMs: 5 * 60 * 1000 },
-  "velvet-smoke": { name: "Velvet Smoke", inputs: { biomass: 3, chemicals: 1 }, output: { inventory: "drugs", itemId: "velvet-smoke", amount: 4 }, durationMs: 6 * 60 * 1000 },
-  "ghost-serum": { name: "Ghost Serum", inputs: { chemicals: 2, biomass: 1, "stim-pack": 2 }, output: { inventory: "drugs", itemId: "ghost-serum", amount: 3 }, durationMs: 8 * 60 * 1000 },
-  "overdrive-x": { name: "Overdrive X", inputs: { chemicals: 3, biomass: 2, "stim-pack": 3 }, output: { inventory: "drugs", itemId: "overdrive-x", amount: 2 }, durationMs: 10 * 60 * 1000 }
+  "neon-dust": { name: "Neon Dust", inputs: { chemicals: 3, biomass: 2 }, output: { inventory: "drugs", itemId: "neon-dust", amount: 6 }, durationMs: 5 * 60 * 1000 },
+  "pulse-shot": { name: "Pulse Shot", inputs: { chemicals: 2, "stim-pack": 1 }, output: { inventory: "drugs", itemId: "pulse-shot", amount: 5 }, durationMs: 8 * 60 * 1000 },
+  "velvet-smoke": { name: "Velvet Smoke", inputs: { biomass: 3, chemicals: 1 }, output: { inventory: "drugs", itemId: "velvet-smoke", amount: 4 }, durationMs: 15 * 60 * 1000 },
+  "ghost-serum": { name: "Ghost Serum", inputs: { chemicals: 2, biomass: 1, "stim-pack": 2 }, output: { inventory: "drugs", itemId: "ghost-serum", amount: 3 }, durationMs: 20 * 60 * 1000 },
+  "overdrive-x": { name: "Overdrive X", inputs: { chemicals: 3, biomass: 2, "stim-pack": 3 }, output: { inventory: "drugs", itemId: "overdrive-x", amount: 2 }, durationMs: 20 * 60 * 1000 }
 };
 
 export const ARMORY_RECIPES = {

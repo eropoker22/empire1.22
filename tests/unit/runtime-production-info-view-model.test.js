@@ -85,7 +85,8 @@ describe("production info view models", () => {
     expect(viewModel.rows[4].value).toBe("4 ks hotovo do skladu");
     expect(viewModel.actions[1].description).toBe("Stojí 100$ clean cash a zvedne produkci na x1.50.");
     expect(viewModel.description).toContain("technické komponenty");
-    expect(viewModel.effectsLabel).toBe("Serverový production flow · další level +25% rychlost");
+    expect(viewModel.description).toContain("Výroba v továrně je za čisté peníze.");
+    expect(viewModel.effectsLabel).toBe("Další level +25% rychlost");
     expect(viewModel.effectsLabel).not.toContain("Výroba běží přes sloty");
     expect(viewModel.effectsLabel).not.toContain("fronta po kusech");
     expect(viewModel.upgrade).toEqual({ costLabel: "100$", benefitLabel: "L3 · produkce x1.50" });
@@ -94,13 +95,13 @@ describe("production info view models", () => {
       id: "metal-parts",
       title: "Metal Parts",
       durationLabel: "4 min",
-      costLabel: "120 Dirty Cash"
+      costLabel: "120 Clean Cash"
     });
     expect(viewModel.products[2]).toMatchObject({
       id: "combat-module",
       title: "Combat Module",
       durationLabel: "15 min",
-      costLabel: "650 Dirty Cash + 1 Tech Core"
+      costLabel: "650 Clean Cash + 1 Tech Core"
     });
   });
 

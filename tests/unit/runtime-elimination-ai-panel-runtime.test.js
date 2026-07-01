@@ -391,7 +391,8 @@ describe("elimination purge panel runtime", () => {
     expect(fixture.card.focus).toHaveBeenCalled();
     expect(fixture.body.innerHTML).toContain("Očista proběhla:");
     expect(fixture.body.innerHTML).toContain("<span>LowKeyLad</span>");
-    expect(fixture.body.innerHTML).toContain("Policie rozdrtila gang LowKeyLad. Jeho území se vrací pod kontrolu města.");
+    expect(fixture.body.innerHTML).toContain("Policie rozdrtila gang LowKeyLad.");
+    expect(fixture.body.innerHTML).not.toContain("Jeho území se vrací pod kontrolu města.");
     expect(fixture.body.innerHTML).toContain("../img/avatars/lowkey.jpg");
     expect(fixture.body.innerHTML).toContain("Status:");
     expect(fixture.body.innerHTML).toContain("Gang eliminován");
@@ -447,7 +448,8 @@ describe("elimination purge panel runtime", () => {
     expect(withCapacity).toContain("17/20");
     expect(withoutCapacity).toContain("17 hráčů");
     expect(withoutRemaining).toContain("—");
-    expect(withCapacity).toContain("OČISTA DOKONČENA");
+    expect(withCapacity).not.toContain("OČISTA DOKONČENA");
+    expect(withCapacity).not.toContain("Jeho území se vrací pod kontrolu města.");
     expect(withCapacity).not.toContain("Režim:");
     expect(withCapacity).not.toContain("Území v lockdownu");
   });

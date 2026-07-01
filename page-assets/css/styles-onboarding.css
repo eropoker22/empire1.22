@@ -1452,9 +1452,9 @@
 
 @media (max-width: 900px) {
   .empire-onboarding {
-    inset: auto 12px calc(12px + env(safe-area-inset-bottom, 0px)) 12px;
+    inset: auto 12px calc(76px + env(safe-area-inset-bottom, 0px)) 12px;
     width: auto;
-    max-height: min(74dvh, calc(100dvh - 84px));
+    max-height: min(64dvh, calc(100dvh - 148px));
     padding: 13px;
     border-radius: 16px 16px 12px 12px;
   }

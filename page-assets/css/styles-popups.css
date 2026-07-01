@@ -3923,6 +3923,24 @@ html body .leaderboard-popup-shell:not([hidden]) .leaderboard-player-detail-card
   font-size: 0.66rem;
 }
 
+.storage-popup-subtitle--with-close {
+  position: relative;
+  padding-right: 26px;
+}
+
+.storage-popup-subtitle--with-close .storage-popup-close {
+  position: absolute;
+  top: -5px;
+  right: 0;
+  z-index: 2;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  min-height: 22px;
+  border-radius: 7px;
+  font-size: 0.62rem;
+}
+
 .storage-popup-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

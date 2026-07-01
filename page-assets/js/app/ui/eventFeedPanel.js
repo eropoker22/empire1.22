@@ -37,12 +37,23 @@ export function resolveBuildingActionTheme(rawTone) {
   return "neutral";
 }
 
+function normalizeBuildingActionClassToken(value, fallback = "unknown") {
+  const token = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, "-")
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return token || fallback;
+}
+
 export function normalizeBuildingActionSnapshot(snapshot) {
   const tone = resolveBuildingActionTone(snapshot?.tone);
   const title = String(snapshot?.title || "").trim();
   const summary = String(snapshot?.summary || "").trim();
   const meta = String(snapshot?.meta || "").trim();
   const resultKind = String(snapshot?.resultKind || "").trim();
+  const districtType = normalizeBuildingActionClassToken(snapshot?.districtType);
   const resultPayload = snapshot?.resultPayload && typeof snapshot.resultPayload === "object"
     ? snapshot.resultPayload
     : null;
@@ -53,6 +64,7 @@ export function normalizeBuildingActionSnapshot(snapshot) {
     summary: summary || (tone === "idle" ? BUILDING_ACTION_EMPTY_SNAPSHOT.summary : "Bez detailu."),
     meta: meta || (tone === "idle" ? BUILDING_ACTION_EMPTY_SNAPSHOT.meta : ""),
     resultKind,
+    districtType,
     resultPayload
   };
 }
@@ -119,6 +131,12 @@ export function createBuildingActionFeedItemElement(documentRef, entry, options 
   item.dataset.buildingActionId = entry.id;
 
   if (entry.resultKind) {
+    const actionKind = normalizeBuildingActionClassToken(entry.resultKind, "event");
+    const districtType = normalizeBuildingActionClassToken(entry.districtType || entry.resultPayload?.districtType);
+    item.classList.add(`building-action-status__item--kind-${actionKind}`);
+    item.classList.add(`building-action-status__item--district-${districtType}`);
+    item.dataset.buildingActionKind = actionKind;
+    item.dataset.buildingActionDistrictType = districtType;
     item.classList.add("building-action-status__item--clickable");
     item.dataset.buildingActionResultKind = entry.resultKind;
     item.tabIndex = 0;
@@ -176,6 +194,10 @@ export function createBuildingActionFeedItemElement(documentRef, entry, options 
 
   head.append(controls);
   item.append(head);
+
+  if (entry.resultKind) {
+    return item;
+  }
 
   const summary = ownerDocument.createElement("p");
   summary.className = "building-action-status__item-summary";

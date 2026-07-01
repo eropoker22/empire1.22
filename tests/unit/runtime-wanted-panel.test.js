@@ -104,7 +104,8 @@ describe("wanted panel UI module", () => {
       popupRiseList: new FakeElement(),
       popupFallList: new FakeElement(),
       dirtyActionButton: new FakeElement("button"),
-      cleanActionButton: new FakeElement("button")
+      cleanActionButton: new FakeElement("button"),
+      influenceActionButton: new FakeElement("button")
     };
 
     const viewModel = {
@@ -121,7 +122,8 @@ describe("wanted panel UI module", () => {
       riseEntries: [{ type: "rise", amount: 12, reason: "Black market", createdAt: new Date(Date.now() - 60_000).toISOString() }],
       fallEntries: [],
       dirtyActionDisabled: true,
-      cleanActionDisabled: false
+      cleanActionDisabled: false,
+      influenceActionDisabled: true
     };
 
     renderHeatBadge(viewModel, { heatButton, starContainer, stars });
@@ -137,6 +139,7 @@ describe("wanted panel UI module", () => {
     expect(mounts.popupFallList.children[0].textContent).toBe("Zatím bez nových důvodů poklesu.");
     expect(mounts.dirtyActionButton.disabled).toBe(true);
     expect(mounts.cleanActionButton.disabled).toBe(false);
+    expect(mounts.influenceActionButton.disabled).toBe(true);
   });
 
   it("marks gang profile stars neon when police action threatens the player", () => {

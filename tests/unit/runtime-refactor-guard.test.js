@@ -156,6 +156,7 @@ describe("runtime refactor guard", () => {
 
     expect(source).toContain("function isServerAuthoritativeGameplayRuntimeReady()");
     expect(source).toContain('document.body?.dataset?.gameplayRuntime === "server-authoritative-ready"');
+    expect(source).toContain("latestGameplaySliceReadModel?.player?.playerId");
     expect(source).toContain("Legacy lokální robbery výsledek je vypnutý.");
     expect(source).toContain("Legacy lokální defense loadout je vypnutý.");
   });

@@ -683,6 +683,15 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     pointer-events: auto !important;
   }
 
+  body.game-modal-scroll-locked #events-modal,
+  body.game-modal-scroll-locked #event-detail-modal {
+    z-index: 9700 !important;
+  }
+
+  body.game-modal-scroll-locked #event-detail-modal {
+    z-index: 9710 !important;
+  }
+
   .game-topbar {
     width: 100% !important;
     max-width: 100vw !important;
@@ -1275,11 +1284,21 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     z-index: 1;
   }
 
-  #events-modal .modal__close,
-  #event-detail-modal .modal__close,
   .wanted-popup-card .wanted-popup-close {
-    top: -2px !important;
-    right: -2px !important;
+    top: 8px !important;
+    right: 8px !important;
+    z-index: 8 !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+  }
+
+  #events-modal .modal__close,
+  #event-detail-modal .modal__close {
+    position: static !important;
+    flex: 0 0 32px !important;
+    z-index: 8 !important;
     width: 32px !important;
     min-width: 32px !important;
     height: 32px !important;
@@ -1419,7 +1438,7 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
 
   .pharmacy-popup-card.building-detail-modal__content .building-tech-popup-overview-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    gap: 5px !important;
+    gap: 4px !important;
   }
 
   .druglab-popup-card.building-detail-modal__content .building-tech-popup-overview-grid {
@@ -1439,48 +1458,74 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 
+  .factory-popup-card.building-detail-modal__content .factory-overview-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
   .pharmacy-popup-card.building-detail-modal__content .building-tech-popup-stat-card {
-    min-height: 38px !important;
-    padding: 5px 4px !important;
-    border-radius: 8px !important;
+    min-height: 32px !important;
+    padding: 4px 3px !important;
+    border-radius: 7px !important;
   }
 
   .druglab-popup-card.building-detail-modal__content .building-tech-popup-stat-card {
+    min-height: 32px !important;
+    padding: 4px 3px !important;
+    border-radius: 7px !important;
+  }
+
+  .armory-popup-card.building-detail-modal__content .building-tech-popup-stat-card {
     min-height: 38px !important;
     padding: 5px 4px !important;
     border-radius: 8px !important;
   }
 
-  .armory-popup-card.building-detail-modal__content .building-tech-popup-stat-card,
   .factory-popup-card.building-detail-modal__content .building-tech-popup-stat-card {
-    min-height: 38px !important;
-    padding: 5px 4px !important;
-    border-radius: 8px !important;
+    min-height: 32px !important;
+    padding: 4px 3px !important;
+    border-radius: 7px !important;
   }
 
   .pharmacy-popup-card.building-detail-modal__content .building-tech-popup-stat-card__label {
-    font-size: 7px !important;
+    font-size: 6.5px !important;
     line-height: 1 !important;
-    letter-spacing: 0.02em !important;
+    letter-spacing: 0.015em !important;
   }
 
   .druglab-popup-card.building-detail-modal__content .building-tech-popup-stat-card__label {
+    font-size: 6.5px !important;
+    line-height: 1 !important;
+    letter-spacing: 0.015em !important;
+  }
+
+  .armory-popup-card.building-detail-modal__content .building-tech-popup-stat-card__label {
     font-size: 7px !important;
     line-height: 1 !important;
     letter-spacing: 0.02em !important;
   }
 
-  .armory-popup-card.building-detail-modal__content .building-tech-popup-stat-card__label,
   .factory-popup-card.building-detail-modal__content .building-tech-popup-stat-card__label {
-    font-size: 7px !important;
+    font-size: 6.5px !important;
     line-height: 1 !important;
-    letter-spacing: 0.02em !important;
+    letter-spacing: 0.015em !important;
   }
 
   .pharmacy-popup-card.building-detail-modal__content .building-tech-popup-stat-card__value {
     margin-top: 1px !important;
-    font-size: 17px !important;
-    line-height: 1.08 !important;
+    font-size: 15px !important;
+    line-height: 1.04 !important;
+  }
+
+  .druglab-popup-card.building-detail-modal__content .building-tech-popup-stat-card__value {
+    margin-top: 1px !important;
+    font-size: 15px !important;
+    line-height: 1.04 !important;
+  }
+
+  .factory-popup-card.building-detail-modal__content .building-tech-popup-stat-card__value {
+    margin-top: 1px !important;
+    font-size: 15px !important;
+    line-height: 1.04 !important;
   }
 
   .pharmacy-info-output-list {
@@ -1554,11 +1599,16 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     line-height: 1.08 !important;
   }
 
-  .armory-popup-card.building-detail-modal__content .building-tech-popup-stat-card__value,
-  .factory-popup-card.building-detail-modal__content .building-tech-popup-stat-card__value {
+  .armory-popup-card.building-detail-modal__content .building-tech-popup-stat-card__value {
     margin-top: 1px !important;
     font-size: 17px !important;
     line-height: 1.08 !important;
+  }
+
+  .factory-popup-card.building-detail-modal__content .building-tech-popup-stat-card__value {
+    margin-top: 1px !important;
+    font-size: 15px !important;
+    line-height: 1.04 !important;
   }
 
   .building-tech-popup-stat-card__value,
@@ -5601,4 +5651,141 @@ html body #police-action-result-modal:not(.hidden):not([hidden]) .modal__body {
     font-size: 8px !important;
     letter-spacing: 0.02em !important;
   }
+}
+
+@media (max-width: 720px) {
+  html body .wanted-popup-card .wanted-popup-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  html body .wanted-popup-card .wanted-popup-action {
+    min-width: 0 !important;
+    min-height: 42px !important;
+    padding: 8px 5px !important;
+    font-size: 0.62rem !important;
+    line-height: 1.12 !important;
+  }
+
+  html body .wanted-popup-card .wanted-popup-cost-row {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+    min-width: 0 !important;
+  }
+
+  html body .wanted-popup-card .wanted-popup-cost {
+    min-width: 0 !important;
+    padding: 5px 4px !important;
+    overflow: hidden !important;
+    text-align: center !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    font-size: 0.5rem !important;
+    line-height: 1.1 !important;
+  }
+}
+
+.district-popup-gossip__list {
+  --district-gossip-visible-row: 52px;
+  max-height: calc((var(--district-gossip-visible-row) * 2) + 6px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--district-accent-rgb), 0.58) rgba(255, 255, 255, 0.06);
+}
+
+.district-popup-gossip__list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.district-popup-gossip__list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(var(--district-accent-rgb), 0.58);
+}
+
+.district-popup-gossip__item {
+  min-height: var(--district-gossip-visible-row) !important;
+  align-content: center;
+}
+
+.district-popup-gossip__text {
+  display: -webkit-box;
+  overflow: hidden !important;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* Storage modal: keep close control inside the Defense block header. */
+html body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle--with-close {
+  position: relative !important;
+  display: block !important;
+  min-height: 18px !important;
+  margin: 0 !important;
+  padding-right: 22px !important;
+}
+
+html body .storage-popup-shell[data-storage-popup] .storage-popup-grid {
+  padding-right: 0 !important;
+}
+
+html body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle--with-close .storage-popup-close {
+  position: absolute !important;
+  inset: auto !important;
+  top: -4px !important;
+  right: 0 !important;
+  bottom: auto !important;
+  left: auto !important;
+  z-index: 2 !important;
+  flex: 0 0 17px !important;
+  display: grid !important;
+  place-items: center !important;
+  width: 17px !important;
+  min-width: 17px !important;
+  max-width: 17px !important;
+  height: 17px !important;
+  min-height: 17px !important;
+  max-height: 17px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid rgba(103, 232, 249, 0.62) !important;
+  border-radius: 6px !important;
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.18), transparent 44%),
+    linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(244, 114, 182, 0.12)),
+    rgba(3, 10, 20, 0.86) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.055),
+    0 0 12px rgba(34, 211, 238, 0.24),
+    0 0 20px rgba(244, 114, 182, 0.1) !important;
+  color: #e8fbff !important;
+  font-size: 0 !important;
+  line-height: 1 !important;
+  text-indent: 0 !important;
+  text-shadow: none !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
+
+html body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle--with-close .storage-popup-close::before {
+  content: "×" !important;
+  position: static !important;
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  background: none !important;
+  color: currentColor !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 0.92 !important;
+  text-shadow: 0 0 8px rgba(103, 232, 249, 0.42) !important;
+  transform: none !important;
+  pointer-events: none !important;
+}
+
+html body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle--with-close .storage-popup-close::after {
+  content: none !important;
+  display: none !important;
 }

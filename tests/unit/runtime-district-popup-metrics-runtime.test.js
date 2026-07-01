@@ -33,7 +33,18 @@ function createElement(document, tagName = "div") {
 
 function createRuntime(overrides = {}) {
   const document = new FakeDocument();
-  return createDistrictPopupMetricsRuntime({
+  const elements = {
+    popupDefense: createElement(document),
+    popupDefensePower: createElement(document),
+    popupFlags: createElement(document),
+    popupGossip: createElement(document),
+    popupGossipList: createElement(document),
+    popupHeat: createElement(document),
+    popupIncome: createElement(document),
+    popupInfluence: createElement(document),
+    popupResidents: createElement(document)
+  };
+  const runtime = createDistrictPopupMetricsRuntime({
     calculateTotalDefensePower: ({ loadout, residents }) =>
       Object.values(loadout || {}).reduce((sum, value) => sum + Number(value || 0), 0) + residents,
     currentPlayerId: 1,
@@ -44,6 +55,7 @@ function createRuntime(overrides = {}) {
     formatDistrictInfluenceLabel: (value) => String(value),
     getCurrentPlayerOwnedDistrictIds: () => new Set([1]),
     getDistrictEconomySnapshot: () => ({ totalHourlyIncome: 10, passiveHeatPerDay: 2, totalInfluencePerHour: 3 }),
+    ensureDistrictPassiveGossip: null,
     getDistrictGossipEntries: () => [{ text: "Nový drb", intelLevel: "verified", intelType: "rumor", createdAt: Date.now() }],
     getInteractionState: () => ({
       gamePhase: "launch",
@@ -60,19 +72,11 @@ function createRuntime(overrides = {}) {
     isDistrictTypeHidden: () => false,
     renderDistrictFlags: vi.fn(),
     renderDistrictMetricSummary: vi.fn(),
-    elements: {
-      popupDefense: createElement(document),
-      popupDefensePower: createElement(document),
-      popupFlags: createElement(document),
-      popupGossip: createElement(document),
-      popupGossipList: createElement(document),
-      popupHeat: createElement(document),
-      popupIncome: createElement(document),
-      popupInfluence: createElement(document),
-      popupResidents: createElement(document)
-    },
+    elements,
     ...overrides
   });
+  runtime.testElements = elements;
+  return runtime;
 }
 
 describe("district popup metrics runtime", () => {
@@ -101,5 +105,20 @@ describe("district popup metrics runtime", () => {
 
     expect(renderDistrictMetricSummary).toHaveBeenCalledTimes(2);
     expect(renderDistrictFlags).toHaveBeenCalledWith(expect.any(FakeElement), [{ label: "flag" }]);
+  });
+
+  it("renders passive district gossip in the popup card", () => {
+    const runtime = createRuntime({
+      ensureDistrictPassiveGossip: () => [
+        { text: "Pasivní drb z tooltipu", intelLevel: "rumor", intelType: "district_seed", createdAt: 1 },
+        { text: "Druhý drb", intelLevel: "verified", intelType: "rumor", createdAt: 2 }
+      ]
+    });
+
+    runtime.renderDistrictPopupGossip({ id: 1 });
+
+    expect(runtime.testElements.popupGossip.hidden).toBe(false);
+    expect(runtime.testElements.popupGossipList.children).toHaveLength(2);
+    expect(runtime.testElements.popupGossipList.children[0].children[0].textContent).toBe("Pasivní drb z tooltipu");
   });
 });

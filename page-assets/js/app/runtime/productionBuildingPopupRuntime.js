@@ -367,12 +367,19 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         : multiplier;
       const readyCount = deps.getProductionBuildingReadyCount?.(buildingName, recipes) || 0;
       const upgradeCost = state.level < maxLevel ? deps.getProductionBuildingUpgradeCost?.(buildingName, state.level + 1) || 0 : 0;
+      const ownedBuildingCount = buildingName === "pharmacy"
+        ? Math.max(0, Math.floor(Number(deps.getOwnedPharmacyCount?.() ?? state.level)))
+        : buildingName === "druglab"
+          ? Math.max(0, Math.floor(Number(deps.getOwnedDrugLabCount?.() ?? state.level)))
+          : buildingName === "armory"
+            ? Math.max(0, Math.floor(Number(deps.getOwnedArmoryCount?.() ?? state.level)))
+            : state.level;
       const speedGainPct = Math.max(0, Math.round((Number(nextMultiplier || multiplier || 1) - Number(multiplier || 1)) * 100));
       const upgradeBenefitLabel = state.level < maxLevel
         ? `+${speedGainPct}% rychlost · x${Number(nextMultiplier || multiplier || 1).toFixed(2)}`
         : "Max level";
 
-      if (levelElement) levelElement.textContent = String(state.level);
+      if (levelElement) levelElement.textContent = String(ownedBuildingCount);
       if (headerLevelElement) headerLevelElement.textContent = `Lv ${state.level}`;
       if (multiplierElement) multiplierElement.textContent = `${multiplier.toFixed(2)}x`;
       if (readyElement) readyElement.textContent = `${readyCount}/${Object.keys(recipes || {}).length}`;
@@ -408,11 +415,14 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       }
 
       if (isButtonElement(upgradeButton, ButtonCtor)) {
-        upgradeButton.disabled = !allowLegacyProductionUpgrade || state.level >= maxLevel;
-        upgradeButton.textContent = state.level >= maxLevel ? "MAX" : "⇪";
+        const hasNextUpgrade = state.level < maxLevel;
+        upgradeButton.hidden = !hasNextUpgrade;
+        upgradeButton.style.display = hasNextUpgrade ? "" : "none";
+        upgradeButton.disabled = !hasNextUpgrade || (allowLegacyProductionUpgrade && state.level >= maxLevel);
+        upgradeButton.textContent = "⇪";
         const upgradeLabel = !allowLegacyProductionUpgrade
           ? productionUpgradeMessage
-          : state.level >= maxLevel
+          : !hasNextUpgrade
           ? "Max level"
           : `Upgrade budovy (${deps.formatCurrency?.(upgradeCost)})`;
         upgradeButton.title = upgradeLabel;

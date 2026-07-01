@@ -156,8 +156,19 @@ export function createEventRumorBridge(deps = {}) {
   const renderDistrictFeed = (events) => {
     const list = root?.querySelector?.("[data-district-popup-gossip-list]");
     const panel = root?.querySelector?.("[data-district-popup-gossip]");
+    const districtId = safeText(selectedDistrictId);
+    if (!districtId) {
+      return false;
+    }
+    const hasMatchingEntries = normalizeCityFeedEvents(events).some((event) => (
+      event.districtId === districtId || event.districtId === `district:${districtId}`
+    ));
+    if (!hasMatchingEntries) {
+      return false;
+    }
     const hasEntries = renderDistrictRumorFeed(list, events, { districtId: selectedDistrictId, limit: 5 });
-    if (panel) panel.hidden = !hasEntries;
+    if (panel && hasEntries) panel.hidden = false;
+    return hasEntries;
   };
   const render = () => {
     const events = normalizeCityFeedEvents([...collectCoreFeed(getState()), ...localEvents]).slice(0, CITY_FEED_LIMIT);

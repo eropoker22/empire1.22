@@ -136,6 +136,12 @@ function createEliminationResultBody(gangName) {
   return `Policie rozdrtila gang ${gangName}. Jeho území se vrací pod kontrolu města.`;
 }
 
+function renderResultBody(body, gangName) {
+  return String(body || createEliminationResultBody(gangName))
+    .replace(/\s*Jeho území se vrací pod kontrolu města\./u, "")
+    .trim();
+}
+
 function getFiniteNumber(value) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
@@ -424,9 +430,8 @@ export function renderEliminationResultPopupBody(result = {}) {
       </button>
       <div class="elimination-result-popup__copy">
         <div class="elimination-result-popup__copy-main">
-          <span class="elimination-result-popup__eyebrow">OČISTA DOKONČENA</span>
           <strong>${renderResultTitle(result.title || createEliminationResultTitle(gangName), gangName)}</strong>
-          <p>${escapeHtml(result.body || createEliminationResultBody(gangName))}</p>
+          <p>${escapeHtml(renderResultBody(result.body, gangName))}</p>
         </div>
       </div>
       <div class="elimination-result-popup__chips" aria-label="Výsledek očisty">

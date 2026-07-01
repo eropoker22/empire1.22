@@ -57,6 +57,7 @@ describe("event feed panel helpers", () => {
   it("normalizes empty street news snapshots without changing text", () => {
     expect(normalizeBuildingActionSnapshot({ tone: "idle" })).toEqual({
       ...BUILDING_ACTION_EMPTY_SNAPSHOT,
+      districtType: "unknown",
       resultKind: "",
       resultPayload: null
     });
@@ -69,6 +70,7 @@ describe("event feed panel helpers", () => {
       title: "Akce hotová",
       summary: "Výsledek je připravený.",
       meta: "Výsledek akce",
+      districtType: "industrial",
       resultKind: "attack",
       resultPayload: { tone: "success" },
       timestampMs: 1000
@@ -83,10 +85,14 @@ describe("event feed panel helpers", () => {
 
     expect(item.dataset.buildingActionId).toBe("entry-1");
     expect(item.dataset.buildingActionResultKind).toBe("attack");
+    expect(item.dataset.buildingActionKind).toBe("attack");
+    expect(item.dataset.buildingActionDistrictType).toBe("industrial");
+    expect(item.classList.contains("building-action-status__item--kind-attack")).toBe(true);
+    expect(item.classList.contains("building-action-status__item--district-industrial")).toBe(true);
     expect(item.classList.contains("building-action-status__item--clickable")).toBe(true);
     expect(item.children[0].children[0].textContent).toBe("Akce hotová");
     expect(item.children[0].children[1].children[0].innerHTML).toContain("building-action-status__trash-icon");
     expect(item.children[0].children[1].children[0].innerHTML).toContain("<svg");
-    expect(item.children[1].textContent).toBe("Výsledek je připravený.");
+    expect(item.children).toHaveLength(1);
   });
 });

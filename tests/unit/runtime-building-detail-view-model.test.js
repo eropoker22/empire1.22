@@ -272,7 +272,7 @@ describe("building detail view-model builder", () => {
       district: { id: 12, districtType: "downtown" },
       buildingName: "Centrální banka",
       displayName: "Centrální banka",
-      profile: { role: "Finance", actions: [] },
+      profile: { role: "Rare / elite rumors / high truth intel / influence", actions: [] },
       mechanics: baseMechanics,
       detailEntry: {},
       buildingProfile: { typeKey: "downtown", tier: "core", setTitle: "Downtown" }
@@ -280,6 +280,9 @@ describe("building detail view-model builder", () => {
 
     expect(model.districtType).toBe("downtown");
     expect(model.isDowntownBuilding).toBe(true);
+    expect(model.badge).toBe("");
+    expect(model.meta).toBe("District 12 · Downtown");
+    expect(model.meta).not.toContain("Rare");
   });
 
   it("handles empty action lists and non-collect buildings", () => {

@@ -3,6 +3,7 @@ export const PRODUCTION_BUILDING_CONFIG = Object.freeze({
     label: "Lékárna",
     title: "Výroba látek",
     upgradeBaseCost: 3200,
+    outputCap: 15,
     infoText: "Lékárna vyrábí základní materiály pro Lab: Chemicals, Biomass a Stim Pack.",
     infoActions: Object.freeze(["+ Vybrat hotové patří do serverového production/collect flow.", "⇪ Každý level zvedá serverovou produkci a craft rychlost o 10%.", "Chemicals, Biomass a Stim Pack napájí recepty v Labu."])
   }),
@@ -10,7 +11,8 @@ export const PRODUCTION_BUILDING_CONFIG = Object.freeze({
     label: "Lab",
     title: "Výroba drug balíků",
     upgradeBaseCost: 4200,
-    infoText: "Lab míchá lékárenské vstupy do drog a podpůrných směsí pro další byznys.",
+    outputCap: 15,
+    infoText: "Lab míchá výrobu z Lékarny do drog a podpůrných směsí pro další byznys a boost.",
     infoActions: Object.freeze(["+ Vybrat hotové patří do serverového production/collect flow.", "⇪ Každý level zvedá serverovou produkci a craft rychlost o 10%.", "Lab spotřebovává Chemicals, Biomass a Stim Pack z materiálového skladu."])
   }),
   armory: Object.freeze({

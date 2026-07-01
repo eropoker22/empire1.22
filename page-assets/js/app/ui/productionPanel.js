@@ -240,22 +240,13 @@ export function renderProductionBuildingInfo(viewModel = {}, callbacks = {}, opt
 
   if (infoEffectsElement) {
     infoEffectsElement.textContent = isPharmacy
-      ? [
-          effectsLabel || "Lékárna · základní produkční rychlost",
-          "fronta po kusech",
-          "zrušení vrací náklady"
-        ].join(" · ")
+      ? (effectsLabel || "Lékárna · základní produkční rychlost")
       : isDrugLab
-        ? [
-            effectsLabel || "Lab · základní produkční rychlost",
-            "fronta po dávkách",
-            "vstupy podle množství"
-          ].join(" · ")
+        ? (effectsLabel || "Lab · základní produkční rychlost")
       : isArmory
         ? [
             effectsLabel || "Zbrojovka · základní produkční rychlost",
-            "max výstup 15 ks",
-            "vstupy podle množství"
+            "max výstup 15 ks"
           ].join(" · ")
       : [
           effectsLabel || `${config.label || "Budova"} · základní produkční rychlost`,
@@ -426,16 +417,18 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     bindFactoryMetricCountdown(timeValue, () => formatFactorySlotTime(slotView, options), options);
   }
   const priceValue = appendMetric("Cena", slotView.priceLabel || "bez ceny");
-  appendMetric("Ve frontě", `${Math.max(0, Math.floor(Number(slotView.queuedAmount || 0)))} ks`, true);
+  const queuedAmount = Math.max(0, Math.floor(Number(slotView.queuedAmount || slot.queuedAmount || 0)));
+  const queueCap = Math.max(0, Math.floor(Number(slotView.slotStorageCap || slot.slotCap || 0)));
+  appendMetric("Ve frontě", queueCap > 0 ? `${queuedAmount}/${queueCap} ks` : `${queuedAmount} ks`, true);
 
   let selectedBatches = 1;
   const formatFactorySlotCost = (count = 1) => {
     const displayCost = slotView.displayCost || {};
-    const dirtyCash = Math.max(0, Math.floor(Number(displayCost.dirtyCash || 0) * count));
+    const cleanCash = Math.max(0, Math.floor(Number(displayCost.cleanCash || 0) * count));
     const techCore = Math.max(0, Math.floor(Number(displayCost.techCore || 0) * count));
     const metalParts = Math.max(0, Math.floor(Number(displayCost.metalParts || 0) * count));
     const parts = [
-      dirtyCash > 0 ? `${dirtyCash} Dirty Cash` : "",
+      cleanCash > 0 ? String(cleanCash) : "",
       metalParts > 0 ? `${metalParts} MP` : "",
       techCore > 0 ? `${techCore} Tech Core` : ""
     ].filter(Boolean);
