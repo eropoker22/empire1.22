@@ -299,6 +299,67 @@ describe("factory popup runtime", () => {
     }));
   });
 
+  it("caps added factory queue amount at the slot queue cap", () => {
+    const open = createElement();
+    const popup = createElement();
+    const close = createElement();
+    const collect = createElement();
+    const upgrade = createElement();
+    const factoryState = {
+      level: 1,
+      slots: [{
+        id: "metal",
+        resourceKey: "metalParts",
+        isProducing: true,
+        queueMode: true,
+        queuedAmount: 8,
+        queueCap: 9,
+        slotCap: 20,
+        producedAmount: 0,
+        lastTick: 100
+      }]
+    };
+    const setStoredFactoryState = vi.fn();
+    const renderFactoryDashboardPanel = vi.fn();
+    const runtime = createRuntime({
+      getStoredFactoryState: () => factoryState,
+      renderFactoryDashboardPanel,
+      setStoredFactoryState,
+      syncBuildingDetailTopbarVisibility: vi.fn()
+    });
+    const root = createRoot({
+      ".collect": collect,
+      ".combat": createElement(),
+      ".header": createElement(),
+      ".level": createElement(),
+      ".metal": createElement(),
+      ".multiplier": createElement(),
+      ".open": open,
+      ".owned": createElement(),
+      ".popup": popup,
+      ".slots": createElement(),
+      ".supply-combat": createElement(),
+      ".supply-metal": createElement(),
+      ".supply-tech": createElement(),
+      ".tech": createElement(),
+      ".upgrade": upgrade,
+      ".upgrade-cost": createElement()
+    }, {
+      ".close": [close]
+    });
+
+    expect(runtime.bindFactoryPopup(root)).toBe(true);
+    open.dispatch("click");
+    renderFactoryDashboardPanel.mock.calls.at(-1)[2].onStartSlot({ slot: { id: "metal" }, queueCap: 9 }, { batchCount: 4 });
+
+    const nextState = setStoredFactoryState.mock.calls.at(-1)[0];
+    expect(nextState.slots[0]).toEqual(expect.objectContaining({
+      isProducing: true,
+      queueMode: true,
+      queuedAmount: 9
+    }));
+  });
+
   it("waits for upgrade confirmation before spending factory cash", async () => {
     const open = createElement();
     const popup = createElement();

@@ -65,6 +65,37 @@ describe("factory dashboard view model and panel", () => {
     expect(viewModel.slots[1].slotStorageCap).toBe(5);
   });
 
+  it("keeps factory output caps separate from queue caps", () => {
+    const viewModel = buildFactoryDashboardViewModel({
+      factoryState: {
+        level: 1,
+        resources: { metalParts: 12, techCore: 0, combatModule: 0 },
+        slots: [
+          { id: "metal", resourceKey: "metalParts", producedAmount: 12, queuedAmount: 5, slotCap: 30, queueCap: 28 }
+        ]
+      },
+      syncResult: {
+        productionMultiplier: 1,
+        ownedFactoryCount: 3,
+        rates: { metalPartsPerHour: 2, techCorePerHour: 0, combatModulePerHour: 0 }
+      },
+      config: { maxLevel: 3, combatModule: { metalPartsCost: 2, techCoreCost: 1, durationMs: 5000 } },
+      slotConfig: [{ id: "metal", label: "Metal line" }],
+      slotStorageCap: 20,
+      formatCurrency: (value) => `${value}$`,
+      getFactoryUpgradeCost: () => 100
+    });
+
+    expect(viewModel.resources.metalParts).toBe("12/30");
+    expect(viewModel.ownedCountLabel).toBe("3");
+    expect(viewModel.slots[0]).toMatchObject({
+      slotStorageCap: 28,
+      slotOutputCap: 30,
+      queueCap: 28,
+      queuedAmount: 5
+    });
+  });
+
   it("renders dashboard elements and forwards callbacks", () => {
     const elements = {
       level: new FakeElement(),

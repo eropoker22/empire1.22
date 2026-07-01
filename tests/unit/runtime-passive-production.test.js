@@ -75,6 +75,30 @@ describe("legacy runtime passive production", () => {
     expect(metalSlot?.isProducing).toBe(false);
   });
 
+  it("applies factory network queue cap and warehouse output cap during sync", () => {
+    const startedAt = 3_250;
+    const result = syncFactoryProduction(createFactoryState(startedAt, {
+      metalParts: {
+        queueMode: true,
+        queuedAmount: 30,
+        producedAmount: 40,
+        isProducing: true
+      }
+    }), startedAt, {
+      ownedFactoryCount: 3,
+      ownedWarehouseCount: 2
+    });
+    const metalSlot = result.state.slots.find((slot) => slot.resourceKey === "metalParts");
+
+    expect(result.ownedFactoryCount).toBe(3);
+    expect(result.ownedWarehouseCount).toBe(2);
+    expect(result.networkProductionBonusPct).toBe(0);
+    expect(metalSlot?.slotCap).toBe(30);
+    expect(metalSlot?.queueCap).toBe(28);
+    expect(metalSlot?.queuedAmount).toBe(28);
+    expect(metalSlot?.producedAmount).toBe(30);
+  });
+
   it("does not add tech core output before the production cycle is complete", () => {
     const startedAt = 3_500;
     const beforeCycle = syncFactoryProduction(createFactoryState(startedAt, {
@@ -99,17 +123,18 @@ describe("legacy runtime passive production", () => {
   it("caps combat module output until the player collects factory supplies", () => {
     const startedAt = 4_000;
     const now = startedAt + 60 * 60 * 1000;
+    const capacityOptions = { ownedFactoryCount: 3 };
     const result = syncFactoryProduction(createFactoryState(startedAt, {
       combatModule: {
         queueMode: true,
         queuedAmount: 10,
         isProducing: true
       }
-    }), now);
+    }), now, capacityOptions);
     result.state.resources.metalParts = 100;
     result.state.resources.techCore = 100;
 
-    const filledResult = syncFactoryProduction(result.state, now + 60 * 60 * 1000);
+    const filledResult = syncFactoryProduction(result.state, now + 2 * 60 * 60 * 1000, capacityOptions);
     const filledCombatSlot = filledResult.state.slots.find((slot) => slot.resourceKey === "combatModule");
 
     expect(filledCombatSlot?.producedAmount).toBe(FACTORY_SLOT_STORAGE_CAPS.combatModule);

@@ -131,13 +131,12 @@ function getQueuedOutputAmount(job = null, recipe = {}, options = {}) {
 }
 
 function formatQueuedOutput(job = null, recipe = {}, options = {}) {
+  const queueCap = Math.max(0, Math.floor(Number(options.queueCap || options.outputCap || 0)));
   if (job?.status === "ready") {
-    const outputCap = Math.max(0, Math.floor(Number(options.outputCap || 0)));
-    return outputCap > 0 ? `0/${outputCap} ks` : "0 ks";
+    return queueCap > 0 ? `0/${queueCap} ks` : "0 ks";
   }
   const queuedAmount = getQueuedOutputAmount(job, recipe, options);
-  const outputCap = Math.max(0, Math.floor(Number(options.outputCap || 0)));
-  return outputCap > 0 ? `${Math.min(outputCap, queuedAmount)}/${outputCap} ks` : `${queuedAmount} ks`;
+  return queueCap > 0 ? `${Math.min(queueCap, queuedAmount)}/${queueCap} ks` : `${queuedAmount} ks`;
 }
 
 function formatReadyOutput(job = null, recipe = {}, options = {}) {
@@ -344,7 +343,7 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
       startButton.disabled = (!canTryStartWithoutInputs && viewModel.canStart === false) || !canQueueMore;
     }
     setMetricValue(timeMetric, formatRecipeSlotTime(job, effectiveDurationMs, selectedBatches, options));
-    setMetricValue(queueMetric, formatQueuedOutput(job, recipe, { useQuantityAsOutput, outputCap: viewModel.outputCap }));
+    setMetricValue(queueMetric, formatQueuedOutput(job, recipe, { useQuantityAsOutput, outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }));
     if (costMetric) {
       const visibleCleanCost = job && !canQueueMore
         ? Math.max(0, Number(job.cleanMoneyCost ?? cleanCost * visibleBatches))
@@ -439,7 +438,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     appendChildren(titleLine, [icon, titleWrap]);
     appendChildren(head, [titleLine, state]);
     const timeMetric = createPharmacyMetricBlock(options.mount, "Čas", formatRecipeSlotTime(job, effectiveDurationMs, 1, options));
-    const queueMetric = createPharmacyMetricBlock(options.mount, "Ve frontě", formatQueuedOutput(job, recipe, { useQuantityAsOutput: true }));
+    const queueMetric = createPharmacyMetricBlock(options.mount, "Ve frontě", formatQueuedOutput(job, recipe, { useQuantityAsOutput: true, outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }));
     const cleanCost = Math.max(0, Number(recipe.cleanMoneyCost || 0));
     const costMetric = createPharmacyMetricBlock(options.mount, "Cena", cleanCost ? `${formatMoney(cleanCost, options)} clean` : "-");
     appendChildren(metrics, [
@@ -484,7 +483,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     appendChildren(titleWrap, [icon, titles]);
     appendChildren(head, [titleWrap, state]);
     const timeMetric = createMetricBlock(options.mount, { label: "Čas", value: formatRecipeSlotTime(job, effectiveDurationMs, 1, options) });
-    const queueMetric = createMetricBlock(options.mount, { label: "Ve frontě", value: formatQueuedOutput(job, recipe, { outputCap: viewModel.outputCap }), inline: true });
+    const queueMetric = createMetricBlock(options.mount, { label: "Ve frontě", value: formatQueuedOutput(job, recipe, { outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }), inline: true });
     appendChildren(metrics, [
       createMetricBlock(options.mount, {
         label: "Vyrobeno",

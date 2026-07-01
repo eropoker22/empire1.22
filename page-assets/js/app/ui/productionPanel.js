@@ -67,7 +67,7 @@ function formatFactorySlotTime(slotView = {}, options = {}) {
     return slotView.secondaryLine || formatDuration(slotView.durationMs, options);
   }
 
-  const slotCap = Math.max(0, Number(slotView.slotStorageCap ?? slot.slotStorageCap ?? 0));
+  const slotCap = Math.max(0, Number(slotView.slotOutputCap ?? slot.slotCap ?? slotView.slotStorageCap ?? slot.slotStorageCap ?? 0));
   const producedAmount = Math.max(0, Number(slot.producedAmount || 0));
   if (slotCap > 0 && producedAmount >= slotCap) {
     return "plné";
@@ -418,7 +418,7 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
   }
   const priceValue = appendMetric("Cena", slotView.priceLabel || "bez ceny");
   const queuedAmount = Math.max(0, Math.floor(Number(slotView.queuedAmount || slot.queuedAmount || 0)));
-  const queueCap = Math.max(0, Math.floor(Number(slotView.slotStorageCap || slot.slotCap || 0)));
+  const queueCap = Math.max(0, Math.floor(Number(slotView.queueCap || slot.queueCap || slotView.slotStorageCap || slot.slotCap || 0)));
   appendMetric("Ve frontě", queueCap > 0 ? `${queuedAmount}/${queueCap} ks` : `${queuedAmount} ks`, true);
 
   let selectedBatches = 1;
@@ -461,9 +461,12 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     minusButton.setAttribute("aria-label", `Ubrat výrobu ${slotView.title || slot.resourceKey || "slotu"}`);
     plusButton.setAttribute("aria-label", `Přidat výrobu ${slotView.title || slot.resourceKey || "slotu"}`);
     const refreshQuantity = () => {
-      selectedBatches = Math.max(1, selectedBatches);
+      const queueSpace = queueCap > 0 ? Math.max(0, queueCap - queuedAmount) : Number.POSITIVE_INFINITY;
+      const selectionLimit = Number.isFinite(queueSpace) ? Math.max(1, queueSpace) : Number.POSITIVE_INFINITY;
+      selectedBatches = Math.max(1, Math.min(selectedBatches, selectionLimit));
       quantityValue.textContent = String(selectedBatches);
       minusButton.disabled = selectedBatches <= 1;
+      plusButton.disabled = Number.isFinite(selectionLimit) && selectedBatches >= selectionLimit;
       updatePrice();
     };
     minusButton.addEventListener("click", () => {
@@ -484,6 +487,7 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     startButton.type = "button";
     startButton.dataset.factorySlotToggleState = "start";
     startButton.textContent = "Spustit";
+    startButton.disabled = queueCap > 0 && queuedAmount >= queueCap;
     startButton.addEventListener("click", () => {
       if (typeof callbacks.onStartSlot === "function") callbacks.onStartSlot(slotView, { batchCount: selectedBatches });
     });

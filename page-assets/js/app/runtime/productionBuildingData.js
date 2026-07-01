@@ -4,6 +4,9 @@ export const PRODUCTION_BUILDING_CONFIG = Object.freeze({
     title: "Výroba látek",
     upgradeBaseCost: 3200,
     outputCap: 15,
+    queueCap: 15,
+    queueCapPerExtraBuilding: 4,
+    outputCapPerWarehouse: 5,
     infoText: "Lékárna vyrábí základní materiály pro Lab: Chemicals, Biomass a Stim Pack.",
     infoActions: Object.freeze(["+ Vybrat hotové patří do serverového production/collect flow.", "⇪ Každý level zvedá serverovou produkci a craft rychlost o 10%.", "Chemicals, Biomass a Stim Pack napájí recepty v Labu."])
   }),
@@ -12,6 +15,9 @@ export const PRODUCTION_BUILDING_CONFIG = Object.freeze({
     title: "Výroba drug balíků",
     upgradeBaseCost: 4200,
     outputCap: 15,
+    queueCap: 15,
+    queueCapPerExtraBuilding: 4,
+    outputCapPerWarehouse: 5,
     infoText: "Lab míchá výrobu z Lékarny do drog a podpůrných směsí pro další byznys a boost.",
     infoActions: Object.freeze(["+ Vybrat hotové patří do serverového production/collect flow.", "⇪ Každý level zvedá serverovou produkci a craft rychlost o 10%.", "Lab spotřebovává Chemicals, Biomass a Stim Pack z materiálového skladu."])
   }),
@@ -20,6 +26,9 @@ export const PRODUCTION_BUILDING_CONFIG = Object.freeze({
     title: "Výroba výzbroje",
     upgradeBaseCost: 5200,
     outputCap: 15,
+    queueCap: 15,
+    queueCapPerExtraBuilding: 4,
+    outputCapPerWarehouse: 5,
     infoText: "Zbrojovka vyrábí útočnou i obrannou výzbroj z Metal Parts a Tech Core.",
     infoActions: Object.freeze(["+ Vybrat hotové patří do serverového craft flow.", "⇪ Každý level zvedá serverovou craft rychlost o 10%.", "Zbrojovka bere Metal Parts a Tech Core z materiálového skladu."])
   })

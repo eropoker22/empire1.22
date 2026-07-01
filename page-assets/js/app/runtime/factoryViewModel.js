@@ -35,8 +35,8 @@ function getFactorySlotDisplayInfo(slot = {}) {
   return FACTORY_SLOT_DISPLAY_INFO[slot.resourceKey] || FACTORY_SLOT_DISPLAY_INFO.metalParts;
 }
 
-function formatFactoryReadyLabel(amount, resourceKey) {
-  const cap = FACTORY_SLOT_DISPLAY_INFO[resourceKey]?.storageCap || 0;
+function formatFactoryReadyLabel(amount, resourceKey, capOverride = null) {
+  const cap = Math.max(0, Math.floor(Number(capOverride ?? (FACTORY_SLOT_DISPLAY_INFO[resourceKey]?.storageCap || 0))));
   const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
   return cap > 0 ? `${safeAmount}/${cap}` : String(safeAmount);
 }
@@ -124,6 +124,15 @@ export function buildFactoryDashboardViewModel({
   const nextUpgradeCost = isMaxLevel ? null : getFactoryUpgradeCost(level + 1);
   const slots = Array.isArray(factoryState.slots) ? factoryState.slots : [];
   const readyResources = getFactoryReadyResourceTotals(slots);
+  const outputCapsByResource = slots.reduce((caps, slot) => {
+    const key = String(slot?.resourceKey || "").trim();
+    if (!key) return caps;
+    caps[key] = Math.max(
+      Number(caps[key] || 0),
+      Math.max(0, Math.floor(Number(slot?.slotCap || getFactorySlotDisplayInfo(slot).storageCap || slotStorageCap || 0)))
+    );
+    return caps;
+  }, {});
 
   return {
     factoryState,
@@ -135,9 +144,9 @@ export function buildFactoryDashboardViewModel({
     ownedCountLabel: String(Math.max(0, Math.floor(Number(syncResult.ownedFactoryCount || 0)))),
     upgradeCostLabel: isMaxLevel ? "MAX" : formatCurrency(nextUpgradeCost),
     resources: {
-      metalParts: formatFactoryReadyLabel(readyResources.metalParts, "metalParts"),
-      techCore: formatFactoryReadyLabel(readyResources.techCore, "techCore"),
-      combatModule: formatFactoryReadyLabel(readyResources.combatModule, "combatModule")
+      metalParts: formatFactoryReadyLabel(readyResources.metalParts, "metalParts", outputCapsByResource.metalParts),
+      techCore: formatFactoryReadyLabel(readyResources.techCore, "techCore", outputCapsByResource.techCore),
+      combatModule: formatFactoryReadyLabel(readyResources.combatModule, "combatModule", outputCapsByResource.combatModule)
     },
     supplies: {
       metalParts: String(supplyState.metalParts || 0),
@@ -164,7 +173,9 @@ export function buildFactoryDashboardViewModel({
         slot,
         title: slotMeta?.label || slot.resourceKey,
         perHour: getFactorySlotPerHour(slot, syncResult.rates || {}),
-        slotStorageCap: Math.max(1, Math.floor(Number(slot.slotCap || getFactorySlotDisplayInfo(slot).storageCap || slotStorageCap || 1))),
+        slotStorageCap: Math.max(1, Math.floor(Number(slot.queueCap || slot.slotCap || getFactorySlotDisplayInfo(slot).storageCap || slotStorageCap || 1))),
+        slotOutputCap: Math.max(1, Math.floor(Number(slot.slotCap || getFactorySlotDisplayInfo(slot).storageCap || slotStorageCap || 1))),
+        queueCap: Math.max(1, Math.floor(Number(slot.queueCap || slot.slotCap || getFactorySlotDisplayInfo(slot).storageCap || slotStorageCap || 1))),
         resourceColor: normalizeResourceColorKey(slot.resourceKey),
         queuedAmount: Math.max(0, Math.floor(Number(slot.queuedAmount || 0))),
         unitCost: {

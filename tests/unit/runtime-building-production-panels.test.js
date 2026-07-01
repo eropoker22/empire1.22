@@ -848,6 +848,39 @@ describe("building detail, production and recipe UI modules", () => {
     expect(findMetricValue(runningPharmacy, "Ve frontě")).toBe("2/15 ks");
   });
 
+  it("renders production output and queue metrics with separate caps", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const recipe = {
+      name: "Neon Dust",
+      inputs: { chemicals: 1 },
+      output: { inventory: "drugs", itemId: "neon-dust", amount: 1 },
+      durationMs: 1000
+    };
+
+    const runningCard = renderRecipeCard({
+      buildingName: "druglab",
+      recipeId: "neon-dust",
+      recipe,
+      outputCap: 25,
+      queueCap: 23,
+      job: { status: "running", output: { inventory: "drugs", itemId: "neon-dust", amount: 10 }, quantity: 10, durationMs: 10000 }
+    }, {}, { mount });
+    const readyCard = renderRecipeCard({
+      buildingName: "druglab",
+      recipeId: "neon-dust",
+      recipe,
+      outputCap: 25,
+      queueCap: 23,
+      job: { status: "ready", output: { inventory: "drugs", itemId: "neon-dust", amount: 2 }, quantity: 2, durationMs: 2000 }
+    }, {}, { mount });
+
+    expect(findMetricValue(runningCard, "Vyrobeno")).toBe("0/25 ks");
+    expect(findMetricValue(runningCard, "Ve frontě")).toBe("10/23 ks");
+    expect(findMetricValue(readyCard, "Vyrobeno")).toBe("2/25 ks");
+    expect(findMetricValue(readyCard, "Ve frontě")).toBe("0/23 ks");
+  });
+
   it("updates drug lab input requirements with selected production quantity", () => {
     const document = setupDocument();
     const mount = document.createElement("div");

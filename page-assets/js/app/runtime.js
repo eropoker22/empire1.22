@@ -3711,9 +3711,10 @@ const {
   getProductionBuildingUpgradeCost,
   getProductionJob,
   getProductionResourceLabel,
-  getOwnedArmoryCount: () => getOwnedDistrictBuildingCountByBaseName("zbrojovka"),
-  getOwnedDrugLabCount: () => getOwnedDistrictBuildingCountByBaseName("drug lab"),
-  getOwnedPharmacyCount: () => getOwnedDistrictBuildingCountByBaseName("lekarna"),
+  getOwnedArmoryCount: () => getOwnedSpecialProductionBuildingCount("zbrojovka"),
+  getOwnedDrugLabCount: () => getOwnedSpecialProductionBuildingCount("drug lab"),
+  getOwnedPharmacyCount: () => getOwnedSpecialProductionBuildingCount("lekarna"),
+  getOwnedWarehouseCount: getOwnedWarehouseCountForProductionOutput,
   getResolvedEconomyState,
   getScaledProductionInputs,
   getStoredProductionBuildingState,
@@ -3855,11 +3856,80 @@ function createFactoryPlayerSupplyMap(rawValue = {}) {
   return createFactoryResourceMap(rawValue, true);
 }
 
-function getFactorySlotStorageCap(resourceKey) {
+function getFactorySlotBaseStorageCap(resourceKey) {
   return Math.max(1, Math.floor(Number(FACTORY_SLOT_STORAGE_CAPS?.[resourceKey] || FACTORY_SLOT_STORAGE_CAP)));
 }
 
-function createFactoryDefaultSlot(slot, now = Date.now()) {
+function getProductionNetworkBaseOwnedCount() {
+  return 1;
+}
+
+function getProductionQueueCapPerExtraBuilding() {
+  return 4;
+}
+
+function getProductionOutputCapPerWarehouse() {
+  return 5;
+}
+
+function normalizeProductionCapacityCount(value, fallback = 0, minValue = 0) {
+  const normalized = Math.floor(Number(value));
+  if (Number.isFinite(normalized)) {
+    return Math.max(minValue, normalized);
+  }
+
+  const normalizedFallback = Math.floor(Number(fallback));
+  return Number.isFinite(normalizedFallback) ? Math.max(minValue, normalizedFallback) : minValue;
+}
+
+function getOwnedSpecialProductionBuildingCount(baseName) {
+  if (typeof window === "undefined") {
+    return getProductionNetworkBaseOwnedCount();
+  }
+
+  return Math.max(getProductionNetworkBaseOwnedCount(), getOwnedDistrictBuildingCountByBaseName(baseName));
+}
+
+function getOwnedWarehouseCountForProductionOutput() {
+  if (typeof window === "undefined") {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    getOwnedDistrictBuildingCountByBaseName("sklad") + getOwnedDistrictBuildingCountByBaseName("skladiste")
+  );
+}
+
+function createFactoryCapacityOptions(options = {}) {
+  return {
+    ownedFactoryCount: normalizeProductionCapacityCount(
+      options.ownedFactoryCount ?? getOwnedSpecialProductionBuildingCount("tovarna"),
+      getProductionNetworkBaseOwnedCount(),
+      getProductionNetworkBaseOwnedCount()
+    ),
+    ownedWarehouseCount: normalizeProductionCapacityCount(
+      options.ownedWarehouseCount ?? getOwnedWarehouseCountForProductionOutput(),
+      0,
+      0
+    )
+  };
+}
+
+function getFactorySlotOutputCap(resourceKey, options = {}) {
+  const capacityOptions = createFactoryCapacityOptions(options);
+  return getFactorySlotBaseStorageCap(resourceKey)
+    + capacityOptions.ownedWarehouseCount * getProductionOutputCapPerWarehouse();
+}
+
+function getFactorySlotQueueCap(resourceKey, options = {}) {
+  const capacityOptions = createFactoryCapacityOptions(options);
+  const extraFactories = Math.max(0, capacityOptions.ownedFactoryCount - getProductionNetworkBaseOwnedCount());
+  return getFactorySlotBaseStorageCap(resourceKey)
+    + extraFactories * getProductionQueueCapPerExtraBuilding();
+}
+
+function createFactoryDefaultSlot(slot, now = Date.now(), options = {}) {
   return {
     id: slot.id,
     resourceKey: slot.resourceKey,
@@ -3869,16 +3939,17 @@ function createFactoryDefaultSlot(slot, now = Date.now()) {
     queuedAmount: 0,
     producedAmount: 0,
     productionRemainder: 0,
-    slotCap: getFactorySlotStorageCap(slot.resourceKey),
+    slotCap: getFactorySlotOutputCap(slot.resourceKey, options),
+    queueCap: getFactorySlotQueueCap(slot.resourceKey, options),
     lastTick: now
   };
 }
 
-function createFactoryDefaultState(now = Date.now()) {
+function createFactoryDefaultState(now = Date.now(), options = {}) {
   return {
     level: 1,
     resources: createFactoryResourceMap(),
-    slots: FACTORY_SLOT_CONFIG.map((slot) => createFactoryDefaultSlot(slot, now)),
+    slots: FACTORY_SLOT_CONFIG.map((slot) => createFactoryDefaultSlot(slot, now, options)),
     updatedAt: now
   };
 }
@@ -3900,8 +3971,9 @@ function consumeFactorySlotOutput(stateRef, resourceKey, amount) {
   return consumedTotal;
 }
 
-function sanitizeFactoryState(rawState, now = Date.now()) {
-  const fallback = createFactoryDefaultState(now);
+function sanitizeFactoryState(rawState, now = Date.now(), options = {}) {
+  const capacityOptions = createFactoryCapacityOptions(options);
+  const fallback = createFactoryDefaultState(now, capacityOptions);
   return {
     ...fallback,
     ...(rawState || {}),
@@ -3909,18 +3981,21 @@ function sanitizeFactoryState(rawState, now = Date.now()) {
     resources: createFactoryResourceMap(rawState?.resources),
     slots: FACTORY_SLOT_CONFIG.map((slot, index) => {
       const source = Array.isArray(rawState?.slots) ? rawState.slots[index] : null;
+      const outputCap = getFactorySlotOutputCap(slot.resourceKey, capacityOptions);
+      const queueCap = getFactorySlotQueueCap(slot.resourceKey, capacityOptions);
       return {
-        ...createFactoryDefaultSlot(slot, now),
+        ...createFactoryDefaultSlot(slot, now, capacityOptions),
         ...(source || {}),
         id: slot.id,
         resourceKey: slot.resourceKey,
         mode: slot.mode,
         isProducing: source?.isProducing !== false,
         queueMode: Boolean(source?.queueMode),
-        queuedAmount: Math.max(0, Math.floor(Number(source?.queuedAmount || 0))),
-        producedAmount: Math.min(getFactorySlotStorageCap(slot.resourceKey), Math.max(0, Math.floor(Number(source?.producedAmount || 0)))),
+        queuedAmount: Math.min(queueCap, Math.max(0, Math.floor(Number(source?.queuedAmount || 0)))),
+        producedAmount: Math.min(outputCap, Math.max(0, Math.floor(Number(source?.producedAmount || 0)))),
         productionRemainder: Math.max(0, Number(source?.productionRemainder || 0)),
-        slotCap: getFactorySlotStorageCap(slot.resourceKey),
+        slotCap: outputCap,
+        queueCap,
         lastTick: Math.max(0, Math.floor(Number(source?.lastTick || now)))
       };
     }),
@@ -3929,7 +4004,7 @@ function sanitizeFactoryState(rawState, now = Date.now()) {
 }
 
 function getStoredFactoryState() {
-  return sanitizeFactoryState(getAuthoritySession().production.factory);
+  return sanitizeFactoryState(getAuthoritySession().production.factory, Date.now(), createFactoryCapacityOptions());
 }
 
 function setStoredFactoryState(payload) {
@@ -3937,7 +4012,7 @@ function setStoredFactoryState(payload) {
     ...session,
     production: {
       ...session.production,
-      factory: sanitizeFactoryState(payload)
+      factory: sanitizeFactoryState(payload, Date.now(), createFactoryCapacityOptions())
     }
   }));
 }
@@ -3989,10 +4064,11 @@ function getFactorySlotProductionDurationMs(resourceKey, productionMultiplier = 
 }
 
 function syncFactoryProduction(instanceState, now = Date.now(), options = {}) {
-  const stateRef = sanitizeFactoryState(instanceState, now);
+  const capacityOptions = createFactoryCapacityOptions(options);
+  const stateRef = sanitizeFactoryState(instanceState, now, capacityOptions);
   const nowMs = Math.max(0, Math.floor(Number(now) || Date.now()));
-  const ownedFactoryCount = Math.max(1, Math.floor(Number(options?.ownedFactoryCount || 1)));
-  const networkProductionBonusPct = Math.max(0, Number(options?.networkProductionBonusPct ?? ((ownedFactoryCount - 1) * 10)) || 0);
+  const ownedFactoryCount = capacityOptions.ownedFactoryCount;
+  const networkProductionBonusPct = Math.max(0, Number(options?.networkProductionBonusPct ?? 0) || 0);
   const levelMultiplier = getFactoryLevelMultiplier(stateRef.level);
   const effectiveProductionMultiplier = Math.max(0.1, levelMultiplier * (1 + networkProductionBonusPct / 100));
   const rates = calculateFactoryProductionRates(effectiveProductionMultiplier);
@@ -4026,7 +4102,7 @@ function syncFactoryProduction(instanceState, now = Date.now(), options = {}) {
         const maxFromMetal = Math.floor(Number(stateRef.resources.metalParts || 0) / FACTORY_CONFIG.combatModule.metalPartsCost);
         const maxFromTech = Math.floor(Number(stateRef.resources.techCore || 0) / FACTORY_CONFIG.combatModule.techCoreCost);
         const currentAmount = Math.max(0, Math.floor(Number(slot.producedAmount || 0)));
-        const slotSpace = Math.max(0, getFactorySlotStorageCap(slot.resourceKey) - currentAmount);
+        const slotSpace = Math.max(0, Math.floor(Number(slot.slotCap || getFactorySlotOutputCap(slot.resourceKey, capacityOptions))) - currentAmount);
         const queueRemaining = Math.max(0, Math.floor(Number(slot.queuedAmount || 0)));
         const queueLimit = slot.queueMode ? queueRemaining : Number.POSITIVE_INFINITY;
         const crafted = Math.max(0, Math.min(cycles, maxFromMetal, maxFromTech, slotSpace, queueLimit));
@@ -4053,7 +4129,7 @@ function syncFactoryProduction(instanceState, now = Date.now(), options = {}) {
       const gained = Math.max(0, Math.floor(raw));
       if (gained > 0) {
         const currentAmount = Math.max(0, Math.floor(Number(slot.producedAmount || 0)));
-        const slotSpace = Math.max(0, getFactorySlotStorageCap(slot.resourceKey) - currentAmount);
+        const slotSpace = Math.max(0, Math.floor(Number(slot.slotCap || getFactorySlotOutputCap(slot.resourceKey, capacityOptions))) - currentAmount);
         const queueRemaining = Math.max(0, Math.floor(Number(slot.queuedAmount || 0)));
         const queueLimit = slot.queueMode ? queueRemaining : Number.POSITIVE_INFINITY;
         const storable = Math.min(gained, slotSpace, queueLimit);
@@ -4080,6 +4156,7 @@ function syncFactoryProduction(instanceState, now = Date.now(), options = {}) {
     rates,
     produced,
     ownedFactoryCount,
+    ownedWarehouseCount: capacityOptions.ownedWarehouseCount,
     networkProductionBonusPct,
     productionMultiplier: effectiveProductionMultiplier
   };

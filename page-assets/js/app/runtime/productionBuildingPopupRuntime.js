@@ -21,6 +21,63 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
   const allowLegacyProductionUpgrade = deps.allowLegacyProductionUpgrade !== false;
   const productionBridgeMessage = "Výrobní panel používá serverový production/craft flow. Legacy lokální výroba je vypnutá.";
   const productionUpgradeMessage = "Serverový upgrade se provádí přes konkrétní kartu budovy v districtu.";
+  const baseOwnedCount = Math.max(1, Math.floor(Number(deps.baseOwnedProductionBuildingCount || 1)));
+  const defaultQueueCapPerExtraBuilding = Math.max(0, Math.floor(Number(deps.queueCapPerExtraProductionBuilding ?? 4)));
+  const defaultOutputCapPerWarehouse = Math.max(0, Math.floor(Number(deps.outputCapPerWarehouse ?? 5)));
+
+  const getConfigNumber = (buildingName, key, fallback = 0) => {
+    const value = Number(deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.[key]);
+    return Number.isFinite(value) ? value : fallback;
+  };
+
+  const normalizeCount = (value, fallback = 0, minValue = 0) => {
+    const normalized = Math.floor(Number(value));
+    if (Number.isFinite(normalized)) {
+      return Math.max(minValue, normalized);
+    }
+
+    const normalizedFallback = Math.floor(Number(fallback));
+    return Number.isFinite(normalizedFallback) ? Math.max(minValue, normalizedFallback) : minValue;
+  };
+
+  const getOwnedWarehouseCount = () => normalizeCount(deps.getOwnedWarehouseCount?.(), 0, 0);
+
+  const getOwnedProductionBuildingCount = (buildingName, fallbackLevel = 1) => {
+    const fallback = normalizeCount(fallbackLevel, baseOwnedCount, baseOwnedCount);
+    const rawCount = buildingName === "pharmacy"
+      ? deps.getOwnedPharmacyCount?.()
+      : buildingName === "druglab"
+        ? deps.getOwnedDrugLabCount?.()
+        : buildingName === "armory"
+          ? deps.getOwnedArmoryCount?.()
+          : fallback;
+    return normalizeCount(rawCount, fallback, baseOwnedCount);
+  };
+
+  const getProductionOutputCap = (buildingName) => {
+    const baseCap = Math.max(0, Math.floor(getConfigNumber(buildingName, "outputCap", 0)));
+    const warehouseBonus = getOwnedWarehouseCount() * Math.max(0, Math.floor(getConfigNumber(
+      buildingName,
+      "outputCapPerWarehouse",
+      defaultOutputCapPerWarehouse
+    )));
+    return baseCap > 0 ? baseCap + warehouseBonus : 0;
+  };
+
+  const getProductionQueueCap = (buildingName, ownedBuildingCount = baseOwnedCount) => {
+    const baseCap = Math.max(0, Math.floor(getConfigNumber(
+      buildingName,
+      "queueCap",
+      getConfigNumber(buildingName, "outputCap", 0)
+    )));
+    const extraBuildings = Math.max(0, Math.floor(Number(ownedBuildingCount || baseOwnedCount)) - baseOwnedCount);
+    const perExtraBuilding = Math.max(0, Math.floor(getConfigNumber(
+      buildingName,
+      "queueCapPerExtraBuilding",
+      defaultQueueCapPerExtraBuilding
+    )));
+    return baseCap > 0 ? baseCap + extraBuildings * perExtraBuilding : 0;
+  };
 
   const getProductionSlotState = (job) => {
     if (!job) {
@@ -68,16 +125,25 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
   const createProductionCard = (root, buildingName, recipeId, recipeKey, recipe, rerender) => {
     const job = deps.getProductionJob?.(recipeKey);
     const buildingState = deps.getStoredProductionBuildingState?.(buildingName) || {};
+    const ownedBuildingCount = getOwnedProductionBuildingCount(buildingName, buildingState.level);
     const durationMultiplier = deps.getProductionBuildingMultiplier?.(buildingName, buildingState.level) || 1;
     const effectiveDurationMs = Math.max(1000, Math.round(Number(recipe?.durationMs || 0) / durationMultiplier));
     const outputUnitAmount = buildingName === "pharmacy" || buildingName === "armory"
       ? 1
       : Math.max(1, Math.floor(Number(recipe?.output?.amount || 1)));
-    const outputCap = Math.max(0, Math.floor(Number(deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.outputCap || 0)));
+    const outputCap = getProductionOutputCap(buildingName);
+    const queueCap = getProductionQueueCap(buildingName, ownedBuildingCount);
     const getQueuedOutputAmount = (productionJob = null) => Math.max(0, Math.floor(Number(productionJob?.output?.amount || 0)));
     const getRemainingOutputSpace = (productionJob = null) => outputCap > 0
       ? Math.max(0, outputCap - getQueuedOutputAmount(productionJob))
       : Number.POSITIVE_INFINITY;
+    const getRemainingQueueSpace = (productionJob = null) => {
+      if (queueCap <= 0) {
+        return Number.POSITIVE_INFINITY;
+      }
+      const queuedAmount = productionJob?.status === "running" ? getQueuedOutputAmount(productionJob) : 0;
+      return Math.max(0, queueCap - queuedAmount);
+    };
     const getRunningJobForCapacity = () => {
       const current = deps.getProductionJob?.(recipeKey);
       return current?.status === "running" ? current : null;
@@ -85,13 +151,19 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const inputAmounts = Object.fromEntries(
       Object.keys(recipe?.inputs || {}).map((itemId) => [itemId, deps.getInventoryAmount?.("materials", itemId) || 0])
     );
+    const getMaxCapacityBatches = () => {
+      return Math.min(
+        99,
+        outputCap > 0 ? Math.floor(getRemainingOutputSpace(getRunningJobForCapacity()) / outputUnitAmount) : 99,
+        queueCap > 0 ? Math.floor(getRemainingQueueSpace(getRunningJobForCapacity()) / outputUnitAmount) : 99
+      );
+    };
     const getMaxBatches = () => {
       const cleanCost = Math.max(0, Number(recipe?.cleanMoneyCost || 0));
       return Math.min(
-        99,
+        getMaxCapacityBatches(),
         cleanCost ? Math.floor(Number(deps.getResolvedEconomyState?.().cleanMoney || 0) / cleanCost) : 99,
-        ...Object.entries(recipe?.inputs || {}).map(([itemId, amount]) => Math.floor((deps.getInventoryAmount?.("materials", itemId) || 0) / Math.max(1, Number(amount || 0)))),
-        outputCap > 0 ? Math.floor(getRemainingOutputSpace(getRunningJobForCapacity()) / outputUnitAmount) : 99
+        ...Object.entries(recipe?.inputs || {}).map(([itemId, amount]) => Math.floor((deps.getInventoryAmount?.("materials", itemId) || 0) / Math.max(1, Number(amount || 0))))
       );
     };
     const viewModel = {
@@ -105,11 +177,12 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       slotState: getProductionSlotState(job),
       outputInventoryAmount: deps.getInventoryAmount?.(recipe?.output?.inventory, recipe?.output?.itemId) || 0,
       outputCap,
+      queueCap,
       visual: deps.PRODUCTION_SLOT_VISUALS?.[buildingName]?.[recipeId] || null,
       inputAmounts,
       canStart: allowLegacyLocalProduction && (deps.hasEnoughMaterials?.(recipe?.inputs || {}) || false),
       maxBatches: allowLegacyLocalProduction ? getMaxBatches() : 0,
-      maxSelectableBatches: allowLegacyLocalProduction ? (buildingName === "druglab" ? 99 : getMaxBatches()) : 0,
+      maxSelectableBatches: allowLegacyLocalProduction ? (buildingName === "druglab" ? getMaxCapacityBatches() : getMaxBatches()) : 0,
       allowStartWithMissingInputs: allowLegacyLocalProduction && buildingName === "druglab"
     };
     const card = deps.renderRecipeCard?.(viewModel, {
@@ -167,7 +240,8 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         }
 
         const remainingOutputSpace = getRemainingOutputSpace(currentJob);
-        const outputAmount = Math.min(remainingOutputSpace, outputUnitAmount * safeBatchCount);
+        const remainingQueueSpace = getRemainingQueueSpace(currentJob);
+        const outputAmount = Math.min(remainingOutputSpace, remainingQueueSpace, outputUnitAmount * safeBatchCount);
         if (outputAmount <= 0) {
           rerender?.();
           return;
@@ -367,13 +441,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         : multiplier;
       const readyCount = deps.getProductionBuildingReadyCount?.(buildingName, recipes) || 0;
       const upgradeCost = state.level < maxLevel ? deps.getProductionBuildingUpgradeCost?.(buildingName, state.level + 1) || 0 : 0;
-      const ownedBuildingCount = buildingName === "pharmacy"
-        ? Math.max(0, Math.floor(Number(deps.getOwnedPharmacyCount?.() ?? state.level)))
-        : buildingName === "druglab"
-          ? Math.max(0, Math.floor(Number(deps.getOwnedDrugLabCount?.() ?? state.level)))
-          : buildingName === "armory"
-            ? Math.max(0, Math.floor(Number(deps.getOwnedArmoryCount?.() ?? state.level)))
-            : state.level;
+      const ownedBuildingCount = getOwnedProductionBuildingCount(buildingName, state.level);
       const speedGainPct = Math.max(0, Math.round((Number(nextMultiplier || multiplier || 1) - Number(multiplier || 1)) * 100));
       const upgradeBenefitLabel = state.level < maxLevel
         ? `+${speedGainPct}% rychlost · x${Number(nextMultiplier || multiplier || 1).toFixed(2)}`

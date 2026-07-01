@@ -115,8 +115,16 @@ export function createFactoryPopupRuntime(deps = {}) {
         const targetSlot = (nextState.slots || []).find((item) => item.id === slotView?.slot?.id);
         if (!targetSlot) return;
         const safeBatchCount = Math.max(1, Math.floor(Number(batchCount || 1)));
+        const queueCap = Math.max(1, Math.floor(Number(targetSlot.queueCap || slotView?.queueCap || targetSlot.slotCap || slotView?.slotStorageCap || 1)));
+        const currentQueue = Math.max(0, Math.floor(Number(targetSlot.queuedAmount || 0)));
+        const acceptedBatchCount = Math.min(safeBatchCount, Math.max(0, queueCap - currentQueue));
+        if (acceptedBatchCount <= 0) {
+          deps.setBuildingActionFeedback?.(root, "warning", "Továrna", "Fronta je plná.");
+          renderFactoryDashboard();
+          return;
+        }
         targetSlot.queueMode = true;
-        targetSlot.queuedAmount = Math.max(0, Math.floor(Number(targetSlot.queuedAmount || 0))) + safeBatchCount;
+        targetSlot.queuedAmount = currentQueue + acceptedBatchCount;
         targetSlot.isProducing = true;
         targetSlot.lastTick = Date.now();
         deps.setStoredFactoryState?.(nextState);

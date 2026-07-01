@@ -305,6 +305,77 @@ describe("production building popup runtime", () => {
     expect(multiplierElement.textContent).toBe("1.10x");
   });
 
+  it("keeps pharmacy network count at one even without an owned pharmacy district", async () => {
+    const openButton = createElement();
+    const popup = createElement();
+    const closeButton = createElement();
+    const levelElement = createElement();
+    popup.querySelector = vi.fn((selector) => ({
+      "[data-production-building-level]": levelElement,
+      "[data-production-building-header-level]": createElement(),
+      "[data-production-building-multiplier]": createElement(),
+      "[data-production-building-ready]": createElement(),
+      "[data-production-building-upgrade-cost]": createElement(),
+      "[data-production-building-effects]": createElement(),
+      "[data-production-building-collect]": createElement(),
+      "[data-production-building-upgrade]": createElement(),
+      "[data-production-building-info-text]": createElement(),
+      "[data-production-building-info-effects]": createElement(),
+      "[data-production-building-info-actions]": createElement(),
+      "[data-production-building-info-upgrade-cost]": createElement(),
+      "[data-production-building-info-upgrade-benefit]": createElement()
+    }[selector] || null));
+    popup.querySelectorAll = vi.fn(() => []);
+
+    const runtime = createProductionBuildingPopupRuntime({
+      PRODUCTION_BUILDING_CONFIG: { pharmacy: { label: "Lékárna" } },
+      formatCurrency: (value) => `$${value}`,
+      getOwnedPharmacyCount: () => 0,
+      getProductionBuildingEffectsLabel: () => "x1.00",
+      getProductionBuildingMultiplier: () => 1,
+      getProductionBuildingReadyCount: () => 0,
+      getProductionBuildingUpgradeCost: () => 100,
+      getStoredProductionBuildingState: () => ({ level: 1 }),
+      renderProductionBuildingInfoPanel: vi.fn(),
+      renderProductionPanelUi: vi.fn(() => true),
+      selectors: {
+        collect: "[data-production-building-collect]",
+        effects: "[data-production-building-effects]",
+        headerLevel: "[data-production-building-header-level]",
+        infoActions: "[data-production-building-info-actions]",
+        infoEffects: "[data-production-building-info-effects]",
+        infoText: "[data-production-building-info-text]",
+        level: "[data-production-building-level]",
+        multiplier: "[data-production-building-multiplier]",
+        panel: "[data-production-building-panel]",
+        ready: "[data-production-building-ready]",
+        tab: "[data-production-building-tab]",
+        upgrade: "[data-production-building-upgrade]",
+        upgradeCost: "[data-production-building-upgrade-cost]"
+      },
+      syncBuildingDetailTopbarVisibility: vi.fn(),
+      syncCompletedProductionJobs: vi.fn()
+    });
+    const root = createRoot({
+      ".open": openButton,
+      ".popup": popup,
+      ".close": [closeButton],
+      '[data-production-panel="pharmacy"]': {}
+    });
+
+    expect(runtime.bindProductionBuildingPopup(root, {
+      buildingName: "pharmacy",
+      closeSelector: ".close",
+      openSelector: ".open",
+      popupSelector: ".popup",
+      recipes: {}
+    })).toBe(true);
+
+    await openButton.dispatch("click");
+
+    expect(levelElement.textContent).toBe("1");
+  });
+
   it("shows owned drug lab network count in the lab overview network slot", async () => {
     const openButton = createElement();
     const popup = createElement();
@@ -856,6 +927,65 @@ describe("production building popup runtime", () => {
       inputs: { "metal-parts": 30 },
       output: expect.objectContaining({ amount: 15 }),
       durationMs: 15000
+    }));
+  });
+
+  it("applies special building count to queue cap and warehouse count to output cap", () => {
+    const recipeCallbacks = {};
+    const persistProductionJob = vi.fn();
+    const renderedCards = [];
+    const renderRecipeCard = vi.fn((viewModel, callbacks) => {
+      Object.assign(recipeCallbacks, callbacks);
+      renderedCards.push(viewModel);
+      return { viewModel };
+    });
+    const runtime = createProductionBuildingPopupRuntime({
+      PRODUCTION_BUILDING_CONFIG: { armory: { outputCap: 15 } },
+      consumeMaterials: vi.fn(),
+      getInventoryAmount: () => 100,
+      getOwnedArmoryCount: () => 3,
+      getOwnedWarehouseCount: () => 2,
+      getProductionBuildingMultiplier: () => 1,
+      getProductionJob: () => null,
+      getResolvedEconomyState: () => ({ cleanMoney: 1000 }),
+      getScaledProductionInputs: (inputs, count) => Object.fromEntries(
+        Object.entries(inputs || {}).map(([itemId, amount]) => [itemId, Number(amount || 0) * count])
+      ),
+      getStoredProductionBuildingState: () => ({ level: 1 }),
+      hasEnoughMaterials: () => true,
+      persistProductionJob,
+      renderProductionPanelUi: vi.fn(() => true),
+      renderRecipeCard,
+      scheduleProductionJob: vi.fn(),
+      syncCompletedProductionJobs: vi.fn()
+    });
+
+    const root = createRoot({
+      '[data-production-panel="armory"]': {}
+    });
+    runtime.renderProductionPanel(root, "armory", {
+      bat: {
+        durationMs: 1000,
+        inputs: { "metal-parts": 2 },
+        output: { inventory: "weapons", itemId: "baseball-bat", amount: 1 }
+      }
+    });
+
+    expect(renderedCards[0]).toMatchObject({
+      outputCap: 25,
+      queueCap: 23,
+      maxBatches: 23,
+      maxSelectableBatches: 23
+    });
+
+    recipeCallbacks.onStart({ batchCount: 99 });
+
+    expect(persistProductionJob).toHaveBeenCalledWith("armory:bat", expect.objectContaining({
+      status: "running",
+      quantity: 23,
+      inputs: { "metal-parts": 46 },
+      output: expect.objectContaining({ amount: 23 }),
+      durationMs: 23000
     }));
   });
 
