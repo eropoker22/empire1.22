@@ -81,6 +81,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
       metaText: `${buildingProfile.setTitle} · ${deps.formatDistrictBuildingTierLabel(buildingProfile.tier)}`,
       buildings: buildingProfile.buildings.map((building) => ({
         name: building.baseName || building.displayName,
+        label: building.baseName || building.displayName,
         displayName: building.displayName
       })),
       trap: {

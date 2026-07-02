@@ -1,4 +1,5 @@
 import { submitServerAllianceCommand } from "./runtime.js";
+import { STORAGE_KEYS } from "../config.js";
 
 const LOCAL_ALLIANCE_KEY = "empire_local_alliance_state";
 const GLOBAL_CHAT_KEY = "empire_local_global_chat_state";
@@ -64,6 +65,26 @@ const escapeHtml = (value) => String(value || "")
   .replaceAll(">", "&gt;")
   .replaceAll('"', "&quot;")
   .replaceAll("'", "&#39;");
+
+const normalizeChatColor = (value, fallback = "#facc15") => {
+  const color = String(value || "").trim();
+  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : fallback;
+};
+
+const getPlayerGangColor = () => {
+  try {
+    return normalizeChatColor(localStorage.getItem(STORAGE_KEYS.gangColor), "#facc15");
+  } catch {
+    return "#facc15";
+  }
+};
+
+const getGlobalChatDemoMessages = () => [
+  { author: "Razor", text: "Na severu se dneska hýbou hranice. Kdo tam jde bez lidí, ať si rovnou píše závěť.", color: "#ef4444" },
+  { author: "Nyx", text: "Bazar má dobré ceny na tech scrap, ale jen dokud někdo nezačne dělat bordel.", color: "#8b5cf6" },
+  { author: "Karlos", text: "Potřebuju spojence na rychlou výměnu materiálů. Platím clean, žádné drama.", color: "#22d3ee" },
+  { author: "Mira", text: "Viděla jsem cizí scouty u warehouse distriktů. Kontrolujte obranu.", color: "#22c55e" }
+];
 
 const isDevOnlyAllianceDemoEnabled = () => {
   if (typeof window === "undefined") return false;
@@ -481,14 +502,15 @@ const renderGlobalServerChat = () => {
   } catch {
     messages = [];
   }
-  log.innerHTML = (Array.isArray(messages) && messages.length ? messages : [
-    { author: "System", text: "Serverovy chat je pripraveny." }
-  ]).slice(0, 30).map((message) => `
+  log.innerHTML = (Array.isArray(messages) && messages.length ? messages : getGlobalChatDemoMessages()).slice(0, 30).map((message) => {
+    const color = normalizeChatColor(message.color, message.author === "Ty" ? getPlayerGangColor() : "#facc15");
+    return `
     <div class="alliance-chat__item server-chat-panel__message">
-      <strong>${escapeHtml(message.author || "System")}</strong>
-      <span>${escapeHtml(message.text || "")}</span>
+      <strong class="server-chat-panel__author" style="--chat-author-color: ${escapeHtml(color)}">${escapeHtml(message.author || "System")}:</strong>
+      <span class="server-chat-panel__text">${escapeHtml(message.text || "")}</span>
     </div>
-  `).join("");
+  `;
+  }).join("");
 };
 
 const saveGlobalMessage = (text) => {
@@ -498,7 +520,8 @@ const saveGlobalMessage = (text) => {
   } catch {
     messages = [];
   }
-  messages = [{ author: "Ty", text }, ...(Array.isArray(messages) ? messages : [])].slice(0, 30);
+  const previousMessages = Array.isArray(messages) && messages.length ? messages : getGlobalChatDemoMessages();
+  messages = [{ author: "Ty", text, color: getPlayerGangColor() }, ...previousMessages].slice(0, 30);
   localStorage.setItem(GLOBAL_CHAT_KEY, JSON.stringify(messages));
 };
 

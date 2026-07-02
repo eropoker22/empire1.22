@@ -1,7 +1,22 @@
+const DEFAULT_GANG_PROFILE_PLAYER_COLOR = "#67e8f9";
+
+function resolveGangProfilePlayerColor(deps, registration) {
+  return deps.normalizeRuntimeHexColor?.(registration?.gangColor)
+    || deps.getRegistrationAccentColor?.(registration?.factionId || "mafian")
+    || DEFAULT_GANG_PROFILE_PLAYER_COLOR;
+}
+
+function applyGangProfilePlayerColor(root, deps, registration) {
+  const color = resolveGangProfilePlayerColor(deps, registration);
+  root?.style?.setProperty?.("--gang-profile-player-color", color);
+  root?.querySelector?.("#profile-gang-card")?.style?.setProperty?.("--gang-profile-player-color", color);
+}
+
 export function createRegisteredPlayerStateRuntime(deps = {}) {
   const bindRegisteredPlayerState = (root) => {
     const registration = deps.getStoredRegistration();
     deps.renderGangMembersState(root);
+    applyGangProfilePlayerColor(root, deps, registration);
 
     if (!registration?.factionId || !deps.factionCatalog?.[registration.factionId]) {
       return;

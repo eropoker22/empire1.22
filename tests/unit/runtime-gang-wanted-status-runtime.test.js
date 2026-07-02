@@ -205,4 +205,87 @@ describe("gang wanted status runtime", () => {
       pendingRaid: { raidId: "raid:1", status: "pending" }
     }), expect.any(Object));
   });
+
+  it("mirrors wanted tier and protection text into duplicate responsive mounts", () => {
+    const elements = {
+      heat: new FakeElement(),
+      stars: new FakeElement(),
+      popup: new FakeElement(),
+      popupHeat: new FakeElement(),
+      popupLevelDesktop: new FakeElement(),
+      popupLevelMobile: new FakeElement(),
+      popupTier: new FakeElement(),
+      popupDescription: new FakeElement(),
+      popupProtectionDesktop: new FakeElement(),
+      popupProtectionMobile: new FakeElement(),
+      popupLevels: new FakeElement(),
+      popupRiseList: new FakeElement(),
+      popupFallList: new FakeElement(),
+      popupFeedback: new FakeElement(),
+      star: new FakeElement()
+    };
+    const root = new FakeRoot({
+      "[heat]": elements.heat,
+      "[stars]": elements.stars,
+      "[popup]": elements.popup,
+      "[popup-heat]": elements.popupHeat,
+      "[popup-tier]": elements.popupTier,
+      "[popup-description]": elements.popupDescription,
+      "[popup-levels]": elements.popupLevels,
+      "[popup-rise]": elements.popupRiseList,
+      "[popup-fall]": elements.popupFallList,
+      "[popup-feedback]": elements.popupFeedback
+    }, {
+      "[popup-level]": [elements.popupLevelDesktop, elements.popupLevelMobile],
+      "[popup-protection]": [elements.popupProtectionDesktop, elements.popupProtectionMobile],
+      "[star]": [elements.star],
+      "[close]": []
+    });
+    globalThis.document = { addEventListener: vi.fn() };
+    const runtime = createGangWantedStatusRuntime({
+      cleanActionCost: 10,
+      dirtyActionCost: 10,
+      influenceActionCost: 20,
+      gangHeatTiers: [{ id: 2, label: "II", title: "Střední" }],
+      getPoliceTierShortEffect: () => "effect",
+      getResolvedDistrictPoliceActions: () => ({}),
+      getResolvedEconomyState: () => ({ cleanMoney: 10, dirtyMoney: 10 }),
+      normalizeGangHeatJournal: () => [],
+      renderHeatBadge: vi.fn(),
+      renderWantedFeedback: vi.fn(),
+      renderWantedPanel: (_viewModel, { mounts }) => {
+        mounts.popupLevel.textContent = "2 / 6";
+        mounts.popupProtection.textContent = "Aktivní";
+      },
+      resolveGangHeatTier: () => ({ id: 2, label: "II", title: "Střední", description: "Pozor" }),
+      syncGangHeatDecay: () => ({ heat: 24, influence: 25, heatJournal: [] }),
+      selectors: {
+        cleanAction: "[clean]",
+        clearLog: "[clear]",
+        dirtyAction: "[dirty]",
+        influenceAction: "[influence]",
+        gangHeat: "[heat]",
+        gangStar: "[star]",
+        gangStars: "[stars]",
+        popup: "[popup]",
+        popupClose: "[close]",
+        popupDescription: "[popup-description]",
+        popupFeedback: "[popup-feedback]",
+        popupFallList: "[popup-fall]",
+        popupHeat: "[popup-heat]",
+        popupLevel: "[popup-level]",
+        popupLevels: "[popup-levels]",
+        popupProtection: "[popup-protection]",
+        popupRiseList: "[popup-rise]",
+        popupTier: "[popup-tier]"
+      }
+    });
+
+    expect(runtime.bindGangWantedStatus(root)).toBe(true);
+
+    expect(elements.popupLevelDesktop.textContent).toBe("2 / 6");
+    expect(elements.popupLevelMobile.textContent).toBe("2 / 6");
+    expect(elements.popupProtectionDesktop.textContent).toBe("Aktivní");
+    expect(elements.popupProtectionMobile.textContent).toBe("Aktivní");
+  });
 });

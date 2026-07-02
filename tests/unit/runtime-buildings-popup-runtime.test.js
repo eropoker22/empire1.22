@@ -63,6 +63,13 @@ describe("buildings popup runtime", () => {
     runtime.renderDistrictPopupBuildings({ id: 1, districtType: "resident" });
     expect(renderDistrictBuildingList).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
       metaText: "Sada · Tier early",
+      buildings: [
+        expect.objectContaining({
+          name: "Skladiště",
+          label: "Skladiště",
+          displayName: "Skladiště 1"
+        })
+      ],
       trap: expect.objectContaining({ visible: true })
     }));
   });

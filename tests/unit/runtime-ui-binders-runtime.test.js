@@ -63,4 +63,26 @@ describe("runtime UI binder factories", () => {
     expect(() => runtime.bindRegisteredPlayerState({ ownerDocument: null })).not.toThrow();
     expect(renderGangMembersState).toHaveBeenCalled();
   });
+
+  it("applies stored gang color to the profile card", () => {
+    const profileCard = {
+      style: { setProperty: vi.fn() }
+    };
+    const root = {
+      ownerDocument: null,
+      querySelector: vi.fn((selector) => selector === "#profile-gang-card" ? profileCard : null),
+      style: { setProperty: vi.fn() }
+    };
+    const runtime = createRegisteredPlayerStateRuntime({
+      factionCatalog: {},
+      getStoredRegistration: () => ({ factionId: "missing", gangColor: "#F97316" }),
+      normalizeRuntimeHexColor: (value) => String(value || "").trim().toLowerCase(),
+      renderGangMembersState: vi.fn()
+    });
+
+    runtime.bindRegisteredPlayerState(root);
+
+    expect(profileCard.style.setProperty).toHaveBeenCalledWith("--gang-profile-player-color", "#f97316");
+    expect(root.style.setProperty).toHaveBeenCalledWith("--gang-profile-player-color", "#f97316");
+  });
 });

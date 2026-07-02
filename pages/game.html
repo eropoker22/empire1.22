@@ -281,7 +281,7 @@
           <div id="game-gang-panel-mount" class="mount-point mount-point--panel gang-profile-panel" data-mount-role="gang-panel">
             <div id="profile-gang-card" class="right-panel-card">
               <div class="profile-heading gang-profile-header">
-                <h3 class="placeholder-title">Profil Gangu</h3>
+                <h3 class="placeholder-title">Gang</h3>
                 <p class="panel-note gang-profile-stars" aria-label="Gang level" data-gang-stars>
                   <span class="is-active" data-gang-star>★</span>
                   <span data-gang-star>★</span>
@@ -291,11 +291,11 @@
                   <span data-gang-star>★</span>
                 </p>
               </div>
-              <p class="panel-note profile-row gang-profile-row"><span class="gang-profile-row__label">Členové</span><span data-gang-members>0</span></p>
+              <p class="panel-note profile-row profile-row--members gang-profile-row"><span class="gang-profile-row__label">Členové</span><span data-gang-members>0</span></p>
               <p class="panel-note profile-row profile-row--wanted gang-profile-row"><span class="gang-profile-row__label">Hledanost</span><button type="button" class="button gang-profile-value-button profile-heat-panel" data-gang-heat>10</button></p>
-              <p class="panel-note profile-row gang-profile-row"><span class="gang-profile-row__label">Frakce</span><span data-gang-faction>-</span></p>
-              <p class="panel-note profile-row gang-profile-row"><span class="gang-profile-row__label">Distrikty</span><span data-gang-districts>0</span></p>
-              <p class="panel-note profile-row gang-profile-row"><span class="gang-profile-row__label">Aliance</span><span id="profile-alliance" data-gang-alliance>Žádná</span></p>
+              <p class="panel-note profile-row profile-row--faction gang-profile-row"><span class="gang-profile-row__label">Frakce</span><span data-gang-faction>-</span></p>
+              <p class="panel-note profile-row profile-row--districts gang-profile-row"><span class="gang-profile-row__label">Distrikty</span><span data-gang-districts>0</span></p>
+              <p class="panel-note profile-row profile-row--alliance gang-profile-row"><span class="gang-profile-row__label">Aliance</span><span id="profile-alliance" data-gang-alliance>Žádná</span></p>
             </div>
           </div>
           <div id="mobile-building-shortcuts-anchor" hidden aria-hidden="true"></div>
@@ -318,20 +318,24 @@
           <div id="global-chat-card-anchor" hidden aria-hidden="true"></div>
           <div id="global-chat-card" class="right-panel-card">
             <section class="alliance-chat server-chat-panel" aria-label="Serverový chat">
-              <div class="alliance-chat__title">Globální chat</div>
+              <div class="server-chat-panel__composer-head">
+                <div class="alliance-chat__title">Chat</div>
+                <button id="alliance-chat-send" type="button" class="button server-chat-panel__send server-chat-panel__send--arrow" aria-label="Odeslat zprávu" title="Odeslat" data-global-chat-send>
+                  <span aria-hidden="true">→</span>
+                </button>
+              </div>
               <div id="alliance-chat-log" class="alliance-chat__log server-chat-panel__feed" data-global-chat-log>
                 <div class="alliance-chat__item server-chat-panel__message">
-                  <span class="server-chat-panel__author">System</span>
+                  <span class="server-chat-panel__author">System:</span>
                   <span class="server-chat-panel__text">Chat je připravený pro komunikaci mezi všemi hráči na serveru.</span>
                 </div>
                 <div class="alliance-chat__item server-chat-panel__message">
-                  <span class="server-chat-panel__author">Info</span>
+                  <span class="server-chat-panel__author">Info:</span>
                   <span class="server-chat-panel__text">Zprávy, obchodní nabídky a varování budou chodit sem.</span>
                 </div>
               </div>
               <div class="alliance-chat__input server-chat-panel__composer">
                 <input id="alliance-chat-input" type="text" class="server-chat-panel__input" placeholder="Napiš zprávu do globálního chatu..." aria-label="Zpráva do globálního chatu" data-global-chat-input>
-                <button id="alliance-chat-send" type="button" class="button server-chat-panel__send" aria-label="Odeslat zprávu" data-global-chat-send>Odeslat</button>
               </div>
             </section>
           </div>
@@ -386,6 +390,10 @@
             <section class="district-popup-status">
               <div class="district-popup-status__label">Přehled</div>
               <div class="district-popup-status__flags" data-district-popup-flags></div>
+              <section class="district-popup-gossip district-popup-gossip--overview" data-district-popup-gossip>
+                <div class="district-popup-gossip__label">Drby</div>
+                <div class="district-popup-gossip__list" data-district-popup-gossip-list></div>
+              </section>
             </section>
             <section class="district-popup-summary-grid" aria-label="Souhrn distriktu">
               <article class="district-popup-summary-card">
@@ -423,10 +431,6 @@
                 <div class="district-popup-buildings__meta" data-district-popup-buildings-meta>District package</div>
               </div>
               <div class="district-popup-buildings__list" data-district-popup-buildings-list></div>
-            </section>
-            <section class="district-popup-gossip" data-district-popup-gossip>
-              <div class="district-popup-gossip__label">Drby</div>
-              <div class="district-popup-gossip__list" data-district-popup-gossip-list></div>
             </section>
             <section class="district-popup-action-section" data-district-action-section>
               <div class="district-popup-action-section__head">
@@ -904,11 +908,15 @@
 
       <div class="wanted-popup-shell" data-wanted-popup hidden>
           <div class="wanted-popup-backdrop" data-wanted-popup-close></div>
-          <div class="wanted-popup-card" role="dialog" aria-modal="true" aria-label="Hledanost gangu">
-            <div class="wanted-popup-header">
+        <div class="wanted-popup-card" role="dialog" aria-modal="true" aria-label="Hledanost gangu">
+          <div class="wanted-popup-header">
             <div class="wanted-popup-header__title">
               <h3>Heat</h3>
               <button type="button" class="button wanted-popup-police-toggle" data-wanted-popup-police-toggle aria-label="Zobrazit police feedback" aria-expanded="false">?</button>
+              <div class="wanted-popup-meta wanted-popup-meta--header">
+                <p class="wanted-popup-row wanted-popup-row--compact">Tier <span data-wanted-popup-level>1 / 6</span></p>
+                <p class="wanted-popup-row wanted-popup-row--compact">Ochrana <span data-wanted-popup-protection>Bez ochrany</span></p>
+              </div>
             </div>
             <button type="button" class="button wanted-popup-close" data-wanted-popup-close aria-label="Zavřít heat panel">✕</button>
           </div>
@@ -919,7 +927,7 @@
                 <h3 class="wanted-popup-title" data-wanted-popup-tier>Nízký heat</h3>
                 <p class="wanted-popup-copy" data-wanted-popup-description>Lehký dohled. Gang je skoro pod radarem.</p>
               </div>
-              <div class="wanted-popup-meta">
+              <div class="wanted-popup-meta wanted-popup-meta--mobile">
                 <p class="wanted-popup-row wanted-popup-row--compact">Tier <span data-wanted-popup-level>1 / 6</span></p>
                 <p class="wanted-popup-row wanted-popup-row--compact">Ochrana <span data-wanted-popup-protection>Bez ochrany</span></p>
               </div>

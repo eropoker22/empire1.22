@@ -2424,9 +2424,9 @@ body.game-body--booting .game-logo-slot {
   top: 0;
   height: 1px;
   border-radius: 999px;
-  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.88), rgba(244, 114, 182, 0.58), transparent);
+  background: linear-gradient(90deg, transparent, rgba(250, 204, 21, 0.82), rgba(226, 232, 240, 0.68), transparent);
   opacity: 0.56;
-  box-shadow: 0 0 14px rgba(34, 211, 238, 0.34);
+  box-shadow: 0 0 14px rgba(250, 204, 21, 0.26);
   pointer-events: none;
 }
 

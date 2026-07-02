@@ -42,16 +42,37 @@ function resolveWantedElements(root, selectors = {}) {
     return null;
   }
 
+  const resolveTextMirror = (selector) => {
+    const nodes = Array.from(root.querySelectorAll(selector));
+    if (nodes.length === 0) {
+      const node = root.querySelector(selector);
+      return node || null;
+    }
+    if (nodes.length === 1) {
+      return nodes[0];
+    }
+    return {
+      get textContent() {
+        return nodes[0]?.textContent || "";
+      },
+      set textContent(value) {
+        for (const node of nodes) {
+          node.textContent = value;
+        }
+      }
+    };
+  };
+
   return {
     heatButton: root.querySelector(selectors.gangHeat),
     starContainer: root.querySelector(selectors.gangStars),
     stars: Array.from(root.querySelectorAll(selectors.gangStar)),
     popup: root.querySelector(selectors.popup),
-    popupHeat: root.querySelector(selectors.popupHeat),
-    popupLevel: root.querySelector(selectors.popupLevel),
-    popupTier: root.querySelector(selectors.popupTier),
-    popupDescription: root.querySelector(selectors.popupDescription),
-    popupProtection: root.querySelector(selectors.popupProtection),
+    popupHeat: resolveTextMirror(selectors.popupHeat),
+    popupLevel: resolveTextMirror(selectors.popupLevel),
+    popupTier: resolveTextMirror(selectors.popupTier),
+    popupDescription: resolveTextMirror(selectors.popupDescription),
+    popupProtection: resolveTextMirror(selectors.popupProtection),
     popupLevels: root.querySelector(selectors.popupLevels),
     popupRiseList: root.querySelector(selectors.popupRiseList),
     popupFallList: root.querySelector(selectors.popupFallList),

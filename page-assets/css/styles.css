@@ -2160,3 +2160,702 @@ html body.game-body .storage-popup-shell[data-storage-popup]:not([hidden]) .stor
     background: linear-gradient(120deg, rgba(153, 246, 228, 0.16), transparent 36%, transparent 68%, rgba(45, 212, 191, 0.12)) !important;
   }
 }
+
+/* Final gang profile transparency override. */
+html body.game-body #game-gang-panel-mount.gang-profile-panel {
+  border-color: rgba(12, 18, 28, 0.72) !important;
+  background: rgba(0, 0, 0, 0.18) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.012),
+    0 16px 34px rgba(0, 0, 0, 0.22) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html body.game-body #game-gang-panel-mount.gang-profile-panel::before,
+html body.game-body #game-gang-panel-mount.gang-profile-panel::after {
+  opacity: 0.12 !important;
+  background: linear-gradient(90deg, transparent, rgba(103, 232, 249, 0.34), transparent) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card {
+  --gang-profile-player-color: #67e8f9;
+  border-color: rgba(15, 23, 42, 0.72) !important;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(34, 211, 238, 0.032), transparent 38%),
+    radial-gradient(circle at 100% 18%, rgba(250, 204, 21, 0.025), transparent 34%),
+    linear-gradient(145deg, rgba(0, 0, 0, 0.72), rgba(3, 5, 10, 0.66) 52%, rgba(0, 0, 0, 0.7)) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.014),
+    inset 0 0 30px rgba(0, 0, 0, 0.34),
+    0 16px 32px rgba(0, 0, 0, 0.34) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card::before {
+  opacity: 0.16 !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card::after {
+  opacity: 0.34 !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent),
+    rgba(4, 10, 18, 0.28) !important;
+  border-color: rgba(103, 232, 249, 0.13) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.012),
+    0 6px 14px rgba(0, 0, 0, 0.12) !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--alliance {
+  background:
+    linear-gradient(90deg, rgba(168, 85, 247, 0.16), transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent),
+    rgba(13, 8, 28, 0.34) !important;
+  border-color: rgba(196, 181, 253, 0.28) !important;
+  box-shadow:
+    inset 2px 0 0 rgba(168, 85, 247, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.014),
+    0 6px 14px rgba(0, 0, 0, 0.12) !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--districts {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--gang-profile-player-color, #67e8f9) 22%, transparent), transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent),
+    color-mix(in srgb, var(--gang-profile-player-color, #67e8f9) 8%, rgba(4, 10, 18, 0.28)) !important;
+  border-color: color-mix(in srgb, var(--gang-profile-player-color, #67e8f9) 36%, transparent) !important;
+  box-shadow:
+    inset 2px 0 0 color-mix(in srgb, var(--gang-profile-player-color, #67e8f9) 62%, transparent),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.014),
+    0 6px 14px rgba(0, 0, 0, 0.12) !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--wanted {
+  background:
+    linear-gradient(90deg, rgba(239, 68, 68, 0.17), transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent),
+    rgba(30, 8, 10, 0.32) !important;
+  border-color: rgba(248, 113, 113, 0.3) !important;
+  box-shadow:
+    inset 2px 0 0 rgba(239, 68, 68, 0.62),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.014),
+    0 6px 14px rgba(0, 0, 0, 0.12) !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--members {
+  background:
+    linear-gradient(90deg, rgba(249, 115, 22, 0.17), transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent),
+    rgba(30, 14, 6, 0.32) !important;
+  border-color: rgba(251, 146, 60, 0.3) !important;
+  box-shadow:
+    inset 2px 0 0 rgba(249, 115, 22, 0.62),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.014),
+    0 6px 14px rgba(0, 0, 0, 0.12) !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--faction {
+  background:
+    linear-gradient(90deg, rgba(250, 204, 21, 0.15), transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent),
+    linear-gradient(135deg, rgba(2, 6, 13, 0.42), rgba(24, 20, 9, 0.34)) !important;
+  border-color: rgba(250, 204, 21, 0.32) !important;
+  box-shadow:
+    inset 2px 0 0 rgba(250, 204, 21, 0.62),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.014),
+    0 6px 14px rgba(0, 0, 0, 0.12) !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card .profile-row--alliance .gang-profile-row__label,
+html body.game-body #profile-gang-card.right-panel-card .profile-row--alliance > span:last-child {
+  color: rgba(233, 213, 255, 0.94) !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card .profile-row--districts > span:last-child {
+  color: color-mix(in srgb, var(--gang-profile-player-color, #67e8f9) 72%, #ffffff) !important;
+  text-shadow: 0 0 12px color-mix(in srgb, var(--gang-profile-player-color, #67e8f9) 34%, transparent) !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card .profile-row--wanted .gang-profile-row__label,
+html body.game-body #profile-gang-card.right-panel-card .profile-row--wanted .profile-heat-panel {
+  color: rgba(254, 202, 202, 0.96) !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card .profile-row--members .gang-profile-row__label,
+html body.game-body #profile-gang-card.right-panel-card .profile-row--members > span:last-child {
+  color: rgba(254, 215, 170, 0.96) !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card .profile-row--faction .gang-profile-row__label,
+html body.game-body #profile-gang-card.right-panel-card .profile-row--faction > span:last-child {
+  color: rgba(254, 240, 138, 0.96) !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card [data-gang-members],
+html body.game-body #profile-gang-card.right-panel-card [data-gang-districts],
+html body.game-body #profile-gang-card.right-panel-card [data-gang-heat] {
+  font-size: 0.92rem !important;
+  font-weight: 850 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card .gang-profile-stars {
+  font-size: 1.22rem !important;
+  gap: 6px !important;
+  line-height: 1 !important;
+}
+
+html body.game-body .wanted-popup-card .wanted-popup-header__title {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+html body.game-body .wanted-popup-card .wanted-popup-meta--header {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html body.game-body .wanted-popup-card .wanted-popup-meta--mobile {
+  display: none !important;
+}
+
+html body.game-body .wanted-popup-card .wanted-popup-meta--header .wanted-popup-row {
+  min-height: 24px !important;
+  padding: 4px 8px !important;
+  border-radius: 999px !important;
+  font-size: 0.58rem !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
+html body.game-body .wanted-popup-card .wanted-popup-meta--header .wanted-popup-row span {
+  margin-left: 5px !important;
+  font-size: 0.64rem !important;
+}
+
+html body.game-body .wanted-popup-card .wanted-popup-hero {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+@media (max-width: 720px) {
+  html body.game-body .wanted-popup-card .wanted-popup-header__title {
+    flex-wrap: wrap !important;
+    row-gap: 6px !important;
+  }
+
+  html body.game-body .wanted-popup-card .wanted-popup-meta--header {
+    display: none !important;
+  }
+
+  html body.game-body .wanted-popup-card .wanted-popup-meta--mobile {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+}
+
+@media (min-width: 721px) {
+  html body.game-body .wanted-popup-card .wanted-popup-close {
+    top: 6px !important;
+    right: 2px !important;
+    z-index: 30 !important;
+    display: grid !important;
+    place-items: center !important;
+    width: 28px !important;
+    min-width: 28px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    padding: 0 !important;
+    border: 1px solid rgba(103, 232, 249, 0.48) !important;
+    border-radius: 999px !important;
+    background:
+      radial-gradient(circle at 30% 24%, rgba(236, 254, 255, 0.22), transparent 38%),
+      radial-gradient(circle at 76% 80%, rgba(248, 113, 113, 0.22), transparent 42%),
+      linear-gradient(145deg, rgba(5, 13, 24, 0.96), rgba(10, 5, 14, 0.96)) !important;
+    color: #e0fbff !important;
+    font-size: 0 !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      inset 0 0 14px rgba(34, 211, 238, 0.12),
+      0 0 14px rgba(34, 211, 238, 0.24),
+      0 0 20px rgba(248, 113, 113, 0.14),
+      0 10px 20px rgba(0, 0, 0, 0.28) !important;
+    text-shadow: none !important;
+    transform: none !important;
+    font-size: 0.86rem !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
+    text-shadow:
+      0 0 7px rgba(103, 232, 249, 0.66),
+      0 0 10px rgba(248, 113, 113, 0.24) !important;
+  }
+
+  html body.game-body .wanted-popup-card .wanted-popup-close::before,
+  html body.game-body .wanted-popup-card .wanted-popup-close::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  html body.game-body .wanted-popup-card .wanted-popup-close:hover,
+  html body.game-body .wanted-popup-card .wanted-popup-close:focus-visible {
+    border-color: rgba(248, 113, 113, 0.7) !important;
+    color: #ffffff !important;
+    background:
+      radial-gradient(circle at 30% 24%, rgba(236, 254, 255, 0.28), transparent 38%),
+      radial-gradient(circle at 76% 80%, rgba(248, 113, 113, 0.32), transparent 42%),
+      linear-gradient(145deg, rgba(7, 18, 32, 0.98), rgba(25, 7, 14, 0.98)) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      inset 0 0 16px rgba(34, 211, 238, 0.16),
+      0 0 16px rgba(34, 211, 238, 0.34),
+      0 0 24px rgba(248, 113, 113, 0.26),
+      0 12px 22px rgba(0, 0, 0, 0.32) !important;
+  }
+
+  html body.game-body #profile-gang-card.right-panel-card .gang-profile-stars {
+    font-size: 0.96rem !important;
+    gap: 4px !important;
+  }
+}
+
+html body.game-body .map-phase-toolbar .map-phase-button[data-border-toggle] {
+  border-color: rgba(255, 89, 185, 0.24) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
+    linear-gradient(90deg, rgba(255, 89, 185, 0.14), rgba(130, 54, 255, 0.08)),
+    rgba(18, 10, 24, 0.82) !important;
+  color: #ffd9f5 !important;
+}
+
+@media (max-width: 840px) {
+  html body.game-body .map-stage-shell {
+    border-color: rgba(15, 23, 42, 0.72) !important;
+    background:
+      radial-gradient(circle at 16% 0%, rgba(255, 255, 255, 0.035), transparent 34%),
+      radial-gradient(circle at 86% 4%, rgba(34, 211, 238, 0.055), transparent 30%),
+      linear-gradient(180deg, rgba(0, 0, 0, 0.74), rgba(2, 6, 23, 0.92)) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.045),
+      inset 0 0 22px rgba(0, 0, 0, 0.42),
+      0 16px 30px rgba(0, 0, 0, 0.38),
+      0 0 18px rgba(0, 0, 0, 0.34) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  html body.game-body .mount-point--map {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    background:
+      linear-gradient(145deg, rgba(0, 0, 0, 0.96), rgba(3, 7, 18, 0.92) 48%, rgba(0, 0, 0, 0.98)) !important;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+      0 14px 28px rgba(0, 0, 0, 0.42),
+      0 0 18px rgba(2, 6, 23, 0.34) !important;
+  }
+
+  html body.game-body .map-viewport {
+    background: rgba(0, 0, 0, 0.96) !important;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.045),
+      inset 0 0 24px rgba(0, 0, 0, 0.48),
+      0 12px 24px rgba(0, 0, 0, 0.36) !important;
+  }
+
+  html body.game-body .map-canvas-shell::before {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.04), transparent 34%),
+      linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.28)),
+      repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 4px) !important;
+  }
+}
+
+html body.game-body .wanted-popup-card .wanted-popup-police-toggle.button,
+html body.game-body .wanted-popup-card .wanted-popup-police-toggle {
+  border-color: rgba(255, 255, 255, 0.62) !important;
+  background:
+    radial-gradient(circle at 34% 24%, rgba(255, 255, 255, 0.24), transparent 38%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.12), transparent 42%),
+    linear-gradient(135deg, rgba(2, 6, 13, 0.98), rgba(17, 24, 39, 0.96)) !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 0 12px rgba(255, 255, 255, 0.08),
+    0 0 12px rgba(255, 255, 255, 0.14),
+    0 8px 16px rgba(0, 0, 0, 0.24) !important;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.38) !important;
+}
+
+html body.game-body .wanted-popup-card .wanted-popup-police-toggle[aria-expanded="true"] {
+  border-color: rgba(255, 255, 255, 0.86) !important;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.2) 0 14%, transparent 16%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), transparent 44%),
+    linear-gradient(135deg, rgba(0, 0, 0, 1), rgba(31, 41, 55, 0.98)) !important;
+  color: #ffffff !important;
+}
+
+html body.game-body #global-chat-card.right-panel-card {
+  border-color: rgba(125, 211, 252, 0.12) !important;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(186, 230, 253, 0.035), transparent 38%),
+    rgba(14, 165, 233, 0.012) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.01),
+    0 14px 28px rgba(7, 89, 133, 0.045),
+    0 0 20px rgba(56, 189, 248, 0.025) !important;
+}
+
+@media (min-width: 841px) {
+  html body.game-body #global-chat-card.right-panel-card {
+    display: flex !important;
+    min-height: 276px !important;
+    height: clamp(276px, 38vh, 354px) !important;
+  }
+
+  html body.game-body #global-chat-card .alliance-chat.server-chat-panel {
+    flex: 1 1 auto !important;
+    min-height: 100% !important;
+    height: 100% !important;
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
+  }
+
+  html body.game-body #global-chat-card .alliance-chat__log,
+  html body.game-body #global-chat-card .server-chat-panel__feed {
+    min-height: 150px !important;
+    max-height: none !important;
+  }
+}
+
+html body.game-body #global-chat-card .alliance-chat.server-chat-panel {
+  border-color: rgba(125, 211, 252, 0.14) !important;
+  background:
+    radial-gradient(circle at 14% 0%, rgba(224, 242, 254, 0.07), transparent 38%),
+    radial-gradient(circle at 92% 18%, rgba(125, 211, 252, 0.055), transparent 34%),
+    linear-gradient(145deg, rgba(8, 47, 73, 0.22), rgba(14, 116, 144, 0.14) 48%, rgba(7, 89, 133, 0.18)) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.014),
+    inset 0 0 28px rgba(186, 230, 253, 0.018),
+    0 16px 32px rgba(7, 89, 133, 0.07),
+    0 0 22px rgba(56, 189, 248, 0.035) !important;
+}
+
+html body.game-body #global-chat-card .alliance-chat.server-chat-panel::before {
+  opacity: 0.34 !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.11), transparent 34%),
+    repeating-linear-gradient(180deg, rgba(224, 242, 254, 0.04) 0 1px, transparent 1px 9px) !important;
+}
+
+html body.game-body #global-chat-card .alliance-chat.server-chat-panel::after {
+  opacity: 0.58 !important;
+  background: linear-gradient(90deg, transparent, rgba(250, 204, 21, 0.42), rgba(226, 232, 240, 0.5), transparent) !important;
+  box-shadow: 0 0 14px rgba(250, 204, 21, 0.16) !important;
+}
+
+html body.game-body #global-chat-card .alliance-chat__title {
+  border-color: rgba(224, 242, 254, 0.34) !important;
+  background: rgba(8, 47, 73, 0.48) !important;
+  color: rgba(240, 249, 255, 0.94) !important;
+  box-shadow:
+    inset 0 0 12px rgba(224, 242, 254, 0.055),
+    0 0 12px rgba(56, 189, 248, 0.12) !important;
+  text-shadow: 0 0 10px rgba(224, 242, 254, 0.14) !important;
+}
+
+html body.game-body #global-chat-card .alliance-chat__title::before {
+  background: #020617 !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 8px rgba(15, 23, 42, 0.56),
+    0 0 14px rgba(255, 255, 255, 0.08) !important;
+}
+
+html body.game-body #global-chat-card .alliance-chat__log,
+html body.game-body #global-chat-card .server-chat-panel__feed {
+  scrollbar-color: rgba(15, 23, 42, 0.78) rgba(8, 47, 73, 0.28) !important;
+}
+
+html body.game-body #global-chat-card .alliance-chat__log::-webkit-scrollbar-track {
+  background: rgba(8, 47, 73, 0.34) !important;
+}
+
+html body.game-body #global-chat-card .alliance-chat__log::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.72)) !important;
+  border-color: rgba(8, 47, 73, 0.42) !important;
+  box-shadow: 0 0 10px rgba(15, 23, 42, 0.26) !important;
+}
+
+html body.game-body #global-chat-card .alliance-chat__item,
+html body.game-body #global-chat-card .server-chat-panel__message {
+  display: grid !important;
+  grid-template-columns: max-content minmax(0, 1fr) !important;
+  align-items: start !important;
+  column-gap: 5px !important;
+  border-color: rgba(224, 242, 254, 0.18) !important;
+  background:
+    linear-gradient(90deg, rgba(14, 165, 233, 0.12), transparent 48%),
+    rgba(3, 20, 34, 0.94) !important;
+  box-shadow:
+    inset 2px 0 0 rgba(186, 230, 253, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 8px 16px rgba(2, 6, 23, 0.22) !important;
+}
+
+html body.game-body #global-chat-card .server-chat-panel__author {
+  --chat-author-color: #020617;
+  display: inline !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: color-mix(in srgb, var(--chat-author-color) 64%, #f8fafc) !important;
+  box-shadow: none !important;
+  text-shadow: 0 0 10px color-mix(in srgb, var(--chat-author-color) 18%, transparent) !important;
+  grid-column: 1 !important;
+  font-size: 0.72rem !important;
+  line-height: 1.38 !important;
+  white-space: nowrap !important;
+}
+
+html body.game-body #global-chat-card .server-chat-panel__text {
+  display: block !important;
+  grid-column: 2 !important;
+  min-width: 0 !important;
+  color: rgba(240, 249, 255, 0.86) !important;
+  font-size: 0.74rem !important;
+  line-height: 1.38 !important;
+  overflow-wrap: anywhere !important;
+}
+
+html body.game-body #global-chat-card .alliance-chat__input,
+html body.game-body #global-chat-card .server-chat-panel__composer {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  border-color: rgba(224, 242, 254, 0.18) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent),
+    rgba(8, 47, 73, 0.48) !important;
+  box-shadow: inset 0 0 16px rgba(186, 230, 253, 0.055) !important;
+}
+
+html body.game-body #global-chat-card .server-chat-panel__composer-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+}
+
+html body.game-body #global-chat-card .server-chat-panel__composer-head .alliance-chat__title {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  min-height: 24px !important;
+  padding: 0 7px !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  font-size: 0.66rem !important;
+}
+
+html body.game-body #global-chat-card .server-chat-panel__composer-head .alliance-chat__title::after {
+  content: "" !important;
+  width: 5px !important;
+  height: 5px !important;
+  border-radius: 999px !important;
+  background: currentColor !important;
+  box-shadow: 0 0 10px currentColor !important;
+  animation: lobbyDot 1.2s infinite !important;
+}
+
+html body.game-body #global-chat-card .server-chat-panel__composer-head .alliance-chat__title::before {
+  content: none !important;
+  display: none !important;
+}
+
+html body.game-body #global-chat-card .server-chat-panel__composer-head .server-chat-panel__send {
+  flex: 0 0 auto !important;
+  margin-right: 8px !important;
+}
+
+@keyframes lobbyDot {
+  0%, 100% {
+    opacity: 0.42;
+    transform: scale(0.82);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+html body.game-body #global-chat-card .server-chat-panel__input {
+  border-color: rgba(224, 242, 254, 0.22) !important;
+  background: rgba(8, 47, 73, 0.58) !important;
+  color: rgba(240, 249, 255, 0.92) !important;
+}
+
+html body.game-body #global-chat-card .server-chat-panel__send {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    linear-gradient(135deg, rgba(2, 6, 13, 0.98), rgba(15, 23, 42, 0.96)) !important;
+  color: rgba(248, 250, 252, 0.94) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 14px rgba(255, 255, 255, 0.035),
+    0 8px 16px rgba(0, 0, 0, 0.24) !important;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.16) !important;
+}
+
+html body.game-body #global-chat-card .server-chat-panel__send:hover,
+html body.game-body #global-chat-card .server-chat-panel__send:focus-visible {
+  border-color: rgba(255, 255, 255, 0.34) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.11), transparent),
+    linear-gradient(135deg, rgba(3, 7, 18, 1), rgba(30, 41, 59, 0.98)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 0 16px rgba(255, 255, 255, 0.045),
+    0 10px 18px rgba(0, 0, 0, 0.28) !important;
+}
+
+html body.game-body #global-chat-card .server-chat-panel__send--arrow {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 30px !important;
+  min-width: 30px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  padding: 0 !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  border-color: rgba(103, 232, 249, 0.7) !important;
+  background:
+    radial-gradient(circle at 32% 18%, rgba(240, 249, 255, 0.22), transparent 34%),
+    linear-gradient(135deg, rgba(14, 165, 233, 0.3), rgba(8, 47, 73, 0.66) 52%, rgba(2, 6, 23, 0.98)) !important;
+  color: #67e8f9 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 0 18px rgba(34, 211, 238, 0.16),
+    0 0 14px rgba(34, 211, 238, 0.32),
+    0 0 26px rgba(14, 165, 233, 0.2),
+    0 8px 16px rgba(2, 6, 23, 0.34) !important;
+  font-size: 0 !important;
+  line-height: 1 !important;
+}
+
+html body.game-body #global-chat-card .server-chat-panel__send--arrow::before {
+  content: "" !important;
+  position: absolute !important;
+  left: 5px !important;
+  top: 50% !important;
+  width: 20px !important;
+  height: 12px !important;
+  border-radius: 999px !important;
+  background:
+    linear-gradient(90deg, transparent, rgba(103, 232, 249, 0.26), transparent),
+    radial-gradient(circle at 82% 50%, rgba(103, 232, 249, 0.32), transparent 46%) !important;
+  box-shadow:
+    0 0 10px rgba(103, 232, 249, 0.24),
+    0 0 18px rgba(34, 211, 238, 0.18) !important;
+  transform: translateY(-50%) !important;
+}
+
+html body.game-body #global-chat-card .server-chat-panel__send--arrow::after {
+  content: none !important;
+  display: none !important;
+}
+
+html body.game-body #global-chat-card .server-chat-panel__send--arrow span {
+  position: relative !important;
+  z-index: 1 !important;
+  display: block !important;
+  color: #a5f3fc !important;
+  font-size: 0.92rem !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  transform: translateY(-1px) !important;
+  text-shadow:
+    0 0 6px rgba(165, 243, 252, 0.95),
+    0 0 14px rgba(34, 211, 238, 0.7),
+    0 0 24px rgba(14, 165, 233, 0.44) !important;
+}
+
+html body.game-body #global-chat-card .server-chat-panel__send--arrow:hover,
+html body.game-body #global-chat-card .server-chat-panel__send--arrow:focus-visible {
+  border-color: rgba(186, 230, 253, 0.9) !important;
+  background:
+    radial-gradient(circle at 32% 18%, rgba(240, 249, 255, 0.28), transparent 34%),
+    linear-gradient(135deg, rgba(34, 211, 238, 0.38), rgba(14, 116, 144, 0.72) 52%, rgba(2, 6, 23, 1)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    inset 0 0 20px rgba(34, 211, 238, 0.22),
+    0 0 18px rgba(103, 232, 249, 0.42),
+    0 0 32px rgba(14, 165, 233, 0.26),
+    0 10px 18px rgba(2, 6, 23, 0.36) !important;
+}
+
+html body.game-body .building-action-status {
+  border-color: rgba(15, 23, 42, 0.62) !important;
+  background:
+    radial-gradient(circle at 14% 0%, rgba(255, 255, 255, 0.026), transparent 36%),
+    radial-gradient(circle at 100% 18%, rgba(250, 204, 21, 0.018), transparent 34%),
+    linear-gradient(145deg, rgba(0, 0, 0, 0.58), rgba(3, 5, 10, 0.42) 52%, rgba(0, 0, 0, 0.52)) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.012),
+    inset 0 0 28px rgba(0, 0, 0, 0.24),
+    0 14px 28px rgba(0, 0, 0, 0.22) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html body.game-body .building-action-status::before,
+html body.game-body .building-action-status::after {
+  opacity: 0.16 !important;
+}
+
+html body.game-body .building-action-status__summary,
+html body.game-body .building-action-status__meta,
+html body.game-body .building-action-status__empty,
+html body.game-body .building-action-status__feed {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
+    rgba(0, 0, 0, 0.72) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.012),
+    0 8px 16px rgba(0, 0, 0, 0.14) !important;
+}
+
+html body.game-body .building-action-status__item {
+  background:
+    linear-gradient(90deg, rgba(var(--street-news-action-rgb, 103, 232, 249), 0.08), transparent 48%),
+    rgba(3, 5, 10, 0.9) !important;
+}
+
+html body.game-body .building-action-status__feed::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.76) !important;
+}

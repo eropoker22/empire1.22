@@ -3676,8 +3676,8 @@ const {
   renderProductionBuildingInfo,
   renderProductionPanel
 } = createProductionBuildingPopupRuntime({
-  allowLegacyLocalProduction: false,
-  allowLegacyProductionUpgrade: false,
+  allowLegacyLocalProduction: true,
+  allowLegacyProductionUpgrade: true,
   ARMORY_POPUP_CLOSE_SELECTOR,
   ARMORY_POPUP_OPEN_SELECTOR,
   ARMORY_POPUP_SELECTOR,
@@ -7261,13 +7261,15 @@ async function confirmAndRunDistrictBuildingDetailAction(root, shell, request) {
   let disabledReason = resolved.definition.disabledReason
     || (cooldownRemaining > 0 ? `Cooldown ${formatDistrictBuildingCooldown(cooldownRemaining)}.` : "");
   if (!disabledReason && resolved.definition.handlerId === "server-run-building-action") {
-    const target = await resolveServerBuildingActionTarget(context, resolved.definition);
-    if (!target.ok) {
-      disabledReason = target.message;
-    } else {
-      const serverDisabledReason = formatServerBuildingActionDisabledReason(target.actionView);
-      if (!target.actionView.enabled || serverDisabledReason) {
-        disabledReason = serverDisabledReason || "Server akci teď nepovoluje.";
+    if (isServerAuthoritativeGameplayRuntimeReady()) {
+      const target = await resolveServerBuildingActionTarget(context, resolved.definition);
+      if (!target.ok) {
+        disabledReason = target.message;
+      } else {
+        const serverDisabledReason = formatServerBuildingActionDisabledReason(target.actionView);
+        if (!target.actionView.enabled || serverDisabledReason) {
+          disabledReason = serverDisabledReason || "Server akci teď nepovoluje.";
+        }
       }
     }
   }
@@ -7345,24 +7347,70 @@ async function runDistrictBuildingActionFromContext(root, context, request, opti
     : DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS;
 
   if (definition.handlerId === "server-run-building-action") {
-    const response = await submitServerBuildingActionCommand({
-      context,
-      actionProfile: actionProfile || {},
-      definition
-    });
-    if (!response?.accepted) {
-      const message = response?.errors?.map((error) => error?.message || error?.code).filter(Boolean).join(" · ")
-        || "Server akci odmítl.";
-      setBuildingActionFeedback(root, "warning", action, message, context.buildingName);
-      return false;
-    }
+    if (isServerAuthoritativeGameplayRuntimeReady()) {
+      const response = await submitServerBuildingActionCommand({
+        context,
+        actionProfile: actionProfile || {},
+        definition
+      });
+      if (!response?.accepted) {
+        const message = response?.errors?.map((error) => error?.message || error?.code).filter(Boolean).join(" · ")
+          || "Server akci odmítl.";
+        setBuildingActionFeedback(root, "warning", action, message, context.buildingName);
+        return false;
+      }
 
-    const reportSummary = response?.readModel?.reports?.[0]?.summary
-      || response?.readModel?.reports?.[0]?.description
-      || response?.readModel?.reports?.[0]?.title
-      || actionProfile?.summary
-      || definition.rewardSummary
-      || "Server akci přijal.";
+      const reportSummary = response?.readModel?.reports?.[0]?.summary
+        || response?.readModel?.reports?.[0]?.description
+        || response?.readModel?.reports?.[0]?.title
+        || actionProfile?.summary
+        || definition.rewardSummary
+        || "Server akci přijal.";
+      updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
+        ...entry,
+        actionCooldowns: {
+          ...(entry.actionCooldowns || {}),
+          [definition.actionId]: Date.now() + actionCooldownMs
+        }
+      }));
+      setBuildingActionFeedback(
+        root,
+        "success",
+        action,
+        reportSummary,
+        context.district?.id ? `${context.buildingName} · District ${context.district.id}` : context.buildingName
+      );
+      appendBuildingActionResultEntry(root, "police", {
+        title: `${context.buildingName}: ${action}`,
+        summary: reportSummary,
+        badge: context.district?.id ? `District ${context.district.id}` : "Server",
+        tone: "success",
+        items: [
+          { label: "Budova", value: context.displayName || context.buildingName },
+          { label: "Akce", value: action },
+          { label: "Handler", value: "Server" },
+          { label: "Cooldown", value: actionCooldownMs > 0 ? formatDistrictBuildingCooldown(actionCooldownMs) : "Ready" }
+        ],
+        meta: context.district?.id ? `District ${context.district.id}` : "",
+        actionId: definition.actionId,
+        buildingTypeId: definition.buildingTypeId
+      }, {
+        tone: "success",
+        title: `${context.buildingName}: ${action}`,
+        summary: reportSummary,
+        meta: context.district?.id ? `District ${context.district.id}` : "Server"
+      }, { syncPreview: true, forceLog: true, refresh: false });
+      if (options.shell) {
+        refreshDistrictBuildingDetailPopup(root, options.shell);
+      }
+      return true;
+    }
+  }
+
+  if (!hasLegacyBuildingSpecialActionHandler(actionProfile || {})) {
+    const fallbackSummary = definition.rewardSummary && definition.rewardSummary !== "Efekt podle akce"
+      ? definition.rewardSummary
+      : "Akce je v této fázi hry potvrzená lokálně. Finální serverový efekt se napojí v posledním kroku.";
     updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
       ...entry,
       actionCooldowns: {
@@ -7374,18 +7422,18 @@ async function runDistrictBuildingActionFromContext(root, context, request, opti
       root,
       "success",
       action,
-      reportSummary,
+      fallbackSummary,
       context.district?.id ? `${context.buildingName} · District ${context.district.id}` : context.buildingName
     );
     appendBuildingActionResultEntry(root, "police", {
       title: `${context.buildingName}: ${action}`,
-      summary: reportSummary,
-      badge: context.district?.id ? `District ${context.district.id}` : "Server",
+      summary: fallbackSummary,
+      badge: context.district?.id ? `District ${context.district.id}` : "Lokální fáze",
       tone: "success",
       items: [
         { label: "Budova", value: context.displayName || context.buildingName },
         { label: "Akce", value: action },
-        { label: "Handler", value: "Server" },
+        { label: "Režim", value: "Lokální preview" },
         { label: "Cooldown", value: actionCooldownMs > 0 ? formatDistrictBuildingCooldown(actionCooldownMs) : "Ready" }
       ],
       meta: context.district?.id ? `District ${context.district.id}` : "",
@@ -7394,22 +7442,17 @@ async function runDistrictBuildingActionFromContext(root, context, request, opti
     }, {
       tone: "success",
       title: `${context.buildingName}: ${action}`,
-      summary: reportSummary,
-      meta: context.district?.id ? `District ${context.district.id}` : "Server"
+      summary: fallbackSummary,
+      meta: context.district?.id ? `District ${context.district.id}` : "Lokální fáze"
     }, { syncPreview: true, forceLog: true, refresh: false });
     if (options.shell) {
       refreshDistrictBuildingDetailPopup(root, options.shell);
     }
-    return true;
-  }
-
-  if (!hasLegacyBuildingSpecialActionHandler(actionProfile || {})) {
-    setBuildingActionFeedback(root, "warning", action, definition.disabledReason || "Akce zatím není připravená.", context.buildingName);
-    console.warn("[Empire Streets] Blocked building action without legacy handler", {
+    console.info("[Empire Streets] Ran building action in local setup fallback", {
       actionId: definition.actionId,
       buildingName: context.buildingName
     });
-    return false;
+    return true;
   }
 
   if (actionProfile?.casinoVipNight) {
@@ -10587,8 +10630,10 @@ const {
   getCurrentPlayerDistrictSourceSnapshot,
   getCurrentPlayerLaunchStartDistrictId,
   getDisplayedResourceSnapshot,
+  getRegistrationAccentColor,
   getResolvedGangState,
   getStoredRegistration,
+  normalizeRuntimeHexColor,
   playerPopupFactionSelector: PLAYER_POPUP_FACTION_SELECTOR,
   playerPopupGangSelector: PLAYER_POPUP_GANG_SELECTOR,
   playerPopupIdentitySelector: PLAYER_POPUP_IDENTITY_SELECTOR,
@@ -10602,8 +10647,8 @@ const {
 const {
   bindFactoryPopup
 } = createFactoryPopupRuntime({
-  allowLegacyLocalProduction: false,
-  allowLegacyProductionUpgrade: false,
+  allowLegacyLocalProduction: true,
+  allowLegacyProductionUpgrade: true,
   FACTORY_CONFIG,
   FACTORY_SLOT_CONFIG,
   FACTORY_SLOT_STORAGE_CAP,
