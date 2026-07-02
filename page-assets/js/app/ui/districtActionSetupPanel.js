@@ -54,7 +54,7 @@ function renderSourceSelect(selectElement, sourceDistrictIds = []) {
     }
   }
 
-  if (safeSourceIds.length === 1) {
+  if (safeSourceIds.length === 1 || (safeSourceIds.length > 0 && selectElement.hasAttribute?.("data-auto-select-first-source"))) {
     selectElement.value = String(safeSourceIds[0]);
   }
 

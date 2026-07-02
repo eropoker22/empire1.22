@@ -24,6 +24,17 @@ class FakeElement {
     };
   }
 
+  hasAttribute(name) {
+    if (!name.startsWith("data-")) {
+      return false;
+    }
+
+    const datasetKey = name
+      .slice(5)
+      .replace(/-([a-z])/g, (_, character) => character.toUpperCase());
+    return Object.prototype.hasOwnProperty.call(this.dataset, datasetKey);
+  }
+
   append(child) {
     this.children.push(child);
     if (this.tagName === "SELECT" && !this.value && child.value !== undefined) {
@@ -142,6 +153,27 @@ describe("district action setup panel", () => {
     expect(scout.textContent).toBe("Bez scout reportu");
     expect(heat.textContent).toBe("+11");
     expect(riskDescription.textContent).toBe("Bez scout reportu je preview jen hrubý odhad.");
+  });
+
+  it("auto-selects the first robbery source when the source control is hidden from the layout", () => {
+    const sourceSelect = element("select", { autoSelectFirstSource: "" });
+
+    renderRobberySetupPanel(
+      createRobberySetupViewModel({
+        district: { id: 14 },
+        adjacentOwnedDistrictIds: [3, 8],
+        availableMembers: 12
+      }),
+      {
+        robberyTargetTitle: element(),
+        robberySourceSelect: sourceSelect,
+        robberyMemberInput: element("input")
+      }
+    );
+
+    expect(sourceSelect.children.map((child) => child.textContent)).toEqual(["Vyber district", "District 3", "District 8"]);
+    expect(sourceSelect.value).toBe("3");
+    expect(sourceSelect.disabled).toBe(false);
   });
 
   it("renders defense setup inventory and current loadout as presentation state", () => {

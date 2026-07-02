@@ -594,23 +594,18 @@
             <button type="button" class="button attack-setup-popup-close" data-robbery-setup-close>✕</button>
           </div>
           <div class="attack-setup-popup-body">
-            <p class="attack-setup-popup-row">Zdrojový district
+            <p class="attack-setup-popup-row" hidden aria-hidden="true">Zdrojový district
               <span>
-                <select class="attack-setup-popup-select" data-robbery-source-select aria-label="Vyber zdrojový district"></select>
+                <select class="attack-setup-popup-select" data-robbery-source-select data-auto-select-first-source aria-label="Vyber zdrojový district"></select>
               </span>
             </p>
             <p class="attack-setup-popup-row">Dostupní členové <span data-robbery-available-members>100</span></p>
             <p class="attack-setup-popup-row">Nasazení členové <span><span class="attack-setup-popup-stepper attack-setup-popup-stepper--inline"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="robbery-members" aria-label="Ubrat člena pro Vykrást district">−</button><input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-robbery-member-input aria-label="Počet členů gangu pro Vykrást district"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="robbery-members" aria-label="Přidat člena pro Vykrást district">+</button></span></span></p>
             <p class="attack-setup-popup-row">Typ zóny <span data-robbery-zone>---</span></p>
             <p class="attack-setup-popup-row">Doporučení <span data-robbery-recommendation>---</span></p>
-            <p class="attack-setup-popup-row">Risk <span data-robbery-risk-level>---</span></p>
             <p class="attack-setup-popup-row">Loot <span data-robbery-loot-preview>Nejistý</span></p>
-            <p class="attack-setup-popup-row">Past <span data-robbery-trap-preview>Neznámá</span></p>
-            <p class="attack-setup-popup-row">Scout <span data-robbery-scout-report>Bez scout reportu</span></p>
             <p class="attack-setup-popup-row">Odhad heat <span data-robbery-heat-estimate>---</span></p>
             <p class="attack-setup-popup-row">Stav <span data-robbery-status>Vyber členy gangu</span></p>
-            <p class="attack-setup-popup-copy" data-robbery-risk-description>Vyber počet členů pro odhad rizika.</p>
-            <p class="attack-setup-popup-copy">Tahle akce cílí jen na prázdné sousední districty. Neobsazuje území, pouze získává loot. Akce trvá 20 sekund a po návratu přinese report i případný loot materiálů.</p>
             <div class="attack-setup-popup-actions">
               <button type="button" class="button attack-setup-popup-confirm" data-robbery-confirm>Potvrdit Vykrást district</button>
             </div>
@@ -632,10 +627,8 @@
             <button class="button attack-setup-popup-close" id="raid-confirm-modal-close" type="button" aria-label="Zavřít" data-robbery-confirm-close>✕</button>
           </div>
           <div class="modal__body spy-confirm-modal__body district-action-confirm-popup-body">
-            <p class="attack-setup-popup-row">Zdroj <span><strong data-robbery-confirm-source>---</strong></span></p>
             <p class="attack-setup-popup-row">Nasazení členové <span><strong data-robbery-confirm-members>0</strong></span></p>
             <p class="attack-setup-popup-row">Trvání <span><strong data-robbery-confirm-duration>20s</strong></span></p>
-            <p class="muted spy-confirm-modal__note attack-setup-popup-copy" data-robbery-confirm-note>Vykrást district cílí jen na prázdný sousední district. Neobsazuje území, pouze získává loot z města.</p>
             <div class="modal__actions spy-confirm-modal__actions">
               <button class="btn btn--ghost modal__cancel-btn" id="raid-confirm-modal-cancel" type="button" data-robbery-confirm-close>Zrušit</button>
               <button class="btn btn--primary modal__confirm-btn" id="raid-confirm-modal-confirm" type="button" data-robbery-confirm-button>Potvrdit Vykrást district</button>
