@@ -332,6 +332,8 @@
   border-color: rgba(148, 163, 184, 0.26);
   background:
     linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.72));
+  color: #f8fafc;
+  text-shadow: 0 0 10px rgba(248, 250, 252, 0.16);
 }
 
 #spy-confirm-modal-confirm {

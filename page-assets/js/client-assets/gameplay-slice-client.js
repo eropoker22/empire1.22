@@ -862,45 +862,56 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const overlayStack = [];
   const LOCKED_BODY_DATA_ATTRIBUTE = "overlayScrollLocked";
+  const LOCKED_BODY_CLASS = "game-modal-scroll-locked";
   const DEFAULT_GHOST_CLICK_SUPPRESSION_MS = 250;
   let suppressMapInputUntil = 0;
-  let lockedPageScrollY = null;
+  let lockedPageScroll = null;
+  let lockedBodyStyles = null;
+  let lockedRootStyles = null;
   const getBody = () => {
     if (typeof document === "undefined") {
       return null;
     }
     return document.body;
   };
-  const getScrollY = () => {
-    if (typeof window === "undefined" || typeof document === "undefined") {
-      return 0;
-    }
-    return Math.max(
-      0,
-      Math.floor(window.scrollY || window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0)
-    );
+  const getModalScrollLock = () => {
+    var _a;
+    return typeof window !== "undefined" ? (_a = window.EmpireModalScrollLock) != null ? _a : null : null;
   };
-  const restorePageScroll = (scrollY) => {
+  const getScrollPosition = () => {
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return { x: 0, y: 0 };
+    }
+    return {
+      x: Math.max(0, Math.floor(window.scrollX || window.pageXOffset || document.documentElement.scrollLeft || document.body.scrollLeft || 0)),
+      y: Math.max(0, Math.floor(window.scrollY || window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0))
+    };
+  };
+  const restorePageScroll = (scrollPosition) => {
     if (typeof window === "undefined" || typeof document === "undefined") {
       return;
     }
+    const scrollX = Math.max(0, Math.floor((scrollPosition == null ? void 0 : scrollPosition.x) || 0));
+    const scrollY = Math.max(0, Math.floor((scrollPosition == null ? void 0 : scrollPosition.y) || 0));
+    document.documentElement.scrollLeft = scrollX;
     document.documentElement.scrollTop = scrollY;
+    document.body.scrollLeft = scrollX;
     document.body.scrollTop = scrollY;
     try {
-      window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
+      window.scrollTo({ top: scrollY, left: scrollX, behavior: "auto" });
     } catch {
-      window.scrollTo(0, scrollY);
+      window.scrollTo(scrollX, scrollY);
     }
-    if (Math.abs(getScrollY() - scrollY) > 1) {
+    if (Math.abs(getScrollPosition().y - scrollY) > 1) {
       try {
-        window.scrollTo(0, scrollY);
+        window.scrollTo(scrollX, scrollY);
       } catch {
         // Older embedded browsers can reject scrollTo while layout is settling.
       }
     }
   };
-  const schedulePageScrollRestore = (scrollY) => {
-    const restore = () => restorePageScroll(scrollY);
+  const schedulePageScrollRestore = (scrollPosition) => {
+    const restore = () => restorePageScroll(scrollPosition);
     restore();
     window.requestAnimationFrame?.(restore);
     window.setTimeout?.(restore, 80);
@@ -913,8 +924,47 @@ var EmpireGameplaySliceClient = function(exports) {
     if (body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] === "true") {
       return;
     }
-    const scrollY = getScrollY();
-    lockedPageScrollY = scrollY;
+    const modalScrollLock = getModalScrollLock();
+    if (modalScrollLock?.lock?.(document)) {
+      body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "true";
+      return;
+    }
+    const root = document.documentElement;
+    const scrollPosition = getScrollPosition();
+    const bodyComputed = window.getComputedStyle?.(body);
+    const scrollbarWidth = Math.max(0, Math.floor((window.innerWidth || root.clientWidth || 0) - (root.clientWidth || 0)));
+    const currentPaddingRight = Number.parseFloat((bodyComputed == null ? void 0 : bodyComputed.paddingRight) || "0") || 0;
+    lockedPageScroll = scrollPosition;
+    lockedBodyStyles = {
+      left: body.style.left,
+      overflow: body.style.overflow,
+      overscrollBehavior: body.style.overscrollBehavior,
+      paddingRight: body.style.paddingRight,
+      position: body.style.position,
+      right: body.style.right,
+      top: body.style.top,
+      width: body.style.width
+    };
+    lockedRootStyles = {
+      overflow: root.style.overflow,
+      overscrollBehavior: root.style.overscrollBehavior,
+      scrollbarGutter: root.style.scrollbarGutter
+    };
+    root.classList.add(LOCKED_BODY_CLASS);
+    body.classList.add(LOCKED_BODY_CLASS);
+    root.style.overflow = "hidden";
+    root.style.overscrollBehavior = "none";
+    root.style.scrollbarGutter = "stable";
+    body.style.position = "fixed";
+    body.style.top = `-${scrollPosition.y}px`;
+    body.style.left = `-${scrollPosition.x}px`;
+    body.style.right = "0";
+    body.style.width = "100%";
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "none";
+    if (scrollbarWidth > 0) {
+      body.style.paddingRight = `${currentPaddingRight + scrollbarWidth}px`;
+    }
     body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "true";
   };
   const unlockBodyScroll = () => {
@@ -925,11 +975,28 @@ var EmpireGameplaySliceClient = function(exports) {
     if (body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] !== "true") {
       return;
     }
-    const scrollY = lockedPageScrollY ?? getScrollY();
+    const modalScrollLock = getModalScrollLock();
+    if (modalScrollLock?.unlock?.(document)) {
+      body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "";
+      delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
+      return;
+    }
+    const root = document.documentElement;
+    const scrollPosition = lockedPageScroll ?? getScrollPosition();
+    if (lockedRootStyles) {
+      Object.assign(root.style, lockedRootStyles);
+    }
+    if (lockedBodyStyles) {
+      Object.assign(body.style, lockedBodyStyles);
+    }
+    root.classList.remove(LOCKED_BODY_CLASS);
+    body.classList.remove(LOCKED_BODY_CLASS);
     body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "";
     delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
-    lockedPageScrollY = null;
-    schedulePageScrollRestore(scrollY);
+    lockedPageScroll = null;
+    lockedBodyStyles = null;
+    lockedRootStyles = null;
+    schedulePageScrollRestore(scrollPosition);
   };
   const now = () => {
     var _a;

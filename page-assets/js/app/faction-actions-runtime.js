@@ -1,5 +1,6 @@
 import { STORAGE_KEYS } from "../config.js";
 import { FACTION_CATALOG } from "../../../packages/game-config/src/legacy-page/faction-config.js";
+import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
 
 const PAGE_SELECTOR = "[data-client-surface='game-shell']";
 const DEFAULT_FACTION_ID = "mafian";
@@ -105,10 +106,16 @@ function initFactionActionsRuntime() {
     if (status) {
       status.textContent = `${playerAction.name}: pasivní frakční efekty jsou aktivní.`;
     }
+    modal.hidden = false;
     modal.classList.remove("hidden");
+    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
   };
 
-  const close = () => modal.classList.add("hidden");
+  const close = () => {
+    closeOverlay(modal, { restoreFocus: false });
+    modal.classList.add("hidden");
+    modal.hidden = true;
+  };
 
   openButtons.forEach((button) => button.addEventListener("click", open));
   backdrop?.addEventListener("click", close);

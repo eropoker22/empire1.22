@@ -2218,7 +2218,8 @@
 
 .building-upgrade-confirm__button--ghost {
   background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 237, 213, 0.88);
+  color: #f8fafc;
+  text-shadow: 0 0 10px rgba(248, 250, 252, 0.14);
 }
 
 .building-upgrade-confirm__button--confirm {
@@ -2399,6 +2400,11 @@
   border-color: rgba(251, 146, 60, 0.72);
   background: linear-gradient(135deg, rgba(251, 146, 60, 0.95), rgba(249, 115, 22, 0.8));
   color: #1f1205;
+}
+
+.building-special-action-confirm__button--ghost {
+  color: #f8fafc;
+  text-shadow: 0 0 10px rgba(248, 250, 252, 0.14);
 }
 
 .building-special-action-confirm__button:hover:not(:disabled),

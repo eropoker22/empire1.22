@@ -7,6 +7,7 @@ import {
   setBuildingActionFeedback,
   usePharmacyBoost
 } from "./runtime.js";
+import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
 
 const PAGE_SELECTOR = 'main[data-page="game"]';
 
@@ -133,11 +134,15 @@ function initBoostRuntime() {
   const open = () => {
     render();
     setTab("actions");
+    modal.hidden = false;
     modal.classList.remove("hidden");
+    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
   };
 
   const close = () => {
+    closeOverlay(modal, { restoreFocus: false });
     modal.classList.add("hidden");
+    modal.hidden = true;
   };
 
   openButtons.forEach((button) => {

@@ -1,3 +1,5 @@
+import { closeOverlay, openOverlay } from "./legacyOverlayCoordinator.js";
+
 export function formatMarketPrice(value) {
   return `${Math.max(0, Math.floor(Number(value) || 0)).toLocaleString("cs-CZ")}$`;
 }
@@ -586,6 +588,7 @@ export function openMarketPanel(popup) {
   }
 
   popup.hidden = false;
+  openOverlay(popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
   return true;
 }
 
@@ -594,6 +597,7 @@ export function closeMarketPanel(popup) {
     return false;
   }
 
+  closeOverlay(popup, { restoreFocus: false });
   popup.hidden = true;
   return true;
 }

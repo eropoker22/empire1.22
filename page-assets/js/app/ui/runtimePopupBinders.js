@@ -1,3 +1,34 @@
+import { closeOverlay, openOverlay } from "./legacyOverlayCoordinator.js";
+
+function isHtmlElement(element) {
+  const view = element?.ownerDocument?.defaultView || (typeof window !== "undefined" ? window : null);
+  return Boolean(view?.HTMLElement && element instanceof view.HTMLElement);
+}
+
+function showOverlay(element, options = {}) {
+  if (!isHtmlElement(element)) {
+    return false;
+  }
+  element.hidden = false;
+  element.classList.remove("hidden");
+  openOverlay(element, {
+    type: "modal",
+    ariaModal: true,
+    ...options
+  });
+  return true;
+}
+
+function hideOverlay(element, options = {}) {
+  if (!isHtmlElement(element)) {
+    return false;
+  }
+  closeOverlay(element, options);
+  element.classList.add("hidden");
+  element.hidden = true;
+  return true;
+}
+
 export function createRuntimePopupBinders(deps = {}) {
   const {
     NAV_SETTINGS_SELECTOR = '',
@@ -202,14 +233,14 @@ function bindSettingsModal(root) {
       applySettingsState(settingsSnapshot);
     }
     settingsSnapshot = null;
-    modal.classList.add("hidden");
+    hideOverlay(modal);
     syncMobileSettingsBackdropState(false);
   };
 
   const openModal = () => {
     settingsSnapshot = getSettingsState();
     applySettingsToForm(settingsSnapshot);
-    modal.classList.remove("hidden");
+    showOverlay(modal, { restoreFocusOnClose: false });
     syncMobileSettingsBackdropState(true);
     applyOpaqueMobileSettingsStyles();
   };
@@ -217,7 +248,7 @@ function bindSettingsModal(root) {
   const saveSettings = () => {
     applySettingsState(captureFormSettings());
     settingsSnapshot = null;
-    modal.classList.add("hidden");
+    hideOverlay(modal);
     syncMobileSettingsBackdropState(false);
   };
 
@@ -323,11 +354,11 @@ function bindPlayerProfilePopup(root) {
 
   const openPopup = () => {
     syncPlayerProfileResources();
-    popup.hidden = false;
+    showOverlay(popup, { focusTarget: popupCard, restoreFocusOnClose: false });
   };
 
   const closePopup = () => {
-    popup.hidden = true;
+    hideOverlay(popup, { restoreFocus: false });
   };
 
   openButton.addEventListener("click", openPopup);
@@ -365,11 +396,11 @@ function bindAlliancePopup(root) {
   }
 
   const openPopup = () => {
-    popup.hidden = false;
+    showOverlay(popup, { restoreFocusOnClose: false });
   };
 
   const closePopup = () => {
-    popup.hidden = true;
+    hideOverlay(popup, { restoreFocus: false });
   };
 
   openButton.addEventListener("click", openPopup);
@@ -410,11 +441,11 @@ function bindStoragePopup(root) {
 
   const openPopup = () => {
     renderStorageInventory();
-    popup.hidden = false;
+    showOverlay(popup, { focusTarget: popupCard, restoreFocusOnClose: false });
   };
 
   const closePopup = () => {
-    popup.hidden = true;
+    hideOverlay(popup, { restoreFocus: false });
   };
 
   openButton.addEventListener("click", openPopup);

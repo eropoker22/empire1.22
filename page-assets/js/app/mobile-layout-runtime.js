@@ -1,3 +1,5 @@
+import { isModalScrollLocked } from "./ui/modalScrollLock.js";
+
 const MOBILE_MEDIA = "(max-width: 720px)";
 const MOBILE_TOPBAR_GAP = 4;
 const MOBILE_OVERLAY_SELECTOR = [
@@ -271,65 +273,6 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
   const media = windowObj.matchMedia(MOBILE_MEDIA);
   const root = documentObj.documentElement;
   let frameId = null;
-  let lockedScrollY = null;
-
-  const getScrollY = () => Math.max(
-    0,
-    Math.floor(windowObj.scrollY || windowObj.pageYOffset || root.scrollTop || documentObj.body.scrollTop || 0)
-  );
-  let lastKnownScrollY = getScrollY();
-
-  const restorePageScroll = (nextScrollY) => {
-    root.scrollTop = nextScrollY;
-    documentObj.body.scrollTop = nextScrollY;
-    if (typeof windowObj.scrollTo !== "function") {
-      return;
-    }
-    try {
-      windowObj.scrollTo({ top: nextScrollY, left: 0, behavior: "instant" });
-    } catch {
-      windowObj.scrollTo(0, nextScrollY);
-    }
-    if (Math.abs(getScrollY() - nextScrollY) > 1) {
-      try {
-        windowObj.scrollTo(0, nextScrollY);
-      } catch {
-        // Older embedded browsers can reject scrollTo while layout is settling.
-      }
-    }
-  };
-
-  const lockPageScroll = () => {
-    if (lockedScrollY !== null) {
-      return;
-    }
-
-    const currentScrollY = getScrollY();
-    lockedScrollY = currentScrollY > 0 || lastKnownScrollY <= 0 ? currentScrollY : lastKnownScrollY;
-    lastKnownScrollY = lockedScrollY;
-  };
-
-  const unlockPageScroll = () => {
-    if (lockedScrollY === null) {
-      return;
-    }
-
-    const nextScrollY = lockedScrollY;
-    lockedScrollY = null;
-    lastKnownScrollY = nextScrollY;
-    const restoreScrollPosition = () => {
-      restorePageScroll(nextScrollY);
-    };
-    restoreScrollPosition();
-    windowObj.requestAnimationFrame(restoreScrollPosition);
-    windowObj.setTimeout(restoreScrollPosition, 80);
-  };
-
-  const rememberScrollY = () => {
-    if (lockedScrollY === null) {
-      lastKnownScrollY = getScrollY();
-    }
-  };
 
   const isOpenOverlay = (element) => {
     if (!(element instanceof windowObj.HTMLElement)) {
@@ -345,20 +288,19 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
   const applyLock = () => {
     frameId = null;
     if (!media.matches) {
-      unlockPageScroll();
-      root.classList.remove("game-modal-scroll-locked");
-      documentObj.body.classList.remove("game-modal-scroll-locked");
+      if (!isModalScrollLocked(documentObj)) {
+        root.classList.remove("game-modal-scroll-locked");
+        documentObj.body.classList.remove("game-modal-scroll-locked");
+      }
       return;
     }
 
     const openOverlays = Array.from(documentObj.querySelectorAll(MOBILE_OVERLAY_SELECTOR)).filter(isOpenOverlay);
     const hasOpenOverlay = openOverlays.length > 0;
-    const shouldFreezeBody = hasOpenOverlay;
-
-    if (shouldFreezeBody) {
-      lockPageScroll();
-    } else {
-      unlockPageScroll();
+    if (isModalScrollLocked(documentObj)) {
+      root.classList.add("game-modal-scroll-locked");
+      documentObj.body.classList.add("game-modal-scroll-locked");
+      return;
     }
 
     root.classList.toggle("game-modal-scroll-locked", hasOpenOverlay);
@@ -396,7 +338,6 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
       attributeFilter: ["class", "hidden", "style", "aria-hidden"]
     });
   }
-  windowObj.addEventListener("scroll", rememberScrollY, { passive: true });
   windowObj.addEventListener("resize", requestApply);
   if (typeof media.addEventListener === "function") {
     media.addEventListener("change", requestApply);

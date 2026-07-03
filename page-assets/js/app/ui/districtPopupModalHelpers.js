@@ -6,23 +6,37 @@ import {
 } from "../runtime/constants.js";
 import {
   bindEscapeKeyHandlers,
-  hideElement,
-  hideElements,
   isClassModalVisible,
-  isElementVisible,
-  showElementAsOverlay
+  isElementVisible
 } from "./modalHelpers.js";
+import {
+  closeOverlay,
+  openOverlay
+} from "./legacyOverlayCoordinator.js";
 
 export function showDistrictPopupModal(element) {
-  return showElementAsOverlay(element, {
+  if (!element) {
+    return false;
+  }
+
+  openOverlay(element, {
     type: element?.matches?.("[data-district-popup]") ? "mobile-sheet" : "modal",
     ariaModal: true,
-    restoreFocusOnClose: false
+    restoreFocusOnClose: false,
+    skipFocus: true
   });
+  element.hidden = false;
+  return true;
 }
 
 export function hideDistrictPopupModal(element) {
-  return hideElement(element, { restoreFocus: false });
+  if (!element) {
+    return false;
+  }
+
+  element.hidden = true;
+  closeOverlay(element, { restoreFocus: false });
+  return true;
 }
 
 export function hideDistrictPopupModalStack(options = {}) {
@@ -45,11 +59,15 @@ export function hideDistrictPopupModalStack(options = {}) {
       ];
 
   popupAtmosphereHero?.setAttribute?.("aria-expanded", "false");
-  return hideElements([
+  let changed = false;
+  for (const element of [
     popup,
     popupAtmosphereWindow,
     ...modals
-  ], { restoreFocus: false });
+  ]) {
+    changed = hideDistrictPopupModal(element) || changed;
+  }
+  return changed;
 }
 
 export function hasVisibleDistrictPopupModal(elements = []) {

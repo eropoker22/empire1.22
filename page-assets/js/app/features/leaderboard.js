@@ -1,5 +1,6 @@
 import { getAuthoritySession } from "../model/authority-state.js";
 import { STORAGE_KEYS } from "../../config.js";
+import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
 
 const LEADERBOARD_POPUP_OPEN_SELECTOR = "[data-leaderboard-popup-open]";
 const LEADERBOARD_POPUP_SELECTOR = "[data-leaderboard-popup]";
@@ -25,6 +26,18 @@ const LEADERBOARD_COUNT_SELECTOR = "[data-leaderboard-count]";
 const SELECTED_SERVER_STORAGE_KEY = STORAGE_KEYS.selectedServer;
 const PLAYER_STATE_STORAGE_KEY = "empirestreets.playerState";
 const DEFAULT_SERVER_ID = "war-eu-01";
+
+function focusWithoutScroll(element) {
+  if (!(element instanceof HTMLElement) || typeof element.focus !== "function") {
+    return false;
+  }
+  try {
+    element.focus({ preventScroll: true });
+  } catch {
+    element.focus();
+  }
+  return true;
+}
 
 const SERVER_LABELS = Object.freeze({
   "war-eu-01": { label: "WAR-01", mode: "war" },
@@ -1330,7 +1343,7 @@ function openPlayerDetail(playerId) {
   renderLeaderboard();
   renderPlayerDetail(playerId);
   leaderboardContext.playerDetailShell.hidden = false;
-  window.setTimeout(() => leaderboardContext.playerDetailCard?.focus(), 0);
+  window.setTimeout(() => focusWithoutScroll(leaderboardContext.playerDetailCard), 0);
 }
 
 function closePlayerDetail() {
@@ -1364,11 +1377,6 @@ export function showLeaderboardToast(message = "Funkce bude napojena později.",
   }, 2600);
 }
 
-function setScrollLock(locked) {
-  document.documentElement.classList.toggle("game-modal-scroll-locked", locked);
-  document.body?.classList.toggle("game-modal-scroll-locked", locked);
-}
-
 export function openLeaderboard() {
   const popup = leaderboardContext.popup;
   if (!popup) {
@@ -1384,8 +1392,13 @@ export function openLeaderboard() {
 
   renderLeaderboard();
   popup.hidden = false;
-  setScrollLock(true);
-  window.setTimeout(() => leaderboardContext.card?.focus(), 0);
+  openOverlay(popup, {
+    type: "modal",
+    ariaModal: true,
+    focusTarget: leaderboardContext.card,
+    restoreFocusOnClose: false
+  });
+  window.setTimeout(() => focusWithoutScroll(leaderboardContext.card), 0);
 }
 
 export function closeLeaderboard() {
@@ -1395,9 +1408,9 @@ export function closeLeaderboard() {
   }
 
   closePlayerDetail();
+  closeOverlay(popup, { restoreFocus: false });
   popup.hidden = true;
-  setScrollLock(false);
-  leaderboardContext.previousActiveElement?.focus?.();
+  focusWithoutScroll(leaderboardContext.previousActiveElement);
 }
 
 function handleListClick(event) {

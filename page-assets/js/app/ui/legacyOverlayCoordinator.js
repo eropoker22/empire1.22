@@ -1,3 +1,5 @@
+import { lockModalScroll, unlockModalScroll } from "./modalScrollLock.js";
+
 const DEFAULT_GHOST_CLICK_SUPPRESSION_MS = 450;
 const FOCUSABLE_SELECTOR = [
   "button:not([disabled])",
@@ -10,9 +12,6 @@ const FOCUSABLE_SELECTOR = [
 
 const overlayStack = [];
 let suppressMapInputUntil = 0;
-const LOCKED_BODY_DATA_ATTRIBUTE = "legacyOverlayScrollLocked";
-const LOCKED_BODY_CLASS = "game-modal-scroll-locked";
-let lockedPageScrollY = null;
 
 function getElementView(element) {
   return element?.ownerDocument?.defaultView || (typeof window !== "undefined" ? window : null);
@@ -35,80 +34,12 @@ function now() {
   return Date.now();
 }
 
-function getBody(element) {
-  return element?.ownerDocument?.body || (typeof document !== "undefined" ? document.body : null);
-}
-
-function getScrollY(view, body) {
-  const root = body?.ownerDocument?.documentElement || null;
-  return Math.max(
-    0,
-    Math.floor(view?.scrollY || view?.pageYOffset || root?.scrollTop || body?.scrollTop || 0)
-  );
-}
-
-function restorePageScroll(view, body, scrollY) {
-  const root = body?.ownerDocument?.documentElement || null;
-  if (root) {
-    root.scrollTop = scrollY;
-  }
-  if (body) {
-    body.scrollTop = scrollY;
-  }
-  if (typeof view?.scrollTo !== "function") {
-    return;
-  }
-  try {
-    view.scrollTo({ top: scrollY, left: 0, behavior: "instant" });
-  } catch {
-    view.scrollTo(0, scrollY);
-  }
-  if (Math.abs(getScrollY(view, body) - scrollY) > 1) {
-    try {
-      view.scrollTo(0, scrollY);
-    } catch {
-      // Older embedded browsers can reject scrollTo while layout is settling.
-    }
-  }
-}
-
-function schedulePageScrollRestore(view, body, scrollY) {
-  const restore = () => restorePageScroll(view, body, scrollY);
-  restore();
-  view?.requestAnimationFrame?.(restore);
-  view?.setTimeout?.(restore, 80);
-}
-
 function lockBodyScroll(element) {
-  const body = getBody(element);
-  const html = body?.ownerDocument?.documentElement || null;
-  const view = body?.ownerDocument?.defaultView || (typeof window !== "undefined" ? window : null);
-  if (!body || !view || body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] === "true") {
-    return;
-  }
-
-  const scrollY = getScrollY(view, body);
-  lockedPageScrollY = scrollY;
-  body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "true";
-  html?.classList?.add(LOCKED_BODY_CLASS);
-  body.classList.add(LOCKED_BODY_CLASS);
+  lockModalScroll(element?.ownerDocument || undefined);
 }
 
 function unlockBodyScroll(element) {
-  const body = getBody(element);
-  const html = body?.ownerDocument?.documentElement || null;
-  const view = body?.ownerDocument?.defaultView || (typeof window !== "undefined" ? window : null);
-  if (!body || !view || body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] !== "true") {
-    return;
-  }
-
-  const fallbackScrollY = getScrollY(view, body);
-  const restoreScrollY = lockedPageScrollY ?? fallbackScrollY;
-  html?.classList?.remove(LOCKED_BODY_CLASS);
-  body.classList.remove(LOCKED_BODY_CLASS);
-  delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
-  lockedPageScrollY = null;
-  schedulePageScrollRestore(view, body, restoreScrollY);
+  unlockModalScroll(element?.ownerDocument || undefined);
 }
 
 function isElementVisible(element) {
@@ -206,17 +137,11 @@ export function openOverlay(element, options = {}) {
     return false;
   }
 
-  closeOverlay(element, { restoreFocus: false, suppressMapInput: false });
+  pruneClosedOverlays();
 
   const restoreFocusTo = isHtmlElement(options.restoreFocusTo)
     ? options.restoreFocusTo
     : element.ownerDocument?.activeElement;
-  const entry = {
-    element,
-    type: options.type || "modal",
-    restoreFocusTo: isHtmlElement(restoreFocusTo) ? restoreFocusTo : null,
-    restoreFocusOnClose: options.restoreFocusOnClose !== false
-  };
 
   element.setAttribute("role", options.role || "dialog");
   element.setAttribute("aria-modal", options.ariaModal === false ? "false" : "true");
@@ -225,13 +150,37 @@ export function openOverlay(element, options = {}) {
     element.setAttribute("tabindex", "-1");
   }
 
+  const existingIndex = overlayStack.findLastIndex((entry) => entry.element === element);
+  if (existingIndex >= 0) {
+    const [existingEntry] = overlayStack.splice(existingIndex, 1);
+    existingEntry.type = options.type || existingEntry.type || "modal";
+    if (Object.prototype.hasOwnProperty.call(options, "restoreFocusOnClose")) {
+      existingEntry.restoreFocusOnClose = options.restoreFocusOnClose !== false;
+    }
+    overlayStack.push(existingEntry);
+    if (options.skipFocus !== true) {
+      const focusTarget = resolveFocusTarget(element, options.focusTarget);
+      safeFocus(focusTarget);
+    }
+    return true;
+  }
+
+  const entry = {
+    element,
+    type: options.type || "modal",
+    restoreFocusTo: isHtmlElement(restoreFocusTo) ? restoreFocusTo : null,
+    restoreFocusOnClose: options.restoreFocusOnClose !== false
+  };
+
   if (overlayStack.length === 0) {
     lockBodyScroll(element);
   }
   overlayStack.push(entry);
 
-  const focusTarget = resolveFocusTarget(element, options.focusTarget);
-  safeFocus(focusTarget);
+  if (options.skipFocus !== true) {
+    const focusTarget = resolveFocusTarget(element, options.focusTarget);
+    safeFocus(focusTarget);
+  }
   return true;
 }
 
@@ -241,6 +190,7 @@ export function closeOverlay(element, options = {}) {
   }
 
   const index = overlayStack.findLastIndex((entry) => entry.element === element);
+  const hadEntry = index >= 0;
   const [entry] = index >= 0 ? overlayStack.splice(index, 1) : [null];
   element.setAttribute("aria-hidden", "true");
 
@@ -259,11 +209,11 @@ export function closeOverlay(element, options = {}) {
     safeFocus(focusTarget);
   }
 
-  if (overlayStack.length === 0) {
+  if (hadEntry && overlayStack.length === 0) {
     unlockBodyScroll(element);
   }
 
-  return true;
+  return hadEntry;
 }
 
 export function closeTopOverlay(options = {}) {

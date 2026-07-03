@@ -3,6 +3,7 @@ import {
   createMockEliminationAiPanelViewModel,
   createMockEliminationPurgePanelViewModel
 } from "./eliminationPurgePanelViewModel.js";
+import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
 
 export {
   createMockEliminationAiPanelViewModel,
@@ -32,6 +33,18 @@ let sharedLastEliminationResult = null;
 
 const htmlEscapeMap = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" };
 const safeDataImageUrlPattern = /^data:image\/(?:gif|png|jpeg|jpg|webp);base64,[a-z0-9+/=\s]+$/iu;
+
+function focusWithoutScroll(element) {
+  if (!(element instanceof HTMLElement) || typeof element.focus !== "function") {
+    return false;
+  }
+  try {
+    element.focus({ preventScroll: true });
+  } catch {
+    element.focus();
+  }
+  return true;
+}
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => htmlEscapeMap[character] ?? character);
@@ -570,12 +583,13 @@ export function bindEliminationPurgePanel(root, deps = {}) {
   };
 
   const close = () => {
+    documentRef?.body?.classList?.remove?.("elimination-ai-panel-open");
+    closeOverlay(panel, { restoreFocus: false });
     panel.hidden = true;
     panel.classList?.remove?.("is-open");
-    documentRef?.body?.classList?.remove?.("elimination-ai-panel-open");
     documentRef?.removeEventListener?.("keydown", handleKeydown);
     stopLiveCountdown();
-    lastTrigger?.focus?.();
+    focusWithoutScroll(lastTrigger);
   };
 
   const open = (trigger = null) => {
@@ -584,10 +598,11 @@ export function bindEliminationPurgePanel(root, deps = {}) {
     render();
     panel.hidden = false;
     panel.classList?.add?.("is-open");
+    openOverlay(panel, { type: "modal", ariaModal: true, focusTarget: card, restoreFocusOnClose: false });
     documentRef?.body?.classList?.add?.("elimination-ai-panel-open");
     documentRef?.addEventListener?.("keydown", handleKeydown);
     startLiveCountdown();
-    card?.focus?.();
+    focusWithoutScroll(card);
   };
 
   const showResult = (result = {}, trigger = null) => {
@@ -675,12 +690,13 @@ export function bindEliminationResultPopup(root, deps = {}) {
   };
 
   const close = () => {
+    documentRef?.body?.classList?.remove?.("elimination-result-popup-open");
+    closeOverlay(popup, { restoreFocus: false });
     popup.hidden = true;
     popup.classList?.remove?.("is-open");
     card?.classList?.remove?.("is-avatar-expanded");
-    documentRef?.body?.classList?.remove?.("elimination-result-popup-open");
     documentRef?.removeEventListener?.("keydown", handleKeydown);
-    lastTrigger?.focus?.();
+    focusWithoutScroll(lastTrigger);
     deps.onClose?.();
   };
 
@@ -689,9 +705,10 @@ export function bindEliminationResultPopup(root, deps = {}) {
     render(result);
     popup.hidden = false;
     popup.classList?.add?.("is-open");
+    openOverlay(popup, { type: "modal", ariaModal: true, focusTarget: card, restoreFocusOnClose: false });
     documentRef?.body?.classList?.add?.("elimination-result-popup-open");
     documentRef?.addEventListener?.("keydown", handleKeydown);
-    card?.focus?.();
+    focusWithoutScroll(card);
     return true;
   };
 

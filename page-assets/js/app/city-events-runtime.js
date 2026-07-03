@@ -1,6 +1,7 @@
 import { updateStoredPreviewSession } from "./model/authority-state.js";
 import { appendBuildingActionResultEntry, applyTopbarEconomy, renderSpyResourceState } from "./runtime.js";
 import { leonSwitchVargaEvents, nyraValeEvents, victorGraveEvents } from "../data/events.js";
+import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
 
 const CITY_EVENTS_STORAGE_KEY = "empireStreets.cityEvents.v1";
 const CHARACTER_EVENTS_REFRESH_SECONDS = 30;
@@ -577,7 +578,9 @@ function initCityEventsRuntime() {
   };
 
   const closeEventDetailModal = () => {
+    closeOverlay(detailModal, { restoreFocus: false });
     detailModal.classList.add("hidden");
+    detailModal.hidden = true;
     selectedEventTask = null;
   };
 
@@ -610,7 +613,9 @@ function initCityEventsRuntime() {
         ? `Počkej ${activeRun.remainingSec}s`
         : "Začít";
     }
+    detailModal.hidden = false;
     detailModal.classList.remove("hidden");
+    openOverlay(detailModal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
   };
 
   const renderTasks = (agentKey) => {
@@ -671,12 +676,19 @@ function initCityEventsRuntime() {
     if (agentQuote) agentQuote.textContent = "";
     tasklist.innerHTML = "";
     modal.classList.add("events-modal--compact");
+    modal.hidden = false;
     modal.classList.remove("hidden");
+    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     document.dispatchEvent(new CustomEvent("empire:city-events-opened", { detail: { open: true } }));
   };
 
   const closeModal = () => {
+    if (selectedEventTask) {
+      closeEventDetailModal();
+    }
+    closeOverlay(modal, { restoreFocus: false });
     modal.classList.add("hidden");
+    modal.hidden = true;
     modal.classList.add("events-modal--compact");
   };
 

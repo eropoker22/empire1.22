@@ -4650,11 +4650,20 @@ body.game-body--booting .game-logo-slot {
 }
 
 @media (max-width: 720px) {
-  html.game-modal-scroll-locked,
-  body.game-modal-scroll-locked {
+  html.game-modal-scroll-locked {
     height: 100%;
     overflow: hidden !important;
     overscroll-behavior: none;
+  }
+
+  body.game-modal-scroll-locked {
+    overflow: hidden !important;
+    overscroll-behavior: none;
+  }
+
+  body.game-body.game-modal-scroll-locked {
+    height: auto;
+    min-height: var(--game-mobile-bg-height, 100svh);
   }
 
   body.game-modal-scroll-locked .modal__content,

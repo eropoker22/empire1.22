@@ -1,4 +1,5 @@
 import { submitServerBountyCommand } from "./runtime.js";
+import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
 
 const PAGE_SELECTOR = 'main[data-page="game"]';
 const BOUNTY_STORAGE_KEY = "empireStreets.bounty.v1";
@@ -789,14 +790,21 @@ function initBountyRuntime() {
   };
 
   const openModal = () => {
+    modal.hidden = false;
     modal.classList.remove("hidden");
+    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     uiState.isOpen = true;
     syncTabs();
     refreshView();
   };
 
   const closeModal = () => {
+    if (uiState.isConfirmOpen) {
+      closeConfirmModal();
+    }
+    closeOverlay(modal, { restoreFocus: false });
     modal.classList.add("hidden");
+    modal.hidden = true;
     uiState.isOpen = false;
   };
 
@@ -810,12 +818,16 @@ function initBountyRuntime() {
     confirmDuration.textContent = `${preview.durationHours}h`;
     confirmAnonymous.textContent = preview.isAnonymous ? "Anonymní" : "Veřejná";
     uiState.pendingPreview = preview;
+    confirmModal.hidden = false;
     confirmModal.classList.remove("hidden");
+    openOverlay(confirmModal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     uiState.isConfirmOpen = true;
   };
 
   const closeConfirmModal = () => {
+    closeOverlay(confirmModal, { restoreFocus: false });
     confirmModal.classList.add("hidden");
+    confirmModal.hidden = true;
     uiState.isConfirmOpen = false;
     uiState.pendingPreview = null;
   };

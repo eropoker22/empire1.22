@@ -1,3 +1,5 @@
+import { closeOverlay, openOverlay } from "./legacyOverlayCoordinator.js";
+
 function getDocument(scopeElement = null) {
   return scopeElement?.ownerDocument || (typeof document !== "undefined" ? document : null);
 }
@@ -244,6 +246,7 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
   root.append(shell);
 
   const close = () => {
+    closeOverlay(shell, { restoreFocus: false });
     shell.hidden = true;
     if (typeof callbacks.onClose === "function") callbacks.onClose(shell);
   };
@@ -636,7 +639,11 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
   if (hasSpecialActions && actionSection instanceof HTMLElement && statsPanel instanceof HTMLElement) {
     moveElementToEnd(statsPanel, actionSection);
   }
+  const wasHidden = shell.hidden;
   shell.hidden = false;
+  if (wasHidden) {
+    openOverlay(shell, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
+  }
   return true;
 }
 
@@ -652,6 +659,7 @@ export function closeBuildingDetailPanel(root = null) {
   const scope = root || (typeof document !== "undefined" ? document : null);
   if (!scope?.querySelectorAll) return false;
   scope.querySelectorAll("[data-district-building-detail-popup]").forEach((shell) => {
+    closeOverlay(shell, { restoreFocus: false });
     shell.hidden = true;
   });
   return true;

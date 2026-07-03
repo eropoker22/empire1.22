@@ -1,4 +1,5 @@
 import { createBuildingUpgradeConfirmationController } from "./buildingUpgradeConfirmation.js";
+import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
 
 function isButtonElement(element, ButtonCtor) {
   if (!element) {
@@ -614,11 +615,13 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       setActiveTab("stats");
       renderDashboard();
       popup.hidden = false;
+      openOverlay(popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
       deps.syncBuildingDetailTopbarVisibility?.(root);
     };
 
     const closePopup = () => {
       upgradeConfirmation.close?.();
+      closeOverlay(popup, { restoreFocus: false });
       popup.hidden = true;
       deps.syncBuildingDetailTopbarVisibility?.(root);
     };

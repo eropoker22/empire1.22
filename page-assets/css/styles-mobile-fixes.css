@@ -4,6 +4,11 @@ body.game-modal-scroll-locked {
   overscroll-behavior: none;
 }
 
+body.game-body.game-modal-scroll-locked {
+  height: auto !important;
+  min-height: var(--game-mobile-bg-height, 100svh) !important;
+}
+
 /* Wanted heat journal readability: keep every reason fully readable and scroll after about three entries. */
 html body .wanted-popup-card .wanted-popup-list {
   display: flex !important;
@@ -579,10 +584,6 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     max-width: 100% !important;
     overflow-x: hidden !important;
     touch-action: manipulation;
-  }
-
-  html.game-modal-scroll-locked {
-    --mobile-topbar-offset: 0px !important;
   }
 
   body.game-body {
@@ -5258,7 +5259,6 @@ html body .storage-popup-heading > .storage-popup-close::before {
 /* Hard guard: large mobile windows must open from the top of the phone viewport. */
 @media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
   html.game-modal-scroll-locked {
-    --mobile-topbar-offset: 0px !important;
     --mobile-overlay-card-top: max(env(safe-area-inset-top), 0px);
     --mobile-overlay-card-gap: 6px;
     --mobile-overlay-available-height: calc(
@@ -5267,6 +5267,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
   }
 
   html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]),
+  html body.game-modal-scroll-locked .district-popup-shell:not([hidden]),
   html body.game-modal-scroll-locked .wanted-popup-shell:not([hidden]),
   html body.game-modal-scroll-locked .armory-popup-shell:not([hidden]),
   html body.game-modal-scroll-locked .pharmacy-popup-shell:not([hidden]),
@@ -5288,6 +5289,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
   }
 
   html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content,
+  html body.game-modal-scroll-locked .district-popup-shell:not([hidden]) .district-popup-card,
   html body.game-modal-scroll-locked .wanted-popup-shell:not([hidden]) .wanted-popup-card,
   html body.game-modal-scroll-locked .district-building-detail-shell:not([hidden]) .district-building-detail-card.building-detail-modal__content,
   html body.game-modal-scroll-locked .armory-popup-shell:not([hidden]) .armory-popup-card.building-detail-modal__content,

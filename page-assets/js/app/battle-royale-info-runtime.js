@@ -1,3 +1,5 @@
+import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
+
 const PAGE_SELECTOR = "#game-root";
 const MODAL_OPEN_CLASS = "battle-royale-info-modal-open";
 
@@ -16,12 +18,16 @@ function initBattleRoyaleInfoRuntime() {
   }
 
   const open = () => {
+    modal.hidden = false;
     modal.classList.remove("hidden");
+    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     document.body?.classList.add(MODAL_OPEN_CLASS);
   };
 
   const close = () => {
+    closeOverlay(modal, { restoreFocus: false });
     modal.classList.add("hidden");
+    modal.hidden = true;
     document.body?.classList.remove(MODAL_OPEN_CLASS);
   };
 

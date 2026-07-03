@@ -1,3 +1,5 @@
+import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
+
 export function buildGangWantedStatusViewModel({
   economyState = {},
   gangState = {},
@@ -189,9 +191,11 @@ export function createGangWantedStatusRuntime(deps = {}) {
       renderFeedback("", "");
       syncWantedStatus();
       elements.popup.hidden = false;
+      openOverlay(elements.popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     };
 
     const closePopup = () => {
+      closeOverlay(elements.popup, { restoreFocus: false });
       elements.popup.hidden = true;
     };
 

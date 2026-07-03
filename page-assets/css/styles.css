@@ -2959,8 +2959,16 @@ html body.game-body #profile-gang-card.right-panel-card .profile-row--wanted .pr
     0 0 14px rgba(248, 113, 113, 0.24) !important;
 }
 
+html body.game-body #attack-confirm-modal-cancel.modal__cancel-btn,
+html body.game-body #attack-confirm-modal-cancel.btn--ghost,
+html body.game-body #raid-confirm-modal-cancel.modal__cancel-btn,
+html body.game-body #raid-confirm-modal-cancel.btn--ghost,
+html body.game-body #trap-confirm-modal-cancel.modal__cancel-btn,
+html body.game-body #trap-confirm-modal-cancel.btn--ghost,
 html body.game-body #spy-confirm-modal-cancel.modal__cancel-btn,
-html body.game-body #spy-confirm-modal-cancel.btn--ghost {
+html body.game-body #spy-confirm-modal-cancel.btn--ghost,
+html body.game-body #occupy-confirm-modal-cancel.modal__cancel-btn,
+html body.game-body #occupy-confirm-modal-cancel.btn--ghost {
   color: #f8fafc !important;
 }
 

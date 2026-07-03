@@ -1,3 +1,5 @@
+import { closeOverlay as closeLegacyOverlay, openOverlay as openLegacyOverlay } from "./ui/legacyOverlayCoordinator.js";
+
 const trigger = document.querySelector("[data-slice-panel-open]");
 const overlay = document.querySelector("[data-game-admin-slice-overlay]");
 const closeButtons = document.querySelectorAll("[data-game-admin-slice-close]");
@@ -81,12 +83,12 @@ if (
     }
 
     overlay.hidden = false;
-    document.body.style.overflow = "hidden";
+    openLegacyOverlay(overlay, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
   };
 
   const closeOverlay = () => {
+    closeLegacyOverlay(overlay, { restoreFocus: false });
     overlay.hidden = true;
-    document.body.style.overflow = "";
   };
 
   trigger.addEventListener("click", openOverlay);

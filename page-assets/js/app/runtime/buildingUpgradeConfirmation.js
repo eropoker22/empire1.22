@@ -1,7 +1,21 @@
+import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
+
 function setText(element, value) {
   if (element) {
     element.textContent = value;
   }
+}
+
+function focusWithoutScroll(element) {
+  if (!element || typeof element.focus !== "function") {
+    return false;
+  }
+  try {
+    element.focus({ preventScroll: true });
+  } catch {
+    element.focus();
+  }
+  return true;
 }
 
 export function createBuildingUpgradeConfirmationController({
@@ -93,6 +107,7 @@ export function createBuildingUpgradeConfirmationController({
   let currentResolve = null;
 
   const finalize = (result) => {
+    closeOverlay(overlay, { restoreFocus: false });
     if (!currentResolve) {
       overlay.hidden = true;
       return;
@@ -172,9 +187,15 @@ export function createBuildingUpgradeConfirmationController({
       }
       update(payload);
       overlay.hidden = false;
+      openOverlay(overlay, {
+        type: "modal",
+        ariaModal: true,
+        focusTarget: payload.canConfirm === false ? cancelButton : confirmButton,
+        restoreFocusOnClose: false
+      });
       return new Promise((resolve) => {
         currentResolve = resolve;
-        confirmButton.focus?.();
+        focusWithoutScroll(payload.canConfirm === false ? cancelButton : confirmButton);
       });
     },
     update

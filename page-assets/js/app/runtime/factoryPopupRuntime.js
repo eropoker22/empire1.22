@@ -1,4 +1,5 @@
 import { createBuildingUpgradeConfirmationController } from "./buildingUpgradeConfirmation.js";
+import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
 
 function queryAll(root, selector) {
   return selector ? Array.from(root?.querySelectorAll?.(selector) || []) : [];
@@ -182,11 +183,13 @@ export function createFactoryPopupRuntime(deps = {}) {
       setActiveTab("stats");
       renderFactoryDashboard();
       popup.hidden = false;
+      openOverlay(popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
       deps.syncBuildingDetailTopbarVisibility?.(root);
     };
 
     const closePopup = () => {
       upgradeConfirmation.close?.();
+      closeOverlay(popup, { restoreFocus: false });
       popup.hidden = true;
       deps.syncBuildingDetailTopbarVisibility?.(root);
     };

@@ -1,5 +1,6 @@
 import { submitServerAllianceCommand } from "./runtime.js";
 import { STORAGE_KEYS } from "../config.js";
+import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
 
 const LOCAL_ALLIANCE_KEY = "empire_local_alliance_state";
 const GLOBAL_CHAT_KEY = "empire_local_global_chat_state";
@@ -301,8 +302,17 @@ const syncAllianceModalBodyState = () => {
 
 const setModalVisible = (modal, visible) => {
   if (!modal) return;
-  modal.classList.toggle("hidden", !visible);
-  modal.setAttribute("aria-hidden", visible ? "false" : "true");
+  if (visible) {
+    modal.hidden = false;
+    modal.classList.remove("hidden");
+    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
+    modal.setAttribute("aria-hidden", "false");
+  } else {
+    closeOverlay(modal, { restoreFocus: false });
+    modal.classList.add("hidden");
+    modal.hidden = true;
+    modal.setAttribute("aria-hidden", "true");
+  }
   if (ALLIANCE_MODAL_IDS.includes(modal.id)) {
     syncAllianceModalBodyState();
   }

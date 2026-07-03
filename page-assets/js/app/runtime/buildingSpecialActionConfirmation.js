@@ -1,7 +1,21 @@
+import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
+
 function setText(element, value) {
   if (element) {
     element.textContent = value;
   }
+}
+
+function focusWithoutScroll(element) {
+  if (!element || typeof element.focus !== "function") {
+    return false;
+  }
+  try {
+    element.focus({ preventScroll: true });
+  } catch {
+    element.focus();
+  }
+  return true;
 }
 
 function createInfoRow(documentRef, label) {
@@ -88,6 +102,7 @@ export function createBuildingSpecialActionConfirmationController({
   let currentResolve = null;
 
   const finalize = (result) => {
+    closeOverlay(overlay, { restoreFocus: false });
     if (!currentResolve) {
       overlay.hidden = true;
       return;
@@ -145,13 +160,19 @@ export function createBuildingSpecialActionConfirmationController({
       }
       update(payload);
       overlay.hidden = false;
+      openOverlay(overlay, {
+        type: "modal",
+        ariaModal: true,
+        focusTarget: payload.canConfirm === false ? cancelButton : confirmButton,
+        restoreFocusOnClose: false
+      });
       documentRef.addEventListener("keydown", onKeydown, { once: false });
       return new Promise((resolve) => {
         currentResolve = (result) => {
           documentRef.removeEventListener("keydown", onKeydown);
           resolve(result);
         };
-        (payload.canConfirm === false ? cancelButton : confirmButton).focus?.();
+        focusWithoutScroll(payload.canConfirm === false ? cancelButton : confirmButton);
       });
     },
     update

@@ -8,6 +8,7 @@ import {
   getOnboardingStepIndex,
   getOnboardingTargetSelector
 } from "../runtime/onboardingStepRegistry.js";
+import { isModalScrollLocked } from "./modalScrollLock.js";
 
 export { ONBOARDING_STEPS, ONBOARDING_VERSION };
 export const FREE_SESSION_ONBOARDING_STEPS = ONBOARDING_STEPS;
@@ -76,6 +77,9 @@ function clamp(value, min, max) {
 
 function safeScrollIntoView(target) {
   if (!target?.scrollIntoView) {
+    return;
+  }
+  if (isModalScrollLocked(target.ownerDocument)) {
     return;
   }
   try {
