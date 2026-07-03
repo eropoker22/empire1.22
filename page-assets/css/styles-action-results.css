@@ -10,6 +10,7 @@
 #police-action-result-modal {
   position: fixed;
   inset: 0;
+  z-index: 19000;
   place-items: center;
   padding: 18px;
 }
@@ -26,6 +27,7 @@
 #police-action-result-modal .modal__backdrop {
   position: fixed;
   inset: 0;
+  z-index: 0;
   background: rgba(2, 6, 12, 0.2);
   backdrop-filter: blur(14px) saturate(122%);
   -webkit-backdrop-filter: blur(14px) saturate(122%);
@@ -41,6 +43,8 @@
 #raid-result-modal .modal__content,
 #attack-result-modal .modal__content,
 #police-action-result-modal .modal__content {
+  position: relative;
+  z-index: 1;
   margin: 0;
 }
 

@@ -6,6 +6,7 @@ import {
   createOccupyCooldownKey,
   detectAlliedEncirclementAfterOccupy,
   resolveOccupyBalance,
+  resolveOccupyPopulationCost,
   validateMapAction
 } from "../rules";
 import { validateOccupyEmptyDistrictAuthorization } from "./spyIntel";
@@ -63,6 +64,7 @@ export const validateOccupy = (
   }
 
   const balance = resolveOccupyBalance(conflictConfig);
+  const populationCost = resolveOccupyPopulationCost(state, player.id);
   const sourceDistrict = mapValidation.originDistrictId
     ? state.districtsById[mapValidation.originDistrictId]
     : null;
@@ -93,6 +95,24 @@ export const validateOccupy = (
       {
         code: "occupy_not_enough_influence",
         message: `Occupation requires ${balance.influenceCost} influence in the source district.`
+      }
+    ];
+  }
+
+  const availablePopulation = Math.max(
+    0,
+    Math.floor(Number(
+      player.population ??
+        state.resourceStatesById[player.resourceStateId]?.balances?.population ??
+        0
+    ))
+  );
+
+  if (availablePopulation < populationCost) {
+    return [
+      {
+        code: "occupy_not_enough_population",
+        message: `Occupation requires ${populationCost} population.`
       }
     ];
   }

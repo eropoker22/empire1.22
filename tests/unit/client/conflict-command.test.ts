@@ -222,7 +222,8 @@ describe("conflict command factories", () => {
         disabledCode: null,
         disabledReason: null,
         cost: {
-          influence: 5
+          influence: 5,
+          population: 50
         },
         heatGain: 2,
         cooldownRemainingTicks: 0
@@ -255,7 +256,8 @@ describe("conflict command factories", () => {
         disabledCode: "occupy_requires_successful_spy",
         disabledReason: "Successful spy intel is required before occupying this district.",
         cost: {
-          influence: 5
+          influence: 5,
+          population: 50
         },
         heatGain: 2,
         cooldownRemainingTicks: 0

@@ -28,6 +28,7 @@ export function createPlayerMarketPanelPayload({
   catalog = [],
   economy = {},
   sellerId = "player:self",
+  tabState = {},
   ownListingLimit = 0,
   normalizeMarketTradeState = (state) => state || {},
   normalizePlayerMarketListings = (listings) => safeArray(listings),
@@ -41,6 +42,10 @@ export function createPlayerMarketPanelPayload({
     listings: normalizePlayerMarketListings(marketState.playerListings, serverScope.serverId),
     sellableItems,
     economy,
+    emptyMessage: tabState.emptyMessage,
+    isAuthoritative: tabState.isAuthoritative,
+    isFallback: tabState.isFallback,
+    isPreview: tabState.isPreview,
     sellerId,
     ownListingLimit,
     getListingTotal,
@@ -64,10 +69,17 @@ export function createMarketCatalogPanelPayload({
   getStockPercent = () => 100,
   applyDiscountToPrice = (value) => value,
   formatPrice = (value) => String(value),
-  getMoneyLabel = () => "clean cash"
+  getMoneyLabel = () => "clean cash",
+  tabState = {}
 } = {}) {
   const safeTabConfig = tabConfig && typeof tabConfig === "object" ? tabConfig : {};
   return {
+    emptyMessage: tabState.emptyMessage,
+    isAuthoritative: tabState.isAuthoritative,
+    isFallback: tabState.isFallback,
+    isPreview: tabState.isPreview,
+    source: tabState.source,
+    status: tabState.status,
     items: createMarketItemViewModels({
       items: safeArray(safeTabConfig.items),
       activeTab,

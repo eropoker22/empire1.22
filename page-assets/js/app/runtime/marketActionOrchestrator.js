@@ -242,7 +242,7 @@ export function createMarketCatalogCallbacks(deps = {}) {
       }
 
       if (Number.isFinite(latestStock) && latestStock < requestedQuantity) {
-        setMarketFeedback("warning", `Market má jen ${latestStock} ks ${item.name}. Zkus menší množství nebo black market.`);
+        setMarketFeedback("warning", `Kontakt má jen ${latestStock} ks ${item.name}. Zkus menší množství nebo černý trh.`);
         updateRowTradeState();
         return;
       }
@@ -255,7 +255,7 @@ export function createMarketCatalogCallbacks(deps = {}) {
 
       const heatRisk = activeTab === "black-market" ? resolveBlackMarketHeatRisk(buyTotal) : null;
       if (heatRisk?.heat > 0) {
-        addGangHeat(deps.root, heatRisk.heat, `Black market nákup: ${item.name}`);
+        addGangHeat(deps.root, heatRisk.heat, `Černý trh nákup: ${item.name}`);
       }
 
       commitMarketState((marketState) => {
@@ -284,7 +284,7 @@ export function createMarketCatalogCallbacks(deps = {}) {
       setMarketFeedback(
         activeTab === "black-market" ? "danger" : "success",
         activeTab === "black-market"
-          ? `Koupeno ${requestedQuantity}x ${item.name} za ${formatMarketPrice(buyTotal)}. Black market přidal ${heatRisk?.heat || 0} heat.`
+          ? `Kontakt předal ${requestedQuantity}x ${item.name} za ${formatMarketPrice(buyTotal)}. Heat +${heatRisk?.heat || 0}.`
           : `Koupeno ${requestedQuantity}x ${item.name} za ${formatMarketPrice(buyTotal)}.`
       );
       applyTopbarEconomy(deps.root);
@@ -304,7 +304,7 @@ export function createMarketCatalogCallbacks(deps = {}) {
       }
 
       if (Number.isFinite(sellCapacity) && sellCapacity < requestedQuantity) {
-        setMarketFeedback("warning", `Normal market přijme už jen ${sellCapacity} ks ${item.name}.`);
+        setMarketFeedback("warning", `Trh přijme už jen ${sellCapacity} ks ${item.name}.`);
         updateRowTradeState();
         return;
       }
@@ -345,7 +345,12 @@ export function createMarketCatalogCallbacks(deps = {}) {
         };
       });
 
-      setMarketFeedback("success", `Prodáno ${requestedQuantity}x ${item.name} za ${formatMarketPrice(sellTotal)}.`);
+      setMarketFeedback(
+        activeTab === "black-market" ? "danger" : "success",
+        activeTab === "black-market"
+          ? `Kontakt převzal ${requestedQuantity}x ${item.name} za ${formatMarketPrice(sellTotal)}. Podsvětí kupuje levně.`
+          : `Prodáno ${requestedQuantity}x ${item.name} za ${formatMarketPrice(sellTotal)}.`
+      );
       applyTopbarEconomy(deps.root);
       refreshMarketTab();
     }

@@ -449,6 +449,7 @@ import {
   OCCUPY_CONFIRM_TITLE_SELECTOR,
   OCCUPY_CONFIRM_SOURCE_SELECTOR,
   OCCUPY_CONFIRM_CONDITION_SELECTOR,
+  OCCUPY_CONFIRM_COST_SELECTOR,
   OCCUPY_CONFIRM_DURATION_SELECTOR,
   OCCUPY_CONFIRM_NOTE_SELECTOR,
   OCCUPY_CONFIRM_BUTTON_SELECTOR,
@@ -695,7 +696,10 @@ import {
   renderDistrictFlags,
   renderDistrictMetricSummary
 } from "./ui/districtPanel.js";
-import { createDistrictActionConfirmationPanelElements } from "./ui/districtActionConfirmationPanel.js";
+import {
+  createDistrictActionConfirmationPanelElements,
+  resolveOccupyPopulationCostForOwnedCount
+} from "./ui/districtActionConfirmationPanel.js";
 import { renderDistrictActionHub } from "./ui/districtActionHub.js";
 import { renderSelectedDistrictSummary } from "./ui/selectedDistrictSummary.js";
 import {
@@ -3250,6 +3254,59 @@ function bindAttackOrders(root) {
   }
 }
 
+const LEGACY_OCCUPY_FAILURE_CHANCE = 0.05;
+const LEGACY_OCCUPY_POPULATION_REFUND_RATIO = 0.1;
+
+const LEGACY_OCCUPY_SUCCESS_MESSAGES = Object.freeze([
+  "District změnil vlajku tiše. Ráno už se tam ptali jiných lidí, komu patří chodník.",
+  "Ulice přes noc přepsaly pravidla. Nikdo nekřičel, ale všichni pochopili.",
+  "Sektor spolkl novou posádku a vyplivl nový pořádek. Staré kontakty mlčí.",
+  "Do ulic dorazily nové hlídky. Místní dělají, že je to normální.",
+  "District padl bez velkého divadla. O to víc z toho město znervóznělo."
+]);
+
+const LEGACY_OCCUPY_FAILURE_MESSAGES = Object.freeze([
+  "Pokus o převzetí se rozpadl v bočních ulicích. Lidi zmizeli, district zůstal volný.",
+  "District dnes nikoho nepustil dovnitř. Posádka se rozsypala dřív, než stihla pověsit barvy.",
+  "Někdo čekal moc dlouho na správný signál. Signál nepřišel, lidi ano.",
+  "Obsazení skončilo špatným tichem. Zůstaly jen prázdné kouty a chybějící tváře.",
+  "District se tentokrát nepohnul. Ulice sežraly plán i lidi, co ho nesli."
+]);
+
+function deterministicUnitIntervalFromText(value) {
+  const seed = String(value || "");
+  let hash = 2166136261;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash ^= seed.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 4294967295;
+}
+
+function pickLegacyOccupyMessage(order, succeeded) {
+  const pool = succeeded ? LEGACY_OCCUPY_SUCCESS_MESSAGES : LEGACY_OCCUPY_FAILURE_MESSAGES;
+  const roll = deterministicUnitIntervalFromText(`${order?.id || ""}:${order?.targetDistrictId || ""}:message`);
+  return pool[Math.min(pool.length - 1, Math.floor(roll * pool.length))] || pool[0] || "";
+}
+
+function resolveLegacyOccupyOutcome(order) {
+  const populationCost = Math.max(0, Math.floor(Number(order?.populationCost || 0)));
+  const failureChance = Math.max(0, Math.min(1, Number(order?.failureChance ?? LEGACY_OCCUPY_FAILURE_CHANCE)));
+  const refundRatio = Math.max(0, Math.min(1, Number(order?.populationRefundRatio ?? LEGACY_OCCUPY_POPULATION_REFUND_RATIO)));
+  const roll = deterministicUnitIntervalFromText(`${order?.id || ""}:${order?.targetDistrictId || ""}:outcome`);
+  const succeeded = roll >= failureChance;
+  const populationRefunded = succeeded ? Math.floor(populationCost * refundRatio) : 0;
+  return {
+    succeeded,
+    populationCost,
+    populationRefunded,
+    populationLost: Math.max(0, populationCost - populationRefunded),
+    successChancePct: Math.round((1 - failureChance) * 100),
+    failureChancePct: Math.round(failureChance * 100),
+    message: pickLegacyOccupyMessage(order, succeeded)
+  };
+}
+
 function completeOccupyOrder(root, orderId) {
   const orders = getStoredOccupyOrders();
   const order = orders.find((entry) => entry.id === orderId);
@@ -3267,41 +3324,59 @@ function completeOccupyOrder(root, orderId) {
   const worldState = getResolvedWorldState();
   const launchOwnerId = START_PHASE_OWNER_BY_DISTRICT_ID.get(targetDistrictId);
   const targetOwnerName = launchOwnerId ? getLaunchPlayerName(launchOwnerId) : "Neobsazeno";
+  const occupyOutcome = resolveLegacyOccupyOutcome(order);
 
   setStoredSpyIntel({
     occupiableDistrictIds: spyIntel.occupiableDistrictIds.filter((districtId) => districtId !== targetDistrictId),
     revealedTypeDistrictIds: spyIntel.revealedTypeDistrictIds || [],
     revealedDefenseDistrictIds: spyIntel.revealedDefenseDistrictIds || []
   });
-  setStoredWorldState({
-    ...worldState,
-    ownedDistrictIds: Array.from(new Set([...(worldState.ownedDistrictIds || []), targetDistrictId])),
-    destroyedDistrictIds: (worldState.destroyedDistrictIds || []).filter((districtId) => districtId !== targetDistrictId)
-  });
-  window.empireStreetsDistrictState?.captureDistrict?.(targetDistrictId);
+
+  if (occupyOutcome.succeeded) {
+    setStoredWorldState({
+      ...worldState,
+      ownedDistrictIds: Array.from(new Set([...(worldState.ownedDistrictIds || []), targetDistrictId])),
+      destroyedDistrictIds: (worldState.destroyedDistrictIds || []).filter((districtId) => districtId !== targetDistrictId)
+    });
+    window.empireStreetsDistrictState?.captureDistrict?.(targetDistrictId);
+    if (occupyOutcome.populationRefunded > 0) {
+      setStoredGangState({
+        members: Math.max(0, Number(getResolvedGangState().members || 0)) + occupyOutcome.populationRefunded
+      });
+      renderGangMembersState(root);
+    }
+  }
+
   recordDistrictIntelEvent({
-    type: "occupy_success",
+    type: occupyOutcome.succeeded ? "occupy_success" : "occupy_failed",
     districtId: targetDistrictId,
     sourceDistrictId: order.sourceDistrictId,
-    intelLevel: "verified"
+    intelLevel: "verified",
+    scenarioLabel: occupyOutcome.message
   });
 
   const occupyResultPayload = {
-    tone: "is-success",
-    title: "Obsazení: Úspěch",
-    summary: `District ${targetDistrictId} byl úspěšně obsazen a připadl tvému gangu.`,
+    tone: occupyOutcome.succeeded ? "is-success" : "is-major-fail",
+    title: occupyOutcome.succeeded ? "Obsazení: Úspěch" : "Obsazení: Neúspěch",
+    summary: occupyOutcome.succeeded
+      ? `${occupyOutcome.message} District ${targetDistrictId} připadl tvému gangu. Vrátilo se ${occupyOutcome.populationRefunded} populace, zbytek ceny zmizel v ulicích.`
+      : `${occupyOutcome.message} District ${targetDistrictId} zůstal neobsazený a ztratil jsi ${occupyOutcome.populationLost} populace.`,
     rows: [
       { label: "Zdroj", value: String(order.sourceDistrictId || "---") },
       { label: "Cíl", value: `District ${targetDistrictId}` },
+      { label: "Cena", value: `${occupyOutcome.populationCost} populace` },
+      { label: "Vráceno", value: `${occupyOutcome.populationRefunded} populace` },
+      { label: "Ztraceno", value: `${occupyOutcome.populationLost} populace` },
+      { label: "Šance", value: `${occupyOutcome.successChancePct}% úspěch / ${occupyOutcome.failureChancePct}% neúspěch`, nowrap: true },
       { label: "Trvání", value: formatDurationLabel(new Date(order.resolveAt).getTime() - new Date(order.createdAt).getTime()), nowrap: true },
-      { label: "Stav districtu", value: "Obsazený" }
+      { label: "Stav districtu", value: occupyOutcome.succeeded ? "Obsazený" : "Neobsazený" }
     ]
   };
   syncBuildingActionSource(root, {
-    tone: "success",
+    tone: occupyOutcome.succeeded ? "success" : "warning",
     title: occupyResultPayload.title,
     summary: occupyResultPayload.summary,
-    meta: `${order.sourceDistrictId} → district:${targetDistrictId} · obsazení dokončeno`,
+    meta: `${order.sourceDistrictId} → district:${targetDistrictId} · ${occupyOutcome.succeeded ? "obsazení dokončeno" : "obsazení selhalo"}`,
     resultKind: "occupy",
     resultPayload: occupyResultPayload
   });
@@ -3314,9 +3389,9 @@ function completeOccupyOrder(root, orderId) {
       sourceDistrictId: Number.parseInt(String(order.sourceDistrictId || "").replace("district:", ""), 10) || 0,
       targetDistrictId,
       targetOwnerName,
-      capturesDistrict: true,
+      capturesDistrict: occupyOutcome.succeeded,
       successfulAttack: false,
-      defenseReduced: true
+      defenseReduced: occupyOutcome.succeeded
     }
   }));
 }
@@ -8835,8 +8910,10 @@ function bindDistrictCanvas(root) {
     const adjacentOwnedDistrictIds = getAdjacentOwnedDistrictIds(selectedDistrict);
     const spyIntel = getResolvedSpyIntel();
     const canOccupyAfterSpy = spyIntel.occupiableDistrictIds.includes(Number(selectedDistrict.id));
+    const populationCost = resolveOccupyPopulationCostForOwnedCount(getCurrentPlayerOwnedDistrictIds(interactionState).size);
+    const availablePopulation = Math.max(0, Math.floor(Number(getResolvedGangState().members || 0)));
 
-    if (!canOccupyAfterSpy || adjacentOwnedDistrictIds.length <= 0) {
+    if (!canOccupyAfterSpy || adjacentOwnedDistrictIds.length <= 0 || availablePopulation < populationCost) {
       return false;
     }
 
@@ -8846,6 +8923,9 @@ function bindDistrictCanvas(root) {
       targetDistrictId: `district:${selectedDistrict.id}`,
       createdAt: new Date().toISOString(),
       resolveAt: new Date(Date.now() + OCCUPY_COOLDOWN_MS).toISOString(),
+      populationCost,
+      failureChance: LEGACY_OCCUPY_FAILURE_CHANCE,
+      populationRefundRatio: LEGACY_OCCUPY_POPULATION_REFUND_RATIO,
       status: "cooldown"
     };
 
@@ -8853,6 +8933,10 @@ function bindDistrictCanvas(root) {
       ...getStoredOccupyOrders().filter((order) => Number(String(order.targetDistrictId || "").replace("district:", "")) !== Number(selectedDistrict.id)),
       createdOrder
     ]);
+    setStoredGangState({
+      members: Math.max(0, availablePopulation - populationCost)
+    });
+    renderGangMembersState(root);
     document.dispatchEvent(new CustomEvent("empire:occupy-started", {
       detail: {
         sourceDistrictId: adjacentOwnedDistrictIds[0],
@@ -8876,7 +8960,7 @@ function bindDistrictCanvas(root) {
     }
 
     if (buildingActionSummary) {
-      buildingActionSummary.textContent = `District ${selectedDistrict.id} se obsazuje po spy akci Úspěch. Obsazení potrvá ${formatDurationLabel(OCCUPY_COOLDOWN_MS)}.`;
+      buildingActionSummary.textContent = `District ${selectedDistrict.id} se obsazuje po spy akci Úspěch. Cena ${populationCost} populace. Neúspěšnost 5 %. Při úspěchu se vrátí 10 % ceny. Obsazení potrvá ${formatDurationLabel(OCCUPY_COOLDOWN_MS)}.`;
     }
 
     if (buildingActionMeta) {

@@ -29,45 +29,45 @@ export const marketConfig = Object.freeze({
   resources: Object.freeze({
     metalParts: Object.freeze({
       name: "Metal Parts",
-      basePrice: 18,
+      basePrice: 58,
       normalMarketStartStock: 900,
       normalMarketMaxStock: 1400,
       minPriceMultiplier: 0.55,
       maxPriceMultiplier: 3.2,
-      blackMarketMarkup: 1.35,
+      blackMarketMarkup: 1.45,
       volatility: 0.7,
       category: "combat_material"
     }),
     techCore: Object.freeze({
       name: "Tech Core",
-      basePrice: 85,
+      basePrice: 270,
       normalMarketStartStock: 260,
       normalMarketMaxStock: 420,
       minPriceMultiplier: 0.65,
       maxPriceMultiplier: 4,
-      blackMarketMarkup: 1.55,
+      blackMarketMarkup: 1.7,
       volatility: 1.1,
       category: "advanced_component"
     }),
     chemicals: Object.freeze({
       name: "Chemicals",
-      basePrice: 28,
+      basePrice: 22,
       normalMarketStartStock: 700,
       normalMarketMaxStock: 1100,
       minPriceMultiplier: 0.55,
       maxPriceMultiplier: 3.5,
-      blackMarketMarkup: 1.45,
+      blackMarketMarkup: 1.55,
       volatility: 0.9,
       category: "drug_material"
     }),
     biomass: Object.freeze({
       name: "Biomass",
-      basePrice: 16,
+      basePrice: 25,
       normalMarketStartStock: 1000,
       normalMarketMaxStock: 1600,
       minPriceMultiplier: 0.5,
       maxPriceMultiplier: 2.8,
-      blackMarketMarkup: 1.3,
+      blackMarketMarkup: 1.42,
       volatility: 0.6,
       category: "drug_material"
     })

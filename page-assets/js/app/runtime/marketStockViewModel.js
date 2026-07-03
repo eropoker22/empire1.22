@@ -83,6 +83,29 @@ export function getMarketDashboardStockSummary({
   return `${items.reduce((total, item = {}) => total + getStockAmount(marketState, activeTab, item.itemId), 0)} ks`;
 }
 
+function normalizeDashboardTransactions(marketState = {}, normalizeMarketTransactions = (transactions) => safeArray(transactions)) {
+  const state = safeObject(marketState);
+  const localTransactions = normalizeMarketTransactions(state.transactions);
+  if (localTransactions.length > 0 || !Array.isArray(state.recentTransactions)) {
+    return localTransactions;
+  }
+
+  return state.recentTransactions
+    .filter((transaction) => transaction && typeof transaction === "object")
+    .map((transaction, index) => ({
+      id: String(transaction.id || transaction.transactionId || `server-market-tx-${index}`),
+      type: transaction.type === "sell" || transaction.transactionType === "sell" ? "sell" : "buy",
+      tabId: transaction.marketType === "black" ? "black-market" : transaction.marketType === "player" ? "player-market" : "market",
+      itemId: String(transaction.itemId || transaction.resourceId || ""),
+      itemName: String(transaction.itemName || transaction.resourceId || transaction.itemId || "Položka"),
+      amount: Math.max(1, safeFloor(transaction.amount, 1)),
+      total: Math.max(0, safeFloor(transaction.total ?? transaction.totalPrice, 0)),
+      moneyKey: transaction.paymentType === "dirtyCash" ? "dirtyMoney" : "cleanMoney",
+      createdAt: Math.max(0, safeFloor(transaction.createdAt ?? transaction.timestamp, Date.now()))
+    }))
+    .filter((transaction) => transaction.itemId);
+}
+
 export function createMarketDashboardAdapter({
   activeTab = "market",
   marketState = {},
@@ -113,7 +136,7 @@ export function createMarketDashboardAdapter({
     economy,
     gangState,
     refreshCountdownSeconds,
-    recentTransactions: normalizeMarketTransactions(safeObject(marketState).transactions),
+    recentTransactions: normalizeDashboardTransactions(marketState, normalizeMarketTransactions),
     formatPrice
   };
 }

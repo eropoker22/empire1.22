@@ -71,6 +71,23 @@ const normalizeChatColor = (value, fallback = "#facc15") => {
   return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : fallback;
 };
 
+const chatTimestampFormatter = new Intl.DateTimeFormat("cs-CZ", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit"
+});
+
+const formatChatTimestamp = (value, fallbackTime = Date.now()) => {
+  const date = new Date(value || fallbackTime);
+  const safeDate = Number.isNaN(date.getTime()) ? new Date(fallbackTime) : date;
+  return {
+    iso: safeDate.toISOString(),
+    label: chatTimestampFormatter.format(safeDate).replace(",", "")
+  };
+};
+
 const getPlayerGangColor = () => {
   try {
     return normalizeChatColor(localStorage.getItem(STORAGE_KEYS.gangColor), "#facc15");
@@ -79,12 +96,15 @@ const getPlayerGangColor = () => {
   }
 };
 
-const getGlobalChatDemoMessages = () => [
-  { author: "Razor", text: "Na severu se dneska hýbou hranice. Kdo tam jde bez lidí, ať si rovnou píše závěť.", color: "#ef4444" },
-  { author: "Nyx", text: "Bazar má dobré ceny na tech scrap, ale jen dokud někdo nezačne dělat bordel.", color: "#8b5cf6" },
-  { author: "Karlos", text: "Potřebuju spojence na rychlou výměnu materiálů. Platím clean, žádné drama.", color: "#22d3ee" },
-  { author: "Mira", text: "Viděla jsem cizí scouty u warehouse distriktů. Kontrolujte obranu.", color: "#22c55e" }
-];
+const getGlobalChatDemoMessages = () => {
+  const now = Date.now();
+  return [
+    { author: "Razor", text: "Na severu se dneska hýbou hranice. Kdo tam jde bez lidí, ať si rovnou píše závěť.", color: "#ef4444", sentAt: new Date(now - 11 * 60 * 1000).toISOString() },
+    { author: "Nyx", text: "Bazar má dobré ceny na tech scrap, ale jen dokud někdo nezačne dělat bordel.", color: "#8b5cf6", sentAt: new Date(now - 23 * 60 * 1000).toISOString() },
+    { author: "Karlos", text: "Potřebuju spojence na rychlou výměnu materiálů. Platím clean, žádné drama.", color: "#22d3ee", sentAt: new Date(now - 37 * 60 * 1000).toISOString() },
+    { author: "Mira", text: "Viděla jsem cizí scouty u warehouse distriktů. Kontrolujte obranu.", color: "#22c55e", sentAt: new Date(now - 52 * 60 * 1000).toISOString() }
+  ];
+};
 
 const isDevOnlyAllianceDemoEnabled = () => {
   if (typeof window === "undefined") return false;
@@ -502,11 +522,13 @@ const renderGlobalServerChat = () => {
   } catch {
     messages = [];
   }
-  log.innerHTML = (Array.isArray(messages) && messages.length ? messages : getGlobalChatDemoMessages()).slice(0, 30).map((message) => {
+  log.innerHTML = (Array.isArray(messages) && messages.length ? messages : getGlobalChatDemoMessages()).slice(0, 30).map((message, index) => {
     const color = normalizeChatColor(message.color, message.author === "Ty" ? getPlayerGangColor() : "#facc15");
+    const sentAt = formatChatTimestamp(message.sentAt || message.createdAt || message.timestamp, Date.now() - index * 90 * 1000);
     return `
     <div class="alliance-chat__item server-chat-panel__message">
-      <strong class="server-chat-panel__author" style="--chat-author-color: ${escapeHtml(color)}">${escapeHtml(message.author || "System")}:</strong>
+      <strong class="server-chat-panel__author" style="--chat-author-color: ${escapeHtml(color)}">${escapeHtml(message.author || "System")}</strong>
+      <time class="server-chat-panel__timestamp" datetime="${escapeHtml(sentAt.iso)}">${escapeHtml(sentAt.label)}</time>
       <span class="server-chat-panel__text">${escapeHtml(message.text || "")}</span>
     </div>
   `;
@@ -521,7 +543,7 @@ const saveGlobalMessage = (text) => {
     messages = [];
   }
   const previousMessages = Array.isArray(messages) && messages.length ? messages : getGlobalChatDemoMessages();
-  messages = [{ author: "Ty", text, color: getPlayerGangColor() }, ...previousMessages].slice(0, 30);
+  messages = [{ author: "Ty", text, color: getPlayerGangColor(), sentAt: new Date().toISOString() }, ...previousMessages].slice(0, 30);
   localStorage.setItem(GLOBAL_CHAT_KEY, JSON.stringify(messages));
 };
 

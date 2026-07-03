@@ -636,6 +636,83 @@
   color: rgba(216, 238, 245, 0.58);
 }
 
+.market-popup-row__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.market-popup-row__badge {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 20px;
+  padding: 0 7px;
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  border-radius: 999px;
+  color: rgba(232, 248, 255, 0.78);
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(255, 255, 255, 0.025)),
+    rgba(3, 10, 20, 0.62);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 10px rgba(34, 211, 238, 0.08);
+  font-size: 0.54rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+
+.market-popup-row__badge[data-market-badge-tone="tier"] {
+  border-color: rgba(103, 232, 249, 0.3);
+  color: #bdf6ff;
+}
+
+.market-popup-row__badge[data-market-badge-tone="rare"] {
+  border-color: rgba(96, 165, 250, 0.36);
+  color: #c7ddff;
+  box-shadow: 0 0 12px rgba(96, 165, 250, 0.14);
+}
+
+.market-popup-row__badge[data-market-badge-tone="hot"],
+.market-popup-row__badge[data-market-badge-tone="risk"] {
+  border-color: rgba(244, 114, 182, 0.36);
+  color: #ffd8ee;
+  background:
+    linear-gradient(135deg, rgba(244, 114, 182, 0.12), rgba(34, 211, 238, 0.035)),
+    rgba(18, 6, 18, 0.66);
+  box-shadow: 0 0 12px rgba(244, 114, 182, 0.14);
+}
+
+.market-popup-row__badge[data-market-badge-tone="shortage"] {
+  border-color: rgba(251, 191, 36, 0.42);
+  color: #ffe7a3;
+  background:
+    linear-gradient(135deg, rgba(251, 191, 36, 0.13), rgba(255, 255, 255, 0.025)),
+    rgba(18, 12, 4, 0.66);
+}
+
+.market-popup-row__badge[data-market-badge-tone="deal"],
+.market-popup-row__badge[data-market-badge-tone="supply"] {
+  border-color: rgba(165, 255, 89, 0.34);
+  color: #e6ffad;
+  background:
+    linear-gradient(135deg, rgba(165, 255, 89, 0.12), rgba(34, 211, 238, 0.035)),
+    rgba(5, 16, 12, 0.64);
+}
+
+.market-popup-row__badge[data-market-badge-tone="contraband"] {
+  border-color: rgba(248, 113, 113, 0.42);
+  color: #ffd1d1;
+  background:
+    linear-gradient(135deg, rgba(248, 113, 113, 0.15), rgba(244, 114, 182, 0.08)),
+    rgba(24, 5, 12, 0.7);
+  box-shadow: 0 0 13px rgba(248, 113, 113, 0.16);
+}
+
 .market-popup-row__actions {
   display: flex;
   justify-content: flex-end;
@@ -1399,6 +1476,17 @@
 
 .market-popup-row[data-market-row-mode="black"] .market-popup-row__name {
   text-shadow: 0 0 14px rgba(var(--market-neon-pink), 0.28);
+}
+
+.market-popup-row[data-market-row-mode="black"] .market-popup-row__badge {
+  border-color: rgba(var(--market-neon-pink), 0.28);
+  background:
+    linear-gradient(135deg, rgba(var(--market-neon-pink), 0.1), rgba(var(--market-neon-cyan), 0.035)),
+    rgba(13, 4, 22, 0.68);
+}
+
+.market-popup-row[data-market-tier="5"] {
+  border-color: rgba(var(--market-neon-pink), 0.38);
 }
 
 .market-popup-row__price {

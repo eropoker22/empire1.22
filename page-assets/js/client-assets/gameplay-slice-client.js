@@ -1715,13 +1715,16 @@ var EmpireGameplaySliceClient = function(exports) {
     return parts.length > 0 ? parts.map(([resourceKey, amount]) => `${toTitleCase$1(resourceKey)} ${amount}`).join(" · ") : "No resources";
   };
   const toTitleCase$1 = (value) => value.split("-").filter(Boolean).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
+  const formatOccupySummary = (report) => report.result === "failure"
+    ? `Obsazení selhalo. Populace -${report.populationLost ?? report.populationCost ?? 0} · district zůstal neobsazený.`
+    : `Distrikt obsazen. Populace -${report.populationLost ?? report.populationCost ?? 0} · vráceno ${report.populationRefunded ?? 0} · Vliv -${report.influenceCost} · hledanost +${report.heatGained}.`;
   const createReportViewModels = (reports) => reports.map((report) => ({
     id: report.reportId,
     reportType: report.reportType,
     title: report.reportType === "spy" ? `Špehování ${report.result} v ${report.targetDistrictId}` : report.reportType === "occupy" ? `Obsazení ${report.result} v ${report.targetDistrictId}` : report.reportType === "building-action" ? `${toTitleCase(report.buildingActionId)} v ${report.districtId}` : report.districtDestroyed ? `Katastrofa v distriktu ${report.targetDistrictId}` : `Útok ${report.result} v ${report.targetDistrictId}`,
     createdAt: `${report.tick}`,
     category: report.reportType,
-    summary: report.reportType === "spy" ? formatSpySummary(report) : report.reportType === "occupy" ? `Distrikt obsazen. Vliv -${report.influenceCost} · hledanost +${report.heatGained}.` : report.reportType === "building-action" ? formatBuildingActionSummary(report) : report.districtDestroyed ? "Katastrofa zničila distrikt. Kontrola, budovy, hledanost i vliv byly smazány." : report.trapTriggered ? "Během útoku se spustila past." : report.districtCaptured ? "Distrikt dobyt." : "Distrikt udržel obránce.",
+    summary: report.reportType === "spy" ? formatSpySummary(report) : report.reportType === "occupy" ? formatOccupySummary(report) : report.reportType === "building-action" ? formatBuildingActionSummary(report) : report.districtDestroyed ? "Katastrofa zničila distrikt. Kontrola, budovy, hledanost i vliv byly smazány." : report.trapTriggered ? "Během útoku se spustila past." : report.districtCaptured ? "Distrikt dobyt." : "Distrikt udržel obránce.",
     result: report.result,
     severity: report.reportType === "battle" && report.districtDestroyed ? "critical" : report.reportType === "spy" && report.result === "critical_failed" ? "critical" : "normal",
     messages: report.reportType === "building-action" ? report.messages ?? [] : report.reportType === "battle" && report.districtDestroyed ? [
@@ -1747,6 +1750,11 @@ var EmpireGameplaySliceClient = function(exports) {
       return [
         `Zdroj ${report.sourceDistrictId}`,
         `Cíl ${report.targetDistrictId}`,
+        `Cena ${report.populationCost ?? 0} populace`,
+        `Ztraceno ${report.populationLost ?? report.populationCost ?? 0} populace`,
+        `Vráceno ${report.populationRefunded ?? 0} populace`,
+        `Šance ${report.successChancePct ?? 95}% / ${report.failureChancePct ?? 5}%`,
+        report.districtCaptured ? "Stav districtu obsazený" : "Stav districtu neobsazený",
         `Vliv -${report.influenceCost}`,
         `Hledanost +${report.heatGained}`,
         report.previousOwnerPlayerId ? `Předchozí vlastník ${report.previousOwnerPlayerId}` : "Předchozí vlastník nikdo"

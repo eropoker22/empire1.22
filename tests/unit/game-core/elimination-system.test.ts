@@ -232,6 +232,13 @@ describe("scheduled elimination system", () => {
       ...state.districtsById["district:1"],
       influence: 10
     };
+    state.resourceStatesById["resource:1"] = {
+      ...state.resourceStatesById["resource:1"],
+      balances: {
+        ...state.resourceStatesById["resource:1"]?.balances,
+        population: 1_000
+      }
+    };
     state.buildingsById[buildingId] = createFixedBuildingFixture("restaurant", {
       id: buildingId,
       districtId: "district:2",
@@ -387,7 +394,8 @@ const createEliminationState = (options: {
       ownerId: playerId,
       balances: {
         cash: options.equalWeakPlayers ? 100 : index === 1 ? 10_000 : 100,
-        "dirty-cash": options.equalWeakPlayers ? 0 : index === 2 ? 500 : 0
+        "dirty-cash": options.equalWeakPlayers ? 0 : index === 2 ? 500 : 0,
+        population: index === 1 ? 1_000 : 0
       }
     });
     state.root.playerIds.push(playerId);

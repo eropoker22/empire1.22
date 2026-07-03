@@ -4,7 +4,7 @@ import type {
 } from "@empire/shared-types";
 import type { ConflictBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities/game-state";
-import { createOccupyCooldownKey, resolveOccupyBalance } from "../rules";
+import { createOccupyCooldownKey, resolveOccupyBalance, resolveOccupyPopulationCost } from "../rules";
 import { validateOccupy } from "../validation";
 
 /**
@@ -44,6 +44,7 @@ export const createDistrictOccupyTargetViews = (
       };
       const errors = validateOccupy(state, previewCommand, conflictConfig);
       const balance = resolveOccupyBalance(conflictConfig);
+      const populationCost = resolveOccupyPopulationCost(state, playerId);
       const cooldownUntilTick = state.cooldownStatesById[state.playersById[playerId]?.cooldownStateId ?? ""]
         ?.cooldowns?.[createOccupyCooldownKey(targetDistrict.id)] ?? 0;
 
@@ -56,7 +57,8 @@ export const createDistrictOccupyTargetViews = (
         disabledCode: errors[0]?.code ?? null,
         disabledReason: errors[0]?.message ?? null,
         cost: {
-          influence: balance.influenceCost
+          influence: balance.influenceCost,
+          population: populationCost
         },
         heatGain: balance.heatGain,
         cooldownRemainingTicks: Math.max(0, cooldownUntilTick - state.root.tick)

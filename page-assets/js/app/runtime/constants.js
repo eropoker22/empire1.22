@@ -279,6 +279,7 @@ export const OCCUPY_CONFIRM_ATMOSPHERE_LABEL_SELECTOR = "[data-occupy-confirm-at
 export const OCCUPY_CONFIRM_TITLE_SELECTOR = "[data-occupy-confirm-title]";
 export const OCCUPY_CONFIRM_SOURCE_SELECTOR = "[data-occupy-confirm-source]";
 export const OCCUPY_CONFIRM_CONDITION_SELECTOR = "[data-occupy-confirm-condition]";
+export const OCCUPY_CONFIRM_COST_SELECTOR = "[data-occupy-confirm-cost]";
 export const OCCUPY_CONFIRM_DURATION_SELECTOR = "[data-occupy-confirm-duration]";
 export const OCCUPY_CONFIRM_NOTE_SELECTOR = "[data-occupy-confirm-note]";
 export const OCCUPY_CONFIRM_BUTTON_SELECTOR = "[data-occupy-confirm-button]";

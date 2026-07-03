@@ -74,7 +74,7 @@ export const createCityFeedEventsFromCoreEvent = (
       })];
     case "district-captured":
       return [createFeedEvent(state, event, {
-        sourceType: "district_capture",
+        sourceType: stringValue(payload.actionType) === "occupy-district" ? "district_occupy" : "district_capture",
         category: "district",
         severity: "high",
         truthiness: "confirmed",
@@ -83,7 +83,24 @@ export const createCityFeedEventsFromCoreEvent = (
         playerId: stringValue(payload.attackerPlayerId),
         targetPlayerId: stringValue(payload.previousOwnerPlayerId),
         districtId,
-        messageKey: "district_capture"
+        messageKey: stringValue(payload.actionType) === "occupy-district" ? "occupy_success" : "district_capture",
+        templateId: stringValue(payload.streetNewsTemplateId),
+        payload: stringValue(payload.actionType) === "occupy-district" ? publicOccupyPayload(payload) : undefined
+      })];
+    case "district-occupy-resolved":
+      return [createFeedEvent(state, event, {
+        sourceType: "district_occupy",
+        category: "district",
+        severity: stringValue(payload.result) === "failure" ? "medium" : "high",
+        truthiness: "confirmed",
+        intelType: "confirmed_event",
+        visibility: "all",
+        playerId: stringValue(payload.attackerPlayerId),
+        targetPlayerId: stringValue(payload.previousOwnerPlayerId),
+        districtId,
+        messageKey: stringValue(payload.result) === "failure" ? "occupy_failure" : "occupy_success",
+        templateId: stringValue(payload.streetNewsTemplateId),
+        payload: publicOccupyPayload(payload)
       })];
     case "district-spied":
       if (!["failed", "critical_failed"].includes(stringValue(payload.result) || "")) return [];
@@ -183,6 +200,14 @@ const publicAttackPayload = (payload: EventPayload): EventPayload => ({
   districtCaptured: booleanValue(payload.districtCaptured),
   districtDestroyed: booleanValue(payload.districtDestroyed),
   heatGained: numericValue(payload.heatGained)
+});
+
+const publicOccupyPayload = (payload: EventPayload): EventPayload => ({
+  districtCaptured: booleanValue(payload.districtCaptured),
+  heatGained: numericValue(payload.heatGained),
+  populationLost: numericValue(payload.populationLost),
+  populationRefunded: numericValue(payload.populationRefunded),
+  result: stringValue(payload.result) || "success"
 });
 
 const safePayload = (value: unknown): EventPayload =>

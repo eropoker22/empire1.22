@@ -1125,7 +1125,7 @@ html body .market-popup-heading > .market-popup-title {
 }
 
 html body .market-popup-heading > .market-popup-close {
-  position: static !important;
+  position: relative !important;
   inset: auto !important;
   display: grid !important;
   flex: 0 0 26px !important;
@@ -1154,8 +1154,9 @@ html body .market-popup-heading > .market-popup-close {
 
 html body .market-popup-heading > .market-popup-close::before {
   content: "×" !important;
-  position: relative !important;
-  top: 2px !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
   display: block !important;
   width: auto !important;
   height: auto !important;
@@ -1169,12 +1170,43 @@ html body .market-popup-heading > .market-popup-close::before {
   text-shadow:
     0 0 8px rgba(103, 232, 249, 0.78),
     0 0 14px rgba(244, 114, 182, 0.24) !important;
-  transform: none !important;
+  transform: translate(-50%, -53%) !important;
 }
 
 html body .market-popup-heading > .market-popup-close::after {
   content: none !important;
   display: none !important;
+}
+
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body .market-popup-shell[data-market-popup] .market-popup-heading > .market-popup-close {
+    flex: 0 0 24px !important;
+    width: 24px !important;
+    min-width: 24px !important;
+    max-width: 24px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    max-height: 24px !important;
+    border-radius: 7px !important;
+    border-color: rgba(103, 232, 249, 0.68) !important;
+    background:
+      radial-gradient(circle at 50% 34%, rgba(103, 232, 249, 0.25), transparent 54%),
+      linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(244, 114, 182, 0.14)),
+      rgba(3, 10, 20, 0.82) !important;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.055),
+      0 0 10px rgba(34, 211, 238, 0.3),
+      0 0 16px rgba(244, 114, 182, 0.12) !important;
+  }
+
+  html body .market-popup-shell[data-market-popup] .market-popup-heading > .market-popup-close::before {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    transform: translate(-50%, -54%) !important;
+    text-shadow:
+      0 0 8px rgba(103, 232, 249, 0.82),
+      0 0 14px rgba(244, 114, 182, 0.28) !important;
+  }
 }
 
 html body .market-popup-shell[data-market-mode="black-market"] .market-popup-card {
@@ -2252,13 +2284,14 @@ html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profil
 
 html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--members {
   background:
-    linear-gradient(90deg, rgba(249, 115, 22, 0.17), transparent 62%),
+    linear-gradient(90deg, rgba(187, 247, 208, 0.22), transparent 62%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent),
-    rgba(30, 14, 6, 0.32) !important;
-  border-color: rgba(251, 146, 60, 0.3) !important;
+    rgba(6, 28, 18, 0.34) !important;
+  border-color: rgba(134, 239, 172, 0.36) !important;
   box-shadow:
-    inset 2px 0 0 rgba(249, 115, 22, 0.62),
+    inset 2px 0 0 rgba(74, 222, 128, 0.68),
     inset 0 0 0 1px rgba(255, 255, 255, 0.014),
+    0 0 16px rgba(74, 222, 128, 0.12),
     0 6px 14px rgba(0, 0, 0, 0.12) !important;
 }
 
@@ -2291,7 +2324,8 @@ html body.game-body #profile-gang-card.right-panel-card .profile-row--wanted .pr
 
 html body.game-body #profile-gang-card.right-panel-card .profile-row--members .gang-profile-row__label,
 html body.game-body #profile-gang-card.right-panel-card .profile-row--members > span:last-child {
-  color: rgba(254, 215, 170, 0.96) !important;
+  color: rgba(220, 252, 231, 0.98) !important;
+  text-shadow: 0 0 12px rgba(134, 239, 172, 0.32) !important;
 }
 
 html body.game-body #profile-gang-card.right-panel-card .profile-row--faction .gang-profile-row__label,
@@ -2609,6 +2643,7 @@ html body.game-body #global-chat-card .server-chat-panel__message {
   grid-template-columns: max-content minmax(0, 1fr) !important;
   align-items: start !important;
   column-gap: 5px !important;
+  row-gap: 2px !important;
   border-color: rgba(224, 242, 254, 0.18) !important;
   background:
     linear-gradient(90deg, rgba(14, 165, 233, 0.12), transparent 48%),
@@ -2631,14 +2666,31 @@ html body.game-body #global-chat-card .server-chat-panel__author {
   box-shadow: none !important;
   text-shadow: 0 0 10px color-mix(in srgb, var(--chat-author-color) 18%, transparent) !important;
   grid-column: 1 !important;
+  grid-row: 1 !important;
   font-size: 0.72rem !important;
   line-height: 1.38 !important;
   white-space: nowrap !important;
 }
 
+html body.game-body #global-chat-card .server-chat-panel__timestamp {
+  display: inline-block !important;
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+  align-self: center !important;
+  min-width: 0 !important;
+  color: rgba(186, 230, 253, 0.62) !important;
+  font-size: 0.53rem !important;
+  line-height: 1.25 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+  text-shadow: 0 0 8px rgba(56, 189, 248, 0.14) !important;
+}
+
 html body.game-body #global-chat-card .server-chat-panel__text {
   display: block !important;
   grid-column: 2 !important;
+  grid-row: 2 !important;
   min-width: 0 !important;
   color: rgba(240, 249, 255, 0.86) !important;
   font-size: 0.74rem !important;
@@ -2861,7 +2913,6 @@ html body.game-body .building-action-status__feed::-webkit-scrollbar-track {
 }
 
 /* Requested UI polish overrides. */
-html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--members,
 html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--wanted {
   background:
     linear-gradient(90deg, rgba(248, 250, 252, 0.16), transparent 62%),
@@ -2874,11 +2925,28 @@ html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profil
     0 6px 14px rgba(0, 0, 0, 0.12) !important;
 }
 
-html body.game-body #profile-gang-card.right-panel-card .profile-row--members .gang-profile-row__label,
-html body.game-body #profile-gang-card.right-panel-card .profile-row--members > span:last-child,
+html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--members {
+  background:
+    linear-gradient(90deg, rgba(187, 247, 208, 0.22), transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+    rgba(6, 28, 18, 0.38) !important;
+  border-color: rgba(134, 239, 172, 0.38) !important;
+  box-shadow:
+    inset 2px 0 0 rgba(74, 222, 128, 0.72),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.026),
+    0 0 16px rgba(74, 222, 128, 0.14),
+    0 6px 14px rgba(0, 0, 0, 0.12) !important;
+}
+
 html body.game-body #profile-gang-card.right-panel-card .profile-row--wanted .gang-profile-row__label {
   color: rgba(241, 245, 249, 0.96) !important;
   text-shadow: 0 0 10px rgba(226, 232, 240, 0.14) !important;
+}
+
+html body.game-body #profile-gang-card.right-panel-card .profile-row--members .gang-profile-row__label,
+html body.game-body #profile-gang-card.right-panel-card .profile-row--members > span:last-child {
+  color: rgba(220, 252, 231, 0.98) !important;
+  text-shadow: 0 0 12px rgba(134, 239, 172, 0.32) !important;
 }
 
 html body.game-body #profile-gang-card.right-panel-card .profile-row--wanted .profile-heat-panel {

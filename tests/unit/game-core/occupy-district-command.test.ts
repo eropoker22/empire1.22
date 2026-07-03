@@ -27,7 +27,7 @@ describe("occupy district command", () => {
         districtId: "district:2",
         enabled: false,
         disabledCode: "OCCUPY_SPY_REQUIRED",
-        cost: { influence: 5 },
+        cost: { influence: 5, population: 50 },
         heatGain: 2,
         cooldownRemainingTicks: 0
       })
@@ -92,6 +92,7 @@ describe("occupy district command", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.districtsById["district:1"].influence).toBe(5);
+    expect(result.nextState.resourceStatesById["resource:1"].balances.population).toBe(955);
     expect(result.nextState.districtsById["district:2"]).toMatchObject({
       ownerPlayerId: "player:1",
       status: "claimed",
@@ -111,6 +112,10 @@ describe("occupy district command", () => {
         targetDistrictId: "district:2",
         heatGained: 2,
         influenceCost: 5,
+        populationCost: 50,
+        populationLost: 45,
+        populationRefunded: 5,
+        result: "success",
         cooldownTicks: 144
       })
     });
@@ -124,6 +129,10 @@ describe("occupy district command", () => {
           actionType: "occupy-district",
           heatGained: 2,
           influenceCost: 5,
+          populationCost: 50,
+          populationLost: 45,
+          populationRefunded: 5,
+          result: "success",
           cooldownTicks: 144
         })
       }),
@@ -137,8 +146,58 @@ describe("occupy district command", () => {
     ]);
     expect(Object.values(result.nextState.cityFeedEventsById)).toEqual([
       expect.objectContaining({
-        sourceType: "district_capture",
+        sourceType: "district_occupy",
         districtId: "district:2"
+      })
+    ]);
+  });
+
+  it("can fail occupation, keep the district neutral and consume the full population cost", () => {
+    const state = createNeutralOccupyState();
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
+    const result = applyCommand(
+      state,
+      createOccupyDistrictCommandFixture({ id: "command:occupy:fail:1" }),
+      context
+    );
+
+    expect(result.errors).toEqual([]);
+    expect(result.nextState.districtsById["district:1"].influence).toBe(5);
+    expect(result.nextState.resourceStatesById["resource:1"].balances.population).toBe(950);
+    expect(result.nextState.districtsById["district:2"]).toMatchObject({
+      ownerPlayerId: null,
+      status: "neutral",
+      heat: 2
+    });
+    expect(result.nextState.buildingsById["building:district-2:warehouse:1"]).toMatchObject({
+      ownerPlayerId: "player:neutral"
+    });
+    expect(result.nextState.notificationsById["notification:command:occupy:fail:1:occupy-report"]).toMatchObject({
+      category: "report.occupy",
+      payload: expect.objectContaining({
+        result: "failure",
+        districtCaptured: false,
+        populationCost: 50,
+        populationLost: 50,
+        populationRefunded: 0
+      })
+    });
+    expect(result.events[0]).toMatchObject({
+      type: "district-occupy-resolved",
+      payload: expect.objectContaining({
+        result: "failure",
+        districtCaptured: false,
+        populationLost: 50,
+        populationRefunded: 0
+      })
+    });
+    expect(Object.values(result.nextState.cityFeedEventsById)).toEqual([
+      expect.objectContaining({
+        sourceType: "district_occupy",
+        districtId: "district:2",
+        payload: expect.objectContaining({
+          result: "failure"
+        })
       })
     ]);
   });
@@ -156,6 +215,7 @@ describe("occupy district command", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.districtsById["district:1"].influence).toBe(3);
+    expect(result.nextState.resourceStatesById["resource:1"].balances.population).toBe(955);
     expect(result.nextState.districtsById["district:2"].heat).toBe(3);
     expect(result.nextState.policeStatesById["police:1"]?.heat).toBe(3);
     expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:district:2"]).toBe(4);
@@ -246,6 +306,64 @@ describe("occupy district command", () => {
     expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBeNull();
   });
 
+  it("rejects occupation when the player lacks the population cost", () => {
+    const state = createNeutralOccupyState();
+    state.resourceStatesById["resource:1"] = {
+      ...state.resourceStatesById["resource:1"],
+      balances: {
+        ...state.resourceStatesById["resource:1"].balances,
+        population: 49
+      }
+    };
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
+    const result = applyCommand(state, createOccupyDistrictCommandFixture(), context);
+
+    expect(result.errors).toMatchObject([
+      {
+        code: "occupy_not_enough_population"
+      }
+    ]);
+    expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBeNull();
+  });
+
+  it("charges 250 population for the third district and 550 after that", () => {
+    const state = createNeutralOccupyState();
+    state.districtsById["district:3"] = {
+      ...state.districtsById["district:1"],
+      id: "district:3",
+      name: "Second Owned District",
+      ownerPlayerId: "player:1",
+      adjacentDistrictIds: ["district:2"]
+    };
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      adjacentDistrictIds: ["district:2"]
+    };
+    state.districtsById["district:2"] = {
+      ...state.districtsById["district:2"],
+      adjacentDistrictIds: ["district:1", "district:3", "district:4"]
+    };
+    state.districtsById["district:4"] = {
+      ...state.districtsById["district:2"],
+      id: "district:4",
+      name: "Next Neutral District",
+      ownerPlayerId: null,
+      controllerAllianceId: null,
+      status: "neutral",
+      adjacentDistrictIds: ["district:2"],
+      buildingIds: []
+    };
+    state.root.districtIds.push("district:3", "district:4");
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
+
+    expect(createDistrictOccupyTargetViews(state, "player:1", "district:1")[0].cost.population).toBe(250);
+    const result = applyCommand(state, createOccupyDistrictCommandFixture(), context);
+
+    expect(result.errors).toEqual([]);
+    expect(result.nextState.resourceStatesById["resource:1"].balances.population).toBe(775);
+    expect(createDistrictOccupyTargetViews(result.nextState, "player:1", "district:2")[0]?.cost.population).toBe(550);
+  });
+
   it("rejects repeated occupation of an already owned district", () => {
     const state = createNeutralOccupyState();
     seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
@@ -320,6 +438,13 @@ const createNeutralOccupyState = (): CoreGameState => {
     influence: 10
   };
   state.buildingsById[building.id] = building;
+  state.resourceStatesById["resource:1"] = {
+    ...state.resourceStatesById["resource:1"],
+    balances: {
+      ...state.resourceStatesById["resource:1"].balances,
+      population: 1000
+    }
+  };
 
   return state;
 };

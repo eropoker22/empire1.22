@@ -251,6 +251,7 @@ export function renderPlayerMarketPanel(listElement, viewModel = {}, callbacks =
 
   const listings = Array.isArray(viewModel.listings) ? viewModel.listings : [];
   const sellableItems = Array.isArray(viewModel.sellableItems) ? viewModel.sellableItems : [];
+  const emptyMessage = String(viewModel.emptyMessage || "Hráčský bazar čeká na první obchodníky.");
   const ownListingCount = Math.max(0, Number(viewModel.ownListingCount || 0) || 0);
   const ownListingLimit = Math.max(0, Number(viewModel.ownListingLimit || 0) || 0);
   const shell = createElement(ownerDocument, "div", "market-player");
@@ -347,7 +348,9 @@ export function renderPlayerMarketPanel(listElement, viewModel = {}, callbacks =
     currencySelect.value = item.inventory === "drugs" ? "dirtyMoney" : currencySelect.value;
     submit.title = ownListingCount >= ownListingLimit
       ? "Máš plný limit aktivních nabídek."
-      : "Vystavit nabídku na serverový hráčský bazar.";
+      : !item
+        ? "Sklad je prázdný. Nejdřív získej zásoby."
+        : "Vystavit nabídku na hráčský bazar.";
   };
 
   itemSelect.addEventListener("change", () => {
@@ -384,7 +387,7 @@ export function renderPlayerMarketPanel(listElement, viewModel = {}, callbacks =
 
   if (listings.length <= 0) {
     const empty = createElement(ownerDocument, "p", "market-player-empty");
-    empty.textContent = "Na serveru teď nejsou aktivní hráčské nabídky.";
+    empty.textContent = emptyMessage;
     appendChildren(listingsWrap, empty);
   } else {
     for (const listing of listings) {
@@ -455,9 +458,14 @@ export function renderMarketItem(itemViewModel = {}, callbacks = {}, options = {
 
 function createMarketItemRow(ownerDocument, item, callbacks = {}) {
   const row = createElement(ownerDocument, "div", "market-popup-row");
+  const marketMetadata = item.marketMetadata && typeof item.marketMetadata === "object" ? item.marketMetadata : {};
   setDatasetValue(row, "marketInventory", item.inventory);
   setDatasetValue(row, "marketRowMode", item.rowMode);
   setDatasetValue(row, "resourceColor", item.resourceColor || item.itemId);
+  setDatasetValue(row, "marketTier", marketMetadata.tier || "");
+  setDatasetValue(row, "marketRisk", marketMetadata.riskLevel || "");
+  setDatasetValue(row, "marketCategory", marketMetadata.marketCategory || "");
+  setDatasetValue(row, "marketRarity", marketMetadata.rarity || "");
 
   const info = createElement(ownerDocument, "div", "market-popup-row__info");
   const name = createElement(ownerDocument, "strong", "market-popup-row__name");
@@ -472,7 +480,15 @@ function createMarketItemRow(ownerDocument, item, callbacks = {}) {
   const stockBar = createElement(ownerDocument, "span", "market-popup-row__stock");
   stockBar.style?.setProperty?.("--market-stock", `${Number.isFinite(item.stockPercent) ? item.stockPercent : 100}%`);
   stockBar.setAttribute("aria-label", item.stockLabel || "Stock bez limitu");
-  appendChildren(info, name, meta, price, trend, stockBar);
+  const badgeWrap = createElement(ownerDocument, "div", "market-popup-row__badges");
+  const badges = Array.isArray(item.badges) ? item.badges : [];
+  for (const badge of badges) {
+    const badgeElement = createElement(ownerDocument, "span", "market-popup-row__badge");
+    setDatasetValue(badgeElement, "marketBadgeTone", badge.tone || "neutral");
+    badgeElement.textContent = badge.label || "";
+    badgeWrap.appendChild(badgeElement);
+  }
+  appendChildren(info, name, meta, price, trend, ...(badges.length > 0 ? [badgeWrap] : []), stockBar);
 
   const trade = createElement(ownerDocument, "div", "market-popup-row__trade");
   const quantityWrap = createElement(ownerDocument, "label", "market-popup-row__quantity-wrap");
@@ -502,7 +518,7 @@ function createMarketItemRow(ownerDocument, item, callbacks = {}) {
   }
   const sellAction = createElement(ownerDocument, "button", "button market-popup-row__sell");
   sellAction.type = "button";
-  sellAction.textContent = "Prodat";
+  sellAction.textContent = item.sellActionLabel || "Prodat";
 
   const getRequestedQuantity = () => Math.min(Math.max(Number.parseInt(String(quantityInput.value || "1"), 10) || 1, 1), 999);
   const updateRowTradeState = () => {
@@ -512,7 +528,7 @@ function createMarketItemRow(ownerDocument, item, callbacks = {}) {
     buyAction.disabled = Boolean(state.buyDisabled);
     if (cleanBuyAction) {
       cleanBuyAction.disabled = item.canBuyClean === false;
-      cleanBuyAction.title = cleanBuyAction.disabled ? "Nemáš dost clean cash." : "Koupit přes black market za clean cash.";
+      cleanBuyAction.title = cleanBuyAction.disabled ? "Nemáš dost clean cash." : "Koupit přes černý trh za clean cash.";
     }
     sellAction.disabled = Boolean(state.sellDisabled);
     buyAction.title = state.buyTitle || "";

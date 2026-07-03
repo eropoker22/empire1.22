@@ -136,6 +136,7 @@ describe("district action confirmation panel", () => {
     const title = element();
     const source = element();
     const condition = element();
+    const cost = element();
     const duration = element();
     const note = element();
     const button = element();
@@ -144,6 +145,8 @@ describe("district action confirmation panel", () => {
       district: { id: 15 },
       adjacentOwnedDistrictIds: [3],
       canOccupyAfterSpy: true,
+      ownedDistrictCount: 1,
+      availablePopulation: 50,
       occupyCooldownMs: 12 * 60 * 1000
     });
 
@@ -151,6 +154,7 @@ describe("district action confirmation panel", () => {
       occupyConfirmTitle: title,
       occupyConfirmSource: source,
       occupyConfirmCondition: condition,
+      occupyConfirmCost: cost,
       occupyConfirmDuration: duration,
       occupyConfirmNote: note,
       occupyConfirmButton: button
@@ -159,9 +163,26 @@ describe("district action confirmation panel", () => {
     expect(title.textContent).toBe("District 15");
     expect(source.textContent).toBe("District 3");
     expect(condition.textContent).toBe("Špehování potvrzeno");
+    expect(cost.textContent).toBe("50 populace");
     expect(duration.textContent).toBe("12m");
     expect(note.textContent).toBe("Po potvrzení se spustí 12m obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe.");
     expect(button.textContent).toBe("Spustit obsazení");
     expect(button.disabled).toBe(false);
+  });
+
+  it("shows the higher occupy population cost and blocks confirmation when population is low", () => {
+    const viewModel = createOccupyConfirmationViewModel({
+      district: { id: 18 },
+      adjacentOwnedDistrictIds: [15],
+      canOccupyAfterSpy: true,
+      ownedDistrictCount: 2,
+      availablePopulation: 249,
+      occupyCooldownMs: 12 * 60 * 1000
+    });
+
+    expect(viewModel.conditionLabel).toBe("Špehování potvrzeno");
+    expect(viewModel.costLabel).toBe("250 populace");
+    expect(viewModel.note).toBe("Obsazení vyžaduje 250 populace. Aktuálně máš 249.");
+    expect(viewModel.canConfirm).toBe(false);
   });
 });

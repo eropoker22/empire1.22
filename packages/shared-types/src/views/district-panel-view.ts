@@ -171,6 +171,7 @@ export interface DistrictOccupyTargetView {
   disabledReason: string | null;
   cost: {
     influence: number;
+    population: number;
   };
   heatGain: number;
   cooldownRemainingTicks: number;

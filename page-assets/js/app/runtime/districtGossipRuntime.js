@@ -132,6 +132,10 @@ export function buildDistrictIntelEventText(type, districtOrId, payload = {}) {
       return `Potvrzený intel: V ${districtLabel} začalo tiché obsazování po infiltrační akci.`;
     case "occupy_success":
       return `Potvrzený intel: ${districtLabel} převzala nová posádka a sektor změnil vlajku.`;
+    case "occupy_failed":
+      return scenarioLabel
+        ? `Potvrzený intel: Obsazení ${districtLabel} selhalo. ${scenarioLabel}`
+        : `Potvrzený intel: Obsazení ${districtLabel} selhalo a sektor zůstal neobsazený.`;
     default:
       return scenarioLabel
         ? `Potvrzený intel: ${districtLabel} zaznamenal událost ${scenarioLabel}.`

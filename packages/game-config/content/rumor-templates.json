@@ -1,5 +1,185 @@
 [
   {
+    "id": "rumor.attack_activity.confirmed.occupy_success.001",
+    "category": "attack_activity",
+    "confidence": "confirmed",
+    "allowedAudiences": [
+      "current_player",
+      "selected_district",
+      "global_city"
+    ],
+    "allowedSourceBuildings": [],
+    "text": "{districtName} změnil vlajku tiše. Ráno už se tam ptali jiných lidí, komu patří chodník.",
+    "expiresAfterSeconds": 1800,
+    "revealsPlayerName": false,
+    "revealsAllianceName": false,
+    "revealsDistrictName": true,
+    "weight": 1,
+    "priority": 90
+  },
+  {
+    "id": "rumor.attack_activity.confirmed.occupy_success.002",
+    "category": "attack_activity",
+    "confidence": "confirmed",
+    "allowedAudiences": [
+      "current_player",
+      "selected_district",
+      "global_city"
+    ],
+    "allowedSourceBuildings": [],
+    "text": "V {districtName} se přes noc přepsala pravidla. Nikdo nekřičel, ale všichni pochopili.",
+    "expiresAfterSeconds": 1800,
+    "revealsPlayerName": false,
+    "revealsAllianceName": false,
+    "revealsDistrictName": true,
+    "weight": 1,
+    "priority": 90
+  },
+  {
+    "id": "rumor.attack_activity.confirmed.occupy_success.003",
+    "category": "attack_activity",
+    "confidence": "confirmed",
+    "allowedAudiences": [
+      "current_player",
+      "selected_district",
+      "global_city"
+    ],
+    "allowedSourceBuildings": [],
+    "text": "{districtName} spolkl novou posádku a vyplivl nový pořádek. Staré kontakty mlčí.",
+    "expiresAfterSeconds": 1800,
+    "revealsPlayerName": false,
+    "revealsAllianceName": false,
+    "revealsDistrictName": true,
+    "weight": 1,
+    "priority": 90
+  },
+  {
+    "id": "rumor.attack_activity.confirmed.occupy_success.004",
+    "category": "attack_activity",
+    "confidence": "confirmed",
+    "allowedAudiences": [
+      "current_player",
+      "selected_district",
+      "global_city"
+    ],
+    "allowedSourceBuildings": [],
+    "text": "Ulice v {districtName} dostaly nové hlídky. Místní dělají, že je to normální.",
+    "expiresAfterSeconds": 1800,
+    "revealsPlayerName": false,
+    "revealsAllianceName": false,
+    "revealsDistrictName": true,
+    "weight": 1,
+    "priority": 90
+  },
+  {
+    "id": "rumor.attack_activity.confirmed.occupy_success.005",
+    "category": "attack_activity",
+    "confidence": "confirmed",
+    "allowedAudiences": [
+      "current_player",
+      "selected_district",
+      "global_city"
+    ],
+    "allowedSourceBuildings": [],
+    "text": "{districtName} padl bez velkého divadla. O to víc z toho město znervóznělo.",
+    "expiresAfterSeconds": 1800,
+    "revealsPlayerName": false,
+    "revealsAllianceName": false,
+    "revealsDistrictName": true,
+    "weight": 1,
+    "priority": 90
+  },
+  {
+    "id": "rumor.attack_activity.confirmed.occupy_failure.001",
+    "category": "attack_activity",
+    "confidence": "confirmed",
+    "allowedAudiences": [
+      "current_player",
+      "selected_district",
+      "global_city"
+    ],
+    "allowedSourceBuildings": [],
+    "text": "Pokus o převzetí {districtName} se rozpadl v bočních ulicích. Lidi zmizeli, district zůstal volný.",
+    "expiresAfterSeconds": 1800,
+    "revealsPlayerName": false,
+    "revealsAllianceName": false,
+    "revealsDistrictName": true,
+    "weight": 1,
+    "priority": 90
+  },
+  {
+    "id": "rumor.attack_activity.confirmed.occupy_failure.002",
+    "category": "attack_activity",
+    "confidence": "confirmed",
+    "allowedAudiences": [
+      "current_player",
+      "selected_district",
+      "global_city"
+    ],
+    "allowedSourceBuildings": [],
+    "text": "{districtName} dnes nikoho nepustil dovnitř. Posádka se rozsypala dřív, než stihla pověsit barvy.",
+    "expiresAfterSeconds": 1800,
+    "revealsPlayerName": false,
+    "revealsAllianceName": false,
+    "revealsDistrictName": true,
+    "weight": 1,
+    "priority": 90
+  },
+  {
+    "id": "rumor.attack_activity.confirmed.occupy_failure.003",
+    "category": "attack_activity",
+    "confidence": "confirmed",
+    "allowedAudiences": [
+      "current_player",
+      "selected_district",
+      "global_city"
+    ],
+    "allowedSourceBuildings": [],
+    "text": "V {districtName} někdo čekal moc dlouho na správný signál. Signál nepřišel, lidi ano.",
+    "expiresAfterSeconds": 1800,
+    "revealsPlayerName": false,
+    "revealsAllianceName": false,
+    "revealsDistrictName": true,
+    "weight": 1,
+    "priority": 90
+  },
+  {
+    "id": "rumor.attack_activity.confirmed.occupy_failure.004",
+    "category": "attack_activity",
+    "confidence": "confirmed",
+    "allowedAudiences": [
+      "current_player",
+      "selected_district",
+      "global_city"
+    ],
+    "allowedSourceBuildings": [],
+    "text": "Obsazení {districtName} skončilo špatným tichem. Zůstaly jen prázdné kouty a chybějící tváře.",
+    "expiresAfterSeconds": 1800,
+    "revealsPlayerName": false,
+    "revealsAllianceName": false,
+    "revealsDistrictName": true,
+    "weight": 1,
+    "priority": 90
+  },
+  {
+    "id": "rumor.attack_activity.confirmed.occupy_failure.005",
+    "category": "attack_activity",
+    "confidence": "confirmed",
+    "allowedAudiences": [
+      "current_player",
+      "selected_district",
+      "global_city"
+    ],
+    "allowedSourceBuildings": [],
+    "text": "{districtName} se tentokrát nepohnul. Ulice sežraly plán i lidi, co ho nesli.",
+    "expiresAfterSeconds": 1800,
+    "revealsPlayerName": false,
+    "revealsAllianceName": false,
+    "revealsDistrictName": true,
+    "weight": 1,
+    "priority": 90
+  },
+  {
     "id": "rumor.population_movement.confirmed.001",
     "category": "population_movement",
     "confidence": "confirmed",

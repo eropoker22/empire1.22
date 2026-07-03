@@ -1,3 +1,9 @@
+import { createMarketDataSourceSnapshot } from "./marketDataSource.js";
+import {
+  createMarketItemAtmosphere,
+  createMarketTabStateViewModel
+} from "./marketViewModel.js";
+
 function queryAll(root, selector) {
   return selector ? Array.from(root?.querySelectorAll?.(selector) || []) : [];
 }
@@ -40,8 +46,27 @@ function createServerMarketCatalogPanelPayload({
       const heatRisk = Math.max(0, Math.floor(Number(blackMarket.heatRisk || 0) || 0));
       const cleanCash = Math.max(0, Number(playerView?.economy?.cleanCash || balances.cash || 0) || 0);
       const canBuyBlackClean = cleanCash >= buyPrice;
+      const trendDirection = resource.trend === "up" || resource.trend === "spike"
+        ? "up"
+        : resource.trend === "down"
+          ? "down"
+          : "flat";
+      const rowAtmosphere = createMarketItemAtmosphere({
+        item: {
+          inventory: "materials",
+          canSell: !isBlackMarket && Boolean(normalMarket.canSell),
+          itemId: legacyItemId,
+          marketCategory: resource.category,
+          resourceId
+        },
+        activeTab,
+        trendDirection,
+        stockPercent: Number.isFinite(stockPercent) ? stockPercent : 100,
+        heatRisk
+      });
 
       return {
+        ...rowAtmosphere,
         inventory: "materials",
         itemId: legacyItemId,
         resourceId,
@@ -63,15 +88,11 @@ function createServerMarketCatalogPanelPayload({
         showCleanBuyAction: isBlackMarket,
         canSell: !isBlackMarket && Boolean(normalMarket.canSell),
         heatRisk,
-        metaLabel: `Máš ${amount} ks · ${isBlackMarket ? "black market dostupný" : `stock ${Number.isFinite(stock) ? stock : 0}/${Number.isFinite(maxStock) ? maxStock : 0}`} · server cena`,
+        metaLabel: `Máš ${amount} ks · ${isBlackMarket ? "kontakt dostupný" : `sklad ${Number.isFinite(stock) ? stock : 0}/${Number.isFinite(maxStock) ? maxStock : 0}`} · živá cena`,
         priceLabel: isBlackMarket
           ? `Nákup ${formatPrice(buyPrice)} dirty cash${heatRisk ? ` · heat +${heatRisk}` : ""}`
           : `Nákup ${formatPrice(buyPrice)} · výkup ${formatPrice(sellPrice)}`,
-        trendDirection: resource.trend === "up" || resource.trend === "spike"
-          ? "up"
-          : resource.trend === "down"
-            ? "down"
-            : "flat",
+        trendDirection,
         trendLabel: resource.trend === "spike"
           ? "▲ spike"
           : resource.trend === "up"
@@ -81,7 +102,7 @@ function createServerMarketCatalogPanelPayload({
               : "• stabilní",
         stockPercent: Number.isFinite(stockPercent) ? stockPercent : 100,
         stockLabel: isBlackMarket
-          ? "Black market nemá veřejný stock."
+          ? "Černý trh nemá veřejný sklad."
           : `Stock ${Number.isFinite(stock) ? stock : 0}/${Number.isFinite(maxStock) ? maxStock : 0}`
       };
     })
@@ -172,13 +193,14 @@ export function createMarketPopupRuntime(deps = {}) {
         onClearRecentTransactions: clearRecentTransactions
       });
     };
-    const renderPlayerMarketTab = (priceState, serverScope) => {
+    const renderPlayerMarketTab = (priceState, serverScope, tabState = {}) => {
       const { viewModel: playerMarketViewModel } = deps.createPlayerMarketPanelPayload?.({
         priceState,
         serverScope,
         catalog: deps.getPlayerMarketCatalog?.(),
         economy: deps.getResolvedEconomyState?.(),
         sellerId: deps.MARKET_PLAYER_SELLER_ID,
+        tabState,
         ownListingLimit: deps.MARKET_PLAYER_OWN_LISTING_LIMIT,
         normalizeMarketTradeState: deps.normalizeMarketTradeState,
         normalizePlayerMarketListings: deps.normalizePlayerMarketListings,
@@ -222,11 +244,22 @@ export function createMarketPopupRuntime(deps = {}) {
       const tabConfig = deps.MARKET_TAB_CONFIG?.[activeTab] || deps.MARKET_TAB_CONFIG?.market || {};
       const serverScope = deps.getMarketServerScope?.();
       const serverMarket = deps.getServerMarketReadModel?.();
-      const hasServerMarket = Boolean(serverMarket && activeTab !== deps.MARKET_PLAYER_TAB_ID);
+      const serverPlayerView = deps.getServerPlayerView?.();
+      const dataSource = createMarketDataSourceSnapshot({
+        activeTab,
+        playerTabId: deps.MARKET_PLAYER_TAB_ID,
+        serverMarket,
+        localMarketState: priceState
+      });
+      const tabState = createMarketTabStateViewModel(dataSource);
       const paymentKey = tabConfig.payment || "cleanMoney";
       const payoutKey = tabConfig.payout || paymentKey;
 
       popup.dataset.marketMode = activeTab;
+      popup.dataset.marketSource = tabState.source;
+      popup.dataset.marketStatus = tabState.status;
+      popup.dataset.marketPreview = String(tabState.isPreview);
+      popup.dataset.marketAuthoritative = String(tabState.isAuthoritative);
 
       if (titleElement) {
         titleElement.textContent = getMarketTitle();
@@ -237,42 +270,60 @@ export function createMarketPopupRuntime(deps = {}) {
         serverBadgeElement.hidden = true;
       }
 
-      renderDashboard(hasServerMarket ? serverMarket : priceState);
+      renderDashboard(dataSource.marketState);
 
       copyElement.textContent = deps.createMarketCopy?.(activeTab, tabConfig);
       listElement.replaceChildren();
 
       if (activeTab === deps.MARKET_PLAYER_TAB_ID) {
-        renderPlayerMarketTab(priceState, serverScope);
+        renderPlayerMarketTab(dataSource.localMarketState || dataSource.marketState, serverScope, tabState);
         deps.syncMarketTabs?.(tabs, activeTab);
         return;
       }
 
-      const catalogViewModel = hasServerMarket
-        ? createServerMarketCatalogPanelPayload({
-            activeTab,
-            serverMarket,
-            playerView: deps.getServerPlayerView?.(),
-            formatPrice: deps.formatMarketPrice
-          })
-        : deps.createMarketCatalogPanelPayload?.({
-        tabConfig,
-        activeTab,
-        paymentKey,
-        payoutKey,
-        priceState,
-        marketDiscount: deps.getShoppingMallMarketDiscountForTab?.(activeTab),
-        getInventoryAmount: deps.getInventoryAmount,
-        getStockAmount,
-        getMaxStock,
-        getStockLabel,
-        getStockPercent,
-        applyDiscountToPrice: deps.applyShoppingMallMarketDiscountToPrice,
-        formatPrice: deps.formatMarketPrice,
-            getMoneyLabel: deps.getMarketMoneyLabel
-          });
+      const catalogViewModel = dataSource.status === "unavailable"
+        ? {
+            emptyMessage: tabState.unavailableMessage,
+            items: [],
+            source: tabState.source,
+            status: tabState.status
+          }
+        : dataSource.useServerMarket
+          ? createServerMarketCatalogPanelPayload({
+              activeTab,
+              serverMarket: dataSource.serverMarket,
+              playerView: serverPlayerView,
+              formatPrice: deps.formatMarketPrice
+            })
+          : deps.createMarketCatalogPanelPayload?.({
+              tabConfig,
+              activeTab,
+              paymentKey,
+              payoutKey,
+              priceState,
+              marketDiscount: deps.getShoppingMallMarketDiscountForTab?.(activeTab),
+              getInventoryAmount: deps.getInventoryAmount,
+              getStockAmount,
+              getMaxStock,
+              getStockLabel,
+              getStockPercent,
+              applyDiscountToPrice: deps.applyShoppingMallMarketDiscountToPrice,
+              formatPrice: deps.formatMarketPrice,
+              getMoneyLabel: deps.getMarketMoneyLabel,
+              tabState
+            });
+      if (catalogViewModel && !catalogViewModel.emptyMessage) {
+        catalogViewModel.emptyMessage = tabState.emptyMessage;
+      }
+      if (catalogViewModel) {
+        catalogViewModel.source = tabState.source;
+        catalogViewModel.status = tabState.status;
+        catalogViewModel.isAuthoritative = tabState.isAuthoritative;
+        catalogViewModel.isFallback = tabState.isFallback;
+        catalogViewModel.isPreview = tabState.isPreview;
+      }
 
-      const marketCallbacks = hasServerMarket
+      const marketCallbacks = dataSource.useServerMarket
         ? createServerMarketCallbacks({
             activeTab,
             submitServerMarketCommand: deps.submitServerMarketCommand,
@@ -281,27 +332,27 @@ export function createMarketPopupRuntime(deps = {}) {
             refreshMarketTab: renderMarketTab
           })
         : deps.createMarketCatalogCallbacks?.({
-        root,
-        activeTab,
-        getResolvedEconomyState: deps.getResolvedEconomyState,
-        getInventoryAmount: deps.getInventoryAmount,
-        getResolvedMarketPriceState: deps.getResolvedMarketPriceState,
-        getStockAmount,
-        getMaxStock,
-        createMarketTradeStateViewModel: deps.createMarketTradeStateViewModel,
-        resolveBlackMarketHeatRisk,
-        formatMarketPrice: deps.formatMarketPrice,
-        setMarketFeedback,
-        setInventoryAmount: deps.setInventoryAmount,
-        setStoredEconomyState: deps.setStoredEconomyState,
-        addGangHeat: deps.addGangHeat,
-        commitMarketState,
-        normalizeMarketStockState: deps.normalizeMarketStockState,
-        getMarketStockKey: deps.getMarketStockKey,
-        clamp: deps.clamp,
-        createTransaction: deps.createMarketTransaction,
-        normalizeMarketTransactions: deps.normalizeMarketTransactions,
-        applyTopbarEconomy: deps.applyTopbarEconomy,
+            root,
+            activeTab,
+            getResolvedEconomyState: deps.getResolvedEconomyState,
+            getInventoryAmount: deps.getInventoryAmount,
+            getResolvedMarketPriceState: deps.getResolvedMarketPriceState,
+            getStockAmount,
+            getMaxStock,
+            createMarketTradeStateViewModel: deps.createMarketTradeStateViewModel,
+            resolveBlackMarketHeatRisk,
+            formatMarketPrice: deps.formatMarketPrice,
+            setMarketFeedback,
+            setInventoryAmount: deps.setInventoryAmount,
+            setStoredEconomyState: deps.setStoredEconomyState,
+            addGangHeat: deps.addGangHeat,
+            commitMarketState,
+            normalizeMarketStockState: deps.normalizeMarketStockState,
+            getMarketStockKey: deps.getMarketStockKey,
+            clamp: deps.clamp,
+            createTransaction: deps.createMarketTransaction,
+            normalizeMarketTransactions: deps.normalizeMarketTransactions,
+            applyTopbarEconomy: deps.applyTopbarEconomy,
             refreshMarketTab: renderMarketTab
           });
 
@@ -379,7 +430,7 @@ function createServerMarketCallbacks(deps = {}) {
 
   const submit = async (payload, successLabel) => {
     if (typeof deps.submitServerMarketCommand !== "function") {
-      setMarketFeedback("warning", "Server market teď není dostupný.");
+      setMarketFeedback("warning", "Kontakt mlčí. Zkus to později.");
       refreshMarketTab();
       return;
     }
@@ -387,10 +438,10 @@ function createServerMarketCallbacks(deps = {}) {
     if (!confirmed) {
       return;
     }
-    setMarketFeedback("info", "Posílám trade na server...");
+    setMarketFeedback("info", "Kontakt potvrzuje obchod...");
     const response = await deps.submitServerMarketCommand(payload);
     if (!response?.accepted) {
-      const message = response?.errors?.[0]?.message || "Market trade server odmítl.";
+      const message = response?.errors?.[0]?.message || "Obchod neprošel. Zkus menší množství nebo později.";
       setMarketFeedback("warning", message);
       refreshMarketTab();
       return;
@@ -410,8 +461,8 @@ function createServerMarketCallbacks(deps = {}) {
       return {
         buyDisabled,
         sellDisabled,
-        buyTitle: buyDisabled ? "Server market nákup teď nepovoluje." : "Koupit přes server.",
-        sellTitle: sellDisabled ? (isBlackMarket ? "Black market výkup v MVP nepodporuje." : "Nemáš dost resource na prodej.") : "Prodat přes server.",
+        buyTitle: buyDisabled ? "Tenhle obchod teď nejde uzavřít." : "Koupit z trhu.",
+        sellTitle: sellDisabled ? (isBlackMarket ? "Černý trh dnes výkup nedělá." : "Nemáš dost zboží na prodej.") : "Prodat do trhu.",
         totalLabel: isBlackMarket && item.heatRisk
           ? `Celkem ${formatPrice(buyTotal)} · heat +${item.heatRisk}`
           : `Celkem ${formatPrice(buyTotal)} · prodej ${formatPrice(sellTotal)}`
@@ -431,7 +482,7 @@ function createServerMarketCallbacks(deps = {}) {
       }, {
         tone: isBlackMarket ? "danger" : "success",
         preview: `Potvrdit nákup ${quantity}x ${item.name} za ${formatPrice(total)}${isBlackMarket ? ` ${paymentType === "dirtyCash" ? "dirty" : "clean"} cash` : ""}?`,
-        done: `${isBlackMarket ? "Black market" : "Market"}: koupeno ${quantity}x ${item.name}.`
+        done: `${isBlackMarket ? "Kontakt předal" : "Trh vydal"} ${quantity}x ${item.name}.`
       });
     },
     onSellItem: (item = {}, requestedQuantity = 1) => {
@@ -443,7 +494,7 @@ function createServerMarketCallbacks(deps = {}) {
         amount: quantity
       }, {
         preview: `Potvrdit prodej ${quantity}x ${item.name} za ${formatPrice(total)}?`,
-        done: `Market: prodáno ${quantity}x ${item.name}.`
+        done: `Trh převzal ${quantity}x ${item.name}.`
       });
     }
   };

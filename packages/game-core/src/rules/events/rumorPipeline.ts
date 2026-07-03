@@ -466,7 +466,7 @@ const mapRumorCategory = (input: ResolveRumorEventInput): RumorCategory | null =
   const buildingType = stringValue(input.payload?.buildingTypeId);
   const actionId = stringValue(input.payload?.actionId);
   const rumorType = stringValue(input.payload?.rumorType);
-  if (input.sourceType === "attack" || input.sourceType === "district_capture") return "attack_activity";
+  if (input.sourceType === "attack" || input.sourceType === "district_capture" || input.sourceType === "district_occupy") return "attack_activity";
   if (input.sourceType === "spy") return "espionage";
   if (input.sourceType === "police_warning" || input.sourceType === "police_raid") return "police_heat";
   if (input.sourceType === "market") return "market";
@@ -529,7 +529,9 @@ const resolveCityFeedCategory = (
   if (signal.category === "atmosphere") return "atmosphere";
   if (signal.category === "police_heat" && signal.confidence === "confirmed") return "police";
   if (signal.category === "market" || signal.category === "economy") return input.category === "rumor" ? "rumor" : "economy";
-  if (signal.category === "attack_activity" && signal.confidence === "confirmed") return input.sourceType === "district_capture" ? "district" : "combat";
+  if (signal.category === "attack_activity" && signal.confidence === "confirmed") {
+    return input.sourceType === "district_capture" || input.sourceType === "district_occupy" ? "district" : "combat";
+  }
   return input.category === "police" ? "police" : "rumor";
 };
 
@@ -573,7 +575,7 @@ const directionFromPayload = (payload?: EventPayload): RumorDirection => {
 const resolveActorVisibility = (input: ResolveRumorEventInput): SafeRumorSignal["actorVisibility"] => {
   if (input.actorAllianceId || input.payload?.allianceId) return "alliance";
   if (input.actorPlayerId && input.confidence === "confirmed") return "player";
-  if (input.truthiness === "confirmed" && input.playerId && input.sourceType === "district_capture") return "player";
+  if (input.truthiness === "confirmed" && input.playerId && (input.sourceType === "district_capture" || input.sourceType === "district_occupy")) return "player";
   return "hidden";
 };
 

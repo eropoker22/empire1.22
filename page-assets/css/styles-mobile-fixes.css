@@ -1158,8 +1158,14 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
 
   #game-left-nav > #global-chat-card {
     position: relative !important;
+    width: min(calc(100vw - 12px), calc(100% + 16px)) !important;
+    max-width: calc(100vw - 12px) !important;
+    justify-self: center !important;
+    margin-left: -8px !important;
+    margin-right: -8px !important;
     margin-bottom: 8px !important;
     padding-top: 8px !important;
+    box-sizing: border-box !important;
   }
 
   #game-left-nav > #global-chat-card::before {
@@ -1171,6 +1177,8 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
   }
 
   #game-left-nav > #global-chat-card .alliance-chat.server-chat-panel {
+    width: 100% !important;
+    max-width: none !important;
     min-height: 285px !important;
     display: grid !important;
     grid-template-rows: auto minmax(0, 1fr) auto !important;
@@ -3002,12 +3010,13 @@ body .market-popup-shell[data-market-mode="market"] .market-popup-row__info {
   grid-template-columns: minmax(0, 1fr) auto !important;
   grid-template-areas:
     "name trend"
+    "badges badges"
     "meta meta"
     "price price"
     "stock stock" !important;
   align-content: start !important;
   gap: 7px !important;
-  min-height: 126px !important;
+  min-height: 140px !important;
   padding: 4px 2px 0 44px !important;
 }
 
@@ -3071,6 +3080,15 @@ body .market-popup-shell[data-market-mode="market"] .market-popup-row__price {
   color: rgb(var(--market-card-resource-rgb)) !important;
   font-size: 0.68rem !important;
   text-shadow: 0 0 10px rgba(var(--market-card-resource-rgb), 0.3) !important;
+}
+
+body .market-popup-shell[data-market-mode="market"] .market-popup-row__badges {
+  grid-area: badges !important;
+  min-width: 0 !important;
+}
+
+body .market-popup-shell[data-market-mode="market"] .market-popup-row__badge {
+  max-width: 100% !important;
 }
 
 body .market-popup-shell[data-market-mode="market"] .market-popup-row__trend {

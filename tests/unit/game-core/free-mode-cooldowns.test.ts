@@ -176,6 +176,13 @@ const createNeutralOccupyState = (): CoreGameState => {
     ...state.districtsById["district:1"],
     influence: 10
   };
+  state.resourceStatesById["resource:1"] = {
+    ...state.resourceStatesById["resource:1"],
+    balances: {
+      ...state.resourceStatesById["resource:1"]?.balances,
+      population: 1_000
+    }
+  };
   state.buildingsById[building.id] = building;
 
   return state;

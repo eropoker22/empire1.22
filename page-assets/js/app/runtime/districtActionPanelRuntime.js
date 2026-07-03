@@ -453,8 +453,10 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       return;
     }
 
-    const atmosphereMeta = getDistrictAtmosphereMeta(district, getInteractionState());
+    const interactionState = getInteractionState();
+    const atmosphereMeta = getDistrictAtmosphereMeta(district, interactionState);
     const adjacentOwnedDistrictIds = getAdjacentOwnedDistrictIds(district);
+    const ownedDistrictCount = getCurrentPlayerOwnedDistrictIds(interactionState).size;
     const spyIntel = deps.getResolvedSpyIntel();
     const canOccupyAfterSpy = spyIntel.occupiableDistrictIds.includes(Number(district.id));
 
@@ -462,6 +464,8 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       district,
       adjacentOwnedDistrictIds,
       canOccupyAfterSpy,
+      ownedDistrictCount,
+      availablePopulation: getAvailableAttackPopulation(),
       occupyCooldownMs: deps.occupyCooldownMs,
       atmosphereMeta
     }, elements);

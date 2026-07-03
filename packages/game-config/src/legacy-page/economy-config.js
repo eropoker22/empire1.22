@@ -130,11 +130,11 @@ export const MARKET_TAB_CONFIG = {
     sellMultiplier: 0.92,
     variance: 0.08,
     items: [
-      { inventory: "materials", itemId: "chemicals", name: "Chemicals", price: 360 },
-      { inventory: "materials", itemId: "biomass", name: "Biomass", price: 320 },
-      { inventory: "materials", itemId: "stim-pack", name: "Stim Pack", price: 780 },
-      { inventory: "materials", itemId: "metal-parts", name: "Metal Parts", price: 540 },
-      { inventory: "materials", itemId: "tech-core", name: "Tech Core", price: 980 }
+      { inventory: "materials", itemId: "chemicals", name: "Chemicals", price: 19 },
+      { inventory: "materials", itemId: "biomass", name: "Biomass", price: 22 },
+      { inventory: "materials", itemId: "stim-pack", name: "Stim Pack", price: 108 },
+      { inventory: "materials", itemId: "metal-parts", name: "Metal Parts", price: 52 },
+      { inventory: "materials", itemId: "tech-core", name: "Tech Core", price: 240 }
     ]
   },
   "black-market": {
@@ -143,17 +143,17 @@ export const MARKET_TAB_CONFIG = {
     payment: "dirtyMoney",
     payout: "dirtyMoney",
     buyMultiplier: 1.32,
-    sellMultiplier: 1.08,
+    sellMultiplier: 0.01,
     variance: 0.22,
     items: [
-      { inventory: "drugs", itemId: "neon-dust", name: "Neon Dust", price: 2600 },
-      { inventory: "drugs", itemId: "pulse-shot", name: "Pulse Shot", price: 3050 },
-      { inventory: "drugs", itemId: "velvet-smoke", name: "Velvet Smoke", price: 3800 },
-      { inventory: "drugs", itemId: "ghost-serum", name: "Ghost Serum", price: 5100 },
-      { inventory: "drugs", itemId: "overdrive-x", name: "Overdrive X", price: 7200 },
-      { inventory: "weapons", itemId: "pistol", name: "Pistole", price: 2500 },
-      { inventory: "weapons", itemId: "smg", name: "SMG", price: 5600 },
-      { inventory: "weapons", itemId: "bazooka", name: "Bazuka", price: 13200 }
+      { inventory: "drugs", itemId: "neon-dust", name: "Neon Dust", price: 220 },
+      { inventory: "drugs", itemId: "pulse-shot", name: "Pulse Shot", price: 340 },
+      { inventory: "drugs", itemId: "velvet-smoke", name: "Velvet Smoke", price: 410 },
+      { inventory: "drugs", itemId: "ghost-serum", name: "Ghost Serum", price: 780 },
+      { inventory: "drugs", itemId: "overdrive-x", name: "Overdrive X", price: 1250 },
+      { inventory: "weapons", itemId: "pistol", name: "Pistole", price: 760 },
+      { inventory: "weapons", itemId: "smg", name: "SMG", price: 2200 },
+      { inventory: "weapons", itemId: "bazooka", name: "Bazuka", price: 6800 }
     ]
   },
   "player-market": {

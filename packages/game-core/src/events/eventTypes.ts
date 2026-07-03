@@ -7,6 +7,7 @@ export const CORE_EVENT_TYPES = {
   districtSpied: "district-spied",
   districtAttacked: "district-attacked",
   districtCaptured: "district-captured",
+  districtOccupyResolved: "district-occupy-resolved",
   districtHeisted: "district-heisted",
   districtRobbed: "district-robbed",
   defensePlaced: "defense-placed",

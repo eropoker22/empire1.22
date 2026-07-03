@@ -24,6 +24,13 @@ function formatActionDuration(ms) {
   return seconds > 0 ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${minutes}m`;
 }
 
+export function resolveOccupyPopulationCostForOwnedCount(ownedDistrictCount = 0) {
+  const count = Math.max(0, Math.floor(Number(ownedDistrictCount) || 0));
+  if (count <= 1) return 50;
+  if (count === 2) return 250;
+  return 550;
+}
+
 function applyDistrictAtmosphere({
   card,
   imageElement,
@@ -82,6 +89,7 @@ const OCCUPY_CONFIRMATION_REQUIRED_KEYS = [
   "occupyConfirmTitle",
   "occupyConfirmSource",
   "occupyConfirmCondition",
+  "occupyConfirmCost",
   "occupyConfirmDuration",
   "occupyConfirmNote"
 ];
@@ -129,6 +137,7 @@ export function createDistrictActionConfirmationPanelElements(elements = {}) {
     gangMembersValue: elements.gangMembersValue,
     occupyConfirmButton: elements.occupyConfirmButton,
     occupyConfirmCondition: elements.occupyConfirmCondition,
+    occupyConfirmCost: elements.occupyConfirmCost,
     occupyConfirmDuration: elements.occupyConfirmDuration,
     occupyConfirmNote: elements.occupyConfirmNote,
     occupyConfirmSource: elements.occupyConfirmSource,
@@ -431,22 +440,30 @@ export function createOccupyConfirmationViewModel({
   district,
   adjacentOwnedDistrictIds = [],
   canOccupyAfterSpy = false,
+  ownedDistrictCount = 0,
+  availablePopulation = 0,
   occupyCooldownMs = 12 * 60 * 1000,
   atmosphereMeta = {}
 } = {}) {
   const hasSourceDistrict = adjacentOwnedDistrictIds.length > 0;
+  const populationCost = resolveOccupyPopulationCostForOwnedCount(ownedDistrictCount);
+  const hasEnoughPopulation = Math.max(0, Math.floor(Number(availablePopulation) || 0)) >= populationCost;
 
   return {
     targetDistrictId: district?.id,
     sourceLabel: hasSourceDistrict ? `District ${adjacentOwnedDistrictIds[0]}` : "Žádný soused",
     conditionLabel: canOccupyAfterSpy ? "Špehování potvrzeno" : "Chybí špehování",
+    costLabel: `${populationCost} populace`,
+    populationCost,
     durationLabel: formatActionDuration(occupyCooldownMs),
     note: !hasSourceDistrict
       ? "Obsazení vyžaduje sousední vlastní district."
       : !canOccupyAfterSpy
         ? "Nejdřív musí proběhnout úspěšné špehování. Teprve pak lze district obsadit."
+        : !hasEnoughPopulation
+          ? `Obsazení vyžaduje ${populationCost} populace. Aktuálně máš ${Math.max(0, Math.floor(Number(availablePopulation) || 0))}.`
         : `Po potvrzení se spustí ${formatActionDuration(occupyCooldownMs)} obsazování. District bliká tvojí barvou a po doběhnutí přejde pod tebe.`,
-    canConfirm: hasSourceDistrict && canOccupyAfterSpy,
+    canConfirm: hasSourceDistrict && canOccupyAfterSpy && hasEnoughPopulation,
     confirmLabel: "Spustit obsazení",
     atmosphereMeta
   };
@@ -463,6 +480,7 @@ export function renderOccupyConfirmationPanel(viewModel = {}, elements = {}) {
   setElementText(elements.occupyConfirmTitle, `District ${viewModel.targetDistrictId ?? ""}`);
   setElementText(elements.occupyConfirmSource, viewModel.sourceLabel || "Žádný soused");
   setElementText(elements.occupyConfirmCondition, viewModel.conditionLabel || "");
+  setElementText(elements.occupyConfirmCost, viewModel.costLabel || "");
   setElementText(elements.occupyConfirmDuration, viewModel.durationLabel || "");
   setElementText(elements.occupyConfirmNote, viewModel.note || "");
 

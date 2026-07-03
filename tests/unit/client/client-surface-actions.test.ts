@@ -860,7 +860,8 @@ describe("client surface actions", () => {
         disabledCode: null,
         disabledReason: null,
         cost: {
-          influence: 5
+          influence: 5,
+          population: 50
         },
         heatGain: 2,
         cooldownRemainingTicks: 0

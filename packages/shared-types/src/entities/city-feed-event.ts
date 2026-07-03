@@ -4,6 +4,7 @@ export type CityFeedSourceType =
   | "attack"
   | "spy"
   | "district_capture"
+  | "district_occupy"
   | "police_warning"
   | "police_raid"
   | "market"

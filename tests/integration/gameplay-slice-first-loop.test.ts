@@ -256,6 +256,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       ...runtime.state.districtsById[homeDistrictId],
       influence: 10
     };
+    setPlayerPopulation(runtime.state, request.playerId, 1000);
     const initial = await loadGameplaySlice(server, request);
     const initialReadModel = initial.readModel as GameplaySliceView;
     const sourceDistrictId = initialReadModel.district!.districtId;
@@ -270,7 +271,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       districtId: targetDistrictId,
       enabled: false,
       disabledCode: "OCCUPY_SPY_REQUIRED",
-      cost: { influence: 5 },
+      cost: { influence: 5, population: 50 },
       heatGain: 2
     }));
 
@@ -328,10 +329,13 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       sourceDistrictId,
       targetDistrictId,
       heatGained: 2,
-      influenceCost: 5
+      influenceCost: 5,
+      populationCost: 50,
+      populationLost: 45,
+      populationRefunded: 5
     });
     expect(occupyReadModel.cityFeed?.currentPlayerFeed.some((event) =>
-      event.sourceType === "district_capture" && event.districtId === targetDistrictId
+      event.sourceType === "district_occupy" && event.districtId === targetDistrictId
     )).toBe(true);
     expect(occupy.metadata?.serverTick).toBe(runtime.state.root.tick);
   });
@@ -348,6 +352,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       ...runtime.state.districtsById[homeDistrictId],
       influence: 10
     };
+    setPlayerPopulation(runtime.state, request.playerId, 1000);
     const client = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
     });
@@ -521,6 +526,29 @@ const findDistrictPath = (
   }
 
   return null;
+};
+
+const setPlayerPopulation = (
+  state: CoreGameState,
+  playerId: string,
+  population: number
+): void => {
+  const player = state.playersById[playerId];
+  if (!player) return;
+
+  state.resourceStatesById[player.resourceStateId] = {
+    ...state.resourceStatesById[player.resourceStateId],
+    id: player.resourceStateId,
+    ownerType: "player",
+    ownerId: player.id,
+    balances: {
+      ...state.resourceStatesById[player.resourceStateId]?.balances,
+      population
+    },
+    incomeModifiers: state.resourceStatesById[player.resourceStateId]?.incomeModifiers ?? {},
+    lastUpdatedTick: state.root.tick,
+    version: state.resourceStatesById[player.resourceStateId]?.version ?? 1
+  };
 };
 
 const loadGameplaySlice = async (
