@@ -95,6 +95,14 @@ describe("alliance alpha UI", () => {
 
   it("keeps alliance actions server-authoritative and sanitizes UI errors", () => {
     expect(runtime).toContain("submitServerAllianceCommand");
+    expect(runtime).toContain('runAllianceCommand("create-alliance", { name, tag, emblemColor }');
+    expect(runtime).toContain('runAllianceCommand("send-public-alliance-message"');
+    expect(runtime).toContain('runAllianceCommand("send-public-alliance-invite"');
+    expect(runtime).toContain("alliance-launcher__body--empty");
+    expect(css).toContain("#alliance-btn .alliance-launcher__body--empty");
+    expect(runtime).not.toContain("Žádná aliance");
+    expect(runtime).not.toContain("Zprávu veřejné alianci může poslat jen hráč v alianci.");
+    expect(runtime).not.toContain("Pozvánku veřejné alianci může poslat jen leader aliance.");
     expect(runtime).toContain("const PLAYER_FACING_ERROR_COPY");
     expect(runtime).toContain("const commandMessage = (response, fallback) =>");
     expect(runtime).toContain("Alianční akci se nepodařilo dokončit.");
@@ -107,7 +115,11 @@ describe("alliance alpha UI", () => {
     expect(html).toContain("Globální chat");
     expect(html).not.toContain("Globální chat (preview)");
     expect(html).toContain("Globální chat je v alphě jen lokální kanál.");
-    expect(runtime).toContain("createDisabledReason: \"local_preview_active\"");
+    expect(runtime).toContain("const ALLIANCE_CREATE_REQUIRED_INFLUENCE = 150;");
+    expect(runtime).toContain("ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE");
+    expect(runtime).toContain("Vytvořit alianci půjde až pokud má hráč");
+    expect(runtime).toContain("getCurrentGamePhaseForAllianceDemo");
+    expect(runtime).toContain("activeAlliance = shouldUseActiveDemoAlliance");
     expect(runtime).toContain("ALLIANCE_CHAT_PREVIEW_KEY");
     expect(runtime).toContain("appendLocalAllianceChatMessage");
     expect(runtime).toContain("readAlliancePreviewMessages");
@@ -174,8 +186,11 @@ describe("alliance alpha UI", () => {
   it("uses registered alliance icons in UI and canvas map badges", () => {
     expect(runtime).toContain('from "./alliance-icons.js"');
     expect(runtime).toContain("ALLIANCE_ICON_OPTIONS.map");
+    expect(runtime).toContain("ALLIANCE_INLINE_ICON_PATHS");
     expect(runtime).toContain("getAllianceIconByTag");
     expect(runtime).toContain("asset: icon.asset");
+    expect(runtime).toContain("getMapBadgeForOwner");
+    expect(runtime).toContain("allianceBadgesByPlayerId");
     expect(css).toContain("mask: var(--alliance-icon-url) center / contain no-repeat;");
     expect(css).toContain("grid-template-columns: repeat(5, minmax(0, 1fr));");
     expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));");
@@ -184,10 +199,11 @@ describe("alliance alpha UI", () => {
     expect(mapCanvasAnimations).toContain("allianceIconImageCache");
     expect(mapCanvasAnimations).toContain("createTintedAllianceIconCanvas");
     expect(mapCanvasAnimations).toContain("drawFallbackAllianceBadgeText");
+    expect(mapCanvasAnimations).toContain("provider.getMapBadgeForOwner");
   });
 
-  it("keeps the alliance modal on four clear tabs", () => {
-    for (const label of ["Přehled", "Chat", "Správa", "Pozvánky"]) {
+  it("keeps the alliance modal on five clear tabs", () => {
+    for (const label of ["Přehled", "Chat", "Správa", "Pozvánky", "Aliance"]) {
       expect(runtime).toContain(`label: "${label}"`);
     }
     expect(runtime).not.toContain('label: "Členové"');
@@ -197,6 +213,7 @@ describe("alliance alpha UI", () => {
     expect(runtime).toContain("data-alliance-modal-close");
     expect(runtime).toContain('class="alliance-tab-panel"');
     expect(runtime).toContain('data-alliance-tab');
+    expect(runtime).toContain("renderAllianceLockedTabPanel");
     expect(runtime).toContain("Viditelný jen pro členy aliance.");
     expect(runtime).toContain("server-chat-panel alliance-chat--modal");
     expect(runtime).toContain("server-chat-panel__send server-chat-panel__send--arrow");
@@ -204,16 +221,24 @@ describe("alliance alpha UI", () => {
     expect(css).toContain(".alliance-chat__visibility");
     expect(css).toContain(".alliance-chat--modal .alliance-chat__item");
     expect(css).toContain(".alliance-chat--modal .server-chat-panel__send--arrow");
+    expect(runtime).not.toContain("<span>Pozvánky</span>");
+    expect(runtime).not.toContain("<span>Správa</span>");
+    expect(runtime).not.toContain("<span>Veřejné</span>");
+    expect(runtime).not.toContain("<strong>Veřejné aliance</strong>");
+    expect(runtime).not.toContain("Žádné veřejné aliance");
   });
 
   it("uses explicit disband copy for leaders", () => {
-    expect(runtime).toContain("const getAllianceExitCopy = (activeAlliance) =>");
+    expect(runtime).toContain("const getAllianceExitCopy = (activeAlliance, mode = resolveAllianceExitMode(activeAlliance)) =>");
+    expect(runtime).toContain("Předat vedení a odejít?");
+    expect(runtime).toContain("chosenSuccessorPlayerId");
     expect(runtime).toContain("Rozpustit alianci?");
     expect(runtime).toContain("Tahle akce zruší alianci pro všechny členy.");
     expect(runtime).toContain("Rozpustit alianci");
     expect(runtime).toContain("disband-alliance");
     expect(html).toContain('id="alliance-leave-modal-title"');
     expect(html).toContain('id="alliance-leave-modal-text"');
+    expect(html).toContain('id="alliance-leave-successor-select"');
   });
 
   it("keeps alliance modals scrollable and mobile-stable", () => {
@@ -230,8 +255,10 @@ describe("alliance alpha UI", () => {
     expect(css).toContain("@media (max-width: 420px)");
     expect(css).toContain("margin-top: -8px;");
     expect(mobileCss).toContain("Mobile global chat: show about three messages");
+    expect(mobileCss).toContain("#alliance-chat-card #alliance-btn");
+    expect(mobileCss).toContain("min-width: min(330px, calc(100vw - 18px)) !important;");
     expect(mobileCss).toContain("#global-chat-card .server-chat-panel__feed");
-    expect(mobileCss).toContain("max-height: 132px !important;");
+    expect(mobileCss).toContain("max-height: 150px !important;");
     expect(mobileCss).toContain("scrollbar-width: none !important;");
     expect(mobileCss).toContain("#alliance-member-lightbox.avatar-lightbox:not(.hidden)");
     expect(mobileCss).toContain("z-index: 16000 !important;");

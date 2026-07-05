@@ -10,6 +10,7 @@ export interface Alliance {
   serverInstanceId: ServerInstanceId;
   name: string;
   tag: string;
+  emblemColor?: string;
   ownerPlayerId: PlayerId;
   memberIds: PlayerId[];
   membershipByPlayerId?: Record<PlayerId, AllianceMembership>;
@@ -159,6 +160,8 @@ export interface AllianceInvite {
   allianceId: AllianceId;
   invitedByPlayerId: PlayerId;
   targetPlayerId: PlayerId;
+  targetAllianceId?: AllianceId | null;
+  kind?: "member" | "alliance_contact";
   status: "pending" | "accepted" | "rejected" | "cancelled" | "expired";
   createdAt: string;
   respondedAt?: string | null;

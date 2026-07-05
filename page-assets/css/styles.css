@@ -1098,6 +1098,18 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
   }
 }
 
+html body.game-body #buildings-modal .buildings-popup-card.buildings-modal__content {
+  background:
+    var(
+      --buildings-popup-background-stack,
+      linear-gradient(rgba(3, 7, 18, 0.5), rgba(3, 7, 18, 0.66)),
+      url("../../img/index.png")
+    ) !important;
+  background-size: cover, cover !important;
+  background-position: center, center !important;
+  background-repeat: no-repeat, no-repeat !important;
+}
+
 /* Final market popup polish: compact header, darker modes, and desktop black-market columns. */
 html body .market-popup-heading {
   display: flex !important;
@@ -1689,17 +1701,17 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
   }
 }
 
-/* Final loaded override: desktop street news shows three readable rows, then scrolls. */
+/* Final loaded override: street news shows six compact rows, then scrolls. */
 @media (min-width: 721px) and (hover: hover) and (pointer: fine) {
   html body.game-body .building-action-status__feed {
-    --street-news-row-height: 118px;
+    --street-news-row-height: 38px;
     --street-news-row-gap: 8px;
     display: grid !important;
     grid-auto-rows: max-content !important;
     gap: var(--street-news-row-gap) !important;
     align-content: start !important;
     align-items: start !important;
-    max-height: calc((var(--street-news-row-height) * 3) + (var(--street-news-row-gap) * 2)) !important;
+    max-height: calc((var(--street-news-row-height) * 6) + (var(--street-news-row-gap) * 5)) !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     overscroll-behavior-y: contain !important;
@@ -1741,6 +1753,33 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
 
   html body.game-body .building-action-status__item--clickable .building-action-status__item-summary,
   html body.game-body .building-action-status__item--clickable .building-action-status__item-meta {
+    display: none !important;
+  }
+}
+
+@media (max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body .building-action-status__feed {
+    --street-news-row-height: 38px;
+    --street-news-row-gap: 7px;
+    display: grid !important;
+    grid-auto-rows: max-content !important;
+    gap: var(--street-news-row-gap) !important;
+    align-content: start !important;
+    align-items: start !important;
+    max-height: calc((var(--street-news-row-height) * 6) + (var(--street-news-row-gap) * 5)) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    padding-right: 0 !important;
+    scrollbar-gutter: auto !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  html body.game-body .building-action-status__feed::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
     display: none !important;
   }
 }
@@ -2929,6 +2968,112 @@ html body.game-body .building-action-status__feed::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.76) !important;
 }
 
+/* Final loaded override: main left launchers keep a subtle dark glass tint. */
+html body.game-body #city-events-card #city-events-open.panel-action-button,
+html body.game-body #city-events-card #city-events-open.panel-action-button:hover,
+html body.game-body #city-events-card #city-events-open.panel-action-button:focus-visible {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(34, 211, 238, 0.08), transparent 34%),
+    radial-gradient(circle at 100% 100%, rgba(244, 114, 182, 0.06), transparent 34%),
+    rgba(5, 10, 18, 0.34) !important;
+  background-color: rgba(5, 10, 18, 0.34) !important;
+}
+
+/* Final loaded override: remove the extra dark frame around Budovy and Bazar launchers. */
+html body.game-body #buildings-card.feature-card,
+html body.game-body #market-card.feature-card {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html body.game-body #buildings-card .panel-action-button--feature,
+html body.game-body #market-card .panel-action-button--feature {
+  border-color: rgba(103, 232, 249, 0.18) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(34, 211, 238, 0.08), transparent 34%),
+    radial-gradient(circle at 100% 100%, rgba(244, 114, 182, 0.06), transparent 34%),
+    rgba(5, 10, 18, 0.34) !important;
+  background-color: rgba(5, 10, 18, 0.34) !important;
+  backdrop-filter: blur(8px) saturate(116%) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(116%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    inset 0 0 0 1px rgba(103, 232, 249, 0.08),
+    0 8px 18px rgba(2, 6, 23, 0.12),
+    0 0 18px rgba(34, 211, 238, 0.06) !important;
+}
+
+html body.game-body #buildings-card .panel-action-button--feature:hover,
+html body.game-body #buildings-card .panel-action-button--feature:focus-visible,
+html body.game-body #market-card .panel-action-button--feature:hover,
+html body.game-body #market-card .panel-action-button--feature:focus-visible {
+  border-color: rgba(103, 232, 249, 0.34) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(34, 211, 238, 0.1), transparent 34%),
+    radial-gradient(circle at 100% 100%, rgba(244, 114, 182, 0.08), transparent 34%),
+    rgba(5, 10, 18, 0.42) !important;
+  background-color: rgba(5, 10, 18, 0.42) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    inset 0 0 0 1px rgba(103, 232, 249, 0.12),
+    0 10px 20px rgba(2, 6, 23, 0.18),
+    0 0 20px rgba(34, 211, 238, 0.1) !important;
+}
+
+html body.game-body #buildings-card .panel-action-button--feature:focus-visible,
+html body.game-body #market-card .panel-action-button--feature:focus-visible {
+  outline: 1px solid rgba(255, 255, 255, 0.2) !important;
+  outline-offset: 2px !important;
+}
+
+html body.game-body #buildings-card .panel-action-button--feature::before,
+html body.game-body #buildings-card .panel-action-button--feature::after,
+html body.game-body #market-card .panel-action-button--feature::before,
+html body.game-body #market-card .panel-action-button--feature::after {
+  content: none !important;
+  display: none !important;
+}
+
+@media (min-width: 721px) and (hover: hover) and (pointer: fine) {
+  html body.game-body #game-left-nav.panel-action-stack > #city-events-card,
+  html body.game-body #game-left-nav.panel-action-stack > #buildings-card,
+  html body.game-body #game-left-nav.panel-action-stack > #market-card {
+    margin-bottom: 12px !important;
+  }
+
+  html body.game-body #game-left-nav.panel-action-stack > #market-card {
+    margin-bottom: 18px !important;
+  }
+
+  html body.game-body #game-left-nav.panel-action-stack > #building-shortcut-grid {
+    position: relative !important;
+    padding-top: 14px !important;
+  }
+
+  html body.game-body #game-left-nav.panel-action-stack > #building-shortcut-grid::before {
+    content: "" !important;
+    position: absolute !important;
+    left: 10px !important;
+    right: 10px !important;
+    top: 0 !important;
+    height: 1px !important;
+    border-radius: 999px !important;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(250, 204, 21, 0.76),
+      rgba(226, 232, 240, 0.68),
+      transparent
+    ) !important;
+    box-shadow:
+      0 0 8px rgba(250, 204, 21, 0.34),
+      0 0 14px rgba(226, 232, 240, 0.18) !important;
+    pointer-events: none !important;
+  }
+}
+
 /* Requested UI polish overrides. */
 html body.game-body #profile-gang-card.right-panel-card .gang-profile-row.profile-row--wanted {
   background:
@@ -2990,15 +3135,19 @@ html body.game-body #occupy-confirm-modal-cancel.btn--ghost {
 }
 
 html body.game-body .onboarding-launch-button {
-  border-color: rgba(248, 113, 113, 0.72) !important;
-  background:
-    linear-gradient(180deg, rgba(185, 28, 28, 0.96), rgba(127, 29, 29, 0.94)) !important;
-  color: #ffffff !important;
+  width: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  padding: 0 !important;
+  border-color: rgba(226, 232, 240, 0.18) !important;
+  background: rgba(8, 13, 24, 0.24) !important;
+  color: rgba(248, 250, 252, 0.9) !important;
   box-shadow:
-    inset 0 1px 0 rgba(254, 202, 202, 0.2),
-    0 8px 18px rgba(0, 0, 0, 0.32),
-    0 0 12px rgba(239, 68, 68, 0.26) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 6px 14px rgba(0, 0, 0, 0.18) !important;
   text-transform: uppercase !important;
+  backdrop-filter: blur(10px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(120%) !important;
 }
 
 html body.game-body .onboarding-launch-button::before {
@@ -3007,18 +3156,23 @@ html body.game-body .onboarding-launch-button::before {
 }
 
 html body.game-body .onboarding-launch-button__glyph {
-  color: #ffffff !important;
-  font-size: 23px !important;
+  color: rgba(248, 250, 252, 0.94) !important;
+  font-size: 22px !important;
   font-weight: 950 !important;
   line-height: 1 !important;
-  text-shadow: 0 0 10px rgba(254, 202, 202, 0.38) !important;
+  text-shadow:
+    0 0 8px rgba(226, 232, 240, 0.28),
+    0 0 16px rgba(34, 211, 238, 0.14) !important;
 }
 
 html body.game-body .onboarding-launch-button:hover,
 html body.game-body .onboarding-launch-button:focus-visible {
-  border-color: rgba(254, 202, 202, 0.94) !important;
-  background:
-    linear-gradient(180deg, rgba(220, 38, 38, 0.98), rgba(153, 27, 27, 0.96)) !important;
+  border-color: rgba(226, 232, 240, 0.34) !important;
+  background: rgba(15, 23, 42, 0.38) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 14px rgba(148, 163, 184, 0.18),
+    0 8px 16px rgba(0, 0, 0, 0.22) !important;
 }
 
 @media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
@@ -3166,5 +3320,45 @@ html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__action-
   html body.game-body.game-modal-scroll-locked .game-shell > .modal:not(.hidden):not([hidden]) > .modal__backdrop {
     position: absolute !important;
     inset: 0 !important;
+  }
+}
+
+@media (min-width: 721px) {
+  html body.game-body.game-modal-scroll-locked #game-header,
+  html body.game-body.game-modal-scroll-locked > .game-topbar,
+  html body.game-body.alliance-modal-open #game-header,
+  html body.game-body.alliance-modal-open > .game-topbar {
+    z-index: 20050 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked .game-topbar .game-toolbar-button,
+  html body.game-body.alliance-modal-open .game-topbar .game-resource-strip,
+  html body.game-body.alliance-modal-open .game-topbar .resource-pill,
+  html body.game-body.alliance-modal-open .game-topbar .game-toolbar-button {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+}
+
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body.game-modal-scroll-locked .district-popup-shell:not([hidden]) {
+    --district-popup-mobile-top-offset: max(22px, calc(env(safe-area-inset-top) + 18px));
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding-top: var(--district-popup-mobile-top-offset) !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked .district-popup-shell:not([hidden]) .district-popup-card {
+    max-height: calc(
+      var(--mobile-locked-vh, 100dvh)
+      - var(--district-popup-mobile-top-offset)
+      - max(10px, env(safe-area-inset-bottom))
+    ) !important;
   }
 }

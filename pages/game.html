@@ -1039,6 +1039,10 @@
             <div class="alliance-leave-modal__text" id="alliance-leave-modal-text">
               Opravdu chceš opustit alianci? Na 4 h dostaneš 50% debuff na útok, obranu, výrobu a income.
             </div>
+            <label class="alliance-leave-modal__successor hidden" id="alliance-leave-successor-field">
+              <span>Předat vedení hráči</span>
+              <select id="alliance-leave-successor-select"></select>
+            </label>
             <div class="modal__actions alliance-leave-modal__actions">
               <button class="btn btn--ghost" id="alliance-leave-cancel-btn">Zrušit</button>
               <button class="btn btn--danger" id="alliance-leave-confirm-btn">Opustit alianci</button>
@@ -1047,22 +1051,72 @@
         </div>
       </div>
 
+      <div id="alliance-ready-confirm-modal" class="modal hidden">
+        <div id="alliance-ready-confirm-modal-backdrop" class="modal__backdrop"></div>
+        <div class="modal__content alliance-ready-confirm-modal__content">
+          <div class="modal__header">
+            <h3>Zůstat v alianci?</h3>
+            <button class="modal__close" id="alliance-ready-confirm-modal-close" aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body alliance-ready-confirm-modal__body">
+            <div class="alliance-ready-confirm-modal__text">
+              Potvrzením zůstáváš v alianci a běžící časomíra se znovu nastaví na 8 hodin.
+            </div>
+            <div class="modal__actions alliance-ready-confirm-modal__actions">
+              <button class="btn btn--ghost" id="alliance-ready-confirm-cancel-btn">Zrušit</button>
+              <button class="btn btn--primary" id="alliance-ready-confirm-submit-btn">Zůstávám</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="alliance-public-action-modal" class="modal hidden">
+        <div id="alliance-public-action-modal-backdrop" class="modal__backdrop"></div>
+        <div class="modal__content alliance-public-action-modal__content">
+          <div class="modal__header">
+            <h3 id="alliance-public-action-modal-title">Potvrdit akci</h3>
+            <button class="modal__close" id="alliance-public-action-modal-close" aria-label="Zavřít">✕</button>
+          </div>
+          <div class="modal__body alliance-public-action-modal__body">
+            <div class="alliance-public-action-modal__target" id="alliance-public-action-modal-target"></div>
+            <div class="alliance-public-action-modal__text" id="alliance-public-action-modal-text">
+              Potvrď alianční akci.
+            </div>
+            <label class="alliance-public-action-modal__field" id="alliance-public-action-message-field">
+              <span>Zpráva</span>
+              <textarea id="alliance-public-action-message-input" maxlength="240" rows="4" placeholder="Napiš krátkou zprávu..."></textarea>
+            </label>
+            <div class="modal__actions alliance-public-action-modal__actions">
+              <button class="btn btn--ghost" id="alliance-public-action-cancel-btn">Zrušit</button>
+              <button class="btn btn--primary" id="alliance-public-action-submit-btn">Potvrdit</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div id="alliance-create-modal" class="modal hidden">
         <div id="alliance-create-modal-backdrop" class="modal__backdrop"></div>
         <div class="modal__content alliance-create-modal__content">
-          <div class="modal__header">
-            <h3>Nová aliance</h3>
-            <button class="modal__close" id="alliance-create-modal-close" aria-label="Zavřít">✕</button>
-          </div>
           <div class="modal__body alliance-create-modal__body">
             <div class="alliance-control alliance-control--create">
               <div class="alliance-control__stack">
-                <input id="alliance-create-name" type="text" maxlength="32" placeholder="Název aliance">
+                <div class="alliance-create-modal__name-row">
+                  <input id="alliance-create-name" type="text" maxlength="32" placeholder="Název aliance">
+                  <button class="modal__close alliance-create-modal__close" id="alliance-create-modal-close" aria-label="Zavřít">✕</button>
+                </div>
                 <div class="alliance-inline-note hidden" id="alliance-create-disabled-reason" data-tone="warning"></div>
               </div>
               <div class="alliance-icon-picker">
                 <div class="alliance-icon-picker__label">Znak aliance</div>
                 <div class="alliance-icon-picker__grid" id="alliance-icon-picker"></div>
+              </div>
+              <div class="alliance-color-picker">
+                <div class="alliance-icon-picker__label">Barva aliance</div>
+                <div class="alliance-color-picker__grid" id="alliance-color-picker"></div>
+                <label class="alliance-color-picker__custom">
+                  <span>Vlastní barva</span>
+                  <input id="alliance-create-color" type="color" value="#f7c948" aria-label="Vlastní barva aliance">
+                </label>
               </div>
               <div class="alliance-control__row alliance-control__row--end">
                 <button class="btn btn--primary modal__launch-btn" id="alliance-create-btn">Potvrdit vytvoření</button>
@@ -1786,7 +1840,7 @@
                   <select id="bounty-modal-target" class="bounty-board__input" aria-label="Vyber cílového hráče"></select>
                 </label>
                 <div class="bounty-board__target-card">
-                  <div class="bounty-board__avatar-wrap">
+                  <div class="bounty-board__avatar-wrap" data-bounty-avatar-open role="button" tabindex="-1" aria-label="Zvětšit avatar bounty cíle">
                     <img id="bounty-target-avatar" class="bounty-board__avatar is-empty" alt="Target avatar">
                     <span id="bounty-target-avatar-fallback" class="bounty-board__avatar-fallback">??</span>
                   </div>

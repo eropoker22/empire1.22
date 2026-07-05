@@ -7,6 +7,7 @@ export interface AllianceBoardReadModel {
   publicAlliances: AllianceBoardAllianceView[];
   incomingInvites: AllianceBoardInviteView[];
   eligibleInviteTargets: AllianceBoardPlayerView[];
+  allianceBadgesByPlayerId: Record<string, AllianceBoardMapBadgeView>;
   canCreateAlliance: boolean;
   createDisabledReason: string | null;
 }
@@ -15,6 +16,7 @@ export interface AllianceBoardAllianceView {
   allianceId: string;
   name: string;
   tag: string;
+  emblemColor: string | null;
   ownerPlayerId: string;
   ownerName: string;
   memberCount: number;
@@ -31,6 +33,7 @@ export interface AllianceBoardAllianceView {
   eligibleVotes: AllianceKickVote[];
   members: AllianceBoardMemberView[];
   pendingInvites: AllianceBoardInviteView[];
+  receivedInvites: AllianceBoardInviteView[];
   chatMessages: AllianceBoardChatMessageView[];
   defenseContributions: AllianceBoardDefenseContributionView[];
 }
@@ -44,6 +47,8 @@ export interface AllianceBoardMemberView {
   graceEndsAt: string | null;
   activeDistrictCount: number;
   canStartKickVote: boolean;
+  avatarSrc: string | null;
+  presence: "online" | "offline";
 }
 
 export interface AllianceBoardInviteView {
@@ -54,6 +59,8 @@ export interface AllianceBoardInviteView {
   invitedByName: string;
   targetPlayerId: string;
   targetName: string;
+  targetAllianceId: string | null;
+  kind: "member" | "alliance_contact";
   status: string;
   createdAt: string;
 }
@@ -87,4 +94,11 @@ export interface AllianceBoardDefenseContributionView {
   itemId: string;
   amount: number;
   status: string;
+}
+
+export interface AllianceBoardMapBadgeView {
+  allianceId: string;
+  name: string;
+  tag: string;
+  emblemColor: string | null;
 }

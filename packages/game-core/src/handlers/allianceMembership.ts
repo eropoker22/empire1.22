@@ -6,7 +6,9 @@ import type {
   InviteAllianceMemberCommand,
   JoinAllianceCommand,
   RespondAllianceInviteCommand,
-  SendAllianceChatMessageCommand
+  SendAllianceChatMessageCommand,
+  SendPublicAllianceInviteCommand,
+  SendPublicAllianceMessageCommand
 } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import { CORE_EVENT_TYPES, createEvent } from "../events";
@@ -17,6 +19,7 @@ import {
   createInitialAllianceMembership,
   nowIsoFromContext,
   rejected,
+  sanitizeAllianceEmblemColor,
   sanitizeAllianceName,
   sanitizeAllianceTag,
   type AllianceMembershipResult
@@ -27,7 +30,9 @@ type AllianceMembershipCommand =
   | JoinAllianceCommand
   | InviteAllianceMemberCommand
   | RespondAllianceInviteCommand
-  | SendAllianceChatMessageCommand;
+  | SendAllianceChatMessageCommand
+  | SendPublicAllianceMessageCommand
+  | SendPublicAllianceInviteCommand;
 
 export const handleAllianceMembershipCommand = (
   state: CoreGameState,
@@ -45,6 +50,10 @@ export const handleAllianceMembershipCommand = (
       return respondAllianceInvite(state, command, context);
     case "send-alliance-chat-message":
       return sendAllianceChatMessage(state, command, context);
+    case "send-public-alliance-message":
+      return sendPublicAllianceMessage(state, command, context);
+    case "send-public-alliance-invite":
+      return sendPublicAllianceInvite(state, command, context);
     default:
       return rejected(state, "unsupported_command", "Unsupported alliance membership command.");
   }
@@ -64,6 +73,7 @@ const createAlliance = (
   const name = sanitizeAllianceName(command.payload.name);
   if (!name) return rejected(state, "ALLIANCE_NAME_REQUIRED", "Alliance name is required.");
   const tag = sanitizeAllianceTag(command.payload.tag || name);
+  const emblemColor = sanitizeAllianceEmblemColor(command.payload.emblemColor);
   const allianceId = `alliance:${command.id}`;
   const membership = createInitialAllianceMembership(allianceId, player.id, "leader", nowIso, context);
   const alliance: Alliance = {
@@ -71,6 +81,7 @@ const createAlliance = (
     serverInstanceId: state.serverInstance.id,
     name,
     tag,
+    emblemColor,
     ownerPlayerId: player.id,
     memberIds: [player.id],
     membershipByPlayerId: { [player.id]: membership },
@@ -133,6 +144,8 @@ const inviteAllianceMember = (
     allianceId: alliance.id,
     invitedByPlayerId: command.playerId,
     targetPlayerId: target.id,
+    targetAllianceId: null,
+    kind: "member",
     status: "pending",
     createdAt: nowIso,
     respondedAt: null,
@@ -161,6 +174,26 @@ const respondAllianceInvite = (
 
   const nowIso = nowIsoFromContext(context);
   const response = command.payload.response === "accept" ? "accepted" : "rejected";
+  const isContactInvite = invite.kind === "alliance_contact";
+  const targetAllianceId = invite.targetAllianceId ?? invite.allianceId;
+  const isExternalJoinRequest = isContactInvite && invite.allianceId === targetAllianceId && invite.invitedByPlayerId !== invite.targetPlayerId;
+  if (response === "accepted" && isExternalJoinRequest) {
+    const joined = addPlayerToAlliance(state, invite.invitedByPlayerId, targetAllianceId, context, `${command.id}:accept-public`);
+    if (joined.errors.length) return joined;
+    const currentInvite = joined.nextState.allianceInvitesById?.[invite.id] ?? invite;
+    return {
+      nextState: {
+        ...joined.nextState,
+        allianceInvitesById: {
+          ...(joined.nextState.allianceInvitesById ?? {}),
+          [invite.id]: { ...currentInvite, status: response, respondedAt: nowIso, version: currentInvite.version + 1 }
+        },
+        root: { ...joined.nextState.root, version: joined.nextState.root.version + 1 }
+      },
+      events: [createEvent(CORE_EVENT_TYPES.allianceInviteResponded, { inviteId: invite.id, response }), ...joined.events],
+      errors: []
+    };
+  }
   const inviteState: CoreGameState = {
     ...state,
     allianceInvitesById: {
@@ -171,6 +204,14 @@ const respondAllianceInvite = (
   };
 
   if (response === "rejected") {
+    return {
+      nextState: inviteState,
+      events: [createEvent(CORE_EVENT_TYPES.allianceInviteResponded, { inviteId: invite.id, response })],
+      errors: []
+    };
+  }
+
+  if (isContactInvite) {
     return {
       nextState: inviteState,
       events: [createEvent(CORE_EVENT_TYPES.allianceInviteResponded, { inviteId: invite.id, response })],
@@ -214,6 +255,97 @@ const sendAllianceChatMessage = (
       root: { ...state.root, version: state.root.version + 1 }
     },
     events: [createEvent(CORE_EVENT_TYPES.allianceChatMessageSent, { allianceId: alliance.id, messageId: message.id, authorPlayerId: command.playerId })],
+    errors: []
+  };
+};
+
+const sendPublicAllianceMessage = (
+  state: CoreGameState,
+  command: SendPublicAllianceMessageCommand,
+  context: GameCoreContext
+): AllianceMembershipResult => {
+  const actor = state.playersById[command.playerId];
+  const actorAlliance = actor?.allianceId ? state.alliancesById[actor.allianceId] : null;
+  const actorActiveAlliance = actorAlliance?.status === "active" ? actorAlliance : null;
+  const targetAlliance = state.alliancesById[command.payload.allianceId];
+  if (!actor) return rejected(state, "PLAYER_NOT_FOUND", "Player was not found.");
+  if (!targetAlliance || targetAlliance.status !== "active") {
+    return rejected(state, "ALLIANCE_NOT_FOUND", "Target alliance was not found.");
+  }
+  if (targetAlliance.id === actorActiveAlliance?.id) {
+    return rejected(state, "PUBLIC_ALLIANCE_CONTACT_SELF", "Target alliance must be different.");
+  }
+
+  const body = String(command.payload.body || "").trim().slice(0, 240);
+  if (!body) return rejected(state, "ALLIANCE_CHAT_EMPTY", "Alliance chat message is empty.");
+  const message: AllianceChatMessage = {
+    id: `alliance-public-chat:${command.id}`,
+    allianceId: targetAlliance.id,
+    authorPlayerId: command.playerId,
+    body,
+    createdAt: nowIsoFromContext(context),
+    version: 1
+  };
+
+  return {
+    nextState: {
+      ...state,
+      allianceChatMessagesById: { ...(state.allianceChatMessagesById ?? {}), [message.id]: message },
+      root: { ...state.root, version: state.root.version + 1 }
+    },
+    events: [createEvent(CORE_EVENT_TYPES.allianceChatMessageSent, { allianceId: targetAlliance.id, messageId: message.id, authorPlayerId: command.playerId })],
+    errors: []
+  };
+};
+
+const sendPublicAllianceInvite = (
+  state: CoreGameState,
+  command: SendPublicAllianceInviteCommand,
+  context: GameCoreContext
+): AllianceMembershipResult => {
+  const actor = state.playersById[command.playerId];
+  const actorAlliance = actor?.allianceId ? state.alliancesById[actor.allianceId] : null;
+  const actorActiveAlliance = actorAlliance?.status === "active" ? actorAlliance : null;
+  const targetAlliance = state.alliancesById[command.payload.allianceId];
+  if (!actor) return rejected(state, "PLAYER_NOT_FOUND", "Player was not found.");
+  if (!targetAlliance || targetAlliance.status !== "active") {
+    return rejected(state, "ALLIANCE_NOT_FOUND", "Target alliance was not found.");
+  }
+  if (targetAlliance.id === actorActiveAlliance?.id) {
+    return rejected(state, "PUBLIC_ALLIANCE_CONTACT_SELF", "Target alliance must be different.");
+  }
+  const sourceAllianceId = actorActiveAlliance?.id ?? targetAlliance.id;
+
+  const pendingExists = Object.values(state.allianceInvitesById ?? {}).some((invite) =>
+    invite.kind === "alliance_contact"
+    && invite.allianceId === sourceAllianceId
+    && invite.invitedByPlayerId === actor.id
+    && invite.targetAllianceId === targetAlliance.id
+    && invite.status === "pending"
+  );
+  if (pendingExists) return rejected(state, "ALLIANCE_INVITE_ALREADY_PENDING", "Alliance contact invite is already pending.");
+
+  const nowIso = nowIsoFromContext(context);
+  const invite: AllianceInvite = {
+    id: `alliance-contact-invite:${command.id}`,
+    allianceId: sourceAllianceId,
+    invitedByPlayerId: command.playerId,
+    targetPlayerId: targetAlliance.ownerPlayerId,
+    targetAllianceId: targetAlliance.id,
+    kind: "alliance_contact",
+    status: "pending",
+    createdAt: nowIso,
+    respondedAt: null,
+    version: 1
+  };
+
+  return {
+    nextState: {
+      ...state,
+      allianceInvitesById: { ...(state.allianceInvitesById ?? {}), [invite.id]: invite },
+      root: { ...state.root, version: state.root.version + 1 }
+    },
+    events: [createEvent(CORE_EVENT_TYPES.allianceInviteCreated, { allianceId: sourceAllianceId, inviteId: invite.id, targetPlayerId: targetAlliance.ownerPlayerId })],
     errors: []
   };
 };

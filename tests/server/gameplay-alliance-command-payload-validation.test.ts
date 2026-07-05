@@ -20,7 +20,8 @@ describe("alliance command transport payload validation", () => {
   it("accepts server-authoritative alliance MVP commands", () => {
     expect(validateSubmitGameplayCommandRequest(createSubmitRequest("create-alliance", {
       name: "Neon Pact",
-      tag: "NP"
+      tag: "NP",
+      emblemColor: "#ff2f5f"
     })).accepted).toBe(true);
     expect(validateSubmitGameplayCommandRequest(createSubmitRequest("join-alliance", {
       allianceId: "alliance:1"
@@ -36,6 +37,13 @@ describe("alliance command transport payload validation", () => {
     expect(validateSubmitGameplayCommandRequest(createSubmitRequest("send-alliance-chat-message", {
       allianceId: "alliance:1",
       body: "Ready."
+    })).accepted).toBe(true);
+    expect(validateSubmitGameplayCommandRequest(createSubmitRequest("send-public-alliance-message", {
+      allianceId: "alliance:2",
+      body: "Jednáme."
+    })).accepted).toBe(true);
+    expect(validateSubmitGameplayCommandRequest(createSubmitRequest("send-public-alliance-invite", {
+      allianceId: "alliance:2"
     })).accepted).toBe(true);
   });
 

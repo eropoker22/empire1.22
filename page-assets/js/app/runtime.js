@@ -8504,6 +8504,14 @@ function bindDistrictCanvas(root) {
   } = createBuildingsPopupRuntime({
     districtBuildingTypeMeta: DISTRICT_BUILDING_TYPE_META,
     districtBuildingTypeOrder: DISTRICT_BUILDING_TYPE_ORDER,
+    clearSelectedDistrict() {
+      interactionState.selectedDistrictId = null;
+      syncMapInteractionVisualState({
+        hoveredDistrict: geometry?.districts?.find((district) => district.id === interactionState.hoveredDistrictId) || null,
+        focusedDistrict: null
+      });
+      render();
+    },
     formatDistrictBuildingTierLabel,
     getCurrentPlayerOwnedDistrictIds,
     getDistrictTrapControlState,
@@ -8529,6 +8537,9 @@ function bindDistrictCanvas(root) {
     }
 
     popupCard.dataset.overviewEnabled = isDistrictPopupOverviewEnabled ? "true" : "false";
+    if (popup) {
+      popup.dataset.overviewEnabled = isDistrictPopupOverviewEnabled ? "true" : "false";
+    }
 
     if (popupToggle instanceof HTMLButtonElement) {
       popupToggle.textContent = "Přehled";
@@ -9455,6 +9466,9 @@ function bindDistrictCanvas(root) {
 
     if (buildingsPopup && !buildingsPopup.hidden) {
       const activeBuildingsDistrictType = getActiveBuildingsDistrictType();
+      if (!activeBuildingsDistrictType) {
+        return;
+      }
       const hasActiveBuildingsDistrictType = activeBuildingsDistrictType
         && getSourceDistrictsForBuildingType(activeBuildingsDistrictType).length > 0;
       const nextType = hasActiveBuildingsDistrictType
@@ -10032,7 +10046,6 @@ function bindDistrictCanvas(root) {
       }
 
       openDistrictBuildingDetail(district, buildingButton.dataset.buildingsOpenBuildingName || "", {
-        closeBuildingsPopup: true,
         displayName: buildingButton.dataset.buildingsOpenBuildingDisplayName || "",
         preferGenericDetail: true
       });

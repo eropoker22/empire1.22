@@ -5,6 +5,7 @@
 #alliance-modal,
 #alliance-create-modal,
 #alliance-leave-modal,
+#alliance-public-action-modal,
 #alliance-kick-confirm-modal,
 .avatar-lightbox {
   --alliance-bg: #07090f;
@@ -46,6 +47,8 @@
 #alliance-create-modal *,
 #alliance-leave-modal,
 #alliance-leave-modal *,
+#alliance-public-action-modal,
+#alliance-public-action-modal *,
 #alliance-kick-confirm-modal,
 #alliance-kick-confirm-modal * {
   box-sizing: border-box;
@@ -91,14 +94,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(247, 201, 72, 0.36);
+  border: 1px solid rgba(var(--alliance-emblem-rgb, 247, 201, 72), 0.36);
   border-radius: 14px;
   background:
-    radial-gradient(circle at 35% 25%, rgba(247, 201, 72, 0.22), transparent 40%),
+    radial-gradient(circle at 35% 25%, rgba(var(--alliance-emblem-rgb, 247, 201, 72), 0.22), transparent 40%),
     rgba(7, 9, 15, 0.72);
-  color: var(--alliance-gold);
+  color: var(--alliance-emblem-color, var(--alliance-gold));
   overflow: hidden;
   flex: 0 0 auto;
+  box-shadow: 0 0 18px rgba(var(--alliance-emblem-rgb, 247, 201, 72), 0.12);
 }
 
 .alliance-launcher__crest .alliance-crest-svg {
@@ -117,6 +121,20 @@
   flex-direction: column;
   gap: 3px;
   min-width: 0;
+}
+
+#alliance-btn .alliance-launcher__body--empty {
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+#alliance-btn .alliance-launcher__body--empty .alliance-launcher__eyebrow {
+  color: var(--alliance-text);
+  font-size: 1rem;
+  line-height: 1;
+  letter-spacing: 0.04em;
 }
 
 .alliance-launcher__eyebrow,
@@ -350,6 +368,7 @@
 #alliance-modal,
 #alliance-create-modal,
 #alliance-leave-modal,
+#alliance-public-action-modal,
 #alliance-kick-confirm-modal {
   position: fixed;
   inset: 0;
@@ -364,10 +383,12 @@
 #alliance-modal[hidden],
 #alliance-create-modal[hidden],
 #alliance-leave-modal[hidden],
+#alliance-public-action-modal[hidden],
 #alliance-kick-confirm-modal[hidden],
 #alliance-modal.hidden,
 #alliance-create-modal.hidden,
 #alliance-leave-modal.hidden,
+#alliance-public-action-modal.hidden,
 #alliance-kick-confirm-modal.hidden {
   display: none !important;
 }
@@ -375,6 +396,7 @@
 #alliance-modal .modal__backdrop,
 #alliance-create-modal .modal__backdrop,
 #alliance-leave-modal .modal__backdrop,
+#alliance-public-action-modal .modal__backdrop,
 #alliance-kick-confirm-modal .modal__backdrop {
   position: fixed;
   inset: 0;
@@ -387,6 +409,7 @@
 #alliance-modal .modal__content,
 #alliance-create-modal .modal__content,
 #alliance-leave-modal .modal__content,
+#alliance-public-action-modal .modal__content,
 #alliance-kick-confirm-modal .modal__content {
   position: relative;
   z-index: 1;
@@ -410,16 +433,16 @@
 @media (min-width: 768px) {
   #alliance-modal {
     align-items: flex-start;
-    padding-top: max(78px, calc(env(safe-area-inset-top) + 78px));
+    padding-top: max(64px, calc(env(safe-area-inset-top) + 64px));
     padding-bottom: 16px;
   }
 
   #alliance-modal .modal__backdrop {
-    top: 64px;
+    top: 48px;
   }
 
   #alliance-modal .alliance-modal__content {
-    max-height: calc(var(--mobile-locked-vh, 100svh) - 98px);
+    max-height: calc(var(--mobile-locked-vh, 100svh) - 84px);
   }
 
   #alliance-modal[data-alliance-tab="management"] .alliance-modal__content {
@@ -446,14 +469,58 @@
 
 #alliance-create-modal .modal__content,
 #alliance-leave-modal .modal__content,
+#alliance-public-action-modal .modal__content,
 #alliance-kick-confirm-modal .modal__content {
   width: min(560px, calc(100vw - 36px));
   max-height: calc(var(--mobile-locked-vh, 100svh) - 36px);
 }
 
+@media (min-width: 768px) {
+  #alliance-create-modal .modal__content {
+    width: min(720px, calc(100vw - 56px));
+    max-height: calc(var(--mobile-locked-vh, 100svh) - 112px);
+  }
+
+  #alliance-create-modal .modal__header {
+    padding: 14px 18px 10px;
+  }
+
+  #alliance-create-modal .modal__body {
+    padding: 12px 16px 16px;
+  }
+
+  #alliance-create-modal .alliance-control--create {
+    gap: 12px;
+  }
+
+  #alliance-create-modal .alliance-icon-picker,
+  #alliance-create-modal .alliance-color-picker {
+    gap: 8px;
+  }
+
+  #alliance-create-modal .alliance-icon-picker__grid {
+    gap: 8px;
+  }
+
+  #alliance-create-modal .alliance-icon-option {
+    min-height: 68px;
+  }
+
+  #alliance-create-modal .alliance-crest-svg {
+    width: 38px;
+    height: 38px;
+  }
+
+  #alliance-create-modal .alliance-color-option {
+    min-height: 44px;
+    padding-block: 6px;
+  }
+}
+
 #alliance-modal .modal__header,
 #alliance-create-modal .modal__header,
 #alliance-leave-modal .modal__header,
+#alliance-public-action-modal .modal__header,
 #alliance-kick-confirm-modal .modal__header {
   display: flex;
   align-items: center;
@@ -466,6 +533,7 @@
 #alliance-modal .modal__header h3,
 #alliance-create-modal .modal__header h3,
 #alliance-leave-modal .modal__header h3,
+#alliance-public-action-modal .modal__header h3,
 #alliance-kick-confirm-modal .modal__header h3 {
   margin: 0;
   color: var(--alliance-text);
@@ -476,6 +544,7 @@
 #alliance-modal .modal__close,
 #alliance-create-modal .modal__close,
 #alliance-leave-modal .modal__close,
+#alliance-public-action-modal .modal__close,
 #alliance-kick-confirm-modal .modal__close {
   width: 44px;
   height: 44px;
@@ -493,10 +562,56 @@
 #alliance-modal .modal__body,
 #alliance-create-modal .modal__body,
 #alliance-leave-modal .modal__body,
+#alliance-public-action-modal .modal__body,
 #alliance-kick-confirm-modal .modal__body {
   padding: 16px 20px 20px;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+#alliance-create-modal .modal__body {
+  padding-top: 16px;
+}
+
+#alliance-create-modal .alliance-create-modal__name-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+#alliance-create-modal .alliance-create-modal__name-row input {
+  min-width: 0;
+}
+
+#alliance-create-modal .alliance-create-modal__close {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  min-height: 42px;
+  border-color: rgba(255, 47, 95, 0.34);
+  border-radius: 13px;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(255, 63, 143, 0.18), transparent 58%),
+    rgba(8, 10, 18, 0.62);
+  color: #ffe4ec;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 14px rgba(255, 47, 95, 0.18);
+  line-height: 1;
+}
+
+#alliance-create-modal .alliance-create-modal__close:hover,
+#alliance-create-modal .alliance-create-modal__close:focus-visible {
+  border-color: rgba(255, 63, 143, 0.64);
+  background:
+    radial-gradient(circle at 50% 35%, rgba(255, 63, 143, 0.28), transparent 58%),
+    rgba(15, 18, 30, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 18px rgba(255, 47, 95, 0.28);
 }
 
 #alliance-modal .modal__body {
@@ -516,6 +631,7 @@
 #alliance-modal .btn,
 #alliance-create-modal .btn,
 #alliance-leave-modal .btn,
+#alliance-public-action-modal .btn,
 #alliance-kick-confirm-modal .btn {
   min-height: 44px;
   display: inline-flex;
@@ -538,6 +654,7 @@
 #alliance-modal .btn:hover,
 #alliance-create-modal .btn:hover,
 #alliance-leave-modal .btn:hover,
+#alliance-public-action-modal .btn:hover,
 #alliance-kick-confirm-modal .btn:hover {
   transform: translateY(-1px);
 }
@@ -545,10 +662,12 @@
 #alliance-modal .btn:disabled,
 #alliance-create-modal .btn:disabled,
 #alliance-leave-modal .btn:disabled,
+#alliance-public-action-modal .btn:disabled,
 #alliance-kick-confirm-modal .btn:disabled,
 body.alliance-command-pending #alliance-modal .btn,
 body.alliance-command-pending #alliance-create-modal .btn,
 body.alliance-command-pending #alliance-leave-modal .btn,
+body.alliance-command-pending #alliance-public-action-modal .btn,
 body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   opacity: 0.5;
   cursor: not-allowed;
@@ -558,6 +677,7 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
 #alliance-modal .btn--primary,
 #alliance-create-modal .btn--primary,
 #alliance-leave-modal .btn--primary,
+#alliance-public-action-modal .btn--primary,
 #alliance-kick-confirm-modal .btn--primary {
   border-color: rgba(255, 63, 143, 0.42);
   background: linear-gradient(180deg, rgba(255, 47, 95, 0.28), rgba(120, 8, 38, 0.22));
@@ -568,6 +688,7 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
 #alliance-modal .btn--ghost,
 #alliance-create-modal .btn--ghost,
 #alliance-leave-modal .btn--ghost,
+#alliance-public-action-modal .btn--ghost,
 #alliance-kick-confirm-modal .btn--ghost {
   border-color: rgba(247, 201, 72, 0.22);
   background: rgba(247, 201, 72, 0.06);
@@ -581,6 +702,126 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   border-color: rgba(251, 113, 133, 0.42);
   background: linear-gradient(180deg, rgba(251, 113, 133, 0.22), rgba(120, 8, 38, 0.28));
   color: #ffe4e6;
+}
+
+#alliance-ready-confirm-modal {
+  --alliance-border-red: rgba(255, 55, 105, 0.25);
+  --alliance-text: #f8fafc;
+  --alliance-muted: #94a3b8;
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  color: var(--alliance-text);
+  box-sizing: border-box;
+}
+
+#alliance-ready-confirm-modal *,
+#alliance-ready-confirm-modal {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+#alliance-ready-confirm-modal[hidden],
+#alliance-ready-confirm-modal.hidden {
+  display: none !important;
+}
+
+#alliance-ready-confirm-modal .modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(255, 47, 95, 0.18), transparent 34%),
+    rgba(1, 4, 10, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+#alliance-ready-confirm-modal .modal__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: min(560px, calc(100vw - 36px));
+  max-height: calc(var(--mobile-locked-vh, 100svh) - 36px);
+  border: 1px solid var(--alliance-border-red);
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(90, 0, 24, 0.32), rgba(8, 10, 18, 0.72));
+  backdrop-filter: blur(18px) saturate(130%);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.45),
+    0 0 40px rgba(255, 45, 95, 0.1);
+  overflow: hidden;
+}
+
+#alliance-ready-confirm-modal .modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+#alliance-ready-confirm-modal .modal__header h3 {
+  margin: 0;
+  color: var(--alliance-text);
+  font-size: 1.15rem;
+  letter-spacing: 0;
+}
+
+#alliance-ready-confirm-modal .modal__close {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--alliance-text);
+  cursor: pointer;
+}
+
+#alliance-ready-confirm-modal .modal__body {
+  padding: 16px 20px 20px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#alliance-ready-confirm-modal .btn {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 15px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--alliance-text);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#alliance-ready-confirm-modal .btn--primary {
+  border-color: rgba(255, 63, 143, 0.42);
+  background: linear-gradient(180deg, rgba(255, 47, 95, 0.28), rgba(120, 8, 38, 0.22));
+  color: #fff7ed;
+  box-shadow: 0 0 18px rgba(255, 47, 95, 0.14);
+}
+
+#alliance-ready-confirm-modal .btn--ghost {
+  border-color: rgba(247, 201, 72, 0.22);
+  background: rgba(247, 201, 72, 0.06);
+  color: var(--alliance-text);
 }
 
 .alliance-status-line {
@@ -643,6 +884,11 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   line-height: 1.45;
 }
 
+.alliance-create-card__copy--requirement {
+  color: rgba(247, 201, 72, 0.9);
+  font-weight: 800;
+}
+
 .alliance-control__stack,
 .alliance-management-panel,
 .alliance-list,
@@ -676,7 +922,8 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   font: inherit;
 }
 
-.alliance-icon-picker {
+.alliance-icon-picker,
+.alliance-color-picker {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -695,6 +942,12 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   gap: 10px;
 }
 
+.alliance-color-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .alliance-icon-option {
   min-height: 82px;
   display: flex;
@@ -709,6 +962,78 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   cursor: pointer;
   overflow: hidden;
   transition: border-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.alliance-color-option {
+  min-height: 50px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--alliance-text);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.alliance-color-option__swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--alliance-emblem-color, var(--alliance-gold));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 14px rgba(var(--alliance-emblem-rgb, 247, 201, 72), 0.34);
+}
+
+.alliance-color-option span:not(.alliance-color-option__swatch) {
+  min-width: 0;
+  color: var(--alliance-text);
+  font-size: 0.72rem;
+  font-weight: 850;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alliance-color-option.is-selected,
+.alliance-color-option:hover,
+.alliance-color-option:focus-visible {
+  border-color: rgba(var(--alliance-emblem-rgb, 247, 201, 72), 0.58);
+  box-shadow:
+    0 0 0 1px rgba(var(--alliance-emblem-rgb, 247, 201, 72), 0.22),
+    0 0 18px rgba(var(--alliance-emblem-rgb, 247, 201, 72), 0.18);
+  transform: translateY(-1px);
+}
+
+.alliance-color-picker__custom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 54px;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 7px 9px 7px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 13px;
+  background: rgba(2, 6, 23, 0.42);
+  color: var(--alliance-muted);
+  font-size: 0.74rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.alliance-color-picker__custom input {
+  width: 54px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
 }
 
 .alliance-icon-option.is-selected,
@@ -795,10 +1120,11 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(247, 201, 72, 0.28);
+  border: 1px solid rgba(var(--alliance-emblem-rgb, 247, 201, 72), 0.28);
   border-radius: 16px;
   background: rgba(7, 9, 15, 0.62);
-  color: var(--alliance-gold);
+  color: var(--alliance-emblem-color, var(--alliance-gold));
+  box-shadow: 0 0 18px rgba(var(--alliance-emblem-rgb, 247, 201, 72), 0.1);
 }
 
 .alliance-badge-markup__icon .alliance-crest-svg {
@@ -916,17 +1242,6 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   box-shadow: 0 0 18px rgba(255, 47, 95, 0.12);
 }
 
-.alliance-tab.is-active::after {
-  content: "";
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 5px;
-  height: 2px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--alliance-red), var(--alliance-gold));
-}
-
 .alliance-tab-panel {
   display: flex;
   flex-direction: column;
@@ -965,6 +1280,31 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   justify-content: space-between;
   gap: 10px;
   min-width: 0;
+}
+
+.alliance-overview-card__headline {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.alliance-overview-card__headline .alliance-badge-markup {
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.alliance-overview-card__headline .alliance-badge-markup__icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+}
+
+.alliance-overview-card__headline .alliance-badge-markup__icon .alliance-crest-svg {
+  width: 32px;
+  height: 32px;
+}
+
+.alliance-overview-card__headline .alliance-badge-markup__name {
+  font-size: 1.02rem;
 }
 
 .alliance-overview-card__meta {
@@ -1488,7 +1828,191 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
 }
 
 .alliance-public-row {
-  grid-template-columns: minmax(220px, 1fr) minmax(140px, 0.45fr) auto;
+  grid-template-columns: minmax(240px, 1fr) minmax(140px, 0.42fr) auto;
+}
+
+.alliance-public-row__identity .alliance-badge-markup {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.alliance-public-row__identity .alliance-badge-markup__icon {
+  width: 64px;
+  height: 64px;
+  border-color: rgba(var(--alliance-emblem-rgb, 247, 201, 72), 0.36);
+  background:
+    radial-gradient(circle at 35% 20%, rgba(var(--alliance-emblem-rgb, 247, 201, 72), 0.2), transparent 42%),
+    rgba(7, 9, 15, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 22px rgba(var(--alliance-emblem-rgb, 247, 201, 72), 0.12);
+}
+
+.alliance-public-row__identity .alliance-badge-markup__icon .alliance-crest-svg {
+  width: 44px;
+  height: 44px;
+}
+
+.alliance-public-emblem {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.alliance-public-emblem__icon {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(var(--alliance-emblem-rgb, 247, 201, 72), 0.36);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 35% 20%, rgba(var(--alliance-emblem-rgb, 247, 201, 72), 0.2), transparent 42%),
+    rgba(7, 9, 15, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 22px rgba(var(--alliance-emblem-rgb, 247, 201, 72), 0.12);
+}
+
+.alliance-public-emblem__icon .alliance-crest-svg {
+  position: relative;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  display: block;
+  color: var(--alliance-emblem-color, var(--alliance-gold));
+  fill: currentColor;
+}
+
+.alliance-public-emblem__fallback {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--alliance-emblem-color, var(--alliance-gold));
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+}
+
+.alliance-public-emblem__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.alliance-public-emblem__body strong {
+  color: var(--alliance-text);
+  font-size: 1rem;
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alliance-public-emblem__body small {
+  color: var(--alliance-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alliance-public-row__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.alliance-public-row__actions .btn {
+  min-height: 38px !important;
+  padding-inline: 12px !important;
+  font-size: 0.76rem !important;
+}
+
+.alliance-public-chat-preview,
+.alliance-public-invite-preview {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 13px;
+  background:
+    linear-gradient(135deg, rgba(120, 8, 38, 0.12), rgba(7, 9, 15, 0.42)),
+    rgba(255, 255, 255, 0.025);
+}
+
+.alliance-public-preview__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.alliance-public-preview__head strong,
+.alliance-public-preview__head span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alliance-public-preview__head strong {
+  color: var(--alliance-text);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.alliance-public-preview__head span {
+  color: var(--alliance-muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.alliance-public-preview__feed {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.alliance-public-invite-preview__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 9px;
+  border-radius: 11px;
+  background: rgba(7, 9, 15, 0.42);
+  color: var(--alliance-text);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.alliance-public-invite-preview__item span,
+.alliance-public-invite-preview__item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alliance-public-invite-preview__item small {
+  color: var(--alliance-muted);
+  font-size: 0.7rem;
+  font-weight: 750;
 }
 
 .alliance-invite-card strong,
@@ -1653,6 +2177,27 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   font-size: 0.72rem !important;
 }
 
+.alliance-kick-row__progress {
+  min-width: 48px;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: end;
+  padding: 0 10px;
+  border: 1px solid rgba(247, 201, 72, 0.34);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(247, 201, 72, 0.18), transparent 42%),
+    rgba(7, 9, 15, 0.58);
+  color: var(--alliance-gold);
+  font-size: 0.74rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 0 14px rgba(247, 201, 72, 0.1);
+}
+
 .alliance-exit-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1664,6 +2209,15 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   min-height: 44px;
   display: flex;
   align-items: center;
+}
+
+.alliance-exit-row__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .alliance-inline-note,
@@ -1709,6 +2263,8 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
 }
 
 .alliance-leave-modal__body,
+.alliance-ready-confirm-modal__body,
+.alliance-public-action-modal__body,
 .alliance-kick-confirm-modal__body {
   display: flex;
   flex-direction: column;
@@ -1729,18 +2285,99 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
 }
 
 .alliance-leave-modal__text,
+.alliance-ready-confirm-modal__text,
+.alliance-public-action-modal__text,
 .alliance-kick-confirm-modal__text {
   color: var(--alliance-text);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
+.alliance-leave-modal__successor {
+  display: grid;
+  gap: 7px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid rgba(247, 201, 72, 0.16);
+  border-radius: 14px;
+  background: rgba(10, 14, 24, 0.38);
+  color: var(--alliance-muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.alliance-leave-modal__successor.hidden {
+  display: none;
+}
+
+.alliance-leave-modal__successor select {
+  min-width: 0;
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.72);
+  color: var(--alliance-text);
+  font: inherit;
+  font-size: 0.84rem;
+}
+
 .alliance-leave-modal__actions,
+.alliance-ready-confirm-modal__actions,
+.alliance-public-action-modal__actions,
 .alliance-kick-confirm-modal__actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.alliance-public-action-modal__target {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid rgba(247, 201, 72, 0.18);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(247, 201, 72, 0.12), transparent 42%),
+    rgba(255, 255, 255, 0.035);
+  color: var(--alliance-gold);
+  font-size: 0.86rem;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.alliance-public-action-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--alliance-muted);
+  font-size: 0.74rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.alliance-public-action-modal__field textarea {
+  width: 100%;
+  min-height: 112px;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  background: rgba(7, 9, 15, 0.6);
+  color: var(--alliance-text);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  outline: none;
+}
+
+.alliance-public-action-modal__field textarea:focus-visible {
+  border-color: rgba(247, 201, 72, 0.36);
+  box-shadow: 0 0 0 3px rgba(247, 201, 72, 0.1);
 }
 
 .avatar-lightbox {
@@ -1821,12 +2458,27 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   .alliance-icon-picker__grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+
+  .alliance-color-picker__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 767px) {
+  #alliance-chat-card {
+    width: 100%;
+  }
+
+  #alliance-btn {
+    width: min(100%, calc(100vw - 24px));
+    min-width: min(320px, calc(100vw - 24px));
+    justify-self: stretch;
+  }
+
   #alliance-modal,
   #alliance-create-modal,
   #alliance-leave-modal,
+  #alliance-public-action-modal,
   #alliance-kick-confirm-modal {
     align-items: stretch;
     padding: 10px;
@@ -1835,6 +2487,7 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   #alliance-modal .alliance-modal__content,
   #alliance-create-modal .modal__content,
   #alliance-leave-modal .modal__content,
+  #alliance-public-action-modal .modal__content,
   #alliance-kick-confirm-modal .modal__content {
     width: 100%;
     max-height: calc(var(--mobile-locked-vh, 100svh) - 20px);
@@ -1843,6 +2496,7 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   #alliance-modal .modal__header,
   #alliance-create-modal .modal__header,
   #alliance-leave-modal .modal__header,
+  #alliance-public-action-modal .modal__header,
   #alliance-kick-confirm-modal .modal__header {
     padding: 14px 14px 10px;
   }
@@ -1850,6 +2504,7 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   #alliance-modal .modal__body,
   #alliance-create-modal .modal__body,
   #alliance-leave-modal .modal__body,
+  #alliance-public-action-modal .modal__body,
   #alliance-kick-confirm-modal .modal__body {
     padding: 12px 14px 14px;
   }
@@ -1866,6 +2521,12 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .alliance-color-option {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    text-align: center;
+  }
+
   .alliance-tab {
     min-width: 92px;
     padding-inline: 12px;
@@ -1876,9 +2537,29 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   .alliance-ready-card,
   .alliance-attention,
   .alliance-exit-row,
-  .alliance-invite-card,
   .alliance-public-row {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .alliance-invite-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .alliance-invite-card--incoming {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .alliance-invite-card--incoming .alliance-invite-card__main {
+    min-width: 0;
+  }
+
+  .alliance-invite-card--incoming .alliance-invite-card__main span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .alliance-members {
@@ -1902,20 +2583,115 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   }
 
   .alliance-public-row__meta,
+  .alliance-public-row__actions,
   .alliance-management-status__badges,
-  .alliance-request-item__actions,
   .alliance-vote-card__actions,
   .alliance-leave-modal__actions,
+  .alliance-public-action-modal__actions,
   .alliance-kick-confirm-modal__actions {
     justify-content: flex-start;
   }
 
-  .alliance-kick-row {
-    grid-template-columns: minmax(0, 1fr);
+  .alliance-invite-card--incoming .alliance-request-item__actions {
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    gap: 5px;
   }
 
-  .alliance-kick-row__action {
-    justify-self: flex-start;
+  .alliance-invite-card--incoming .alliance-request-item__actions .btn {
+    min-height: 36px;
+    padding-inline: 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+  }
+
+  .alliance-public-row__identity .alliance-badge-markup {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .alliance-public-row__identity .alliance-badge-markup__icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+  }
+
+  .alliance-public-row__identity .alliance-badge-markup__icon .alliance-crest-svg {
+    width: 36px;
+    height: 36px;
+  }
+
+  .alliance-public-emblem {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .alliance-public-emblem__icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+  }
+
+  .alliance-public-emblem__icon .alliance-crest-svg,
+  .alliance-public-emblem__fallback {
+    width: 36px;
+    height: 36px;
+  }
+
+  .alliance-public-row__actions {
+    width: 100%;
+  }
+
+  .alliance-public-row__actions .btn {
+    flex: 1 1 140px;
+  }
+
+  #alliance-modal[data-alliance-tab="management"] .alliance-management-status__badges {
+    display: none;
+  }
+
+  .alliance-ready-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .alliance-ready-card__copy {
+    gap: 2px;
+  }
+
+  .alliance-ready-card__copy small {
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+
+  .alliance-ready-card__timer {
+    font-size: 0.68rem;
+  }
+
+  .alliance-ready-card__actions {
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 5px;
+  }
+
+  .alliance-ready-card__actions .btn {
+    min-width: 0;
+    min-height: 38px;
+    padding: 0 8px;
+    border-radius: 11px;
+    font-size: 0.72rem;
+  }
+
+  .alliance-kick-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+  }
+
+  .alliance-kick-row__action,
+  .alliance-kick-row__progress {
+    align-self: stretch;
+    justify-self: end;
+    min-height: 100% !important;
+    height: auto;
   }
 
   .alliance-chat--modal {
@@ -1932,6 +2708,7 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   #alliance-modal,
   #alliance-create-modal,
   #alliance-leave-modal,
+  #alliance-public-action-modal,
   #alliance-kick-confirm-modal {
     padding: 8px;
   }
@@ -1939,6 +2716,7 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
   #alliance-modal .modal__body,
   #alliance-create-modal .modal__body,
   #alliance-leave-modal .modal__body,
+  #alliance-public-action-modal .modal__body,
   #alliance-kick-confirm-modal .modal__body {
     padding: 10px;
   }
@@ -1979,5 +2757,19 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
 
   .alliance-icon-picker__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .alliance-color-picker__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .alliance-invite-card--incoming {
+    gap: 6px;
+  }
+
+  .alliance-invite-card--incoming .alliance-request-item__actions .btn {
+    min-height: 34px;
+    padding-inline: 6px;
+    font-size: 0.66rem;
   }
 }

@@ -76,6 +76,8 @@ export const routeCommand = (
     case "invite-alliance-member":
     case "respond-alliance-invite":
     case "send-alliance-chat-message":
+    case "send-public-alliance-message":
+    case "send-public-alliance-invite":
     case "confirm-alliance-ready":
     case "start-alliance-kick-vote":
     case "cast-alliance-kick-vote":

@@ -15,6 +15,13 @@ function createElement(scopeElement, tagName, className = "") {
   return element;
 }
 
+function setSummaryMetricCardHidden(metricElement, hidden) {
+  const card = metricElement?.closest?.(".district-popup-summary-card");
+  if (card) {
+    card.hidden = Boolean(hidden);
+  }
+}
+
 export function createDistrictPopupMetricsRuntime(deps = {}) {
   const elements = deps.elements || {};
   const getInteractionState = typeof deps.getInteractionState === "function" ? deps.getInteractionState : () => ({});
@@ -198,6 +205,7 @@ export function createDistrictPopupMetricsRuntime(deps = {}) {
 
   const renderDistrictEconomySummary = (district) => {
     if (!district) {
+      setSummaryMetricCardHidden(elements.popupIncome, false);
       deps.renderDistrictMetricSummary({
         income: elements.popupIncome,
         heat: elements.popupHeat,
@@ -213,6 +221,7 @@ export function createDistrictPopupMetricsRuntime(deps = {}) {
     const interactionState = getInteractionState();
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
     const isOwnedByCurrentPlayer = currentPlayerOwnedDistrictIds.has(Number(district.id));
+    setSummaryMetricCardHidden(elements.popupIncome, !isOwnedByCurrentPlayer);
     const isLaunchPhase = (interactionState.gamePhase || "launch") === "launch";
     const isHidden = isLaunchPhase && deps.isDistrictTypeHidden(district, interactionState) && !isOwnedByCurrentPlayer;
     const isDestroyed = interactionState.destroyedDistrictIds?.has?.(Number(district.id));

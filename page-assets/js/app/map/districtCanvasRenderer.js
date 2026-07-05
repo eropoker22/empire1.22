@@ -320,9 +320,11 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
   const activeRobberyMarkersByDistrictId = interactionState.activeRobberyMarkersByDistrictId || new Map();
   const activeTrapDistrictIds = interactionState.activeTrapDistrictIds || new Set();
   const animationTick = interactionState.animationTick ?? 0;
-  const allianceBadge = showAllianceSymbols && mapVisibilityMode !== "only-player"
-    ? getAllianceMapBadge()
-    : null;
+  const getDistrictAllianceBadge = (ownerId) => (
+    showAllianceSymbols && mapVisibilityMode !== "only-player" && ownerId !== null && ownerId !== undefined
+      ? getAllianceMapBadge(ownerId)
+      : null
+  );
   const bountyDistrictMarkers = getBountyDistrictMarkers();
 
   context.clearRect(0, 0, width, height);
@@ -440,31 +442,41 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
     }
 
     if (launchOwnerId && launchOwnerId === currentPlayerId) {
+      const allianceBadge = getDistrictAllianceBadge(currentPlayerId);
       if (allianceBadge) {
         drawAllianceDistrictBadge(context, district, allianceBadge, isNight);
       } else {
         drawCurrentPlayerFactionBadge(context, district, isNight);
       }
     } else if (launchOwnerId) {
-      context.save();
-      context.font = "700 10px Bahnschrift, Segoe UI, sans-serif";
-      context.textAlign = "center";
-      context.textBaseline = "middle";
-      context.fillStyle = launchOwnerColor;
-      context.shadowBlur = 16;
-      context.shadowColor = launchOwnerColor;
-      context.fillText(getLaunchPlayerLabel(launchOwnerId), district.centerX, district.centerY);
-      context.restore();
+      const allianceBadge = getDistrictAllianceBadge(launchOwnerId);
+      if (allianceBadge) {
+        drawAllianceDistrictBadge(context, district, allianceBadge, isNight);
+      } else {
+        context.save();
+        context.font = "700 10px Bahnschrift, Segoe UI, sans-serif";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillStyle = launchOwnerColor;
+        context.shadowBlur = 16;
+        context.shadowColor = launchOwnerColor;
+        context.fillText(getLaunchPlayerLabel(launchOwnerId), district.centerX, district.centerY);
+        context.restore();
+      }
     }
 
     if (!launchOwnerId && isOwnedByCurrentPlayer) {
+      const allianceBadge = getDistrictAllianceBadge(currentPlayerId);
       if (allianceBadge) {
         drawAllianceDistrictBadge(context, district, allianceBadge, isNight);
       } else {
         drawCurrentPlayerFactionBadge(context, district, isNight);
       }
-    } else if (!launchOwnerId && allianceBadge && isOwned) {
-      drawAllianceDistrictBadge(context, district, allianceBadge, isNight);
+    } else if (!launchOwnerId && isOwned) {
+      const allianceBadge = getDistrictAllianceBadge(district.ownerPlayerId ?? district.ownerId ?? null);
+      if (allianceBadge) {
+        drawAllianceDistrictBadge(context, district, allianceBadge, isNight);
+      }
     }
 
     const bountyMarker = bountyDistrictMarkers instanceof Map

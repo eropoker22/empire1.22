@@ -2,6 +2,30 @@ import {
   closeOverlay,
   openOverlay
 } from "../ui/legacyOverlayCoordinator.js";
+import { getAssetPath } from "../../config.js";
+
+const BUILDINGS_POPUP_BACKGROUND_BY_DISTRICT_TYPE = Object.freeze({
+  commercial: getAssetPath("budovy/com.png"),
+  downtown: getAssetPath("budovy/dow.png"),
+  economy: getAssetPath("budovy/com.png"),
+  industrial: getAssetPath("budovy/indu.png"),
+  park: getAssetPath("budovy/par.png"),
+  resident: getAssetPath("budovy/res.png"),
+  residential: getAssetPath("budovy/res.png")
+});
+
+const escapeCssUrl = (value) => String(value || "").replace(/"/g, '\\"');
+const normalizeBuildingsDistrictType = (value) => {
+  const normalizedValue = String(value || "").trim().toLowerCase();
+  if (normalizedValue === "parks" || normalizedValue === "park district") {
+    return "park";
+  }
+  return normalizedValue;
+};
+
+const createBuildingsPopupBackgroundStack = (backgroundImage) => backgroundImage
+  ? `linear-gradient(rgba(3, 7, 18, 0.44), rgba(3, 7, 18, 0.58)), url("${escapeCssUrl(backgroundImage)}")`
+  : "linear-gradient(rgba(3, 7, 18, 0.66), rgba(3, 7, 18, 0.78)), rgba(3, 7, 18, 0.92)";
 
 export function createBuildingsPopupRuntime(deps = {}) {
   const elements = deps.elements || {};
@@ -14,6 +38,52 @@ export function createBuildingsPopupRuntime(deps = {}) {
     ? deps.getCurrentPlayerOwnedDistrictIds
     : () => new Set();
   const isLivePhase = (interactionState = {}) => String(interactionState.gamePhase || "launch").trim().toLowerCase() === "live";
+
+  const getSelectedDistrictForBuildingsPopup = () => {
+    const selectedDistrictId = getInteractionState().selectedDistrictId;
+    if (selectedDistrictId === null || selectedDistrictId === undefined || selectedDistrictId === "") {
+      return null;
+    }
+    return getGeometry()?.districts?.find((district) => Number(district.id) === Number(selectedDistrictId)) || null;
+  };
+
+  const syncBuildingsPopupBackground = (preferredDistrictType = activeBuildingsDistrictType) => {
+    const card = elements.buildingsPopup?.querySelector?.(".buildings-popup-card.buildings-modal__content");
+    if (!card) {
+      return;
+    }
+
+    const selectedDistrict = getSelectedDistrictForBuildingsPopup();
+    const selectedDistrictType = normalizeBuildingsDistrictType(selectedDistrict?.districtType || selectedDistrict?.zone || "");
+    const activeDistrictType = normalizeBuildingsDistrictType(preferredDistrictType);
+    const districtType = activeDistrictType;
+    card.dataset.buildingsSelectedDistrictId = selectedDistrict?.id !== undefined ? String(selectedDistrict.id) : "";
+    card.dataset.buildingsSelectedDistrictType = selectedDistrictType || "";
+    card.dataset.buildingsActiveDistrictType = activeDistrictType || "";
+    card.style.removeProperty("--buildings-popup-background-image");
+
+    if (!activeDistrictType) {
+      card.dataset.buildingsBackgroundMode = "default";
+      card.style.removeProperty("--buildings-popup-background-stack");
+      card.style.removeProperty("background");
+      card.style.removeProperty("background-size");
+      card.style.removeProperty("background-position");
+      card.style.removeProperty("background-repeat");
+      return;
+    }
+
+    const backgroundImage = BUILDINGS_POPUP_BACKGROUND_BY_DISTRICT_TYPE[districtType] || "";
+    const backgroundStack = createBuildingsPopupBackgroundStack(backgroundImage);
+    card.dataset.buildingsBackgroundMode = backgroundImage ? districtType : "none";
+    card.style.setProperty(
+      "--buildings-popup-background-stack",
+      backgroundStack
+    );
+    card.style.setProperty("background", backgroundStack, "important");
+    card.style.setProperty("background-size", "cover, cover", "important");
+    card.style.setProperty("background-position", "center, center", "important");
+    card.style.setProperty("background-repeat", "no-repeat, no-repeat", "important");
+  };
 
   const renderDistrictPopupBuildings = (district) => {
     if (!district) {
@@ -264,6 +334,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
       ? selectedType
       : null;
     activeBuildingsDistrictType = nextType;
+    syncBuildingsPopupBackground(nextType);
     renderBuildingsPopupTypes(nextType);
     renderBuildingsPopupDetail(nextType);
   };
@@ -281,6 +352,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
     }
 
     selectedBuildingBaseNameByType.clear();
+    deps.clearSelectedDistrict?.();
     renderBuildingsPopup(null);
     openOverlay(elements.buildingsPopup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     elements.buildingsPopup.hidden = false;

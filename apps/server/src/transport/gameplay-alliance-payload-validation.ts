@@ -7,9 +7,10 @@ export const validateAllianceCommandPayload = (
 ): boolean => {
   switch (commandType) {
     case "create-alliance":
-      rejectUnknownPayloadFields(errors, payload, ["name", "tag"]);
+      rejectUnknownPayloadFields(errors, payload, ["name", "tag", "emblemColor"]);
       requireStringField(errors, payload, "name", "command.payload.name");
       requireOptionalStringField(errors, payload, "tag", "command.payload.tag");
+      requireOptionalStringField(errors, payload, "emblemColor", "command.payload.emblemColor");
       return true;
     case "join-alliance":
       rejectUnknownPayloadFields(errors, payload, ["allianceId"]);
@@ -29,6 +30,15 @@ export const validateAllianceCommandPayload = (
       rejectUnknownPayloadFields(errors, payload, ["allianceId", "body"]);
       requireStringField(errors, payload, "allianceId", "command.payload.allianceId");
       requireStringField(errors, payload, "body", "command.payload.body");
+      return true;
+    case "send-public-alliance-message":
+      rejectUnknownPayloadFields(errors, payload, ["allianceId", "body"]);
+      requireStringField(errors, payload, "allianceId", "command.payload.allianceId");
+      requireStringField(errors, payload, "body", "command.payload.body");
+      return true;
+    case "send-public-alliance-invite":
+      rejectUnknownPayloadFields(errors, payload, ["allianceId"]);
+      requireStringField(errors, payload, "allianceId", "command.payload.allianceId");
       return true;
     case "confirm-alliance-ready":
       rejectUnknownPayloadFields(errors, payload, ["allianceId", "expectedMembershipVersion"]);
@@ -69,6 +79,8 @@ export const isAllianceCommandType = (commandType: string): boolean =>
     "invite-alliance-member",
     "respond-alliance-invite",
     "send-alliance-chat-message",
+    "send-public-alliance-message",
+    "send-public-alliance-invite",
     "confirm-alliance-ready",
     "start-alliance-kick-vote",
     "cast-alliance-kick-vote",

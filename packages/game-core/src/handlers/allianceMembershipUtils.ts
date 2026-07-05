@@ -34,6 +34,11 @@ export const sanitizeAllianceName = (value: string): string => String(value || "
 export const sanitizeAllianceTag = (value: string): string =>
   String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/gu, "").slice(0, 8) || "AL";
 
+export const sanitizeAllianceEmblemColor = (value: string | undefined, fallback = "#f7c948"): string => {
+  const color = String(value || "").trim();
+  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : fallback;
+};
+
 export const nowIsoFromContext = (context: GameCoreContext): string =>
   context.clock?.nowIso?.() ?? new Date().toISOString();
 

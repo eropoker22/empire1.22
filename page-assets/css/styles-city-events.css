@@ -347,8 +347,10 @@
   }
 
   #events-modal .events-modal__content {
+    top: 54px;
     height: auto;
     max-height: min(84vh, 760px);
+    transform: translateX(-50%);
   }
 }
 

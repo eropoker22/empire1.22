@@ -6,6 +6,9 @@ const BOUNTY_STORAGE_KEY = "empireStreets.bounty.v1";
 const BOUNTY_MINIMUM_CASH = 5_000;
 const BOUNTY_REFRESH_MS = 1_000;
 const LOWKEYLAD_AVATAR_SRC = "../img/avatars/Mafia/grok_image_1773619750005.jpg";
+const NEONVIKTOR_AVATAR_SRC = "../img/avatars/Hacker/grok_image_1773621424855.jpg";
+const SABLEQUEEN_AVATAR_SRC = "../img/avatars/Kartel/f7281b4a-f79f-4d76-b975-5153d414208f.jpg";
+let lastBountyAvatarTrigger = null;
 
 const DEV_BOUNTY_TARGETS = Object.freeze([
   {
@@ -28,6 +31,7 @@ const DEV_BOUNTY_TARGETS = Object.freeze([
   {
     playerId: "dev-bounty-neonviktor",
     name: "NeonViktor",
+    avatarSrc: NEONVIKTOR_AVATAR_SRC,
     factionLabel: "Chrome Syndicate",
     allianceId: null,
     isAlly: false,
@@ -43,6 +47,7 @@ const DEV_BOUNTY_TARGETS = Object.freeze([
   {
     playerId: "dev-bounty-sablequeen",
     name: "SableQueen",
+    avatarSrc: SABLEQUEEN_AVATAR_SRC,
     factionLabel: "Night Market",
     allianceId: null,
     isAlly: false,
@@ -179,6 +184,70 @@ function resolveBountyAvatarSrc(entry, targets = []) {
     return String(candidate?.playerId || "") === targetId || String(candidate?.name || "") === targetName;
   });
   return String(target?.avatarSrc || target?.avatarUrl || "").trim();
+}
+
+function closeBountyAvatarLightbox() {
+  const lightbox = document.getElementById("alliance-member-lightbox");
+  const image = document.getElementById("alliance-member-lightbox-image");
+  if (!lightbox) {
+    return;
+  }
+  if (image instanceof HTMLImageElement) {
+    image.removeAttribute("src");
+  }
+  lightbox.classList.add("hidden");
+  lightbox.hidden = true;
+  lightbox.setAttribute("aria-hidden", "true");
+  closeOverlay(lightbox, { restoreFocus: false });
+  if (lastBountyAvatarTrigger instanceof HTMLElement) {
+    lastBountyAvatarTrigger.focus({ preventScroll: true });
+  }
+  lastBountyAvatarTrigger = null;
+}
+
+function bindBountyAvatarLightboxControls() {
+  const lightbox = document.getElementById("alliance-member-lightbox");
+  if (!lightbox || lightbox.dataset.bountyAvatarLightboxBound === "true") {
+    return;
+  }
+  lightbox.dataset.bountyAvatarLightboxBound = "true";
+  document.getElementById("alliance-member-lightbox-backdrop")?.addEventListener("click", closeBountyAvatarLightbox);
+  document.getElementById("alliance-member-lightbox-close")?.addEventListener("click", closeBountyAvatarLightbox);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && lastBountyAvatarTrigger) {
+      closeBountyAvatarLightbox();
+    }
+  });
+}
+
+function openBountyAvatarLightbox({ src, name, meta, trigger }) {
+  const avatarSrc = String(src || "").trim();
+  if (!avatarSrc) {
+    return;
+  }
+  const lightbox = document.getElementById("alliance-member-lightbox");
+  const image = document.getElementById("alliance-member-lightbox-image");
+  const title = document.getElementById("alliance-member-lightbox-title");
+  const metaEl = document.getElementById("alliance-member-lightbox-meta");
+  if (!lightbox || !(image instanceof HTMLImageElement)) {
+    return;
+  }
+  bindBountyAvatarLightboxControls();
+  lastBountyAvatarTrigger = trigger instanceof HTMLElement ? trigger : null;
+  const displayName = String(name || "Bounty cíl").trim();
+  image.src = avatarSrc;
+  image.alt = `Avatar cíle ${displayName}`;
+  if (title) {
+    title.textContent = displayName;
+  }
+  if (metaEl) {
+    metaEl.textContent = String(meta || "Bounty cíl").trim();
+  }
+  openOverlay(lightbox, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
+  lightbox.hidden = false;
+  lightbox.classList.remove("hidden");
+  lightbox.setAttribute("aria-hidden", "false");
+  document.getElementById("alliance-member-lightbox-close")?.focus({ preventScroll: true });
 }
 
 function resolveObjectiveConfig(objectiveType) {
@@ -350,6 +419,7 @@ function initBountyRuntime() {
   const targetThreat = document.getElementById("bounty-target-threat");
   const targetAvatar = document.getElementById("bounty-target-avatar");
   const targetAvatarFallback = document.getElementById("bounty-target-avatar-fallback");
+  const targetAvatarWrap = modal?.querySelector("[data-bounty-avatar-open]") || targetAvatar?.closest(".bounty-board__avatar-wrap") || null;
   const districtField = document.getElementById("bounty-district-field");
   const submitBtn = document.getElementById("bounty-modal-submit");
   const boardBody = document.getElementById("bounty-board-body");
@@ -368,6 +438,7 @@ function initBountyRuntime() {
   const cashPresetButtons = Array.from(modal?.querySelectorAll("[data-bounty-cash-preset]") || []);
   const objectiveInputs = Array.from(modal?.querySelectorAll('input[name="bounty-objective"]') || []);
   const durationInputs = Array.from(modal?.querySelectorAll('input[name="bounty-duration"]') || []);
+  const durationSegments = Array.from(modal?.querySelectorAll(".bounty-board__segment") || []);
   const tabButtons = Array.from(modal?.querySelectorAll("[data-bounty-tab]") || []);
 
   if (
@@ -595,6 +666,15 @@ function initBountyRuntime() {
       targetAvatar.src = "";
       targetAvatar.classList.add("is-empty");
       targetAvatarFallback.textContent = "??";
+      if (targetAvatarWrap) {
+        targetAvatarWrap.classList.remove("is-clickable");
+        targetAvatarWrap.tabIndex = -1;
+        targetAvatarWrap.setAttribute("aria-disabled", "true");
+        targetAvatarWrap.removeAttribute("title");
+        delete targetAvatarWrap.dataset.bountyAvatarSrc;
+        delete targetAvatarWrap.dataset.bountyAvatarName;
+        delete targetAvatarWrap.dataset.bountyAvatarMeta;
+      }
       if (targetStatus) {
         targetStatus.textContent = "Bez cíle nelze bounty vypsat.";
         targetStatus.dataset.state = "warning";
@@ -609,10 +689,21 @@ function initBountyRuntime() {
     targetActivity.textContent = target.canTarget ? "Status: dostupný cíl" : `Status: ${target.disabledReason || "blokováno"}`;
     targetThreat.textContent = target.canTarget ? `${target.activeDistrictCount} DISTRICTS` : "BLOCKED";
     targetThreat.dataset.tone = target.canTarget ? threatTone : "low";
-    const avatarSrc = String(target.avatarSrc || target.avatarUrl || "").trim();
+    const avatarSrc = resolveBountyAvatarSrc(target, getTargets());
     targetAvatar.src = avatarSrc;
     targetAvatar.classList.toggle("is-empty", !avatarSrc);
     targetAvatarFallback.textContent = target.name.slice(0, 2).toUpperCase();
+    if (targetAvatarWrap) {
+      const avatarMeta = `${target.factionLabel || "Bounty cíl"} · ${target.activeDistrictCount} districtů`;
+      targetAvatarWrap.classList.toggle("is-clickable", Boolean(avatarSrc));
+      targetAvatarWrap.tabIndex = avatarSrc ? 0 : -1;
+      targetAvatarWrap.setAttribute("aria-disabled", avatarSrc ? "false" : "true");
+      targetAvatarWrap.setAttribute("aria-label", avatarSrc ? `Zvětšit avatar cíle ${target.name}` : "Avatar bounty cíle není dostupný");
+      targetAvatarWrap.title = avatarSrc ? `Zvětšit avatar: ${target.name}` : "";
+      targetAvatarWrap.dataset.bountyAvatarSrc = avatarSrc;
+      targetAvatarWrap.dataset.bountyAvatarName = target.name;
+      targetAvatarWrap.dataset.bountyAvatarMeta = avatarMeta;
+    }
     if (targetStatus) {
       targetStatus.textContent = target.canTarget
         ? `${target.name} má ${target.activeDistrictCount} aktivních districtů.`
@@ -864,6 +955,20 @@ function initBountyRuntime() {
     openConfirmModal(preview);
   };
 
+  const openSelectedTargetAvatar = () => {
+    const target = getSelectedTarget();
+    const avatarSrc = resolveBountyAvatarSrc(target, getTargets());
+    if (!target || !avatarSrc) {
+      return;
+    }
+    openBountyAvatarLightbox({
+      src: avatarSrc,
+      name: target.name,
+      meta: `${target.factionLabel || "Bounty cíl"} · ${target.activeDistrictCount} districtů`,
+      trigger: targetAvatarWrap
+    });
+  };
+
   const confirmSubmit = async () => {
     const preview = syncPreview();
     if (preview.validation.state !== "ready") {
@@ -1016,6 +1121,17 @@ function initBountyRuntime() {
   confirmCancelBtn?.addEventListener("click", closeConfirmModal);
   confirmSubmitBtn.addEventListener("click", () => void confirmSubmit());
   submitBtn.addEventListener("click", handleSubmit);
+  targetAvatarWrap?.addEventListener("click", (event) => {
+    event.preventDefault();
+    openSelectedTargetAvatar();
+  });
+  targetAvatarWrap?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    event.preventDefault();
+    openSelectedTargetAvatar();
+  });
   tabButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const nextTab = String(button.dataset.bountyTab || "create");
@@ -1097,6 +1213,18 @@ function initBountyRuntime() {
     renderDistrictOptions();
     syncPreview();
   }));
+  durationSegments.forEach((segment) => {
+    segment.addEventListener("click", () => {
+      const input = segment.querySelector('input[name="bounty-duration"]');
+      if (!(input instanceof HTMLInputElement) || input.disabled) {
+        return;
+      }
+      if (!input.checked) {
+        input.checked = true;
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+  });
   durationInputs.forEach((input) => input.addEventListener("change", syncPreview));
   boardBody.addEventListener("click", (event) => {
     const button = event.target?.closest?.("[data-bounty-cancel]");

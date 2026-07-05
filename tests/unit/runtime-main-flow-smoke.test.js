@@ -99,6 +99,7 @@ describe("runtime main UI flow smoke guard", () => {
     const districtCssSource = read("page-assets/css/styles-district.css");
 
     expect(runtimeSource).toContain("setDestroyedDistrictPopupMode(true)");
+    expect(runtimeSource).toContain("popup.dataset.overviewEnabled = isDistrictPopupOverviewEnabled ? \"true\" : \"false\";");
     expect(runtimeSource).toContain('notice.textContent = enabled ? "District zničen" : "";');
     expect(runtimeSource).toContain("return;");
     expect(districtCssSource).toContain('.district-popup-card[data-district-destroyed="true"] .district-popup-body > :not(.district-popup-destroyed-only)');

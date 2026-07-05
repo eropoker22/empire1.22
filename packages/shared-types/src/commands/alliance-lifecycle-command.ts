@@ -4,6 +4,7 @@ import type { ActionCommand } from "./action-command";
 export interface CreateAlliancePayload {
   name: string;
   tag?: string;
+  emblemColor?: string;
 }
 
 export type CreateAllianceCommand = ActionCommand<"create-alliance", CreateAlliancePayload>;
@@ -34,6 +35,19 @@ export interface SendAllianceChatMessagePayload {
 }
 
 export type SendAllianceChatMessageCommand = ActionCommand<"send-alliance-chat-message", SendAllianceChatMessagePayload>;
+
+export interface SendPublicAllianceMessagePayload {
+  allianceId: AllianceId;
+  body: string;
+}
+
+export type SendPublicAllianceMessageCommand = ActionCommand<"send-public-alliance-message", SendPublicAllianceMessagePayload>;
+
+export interface SendPublicAllianceInvitePayload {
+  allianceId: AllianceId;
+}
+
+export type SendPublicAllianceInviteCommand = ActionCommand<"send-public-alliance-invite", SendPublicAllianceInvitePayload>;
 
 export interface ConfirmAllianceReadyPayload {
   allianceId: AllianceId;
@@ -78,6 +92,8 @@ export type AllianceLifecycleCommand =
   | InviteAllianceMemberCommand
   | RespondAllianceInviteCommand
   | SendAllianceChatMessageCommand
+  | SendPublicAllianceMessageCommand
+  | SendPublicAllianceInviteCommand
   | ConfirmAllianceReadyCommand
   | StartAllianceKickVoteCommand
   | CastAllianceKickVoteCommand

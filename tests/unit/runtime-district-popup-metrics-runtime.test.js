@@ -107,6 +107,19 @@ describe("district popup metrics runtime", () => {
     expect(renderDistrictFlags).toHaveBeenCalledWith(expect.any(FakeElement), [{ label: "flag" }]);
   });
 
+  it("hides income summary card for foreign districts", () => {
+    const runtime = createRuntime();
+    const incomeCard = { hidden: false };
+    runtime.testElements.popupIncome.closest = (selector) =>
+      selector === ".district-popup-summary-card" ? incomeCard : null;
+
+    runtime.renderDistrictEconomySummary({ id: 2, districtType: "industrial" });
+    expect(incomeCard.hidden).toBe(true);
+
+    runtime.renderDistrictEconomySummary({ id: 1, districtType: "industrial" });
+    expect(incomeCard.hidden).toBe(false);
+  });
+
   it("renders passive district gossip in the popup card", () => {
     const runtime = createRuntime({
       ensureDistrictPassiveGossip: () => [

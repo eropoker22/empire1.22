@@ -622,6 +622,24 @@
     rgba(5, 10, 18, 0.48);
   border: 1px solid rgba(245, 158, 11, 0.28);
   border-radius: 4px;
+  cursor: default;
+  outline: none;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bounty-board__avatar-wrap.is-clickable {
+  cursor: zoom-in;
+}
+
+.bounty-board__avatar-wrap.is-clickable:hover,
+.bounty-board__avatar-wrap.is-clickable:focus-visible {
+  border-color: rgba(245, 158, 11, 0.62);
+  box-shadow:
+    0 0 0 2px rgba(245, 158, 11, 0.1),
+    0 0 22px rgba(220, 38, 38, 0.18);
+  transform: translateY(-1px);
 }
 
 .bounty-board__avatar {
@@ -906,12 +924,39 @@
   background: rgba(5, 10, 18, 0.34);
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 999px;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .bounty-board__segment input {
   position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  appearance: none;
   opacity: 0;
   pointer-events: none;
+}
+
+.bounty-board__segment span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.bounty-board__segment span::before,
+.bounty-board__segment span::after {
+  display: none !important;
+  content: none !important;
+}
+
+.bounty-board__segment:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.42;
 }
 
 .bounty-board__quick {

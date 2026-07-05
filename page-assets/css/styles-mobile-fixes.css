@@ -1010,9 +1010,20 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     grid-column: 1 / -1 !important;
   }
 
+  #alliance-chat-card {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  #alliance-chat-card #alliance-btn {
+    width: min(100%, calc(100vw - 18px)) !important;
+    min-width: min(330px, calc(100vw - 18px)) !important;
+    justify-self: stretch !important;
+  }
+
   .leaderboard-launch-row {
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) clamp(32px, 10vw, 36px) !important;
+    grid-template-columns: minmax(0, 1fr) 30px !important;
     grid-auto-flow: column !important;
     grid-auto-columns: auto !important;
     align-items: stretch !important;
@@ -1037,9 +1048,9 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     grid-column: auto !important;
     justify-self: end !important;
     align-self: stretch !important;
-    width: clamp(32px, 10vw, 36px) !important;
-    min-width: clamp(32px, 10vw, 36px) !important;
-    min-height: 34px !important;
+    width: 30px !important;
+    min-width: 30px !important;
+    min-height: 30px !important;
   }
 
   #building-shortcut-grid {
@@ -5309,6 +5320,26 @@ html body .storage-popup-heading > .storage-popup-close::before {
     margin: 0 auto !important;
   }
 
+  html body.game-modal-scroll-locked .district-popup-shell:not([hidden]) {
+    --district-popup-mobile-top: clamp(86px, 24svh, 168px);
+    align-items: flex-start !important;
+    padding: var(--district-popup-mobile-top) 8px max(10px, env(safe-area-inset-bottom)) !important;
+  }
+
+  html body.game-modal-scroll-locked .district-popup-shell:not([hidden]) .district-popup-card {
+    max-height: calc(var(--mobile-locked-vh, 100svh) - var(--district-popup-mobile-top, max(20px, env(safe-area-inset-top))) - max(20px, env(safe-area-inset-bottom))) !important;
+  }
+
+  html body.game-modal-scroll-locked .district-popup-shell[data-overview-enabled="true"]:not([hidden]) {
+    --district-popup-mobile-top: max(0px, env(safe-area-inset-top));
+    align-items: flex-start !important;
+    padding-top: var(--district-popup-mobile-top) !important;
+  }
+
+  html body.game-modal-scroll-locked .district-popup-shell[data-overview-enabled="true"]:not([hidden]) .district-popup-card {
+    max-height: calc(var(--mobile-locked-vh, 100svh) - max(8px, env(safe-area-inset-bottom))) !important;
+  }
+
   html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content,
   html body.game-modal-scroll-locked .district-building-detail-shell:not([hidden]) .district-building-detail-card.building-detail-modal__content,
   html body.game-modal-scroll-locked .armory-popup-shell:not([hidden]) .armory-popup-card.building-detail-modal__content,
@@ -5690,12 +5721,20 @@ html body #police-action-result-modal:not(.hidden):not([hidden]) .modal__body {
   }
 }
 
-/* Mobile global chat: show about three messages, then allow invisible touch scrolling. */
+/* Mobile global chat: show about three messages in a compact feed without a dead row above input. */
 @media (max-width: 767px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body #game-left-nav > #global-chat-card .alliance-chat.server-chat-panel {
+    gap: 6px !important;
+    min-height: 0 !important;
+    grid-template-rows: auto auto auto !important;
+  }
+
   html body.game-body #game-left-nav > #global-chat-card .alliance-chat__log,
   html body.game-body #game-left-nav > #global-chat-card .server-chat-panel__feed {
+    align-self: stretch !important;
+    height: 150px !important;
     min-height: 0 !important;
-    max-height: 132px !important;
+    max-height: 150px !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     overscroll-behavior: contain !important;
@@ -5703,6 +5742,16 @@ html body #police-action-result-modal:not(.hidden):not([hidden]) .modal__body {
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
     touch-action: pan-y !important;
+  }
+
+  html body.game-body #game-left-nav > #global-chat-card .server-chat-panel__composer {
+    gap: 0 !important;
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
+
+  html body.game-body #game-left-nav > #global-chat-card .server-chat-panel__status {
+    display: none !important;
   }
 
   html body.game-body #game-left-nav > #global-chat-card .alliance-chat__log::-webkit-scrollbar,

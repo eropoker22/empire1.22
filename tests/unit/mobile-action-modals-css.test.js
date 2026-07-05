@@ -227,6 +227,8 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("html body.game-modal-scroll-locked .district-popup-shell:not([hidden])");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked .market-popup-shell:not([hidden])");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked .district-popup-shell:not([hidden]) .district-popup-card");
+      expect(stylesheet).toContain('html body.game-modal-scroll-locked .district-popup-shell[data-overview-enabled="true"]:not([hidden])');
+      expect(stylesheet).toContain("--district-popup-mobile-top: clamp(86px, 24svh, 168px);");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked .market-popup-shell:not([hidden]) .market-popup-card");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked .wanted-popup-shell:not([hidden]) .wanted-popup-card");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked .armory-popup-shell:not([hidden]) .armory-popup-card.building-detail-modal__content");

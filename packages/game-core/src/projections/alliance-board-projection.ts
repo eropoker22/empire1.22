@@ -16,6 +16,8 @@ export const createAllianceBoardReadModel = (
   const config = getAllianceLifecycleConfig(context);
   const player = state.playersById[playerId];
   const activeAlliance = player?.allianceId ? state.alliancesById[player.allianceId] ?? null : null;
+  const activeMembership = activeAlliance?.membershipByPlayerId?.[playerId] ?? null;
+  const isCurrentLeader = activeMembership?.role === "leader";
   const createEligibility = canJoinOrCreateAlliance(state, playerId, "create", nowIso);
   const activeView = activeAlliance ? createAllianceView(state, activeAlliance.id, playerId, context, nowIso) : null;
 
@@ -37,13 +39,16 @@ export const createAllianceBoardReadModel = (
         playerId: candidate.id,
         name: candidate.name,
         activeDistrictCount: countActiveDistricts(state, candidate.id),
-        canInvite: Boolean(activeAlliance && !candidate.allianceId && activeAlliance.memberIds.length < context.config.balance.maxAllianceSize),
+        canInvite: Boolean(isCurrentLeader && activeAlliance && !candidate.allianceId && activeAlliance.memberIds.length < context.config.balance.maxAllianceSize),
         disabledReason: candidate.allianceId
           ? "Hráč už je v alianci."
+          : activeAlliance && !isCurrentLeader
+            ? "Pozvat může jen leader aliance."
           : activeAlliance && activeAlliance.memberIds.length >= context.config.balance.maxAllianceSize
             ? "Aliance je plná."
             : null
       })),
+    allianceBadgesByPlayerId: createAllianceBadgesByPlayerId(state),
     canCreateAlliance: createEligibility === true,
     createDisabledReason: createEligibility === true ? null : createEligibility
   };
@@ -69,6 +74,7 @@ export const createAllianceBoardReadModel = (
       allianceId: alliance.id,
       name: alliance.name,
       tag: alliance.tag,
+      emblemColor: normalizeEmblemColor(alliance.emblemColor),
       ownerPlayerId: alliance.ownerPlayerId,
       ownerName: inputState.playersById[alliance.ownerPlayerId]?.name ?? "Leader",
       memberCount: alliance.memberIds.length,
@@ -112,11 +118,17 @@ export const createAllianceBoardReadModel = (
           readyDueAt: membership?.readyDueAt ?? null,
           graceEndsAt: membership?.graceEndsAt ?? null,
           activeDistrictCount: countActiveDistricts(inputState, memberId),
-          canStartKickVote: Boolean(isLeader && memberId !== currentPlayerId && status === "vote_eligible")
+          canStartKickVote: Boolean(isLeader && memberId !== currentPlayerId && status === "vote_eligible"),
+          avatarSrc: stringMetadata(member?.metadata, ["avatarSrc", "avatar"]),
+          presence: resolvePlayerPresence(member, memberId, currentPlayerId)
         };
       }),
       pendingInvites: Object.values(inputState.allianceInvitesById ?? {})
-        .filter((invite) => invite.allianceId === alliance.id && invite.status === "pending")
+        .filter((invite) => invite.allianceId === alliance.id && invite.status === "pending" && (invite.kind ?? "member") === "member")
+        .map((invite) => createInviteView(inputState, invite.id))
+        .filter((view): view is NonNullable<typeof view> => Boolean(view)),
+      receivedInvites: Object.values(inputState.allianceInvitesById ?? {})
+        .filter((invite) => invite.kind === "alliance_contact" && invite.targetAllianceId === alliance.id && invite.status === "pending")
         .map((invite) => createInviteView(inputState, invite.id))
         .filter((view): view is NonNullable<typeof view> => Boolean(view)),
       chatMessages: Object.values(inputState.allianceChatMessagesById ?? {})
@@ -165,9 +177,55 @@ const createInviteView = (
     invitedByName: state.playersById[invite.invitedByPlayerId]?.name ?? "Leader",
     targetPlayerId: invite.targetPlayerId,
     targetName: state.playersById[invite.targetPlayerId]?.name ?? "Hráč",
+    targetAllianceId: invite.targetAllianceId ?? null,
+    kind: invite.kind ?? "member",
     status: invite.status,
     createdAt: invite.createdAt
   };
+};
+
+const createAllianceBadgesByPlayerId = (
+  state: CoreGameState
+): AllianceBoardReadModel["allianceBadgesByPlayerId"] => {
+  const badges: AllianceBoardReadModel["allianceBadgesByPlayerId"] = {};
+  for (const alliance of Object.values(state.alliancesById)) {
+    if (alliance.status !== "active") continue;
+    const badge = {
+      allianceId: alliance.id,
+      name: alliance.name,
+      tag: alliance.tag,
+      emblemColor: normalizeEmblemColor(alliance.emblemColor)
+    };
+    for (const memberId of alliance.memberIds) {
+      badges[memberId] = badge;
+    }
+  }
+  return badges;
+};
+
+const normalizeEmblemColor = (value: unknown): string | null => {
+  const color = String(value || "").trim();
+  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : null;
+};
+
+const stringMetadata = (metadata: Record<string, unknown> | undefined, keys: string[]): string | null => {
+  for (const key of keys) {
+    const value = metadata?.[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim().slice(0, 512);
+    }
+  }
+  return null;
+};
+
+const resolvePlayerPresence = (
+  player: CoreGameState["playersById"][string] | undefined,
+  playerId: string,
+  currentPlayerId: string
+): "online" | "offline" => {
+  const rawPresence = stringMetadata(player?.metadata, ["presence", "onlineStatus", "connectionStatus"]);
+  if (rawPresence && rawPresence.toLowerCase() === "online") return "online";
+  return playerId === currentPlayerId ? "online" : "offline";
 };
 
 const countActiveDistricts = (state: CoreGameState, playerId: string): number =>

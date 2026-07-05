@@ -23,6 +23,7 @@ import type { AllianceLifecycleBalanceConfig } from "../../contracts/game-mode-c
 import { cleanupAllianceDefense } from "./allianceDefenseCleanup";
 
 export const ALLIANCE_READY_TOO_EARLY = "READY_TOO_EARLY";
+export const ALLIANCE_CREATE_REQUIRED_INFLUENCE = 150;
 
 export interface AllianceLifecycleResult {
   nextState: CoreGameState;
@@ -123,7 +124,7 @@ export const canJoinOrCreateAlliance = (
   playerId: string,
   action: "join" | "create",
   nowIso: string
-): true | "ALLIANCE_JOIN_LOCKED" | "ALLIANCE_CREATE_LOCKED" | "ALLIANCE_EXIT_PENDING" | "PLAYER_ALREADY_IN_ALLIANCE" => {
+): true | "ALLIANCE_JOIN_LOCKED" | "ALLIANCE_CREATE_LOCKED" | "ALLIANCE_EXIT_PENDING" | "PLAYER_ALREADY_IN_ALLIANCE" | "ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE" => {
   const player = state.playersById[playerId];
   if (!player) return "PLAYER_ALREADY_IN_ALLIANCE";
   if (player.allianceId) return "PLAYER_ALREADY_IN_ALLIANCE";
@@ -138,12 +139,24 @@ export const canJoinOrCreateAlliance = (
   const penalty = Object.values(state.allianceExitPenaltiesById ?? {})
     .filter((entry) => entry.playerId === playerId)
     .sort((left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt))[0];
-  if (!penalty || !Number.isFinite(now)) return true;
+  if (!Number.isFinite(now)) return true;
 
-  if (action === "join" && Date.parse(penalty.allianceJoinLockedUntil) > now) return "ALLIANCE_JOIN_LOCKED";
-  if (action === "create" && Date.parse(penalty.allianceCreateLockedUntil) > now) return "ALLIANCE_CREATE_LOCKED";
+  if (penalty && action === "join" && Date.parse(penalty.allianceJoinLockedUntil) > now) return "ALLIANCE_JOIN_LOCKED";
+  if (penalty && action === "create" && Date.parse(penalty.allianceCreateLockedUntil) > now) return "ALLIANCE_CREATE_LOCKED";
+  if (action === "create" && calculatePlayerAllianceCreateInfluence(state, playerId) < ALLIANCE_CREATE_REQUIRED_INFLUENCE) {
+    return "ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE";
+  }
   return true;
 };
+
+const calculatePlayerAllianceCreateInfluence = (state: CoreGameState, playerId: string): number =>
+  Object.values(state.districtsById)
+    .filter((district) =>
+      district.ownerPlayerId === playerId
+      && district.status !== "destroyed"
+      && district.status !== "locked"
+    )
+    .reduce((total, district) => total + Math.max(0, Number(district.influence || 0)), 0);
 
 export const confirmAllianceReady = (
   state: CoreGameState,

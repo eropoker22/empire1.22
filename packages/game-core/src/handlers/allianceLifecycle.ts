@@ -25,6 +25,8 @@ export const handleAllianceLifecycleCommand = (
     case "invite-alliance-member":
     case "respond-alliance-invite":
     case "send-alliance-chat-message":
+    case "send-public-alliance-message":
+    case "send-public-alliance-invite":
       return handleAllianceMembershipCommand(state, command, context);
     case "confirm-alliance-ready":
       return confirmAllianceReady(state, command, context);

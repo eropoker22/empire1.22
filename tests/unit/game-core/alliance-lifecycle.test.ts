@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyCommand,
   calculateRequiredYesVotes,
+  createAllianceBoardReadModel,
   createInitialState,
   deriveAllianceMembershipStatus,
   runTick
@@ -13,7 +14,7 @@ import type {
   GameCommand,
   Player
 } from "@empire/shared-types";
-import { createPlayerFixture } from "../../fixtures/game-state-fixtures";
+import { createDistrictFixture, createPlayerFixture } from "../../fixtures/game-state-fixtures";
 
 const BASE_TIME = "2026-01-01T00:00:00.000Z";
 
@@ -76,16 +77,42 @@ describe("alliance lifecycle", () => {
       policeStateId: "police:player:1"
     }) as Player;
     state.root.playerIds.push("player:1");
+    grantAllianceCreateInfluence(state, "player:1");
 
     const created = applyCommand(
       state,
-      command("create-alliance", "player:1", { name: "Reaper Crew", tag: "REAPER" }, "command:create-reaper"),
+      command("create-alliance", "player:1", { name: "Reaper Crew", tag: "REAPER", emblemColor: "#ff2f5f" }, "command:create-reaper"),
       context(BASE_TIME)
     );
     const allianceId = Object.keys(created.nextState.alliancesById)[0];
 
     expect(created.errors).toEqual([]);
     expect(created.nextState.alliancesById[allianceId].tag).toBe("REAPER");
+    expect(created.nextState.alliancesById[allianceId].emblemColor).toBe("#ff2f5f");
+  });
+
+  it("requires 150 influence before creating an alliance", () => {
+    const state = createInitialState("instance:1", "free");
+    state.playersById["player:1"] = createPlayerFixture({
+      id: "player:1",
+      accountId: "account:player:1",
+      name: "player:1",
+      resourceStateId: "resource:player:1",
+      cooldownStateId: "cooldown:player:1",
+      effectStateId: "effect:player:1",
+      policeStateId: "police:player:1"
+    }) as Player;
+    state.root.playerIds.push("player:1");
+    grantAllianceCreateInfluence(state, "player:1", 149);
+
+    const result = applyCommand(
+      state,
+      command("create-alliance", "player:1", { name: "Low Influence", tag: "REAPER" }, "command:create-low-influence"),
+      context(BASE_TIME)
+    );
+
+    expect(result.errors[0]?.code).toBe("ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE");
+    expect(Object.values(result.nextState.alliancesById)).toHaveLength(0);
   });
 
   it("starts a vote only for vote eligible members and READY cancels it", () => {
@@ -201,6 +228,7 @@ describe("alliance lifecycle", () => {
       }) as Player;
       state.root.playerIds.push(playerId);
     }
+    grantAllianceCreateInfluence(state, "player:1");
 
     const created = applyCommand(
       state,
@@ -247,6 +275,166 @@ describe("alliance lifecycle", () => {
       authorPlayerId: "player:2",
       body: "Ready."
     });
+  });
+
+  it("stores public alliance contact messages, contact invites, and map badge colors", () => {
+    const state = createInitialState("instance:1", "free");
+    for (const playerId of ["player:1", "player:2"]) {
+      state.playersById[playerId] = createPlayerFixture({
+        id: playerId,
+        accountId: `account:${playerId}`,
+        name: playerId,
+        resourceStateId: `resource:${playerId}`,
+        cooldownStateId: `cooldown:${playerId}`,
+        effectStateId: `effect:${playerId}`,
+        policeStateId: `police:${playerId}`,
+        metadata: {
+          avatarSrc: `/avatars/${playerId}.png`,
+          presence: playerId === "player:1" ? "online" : "offline"
+        }
+      }) as Player;
+      state.root.playerIds.push(playerId);
+      grantAllianceCreateInfluence(state, playerId);
+    }
+
+    const firstCreated = applyCommand(
+      state,
+      command("create-alliance", "player:1", { name: "Neon Pact", tag: "REAPER", emblemColor: "#34d399" }, "command:create-public-a"),
+      context(BASE_TIME)
+    );
+    const secondCreated = applyCommand(
+      firstCreated.nextState,
+      command("create-alliance", "player:2", { name: "Raven Syndicate", tag: "RAVEN", emblemColor: "#ff3f8f" }, "command:create-public-b"),
+      context(BASE_TIME)
+    );
+    const actorAllianceId = secondCreated.nextState.playersById["player:1"].allianceId || "";
+    const targetAllianceId = secondCreated.nextState.playersById["player:2"].allianceId || "";
+
+    const messaged = applyCommand(
+      secondCreated.nextState,
+      command("send-public-alliance-message", "player:1", {
+        allianceId: targetAllianceId,
+        body: "Jednáme o společném tlaku."
+      }, "command:public-message"),
+      context(BASE_TIME)
+    );
+    const invited = applyCommand(
+      messaged.nextState,
+      command("send-public-alliance-invite", "player:1", { allianceId: targetAllianceId }, "command:public-invite"),
+      context(BASE_TIME)
+    );
+    const inviteId = Object.keys(invited.nextState.allianceInvitesById ?? {})[0];
+    const board = createAllianceBoardReadModel(invited.nextState, "player:1", context(BASE_TIME));
+    const publicAlliance = board.publicAlliances.find((alliance) => alliance.allianceId === targetAllianceId);
+
+    expect(messaged.errors).toEqual([]);
+    expect(invited.errors).toEqual([]);
+    expect(Object.values(messaged.nextState.allianceChatMessagesById ?? {})[0]).toMatchObject({
+      allianceId: targetAllianceId,
+      authorPlayerId: "player:1",
+      body: "Jednáme o společném tlaku."
+    });
+    expect(invited.nextState.allianceInvitesById?.[inviteId]).toMatchObject({
+      allianceId: actorAllianceId,
+      targetAllianceId,
+      targetPlayerId: "player:2",
+      kind: "alliance_contact",
+      status: "pending"
+    });
+    expect(publicAlliance?.chatMessages[0]).toMatchObject({
+      allianceId: targetAllianceId,
+      authorName: "player:1"
+    });
+    expect(publicAlliance?.receivedInvites[0]).toMatchObject({
+      allianceId: actorAllianceId,
+      targetAllianceId,
+      kind: "alliance_contact"
+    });
+    expect(board.allianceBadgesByPlayerId["player:1"]).toMatchObject({
+      tag: "REAPER",
+      emblemColor: "#34d399"
+    });
+    expect(board.activeAlliance?.members[0]).toMatchObject({
+      avatarSrc: "/avatars/player:1.png",
+      presence: "online"
+    });
+
+    const accepted = applyCommand(
+      invited.nextState,
+      command("respond-alliance-invite", "player:2", { inviteId, response: "accept" }, "command:accept-public-invite"),
+      context(BASE_TIME)
+    );
+    expect(accepted.errors).toEqual([]);
+    expect(accepted.nextState.playersById["player:2"].allianceId).toBe(targetAllianceId);
+    expect(accepted.nextState.allianceInvitesById?.[inviteId].status).toBe("accepted");
+  });
+
+  it("allows a player outside alliances to contact a public alliance and request entry", () => {
+    const state = createInitialState("instance:1", "free");
+    for (const playerId of ["player:1", "player:2"]) {
+      state.playersById[playerId] = createPlayerFixture({
+        id: playerId,
+        accountId: `account:${playerId}`,
+        name: playerId,
+        resourceStateId: `resource:${playerId}`,
+        cooldownStateId: `cooldown:${playerId}`,
+        effectStateId: `effect:${playerId}`,
+        policeStateId: `police:${playerId}`
+      }) as Player;
+      state.root.playerIds.push(playerId);
+    }
+    grantAllianceCreateInfluence(state, "player:2");
+
+    const created = applyCommand(
+      state,
+      command("create-alliance", "player:2", { name: "Raven Syndicate", tag: "RAVEN" }, "command:create-public-target"),
+      context(BASE_TIME)
+    );
+    const targetAllianceId = created.nextState.playersById["player:2"].allianceId || "";
+    const messaged = applyCommand(
+      created.nextState,
+      command("send-public-alliance-message", "player:1", {
+        allianceId: targetAllianceId,
+        body: "Chci se přidat."
+      }, "command:public-outsider-message"),
+      context(BASE_TIME)
+    );
+    const invited = applyCommand(
+      messaged.nextState,
+      command("send-public-alliance-invite", "player:1", { allianceId: targetAllianceId }, "command:public-outsider-invite"),
+      context(BASE_TIME)
+    );
+    const inviteId = Object.keys(invited.nextState.allianceInvitesById ?? {})[0];
+    const leaderBoard = createAllianceBoardReadModel(invited.nextState, "player:2", context(BASE_TIME));
+
+    expect(created.errors).toEqual([]);
+    expect(messaged.errors).toEqual([]);
+    expect(invited.errors).toEqual([]);
+    expect(invited.nextState.allianceInvitesById?.[inviteId]).toMatchObject({
+      allianceId: targetAllianceId,
+      invitedByPlayerId: "player:1",
+      targetPlayerId: "player:2",
+      targetAllianceId,
+      kind: "alliance_contact",
+      status: "pending"
+    });
+    expect(leaderBoard.incomingInvites[0]).toMatchObject({
+      inviteId,
+      allianceId: targetAllianceId,
+      invitedByName: "player:1",
+      targetAllianceId
+    });
+    expect(leaderBoard.activeAlliance?.pendingInvites).toEqual([]);
+
+    const accepted = applyCommand(
+      invited.nextState,
+      command("respond-alliance-invite", "player:2", { inviteId, response: "accept" }, "command:accept-outsider-invite"),
+      context(BASE_TIME)
+    );
+    expect(accepted.errors).toEqual([]);
+    expect(accepted.nextState.playersById["player:1"].allianceId).toBe(targetAllianceId);
+    expect(accepted.nextState.alliancesById[targetAllianceId].memberIds).toContain("player:1");
+    expect(accepted.nextState.allianceInvitesById?.[inviteId].status).toBe("accepted");
   });
 
   it("scheduled processing auto-kicks members after the eight hour deadline and applies the 50 percent debuff once", () => {
@@ -335,6 +523,16 @@ const createAllianceState = (playerIds: string[]) => {
   state.alliancesById[alliance.id] = alliance;
   state.root.allianceIds.push(alliance.id);
   return { state, membership: membershipByPlayerId[playerIds[0]] };
+};
+
+const grantAllianceCreateInfluence = (state: ReturnType<typeof createInitialState>, playerId: string, influence = 150): void => {
+  const districtId = `district:alliance-create:${playerId}`;
+  state.districtsById[districtId] = createDistrictFixture({
+    id: districtId,
+    ownerPlayerId: playerId,
+    influence
+  });
+  state.root.districtIds.push(districtId);
 };
 
 const createMembership = (

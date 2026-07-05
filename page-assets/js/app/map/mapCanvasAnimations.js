@@ -61,6 +61,29 @@ function fallbackHexToRgbParts(color) {
   return [0, 2, 4].map((index) => parseInt(normalized.slice(index, index + 2), 16) || 0);
 }
 
+const ALLIANCE_CANVAS_ICON_DEFINITIONS = Object.freeze({
+  bull: { paths: ["M11 18c14 0 25 7 32 20h14c7-13 18-20 32-20-4 16-12 27-25 32l7 20-21 22-21-22 7-20C23 45 15 34 11 18Zm28 35-5 15 16 17 16-17-5-15H39Zm-2-4c4-4 8-6 13-6s9 2 13 6H37Z"], circles: [{ cx: 40, cy: 62, r: 4 }, { cx: 60, cy: 62, r: 4 }] },
+  claw: { paths: ["M26 11h15L28 88H12l14-77Zm26 0h15L50 88H34l18-77Zm27 0h15L72 88H56l23-77Z"] },
+  cobra: { paths: ["M50 8c22 4 36 22 36 48 0 18-14 32-36 36-22-4-36-18-36-36C14 30 28 12 50 8Zm0 13c-12 8-18 19-18 34 0 12 6 20 18 24 12-4 18-12 18-24 0-15-6-26-18-34Z", "M38 45c8-4 16-4 24 0l-6 10H44l-6-10Zm2 22h20l-10 13-10-13Z"], circles: [{ cx: 42, cy: 39, r: 4 }, { cx: 58, cy: 39, r: 4 }] },
+  crown: { paths: ["M12 32 32 52 50 16l18 36 20-20-8 50H20L12 32Zm18 39h40l2-14-10 9-12-25-12 25-10-9 2 14Z", "M24 87h52v8H24v-8Z"] },
+  dagger: { paths: ["M54 8 67 21 45 66 34 55 54 8Z", "M28 55 45 72l-9 9-17-17 9-9Zm-9 26 8 8-8 8-8-8 8-8Zm13-31 23 23-7 7-23-23 7-7Z"] },
+  eye: { paths: ["M6 50c12-21 27-32 44-32s32 11 44 32C82 71 67 82 50 82S18 71 6 50Zm44-19c-11 0-20 8-20 19s9 19 20 19 20-8 20-19-9-19-20-19Z"], circles: [{ cx: 50, cy: 50, r: 10 }] },
+  fangs: { paths: ["M20 12c18 7 30 17 36 31L37 92C24 70 18 44 20 12Zm60 0c2 32-4 58-17 80L44 43c6-14 18-24 36-31Z", "M38 24h24v12H38V24Z"] },
+  fist: { paths: ["M18 39c0-7 5-12 12-12 3 0 5 1 7 3 1-7 6-11 13-11 6 0 10 3 12 8 2-2 5-3 8-3 7 0 12 5 12 12v28c0 16-12 27-32 27S18 80 18 64V39Zm13 2v21h9V41h-9Zm18-10v31h9V31h-9Zm18 6v25h8V37h-8ZM28 70c3 7 10 10 22 10s19-3 22-10H28Z"] },
+  ghost: { paths: ["M50 10c20 0 34 15 34 36v44l-12-9-10 9-12-9-12 9-10-9-12 9V46c0-21 14-36 34-36Zm-14 39c6 0 10-4 10-10-9-3-17 0-20 7 2 2 5 3 10 3Zm28 0c5 0 8-1 10-3-3-7-11-10-20-7 0 6 4 10 10 10Z"] },
+  hydra: { paths: ["M18 25 35 8l14 17-10 12 11 18 11-18-10-12L65 8l17 17-10 13 12 13-14 12-12-14v34H42V49L30 63 16 51l12-13-10-13Z"], circles: [{ cx: 35, cy: 28, r: 4 }, { cx: 65, cy: 28, r: 4 }, { cx: 50, cy: 40, r: 4 }] },
+  jackal: { paths: ["M20 10 43 33l7-17 7 17 23-23-9 49-21 32-21-32-9-49Zm18 42-9-8 4 17 12 6-7-15Zm24 0-7 15 12-6 4-17-9 8ZM42 73h16l-8 13-8-13Z"] },
+  mask: { paths: ["M14 31c24-13 48-13 72 0l-9 38c-11 14-24 21-27 21s-16-7-27-21L14 31Zm19 23c8-4 16-4 24 1-8 10-18 12-30 4l6-5Zm34 0 6 5c-12 8-22 6-30-4 8-5 16-5 24-1ZM40 72h20L50 82 40 72Z"] },
+  raven: { paths: ["M15 55c20-28 44-39 74-32-15 5-26 13-33 25l32 6-36 9-18 25-2-23-17-10Z", "M57 35c6-6 15-9 27-9-10 5-16 10-19 16l-8-7Z"], circles: [{ cx: 61, cy: 40, r: 3 }] },
+  reaper: { paths: ["M50 10c-18 3-31 18-31 39 0 17 9 31 22 36v-9h-8V62h7l-7-8 8-10 9 8 9-8 8 10-7 8h7v14h-8v9c13-5 22-19 22-36 0-21-13-36-31-39Zm-9 50c-5 0-9-3-9-8 8-3 14-1 18 5-2 2-5 3-9 3Zm18 0c-4 0-7-1-9-3 4-6 10-8 18-5 0 5-4 8-9 8Z", "M72 15c12 10 18 24 18 42 0 12-4 23-11 32 2-12 3-23 1-33-2-18-9-31-8-41Z"] },
+  scorpion: { paths: ["M37 36h26l10 18-10 18H37L27 54l10-18Zm8 12v12h10V48H45Z", "M28 43 12 33l7-8 15 13-6 5Zm44 0 16-10-7-8-15 13 6 5ZM28 65 12 77l7 8 15-15-6-5Zm44 0 16 12-7 8-15-15 6-5ZM50 36c0-14 8-24 22-27l7 12-12-2c-6 4-8 10-8 17h-9Z", "M78 9 94 20 82 31l-5-10 1-12Z"] },
+  skull: { paths: ["M50 10c22 0 37 15 37 36 0 15-7 26-20 31v13H33V77C20 72 13 61 13 46c0-21 15-36 37-36ZM34 53c8 0 13-5 13-13-12-3-22 1-25 9 2 3 6 4 12 4Zm32 0c6 0 10-1 12-4-3-8-13-12-25-9 0 8 5 13 13 13ZM44 70h12l-6-13-6 13Zm-1 9v9h5v-9h-5Zm9 0v9h5v-9h-5Z"] },
+  snake: { paths: ["M54 12c20 0 34 15 34 33 0 16-11 29-28 29H35c-7 0-12 3-12 8 0 4 4 7 11 7h28v-9H35c-15 0-25-7-25-18 0-12 10-20 25-20h25c7 0 12-4 12-10 0-7-6-12-16-12H35v12L12 22 35 8v12h19Z"], circles: [{ cx: 61, cy: 32, r: 4 }] },
+  spider: { paths: ["M33 42 12 30l4-8 23 15-6 5Zm34 0 21-12-4-8-23 15 6 5ZM30 55 8 54v-9l24 3-2 7Zm40 0 22-1v-9l-24 3 2 7ZM32 68 14 82l6 7 19-17-7-4Zm36 0 18 14-6 7-19-17 7-4ZM40 28 29 11l8-4 9 18-6 3Zm20 0L71 11l-8-4-9 18 6 3Z"], circles: [{ cx: 50, cy: 34, r: 12 }, { cx: 50, cy: 58, r: 17 }] },
+  vulture: { paths: ["M11 31c25-12 47-10 69 5l10-8-4 22-23 4 9-9c-14-6-27-8-39-4l16 13-7 35-10-31-21-27Z", "M58 28c8-10 19-13 32-9-11 3-18 8-21 15l-11-6Z"], circles: [{ cx: 65, cy: 35, r: 3 }] },
+  wolf: { paths: ["M16 14 36 28l14-15 14 15 20-14-8 33-26 40-26-40-8-33Zm24 34-12-6 7 16 12 4-7-14Zm20 0-7 14 12-4 7-16-12 6ZM39 67l11 17 11-17H39Z"] }
+});
+
 export function createMapCanvasAnimationRenderers(deps = {}) {
   const {
     getPolygonBounds = getFallbackPolygonBounds,
@@ -898,8 +921,11 @@ function drawReducedMapActivityMarker(context, district, type, color) {
   context.restore();
 }
 
-function getAllianceMapBadge() {
+function getAllianceMapBadge(ownerId = null) {
   const provider = windowRef?.empireStreetsAllianceState;
+  if (ownerId !== null && ownerId !== undefined && provider && typeof provider.getMapBadgeForOwner === "function") {
+    return provider.getMapBadgeForOwner(ownerId) || null;
+  }
   if (provider && typeof provider.getMapBadge === "function") {
     return provider.getMapBadge() || null;
   }
@@ -996,6 +1022,42 @@ function createTintedAllianceIconCanvas(image, size, color) {
   return canvas;
 }
 
+function getAllianceBadgeRegistryIcon(badge) {
+  if (badge?.iconKey) {
+    return getAllianceIconById(badge.iconKey);
+  }
+  return getAllianceIconByTag(badge?.tag);
+}
+
+function drawInlineAllianceBadgeIcon(context, badge, x, y, size = 32, color = "#f7c948") {
+  const registryIcon = getAllianceBadgeRegistryIcon(badge);
+  const definition = ALLIANCE_CANVAS_ICON_DEFINITIONS[registryIcon?.id];
+  const Path2DCtor = windowRef?.Path2D || globalThis.Path2D;
+  if (!definition || typeof Path2DCtor !== "function") {
+    return false;
+  }
+
+  const safeSize = Math.max(18, Math.min(64, Number(size) || 32));
+  const scale = safeSize / 100;
+  context.save();
+  context.translate(x - safeSize / 2, y - safeSize / 2);
+  context.scale(scale, scale);
+  context.fillStyle = color;
+
+  for (const pathData of definition.paths || []) {
+    context.fill(new Path2DCtor(pathData));
+  }
+
+  for (const circle of definition.circles || []) {
+    context.beginPath();
+    context.arc(Number(circle.cx || 0), Number(circle.cy || 0), Number(circle.r || 0), 0, Math.PI * 2);
+    context.fill();
+  }
+
+  context.restore();
+  return true;
+}
+
 function drawFallbackAllianceBadgeText(context, badge, x, y, isNight, softGlow) {
   const text = String(badge?.symbol || badge?.tag || "AL").slice(0, 4);
   context.font = "900 18px Bahnschrift, Segoe UI Symbol, Segoe UI Emoji, sans-serif";
@@ -1014,6 +1076,10 @@ function drawFallbackAllianceBadgeText(context, badge, x, y, isNight, softGlow) 
 }
 
 function drawAllianceBadgeIcon(context, badge, x, y, size = 32, color = "#f7c948") {
+  if (drawInlineAllianceBadgeIcon(context, badge, x, y, size, color)) {
+    return true;
+  }
+
   const registryIcon = badge?.asset
     ? { asset: badge.asset }
     : badge?.iconKey
@@ -1030,13 +1096,18 @@ function drawAllianceBadgeIcon(context, badge, x, y, size = 32, color = "#f7c948
   return true;
 }
 
+function getAllianceBadgeColor(badge, fallbackColor = "#f7c948") {
+  const color = String(badge?.color || "").trim();
+  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : fallbackColor;
+}
+
 function drawAllianceDistrictBadge(context, district, badge, isNight = true) {
   if (!district || !badge?.symbol) {
     return;
   }
 
-  const playerColor = getLaunchPlayerColor(currentPlayerId);
-  const [red, green, blue] = hexToRgbParts(playerColor);
+  const badgeColor = getAllianceBadgeColor(badge, getLaunchPlayerColor(currentPlayerId));
+  const [red, green, blue] = hexToRgbParts(badgeColor);
   const haloRadius = 19;
   const symbolY = district.centerY - 0.5;
   const primaryGlow = `rgba(${red}, ${green}, ${blue}, ${isNight ? 0.78 : 0.58})`;
@@ -1075,7 +1146,7 @@ function drawAllianceDistrictBadge(context, district, badge, isNight = true) {
     district.centerX,
     symbolY,
     30,
-    isNight ? "rgba(247, 201, 72, 0.98)" : playerColor
+    badgeColor
   );
   if (!iconDrawn) {
     drawFallbackAllianceBadgeText(context, badge, district.centerX, symbolY, isNight, softGlow);
