@@ -190,13 +190,13 @@ export function createGangWantedStatusRuntime(deps = {}) {
     const openPopup = () => {
       renderFeedback("", "");
       syncWantedStatus();
-      elements.popup.hidden = false;
       openOverlay(elements.popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
+      elements.popup.hidden = false;
     };
 
     const closePopup = () => {
-      closeOverlay(elements.popup, { restoreFocus: false });
       elements.popup.hidden = true;
+      closeOverlay(elements.popup, { restoreFocus: false });
     };
 
     elements.heatButton.addEventListener("click", openPopup);

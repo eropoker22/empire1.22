@@ -790,9 +790,9 @@ function initBountyRuntime() {
   };
 
   const openModal = () => {
+    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     modal.hidden = false;
     modal.classList.remove("hidden");
-    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     uiState.isOpen = true;
     syncTabs();
     refreshView();
@@ -802,9 +802,9 @@ function initBountyRuntime() {
     if (uiState.isConfirmOpen) {
       closeConfirmModal();
     }
-    closeOverlay(modal, { restoreFocus: false });
     modal.classList.add("hidden");
     modal.hidden = true;
+    closeOverlay(modal, { restoreFocus: false });
     uiState.isOpen = false;
   };
 
@@ -818,16 +818,16 @@ function initBountyRuntime() {
     confirmDuration.textContent = `${preview.durationHours}h`;
     confirmAnonymous.textContent = preview.isAnonymous ? "Anonymní" : "Veřejná";
     uiState.pendingPreview = preview;
+    openOverlay(confirmModal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     confirmModal.hidden = false;
     confirmModal.classList.remove("hidden");
-    openOverlay(confirmModal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     uiState.isConfirmOpen = true;
   };
 
   const closeConfirmModal = () => {
-    closeOverlay(confirmModal, { restoreFocus: false });
     confirmModal.classList.add("hidden");
     confirmModal.hidden = true;
+    closeOverlay(confirmModal, { restoreFocus: false });
     uiState.isConfirmOpen = false;
     uiState.pendingPreview = null;
   };

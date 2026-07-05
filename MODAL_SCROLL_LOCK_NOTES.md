@@ -11,12 +11,12 @@
 
 ## Pridana oprava
 
-- Pridana centralni utilita `page-assets/js/app/ui/modalScrollLock.js`.
+- Puvodne byla pridana centralni utilita `page-assets/js/app/ui/modalScrollLock.js`; po konsolidaci uz je tento soubor jen compatibility bridge.
 - Pri prvnim locku uklada `scrollX`, `scrollY` a menene inline styly `html/body`.
 - `body` se zamkne pres `position: fixed`, `top: -scrollY`, `left: -scrollX`, `width: 100%`.
 - Scrollbar shift se kompenzuje pres `padding-right` podle aktualni sirky scrollbar.
 - Unlock obnovi puvodni inline styly a vrati presny `scrollX/scrollY`.
-- `legacyOverlayCoordinator` zustal hlavnim API pro popupy a pouziva novou utilitu pro cely overlay stack.
+- `legacyOverlayCoordinator` zustal hlavnim API pro legacy popupy a pres bridge pouziva canonical overlay-state lock pro cely overlay stack.
 - Opakovane otevreni stejneho modalu a opakovane zavreni jsou idempotentni.
 - District popup ted zamyka scroll pred odhalenim popupu a pri zavreni nejdriv popup schova, az potom odemyka body.
 - District popup preskakuje automaticky focus pri otevreni, aby mobilni browser neposunul viewport na close tlacitko.
@@ -46,6 +46,18 @@
 - Targeted unit test `npm exec vitest -- run tests/unit/mobile-action-modals-css.test.js` prosel: 11/11.
 - Primy Playwright audit na mobilnim viewportu overil district popup, opakovane otevreni/zavreni, scroll uvnitr district karty, nested attack popup a finalni zavreni bez vizualniho skoku mapy.
 - Plny Playwright test runner pro `tests/e2e/mobile-overlay-ux.spec.js` jsem zkousel, ale po otevreni district popupu visel na Playwright locator/page-context cekani; stejny flow mimo runner pres primy Playwright script prosel.
+
+## Canonical scroll-lock consolidation
+
+- Nezavisla implementace v `page-assets/js/app/ui/modalScrollLock.js` byla odstranena; soubor zustal jen jako tenky compatibility bridge bez vlastniho `WeakMap`, owner stacku, scroll vypoctu nebo inline `body/html` stylovani.
+- Canonical implementace je `apps/client/src/modals/overlay-state.ts`; generovany `page-assets/js/client-assets/gameplay-slice-client.js` byl znovu sestaven z tohoto zdroje.
+- Legacy volani zustala kompatibilni pres `lockModalScroll`, `unlockModalScroll` a `isModalScrollLocked`, ale bridge pouze vola `window.EmpireModalScrollLock`, ktere nastavuje canonical overlay-state bundle.
+- `legacyOverlayCoordinator` si ponechal element/focus stack, ale jeho prvni/posledni overlay mapuje scroll lock na jednu canonical `generic` overlay entry. Compat unlock umi odebrat jen svoji entry a nesunda nesouvisejici top overlay z apps/client stacku.
+- Open/close poradi bylo srovnano na lock pred odhalenim a hide pred unlockem u Market/Bazar, Buildings, Storage, Settings, Profile, Wanted, Bounty main/confirm, Alliance modal family, City Events main/detail, Faction actions, Boost, Battle royale info, Factory/production popupu, building detail popupu, building upgrade/special-action confirmation, attack/district helperu a district detail stacku.
+- Browser smoke s realnymi click handlery overil Market/Bazar, Buildings, Storage, Settings a Profile: pri baseline `scrollY=420` se body zamklo na `top: -420px`, pokus o scroll pozadi se neprojevil a po close se `scrollY=420` obnovilo.
+- DOM/overlay smoke pres `window.EmpireLegacyOverlay` overil shelly pro Wanted, Bounty main/confirm, Alliance main/create/leave/management/kick, City Events/detail, Faction actions, Boost, Battle royale info, Leaderboard, Factory, Armory/Pharmacy/Druglab building detail, attack/robbery/trap/spy/occupy confirmations a nested District detail + attack setup. Nested close horni vrstvy nechal pozadi zamcene a unlock prisel az po zavreni posledni vrstvy.
+- Zbyvajici mobilni riziko je realny device viewport: iOS/Android address bar a `visualViewport` zmeny muzou mit drobne rozdily proti Chromium mobile smoke, proto ma alpha preview porad dostat rychly real-device pass.
+- Scroll lock je po sjednoceni pripraveny pro alpha preview; zustava jen standardni mobilni spot-check riziko na realnych zarizenich.
 
 ## Znama mobilni rizika
 

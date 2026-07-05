@@ -32,9 +32,9 @@ export interface AllianceLifecycleResult {
 
 const DEFAULT_LIFECYCLE_CONFIG: AllianceLifecycleBalanceConfig = {
   readiness: {
-    readyIntervalSeconds: 6 * 60 * 60,
-    readyButtonAvailableBeforeDueSeconds: 2 * 60 * 60,
-    gracePeriodSeconds: 2 * 60 * 60,
+    readyIntervalSeconds: 8 * 60 * 60,
+    readyButtonAvailableBeforeDueSeconds: 0,
+    gracePeriodSeconds: 0,
     voteDurationSeconds: 2 * 60 * 60,
     voteRetryCooldownSeconds: 2 * 60 * 60
   },
@@ -53,9 +53,14 @@ const DEFAULT_LIFECYCLE_CONFIG: AllianceLifecycleBalanceConfig = {
     allianceCreateLockoutSeconds: 6 * 60 * 60,
     influenceDebuffSeconds: 0,
     actionCooldownDebuffSeconds: 0,
+    statDebuffSeconds: 8 * 60 * 60,
     formerAllyTruceSeconds: 60 * 60,
     influenceGenerationMultiplier: 1,
     actionCooldownMultiplier: 1,
+    attackMultiplier: 0.5,
+    defenseMultiplier: 0.5,
+    productionMultiplier: 0.5,
+    incomeMultiplier: 0.5,
     blocksAllianceDefenseSupport: true
   },
   disbandPenalty: {
@@ -160,11 +165,6 @@ export const confirmAllianceReady = (
     && membership.version !== command.payload.expectedMembershipVersion
   ) {
     return failure(state, "MEMBERSHIP_VERSION_CONFLICT", "Alliance membership version changed.");
-  }
-
-  const status = deriveAllianceMembershipStatus(membership, nowIso, config, activeVote);
-  if (status === "active") {
-    return failure(state, ALLIANCE_READY_TOO_EARLY, "READY cannot be confirmed this early.");
   }
 
   const nextMembership = createReadyMembership(membership, nowIso, config);
@@ -534,14 +534,24 @@ export const runAllianceLifecycleScheduled = (
       }
       if (status === "vote_eligible") {
         notifications.push(createPlayerNotification({
-          id: `alliance-ready-vote-eligible:${alliance.id}:${membership.playerId}:${cycleId}`,
+          id: `alliance-ready-timeout:${alliance.id}:${membership.playerId}:${cycleId}`,
           playerId: membership.playerId,
-          title: "ALIANCE MŮŽE HLASOVAT",
-          bodyKey: "alliance.ready_vote_eligible",
+          title: "AKTIVITA V ALIANCI VYPRŠELA",
+          bodyKey: "alliance.ready_timeout_removed",
           createdAt: nowIso,
-          payload: { allianceId: alliance.id }
+          payload: { allianceId: alliance.id, readyDueAt: membership.readyDueAt }
         }));
         audits.push(createAudit(`readiness-expired:${alliance.id}:${membership.playerId}:${cycleId}`, alliance.id, "readiness_expired", nowIso, undefined, membership.playerId));
+        nextState = removeMemberFromAlliance(
+          nextState,
+          alliance.id,
+          membership.playerId,
+          "inactive_kick",
+          `readiness-timeout:${alliance.id}:${membership.playerId}:${cycleId}`,
+          nowIso,
+          context,
+          undefined
+        ).nextState;
       }
     }
 
@@ -740,12 +750,20 @@ const cleanupAllianceExitEffects = (
     formerAllianceId: input.allianceId,
     reason: input.reason,
     startedAt: input.nowIso,
-    penaltyEndsAt: addSecondsIso(input.nowIso, Math.max(penaltyConfig.influenceDebuffSeconds, penaltyConfig.actionCooldownDebuffSeconds)),
+    penaltyEndsAt: addSecondsIso(input.nowIso, Math.max(
+      penaltyConfig.influenceDebuffSeconds,
+      penaltyConfig.actionCooldownDebuffSeconds,
+      penaltyConfig.statDebuffSeconds ?? 0
+    )),
     allianceJoinLockedUntil: addSecondsIso(input.nowIso, penaltyConfig.allianceJoinLockoutSeconds),
     allianceCreateLockedUntil: addSecondsIso(input.nowIso, penaltyConfig.allianceCreateLockoutSeconds),
     formerAllyTruceUntil: addSecondsIso(input.nowIso, penaltyConfig.formerAllyTruceSeconds),
     influenceGenerationMultiplier: penaltyConfig.influenceGenerationMultiplier,
     actionCooldownMultiplier: penaltyConfig.actionCooldownMultiplier,
+    attackMultiplier: resolvePenaltyMultiplier(penaltyConfig.attackMultiplier),
+    defenseMultiplier: resolvePenaltyMultiplier(penaltyConfig.defenseMultiplier),
+    productionMultiplier: resolvePenaltyMultiplier(penaltyConfig.productionMultiplier),
+    incomeMultiplier: resolvePenaltyMultiplier(penaltyConfig.incomeMultiplier),
     affectedActionIds: config.affectedCooldownActionIds,
     blocksAllianceDefenseSupport: penaltyConfig.blocksAllianceDefenseSupport,
     sourceEventId: input.sourceEventId,
@@ -1019,3 +1037,8 @@ const nowIsoFromContext = (context: GameCoreContext): string =>
 
 const addSecondsIso = (isoValue: string, seconds: number): string =>
   new Date(Date.parse(isoValue) + seconds * 1000).toISOString();
+
+const resolvePenaltyMultiplier = (value: number | undefined): number => {
+  const multiplier = Number(value);
+  return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+};

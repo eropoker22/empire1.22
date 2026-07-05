@@ -5690,6 +5690,59 @@ html body #police-action-result-modal:not(.hidden):not([hidden]) .modal__body {
   }
 }
 
+/* Mobile global chat: show about three messages, then allow invisible touch scrolling. */
+@media (max-width: 767px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body #game-left-nav > #global-chat-card .alliance-chat__log,
+  html body.game-body #game-left-nav > #global-chat-card .server-chat-panel__feed {
+    min-height: 0 !important;
+    max-height: 132px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    touch-action: pan-y !important;
+  }
+
+  html body.game-body #game-left-nav > #global-chat-card .alliance-chat__log::-webkit-scrollbar,
+  html body.game-body #game-left-nav > #global-chat-card .server-chat-panel__feed::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+  }
+
+  html body.game-modal-scroll-locked #alliance-member-lightbox.avatar-lightbox:not(.hidden) {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 16000 !important;
+    isolation: isolate !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)) !important;
+    pointer-events: auto !important;
+  }
+
+  html body.game-modal-scroll-locked #alliance-member-lightbox.avatar-lightbox:not(.hidden) .avatar-lightbox__backdrop {
+    z-index: 0 !important;
+  }
+
+  html body.game-modal-scroll-locked #alliance-member-lightbox.avatar-lightbox:not(.hidden) .avatar-lightbox__content {
+    z-index: 2 !important;
+    width: min(520px, calc(100vw - 16px)) !important;
+    max-height: calc(var(--mobile-locked-vh, 100svh) - 18px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    border-color: rgba(255, 55, 105, 0.14) !important;
+    background:
+      linear-gradient(135deg, rgba(90, 0, 24, 0.1), rgba(8, 10, 18, 0.2)),
+      rgba(10, 14, 24, 0.16) !important;
+  }
+
+  html body.game-modal-scroll-locked #alliance-member-lightbox.avatar-lightbox:not(.hidden) .avatar-lightbox__content img {
+    max-height: calc(var(--mobile-locked-vh, 100svh) - 118px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    object-fit: contain !important;
+  }
+}
+
 @media (max-width: 720px) {
   html body .wanted-popup-card .wanted-popup-actions {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;

@@ -87,7 +87,7 @@ export const createAllianceBoardReadModel = (
       canInvite: Boolean(isLeader && alliance.memberIds.length < inputContext.config.balance.maxAllianceSize),
       canLeave: Boolean(currentMembership),
       canDisband: Boolean(isLeader),
-      canConfirmReady: Boolean(currentMembership && ["due_soon", "overdue", "vote_eligible", "vote_pending"].includes(
+      canConfirmReady: Boolean(currentMembership && ["active", "due_soon", "overdue", "vote_eligible", "vote_pending"].includes(
         deriveAllianceMembershipStatus(currentMembership, currentNowIso, config, activeVote)
       )),
       readyReasonCode: currentMembership ? deriveAllianceMembershipStatus(

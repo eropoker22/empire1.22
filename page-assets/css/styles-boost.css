@@ -600,6 +600,29 @@
     inset 0 0 22px rgba(220, 252, 231, 0.16);
 }
 
+.faction-action-launch-button:disabled,
+.faction-action-launch-button[aria-disabled="true"] {
+  border-color: rgba(250, 204, 21, 0.42);
+  background:
+    radial-gradient(circle at 24% 16%, rgba(250, 204, 21, 0.14), transparent 32%),
+    linear-gradient(135deg, rgba(113, 63, 18, 0.72), rgba(14, 116, 144, 0.2)),
+    rgba(22, 18, 8, 0.94);
+  color: #fde68a;
+  cursor: default;
+  opacity: 0.9;
+  text-shadow: 0 0 12px rgba(250, 204, 21, 0.28);
+  box-shadow:
+    0 0 20px rgba(250, 204, 21, 0.12),
+    inset 0 0 16px rgba(250, 204, 21, 0.08);
+}
+
+.faction-action-launch-button:disabled:hover,
+.faction-action-launch-button:disabled:focus-visible,
+.faction-action-launch-button[aria-disabled="true"]:hover,
+.faction-action-launch-button[aria-disabled="true"]:focus-visible {
+  transform: none;
+}
+
 .faction-action-launch-description {
   width: 100%;
   margin: 0;

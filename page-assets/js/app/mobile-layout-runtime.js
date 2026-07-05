@@ -19,6 +19,8 @@ const MOBILE_OVERLAY_SELECTOR = [
   ".storage-popup-shell",
   ".district-building-detail-shell",
   ".avatar-lightbox",
+  ".elimination-ai-panel",
+  ".elimination-result-popup",
   ".game-admin-slice-overlay"
 ].join(",");
 const MOBILE_CLOSE_CONTROL_SELECTOR = [

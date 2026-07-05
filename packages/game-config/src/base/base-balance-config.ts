@@ -20,9 +20,9 @@ export const baseBalanceConfig: BalanceConfig = {
   eventFrequencyMultiplier: 1,
   allianceLifecycle: {
     readiness: {
-      readyIntervalSeconds: 6 * 60 * 60,
-      readyButtonAvailableBeforeDueSeconds: 2 * 60 * 60,
-      gracePeriodSeconds: 2 * 60 * 60,
+      readyIntervalSeconds: 8 * 60 * 60,
+      readyButtonAvailableBeforeDueSeconds: 0,
+      gracePeriodSeconds: 0,
       voteDurationSeconds: 2 * 60 * 60,
       voteRetryCooldownSeconds: 2 * 60 * 60
     },
@@ -41,9 +41,14 @@ export const baseBalanceConfig: BalanceConfig = {
       allianceCreateLockoutSeconds: 6 * 60 * 60,
       influenceDebuffSeconds: 0,
       actionCooldownDebuffSeconds: 0,
+      statDebuffSeconds: 8 * 60 * 60,
       formerAllyTruceSeconds: 60 * 60,
       influenceGenerationMultiplier: 1,
       actionCooldownMultiplier: 1,
+      attackMultiplier: 0.5,
+      defenseMultiplier: 0.5,
+      productionMultiplier: 0.5,
+      incomeMultiplier: 0.5,
       blocksAllianceDefenseSupport: true
     },
     disbandPenalty: {

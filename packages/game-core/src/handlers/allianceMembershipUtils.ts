@@ -32,7 +32,7 @@ export const createInitialAllianceMembership = (
 export const sanitizeAllianceName = (value: string): string => String(value || "").trim().slice(0, 32);
 
 export const sanitizeAllianceTag = (value: string): string =>
-  String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/gu, "").slice(0, 4) || "AL";
+  String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/gu, "").slice(0, 8) || "AL";
 
 export const nowIsoFromContext = (context: GameCoreContext): string =>
   context.clock?.nowIso?.() ?? new Date().toISOString();

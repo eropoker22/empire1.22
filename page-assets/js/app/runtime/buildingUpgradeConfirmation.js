@@ -107,15 +107,16 @@ export function createBuildingUpgradeConfirmationController({
   let currentResolve = null;
 
   const finalize = (result) => {
-    closeOverlay(overlay, { restoreFocus: false });
     if (!currentResolve) {
       overlay.hidden = true;
+      closeOverlay(overlay, { restoreFocus: false });
       return;
     }
 
     const resolve = currentResolve;
     currentResolve = null;
     overlay.hidden = true;
+    closeOverlay(overlay, { restoreFocus: false });
     resolve(result);
   };
 
@@ -186,13 +187,13 @@ export function createBuildingUpgradeConfirmationController({
         finalize(false);
       }
       update(payload);
-      overlay.hidden = false;
       openOverlay(overlay, {
         type: "modal",
         ariaModal: true,
         focusTarget: payload.canConfirm === false ? cancelButton : confirmButton,
         restoreFocusOnClose: false
       });
+      overlay.hidden = false;
       return new Promise((resolve) => {
         currentResolve = resolve;
         focusWithoutScroll(payload.canConfirm === false ? cancelButton : confirmButton);

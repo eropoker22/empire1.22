@@ -64,10 +64,11 @@ export const FACTION_PASSIVE_MODIFIER_USAGE: Record<
     status: "active",
     surfaces: [
       "packages/game-core/src/handlers/attackDistrict.ts",
+      "packages/game-core/src/rules/heists/heistSystem.ts",
       "packages/game-core/src/handlers/useBuildingAction.ts",
       "packages/game-core/src/rules/economy/collectIncome.ts: fixed building passive pressure"
     ],
-    note: "Aplikuje se na attack heat, building action heat a pasivní heat z fixed budov."
+    note: "Aplikuje se na attack/heist heat, building action heat a pasivní heat z fixed budov. Occupy heat používá jen aggressiveActionHeatGainMultiplier."
   },
   illegalActionHeatGainMultiplier: {
     key: "illegalActionHeatGainMultiplier",
@@ -191,9 +192,10 @@ export const FACTION_PASSIVE_MODIFIER_USAGE: Record<
     status: "active",
     surfaces: [
       "packages/game-core/src/handlers/attackDistrict.ts",
+      "packages/game-core/src/handlers/occupyDistrict.ts",
       "packages/game-core/src/rules/heists/heistSystem.ts"
     ],
-    note: "Aplikuje se na heat z útoků a district heist start/outcome heat."
+    note: "Aplikuje se na heat z útoků, obsazování a district heist start/outcome heat."
   },
   defenseSystemEffectivenessMultiplier: {
     key: "defenseSystemEffectivenessMultiplier",
@@ -242,7 +244,7 @@ export const FACTION_PASSIVE_MODIFIER_USAGE: Record<
     key: "upkeepCostMultiplier",
     status: "planned",
     surfaces: [],
-    note: "Kontrakt existuje pro budoucí upkeep systém; žádná frakce ho zatím nepoužívá."
+    note: "Kontrakt je definovaný pro Soukromou armádu, ale žádný upkeep/combat-cost systém ho zatím neaplikuje."
   }
 };
 

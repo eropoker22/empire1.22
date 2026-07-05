@@ -182,15 +182,15 @@ export function createFactoryPopupRuntime(deps = {}) {
     const openPopup = () => {
       setActiveTab("stats");
       renderFactoryDashboard();
-      popup.hidden = false;
       openOverlay(popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
+      popup.hidden = false;
       deps.syncBuildingDetailTopbarVisibility?.(root);
     };
 
     const closePopup = () => {
       upgradeConfirmation.close?.();
-      closeOverlay(popup, { restoreFocus: false });
       popup.hidden = true;
+      closeOverlay(popup, { restoreFocus: false });
       deps.syncBuildingDetailTopbarVisibility?.(root);
     };
 

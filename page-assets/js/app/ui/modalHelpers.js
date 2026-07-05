@@ -8,8 +8,8 @@ export function hideElement(element, options = {}) {
     return false;
   }
 
-  closeOverlay(element, options);
   element.hidden = true;
+  closeOverlay(element, options);
   return true;
 }
 
@@ -62,7 +62,7 @@ export function showElementAsOverlay(element, options = {}) {
     return false;
   }
 
-  element.hidden = false;
   openOverlay(element, options);
+  element.hidden = false;
   return true;
 }

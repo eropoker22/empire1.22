@@ -157,9 +157,14 @@ export interface AllianceExitPenaltyReasonConfig {
   allianceCreateLockoutSeconds: number;
   influenceDebuffSeconds: number;
   actionCooldownDebuffSeconds: number;
+  statDebuffSeconds?: number;
   formerAllyTruceSeconds: number;
   influenceGenerationMultiplier: number;
   actionCooldownMultiplier: number;
+  attackMultiplier?: number;
+  defenseMultiplier?: number;
+  productionMultiplier?: number;
+  incomeMultiplier?: number;
   blocksAllianceDefenseSupport: boolean;
 }
 

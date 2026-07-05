@@ -14,13 +14,19 @@ import {
   openOverlay
 } from "./legacyOverlayCoordinator.js";
 
+const MAIN_DISTRICT_POPUP_SELECTOR = "[data-district-popup]";
+
+function isMainDistrictPopup(element) {
+  return Boolean(element?.matches?.(MAIN_DISTRICT_POPUP_SELECTOR));
+}
+
 export function showDistrictPopupModal(element) {
   if (!element) {
     return false;
   }
 
   openOverlay(element, {
-    type: element?.matches?.("[data-district-popup]") ? "mobile-sheet" : "modal",
+    type: isMainDistrictPopup(element) ? "mobile-sheet" : "modal",
     ariaModal: true,
     restoreFocusOnClose: false,
     skipFocus: true

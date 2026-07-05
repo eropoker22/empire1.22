@@ -1,5 +1,6 @@
 export * from "./alliances/allianceRules";
 export * from "./alliances/allianceLifecycle";
+export * from "./alliances/alliancePenaltyModifiers";
 export * from "./buildings/buildingUpgradeRules";
 export * from "./combat/combatMath";
 export * from "./combat/combatValidation";

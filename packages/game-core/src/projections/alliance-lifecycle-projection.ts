@@ -2,7 +2,6 @@ import type { PlayerAllianceLifecycleView } from "@empire/shared-types";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreGameState } from "../entities";
 import {
-  ALLIANCE_READY_TOO_EARLY,
   deriveAllianceMembershipStatus,
   getAllianceLifecycleConfig
 } from "../rules/alliances/allianceLifecycle";
@@ -45,7 +44,7 @@ export const createPlayerAllianceLifecycleView = (
     eligibleVotes,
     exitPenalty,
     formerAllyTruces,
-    canConfirmReady: Boolean(derivedMembership && ["due_soon", "overdue", "vote_eligible", "vote_pending"].includes(derivedMembership.status)),
-    readyReasonCode: derivedMembership?.status === "active" ? ALLIANCE_READY_TOO_EARLY : null
+    canConfirmReady: Boolean(derivedMembership && ["active", "due_soon", "overdue", "vote_eligible", "vote_pending"].includes(derivedMembership.status)),
+    readyReasonCode: derivedMembership?.status ?? null
   };
 };

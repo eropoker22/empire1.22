@@ -6,6 +6,7 @@ import {
   resolveFactionIncomeMultiplier
 } from "../factions/factionRules";
 import { resolveFixedBuildingIncomeConfig } from "./fixedBuildingIncomeConfig";
+import { resolveActiveAlliancePenaltyStatModifiers } from "../alliances/alliancePenaltyModifiers";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -54,7 +55,10 @@ export const calculateIncomeByPlayerId = (
       const factionMultiplier = context
         ? resolveFactionIncomeMultiplier(resourceKey, getFactionPassiveModifiers(state, district.ownerPlayerId, context))
         : 1;
-      addIncome(incomeByPlayerId, district.ownerPlayerId, resourceKey, Number(rawAmount || 0) * factionMultiplier);
+      const penaltyMultiplier = context
+        ? resolveActiveAlliancePenaltyStatModifiers(state, district.ownerPlayerId, nowIsoFromContext(context)).incomeMultiplier
+        : 1;
+      addIncome(incomeByPlayerId, district.ownerPlayerId, resourceKey, Number(rawAmount || 0) * factionMultiplier * penaltyMultiplier);
     }
 
     if (!context) {
@@ -147,7 +151,8 @@ const calculateFixedBuildingIncomeForDistrict = (
   const ticksPerHour = HOUR_MS / Math.max(1, context.config.tickRateMs);
   const modifiers = resolveActiveDistrictEffectModifiers(state, district.id);
   const factionModifiers = getFactionPassiveModifiers(state, district.ownerPlayerId, context);
-  const incomeMultiplier = Math.max(0, Number(context.config.balance.incomeMultiplier || 0)) * modifiers.incomeMultiplier;
+  const penaltyMultiplier = resolveActiveAlliancePenaltyStatModifiers(state, district.ownerPlayerId, nowIsoFromContext(context)).incomeMultiplier;
+  const incomeMultiplier = Math.max(0, Number(context.config.balance.incomeMultiplier || 0)) * modifiers.incomeMultiplier * penaltyMultiplier;
   const cleanFactionMultiplier = resolveFactionIncomeMultiplier("cash", factionModifiers);
   const dirtyFactionMultiplier = resolveFactionIncomeMultiplier("dirty-cash", factionModifiers);
 
@@ -252,3 +257,6 @@ const addModifier = (
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const nowIsoFromContext = (context: GameCoreContext): string =>
+  context.clock?.nowIso?.() ?? context.clock?.now?.().toISOString() ?? new Date().toISOString();

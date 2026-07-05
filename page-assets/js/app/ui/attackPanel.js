@@ -185,8 +185,8 @@ export function openAttackPanel(targetDistrict = null, options = {}) {
     return false;
   }
 
-  popup.hidden = false;
   openOverlay(popup, { type: "modal", ariaModal: true });
+  popup.hidden = false;
   return true;
 }
 
@@ -196,7 +196,7 @@ export function closeAttackPanel(options = {}) {
     return false;
   }
 
-  closeOverlay(popup);
   popup.hidden = true;
+  closeOverlay(popup);
   return true;
 }

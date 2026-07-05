@@ -587,8 +587,8 @@ export function openMarketPanel(popup) {
     return false;
   }
 
-  popup.hidden = false;
   openOverlay(popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
+  popup.hidden = false;
   return true;
 }
 
@@ -597,8 +597,8 @@ export function closeMarketPanel(popup) {
     return false;
   }
 
-  closeOverlay(popup, { restoreFocus: false });
   popup.hidden = true;
+  closeOverlay(popup, { restoreFocus: false });
   return true;
 }
 

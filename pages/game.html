@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <title>Empire Streets | Game Shell</title>
-    <link rel="stylesheet" href="../page-assets/css/styles.css?v=industrial-close-mobile-20260629">
+    <link rel="stylesheet" href="../page-assets/css/styles.css?v=district-resources-mobile-20260704">
     <link rel="stylesheet" href="../page-assets/css/styles-game-admin-slice.css">
     <link rel="stylesheet" href="../page-assets/css/styles-gameplay-slice-client.css?v=result-popup-center-20260528">
   </head>
@@ -302,24 +302,20 @@
           <div id="alliance-chat-card-anchor" hidden aria-hidden="true"></div>
           <div id="alliance-chat-card" class="right-panel-card">
             <button type="button" class="button alliance-button" id="alliance-btn" data-alliance-popup-open>
-              <span class="alliance-btn__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" role="presentation" focusable="false">
-                  <circle cx="12" cy="12" r="7"></circle>
-                  <circle cx="12" cy="12" r="2.2"></circle>
-                  <path d="M12 2v3.5"></path>
-                  <path d="M12 18.5V22"></path>
-                  <path d="M2 12h3.5"></path>
-                  <path d="M18.5 12H22"></path>
-                </svg>
+              <span class="alliance-launcher__crest" data-alliance-launcher-crest aria-hidden="true">
+                <span class="alliance-launcher__crest-fallback">AL</span>
               </span>
-              <span class="alliance-btn__label">Aliance</span>
+              <span class="alliance-launcher__body">
+                <span class="alliance-launcher__eyebrow">Aliance</span>
+                <strong class="alliance-launcher__name" data-alliance-launcher-name>Žádná aliance</strong>
+              </span>
             </button>
           </div>
           <div id="global-chat-card-anchor" hidden aria-hidden="true"></div>
           <div id="global-chat-card" class="right-panel-card">
-            <section class="alliance-chat server-chat-panel" aria-label="Serverový chat">
+            <section class="alliance-chat server-chat-panel" aria-label="Globální chat">
               <div class="server-chat-panel__composer-head">
-                <div class="alliance-chat__title">Chat</div>
+                <div class="alliance-chat__title">Globální chat</div>
                 <button id="alliance-chat-send" type="button" class="button server-chat-panel__send server-chat-panel__send--arrow" aria-label="Odeslat zprávu" title="Odeslat" data-global-chat-send>
                   <span aria-hidden="true">→</span>
                 </button>
@@ -327,15 +323,16 @@
               <div id="alliance-chat-log" class="alliance-chat__log server-chat-panel__feed" data-global-chat-log>
                 <div class="alliance-chat__item server-chat-panel__message">
                   <span class="server-chat-panel__author">System:</span>
-                  <span class="server-chat-panel__text">Chat je připravený pro komunikaci mezi všemi hráči na serveru.</span>
+                  <span class="server-chat-panel__text">Globální chat je v alphě jen lokální kanál.</span>
                 </div>
                 <div class="alliance-chat__item server-chat-panel__message">
                   <span class="server-chat-panel__author">Info:</span>
-                  <span class="server-chat-panel__text">Zprávy, obchodní nabídky a varování budou chodit sem.</span>
+                  <span class="server-chat-panel__text">Alianční chat najdeš uvnitř aliance a ukládá ho serverový stav.</span>
                 </div>
               </div>
               <div class="alliance-chat__input server-chat-panel__composer">
-                <input id="alliance-chat-input" type="text" class="server-chat-panel__input" placeholder="Napiš zprávu do globálního chatu..." aria-label="Zpráva do globálního chatu" data-global-chat-input>
+                <input id="alliance-chat-input" type="text" class="server-chat-panel__input" placeholder="Napiš zprávu do lokálního chatu..." aria-label="Zpráva do globálního chatu" data-global-chat-input>
+                <div class="server-chat-panel__status" id="global-chat-status">Zprávy zůstávají jen v tomhle prohlížeči.</div>
               </div>
             </section>
           </div>
@@ -995,10 +992,10 @@
         </div>
       </div>
 
-      <div id="alliance-member-lightbox" class="avatar-lightbox hidden">
+      <div id="alliance-member-lightbox" class="avatar-lightbox hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="alliance-member-lightbox-title">
         <div id="alliance-member-lightbox-backdrop" class="avatar-lightbox__backdrop"></div>
         <div class="avatar-lightbox__content alliance-member-lightbox__content">
-          <button class="avatar-lightbox__close" id="alliance-member-lightbox-close" aria-label="Zavřít">✕</button>
+          <button type="button" class="avatar-lightbox__close" id="alliance-member-lightbox-close" aria-label="Zavřít">✕</button>
           <img id="alliance-member-lightbox-image" alt="Avatar člena aliance">
           <div class="avatar-lightbox__caption" id="alliance-member-lightbox-caption">
             <div class="avatar-lightbox__legend-name" id="alliance-member-lightbox-title">Člen aliance</div>
@@ -1010,11 +1007,8 @@
       <div id="alliance-modal" class="modal hidden">
         <div id="alliance-modal-backdrop" class="modal__backdrop"></div>
         <div class="modal__content modal__content--profile alliance-modal__content">
-          <div class="modal__header">
-            <h3>Aliance</h3>
-            <button class="modal__close" id="alliance-modal-close" aria-label="Zavřít">✕</button>
-          </div>
           <div class="modal__body alliance-modal__body">
+            <div id="alliance-active-panel"></div>
             <div class="alliance-status-line" id="alliance-status-line" aria-live="polite"></div>
             <div class="alliance-control" id="alliance-create-entry">
               <div class="alliance-control__head alliance-control__head--split">
@@ -1027,13 +1021,8 @@
                 </button>
               </div>
             </div>
-            <div id="alliance-active-panel"></div>
             <div id="alliance-player-invites-panel"></div>
             <div id="alliance-list-panel"></div>
-          </div>
-          <div class="modal__actions alliance-modal__footer-actions">
-            <button class="btn btn--danger hidden" id="alliance-leave-btn">Opustit alianci</button>
-            <button class="btn btn--primary hidden" id="alliance-management-footer-btn">Správa aliance</button>
           </div>
         </div>
       </div>
@@ -1042,17 +1031,17 @@
         <div id="alliance-leave-modal-backdrop" class="modal__backdrop"></div>
         <div class="modal__content alliance-leave-modal__content">
           <div class="modal__header alliance-leave-modal__header">
-            <h3>Varování</h3>
+            <h3 id="alliance-leave-modal-title">Opustit alianci?</h3>
             <button class="modal__close" id="alliance-leave-modal-close" aria-label="Zavřít">✕</button>
           </div>
           <div class="modal__body alliance-leave-modal__body">
             <div class="alliance-leave-modal__warning-mark">!</div>
-            <div class="alliance-leave-modal__text">
-              Po opuštění aliance přijdeš o alianční podporu a okamžitě ztratíš přístup k internímu chatu i správě členů.
+            <div class="alliance-leave-modal__text" id="alliance-leave-modal-text">
+              Opravdu chceš opustit alianci? Na 4 h dostaneš 50% debuff na útok, obranu, výrobu a income.
             </div>
             <div class="modal__actions alliance-leave-modal__actions">
-              <button class="btn btn--ghost" id="alliance-leave-cancel-btn">Zpět</button>
-              <button class="btn btn--danger" id="alliance-leave-confirm-btn">Opravdu opustit</button>
+              <button class="btn btn--ghost" id="alliance-leave-cancel-btn">Zrušit</button>
+              <button class="btn btn--danger" id="alliance-leave-confirm-btn">Opustit alianci</button>
             </div>
           </div>
         </div>
@@ -1068,7 +1057,7 @@
           <div class="modal__body alliance-create-modal__body">
             <div class="alliance-control alliance-control--create">
               <div class="alliance-control__stack">
-                <input id="alliance-create-name" type="text" maxlength="40" placeholder="Název aliance">
+                <input id="alliance-create-name" type="text" maxlength="32" placeholder="Název aliance">
                 <div class="alliance-inline-note hidden" id="alliance-create-disabled-reason" data-tone="warning"></div>
               </div>
               <div class="alliance-icon-picker">
@@ -1098,19 +1087,6 @@
               <button class="btn btn--ghost" id="alliance-kick-confirm-cancel-btn">Zrušit</button>
               <button class="btn btn--danger" id="alliance-kick-confirm-submit-btn">Spustit hlasování</button>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <div id="alliance-management-modal" class="modal hidden">
-        <div id="alliance-management-modal-backdrop" class="modal__backdrop"></div>
-        <div class="modal__content alliance-management-modal__content">
-          <div class="modal__header">
-            <h3>Správa aliance</h3>
-            <button class="modal__close" id="alliance-management-modal-close" aria-label="Zavřít">✕</button>
-          </div>
-          <div class="modal__body alliance-management-modal__body">
-            <div id="alliance-management-panel"></div>
           </div>
         </div>
       </div>
@@ -2016,10 +1992,10 @@
           </div>
           <div class="modal__body faction-actions-modal__body">
             <div class="faction-actions-modal__intro">
-              Každá frakce drží jeden unikátní protokol. Vyber akci podle tlaku na mapě.
+              Pasivní frakční efekty běží automaticky. Unikátní protokoly zůstávají viditelné jako preview pro další fázi války.
             </div>
             <div id="faction-actions-modal-grid" class="faction-actions-modal__grid"></div>
-            <div id="faction-actions-modal-status" class="faction-actions-modal__status">Frakční protokoly připravené.</div>
+            <div id="faction-actions-modal-status" class="faction-actions-modal__status">Pasivní frakční efekty běží automaticky. Speciální protokoly přijdou později.</div>
           </div>
         </div>
       </div>
@@ -2222,7 +2198,7 @@
     <script type="module" src="../page-assets/js/data/districtImages.js"></script>
     <script type="module" src="../page-assets/js/data/buildings.js"></script>
     <script type="module" src="../page-assets/js/data/events.js"></script>
-    <script type="module" src="../page-assets/js/app.js?v=result-popup-center-20260528"></script>
+    <script type="module" src="../page-assets/js/app.js?v=district-resources-mobile-20260704"></script>
     <script type="module" src="../page-assets/js/app/city-events-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/alliance-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/bounty-runtime.js"></script>

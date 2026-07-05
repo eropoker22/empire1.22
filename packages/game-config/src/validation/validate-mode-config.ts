@@ -52,8 +52,21 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
       ["disbandPenalty", allianceLifecycle.disbandPenalty],
       ["administrativeRemovalPenalty", allianceLifecycle.administrativeRemovalPenalty]
     ] as const) {
+      if ((value.statDebuffSeconds ?? 0) < 0) {
+        throw new Error(`Alliance lifecycle config requires a non-negative statDebuffSeconds for ${key}.`);
+      }
       if (value.influenceGenerationMultiplier <= 0 || value.actionCooldownMultiplier <= 0) {
         throw new Error(`Alliance lifecycle config requires positive multipliers for ${key}.`);
+      }
+      for (const [multiplierKey, multiplier] of [
+        ["attackMultiplier", value.attackMultiplier],
+        ["defenseMultiplier", value.defenseMultiplier],
+        ["productionMultiplier", value.productionMultiplier],
+        ["incomeMultiplier", value.incomeMultiplier]
+      ] as const) {
+        if (multiplier !== undefined && multiplier <= 0) {
+          throw new Error(`Alliance lifecycle config requires a positive ${multiplierKey} for ${key}.`);
+        }
       }
     }
   }

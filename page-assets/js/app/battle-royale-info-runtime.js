@@ -18,16 +18,16 @@ function initBattleRoyaleInfoRuntime() {
   }
 
   const open = () => {
+    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     modal.hidden = false;
     modal.classList.remove("hidden");
-    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     document.body?.classList.add(MODAL_OPEN_CLASS);
   };
 
   const close = () => {
-    closeOverlay(modal, { restoreFocus: false });
     modal.classList.add("hidden");
     modal.hidden = true;
+    closeOverlay(modal, { restoreFocus: false });
     document.body?.classList.remove(MODAL_OPEN_CLASS);
   };
 

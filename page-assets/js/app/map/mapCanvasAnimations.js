@@ -1,3 +1,5 @@
+import { getAllianceIconById, getAllianceIconByTag } from "../alliance-icons.js";
+
 function clampNumber(value, min, max) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) {
@@ -72,8 +74,12 @@ export function createMapCanvasAnimationRenderers(deps = {}) {
     hexToRgbParts = fallbackHexToRgbParts,
     currentPlayerId = 'current-player',
     reducedActivityFallbackColor = '#67e1ff',
-    windowRef = typeof window !== 'undefined' ? window : null
+    windowRef = typeof window !== 'undefined' ? window : null,
+    ImageCtor = windowRef?.Image || globalThis.Image,
+    documentRef = windowRef?.document || globalThis.document
   } = deps;
+  const allianceIconImageCache = new Map();
+  const allianceIconTintCache = new Map();
 
 function isPointInsidePolygon(point, polygon) {
   let inside = false;
@@ -939,73 +945,89 @@ function getBountyDistrictMarkers() {
   return new Map();
 }
 
-function drawAllianceBadgeIcon(context, iconKey, x, y, size = 24) {
-  const scale = size / 64;
-  const toX = (value) => x + (value - 32) * scale;
-  const toY = (value) => y + (value - 32) * scale;
-  const drawPath = (points, close = true) => {
-    if (!points.length) return;
-    context.beginPath();
-    context.moveTo(toX(points[0][0]), toY(points[0][1]));
-    for (const point of points.slice(1)) {
-      context.lineTo(toX(point[0]), toY(point[1]));
-    }
-    if (close) context.closePath();
-    context.fill();
-    context.stroke();
-  };
-
-  context.save();
-  context.lineWidth = Math.max(1.5, 3 * scale);
-  context.lineJoin = "round";
-  context.lineCap = "round";
-  context.strokeStyle = "rgba(255, 248, 218, 0.82)";
-  context.fillStyle = "rgba(247, 201, 72, 0.96)";
-
-  switch (iconKey) {
-    case "red_blade":
-      context.fillStyle = "rgba(225, 29, 72, 0.96)";
-      drawPath([[47, 7], [25, 35], [17, 47], [29, 39], [57, 17]]);
-      context.beginPath();
-      context.moveTo(toX(21), toY(41));
-      context.lineTo(toX(8), toY(54));
-      context.stroke();
-      break;
-    case "gold_fist":
-      for (const rect of [[17, 27, 8, 15], [27, 21, 8, 21], [37, 24, 8, 18], [47, 29, 7, 13]]) {
-        context.fillRect(toX(rect[0]), toY(rect[1]), rect[2] * scale, rect[3] * scale);
-        context.strokeRect(toX(rect[0]), toY(rect[1]), rect[2] * scale, rect[3] * scale);
-      }
-      drawPath([[15, 42], [53, 42], [47, 54], [23, 54]]);
-      break;
-    case "black_star":
-      drawPath([[32, 7], [39, 24], [57, 26], [43, 38], [47, 56], [32, 46], [17, 56], [21, 38], [7, 26], [25, 24]]);
-      break;
-    case "street_pack":
-      for (const circle of [[32, 23, 10], [18, 37, 8], [46, 37, 8]]) {
-        context.beginPath();
-        context.arc(toX(circle[0]), toY(circle[1]), circle[2] * scale, 0, Math.PI * 2);
-        context.fill();
-        context.stroke();
-      }
-      context.beginPath();
-      context.moveTo(toX(10), toY(54));
-      context.quadraticCurveTo(toX(32), toY(34), toX(54), toY(54));
-      context.stroke();
-      break;
-    case "crown_skull":
-    default:
-      drawPath([[12, 21], [24, 34], [32, 14], [40, 34], [52, 21], [48, 49], [16, 49]]);
-      context.fillStyle = "rgba(225, 29, 72, 0.96)";
-      for (const eye of [[26, 38], [38, 38]]) {
-        context.beginPath();
-        context.arc(toX(eye[0]), toY(eye[1]), 3.2 * scale, 0, Math.PI * 2);
-        context.fill();
-      }
-      break;
+function getAllianceIconImage(asset) {
+  if (!asset || typeof ImageCtor !== "function") {
+    return null;
+  }
+  const cached = allianceIconImageCache.get(asset);
+  if (cached) {
+    return cached.status === "loaded" ? cached.image : null;
   }
 
-  context.restore();
+  const image = new ImageCtor();
+  const entry = { image, status: "loading" };
+  image.onload = () => {
+    entry.status = "loaded";
+  };
+  image.onerror = () => {
+    entry.status = "error";
+  };
+  image.src = asset;
+  allianceIconImageCache.set(asset, entry);
+  return null;
+}
+
+function createTintedAllianceIconCanvas(image, size, color) {
+  if (!image || !documentRef?.createElement) {
+    return null;
+  }
+  const safeSize = Math.max(24, Math.min(64, Math.round(Number(size) || 32)));
+  const cacheKey = `${image.src || "inline"}:${safeSize}:${color}`;
+  const cached = allianceIconTintCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const canvas = documentRef.createElement("canvas");
+  canvas.width = safeSize;
+  canvas.height = safeSize;
+  const offscreenContext = canvas.getContext?.("2d");
+  if (!offscreenContext) {
+    return null;
+  }
+
+  offscreenContext.clearRect(0, 0, safeSize, safeSize);
+  offscreenContext.drawImage(image, 0, 0, safeSize, safeSize);
+  offscreenContext.globalCompositeOperation = "source-in";
+  offscreenContext.fillStyle = color;
+  offscreenContext.fillRect(0, 0, safeSize, safeSize);
+  offscreenContext.globalCompositeOperation = "source-over";
+  allianceIconTintCache.set(cacheKey, canvas);
+  return canvas;
+}
+
+function drawFallbackAllianceBadgeText(context, badge, x, y, isNight, softGlow) {
+  const text = String(badge?.symbol || badge?.tag || "AL").slice(0, 4);
+  context.font = "900 18px Bahnschrift, Segoe UI Symbol, Segoe UI Emoji, sans-serif";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.lineWidth = 2.2;
+  context.strokeStyle = isNight ? "rgba(3, 8, 16, 0.92)" : "rgba(232, 246, 255, 0.72)";
+  context.fillStyle = isNight ? "rgba(245, 235, 255, 0.98)" : "rgba(255, 255, 255, 0.96)";
+  context.strokeText(text, x, y);
+  context.fillText(text, x, y);
+
+  context.fillStyle = isNight ? "rgba(191, 235, 255, 0.72)" : "rgba(68, 84, 196, 0.72)";
+  context.shadowBlur = isNight ? 18 : 12;
+  context.shadowColor = softGlow;
+  context.fillText(text, x, y - 0.5);
+}
+
+function drawAllianceBadgeIcon(context, badge, x, y, size = 32, color = "#f7c948") {
+  const registryIcon = badge?.asset
+    ? { asset: badge.asset }
+    : badge?.iconKey
+      ? getAllianceIconById(badge.iconKey)
+      : getAllianceIconByTag(badge?.tag);
+  const image = getAllianceIconImage(registryIcon?.asset);
+  const tintedCanvas = createTintedAllianceIconCanvas(image, size, color);
+  if (!tintedCanvas) {
+    return false;
+  }
+
+  const half = size / 2;
+  context.drawImage(tintedCanvas, x - half, y - half, size, size);
+  return true;
 }
 
 function drawAllianceDistrictBadge(context, district, badge, isNight = true) {
@@ -1047,22 +1069,16 @@ function drawAllianceDistrictBadge(context, district, badge, isNight = true) {
 
   context.shadowBlur = isNight ? 28 : 20;
   context.shadowColor = primaryGlow;
-  if (badge.iconKey) {
-    drawAllianceBadgeIcon(context, badge.iconKey, district.centerX, symbolY, 29);
-  } else {
-    context.font = "900 25px Bahnschrift, Segoe UI Symbol, Segoe UI Emoji, sans-serif";
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.lineWidth = 2.4;
-    context.strokeStyle = isNight ? "rgba(3, 8, 16, 0.92)" : "rgba(232, 246, 255, 0.72)";
-    context.fillStyle = isNight ? "rgba(245, 235, 255, 0.98)" : "rgba(255, 255, 255, 0.96)";
-    context.strokeText(String(badge.symbol), district.centerX, symbolY);
-    context.fillText(String(badge.symbol), district.centerX, symbolY);
-
-    context.fillStyle = isNight ? "rgba(191, 235, 255, 0.72)" : "rgba(68, 84, 196, 0.72)";
-    context.shadowBlur = isNight ? 18 : 12;
-    context.shadowColor = softGlow;
-    context.fillText(String(badge.symbol), district.centerX, symbolY - 0.5);
+  const iconDrawn = drawAllianceBadgeIcon(
+    context,
+    badge,
+    district.centerX,
+    symbolY,
+    30,
+    isNight ? "rgba(247, 201, 72, 0.98)" : playerColor
+  );
+  if (!iconDrawn) {
+    drawFallbackAllianceBadgeText(context, badge, district.centerX, symbolY, isNight, softGlow);
   }
   context.restore();
 }

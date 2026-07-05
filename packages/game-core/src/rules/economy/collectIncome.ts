@@ -25,6 +25,7 @@ import {
 } from "../../handlers/smugglingTunnelBuildingActions";
 import { applyStripClubPassiveRumors } from "../../handlers/stripClubBuildingActions";
 import { applyVipLoungePassiveRumors } from "../../handlers/vipLoungeBuildingActions";
+import { resolveActiveAlliancePenaltyStatModifiers } from "../alliances/alliancePenaltyModifiers";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -163,6 +164,7 @@ const applyFixedBuildingPassivePressure = (
     const activeBuildings = getActiveFixedBuildingConfigsForDistrict(state, district, context);
     const modifiers = resolveActiveDistrictEffectModifiers(state, district.id);
     const factionModifiers = getFactionPassiveModifiers(state, district.ownerPlayerId, context);
+    const penaltyModifiers = resolveActiveAlliancePenaltyStatModifiers(state, district.ownerPlayerId, nowIsoFromContext(context));
     const basePressure = activeBuildings.reduce(
       (totals, { building, config }) => {
         const resolvedConfig = resolveFixedBuildingIncomeConfig({
@@ -184,7 +186,7 @@ const applyFixedBuildingPassivePressure = (
       factionModifiers
     );
     const influencePerDay = applyFactionInfluenceGain(
-      basePressure.influencePerDay * modifiers.influenceMultiplier + modifiers.influencePerDay,
+      (basePressure.influencePerDay * modifiers.influenceMultiplier + modifiers.influencePerDay) * penaltyModifiers.influenceGenerationMultiplier,
       factionModifiers
     );
     const heatDelta = resolvePerTick(heatPerDay, ticksPerDay);
@@ -222,3 +224,6 @@ const sanitizePerDay = (value: unknown): number => {
 
 const resolvePerTick = (perDay: number, ticksPerDay: number): number =>
   Number.isFinite(perDay) && ticksPerDay > 0 ? perDay / ticksPerDay : 0;
+
+const nowIsoFromContext = (context: GameCoreContext): string =>
+  context.clock?.nowIso?.() ?? context.clock?.now?.().toISOString() ?? new Date().toISOString();

@@ -31,9 +31,11 @@ describe("legacy faction compatibility bridge", () => {
 
     expect(previewSource).not.toMatch(/startovn|starting package|start package|startingPackage|startovní cash/i);
     expect(previewSource).not.toContain("Spustit akci");
-    expect(previewSource).toContain("core-backed");
-    expect(previewSource).toContain("planned/display-only");
-    expect(previewSource).toContain("Plánovaná schopnost");
+    expect(previewSource).not.toContain("není core-backed");
+    expect(previewSource).toContain("Funguje teď");
+    expect(previewSource).toContain("Připravuje se");
+    expect(previewSource).toContain("Speciální schopnost — preview");
+    expect(previewSource).toContain("Preview schopnosti");
   });
 
   it("keeps legacy preview catalog synchronized with authoritative public definitions", () => {
@@ -80,7 +82,7 @@ describe("legacy faction compatibility bridge", () => {
     ]));
     expect(biker.disadvantages).toEqual(expect.arrayContaining([
       "-10 % obrana districtů",
-      "+8 % heat z útoků a vykrádání"
+      "+8 % heat z útoků, obsazování a vykrádání"
     ]));
     expect(biker.specialAction).toMatchObject({
       name: "Bleskový nájezd",
@@ -96,7 +98,7 @@ describe("legacy faction compatibility bridge", () => {
     expect(cartel.tagline).toBe("Prachy tečou rychle. Krev taky.");
     expect(cartel.advantages).toEqual(expect.arrayContaining([
       "+18 % dirty income",
-      "+15 % ilegální produkce",
+      "+15 % produkce v podporovaných ilegálních budovách",
       "+10 % pašování"
     ]));
     expect(cartel.disadvantages).toEqual(expect.arrayContaining([
@@ -121,7 +123,8 @@ describe("legacy faction compatibility bridge", () => {
       code: "Noční zásilka",
       canRun: false
     });
-    expect(action.effect).toContain("není core-backed");
+    expect(action.effect).toContain("zatím jen preview");
+    expect(action.effect).toContain("alphě ještě neběží");
     expect(action.effect).not.toContain("startovní");
   });
 
@@ -159,7 +162,7 @@ describe("legacy faction compatibility bridge", () => {
     expect(hackers.name).toBe("Hackeři");
     expect(hackers.tagline).toBe("Kdo ovládá data, ovládá válku.");
     expect(hackers.advantages).toEqual(expect.arrayContaining([
-      "+50 % potvrzenost drbů",
+      "+50 % pravdivost rumorů s truthChancePct",
       "+15 % účinnost kamer",
       "+15 % účinnost alarmů",
       "+10 % tech production",
@@ -193,8 +196,10 @@ describe("legacy faction compatibility bridge", () => {
     ]));
     expect(cult.disadvantages).toEqual(expect.arrayContaining([
       "-10 % clean income",
-      "+10 % market fee",
       "-5 % attack power"
+    ]));
+    expect(cult.plannedDisadvantages).toEqual(expect.arrayContaining([
+      "+10 % market fee"
     ]));
     expect(cult.specialAction).toMatchObject({
       name: "Masová posedlost",
@@ -210,7 +215,7 @@ describe("legacy faction compatibility bridge", () => {
     expect(corporate.tagline).toBe("Zločin je špinavý. Moc je legální.");
     expect(corporate.advantages).toEqual(expect.arrayContaining([
       "+15 % clean income",
-      "-3 % heat gain",
+      "-3 % heat z útoků, heistů, akcí budov a pasivního tlaku",
       "+10 % efekt obranných systémů"
     ]));
     expect(corporate.plannedAdvantages).toEqual(expect.arrayContaining([
@@ -260,9 +265,9 @@ describe("legacy faction compatibility bridge", () => {
       getItem: () => JSON.stringify({ registration: { factionId: "kartel" } })
     });
 
-    expect(action.effect).toContain("není core-backed");
+    expect(action.effect).toContain("zatím jen preview");
     expect(action.canRun).toBe(false);
-    expect(source).toContain("Plánovaná schopnost");
+    expect(source).toContain("Preview schopnosti");
     expect(source).toContain("preview");
     expect(source).not.toContain("spuštěno");
     expect(source).not.toContain("25 % více");

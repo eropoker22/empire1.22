@@ -94,6 +94,6 @@ describe("auth panel UI module", () => {
 
     expect(elements.get("[data-faction-name]").textContent).toBe("Mafie");
     expect(elements.get("[data-faction-clean-money]").textContent).toBe("Economy / heat control");
-    expect(elements.get("[data-faction-advantages]").children[0].textContent).toBe("Bonus (core-backed)");
+    expect(elements.get("[data-faction-advantages]").children[0].textContent).toBe("Funguje teď: Bonus");
   });
 });

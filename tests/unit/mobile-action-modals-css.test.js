@@ -23,6 +23,7 @@ describe("mobile action modal CSS", () => {
   const gameplaySliceClient = readText("page-assets/js/client-assets/gameplay-slice-client.js");
   const clientGameplaySliceClient = readText("client/page-assets/js/client-assets/gameplay-slice-client.js");
   const modalScrollLock = readText("page-assets/js/app/ui/modalScrollLock.js");
+  const clientModalScrollLock = readText("client/page-assets/js/app/ui/modalScrollLock.js");
   const legacyOverlayCoordinator = readText("page-assets/js/app/ui/legacyOverlayCoordinator.js");
   const clientLegacyOverlayCoordinator = readText("client/page-assets/js/app/ui/legacyOverlayCoordinator.js");
   const modalHelpers = readText("page-assets/js/app/ui/modalHelpers.js");
@@ -252,9 +253,19 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).not.toContain("Final stable page background: opening game cards must not visually change the page behind them.");
       expect(stylesheet).not.toContain("Final stable card backdrop: opening cards must not dim or shift the page behind them.");
       expect(stylesheet).not.toContain("visibility: visible !important;\n  opacity: 1 !important;\n  filter: none !important;\n  transform: none !important;");
+      expect(stylesheet).toContain("--district-mobile-resource-clearance: 0px;");
+      expect(stylesheet).toContain("--mobile-overlay-top-offset: 0px !important;");
+      expect(stylesheet).not.toContain("is-district-popup-resource-visible");
+      expect(stylesheet).not.toContain("game-modal-scroll-locked:has(.district-popup-shell:not([hidden]))");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked #game-header");
+      expect(stylesheet).toContain("visibility: hidden !important;");
+      expect(stylesheet).toContain("opacity: 0 !important;");
+      expect(stylesheet).toContain("padding-top: var(--district-mobile-resource-clearance, 0px) !important;");
     }
     expect(mobileRuntime).toContain('const MOBILE_OVERLAY_SELECTOR = [');
     expect(mobileRuntime).toContain('".district-popup-shell",');
+    expect(mobileRuntime).toContain('".elimination-ai-panel",');
+    expect(mobileRuntime).toContain('".elimination-result-popup",');
     expect(mobileRuntime).toContain('root.style.setProperty("--mobile-overlay-top-offset", `${topbarOffset}px`);');
     expect(mobileRuntime).toContain('import { isModalScrollLocked } from "./ui/modalScrollLock.js";');
     expect(mobileRuntime).toContain("if (isModalScrollLocked(documentObj)) {");
@@ -276,32 +287,64 @@ describe("mobile action modal CSS", () => {
     expect(mobileRuntime).not.toContain("windowObj.setTimeout(restoreScrollPosition, 180);");
   });
 
+  it("keeps open mobile card modals out of the game page layout", () => {
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked #game-header,\n  html body.game-body.game-modal-scroll-locked .game-topbar,\n  html body.game-body.game-modal-scroll-locked .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed .game-resource-strip");
+      expect(stylesheet).toContain("visibility: hidden !important;\n    opacity: 0 !important;");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked .game-shell > .modal:not(.hidden):not([hidden])");
+      expect(stylesheet).toContain("position: fixed !important;\n    inset: 0 !important;");
+      expect(stylesheet).toContain("min-height: var(--mobile-locked-vh, 100svh) !important;");
+      expect(stylesheet).toContain("height: var(--mobile-locked-vh, 100svh) !important;");
+      expect(stylesheet).toContain("contain: layout paint !important;");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked .game-shell > .modal:not(.hidden):not([hidden]) > .modal__backdrop");
+      expect(stylesheet).toContain("position: absolute !important;\n    inset: 0 !important;");
+    }
+  });
+
   it("restores page scroll after closing every mobile overlay coordinator", () => {
     for (const source of [overlayState, gameplaySliceClient, clientGameplaySliceClient]) {
       expect(source).toContain("const getScrollPosition");
       expect(source).toContain("const restorePageScroll");
       expect(source).toContain("const schedulePageScrollRestore");
       expect(source).toContain("lockedPageScroll");
+      expect(source).toContain("EmpireModalScrollLock");
       expect(source).toContain("document.documentElement.scrollLeft = scrollX;");
       expect(source).toContain("document.documentElement.scrollTop = scrollY;");
       expect(source).toContain("document.body.scrollLeft = scrollX;");
       expect(source).toContain("document.body.scrollTop = scrollY;");
-      expect(source).toContain("window.setTimeout?.(restore, 80);");
+      expect(source).toContain("restore, 80");
       expect(source).toContain('body.style.position = "fixed"');
       expect(source).toContain("body.style.top = `-${scrollPosition.y}px`");
       expect(source).toContain("body.style.left = `-${scrollPosition.x}px`");
+      expect(source).toContain("MOBILE_SCROLL_LOCK_MEDIA");
+      expect(source).toContain("shouldUseViewportWidthLock");
+      expect(source).toContain("getCurrentLayoutLockWidth");
+      expect(source).toContain("isViewportWidthScrollLock");
+      expect(source).toContain("body.style.width = isViewportWidthScrollLock");
+      expect(source).toContain("!isViewportWidthScrollLock && scrollbarWidth > 0");
       expect(source).toContain("body.style.paddingRight");
       expect(source).not.toContain("let lockedPageScrollY");
       expect(source).not.toContain("window.setTimeout?.(restore, 180);");
     }
+    expect(overlayState).toContain("const MODAL_SCROLL_LOCK_OWNER = Symbol");
+    expect(overlayState).toContain('openOverlayEntry("generic", MODAL_SCROLL_LOCK_OWNER);');
+    expect(overlayState).toContain("closeOverlayEntry(\"modal scroll lock released\", MODAL_SCROLL_LOCK_OWNER)");
 
-    for (const source of [modalScrollLock]) {
-      expect(source).toContain('body.style.position = "fixed"');
-      expect(source).toContain("body.style.top = `-${y}px`;");
-      expect(source).toContain("body.style.left = `-${x}px`;");
-      expect(source).toContain("body.style.paddingRight = state.nextPaddingRight;");
-      expect(source).toContain("view?.setTimeout?.(restore, 80);");
+    for (const source of [modalScrollLock, clientModalScrollLock]) {
+      expect(source).toContain("function getModalScrollLock()");
       expect(source).toContain("window.EmpireModalScrollLock");
+      expect(source).toContain("export function lockModalScroll(owner)");
+      expect(source).toContain("return Boolean(getModalScrollLock()?.lock?.(owner));");
+      expect(source).toContain("return Boolean(getModalScrollLock()?.unlock?.(owner));");
+      expect(source).toContain("return Boolean(getModalScrollLock()?.isLocked?.(owner));");
+      expect(source).not.toContain("new WeakMap");
+      expect(source).not.toContain("body.style.position");
+      expect(source).not.toContain("body.style.top");
+      expect(source).not.toContain("body.style.left");
+      expect(source).not.toContain("body.style.paddingRight");
+      expect(source).not.toContain("document.documentElement.scrollTop");
+      expect(source).not.toContain("lockedPageScroll");
     }
 
     for (const source of [legacyOverlayCoordinator, clientLegacyOverlayCoordinator]) {
@@ -327,6 +370,9 @@ describe("mobile action modal CSS", () => {
     }
 
     for (const source of [districtPopupModalHelpers, clientDistrictPopupModalHelpers]) {
+      expect(source).not.toContain("DISTRICT_POPUP_RESOURCE_VISIBLE_CLASS");
+      expect(source).not.toContain("setDistrictResourceTopbarVisible");
+      expect(source).not.toContain("is-district-popup-resource-visible");
       expect(source).toContain("restoreFocusOnClose: false");
       expect(source).toContain("skipFocus: true");
       expect(source).toContain("openOverlay(element, {");

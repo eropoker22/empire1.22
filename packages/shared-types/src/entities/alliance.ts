@@ -91,6 +91,10 @@ export interface AllianceExitPenalty {
   formerAllyTruceUntil: string;
   influenceGenerationMultiplier: number;
   actionCooldownMultiplier: number;
+  attackMultiplier?: number;
+  defenseMultiplier?: number;
+  productionMultiplier?: number;
+  incomeMultiplier?: number;
   affectedActionIds: string[];
   blocksAllianceDefenseSupport: boolean;
   sourceEventId: string;

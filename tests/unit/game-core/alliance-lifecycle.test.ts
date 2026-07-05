@@ -18,13 +18,13 @@ import { createPlayerFixture } from "../../fixtures/game-state-fixtures";
 const BASE_TIME = "2026-01-01T00:00:00.000Z";
 
 describe("alliance lifecycle", () => {
-  it("derives the six hour READY cycle and rejects early READY", () => {
+  it("derives the eight hour activity cycle and allows immediate stay confirmation", () => {
     const { state, membership } = createAllianceState(["player:1", "player:2"]);
     const config = resolveModeConfig("free");
 
     expect(deriveAllianceMembershipStatus(membership, addHours(BASE_TIME, 3), config.balance.allianceLifecycle)).toBe("active");
-    expect(deriveAllianceMembershipStatus(membership, addHours(BASE_TIME, 5), config.balance.allianceLifecycle)).toBe("due_soon");
-    expect(deriveAllianceMembershipStatus(membership, addHours(BASE_TIME, 7), config.balance.allianceLifecycle)).toBe("overdue");
+    expect(deriveAllianceMembershipStatus(membership, addHours(BASE_TIME, 7.9), config.balance.allianceLifecycle)).toBe("active");
+    expect(deriveAllianceMembershipStatus(membership, addHours(BASE_TIME, 8), config.balance.allianceLifecycle)).toBe("vote_eligible");
     expect(deriveAllianceMembershipStatus(membership, addHours(BASE_TIME, 9), config.balance.allianceLifecycle)).toBe("vote_eligible");
 
     const result = applyCommand(
@@ -32,14 +32,16 @@ describe("alliance lifecycle", () => {
       command("confirm-alliance-ready", "player:1", { allianceId: "alliance:1" }),
       context(addHours(BASE_TIME, 3))
     );
+    const updated = result.nextState.alliancesById["alliance:1"].membershipByPlayerId?.["player:1"];
 
-    expect(result.errors[0]?.code).toBe("READY_TOO_EARLY");
+    expect(result.errors).toEqual([]);
+    expect(updated?.lastReadyAt).toBe(addHours(BASE_TIME, 3));
+    expect(updated?.readyDueAt).toBe(addHours(BASE_TIME, 11));
   });
 
-  it("accepts READY in due soon, overdue, and vote eligible windows", () => {
+  it("accepts stay confirmation in active and expired windows", () => {
     for (const [label, nowIso] of [
-      ["due_soon", addHours(BASE_TIME, 5)],
-      ["overdue", addHours(BASE_TIME, 7)],
+      ["active", addHours(BASE_TIME, 5)],
       ["vote_eligible", addHours(BASE_TIME, 9)]
     ] as const) {
       const { state } = createAllianceState(["player:1", "player:2"]);
@@ -60,6 +62,30 @@ describe("alliance lifecycle", () => {
     expect(calculateRequiredYesVotes(1)).toBe(1);
     expect(calculateRequiredYesVotes(2)).toBe(2);
     expect(calculateRequiredYesVotes(3)).toBe(2);
+  });
+
+  it("keeps the new alliance icon tag length intact", () => {
+    const state = createInitialState("instance:1", "free");
+    state.playersById["player:1"] = createPlayerFixture({
+      id: "player:1",
+      accountId: "account:player:1",
+      name: "player:1",
+      resourceStateId: "resource:player:1",
+      cooldownStateId: "cooldown:player:1",
+      effectStateId: "effect:player:1",
+      policeStateId: "police:player:1"
+    }) as Player;
+    state.root.playerIds.push("player:1");
+
+    const created = applyCommand(
+      state,
+      command("create-alliance", "player:1", { name: "Reaper Crew", tag: "REAPER" }, "command:create-reaper"),
+      context(BASE_TIME)
+    );
+    const allianceId = Object.keys(created.nextState.alliancesById)[0];
+
+    expect(created.errors).toEqual([]);
+    expect(created.nextState.alliancesById[allianceId].tag).toBe("REAPER");
   });
 
   it("starts a vote only for vote eligible members and READY cancels it", () => {
@@ -117,7 +143,10 @@ describe("alliance lifecycle", () => {
     expect(alliance.membershipByPlayerId?.["player:2"].removedReason).toBe("inactive_kick");
     expect(secondYes.nextState.playersById["player:2"].allianceId).toBeNull();
     expect(penalty.reason).toBe("inactive_kick");
-    expect(penalty.influenceGenerationMultiplier).toBe(1);
+    expect(penalty.attackMultiplier).toBe(0.5);
+    expect(penalty.defenseMultiplier).toBe(0.5);
+    expect(penalty.productionMultiplier).toBe(0.5);
+    expect(penalty.incomeMultiplier).toBe(0.5);
     expect(Object.values(secondYes.nextState.formerAllianceTrucesById ?? {})).toHaveLength(3);
   });
 
@@ -220,15 +249,29 @@ describe("alliance lifecycle", () => {
     });
   });
 
-  it("scheduled processing emits readiness notifications once per cycle", () => {
+  it("scheduled processing auto-kicks members after the eight hour deadline and applies the 50 percent debuff once", () => {
     const { state } = createAllianceState(["player:1", "player:2"]);
-    const first = runTick(state, context(addHours(BASE_TIME, 5.1)));
-    const second = runTick(first.nextState, context(addHours(BASE_TIME, 5.2)));
-    const warningIds = second.nextState.root.notificationIds.filter((id) =>
-      id.startsWith("alliance-ready-warning:alliance:1:player:1")
-    );
+    const leader = state.alliancesById["alliance:1"].membershipByPlayerId?.["player:1"];
+    if (leader) {
+      leader.readyDueAt = addHours(BASE_TIME, 12);
+      leader.graceEndsAt = addHours(BASE_TIME, 12);
+    }
+    const first = runTick(state, context(addHours(BASE_TIME, 8.1)));
+    const second = runTick(first.nextState, context(addHours(BASE_TIME, 8.2)));
+    const alliance = second.nextState.alliancesById["alliance:1"];
+    const penalties = Object.values(second.nextState.allianceExitPenaltiesById ?? {})
+      .filter((penalty) => penalty.playerId === "player:2" && penalty.reason === "inactive_kick");
 
-    expect(warningIds).toHaveLength(1);
+    expect(alliance.memberIds).toEqual(["player:1"]);
+    expect(alliance.membershipByPlayerId?.["player:2"].status).toBe("removed");
+    expect(second.nextState.playersById["player:2"].allianceId).toBeNull();
+    expect(penalties).toHaveLength(1);
+    expect(penalties[0]).toMatchObject({
+      attackMultiplier: 0.5,
+      defenseMultiplier: 0.5,
+      productionMultiplier: 0.5,
+      incomeMultiplier: 0.5
+    });
   });
 });
 
@@ -304,7 +347,7 @@ const createMembership = (
   joinedAt: BASE_TIME,
   status: "active",
   lastReadyAt: BASE_TIME,
-  readyDueAt: addHours(BASE_TIME, 6),
+  readyDueAt: addHours(BASE_TIME, 8),
   graceEndsAt: addHours(BASE_TIME, 8),
   version: 1
 });

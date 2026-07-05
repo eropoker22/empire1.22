@@ -1951,6 +1951,23 @@ html body.game-body * {
   html body.game-modal-scroll-locked #game-header {
     pointer-events: none !important;
   }
+
+  html body.game-modal-scroll-locked {
+    --district-mobile-resource-clearance: 0px;
+  }
+
+  html body.game-modal-scroll-locked .district-popup-shell:not([hidden]) {
+    z-index: 12000 !important;
+    padding-top: var(--district-mobile-resource-clearance, 0px) !important;
+  }
+
+  html body.game-modal-scroll-locked .district-popup-shell:not([hidden]) .district-popup-card {
+    max-height: calc(
+      var(--mobile-locked-vh, 100svh)
+      - var(--district-mobile-resource-clearance, 0px)
+      - max(8px, env(safe-area-inset-bottom))
+    ) !important;
+  }
 }
 
 html body.game-body .storage-popup-shell[data-storage-popup]:not([hidden]) {
@@ -2689,7 +2706,7 @@ html body.game-body #global-chat-card .server-chat-panel__timestamp {
 
 html body.game-body #global-chat-card .server-chat-panel__text {
   display: block !important;
-  grid-column: 2 !important;
+  grid-column: 1 / -1 !important;
   grid-row: 2 !important;
   min-width: 0 !important;
   color: rgba(240, 249, 255, 0.86) !important;
@@ -3112,4 +3129,42 @@ html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__action-
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 10px 24px rgba(0, 0, 0, 0.18) !important;
+}
+
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html.game-modal-scroll-locked {
+    --mobile-overlay-top-offset: 0px !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked #game-header,
+  html body.game-body.game-modal-scroll-locked .game-topbar,
+  html body.game-body.game-modal-scroll-locked .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed .game-resource-strip {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked .game-topbar,
+  html body.game-body.game-modal-scroll-locked .game-topbar * {
+    pointer-events: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked .game-shell > .modal:not(.hidden):not([hidden]) {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 12000 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: var(--mobile-locked-vh, 100svh) !important;
+    height: var(--mobile-locked-vh, 100svh) !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    contain: layout paint !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked .game-shell > .modal:not(.hidden):not([hidden]) > .modal__backdrop {
+    position: absolute !important;
+    inset: 0 !important;
+  }
 }

@@ -864,6 +864,8 @@ var EmpireGameplaySliceClient = function(exports) {
   const LOCKED_BODY_DATA_ATTRIBUTE = "overlayScrollLocked";
   const LOCKED_BODY_CLASS = "game-modal-scroll-locked";
   const DEFAULT_GHOST_CLICK_SUPPRESSION_MS = 250;
+  const MODAL_SCROLL_LOCK_OWNER = Symbol("modal-scroll-lock-compat");
+  const MOBILE_SCROLL_LOCK_MEDIA = "(max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse)";
   let suppressMapInputUntil = 0;
   let lockedPageScroll = null;
   let lockedBodyStyles = null;
@@ -873,10 +875,6 @@ var EmpireGameplaySliceClient = function(exports) {
       return null;
     }
     return document.body;
-  };
-  const getModalScrollLock = () => {
-    var _a;
-    return typeof window !== "undefined" ? (_a = window.EmpireModalScrollLock) != null ? _a : null : null;
   };
   const getScrollPosition = () => {
     if (typeof window === "undefined" || typeof document === "undefined") {
@@ -891,8 +889,8 @@ var EmpireGameplaySliceClient = function(exports) {
     if (typeof window === "undefined" || typeof document === "undefined") {
       return;
     }
-    const scrollX = Math.max(0, Math.floor((scrollPosition == null ? void 0 : scrollPosition.x) || 0));
-    const scrollY = Math.max(0, Math.floor((scrollPosition == null ? void 0 : scrollPosition.y) || 0));
+    const scrollX = Math.max(0, Math.floor(scrollPosition.x || 0));
+    const scrollY = Math.max(0, Math.floor(scrollPosition.y || 0));
     document.documentElement.scrollLeft = scrollX;
     document.documentElement.scrollTop = scrollY;
     document.body.scrollLeft = scrollX;
@@ -906,17 +904,34 @@ var EmpireGameplaySliceClient = function(exports) {
       try {
         window.scrollTo(scrollX, scrollY);
       } catch {
-        // Older embedded browsers can reject scrollTo while layout is settling.
       }
     }
   };
   const schedulePageScrollRestore = (scrollPosition) => {
+    var _a, _b;
     const restore = () => restorePageScroll(scrollPosition);
     restore();
-    window.requestAnimationFrame?.(restore);
-    window.setTimeout?.(restore, 80);
+    (_a = window.requestAnimationFrame) == null ? void 0 : _a.call(window, restore);
+    (_b = window.setTimeout) == null ? void 0 : _b.call(window, restore, 80);
+  };
+  const shouldUseViewportWidthLock = () => {
+    var _a;
+    if (typeof window === "undefined") {
+      return false;
+    }
+    return Boolean((_a = window.matchMedia) == null ? void 0 : _a.call(window, MOBILE_SCROLL_LOCK_MEDIA).matches);
+  };
+  const getCurrentLayoutLockWidth = (body, root) => {
+    var _a, _b;
+    return Math.max(
+      0,
+      Math.ceil(
+        ((_a = body.getBoundingClientRect) == null ? void 0 : _a.call(body).width) || body.offsetWidth || root.clientWidth || ((_b = window.visualViewport) == null ? void 0 : _b.width) || window.innerWidth || 0
+      )
+    );
   };
   const lockBodyScroll = () => {
+    var _a;
     const body = getBody();
     if (!body || typeof window === "undefined") {
       return;
@@ -924,14 +939,11 @@ var EmpireGameplaySliceClient = function(exports) {
     if (body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] === "true") {
       return;
     }
-    const modalScrollLock = getModalScrollLock();
-    if (modalScrollLock?.lock?.(document)) {
-      body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "true";
-      return;
-    }
     const root = document.documentElement;
     const scrollPosition = getScrollPosition();
-    const bodyComputed = window.getComputedStyle?.(body);
+    const bodyComputed = (_a = window.getComputedStyle) == null ? void 0 : _a.call(window, body);
+    const isViewportWidthScrollLock = shouldUseViewportWidthLock();
+    const lockedLayoutWidth = isViewportWidthScrollLock ? getCurrentLayoutLockWidth(body, root) : 0;
     const scrollbarWidth = Math.max(0, Math.floor((window.innerWidth || root.clientWidth || 0) - (root.clientWidth || 0)));
     const currentPaddingRight = Number.parseFloat((bodyComputed == null ? void 0 : bodyComputed.paddingRight) || "0") || 0;
     lockedPageScroll = scrollPosition;
@@ -948,21 +960,23 @@ var EmpireGameplaySliceClient = function(exports) {
     lockedRootStyles = {
       overflow: root.style.overflow,
       overscrollBehavior: root.style.overscrollBehavior,
-      scrollbarGutter: root.style.scrollbarGutter
+      scrollbarGutter: root.style.getPropertyValue("scrollbar-gutter")
     };
     root.classList.add(LOCKED_BODY_CLASS);
     body.classList.add(LOCKED_BODY_CLASS);
     root.style.overflow = "hidden";
     root.style.overscrollBehavior = "none";
-    root.style.scrollbarGutter = "stable";
+    if (!isViewportWidthScrollLock) {
+      root.style.setProperty("scrollbar-gutter", "stable");
+    }
     body.style.position = "fixed";
     body.style.top = `-${scrollPosition.y}px`;
     body.style.left = `-${scrollPosition.x}px`;
     body.style.right = "0";
-    body.style.width = "100%";
+    body.style.width = isViewportWidthScrollLock && lockedLayoutWidth > 0 ? `${lockedLayoutWidth}px` : "100%";
     body.style.overflow = "hidden";
     body.style.overscrollBehavior = "none";
-    if (scrollbarWidth > 0) {
+    if (!isViewportWidthScrollLock && scrollbarWidth > 0) {
       body.style.paddingRight = `${currentPaddingRight + scrollbarWidth}px`;
     }
     body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "true";
@@ -975,16 +989,16 @@ var EmpireGameplaySliceClient = function(exports) {
     if (body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] !== "true") {
       return;
     }
-    const modalScrollLock = getModalScrollLock();
-    if (modalScrollLock?.unlock?.(document)) {
-      body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "";
-      delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
-      return;
-    }
     const root = document.documentElement;
     const scrollPosition = lockedPageScroll ?? getScrollPosition();
     if (lockedRootStyles) {
-      Object.assign(root.style, lockedRootStyles);
+      root.style.overflow = lockedRootStyles.overflow;
+      root.style.overscrollBehavior = lockedRootStyles.overscrollBehavior;
+      if (lockedRootStyles.scrollbarGutter) {
+        root.style.setProperty("scrollbar-gutter", lockedRootStyles.scrollbarGutter);
+      } else {
+        root.style.removeProperty("scrollbar-gutter");
+      }
     }
     if (lockedBodyStyles) {
       Object.assign(body.style, lockedBodyStyles);
@@ -1014,26 +1028,60 @@ var EmpireGameplaySliceClient = function(exports) {
     }
     return suppressed;
   };
-  const openOverlay = (type) => {
+  const openOverlayEntry = (type, owner) => {
     if (overlayStack.length === 0) {
       lockBodyScroll();
     }
-    overlayStack.push({ type });
+    overlayStack.push({ type, owner });
   };
-  const closeOverlay = (_reason) => {
-    if (overlayStack.length > 0) {
-      overlayStack.pop();
+  const findOverlayEntryIndexByOwner = (owner) => {
+    var _a;
+    for (let index = overlayStack.length - 1; index >= 0; index -= 1) {
+      if (((_a = overlayStack[index]) == null ? void 0 : _a.owner) === owner) {
+        return index;
+      }
+    }
+    return -1;
+  };
+  const closeOverlayEntry = (_reason, owner) => {
+    const closeIndex = owner ? findOverlayEntryIndexByOwner(owner) : overlayStack.length - 1;
+    const hadEntry = closeIndex >= 0;
+    if (hadEntry) {
+      overlayStack.splice(closeIndex, 1);
     }
     suppressMapInputFor();
     if (overlayStack.length === 0) {
       unlockBodyScroll();
     }
+    return hadEntry;
+  };
+  const openOverlay = (type) => {
+    openOverlayEntry(type);
+  };
+  const closeOverlay = (_reason) => {
+    closeOverlayEntry();
   };
   const isOverlayOpen = () => overlayStack.length > 0;
   const getTopOverlay = () => {
     var _a;
     return ((_a = overlayStack.at(-1)) == null ? void 0 : _a.type) ?? null;
   };
+  const lockModalScroll = (_owner) => {
+    if (overlayStack.some((entry) => entry.owner === MODAL_SCROLL_LOCK_OWNER)) {
+      return true;
+    }
+    openOverlayEntry("generic", MODAL_SCROLL_LOCK_OWNER);
+    return true;
+  };
+  const unlockModalScroll = (_owner) => closeOverlayEntry("modal scroll lock released", MODAL_SCROLL_LOCK_OWNER);
+  const isModalScrollLocked = (_owner) => isOverlayOpen();
+  if (typeof window !== "undefined") {
+    window.EmpireModalScrollLock = {
+      isLocked: isModalScrollLocked,
+      lock: lockModalScroll,
+      unlock: unlockModalScroll
+    };
+  }
   const OVERLAY_BACKDROP_ATTRIBUTE = "overlayBackdrop";
   const createOverlayBackdrop = (options = {}) => {
     const mount = options.mount ?? document.body;
@@ -1782,16 +1830,13 @@ var EmpireGameplaySliceClient = function(exports) {
     return parts.length > 0 ? parts.map(([resourceKey, amount]) => `${toTitleCase$1(resourceKey)} ${amount}`).join(" · ") : "No resources";
   };
   const toTitleCase$1 = (value) => value.split("-").filter(Boolean).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
-  const formatOccupySummary = (report) => report.result === "failure"
-    ? `Obsazení selhalo. Populace -${report.populationLost ?? report.populationCost ?? 0} · district zůstal neobsazený.`
-    : `Distrikt obsazen. Populace -${report.populationLost ?? report.populationCost ?? 0} · vráceno ${report.populationRefunded ?? 0} · Vliv -${report.influenceCost} · hledanost +${report.heatGained}.`;
   const createReportViewModels = (reports) => reports.map((report) => ({
     id: report.reportId,
     reportType: report.reportType,
     title: report.reportType === "spy" ? `Špehování ${report.result} v ${report.targetDistrictId}` : report.reportType === "occupy" ? `Obsazení ${report.result} v ${report.targetDistrictId}` : report.reportType === "building-action" ? `${toTitleCase(report.buildingActionId)} v ${report.districtId}` : report.districtDestroyed ? `Katastrofa v distriktu ${report.targetDistrictId}` : `Útok ${report.result} v ${report.targetDistrictId}`,
     createdAt: `${report.tick}`,
     category: report.reportType,
-    summary: report.reportType === "spy" ? formatSpySummary(report) : report.reportType === "occupy" ? formatOccupySummary(report) : report.reportType === "building-action" ? formatBuildingActionSummary(report) : report.districtDestroyed ? "Katastrofa zničila distrikt. Kontrola, budovy, hledanost i vliv byly smazány." : report.trapTriggered ? "Během útoku se spustila past." : report.districtCaptured ? "Distrikt dobyt." : "Distrikt udržel obránce.",
+    summary: report.reportType === "spy" ? formatSpySummary(report) : report.reportType === "occupy" ? `Distrikt obsazen. Vliv -${report.influenceCost} · hledanost +${report.heatGained}.` : report.reportType === "building-action" ? formatBuildingActionSummary(report) : report.districtDestroyed ? "Katastrofa zničila distrikt. Kontrola, budovy, hledanost i vliv byly smazány." : report.trapTriggered ? "Během útoku se spustila past." : report.districtCaptured ? "Distrikt dobyt." : "Distrikt udržel obránce.",
     result: report.result,
     severity: report.reportType === "battle" && report.districtDestroyed ? "critical" : report.reportType === "spy" && report.result === "critical_failed" ? "critical" : "normal",
     messages: report.reportType === "building-action" ? report.messages ?? [] : report.reportType === "battle" && report.districtDestroyed ? [
@@ -1817,11 +1862,6 @@ var EmpireGameplaySliceClient = function(exports) {
       return [
         `Zdroj ${report.sourceDistrictId}`,
         `Cíl ${report.targetDistrictId}`,
-        `Cena ${report.populationCost ?? 0} populace`,
-        `Ztraceno ${report.populationLost ?? report.populationCost ?? 0} populace`,
-        `Vráceno ${report.populationRefunded ?? 0} populace`,
-        `Šance ${report.successChancePct ?? 95}% / ${report.failureChancePct ?? 5}%`,
-        report.districtCaptured ? "Stav districtu obsazený" : "Stav districtu neobsazený",
         `Vliv -${report.influenceCost}`,
         `Hledanost +${report.heatGained}`,
         report.previousOwnerPlayerId ? `Předchozí vlastník ${report.previousOwnerPlayerId}` : "Předchozí vlastník nikdo"

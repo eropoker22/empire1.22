@@ -102,14 +102,15 @@ export function createBuildingSpecialActionConfirmationController({
   let currentResolve = null;
 
   const finalize = (result) => {
-    closeOverlay(overlay, { restoreFocus: false });
     if (!currentResolve) {
       overlay.hidden = true;
+      closeOverlay(overlay, { restoreFocus: false });
       return;
     }
     const resolve = currentResolve;
     currentResolve = null;
     overlay.hidden = true;
+    closeOverlay(overlay, { restoreFocus: false });
     resolve(result);
   };
 
@@ -159,13 +160,13 @@ export function createBuildingSpecialActionConfirmationController({
         finalize(false);
       }
       update(payload);
-      overlay.hidden = false;
       openOverlay(overlay, {
         type: "modal",
         ariaModal: true,
         focusTarget: payload.canConfirm === false ? cancelButton : confirmButton,
         restoreFocusOnClose: false
       });
+      overlay.hidden = false;
       documentRef.addEventListener("keydown", onKeydown, { once: false });
       return new Promise((resolve) => {
         currentResolve = (result) => {

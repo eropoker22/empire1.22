@@ -20,6 +20,7 @@ import {
   resolveTrap
 } from "../rules";
 import { createDefaultDistrictEffectModifiers, resolveActiveDistrictEffectModifiers } from "../rules/economy/calculateIncome";
+import { resolveActiveAlliancePenaltyStatModifiers } from "../rules/alliances/alliancePenaltyModifiers";
 import {
   applyFactionAggressiveHeatGain,
   applyFactionCooldownTicks,
@@ -94,6 +95,9 @@ export const handleAttackDistrict = (
     ? resolveActiveDistrictEffectModifiers(state, sourceDistrict.id)
     : createDefaultDistrictEffectModifiers();
   const targetDistrictModifiers = resolveActiveDistrictEffectModifiers(state, targetDistrict.id);
+  const nowIso = context.clock?.nowIso?.() ?? context.clock?.now?.().toISOString() ?? new Date().toISOString();
+  const attackerPenaltyModifiers = resolveActiveAlliancePenaltyStatModifiers(state, attacker.id, nowIso);
+  const defenderPenaltyModifiers = resolveActiveAlliancePenaltyStatModifiers(state, targetDistrict.ownerPlayerId, nowIso);
   const attackerFactionModifiers = getFactionPassiveModifiers(state, attacker.id, context);
   const defenderFactionModifiers = getFactionPassiveModifiers(state, targetDistrict.ownerPlayerId, context);
   const combinedCameraAlarmBonuses = resolveCombinedCameraAlarmBonuses({
@@ -135,12 +139,12 @@ export const handleAttackDistrict = (
   const baseAttackPower = calculateTotalAttackPower(attacker.attackLoadout, 1, attackWeaponModifiers);
   const trapAdjustedAttackPower = calculateTotalAttackPower(effectiveLoadout, 1, attackWeaponModifiers);
   const effectAdjustedAttackPower = applyFactionMultiplier(
-    trapAdjustedAttackPower * attackerDistrictModifiers.attackMultiplier,
+    trapAdjustedAttackPower * attackerDistrictModifiers.attackMultiplier * attackerPenaltyModifiers.attackMultiplier,
     attackerFactionModifiers.attackPowerMultiplier
   );
   const defensePower = calculateBaseDefensePower(targetDistrict.defenseLoadout, defenseItemModifiers);
   const effectAdjustedDefensePower = applyFactionMultiplier(
-    defensePower * targetDistrictModifiers.defenseMultiplier,
+    defensePower * targetDistrictModifiers.defenseMultiplier * defenderPenaltyModifiers.defenseMultiplier,
     defenderFactionModifiers.defensePowerMultiplier
   );
   const effectiveAttackPower = calculateReducedAttackPowerFromTowers(effectAdjustedAttackPower, towerCount);
@@ -360,11 +364,11 @@ export const handleAttackDistrict = (
     attackPayload: {
       attackPower: baseAttackPower,
       attackPowerAfterTrap: trapAdjustedAttackPower,
-      attackMultiplier: attackerDistrictModifiers.attackMultiplier,
+      attackMultiplier: attackerDistrictModifiers.attackMultiplier * attackerPenaltyModifiers.attackMultiplier,
       attackPowerAfterEffects: effectAdjustedAttackPower,
       attackPowerAfterTowers: effectiveAttackPower,
       defensePower,
-      defenseMultiplier: targetDistrictModifiers.defenseMultiplier,
+      defenseMultiplier: targetDistrictModifiers.defenseMultiplier * defenderPenaltyModifiers.defenseMultiplier,
       cameraStrengthBonusPct: combinedCameraAlarmBonuses.cameraStrengthBonusPct,
       alarmStrengthBonusPct: combinedCameraAlarmBonuses.alarmStrengthBonusPct,
       recruitmentAttackWeaponStrengthBonusPct: attackerRecruitmentBonuses.attackWeaponStrengthBonusPct,

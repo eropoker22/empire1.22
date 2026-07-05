@@ -9,11 +9,11 @@ export const FACTION_DEFINITIONS: readonly FactionDefinition[] = [
     name: "Mafián",
     tagline: "Staré peníze, staré krytí.",
     description: "Stabilní ekonomika, výpalné a vliv na správných dveřích.",
-    playstyleSummary: "Economy / clean cash / influence / heat control",
-    strengths: ["clean cash", "legální income", "heat management"],
+    playstyleSummary: "Economy / clean cash / influence / heat control mimo obsazování",
+    strengths: ["clean cash", "legální income", "heat management mimo obsazování"],
     weaknesses: ["slabší tech", "slabší špehování"],
     passiveModifiers: { cleanIncomeMultiplier: 1.1, heatGainMultiplier: 0.96, spySuccessChanceBonus: -0.03 },
-    passiveEffectSummary: ["Clean income +10 %", "Heat gain -4 %", "Spy -3 p. b."],
+    passiveEffectSummary: ["Clean income +10 %", "-4 % heat z útoků, heistů, akcí budov a pasivního tlaku", "Spy -3 p. b."],
     specialAction: {
       name: "Tichá dohoda",
       description: "Mafián zatlačí na správné kontakty a na krátký čas sníží nový policejní heat ze svých akcí.",
@@ -48,7 +48,7 @@ export const FACTION_DEFINITIONS: readonly FactionDefinition[] = [
     },
     passiveEffectSummary: [
       "+18 % dirty income",
-      "+15 % ilegální produkce",
+      "+15 % produkce v podporovaných ilegálních budovách",
       "+10 % pašování",
       "+15 % heat z ilegálních akcí",
       "-8 % clean income",
@@ -87,7 +87,7 @@ export const FACTION_DEFINITIONS: readonly FactionDefinition[] = [
     description: "Kult roste skrz vliv, loajalitu a strach. Přitahuje víc lidí, lépe drží obsazené districty a dokáže město zaplavit neklidem. Není ale silný v čisté ekonomice ani v přímém útoku.",
     playstyleSummary: "Influence / population / defense / manipulation / city feed chaos",
     strengths: ["influence", "population", "defense", "manipulace", "drby / podezření"],
-    weaknesses: ["slabší clean economy", "vyšší market fee", "slabší přímý útok"],
+    weaknesses: ["slabší clean economy", "slabší přímý útok", "vyšší market fee připravujeme"],
     passiveModifiers: {
       influenceGainMultiplier: 1.2,
       populationGenerationMultiplier: 1.1,
@@ -213,7 +213,7 @@ export const FACTION_DEFINITIONS: readonly FactionDefinition[] = [
       baseDefensePowerMultiplier: 0.95
     },
     passiveEffectSummary: [
-      "+50 % potvrzenost drbů",
+      "+50 % pravdivost rumorů s truthChancePct",
       "+15 % účinnost kamer",
       "+15 % účinnost alarmů",
       "+10 % tech production",
@@ -256,7 +256,7 @@ export const FACTION_DEFINITIONS: readonly FactionDefinition[] = [
     description: "Motorkáři nehrají na trpělivost. Vyráží rychle, berou co najdou a mizí dřív, než se město vzpamatuje. Mají kratší cooldowny na agresivní akce a víc vydělají z vykrádání. Jenže držet území není jejich silná stránka a rychlý chaos zanechává větší policejní stopu.",
     playstyleSummary: "Speed / robbery / attacks / pressure / dirty cash",
     strengths: ["rychlé cooldowny", "vykrádání", "útoky", "map pressure", "dirty cash"],
-    weaknesses: ["slabší obrana districtů", "vyšší heat z útoků a vykrádání"],
+    weaknesses: ["slabší obrana districtů", "vyšší heat z útoků, obsazování a vykrádání"],
     passiveModifiers: {
       robberyCooldownMultiplier: 0.85,
       attackCooldownMultiplier: 0.9,
@@ -271,7 +271,7 @@ export const FACTION_DEFINITIONS: readonly FactionDefinition[] = [
       "-10 % cooldown na obsazování",
       "+10 % dirty cash z vykrádání",
       "-10 % obrana districtů",
-      "+8 % heat z útoků a vykrádání"
+      "+8 % heat z útoků, obsazování a vykrádání"
     ],
     specialAction: {
       name: "Bleskový nájezd",
@@ -367,7 +367,7 @@ export const FACTION_DEFINITIONS: readonly FactionDefinition[] = [
     },
     passiveEffectSummary: [
       "+15 % clean income",
-      "-3 % heat gain",
+      "-3 % heat z útoků, heistů, akcí budov a pasivního tlaku",
       "+10 % efekt obranných systémů",
       "-15 % dirty income",
       "-10 % loot z vykrádání",

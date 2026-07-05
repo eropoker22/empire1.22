@@ -1,7 +1,15 @@
 /* @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createOverlayBackdrop } from "../../../apps/client/src/modals/overlay-backdrop";
-import { closeOverlay, getTopOverlay, isOverlayOpen, openOverlay, resetOverlayStateForTests } from "../../../apps/client/src/modals/overlay-state";
+import {
+  closeOverlay,
+  getTopOverlay,
+  isOverlayOpen,
+  lockModalScroll,
+  openOverlay,
+  resetOverlayStateForTests,
+  unlockModalScroll
+} from "../../../apps/client/src/modals/overlay-state";
 
 const setWindowScrollY = (value: number): void => {
   Object.defineProperty(window, "scrollY", {
@@ -165,20 +173,80 @@ describe("overlay backdrop", () => {
     expect(getTopOverlay()).toBe("district_sheet");
   });
 
-  it("otevření prvního overlaye nezmění scroll ani inline body styly", () => {
-    const originalBodyStyles = captureBodyStyles();
+  it("otevření prvního overlaye zamkne body na aktuální scroll pozici", () => {
     const initialScrollY = 77;
     setWindowScrollY(initialScrollY);
 
     openOverlay("district_sheet");
 
     expect(document.body.dataset.overlayScrollLocked).toBe("true");
-    expect(document.body.style.position).toBe(originalBodyStyles.position);
-    expect(document.body.style.top).toBe(originalBodyStyles.top);
-    expect(document.body.style.left).toBe(originalBodyStyles.left);
-    expect(document.body.style.right).toBe(originalBodyStyles.right);
-    expect(document.body.style.width).toBe(originalBodyStyles.width);
+    expect(document.documentElement.classList.contains("game-modal-scroll-locked")).toBe(true);
+    expect(document.body.classList.contains("game-modal-scroll-locked")).toBe(true);
+    expect(document.body.style.position).toBe("fixed");
+    expect(document.body.style.top).toBe(`-${initialScrollY}px`);
+    expect(document.body.style.left).toBe("0px");
+    expect(document.body.style.right).toBe("0px");
+    expect(document.body.style.width).toBe("100%");
     expect(window.scrollY).toBe(initialScrollY);
+  });
+
+  it("mobile overlay lock drží fixed body na aktuální layout šířce bez desktop gutter kompenzace", () => {
+    const originalMatchMedia = window.matchMedia;
+    const originalInnerWidth = Object.getOwnPropertyDescriptor(window, "innerWidth");
+    const originalClientWidth = Object.getOwnPropertyDescriptor(document.documentElement, "clientWidth");
+
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: vi.fn(() => ({
+        matches: true,
+        media: "(max-width: 720px)",
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn()
+      }))
+    });
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 393
+    });
+    Object.defineProperty(document.documentElement, "clientWidth", {
+      configurable: true,
+      value: 360
+    });
+
+    try {
+      openOverlay("district_sheet");
+
+      expect(document.body.dataset.overlayScrollLocked).toBe("true");
+      expect(document.body.style.position).toBe("fixed");
+      expect(document.body.style.width).toBe("360px");
+      expect(document.body.style.paddingRight).toBe("");
+      expect(document.documentElement.style.getPropertyValue("scrollbar-gutter")).toBe("");
+
+      closeOverlay("close mobile overlay");
+      expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
+      expect(document.body.style.width).toBe("");
+    } finally {
+      if (originalMatchMedia) {
+        Object.defineProperty(window, "matchMedia", {
+          configurable: true,
+          value: originalMatchMedia
+        });
+      } else {
+        delete (window as Partial<Window>).matchMedia;
+      }
+      if (originalInnerWidth) {
+        Object.defineProperty(window, "innerWidth", originalInnerWidth);
+      }
+      if (originalClientWidth) {
+        Object.defineProperty(document.documentElement, "clientWidth", originalClientWidth);
+      } else {
+        Reflect.deleteProperty(document.documentElement, "clientWidth");
+      }
+    }
   });
 
   it("zavření posledního overlaye obnoví scrollY bez přepisování style", () => {
@@ -208,14 +276,14 @@ describe("overlay backdrop", () => {
     openOverlay("confirmation_modal");
 
     expect(document.body.dataset.overlayScrollLocked).toBe("true");
-    expect(document.body.style.position).toBe("");
-    expect(document.body.style.top).toBe("");
+    expect(document.body.style.position).toBe("fixed");
+    expect(document.body.style.top).toBe(`-${initialScrollY}px`);
 
     closeOverlay("close top");
     expect(scrollTo).not.toHaveBeenCalled();
     expect(document.body.dataset.overlayScrollLocked).toBe("true");
-    expect(document.body.style.position).toBe("");
-    expect(document.body.style.top).toBe("");
+    expect(document.body.style.position).toBe("fixed");
+    expect(document.body.style.top).toBe(`-${initialScrollY}px`);
 
     closeOverlay("close bottom");
     expect(scrollTo).toHaveBeenCalledWith({ top: initialScrollY, left: 0, behavior: "auto" });
@@ -225,5 +293,29 @@ describe("overlay backdrop", () => {
     expect(document.body.style.left).toBe("");
     expect(document.body.style.right).toBe("");
     expect(document.body.style.width).toBe("");
+  });
+
+  it("compat modal lock uses the same stack without popping an unrelated top overlay", () => {
+    const initialScrollY = 92;
+    setWindowScrollY(initialScrollY);
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+
+    expect(lockModalScroll()).toBe(true);
+    openOverlay("district_sheet");
+
+    expect(getTopOverlay()).toBe("district_sheet");
+    expect(document.body.dataset.overlayScrollLocked).toBe("true");
+    expect(unlockModalScroll()).toBe(true);
+
+    expect(getTopOverlay()).toBe("district_sheet");
+    expect(isOverlayOpen()).toBe(true);
+    expect(document.body.dataset.overlayScrollLocked).toBe("true");
+    expect(scrollTo).not.toHaveBeenCalled();
+
+    closeOverlay("close district sheet");
+
+    expect(isOverlayOpen()).toBe(false);
+    expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
+    expect(scrollTo).toHaveBeenCalledWith({ top: initialScrollY, left: 0, behavior: "auto" });
   });
 });

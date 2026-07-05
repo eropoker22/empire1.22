@@ -12,14 +12,14 @@ export function createFactionPreviewViewModel(faction = {}) {
     cleanMoneyLabel: faction?.playstyleSummary || "Frakce upravuje styl hry",
     dirtyMoneyLabel: "Start je globální pro všechny hráče",
     influenceLabel: "Pasivy jsou oddělené od startu",
-    heatLabel: specialAction ? `${specialAction.name}: preview-only` : "Schopnost je preview-only",
+    heatLabel: specialAction ? `${specialAction.name}: preview schopnost` : "Speciální schopnost přijde později",
     advantages: [
-      ...(Array.isArray(faction?.advantages) ? faction.advantages.map((item) => `${item} (core-backed)`) : []),
-      ...(Array.isArray(faction?.plannedAdvantages) ? faction.plannedAdvantages.map((item) => `${item} (planned/display-only)`) : [])
+      ...(Array.isArray(faction?.advantages) ? faction.advantages.map((item) => `Funguje teď: ${item}`) : []),
+      ...(Array.isArray(faction?.plannedAdvantages) ? faction.plannedAdvantages.map((item) => `Připravuje se: ${item}`) : [])
     ],
     disadvantages: [
-      ...(Array.isArray(faction?.disadvantages) ? faction.disadvantages.map((item) => `${item} (core-backed)`) : []),
-      ...(Array.isArray(faction?.plannedDisadvantages) ? faction.plannedDisadvantages.map((item) => `${item} (planned/display-only)`) : [])
+      ...(Array.isArray(faction?.disadvantages) ? faction.disadvantages.map((item) => `Slabina: ${item}`) : []),
+      ...(Array.isArray(faction?.plannedDisadvantages) ? faction.plannedDisadvantages.map((item) => `Připravuje se: ${item}`) : [])
     ],
     coreBackedEffects: Array.isArray(faction?.coreBackedEffects) ? faction.coreBackedEffects : [],
     plannedEffects: Array.isArray(faction?.plannedEffects) ? faction.plannedEffects : [],

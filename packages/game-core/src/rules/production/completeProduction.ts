@@ -8,6 +8,7 @@ import {
   resolveFactionProductionMultiplier
 } from "../factions/factionRules";
 import { resolveProductionBuildingLevelMultiplier } from "../buildings/buildingUpgradeRules";
+import { resolveActiveAlliancePenaltyStatModifiers } from "../alliances/alliancePenaltyModifiers";
 
 /**
  * Responsibility: Resolves completed production entries during ticks.
@@ -68,6 +69,11 @@ export const completeProduction = (
         })
       : 1;
     const levelMultiplier = resolveProductionBuildingLevelMultiplier(building, context);
+    const penaltyMultiplier = resolveActiveAlliancePenaltyStatModifiers(
+      state,
+      building.ownerPlayerId,
+      nowIsoFromContext(context)
+    ).productionMultiplier;
     const baseProducedPerTick = Math.max(
       0,
       Math.floor(
@@ -76,6 +82,7 @@ export const completeProduction = (
           * levelMultiplier
           * infrastructureMultiplier
           * factionProductionMultiplier
+          * penaltyMultiplier
       )
     );
     const producedPerTick = Math.max(0, applyDayNightProductionMultiplier({
@@ -109,3 +116,6 @@ export const completeProduction = (
       }
     : state;
 };
+
+const nowIsoFromContext = (context: GameCoreContext): string =>
+  context.clock?.nowIso?.() ?? context.clock?.now?.().toISOString() ?? new Date().toISOString();

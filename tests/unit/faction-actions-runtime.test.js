@@ -27,7 +27,8 @@ describe("faction actions runtime", () => {
       code: "Výpadek systému",
       canRun: false
     });
-    expect(action.effect).toContain("není core-backed");
+    expect(action.effect).toContain("zatím jen preview");
+    expect(action.effect).toContain("alphě ještě neběží");
   });
 
   it("prefers selectedFaction from the locked registration", () => {
@@ -60,7 +61,7 @@ describe("faction actions runtime", () => {
       code: "Taktické nasazení",
       canRun: false
     });
-    expect(action.effect).toContain("není core-backed");
+    expect(action.effect).toContain("zatím jen preview");
   });
 
   it("shows Kartel action as preview-only", () => {
@@ -76,7 +77,7 @@ describe("faction actions runtime", () => {
       code: "Noční zásilka",
       canRun: false
     });
-    expect(action.effect).toContain("není core-backed");
+    expect(action.effect).toContain("zatím jen preview");
   });
 
   it("shows secret organization action as preview-only", () => {
@@ -92,7 +93,7 @@ describe("faction actions runtime", () => {
       code: "Spící buňka",
       canRun: false
     });
-    expect(action.effect).toContain("není core-backed");
+    expect(action.effect).toContain("zatím jen preview");
   });
 
   it("shows hacker action as preview-only", () => {
@@ -108,6 +109,6 @@ describe("faction actions runtime", () => {
       code: "Výpadek systému",
       canRun: false
     });
-    expect(action.effect).toContain("není core-backed");
+    expect(action.effect).toContain("zatím jen preview");
   });
 });

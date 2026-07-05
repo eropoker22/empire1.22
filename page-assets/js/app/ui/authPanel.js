@@ -51,7 +51,7 @@ export function renderFactionPreviewPanel(root, faction = {}, options = {}) {
   const cleanMoneyLabel = faction?.cleanMoneyLabel ?? "Frakce upravuje styl hry";
   const dirtyMoneyLabel = faction?.dirtyMoneyLabel ?? "Start je globální pro všechny hráče";
   const influenceLabel = faction?.influenceLabel ?? "Pasivy jsou oddělené od startu";
-  const heatLabel = faction?.heatLabel ?? "Schopnost je preview-only";
+  const heatLabel = faction?.heatLabel ?? "Speciální schopnost přijde později";
 
   setText(safeQuery(root, FACTION_NAME_SELECTOR), faction?.name);
   setText(safeQuery(root, FACTION_TAGLINE_SELECTOR), faction?.tagline);

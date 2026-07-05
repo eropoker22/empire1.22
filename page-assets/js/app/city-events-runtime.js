@@ -578,9 +578,9 @@ function initCityEventsRuntime() {
   };
 
   const closeEventDetailModal = () => {
-    closeOverlay(detailModal, { restoreFocus: false });
     detailModal.classList.add("hidden");
     detailModal.hidden = true;
+    closeOverlay(detailModal, { restoreFocus: false });
     selectedEventTask = null;
   };
 
@@ -613,9 +613,9 @@ function initCityEventsRuntime() {
         ? `Počkej ${activeRun.remainingSec}s`
         : "Začít";
     }
+    openOverlay(detailModal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     detailModal.hidden = false;
     detailModal.classList.remove("hidden");
-    openOverlay(detailModal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
   };
 
   const renderTasks = (agentKey) => {
@@ -676,9 +676,9 @@ function initCityEventsRuntime() {
     if (agentQuote) agentQuote.textContent = "";
     tasklist.innerHTML = "";
     modal.classList.add("events-modal--compact");
+    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     modal.hidden = false;
     modal.classList.remove("hidden");
-    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     document.dispatchEvent(new CustomEvent("empire:city-events-opened", { detail: { open: true } }));
   };
 
@@ -686,10 +686,10 @@ function initCityEventsRuntime() {
     if (selectedEventTask) {
       closeEventDetailModal();
     }
-    closeOverlay(modal, { restoreFocus: false });
     modal.classList.add("hidden");
     modal.hidden = true;
     modal.classList.add("events-modal--compact");
+    closeOverlay(modal, { restoreFocus: false });
   };
 
   const finalizeCityEventRun = (taskId) => {

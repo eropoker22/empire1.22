@@ -357,8 +357,19 @@ document.addEventListener("DOMContentLoaded", () => {
     return FACTION_PLAYER_GUIDE[factionId] || { style: "Vyvážený pouliční profil", difficulty: "Střední" };
   }
 
-  function formatPlayerEffectList(items, fallback) {
-    return (items || []).filter(Boolean).join(" • ") || fallback;
+  function uniqueEffectList(items) {
+    const seen = new Set();
+    return (items || []).filter((item) => {
+      const text = String(item || "").trim();
+      if (!text || seen.has(text)) return false;
+      seen.add(text);
+      return true;
+    });
+  }
+
+  function formatPlayerEffectList(items, fallback, prefix = "") {
+    const values = uniqueEffectList(items).map((item) => `${prefix}${item}`);
+    return values.join(" • ") || fallback;
   }
 
   function renderFactionRecommendations() {
@@ -450,11 +461,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function formatLabeledEffects(items, label) {
-    return (items || []).map((item) => `${item} (${label})`);
+    return (items || []).map((item) => `${label}: ${item}`);
   }
 
 function renderFactionPreview(factionId) {
-    // Source guard: special faction actions remain planned/display-only until core-backed.
+    // Source guard: special faction actions remain visible preview until they are server-backed.
     const faction = FACTION_CATALOG[factionId] || FACTION_CATALOG.mafian;
     const meta = getFactionMeta(factionId);
     if (factionInput) factionInput.value = factionId;
@@ -465,42 +476,46 @@ function renderFactionPreview(factionId) {
     if (bonus) {
       const action = faction.specialAction;
       const guide = getFactionGuide(factionId);
-      const actionLabel = action?.status === "implemented" ? "Aktivní" : "Preview";
       const actionTitle = action?.name || meta.bonus;
       const actionCopy = action?.description || meta.bonusCopy;
-      const activeBonusCopy = formatPlayerEffectList([
-        ...(faction.coreBackedEffects || []),
-        ...(faction.advantages || [])
-      ], "Základní frakční profil je aktivní.");
-      const disadvantageCopy = formatPlayerEffectList(faction.disadvantages, "Bez výrazné úvodní nevýhody.");
+      const activeBonusCopy = formatPlayerEffectList(
+        faction.advantages?.length ? faction.advantages : faction.coreBackedEffects,
+        "Základní frakční profil je aktivní.",
+        "Aktivní: "
+      );
+      const disadvantageCopy = formatPlayerEffectList(
+        faction.disadvantages,
+        "Bez výrazné úvodní slabiny.",
+        "Slabina: "
+      );
       const plannedCopy = formatPlayerEffectList([
         ...(faction.plannedEffects || []),
         ...(faction.plannedAdvantages || []),
         ...(faction.plannedDisadvantages || [])
-      ], "Speciální schopnosti jsou zatím preview.");
+      ], "Frakce už má aktivní pasivy. Další efekty přijdou později.", "Připravuje se: ");
       bonus.innerHTML = `
         <span class="faction-bonus__icon" aria-hidden="true">✦</span>
         <span class="faction-bonus__copy faction-bonus__copy--rows">
           <span class="faction-bonus__row"><strong>Styl hry</strong><span>${guide.style || faction.playstyleSummary || "Vyvážený pouliční profil"}</span></span>
           <span class="faction-bonus__row"><strong>Obtížnost</strong><span>${guide.difficulty}</span></span>
-          <span class="faction-bonus__row"><strong>Aktivní bonusy</strong><span>${activeBonusCopy}</span></span>
-          <span class="faction-bonus__row"><strong>Nevýhody</strong><span>${disadvantageCopy}</span></span>
-          <span class="faction-bonus__row"><strong>Připravujeme</strong><span>${plannedCopy}</span></span>
-          <span class="faction-bonus__row"><strong>Speciální schopnost</strong><span>${actionTitle}: ${actionCopy} <em>${actionLabel}</em></span></span>
+          <span class="faction-bonus__row"><strong>Funguje teď</strong><span>${activeBonusCopy}</span></span>
+          <span class="faction-bonus__row"><strong>Slabina</strong><span>${disadvantageCopy}</span></span>
+          <span class="faction-bonus__row"><strong>Připravuje se</strong><span>${plannedCopy}</span></span>
+          <span class="faction-bonus__row"><strong>Speciální schopnost — preview</strong><span>${actionTitle}: ${actionCopy} <em>Tahle schopnost je zatím jen preview.</em> Efekt je součást identity frakce, ale v alphě ještě neběží.</span></span>
         </span>
       `;
     }
     if (cleanMoneyEl) cleanMoneyEl.textContent = faction.playstyleSummary || "-";
     if (dirtyMoneyEl) dirtyMoneyEl.textContent = "Start je globální pro všechny hráče";
     if (influenceEl) influenceEl.textContent = "Frakce upravuje pouze styl a pasivy";
-    if (heatEl) heatEl.textContent = "Schopnosti jsou zatím preview-only";
+    if (heatEl) heatEl.textContent = "Speciální schopnosti přijdou později";
     replaceList(advantagesEl, [
-      ...formatLabeledEffects(faction.advantages, "aktivní"),
-      ...formatLabeledEffects(faction.plannedAdvantages, "připravujeme")
+      ...formatLabeledEffects(faction.advantages, "Funguje teď"),
+      ...formatLabeledEffects(faction.plannedAdvantages, "Připravuje se")
     ]);
     replaceList(disadvantagesEl, [
-      ...formatLabeledEffects(faction.disadvantages, "aktivní"),
-      ...formatLabeledEffects(faction.plannedDisadvantages, "připravujeme")
+      ...formatLabeledEffects(faction.disadvantages, "Slabina"),
+      ...formatLabeledEffects(faction.plannedDisadvantages, "Připravuje se")
     ]);
   }
 
@@ -511,7 +526,7 @@ function renderFactionPreview(factionId) {
     if (tagline) tagline.textContent = "";
     if (desc) desc.textContent = "";
     if (bonus) {
-      bonus.innerHTML = '<span class="faction-bonus__icon" aria-hidden="true">✦</span><span class="faction-bonus__copy"><strong>Aktivní bonusy</strong> Každá frakce má vlastní styl, slabinu a preview speciální schopnosti.</span>';
+      bonus.innerHTML = '<span class="faction-bonus__icon" aria-hidden="true">✦</span><span class="faction-bonus__copy"><strong>Funguje teď / Slabina / Připravuje se / Speciální schopnost</strong> Každá frakce má vlastní aktivní pasivy, plánované efekty a preview schopnost.</span>';
     }
     if (cleanMoneyEl) cleanMoneyEl.textContent = "-";
     if (dirtyMoneyEl) dirtyMoneyEl.textContent = "-";

@@ -9,10 +9,10 @@ export const FACTION_CATALOG = Object.freeze({
     name: "Mafián",
     tagline: "Staré peníze, staré krytí.",
     description: "Stabilní ekonomika, výpalné a vliv na správných dveřích.",
-    playstyleSummary: "Economy / clean cash / influence / heat control",
-    advantages: ["Clean income +10 %", "Heat gain -4 %"],
+    playstyleSummary: "Economy / clean cash / influence / heat control mimo obsazování",
+    advantages: ["Clean income +10 %", "-4 % heat z útoků, heistů, akcí budov a pasivního tlaku"],
     disadvantages: ["Spy success chance -3 p. b."],
-    passiveEffectSummary: ["Clean income +10 %", "Heat gain -4 %", "Spy -3 p. b."],
+    passiveEffectSummary: ["Clean income +10 %", "-4 % heat z útoků, heistů, akcí budov a pasivního tlaku", "Spy -3 p. b."],
     specialAction: {
       name: "Tichá dohoda",
       description: "Mafián zatlačí na správné kontakty a na krátký čas sníží nový policejní heat ze svých akcí.",
@@ -34,7 +34,7 @@ export const FACTION_CATALOG = Object.freeze({
     playstyleSummary: "Dirty cash / illegal production / drugs / smuggling / high risk economy",
     advantages: [
       "+18 % dirty income",
-      "+15 % ilegální produkce",
+      "+15 % produkce v podporovaných ilegálních budovách",
       "+10 % pašování"
     ],
     disadvantages: [
@@ -44,7 +44,7 @@ export const FACTION_CATALOG = Object.freeze({
     ],
     passiveEffectSummary: [
       "+18 % dirty income",
-      "+15 % ilegální produkce",
+      "+15 % produkce v podporovaných ilegálních budovách",
       "+10 % pašování",
       "+15 % heat z ilegálních akcí",
       "-8 % clean income",
@@ -89,9 +89,9 @@ export const FACTION_CATALOG = Object.freeze({
     ],
     disadvantages: [
       "-10 % clean income",
-      "+10 % market fee",
       "-5 % attack power"
     ],
+    plannedDisadvantages: ["+10 % market fee"],
     passiveEffectSummary: [
       "+20 % influence gain",
       "+10 % population generation",
@@ -192,7 +192,7 @@ export const FACTION_CATALOG = Object.freeze({
     description: "Hackeři nevyhrávají přes hrubou sílu. Čtou město přes kamery, alarmy, datová centra a potvrzené drby. Jejich informace jsou výrazně spolehlivější a jejich technická obrana je silnější než u ostatních frakcí. V otevřeném boji ale ztrácí.",
     playstyleSummary: "Tech / confirmed rumors / cameras / alarms / spying / digital sabotage",
     advantages: [
-      "+50 % potvrzenost drbů",
+      "+50 % pravdivost rumorů s truthChancePct",
       "+15 % účinnost kamer",
       "+15 % účinnost alarmů",
       "+10 % tech production",
@@ -204,7 +204,7 @@ export const FACTION_CATALOG = Object.freeze({
       "-5 % základní obrana bez kamer/alarmů"
     ],
     passiveEffectSummary: [
-      "+50 % potvrzenost drbů",
+      "+50 % pravdivost rumorů s truthChancePct",
       "+15 % účinnost kamer",
       "+15 % účinnost alarmů",
       "+10 % tech production",
@@ -251,7 +251,7 @@ export const FACTION_CATALOG = Object.freeze({
     ],
     disadvantages: [
       "-10 % obrana districtů",
-      "+8 % heat z útoků a vykrádání"
+      "+8 % heat z útoků, obsazování a vykrádání"
     ],
     passiveEffectSummary: [
       "-15 % cooldown na vykrádání",
@@ -259,7 +259,7 @@ export const FACTION_CATALOG = Object.freeze({
       "-10 % cooldown na obsazování",
       "+10 % dirty cash z vykrádání",
       "-10 % obrana districtů",
-      "+8 % heat z útoků a vykrádání"
+      "+8 % heat z útoků, obsazování a vykrádání"
     ],
     specialAction: {
       name: "Bleskový nájezd",
@@ -338,7 +338,7 @@ export const FACTION_CATALOG = Object.freeze({
     playstyleSummary: "Clean economy / legal cover / defense systems / market efficiency / safer growth",
     advantages: [
       "+15 % clean income",
-      "-3 % heat gain",
+      "-3 % heat z útoků, heistů, akcí budov a pasivního tlaku",
       "+10 % efekt obranných systémů"
     ],
     plannedAdvantages: ["-10 % market fee"],
@@ -349,7 +349,7 @@ export const FACTION_CATALOG = Object.freeze({
     ],
     passiveEffectSummary: [
       "+15 % clean income",
-      "-3 % heat gain",
+      "-3 % heat z útoků, heistů, akcí budov a pasivního tlaku",
       "+10 % efekt obranných systémů",
       "-15 % dirty income",
       "-10 % loot z vykrádání",

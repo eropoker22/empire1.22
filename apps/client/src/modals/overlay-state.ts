@@ -13,12 +13,15 @@ export type OverlayType =
 
 type OverlayEntry = {
   type: OverlayType;
+  owner?: symbol;
 };
 
 const overlayStack: OverlayEntry[] = [];
 const LOCKED_BODY_DATA_ATTRIBUTE = "overlayScrollLocked";
 const LOCKED_BODY_CLASS = "game-modal-scroll-locked";
 const DEFAULT_GHOST_CLICK_SUPPRESSION_MS = 250;
+const MODAL_SCROLL_LOCK_OWNER = Symbol("modal-scroll-lock-compat");
+const MOBILE_SCROLL_LOCK_MEDIA = "(max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse)";
 let suppressMapInputUntil = 0;
 let lockedPageScroll: { x: number; y: number } | null = null;
 let lockedBodyStyles: {
@@ -36,6 +39,18 @@ let lockedRootStyles: {
   overscrollBehavior: string;
   scrollbarGutter: string;
 } | null = null;
+
+type ModalScrollLockBridge = {
+  isLocked(owner?: unknown): boolean;
+  lock(owner?: unknown): boolean;
+  unlock(owner?: unknown): boolean;
+};
+
+declare global {
+  interface Window {
+    EmpireModalScrollLock?: ModalScrollLockBridge;
+  }
+}
 
 const getBody = (): HTMLElement | null => {
   if (typeof document === "undefined") {
@@ -88,6 +103,26 @@ const schedulePageScrollRestore = (scrollPosition: { x: number; y: number }): vo
   window.setTimeout?.(restore, 80);
 };
 
+const shouldUseViewportWidthLock = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return Boolean(window.matchMedia?.(MOBILE_SCROLL_LOCK_MEDIA).matches);
+};
+
+const getCurrentLayoutLockWidth = (body: HTMLElement, root: HTMLElement): number => Math.max(
+  0,
+  Math.ceil(
+    body.getBoundingClientRect?.().width
+    || body.offsetWidth
+    || root.clientWidth
+    || window.visualViewport?.width
+    || window.innerWidth
+    || 0
+  )
+);
+
 const lockBodyScroll = (): void => {
   const body = getBody();
   if (!body || typeof window === "undefined") {
@@ -101,6 +136,8 @@ const lockBodyScroll = (): void => {
   const root = document.documentElement;
   const scrollPosition = getScrollPosition();
   const bodyComputed = window.getComputedStyle?.(body);
+  const isViewportWidthScrollLock = shouldUseViewportWidthLock();
+  const lockedLayoutWidth = isViewportWidthScrollLock ? getCurrentLayoutLockWidth(body, root) : 0;
   const scrollbarWidth = Math.max(0, Math.floor((window.innerWidth || root.clientWidth || 0) - (root.clientWidth || 0)));
   const currentPaddingRight = Number.parseFloat(bodyComputed?.paddingRight || "0") || 0;
   lockedPageScroll = scrollPosition;
@@ -123,15 +160,19 @@ const lockBodyScroll = (): void => {
   body.classList.add(LOCKED_BODY_CLASS);
   root.style.overflow = "hidden";
   root.style.overscrollBehavior = "none";
-  root.style.setProperty("scrollbar-gutter", "stable");
+  if (!isViewportWidthScrollLock) {
+    root.style.setProperty("scrollbar-gutter", "stable");
+  }
   body.style.position = "fixed";
   body.style.top = `-${scrollPosition.y}px`;
   body.style.left = `-${scrollPosition.x}px`;
   body.style.right = "0";
-  body.style.width = "100%";
+  body.style.width = isViewportWidthScrollLock && lockedLayoutWidth > 0
+    ? `${lockedLayoutWidth}px`
+    : "100%";
   body.style.overflow = "hidden";
   body.style.overscrollBehavior = "none";
-  if (scrollbarWidth > 0) {
+  if (!isViewportWidthScrollLock && scrollbarWidth > 0) {
     body.style.paddingRight = `${currentPaddingRight + scrollbarWidth}px`;
   }
   body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "true";
@@ -190,27 +231,66 @@ export const shouldSuppressMapInput = (event?: Event | null): boolean => {
   return suppressed;
 };
 
-export const openOverlay = (type: OverlayType): void => {
+const openOverlayEntry = (type: OverlayType, owner?: symbol): void => {
   if (overlayStack.length === 0) {
     lockBodyScroll();
   }
 
-  overlayStack.push({ type });
+  overlayStack.push({ type, owner });
 };
 
-export const closeOverlay = (_reason: string): void => {
-  if (overlayStack.length > 0) {
-    overlayStack.pop();
+const findOverlayEntryIndexByOwner = (owner: symbol): number => {
+  for (let index = overlayStack.length - 1; index >= 0; index -= 1) {
+    if (overlayStack[index]?.owner === owner) {
+      return index;
+    }
+  }
+
+  return -1;
+};
+
+const closeOverlayEntry = (_reason: string, owner?: symbol): boolean => {
+  const closeIndex = owner
+    ? findOverlayEntryIndexByOwner(owner)
+    : overlayStack.length - 1;
+  const hadEntry = closeIndex >= 0;
+
+  if (hadEntry) {
+    overlayStack.splice(closeIndex, 1);
   }
   suppressMapInputFor();
   if (overlayStack.length === 0) {
     unlockBodyScroll();
   }
+
+  return hadEntry;
+};
+
+export const openOverlay = (type: OverlayType): void => {
+  openOverlayEntry(type);
+};
+
+export const closeOverlay = (_reason: string): void => {
+  closeOverlayEntry(_reason);
 };
 
 export const isOverlayOpen = (): boolean => overlayStack.length > 0;
 
 export const getTopOverlay = (): OverlayType | null => overlayStack.at(-1)?.type ?? null;
+
+export const lockModalScroll = (_owner?: unknown): boolean => {
+  if (overlayStack.some((entry) => entry.owner === MODAL_SCROLL_LOCK_OWNER)) {
+    return true;
+  }
+
+  openOverlayEntry("generic", MODAL_SCROLL_LOCK_OWNER);
+  return true;
+};
+
+export const unlockModalScroll = (_owner?: unknown): boolean =>
+  closeOverlayEntry("modal scroll lock released", MODAL_SCROLL_LOCK_OWNER);
+
+export const isModalScrollLocked = (_owner?: unknown): boolean => isOverlayOpen();
 
 export const resetOverlayStateForTests = (): void => {
   unlockBodyScroll();
@@ -227,3 +307,11 @@ export const resetOverlayStateForTests = (): void => {
   lockedRootStyles = null;
   delete body.dataset[LOCKED_BODY_DATA_ATTRIBUTE];
 };
+
+if (typeof window !== "undefined") {
+  window.EmpireModalScrollLock = {
+    isLocked: isModalScrollLocked,
+    lock: lockModalScroll,
+    unlock: unlockModalScroll
+  };
+}

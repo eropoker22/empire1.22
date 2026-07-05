@@ -475,7 +475,7 @@ describe("faction core foundation", () => {
 
     expect(readModel?.activePassiveEffects).toEqual(expect.arrayContaining([
       "+15 % clean income",
-      "-3 % heat gain",
+      "-3 % heat z útoků, heistů, akcí budov a pasivního tlaku",
       "+10 % efekt obranných systémů",
       "+10 % délka útoků"
     ]));

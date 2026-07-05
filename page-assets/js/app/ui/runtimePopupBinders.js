@@ -9,13 +9,13 @@ function showOverlay(element, options = {}) {
   if (!isHtmlElement(element)) {
     return false;
   }
-  element.hidden = false;
-  element.classList.remove("hidden");
   openOverlay(element, {
     type: "modal",
     ariaModal: true,
     ...options
   });
+  element.hidden = false;
+  element.classList.remove("hidden");
   return true;
 }
 
@@ -23,9 +23,9 @@ function hideOverlay(element, options = {}) {
   if (!isHtmlElement(element)) {
     return false;
   }
-  closeOverlay(element, options);
   element.classList.add("hidden");
   element.hidden = true;
+  closeOverlay(element, options);
   return true;
 }
 
