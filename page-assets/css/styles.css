@@ -2525,6 +2525,19 @@ html body.game-body .wanted-popup-card .wanted-popup-hero {
   }
 }
 
+@media (max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body #profile-gang-card.right-panel-card .gang-profile-stars {
+    font-size: 0.78rem !important;
+    gap: 3px !important;
+    line-height: 1 !important;
+  }
+
+  html body.game-body #profile-gang-card.right-panel-card .gang-profile-stars > * {
+    font-size: inherit !important;
+    line-height: 1 !important;
+  }
+}
+
 html body.game-body .map-phase-toolbar .map-phase-button[data-border-toggle] {
   border-color: rgba(255, 89, 185, 0.24) !important;
   background:
@@ -3049,7 +3062,7 @@ html body.game-body #market-card .panel-action-button--feature::after {
 
   html body.game-body #game-left-nav.panel-action-stack > #building-shortcut-grid {
     position: relative !important;
-    padding-top: 14px !important;
+    padding-top: 24px !important;
   }
 
   html body.game-body #game-left-nav.panel-action-stack > #building-shortcut-grid::before {
@@ -3057,7 +3070,7 @@ html body.game-body #market-card .panel-action-button--feature::after {
     position: absolute !important;
     left: 10px !important;
     right: 10px !important;
-    top: 0 !important;
+    top: -6px !important;
     height: 1px !important;
     border-radius: 999px !important;
     background: linear-gradient(
@@ -3321,6 +3334,29 @@ html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__action-
     position: absolute !important;
     inset: 0 !important;
   }
+
+  html body.game-body.game-modal-scroll-locked:has(.storage-popup-shell[data-storage-popup]:not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(.storage-popup-shell[data-storage-popup]:not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.storage-popup-shell[data-storage-popup]:not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.storage-popup-shell[data-storage-popup]:not([hidden])) .game-resource-strip {
+    z-index: 20050 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(.storage-popup-shell[data-storage-popup]:not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.storage-popup-shell[data-storage-popup]:not([hidden])) .game-topbar * {
+    pointer-events: auto !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(.storage-popup-shell[data-storage-popup]:not([hidden])) .storage-popup-shell[data-storage-popup]:not([hidden]) {
+    padding-top: var(--mobile-topbar-offset, 72px) !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(.storage-popup-shell[data-storage-popup]:not([hidden])) .storage-popup-shell[data-storage-popup]:not([hidden]) .storage-popup-card {
+    max-height: calc(var(--mobile-locked-vh, 100dvh) - var(--mobile-topbar-offset, 72px) - max(8px, env(safe-area-inset-bottom))) !important;
+  }
 }
 
 @media (min-width: 721px) {
@@ -3331,7 +3367,7 @@ html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__action-
     z-index: 20050 !important;
     visibility: visible !important;
     opacity: 1 !important;
-    pointer-events: none !important;
+    pointer-events: auto !important;
   }
 
   html body.game-body.game-modal-scroll-locked .game-topbar .game-resource-strip,
@@ -3342,7 +3378,7 @@ html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__action-
   html body.game-body.alliance-modal-open .game-topbar .game-toolbar-button {
     visibility: visible !important;
     opacity: 1 !important;
-    pointer-events: none !important;
+    pointer-events: auto !important;
   }
 }
 
@@ -3359,6 +3395,39 @@ html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__action-
       var(--mobile-locked-vh, 100dvh)
       - var(--district-popup-mobile-top-offset)
       - max(10px, env(safe-area-inset-bottom))
+    ) !important;
+  }
+}
+
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])) .game-resource-strip {
+    z-index: 20050 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])) .game-topbar * {
+    pointer-events: auto !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])) .district-popup-shell:not([hidden]) {
+    --district-popup-mobile-top-offset: var(--mobile-topbar-offset, 72px);
+    --district-popup-mobile-bottom-offset: max(10px, env(safe-area-inset-bottom));
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding: var(--district-popup-mobile-top-offset) 8px var(--district-popup-mobile-bottom-offset) !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])) .district-popup-shell:not([hidden]) .district-popup-card {
+    max-height: calc(
+      var(--mobile-locked-vh, 100dvh)
+      - var(--district-popup-mobile-top-offset, 72px)
+      - var(--district-popup-mobile-bottom-offset, max(10px, env(safe-area-inset-bottom)))
     ) !important;
   }
 }

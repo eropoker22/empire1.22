@@ -221,11 +221,12 @@ export function createDistrictPopupMetricsRuntime(deps = {}) {
     const interactionState = getInteractionState();
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
     const isOwnedByCurrentPlayer = currentPlayerOwnedDistrictIds.has(Number(district.id));
-    setSummaryMetricCardHidden(elements.popupIncome, !isOwnedByCurrentPlayer);
     const isLaunchPhase = (interactionState.gamePhase || "launch") === "launch";
     const isHidden = isLaunchPhase && deps.isDistrictTypeHidden(district, interactionState) && !isOwnedByCurrentPlayer;
     const isDestroyed = interactionState.destroyedDistrictIds?.has?.(Number(district.id));
     const economySnapshot = deps.getDistrictEconomySnapshot(district);
+    setSummaryMetricCardHidden(elements.popupIncome, !isOwnedByCurrentPlayer);
+    setSummaryMetricCardHidden(elements.popupInfluence, isHidden);
 
     deps.renderDistrictMetricSummary({
       income: elements.popupIncome,

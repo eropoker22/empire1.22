@@ -120,6 +120,24 @@ describe("district popup metrics runtime", () => {
     expect(incomeCard.hidden).toBe(false);
   });
 
+  it("hides influence summary card for unknown foreign districts", () => {
+    const runtime = createRuntime({
+      isDistrictTypeHidden: (district) => Number(district.id) === 2
+    });
+    const influenceCard = { hidden: false };
+    runtime.testElements.popupInfluence.closest = (selector) =>
+      selector === ".district-popup-summary-card" ? influenceCard : null;
+
+    runtime.renderDistrictEconomySummary({ id: 2, districtType: "industrial" });
+    expect(influenceCard.hidden).toBe(true);
+
+    runtime.renderDistrictEconomySummary({ id: 3, districtType: "industrial" });
+    expect(influenceCard.hidden).toBe(false);
+
+    runtime.renderDistrictEconomySummary({ id: 1, districtType: "industrial" });
+    expect(influenceCard.hidden).toBe(false);
+  });
+
   it("renders passive district gossip in the popup card", () => {
     const runtime = createRuntime({
       ensureDistrictPassiveGossip: () => [

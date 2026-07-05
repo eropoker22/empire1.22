@@ -44,8 +44,9 @@ export const resolveBountyClaims = (
   state: CoreGameState,
   input: BountyClaimInput
 ): { nextState: CoreGameState; events: CoreEvent[]; claimedBounties: Bounty[] } => {
-  let nextState = expireBounties(state).nextState;
-  const events: CoreEvent[] = [];
+  const expiry = expireBounties(state);
+  let nextState = expiry.nextState;
+  const events: CoreEvent[] = [...expiry.events];
   const claimedBounties: Bounty[] = [];
 
   for (const bounty of Object.values(nextState.bountiesById || {})) {
@@ -87,7 +88,7 @@ const matchesBountyClaim = (bounty: Bounty, input: BountyClaimInput): boolean =>
   if (bounty.createdByPlayerId === input.actorPlayerId) return false;
   if (bounty.targetPlayerId !== input.targetPlayerId) return false;
   if (bounty.objectiveType === "attack-player") return input.successfulAttack;
-  if (bounty.objectiveType === "attack-district") return input.successfulAttack && bounty.targetDistrictId === input.targetDistrictId;
+  if (bounty.objectiveType === "attack-district") return input.capturesDistrict && bounty.targetDistrictId === input.targetDistrictId;
   if (bounty.objectiveType === "destroy-player-district") {
     return input.destroysDistrict && (!bounty.targetDistrictId || bounty.targetDistrictId === input.targetDistrictId);
   }

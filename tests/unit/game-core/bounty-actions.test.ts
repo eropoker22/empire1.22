@@ -121,6 +121,22 @@ describe("server-authoritative bounty actions", () => {
     expect(expired.events).toContainEqual(expect.objectContaining({ type: "bounty-expired" }));
   });
 
+  it("preserves lazy expiry events during regular bounty commands", () => {
+    const created = applyCommand(createBountyState(), createBountyCommand(), context).nextState;
+    const expiredTickState = {
+      ...created,
+      root: {
+        ...created.root,
+        tick: created.root.tick + Math.ceil(60 * 60 * 1000 / config.tickRateMs) + 1
+      }
+    };
+    const result = applyCommand(expiredTickState, createCancelBountyCommand(), context);
+
+    expect(result.nextState.bountiesById?.["bounty:command:bounty:create:1"].status).toBe("expired");
+    expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(10_000);
+    expect(result.events).toContainEqual(expect.objectContaining({ type: "bounty-expired" }));
+  });
+
   it("claims attack-player bounty after successful server action and prevents double payout", () => {
     const created = applyCommand(createBountyState(), createBountyCommand(), context).nextState;
     const claimed = resolveBountyClaims(created, {
@@ -152,6 +168,106 @@ describe("server-authoritative bounty actions", () => {
     expect(claimed.events).toContainEqual(expect.objectContaining({ type: "bounty-claimed" }));
     expect(secondClaim.nextState.resourceStatesById["resource:3"].balances.cash).toBe(6_000);
     expect(secondClaim.events).toEqual([]);
+  });
+
+  it("does not claim occupy district bounty after attack without capture", () => {
+    const created = applyCommand(
+      createBountyState(),
+      createBountyCommand({
+        payload: {
+          targetPlayerId: "player:2",
+          objectiveType: "attack-district",
+          targetDistrictId: "district:2",
+          rewardCleanCash: 5_000,
+          durationHours: 1,
+          isAnonymous: true
+        }
+      }),
+      context
+    ).nextState;
+
+    const result = resolveBountyClaims(created, {
+      actorPlayerId: "player:3",
+      targetPlayerId: "player:2",
+      targetDistrictId: "district:2",
+      actionType: "attack-district",
+      successfulAttack: true,
+      capturesDistrict: false,
+      destroysDistrict: false,
+      commandId: "command:attack:no-capture"
+    });
+
+    expect(result.claimedBounties).toEqual([]);
+    expect(result.events).toEqual([]);
+    expect(result.nextState.bountiesById?.["bounty:command:bounty:create:1"].status).toBe("active");
+    expect(result.nextState.resourceStatesById["resource:3"].balances.cash).toBe(1_000);
+  });
+
+  it("claims occupy district bounty after real district capture", () => {
+    const created = applyCommand(
+      createBountyState(),
+      createBountyCommand({
+        payload: {
+          targetPlayerId: "player:2",
+          objectiveType: "attack-district",
+          targetDistrictId: "district:2",
+          rewardCleanCash: 5_000,
+          durationHours: 1,
+          isAnonymous: true
+        }
+      }),
+      context
+    ).nextState;
+
+    const result = resolveBountyClaims(created, {
+      actorPlayerId: "player:3",
+      targetPlayerId: "player:2",
+      targetDistrictId: "district:2",
+      actionType: "attack-district",
+      successfulAttack: true,
+      capturesDistrict: true,
+      destroysDistrict: false,
+      commandId: "command:attack:capture"
+    });
+
+    expect(result.nextState.bountiesById?.["bounty:command:bounty:create:1"]).toMatchObject({
+      status: "claimed",
+      claimedByPlayerId: "player:3"
+    });
+    expect(result.nextState.resourceStatesById["resource:3"].balances.cash).toBe(6_000);
+    expect(result.events).toContainEqual(expect.objectContaining({ type: "bounty-claimed" }));
+  });
+
+  it("rejects creator self-claim even when the server action matches", () => {
+    const created = applyCommand(
+      createBountyState(),
+      createBountyCommand({
+        payload: {
+          targetPlayerId: "player:2",
+          objectiveType: "attack-district",
+          targetDistrictId: "district:2",
+          rewardCleanCash: 5_000,
+          durationHours: 1,
+          isAnonymous: true
+        }
+      }),
+      context
+    ).nextState;
+
+    const result = resolveBountyClaims(created, {
+      actorPlayerId: "player:1",
+      targetPlayerId: "player:2",
+      targetDistrictId: "district:2",
+      actionType: "attack-district",
+      successfulAttack: true,
+      capturesDistrict: true,
+      destroysDistrict: false,
+      commandId: "command:attack:self-claim"
+    });
+
+    expect(result.claimedBounties).toEqual([]);
+    expect(result.events).toEqual([]);
+    expect(result.nextState.bountiesById?.["bounty:command:bounty:create:1"].status).toBe("active");
   });
 
   it("does not claim bounty for failed or wrong-target attacks", () => {

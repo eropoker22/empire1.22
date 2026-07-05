@@ -1016,8 +1016,10 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
   }
 
   #alliance-chat-card #alliance-btn {
-    width: min(100%, calc(100vw - 18px)) !important;
-    min-width: min(330px, calc(100vw - 18px)) !important;
+    width: min(100%, calc(100vw - 12px)) !important;
+    min-width: min(340px, calc(100vw - 12px)) !important;
+    min-height: 48px !important;
+    padding: 5px 10px !important;
     justify-self: stretch !important;
   }
 

@@ -14,7 +14,7 @@ export interface BountyReadModelProjectionContext {
 
 const OBJECTIVE_LABELS: Record<BountyObjectiveType, string> = {
   "attack-player": "Útok na hráče",
-  "attack-district": "Útok na district",
+  "attack-district": "Obsadit district",
   "destroy-player-district": "Zničení districtu"
 };
 

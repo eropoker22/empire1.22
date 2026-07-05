@@ -256,7 +256,7 @@ describe("alliance alpha UI", () => {
     expect(css).toContain("margin-top: -8px;");
     expect(mobileCss).toContain("Mobile global chat: show about three messages");
     expect(mobileCss).toContain("#alliance-chat-card #alliance-btn");
-    expect(mobileCss).toContain("min-width: min(330px, calc(100vw - 18px)) !important;");
+    expect(mobileCss).toContain("min-width: min(340px, calc(100vw - 12px)) !important;");
     expect(mobileCss).toContain("#global-chat-card .server-chat-panel__feed");
     expect(mobileCss).toContain("max-height: 150px !important;");
     expect(mobileCss).toContain("scrollbar-width: none !important;");

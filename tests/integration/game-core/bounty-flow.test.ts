@@ -15,7 +15,7 @@ describe("bounty server-authoritative core flow", () => {
       nowTick: created.nextState.root.tick,
       tickRateMs: config.tickRateMs
     });
-    const claimed = resolveBountyClaims(created.nextState, {
+    const attackOnly = resolveBountyClaims(created.nextState, {
       actorPlayerId: "player:3",
       targetPlayerId: "player:2",
       targetDistrictId: "district:2",
@@ -25,6 +25,16 @@ describe("bounty server-authoritative core flow", () => {
       destroysDistrict: false,
       commandId: "command:attack:bounty-integration"
     });
+    const claimed = resolveBountyClaims(attackOnly.nextState, {
+      actorPlayerId: "player:3",
+      targetPlayerId: "player:2",
+      targetDistrictId: "district:2",
+      actionType: "attack-district",
+      successfulAttack: true,
+      capturesDistrict: true,
+      destroysDistrict: false,
+      commandId: "command:attack:bounty-integration:capture"
+    });
 
     expect(created.errors).toEqual([]);
     expect(created.nextState.resourceStatesById["resource:1"].balances.cash).toBe(5_000);
@@ -33,6 +43,8 @@ describe("bounty server-authoritative core flow", () => {
       targetDistrictId: "district:2",
       canCancel: true
     });
+    expect(attackOnly.nextState.bountiesById?.["bounty:command:bounty:integration"].status).toBe("active");
+    expect(attackOnly.nextState.resourceStatesById["resource:3"].balances.cash).toBe(1_000);
     expect(claimed.nextState.bountiesById?.["bounty:command:bounty:integration"].status).toBe("claimed");
     expect(claimed.nextState.resourceStatesById["resource:3"].balances.cash).toBe(6_000);
   });

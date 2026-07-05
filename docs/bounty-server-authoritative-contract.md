@@ -50,7 +50,7 @@ The client must not send status, claim data, payout data, balance mutations, tim
 ## Objective Types
 
 - `attack-player`: claimed after a successful server attack against any active district owned by the target player.
-- `attack-district`: claimed after a successful server attack against the selected target district.
+- `attack-district`: displayed as "Obsadit district" and claimed only after the server reports that the selected target district was captured/occupied.
 - `destroy-player-district`: claimed after a server action reports `destroysDistrict: true` for the target player. With `targetDistrictId: null`, any target district can match.
 
 ## Escrow
@@ -83,6 +83,12 @@ Expiry is tick-based. `expireBounties` can run lazily during bounty commands or 
 - `recentBountyEvents`
 
 The UI must render targets and district choices from this read model. It must not derive targets from legacy map owner constants as authority.
+
+## Alpha Demo Targets
+
+Production alpha should not fabricate bounty targets. If the server read model has no `eligibleTargets`, the UI shows an empty state and waits for server data.
+
+For local/dev visual testing, enable demo bounty targets with `EMPIRE_ENABLE_BOUNTY_DEMO_TARGETS=1` in the server environment.
 
 ## UI Responsibilities
 

@@ -1,5 +1,13 @@
 import { submitServerBountyCommand } from "./runtime.js";
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
+import {
+  getBountyDisplayLabel,
+  getBountyDisplayType,
+  getBountyDistrictLabel,
+  getBountyIconType,
+  getBountyRemainingMs,
+  withBountyCountdownSnapshot
+} from "./bounty-view-helpers.js";
 
 const PAGE_SELECTOR = 'main[data-page="game"]';
 const BOUNTY_STORAGE_KEY = "empireStreets.bounty.v1";
@@ -115,7 +123,7 @@ function formatRewardValue(amount) {
 function formatDurationMs(ms) {
   const totalSeconds = Math.max(0, Math.ceil(Number(ms || 0) / 1000));
   if (totalSeconds <= 0) {
-    return "exp";
+    return "Vypršelo";
   }
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -128,20 +136,27 @@ function formatDurationMs(ms) {
 }
 
 function formatObjectiveLabel(objectiveType) {
-  return OBJECTIVE_COPY[objectiveType]?.label || OBJECTIVE_COPY["attack-player"].label;
+  const displayType = typeof objectiveType === "object" ? getBountyDisplayType(objectiveType) : String(objectiveType || "attack-player");
+  return OBJECTIVE_COPY[displayType]?.label || getBountyDisplayLabel({ objectiveType: displayType });
 }
 
 function formatObjectiveIcon(objectiveType) {
-  if (objectiveType === "attack-district") {
+  const displayType = typeof objectiveType === "object" ? getBountyIconType(objectiveType) : String(objectiveType || "attack-player");
+  if (displayType === "attack-district") {
     return "♜";
   }
-  if (objectiveType === "destroy-player-district") {
+  if (displayType === "destroy-player-district") {
     return "✹";
   }
-  if (objectiveType === "destroy-selected-district") {
+  if (displayType === "destroy-selected-district") {
     return "⌁";
   }
   return "⌖";
+}
+
+function formatBountyRemainingLabel(entry) {
+  const remainingMs = getBountyRemainingMs(entry);
+  return remainingMs > 0 ? formatDurationMs(remainingMs) : "Čeká na refresh";
 }
 
 function formatBountyStatus(status) {
@@ -307,8 +322,13 @@ function isDevOnlyBountyFallbackEnabled() {
 function withDevBountyTargets(readModel, localBounties = []) {
   const base = readModel || createEmptyBountyReadModel();
   const targets = Array.isArray(base.eligibleTargets) ? base.eligibleTargets : [];
+  const receivedAtMs = Date.now();
   if (!isDevOnlyBountyFallbackEnabled()) {
-    return base;
+    return {
+      ...base,
+      activeBounties: (Array.isArray(base.activeBounties) ? base.activeBounties : [])
+        .map((entry) => Number.isFinite(Number(entry?._bountyReceivedAtMs)) ? entry : withBountyCountdownSnapshot(entry, receivedAtMs))
+    };
   }
   const activeBountiesById = new Map();
   for (const entry of [
@@ -332,7 +352,8 @@ function withDevBountyTargets(readModel, localBounties = []) {
           ...target,
           districts: target.districts.map((district) => ({ ...district }))
         })),
-    activeBounties: Array.from(activeBountiesById.values()),
+    activeBounties: Array.from(activeBountiesById.values())
+      .map((entry) => Number.isFinite(Number(entry?._bountyReceivedAtMs)) ? entry : withBountyCountdownSnapshot(entry, receivedAtMs)),
     isDevOnlyFallback: targets.length === 0 || Boolean(base.isDevOnlyFallback)
   };
 }
@@ -542,13 +563,16 @@ function initBountyRuntime() {
   const renderTargetOptions = () => {
     const targets = getTargets();
     const previous = String(targetSelect.value || "").trim();
+    const devHelp = isDevOnlyBountyFallbackEnabled()
+      ? '<small>Pro demo cíle nastav EMPIRE_ENABLE_BOUNTY_DEMO_TARGETS=1.</small>'
+      : "";
     targetSelect.innerHTML = targets.length
       ? targets.map((target) => {
           const disabled = target.canTarget ? "" : " disabled";
           const suffix = target.disabledReason ? ` · ${target.disabledReason}` : ` · ${target.activeDistrictCount} districtů`;
           return `<option value="${escapeHtml(target.playerId)}"${disabled}>${escapeHtml(`${target.name}${suffix}`)}</option>`;
         }).join("")
-      : '<option value="">Dev fallback nenašel cíle</option>';
+      : '<option value="">Žádní dostupní hráči</option>';
 
     if (targets.some((target) => target.canTarget && String(target.playerId) === previous)) {
       targetSelect.value = previous;
@@ -574,7 +598,13 @@ function initBountyRuntime() {
               `).join("")}
             </div>
           `
-        : '<div class="bounty-board__target-empty">Dev fallback zatím nenašel dostupné cíle.</div>';
+        : `
+            <div class="bounty-board__target-empty">
+              <strong>Žádní dostupní hráči</strong>
+              <span>Bounty lze vypsat, až server pošle cíle.</span>
+              ${devHelp}
+            </div>
+          `;
       syncTargetPickerSelection();
     }
   };
@@ -793,19 +823,20 @@ function initBountyRuntime() {
 
     boardBody.innerHTML = activeEntries.map((entry) => {
       const canCancel = Boolean(entry.canCancel);
-      const objectiveType = String(entry.objectiveType || "attack-player");
-      const objectiveLabel = entry.objectiveLabel || formatObjectiveLabel(objectiveType);
-      const objectiveIcon = formatObjectiveIcon(objectiveType);
+      const displayType = getBountyDisplayType(entry);
+      const objectiveLabel = getBountyDisplayLabel(entry);
+      const objectiveIcon = formatObjectiveIcon(entry);
       const targetLabel = entry.targetPlayerName || entry.targetDistrictName || entry.targetPlayerId || "Neznámý cíl";
       const targetAvatarSrc = resolveBountyAvatarSrc(entry, targets);
       const targetMeta = entry.targetDistrictName && entry.targetPlayerName ? entry.targetDistrictName : "Bounty cíl";
-      const needsDistrict = objectiveType === "attack-district" || objectiveType === "destroy-selected-district";
-      const districtLabel = needsDistrict ? (entry.targetDistrictName || entry.targetDistrictId || "—") : "—";
+      const districtLabel = displayType === "attack-district" || displayType === "destroy-selected-district"
+        ? getBountyDistrictLabel(entry)
+        : "—";
       const status = String(entry.status || "active");
       const statusLabel = formatBountyStatus(status);
       const creatorLabel = formatBountyCreator(entry);
       const isAnonymousCreator = creatorLabel === "Anonymní";
-      const remainingLabel = status === "active" && entry.remainingMs ? formatDurationMs(entry.remainingMs) : "";
+      const remainingLabel = status === "active" ? formatBountyRemainingLabel(entry) : "";
       return `
         <tr data-bounty-row="${escapeHtml(entry.bountyId)}" data-bounty-status="${escapeHtml(status)}">
           <td data-label="CÍL">
@@ -880,6 +911,28 @@ function initBountyRuntime() {
     publishBountyState();
   };
 
+  const stopRefreshTimer = () => {
+    if (uiState.refreshTimerId !== null) {
+      window.clearInterval(uiState.refreshTimerId);
+      uiState.refreshTimerId = null;
+    }
+  };
+
+  const startRefreshTimer = () => {
+    if (uiState.refreshTimerId !== null) {
+      return;
+    }
+    uiState.refreshTimerId = window.setInterval(() => {
+      if (!uiState.isOpen) {
+        stopRefreshTimer();
+        return;
+      }
+      renderBoard();
+      syncPreview();
+      publishBountyState();
+    }, BOUNTY_REFRESH_MS);
+  };
+
   const openModal = () => {
     openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     modal.hidden = false;
@@ -887,6 +940,7 @@ function initBountyRuntime() {
     uiState.isOpen = true;
     syncTabs();
     refreshView();
+    startRefreshTimer();
   };
 
   const closeModal = () => {
@@ -897,6 +951,7 @@ function initBountyRuntime() {
     modal.hidden = true;
     closeOverlay(modal, { restoreFocus: false });
     uiState.isOpen = false;
+    stopRefreshTimer();
   };
 
   const openConfirmModal = (preview) => {
@@ -926,7 +981,7 @@ function initBountyRuntime() {
   const createDevLocalBounty = (preview) => {
     const now = Date.now();
     const targetDistrictName = preview.selectedDistrict?.name || (preview.selectedDistrictId ? preview.selectedDistrictId : null);
-    return {
+    return withBountyCountdownSnapshot({
       bountyId: `dev-bounty-${now}`,
       targetPlayerId: preview.target.playerId,
       targetPlayerName: preview.target.name,
@@ -943,7 +998,7 @@ function initBountyRuntime() {
       isOwn: true,
       canCancel: true,
       cancelDisabledReason: null
-    };
+    }, now);
   };
 
   const handleSubmit = () => {
@@ -1259,18 +1314,8 @@ function initBountyRuntime() {
     }
   });
 
-  uiState.refreshTimerId = window.setInterval(() => {
-    if (uiState.isOpen) {
-      renderBoard();
-      syncPreview();
-    }
-    publishBountyState();
-  }, BOUNTY_REFRESH_MS);
-
   window.addEventListener("beforeunload", () => {
-    if (uiState.refreshTimerId !== null) {
-      window.clearInterval(uiState.refreshTimerId);
-    }
+    stopRefreshTimer();
   });
 
   window.Empire = window.Empire || {};

@@ -25,6 +25,7 @@ let pendingAllianceCommand = false;
 let lastAllianceMemberAvatarTrigger = null;
 let allianceCountdownTimer = null;
 let allianceModalAutoOpenedOnLoad = false;
+let allianceCreateInfluenceObserver = null;
 
 const qs = (id) => document.getElementById(id);
 const ALLIANCE_MODAL_IDS = [
@@ -363,6 +364,9 @@ const getCurrentPlayerInfluenceForAllianceCreate = () => {
 const hasRequiredInfluenceForAllianceCreate = () =>
   getCurrentPlayerInfluenceForAllianceCreate() >= ALLIANCE_CREATE_REQUIRED_INFLUENCE;
 
+const getAllianceCreateInfluenceRequirementMessage = () =>
+  `Vytvořit alianci půjde až od ${ALLIANCE_CREATE_REQUIRED_INFLUENCE} vlivu. Teď máš ${getCurrentPlayerInfluenceForAllianceCreate()}.`;
+
 const createDevOnlyAllianceMembers = (currentPlayerId, readyDueAt) =>
   DEV_ONLY_ALLIANCE_DEMO_MEMBERS.map((member) => ({
     playerId: member.key === "current" ? currentPlayerId : member.playerId,
@@ -690,6 +694,9 @@ const toPlayerFacingMessage = (value, fallback) => {
 
 const getCreateDisabledReason = (reason) => {
   const normalized = String(reason || "").trim();
+  if (normalized === "ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE") {
+    return getAllianceCreateInfluenceRequirementMessage();
+  }
   if (!normalized) return "Vytvoření aliance není dostupné.";
   return toPlayerFacingMessage(normalized, "Vytvoření aliance není dostupné.");
 };
@@ -1484,8 +1491,11 @@ const renderReadyBlock = (activeAlliance, { management = false, hideLabel = fals
 };
 
 const renderCreateAllianceCard = (board) => {
-  const canCreate = board?.canCreateAlliance === true;
-  const disabledReason = canCreate ? "" : getCreateDisabledReason(board?.createDisabledReason);
+  const hasInfluence = hasRequiredInfluenceForAllianceCreate();
+  const canCreate = board?.canCreateAlliance === true && hasInfluence;
+  const disabledReason = canCreate
+    ? ""
+    : getCreateDisabledReason(hasInfluence ? board?.createDisabledReason : "ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE");
   const maxMembers = Number(board?.maxAllianceSize || MAX_ALLIANCE_SIZE_FALLBACK);
   return `
     <section class="alliance-create-card">
@@ -1880,10 +1890,13 @@ const resetCreateForm = () => {
 
 const syncCreateModalState = () => {
   refreshDevOnlyCreateEligibility();
-  const canCreate = latestAllianceBoard?.canCreateAlliance === true;
+  const hasInfluence = hasRequiredInfluenceForAllianceCreate();
+  const canCreate = latestAllianceBoard?.canCreateAlliance === true && hasInfluence;
   const name = String(qs("alliance-create-name")?.value || "").trim();
   const nameReason = name && name.length > MAX_ALLIANCE_NAME_LENGTH ? getCreateNameValidationMessage(name) : "";
-  const reason = canCreate ? nameReason : getCreateDisabledReason(latestAllianceBoard?.createDisabledReason);
+  const reason = canCreate
+    ? nameReason
+    : getCreateDisabledReason(hasInfluence ? latestAllianceBoard?.createDisabledReason : "ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE");
   const button = qs("alliance-create-btn");
   const reasonEl = qs("alliance-create-disabled-reason");
   const input = qs("alliance-create-name");
@@ -1892,8 +1905,9 @@ const syncCreateModalState = () => {
   }
   if (button) {
     button.disabled = !canCreate || Boolean(nameReason);
-    button.title = reason;
-    button.textContent = "Vytvořit alianci";
+    button.title = reason || "Vytvořit alianci";
+    button.textContent = "Vytvořit";
+    button.setAttribute("aria-label", "Vytvořit alianci");
   }
   if (reasonEl) {
     reasonEl.textContent = reason;
@@ -1906,6 +1920,29 @@ const openCreateModal = () => {
   renderColorPicker();
   syncCreateModalState();
   setModalVisible(qs("alliance-create-modal"), true);
+};
+
+const refreshCreateUiFromInfluence = () => {
+  if (refreshDevOnlyCreateEligibility()) {
+    renderAllianceState();
+  }
+  syncCreateModalState();
+};
+
+const bindAllianceCreateInfluenceWatcher = () => {
+  if (allianceCreateInfluenceObserver || typeof MutationObserver !== "function") {
+    return;
+  }
+  const influenceElement = document.querySelector("[data-topbar-influence]");
+  if (!influenceElement) {
+    return;
+  }
+  allianceCreateInfluenceObserver = new MutationObserver(refreshCreateUiFromInfluence);
+  allianceCreateInfluenceObserver.observe(influenceElement, {
+    childList: true,
+    characterData: true,
+    subtree: true
+  });
 };
 
 const openAllianceExitModal = (requestedMode = "") => {
@@ -2261,6 +2298,11 @@ const bindAllianceRuntime = () => {
     const name = String(qs("alliance-create-name")?.value || "").trim();
     const tag = getSelectedIconOption().tag;
     const emblemColor = getSelectedAllianceColor();
+    if (!hasRequiredInfluenceForAllianceCreate()) {
+      notify(getCreateDisabledReason("ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE"));
+      syncCreateModalState();
+      return;
+    }
     if (latestAllianceBoard?.canCreateAlliance !== true) {
       notify(getCreateDisabledReason(latestAllianceBoard?.createDisabledReason));
       syncCreateModalState();
@@ -2513,6 +2555,7 @@ const bindAllianceRuntime = () => {
   renderGlobalServerChat();
   renderIconPicker();
   renderColorPicker();
+  bindAllianceCreateInfluenceWatcher();
   syncCreateModalState();
   latestAllianceBoard = createDevOnlyAllianceBoard(latestAllianceBoard);
   rerenderAll();

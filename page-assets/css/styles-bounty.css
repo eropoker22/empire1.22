@@ -1,7 +1,11 @@
 /* Final simplified bounty flow: target, reward, bounty type, active board, confirm button. */
-*,
-*::before,
-*::after {
+.bounty-board-modal,
+.bounty-board-modal *,
+.bounty-board-modal *::before,
+.bounty-board-modal *::after,
+.map-bounty-shortcut,
+.map-bounty-shortcut::before,
+.map-bounty-shortcut::after {
   box-sizing: border-box;
 }
 
@@ -166,17 +170,6 @@
   background: rgba(120, 8, 38, 0.28);
   border-color: rgba(255, 63, 143, 0.28);
   box-shadow: 0 0 18px rgba(255, 47, 95, 0.14);
-}
-
-.bounty-board__tab.is-active::after {
-  position: absolute;
-  right: 14px;
-  bottom: 4px;
-  left: 14px;
-  height: 2px;
-  content: "";
-  background: linear-gradient(90deg, #ff2f5f, #f7c948);
-  border-radius: 999px;
 }
 
 .bounty-board-modal .modal__close {
@@ -571,6 +564,29 @@
 .bounty-board__target-option:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+.bounty-board__target-empty {
+  display: grid;
+  gap: 3px;
+}
+
+.bounty-board__target-empty strong,
+.bounty-board__target-empty span,
+.bounty-board__target-empty small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bounty-board__target-empty strong {
+  color: #f8fafc;
+  font-size: 0.78rem;
+}
+
+.bounty-board__target-empty span,
+.bounty-board__target-empty small {
+  color: #94a3b8;
+  font-size: 0.68rem;
 }
 
 .bounty-board__target-option-name,

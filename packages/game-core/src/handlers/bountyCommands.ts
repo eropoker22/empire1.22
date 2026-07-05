@@ -24,10 +24,15 @@ export const handleBountyCommand = (
   command: BountyCommand,
   context: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
-  const currentState = expireBounties(state, context).nextState;
-  return command.type === "create-bounty"
+  const expiry = expireBounties(state, context);
+  const currentState = expiry.nextState;
+  const result = command.type === "create-bounty"
     ? createBounty(currentState, command, context)
     : cancelBounty(currentState, command);
+  return {
+    ...result,
+    events: [...expiry.events, ...result.events]
+  };
 };
 
 export const createBounty = (
