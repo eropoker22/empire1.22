@@ -326,9 +326,7 @@ export function isOnboardingDefeated(readModel = {}) {
 }
 
 export function getOnboardingTargetSelector(stepId, readModel = {}) {
-  if (stepId === "production" && !readModel.hasProductionBuilding) {
-    return null;
-  }
+  void readModel;
   return getRegistryTargetSelector(stepId);
 }
 
@@ -338,13 +336,11 @@ export function resolveOnboardingStepState(step = {}, readModel = {}, root = nul
       status: "defeated",
       target: null,
       missingTarget: false,
-      fallback: "Tenhle server tě vyplivl a ještě si odplivl. Prohra, ó tragický mistře špatného pořadí. Sleduj mapu jako mrtvý svědek, nebo běž na další server a tentokrát nebuď dole."
+      fallback: "Hráč je vyřazený z aktivní demo smyčky. Vrať se do lobby nebo začni novou session."
     };
   }
 
-  const selector = step.id === "production" && !readModel.hasProductionBuilding
-    ? null
-    : (step.targetSelector || getOnboardingTargetSelector(step.id, readModel));
+  const selector = step.targetSelector || getOnboardingTargetSelector(step.id, readModel);
   const target = selector && root?.querySelector ? root.querySelector(selector) : null;
   const fallbackSource = step.fallbackBody ?? step.fallback;
   const fallback = typeof fallbackSource === "function" ? fallbackSource(readModel) : fallbackSource;
@@ -355,7 +351,7 @@ export function resolveOnboardingStepState(step = {}, readModel = {}, root = nul
     target,
     targetSelector: selector,
     missingTarget,
-    fallbackTitle: target ? null : (step.fallbackTitle || "Tenhle kus UI se schoval."),
-    fallback: target ? null : (fallback || "Tahle část UI teď není dostupná. Pokračuj dál, pravidla zůstávají na serveru.")
+    fallbackTitle: target ? null : (step.fallbackTitle || "Cíl teď není dostupný."),
+    fallback: target ? null : (fallback || "Tahle část UI teď není dostupná. Pokračuj dál, pravidla hry se nemění.")
   };
 }

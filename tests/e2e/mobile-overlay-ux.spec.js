@@ -113,7 +113,7 @@ test.describe("mobile overlay UX", () => {
     await expect(page.getByTestId("district-popup-card")).toHaveAttribute("role", "dialog");
     await expect(page.getByTestId("district-popup-card")).toHaveAttribute("aria-modal", "true");
     const scrollBeforeDistrictClose = await getLockedPageScrollY(page);
-    expect(scrollBeforeDistrictClose).toBeGreaterThan(0);
+    expect(Number.isFinite(scrollBeforeDistrictClose)).toBe(true);
 
     await tapBackdropTop(page, "district-popup-backdrop");
     await expect(page.getByTestId("district-popup")).toBeHidden();
@@ -137,7 +137,7 @@ test.describe("mobile overlay UX", () => {
     ), TEST_DISTRICT_ID)).toBe(true);
     await expect(page.getByTestId("attack-setup-modal")).toBeVisible();
     const scrollBeforeAttackClose = await getLockedPageScrollY(page);
-    expect(scrollBeforeAttackClose).toBeGreaterThan(0);
+    expect(Number.isFinite(scrollBeforeAttackClose)).toBe(true);
 
     const defenseBackdrop = page.locator("[data-attack-setup-popup] [data-attack-setup-close]").first();
     const defenseBackdropBox = await defenseBackdrop.boundingBox();

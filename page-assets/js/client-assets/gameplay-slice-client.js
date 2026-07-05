@@ -2493,6 +2493,12 @@ var EmpireGameplaySliceClient = function(exports) {
     root.dataset.gameplayRuntime = marker;
     root.dataset.gameplaySliceRuntime = marker;
     root.dataset.gameplaySliceEndpoint = details.endpoint ?? root.dataset.gameplaySliceEndpoint ?? "";
+    const serverRuntime = details.serverRuntime ?? (marker === "server-authoritative-ready" || marker === "server-authoritative-error" ? marker : null);
+    if (serverRuntime) {
+      root.dataset.gameplayServerRuntime = serverRuntime;
+    } else {
+      delete root.dataset.gameplayServerRuntime;
+    }
     if (details.error) {
       root.dataset.gameplaySliceError = sanitizeDiagnosticText(details.error, 180);
     } else {
@@ -2505,6 +2511,11 @@ var EmpireGameplaySliceClient = function(exports) {
     }
     if (typeof document !== "undefined" && document.body) {
       document.body.dataset.gameplayRuntime = marker;
+      if (serverRuntime) {
+        document.body.dataset.gameplayServerRuntime = serverRuntime;
+      } else {
+        delete document.body.dataset.gameplayServerRuntime;
+      }
       if (details.fallback) {
         document.body.dataset.gameplayFallback = details.fallback;
       } else {
@@ -2543,7 +2554,10 @@ var EmpireGameplaySliceClient = function(exports) {
   const mountGameplaySlicePage = (options) => {
     const request = resolveGameplaySliceBootstrapRequest(options.root.dataset, getBrowserStorage());
     if (!request) {
-      setGameplayRuntimeMarker(options.root, "legacy-fallback");
+      setGameplayRuntimeMarker(options.root, "demo-ready", {
+        fallback: "legacy",
+        serverRuntime: "not-requested"
+      });
       options.root.hidden = true;
       return null;
     }
@@ -2582,10 +2596,11 @@ var EmpireGameplaySliceClient = function(exports) {
     const hideUnavailableGameplaySlice = (state = null) => {
       const message = (state == null ? void 0 : state.connection.lastErrorMessage) || "Gameplay slice did not return an authoritative read model.";
       const endpoint = `${endpointBase}/load`;
-      setGameplayRuntimeMarker(options.root, "server-authoritative-error", {
+      setGameplayRuntimeMarker(options.root, "demo-ready", {
         endpoint,
         error: message,
-        fallback: "legacy"
+        fallback: "legacy",
+        serverRuntime: "server-authoritative-error"
       });
       writeGameplaySliceDiagnostic(endpoint, message);
       options.root.dataset.gameplaySliceUnavailable = "true";

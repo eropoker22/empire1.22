@@ -38,6 +38,7 @@ These files remain because the current production static page still depends on t
 Runtime markers:
 
 - `initializing`: the slice has a valid bootstrap request and is loading `/api/gameplay-slice/load`.
+- `demo-ready`: development/demo UI is running through localStorage/legacy fallback; this is allowed for Netlify demo builds but is not a server-authoritative multiplayer success.
 - `server-authoritative-ready`: the server-fed read model loaded and the slice is visible.
 - `server-authoritative-error`: the slice attempted to load but the endpoint/network/response failed; local diagnostics show the endpoint and sanitized error while legacy remains active.
 - `legacy-fallback`: no server-fed bootstrap request exists.
@@ -45,8 +46,10 @@ Runtime markers:
 ## Smoke Commands
 
 - `npm run smoke:ui:legacy`: static legacy page wiring only.
-- `npm run smoke:free-session`: browser free-session UX pass against the local game URL; it seeds session before navigation and expects `server-authoritative-ready` by default.
-- `npm run smoke:gameplay-slice`: self-contained server-authoritative smoke. It starts `vite.game.config.ts`, verifies `/api/gameplay-slice/load`, submits one enabled server-fed building action, spy action, and attack action, verifies the returned read models, confirms non-success spy results do not unlock occupy, and fails on legacy-only fallback or legacy mutation events.
+- `npm run smoke:free-session`: browser demo/free-session UX pass against the local game URL; it seeds localStorage before navigation and expects `demo-ready`.
+- `npm run smoke:free-session:server`: server-authoritative variant of the free-session UX pass; it expects `server-authoritative-ready`.
+- `npm run smoke:gameplay-slice`: self-contained server-authoritative smoke with demo-friendly skip when the gameplay session/server is not connected yet.
+- `npm run smoke:gameplay-slice:server`: strict closed-alpha server smoke. It starts `vite.game.config.ts`, verifies `/api/gameplay-slice/load`, submits one enabled server-fed building action, spy action, and attack action, verifies the returned read models, confirms non-success spy results do not unlock occupy, and fails on demo/legacy fallback or legacy mutation events.
 - `npm run test:e2e:smoke`: Playwright smoke; its web server now uses `vite.game.config.ts`, so API routes are present during browser flow tests.
 
 ## Migrated Gameplay Slice Actions

@@ -2614,6 +2614,20 @@ html body.game-body .wanted-popup-card .wanted-popup-police-toggle[aria-expanded
   color: #ffffff !important;
 }
 
+/* Final demo modal layer: wanted police help must stay above storage/heat popup cards. */
+html body.game-body .wanted-popup-shell:not([hidden]) {
+  z-index: 21000 !important;
+}
+
+html body.game-body .wanted-popup-shell:not([hidden]) .wanted-popup-card {
+  z-index: 21010 !important;
+}
+
+html body.game-body .wanted-popup-shell:not([hidden]) > .wanted-popup-police-window,
+html body.game-body .wanted-popup-shell:not([hidden]) .wanted-popup-card .wanted-popup-police-window {
+  z-index: 21020 !important;
+}
+
 html body.game-body #global-chat-card.right-panel-card {
   border-color: rgba(125, 211, 252, 0.12) !important;
   background:
@@ -3407,12 +3421,12 @@ html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__action-
     z-index: 20050 !important;
     visibility: visible !important;
     opacity: 1 !important;
-    pointer-events: auto !important;
+    pointer-events: none !important;
   }
 
   html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])) .game-topbar,
   html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])) .game-topbar * {
-    pointer-events: auto !important;
+    pointer-events: none !important;
   }
 
   html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])) .district-popup-shell:not([hidden]) {
@@ -3429,5 +3443,66 @@ html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__action-
       - var(--district-popup-mobile-top-offset, 72px)
       - var(--district-popup-mobile-bottom-offset, max(10px, env(safe-area-inset-bottom)))
     ) !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(:is(
+    #attack-confirm-modal:not(.hidden):not([hidden]),
+    #raid-confirm-modal:not(.hidden):not([hidden]),
+    #trap-confirm-modal:not(.hidden):not([hidden]),
+    #spy-confirm-modal:not(.hidden):not([hidden]),
+    #occupy-confirm-modal:not(.hidden):not([hidden]),
+    .attack-setup-popup-shell:not([hidden]),
+    .robbery-setup-popup-shell:not([hidden])
+  )) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(:is(
+    #attack-confirm-modal:not(.hidden):not([hidden]),
+    #raid-confirm-modal:not(.hidden):not([hidden]),
+    #trap-confirm-modal:not(.hidden):not([hidden]),
+    #spy-confirm-modal:not(.hidden):not([hidden]),
+    #occupy-confirm-modal:not(.hidden):not([hidden]),
+    .attack-setup-popup-shell:not([hidden]),
+    .robbery-setup-popup-shell:not([hidden])
+  )) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(:is(
+    #attack-confirm-modal:not(.hidden):not([hidden]),
+    #raid-confirm-modal:not(.hidden):not([hidden]),
+    #trap-confirm-modal:not(.hidden):not([hidden]),
+    #spy-confirm-modal:not(.hidden):not([hidden]),
+    #occupy-confirm-modal:not(.hidden):not([hidden]),
+    .attack-setup-popup-shell:not([hidden]),
+    .robbery-setup-popup-shell:not([hidden])
+  )) .game-resource-strip {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked :is(
+    #attack-confirm-modal,
+    #raid-confirm-modal,
+    #trap-confirm-modal,
+    #spy-confirm-modal,
+    #occupy-confirm-modal
+  ):not(.hidden):not([hidden]),
+  html body.game-body.game-modal-scroll-locked :is(
+    .attack-setup-popup-shell,
+    .robbery-setup-popup-shell
+  ):not([hidden]) {
+    z-index: 23000 !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked :is(
+    #attack-confirm-modal,
+    #raid-confirm-modal,
+    #trap-confirm-modal,
+    #spy-confirm-modal,
+    #occupy-confirm-modal
+  ):not(.hidden):not([hidden]) .district-action-confirm-popup-card,
+  html body.game-body.game-modal-scroll-locked :is(
+    .attack-setup-popup-shell,
+    .robbery-setup-popup-shell
+  ):not([hidden]) .attack-setup-popup-card {
+    position: relative !important;
+    z-index: 2 !important;
   }
 }

@@ -35,7 +35,8 @@ const htmlEscapeMap = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", 
 const safeDataImageUrlPattern = /^data:image\/(?:gif|png|jpeg|jpg|webp);base64,[a-z0-9+/=\s]+$/iu;
 
 function focusWithoutScroll(element) {
-  if (!(element instanceof HTMLElement) || typeof element.focus !== "function") {
+  const HTMLElementCtor = element?.ownerDocument?.defaultView?.HTMLElement ?? globalThis.HTMLElement;
+  if ((HTMLElementCtor && !(element instanceof HTMLElementCtor)) || typeof element?.focus !== "function") {
     return false;
   }
   try {

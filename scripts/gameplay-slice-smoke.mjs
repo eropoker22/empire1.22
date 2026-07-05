@@ -16,6 +16,7 @@ const BROWSER_CANDIDATES = [
 const url = process.argv.find((arg) => arg.startsWith("--url="))?.slice("--url=".length) || DEFAULT_URL;
 const timeoutMs = Number(process.argv.find((arg) => arg.startsWith("--timeout-ms="))?.slice("--timeout-ms=".length) || 180000);
 const startServer = !process.argv.includes("--no-start-server");
+const allowServerMissing = process.argv.includes("--allow-server-missing");
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -147,8 +148,10 @@ const collectDiagnostics = async (page, { apiResponses, failedRequests, consoleE
       } : null,
       legacyRuntimeInit: document.querySelector("#game-root")?.dataset?.runtimeInit || "",
       gameplayRuntime: document.body?.dataset?.gameplayRuntime || "",
+      gameplayServerRuntime: document.body?.dataset?.gameplayServerRuntime || "",
       gameplayFallback: document.body?.dataset?.gameplayFallback || "",
       sliceRuntime: sliceRoot?.dataset?.gameplayRuntime || "",
+      sliceServerRuntime: sliceRoot?.dataset?.gameplayServerRuntime || "",
       sliceUnavailable: sliceRoot?.dataset?.gameplaySliceUnavailable || "",
       sliceError: sliceRoot?.dataset?.gameplaySliceError || "",
       loadEndpoint: sliceRoot?.dataset?.gameplaySliceEndpoint || "",
@@ -245,11 +248,6 @@ async function run() {
       window.localStorage.setItem("empireStreets.session.v1", JSON.stringify(session));
       window.localStorage.setItem("empire:active_guest_mode", "free");
       window.localStorage.setItem("empire:active_mode", "free");
-      window.localStorage.setItem("empireStreets.freeSessionOnboarding.v1", JSON.stringify({
-        completedStepIds: [],
-        hidden: true,
-        minimized: true
-      }));
     }, createSmokeSession());
 
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
@@ -269,7 +267,19 @@ async function run() {
     });
     const marker = await page.evaluate(() => document.body?.dataset?.gameplayRuntime || "");
     if (marker !== "server-authoritative-ready") {
-      await failWithDiagnostics(`Expected server-authoritative-ready runtime, got ${marker || "missing"}.`, page, { apiResponses, failedRequests, consoleErrors });
+      const diagnostics = await collectDiagnostics(page, { apiResponses, failedRequests, consoleErrors });
+      if (allowServerMissing && isServerNotConnectedYet(marker, diagnostics)) {
+        console.log(JSON.stringify({
+          skipped: true,
+          reason: "server not connected yet",
+          message: "Server-authoritative smoke skipped: gameplay session/server is not connected yet.",
+          marker: marker || "missing",
+          serverRuntime: diagnostics.gameplayServerRuntime || diagnostics.sliceServerRuntime || "",
+          errorCodes: collectGameplaySliceErrorCodes(diagnostics)
+        }, null, 2));
+        return;
+      }
+      throw new Error(`Expected server-authoritative-ready runtime, got ${marker || "missing"}.\nDiagnostics: ${JSON.stringify(diagnostics, null, 2)}`);
     }
 
     const loadResponse = apiResponses.find((entry) => entry.url.includes("/api/gameplay-slice/load"));
@@ -437,6 +447,25 @@ async function run() {
     await server?.stop().catch(() => {});
   }
 }
+
+const collectGameplaySliceErrorCodes = (diagnostics) =>
+  (diagnostics?.apiResponses || [])
+    .flatMap((entry) => Array.isArray(entry.errorCodes) ? entry.errorCodes : [])
+    .filter(Boolean);
+
+const isServerNotConnectedYet = (marker, diagnostics) => {
+  const errorCodes = collectGameplaySliceErrorCodes(diagnostics);
+  return (
+    marker === "demo-ready" ||
+    marker === "server-authoritative-error" ||
+    marker === "legacy-fallback"
+  ) && (
+    errorCodes.includes("SESSION_REQUIRED") ||
+    errorCodes.includes("SESSION_INVALID") ||
+    diagnostics?.sliceUnavailable === "true" ||
+    !diagnostics?.apiResponses?.some((entry) => entry.url?.includes("/api/gameplay-slice/load") && entry.hasReadModel)
+  );
+};
 
 run().catch((error) => {
   console.error(error?.stack || error?.message || String(error));

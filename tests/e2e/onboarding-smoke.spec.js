@@ -110,7 +110,9 @@ test.describe("onboarding flow smoke", () => {
     await expect(page.getByText("Vyber frakci pro tuto válku")).toHaveCount(0);
     await expect(page.getByTestId("continue-to-game")).toHaveAttribute("aria-disabled", "true");
     await page.evaluate(() => document.querySelector("[data-faction-id='mafian']")?.click());
-    await expect(page.locator("#faction-bonus")).toContainText("Aktivní bonusy");
+    await expect(page.locator("#faction-bonus")).toContainText("Styl hry");
+    await expect(page.locator("#faction-bonus")).toContainText("Funguje teď");
+    await expect(page.locator("#faction-bonus")).toContainText("Slabina");
     await expect(page.locator("#faction-bonus")).not.toContainText(/core-backed/i);
     await expect(page.getByText("Doporučeno pro start").first()).toBeVisible();
     await page.locator("[data-gang-color]").first().click({ force: true });

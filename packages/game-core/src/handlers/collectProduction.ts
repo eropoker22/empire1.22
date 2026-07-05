@@ -64,6 +64,19 @@ export const handleCollectProduction = (
     : collectedAmount;
   const remainingAmount = Math.max(0, collectedAmount - acceptedAmount);
 
+  if (acceptedAmount <= 0) {
+    return {
+      nextState: state,
+      events: [],
+      errors: [
+        {
+          code: "production_storage_full",
+          message: `${productionProfile.resourceLabel} storage is full.`
+        }
+      ]
+    };
+  }
+
   const nextBuildingResourceState: ResourceState = {
     ...(buildingResourceState as ResourceState),
     balances: {

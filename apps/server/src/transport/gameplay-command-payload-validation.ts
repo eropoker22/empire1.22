@@ -38,11 +38,22 @@ export const validateGameCommandPayload = (
   }
 
   switch (type) {
+    case "acknowledge-pending-raid":
+      rejectUnknownPayloadFields(errors, payload, ["raidId"]);
+      requireStringField(errors, "submit", payload, "raidId", "command.payload.raidId");
+      break;
     case "attack-district":
       rejectUnknownPayloadFields(errors, payload, ["districtId", "sourceDistrictId"]);
       validateDistrictPayload(errors, payload, true);
       break;
+    case "build-structure":
+      errors.push(createInvalidFieldError(
+        "command.type",
+        "Deprecated build-structure is not accepted by the public gameplay slice transport."
+      ));
+      break;
     case "occupy-district":
+      rejectUnknownPayloadFields(errors, payload, ["districtId", "sourceDistrictId"]);
       validateDistrictPayload(errors, payload, true);
       break;
     case "spy-district":
@@ -59,13 +70,31 @@ export const validateGameCommandPayload = (
       requireStringField(errors, "submit", payload, "districtId", "command.payload.districtId");
       break;
     case "collect-production":
+      rejectUnknownPayloadFields(errors, payload, ["districtId", "buildingId"]);
       validateBuildingPayload(errors, payload);
       break;
     case "craft-item":
+      rejectUnknownPayloadFields(errors, payload, ["districtId", "buildingId", "recipeId"]);
       validateBuildingPayload(errors, payload);
       requireStringField(errors, "submit", payload, "recipeId", "command.payload.recipeId");
       break;
     case "run-building-action":
+      rejectUnknownPayloadFields(errors, payload, [
+        "districtId",
+        "buildingId",
+        "actionId",
+        "dealerSlotId",
+        "slotId",
+        "itemId",
+        "targetCategory",
+        "category",
+        "mode",
+        "targetDistrictId",
+        "targetZone",
+        "amount",
+        "investmentCleanCash",
+        "investment"
+      ]);
       validateBuildingPayload(errors, payload);
       requireStringField(errors, "submit", payload, "actionId", "command.payload.actionId");
       validateRunBuildingActionOptionalPayload(errors, payload);
@@ -103,6 +132,8 @@ const validateBuildingPayload = (
 const hasPayloadSchema = (type: string): boolean =>
   [
     "attack-district",
+    "acknowledge-pending-raid",
+    "build-structure",
     "occupy-district",
     "spy-district",
     "place-trap",

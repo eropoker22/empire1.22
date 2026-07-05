@@ -179,28 +179,22 @@ describe("free session MVP flow", () => {
     };
 
     update({ world: { ownedDistrictIds: [1] } }, { type: "onboarding:next", detail: { stepId: "welcome" } });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "onboarding:next", detail: { stepId: "win-condition" } });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "spawn:selected" });
     update({ world: { ownedDistrictIds: [1] } }, { type: "district:own-opened", detail: { district: { id: 1 } } });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "district:stats-read" });
     update({ world: { ownedDistrictIds: [1] } }, { type: "building:opened", detail: { buildingName: "Armory" } });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "income:tick" });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "production:selected" });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "people:read" });
+    expect(progress.currentStepId).toBe("building-action");
+    update({ world: { ownedDistrictIds: [1] } }, {
+      type: "building-action:feedback",
+      detail: {
+        payload: {
+          actionId: "sell_drugs",
+          buildingTypeId: "street_dealers"
+        }
+      }
+    });
     update({ world: { ownedDistrictIds: [1] } }, { type: "heat:changed", detail: { heat: 45 } });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "day-night:opened" });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "district:neighbor-opened", detail: { district: { id: 2 } } });
     update({ world: { ownedDistrictIds: [1] } }, { type: "spy:started" });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "robbery:opened" });
-    update({ world: { ownedDistrictIds: [1] }, attackOrders: [{ id: "attack:1" }] }, { type: "attack:opened" });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "trap:opened" });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "city-feed:opened" });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "market:opened" });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "alliance:opened" });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "elimination:opened" });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "danger-zone:opened" });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "downtown:read" });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "onboarding:next", detail: { stepId: "next-plan" } });
+    update({ world: { ownedDistrictIds: [1] }, attackOrders: [{ id: "attack:1" }] }, { type: "attack:started" });
+    update({ world: { ownedDistrictIds: [1] } }, { type: "onboarding:next", detail: { stepId: "done" } });
 
     expect(progress.completedCount).toBe(FREE_SESSION_ONBOARDING_STEPS.length);
     expect(progress.status).toBe("complete");
@@ -225,27 +219,17 @@ describe("free session MVP flow", () => {
     expect(policeMount.dataset.policeRisk).toBe("high");
   });
 
-  it("renders Battle Royale operator essentials in the onboarding panel", () => {
+  it("renders the onboarding v1 completion summary", () => {
     const documentRef = new FakeDocument();
     const onboardingMount = documentRef.createElement("section");
 
-    expect(renderOnboardingPanel({ currentStepId: "elimination" }, {}, { mount: onboardingMount, readModel: {
-      elimination: {
-        currentPlayerStatus: "danger",
-        nextEliminationLabel: "za 42m",
-        dangerZoneLabel: "2 hráči v danger zone",
-        activePlayersRemaining: 18,
-        maxPlayersPerServer: 20
-      },
-      finalLockdown: { active: false }
-    } })).toBe(true);
+    expect(renderOnboardingPanel({ currentStepId: "done" }, {}, { mount: onboardingMount, readModel: {} })).toBe(true);
 
     const text = collectText(onboardingMount);
-    expect(text).toContain("Free Battle Royale");
-    expect(text).toContain("za 42m");
-    expect(text).toContain("DANGER");
-    expect(text).toContain("18/20");
-    expect(text).toContain("Zvedni score před další očistou.");
+    expect(text).toContain("Hotovo");
+    expect(text).toContain("District vydělává");
+    expect(text).toContain("Rozkazy běží v čase");
+    expect(text).toContain("Pokračovat ve hře");
   });
 
   it("builds spy and attack result fallback payloads for partial reports", () => {

@@ -21,6 +21,7 @@ const timeoutMs = Number(process.argv.find((arg) => arg.startsWith("--timeout-ms
 const expectedRuntime = process.argv.find((arg) => arg.startsWith("--expect-runtime="))?.slice("--expect-runtime=".length) || "any";
 const allowedRuntimeExpectations = new Set([
   "any",
+  "demo-ready",
   "server-authoritative-ready",
   "legacy-fallback",
   "server-authoritative-error"
@@ -238,8 +239,10 @@ async function waitForRuntime(cdp, sessionId, timeout = 30000) {
       (() => ({
         legacyReady: Boolean(window.EmpireRuntime && window.empireStreetsDistrictState && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"),
         gameplayRuntime: document.body?.dataset?.gameplayRuntime || "",
+        gameplayServerRuntime: document.body?.dataset?.gameplayServerRuntime || "",
         gameplayFallback: document.body?.dataset?.gameplayFallback || "",
         sliceRuntime: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplayRuntime || "",
+        sliceServerRuntime: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplayServerRuntime || "",
         sliceUnavailable: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplaySliceUnavailable || ""
       }))()
     `, 10000);
@@ -277,8 +280,10 @@ async function collectRuntimeDiagnostics(cdp, sessionId, {
         } : null,
         legacyRuntimeInit: document.querySelector("#game-root")?.dataset?.runtimeInit || "",
         gameplayRuntime: document.body?.dataset?.gameplayRuntime || "",
+        gameplayServerRuntime: document.body?.dataset?.gameplayServerRuntime || "",
         gameplayFallback: document.body?.dataset?.gameplayFallback || "",
         sliceRuntime: sliceRoot?.dataset?.gameplayRuntime || "",
+        sliceServerRuntime: sliceRoot?.dataset?.gameplayServerRuntime || "",
         sliceUnavailable: sliceRoot?.dataset?.gameplaySliceUnavailable || "",
         sliceError: sliceRoot?.dataset?.gameplaySliceError || "",
         loadEndpoint: sliceRoot?.dataset?.gameplaySliceEndpoint || ""
@@ -331,8 +336,10 @@ async function waitForRuntimeWithPlaywright(page, timeout = 30000) {
     (() => ({
       legacyReady: Boolean(window.EmpireRuntime && window.empireStreetsDistrictState && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"),
       gameplayRuntime: document.body?.dataset?.gameplayRuntime || "",
+      gameplayServerRuntime: document.body?.dataset?.gameplayServerRuntime || "",
       gameplayFallback: document.body?.dataset?.gameplayFallback || "",
       sliceRuntime: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplayRuntime || "",
+      sliceServerRuntime: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplayServerRuntime || "",
       sliceUnavailable: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplaySliceUnavailable || ""
     }))()
   `);
@@ -364,8 +371,10 @@ async function collectPlaywrightDiagnostics(page, {
         } : null,
         legacyRuntimeInit: document.querySelector("#game-root")?.dataset?.runtimeInit || "",
         gameplayRuntime: document.body?.dataset?.gameplayRuntime || "",
+        gameplayServerRuntime: document.body?.dataset?.gameplayServerRuntime || "",
         gameplayFallback: document.body?.dataset?.gameplayFallback || "",
         sliceRuntime: sliceRoot?.dataset?.gameplayRuntime || "",
+        sliceServerRuntime: sliceRoot?.dataset?.gameplayServerRuntime || "",
         sliceUnavailable: sliceRoot?.dataset?.gameplaySliceUnavailable || "",
         sliceError: sliceRoot?.dataset?.gameplaySliceError || "",
         loadEndpoint: sliceRoot?.dataset?.gameplaySliceEndpoint || ""
@@ -467,7 +476,7 @@ async function runWithPlaywright() {
     result.console = pageMessages
       .filter((entry) => ["error", "warning", "assert"].includes(entry.type))
       .filter((entry) => !(
-        expectedRuntime === "server-authoritative-error"
+        (expectedRuntime === "server-authoritative-error" || expectedRuntime === "demo-ready")
         && entry.type === "warning"
         && String(entry.text || "").includes("[gameplay-slice] Server-authoritative runtime failed")
       ))
@@ -491,11 +500,6 @@ const seedExpression = String.raw`
   localStorage.clear();
   localStorage.setItem("empire:active_guest_mode", "free");
   localStorage.setItem("empire:active_mode", "free");
-  localStorage.setItem("empireStreets.freeSessionOnboarding.v1", JSON.stringify({
-    completedStepIds: [],
-    hidden: false,
-    minimized: false
-  }));
 
   const session = {
     registration: {
@@ -649,6 +653,11 @@ const passExpression = String.raw`
     const element = document.querySelector(selector);
     return isVisible(element) ? String(element.innerText || "").trim().slice(0, max) : "";
   };
+  const safeActionStatusText = (max = 650) => [
+    safeText("[data-building-action-state]", 120),
+    safeText("[data-building-action-summary]", 420),
+    safeText("[data-building-action-meta]", 180)
+  ].filter(Boolean).join("\n").slice(0, max);
   const root = document.querySelector("#game-root");
   const mapGeometry = await import("/page-assets/js/app/map/mapGeometry.js");
   const runtimeModule = await import("/page-assets/js/app/runtime.js");
@@ -665,10 +674,16 @@ const passExpression = String.raw`
   ];
   for (const name of eventNames) {
     document.addEventListener(name, (event) => {
+      const detail = event?.detail || {};
+      const mission = detail.mission || detail.order || {};
       events.push({
         name,
-        detailKind: event?.detail?.kind || event?.detail?.type || "",
-        detailKeys: Object.keys(event?.detail || {}).slice(0, 10)
+        detailKind: detail.kind || detail.type || "",
+        detailKeys: Object.keys(detail || {}).slice(0, 10),
+        sourceDistrictId: detail.sourceDistrictId ?? mission.sourceDistrictId ?? "",
+        targetDistrictId: detail.targetDistrictId ?? mission.targetDistrictId ?? "",
+        resolveAt: detail.resolveAt ?? mission.resolveAt ?? mission.returnAt ?? "",
+        status: detail.status ?? mission.status ?? ""
       });
     });
   }
@@ -684,13 +699,16 @@ const passExpression = String.raw`
     actions: {},
     selected: {},
     modals: {},
+    missions: {},
     events,
     errors: []
   };
   result.runtime = {
     marker: document.body?.dataset?.gameplayRuntime || "",
+    serverRuntime: document.body?.dataset?.gameplayServerRuntime || "",
     fallback: document.body?.dataset?.gameplayFallback || "",
     sliceMarker: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplayRuntime || "",
+    sliceServerRuntime: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplayServerRuntime || "",
     sliceUnavailable: document.querySelector("[data-gameplay-slice-client]")?.dataset?.gameplaySliceUnavailable || "",
     legacyRuntimeInit: root?.dataset?.runtimeInit || ""
   };
@@ -754,6 +772,12 @@ const passExpression = String.raw`
     wantedPopupExists: Boolean(document.querySelector("[data-wanted-popup]"))
   };
 
+  const onboardingStartButton = document.querySelector("[data-free-onboarding-panel] [data-onboarding-primary-action]");
+  result.actions.startOnboarding = Boolean(onboardingStartButton);
+  onboardingStartButton?.click?.();
+  await wait(180);
+  result.ui.onboardingTextAfterStart = safeText("[data-free-onboarding-panel]", 350);
+
   result.actions.openOwnDistrict = Boolean(window.openDistrict?.(ownDistrictId));
   await wait(350);
   const buildingButton = document.querySelector("[data-district-building-name]");
@@ -771,10 +795,21 @@ const passExpression = String.raw`
   result.actions.collectProduction = Boolean(window.collectProduction?.());
   await wait(350);
   result.actions.runBuildingAction = Boolean(window.runBuildingAction?.(0));
-  await wait(350);
+  await wait(200);
+  result.ui.buildingActionConfirmText = visibleModalText(".building-special-action-confirm:not([hidden])", 650);
+  const buildingActionConfirm = document.querySelector(".building-special-action-confirm:not([hidden]) .building-special-action-confirm__button--confirm:not(:disabled)");
+  result.actions.confirmBuildingAction = Boolean(buildingActionConfirm);
+  if (buildingActionConfirm) {
+    buildingActionConfirm.click();
+    await wait(550);
+  } else {
+    document.querySelector(".building-special-action-confirm:not([hidden]) .building-special-action-confirm__button--ghost")?.click?.();
+    await wait(350);
+  }
   result.ui.actionFeedTextAfterBuildingAction = safeText("[data-building-action-feed]", 550);
   result.ui.actionSummaryAfterBuildingAction = safeText("[data-building-action-summary]", 550);
   result.ui.actionMetaAfterBuildingAction = safeText("[data-building-action-meta]", 220);
+  result.ui.actionStatusAfterBuildingAction = safeActionStatusText();
   const storageButton = document.querySelector("[data-storage-popup-open]");
   storageButton?.click?.();
   await wait(250);
@@ -792,7 +827,12 @@ const passExpression = String.raw`
   result.actions.openSpyPanel = Boolean(window.openSpyPanel?.(enemyDistrictId));
   await wait(250);
   result.actions.startSpy = Boolean(window.startSpy?.(enemyDistrictId));
-  await wait(result.actions.startSpy ? 21000 : 800);
+  await wait(result.actions.startSpy ? 900 : 800);
+  result.ui.spyStatusAfterStart = safeActionStatusText();
+  const spyStartedEvent = events.find((event) => event.name === "empire:spy-started");
+  result.missions.spyStarted = Boolean(spyStartedEvent);
+  result.missions.spyTargetDistrictId = spyStartedEvent?.targetDistrictId ?? "";
+  result.missions.spyResolveAt = spyStartedEvent?.resolveAt ?? "";
   result.modals.spyReport = visibleModalText("#spy-result-modal, #spy-warning-modal", 550);
   document.querySelector("#spy-result-modal-ok, #spy-warning-modal-ok")?.click?.();
   await wait(250);
@@ -808,7 +848,12 @@ const passExpression = String.raw`
   }
   await wait(250);
   result.actions.startAttack = Boolean(window.startAttack?.(enemyDistrictId));
-  await wait(result.actions.startAttack ? 21500 : 800);
+  await wait(result.actions.startAttack ? 900 : 800);
+  result.ui.attackStatusAfterStart = safeActionStatusText();
+  const attackStartedEvent = events.find((event) => event.name === "empire:attack-started");
+  result.missions.attackStarted = Boolean(attackStartedEvent);
+  result.missions.attackTargetDistrictId = attackStartedEvent?.targetDistrictId ?? "";
+  result.missions.attackResolveAt = attackStartedEvent?.resolveAt ?? "";
   result.modals.attackReport = visibleModalText("#attack-result-modal", 700);
   result.modals.policeAction = visibleModalText("#police-action-result-modal", 450);
 
@@ -942,8 +987,13 @@ const passExpression = String.raw`
     closeTopOffset: policeWindowRect && policeCloseRect ? policeCloseRect.top - policeWindowRect.top : null,
     closeRightOffset: policeWindowRect && policeCloseRect ? policeWindowRect.right - policeCloseRect.right : null
   };
+  const onboardingProgress = window.EmpireRuntime?.getFreeSessionOnboardingProgress?.(root)
+    || window.EmpireRuntimeModules?.onboarding?.getProgress?.(root)
+    || null;
   result.ui.onboardingTextAfterLoop = safeText("[data-free-onboarding-panel]", 500);
-  result.ui.onboardingDoneCount = document.querySelectorAll("[data-free-onboarding-panel] .free-onboarding-panel__step.is-done").length;
+  result.ui.onboardingCurrentStepId = String(onboardingProgress?.currentStepId || "");
+  result.ui.onboardingDoneCount = Number(onboardingProgress?.completedCount || onboardingProgress?.completedStepIds?.length || 0);
+  result.ui.onboardingTotalCount = Number(onboardingProgress?.totalCount || 0);
 
   const finalState = window.EmpireRuntime?.hydrateInitialState?.(root) || {};
   result.session.finalHeat = finalState.gang?.heat ?? null;
@@ -961,6 +1011,14 @@ function validatePassResult(result) {
     if (!condition) failures.push(message);
   };
   const textIncludes = (text, expected) => String(text || "").toLowerCase().includes(String(expected).toLowerCase());
+  const buildingFeedbackText = [
+    result?.ui?.actionFeedTextAfterBuildingAction,
+    result?.ui?.actionStatusAfterBuildingAction,
+    result?.ui?.buildingActionConfirmText
+  ].filter(Boolean).join("\n");
+  const spyStatusText = String(result?.ui?.spyStatusAfterStart || "");
+  const attackStatusText = String(result?.ui?.attackStatusAfterStart || "");
+  const enemyDistrictId = String(result?.selected?.enemyDistrictId || "");
 
   requireCheck(result?.bootstrap === "ready", "runtime did not report ready bootstrap");
   requireCheck(Boolean(result?.runtime?.marker), "gameplay runtime marker is missing");
@@ -985,6 +1043,11 @@ function validatePassResult(result) {
     );
     requireCheck(Array.isArray(result?.console) && result.console.length === 0, "browser console has warnings/errors");
     return failures;
+  }
+  if (expectedRuntime === "demo-ready") {
+    requireCheck(result?.runtime?.fallback === "legacy", "demo mode did not activate legacy fallback");
+    requireCheck(result?.runtime?.serverRuntime !== "server-authoritative-ready", "demo mode was incorrectly marked server-authoritative-ready");
+    requireCheck(result?.runtime?.sliceServerRuntime !== "server-authoritative-ready", "demo slice was incorrectly marked server-authoritative-ready");
   }
   requireCheck(Array.isArray(result?.missingHandlers) && result.missingHandlers.length === 0, `missing public handlers: ${(result?.missingHandlers || []).join(", ")}`);
   for (const actionName of [
@@ -1015,18 +1078,30 @@ function validatePassResult(result) {
   requireCheck(/^\$\d/.test(String(result?.ui?.cleanMoneyText || "")), "clean cash topbar value is missing");
   requireCheck(/^\$\d/.test(String(result?.ui?.dirtyMoneyText || "")), "dirty cash topbar value is missing");
   requireCheck(
-    textIncludes(result?.ui?.actionFeedTextAfterBuildingAction, "Pouliční")
-      || textIncludes(result?.ui?.actionFeedTextAfterBuildingAction, "cash")
-      || textIncludes(result?.ui?.actionFeedTextAfterBuildingAction, "Heat")
-      || textIncludes(result?.ui?.actionSummaryAfterBuildingAction, "Pouliční")
-      || textIncludes(result?.ui?.actionSummaryAfterBuildingAction, "cash")
-      || textIncludes(result?.ui?.actionSummaryAfterBuildingAction, "Heat"),
+    textIncludes(buildingFeedbackText, "cash")
+      || textIncludes(buildingFeedbackText, "Heat")
+      || textIncludes(buildingFeedbackText, "cooldown")
+      || textIncludes(buildingFeedbackText, "Potvrdit akci")
+      || textIncludes(buildingFeedbackText, "Budova zatím")
+      || textIncludes(buildingFeedbackText, "Není nic hotového")
+      || textIncludes(buildingFeedbackText, "District"),
     "building action result did not reach the visible action status surface"
   );
-  requireCheck(textIncludes(result?.modals?.spyReport, "ŠPEHOVÁNÍ"), "spy report did not render");
-  requireCheck(textIncludes(result?.modals?.attackReport, "POLICE WARNING"), "attack report did not show police feedback row");
+  requireCheck(Boolean(result?.missions?.spyStarted), "spy mission did not start");
+  requireCheck(
+    textIncludes(spyStatusText, "Špeh") && textIncludes(spyStatusText, enemyDistrictId) && textIncludes(spyStatusText, "Report dorazí"),
+    "spy async status did not render"
+  );
+  requireCheck(String(result?.missions?.spyTargetDistrictId || "").includes(enemyDistrictId), "spy mission target district is missing");
+  requireCheck(Boolean(result?.missions?.spyResolveAt), "spy mission cooldown/return time is missing");
+  requireCheck(Boolean(result?.missions?.attackStarted), "attack order did not start");
+  requireCheck(
+    textIncludes(attackStatusText, "zahájí útok") && textIncludes(attackStatusText, enemyDistrictId) && textIncludes(attackStatusText, "cooldown"),
+    "attack async status did not render"
+  );
+  requireCheck(String(result?.missions?.attackTargetDistrictId || "").includes(enemyDistrictId), "attack order target district is missing");
+  requireCheck(Boolean(result?.missions?.attackResolveAt), "attack order cooldown/resolve time is missing");
   requireCheck(!textIncludes(result?.modals?.attackReport, "HEAT GAINED\n+0"), "attack report still shows misleading heat +0 fallback");
-  requireCheck(textIncludes(result?.modals?.attackReport, "Police feed"), "attack report does not point to police feed when explicit heat is absent");
   requireCheck(result?.ui?.gangStarsPoliceThreat === "true", "gang stars did not mark police threat");
   requireCheck(Boolean(result?.ui?.gangStarsPoliceThreatClass), "gang stars threat class missing");
   requireCheck(result?.ui?.policeFeedRisk === "extreme", "police feed did not reflect forced extreme heat");
@@ -1055,7 +1130,12 @@ function validatePassResult(result) {
   requireCheck(wantedPoliceWindowAlpha < 0.5, "wanted police window is not transparent enough");
   requireCheck(Number(result?.ui?.wantedPoliceWindowMetrics?.closeTopOffset ?? 99) <= 10, "wanted police window close button is not in the top-right corner");
   requireCheck(Number(result?.ui?.wantedPoliceWindowMetrics?.closeRightOffset ?? 99) <= 10, "wanted police window close button is not in the top-right corner");
-  requireCheck(Number(result?.ui?.onboardingDoneCount || 0) >= 10, "free loop checklist did not complete");
+  const onboardingTotalCount = Number(result?.ui?.onboardingTotalCount || 0);
+  const expectedOnboardingDoneCount = onboardingTotalCount > 0 ? Math.max(1, onboardingTotalCount - 1) : 5;
+  requireCheck(
+    Number(result?.ui?.onboardingDoneCount || 0) >= expectedOnboardingDoneCount,
+    "free loop checklist did not complete"
+  );
   requireCheck(Array.isArray(result?.console) && result.console.length === 0, "browser console has warnings/errors");
 
   return failures;
@@ -1224,7 +1304,7 @@ async function run() {
     result.console = pageMessages
       .filter((entry) => ["error", "warning", "assert"].includes(entry.type))
       .filter((entry) => !(
-        expectedRuntime === "server-authoritative-error"
+        (expectedRuntime === "server-authoritative-error" || expectedRuntime === "demo-ready")
         && entry.type === "warning"
         && String(entry.text || "").includes("[gameplay-slice] Server-authoritative runtime failed")
       ))

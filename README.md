@@ -42,10 +42,12 @@ New gameplay changes should not be implemented directly in legacy `page-assets/j
 - `npm run dev:admin` starts only the static/admin Vite flow. It does not by itself provide `/api/gameplay-slice/*` or `/api/admin/monitoring`.
 - `http://127.0.0.1:5174/admin` is the local closed-alpha read-only admin dashboard when `npm run dev:game` is running.
 - Production admin monitoring is guarded by `EMPIRE_ADMIN_SECRET` over the `x-empire-admin-secret` header and fails closed when the secret is missing or wrong.
-- The active browser runtime is exposed as `document.body.dataset.gameplayRuntime`: `server-authoritative-ready`, `server-authoritative-error`, `legacy-fallback`, or `initializing`.
+- The active browser runtime is exposed as `document.body.dataset.gameplayRuntime`: `demo-ready`, `server-authoritative-ready`, `server-authoritative-error`, `legacy-fallback`, or `initializing`. `document.body.dataset.gameplayServerRuntime` records the server-authoritative attempt separately.
 - `npm run smoke:ui:legacy` checks static legacy page wiring only; it does not verify server-authoritative gameplay.
-- `npm run smoke:gameplay-slice` starts the local game dev server, checks `/api/gameplay-slice/load`, clicks one server-fed building action, spy action, and attack action through `/api/gameplay-slice/submit`, verifies non-success spy does not unlock occupy, and fails if only legacy fallback or a legacy duplicate mutation is running.
-- `npm run smoke:free-session` runs the browser free-session UX pass against the server-authoritative local URL and expects the `server-authoritative-ready` marker.
+- `npm run smoke:free-session` is the Netlify demo/development smoke. It expects `demo-ready`, allows localStorage/demo fallback, and still fails on runtime crashes or broken demo UI.
+- `npm run smoke:free-session:server` is the closed-alpha server smoke variant and expects `server-authoritative-ready`.
+- `npm run smoke:gameplay-slice` starts the local game dev server and skips with `server not connected yet` when a real gameplay session is not available.
+- `npm run smoke:gameplay-slice:server` is strict: it requires `/api/gameplay-slice/load` and `/submit` to return server-authoritative read models and fails on demo/legacy fallback.
 - Relevant dev, browser smoke, E2E, build, lint, and typecheck scripts run a Node 20 preflight and fail immediately on older Node versions.
 - `npm run test:e2e` runs the fast browser smoke suite for login, lobby, and faction onboarding.
 - `npm run test:e2e:full` runs every browser scenario, including slower map interaction coverage.

@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { JSDOM } from "jsdom";
+import { describe, expect, it, vi } from "vitest";
 import {
   createOnboardingReadModel,
   resolveOnboardingStepState
@@ -15,6 +16,7 @@ import {
 } from "../../page-assets/js/app/runtime/onboardingStepRegistry.js";
 import {
   normalizeOnboardingProgress,
+  renderOnboardingPanel,
   shouldAutoStartOnboarding
 } from "../../page-assets/js/app/ui/onboardingPanel.js";
 
@@ -32,40 +34,114 @@ function createRoot(foundSelectors = []) {
   };
 }
 
+function createOnboardingDom() {
+  const dom = new JSDOM(`<!doctype html><body>
+    <main id="game-root">
+      <canvas data-map-canvas></canvas>
+      <button data-building-action-building-id="b1" data-building-action-id="collect"></button>
+      <button data-gang-heat></button>
+      <button data-district-action-id="spy"></button>
+      <button data-district-action-id="attack"></button>
+    </main>
+  </body>`);
+  const { document } = dom.window;
+  for (const element of document.querySelectorAll("*")) {
+    element.getBoundingClientRect = () => ({ left: 24, top: 32, width: 120, height: 44, right: 144, bottom: 76 });
+    element.scrollIntoView = () => {};
+  }
+  return {
+    document,
+    root: document.getElementById("game-root"),
+    mount: document.createElement("section")
+  };
+}
+
+function collectText(element) {
+  return String(element?.textContent || "").replace(/\s+/gu, " ").trim();
+}
+
 describe("Empire onboarding flow", () => {
   it("step registry contains every mandatory onboarding chapter", () => {
     expect(ONBOARDING_STEPS.map((step) => step.id)).toEqual([...ONBOARDING_REQUIRED_STEP_IDS]);
-    expect(ONBOARDING_STEPS).toHaveLength(23);
-    expect(ONBOARDING_STEPS.find((step) => step.id === "spawn-selection")).toEqual(expect.objectContaining({
-      targetSelector: expect.stringContaining("spawn-selection"),
-      body: expect.stringContaining("server")
+    expect(ONBOARDING_STEPS).toHaveLength(7);
+    expect(ONBOARDING_STEPS.find((step) => step.id === "building-action")).toEqual(expect.objectContaining({
+      completionCondition: "building-action:feedback",
+      body: expect.stringContaining("potvrď")
     }));
-    expect(ONBOARDING_STEPS.find((step) => step.id === "spy")?.title).toBe("Pošli špeha");
+    expect(ONBOARDING_STEPS.find((step) => step.id === "spy")?.title).toBe("Pošli špehy");
+    expect(ONBOARDING_STEPS.find((step) => step.id === "attack-order")?.body).toContain("čas návratu");
   });
 
-  it("every onboarding step has the required registry fields and copy", () => {
+  it("every onboarding step has the required registry fields and compact player-facing copy", () => {
+    const forbiddenCopy = /server-authoritative|runtime|localStorage|slice|selector|started|confirm dialog/i;
     for (const step of ONBOARDING_STEPS) {
       expect(step.title).toEqual(expect.any(String));
       expect(step.title.length).toBeGreaterThan(0);
+      expect(step.title.length).toBeLessThanOrEqual(32);
       expect(step.body).toEqual(expect.any(String));
       expect(step.body.length).toBeGreaterThan(0);
+      expect(step.body.length).toBeLessThanOrEqual(140);
+      expect(step.body.split(/[.!?]+/u).filter((part) => part.trim()).length).toBeLessThanOrEqual(2);
       expect(step).toEqual(expect.objectContaining({
         id: expect.any(String),
         phase: expect.any(String),
         badge: expect.any(String),
         kind: expect.any(String),
-        subtitle: expect.any(String),
         placement: expect.any(String),
         completionCondition: expect.any(String),
         canSkip: expect.any(Boolean),
         highlightType: expect.any(String)
       }));
+      expect(step.subtitle ?? "").toEqual(expect.any(String));
       expect(step).toHaveProperty("targetSelector");
       expect(step.phase.length).toBeGreaterThan(0);
       expect(step.badge.length).toBeGreaterThan(0);
-      expect(step.subtitle.length).toBeGreaterThan(0);
       expect(["dirty", "objective", "map", "intel", "money", "resource", "danger", "system"]).toContain(step.kind);
+      expect([step.title, step.subtitle, step.body, step.fallbackTitle, step.fallbackBody, step.task, ...(step.summaryItems || [])].join(" "))
+        .not.toMatch(forbiddenCopy);
+      if (step.fallbackBody) {
+        expect(step.fallbackBody.length).toBeLessThanOrEqual(120);
+      }
     }
+
+    const done = ONBOARDING_STEPS.find((step) => step.id === "done");
+    expect(done?.summaryItems).toHaveLength(3);
+    for (const item of done?.summaryItems || []) {
+      expect(item.length).toBeLessThanOrEqual(28);
+    }
+  });
+
+  it("renders progress, CTA, skip and completed summary for every onboarding step", () => {
+    for (const [index, step] of ONBOARDING_STEPS.entries()) {
+      const { document, root, mount } = createOnboardingDom();
+      root.append(mount);
+
+      expect(renderOnboardingPanel({ currentStepId: step.id }, {}, { mount, root, readModel: {} })).toBe(true);
+
+      const text = collectText(mount);
+      expect(text).toContain(`Krok ${index + 1} / ${ONBOARDING_STEPS.length}`);
+      expect(text).toContain(step.title);
+      expect(mount.querySelector("[data-onboarding-primary-action]")).toBeTruthy();
+      expect(mount.querySelector("[data-onboarding-primary-action]")?.textContent).toBe(step.cta || "Další");
+      expect([...mount.querySelectorAll("button")].some((button) => button.textContent === "Přeskočit")).toBe(true);
+      expect(document.querySelector("[data-onboarding-highlight]")).toBeTruthy();
+      if (step.completionCondition === "manual") {
+        expect(mount.querySelector("[data-onboarding-primary-action]")?.dataset.onboardingPrimaryMode).toBe("complete");
+      } else {
+        expect(mount.querySelector("[data-onboarding-primary-action]")?.dataset.onboardingPrimaryMode).toBe("guide");
+      }
+    }
+  });
+
+  it("does not let the panel CTA complete runtime-gated onboarding steps", () => {
+    const { root, mount } = createOnboardingDom();
+    const onNext = vi.fn();
+    root.append(mount);
+
+    expect(renderOnboardingPanel({ currentStepId: "building-action" }, { onNext }, { mount, root, readModel: {} })).toBe(true);
+    mount.querySelector("[data-onboarding-primary-action]")?.click();
+
+    expect(onNext).not.toHaveBeenCalled();
   });
 
   it("finds the first owned district in the dev-only read model", () => {
@@ -106,13 +182,14 @@ describe("Empire onboarding flow", () => {
   });
 
   it("skip stores the UI state as completed with a skipped current step", () => {
-    const progress = skipOnboardingProgress({ currentStepId: "buildings" });
-
-    expect(progress.completed).toBe(true);
-    expect(progress.skipped).toBe(true);
-    expect(progress.currentStepId).toBe("skipped");
+    for (const stepId of ONBOARDING_REQUIRED_STEP_IDS) {
+      const progress = skipOnboardingProgress({ currentStepId: stepId });
+      expect(progress.completed).toBe(true);
+      expect(progress.skipped).toBe(true);
+      expect(progress.currentStepId).toBe("skipped");
+    }
     expect(resolveOnboardingStorageKey({ registration: { identity: "Boss" }, mode: "dev-only" }))
-      .toBe("empire:onboarding:v1:dev-only:Boss");
+      .toBe("empire:onboarding:demo-v1:dev-only:Boss");
   });
 
   it("serializes completed/skipped only as UI preference fields", () => {
@@ -124,7 +201,7 @@ describe("Empire onboarding flow", () => {
       gameplayState: { dirtyCash: 999999 }
     });
 
-    expect(Object.keys(serialized).sort()).toEqual(["completed", "currentStepId", "dismissedAt", "skipped", "version"]);
+    expect(Object.keys(serialized).sort()).toEqual(["completed", "currentStepId", "dismissedAt", "observedStepIds", "skipped", "version"]);
     expect(serialized).not.toHaveProperty("gameplayState");
   });
 
@@ -141,13 +218,160 @@ describe("Empire onboarding flow", () => {
     expect(JSON.stringify(gameplayState)).toBe(before);
   });
 
+  it("records out-of-order demo events without jumping straight to later steps", () => {
+    let progress = updateOnboardingProgress({
+      world: { ownedDistrictIds: [1] },
+      progress: { currentStepId: "welcome" }
+    }, {
+      type: "spy:started",
+      detail: { targetDistrictId: 2 }
+    });
+
+    expect(progress.currentStepId).toBe("building-action");
+    expect(progress.completedStepIds).toEqual(["welcome", "your-district"]);
+    expect(progress.observedStepIds).toEqual(expect.arrayContaining(["welcome", "your-district", "spy"]));
+    expect(progress.completedStepIds).not.toContain("spy");
+
+    progress = updateOnboardingProgress({
+      world: { ownedDistrictIds: [1] },
+      progress
+    }, {
+      type: "district:own-opened",
+      detail: { district: { id: 1 } }
+    });
+
+    expect(progress.currentStepId).toBe("building-action");
+    expect(progress.completedStepIds).toEqual(["welcome", "your-district"]);
+    expect(progress.completedStepIds).not.toContain("spy");
+  });
+
+  it("does not complete Welcome from passive boot police feedback", () => {
+    const progress = updateOnboardingProgress({
+      world: { ownedDistrictIds: [1] },
+      progress: { currentStepId: "welcome" }
+    }, {
+      type: "police:feedback",
+      detail: { heat: 35, message: "initial render" }
+    });
+
+    expect(progress.currentStepId).toBe("welcome");
+    expect(progress.completedStepIds).toEqual([]);
+    expect(progress.observedStepIds).toEqual(["heat-police"]);
+  });
+
+  it("remembers confirmed building feedback done before the district step catches up", () => {
+    let progress = updateOnboardingProgress({
+      world: { ownedDistrictIds: [1] },
+      progress: { currentStepId: "welcome" }
+    }, {
+      type: "building-action:feedback",
+      detail: {
+        payload: {
+          actionId: "sell_drugs",
+          buildingTypeId: "street_dealers"
+        }
+      }
+    });
+
+    expect(progress.currentStepId).toBe("heat-police");
+    expect(progress.completedStepIds).toEqual(["welcome", "your-district", "building-action"]);
+
+    progress = updateOnboardingProgress({
+      world: { ownedDistrictIds: [1] },
+      progress
+    }, {
+      type: "attack:started",
+      detail: { targetDistrictId: 2 }
+    });
+
+    expect(progress.currentStepId).toBe("heat-police");
+    expect(progress.completedStepIds).not.toContain("attack-order");
+  });
+
+  it("does not complete the building action step until confirmed feedback is visible", () => {
+    let progress = normalizeOnboardingProgress({ currentStepId: "building-action" });
+
+    progress = updateOnboardingProgress({
+      world: { ownedDistrictIds: [1] },
+      progress
+    }, {
+      type: "building:opened",
+      detail: { buildingName: "Pouliční dealeři" }
+    });
+
+    expect(progress.currentStepId).toBe("building-action");
+    expect(progress.completedStepIds).not.toContain("building-action");
+
+    progress = updateOnboardingProgress({
+      world: { ownedDistrictIds: [1] },
+      progress
+    }, {
+      type: "building-action:feedback",
+      detail: {
+        payload: {
+          actionId: "sell_drugs",
+          buildingTypeId: "street_dealers"
+        }
+      }
+    });
+
+    expect(progress.currentStepId).toBe("heat-police");
+    expect(progress.completedStepIds).toContain("building-action");
+  });
+
+  it("uses async started states for spy and attack onboarding progress", () => {
+    let progress = normalizeOnboardingProgress({ currentStepId: "spy" });
+
+    progress = updateOnboardingProgress({
+      world: { ownedDistrictIds: [1] },
+      progress
+    }, {
+      type: "spy:opened",
+      detail: { targetDistrictId: 2 }
+    });
+
+    expect(progress.currentStepId).toBe("spy");
+
+    progress = updateOnboardingProgress({
+      world: { ownedDistrictIds: [1] },
+      progress
+    }, {
+      type: "spy:started",
+      detail: { targetDistrictId: 2, mission: { returnAt: "2026-05-15T01:00:00.000Z" } }
+    });
+
+    expect(progress.currentStepId).toBe("attack-order");
+    expect(progress.completedStepIds).toContain("spy");
+
+    progress = updateOnboardingProgress({
+      world: { ownedDistrictIds: [1] },
+      progress
+    }, {
+      type: "attack:opened",
+      detail: { targetDistrictId: 2 }
+    });
+
+    expect(progress.currentStepId).toBe("attack-order");
+
+    progress = updateOnboardingProgress({
+      world: { ownedDistrictIds: [1] },
+      progress
+    }, {
+      type: "attack:started",
+      detail: { targetDistrictId: 2, order: { resolveAt: "2026-05-15T01:30:00.000Z" } }
+    });
+
+    expect(progress.currentStepId).toBe("done");
+    expect(progress.completedStepIds).toContain("attack-order");
+  });
+
   it("step resolver survives missing target elements", () => {
     const readModel = createOnboardingReadModel({ world: { ownedDistrictIds: [1] } });
-    const state = resolveOnboardingStepState({ id: "heat", fallbackBody: "fallback" }, readModel, createRoot());
+    const state = resolveOnboardingStepState({ id: "heat-police", fallbackBody: "fallback" }, readModel, createRoot());
 
     expect(state.status).toBe("fallback");
     expect(state.missingTarget).toBe(true);
-    expect(state.fallbackTitle).toBe("Tenhle kus UI se schoval.");
+    expect(state.fallbackTitle).toBe("Cíl teď není dostupný.");
     expect(state.fallback).toBe("fallback");
   });
 
@@ -160,10 +384,10 @@ describe("Empire onboarding flow", () => {
 
     expect(readModel.playerStatus).toBe("defeated");
     expect(state.status).toBe("defeated");
-    expect(state.fallback).toContain("vyplivl");
+    expect(state.fallback).toContain("vyřazený");
   });
 
-  it("danger zone step uses available elimination read model data", () => {
+  it("operator read model still exposes elimination data without making it onboarding v1 scope", () => {
     const readModel = createOnboardingReadModel({
       elimination: {
         enabled: true,
@@ -174,13 +398,12 @@ describe("Empire onboarding flow", () => {
       },
       world: { ownedDistrictIds: [1] }
     });
-    const state = resolveOnboardingStepState(ONBOARDING_STEPS.find((step) => step.id === "danger-zone"), readModel, createRoot(["[data-br-info-open]"]));
 
     expect(readModel.eliminationAvailable).toBe(true);
     expect(readModel.elimination.nextEliminationLabel).toBe("za 42m");
     expect(readModel.elimination.dangerZoneLabel).toBe("1 hráčů v danger zone");
     expect(readModel.elimination.maxPlayersPerServer).toBe(20);
-    expect(state.status).toBe("ready");
+    expect(ONBOARDING_STEPS.some((step) => step.id === "elimination-danger")).toBe(false);
   });
 
   it("operator read model exposes final lockdown essentials", () => {
@@ -207,14 +430,13 @@ describe("Empire onboarding flow", () => {
     });
   });
 
-  it("day/night step uses the day/night read model when it exists", () => {
+  it("day/night data remains available without being a hard onboarding v1 step", () => {
     const readModel = createOnboardingReadModel({
       dayNight: { phase: "night" },
       world: { ownedDistrictIds: [1] }
     });
-    const state = resolveOnboardingStepState(ONBOARDING_STEPS.find((step) => step.id === "day-night"), readModel, createRoot([".map-phase-toolbar"]));
 
     expect(readModel.dayNightAvailable).toBe(true);
-    expect(state.status).toBe("ready");
+    expect(ONBOARDING_STEPS.some((step) => step.id === "day-night")).toBe(false);
   });
 });

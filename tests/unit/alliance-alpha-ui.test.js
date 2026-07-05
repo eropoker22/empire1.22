@@ -91,6 +91,10 @@ describe("alliance alpha UI", () => {
     expect(runtime).not.toContain("Lokální preview ukazuje vzhled aliance bez serverového uložení.");
     expect(runtime).toContain("const MAX_ALLIANCE_SIZE_FALLBACK = 4;");
     expect(runtime).toContain("const MAX_ALLIANCE_NAME_LENGTH = 32;");
+    expect(runtime).not.toContain("empire_alliance_modal_open");
+    expect(runtime).not.toContain("openAllianceModalOnPageLoad");
+    expect(runtime).not.toContain("shouldRestoreAllianceModalOpen");
+    expect(runtime).not.toContain("persistAllianceModalOpen");
   });
 
   it("keeps alliance actions server-authoritative and sanitizes UI errors", () => {

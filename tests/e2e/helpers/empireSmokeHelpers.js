@@ -7,8 +7,8 @@ const DISTRICT_CANVAS_WIDTH = 1600;
 const DISTRICT_CANVAS_HEIGHT = 980;
 const DEFAULT_TEST_AVATAR = "../img/avatars/Mafia/2854d1df-0f7c-4fe4-aa85-7a70dfe299db.jpg";
 const CANONICAL_FREE_SERVER_ID = "instance:free:eu-central:public-1";
-const ONBOARDING_STORAGE_PREFIX = "empire:onboarding:v1";
-const ONBOARDING_VERSION = "v2";
+const ONBOARDING_STORAGE_PREFIX = "empire:onboarding:demo-v1";
+const ONBOARDING_VERSION = "demo-v1-clean";
 
 const BENIGN_CONSOLE_ERROR_PATTERNS = [
   /favicon\.ico/i,
@@ -288,7 +288,7 @@ export async function seedE2eSession(page, overrides = {}) {
   const session = createE2eSession(overrides);
   await attachE2eJoinTicket(page, session);
   await installE2eStabilityScript(page);
-  await page.addInitScript(({ key, skipOnboarding, value }) => {
+  await page.addInitScript(({ key, onboardingPrefix, onboardingVersion, skipOnboarding, value }) => {
     const flags = new Set(String(window.name || "").split("|").filter(Boolean));
     if (flags.has("empire-e2e-session-seeded")) {
       return;
@@ -299,19 +299,21 @@ export async function seedE2eSession(page, overrides = {}) {
     if (skipOnboarding) {
       const registration = value?.registration || {};
       const playerId = String(registration.playerId || registration.identity || registration.gangName || "dev-player").trim() || "dev-player";
-      const onboardingKey = `${"empire:onboarding:v1"}:${encodeURIComponent("dev-only")}:${encodeURIComponent(playerId)}`;
+      const onboardingKey = `${onboardingPrefix}:${encodeURIComponent("dev-only")}:${encodeURIComponent(playerId)}`;
       window.localStorage.setItem(onboardingKey, JSON.stringify({
         completed: true,
         skipped: true,
         currentStepId: "completed",
         dismissedAt: new Date().toISOString(),
-        version: "v2"
+        version: onboardingVersion
       }));
     }
     flags.add("empire-e2e-session-seeded");
     window.name = Array.from(flags).join("|");
   }, {
     key: SESSION_STORAGE_KEY,
+    onboardingPrefix: ONBOARDING_STORAGE_PREFIX,
+    onboardingVersion: ONBOARDING_VERSION,
     skipOnboarding: overrides.skipOnboarding !== false,
     value: session
   });

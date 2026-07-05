@@ -2,9 +2,15 @@ import { escapeHtml } from "../shared-ui";
 
 export type GameplayRuntimeMarker =
   | "initializing"
+  | "demo-ready"
   | "server-authoritative-ready"
   | "server-authoritative-error"
   | "legacy-fallback";
+
+export type GameplayServerRuntimeMarker =
+  | "not-requested"
+  | "server-authoritative-ready"
+  | "server-authoritative-error";
 
 export const setGameplayRuntimeMarker = (
   root: HTMLElement,
@@ -13,11 +19,19 @@ export const setGameplayRuntimeMarker = (
     endpoint?: string;
     error?: string;
     fallback?: "legacy";
+    serverRuntime?: GameplayServerRuntimeMarker;
   } = {}
 ): void => {
   root.dataset.gameplayRuntime = marker;
   root.dataset.gameplaySliceRuntime = marker;
   root.dataset.gameplaySliceEndpoint = details.endpoint ?? root.dataset.gameplaySliceEndpoint ?? "";
+  const serverRuntime = details.serverRuntime
+    ?? (marker === "server-authoritative-ready" || marker === "server-authoritative-error" ? marker : null);
+  if (serverRuntime) {
+    root.dataset.gameplayServerRuntime = serverRuntime;
+  } else {
+    delete root.dataset.gameplayServerRuntime;
+  }
   if (details.error) {
     root.dataset.gameplaySliceError = sanitizeDiagnosticText(details.error, 180);
   } else {
@@ -30,6 +44,11 @@ export const setGameplayRuntimeMarker = (
   }
   if (typeof document !== "undefined" && document.body) {
     document.body.dataset.gameplayRuntime = marker;
+    if (serverRuntime) {
+      document.body.dataset.gameplayServerRuntime = serverRuntime;
+    } else {
+      delete document.body.dataset.gameplayServerRuntime;
+    }
     if (details.fallback) {
       document.body.dataset.gameplayFallback = details.fallback;
     } else {

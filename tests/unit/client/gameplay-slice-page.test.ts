@@ -147,30 +147,35 @@ describe("gameplay slice page fallback cells", () => {
 });
 
 describe("gameplay slice runtime marker", () => {
-  it("writes a stable DOM marker for server-authoritative errors and legacy fallback", () => {
+  it("writes separate DOM markers for demo fallback and server-authoritative state", () => {
     const previousDocument = globalThis.document;
     const body = { dataset: {} as Record<string, string> };
     globalThis.document = { body } as unknown as Document;
     const root = { dataset: {} } as HTMLElement;
 
     try {
-      setGameplayRuntimeMarker(root, "server-authoritative-error", {
+      setGameplayRuntimeMarker(root, "demo-ready", {
         endpoint: "/api/gameplay-slice/load",
-        error: "Gameplay slice request failed: POST /api/gameplay-slice/load returned HTTP 404.",
-        fallback: "legacy"
+        error: "Gameplay session is required.",
+        fallback: "legacy",
+        serverRuntime: "server-authoritative-error"
       });
 
-      expect(root.dataset.gameplayRuntime).toBe("server-authoritative-error");
+      expect(root.dataset.gameplayRuntime).toBe("demo-ready");
+      expect(root.dataset.gameplayServerRuntime).toBe("server-authoritative-error");
       expect(root.dataset.gameplaySliceEndpoint).toBe("/api/gameplay-slice/load");
       expect(root.dataset.gameplayFallback).toBe("legacy");
-      expect(body.dataset.gameplayRuntime).toBe("server-authoritative-error");
+      expect(body.dataset.gameplayRuntime).toBe("demo-ready");
+      expect(body.dataset.gameplayServerRuntime).toBe("server-authoritative-error");
       expect(body.dataset.gameplayFallback).toBe("legacy");
 
       setGameplayRuntimeMarker(root, "server-authoritative-ready");
 
       expect(root.dataset.gameplayRuntime).toBe("server-authoritative-ready");
+      expect(root.dataset.gameplayServerRuntime).toBe("server-authoritative-ready");
       expect(root.dataset.gameplayFallback).toBeUndefined();
       expect(body.dataset.gameplayRuntime).toBe("server-authoritative-ready");
+      expect(body.dataset.gameplayServerRuntime).toBe("server-authoritative-ready");
       expect(body.dataset.gameplayFallback).toBeUndefined();
     } finally {
       globalThis.document = previousDocument;

@@ -7,7 +7,6 @@ import { LAUNCH_PLAYER_AVATAR_BY_FACTION_ID, START_PHASE_PLAYER_NAMES } from "./
 const LOCAL_ALLIANCE_KEY = "empire_local_alliance_state";
 const GLOBAL_CHAT_KEY = "empire_local_global_chat_state";
 const ALLIANCE_CHAT_PREVIEW_KEY = "empire_local_alliance_chat_state";
-const ALLIANCE_MODAL_SESSION_KEY = "empire_alliance_modal_open";
 const ALLIANCE_COLOR_PREVIEW_KEY = "empire_local_alliance_color_state";
 const MAX_ALLIANCE_SIZE_FALLBACK = 4;
 const MAX_ALLIANCE_NAME_LENGTH = 32;
@@ -24,7 +23,6 @@ let pendingAllianceExitMode = "leave";
 let pendingAllianceCommand = false;
 let lastAllianceMemberAvatarTrigger = null;
 let allianceCountdownTimer = null;
-let allianceModalAutoOpenedOnLoad = false;
 let allianceCreateInfluenceObserver = null;
 
 const qs = (id) => document.getElementById(id);
@@ -971,29 +969,6 @@ const syncAllianceModalBodyState = () => {
   document.body?.classList.toggle("alliance-modal-open", hasOpenAllianceModal);
 };
 
-const persistAllianceModalOpen = (isOpen) => {
-  try {
-    sessionStorage.setItem(ALLIANCE_MODAL_SESSION_KEY, isOpen ? "1" : "0");
-  } catch (_error) {
-    // Session restore is best-effort only.
-  }
-};
-
-const shouldRestoreAllianceModalOpen = () => {
-  try {
-    return sessionStorage.getItem(ALLIANCE_MODAL_SESSION_KEY) === "1";
-  } catch (_error) {
-    return false;
-  }
-};
-
-const openAllianceModalOnPageLoad = () => {
-  if (allianceModalAutoOpenedOnLoad) return;
-  allianceModalAutoOpenedOnLoad = true;
-  persistAllianceModalOpen(true);
-  setModalVisible(qs("alliance-modal"), true);
-};
-
 const setModalVisible = (modal, visible) => {
   if (!modal) return;
   if (visible) {
@@ -1856,7 +1831,6 @@ const rerenderAll = () => {
 };
 
 const openAllianceModal = () => {
-  persistAllianceModalOpen(true);
   setModalVisible(qs("alliance-modal"), true);
   document.dispatchEvent(new CustomEvent("empire:onboarding-event", { detail: { type: "alliance:opened" } }));
   rerenderAll();
@@ -1864,14 +1838,12 @@ const openAllianceModal = () => {
 
 const openAllianceManagementTab = () => {
   selectedAllianceTab = "management";
-  persistAllianceModalOpen(true);
   setModalVisible(qs("alliance-modal"), true);
   document.dispatchEvent(new CustomEvent("empire:onboarding-event", { detail: { type: "alliance:opened" } }));
   rerenderAll();
 };
 
 const closeAllAllianceModals = () => {
-  persistAllianceModalOpen(false);
   ALLIANCE_MODAL_IDS.forEach((id) =>
     setModalVisible(qs(id), false)
   );
@@ -2533,9 +2505,6 @@ const bindAllianceRuntime = () => {
   document.addEventListener("empire:gameplay-slice-rendered", (event) => {
     latestAllianceBoard = createDevOnlyAllianceBoard(event?.detail?.gameplaySlice?.allianceBoard || null);
     rerenderAll();
-    if (shouldRestoreAllianceModalOpen() || !allianceModalAutoOpenedOnLoad) {
-      openAllianceModalOnPageLoad();
-    }
     window.dispatchEvent(new CustomEvent("empire:alliance-state-changed"));
   });
   document.addEventListener("empire:gang-state-changed", () => {
@@ -2560,9 +2529,6 @@ const bindAllianceRuntime = () => {
   latestAllianceBoard = createDevOnlyAllianceBoard(latestAllianceBoard);
   rerenderAll();
   ensureAllianceCountdownTimer();
-  if (shouldRestoreAllianceModalOpen() || !allianceModalAutoOpenedOnLoad) {
-    openAllianceModalOnPageLoad();
-  }
 };
 
 if (document.readyState === "loading") {

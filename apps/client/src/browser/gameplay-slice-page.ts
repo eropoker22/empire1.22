@@ -42,7 +42,10 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
   const request = resolveGameplaySliceBootstrapRequest(options.root.dataset, getBrowserStorage());
 
   if (!request) {
-    setGameplayRuntimeMarker(options.root, "legacy-fallback");
+    setGameplayRuntimeMarker(options.root, "demo-ready", {
+      fallback: "legacy",
+      serverRuntime: "not-requested"
+    });
     options.root.hidden = true;
     return null;
   }
@@ -84,10 +87,11 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
   const hideUnavailableGameplaySlice = (state: ClientRenderState | null = null): void => {
     const message = state?.connection.lastErrorMessage || "Gameplay slice did not return an authoritative read model.";
     const endpoint = `${endpointBase}/load`;
-    setGameplayRuntimeMarker(options.root, "server-authoritative-error", {
+    setGameplayRuntimeMarker(options.root, "demo-ready", {
       endpoint,
       error: message,
-      fallback: "legacy"
+      fallback: "legacy",
+      serverRuntime: "server-authoritative-error"
     });
     writeGameplaySliceDiagnostic(endpoint, message);
     options.root.dataset.gameplaySliceUnavailable = "true";

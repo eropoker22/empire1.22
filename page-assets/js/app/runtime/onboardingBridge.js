@@ -5,7 +5,6 @@ import {
   hideOnboardingPanel as hidePanel,
   initOnboardingPanel,
   markOnboardingStepDone as markPanelStepDone,
-  moveOnboardingProgress,
   normalizeOnboardingProgress,
   renderOnboardingPanel,
   shouldAutoStartOnboarding,
@@ -17,7 +16,13 @@ import {
   resolveOnboardingMode
 } from "./onboardingReadModel.js";
 
-export const STORAGE_PREFIX = "empire:onboarding:v1";
+export const STORAGE_PREFIX = "empire:onboarding:demo-v1";
+const LEGACY_STORAGE_PREFIXES = Object.freeze([
+  "empire:onboarding:v1"
+]);
+const LEGACY_STORAGE_KEYS = Object.freeze([
+  "empireStreets.freeSessionOnboarding.v1"
+]);
 
 function safeObject(value) {
   return value && typeof value === "object" ? value : {};
@@ -42,6 +47,20 @@ function sanitizeKeyPart(value, fallback) {
   return encodeURIComponent(String(value || fallback || "unknown").trim() || fallback || "unknown");
 }
 
+function hasBuildingActionFeedback(detail = {}) {
+  const safeDetail = safeObject(detail);
+  const payload = safeObject(safeDetail.payload);
+  const snapshot = safeObject(safeDetail.snapshot);
+  return Boolean(
+    payload.actionId
+    || payload.buildingTypeId
+    || payload.reportType === "building-action"
+    || snapshot.actionId
+    || snapshot.buildingTypeId
+    || snapshot.reportType === "building-action"
+  );
+}
+
 export function resolveOnboardingStorageKey(context = {}) {
   const safeContext = safeObject(context);
   const playerId = createOnboardingReadModel(safeContext).playerId;
@@ -57,10 +76,16 @@ function readStoredProgress(storage = null, key = "") {
 
   try {
     const parsed = JSON.parse(store.getItem(key) || "{}");
+    const parsedVersion = String(parsed.version || "");
+    if (parsedVersion && parsedVersion !== ONBOARDING_VERSION) {
+      store.removeItem?.(key);
+      return { completed: false, skipped: false, currentStepId: "welcome", dismissedAt: null, version: ONBOARDING_VERSION };
+    }
     return {
       completed: Boolean(parsed.completed),
       skipped: Boolean(parsed.skipped),
       currentStepId: String(parsed.currentStepId || "welcome"),
+      observedStepIds: asArray(parsed.observedStepIds).map(String).filter(Boolean),
       dismissedAt: parsed.dismissedAt ? String(parsed.dismissedAt) : null,
       version: String(parsed.version || ONBOARDING_VERSION)
     };
@@ -75,6 +100,7 @@ export function serializeOnboardingProgress(progress = {}) {
     completed: Boolean(normalized.completed),
     skipped: Boolean(normalized.skipped),
     currentStepId: String(normalized.currentStepId || "welcome"),
+    observedStepIds: asArray(normalized.observedStepIds).map(String).filter(Boolean),
     dismissedAt: normalized.dismissedAt || null,
     version: String(normalized.version || ONBOARDING_VERSION)
   };
@@ -95,38 +121,78 @@ function writeStoredProgress(progress = {}, storage = null, key = "") {
 }
 
 function eventCompletesStep(eventType = "", detail = {}) {
-  const actionId = String(detail.actionId || detail.kind || "").trim();
   if (eventType === "onboarding:next") return detail.stepId;
-  if (eventType === "win-condition:read") return "win-condition";
-  if (eventType === "spawn:selected" || eventType === "spawn:confirmed") return "spawn-selection";
+  if (eventType === "spawn:selected" || eventType === "spawn:confirmed") return "your-district";
   if (eventType === "district:own-opened" || eventType === "empire:district-opened") return "your-district";
-  if (eventType === "district:stats-read") return "district-stats";
-  if (eventType === "building:opened" || eventType === "empire:building-opened") return "buildings";
-  if (eventType === "income:tick" || eventType === "production:collected" || eventType === "action:production" || eventType === "cash:read") return "cash";
-  if (eventType === "production:selected" || eventType === "craft:completed" || eventType === "equipment:prepared") return "production";
-  if (eventType === "people:read") return "people";
-  if (eventType === "heat:opened" || eventType === "heat:changed" || eventType === "police:feedback") return "heat";
-  if (eventType === "day-night:opened") return "day-night";
-  if (eventType === "district:enemy-opened" || eventType === "district:neighbor-opened") return "neighbor-districts";
-  if (eventType === "spy:opened" || eventType === "spy:started" || eventType === "spy:completed" || actionId === "spy") return "spy";
-  if (eventType === "robbery:opened" || eventType === "robbery:started" || actionId === "rob" || actionId === "heist") return "robbery";
-  if (eventType === "attack:opened" || eventType === "attack:started" || eventType === "occupy:opened" || eventType === "occupy:started" || actionId === "attack" || actionId === "occupy") return "occupy-attack";
-  if (eventType === "trap:opened" || actionId === "trap") return "traps";
-  if (eventType === "city-feed:opened") return "city-feed";
-  if (eventType === "market:opened") return "market";
-  if (eventType === "alliance:opened") return "alliance";
-  if (eventType === "elimination:opened" || eventType === "battle-royale:opened") return "elimination";
-  if (eventType === "danger-zone:opened") return "danger-zone";
-  if (eventType === "downtown:read") return "downtown";
+  if (eventType === "district:stats-read") return "your-district";
+  if (eventType === "building-action:feedback") return "building-action";
+  if (eventType === "heat:opened" || eventType === "heat:changed" || eventType === "police:feedback" || eventType === "day-night:opened") return "heat-police";
+  if (eventType === "spy:started") return "spy";
+  if (eventType === "attack:started" || eventType === "occupy:started") return "attack-order";
   return null;
 }
 
-function shouldAdvanceFromEvent(progress = {}, stepId = "") {
-  const normalized = normalizeOnboardingProgress(progress);
-  if (!stepId || normalized.completed) {
+function pruneLegacyOnboardingStorage(storage = null) {
+  const store = getStorage(storage);
+  if (!store?.removeItem) {
     return false;
   }
-  return normalized.currentStepId === stepId;
+
+  for (const key of LEGACY_STORAGE_KEYS) {
+    store.removeItem(key);
+  }
+
+  if (!store.length || !store.key) {
+    return true;
+  }
+
+  const keysToRemove = [];
+  for (let index = 0; index < store.length; index += 1) {
+    const key = String(store.key(index) || "");
+    if (LEGACY_STORAGE_PREFIXES.some((prefix) => key === prefix || key.startsWith(`${prefix}:`))) {
+      keysToRemove.push(key);
+    }
+  }
+  for (const key of keysToRemove) {
+    store.removeItem(key);
+  }
+  return true;
+}
+
+function getObservedStepIdsForEvent(eventType = "", detail = {}) {
+  const completedStepId = eventCompletesStep(eventType, detail);
+  if (!completedStepId || !FREE_SESSION_ONBOARDING_STEPS.some((step) => step.id === completedStepId)) {
+    return [];
+  }
+
+  const observed = new Set([completedStepId]);
+  const userActionStepIds = new Set(["your-district", "building-action", "spy", "attack-order"]);
+  if (userActionStepIds.has(completedStepId) || eventType === "heat:opened") {
+    observed.add("welcome");
+  }
+  if (completedStepId === "building-action" || completedStepId === "spy" || completedStepId === "attack-order") {
+    observed.add("your-district");
+  }
+  return Array.from(observed);
+}
+
+function applyObservedProgress(progress = {}) {
+  let nextProgress = normalizeOnboardingProgress(progress);
+  const observed = new Set(nextProgress.observedStepIds);
+  let guard = 0;
+
+  while (!nextProgress.completed && observed.has(nextProgress.currentStepId) && guard < FREE_SESSION_ONBOARDING_STEPS.length) {
+    nextProgress = markPanelStepDone(nextProgress.currentStepId, {
+      ...nextProgress,
+      observedStepIds: Array.from(observed)
+    });
+    guard += 1;
+  }
+
+  return normalizeOnboardingProgress({
+    ...nextProgress,
+    observedStepIds: Array.from(observed)
+  });
 }
 
 export function updateOnboardingProgress(context = {}, eventOrState = {}) {
@@ -147,12 +213,15 @@ export function updateOnboardingProgress(context = {}, eventOrState = {}) {
     return completeOnboardingProgress(progress, "dismissed", { skipped: true });
   }
 
-  const completedStepId = eventCompletesStep(eventType, detail);
-  if (shouldAdvanceFromEvent(progress, completedStepId)) {
-    return markPanelStepDone(completedStepId, progress);
+  const observed = new Set(progress.observedStepIds);
+  for (const stepId of getObservedStepIdsForEvent(eventType, detail)) {
+    observed.add(stepId);
   }
 
-  return progress;
+  return applyObservedProgress({
+    ...progress,
+    observedStepIds: Array.from(observed)
+  });
 }
 
 export function markOnboardingStepDone(stepId, progress = {}) {
@@ -201,6 +270,7 @@ export function createOnboardingBridge(deps = {}) {
   let readModel = createOnboardingReadModel({});
   let mount = null;
   let eventsBound = false;
+  let legacyStoragePruned = false;
   const boundEvents = [];
 
   const getContext = () => ({
@@ -210,6 +280,10 @@ export function createOnboardingBridge(deps = {}) {
   });
 
   const refreshReadModel = () => {
+    if (!legacyStoragePruned) {
+      pruneLegacyOnboardingStorage(storage);
+      legacyStoragePruned = true;
+    }
     readModel = createOnboardingReadModel(getContext());
     const nextKey = resolveOnboardingStorageKey(getContext());
     if (nextKey && nextKey !== storageKey) {
@@ -265,8 +339,7 @@ export function createOnboardingBridge(deps = {}) {
   };
 
   const back = () => {
-    progress = moveOnboardingProgress(progress, -1);
-    persist();
+    progress = normalizeOnboardingProgress(progress);
     render();
     return progress;
   };
@@ -313,7 +386,14 @@ export function createOnboardingBridge(deps = {}) {
 
     const eventMap = new Map([
       ["empire:district-opened", handleDistrictOpened],
+      ["empire:onboarding-event", (event) => update({ type: getEventType(event?.detail), detail: event?.detail || {} })],
       ["empire:building-opened", (event) => update({ type: "building:opened", detail: event?.detail || {} })],
+      ["empire:action-result", (event) => {
+        const detail = safeObject(event?.detail);
+        if (hasBuildingActionFeedback(detail)) {
+          update({ type: "building-action:feedback", detail });
+        }
+      }],
       ["empire:production-collected", (event) => update({ type: "production:collected", detail: event?.detail || {} })],
       ["empire:spy-started", (event) => update({ type: "spy:started", detail: event?.detail || {} })],
       ["empire:robbery-started", (event) => update({ type: "robbery:started", detail: event?.detail || {} })],

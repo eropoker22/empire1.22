@@ -162,8 +162,9 @@ describe("mobile action modal CSS", () => {
   });
 
   it("keeps mobile City Events tappable above onboarding and modal scroll lock", () => {
-    expect(onboardingCss).toContain("inset: auto 12px calc(76px + env(safe-area-inset-bottom, 0px)) 12px;");
-    expect(onboardingCss).toContain("max-height: min(64dvh, calc(100dvh - 148px));");
+    expect(onboardingCss).toContain("inset: auto max(12px, env(safe-area-inset-right, 0px)) calc(72px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));");
+    expect(onboardingCss).toContain("max-height: min(45dvh, calc(100dvh - 132px));");
+    expect(onboardingCss).toContain("max-height: max(92px, calc(45dvh - 154px));");
     expect(mobileRuntime).toContain('const cityEventsAnchor = documentObj.getElementById("city-events-card-anchor");');
     expect(mobileRuntime).toContain("moveElementAfterAnchor(cityEventsAnchor, cityEventsCard);");
     for (const stylesheet of [css, clientCss]) {
@@ -258,7 +259,11 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("--district-mobile-resource-clearance: 0px;");
       expect(stylesheet).toContain("--mobile-overlay-top-offset: 0px !important;");
       expect(stylesheet).not.toContain("is-district-popup-resource-visible");
-      expect(stylesheet).not.toContain("game-modal-scroll-locked:has(.district-popup-shell:not([hidden]))");
+      expect(stylesheet).toContain("game-modal-scroll-locked:has(.district-popup-shell:not([hidden]))");
+      expect(stylesheet).toContain("game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(:is(");
+      expect(stylesheet).toContain("#attack-confirm-modal:not(.hidden):not([hidden])");
+      expect(stylesheet).toContain("#trap-confirm-modal:not(.hidden):not([hidden])");
+      expect(stylesheet).toContain("z-index: 23000 !important;");
       expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked #game-header");
       expect(stylesheet).toContain("visibility: hidden !important;");
       expect(stylesheet).toContain("opacity: 0 !important;");
@@ -302,6 +307,45 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked .game-shell > .modal:not(.hidden):not([hidden]) > .modal__backdrop");
       expect(stylesheet).toContain("position: absolute !important;\n    inset: 0 !important;");
     }
+  });
+
+  it("keeps wanted police help above storage and heat popup layers", () => {
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain("Final demo modal layer: wanted police help must stay above storage/heat popup cards.");
+      expect(stylesheet).toContain("html body.game-body .wanted-popup-shell:not([hidden])");
+      expect(stylesheet).toContain("z-index: 21000 !important;");
+      expect(stylesheet).toContain("html body.game-body .wanted-popup-shell:not([hidden]) .wanted-popup-card");
+      expect(stylesheet).toContain("z-index: 21010 !important;");
+      expect(stylesheet).toContain("html body.game-body .wanted-popup-shell:not([hidden]) > .wanted-popup-police-window");
+      expect(stylesheet).toContain("z-index: 21020 !important;");
+      expect(stylesheet).toContain("html body.game-body .storage-popup-shell[data-storage-popup]:not([hidden])");
+      expect(stylesheet).toContain("z-index: 18000 !important;");
+    }
+  });
+
+  it("keeps onboarding below critical action and police modal layers", () => {
+    expect(onboardingCss).toContain("Empire Streets layer scale: base UI < onboarding < action/result modals < police critical < emergency.");
+    expect(onboardingCss).toContain("--empire-z-onboarding-highlight: 9380;");
+    expect(onboardingCss).toContain("--empire-z-onboarding-panel: 9400;");
+    expect(onboardingCss).toContain("--empire-z-action-confirmation: 19000;");
+    expect(onboardingCss).toContain("--empire-z-action-result: 20000;");
+    expect(onboardingCss).toContain("--empire-z-police-critical: 21000;");
+    expect(onboardingCss).toContain("--empire-z-emergency: 23000;");
+    expect(onboardingCss).toContain("--onboarding-z-panel: 9400;");
+    expect(onboardingCss).toContain("--onboarding-z-highlight: 9380;");
+    expect(actionCss).toContain("z-index: 19000;");
+    expect(mainCss).toContain("z-index: 21000 !important;");
+    expect(mainCss).toContain("z-index: 23000 !important;");
+  });
+
+  it("keeps onboarding motion subtle and reduced-motion safe", () => {
+    expect(onboardingCss).toContain("@keyframes onboardingPanelIn");
+    expect(onboardingCss).toContain("@keyframes onboardingSheetIn");
+    expect(onboardingCss).toContain("animation-name: onboardingSheetIn;");
+    expect(onboardingCss).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(onboardingCss).toContain(".empire-onboarding-highlight,");
+    expect(onboardingCss).toContain("animation: none !important;");
+    expect(onboardingCss).toContain("transition: none !important;");
   });
 
   it("restores page scroll after closing every mobile overlay coordinator", () => {

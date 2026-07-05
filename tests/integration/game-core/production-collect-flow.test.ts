@@ -47,4 +47,32 @@ describe("production collect command flow", () => {
     expect(collected.events).toHaveLength(1);
     expect(collected.events[0]?.type).toBe("production-collected");
   });
+
+  it("rejects collect-production when warehouse storage is already full", () => {
+    const context = {
+      config: resolveModeConfig("free")
+    };
+    const { state, building } = createCoreStateWithFixedBuildingFixture("pharmacy", {
+      includeWarehouse: true,
+      productionResourceKey: "chemicals",
+      productionStoredAmount: 12,
+      playerBalances: {
+        cash: 0,
+        chemicals: 350
+      }
+    });
+    const buildingResourceStateId = `resource:${building.id}`;
+
+    const collected = applyCommand(state, createCollectProductionCommandFixture({
+      payload: {
+        districtId: "district:1",
+        buildingId: building.id
+      }
+    }), context);
+
+    expect(collected.errors.map((error) => error.code)).toEqual(["production_storage_full"]);
+    expect(collected.events).toEqual([]);
+    expect(collected.nextState.resourceStatesById[buildingResourceStateId]?.balances.chemicals).toBe(12);
+    expect(collected.nextState.resourceStatesById["resource:1"]?.balances.chemicals).toBe(350);
+  });
 });

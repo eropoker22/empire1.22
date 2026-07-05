@@ -71,6 +71,10 @@ function resolveStepBadge(step = {}) {
   return String(step.badge || step.eyebrow || "STREET").trim() || "STREET";
 }
 
+function isManualCompletionStep(step = {}) {
+  return !step.completionCondition || step.completionCondition === "manual";
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -82,8 +86,9 @@ function safeScrollIntoView(target) {
   if (isModalScrollLocked(target.ownerDocument)) {
     return;
   }
+  const prefersReducedMotion = Boolean(target.ownerDocument?.defaultView?.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
   try {
-    target.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+    target.scrollIntoView({ block: "center", inline: "center", behavior: prefersReducedMotion ? "auto" : "smooth" });
   } catch {
     try {
       target.scrollIntoView();
@@ -167,13 +172,16 @@ function resolveCurrentStepId(progress = {}) {
     return explicit;
   }
   const completed = new Set(asArray(progress.completedStepIds || progress.completed).map(String));
-  return ONBOARDING_STEPS.find((step) => !completed.has(step.id))?.id || "win-condition";
+  return ONBOARDING_STEPS.find((step) => !completed.has(step.id))?.id || "welcome";
 }
 
 export function normalizeOnboardingProgress(progress = {}) {
   const completedStepIds = asArray(progress.completedStepIds)
     .map(String)
     .filter(Boolean);
+  const observedStepIds = asArray(progress.observedStepIds)
+    .map(String)
+    .filter((stepId) => ONBOARDING_STEPS.some((step) => step.id === stepId));
   const completedSet = new Set(completedStepIds);
   const currentStepId = progress.completed
     ? (String(progress.currentStepId || "completed").trim() || "completed")
@@ -194,6 +202,7 @@ export function normalizeOnboardingProgress(progress = {}) {
     dismissedAt: progress.dismissedAt ? String(progress.dismissedAt) : null,
     version: String(progress.version || ONBOARDING_VERSION),
     completedStepIds: steps.filter((step) => step.done).map((step) => step.id),
+    observedStepIds: Array.from(new Set(observedStepIds)),
     currentStepId,
     currentStep,
     currentIndex,
@@ -222,7 +231,8 @@ export function markOnboardingStepDone(stepId, progress = {}) {
     dismissedAt: isComplete ? (normalized.dismissedAt || new Date().toISOString()) : normalized.dismissedAt,
     version: ONBOARDING_VERSION,
     currentStepId: isComplete ? "completed" : ONBOARDING_STEPS[nextIndex].id,
-    completedStepIds: Array.from(completed)
+    completedStepIds: Array.from(completed),
+    observedStepIds: normalized.observedStepIds
   });
 }
 
@@ -234,7 +244,8 @@ export function completeOnboardingProgress(progress = {}, currentStepId = "compl
     dismissedAt: options.dismissedAt || progress.dismissedAt || new Date().toISOString(),
     version: ONBOARDING_VERSION,
     currentStepId,
-    completedStepIds: ONBOARDING_STEPS.map((step) => step.id)
+    completedStepIds: ONBOARDING_STEPS.map((step) => step.id),
+    observedStepIds: ONBOARDING_STEPS.map((step) => step.id)
   });
 }
 
@@ -246,7 +257,8 @@ export function moveOnboardingProgress(progress = {}, delta = 0) {
     completed: false,
     skipped: false,
     currentStepId: ONBOARDING_STEPS[nextIndex].id,
-    version: ONBOARDING_VERSION
+    version: ONBOARDING_VERSION,
+    observedStepIds: normalized.observedStepIds
   });
 }
 
@@ -284,57 +296,13 @@ export function showOnboardingPanel() {
   return true;
 }
 
-function appendTextElement(ownerDocument, parent, tagName, className, text) {
-  const element = createElement(ownerDocument, tagName, className);
-  if (!element) {
-    return null;
-  }
-  element.textContent = text;
-  parent.append(element);
-  return element;
-}
-
-function getBattleRoyaleOperatorRows(readModel = {}) {
-  const finalLockdown = readModel.finalLockdown || {};
-  if (finalLockdown.active) {
-    return [
-      ["Fáze", "Final Lockdown"],
-      ["Čas", finalLockdown.remainingLabel || "čeká se"],
-      ["Rank", finalLockdown.rankLabel || "-"],
-      ["Top 3", finalLockdown.top3Gap || "-"],
-      ["Plán", finalLockdown.top3Gap === "drž pozici" ? "Udrž score, neplýtvej riskem." : "Zvyš Final Empire Score a přibliž se Top 3."]
-    ];
-  }
-
-  const elimination = readModel.elimination || {};
-  const activePlayers = elimination.activePlayersRemaining
-    ? `${elimination.activePlayersRemaining}/${elimination.maxPlayersPerServer || 20}`
-    : "-";
-  const nextLabel = elimination.eliminationsStopped
-    ? "zastaveno, čeká se na finále"
-    : elimination.nextEliminationLabel || "čeká se";
-  const plan = elimination.currentPlayerStatus === "critical"
-    ? "Okamžitě zvedni score: district, influence, budovy."
-    : elimination.currentPlayerStatus === "danger"
-      ? "Zvedni score před další očistou."
-      : "Drž tempo a sleduj další očistu.";
-
-  return [
-    ["Fáze", "Free Battle Royale"],
-    ["Očista", nextLabel],
-    ["Stav", String(elimination.currentPlayerStatus || "safe").toUpperCase()],
-    ["Hráči", activePlayers],
-    ["Danger", elimination.dangerZoneLabel || "čeká na server"],
-    ["Plán", plan]
-  ];
-}
-
 function updateHighlight(ownerDocument, target, step = {}) {
   const body = ownerDocument?.body;
   if (!body) {
     return null;
   }
-  let highlight = panelState.highlight || ownerDocument.querySelector?.("[data-onboarding-highlight]");
+  let highlight = panelState.highlight?.ownerDocument === ownerDocument ? panelState.highlight : null;
+  highlight ||= ownerDocument.querySelector?.("[data-onboarding-highlight]");
   if (!highlight) {
     highlight = createElement(ownerDocument, "div", "empire-onboarding-highlight");
     highlight?.setAttribute?.("data-onboarding-highlight", "");
@@ -346,10 +314,12 @@ function updateHighlight(ownerDocument, target, step = {}) {
   if (!highlight) {
     return null;
   }
-  let label = panelState.highlightLabel || ownerDocument.querySelector?.("[data-onboarding-target-label]");
+  let label = panelState.highlightLabel?.ownerDocument === ownerDocument ? panelState.highlightLabel : null;
+  label ||= ownerDocument.querySelector?.("[data-onboarding-target-label]");
   if (!label) {
     label = createElement(ownerDocument, "div", "empire-onboarding-target-label");
     label?.setAttribute?.("data-onboarding-target-label", "");
+    label?.setAttribute?.("data-onboarding-highlight-label", "");
     if (label) {
       body.append(label);
     }
@@ -379,7 +349,7 @@ function updateHighlight(ownerDocument, target, step = {}) {
   setElementStyle(highlight, "height", `${height}px`);
   if (label) {
     label.hidden = false;
-    label.textContent = step.targetLabel || "Tady, ty génie";
+    label.textContent = step.targetLabel || "Tady začni";
     label.dataset.highlightKind = resolveStepKind(step);
     setElementStyle(label, "left", `${clamp(left, 8, Math.max(8, viewportWidth - 158))}px`);
     setElementStyle(label, "top", `${clamp(top - 30, 8, Math.max(8, viewportHeight - 34))}px`);
@@ -405,6 +375,9 @@ export function renderOnboardingPanel(progress = {}, callbacks = {}, options = {
   const stepKind = isDefeated ? "defeated" : resolveStepKind(step);
   const phaseLabel = isDefeated ? "Defeated" : resolveStepPhase(step, normalized.currentIndex);
   const badgeLabel = isDefeated ? "OUT" : resolveStepBadge(step);
+  const target = state.target || null;
+  const targetSelector = state.targetSelector || getOnboardingTargetSelector(step.id, readModel);
+  const manualCompletion = isManualCompletionStep(step);
 
   panelState.mount = mount;
   panelState.currentStepId = normalized.currentStepId;
@@ -446,6 +419,7 @@ export function renderOnboardingPanel(progress = {}, callbacks = {}, options = {
   const subtitle = createElement(ownerDocument, "p", "empire-onboarding__subtitle");
   const content = createElement(ownerDocument, "div", "empire-onboarding__content");
   const body = createElement(ownerDocument, "p", "empire-onboarding__body");
+  const summary = createElement(ownerDocument, "ul", "empire-onboarding__summary");
   const fallback = createElement(ownerDocument, "div", "empire-onboarding__fallback");
   const fallbackTitle = createElement(ownerDocument, "strong", "empire-onboarding__fallback-title");
   const fallbackBody = createElement(ownerDocument, "span", "empire-onboarding__fallback-copy");
@@ -453,17 +427,15 @@ export function renderOnboardingPanel(progress = {}, callbacks = {}, options = {
   const detail = createElement(ownerDocument, "div", "empire-onboarding__detail");
   const warning = createElement(ownerDocument, "div", "empire-onboarding__warning");
   const actions = createElement(ownerDocument, "div", "empire-onboarding__actions");
-  const backButton = createElement(ownerDocument, "button", "button empire-onboarding__button empire-onboarding__button--ghost");
   const skipButton = createElement(ownerDocument, "button", "button empire-onboarding__button empire-onboarding__button--ghost");
-  const neverButton = createElement(ownerDocument, "button", "button empire-onboarding__button empire-onboarding__button--danger");
   const nextButton = createElement(ownerDocument, "button", "button empire-onboarding__button empire-onboarding__button--primary");
 
-  if (!header || !identity || !eyebrow || !phase || !progressLabel || !progressTrack || !progressFill || !badgeRow || !badge || !statusChip || !title || !subtitle || !content || !body || !fallback || !fallbackTitle || !fallbackBody || !task || !detail || !warning || !actions || !backButton || !skipButton || !neverButton || !nextButton) {
+  if (!header || !identity || !eyebrow || !phase || !progressLabel || !progressTrack || !progressFill || !badgeRow || !badge || !statusChip || !title || !subtitle || !content || !body || !summary || !fallback || !fallbackTitle || !fallbackBody || !task || !detail || !warning || !actions || !skipButton || !nextButton) {
     return false;
   }
 
   mount.setAttribute?.("aria-describedby", "empire-onboarding-copy");
-  eyebrow.textContent = isDefeated ? "OPERATOR OFFLINE" : "KANÁLOVÝ OPERÁTOR";
+  eyebrow.textContent = isDefeated ? "OPERATOR OFFLINE" : "CITY OPERATOR";
   phase.textContent = phaseLabel;
   identity.append(eyebrow, phase);
   progressLabel.textContent = isDefeated ? "DEF" : `Krok ${stepNumber} / ${normalized.totalCount}`;
@@ -471,29 +443,39 @@ export function renderOnboardingPanel(progress = {}, callbacks = {}, options = {
   progressTrack.append(progressFill);
   header.append(identity, progressLabel);
   badge.textContent = badgeLabel;
-  statusChip.textContent = state.missingTarget ? "Fallback" : (state.target ? "Target locked" : "Info");
+  statusChip.textContent = state.missingTarget ? "Náhradní cesta" : (state.target ? "Cíl zvýrazněn" : "Info");
   badgeRow.append(badge, statusChip);
 
   if (isDefeated) {
-    title.textContent = "Server tě vyplivl";
-    subtitle.textContent = "Jsi mimo hru, králi popelnice.";
-    body.textContent = "Tenhle server tě vyplivl a ještě si otřel boty. Tutorial tě nebude tahat za mrtvolu po mapě.";
-    task.textContent = state.fallback;
+    title.textContent = "Vyřazen ze hry";
+    subtitle.textContent = "";
+    body.textContent = "Tenhle stav znamená, že hráč už nemá aktivní demo smyčku. Vrať se do lobby nebo začni novou session.";
+    task.textContent = "";
   } else {
     title.textContent = step.title;
-    subtitle.textContent = step.subtitle || step.optionalActionHint || "";
+    subtitle.textContent = step.subtitle || "";
     body.textContent = step.body;
-    task.textContent = state.missingTarget
-      ? (step.task || step.optionalActionHint || "")
-      : (step.task || step.taskLabel || step.optionalActionHint || "");
+    task.textContent = "";
   }
 
   body.id = "empire-onboarding-copy";
   content.append(body);
 
+  const summaryItems = asArray(step.summaryItems).slice(0, 5);
+  if (!isDefeated && summaryItems.length > 0) {
+    for (const item of summaryItems) {
+      const summaryItem = createElement(ownerDocument, "li", "empire-onboarding__summary-item");
+      if (summaryItem) {
+        summaryItem.textContent = String(item || "").trim();
+        summary.append(summaryItem);
+      }
+    }
+    content.append(summary);
+  }
+
   if (!isDefeated && state.missingTarget) {
-    fallbackTitle.textContent = state.fallbackTitle || step.fallbackTitle || "Target se schoval.";
-    fallbackBody.textContent = state.fallback || step.fallbackBody || "Tahle část UI teď není dostupná. Pokračuj dál, core pravidla se nemění.";
+    fallbackTitle.textContent = state.fallbackTitle || step.fallbackTitle || "Cíl teď není dostupný.";
+    fallbackBody.textContent = state.fallback || step.fallbackBody || "Tahle část UI teď není dostupná. Pokračuj dál, pravidla hry se nemění.";
     fallback.append(fallbackTitle, fallbackBody);
     content.append(fallback);
   }
@@ -507,7 +489,11 @@ export function renderOnboardingPanel(progress = {}, callbacks = {}, options = {
     content.append(task);
   }
 
-  mount.append(header, progressTrack, badgeRow, title, subtitle, content);
+  mount.append(header, progressTrack, badgeRow, title);
+  if (subtitle.textContent) {
+    mount.append(subtitle);
+  }
+  mount.append(content);
 
   if (!isDefeated && (step.detail || step.tip || step.optionalActionHint)) {
     const detailLabel = createElement(ownerDocument, "span", "empire-onboarding__detail-label");
@@ -525,53 +511,38 @@ export function renderOnboardingPanel(progress = {}, callbacks = {}, options = {
     content.append(warning);
   }
 
-  if ((step.id === "elimination" || step.id === "danger-zone") && readModel.elimination) {
-    const meta = createElement(ownerDocument, "div", "empire-onboarding__meta");
-    if (meta) {
-      for (const [label, value] of getBattleRoyaleOperatorRows(readModel)) {
-        const row = appendTextElement(ownerDocument, meta, "span", "empire-onboarding__meta-row", "");
-        if (row) {
-          appendTextElement(ownerDocument, row, "strong", "empire-onboarding__meta-label", label);
-          appendTextElement(ownerDocument, row, "span", "empire-onboarding__meta-value", value);
-        }
-      }
-      content.append(meta);
-    }
-  }
-
-  backButton.type = "button";
-  backButton.textContent = "Zpět";
-  backButton.setAttribute("aria-label", "Vrátit onboarding o krok zpět");
-  backButton.disabled = normalized.currentIndex <= 0 || isDefeated;
-  backButton.addEventListener?.("click", () => callbacks.onBack?.());
-
   skipButton.type = "button";
   skipButton.textContent = "Přeskočit";
   skipButton.setAttribute("aria-label", "Přeskočit onboarding");
   skipButton.disabled = step.canSkip === false;
   skipButton.addEventListener?.("click", () => callbacks.onSkip?.());
 
-  neverButton.type = "button";
-  neverButton.textContent = "Už nezobrazovat";
-  neverButton.setAttribute("aria-label", "Dokončit onboarding a už ho automaticky nezobrazovat");
-  neverButton.addEventListener?.("click", () => callbacks.onDismiss?.());
-
   nextButton.type = "button";
   nextButton.textContent = isDefeated ? "Zavřít" : (step.cta || "Další");
-  nextButton.setAttribute("aria-label", isDefeated ? "Zavřít defeated hlášku" : "Pokračovat na další onboarding krok");
+  nextButton.setAttribute("aria-label", isDefeated
+    ? "Zavřít defeated hlášku"
+    : (manualCompletion ? "Pokračovat na další onboarding krok" : "Zaměřit aktuální onboarding cíl"));
   nextButton.setAttribute("data-onboarding-primary-action", "");
+  nextButton.setAttribute("data-onboarding-primary-mode", manualCompletion ? "complete" : "guide");
   nextButton.addEventListener?.("click", () => {
     if (isDefeated) {
       callbacks.onSkip?.();
+      return;
+    }
+    if (!manualCompletion) {
+      if (target) {
+        safeScrollIntoView(target);
+        safeFocus(target);
+      }
       return;
     }
     callbacks.onNext?.(step.id);
   });
 
   if (isDefeated) {
-    actions.append(neverButton, nextButton);
+    actions.append(skipButton, nextButton);
   } else {
-    actions.append(backButton, skipButton, neverButton, nextButton);
+    actions.append(skipButton, nextButton);
   }
   mount.append(actions);
   mount.onkeydown = (event) => {
@@ -585,8 +556,6 @@ export function renderOnboardingPanel(progress = {}, callbacks = {}, options = {
     callbacks.onSkip?.();
   };
 
-  const target = state.target || null;
-  const targetSelector = state.targetSelector || getOnboardingTargetSelector(step.id, readModel);
   mount.dataset.onboardingStep = step.id;
   mount.dataset.highlight = step.highlightType || "none";
   if (targetSelector) {

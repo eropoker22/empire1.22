@@ -10977,6 +10977,14 @@ function bindFreeSessionOnboarding(root) {
   return true;
 }
 
+function getFreeSessionOnboardingProgress(root = null) {
+  const resolvedRoot = resolveRuntimeRoot(root || getDefaultRuntimeRoot());
+  if (!resolvedRoot) {
+    return null;
+  }
+  return onboardingBridgesByRoot.get(resolvedRoot)?.getProgress?.() || null;
+}
+
 function bindEliminationResultPopupOverlay(root) {
   if (!root || eliminationResultPopupsByRoot.has(root)) {
     return false;
@@ -11412,6 +11420,7 @@ function initCompatibilityGlobals(options = {}) {
     hydrateInitialState,
     refreshAllUi,
     handleActionResult,
+    getFreeSessionOnboardingProgress,
     selectDistrict: publicSelectDistrict,
     openDistrict: publicOpenDistrict,
     openBuildingDetail: publicOpenBuildingDetail,
@@ -11491,7 +11500,8 @@ function initCompatibilityGlobals(options = {}) {
       renderPoliceActionResultPanel
     },
     onboarding: {
-      createOnboardingBridge
+      createOnboardingBridge,
+      getProgress: getFreeSessionOnboardingProgress
     },
     policeHeat: {
       createPoliceHeatBridge
