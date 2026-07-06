@@ -39,8 +39,12 @@ function applyPanelAtmosphere(elements = {}, atmosphereMeta = {}) {
   }
 
   if (imageElement && "src" in imageElement) {
-    imageElement.src = atmosphereMeta.imagePath || "";
+    const imagePath = atmosphereMeta.imagePath || "";
+    imageElement.src = imagePath;
     imageElement.alt = `${atmosphereMeta.label || "Neznámá"} – atmosféra města`;
+    if (imageElement.dataset) {
+      imageElement.dataset.atmosphereImagePath = imagePath;
+    }
   }
 
   setText(labelElement, atmosphereMeta.label || "");

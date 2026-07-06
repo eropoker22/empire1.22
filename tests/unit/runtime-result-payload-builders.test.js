@@ -80,8 +80,10 @@ describe("result payload builders", () => {
     });
     const spyPayload = builders.createSpyDetectionAlertPayload(2);
 
-    expect(policePayload.badge).toContain("Total");
-    expect(policePayload.getRows()).toHaveLength(5);
+    expect(policePayload.badge).toBe("");
+    expect(policePayload.summary).toBe("Policie zasáhla tvůj district. Zkontroluj dopady a počkej na konec razie.");
+    expect(policePayload.getRows()).toHaveLength(3);
+    expect(policePayload.getRows().map((row) => row.label)).toEqual(["District", "Typ razie", "Konec za"]);
     expect(spyPayload.summary).toContain("North Pact");
     expect(spyPayload.detectedAt).toBe(1_000);
   });
@@ -156,7 +158,7 @@ describe("result payload builders", () => {
     expect(withLoot.raidTone).toBe("is-clean-success");
     expect(withLoot.raidResultPayload.title).toBe("VYKRÁST DISTRICT: ČISTÝ LOOT");
     expect(withLoot.raidResultPayload.summary).toContain("Území se neobsazuje");
-    expect(withLoot.raidResultPayload.rows).toContainEqual({ label: "Akce", value: "Vykrást district" });
+    expect(withLoot.raidResultPayload.rows).not.toContainEqual({ label: "Akce", value: "Vykrást district" });
     expect(withLoot.raidResultPayload.rows.some((row) => row.value === "Tech Core x1")).toBe(true);
     expect(withoutLoot.raidTone).toBe("is-disaster");
     expect(withoutLoot.raidResultPayload.title).toBe("VYKRÁST DISTRICT: BEZ LOOTU");

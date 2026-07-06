@@ -88,6 +88,7 @@ describe("district action confirmation panel", () => {
     expect(button.disabled).toBe(true);
     expect(card.dataset.districtType).toBe("industrial");
     expect(image.src).toBe("img/industrial.webp");
+    expect(image.dataset.atmosphereImagePath).toBe("img/industrial.webp");
     expect(label.textContent).toBe("Industrial");
   });
 
@@ -132,6 +133,7 @@ describe("district action confirmation panel", () => {
     expect(button.disabled).toBe(false);
     expect(card.dataset.districtType).toBe("commercial");
     expect(image.src).toBe("img/commercial.webp");
+    expect(image.dataset.atmosphereImagePath).toBe("img/commercial.webp");
     expect(label.textContent).toBe("Commercial");
   });
 

@@ -67,8 +67,36 @@ export function renderPoliceActionResultPanel(root, payload = {}, options = {}) 
     elements.content.classList.add(token);
   }
 
+  const hidesBadge = String(payload.tone || "").includes("is-owned-district-raid-alert");
+  const actions = elements.content.querySelector?.(".attack-result-modal__actions") || null;
   elements.title.textContent = payload.title || "Policejní akce";
-  elements.badge.textContent = payload.badge || "Policejní zásah";
+  elements.badge.textContent = hidesBadge ? "" : (payload.badge || "Policejní zásah");
+  elements.badge.hidden = hidesBadge;
+  if (hidesBadge) {
+    elements.badge.setAttribute("aria-hidden", "true");
+    if (elements.badge.style) {
+      elements.badge.style.display = "none";
+    }
+  } else {
+    elements.badge.removeAttribute("aria-hidden");
+    if (elements.badge.style) {
+      elements.badge.style.display = "";
+    }
+  }
+  if (actions) {
+    actions.hidden = hidesBadge;
+    if (hidesBadge) {
+      actions.setAttribute?.("aria-hidden", "true");
+      if (actions.style) {
+        actions.style.display = "none";
+      }
+    } else {
+      actions.removeAttribute?.("aria-hidden");
+      if (actions.style) {
+        actions.style.display = "";
+      }
+    }
+  }
   elements.summary.textContent = payload.summary || "";
 
   const renderRows = () => {

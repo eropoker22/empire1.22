@@ -535,12 +535,16 @@
 }
 
 .district-popup-buildings__chip--trap {
-  display: grid;
+  display: inline-grid;
   justify-items: start;
-  gap: 2px;
-  width: 100%;
-  padding: 8px 10px;
+  align-content: center;
+  gap: 1px;
+  width: auto;
+  min-width: 96px;
+  min-height: 26px;
+  padding: 5px 8px;
   border-color: rgba(34, 197, 94, 0.56);
+  border-radius: 10px;
   background:
     linear-gradient(135deg, rgba(20, 83, 45, 0.88), rgba(6, 78, 59, 0.72)),
     rgba(5, 46, 22, 0.74);
@@ -552,14 +556,14 @@
 
 .district-popup-buildings__trap-label {
   color: #dcfce7;
-  font-size: 0.62rem;
+  font-size: 0.54rem;
   font-weight: 850;
   letter-spacing: 0;
 }
 
 .district-popup-buildings__trap-meta {
   color: #facc15;
-  font-size: 0.56rem;
+  font-size: 0.5rem;
   font-weight: 850;
   letter-spacing: 0;
   text-shadow: 0 0 8px rgba(250, 204, 21, 0.34);
@@ -2223,9 +2227,11 @@
 
 .district-popup-action--countdown .district-popup-action__label {
   width: 100%;
-  padding: 0 36px 0 8px;
+  padding: 0 8px;
   text-align: center;
   justify-self: center;
+  align-self: center;
+  transform: none;
 }
 
 .district-popup-action:only-child {
@@ -2244,6 +2250,20 @@
   --district-action-rgb: 45, 212, 191;
   --district-action-secondary-rgb: 34, 197, 94;
   --district-action-text: #eafff8;
+}
+
+.district-popup-action[data-district-action-id="trap"][data-district-trap-state="active"] {
+  --district-action-rgb: 148, 163, 184;
+  --district-action-secondary-rgb: 71, 85, 105;
+  --district-action-text: rgba(226, 232, 240, 0.76);
+  border-color: rgba(148, 163, 184, 0.32);
+  background:
+    linear-gradient(135deg, rgba(71, 85, 105, 0.58), rgba(15, 23, 42, 0.72)),
+    rgba(15, 23, 42, 0.66);
+  color: rgba(226, 232, 240, 0.76);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 18px rgba(2, 6, 23, 0.18);
 }
 
 .district-popup-action[data-district-action-id="spy"] {
@@ -2268,6 +2288,35 @@
   --district-action-rgb: 220, 20, 60;
   --district-action-secondary-rgb: 136, 19, 55;
   --district-action-text: #ffe7ee;
+}
+
+.district-popup-action[data-district-action-id].district-popup-action--countdown,
+.district-popup-action[data-district-action-id].district-popup-action--countdown:disabled {
+  --district-action-rgb: 148, 163, 184;
+  --district-action-secondary-rgb: 71, 85, 105;
+  --district-action-text: rgba(226, 232, 240, 0.78);
+  border-color: rgba(148, 163, 184, 0.32);
+  background:
+    linear-gradient(135deg, rgba(71, 85, 105, 0.58), rgba(15, 23, 42, 0.72)),
+    rgba(15, 23, 42, 0.66);
+  color: rgba(226, 232, 240, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 18px rgba(2, 6, 23, 0.18);
+  opacity: 1;
+  filter: saturate(0.48);
+  cursor: not-allowed;
+}
+
+.district-popup-action[data-district-action-id].district-popup-action--countdown::before {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent 34%, transparent 76%, rgba(148, 163, 184, 0.12)),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 8px);
+}
+
+.district-popup-action[data-district-action-id].district-popup-action--countdown::after {
+  background: linear-gradient(180deg, rgb(148, 163, 184), rgb(71, 85, 105));
+  box-shadow: 0 0 12px rgba(148, 163, 184, 0.34);
 }
 
 .district-popup-action[data-district-action-id]:not(:disabled):hover,
@@ -2706,6 +2755,36 @@
   white-space: normal;
 }
 
+.district-popup-action--countdown {
+  position: relative;
+  padding: 8px 10px 9px;
+}
+
+.district-popup-action--countdown .district-popup-action__countdown,
+.district-popup-action__sub.district-popup-action__countdown {
+  position: absolute !important;
+  right: 7px !important;
+  bottom: 5px !important;
+  left: auto !important;
+  top: auto !important;
+  z-index: 3;
+  width: auto;
+  max-width: calc(100% - 14px);
+  margin: 0;
+  padding: 0;
+  justify-self: auto;
+  align-self: auto;
+  text-align: right;
+  white-space: nowrap;
+  transform: none !important;
+  pointer-events: none;
+}
+
+.district-popup-action--countdown .district-popup-action__label {
+  padding: 0 8px;
+  transform: none;
+}
+
 /* Owner/building readability guard: keep stacked text from visually colliding. */
 .district-popup-body > .district-popup-owner-card,
 .district-popup-body > .district-popup-buildings,
@@ -2824,29 +2903,6 @@
     box-shadow 120ms ease;
 }
 
-.district-popup-card .district-modal-hero--district[data-district-popup-atmosphere]::after {
-  content: "Otevřít fotku";
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  z-index: 2;
-  padding: 5px 8px;
-  border: 1px solid rgba(var(--district-accent-rgb), 0.34);
-  border-radius: 999px;
-  background: rgba(2, 7, 14, 0.72);
-  color: rgba(238, 248, 255, 0.9);
-  font-size: 0.5rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  box-shadow: 0 0 16px rgba(var(--district-accent-rgb), 0.16);
-  backdrop-filter: blur(10px) saturate(130%);
-  -webkit-backdrop-filter: blur(10px) saturate(130%);
-}
-
-.district-popup-card .district-modal-hero--district[data-atmosphere-state="locked"]::after {
-  content: "Skrytý sektor";
-}
-
 .district-popup-card .district-modal-hero--district[data-atmosphere-state="locked"] {
   min-height: 148px;
 }
@@ -2919,9 +2975,6 @@
     padding-right: 12px;
   }
 
-  .district-popup-card .district-modal-hero--district[data-district-popup-atmosphere]::after {
-    display: none;
-  }
 }
 
 .district-atmosphere-window {

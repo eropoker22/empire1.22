@@ -73,8 +73,12 @@ function applyPanelAtmosphere({
   }
 
   if (imageElement && "src" in imageElement) {
-    imageElement.src = atmosphereMeta.imagePath || "";
+    const imagePath = atmosphereMeta.imagePath || "";
+    imageElement.src = imagePath;
     imageElement.alt = `${atmosphereMeta.label || "Neznámá"} – atmosféra města`;
+    if (imageElement.dataset) {
+      imageElement.dataset.atmosphereImagePath = imagePath;
+    }
   }
 
   setText(labelElement, atmosphereMeta.label || "");
@@ -139,7 +143,6 @@ export function createRobberySetupViewModel({
   district,
   adjacentOwnedDistrictIds = [],
   availableMembers = 0,
-  availableSpies = 0,
   robberyPreview = null,
   atmosphereMeta = {}
 } = {}) {
@@ -148,7 +151,7 @@ export function createRobberySetupViewModel({
     sourceDistrictIds: adjacentOwnedDistrictIds,
     memberInputValue: "0",
     memberInputMax: String(availableMembers),
-    availableSpiesLabel: String(Math.max(0, Number(availableSpies) || 0)),
+    availableMembersLabel: String(Math.max(0, Number(availableMembers) || 0)),
     robberyPreview,
     atmosphereMeta
   };
@@ -163,7 +166,7 @@ export function renderRobberySetupPanel(viewModel = {}, elements = {}) {
   });
 
   setText(elements.robberyTargetTitle, `District ${viewModel.targetDistrictId ?? ""}`);
-  setText(elements.robberyAvailableSpies, viewModel.availableSpiesLabel ?? "0");
+  setText(elements.robberyAvailableMembers, viewModel.availableMembersLabel ?? "0");
   renderSourceSelect(elements.robberySourceSelect, viewModel.sourceDistrictIds);
 
   if (elements.robberyMemberInput) {

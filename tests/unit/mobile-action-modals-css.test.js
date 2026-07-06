@@ -52,6 +52,11 @@ describe("mobile action modal CSS", () => {
     expect(css).toContain("html body .robbery-setup-popup-card .district-modal-hero");
     expect(css).toContain("html body .robbery-setup-popup-card .attack-setup-popup-body");
     expect(css).toContain("html body .robbery-setup-popup-card .attack-setup-popup-actions");
+    expect(css).toContain("html body .robbery-setup-popup-card .attack-setup-popup-row:nth-child(2)");
+    expect(css).not.toContain("html body .robbery-setup-popup-card .attack-setup-popup-row:nth-child(3),");
+    expect(css).toContain("html body .robbery-setup-popup-card .attack-setup-popup-stepper:has([data-robbery-member-input])");
+    expect(css).toContain("grid-template-columns: 56px minmax(88px, 1fr) 56px !important;");
+    expect(css).toContain("height: 44px !important;");
     expect(css).toContain("position: sticky !important;");
   });
 
@@ -71,16 +76,32 @@ describe("mobile action modal CSS", () => {
     expect(gameHtml).toContain('class="attack-setup-popup-row spy-confirm-popup-row--source"><span><strong data-spy-confirm-source>---</strong></span></p>');
     expect(gameHtml).not.toContain('class="attack-setup-popup-row">Zdroj <span><strong data-spy-confirm-source>');
     expect(gameHtml).toContain('class="attack-setup-popup-row robbery-setup-popup-row--status"');
-    expect(gameHtml).toContain('class="attack-setup-popup-row robbery-setup-popup-row--spies"');
-    expect(gameHtml).toContain("data-robbery-available-spies");
+    expect(gameHtml).toContain('class="attack-setup-popup-row robbery-setup-popup-row--members"');
+    expect(gameHtml).toContain("data-robbery-available-members");
+    expect(gameHtml).not.toContain("data-robbery-available-spies");
     expect(actionCss).toContain("#spy-confirm-modal .spy-confirm-popup-body");
     expect(actionCss).toContain("grid-template-columns: repeat(3, minmax(0, 1fr));");
     expect(css).toContain("html body #spy-confirm-modal .spy-confirm-popup-body");
     expect(css).toContain("html body .robbery-setup-popup-card .robbery-setup-popup-row--status");
-    expect(css).toContain("html body .robbery-setup-popup-card .robbery-setup-popup-row--spies");
+    expect(css).toContain("html body .robbery-setup-popup-card .robbery-setup-popup-row--members");
     expect(districtCss).toContain("grid-template-columns: 34px minmax(54px, 1fr) 34px;");
     expect(districtCss).toContain("min-width: 136px;");
     expect(districtCss).toContain("width: 34px;");
+  });
+
+  it("keeps action names out of confirmation atmosphere headers", () => {
+    for (const html of [gameHtml, clientGameHtml]) {
+      expect(html).not.toContain('<span class="attack-setup-popup-eyebrow">Potvrdit útok</span>');
+      expect(html).not.toContain('<span class="attack-setup-popup-eyebrow">Potvrdit Vykrást district</span>');
+      expect(html).not.toContain('<span class="attack-setup-popup-eyebrow">Potvrdit past</span>');
+      expect(html).not.toContain('<span class="attack-setup-popup-eyebrow">Potvrdit špehování</span>');
+      expect(html).not.toContain('<span class="attack-setup-popup-eyebrow">Potvrdit obsazení</span>');
+      expect(html).toContain('data-attack-confirm-atmosphere-label');
+      expect(html).toContain('data-robbery-confirm-atmosphere-label');
+      expect(html).toContain('data-trap-confirm-atmosphere-label');
+      expect(html).toContain('data-spy-confirm-atmosphere-label');
+      expect(html).toContain('data-occupy-confirm-atmosphere-label');
+    }
   });
 
   it("keeps blocked action confirmations grey with red missing-value cells", () => {
@@ -100,10 +121,14 @@ describe("mobile action modal CSS", () => {
   it("keeps district popup windows transparent enough to reveal the map", () => {
     for (const stylesheet of [districtCss, clientDistrictCss]) {
       expect(stylesheet).toContain("Final district popup transparency pass.");
+      expect(stylesheet).not.toContain("Otevřít fotku");
       expect(stylesheet).toContain("rgba(3, 8, 16, 0.18)");
       expect(stylesheet).toContain("rgba(7, 13, 24, 0.14)");
       expect(stylesheet).toContain("backdrop-filter: blur(18px) saturate(142%);");
       expect(stylesheet).toContain(".district-popup-buildings__chip--trap");
+      expect(stylesheet).toContain("display: inline-grid;");
+      expect(stylesheet).toContain("width: auto;");
+      expect(stylesheet).toContain("min-width: 96px;");
       expect(stylesheet).toContain("border-color: rgba(34, 197, 94, 0.56);");
       expect(stylesheet).toContain(".district-popup-buildings__trap-meta");
       expect(stylesheet).toContain("color: #facc15;");
@@ -114,6 +139,129 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("rgba(3, 8, 16, 0.16) !important;");
       expect(stylesheet).toContain("rgba(7, 13, 24, 0.12) !important;");
       expect(stylesheet).toContain("rgba(4, 9, 16, 0.18) !important;");
+    }
+  });
+
+  it("keeps action confirmation atmosphere visible and close icons intact", () => {
+    for (const stylesheet of [actionCss, clientActionCss]) {
+      expect(stylesheet).toContain("Final action modal atmosphere and close-button guard.");
+      expect(stylesheet).toContain("Final transparency pass for robbery result and spy confirmation cards.");
+      expect(stylesheet).toContain("html body .attack-setup-popup-card .district-modal-hero__image");
+      expect(stylesheet).toContain("html body .district-action-confirm-popup-card .district-modal-hero__image");
+      expect(stylesheet).toContain("html body #raid-result-modal .spy-result-modal__content");
+      expect(stylesheet).toContain("html body #spy-confirm-modal .spy-confirm-popup-card");
+      expect(stylesheet).toContain("rgba(5, 6, 14, 0.2) !important;");
+      expect(stylesheet).toContain("rgba(5, 10, 18, 0.34) !important;");
+      expect(stylesheet).toContain("opacity: 0.92 !important;");
+      expect(stylesheet).toContain("filter: saturate(1.12) brightness(0.86) contrast(1.04) !important;");
+      expect(stylesheet).toContain("linear-gradient(180deg, rgba(2, 6, 18, 0.02), rgba(2, 6, 18, 0.24) 48%, rgba(2, 6, 18, 0.64)) !important;");
+      expect(stylesheet).toContain("html body .attack-setup-popup-card .attack-setup-popup-close::before");
+      expect(stylesheet).toContain("html body .district-action-confirm-popup-card .attack-setup-popup-close::after");
+      expect(stylesheet).toContain("position: absolute !important;\n  inset: auto !important;\n  top: 50% !important;\n  left: 50% !important;");
+      expect(stylesheet).toContain("width: 14px !important;");
+      expect(stylesheet).toContain("Final action-specific neon close buttons for action confirmation cards.");
+      expect(stylesheet).toContain("--action-close-rgb: var(--result-accent-rgb, var(--district-action-rgb, var(--district-accent-rgb, 103, 232, 249)));");
+      expect(stylesheet).toContain("width: 22px !important;");
+      expect(stylesheet).toContain("height: 22px !important;");
+      expect(stylesheet).toContain("border-color: rgba(var(--action-close-rgb), 0.72) !important;");
+      expect(stylesheet).toContain("color: rgba(var(--action-close-secondary-rgb), 0.98) !important;");
+      expect(stylesheet).toContain("width: 9px !important;");
+      expect(stylesheet).toContain("height: 1.5px !important;");
+      expect(stylesheet).toContain("transform: translate(-50%, -50%) rotate(45deg) !important;");
+      expect(stylesheet).toContain("transform: translate(-50%, -50%) rotate(-45deg) !important;");
+    }
+
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain("Final loaded action-modal visual guard: atmosphere remains visible and close icons stay intact.");
+      expect(stylesheet).toContain("Final loaded action-specific neon close guard for confirmation cards.");
+      expect(stylesheet).toContain("Final loaded transparency guard for robbery result and spy confirmation cards.");
+      expect(stylesheet).toContain("html body.game-body .attack-setup-popup-card .district-modal-hero__image");
+      expect(stylesheet).toContain("html body.game-body #raid-result-modal .spy-result-modal__content");
+      expect(stylesheet).toContain("html body.game-body #spy-confirm-modal .spy-confirm-popup-card");
+      expect(stylesheet).toContain("html body.game-body .district-action-confirm-popup-card .attack-setup-popup-close::before");
+      expect(stylesheet).toContain("position: absolute !important;\n  inset: auto !important;\n  top: 50% !important;\n  left: 50% !important;");
+      expect(stylesheet).toContain("border-color: rgba(var(--action-close-rgb), 0.72) !important;");
+      expect(stylesheet).toContain("width: 9px !important;");
+      expect(stylesheet).toContain("transform: translate(-50%, -50%) rotate(-45deg) !important;");
+    }
+  });
+
+  it("keeps police raid impact card compact and readable", () => {
+    for (const stylesheet of [actionCss, clientActionCss]) {
+      expect(stylesheet).toContain("Final police raid impact readability pass.");
+      expect(stylesheet).toContain(".police-action-result-modal__content.is-owned-district-raid-alert");
+      expect(stylesheet).toContain("width: min(680px, 94vw);");
+      expect(stylesheet).toContain(".police-raid-impact__hero");
+      expect(stylesheet).toContain("grid-template-columns: minmax(0, 1fr) minmax(132px, 0.34fr);");
+      expect(stylesheet).toContain("appearance: none;");
+      expect(stylesheet).toContain("justify-items: center;");
+      expect(stylesheet).toContain("text-align: center;");
+      expect(stylesheet).toContain(".police-raid-impact__hero > div");
+      expect(stylesheet).toContain("grid-column: 1 / -1;");
+      expect(stylesheet).toContain("justify-self: center;");
+      expect(stylesheet).toContain("width: min(100%, 52ch);");
+      expect(stylesheet).toContain("margin-inline: auto;");
+      expect(stylesheet).toContain(".police-raid-impact__hero small");
+      expect(stylesheet).toContain("justify-content: center;");
+      expect(stylesheet).toContain(".police-raid-impact-detail.is-open");
+      expect(stylesheet).toContain(".police-raid-impact-detail__cells");
+      expect(stylesheet).toContain("grid-template-columns: repeat(2, minmax(0, 1fr));");
+      expect(stylesheet).toContain(".police-raid-impact__overview article");
+      expect(stylesheet).toContain("min-height: 58px;");
+      expect(stylesheet).toContain(".police-raid-impact__row strong");
+      expect(stylesheet).toContain("overflow-wrap: anywhere;");
+      expect(stylesheet).toContain(".police-action-result-modal__content.is-owned-district-raid-alert .attack-result-modal__actions");
+      expect(stylesheet).toContain(".police-action-result-modal__content.is-owned-district-raid-alert .police-action-result-modal__badge");
+      expect(stylesheet).toContain("display: none !important;");
+      expect(stylesheet).toContain("width: 0 !important;");
+      expect(stylesheet).toContain("height: 0 !important;");
+    }
+
+    for (const stylesheet of [css, clientCss]) {
+      expect(stylesheet).toContain("html body .police-action-result-modal__content.is-owned-district-raid-alert");
+      expect(stylesheet).toContain("width: min(430px, calc(100vw - 16px)) !important;");
+      expect(stylesheet).toContain("html body .police-raid-impact__overview");
+      expect(stylesheet).toContain("grid-template-columns: repeat(3, minmax(0, 1fr)) !important;");
+      expect(stylesheet).toContain("html body .police-raid-impact__grid");
+      expect(stylesheet).toContain("grid-template-columns: repeat(2, minmax(0, 1fr)) !important;");
+      expect(stylesheet).toContain("font-size: 0.68rem !important;");
+      expect(stylesheet).toContain("width: min(390px, calc(100vw - 18px)) !important;");
+      expect(stylesheet).toContain("justify-items: stretch !important;");
+      expect(stylesheet).toContain("align-items: stretch !important;");
+      expect(stylesheet).toContain("justify-self: stretch !important;");
+      expect(stylesheet).toContain("box-sizing: border-box !important;");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .police-raid-impact__overview");
+      expect(stylesheet).toContain("grid-template-columns: minmax(0, 1fr) !important;");
+      expect(stylesheet).toContain("html body .police-raid-impact-detail__card");
+      expect(stylesheet).toContain("width: min(390px, calc(100vw - 20px)) !important;");
+      expect(stylesheet).toContain("html body .police-raid-impact-detail__cells");
+      expect(stylesheet).toContain("Final emergency mobile police raid layout guard: cells must span the full card.");
+      expect(stylesheet).toContain("max-width: calc(100vw - 16px) !important;");
+      expect(stylesheet).toContain("police-action-result-modal__details");
+      expect(stylesheet).toContain("police-action-result-modal__details > .police-raid-impact");
+      expect(stylesheet).toContain("display: flex !important;");
+      expect(stylesheet).toContain("flex-direction: column !important;");
+      expect(stylesheet).toContain("grid-template-columns: none !important;");
+      expect(stylesheet).toContain("grid-column: 1 / -1 !important;");
+      expect(stylesheet).toContain("html body .police-raid-impact-detail__cells > *");
+      expect(stylesheet).toContain("flex: 0 0 auto !important;");
+      expect(stylesheet).toContain("margin-left: 0 !important;");
+      expect(stylesheet).toContain("html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert .modal__header");
+      expect(stylesheet).toContain("justify-content: center !important;");
+      expect(stylesheet).toContain("html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert #police-action-result-modal-close");
+      expect(stylesheet).toContain("font-size: 0 !important;");
+      expect(stylesheet).toContain("#police-action-result-modal-close::before");
+      expect(stylesheet).toContain("#police-action-result-modal-close::after");
+      expect(stylesheet).toContain("transform: translate(-50%, -50%) rotate(45deg) !important;");
+      expect(stylesheet).toContain("transform: translate(-50%, -50%) rotate(-45deg) !important;");
+      expect(stylesheet).toContain("text-align: center !important;");
+      expect(stylesheet).toContain("Final mobile police raid close-button size guard.");
+      expect(stylesheet).toContain("html body .police-raid-impact-detail__close");
+      expect(stylesheet).toContain("width: 22px !important;");
+      expect(stylesheet).toContain("height: 22px !important;");
+      expect(stylesheet).toContain("font-size: 0.72rem !important;");
+      expect(stylesheet).toContain("width: 8px !important;");
+      expect(stylesheet).toContain("height: 1.25px !important;");
     }
   });
 
@@ -130,6 +278,25 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("html body #attack-result-modal:not(.hidden):not([hidden]) .modal__content");
       expect(stylesheet).toContain("width: min(560px, calc(100vw - 28px)) !important;");
       expect(stylesheet).toContain("max-height: min(72dvh, 600px) !important;");
+    }
+  });
+
+  it("keeps robbery result details split into two columns", () => {
+    for (const stylesheet of [actionCss, clientActionCss]) {
+      expect(stylesheet).toContain("#raid-result-modal .spy-result-modal__details");
+      expect(stylesheet).toContain("#raid-result-modal .spy-result-modal__details .modal__row");
+      expect(stylesheet).toContain("#raid-result-modal .spy-result-modal__details .modal__row strong");
+      expect(stylesheet).toContain("grid-template-columns: repeat(2, minmax(0, 1fr));");
+      expect(stylesheet).toContain("grid-template-columns: 1fr;");
+      expect(stylesheet).toContain("overflow-wrap: anywhere;");
+    }
+
+    for (const stylesheet of [css, clientCss]) {
+      expect(stylesheet).toContain("html body #raid-result-modal:not(.hidden):not([hidden]) .spy-result-modal__details");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked #raid-result-modal:not(.hidden):not([hidden]) .spy-result-modal__details");
+      expect(stylesheet).toContain("grid-template-columns: repeat(2, minmax(0, 1fr)) !important;");
+      expect(stylesheet).toContain("html body #raid-result-modal:not(.hidden):not([hidden]) .spy-result-modal__details .modal__row");
+      expect(stylesheet).toContain("grid-template-columns: 1fr !important;");
     }
   });
 
@@ -160,6 +327,23 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("linear-gradient(135deg, rgba(8, 47, 73, 0.96), rgba(15, 118, 110, 0.9)) !important;");
       expect(stylesheet).toContain("linear-gradient(135deg, rgba(136, 19, 55, 0.96), rgba(64, 8, 24, 0.92)) !important;");
       expect(stylesheet).toContain("linear-gradient(135deg, rgba(127, 29, 29, 0.96), rgba(24, 24, 27, 0.94)) !important;");
+      expect(stylesheet).toContain('html body.game-body .district-popup-action[data-district-action-id="trap"][data-district-trap-state="active"]');
+      expect(stylesheet).toContain("--district-action-rgb: 148, 163, 184;");
+      expect(stylesheet).toContain("linear-gradient(135deg, rgba(71, 85, 105, 0.58), rgba(15, 23, 42, 0.72))");
+    }
+  });
+
+  it("pins district action countdowns to the desktop button corner", () => {
+    for (const stylesheet of [districtCss, clientDistrictCss]) {
+      expect(stylesheet).toContain(".district-popup-action__sub.district-popup-action__countdown");
+      expect(stylesheet).toContain("position: absolute !important;");
+      expect(stylesheet).toContain("right: 7px !important;");
+      expect(stylesheet).toContain("bottom: 5px !important;");
+      expect(stylesheet).toContain("left: auto !important;");
+      expect(stylesheet).toContain("top: auto !important;");
+      expect(stylesheet).toContain("text-align: right;");
+      expect(stylesheet).toContain("white-space: nowrap;");
+      expect(stylesheet).toContain("transform: none !important;");
     }
   });
 
@@ -310,6 +494,12 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden])");
       expect(stylesheet).toContain("place-items: center !important;");
       expect(stylesheet).toContain("height: var(--mobile-locked-vh, 100dvh) !important;");
+      expect(stylesheet).toContain("Final mobile police raid impact topbar visibility guard.");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(#police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert) #game-header");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(#police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.police-raid-impact-detail.is-open) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(#police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert) .game-resource-strip > *");
     }
     for (const stylesheet of [mainCss, clientMainCss]) {
       expect(stylesheet).not.toContain("Final stable page background: opening game cards must not visually change the page behind them.");
@@ -327,8 +517,21 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("visibility: hidden !important;");
       expect(stylesheet).toContain("opacity: 0 !important;");
       expect(stylesheet).toContain("Final mobile action confirmation layout: keep topbar visible and start cards below it.");
+      expect(stylesheet).toContain("Final mobile action modal topbar layer override.");
       expect(stylesheet).toContain("game-modal-scroll-locked:has(:is(");
+      expect(stylesheet).toContain(".attack-setup-popup-shell:not([hidden])");
+      expect(stylesheet).toContain(".robbery-setup-popup-shell:not([hidden])");
+      expect(stylesheet).toContain("z-index: 24050 !important;");
+      expect(stylesheet).toContain(".game-topbar .resource-pill");
+      expect(stylesheet).toContain(".game-topbar .game-toolbar-button");
+      expect(stylesheet).toContain(".game-resource-strip > *");
       expect(stylesheet).toContain("visibility: visible !important;");
+      expect(stylesheet).toContain("Final mobile police raid impact topbar visibility guard.");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(#police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert) #game-header");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(#police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.police-raid-impact-detail.is-open) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(#police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert) .game-resource-strip > *");
       expect(stylesheet).toContain("--action-confirm-mobile-top-offset: var(--mobile-topbar-offset, 72px);");
       expect(stylesheet).toContain("padding: var(--action-confirm-mobile-top-offset) 10px max(10px, env(safe-area-inset-bottom)) !important;");
       expect(stylesheet).toContain("align-items: flex-start !important;");
@@ -341,7 +544,10 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("place-items: center !important;");
       expect(stylesheet).toContain("html body.game-body .district-popup-action--countdown .district-popup-action__label");
       expect(stylesheet).toContain("text-align: center !important;");
-      expect(stylesheet).toContain("padding: 0 36px 0 8px !important;");
+      expect(stylesheet).toContain("padding-bottom: 9px !important;");
+      expect(stylesheet).toContain("padding: 0 8px !important;");
+      expect(stylesheet).toContain("transform: none !important;");
+      expect(stylesheet).toContain("html body.game-body .district-popup-action[data-district-action-id].district-popup-action--countdown");
       expect(stylesheet).toContain("padding-top: var(--district-mobile-resource-clearance, 0px) !important;");
     }
     expect(mobileRuntime).toContain('const MOBILE_OVERLAY_SELECTOR = [');

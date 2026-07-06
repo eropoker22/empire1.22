@@ -188,9 +188,7 @@ export function createResultPayloadBuilders(deps = {}) {
     const expiresAt = Number(policeAction?.expiresAt || startedAt + deps.gangHeatPoliceDurationMs);
     return [
       { label: "District", value: formatDistrictReference(districtId) },
-      { label: "Vlastník", value: getResultDistrictOwnerLabel(districtId) },
       { label: "Typ razie", value: `${specialtyMeta.icon} ${specialtyMeta.label}` },
-      { label: "Doba razie", value: formatDurationLabel(Math.max(0, expiresAt - startedAt)), nowrap: true },
       { label: "Konec za", value: formatDurationLabel(Math.max(0, expiresAt - now())), nowrap: true },
       ...(Array.isArray(policeAction?.impact?.effectRows) ? policeAction.impact.effectRows : []),
       ...(Array.isArray(policeAction?.impact?.rows) ? policeAction.impact.rows : [])
@@ -229,16 +227,8 @@ export function createResultPayloadBuilders(deps = {}) {
     return {
       tone: `${tierEntry.tone} is-specialty-${specialtyMeta.key} is-owned-district-raid-alert`,
       title: "Dopady razie",
-      badge: `Razia aktivní • ${specialtyMeta.label} • Stupeň ${tier.id}/6`,
-      summary: pickRandomQuote(
-        [
-          "Policie právě najela do tvého districtu. Všechno je pod tlakem a bere se, co jde.",
-          "Razie běží přímo u tebe. Teď jde o škody a o to, co ještě zůstane stát.",
-          "Tvůj district je právě pod policejním zásahem. Situace je horká a nestabilní."
-        ],
-        "Policie právě razí tvůj district.",
-        random
-      ),
+      badge: "",
+      summary: "Policie zasáhla tvůj district. Zkontroluj dopady a počkej na konec razie.",
       syncToBuildingAction: false,
       getRows: buildRows,
       refreshMs: 1000,
@@ -410,7 +400,6 @@ export function createResultPayloadBuilders(deps = {}) {
             : "Vykrást district proběhlo čistě. Území se neobsazuje, získal jsi jen loot z prázdného městského districtu.")
           : "Vykrást district selhalo. Území se neobsazuje a crew se vrací bez městského lootu.",
         rows: [
-          { label: "Akce", value: "Vykrást district" },
           ...(safeLootEntries.length > 0
             ? (memberLoss > 0
               ? [

@@ -245,7 +245,6 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     }
 
     const availableMembers = getAvailableAttackPopulation();
-    setElementText(elements.robberyAvailableSpies, getAvailableSpies());
     const deployedMembers = clamp(Number.parseInt(elements.robberyMemberInput.value || "0", 10) || 0, 0, availableMembers);
     elements.robberyMemberInput.value = String(deployedMembers);
     elements.robberyAvailableMembers.textContent = String(availableMembers);
@@ -387,7 +386,6 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       district,
       adjacentOwnedDistrictIds,
       availableMembers: getAvailableAttackPopulation(),
-      availableSpies: getAvailableSpies(),
       robberyPreview: createRobberyPreviewForDistrict(district, 0),
       atmosphereMeta
     }), elements);

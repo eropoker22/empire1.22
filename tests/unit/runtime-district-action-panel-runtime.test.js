@@ -131,7 +131,6 @@ describe("district action panel runtime", () => {
     const robberySourceSelect = { value: "5", replaceChildren: vi.fn(), append: vi.fn(), disabled: false };
     const robberyMemberInput = input("4");
     const robberyAvailableMembers = textElement();
-    const robberyAvailableSpies = textElement();
     const robberyStatus = textElement();
     const robberyConfirmButton = textElement();
     const robberyRiskLevel = textElement();
@@ -165,7 +164,6 @@ describe("district action panel runtime", () => {
         robberySourceSelect,
         robberyMemberInput,
         robberyAvailableMembers,
-        robberyAvailableSpies,
         robberyStatus,
         robberyConfirmButton,
         robberyRiskLevel,
@@ -184,7 +182,7 @@ describe("district action panel runtime", () => {
 
     expect(summary.canConfirm).toBe(true);
     expect(robberyConfirmButton.disabled).toBe(false);
-    expect(robberyAvailableSpies.textContent).toBe("2");
+    expect(robberyAvailableMembers.textContent).toBe("10");
     expect(previewFactory).toHaveBeenLastCalledWith(expect.objectContaining({ hasScoutReport: false }));
     expect(robberyRiskLevel.textContent).toBe("Neznámé / Odhad · Odhad");
     expect(robberyLootPreview.textContent).toBe("Nejistý");

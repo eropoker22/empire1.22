@@ -137,6 +137,9 @@ describe("attack and spy panel renderers", () => {
     const estimatedPower = createElement("span", document);
     const status = createElement("span", document);
     const confirmButton = createElement("button", document);
+    const card = createElement("section", document);
+    const imageElement = createElement("img", document);
+    const labelElement = createElement("strong", document);
     const ownedBat = createElement("span", document);
     ownedBat.dataset.attackOwned = "bat";
     const batInput = createElement("input", document);
@@ -149,6 +152,9 @@ describe("attack and spy panel renderers", () => {
       atmosphereMeta: { typeKey: "downtown", label: "Downtown", imagePath: "img/downtown.webp" }
     }, {}, {
       elements: {
+        card,
+        imageElement,
+        labelElement,
         title,
         sourceSelect,
         availablePopulation,
@@ -166,6 +172,10 @@ describe("attack and spy panel renderers", () => {
     expect(sourceSelect.value).toBe("2");
     expect(ownedBat.textContent).toBe("3");
     expect(batInput.max).toBe("3");
+    expect(card.dataset.districtType).toBe("downtown");
+    expect(imageElement.src).toBe("img/downtown.webp");
+    expect(imageElement.dataset.atmosphereImagePath).toBe("img/downtown.webp");
+    expect(labelElement.textContent).toBe("Downtown");
 
     renderAttackProgress({
       availablePopulation: 12,
