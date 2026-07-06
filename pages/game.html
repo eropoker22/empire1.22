@@ -425,7 +425,7 @@
             <section class="district-popup-buildings" data-district-popup-buildings>
               <div class="district-popup-buildings__head">
                 <div class="district-popup-buildings__label">Budovy v distriktu</div>
-                <div class="district-popup-buildings__meta" data-district-popup-buildings-meta>District package</div>
+                <div class="district-popup-buildings__meta" data-district-popup-buildings-meta></div>
               </div>
               <div class="district-popup-buildings__list" data-district-popup-buildings-list></div>
             </section>
@@ -602,7 +602,8 @@
             <p class="attack-setup-popup-row">Doporučení <span data-robbery-recommendation>---</span></p>
             <p class="attack-setup-popup-row">Loot <span data-robbery-loot-preview>Nejistý</span></p>
             <p class="attack-setup-popup-row">Odhad heat <span data-robbery-heat-estimate>---</span></p>
-            <p class="attack-setup-popup-row">Stav <span data-robbery-status>Vyber členy gangu</span></p>
+            <p class="attack-setup-popup-row robbery-setup-popup-row--status">Stav <span data-robbery-status>Vyber členy gangu</span></p>
+            <p class="attack-setup-popup-row robbery-setup-popup-row--spies">Dostupní špehové <span data-robbery-available-spies>0</span></p>
             <div class="attack-setup-popup-actions">
               <button type="button" class="button attack-setup-popup-confirm" data-robbery-confirm>Potvrdit Vykrást district</button>
             </div>
@@ -740,8 +741,8 @@
             </div>
             <button class="button attack-setup-popup-close" id="spy-confirm-modal-close" type="button" aria-label="Zavřít" data-spy-confirm-close>✕</button>
           </div>
-          <div class="modal__body spy-confirm-modal__body district-action-confirm-popup-body">
-            <p class="attack-setup-popup-row">Zdroj <span><strong data-spy-confirm-source>---</strong></span></p>
+          <div class="modal__body spy-confirm-modal__body district-action-confirm-popup-body spy-confirm-popup-body">
+            <p class="attack-setup-popup-row spy-confirm-popup-row--source"><span><strong data-spy-confirm-source>---</strong></span></p>
             <p class="attack-setup-popup-row">Dostupní špehové <span><strong data-spy-confirm-available>0</strong></span></p>
             <p class="attack-setup-popup-row">Trvání <span><strong data-spy-confirm-duration>20s</strong></span></p>
             <p class="muted spy-confirm-modal__note attack-setup-popup-copy" data-spy-confirm-note>Každé špehování spotřebuje 1 špeha.</p>

@@ -22,6 +22,15 @@ function setSummaryMetricCardHidden(metricElement, hidden) {
   }
 }
 
+export const TRAP_MOVE_LOCK_MS = 60 * 60 * 1000;
+
+export function formatTrapMoveCooldownLabel(totalSeconds = 0) {
+  const safeSeconds = Math.max(0, Math.ceil(Number(totalSeconds || 0)));
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 export function createDistrictPopupMetricsRuntime(deps = {}) {
   const elements = deps.elements || {};
   const getInteractionState = typeof deps.getInteractionState === "function" ? deps.getInteractionState : () => ({});
@@ -67,7 +76,7 @@ export function createDistrictPopupMetricsRuntime(deps = {}) {
       return 0;
     }
 
-    const remainingMs = new Date(lastTrapActionAt).getTime() + 25_000 - Date.now();
+    const remainingMs = new Date(lastTrapActionAt).getTime() + TRAP_MOVE_LOCK_MS - Date.now();
     return Math.max(0, Math.ceil(remainingMs / 1000));
   };
 
@@ -110,14 +119,14 @@ export function createDistrictPopupMetricsRuntime(deps = {}) {
       title = "Do zničeného districtu nelze nastražit past.";
     } else if (hasTrapHere) {
       label = "Past aktivní";
-      subtitle = trapMoveCooldownSeconds > 0 ? `${trapMoveCooldownSeconds}s cooldown` : "v tomto districtu";
+      subtitle = trapMoveCooldownSeconds > 0 ? formatTrapMoveCooldownLabel(trapMoveCooldownSeconds) : "v tomto districtu";
       title = trapMoveCooldownSeconds > 0
-        ? `Past už v tomto districtu běží. Přesun bude možný za ${trapMoveCooldownSeconds}s.`
+        ? `Past už v tomto districtu běží. Přesun bude možný za ${formatTrapMoveCooldownLabel(trapMoveCooldownSeconds)}.`
         : `V tomto districtu je nastražená tvoje past.`;
     } else if (moveLocked) {
       label = "Přesunout past";
-      subtitle = `${trapMoveCooldownSeconds}s`;
-      title = `Past je zamčená v ${sourceDistrictLabel}. Přesun bude možný za ${trapMoveCooldownSeconds}s.`;
+      subtitle = formatTrapMoveCooldownLabel(trapMoveCooldownSeconds);
+      title = `Past je zamčená v ${sourceDistrictLabel}. Přesun bude možný za ${formatTrapMoveCooldownLabel(trapMoveCooldownSeconds)}.`;
     } else if (hasTrapElsewhere) {
       label = "Přesunout past";
       subtitle = sourceDistrictLabel;
@@ -139,7 +148,7 @@ export function createDistrictPopupMetricsRuntime(deps = {}) {
       moveLocked,
       buildingVisible: hasTrapHere,
       buildingLabel: "Toxická past",
-      buildingMeta: trapMoveCooldownSeconds > 0 ? `aktivní • ${trapMoveCooldownSeconds}s` : "aktivní"
+      buildingMeta: trapMoveCooldownSeconds > 0 ? formatTrapMoveCooldownLabel(trapMoveCooldownSeconds) : "připraveno"
     };
   };
 

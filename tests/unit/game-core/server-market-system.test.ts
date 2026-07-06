@@ -176,6 +176,7 @@ describe("server market system", () => {
   it("large black market transaction can trigger police exposure and rumor", () => {
     const state = initializeServerMarket(createMarketStateFixture(), 1000);
     (state as typeof state & { marketAuditRoll?: number }).marketAuditRoll = 0;
+    state.playersById["player:1"].dirtyCash = 50000;
 
     const result = buyResource(state, state.playersById["player:1"], "techCore", 40, "black", "dirtyCash");
 

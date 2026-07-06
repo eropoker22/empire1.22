@@ -18,6 +18,8 @@ describe("mobile action modal CSS", () => {
   const clientGameHtml = readText("client/pages/game.html");
   const actionCss = readText("page-assets/css/styles-action-results.css");
   const clientActionCss = readText("client/page-assets/css/styles-action-results.css");
+  const districtCss = readText("page-assets/css/styles-district.css");
+  const clientDistrictCss = readText("client/page-assets/css/styles-district.css");
   const mobileRuntime = readText("page-assets/js/app/mobile-layout-runtime.js");
   const overlayState = readText("apps/client/src/modals/overlay-state.ts");
   const gameplaySliceClient = readText("page-assets/js/client-assets/gameplay-slice-client.js");
@@ -62,6 +64,57 @@ describe("mobile action modal CSS", () => {
     expect(css).toContain("rgba(251, 191, 36");
     expect(css).toContain("rgba(34, 211, 238");
     expect(css).toContain("rgba(248, 113, 113");
+  });
+
+  it("keeps spy and robbery action confirmation rows compact", () => {
+    expect(gameHtml).toContain('class="modal__body spy-confirm-modal__body district-action-confirm-popup-body spy-confirm-popup-body"');
+    expect(gameHtml).toContain('class="attack-setup-popup-row spy-confirm-popup-row--source"><span><strong data-spy-confirm-source>---</strong></span></p>');
+    expect(gameHtml).not.toContain('class="attack-setup-popup-row">Zdroj <span><strong data-spy-confirm-source>');
+    expect(gameHtml).toContain('class="attack-setup-popup-row robbery-setup-popup-row--status"');
+    expect(gameHtml).toContain('class="attack-setup-popup-row robbery-setup-popup-row--spies"');
+    expect(gameHtml).toContain("data-robbery-available-spies");
+    expect(actionCss).toContain("#spy-confirm-modal .spy-confirm-popup-body");
+    expect(actionCss).toContain("grid-template-columns: repeat(3, minmax(0, 1fr));");
+    expect(css).toContain("html body #spy-confirm-modal .spy-confirm-popup-body");
+    expect(css).toContain("html body .robbery-setup-popup-card .robbery-setup-popup-row--status");
+    expect(css).toContain("html body .robbery-setup-popup-card .robbery-setup-popup-row--spies");
+    expect(districtCss).toContain("grid-template-columns: 34px minmax(54px, 1fr) 34px;");
+    expect(districtCss).toContain("min-width: 136px;");
+    expect(districtCss).toContain("width: 34px;");
+  });
+
+  it("keeps blocked action confirmations grey with red missing-value cells", () => {
+    expect(actionCss).toContain('.district-action-confirm-popup-body [data-validation-state="error"]');
+    expect(actionCss).toContain('.attack-setup-popup-body [data-validation-state="error"]');
+    expect(actionCss).toContain('#spy-confirm-modal-confirm:disabled');
+    expect(actionCss).toContain('#raid-confirm-modal-confirm:disabled');
+    expect(actionCss).toContain('#occupy-confirm-modal-confirm:disabled');
+    expect(actionCss).toContain('#attack-confirm-modal-confirm:disabled');
+    expect(actionCss).toContain(".attack-setup-popup-confirm:disabled");
+    expect(actionCss).toContain("rgba(71, 85, 105, 0.7)");
+    expect(css).toContain("html body #spy-confirm-modal-confirm:disabled");
+    expect(css).toContain("html body #attack-confirm-modal-confirm:disabled");
+    expect(css).toContain("html body .attack-setup-popup-confirm:disabled");
+  });
+
+  it("keeps district popup windows transparent enough to reveal the map", () => {
+    for (const stylesheet of [districtCss, clientDistrictCss]) {
+      expect(stylesheet).toContain("Final district popup transparency pass.");
+      expect(stylesheet).toContain("rgba(3, 8, 16, 0.18)");
+      expect(stylesheet).toContain("rgba(7, 13, 24, 0.14)");
+      expect(stylesheet).toContain("backdrop-filter: blur(18px) saturate(142%);");
+      expect(stylesheet).toContain(".district-popup-buildings__chip--trap");
+      expect(stylesheet).toContain("border-color: rgba(34, 197, 94, 0.56);");
+      expect(stylesheet).toContain(".district-popup-buildings__trap-meta");
+      expect(stylesheet).toContain("color: #facc15;");
+    }
+
+    for (const stylesheet of [css, clientCss]) {
+      expect(stylesheet).toContain("Final mobile district popup transparency pass.");
+      expect(stylesheet).toContain("rgba(3, 8, 16, 0.16) !important;");
+      expect(stylesheet).toContain("rgba(7, 13, 24, 0.12) !important;");
+      expect(stylesheet).toContain("rgba(4, 9, 16, 0.18) !important;");
+    }
   });
 
   it("keeps attack result details compact and split into two columns", () => {
@@ -230,6 +283,12 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("html body.game-modal-scroll-locked .district-popup-shell:not([hidden]) .district-popup-card");
       expect(stylesheet).toContain('html body.game-modal-scroll-locked .district-popup-shell[data-overview-enabled="true"]:not([hidden])');
       expect(stylesheet).toContain("--district-popup-mobile-top: clamp(86px, 24svh, 168px);");
+      expect(stylesheet).toContain("animation-name: districtPopupMobileCenterIn !important;");
+      expect(stylesheet).toContain("@keyframes districtPopupMobileCenterIn");
+      expect(stylesheet).toContain("transform-origin: center center !important;");
+      expect(stylesheet).toContain("transform: scale(0.94);");
+      expect(stylesheet).toContain("transform: scale(1.015);");
+      expect(stylesheet).toContain("transform: scale(1);");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked .market-popup-shell:not([hidden]) .market-popup-card");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked .wanted-popup-shell:not([hidden]) .wanted-popup-card");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked .armory-popup-shell:not([hidden]) .armory-popup-card.building-detail-modal__content");
@@ -267,6 +326,22 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked #game-header");
       expect(stylesheet).toContain("visibility: hidden !important;");
       expect(stylesheet).toContain("opacity: 0 !important;");
+      expect(stylesheet).toContain("Final mobile action confirmation layout: keep topbar visible and start cards below it.");
+      expect(stylesheet).toContain("game-modal-scroll-locked:has(:is(");
+      expect(stylesheet).toContain("visibility: visible !important;");
+      expect(stylesheet).toContain("--action-confirm-mobile-top-offset: var(--mobile-topbar-offset, 72px);");
+      expect(stylesheet).toContain("padding: var(--action-confirm-mobile-top-offset) 10px max(10px, env(safe-area-inset-bottom)) !important;");
+      expect(stylesheet).toContain("align-items: flex-start !important;");
+      expect(stylesheet).toContain("html body.game-body .district-popup-action--countdown");
+      expect(stylesheet).toContain("html body.game-body .district-popup-action__countdown");
+      expect(stylesheet).toContain("color: #facc15 !important;");
+      expect(stylesheet).toContain("right: 7px !important;");
+      expect(stylesheet).toContain("bottom: 5px !important;");
+      expect(stylesheet).toContain("html body.game-body .district-popup-action--countdown:disabled");
+      expect(stylesheet).toContain("place-items: center !important;");
+      expect(stylesheet).toContain("html body.game-body .district-popup-action--countdown .district-popup-action__label");
+      expect(stylesheet).toContain("text-align: center !important;");
+      expect(stylesheet).toContain("padding: 0 36px 0 8px !important;");
       expect(stylesheet).toContain("padding-top: var(--district-mobile-resource-clearance, 0px) !important;");
     }
     expect(mobileRuntime).toContain('const MOBILE_OVERLAY_SELECTOR = [');
@@ -344,16 +419,67 @@ describe("mobile action modal CSS", () => {
     expect(onboardingCss).toContain("@keyframes onboardingSignalPulse");
     expect(onboardingCss).toContain("@keyframes onboardingProgressShimmer");
     expect(onboardingCss).toContain("@keyframes onboardingStepGlow");
+    expect(onboardingCss).toContain("@keyframes onboardingMapDistrictPulse");
     expect(onboardingCss).toContain("animation-name: onboardingSheetIn;");
     expect(onboardingCss).toContain(".empire-onboarding__signal");
     expect(onboardingCss).toContain(".empire-onboarding__progress-fill::after");
     expect(onboardingCss).toContain("animation: onboardingProgressShimmer 2.6s ease-in-out infinite;");
+    expect(onboardingCss).toContain("grid-template-columns: minmax(84px, 0.8fr) minmax(72px, 0.72fr) minmax(116px, 1.16fr);");
+    expect(onboardingCss).toContain(".empire-onboarding__button--back");
+    expect(onboardingCss).toContain("grid-template-columns: minmax(76px, 0.82fr) minmax(68px, 0.72fr) minmax(104px, 1.12fr);");
+    expect(onboardingCss).toContain('.empire-onboarding[data-onboarding-step="attack-order"]');
     expect(onboardingCss).toMatch(/\.empire-onboarding-highlight \{[\s\S]*pointer-events: none;/u);
+    expect(onboardingCss).toMatch(/\.empire-onboarding-map-highlight-layer \{[\s\S]*pointer-events: none;/u);
+    expect(onboardingCss).toMatch(/\.empire-onboarding-map-highlight \{[\s\S]*pointer-events: none;/u);
+    expect(onboardingCss).toContain(".empire-onboarding-map-highlight__glow");
+    expect(onboardingCss).toContain(".empire-onboarding-map-highlight__line");
+    expect(onboardingCss).not.toContain(".empire-onboarding-map-highlight::before");
+    expect(onboardingCss).toContain('html[data-onboarding-map-mode="zoom-out"] .map-viewport');
+    expect(onboardingCss).toMatch(/\.empire-onboarding-backdrop \{[\s\S]*pointer-events: none;/u);
+    expect(onboardingCss).toMatch(/\.empire-onboarding-backdrop \{[\s\S]*touch-action: pan-x pan-y;/u);
+    expect(onboardingCss).toMatch(/\.empire-onboarding-backdrop\.is-focus \{[\s\S]*pointer-events: auto;[\s\S]*touch-action: none;/u);
+    expect(onboardingCss).toMatch(/\.empire-onboarding-backdrop\.is-focus\.is-cutout \{[\s\S]*background: transparent;[\s\S]*pointer-events: none;/u);
+    expect(onboardingCss).toContain(".empire-onboarding-backdrop__mask");
+    expect(onboardingCss).toContain(".is-onboarding-focus-target");
+    expect(onboardingCss).toContain("z-index: calc(var(--onboarding-z-backdrop) + 10) !important;");
+    expect(onboardingCss).toContain("#game-gang-panel-mount.is-onboarding-focus-target");
+    expect(onboardingCss).toContain("#profile-gang-card.is-onboarding-focus-target");
+    expect(onboardingCss).toContain("z-index: calc(var(--onboarding-z-backdrop) + 12) !important;");
+    expect(onboardingCss).toContain("#game-rail-left.is-onboarding-focus-target");
+    expect(onboardingCss).toContain("#game-left-nav.is-onboarding-focus-target");
+    expect(onboardingCss).toContain('html[data-onboarding-step="heat-police"] body.game-body #game-left-nav > :not(#city-events-card):not(#buildings-card):not(#market-card):not(#building-shortcut-grid)');
+    expect(onboardingCss).toContain("#city-events-card.is-onboarding-focus-target");
+    expect(onboardingCss).toContain("#buildings-card.is-onboarding-focus-target");
+    expect(onboardingCss).toContain("#market-card.is-onboarding-focus-target");
+    expect(onboardingCss).toContain("#building-shortcut-grid.is-onboarding-focus-target");
+    expect(onboardingCss).toContain("#city-events-card.is-onboarding-focus-target #city-events-open");
+    expect(onboardingCss).toContain("#buildings-card.is-onboarding-focus-target [data-buildings-popup-open]");
+    expect(onboardingCss).toContain("#market-card.is-onboarding-focus-target [data-market-popup-open]");
+    expect(onboardingCss).toContain("#building-shortcut-grid.is-onboarding-focus-target .building-shortcut-button");
+    expect(onboardingCss).toContain("#profile-gang-card .gang-profile-row.is-onboarding-focus-target");
+    expect(onboardingCss).toContain("#profile-gang-card .gang-profile-stars.is-onboarding-focus-target");
+    expect(onboardingCss).toContain("@media (min-width: 901px)");
+    expect(onboardingCss).toContain('.empire-onboarding[data-onboarding-step="your-district"]');
+    expect(onboardingCss).toContain('.empire-onboarding[data-onboarding-step="building-action"]');
+    expect(onboardingCss).toContain('.empire-onboarding[data-onboarding-step="spy"]');
+    expect(onboardingCss).toContain('.empire-onboarding[data-onboarding-step="heat-police"]');
+    expect(onboardingCss).toContain('inset: max(8px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) auto max(10px, env(safe-area-inset-left, 0px));');
+    expect(onboardingCss).toContain('@media (max-width: 720px)');
+    expect(onboardingCss).toContain('inset: auto max(10px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));');
+    expect(onboardingCss).toContain("max-height: min(42dvh, calc(100dvh - 96px));");
+    expect(onboardingCss).toContain('html[data-onboarding-step="building-action"] body.game-body #game-gang-panel-mount');
+    expect(onboardingCss).toContain('body.game-body[data-onboarding-step="building-action"] #profile-gang-card');
+    expect(onboardingCss).toContain("margin-bottom: calc(42dvh + 24px) !important;");
+    expect(onboardingCss).toContain('.empire-onboarding[data-onboarding-scroll="page"]');
+    expect(onboardingCss).toContain('.empire-onboarding[data-onboarding-scroll="guided"]');
     expect(onboardingCss).not.toContain("0 0 0 9999px");
     expect(onboardingCss).toContain("@media (prefers-reduced-motion: reduce)");
     expect(onboardingCss).toContain(".empire-onboarding__signal::before,");
     expect(onboardingCss).toContain(".empire-onboarding__progress-fill::after,");
     expect(onboardingCss).toContain(".empire-onboarding-highlight,");
+    expect(onboardingCss).toContain(".empire-onboarding-map-highlight-layer,");
+    expect(onboardingCss).toContain(".empire-onboarding-map-highlight,");
+    expect(onboardingCss).toContain(".empire-onboarding-map-highlight__glow,");
     expect(onboardingCss).toContain("animation: none !important;");
     expect(onboardingCss).toContain("transition: none !important;");
   });

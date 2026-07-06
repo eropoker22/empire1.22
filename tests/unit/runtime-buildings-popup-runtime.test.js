@@ -18,7 +18,7 @@ function createRuntime(overrides = {}) {
       districtBuildingTypeOrder: ["resident", "industrial"],
       formatDistrictBuildingTierLabel: (tier) => `Tier ${tier}`,
       getCurrentPlayerOwnedDistrictIds: () => new Set([1, 2]),
-      getDistrictTrapControlState: () => ({ buildingVisible: true, buildingLabel: "Toxická past", buildingMeta: "aktivní" }),
+      getDistrictTrapControlState: () => ({ buildingVisible: true, buildingLabel: "Toxická past", buildingMeta: "59:59" }),
       getGeometry: () => ({
         districts: [
           { id: 1, districtType: "resident" },
@@ -62,7 +62,7 @@ describe("buildings popup runtime", () => {
 
     runtime.renderDistrictPopupBuildings({ id: 1, districtType: "resident" });
     expect(renderDistrictBuildingList).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
-      metaText: "Sada · Tier early",
+      metaText: "",
       buildings: [
         expect.objectContaining({
           name: "Skladiště",
@@ -70,7 +70,7 @@ describe("buildings popup runtime", () => {
           displayName: "Skladiště 1"
         })
       ],
-      trap: expect.objectContaining({ visible: true })
+      trap: expect.objectContaining({ visible: true, meta: "59:59" })
     }));
   });
 

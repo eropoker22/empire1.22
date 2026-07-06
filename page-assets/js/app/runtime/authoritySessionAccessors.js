@@ -118,6 +118,16 @@ export function createAuthoritySessionAccessors(deps = {}) {
     return mission.status === "captured" ? "captured" : "active";
   };
 
+  const normalizeDistrictId = (value) => {
+    const direct = Number(value);
+    if (Number.isFinite(direct) && direct > 0) {
+      return direct;
+    }
+    const match = String(value || "").match(/\d+/u);
+    const parsed = match ? Number(match[0]) : 0;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  };
+
   const getSpyMissionExpiryTimestamp = (mission) => {
     const phase = getSpyMissionPhase(mission);
     const rawTimestamp = phase === "captured" ? mission.cooldownUntil : (mission.returnAt || mission.createdAt);
@@ -176,6 +186,76 @@ export function createAuthoritySessionAccessors(deps = {}) {
     return nextIntel;
   };
 
+  const resetSpyDistrictState = (districtId) => {
+    const targetDistrictId = normalizeDistrictId(districtId);
+    if (!targetDistrictId) {
+      return {
+        changed: false,
+        removedMissionIds: [],
+        spyIntelChanged: false,
+        spyStateChanged: false,
+        targetDistrictId: null
+      };
+    }
+
+    const spyState = getResolvedSpyState();
+    const removedMissionIds = [];
+    const nextMissions = spyState.missions.filter((mission) => {
+      if (normalizeDistrictId(mission?.targetDistrictId) !== targetDistrictId) {
+        return true;
+      }
+      removedMissionIds.push(mission.id);
+      return false;
+    });
+    const nextAvailable = deps.clamp(deps.maxSpies - nextMissions.length, 0, deps.maxSpies);
+    const spyStateChanged = nextMissions.length !== spyState.missions.length || nextAvailable !== spyState.available;
+
+    if (spyStateChanged) {
+      setStoredSpyState({
+        ...spyState,
+        available: nextAvailable,
+        missions: nextMissions
+      });
+    }
+
+    const storedSpyIntel = getStoredSpyIntel();
+    const spyIntel = storedSpyIntel && typeof storedSpyIntel === "object"
+      ? {
+          occupiableDistrictIds: Array.isArray(storedSpyIntel.occupiableDistrictIds)
+            ? storedSpyIntel.occupiableDistrictIds.map(normalizeDistrictId).filter(Boolean)
+            : [],
+          revealedTypeDistrictIds: Array.isArray(storedSpyIntel.revealedTypeDistrictIds)
+            ? storedSpyIntel.revealedTypeDistrictIds.map(normalizeDistrictId).filter(Boolean)
+            : [],
+          revealedDefenseDistrictIds: Array.isArray(storedSpyIntel.revealedDefenseDistrictIds)
+            ? storedSpyIntel.revealedDefenseDistrictIds.map(normalizeDistrictId).filter(Boolean)
+            : []
+        }
+      : getResolvedSpyIntel();
+    const nextSpyIntel = {
+      occupiableDistrictIds: spyIntel.occupiableDistrictIds.filter((candidateId) => normalizeDistrictId(candidateId) !== targetDistrictId),
+      revealedTypeDistrictIds: spyIntel.revealedTypeDistrictIds.filter((candidateId) => normalizeDistrictId(candidateId) !== targetDistrictId),
+      revealedDefenseDistrictIds: spyIntel.revealedDefenseDistrictIds.filter((candidateId) => normalizeDistrictId(candidateId) !== targetDistrictId)
+    };
+    const spyIntelChanged = (
+      nextSpyIntel.occupiableDistrictIds.length !== spyIntel.occupiableDistrictIds.length
+      || nextSpyIntel.revealedTypeDistrictIds.length !== spyIntel.revealedTypeDistrictIds.length
+      || nextSpyIntel.revealedDefenseDistrictIds.length !== spyIntel.revealedDefenseDistrictIds.length
+    );
+
+    if (spyIntelChanged) {
+      setStoredSpyIntel(nextSpyIntel);
+    }
+
+    return {
+      changed: spyStateChanged || spyIntelChanged,
+      removedMissionIds,
+      spyIntelChanged,
+      spyStateChanged,
+      targetDistrictId
+    };
+  };
+
   const createWeaponInventoryFromFaction = (_factionId) => ({ ...deps.defaultWeaponInventory });
 
   return {
@@ -199,6 +279,7 @@ export function createAuthoritySessionAccessors(deps = {}) {
     getStoredSpyState,
     getStoredWeaponInventory,
     isSpyMissionActiveOnMap,
+    resetSpyDistrictState,
     setStoredAttackOrders,
     setStoredDrugInventory,
     setStoredEconomyState,

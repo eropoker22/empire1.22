@@ -105,4 +105,57 @@ describe("runtime main UI flow smoke guard", () => {
     expect(districtCssSource).toContain('.district-popup-card[data-district-destroyed="true"] .district-popup-body > :not(.district-popup-destroyed-only)');
     expect(districtCssSource).toContain(".district-popup-destroyed-only");
   });
+
+  it("opens only the police raid information window for districts under raid", () => {
+    const runtimeSource = read("page-assets/js/app/runtime.js");
+    const clientRuntimeSource = read("client/page-assets/js/app/runtime.js");
+
+    for (const source of [runtimeSource, clientRuntimeSource]) {
+      expect(source).toContain("const openPoliceRaidOnlyForDistrict = (district, policeAction = null) => {");
+      expect(source).toContain("closePopup();\n    hideTooltip();");
+      expect(source).toContain('queueOrOpenResultModal(root, "police", {');
+      expect(source).toContain("const openStoredOwnedPoliceRaidAlert = () => {");
+      expect(source).toContain('root.dataset.ownedPoliceRaidAlertOpened === "true"');
+      expect(source).toContain("createOwnedDistrictPoliceRaidAlertPayload(district, activeOwnedPoliceAction)");
+      expect(source).toContain("scheduleStoredOwnedPoliceRaidAlert();");
+      expect(source).toContain("return openPoliceRaidOnlyForDistrict(district, activePoliceAction);");
+      expect(source).toContain("event.stopPropagation?.();\n        openPoliceRaidOnlyForDistrict(district, activePoliceAction);\n        return;");
+
+      const clickBranchIndex = source.indexOf("const activePoliceAction = getDistrictPoliceAction(district.id);", source.indexOf('viewport.addEventListener("click"'));
+      const openPopupIndex = source.indexOf("openPopup(district);", clickBranchIndex);
+      const raidOnlyIndex = source.indexOf("openPoliceRaidOnlyForDistrict(district, activePoliceAction);", clickBranchIndex);
+
+      expect(clickBranchIndex).toBeGreaterThan(-1);
+      expect(raidOnlyIndex).toBeGreaterThan(clickBranchIndex);
+      expect(openPopupIndex).toBeGreaterThan(raidOnlyIndex);
+    }
+  });
+
+  it("feeds active district action countdowns into the popup action hub", () => {
+    const runtimeSource = read("page-assets/js/app/runtime.js");
+    const clientRuntimeSource = read("client/page-assets/js/app/runtime.js");
+
+    for (const source of [runtimeSource, clientRuntimeSource]) {
+      expect(source).toContain("const formatActionCountdownLabel = (remainingMs) => {");
+      expect(source).toContain('return `Zbývá ${minutes}:${String(seconds).padStart(2, "0")}`;');
+      expect(source).toContain("const getDistrictActionCountdowns = (districtId) => ({");
+      expect(source).toContain('attack: findActiveActionCountdown(getStoredAttackOrders(), districtId, "resolveAt")');
+      expect(source).toContain('occupy: findActiveActionCountdown(getStoredOccupyOrders(), districtId, "resolveAt")');
+      expect(source).toContain('rob: findActiveActionCountdown(getStoredRobberyOrders(), districtId, "resolveAt")');
+      expect(source).toContain('spy: findActiveActionCountdown(getResolvedSpyState().missions, districtId, "returnAt")');
+      expect(source).toContain("actionCountdowns: getDistrictActionCountdowns(district.id)");
+    }
+  });
+
+  it("starts the trap move lock from every trap placement or move", () => {
+    const runtimeSource = read("page-assets/js/app/runtime.js");
+    const clientRuntimeSource = read("client/page-assets/js/app/runtime.js");
+
+    for (const source of [runtimeSource, clientRuntimeSource]) {
+      expect(source).toContain("const trapActionTimestamp = new Date().toISOString();");
+      expect(source).toContain("armedAt: trapActionTimestamp");
+      expect(source).toContain("movedAt: trapActionTimestamp");
+      expect(source).not.toContain("armedAt: nextTrapState[selectedDistrict.id]?.armedAt || new Date().toISOString()");
+    }
+  });
 });

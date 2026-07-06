@@ -316,7 +316,7 @@ const writeAlliancePreviewMessages = (allianceId, messages) => {
   }
 };
 
-const createLocalAllianceChatMessage = (activeAlliance, body) => {
+const createAlliancePreviewChatMessage = (activeAlliance, body) => {
   const currentPlayerId = latestAllianceBoard?.currentPlayerId || "dev-player";
   const createdAt = new Date().toISOString();
   return {
@@ -331,7 +331,7 @@ const createLocalAllianceChatMessage = (activeAlliance, body) => {
 
 const appendLocalAllianceChatMessage = (activeAlliance, body) => {
   if (!activeAlliance) return [];
-  const message = createLocalAllianceChatMessage(activeAlliance, body);
+  const message = createAlliancePreviewChatMessage(activeAlliance, body);
   const nextMessages = [...(activeAlliance.chatMessages || []), message].slice(-50);
   activeAlliance.chatMessages = nextMessages;
   if (activeAlliance.isDevOnlyDemo) {
@@ -350,6 +350,11 @@ const getCurrentGamePhaseForAllianceDemo = () => {
   if (typeof document === "undefined") return "live";
   const phaseHost = document.querySelector("[data-map-canvas]");
   return String(phaseHost?.dataset?.gamePhase || "live").toLowerCase() === "launch" ? "launch" : "live";
+};
+
+const isOnboardingActiveForAllianceDemo = () => {
+  if (typeof document === "undefined") return false;
+  return Boolean(String(document.documentElement?.dataset?.onboardingStep || document.body?.dataset?.onboardingStep || "").trim());
 };
 
 const getCurrentPlayerInfluenceForAllianceCreate = () => {
@@ -502,6 +507,7 @@ const createDevOnlyAllianceBoard = (baseBoard = null) => {
   const currentPlayerId = baseBoard?.currentPlayerId || "dev-player";
   const allianceId = "dev-demo-alliance-zabijaci";
   const maxAllianceSize = baseBoard?.maxAllianceSize || MAX_ALLIANCE_SIZE_FALLBACK;
+  const disableDevOnlyActiveAlliance = baseBoard?.disableDevOnlyActiveAlliance === true || isOnboardingActiveForAllianceDemo();
   const readyDueAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
   const members = createDevOnlyAllianceMembers(currentPlayerId, readyDueAt);
   const leader = members.find((member) => member.role === "leader") || members[0];
@@ -516,7 +522,7 @@ const createDevOnlyAllianceBoard = (baseBoard = null) => {
       createdAt: nowIso
     }
   ];
-  const shouldUseActiveDemoAlliance = getCurrentGamePhaseForAllianceDemo() === "launch";
+  const shouldUseActiveDemoAlliance = !disableDevOnlyActiveAlliance && getCurrentGamePhaseForAllianceDemo() === "launch";
   const activeAlliance = shouldUseActiveDemoAlliance ? {
     allianceId,
     name: "Zabijáci",
@@ -546,16 +552,21 @@ const createDevOnlyAllianceBoard = (baseBoard = null) => {
     defenseContributions: [],
     isDevOnlyDemo: true
   } : null;
-  const canCreateAlliance = baseBoard?.canCreateAlliance === true || (!activeAlliance && hasRequiredInfluenceForAllianceCreate());
+  const canCreateAlliance = baseBoard?.canCreateAlliance === true
+    || (!disableDevOnlyActiveAlliance && !activeAlliance && hasRequiredInfluenceForAllianceCreate());
   return {
     maxAllianceSize,
     currentPlayerId,
     activeAlliance,
-    publicAlliances: normalizeDemoPublicAllianceIcons(baseBoard?.publicAlliances, maxAllianceSize),
-    incomingInvites: baseBoard?.incomingInvites?.length
-      ? baseBoard.incomingInvites
-      : createDevOnlyIncomingInvites(),
-    eligibleInviteTargets: createDevOnlyAllianceInviteTargets(members),
+    publicAlliances: disableDevOnlyActiveAlliance
+      ? (baseBoard?.publicAlliances || [])
+      : normalizeDemoPublicAllianceIcons(baseBoard?.publicAlliances, maxAllianceSize),
+    incomingInvites: disableDevOnlyActiveAlliance
+      ? (baseBoard?.incomingInvites || [])
+      : (baseBoard?.incomingInvites?.length ? baseBoard.incomingInvites : createDevOnlyIncomingInvites()),
+    eligibleInviteTargets: disableDevOnlyActiveAlliance
+      ? (baseBoard?.eligibleInviteTargets || [])
+      : createDevOnlyAllianceInviteTargets(members),
     allianceBadgesByPlayerId: activeAlliance ? Object.fromEntries(members.map((member) => [
       member.playerId,
       {
@@ -564,15 +575,16 @@ const createDevOnlyAllianceBoard = (baseBoard = null) => {
         tag: "REAPER",
         emblemColor: "#ff2f5f"
       }
-    ])) : {},
+    ])) : (baseBoard?.allianceBadgesByPlayerId || {}),
     canCreateAlliance,
-    createDisabledReason: canCreateAlliance ? null : "ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE",
-    isDevOnlyCreatePreview: true
+    createDisabledReason: canCreateAlliance ? null : (baseBoard?.createDisabledReason || "ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE"),
+    isDevOnlyCreatePreview: true,
+    disableDevOnlyActiveAlliance
   };
 };
 
 const refreshDevOnlyCreateEligibility = () => {
-  if (!latestAllianceBoard?.isDevOnlyCreatePreview || latestAllianceBoard.activeAlliance) {
+  if (!latestAllianceBoard?.isDevOnlyCreatePreview || latestAllianceBoard.activeAlliance || latestAllianceBoard.disableDevOnlyActiveAlliance) {
     return false;
   }
   const canCreateAlliance = hasRequiredInfluenceForAllianceCreate();
@@ -2504,6 +2516,14 @@ const bindAllianceRuntime = () => {
 
   document.addEventListener("empire:gameplay-slice-rendered", (event) => {
     latestAllianceBoard = createDevOnlyAllianceBoard(event?.detail?.gameplaySlice?.allianceBoard || null);
+    rerenderAll();
+    window.dispatchEvent(new CustomEvent("empire:alliance-state-changed"));
+  });
+  document.addEventListener("empire:onboarding-alliance-reset", (event) => {
+    latestAllianceBoard = createDevOnlyAllianceBoard(event?.detail?.allianceBoard || {
+      activeAlliance: null,
+      disableDevOnlyActiveAlliance: true
+    });
     rerenderAll();
     window.dispatchEvent(new CustomEvent("empire:alliance-state-changed"));
   });

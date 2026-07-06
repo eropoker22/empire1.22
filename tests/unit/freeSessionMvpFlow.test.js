@@ -3,7 +3,10 @@ import { saveLobbyStep, saveLoginStep } from "../../page-assets/js/app/auth-flow
 import { evaluateFreeSessionReadiness } from "../../page-assets/js/app/dev/freeSessionChecklist.js";
 import { createDefaultPreviewSession } from "../../page-assets/js/app/model/authority-state.js";
 import { createResultPayloadBuilders } from "../../page-assets/js/app/runtime/resultPayloadBuilders.js";
-import { updateOnboardingProgress } from "../../page-assets/js/app/runtime/onboardingBridge.js";
+import {
+  markOnboardingStepDone,
+  updateOnboardingProgress
+} from "../../page-assets/js/app/runtime/onboardingBridge.js";
 import { resolvePoliceHeatFeedback } from "../../page-assets/js/app/runtime/policeHeatBridge.js";
 import { FREE_SESSION_ONBOARDING_STEPS, renderOnboardingPanel } from "../../page-assets/js/app/ui/onboardingPanel.js";
 import { renderPoliceFeedPanel } from "../../page-assets/js/app/ui/policeFeedPanel.js";
@@ -83,6 +86,15 @@ class FakeElement {
 }
 
 class FakeDocument {
+  createTextNode(text = "") {
+    return {
+      ownerDocument: this,
+      textContent: String(text || ""),
+      children: [],
+      parentNode: null
+    };
+  }
+
   createElement(tagName) {
     return new FakeElement(this, tagName);
   }
@@ -191,9 +203,9 @@ describe("free session MVP flow", () => {
         }
       }
     });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "heat:changed", detail: { heat: 45 } });
-    update({ world: { ownedDistrictIds: [1] } }, { type: "spy:started" });
-    update({ world: { ownedDistrictIds: [1] }, attackOrders: [{ id: "attack:1" }] }, { type: "attack:started" });
+    progress = markOnboardingStepDone("heat-police", progress);
+    update({ world: { ownedDistrictIds: [1] } }, { type: "spy:started", detail: { targetDistrictId: 2 } });
+    update({ world: { ownedDistrictIds: [1] } }, { type: "trap:moved", detail: { targetDistrictId: 1, sourceDistrictId: 2 } });
     update({ world: { ownedDistrictIds: [1] } }, { type: "onboarding:next", detail: { stepId: "done" } });
 
     expect(progress.completedCount).toBe(FREE_SESSION_ONBOARDING_STEPS.length);
@@ -226,8 +238,9 @@ describe("free session MVP flow", () => {
     expect(renderOnboardingPanel({ currentStepId: "done" }, {}, { mount: onboardingMount, readModel: {} })).toBe(true);
 
     const text = collectText(onboardingMount);
-    expect(text).toContain("Hotovo");
-    expect(text).toContain("Základ znáš. Teď rozšiř vliv.");
+    expect(text).toContain("Eliminace");
+    expect(text).toContain("Každé 4h reálného času");
+    expect(text).toContain("Základy znáš, hodně štěstí!");
     expect(text).toContain("Pokračovat");
     expect(text).not.toContain("Rozkazy běží v čase");
   });

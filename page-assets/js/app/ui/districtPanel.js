@@ -106,7 +106,7 @@ export function renderDistrictBuildingList(elements = {}, view = {}) {
     section.hidden = false;
   }
   list.replaceChildren();
-  meta.textContent = view.metaText || "Bez dat";
+  meta.textContent = view.metaText ?? "";
 
   if (view.emptyText) {
     appendBuildingEmptyMessage(list, view.emptyText);
@@ -135,6 +135,7 @@ export function renderDistrictBuildingList(elements = {}, view = {}) {
     if (trapCard && trapLabel && trapMeta) {
       trapLabel.textContent = view.trap.label || "Toxická past";
       trapMeta.textContent = view.trap.meta || "aktivní";
+      trapCard.dataset.districtBuildingTrap = "active";
       trapCard.append(trapLabel, trapMeta);
       list.append(trapCard);
     }

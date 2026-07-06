@@ -39,6 +39,19 @@ function setElementText(element, value) {
   }
 }
 
+function setElementValidationState(element, state = "") {
+  if (!element?.dataset) {
+    return;
+  }
+
+  if (state) {
+    element.dataset.validationState = state;
+    return;
+  }
+
+  delete element.dataset.validationState;
+}
+
 function getWeaponInputId(input, datasetKey) {
   return String(input?.dataset?.[datasetKey] || "").trim();
 }
@@ -68,6 +81,14 @@ export function createDistrictActionPanelRuntime(deps = {}) {
   const getAvailableAttackPopulation = () => {
     const rawValue = elements.gangMembersValue?.textContent || "0";
     return Number.parseInt(rawValue.replace(/[^\d]/g, ""), 10) || 0;
+  };
+
+  const getAvailableSpies = () => {
+    if (typeof deps.getResolvedSpyState !== "function") {
+      return 0;
+    }
+
+    return Math.max(0, Number(deps.getResolvedSpyState()?.available || 0));
   };
 
   const getAdjacentOwnedDistrictIds = (district) => {
@@ -155,6 +176,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
         confirmButton: elements.attackConfirmButton
       }
     });
+    setElementValidationState(elements.attackStatus, canConfirm ? "" : "error");
 
     return { totalResidents, totalPower, canConfirm };
   };
@@ -223,6 +245,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     }
 
     const availableMembers = getAvailableAttackPopulation();
+    setElementText(elements.robberyAvailableSpies, getAvailableSpies());
     const deployedMembers = clamp(Number.parseInt(elements.robberyMemberInput.value || "0", 10) || 0, 0, availableMembers);
     elements.robberyMemberInput.value = String(deployedMembers);
     elements.robberyAvailableMembers.textContent = String(availableMembers);
@@ -236,6 +259,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       : deployedMembers <= 0
         ? "Vyber členy gangu"
         : "Připraveno";
+    setElementValidationState(elements.robberyStatus, canConfirm ? "" : "error");
 
     if (preview) {
       setElementText(elements.robberyZone, preview.zoneLabel);
@@ -363,6 +387,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       district,
       adjacentOwnedDistrictIds,
       availableMembers: getAvailableAttackPopulation(),
+      availableSpies: getAvailableSpies(),
       robberyPreview: createRobberyPreviewForDistrict(district, 0),
       atmosphereMeta
     }), elements);

@@ -216,8 +216,39 @@
   gap: 10px;
 }
 
+#spy-confirm-modal .spy-confirm-popup-body {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#spy-confirm-modal .spy-confirm-popup-body .attack-setup-popup-row {
+  justify-content: center;
+  text-align: center;
+}
+
+#spy-confirm-modal .spy-confirm-popup-body .attack-setup-popup-row span {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+}
+
 .district-action-confirm-popup-body .attack-setup-popup-row {
   min-height: 42px;
+}
+
+.district-action-confirm-popup-body [data-validation-state="error"],
+.attack-setup-popup-body [data-validation-state="error"] {
+  color: #fecaca !important;
+  text-shadow:
+    0 0 10px rgba(248, 113, 113, 0.72),
+    0 0 18px rgba(127, 29, 29, 0.36) !important;
+}
+
+.district-action-confirm-popup-body .attack-setup-popup-row:has([data-validation-state="error"]),
+.attack-setup-popup-row:has([data-validation-state="error"]) {
+  border-color: rgba(248, 113, 113, 0.46) !important;
+  background:
+    linear-gradient(180deg, rgba(248, 113, 113, 0.12), rgba(127, 29, 29, 0.06)),
+    rgba(30, 10, 14, 0.44) !important;
 }
 
 .district-action-confirm-popup-body .attack-setup-popup-copy,
@@ -247,6 +278,10 @@
   .district-action-confirm-popup-body {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+
+  #spy-confirm-modal .spy-confirm-popup-body {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -416,6 +451,33 @@
   background:
     linear-gradient(120deg, rgba(254, 202, 202, 0.08), transparent 38%, transparent 72%, rgba(248, 113, 113, 0.12));
   pointer-events: none;
+}
+
+#spy-confirm-modal-confirm:disabled,
+#raid-confirm-modal-confirm:disabled,
+#occupy-confirm-modal-confirm:disabled,
+#trap-confirm-modal-confirm:disabled,
+#attack-confirm-modal-confirm:disabled,
+.attack-setup-popup-confirm:disabled {
+  border-color: rgba(148, 163, 184, 0.26) !important;
+  background:
+    linear-gradient(180deg, rgba(71, 85, 105, 0.7), rgba(30, 41, 59, 0.76)),
+    rgba(15, 23, 42, 0.88) !important;
+  color: rgba(226, 232, 240, 0.62) !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+  filter: grayscale(0.4) saturate(0.55) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 22px rgba(2, 6, 23, 0.18) !important;
+}
+
+#spy-confirm-modal-confirm:disabled::before,
+#raid-confirm-modal-confirm:disabled::before,
+#occupy-confirm-modal-confirm:disabled::before,
+#trap-confirm-modal-confirm:disabled::before,
+#attack-confirm-modal-confirm:disabled::before {
+  opacity: 0.18 !important;
 }
 
 #spy-confirm-modal-confirm:hover,

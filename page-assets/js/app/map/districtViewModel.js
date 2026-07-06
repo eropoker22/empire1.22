@@ -110,24 +110,28 @@ export function buildSelectedDistrictSummaryViewModel(district = {}, state = {},
 export function buildDistrictActionViewModel(district = {}, playerState = {}, options = {}) {
   const activePoliceAction = playerState.activePoliceAction || null;
   const resolvedActions = Array.isArray(playerState.resolvedActions) ? playerState.resolvedActions : [];
+  const actionCountdowns = playerState.actionCountdowns || {};
   const trapControlState = playerState.trapControlState || {};
   const normalizeReason = typeof options.normalizeReason === "function" ? options.normalizeReason : (reason) => String(reason || "");
-  const hasEnabledDistrictAction = resolvedActions.some((action) => action?.enabled);
+  const hasVisibleDistrictAction = resolvedActions.length > 0;
 
   return {
-    hidden: !activePoliceAction && !hasEnabledDistrictAction,
-    headHidden: hasEnabledDistrictAction,
+    hidden: !activePoliceAction && !hasVisibleDistrictAction,
+    headHidden: hasVisibleDistrictAction,
     policeMessage: activePoliceAction
       ? "District je právě pod policejní akcí. Detail zásahu je otevřený v policejním okně."
       : "",
     actions: activePoliceAction
       ? []
       : resolvedActions.map((action = {}) => {
+          const countdown = actionCountdowns[action.id] || null;
           if (action.id !== "trap") {
             return {
               id: action.id,
               label: action.label,
-              enabled: action.enabled,
+              enabled: countdown ? false : action.enabled,
+              countdownLabel: countdown?.label || "",
+              countdownEndsAt: countdown?.endsAt || null,
               title: action.reason || "",
               reason: action.reason ? normalizeReason(action.reason) : ""
             };
@@ -137,7 +141,7 @@ export function buildDistrictActionViewModel(district = {}, playerState = {}, op
           return {
             id: action.id,
             label: trapControlState.label || action.label,
-            enabled: !trapControlState.buttonDisabled,
+            enabled: countdown ? false : !trapControlState.buttonDisabled,
             stacked: true,
             trapState: trapControlState.isActiveHere
               ? "active"
@@ -147,6 +151,8 @@ export function buildDistrictActionViewModel(district = {}, playerState = {}, op
                   ? "move"
                   : "idle",
             subtitle: trapControlState.subtitle || "",
+            countdownLabel: countdown?.label || "",
+            countdownEndsAt: countdown?.endsAt || null,
             title: trapControlState.title || "",
             reason: actionReason ? normalizeReason(actionReason) : ""
           };

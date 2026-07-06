@@ -97,11 +97,13 @@ describe("district action setup panel", () => {
     const scout = element();
     const heat = element();
     const riskDescription = element();
+    const availableSpies = element();
 
     const viewModel = createRobberySetupViewModel({
       district: { id: 12 },
       adjacentOwnedDistrictIds: [5],
       availableMembers: 9,
+      availableSpies: 3,
       robberyPreview: {
         zoneLabel: "Commercial",
         recommendationLabel: "16-26",
@@ -126,6 +128,7 @@ describe("district action setup panel", () => {
       robberySetupCard: card,
       robberySetupAtmosphereImage: image,
       robberySetupAtmosphereLabel: label,
+      robberyAvailableSpies: availableSpies,
       robberyZone: zone,
       robberyRecommendation: recommendation,
       robberyRiskLevel: risk,
@@ -142,6 +145,7 @@ describe("district action setup panel", () => {
     expect(sourceSelect.disabled).toBe(false);
     expect(memberInput.value).toBe("0");
     expect(memberInput.max).toBe("9");
+    expect(availableSpies.textContent).toBe("3");
     expect(card.dataset.districtType).toBe("commercial");
     expect(image.src).toBe("img/commercial.webp");
     expect(label.textContent).toBe("Commercial");

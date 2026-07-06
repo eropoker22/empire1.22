@@ -76,10 +76,62 @@ describe("district action panel runtime", () => {
     expect(() => runtime.populateSpyConfirmPopup({ id: 1 })).not.toThrow();
   });
 
+  it("marks setup status as an error while attack or robbery confirmation is blocked", () => {
+    const attackStatus = textElement();
+    const attackConfirmButton = textElement();
+    const runtime = createDistrictActionPanelRuntime({
+      attackSetupWeapons: { pistol: true },
+      calculateAttackDeployment: () => ({ totalResidents: 0, totalPower: 0 }),
+      renderAttackProgress: vi.fn((payload, options) => {
+        options.elements.status.textContent = payload.status;
+        options.elements.confirmButton.disabled = !payload.canConfirm;
+      }),
+      validateAttackSelection: () => ({ canConfirm: false, status: "Vyber zbraně" }),
+      elements: {
+        attackSourceSelect: { value: "2", replaceChildren: vi.fn(), append: vi.fn(), disabled: false },
+        attackRequiredPopulation: textElement(),
+        attackEstimatedPower: textElement(),
+        attackStatus,
+        attackConfirmButton,
+        attackWeaponInputs: [input("0", { attackWeaponInput: "pistol" })],
+        gangMembersValue: textElement("12")
+      }
+    });
+
+    const attackSummary = runtime.renderAttackSummary();
+
+    expect(attackSummary.canConfirm).toBe(false);
+    expect(attackConfirmButton.disabled).toBe(true);
+    expect(attackStatus.textContent).toBe("Vyber zbraně");
+    expect(attackStatus.dataset.validationState).toBe("error");
+
+    const robberyStatus = textElement();
+    const robberyConfirmButton = textElement();
+    const robberyRuntime = createDistrictActionPanelRuntime({
+      clamp: (value, min, max) => Math.min(Math.max(value, min), max),
+      elements: {
+        robberySourceSelect: { value: "5", replaceChildren: vi.fn(), append: vi.fn(), disabled: false },
+        robberyMemberInput: input("0"),
+        robberyAvailableMembers: textElement(),
+        robberyStatus,
+        robberyConfirmButton,
+        gangMembersValue: textElement("10")
+      }
+    });
+
+    const robberySummary = robberyRuntime.renderRobberySummary();
+
+    expect(robberySummary.canConfirm).toBe(false);
+    expect(robberyConfirmButton.disabled).toBe(true);
+    expect(robberyStatus.textContent).toBe("Vyber členy gangu");
+    expect(robberyStatus.dataset.validationState).toBe("error");
+  });
+
   it("keeps robbery confirmable without scout report while rendering rough preview labels", () => {
     const robberySourceSelect = { value: "5", replaceChildren: vi.fn(), append: vi.fn(), disabled: false };
     const robberyMemberInput = input("4");
     const robberyAvailableMembers = textElement();
+    const robberyAvailableSpies = textElement();
     const robberyStatus = textElement();
     const robberyConfirmButton = textElement();
     const robberyRiskLevel = textElement();
@@ -108,10 +160,12 @@ describe("district action panel runtime", () => {
         revealedTypeDistrictIds: [],
         revealedDefenseDistrictIds: []
       }),
+      getResolvedSpyState: () => ({ available: 2 }),
       elements: {
         robberySourceSelect,
         robberyMemberInput,
         robberyAvailableMembers,
+        robberyAvailableSpies,
         robberyStatus,
         robberyConfirmButton,
         robberyRiskLevel,
@@ -130,6 +184,7 @@ describe("district action panel runtime", () => {
 
     expect(summary.canConfirm).toBe(true);
     expect(robberyConfirmButton.disabled).toBe(false);
+    expect(robberyAvailableSpies.textContent).toBe("2");
     expect(previewFactory).toHaveBeenLastCalledWith(expect.objectContaining({ hasScoutReport: false }));
     expect(robberyRiskLevel.textContent).toBe("Neznámé / Odhad · Odhad");
     expect(robberyLootPreview.textContent).toBe("Nejistý");

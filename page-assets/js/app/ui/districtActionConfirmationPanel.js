@@ -13,6 +13,25 @@ function setElementDisabled(element, disabled) {
   }
 }
 
+function setElementValidationState(element, state = "") {
+  if (!element?.dataset) {
+    return;
+  }
+
+  if (state) {
+    element.dataset.validationState = state;
+    return;
+  }
+
+  delete element.dataset.validationState;
+}
+
+function clearElementValidationStates(...elements) {
+  for (const element of elements) {
+    setElementValidationState(element);
+  }
+}
+
 function formatActionDuration(ms) {
   const totalSeconds = Math.max(0, Math.ceil(Number(ms || 0) / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -22,6 +41,13 @@ function formatActionDuration(ms) {
   }
 
   return seconds > 0 ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${minutes}m`;
+}
+
+function formatActionCountdownClock(totalSeconds = 0) {
+  const safeSeconds = Math.max(0, Math.ceil(Number(totalSeconds || 0)));
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 export function resolveOccupyPopulationCostForOwnedCount(ownedDistrictCount = 0) {
@@ -222,7 +248,7 @@ export function createAttackConfirmationViewModel({
 }
 
 export function renderAttackConfirmationPanel(viewModel = {}, elements = {}) {
-  return renderAttackConfirmPanel(viewModel, {}, {
+  const rendered = renderAttackConfirmPanel(viewModel, {}, {
     elements: {
       popup: elements.attackConfirmPopup,
       card: elements.attackConfirmCard,
@@ -238,6 +264,20 @@ export function renderAttackConfirmationPanel(viewModel = {}, elements = {}) {
       confirmButton: elements.attackConfirmFinalButton
     }
   });
+
+  clearElementValidationStates(elements.attackConfirmSource, elements.attackConfirmMembers, elements.attackConfirmPower);
+
+  if (!viewModel.canConfirm) {
+    if (!viewModel.sourceLabel || viewModel.sourceLabel === "Žádný soused") {
+      setElementValidationState(elements.attackConfirmSource, "error");
+    } else if (Number(viewModel.totalResidents || 0) <= 0) {
+      setElementValidationState(elements.attackConfirmMembers, "error");
+    } else {
+      setElementValidationState(elements.attackConfirmPower, "error");
+    }
+  }
+
+  return rendered;
 }
 
 export function canRenderAttackConfirmationPanel({ district, elements = {} } = {}) {
@@ -294,6 +334,16 @@ export function renderRobberyConfirmationPanel(viewModel = {}, elements = {}) {
   setElementText(elements.robberyConfirmDuration, viewModel.durationLabel || "");
   setElementText(elements.robberyConfirmNote, viewModel.note || "");
   setElementDisabled(elements.robberyConfirmFinalButton, !viewModel.canConfirm);
+  clearElementValidationStates(elements.robberyConfirmSource, elements.robberyConfirmMembers);
+
+  if (!viewModel.canConfirm) {
+    if (!viewModel.sourceLabel || viewModel.sourceLabel === "Žádný soused") {
+      setElementValidationState(elements.robberyConfirmSource, "error");
+    } else {
+      setElementValidationState(elements.robberyConfirmMembers, "error");
+    }
+  }
+
   return true;
 }
 
@@ -325,7 +375,7 @@ export function createTrapConfirmationViewModel({
 
   return {
     targetDistrictId: district?.id,
-    cooldownLabel: trapMoveCooldownSeconds > 0 ? formatActionDuration(trapMoveCooldownSeconds * 1000) : "Připraveno",
+    cooldownLabel: trapMoveCooldownSeconds > 0 ? formatActionCountdownClock(trapMoveCooldownSeconds) : "Připraveno",
     note: isSameDistrict
       ? "Toxická past už je aktivní v tomto districtu."
       : isMovingTrap
@@ -403,7 +453,7 @@ export function createSpyConfirmationViewModel({
 }
 
 export function renderSpyConfirmationPanel(viewModel = {}, elements = {}) {
-  return renderSpyPanel(viewModel, {}, {
+  const rendered = renderSpyPanel(viewModel, {}, {
     elements: {
       popup: elements.spyConfirmPopup,
       card: elements.spyConfirmCard,
@@ -417,6 +467,18 @@ export function renderSpyConfirmationPanel(viewModel = {}, elements = {}) {
       confirmButton: elements.spyConfirmButton
     }
   });
+
+  clearElementValidationStates(elements.spyConfirmSource, elements.spyConfirmAvailable);
+
+  if (!viewModel.canConfirm) {
+    if (!viewModel.sourceLabel || viewModel.sourceLabel === "Žádný soused") {
+      setElementValidationState(elements.spyConfirmSource, "error");
+    } else {
+      setElementValidationState(elements.spyConfirmAvailable, "error");
+    }
+  }
+
+  return rendered;
 }
 
 export function canRenderSpyConfirmationPanel({ district, elements = {} } = {}) {
@@ -483,6 +545,17 @@ export function renderOccupyConfirmationPanel(viewModel = {}, elements = {}) {
   setElementText(elements.occupyConfirmCost, viewModel.costLabel || "");
   setElementText(elements.occupyConfirmDuration, viewModel.durationLabel || "");
   setElementText(elements.occupyConfirmNote, viewModel.note || "");
+  clearElementValidationStates(elements.occupyConfirmSource, elements.occupyConfirmCondition, elements.occupyConfirmCost);
+
+  if (!viewModel.canConfirm) {
+    if (!viewModel.sourceLabel || viewModel.sourceLabel === "Žádný soused") {
+      setElementValidationState(elements.occupyConfirmSource, "error");
+    } else if (viewModel.conditionLabel !== "Špehování potvrzeno") {
+      setElementValidationState(elements.occupyConfirmCondition, "error");
+    } else {
+      setElementValidationState(elements.occupyConfirmCost, "error");
+    }
+  }
 
   if (elements.occupyConfirmButton) {
     setElementDisabled(elements.occupyConfirmButton, !viewModel.canConfirm);

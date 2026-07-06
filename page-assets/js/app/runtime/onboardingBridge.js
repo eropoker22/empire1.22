@@ -5,6 +5,7 @@ import {
   hideOnboardingPanel as hidePanel,
   initOnboardingPanel,
   markOnboardingStepDone as markPanelStepDone,
+  moveOnboardingProgress,
   normalizeOnboardingProgress,
   renderOnboardingPanel,
   shouldAutoStartOnboarding,
@@ -59,6 +60,26 @@ function hasBuildingActionFeedback(detail = {}) {
     || snapshot.buildingTypeId
     || snapshot.reportType === "building-action"
   );
+}
+
+function getDetailDistrictId(detail = {}, ...keys) {
+  const safeDetail = safeObject(detail);
+  for (const key of keys) {
+    const value = key.split(".").reduce((current, part) => safeObject(current)[part], safeDetail);
+    const districtId = Number(value);
+    if (Number.isFinite(districtId) && districtId > 0) {
+      return districtId;
+    }
+  }
+  return null;
+}
+
+function isConfirmedSpyOnboardingTarget(detail = {}) {
+  return getDetailDistrictId(detail, "targetDistrictId", "mission.targetDistrictId", "districtId") === 2;
+}
+
+function isConfirmedTrapOnboardingTarget(detail = {}) {
+  return getDetailDistrictId(detail, "targetDistrictId", "districtId") === 1;
 }
 
 export function resolveOnboardingStorageKey(context = {}) {
@@ -126,8 +147,8 @@ function eventCompletesStep(eventType = "", detail = {}) {
   if (eventType === "district:own-opened" || eventType === "empire:district-opened") return "your-district";
   if (eventType === "district:stats-read") return "your-district";
   if (eventType === "building-action:feedback") return "building-action";
-  if (eventType === "heat:opened" || eventType === "heat:changed" || eventType === "police:feedback" || eventType === "day-night:opened") return "heat-police";
-  if (eventType === "spy:started") return "spy";
+  if (eventType === "spy:started" && isConfirmedSpyOnboardingTarget(detail)) return "spy";
+  if ((eventType === "trap:moved" || eventType === "trap:armed") && isConfirmedTrapOnboardingTarget(detail)) return "attack-order";
   if (eventType === "attack:started" || eventType === "occupy:started") return "attack-order";
   return null;
 }
@@ -167,7 +188,7 @@ function getObservedStepIdsForEvent(eventType = "", detail = {}) {
 
   const observed = new Set([completedStepId]);
   const userActionStepIds = new Set(["your-district", "building-action", "spy", "attack-order"]);
-  if (userActionStepIds.has(completedStepId) || eventType === "heat:opened") {
+  if (userActionStepIds.has(completedStepId)) {
     observed.add("welcome");
   }
   if (completedStepId === "building-action" || completedStepId === "spy" || completedStepId === "attack-order") {
@@ -179,6 +200,7 @@ function getObservedStepIdsForEvent(eventType = "", detail = {}) {
 function applyObservedProgress(progress = {}) {
   let nextProgress = normalizeOnboardingProgress(progress);
   const observed = new Set(nextProgress.observedStepIds);
+  observed.delete("heat-police");
   let guard = 0;
 
   while (!nextProgress.completed && observed.has(nextProgress.currentStepId) && guard < FREE_SESSION_ONBOARDING_STEPS.length) {
@@ -271,6 +293,7 @@ export function createOnboardingBridge(deps = {}) {
   let mount = null;
   let eventsBound = false;
   let legacyStoragePruned = false;
+  let lastEnteredStepId = "";
   const boundEvents = [];
 
   const getContext = () => ({
@@ -295,8 +318,20 @@ export function createOnboardingBridge(deps = {}) {
 
   const persist = () => writeStoredProgress(progress, storage, storageKey);
 
+  const syncStepEnter = () => {
+    const currentStepId = normalizeOnboardingProgress(progress).currentStepId;
+    if (!currentStepId || currentStepId === lastEnteredStepId) {
+      return false;
+    }
+    lastEnteredStepId = currentStepId;
+    return typeof deps.onStepEnter === "function" && deps.onStepEnter(currentStepId, getContext()) === true;
+  };
+
   const render = () => {
     refreshReadModel();
+    if (syncStepEnter()) {
+      refreshReadModel();
+    }
     if (!mount) {
       mount = initOnboardingPanel({ progress }, {
         container,
@@ -325,10 +360,22 @@ export function createOnboardingBridge(deps = {}) {
   };
 
   const next = (stepId = "") => {
+    const wasCompleted = normalizeOnboardingProgress(progress).completed;
     progress = markPanelStepDone(stepId || progress.currentStepId, progress);
     persist();
     render();
+    if (!wasCompleted && progress.completed && typeof deps.onComplete === "function") {
+      deps.onComplete(getContext());
+    }
     return progress;
+  };
+
+  const welcomeStart = (stepId = "") => {
+    const normalizedStepId = String(stepId || progress.currentStepId || "").trim();
+    if (normalizedStepId === "welcome" && typeof deps.onWelcomeStart === "function") {
+      deps.onWelcomeStart(getContext());
+    }
+    return next(normalizedStepId);
   };
 
   const skip = (currentStepId = "skipped") => {
@@ -339,7 +386,8 @@ export function createOnboardingBridge(deps = {}) {
   };
 
   const back = () => {
-    progress = normalizeOnboardingProgress(progress);
+    progress = moveOnboardingProgress(progress, -1);
+    persist();
     render();
     return progress;
   };
@@ -361,7 +409,7 @@ export function createOnboardingBridge(deps = {}) {
 
   function callbacks() {
     return {
-      onNext: (stepId) => next(stepId),
+      onNext: (stepId) => welcomeStart(stepId),
       onBack: () => back(),
       onSkip: () => skip("skipped"),
       onDismiss: () => skip("dismissed")

@@ -84,6 +84,7 @@ describe("gameplay slice read model contract", () => {
           "mapManifestHash": "fnv1a32:f30dfc61",
           "mapManifestId": "empire-streets-city",
           "mapManifestVersion": 1,
+          "maxPlayersPerServer": 20,
           "mode": "free",
           "selectedDistrictId": null,
           "serverInstanceId": "instance:free:read-model:fresh",
@@ -115,6 +116,11 @@ describe("gameplay slice read model contract", () => {
     });
     runtime.state.root.districtIds.push("district:3");
     server.instanceManager.startInstance(instanceId);
+    runtime.state.districtsById["district:3"] = {
+      ...runtime.state.districtsById["district:3"]!,
+      ownerPlayerId: null,
+      status: "neutral"
+    };
 
     const session = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
@@ -124,6 +130,11 @@ describe("gameplay slice read model contract", () => {
       ...session.loadRequest,
       districtId: "district:1"
     });
+    runtime.state.districtsById["district:3"] = {
+      ...runtime.state.districtsById["district:3"]!,
+      ownerPlayerId: null,
+      status: "neutral"
+    };
     const neutralResponse = await server.gameplaySliceTransport.load({
       ...session.loadRequest,
       districtId: "district:3"
@@ -285,6 +296,7 @@ describe("gameplay slice read model contract", () => {
           "mapManifestHash": "fnv1a32:f30dfc61",
           "mapManifestId": "empire-streets-city",
           "mapManifestVersion": 1,
+          "maxPlayersPerServer": 20,
           "mode": "free",
           "selectedDistrictId": "district:read-model:collect",
           "serverInstanceId": "instance:read-model:collect",

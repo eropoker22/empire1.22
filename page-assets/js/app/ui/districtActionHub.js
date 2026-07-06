@@ -38,10 +38,21 @@ export function renderDistrictActionButton(action = {}, callback = null, options
   if (action.id) {
     button.dataset.testid = `district-action-${action.id}`;
   }
-  button.disabled = !action.enabled || !hasCallback;
+  if (action.countdownLabel) {
+    button.dataset.districtActionCountdown = "true";
+    if (action.countdownEndsAt) {
+      button.dataset.districtActionCountdownEndsAt = String(action.countdownEndsAt);
+    }
+  }
+  button.disabled = Boolean(action.countdownLabel) || !action.enabled || !hasCallback;
 
-  if (action.stacked) {
-    button.classList.add("district-popup-action--stacked");
+  if (action.stacked || action.countdownLabel) {
+    if (action.stacked) {
+      button.classList.add("district-popup-action--stacked");
+    }
+    if (action.countdownLabel) {
+      button.classList.add("district-popup-action--countdown");
+    }
     if (action.trapState) {
       button.dataset.districtTrapState = action.trapState;
     }
@@ -52,10 +63,16 @@ export function renderDistrictActionButton(action = {}, callback = null, options
       button.append(label);
     }
 
-    if (action.subtitle) {
-      const subtitle = createElement(mount, "span", "district-popup-action__sub");
+    if (action.subtitle || action.countdownLabel) {
+      const subtitle = createElement(
+        mount,
+        "span",
+        action.countdownLabel
+          ? "district-popup-action__sub district-popup-action__countdown"
+          : "district-popup-action__sub"
+      );
       if (subtitle) {
-        subtitle.textContent = action.subtitle;
+        subtitle.textContent = action.countdownLabel || action.subtitle;
         button.append(subtitle);
       }
     }

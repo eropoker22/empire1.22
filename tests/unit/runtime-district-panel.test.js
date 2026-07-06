@@ -202,14 +202,15 @@ describe("district panel rendering", () => {
     expect(list.children[0].classList.contains("district-popup-buildings__empty")).toBe(true);
 
     renderDistrictBuildingList({ section, meta, list }, {
-      metaText: "Základní set · Mid",
+      metaText: "",
       buildings: [
         { name: "Autosalon", label: "Autosalon", displayName: "Neon Cars" },
         { name: "Lékárna", displayName: "Noční Lékárna" }
       ],
-      trap: { visible: true, label: "Toxická past", meta: "aktivní" }
+      trap: { visible: true, label: "Toxická past", meta: "59:59" }
     });
 
+    expect(meta.textContent).toBe("");
     expect(list.children).toHaveLength(3);
     expect(list.children[0].dataset.districtBuildingName).toBe("Autosalon");
     expect(list.children[0].dataset.districtBuildingDisplayName).toBe("Neon Cars");
@@ -217,6 +218,8 @@ describe("district panel rendering", () => {
     expect(list.children[0].title).toBe("Autosalon");
     expect(list.children[1].textContent).toBe("Noční Lékárna");
     expect(list.children[2].classList.contains("district-popup-buildings__chip--trap")).toBe(true);
+    expect(list.children[2].dataset.districtBuildingTrap).toBe("active");
+    expect(list.children[2].children[1].textContent).toBe("59:59");
   });
 
   it("renders district action buttons and police lock state", () => {

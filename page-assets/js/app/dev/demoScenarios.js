@@ -10,6 +10,34 @@ export const DEV_ONLY_POLICE_INTERVAL_MS = 30_000;
 export const DEV_ONLY_DESTROYED_DISTRICT_ID = 8;
 export const DEV_ONLY_SPY_FULL_SUCCESS_CHANCE = 0.99;
 
+export const DEV_ONLY_ONBOARDING_START_STATE = Object.freeze({
+  economy: Object.freeze({
+    cleanMoney: 5_000,
+    dirtyMoney: 420
+  }),
+  gang: Object.freeze({
+    members: 250,
+    influence: 5,
+    heat: 50,
+    alliance: null
+  }),
+  allianceBoard: Object.freeze({
+    activeAlliance: null,
+    allianceBadgesByPlayerId: Object.freeze({}),
+    publicAlliances: Object.freeze([]),
+    incomingInvites: Object.freeze([]),
+    eligibleInviteTargets: Object.freeze([]),
+    canCreateAlliance: false,
+    createDisabledReason: "ONBOARDING_NO_ALLIANCE",
+    disableDevOnlyActiveAlliance: true
+  }),
+  world: Object.freeze({
+    ownedDistrictIds: Object.freeze([1]),
+    gamePhase: "launch"
+  }),
+  storageAmount: 5
+});
+
 export const START_PHASE_RESOURCE_SIMULATION = Object.freeze({
   cleanPerMinuteByDistrictType: Object.freeze({
     resident: 5,
@@ -22,13 +50,10 @@ export const START_PHASE_RESOURCE_SIMULATION = Object.freeze({
 });
 
 export const START_PHASE_OWNER_COORDINATES = [
-  [0, 1], [0, 6], [0, 11], [0, 16], [0, 21],
-  [1, 3], [1, 9], [1, 15],
-  [2, 1], [2, 7], [2, 18],
-  [3, 4], [3, 18],
-  [4, 2], [4, 20],
-  [5, 5], [5, 11], [5, 17],
-  [6, 7], [6, 15]
+  [0, 0], [2, 0], [3, 0], [4, 0], [5, 0],
+  [1, 22], [2, 22], [3, 22], [4, 22], [5, 22],
+  [6, 0], [6, 2], [6, 4], [6, 6], [6, 8],
+  [6, 10], [6, 12], [6, 14], [6, 18], [6, 22]
 ];
 
 export const START_PHASE_PLAYER_COLORS = [

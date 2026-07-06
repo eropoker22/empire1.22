@@ -3,9 +3,12 @@ import {
   canRenderRobberyConfirmationPanel,
   createAttackConfirmationViewModel,
   createOccupyConfirmationViewModel,
+  createSpyConfirmationViewModel,
+  renderAttackConfirmationPanel,
   createTrapConfirmationViewModel,
   renderOccupyConfirmationPanel,
   renderPreparedRobberyConfirmationPanel,
+  renderSpyConfirmationPanel,
   renderTrapConfirmationPanel
 } from "../../page-assets/js/app/ui/districtActionConfirmationPanel.js";
 
@@ -79,7 +82,7 @@ describe("district action confirmation panel", () => {
     });
 
     expect(title.textContent).toBe("District 9");
-    expect(cooldown.textContent).toBe("7s");
+    expect(cooldown.textContent).toBe("0:07");
     expect(note.textContent).toBe("Přesune aktivní toxickou past z District 5 sem. Po přesunu se znovu rozjede toxický kouř.");
     expect(button.textContent).toBe("Přesunout past");
     expect(button.disabled).toBe(true);
@@ -171,6 +174,10 @@ describe("district action confirmation panel", () => {
   });
 
   it("shows the higher occupy population cost and blocks confirmation when population is low", () => {
+    const source = element();
+    const condition = element();
+    const cost = element();
+    const button = element();
     const viewModel = createOccupyConfirmationViewModel({
       district: { id: 18 },
       adjacentOwnedDistrictIds: [15],
@@ -184,5 +191,78 @@ describe("district action confirmation panel", () => {
     expect(viewModel.costLabel).toBe("250 populace");
     expect(viewModel.note).toBe("Obsazení vyžaduje 250 populace. Aktuálně máš 249.");
     expect(viewModel.canConfirm).toBe(false);
+
+    renderOccupyConfirmationPanel(viewModel, {
+      occupyConfirmTitle: element(),
+      occupyConfirmSource: source,
+      occupyConfirmCondition: condition,
+      occupyConfirmCost: cost,
+      occupyConfirmDuration: element(),
+      occupyConfirmNote: element(),
+      occupyConfirmButton: button
+    });
+
+    expect(button.disabled).toBe(true);
+    expect(source.dataset.validationState).toBeUndefined();
+    expect(condition.dataset.validationState).toBeUndefined();
+    expect(cost.dataset.validationState).toBe("error");
+  });
+
+  it("marks missing spies in the spy confirmation cell", () => {
+    const source = element();
+    const available = element();
+    const button = element();
+    const viewModel = createSpyConfirmationViewModel({
+      district: { id: 6 },
+      adjacentOwnedDistrictIds: [1],
+      spyState: { available: 0 },
+      spyCooldownMs: 20_000
+    });
+
+    renderSpyConfirmationPanel(viewModel, {
+      spyConfirmTitle: element(),
+      spyConfirmSource: source,
+      spyConfirmAvailable: available,
+      spyConfirmDuration: element(),
+      spyConfirmNote: element(),
+      spyConfirmButton: button
+    });
+
+    expect(button.disabled).toBe(true);
+    expect(source.dataset.validationState).toBeUndefined();
+    expect(available.dataset.validationState).toBe("error");
+  });
+
+  it("marks empty attack loadout in the attack confirmation members cell", () => {
+    const members = element();
+    const power = element();
+    const button = element();
+    const viewModel = createAttackConfirmationViewModel({
+      district: { id: 12 },
+      context: {
+        sourceDistrictId: 4,
+        totalResidents: 0,
+        totalPower: 0,
+        canConfirm: false,
+        selectedWeaponsLabel: "",
+        resolvedScenario: { label: "Neznámý" },
+        boostContext: { cooldownMs: 10_000, effectiveAttackPower: 0 }
+      }
+    });
+
+    renderAttackConfirmationPanel(viewModel, {
+      attackConfirmTitle: element(),
+      attackConfirmSource: element(),
+      attackConfirmMembers: members,
+      attackConfirmPower: power,
+      attackConfirmScenario: element(),
+      attackConfirmDuration: element(),
+      attackConfirmNote: element(),
+      attackConfirmFinalButton: button
+    });
+
+    expect(button.disabled).toBe(true);
+    expect(members.dataset.validationState).toBe("error");
+    expect(power.dataset.validationState).toBeUndefined();
   });
 });

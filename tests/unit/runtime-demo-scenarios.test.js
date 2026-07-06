@@ -3,6 +3,7 @@ import {
   CURRENT_PLAYER_ID,
   DEMO_SCENARIOS,
   DEV_ONLY_DESTROYED_DISTRICT_ID,
+  DEV_ONLY_ONBOARDING_START_STATE,
   DEV_ONLY_POLICE_INTERVAL_MS,
   MARKET_PLAYER_DEMO_SELLERS,
   START_PHASE_OWNER_COORDINATES,
@@ -11,6 +12,11 @@ import {
   START_PHASE_RESOURCE_SIMULATION,
   isDemoScenarioMode
 } from "../../page-assets/js/app/dev/demoScenarios.js";
+import {
+  MAP_GRID_COLUMNS,
+  MAP_GRID_ROWS
+} from "../../page-assets/js/app/map/mapConstants.js";
+import { createLaunchOwnerMap } from "../../page-assets/js/app/map/mapGeometry.js";
 
 describe("runtime demo scenarios", () => {
   it("keeps launch demo scenario data available outside runtime", () => {
@@ -24,7 +30,30 @@ describe("runtime demo scenarios", () => {
     expect(CURRENT_PLAYER_ID).toBe(1);
     expect(DEV_ONLY_DESTROYED_DISTRICT_ID).toBe(8);
     expect(DEV_ONLY_POLICE_INTERVAL_MS).toBe(30_000);
+    expect(DEV_ONLY_ONBOARDING_START_STATE).toMatchObject({
+      economy: { cleanMoney: 5_000, dirtyMoney: 420 },
+      gang: { members: 250, influence: 5, heat: 50, alliance: null },
+      allianceBoard: {
+        activeAlliance: null,
+        canCreateAlliance: false,
+        createDisabledReason: "ONBOARDING_NO_ALLIANCE",
+        disableDevOnlyActiveAlliance: true
+      },
+      world: { ownedDistrictIds: [1], gamePhase: "launch" },
+      storageAmount: 5
+    });
     expect(START_PHASE_OWNER_COORDINATES).toHaveLength(20);
+    expect(new Set(START_PHASE_OWNER_COORDINATES.map(([rowIndex, columnIndex]) => `${rowIndex}:${columnIndex}`)).size).toBe(20);
+    expect(START_PHASE_OWNER_COORDINATES.every(([rowIndex, columnIndex]) =>
+      columnIndex === 0
+      || columnIndex === MAP_GRID_COLUMNS - 1
+      || rowIndex === MAP_GRID_ROWS - 1
+    )).toBe(true);
+    const launchOwnerByDistrictId = createLaunchOwnerMap(START_PHASE_OWNER_COORDINATES);
+    const currentPlayerDistrictIds = Array.from(launchOwnerByDistrictId.entries())
+      .filter(([, ownerId]) => ownerId === CURRENT_PLAYER_ID)
+      .map(([districtId]) => districtId);
+    expect(currentPlayerDistrictIds).toEqual([1]);
     expect(START_PHASE_PLAYER_COLORS).toHaveLength(30);
     expect(START_PHASE_PLAYER_NAMES).toHaveLength(20);
     expect(MARKET_PLAYER_DEMO_SELLERS.map((seller) => seller.id)).toEqual([

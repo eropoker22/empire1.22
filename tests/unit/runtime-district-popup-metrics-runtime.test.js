@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { createDistrictPopupMetricsRuntime } from "../../page-assets/js/app/runtime/districtPopupMetricsRuntime.js";
+import {
+  TRAP_MOVE_LOCK_MS,
+  createDistrictPopupMetricsRuntime,
+  formatTrapMoveCooldownLabel
+} from "../../page-assets/js/app/runtime/districtPopupMetricsRuntime.js";
 
 class FakeElement {
   constructor(tagName = "div", ownerDocument = null) {
@@ -66,7 +70,7 @@ function createRuntime(overrides = {}) {
       districtDefenseById: { 1: 6 },
       districtDefenseLoadoutById: { 1: { pistol: 2 } },
       districtDefenseResidentsById: { 1: 3 },
-      districtTrapById: { 1: { isArmed: true, ownerId: 1, armedAt: new Date().toISOString() } }
+      districtTrapById: { 1: { isArmed: true, ownerId: 1, armedAt: new Date(Date.now() - 1000).toISOString() } }
     }),
     isDistrictGossipDevOnlyMode: () => true,
     isDistrictTypeHidden: () => false,
@@ -90,7 +94,15 @@ describe("district popup metrics runtime", () => {
     });
     expect(runtime.getCurrentPlayerTrapDistrictId()).toBe(1);
     expect(runtime.getDistrictTrapControlState({ id: 1 }).label).toBe("Past aktivní");
+    expect(runtime.getDistrictTrapControlState({ id: 1 }).subtitle).toMatch(/59:5\d/u);
+    expect(runtime.getDistrictTrapControlState({ id: 1 }).buildingMeta).toMatch(/59:5\d/u);
     expect(runtime.hasKnownDistrictDefense({ id: 2 })).toBe(true);
+  });
+
+  it("uses a one-hour trap move lock and formats it as minutes and seconds", () => {
+    expect(TRAP_MOVE_LOCK_MS).toBe(60 * 60 * 1000);
+    expect(formatTrapMoveCooldownLabel(3600)).toBe("60:00");
+    expect(formatTrapMoveCooldownLabel(125)).toBe("2:05");
   });
 
   it("renders metric and gossip fallbacks without runtime DOM coupling", () => {

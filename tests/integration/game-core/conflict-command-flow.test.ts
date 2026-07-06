@@ -116,6 +116,17 @@ describe("conflict command flow", () => {
   it("successful spy intel unlocks neutral district occupation", () => {
     const state = createCombatStateFixture();
     state.serverInstance.worldSeed = "spy-seed-10";
+    state.playersById["player:1"] = {
+      ...state.playersById["player:1"],
+      population: 100
+    };
+    state.resourceStatesById["resource:1"] = {
+      ...state.resourceStatesById["resource:1"],
+      balances: {
+        ...state.resourceStatesById["resource:1"]?.balances,
+        population: 100
+      }
+    };
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       influence: 20

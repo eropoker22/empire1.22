@@ -143,6 +143,7 @@ export function getDistrictPopupElements(root) {
     robberyTargetTitle: query(root, selectors.ROBBERY_TARGET_TITLE_SELECTOR),
     robberySourceSelect: query(root, selectors.ROBBERY_SOURCE_SELECT_SELECTOR),
     robberyAvailableMembers: query(root, selectors.ROBBERY_AVAILABLE_MEMBERS_SELECTOR),
+    robberyAvailableSpies: query(root, selectors.ROBBERY_AVAILABLE_SPIES_SELECTOR),
     robberyMemberInput: query(root, selectors.ROBBERY_MEMBER_INPUT_SELECTOR),
     robberyZone: query(root, selectors.ROBBERY_ZONE_SELECTOR),
     robberyRecommendation: query(root, selectors.ROBBERY_RECOMMENDATION_SELECTOR),

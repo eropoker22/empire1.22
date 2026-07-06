@@ -139,6 +139,7 @@ export function createRobberySetupViewModel({
   district,
   adjacentOwnedDistrictIds = [],
   availableMembers = 0,
+  availableSpies = 0,
   robberyPreview = null,
   atmosphereMeta = {}
 } = {}) {
@@ -147,6 +148,7 @@ export function createRobberySetupViewModel({
     sourceDistrictIds: adjacentOwnedDistrictIds,
     memberInputValue: "0",
     memberInputMax: String(availableMembers),
+    availableSpiesLabel: String(Math.max(0, Number(availableSpies) || 0)),
     robberyPreview,
     atmosphereMeta
   };
@@ -161,6 +163,7 @@ export function renderRobberySetupPanel(viewModel = {}, elements = {}) {
   });
 
   setText(elements.robberyTargetTitle, `District ${viewModel.targetDistrictId ?? ""}`);
+  setText(elements.robberyAvailableSpies, viewModel.availableSpiesLabel ?? "0");
   renderSourceSelect(elements.robberySourceSelect, viewModel.sourceDistrictIds);
 
   if (elements.robberyMemberInput) {

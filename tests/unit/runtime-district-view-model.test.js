@@ -79,6 +79,9 @@ describe("district view model adapter", () => {
         { id: "attack", label: "Útok", enabled: false, reason: "Requires an adjacent owned district." },
         { id: "trap", label: "Past", enabled: true, reason: "", visible: true }
       ],
+      actionCountdowns: {
+        attack: { label: "Zbývá 0:42", endsAt: 42000 }
+      },
       trapControlState: {
         label: "Přesunout past",
         subtitle: "20s",
@@ -96,6 +99,8 @@ describe("district view model adapter", () => {
     expect(model.actions[0]).toMatchObject({
       id: "attack",
       enabled: false,
+      countdownLabel: "Zbývá 0:42",
+      countdownEndsAt: 42000,
       reason: "Chybí sousední tvůj district."
     });
     expect(model.actions[1]).toMatchObject({
@@ -104,6 +109,27 @@ describe("district view model adapter", () => {
       stacked: true,
       trapState: "cooldown",
       subtitle: "20s"
+    });
+  });
+
+  it("keeps in-progress disabled district actions visible so their countdown can render", () => {
+    const model = buildDistrictActionViewModel({ id: 4 }, {
+      activePoliceAction: null,
+      resolvedActions: [
+        { id: "occupy", label: "Obsadit", enabled: true, reason: "District 4 se právě obsazuje." }
+      ],
+      actionCountdowns: {
+        occupy: { label: "Zbývá 2:10", endsAt: 130000 }
+      }
+    });
+
+    expect(model.hidden).toBe(false);
+    expect(model.headHidden).toBe(true);
+    expect(model.actions[0]).toMatchObject({
+      id: "occupy",
+      enabled: false,
+      countdownLabel: "Zbývá 2:10",
+      countdownEndsAt: 130000
     });
   });
 });

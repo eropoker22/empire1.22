@@ -214,9 +214,9 @@ describe("market action orchestrator", () => {
 
     expect(setInventoryAmount).toHaveBeenCalledWith("drugs", "neon-dust", 3);
     expect(setStoredEconomyState).toHaveBeenCalledWith({ dirtyMoney: 600 });
-    expect(addGangHeat).toHaveBeenCalledWith("root", 4, "Black market nákup: Neon Dust");
+    expect(addGangHeat).toHaveBeenCalledWith("root", 4, "Černý trh nákup: Neon Dust");
     expect(buyHarness.getState().stock["black-market:neon-dust"]).toBe(8);
-    expect(setMarketFeedback).toHaveBeenLastCalledWith("danger", "Koupeno 2x Neon Dust za 400$. Black market přidal 4 heat.");
+    expect(setMarketFeedback).toHaveBeenLastCalledWith("danger", "Kontakt předal 2x Neon Dust za 400$. Heat +4.");
     expect(refreshMarketTab).toHaveBeenCalledTimes(1);
 
     const updateRowTradeState = vi.fn();

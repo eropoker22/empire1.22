@@ -120,6 +120,31 @@ describe("district action hub", () => {
     expect(callback).not.toHaveBeenCalled();
   });
 
+  it("renders action countdowns under the button label and keeps the action locked", () => {
+    const document = new FakeDocument();
+    const mount = createElement(document);
+    const callback = vi.fn();
+    const button = renderDistrictActionButton({
+      id: "spy",
+      label: "Špehovat",
+      enabled: true,
+      countdownLabel: "Zbývá 1:25",
+      countdownEndsAt: 125000
+    }, callback, { mount });
+
+    expect(button.dataset.districtActionId).toBe("spy");
+    expect(button.dataset.districtActionCountdown).toBe("true");
+    expect(button.dataset.districtActionCountdownEndsAt).toBe("125000");
+    expect(button.disabled).toBe(true);
+    expect(button.classList.contains("district-popup-action--countdown")).toBe(true);
+    expect(button.children).toHaveLength(2);
+    expect(button.children[0].textContent).toBe("Špehovat");
+    expect(button.children[1].textContent).toBe("Zbývá 1:25");
+    expect(button.children[1].classList.contains("district-popup-action__countdown")).toBe(true);
+    button.dispatch("click");
+    expect(callback).not.toHaveBeenCalled();
+  });
+
   it("renders disabled reasons, police lock and clears safely", () => {
     const document = new FakeDocument();
     const mount = createElement(document);

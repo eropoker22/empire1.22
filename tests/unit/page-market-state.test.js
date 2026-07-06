@@ -85,7 +85,7 @@ describe("page market state", () => {
     const session = getAuthoritySession();
 
     expect(session.market.serverId).toBe("free-eu-01");
-    expect(session.market.items["market:chemicals"].price).toBe(360);
+    expect(session.market.items["market:chemicals"].price).toBe(19);
     expect(session.marketByServerId["war-eu-01"].items["market:chemicals"].price).toBe(111);
     expect(session.marketByServerId["war-eu-01"].playerListings).toHaveLength(1);
   });

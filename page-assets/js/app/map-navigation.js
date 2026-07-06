@@ -60,6 +60,14 @@ function bindMapNavigation(root) {
     render();
   };
 
+  const resetZoom = () => {
+    state.scale = MIN_SCALE;
+    state.x = 0;
+    state.y = 0;
+    render();
+    return true;
+  };
+
   const suppressMapClick = () => {
     viewport.dataset.mapGestureSuppressUntil = String(window.performance.now() + PINCH_SUPPRESS_MS);
   };
@@ -247,6 +255,19 @@ function bindMapNavigation(root) {
   });
 
   render();
+
+  const controller = {
+    getState: () => ({ scale: state.scale, x: state.x, y: state.y }),
+    resetZoom,
+    setScale
+  };
+  viewport.empireStreetsMapNavigation = controller;
+  canvasHost.empireStreetsMapNavigation = controller;
+  root.empireStreetsMapNavigation = controller;
+  if (typeof window !== "undefined") {
+    window.empireStreetsMapNavigation = controller;
+  }
+  return controller;
 }
 
 export { bindMapNavigation };

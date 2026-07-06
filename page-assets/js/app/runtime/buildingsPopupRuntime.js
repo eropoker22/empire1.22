@@ -92,7 +92,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
         meta: elements.popupBuildingsMeta,
         list: elements.popupBuildingsList
       }, {
-        metaText: "Bez dat",
+        metaText: "",
         emptyText: "Budovy pro tento distrikt nejsou dostupné."
       });
       return;
@@ -111,7 +111,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
         meta: elements.popupBuildingsMeta,
         list: elements.popupBuildingsList
       }, {
-        metaText: "Spálený blok",
+        metaText: "",
         emptyText: "V tomhle districtu po totálním zničení nezůstalo nic použitelného."
       });
       return;
@@ -136,7 +136,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
         meta: elements.popupBuildingsMeta,
         list: elements.popupBuildingsList
       }, {
-        metaText: "Prázdný set",
+        metaText: "",
         emptyText: "Tento distrikt teď nemá přiřazené žádné budovy."
       });
       return;
@@ -148,7 +148,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
       meta: elements.popupBuildingsMeta,
       list: elements.popupBuildingsList
     }, {
-      metaText: `${buildingProfile.setTitle} · ${deps.formatDistrictBuildingTierLabel(buildingProfile.tier)}`,
+      metaText: "",
       buildings: buildingProfile.buildings.map((building) => ({
         name: building.baseName || building.displayName,
         label: building.baseName || building.displayName,
@@ -157,7 +157,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
       trap: {
         visible: trapControlState.buildingVisible,
         label: trapControlState.buildingLabel || "Toxická past",
-        meta: trapControlState.buildingMeta || "aktivní"
+        meta: trapControlState.buildingMeta || "připraveno"
       }
     });
   };

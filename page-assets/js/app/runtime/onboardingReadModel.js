@@ -341,7 +341,9 @@ export function resolveOnboardingStepState(step = {}, readModel = {}, root = nul
   }
 
   const selector = step.targetSelector || getOnboardingTargetSelector(step.id, readModel);
-  const target = selector && root?.querySelector ? root.querySelector(selector) : null;
+  const rootTarget = selector && root?.querySelector ? root.querySelector(selector) : null;
+  const ownerDocument = root?.ownerDocument || (typeof document !== "undefined" ? document : null);
+  const target = rootTarget || (selector && ownerDocument?.querySelector ? ownerDocument.querySelector(selector) : null);
   const fallbackSource = step.fallbackBody ?? step.fallback;
   const fallback = typeof fallbackSource === "function" ? fallbackSource(readModel) : fallbackSource;
   const missingTarget = Boolean((selector && !target) || (!selector && fallback));

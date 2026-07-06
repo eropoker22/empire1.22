@@ -4956,6 +4956,10 @@ html body .storage-popup-heading > .storage-popup-close::before {
     gap: 6px !important;
   }
 
+  html body #spy-confirm-modal .spy-confirm-popup-body {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
   html body .district-action-confirm-popup-body .attack-setup-popup-row {
     min-height: 0 !important;
     padding: 7px 8px !important;
@@ -5044,6 +5048,11 @@ html body .storage-popup-heading > .storage-popup-close::before {
     grid-column: 1 / -1 !important;
   }
 
+  html body .robbery-setup-popup-card .robbery-setup-popup-row--status,
+  html body .robbery-setup-popup-card .robbery-setup-popup-row--spies {
+    grid-column: auto !important;
+  }
+
   html body .robbery-setup-popup-card .attack-setup-popup-row span {
     min-width: 0 !important;
     max-width: 100% !important;
@@ -5062,7 +5071,7 @@ html body .storage-popup-heading > .storage-popup-close::before {
 
   html body .robbery-setup-popup-card .attack-setup-popup-stepper {
     width: 100% !important;
-    grid-template-columns: 38px minmax(0, 1fr) 38px !important;
+    grid-template-columns: 44px minmax(64px, 1fr) 44px !important;
   }
 
   html body .robbery-setup-popup-card .attack-setup-popup-stepper__button,
@@ -5166,6 +5175,24 @@ html body .storage-popup-heading > .storage-popup-close::before {
       linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent),
       linear-gradient(135deg, rgba(59, 130, 246, 0.46), rgba(30, 41, 59, 0.96)) !important;
     color: #eff6ff !important;
+  }
+
+  html body #spy-confirm-modal-confirm:disabled,
+  html body #raid-confirm-modal-confirm:disabled,
+  html body #occupy-confirm-modal-confirm:disabled,
+  html body #trap-confirm-modal-confirm:disabled,
+  html body #attack-confirm-modal-confirm:disabled,
+  html body .attack-setup-popup-confirm:disabled {
+    border-color: rgba(148, 163, 184, 0.28) !important;
+    background:
+      linear-gradient(180deg, rgba(71, 85, 105, 0.72), rgba(30, 41, 59, 0.78)),
+      rgba(15, 23, 42, 0.9) !important;
+    color: rgba(226, 232, 240, 0.64) !important;
+    opacity: 1 !important;
+    filter: grayscale(0.44) saturate(0.54) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 10px 22px rgba(2, 6, 23, 0.18) !important;
   }
 }
 
@@ -5342,6 +5369,11 @@ html body .storage-popup-heading > .storage-popup-close::before {
     max-height: calc(var(--mobile-locked-vh, 100svh) - max(8px, env(safe-area-inset-bottom))) !important;
   }
 
+  html body.game-modal-scroll-locked .district-popup-shell:not([hidden]) .district-popup-card {
+    transform-origin: center center !important;
+    animation-name: districtPopupMobileCenterIn !important;
+  }
+
   html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content,
   html body.game-modal-scroll-locked .district-building-detail-shell:not([hidden]) .district-building-detail-card.building-detail-modal__content,
   html body.game-modal-scroll-locked .armory-popup-shell:not([hidden]) .armory-popup-card.building-detail-modal__content,
@@ -5369,6 +5401,25 @@ html body .storage-popup-heading > .storage-popup-close::before {
     right: 10px !important;
     left: 10px !important;
     max-height: var(--mobile-overlay-available-height) !important;
+  }
+}
+
+@keyframes districtPopupMobileCenterIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+    filter: saturate(0.9) contrast(0.96);
+  }
+
+  65% {
+    opacity: 1;
+    transform: scale(1.015);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: saturate(1) contrast(1);
   }
 }
 
@@ -5959,5 +6010,65 @@ html body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle--with
     box-shadow: none !important;
     opacity: 1 !important;
     pointer-events: auto !important;
+  }
+}
+
+/* Final mobile district popup transparency pass. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body .district-popup-card {
+    border-color: rgba(var(--district-accent-rgb), 0.24) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01) 36%, transparent),
+      linear-gradient(135deg, rgba(var(--district-accent-rgb), 0.05), rgba(255, 255, 255, 0.01) 42%, rgba(3, 8, 16, 0.07)),
+      rgba(3, 8, 16, 0.16) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.075),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.022),
+      0 16px 36px rgba(0, 0, 0, 0.28),
+      0 0 16px rgba(var(--district-accent-rgb), 0.09) !important;
+    backdrop-filter: blur(18px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(140%) !important;
+  }
+
+  html body .district-popup-card::after {
+    background:
+      radial-gradient(circle at 14% -18%, rgba(var(--district-accent-rgb), 0.06), rgba(var(--district-accent-rgb), 0.012) 42%, transparent 64%),
+      linear-gradient(180deg, rgba(2, 6, 18, 0.008), rgba(2, 6, 18, 0.08)) !important;
+  }
+
+  html body .district-popup-body {
+    background: rgba(4, 9, 16, 0.06) !important;
+  }
+
+  html body .district-popup-owner-card,
+  html body .district-popup-status,
+  html body .district-popup-summary-card,
+  html body .district-popup-buildings,
+  html body .district-popup-gossip,
+  html body .district-popup-action-section {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.024), rgba(255, 255, 255, 0.005)),
+      rgba(7, 13, 24, 0.12) !important;
+    backdrop-filter: blur(8px) saturate(118%) !important;
+    -webkit-backdrop-filter: blur(8px) saturate(118%) !important;
+  }
+
+  html body .district-popup-card[data-overview-enabled="true"] .district-popup-body {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.008)),
+      rgba(4, 9, 16, 0.18) !important;
+  }
+
+  html body .district-popup-card[data-overview-enabled="true"] .district-popup-status,
+  html body .district-popup-card[data-overview-enabled="true"] .district-popup-summary-card {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.008)),
+      rgba(5, 12, 24, 0.2) !important;
+  }
+
+  html body .district-popup-card[data-overview-enabled="true"] .district-popup-status {
+    background:
+      linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(34, 197, 94, 0.045)),
+      rgba(58, 44, 8, 0.28) !important;
   }
 }

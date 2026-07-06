@@ -217,6 +217,7 @@ export const ROBBERY_SETUP_ATMOSPHERE_LABEL_SELECTOR = "[data-robbery-setup-atmo
 export const ROBBERY_TARGET_TITLE_SELECTOR = "[data-robbery-target-title]";
 export const ROBBERY_SOURCE_SELECT_SELECTOR = "[data-robbery-source-select]";
 export const ROBBERY_AVAILABLE_MEMBERS_SELECTOR = "[data-robbery-available-members]";
+export const ROBBERY_AVAILABLE_SPIES_SELECTOR = "[data-robbery-available-spies]";
 export const ROBBERY_MEMBER_INPUT_SELECTOR = "[data-robbery-member-input]";
 export const ROBBERY_ZONE_SELECTOR = "[data-robbery-zone]";
 export const ROBBERY_RECOMMENDATION_SELECTOR = "[data-robbery-recommendation]";

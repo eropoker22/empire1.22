@@ -86,6 +86,7 @@ import {
   CURRENT_PLAYER_ID,
   DEMO_SCENARIOS,
   DEV_ONLY_DESTROYED_DISTRICT_ID,
+  DEV_ONLY_ONBOARDING_START_STATE,
   DEV_ONLY_POLICE_INTERVAL_MS,
   DEV_ONLY_SPY_FULL_SUCCESS_CHANCE,
   LAUNCH_PLAYER_AVATAR_BY_FACTION_ID,
@@ -885,6 +886,10 @@ function isServerAuthoritativeGameplayRuntimeReady() {
   return Boolean(document.querySelector?.('[data-gameplay-slice-client][data-gameplay-runtime="server-authoritative-ready"]'));
 }
 const spyMissionTimers = new Map();
+const ONBOARDING_ATTACK_TARGET_DISTRICT_ID = 1;
+const ONBOARDING_SPY_TARGET_DISTRICT_ID = 2;
+const ONBOARDING_TRAP_READY_TIMESTAMP = "2020-01-01T00:00:00.000Z";
+const LOCAL_ALLIANCE_KEY = "empire_local_alliance_state";
 const productionTimers = new Map();
 let policeActionResultLiveTimerId = null;
 let devOnlyPoliceNextActionAt = 0;
@@ -1524,6 +1529,7 @@ const {
   getStoredSpyState,
   getStoredWeaponInventory,
   isSpyMissionActiveOnMap,
+  resetSpyDistrictState,
   setStoredAttackOrders,
   setStoredDrugInventory,
   setStoredEconomyState,
@@ -3929,6 +3935,22 @@ function createFactoryResourceMap(rawValue = {}, floorValues = true) {
 
 function createFactoryPlayerSupplyMap(rawValue = {}) {
   return createFactoryResourceMap(rawValue, true);
+}
+
+function createFixedInventoryAmountMap(template = {}, amount = 0) {
+  const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
+  return Object.keys(template || {}).reduce((accumulator, key) => {
+    accumulator[key] = safeAmount;
+    return accumulator;
+  }, {});
+}
+
+function createFixedFactorySupplyAmountMap(amount = 0) {
+  const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
+  return FACTORY_RESOURCE_KEYS.reduce((accumulator, key) => {
+    accumulator[key] = safeAmount;
+    return accumulator;
+  }, {});
 }
 
 function getFactorySlotBaseStorageCap(resourceKey) {
@@ -8843,6 +8865,7 @@ function bindDistrictCanvas(root) {
     const currentTrapDistrictId = getCurrentPlayerTrapDistrictId();
     const trapMoveCooldownSeconds = getCurrentPlayerTrapMoveCooldownSeconds();
     const nextTrapState = { ...(worldState.districtTrapById || {}) };
+    const trapActionTimestamp = new Date().toISOString();
 
     if (currentTrapDistrictId === selectedDistrict.id) {
       return false;
@@ -8869,17 +8892,15 @@ function bindDistrictCanvas(root) {
       nextTrapState[currentTrapDistrictId] = {
         ...nextTrapState[currentTrapDistrictId],
         isArmed: false,
-        movedAt: new Date().toISOString()
+        movedAt: trapActionTimestamp
       };
     }
 
     nextTrapState[selectedDistrict.id] = {
       ownerId: CURRENT_PLAYER_ID,
       isArmed: true,
-      armedAt: nextTrapState[selectedDistrict.id]?.armedAt || new Date().toISOString(),
-      movedAt: currentTrapDistrictId && currentTrapDistrictId !== selectedDistrict.id
-        ? new Date().toISOString()
-        : (nextTrapState[selectedDistrict.id]?.movedAt || null)
+      armedAt: trapActionTimestamp,
+      movedAt: trapActionTimestamp
     };
 
     setStoredWorldState({
@@ -8892,6 +8913,14 @@ function bindDistrictCanvas(root) {
       sourceDistrictId: currentTrapDistrictId && currentTrapDistrictId !== selectedDistrict.id ? currentTrapDistrictId : selectedDistrict.id,
       intelLevel: "rumor"
     });
+    document.dispatchEvent(new CustomEvent("empire:onboarding-event", {
+      detail: {
+        type: currentTrapDistrictId && currentTrapDistrictId !== selectedDistrict.id ? "trap:moved" : "trap:armed",
+        districtId: selectedDistrict.id,
+        targetDistrictId: selectedDistrict.id,
+        sourceDistrictId: currentTrapDistrictId && currentTrapDistrictId !== selectedDistrict.id ? currentTrapDistrictId : selectedDistrict.id
+      }
+    }));
 
     if (buildingActionState) {
       buildingActionState.textContent = "Past";
@@ -9127,6 +9156,44 @@ function bindDistrictCanvas(root) {
     return true;
   };
 
+  const normalizeActionTargetDistrictId = (value) => Number(String(value ?? "").replace("district:", "")) || 0;
+  const parseActionCountdownEndsAt = (value) => {
+    const timestamp = value instanceof Date ? value.getTime() : new Date(value || 0).getTime();
+    return Number.isFinite(timestamp) ? timestamp : 0;
+  };
+  const formatActionCountdownLabel = (remainingMs) => {
+    const totalSeconds = Math.max(0, Math.ceil(Number(remainingMs || 0) / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `Zbývá ${minutes}:${String(seconds).padStart(2, "0")}`;
+  };
+  const createActionCountdownView = (endsAtValue) => {
+    const endsAt = parseActionCountdownEndsAt(endsAtValue);
+    const remainingMs = endsAt - Date.now();
+    if (!endsAt || remainingMs <= 0) {
+      return null;
+    }
+
+    return {
+      endsAt,
+      label: formatActionCountdownLabel(remainingMs)
+    };
+  };
+  const findActiveActionCountdown = (items, districtId, endsAtKey) => {
+    const targetDistrictId = Number(districtId);
+    return (Array.isArray(items) ? items : [])
+      .filter((item) => normalizeActionTargetDistrictId(item?.targetDistrictId) === targetDistrictId)
+      .map((item) => createActionCountdownView(item?.[endsAtKey]))
+      .filter(Boolean)
+      .sort((left, right) => left.endsAt - right.endsAt)[0] || null;
+  };
+  const getDistrictActionCountdowns = (districtId) => ({
+    attack: findActiveActionCountdown(getStoredAttackOrders(), districtId, "resolveAt"),
+    occupy: findActiveActionCountdown(getStoredOccupyOrders(), districtId, "resolveAt"),
+    rob: findActiveActionCountdown(getStoredRobberyOrders(), districtId, "resolveAt"),
+    spy: findActiveActionCountdown(getResolvedSpyState().missions, districtId, "returnAt")
+  });
+
   const openPopup = (district) => {
     if (!popup || !popupTitle || !popupType || !popupOwner || !district) {
       return;
@@ -9163,6 +9230,13 @@ function bindDistrictCanvas(root) {
     const hasKnownDefense = hasKnownDistrictDefense(district);
     const activePoliceAction = getDistrictPoliceAction(district.id);
     const trapControlState = getDistrictTrapControlState(district);
+    if (popup instanceof HTMLElement) {
+      popup.dataset.districtId = String(district.id);
+    }
+    if (popupCard instanceof HTMLElement) {
+      popupCard.dataset.districtId = String(district.id);
+    }
+    ensureOnboardingDistrictPopupTopLayer(popup, district, root?.ownerDocument || document);
 
     if (isDestroyed) {
       setDestroyedDistrictPopupMode(true);
@@ -9286,6 +9360,7 @@ function bindDistrictCanvas(root) {
     renderDistrictActionHub(buildDistrictActionViewModel(district, {
       activePoliceAction,
       resolvedActions,
+      actionCountdowns: getDistrictActionCountdowns(district.id),
       trapControlState
     }, {
       normalizeReason: normalizeDistrictActionReason
@@ -9298,6 +9373,9 @@ function bindDistrictCanvas(root) {
         mount: districtActionsMount
       }
     });
+    applyOnboardingDistrictActionHint(district, {
+      actionsMount: districtActionsMount
+    }, root?.ownerDocument || document);
 
     showDistrictPopupModal(popup);
     document.dispatchEvent(new CustomEvent("empire:district-opened", {
@@ -9315,6 +9393,72 @@ function bindDistrictCanvas(root) {
     });
 
     scheduleDistrictPopupRefresh();
+  };
+
+  const openPoliceRaidOnlyForDistrict = (district, policeAction = null) => {
+    if (!district) {
+      return false;
+    }
+
+    const activePoliceAction = policeAction || getDistrictPoliceAction(district.id);
+    if (!activePoliceAction) {
+      return false;
+    }
+
+    closePopup();
+    hideTooltip();
+
+    const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+    const isOwnedDistrict = currentPlayerOwnedDistrictIds.has(Number(district.id));
+    const policeRaidPayload = isOwnedDistrict
+      ? createOwnedDistrictPoliceRaidAlertPayload(district, activePoliceAction)
+      : createDistrictPoliceRaidWarningPayload(district, activePoliceAction);
+
+    queueOrOpenResultModal(root, "police", {
+      ...policeRaidPayload,
+      syncToBuildingAction: false
+    });
+    return true;
+  };
+
+  const openStoredOwnedPoliceRaidAlert = () => {
+    if (!root || root.dataset.ownedPoliceRaidAlertOpened === "true") {
+      return false;
+    }
+
+    const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+    const activeOwnedPoliceAction = Object.values(getResolvedDistrictPoliceActions())
+      .filter((marker) => currentPlayerOwnedDistrictIds.has(Number(marker?.districtId)))
+      .sort((left, right) => Number(left?.expiresAt || 0) - Number(right?.expiresAt || 0))[0] || null;
+    if (!activeOwnedPoliceAction) {
+      return false;
+    }
+
+    const district = geometry?.districts?.find((entry) => Number(entry.id) === Number(activeOwnedPoliceAction.districtId))
+      || { id: Number(activeOwnedPoliceAction.districtId) };
+    const policeRaidPayload = createOwnedDistrictPoliceRaidAlertPayload(district, activeOwnedPoliceAction);
+    root.dataset.ownedPoliceRaidAlertOpened = "true";
+    openPoliceActionResultModal(root, {
+      ...policeRaidPayload,
+      syncToBuildingAction: false
+    });
+    return true;
+  };
+
+  const scheduleStoredOwnedPoliceRaidAlert = () => {
+    const openAlert = () => openStoredOwnedPoliceRaidAlert();
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(() => {
+        if (typeof window.setTimeout === "function") {
+          window.setTimeout(openAlert, 0);
+        } else {
+          openAlert();
+        }
+      });
+      return true;
+    }
+    openAlert();
+    return true;
   };
 
   const updateTooltip = (event, district) => {
@@ -9602,6 +9746,11 @@ function bindDistrictCanvas(root) {
         return false;
       }
 
+      const activePoliceAction = getDistrictPoliceAction(district.id);
+      if (activePoliceAction) {
+        return openPoliceRaidOnlyForDistrict(district, activePoliceAction);
+      }
+
       interactionState.selectedDistrictId = Number(district.id);
       render();
       openPopup(district);
@@ -9887,20 +10036,31 @@ function bindDistrictCanvas(root) {
     }
 
     const district = getDistrictAtPoint(geometry, toCanvasPoint(event));
-    interactionState.selectedDistrictId = district ? district.id : null;
-    render();
+    if (!isOnboardingDistrictClickAllowed(district, root?.ownerDocument || document)) {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      return;
+    }
 
     if (district) {
+      const activePoliceAction = getDistrictPoliceAction(district.id);
+      if (activePoliceAction) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        openPoliceRaidOnlyForDistrict(district, activePoliceAction);
+        return;
+      }
+
+      interactionState.selectedDistrictId = district.id;
+      render();
       openPopup(district);
       const activeAttackMarker = interactionState.activeAttackMarkersByDistrictId.get(district.id);
       if (activeAttackMarker) {
         queueOrOpenResultModal(root, "police", createDistrictAttackInProgressPayload(district, activeAttackMarker));
       }
-      const activePoliceAction = getDistrictPoliceAction(district.id);
-      if (activePoliceAction) {
-        queueOrOpenResultModal(root, "police", createDistrictPoliceRaidWarningPayload(district, activePoliceAction));
-      }
     } else {
+      interactionState.selectedDistrictId = null;
+      render();
       closePopup();
     }
   });
@@ -9939,6 +10099,8 @@ function bindDistrictCanvas(root) {
   if (buildingsPopupOpenButton instanceof HTMLButtonElement) {
     buildingsPopupOpenButton.addEventListener("click", openBuildingsPopup);
   }
+
+  scheduleStoredOwnedPoliceRaidAlert();
 
   const bindBuildingsPopupTap = (mount, handler) => {
     if (!mount || typeof handler !== "function") {
@@ -10156,6 +10318,7 @@ function bindDistrictCanvas(root) {
         populateTrapConfirmPopup(selectedDistrict);
 
         if (trapConfirmPopup) {
+          ensureOnboardingActionConfirmTopLayer(trapConfirmPopup, "trap", selectedDistrict, root?.ownerDocument || document);
           showDistrictPopupModal(trapConfirmPopup);
         }
         return;
@@ -10198,6 +10361,7 @@ function bindDistrictCanvas(root) {
 
       if (actionId === "spy") {
         populateSpyConfirmPopup(selectedDistrict);
+        ensureOnboardingActionConfirmTopLayer(spyConfirmPopup, "spy", selectedDistrict, root?.ownerDocument || document);
         openSpyPanel(selectedDistrict, { popup: spyConfirmPopup });
         return;
       }
@@ -10908,6 +11072,307 @@ function refreshAllUi(state = null) {
   return snapshot;
 }
 
+function createDevOnlyOnboardingAllianceBoard() {
+  const board = DEV_ONLY_ONBOARDING_START_STATE.allianceBoard || {};
+  return {
+    maxAllianceSize: Math.max(1, Math.floor(Number(board.maxAllianceSize || 4)) || 4),
+    currentPlayerId: String(CURRENT_PLAYER_ID),
+    activeAlliance: null,
+    allianceBadgesByPlayerId: {},
+    publicAlliances: [],
+    incomingInvites: [],
+    eligibleInviteTargets: [],
+    canCreateAlliance: board.canCreateAlliance === true,
+    createDisabledReason: board.createDisabledReason || "ONBOARDING_NO_ALLIANCE",
+    disableDevOnlyActiveAlliance: true
+  };
+}
+
+function resetDevOnlyOnboardingAllianceState() {
+  const allianceBoard = createDevOnlyOnboardingAllianceBoard();
+  try {
+    window.localStorage?.removeItem?.(LOCAL_ALLIANCE_KEY);
+  } catch (_error) {
+    // Onboarding must not inherit a deprecated local alliance preview.
+  }
+  updateStoredPreviewSession((session) => ({
+    ...session,
+    allianceBoard
+  }));
+  document.dispatchEvent(new CustomEvent("empire:onboarding-alliance-reset", { detail: { allianceBoard } }));
+  window.dispatchEvent(new CustomEvent("empire:alliance-state-changed"));
+  return allianceBoard;
+}
+
+function completeDevOnlyOnboarding(root = getDefaultRuntimeRoot()) {
+  const worldState = getResolvedWorldState();
+  const phaseState = worldState.phaseState || {};
+  setStoredWorldState({
+    ...worldState,
+    phaseState: {
+      ...phaseState,
+      gamePhase: "live"
+    }
+  });
+
+  const resolvedRoot = resolveRuntimeRoot(root || getDefaultRuntimeRoot());
+  if (resolvedRoot) {
+    syncPhaseHostFromAuthority(resolvedRoot.querySelector(MAP_PHASE_SELECTOR));
+    refreshAllUi({ root: resolvedRoot });
+  }
+
+  return true;
+}
+
+function applyDevOnlyOnboardingStartState(root = getDefaultRuntimeRoot()) {
+  const amount = Math.max(0, Math.floor(Number(DEV_ONLY_ONBOARDING_START_STATE.storageAmount || 0)));
+  const worldState = getResolvedWorldState();
+  const phaseState = worldState.phaseState || {};
+  const ownedDistrictIds = Array.isArray(DEV_ONLY_ONBOARDING_START_STATE.world?.ownedDistrictIds)
+    ? DEV_ONLY_ONBOARDING_START_STATE.world.ownedDistrictIds.map(Number).filter(Boolean)
+    : [];
+  const nextTrapById = { ...(worldState.districtTrapById || {}) };
+  for (const [districtId, trap] of Object.entries(nextTrapById)) {
+    if (trap?.isArmed && Number(trap.ownerId) === CURRENT_PLAYER_ID) {
+      delete nextTrapById[districtId];
+    }
+  }
+  const nextWorldState = {
+    ...worldState,
+    ownedDistrictIds,
+    destroyedDistrictIds: (worldState.destroyedDistrictIds || [])
+      .map(Number)
+      .filter((districtId) => districtId && !ownedDistrictIds.includes(districtId)),
+    districtPoliceActionById: {},
+    districtTrapById: nextTrapById,
+    phaseState: {
+      ...phaseState,
+      gamePhase: DEV_ONLY_ONBOARDING_START_STATE.world?.gamePhase === "launch" ? "launch" : "live"
+    }
+  };
+  const weapons = createFixedInventoryAmountMap(DEFAULT_WEAPON_INVENTORY, amount);
+  const materials = createFixedInventoryAmountMap(DEFAULT_MATERIAL_INVENTORY, amount);
+  const drugs = createFixedInventoryAmountMap(DEFAULT_DRUG_INVENTORY, amount);
+  const factorySupplies = createFixedFactorySupplyAmountMap(amount);
+
+  resetStartPhaseResourceSimulationState();
+  setStoredEconomyState({
+    cleanMoney: Math.max(0, Math.floor(Number(DEV_ONLY_ONBOARDING_START_STATE.economy?.cleanMoney || 0))),
+    dirtyMoney: Math.max(0, Math.floor(Number(DEV_ONLY_ONBOARDING_START_STATE.economy?.dirtyMoney || 0)))
+  });
+  setStoredGangState({
+    members: Math.max(0, Math.floor(Number(DEV_ONLY_ONBOARDING_START_STATE.gang?.members || 0))),
+    influence: Math.max(0, Math.floor(Number(DEV_ONLY_ONBOARDING_START_STATE.gang?.influence || 0))),
+    heat: Math.max(0, Math.floor(Number(DEV_ONLY_ONBOARDING_START_STATE.gang?.heat || 0))),
+    alliance: null,
+    allianceId: null,
+    activeAllianceId: null,
+    policeRaidProtectionUntil: 0,
+    autoPoliceNextActionAt: 0,
+    heatJournal: [],
+    dirtyHeatReductionTimestamps: [],
+    lastHeatDecayAt: new Date().toISOString()
+  });
+  resetDevOnlyOnboardingAllianceState();
+  setStoredWeaponInventory(weapons);
+  setStoredMaterialInventory(materials);
+  setStoredDrugInventory(drugs);
+  setStoredFactorySupplies(factorySupplies);
+  setStoredWorldState(nextWorldState);
+
+  const resolvedRoot = resolveRuntimeRoot(root || getDefaultRuntimeRoot());
+  if (resolvedRoot) {
+    syncPhaseHostFromAuthority(resolvedRoot.querySelector(MAP_PHASE_SELECTOR));
+    renderStorageList({ weapons, materials, drugs, factorySupplies }, { root: resolvedRoot });
+    refreshAllUi({ root: resolvedRoot });
+  }
+
+  return getAuthoritySession();
+}
+
+function resetOnboardingSpyTargetState(root = getDefaultRuntimeRoot()) {
+  const result = resetSpyDistrictState(ONBOARDING_SPY_TARGET_DISTRICT_ID);
+  if (!result.changed) {
+    return false;
+  }
+
+  for (const missionId of result.removedMissionIds || []) {
+    const timerId = spyMissionTimers.get(missionId);
+    if (timerId === undefined) {
+      continue;
+    }
+    const clearTimer = typeof window !== "undefined" && typeof window.clearTimeout === "function"
+      ? window.clearTimeout.bind(window)
+      : (typeof clearTimeout === "function" ? clearTimeout : null);
+    clearTimer?.(timerId);
+    spyMissionTimers.delete(missionId);
+  }
+
+  const resolvedRoot = resolveRuntimeRoot(root || getDefaultRuntimeRoot());
+  if (resolvedRoot) {
+    renderSpyResourceState(resolvedRoot, { instant: true });
+    window.empireStreetsDistrictState?.refreshSelectedDistrictPanel?.();
+  }
+
+  return true;
+}
+
+function resetOnboardingTrapTargetState(root = getDefaultRuntimeRoot()) {
+  const worldState = getResolvedWorldState();
+  const ownedDistrictIds = [ONBOARDING_ATTACK_TARGET_DISTRICT_ID];
+  const destroyedDistrictIds = (worldState.destroyedDistrictIds || [])
+    .map(Number)
+    .filter((districtId) => districtId && districtId !== ONBOARDING_ATTACK_TARGET_DISTRICT_ID);
+  const nextPoliceActionById = { ...(worldState.districtPoliceActionById || {}) };
+  const nextTrapById = { ...(worldState.districtTrapById || {}) };
+
+  delete nextPoliceActionById[ONBOARDING_ATTACK_TARGET_DISTRICT_ID];
+  delete nextPoliceActionById[String(ONBOARDING_ATTACK_TARGET_DISTRICT_ID)];
+
+  for (const [districtId, trap] of Object.entries(nextTrapById)) {
+    if (trap?.isArmed && Number(trap.ownerId) === CURRENT_PLAYER_ID) {
+      delete nextTrapById[districtId];
+    }
+  }
+
+  setStoredWorldState({
+    ...worldState,
+    ownedDistrictIds,
+    destroyedDistrictIds,
+    districtPoliceActionById: nextPoliceActionById,
+    districtTrapById: nextTrapById,
+    devOnlyScenarioDestroyedDistrictId: Number(worldState.devOnlyScenarioDestroyedDistrictId) === ONBOARDING_ATTACK_TARGET_DISTRICT_ID
+      ? null
+      : worldState.devOnlyScenarioDestroyedDistrictId
+  });
+
+  const resolvedRoot = resolveRuntimeRoot(root || getDefaultRuntimeRoot());
+  if (resolvedRoot) {
+    window.empireStreetsDistrictState?.refreshSelectedDistrictPanel?.();
+  }
+
+  return true;
+}
+
+function getActiveOnboardingStepId(documentRef = document) {
+  return String(documentRef?.documentElement?.dataset?.onboardingStep || documentRef?.body?.dataset?.onboardingStep || "");
+}
+
+function isOnboardingDistrictClickAllowed(district, documentRef = document) {
+  const activeStepId = getActiveOnboardingStepId(documentRef);
+  if (activeStepId === "spy") {
+    return Number(district?.id || 0) === ONBOARDING_SPY_TARGET_DISTRICT_ID;
+  }
+  if (activeStepId === "attack-order") {
+    return Number(district?.id || 0) === ONBOARDING_ATTACK_TARGET_DISTRICT_ID;
+  }
+  return true;
+}
+
+function isOnboardingDistrictPopupTopLayerTarget(district, documentRef = document) {
+  const activeStepId = getActiveOnboardingStepId(documentRef);
+  const districtId = Number(district?.id || 0);
+  if (activeStepId === "spy") {
+    return districtId === ONBOARDING_SPY_TARGET_DISTRICT_ID;
+  }
+  if (activeStepId === "attack-order") {
+    return districtId === ONBOARDING_ATTACK_TARGET_DISTRICT_ID;
+  }
+  return false;
+}
+
+function ensureOnboardingDistrictPopupTopLayer(popupElement, district, documentRef = document) {
+  if (!isOnboardingDistrictPopupTopLayerTarget(district, documentRef)) {
+    return false;
+  }
+
+  const body = documentRef?.body || popupElement?.ownerDocument?.body || null;
+  if (!(popupElement instanceof HTMLElement) || !body || popupElement.parentElement === body) {
+    return false;
+  }
+
+  body.append(popupElement);
+  return true;
+}
+
+function getOnboardingDistrictActionHint(district, documentRef = document) {
+  const activeStepId = getActiveOnboardingStepId(documentRef);
+  const districtId = Number(district?.id || 0);
+  if (activeStepId === "spy" && districtId === ONBOARDING_SPY_TARGET_DISTRICT_ID) {
+    return {
+      actionId: "spy",
+      label: "Špehovat"
+    };
+  }
+  if (activeStepId === "attack-order" && districtId === ONBOARDING_ATTACK_TARGET_DISTRICT_ID) {
+    return {
+      actionId: "trap",
+      label: "Přesunout past",
+      requiredTrapState: "move"
+    };
+  }
+  return null;
+}
+
+function applyOnboardingDistrictActionHint(district, elements = {}, documentRef = document) {
+  const actionMount = elements.actionsMount || null;
+  if (!actionMount?.querySelectorAll) {
+    return false;
+  }
+
+  const hint = getOnboardingDistrictActionHint(district, documentRef);
+  const actionButtons = actionMount.querySelectorAll("[data-district-action-id]");
+  let changed = false;
+  for (const button of actionButtons) {
+    const buttonActionId = String(button.dataset?.districtActionId || "");
+    const hasRequiredTrapState = !hint?.requiredTrapState || button.dataset?.districtTrapState === hint.requiredTrapState;
+    const shouldPulse = Boolean(hint && buttonActionId === hint.actionId && hasRequiredTrapState);
+    const isTrapHint = buttonActionId === "trap";
+    if (button.dataset.onboardingActionHint === "true" !== shouldPulse) {
+      changed = true;
+    }
+    if (shouldPulse) {
+      button.dataset.onboardingActionHint = "true";
+      if (isTrapHint) {
+        button.dataset.onboardingTrapMoveHint = "true";
+      }
+      button.setAttribute("aria-label", hint.label);
+    } else {
+      delete button.dataset.onboardingActionHint;
+      if (isTrapHint) {
+        delete button.dataset.onboardingTrapMoveHint;
+      }
+      if (button.getAttribute?.("aria-label") === "Špehovat" || button.getAttribute?.("aria-label") === "Přesunout past") {
+        button.removeAttribute("aria-label");
+      }
+    }
+  }
+  return changed;
+}
+
+function isOnboardingActionConfirmTopLayerTarget(actionId, district, documentRef = document) {
+  const hint = getOnboardingDistrictActionHint(district, documentRef);
+  return Boolean(hint && hint.actionId === String(actionId || ""));
+}
+
+function ensureOnboardingActionConfirmTopLayer(confirmPopupElement, actionId, district, documentRef = document) {
+  if (!isOnboardingActionConfirmTopLayerTarget(actionId, district, documentRef)) {
+    return false;
+  }
+
+  const body = documentRef?.body || confirmPopupElement?.ownerDocument?.body || null;
+  if (!(confirmPopupElement instanceof HTMLElement) || !body) {
+    return false;
+  }
+
+  confirmPopupElement.dataset.onboardingActionConfirmLayer = String(actionId || "");
+  confirmPopupElement.dataset.districtId = String(district?.id || "");
+  if (confirmPopupElement.parentElement !== body) {
+    body.append(confirmPopupElement);
+  }
+  return true;
+}
+
 function createFreeSessionUiContext(root) {
   const session = getAuthoritySession();
   const world = getResolvedWorldState();
@@ -10971,7 +11436,18 @@ function bindFreeSessionOnboarding(root) {
   const bridge = createOnboardingBridge({
     root,
     documentRef: document,
-    getContext: () => createFreeSessionUiContext(root)
+    getContext: () => createFreeSessionUiContext(root),
+    onWelcomeStart: () => applyDevOnlyOnboardingStartState(root),
+    onComplete: () => completeDevOnlyOnboarding(root),
+    onStepEnter: (stepId) => {
+      if (stepId === "spy") {
+        return resetOnboardingSpyTargetState(root);
+      }
+      if (stepId === "attack-order") {
+        return resetOnboardingTrapTargetState(root);
+      }
+      return false;
+    }
   });
   onboardingBridgesByRoot.set(root, bridge);
   bridge.init();
@@ -11598,6 +12074,7 @@ export {
   DEFAULT_MATERIAL_INVENTORY,
   DEFAULT_WEAPON_INVENTORY,
   DEMO_SCENARIOS,
+  DEV_ONLY_ONBOARDING_START_STATE,
   DISTRICT_TYPE_GRID,
   DRUGLAB_RECIPES,
   FACTION_CATALOG,

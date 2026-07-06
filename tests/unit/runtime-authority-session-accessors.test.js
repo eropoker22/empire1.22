@@ -63,4 +63,62 @@ describe("authority session accessors", () => {
     });
     expect(api.createWeaponInventoryFromFaction("mafian")).toEqual({ pistol: 1 });
   });
+
+  it("resets a district spy mission and successful spy intel without touching other districts", () => {
+    let session = createSession();
+    session = {
+      ...session,
+      missions: {
+        ...session.missions,
+        spy: {
+          available: 0,
+          missions: [
+            { id: "target-number", targetDistrictId: 2, returnAt: new Date(Date.now() + 60_000).toISOString() },
+            { id: "target-string", targetDistrictId: "district:2", returnAt: new Date(Date.now() + 60_000).toISOString() },
+            { id: "other", targetDistrictId: 3, returnAt: new Date(Date.now() + 60_000).toISOString() }
+          ]
+        },
+        spyIntel: {
+          occupiableDistrictIds: ["district:2", 3],
+          revealedTypeDistrictIds: [2, 4],
+          revealedDefenseDistrictIds: ["2", 5]
+        }
+      }
+    };
+    const api = createAuthoritySessionAccessors({
+      clamp: (value, min, max) => Math.min(Math.max(value, min), max),
+      defaultDrugInventory: { neon: 1 },
+      defaultMaterialInventory: { chemicals: 2 },
+      defaultWeaponInventory: { pistol: 1 },
+      getAuthoritySession: () => session,
+      maxSpies: 3,
+      updateStoredPreviewSession: (updater) => {
+        session = updater(session);
+      }
+    });
+
+    expect(api.resetSpyDistrictState(2)).toEqual({
+      changed: true,
+      removedMissionIds: ["target-number", "target-string"],
+      spyIntelChanged: true,
+      spyStateChanged: true,
+      targetDistrictId: 2
+    });
+    expect(api.getResolvedSpyState()).toEqual({
+      available: 2,
+      missions: [expect.objectContaining({ id: "other", targetDistrictId: 3 })]
+    });
+    expect(api.getResolvedSpyIntel()).toEqual({
+      occupiableDistrictIds: [3],
+      revealedTypeDistrictIds: [4],
+      revealedDefenseDistrictIds: [5]
+    });
+    expect(api.resetSpyDistrictState(2)).toEqual({
+      changed: false,
+      removedMissionIds: [],
+      spyIntelChanged: false,
+      spyStateChanged: false,
+      targetDistrictId: 2
+    });
+  });
 });

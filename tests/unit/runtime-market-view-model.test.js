@@ -29,7 +29,7 @@ describe("market view model builders", () => {
     });
 
     expect(dashboard.chips).toEqual([
-      { label: "Režim", value: "Black market", tone: "danger" },
+      { label: "Black market", value: "policie blízko", tone: "danger" },
       { label: "Clean", value: "1200$", tone: "clean" },
       { label: "Dirty", value: "450$", tone: "dirty" },
       { label: "Heat", value: "7", tone: "danger" },
@@ -38,8 +38,8 @@ describe("market view model builders", () => {
     ]);
     expect(dashboard.recentTransactions).toHaveLength(1);
     expect(dashboard.allRecentTransactions).toHaveLength(4);
-    expect(createMarketCopy("market", { copy: "Normal." })).toBe("Normal. Stock je omezený, nákup ho snižuje a prodej ho vrací do trhu. Ceny platí jen pro tento server.");
-    expect(createMarketCopy("player-market", { copy: "Bazar." })).toContain("vlastní nabídku můžeš stáhnout");
+    expect(createMarketCopy("market", { copy: "Normal." })).toBe("Normal. Bezpečný kanál má omezený stock: nákup ho snižuje, prodej ho vrací do trhu a ceny platí jen pro tento server.");
+    expect(createMarketCopy("player-market", { copy: "Bazar." })).toContain("nabídku můžeš stáhnout");
   });
 
   it("builds normal market item labels without changing price math", () => {
@@ -120,7 +120,7 @@ describe("market view model builders", () => {
       buyDisabled: true,
       sellDisabled: false,
       buyTitle: "Chybí 140$.",
-      sellTitle: "Prodat do marketu.",
+      sellTitle: "Prodat do trhu.",
       totalLabel: "Celkem 240$ · prodej 180$"
     });
 
@@ -134,8 +134,8 @@ describe("market view model builders", () => {
       formatPrice
     })).toMatchObject({
       buyDisabled: false,
-      buyTitle: "Black market risk: +3 heat (střední).",
-      totalLabel: "Celkem 800$ · prodej 200$ · +3 heat"
+      buyTitle: "Rizikový obchod: +3 heat (střední).",
+      totalLabel: "Celkem 800$ · likvidace 200$ · tvrdá ztráta · +3 heat"
     });
   });
 
