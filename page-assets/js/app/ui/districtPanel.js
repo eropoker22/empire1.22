@@ -199,15 +199,26 @@ export function renderDistrictActionPanel(elements = {}, view = {}) {
 
   mount.replaceChildren();
 
-  if (view.policeMessage) {
+  const statusMessage = view.policeMessage || view.statusMessage || "";
+  if (statusMessage) {
     const actionRow = createElement(mount, "div", "district-popup-action-row");
     const reason = createElement(mount, "p", "district-popup-action-reason");
     if (actionRow && reason) {
-      reason.textContent = view.policeMessage;
+      reason.textContent = statusMessage;
       actionRow.append(reason);
       mount.append(actionRow);
     }
     return true;
+  }
+
+  if (view.noticeMessage) {
+    const actionRow = createElement(mount, "div", "district-popup-action-row");
+    const reason = createElement(mount, "p", "district-popup-action-reason");
+    if (actionRow && reason) {
+      reason.textContent = view.noticeMessage;
+      actionRow.append(reason);
+      mount.append(actionRow);
+    }
   }
 
   for (const action of Array.isArray(view.actions) ? view.actions : []) {

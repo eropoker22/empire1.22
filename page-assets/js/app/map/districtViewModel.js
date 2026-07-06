@@ -114,14 +114,25 @@ export function buildDistrictActionViewModel(district = {}, playerState = {}, op
   const trapControlState = playerState.trapControlState || {};
   const normalizeReason = typeof options.normalizeReason === "function" ? options.normalizeReason : (reason) => String(reason || "");
   const hasVisibleDistrictAction = resolvedActions.length > 0;
+  const policeMessage = activePoliceAction
+    ? "District je právě pod policejní akcí. Detail zásahu je otevřený v policejním okně."
+    : "";
+  const statusMessage = !activePoliceAction && playerState.statusMessage
+    ? String(playerState.statusMessage)
+    : "";
+  const noticeMessage = !activePoliceAction && playerState.noticeMessage
+    ? String(playerState.noticeMessage)
+    : "";
+  const hasStatusMessage = Boolean(policeMessage || statusMessage);
+  const hasNoticeMessage = Boolean(noticeMessage);
 
   return {
-    hidden: !activePoliceAction && !hasVisibleDistrictAction,
-    headHidden: hasVisibleDistrictAction,
-    policeMessage: activePoliceAction
-      ? "District je právě pod policejní akcí. Detail zásahu je otevřený v policejním okně."
-      : "",
-    actions: activePoliceAction
+    hidden: !hasStatusMessage && !hasNoticeMessage && !hasVisibleDistrictAction,
+    headHidden: hasVisibleDistrictAction || hasStatusMessage,
+    policeMessage,
+    statusMessage,
+    noticeMessage,
+    actions: hasStatusMessage
       ? []
       : resolvedActions.map((action = {}) => {
           const countdown = actionCountdowns[action.id] || null;

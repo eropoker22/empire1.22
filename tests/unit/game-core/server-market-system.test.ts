@@ -102,6 +102,7 @@ describe("server market system", () => {
   it("black market is available without normal stock and is more expensive", () => {
     const state = initializeServerMarket(createMarketStateFixture(), 1000);
     state.market.stock.techCore = 0;
+    state.playersById["player:1"].cleanCash = 50000;
 
     const normalPrice = calculateMarketPrice(state, "techCore", "normal").finalPrice;
     const blackPrice = calculateMarketPrice(state, "techCore", "black").finalPrice;
@@ -112,6 +113,23 @@ describe("server market system", () => {
     expect(bought.nextState?.market.stock.techCore).toBe(0);
     expect(bought.heatAdded).toBeGreaterThan(0);
     expect(bought.policeSuspicionAdded).toBeGreaterThan(0);
+  });
+
+  it("keeps official market floors above special-building production costs", () => {
+    const productionFloors = {
+      chemicals: 360,
+      biomass: 320,
+      metalParts: 120,
+      techCore: 300
+    } as const;
+    const maxNormalDiscountFactor = 1 - marketConfig.shoppingMallBonus.maxDiscountPct / 100;
+
+    for (const [resourceId, productionCost] of Object.entries(productionFloors)) {
+      const resource = marketConfig.resources[resourceId as keyof typeof productionFloors];
+      const discountedFloor = Math.ceil(resource.basePrice * resource.minPriceMultiplier * maxNormalDiscountFactor);
+
+      expect(discountedFloor).toBeGreaterThanOrEqual(productionCost);
+    }
   });
 
   it("dirty cash can only be used on black market and uses worse rate", () => {
@@ -176,7 +194,7 @@ describe("server market system", () => {
   it("large black market transaction can trigger police exposure and rumor", () => {
     const state = initializeServerMarket(createMarketStateFixture(), 1000);
     (state as typeof state & { marketAuditRoll?: number }).marketAuditRoll = 0;
-    state.playersById["player:1"].dirtyCash = 50000;
+    state.playersById["player:1"].dirtyCash = 200000;
 
     const result = buyResource(state, state.playersById["player:1"], "techCore", 40, "black", "dirtyCash");
 
@@ -235,9 +253,12 @@ describe("server market system", () => {
   it("keeps market state isolated per server object", () => {
     const serverA = initializeServerMarket(createMarketStateFixture(), 1000);
     const serverB = initializeServerMarket(createMarketStateFixture(), 1000);
+    serverA.playersById["player:1"].cleanCash = 100000;
+    serverB.playersById["player:1"].cleanCash = 100000;
 
     const boughtA = buyResource(serverA, serverA.playersById["player:1"], "biomass", 100, "normal", "cleanCash");
 
+    expect(boughtA.success).toBe(true);
     expect(boughtA.nextState?.market.stock.biomass).toBe(serverA.market.stock.biomass - 100);
     expect(serverB.market.stock.biomass).toBe(marketConfig.resources.biomass.normalMarketStartStock);
     expect(getServerTotalMoney(serverB)).toBe(getServerTotalMoney(serverA));

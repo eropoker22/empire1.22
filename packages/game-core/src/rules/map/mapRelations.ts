@@ -1,4 +1,4 @@
-import type { District, Player } from "@empire/shared-types";
+import { PRODUCTION_GAME_LIFECYCLE_PHASES, type District, type Player } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";
 import type { DistrictRelation } from "./mapActionTypes";
 
@@ -71,3 +71,14 @@ export const isDistrictLocked = (district: District): boolean =>
   district.status === "destroyed"
   || district.status === "locked"
   || Boolean(district.lockdownUntilTick);
+
+export const isDowntownDistrict = (district: District): boolean =>
+  String(district.zone || "").trim().toLowerCase() === "downtown";
+
+export const isFinalLockdownActive = (state: CoreGameState): boolean =>
+  state.root.phase === PRODUCTION_GAME_LIFECYCLE_PHASES.finalLockdown
+  || state.finalLockdownState?.status === "active"
+  || state.finalLockdownState?.status === "paused";
+
+export const isDowntownOccupationLocked = (state: CoreGameState, district: District): boolean =>
+  isDowntownDistrict(district) && !isFinalLockdownActive(state);

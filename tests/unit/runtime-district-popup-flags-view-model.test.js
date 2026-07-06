@@ -48,12 +48,22 @@ describe("district popup flags view model", () => {
       isOccupying: true,
       hasTrapHere: true
     })).toEqual([
-      { label: "Cizí", tone: "warning" },
+      { label: "Obsazován", tone: "warning" },
       { label: "Bez napojení", tone: "muted" },
       { label: "Obrana skrytá", tone: "muted" },
       { label: "Policejní akce", tone: "danger" },
       { label: "Obsazování běží", tone: "warning" },
       { label: "Toxická past", tone: "danger" }
     ]);
+  });
+
+  it("marks downtown occupation as locked before final lockdown", () => {
+    expect(buildDistrictPopupFlagsViewModel({
+      ownerLabel: "Neobsazeno",
+      adjacentOwnedCount: 1,
+      hasKnownDefense: false,
+      canOccupyAfterSpy: true,
+      isDowntownOccupationLocked: true
+    })).toContainEqual({ label: "Downtown uzavřený", tone: "warning" });
   });
 });

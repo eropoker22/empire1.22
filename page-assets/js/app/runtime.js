@@ -1613,7 +1613,7 @@ function getPriceVarianceForTab(tabId) {
 function computeNextDynamicPrice(basePrice, currentPrice, variance) {
   const directionFactor = 1 + ((Math.random() * 2) - 1) * variance;
   const nextPrice = Math.round(currentPrice * directionFactor);
-  const minPrice = Math.round(basePrice * 0.55);
+  const minPrice = Math.round(basePrice * 0.85);
   const maxPrice = Math.round(basePrice * 1.75);
   return clamp(nextPrice, minPrice, maxPrice);
 }
@@ -1719,6 +1719,20 @@ function getStoredWorldState() {
   };
 }
 
+function normalizeRuntimeGamePhase(value) {
+  const phase = String(value || "").trim().toLowerCase().replace(/-/gu, "_");
+  if (phase === "launch") {
+    return "launch";
+  }
+  if (phase === "final_lockdown" || phase === "final") {
+    return "final_lockdown";
+  }
+  if (phase === "resolved") {
+    return "resolved";
+  }
+  return "live";
+}
+
 function normalizeWorldOwnedDistrictIds(world) {
   return Array.isArray(world?.ownedDistrictIds)
     ? world.ownedDistrictIds.map(Number).filter(Boolean)
@@ -1778,7 +1792,7 @@ function getResolvedWorldState() {
     phaseState: world.phaseState && typeof world.phaseState === "object"
       ? {
           mapPhase: world.phaseState.mapPhase === "day" ? "day" : "night",
-          gamePhase: world.phaseState.gamePhase === "launch" ? "launch" : "live",
+          gamePhase: normalizeRuntimeGamePhase(world.phaseState.gamePhase),
           cityMinutes: Number.parseInt(String(world.phaseState.cityMinutes ?? (22 * 60 + 14)), 10) || (22 * 60 + 14)
         }
       : {
@@ -2165,7 +2179,7 @@ function syncPhaseHostFromAuthority(phaseHost) {
 
   const phaseState = getResolvedPhaseState();
   const nextMapPhase = phaseState.mapPhase === "day" ? "day" : "night";
-  const nextGamePhase = phaseState.gamePhase === "launch" ? "launch" : "live";
+  const nextGamePhase = normalizeRuntimeGamePhase(phaseState.gamePhase);
 
   if (phaseHost.dataset.mapPhase !== nextMapPhase) {
     phaseHost.dataset.mapPhase = nextMapPhase;
@@ -2178,6 +2192,18 @@ function syncPhaseHostFromAuthority(phaseHost) {
   }
 
   return phaseState;
+}
+
+function isFinalLockdownActive() {
+  if (normalizeRuntimeGamePhase(getResolvedPhaseState().gamePhase) === "final_lockdown") {
+    return true;
+  }
+
+  const finalLockdown = getAuthoritySession()?.player?.finalLockdown || null;
+  return Boolean(
+    finalLockdown?.enabled
+    && (finalLockdown.active || finalLockdown.status === "active" || finalLockdown.status === "paused")
+  );
 }
 
 function setStoredGangState(payload) {
@@ -8306,7 +8332,7 @@ function bindDistrictCanvas(root) {
     showAllianceSymbols: initialSettings.mapAllianceSymbols,
     reducedMapEffects: initialSettings.reducedMapEffects,
     mapVisibilityMode: initialSettings.mapVisibilityMode,
-    gamePhase: phaseHost.dataset.gamePhase || "launch",
+    gamePhase: normalizeRuntimeGamePhase(phaseHost.dataset.gamePhase || initialWorldState.phaseState?.gamePhase || "launch"),
     revealedDistrictIds: new Set(),
     ownedDistrictIds: new Set(initialWorldState.ownedDistrictIds),
     destroyedDistrictIds: new Set(initialWorldState.destroyedDistrictIds),
@@ -8759,8 +8785,66 @@ function bindDistrictCanvas(root) {
     render();
   };
 
+  const isDistrictOccupationInProgress = (districtId) => {
+    const targetDistrictId = Number(districtId);
+    return getStoredOccupyOrders()
+      .some((order) => Number(String(order.targetDistrictId || "").replace("district:", "")) === targetDistrictId);
+  };
+
+  const isDowntownDistrict = (district) => (
+    district?.isDowntown === true
+    || String(district?.districtType || district?.zone || "").trim().toLowerCase() === "downtown"
+  );
+  const isDowntownOccupationLocked = (district) => isDowntownDistrict(district) && !isFinalLockdownActive();
+  const getDowntownOccupationLockedMessage = (district) => (
+    `District ${district?.id || ""} je downtown a je uzavřený. Obsazení bude možné až ve final lockdown fázi.`
+  );
+
+  const setDistrictOccupationLockedFeedback = (selectedDistrict) => {
+    if (!selectedDistrict) {
+      return;
+    }
+
+    if (buildingActionState) {
+      buildingActionState.textContent = "Obsazení";
+      buildingActionState.classList.remove("building-action-status__state--idle");
+    }
+
+    if (buildingActionSummary) {
+      buildingActionSummary.textContent = `District ${selectedDistrict.id} je obsazován. Během cooldownu nejdou spustit další akce.`;
+    }
+
+    if (buildingActionMeta) {
+      buildingActionMeta.textContent = `District ${selectedDistrict.id} · probíhá obsazení`;
+    }
+  };
+
+  const setDowntownOccupationLockedFeedback = (selectedDistrict) => {
+    if (!selectedDistrict) {
+      return;
+    }
+
+    if (buildingActionState) {
+      buildingActionState.textContent = "Downtown";
+      buildingActionState.classList.remove("building-action-status__state--idle");
+    }
+
+    if (buildingActionSummary) {
+      buildingActionSummary.textContent = getDowntownOccupationLockedMessage(selectedDistrict);
+    }
+
+    if (buildingActionMeta) {
+      buildingActionMeta.textContent = `District ${selectedDistrict.id} · obsazení až ve final lockdown`;
+    }
+  };
+
   const applyAttackAction = (selectedDistrict) => {
     if (!selectedDistrict) {
+      return false;
+    }
+
+    if (isDistrictOccupationInProgress(selectedDistrict.id)) {
+      setDistrictOccupationLockedFeedback(selectedDistrict);
       return false;
     }
 
@@ -8861,6 +8945,11 @@ function bindDistrictCanvas(root) {
       return false;
     }
 
+    if (isDistrictOccupationInProgress(selectedDistrict.id)) {
+      setDistrictOccupationLockedFeedback(selectedDistrict);
+      return false;
+    }
+
     const worldState = getResolvedWorldState();
     const currentTrapDistrictId = getCurrentPlayerTrapDistrictId();
     const trapMoveCooldownSeconds = getCurrentPlayerTrapMoveCooldownSeconds();
@@ -8948,6 +9037,17 @@ function bindDistrictCanvas(root) {
       return false;
     }
 
+    if (isDistrictOccupationInProgress(selectedDistrict.id)) {
+      setDistrictOccupationLockedFeedback(selectedDistrict);
+      return false;
+    }
+
+    if (isDowntownOccupationLocked(selectedDistrict)) {
+      setDowntownOccupationLockedFeedback(selectedDistrict);
+      openPopup(selectedDistrict);
+      return false;
+    }
+
     const adjacentOwnedDistrictIds = getAdjacentOwnedDistrictIds(selectedDistrict);
     const spyIntel = getResolvedSpyIntel();
     const canOccupyAfterSpy = spyIntel.occupiableDistrictIds.includes(Number(selectedDistrict.id));
@@ -9015,6 +9115,11 @@ function bindDistrictCanvas(root) {
 
   const applyRobberyAction = (selectedDistrict) => {
     if (!selectedDistrict) {
+      return false;
+    }
+
+    if (isDistrictOccupationInProgress(selectedDistrict.id)) {
+      setDistrictOccupationLockedFeedback(selectedDistrict);
       return false;
     }
 
@@ -9090,6 +9195,11 @@ function bindDistrictCanvas(root) {
 
   const applySpyAction = (selectedDistrict) => {
     if (!selectedDistrict) {
+      return false;
+    }
+
+    if (isDistrictOccupationInProgress(selectedDistrict.id)) {
+      setDistrictOccupationLockedFeedback(selectedDistrict);
       return false;
     }
 
@@ -9200,11 +9310,23 @@ function bindDistrictCanvas(root) {
     }
 
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+    const isOccupying = isDistrictOccupationInProgress(district.id);
+    const occupyingStatusMessage = isOccupying ? `District ${district.id} je obsazován.` : "";
+    const downtownOccupationLocked = isDowntownOccupationLocked(district);
+    const downtownOccupationLockedMessage = downtownOccupationLocked ? getDowntownOccupationLockedMessage(district) : "";
+    const isDestroyed = interactionState.destroyedDistrictIds.has(Number(district.id));
+    const rawOwnerLabel = getDistrictOwnerLabel(district, interactionState);
+    const ownerLabel = isDestroyed
+      ? "Nikdo"
+      : isOccupying
+        ? `District ${district.id} je obsazován`
+        : rawOwnerLabel;
+    const isOwnedByCurrentPlayer = !isDestroyed && !isOccupying && currentPlayerOwnedDistrictIds.has(Number(district.id));
     document.dispatchEvent(new CustomEvent("empire:district-opened", {
       detail: {
         district,
         districtId: district.id,
-        isOwnedByCurrentPlayer: currentPlayerOwnedDistrictIds.has(Number(district.id))
+        isOwnedByCurrentPlayer
       }
     }));
     const adjacentOwnedDistrictIds = getAdjacentDistrictIdsFromGeometry(geometry, district.id)
@@ -9214,9 +9336,7 @@ function bindDistrictCanvas(root) {
     const canOccupyAfterSpy = spyIntel.occupiableDistrictIds.includes(Number(district.id));
     const currentTrapDistrictId = getCurrentPlayerTrapDistrictId();
     const trapMoveCooldownSeconds = getCurrentPlayerTrapMoveCooldownSeconds();
-    const isOccupying = getStoredOccupyOrders()
-      .some((order) => Number(String(order.targetDistrictId || "").replace("district:", "")) === Number(district.id));
-    const isUnoccupied = getDistrictOwnerLabel(district, interactionState) === "Neobsazeno";
+    const isUnoccupied = !isOccupying && rawOwnerLabel === "Neobsazeno";
     const atmosphereMeta = getDistrictAtmosphereMeta(district, interactionState);
     const previousAtmosphereDistrictId = Number(popupAtmosphereWindow?.dataset?.districtId || NaN);
     const shouldKeepAtmosphereWindowOpen = Boolean(
@@ -9224,9 +9344,6 @@ function bindDistrictCanvas(root) {
       && popupAtmosphereWindow.hidden === false
       && previousAtmosphereDistrictId === Number(district.id)
     );
-    const ownerLabel = getDistrictOwnerLabel(district, interactionState);
-    const isOwnedByCurrentPlayer = currentPlayerOwnedDistrictIds.has(district.id);
-    const isDestroyed = interactionState.destroyedDistrictIds.has(Number(district.id));
     const hasKnownDefense = hasKnownDistrictDefense(district);
     const activePoliceAction = getDistrictPoliceAction(district.id);
     const trapControlState = getDistrictTrapControlState(district);
@@ -9275,7 +9392,11 @@ function bindDistrictCanvas(root) {
       factionCatalog: FACTION_CATALOG,
       getLaunchPlayerAvatar,
       getLaunchPlayerFactionId,
-      resolveOwnerLabel: getDistrictOwnerLabel
+      resolveOwnerLabel: (entry, state) => (
+        Number(entry?.id) === Number(district.id) && isOccupying
+          ? `District ${district.id} je obsazován`
+          : getDistrictOwnerLabel(entry, state)
+      )
     }), {
       elements: {
         title: popupTitle,
@@ -9333,6 +9454,7 @@ function bindDistrictCanvas(root) {
       hasKnownDefense,
       activePoliceAction,
       isOccupying,
+      isDowntownOccupationLocked: downtownOccupationLocked,
       canOccupyAfterSpy,
       hasTrapHere: currentTrapDistrictId === district.id
     }));
@@ -9342,23 +9464,26 @@ function bindDistrictCanvas(root) {
     renderDistrictPopupBuildings(district);
     renderDistrictPopupGossip(district);
 
-    const resolvedActions = activePoliceAction
+    const resolvedActions = activePoliceAction || isOccupying
       ? []
       : resolveDistrictActions({
           districtId: district.id,
-          isOwnedByCurrentPlayer: currentPlayerOwnedDistrictIds.has(district.id),
+          isOwnedByCurrentPlayer,
           isDestroyed: interactionState.destroyedDistrictIds.has(district.id),
           hasAdjacentOwnedDistrict: adjacentOwnedDistrictIds.length > 0,
           isUnoccupied,
           canOccupyAfterSpy,
           availableSpies: spyState.available,
           isOccupying,
+          isDowntownOccupationLocked: downtownOccupationLocked,
           currentTrapDistrictId,
           trapMoveCooldownSeconds
         }).filter((action) => action.visible);
 
     renderDistrictActionHub(buildDistrictActionViewModel(district, {
       activePoliceAction,
+      statusMessage: occupyingStatusMessage,
+      noticeMessage: downtownOccupationLockedMessage,
       resolvedActions,
       actionCountdowns: getDistrictActionCountdowns(district.id),
       trapControlState
@@ -9590,7 +9715,7 @@ function bindDistrictCanvas(root) {
   const render = () => {
     syncPhaseHostFromAuthority(phaseHost);
     interactionState.borderColor = phaseHost.dataset.borderColor || "white";
-    interactionState.gamePhase = phaseHost.dataset.gamePhase || "launch";
+    interactionState.gamePhase = normalizeRuntimeGamePhase(phaseHost.dataset.gamePhase || "launch");
     interactionState.animationTick = Date.now();
     syncMapMissionMarkers(interactionState.animationTick);
     refreshMapAfterStateChange({
@@ -9786,6 +9911,11 @@ function bindDistrictCanvas(root) {
 
       interactionState.selectedDistrictId = Number(district.id);
       render();
+      if (isDistrictOccupationInProgress(district.id)) {
+        openPopup(district);
+        setDistrictOccupationLockedFeedback(district);
+        return false;
+      }
       openPopup(district);
       populateAttackSetupPopup(district);
       return openAttackPanel(district, { popup: attackSetupPopup });
@@ -9798,6 +9928,11 @@ function bindDistrictCanvas(root) {
 
       interactionState.selectedDistrictId = Number(district.id);
       render();
+      if (isDistrictOccupationInProgress(district.id)) {
+        openPopup(district);
+        setDistrictOccupationLockedFeedback(district);
+        return false;
+      }
       const preparedContext = getPreparedAttackContext(district);
       if (!preparedContext?.canConfirm) {
         populateAttackSetupPopup(district);
@@ -9816,6 +9951,11 @@ function bindDistrictCanvas(root) {
 
       interactionState.selectedDistrictId = Number(district.id);
       render();
+      if (isDistrictOccupationInProgress(district.id)) {
+        openPopup(district);
+        setDistrictOccupationLockedFeedback(district);
+        return false;
+      }
       openPopup(district);
       populateSpyConfirmPopup(district);
       return openSpyPanel(district, { popup: spyConfirmPopup });
@@ -9827,6 +9967,12 @@ function bindDistrictCanvas(root) {
       }
 
       interactionState.selectedDistrictId = Number(district.id);
+      if (isDistrictOccupationInProgress(district.id)) {
+        render();
+        openPopup(district);
+        setDistrictOccupationLockedFeedback(district);
+        return false;
+      }
       populateSpyConfirmPopup(district);
       return applySpyAction(district);
     },
@@ -10261,22 +10407,8 @@ function bindDistrictCanvas(root) {
         return;
       }
 
-      const isOccupying = getStoredOccupyOrders()
-        .some((order) => Number(String(order.targetDistrictId || "").replace("district:", "")) === Number(selectedDistrict.id));
-
-      if (isOccupying) {
-        if (buildingActionState) {
-          buildingActionState.textContent = "Obsazení";
-          buildingActionState.classList.remove("building-action-status__state--idle");
-        }
-
-        if (buildingActionSummary) {
-          buildingActionSummary.textContent = `District ${selectedDistrict.id} se právě obsazuje. Během cooldownu nejdou spustit další akce.`;
-        }
-
-        if (buildingActionMeta) {
-          buildingActionMeta.textContent = `District ${selectedDistrict.id} · probíhá obsazení`;
-        }
+      if (isDistrictOccupationInProgress(selectedDistrict.id)) {
+        setDistrictOccupationLockedFeedback(selectedDistrict);
         return;
       }
 

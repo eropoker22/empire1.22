@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyCommand, createDistrictOccupyTargetViews, type CoreGameState } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
+import { PRODUCTION_GAME_LIFECYCLE_PHASES } from "@empire/shared-types";
 import {
   createCombatStateFixture,
   createFixedBuildingFixture,
@@ -150,6 +151,36 @@ describe("occupy district command", () => {
         districtId: "district:2"
       })
     ]);
+  });
+
+  it("locks downtown occupation until final lockdown", () => {
+    const state = createNeutralOccupyState();
+    state.districtsById["district:2"] = {
+      ...state.districtsById["district:2"],
+      zone: "downtown"
+    };
+    seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
+
+    expect(createDistrictOccupyTargetViews(state, "player:1", "district:1")[0]).toMatchObject({
+      districtId: "district:2",
+      enabled: false,
+      disabledCode: "DOWNTOWN_LOCKED_UNTIL_FINAL_LOCKDOWN",
+      disabledReason: "Downtown districts can only be occupied during final lockdown."
+    });
+
+    const blocked = applyCommand(state, createOccupyDistrictCommandFixture(), context);
+    expect(blocked.errors).toMatchObject([{ code: "DOWNTOWN_LOCKED_UNTIL_FINAL_LOCKDOWN" }]);
+    expect(blocked.nextState.districtsById["district:2"].ownerPlayerId).toBeNull();
+
+    state.root.phase = PRODUCTION_GAME_LIFECYCLE_PHASES.finalLockdown;
+    expect(createDistrictOccupyTargetViews(state, "player:1", "district:1")[0]).toMatchObject({
+      districtId: "district:2",
+      enabled: true,
+      disabledCode: null
+    });
+
+    const allowed = applyCommand(state, createOccupyDistrictCommandFixture(), context);
+    expect(allowed.errors).toEqual([]);
   });
 
   it("can fail occupation, keep the district neutral and consume the full population cost", () => {

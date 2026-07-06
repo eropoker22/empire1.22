@@ -50,4 +50,44 @@ describe("legacy district action policy", () => {
     expect(getVisibleActions({ isOwnedByCurrentPlayer: true }).some((action) => action.id === "heist")).toBe(false);
     expect(getVisibleActions({ hasAdjacentOwnedDistrict: false }).some((action) => action.id === "heist")).toBe(false);
   });
+
+  it("hides every district action while occupation cooldown is running", () => {
+    const actions = resolveDistrictActions({
+      districtId: 12,
+      isOwnedByCurrentPlayer: false,
+      hasAdjacentOwnedDistrict: true,
+      isUnoccupied: true,
+      canOccupyAfterSpy: true,
+      availableSpies: 1,
+      isOccupying: true,
+      currentTrapDistrictId: 0,
+      trapMoveCooldownSeconds: 0
+    });
+
+    expect(actions.every((action) => action.visible === false && action.enabled === false)).toBe(true);
+    expect(actions.every((action) => action.reason === "District 12 je obsazován.")).toBe(true);
+  });
+
+  it("locks downtown occupation until final lockdown without hiding other available actions", () => {
+    const actions = resolveDistrictActions({
+      districtId: 79,
+      isOwnedByCurrentPlayer: false,
+      hasAdjacentOwnedDistrict: true,
+      isUnoccupied: true,
+      canOccupyAfterSpy: true,
+      availableSpies: 1,
+      isOccupying: false,
+      isDowntownOccupationLocked: true,
+      currentTrapDistrictId: 0,
+      trapMoveCooldownSeconds: 0
+    });
+    const visibleActions = actions.filter((action) => action.visible);
+
+    expect(visibleActions.map((action) => action.id)).toEqual(["rob"]);
+    expect(actions.find((action) => action.id === "occupy")).toMatchObject({
+      visible: false,
+      enabled: false,
+      reason: "Downtown districty lze obsazovat až ve final lockdown fázi."
+    });
+  });
 });

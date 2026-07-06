@@ -9,8 +9,8 @@ const MARKET_ITEM_METADATA = Object.freeze({
     supplyLevel: "stable",
     demandLevel: "high",
     priceBand: "street",
-    recommendedMinPrice: 16,
-    recommendedMaxPrice: 32,
+    recommendedMinPrice: 430,
+    recommendedMaxPrice: 850,
     serverReadyNotes: "Core drug-chain input; official market should stay above efficient self-production."
   }),
   biomass: Object.freeze({
@@ -21,8 +21,8 @@ const MARKET_ITEM_METADATA = Object.freeze({
     supplyLevel: "stable",
     demandLevel: "normal",
     priceBand: "street",
-    recommendedMinPrice: 18,
-    recommendedMaxPrice: 36,
+    recommendedMinPrice: 480,
+    recommendedMaxPrice: 940,
     serverReadyNotes: "Early material with broad production demand and low PvP impact."
   }),
   "stim-pack": Object.freeze({
@@ -33,8 +33,8 @@ const MARKET_ITEM_METADATA = Object.freeze({
     supplyLevel: "tight",
     demandLevel: "high",
     priceBand: "mid",
-    recommendedMinPrice: 90,
-    recommendedMaxPrice: 150,
+    recommendedMinPrice: 1250,
+    recommendedMaxPrice: 2400,
     serverReadyNotes: "Bridge component for stronger drugs; price must protect pharmacy production value."
   }),
   "metal-parts": Object.freeze({
@@ -45,8 +45,8 @@ const MARKET_ITEM_METADATA = Object.freeze({
     supplyLevel: "stable",
     demandLevel: "high",
     priceBand: "street",
-    recommendedMinPrice: 44,
-    recommendedMaxPrice: 78,
+    recommendedMinPrice: 220,
+    recommendedMaxPrice: 460,
     serverReadyNotes: "Combat and factory backbone; official market should be useful but not better than production loops."
   }),
   "tech-core": Object.freeze({
@@ -57,8 +57,8 @@ const MARKET_ITEM_METADATA = Object.freeze({
     supplyLevel: "tight",
     demandLevel: "high",
     priceBand: "premium",
-    recommendedMinPrice: 210,
-    recommendedMaxPrice: 360,
+    recommendedMinPrice: 620,
+    recommendedMaxPrice: 1200,
     serverReadyNotes: "Late component for weapons, defense and upgrades; needs scarcity pressure."
   }),
   "neon-dust": Object.freeze({
@@ -69,8 +69,8 @@ const MARKET_ITEM_METADATA = Object.freeze({
     supplyLevel: "moving",
     demandLevel: "high",
     priceBand: "black",
-    recommendedMinPrice: 180,
-    recommendedMaxPrice: 280,
+    recommendedMinPrice: 700,
+    recommendedMaxPrice: 1350,
     isBlackMarketOnly: true,
     serverReadyNotes: "Fast black-market drug; should feel profitable but risky compared with lab production."
   }),
@@ -82,8 +82,8 @@ const MARKET_ITEM_METADATA = Object.freeze({
     supplyLevel: "tight",
     demandLevel: "high",
     priceBand: "black",
-    recommendedMinPrice: 290,
-    recommendedMaxPrice: 430,
+    recommendedMinPrice: 900,
+    recommendedMaxPrice: 1750,
     isBlackMarketOnly: true,
     serverReadyNotes: "Boost item using Stim Pack input; protect production chain and heat premium."
   }),
@@ -95,8 +95,8 @@ const MARKET_ITEM_METADATA = Object.freeze({
     supplyLevel: "moving",
     demandLevel: "normal",
     priceBand: "black",
-    recommendedMinPrice: 340,
-    recommendedMaxPrice: 520,
+    recommendedMinPrice: 1000,
+    recommendedMaxPrice: 2000,
     isBlackMarketOnly: true,
     serverReadyNotes: "Mid-risk contraband with strategic utility; should not undercut lab time too heavily."
   }),
@@ -108,8 +108,8 @@ const MARKET_ITEM_METADATA = Object.freeze({
     supplyLevel: "scarce",
     demandLevel: "high",
     priceBand: "premium",
-    recommendedMinPrice: 640,
-    recommendedMaxPrice: 920,
+    recommendedMinPrice: 1900,
+    recommendedMaxPrice: 3400,
     isBlackMarketOnly: true,
     serverReadyNotes: "High-value boost with Stim Pack input and long lab time."
   }),
@@ -121,8 +121,8 @@ const MARKET_ITEM_METADATA = Object.freeze({
     supplyLevel: "scarce",
     demandLevel: "spiking",
     priceBand: "contraband",
-    recommendedMinPrice: 1050,
-    recommendedMaxPrice: 1500,
+    recommendedMinPrice: 3600,
+    recommendedMaxPrice: 6200,
     isBlackMarketOnly: true,
     serverReadyNotes: "Late-game power item; should stay expensive enough to prevent early PvP snowball."
   }),
@@ -134,8 +134,8 @@ const MARKET_ITEM_METADATA = Object.freeze({
     supplyLevel: "tight",
     demandLevel: "normal",
     priceBand: "black",
-    recommendedMinPrice: 650,
-    recommendedMaxPrice: 920,
+    recommendedMinPrice: 1100,
+    recommendedMaxPrice: 2100,
     isBlackMarketOnly: true,
     serverReadyNotes: "Entry firearm; priced above craft path to keep armory meaningful."
   }),
@@ -147,8 +147,8 @@ const MARKET_ITEM_METADATA = Object.freeze({
     supplyLevel: "scarce",
     demandLevel: "high",
     priceBand: "premium",
-    recommendedMinPrice: 1850,
-    recommendedMaxPrice: 2600,
+    recommendedMinPrice: 3200,
+    recommendedMaxPrice: 5600,
     isBlackMarketOnly: true,
     serverReadyNotes: "Strong PvP weapon; high premium and heat pressure are intentional."
   }),
@@ -160,8 +160,8 @@ const MARKET_ITEM_METADATA = Object.freeze({
     supplyLevel: "scarce",
     demandLevel: "spiking",
     priceBand: "contraband",
-    recommendedMinPrice: 5600,
-    recommendedMaxPrice: 7600,
+    recommendedMinPrice: 9500,
+    recommendedMaxPrice: 14500,
     isBlackMarketOnly: true,
     serverReadyNotes: "Top destructive PvP item; must stay late-game and black-market expensive."
   })

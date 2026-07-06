@@ -140,6 +140,8 @@ const occupyMapActionErrorMessage = (reasonCode: string | undefined): string => 
     case "OCCUPY_SPY_AUTH_INVALIDATED":
     case "OCCUPY_TARGET_CHANGED":
       return "Spy authorization no longer matches the target district state.";
+    case "DOWNTOWN_LOCKED_UNTIL_FINAL_LOCKDOWN":
+      return "Downtown districts can only be occupied during final lockdown.";
     case "CONSENT_REQUIRED":
       return "Occupying this district would close an ally's last empty frontier and requires consent.";
     default:

@@ -154,6 +154,17 @@ describe("district action hub", () => {
 
     renderDistrictActionHub({ policeMessage: "District je právě pod policejní akcí." }, {}, { mount });
     expect(mount.children[0].children[0].textContent).toBe("District je právě pod policejní akcí.");
+
+    renderDistrictActionHub({ statusMessage: "District 4 je obsazován." }, {}, { mount });
+    expect(mount.children[0].children[0].textContent).toBe("District 4 je obsazován.");
+
+    renderDistrictActionHub({
+      noticeMessage: "Downtown je uzavřený.",
+      actions: [{ id: "rob", label: "Vykrást district", enabled: true }]
+    }, { onAction: () => {} }, { mount });
+    expect(mount.children[0].children[0].textContent).toBe("Downtown je uzavřený.");
+    expect(mount.children[1].children[0].dataset.districtActionId).toBe("rob");
+
     expect(clearDistrictActionHub({ mount })).toBe(true);
     expect(mount.children).toHaveLength(0);
     expect(renderDistrictActionHub({}, {}, {})).toBe(false);

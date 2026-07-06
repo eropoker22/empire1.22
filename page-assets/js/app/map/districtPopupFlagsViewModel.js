@@ -9,11 +9,14 @@ export function buildDistrictPopupFlagsViewModel(input = {}) {
 
   const ownerLabel = input.ownerLabel || "Neobsazeno";
   const adjacentOwnedCount = Math.max(0, Number(input.adjacentOwnedCount || 0));
+  const ownerFlag = input.isOccupying
+    ? { label: "Obsazován", tone: "warning" }
+    : {
+        label: input.isOwnedByCurrentPlayer ? "Tvůj" : ownerLabel === "Neobsazeno" ? "Volný" : "Cizí",
+        tone: input.isOwnedByCurrentPlayer ? "good" : ownerLabel === "Neobsazeno" ? "neutral" : "warning"
+      };
   const flags = [
-    {
-      label: input.isOwnedByCurrentPlayer ? "Tvůj" : ownerLabel === "Neobsazeno" ? "Volný" : "Cizí",
-      tone: input.isOwnedByCurrentPlayer ? "good" : ownerLabel === "Neobsazeno" ? "neutral" : "warning"
-    },
+    ownerFlag,
     {
       label: adjacentOwnedCount > 0 ? `Napojený: ${adjacentOwnedCount}` : "Bez napojení",
       tone: adjacentOwnedCount > 0 ? "good" : "muted"
@@ -34,10 +37,12 @@ export function buildDistrictPopupFlagsViewModel(input = {}) {
   flags.push({
     label: input.isOccupying
       ? "Obsazování běží"
+      : input.isDowntownOccupationLocked
+        ? "Downtown uzavřený"
       : input.canOccupyAfterSpy
         ? "Připraveno k obsazení"
         : "Obsazení nepřipravené",
-    tone: input.isOccupying ? "warning" : input.canOccupyAfterSpy ? "good" : "muted"
+    tone: input.isOccupying || input.isDowntownOccupationLocked ? "warning" : input.canOccupyAfterSpy ? "good" : "muted"
   });
 
   if (input.hasTrapHere) {

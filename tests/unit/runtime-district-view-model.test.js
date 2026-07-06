@@ -112,12 +112,11 @@ describe("district view model adapter", () => {
     });
   });
 
-  it("keeps in-progress disabled district actions visible so their countdown can render", () => {
+  it("shows only a district occupation status while occupation cooldown is running", () => {
     const model = buildDistrictActionViewModel({ id: 4 }, {
       activePoliceAction: null,
-      resolvedActions: [
-        { id: "occupy", label: "Obsadit", enabled: true, reason: "District 4 se právě obsazuje." }
-      ],
+      statusMessage: "District 4 je obsazován.",
+      resolvedActions: [],
       actionCountdowns: {
         occupy: { label: "Zbývá 2:10", endsAt: 130000 }
       }
@@ -125,11 +124,22 @@ describe("district view model adapter", () => {
 
     expect(model.hidden).toBe(false);
     expect(model.headHidden).toBe(true);
-    expect(model.actions[0]).toMatchObject({
-      id: "occupy",
-      enabled: false,
-      countdownLabel: "Zbývá 2:10",
-      countdownEndsAt: 130000
+    expect(model.statusMessage).toBe("District 4 je obsazován.");
+    expect(model.actions).toEqual([]);
+  });
+
+  it("keeps downtown lock notice visible without suppressing other actions", () => {
+    const model = buildDistrictActionViewModel({ id: 79, districtType: "downtown" }, {
+      activePoliceAction: null,
+      noticeMessage: "District 79 je downtown a je uzavřený. Obsazení bude možné až ve final lockdown fázi.",
+      resolvedActions: [
+        { id: "rob", label: "Vykrást district", enabled: true, reason: "" }
+      ]
     });
+
+    expect(model.hidden).toBe(false);
+    expect(model.noticeMessage).toContain("final lockdown");
+    expect(model.actions).toHaveLength(1);
+    expect(model.actions[0]).toMatchObject({ id: "rob", enabled: true });
   });
 });

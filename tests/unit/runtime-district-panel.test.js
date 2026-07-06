@@ -251,5 +251,23 @@ describe("district panel rendering", () => {
 
     expect(mount.children).toHaveLength(1);
     expect(mount.children[0].children[0].textContent).toBe("District je právě pod policejní akcí.");
+
+    renderDistrictActionPanel({ section, head, mount }, {
+      hidden: false,
+      statusMessage: "District 4 je obsazován."
+    });
+
+    expect(mount.children).toHaveLength(1);
+    expect(mount.children[0].children[0].textContent).toBe("District 4 je obsazován.");
+
+    renderDistrictActionPanel({ section, head, mount }, {
+      hidden: false,
+      noticeMessage: "Downtown je uzavřený.",
+      actions: [{ id: "rob", label: "Vykrást district", enabled: true }]
+    });
+
+    expect(mount.children).toHaveLength(2);
+    expect(mount.children[0].children[0].textContent).toBe("Downtown je uzavřený.");
+    expect(mount.children[1].children[0].dataset.districtActionId).toBe("rob");
   });
 });

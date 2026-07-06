@@ -6,7 +6,12 @@ import type {
   MapActionContext,
   MapActionValidationOptions
 } from "./mapActionTypes";
-import { isDistrictLocked, isTargetAdjacentToOwnedDistrict, resolveDistrictRelation } from "./mapRelations";
+import {
+  isDistrictLocked,
+  isDowntownOccupationLocked,
+  isTargetAdjacentToOwnedDistrict,
+  resolveDistrictRelation
+} from "./mapRelations";
 import { validateBorderAction, validateEmptyBorderAction, validateSpyAction } from "./mapBorderValidators";
 import { hasFormerAllyTruce } from "../alliances/allianceLifecycle";
 
@@ -42,6 +47,10 @@ export const validateMapAction = (
 
   if (isDistrictLocked(target)) {
     return blocked("DISTRICT_LOCKED", relation, isAdjacentToOwnedDistrict);
+  }
+
+  if (context.action === "occupy" && isDowntownOccupationLocked(state, target)) {
+    return blocked("DOWNTOWN_LOCKED_UNTIL_FINAL_LOCKDOWN", relation, isAdjacentToOwnedDistrict);
   }
 
   if (

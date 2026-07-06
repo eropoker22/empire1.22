@@ -117,14 +117,24 @@ export function renderDistrictActionHub(actionViewModel = {}, callbacks = {}, op
 
   clearDistrictActionHub({ mount });
 
-  if (actionViewModel.policeMessage) {
+  const statusMessage = actionViewModel.policeMessage || actionViewModel.statusMessage || "";
+  if (statusMessage) {
     const actionRow = createElement(mount, "div", "district-popup-action-row");
-    const reason = renderDistrictActionDisabledReason(actionViewModel.policeMessage, { mount });
+    const reason = renderDistrictActionDisabledReason(statusMessage, { mount });
     if (actionRow && reason) {
       actionRow.append(reason);
       mount.append(actionRow);
     }
     return true;
+  }
+
+  if (actionViewModel.noticeMessage) {
+    const actionRow = createElement(mount, "div", "district-popup-action-row");
+    const reason = renderDistrictActionDisabledReason(actionViewModel.noticeMessage, { mount });
+    if (actionRow && reason) {
+      actionRow.append(reason);
+      mount.append(actionRow);
+    }
   }
 
   const actions = Array.isArray(actionViewModel.actions) ? actionViewModel.actions : [];

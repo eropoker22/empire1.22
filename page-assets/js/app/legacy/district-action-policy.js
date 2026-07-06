@@ -39,6 +39,7 @@ export function resolveDistrictActions(context) {
     canOccupyAfterSpy,
     availableSpies,
     isOccupying,
+    isDowntownOccupationLocked,
     currentTrapDistrictId,
     trapMoveCooldownSeconds
   } = context;
@@ -56,10 +57,10 @@ export function resolveDistrictActions(context) {
   if (isOccupying) {
     return DISTRICT_ACTION_CATALOG.map((action) => ({
       id: action.id,
-      visible: action.id === "attack" || action.id === "occupy" || action.id === "spy" || action.id === "rob" || action.id === "defense" || action.id === "trap",
+      visible: false,
       enabled: false,
       label: action.defaultLabel,
-      reason: `District ${districtId} se právě obsazuje.`
+      reason: `District ${districtId} je obsazován.`
     }));
   }
 
@@ -140,14 +141,18 @@ export function resolveDistrictActions(context) {
     }
 
     if (action.id === "occupy") {
-      const visible = !isOwnedByCurrentPlayer && isUnoccupied && canOccupyAfterSpy && hasAdjacentOwnedDistrict;
+      const visible = !isDowntownOccupationLocked && !isOwnedByCurrentPlayer && isUnoccupied && canOccupyAfterSpy && hasAdjacentOwnedDistrict;
 
       return {
         id: action.id,
         visible,
         enabled: visible,
         label: action.defaultLabel,
-        reason: visible ? null : `Obsazení je dostupné jen po spy úspěchu na district ${districtId}.`
+        reason: visible
+          ? null
+          : isDowntownOccupationLocked
+            ? "Downtown districty lze obsazovat až ve final lockdown fázi."
+            : `Obsazení je dostupné jen po spy úspěchu na district ${districtId}.`
       };
     }
 

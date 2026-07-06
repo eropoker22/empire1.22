@@ -130,11 +130,11 @@ export const MARKET_TAB_CONFIG = {
     sellMultiplier: 0.92,
     variance: 0.08,
     items: [
-      { inventory: "materials", itemId: "chemicals", name: "Chemicals", price: 19 },
-      { inventory: "materials", itemId: "biomass", name: "Biomass", price: 22 },
-      { inventory: "materials", itemId: "stim-pack", name: "Stim Pack", price: 108 },
-      { inventory: "materials", itemId: "metal-parts", name: "Metal Parts", price: 52 },
-      { inventory: "materials", itemId: "tech-core", name: "Tech Core", price: 240 }
+      { inventory: "materials", itemId: "chemicals", name: "Chemicals", price: 500 },
+      { inventory: "materials", itemId: "biomass", name: "Biomass", price: 560 },
+      { inventory: "materials", itemId: "stim-pack", name: "Stim Pack", price: 1500 },
+      { inventory: "materials", itemId: "metal-parts", name: "Metal Parts", price: 260 },
+      { inventory: "materials", itemId: "tech-core", name: "Tech Core", price: 700 }
     ]
   },
   "black-market": {
@@ -146,14 +146,14 @@ export const MARKET_TAB_CONFIG = {
     sellMultiplier: 0.01,
     variance: 0.22,
     items: [
-      { inventory: "drugs", itemId: "neon-dust", name: "Neon Dust", price: 220 },
-      { inventory: "drugs", itemId: "pulse-shot", name: "Pulse Shot", price: 340 },
-      { inventory: "drugs", itemId: "velvet-smoke", name: "Velvet Smoke", price: 410 },
-      { inventory: "drugs", itemId: "ghost-serum", name: "Ghost Serum", price: 780 },
-      { inventory: "drugs", itemId: "overdrive-x", name: "Overdrive X", price: 1250 },
-      { inventory: "weapons", itemId: "pistol", name: "Pistole", price: 760 },
-      { inventory: "weapons", itemId: "smg", name: "SMG", price: 2200 },
-      { inventory: "weapons", itemId: "bazooka", name: "Bazuka", price: 6800 }
+      { inventory: "drugs", itemId: "neon-dust", name: "Neon Dust", price: 760 },
+      { inventory: "drugs", itemId: "pulse-shot", name: "Pulse Shot", price: 980 },
+      { inventory: "drugs", itemId: "velvet-smoke", name: "Velvet Smoke", price: 1100 },
+      { inventory: "drugs", itemId: "ghost-serum", name: "Ghost Serum", price: 2200 },
+      { inventory: "drugs", itemId: "overdrive-x", name: "Overdrive X", price: 4200 },
+      { inventory: "weapons", itemId: "pistol", name: "Pistole", price: 1250 },
+      { inventory: "weapons", itemId: "smg", name: "SMG", price: 3800 },
+      { inventory: "weapons", itemId: "bazooka", name: "Bazuka", price: 11000 }
     ]
   },
   "player-market": {
