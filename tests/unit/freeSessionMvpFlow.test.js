@@ -219,7 +219,7 @@ describe("free session MVP flow", () => {
     expect(policeMount.dataset.policeRisk).toBe("high");
   });
 
-  it("renders the onboarding v1 completion summary", () => {
+  it("renders the simplified onboarding v1 completion state", () => {
     const documentRef = new FakeDocument();
     const onboardingMount = documentRef.createElement("section");
 
@@ -227,9 +227,9 @@ describe("free session MVP flow", () => {
 
     const text = collectText(onboardingMount);
     expect(text).toContain("Hotovo");
-    expect(text).toContain("District vydělává");
-    expect(text).toContain("Rozkazy běží v čase");
-    expect(text).toContain("Pokračovat ve hře");
+    expect(text).toContain("Základ znáš. Teď rozšiř vliv.");
+    expect(text).toContain("Pokračovat");
+    expect(text).not.toContain("Rozkazy běží v čase");
   });
 
   it("builds spy and attack result fallback payloads for partial reports", () => {

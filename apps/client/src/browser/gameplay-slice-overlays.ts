@@ -3,6 +3,7 @@ import { closeOverlay, getTopOverlay, openOverlay } from "../modals/overlay-stat
 
 export interface DistrictSheetOverlayController {
   syncFromState(state: ClientRenderState): void;
+  closeFromExternal(reason: string): void;
   closeOnDestroy(): void;
   isOpen(): boolean;
   markClosedByBackdrop(): void;
@@ -34,8 +35,17 @@ export const createDistrictSheetOverlayController = (): DistrictSheetOverlayCont
     isDistrictSheetOpen = false;
   };
 
+  const closeFromExternal = (reason: string): void => {
+    if (getTopOverlay() === "district_sheet") {
+      closeOverlay(reason);
+    }
+
+    isDistrictSheetOpen = false;
+  };
+
   return {
     syncFromState,
+    closeFromExternal,
     closeOnDestroy,
     isOpen: () => isDistrictSheetOpen,
     markClosedByBackdrop: () => {

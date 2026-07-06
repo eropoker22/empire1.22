@@ -318,4 +318,21 @@ describe("overlay backdrop", () => {
     expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
     expect(scrollTo).toHaveBeenCalledWith({ top: initialScrollY, left: 0, behavior: "auto" });
   });
+
+  it("modal scroll lock bridge can close the current district sheet overlay", () => {
+    const initialScrollY = 118;
+    setWindowScrollY(initialScrollY);
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+
+    openOverlay("district_sheet");
+
+    expect(window.EmpireModalScrollLock?.debugState?.().stack).toEqual([
+      { type: "district_sheet", owner: "" }
+    ]);
+    expect(window.EmpireModalScrollLock?.closeTop?.("legacy district popup closed")).toBe(true);
+
+    expect(isOverlayOpen()).toBe(false);
+    expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
+    expect(scrollTo).toHaveBeenCalledWith({ top: initialScrollY, left: 0, behavior: "auto" });
+  });
 });

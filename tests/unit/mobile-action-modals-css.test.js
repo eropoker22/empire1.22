@@ -163,8 +163,8 @@ describe("mobile action modal CSS", () => {
 
   it("keeps mobile City Events tappable above onboarding and modal scroll lock", () => {
     expect(onboardingCss).toContain("inset: auto max(12px, env(safe-area-inset-right, 0px)) calc(72px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));");
-    expect(onboardingCss).toContain("max-height: min(45dvh, calc(100dvh - 132px));");
-    expect(onboardingCss).toContain("max-height: max(92px, calc(45dvh - 154px));");
+    expect(onboardingCss).toContain("max-height: min(42dvh, calc(100dvh - 132px));");
+    expect(onboardingCss).toContain("max-height: max(72px, calc(42dvh - 138px));");
     expect(mobileRuntime).toContain('const cityEventsAnchor = documentObj.getElementById("city-events-card-anchor");');
     expect(mobileRuntime).toContain("moveElementAfterAnchor(cityEventsAnchor, cityEventsCard);");
     for (const stylesheet of [css, clientCss]) {
@@ -341,8 +341,18 @@ describe("mobile action modal CSS", () => {
   it("keeps onboarding motion subtle and reduced-motion safe", () => {
     expect(onboardingCss).toContain("@keyframes onboardingPanelIn");
     expect(onboardingCss).toContain("@keyframes onboardingSheetIn");
+    expect(onboardingCss).toContain("@keyframes onboardingSignalPulse");
+    expect(onboardingCss).toContain("@keyframes onboardingProgressShimmer");
+    expect(onboardingCss).toContain("@keyframes onboardingStepGlow");
     expect(onboardingCss).toContain("animation-name: onboardingSheetIn;");
+    expect(onboardingCss).toContain(".empire-onboarding__signal");
+    expect(onboardingCss).toContain(".empire-onboarding__progress-fill::after");
+    expect(onboardingCss).toContain("animation: onboardingProgressShimmer 2.6s ease-in-out infinite;");
+    expect(onboardingCss).toMatch(/\.empire-onboarding-highlight \{[\s\S]*pointer-events: none;/u);
+    expect(onboardingCss).not.toContain("0 0 0 9999px");
     expect(onboardingCss).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(onboardingCss).toContain(".empire-onboarding__signal::before,");
+    expect(onboardingCss).toContain(".empire-onboarding__progress-fill::after,");
     expect(onboardingCss).toContain(".empire-onboarding-highlight,");
     expect(onboardingCss).toContain("animation: none !important;");
     expect(onboardingCss).toContain("transition: none !important;");
@@ -406,6 +416,8 @@ describe("mobile action modal CSS", () => {
       expect(source).toContain("options.skipFocus !== true");
       expect(source).toContain("const existingIndex = overlayStack.findLastIndex");
       expect(source).toContain("const hadEntry = index >= 0;");
+      expect(source).toContain("const unlockedByPrune = pruneClosedOverlays();");
+      expect(source).toContain("if (!unlockedByPrune && hadEntry && overlayStack.length === 0)");
     }
 
     for (const source of [modalHelpers, clientModalHelpers]) {

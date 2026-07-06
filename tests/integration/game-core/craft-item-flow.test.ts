@@ -54,6 +54,13 @@ describe("craft-item command flow", () => {
     });
     expect(crafted.events).toHaveLength(1);
     expect(crafted.events[0]?.type).toBe("item-processing-started");
+    expect(crafted.events[0]?.payload).toMatchObject({
+      buildingId,
+      completesAtTick: 2 + 10 * TICKS_PER_MINUTE,
+      districtId: "district:1",
+      playerId: "player:1",
+      recipeId: "stim-pack"
+    });
 
     const afterOneTick = runTick(crafted.nextState, context);
 

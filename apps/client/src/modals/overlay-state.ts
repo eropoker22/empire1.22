@@ -41,6 +41,13 @@ let lockedRootStyles: {
 } | null = null;
 
 type ModalScrollLockBridge = {
+  closeTop?(reason?: string): boolean;
+  debugState?(): {
+    bodyLocked: boolean;
+    bodyPosition: string;
+    bodyTop: string;
+    stack: Array<{ type: OverlayType; owner: string }>;
+  };
   isLocked(owner?: unknown): boolean;
   lock(owner?: unknown): boolean;
   unlock(owner?: unknown): boolean;
@@ -274,6 +281,9 @@ export const closeOverlay = (_reason: string): void => {
   closeOverlayEntry(_reason);
 };
 
+export const closeTopModalOverlay = (reason = "modal scroll lock top overlay closed"): boolean =>
+  closeOverlayEntry(reason);
+
 export const isOverlayOpen = (): boolean => overlayStack.length > 0;
 
 export const getTopOverlay = (): OverlayType | null => overlayStack.at(-1)?.type ?? null;
@@ -291,6 +301,24 @@ export const unlockModalScroll = (_owner?: unknown): boolean =>
   closeOverlayEntry("modal scroll lock released", MODAL_SCROLL_LOCK_OWNER);
 
 export const isModalScrollLocked = (_owner?: unknown): boolean => isOverlayOpen();
+
+export const getModalScrollLockDebugState = (): {
+  bodyLocked: boolean;
+  bodyPosition: string;
+  bodyTop: string;
+  stack: Array<{ type: OverlayType; owner: string }>;
+} => {
+  const body = getBody();
+  return {
+    bodyLocked: body?.dataset[LOCKED_BODY_DATA_ATTRIBUTE] === "true",
+    bodyPosition: body?.style.position || "",
+    bodyTop: body?.style.top || "",
+    stack: overlayStack.map((entry) => ({
+      type: entry.type,
+      owner: entry.owner === MODAL_SCROLL_LOCK_OWNER ? "modal-scroll-lock-compat" : ""
+    }))
+  };
+};
 
 export const resetOverlayStateForTests = (): void => {
   unlockBodyScroll();
@@ -310,6 +338,8 @@ export const resetOverlayStateForTests = (): void => {
 
 if (typeof window !== "undefined") {
   window.EmpireModalScrollLock = {
+    closeTop: closeTopModalOverlay,
+    debugState: getModalScrollLockDebugState,
     isLocked: isModalScrollLocked,
     lock: lockModalScroll,
     unlock: unlockModalScroll

@@ -8364,6 +8364,7 @@ function bindDistrictCanvas(root) {
     }
 
     hideDistrictPopupModalStack(districtPopupElements);
+    window.EmpireGameplaySliceClient?.closeDistrictSheet?.("legacy district popup closed");
 
     syncMapInteractionVisualState({
       hoveredDistrict: geometry?.districts?.find((district) => district.id === interactionState.hoveredDistrictId) || null,

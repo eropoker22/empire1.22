@@ -8,6 +8,7 @@ import type { ClientRenderState } from "./client-render-state";
  */
 export interface ClientAppShell {
   load(request: LoadGameplaySliceRequest): Promise<ClientRenderState>;
+  clearDistrictSelection?(): ClientRenderState;
   selectDistrict(districtId: string): Promise<ClientRenderState>;
   selectBuilding(buildingId: string | null): Promise<ClientRenderState>;
   dispatch(command: GameCommand): Promise<ClientRenderState>;

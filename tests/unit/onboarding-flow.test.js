@@ -64,12 +64,16 @@ describe("Empire onboarding flow", () => {
   it("step registry contains every mandatory onboarding chapter", () => {
     expect(ONBOARDING_STEPS.map((step) => step.id)).toEqual([...ONBOARDING_REQUIRED_STEP_IDS]);
     expect(ONBOARDING_STEPS).toHaveLength(7);
-    expect(ONBOARDING_STEPS.find((step) => step.id === "building-action")).toEqual(expect.objectContaining({
-      completionCondition: "building-action:feedback",
-      body: expect.stringContaining("potvrď")
-    }));
-    expect(ONBOARDING_STEPS.find((step) => step.id === "spy")?.title).toBe("Pošli špehy");
-    expect(ONBOARDING_STEPS.find((step) => step.id === "attack-order")?.body).toContain("čas návratu");
+    expect(ONBOARDING_STEPS.map(({ title, body, cta }) => ({ title, body, cta }))).toEqual([
+      { title: "Vítej v ulicích", body: "Město svítí, ale nikomu neodpouští.", cta: "Začít" },
+      { title: "Otevři district", body: "Tady začíná tvoje území.", cta: "Ukázat" },
+      { title: "Spusť akci", body: "Budovy vydělávají, když je rozhýbeš.", cta: "Rozumím" },
+      { title: "Sleduj heat", body: "Čím víc riskuješ, tím víc tě řeší policie.", cta: "Rozumím" },
+      { title: "Pošli špehy", body: "Špehování běží v čase. Počkej na návrat.", cta: "Rozumím" },
+      { title: "Zadej rozkaz", body: "Útok není kliknutí. Je to rozkaz do ulic.", cta: "Rozumím" },
+      { title: "Hotovo", body: "Základ znáš. Teď rozšiř vliv.", cta: "Pokračovat" }
+    ]);
+    expect(ONBOARDING_STEPS.find((step) => step.id === "building-action")?.completionCondition).toBe("building-action:feedback");
   });
 
   it("every onboarding step has the required registry fields and compact player-facing copy", () => {
@@ -77,10 +81,10 @@ describe("Empire onboarding flow", () => {
     for (const step of ONBOARDING_STEPS) {
       expect(step.title).toEqual(expect.any(String));
       expect(step.title.length).toBeGreaterThan(0);
-      expect(step.title.length).toBeLessThanOrEqual(32);
+      expect(step.title.length).toBeLessThanOrEqual(24);
       expect(step.body).toEqual(expect.any(String));
       expect(step.body.length).toBeGreaterThan(0);
-      expect(step.body.length).toBeLessThanOrEqual(140);
+      expect(step.body.length).toBeLessThanOrEqual(58);
       expect(step.body.split(/[.!?]+/u).filter((part) => part.trim()).length).toBeLessThanOrEqual(2);
       expect(step).toEqual(expect.objectContaining({
         id: expect.any(String),
@@ -100,18 +104,15 @@ describe("Empire onboarding flow", () => {
       expect([step.title, step.subtitle, step.body, step.fallbackTitle, step.fallbackBody, step.task, ...(step.summaryItems || [])].join(" "))
         .not.toMatch(forbiddenCopy);
       if (step.fallbackBody) {
-        expect(step.fallbackBody.length).toBeLessThanOrEqual(120);
+        expect(step.fallbackBody.length).toBeLessThanOrEqual(80);
       }
     }
 
     const done = ONBOARDING_STEPS.find((step) => step.id === "done");
-    expect(done?.summaryItems).toHaveLength(3);
-    for (const item of done?.summaryItems || []) {
-      expect(item.length).toBeLessThanOrEqual(28);
-    }
+    expect(done?.summaryItems || []).toHaveLength(0);
   });
 
-  it("renders progress, CTA, skip and completed summary for every onboarding step", () => {
+  it("renders progress, CTA, skip and a compact game UI panel for every onboarding step", () => {
     for (const [index, step] of ONBOARDING_STEPS.entries()) {
       const { document, root, mount } = createOnboardingDom();
       root.append(mount);
@@ -124,6 +125,10 @@ describe("Empire onboarding flow", () => {
       expect(mount.querySelector("[data-onboarding-primary-action]")).toBeTruthy();
       expect(mount.querySelector("[data-onboarding-primary-action]")?.textContent).toBe(step.cta || "Další");
       expect([...mount.querySelectorAll("button")].some((button) => button.textContent === "Přeskočit")).toBe(true);
+      expect(mount.querySelector(".empire-onboarding__signal")).toBeTruthy();
+      expect(mount.querySelector(".empire-onboarding__badge-row")).toBeNull();
+      expect(mount.querySelector(".empire-onboarding__status-chip")).toBeNull();
+      expect(mount.querySelector(".empire-onboarding__task")).toBeNull();
       expect(document.querySelector("[data-onboarding-highlight]")).toBeTruthy();
       if (step.completionCondition === "manual") {
         expect(mount.querySelector("[data-onboarding-primary-action]")?.dataset.onboardingPrimaryMode).toBe("complete");

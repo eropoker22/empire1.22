@@ -48,29 +48,6 @@ function resolveStepKind(step = {}) {
   return String(step.kind || step.highlightType || "dirty").trim() || "dirty";
 }
 
-function resolveStepPhase(step = {}, index = 0) {
-  if (step.phase) {
-    return String(step.phase);
-  }
-  if (index < 4) {
-    return "Základy";
-  }
-  if (index < 8) {
-    return "Ekonomika";
-  }
-  if (index < 11) {
-    return "Riziko";
-  }
-  if (index < 18) {
-    return "Expanze";
-  }
-  return "Endgame";
-}
-
-function resolveStepBadge(step = {}) {
-  return String(step.badge || step.eyebrow || "STREET").trim() || "STREET";
-}
-
 function isManualCompletionStep(step = {}) {
   return !step.completionCondition || step.completionCondition === "manual";
 }
@@ -373,8 +350,6 @@ export function renderOnboardingPanel(progress = {}, callbacks = {}, options = {
   const stepNumber = Math.min(normalized.currentIndex + 1, normalized.totalCount);
   const progressPercent = normalized.totalCount > 0 ? Math.round((stepNumber / normalized.totalCount) * 100) : 0;
   const stepKind = isDefeated ? "defeated" : resolveStepKind(step);
-  const phaseLabel = isDefeated ? "Defeated" : resolveStepPhase(step, normalized.currentIndex);
-  const badgeLabel = isDefeated ? "OUT" : resolveStepBadge(step);
   const target = state.target || null;
   const targetSelector = state.targetSelector || getOnboardingTargetSelector(step.id, readModel);
   const manualCompletion = isManualCompletionStep(step);
@@ -406,56 +381,38 @@ export function renderOnboardingPanel(progress = {}, callbacks = {}, options = {
   }
 
   const header = createElement(ownerDocument, "header", "empire-onboarding__header");
-  const identity = createElement(ownerDocument, "div", "empire-onboarding__identity");
-  const eyebrow = createElement(ownerDocument, "span", "empire-onboarding__eyebrow");
-  const phase = createElement(ownerDocument, "span", "empire-onboarding__phase");
+  const signal = createElement(ownerDocument, "span", "empire-onboarding__signal");
   const progressLabel = createElement(ownerDocument, "span", "empire-onboarding__progress");
   const progressTrack = createElement(ownerDocument, "div", "empire-onboarding__progress-track");
   const progressFill = createElement(ownerDocument, "span", "empire-onboarding__progress-fill");
-  const badgeRow = createElement(ownerDocument, "div", "empire-onboarding__badge-row");
-  const badge = createElement(ownerDocument, "span", "empire-onboarding__badge");
-  const statusChip = createElement(ownerDocument, "span", "empire-onboarding__status-chip");
   const title = createElement(ownerDocument, "h2", "empire-onboarding__title");
-  const subtitle = createElement(ownerDocument, "p", "empire-onboarding__subtitle");
   const content = createElement(ownerDocument, "div", "empire-onboarding__content");
   const body = createElement(ownerDocument, "p", "empire-onboarding__body");
   const summary = createElement(ownerDocument, "ul", "empire-onboarding__summary");
   const fallback = createElement(ownerDocument, "div", "empire-onboarding__fallback");
   const fallbackTitle = createElement(ownerDocument, "strong", "empire-onboarding__fallback-title");
   const fallbackBody = createElement(ownerDocument, "span", "empire-onboarding__fallback-copy");
-  const task = createElement(ownerDocument, "p", "empire-onboarding__task");
-  const detail = createElement(ownerDocument, "div", "empire-onboarding__detail");
-  const warning = createElement(ownerDocument, "div", "empire-onboarding__warning");
   const actions = createElement(ownerDocument, "div", "empire-onboarding__actions");
   const skipButton = createElement(ownerDocument, "button", "button empire-onboarding__button empire-onboarding__button--ghost");
   const nextButton = createElement(ownerDocument, "button", "button empire-onboarding__button empire-onboarding__button--primary");
 
-  if (!header || !identity || !eyebrow || !phase || !progressLabel || !progressTrack || !progressFill || !badgeRow || !badge || !statusChip || !title || !subtitle || !content || !body || !summary || !fallback || !fallbackTitle || !fallbackBody || !task || !detail || !warning || !actions || !skipButton || !nextButton) {
+  if (!header || !signal || !progressLabel || !progressTrack || !progressFill || !title || !content || !body || !summary || !fallback || !fallbackTitle || !fallbackBody || !actions || !skipButton || !nextButton) {
     return false;
   }
 
   mount.setAttribute?.("aria-describedby", "empire-onboarding-copy");
-  eyebrow.textContent = isDefeated ? "OPERATOR OFFLINE" : "CITY OPERATOR";
-  phase.textContent = phaseLabel;
-  identity.append(eyebrow, phase);
+  signal.setAttribute("aria-hidden", "true");
   progressLabel.textContent = isDefeated ? "DEF" : `Krok ${stepNumber} / ${normalized.totalCount}`;
   setElementStyle(progressFill, "width", isDefeated ? "100%" : `${progressPercent}%`);
   progressTrack.append(progressFill);
-  header.append(identity, progressLabel);
-  badge.textContent = badgeLabel;
-  statusChip.textContent = state.missingTarget ? "Náhradní cesta" : (state.target ? "Cíl zvýrazněn" : "Info");
-  badgeRow.append(badge, statusChip);
+  header.append(signal, progressLabel);
 
   if (isDefeated) {
     title.textContent = "Vyřazen ze hry";
-    subtitle.textContent = "";
-    body.textContent = "Tenhle stav znamená, že hráč už nemá aktivní demo smyčku. Vrať se do lobby nebo začni novou session.";
-    task.textContent = "";
+    body.textContent = "Tvoje demo smyčka skončila. Vrať se do lobby.";
   } else {
     title.textContent = step.title;
-    subtitle.textContent = step.subtitle || "";
     body.textContent = step.body;
-    task.textContent = "";
   }
 
   body.id = "empire-onboarding-copy";
@@ -480,36 +437,8 @@ export function renderOnboardingPanel(progress = {}, callbacks = {}, options = {
     content.append(fallback);
   }
 
-  if (task.textContent) {
-    const taskLabel = createElement(ownerDocument, "span", "empire-onboarding__task-label");
-    if (taskLabel) {
-      taskLabel.textContent = isDefeated ? "Verdikt" : (step.taskLabel || "Teď udělej");
-      task.prepend?.(taskLabel);
-    }
-    content.append(task);
-  }
-
-  mount.append(header, progressTrack, badgeRow, title);
-  if (subtitle.textContent) {
-    mount.append(subtitle);
-  }
+  mount.append(header, progressTrack, title);
   mount.append(content);
-
-  if (!isDefeated && (step.detail || step.tip || step.optionalActionHint)) {
-    const detailLabel = createElement(ownerDocument, "span", "empire-onboarding__detail-label");
-    const detailCopy = createElement(ownerDocument, "span", "empire-onboarding__detail-copy");
-    if (detailLabel && detailCopy) {
-      detailLabel.textContent = "Co si zapamatovat";
-      detailCopy.textContent = step.detail || step.tip || step.optionalActionHint || "";
-      detail.append(detailLabel, detailCopy);
-      content.append(detail);
-    }
-  }
-
-  if (!isDefeated && step.warning) {
-    warning.textContent = step.warning;
-    content.append(warning);
-  }
 
   skipButton.type = "button";
   skipButton.textContent = "Přeskočit";

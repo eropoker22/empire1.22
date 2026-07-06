@@ -101,7 +101,9 @@ function pruneClosedOverlays() {
   }
   if (previousLength > 0 && overlayStack.length === 0) {
     unlockBodyScroll(lastPrunedElement);
+    return true;
   }
+  return false;
 }
 
 export function suppressMapInput(ms = DEFAULT_GHOST_CLICK_SUPPRESSION_MS) {
@@ -209,7 +211,9 @@ export function closeOverlay(element, options = {}) {
     safeFocus(focusTarget);
   }
 
-  if (hadEntry && overlayStack.length === 0) {
+  const unlockedByPrune = pruneClosedOverlays();
+
+  if (!unlockedByPrune && hadEntry && overlayStack.length === 0) {
     unlockBodyScroll(element);
   }
 

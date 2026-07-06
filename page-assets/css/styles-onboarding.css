@@ -12,7 +12,7 @@
   --onboarding-gold: #f8d56b;
   --onboarding-text: #fff5f7;
   --onboarding-muted: rgba(225, 239, 255, 0.74);
-  --onboarding-panel-radius: 14px;
+  --onboarding-panel-radius: 12px;
   /* Empire Streets layer scale: base UI < onboarding < action/result modals < police critical < emergency. */
   --empire-z-base-ui: 1;
   --empire-z-onboarding-highlight: 9380;
@@ -891,15 +891,15 @@
   bottom: clamp(16px, 3.4vw, 36px);
   z-index: var(--onboarding-z-panel);
   display: flex;
-  width: min(392px, calc(100vw - 28px));
-  max-height: min(72vh, 620px);
+  width: min(390px, calc(100vw - 28px));
+  max-height: min(64vh, 560px);
   flex-direction: column;
   overflow: hidden;
-  padding: 14px;
+  padding: 13px;
   border: 1px solid rgba(248, 213, 107, 0.38);
   border-radius: var(--onboarding-panel-radius);
   background:
-    linear-gradient(145deg, rgba(3, 7, 14, 0.97), rgba(12, 5, 18, 0.96)),
+    linear-gradient(145deg, rgba(3, 7, 14, 0.97), rgba(10, 5, 17, 0.96)),
     radial-gradient(circle at 92% 6%, rgba(251, 54, 90, 0.2), transparent 34%),
     radial-gradient(circle at 0% 100%, rgba(68, 245, 255, 0.12), transparent 40%);
   color: var(--onboarding-text);
@@ -909,7 +909,7 @@
     0 0 26px rgba(248, 213, 107, 0.14),
     0 0 38px rgba(68, 245, 255, 0.1);
   pointer-events: auto;
-  animation: onboardingPanelIn 180ms ease-out both;
+  animation: onboardingPanelIn 160ms ease-out both;
 }
 
 .empire-onboarding::before {
@@ -917,11 +917,11 @@
   inset: 0;
   z-index: 0;
   background:
-    linear-gradient(180deg, rgba(68, 245, 255, 0.12), transparent 10%),
-    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 8px);
+    linear-gradient(180deg, rgba(68, 245, 255, 0.1), transparent 12%),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.032) 0 1px, transparent 1px 8px);
   content: "";
   mix-blend-mode: screen;
-  opacity: 0.28;
+  opacity: 0.22;
   pointer-events: none;
 }
 
@@ -930,13 +930,13 @@
   top: 0;
   left: -30%;
   z-index: 0;
-  width: 46%;
-  height: 2px;
+  width: 36%;
+  height: 1px;
   background: linear-gradient(90deg, transparent, rgba(68, 245, 255, 0.78), transparent);
   content: "";
-  opacity: 0.64;
+  opacity: 0.58;
   pointer-events: none;
-  animation: onboardingScan 4.8s ease-in-out infinite;
+  animation: onboardingScan 4.2s ease-in-out infinite;
 }
 
 .empire-onboarding[hidden] {
@@ -953,11 +953,48 @@
 }
 
 .empire-onboarding__header {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 9px;
+}
+
+.empire-onboarding__signal {
+  position: relative;
+  display: inline-grid;
+  width: 32px;
+  height: 18px;
+  border-bottom: 1px solid rgba(68, 245, 255, 0.5);
+  border-left: 1px solid rgba(248, 213, 107, 0.45);
+  opacity: 0.92;
+  pointer-events: none;
+}
+
+.empire-onboarding__signal::before,
+.empire-onboarding__signal::after {
+  position: absolute;
+  bottom: 2px;
+  width: 5px;
+  border-radius: 999px 999px 0 0;
+  background: rgba(68, 245, 255, 0.82);
+  box-shadow: 0 0 12px rgba(68, 245, 255, 0.36);
+  content: "";
+  animation: onboardingSignalPulse 1.8s ease-in-out infinite;
+}
+
+.empire-onboarding__signal::before {
+  left: 9px;
+  height: 8px;
+}
+
+.empire-onboarding__signal::after {
+  left: 19px;
+  height: 14px;
+  background: rgba(248, 213, 107, 0.86);
+  box-shadow: 0 0 12px rgba(248, 213, 107, 0.34);
+  animation-delay: 220ms;
 }
 
 .empire-onboarding__identity {
@@ -993,14 +1030,31 @@
 }
 
 .empire-onboarding__progress {
+  position: relative;
+  justify-self: end;
   min-width: 88px;
+  overflow: hidden;
   padding: 5px 8px;
-  border: 1px solid rgba(251, 54, 90, 0.38);
+  border: 1px solid rgba(248, 213, 107, 0.38);
   border-radius: 999px;
-  background: rgba(25, 4, 16, 0.9);
-  color: #ffb7c6;
+  background:
+    linear-gradient(135deg, rgba(45, 28, 7, 0.88), rgba(5, 18, 28, 0.78)),
+    rgba(5, 13, 25, 0.9);
+  color: #ffe6a3;
   text-align: center;
   white-space: nowrap;
+  box-shadow: inset 0 0 16px rgba(248, 213, 107, 0.08);
+}
+
+.empire-onboarding__progress::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  content: "";
+  opacity: 0.44;
+  pointer-events: none;
+  transform: translateX(-100%);
+  animation: onboardingProgressShimmer 3.2s ease-in-out infinite;
 }
 
 .empire-onboarding__progress-track {
@@ -1014,14 +1068,25 @@
 }
 
 .empire-onboarding__progress-fill {
+  position: relative;
   display: block;
   height: 100%;
+  overflow: hidden;
   border-radius: inherit;
   background:
-    linear-gradient(90deg, var(--onboarding-red), var(--onboarding-pink), var(--onboarding-cyan)),
-    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.54), transparent);
-  box-shadow: 0 0 18px rgba(251, 54, 90, 0.45);
-  transition: width 240ms ease;
+    linear-gradient(90deg, var(--onboarding-red), var(--onboarding-gold), var(--onboarding-green), var(--onboarding-cyan));
+  box-shadow: 0 0 16px rgba(248, 213, 107, 0.32);
+  transition: width 220ms ease;
+}
+
+.empire-onboarding__progress-fill::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.46), transparent);
+  content: "";
+  opacity: 0.5;
+  transform: translateX(-100%);
+  animation: onboardingProgressShimmer 2.6s ease-in-out infinite;
 }
 
 .empire-onboarding__badge-row {
@@ -1055,10 +1120,11 @@
 .empire-onboarding__title {
   margin: 0;
   color: #ffffff;
-  font-size: 19px;
+  font-size: 18px;
   line-height: 1.08;
   letter-spacing: 0;
   text-shadow: 0 0 18px rgba(248, 213, 107, 0.18), 0 0 16px rgba(68, 245, 255, 0.1);
+  animation: onboardingStepGlow 220ms ease-out both;
 }
 
 .empire-onboarding__subtitle {
@@ -1075,9 +1141,9 @@
 
 .empire-onboarding__content {
   min-height: 0;
-  margin-top: 10px;
-  overflow: auto;
-  padding-right: 2px;
+  margin-top: 8px;
+  overflow: visible;
+  padding-right: 0;
   scrollbar-color: rgba(251, 54, 90, 0.52) rgba(255, 255, 255, 0.06);
   scrollbar-width: thin;
 }
@@ -1085,8 +1151,8 @@
 .empire-onboarding__body,
 .empire-onboarding__task {
   margin: 0;
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.38;
   letter-spacing: 0;
 }
 
@@ -1246,10 +1312,10 @@
 
 .empire-onboarding__actions {
   display: grid;
-  grid-template-columns: minmax(96px, 0.8fr) minmax(128px, 1.2fr);
+  grid-template-columns: minmax(88px, 0.72fr) minmax(136px, 1.28fr);
   gap: 8px;
-  margin-top: 12px;
-  padding-top: 10px;
+  margin-top: 11px;
+  padding-top: 9px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   background: linear-gradient(180deg, transparent, rgba(5, 5, 12, 0.68));
 }
@@ -1259,9 +1325,9 @@
 }
 
 .empire-onboarding__button {
-  min-height: 40px;
+  min-height: 42px;
   padding: 0 11px;
-  border-radius: 9px;
+  border-radius: 8px;
   font-size: 11px;
   font-weight: 950;
   letter-spacing: 0;
@@ -1282,8 +1348,8 @@
 
 .empire-onboarding__button--ghost {
   border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(5, 13, 25, 0.9);
-  color: rgba(226, 232, 240, 0.86);
+  background: rgba(5, 13, 25, 0.62);
+  color: rgba(226, 232, 240, 0.72);
 }
 
 .empire-onboarding__button--ghost:hover,
@@ -1330,13 +1396,14 @@
 .empire-onboarding-highlight {
   position: fixed;
   z-index: var(--onboarding-z-highlight);
-  border: 1px solid rgba(248, 213, 107, 0.92);
-  border-radius: 12px;
+  border: 1px solid rgba(248, 213, 107, 0.95);
+  border-radius: 10px;
+  outline: 1px solid rgba(68, 245, 255, 0.22);
+  outline-offset: 3px;
   box-shadow:
-    0 0 0 9999px rgba(0, 0, 0, 0.18),
-    0 0 22px rgba(248, 213, 107, 0.52),
-    0 0 34px rgba(251, 54, 90, 0.22),
-    inset 0 0 20px rgba(68, 245, 255, 0.16);
+    0 0 18px rgba(248, 213, 107, 0.5),
+    0 0 28px rgba(68, 245, 255, 0.16),
+    inset 0 0 16px rgba(248, 213, 107, 0.13);
   pointer-events: none;
   animation: onboardingTargetPulse 1.55s ease-in-out infinite;
 }
@@ -1440,6 +1507,40 @@
   }
 }
 
+@keyframes onboardingSignalPulse {
+  0%,
+  100% {
+    opacity: 0.58;
+    transform: scaleY(0.82);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes onboardingProgressShimmer {
+  0%,
+  58% {
+    transform: translateX(-110%);
+  }
+
+  100% {
+    transform: translateX(110%);
+  }
+}
+
+@keyframes onboardingStepGlow {
+  from {
+    filter: drop-shadow(0 0 14px rgba(248, 213, 107, 0.28));
+  }
+
+  to {
+    filter: drop-shadow(0 0 0 rgba(248, 213, 107, 0));
+  }
+}
+
 @keyframes onboardingGlitch {
   0% {
     text-shadow: 2px 0 rgba(68, 245, 255, 0.6), -2px 0 rgba(251, 54, 90, 0.6);
@@ -1521,14 +1622,15 @@
   .empire-onboarding {
     inset: auto max(12px, env(safe-area-inset-right, 0px)) calc(72px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
     width: auto;
-    max-height: min(45dvh, calc(100dvh - 132px));
+    max-height: min(42dvh, calc(100dvh - 132px));
     padding: 12px;
     border-radius: 14px 14px 12px 12px;
     animation-name: onboardingSheetIn;
   }
 
   .empire-onboarding__content {
-    max-height: max(92px, calc(45dvh - 154px));
+    max-height: max(72px, calc(42dvh - 138px));
+    overflow: auto;
   }
 
   .empire-onboarding__actions {
@@ -1587,7 +1689,7 @@
 @media (max-width: 390px) {
   .empire-onboarding {
     inset-inline: 8px;
-    max-height: min(45dvh, calc(100dvh - 104px));
+    max-height: min(42dvh, calc(100dvh - 104px));
     padding: 12px;
   }
 
@@ -1601,15 +1703,20 @@
   }
 
   .empire-onboarding__content {
-    max-height: max(88px, calc(45dvh - 154px));
+    max-height: max(68px, calc(42dvh - 138px));
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .empire-onboarding,
   .empire-onboarding::after,
+  .empire-onboarding__signal,
+  .empire-onboarding__signal::before,
+  .empire-onboarding__signal::after,
+  .empire-onboarding__progress::after,
   .empire-onboarding__title,
   .empire-onboarding__progress-fill,
+  .empire-onboarding__progress-fill::after,
   .empire-onboarding__button,
   .empire-onboarding__button--primary,
   .empire-onboarding-highlight,

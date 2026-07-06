@@ -20,6 +20,32 @@ function isMainDistrictPopup(element) {
   return Boolean(element?.matches?.(MAIN_DISTRICT_POPUP_SELECTOR));
 }
 
+function dispatchDistrictPopupClosed(element) {
+  if (!isMainDistrictPopup(element)) {
+    return;
+  }
+
+  const documentRef = element.ownerDocument;
+  const view = documentRef?.defaultView;
+  const modalScrollLock = view?.EmpireModalScrollLock;
+  const modalStack = modalScrollLock?.debugState?.().stack || [];
+  if (modalStack.at(-1)?.type === "district_sheet") {
+    modalScrollLock?.closeTop?.("legacy district popup closed");
+  }
+  view?.EmpireGameplaySliceClient?.closeDistrictSheet?.("legacy district popup closed");
+
+  const CustomEventCtor = view?.CustomEvent;
+  if (!documentRef || typeof CustomEventCtor !== "function") {
+    return;
+  }
+
+  documentRef.dispatchEvent(new CustomEventCtor("empire:district-closed", {
+    detail: {
+      source: "legacy-district-popup"
+    }
+  }));
+}
+
 export function showDistrictPopupModal(element) {
   if (!element) {
     return false;
@@ -42,6 +68,7 @@ export function hideDistrictPopupModal(element) {
 
   element.hidden = true;
   closeOverlay(element, { restoreFocus: false });
+  dispatchDistrictPopupClosed(element);
   return true;
 }
 

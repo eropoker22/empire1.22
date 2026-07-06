@@ -338,6 +338,129 @@ describe("gameplay slice page event guard", () => {
     mounted?.destroy();
   });
 
+  it("legacy district close event zavře slice district sheet a uvolní scroll lock", async () => {
+    const load = vi.fn(async (request: LoadGameplaySliceRequest) => {
+      if (typeof request.districtId === "string") {
+        return createGameplaySliceResponseForDistrict(request.districtId);
+      }
+
+      return createGameplaySliceResponse();
+    });
+    const root = createRoot();
+    const mapButton = document.createElement("button");
+    mapButton.dataset.districtId = "district:map:1";
+    root.append(mapButton);
+    document.body.append(root);
+
+    const mounted = mountGameplaySlicePage({
+      root,
+      transport: {
+        load,
+        send: async () => createGameplaySliceResponse()
+      }
+    });
+    await flushMicrotasks();
+
+    mapButton.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, clientX: 0, clientY: 0 }));
+    mapButton.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 1, clientX: 2, clientY: 2 }));
+    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    await flushMicrotasks();
+
+    expect(isOverlayOpen()).toBe(true);
+    expect(document.body.dataset.overlayScrollLocked).toBe("true");
+
+    document.dispatchEvent(new CustomEvent("empire:district-closed", {
+      detail: {
+        source: "legacy-district-popup"
+      }
+    }));
+    await flushMicrotasks();
+
+    expect(isOverlayOpen()).toBe(false);
+    expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(document.querySelector('[data-feature="district-panel"]')).toBeNull();
+    mounted?.destroy();
+  });
+
+  it("legacy district close bridge zavře slice district sheet i bez DOM eventu", async () => {
+    const load = vi.fn(async (request: LoadGameplaySliceRequest) => {
+      if (typeof request.districtId === "string") {
+        return createGameplaySliceResponseForDistrict(request.districtId);
+      }
+
+      return createGameplaySliceResponse();
+    });
+    const root = createRoot();
+    const mapButton = document.createElement("button");
+    mapButton.dataset.districtId = "district:map:1";
+    root.append(mapButton);
+    document.body.append(root);
+
+    const mounted = mountGameplaySlicePage({
+      root,
+      transport: {
+        load,
+        send: async () => createGameplaySliceResponse()
+      }
+    });
+    await flushMicrotasks();
+
+    mapButton.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, clientX: 0, clientY: 0 }));
+    mapButton.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 1, clientX: 2, clientY: 2 }));
+    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    await flushMicrotasks();
+
+    expect(isOverlayOpen()).toBe(true);
+    expect(window.EmpireGameplaySliceClient?.closeDistrictSheet("legacy district popup closed")).toBe(true);
+    await flushMicrotasks();
+
+    expect(isOverlayOpen()).toBe(false);
+    expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(document.querySelector('[data-feature="district-panel"]')).toBeNull();
+    mounted?.destroy();
+  });
+
+  it("hidden legacy district popup mutation zavře slice district sheet", async () => {
+    const load = vi.fn(async (request: LoadGameplaySliceRequest) => {
+      if (typeof request.districtId === "string") {
+        return createGameplaySliceResponseForDistrict(request.districtId);
+      }
+
+      return createGameplaySliceResponse();
+    });
+    const legacyPopup = document.createElement("div");
+    legacyPopup.dataset.testid = "district-popup";
+    const root = createRoot();
+    const mapButton = document.createElement("button");
+    mapButton.dataset.districtId = "district:map:1";
+    root.append(mapButton);
+    document.body.append(legacyPopup, root);
+
+    const mounted = mountGameplaySlicePage({
+      root,
+      transport: {
+        load,
+        send: async () => createGameplaySliceResponse()
+      }
+    });
+    await flushMicrotasks();
+
+    mapButton.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, clientX: 0, clientY: 0 }));
+    mapButton.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 1, clientX: 2, clientY: 2 }));
+    mapButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    await flushMicrotasks();
+
+    expect(isOverlayOpen()).toBe(true);
+    legacyPopup.hidden = true;
+    await flushMicrotasks();
+
+    expect(isOverlayOpen()).toBe(false);
+    expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
+    mounted?.destroy();
+  });
+
   it("tap na jiný district při otevřeném sheetu nepřepíše obsah přes overlay", async () => {
     const load = vi.fn(async (request: LoadGameplaySliceRequest) => {
       if (typeof request.districtId === "string") {

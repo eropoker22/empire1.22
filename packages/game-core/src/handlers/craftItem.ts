@@ -19,76 +19,56 @@ export const handleCraftItem = (
   state: CoreGameState,
   command: CraftItemCommand,
   context: GameCoreContext
-): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => ({
-  nextState: (() => {
-    const errors = validateCraft(state, command, context);
+): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
+  const errors = validateCraft(state, command, context);
 
-    if (errors.length > 0) {
-      return state;
-    }
+  if (errors.length > 0) {
+    return { nextState: state, events: [], errors };
+  }
 
-    const player = state.playersById[command.playerId];
-    const building = state.buildingsById[command.payload.buildingId];
-    const craftProfile = context.config.balance.craftBuildings?.[building.buildingTypeId];
-    const recipe = craftProfile?.recipes[command.payload.recipeId];
+  const player = state.playersById[command.playerId];
+  const building = state.buildingsById[command.payload.buildingId];
+  const craftProfile = building ? context.config.balance.craftBuildings?.[building.buildingTypeId] : undefined;
+  const recipe = craftProfile?.recipes[command.payload.recipeId];
 
-    if (!player || !recipe) {
-      return state;
-    }
+  if (!player || !building || !recipe) {
+    return { nextState: state, events: [], errors: [] };
+  }
 
-    const currentResourceState = state.resourceStatesById[player.resourceStateId] ?? createPlayerResourceState(player, state.root.tick);
-    const nextBalances = {
-      ...currentResourceState.balances
-    };
+  const currentResourceState = state.resourceStatesById[player.resourceStateId] ?? createPlayerResourceState(player, state.root.tick);
+  const nextBalances = {
+    ...currentResourceState.balances
+  };
 
-    for (const [resourceKey, requiredAmount] of Object.entries(recipe.inputCosts)) {
-      nextBalances[resourceKey] = Math.max(0, Number(nextBalances[resourceKey] || 0) - requiredAmount);
-    }
+  for (const [resourceKey, requiredAmount] of Object.entries(recipe.inputCosts)) {
+    nextBalances[resourceKey] = Math.max(0, Number(nextBalances[resourceKey] || 0) - requiredAmount);
+  }
 
-    const nextPlayerResourceState: ResourceState = {
-      ...currentResourceState,
-      balances: nextBalances,
-      lastUpdatedTick: state.root.tick,
-      version: currentResourceState.version + (state.resourceStatesById[player.resourceStateId] ? 1 : 0)
-    };
-    const infrastructureMultiplier = building.buildingTypeId === "armory"
-      ? resolvePowerStationInfrastructureMultiplier({
-          state,
-          playerId: building.ownerPlayerId,
-          config: context.config.balance.powerStation,
-          tick: state.root.tick,
-          target: "armoryProductionSpeed"
-        })
-      : 1;
-    const baseDurationTicks = Math.max(1, Math.ceil(resolveCraftProcessingDurationTicks(
-      recipe.durationTicks,
-      context.config.balance.cooldownMultiplier
-    ) / infrastructureMultiplier / resolveProductionBuildingLevelMultiplier(building, context)));
-    const garageCategory = building.buildingTypeId === "armory"
-      ? "armoryProductionActions"
-      : building.buildingTypeId === "factory"
-        ? "factoryProductionActions"
-        : null;
-    const durationTicks = garageCategory
-      ? applyGarageCooldownReductionTicks({
-          baseTicks: baseDurationTicks,
-          state,
-          playerId: player.id,
-          config: context.config.balance.garage,
-          category: garageCategory
-        })
-      : baseDurationTicks;
-    const nextBuilding = {
-      ...building,
-      processing: {
-        recipeId: command.payload.recipeId,
-        startedAtTick: state.root.tick,
-        completesAtTick: state.root.tick + durationTicks
-      },
-      version: building.version + 1
-    };
+  const nextPlayerResourceState: ResourceState = {
+    ...currentResourceState,
+    balances: nextBalances,
+    lastUpdatedTick: state.root.tick,
+    version: currentResourceState.version + (state.resourceStatesById[player.resourceStateId] ? 1 : 0)
+  };
+  const durationTicks = resolveCraftDurationTicks({
+    state,
+    playerId: command.playerId,
+    building,
+    recipeDurationTicks: recipe.durationTicks,
+    context
+  });
+  const nextBuilding = {
+    ...building,
+    processing: {
+      recipeId: command.payload.recipeId,
+      startedAtTick: state.root.tick,
+      completesAtTick: state.root.tick + durationTicks
+    },
+    version: building.version + 1
+  };
 
-    return {
+  return {
+    nextState: {
       ...state,
       buildingsById: {
         ...state.buildingsById,
@@ -98,38 +78,19 @@ export const handleCraftItem = (
         ...state.resourceStatesById,
         [nextPlayerResourceState.id]: nextPlayerResourceState
       }
-    };
-  })(),
-  events: (() => {
-    const errors = validateCraft(state, command, context);
-
-    if (errors.length > 0) {
-      return [];
-    }
-
-    const building = state.buildingsById[command.payload.buildingId];
-    const recipe = context.config.balance.craftBuildings?.[building.buildingTypeId]?.recipes[command.payload.recipeId];
-
-    return recipe
-      ? [
-          createEvent(CORE_EVENT_TYPES.itemProcessingStarted, {
-            playerId: command.playerId,
-            districtId: command.payload.districtId,
-            buildingId: command.payload.buildingId,
-            recipeId: command.payload.recipeId,
-            completesAtTick: state.root.tick + resolveCraftDurationTicks({
-              state,
-              playerId: command.playerId,
-              building,
-              recipeDurationTicks: recipe.durationTicks,
-              context
-            })
-          })
-        ]
-      : [];
-  })(),
-  errors: validateCraft(state, command, context)
-});
+    },
+    events: [
+      createEvent(CORE_EVENT_TYPES.itemProcessingStarted, {
+        playerId: command.playerId,
+        districtId: command.payload.districtId,
+        buildingId: command.payload.buildingId,
+        recipeId: command.payload.recipeId,
+        completesAtTick: state.root.tick + durationTicks
+      })
+    ],
+    errors: []
+  };
+};
 
 const resolveCraftDurationTicks = (input: {
   state: CoreGameState;

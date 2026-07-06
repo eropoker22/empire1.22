@@ -138,6 +138,15 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
         );
       }
     },
+    clearDistrictSelection: () => {
+      store.patchUiState({
+        activeSidePanel: null,
+        selectedBuildingId: null,
+        selectedDistrictId: null
+      });
+      renderState = renderClientShell(store);
+      return renderState;
+    },
     selectDistrict: async (districtId: string) => {
       const request = createLoadRequestForSelectedDistrict(districtId);
 

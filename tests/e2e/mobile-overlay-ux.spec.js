@@ -66,6 +66,59 @@ async function getLockedPageScrollY(page) {
   });
 }
 
+async function getScrollLockState(page) {
+  return page.evaluate(() => ({
+    bodyDatasetLocked: document.body.dataset.overlayScrollLocked === "true",
+    bodyClassLocked: document.body.classList.contains("game-modal-scroll-locked"),
+    bodyPosition: document.body.style.position || "",
+    bodyTop: document.body.style.top || "",
+    legacyTopOverlay: (() => {
+      const top = window.EmpireLegacyOverlay?.getTopOverlay?.()?.element;
+      return top
+        ? {
+            className: String(top.className || ""),
+            hidden: Boolean(top.hidden),
+            testId: top.getAttribute("data-testid") || ""
+          }
+        : null;
+    })(),
+    modalDebug: window.EmpireModalScrollLock?.debugState?.() || null,
+    modalScrollLocked: Boolean(window.EmpireModalScrollLock?.isLocked?.(document)),
+    gameplaySliceClientKeys: Object.keys(window.EmpireGameplaySliceClient || {}),
+    gameplaySliceCloseType: typeof window.EmpireGameplaySliceClient?.closeDistrictSheet,
+    rootClassLocked: document.documentElement.classList.contains("game-modal-scroll-locked"),
+    windowScrollY: Math.round(window.scrollY || window.pageYOffset || 0)
+  }));
+}
+
+async function expectScrollLockApplied(page) {
+  let lastState = null;
+  try {
+    await expect.poll(async () => {
+      lastState = await getScrollLockState(page);
+      return lastState.bodyDatasetLocked
+        && lastState.modalScrollLocked
+        && lastState.bodyPosition === "fixed";
+    }, { timeout: 2500 }).toBe(true);
+  } catch (error) {
+    throw new Error(`${error?.message || String(error)}\nLast scroll lock state: ${JSON.stringify(lastState, null, 2)}`);
+  }
+}
+
+async function expectScrollLockReleased(page) {
+  let lastState = null;
+  try {
+    await expect.poll(async () => {
+      lastState = await getScrollLockState(page);
+      return !lastState.bodyDatasetLocked
+        && !lastState.modalScrollLocked
+        && lastState.bodyPosition !== "fixed";
+    }, { timeout: 2500 }).toBe(true);
+  } catch (error) {
+    throw new Error(`${error?.message || String(error)}\nLast scroll lock state: ${JSON.stringify(lastState, null, 2)}`);
+  }
+}
+
 async function expectPageScrollPreserved(page, expectedY, tolerance = 2) {
   await expect.poll(async () => {
     const currentY = await page.evaluate(() => Math.round(window.scrollY || window.pageYOffset || 0));
@@ -112,6 +165,7 @@ test.describe("mobile overlay UX", () => {
     await expect(page.getByTestId("district-popup")).toBeVisible();
     await expect(page.getByTestId("district-popup-card")).toHaveAttribute("role", "dialog");
     await expect(page.getByTestId("district-popup-card")).toHaveAttribute("aria-modal", "true");
+    await expectScrollLockApplied(page);
     const scrollBeforeDistrictClose = await getLockedPageScrollY(page);
     expect(Number.isFinite(scrollBeforeDistrictClose)).toBe(true);
 
@@ -119,10 +173,12 @@ test.describe("mobile overlay UX", () => {
     await expect(page.getByTestId("district-popup")).toBeHidden();
     await page.waitForTimeout(520);
     await expect(page.getByTestId("district-popup")).toBeHidden();
+    await expectScrollLockReleased(page);
     await expectPageScrollPreserved(page, scrollBeforeDistrictClose);
     await expect.poll(() => getSelectedDistrictId(page)).toBe(null);
 
     await tapDistrict(page);
+    await expectScrollLockApplied(page);
     await closeUnexpectedResultModal(page);
     const bodyScrollBefore = await page.evaluate(() => window.scrollY);
     await page.getByTestId("district-popup-card").evaluate((element) => {
@@ -136,6 +192,7 @@ test.describe("mobile overlay UX", () => {
       Boolean(window.empireStreetsDistrictState?.openAttackPanel?.(id))
     ), TEST_DISTRICT_ID)).toBe(true);
     await expect(page.getByTestId("attack-setup-modal")).toBeVisible();
+    await expectScrollLockApplied(page);
     const scrollBeforeAttackClose = await getLockedPageScrollY(page);
     expect(Number.isFinite(scrollBeforeAttackClose)).toBe(true);
 
@@ -150,12 +207,14 @@ test.describe("mobile overlay UX", () => {
     await expect(page.getByTestId("district-popup-card")).toBeVisible();
     await page.waitForTimeout(520);
     await expect(page.getByTestId("district-popup-card")).toBeVisible();
+    await expectScrollLockApplied(page);
     await expectLockedScrollPreserved(page, scrollBeforeAttackClose);
     await expect.poll(() => getSelectedDistrictId(page)).toBe(TEST_DISTRICT_ID);
 
     await tapBackdropTop(page, "district-popup-backdrop");
     await expect(page.getByTestId("district-popup")).toBeHidden();
     await page.waitForTimeout(520);
+    await expectScrollLockReleased(page);
     await expectPageScrollPreserved(page, scrollBeforeAttackClose);
     await expect.poll(() => getSelectedDistrictId(page)).toBe(null);
 
