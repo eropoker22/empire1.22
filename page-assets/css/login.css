@@ -360,8 +360,8 @@ body.login-body::after {
   max-width: none;
   border-color: rgba(0, 196, 212, 0.38);
   background:
-    linear-gradient(160deg, rgba(8, 16, 30, 0.84), rgba(3, 8, 18, 0.7)),
-    radial-gradient(circle at 100% 0, rgba(0, 196, 212, 0.12), transparent 36%);
+    linear-gradient(160deg, rgba(8, 16, 30, 0.56), rgba(3, 8, 18, 0.42)),
+    radial-gradient(circle at 100% 0, rgba(0, 196, 212, 0.1), transparent 36%);
   box-shadow:
     0 18px 48px rgba(0, 0, 0, 0.46),
     0 0 22px rgba(0, 196, 212, 0.16),
@@ -1041,9 +1041,9 @@ body.login-body::after {
   padding: 14px;
   border-color: rgba(0, 196, 212, 0.34);
   background:
-    linear-gradient(135deg, rgba(0, 196, 212, 0.08), transparent 28% 70%, rgba(244, 196, 48, 0.06)),
-    linear-gradient(180deg, rgba(10, 18, 31, 0.84), rgba(2, 7, 16, 0.76)),
-    rgba(1, 4, 10, 0.8);
+    linear-gradient(135deg, rgba(0, 196, 212, 0.07), transparent 28% 70%, rgba(244, 196, 48, 0.05)),
+    linear-gradient(180deg, rgba(10, 18, 31, 0.54), rgba(2, 7, 16, 0.42)),
+    rgba(1, 4, 10, 0.48);
   box-shadow:
     0 0 0 1px rgba(0, 196, 212, 0.08),
     0 0 24px rgba(0, 196, 212, 0.16),
@@ -1317,6 +1317,9 @@ body.login-body::after {
   text-align: center;
   overflow: hidden;
   clip-path: polygon(24px 0, calc(100% - 24px) 0, 100% 24px, 100% calc(100% - 32px), calc(100% - 44px) 100%, 44px 100%, 0 calc(100% - 32px), 0 24px);
+  background:
+    linear-gradient(145deg, rgba(8, 13, 24, 0.48), rgba(3, 7, 15, 0.3)),
+    radial-gradient(circle at 50% 0, rgba(var(--cyan-rgb), 0.08), transparent 54%);
   box-shadow:
     0 0 0 1px rgba(var(--pink-rgb), 0.32),
     0 0 30px rgba(var(--cyan-rgb), 0.28),
@@ -2278,28 +2281,34 @@ body.login-body::after {
   text-align: right;
 }
 
+@media (min-width: 841px) {
+  .mode-card--war .mode-content {
+    transform: translateY(-5px);
+  }
+}
+
 .mode-icon {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
   width: 96px;
   height: 96px;
-  border: 1px solid currentColor;
-  transform: rotate(45deg);
+  border: 0;
+  transform: none;
   font-size: 2.35rem;
 }
 
 .mode-icon > span {
   display: block;
-  transform: rotate(-45deg);
+  transform: none;
 }
 
 .mode-icon > .mode-icon__pill {
-  transform: rotate(-55deg);
+  transform: rotate(-10deg);
 }
 
 .mode-icon > .mode-icon__bullet {
-  transform: rotate(-55deg);
+  transform: rotate(-10deg);
 }
 
 .mode-icon__pill {
@@ -3379,6 +3388,76 @@ body.login-body::after {
     font-size: 0.52rem;
     line-height: 1;
   }
+}
+
+.login-terminal {
+  background:
+    radial-gradient(circle at 50% 0, rgba(var(--cyan-rgb), 0.055), transparent 56%),
+    linear-gradient(145deg, rgba(7, 12, 22, 0.22), rgba(2, 5, 12, 0.12)) !important;
+  border-color: rgba(163, 231, 255, 0.18);
+  box-shadow:
+    0 0 0 1px rgba(var(--pink-rgb), 0.16),
+    0 0 24px rgba(var(--cyan-rgb), 0.14),
+    0 0 42px rgba(var(--pink-rgb), 0.08),
+    inset 0 0 28px rgba(var(--cyan-rgb), 0.025);
+  backdrop-filter: blur(14px) saturate(1.12);
+  -webkit-backdrop-filter: blur(14px) saturate(1.12);
+}
+
+.login-terminal::before {
+  opacity: 0.08;
+}
+
+.leaderboard-panel {
+  background:
+    radial-gradient(circle at 100% 0, rgba(0, 196, 212, 0.08), transparent 38%),
+    linear-gradient(160deg, rgba(8, 16, 30, 0.36), rgba(3, 8, 18, 0.24)) !important;
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.34),
+    0 0 20px rgba(0, 196, 212, 0.12),
+    inset 0 0 24px rgba(0, 196, 212, 0.035);
+}
+
+.active-events {
+  background:
+    linear-gradient(135deg, rgba(0, 196, 212, 0.032), transparent 28% 70%, rgba(244, 196, 48, 0.026)),
+    linear-gradient(180deg, rgba(10, 18, 31, 0.22), rgba(2, 7, 16, 0.14)),
+    rgba(1, 4, 10, 0.16) !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 196, 212, 0.055),
+    0 0 18px rgba(0, 196, 212, 0.08),
+    0 18px 42px rgba(0, 0, 0, 0.28),
+    inset 0 0 22px rgba(0, 196, 212, 0.02);
+}
+
+.active-events::after {
+  opacity: 0.08;
+}
+
+.mode-card--free,
+.mode-card--war {
+  backdrop-filter: blur(18px) saturate(1.16);
+  -webkit-backdrop-filter: blur(18px) saturate(1.16);
+}
+
+.mode-card--free {
+  background:
+    radial-gradient(circle at 16% 10%, rgba(0, 196, 212, 0.085), transparent 38%),
+    linear-gradient(145deg, rgba(3, 13, 24, 0.3), rgba(1, 5, 13, 0.2)) !important;
+  box-shadow:
+    0 0 16px rgba(0, 245, 255, 0.22),
+    0 18px 34px rgba(0, 0, 0, 0.26),
+    inset 0 0 20px rgba(0, 245, 255, 0.028);
+}
+
+.mode-card--war {
+  background:
+    radial-gradient(circle at 86% 12%, rgba(244, 196, 48, 0.085), transparent 40%),
+    linear-gradient(145deg, rgba(22, 15, 6, 0.32), rgba(5, 5, 7, 0.22)) !important;
+  box-shadow:
+    0 0 16px rgba(244, 196, 48, 0.18),
+    0 18px 34px rgba(0, 0, 0, 0.26),
+    inset 0 0 20px rgba(244, 196, 48, 0.028);
 }
 
 @media (prefers-reduced-motion: reduce) {

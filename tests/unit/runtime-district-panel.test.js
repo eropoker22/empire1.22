@@ -219,6 +219,10 @@ describe("district panel rendering", () => {
     expect(list.children[1].children[0].textContent).toBe("Noční Lékárna");
     expect(list.children[1].children[1].textContent).toBe("Výroba");
     expect(list.children[1].dataset.districtBuildingKind).toBe("Výroba");
+    expect(list.children[1].dataset.districtBuildingKindType).toBe("production");
+    expect(list.children[1].classList.contains("district-popup-buildings__chip--kind-production")).toBe(true);
+    expect(list.children[1].children[1].dataset.districtBuildingKindType).toBe("production");
+    expect(list.children[1].children[1].classList.contains("district-popup-buildings__chip-kind--production")).toBe(true);
     expect(list.children[2].classList.contains("district-popup-buildings__chip--trap")).toBe(true);
     expect(list.children[2].dataset.districtBuildingTrap).toBe("active");
     expect(list.children[2].children[1].textContent).toBe("59:59");

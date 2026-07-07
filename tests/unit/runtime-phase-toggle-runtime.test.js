@@ -57,7 +57,9 @@ describe("phase toggle runtime", () => {
     expect(getGamePhaseToggleLabel({ gamePhase: "launch" })).toBe("Fáze hry: DEV-ONLY");
     expect(getGamePhaseToggleLabel({ gamePhase: "live" })).toBe("Fáze hry: LIVE");
     expect(normalizeBorderColor("bad")).toBe("white");
-    expect(getBorderColorToggleLabel("black")).toBe("Hrany: ČERNÁ");
+    expect(normalizeBorderColor("black")).toBe("black");
+    expect(normalizeBorderColor("red")).toBe("black");
+    expect(getBorderColorToggleLabel("black")).toBe("HRANY");
   });
 
   it("binds map phase as disabled authority-controlled UI", () => {
@@ -85,12 +87,15 @@ describe("phase toggle runtime", () => {
       "#border": borderToggle,
       "#phase": phaseHost
     }))).toBe(true);
-    expect(borderToggle.textContent).toBe("Hrany: BÍLÁ");
+    expect(borderToggle.textContent).toBe("HRANY");
+    expect(borderToggle.dataset.borderColor).toBe("white");
 
     borderToggle.dispatch("click");
 
     expect(phaseHost.dataset.borderColor).toBe("black");
-    expect(borderToggle.textContent).toBe("Hrany: ČERNÁ");
+    expect(borderToggle.textContent).toBe("HRANY");
+    expect(borderToggle.dataset.borderColor).toBe("black");
+    expect(borderToggle.title).toBe("Hrany districtů jsou černé");
     expect(onBorderColorChange).toHaveBeenCalledWith({
       borderColor: "black",
       mapPhaseHost: phaseHost

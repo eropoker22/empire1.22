@@ -410,7 +410,7 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
             ? launchOwnerColor
           : isDowntownDistrict
             ? "rgba(255, 71, 194, 0.96)"
-          : borderColor === "black"
+          : borderColor === "black" || borderColor === "red"
             ? "rgba(5, 8, 12, 0.92)"
           : isNight
             ? "rgba(242, 248, 255, 0.96)"

@@ -215,6 +215,7 @@ describe("page onboarding smoke", () => {
     expect(loginCssSource).toContain("linear-gradient(145deg, rgba(3, 16, 31, 0.94), rgba(1, 6, 16, 0.98))");
     expect(loginCssSource).toContain("linear-gradient(145deg, rgba(36, 24, 7, 0.95), rgba(16, 10, 4, 0.98))");
     expect(loginCssSource).toContain("width: 100%;");
+    expect(loginCssSource).toContain("@media (min-width: 841px) {\n  .mode-card--war .mode-content {\n    transform: translateY(-5px);");
     expect(loginCssSource).toContain("#register-form .field-shell");
     expect(loginCssSource).toContain("#register-form .field-shell input");
     expect(loginCssSource).toContain("#register-form .enter-city-button");

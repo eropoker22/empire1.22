@@ -1,5 +1,6 @@
 export function normalizeBorderColor(borderColor) {
-  return borderColor === "black" ? "black" : "white";
+  const color = String(borderColor || "").trim().toLowerCase();
+  return color === "black" || color === "red" ? "black" : "white";
 }
 
 export function getMapPhaseToggleLabel(phaseState = {}) {
@@ -11,7 +12,7 @@ export function getGamePhaseToggleLabel(phaseState = {}) {
 }
 
 export function getBorderColorToggleLabel(borderColor) {
-  return normalizeBorderColor(borderColor) === "black" ? "Hrany: ČERNÁ" : "Hrany: BÍLÁ";
+  return "HRANY";
 }
 
 function query(root, selector) {
@@ -50,23 +51,30 @@ export function createPhaseToggleRuntime(deps = {}) {
       const normalizedBorderColor = normalizeBorderColor(borderColor);
       mapPhaseHost.dataset.borderColor = normalizedBorderColor;
       toggleButton.textContent = getBorderColorToggleLabel(normalizedBorderColor);
+      toggleButton.dataset.borderColor = normalizedBorderColor;
+      toggleButton.setAttribute?.("aria-label", normalizedBorderColor === "black"
+        ? "Hrany districtů jsou černé"
+        : "Hrany districtů jsou bílé");
+      toggleButton.title = normalizedBorderColor === "black"
+        ? "Hrany districtů jsou černé"
+        : "Hrany districtů jsou bílé";
       return normalizedBorderColor;
     };
 
     setBorderColor(mapPhaseHost.dataset.borderColor || "white");
 
     toggleButton.addEventListener("click", () => {
-      const nextBorderColor = mapPhaseHost.dataset.borderColor === "black" ? "white" : "black";
-      setBorderColor(nextBorderColor);
+      const nextBorderColor = normalizeBorderColor(mapPhaseHost.dataset.borderColor) === "black" ? "white" : "black";
+      const normalizedBorderColor = setBorderColor(nextBorderColor);
 
       if (deps.onBorderColorChange) {
-        deps.onBorderColorChange({ borderColor: nextBorderColor, mapPhaseHost });
+        deps.onBorderColorChange({ borderColor: normalizedBorderColor, mapPhaseHost });
         return;
       }
 
       if (CustomEventCtor) {
         mapPhaseHost.dispatchEvent(new CustomEventCtor("mapborderchange", {
-          detail: { borderColor: nextBorderColor }
+          detail: { borderColor: normalizedBorderColor }
         }));
       }
     });

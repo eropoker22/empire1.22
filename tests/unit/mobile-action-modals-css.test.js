@@ -151,6 +151,13 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("width: auto;");
       expect(stylesheet).toContain("min-width: 96px;");
       expect(stylesheet).toContain("border-color: rgba(34, 197, 94, 0.56);");
+      expect(stylesheet).toContain(".district-popup-buildings__chip-kind--passive");
+      expect(stylesheet).toContain("color: rgba(226, 232, 240, 0.88);");
+      expect(stylesheet).toContain(".district-popup-buildings__chip-kind--action");
+      expect(stylesheet).toContain("color: rgba(250, 204, 21, 0.95);");
+      expect(stylesheet).toContain(".district-popup-buildings__chip-kind--production");
+      expect(stylesheet).toContain("font-size: 0.34rem;");
+      expect(stylesheet).toContain("letter-spacing: 0;");
       expect(stylesheet).toContain(".district-popup-buildings__trap-meta");
       expect(stylesheet).toContain("color: #facc15;");
     }

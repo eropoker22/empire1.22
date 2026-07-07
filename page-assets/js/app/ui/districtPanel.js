@@ -96,6 +96,28 @@ function appendBuildingEmptyMessage(listElement, text) {
   listElement.append(empty);
 }
 
+function resolveBuildingKindToken(kindLabel = "") {
+  const normalizedLabel = String(kindLabel || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (normalizedLabel.includes("spustit")) {
+    return "action";
+  }
+  if (normalizedLabel.includes("pasivni")) {
+    return "passive";
+  }
+  if (normalizedLabel.includes("vyroba")) {
+    return "production";
+  }
+
+  return normalizedLabel
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "unknown";
+}
+
 export function renderDistrictBuildingList(elements = {}, view = {}) {
   const { section, meta, list } = elements;
   if (!meta || !list) {
@@ -122,6 +144,9 @@ export function renderDistrictBuildingList(elements = {}, view = {}) {
     chip.dataset.districtBuildingName = building.name || building.displayName || "";
     chip.dataset.districtBuildingDisplayName = building.displayName || building.name || "";
     chip.dataset.districtBuildingKind = building.kindLabel || "";
+    const kindToken = resolveBuildingKindToken(building.kindLabel || "");
+    chip.dataset.districtBuildingKindType = kindToken;
+    chip.classList.add(`district-popup-buildings__chip--kind-${kindToken}`);
 
     const label = createElement(list, "span", "district-popup-buildings__chip-label");
     if (label) {
@@ -134,6 +159,8 @@ export function renderDistrictBuildingList(elements = {}, view = {}) {
     if (building.kindLabel) {
       const kind = createElement(list, "span", "district-popup-buildings__chip-kind");
       if (kind) {
+        kind.classList.add(`district-popup-buildings__chip-kind--${kindToken}`);
+        kind.dataset.districtBuildingKindType = kindToken;
         kind.textContent = building.kindLabel;
         chip.append(kind);
       }

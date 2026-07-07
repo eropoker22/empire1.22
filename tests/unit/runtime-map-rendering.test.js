@@ -288,6 +288,28 @@ describe("runtime map rendering guards", () => {
     expect(ownedFill).toBe("#ef444433");
   });
 
+  it("draws unowned district borders in black when the black edge mode is selected", () => {
+    const context = new FakeCanvasContext();
+    const canvas = new FakeCanvas(context);
+    const geometry = createDistrictGeometry(1600, 980);
+
+    renderDistrictCanvas(canvas, "day", {
+      gamePhase: "live",
+      borderColor: "black",
+      ownedDistrictIds: new Set(),
+      destroyedDistrictIds: new Set(),
+      launchOwnerByDistrictId: new Map(),
+      reducedMapEffects: true,
+      geometryCache: geometry
+    });
+
+    expect(context.calls.some(([name, meta]) => (
+      name === "stroke"
+      && meta?.strokeStyle === "rgba(5, 8, 12, 0.92)"
+      && meta?.lineWidth === 1.2
+    ))).toBe(true);
+  });
+
   it("fills a captured enemy launch district with the current player color", () => {
     const context = new FakeCanvasContext();
     const canvas = new FakeCanvas(context);

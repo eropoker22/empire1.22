@@ -2779,12 +2779,26 @@ html body.game-body .wanted-popup-card .wanted-popup-hero {
 }
 
 html body.game-body .map-phase-toolbar .map-phase-button[data-border-toggle] {
-  border-color: rgba(255, 89, 185, 0.24) !important;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
-    linear-gradient(90deg, rgba(255, 89, 185, 0.14), rgba(130, 54, 255, 0.08)),
-    rgba(18, 10, 24, 0.82) !important;
-  color: #ffd9f5 !important;
+  min-width: 42px !important;
+  border-color: rgba(255, 255, 255, 0.44) !important;
+  background: #050505 !important;
+  color: #ffffff !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.08em !important;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.22) !important;
+}
+
+html body.game-body .map-phase-toolbar .map-phase-button[data-border-toggle][data-border-color="white"] {
+  border-color: rgba(255, 255, 255, 0.48) !important;
+  background: #050505 !important;
+  color: #ffffff !important;
+}
+
+html body.game-body .map-phase-toolbar .map-phase-button[data-border-toggle][data-border-color="black"] {
+  border-color: rgba(255, 255, 255, 0.9) !important;
+  background: #ffffff !important;
+  color: #050505 !important;
+  text-shadow: none !important;
 }
 
 @media (max-width: 840px) {
