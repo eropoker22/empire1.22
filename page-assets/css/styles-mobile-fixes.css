@@ -2703,6 +2703,10 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     display: none !important;
   }
 
+  .district-building-detail-title .building-detail-title__badge.building-detail-title__badge--count {
+    display: inline-flex !important;
+  }
+
   #buildings-modal:not([hidden]) {
     position: fixed !important;
     inset: 0 !important;
@@ -5514,6 +5518,10 @@ html body .storage-popup-heading > .storage-popup-close::before {
     padding: var(--district-popup-mobile-top) 8px max(10px, env(safe-area-inset-bottom)) !important;
   }
 
+  html body.game-modal-scroll-locked .district-popup-shell[data-mobile-position="raised"]:not([hidden]) {
+    --district-popup-mobile-top: max(24px, calc(var(--mobile-topbar-offset, 72px) - 34px));
+  }
+
   html body.game-modal-scroll-locked .district-popup-shell:not([hidden]) .district-popup-card {
     max-height: calc(var(--mobile-locked-vh, 100svh) - var(--district-popup-mobile-top, max(20px, env(safe-area-inset-top))) - max(20px, env(safe-area-inset-bottom))) !important;
   }
@@ -5583,6 +5591,10 @@ html body .storage-popup-heading > .storage-popup-close::before {
     pointer-events: auto !important;
     touch-action: pan-y !important;
     overscroll-behavior: auto !important;
+  }
+
+  html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup][data-mobile-position="raised"]:not([hidden]) {
+    --district-popup-mobile-top: max(24px, calc(var(--mobile-topbar-offset, 72px) - 34px));
   }
 
   html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup]:not([hidden]) > .district-popup-backdrop {
@@ -6411,9 +6423,15 @@ html body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle--with
   html body.game-modal-scroll-locked .district-popup-shell:not([hidden]),
   html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup]:not([hidden]) {
     --district-popup-mobile-lower-top: clamp(96px, 24svh, 172px);
+    --district-popup-mobile-raised-top: max(24px, calc(var(--mobile-topbar-offset, 72px) - 34px));
     --district-popup-mobile-lower-bottom: max(8px, env(safe-area-inset-bottom));
     align-items: flex-start !important;
     padding: var(--district-popup-mobile-lower-top) 8px var(--district-popup-mobile-lower-bottom) !important;
+  }
+
+  html body.game-modal-scroll-locked .district-popup-shell[data-mobile-position="raised"]:not([hidden]),
+  html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup][data-mobile-position="raised"]:not([hidden]) {
+    padding-top: var(--district-popup-mobile-raised-top) !important;
   }
 
   html body.game-modal-scroll-locked .district-popup-shell:not([hidden]) .district-popup-card,
@@ -6421,6 +6439,12 @@ html body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle--with
     max-height: calc(var(--mobile-locked-vh, 100svh) - var(--district-popup-mobile-lower-top) - var(--district-popup-mobile-lower-bottom)) !important;
     margin: 0 auto !important;
   }
+
+  html body.game-modal-scroll-locked .district-popup-shell[data-mobile-position="raised"]:not([hidden]) .district-popup-card,
+  html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup][data-mobile-position="raised"]:not([hidden]) .district-popup-card {
+    max-height: calc(var(--mobile-locked-vh, 100svh) - var(--district-popup-mobile-raised-top) - var(--district-popup-mobile-lower-bottom)) !important;
+  }
+
 
   html body.game-modal-scroll-locked .district-popup-shell[data-overview-enabled="true"]:not([hidden]),
   html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup][data-overview-enabled="true"]:not([hidden]) {
@@ -6636,5 +6660,382 @@ html body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle--with
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: none !important;
+  }
+}
+
+/* Final mobile district action window topbar guard. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body {
+    --district-window-safe-top: calc(var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) + 8px);
+    --district-window-safe-bottom: max(8px, env(safe-area-inset-bottom));
+    --district-window-safe-height: calc(var(--mobile-locked-vh, 100svh) - var(--district-window-safe-top) - var(--district-window-safe-bottom));
+  }
+
+  html body.game-modal-scroll-locked .district-popup-shell[data-district-popup]:not([hidden]),
+  html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup]:not([hidden]),
+  html body.game-modal-scroll-locked .attack-setup-popup-shell:not([hidden]),
+  html body.game-modal-scroll-locked .robbery-setup-popup-shell:not([hidden]),
+  html body.game-modal-scroll-locked .defense-setup-popup-shell:not([hidden]),
+  html body.game-modal-scroll-locked #attack-confirm-modal:not(.hidden):not([hidden]),
+  html body.game-modal-scroll-locked #raid-confirm-modal:not(.hidden):not([hidden]),
+  html body.game-modal-scroll-locked #trap-confirm-modal:not(.hidden):not([hidden]),
+  html body.game-modal-scroll-locked #spy-confirm-modal:not(.hidden):not([hidden]),
+  html body.game-modal-scroll-locked #occupy-confirm-modal:not(.hidden):not([hidden]),
+  html body #spy-result-modal:not(.hidden):not([hidden]),
+  html body #spy-warning-modal:not(.hidden):not([hidden]),
+  html body #raid-result-modal:not(.hidden):not([hidden]),
+  html body #attack-result-modal:not(.hidden):not([hidden]),
+  html body #police-action-result-modal:not(.hidden):not([hidden]) {
+    position: fixed !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    width: 100vw !important;
+    height: var(--mobile-locked-vh, 100svh) !important;
+    min-height: 0 !important;
+    padding: var(--district-window-safe-top) 8px var(--district-window-safe-bottom) !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  html body.game-modal-scroll-locked .district-popup-shell[data-mobile-position="raised"]:not([hidden]),
+  html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup][data-mobile-position="raised"]:not([hidden]),
+  html body.game-modal-scroll-locked .district-popup-shell[data-overview-enabled="true"]:not([hidden]),
+  html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup][data-overview-enabled="true"]:not([hidden]) {
+    padding-top: var(--district-window-safe-top) !important;
+  }
+
+  html body.game-modal-scroll-locked .district-popup-shell[data-district-popup]:not([hidden]) .district-popup-card,
+  html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup]:not([hidden]) .district-popup-card,
+  html body.game-modal-scroll-locked .attack-setup-popup-shell:not([hidden]) .attack-setup-popup-card,
+  html body.game-modal-scroll-locked .robbery-setup-popup-shell:not([hidden]) .robbery-setup-popup-card,
+  html body.game-modal-scroll-locked .defense-setup-popup-shell:not([hidden]) .defense-setup-popup-card,
+  html body.game-modal-scroll-locked #attack-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+  html body.game-modal-scroll-locked #raid-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+  html body.game-modal-scroll-locked #trap-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+  html body.game-modal-scroll-locked #spy-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+  html body.game-modal-scroll-locked #occupy-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+  html body #spy-result-modal:not(.hidden):not([hidden]) .modal__content,
+  html body #spy-warning-modal:not(.hidden):not([hidden]) .modal__content,
+  html body #raid-result-modal:not(.hidden):not([hidden]) .modal__content,
+  html body #attack-result-modal:not(.hidden):not([hidden]) .modal__content,
+  html body #police-action-result-modal:not(.hidden):not([hidden]) .modal__content {
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    transform: none !important;
+    max-height: var(--district-window-safe-height) !important;
+    margin: 0 auto !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* Final mobile occupy confirmation resource bar visibility guard. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    z-index: 24050 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar {
+    display: block !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    display: grid !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > *,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > * {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+}
+
+/* Final mobile trap confirmation resource bar visibility guard. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    z-index: 24050 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar {
+    display: block !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    display: grid !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > *,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > * {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+}
+
+/* Final mobile robbery confirmation resource bar visibility guard. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body {
+    --robbery-confirm-window-safe-top: calc(var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) + 8px);
+    --robbery-confirm-window-safe-bottom: max(8px, env(safe-area-inset-bottom));
+    --robbery-confirm-window-safe-height: calc(var(--mobile-locked-vh, 100svh) - var(--robbery-confirm-window-safe-top) - var(--robbery-confirm-window-safe-bottom));
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    z-index: 24050 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar {
+    display: block !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    display: grid !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > *,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > * {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+
+  html body #raid-confirm-modal:not(.hidden):not([hidden]),
+  html body.game-modal-scroll-locked #raid-confirm-modal:not(.hidden):not([hidden]) {
+    position: fixed !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    width: 100vw !important;
+    height: var(--mobile-locked-vh, 100svh) !important;
+    min-height: 0 !important;
+    padding: var(--robbery-confirm-window-safe-top) 8px var(--robbery-confirm-window-safe-bottom) !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  html body #raid-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+  html body.game-modal-scroll-locked #raid-confirm-modal:not(.hidden):not([hidden]) .modal__content {
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    transform: none !important;
+    width: min(620px, calc(100vw - 28px)) !important;
+    max-height: var(--robbery-confirm-window-safe-height) !important;
+    margin: 0 auto !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* Final mobile district owner avatar lightbox top-layer guard. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-modal-scroll-locked #alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden) {
+    z-index: 26000 !important;
+    background: transparent !important;
+    pointer-events: auto !important;
+  }
+
+  html body.game-body:has(#alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden)) .game-topbar,
+  html body.game-body:has(#alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden)) .game-resource-strip {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  html body.game-modal-scroll-locked #alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden) .avatar-lightbox__backdrop {
+    background: rgba(1, 5, 12, 0.22) !important;
+    backdrop-filter: blur(8px) saturate(126%) !important;
+    -webkit-backdrop-filter: blur(8px) saturate(126%) !important;
+  }
+
+  html body.game-modal-scroll-locked #alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden) .avatar-lightbox__content {
+    width: min(430px, calc(100vw - 16px)) !important;
+    max-height: min(82svh, 620px) !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    position: relative !important;
+    border-color: rgba(var(--district-accent-rgb), 0.34) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)),
+      rgba(3, 8, 16, 0.1) !important;
+  }
+
+  html body.game-modal-scroll-locked #alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden) .avatar-lightbox__content img {
+    width: 100% !important;
+    height: min(78svh, 560px) !important;
+    max-height: min(78svh, 560px) !important;
+    object-fit: cover !important;
+    object-position: center top !important;
+  }
+
+  html body.game-modal-scroll-locked #alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden) .avatar-lightbox__caption {
+    position: absolute !important;
+    top: 12px !important;
+    left: 12px !important;
+    right: auto !important;
+    bottom: auto !important;
+    display: inline-flex !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-width: calc(100% - 68px) !important;
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+  }
+
+  html body.game-modal-scroll-locked #alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden) .avatar-lightbox__legend-bio {
+    display: none !important;
+  }
+
+  html body.game-modal-scroll-locked #alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden) .avatar-lightbox__legend-name {
+    display: inline-block !important;
+    max-height: 1em !important;
+    padding: 0 6px !important;
+    border-radius: 5px !important;
+    background: rgba(0, 0, 0, 0.62) !important;
+    line-height: 0.82 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+  }
+}
+
+/* Absolute final mobile robbery confirmation placement guard. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body {
+    --robbery-confirm-window-safe-top-final: calc(max(var(--mobile-overlay-top-offset, 0px), var(--mobile-topbar-offset, 72px)) + 10px);
+    --robbery-confirm-window-safe-bottom-final: max(8px, env(safe-area-inset-bottom));
+    --robbery-confirm-window-safe-height-final: calc(var(--mobile-locked-vh, 100svh) - var(--robbery-confirm-window-safe-top-final) - var(--robbery-confirm-window-safe-bottom-final));
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    z-index: 25050 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar {
+    display: block !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    display: grid !important;
+  }
+
+  html body #raid-confirm-modal:not(.hidden):not([hidden]),
+  html body.game-modal-scroll-locked #raid-confirm-modal:not(.hidden):not([hidden]) {
+    position: fixed !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    width: 100vw !important;
+    height: var(--mobile-locked-vh, 100svh) !important;
+    min-height: 0 !important;
+    padding: var(--robbery-confirm-window-safe-top-final) 8px var(--robbery-confirm-window-safe-bottom-final) !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  html body #raid-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+  html body.game-modal-scroll-locked #raid-confirm-modal:not(.hidden):not([hidden]) .modal__content {
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+    width: min(620px, calc(100vw - 28px)) !important;
+    max-height: var(--robbery-confirm-window-safe-height-final) !important;
+    margin: 0 auto !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
   }
 }

@@ -9,6 +9,50 @@ export function getDistrictZoneLabel(district = {}, options = {}) {
   return meta?.shortLabel || meta?.label || typeKey || "District";
 }
 
+function normalizeDistrictIdSet(value) {
+  if (value instanceof Set) {
+    return new Set(Array.from(value).map(Number).filter(Boolean));
+  }
+  return new Set(Array.isArray(value) ? value.map(Number).filter(Boolean) : []);
+}
+
+export function isDistrictTypeKnown(district = {}, state = {}, options = {}) {
+  const districtId = Number(district?.id || 0);
+  if (!districtId) {
+    return false;
+  }
+
+  if (typeof options.isDistrictTypeKnown === "function") {
+    return Boolean(options.isDistrictTypeKnown(district, state));
+  }
+
+  if (typeof options.isDistrictTypeKnown === "boolean") {
+    return options.isDistrictTypeKnown;
+  }
+
+  const destroyedDistrictIds = normalizeDistrictIdSet(state?.destroyedDistrictIds);
+  if (destroyedDistrictIds.has(districtId)) {
+    return true;
+  }
+
+  const ownedDistrictIds = normalizeDistrictIdSet(state?.ownedDistrictIds);
+  if (ownedDistrictIds.has(districtId)) {
+    return true;
+  }
+
+  const launchOwnerId = state?.launchOwnerByDistrictId?.get?.(districtId);
+  if (launchOwnerId && Number(launchOwnerId) === Number(options.currentPlayerId)) {
+    return true;
+  }
+
+  const revealedTypeDistrictIds = normalizeDistrictIdSet(
+    options.spyIntel?.revealedTypeDistrictIds
+      || state?.spyIntel?.revealedTypeDistrictIds
+      || state?.missions?.spyIntel?.revealedTypeDistrictIds
+  );
+  return revealedTypeDistrictIds.has(districtId);
+}
+
 export function getDistrictOwnerLabel(district = {}, state = {}, options = {}) {
   const districtId = Number(district?.id || 0);
   const destroyedDistrictIds = state.destroyedDistrictIds instanceof Set
@@ -51,17 +95,22 @@ export function getDistrictFallbacks(district = {}) {
 export function buildDistrictOwnerViewModel(district = {}, state = {}, options = {}) {
   const safeState = state || {};
   const districtId = Number(district?.id || 0);
-  const launchOwnerId = safeState.gamePhase === "launch" ? safeState.launchOwnerByDistrictId?.get?.(districtId) : null;
+  const launchOwnerId = safeState.gamePhase === "launch" || safeState.gamePhase === "live"
+    ? safeState.launchOwnerByDistrictId?.get?.(districtId)
+    : null;
+  const ownedDistrictIds = normalizeDistrictIdSet(safeState.ownedDistrictIds);
+  const ownedByCurrentPlayer = ownedDistrictIds.has(districtId);
+  const resolvedOwnerId = launchOwnerId || (ownedByCurrentPlayer ? options.currentPlayerId : null);
   const ownerLabel = getDistrictOwnerLabel(district, safeState, options);
-  const isCurrentPlayer = Number(launchOwnerId) === Number(options.currentPlayerId);
+  const isCurrentPlayer = Number(resolvedOwnerId) === Number(options.currentPlayerId);
   return {
     ownerLabel,
-    launchOwnerId: launchOwnerId || null,
-    ownerAvatarSrc: launchOwnerId && typeof options.getLaunchPlayerAvatar === "function"
-      ? options.getLaunchPlayerAvatar(launchOwnerId)
+    launchOwnerId: resolvedOwnerId || null,
+    ownerAvatarSrc: resolvedOwnerId && typeof options.getLaunchPlayerAvatar === "function"
+      ? options.getLaunchPlayerAvatar(resolvedOwnerId)
       : "",
-    ownerFactionId: launchOwnerId && typeof options.getLaunchPlayerFactionId === "function"
-      ? options.getLaunchPlayerFactionId(launchOwnerId)
+    ownerFactionId: resolvedOwnerId && typeof options.getLaunchPlayerFactionId === "function"
+      ? options.getLaunchPlayerFactionId(resolvedOwnerId)
       : null,
     isCurrentPlayer
   };
@@ -86,6 +135,9 @@ export function buildSelectedDistrictSummaryViewModel(district = {}, state = {},
   const isDestroyed = destroyedDistrictIds.has(districtId);
   const atmosphereMeta = options.atmosphereMeta || {};
   const ownerView = buildDistrictOwnerViewModel(district, state, options);
+  const isTypeKnown = isDistrictTypeKnown(district, state, options);
+  const hasPlayerOwner = Boolean(ownerView.launchOwnerId);
+  const isOwnerAvatarHidden = !isDestroyed && !hasPlayerOwner && !isTypeKnown;
   const factionCatalog = options.factionCatalog || {};
   const ownerFactionLabel = ownerView.ownerFactionId && factionCatalog[ownerView.ownerFactionId]
     ? factionCatalog[ownerView.ownerFactionId].name
@@ -93,17 +145,22 @@ export function buildSelectedDistrictSummaryViewModel(district = {}, state = {},
 
   return {
     title: getDistrictDisplayName(district),
-    typeLabel: isDestroyed ? "Totálně zničený district" : (atmosphereMeta.shortLabel || getDistrictZoneLabel(district, options)),
+    typeLabel: isDestroyed
+      ? "Totálně zničený district"
+      : isTypeKnown
+        ? (atmosphereMeta.shortLabel || getDistrictZoneLabel(district, options))
+        : "Neznámý sektor",
     ownerLabel: isDestroyed ? "Nikdo" : ownerView.ownerLabel,
     ownerMeta: isDestroyed
       ? "Nikdo (zničený) · district je nepoužitelný"
       : ownerView.launchOwnerId
         ? `${ownerFactionLabel} · ${ownerView.isCurrentPlayer ? "Tvůj profil" : `Hráč ${ownerView.launchOwnerId}`}`
         : "Bez aktivního vlastníka",
-    ownerAvatarSrc: isDestroyed ? "" : ownerView.ownerAvatarSrc,
-    ownerAvatarEmpty: isDestroyed || !ownerView.ownerAvatarSrc,
-    ownerFallback: isDestroyed ? "×" : ownerView.ownerLabel,
-    ownerAvatarBackgroundUrl: !isDestroyed && ownerView.ownerAvatarSrc ? ownerView.ownerAvatarSrc : ""
+    ownerAvatarSrc: isDestroyed || isOwnerAvatarHidden ? "" : ownerView.ownerAvatarSrc,
+    ownerAvatarEmpty: isDestroyed || isOwnerAvatarHidden || !ownerView.ownerAvatarSrc,
+    ownerAvatarHidden: isOwnerAvatarHidden,
+    ownerFallback: isDestroyed ? "×" : "",
+    ownerAvatarBackgroundUrl: !isDestroyed && !isOwnerAvatarHidden && ownerView.ownerAvatarSrc ? ownerView.ownerAvatarSrc : ""
   };
 }
 

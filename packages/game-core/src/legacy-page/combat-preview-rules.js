@@ -352,7 +352,7 @@ export function createRobberySetupPreview({ districtType = "park", districtId = 
 
   return {
     zoneKey,
-    zoneLabel: config.label,
+    zoneLabel: scoutReportActive ? config.label : "Neznámý sektor",
     recommendedMin: config.recommendedMin,
     recommendedMax: config.recommendedMax,
     recommendationLabel: `${config.recommendedMin}-${config.recommendedMax}`,

@@ -5670,8 +5670,12 @@
 }
 
 .district-building-detail-card .modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   min-height: 58px;
-  padding: 13px 58px 13px 15px;
+  padding: 13px 12px 13px 15px;
   border-bottom: 1px solid rgba(var(--building-window-accent-rgb), 0.34);
   background:
     linear-gradient(90deg, rgba(var(--building-window-accent-rgb), 0.17), transparent 46%),
@@ -5679,13 +5683,21 @@
 }
 
 .district-building-detail-title {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
   gap: 9px;
+  min-width: 0;
   color: #f8fbff;
   font-weight: 850;
   letter-spacing: 0;
 }
 
 .district-building-detail-title > [data-district-building-detail-title] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-shadow:
     0 0 14px rgba(var(--building-window-accent-rgb), 0.3),
     0 1px 0 rgba(0, 0, 0, 0.34);
@@ -5702,6 +5714,39 @@
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.035),
     0 0 14px rgba(var(--building-window-accent-rgb), 0.16);
+}
+
+.district-building-detail-header-tools {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  gap: 7px;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.district-building-detail-header-tools .building-detail-header-level {
+  margin: 0 !important;
+}
+
+.district-building-detail-card .district-building-detail-header-tools .building-detail-title__action-btn,
+.district-building-detail-card .district-building-detail-header-tools .modal__close {
+  position: static !important;
+  top: auto !important;
+  right: auto !important;
+  left: auto !important;
+  flex: 0 0 auto;
+  margin: 0 !important;
+  transform: none !important;
+}
+
+.district-building-detail-card .district-building-detail-header-tools .building-detail-title__action-btn {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
 }
 
 .district-building-detail-card .modal__close {
@@ -5763,6 +5808,29 @@
     height: 34px;
     min-height: 34px;
     z-index: 5;
+  }
+}
+
+@media (max-width: 640px) {
+  .district-building-detail-card .modal__header {
+    gap: 8px;
+    padding: 10px 8px 10px 10px;
+  }
+
+  .district-building-detail-title {
+    gap: 6px;
+  }
+
+  .district-building-detail-header-tools {
+    gap: 5px;
+  }
+
+  .district-building-detail-card .district-building-detail-header-tools .building-detail-title__action-btn,
+  .district-building-detail-card .district-building-detail-header-tools .modal__close {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    min-height: 28px;
   }
 }
 
@@ -6351,22 +6419,22 @@
 }
 
 .district-building-detail-effect-cell[data-effect-tone="population"] {
-  border-color: rgba(251, 146, 60, 0.28);
+  border-color: rgba(134, 239, 172, 0.36);
   background:
-    linear-gradient(135deg, rgba(251, 146, 60, 0.2), rgba(154, 52, 18, 0.24)),
-    rgba(24, 10, 5, 0.52);
+    linear-gradient(135deg, rgba(187, 247, 208, 0.22), rgba(21, 128, 61, 0.24)),
+    rgba(6, 28, 18, 0.52);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 0 0 1px rgba(251, 146, 60, 0.07),
-    0 0 18px rgba(251, 146, 60, 0.14),
+    0 0 0 1px rgba(134, 239, 172, 0.07),
+    0 0 18px rgba(74, 222, 128, 0.14),
     0 10px 20px rgba(2, 6, 23, 0.18);
 }
 
 .district-building-detail-effect-cell[data-effect-tone="population"] strong {
-  color: #ffedd5;
+  color: #dcfce7;
   text-shadow:
-    0 0 10px rgba(251, 146, 60, 0.22),
-    0 0 18px rgba(249, 115, 22, 0.1);
+    0 0 10px rgba(134, 239, 172, 0.32),
+    0 0 18px rgba(74, 222, 128, 0.12);
 }
 
 .district-building-detail-effect-cell[data-effect-tone="housing"] {
@@ -6405,6 +6473,15 @@
   text-shadow:
     0 0 10px rgba(226, 232, 240, 0.2),
     0 0 18px rgba(148, 163, 184, 0.12);
+}
+
+.district-building-detail-shell[data-building-mechanics-type="apartment-block"] .district-building-detail-card .building-info-card__effects {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  margin-top: 78px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .district-building-detail-mechanic-row span,
@@ -6523,7 +6600,7 @@
 
   .district-building-detail-shell[data-building-mechanics-type="apartment-block"] .district-building-detail-card .building-info-card__effects {
     gap: 5px;
-    margin-top: 0;
+    margin-top: 38px !important;
   }
 
   .district-building-detail-shell[data-building-mechanics-type="apartment-block"] .district-building-detail-card .district-building-detail-effect-cell {

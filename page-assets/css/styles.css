@@ -76,6 +76,133 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
   border-style: solid !important;
 }
 
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full:hover,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full:focus-visible {
+  position: relative !important;
+  overflow: hidden !important;
+  isolation: isolate !important;
+  border-color: var(--buildings-type-border-hover, rgba(34, 211, 238, 0.72)) !important;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)) 34%, transparent), transparent 62%),
+    linear-gradient(180deg, color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.2)) 74%, rgba(255, 255, 255, 0.006)), rgba(255, 255, 255, 0.006)),
+    linear-gradient(90deg, color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.18)) 100%, transparent), rgba(2, 6, 13, 0.98)) !important;
+  box-shadow:
+    inset 2px 0 0 var(--buildings-type-border-hover, rgba(34, 211, 238, 0.72)),
+    inset 0 0 18px color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.3)) 86%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.72)) 28%, transparent),
+    0 0 18px color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.28)) 100%, transparent),
+    0 8px 18px rgba(0, 0, 0, 0.24) !important;
+  animation: buildings-apartment-full-pulse 2.4s ease-in-out infinite !important;
+}
+
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full > * {
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full > span:first-child,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full > span:nth-child(2) {
+  color: #ffffff !important;
+  text-shadow:
+    0 0 8px var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)),
+    0 0 18px var(--buildings-type-glow, rgba(34, 211, 238, 0.32)) !important;
+  animation: buildings-apartment-full-text-blink 2.4s ease-in-out infinite !important;
+}
+
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full::before {
+  background: var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)) !important;
+  box-shadow:
+    0 0 12px var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)),
+    0 0 24px var(--buildings-type-glow, rgba(34, 211, 238, 0.32)) !important;
+  z-index: 3 !important;
+}
+
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 1 !important;
+  pointer-events: none !important;
+  background:
+    radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.8)) 58%, transparent), transparent 58%),
+    linear-gradient(180deg, color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.4)) 70%, transparent), transparent),
+    color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.28)) 48%, transparent) !important;
+  border-radius: inherit !important;
+  box-shadow:
+    inset 0 0 20px color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)) 38%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)) 28%, transparent);
+  opacity: 0.08;
+  animation: buildings-apartment-full-cell-blink 2.4s ease-in-out infinite !important;
+}
+
+@keyframes buildings-apartment-full-pulse {
+  0%,
+  100% {
+    border-color: color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.72)) 54%, transparent);
+    background:
+      radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)) 18%, transparent), transparent 62%),
+      linear-gradient(180deg, color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.2)) 44%, rgba(255, 255, 255, 0.006)), rgba(255, 255, 255, 0.006)),
+      linear-gradient(90deg, color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.18)) 62%, transparent), rgba(2, 6, 13, 0.98));
+    box-shadow:
+      inset 2px 0 0 color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.72)) 58%, transparent),
+      inset 0 0 8px color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.22)) 42%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.72)) 10%, transparent),
+      0 0 8px color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.22)) 48%, transparent),
+      0 8px 18px rgba(0, 0, 0, 0.24);
+  }
+
+  50% {
+    border-color: var(--buildings-type-border-hover, rgba(34, 211, 238, 0.9));
+    background:
+      radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)) 58%, transparent), transparent 68%),
+      linear-gradient(180deg, color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.2)) 100%, rgba(255, 255, 255, 0.012)), rgba(255, 255, 255, 0.012)),
+      linear-gradient(90deg, color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.18)) 100%, transparent), rgba(2, 6, 13, 0.98));
+    box-shadow:
+      inset 2px 0 0 var(--buildings-type-border-hover, rgba(34, 211, 238, 0.9)),
+      inset 0 0 26px color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.48)) 100%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.9)) 38%, transparent),
+      0 0 28px color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.48)) 100%, transparent),
+      0 8px 18px rgba(0, 0, 0, 0.24);
+  }
+}
+
+@keyframes buildings-apartment-full-cell-blink {
+  0%,
+  100% {
+    opacity: 0.08;
+    box-shadow:
+      inset 0 0 10px color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)) 22%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)) 18%, transparent);
+  }
+
+  50% {
+    opacity: 0.72;
+    box-shadow:
+      inset 0 0 34px color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)) 64%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)) 52%, transparent),
+      0 0 26px color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.4)) 100%, transparent);
+  }
+}
+
+@keyframes buildings-apartment-full-text-blink {
+  0%,
+  100% {
+    opacity: 0.82;
+    text-shadow:
+      0 0 4px color-mix(in srgb, var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)) 55%, transparent),
+      0 0 10px color-mix(in srgb, var(--buildings-type-glow, rgba(34, 211, 238, 0.32)) 60%, transparent);
+  }
+
+  50% {
+    opacity: 1;
+    text-shadow:
+      0 0 10px var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)),
+      0 0 24px var(--buildings-type-glow, rgba(34, 211, 238, 0.32)),
+      0 0 34px var(--buildings-type-glow, rgba(34, 211, 238, 0.26));
+  }
+}
+
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building-grid--names {
   grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)) !important;
   gap: 6px !important;
@@ -3974,6 +4101,172 @@ html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__action-
   }
 }
 
+/* Final mobile occupy confirmation resource bar visibility guard. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    z-index: 24050 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar {
+    display: block !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    display: grid !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > *,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > * {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+}
+
+/* Final mobile trap confirmation resource bar visibility guard. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    z-index: 24050 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar {
+    display: block !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    display: grid !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > *,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > * {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+}
+
+/* Final mobile robbery confirmation resource bar visibility guard. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body {
+    --robbery-confirm-window-safe-top: calc(var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) + 8px);
+    --robbery-confirm-window-safe-bottom: max(8px, env(safe-area-inset-bottom));
+    --robbery-confirm-window-safe-height: calc(var(--mobile-locked-vh, 100svh) - var(--robbery-confirm-window-safe-top) - var(--robbery-confirm-window-safe-bottom));
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    z-index: 24050 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar {
+    display: block !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    display: grid !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > *,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > * {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+
+  html body #raid-confirm-modal:not(.hidden):not([hidden]),
+  html body.game-modal-scroll-locked #raid-confirm-modal:not(.hidden):not([hidden]) {
+    position: fixed !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    width: 100vw !important;
+    height: var(--mobile-locked-vh, 100svh) !important;
+    min-height: 0 !important;
+    padding: var(--robbery-confirm-window-safe-top) 8px var(--robbery-confirm-window-safe-bottom) !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  html body #raid-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+  html body.game-modal-scroll-locked #raid-confirm-modal:not(.hidden):not([hidden]) .modal__content {
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    transform: none !important;
+    width: min(620px, calc(100vw - 28px)) !important;
+    max-height: var(--robbery-confirm-window-safe-height) !important;
+    margin: 0 auto !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+  }
+}
+
 /* Final mobile police raid impact topbar visibility guard. */
 @media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
   html body.game-body.game-modal-scroll-locked:has(#police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert) #game-header,
@@ -4341,5 +4634,146 @@ html body.game-body :is(
     #event-detail-modal:not(.hidden):not([hidden])
   )) .district-popup-shell[data-district-popup]:not([hidden]) {
     z-index: 22000 !important;
+  }
+}
+
+/* Absolute final mobile robbery confirmation placement guard. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body {
+    --robbery-confirm-window-safe-top-final: calc(max(var(--mobile-overlay-top-offset, 0px), var(--mobile-topbar-offset, 72px)) + 10px);
+    --robbery-confirm-window-safe-bottom-final: max(8px, env(safe-area-inset-bottom));
+    --robbery-confirm-window-safe-height-final: calc(var(--mobile-locked-vh, 100svh) - var(--robbery-confirm-window-safe-top-final) - var(--robbery-confirm-window-safe-bottom-final));
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    z-index: 25050 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar {
+    display: block !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    display: grid !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > *,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > * {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+
+  html body #raid-confirm-modal:not(.hidden):not([hidden]),
+  html body.game-modal-scroll-locked #raid-confirm-modal:not(.hidden):not([hidden]) {
+    position: fixed !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    width: 100vw !important;
+    height: var(--mobile-locked-vh, 100svh) !important;
+    min-height: 0 !important;
+    padding: var(--robbery-confirm-window-safe-top-final) 8px var(--robbery-confirm-window-safe-bottom-final) !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  html body #raid-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+  html body.game-modal-scroll-locked #raid-confirm-modal:not(.hidden):not([hidden]) .modal__content {
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+    width: min(620px, calc(100vw - 28px)) !important;
+    max-height: var(--robbery-confirm-window-safe-height-final) !important;
+    margin: 0 auto !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* Final desktop modal topbar content guard. */
+@media (min-width: 721px) {
+  html.game-modal-scroll-locked body.game-body::before {
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked > .game-topbar,
+  html body.game-body.alliance-modal-open > .game-topbar {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    z-index: 26050 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked > .game-shell,
+  html body.game-body.alliance-modal-open > .game-shell {
+    padding-top: var(--modal-topbar-reserve, 52px) !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked .game-topbar-inner,
+  html body.game-body.alliance-modal-open .game-topbar-inner {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked .game-topbar-controls,
+  html body.game-body.alliance-modal-open .game-topbar-controls,
+  html body.game-body.game-modal-scroll-locked .game-resource-strip,
+  html body.game-body.alliance-modal-open .game-resource-strip {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked .game-resource-strip > .resource-pill,
+  html body.game-body.alliance-modal-open .game-resource-strip > .resource-pill {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked .game-resource-strip > .game-toolbar-button,
+  html body.game-body.alliance-modal-open .game-resource-strip > .game-toolbar-button {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: none !important;
   }
 }

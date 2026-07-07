@@ -4,6 +4,50 @@ function setText(element, value) {
   }
 }
 
+function getAvatarWrap(ownerAvatar) {
+  return ownerAvatar?.parentElement || ownerAvatar?.parentNode || null;
+}
+
+function setAvatarWrapClickable(ownerAvatar, viewModel = {}) {
+  const wrap = getAvatarWrap(ownerAvatar);
+  if (!wrap) {
+    return;
+  }
+
+  const avatarSrc = String(viewModel.ownerAvatarSrc || "").trim();
+  const canOpenAvatar = Boolean(avatarSrc);
+  wrap.classList?.toggle?.("is-clickable", canOpenAvatar);
+  wrap.classList?.toggle?.("is-owner-hidden", Boolean(viewModel.ownerAvatarHidden));
+  wrap.dataset.districtOwnerAvatarOpen = canOpenAvatar ? "true" : "false";
+  wrap.dataset.districtOwnerAvatarSrc = canOpenAvatar ? avatarSrc : "";
+  wrap.dataset.districtOwnerAvatarName = canOpenAvatar ? String(viewModel.ownerLabel || "Vlastník districtu").trim() : "";
+  wrap.dataset.districtOwnerAvatarMeta = canOpenAvatar ? String(viewModel.ownerMeta || "").trim() : "";
+  wrap.title = canOpenAvatar ? `Zvětšit avatar: ${viewModel.ownerLabel || "Vlastník districtu"}` : "";
+  wrap.tabIndex = canOpenAvatar ? 0 : -1;
+  wrap.setAttribute?.("role", canOpenAvatar ? "button" : "presentation");
+  wrap.setAttribute?.(
+    "aria-label",
+    canOpenAvatar ? `Zvětšit avatar vlastníka ${viewModel.ownerLabel || "districtu"}` : "Avatar vlastníka není dostupný"
+  );
+  wrap.setAttribute?.("aria-disabled", canOpenAvatar ? "false" : "true");
+}
+
+function hideOwnerAvatarFallbackWhenImageExists(elements = {}, viewModel = {}) {
+  if (!elements.ownerAvatarFallback) {
+    return;
+  }
+
+  const hasOwnerAvatar = Boolean(String(viewModel.ownerAvatarSrc || "").trim());
+  const fallback = viewModel.ownerFallback === undefined
+    ? "?"
+    : String(viewModel.ownerFallback || "").trim();
+  const hideFallback = hasOwnerAvatar || Boolean(viewModel.ownerAvatarHidden) || !fallback;
+  elements.ownerAvatarFallback.hidden = hideFallback;
+  elements.ownerAvatarFallback.textContent = hideFallback
+    ? ""
+    : fallback.slice(0, 1).toUpperCase();
+}
+
 export function renderNoDistrictSelected(options = {}) {
   const elements = options.elements || {};
   setText(elements.title, "District");
@@ -13,8 +57,10 @@ export function renderNoDistrictSelected(options = {}) {
   if (elements.ownerAvatar) {
     elements.ownerAvatar.src = "";
     elements.ownerAvatar.classList?.add?.("is-empty");
+    setAvatarWrapClickable(elements.ownerAvatar, {});
   }
   if (elements.ownerAvatarFallback) {
+    elements.ownerAvatarFallback.hidden = false;
     elements.ownerAvatarFallback.textContent = "?";
   }
   return true;
@@ -38,10 +84,11 @@ export function renderSelectedDistrictSummary(districtViewModel = null, options 
   if (elements.ownerAvatar) {
     elements.ownerAvatar.src = districtViewModel.ownerAvatarSrc || "";
     elements.ownerAvatar.classList?.toggle?.("is-empty", Boolean(districtViewModel.ownerAvatarEmpty));
+    setAvatarWrapClickable(elements.ownerAvatar, districtViewModel);
   }
 
   if (elements.ownerAvatarFallback) {
-    elements.ownerAvatarFallback.textContent = String(districtViewModel.ownerFallback || "?").slice(0, 1).toUpperCase();
+    hideOwnerAvatarFallbackWhenImageExists(elements, districtViewModel);
   }
 
   if (elements.card) {

@@ -1,5 +1,6 @@
 export function createDistrictBuildingProfileRuntime(deps = {}) {
   let districtResourceCatalogCache = null;
+  let districtBuildingGlobalVariantOccurrenceCache = null;
 
   const getDistrictResourceCatalog = () => {
     if (Array.isArray(districtResourceCatalogCache)) {
@@ -111,15 +112,8 @@ export function createDistrictBuildingProfileRuntime(deps = {}) {
   };
 
   const getDistrictBuildingVariantName = (district, buildingName, buildingIndex = 0) => {
-    const baseName = String(buildingName || "Neznámá budova").trim() || "Neznámá budova";
-    const variants = deps.variantNamesByBaseName[baseName];
-    if (!Array.isArray(variants) || variants.length <= 0) {
-      return baseName;
-    }
-
-    const districtId = Number(district?.id || 0) || 0;
-    const seed = getDistrictBuildingSeed(district) + (districtId * 31) + (Math.max(0, buildingIndex) * 17);
-    return variants[Math.abs(seed) % variants.length] || baseName;
+    const occurrenceIndex = getDistrictBuildingGlobalVariantOccurrenceIndex(district, buildingIndex, buildingIndex);
+    return getDistrictBuildingVariantSelection(district, buildingName, occurrenceIndex).displayName;
   };
 
   const getDistrictBuildingVariantSelection = (district, buildingName, occurrenceIndex = 0) => {
@@ -132,14 +126,8 @@ export function createDistrictBuildingProfileRuntime(deps = {}) {
       };
     }
 
-    const districtId = Number(district?.id || 0) || 0;
-    const startIndex = Math.abs(
-      getDistrictBuildingSeed(district)
-      + (districtId * 31)
-      + (baseName.length * 17)
-    ) % variants.length;
     const safeOccurrenceIndex = Math.max(0, Number(occurrenceIndex || 0));
-    const variantIndex = (startIndex + safeOccurrenceIndex) % variants.length;
+    const variantIndex = safeOccurrenceIndex % variants.length;
     const cycleIndex = Math.floor(safeOccurrenceIndex / variants.length);
     const variantBaseName = variants[variantIndex] || baseName;
     const displayName = cycleIndex > 0
@@ -196,6 +184,50 @@ export function createDistrictBuildingProfileRuntime(deps = {}) {
     };
   };
 
+  const normalizeBuildingBaseName = (buildingName) => String(buildingName || "Neznámá budova").trim() || "Neznámá budova";
+
+  const getDistrictBuildingOccurrenceCacheKey = (district, buildingIndex) => {
+    const districtId = Number(district?.id || 0) || 0;
+    const index = Math.max(0, Number(buildingIndex || 0));
+    return `${districtId}:${index}`;
+  };
+
+  const getDistrictBuildingGlobalVariantOccurrenceCache = () => {
+    if (districtBuildingGlobalVariantOccurrenceCache instanceof Map) {
+      return districtBuildingGlobalVariantOccurrenceCache;
+    }
+
+    const occurrenceByBaseName = new Map();
+    const occurrenceByDistrictBuildingKey = new Map();
+    const catalog = getDistrictResourceCatalog()
+      .slice()
+      .sort((left, right) => (Number(left?.id || 0) || 0) - (Number(right?.id || 0) || 0));
+
+    for (const district of catalog) {
+      const packageMeta = resolveDistrictBuildingPackage(district);
+      const buildings = Array.isArray(packageMeta?.buildings) ? packageMeta.buildings : [];
+
+      for (let index = 0; index < buildings.length; index += 1) {
+        const baseName = normalizeBuildingBaseName(buildings[index]);
+        const occurrenceIndex = occurrenceByBaseName.get(baseName) || 0;
+        occurrenceByBaseName.set(baseName, occurrenceIndex + 1);
+        occurrenceByDistrictBuildingKey.set(getDistrictBuildingOccurrenceCacheKey(district, index), occurrenceIndex);
+      }
+    }
+
+    districtBuildingGlobalVariantOccurrenceCache = occurrenceByDistrictBuildingKey;
+    return districtBuildingGlobalVariantOccurrenceCache;
+  };
+
+  const getDistrictBuildingGlobalVariantOccurrenceIndex = (district, buildingIndex = 0, fallbackOccurrenceIndex = 0) => {
+    const cache = getDistrictBuildingGlobalVariantOccurrenceCache();
+    const key = getDistrictBuildingOccurrenceCacheKey(district, buildingIndex);
+    const occurrenceIndex = cache.get(key);
+    return Number.isFinite(Number(occurrenceIndex))
+      ? Number(occurrenceIndex)
+      : Math.max(0, Number(fallbackOccurrenceIndex || 0));
+  };
+
   const resolveDistrictBuildingProfile = (district) => {
     if (!district) {
       return null;
@@ -204,25 +236,14 @@ export function createDistrictBuildingProfileRuntime(deps = {}) {
     const districtType = deps.districtBuildingTypeMeta[district.districtType] ? district.districtType : "resident";
     const typeMeta = deps.districtBuildingTypeMeta[districtType] || deps.districtBuildingTypeMeta.resident;
     const packageMeta = resolveDistrictBuildingPackage({ ...district, districtType });
-    const buildingOccurrencesByBaseName = Array.isArray(packageMeta.buildings)
-      ? packageMeta.buildings.reduce((accumulator, buildingName) => {
-          const baseName = String(buildingName || "Neznámá budova").trim() || "Neznámá budova";
-          accumulator.set(baseName, (accumulator.get(baseName) || 0) + 1);
-          return accumulator;
-        }, new Map())
-      : new Map();
     const consumedOccurrencesByBaseName = new Map();
     const buildings = Array.isArray(packageMeta.buildings)
       ? packageMeta.buildings.map((buildingName, index) => {
-          const baseName = String(buildingName || "Neznámá budova").trim() || "Neznámá budova";
+          const baseName = normalizeBuildingBaseName(buildingName);
           const occurrenceIndex = consumedOccurrencesByBaseName.get(baseName) || 0;
           consumedOccurrencesByBaseName.set(baseName, occurrenceIndex + 1);
-          const variantSelection = (buildingOccurrencesByBaseName.get(baseName) || 0) > 1
-            ? getDistrictBuildingVariantSelection(district, baseName, occurrenceIndex, index)
-            : {
-                displayName: getDistrictBuildingVariantName(district, baseName, index),
-                variantIndex: -1
-              };
+          const globalOccurrenceIndex = getDistrictBuildingGlobalVariantOccurrenceIndex(district, index, occurrenceIndex);
+          const variantSelection = getDistrictBuildingVariantSelection(district, baseName, globalOccurrenceIndex);
           const displayName = variantSelection.displayName;
 
           return {

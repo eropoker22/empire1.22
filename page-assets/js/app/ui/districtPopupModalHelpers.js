@@ -15,7 +15,9 @@ import {
 } from "./legacyOverlayCoordinator.js";
 
 const MAIN_DISTRICT_POPUP_SELECTOR = "[data-district-popup]";
+const DISTRICT_OWNER_AVATAR_OPEN_SELECTOR = "[data-district-owner-avatar-open=\"true\"]";
 const MOBILE_DISTRICT_POPUP_SCROLL_MEDIA = "(max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse)";
+let lastDistrictOwnerAvatarTrigger = null;
 
 function isMainDistrictPopup(element) {
   return Boolean(element?.matches?.(MAIN_DISTRICT_POPUP_SELECTOR));
@@ -86,6 +88,62 @@ function bindMobileDistrictPopupBackgroundScroll(element) {
   }, { passive: false });
 
   element.dataset.districtPopupScrollBridgeBound = "true";
+}
+
+function closeDistrictOwnerAvatarLightbox(documentRef) {
+  const lightbox = documentRef?.getElementById?.("alliance-member-lightbox");
+  const image = documentRef?.getElementById?.("alliance-member-lightbox-image");
+  const HTMLImageElementCtor = documentRef?.defaultView?.HTMLImageElement;
+  if (!lightbox) {
+    return;
+  }
+
+  if (HTMLImageElementCtor && image instanceof HTMLImageElementCtor) {
+    image.removeAttribute("src");
+  }
+  lightbox.classList.remove("avatar-lightbox--district-owner");
+  lightbox.classList.add("hidden");
+  lightbox.hidden = true;
+  lightbox.setAttribute("aria-hidden", "true");
+  closeOverlay(lightbox, { restoreFocus: false });
+  const HTMLElementCtor = documentRef?.defaultView?.HTMLElement;
+  if (HTMLElementCtor && lastDistrictOwnerAvatarTrigger instanceof HTMLElementCtor) {
+    lastDistrictOwnerAvatarTrigger.focus({ preventScroll: true });
+  }
+  lastDistrictOwnerAvatarTrigger = null;
+}
+
+function openDistrictOwnerAvatarLightbox(trigger) {
+  const documentRef = trigger?.ownerDocument;
+  const avatarSrc = String(trigger?.getAttribute?.("data-district-owner-avatar-src") || "").trim();
+  if (!documentRef || !avatarSrc) {
+    return false;
+  }
+
+  const lightbox = documentRef.getElementById("alliance-member-lightbox");
+  const image = documentRef.getElementById("alliance-member-lightbox-image");
+  const title = documentRef.getElementById("alliance-member-lightbox-title");
+  const metaEl = documentRef.getElementById("alliance-member-lightbox-meta");
+  const HTMLImageElementCtor = documentRef.defaultView?.HTMLImageElement;
+  if (!lightbox || !HTMLImageElementCtor || !(image instanceof HTMLImageElementCtor)) {
+    return false;
+  }
+
+  const name = String(trigger.getAttribute("data-district-owner-avatar-name") || "Vlastník districtu").trim();
+  const meta = String(trigger.getAttribute("data-district-owner-avatar-meta") || "Vlastník districtu").trim();
+  const HTMLElementCtor = documentRef.defaultView?.HTMLElement;
+  lastDistrictOwnerAvatarTrigger = HTMLElementCtor && trigger instanceof HTMLElementCtor ? trigger : null;
+  image.src = avatarSrc;
+  image.alt = `Avatar vlastníka ${name}`;
+  if (title) title.textContent = name;
+  if (metaEl) metaEl.textContent = meta;
+  lightbox.classList.add("avatar-lightbox--district-owner");
+  openOverlay(lightbox, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
+  lightbox.hidden = false;
+  lightbox.classList.remove("hidden");
+  lightbox.setAttribute("aria-hidden", "false");
+  documentRef.getElementById("alliance-member-lightbox-close")?.focus({ preventScroll: true });
+  return true;
 }
 
 function dispatchDistrictPopupClosed(element) {
@@ -433,6 +491,63 @@ export function createDistrictPopupEscapeHandlers(options = {}) {
   ].filter((handler) => handler.element && typeof handler.close === "function");
 }
 
+function bindDistrictOwnerAvatarLightboxControls(documentRef) {
+  const rootDataset = documentRef?.documentElement?.dataset;
+  if (!documentRef || !rootDataset || rootDataset.districtOwnerAvatarLightboxBound === "true") {
+    return 0;
+  }
+
+  rootDataset.districtOwnerAvatarLightboxBound = "true";
+  let boundCount = 0;
+
+  documentRef.addEventListener("click", (event) => {
+    const trigger = event.target?.closest?.(DISTRICT_OWNER_AVATAR_OPEN_SELECTOR);
+    if (!trigger) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
+    openDistrictOwnerAvatarLightbox(trigger);
+  }, true);
+  boundCount += 1;
+
+  documentRef.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && lastDistrictOwnerAvatarTrigger) {
+      closeDistrictOwnerAvatarLightbox(documentRef);
+      return;
+    }
+
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    const trigger = event.target?.closest?.(DISTRICT_OWNER_AVATAR_OPEN_SELECTOR);
+    if (!trigger) {
+      return;
+    }
+
+    event.preventDefault();
+    openDistrictOwnerAvatarLightbox(trigger);
+  });
+  boundCount += 1;
+
+  documentRef.getElementById("alliance-member-lightbox-backdrop")?.addEventListener("click", () => {
+    if (lastDistrictOwnerAvatarTrigger) {
+      closeDistrictOwnerAvatarLightbox(documentRef);
+    }
+  });
+  documentRef.getElementById("alliance-member-lightbox-close")?.addEventListener("click", () => {
+    if (lastDistrictOwnerAvatarTrigger) {
+      closeDistrictOwnerAvatarLightbox(documentRef);
+    }
+  });
+  boundCount += 2;
+
+  return boundCount;
+}
+
 export function bindDistrictPopupPresentationControls(options = {}) {
   const {
     documentRef,
@@ -444,6 +559,7 @@ export function bindDistrictPopupPresentationControls(options = {}) {
   const modalCloseCount = bindDistrictPopupModalCloseControls(elements, closeHandlers);
   const resultCloseCount = bindDistrictResultModalCloseControls(elements, resultHandlers);
   const contentGuardCount = bindDistrictModalContentGuards(documentRef);
+  const ownerAvatarLightboxCount = bindDistrictOwnerAvatarLightboxControls(documentRef);
   const escapeBound = bindEscapeKeyHandlers(documentRef, createDistrictPopupEscapeHandlers({
     elements,
     closeHandlers,
@@ -454,6 +570,7 @@ export function bindDistrictPopupPresentationControls(options = {}) {
     modalCloseCount,
     resultCloseCount,
     contentGuardCount,
+    ownerAvatarLightboxCount,
     escapeBound
   };
 }

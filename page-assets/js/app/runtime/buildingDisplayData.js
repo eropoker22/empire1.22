@@ -4,7 +4,8 @@ const namedDowntownExchanges = [
 
 const namedDowntownCentralBanks = [
   "Iron Reserve Bank",
-  "Federal Reserve Node"
+  "Federal Reserve Node",
+  "Obsidian Reserve Bank"
 ];
 
 const namedDowntownAirports = [
@@ -37,13 +38,21 @@ const namedDowntownCourts = [
 
 const namedDowntownVipLounges = [
   "Platinum Lounge",
-  "Eclipse VIP Gold Room"
+  "Eclipse VIP Gold Room",
+  "Black Card Salon"
 ];
 
 const namedCommercialMalls = [
   "Neon Mall",
   "Iron Market Plaza",
-  "Karina shopping center"
+  "Karina shopping center",
+  "Chrome Galleria",
+  "Midnight Plaza",
+  "Shadow Retail Hub",
+  "Vortex Shopping Hall",
+  "Blackline Mall",
+  "Neon Bazaar",
+  "Iron Arcade Plaza"
 ];
 
 const namedCommercialRestaurants = [
@@ -73,7 +82,16 @@ const namedCommercialRestaurants = [
   "Heat Kitchen",
   "No Mercy Meals",
   "Broken Plate",
-  "Elite Hunger"
+  "Elite Hunger",
+  "Redline Noodles",
+  "Vortex Burger Lab",
+  "Steel Pan House",
+  "Lucky Wok",
+  "Afterhours Grill",
+  "Chrome Taco Bar",
+  "Black Lotus Diner",
+  "Neon Fish Market",
+  "Cinder Steakhouse"
 ];
 
 const namedCommercialPharmacies = [
@@ -81,12 +99,18 @@ const namedCommercialPharmacies = [
   "Pulse Pharmacy",
   "Black Cross Pharma",
   "Street Remedy",
-  "NightCare Clinic",
+  "NightCare Pharmacy",
   "Iron Vein Pharmacy",
   "QuickFix Med",
   "Shadow Medics",
   "Urban Cure",
-  "Last Chance Pharmacy"
+  "Last Chance Pharmacy",
+  "Chrome Cure",
+  "Vortex Med Supply",
+  "Midnight Apothecary",
+  "Street First Aid",
+  "Neon Remedy Lab",
+  "IronDose Pharmacy"
 ];
 
 const namedCommercialAutoSalons = [
@@ -97,14 +121,17 @@ const namedCommercialAutoSalons = [
   "Midnight Drive Showroom",
   "Chrome Syndicate Cars",
   "Ghost Ride Autos",
-  "Velocity X Garage"
+  "Velocity X Garage",
+  "Redline Auto House",
+  "Viper Motors"
 ];
 
 const namedCommercialFitnessClubs = [
   "Iron District Gym",
   "Beast Factory",
   "Street Power Club",
-  "No Mercy Fitness"
+  "No Mercy Fitness",
+  "Chrome Body Lab"
 ];
 
 const namedCommercialExchanges = [
@@ -129,7 +156,16 @@ const namedCommercialArcades = [
   "Midnight Slots",
   "Spin Syndicate",
   "Velvet Jackpot Lounge",
-  "Ghost Spin Arcade"
+  "Ghost Spin Arcade",
+  "Chrome Coin Den",
+  "Shadow Arcade Hall",
+  "Jackpot Cellar",
+  "Pulse Playhouse",
+  "Lucky Voltage",
+  "Backroom Reels",
+  "Night Token Club",
+  "Vortex Game Floor",
+  "Static Jackpot Lab"
 ];
 
 const namedCommercialCasinos = [
@@ -206,7 +242,10 @@ const namedIndustrialFactories = [
   "GrindCore Factory",
   "MassDrive Industries",
   "DirtyWorks Plant",
-  "Overload Manufacturing"
+  "Overload Manufacturing",
+  "Foundry Zero",
+  "NightHammer Plant",
+  "ChromeLine Works"
 ];
 
 const namedIndustrialArmories = [
@@ -241,7 +280,13 @@ const namedIndustrialRecyclingCenters = [
   "ScrapCore Center",
   "Urban Reforge Plant",
   "DustLine Recycling",
-  "GhostMetal Recovery"
+  "GhostMetal Recovery",
+  "ChromeScrap Yard",
+  "Vortex Salvage Hub",
+  "Reclaim Nine",
+  "Blackline Scrapworks",
+  "StreetCycle Plant",
+  "Redline Recovery"
 ];
 
 const namedResidentialApartmentBlocks = Array.from(
@@ -258,7 +303,14 @@ const namedResidentialGarages = [
   "SteelDrive Garage",
   "BackAlley Garage",
   "Velocity Garage",
-  "Shadow Wheels"
+  "Shadow Wheels",
+  "Chrome Alley Garage",
+  "Midnight Motor Yard",
+  "Grindhouse Garage",
+  "Viper Wheelworks",
+  "Rustline Motors",
+  "Neon Clutch Depot",
+  "Redline Hideout"
 ];
 
 const namedResidentialClinics = [
@@ -285,7 +337,12 @@ const namedResidentialRecruitCenters = [
   "Urban Soldiers Hub",
   "Vortex Recruit Base",
   "Frontline Enlistment",
-  "No Mercy Recruitment"
+  "No Mercy Recruitment",
+  "Chrome Cadet Office",
+  "IronLine Muster",
+  "Street Oath Center",
+  "Black Banner Depot",
+  "Viper Recruit Hall"
 ];
 
 const namedResidentialSchools = [
@@ -333,7 +390,11 @@ const namedParkSmugglingTunnels = [
   "DeepRoute Tunnel",
   "Backline Tunnel",
   "ZeroTrace Route",
-  "Iron Tunnel"
+  "Iron Tunnel",
+  "CrossTown Drain",
+  "Redline Passage",
+  "Shadow Pipe Route",
+  "Underpass Relay"
 ];
 
 const namedParkStreetDealers = [
@@ -351,7 +412,11 @@ const namedParkStreetDealers = [
   "Block Hustlers",
   "Dark Trade Crew",
   "Urban Pushers",
-  "NoFace Dealers"
+  "NoFace Dealers",
+  "Corner Runners",
+  "Redline Pushers",
+  "Backblock Sellers",
+  "Neon Corner Crew"
 ];
 
 const namedParkStripClubs = [

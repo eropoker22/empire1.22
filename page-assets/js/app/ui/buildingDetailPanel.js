@@ -16,6 +16,45 @@ function createElement(scopeElement, tagName, className = "") {
   return element;
 }
 
+const BUILDING_DETAIL_SHELL_CLASS_PREFIX = "building-detail--";
+const BUILDING_DETAIL_CARD_CLASS_PREFIX = "building-detail-card--";
+
+function normalizeBuildingDetailClassToken(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .replace(/[^a-z0-9]+/gu, "-")
+    .replace(/^-+|-+$/gu, "") || "generic";
+}
+
+function replacePrefixedClass(element, prefix, nextClass) {
+  if (!element) return;
+  const classes = String(element.className || "")
+    .split(/\s+/u)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => !item.startsWith(prefix));
+  if (nextClass) classes.push(nextClass);
+  element.className = Array.from(new Set(classes)).join(" ");
+}
+
+function syncBuildingDetailIdentityHooks(shell, card, mechanicsType = "") {
+  const token = normalizeBuildingDetailClassToken(mechanicsType);
+  if (shell) {
+    shell.dataset.buildingMechanicsType = token;
+    shell.dataset.buildingDetailCssHook = `${BUILDING_DETAIL_SHELL_CLASS_PREFIX}${token}`;
+    replacePrefixedClass(shell, BUILDING_DETAIL_SHELL_CLASS_PREFIX, `${BUILDING_DETAIL_SHELL_CLASS_PREFIX}${token}`);
+  }
+  if (card) {
+    card.dataset.buildingMechanicsType = token;
+    card.dataset.buildingDetailCssHook = `${BUILDING_DETAIL_CARD_CLASS_PREFIX}${token}`;
+    replacePrefixedClass(card, BUILDING_DETAIL_CARD_CLASS_PREFIX, `${BUILDING_DETAIL_CARD_CLASS_PREFIX}${token}`);
+  }
+  return token;
+}
+
 function createStat(scopeElement, row = {}) {
   const stat = createElement(scopeElement, "div", "building-info-card__stat");
   const label = createElement(scopeElement, "span");
@@ -145,6 +184,9 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
   if (titleBadge) titleBadge.dataset.districtBuildingDetailBadge = "true";
   if (title) title.append(titleText, titleBadge);
 
+  const headerTools = createElement(root, "div", "district-building-detail-header-tools");
+  if (headerTools) headerTools.dataset.districtBuildingDetailHeaderTools = "true";
+
   const collectButton = createElement(root, "button", "building-detail-title__action-btn building-detail-title__action-btn--collect");
   if (collectButton) {
     collectButton.type = "button";
@@ -177,7 +219,8 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
     closeButton.textContent = "✕";
   }
 
-  if (header) header.append(title, collectButton, upgradeButton, levelBadge, closeButton);
+  if (headerTools) headerTools.append(levelBadge, collectButton, upgradeButton, closeButton);
+  if (header) header.append(title, headerTools);
 
   const body = createElement(root, "div", "modal__body district-building-detail-body");
   const tabs = createElement(root, "div", "building-detail-tabs district-building-detail-tabs");
@@ -433,8 +476,8 @@ export function renderBuildingActions(buildingViewModel = {}, callbacks = {}, op
     }
     title.textContent = rowView.title || "";
     const inlineDescription = rowView.disabled
-      ? rowView.disabledReason || rowView.buttonCostLabel || rowView.rewardSummary || rowView.description
-      : rowView.buttonCostLabel || rowView.rewardSummary || rowView.description;
+      ? rowView.disabledReason || rowView.buttonCostLabel || rowView.rewardSummary
+      : rowView.buttonCostLabel || rowView.rewardSummary;
     description.textContent = inlineDescription || "";
     description.hidden = !inlineDescription;
     cooldown.textContent = rowView.cooldownLabel || "";
@@ -526,11 +569,12 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
   }
   const shell = buildingViewModel.shell || options.shell || null;
   if (!shell) return false;
-  const mechanicsType = String(buildingViewModel.mechanicsType || shell.dataset?.buildingMechanicsType || "").trim();
+  const rawMechanicsType = String(buildingViewModel.mechanicsType || shell.dataset?.buildingMechanicsType || buildingViewModel.buildingTypeId || buildingViewModel.title || "").trim();
   const districtType = String(buildingViewModel.districtType || shell.dataset?.buildingDistrictType || "").trim().toLowerCase();
   const isDowntownBuilding = districtType === "downtown" || buildingViewModel.isDowntownBuilding === true;
-  const useSinglePanelLayout = SINGLE_PANEL_BUILDING_DETAIL_TYPES.has(mechanicsType);
   const card = shell.querySelector(".district-building-detail-card");
+  const mechanicsType = syncBuildingDetailIdentityHooks(shell, card, rawMechanicsType);
+  const useSinglePanelLayout = SINGLE_PANEL_BUILDING_DETAIL_TYPES.has(mechanicsType);
 
   if (districtType) {
     shell.dataset.buildingDistrictType = districtType;
@@ -558,10 +602,19 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
   };
 
   setText("[data-district-building-detail-title]", buildingViewModel.title || "Detail budovy");
-  setText("[data-district-building-detail-badge]", buildingViewModel.badge || "");
   setText("[data-district-building-detail-level]", buildingViewModel.levelLabel || "L1");
   setText("[data-district-building-detail-name]", buildingViewModel.name || buildingViewModel.title || "Budova");
   setText("[data-district-building-detail-meta]", buildingViewModel.meta || "");
+  const titleBadge = shell.querySelector("[data-district-building-detail-badge]");
+  if (titleBadge instanceof HTMLElement) {
+    const countLabel = String(buildingViewModel.countLabel || "").trim();
+    titleBadge.textContent = countLabel;
+    titleBadge.hidden = !countLabel;
+    titleBadge.style.display = countLabel ? "" : "none";
+    titleBadge.dataset.districtBuildingDetailBadgeKind = countLabel ? "count" : "";
+    titleBadge.classList.toggle("building-detail-title__badge--count", Boolean(countLabel));
+    titleBadge.setAttribute("aria-hidden", countLabel ? "false" : "true");
+  }
   const levelBadge = shell.querySelector("[data-district-building-detail-level]");
   if (levelBadge instanceof HTMLElement) {
     const showLevel = buildingViewModel.showLevel !== false;

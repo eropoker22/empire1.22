@@ -16,7 +16,7 @@ import {
   MAP_GRID_COLUMNS,
   MAP_GRID_ROWS
 } from "../../page-assets/js/app/map/mapConstants.js";
-import { createLaunchOwnerMap } from "../../page-assets/js/app/map/mapGeometry.js";
+import { createDistrictGeometry, createLaunchOwnerMap } from "../../page-assets/js/app/map/mapGeometry.js";
 
 describe("runtime demo scenarios", () => {
   it("keeps launch demo scenario data available outside runtime", () => {
@@ -45,10 +45,19 @@ describe("runtime demo scenarios", () => {
     expect(START_PHASE_OWNER_COORDINATES).toHaveLength(20);
     expect(new Set(START_PHASE_OWNER_COORDINATES.map(([rowIndex, columnIndex]) => `${rowIndex}:${columnIndex}`)).size).toBe(20);
     expect(START_PHASE_OWNER_COORDINATES.every(([rowIndex, columnIndex]) =>
-      columnIndex === 0
-      || columnIndex === MAP_GRID_COLUMNS - 1
-      || rowIndex === MAP_GRID_ROWS - 1
+      rowIndex >= 0
+      && rowIndex < MAP_GRID_ROWS
+      && columnIndex >= 0
+      && columnIndex < MAP_GRID_COLUMNS
     )).toBe(true);
+    const geometry = createDistrictGeometry(1600, 980);
+    const startCells = START_PHASE_OWNER_COORDINATES.map(([rowIndex, columnIndex]) =>
+      geometry.districts.find((district) => district.rowIndex === rowIndex && district.columnIndex === columnIndex)
+    );
+    expect(startCells.every((district) => district?.isSpawnCandidate)).toBe(true);
+    expect(startCells.some((district) => district?.spawnZones?.includes("west"))).toBe(true);
+    expect(startCells.some((district) => district?.spawnZones?.includes("east"))).toBe(true);
+    expect(startCells.some((district) => district?.spawnZones?.includes("south"))).toBe(true);
     const launchOwnerByDistrictId = createLaunchOwnerMap(START_PHASE_OWNER_COORDINATES);
     const currentPlayerDistrictIds = Array.from(launchOwnerByDistrictId.entries())
       .filter(([, ownerId]) => ownerId === CURRENT_PLAYER_ID)

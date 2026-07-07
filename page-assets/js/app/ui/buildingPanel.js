@@ -139,7 +139,7 @@ export function renderBuildingsPopupDetail(mount, view = {}) {
       const button = createElement(
         mount,
         "button",
-        `button buildings-popup__building buildings-popup__building--type buildings-popup__building--interactive${item.baseName === view.activeBaseName ? " is-active" : ""}`
+        `button buildings-popup__building buildings-popup__building--type buildings-popup__building--interactive${item.baseName === view.activeBaseName ? " is-active" : ""}${item.apartmentIsFull ? " is-apartment-full" : ""}`
       );
       const name = createElement(mount, "span");
       const count = createElement(mount, "span");
@@ -149,6 +149,9 @@ export function renderBuildingsPopupDetail(mount, view = {}) {
       button.type = "button";
       button.dataset.buildingsSelectBaseName = item.baseName || "";
       button.dataset.buildingsSelectBaseType = view.selectedType || "";
+      if (item.apartmentIsFull) {
+        button.title = "Bytový blok je plný. Obyvatelé čekají na vybrání.";
+      }
       name.textContent = item.baseName || "Budova";
       count.textContent = `${Math.max(0, Number(item.count || 0))}x`;
       button.append(name, count);

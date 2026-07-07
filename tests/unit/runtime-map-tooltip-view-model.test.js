@@ -63,6 +63,7 @@ describe("map tooltip view model", () => {
       gamePhase: "live"
     }, {
       getDistrictAtmosphereMeta: () => ({ shortLabel: "Park" }),
+      spyIntel: { revealedTypeDistrictIds: [9] },
       isDistrictGossipDevOnlyMode: () => true,
       ensureDistrictPassiveGossip
     });
@@ -73,5 +74,17 @@ describe("map tooltip view model", () => {
       { intelLevel: "verified", text: "Second" }
     ]);
     expect(ensureDistrictPassiveGossip).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides unowned district type until spy intel reveals it", () => {
+    const hidden = buildMapTooltipViewModel({ id: 12, districtType: "park" }, {
+      gamePhase: "live",
+      ownedDistrictIds: new Set()
+    }, {
+      getDistrictAtmosphereMeta: () => ({ shortLabel: "Park" }),
+      spyIntel: { revealedTypeDistrictIds: [] }
+    });
+
+    expect(hidden.typeLabel).toBe("Neznámý sektor");
   });
 });

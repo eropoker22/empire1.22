@@ -20,6 +20,34 @@ function setText(element, value) {
   }
 }
 
+function getAvatarWrap(ownerAvatar) {
+  return ownerAvatar?.parentElement || ownerAvatar?.parentNode || null;
+}
+
+function setAvatarWrapClickable(ownerAvatar, view = {}) {
+  const wrap = getAvatarWrap(ownerAvatar);
+  if (!wrap) {
+    return;
+  }
+
+  const avatarSrc = String(view.ownerAvatarSrc || "").trim();
+  const canOpenAvatar = Boolean(avatarSrc);
+  wrap.classList?.toggle?.("is-clickable", canOpenAvatar);
+  wrap.classList?.toggle?.("is-owner-hidden", Boolean(view.ownerAvatarHidden));
+  wrap.dataset.districtOwnerAvatarOpen = canOpenAvatar ? "true" : "false";
+  wrap.dataset.districtOwnerAvatarSrc = canOpenAvatar ? avatarSrc : "";
+  wrap.dataset.districtOwnerAvatarName = canOpenAvatar ? String(view.ownerLabel || "Vlastník districtu").trim() : "";
+  wrap.dataset.districtOwnerAvatarMeta = canOpenAvatar ? String(view.ownerMeta || "").trim() : "";
+  wrap.title = canOpenAvatar ? `Zvětšit avatar: ${view.ownerLabel || "Vlastník districtu"}` : "";
+  wrap.tabIndex = canOpenAvatar ? 0 : -1;
+  wrap.setAttribute?.("role", canOpenAvatar ? "button" : "presentation");
+  wrap.setAttribute?.(
+    "aria-label",
+    canOpenAvatar ? `Zvětšit avatar vlastníka ${view.ownerLabel || "districtu"}` : "Avatar vlastníka není dostupný"
+  );
+  wrap.setAttribute?.("aria-disabled", canOpenAvatar ? "false" : "true");
+}
+
 export function renderDistrictSummaryPanel(elements = {}, view = {}) {
   const {
     title,
@@ -39,10 +67,19 @@ export function renderDistrictSummaryPanel(elements = {}, view = {}) {
   if (ownerAvatar) {
     ownerAvatar.src = view.ownerAvatarSrc || "";
     ownerAvatar.classList?.toggle?.("is-empty", Boolean(view.ownerAvatarEmpty));
+    setAvatarWrapClickable(ownerAvatar, view);
   }
 
   if (ownerAvatarFallback) {
-    ownerAvatarFallback.textContent = String(view.ownerFallback || "?").slice(0, 1).toUpperCase();
+    const hasOwnerAvatar = Boolean(String(view.ownerAvatarSrc || "").trim());
+    const fallback = view.ownerFallback === undefined
+      ? "?"
+      : String(view.ownerFallback || "").trim();
+    const hideFallback = hasOwnerAvatar || Boolean(view.ownerAvatarHidden) || !fallback;
+    ownerAvatarFallback.hidden = hideFallback;
+    ownerAvatarFallback.textContent = hideFallback
+      ? ""
+      : fallback.slice(0, 1).toUpperCase();
   }
 
   if (card) {
@@ -135,13 +172,23 @@ export function renderDistrictBuildingList(elements = {}, view = {}) {
     return true;
   }
 
+  const buildingsInteractive = view.interactive !== false;
   for (const building of Array.isArray(view.buildings) ? view.buildings : []) {
-    const chip = createElement(list, "button", "button district-popup-buildings__chip district-popup-buildings__chip--button");
+    const chipClassName = buildingsInteractive
+      ? "button district-popup-buildings__chip district-popup-buildings__chip--button"
+      : "district-popup-buildings__chip district-popup-buildings__chip--locked";
+    const chip = createElement(list, buildingsInteractive ? "button" : "div", chipClassName);
     if (!chip) {
       continue;
     }
-    chip.type = "button";
-    chip.dataset.districtBuildingName = building.name || building.displayName || "";
+    if (buildingsInteractive) {
+      chip.type = "button";
+      chip.dataset.districtBuildingName = building.name || building.displayName || "";
+      chip.dataset.districtBuildingInteractive = "true";
+    } else {
+      chip.dataset.districtBuildingInteractive = "false";
+      chip.setAttribute?.("aria-disabled", "true");
+    }
     chip.dataset.districtBuildingDisplayName = building.displayName || building.name || "";
     chip.dataset.districtBuildingKind = building.kindLabel || "";
     const kindToken = resolveBuildingKindToken(building.kindLabel || "");
@@ -165,7 +212,9 @@ export function renderDistrictBuildingList(elements = {}, view = {}) {
         chip.append(kind);
       }
     }
-    if (building.name && building.displayName && building.displayName !== building.name) {
+    if (!buildingsInteractive) {
+      chip.title = "Budovu můžeš používat jen ve vlastním districtu.";
+    } else if (building.name && building.displayName && building.displayName !== building.name) {
       chip.title = building.name;
     }
     list.append(chip);

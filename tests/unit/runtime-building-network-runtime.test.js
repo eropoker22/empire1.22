@@ -121,6 +121,24 @@ describe("building network runtime", () => {
     expect(runtime.getOwnedShoppingMallCountForMarket()).toBe(1);
   });
 
+  it("can apply a demo live minimum count without double-counting warehouse aliases", () => {
+    const runtime = createRuntime({
+      getResolvedWorldState: () => ({
+        ownedDistrictIds: [],
+        destroyedDistrictIds: [],
+        phaseState: { gamePhase: "live" }
+      }),
+      getCurrentPlayerOwnedDistrictIds: () => new Set(),
+      resolveDistrictBuildingProfile: () => ({ buildings: [] }),
+      getMinimumOwnedBuildingCountByBaseName: (baseName) => (baseName === "sklad" ? 0 : 2)
+    });
+
+    expect(runtime.getOwnedApartmentBlockCount()).toBe(2);
+    expect(runtime.getOwnedRestaurantCount()).toBe(2);
+    expect(runtime.getOwnedSchoolCount()).toBe(2);
+    expect(runtime.getOwnedWarehouseCount()).toBe(2);
+  });
+
   it("keeps warehouse capacity and usage helpers deterministic", () => {
     const runtime = createRuntime();
     const capacity = runtime.getWarehouseCapacityBreakdown(1);

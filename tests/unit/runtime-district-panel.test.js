@@ -105,12 +105,15 @@ function createElement(document, tagName = "div") {
 describe("district panel rendering", () => {
   it("renders owned, foreign, and unowned district summaries", () => {
     const document = new FakeDocument();
+    const ownerAvatarWrap = createElement(document, "div");
+    const ownerAvatar = createElement(document, "img");
+    ownerAvatarWrap.append(ownerAvatar);
     const elements = {
       title: createElement(document, "h3"),
       type: createElement(document, "span"),
       owner: createElement(document, "strong"),
       ownerMeta: createElement(document, "span"),
-      ownerAvatar: createElement(document, "img"),
+      ownerAvatar,
       ownerAvatarFallback: createElement(document, "span"),
       card: createElement(document, "article")
     };
@@ -130,6 +133,12 @@ describe("district panel rendering", () => {
     expect(elements.type.textContent).toBe("Rezidence");
     expect(elements.owner.textContent).toBe("Ty");
     expect(elements.ownerAvatar.src).toBe("../img/avatar.png");
+    expect(elements.ownerAvatarFallback.hidden).toBe(true);
+    expect(elements.ownerAvatarFallback.textContent).toBe("");
+    expect(ownerAvatarWrap.classList.contains("is-clickable")).toBe(true);
+    expect(ownerAvatarWrap.dataset.districtOwnerAvatarOpen).toBe("true");
+    expect(ownerAvatarWrap.dataset.districtOwnerAvatarSrc).toBe("../img/avatar.png");
+    expect(ownerAvatarWrap.tabIndex).toBe(0);
     expect(elements.card.classList.contains("district-owner-bg-active")).toBe(true);
 
     renderDistrictSummaryPanel(elements, {
@@ -141,19 +150,40 @@ describe("district panel rendering", () => {
     });
 
     expect(elements.owner.textContent).toBe("Cizí gang");
+    expect(ownerAvatarWrap.classList.contains("is-clickable")).toBe(false);
+    expect(ownerAvatarWrap.dataset.districtOwnerAvatarOpen).toBe("false");
+    expect(elements.ownerAvatarFallback.hidden).toBe(false);
     expect(elements.ownerAvatarFallback.textContent).toBe("C");
     expect(elements.card.classList.contains("district-owner-bg-active")).toBe(false);
 
     renderDistrictSummaryPanel(elements, {
       title: "District 9",
+      typeLabel: "Rezidence",
+      ownerLabel: "Neobsazeno",
+      ownerMeta: "Bez aktivního vlastníka",
+      ownerAvatarHidden: false,
+      ownerFallback: ""
+    });
+
+    expect(elements.owner.textContent).toBe("Neobsazeno");
+    expect(ownerAvatarWrap.classList.contains("is-owner-hidden")).toBe(false);
+    expect(elements.ownerAvatarFallback.hidden).toBe(true);
+    expect(elements.ownerAvatarFallback.textContent).toBe("");
+
+    renderDistrictSummaryPanel(elements, {
+      title: "District 10",
       typeLabel: "Skryto",
       ownerLabel: "Neobsazeno",
       ownerMeta: "Bez aktivního vlastníka",
-      ownerFallback: "Neobsazeno"
+      ownerAvatarHidden: true,
+      ownerFallback: ""
     });
 
     expect(elements.owner.textContent).toBe("Neobsazeno");
     expect(elements.ownerMeta.textContent).toBe("Bez aktivního vlastníka");
+    expect(ownerAvatarWrap.classList.contains("is-owner-hidden")).toBe(true);
+    expect(elements.ownerAvatarFallback.hidden).toBe(true);
+    expect(elements.ownerAvatarFallback.textContent).toBe("");
   });
 
   it("renders district metrics and flags safely", () => {
@@ -214,6 +244,7 @@ describe("district panel rendering", () => {
     expect(list.children).toHaveLength(3);
     expect(list.children[0].dataset.districtBuildingName).toBe("Autosalon");
     expect(list.children[0].dataset.districtBuildingDisplayName).toBe("Neon Cars");
+    expect(list.children[0].dataset.districtBuildingInteractive).toBe("true");
     expect(list.children[0].children[0].textContent).toBe("Autosalon");
     expect(list.children[0].title).toBe("Autosalon");
     expect(list.children[1].children[0].textContent).toBe("Noční Lékárna");
@@ -226,6 +257,22 @@ describe("district panel rendering", () => {
     expect(list.children[2].classList.contains("district-popup-buildings__chip--trap")).toBe(true);
     expect(list.children[2].dataset.districtBuildingTrap).toBe("active");
     expect(list.children[2].children[1].textContent).toBe("59:59");
+
+    renderDistrictBuildingList({ section, meta, list }, {
+      metaText: "",
+      interactive: false,
+      buildings: [
+        { name: "Kasino", displayName: "Golden Wheel", kindLabel: "Spustit akci" }
+      ]
+    });
+
+    expect(list.children).toHaveLength(1);
+    expect(list.children[0].tagName).toBe("DIV");
+    expect(list.children[0].dataset.districtBuildingName).toBeUndefined();
+    expect(list.children[0].dataset.districtBuildingInteractive).toBe("false");
+    expect(list.children[0].classList.contains("district-popup-buildings__chip--locked")).toBe(true);
+    expect(list.children[0]["aria-disabled"]).toBe("true");
+    expect(list.children[0].title).toBe("Budovu můžeš používat jen ve vlastním districtu.");
   });
 
   it("renders district action buttons and police lock state", () => {

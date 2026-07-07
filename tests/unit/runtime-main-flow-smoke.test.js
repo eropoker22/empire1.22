@@ -147,6 +147,35 @@ describe("runtime main UI flow smoke guard", () => {
     }
   });
 
+  it("keeps foreign discovered district buildings from opening details", () => {
+    const runtimeSource = read("page-assets/js/app/runtime.js");
+    const clientRuntimeSource = read("client/page-assets/js/app/runtime.js");
+
+    for (const source of [runtimeSource, clientRuntimeSource]) {
+      const buildingsClickIndex = source.indexOf('popupBuildingsList.addEventListener("click"');
+      const ownershipGuardIndex = source.indexOf("const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);", buildingsClickIndex);
+      const openDetailIndex = source.indexOf("openDistrictBuildingDetail(selectedDistrict", buildingsClickIndex);
+
+      expect(buildingsClickIndex).toBeGreaterThan(-1);
+      expect(ownershipGuardIndex).toBeGreaterThan(buildingsClickIndex);
+      expect(openDetailIndex).toBeGreaterThan(ownershipGuardIndex);
+      expect(source).toContain('chipButton.dataset.districtBuildingInteractive === "false"');
+    }
+  });
+
+  it("marks actionable mobile district popups for the raised phone position", () => {
+    const runtimeSource = read("page-assets/js/app/runtime.js");
+    const mobileCssSource = read("page-assets/css/styles-mobile-fixes.css");
+
+    expect(runtimeSource).toContain('popup.dataset.mobilePosition = normalizedMode;');
+    expect(runtimeSource).toContain('popupCard.dataset.mobilePosition = normalizedMode;');
+    expect(runtimeSource).toContain('const hasEnabledDistrictAction = resolvedActions.some((action) => action.enabled);');
+    expect(runtimeSource).toContain('isOwnedByCurrentPlayer || hasEnabledDistrictAction ? "raised" : "default"');
+    expect(mobileCssSource).toContain('.district-popup-shell[data-district-popup][data-mobile-position="raised"]:not([hidden])');
+    expect(mobileCssSource).toContain('--district-popup-mobile-raised-top: max(24px, calc(var(--mobile-topbar-offset, 72px) - 34px));');
+    expect(mobileCssSource).toContain('padding-top: var(--district-popup-mobile-raised-top) !important;');
+  });
+
   it("starts the trap move lock from every trap placement or move", () => {
     const runtimeSource = read("page-assets/js/app/runtime.js");
     const clientRuntimeSource = read("client/page-assets/js/app/runtime.js");

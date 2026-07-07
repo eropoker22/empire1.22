@@ -215,7 +215,14 @@ describe("runtime map rendering guards", () => {
       ownedDistrictIds: new Set(),
       destroyedDistrictIds: new Set(),
       launchOwnerByDistrictId: new Map()
-    })).toBe("rgba(250, 204, 21, 0.2)");
+    })).toBe("rgba(0, 0, 0, 0)");
+
+    expect(getDistrictFillStyle({ id: 79, districtType: "downtown" }, false, {
+      gamePhase: "live",
+      ownedDistrictIds: new Set(),
+      destroyedDistrictIds: new Set(),
+      launchOwnerByDistrictId: new Map()
+    })).toBe("rgba(255, 71, 194, 0.3)");
 
     expect(() => renderDistrictCanvas(canvas, "day", interactionState)).not.toThrow();
 
@@ -260,7 +267,7 @@ describe("runtime map rendering guards", () => {
     const playerOwnershipStroke = context.calls.some(([name, meta]) => (
       name === "stroke"
       && meta?.strokeStyle === "#ef4444"
-      && meta?.lineWidth === 2.2
+      && meta?.lineWidth === 3.2
     ));
 
     expect(selectedHighlightStroke).toBe(true);
@@ -288,6 +295,25 @@ describe("runtime map rendering guards", () => {
     expect(ownedFill).toBe("#ef444433");
   });
 
+  it("keeps live spawn owners colored without using district type fills", () => {
+    const geometry = createDistrictGeometry(1600, 980);
+    const district = geometry.districts.find((candidate) => candidate.districtType !== "downtown");
+
+    expect(getDistrictFillStyle(district, false, {
+      gamePhase: "live",
+      ownedDistrictIds: new Set(),
+      destroyedDistrictIds: new Set(),
+      launchOwnerByDistrictId: new Map([[district.id, 2]])
+    })).toBe("#3b82f633");
+
+    expect(getDistrictFillStyle(district, false, {
+      gamePhase: "live",
+      ownedDistrictIds: new Set(),
+      destroyedDistrictIds: new Set(),
+      launchOwnerByDistrictId: new Map()
+    })).toBe("rgba(0, 0, 0, 0)");
+  });
+
   it("draws unowned district borders in black when the black edge mode is selected", () => {
     const context = new FakeCanvasContext();
     const canvas = new FakeCanvas(context);
@@ -307,6 +333,35 @@ describe("runtime map rendering guards", () => {
       name === "stroke"
       && meta?.strokeStyle === "rgba(5, 8, 12, 0.92)"
       && meta?.lineWidth === 1.2
+    ))).toBe(true);
+  });
+
+  it("keeps downtown districts outlined with a pink neon border", () => {
+    const context = new FakeCanvasContext();
+    const canvas = new FakeCanvas(context);
+    const geometry = createDistrictGeometry(1600, 980);
+    const downtownDistrict = geometry.districts.find((district) => district.districtType === "downtown");
+
+    renderDistrictCanvas(canvas, "day", {
+      gamePhase: "live",
+      borderColor: "black",
+      ownedDistrictIds: new Set(),
+      destroyedDistrictIds: new Set(),
+      launchOwnerByDistrictId: new Map(),
+      reducedMapEffects: true,
+      geometryCache: geometry
+    });
+
+    expect(downtownDistrict).toBeTruthy();
+    expect(context.calls.some(([name, meta]) => (
+      name === "stroke"
+      && meta?.strokeStyle === "rgba(255, 44, 202, 0.34)"
+      && meta?.lineWidth === 3.2
+    ))).toBe(true);
+    expect(context.calls.some(([name, meta]) => (
+      name === "stroke"
+      && meta?.strokeStyle === "rgba(255, 184, 242, 0.88)"
+      && meta?.lineWidth === 1.4
     ))).toBe(true);
   });
 
@@ -337,12 +392,12 @@ describe("runtime map rendering guards", () => {
     const enemyOwnerStroke = context.calls.some(([name, meta]) => (
       name === "stroke"
       && meta?.strokeStyle === "#3b82f6"
-      && meta?.lineWidth === 3.8
+      && meta?.lineWidth === 5.2
     ));
     const currentPlayerStroke = context.calls.some(([name, meta]) => (
       name === "stroke"
       && meta?.strokeStyle === "#ef4444"
-      && meta?.lineWidth === 2.2
+      && meta?.lineWidth === 3.2
     ));
 
     expect(currentPlayerFill).toBe(true);

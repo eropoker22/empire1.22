@@ -72,6 +72,74 @@ describe("district view model adapter", () => {
     expect(state.launchOwnerByDistrictId.get(5)).toBe(1);
   });
 
+  it("hides selected district type until ownership or spy intel reveals it", () => {
+    const hidden = buildSelectedDistrictSummaryViewModel({ id: 7, districtType: "park" }, {
+      gamePhase: "live",
+      ownedDistrictIds: new Set(),
+      launchOwnerByDistrictId: new Map(),
+      destroyedDistrictIds: new Set()
+    }, {
+      atmosphereMeta: { shortLabel: "Parkový sektor" },
+      spyIntel: { revealedTypeDistrictIds: [] }
+    });
+    expect(hidden.typeLabel).toBe("Neznámý sektor");
+    expect(hidden.ownerAvatarHidden).toBe(true);
+    expect(hidden.ownerAvatarSrc).toBe("");
+    expect(hidden.ownerFallback).toBe("");
+
+    const revealed = buildSelectedDistrictSummaryViewModel({ id: 7, districtType: "park" }, {
+      gamePhase: "live",
+      ownedDistrictIds: new Set(),
+      launchOwnerByDistrictId: new Map(),
+      destroyedDistrictIds: new Set()
+    }, {
+      atmosphereMeta: { shortLabel: "Parkový sektor" },
+      spyIntel: { revealedTypeDistrictIds: [7] }
+    });
+    expect(revealed.typeLabel).toBe("Parkový sektor");
+    expect(revealed.ownerAvatarHidden).toBe(false);
+    expect(revealed.ownerFallback).toBe("");
+    expect(revealed.ownerAvatarEmpty).toBe(true);
+  });
+
+  it("shows player avatars in hidden owned sectors without fallback letters", () => {
+    const hiddenForeign = buildSelectedDistrictSummaryViewModel({ id: 8, districtType: "park" }, {
+      gamePhase: "live",
+      ownedDistrictIds: new Set(),
+      launchOwnerByDistrictId: new Map([[8, 2]]),
+      destroyedDistrictIds: new Set()
+    }, {
+      currentPlayerId: 1,
+      atmosphereMeta: { shortLabel: "Parkový sektor" },
+      getLaunchPlayerAvatar: (id) => `../avatar-${id}.png`,
+      spyIntel: { revealedTypeDistrictIds: [] }
+    });
+
+    expect(hiddenForeign.typeLabel).toBe("Neznámý sektor");
+    expect(hiddenForeign.ownerAvatarHidden).toBe(false);
+    expect(hiddenForeign.ownerAvatarSrc).toBe("../avatar-2.png");
+    expect(hiddenForeign.ownerFallback).toBe("");
+
+    const ownedByCurrentPlayer = buildSelectedDistrictSummaryViewModel({ id: 9, districtType: "resident" }, {
+      gamePhase: "live",
+      ownedDistrictIds: new Set([9]),
+      launchOwnerByDistrictId: new Map(),
+      destroyedDistrictIds: new Set()
+    }, {
+      currentPlayerId: 1,
+      currentPlayerLabel: "TY",
+      atmosphereMeta: { shortLabel: "Rezidence" },
+      getLaunchPlayerAvatar: (id) => `../avatar-${id}.png`,
+      spyIntel: { revealedTypeDistrictIds: [] }
+    });
+
+    expect(ownedByCurrentPlayer.typeLabel).toBe("Rezidence");
+    expect(ownedByCurrentPlayer.ownerLabel).toBe("TY");
+    expect(ownedByCurrentPlayer.ownerAvatarHidden).toBe(false);
+    expect(ownedByCurrentPlayer.ownerAvatarSrc).toBe("../avatar-1.png");
+    expect(ownedByCurrentPlayer.ownerFallback).toBe("");
+  });
+
   it("builds district action hub model with disabled reasons and trap state", () => {
     const model = buildDistrictActionViewModel({ id: 9 }, {
       activePoliceAction: null,

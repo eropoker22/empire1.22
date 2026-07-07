@@ -173,7 +173,7 @@ describe("overlay backdrop", () => {
     expect(getTopOverlay()).toBe("district_sheet");
   });
 
-  it("otevření prvního overlaye zamkne body na aktuální scroll pozici", () => {
+  it("desktop overlay lock neodsune body z aktuální pozice", () => {
     const initialScrollY = 77;
     setWindowScrollY(initialScrollY);
 
@@ -182,11 +182,16 @@ describe("overlay backdrop", () => {
     expect(document.body.dataset.overlayScrollLocked).toBe("true");
     expect(document.documentElement.classList.contains("game-modal-scroll-locked")).toBe(true);
     expect(document.body.classList.contains("game-modal-scroll-locked")).toBe(true);
-    expect(document.body.style.position).toBe("fixed");
-    expect(document.body.style.top).toBe(`-${initialScrollY}px`);
-    expect(document.body.style.left).toBe("0px");
-    expect(document.body.style.right).toBe("0px");
-    expect(document.body.style.width).toBe("100%");
+    expect(document.body.style.position).toBe("");
+    expect(document.body.style.top).toBe("");
+    expect(document.body.style.left).toBe("");
+    expect(document.body.style.right).toBe("");
+    expect(document.body.style.width).toBe("");
+    expect(document.body.style.overflow).toBe("");
+    expect(document.documentElement.style.overflow).toBe("hidden");
+    expect(document.documentElement.style.getPropertyValue("scrollbar-gutter")).toBe("stable");
+    expect(document.documentElement.style.getPropertyValue("--modal-scroll-lock-y")).toBe(`${initialScrollY}px`);
+    expect(document.documentElement.style.getPropertyValue("--modal-topbar-reserve")).toBe("52px");
     expect(window.scrollY).toBe(initialScrollY);
   });
 
@@ -202,7 +207,8 @@ describe("overlay backdrop", () => {
 
     openOverlay("confirmation_modal");
     expect(document.body.dataset.overlayScrollLocked).toBe("true");
-    expect(document.body.style.position).toBe("fixed");
+    expect(document.body.style.position).toBe("");
+    expect(document.body.style.overflow).toBe("");
 
     closeOverlay("close confirmation");
     expect(isOverlayOpen()).toBe(true);
@@ -288,6 +294,7 @@ describe("overlay backdrop", () => {
     expect(document.body.style.left).toBe(originalBodyStyles.left);
     expect(document.body.style.right).toBe(originalBodyStyles.right);
     expect(document.body.style.width).toBe(originalBodyStyles.width);
+    expect(document.documentElement.style.getPropertyValue("--modal-topbar-reserve")).toBe("");
   });
 
   it("dva overlaye drží scroll lock do odemknutí posledního", () => {
@@ -299,14 +306,16 @@ describe("overlay backdrop", () => {
     openOverlay("confirmation_modal");
 
     expect(document.body.dataset.overlayScrollLocked).toBe("true");
-    expect(document.body.style.position).toBe("fixed");
-    expect(document.body.style.top).toBe(`-${initialScrollY}px`);
+    expect(document.body.style.position).toBe("");
+    expect(document.body.style.top).toBe("");
+    expect(document.body.style.overflow).toBe("");
 
     closeOverlay("close top");
     expect(scrollTo).not.toHaveBeenCalled();
     expect(document.body.dataset.overlayScrollLocked).toBe("true");
-    expect(document.body.style.position).toBe("fixed");
-    expect(document.body.style.top).toBe(`-${initialScrollY}px`);
+    expect(document.body.style.position).toBe("");
+    expect(document.body.style.top).toBe("");
+    expect(document.body.style.overflow).toBe("");
 
     closeOverlay("close bottom");
     expect(scrollTo).toHaveBeenCalledWith({ top: initialScrollY, left: 0, behavior: "auto" });

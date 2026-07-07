@@ -2508,6 +2508,18 @@ body.alliance-command-pending #alliance-kick-confirm-modal .btn {
     padding: 10px;
   }
 
+  #alliance-modal .modal__backdrop,
+  #alliance-create-modal .modal__backdrop,
+  #alliance-leave-modal .modal__backdrop,
+  #alliance-public-action-modal .modal__backdrop,
+  #alliance-kick-confirm-modal .modal__backdrop {
+    background:
+      radial-gradient(circle at 50% 20%, rgba(255, 47, 95, 0.12), transparent 34%),
+      rgba(1, 4, 10, 0.92);
+    backdrop-filter: blur(12px) saturate(112%);
+    -webkit-backdrop-filter: blur(12px) saturate(112%);
+  }
+
   #alliance-modal .alliance-modal__content,
   #alliance-create-modal .modal__content,
   #alliance-leave-modal .modal__content,

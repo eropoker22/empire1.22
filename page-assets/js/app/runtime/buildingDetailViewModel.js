@@ -488,7 +488,7 @@ function resolveEffectTone(value = "", mechanicsType = "") {
   if (normalized.startsWith("vliv") || normalized.startsWith("influence")) {
     return "influence";
   }
-  if (normalized.startsWith("level multiplier") || normalized.startsWith("level bonus") || normalized.startsWith("network multiplier")) {
+  if (normalized.startsWith("level multiplier") || normalized.startsWith("level bonus") || normalized.startsWith("network multiplier") || normalized.startsWith("sit ")) {
     return "network";
   }
   if (normalized.startsWith("den ")) {
@@ -516,7 +516,7 @@ function formatLevelMultiplierEffect(value = "", mechanicsType = "") {
     return `Multiplier 1x${bonusPct}: čím víc restaurací, tím větší keš i menší cooldowny`;
   }
   if (mechanicsType === "apartment-block") {
-    return `Multiplier +${bonusPct}%`;
+    return `Síť bytových bloků: produkce a kapacita obyvatel +${bonusPct} %`;
   }
 
   return `Level bonus +${bonusPct}%`;
@@ -534,6 +534,16 @@ function createEffectItems(effectsLabel = "", mechanicsType = "") {
         tone: resolveEffectTone(item, mechanicsType)
       };
     });
+}
+
+function isZeroNetworkEffectItem(item = {}) {
+  if (!item || item.tone !== "network") {
+    return false;
+  }
+  const normalized = normalizeEffectToneLabel(item.text || "");
+  return /\+0\s*%/u.test(normalized)
+    || /1x0\b/u.test(normalized)
+    || /\bx1(?:[.,]0+)?\b/u.test(normalized);
 }
 
 function resolveOwnedBuildingCount(mechanics = {}) {
@@ -554,7 +564,10 @@ function resolveOwnedBuildingCount(mechanics = {}) {
 }
 
 function createEffectItemsWithOwnedCount(effectsLabel = "", mechanics = {}, options = {}) {
-  const items = createEffectItems(effectsLabel, mechanics.mechanicsType);
+  const ownedBuildingCount = resolveOwnedBuildingCount(mechanics);
+  const suppressZeroNetworkEffect = ownedBuildingCount !== null && ownedBuildingCount <= 1;
+  const items = createEffectItems(effectsLabel, mechanics.mechanicsType)
+    .filter((item) => !(suppressZeroNetworkEffect && isZeroNetworkEffectItem(item)));
   const dayNightEffect = resolveDayNightBuildingEffect({
     buildingName: options.buildingName,
     mechanics,
@@ -575,17 +588,12 @@ function createEffectItemsWithOwnedCount(effectsLabel = "", mechanics = {}, opti
       tone: "cooldown"
     });
   }
-  const ownedBuildingCount = resolveOwnedBuildingCount(mechanics);
-  if (ownedBuildingCount === null) {
-    return items;
-  }
-
-  items.push({
-    text: `Počet: ${ownedBuildingCount}`,
-    tone: "count"
-  });
-
   return items;
+}
+
+function createBuildingDetailCountLabel(mechanics = {}) {
+  const ownedBuildingCount = resolveOwnedBuildingCount(mechanics);
+  return ownedBuildingCount === null ? "" : `Počet: ${ownedBuildingCount}`;
 }
 
 const FOCUSED_BUILDING_DETAIL_LABELS = Object.freeze({
@@ -1238,6 +1246,7 @@ export function createBuildingDetailViewModel({
   return {
     title: displayLabel,
     badge,
+    countLabel: createBuildingDetailCountLabel(mechanics),
     backgroundImagePath: buildingBackgroundPath,
     mechanicsType: mechanics.mechanicsType,
     districtType,

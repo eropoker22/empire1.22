@@ -259,6 +259,133 @@ describe("building detail, production and recipe UI modules", () => {
     expect(() => renderBuildingDetailPanel({ shell, stats: [], mechanics: [], actions: [] })).not.toThrow();
   });
 
+  it("keeps generic building collect and upgrade controls in the top-right header tools", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:restaurant" });
+    const headerTools = shell.querySelector(".district-building-detail-header-tools");
+    const levelBadge = shell.querySelector("[data-district-building-detail-level]");
+    const collectButton = shell.querySelector("[data-district-building-detail-collect]");
+    const upgradeButton = shell.querySelector("[data-district-building-detail-upgrade]");
+    const closeButton = headerTools.querySelector("[data-district-building-detail-close]");
+
+    expect(headerTools).not.toBe(null);
+    expect(levelBadge.parentNode).toBe(headerTools);
+    expect(collectButton.parentNode).toBe(headerTools);
+    expect(upgradeButton.parentNode).toBe(headerTools);
+    expect(closeButton.parentNode).toBe(headerTools);
+    expect(headerTools.children.map((child) => child.dataset)).toEqual([
+      { districtBuildingDetailLevel: "true" },
+      { districtBuildingDetailCollect: "true" },
+      { districtBuildingDetailUpgrade: "true" },
+      { districtBuildingDetailClose: "true" }
+    ]);
+  });
+
+  it("adds stable per-building CSS hooks to generic building detail cards", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:building" });
+    const card = shell.querySelector(".district-building-detail-card");
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "restaurant",
+      title: "Restaurace",
+      badge: "Lokální cashflow",
+      levelLabel: "L1",
+      districtType: "commercial",
+      stats: [],
+      mechanics: [],
+      collect: { visible: false },
+      upgrade: { disabled: false },
+      actions: []
+    });
+
+    expect(shell.dataset.buildingMechanicsType).toBe("restaurant");
+    expect(card.dataset.buildingMechanicsType).toBe("restaurant");
+    expect(shell.dataset.buildingDetailCssHook).toBe("building-detail--restaurant");
+    expect(card.dataset.buildingDetailCssHook).toBe("building-detail-card--restaurant");
+    expect(shell.classList.contains("building-detail--restaurant")).toBe(true);
+    expect(card.classList.contains("building-detail-card--restaurant")).toBe(true);
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "casino",
+      title: "Kasino",
+      badge: "High-risk praní",
+      levelLabel: "L1",
+      districtType: "commercial",
+      stats: [],
+      mechanics: [],
+      collect: { visible: false },
+      upgrade: { disabled: false },
+      actions: []
+    });
+
+    expect(shell.dataset.buildingMechanicsType).toBe("casino");
+    expect(card.dataset.buildingMechanicsType).toBe("casino");
+    expect(shell.classList.contains("building-detail--restaurant")).toBe(false);
+    expect(card.classList.contains("building-detail-card--restaurant")).toBe(false);
+    expect(shell.classList.contains("building-detail--casino")).toBe(true);
+    expect(card.classList.contains("building-detail-card--casino")).toBe(true);
+  });
+
+  it("hides generic building header role badges on desktop too", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:casino" });
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "casino",
+      title: "Kasino",
+      badge: "High-risk praní",
+      levelLabel: "L2",
+      districtType: "commercial",
+      stats: [],
+      mechanics: [],
+      collect: { visible: false },
+      upgrade: { disabled: false },
+      actions: []
+    });
+
+    const badge = shell.querySelector("[data-district-building-detail-badge]");
+    expect(badge.textContent).toBe("");
+    expect(badge.hidden).toBe(true);
+    expect(badge.style.display).toBe("none");
+    expect(badge.attributes.get("aria-hidden")).toBe("true");
+  });
+
+  it("shows building count next to the title when the view model provides it", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:restaurant" });
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "restaurant",
+      title: "Restaurace",
+      badge: "Lokální cashflow",
+      countLabel: "Počet: 4",
+      levelLabel: "L1",
+      districtType: "commercial",
+      stats: [],
+      mechanics: [],
+      collect: { visible: false },
+      upgrade: { disabled: false },
+      actions: []
+    });
+
+    const badge = shell.querySelector("[data-district-building-detail-badge]");
+    expect(badge.textContent).toBe("Počet: 4");
+    expect(badge.hidden).toBe(false);
+    expect(badge.style.display).toBe("");
+    expect(badge.dataset.districtBuildingDetailBadgeKind).toBe("count");
+    expect(badge.classList.contains("building-detail-title__badge--count")).toBe(true);
+    expect(badge.attributes.get("aria-hidden")).toBe("false");
+  });
+
   it("applies and clears downtown building detail card styling hooks", () => {
     const document = setupDocument();
     const root = document.createElement("div");

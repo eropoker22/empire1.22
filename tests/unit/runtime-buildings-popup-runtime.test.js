@@ -63,6 +63,7 @@ describe("buildings popup runtime", () => {
     runtime.renderDistrictPopupBuildings({ id: 1, districtType: "resident" });
     expect(renderDistrictBuildingList).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
       metaText: "",
+      interactive: true,
       buildings: [
         expect.objectContaining({
           name: "Skladiště",
@@ -71,6 +72,40 @@ describe("buildings popup runtime", () => {
         })
       ],
       trap: expect.objectContaining({ visible: true, meta: "59:59" })
+    }));
+  });
+
+  it("renders discovered buildings in foreign districts as non-interactive", () => {
+    const { runtime, renderDistrictBuildingList } = createRuntime({
+      getCurrentPlayerOwnedDistrictIds: () => new Set([1]),
+      getResolvedSpyIntel: () => ({ revealedTypeDistrictIds: [3] })
+    });
+
+    runtime.renderDistrictPopupBuildings({ id: 3, districtType: "resident" });
+
+    expect(renderDistrictBuildingList).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
+      metaText: "",
+      interactive: false,
+      buildings: [
+        expect.objectContaining({
+          name: "Skladiště",
+          displayName: "Skladiště 3"
+        })
+      ]
+    }));
+  });
+
+  it("locks foreign district buildings until spy reveals the district type", () => {
+    const { runtime, renderDistrictBuildingList } = createRuntime({
+      getCurrentPlayerOwnedDistrictIds: () => new Set([1]),
+      getResolvedSpyIntel: () => ({ revealedTypeDistrictIds: [] })
+    });
+
+    runtime.renderDistrictPopupBuildings({ id: 3, districtType: "resident" });
+
+    expect(renderDistrictBuildingList).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
+      metaText: "Nezjištěno",
+      emptyText: "Bez spy nebo vlastnictví zatím nevíš, jaké budovy jsou v tomto distriktu."
     }));
   });
 
@@ -110,7 +145,7 @@ describe("buildings popup runtime", () => {
     }));
   });
 
-  it("marks live-mode building district entries that are not owned by the current player", () => {
+  it("keeps live-mode building district entries scoped to current player ownership", () => {
     const { runtime, renderBuildingsPopupDetailPanel } = createRuntime({
       getCurrentPlayerOwnedDistrictIds: () => new Set([1]),
       getInteractionState: () => ({ gamePhase: "live", destroyedDistrictIds: new Set() })
@@ -122,10 +157,6 @@ describe("buildings popup runtime", () => {
       entries: [
         expect.objectContaining({
           districtId: 1,
-          isOwnedByCurrentPlayer: true
-        }),
-        expect.objectContaining({
-          districtId: 3,
           isOwnedByCurrentPlayer: true
         })
       ]
@@ -156,7 +187,7 @@ describe("buildings popup runtime", () => {
     }));
   });
 
-  it("treats all building types as owned in live phase", () => {
+  it("keeps building zone tabs locked in live when the player owns no district in that zone", () => {
     const { runtime, renderBuildingsPopupTypesPanel } = createRuntime({
       getCurrentPlayerOwnedDistrictIds: () => new Set([1]),
       getInteractionState: () => ({ gamePhase: "live", destroyedDistrictIds: new Set() })
@@ -169,16 +200,49 @@ describe("buildings popup runtime", () => {
         expect.objectContaining({
           typeKey: "resident",
           disabled: false,
-          ownedDistrictCount: 2,
-          meta: "(2)"
+          ownedDistrictCount: 1,
+          meta: "(1)"
         }),
         expect.objectContaining({
           typeKey: "industrial",
-          disabled: false,
-          ownedDistrictCount: 1,
-          meta: "(1)"
+          disabled: true,
+          ownedDistrictCount: 0,
+          meta: ""
         })
       ])
+    }));
+  });
+
+  it("marks the apartment block base cell as full when any apartment block is full", () => {
+    const isApartmentBlockFull = vi.fn(({ district }) => Number(district.id) === 1);
+    const { runtime, renderBuildingsPopupDetailPanel } = createRuntime({
+      isApartmentBlockFull,
+      resolveDistrictBuildingProfile: (district) => ({
+        buildings: [{ baseName: "Bytový blok", displayName: `Blok ${district.id}` }],
+        districtLabel: `District ${district.id}`,
+        setTitle: "Sada",
+        tier: "early",
+        typeKey: district.districtType
+      })
+    });
+
+    runtime.renderBuildingsPopup("resident");
+
+    expect(isApartmentBlockFull).toHaveBeenCalled();
+    expect(renderBuildingsPopupDetailPanel).toHaveBeenLastCalledWith(undefined, expect.objectContaining({
+      baseTypes: [
+        expect.objectContaining({
+          baseName: "Bytový blok",
+          count: 1,
+          apartmentIsFull: true
+        })
+      ],
+      entries: [
+        expect.objectContaining({
+          displayName: "Blok 1",
+          apartmentIsFull: true
+        })
+      ]
     }));
   });
 });

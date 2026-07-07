@@ -472,6 +472,53 @@ describe("building detail view-model builder", () => {
     ]);
   });
 
+  it("moves owned building count to the header and hides zero network bonuses", () => {
+    const model = createBuildingDetailViewModel({
+      district: { id: 4 },
+      buildingName: "Restaurace",
+      displayName: "Restaurace",
+      profile: { role: "Lokální cashflow", actions: ["Vybrat tržby"] },
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "restaurant",
+        ownedBuildingCount: 1,
+        effectsLabel: "Clean cash +180/hod · Level multiplier x1.00"
+      },
+      buildingProfile: { setTitle: "District set" }
+    });
+
+    expect(model.countLabel).toBe("Počet: 1");
+    expect(model.effects).toEqual([
+      { text: "Clean cash +180/hod", tone: "clean" }
+    ]);
+  });
+
+  it("explains apartment block network multiplier as population production and capacity", () => {
+    const model = createBuildingDetailViewModel({
+      district: { id: 4 },
+      buildingName: "Bytový blok",
+      displayName: "Bytový blok",
+      profile: { role: "Členové gangu", actions: ["Vybrat obyvatele"] },
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "apartment-block",
+        ownedApartmentBlocks: 3,
+        apartmentWholePopulation: 8,
+        apartmentCapacity: 20,
+        apartmentPopulationPerMinute: 0.3,
+        apartmentIsFull: false,
+        effectsLabel: "Level multiplier x1.20"
+      },
+      buildingProfile: { setTitle: "District set" }
+    });
+
+    expect(model.effects).toContainEqual({
+      text: "Síť bytových bloků: produkce a kapacita obyvatel +20 %",
+      tone: "network"
+    });
+    expect(JSON.stringify(model.effects)).not.toContain("Multiplier");
+  });
+
   it("renders restaurant count and network multiplier from owned restaurant mechanics", () => {
     const rows = createBuildingDetailStatRows({
       buildingName: "Restaurace",

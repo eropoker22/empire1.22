@@ -145,22 +145,25 @@ describe("building panel rendering", () => {
     renderBuildingsPopupDetail(mount, {
       selectedType: "economy",
       title: "Komerční districty",
-      copy: "LIVE fáze zobrazuje všechny budovy vybraného typu districtu, jako by byly tvoje.",
+      copy: "Zobrazuje pouze budovy v districtech, které máš pod kontrolou.",
       baseTypes: [
-        { baseName: "Autosalon", count: 2 },
+        { baseName: "Bytový blok", count: 2, apartmentIsFull: true },
         { baseName: "Fitness Club", count: 1 }
       ],
-      activeBaseName: "Autosalon",
+      activeBaseName: "Bytový blok",
       entries: [
-        { baseName: "Autosalon", displayName: "Neon Cars", districtId: 12, districtLabel: "District 12", isOwnedByCurrentPlayer: true },
-        { baseName: "Autosalon", displayName: "Enemy Cars", districtId: 13, districtLabel: "District 13", isOwnedByCurrentPlayer: false }
+        { baseName: "Bytový blok", displayName: "Blok 1", districtId: 12, districtLabel: "District 12", isOwnedByCurrentPlayer: true, apartmentIsFull: true },
+        { baseName: "Bytový blok", displayName: "Blok 2", districtId: 13, districtLabel: "District 13", isOwnedByCurrentPlayer: false }
       ]
     });
 
     const card = mount.children[0];
     expect(card.dataset.buildingDistrictType).toBe("economy");
-    expect(card.children[2].children[0].children[0].dataset.buildingsSelectBaseName).toBe("Autosalon");
+    expect(card.children[2].children[0].children[0].dataset.buildingsSelectBaseName).toBe("Bytový blok");
+    expect(card.children[2].children[0].children[0].classList.contains("is-apartment-full")).toBe(true);
+    expect(card.children[2].children[0].children[0].title).toBe("Bytový blok je plný. Obyvatelé čekají na vybrání.");
     expect(card.children[4].children[0].children[0].dataset.buildingsOpenBuildingDistrictId).toBe("12");
+    expect(card.children[4].children[0].children[0].classList.contains("is-apartment-full")).toBe(false);
     expect(card.children[4].children[0].children[1].disabled).toBe(true);
     expect(card.children[4].children[0].children[1].classList.contains("buildings-popup__building--locked")).toBe(true);
     expect(card.children[4].children[0].children[1].dataset.buildingsOpenBuildingDistrictId).toBeUndefined();

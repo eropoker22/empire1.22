@@ -3,6 +3,18 @@ function getDistrictId(district) {
 }
 
 function getFallbackTypeLabel(district, interactionState = {}, options = {}) {
+  const districtId = Number(district?.id || 0);
+  const ownedDistrictIds = interactionState?.ownedDistrictIds instanceof Set
+    ? interactionState.ownedDistrictIds
+    : new Set(Array.isArray(interactionState?.ownedDistrictIds) ? interactionState.ownedDistrictIds.map(Number) : []);
+  const revealedTypeDistrictIds = options.spyIntel?.revealedTypeDistrictIds instanceof Set
+    ? options.spyIntel.revealedTypeDistrictIds
+    : new Set(Array.isArray(options.spyIntel?.revealedTypeDistrictIds) ? options.spyIntel.revealedTypeDistrictIds.map(Number) : []);
+  const typeKnown = ownedDistrictIds.has(districtId) || revealedTypeDistrictIds.has(districtId);
+  if (!typeKnown) {
+    return "Neznámý sektor";
+  }
+
   if (typeof options.getDistrictAtmosphereMeta === "function") {
     return options.getDistrictAtmosphereMeta(district, interactionState)?.shortLabel || "District";
   }
@@ -48,7 +60,7 @@ export function buildMapTooltipViewModel(district = null, interactionState = {},
     };
   }
 
-  const launchOwnerId = interactionState?.gamePhase === "launch"
+  const launchOwnerId = interactionState?.gamePhase === "launch" || interactionState?.gamePhase === "live"
     ? interactionState.launchOwnerByDistrictId?.get?.(districtId)
     : null;
   const ownerLabel = getLaunchOwnerLabel(launchOwnerId, options);

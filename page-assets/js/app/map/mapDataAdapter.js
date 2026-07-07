@@ -106,7 +106,7 @@ export function resolveMapDistrictOwnerLabel(district, interactionState = {}, op
 
   const gamePhase = interactionState.gamePhase || "launch";
   const launchOwnerByDistrictId = interactionState.launchOwnerByDistrictId;
-  const launchOwnerId = gamePhase === "launch" && launchOwnerByDistrictId?.get
+  const launchOwnerId = (gamePhase === "launch" || gamePhase === "live") && launchOwnerByDistrictId?.get
     ? launchOwnerByDistrictId.get(districtId)
     : null;
   const currentPlayerId = Number(options.currentPlayerId ?? 0) || 0;

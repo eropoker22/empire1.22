@@ -64,6 +64,8 @@ const resolveBuildingChipKind = (buildingName) => {
   return "Pasivní bonus";
 };
 
+const isApartmentBlockBaseName = (buildingName) => normalizeBuildingChipName(buildingName) === "bytovy blok";
+
 const createBuildingsPopupBackgroundStack = (backgroundImage) => backgroundImage
   ? `linear-gradient(rgba(3, 7, 18, 0.44), rgba(3, 7, 18, 0.58)), url("${escapeCssUrl(backgroundImage)}")`
   : "linear-gradient(rgba(3, 7, 18, 0.66), rgba(3, 7, 18, 0.78)), rgba(3, 7, 18, 0.92)";
@@ -78,7 +80,12 @@ export function createBuildingsPopupRuntime(deps = {}) {
   const getCurrentPlayerOwnedDistrictIds = typeof deps.getCurrentPlayerOwnedDistrictIds === "function"
     ? deps.getCurrentPlayerOwnedDistrictIds
     : () => new Set();
-  const isLivePhase = (interactionState = {}) => String(interactionState.gamePhase || "launch").trim().toLowerCase() === "live";
+  const getResolvedSpyIntel = typeof deps.getResolvedSpyIntel === "function"
+    ? deps.getResolvedSpyIntel
+    : () => ({ revealedTypeDistrictIds: [] });
+  const isApartmentBlockFull = typeof deps.isApartmentBlockFull === "function"
+    ? deps.isApartmentBlockFull
+    : () => false;
 
   const getSelectedDistrictForBuildingsPopup = () => {
     const selectedDistrictId = getInteractionState().selectedDistrictId;
@@ -142,9 +149,13 @@ export function createBuildingsPopupRuntime(deps = {}) {
     const interactionState = getInteractionState();
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
     const isOwnedByCurrentPlayer = currentPlayerOwnedDistrictIds.has(Number(district.id));
+    const spyIntel = getResolvedSpyIntel() || {};
+    const isRevealedBySpy = Array.isArray(spyIntel.revealedTypeDistrictIds)
+      && spyIntel.revealedTypeDistrictIds.map(Number).includes(Number(district.id));
     const isLaunchPhase = (interactionState.gamePhase || "launch") === "launch";
     const isHidden = isLaunchPhase && deps.isDistrictTypeHidden(district, interactionState) && !isOwnedByCurrentPlayer;
     const isDestroyed = interactionState.destroyedDistrictIds?.has?.(Number(district.id));
+    const canShowBuildings = isOwnedByCurrentPlayer || isRevealedBySpy;
 
     if (isDestroyed) {
       deps.renderDistrictBuildingList({
@@ -158,7 +169,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
       return;
     }
 
-    if (isHidden) {
+    if (isHidden || !canShowBuildings) {
       deps.renderDistrictBuildingList({
         section: elements.popupBuildings,
         meta: elements.popupBuildingsMeta,
@@ -190,6 +201,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
       list: elements.popupBuildingsList
     }, {
       metaText: "",
+      interactive: isOwnedByCurrentPlayer,
       buildings: buildingProfile.buildings.map((building) => ({
         name: building.baseName || building.displayName,
         label: building.baseName || building.displayName,
@@ -211,12 +223,11 @@ export function createBuildingsPopupRuntime(deps = {}) {
     }
 
     const interactionState = getInteractionState();
-    const isLaunchPhase = (interactionState.gamePhase || "launch") === "launch";
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
 
     return geometry.districts
       .filter((district) => !typeKey || district.districtType === typeKey)
-      .filter((district) => !isLaunchPhase || currentPlayerOwnedDistrictIds.has(Number(district.id)))
+      .filter((district) => currentPlayerOwnedDistrictIds.has(Number(district.id)))
       .sort((left, right) => Number(left?.id || 0) - Number(right?.id || 0));
   };
 
@@ -226,11 +237,6 @@ export function createBuildingsPopupRuntime(deps = {}) {
       return 0;
     }
     const interactionState = getInteractionState();
-    if (isLivePhase(interactionState)) {
-      return geometry.districts
-        .filter((district) => !typeKey || district.districtType === typeKey)
-        .length;
-    }
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
     return geometry.districts
       .filter((district) => !typeKey || district.districtType === typeKey)
@@ -246,7 +252,6 @@ export function createBuildingsPopupRuntime(deps = {}) {
     const districts = getSourceDistrictsForBuildingType(typeKey);
     const interactionState = getInteractionState();
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
-    const treatAllBuildingsAsOwned = isLivePhase(interactionState);
     const entries = [];
 
     for (const district of districts) {
@@ -267,7 +272,8 @@ export function createBuildingsPopupRuntime(deps = {}) {
           districtId: Number(district.id) || 0,
           districtLabel,
           districtType: buildingProfile.typeKey,
-          isOwnedByCurrentPlayer: treatAllBuildingsAsOwned || currentPlayerOwnedDistrictIds.has(Number(district.id)),
+          isOwnedByCurrentPlayer: currentPlayerOwnedDistrictIds.has(Number(district.id)),
+          apartmentIsFull: isApartmentBlockBaseName(baseName) && isApartmentBlockFull({ district, building, baseName, displayName }),
           setTitle: buildingProfile.setTitle,
           tier: buildingProfile.tier
         });
@@ -311,17 +317,18 @@ export function createBuildingsPopupRuntime(deps = {}) {
     }
 
     const meta = deps.districtBuildingTypeMeta[selectedType] || deps.districtBuildingTypeMeta.resident;
-    const isLaunchPhase = (getInteractionState().gamePhase || "launch") === "launch";
     const entries = getBuildingEntriesForDistrictType(selectedType);
     const groupedByBaseName = new Map();
 
     for (const entry of entries) {
       const existing = groupedByBaseName.get(entry.baseName) || {
         baseName: entry.baseName,
-        count: 0
+        count: 0,
+        apartmentIsFull: false
       };
 
       existing.count += 1;
+      existing.apartmentIsFull = Boolean(existing.apartmentIsFull || entry.apartmentIsFull);
       groupedByBaseName.set(entry.baseName, existing);
     }
 
@@ -348,12 +355,8 @@ export function createBuildingsPopupRuntime(deps = {}) {
       deps.renderBuildingsPopupDetailPanel(elements.buildingsPopupDetailMount, {
         selectedType,
         title: meta.label,
-        copy: isLaunchPhase
-          ? "Zobrazuje pouze budovy v districtech, které máš pod kontrolou."
-          : "LIVE fáze zobrazuje všechny budovy vybraného typu districtu, jako by byly tvoje.",
-        emptyText: isLaunchPhase
-          ? "Zaber nebo kup district tohoto typu a tady se objeví jeho budovy."
-          : "Na mapě teď nejsou dostupné žádné budovy pro tento typ districtu."
+        copy: "Zobrazuje pouze budovy v districtech, které máš pod kontrolou.",
+        emptyText: "Zaber nebo kup district tohoto typu a tady se objeví jeho budovy."
       });
       return;
     }
@@ -361,9 +364,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
     deps.renderBuildingsPopupDetailPanel(elements.buildingsPopupDetailMount, {
       selectedType,
       title: meta.label,
-      copy: isLaunchPhase
-        ? "Zobrazuje pouze budovy v districtech, které máš pod kontrolou."
-        : "LIVE fáze zobrazuje všechny budovy vybraného typu districtu, jako by byly tvoje.",
+      copy: "Zobrazuje pouze budovy v districtech, které máš pod kontrolou.",
       baseTypes,
       activeBaseName,
       entries: scopedEntries,

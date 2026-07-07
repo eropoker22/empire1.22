@@ -20,7 +20,13 @@ export function createBuildingNetworkRuntime(deps = {}) {
     );
   };
 
-  const countOwnedBuildingByBaseName = (baseName) => {
+  const getMinimumOwnedBuildingCountByBaseName = (baseName, worldState = {}) => {
+    const value = deps.getMinimumOwnedBuildingCountByBaseName?.(baseName, worldState);
+    const normalized = Math.floor(Number(value));
+    return Number.isFinite(normalized) ? Math.max(0, normalized) : 0;
+  };
+
+  const countActualOwnedBuildingByBaseName = (baseName) => {
     const ownedDistrictIds = getOwnedDistrictIdsForBuildingCounts();
     return deps.getDistrictResourceCatalog().reduce((count, district) => {
       if (!ownedDistrictIds.has(Number(district.id))) return count;
@@ -28,6 +34,11 @@ export function createBuildingNetworkRuntime(deps = {}) {
       const hasBuilding = (profile?.buildings || []).some((building) => deps.normalizeBuildingLookupKey(building.baseName) === baseName);
       return count + (hasBuilding ? 1 : 0);
     }, 0);
+  };
+
+  const countOwnedBuildingByBaseName = (baseName) => {
+    const actualCount = countActualOwnedBuildingByBaseName(baseName);
+    return Math.max(actualCount, getMinimumOwnedBuildingCountByBaseName(baseName, deps.getResolvedWorldState()));
   };
 
   const getOwnedShoppingMallCountForMarket = () => countOwnedBuildingByBaseName("obchodni centrum");
@@ -206,9 +217,8 @@ export function createBuildingNetworkRuntime(deps = {}) {
   };
 
   const getOwnedWarehouseCount = () => {
-    const legacyWarehouses = countOwnedBuildingByBaseName("sklad");
-    const renamedWarehouses = countOwnedBuildingByBaseName("skladiste");
-    return legacyWarehouses + renamedWarehouses;
+    const actualCount = countActualOwnedBuildingByBaseName("sklad") + countActualOwnedBuildingByBaseName("skladiste");
+    return Math.max(actualCount, getMinimumOwnedBuildingCountByBaseName("skladiste", deps.getResolvedWorldState()));
   };
   const getWarehouseNetworkMultipliers = (count = getOwnedWarehouseCount()) => {
     const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);

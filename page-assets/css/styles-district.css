@@ -448,6 +448,14 @@
   letter-spacing: 0.08em;
 }
 
+.district-popup-owner-avatar-wrap.is-owner-hidden {
+  display: none;
+}
+
+.district-popup-owner-card:has(.district-popup-owner-avatar-wrap.is-owner-hidden) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .district-popup-owner-copy {
   display: grid;
   gap: 3px;
@@ -573,6 +581,12 @@
 .district-popup-buildings__chip-kind--production {
   color: rgba(103, 232, 249, 0.92);
   text-shadow: 0 0 9px rgba(34, 211, 238, 0.22);
+}
+
+.district-popup-buildings__chip--locked {
+  cursor: default;
+  opacity: 0.74;
+  filter: saturate(0.72);
 }
 
 .district-popup-buildings__chip--trap {
@@ -3278,4 +3292,103 @@
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.004)),
     rgba(7, 13, 24, 0.1);
+}
+
+/* District owner avatar opens in the shared profile lightbox when a real image exists. */
+.district-popup-owner-avatar-wrap.is-clickable {
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.district-popup-owner-avatar-wrap.is-clickable:hover,
+.district-popup-owner-avatar-wrap.is-clickable:focus-visible {
+  outline: 2px solid rgba(var(--district-accent-rgb), 0.78);
+  outline-offset: 3px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 0 22px rgba(var(--district-accent-rgb), 0.36);
+}
+
+.district-popup-owner-avatar-fallback[hidden] {
+  display: none !important;
+}
+
+#alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden) {
+  z-index: 26000;
+  background: transparent;
+}
+
+#alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden) .avatar-lightbox__backdrop {
+  background: rgba(1, 5, 12, 0.22);
+  backdrop-filter: blur(8px) saturate(126%);
+  -webkit-backdrop-filter: blur(8px) saturate(126%);
+}
+
+#alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden) .avatar-lightbox__content {
+  width: min(430px, calc(100vw - 28px));
+  max-height: min(82svh, 620px);
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+  border-color: rgba(var(--district-accent-rgb), 0.34);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)),
+    rgba(3, 8, 16, 0.1);
+  box-shadow:
+    0 20px 56px rgba(0, 0, 0, 0.32),
+    0 0 34px rgba(var(--district-accent-rgb), 0.18);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+#alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden) .avatar-lightbox__content img {
+  display: block;
+  width: 100%;
+  height: min(78svh, 560px);
+  max-height: min(78svh, 560px);
+  object-fit: cover;
+  object-position: center top;
+  background: rgba(2, 6, 12, 0.1);
+}
+
+#alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden) .avatar-lightbox__caption {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: auto;
+  bottom: auto;
+  display: inline-flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  z-index: 2;
+  max-width: calc(100% - 68px);
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+#alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden) .avatar-lightbox__legend-name {
+  display: inline-block;
+  max-width: 100%;
+  max-height: 1em;
+  margin: 0;
+  padding: 0 6px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: clamp(1rem, 2.8vw, 1.35rem);
+  font-weight: 800;
+  line-height: 0.82;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.72);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden) .avatar-lightbox__legend-bio {
+  display: none;
 }

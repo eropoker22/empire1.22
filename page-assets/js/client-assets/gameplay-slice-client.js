@@ -902,6 +902,8 @@ var EmpireGameplaySliceClient = function(exports) {
   const overlayStack = [];
   const LOCKED_BODY_DATA_ATTRIBUTE = "overlayScrollLocked";
   const LOCKED_BODY_CLASS = "game-modal-scroll-locked";
+  const LOCKED_SCROLL_Y_CSS_VAR = "--modal-scroll-lock-y";
+  const LOCKED_TOPBAR_RESERVE_CSS_VAR = "--modal-topbar-reserve";
   const DEFAULT_GHOST_CLICK_SUPPRESSION_MS = 250;
   const MODAL_SCROLL_LOCK_OWNER = Symbol("modal-scroll-lock-compat");
   const MOBILE_SCROLL_LOCK_MEDIA = "(max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse)";
@@ -969,6 +971,15 @@ var EmpireGameplaySliceClient = function(exports) {
       )
     );
   };
+  const getCurrentTopbarReserveHeight = () => {
+    var _a, _b;
+    if (typeof document === "undefined") {
+      return 0;
+    }
+    const topbar = document.getElementById("game-header") || document.querySelector(".game-topbar");
+    const rectHeight = Math.ceil(((_a = topbar == null ? void 0 : topbar.getBoundingClientRect) == null ? void 0 : _a.call(topbar).height) || 0);
+    return Math.max(0, rectHeight || ((_b = topbar == null ? void 0 : topbar.offsetHeight) != null ? _b : 0));
+  };
   const lockBodyScroll = () => {
     var _a;
     const body = getBody();
@@ -999,22 +1010,30 @@ var EmpireGameplaySliceClient = function(exports) {
     lockedRootStyles = {
       overflow: root.style.overflow,
       overscrollBehavior: root.style.overscrollBehavior,
-      scrollbarGutter: root.style.getPropertyValue("scrollbar-gutter")
+      scrollbarGutter: root.style.getPropertyValue("scrollbar-gutter"),
+      scrollLockY: root.style.getPropertyValue(LOCKED_SCROLL_Y_CSS_VAR),
+      topbarReserve: root.style.getPropertyValue(LOCKED_TOPBAR_RESERVE_CSS_VAR)
     };
     root.classList.add(LOCKED_BODY_CLASS);
     body.classList.add(LOCKED_BODY_CLASS);
+    root.style.setProperty(LOCKED_SCROLL_Y_CSS_VAR, `${scrollPosition.y}px`);
     root.style.overflow = "hidden";
     root.style.overscrollBehavior = "none";
     if (!isViewportWidthScrollLock) {
       root.style.setProperty("scrollbar-gutter", "stable");
+      root.style.setProperty(LOCKED_TOPBAR_RESERVE_CSS_VAR, `${getCurrentTopbarReserveHeight() || 52}px`);
     }
-    body.style.position = "fixed";
-    body.style.top = `-${scrollPosition.y}px`;
-    body.style.left = `-${scrollPosition.x}px`;
-    body.style.right = "0";
-    body.style.width = isViewportWidthScrollLock && lockedLayoutWidth > 0 ? `${lockedLayoutWidth}px` : "100%";
-    body.style.overflow = "hidden";
-    body.style.overscrollBehavior = "none";
+    if (isViewportWidthScrollLock) {
+      body.style.position = "fixed";
+      body.style.top = `-${scrollPosition.y}px`;
+      body.style.left = `-${scrollPosition.x}px`;
+      body.style.right = "0";
+      body.style.width = lockedLayoutWidth > 0 ? `${lockedLayoutWidth}px` : "100%";
+    }
+    if (isViewportWidthScrollLock) {
+      body.style.overflow = "hidden";
+      body.style.overscrollBehavior = "none";
+    }
     if (!isViewportWidthScrollLock && scrollbarWidth > 0) {
       body.style.paddingRight = `${currentPaddingRight + scrollbarWidth}px`;
     }
@@ -1037,6 +1056,16 @@ var EmpireGameplaySliceClient = function(exports) {
         root.style.setProperty("scrollbar-gutter", lockedRootStyles.scrollbarGutter);
       } else {
         root.style.removeProperty("scrollbar-gutter");
+      }
+      if (lockedRootStyles.scrollLockY) {
+        root.style.setProperty(LOCKED_SCROLL_Y_CSS_VAR, lockedRootStyles.scrollLockY);
+      } else {
+        root.style.removeProperty(LOCKED_SCROLL_Y_CSS_VAR);
+      }
+      if (lockedRootStyles.topbarReserve) {
+        root.style.setProperty(LOCKED_TOPBAR_RESERVE_CSS_VAR, lockedRootStyles.topbarReserve);
+      } else {
+        root.style.removeProperty(LOCKED_TOPBAR_RESERVE_CSS_VAR);
       }
     }
     if (lockedBodyStyles) {

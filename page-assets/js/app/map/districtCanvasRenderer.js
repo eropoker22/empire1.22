@@ -372,8 +372,8 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
     const isDestroyed = interactionState.destroyedDistrictIds?.has?.(district.id) === true;
     const isDowntownDistrict = String(district.districtType || "").trim().toLowerCase() === "downtown";
     const rawLaunchOwnerId = launchOwnerByDistrictId.get(district.id) ?? null;
-    const showEnemyMarkers = showAllianceSymbols && mapVisibilityMode === "all" && !isOwnedByCurrentPlayer;
-    const launchOwnerId = showEnemyMarkers ? rawLaunchOwnerId : null;
+    const launchOwnerId = !isOwnedByCurrentPlayer ? rawLaunchOwnerId : null;
+    const shouldShowLaunchOwnerMarker = showAllianceSymbols && mapVisibilityMode === "all" && Boolean(launchOwnerId);
     const launchOwnerColor = launchOwnerId ? getLaunchPlayerColor(launchOwnerId) : null;
     const currentPlayerColor = getLaunchPlayerColor(currentPlayerId);
     const fillStyle = getDistrictFillStyle(district, isNight, interactionState);
@@ -419,36 +419,29 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
       context.stroke();
     }
 
-    if (launchOwnerId && !isOwnedByCurrentPlayer) {
-      context.save();
-      context.shadowBlur = reducedMapEffects ? 0 : isNight ? 24 : 18;
-      context.shadowColor = launchOwnerColor;
-      drawDistrictPolygon(context, district.polygon);
-      context.strokeStyle = launchOwnerColor;
-      context.lineWidth = reducedMapEffects ? 2.2 : 3.8;
-      context.stroke();
-      context.restore();
-    }
-
     if (!launchOwnerId && isOwnedByCurrentPlayer) {
       context.save();
-      context.shadowBlur = reducedMapEffects ? 0 : isNight ? 24 : 18;
+      context.globalCompositeOperation = "screen";
+      context.shadowBlur = reducedMapEffects ? 12 : isNight ? 32 : 24;
       context.shadowColor = currentPlayerColor;
       drawDistrictPolygon(context, district.polygon);
       context.strokeStyle = currentPlayerColor;
-      context.lineWidth = reducedMapEffects ? 2.2 : 3.6;
+      context.lineWidth = reducedMapEffects ? 3.2 : 5;
+      context.stroke();
+      context.shadowBlur = reducedMapEffects ? 5 : 12;
+      context.lineWidth = reducedMapEffects ? 1.8 : 2.3;
       context.stroke();
       context.restore();
     }
 
-    if (launchOwnerId && launchOwnerId === currentPlayerId) {
+    if (shouldShowLaunchOwnerMarker && launchOwnerId === currentPlayerId) {
       const allianceBadge = getDistrictAllianceBadge(currentPlayerId);
       if (allianceBadge) {
         drawAllianceDistrictBadge(context, district, allianceBadge, isNight);
       } else {
         drawCurrentPlayerFactionBadge(context, district, isNight);
       }
-    } else if (launchOwnerId) {
+    } else if (shouldShowLaunchOwnerMarker) {
       const allianceBadge = getDistrictAllianceBadge(launchOwnerId);
       if (allianceBadge) {
         drawAllianceDistrictBadge(context, district, allianceBadge, isNight);

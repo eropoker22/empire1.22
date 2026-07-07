@@ -106,10 +106,12 @@ describe("legacy robbery rules", () => {
     const precise = createRobberySetupPreview({ districtType: "industrial", sentMembers: 16, hasScoutReport: true });
 
     expect(rough.previewRiskLabel).toBe("Neznámé / Odhad");
+    expect(rough.zoneLabel).toBe("Neznámý sektor");
     expect(rough.previewLootLabel).toBe("Nejistý");
     expect(rough.previewTrapHintLabel).toBe("Neznámá");
     expect(rough.previewDescription).toContain("Spy není povinné");
     expect(precise.previewRiskLabel).toBe("Medium");
+    expect(precise.zoneLabel).toBe("Industrial");
     expect(precise.previewLootLabel).not.toBe("Nejistý");
     expect(precise.previewLootLabel.split(" / ").length).toBeGreaterThanOrEqual(2);
     expect(precise.previewDescription).toContain("Scout report aktivní");

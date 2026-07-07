@@ -257,6 +257,8 @@ describe("alliance alpha UI", () => {
     expect(css).toContain("-webkit-overflow-scrolling: touch;");
     expect(css).toContain("@media (max-width: 767px)");
     expect(css).toContain("@media (max-width: 420px)");
+    expect(css).toContain("rgba(1, 4, 10, 0.92);");
+    expect(css).toContain("-webkit-backdrop-filter: blur(12px) saturate(112%);");
     expect(css).toContain("margin-top: -8px;");
     expect(mobileCss).toContain("Mobile global chat: show about three messages");
     expect(mobileCss).toContain("#alliance-chat-card #alliance-btn");

@@ -34,6 +34,7 @@ describe("mobile action modal CSS", () => {
   const clientDistrictPopupModalHelpers = readText("client/page-assets/js/app/ui/districtPopupModalHelpers.js");
   const buildingsPopupRuntime = readText("page-assets/js/app/runtime/buildingsPopupRuntime.js");
   const clientBuildingsPopupRuntime = readText("client/page-assets/js/app/runtime/buildingsPopupRuntime.js");
+  const runtimeSource = readText("page-assets/js/app/runtime.js");
   const onboardingCss = readText("page-assets/css/styles-onboarding.css");
   const cityEventsCss = readText("page-assets/css/styles-city-events.css");
   const clientCityEventsCss = readText("client/page-assets/css/styles-city-events.css");
@@ -58,6 +59,153 @@ describe("mobile action modal CSS", () => {
     expect(css).toContain("grid-template-columns: 34px minmax(66px, 1fr) 34px !important;");
     expect(css).toContain("height: 32px !important;");
     expect(css).toContain("position: sticky !important;");
+  });
+
+  it("keeps mobile district action windows below the resource bar", () => {
+    for (const stylesheet of [css, clientCss]) {
+      expect(stylesheet).toContain("Final mobile district action window topbar guard.");
+      expect(stylesheet).toContain("--district-window-safe-top: calc(var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) + 8px);");
+      expect(stylesheet).toContain("--district-window-safe-height: calc(var(--mobile-locked-vh, 100svh) - var(--district-window-safe-top) - var(--district-window-safe-bottom));");
+      expect(stylesheet).toContain("html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup]:not([hidden])");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked .attack-setup-popup-shell:not([hidden])");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked .robbery-setup-popup-shell:not([hidden])");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked #spy-confirm-modal:not(.hidden):not([hidden])");
+      expect(stylesheet).toContain("html body #attack-result-modal:not(.hidden):not([hidden])");
+      expect(stylesheet).toContain("html body #police-action-result-modal:not(.hidden):not([hidden])");
+      expect(stylesheet).toContain("padding: var(--district-window-safe-top) 8px var(--district-window-safe-bottom) !important;");
+      expect(stylesheet).toContain("max-height: var(--district-window-safe-height) !important;");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked .district-popup-shell[data-mobile-position=\"raised\"]:not([hidden])");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked .district-popup-shell[data-overview-enabled=\"true\"]:not([hidden])");
+      expect(stylesheet).toContain("Final mobile occupy confirmation resource bar visibility guard.");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > *");
+      expect(stylesheet).toContain("Final mobile trap confirmation resource bar visibility guard.");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > *");
+      expect(stylesheet).toContain("Final mobile robbery confirmation resource bar visibility guard.");
+      expect(stylesheet).toContain("--robbery-confirm-window-safe-top: calc(var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) + 8px);");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body #raid-confirm-modal:not(.hidden):not([hidden]),");
+      expect(stylesheet).toContain("padding: var(--robbery-confirm-window-safe-top) 8px var(--robbery-confirm-window-safe-bottom) !important;");
+      expect(stylesheet).toContain("max-height: var(--robbery-confirm-window-safe-height) !important;");
+      expect(stylesheet).toContain("Absolute final mobile robbery confirmation placement guard.");
+      expect(stylesheet).toContain("--robbery-confirm-window-safe-top-final: calc(max(var(--mobile-overlay-top-offset, 0px), var(--mobile-topbar-offset, 72px)) + 10px);");
+      expect(stylesheet).toContain("padding: var(--robbery-confirm-window-safe-top-final) 8px var(--robbery-confirm-window-safe-bottom-final) !important;");
+      expect(stylesheet).toContain("max-height: var(--robbery-confirm-window-safe-height-final) !important;");
+    }
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain("Final mobile occupy confirmation resource bar visibility guard.");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#occupy-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > *");
+      expect(stylesheet).toContain("Final mobile trap confirmation resource bar visibility guard.");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#trap-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip > *");
+      expect(stylesheet).toContain("Final mobile robbery confirmation resource bar visibility guard.");
+      expect(stylesheet).toContain("--robbery-confirm-window-safe-top: calc(var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) + 8px);");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body #raid-confirm-modal:not(.hidden):not([hidden]),");
+      expect(stylesheet).toContain("padding: var(--robbery-confirm-window-safe-top) 8px var(--robbery-confirm-window-safe-bottom) !important;");
+      expect(stylesheet).toContain("max-height: var(--robbery-confirm-window-safe-height) !important;");
+      expect(stylesheet).toContain("Absolute final mobile robbery confirmation placement guard.");
+      expect(stylesheet).toContain("--robbery-confirm-window-safe-top-final: calc(max(var(--mobile-overlay-top-offset, 0px), var(--mobile-topbar-offset, 72px)) + 10px);");
+      expect(stylesheet).toContain("padding: var(--robbery-confirm-window-safe-top-final) 8px var(--robbery-confirm-window-safe-bottom-final) !important;");
+      expect(stylesheet).toContain("max-height: var(--robbery-confirm-window-safe-height-final) !important;");
+    }
+  });
+
+  it("keeps desktop modal topbar content fixed and visible after scrolling", () => {
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain("Final desktop modal topbar content guard.");
+      expect(stylesheet).toContain("@media (min-width: 721px)");
+      expect(stylesheet).toContain("html.game-modal-scroll-locked body.game-body::before");
+      expect(stylesheet).toContain("transform: none !important;");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked > .game-topbar,\n  html body.game-body.alliance-modal-open > .game-topbar");
+      expect(stylesheet).toContain("position: fixed !important;");
+      expect(stylesheet).toContain("top: 0 !important;");
+      expect(stylesheet).toContain("z-index: 26050 !important;");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked > .game-shell,\n  html body.game-body.alliance-modal-open > .game-shell");
+      expect(stylesheet).toContain("padding-top: var(--modal-topbar-reserve, 52px) !important;");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked .game-topbar-inner");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked .game-topbar-controls");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked .game-resource-strip > .resource-pill");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked .game-resource-strip > .game-toolbar-button");
+      expect(stylesheet).toContain("display: flex !important;");
+      expect(stylesheet).toContain("display: inline-flex !important;");
+      const guard = stylesheet.slice(stylesheet.indexOf("Final desktop modal topbar content guard."));
+      const resourcePillRuleStart = guard.indexOf("html body.game-body.game-modal-scroll-locked .game-resource-strip > .resource-pill");
+      const resourcePillRuleEnd = guard.indexOf("html body.game-body.game-modal-scroll-locked .game-resource-strip > .game-toolbar-button");
+      expect(resourcePillRuleStart).toBeGreaterThanOrEqual(0);
+      expect(resourcePillRuleEnd).toBeGreaterThan(resourcePillRuleStart);
+      expect(guard.slice(resourcePillRuleStart, resourcePillRuleEnd)).not.toContain("display:");
+    }
+    for (const source of [overlayState, gameplaySliceClient, clientGameplaySliceClient]) {
+      expect(source).toContain('const LOCKED_SCROLL_Y_CSS_VAR = "--modal-scroll-lock-y";');
+      expect(source).toContain('const LOCKED_TOPBAR_RESERVE_CSS_VAR = "--modal-topbar-reserve";');
+      expect(source).toContain("scrollLockY:");
+      expect(source).toContain("topbarReserve:");
+      expect(source).toContain("getCurrentTopbarReserveHeight");
+      expect(source).toContain("root.style.setProperty(LOCKED_SCROLL_Y_CSS_VAR, `${scrollPosition.y}px`);");
+      expect(source).toContain("root.style.setProperty(LOCKED_TOPBAR_RESERVE_CSS_VAR, `${getCurrentTopbarReserveHeight() || 52}px`);");
+      expect(source).toContain("if (isViewportWidthScrollLock) {");
+      expect(source).toContain("body.style.position = \"fixed\";");
+      expect(source).toContain("root.style.removeProperty(LOCKED_SCROLL_Y_CSS_VAR);");
+      expect(source).toContain("root.style.removeProperty(LOCKED_TOPBAR_RESERVE_CSS_VAR);");
+    }
+  });
+
+  it("keeps unknown district atmosphere text out of the popup hero header", () => {
+    for (const source of [runtimeSource, readText("client/page-assets/js/app/runtime.js")]) {
+      expect(source).toContain("const isAtmosphereLocked = atmosphereMeta.typeKey === \"unknown\";");
+      expect(source).toContain("labelElement.hidden = isAtmosphereLocked;");
+      expect(source).toContain("labelElement.textContent = isAtmosphereLocked ? \"\" : atmosphereMeta.label;");
+      expect(source).toContain("moodElement.hidden = isAtmosphereLocked;");
+      expect(source).toContain("moodElement.textContent = isAtmosphereLocked ? \"\" : atmosphereMeta.mood;");
+    }
+  });
+
+  it("keeps district owner avatars opening above district popups", () => {
+    for (const source of [districtPopupModalHelpers, clientDistrictPopupModalHelpers]) {
+      expect(source).toContain("lightbox.classList.add(\"avatar-lightbox--district-owner\");");
+      expect(source).toContain("lightbox.classList.remove(\"avatar-lightbox--district-owner\");");
+      expect(source).toContain("event.stopImmediatePropagation?.();");
+      expect(source).toContain("}, true);");
+    }
+
+    for (const stylesheet of [districtCss, clientDistrictCss]) {
+      expect(stylesheet).toContain("#alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden)");
+      expect(stylesheet).toContain("z-index: 26000;");
+      expect(stylesheet).toContain("background: rgba(1, 5, 12, 0.22);");
+      expect(stylesheet).toContain("width: min(430px, calc(100vw - 28px));");
+      expect(stylesheet).toContain("object-fit: cover;");
+      expect(stylesheet).toContain("background: rgba(0, 0, 0, 0.62);");
+      expect(stylesheet).toContain("max-width: calc(100% - 68px);");
+      expect(stylesheet).toContain(".avatar-lightbox__legend-bio");
+      expect(stylesheet).toContain("display: none;");
+    }
+
+    for (const stylesheet of [css, clientCss]) {
+      expect(stylesheet).toContain("Final mobile district owner avatar lightbox top-layer guard.");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked #alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden)");
+      expect(stylesheet).toContain("z-index: 26000 !important;");
+      expect(stylesheet).toContain("background: transparent !important;");
+      expect(stylesheet).toContain("html body.game-body:has(#alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden)) .game-topbar");
+      expect(stylesheet).toContain("html body.game-body:has(#alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden)) .game-resource-strip");
+      expect(stylesheet).toContain("visibility: hidden !important;");
+      expect(stylesheet).toContain("width: min(430px, calc(100vw - 16px)) !important;");
+      expect(stylesheet).toContain("object-fit: cover !important;");
+      expect(stylesheet).toContain("background: rgba(0, 0, 0, 0.62) !important;");
+    }
   });
 
   it("keeps mobile confirmation colors action-specific", () => {
@@ -123,6 +271,42 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("z-index: 24000 !important;");
       expect(stylesheet).toContain("isolation: isolate !important;");
     }
+  });
+
+  it("keeps full apartment block building cell visibly animated", () => {
+    const apartmentFullBlock = mainCss.slice(
+      mainCss.indexOf(".buildings-popup__building--type.is-apartment-full"),
+      mainCss.indexOf("html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building-grid--names")
+    );
+
+    expect(apartmentFullBlock).toContain("animation: buildings-apartment-full-pulse 2.4s ease-in-out infinite !important;");
+    expect(apartmentFullBlock).toContain("inset: 0 !important;");
+    expect(apartmentFullBlock).toContain("animation: buildings-apartment-full-cell-blink 2.4s ease-in-out infinite !important;");
+    expect(apartmentFullBlock).toContain("animation: buildings-apartment-full-text-blink 2.4s ease-in-out infinite !important;");
+    expect(apartmentFullBlock).not.toContain("opacity: 0.08 !important;");
+    expect(apartmentFullBlock).not.toContain("opacity: 0.12 !important;");
+    expect(apartmentFullBlock).not.toContain("prefers-reduced-motion");
+    expect(apartmentFullBlock).not.toContain("animation: none");
+  });
+
+  it("stores district building detail state by shared building type", () => {
+    expect(runtimeSource).toContain('const SHARED_DISTRICT_BUILDING_DETAIL_KEY_PREFIX = "__shared:";');
+    expect(runtimeSource).toContain("function getSharedDistrictBuildingDetailStorageKey");
+    expect(runtimeSource).toContain('return `${SHARED_DISTRICT_BUILDING_DETAIL_KEY_PREFIX}${lookupKey || "building"}`;');
+    expect(runtimeSource).toContain("return getSharedDistrictBuildingDetailStorageKey(lookupKey);");
+    expect(runtimeSource).toContain("function getLegacyDistrictBuildingDetailEntry");
+    expect(runtimeSource).toContain("function mergeLegacyDistrictBuildingDetailEntries");
+    expect(runtimeSource).toContain("!key.startsWith(SHARED_DISTRICT_BUILDING_DETAIL_KEY_PREFIX)");
+    expect(runtimeSource).toContain("function resetOwnedApartmentBlockPopulationEntries");
+    expect(runtimeSource).toContain("resetOwnedApartmentBlockPopulationEntries(context.district, mechanics.apartmentCapacity);");
+
+    const collectFunctionIndex = runtimeSource.indexOf("function collectDistrictBuildingDetailOutput");
+    const apartmentCollectBlock = runtimeSource.slice(
+      runtimeSource.indexOf("if (mechanics.mechanicsType === \"apartment-block\")", collectFunctionIndex),
+      runtimeSource.indexOf("if (mechanics.mechanicsType === \"school\")", collectFunctionIndex)
+    );
+    expect(apartmentCollectBlock).toContain("const remainingPopulation = 0;");
+    expect(apartmentCollectBlock).not.toContain("storedPopulation: remainingPopulation");
   });
 
   it("keeps blocked action confirmations grey with red missing-value cells", () => {
@@ -501,6 +685,9 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("padding: var(--district-popup-overview-top) 8px var(--district-popup-overview-bottom) !important;");
       expect(stylesheet).toContain("max-height: calc(var(--mobile-locked-vh, 100svh) - var(--district-popup-overview-top) - var(--district-popup-overview-bottom)) !important;");
       expect(stylesheet).toContain("--district-popup-mobile-top: clamp(86px, 24svh, 168px);");
+      expect(stylesheet).toContain('.district-popup-shell[data-district-popup][data-mobile-position="raised"]:not([hidden])');
+      expect(stylesheet).toContain("--district-popup-mobile-raised-top: max(24px, calc(var(--mobile-topbar-offset, 72px) - 34px));");
+      expect(stylesheet).toContain("padding-top: var(--district-popup-mobile-raised-top) !important;");
       expect(stylesheet).toContain("animation-name: districtPopupMobileCenterIn !important;");
       expect(stylesheet).toContain("@keyframes districtPopupMobileCenterIn");
       expect(stylesheet).toContain("transform-origin: center center !important;");
@@ -749,7 +936,8 @@ describe("mobile action modal CSS", () => {
       expect(source).toContain("shouldUseViewportWidthLock");
       expect(source).toContain("getCurrentLayoutLockWidth");
       expect(source).toContain("isViewportWidthScrollLock");
-      expect(source).toContain("body.style.width = isViewportWidthScrollLock");
+      expect(source).toContain("if (isViewportWidthScrollLock) {");
+      expect(source).toContain("body.style.width = lockedLayoutWidth > 0");
       expect(source).toContain("!isViewportWidthScrollLock && scrollbarWidth > 0");
       expect(source).toContain("body.style.paddingRight");
       expect(source).not.toContain("let lockedPageScrollY");
