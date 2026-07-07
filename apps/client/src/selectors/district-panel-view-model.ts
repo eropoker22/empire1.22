@@ -136,40 +136,83 @@ export const createDistrictPanelViewModel = (
       phaseAvailability: building.phaseAvailability ?? "neutral",
       phaseBadgeLabel: building.phaseBadgeLabel ?? null,
       phaseTooltip: building.phaseTooltip ?? null,
+      passivePhaseBadgeLabel: building.passivePhaseBadgeLabel ?? null,
+      passivePhaseEffectLabel: building.passivePhaseEffectLabel ?? null,
+      passivePhaseTooltip: building.passivePhaseTooltip ?? null,
       specialActions: building.specialActions.map((action) => {
         const cooldown = createCooldownCountdown(action.cooldownRemainingTicks ?? 0, tickRateMs, nowMs);
+        const effectiveInputCost = action.effectiveInputCost ?? action.baseInputCost ?? {};
+        const effectiveOutputGain = action.effectiveOutputGain ?? action.baseOutputGain ?? {};
+        const effectiveHeatGain = action.effectiveHeatGain ?? action.heatGain;
+        const effectiveCooldownMs = action.effectiveCooldownMs ?? action.cooldownMs;
+        const effectiveDurationMs = action.effectiveDurationMs ?? action.durationMs;
 
         return {
           actionId: action.actionId,
           label: action.label,
           description: action.description,
           effectSummary: action.effectSummary,
-          durationLabel: action.durationMs > 0 ? formatDurationMs(action.durationMs) : "Okamžitě",
+          durationLabel: effectiveDurationMs > 0 ? formatDurationMs(effectiveDurationMs) : "Okamžitě",
           cooldownLabel: cooldown.remainingMs > 0
             ? `Čekání ${formatDurationMs(cooldown.remainingMs)}`
-            : formatDurationMs(action.cooldownMs),
+            : formatDurationMs(effectiveCooldownMs),
           cooldownRemainingMs: cooldown.remainingMs,
           cooldownEndsAtMs: cooldown.endsAtMs,
-          heatLabel: `+${action.heatGain}`,
+          heatLabel: `+${effectiveHeatGain}`,
+          baseInputCost: { ...(action.baseInputCost ?? action.effectiveInputCost ?? {}) },
+          effectiveInputCost: { ...effectiveInputCost },
+          baseOutputGain: { ...(action.baseOutputGain ?? action.effectiveOutputGain ?? {}) },
+          effectiveOutputGain: { ...effectiveOutputGain },
+          baseHeatGain: action.baseHeatGain ?? action.heatGain,
+          effectiveHeatGain,
+          baseCooldownMs: action.baseCooldownMs ?? action.cooldownMs,
+          effectiveCooldownMs,
+          baseDurationMs: action.baseDurationMs ?? action.durationMs,
+          effectiveDurationMs,
+          inputSummary: formatResourceSummary(effectiveInputCost, "Zdarma"),
+          outputSummary: formatResourceSummary(effectiveOutputGain, "Bez výstupu"),
           disabled: hasPendingCommand || !action.enabled,
           disabledReason: hasPendingCommand
             ? "Akce se zpracovává."
             : action.disabledReason,
           phaseAvailability: action.phaseAvailability ?? "neutral",
           phaseBadgeLabel: action.phaseBadgeLabel ?? null,
-          phaseTooltip: action.phaseTooltip ?? null
+          phaseTooltip: action.phaseTooltip ?? null,
+          blockedReason: action.blockedReason ?? action.phaseBlockedReason ?? null,
+          preferredPhase: action.preferredPhase ?? null,
+          currentPhase: action.currentPhase ?? null,
+          phaseEffectSummary: action.phaseEffectSummary ?? [],
+          phaseEffectLabel: createPhaseEffectLabel({
+            phaseTooltip: action.phaseTooltip ?? null,
+            phaseEffectSummary: action.phaseEffectSummary ?? []
+          })
         };
       }),
       actions: building.actions.map((action) => {
         const cooldown = createCooldownCountdown(action.cooldownRemainingTicks ?? 0, tickRateMs, nowMs);
+        const effectiveInputCost = action.effectiveInputCost ?? action.inputCost;
+        const effectiveOutputGain = action.effectiveOutputGain ?? action.outputGain;
+        const effectiveHeatGain = action.effectiveHeatGain ?? action.heatGain;
+        const effectiveCooldownMs = action.effectiveCooldownMs ?? action.cooldownMs;
+        const effectiveDurationMs = action.effectiveDurationMs ?? action.durationMs;
 
         return {
           actionId: action.actionId,
           label: action.label,
           description: action.description,
           statusLabel: toTitleCase(action.status),
-          inputSummary: formatResourceSummary(action.inputCost, "Zdarma"),
-          outputSummary: formatResourceSummary(action.outputGain, "Bez výstupu"),
+          inputSummary: formatResourceSummary(effectiveInputCost, "Zdarma"),
+          outputSummary: formatResourceSummary(effectiveOutputGain, "Bez výstupu"),
+          baseInputCost: { ...(action.baseInputCost ?? action.inputCost) },
+          effectiveInputCost: { ...effectiveInputCost },
+          baseOutputGain: { ...(action.baseOutputGain ?? action.outputGain) },
+          effectiveOutputGain: { ...effectiveOutputGain },
+          baseHeatGain: action.baseHeatGain ?? action.heatGain,
+          effectiveHeatGain,
+          baseCooldownMs: action.baseCooldownMs ?? action.cooldownMs,
+          effectiveCooldownMs,
+          baseDurationMs: action.baseDurationMs ?? action.durationMs,
+          effectiveDurationMs,
           expectedEffectSummary: action.expectedEffectSummary,
           riskSummary: action.riskSummary,
           inputs: action.requiresInput.map((input) => ({
@@ -183,10 +226,10 @@ export const createDistrictPanelViewModel = (
           })),
           cooldownLabel: cooldown.remainingMs > 0
             ? `Čekání ${formatDurationMs(cooldown.remainingMs)}`
-            : `${Math.ceil(action.cooldownMs / 1000)}s čekání`,
+            : `${Math.ceil(effectiveCooldownMs / 1000)}s čekání`,
           cooldownRemainingMs: cooldown.remainingMs,
           cooldownEndsAtMs: cooldown.endsAtMs,
-          heatLabel: `+${action.heatGain}`,
+          heatLabel: `+${effectiveHeatGain}`,
           influenceLabel: formatSigned(action.influenceChange),
           disabled: hasPendingCommand || !action.enabled,
           disabledReason: hasPendingCommand
@@ -194,7 +237,15 @@ export const createDistrictPanelViewModel = (
             : action.disabledReason,
           phaseAvailability: action.phaseAvailability ?? "neutral",
           phaseBadgeLabel: action.phaseBadgeLabel ?? null,
-          phaseTooltip: action.phaseTooltip ?? null
+          phaseTooltip: action.phaseTooltip ?? null,
+          blockedReason: action.blockedReason ?? action.phaseBlockedReason ?? null,
+          preferredPhase: action.preferredPhase ?? null,
+          currentPhase: action.currentPhase ?? null,
+          phaseEffectSummary: action.phaseEffectSummary ?? [],
+          phaseEffectLabel: createPhaseEffectLabel({
+            phaseTooltip: action.phaseTooltip ?? null,
+            phaseEffectSummary: action.phaseEffectSummary ?? []
+          })
         };
       })
     })),
@@ -253,4 +304,18 @@ export const createDistrictPanelViewModel = (
       buildOptions: []
     }))
   };
+};
+
+const createPhaseEffectLabel = (input: {
+  phaseTooltip: string | null;
+  phaseEffectSummary: string[];
+}): string | null => {
+  if (input.phaseEffectSummary.length > 0) {
+    return input.phaseEffectSummary.join(", ");
+  }
+  const tooltip = String(input.phaseTooltip || "").trim();
+  if (tooltip) {
+    return tooltip;
+  }
+  return null;
 };

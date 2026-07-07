@@ -849,7 +849,9 @@ import {
   getActionDisabledReason,
   getActionIcon,
   getActionLabel,
-  getBuildingActionUi
+  getBuildingActionUi,
+  formatBuildingActionOutputProfile,
+  formatBuildingActionRiskProfile
 } from "./ui/buildingActionUiRegistry.js";
 import {
   cloneBuildingActionResultPayload,
@@ -868,6 +870,9 @@ import { renderPlayerProfilePanel } from "./ui/playerProfilePanel.js";
 const BUILDING_ACTION_LOG_LIMIT = 30;
 const MONEY_STAT_COUNT_TICK_MS = 26;
 const CITY_CLOCK_MINUTES_PER_TICK = 1;
+// 720 game minutes (06:00-18:00) must take 2 real hours, so one game minute advances every 10 seconds.
+const CITY_CLOCK_TICK_MS = 10 * 1000;
+const DEFAULT_CITY_MINUTES = 5 * 60 + 55;
 const DISTRICT_GOSSIP_MAX_PER_DISTRICT = 2;
 const buildingActionPanels = new WeakMap();
 const attackMissionTimers = new Map();
@@ -1708,10 +1713,10 @@ function getStoredGangState() {
 function getStoredWorldState() {
   return getAuthoritySession().world || {
     ownedDistrictIds: [],
-    phaseState: {
-      mapPhase: "night",
-      gamePhase: "live",
-      cityMinutes: 22 * 60 + 14
+      phaseState: {
+        mapPhase: "night",
+        gamePhase: "live",
+        cityMinutes: DEFAULT_CITY_MINUTES
     },
     destroyedDistrictIds: [],
     districtDefenseById: {},
@@ -1736,6 +1741,14 @@ function normalizeRuntimeGamePhase(value) {
     return "resolved";
   }
   return "live";
+}
+
+function normalizeRuntimeCityMinutes(value) {
+  const parsed = Number.parseInt(String(value ?? DEFAULT_CITY_MINUTES), 10);
+  if (!Number.isFinite(parsed)) {
+    return DEFAULT_CITY_MINUTES;
+  }
+  return ((parsed % (24 * 60)) + (24 * 60)) % (24 * 60);
 }
 
 function normalizeWorldOwnedDistrictIds(world) {
@@ -1798,12 +1811,12 @@ function getResolvedWorldState() {
       ? {
           mapPhase: world.phaseState.mapPhase === "day" ? "day" : "night",
           gamePhase: normalizeRuntimeGamePhase(world.phaseState.gamePhase),
-          cityMinutes: Number.parseInt(String(world.phaseState.cityMinutes ?? (22 * 60 + 14)), 10) || (22 * 60 + 14)
+          cityMinutes: normalizeRuntimeCityMinutes(world.phaseState.cityMinutes)
         }
       : {
           mapPhase: "night",
           gamePhase: "live",
-          cityMinutes: 22 * 60 + 14
+          cityMinutes: DEFAULT_CITY_MINUTES
         },
     destroyedDistrictIds: Array.isArray(world.destroyedDistrictIds) ? world.destroyedDistrictIds.map(Number).filter(Boolean) : [],
     districtDefenseById: world.districtDefenseById && typeof world.districtDefenseById === "object" ? world.districtDefenseById : {},
@@ -2173,7 +2186,7 @@ function getResolvedPhaseState() {
   return getResolvedWorldState().phaseState || {
     mapPhase: "night",
     gamePhase: "live",
-    cityMinutes: 22 * 60 + 14
+    cityMinutes: DEFAULT_CITY_MINUTES
   };
 }
 
@@ -2183,7 +2196,10 @@ function syncPhaseHostFromAuthority(phaseHost) {
   }
 
   const phaseState = getResolvedPhaseState();
-  const nextMapPhase = phaseState.mapPhase === "day" ? "day" : "night";
+  const coreMapPhase = phaseHost.dataset.coreMapPhase === "day" || phaseHost.dataset.coreMapPhase === "night"
+    ? phaseHost.dataset.coreMapPhase
+    : "";
+  const nextMapPhase = coreMapPhase || (phaseState.mapPhase === "day" ? "day" : "night");
   const nextGamePhase = normalizeRuntimeGamePhase(phaseState.gamePhase);
 
   if (phaseHost.dataset.mapPhase !== nextMapPhase) {
@@ -2196,7 +2212,10 @@ function syncPhaseHostFromAuthority(phaseHost) {
     phaseHost.dispatchEvent(new CustomEvent("gamephasechange", { detail: { gamePhase: nextGamePhase } }));
   }
 
-  return phaseState;
+  return {
+    ...phaseState,
+    mapPhase: nextMapPhase
+  };
 }
 
 function isFinalLockdownActive() {
@@ -3053,6 +3072,85 @@ function formatStreetNewsCooldownToken(value, fallback = "Akce") {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+const STREET_NEWS_BUILDING_LABELS = Object.freeze({
+  "bytovy blok": "Bytový blok",
+  garage: "Garáž",
+  garaz: "Garáž",
+  "rekrutacni centrum": "Rekrutační centrum",
+  klinika: "Klinika",
+  skola: "Škola",
+  restaurace: "Restaurace",
+  "fitness club": "Fitness Club",
+  herna: "Herna",
+  smenarna: "Směnárna",
+  autosalon: "Autosalon",
+  "obchodni centrum": "Obchodní centrum",
+  kasino: "Kasino",
+  "poulicni dealeri": "Pouliční dealeři",
+  vecerka: "Večerka",
+  "pasovaci tunel": "Pašovací tunel",
+  burza: "Burza",
+  "centralni banka": "Centrální banka",
+  magistrat: "Magistrát",
+  "lobby klub": "Lobby klub",
+  "lobby club": "Lobby Club",
+  soud: "Soud",
+  "vip salonek": "VIP salonek",
+  letiste: "Letiště",
+  pristav: "Přístav",
+  parlament: "Parlament",
+  "strip club": "Strip club",
+  sklad: "Sklad",
+  skladiste: "Skladiště",
+  "energeticka stanice": "Energetická stanice",
+  "recyklacni centrum": "Recyklační centrum",
+  lekarna: "Lékárna",
+  "drug lab": "Drug Lab",
+  lab: "Lab",
+  tovarna: "Továrna",
+  zbrojovka: "Zbrojovka"
+});
+
+function resolveStreetNewsBuildingLabel(buildingKey, fallback = "Budova") {
+  const normalizedKey = resolveDistrictBuildingCanonicalLookupKey(buildingKey);
+  const profile = normalizedKey ? DISTRICT_BUILDING_DETAIL_PROFILES[normalizedKey] : null;
+  const label = profile?.displayName || profile?.label || "";
+  return label || STREET_NEWS_BUILDING_LABELS[normalizedKey] || STREET_NEWS_BUILDING_LABELS[String(buildingKey || "").trim()] || formatStreetNewsCooldownToken(buildingKey, fallback);
+}
+
+function resolveStreetNewsBuildingActionDescriptor(buildingKey, actionKey) {
+  const normalizedKey = resolveDistrictBuildingCanonicalLookupKey(buildingKey);
+  const profile = normalizedKey ? DISTRICT_BUILDING_DETAIL_PROFILES[normalizedKey] : null;
+  const actions = Array.isArray(profile?.actions) ? profile.actions : [];
+
+  for (let index = 0; index < actions.length; index += 1) {
+    const actionLabel = actions[index];
+    const actionProfile = getDistrictBuildingSpecialActionProfile(normalizedKey || buildingKey, index);
+    const definition = resolveBuildingSpecialActionDefinition({
+      buildingName: normalizedKey || buildingKey,
+      actionLabel,
+      actionIndex: index,
+      actionProfile
+    });
+
+    if (String(definition.actionId || "") === String(actionKey || "") || String(index) === String(actionKey || "")) {
+      return {
+        actionIndex: index,
+        actionLabel: definition.label || actionLabel || formatStreetNewsCooldownToken(actionKey, "Akce"),
+        actionProfile,
+        definition
+      };
+    }
+  }
+
+  return {
+    actionIndex: 0,
+    actionLabel: formatStreetNewsCooldownToken(actionKey, "Akce"),
+    actionProfile: null,
+    definition: null
+  };
+}
+
 function formatStreetNewsCooldownRemaining(remainingMs) {
   const totalSeconds = Math.max(0, Math.ceil(Number(remainingMs || 0) / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -3063,24 +3161,79 @@ function formatStreetNewsCooldownRemaining(remainingMs) {
   return hours > 0 ? `${hours}h ${minuteLabel}:${secondLabel}` : `${minuteLabel}:${secondLabel}`;
 }
 
+function createStreetNewsBuildingCooldownResultPayload({
+  districtId,
+  buildingKey,
+  buildingLabel,
+  actionLabel,
+  actionProfile,
+  definition,
+  expiresAt,
+  now
+}) {
+  if (!actionProfile || typeof actionProfile !== "object") {
+    return null;
+  }
+
+  const district = districtId ? getRuntimeDistrictApi()?.getDistrictById?.(districtId) : null;
+  const mechanics = resolveDistrictBuildingDetailMechanics(district, buildingLabel || buildingKey);
+  const formatterOptions = {
+    mechanics,
+    formatMoney: formatDistrictBuildingMoney,
+    formatCooldown: formatDistrictBuildingCooldown
+  };
+  const rewardSummary = formatBuildingActionOutputProfile(actionProfile, formatterOptions)
+    || definition?.rewardSummary
+    || "Bez přímého zisku.";
+  const riskSummary = formatBuildingActionRiskProfile(actionProfile, formatterOptions)
+    || definition?.riskSummary
+    || "Bez přímého rizika.";
+  const remainingLabel = formatStreetNewsCooldownRemaining(expiresAt - now);
+
+  return {
+    openable: true,
+    syncToBuildingAction: false,
+    tone: "event",
+    title: `${actionLabel} běží`,
+    badge: "Cooldown",
+    summary: `${formatStreetNewsCooldownDistrict(districtId)} · ${buildingLabel}`,
+    districtId,
+    districtType: normalizeStreetNewsDistrictType(district?.districtType) || "unknown",
+    rows: [
+      { label: "Budova", value: buildingLabel },
+      { label: "District", value: formatStreetNewsCooldownDistrict(districtId) },
+      { label: "Efekt", value: rewardSummary },
+      { label: "Riziko", value: riskSummary },
+      { label: "Cooldown", value: remainingLabel, nowrap: true, countdownUntil: expiresAt }
+    ]
+  };
+}
+
 function createStreetNewsCooldownEntry({
   id,
   title,
   summary,
   meta,
   expiresAt,
-  now
+  now,
+  resultKind = "",
+  resultPayload = null,
+  districtType = ""
 }) {
   return createBuildingActionEntry({
     id,
     tone: "event",
     title,
     summary,
-    meta: meta || `Zbývá ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
+    meta: meta || `Cooldown ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
     sourceKind: "cooldown",
     dismissible: false,
     persistent: true,
-    timestampMs: expiresAt
+    compact: true,
+    timestampMs: expiresAt,
+    districtType,
+    resultKind,
+    resultPayload
   });
 }
 
@@ -3126,25 +3279,25 @@ function collectMissionCooldownStreetNewsEntries(now) {
       id: `cooldown:${kind}:${String(order?.id || `${order?.sourceDistrictId || ""}:${order?.targetDistrictId || ""}:${expiresAt}`)}`,
       title,
       summary: summaryFactory(order),
-      meta: `Zbývá ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
+      meta: `Cooldown ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
       expiresAt
     }, now);
   };
 
   for (const order of readStreetNewsCooldownArray(getStoredAttackOrders)) {
-    appendOrder("attack", "Cooldown: Útok", order, "resolveAt", (entry) =>
+    appendOrder("attack", "Útok", order, "resolveAt", (entry) =>
       formatStreetNewsCooldownDistrict(entry?.targetDistrictId)
     );
   }
 
   for (const order of readStreetNewsCooldownArray(getStoredOccupyOrders)) {
-    appendOrder("occupy", "Cooldown: Obsazení", order, "resolveAt", (entry) =>
+    appendOrder("occupy", "Obsazení", order, "resolveAt", (entry) =>
       `${formatStreetNewsCooldownDistrict(entry?.targetDistrictId)} je obsazován`
     );
   }
 
   for (const order of readStreetNewsCooldownArray(getStoredRobberyOrders)) {
-    appendOrder("robbery", "Cooldown: Vykrást district", order, "resolveAt", (entry) =>
+    appendOrder("robbery", "Vykrást district", order, "resolveAt", (entry) =>
       formatStreetNewsCooldownDistrict(entry?.targetDistrictId)
     );
   }
@@ -3159,9 +3312,9 @@ function collectMissionCooldownStreetNewsEntries(now) {
     }
     appendStreetNewsCooldownEntry(entries, {
       id: `cooldown:spy:${String(mission?.id || `${mission?.sourceDistrictId || ""}:${mission?.targetDistrictId || ""}:${expiresAt}`)}`,
-      title: isCaptured ? "Cooldown: Špeh zajat" : "Cooldown: Špehování",
+      title: isCaptured ? "Špeh zajat" : "Špehování",
       summary: formatStreetNewsCooldownDistrict(mission?.targetDistrictId),
-      meta: `Zbývá ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
+      meta: `Cooldown ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
       expiresAt
     }, now);
   }
@@ -3180,9 +3333,9 @@ function collectTrapCooldownStreetNewsEntries(now) {
     const expiresAt = lastTrapActionAt ? lastTrapActionAt + TRAP_MOVE_LOCK_MS : 0;
     appendStreetNewsCooldownEntry(entries, {
       id: `cooldown:trap:${districtId}`,
-      title: "Cooldown: Past",
+      title: "Past",
       summary: `Toxická past v ${formatStreetNewsCooldownDistrict(districtId)}`,
-      meta: `Přesun za ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
+      meta: `Cooldown ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
       expiresAt
     }, now);
   }
@@ -3204,20 +3357,36 @@ function collectBuildingCooldownStreetNewsEntries(now) {
     const keyParts = String(storageKey || "").split(":");
     const districtId = normalizeStreetNewsCooldownDistrictId(keyParts[0]);
     const buildingKey = keyParts.slice(1).join(":") || "budova";
-    const buildingLabel = formatStreetNewsCooldownToken(buildingKey, "Budova");
+    const buildingLabel = resolveStreetNewsBuildingLabel(buildingKey, "Budova");
 
     for (const [actionKey, rawExpiresAt] of Object.entries(entry.actionCooldowns)) {
       const expiresAt = parseStreetNewsCooldownTimestamp(rawExpiresAt);
       if (!expiresAt || expiresAt <= now) {
         continue;
       }
+      const actionDescriptor = resolveStreetNewsBuildingActionDescriptor(buildingKey, actionKey);
+      const actionLabel = actionDescriptor.actionLabel;
+      const remainingLabel = formatStreetNewsCooldownRemaining(expiresAt - now);
+      const resultPayload = createStreetNewsBuildingCooldownResultPayload({
+        districtId,
+        buildingKey,
+        buildingLabel,
+        actionLabel,
+        actionProfile: actionDescriptor.actionProfile,
+        definition: actionDescriptor.definition,
+        expiresAt,
+        now
+      });
 
       appendStreetNewsCooldownEntry(entries, {
         id: `cooldown:building:${storageKey}:${actionKey}`,
-        title: "Cooldown: Budova",
+        title: actionLabel,
         summary: `${formatStreetNewsCooldownDistrict(districtId)} · ${buildingLabel}`,
-        meta: `${formatStreetNewsCooldownToken(actionKey, "Akce")} · zbývá ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
-        expiresAt
+        meta: `Cooldown ${remainingLabel}`,
+        expiresAt,
+        resultKind: resultPayload ? "police" : "",
+        resultPayload,
+        districtType: resultPayload?.districtType || ""
       }, now);
     }
   }
@@ -7634,6 +7803,16 @@ async function confirmAndRunDistrictBuildingDetailAction(root, shell, request) {
   }
 
   const mechanics = resolveDistrictBuildingDetailMechanics(context.district, context.buildingName);
+  const rewardSummary = formatBuildingActionOutputProfile(resolved.actionProfile || {}, {
+    mechanics,
+    formatMoney: formatDistrictBuildingMoney,
+    formatCooldown: formatDistrictBuildingCooldown
+  }) || resolved.definition.rewardSummary;
+  const riskSummary = formatBuildingActionRiskProfile(resolved.actionProfile || {}, {
+    mechanics,
+    formatMoney: formatDistrictBuildingMoney,
+    formatCooldown: formatDistrictBuildingCooldown
+  }) || resolved.definition.riskSummary;
   const cooldownUntil = getBuildingSpecialActionCooldownUntil(mechanics.actionCooldowns, resolved.definition.actionId, resolved.actionIndex);
   const cooldownRemaining = Math.max(0, cooldownUntil - Date.now());
   let disabledReason = resolved.definition.disabledReason
@@ -7658,9 +7837,9 @@ async function confirmAndRunDistrictBuildingDetailAction(root, shell, request) {
     districtLabel: context.district?.id ? `District ${context.district.id}` : "",
     description: resolved.definition.confirmBody,
     costSummary: resolved.definition.costSummary,
-    rewardSummary: resolved.definition.rewardSummary,
+    rewardSummary,
     inputSummary: resolved.definition.inputSummary,
-    riskSummary: resolved.definition.riskSummary,
+    riskSummary,
     cooldownLabel: resolved.definition.cooldownMs > 0 ? formatDistrictBuildingCooldown(resolved.definition.cooldownMs) : "Ready",
     disabledReason,
     canConfirm: !disabledReason
@@ -7744,11 +7923,12 @@ async function runDistrictBuildingActionFromContext(root, context, request, opti
         || actionProfile?.summary
         || definition.rewardSummary
         || "Server akci přijal.";
+      const actionCooldownUntil = Date.now() + actionCooldownMs;
       updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
         ...entry,
         actionCooldowns: {
           ...(entry.actionCooldowns || {}),
-          [definition.actionId]: Date.now() + actionCooldownMs
+          [definition.actionId]: actionCooldownUntil
         }
       }));
       setBuildingActionFeedback(
@@ -7767,7 +7947,7 @@ async function runDistrictBuildingActionFromContext(root, context, request, opti
           { label: "Budova", value: context.displayName || context.buildingName },
           { label: "Akce", value: action },
           { label: "Handler", value: "Server" },
-          { label: "Cooldown", value: actionCooldownMs > 0 ? formatDistrictBuildingCooldown(actionCooldownMs) : "Ready" }
+          { label: "Cooldown", value: actionCooldownMs > 0 ? formatDistrictBuildingCooldown(actionCooldownMs) : "Ready", nowrap: true, countdownUntil: actionCooldownMs > 0 ? actionCooldownUntil : 0 }
         ],
         meta: context.district?.id ? `District ${context.district.id}` : "",
         actionId: definition.actionId,
@@ -7789,11 +7969,12 @@ async function runDistrictBuildingActionFromContext(root, context, request, opti
     const fallbackSummary = definition.rewardSummary && definition.rewardSummary !== "Efekt podle akce"
       ? definition.rewardSummary
       : "Akce je v této fázi hry potvrzená lokálně. Finální serverový efekt se napojí v posledním kroku.";
+    const actionCooldownUntil = Date.now() + actionCooldownMs;
     updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
       ...entry,
       actionCooldowns: {
         ...(entry.actionCooldowns || {}),
-        [definition.actionId]: Date.now() + actionCooldownMs
+        [definition.actionId]: actionCooldownUntil
       }
     }));
     setBuildingActionFeedback(
@@ -7812,7 +7993,7 @@ async function runDistrictBuildingActionFromContext(root, context, request, opti
         { label: "Budova", value: context.displayName || context.buildingName },
         { label: "Akce", value: action },
         { label: "Režim", value: "Lokální preview" },
-        { label: "Cooldown", value: actionCooldownMs > 0 ? formatDistrictBuildingCooldown(actionCooldownMs) : "Ready" }
+        { label: "Cooldown", value: actionCooldownMs > 0 ? formatDistrictBuildingCooldown(actionCooldownMs) : "Ready", nowrap: true, countdownUntil: actionCooldownMs > 0 ? actionCooldownUntil : 0 }
       ],
       meta: context.district?.id ? `District ${context.district.id}` : "",
       actionId: definition.actionId,
@@ -7861,6 +8042,17 @@ async function runDistrictBuildingActionFromContext(root, context, request, opti
     return false;
   }
 
+  const actionCooldownUntil = Date.now() + actionCooldownMs;
+  const activeEffectExpiresAt = Number(actionResult.activeEffect?.expiresAt || 0);
+  const actionResultItems = [
+    { label: "Budova", value: context.displayName || context.buildingName },
+    { label: "Akce", value: action },
+    ...(activeEffectExpiresAt > Date.now()
+      ? [{ label: "Efekt", value: formatDistrictBuildingCooldown(activeEffectExpiresAt - Date.now()), nowrap: true, countdownUntil: activeEffectExpiresAt }]
+      : []),
+    { label: "Cooldown", value: actionCooldownMs > 0 ? formatDistrictBuildingCooldown(actionCooldownMs) : "Ready", nowrap: true, countdownUntil: actionCooldownMs > 0 ? actionCooldownUntil : 0 }
+  ];
+
   updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
     ...entry,
     activeEffects: actionResult.activeEffect
@@ -7868,7 +8060,7 @@ async function runDistrictBuildingActionFromContext(root, context, request, opti
       : (entry.activeEffects || []),
     actionCooldowns: {
       ...(entry.actionCooldowns || {}),
-      [definition.actionId]: Date.now() + actionCooldownMs
+      [definition.actionId]: actionCooldownUntil
     }
   }));
 
@@ -7884,11 +8076,7 @@ async function runDistrictBuildingActionFromContext(root, context, request, opti
     summary: actionResult.summary,
     badge: context.district?.id ? `District ${context.district.id}` : "Budova",
     tone: "success",
-    items: [
-      { label: "Budova", value: context.displayName || context.buildingName },
-      { label: "Akce", value: action },
-      { label: "Cooldown", value: actionCooldownMs > 0 ? formatDistrictBuildingCooldown(actionCooldownMs) : "Ready" }
-    ],
+    items: actionResultItems,
     meta: context.district?.id ? `District ${context.district.id}` : "",
     actionId: definition.actionId,
     buildingTypeId: definition.buildingTypeId
@@ -11022,8 +11210,8 @@ function bindDistrictCanvas(root) {
   ensureMissionAnimationLoop();
 
   Promise.all([
-    loadImage(DAY_MAP_IMAGE_PATH),
-    loadImage(NIGHT_MAP_IMAGE_PATH)
+    loadImage(DAY_MAP_IMAGE_PATH).catch(() => null),
+    loadImage(NIGHT_MAP_IMAGE_PATH).catch(() => null)
   ])
     .then(([day, night]) => {
       imageSet = { day, night };
@@ -11066,7 +11254,7 @@ const {
         ...(worldState.phaseState || {}),
         mapPhase: worldState.phaseState?.mapPhase === "day" ? "day" : "night",
         gamePhase: gamePhase === "launch" ? "launch" : "live",
-        cityMinutes: worldState.phaseState?.cityMinutes ?? (22 * 60 + 14)
+        cityMinutes: worldState.phaseState?.cityMinutes ?? DEFAULT_CITY_MINUTES
       }
     });
     syncDevOnlyDestroyedDistrictState();
@@ -11386,7 +11574,7 @@ const {
     status: CITY_STATUS_SELECTOR
   },
   syncPhaseHostFromAuthority,
-  tickMs: 1000,
+  tickMs: CITY_CLOCK_TICK_MS,
   onInitialSync: ({ root }) => {
     syncDevOnlyDestroyedDistrictState();
     syncStartPhaseDistrictIncome(root);
@@ -11399,7 +11587,7 @@ const {
 
     const worldState = getResolvedWorldState();
     const currentPhaseState = worldState.phaseState || getResolvedPhaseState();
-    const nextCityMinutes = ((currentPhaseState.cityMinutes ?? (22 * 60 + 14)) + minuteStep) % (24 * 60);
+    const nextCityMinutes = ((currentPhaseState.cityMinutes ?? DEFAULT_CITY_MINUTES) + minuteStep) % (24 * 60);
 
     setStoredWorldState({
       ...worldState,

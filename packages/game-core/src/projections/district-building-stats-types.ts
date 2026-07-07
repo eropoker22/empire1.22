@@ -30,6 +30,12 @@ export interface BuildingStatView {
 
 export interface BuildingStatsProjectionInput {
   definition: DistrictPanelBuildingCatalogEntry | undefined;
+  effectivePassiveStats?: {
+    cleanPerHour: number;
+    dirtyPerHour: number;
+    heatPerDay: number;
+    influencePerDay: number;
+  };
   state: CoreGameState;
   district: CoreGameState["districtsById"][string];
   building: CoreGameState["buildingsById"][string];

@@ -1,10 +1,9 @@
 import type { ResolvedGameModeConfig } from "../../contracts/game-mode-config";
 import { basePoliceConfig } from "../../base/base-police-config";
-import { createDayNightConfig } from "../../public/day-night-config";
+import { createDayNightConfig, resolveDayNightPhaseDurationTicks } from "../../public/day-night-config";
 
 const WAR_MODE_TICK_RATE_MS = 15000;
-// 960 ticks at a 15s War tick rate is 4 hours per day/night phase.
-const WAR_MODE_DAY_NIGHT_PHASE_TICKS = 960;
+const WAR_MODE_DAY_NIGHT_PHASE_TICKS = resolveDayNightPhaseDurationTicks(WAR_MODE_TICK_RATE_MS);
 const WAR_MODE_RAID_DURATION_TICKS = Math.ceil((30 * 60 * 1000) / WAR_MODE_TICK_RATE_MS);
 
 /**

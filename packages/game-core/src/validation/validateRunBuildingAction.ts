@@ -2,6 +2,7 @@ import type { RunBuildingActionCommand } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { CoreError } from "../errors";
 import type { GameCoreContext } from "../engine/context";
+import { resolveEffectiveBuildingActionCostForValidation } from "../rules/buildings/buildingActionCosts";
 import { resolveDayNightActionRule } from "../rules/day-night/dayNightActionRules";
 import { validateRunBuildingActionSpecifics } from "./validateRunBuildingActionSpecifics";
 
@@ -112,7 +113,13 @@ export const validateRunBuildingAction = (
   }
 
   const balances = state.resourceStatesById[player.resourceStateId]?.balances ?? {};
-  const missingCosts = Object.entries(action.inputCost).filter(
+  const effectiveInputCost = resolveEffectiveBuildingActionCostForValidation({
+    action,
+    state,
+    context,
+    buildingTypeId: building.buildingTypeId
+  });
+  const missingCosts = Object.entries(effectiveInputCost).filter(
     ([resourceKey, requiredAmount]) => Math.max(0, Number(balances[resourceKey] || 0)) < requiredAmount
   );
 

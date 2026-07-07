@@ -32,5 +32,27 @@ const renderDayNightBadge = (player: PlayerViewModel): string => {
   const dayNight = player.dayNight;
   if (!dayNight) return "";
   const summary = dayNight.effectSummary.slice(0, 2).join(", ");
-  return ` · <span class="day-night-badge" data-city-phase="${escapeAttribute(dayNight.uiThemeHint)}" title="${escapeAttribute(summary)}">${escapeHtml(dayNight.label)}: ${escapeHtml(summary)} · ${escapeHtml(dayNight.remainingTicks)} ticků</span>`;
+  const recommendations = (dayNight.recommendations ?? []).slice(0, 4).join(" · ");
+  const nextPhaseLabel = dayNight.phaseId === "night" ? "dne" : "noci";
+  const clockLabel = dayNight.gameClockLabel ?? "--:--";
+  const remainingLabel = formatDayNightRemaining(dayNight);
+  const title = [
+    summary,
+    recommendations ? `Teď se vyplatí: ${recommendations}` : ""
+  ].filter(Boolean).join(" | ");
+  return ` · <span class="day-night-badge" data-city-phase="${escapeAttribute(dayNight.uiThemeHint)}" title="${escapeAttribute(title)}">${escapeHtml(dayNight.label)} · ${escapeHtml(clockLabel)} · do ${escapeHtml(nextPhaseLabel)} ${escapeHtml(remainingLabel)}</span>`;
+};
+
+const formatDayNightRemaining = (dayNight: NonNullable<PlayerViewModel["dayNight"]>): string => {
+  const phaseTicks = Math.max(1, Math.floor(Number(dayNight.endsAtTick - dayNight.startedAtTick) || 1));
+  const realPhaseDurationMs = Math.max(0, Number(dayNight.realPhaseDurationMs ?? 0));
+  const remainingMs = realPhaseDurationMs > 0
+    ? Math.round((Math.max(0, Number(dayNight.remainingTicks || 0)) / phaseTicks) * realPhaseDurationMs)
+    : 0;
+  const totalMinutes = Math.max(0, Math.ceil(remainingMs / 60_000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours <= 0) return `${minutes}m`;
+  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
 };

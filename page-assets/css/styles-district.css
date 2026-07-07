@@ -1285,6 +1285,55 @@
   color: #f3e4ff;
 }
 
+.robbery-setup-popup-row--deployment {
+  grid-column: 1 / -1;
+}
+
+.robbery-setup-popup-row--deployment > span {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.robbery-setup-popup-row--deployment .attack-setup-popup-stepper {
+  width: min(178px, 100%);
+  grid-template-columns: 32px minmax(58px, 1fr) 32px;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid rgba(186, 119, 255, 0.22);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.012)),
+    rgba(14, 9, 24, 0.56);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 8px 18px rgba(0, 0, 0, 0.16);
+}
+
+.robbery-setup-popup-row--deployment .attack-setup-popup-stepper__button,
+.robbery-setup-popup-row--deployment .attack-setup-popup-weapon__input {
+  min-height: 26px;
+  height: 26px;
+  border-radius: 8px;
+}
+
+.robbery-setup-popup-row--deployment .attack-setup-popup-stepper__button {
+  width: 32px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.11), transparent),
+    linear-gradient(135deg, rgba(186, 119, 255, 0.22), rgba(255, 89, 185, 0.12)),
+    rgba(11, 8, 18, 0.82);
+  border-color: rgba(211, 170, 255, 0.28);
+  color: #f8ebff;
+}
+
+.robbery-setup-popup-row--deployment .attack-setup-popup-weapon__input {
+  font-size: 0.64rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.012)),
+    rgba(5, 8, 16, 0.72);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
 .robbery-confirm-popup-card .attack-setup-popup-confirm {
   border-color: rgba(186, 119, 255, 0.28);
   background:
@@ -3194,4 +3243,23 @@
     rgba(7, 13, 24, 0.14);
   backdrop-filter: blur(9px) saturate(122%);
   -webkit-backdrop-filter: blur(9px) saturate(122%);
+}
+
+/* Final district popup extra transparency tuning. */
+.district-popup-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.008) 36%, transparent),
+    linear-gradient(135deg, rgba(var(--district-accent-rgb), 0.044), rgba(255, 255, 255, 0.008) 42%, rgba(3, 8, 16, 0.052)),
+    rgba(3, 8, 16, 0.12);
+}
+
+.district-popup-owner-card,
+.district-popup-status,
+.district-popup-summary-card,
+.district-popup-buildings,
+.district-popup-gossip,
+.district-popup-action-section {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.004)),
+    rgba(7, 13, 24, 0.1);
 }

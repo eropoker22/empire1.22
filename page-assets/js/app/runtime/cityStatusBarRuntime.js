@@ -1,8 +1,9 @@
 export function getMapPhaseFromCityMinutes(cityMinutes) {
   const hour = Math.floor(Number(cityMinutes || 0) / 60) % 24;
-  return hour >= 6 && hour < 20 ? "day" : "night";
+  return hour >= 6 && hour < 18 ? "day" : "night";
 }
 
+const DEFAULT_CITY_MINUTES = 5 * 60 + 55;
 const DEFAULT_MAX_PLAYERS_PER_SERVER = 20;
 
 function normalizeObject(value) {
@@ -134,14 +135,25 @@ function buildBattleRoyaleStatusViewModel(playerOptions = {}) {
 }
 
 export function buildCityStatusViewModel(phaseState = {}, options = {}) {
-  const cityMinutes = Number(phaseState.cityMinutes ?? (22 * 60 + 14));
+  const gameplaySlice = normalizeObject(options.gameplaySlice);
+  const playerView = normalizeObject(options.playerView || gameplaySlice.player);
+  const dayNight = normalizeObject(playerView.dayNight || gameplaySlice.player?.dayNight);
+  const coreMapPhase = dayNight.phaseId === "day" || dayNight.uiThemeHint === "day"
+    ? "day"
+    : dayNight.phaseId === "night" || dayNight.uiThemeHint === "night"
+      ? "night"
+      : "";
+  const cityMinutes = Number(phaseState.cityMinutes ?? DEFAULT_CITY_MINUTES);
   const hours = String(Math.floor(cityMinutes / 60) % 24).padStart(2, "0");
   const minutes = String(cityMinutes % 60).padStart(2, "0");
   const battleRoyale = buildBattleRoyaleStatusViewModel(options);
+  const clockLabel = typeof dayNight.gameClockLabel === "string" && dayNight.gameClockLabel
+    ? dayNight.gameClockLabel
+    : `${hours}:${minutes}`;
 
   return {
     cityMinutes,
-    clockLabel: `${hours}:${minutes}`,
+    clockLabel,
     dayPhaseLabel: battleRoyale.secondaryValue,
     dayPhaseTitle: battleRoyale.secondaryLabel,
     dayPhaseMobileLabel: battleRoyale.secondaryMobileLabel,
@@ -158,10 +170,33 @@ export function buildCityStatusViewModel(phaseState = {}, options = {}) {
     actionAriaLabel: battleRoyale.actionAriaLabel,
     statusClass: battleRoyale.statusClass,
     cityStatusMode: battleRoyale.mode,
-    mapPhase: phaseState.mapPhase === "night" ? "night" : "day",
+    mapPhaseSource: coreMapPhase ? "core" : "legacy",
+    mapPhase: coreMapPhase || (phaseState.mapPhase === "night" || phaseState.mapPhase === "day"
+      ? phaseState.mapPhase
+      : getMapPhaseFromCityMinutes(cityMinutes)),
     gamePhase: phaseState.gamePhase === "launch" ? "launch" : "live",
     tickMs: Number(options.tickMs || 1000)
   };
+}
+
+function syncPhaseHostFromViewModel(phaseHost, viewModel = {}) {
+  if (!phaseHost) return;
+  const nextMapPhase = viewModel.mapPhase === "day" ? "day" : "night";
+  if (viewModel.mapPhaseSource === "core") {
+    phaseHost.dataset.coreMapPhase = nextMapPhase;
+  } else {
+    delete phaseHost.dataset.coreMapPhase;
+  }
+  if (phaseHost.dataset.mapPhase !== nextMapPhase) {
+    phaseHost.dataset.mapPhase = nextMapPhase;
+    const CustomEventCtor = phaseHost.ownerDocument?.defaultView?.CustomEvent
+      || (typeof CustomEvent !== "undefined" ? CustomEvent : null);
+    phaseHost.dispatchEvent?.(
+      CustomEventCtor
+        ? new CustomEventCtor("mapphasechange", { detail: { phase: nextMapPhase } })
+        : { type: "mapphasechange", detail: { phase: nextMapPhase } }
+    );
+  }
 }
 
 function setPillLabel(element, label, mobileLabel) {
@@ -250,6 +285,7 @@ export function createCityStatusBarRuntime(deps = {}) {
         playerView: latestGameplaySlice?.player,
         tickMs
       });
+      syncPhaseHostFromViewModel(elements.phaseHost, viewModel);
       renderCityStatusBar(viewModel, elements);
       return viewModel;
     };

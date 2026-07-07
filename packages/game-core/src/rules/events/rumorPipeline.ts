@@ -340,7 +340,8 @@ const isRumorEligible = (
   return shouldGenerateDayNightRumor({
     state,
     context: context.config ? { config: context.config } : undefined,
-    sourceKey: signal.sourceEventId
+    sourceKey: signal.sourceEventId,
+    buildingTypeId: signal.sourceBuildingType
   });
 };
 
@@ -447,7 +448,12 @@ const resolveConfidence = (
   if (input.truthChancePct !== undefined || typeof input.isTrue === "boolean") {
     if (input.isTrue === false || Number(input.truthChancePct) <= 0) return "false_possible";
     const baseChance = typeof input.isTrue === "boolean" ? (input.isTrue ? 72 : 6) : Number(input.truthChancePct || 0);
-    const dayNightChance = applyDayNightRumorTruthChancePct(baseChance, state, context.config ? { config: context.config } : undefined);
+    const dayNightChance = applyDayNightRumorTruthChancePct(
+      baseChance,
+      state,
+      context.config ? { config: context.config } : undefined,
+      input.sourceBuildingType || stringValue(input.payload?.sourceBuilding || input.payload?.buildingTypeId)
+    );
     const truthChancePct = Number(context.config && input.playerId
       ? applyFactionRumorTruthChancePct(dayNightChance, getFactionPassiveModifiers(state, input.playerId, { config: context.config }))
       : dayNightChance);

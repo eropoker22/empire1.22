@@ -95,10 +95,8 @@ const ATTACK_CONFIRMATION_REQUIRED_KEYS = [
 
 const ROBBERY_CONFIRMATION_REQUIRED_KEYS = [
   "robberyConfirmTitle",
-  "robberyConfirmSource",
   "robberyConfirmMembers",
-  "robberyConfirmDuration",
-  "robberyConfirmNote"
+  "robberyConfirmDuration"
 ];
 
 const TRAP_CONFIRMATION_REQUIRED_KEYS = [

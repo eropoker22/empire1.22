@@ -26,6 +26,8 @@ import {
 } from "./productionBuildingData.js";
 import {
   formatBuildingActionCategoryLabels,
+  formatBuildingActionOutputProfile,
+  formatBuildingActionRiskProfile,
   getActionDescription,
   getActionDisabledReason,
   getBuildingActionUi
@@ -142,6 +144,7 @@ const DAY_NIGHT_PHASE_EFFECTS = Object.freeze({
 const ILLEGAL_DAY_NIGHT_BUILDING_TYPES = new Set([
   "casino",
   "arcade",
+  "exchange",
   "strip-club",
   "vip-lounge",
   "smuggling-tunnel",
@@ -157,6 +160,113 @@ const PRODUCTION_DAY_NIGHT_BUILDING_TYPES = Object.freeze({
   armory: "illegal"
 });
 
+const PASSIVE_DAY_NIGHT_BUILDING_EFFECTS = Object.freeze({
+  restaurant: {
+    day: { cleanIncomePct: 15, rumorGenerationPct: -10, rumorTruthPct: 10 },
+    night: { cleanIncomePct: -5, rumorGenerationPct: 10 }
+  },
+  retail: {
+    day: { cleanIncomePct: 20, influencePct: 8 },
+    night: { cleanIncomePct: -10 }
+  },
+  "city-hall": {
+    day: { influencePct: 20, heatPct: -8 },
+    night: { influencePct: -10 }
+  },
+  court: {
+    day: { influencePct: 12, heatPct: -10 },
+    night: { influencePct: -8 }
+  },
+  parliament: {
+    day: { influencePct: 25, cleanIncomePct: 10 },
+    night: { influencePct: -10 }
+  },
+  "central-bank": {
+    day: { cleanIncomePct: 15, heatPct: -5 },
+    night: { heatPct: 8 }
+  },
+  "stock-exchange": {
+    day: { cleanIncomePct: 8, heatPct: -5 },
+    night: { cleanIncomePct: 4, heatPct: 8 }
+  },
+  clinic: {
+    day: { cleanIncomePct: 5, heatPct: -5 },
+    night: { cleanIncomePct: -5 }
+  },
+  school: {
+    day: { cleanIncomePct: 5, populationPct: 20 },
+    night: { cleanIncomePct: -10, populationPct: -10 }
+  },
+  "recruitment-center": {
+    day: { cleanIncomePct: 10 }
+  },
+  "fitness-club": {
+    day: { cleanIncomePct: 10 }
+  },
+  "power-plant": {
+    day: { cleanIncomePct: 15, heatPct: -5 },
+    night: { heatPct: 8 }
+  },
+  factory: {
+    day: { productionPct: 10 },
+    night: { productionPct: -2 }
+  },
+  pharmacy: {
+    day: { productionPct: 10 }
+  },
+  arcade: {
+    day: { dirtyIncomePct: -10 },
+    night: { dirtyIncomePct: 20, cleanIncomePct: 5 }
+  },
+  casino: {
+    day: { dirtyIncomePct: -12, heatPct: 12 },
+    night: { dirtyIncomePct: 25, influencePct: 10 }
+  },
+  exchange: {
+    day: { heatPct: 12 },
+    night: { dirtyIncomePct: 20, cleanIncomePct: 8 }
+  },
+  "smuggling-tunnel": {
+    day: { heatPct: 12 },
+    night: { dirtyIncomePct: 25 }
+  },
+  "street-dealers": {
+    day: { dirtyIncomePct: -10, heatPct: 15 },
+    night: { dirtyIncomePct: 25 }
+  },
+  "strip-club": {
+    day: { rumorGenerationPct: -10, rumorTruthPct: 8 },
+    night: { dirtyIncomePct: 25, influencePct: 20, rumorGenerationPct: 25 }
+  },
+  "vip-lounge": {
+    day: { rumorGenerationPct: -10, rumorTruthPct: 10 },
+    night: { influencePct: 10, rumorGenerationPct: 25, rumorTruthPct: -5 }
+  },
+  port: {
+    day: { heatPct: -5 },
+    night: { dirtyIncomePct: 15, cleanIncomePct: 5 }
+  },
+  "drug-lab": {
+    day: { productionPct: -10, heatPct: 12 },
+    night: { productionPct: 20 }
+  },
+  "convenience-store": {
+    day: { cleanIncomePct: 12, rumorTruthPct: 8 },
+    night: { dirtyIncomePct: 15, rumorGenerationPct: 15 }
+  },
+  warehouse: {
+    day: { cleanIncomePct: 5 }
+  },
+  "auto-salon": {
+    day: { cleanIncomePct: 10 },
+    night: { dirtyIncomePct: 5 }
+  },
+  "recycling-center": {
+    day: { heatPct: -5 },
+    night: { cleanIncomePct: 10 }
+  }
+});
+
 const RUMOR_DAY_NIGHT_BUILDING_TYPES = new Set([
   "restaurant",
   "convenience-store",
@@ -166,20 +276,27 @@ const RUMOR_DAY_NIGHT_BUILDING_TYPES = new Set([
 
 const DAY_NIGHT_BUILDING_TYPE_ALIASES = Object.freeze({
   autosalon: "auto-salon",
+  burza: "stock-exchange",
   "bytovy blok": "apartment-block",
   casino: "casino",
+  "centralni banka": "central-bank",
   "drug lab": "drug-lab",
+  "energeticka stanice": "power-plant",
   factory: "factory",
   herna: "arcade",
   kasino: "casino",
   lekarna: "pharmacy",
   lekarny: "pharmacy",
+  magistrat: "city-hall",
   "obchodni centrum": "retail",
+  parlament: "parliament",
   "pasovaci tunel": "smuggling-tunnel",
   "poulicni dealeri": "street-dealers",
+  pristav: "port",
   restaurace: "restaurant",
   smenarna: "exchange",
   skladiste: "warehouse",
+  soud: "court",
   "strip club": "strip-club",
   tovarna: "factory",
   vecerka: "convenience-store",
@@ -190,6 +307,60 @@ const DAY_NIGHT_BUILDING_TYPE_ALIASES = Object.freeze({
 function formatSignedDayNightPercent(value = 0) {
   const rounded = Math.round(Number(value || 0));
   return `${rounded >= 0 ? "+" : ""}${rounded} %`;
+}
+
+function addChangedDayNightMoneyPerHour(parts, label, baseValue, pctValue) {
+  const base = Math.max(0, Number(baseValue || 0));
+  const pct = Number(pctValue);
+  if (!Number.isFinite(base) || base <= 0 || !Number.isFinite(pct) || Math.abs(pct) < 0.001) {
+    return;
+  }
+  const effective = Math.max(0, Math.floor(base * (1 + pct / 100) + 1e-9));
+  if (Math.abs(effective - base) < 0.001) {
+    return;
+  }
+  parts.push(`${label} ${formatDistrictBuildingMoney(base)}/h -> ${formatDistrictBuildingMoney(effective)}/h`);
+}
+
+function addChangedDayNightPerDay(parts, label, baseValue, pctValue) {
+  const base = Math.max(0, Number(baseValue || 0));
+  const pct = Number(pctValue);
+  if (!Number.isFinite(base) || base <= 0 || !Number.isFinite(pct) || Math.abs(pct) < 0.001) {
+    return;
+  }
+  const effective = Math.max(0, Math.floor(base * (1 + pct / 100) + 1e-9));
+  if (Math.abs(effective - base) < 0.001) {
+    return;
+  }
+  parts.push(`${label} ${formatCompactNumber(base)}/den -> ${formatCompactNumber(effective)}/den`);
+}
+
+function addChangedDayNightPerMinute(parts, label, baseValue, pctValue) {
+  const base = Math.max(0, Number(baseValue || 0));
+  const pct = Number(pctValue);
+  if (!Number.isFinite(base) || base <= 0 || !Number.isFinite(pct) || Math.abs(pct) < 0.001) {
+    return;
+  }
+  const effective = Math.max(0, Math.round(base * (1 + pct / 100) * 100) / 100);
+  if (Math.abs(effective - base) < 0.001) {
+    return;
+  }
+  parts.push(`${label} ${formatCompactNumber(base)}/min -> ${formatCompactNumber(effective)}/min`);
+}
+
+function addPercentOnlyDayNightPart(parts, label, pctValue) {
+  const pct = Number(pctValue);
+  if (!Number.isFinite(pct) || Math.abs(pct) < 0.001) {
+    return;
+  }
+  parts.push(`${label} ${formatSignedDayNightPercent(pct)}`);
+}
+
+function formatCompactNumber(value) {
+  const rounded = Math.round(Number(value || 0) * 100) / 100;
+  return Number.isInteger(rounded)
+    ? String(rounded)
+    : rounded.toFixed(2).replace(/0+$/u, "").replace(/\.$/u, "");
 }
 
 function normalizeDayNightPhase(phaseState = null) {
@@ -228,27 +399,62 @@ function resolveDayNightBuildingEffect({ buildingName = "", mechanics = {}, phas
   const cleanHourly = Number(mechanics.cleanHourly || 0);
   const dirtyHourly = Number(mechanics.dirtyHourly || 0);
   const dailyHeat = Number(mechanics.dailyHeat || 0);
+  const dailyInfluence = Number(mechanics.dailyInfluence || 0);
   const parts = [];
+  const passiveProfile = PASSIVE_DAY_NIGHT_BUILDING_EFFECTS[buildingType]?.[phase] || null;
 
-  if (productionKind === "legal") {
-    parts.push(`produkce ${formatSignedDayNightPercent(config.legalProductionPct)}`);
-  } else if (productionKind === "illegal") {
-    parts.push(`produkce ${formatSignedDayNightPercent(config.illegalProductionPct)}`);
+  if (passiveProfile) {
+    if (Number.isFinite(Number(passiveProfile.productionPct))) {
+      addPercentOnlyDayNightPart(parts, "produkce", passiveProfile.productionPct);
+    }
+    if (Number.isFinite(Number(passiveProfile.cleanIncomePct)) && cleanHourly > 0) {
+      addChangedDayNightMoneyPerHour(parts, "clean", cleanHourly, passiveProfile.cleanIncomePct);
+    }
+    if (Number.isFinite(Number(passiveProfile.dirtyIncomePct)) && dirtyHourly > 0) {
+      addChangedDayNightMoneyPerHour(parts, "dirty", dirtyHourly, passiveProfile.dirtyIncomePct);
+    }
+    if (Number.isFinite(Number(passiveProfile.heatPct)) && dailyHeat > 0) {
+      addChangedDayNightPerDay(parts, "heat", dailyHeat, passiveProfile.heatPct);
+    }
+    if (Number.isFinite(Number(passiveProfile.influencePct)) && dailyInfluence > 0) {
+      addChangedDayNightPerDay(parts, "vliv", dailyInfluence, passiveProfile.influencePct);
+    }
+    if (Number.isFinite(Number(passiveProfile.populationPct))) {
+      addChangedDayNightPerMinute(parts, "studenti", mechanics.schoolPopulationPerMinute, passiveProfile.populationPct);
+    }
+    if (Number.isFinite(Number(passiveProfile.rumorGenerationPct))) {
+      addPercentOnlyDayNightPart(parts, "drby", passiveProfile.rumorGenerationPct);
+    }
+    if (Number.isFinite(Number(passiveProfile.rumorTruthPct))) {
+      addPercentOnlyDayNightPart(parts, "přesnost", passiveProfile.rumorTruthPct);
+    }
+    if (parts.length) {
+      return {
+        text: `${config.label}: ${parts.join(" · ")}`,
+        tone: phase === "day" ? "day-night-day" : "day-night-night"
+      };
+    }
   }
 
-  if (isIllegal && (cleanHourly > 0 || dirtyHourly > 0)) {
-    parts.push(`income ${formatSignedDayNightPercent(config.dirtyIncomePct)}`);
-  } else {
+  if (!passiveProfile && productionKind === "legal") {
+    addPercentOnlyDayNightPart(parts, "produkce", config.legalProductionPct);
+  } else if (!passiveProfile && productionKind === "illegal") {
+    addPercentOnlyDayNightPart(parts, "produkce", config.illegalProductionPct);
+  }
+
+  if (!passiveProfile && isIllegal && (cleanHourly > 0 || dirtyHourly > 0)) {
+    addChangedDayNightMoneyPerHour(parts, dirtyHourly > 0 ? "dirty" : "income", dirtyHourly > 0 ? dirtyHourly : cleanHourly, config.dirtyIncomePct);
+  } else if (!passiveProfile) {
     if (cleanHourly > 0) {
-      parts.push(`clean income ${formatSignedDayNightPercent(config.legalIncomePct)}`);
+      addChangedDayNightMoneyPerHour(parts, "clean", cleanHourly, config.legalIncomePct);
     }
     if (dirtyHourly > 0) {
-      parts.push(`dirty income ${formatSignedDayNightPercent(config.dirtyIncomePct)}`);
+      addChangedDayNightMoneyPerHour(parts, "dirty", dirtyHourly, config.dirtyIncomePct);
     }
   }
 
   if (dailyHeat > 0) {
-    parts.push(`heat ${formatSignedDayNightPercent(config.heatPct)}`);
+    addChangedDayNightPerDay(parts, "heat", dailyHeat, config.heatPct);
   }
   if (hasRumorEffect) {
     parts.push(`drby ${formatSignedDayNightPercent(config.rumorGenerationPct)}`);
@@ -865,6 +1071,12 @@ export function createBuildingDetailActionRows({
       actionIndex,
       actionProfile
     });
+    const rewardSummary = actionProfile
+      ? formatBuildingActionOutputProfile(actionProfile, actionUiOptions)
+      : actionDefinition.rewardSummary;
+    const riskSummary = actionProfile
+      ? formatBuildingActionRiskProfile(actionProfile, actionUiOptions)
+      : actionDefinition.riskSummary;
     const recyclingSalvagePool = actionProfile?.recyclingExtractLosses
       ? getRecyclingSalvagePoolView(mechanics.recyclingSalvagePool || mechanics.clinicRecoveryPool)
       : null;
@@ -948,15 +1160,15 @@ export function createBuildingDetailActionRows({
       title: actionUi.label,
       disabled: cooldownRemaining > 0 || Boolean(activeSameCasinoBoost) || Boolean(activeSameArcadeBoost) || Boolean(casinoDisabledReason),
       disabledReason: casinoDisabledReason,
-      description: activeBoostDescription || actionUi.disabledReason || getActionDescription(action, actionUiOptions),
+      description: activeBoostDescription || actionUi.disabledReason || rewardSummary || getActionDescription(action, actionUiOptions),
       shortDescription: actionDefinition.shortDescription,
       confirmTitle: actionDefinition.confirmTitle,
       confirmBody: actionDefinition.confirmBody,
       costSummary: actionDefinition.costSummary,
       inputSummary: actionDefinition.inputSummary,
       buttonCostLabel: mechanics.mechanicsType === "casino" || mechanics.mechanicsType === "smuggling-tunnel" ? actionDefinition.costSummary : "",
-      rewardSummary: actionDefinition.rewardSummary,
-      riskSummary: actionDefinition.riskSummary,
+      rewardSummary,
+      riskSummary,
       disabledTone: hasMissingCleanCash || hasMissingDirtyCash || Boolean(missingMaterialCost)
         ? "insufficient-funds"
         : "",

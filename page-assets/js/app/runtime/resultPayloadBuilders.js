@@ -204,7 +204,7 @@ export function createResultPayloadBuilders(deps = {}) {
     return [
       { label: "District", value: formatDistrictReference(districtId) },
       { label: "Typ razie", value: `${specialtyMeta.icon} ${specialtyMeta.label}` },
-      { label: "Konec za", value: formatDurationLabel(Math.max(0, expiresAt - now())), nowrap: true },
+      { label: "Konec za", value: formatDurationLabel(Math.max(0, expiresAt - now())), nowrap: true, countdownUntil: expiresAt },
       ...(Array.isArray(policeAction?.impact?.effectRows) ? policeAction.impact.effectRows : []),
       ...(Array.isArray(policeAction?.impact?.rows) ? policeAction.impact.rows : [])
     ];
@@ -259,7 +259,7 @@ export function createResultPayloadBuilders(deps = {}) {
       return [
         { label: "Útočník", value: getResultDistrictOwnerLabel(attackerDistrictId, "Neznámý gang") },
         { label: "Obránce", value: getResultDistrictOwnerLabel(districtId, "Neobsazeno") },
-        { label: "Konec boje za", value: formatDurationLabel(remainingMs), nowrap: true }
+        { label: "Konec boje za", value: formatDurationLabel(remainingMs), nowrap: true, countdownUntil: Number(attackMarker?.expiresAt || 0) }
       ];
     };
 
@@ -446,16 +446,18 @@ export function createResultPayloadBuilders(deps = {}) {
     knownDefensePower = 0,
     isUnownedDistrict = false,
     heatGain = 0
-  } = {}) => ({
-    tone: scenarioLabel === "Úspěch" ? "is-success" : scenarioLabel === "Částečný úspěch" ? "is-medium-fail" : "is-major-fail",
-    title: scenarioLabel === "Úspěch"
+  } = {}) => {
+    const captureCooldownUntil = Number(mission.cooldownUntil || 0) || (now() + deps.spyCaptureCooldownMs);
+    return {
+      tone: scenarioLabel === "Úspěch" ? "is-success" : scenarioLabel === "Částečný úspěch" ? "is-medium-fail" : "is-major-fail",
+      title: scenarioLabel === "Úspěch"
       ? "Špehování: Úspěch"
       : scenarioLabel === "Částečný úspěch"
         ? "Špehování: Částečný úspěch"
         : scenarioLabel === "Kritický neúspěch"
           ? "Špehování: Kritický neúspěch"
           : "Špehování: Neúspěch",
-    summary: scenarioLabel === "Úspěch"
+      summary: scenarioLabel === "Úspěch"
       ? pickRandomQuote(
           isUnownedDistrict ? deps.spySuccessEmptyDistrictQuotes : deps.spySuccessOccupiedDistrictQuotes,
           `Špehování distriktu District ${mission.targetDistrictId} dopadlo úspěšně.`,
@@ -474,7 +476,7 @@ export function createResultPayloadBuilders(deps = {}) {
             `Špeh byl v districtu District ${mission.targetDistrictId} zajat.`,
             random
           ),
-    rows: scenarioLabel === "Úspěch"
+      rows: scenarioLabel === "Úspěch"
       ? buildSpyResultRows(mission.targetDistrictId, mission, {
           defensePower: knownDefensePower
         })
@@ -489,12 +491,13 @@ export function createResultPayloadBuilders(deps = {}) {
           })
         : [
             { label: "Stav špeha", value: "Zajat" },
-            { label: "Cooldown", value: formatDurationLabel(deps.spyCaptureCooldownMs), nowrap: true },
+            { label: "Cooldown", value: formatDurationLabel(Math.max(0, captureCooldownUntil - now())), nowrap: true, countdownUntil: captureCooldownUntil },
             ...(Math.max(0, Math.floor(Number(heatGain || 0))) > 0
               ? [{ label: "Heat", value: `+${Math.max(0, Math.floor(Number(heatGain || 0)))}` }]
               : [])
           ]
-  });
+    };
+  };
 
   return {
     createAttackResultPayload,

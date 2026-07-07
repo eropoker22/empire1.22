@@ -173,4 +173,33 @@ describe("live cooldown labels", () => {
     expect(formatLiveCooldownLabel({ endsAtMs: 16000, nowMs: 6500 })).toBe("Čekání 10s");
     expect(formatLiveCooldownLabel({ endsAtMs: 16000, nowMs: 16000 })).toBe("Připraveno");
   });
+
+  it("prefers real phase preview numbers over generic phase tooltip copy", () => {
+    const slice = createCooldownSlice();
+    if (!slice.district) {
+      throw new Error("Missing test district.");
+    }
+    const action = slice.district.buildings[0]?.actions[0];
+    if (!action) {
+      throw new Error("Missing test action.");
+    }
+    action.phaseTooltip = "Akce jde spustit, ale teď má vyšší cenu.";
+    action.phaseEffectSummary = ["Cena cash 1500 -> 1725", "Heat +2 -> +3"];
+
+    const panel = createDistrictPanelViewModel(
+      slice,
+      {
+        selectedDistrictId: "district:1",
+        selectedBuildingId: "building:armory:1",
+        activeSidePanel: "building-panel",
+        activeModal: null,
+        isMapFocused: false,
+        pendingCommandIds: [],
+        lastCommandStatus: null
+      },
+      { nowMs: 1000 }
+    );
+
+    expect(panel?.buildings[0]?.actions[0]?.phaseEffectLabel).toBe("Cena cash 1500 -> 1725, Heat +2 -> +3");
+  });
 });

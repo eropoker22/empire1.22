@@ -2,7 +2,10 @@ import type { DistrictPanelBuildingView } from "@empire/shared-types";
 import type { BuildingActionBalanceConfig, ResolvedGameModeConfig } from "../contracts/game-mode-config";
 import type { CoreGameState } from "../entities/game-state";
 import type { DistrictPanelBuildingCatalogEntry } from "./district-building-catalog-types";
-import { createBuildingStats } from "./district-building-stats-projection";
+import {
+  createBuildingStats,
+  createPassivePhaseEffectLabel
+} from "./district-building-stats-projection";
 import { formatInputSummary, formatResourceLabel, formatTickLabel } from "./district-building-action-formatters";
 import {
   createExpectedEffectSummary,
@@ -30,7 +33,12 @@ import {
 } from "../handlers/schoolBuildingActions";
 import type { AirportBalanceConfig, CarDealerBalanceConfig, CentralBankBalanceConfig, CityHallBalanceConfig, CourthouseBalanceConfig, FitnessClubBalanceConfig, GarageBalanceConfig, LobbyClubBalanceConfig, PowerStationBalanceConfig, RecruitmentCenterBalanceConfig, RecyclingCenterBalanceConfig, RestaurantBalanceConfig, SchoolBalanceConfig, ShoppingMallBalanceConfig, SmugglingTunnelBalanceConfig, StockExchangeBalanceConfig, StreetDealersBalanceConfig, StripClubBalanceConfig, VipLoungeBalanceConfig } from "../contracts/game-mode-config";
 import type { ConvenienceStoreBalanceConfig } from "../contracts/game-mode-config";
-import { resolveDayNightActionRule, resolveDayNightBuildingRule } from "../rules/day-night/dayNightActionRules";
+import { resolveDayNightBuildingRule } from "../rules/day-night/dayNightActionRules";
+import {
+  applyDayNightBuildingIncomeModifiers,
+  resolveDayNightPassiveBuildingRule
+} from "../rules/day-night/dayNight";
+import { resolveEffectiveBuildingActionPreview } from "../rules/buildings/buildingActionCosts";
 
 export interface CreateDistrictPanelBuildingViewsInput {
   state: CoreGameState;
@@ -75,6 +83,24 @@ export const createDistrictPanelBuildingViews = (
     const buildingPhaseRule = input.config
       ? resolveDayNightBuildingRule(input.state, { config: input.config }, building.buildingTypeId)
       : null;
+    const passivePhaseRule = input.config
+      ? resolveDayNightPassiveBuildingRule(input.state, { config: input.config }, building.buildingTypeId)
+      : null;
+    const effectivePassiveStats = input.config && definition?.stats
+      ? applyDayNightBuildingIncomeModifiers({
+          state: input.state,
+          context: { config: input.config },
+          buildingTypeId: building.buildingTypeId,
+          cleanPerHour: definition.stats.cleanPerHour,
+          dirtyPerHour: definition.stats.dirtyPerHour,
+          heatPerDay: definition.stats.heatPerDay,
+          influencePerDay: definition.stats.influencePerDay
+        })
+      : undefined;
+    const passivePhaseEffectLabel = createPassivePhaseEffectLabel({
+      baseStats: definition?.stats,
+      effectiveStats: effectivePassiveStats
+    });
     const actions = createBuildingActionViews({
       actionCatalog: input.actionCatalog,
       config: input.config,
@@ -121,6 +147,7 @@ export const createDistrictPanelBuildingViews = (
       info: definition?.info ?? "Fixed district building.",
       stats: createBuildingStats({
         definition,
+        effectivePassiveStats,
         state: input.state,
         district: input.district,
         building,
@@ -157,7 +184,10 @@ export const createDistrictPanelBuildingViews = (
       phaseAvailability: buildingPhaseRule?.phaseAvailability ?? "neutral",
       phaseBadgeLabel: buildingPhaseRule?.phaseBadgeLabel ?? null,
       phaseTooltip: buildingPhaseRule?.phaseTooltip ?? null,
-      phaseBlockedReason: buildingPhaseRule?.blockedReason ?? null
+      phaseBlockedReason: buildingPhaseRule?.blockedReason ?? null,
+      passivePhaseBadgeLabel: passivePhaseRule?.phaseBadgeLabel ?? null,
+      passivePhaseEffectLabel,
+      passivePhaseTooltip: passivePhaseEffectLabel ?? passivePhaseRule?.phaseTooltip ?? null
     };
   });
 };
@@ -203,12 +233,26 @@ const createSpecialActionViews = (
       cooldownMs: specialAction.cooldownMs,
       cooldownRemainingTicks: commandAction?.cooldownRemainingTicks ?? 0,
       heatGain: specialAction.heatGain,
+      baseInputCost: commandAction?.baseInputCost ?? {},
+      effectiveInputCost: commandAction?.effectiveInputCost ?? {},
+      baseOutputGain: commandAction?.baseOutputGain ?? {},
+      effectiveOutputGain: commandAction?.effectiveOutputGain ?? {},
+      baseHeatGain: commandAction?.baseHeatGain ?? specialAction.heatGain,
+      effectiveHeatGain: commandAction?.effectiveHeatGain ?? specialAction.heatGain,
+      baseCooldownMs: commandAction?.baseCooldownMs ?? specialAction.cooldownMs,
+      effectiveCooldownMs: commandAction?.effectiveCooldownMs ?? specialAction.cooldownMs,
+      baseDurationMs: commandAction?.baseDurationMs ?? specialAction.durationMs,
+      effectiveDurationMs: commandAction?.effectiveDurationMs ?? specialAction.durationMs,
       enabled: commandAction?.enabled ?? false,
       disabledReason: commandAction?.disabledReason ?? "This special action is not wired to the command dispatcher yet.",
       phaseAvailability: commandAction?.phaseAvailability ?? "neutral",
       phaseBadgeLabel: commandAction?.phaseBadgeLabel ?? null,
       phaseTooltip: commandAction?.phaseTooltip ?? null,
-      phaseBlockedReason: commandAction?.phaseBlockedReason ?? null
+      phaseBlockedReason: commandAction?.phaseBlockedReason ?? null,
+      blockedReason: commandAction?.blockedReason ?? null,
+      preferredPhase: commandAction?.preferredPhase ?? null,
+      currentPhase: commandAction?.currentPhase ?? null,
+      phaseEffectSummary: commandAction?.phaseEffectSummary ?? []
     };
   });
 
@@ -248,13 +292,26 @@ const createBuildingActionViews = (input: {
     .map((action) => {
       const cooldownUntilTick = Math.max(0, Number((input.building.actionCooldowns ?? {})[action.actionId] || 0));
       const cooldownRemainingTicks = Math.max(0, cooldownUntilTick - input.tick);
-      const missingCosts = Object.entries(action.inputCost).filter(
+      const effectivePreview = input.config
+        ? resolveEffectiveBuildingActionPreview({
+            action,
+            state: input.state,
+            context: { config: input.config },
+            buildingTypeId: input.building.buildingTypeId
+          })
+        : createBaseBuildingActionPreview(action);
+      const missingCosts = Object.entries(effectivePreview.effectiveInputCost).filter(
         ([resourceKey, requiredAmount]) => Math.max(0, Number(input.playerBalances[resourceKey] || 0)) < requiredAmount
       );
-      const phaseRule = input.config
-        ? resolveDayNightActionRule(input.state, { config: input.config }, action.actionId, input.building.buildingTypeId)
-        : null;
-      const phaseBlocked = Boolean(phaseRule?.blockedReason);
+      const effectiveAction = {
+        ...action,
+        inputCost: effectivePreview.effectiveInputCost,
+        outputGain: effectivePreview.effectiveOutputGain,
+        heatGain: effectivePreview.effectiveHeatGain,
+        cooldownMs: effectivePreview.effectiveCooldownMs,
+        durationMs: effectivePreview.effectiveDurationMs
+      };
+      const phaseBlocked = Boolean(effectivePreview.blockedReason);
       const ownerBlocked =
         action.requiredOwner &&
         (input.district.ownerPlayerId !== input.playerId || input.building.ownerPlayerId !== input.playerId);
@@ -345,8 +402,8 @@ const createBuildingActionViews = (input: {
         playerBalances: input.playerBalances,
         tick: input.tick
       });
-      const disabledReason = phaseRule?.blockedReason
-        ? phaseRule.blockedReason
+      const disabledReason = effectivePreview.blockedReason
+        ? effectivePreview.blockedReason
         : ownerBlocked
         ? "Only the district owner can run this building action."
         : input.building.status !== "active"
@@ -395,9 +452,9 @@ const createBuildingActionViews = (input: {
         status,
         disabledReason,
         cooldownRemainingTicks,
-        cost: { ...action.inputCost },
-        expectedEffectSummary: createExpectedEffectSummary(action),
-        riskSummary: createRiskSummary(action),
+        cost: { ...effectivePreview.effectiveInputCost },
+        expectedEffectSummary: createExpectedEffectSummary(effectiveAction),
+        riskSummary: createRiskSummary(effectiveAction),
         requiresInput: createRequiredInputViews({
           action,
           stockExchangeConfig: input.stockExchangeConfig,
@@ -406,20 +463,54 @@ const createBuildingActionViews = (input: {
           cityHallConfig: input.cityHallConfig,
           streetDealersConfig: input.streetDealersConfig
         }),
-        durationMs: action.durationMs,
-        cooldownMs: action.cooldownMs,
-        inputCost: { ...action.inputCost },
-        outputGain: { ...action.outputGain },
-        heatGain: action.heatGain,
+        durationMs: effectivePreview.effectiveDurationMs,
+        cooldownMs: effectivePreview.effectiveCooldownMs,
+        inputCost: { ...effectivePreview.effectiveInputCost },
+        outputGain: { ...effectivePreview.effectiveOutputGain },
+        heatGain: effectivePreview.effectiveHeatGain,
+        baseInputCost: { ...effectivePreview.baseInputCost },
+        effectiveInputCost: { ...effectivePreview.effectiveInputCost },
+        baseOutputGain: { ...effectivePreview.baseOutputGain },
+        effectiveOutputGain: { ...effectivePreview.effectiveOutputGain },
+        baseHeatGain: effectivePreview.baseHeatGain,
+        effectiveHeatGain: effectivePreview.effectiveHeatGain,
+        baseCooldownMs: effectivePreview.baseCooldownMs,
+        effectiveCooldownMs: effectivePreview.effectiveCooldownMs,
+        baseDurationMs: effectivePreview.baseDurationMs,
+        effectiveDurationMs: effectivePreview.effectiveDurationMs,
         influenceChange: action.influenceChange,
         reportText: action.reportText,
         enabled: status === "available",
-        phaseAvailability: phaseRule?.phaseAvailability ?? "neutral",
-        phaseBadgeLabel: phaseRule?.phaseBadgeLabel ?? null,
-        phaseTooltip: phaseRule?.phaseTooltip ?? null,
-        phaseBlockedReason: phaseRule?.blockedReason ?? null
+        phaseAvailability: effectivePreview.phaseAvailability,
+        phaseBadgeLabel: effectivePreview.phaseBadgeLabel,
+        phaseTooltip: effectivePreview.phaseTooltip,
+        phaseBlockedReason: effectivePreview.blockedReason,
+        blockedReason: effectivePreview.blockedReason,
+        preferredPhase: effectivePreview.preferredPhase,
+        currentPhase: effectivePreview.currentPhase,
+        phaseEffectSummary: [...effectivePreview.phaseEffectSummary]
       };
     });
+
+const createBaseBuildingActionPreview = (action: BuildingActionBalanceConfig) => ({
+  baseInputCost: { ...action.inputCost },
+  effectiveInputCost: { ...action.inputCost },
+  baseOutputGain: { ...action.outputGain },
+  effectiveOutputGain: { ...action.outputGain },
+  baseHeatGain: action.heatGain,
+  effectiveHeatGain: action.heatGain,
+  baseCooldownMs: action.cooldownMs,
+  effectiveCooldownMs: action.cooldownMs,
+  baseDurationMs: action.durationMs,
+  effectiveDurationMs: action.durationMs,
+  phaseAvailability: "neutral" as const,
+  phaseBadgeLabel: null,
+  phaseTooltip: null,
+  blockedReason: null,
+  preferredPhase: null,
+  currentPhase: "day" as const,
+  phaseEffectSummary: []
+});
 
 const resolveStripClubDisabledReason = (input: {
   state: CoreGameState;

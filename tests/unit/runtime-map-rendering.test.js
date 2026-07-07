@@ -5,6 +5,10 @@ import {
   getDistrictFillStyle,
   renderDistrictCanvas
 } from "../../page-assets/js/app/runtime.js";
+import {
+  DAY_MAP_IMAGE_PATH,
+  NIGHT_MAP_IMAGE_PATH
+} from "../../page-assets/js/app/runtime/constants.js";
 
 const originalWindow = globalThis.window;
 
@@ -151,6 +155,37 @@ describe("runtime map rendering guards", () => {
     expect(geometry.districts).toHaveLength(161);
     expect(context.calls.some(([name]) => name === "clearRect")).toBe(true);
     expect(context.calls.some(([name]) => name === "fill")).toBe(true);
+  });
+
+  it("keeps live/dev map image paths relative to pages/game.html", () => {
+    expect(DAY_MAP_IMAGE_PATH).toBe("../img/mapaden2.png");
+    expect(NIGHT_MAP_IMAGE_PATH).toBe("../img/mapanoc.png");
+  });
+
+  it("draws the active day or night map image before district overlays", () => {
+    const context = new FakeCanvasContext();
+    const canvas = new FakeCanvas(context);
+    const dayImage = { width: 1600, height: 980, src: DAY_MAP_IMAGE_PATH };
+    const nightImage = { width: 1600, height: 980, src: NIGHT_MAP_IMAGE_PATH };
+
+    renderDistrictCanvas(canvas, "day", {
+      gamePhase: "live",
+      ownedDistrictIds: new Set(),
+      destroyedDistrictIds: new Set(),
+      launchOwnerByDistrictId: new Map()
+    }, { day: dayImage, night: nightImage });
+
+    expect(context.calls.find(([name]) => name === "drawImage")?.[1]).toBe(dayImage);
+
+    context.calls = [];
+    renderDistrictCanvas(canvas, "night", {
+      gamePhase: "live",
+      ownedDistrictIds: new Set(),
+      destroyedDistrictIds: new Set(),
+      launchOwnerByDistrictId: new Map()
+    }, { day: dayImage, night: nightImage });
+
+    expect(context.calls.find(([name]) => name === "drawImage")?.[1]).toBe(nightImage);
   });
 
   it("hit-tests a mock district point like a map click", () => {

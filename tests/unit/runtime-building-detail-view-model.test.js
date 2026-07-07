@@ -280,7 +280,7 @@ describe("building detail view-model builder", () => {
 
     expect(model.effects).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        text: "NOC: clean income -10 % · dirty income +25 % · heat -5 % · drby +35 % · přesnost -10 %",
+        text: "NOC: clean $120/h -> $114/h · drby +10 %",
         tone: "day-night-night"
       })
     ]));
@@ -297,7 +297,7 @@ describe("building detail view-model builder", () => {
 
     expect(model.effects).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        text: "NOC: income +25 % · heat -5 %",
+        text: "NOC: dirty $45/h -> $56/h",
         tone: "day-night-night"
       })
     ]));
@@ -420,6 +420,35 @@ describe("building detail view-model builder", () => {
     expect(mechanics.some((row) => row.label === "Pravidla")).toBe(false);
     expect(JSON.stringify(mechanics)).not.toContain("žádný dirty cash");
     expect(JSON.stringify({ stats, mechanics })).not.toContain("talent");
+  });
+
+  it("shows current day student production as real phase numbers", () => {
+    const model = createBuildingDetailViewModel({
+      buildingName: "Škola",
+      displayName: "Škola",
+      profile: { role: "Vzdělání", actions: [] },
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "school",
+        schoolPopulationPerMinute: 0.25,
+        schoolWholeStudents: 4,
+        schoolCapacity: 12,
+        schoolIsFull: false,
+        schoolNetwork: {
+          incomeMultiplier: 1,
+          studentCapacityMultiplier: 1
+        },
+        schoolEveningCourseActive: false
+      },
+      phaseState: { mapPhase: "day" }
+    });
+
+    expect(model.effects).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        text: "DEN: clean $120/h -> $126/h · studenti 0.25/min -> 0.3/min",
+        tone: "day-night-day"
+      })
+    ]));
   });
 
   it("formats restaurant network effects as percent bonus copy", () => {
@@ -884,7 +913,7 @@ describe("building detail view-model builder", () => {
     expect(rows[0].description).toContain("clean cash");
     expect(rows[0].buttonCostLabel).toBe("$800 clean cash");
     expect(rows[0].cooldownMs).toBe(30 * 60 * 1000);
-    expect(rows[0].rewardSummary).toContain("Efekt 15m 00s");
+    expect(rows[0].rewardSummary).toContain("Trvání 15m 00s");
   });
 
   it("adds stable action ids and keeps server-backed downtown actions out of legacy fallback", () => {
@@ -1038,6 +1067,30 @@ describe("building detail view-model builder", () => {
     expect(rows[1].disabled).toBe(false);
     expect(rows[2].disabled).toBe(true);
     expect(rows[2].disabledTone).toBe("insufficient-funds");
+  });
+
+  it("shows special action boosts as real current numbers instead of only percentages", () => {
+    const rows = createBuildingDetailActionRows({
+      buildingName: "Kasino",
+      profile: { actions: ["Tichý backroom", "VIP noc", "Podplacený inspektor"] },
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "casino",
+        cleanHourly: 120,
+        dirtyHourly: 45,
+        dailyInfluence: 20,
+        dailyHeat: 10,
+        actionCooldowns: {}
+      },
+      economyState: { cleanMoney: 10000, dirtyMoney: 20000 },
+      actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.kasino,
+      now: 1000
+    });
+
+    expect(rows[1].rewardSummary).toContain("Clean $120/h -> $204/h");
+    expect(rows[1].rewardSummary).toContain("Dirty $45/h -> $69/h");
+    expect(rows[1].rewardSummary).toContain("Vliv 20/den -> 25/den");
+    expect(rows[1].riskSummary).toContain("Heat 10/den -> 16/den");
   });
 
   it("builds info-tab rows and action copy without touching runtime state", () => {

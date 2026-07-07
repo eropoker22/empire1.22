@@ -102,6 +102,16 @@ export interface BuildingActionView {
   inputCost: Record<string, number>;
   outputGain: Record<string, number>;
   heatGain: number;
+  baseInputCost?: Record<string, number>;
+  effectiveInputCost?: Record<string, number>;
+  baseOutputGain?: Record<string, number>;
+  effectiveOutputGain?: Record<string, number>;
+  baseHeatGain?: number;
+  effectiveHeatGain?: number;
+  baseCooldownMs?: number;
+  effectiveCooldownMs?: number;
+  baseDurationMs?: number;
+  effectiveDurationMs?: number;
   influenceChange: number;
   reportText: string;
   enabled: boolean;
@@ -109,6 +119,10 @@ export interface BuildingActionView {
   phaseBadgeLabel?: string | null;
   phaseTooltip?: string | null;
   phaseBlockedReason?: string | null;
+  blockedReason?: string | null;
+  preferredPhase?: "day" | "night" | null;
+  currentPhase?: "day" | "night" | null;
+  phaseEffectSummary?: string[];
 }
 
 export type DistrictPanelBuildingActionView = BuildingActionView;
@@ -127,12 +141,26 @@ export interface DistrictPanelBuildingSpecialActionView {
   cooldownMs: number;
   cooldownRemainingTicks: number;
   heatGain: number;
+  baseInputCost?: Record<string, number>;
+  effectiveInputCost?: Record<string, number>;
+  baseOutputGain?: Record<string, number>;
+  effectiveOutputGain?: Record<string, number>;
+  baseHeatGain?: number;
+  effectiveHeatGain?: number;
+  baseCooldownMs?: number;
+  effectiveCooldownMs?: number;
+  baseDurationMs?: number;
+  effectiveDurationMs?: number;
   enabled: boolean;
   disabledReason: string | null;
   phaseAvailability?: BuildingActionPhaseAvailability;
   phaseBadgeLabel?: string | null;
   phaseTooltip?: string | null;
   phaseBlockedReason?: string | null;
+  blockedReason?: string | null;
+  preferredPhase?: "day" | "night" | null;
+  currentPhase?: "day" | "night" | null;
+  phaseEffectSummary?: string[];
 }
 
 export interface DistrictPanelBuildingView {
@@ -154,6 +182,9 @@ export interface DistrictPanelBuildingView {
   phaseBadgeLabel?: string | null;
   phaseTooltip?: string | null;
   phaseBlockedReason?: string | null;
+  passivePhaseBadgeLabel?: string | null;
+  passivePhaseEffectLabel?: string | null;
+  passivePhaseTooltip?: string | null;
 }
 
 export interface DistrictAttackTargetView {

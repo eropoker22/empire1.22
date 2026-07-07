@@ -26,6 +26,7 @@ const LEADERBOARD_COUNT_SELECTOR = "[data-leaderboard-count]";
 const SELECTED_SERVER_STORAGE_KEY = STORAGE_KEYS.selectedServer;
 const PLAYER_STATE_STORAGE_KEY = "empirestreets.playerState";
 const DEFAULT_SERVER_ID = "war-eu-01";
+const DEFAULT_CITY_MINUTES = 5 * 60 + 55;
 
 function focusWithoutScroll(element) {
   if (!(element instanceof HTMLElement) || typeof element.focus !== "function") {
@@ -689,7 +690,7 @@ function getServerPhaseLabel(session = getAuthoritySession()) {
   const phaseState = session.world?.phaseState || {};
   const gamePhase = normalizeText(phaseState.gamePhase, "live").toUpperCase();
   const mapPhase = normalizeText(phaseState.mapPhase, "night").toUpperCase();
-  const time = formatCityMinutes(phaseState.cityMinutes ?? (22 * 60 + 14));
+  const time = formatCityMinutes(phaseState.cityMinutes ?? DEFAULT_CITY_MINUTES);
   return `${gamePhase} / ${mapPhase} ${time}`;
 }
 

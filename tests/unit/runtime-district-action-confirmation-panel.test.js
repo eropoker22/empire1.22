@@ -137,6 +137,33 @@ describe("district action confirmation panel", () => {
     expect(label.textContent).toBe("Commercial");
   });
 
+  it("renders robbery confirmation without optional source and note rows", () => {
+    const title = element();
+    const members = element();
+    const duration = element();
+    const button = element();
+    const elements = {
+      robberyConfirmTitle: title,
+      robberyConfirmMembers: members,
+      robberyConfirmDuration: duration,
+      robberyConfirmFinalButton: button
+    };
+
+    expect(canRenderRobberyConfirmationPanel({ district: { id: 17 }, elements })).toBe(true);
+    expect(renderPreparedRobberyConfirmationPanel({
+      district: { id: 17 },
+      sourceDistrictId: 4,
+      deployedMembers: 8,
+      canConfirm: true,
+      robberyCooldownMs: 14 * 60 * 1000
+    }, elements)).toBe(true);
+
+    expect(title.textContent).toBe("District 17");
+    expect(members.textContent).toBe("8");
+    expect(duration.textContent).toBe("14m");
+    expect(button.disabled).toBe(false);
+  });
+
   it("renders occupy confirmation without changing gameplay state", () => {
     const title = element();
     const source = element();

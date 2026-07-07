@@ -28,6 +28,17 @@ export const renderBuildingDetailPopup = (building: DistrictPanelBuildingViewMod
           `</p>`
         ].join("")
       : "",
+    building.passivePhaseEffectLabel || building.passivePhaseBadgeLabel
+      ? [
+          `<p class="district-building-popup__phase-effect">`,
+          `<span class="district-building-popup__section-label">Efekt fáze</span>`,
+          building.passivePhaseBadgeLabel
+            ? `<span class="district-panel__phase-badge" title="${escapeAttribute(building.passivePhaseTooltip || building.passivePhaseBadgeLabel)}">${escapeHtml(building.passivePhaseBadgeLabel)}</span>`
+            : "",
+          building.passivePhaseEffectLabel ? `<span>${escapeHtml(building.passivePhaseEffectLabel)}</span>` : "",
+          `</p>`
+        ].join("")
+      : "",
     `</div>`,
     `<p class="district-building-popup__section-label">Statistiky</p>`,
     `<div class="district-building-popup__stats">`,
@@ -76,11 +87,14 @@ const renderSpecialAction = (
     `</div>`,
     `<strong>${escapeHtml(action.label)}</strong>`,
     `<span>${escapeHtml(action.description)}</span>`,
+    renderPhaseEffectLine(action),
     `<div class="district-building-popup__action-metrics">`,
     `<small>${escapeHtml(action.effectSummary)}</small>`,
+    `<small>Cena teď ${escapeHtml(action.inputSummary)}</small>`,
+    `<small>Zisk teď ${escapeHtml(action.outputSummary)}</small>`,
     `<small>CD ${renderLiveCooldown(action)}</small>`,
     `<small>${escapeHtml(action.durationLabel)}</small>`,
-    `<small>Hledanost ${escapeHtml(action.heatLabel)}</small>`,
+    `<small>Heat teď ${escapeHtml(action.heatLabel)}</small>`,
     `</div>`,
     `</div>`,
     `<button class="district-panel__action-button district-panel__action-button--craft district-building-popup__run-button" data-building-action-building-id="${escapeAttribute(building.buildingId)}" data-building-action-id="${escapeAttribute(action.actionId)}"${disabledAttribute}${reasonAttribute}>Spustit</button>`,
@@ -120,3 +134,10 @@ const renderPhaseBadge = (
   const tooltip = action.phaseTooltip || action.phaseBadgeLabel;
   return `<span class="district-panel__phase-badge district-panel__phase-badge--${escapeAttribute(availability)}" title="${escapeAttribute(tooltip)}">${escapeHtml(action.phaseBadgeLabel)}</span>`;
 };
+
+const renderPhaseEffectLine = (
+  action: DistrictPanelBuildingViewModel["specialActions"][number]
+): string =>
+  action.phaseEffectLabel
+    ? `<p class="district-building-popup__phase-effect district-building-popup__phase-effect--action"><span class="district-building-popup__section-label">Efekt fáze</span><span>${escapeHtml(action.phaseEffectLabel)}</span></p>`
+    : "";

@@ -1,6 +1,8 @@
 import type { MapDistrictViewModel } from "../selectors";
 import { escapeAttribute, escapeHtml } from "../shared-ui";
 
+const DAY_MAP_IMAGE_PATH = "../img/mapaden2.png";
+
 /**
  * Responsibility: Rendering boundary for the map surface and layers.
  * Belongs here: drawing districts and visual overlays from prepared view models.
@@ -9,11 +11,17 @@ import { escapeAttribute, escapeHtml } from "../shared-ui";
 export interface MapRendererProps {
   districts: MapDistrictViewModel[];
   selectedDistrictId: string | null;
+  phaseId?: "day" | "night" | null;
 }
 
-export const renderMap = ({ districts, selectedDistrictId }: MapRendererProps): string =>
-  [
-    `<section data-map-surface="district-list" data-selected-district-id="${escapeAttribute(selectedDistrictId ?? "")}">`,
+export const renderMap = ({ districts, selectedDistrictId, phaseId }: MapRendererProps): string => {
+  const normalizedPhase = phaseId === "day" ? "day" : "night";
+  const dayVisual = normalizedPhase === "day"
+    ? `<span class="map-day-visual" data-map-day-image="${escapeAttribute(DAY_MAP_IMAGE_PATH)}" style="--map-day-image:url('${escapeAttribute(DAY_MAP_IMAGE_PATH)}')" aria-hidden="true"></span>`
+    : "";
+  return [
+    `<section data-map-surface="district-list" data-map-phase="${escapeAttribute(normalizedPhase)}" data-selected-district-id="${escapeAttribute(selectedDistrictId ?? "")}">`,
+    dayVisual,
     districts
       .map(
         (district) => {
@@ -48,6 +56,7 @@ export const renderMap = ({ districts, selectedDistrictId }: MapRendererProps): 
       .join(""),
     "</section>"
   ].join("");
+};
 
 const toSafeCssColorValue = (value: string | null): string => {
   const normalized = String(value ?? "").trim();

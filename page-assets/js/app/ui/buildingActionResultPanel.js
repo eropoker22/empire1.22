@@ -1,3 +1,9 @@
+import {
+  activateActionResultCountdownRows,
+  getActionResultCountdownUntil,
+  formatActionResultCountdownLabel
+} from "./resultModalPanel.js";
+
 function resolveDocument(container) {
   // Preview-only legacy panel helper. Authoritative building action reports come from the server slice.
   return container?.ownerDocument || (typeof document !== "undefined" ? document : null);
@@ -73,7 +79,10 @@ export function cloneBuildingActionResultPayload(payload) {
     ...payload,
     rows: Array.isArray(payload.rows)
       ? payload.rows.map((row) => ({ ...row }))
-      : payload.rows
+      : payload.rows,
+    items: Array.isArray(payload.items)
+      ? payload.items.map((row) => ({ ...row }))
+      : payload.items
   };
 }
 
@@ -91,7 +100,9 @@ export function normalizeBuildingActionResult(result = {}) {
     summary,
     badge: String(result.badge || (isSuccess ? "Úspěch" : isFailure ? "Selhání" : "Akce")).trim(),
     meta: String(result.meta || "").trim(),
-    rows: Array.isArray(result.rows) ? result.rows.filter((row) => row && row.label != null && row.value != null) : []
+    rows: Array.isArray(result.rows)
+      ? result.rows.filter((row) => row && row.label != null && row.value != null)
+      : (Array.isArray(result.items) ? result.items.filter((row) => row && row.label != null && row.value != null) : [])
   };
 }
 
@@ -142,8 +153,15 @@ export function renderBuildingActionResult(result = {}, options = {}) {
         if (!row || !label || !value) {
           continue;
         }
+        const countdownUntil = getActionResultCountdownUntil(rowView);
         label.textContent = String(rowView.label);
-        value.textContent = String(rowView.value);
+        value.textContent = countdownUntil
+          ? formatActionResultCountdownLabel(Math.max(0, countdownUntil - Date.now()))
+          : String(rowView.value);
+        if (countdownUntil) {
+          value.setAttribute("data-action-result-countdown-until", String(countdownUntil));
+          value.setAttribute("data-action-result-countdown-done", String(rowView.countdownDoneLabel || "0s"));
+        }
         row.append(label, value);
         rows.append(row);
       }
@@ -152,5 +170,6 @@ export function renderBuildingActionResult(result = {}, options = {}) {
   }
 
   container.replaceChildren(item);
+  activateActionResultCountdownRows(container);
   return true;
 }

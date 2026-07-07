@@ -218,14 +218,14 @@ describe("victory duration design", () => {
     expect(config.balance.dayNight?.phases.night.durationTicks).toBe(1440);
   });
 
-  it("sets war mode day and night to 4h each at tickRateMs 15000", () => {
+  it("sets war mode day and night to 2h each at tickRateMs 15000", () => {
     const config = resolveModeConfig("war");
 
     expect(config.tickRateMs).toBe(15000);
-    expect(config.balance.dayLengthTicks).toBe(960);
-    expect(config.balance.nightLengthTicks).toBe(960);
-    expect(config.balance.dayNight?.phases.day.durationTicks).toBe(960);
-    expect(config.balance.dayNight?.phases.night.durationTicks).toBe(960);
+    expect(config.balance.dayLengthTicks).toBe(480);
+    expect(config.balance.nightLengthTicks).toBe(480);
+    expect(config.balance.dayNight?.phases.day.durationTicks).toBe(480);
+    expect(config.balance.dayNight?.phases.night.durationTicks).toBe(480);
     expect(config.balance.maxPlayersPerServer).toBe(150);
   });
 });

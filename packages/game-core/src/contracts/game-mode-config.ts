@@ -96,6 +96,30 @@ export interface DayNightPhaseRuleConfig {
   auditRiskModifierPct?: number;
   rumorChanceModifierPct?: number;
   rumorTruthModifierPct?: number;
+  passiveCleanIncomeMultiplier?: number;
+  passiveDirtyIncomeMultiplier?: number;
+  passiveHeatMultiplier?: number;
+  passiveInfluenceMultiplier?: number;
+  passiveRumorGenerationMultiplier?: number;
+  passiveRumorTruthModifierPct?: number;
+  passiveProductionMultiplier?: number;
+  passivePopulationMultiplier?: number;
+  passiveRecoveryMultiplier?: number;
+  passiveDefenseSupportMultiplier?: number;
+  phasePassiveModifiers?: Partial<Record<DayNightPhaseId, DayNightPassiveBuildingRuleConfig>>;
+}
+
+export interface DayNightPassiveBuildingRuleConfig {
+  passiveCleanIncomeMultiplier?: number;
+  passiveDirtyIncomeMultiplier?: number;
+  passiveHeatMultiplier?: number;
+  passiveInfluenceMultiplier?: number;
+  passiveRumorGenerationMultiplier?: number;
+  passiveRumorTruthModifierPct?: number;
+  passiveProductionMultiplier?: number;
+  passivePopulationMultiplier?: number;
+  passiveRecoveryMultiplier?: number;
+  passiveDefenseSupportMultiplier?: number;
 }
 
 export type DayNightBuildingRuleConfig = DayNightPhaseRuleConfig;

@@ -154,7 +154,7 @@ describe("district action setup panel", () => {
     expect(loot.textContent).toBe("Nejistý");
     expect(trap.textContent).toBe("Neznámá");
     expect(scout.textContent).toBe("Bez scout reportu");
-    expect(heat.textContent).toBe("+11");
+    expect(heat.textContent).toBe("0");
     expect(riskDescription.textContent).toBe("Bez scout reportu je preview jen hrubý odhad.");
   });
 

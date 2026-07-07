@@ -11,6 +11,8 @@ export type DayNightPhaseAvailability = "available" | "blocked" | "buffed" | "pe
 
 export interface ResolvedDayNightRule {
   phaseId: DayNightPhaseId;
+  currentPhase: DayNightPhaseId;
+  preferredPhase: DayNightPhaseId | null;
   rule: DayNightActionRuleConfig | DayNightBuildingRuleConfig | null;
   allowed: boolean;
   phaseAvailability: DayNightPhaseAvailability;
@@ -18,6 +20,7 @@ export interface ResolvedDayNightRule {
   phaseTooltip: string | null;
   blockedReason: string | null;
   appliesModifiers: boolean;
+  mechanicalEffectLabels: string[];
 }
 
 export const resolveDayNightBuildingRule = (
@@ -101,36 +104,55 @@ const resolveDayNightRule = (
   const allowed = allowedPhases.length < 1 || allowedPhases.includes(phase);
   const preferredPhase = rule.preferredPhase;
   const preferredLabel = preferredPhase === "night" ? "NOC" : "DEN";
+  const nextPhaseLabel = phase === "day" ? "Noc" : "Den";
   const isPreferredPhase = preferredPhase === phase;
   const hasPreferredPhase = preferredPhase === "day" || preferredPhase === "night";
+  const mechanics = resolveAppliedMechanicalEffectLabels(rule);
+  const hasAppliedMechanics = mechanics.length > 0;
+  const hasHardPhaseGate = allowedPhases.length > 0;
   const blockedReason = allowed ? null : (rule.blockedReason || `Tahle akce se dá spustit jen ve fázi ${preferredLabel}.`);
   const phaseAvailability: DayNightPhaseAvailability = !allowed
     ? "blocked"
-    : hasPreferredPhase
+    : hasPreferredPhase && (hasAppliedMechanics || hasHardPhaseGate)
       ? isPreferredPhase ? "buffed" : "penalized"
+      : hasPreferredPhase
+      ? "neutral"
       : "available";
+  const preferredOnlyLabel = hasPreferredPhase
+    ? preferredPhase === "night" ? "LEPŠÍ V NOCI" : "LEPŠÍ VE DNE"
+    : null;
   const phaseBadgeLabel = !allowed
     ? "FÁZE BLOK"
     : hasPreferredPhase
-      ? isPreferredPhase ? `${preferredLabel} BONUS` : "VYŠŠÍ RISK"
+      ? hasAppliedMechanics || hasHardPhaseGate
+        ? isPreferredPhase ? `${preferredLabel} BONUS` : "VYŠŠÍ RISK"
+        : preferredOnlyLabel
       : null;
+  const waitLabel = formatPhaseWait(getCurrentDayNightPhase(state, context).remainingTicks, context.config.tickRateMs);
   const phaseTooltip = blockedReason
-    ?? rule.phaseEffectSummary
-    ?? (hasPreferredPhase
+    ? `${preferredPhase === "night" ? "Dostupné až v noci." : "Dostupné až ve dne."} ${nextPhaseLabel} začne za ${waitLabel}.`
+    : hasPreferredPhase
       ? isPreferredPhase
-        ? `Akce je nejsilnější ve fázi ${preferredLabel}.`
-        : `Akce není v ideální fázi. Preferuje ${preferredLabel}.`
-      : null);
+        ? hasAppliedMechanics || hasHardPhaseGate
+          ? "Teď je ideální fáze pro tuto akci."
+          : `Teď je vhodná fáze. Tahle akce preferuje ${preferredLabel}.`
+        : hasAppliedMechanics
+          ? `Akce jde spustit, ale teď má ${mechanics.join(", ")}.`
+          : `Akce jde spustit, ale ideální fáze je ${preferredLabel}.`
+      : rule.phaseEffectSummary ?? null;
 
   return {
     phaseId: phase,
+    currentPhase: phase,
+    preferredPhase: hasPreferredPhase ? preferredPhase : null,
     rule,
     allowed,
     phaseAvailability,
     phaseBadgeLabel,
     phaseTooltip,
     blockedReason,
-    appliesModifiers: allowed && (!hasPreferredPhase || !isPreferredPhase)
+    appliesModifiers: allowed && (!hasPreferredPhase || !isPreferredPhase),
+    mechanicalEffectLabels: allowed && (!hasPreferredPhase || !isPreferredPhase) ? mechanics : []
   };
 };
 
@@ -139,13 +161,16 @@ const createNeutralRule = (
   rule: DayNightActionRuleConfig | DayNightBuildingRuleConfig | null
 ): ResolvedDayNightRule => ({
   phaseId,
+  currentPhase: phaseId,
+  preferredPhase: null,
   rule,
   allowed: true,
   phaseAvailability: rule ? "available" : "neutral",
   phaseBadgeLabel: null,
   phaseTooltip: rule?.phaseEffectSummary ?? null,
   blockedReason: null,
-  appliesModifiers: false
+  appliesModifiers: false,
+  mechanicalEffectLabels: []
 });
 
 const mergeRules = (
@@ -202,4 +227,28 @@ const getActiveMultiplier = (
   }
   const multiplier = Number(resolved.rule?.[key] ?? 1);
   return Number.isFinite(multiplier) && multiplier >= 0 ? multiplier : 1;
+};
+
+const resolveAppliedMechanicalEffectLabels = (
+  rule: DayNightActionRuleConfig | DayNightBuildingRuleConfig
+): string[] => {
+  const labels: string[] = [];
+  if (Number(rule.heatMultiplier ?? 1) > 1) labels.push("vyšší heat");
+  if (Number(rule.costMultiplier ?? 1) > 1) labels.push("vyšší cenu");
+  if (Number(rule.cooldownMultiplier ?? 1) > 1) labels.push("delší cooldown");
+  if (Number(rule.durationMultiplier ?? 1) > 1) labels.push("delší trvání");
+  if (Number(rule.rewardMultiplier ?? 1) > 0 && Number(rule.rewardMultiplier ?? 1) < 1) labels.push("nižší reward");
+  // TODO(day-night): detectionChanceModifierPct, successChanceModifierPct,
+  // auditRiskModifierPct, rumorChanceModifierPct and rumorTruthModifierPct are
+  // config-only until action-specific resolvers consume them. They are excluded
+  // from VYŠŠÍ RISK/preview labels so UI does not promise inactive mechanics.
+  return labels;
+};
+
+const formatPhaseWait = (remainingTicks: number, tickRateMs: number): string => {
+  const ticks = Math.max(0, Math.ceil(Number(remainingTicks || 0)));
+  const ms = ticks * Math.max(1, Number(tickRateMs || 0));
+  if (ms <= 0) return "další fázi";
+  const minutes = Math.max(1, Math.round(ms / 60000));
+  return minutes >= 60 ? `${Math.round(minutes / 60)} h` : `${minutes} min`;
 };

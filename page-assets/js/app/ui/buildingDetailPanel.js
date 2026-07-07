@@ -245,13 +245,23 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
   shell.append(backdrop, card);
   root.append(shell);
 
-  const close = () => {
+  const guardCloseInteraction = (event) => {
+    if (!event) return;
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    event.stopImmediatePropagation?.();
+  };
+
+  const close = (event) => {
+    guardCloseInteraction(event);
     shell.hidden = true;
     closeOverlay(shell, { restoreFocus: false });
     if (typeof callbacks.onClose === "function") callbacks.onClose(shell);
   };
 
   shell.querySelectorAll("[data-district-building-detail-close]").forEach((element) => {
+    element.addEventListener("pointerdown", guardCloseInteraction);
+    element.addEventListener("pointerup", guardCloseInteraction);
     element.addEventListener("click", close);
   });
   collectButton?.addEventListener("click", () => {
@@ -422,7 +432,9 @@ export function renderBuildingActions(buildingViewModel = {}, callbacks = {}, op
       row.setAttribute("aria-label", `${rowView.title || "Akce"}: ${rowView.disabledReason}`);
     }
     title.textContent = rowView.title || "";
-    const inlineDescription = rowView.buttonCostLabel || (rowView.disabled ? rowView.disabledReason : "");
+    const inlineDescription = rowView.disabled
+      ? rowView.disabledReason || rowView.buttonCostLabel || rowView.rewardSummary || rowView.description
+      : rowView.buttonCostLabel || rowView.rewardSummary || rowView.description;
     description.textContent = inlineDescription || "";
     description.hidden = !inlineDescription;
     cooldown.textContent = rowView.cooldownLabel || "";
@@ -640,10 +652,10 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
     moveElementToEnd(statsPanel, actionSection);
   }
   const wasHidden = shell.hidden;
+  shell.hidden = false;
   if (wasHidden) {
     openOverlay(shell, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
   }
-  shell.hidden = false;
   return true;
 }
 

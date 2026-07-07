@@ -38,10 +38,10 @@ import {
   ticksFromHours,
   ticksFromMinutes
 } from "./free-mode-timing";
-import { createDayNightConfig } from "../../public/day-night-config";
+import { createDayNightConfig, resolveDayNightPhaseDurationTicks } from "../../public/day-night-config";
 import { FACTION_DEFINITION_BY_ID } from "../../public/faction-definitions";
 
-const FREE_MODE_DAY_NIGHT_PHASE_TICKS = ticksFromHours(2);
+const FREE_MODE_DAY_NIGHT_PHASE_TICKS = resolveDayNightPhaseDurationTicks(FREE_MODE_TICK_RATE_MS);
 const FREE_MODE_ELIMINATION_INTERVAL_TICKS = ticksFromHours(4);
 const FREE_MODE_FIRST_ELIMINATION_TICKS = ticksFromHours(8);
 const FREE_MODE_HARD_TIMEOUT_TICKS = ticksFromDays(7);

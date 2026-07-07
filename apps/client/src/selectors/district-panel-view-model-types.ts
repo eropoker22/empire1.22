@@ -55,6 +55,16 @@ export interface DistrictPanelBuildingActionViewModel {
   statusLabel: string;
   inputSummary: string;
   outputSummary: string;
+  baseInputCost: Record<string, number>;
+  effectiveInputCost: Record<string, number>;
+  baseOutputGain: Record<string, number>;
+  effectiveOutputGain: Record<string, number>;
+  baseHeatGain: number;
+  effectiveHeatGain: number;
+  baseCooldownMs: number;
+  effectiveCooldownMs: number;
+  baseDurationMs: number;
+  effectiveDurationMs: number;
   expectedEffectSummary: string[];
   riskSummary: string[];
   inputs: DistrictPanelBuildingActionInputViewModel[];
@@ -68,6 +78,11 @@ export interface DistrictPanelBuildingActionViewModel {
   phaseAvailability: "available" | "blocked" | "buffed" | "penalized" | "neutral";
   phaseBadgeLabel: string | null;
   phaseTooltip: string | null;
+  blockedReason: string | null;
+  preferredPhase: "day" | "night" | null;
+  currentPhase: "day" | "night" | null;
+  phaseEffectSummary: string[];
+  phaseEffectLabel: string | null;
 }
 
 export interface DistrictPanelBuildingActionInputViewModel {
@@ -100,6 +115,9 @@ export interface DistrictPanelBuildingViewModel {
   phaseAvailability: "available" | "blocked" | "buffed" | "penalized" | "neutral";
   phaseBadgeLabel: string | null;
   phaseTooltip: string | null;
+  passivePhaseBadgeLabel: string | null;
+  passivePhaseEffectLabel: string | null;
+  passivePhaseTooltip: string | null;
 }
 
 export interface DistrictPanelBuildingStatViewModel {
@@ -117,11 +135,28 @@ export interface DistrictPanelBuildingSpecialActionViewModel {
   cooldownRemainingMs: number;
   cooldownEndsAtMs: number | null;
   heatLabel: string;
+  baseInputCost: Record<string, number>;
+  effectiveInputCost: Record<string, number>;
+  baseOutputGain: Record<string, number>;
+  effectiveOutputGain: Record<string, number>;
+  baseHeatGain: number;
+  effectiveHeatGain: number;
+  baseCooldownMs: number;
+  effectiveCooldownMs: number;
+  baseDurationMs: number;
+  effectiveDurationMs: number;
+  inputSummary: string;
+  outputSummary: string;
   disabled: boolean;
   disabledReason: string | null;
   phaseAvailability: "available" | "blocked" | "buffed" | "penalized" | "neutral";
   phaseBadgeLabel: string | null;
   phaseTooltip: string | null;
+  blockedReason: string | null;
+  preferredPhase: "day" | "night" | null;
+  currentPhase: "day" | "night" | null;
+  phaseEffectSummary: string[];
+  phaseEffectLabel: string | null;
 }
 
 export interface DistrictPanelAttackTargetViewModel {

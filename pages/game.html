@@ -217,7 +217,7 @@
               <div class="city-status-bar" aria-label="Stav města">
                 <div class="city-status-pill">
                   <span class="city-status-pill__label" data-mobile-short="Čas">Čas města</span>
-                  <strong class="city-status-pill__value" data-city-clock>22:14</strong>
+                  <strong class="city-status-pill__value" data-city-clock>05:55</strong>
                 </div>
                 <div class="city-status-pill">
                   <span class="city-status-pill__label" data-mobile-short="">Očista</span>
@@ -590,12 +590,8 @@
             <button type="button" class="button attack-setup-popup-close" data-robbery-setup-close>✕</button>
           </div>
           <div class="attack-setup-popup-body">
-            <p class="attack-setup-popup-row" hidden aria-hidden="true">Zdrojový district
-              <span>
-                <select class="attack-setup-popup-select" data-robbery-source-select data-auto-select-first-source aria-label="Vyber zdrojový district"></select>
-              </span>
-            </p>
-            <p class="attack-setup-popup-row">Nasazení členové <span><span class="attack-setup-popup-stepper attack-setup-popup-stepper--inline"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="robbery-members" aria-label="Ubrat člena pro Vykrást district">−</button><input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-robbery-member-input aria-label="Počet členů gangu pro Vykrást district"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="robbery-members" aria-label="Přidat člena pro Vykrást district">+</button></span></span></p>
+            <select class="attack-setup-popup-select robbery-setup-popup-source-fallback" data-robbery-source-select data-auto-select-first-source aria-label="Interní zdrojový district pro vykradení" hidden aria-hidden="true"></select>
+            <p class="attack-setup-popup-row robbery-setup-popup-row--deployment">Nasazení členové <span><span class="attack-setup-popup-stepper attack-setup-popup-stepper--inline"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="robbery-members" aria-label="Ubrat člena pro Vykrást district">−</button><input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-robbery-member-input aria-label="Počet členů gangu pro Vykrást district"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="robbery-members" aria-label="Přidat člena pro Vykrást district">+</button></span></span></p>
             <p class="attack-setup-popup-row">Typ zóny <span data-robbery-zone>---</span></p>
             <p class="attack-setup-popup-row">Doporučení <span data-robbery-recommendation>---</span></p>
             <p class="attack-setup-popup-row">Loot <span data-robbery-loot-preview>Nejistý</span></p>

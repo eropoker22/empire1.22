@@ -193,4 +193,22 @@ describe("client HTML render escaping", () => {
       "https://example.test/avatar.png?name=A&amp;B"
     );
   });
+
+  it("renders the day map image only for the core day phase", () => {
+    const dayHtml = renderMap({
+      selectedDistrictId: null,
+      phaseId: "day",
+      districts: []
+    });
+    const nightHtml = renderMap({
+      selectedDistrictId: null,
+      phaseId: "night",
+      districts: []
+    });
+
+    expect(dayHtml).toContain('data-map-phase="day"');
+    expect(dayHtml).toContain('data-map-day-image="../img/mapaden2.png"');
+    expect(nightHtml).toContain('data-map-phase="night"');
+    expect(nightHtml).not.toContain("mapaden2.png");
+  });
 });

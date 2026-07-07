@@ -55,8 +55,8 @@ describe("mobile action modal CSS", () => {
     expect(css).toContain("html body .robbery-setup-popup-card .attack-setup-popup-row:nth-child(2)");
     expect(css).not.toContain("html body .robbery-setup-popup-card .attack-setup-popup-row:nth-child(3),");
     expect(css).toContain("html body .robbery-setup-popup-card .attack-setup-popup-stepper:has([data-robbery-member-input])");
-    expect(css).toContain("grid-template-columns: 56px minmax(88px, 1fr) 56px !important;");
-    expect(css).toContain("height: 44px !important;");
+    expect(css).toContain("grid-template-columns: 34px minmax(66px, 1fr) 34px !important;");
+    expect(css).toContain("height: 32px !important;");
     expect(css).toContain("position: sticky !important;");
   });
 
@@ -77,6 +77,8 @@ describe("mobile action modal CSS", () => {
     expect(gameHtml).not.toContain('class="attack-setup-popup-row">Zdroj <span><strong data-spy-confirm-source>');
     expect(gameHtml).toContain('class="attack-setup-popup-row robbery-setup-popup-row--status"');
     expect(gameHtml).toContain('class="attack-setup-popup-row robbery-setup-popup-row--members"');
+    expect(gameHtml).toContain('class="attack-setup-popup-select robbery-setup-popup-source-fallback"');
+    expect(gameHtml).not.toContain("robbery-setup-popup-row--source");
     expect(gameHtml).toContain("data-robbery-available-members");
     expect(gameHtml).not.toContain("data-robbery-available-spies");
     expect(actionCss).toContain("#spy-confirm-modal .spy-confirm-popup-body");
@@ -101,6 +103,25 @@ describe("mobile action modal CSS", () => {
       expect(html).toContain('data-trap-confirm-atmosphere-label');
       expect(html).toContain('data-spy-confirm-atmosphere-label');
       expect(html).toContain('data-occupy-confirm-atmosphere-label');
+    }
+  });
+
+  it("keeps nested action windows layered above their parent popups", () => {
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain("Final layered popup guard: child windows opened from another popup must always sit above their parent.");
+      expect(stylesheet).toContain(".district-popup-shell[data-district-popup]:not([hidden])");
+      expect(stylesheet).toContain("#buildings-modal.buildings-popup-shell:not([hidden])");
+      expect(stylesheet).toContain("#events-modal:not(.hidden):not([hidden])");
+      expect(stylesheet).toContain(".attack-setup-popup-shell:not([hidden])");
+      expect(stylesheet).toContain(".robbery-setup-popup-shell:not([hidden])");
+      expect(stylesheet).toContain(".defense-setup-popup-shell:not([hidden])");
+      expect(stylesheet).toContain("#event-detail-modal:not(.hidden):not([hidden])");
+      expect(stylesheet).toContain("#spy-confirm-modal:not(.hidden):not([hidden])");
+      expect(stylesheet).toContain("#raid-confirm-modal:not(.hidden):not([hidden])");
+      expect(stylesheet).toContain("z-index: 22000 !important;");
+      expect(stylesheet).toContain("z-index: 23500 !important;");
+      expect(stylesheet).toContain("z-index: 24000 !important;");
+      expect(stylesheet).toContain("isolation: isolate !important;");
     }
   });
 
@@ -468,6 +489,10 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("z-index: 12150 !important;");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked .district-popup-shell:not([hidden]) .district-popup-card");
       expect(stylesheet).toContain('html body.game-modal-scroll-locked .district-popup-shell[data-overview-enabled="true"]:not([hidden])');
+      expect(stylesheet).toContain("--district-popup-mobile-lower-top: clamp(96px, 24svh, 172px);");
+      expect(stylesheet).toContain("--district-popup-overview-top: calc(var(--mobile-topbar-offset, 72px) + 18px);");
+      expect(stylesheet).toContain("padding: var(--district-popup-overview-top) 8px var(--district-popup-overview-bottom) !important;");
+      expect(stylesheet).toContain("max-height: calc(var(--mobile-locked-vh, 100svh) - var(--district-popup-overview-top) - var(--district-popup-overview-bottom)) !important;");
       expect(stylesheet).toContain("--district-popup-mobile-top: clamp(86px, 24svh, 168px);");
       expect(stylesheet).toContain("animation-name: districtPopupMobileCenterIn !important;");
       expect(stylesheet).toContain("@keyframes districtPopupMobileCenterIn");

@@ -346,8 +346,8 @@ export const CITY_DAY_PHASE_SELECTOR = "[data-city-day-phase]";
 export const CITY_GAME_PHASE_SELECTOR = "[data-city-game-phase]";
 export const CITY_STATUS_SELECTOR = "[data-city-status]";
 export const CITY_PRODUCTION_SELECTOR = "[data-city-production]";
-export const DAY_MAP_IMAGE_PATH = "../../img/mapaden2.png";
-export const NIGHT_MAP_IMAGE_PATH = "../../img/mapanoc.png";
+export const DAY_MAP_IMAGE_PATH = "../img/mapaden2.png";
+export const NIGHT_MAP_IMAGE_PATH = "../img/mapanoc.png";
 export const STORAGE_WEAPON_COUNT_SELECTOR = "[data-storage-weapon-count]";
 
 export const OVERFLOW_TEXT_TOOLTIP_SELECTOR = [

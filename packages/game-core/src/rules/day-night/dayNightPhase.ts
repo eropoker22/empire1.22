@@ -6,6 +6,10 @@ import type { CoreGameState } from "../../entities";
 type AnyRecord = Record<string, any>;
 
 const EMPTY_MODIFIERS: DayNightModifiersConfig = Object.freeze({});
+const GAME_PHASE_DURATION_MINUTES = 12 * 60;
+const DAY_GAME_START_HOUR = 6;
+const NIGHT_GAME_START_HOUR = 18;
+const DEFAULT_TICK_RATE_MS = 1000;
 
 export interface DayNightPhaseState {
   phaseId: DayNightPhaseId;
@@ -14,6 +18,8 @@ export interface DayNightPhaseState {
   endsAtTick: number;
   remainingTicks: number;
   progressPct: number;
+  elapsedTicks: number;
+  durationTicks: number;
 }
 
 export const getCurrentDayNightPhase = (
@@ -61,6 +67,7 @@ export const createDayNightReadModel = (
   context?: Pick<GameCoreContext, "config">
 ): DayNightReadModel => {
   const phase = getCurrentDayNightPhase(state, context);
+  const gameClock = resolveDayNightGameClock(phase);
   return {
     phaseId: phase.phaseId,
     label: phase.config.label,
@@ -68,7 +75,14 @@ export const createDayNightReadModel = (
     endsAtTick: phase.endsAtTick,
     remainingTicks: phase.remainingTicks,
     progressPct: phase.progressPct,
+    gameClockLabel: gameClock.gameClockLabel,
+    gameHour: gameClock.gameHour,
+    gameMinute: gameClock.gameMinute,
+    phaseStartsAtGameHour: gameClock.phaseStartsAtGameHour,
+    phaseEndsAtGameHour: gameClock.phaseEndsAtGameHour,
+    realPhaseDurationMs: resolveRealPhaseDurationMs(phase, context),
     effectSummary: [...phase.config.effectSummary],
+    recommendations: createPhaseRecommendations(phase.phaseId),
     uiThemeHint: phase.config.uiThemeHint
   };
 };
@@ -142,13 +156,68 @@ const getPhaseDuration = (phase: DayNightPhaseConfig): number =>
 const toPhaseState = (phase: DayNightPhaseConfig, startedAtTick: number, offset: number): DayNightPhaseState => {
   const duration = getPhaseDuration(phase);
   const endsAtTick = startedAtTick + duration;
+  const elapsedTicks = Math.max(0, Math.min(duration - 1, Math.floor(offset)));
   return {
     phaseId: phase.id,
     config: phase,
     startedAtTick,
     endsAtTick,
     remainingTicks: Math.max(0, endsAtTick - (startedAtTick + offset)),
-    progressPct: Math.round((offset / duration) * 10000) / 100
+    progressPct: Math.round((offset / duration) * 10000) / 100,
+    elapsedTicks,
+    durationTicks: duration
   };
 };
+
+export const resolveDayNightGameClock = (phase: DayNightPhaseState): {
+  gameClockLabel: string;
+  gameHour: number;
+  gameMinute: number;
+  phaseStartsAtGameHour: number;
+  phaseEndsAtGameHour: number;
+} => {
+  const phaseStartsAtGameHour = phase.phaseId === "day" ? DAY_GAME_START_HOUR : NIGHT_GAME_START_HOUR;
+  const phaseEndsAtGameHour = phase.phaseId === "day" ? NIGHT_GAME_START_HOUR : DAY_GAME_START_HOUR;
+  const gameMinutesIntoPhase = Math.min(
+    GAME_PHASE_DURATION_MINUTES - 1,
+    Math.floor((phase.elapsedTicks / Math.max(1, phase.durationTicks)) * GAME_PHASE_DURATION_MINUTES)
+  );
+  const absoluteGameMinutes = ((phaseStartsAtGameHour * 60) + gameMinutesIntoPhase) % (24 * 60);
+  const gameHour = Math.floor(absoluteGameMinutes / 60);
+  const gameMinute = absoluteGameMinutes % 60;
+
+  return {
+    gameClockLabel: `${formatClockPart(gameHour)}:${formatClockPart(gameMinute)}`,
+    gameHour,
+    gameMinute,
+    phaseStartsAtGameHour,
+    phaseEndsAtGameHour
+  };
+};
+
+const resolveRealPhaseDurationMs = (
+  phase: DayNightPhaseState,
+  context?: Pick<GameCoreContext, "config">
+): number => {
+  const tickRateMs = Math.max(1, Math.round(Number(context?.config.tickRateMs || DEFAULT_TICK_RATE_MS)));
+  return phase.durationTicks * tickRateMs;
+};
+
+const formatClockPart = (value: number): string =>
+  String(Math.max(0, Math.floor(value))).padStart(2, "0");
+
+const createPhaseRecommendations = (phaseId: DayNightPhaseId): string[] =>
+  phaseId === "night"
+    ? [
+        "Dirty cash",
+        "Kasino / Herna / Strip Club",
+        "Pouliční dealeři / Pašovací tunel",
+        "Heist / útok"
+      ]
+    : [
+        "Legal income",
+        "Magistrát / Soud / Banka / Burza",
+        "Heat control",
+        "Příprava útoku"
+      ];
 

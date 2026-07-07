@@ -120,6 +120,13 @@ var EmpireGameplaySliceClient = function(exports) {
         building.phaseTooltip ? `<span>${escapeHtml(building.phaseTooltip)}</span>` : "",
         `</p>`
       ].join("") : "",
+      building.passivePhaseEffectLabel || building.passivePhaseBadgeLabel ? [
+        `<p class="district-building-popup__phase-effect">`,
+        `<span class="district-building-popup__section-label">Efekt fáze</span>`,
+        building.passivePhaseBadgeLabel ? `<span class="district-panel__phase-badge" title="${escapeAttribute(building.passivePhaseTooltip || building.passivePhaseBadgeLabel)}">${escapeHtml(building.passivePhaseBadgeLabel)}</span>` : "",
+        building.passivePhaseEffectLabel ? `<span>${escapeHtml(building.passivePhaseEffectLabel)}</span>` : "",
+        `</p>`
+      ].join("") : "",
       `</div>`,
       `<p class="district-building-popup__section-label">Statistiky</p>`,
       `<div class="district-building-popup__stats">`,
@@ -157,11 +164,14 @@ var EmpireGameplaySliceClient = function(exports) {
       `</div>`,
       `<strong>${escapeHtml(action.label)}</strong>`,
       `<span>${escapeHtml(action.description)}</span>`,
+      renderPhaseEffectLine$1(action),
       `<div class="district-building-popup__action-metrics">`,
       `<small>${escapeHtml(action.effectSummary)}</small>`,
+      `<small>Cena teď ${escapeHtml(action.inputSummary)}</small>`,
+      `<small>Zisk teď ${escapeHtml(action.outputSummary)}</small>`,
       `<small>CD ${renderLiveCooldown$1(action)}</small>`,
       `<small>${escapeHtml(action.durationLabel)}</small>`,
-      `<small>Hledanost ${escapeHtml(action.heatLabel)}</small>`,
+      `<small>Heat teď ${escapeHtml(action.heatLabel)}</small>`,
       `</div>`,
       `</div>`,
       `<button class="district-panel__action-button district-panel__action-button--craft district-building-popup__run-button" data-building-action-building-id="${escapeAttribute(building.buildingId)}" data-building-action-id="${escapeAttribute(action.actionId)}"${disabledAttribute}${reasonAttribute}>Spustit</button>`,
@@ -184,6 +194,7 @@ var EmpireGameplaySliceClient = function(exports) {
     const tooltip = action.phaseTooltip || action.phaseBadgeLabel;
     return `<span class="district-panel__phase-badge district-panel__phase-badge--${escapeAttribute(availability)}" title="${escapeAttribute(tooltip)}">${escapeHtml(action.phaseBadgeLabel)}</span>`;
   };
+  const renderPhaseEffectLine$1 = (action) => action.phaseEffectLabel ? `<p class="district-building-popup__phase-effect district-building-popup__phase-effect--action"><span class="district-building-popup__section-label">Efekt fáze</span><span>${escapeHtml(action.phaseEffectLabel)}</span></p>` : "";
   const createRunBuildingActionCommand = (input) => {
     const district = input.slice.district;
     const building = district == null ? void 0 : district.buildings.find((candidate) => candidate.buildingId === input.buildingId);
@@ -319,10 +330,11 @@ var EmpireGameplaySliceClient = function(exports) {
         `</div>`,
         `<p class="district-panel__slot-summary">${escapeHtml(action.description)}</p>`,
         action.expectedEffectSummary.length > 0 ? `<p class="district-panel__slot-summary">${action.expectedEffectSummary.map(escapeHtml).join(" · ")}</p>` : "",
+        renderPhaseEffectLine(action),
         `<div class="district-panel__production-metrics">`,
-        `<span class="district-panel__production-metric">Cena ${escapeHtml(action.inputSummary)}</span>`,
-        `<span class="district-panel__production-metric">Zisk ${escapeHtml(action.outputSummary)}</span>`,
-        `<span class="district-panel__production-metric">Hledanost ${escapeHtml(action.heatLabel)}</span>`,
+        `<span class="district-panel__production-metric">Cena teď ${escapeHtml(action.inputSummary)}</span>`,
+        `<span class="district-panel__production-metric">Zisk teď ${escapeHtml(action.outputSummary)}</span>`,
+        `<span class="district-panel__production-metric">Heat teď ${escapeHtml(action.heatLabel)}</span>`,
         `<span class="district-panel__production-metric">Vliv ${escapeHtml(action.influenceLabel)}</span>`,
         `</div>`,
         action.riskSummary.length > 0 ? `<div class="district-panel__production-metrics">${action.riskSummary.map((entry) => `<span class="district-panel__production-metric">${escapeHtml(entry)}</span>`).join("")}</div>` : "",
@@ -380,6 +392,7 @@ var EmpireGameplaySliceClient = function(exports) {
     const tooltip = action.phaseTooltip || action.phaseBadgeLabel;
     return `<span class="district-panel__phase-badge district-panel__phase-badge--${escapeAttribute(availability)}" title="${escapeAttribute(tooltip)}">${escapeHtml(action.phaseBadgeLabel)}</span>`;
   };
+  const renderPhaseEffectLine = (action) => action.phaseEffectLabel ? `<p class="district-panel__phase-effect-row"><span>Efekt fáze</span> ${escapeHtml(action.phaseEffectLabel)}</p>` : "";
   const createAttackDistrictCommand = (input) => {
     const district = input.slice.district;
     if (!district) {
@@ -1549,33 +1562,39 @@ var EmpireGameplaySliceClient = function(exports) {
       refreshOnce
     };
   };
-  const renderMap = ({ districts, selectedDistrictId }) => [
-    `<section data-map-surface="district-list" data-selected-district-id="${escapeAttribute(selectedDistrictId ?? "")}">`,
-    districts.map(
-      (district) => {
-        const ownerColor = toSafeCssColorValue(district.ownerColor);
-        const ownerColorAttribute = ownerColor ? ` data-owner-color="${escapeAttribute(ownerColor)}" style="--map-owner-color:${escapeAttribute(ownerColor)}"` : "";
-        return district.isDestroyed ? [
-          `<button class="map-district map-district--destroyed" data-district-id="${escapeAttribute(district.districtId)}" data-selected="${escapeAttribute(district.isSelected)}" data-owned="${escapeAttribute(district.isOwnedByPlayer)}" data-destroyed="true" data-attack-target="${escapeAttribute(district.isAttackTarget)}" data-attack-enabled="false">`,
-          `<span class="map-district__ruin-cracks" aria-hidden="true"></span>`,
-          `<strong>${escapeHtml(district.label)}</strong>`,
-          `<span>V piči, zničen.</span>`,
-          `</button>`
-        ].join("") : [
-          `<button class="map-district" data-district-id="${escapeAttribute(district.districtId)}" data-selected="${escapeAttribute(district.isSelected)}" data-owned="${escapeAttribute(district.isOwnedByPlayer)}" data-destroyed="false" data-attack-target="${escapeAttribute(district.isAttackTarget)}" data-attack-enabled="${escapeAttribute(district.attackEnabled)}"${ownerColorAttribute}>`,
-          `<strong>${escapeHtml(district.label)}</strong>`,
-          `<span>${escapeHtml(district.ownerLabel)}</span>`,
-          `<span>Zóna: ${escapeHtml(district.zoneLabel)}</span>`,
-          `<span>Budovy: ${escapeHtml(district.buildingSummary)}</span>`,
-          `<span>Hledanost: ${escapeHtml(district.heatLabel)} · Vliv: ${escapeHtml(district.influenceLabel)}</span>`,
-          district.isAttackTarget ? `<span>${escapeHtml(district.attackEnabled ? "Attack Ready" : district.attackDisabledReason ?? "Attack unavailable")}</span>` : "",
-          district.isContested ? "<span>Contested</span>" : "",
-          "</button>"
-        ].join("");
-      }
-    ).join(""),
-    "</section>"
-  ].join("");
+  const DAY_MAP_IMAGE_PATH = "../img/mapaden2.png";
+  const renderMap = ({ districts, selectedDistrictId, phaseId }) => {
+    const normalizedPhase = phaseId === "day" ? "day" : "night";
+    const dayVisual = normalizedPhase === "day" ? `<span class="map-day-visual" data-map-day-image="${escapeAttribute(DAY_MAP_IMAGE_PATH)}" style="--map-day-image:url('${escapeAttribute(DAY_MAP_IMAGE_PATH)}')" aria-hidden="true"></span>` : "";
+    return [
+      `<section data-map-surface="district-list" data-map-phase="${escapeAttribute(normalizedPhase)}" data-selected-district-id="${escapeAttribute(selectedDistrictId ?? "")}">`,
+      dayVisual,
+      districts.map(
+        (district) => {
+          const ownerColor = toSafeCssColorValue(district.ownerColor);
+          const ownerColorAttribute = ownerColor ? ` data-owner-color="${escapeAttribute(ownerColor)}" style="--map-owner-color:${escapeAttribute(ownerColor)}"` : "";
+          return district.isDestroyed ? [
+            `<button class="map-district map-district--destroyed" data-district-id="${escapeAttribute(district.districtId)}" data-selected="${escapeAttribute(district.isSelected)}" data-owned="${escapeAttribute(district.isOwnedByPlayer)}" data-destroyed="true" data-attack-target="${escapeAttribute(district.isAttackTarget)}" data-attack-enabled="false">`,
+            `<span class="map-district__ruin-cracks" aria-hidden="true"></span>`,
+            `<strong>${escapeHtml(district.label)}</strong>`,
+            `<span>V piči, zničen.</span>`,
+            `</button>`
+          ].join("") : [
+            `<button class="map-district" data-district-id="${escapeAttribute(district.districtId)}" data-selected="${escapeAttribute(district.isSelected)}" data-owned="${escapeAttribute(district.isOwnedByPlayer)}" data-destroyed="false" data-attack-target="${escapeAttribute(district.isAttackTarget)}" data-attack-enabled="${escapeAttribute(district.attackEnabled)}"${ownerColorAttribute}>`,
+            `<strong>${escapeHtml(district.label)}</strong>`,
+            `<span>${escapeHtml(district.ownerLabel)}</span>`,
+            `<span>Zóna: ${escapeHtml(district.zoneLabel)}</span>`,
+            `<span>Budovy: ${escapeHtml(district.buildingSummary)}</span>`,
+            `<span>Hledanost: ${escapeHtml(district.heatLabel)} · Vliv: ${escapeHtml(district.influenceLabel)}</span>`,
+            district.isAttackTarget ? `<span>${escapeHtml(district.attackEnabled ? "Attack Ready" : district.attackDisabledReason ?? "Attack unavailable")}</span>` : "",
+            district.isContested ? "<span>Contested</span>" : "",
+            "</button>"
+          ].join("");
+        }
+      ).join(""),
+      "</section>"
+    ].join("");
+  };
   const toSafeCssColorValue = (value) => {
     const normalized = String(value ?? "").trim();
     return /^[#a-zA-Z0-9(),.%\s-]+$/u.test(normalized) ? normalized : "";
@@ -1718,34 +1737,77 @@ var EmpireGameplaySliceClient = function(exports) {
         phaseAvailability: building.phaseAvailability ?? "neutral",
         phaseBadgeLabel: building.phaseBadgeLabel ?? null,
         phaseTooltip: building.phaseTooltip ?? null,
+        passivePhaseBadgeLabel: building.passivePhaseBadgeLabel ?? null,
+        passivePhaseEffectLabel: building.passivePhaseEffectLabel ?? null,
+        passivePhaseTooltip: building.passivePhaseTooltip ?? null,
         specialActions: building.specialActions.map((action) => {
           const cooldown = createCooldownCountdown(action.cooldownRemainingTicks ?? 0, tickRateMs, nowMs);
+          const effectiveInputCost = action.effectiveInputCost ?? action.baseInputCost ?? {};
+          const effectiveOutputGain = action.effectiveOutputGain ?? action.baseOutputGain ?? {};
+          const effectiveHeatGain = action.effectiveHeatGain ?? action.heatGain;
+          const effectiveCooldownMs = action.effectiveCooldownMs ?? action.cooldownMs;
+          const effectiveDurationMs = action.effectiveDurationMs ?? action.durationMs;
           return {
             actionId: action.actionId,
             label: action.label,
             description: action.description,
             effectSummary: action.effectSummary,
-            durationLabel: action.durationMs > 0 ? formatDurationMs(action.durationMs) : "Okamžitě",
-            cooldownLabel: cooldown.remainingMs > 0 ? `Čekání ${formatDurationMs(cooldown.remainingMs)}` : formatDurationMs(action.cooldownMs),
+            durationLabel: effectiveDurationMs > 0 ? formatDurationMs(effectiveDurationMs) : "Okamžitě",
+            cooldownLabel: cooldown.remainingMs > 0 ? `Čekání ${formatDurationMs(cooldown.remainingMs)}` : formatDurationMs(effectiveCooldownMs),
             cooldownRemainingMs: cooldown.remainingMs,
             cooldownEndsAtMs: cooldown.endsAtMs,
-            heatLabel: `+${action.heatGain}`,
+            heatLabel: `+${effectiveHeatGain}`,
+            baseInputCost: { ...action.baseInputCost ?? action.effectiveInputCost ?? {} },
+            effectiveInputCost: { ...effectiveInputCost },
+            baseOutputGain: { ...action.baseOutputGain ?? action.effectiveOutputGain ?? {} },
+            effectiveOutputGain: { ...effectiveOutputGain },
+            baseHeatGain: action.baseHeatGain ?? action.heatGain,
+            effectiveHeatGain,
+            baseCooldownMs: action.baseCooldownMs ?? action.cooldownMs,
+            effectiveCooldownMs,
+            baseDurationMs: action.baseDurationMs ?? action.durationMs,
+            effectiveDurationMs,
+            inputSummary: formatResourceSummary(effectiveInputCost, "Zdarma"),
+            outputSummary: formatResourceSummary(effectiveOutputGain, "Bez výstupu"),
             disabled: hasPendingCommand || !action.enabled,
             disabledReason: hasPendingCommand ? "Akce se zpracovává." : action.disabledReason,
             phaseAvailability: action.phaseAvailability ?? "neutral",
             phaseBadgeLabel: action.phaseBadgeLabel ?? null,
-            phaseTooltip: action.phaseTooltip ?? null
+            phaseTooltip: action.phaseTooltip ?? null,
+            blockedReason: action.blockedReason ?? action.phaseBlockedReason ?? null,
+            preferredPhase: action.preferredPhase ?? null,
+            currentPhase: action.currentPhase ?? null,
+            phaseEffectSummary: action.phaseEffectSummary ?? [],
+            phaseEffectLabel: createPhaseEffectLabel({
+              phaseTooltip: action.phaseTooltip ?? null,
+              phaseEffectSummary: action.phaseEffectSummary ?? []
+            })
           };
         }),
         actions: building.actions.map((action) => {
           const cooldown = createCooldownCountdown(action.cooldownRemainingTicks ?? 0, tickRateMs, nowMs);
+          const effectiveInputCost = action.effectiveInputCost ?? action.inputCost;
+          const effectiveOutputGain = action.effectiveOutputGain ?? action.outputGain;
+          const effectiveHeatGain = action.effectiveHeatGain ?? action.heatGain;
+          const effectiveCooldownMs = action.effectiveCooldownMs ?? action.cooldownMs;
+          const effectiveDurationMs = action.effectiveDurationMs ?? action.durationMs;
           return {
             actionId: action.actionId,
             label: action.label,
             description: action.description,
             statusLabel: toTitleCase$3(action.status),
-            inputSummary: formatResourceSummary(action.inputCost, "Zdarma"),
-            outputSummary: formatResourceSummary(action.outputGain, "Bez výstupu"),
+            inputSummary: formatResourceSummary(effectiveInputCost, "Zdarma"),
+            outputSummary: formatResourceSummary(effectiveOutputGain, "Bez výstupu"),
+            baseInputCost: { ...action.baseInputCost ?? action.inputCost },
+            effectiveInputCost: { ...effectiveInputCost },
+            baseOutputGain: { ...action.baseOutputGain ?? action.outputGain },
+            effectiveOutputGain: { ...effectiveOutputGain },
+            baseHeatGain: action.baseHeatGain ?? action.heatGain,
+            effectiveHeatGain,
+            baseCooldownMs: action.baseCooldownMs ?? action.cooldownMs,
+            effectiveCooldownMs,
+            baseDurationMs: action.baseDurationMs ?? action.durationMs,
+            effectiveDurationMs,
             expectedEffectSummary: action.expectedEffectSummary,
             riskSummary: action.riskSummary,
             inputs: action.requiresInput.map((input) => ({
@@ -1757,16 +1819,24 @@ var EmpireGameplaySliceClient = function(exports) {
               max: input.max,
               options: input.options ?? []
             })),
-            cooldownLabel: cooldown.remainingMs > 0 ? `Čekání ${formatDurationMs(cooldown.remainingMs)}` : `${Math.ceil(action.cooldownMs / 1e3)}s čekání`,
+            cooldownLabel: cooldown.remainingMs > 0 ? `Čekání ${formatDurationMs(cooldown.remainingMs)}` : `${Math.ceil(effectiveCooldownMs / 1e3)}s čekání`,
             cooldownRemainingMs: cooldown.remainingMs,
             cooldownEndsAtMs: cooldown.endsAtMs,
-            heatLabel: `+${action.heatGain}`,
+            heatLabel: `+${effectiveHeatGain}`,
             influenceLabel: formatSigned$1(action.influenceChange),
             disabled: hasPendingCommand || !action.enabled,
             disabledReason: hasPendingCommand ? "Akce se zpracovává." : action.disabledReason,
             phaseAvailability: action.phaseAvailability ?? "neutral",
             phaseBadgeLabel: action.phaseBadgeLabel ?? null,
-            phaseTooltip: action.phaseTooltip ?? null
+            phaseTooltip: action.phaseTooltip ?? null,
+            blockedReason: action.blockedReason ?? action.phaseBlockedReason ?? null,
+            preferredPhase: action.preferredPhase ?? null,
+            currentPhase: action.currentPhase ?? null,
+            phaseEffectSummary: action.phaseEffectSummary ?? [],
+            phaseEffectLabel: createPhaseEffectLabel({
+              phaseTooltip: action.phaseTooltip ?? null,
+              phaseEffectSummary: action.phaseEffectSummary ?? []
+            })
           };
         })
       })),
@@ -1807,6 +1877,16 @@ var EmpireGameplaySliceClient = function(exports) {
         buildOptions: []
       }))
     };
+  };
+  const createPhaseEffectLabel = (input) => {
+    if (input.phaseEffectSummary.length > 0) {
+      return input.phaseEffectSummary.join(", ");
+    }
+    const tooltip = String(input.phaseTooltip || "").trim();
+    if (tooltip) {
+      return tooltip;
+    }
+    return null;
   };
   const createMapDistrictViewModels = (districts, selectedDistrictId, attackTargets = []) => districts.map((district) => {
     const attackTarget = attackTargets.find((target) => target.districtId === district.districtId);
@@ -2109,10 +2189,28 @@ var EmpireGameplaySliceClient = function(exports) {
     const dayNight = player.dayNight;
     if (!dayNight) return "";
     const summary = dayNight.effectSummary.slice(0, 2).join(", ");
-    return ` · <span class="day-night-badge" data-city-phase="${escapeAttribute(dayNight.uiThemeHint)}" title="${escapeAttribute(summary)}">${escapeHtml(dayNight.label)}: ${escapeHtml(summary)} · ${escapeHtml(dayNight.remainingTicks)} ticků</span>`;
+    const recommendations = (dayNight.recommendations ?? []).slice(0, 4).join(" · ");
+    const nextPhaseLabel = dayNight.phaseId === "night" ? "dne" : "noci";
+    const clockLabel = dayNight.gameClockLabel ?? "--:--";
+    const remainingLabel = formatDayNightRemaining(dayNight);
+    const title = [
+      summary,
+      recommendations ? `Teď se vyplatí: ${recommendations}` : ""
+    ].filter(Boolean).join(" | ");
+    return ` · <span class="day-night-badge" data-city-phase="${escapeAttribute(dayNight.uiThemeHint)}" title="${escapeAttribute(title)}">${escapeHtml(dayNight.label)} · ${escapeHtml(clockLabel)} · do ${escapeHtml(nextPhaseLabel)} ${escapeHtml(remainingLabel)}</span>`;
+  };
+  const formatDayNightRemaining = (dayNight) => {
+    const phaseTicks = Math.max(1, Math.floor(Number(dayNight.endsAtTick - dayNight.startedAtTick) || 1));
+    const realPhaseDurationMs = Math.max(0, Number(dayNight.realPhaseDurationMs ?? 0));
+    const remainingMs = realPhaseDurationMs > 0 ? Math.round(Math.max(0, Number(dayNight.remainingTicks || 0)) / phaseTicks * realPhaseDurationMs) : 0;
+    const totalMinutes = Math.max(0, Math.ceil(remainingMs / 6e4));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours <= 0) return `${minutes}m`;
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
   };
   const renderClientShell = (store) => {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f, _g;
     const readModel = store.getReadModel();
     const uiState = store.getUiState();
     const player = createPlayerViewModel(
@@ -2140,7 +2238,8 @@ var EmpireGameplaySliceClient = function(exports) {
       }),
       mapHtml: renderMap({
         districts: mapDistricts,
-        selectedDistrictId: uiState.selectedDistrictId
+        selectedDistrictId: uiState.selectedDistrictId,
+        phaseId: ((_f = player == null ? void 0 : player.dayNight) == null ? void 0 : _f.phaseId) ?? ((_g = player == null ? void 0 : player.dayNight) == null ? void 0 : _g.uiThemeHint) ?? null
       }),
       sidePanelHtml: renderSidePanelShell({
         activePanel: uiState.activeSidePanel,

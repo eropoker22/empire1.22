@@ -46,7 +46,8 @@ export const renderClientShell = (store: ClientStore): ClientRenderState => {
     }),
     mapHtml: renderMap({
       districts: mapDistricts,
-      selectedDistrictId: uiState.selectedDistrictId
+      selectedDistrictId: uiState.selectedDistrictId,
+      phaseId: player?.dayNight?.phaseId ?? player?.dayNight?.uiThemeHint ?? null
     }),
     sidePanelHtml: renderSidePanelShell({
       activePanel: uiState.activeSidePanel,

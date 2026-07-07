@@ -6,7 +6,7 @@ import { createCoreStateWithFixedBuildingFixture } from "../../fixtures/game-sta
 
 describe("production collect command flow", () => {
   it.each([
-    ["pharmacy", "chemicals", 12],
+    ["pharmacy", "chemicals", 14],
     ["factory", "metal-parts", 8],
     ["drug_lab", "neon-dust", 2]
   ])("fills %s output on tick and moves it to player resources on collect", (

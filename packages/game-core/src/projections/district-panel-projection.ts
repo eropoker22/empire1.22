@@ -2,6 +2,7 @@ import type { DistrictPanelView } from "@empire/shared-types";
 import type { CoreGameState } from "../entities/game-state";
 import type { CraftBuildingBalanceConfig, PowerStationBalanceConfig } from "../contracts/game-mode-config";
 import { resolvePowerStationInfrastructureMultiplier } from "../handlers/powerStationBuildingActions";
+import { applyDayNightProductionMultiplier } from "../rules/day-night/dayNight";
 import { composeEntityId } from "../utils";
 import { createDistrictAttackTargetViews } from "./district-attack-target-projection";
 import {
@@ -134,19 +135,13 @@ export const createDistrictPanelView = (
                 resourceLabel: productionProfile.resourceLabel,
                 storedAmount,
                 storageCap: productionProfile.storageCap,
-                amountPerTick: Math.max(0, Math.floor(
-                  productionProfile.amountPerTick
-                    * input.productionMultiplier
-                    * resolveProjectionProductionLevelMultiplier(
-                      building.level,
-                      productionProfile.upgrade ?? craftProfile?.upgrade
-                    )
-                    * resolveProductionInfrastructureMultiplier({
-                      state,
-                      building,
-                      powerStationConfig: input.powerStationConfig
-                    })
-                )),
+                amountPerTick: resolveProjectedProductionAmountPerTick({
+                  state,
+                  input,
+                  building,
+                  productionProfile,
+                  craftProfile
+                }),
                 canCollect: isOwnedByPlayer && building.ownerPlayerId === input.playerId && building.status === "active" && storedAmount > 0,
                 collectDisabledReason: !isOwnedByPlayer || building.ownerPlayerId !== input.playerId
                   ? "Only the building owner can collect production here."
@@ -242,6 +237,37 @@ const createTrapView = (
         }
       : null
   };
+};
+
+const resolveProjectedProductionAmountPerTick = (params: {
+  state: CoreGameState;
+  input: DistrictPanelProjectionInput;
+  building: CoreGameState["buildingsById"][string];
+  productionProfile: NonNullable<DistrictPanelProjectionInput["productionCatalog"][string]>;
+  craftProfile?: DistrictPanelProjectionInput["craftCatalog"][string];
+}): number => {
+  const baseAmountPerTick = Math.max(0, Math.floor(
+    params.productionProfile.amountPerTick
+      * params.input.productionMultiplier
+      * resolveProjectionProductionLevelMultiplier(
+        params.building.level,
+        params.productionProfile.upgrade ?? params.craftProfile?.upgrade
+      )
+      * resolveProductionInfrastructureMultiplier({
+        state: params.state,
+        building: params.building,
+        powerStationConfig: params.input.powerStationConfig
+      })
+  ));
+
+  return params.input.config
+    ? Math.max(0, applyDayNightProductionMultiplier({
+        state: params.state,
+        context: { config: params.input.config },
+        buildingTypeId: params.building.buildingTypeId,
+        amountPerTick: baseAmountPerTick
+      }))
+    : baseAmountPerTick;
 };
 
 const formatInputSummary = (inputCosts: Record<string, number>): string =>

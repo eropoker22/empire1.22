@@ -101,6 +101,15 @@ function getDefenseWeaponState(viewModel, weaponId) {
   };
 }
 
+function formatRobberyHeatEstimateLabel(preview, memberInputValue = "0") {
+  const deployedMembers = Math.max(0, Math.floor(Number(memberInputValue) || 0));
+  if (deployedMembers <= 0) {
+    return "0";
+  }
+
+  return preview?.heatLabel || "0";
+}
+
 export function createAttackSetupViewModel({
   district,
   adjacentOwnedDistrictIds = [],
@@ -182,7 +191,7 @@ export function renderRobberySetupPanel(viewModel = {}, elements = {}) {
     setText(elements.robberyLootPreview, preview.previewLootLabel || "Nejistý");
     setText(elements.robberyTrapPreview, preview.previewTrapHintLabel || "Neznámá");
     setText(elements.robberyScoutReport, preview.scoutReportLabel || "Bez scout reportu");
-    setText(elements.robberyHeatEstimate, preview.heatLabel);
+    setText(elements.robberyHeatEstimate, formatRobberyHeatEstimateLabel(preview, viewModel.memberInputValue));
     setText(elements.robberyRiskDescription, preview.previewDescription || preview.riskDescription);
   }
 

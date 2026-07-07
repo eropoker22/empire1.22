@@ -39,13 +39,7 @@ import {
   getFactionPassiveModifiers,
   isFactionIllegalActionBuilding
 } from "../rules/factions/factionRules";
-import {
-  applyDayNightActionCooldownMs,
-  applyDayNightActionCost,
-  applyDayNightActionDurationMs,
-  applyDayNightActionHeat,
-  applyDayNightActionReward
-} from "../rules/day-night/dayNightActionRules";
+import { resolveEffectiveBuildingActionPreview } from "../rules/buildings/buildingActionCosts";
 
 /**
  * Responsibility: Placeholder handler for building-specific actions.
@@ -167,13 +161,19 @@ export const handleUseBuildingAction = (
   }
   const originalPhaseInputCost = { ...resolvedAction.inputCost };
   const originalPhaseOutputGain = { ...resolvedAction.outputGain };
+  const effectivePreview = resolveEffectiveBuildingActionPreview({
+    action: resolvedAction,
+    state,
+    context,
+    buildingTypeId: building.buildingTypeId
+  });
   resolvedAction = {
     ...resolvedAction,
-    durationMs: applyDayNightActionDurationMs(resolvedAction.durationMs, state, context, resolvedAction.actionId, building.buildingTypeId),
-    cooldownMs: applyDayNightActionCooldownMs(resolvedAction.cooldownMs, state, context, resolvedAction.actionId, building.buildingTypeId),
-    heatGain: applyDayNightActionHeat(resolvedAction.heatGain, state, context, resolvedAction.actionId, building.buildingTypeId),
-    inputCost: applyDayNightActionCost(resolvedAction.inputCost, state, context, resolvedAction.actionId, building.buildingTypeId),
-    outputGain: applyDayNightActionReward(resolvedAction.outputGain, state, context, resolvedAction.actionId, building.buildingTypeId)
+    durationMs: effectivePreview.effectiveDurationMs,
+    cooldownMs: effectivePreview.effectiveCooldownMs,
+    heatGain: effectivePreview.effectiveHeatGain,
+    inputCost: effectivePreview.effectiveInputCost,
+    outputGain: effectivePreview.effectiveOutputGain
   };
   const factionModifiers = getFactionPassiveModifiers(state, player.id, context);
   const adjustedHeatGain = resolvedAction.heatGain < 0

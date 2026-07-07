@@ -127,6 +127,15 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       : null
   );
 
+  const formatRobberyHeatEstimate = (preview, deployedMembers = 0) => {
+    const safeMembers = Math.max(0, Math.floor(Number(deployedMembers) || 0));
+    if (safeMembers <= 0) {
+      return "0";
+    }
+
+    return preview?.heatLabel || "0";
+  };
+
   const renderAttackSummary = () => {
     if (
       !elements.attackRequiredPopulation ||
@@ -247,8 +256,9 @@ export function createDistrictActionPanelRuntime(deps = {}) {
 
     const availableMembers = getAvailableAttackPopulation();
     const deployedMembers = clamp(Number.parseInt(elements.robberyMemberInput.value || "0", 10) || 0, 0, availableMembers);
+    const remainingMembers = Math.max(0, availableMembers - deployedMembers);
     elements.robberyMemberInput.value = String(deployedMembers);
-    elements.robberyAvailableMembers.textContent = String(availableMembers);
+    elements.robberyAvailableMembers.textContent = String(remainingMembers);
 
     const hasSourceDistrict = Boolean(elements.robberySourceSelect.value);
     const canConfirm = hasSourceDistrict && deployedMembers > 0;
@@ -268,8 +278,10 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       setElementText(elements.robberyLootPreview, preview.previewLootLabel || "Nejistý");
       setElementText(elements.robberyTrapPreview, preview.previewTrapHintLabel || "Neznámá");
       setElementText(elements.robberyScoutReport, preview.scoutReportLabel || "Bez scout reportu");
-      setElementText(elements.robberyHeatEstimate, preview.heatLabel);
+      setElementText(elements.robberyHeatEstimate, formatRobberyHeatEstimate(preview, deployedMembers));
       setElementText(elements.robberyRiskDescription, preview.previewDescription || preview.riskDescription);
+    } else if (deployedMembers <= 0) {
+      setElementText(elements.robberyHeatEstimate, "0");
     }
 
     setElementDisabled(elements.robberyConfirmButton, !canConfirm);

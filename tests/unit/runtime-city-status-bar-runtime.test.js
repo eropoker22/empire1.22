@@ -28,6 +28,12 @@ function createElement() {
         listener({ type });
       }
     },
+    dispatchEvent: vi.fn((event) => {
+      for (const listener of listeners.get(event?.type) || []) {
+        listener(event);
+      }
+      return true;
+    }),
     setAttribute: vi.fn()
   };
 }
@@ -62,7 +68,23 @@ describe("city status bar runtime", () => {
       mapPhase: "night"
     });
     expect(getMapPhaseFromCityMinutes(7 * 60)).toBe("day");
+    expect(getMapPhaseFromCityMinutes(0)).toBe("night");
+    expect(getMapPhaseFromCityMinutes(18 * 60)).toBe("night");
     expect(getMapPhaseFromCityMinutes(21 * 60)).toBe("night");
+  });
+
+  it("defaults the refreshed game shell clock to 05:55", () => {
+    expect(buildCityStatusViewModel()).toMatchObject({
+      clockLabel: "05:55",
+      mapPhase: "night"
+    });
+  });
+
+  it("keeps midnight as a valid night clock value", () => {
+    expect(buildCityStatusViewModel({ cityMinutes: 0 })).toMatchObject({
+      clockLabel: "00:00",
+      mapPhase: "night"
+    });
   });
 
   it("renders labels and returns false when required DOM is missing", () => {
@@ -126,6 +148,107 @@ describe("city status bar runtime", () => {
       statusLabel: "+37k",
       cityStatusMode: "final"
     });
+  });
+
+  it("uses core day night read model for clock and map phase when present", () => {
+    expect(buildCityStatusViewModel({ cityMinutes: 23 * 60 + 9, mapPhase: "night" }, {
+      playerView: {
+        dayNight: {
+          phaseId: "day",
+          uiThemeHint: "day",
+          gameClockLabel: "09:42"
+        }
+      }
+    })).toMatchObject({
+      clockLabel: "09:42",
+      mapPhase: "day"
+    });
+  });
+
+  it("keeps core day/night phase authoritative without bouncing legacy phase events", () => {
+    const documentListeners = new Map();
+    const elements = {
+      "#phase": createElement(),
+      "#clock": createElement(),
+      "#day": createElement(),
+      "#game": createElement(),
+      "#status": createElement(),
+      "#production": createElement()
+    };
+    const ownerDocument = {
+      addEventListener: vi.fn((type, listener) => {
+        documentListeners.set(type, [...(documentListeners.get(type) || []), listener]);
+      }),
+      removeEventListener: vi.fn(),
+      defaultView: {
+        CustomEvent: class {
+          constructor(type, options = {}) {
+            this.type = type;
+            this.detail = options.detail;
+          }
+        }
+      }
+    };
+    for (const element of Object.values(elements)) {
+      element.ownerDocument = ownerDocument;
+    }
+
+    const syncPhaseHostFromAuthority = vi.fn((phaseHost) => {
+      const nextMapPhase = phaseHost.dataset.coreMapPhase === "day" || phaseHost.dataset.coreMapPhase === "night"
+        ? phaseHost.dataset.coreMapPhase
+        : "night";
+      if (phaseHost.dataset.mapPhase !== nextMapPhase) {
+        phaseHost.dataset.mapPhase = nextMapPhase;
+        phaseHost.dispatchEvent({ type: "mapphasechange", detail: { phase: nextMapPhase } });
+      }
+      return {
+        cityMinutes: 23 * 60,
+        gamePhase: "live",
+        mapPhase: nextMapPhase
+      };
+    });
+    const runtime = createCityStatusBarRuntime({
+      selectors: {
+        clock: "#clock",
+        dayPhase: "#day",
+        gamePhase: "#game",
+        phaseHost: "#phase",
+        production: "#production",
+        status: "#status"
+      },
+      syncPhaseHostFromAuthority,
+      windowRef: {
+        addEventListener: vi.fn(),
+        setInterval: vi.fn()
+      }
+    });
+
+    const root = {
+      ...createRoot(elements),
+      ownerDocument
+    };
+
+    expect(runtime.bindCityStatusBar(root)).toBe(true);
+    for (const listener of documentListeners.get("empire:gameplay-slice-rendered") || []) {
+      listener({
+        detail: {
+          gameplaySlice: {
+            player: {
+              dayNight: {
+                phaseId: "day",
+                uiThemeHint: "day",
+                gameClockLabel: "09:42"
+              }
+            }
+          }
+        }
+      });
+    }
+
+    expect(elements["#phase"].dataset.coreMapPhase).toBe("day");
+    expect(elements["#phase"].dataset.mapPhase).toBe("day");
+    expect(elements["#clock"].textContent).toBe("09:42");
+    expect(syncPhaseHostFromAuthority.mock.calls.length).toBeLessThan(8);
   });
 
   it("binds the city status shell and delegates tick/game-phase side effects to runtime callbacks", () => {

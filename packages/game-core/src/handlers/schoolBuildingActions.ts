@@ -1,6 +1,7 @@
 import type { FixedBuildingBalanceConfig, SchoolBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
+import { resolveDayNightPassiveBuildingRule } from "../rules/day-night/dayNight";
 import { applyFactionPopulationGeneration, getFactionPassiveModifiers } from "../rules/factions/factionRules";
 import { deterministicUnitInterval } from "../utils/math";
 
@@ -223,11 +224,19 @@ export const applySchoolStudentProduction = (
     const eveningMultiplier = isEveningCourseActive(metadata, state.root.tick)
       ? config.eveningCourse.populationProductionMultiplier
       : 1;
+    const dayNightPopulationMultiplier = context
+      ? safeMultiplier(resolveDayNightPassiveBuildingRule(
+          state,
+          context,
+          building.buildingTypeId
+        ).modifiers.passivePopulationMultiplier)
+      : 1;
     const baseGain = currentStored >= capacity
       ? 0
       : config.populationPerMinute
         * network.populationProductionMultiplier
         * eveningMultiplier
+        * dayNightPopulationMultiplier
         * elapsedTicks
         * Math.max(1, tickRateMs)
         / 60000;
@@ -430,3 +439,8 @@ const asOptionalNumber = (value: unknown): number | undefined => {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const safeMultiplier = (value: unknown): number => {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) && numberValue >= 0 ? numberValue : 1;
+};

@@ -12,7 +12,14 @@ export interface DayNightReadModel {
   endsAtTick: number;
   remainingTicks: number;
   progressPct: number;
+  gameClockLabel?: string;
+  gameHour?: number;
+  gameMinute?: number;
+  phaseStartsAtGameHour?: number;
+  phaseEndsAtGameHour?: number;
+  realPhaseDurationMs?: number;
   effectSummary: string[];
+  recommendations?: string[];
   uiThemeHint: DayNightPhaseId;
 }
 

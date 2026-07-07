@@ -59,6 +59,7 @@ export function normalizeBuildingActionSnapshot(snapshot) {
   const resultPayload = snapshot?.resultPayload && typeof snapshot.resultPayload === "object"
     ? snapshot.resultPayload
     : null;
+  const compact = snapshot?.compact === true;
 
   return {
     tone,
@@ -68,6 +69,7 @@ export function normalizeBuildingActionSnapshot(snapshot) {
     resultKind,
     districtType,
     sourceKind,
+    compact,
     dismissible,
     persistent: !dismissible,
     resultPayload
@@ -207,7 +209,11 @@ export function hasBuildingActionResourceDelta(payload = null) {
 }
 
 export function isBuildingActionEntryOpenable(entry = {}) {
-  return Boolean(entry?.resultKind && entry?.resultPayload && hasBuildingActionResourceDelta(entry.resultPayload));
+  return Boolean(
+    entry?.resultKind
+    && entry?.resultPayload
+    && entry.resultPayload.openable !== false
+  );
 }
 
 export function createBuildingActionFingerprint(snapshot) {
@@ -226,6 +232,45 @@ export function formatBuildingActionTimestamp(timestampMs) {
     minute: "2-digit",
     second: "2-digit"
   });
+}
+
+function formatBuildingActionFeedCountdown(remainingMs) {
+  const totalSeconds = Math.max(0, Math.ceil(Number(remainingMs || 0) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const secondLabel = String(seconds).padStart(2, "0");
+
+  if (hours > 0) {
+    return `${hours}h ${String(minutes).padStart(2, "0")}:${secondLabel}`;
+  }
+
+  return `${minutes}:${secondLabel}`;
+}
+
+function bindBuildingActionFeedCountdown(element, expiresAt) {
+  const windowRef = element?.ownerDocument?.defaultView;
+  const targetMs = Number(expiresAt || 0);
+  if (!element || !windowRef || !Number.isFinite(targetMs) || targetMs <= 0) {
+    return;
+  }
+
+  const update = () => {
+    const remainingMs = Math.max(0, targetMs - Date.now());
+    element.textContent = `Cooldown ${formatBuildingActionFeedCountdown(remainingMs)}`;
+    if (remainingMs <= 0 && timerId) {
+      windowRef.clearInterval(timerId);
+    }
+  };
+
+  let timerId = windowRef.setInterval(() => {
+    if (element.isConnected === false) {
+      windowRef.clearInterval(timerId);
+      return;
+    }
+    update();
+  }, 1000);
+  update();
 }
 
 export function createBuildingActionEntry(snapshot) {
@@ -272,10 +317,15 @@ export function createBuildingActionFeedItemElement(documentRef, entry, options 
   item.dataset.buildingActionId = entry.id;
   const isOpenable = isBuildingActionEntryOpenable(entry);
   const isDismissible = entry.dismissible !== false && entry.persistent !== true;
+  const isCompactCooldown = entry.compact === true || entry.sourceKind === "cooldown";
 
   if (!isDismissible) {
     item.classList.add("building-action-status__item--persistent");
     item.dataset.buildingActionPersistent = "true";
+  }
+
+  if (isCompactCooldown) {
+    item.classList.add("building-action-status__item--cooldown");
   }
 
   if (entry.resultKind) {
@@ -331,6 +381,23 @@ export function createBuildingActionFeedItemElement(documentRef, entry, options 
   title.textContent = entry.title;
   head.append(title);
 
+  if (isCompactCooldown && entry.summary) {
+    const inlineSummary = ownerDocument.createElement("span");
+    inlineSummary.className = "building-action-status__item-inline-summary";
+    inlineSummary.textContent = entry.summary;
+    head.append(inlineSummary);
+  }
+
+  if (isCompactCooldown && entry.meta) {
+    const inlineMeta = ownerDocument.createElement("span");
+    inlineMeta.className = "building-action-status__item-inline-meta";
+    inlineMeta.textContent = entry.meta;
+    if (entry.sourceKind === "cooldown") {
+      bindBuildingActionFeedCountdown(inlineMeta, entry.timestampMs);
+    }
+    head.append(inlineMeta);
+  }
+
   const controls = ownerDocument.createElement("div");
   controls.className = "building-action-status__item-controls";
 
@@ -346,6 +413,10 @@ export function createBuildingActionFeedItemElement(documentRef, entry, options 
 
   head.append(controls);
   item.append(head);
+
+  if (isCompactCooldown) {
+    return item;
+  }
 
   if (entry.resultKind && isOpenable) {
     return item;

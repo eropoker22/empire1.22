@@ -182,12 +182,50 @@ describe("district action panel runtime", () => {
 
     expect(summary.canConfirm).toBe(true);
     expect(robberyConfirmButton.disabled).toBe(false);
-    expect(robberyAvailableMembers.textContent).toBe("10");
+    expect(robberyAvailableMembers.textContent).toBe("6");
     expect(previewFactory).toHaveBeenLastCalledWith(expect.objectContaining({ hasScoutReport: false }));
     expect(robberyRiskLevel.textContent).toBe("Neznámé / Odhad · Odhad");
     expect(robberyLootPreview.textContent).toBe("Nejistý");
     expect(robberyTrapPreview.textContent).toBe("Neznámá");
     expect(robberyScoutReport.textContent).toBe("Bez scout reportu");
     expect(robberyRiskDescription.textContent).toContain("Bez scout reportu");
+  });
+
+  it("deducts selected robbery members from available members and shows zero heat with no members", () => {
+    const robberySourceSelect = { value: "5", replaceChildren: vi.fn(), append: vi.fn(), disabled: false };
+    const robberyMemberInput = input("0");
+    const robberyAvailableMembers = textElement();
+    const robberyHeatEstimate = textElement();
+    const runtime = createDistrictActionPanelRuntime({
+      clamp: (value, min, max) => Math.min(Math.max(value, min), max),
+      createRobberySetupPreview: vi.fn(({ sentMembers }) => ({
+        zoneLabel: "Park",
+        recommendationLabel: "6-10",
+        riskLabel: "High",
+        successChanceLabel: "31%",
+        heatLabel: `+${sentMembers + 3}`
+      })),
+      elements: {
+        robberySourceSelect,
+        robberyMemberInput,
+        robberyAvailableMembers,
+        robberyHeatEstimate,
+        robberySetupPopup: textElement(),
+        robberyTargetTitle: textElement(),
+        robberyStatus: textElement(),
+        robberyConfirmButton: textElement(),
+        gangMembersValue: textElement("10")
+      }
+    });
+
+    runtime.populateRobberySetupPopup({ id: 12, districtType: "park" });
+    expect(robberyAvailableMembers.textContent).toBe("10");
+    expect(robberyHeatEstimate.textContent).toBe("0");
+
+    robberyMemberInput.value = "4";
+    runtime.renderRobberySummary();
+
+    expect(robberyAvailableMembers.textContent).toBe("6");
+    expect(robberyHeatEstimate.textContent).toBe("+7");
   });
 });

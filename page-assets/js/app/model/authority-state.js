@@ -28,7 +28,8 @@ const DEFAULT_PREVIEW_GANG = Object.freeze({
   influence: 0,
   heat: 0
 });
-let hasAppliedRefreshPreviewEconomyOverride = false;
+const DEFAULT_CITY_MINUTES = 5 * 60 + 55;
+let hasAppliedRefreshPreviewOverride = false;
 
 function normalizeMarketServerId(serverId) {
   const normalizedServerId = String(serverId || "").trim();
@@ -187,7 +188,7 @@ export function createDefaultPreviewSession(_factionId = "mafian") {
       phaseState: {
         mapPhase: "night",
         gamePhase: "live",
-        cityMinutes: 22 * 60 + 14
+        cityMinutes: DEFAULT_CITY_MINUTES
       },
       destroyedDistrictIds: [],
       districtDefenseById: {},
@@ -377,13 +378,21 @@ export function getStoredPreviewSession() {
     return createDefaultPreviewSession();
   }
 
-  if (!hasAppliedRefreshPreviewEconomyOverride) {
-    hasAppliedRefreshPreviewEconomyOverride = true;
+  if (!hasAppliedRefreshPreviewOverride) {
+    hasAppliedRefreshPreviewOverride = true;
     const nextSession = normalizePreviewSession({
       ...storedSession,
       economy: {
         ...(storedSession.economy || {}),
         cleanMoney: DEFAULT_PREVIEW_ECONOMY.cleanMoney
+      },
+      world: {
+        ...(storedSession.world || {}),
+        phaseState: {
+          ...(storedSession.world?.phaseState || {}),
+          mapPhase: "night",
+          cityMinutes: DEFAULT_CITY_MINUTES
+        }
       }
     });
     saveState(null, null, nextSession);

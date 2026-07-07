@@ -110,6 +110,48 @@ class FakeDocument extends FakeElement {
   }
 }
 
+class FakeCountdownValue {
+  constructor(attributes = {}) {
+    this.attributes = new Map(Object.entries(attributes));
+    this.textContent = "";
+    this.isConnected = true;
+  }
+
+  getAttribute(name) {
+    return this.attributes.get(name) || "";
+  }
+}
+
+class FakeCountdownContainer {
+  constructor() {
+    this._innerHTML = "";
+    this.countdownValues = [];
+    this.isConnected = true;
+  }
+
+  set innerHTML(value) {
+    this._innerHTML = String(value || "");
+    this.countdownValues = [];
+    const pattern = /data-action-result-countdown-until="([^"]+)"[^>]*data-action-result-countdown-done="([^"]*)"/gu;
+    let match = pattern.exec(this._innerHTML);
+    while (match) {
+      this.countdownValues.push(new FakeCountdownValue({
+        "data-action-result-countdown-until": match[1],
+        "data-action-result-countdown-done": match[2]
+      }));
+      match = pattern.exec(this._innerHTML);
+    }
+  }
+
+  get innerHTML() {
+    return this._innerHTML;
+  }
+
+  querySelectorAll(selector) {
+    return selector === "[data-action-result-countdown-until]" ? this.countdownValues : [];
+  }
+}
+
 function createElement(document, tagName, { id, className = "" } = {}) {
   const element = document.createElement(tagName);
   if (id) {
@@ -153,6 +195,24 @@ describe("result modal panel helpers", () => {
     expect(container.innerHTML).toContain("&quot;20s&quot;");
     expect(container.innerHTML).toContain("modal__nowrap-value");
     expect(container.innerHTML).not.toContain("Prázdné");
+  });
+
+  it("keeps countdown rows live after the result window is opened", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    const container = new FakeCountdownContainer();
+
+    renderActionResultRows(container, [
+      { label: "Cooldown", value: "60s", nowrap: true, countdownUntil: 61_000 }
+    ]);
+
+    expect(container.countdownValues[0].textContent).toBe("1:00");
+
+    vi.setSystemTime(30_000);
+    vi.advanceTimersByTime(1_000);
+
+    expect(container.countdownValues[0].textContent).toBe("30s");
+    vi.useRealTimers();
   });
 
   it("renders a simple result modal without changing payload decisions", () => {

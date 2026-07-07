@@ -145,10 +145,11 @@ export const renderDistrictBuilding = (
               action.expectedEffectSummary.length > 0
                 ? `<p class="district-panel__slot-summary">${action.expectedEffectSummary.map(escapeHtml).join(" · ")}</p>`
                 : "",
+              renderPhaseEffectLine(action),
               `<div class="district-panel__production-metrics">`,
-              `<span class="district-panel__production-metric">Cena ${escapeHtml(action.inputSummary)}</span>`,
-              `<span class="district-panel__production-metric">Zisk ${escapeHtml(action.outputSummary)}</span>`,
-              `<span class="district-panel__production-metric">Hledanost ${escapeHtml(action.heatLabel)}</span>`,
+              `<span class="district-panel__production-metric">Cena teď ${escapeHtml(action.inputSummary)}</span>`,
+              `<span class="district-panel__production-metric">Zisk teď ${escapeHtml(action.outputSummary)}</span>`,
+              `<span class="district-panel__production-metric">Heat teď ${escapeHtml(action.heatLabel)}</span>`,
               `<span class="district-panel__production-metric">Vliv ${escapeHtml(action.influenceLabel)}</span>`,
               `</div>`,
               action.riskSummary.length > 0
@@ -244,3 +245,10 @@ const renderPhaseBadge = (
   const tooltip = action.phaseTooltip || action.phaseBadgeLabel;
   return `<span class="district-panel__phase-badge district-panel__phase-badge--${escapeAttribute(availability)}" title="${escapeAttribute(tooltip)}">${escapeHtml(action.phaseBadgeLabel)}</span>`;
 };
+
+const renderPhaseEffectLine = (
+  action: DistrictPanelBuildingViewModel["actions"][number]
+): string =>
+  action.phaseEffectLabel
+    ? `<p class="district-panel__phase-effect-row"><span>Efekt fáze</span> ${escapeHtml(action.phaseEffectLabel)}</p>`
+    : "";

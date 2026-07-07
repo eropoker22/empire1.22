@@ -107,12 +107,18 @@ export function renderPoliceActionResultPanel(root, payload = {}, options = {}) 
       return;
     }
 
+    const fallbackRows = Array.isArray(payload.rows) && payload.rows.length > 0
+      ? payload.rows
+      : (Array.isArray(payload.items) ? payload.items : (payload.rows || []));
     const resolvedRows = remainingMs === null
-      ? (typeof payload.getRows === "function" ? payload.getRows() : (payload.rows || []))
+      ? (typeof payload.getRows === "function" ? payload.getRows() : fallbackRows)
       : getCityEventRows(payload, remainingMs, formatDuration);
     const renderImpactDetails = options.renderPoliceRaidImpactDetails;
     if (typeof renderImpactDetails !== "function" || !renderImpactDetails(elements.details, payload, resolvedRows)) {
-      renderActionResultRows(elements.details, resolvedRows);
+      renderActionResultRows(elements.details, resolvedRows, {
+        setInterval: options.setInterval,
+        clearInterval: options.clearInterval
+      });
     }
     cityEventRowsRendered = remainingMs !== null;
   };

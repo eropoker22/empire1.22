@@ -242,13 +242,32 @@ body[data-city-phase="night"] .gameplay-slice-client {
 }
 
 .gameplay-slice-client [data-map-surface="district-list"] {
+  position: relative;
+  isolation: isolate;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.gameplay-slice-client .map-day-visual {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(8, 13, 20, 0.26)),
+    var(--map-day-image);
+  background-position: center;
+  background-size: cover;
+  opacity: 0.32;
+  transition: opacity 420ms ease;
 }
 
 .gameplay-slice-client .map-district {
   position: relative;
+  z-index: 1;
   display: grid;
   gap: 4px;
   width: 100%;
@@ -509,11 +528,27 @@ body[data-city-phase="night"] .gameplay-slice-client {
 .gameplay-slice-client .district-panel__section-copy,
 .gameplay-slice-client .district-panel__slot-summary,
 .gameplay-slice-client .district-panel__empty-copy,
-.gameplay-slice-client .district-panel__action-reason {
+.gameplay-slice-client .district-panel__action-reason,
+.gameplay-slice-client .district-panel__phase-effect-row {
   margin: 0;
   color: var(--slice-muted);
   font-size: 0.78rem;
   line-height: 1.42;
+}
+
+.gameplay-slice-client .district-panel__phase-effect-row {
+  padding: 7px 9px;
+  border: 1px solid rgba(250, 204, 21, 0.18);
+  border-radius: 8px;
+  background: rgba(250, 204, 21, 0.055);
+  color: #d8d2c7;
+}
+
+.gameplay-slice-client .district-panel__phase-effect-row span {
+  color: var(--slice-gold);
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-transform: uppercase;
 }
 
 .gameplay-slice-client .district-panel__slot-list,
@@ -887,6 +922,13 @@ body[data-city-phase="night"] .gameplay-slice-client {
   line-height: 1.35;
 }
 
+.gameplay-slice-client .district-building-popup__phase-effect--action {
+  padding: 6px 8px;
+  border: 1px solid rgba(250, 204, 21, 0.16);
+  border-radius: 8px;
+  background: rgba(250, 204, 21, 0.055);
+}
+
 .gameplay-slice-client .district-building-popup__stats {
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
 }
@@ -1152,5 +1194,11 @@ body[data-city-phase="night"] .gameplay-slice-client {
 
   .gameplay-slice-client .district-panel__production-metrics {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gameplay-slice-client .map-day-visual {
+    transition: none;
   }
 }

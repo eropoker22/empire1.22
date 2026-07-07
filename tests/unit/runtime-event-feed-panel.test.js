@@ -61,6 +61,7 @@ describe("event feed panel helpers", () => {
       districtType: "unknown",
       dismissible: true,
       persistent: false,
+      compact: false,
       resultKind: "",
       resultPayload: null,
       sourceKind: ""
@@ -106,7 +107,7 @@ describe("event feed panel helpers", () => {
     expect(item.children).toHaveLength(1);
   });
 
-  it("keeps non-resource action results readable but not clickable", () => {
+  it("keeps non-resource action results clickable so players can inspect what happened", () => {
     const entry = createBuildingActionEntry({
       id: "entry-2",
       tone: "success",
@@ -124,6 +125,39 @@ describe("event feed panel helpers", () => {
       timestampMs: 2000
     });
 
+    let openedEntry = null;
+    const item = createBuildingActionFeedItemElement(new FakeDocument(), entry, {
+      removeSelector: "[data-building-action-remove]",
+      onOpenResult: (selectedEntry) => {
+        openedEntry = selectedEntry;
+      }
+    });
+
+    expect(isBuildingActionEntryOpenable(entry)).toBe(true);
+    expect(item.classList.contains("building-action-status__item--clickable")).toBe(true);
+    expect(item.attributes.get("role")).toBe("button");
+    expect(item.children).toHaveLength(1);
+    item.listeners.get("click")?.({ target: { closest: () => null } });
+    expect(openedEntry).toBe(entry);
+  });
+
+  it("allows result payloads to explicitly opt out of opening", () => {
+    const entry = createBuildingActionEntry({
+      id: "entry-2b",
+      tone: "event",
+      title: "Systémová zpráva",
+      summary: "Jen informační záznam.",
+      resultKind: "police",
+      resultPayload: {
+        openable: false,
+        title: "Systémová zpráva",
+        rows: [
+          { label: "Stav", value: "Bez detailu" }
+        ]
+      },
+      timestampMs: 2100
+    });
+
     const item = createBuildingActionFeedItemElement(new FakeDocument(), entry, {
       removeSelector: "[data-building-action-remove]",
       onOpenResult: () => {}
@@ -132,17 +166,17 @@ describe("event feed panel helpers", () => {
     expect(isBuildingActionEntryOpenable(entry)).toBe(false);
     expect(item.classList.contains("building-action-status__item--clickable")).toBe(false);
     expect(item.attributes.has("role")).toBe(false);
-    expect(item.children[1].textContent).toBe("District zůstal pod tlakem.");
-    expect(item.children[2].textContent).toBe("Žádné suroviny se nezměnily.");
+    expect(item.children[1].textContent).toBe("Jen informační záznam.");
   });
 
   it("renders cooldown feed entries as persistent and non-dismissible", () => {
     const entry = createBuildingActionEntry({
       id: "cooldown:spy:1",
       tone: "event",
-      title: "Cooldown: Špehování",
+      title: "Špehování",
       summary: "District 2",
-      meta: "Zbývá 0:42",
+      meta: "Cooldown 0:42",
+      sourceKind: "cooldown",
       dismissible: false,
       persistent: true,
       timestampMs: 3000
@@ -155,9 +189,50 @@ describe("event feed panel helpers", () => {
 
     expect(item.dataset.buildingActionPersistent).toBe("true");
     expect(item.classList.contains("building-action-status__item--persistent")).toBe(true);
+    expect(item.classList.contains("building-action-status__item--cooldown")).toBe(true);
     expect(item.classList.contains("building-action-status__item--clickable")).toBe(false);
-    expect(item.children[0].children[1].children).toHaveLength(0);
-    expect(item.children[1].textContent).toBe("District 2");
-    expect(item.children[2].textContent).toBe("Zbývá 0:42");
+    expect(item.children).toHaveLength(1);
+    expect(item.children[0].children[0].textContent).toBe("Špehování");
+    expect(item.children[0].children[1].textContent).toBe("District 2");
+    expect(item.children[0].children[2].textContent).toBe("Cooldown 0:42");
+    expect(item.children[0].children[3].children).toHaveLength(0);
+  });
+
+  it("keeps special action cooldown previews clickable even without a direct resource delta", () => {
+    const entry = createBuildingActionEntry({
+      id: "cooldown:building:1:vip_night",
+      tone: "event",
+      title: "VIP noc",
+      summary: "District 1 · Kasino",
+      meta: "Cooldown 4:20",
+      sourceKind: "cooldown",
+      dismissible: false,
+      persistent: true,
+      resultKind: "police",
+      resultPayload: {
+        openable: true,
+        title: "VIP noc běží",
+        summary: "District 1 · Kasino",
+        rows: [
+          { label: "Efekt", value: "Vliv 20/den -> 25/den" },
+          { label: "Riziko", value: "Heat 10/den -> 16/den" }
+        ]
+      },
+      timestampMs: 4000
+    });
+
+    const item = createBuildingActionFeedItemElement(new FakeDocument(), entry, {
+      removeSelector: "[data-building-action-remove]",
+      onOpenResult: () => {}
+    });
+
+    expect(isBuildingActionEntryOpenable(entry)).toBe(true);
+    expect(item.classList.contains("building-action-status__item--clickable")).toBe(true);
+    expect(item.classList.contains("building-action-status__item--cooldown")).toBe(true);
+    expect(item.dataset.buildingActionResultKind).toBe("police");
+    expect(item.children).toHaveLength(1);
+    expect(item.children[0].children[0].textContent).toBe("VIP noc");
+    expect(item.children[0].children[1].textContent).toBe("District 1 · Kasino");
+    expect(item.children[0].children[2].textContent).toBe("Cooldown 4:20");
   });
 });
