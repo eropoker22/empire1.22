@@ -81,6 +81,26 @@ export interface DayNightModifiersConfig {
   attackTravelOrPreparationMultiplier?: number;
 }
 
+export interface DayNightPhaseRuleConfig {
+  preferredPhase?: DayNightPhaseId;
+  allowedPhases?: DayNightPhaseId[];
+  blockedReason?: string;
+  phaseEffectSummary?: string;
+  heatMultiplier?: number;
+  cooldownMultiplier?: number;
+  durationMultiplier?: number;
+  costMultiplier?: number;
+  rewardMultiplier?: number;
+  detectionChanceModifierPct?: number;
+  successChanceModifierPct?: number;
+  auditRiskModifierPct?: number;
+  rumorChanceModifierPct?: number;
+  rumorTruthModifierPct?: number;
+}
+
+export type DayNightBuildingRuleConfig = DayNightPhaseRuleConfig;
+export type DayNightActionRuleConfig = DayNightPhaseRuleConfig;
+
 export interface DayNightPhaseConfig {
   id: DayNightPhaseId;
   label: string;
@@ -95,6 +115,8 @@ export interface DayNightBalanceConfig {
   enabled: boolean;
   defaultPhase: DayNightPhaseId;
   phases: Record<DayNightPhaseId, DayNightPhaseConfig>;
+  buildingRules?: Record<string, DayNightBuildingRuleConfig>;
+  actionRules?: Record<string, DayNightActionRuleConfig>;
 }
 
 export interface EliminationScoreWeightsConfig {

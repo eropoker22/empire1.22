@@ -464,6 +464,8 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("html body.game-modal-scroll-locked #buildings-modal.buildings-popup-shell:not([hidden])");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked .district-popup-shell:not([hidden])");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked .market-popup-shell:not([hidden])");
+      expect(stylesheet).toContain("body.game-modal-scroll-locked .district-building-detail-shell:not([hidden])");
+      expect(stylesheet).toContain("z-index: 12150 !important;");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked .district-popup-shell:not([hidden]) .district-popup-card");
       expect(stylesheet).toContain('html body.game-modal-scroll-locked .district-popup-shell[data-overview-enabled="true"]:not([hidden])');
       expect(stylesheet).toContain("--district-popup-mobile-top: clamp(86px, 24svh, 168px);");
@@ -552,6 +554,8 @@ describe("mobile action modal CSS", () => {
     }
     expect(mobileRuntime).toContain('const MOBILE_OVERLAY_SELECTOR = [');
     expect(mobileRuntime).toContain('".district-popup-shell",');
+    expect(mobileRuntime).toContain('const MOBILE_SCROLL_THROUGH_OVERLAY_SELECTOR = ".district-popup-shell[data-district-popup]";');
+    expect(mobileRuntime).toContain("const hasOpenOverlay = openOverlays.some((element) => !isScrollThroughOverlay(element));");
     expect(mobileRuntime).toContain('".elimination-ai-panel",');
     expect(mobileRuntime).toContain('".elimination-result-popup",');
     expect(mobileRuntime).toContain('root.style.setProperty("--mobile-overlay-top-offset", `${topbarOffset}px`);');
@@ -587,6 +591,10 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("contain: layout paint !important;");
       expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked .game-shell > .modal:not(.hidden):not([hidden]) > .modal__backdrop");
       expect(stylesheet).toContain("position: absolute !important;\n    inset: 0 !important;");
+    }
+    for (const stylesheet of [buildingModalCss, clientBuildingModalCss]) {
+      expect(stylesheet).toContain(".district-building-detail-shell:not([hidden])");
+      expect(stylesheet).toContain("z-index: 12150;");
     }
   });
 
@@ -746,10 +754,12 @@ describe("mobile action modal CSS", () => {
       expect(source).toContain("restoreFocusOnClose: options.restoreFocusOnClose !== false");
       expect(source).toContain("options.restoreFocus !== false && entry?.restoreFocusOnClose !== false");
       expect(source).toContain("options.skipFocus !== true");
+      expect(source).toContain("lockScroll: options.lockScroll !== false");
+      expect(source).toContain("function hasScrollLockingOverlay()");
       expect(source).toContain("const existingIndex = overlayStack.findLastIndex");
       expect(source).toContain("const hadEntry = index >= 0;");
       expect(source).toContain("const unlockedByPrune = pruneClosedOverlays();");
-      expect(source).toContain("if (!unlockedByPrune && hadEntry && overlayStack.length === 0)");
+      expect(source).toContain("if (!unlockedByPrune && hadEntry && entry?.lockScroll !== false && !hasScrollLockingOverlay())");
     }
 
     for (const source of [modalHelpers, clientModalHelpers]) {
@@ -765,6 +775,8 @@ describe("mobile action modal CSS", () => {
       expect(source).not.toContain("is-district-popup-resource-visible");
       expect(source).toContain("restoreFocusOnClose: false");
       expect(source).toContain("skipFocus: true");
+      expect(source).toContain("lockScroll: !shouldAllowMainDistrictBackgroundScroll(element)");
+      expect(source).toContain("bindMobileDistrictPopupBackgroundScroll(element)");
       expect(source).toContain("openOverlay(element, {");
       expect(source).toContain("element.hidden = false;");
       expect(source).toContain("element.hidden = true;");

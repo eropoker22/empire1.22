@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { applyCommand, createDistrictPanelView, type CoreGameState } from "@empire/game-core";
+import {
+  applyCommand,
+  createDistrictPanelView,
+  createHeistCooldownKey,
+  createHeistSourceCooldownKey,
+  createRobCooldownKey,
+  createRobSourceCooldownKey,
+  type CoreGameState
+} from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
-import { createAllianceFixture, createCombatStateFixture } from "../../fixtures/game-state-fixtures";
+import { createAllianceFixture, createCombatStateFixture, createDistrictFixture } from "../../fixtures/game-state-fixtures";
 import {
   createHeistDistrictCommandFixture,
   createPlaceDefenseCommandFixture,
@@ -26,13 +34,72 @@ describe("authoritative basic action commands", () => {
       cash: 1025,
       "dirty-cash": 10
     });
+    expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns).toMatchObject({
+      [createRobCooldownKey("district:2")]: context.config.balance.conflict!.robCooldownTicks,
+      [createRobSourceCooldownKey("district:1")]: context.config.balance.conflict!.robCooldownTicks
+    });
     expect(result.events[0]).toMatchObject({
       type: "district-robbed",
       payload: expect.objectContaining({
         sourceDistrictId: "district:1",
-        targetDistrictId: "district:2"
+        targetDistrictId: "district:2",
+        cooldownTicks: context.config.balance.conflict!.robCooldownTicks
       })
     });
+  });
+
+  it("blocks repeated robbing on the same target and from the same source while cooldown is active", () => {
+    const state = createNeutralRobState();
+    state.playersById["player:1"] = { ...state.playersById["player:1"], population: 2 };
+    const first = applyCommand(state, createRobDistrictCommandFixture({ id: "command:rob:cooldown:1" }), context);
+
+    const sameTarget = applyCommand(first.nextState, createRobDistrictCommandFixture({ id: "command:rob:cooldown:2" }), context);
+    expect(sameTarget.errors).toContainEqual(expect.objectContaining({
+      code: "rob_cooldown_active",
+      details: expect.objectContaining({
+        cooldownKey: createRobCooldownKey("district:2"),
+        remainingTicks: context.config.balance.conflict!.robCooldownTicks
+      })
+    }));
+    expect(sameTarget.nextState).toBe(first.nextState);
+
+    const otherTargetState = {
+      ...first.nextState,
+      districtsById: {
+        ...first.nextState.districtsById,
+        "district:1": {
+          ...first.nextState.districtsById["district:1"],
+          adjacentDistrictIds: ["district:2", "district:3"]
+        },
+        "district:3": createDistrictFixture({
+          id: "district:3",
+          serverInstanceId: first.nextState.serverInstance.id,
+          ownerPlayerId: null,
+          controllerAllianceId: null,
+          status: "neutral",
+          adjacentDistrictIds: ["district:1"]
+        })
+      },
+      root: {
+        ...first.nextState.root,
+        districtIds: [...first.nextState.root.districtIds, "district:3"]
+      }
+    };
+    const sameSource = applyCommand(otherTargetState, createRobDistrictCommandFixture({
+      id: "command:rob:cooldown:3",
+      payload: {
+        targetDistrictId: "district:3",
+        sourceDistrictId: "district:1"
+      }
+    }), context);
+
+    expect(sameSource.errors).toContainEqual(expect.objectContaining({
+      code: "rob_cooldown_active",
+      details: expect.objectContaining({
+        cooldownKey: createRobSourceCooldownKey("district:1"),
+        remainingTicks: context.config.balance.conflict!.robCooldownTicks
+      })
+    }));
   });
 
   it("rejects robbing enemy districts and leaves state unchanged", () => {
@@ -61,13 +128,33 @@ describe("authoritative basic action commands", () => {
     expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBe("player:2");
     expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(1010);
     expect(result.nextState.resourceStatesById["resource:2"].balances.cash).toBe(990);
+    expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns).toMatchObject({
+      [createHeistCooldownKey("district:2")]: context.config.balance.conflict!.heistCooldownTicks,
+      [createHeistSourceCooldownKey("district:1")]: context.config.balance.conflict!.heistCooldownTicks
+    });
     expect(result.events[0]).toMatchObject({
       type: "district-heisted",
       payload: expect.objectContaining({
         style: "balanced",
-        gangMembersSent: 10
+        gangMembersSent: 10,
+        cooldownTicks: context.config.balance.conflict!.heistCooldownTicks
       })
     });
+  });
+
+  it("blocks repeated heists while the authoritative cooldown is active", () => {
+    const state = createHeistState();
+    const first = applyCommand(state, createHeistDistrictCommandFixture({ id: "command:heist:cooldown:1" }), context);
+    const repeated = applyCommand(first.nextState, createHeistDistrictCommandFixture({ id: "command:heist:cooldown:2" }), context);
+
+    expect(repeated.errors).toContainEqual(expect.objectContaining({
+      code: "heist_cooldown_active",
+      details: expect.objectContaining({
+        cooldownKey: createHeistCooldownKey("district:2"),
+        remainingTicks: context.config.balance.conflict!.heistCooldownTicks
+      })
+    }));
+    expect(repeated.nextState).toBe(first.nextState);
   });
 
   it("rejects heist outcome fields at transport and invalid enemy relation in core", () => {
@@ -146,14 +233,16 @@ describe("authoritative basic action commands", () => {
       expect.objectContaining({
         districtId: "district:2",
         enabled: true,
-        disabledCode: null
+        disabledCode: null,
+        cooldownRemainingTicks: 0
       })
     ]);
     expect(panel?.robTargets).toEqual([
       expect.objectContaining({
         districtId: "district:2",
         enabled: false,
-        disabledCode: "TARGET_NOT_EMPTY"
+        disabledCode: "TARGET_NOT_EMPTY",
+        cooldownRemainingTicks: 0
       })
     ]);
     expect(panel?.placeDefense).toEqual(expect.objectContaining({ enabled: true }));
@@ -173,7 +262,48 @@ describe("authoritative basic action commands", () => {
       expect.objectContaining({
         districtId: "district:2",
         enabled: false,
-        disabledCode: "INSUFFICIENT_POPULATION"
+        disabledCode: "INSUFFICIENT_POPULATION",
+        cooldownRemainingTicks: 0
+      })
+    ]);
+  });
+
+  it("projects rob and heist cooldown reasons into the district panel", () => {
+    const robState = createNeutralRobState();
+    robState.playersById["player:1"] = { ...robState.playersById["player:1"], population: 2 };
+    const robbed = applyCommand(robState, createRobDistrictCommandFixture({ id: "command:rob:projection" }), context);
+    const robPanel = createDistrictPanelView(robbed.nextState, {
+      districtId: "district:1",
+      playerId: "player:1",
+      issuedAt: new Date(0).toISOString(),
+      ...minimalPanelConfig()
+    });
+
+    expect(robPanel?.robTargets).toEqual([
+      expect.objectContaining({
+        districtId: "district:2",
+        enabled: false,
+        disabledCode: "rob_cooldown_active",
+        cooldownRemainingTicks: context.config.balance.conflict!.robCooldownTicks,
+        disabledReason: expect.stringContaining("obnoví")
+      })
+    ]);
+
+    const heisted = applyCommand(createHeistState(), createHeistDistrictCommandFixture({ id: "command:heist:projection" }), context);
+    const heistPanel = createDistrictPanelView(heisted.nextState, {
+      districtId: "district:1",
+      playerId: "player:1",
+      issuedAt: new Date(0).toISOString(),
+      ...minimalPanelConfig()
+    });
+
+    expect(heistPanel?.heistTargets).toEqual([
+      expect.objectContaining({
+        districtId: "district:2",
+        enabled: false,
+        disabledCode: "heist_cooldown_active",
+        cooldownRemainingTicks: context.config.balance.conflict!.heistCooldownTicks,
+        disabledReason: expect.stringContaining("obnoví")
       })
     ]);
   });

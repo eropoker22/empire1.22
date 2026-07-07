@@ -23,6 +23,7 @@ type BasicTarget = {
   statusLabel: string;
   disabled: boolean;
   disabledReason: string | null;
+  cooldownLabel: string | null;
 };
 
 export const renderBasicDistrictActionSections = (panel: DistrictPanelViewModel): string =>
@@ -82,6 +83,9 @@ const renderTargetRow = <TTarget extends BasicTarget>(
     `<button class="district-panel__action-button district-panel__action-button--${escapeAttribute(input.buttonModifier)}" ${input.targetAttribute}="${escapeAttribute(target.districtId)}"${disabledAttribute}${reasonAttribute}>`,
     `<span class="district-panel__action-title">${escapeHtml(target.label)}</span>`,
     `<span class="district-panel__action-meta">${escapeHtml(input.renderMeta(target))}</span>`,
+    target.cooldownLabel
+      ? `<span class="district-panel__action-meta">${escapeHtml(`Čekání ${target.cooldownLabel}`)}</span>`
+      : "",
     `</button>`,
     target.disabledReason
       ? `<p class="district-panel__action-reason">${escapeHtml(target.disabledReason)}</p>`

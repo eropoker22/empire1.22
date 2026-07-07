@@ -120,6 +120,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     typeof deps.createRobberySetupPreview === "function"
       ? deps.createRobberySetupPreview({
           districtType: district?.districtType,
+          districtId: district?.id,
           sentMembers,
           hasScoutReport: hasScoutReportForDistrict(district?.id)
         })

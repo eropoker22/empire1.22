@@ -1,10 +1,21 @@
 import type { CoreGameState } from "../entities/game-state";
-import { validateMapAction } from "../rules";
+import type { ConflictBalanceConfig } from "../contracts";
+import type { HeistDistrictCommand, RobDistrictCommand } from "@empire/shared-types";
+import {
+  createHeistCooldownKey,
+  createHeistSourceCooldownKey,
+  createRobCooldownKey,
+  createRobSourceCooldownKey,
+  validateMapAction
+} from "../rules";
+import { validateHeist, validateRob } from "../validation";
 
 export const createDistrictRobTargetViews = (
   state: CoreGameState,
   playerId: string,
-  sourceDistrictId: string
+  sourceDistrictId: string,
+  conflictConfig?: ConflictBalanceConfig,
+  issuedAt = new Date().toISOString()
 ) => {
   const source = state.districtsById[sourceDistrictId];
   if (!source) return [];
@@ -22,15 +33,30 @@ export const createDistrictRobTargetViews = (
     .map((districtId) => state.districtsById[districtId])
     .filter((target) => target !== undefined)
     .map((target) => {
-      const validation = validateMapAction(state, {
-        actorPlayerId: playerId,
-        targetDistrictId: target.id,
-        originDistrictId: source.id,
-        action: "rob"
-      });
+      const previewCommand: RobDistrictCommand = {
+        id: `preview:rob:${source.id}:${target.id}`,
+        type: "rob-district",
+        mode: state.serverInstance.mode,
+        playerId,
+        serverInstanceId: state.serverInstance.id,
+        issuedAt,
+        payload: {
+          targetDistrictId: target.id,
+          sourceDistrictId: source.id,
+          expectedTargetVersion: target.version,
+          expectedSourceVersion: source.version
+        },
+        clientRequestId: null
+      };
+      const errors = validateRob(state, previewCommand, conflictConfig);
+      const cooldownRemainingTicks = getMaxCooldownRemainingTicks(
+        state,
+        playerId,
+        [createRobCooldownKey(target.id), createRobSourceCooldownKey(source.id)]
+      );
       const populationBlocked = hasPopulationForRob ? null : "INSUFFICIENT_POPULATION";
-      const actionAllowed = validation.allowed && !populationBlocked;
-      const disabledCode = actionAllowed ? null : populationBlocked ?? validation.reasonCode ?? null;
+      const disabledCode = errors[0]?.code ?? populationBlocked ?? null;
+      const actionAllowed = errors.length === 0 && !populationBlocked;
 
       return {
         districtId: target.id,
@@ -39,7 +65,8 @@ export const createDistrictRobTargetViews = (
         status: target.status,
         enabled: actionAllowed,
         disabledCode,
-        disabledReason: disabledCode ? formatActionReason(disabledCode) : null,
+        disabledReason: errors[0]?.message ?? (disabledCode ? formatActionReason(disabledCode) : null),
+        cooldownRemainingTicks,
         expectedTargetVersion: target.version,
         expectedSourceVersion: source.version
       };
@@ -49,7 +76,9 @@ export const createDistrictRobTargetViews = (
 export const createDistrictHeistTargetViews = (
   state: CoreGameState,
   playerId: string,
-  sourceDistrictId: string
+  sourceDistrictId: string,
+  conflictConfig?: ConflictBalanceConfig,
+  issuedAt = new Date().toISOString()
 ) => {
   const source = state.districtsById[sourceDistrictId];
   if (!source) return [];
@@ -58,20 +87,38 @@ export const createDistrictHeistTargetViews = (
     .map((districtId) => state.districtsById[districtId])
     .filter((target) => target !== undefined)
     .map((target) => {
-      const validation = validateMapAction(state, {
-        actorPlayerId: playerId,
-        targetDistrictId: target.id,
-        originDistrictId: source.id,
-        action: "heist"
-      });
+      const previewCommand: HeistDistrictCommand = {
+        id: `preview:heist:${source.id}:${target.id}`,
+        type: "heist-district",
+        mode: state.serverInstance.mode,
+        playerId,
+        serverInstanceId: state.serverInstance.id,
+        issuedAt,
+        payload: {
+          targetDistrictId: target.id,
+          sourceDistrictId: source.id,
+          style: "balanced",
+          gangMembersSent: 10,
+          expectedTargetVersion: target.version,
+          expectedSourceVersion: source.version
+        },
+        clientRequestId: null
+      };
+      const errors = validateHeist(state, previewCommand, conflictConfig);
+      const cooldownRemainingTicks = getMaxCooldownRemainingTicks(
+        state,
+        playerId,
+        [createHeistCooldownKey(target.id), createHeistSourceCooldownKey(source.id)]
+      );
       return {
         districtId: target.id,
         name: target.name,
         ownerPlayerId: target.ownerPlayerId,
         status: target.status,
-        enabled: validation.allowed,
-        disabledCode: validation.reasonCode ?? null,
-        disabledReason: validation.allowed ? null : formatActionReason(validation.reasonCode),
+        enabled: errors.length === 0,
+        disabledCode: errors[0]?.code ?? null,
+        disabledReason: errors[0]?.message ?? null,
+        cooldownRemainingTicks,
         expectedTargetVersion: target.version,
         expectedSourceVersion: source.version,
         styles: [
@@ -81,6 +128,22 @@ export const createDistrictHeistTargetViews = (
         ]
       };
     });
+};
+
+const getMaxCooldownRemainingTicks = (
+  state: CoreGameState,
+  playerId: string,
+  cooldownKeys: string[]
+): number => {
+  const player = state.playersById[playerId];
+  const cooldowns = state.cooldownStatesById[player?.cooldownStateId ?? ""]?.cooldowns ?? {};
+  return cooldownKeys.reduce((remainingTicks, key) => {
+    const untilTick = cooldowns[key];
+    return Math.max(
+      remainingTicks,
+      typeof untilTick === "number" ? Math.max(0, untilTick - state.root.tick) : 0
+    );
+  }, 0);
 };
 
 export const createDistrictDefenseActionView = (

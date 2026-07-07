@@ -139,6 +139,10 @@ async function tapBackdropTop(page, testId) {
   await page.mouse.click(box.x + Math.min(24, box.width / 2), box.y + Math.min(24, box.height / 2));
 }
 
+async function closeDistrictPopupWithButton(page) {
+  await page.getByRole("button", { name: /Zavřít district okno/ }).click({ force: true });
+}
+
 async function closeUnexpectedResultModal(page) {
   const closeButton = page.getByRole("button", { name: /Zavřít výsledek/ }).last();
   if (await closeButton.isVisible({ timeout: 1000 }).catch(() => false)) {
@@ -165,11 +169,15 @@ test.describe("mobile overlay UX", () => {
     await expect(page.getByTestId("district-popup")).toBeVisible();
     await expect(page.getByTestId("district-popup-card")).toHaveAttribute("role", "dialog");
     await expect(page.getByTestId("district-popup-card")).toHaveAttribute("aria-modal", "true");
-    await expectScrollLockApplied(page);
-    const scrollBeforeDistrictClose = await getLockedPageScrollY(page);
+    await expectScrollLockReleased(page);
+    const scrollBeforeDistrictClose = await page.evaluate(() => Math.round(window.scrollY || window.pageYOffset || 0));
     expect(Number.isFinite(scrollBeforeDistrictClose)).toBe(true);
 
     await tapBackdropTop(page, "district-popup-backdrop");
+    await expect(page.getByTestId("district-popup-card")).toBeVisible();
+    await expect.poll(() => getSelectedDistrictId(page)).toBe(TEST_DISTRICT_ID);
+    await expectPageScrollPreserved(page, scrollBeforeDistrictClose);
+    await closeDistrictPopupWithButton(page);
     await expect(page.getByTestId("district-popup")).toBeHidden();
     await page.waitForTimeout(520);
     await expect(page.getByTestId("district-popup")).toBeHidden();
@@ -178,8 +186,23 @@ test.describe("mobile overlay UX", () => {
     await expect.poll(() => getSelectedDistrictId(page)).toBe(null);
 
     await tapDistrict(page);
-    await expectScrollLockApplied(page);
+    await expectScrollLockReleased(page);
     await closeUnexpectedResultModal(page);
+    const backdropScroll = await page.evaluate(() => {
+      const backdrop = document.querySelector("[data-testid='district-popup-backdrop']");
+      const before = Math.round(window.scrollY || window.pageYOffset || 0);
+      const maxScrollY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      window.scrollTo(0, Math.min(before, Math.max(0, maxScrollY - 220)));
+      const adjustedBefore = Math.round(window.scrollY || window.pageYOffset || 0);
+      backdrop?.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 180 }));
+      return {
+        maxScrollY,
+        before: adjustedBefore,
+        after: Math.round(window.scrollY || window.pageYOffset || 0)
+      };
+    });
+    expect(backdropScroll.maxScrollY).toBeGreaterThan(220);
+    expect(backdropScroll.after).toBeGreaterThan(backdropScroll.before);
     const bodyScrollBefore = await page.evaluate(() => window.scrollY);
     await page.getByTestId("district-popup-card").evaluate((element) => {
       element.scrollTop = 0;
@@ -207,11 +230,11 @@ test.describe("mobile overlay UX", () => {
     await expect(page.getByTestId("district-popup-card")).toBeVisible();
     await page.waitForTimeout(520);
     await expect(page.getByTestId("district-popup-card")).toBeVisible();
-    await expectScrollLockApplied(page);
-    await expectLockedScrollPreserved(page, scrollBeforeAttackClose);
+    await expectScrollLockReleased(page);
+    await expectPageScrollPreserved(page, scrollBeforeAttackClose);
     await expect.poll(() => getSelectedDistrictId(page)).toBe(TEST_DISTRICT_ID);
 
-    await tapBackdropTop(page, "district-popup-backdrop");
+    await closeDistrictPopupWithButton(page);
     await expect(page.getByTestId("district-popup")).toBeHidden();
     await page.waitForTimeout(520);
     await expectScrollLockReleased(page);

@@ -6,6 +6,48 @@ function createElement(tagName, className = "") {
   return element || null;
 }
 
+const DEFAULT_HEAT_LEVEL_COUNT = 6;
+
+function resolveHeatLevelCount(levels = []) {
+  const levelIds = Array.isArray(levels)
+    ? levels.map((tier) => Math.max(0, Number(tier?.id || 0) || 0))
+    : [];
+  return Math.max(DEFAULT_HEAT_LEVEL_COUNT, ...levelIds);
+}
+
+function createWantedHeatStars(levelId = 0, {
+  maxLevel = DEFAULT_HEAT_LEVEL_COUNT,
+  className = ""
+} = {}) {
+  const safeMaxLevel = Math.max(1, Math.floor(Number(maxLevel || DEFAULT_HEAT_LEVEL_COUNT)) || DEFAULT_HEAT_LEVEL_COUNT);
+  const safeLevelId = Math.max(0, Math.min(safeMaxLevel, Math.floor(Number(levelId || 0)) || 0));
+  const starStrip = createElement("span", `wanted-popup-stars ${className}`.trim());
+
+  if (!starStrip) {
+    return null;
+  }
+
+  starStrip.setAttribute?.("aria-label", `Heat ${safeLevelId} / ${safeMaxLevel}`);
+  for (let index = 0; index < safeMaxLevel; index += 1) {
+    const star = createElement("span", index < safeLevelId ? "is-active" : "");
+    if (!star) {
+      continue;
+    }
+
+    star.textContent = "★";
+    star.setAttribute?.("aria-hidden", "true");
+    starStrip.append?.(star);
+  }
+
+  return starStrip;
+}
+
+function formatWantedHeatStarsFallback(levelId = 0, maxLevel = DEFAULT_HEAT_LEVEL_COUNT) {
+  const safeMaxLevel = Math.max(1, Math.floor(Number(maxLevel || DEFAULT_HEAT_LEVEL_COUNT)) || DEFAULT_HEAT_LEVEL_COUNT);
+  const safeLevelId = Math.max(0, Math.min(safeMaxLevel, Math.floor(Number(levelId || 0)) || 0));
+  return `${"★".repeat(safeLevelId)}${"☆".repeat(Math.max(0, safeMaxLevel - safeLevelId))}`;
+}
+
 function formatRelativeHeatTime(createdAt, now = Date.now()) {
   const timestamp = new Date(createdAt || now).getTime();
   const diffMs = Math.max(0, now - (Number.isFinite(timestamp) ? timestamp : now));
@@ -148,6 +190,7 @@ export function renderWantedLevels(mount, levels = []) {
   }
 
   const safeLevels = Array.isArray(levels) ? levels : [];
+  const maxLevel = resolveHeatLevelCount(safeLevels);
   mount.replaceChildren?.();
   for (const tier of safeLevels) {
     const entry = createElement("div", `wanted-popup-level ${tier?.active ? "is-active" : ""}`);
@@ -157,11 +200,47 @@ export function renderWantedLevels(mount, levels = []) {
       continue;
     }
 
-    title.textContent = String(tier?.label || "");
+    const levelId = Math.max(0, Number(tier?.id || 0) || 0);
+    const stars = createWantedHeatStars(levelId, {
+      maxLevel,
+      className: "wanted-popup-stars--level"
+    });
+    if (stars) {
+      title.replaceChildren?.(stars);
+    } else {
+      title.textContent = formatWantedHeatStarsFallback(levelId, maxLevel);
+    }
     copy.textContent = `${tier?.title || ""} • ${tier?.effect || ""}`;
     entry.append(title, copy);
     mount.append?.(entry);
   }
+  return true;
+}
+
+function renderWantedTitle(mount, wantedViewModel = {}) {
+  if (!mount) {
+    return false;
+  }
+
+  const title = String(wantedViewModel.title || "");
+  const levelId = Math.max(0, Number(wantedViewModel.levelId || 0) || 0);
+  const maxLevel = resolveHeatLevelCount(wantedViewModel.levels);
+  const stars = createWantedHeatStars(levelId, {
+    maxLevel,
+    className: "wanted-popup-stars--title"
+  });
+  const titleText = createElement("span", "wanted-popup-title__text");
+
+  mount.classList?.add?.("wanted-popup-title--stars");
+  mount.setAttribute?.("aria-label", title ? `Heat ${levelId} / ${maxLevel} · ${title}` : `Heat ${levelId} / ${maxLevel}`);
+
+  if (!stars || !titleText || typeof mount.replaceChildren !== "function") {
+    mount.textContent = `${formatWantedHeatStarsFallback(levelId, maxLevel)}${title ? ` • ${title}` : ""}`;
+    return true;
+  }
+
+  titleText.textContent = title;
+  mount.replaceChildren(stars, titleText);
   return true;
 }
 
@@ -176,7 +255,7 @@ export function renderWantedPanel(wantedViewModel = {}, options = {}) {
   const heat = Number(wantedViewModel.heat ?? 0);
   if (mounts.popupHeat) mounts.popupHeat.textContent = String(heat);
   if (mounts.popupLevel) mounts.popupLevel.textContent = `${wantedViewModel.levelId || 0} / 6`;
-  if (mounts.popupTier) mounts.popupTier.textContent = `${wantedViewModel.levelLabel || ""} • ${wantedViewModel.title || ""}`;
+  renderWantedTitle(mounts.popupTier, wantedViewModel);
   if (mounts.popupDescription) mounts.popupDescription.textContent = String(wantedViewModel.description || "");
   if (mounts.popupProtection) mounts.popupProtection.textContent = String(wantedViewModel.protectionLabel || "");
 

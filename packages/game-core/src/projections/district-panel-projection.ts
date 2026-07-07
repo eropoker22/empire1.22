@@ -46,8 +46,8 @@ export const createDistrictPanelView = (
   const attackTargets = createDistrictAttackTargetViews(state, input.playerId, district.id, issuedAt);
   const occupyTargets = createDistrictOccupyTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
   const spyTargets = createDistrictSpyTargetViews(state, input.playerId, district.id, issuedAt);
-  const robTargets = createDistrictRobTargetViews(state, input.playerId, district.id);
-  const heistTargets = createDistrictHeistTargetViews(state, input.playerId, district.id);
+  const robTargets = createDistrictRobTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
+  const heistTargets = createDistrictHeistTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
   const placeDefense = createDistrictDefenseActionView(state, input.playerId, district.id, "place_defense");
   const removeDefense = createDistrictDefenseActionView(state, input.playerId, district.id, "remove_defense");
   const trap = createTrapView(state, input.playerId, district.id);
@@ -71,6 +71,7 @@ export const createDistrictPanelView = (
       buildings: filledBuildings,
       buildCatalog: input.buildCatalog,
       actionCatalog: input.buildingActionCatalog,
+      config: input.config,
       stripClubConfig: input.stripClubConfig,
       restaurantConfig: input.restaurantConfig,
       convenienceStoreConfig: input.convenienceStoreConfig,
@@ -249,10 +250,16 @@ const formatInputSummary = (inputCosts: Record<string, number>): string =>
     .join(" + ");
 
 const formatResourceLabel = (resourceKey: string): string =>
+  RESOURCE_LABELS[resourceKey] ??
   resourceKey
     .split("-")
     .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
     .join(" ");
+
+const RESOURCE_LABELS: Record<string, string> = {
+  "combat-module": "Bojový modul",
+  combatModule: "Bojový modul"
+};
 
 const createProcessingView = (
   building: CoreGameState["buildingsById"][string],

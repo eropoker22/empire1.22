@@ -205,7 +205,7 @@ describe("district panel rendering", () => {
       metaText: "",
       buildings: [
         { name: "Autosalon", label: "Autosalon", displayName: "Neon Cars" },
-        { name: "Lékárna", displayName: "Noční Lékárna" }
+        { name: "Lékárna", displayName: "Noční Lékárna", kindLabel: "Výroba" }
       ],
       trap: { visible: true, label: "Toxická past", meta: "59:59" }
     });
@@ -214,9 +214,11 @@ describe("district panel rendering", () => {
     expect(list.children).toHaveLength(3);
     expect(list.children[0].dataset.districtBuildingName).toBe("Autosalon");
     expect(list.children[0].dataset.districtBuildingDisplayName).toBe("Neon Cars");
-    expect(list.children[0].textContent).toBe("Autosalon");
+    expect(list.children[0].children[0].textContent).toBe("Autosalon");
     expect(list.children[0].title).toBe("Autosalon");
-    expect(list.children[1].textContent).toBe("Noční Lékárna");
+    expect(list.children[1].children[0].textContent).toBe("Noční Lékárna");
+    expect(list.children[1].children[1].textContent).toBe("Výroba");
+    expect(list.children[1].dataset.districtBuildingKind).toBe("Výroba");
     expect(list.children[2].classList.contains("district-popup-buildings__chip--trap")).toBe(true);
     expect(list.children[2].dataset.districtBuildingTrap).toBe("active");
     expect(list.children[2].children[1].textContent).toBe("59:59");

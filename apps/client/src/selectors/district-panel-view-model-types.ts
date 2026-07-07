@@ -65,6 +65,9 @@ export interface DistrictPanelBuildingActionViewModel {
   influenceLabel: string;
   disabled: boolean;
   disabledReason: string | null;
+  phaseAvailability: "available" | "blocked" | "buffed" | "penalized" | "neutral";
+  phaseBadgeLabel: string | null;
+  phaseTooltip: string | null;
 }
 
 export interface DistrictPanelBuildingActionInputViewModel {
@@ -94,6 +97,9 @@ export interface DistrictPanelBuildingViewModel {
   stats: DistrictPanelBuildingStatViewModel[];
   specialActions: DistrictPanelBuildingSpecialActionViewModel[];
   actions: DistrictPanelBuildingActionViewModel[];
+  phaseAvailability: "available" | "blocked" | "buffed" | "penalized" | "neutral";
+  phaseBadgeLabel: string | null;
+  phaseTooltip: string | null;
 }
 
 export interface DistrictPanelBuildingStatViewModel {
@@ -113,6 +119,9 @@ export interface DistrictPanelBuildingSpecialActionViewModel {
   heatLabel: string;
   disabled: boolean;
   disabledReason: string | null;
+  phaseAvailability: "available" | "blocked" | "buffed" | "penalized" | "neutral";
+  phaseBadgeLabel: string | null;
+  phaseTooltip: string | null;
 }
 
 export interface DistrictPanelAttackTargetViewModel {
@@ -122,6 +131,7 @@ export interface DistrictPanelAttackTargetViewModel {
   statusLabel: string;
   disabled: boolean;
   disabledReason: string | null;
+  cooldownLabel: string | null;
 }
 
 export interface DistrictPanelSpyTargetViewModel {
@@ -151,6 +161,7 @@ export interface DistrictPanelRobTargetViewModel {
   statusLabel: string;
   disabled: boolean;
   disabledReason: string | null;
+  cooldownLabel: string | null;
 }
 
 export interface DistrictPanelHeistTargetViewModel {
@@ -160,6 +171,7 @@ export interface DistrictPanelHeistTargetViewModel {
   statusLabel: string;
   disabled: boolean;
   disabledReason: string | null;
+  cooldownLabel: string | null;
 }
 
 export interface DistrictPanelDefenseActionViewModel {

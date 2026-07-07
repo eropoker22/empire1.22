@@ -684,6 +684,10 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     pointer-events: auto !important;
   }
 
+  body.game-modal-scroll-locked .district-building-detail-shell:not([hidden]) {
+    z-index: 12150 !important;
+  }
+
   body.game-modal-scroll-locked #events-modal,
   body.game-modal-scroll-locked #event-detail-modal {
     z-index: 9700 !important;
@@ -5556,6 +5560,55 @@ html body .storage-popup-heading > .storage-popup-close::before {
     right: 10px !important;
     left: 10px !important;
     max-height: var(--mobile-overlay-available-height) !important;
+  }
+}
+
+/* Mobile district popup scroll-through: the first district card keeps the map blocked but lets the page pan behind it. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup]:not([hidden]) {
+    --district-popup-mobile-top: var(--mobile-topbar-offset, 72px);
+    --district-popup-mobile-bottom: max(10px, env(safe-area-inset-bottom));
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 12000 !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    width: 100vw !important;
+    height: var(--mobile-locked-vh, 100svh) !important;
+    max-height: var(--mobile-locked-vh, 100svh) !important;
+    padding: var(--district-popup-mobile-top) 8px var(--district-popup-mobile-bottom) !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    pointer-events: auto !important;
+    touch-action: pan-y !important;
+    overscroll-behavior: auto !important;
+  }
+
+  html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup]:not([hidden]) > .district-popup-backdrop {
+    z-index: 0 !important;
+    pointer-events: auto !important;
+    touch-action: pan-y !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  html body.game-body:not(.game-modal-scroll-locked) .district-popup-shell[data-district-popup]:not([hidden]) .district-popup-card {
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    z-index: 2 !important;
+    width: min(430px, calc(100vw - 16px)) !important;
+    max-height: calc(var(--mobile-locked-vh, 100svh) - var(--district-popup-mobile-top) - var(--district-popup-mobile-bottom)) !important;
+    margin: 0 auto !important;
+    transform: none !important;
+    transform-origin: center center !important;
+    animation-name: districtPopupMobileCenterIn !important;
+    pointer-events: auto !important;
   }
 }
 

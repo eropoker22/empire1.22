@@ -135,7 +135,10 @@ export const renderDistrictBuilding = (
             return [
               `<div class="district-panel__production" data-building-action-controls="${escapeAttribute(action.actionId)}">`,
               `<div class="district-panel__production-head">`,
+              `<div class="district-panel__production-title-row">`,
               `<strong class="district-panel__production-title">${escapeHtml(action.label)}</strong>`,
+              renderPhaseBadge(action),
+              `</div>`,
               `<span class="district-panel__production-rate">${escapeHtml(action.statusLabel)} · ${renderLiveCooldown(action)}</span>`,
               `</div>`,
               `<p class="district-panel__slot-summary">${escapeHtml(action.description)}</p>`,
@@ -232,3 +235,12 @@ const renderLiveCooldown = (
         `</span>`
       ].join("")
     : escapeHtml(action.cooldownLabel);
+
+const renderPhaseBadge = (
+  action: DistrictPanelBuildingViewModel["actions"][number]
+): string => {
+  if (!action.phaseBadgeLabel) return "";
+  const availability = toCssToken(action.phaseAvailability || "neutral");
+  const tooltip = action.phaseTooltip || action.phaseBadgeLabel;
+  return `<span class="district-panel__phase-badge district-panel__phase-badge--${escapeAttribute(availability)}" title="${escapeAttribute(tooltip)}">${escapeHtml(action.phaseBadgeLabel)}</span>`;
+};

@@ -20,6 +20,7 @@ const GAME_ENTRY_HREF = "./game.html";
 const LOGIN_ENTRY_HREF = "./login.html";
 const DISTRICT_CANVAS_WIDTH = 1600;
 const DISTRICT_CANVAS_HEIGHT = 980;
+const SPAWN_SIDE_BAND_COLUMNS = 5;
 const NIGHT_MAP_IMAGE_PATH = "../img/mapanoc.png";
 const LOBBY_STATUS_INITIAL_PLAYERS = 4200;
 const LOBBY_STATUS_UPDATE_MS = 5000;
@@ -283,8 +284,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const selectableSpawnDistrictIds = new Set(
     geometry.districts
       .filter((district) => (
-        district.columnIndex === minSpawnColumnIndex
-        || district.columnIndex === maxSpawnColumnIndex
+        district.columnIndex < minSpawnColumnIndex + SPAWN_SIDE_BAND_COLUMNS
+        || district.columnIndex > maxSpawnColumnIndex - SPAWN_SIDE_BAND_COLUMNS
         || district.rowIndex === maxSpawnRowIndex
       ))
       .map((district) => district.id)
@@ -416,26 +417,40 @@ document.addEventListener("DOMContentLoaded", () => {
     context.closePath();
   };
 
+  const normalizeLiveDistrictType = (districtType) => {
+    const type = String(districtType || "").trim().toLowerCase();
+    if (type === "commercial") return "economy";
+    if (type === "residential") return "resident";
+    return type || "resident";
+  };
+
+  const getDistrictTypeLabel = (districtType) => {
+    const type = normalizeLiveDistrictType(districtType);
+    return type === "resident" ? "resident"
+      : type === "economy" ? "economy"
+      : type;
+  };
+
   const getDistrictVisuals = (districtType) => {
-    switch (districtType) {
+    switch (normalizeLiveDistrictType(districtType)) {
       case "downtown":
         return {
-          idleFill: "rgba(255, 78, 196, 0.08)",
-          idleStroke: "rgba(255, 103, 208, 0.3)",
-          hoverFill: "rgba(255, 78, 196, 0.24)",
+          idleFill: "rgba(118, 128, 142, 0.08)",
+          idleStroke: "rgba(148, 163, 184, 0.22)",
+          hoverFill: "rgba(148, 163, 184, 0.14)",
           hoverStroke: "rgba(255, 128, 220, 0.98)",
-          selectedFill: "rgba(255, 78, 196, 0.34)",
+          selectedFill: "rgba(148, 163, 184, 0.18)",
           selectedStroke: "rgba(255, 181, 234, 0.98)",
           glow: "rgba(255, 78, 196, 0.62)",
           label: "#ffe2f6"
         };
       case "park":
         return {
-          idleFill: "rgba(75, 214, 126, 0.08)",
-          idleStroke: "rgba(98, 231, 147, 0.28)",
-          hoverFill: "rgba(75, 214, 126, 0.22)",
+          idleFill: "rgba(118, 128, 142, 0.08)",
+          idleStroke: "rgba(148, 163, 184, 0.22)",
+          hoverFill: "rgba(148, 163, 184, 0.14)",
           hoverStroke: "rgba(144, 255, 184, 0.96)",
-          selectedFill: "rgba(75, 214, 126, 0.3)",
+          selectedFill: "rgba(148, 163, 184, 0.18)",
           selectedStroke: "rgba(196, 255, 214, 0.98)",
           glow: "rgba(75, 214, 126, 0.56)",
           label: "#e6ffe9"
@@ -443,32 +458,32 @@ document.addEventListener("DOMContentLoaded", () => {
       case "industrial":
         return {
           idleFill: "rgba(156, 163, 175, 0.08)",
-          idleStroke: "rgba(196, 203, 212, 0.26)",
-          hoverFill: "rgba(156, 163, 175, 0.2)",
+          idleStroke: "rgba(148, 163, 184, 0.22)",
+          hoverFill: "rgba(148, 163, 184, 0.14)",
           hoverStroke: "rgba(221, 227, 234, 0.94)",
-          selectedFill: "rgba(156, 163, 175, 0.28)",
+          selectedFill: "rgba(148, 163, 184, 0.18)",
           selectedStroke: "rgba(244, 247, 250, 0.98)",
           glow: "rgba(196, 203, 212, 0.44)",
           label: "#f3f6fa"
         };
-      case "commercial":
+      case "economy":
         return {
-          idleFill: "rgba(68, 172, 255, 0.08)",
-          idleStroke: "rgba(94, 191, 255, 0.26)",
-          hoverFill: "rgba(68, 172, 255, 0.22)",
+          idleFill: "rgba(118, 128, 142, 0.08)",
+          idleStroke: "rgba(148, 163, 184, 0.22)",
+          hoverFill: "rgba(148, 163, 184, 0.14)",
           hoverStroke: "rgba(144, 216, 255, 0.96)",
-          selectedFill: "rgba(68, 172, 255, 0.3)",
+          selectedFill: "rgba(148, 163, 184, 0.18)",
           selectedStroke: "rgba(212, 241, 255, 0.98)",
           glow: "rgba(68, 172, 255, 0.56)",
           label: "#e4f6ff"
         };
-      case "residential":
+      case "resident":
         return {
-          idleFill: "rgba(244, 196, 48, 0.08)",
-          idleStroke: "rgba(255, 214, 88, 0.28)",
-          hoverFill: "rgba(244, 196, 48, 0.24)",
+          idleFill: "rgba(118, 128, 142, 0.08)",
+          idleStroke: "rgba(148, 163, 184, 0.22)",
+          hoverFill: "rgba(148, 163, 184, 0.14)",
           hoverStroke: "rgba(255, 226, 128, 0.98)",
-          selectedFill: "rgba(244, 196, 48, 0.34)",
+          selectedFill: "rgba(148, 163, 184, 0.18)",
           selectedStroke: "rgba(255, 241, 187, 0.98)",
           glow: "rgba(244, 196, 48, 0.62)",
           label: "#fff2c6"
@@ -516,16 +531,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (map) {
       return [
         ["downtown", map.downtownDistricts],
-        ["commercial", map.commercialDistricts],
+        ["economy", map.commercialDistricts],
         ["industrial", map.industrialDistricts],
-        ["residential", map.residentialDistricts],
+        ["resident", map.residentialDistricts],
         ["park", map.parkDistricts]
       ].filter(([, count]) => Number(count) > 0);
     }
 
     const counts = new Map();
     for (const district of geometry.districts) {
-      const key = String(district.districtType || "other");
+      const key = normalizeLiveDistrictType(district.districtType);
       counts.set(key, Number(counts.get(key) || 0) + 1);
     }
     return Array.from(counts.entries());
@@ -539,8 +554,8 @@ document.addEventListener("DOMContentLoaded", () => {
       </span>
     `
     : getDistrictTypeCounts(server).map(([type, count]) => `
-      <span class="server-detail-modal__type-count is-${type}">
-        <strong>${type}</strong>
+      <span class="server-detail-modal__type-count is-${normalizeLiveDistrictType(type)}">
+        <strong>${getDistrictTypeLabel(type)}</strong>
         <b>${count}</b>
       </span>
     `).join("");
@@ -805,9 +820,7 @@ document.addEventListener("DOMContentLoaded", () => {
           ? districtVisuals.selectedFill
           : isHovered
             ? districtVisuals.hoverFill
-          : isSelectable
-            ? "rgba(103, 225, 255, 0.11)"
-            : districtVisuals.idleFill
+          : districtVisuals.idleFill
               ? districtVisuals.idleFill
               : "rgba(9, 16, 28, 0.22)";
       context.fill();
@@ -820,7 +833,7 @@ document.addEventListener("DOMContentLoaded", () => {
           : isHovered
             ? districtVisuals.hoverStroke
           : isSelectable
-            ? "rgba(245, 250, 255, 0.74)"
+            ? "rgba(245, 250, 255, 0.68)"
             : districtVisuals.idleStroke;
       context.lineWidth = isSelected ? 3 : isHovered ? 2.8 : isSelectable ? 1.15 : 0.9;
       context.shadowBlur = isHovered ? 16 : 0;
@@ -1140,7 +1153,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ? (server.full ? "Server je plný" : server.offline ? "Server je offline" : "Server se připravuje")
         : state.selectedDistrictId
           ? `District ${state.selectedDistrictId} vybrán. Finální spawn potvrdí server.`
-          : "Vyber okrajový district. Finální spawn potvrdí server.";
+          : "Vyber district v levém, pravém nebo spodním spawn pásmu. Finální spawn potvrdí server.";
       detailModalHint.classList.toggle("is-required", serverUnavailable || !state.selectedDistrictId);
     }
     if (detailContinueButton instanceof HTMLButtonElement) {

@@ -15,6 +15,7 @@ const staticDirs = [
   "packages/game-core/src/legacy-page"
 ];
 const requiredPublishFiles = [
+  ".htaccess",
   "pages/login.html",
   "social/empire-streets-og.png",
   "page-assets/js/login.js",
@@ -57,6 +58,24 @@ await writeFile(
     "/admin /pages/admin.html 200",
     "/admin.html /pages/admin.html 200",
     "/faction.html /pages/faction.html 200",
+    ""
+  ].join("\n"),
+  "utf8"
+);
+
+await writeFile(
+  resolve(publishDir, ".htaccess"),
+  [
+    "Options -MultiViews",
+    "DirectoryIndex pages/login.html",
+    "RewriteEngine On",
+    "RewriteRule ^$ pages/login.html [L]",
+    "RewriteRule ^login\\.html$ pages/login.html [L]",
+    "RewriteRule ^lobby\\.html$ pages/lobby.html [L]",
+    "RewriteRule ^game\\.html$ pages/game.html [L]",
+    "RewriteRule ^admin/?$ pages/admin.html [L]",
+    "RewriteRule ^admin\\.html$ pages/admin.html [L]",
+    "RewriteRule ^faction\\.html$ pages/faction.html [L]",
     ""
   ].join("\n"),
   "utf8"

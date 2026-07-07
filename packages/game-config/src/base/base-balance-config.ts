@@ -97,6 +97,8 @@ export const baseBalanceConfig: BalanceConfig = {
   conflict: {
     spyCooldownTicks: 2,
     attackCooldownTicks: 2,
+    robCooldownTicks: 2,
+    heistCooldownTicks: 2,
     occupyCooldownTicks: 2,
     occupyFailureChancePct: 5,
     minAttackDurationTicks: 2,

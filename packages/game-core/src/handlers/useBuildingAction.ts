@@ -39,6 +39,13 @@ import {
   getFactionPassiveModifiers,
   isFactionIllegalActionBuilding
 } from "../rules/factions/factionRules";
+import {
+  applyDayNightActionCooldownMs,
+  applyDayNightActionCost,
+  applyDayNightActionDurationMs,
+  applyDayNightActionHeat,
+  applyDayNightActionReward
+} from "../rules/day-night/dayNightActionRules";
 
 /**
  * Responsibility: Placeholder handler for building-specific actions.
@@ -109,7 +116,8 @@ export const handleUseBuildingAction = (
     building,
     action,
     balances: nextBalances
-  });  let resolvedAction: BuildingActionBalanceConfig = specialResolution
+  });
+  let resolvedAction: BuildingActionBalanceConfig = specialResolution
     ? {
         ...action,
         inputCost: specialResolution.inputCost,
@@ -157,6 +165,16 @@ export const handleUseBuildingAction = (
       influenceChange: -Math.ceil(Math.abs(resolvedAction.influenceChange) * (1 - influenceReductionPct / 100))
     };
   }
+  const originalPhaseInputCost = { ...resolvedAction.inputCost };
+  const originalPhaseOutputGain = { ...resolvedAction.outputGain };
+  resolvedAction = {
+    ...resolvedAction,
+    durationMs: applyDayNightActionDurationMs(resolvedAction.durationMs, state, context, resolvedAction.actionId, building.buildingTypeId),
+    cooldownMs: applyDayNightActionCooldownMs(resolvedAction.cooldownMs, state, context, resolvedAction.actionId, building.buildingTypeId),
+    heatGain: applyDayNightActionHeat(resolvedAction.heatGain, state, context, resolvedAction.actionId, building.buildingTypeId),
+    inputCost: applyDayNightActionCost(resolvedAction.inputCost, state, context, resolvedAction.actionId, building.buildingTypeId),
+    outputGain: applyDayNightActionReward(resolvedAction.outputGain, state, context, resolvedAction.actionId, building.buildingTypeId)
+  };
   const factionModifiers = getFactionPassiveModifiers(state, player.id, context);
   const adjustedHeatGain = resolvedAction.heatGain < 0
     ? resolvedAction.heatGain
@@ -170,13 +188,19 @@ export const handleUseBuildingAction = (
   };
 
   if (specialResolution) {
-    nextBalances = specialResolution.balances;
+    nextBalances = reconcileDayNightSpecialBalances({
+      balances: specialResolution.balances,
+      originalInputCost: originalPhaseInputCost,
+      adjustedInputCost: resolvedAction.inputCost,
+      originalOutputGain: originalPhaseOutputGain,
+      adjustedOutputGain: resolvedAction.outputGain
+    });
   } else {
-    for (const [resourceKey, amount] of Object.entries(action.inputCost)) {
+    for (const [resourceKey, amount] of Object.entries(resolvedAction.inputCost)) {
       nextBalances[resourceKey] = Math.max(0, Number(nextBalances[resourceKey] || 0) - amount);
     }
 
-    for (const [resourceKey, amount] of Object.entries(action.outputGain)) {
+    for (const [resourceKey, amount] of Object.entries(resolvedAction.outputGain)) {
       if (resourceKey === "population") {
         continue;
       }
@@ -192,7 +216,7 @@ export const handleUseBuildingAction = (
     version: currentPlayerResourceState.version + (state.resourceStatesById[player.resourceStateId] ? 1 : 0)
   };
   const cooldownTicks = resolveBuildingActionCooldownTicks({
-    action,
+    action: resolvedAction,
     state,
     playerId: player.id,
     buildingTypeId: building.buildingTypeId,
@@ -368,6 +392,34 @@ export const handleUseBuildingAction = (
     ],
     errors: []
   };
+};
+
+const reconcileDayNightSpecialBalances = (input: {
+  balances: Record<string, number>;
+  originalInputCost: Record<string, number>;
+  adjustedInputCost: Record<string, number>;
+  originalOutputGain: Record<string, number>;
+  adjustedOutputGain: Record<string, number>;
+}): Record<string, number> => {
+  const nextBalances = { ...input.balances };
+  const resourceKeys = new Set([
+    ...Object.keys(input.originalInputCost),
+    ...Object.keys(input.adjustedInputCost),
+    ...Object.keys(input.originalOutputGain),
+    ...Object.keys(input.adjustedOutputGain)
+  ]);
+  for (const resourceKey of resourceKeys) {
+    if (resourceKey === "population") continue;
+    const originalCost = Math.max(0, Number(input.originalInputCost[resourceKey] || 0));
+    const adjustedCost = Math.max(0, Number(input.adjustedInputCost[resourceKey] || 0));
+    const originalGain = Math.max(0, Number(input.originalOutputGain[resourceKey] || 0));
+    const adjustedGain = Math.max(0, Number(input.adjustedOutputGain[resourceKey] || 0));
+    const delta = originalCost - adjustedCost + adjustedGain - originalGain;
+    if (delta !== 0) {
+      nextBalances[resourceKey] = Math.max(0, Number(nextBalances[resourceKey] || 0) + delta);
+    }
+  }
+  return nextBalances;
 };
 
 const resolveBuildingActionCooldownTicks = (input: {

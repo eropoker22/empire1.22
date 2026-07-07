@@ -42,9 +42,17 @@ export const formatResourceSummary = (
   const parts = Object.entries(values).filter(([, amount]) => amount > 0);
 
   return parts.length > 0
-    ? parts.map(([resourceKey, amount]) => `${amount} ${toTitleCase(resourceKey)}`).join(" + ")
+    ? parts.map(([resourceKey, amount]) => `${amount} ${formatResourceLabel(resourceKey)}`).join(" + ")
     : emptyLabel;
 };
+
+const RESOURCE_LABELS: Record<string, string> = {
+  "combat-module": "Bojový modul",
+  combatModule: "Bojový modul"
+};
+
+const formatResourceLabel = (resourceKey: string): string =>
+  RESOURCE_LABELS[resourceKey] ?? toTitleCase(resourceKey);
 
 export const formatSigned = (value: number): string =>
   value >= 0 ? `+${value}` : String(value);

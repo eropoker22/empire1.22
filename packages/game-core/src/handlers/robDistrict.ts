@@ -4,8 +4,11 @@ import type { GameCoreContext } from "../engine/context";
 import type { CoreError } from "../errors";
 import type { CoreEvent } from "../events";
 import { CORE_EVENT_TYPES, createEvent, createNotification } from "../events";
+import { createRobCooldownKey, createRobSourceCooldownKey, resolveRobCooldownTicks } from "../rules";
 import { composeEntityId } from "../utils";
 import { validateRob } from "../validation";
+import { createPlayerCooldownState } from "./attackDistrictHelpers";
+import { resolveCityHallNightPatrolPressure } from "./cityHallBuildingActions";
 
 const ROB_LOOT = Object.freeze({ cash: 25, "dirty-cash": 10 });
 const ROB_HEAT_GAIN = 2;
@@ -13,14 +16,23 @@ const ROB_HEAT_GAIN = 2;
 export const handleRobDistrict = (
   state: CoreGameState,
   command: RobDistrictCommand,
-  _context: GameCoreContext
+  context: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
-  const errors = validateRob(state, command);
+  const errors = validateRob(state, command, context.config.balance.conflict);
   if (errors.length > 0) return { nextState: state, events: [], errors };
 
   const player = state.playersById[command.playerId]!;
   const targetDistrict = state.districtsById[command.payload.targetDistrictId]!;
   const sourceDistrictId = command.payload.sourceDistrictId ?? resolveSingleOwnedOrigin(state, player.id, targetDistrict.id)!;
+  const cooldownState = state.cooldownStatesById[player.cooldownStateId] ?? createPlayerCooldownState(player.id, player.cooldownStateId);
+  const cityHallNightPatrol = resolveCityHallNightPatrolPressure({
+    state,
+    context,
+    targetDistrict,
+    tick: state.root.tick
+  });
+  const cooldownTicks = Math.ceil(resolveRobCooldownTicks(context.config.balance.conflict) * cityHallNightPatrol.cooldownMultiplier);
+  const heatGain = Math.ceil(ROB_HEAT_GAIN * cityHallNightPatrol.heatMultiplier);
   const resourceState = state.resourceStatesById[player.resourceStateId] ?? createPlayerResourceState(player.resourceStateId, player.id, state.root.tick);
   const nextResourceState: ResourceState = {
     ...resourceState,
@@ -37,6 +49,8 @@ export const handleRobDistrict = (
     playerId: player.id,
     sourceDistrictId,
     targetDistrictId: targetDistrict.id,
+    heatGained: heatGain,
+    cooldownTicks,
     tick: state.root.tick
   });
 
@@ -55,9 +69,21 @@ export const handleRobDistrict = (
         ...state.districtsById,
         [targetDistrict.id]: {
           ...targetDistrict,
-          heat: Math.max(0, Number(targetDistrict.heat || 0) + ROB_HEAT_GAIN),
+          heat: Math.max(0, Number(targetDistrict.heat || 0) + heatGain),
           lastHeatDecayTick: state.root.tick,
           version: targetDistrict.version + 1
+        }
+      },
+      cooldownStatesById: {
+        ...state.cooldownStatesById,
+        [cooldownState.id]: {
+          ...cooldownState,
+          cooldowns: {
+            ...cooldownState.cooldowns,
+            [createRobCooldownKey(targetDistrict.id)]: state.root.tick + cooldownTicks,
+            [createRobSourceCooldownKey(sourceDistrictId)]: state.root.tick + cooldownTicks
+          },
+          version: cooldownState.version + (state.cooldownStatesById[cooldownState.id] ? 1 : 0)
         }
       },
       resourceStatesById: {
@@ -80,7 +106,8 @@ export const handleRobDistrict = (
         sourceDistrictId,
         targetDistrictId: targetDistrict.id,
         loot: ROB_LOOT,
-        heatGained: ROB_HEAT_GAIN
+        heatGained: heatGain,
+        cooldownTicks
       }),
       createEvent(CORE_EVENT_TYPES.notificationCreated, {
         notificationId: report.id,
@@ -97,6 +124,8 @@ const createRobReportNotification = (input: {
   playerId: string;
   sourceDistrictId: string;
   targetDistrictId: string;
+  heatGained: number;
+  cooldownTicks: number;
   tick: number;
 }): Notification =>
   createNotification({
@@ -115,7 +144,8 @@ const createRobReportNotification = (input: {
       targetDistrictId: input.targetDistrictId,
       result: "success",
       loot: ROB_LOOT,
-      heatGained: ROB_HEAT_GAIN,
+      heatGained: input.heatGained,
+      cooldownTicks: input.cooldownTicks,
       tick: input.tick,
       createdAt: new Date(0).toISOString()
     },

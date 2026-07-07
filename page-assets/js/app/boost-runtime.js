@@ -46,7 +46,7 @@ function renderBoostActions(content) {
     <section class="boost-modal__building">
       <div class="boost-modal__head">
         <div class="boost-modal__name">Továrna</div>
-        <div class="boost-modal__value">Combat Module: <strong>${combatModule} ks</strong></div>
+        <div class="boost-modal__value">Bojový modul: <strong>${combatModule} ks</strong></div>
       </div>
       <div class="boost-modal__actions">
         <button class="button boost-modal__factory-btn boost-modal__factory-btn--assault" type="button" data-boost-building="factory" data-boost-action="assault" ${combatModule >= 2 ? "" : "disabled"}>

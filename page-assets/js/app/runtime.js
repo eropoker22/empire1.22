@@ -762,7 +762,10 @@ import { createAuthoritySessionAccessors } from "./runtime/authoritySessionAcces
 import { createDistrictBuildingProfileRuntime } from "./runtime/districtBuildingProfileRuntime.js";
 import { createBuildingNetworkRuntime } from "./runtime/buildingNetworkRuntime.js";
 import { createDistrictActionPanelRuntime } from "./runtime/districtActionPanelRuntime.js";
-import { createDistrictPopupMetricsRuntime } from "./runtime/districtPopupMetricsRuntime.js";
+import {
+  TRAP_MOVE_LOCK_MS,
+  createDistrictPopupMetricsRuntime
+} from "./runtime/districtPopupMetricsRuntime.js";
 import { createBuildingsPopupRuntime } from "./runtime/buildingsPopupRuntime.js";
 import { createBuildingActionStatusRuntime } from "./runtime/buildingActionStatusRuntime.js";
 import { createRegisteredPlayerStateRuntime } from "./runtime/registeredPlayerStateRuntime.js";
@@ -857,6 +860,7 @@ import {
   createBuildingActionEntry,
   createBuildingActionFeedItemElement,
   createBuildingActionFingerprint,
+  isBuildingActionEntryOpenable,
   normalizeBuildingActionSnapshot
 } from "./ui/eventFeedPanel.js";
 import { renderPlayerProfilePanel } from "./ui/playerProfilePanel.js";
@@ -1501,7 +1505,8 @@ function getPlayerDistrictColor(ownerId) {
 
 const FACTORY_SUPPLY_MATERIAL_KEY_MAP = Object.freeze({
   "metal-parts": "metalParts",
-  "tech-core": "techCore"
+  "tech-core": "techCore",
+  "combat-module": "combatModule"
 });
 
 function getFactorySupplyKeyForMaterial(itemId) {
@@ -2957,7 +2962,7 @@ function syncBuildingActionSource(root, snapshot) {
   panel.summaryElement.textContent = normalizedSnapshot.summary;
   panel.metaElement.textContent = normalizedSnapshot.meta;
 
-  const isClickable = Boolean(normalizedSnapshot.resultKind && normalizedSnapshot.resultPayload);
+  const isClickable = isBuildingActionEntryOpenable(normalizedSnapshot);
   if (isClickable) {
     panel.summaryElement.hidden = true;
     panel.summaryElement.classList.remove("building-action-status__line--clickable");
@@ -3003,11 +3008,231 @@ function openCurrentBuildingActionResultModal(root) {
   const panel = resolveBuildingActionPanel(root);
   const snapshot = panel?.currentSnapshot;
 
-  if (!panel || !snapshot?.resultKind || !snapshot?.resultPayload) {
+  if (!panel || !isBuildingActionEntryOpenable(snapshot)) {
     return;
   }
 
   queueOrOpenResultModal(root, snapshot.resultKind, snapshot.resultPayload);
+}
+
+function parseStreetNewsCooldownTimestamp(value) {
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return numeric;
+  }
+
+  const timestamp = new Date(value || 0).getTime();
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : 0;
+}
+
+function normalizeStreetNewsCooldownDistrictId(value) {
+  const direct = Number(value);
+  if (Number.isFinite(direct) && direct > 0) {
+    return Math.floor(direct);
+  }
+
+  const match = String(value || "").match(/\d+/u);
+  const parsed = match ? Number(match[0]) : 0;
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
+}
+
+function formatStreetNewsCooldownDistrict(value) {
+  const districtId = normalizeStreetNewsCooldownDistrictId(value);
+  return districtId > 0 ? `District ${districtId}` : "District ?";
+}
+
+function formatStreetNewsCooldownToken(value, fallback = "Akce") {
+  const text = String(value || "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text) {
+    return fallback;
+  }
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function formatStreetNewsCooldownRemaining(remainingMs) {
+  const totalSeconds = Math.max(0, Math.ceil(Number(remainingMs || 0) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const minuteLabel = hours > 0 ? String(minutes).padStart(2, "0") : String(minutes);
+  const secondLabel = String(seconds).padStart(2, "0");
+  return hours > 0 ? `${hours}h ${minuteLabel}:${secondLabel}` : `${minuteLabel}:${secondLabel}`;
+}
+
+function createStreetNewsCooldownEntry({
+  id,
+  title,
+  summary,
+  meta,
+  expiresAt,
+  now
+}) {
+  return createBuildingActionEntry({
+    id,
+    tone: "event",
+    title,
+    summary,
+    meta: meta || `Zbývá ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
+    sourceKind: "cooldown",
+    dismissible: false,
+    persistent: true,
+    timestampMs: expiresAt
+  });
+}
+
+function appendStreetNewsCooldownEntry(entries, payload, now) {
+  const expiresAt = parseStreetNewsCooldownTimestamp(payload?.expiresAt);
+  if (!expiresAt || expiresAt <= now) {
+    return;
+  }
+
+  entries.push(createStreetNewsCooldownEntry({
+    ...payload,
+    expiresAt,
+    now
+  }));
+}
+
+function readStreetNewsCooldownArray(factory) {
+  try {
+    const value = typeof factory === "function" ? factory() : [];
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
+function readStreetNewsCooldownObject(factory) {
+  try {
+    const value = typeof factory === "function" ? factory() : {};
+    return value && typeof value === "object" ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+function collectMissionCooldownStreetNewsEntries(now) {
+  const entries = [];
+  const appendOrder = (kind, title, order, expiresKey, summaryFactory) => {
+    const expiresAt = parseStreetNewsCooldownTimestamp(order?.[expiresKey]);
+    if (!expiresAt || expiresAt <= now) {
+      return;
+    }
+    appendStreetNewsCooldownEntry(entries, {
+      id: `cooldown:${kind}:${String(order?.id || `${order?.sourceDistrictId || ""}:${order?.targetDistrictId || ""}:${expiresAt}`)}`,
+      title,
+      summary: summaryFactory(order),
+      meta: `Zbývá ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
+      expiresAt
+    }, now);
+  };
+
+  for (const order of readStreetNewsCooldownArray(getStoredAttackOrders)) {
+    appendOrder("attack", "Cooldown: Útok", order, "resolveAt", (entry) =>
+      formatStreetNewsCooldownDistrict(entry?.targetDistrictId)
+    );
+  }
+
+  for (const order of readStreetNewsCooldownArray(getStoredOccupyOrders)) {
+    appendOrder("occupy", "Cooldown: Obsazení", order, "resolveAt", (entry) =>
+      `${formatStreetNewsCooldownDistrict(entry?.targetDistrictId)} je obsazován`
+    );
+  }
+
+  for (const order of readStreetNewsCooldownArray(getStoredRobberyOrders)) {
+    appendOrder("robbery", "Cooldown: Vykrást district", order, "resolveAt", (entry) =>
+      formatStreetNewsCooldownDistrict(entry?.targetDistrictId)
+    );
+  }
+
+  const spyState = readStreetNewsCooldownObject(getResolvedSpyState);
+  const spyMissions = Array.isArray(spyState.missions) ? spyState.missions : [];
+  for (const mission of spyMissions) {
+    const isCaptured = mission?.status === "captured";
+    const expiresAt = parseStreetNewsCooldownTimestamp(isCaptured ? mission?.cooldownUntil : mission?.returnAt);
+    if (!expiresAt || expiresAt <= now) {
+      continue;
+    }
+    appendStreetNewsCooldownEntry(entries, {
+      id: `cooldown:spy:${String(mission?.id || `${mission?.sourceDistrictId || ""}:${mission?.targetDistrictId || ""}:${expiresAt}`)}`,
+      title: isCaptured ? "Cooldown: Špeh zajat" : "Cooldown: Špehování",
+      summary: formatStreetNewsCooldownDistrict(mission?.targetDistrictId),
+      meta: `Zbývá ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
+      expiresAt
+    }, now);
+  }
+
+  return entries;
+}
+
+function collectTrapCooldownStreetNewsEntries(now) {
+  const entries = [];
+  const worldState = readStreetNewsCooldownObject(getResolvedWorldState);
+  for (const [districtId, trapState] of Object.entries(worldState.districtTrapById || {})) {
+    if (!trapState?.isArmed || Number(trapState.ownerId) !== CURRENT_PLAYER_ID) {
+      continue;
+    }
+    const lastTrapActionAt = parseStreetNewsCooldownTimestamp(trapState.movedAt || trapState.armedAt);
+    const expiresAt = lastTrapActionAt ? lastTrapActionAt + TRAP_MOVE_LOCK_MS : 0;
+    appendStreetNewsCooldownEntry(entries, {
+      id: `cooldown:trap:${districtId}`,
+      title: "Cooldown: Past",
+      summary: `Toxická past v ${formatStreetNewsCooldownDistrict(districtId)}`,
+      meta: `Přesun za ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
+      expiresAt
+    }, now);
+  }
+  return entries;
+}
+
+function collectBuildingCooldownStreetNewsEntries(now) {
+  const entries = [];
+  const state = readStreetNewsCooldownObject(getStoredDistrictBuildingDetailState);
+  if (!state || typeof state !== "object") {
+    return entries;
+  }
+
+  for (const [storageKey, entry] of Object.entries(state)) {
+    if (!entry || typeof entry !== "object" || !entry.actionCooldowns || typeof entry.actionCooldowns !== "object") {
+      continue;
+    }
+
+    const keyParts = String(storageKey || "").split(":");
+    const districtId = normalizeStreetNewsCooldownDistrictId(keyParts[0]);
+    const buildingKey = keyParts.slice(1).join(":") || "budova";
+    const buildingLabel = formatStreetNewsCooldownToken(buildingKey, "Budova");
+
+    for (const [actionKey, rawExpiresAt] of Object.entries(entry.actionCooldowns)) {
+      const expiresAt = parseStreetNewsCooldownTimestamp(rawExpiresAt);
+      if (!expiresAt || expiresAt <= now) {
+        continue;
+      }
+
+      appendStreetNewsCooldownEntry(entries, {
+        id: `cooldown:building:${storageKey}:${actionKey}`,
+        title: "Cooldown: Budova",
+        summary: `${formatStreetNewsCooldownDistrict(districtId)} · ${buildingLabel}`,
+        meta: `${formatStreetNewsCooldownToken(actionKey, "Akce")} · zbývá ${formatStreetNewsCooldownRemaining(expiresAt - now)}`,
+        expiresAt
+      }, now);
+    }
+  }
+
+  return entries;
+}
+
+function createActiveCooldownStreetNewsEntries(now = Date.now()) {
+  return [
+    ...collectMissionCooldownStreetNewsEntries(now),
+    ...collectTrapCooldownStreetNewsEntries(now),
+    ...collectBuildingCooldownStreetNewsEntries(now)
+  ]
+    .sort((left, right) => Number(left.timestampMs || 0) - Number(right.timestampMs || 0))
+    .slice(0, 16);
 }
 
 function renderBuildingActionFeed(root, { syncPreview = false, previewSnapshot = null } = {}) {
@@ -3016,8 +3241,11 @@ function renderBuildingActionFeed(root, { syncPreview = false, previewSnapshot =
     return;
   }
 
+  const cooldownEntries = createActiveCooldownStreetNewsEntries();
+  const visibleEntries = [...cooldownEntries, ...panel.entries];
+
   panel.feedElement.replaceChildren(
-    ...panel.entries
+    ...visibleEntries
       .map((entry) => createBuildingActionFeedItemElement(root.ownerDocument || document, entry, {
         removeSelector: BUILDING_ACTION_REMOVE_SELECTOR,
         onOpenResult: (selectedEntry) => queueOrOpenResultModal(root, selectedEntry.resultKind, selectedEntry.resultPayload)
@@ -3025,14 +3253,15 @@ function renderBuildingActionFeed(root, { syncPreview = false, previewSnapshot =
       .filter(Boolean)
   );
 
-  const hasEntries = panel.entries.length > 0;
-  panel.emptyElement.hidden = hasEntries;
-  panel.feedElement.hidden = !hasEntries;
-  panel.clearButton.disabled = !hasEntries;
-  panel.clearButton.setAttribute("aria-disabled", hasEntries ? "false" : "true");
+  const hasVisibleEntries = visibleEntries.length > 0;
+  const hasDismissibleEntries = panel.entries.some((entry) => entry.dismissible !== false && entry.persistent !== true);
+  panel.emptyElement.hidden = hasVisibleEntries;
+  panel.feedElement.hidden = !hasVisibleEntries;
+  panel.clearButton.disabled = !hasDismissibleEntries;
+  panel.clearButton.setAttribute("aria-disabled", hasDismissibleEntries ? "false" : "true");
 
   if (syncPreview) {
-    const snapshot = previewSnapshot || panel.entries[0] || BUILDING_ACTION_EMPTY_SNAPSHOT;
+    const snapshot = previewSnapshot || panel.entries[0] || cooldownEntries[0] || BUILDING_ACTION_EMPTY_SNAPSHOT;
     syncBuildingActionSource(root, snapshot);
   }
 }
@@ -3480,7 +3709,7 @@ function completeRobberyOrder(root, orderId) {
 
   if (lootEntries.length > 0) {
     for (const [itemId, amount] of lootEntries) {
-      setInventoryAmount("materials", itemId, getInventoryAmount("materials", itemId) + amount);
+      grantRobberyLootItem(itemId, amount);
     }
   }
 
@@ -3951,6 +4180,32 @@ function setInventoryAmount(inventoryName, itemId, nextAmount) {
   }
 }
 
+function getRobberyLootInventoryName(itemId) {
+  const normalizedItemId = String(itemId || "").trim();
+  if (Object.prototype.hasOwnProperty.call(DEFAULT_DRUG_INVENTORY, normalizedItemId)) {
+    return "drugs";
+  }
+  if (Object.prototype.hasOwnProperty.call(DEFAULT_WEAPON_INVENTORY, normalizedItemId)) {
+    return "weapons";
+  }
+  return "materials";
+}
+
+function grantRobberyLootItem(itemId, amount) {
+  const normalizedItemId = String(itemId || "").trim();
+  const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
+  if (!normalizedItemId || safeAmount <= 0) {
+    return;
+  }
+
+  const inventoryName = getRobberyLootInventoryName(normalizedItemId);
+  setInventoryAmount(
+    inventoryName,
+    normalizedItemId,
+    getInventoryAmount(inventoryName, normalizedItemId) + safeAmount
+  );
+}
+
 function createFactoryResourceMap(rawValue = {}, floorValues = true) {
   return FACTORY_RESOURCE_KEYS.reduce((accumulator, key) => {
     const amount = Number(rawValue?.[key] || 0);
@@ -4320,7 +4575,7 @@ function activateFactoryBoost(boostType) {
   const supplies = getStoredFactorySupplies();
   const currentModules = Math.max(0, Math.floor(Number(supplies.combatModule || 0)));
   if (currentModules < boostConfig.combatModuleCost) {
-    return { ok: false, reason: `Chybí ${boostConfig.combatModuleCost - currentModules} Combat Module.` };
+    return { ok: false, reason: `Chybí ${boostConfig.combatModuleCost - currentModules} bojový modul.` };
   }
 
   setStoredFactorySupplies({
@@ -5504,7 +5759,7 @@ function getCasinoDetailUpgradeCostLabel(level) {
   const parts = [
     upgrade.clean > 0 ? `${formatDistrictBuildingMoney(upgrade.clean)} clean` : "",
     upgrade.techCore > 0 ? `${upgrade.techCore} Tech Core` : "",
-    upgrade.combatModule > 0 ? `${upgrade.combatModule} Combat Module` : ""
+    upgrade.combatModule > 0 ? `${upgrade.combatModule} bojový modul` : ""
   ].filter(Boolean);
   return parts.join(" + ") || "Zdarma";
 }
@@ -6593,7 +6848,7 @@ async function upgradeDistrictBuildingDetail(root, shell) {
     const combatModule = Math.max(0, Math.floor(Number(supplies.combatModule || 0)));
     const missing = [
       techCore < upgrade.techCore ? `${upgrade.techCore - techCore} Tech Core` : "",
-      combatModule < upgrade.combatModule ? `${upgrade.combatModule - combatModule} Combat Module` : ""
+      combatModule < upgrade.combatModule ? `${upgrade.combatModule - combatModule} bojový modul` : ""
     ].filter(Boolean);
     if (missing.length > 0) {
       setBuildingActionFeedback(
@@ -6666,7 +6921,7 @@ function getDistrictBuildingUpgradeResourceStatus(mechanics) {
       missing.push(`${upgrade.techCore - techCore} Tech Core`);
     }
     if (combatModule < upgrade.combatModule) {
-      missing.push(`${upgrade.combatModule - combatModule} Combat Module`);
+      missing.push(`${upgrade.combatModule - combatModule} bojový modul`);
     }
   }
 
@@ -7828,6 +8083,7 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
     },
     playerHeat: getResolvedGangState().heat,
     actionProfiles: (Array.isArray(profile.actions) ? profile.actions : []).map((_, actionIndex) => getDistrictBuildingSpecialActionProfile(buildingName, actionIndex)),
+    phaseState: getResolvedPhaseState(),
     now
   });
   renderBuildingDetailPanel({ shell, ...viewModel });
@@ -8420,6 +8676,22 @@ function bindDistrictCanvas(root) {
     });
     render();
   };
+
+  if (popup instanceof HTMLElement) {
+    popup.addEventListener("click", (event) => {
+      const target = event.target;
+      const closeTrigger = target instanceof HTMLElement
+        ? target.closest(DISTRICT_POPUP_CLOSE_SELECTOR)
+        : null;
+      if (!(closeTrigger instanceof HTMLElement) || closeTrigger.classList.contains("district-popup-backdrop")) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      closePopup();
+    });
+  }
 
   const closeAttackSetupPopup = () => {
     clearPendingAttackContext();
@@ -10809,12 +11081,16 @@ const {
   MutationObserver: typeof MutationObserver !== "undefined" ? MutationObserver : null,
   buildingActionEmptySnapshot: BUILDING_ACTION_EMPTY_SNAPSHOT,
   buildingActionRemoveSelector: BUILDING_ACTION_REMOVE_SELECTOR,
+  clearInterval: typeof window !== "undefined" ? window.clearInterval.bind(window) : null,
   createBuildingActionFingerprint,
+  isBuildingActionEntryOpenable,
   openCurrentBuildingActionResultModal,
   queueOrOpenResultModal,
   renderBuildingActionFeed,
   resolveBuildingActionPanel,
-  scheduleBuildingActionMutationCapture
+  scheduleBuildingActionMutationCapture,
+  setInterval: typeof window !== "undefined" ? window.setInterval.bind(window) : null,
+  windowRef: typeof window === "undefined" ? null : window
 });
 const runtimePopupBinders = createRuntimePopupBinders({
   NAV_SETTINGS_SELECTOR, SETTINGS_MODAL_SELECTOR, SETTINGS_MODAL_BACKDROP_SELECTOR, SETTINGS_MODAL_CLOSE_SELECTOR,
@@ -11263,6 +11539,7 @@ function applyDevOnlyOnboardingStartState(root = getDefaultRuntimeRoot()) {
   const ownedDistrictIds = Array.isArray(DEV_ONLY_ONBOARDING_START_STATE.world?.ownedDistrictIds)
     ? DEV_ONLY_ONBOARDING_START_STATE.world.ownedDistrictIds.map(Number).filter(Boolean)
     : [];
+  const onboardingStartDistrictId = ownedDistrictIds[0] || 1;
   const nextTrapById = { ...(worldState.districtTrapById || {}) };
   for (const [districtId, trap] of Object.entries(nextTrapById)) {
     if (trap?.isArmed && Number(trap.ownerId) === CURRENT_PLAYER_ID) {
@@ -11288,6 +11565,16 @@ function applyDevOnlyOnboardingStartState(root = getDefaultRuntimeRoot()) {
   const factorySupplies = createFixedFactorySupplyAmountMap(amount);
 
   resetStartPhaseResourceSimulationState();
+  updateStoredPreviewSession((session) => ({
+    ...session,
+    registration: session.registration
+      ? {
+          ...session.registration,
+          preferredStartDistrictId: onboardingStartDistrictId,
+          startDistrictId: onboardingStartDistrictId
+        }
+      : session.registration
+  }));
   setStoredEconomyState({
     cleanMoney: Math.max(0, Math.floor(Number(DEV_ONLY_ONBOARDING_START_STATE.economy?.cleanMoney || 0))),
     dirtyMoney: Math.max(0, Math.floor(Number(DEV_ONLY_ONBOARDING_START_STATE.economy?.dirtyMoney || 0)))

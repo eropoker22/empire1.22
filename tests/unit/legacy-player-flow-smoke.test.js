@@ -132,7 +132,9 @@ describe("legacy player flow smoke guard", () => {
     expect(clickedDistrict?.id).toBe(firstDistrict.id);
     expect(runtimeSource).toContain('viewport.addEventListener("click"');
     expect(runtimeSource).toContain("const district = getDistrictAtPoint(geometry, toCanvasPoint(event));");
-    expect(runtimeSource).toContain("interactionState.selectedDistrictId = district ? district.id : null;");
+    expect(runtimeSource).toContain("isOnboardingDistrictClickAllowed(district");
+    expect(runtimeSource).toContain("interactionState.selectedDistrictId = district.id;");
+    expect(runtimeSource).toContain("interactionState.selectedDistrictId = null;");
     expect(runtimeSource).toContain("openPopup(district);");
     expect(runtimeSource).toContain("closePopup();");
     expect(runtimeSource).toContain('document.dispatchEvent(new CustomEvent("empire:district-opened"');

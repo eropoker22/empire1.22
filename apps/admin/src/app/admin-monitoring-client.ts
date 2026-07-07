@@ -3,6 +3,7 @@ import {
   setRuntimeAdminMonitoringSecret
 } from "./admin-monitoring-token";
 import type {
+  AdminRuntimeDetailProjection,
   InstanceMonitoringSummary,
   ServerInstanceSummary
 } from "@empire/shared-types";
@@ -42,15 +43,20 @@ export const fetchAdminOverviewFromEndpoint = async (
       runningInstances: number;
       crashedInstances: number;
     };
+    runtimeProjection?: AdminRuntimeDetailProjection | null;
   };
   if (payload.overview?.instances) {
-    return payload.overview;
+    return {
+      ...payload.overview,
+      runtimeProjection: payload.overview.runtimeProjection ?? payload.runtimeProjection ?? null
+    };
   }
 
   return Array.isArray(payload.instances)
     ? createAdminOverviewViewModel(payload.instances.map(createAdminInstanceViewModelFromMonitoringSummary), {
         serverSummaries: payload.serverSummaries ?? [],
-        healthSummary: payload.healthSummary
+        healthSummary: payload.healthSummary,
+        runtimeProjection: payload.runtimeProjection ?? null
       })
     : null;
 };

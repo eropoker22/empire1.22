@@ -442,6 +442,50 @@ body[data-city-phase="night"] .gameplay-slice-client {
   color: #cfe5ff;
 }
 
+.gameplay-slice-client .district-panel__production-title-row,
+.gameplay-slice-client .district-building-popup__action-state-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.gameplay-slice-client .district-panel__phase-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 3px 7px;
+  border: 1px solid rgba(219, 244, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(231, 246, 255, 0.84);
+  font-size: 0.62rem;
+  font-weight: 850;
+  line-height: 1.1;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.gameplay-slice-client .district-panel__phase-badge--buffed {
+  border-color: rgba(99, 214, 160, 0.34);
+  background: rgba(34, 197, 94, 0.11);
+  color: #bff4d6;
+}
+
+.gameplay-slice-client .district-panel__phase-badge--penalized {
+  border-color: rgba(250, 204, 21, 0.38);
+  background: rgba(250, 204, 21, 0.11);
+  color: #ffeaa3;
+}
+
+.gameplay-slice-client .district-panel__phase-badge--blocked {
+  border-color: rgba(248, 113, 113, 0.38);
+  background: rgba(248, 113, 113, 0.11);
+  color: #ffc9c9;
+}
+
 .gameplay-slice-client .district-panel__summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -830,6 +874,17 @@ body[data-city-phase="night"] .gameplay-slice-client {
   color: rgba(231, 239, 248, 0.82);
   font-size: 0.78rem;
   line-height: 1.42;
+}
+
+.gameplay-slice-client .district-building-popup__phase-effect {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: 0;
+  color: rgba(231, 239, 248, 0.82);
+  font-size: 0.74rem;
+  line-height: 1.35;
 }
 
 .gameplay-slice-client .district-building-popup__stats {

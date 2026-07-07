@@ -42,6 +42,10 @@ function unlockBodyScroll(element) {
   unlockModalScroll(element?.ownerDocument || undefined);
 }
 
+function hasScrollLockingOverlay() {
+  return overlayStack.some((entry) => entry.lockScroll !== false);
+}
+
 function isElementVisible(element) {
   if (!isElementLike(element)) {
     return false;
@@ -92,6 +96,7 @@ function resolveFocusTarget(element, preferredFocus) {
 
 function pruneClosedOverlays() {
   const previousLength = overlayStack.length;
+  const hadScrollLockingOverlay = hasScrollLockingOverlay();
   let lastPrunedElement = null;
   for (let index = overlayStack.length - 1; index >= 0; index -= 1) {
     if (!isElementVisible(overlayStack[index].element)) {
@@ -99,7 +104,7 @@ function pruneClosedOverlays() {
       overlayStack.splice(index, 1);
     }
   }
-  if (previousLength > 0 && overlayStack.length === 0) {
+  if (previousLength > 0 && hadScrollLockingOverlay && !hasScrollLockingOverlay()) {
     unlockBodyScroll(lastPrunedElement);
     return true;
   }
@@ -159,6 +164,15 @@ export function openOverlay(element, options = {}) {
     if (Object.prototype.hasOwnProperty.call(options, "restoreFocusOnClose")) {
       existingEntry.restoreFocusOnClose = options.restoreFocusOnClose !== false;
     }
+    if (Object.prototype.hasOwnProperty.call(options, "lockScroll")) {
+      const wasLocking = existingEntry.lockScroll !== false;
+      existingEntry.lockScroll = options.lockScroll !== false;
+      if (!wasLocking && existingEntry.lockScroll && !hasScrollLockingOverlay()) {
+        lockBodyScroll(element);
+      } else if (wasLocking && !existingEntry.lockScroll && !hasScrollLockingOverlay()) {
+        unlockBodyScroll(element);
+      }
+    }
     overlayStack.push(existingEntry);
     if (options.skipFocus !== true) {
       const focusTarget = resolveFocusTarget(element, options.focusTarget);
@@ -170,11 +184,12 @@ export function openOverlay(element, options = {}) {
   const entry = {
     element,
     type: options.type || "modal",
+    lockScroll: options.lockScroll !== false,
     restoreFocusTo: isHtmlElement(restoreFocusTo) ? restoreFocusTo : null,
     restoreFocusOnClose: options.restoreFocusOnClose !== false
   };
 
-  if (overlayStack.length === 0) {
+  if (entry.lockScroll && !hasScrollLockingOverlay()) {
     lockBodyScroll(element);
   }
   overlayStack.push(entry);
@@ -213,7 +228,7 @@ export function closeOverlay(element, options = {}) {
 
   const unlockedByPrune = pruneClosedOverlays();
 
-  if (!unlockedByPrune && hadEntry && overlayStack.length === 0) {
+  if (!unlockedByPrune && hadEntry && entry?.lockScroll !== false && !hasScrollLockingOverlay()) {
     unlockBodyScroll(element);
   }
 

@@ -1,4 +1,5 @@
 export * from "./alliance-population-summary";
+export * from "./admin-runtime-projection";
 export * from "./command-volume-summary";
 export * from "./error-summary";
 export * from "./instance-diagnostics-summary";

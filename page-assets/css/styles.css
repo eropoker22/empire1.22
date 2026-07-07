@@ -2527,6 +2527,51 @@ html body.game-body .wanted-popup-card .wanted-popup-meta--header .wanted-popup-
   font-size: 0.64rem !important;
 }
 
+html body.game-body .wanted-popup-card .wanted-popup-title--stars {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+}
+
+html body.game-body .wanted-popup-card .wanted-popup-title__text {
+  min-width: 0 !important;
+}
+
+html body.game-body .wanted-popup-card .wanted-popup-stars {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 3px !important;
+  color: rgba(251, 191, 36, 0.32) !important;
+  font-size: 0.72rem !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+}
+
+html body.game-body .wanted-popup-card .wanted-popup-stars > span {
+  display: inline-flex !important;
+  color: rgba(251, 191, 36, 0.32) !important;
+  line-height: 1 !important;
+  text-shadow: none !important;
+}
+
+html body.game-body .wanted-popup-card .wanted-popup-stars > span.is-active {
+  color: #fbbf24 !important;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.34) !important;
+  animation: ui-soft-pulse 3.2s ease-in-out infinite !important;
+}
+
+html body.game-body .wanted-popup-card .wanted-popup-stars--title {
+  font-size: 0.82rem !important;
+}
+
+html body.game-body .wanted-popup-card .wanted-popup-stars--level {
+  gap: 2px !important;
+  font-size: 0.58rem !important;
+}
+
 html body.game-body .wanted-popup-card .wanted-popup-hero {
   grid-template-columns: minmax(0, 1fr) !important;
 }

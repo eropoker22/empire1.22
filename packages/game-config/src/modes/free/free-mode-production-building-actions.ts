@@ -110,8 +110,8 @@ export const freeModeProductionBuildingActions: NonNullable<ResolvedGameModeConf
   produce_combat_module: {
     actionId: "produce_combat_module",
     buildingType: "factory",
-    label: "Produce Combat Module",
-    description: "Vyrobi Combat Module pro pokrocile vybaveni.",
+    label: "Vyrobit bojovy modul",
+    description: "Vyrobi bojovy modul jako soucastku pro pokrocile vybaveni.",
     durationMs: 0,
     cooldownMs: baseCooldownMsForFinalMinutes(12),
     inputCost: { "metal-parts": 2, "tech-core": 1 },
@@ -120,13 +120,13 @@ export const freeModeProductionBuildingActions: NonNullable<ResolvedGameModeConf
     influenceChange: 1,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Tovarna vyrobila Combat Module."
+    reportText: "Tovarna vyrobila bojovy modul."
   },
   armory_craft_weapons: {
     actionId: "armory_craft_weapons",
     buildingType: "armory",
-    label: "Craft Weapons",
-    description: "Vyrobi bojovy modul ve zbrojovce.",
+    label: "Vyrobit vyzbrojni modul",
+    description: "Vyrobi vyzbrojni modul ve zbrojovce jako soucastku pro dalsi vybaveni.",
     durationMs: 0,
     cooldownMs: baseCooldownMsForFinalMinutes(12),
     inputCost: { "metal-parts": 2 },
@@ -135,6 +135,6 @@ export const freeModeProductionBuildingActions: NonNullable<ResolvedGameModeConf
     influenceChange: 1,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Zbrojovka vyrobila combat module."
+    reportText: "Zbrojovka vyrobila vyzbrojni modul."
   }
 };

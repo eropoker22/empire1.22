@@ -15,7 +15,10 @@ export const createDistrictBasicActionViewModels = (
     label: target.name,
     statusLabel: target.status,
     disabled: hasPendingCommand || !target.enabled,
-    disabledReason: getDisabledReason(hasPendingCommand, target.disabledReason)
+    disabledReason: getDisabledReason(hasPendingCommand, target.disabledReason),
+    cooldownLabel: (target.cooldownRemainingTicks ?? 0) > 0
+      ? `${target.cooldownRemainingTicks} ticks`
+      : null
   })),
   heistTargets: (district.heistTargets ?? []).map((target) => ({
     districtId: target.districtId,
@@ -25,7 +28,10 @@ export const createDistrictBasicActionViewModels = (
       : "Neutrální distrikt",
     statusLabel: target.status,
     disabled: hasPendingCommand || !target.enabled,
-    disabledReason: getDisabledReason(hasPendingCommand, target.disabledReason)
+    disabledReason: getDisabledReason(hasPendingCommand, target.disabledReason),
+    cooldownLabel: (target.cooldownRemainingTicks ?? 0) > 0
+      ? `${target.cooldownRemainingTicks} ticks`
+      : null
   })),
   placeDefense: district.placeDefense
     ? {

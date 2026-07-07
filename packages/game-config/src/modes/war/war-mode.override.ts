@@ -101,6 +101,8 @@ export const warModeOverride: Partial<ResolvedGameModeConfig> = {
     conflict: {
       spyCooldownTicks: 4,
       attackCooldownTicks: 48,
+      robCooldownTicks: 40,
+      heistCooldownTicks: 32,
       occupyCooldownTicks: 2,
       occupyFailureChancePct: 5,
       minAttackDurationTicks: 48,

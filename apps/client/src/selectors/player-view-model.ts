@@ -96,14 +96,14 @@ const formatEconomySummary = (economy: PlayerEconomyView): string => {
     for (const [resourceId, amount] of Object.entries(balances)) {
       seenResourceIds.add(resourceId);
       if (amount > 0) {
-        parts.push(`${toTitleCase(resourceId)} ${amount}`);
+        parts.push(`${formatResourceLabel(resourceId)} ${amount}`);
       }
     }
   }
 
   for (const [resourceId, amount] of Object.entries(economy.resources)) {
     if (!seenResourceIds.has(resourceId) && amount > 0) {
-      parts.push(`${toTitleCase(resourceId)} ${amount}`);
+      parts.push(`${formatResourceLabel(resourceId)} ${amount}`);
     }
   }
 
@@ -114,9 +114,17 @@ const formatResourceBalances = (balances: Record<string, number>): string => {
   const parts = Object.entries(balances).filter(([, amount]) => amount > 0);
 
   return parts.length > 0
-    ? parts.map(([resourceKey, amount]) => `${toTitleCase(resourceKey)} ${amount}`).join(" · ")
+    ? parts.map(([resourceKey, amount]) => `${formatResourceLabel(resourceKey)} ${amount}`).join(" · ")
     : "No resources";
 };
+
+const RESOURCE_LABELS: Record<string, string> = {
+  "combat-module": "Bojový modul",
+  combatModule: "Bojový modul"
+};
+
+const formatResourceLabel = (value: string): string =>
+  RESOURCE_LABELS[value] ?? toTitleCase(value);
 
 const toTitleCase = (value: string): string =>
   value

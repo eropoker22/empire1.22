@@ -715,7 +715,7 @@ describe("building detail, production and recipe UI modules", () => {
         },
         {
           id: "combat-module",
-          title: "Combat Module",
+          title: "Bojový modul",
           description: "High-tech bojový modul.",
           durationLabel: "15 min",
           costLabel: "650 Clean Cash + 1 Tech Core"
@@ -1228,7 +1228,7 @@ describe("building detail, production and recipe UI modules", () => {
         productionRemainder: 0.5,
         lastTick: 100000
       },
-      title: "Combat Module",
+      title: "Bojový modul",
       typeLabel: "",
       secondaryLine: "15 min",
       durationMs: 900000,

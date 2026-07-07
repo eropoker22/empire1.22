@@ -1,7 +1,9 @@
 import type { RunBuildingActionCommand } from "@empire/shared-types";
 import type { BuildingActionBalanceConfig, CityHallBalanceConfig, FixedBuildingBalanceConfig, LobbyClubBalanceConfig } from "../contracts";
+import type { GameCoreContext } from "../engine/context";
 import type { CoreGameState } from "../entities";
 import type { CityHallActionResolution } from "./cityHallTypes";
+import { getCurrentDayNightPhase } from "../rules/day-night/dayNightPhase";
 import { getOwnedLobbyClubCount } from "./lobbyClubBuildingActions";
 import {
   appendRiskEvent,
@@ -64,6 +66,51 @@ export const resolveCityHallInfluenceActionCostReductionPct = (input: {
   return getOwnedCityHall(input.state, input.playerId, input.config)
     ? Math.min(input.config.cityAuthority.maxInfluenceActionCostReductionPct, input.config.cityAuthority.influenceActionCostReductionPct)
     : 0;
+};
+
+export interface CityHallNightPatrolPressure {
+  active: boolean;
+  durationMultiplier: number;
+  cooldownMultiplier: number;
+  heatMultiplier: number;
+  effectSummary: string | null;
+}
+
+const INACTIVE_NIGHT_PATROL_PRESSURE: CityHallNightPatrolPressure = Object.freeze({
+  active: false,
+  durationMultiplier: 1,
+  cooldownMultiplier: 1,
+  heatMultiplier: 1,
+  effectSummary: null
+});
+
+export const resolveCityHallNightPatrolPressure = (input: {
+  state: CoreGameState;
+  context: GameCoreContext;
+  targetDistrict: CoreGameState["districtsById"][string] | undefined;
+  tick?: number;
+}): CityHallNightPatrolPressure => {
+  const config = input.context.config.balance.cityHall;
+  const targetOwnerPlayerId = input.targetDistrict?.ownerPlayerId;
+  const tick = Math.max(0, Math.floor(Number(input.tick ?? input.state.root.tick) || 0));
+  if (!config || !targetOwnerPlayerId) return INACTIVE_NIGHT_PATROL_PRESSURE;
+  if (getCurrentDayNightPhase(input.state, input.context, tick).phaseId !== "night") return INACTIVE_NIGHT_PATROL_PRESSURE;
+
+  const cityHall = getOwnedCityHall(input.state, targetOwnerPlayerId, config);
+  const decree = cityHall ? getCityHallMetadata(cityHall, tick).emergencyDecree : undefined;
+  if (!decree || decree.modeId !== "night_patrols" || decree.expiresAtTick <= tick) return INACTIVE_NIGHT_PATROL_PRESSURE;
+
+  const mode = config.emergencyDecree.modes.nightPatrols;
+  const durationPct = Math.max(0, Number(mode.incomingAttackPreparationIncreasePct || 0));
+  const cooldownPct = Math.max(0, Number(mode.districtRobberyCooldownIncreasePct || 0));
+  const heatPct = Math.max(durationPct, Math.max(0, Number(mode.defenseBonusPct || 0)));
+  return {
+    active: true,
+    durationMultiplier: 1 + durationPct / 100,
+    cooldownMultiplier: 1 + cooldownPct / 100,
+    heatMultiplier: 1 + heatPct / 100,
+    effectSummary: `Noční hlídky Magistrátu: hostile akce proti chráněným districtům jsou pomalejší a viditelnější.`
+  };
 };
 
 export const resolveCityHallAction = (input: {

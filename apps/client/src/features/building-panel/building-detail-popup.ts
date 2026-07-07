@@ -1,6 +1,8 @@
 import type { DistrictPanelBuildingViewModel } from "../../selectors";
 import { escapeAttribute, escapeHtml } from "../../shared-ui";
 
+type PhaseBadgeRenderable = Pick<DistrictPanelBuildingViewModel, "phaseAvailability" | "phaseBadgeLabel" | "phaseTooltip">;
+
 export const renderBuildingDetailPopup = (building: DistrictPanelBuildingViewModel): string => {
   const zoneKey = toCssToken(building.zoneLabel);
 
@@ -17,6 +19,15 @@ export const renderBuildingDetailPopup = (building: DistrictPanelBuildingViewMod
     `<div class="district-building-popup__info-card">`,
     `<span class="district-building-popup__section-label">Info</span>`,
     `<p class="district-building-popup__info">${escapeHtml(building.info)}</p>`,
+    building.phaseTooltip || building.phaseBadgeLabel
+      ? [
+          `<p class="district-building-popup__phase-effect">`,
+          `<span class="district-building-popup__section-label">Efekt</span>`,
+          renderPhaseBadge(building),
+          building.phaseTooltip ? `<span>${escapeHtml(building.phaseTooltip)}</span>` : "",
+          `</p>`
+        ].join("")
+      : "",
     `</div>`,
     `<p class="district-building-popup__section-label">Statistiky</p>`,
     `<div class="district-building-popup__stats">`,
@@ -59,7 +70,10 @@ const renderSpecialAction = (
     `<article class="district-building-popup__action${action.disabled ? " is-disabled" : ""}" data-special-action-id="${escapeAttribute(action.actionId)}">`,
     `<span class="district-building-popup__action-light" aria-hidden="true"></span>`,
     `<div class="district-building-popup__action-copy">`,
+    `<div class="district-building-popup__action-state-row">`,
     `<span class="district-building-popup__action-state">${action.disabled ? "Blokováno" : "Připraveno"}</span>`,
+    renderPhaseBadge(action),
+    `</div>`,
     `<strong>${escapeHtml(action.label)}</strong>`,
     `<span>${escapeHtml(action.description)}</span>`,
     `<div class="district-building-popup__action-metrics">`,
@@ -97,3 +111,12 @@ const renderLiveCooldown = (
         `</span>`
       ].join("")
     : escapeHtml(action.cooldownLabel);
+
+const renderPhaseBadge = (
+  action: PhaseBadgeRenderable
+): string => {
+  if (!action.phaseBadgeLabel) return "";
+  const availability = toCssToken(action.phaseAvailability || "neutral");
+  const tooltip = action.phaseTooltip || action.phaseBadgeLabel;
+  return `<span class="district-panel__phase-badge district-panel__phase-badge--${escapeAttribute(availability)}" title="${escapeAttribute(tooltip)}">${escapeHtml(action.phaseBadgeLabel)}</span>`;
+};

@@ -5433,6 +5433,10 @@
   --building-window-danger-rgb: 248, 113, 113;
 }
 
+.district-building-detail-shell:not([hidden]) {
+  z-index: 12150;
+}
+
 .district-building-detail-shell[data-building-mechanics-type="casino"],
 .district-building-detail-shell[data-building-mechanics-type="strip-club"] {
   --building-window-accent-rgb: 244, 114, 182;
@@ -6268,6 +6272,44 @@
     0 0 0 1px rgba(168, 85, 247, 0.06),
     0 0 18px rgba(168, 85, 247, 0.14),
     0 10px 20px rgba(2, 6, 23, 0.18);
+}
+
+.district-building-detail-effect-cell[data-effect-tone="day-night-day"] {
+  border-color: rgba(251, 191, 36, 0.32);
+  background:
+    linear-gradient(135deg, rgba(251, 191, 36, 0.22), rgba(14, 165, 233, 0.16)),
+    rgba(24, 16, 4, 0.54);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(251, 191, 36, 0.08),
+    0 0 18px rgba(251, 191, 36, 0.14),
+    0 10px 20px rgba(2, 6, 23, 0.18);
+}
+
+.district-building-detail-effect-cell[data-effect-tone="day-night-day"] strong {
+  color: #fef3c7;
+  text-shadow:
+    0 0 10px rgba(251, 191, 36, 0.24),
+    0 0 18px rgba(56, 189, 248, 0.12);
+}
+
+.district-building-detail-effect-cell[data-effect-tone="day-night-night"] {
+  border-color: rgba(125, 211, 252, 0.3);
+  background:
+    linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(88, 28, 135, 0.24)),
+    rgba(8, 14, 30, 0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(125, 211, 252, 0.08),
+    0 0 18px rgba(59, 130, 246, 0.15),
+    0 10px 20px rgba(2, 6, 23, 0.18);
+}
+
+.district-building-detail-effect-cell[data-effect-tone="day-night-night"] strong {
+  color: #dbeafe;
+  text-shadow:
+    0 0 10px rgba(125, 211, 252, 0.22),
+    0 0 18px rgba(168, 85, 247, 0.12);
 }
 
 .district-building-detail-effect-cell[data-effect-tone="count"] {

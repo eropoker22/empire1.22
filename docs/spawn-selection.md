@@ -21,13 +21,13 @@ isSpawnCandidate: true
 spawnZones: ["west" | "east" | "south"]
 ```
 
-Pool rozdeluje povolene spawn distrikty do zon:
+Spawn kandidati jsou vsechny non-Downtown distrikty v bocnich spawn pasmech:
 
-- `west`,
-- `east`,
-- `south`.
+- prvnich 5 sloupcu z leve strany mapy jako `west`,
+- poslednich 5 sloupcu z prave strany mapy jako `east`,
+- cela uplne spodni rada jako `south`.
 
-District muze byt ve vice zonach, napriklad roh mapy muze byt `west` i `south`.
+Na aktualni mape to dava 83 spawn kandidatu napric hornimi, bocnimi i spodnimi districtami.
 
 Pri joinu server:
 
@@ -48,7 +48,7 @@ Spawn se potvrzuje vyhradne commandem `select-spawn-district`:
 Command uspesne projde pouze kdyz district:
 
 - existuje,
-- je enabled spawn candidate ve west/east/south poolu,
+- je enabled spawn candidate ve west/east/south spawn poolu,
 - neni Downtown,
 - je neutralni,
 - neni obsazeny,

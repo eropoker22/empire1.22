@@ -23,6 +23,47 @@ const normalizeBuildingsDistrictType = (value) => {
   return normalizedValue;
 };
 
+const BUILDING_CHIP_ACTIVE_ACTION_NAMES = new Set([
+  "bytovy blok",
+  "centralni banka",
+  "energeticka stanice",
+  "herna",
+  "kasino",
+  "klinika",
+  "letiste",
+  "lobby club",
+  "lobby klub",
+  "magistrat",
+  "parlament",
+  "pasovaci tunel",
+  "poulicni dealeri",
+  "pristav",
+  "recyklacni centrum",
+  "restaurace",
+  "skola",
+  "smenarna",
+  "strip club",
+  "burza"
+]);
+const BUILDING_CHIP_PRODUCTION_NAMES = new Set(["drug lab", "lab", "lekarna", "tovarna", "zbrojovka"]);
+
+const normalizeBuildingChipName = (value) => String(value || "")
+  .trim()
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "");
+
+const resolveBuildingChipKind = (buildingName) => {
+  const normalizedName = normalizeBuildingChipName(buildingName);
+  if (BUILDING_CHIP_PRODUCTION_NAMES.has(normalizedName)) {
+    return "Výroba";
+  }
+  if (BUILDING_CHIP_ACTIVE_ACTION_NAMES.has(normalizedName)) {
+    return "Spustit akci";
+  }
+  return "Pasivní bonus";
+};
+
 const createBuildingsPopupBackgroundStack = (backgroundImage) => backgroundImage
   ? `linear-gradient(rgba(3, 7, 18, 0.44), rgba(3, 7, 18, 0.58)), url("${escapeCssUrl(backgroundImage)}")`
   : "linear-gradient(rgba(3, 7, 18, 0.66), rgba(3, 7, 18, 0.78)), rgba(3, 7, 18, 0.92)";
@@ -152,7 +193,8 @@ export function createBuildingsPopupRuntime(deps = {}) {
       buildings: buildingProfile.buildings.map((building) => ({
         name: building.baseName || building.displayName,
         label: building.baseName || building.displayName,
-        displayName: building.displayName
+        displayName: building.displayName,
+        kindLabel: resolveBuildingChipKind(building.baseName || building.displayName)
       })),
       trap: {
         visible: trapControlState.buildingVisible,

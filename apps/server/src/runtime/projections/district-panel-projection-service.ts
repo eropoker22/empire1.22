@@ -18,6 +18,7 @@ export const createDistrictPanelProjection = (
     districtId,
     issuedAt: runtime.clock.nowIso(),
     buildCatalog: getPublicBuildingCatalog(runtime.record.mode),
+    config: runtime.config,
     productionCatalog: runtime.config.balance.productionBuildings ?? {},
     craftCatalog: runtime.config.balance.craftBuildings ?? {},
     buildingActionCatalog: runtime.config.balance.buildingActions ?? {},

@@ -48,7 +48,7 @@ describe("production building network gameplay slice", () => {
     expect(initialRender.sidePanelHtml).toContain('data-slot-building-type="armory"');
     expect(initialRender.sidePanelHtml).toContain("Vybrat Metal Parts");
     expect(initialRender.sidePanelHtml).toContain("Vybrat Neon Dust");
-    expect(initialRender.sidePanelHtml).toContain("Zpracovat Combat Module");
+    expect(initialRender.sidePanelHtml).toContain("Zpracovat Bojový modul");
     expect(initialRender.sidePanelHtml).toContain("Zpracovat Pulse Shot");
     expect(initialRender.sidePanelHtml).toContain("Zpracovat Pistol");
 
@@ -71,7 +71,7 @@ describe("production building network gameplay slice", () => {
     );
 
     expect(factoryAction.errors).toEqual([]);
-    expect(factoryAction.player?.resourceSummary).toContain("Combat Module 1");
+    expect(factoryAction.player?.resourceSummary).toContain("Bojový modul 1");
 
     const drugAction = await client.dispatch(
       createRunBuildingActionCommand({

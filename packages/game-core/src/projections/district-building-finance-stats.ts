@@ -160,7 +160,7 @@ export const createFinanceBuildingStats = (input: BuildingStatsProjectionInput):
       .map((entry) => `${entry.districtId} ${formatTickLabel(Math.max(0, entry.expiresAtTick - input.tick))}`)
       .join(", ");
     const decree = metadata.emergencyDecree && metadata.emergencyDecree.expiresAtTick > input.tick
-      ? `${metadata.emergencyDecree.modeId}${metadata.emergencyDecree.zone ? ` ${metadata.emergencyDecree.zone}` : ""} ${formatTickLabel(metadata.emergencyDecree.expiresAtTick - input.tick)}`
+      ? formatCityHallEmergencyDecree(metadata.emergencyDecree, input.tick)
       : "inactive";
     return [
       { label: "Clean / min", value: `$${formatNumber(input.cityHallConfig.cleanCashPerMinute)}` },
@@ -241,6 +241,18 @@ const formatCooldown = (
   const remainingTicks = Math.max(0, Number((building.actionCooldowns ?? {})[actionId] || 0) - tick);
   return remainingTicks > 0 ? formatTickLabel(remainingTicks) : "ready";
 };
+
+const formatCityHallEmergencyDecree = (
+  decree: NonNullable<ReturnType<typeof getCityHallMetadata>["emergencyDecree"]>,
+  tick: number
+): string => {
+  const remaining = formatTickLabel(Math.max(0, decree.expiresAtTick - tick));
+  if (decree.modeId === "night_patrols") return `Noční hlídky: hostile akce pomalejší a viditelnější · ${remaining}`;
+  if (decree.modeId === "suspended_checks") return `Pozastavené kontroly: nižší heat/audit tlak · ${remaining}`;
+  if (decree.modeId === "construction_closure") return `Stavební uzávěra${decree.zone ? ` ${decree.zone}` : ""}: pohyb/obsazování zpomalené · ${remaining}`;
+  return `${decree.modeId}${decree.zone ? ` ${decree.zone}` : ""} ${remaining}`;
+};
+
 const resolveCentralBankOversightRiskForUi = (
   state: CoreGameState,
   building: CoreGameState["buildingsById"][string],

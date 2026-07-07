@@ -116,6 +116,155 @@ function normalizeEffectToneLabel(value = "") {
   return normalizeBuildingLookupKey(value).replace(/\s+/g, " ");
 }
 
+const DAY_NIGHT_PHASE_EFFECTS = Object.freeze({
+  day: Object.freeze({
+    label: "DEN",
+    legalIncomePct: 15,
+    dirtyIncomePct: -10,
+    heatPct: 10,
+    legalProductionPct: 10,
+    illegalProductionPct: -10,
+    rumorGenerationPct: -20,
+    rumorTruthPct: 10
+  }),
+  night: Object.freeze({
+    label: "NOC",
+    legalIncomePct: -10,
+    dirtyIncomePct: 25,
+    heatPct: -5,
+    legalProductionPct: 0,
+    illegalProductionPct: 26,
+    rumorGenerationPct: 35,
+    rumorTruthPct: -10
+  })
+});
+
+const ILLEGAL_DAY_NIGHT_BUILDING_TYPES = new Set([
+  "casino",
+  "arcade",
+  "strip-club",
+  "vip-lounge",
+  "smuggling-tunnel",
+  "street-dealers",
+  "drug-lab",
+  "armory"
+]);
+
+const PRODUCTION_DAY_NIGHT_BUILDING_TYPES = Object.freeze({
+  pharmacy: "legal",
+  factory: "legal",
+  "drug-lab": "illegal",
+  armory: "illegal"
+});
+
+const RUMOR_DAY_NIGHT_BUILDING_TYPES = new Set([
+  "restaurant",
+  "convenience-store",
+  "strip-club",
+  "vip-lounge"
+]);
+
+const DAY_NIGHT_BUILDING_TYPE_ALIASES = Object.freeze({
+  autosalon: "auto-salon",
+  "bytovy blok": "apartment-block",
+  casino: "casino",
+  "drug lab": "drug-lab",
+  factory: "factory",
+  herna: "arcade",
+  kasino: "casino",
+  lekarna: "pharmacy",
+  lekarny: "pharmacy",
+  "obchodni centrum": "retail",
+  "pasovaci tunel": "smuggling-tunnel",
+  "poulicni dealeri": "street-dealers",
+  restaurace: "restaurant",
+  smenarna: "exchange",
+  skladiste: "warehouse",
+  "strip club": "strip-club",
+  tovarna: "factory",
+  vecerka: "convenience-store",
+  "vip salonek": "vip-lounge",
+  zbrojovka: "armory"
+});
+
+function formatSignedDayNightPercent(value = 0) {
+  const rounded = Math.round(Number(value || 0));
+  return `${rounded >= 0 ? "+" : ""}${rounded} %`;
+}
+
+function normalizeDayNightPhase(phaseState = null) {
+  const rawPhase = typeof phaseState === "string"
+    ? phaseState
+    : phaseState?.mapPhase ?? phaseState?.phaseId ?? phaseState?.phase ?? phaseState?.uiThemeHint ?? "";
+  const normalized = String(rawPhase || "").trim().toLowerCase();
+  if (normalized === "day" || normalized === "den" || normalized.includes("day")) {
+    return "day";
+  }
+  if (normalized === "night" || normalized === "noc" || normalized.includes("night")) {
+    return "night";
+  }
+  return "";
+}
+
+function resolveBuildingDayNightType(buildingName = "", mechanics = {}) {
+  const mechanicsType = String(mechanics?.mechanicsType || "").trim().toLowerCase();
+  if (mechanicsType && mechanicsType !== "generic") {
+    return mechanicsType;
+  }
+  return DAY_NIGHT_BUILDING_TYPE_ALIASES[normalizeBuildingLookupKey(buildingName)] || mechanicsType;
+}
+
+function resolveDayNightBuildingEffect({ buildingName = "", mechanics = {}, phaseState = null } = {}) {
+  const phase = normalizeDayNightPhase(phaseState);
+  const config = DAY_NIGHT_PHASE_EFFECTS[phase];
+  if (!config) {
+    return null;
+  }
+
+  const buildingType = resolveBuildingDayNightType(buildingName, mechanics);
+  const isIllegal = ILLEGAL_DAY_NIGHT_BUILDING_TYPES.has(buildingType);
+  const productionKind = PRODUCTION_DAY_NIGHT_BUILDING_TYPES[buildingType] || "";
+  const hasRumorEffect = RUMOR_DAY_NIGHT_BUILDING_TYPES.has(buildingType);
+  const cleanHourly = Number(mechanics.cleanHourly || 0);
+  const dirtyHourly = Number(mechanics.dirtyHourly || 0);
+  const dailyHeat = Number(mechanics.dailyHeat || 0);
+  const parts = [];
+
+  if (productionKind === "legal") {
+    parts.push(`produkce ${formatSignedDayNightPercent(config.legalProductionPct)}`);
+  } else if (productionKind === "illegal") {
+    parts.push(`produkce ${formatSignedDayNightPercent(config.illegalProductionPct)}`);
+  }
+
+  if (isIllegal && (cleanHourly > 0 || dirtyHourly > 0)) {
+    parts.push(`income ${formatSignedDayNightPercent(config.dirtyIncomePct)}`);
+  } else {
+    if (cleanHourly > 0) {
+      parts.push(`clean income ${formatSignedDayNightPercent(config.legalIncomePct)}`);
+    }
+    if (dirtyHourly > 0) {
+      parts.push(`dirty income ${formatSignedDayNightPercent(config.dirtyIncomePct)}`);
+    }
+  }
+
+  if (dailyHeat > 0) {
+    parts.push(`heat ${formatSignedDayNightPercent(config.heatPct)}`);
+  }
+  if (hasRumorEffect) {
+    parts.push(`drby ${formatSignedDayNightPercent(config.rumorGenerationPct)}`);
+    parts.push(`přesnost ${formatSignedDayNightPercent(config.rumorTruthPct)}`);
+  }
+
+  if (!parts.length) {
+    return null;
+  }
+
+  return {
+    text: `${config.label}: ${parts.join(" · ")}`,
+    tone: phase === "day" ? "day-night-day" : "day-night-night"
+  };
+}
+
 function resolveEffectTone(value = "", mechanicsType = "") {
   const normalized = normalizeEffectToneLabel(value);
   if (mechanicsType === "apartment-block" && normalized.startsWith("naplneni za")) {
@@ -135,6 +284,12 @@ function resolveEffectTone(value = "", mechanicsType = "") {
   }
   if (normalized.startsWith("level multiplier") || normalized.startsWith("level bonus") || normalized.startsWith("network multiplier")) {
     return "network";
+  }
+  if (normalized.startsWith("den ")) {
+    return "day-night-day";
+  }
+  if (normalized.startsWith("noc ")) {
+    return "day-night-night";
   }
   return "neutral";
 }
@@ -192,8 +347,16 @@ function resolveOwnedBuildingCount(mechanics = {}) {
     : null;
 }
 
-function createEffectItemsWithOwnedCount(effectsLabel = "", mechanics = {}) {
+function createEffectItemsWithOwnedCount(effectsLabel = "", mechanics = {}, options = {}) {
   const items = createEffectItems(effectsLabel, mechanics.mechanicsType);
+  const dayNightEffect = resolveDayNightBuildingEffect({
+    buildingName: options.buildingName,
+    mechanics,
+    phaseState: options.phaseState
+  });
+  if (dayNightEffect) {
+    items.push(dayNightEffect);
+  }
   if (mechanics.mechanicsType === "apartment-block") {
     items.push({
       text: "Může se vybrat od 10 členů",
@@ -543,7 +706,7 @@ export function createBuildingDetailMechanicRows({
       createMechanicWithTone("Materiál", `Biomass ${warehouseUsage.biomass || 0}/${warehouseCapacity.biomass}`, resolveWarehouseCapacityTone(warehouseUsage.biomass, warehouseCapacity.biomass)),
       createMechanicWithTone("Materiál", `Metal parts ${warehouseUsage.metalParts || 0}/${warehouseCapacity.metalParts}`, resolveWarehouseCapacityTone(warehouseUsage.metalParts, warehouseCapacity.metalParts)),
       createMechanicWithTone("Materiál", `Tech core ${warehouseUsage.techCore || 0}/${warehouseCapacity.techCore}`, resolveWarehouseCapacityTone(warehouseUsage.techCore, warehouseCapacity.techCore)),
-      createMechanicWithTone("Materiál", `Combat modules ${warehouseUsage.combatModule || 0}/${warehouseCapacity.combatModule}`, resolveWarehouseCapacityTone(warehouseUsage.combatModule, warehouseCapacity.combatModule)),
+      createMechanicWithTone("Materiál", `Bojové moduly ${warehouseUsage.combatModule || 0}/${warehouseCapacity.combatModule}`, resolveWarehouseCapacityTone(warehouseUsage.combatModule, warehouseCapacity.combatModule)),
       createMechanicWithTone("Materiál", `Drogy a boosty ${warehouseUsage.drugsAndBoosts || 0}/${warehouseCapacity.drugsAndBoosts}`, resolveWarehouseCapacityTone(warehouseUsage.drugsAndBoosts, warehouseCapacity.drugsAndBoosts)),
       createMechanicWithTone("Materiál", `Zbraně a obrana ${warehouseUsage.weaponsAndDefense || 0}/${warehouseCapacity.weaponsAndDefense}`, resolveWarehouseCapacityTone(warehouseUsage.weaponsAndDefense, warehouseCapacity.weaponsAndDefense)),
       createMechanic("Stav kapacity", (mechanics.warehouseWarnings || []).join(" · ") || "Kapacity jsou v pořádku.")
@@ -824,6 +987,7 @@ export function createBuildingDetailViewModel({
   economyState = {},
   playerHeat = 0,
   actionProfiles = [],
+  phaseState = null,
   now = Date.now()
 } = {}) {
   const focusedLabel = FOCUSED_BUILDING_DETAIL_LABELS[mechanics.mechanicsType] || "";
@@ -887,7 +1051,10 @@ export function createBuildingDetailViewModel({
     stats: createBuildingDetailStatRows({ buildingName, mechanics, detailEntry, buildingProfile, playerHeat, now }),
     mechanics: createBuildingDetailMechanicRows({ buildingName, mechanics }),
     effectsLabel: mechanics.effectsLabel || "Žádné aktivní mechaniky.",
-    effects: createEffectItemsWithOwnedCount(mechanics.effectsLabel || "Žádné aktivní mechaniky.", mechanics),
+    effects: createEffectItemsWithOwnedCount(mechanics.effectsLabel || "Žádné aktivní mechaniky.", mechanics, {
+      buildingName,
+      phaseState
+    }),
     intro: profile.info || "",
     showActionsInSinglePanel: !suppressSinglePanelActions,
     actions: suppressSinglePanelActions

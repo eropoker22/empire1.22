@@ -110,7 +110,13 @@ export const validateCraft = (
 };
 
 const formatResourceLabel = (resourceKey: string): string =>
+  RESOURCE_LABELS[resourceKey] ??
   resourceKey
     .split("-")
     .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
     .join(" ");
+
+const RESOURCE_LABELS: Record<string, string> = {
+  "combat-module": "Bojový modul",
+  combatModule: "Bojový modul"
+};

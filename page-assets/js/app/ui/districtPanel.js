@@ -121,7 +121,23 @@ export function renderDistrictBuildingList(elements = {}, view = {}) {
     chip.type = "button";
     chip.dataset.districtBuildingName = building.name || building.displayName || "";
     chip.dataset.districtBuildingDisplayName = building.displayName || building.name || "";
-    chip.textContent = building.label || building.displayName || building.name || "Budova";
+    chip.dataset.districtBuildingKind = building.kindLabel || "";
+
+    const label = createElement(list, "span", "district-popup-buildings__chip-label");
+    if (label) {
+      label.textContent = building.label || building.displayName || building.name || "Budova";
+      chip.append(label);
+    } else {
+      chip.textContent = building.label || building.displayName || building.name || "Budova";
+    }
+
+    if (building.kindLabel) {
+      const kind = createElement(list, "span", "district-popup-buildings__chip-kind");
+      if (kind) {
+        kind.textContent = building.kindLabel;
+        chip.append(kind);
+      }
+    }
     if (building.name && building.displayName && building.displayName !== building.name) {
       chip.title = building.name;
     }

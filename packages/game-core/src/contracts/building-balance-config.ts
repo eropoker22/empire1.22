@@ -31,6 +31,8 @@ export interface BuildingUpgradeBalanceConfig {
 export interface ConflictBalanceConfig {
   spyCooldownTicks: number;
   attackCooldownTicks: number;
+  robCooldownTicks?: number;
+  heistCooldownTicks?: number;
   occupyCooldownTicks?: number;
   occupyFailureChancePct?: number;
   minAttackDurationTicks?: number;

@@ -67,6 +67,7 @@ export interface DistrictPanelSlotCraftView {
 }
 
 export type BuildingActionStatus = "available" | "cooldown" | "missing_cost" | "blocked" | "planned";
+export type BuildingActionPhaseAvailability = "available" | "blocked" | "buffed" | "penalized" | "neutral";
 
 export interface BuildingActionInputOptionView {
   value: string;
@@ -104,6 +105,10 @@ export interface BuildingActionView {
   influenceChange: number;
   reportText: string;
   enabled: boolean;
+  phaseAvailability?: BuildingActionPhaseAvailability;
+  phaseBadgeLabel?: string | null;
+  phaseTooltip?: string | null;
+  phaseBlockedReason?: string | null;
 }
 
 export type DistrictPanelBuildingActionView = BuildingActionView;
@@ -124,6 +129,10 @@ export interface DistrictPanelBuildingSpecialActionView {
   heatGain: number;
   enabled: boolean;
   disabledReason: string | null;
+  phaseAvailability?: BuildingActionPhaseAvailability;
+  phaseBadgeLabel?: string | null;
+  phaseTooltip?: string | null;
+  phaseBlockedReason?: string | null;
 }
 
 export interface DistrictPanelBuildingView {
@@ -141,6 +150,10 @@ export interface DistrictPanelBuildingView {
   status: BuildingStatus;
   actionCooldowns: Record<string, number>;
   actions: DistrictPanelBuildingActionView[];
+  phaseAvailability?: BuildingActionPhaseAvailability;
+  phaseBadgeLabel?: string | null;
+  phaseTooltip?: string | null;
+  phaseBlockedReason?: string | null;
 }
 
 export interface DistrictAttackTargetView {
@@ -150,6 +163,7 @@ export interface DistrictAttackTargetView {
   status: DistrictStatus;
   enabled: boolean;
   disabledReason: string | null;
+  cooldownRemainingTicks?: number;
 }
 
 export interface DistrictSpyTargetView {
@@ -185,6 +199,7 @@ export interface DistrictRobTargetView {
   enabled: boolean;
   disabledCode: string | null;
   disabledReason: string | null;
+  cooldownRemainingTicks?: number;
   expectedTargetVersion: number;
   expectedSourceVersion: number;
 }
@@ -197,6 +212,7 @@ export interface DistrictHeistTargetView {
   enabled: boolean;
   disabledCode: string | null;
   disabledReason: string | null;
+  cooldownRemainingTicks?: number;
   expectedTargetVersion: number;
   expectedSourceVersion: number;
   styles: Array<{

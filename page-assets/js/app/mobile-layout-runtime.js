@@ -23,6 +23,7 @@ const MOBILE_OVERLAY_SELECTOR = [
   ".elimination-result-popup",
   ".game-admin-slice-overlay"
 ].join(",");
+const MOBILE_SCROLL_THROUGH_OVERLAY_SELECTOR = ".district-popup-shell[data-district-popup]";
 const MOBILE_CLOSE_CONTROL_SELECTOR = [
   ".modal__close",
   ".district-popup-close",
@@ -287,6 +288,11 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
     return style.display !== "none" && style.visibility !== "hidden";
   };
 
+  const isScrollThroughOverlay = (element) => (
+    element instanceof windowObj.Element
+    && element.matches(MOBILE_SCROLL_THROUGH_OVERLAY_SELECTOR)
+  );
+
   const applyLock = () => {
     frameId = null;
     if (!media.matches) {
@@ -298,7 +304,7 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
     }
 
     const openOverlays = Array.from(documentObj.querySelectorAll(MOBILE_OVERLAY_SELECTOR)).filter(isOpenOverlay);
-    const hasOpenOverlay = openOverlays.length > 0;
+    const hasOpenOverlay = openOverlays.some((element) => !isScrollThroughOverlay(element));
     if (isModalScrollLocked(documentObj)) {
       root.classList.add("game-modal-scroll-locked");
       documentObj.body.classList.add("game-modal-scroll-locked");

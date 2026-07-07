@@ -3496,7 +3496,8 @@ body.servers-page .auth-server-card[data-server-mode="war"] {
   text-shadow: 0 0 12px rgba(196, 203, 212, 0.24);
 }
 
-.server-detail-modal__type-count.is-commercial {
+.server-detail-modal__type-count.is-commercial,
+.server-detail-modal__type-count.is-economy {
   border-color: rgba(68, 172, 255, 0.48);
   background:
     linear-gradient(180deg, rgba(20, 58, 106, 0.9), rgba(9, 24, 44, 0.86)),
@@ -3507,12 +3508,15 @@ body.servers-page .auth-server-card[data-server-mode="war"] {
 }
 
 .server-detail-modal__type-count.is-commercial strong,
-.server-detail-modal__type-count.is-commercial b {
+.server-detail-modal__type-count.is-commercial b,
+.server-detail-modal__type-count.is-economy strong,
+.server-detail-modal__type-count.is-economy b {
   color: #def3ff;
   text-shadow: 0 0 14px rgba(68, 172, 255, 0.3);
 }
 
-.server-detail-modal__type-count.is-residential {
+.server-detail-modal__type-count.is-residential,
+.server-detail-modal__type-count.is-resident {
   border-color: rgba(244, 196, 48, 0.52);
   background:
     linear-gradient(180deg, rgba(96, 72, 18, 0.9), rgba(40, 28, 9, 0.86)),
@@ -3523,7 +3527,9 @@ body.servers-page .auth-server-card[data-server-mode="war"] {
 }
 
 .server-detail-modal__type-count.is-residential strong,
-.server-detail-modal__type-count.is-residential b {
+.server-detail-modal__type-count.is-residential b,
+.server-detail-modal__type-count.is-resident strong,
+.server-detail-modal__type-count.is-resident b {
   color: #fff1ba;
   text-shadow: 0 0 14px rgba(244, 196, 48, 0.3);
 }
@@ -3705,12 +3711,15 @@ body.servers-page .auth-server-card[data-server-mode="war"] {
 }
 
 .server-detail-modal__type-count.is-commercial strong,
-.server-detail-modal__type-count.is-commercial b {
+.server-detail-modal__type-count.is-commercial b,
+.server-detail-modal__type-count.is-economy strong,
+.server-detail-modal__type-count.is-economy b {
   color: #def3ff !important;
   text-shadow: 0 0 14px rgba(68, 172, 255, 0.3) !important;
 }
 
-.server-detail-modal__type-count.is-commercial {
+.server-detail-modal__type-count.is-commercial,
+.server-detail-modal__type-count.is-economy {
   border-color: rgba(68, 172, 255, 0.54) !important;
   background:
     linear-gradient(180deg, rgba(20, 58, 106, 0.92), rgba(9, 24, 44, 0.9)),
@@ -3721,12 +3730,15 @@ body.servers-page .auth-server-card[data-server-mode="war"] {
 }
 
 .server-detail-modal__type-count.is-residential strong,
-.server-detail-modal__type-count.is-residential b {
+.server-detail-modal__type-count.is-residential b,
+.server-detail-modal__type-count.is-resident strong,
+.server-detail-modal__type-count.is-resident b {
   color: #fff1ba !important;
   text-shadow: 0 0 14px rgba(244, 196, 48, 0.3) !important;
 }
 
-.server-detail-modal__type-count.is-residential {
+.server-detail-modal__type-count.is-residential,
+.server-detail-modal__type-count.is-resident {
   border-color: rgba(244, 196, 48, 0.58) !important;
   background:
     linear-gradient(180deg, rgba(96, 72, 18, 0.92), rgba(40, 28, 9, 0.9)),

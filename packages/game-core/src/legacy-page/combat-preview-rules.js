@@ -231,6 +231,45 @@ export const ROBBERY_ZONE_CONFIG = Object.freeze({
   })
 });
 
+export const ROBBERY_DISTRICT_LOOT_POOLS = Object.freeze({
+  pharmacy: Object.freeze([
+    Object.freeze({ itemId: "chemicals", label: "Chemicals", range: Object.freeze([2, 5]) }),
+    Object.freeze({ itemId: "biomass", label: "Biomass", range: Object.freeze([2, 5]) }),
+    Object.freeze({ itemId: "stim-pack", label: "Stim Pack", range: Object.freeze([1, 2]) })
+  ]),
+  lab: Object.freeze([
+    Object.freeze({ itemId: "neon-dust", label: "Neon Dust", range: Object.freeze([1, 3]) }),
+    Object.freeze({ itemId: "pulse-shot", label: "Pulse Shot", range: Object.freeze([1, 2]) }),
+    Object.freeze({ itemId: "velvet-smoke", label: "Velvet Smoke", range: Object.freeze([1, 2]) }),
+    Object.freeze({ itemId: "ghost-serum", label: "Ghost Serum", range: Object.freeze([1, 1]) }),
+    Object.freeze({ itemId: "overdrive-x", label: "Overdrive X", range: Object.freeze([1, 1]) })
+  ]),
+  armory: Object.freeze([
+    Object.freeze({ itemId: "baseball-bat", label: "Baseballová pálka", range: Object.freeze([1, 3]) }),
+    Object.freeze({ itemId: "pistol", label: "Pistole", range: Object.freeze([1, 2]) }),
+    Object.freeze({ itemId: "grenade", label: "Granát", range: Object.freeze([1, 2]) }),
+    Object.freeze({ itemId: "smg", label: "SMG", range: Object.freeze([1, 1]) }),
+    Object.freeze({ itemId: "vest", label: "Vesta", range: Object.freeze([1, 2]) }),
+    Object.freeze({ itemId: "barricades", label: "Barikády", range: Object.freeze([1, 2]) }),
+    Object.freeze({ itemId: "cameras", label: "Kamery", range: Object.freeze([1, 1]) }),
+    Object.freeze({ itemId: "defense-tower", label: "Defense tower", range: Object.freeze([1, 1]) }),
+    Object.freeze({ itemId: "alarm", label: "Alarm", range: Object.freeze([1, 2]) })
+  ]),
+  factory: Object.freeze([
+    Object.freeze({ itemId: "metal-parts", label: "Metal Parts", range: Object.freeze([2, 5]) }),
+    Object.freeze({ itemId: "tech-core", label: "Tech Core", range: Object.freeze([1, 2]) }),
+    Object.freeze({ itemId: "combat-module", label: "Bojový modul", range: Object.freeze([1, 1]) })
+  ])
+});
+
+const ROBBERY_ZONE_LOOT_CATEGORY_HINTS = Object.freeze({
+  park: Object.freeze(["pharmacy", "lab", "armory", "factory"]),
+  residential: Object.freeze(["pharmacy", "armory", "lab", "factory"]),
+  industrial: Object.freeze(["factory", "armory", "pharmacy", "lab"]),
+  commercial: Object.freeze(["pharmacy", "factory", "lab", "armory"]),
+  downtown: Object.freeze(["factory", "armory", "lab", "pharmacy"])
+});
+
 export const ROBBERY_RISK_LABELS = Object.freeze({
   critical: "Critical",
   high: "High",
@@ -248,11 +287,11 @@ export const ROBBERY_RISK_DESCRIPTIONS = Object.freeze({
 });
 
 export const ROBBERY_LOOT_LABELS = Object.freeze({
-  park: "Biomass / Chemicals",
-  residential: "Biomass / Chemicals",
-  industrial: "Metal Parts / Tech Core",
-  commercial: "Chemicals / Metal Parts",
-  downtown: "Tech Core / Chemicals / Metal Parts"
+  park: "District stash: 2-3 položky",
+  residential: "District stash: 2-3 položky",
+  industrial: "District stash: 2-3 položky",
+  commercial: "District stash: 2-3 položky",
+  downtown: "District stash: 2-3 položky"
 });
 
 export function normalizeRobberyZone(districtType) {
@@ -262,6 +301,17 @@ export function normalizeRobberyZone(districtType) {
   if (key === "industrial") return "industrial";
   if (key === "downtown") return "downtown";
   return "park";
+}
+
+export function normalizeRobberyDistrictId(value) {
+  const direct = Number(value);
+  if (Number.isFinite(direct) && direct > 0) {
+    return Math.floor(direct);
+  }
+
+  const match = String(value || "").match(/\d+/u);
+  const parsed = match ? Number(match[0]) : 0;
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
 }
 
 export function getRobberyZoneConfig(districtType) {
@@ -291,13 +341,14 @@ export function getRobberyHeatGain(districtType, sentMembers) {
   return 3 + Math.ceil(sent / 5) + config.zoneHeat;
 }
 
-export function createRobberySetupPreview({ districtType = "park", sentMembers = 0, hasScoutReport = true } = {}) {
+export function createRobberySetupPreview({ districtType = "park", districtId = 0, sentMembers = 0, hasScoutReport = true } = {}) {
   const config = getRobberyZoneConfig(districtType);
   const riskLevel = getRobberyRiskLevel(districtType, sentMembers);
   const successChance = getRobberySuccessChance(districtType, sentMembers);
   const heatGain = getRobberyHeatGain(districtType, sentMembers);
   const zoneKey = normalizeRobberyZone(districtType);
   const scoutReportActive = Boolean(hasScoutReport);
+  const districtLootLabel = getRobberyDistrictLootLabel(districtType, districtId);
 
   return {
     zoneKey,
@@ -316,10 +367,10 @@ export function createRobberySetupPreview({ districtType = "park", sentMembers =
     scoutReportLabel: scoutReportActive ? "Scout report aktivní" : "Bez scout reportu",
     previewRiskLabel: scoutReportActive ? ROBBERY_RISK_LABELS[riskLevel] : "Neznámé / Odhad",
     previewSuccessChanceLabel: scoutReportActive ? `${successChance}%` : "Odhad",
-    previewLootLabel: scoutReportActive ? ROBBERY_LOOT_LABELS[zoneKey] : "Nejistý",
+    previewLootLabel: scoutReportActive ? districtLootLabel : "Nejistý",
     previewTrapHintLabel: scoutReportActive ? "Past nepotvrzena" : "Neznámá",
     previewDescription: scoutReportActive
-      ? `${ROBBERY_RISK_DESCRIPTIONS[riskLevel]} Scout report aktivní.`
+      ? `${ROBBERY_RISK_DESCRIPTIONS[riskLevel]} Scout report aktivní. Loot je stash konkrétního districtu.`
       : "Bez scout reportu je preview jen hrubý odhad. Spy není povinné pro spuštění Vykrást district."
   };
 }
@@ -336,14 +387,14 @@ export function getRobberyMemberLoss(sentMembers, success, random = Math.random)
   return Math.min(sent, Math.ceil(sent * (minRatio + (maxRatio - minRatio) * roll)));
 }
 
-export function rollRobberyLoot(districtType, success, random = Math.random) {
+export function rollRobberyLoot(districtType, success, random = Math.random, districtId = 0) {
   if (!success) {
     return {};
   }
 
-  const config = getRobberyZoneConfig(districtType);
+  const lootTable = getRobberyDistrictLootTable(districtType, districtId);
   return Object.fromEntries(
-    Object.entries(config.loot)
+    Object.entries(lootTable)
       .map(([itemId, [minAmount, maxAmount]]) => [
         itemId,
         rollInteger(minAmount, maxAmount, random)
@@ -355,13 +406,14 @@ export function rollRobberyLoot(districtType, success, random = Math.random) {
 export function resolveRobberyOrderOutcome(order = {}, options = {}) {
   const random = typeof options.random === "function" ? options.random : Math.random;
   const districtType = order.targetDistrictType || order.districtType || "park";
+  const targetDistrictId = normalizeRobberyDistrictId(order.targetDistrictId || order.districtId);
   const deployedMembers = normalizeRobberyMembers(order.deployedMembers);
   const successChance = getRobberySuccessChance(districtType, deployedMembers);
   const successRoll = clampRatio(Number(random()));
   const success = successRoll * 100 < successChance;
   const memberLoss = getRobberyMemberLoss(deployedMembers, success, random);
-  const loot = rollRobberyLoot(districtType, success, random);
-  const preview = createRobberySetupPreview({ districtType, sentMembers: deployedMembers });
+  const loot = rollRobberyLoot(districtType, success, random, targetDistrictId);
+  const preview = createRobberySetupPreview({ districtType, districtId: targetDistrictId, sentMembers: deployedMembers });
 
   return {
     ...preview,
@@ -374,6 +426,48 @@ export function resolveRobberyOrderOutcome(order = {}, options = {}) {
     loot,
     heatGain: getRobberyHeatGain(districtType, deployedMembers)
   };
+}
+
+export function getRobberyDistrictLootTable(districtType = "park", districtId = 0) {
+  const zoneKey = normalizeRobberyZone(districtType);
+  const normalizedDistrictId = normalizeRobberyDistrictId(districtId);
+  const seed = normalizedDistrictId > 0 ? `${zoneKey}:district:${normalizedDistrictId}` : `${zoneKey}:fallback`;
+  const random = createDeterministicUnitRandom(seed);
+  const categoryOrder = shuffleRobberyLootEntries(
+    ROBBERY_ZONE_LOOT_CATEGORY_HINTS[zoneKey] || ROBBERY_ZONE_LOOT_CATEGORY_HINTS.park,
+    random
+  );
+  const itemCount = 2 + Math.floor(random() * 2);
+  const selectedItems = [];
+
+  for (const category of categoryOrder) {
+    const categoryItems = ROBBERY_DISTRICT_LOOT_POOLS[category] || [];
+    const candidates = shuffleRobberyLootEntries(categoryItems, random)
+      .filter((item) => !selectedItems.some((selected) => selected.itemId === item.itemId));
+    if (candidates[0]) {
+      selectedItems.push(candidates[0]);
+    }
+    if (selectedItems.length >= itemCount) {
+      break;
+    }
+  }
+
+  return Object.freeze(Object.fromEntries(
+    selectedItems.slice(0, itemCount).map((item) => [
+      item.itemId,
+      Object.freeze([...item.range])
+    ])
+  ));
+}
+
+export function getRobberyDistrictLootLabel(districtType = "park", districtId = 0) {
+  const table = getRobberyDistrictLootTable(districtType, districtId);
+  const labelsByItemId = new Map(
+    Object.values(ROBBERY_DISTRICT_LOOT_POOLS)
+      .flatMap((items) => items.map((item) => [item.itemId, item.label]))
+  );
+  const labels = Object.keys(table).map((itemId) => labelsByItemId.get(itemId) || itemId);
+  return labels.join(" / ") || ROBBERY_LOOT_LABELS[normalizeRobberyZone(districtType)] || "District stash";
 }
 
 function normalizeRobberyMembers(value) {
@@ -397,4 +491,30 @@ function rollInteger(min, max, random) {
   const safeMax = Math.max(safeMin, Math.floor(Number(max) || safeMin));
   const roll = Math.min(0.999999, clampRatio(Number(random())));
   return safeMin + Math.floor(roll * (safeMax - safeMin + 1));
+}
+
+function createDeterministicUnitRandom(seedValue) {
+  let state = 2166136261;
+  const seed = String(seedValue || "robbery-loot");
+  for (let index = 0; index < seed.length; index += 1) {
+    state ^= seed.charCodeAt(index);
+    state = Math.imul(state, 16777619);
+  }
+
+  return () => {
+    state += 0x6D2B79F5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffleRobberyLootEntries(entries, random) {
+  const output = [...entries];
+  for (let index = output.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(clampRatio(Number(random())) * (index + 1));
+    [output[index], output[swapIndex]] = [output[swapIndex], output[index]];
+  }
+  return output;
 }

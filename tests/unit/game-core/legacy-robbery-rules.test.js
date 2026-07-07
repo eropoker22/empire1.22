@@ -1,13 +1,20 @@
 import { describe, expect, it } from "vitest";
+import { ROBBERY_COOLDOWN_MS } from "../../../packages/game-config/src/legacy-page/combat-config.js";
 import {
   ROBBERY_ZONE_CONFIG,
   createRobberySetupPreview,
+  getRobberyDistrictLootLabel,
+  getRobberyDistrictLootTable,
   getRobberyRiskLevel,
   getRobberySuccessChance,
   resolveRobberyOrderOutcome
 } from "../../../packages/game-core/src/legacy-page/combat-preview-rules.js";
 
 describe("legacy robbery rules", () => {
+  it("keeps empty district robbery duration at 10 minutes", () => {
+    expect(ROBBERY_COOLDOWN_MS).toBe(10 * 60 * 1000);
+  });
+
   it("defines recommended member counts for every robbery zone", () => {
     expect(ROBBERY_ZONE_CONFIG.park).toMatchObject({ recommendedMin: 6, recommendedMax: 10 });
     expect(ROBBERY_ZONE_CONFIG.residential).toMatchObject({ recommendedMin: 8, recommendedMax: 14 });
@@ -40,18 +47,35 @@ describe("legacy robbery rules", () => {
 
   it("returns survivors, zone loot and heat from a successful robbery outcome", () => {
     const rolls = [0, 0, 0.99, 0.5, 0.25];
+    const lootTable = getRobberyDistrictLootTable("downtown", 24);
     const outcome = resolveRobberyOrderOutcome(
-      { targetDistrictType: "downtown", deployedMembers: 45 },
+      { targetDistrictId: "district:24", targetDistrictType: "downtown", deployedMembers: 45 },
       { random: () => rolls.shift() ?? 0 }
     );
 
     expect(outcome.success).toBe(true);
     expect(outcome.memberLoss).toBe(3);
     expect(outcome.returningMembers).toBe(42);
-    expect(outcome.loot["tech-core"]).toBeGreaterThanOrEqual(2);
-    expect(outcome.loot.chemicals).toBeGreaterThanOrEqual(8);
-    expect(outcome.loot["metal-parts"]).toBeGreaterThanOrEqual(8);
+    expect(Object.keys(outcome.loot).sort()).toEqual(Object.keys(lootTable).sort());
+    for (const [itemId, amount] of Object.entries(outcome.loot)) {
+      const [minAmount, maxAmount] = lootTable[itemId];
+      expect(amount).toBeGreaterThanOrEqual(minAmount);
+      expect(amount).toBeLessThanOrEqual(maxAmount);
+    }
     expect(outcome.heatGain).toBe(22);
+  });
+
+  it("creates stable 2-3 item loot stashes per district", () => {
+    const districtTwoLoot = getRobberyDistrictLootTable("industrial", 2);
+    const districtThreeLoot = getRobberyDistrictLootTable("industrial", 3);
+
+    expect(Object.keys(districtTwoLoot).length).toBeGreaterThanOrEqual(2);
+    expect(Object.keys(districtTwoLoot).length).toBeLessThanOrEqual(3);
+    expect(Object.keys(districtThreeLoot).length).toBeGreaterThanOrEqual(2);
+    expect(Object.keys(districtThreeLoot).length).toBeLessThanOrEqual(3);
+    expect(districtTwoLoot).toEqual(getRobberyDistrictLootTable("industrial", 2));
+    expect(districtTwoLoot).not.toEqual(districtThreeLoot);
+    expect(getRobberyDistrictLootLabel("industrial", 2)).not.toBe("District stash: 2-3 položky");
   });
 
   it("keeps failed robbery losses capped and grants no loot", () => {
@@ -86,7 +110,8 @@ describe("legacy robbery rules", () => {
     expect(rough.previewTrapHintLabel).toBe("Neznámá");
     expect(rough.previewDescription).toContain("Spy není povinné");
     expect(precise.previewRiskLabel).toBe("Medium");
-    expect(precise.previewLootLabel).toBe("Metal Parts / Tech Core");
+    expect(precise.previewLootLabel).not.toBe("Nejistý");
+    expect(precise.previewLootLabel.split(" / ").length).toBeGreaterThanOrEqual(2);
     expect(precise.previewDescription).toContain("Scout report aktivní");
   });
 });

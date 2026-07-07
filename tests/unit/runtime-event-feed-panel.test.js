@@ -4,6 +4,7 @@ import {
   createBuildingActionEntry,
   createBuildingActionFeedItemElement,
   createBuildingActionFingerprint,
+  isBuildingActionEntryOpenable,
   normalizeBuildingActionSnapshot
 } from "../../page-assets/js/app/ui/eventFeedPanel.js";
 
@@ -58,8 +59,11 @@ describe("event feed panel helpers", () => {
     expect(normalizeBuildingActionSnapshot({ tone: "idle" })).toEqual({
       ...BUILDING_ACTION_EMPTY_SNAPSHOT,
       districtType: "unknown",
+      dismissible: true,
+      persistent: false,
       resultKind: "",
-      resultPayload: null
+      resultPayload: null,
+      sourceKind: ""
     });
   });
 
@@ -71,12 +75,18 @@ describe("event feed panel helpers", () => {
       summary: "Výsledek je připravený.",
       meta: "Výsledek akce",
       districtType: "industrial",
-      resultKind: "attack",
-      resultPayload: { tone: "success" },
+      resultKind: "raid",
+      resultPayload: {
+        tone: "success",
+        rows: [
+          { label: "Zisk", value: "Chemicals x2" }
+        ]
+      },
       timestampMs: 1000
     });
 
     expect(createBuildingActionFingerprint(entry)).toContain("Akce hotová");
+    expect(isBuildingActionEntryOpenable(entry)).toBe(true);
 
     const item = createBuildingActionFeedItemElement(new FakeDocument(), entry, {
       removeSelector: "[data-building-action-remove]",
@@ -84,15 +94,70 @@ describe("event feed panel helpers", () => {
     });
 
     expect(item.dataset.buildingActionId).toBe("entry-1");
-    expect(item.dataset.buildingActionResultKind).toBe("attack");
-    expect(item.dataset.buildingActionKind).toBe("attack");
+    expect(item.dataset.buildingActionResultKind).toBe("raid");
+    expect(item.dataset.buildingActionKind).toBe("raid");
     expect(item.dataset.buildingActionDistrictType).toBe("industrial");
-    expect(item.classList.contains("building-action-status__item--kind-attack")).toBe(true);
+    expect(item.classList.contains("building-action-status__item--kind-raid")).toBe(true);
     expect(item.classList.contains("building-action-status__item--district-industrial")).toBe(true);
     expect(item.classList.contains("building-action-status__item--clickable")).toBe(true);
     expect(item.children[0].children[0].textContent).toBe("Akce hotová");
     expect(item.children[0].children[1].children[0].innerHTML).toContain("building-action-status__trash-icon");
     expect(item.children[0].children[1].children[0].innerHTML).toContain("<svg");
     expect(item.children).toHaveLength(1);
+  });
+
+  it("keeps non-resource action results readable but not clickable", () => {
+    const entry = createBuildingActionEntry({
+      id: "entry-2",
+      tone: "success",
+      title: "Útok dokončen",
+      summary: "District zůstal pod tlakem.",
+      meta: "Žádné suroviny se nezměnily.",
+      districtType: "downtown",
+      resultKind: "attack",
+      resultPayload: {
+        tone: "success",
+        rows: [
+          { label: "Stav", value: "Rozkaz dokončen" }
+        ]
+      },
+      timestampMs: 2000
+    });
+
+    const item = createBuildingActionFeedItemElement(new FakeDocument(), entry, {
+      removeSelector: "[data-building-action-remove]",
+      onOpenResult: () => {}
+    });
+
+    expect(isBuildingActionEntryOpenable(entry)).toBe(false);
+    expect(item.classList.contains("building-action-status__item--clickable")).toBe(false);
+    expect(item.attributes.has("role")).toBe(false);
+    expect(item.children[1].textContent).toBe("District zůstal pod tlakem.");
+    expect(item.children[2].textContent).toBe("Žádné suroviny se nezměnily.");
+  });
+
+  it("renders cooldown feed entries as persistent and non-dismissible", () => {
+    const entry = createBuildingActionEntry({
+      id: "cooldown:spy:1",
+      tone: "event",
+      title: "Cooldown: Špehování",
+      summary: "District 2",
+      meta: "Zbývá 0:42",
+      dismissible: false,
+      persistent: true,
+      timestampMs: 3000
+    });
+
+    const item = createBuildingActionFeedItemElement(new FakeDocument(), entry, {
+      removeSelector: "[data-building-action-remove]",
+      onOpenResult: () => {}
+    });
+
+    expect(item.dataset.buildingActionPersistent).toBe("true");
+    expect(item.classList.contains("building-action-status__item--persistent")).toBe(true);
+    expect(item.classList.contains("building-action-status__item--clickable")).toBe(false);
+    expect(item.children[0].children[1].children).toHaveLength(0);
+    expect(item.children[1].textContent).toBe("District 2");
+    expect(item.children[2].textContent).toBe("Zbývá 0:42");
   });
 });

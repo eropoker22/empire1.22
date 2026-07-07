@@ -77,11 +77,11 @@ export const baseCraftBuildingsConfig: NonNullable<BalanceConfig["craftBuildings
         outputAmount: 1
       },
       "combat-module": {
-        label: "Combat Module",
+        label: "Bojový modul",
         durationTicks: 3,
         inputCosts: { "metal-parts": 4, "tech-core": 2 },
         outputResourceKey: "combat-module",
-        outputResourceLabel: "Combat Module",
+        outputResourceLabel: "Bojový modul",
         outputAmount: 1
       }
     }

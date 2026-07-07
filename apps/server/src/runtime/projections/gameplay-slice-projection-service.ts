@@ -192,6 +192,30 @@ const createGameplaySliceCommandHints = (
         targetId: target.districtId,
         remainingTicks: target.cooldownRemainingTicks,
         reason: target.disabledReason
+      })),
+    ...district.attackTargets
+      .filter((target) => (target.cooldownRemainingTicks ?? 0) > 0)
+      .map((target) => ({
+        commandType: "attack-district",
+        targetId: target.districtId,
+        remainingTicks: target.cooldownRemainingTicks ?? 0,
+        reason: target.disabledReason
+      })),
+    ...(district.robTargets ?? [])
+      .filter((target) => (target.cooldownRemainingTicks ?? 0) > 0)
+      .map((target) => ({
+        commandType: "rob-district",
+        targetId: target.districtId,
+        remainingTicks: target.cooldownRemainingTicks ?? 0,
+        reason: target.disabledReason
+      })),
+    ...(district.heistTargets ?? [])
+      .filter((target) => (target.cooldownRemainingTicks ?? 0) > 0)
+      .map((target) => ({
+        commandType: "heist-district",
+        targetId: target.districtId,
+        remainingTicks: target.cooldownRemainingTicks ?? 0,
+        reason: target.disabledReason
       }))
   ];
   const disabledReasons = [
@@ -220,6 +244,20 @@ const createGameplaySliceCommandHints = (
       .filter((target) => target.disabledReason)
       .map((target) => ({
         commandType: "occupy-district",
+        targetId: target.districtId,
+        reason: target.disabledReason!
+      })),
+    ...(district.robTargets ?? [])
+      .filter((target) => target.disabledReason)
+      .map((target) => ({
+        commandType: "rob-district",
+        targetId: target.districtId,
+        reason: target.disabledReason!
+      })),
+    ...(district.heistTargets ?? [])
+      .filter((target) => target.disabledReason)
+      .map((target) => ({
+        commandType: "heist-district",
         targetId: target.districtId,
         reason: target.disabledReason!
       })),

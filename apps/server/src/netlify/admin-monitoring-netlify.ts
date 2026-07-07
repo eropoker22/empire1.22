@@ -1,6 +1,9 @@
 import type { DomainError } from "@empire/shared-types";
 import type { ServerApp } from "../app/server-app";
 import { createJsonResponse, type NetlifyFunctionResponse } from "./netlify-json-response";
+import { sanitizeAdminMonitoringText } from "../runtime/monitoring/admin-monitoring-sanitizer";
+
+export { sanitizeAdminMonitoringText } from "../runtime/monitoring/admin-monitoring-sanitizer";
 
 export const ADMIN_MONITORING_SECRET_HEADER = "x-empire-admin-secret";
 
@@ -56,6 +59,7 @@ export const createAdminMonitoringPayload = async (server: ServerApp) => {
   const summaries = await server.adminMonitoring.listInstanceMonitoringSummaries();
   const serverSummaries = server.adminMonitoring.listServerSummaries();
   const healthSummary = server.adminMonitoring.getHealthSummary();
+  const runtimeProjection = server.adminMonitoring.getRuntimeDetailProjection();
   const selectedInstanceId = summaries[0]?.instanceId ?? null;
   const [selectedHealth, selectedDiagnostics, selectedLogs] = selectedInstanceId
     ? await Promise.all([
@@ -75,9 +79,11 @@ export const createAdminMonitoringPayload = async (server: ServerApp) => {
     instances: summaries,
     serverSummaries,
     healthSummary,
+    runtimeProjection,
     overview: {
       serverSummaries,
       healthSummary,
+      runtimeProjection,
       instances: summaries.map((summary) => ({
         instanceId: summary.instanceId,
         mode: summary.mode,
@@ -183,33 +189,33 @@ const createSelectedLogs = async (
   return {
     instanceId,
     commands: commands.map((record) => ({
-      id: record.id,
-      instanceId: record.instanceId,
-      commandId: record.command.id,
-      commandType: record.command.type,
-      actorId: record.actorId,
-      correlationId: record.correlationId,
+      id: sanitizeAdminMonitoringText(record.id),
+      instanceId: sanitizeAdminMonitoringText(record.instanceId),
+      commandId: sanitizeAdminMonitoringText(record.command.id),
+      commandType: sanitizeAdminMonitoringText(record.command.type),
+      actorId: sanitizeAdminMonitoringText(record.actorId),
+      correlationId: record.correlationId ? sanitizeAdminMonitoringText(record.correlationId) : null,
       receivedAt: record.receivedAt,
       tickAtReceive: record.tickAtReceive,
       status: "recorded"
     })),
     events: events.map((record) => ({
-      id: record.id,
-      instanceId: record.instanceId,
-      eventType: record.event.type,
-      causedByCommandId: record.causedByCommandId,
+      id: sanitizeAdminMonitoringText(record.id),
+      instanceId: sanitizeAdminMonitoringText(record.instanceId),
+      eventType: sanitizeAdminMonitoringText(record.event.type),
+      causedByCommandId: record.causedByCommandId ? sanitizeAdminMonitoringText(record.causedByCommandId) : null,
       recordedAt: record.recordedAt,
       tickAtEmit: record.tickAtEmit
     })),
     diagnostics: diagnostics.map((record) => ({
-      id: record.id,
-      instanceId: record.instanceId,
+      id: sanitizeAdminMonitoringText(record.id),
+      instanceId: sanitizeAdminMonitoringText(record.instanceId),
       level: record.level,
-      category: record.category,
-      message: record.message,
+      category: sanitizeAdminMonitoringText(record.category),
+      message: sanitizeAdminMonitoringText(record.message),
       occurredAt: record.occurredAt,
-      commandId: typeof record.context.commandId === "string" ? record.context.commandId : null,
-      correlationId: typeof record.context.correlationId === "string" ? record.context.correlationId : null
+      commandId: typeof record.context.commandId === "string" ? sanitizeAdminMonitoringText(record.context.commandId) : null,
+      correlationId: typeof record.context.correlationId === "string" ? sanitizeAdminMonitoringText(record.context.correlationId) : null
     }))
   };
 };

@@ -130,16 +130,23 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(attacked.errors).toEqual([]);
-    expect(
-      (await server.gameplaySliceTransport.load({
+    const afterAttackReadModel = (await server.gameplaySliceTransport.load({
         ...attackerSession.loadRequest,
         districtId: sourceDistrictId
-      })).readModel?.reports[0]
-    ).toMatchObject({
+      })).readModel as GameplaySliceView;
+
+    expect(afterAttackReadModel.reports[0]).toMatchObject({
       reportType: "battle",
       targetDistrictId,
       trapTriggered: true
     });
+    expect(afterAttackReadModel.commandHints.cooldowns).toContainEqual(expect.objectContaining({
+      commandType: "attack-district",
+      targetId: targetDistrictId,
+      remainingTicks: expect.any(Number)
+    }));
+    expect(attacked.districtPanel?.attackTargets.find((target) => target.districtId === targetDistrictId)?.cooldownLabel).toContain("ticks");
+    expect(attacked.sidePanelHtml).toContain("čekání");
     expect(server.instanceManager.getInstanceById(instanceId)?.state.trapsById["trap:district:2"]?.status).toBe("triggered");
   });
 

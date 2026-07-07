@@ -1,13 +1,15 @@
 import type { HeistDistrictCommand } from "@empire/shared-types";
+import type { ConflictBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import type { CoreError } from "../errors";
-import { validateMapAction } from "../rules";
+import { createHeistCooldownKey, createHeistSourceCooldownKey, validateMapAction } from "../rules";
 
 const HEIST_STYLES = new Set(["stealth", "balanced", "all_in"]);
 
 export const validateHeist = (
   state: CoreGameState,
-  command: HeistDistrictCommand
+  command: HeistDistrictCommand,
+  _conflictConfig?: ConflictBalanceConfig
 ): CoreError[] => {
   if (!HEIST_STYLES.has(command.payload.style)) {
     return [{
@@ -58,17 +60,61 @@ export const validateHeist = (
     expectedOriginVersion: command.payload.expectedSourceVersion
   });
 
-  if (result.allowed) return [];
+  if (!result.allowed) {
+    return [{
+      code: result.reasonCode ?? "HEIST_BLOCKED",
+      message: "Heist command is not allowed for this district.",
+      details: {
+        targetDistrictId: command.payload.targetDistrictId,
+        sourceDistrictId: originDistrictId,
+        relation: result.relation
+      }
+    }];
+  }
 
-  return [{
-    code: result.reasonCode ?? "HEIST_BLOCKED",
-    message: "Heist command is not allowed for this district.",
-    details: {
-      targetDistrictId: command.payload.targetDistrictId,
-      sourceDistrictId: originDistrictId,
-      relation: result.relation
+  const cooldownState = state.cooldownStatesById[player.cooldownStateId];
+  const activeCooldown = getActiveHeistCooldown(
+    cooldownState?.cooldowns ?? {},
+    originDistrictId,
+    command.payload.targetDistrictId,
+    state.root.tick
+  );
+
+  if (activeCooldown) {
+    return [{
+      code: "heist_cooldown_active",
+      message: `Vykradení hráče nebo zdrojová trasa se obnoví za ${activeCooldown.remainingTicks} ticks.`,
+      details: {
+        targetDistrictId: command.payload.targetDistrictId,
+        sourceDistrictId: originDistrictId,
+        cooldownKey: activeCooldown.key,
+        cooldownUntilTick: activeCooldown.untilTick,
+        remainingTicks: activeCooldown.remainingTicks
+      }
+    }];
+  }
+
+  return [];
+};
+
+const getActiveHeistCooldown = (
+  cooldowns: Record<string, number>,
+  sourceDistrictId: string,
+  targetDistrictId: string,
+  currentTick: number
+): { key: string; untilTick: number; remainingTicks: number } | null => {
+  for (const key of [createHeistCooldownKey(targetDistrictId), createHeistSourceCooldownKey(sourceDistrictId)]) {
+    const untilTick = cooldowns[key];
+    if (typeof untilTick === "number" && untilTick > currentTick) {
+      return {
+        key,
+        untilTick,
+        remainingTicks: untilTick - currentTick
+      };
     }
-  }];
+  }
+
+  return null;
 };
 
 const resolveSingleOwnedOrigin = (

@@ -22,7 +22,8 @@ import type {
   SmugglingTunnelBalanceConfig,
   StreetDealersBalanceConfig,
   StripClubBalanceConfig,
-  VipLoungeBalanceConfig
+  VipLoungeBalanceConfig,
+  ResolvedGameModeConfig
 } from "../contracts/game-mode-config";
 import type { DistrictPanelBuildingCatalogEntry } from "./district-building-catalog-types";
 
@@ -31,6 +32,7 @@ export interface DistrictPanelProjectionInput {
   districtId: string;
   issuedAt?: string;
   buildCatalog: ReadonlyArray<DistrictPanelBuildingCatalogEntry>;
+  config?: ResolvedGameModeConfig;
   productionCatalog: Readonly<Record<string, ProductionBuildingBalanceConfig>>;
   craftCatalog: Readonly<Record<string, CraftBuildingBalanceConfig>>;
   buildingActionCatalog: Readonly<Record<string, BuildingActionBalanceConfig>>;

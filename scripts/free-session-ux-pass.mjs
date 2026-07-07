@@ -518,8 +518,8 @@ const seedExpression = String.raw`
       serverLabel: "Neon Docks FREE-01",
       serverMode: "free",
       serverRegion: "EU Central",
-      preferredStartDistrictId: 27,
-      startDistrictId: 27,
+      preferredStartDistrictId: 1,
+      startDistrictId: 1,
       factionId: "mafian",
       selectedFaction: "mafian",
       structure: "mafián",
@@ -533,7 +533,7 @@ const seedExpression = String.raw`
       lockedAt: now
     },
     world: {
-      ownedDistrictIds: [27],
+      ownedDistrictIds: [1],
       phaseState: {
         gamePhase: "live",
         mapPhase: "night",
@@ -658,6 +658,22 @@ const passExpression = String.raw`
     safeText("[data-building-action-summary]", 420),
     safeText("[data-building-action-meta]", 180)
   ].filter(Boolean).join("\n").slice(0, max);
+  const getOnboardingProgress = () => window.EmpireRuntime?.getFreeSessionOnboardingProgress?.(root)
+    || window.EmpireRuntimeModules?.onboarding?.getProgress?.(root)
+    || null;
+  const advanceOnboardingIfCurrent = async (stepId) => {
+    const progress = getOnboardingProgress();
+    if (String(progress?.currentStepId || "") !== stepId) {
+      return false;
+    }
+    const button = document.querySelector("[data-free-onboarding-panel] [data-onboarding-primary-action]");
+    if (!button) {
+      return false;
+    }
+    button.click();
+    await wait(240);
+    return true;
+  };
   const root = document.querySelector("#game-root");
   const mapGeometry = await import("/page-assets/js/app/map/mapGeometry.js");
   const runtimeModule = await import("/page-assets/js/app/runtime.js");
@@ -780,7 +796,10 @@ const passExpression = String.raw`
 
   result.actions.openOwnDistrict = Boolean(window.openDistrict?.(ownDistrictId));
   await wait(350);
-  const buildingButton = document.querySelector("[data-district-building-name]");
+  const buildingButtons = Array.from(document.querySelectorAll("[data-district-building-name]"));
+  const buildingButton = buildingButtons.find((button) => /restaurace/i.test(String(button?.dataset?.districtBuildingName || button?.textContent || "")))
+    || buildingButtons[0]
+    || null;
   const buildingName = String(buildingButton?.dataset?.districtBuildingName || buildingButton?.textContent || "").trim().split("\n")[0];
   result.selected.ownDistrictId = ownDistrictId;
   result.selected.enemyDistrictId = enemyDistrictId;
@@ -806,6 +825,7 @@ const passExpression = String.raw`
     document.querySelector(".building-special-action-confirm:not([hidden]) .building-special-action-confirm__button--ghost")?.click?.();
     await wait(350);
   }
+  result.actions.advanceHeatPoliceOnboarding = await advanceOnboardingIfCurrent("heat-police");
   result.ui.actionFeedTextAfterBuildingAction = safeText("[data-building-action-feed]", 550);
   result.ui.actionSummaryAfterBuildingAction = safeText("[data-building-action-summary]", 550);
   result.ui.actionMetaAfterBuildingAction = safeText("[data-building-action-meta]", 220);
@@ -856,6 +876,7 @@ const passExpression = String.raw`
   result.missions.attackResolveAt = attackStartedEvent?.resolveAt ?? "";
   result.modals.attackReport = visibleModalText("#attack-result-modal", 700);
   result.modals.policeAction = visibleModalText("#police-action-result-modal", 450);
+  result.actions.completeDoneOnboarding = await advanceOnboardingIfCurrent("done");
 
   runtimeModule.setStoredGangState({
     heat: 155,
@@ -987,9 +1008,7 @@ const passExpression = String.raw`
     closeTopOffset: policeWindowRect && policeCloseRect ? policeCloseRect.top - policeWindowRect.top : null,
     closeRightOffset: policeWindowRect && policeCloseRect ? policeWindowRect.right - policeCloseRect.right : null
   };
-  const onboardingProgress = window.EmpireRuntime?.getFreeSessionOnboardingProgress?.(root)
-    || window.EmpireRuntimeModules?.onboarding?.getProgress?.(root)
-    || null;
+  const onboardingProgress = getOnboardingProgress();
   result.ui.onboardingTextAfterLoop = safeText("[data-free-onboarding-panel]", 500);
   result.ui.onboardingCurrentStepId = String(onboardingProgress?.currentStepId || "");
   result.ui.onboardingDoneCount = Number(onboardingProgress?.completedCount || onboardingProgress?.completedStepIds?.length || 0);

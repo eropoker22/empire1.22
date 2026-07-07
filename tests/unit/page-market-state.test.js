@@ -4,8 +4,15 @@ import {
   getAuthoritySession,
   updateStoredPreviewSession
 } from "../../page-assets/js/app/model/authority-state.js";
+import {
+  getMarketPriceKey,
+  MARKET_TAB_CONFIG
+} from "../../packages/game-config/src/legacy-page/economy-config.js";
 
 const SESSION_STORAGE_KEY = "empireStreets.session.v1";
+const CHEMICALS_MARKET_KEY = getMarketPriceKey("market", "chemicals");
+const DEFAULT_CHEMICALS_MARKET_PRICE = MARKET_TAB_CONFIG.market.items
+  .find((item) => item.itemId === "chemicals")?.price;
 
 const createLocalStorage = () => {
   const store = new Map();
@@ -61,7 +68,7 @@ describe("page market state", () => {
           ],
           items: {
             ...baseSession.market.items,
-            "market:chemicals": {
+            [CHEMICALS_MARKET_KEY]: {
               price: 111,
               previousPrice: 100
             }
@@ -71,7 +78,7 @@ describe("page market state", () => {
     );
 
     expect(getAuthoritySession().market.serverId).toBe("war-eu-01");
-    expect(getAuthoritySession().market.items["market:chemicals"].price).toBe(111);
+    expect(getAuthoritySession().market.items[CHEMICALS_MARKET_KEY].price).toBe(111);
 
     updateStoredPreviewSession((session) => ({
       ...session,
@@ -85,8 +92,8 @@ describe("page market state", () => {
     const session = getAuthoritySession();
 
     expect(session.market.serverId).toBe("free-eu-01");
-    expect(session.market.items["market:chemicals"].price).toBe(19);
-    expect(session.marketByServerId["war-eu-01"].items["market:chemicals"].price).toBe(111);
+    expect(session.market.items[CHEMICALS_MARKET_KEY].price).toBe(DEFAULT_CHEMICALS_MARKET_PRICE);
+    expect(session.marketByServerId["war-eu-01"].items[CHEMICALS_MARKET_KEY].price).toBe(111);
     expect(session.marketByServerId["war-eu-01"].playerListings).toHaveLength(1);
   });
 });

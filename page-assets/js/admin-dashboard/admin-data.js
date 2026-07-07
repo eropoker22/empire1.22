@@ -41,7 +41,7 @@ export const RESOURCE_KEYS = Object.freeze([
   "Overdrive X",
   "Metal Parts",
   "Tech Core",
-  "Combat Module"
+  "Bojový modul"
 ]);
 
 const SERVER_DEFS = Object.freeze([

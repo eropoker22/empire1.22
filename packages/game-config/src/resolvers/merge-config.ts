@@ -22,6 +22,24 @@ export const mergeModeConfig = (
       ...base.balance.police!,
       ...(override.balance?.police ?? {})
     } as NonNullable<ResolvedGameModeConfig["balance"]["police"]>,
+    dayNight: base.balance.dayNight || override.balance?.dayNight
+      ? {
+          ...base.balance.dayNight!,
+          ...(override.balance?.dayNight ?? {}),
+          phases: {
+            ...base.balance.dayNight?.phases,
+            ...override.balance?.dayNight?.phases
+          } as NonNullable<ResolvedGameModeConfig["balance"]["dayNight"]>["phases"],
+          buildingRules: {
+            ...(base.balance.dayNight?.buildingRules ?? {}),
+            ...(override.balance?.dayNight?.buildingRules ?? {})
+          },
+          actionRules: {
+            ...(base.balance.dayNight?.actionRules ?? {}),
+            ...(override.balance?.dayNight?.actionRules ?? {})
+          }
+        }
+      : undefined,
     fixedBuildings: {
       ...(base.balance.fixedBuildings ?? {}),
       ...(override.balance?.fixedBuildings ?? {})

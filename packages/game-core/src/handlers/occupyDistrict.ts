@@ -14,6 +14,7 @@ import { validateOccupy } from "../validation";
 import { createPlayerCooldownState, reassignCapturedDistrictBuildings } from "./attackDistrictHelpers";
 import { resolveBountyClaims } from "./bountyCommands";
 import { applyCarDealerCooldownReductionTicks } from "./carDealerBuildingActions";
+import { resolveCityHallNightPatrolPressure } from "./cityHallBuildingActions";
 import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { composeEntityId } from "../utils";
 import { deterministicUnitInterval } from "../utils/math";
@@ -44,9 +45,15 @@ export const handleOccupyDistrict = (
   const balance = resolveOccupyBalance(context.config.balance.conflict);
   const populationCost = resolveOccupyPopulationCost(state, player.id);
   const factionModifiers = getFactionPassiveModifiers(state, player.id, context);
+  const cityHallNightPatrol = resolveCityHallNightPatrolPressure({
+    state,
+    context,
+    targetDistrict,
+    tick: state.root.tick
+  });
   const cooldownTicks = Math.max(
     resolveOccupyCooldownGuardrailTicks(context, balance.cooldownTicks),
-    applyFactionCooldownTicks(
+    Math.ceil(applyFactionCooldownTicks(
       applyCarDealerCooldownReductionTicks({
         baseTicks: balance.cooldownTicks,
         state,
@@ -57,9 +64,9 @@ export const handleOccupyDistrict = (
       }),
       "occupy",
       factionModifiers
-    )
+    ) * cityHallNightPatrol.durationMultiplier)
   );
-  const heatGain = resolveOccupyHeatGain(balance.heatGain, factionModifiers.aggressiveActionHeatGainMultiplier);
+  const heatGain = Math.ceil(resolveOccupyHeatGain(balance.heatGain, factionModifiers.aggressiveActionHeatGainMultiplier) * cityHallNightPatrol.heatMultiplier);
   const cooldownState = state.cooldownStatesById[player.cooldownStateId] ?? createPlayerCooldownState(player.id, player.cooldownStateId);
   const occupyCooldownKey = createOccupyCooldownKey(targetDistrict.id);
   const nextPoliceState = increasePlayerPoliceHeat(state, player, heatGain, state.root.tick);

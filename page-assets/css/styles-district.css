@@ -525,6 +525,11 @@
 }
 
 .district-popup-buildings__chip {
+  display: inline-grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: start;
+  align-content: center;
+  gap: 2px;
   min-height: 26px;
   padding: 6px 8px;
   border: 1px solid rgba(var(--district-accent-rgb), 0.3);
@@ -532,6 +537,26 @@
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(8, 14, 26, 0.22));
   box-shadow: inset 0 0 14px rgba(var(--district-accent-rgb), 0.05);
   font-size: 0.58rem;
+}
+
+.district-popup-buildings__chip-label {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: inherit;
+  font-weight: 850;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.district-popup-buildings__chip-kind {
+  color: rgba(190, 242, 100, 0.92);
+  font-size: 0.42rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .district-popup-buildings__chip--trap {

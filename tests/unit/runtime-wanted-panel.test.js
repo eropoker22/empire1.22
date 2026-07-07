@@ -133,8 +133,15 @@ describe("wanted panel UI module", () => {
     expect(starContainer.attributes.get("aria-label")).toBe("Heat 82 · Známý problém");
     expect(stars[0].classList.contains("is-active")).toBe(true);
     expect(stars[2].classList.contains("is-active")).toBe(true);
-    expect(mounts.popupTier.textContent).toBe("Tier 3 • Známý problém");
+    expect(mounts.popupTier.classList.contains("wanted-popup-title--stars")).toBe(true);
+    expect(mounts.popupTier.children[0].classList.contains("wanted-popup-stars")).toBe(true);
+    expect(mounts.popupTier.children[0].children).toHaveLength(6);
+    expect(mounts.popupTier.children[0].children[0].textContent).toBe("★");
+    expect(mounts.popupTier.children[0].children[2].classList.contains("is-active")).toBe(true);
+    expect(mounts.popupTier.children[0].children[3].classList.contains("is-active")).toBe(false);
+    expect(mounts.popupTier.children[1].textContent).toBe("Známý problém");
     expect(mounts.popupLevels.children).toHaveLength(2);
+    expect(mounts.popupLevels.children[0].children[0].children[0].classList.contains("wanted-popup-stars")).toBe(true);
     expect(mounts.popupRiseList.children[0].children[0].textContent).toBe("Black market");
     expect(mounts.popupFallList.children[0].textContent).toBe("Zatím bez nových důvodů poklesu.");
     expect(mounts.dirtyActionButton.disabled).toBe(true);

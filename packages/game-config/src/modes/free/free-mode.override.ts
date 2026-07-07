@@ -115,6 +115,8 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
     conflict: {
       spyCooldownTicks: ticksFromMinutes(6),
       attackCooldownTicks: ticksFromMinutes(22),
+      robCooldownTicks: ticksFromMinutes(10),
+      heistCooldownTicks: ticksFromMinutes(8),
       occupyCooldownTicks: ticksFromMinutes(12),
       occupyFailureChancePct: 5,
       minAttackDurationTicks: ticksFromMinutes(22),

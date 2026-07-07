@@ -119,8 +119,8 @@ export function createFactoryBuildingInfoViewModel({
       },
       {
         id: "combat-module",
-        title: "Combat Module",
-        description: "Vojenský bojový modul pro high-tech zbraně, automatickou obranu a těžkou výbavu. Vzácný komponent pro hráče, kteří chtějí dominovat silou.",
+        title: "Bojový modul",
+        description: "Vzácná bojová součástka pro high-tech zbraně, automatickou obranu a těžkou výbavu. Není to hotová zbraň, ale modul pro další vybavení.",
         durationLabel: "15 min",
         costLabel: "650 Clean Cash + 1 Tech Core"
       }
@@ -129,14 +129,14 @@ export function createFactoryBuildingInfoViewModel({
       { label: "Level", value: `L${factoryState.level}` },
       { label: "Upgrade", value: nextLevel ? `${formatCurrency(upgradeCost)} -> L${nextLevel}` : "Max level" },
       { label: "Další level", value: nextLevel ? `Produkce a craft rychlost x${safeNextMultiplier.toFixed(2)}.` : "Budova už je na maximu." },
-      { label: "Výstup", value: `Metal Parts ${Number(syncResult.rates?.metalPartsPerHour || 0).toFixed(2)}/h · Tech Core ${Number(syncResult.rates?.techCorePerHour || 0).toFixed(2)}/h · Combat Module ${Number(syncResult.rates?.combatModulePerHour || 0).toFixed(2)}/h` },
+      { label: "Výstup", value: `Metal Parts ${Number(syncResult.rates?.metalPartsPerHour || 0).toFixed(2)}/h · Tech Core ${Number(syncResult.rates?.techCorePerHour || 0).toFixed(2)}/h · Bojový modul ${Number(syncResult.rates?.combatModulePerHour || 0).toFixed(2)}/h` },
       { label: "Vyzvednutí", value: collectableAmount > 0 ? `${collectableAmount} ks hotovo do skladu` : "Zatím nic hotového" },
-      { label: "Combat Module", value: `${config.combatModule?.metalPartsCost || 0} Metal Parts + ${config.combatModule?.techCoreCost || 0} Tech Core · ${formatDurationLabel(config.combatModule?.durationMs || 0)} · heat +${config.combatModule?.heatPerUnit || 0}/ks` }
+      { label: "Bojový modul", value: `${config.combatModule?.metalPartsCost || 0} Metal Parts + ${config.combatModule?.techCoreCost || 0} Tech Core · ${formatDurationLabel(config.combatModule?.durationMs || 0)} · heat +${config.combatModule?.heatPerUnit || 0}/ks` }
     ],
     actions: [
       { title: "+ Vybrat hotové", description: collectableAmount > 0 ? `Přesune ${collectableAmount} ks hotových továrních výstupů do skladu.` : "Přesune hotové tovární výstupy do skladu, až budou připravené." },
       { title: "⇪ Upgrade", description: nextLevel ? `Stojí ${formatCurrency(upgradeCost)} clean cash a zvedne produkci na x${safeNextMultiplier.toFixed(2)}.` : "Max level, další upgrade není dostupný." },
-      { title: "Spustit / Zrušit slot", description: "Řídí jednotlivé linky: Metal Parts, Tech Core a Combat Module. Zrušení smaže aktivní frontu slotu." }
+      { title: "Spustit / Zrušit slot", description: "Řídí jednotlivé linky: Metal Parts, Tech Core a bojový modul. Zrušení smaže aktivní frontu slotu." }
     ]
   };
 }

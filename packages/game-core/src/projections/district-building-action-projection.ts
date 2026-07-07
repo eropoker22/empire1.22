@@ -1,5 +1,5 @@
 import type { DistrictPanelBuildingView } from "@empire/shared-types";
-import type { BuildingActionBalanceConfig } from "../contracts/game-mode-config";
+import type { BuildingActionBalanceConfig, ResolvedGameModeConfig } from "../contracts/game-mode-config";
 import type { CoreGameState } from "../entities/game-state";
 import type { DistrictPanelBuildingCatalogEntry } from "./district-building-catalog-types";
 import { createBuildingStats } from "./district-building-stats-projection";
@@ -30,12 +30,14 @@ import {
 } from "../handlers/schoolBuildingActions";
 import type { AirportBalanceConfig, CarDealerBalanceConfig, CentralBankBalanceConfig, CityHallBalanceConfig, CourthouseBalanceConfig, FitnessClubBalanceConfig, GarageBalanceConfig, LobbyClubBalanceConfig, PowerStationBalanceConfig, RecruitmentCenterBalanceConfig, RecyclingCenterBalanceConfig, RestaurantBalanceConfig, SchoolBalanceConfig, ShoppingMallBalanceConfig, SmugglingTunnelBalanceConfig, StockExchangeBalanceConfig, StreetDealersBalanceConfig, StripClubBalanceConfig, VipLoungeBalanceConfig } from "../contracts/game-mode-config";
 import type { ConvenienceStoreBalanceConfig } from "../contracts/game-mode-config";
+import { resolveDayNightActionRule, resolveDayNightBuildingRule } from "../rules/day-night/dayNightActionRules";
 
 export interface CreateDistrictPanelBuildingViewsInput {
   state: CoreGameState;
   buildings: CoreGameState["buildingsById"][string][];
   buildCatalog: ReadonlyArray<DistrictPanelBuildingCatalogEntry>;
   actionCatalog: Readonly<Record<string, BuildingActionBalanceConfig>>;
+  config?: ResolvedGameModeConfig;
   stripClubConfig?: StripClubBalanceConfig;
   restaurantConfig?: RestaurantBalanceConfig;
   convenienceStoreConfig?: ConvenienceStoreBalanceConfig;
@@ -70,8 +72,12 @@ export const createDistrictPanelBuildingViews = (
 
   return input.buildings.map((building) => {
     const definition = buildingDefinitions[building.buildingTypeId];
+    const buildingPhaseRule = input.config
+      ? resolveDayNightBuildingRule(input.state, { config: input.config }, building.buildingTypeId)
+      : null;
     const actions = createBuildingActionViews({
       actionCatalog: input.actionCatalog,
+      config: input.config,
       building,
       state: input.state,
       stripClubConfig: input.stripClubConfig,
@@ -147,7 +153,11 @@ export const createDistrictPanelBuildingViews = (
       level: building.level,
       status: building.status,
       actionCooldowns: { ...(building.actionCooldowns ?? {}) },
-      actions
+      actions,
+      phaseAvailability: buildingPhaseRule?.phaseAvailability ?? "neutral",
+      phaseBadgeLabel: buildingPhaseRule?.phaseBadgeLabel ?? null,
+      phaseTooltip: buildingPhaseRule?.phaseTooltip ?? null,
+      phaseBlockedReason: buildingPhaseRule?.blockedReason ?? null
     };
   });
 };
@@ -194,12 +204,17 @@ const createSpecialActionViews = (
       cooldownRemainingTicks: commandAction?.cooldownRemainingTicks ?? 0,
       heatGain: specialAction.heatGain,
       enabled: commandAction?.enabled ?? false,
-      disabledReason: commandAction?.disabledReason ?? "This special action is not wired to the command dispatcher yet."
+      disabledReason: commandAction?.disabledReason ?? "This special action is not wired to the command dispatcher yet.",
+      phaseAvailability: commandAction?.phaseAvailability ?? "neutral",
+      phaseBadgeLabel: commandAction?.phaseBadgeLabel ?? null,
+      phaseTooltip: commandAction?.phaseTooltip ?? null,
+      phaseBlockedReason: commandAction?.phaseBlockedReason ?? null
     };
   });
 
 const createBuildingActionViews = (input: {
   actionCatalog: Readonly<Record<string, BuildingActionBalanceConfig>>;
+  config?: ResolvedGameModeConfig;
   state: CoreGameState;
   stripClubConfig?: StripClubBalanceConfig;
   restaurantConfig?: RestaurantBalanceConfig;
@@ -236,6 +251,10 @@ const createBuildingActionViews = (input: {
       const missingCosts = Object.entries(action.inputCost).filter(
         ([resourceKey, requiredAmount]) => Math.max(0, Number(input.playerBalances[resourceKey] || 0)) < requiredAmount
       );
+      const phaseRule = input.config
+        ? resolveDayNightActionRule(input.state, { config: input.config }, action.actionId, input.building.buildingTypeId)
+        : null;
+      const phaseBlocked = Boolean(phaseRule?.blockedReason);
       const ownerBlocked =
         action.requiredOwner &&
         (input.district.ownerPlayerId !== input.playerId || input.building.ownerPlayerId !== input.playerId);
@@ -326,7 +345,9 @@ const createBuildingActionViews = (input: {
         playerBalances: input.playerBalances,
         tick: input.tick
       });
-      const disabledReason = ownerBlocked
+      const disabledReason = phaseRule?.blockedReason
+        ? phaseRule.blockedReason
+        : ownerBlocked
         ? "Only the district owner can run this building action."
         : input.building.status !== "active"
           ? "Only active fixed buildings can run actions."
@@ -361,8 +382,8 @@ const createBuildingActionViews = (input: {
                                   : null;
       const status = resolveBuildingActionStatus({
         disabledReason,
-        cooldownRemainingTicks,
-        missingCostCount: missingCosts.length
+        cooldownRemainingTicks: phaseBlocked ? 0 : cooldownRemainingTicks,
+        missingCostCount: phaseBlocked ? 0 : missingCosts.length
       });
 
       return {
@@ -392,7 +413,11 @@ const createBuildingActionViews = (input: {
         heatGain: action.heatGain,
         influenceChange: action.influenceChange,
         reportText: action.reportText,
-        enabled: status === "available"
+        enabled: status === "available",
+        phaseAvailability: phaseRule?.phaseAvailability ?? "neutral",
+        phaseBadgeLabel: phaseRule?.phaseBadgeLabel ?? null,
+        phaseTooltip: phaseRule?.phaseTooltip ?? null,
+        phaseBlockedReason: phaseRule?.blockedReason ?? null
       };
     });
 

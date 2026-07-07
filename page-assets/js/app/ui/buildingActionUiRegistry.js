@@ -52,7 +52,7 @@ const ACTION_UI_BY_ID = Object.freeze({
   "overclock batch": Object.freeze({ label: "Overclock batch", icon: "LAB", category: "production", badge: "Lab" }),
   "clean batch": Object.freeze({ label: "Clean batch", icon: "LAB", category: "production", badge: "Lab" }),
   "hidden operation": Object.freeze({ label: "Hidden operation", icon: "STEALTH", category: "heat", badge: "Krytí" }),
-  "combat module run": Object.freeze({ label: "Combat module run", icon: "FACT", category: "production", badge: "Továrna" }),
+  "combat module run": Object.freeze({ label: "Bojový modul", icon: "FACT", category: "production", badge: "Továrna" }),
   "rapid assembly": Object.freeze({ label: "Rapid assembly", icon: "FACT", category: "production", badge: "Továrna" }),
   "industrial overdrive": Object.freeze({ label: "Industrial overdrive", icon: "FACT", category: "boost", badge: "Továrna" }),
   "attack loadout": Object.freeze({ label: "Attack loadout", icon: "ATK", category: "weapons", badge: "Výzbroj" }),

@@ -24,3 +24,5 @@ The generated client file is:
 `page-assets/js/data/empire-city-map.generated.js`
 
 Do not edit generated map assets by hand.
+
+Spawn candidates are generated from the canonical manifest rule: non-Downtown districts in the first 5 map columns are `west` spawns, non-Downtown districts in the last 5 map columns are `east` spawns, and every non-Downtown district in the bottom row is a `south` spawn. On the current 7 x 23 city grid this yields 83 spawn candidates.

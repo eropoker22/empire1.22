@@ -2,6 +2,7 @@ import type { RunBuildingActionCommand } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { CoreError } from "../errors";
 import type { GameCoreContext } from "../engine/context";
+import { resolveDayNightActionRule } from "../rules/day-night/dayNightActionRules";
 import { validateRunBuildingActionSpecifics } from "./validateRunBuildingActionSpecifics";
 
 /**
@@ -70,6 +71,14 @@ export const validateRunBuildingAction = (
     errors.push({
       code: "building_action_type_mismatch",
       message: `Action ${action.actionId} cannot run on ${building.buildingTypeId}.`
+    });
+  }
+
+  const dayNightRule = resolveDayNightActionRule(state, context, action.actionId, building.buildingTypeId);
+  if (!dayNightRule.allowed) {
+    errors.push({
+      code: "building_action_phase_blocked",
+      message: dayNightRule.blockedReason || "This building action is blocked by the current city phase."
     });
   }
 

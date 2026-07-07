@@ -4,8 +4,24 @@ export function formatCombatLootLabel(itemId) {
     chemicals: "Chemicals",
     biomass: "Biomass",
     "stim-pack": "Stim Pack",
+    "neon-dust": "Neon Dust",
+    "pulse-shot": "Pulse Shot",
+    "velvet-smoke": "Velvet Smoke",
+    "ghost-serum": "Ghost Serum",
+    "overdrive-x": "Overdrive X",
     "metal-parts": "Metal Parts",
-    "tech-core": "Tech Core"
+    "tech-core": "Tech Core",
+    "combat-module": "Bojový modul",
+    "baseball-bat": "Baseballová pálka",
+    pistol: "Pistole",
+    grenade: "Granát",
+    smg: "SMG",
+    bazooka: "Bazuka",
+    vest: "Vesta",
+    barricades: "Barikády",
+    cameras: "Kamery",
+    "defense-tower": "Defense tower",
+    alarm: "Alarm"
   };
 
   return labels[key] || itemId;
@@ -169,7 +185,6 @@ export function createResultPayloadBuilders(deps = {}) {
     }
 
     rows.push(
-      { label: "Odhad zbraní v districtu", value: options.showWeapons === false ? "Nezjištěno" : defenseIntel.weaponsLabel },
       { label: "Odhad síly obrany", value: options.showPowerRange === false ? "Nezjištěno" : defenseIntel.powerRangeLabel },
       { label: "Typ distriktu", value: options.showType === false ? "Nezjištěno" : (typeMeta?.label || "Neznámý") },
       { label: "Atmosféra", value: options.showAtmosphere === false ? "Nezjištěno" : (atmosphereMeta?.label || "Neznámá") },

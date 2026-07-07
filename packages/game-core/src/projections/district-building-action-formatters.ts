@@ -4,10 +4,16 @@ export const formatInputSummary = (inputCosts: Record<string, number>): string =
     .join(" + ");
 
 export const formatResourceLabel = (resourceKey: string): string =>
+  RESOURCE_LABELS[resourceKey] ??
   resourceKey
     .split("-")
     .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
     .join(" ");
+
+const RESOURCE_LABELS: Record<string, string> = {
+  "combat-module": "Bojový modul",
+  combatModule: "Bojový modul"
+};
 
 export const formatCategoryList = (categories: string[]): string =>
   categories.length > 0
@@ -42,4 +48,3 @@ export const formatNumber = (value: number): string => {
 };
 
 export const formatTickLabel = (tickCount: number): string => `${tickCount} ${tickCount === 1 ? "tick" : "ticks"}`;
-

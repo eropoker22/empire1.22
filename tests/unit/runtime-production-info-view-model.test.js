@@ -99,7 +99,7 @@ describe("production info view models", () => {
     });
     expect(viewModel.products[2]).toMatchObject({
       id: "combat-module",
-      title: "Combat Module",
+      title: "Bojový modul",
       durationLabel: "15 min",
       costLabel: "650 Clean Cash + 1 Tech Core"
     });

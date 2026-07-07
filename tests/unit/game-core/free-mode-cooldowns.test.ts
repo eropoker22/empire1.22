@@ -22,6 +22,8 @@ describe("Free BR strategic cooldowns", () => {
     expect(freeConfig.balance.conflict).toMatchObject({
       spyCooldownTicks: 6 * TICKS_PER_MINUTE,
       attackCooldownTicks: 22 * TICKS_PER_MINUTE,
+      robCooldownTicks: 10 * TICKS_PER_MINUTE,
+      heistCooldownTicks: 8 * TICKS_PER_MINUTE,
       minAttackDurationTicks: 22 * TICKS_PER_MINUTE,
       occupyCooldownTicks: 12 * TICKS_PER_MINUTE
     });

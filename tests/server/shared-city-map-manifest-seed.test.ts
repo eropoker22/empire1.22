@@ -40,6 +40,10 @@ describe("shared city map seed", () => {
       districtId: candidate.districtId,
       zones: candidate.zones
     }))).toEqual(manifestSpawnCandidates);
+    expect(sharedCitySpawnPool).toHaveLength(83);
+    expect(sharedCitySpawnPool.every((candidate) =>
+      candidate.zones.every((zone) => zone === "west" || zone === "east" || zone === "south")
+    )).toBe(true);
     expect(sharedCitySpawnPool.some((candidate) =>
       empireStreetsCityMapManifest.districts.find((district) => district.id === candidate.districtId)?.isDowntown
     )).toBe(false);

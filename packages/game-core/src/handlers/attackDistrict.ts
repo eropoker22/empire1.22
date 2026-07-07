@@ -44,6 +44,7 @@ import { resolveAirportEvacuationSupport } from "./airportBuildingActions";
 import { resolveAttackEscapeMitigation } from "./attackEscapeMitigation";
 import { resolveBountyClaims } from "./bountyCommands";
 import { applyCarDealerCooldownReductionTicks, resolveCarDealerEscapeChanceBonusPct } from "./carDealerBuildingActions";
+import { resolveCityHallNightPatrolPressure } from "./cityHallBuildingActions";
 import { resolveCombinedCameraAlarmBonuses, resolveRecruitmentCenterSupportBonuses } from "./recruitmentCenterBuildingActions";
 import { resolveFitnessAttackWeaponModifiers, resolveFitnessDefenseItemModifiers } from "./fitnessClubBuildingActions";
 
@@ -100,6 +101,12 @@ export const handleAttackDistrict = (
   const defenderPenaltyModifiers = resolveActiveAlliancePenaltyStatModifiers(state, targetDistrict.ownerPlayerId, nowIso);
   const attackerFactionModifiers = getFactionPassiveModifiers(state, attacker.id, context);
   const defenderFactionModifiers = getFactionPassiveModifiers(state, targetDistrict.ownerPlayerId, context);
+  const cityHallNightPatrol = resolveCityHallNightPatrolPressure({
+    state,
+    context,
+    targetDistrict,
+    tick: state.root.tick
+  });
   const combinedCameraAlarmBonuses = resolveCombinedCameraAlarmBonuses({
     state,
     playerId: targetDistrict.ownerPlayerId,
@@ -163,7 +170,10 @@ export const handleAttackDistrict = (
     effectiveDefensePower,
     trapLosses: trapResolution.losses,
     heatGain: applyFactionAggressiveHeatGain(
-      applyDayNightHeatGain(context.config.balance.conflict?.attackHeatGain ?? 6, state, context),
+      Math.ceil(
+        applyDayNightHeatGain(context.config.balance.conflict?.attackHeatGain ?? 6, state, context)
+        * cityHallNightPatrol.heatMultiplier
+      ),
       attackerFactionModifiers
     )
   });
@@ -197,7 +207,7 @@ export const handleAttackDistrict = (
   const attackCooldownKey = `attack:${targetDistrict.id}`;
   const attackDurationTicks = Math.max(
     resolveAttackDurationGuardrailTicks(context),
-    applyFactionCooldownTicks(
+    Math.ceil(applyFactionCooldownTicks(
       applyDayNightAttackDurationTicks(applyCarDealerCooldownReductionTicks({
         baseTicks: resolveAttackDurationTicks(context),
         state,
@@ -208,7 +218,7 @@ export const handleAttackDistrict = (
       }), state, context),
       "attack",
       attackerFactionModifiers
-    )
+    ) * cityHallNightPatrol.durationMultiplier)
   );
   const nextPoliceState = increasePlayerPoliceHeat(state, attacker, escapeMitigation.heatGained, state.root.tick);
   const notificationEntries = createBattleReportNotifications({

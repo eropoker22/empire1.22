@@ -14,6 +14,7 @@ const outputPath = resolve(rootDir, "packages/game-config/src/maps/empire-street
 const CANVAS_WIDTH = 1600;
 const CANVAS_HEIGHT = 980;
 const EDGE_KEY_SCALE = 100;
+const SPAWN_SIDE_BAND_COLUMNS = 5;
 
 const zoneByLegacyType = {
   economy: "commercial",
@@ -23,31 +24,22 @@ const zoneByLegacyType = {
   downtown: "downtown"
 };
 
-const spawnZonesByLegacyId = new Map([
-  [1, ["west"]],
-  [24, ["west"]],
-  [47, ["west"]],
-  [70, ["west"]],
-  [93, ["west"]],
-  [116, ["west"]],
-  [139, ["west", "south"]],
-  [23, ["east", "south"]],
-  [46, ["east"]],
-  [69, ["east"]],
-  [92, ["east"]],
-  [115, ["east"]],
-  [138, ["east"]],
-  [161, ["east"]],
-  [142, ["south"]],
-  [146, ["south"]],
-  [149, ["south"]],
-  [152, ["south"]],
-  [155, ["south"]],
-  [159, ["south"]]
-]);
-
 function normalizeNumber(value) {
   return Number(Number(value).toFixed(3));
+}
+
+function resolveSpawnZones(district, maxColumnIndex, maxRowIndex) {
+  const zones = [];
+  if (district.columnIndex < SPAWN_SIDE_BAND_COLUMNS) {
+    zones.push("west");
+  }
+  if (district.columnIndex > maxColumnIndex - SPAWN_SIDE_BAND_COLUMNS) {
+    zones.push("east");
+  }
+  if (district.rowIndex === maxRowIndex) {
+    zones.push("south");
+  }
+  return zones;
 }
 
 function getOpenPolygon(polygon) {
@@ -120,12 +112,14 @@ function deriveNeighborIds(districts) {
 
 function createManifest() {
   const geometry = createDistrictGeometry(CANVAS_WIDTH, CANVAS_HEIGHT);
+  const maxColumnIndex = Math.max(...geometry.districts.map((district) => district.columnIndex));
+  const maxRowIndex = Math.max(...geometry.districts.map((district) => district.rowIndex));
   const districts = geometry.districts
     .map((district) => {
       const legacyId = Number(district.id);
       const id = `district:${legacyId}`;
       const zone = zoneByLegacyType[district.districtType] ?? "residential";
-      const spawnZones = spawnZonesByLegacyId.get(legacyId) ?? [];
+      const spawnZones = zone === "downtown" ? [] : resolveSpawnZones(district, maxColumnIndex, maxRowIndex);
       return {
         id,
         legacyId,

@@ -146,6 +146,14 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
       throw new Error("Conflict config requires a non-negative attackCooldownTicks.");
     }
 
+    if ((config.balance.conflict.robCooldownTicks ?? 0) < 0) {
+      throw new Error("Conflict config requires a non-negative robCooldownTicks.");
+    }
+
+    if ((config.balance.conflict.heistCooldownTicks ?? 0) < 0) {
+      throw new Error("Conflict config requires a non-negative heistCooldownTicks.");
+    }
+
     if ((config.balance.conflict.occupyCooldownTicks ?? 0) < 0) {
       throw new Error("Conflict config requires a non-negative occupyCooldownTicks.");
     }

@@ -96,7 +96,7 @@ export const FACTORY_COMBAT_BOOSTS = Object.freeze({
 export const FACTORY_SLOT_CONFIG = Object.freeze([
   Object.freeze({ id: 1, resourceKey: "metalParts", label: "Metal Parts", mode: "produce" }),
   Object.freeze({ id: 2, resourceKey: "techCore", label: "Tech Core", mode: "produce" }),
-  Object.freeze({ id: 3, resourceKey: "combatModule", label: "Combat Module", mode: "craft" })
+  Object.freeze({ id: 3, resourceKey: "combatModule", label: "Bojový modul", mode: "craft" })
 ]);
 
 export const DRUGLAB_RECIPES = {

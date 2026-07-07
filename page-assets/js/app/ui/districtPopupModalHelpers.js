@@ -15,9 +15,77 @@ import {
 } from "./legacyOverlayCoordinator.js";
 
 const MAIN_DISTRICT_POPUP_SELECTOR = "[data-district-popup]";
+const MOBILE_DISTRICT_POPUP_SCROLL_MEDIA = "(max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse)";
 
 function isMainDistrictPopup(element) {
   return Boolean(element?.matches?.(MAIN_DISTRICT_POPUP_SELECTOR));
+}
+
+function shouldAllowMainDistrictBackgroundScroll(element) {
+  if (!isMainDistrictPopup(element)) {
+    return false;
+  }
+  const view = element?.ownerDocument?.defaultView;
+  return Boolean(view?.matchMedia?.(MOBILE_DISTRICT_POPUP_SCROLL_MEDIA).matches);
+}
+
+function bindMobileDistrictPopupBackgroundScroll(element) {
+  if (!isMainDistrictPopup(element) || element.dataset.districtPopupScrollBridgeBound === "true") {
+    return;
+  }
+
+  const backdrop = element.querySelector?.(".district-popup-backdrop");
+  const view = element.ownerDocument?.defaultView;
+  if (!backdrop || !view) {
+    return;
+  }
+
+  let lastTouchY = 0;
+  const isActive = () => !element.hidden && shouldAllowMainDistrictBackgroundScroll(element);
+  const scrollPageBy = (deltaY) => {
+    if (!deltaY) {
+      return;
+    }
+    if (typeof view.scrollBy !== "function") {
+      return;
+    }
+    try {
+      view.scrollBy({ top: deltaY, left: 0, behavior: "auto" });
+    } catch {
+      view.scrollBy(0, deltaY);
+    }
+  };
+
+  backdrop.addEventListener("touchstart", (event) => {
+    if (!isActive() || event.touches.length !== 1) {
+      lastTouchY = 0;
+      return;
+    }
+    lastTouchY = event.touches[0]?.clientY || 0;
+  }, { passive: true });
+
+  backdrop.addEventListener("touchmove", (event) => {
+    if (!isActive() || event.touches.length !== 1) {
+      return;
+    }
+    const currentTouchY = event.touches[0]?.clientY || lastTouchY;
+    const deltaY = lastTouchY - currentTouchY;
+    lastTouchY = currentTouchY;
+    scrollPageBy(deltaY);
+    event.preventDefault();
+    event.stopPropagation();
+  }, { passive: false });
+
+  backdrop.addEventListener("wheel", (event) => {
+    if (!isActive()) {
+      return;
+    }
+    scrollPageBy(event.deltaY);
+    event.preventDefault();
+    event.stopPropagation();
+  }, { passive: false });
+
+  element.dataset.districtPopupScrollBridgeBound = "true";
 }
 
 function dispatchDistrictPopupClosed(element) {
@@ -51,9 +119,11 @@ export function showDistrictPopupModal(element) {
     return false;
   }
 
+  bindMobileDistrictPopupBackgroundScroll(element);
   openOverlay(element, {
     type: isMainDistrictPopup(element) ? "mobile-sheet" : "modal",
     ariaModal: true,
+    lockScroll: !shouldAllowMainDistrictBackgroundScroll(element),
     restoreFocusOnClose: false,
     skipFocus: true
   });

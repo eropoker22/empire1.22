@@ -12,6 +12,7 @@ export type OverlayType =
   | "generic";
 
 type OverlayEntry = {
+  lockScroll: boolean;
   type: OverlayType;
   owner?: symbol;
 };
@@ -238,12 +239,25 @@ export const shouldSuppressMapInput = (event?: Event | null): boolean => {
   return suppressed;
 };
 
-const openOverlayEntry = (type: OverlayType, owner?: symbol): void => {
-  if (overlayStack.length === 0) {
+export type OpenOverlayOptions = {
+  lockScroll?: boolean;
+};
+
+const hasScrollLockingOverlay = (): boolean =>
+  overlayStack.some((entry) => entry.lockScroll);
+
+const openOverlayEntry = (type: OverlayType, owner?: symbol, options: OpenOverlayOptions = {}): void => {
+  const entry: OverlayEntry = {
+    lockScroll: options.lockScroll !== false,
+    type,
+    owner
+  };
+
+  if (entry.lockScroll && !hasScrollLockingOverlay()) {
     lockBodyScroll();
   }
 
-  overlayStack.push({ type, owner });
+  overlayStack.push(entry);
 };
 
 const findOverlayEntryIndexByOwner = (owner: symbol): number => {
@@ -262,19 +276,17 @@ const closeOverlayEntry = (_reason: string, owner?: symbol): boolean => {
     : overlayStack.length - 1;
   const hadEntry = closeIndex >= 0;
 
-  if (hadEntry) {
-    overlayStack.splice(closeIndex, 1);
-  }
+  const [entry] = hadEntry ? overlayStack.splice(closeIndex, 1) : [null];
   suppressMapInputFor();
-  if (overlayStack.length === 0) {
+  if (entry?.lockScroll && !hasScrollLockingOverlay()) {
     unlockBodyScroll();
   }
 
   return hadEntry;
 };
 
-export const openOverlay = (type: OverlayType): void => {
-  openOverlayEntry(type);
+export const openOverlay = (type: OverlayType, options: OpenOverlayOptions = {}): void => {
+  openOverlayEntry(type, undefined, options);
 };
 
 export const closeOverlay = (_reason: string): void => {
@@ -300,7 +312,7 @@ export const lockModalScroll = (_owner?: unknown): boolean => {
 export const unlockModalScroll = (_owner?: unknown): boolean =>
   closeOverlayEntry("modal scroll lock released", MODAL_SCROLL_LOCK_OWNER);
 
-export const isModalScrollLocked = (_owner?: unknown): boolean => isOverlayOpen();
+export const isModalScrollLocked = (_owner?: unknown): boolean => hasScrollLockingOverlay();
 
 export const getModalScrollLockDebugState = (): {
   bodyLocked: boolean;

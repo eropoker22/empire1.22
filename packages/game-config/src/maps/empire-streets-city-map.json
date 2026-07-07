@@ -237,7 +237,11 @@
         "district:3",
         "district:25",
         "district:26"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:3",
@@ -353,7 +357,11 @@
         "district:4",
         "district:26",
         "district:27"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:4",
@@ -469,7 +477,11 @@
         "district:5",
         "district:27",
         "district:28"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:5",
@@ -564,7 +576,11 @@
         "district:4",
         "district:6",
         "district:28"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:6",
@@ -2187,7 +2203,11 @@
         "district:18",
         "district:20",
         "district:42"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:20",
@@ -2324,7 +2344,11 @@
         "district:42",
         "district:43",
         "district:44"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:21",
@@ -2440,7 +2464,11 @@
         "district:22",
         "district:44",
         "district:45"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:22",
@@ -2556,7 +2584,11 @@
         "district:23",
         "district:45",
         "district:46"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:23",
@@ -2652,8 +2684,7 @@
         "district:46"
       ],
       "spawnZones": [
-        "east",
-        "south"
+        "east"
       ],
       "isSpawnCandidate": true
     },
@@ -2892,7 +2923,11 @@
         "district:26",
         "district:47",
         "district:48"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:26",
@@ -3030,7 +3065,11 @@
         "district:27",
         "district:48",
         "district:49"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:27",
@@ -3168,7 +3207,11 @@
         "district:28",
         "district:49",
         "district:50"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:28",
@@ -3346,7 +3389,11 @@
         "district:29",
         "district:50",
         "district:51"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:29",
@@ -5257,7 +5304,11 @@
         "district:43",
         "district:64",
         "district:65"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:43",
@@ -5374,7 +5425,11 @@
         "district:44",
         "district:65",
         "district:66"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:44",
@@ -5512,7 +5567,11 @@
         "district:45",
         "district:66",
         "district:67"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:45",
@@ -5671,7 +5730,11 @@
         "district:67",
         "district:68",
         "district:69"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:46",
@@ -6070,7 +6133,11 @@
         "district:49",
         "district:71",
         "district:72"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:49",
@@ -6187,7 +6254,11 @@
         "district:48",
         "district:50",
         "district:72"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:50",
@@ -6346,7 +6417,11 @@
         "district:72",
         "district:73",
         "district:74"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:51",
@@ -6463,7 +6538,11 @@
         "district:52",
         "district:74",
         "district:75"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:52",
@@ -8373,7 +8452,11 @@
         "district:66",
         "district:88",
         "district:89"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:66",
@@ -8490,7 +8573,11 @@
         "district:65",
         "district:67",
         "district:89"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:67",
@@ -8649,7 +8736,11 @@
         "district:89",
         "district:90",
         "district:91"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:68",
@@ -8766,7 +8857,11 @@
         "district:69",
         "district:91",
         "district:92"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:69",
@@ -9144,7 +9239,11 @@
         "district:93",
         "district:94",
         "district:95"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:72",
@@ -9282,7 +9381,11 @@
         "district:71",
         "district:73",
         "district:95"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:73",
@@ -9420,7 +9523,11 @@
         "district:95",
         "district:96",
         "district:97"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:74",
@@ -9537,7 +9644,11 @@
         "district:73",
         "district:75",
         "district:97"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:75",
@@ -11472,7 +11583,11 @@
         "district:89",
         "district:110",
         "district:111"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:89",
@@ -11631,7 +11746,11 @@
         "district:90",
         "district:111",
         "district:112"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:90",
@@ -11748,7 +11867,11 @@
         "district:91",
         "district:112",
         "district:113"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:91",
@@ -11907,7 +12030,11 @@
         "district:113",
         "district:114",
         "district:115"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:92",
@@ -12285,7 +12412,11 @@
         "district:95",
         "district:117",
         "district:118"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:95",
@@ -12423,7 +12554,11 @@
         "district:94",
         "district:96",
         "district:118"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:96",
@@ -12561,7 +12696,11 @@
         "district:118",
         "district:119",
         "district:120"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:97",
@@ -12720,7 +12859,11 @@
         "district:98",
         "district:120",
         "district:121"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:98",
@@ -14697,7 +14840,11 @@
         "district:112",
         "district:134",
         "district:135"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:112",
@@ -14835,7 +14982,11 @@
         "district:113",
         "district:135",
         "district:136"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:113",
@@ -14972,7 +15123,11 @@
         "district:112",
         "district:114",
         "district:136"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:114",
@@ -15089,7 +15244,11 @@
         "district:115",
         "district:137",
         "district:138"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:115",
@@ -15446,7 +15605,11 @@
         "district:118",
         "district:139",
         "district:140"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:118",
@@ -15605,7 +15768,11 @@
         "district:119",
         "district:140",
         "district:141"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:119",
@@ -15743,7 +15910,11 @@
         "district:141",
         "district:142",
         "district:143"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:120",
@@ -15860,7 +16031,11 @@
         "district:119",
         "district:121",
         "district:143"
-      ]
+      ],
+      "spawnZones": [
+        "west"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:121",
@@ -17792,7 +17967,11 @@
         "district:135",
         "district:156",
         "district:157"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:135",
@@ -17930,7 +18109,11 @@
         "district:136",
         "district:157",
         "district:158"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:136",
@@ -18068,7 +18251,11 @@
         "district:137",
         "district:158",
         "district:159"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:137",
@@ -18205,7 +18392,11 @@
         "district:138",
         "district:159",
         "district:160"
-      ]
+      ],
+      "spawnZones": [
+        "east"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:138",
@@ -18582,7 +18773,12 @@
         "district:118",
         "district:139",
         "district:141"
-      ]
+      ],
+      "spawnZones": [
+        "west",
+        "south"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:141",
@@ -18698,7 +18894,12 @@
         "district:119",
         "district:140",
         "district:142"
-      ]
+      ],
+      "spawnZones": [
+        "west",
+        "south"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:142",
@@ -18795,6 +18996,7 @@
         "district:143"
       ],
       "spawnZones": [
+        "west",
         "south"
       ],
       "isSpawnCandidate": true
@@ -18934,7 +19136,12 @@
         "district:121",
         "district:142",
         "district:144"
-      ]
+      ],
+      "spawnZones": [
+        "west",
+        "south"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:144",
@@ -19029,7 +19236,11 @@
         "district:121",
         "district:143",
         "district:145"
-      ]
+      ],
+      "spawnZones": [
+        "south"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:145",
@@ -19166,7 +19377,11 @@
         "district:123",
         "district:144",
         "district:146"
-      ]
+      ],
+      "spawnZones": [
+        "south"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:146",
@@ -19402,7 +19617,11 @@
         "district:125",
         "district:146",
         "district:148"
-      ]
+      ],
+      "spawnZones": [
+        "south"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:148",
@@ -19518,7 +19737,11 @@
         "district:126",
         "district:147",
         "district:149"
-      ]
+      ],
+      "spawnZones": [
+        "south"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:149",
@@ -19754,7 +19977,11 @@
         "district:128",
         "district:149",
         "district:151"
-      ]
+      ],
+      "spawnZones": [
+        "south"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:151",
@@ -19849,7 +20076,11 @@
         "district:128",
         "district:150",
         "district:152"
-      ]
+      ],
+      "spawnZones": [
+        "south"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:152",
@@ -20106,7 +20337,11 @@
         "district:131",
         "district:152",
         "district:154"
-      ]
+      ],
+      "spawnZones": [
+        "south"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:154",
@@ -20201,7 +20436,11 @@
         "district:131",
         "district:153",
         "district:155"
-      ]
+      ],
+      "spawnZones": [
+        "south"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:155",
@@ -20458,7 +20697,11 @@
         "district:134",
         "district:155",
         "district:157"
-      ]
+      ],
+      "spawnZones": [
+        "south"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:157",
@@ -20574,7 +20817,12 @@
         "district:135",
         "district:156",
         "district:158"
-      ]
+      ],
+      "spawnZones": [
+        "east",
+        "south"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:158",
@@ -20690,7 +20938,12 @@
         "district:136",
         "district:157",
         "district:159"
-      ]
+      ],
+      "spawnZones": [
+        "east",
+        "south"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:159",
@@ -20808,6 +21061,7 @@
         "district:160"
       ],
       "spawnZones": [
+        "east",
         "south"
       ],
       "isSpawnCandidate": true
@@ -20926,7 +21180,12 @@
         "district:138",
         "district:159",
         "district:161"
-      ]
+      ],
+      "spawnZones": [
+        "east",
+        "south"
+      ],
+      "isSpawnCandidate": true
     },
     {
       "id": "district:161",
@@ -21022,7 +21281,8 @@
         "district:160"
       ],
       "spawnZones": [
-        "east"
+        "east",
+        "south"
       ],
       "isSpawnCandidate": true
     }

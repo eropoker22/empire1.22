@@ -24,7 +24,7 @@ export const freeModeRecyclingCenterConfig: RecyclingCenterBalanceConfig = {
       biomass: { itemName: "Biomass", category: "materials" },
       "metal-parts": { itemName: "Metal Parts", category: "materials" },
       "tech-core": { itemName: "Tech Core", category: "materials" },
-      "combat-module": { itemName: "Combat Module", category: "materials" }
+      "combat-module": { itemName: "Bojový modul", category: "materials" }
     }
   },
   extractLosses: {

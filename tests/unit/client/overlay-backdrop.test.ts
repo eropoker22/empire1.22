@@ -190,6 +190,29 @@ describe("overlay backdrop", () => {
     expect(window.scrollY).toBe(initialScrollY);
   });
 
+  it("non-locking district sheet drží overlay stack bez zamčení body scrollu", () => {
+    openOverlay("district_sheet", { lockScroll: false });
+
+    expect(isOverlayOpen()).toBe(true);
+    expect(getTopOverlay()).toBe("district_sheet");
+    expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
+    expect(document.documentElement.classList.contains("game-modal-scroll-locked")).toBe(false);
+    expect(document.body.classList.contains("game-modal-scroll-locked")).toBe(false);
+    expect(document.body.style.position).toBe("");
+
+    openOverlay("confirmation_modal");
+    expect(document.body.dataset.overlayScrollLocked).toBe("true");
+    expect(document.body.style.position).toBe("fixed");
+
+    closeOverlay("close confirmation");
+    expect(isOverlayOpen()).toBe(true);
+    expect(getTopOverlay()).toBe("district_sheet");
+    expect(document.body.dataset.overlayScrollLocked).toBeUndefined();
+
+    closeOverlay("close district sheet");
+    expect(isOverlayOpen()).toBe(false);
+  });
+
   it("mobile overlay lock drží fixed body na aktuální layout šířce bez desktop gutter kompenzace", () => {
     const originalMatchMedia = window.matchMedia;
     const originalInnerWidth = Object.getOwnPropertyDescriptor(window, "innerWidth");

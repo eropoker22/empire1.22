@@ -52,6 +52,9 @@ function createBuilders(overrides = {}) {
 describe("result payload builders", () => {
   it("keeps pure combat labels and outcome metadata", () => {
     expect(formatCombatLootLabel("tech-core")).toBe("Tech Core");
+    expect(formatCombatLootLabel("combat-module")).toBe("Bojový modul");
+    expect(formatCombatLootLabel("neon-dust")).toBe("Neon Dust");
+    expect(formatCombatLootLabel("pistol")).toBe("Pistole");
     expect(pickRandomQuote(["A"], "B", () => 0)).toBe("A");
     expect(resolveAttackOutcomeMeta("catastrophe").title).toBe("KATASTROFA");
   });
@@ -60,6 +63,7 @@ describe("result payload builders", () => {
     const rows = createBuilders().buildSpyResultRows(3, {}, { defensePower: 50 });
 
     expect(rows.map((row) => row.label)).toContain("Budovy");
+    expect(rows.map((row) => row.label)).not.toContain("Odhad zbraní v districtu");
     expect(rows.find((row) => row.label === "Odhad síly obrany")?.value).toBe("80 až 120");
   });
 

@@ -63,9 +63,11 @@ export const createAdminApp = (options: AdminAppOptions = {}) => {
       }
 
       mountTarget.innerHTML = renderInstanceListPage(createAdminOverviewViewModel([]));
+      bindAdminRefresh(mountTarget, () => createAdminApp(options).mount(mountTarget));
 
       try {
         mountTarget.innerHTML = renderInstanceListPage(await loadAdminOverview());
+        bindAdminRefresh(mountTarget, () => createAdminApp(options).mount(mountTarget));
       } catch (error) {
         mountTarget.innerHTML = renderAdminError(error);
         bindAdminSecretForm(mountTarget, () => createAdminApp(options).mount(mountTarget));
@@ -183,3 +185,22 @@ const resolveDefaultMountTarget = (): HTMLElement | null =>
   typeof document === "undefined"
     ? null
     : document.getElementById("admin-dashboard-root");
+
+const bindAdminRefresh = (
+  target: HTMLElement,
+  refresh: () => void | Promise<void>
+): void => {
+  if (typeof target.querySelector !== "function") {
+    return;
+  }
+
+  const button = target.querySelector<HTMLButtonElement>("[data-admin-refresh]");
+  if (!button) {
+    return;
+  }
+
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    void refresh();
+  });
+};

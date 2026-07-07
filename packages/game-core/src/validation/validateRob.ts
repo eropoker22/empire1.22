@@ -1,11 +1,13 @@
 import type { RobDistrictCommand } from "@empire/shared-types";
+import type { ConflictBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import type { CoreError } from "../errors";
-import { validateMapAction } from "../rules";
+import { createRobCooldownKey, createRobSourceCooldownKey, validateMapAction } from "../rules";
 
 export const validateRob = (
   state: CoreGameState,
-  command: RobDistrictCommand
+  command: RobDistrictCommand,
+  _conflictConfig?: ConflictBalanceConfig
 ): CoreError[] => {
   const originDistrictId = command.payload.sourceDistrictId
     ?? resolveSingleOwnedOrigin(state, command.playerId, command.payload.targetDistrictId);
@@ -57,17 +59,61 @@ export const validateRob = (
     }
   }
 
-  if (result.allowed) return [];
+  if (!result.allowed) {
+    return [{
+      code: result.reasonCode ?? "ROB_BLOCKED",
+      message: "Rob command is not allowed for this district.",
+      details: {
+        targetDistrictId: command.payload.targetDistrictId,
+        sourceDistrictId: originDistrictId,
+        relation: result.relation
+      }
+    }];
+  }
 
-  return [{
-    code: result.reasonCode ?? "ROB_BLOCKED",
-    message: "Rob command is not allowed for this district.",
-    details: {
-      targetDistrictId: command.payload.targetDistrictId,
-      sourceDistrictId: originDistrictId,
-      relation: result.relation
+  const cooldownState = state.cooldownStatesById[player.cooldownStateId];
+  const activeCooldown = getActiveRobCooldown(
+    cooldownState?.cooldowns ?? {},
+    originDistrictId,
+    command.payload.targetDistrictId,
+    state.root.tick
+  );
+
+  if (activeCooldown) {
+    return [{
+      code: "rob_cooldown_active",
+      message: `Vykradení tohoto districtu nebo zdrojové trasy se obnoví za ${activeCooldown.remainingTicks} ticks.`,
+      details: {
+        targetDistrictId: command.payload.targetDistrictId,
+        sourceDistrictId: originDistrictId,
+        cooldownKey: activeCooldown.key,
+        cooldownUntilTick: activeCooldown.untilTick,
+        remainingTicks: activeCooldown.remainingTicks
+      }
+    }];
+  }
+
+  return [];
+};
+
+const getActiveRobCooldown = (
+  cooldowns: Record<string, number>,
+  sourceDistrictId: string,
+  targetDistrictId: string,
+  currentTick: number
+): { key: string; untilTick: number; remainingTicks: number } | null => {
+  for (const key of [createRobCooldownKey(targetDistrictId), createRobSourceCooldownKey(sourceDistrictId)]) {
+    const untilTick = cooldowns[key];
+    if (typeof untilTick === "number" && untilTick > currentTick) {
+      return {
+        key,
+        untilTick,
+        remainingTicks: untilTick - currentTick
+      };
     }
-  }];
+  }
+
+  return null;
 };
 
 const resolveSingleOwnedOrigin = (

@@ -1,4 +1,5 @@
 import type {
+  AdminRuntimeDetailProjection,
   InstanceDiagnosticsSummary,
   InstanceHealthSummary,
   ServerInstanceSummary
@@ -25,6 +26,7 @@ export interface AdminOverviewViewModel {
   selectedHealth: InstanceHealthSummary | null;
   selectedDiagnostics: InstanceDiagnosticsSummary | null;
   selectedLogs: AdminOverviewLogDetailViewModel;
+  runtimeProjection?: AdminRuntimeDetailProjection | null;
 }
 
 export const createAdminOverviewViewModel = (
@@ -39,6 +41,7 @@ export const createAdminOverviewViewModel = (
     selectedHealth?: InstanceHealthSummary | null;
     selectedDiagnostics?: InstanceDiagnosticsSummary | null;
     selectedLogs?: Partial<AdminOverviewLogDetailViewModel>;
+    runtimeProjection?: AdminRuntimeDetailProjection | null;
   } = {}
 ): AdminOverviewViewModel => {
   const selectedInstanceId = options.selectedLogs?.instanceId ?? instances[0]?.instanceId ?? null;
@@ -59,6 +62,7 @@ export const createAdminOverviewViewModel = (
       commands: options.selectedLogs?.commands ?? [],
       events: options.selectedLogs?.events ?? [],
       diagnostics: options.selectedLogs?.diagnostics ?? []
-    }
+    },
+    runtimeProjection: options.runtimeProjection ?? null
   };
 };

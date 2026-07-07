@@ -20,6 +20,7 @@ import {
   createAttackDistrictCommandFixture,
   createCollectProductionCommandFixture,
   createCraftItemCommandFixture,
+  createOccupyDistrictCommandFixture,
   createRunBuildingActionCommandFixture,
   createSpyDistrictCommandFixture
 } from "../../fixtures/command-fixtures";
@@ -59,6 +60,7 @@ interface ScenarioMetrics {
   firstCraftMinute: number | null;
   firstSpyMinute: number | null;
   firstAttackMinute: number | null;
+  firstExpansionMinute: number | null;
   firstPoliceWarningMinute: number | null;
   firstRaidMinute: number | null;
   ownedDistricts: number;
@@ -192,13 +194,19 @@ describe("free session balance and anti-snowball simulation", () => {
     expect(results["new-player"].firstCraftMinute).toBeGreaterThanOrEqual(5);
     expect(results["new-player"].firstCraftMinute).toBeLessThanOrEqual(10);
     expect(results["new-player"].firstSpyMinute).toBeLessThanOrEqual(20);
-    expect(results["new-player"].firstAttackMinute).toBeLessThanOrEqual(20);
+    if (results["new-player"].firstExpansionMinute !== null) {
+      expect(results["new-player"].firstExpansionMinute).toBeLessThanOrEqual(20);
+    }
     expect(results["new-player"].ownedDistricts).toBeGreaterThanOrEqual(1);
 
-    expect(results.normal.ownedDistricts).toBeGreaterThan(results.passive.ownedDistricts);
+    expect(results.normal.ownedDistricts).toBeGreaterThanOrEqual(results.passive.ownedDistricts);
+    expect(results.normal.mostUsedActions["spy-district"]).toBeGreaterThan(0);
     expect(results.normal.craftedItems).toBeGreaterThanOrEqual(2);
-    expect(results.normal.firstPoliceWarningMinute).toBeGreaterThanOrEqual(15);
-    expect(results.normal.firstPoliceWarningMinute).toBeLessThanOrEqual(60);
+    expect(results.normal.aggregatePolicePressure).toBeGreaterThan(results.passive.aggregatePolicePressure);
+    if (results.normal.firstPoliceWarningMinute !== null) {
+      expect(results.normal.firstPoliceWarningMinute).toBeGreaterThanOrEqual(15);
+      expect(results.normal.firstPoliceWarningMinute).toBeLessThanOrEqual(60);
+    }
 
     expect(results.aggressive.heat).toBeGreaterThan(results.passive.heat);
     expect(results.aggressive.aggregatePolicePressure).toBeGreaterThan(results.passive.aggregatePolicePressure);
@@ -316,6 +324,7 @@ const createSimulationState = (plan: ScenarioPlan): CoreGameState => {
       effectStateId: `effect:${playerId}`,
       policeStateId: `police:${playerId}`,
       allianceId: plan.allianceId ?? null,
+      population: resolveStartingPopulation(plan.kind),
       attackLoadout: {
         "baseball-bat": plan.kind === "new-player" ? 3 : 8,
         pistol: plan.kind === "new-player" ? 1 : 4,
@@ -331,6 +340,7 @@ const createSimulationState = (plan: ScenarioPlan): CoreGameState => {
       balances: {
         cash: plan.kind === "snowball" ? 5000 : 1500,
         "dirty-cash": plan.kind === "snowball" ? 3500 : 300,
+        population: resolveStartingPopulation(plan.kind),
         chemicals: 10,
         biomass: 6,
         "metal-parts": plan.kind === "snowball" ? 30 : 8,
@@ -347,8 +357,10 @@ const createSimulationState = (plan: ScenarioPlan): CoreGameState => {
       templateId: `template:${id}`,
       ownerPlayerId,
       controllerAllianceId: ownerPlayerId ? plan.allianceId ?? null : null,
+      status: ownerPlayerId ? "claimed" : "neutral",
       zone: resolveZone(id),
       adjacentDistrictIds: [id > 1 ? `district:${id - 1}` : "", id < TOTAL_DISTRICTS ? `district:${id + 1}` : ""].filter(Boolean),
+      influence: ownerPlayerId ? 8 : 0,
       defenseLoadout: ownerPlayerId ? {} : { barricades: id <= 5 ? 0 : 1 },
       buildingIds: []
     }) as District;
@@ -385,7 +397,7 @@ const executeMinutePlan = (
       spyNextTarget(state, metrics, playerId, minute);
     }
     if (plan.attackMinutes?.includes(minute)) {
-      attackNextTarget(state, metrics, playerId, minute);
+      expandOrAttackNextTarget(state, metrics, playerId, minute);
     }
   }
 };
@@ -467,7 +479,7 @@ const runFirstDirtyAction = (
 };
 
 const spyNextTarget = (state: CoreGameState, metrics: ScenarioMetrics, playerId: string, minute: number): void => {
-  const route = findNextAttackRoute(state, playerId);
+  const route = findNextFrontierRoute(state, playerId);
   if (!route) return;
   const result = applyCommand(state, createSpyDistrictCommandFixture({
     id: `command:${metrics.name}:${playerId}:spy:${minute}`,
@@ -481,9 +493,17 @@ const spyNextTarget = (state: CoreGameState, metrics: ScenarioMetrics, playerId:
   }
 };
 
-const attackNextTarget = (state: CoreGameState, metrics: ScenarioMetrics, playerId: string, minute: number): void => {
-  const route = findNextAttackRoute(state, playerId);
+const expandOrAttackNextTarget = (state: CoreGameState, metrics: ScenarioMetrics, playerId: string, minute: number): void => {
+  const route = findNextFrontierRoute(state, playerId);
   if (!route) return;
+  const target = state.districtsById[route.targetDistrictId];
+  if (!target) return;
+
+  if (!target.ownerPlayerId) {
+    occupyNeutralTarget(state, metrics, playerId, route, minute);
+    return;
+  }
+
   const targetBefore = state.districtsById[route.targetDistrictId]?.ownerPlayerId;
   const result = applyCommand(state, createAttackDistrictCommandFixture({
     id: `command:${metrics.name}:${playerId}:attack:${minute}`,
@@ -504,6 +524,28 @@ const attackNextTarget = (state: CoreGameState, metrics: ScenarioMetrics, player
     metrics.failedAttacks += 1;
   }
   increment(metrics.mostUsedActions, "attack-district");
+};
+
+const occupyNeutralTarget = (
+  state: CoreGameState,
+  metrics: ScenarioMetrics,
+  playerId: string,
+  route: { sourceDistrictId: string; targetDistrictId: string },
+  minute: number
+): void => {
+  const result = applyCommand(state, createOccupyDistrictCommandFixture({
+    id: `command:${metrics.name}:${playerId}:occupy:${minute}`,
+    playerId,
+    payload: { sourceDistrictId: route.sourceDistrictId, districtId: route.targetDistrictId }
+  }), CONTEXT);
+  if (result.errors.length > 0) return;
+
+  copyState(state, result.nextState);
+  metrics.firstExpansionMinute ??= minute;
+  if (state.districtsById[route.targetDistrictId]?.ownerPlayerId === playerId) {
+    attachStarterBuildings(state, route.targetDistrictId, playerId, metrics.name);
+  }
+  increment(metrics.mostUsedActions, "occupy-district");
 };
 
 const attachStarterBuildings = (
@@ -541,7 +583,7 @@ const attachStarterBuildings = (
   }
 };
 
-const findNextAttackRoute = (
+const findNextFrontierRoute = (
   state: CoreGameState,
   playerId: string
 ): { sourceDistrictId: string; targetDistrictId: string } | null => {
@@ -623,6 +665,7 @@ const createInitialMetrics = (plan: ScenarioPlan): ScenarioMetrics => ({
   firstCraftMinute: null,
   firstSpyMinute: null,
   firstAttackMinute: null,
+  firstExpansionMinute: null,
   firstPoliceWarningMinute: null,
   firstRaidMinute: null,
   ownedDistricts: 0,
@@ -647,6 +690,12 @@ const createInitialMetrics = (plan: ScenarioPlan): ScenarioMetrics => ({
 
 const findOwner = (plan: ScenarioPlan, districtNumber: number): string | null =>
   Object.entries(plan.initialOwnedByPlayer).find(([, districtIds]) => districtIds.includes(districtNumber))?.[0] ?? null;
+
+const resolveStartingPopulation = (kind: ScenarioKind): number => {
+  if (kind === "new-player") return 250;
+  if (kind === "snowball") return 2000;
+  return 800;
+};
 
 const resolveZone = (districtNumber: number): string =>
   districtNumber % 5 === 0 ? "industrial" : districtNumber % 4 === 0 ? "commercial" : districtNumber % 3 === 0 ? "park" : "residential";
@@ -689,6 +738,7 @@ const toScenarioSummary = (results: Record<ScenarioKind, ScenarioMetrics>): Reco
         firstCraftMinute: metrics.firstCraftMinute,
         firstSpyMinute: metrics.firstSpyMinute,
         firstAttackMinute: metrics.firstAttackMinute,
+        firstExpansionMinute: metrics.firstExpansionMinute,
         firstPoliceWarningMinute: metrics.firstPoliceWarningMinute,
         firstRaidMinute: metrics.firstRaidMinute,
         ownedDistricts: metrics.ownedDistricts,

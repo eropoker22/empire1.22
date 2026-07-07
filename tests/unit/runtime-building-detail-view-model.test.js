@@ -134,7 +134,7 @@ describe("building detail view-model builder", () => {
       expect.objectContaining({ label: "Materiál", value: "Biomass 0/350" }),
       expect.objectContaining({ label: "Materiál", value: "Metal parts 0/400" }),
       expect.objectContaining({ label: "Materiál", value: "Tech core 0/120" }),
-      expect.objectContaining({ label: "Materiál", value: "Combat modules 0/80" }),
+      expect.objectContaining({ label: "Materiál", value: "Bojové moduly 0/80" }),
       expect.objectContaining({ label: "Materiál", value: "Drogy a boosty 0/220" }),
       expect.objectContaining({ label: "Materiál", value: "Zbraně a obrana 0/160" }),
       expect.objectContaining({ label: "Stav kapacity", value: "Kapacity jsou v pořádku." })
@@ -176,7 +176,7 @@ describe("building detail view-model builder", () => {
       expect.objectContaining({ value: "Biomass 31/100", tone: "warehouse-medium" }),
       expect.objectContaining({ value: "Metal parts 85/100", tone: "warehouse-medium" }),
       expect.objectContaining({ value: "Tech core 86/100", tone: "warehouse-high" }),
-      expect.objectContaining({ value: "Combat modules 0/100", tone: "warehouse-low" }),
+      expect.objectContaining({ value: "Bojové moduly 0/100", tone: "warehouse-low" }),
       expect.objectContaining({ value: "Drogy a boosty 70/100", tone: "warehouse-medium" }),
       expect.objectContaining({ value: "Zbraně a obrana 99/100", tone: "warehouse-high" })
     ]));
@@ -265,6 +265,92 @@ describe("building detail view-model builder", () => {
     expect(model.mechanics.find((row) => row.label === "Výnos")?.value).toBe("$165 / hod");
     expect(model.effects).toEqual([{ text: "Žádné aktivní mechaniky.", tone: "neutral" }]);
     expect(model.actions).toEqual([]);
+  });
+
+  it("adds current night income, heat, and rumor effects to affected building cards", () => {
+    const model = createBuildingDetailViewModel({
+      district: { id: 7 },
+      buildingName: "Restaurace",
+      displayName: "Restaurace",
+      profile: { role: "Cashflow", actions: [] },
+      mechanics: { ...baseMechanics, mechanicsType: "restaurant" },
+      buildingProfile: { typeKey: "downtown", tier: "mid", setTitle: "District" },
+      phaseState: { mapPhase: "night" }
+    });
+
+    expect(model.effects).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        text: "NOC: clean income -10 % · dirty income +25 % · heat -5 % · drby +35 % · přesnost -10 %",
+        tone: "day-night-night"
+      })
+    ]));
+  });
+
+  it("shows illegal income buildings as stronger at night instead of applying legal clean income copy", () => {
+    const model = createBuildingDetailViewModel({
+      buildingName: "Kasino",
+      displayName: "Kasino",
+      profile: { role: "Dirty cash", actions: [] },
+      mechanics: { ...baseMechanics, mechanicsType: "casino" },
+      phaseState: { mapPhase: "night" }
+    });
+
+    expect(model.effects).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        text: "NOC: income +25 % · heat -5 %",
+        tone: "day-night-night"
+      })
+    ]));
+  });
+
+  it("resolves production day/night copy from the displayed building name when mechanics are generic", () => {
+    const model = createBuildingDetailViewModel({
+      buildingName: "Továrna",
+      displayName: "Továrna",
+      profile: { role: "Výroba", actions: [] },
+      mechanics: {
+        ...baseMechanics,
+        cleanHourly: 0,
+        dirtyHourly: 0,
+        dailyHeat: 0,
+        mechanicsType: "generic"
+      },
+      phaseState: { mapPhase: "day" }
+    });
+
+    expect(model.effects).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        text: "DEN: produkce +10 %",
+        tone: "day-night-day"
+      })
+    ]));
+  });
+
+  it("does not add day/night copy to buildings without a day/night affected output", () => {
+    const model = createBuildingDetailViewModel({
+      buildingName: "Bytový blok",
+      displayName: "Bytový blok",
+      profile: { role: "Populace", actions: [] },
+      mechanics: {
+        ...baseMechanics,
+        cleanHourly: 0,
+        dirtyHourly: 0,
+        dailyHeat: 0,
+        mechanicsType: "apartment-block",
+        apartmentWholePopulation: 0,
+        apartmentCapacity: 20,
+        apartmentPopulationPerMinute: 0.3,
+        apartmentIsFull: true,
+        ownedApartmentBlocks: 1,
+        apartmentNetwork: {
+          populationProductionMultiplier: 1,
+          capacityMultiplier: 1
+        }
+      },
+      phaseState: { mapPhase: "night" }
+    });
+
+    expect(model.effects.some((effect) => /^DEN:|^NOC:/u.test(effect.text))).toBe(false);
   });
 
   it("marks downtown district buildings for the premium card treatment", () => {

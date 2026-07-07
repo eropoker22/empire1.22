@@ -206,13 +206,13 @@ export const publicBuildingDefinitions: PublicBuildingDefinition[] = [
     action({ actionId: "evening_course", label: "Večerní kurz", description: "Na 20 minut zvýší produkci lidí. Nestackuje se.", effectSummary: "Cena 600 clean cash, +60 % produkce lidí na 20 minut", cooldownMs: 35 * minute, durationMs: 20 * minute, inputCost: out("cash", 600), effectModifiers: {} })
   ]),
 
-  building("factory", "Továrna", "industrial", "Production", "Produkční budova pro Metal Parts, Tech Core a Combat Module.", stat(0, 0, 3, 10, 14), [
+  building("factory", "Továrna", "industrial", "Production", "Produkční budova pro Metal Parts, Tech Core a bojové moduly.", stat(0, 0, 3, 10, 14), [
     legacyAction("produce_metal_parts", "Produce Metal Parts", "Vyrobí kovové díly.", "+metal parts, +heat", 0.003, 1, out("metal-parts", 5)),
     legacyAction("produce_tech_core", "Produce Tech Core", "Sestaví Tech Core z dílů.", "+tech core, +heat", 0.005, 2, out("tech-core", 1), 0, out("metal-parts", 2)),
-    legacyAction("produce_combat_module", "Produce Combat Module", "Vyrobí Combat Module.", "+combat module, +vliv, +heat", 0.006, 3, out("combat-module", 1), 1, { "metal-parts": 2, "tech-core": 1 })
+    legacyAction("produce_combat_module", "Vyrobit bojový modul", "Vyrobí bojový modul jako součástku.", "+bojový modul, +vliv, +heat", 0.006, 3, out("combat-module", 1), 1, { "metal-parts": 2, "tech-core": 1 })
   ]),
   building("armory", "Zbrojovka", "industrial", "Weapons", "Vyrábí útočné i obranné vybavení z Metal Parts a Tech Core.", stat(0, 0, 4, 18, 14), [
-    legacyAction("armory_craft_weapons", "Craft Weapons", "Vyrobí zbraně ze skladových materiálů.", "+combat module, +heat", 0.006, 3, out("combat-module", 1), 1, { "metal-parts": 2 }),
+    legacyAction("armory_craft_weapons", "Vyrobit výzbrojní modul", "Vyrobí výzbrojní modul ze skladových materiálů.", "+výzbrojní modul, +heat", 0.006, 3, out("combat-module", 1), 1, { "metal-parts": 2 }),
     legacyAction("armory_fortify", "Fortify District", "Zvedne obrannou připravenost území.", "+vliv, +heat", 8, 4, {}, 3)
   ]),
   building("warehouse", "Skladiště", "industrial", "Economy / storage / logistics", "Skladiště drží zásoby města pohromadě. Negeneruje špinavé peníze ani vliv, ale bez skladišť se impérium zadusí vlastním materiálem.", stat(2700, 0, 86.4, 0, 4), []),

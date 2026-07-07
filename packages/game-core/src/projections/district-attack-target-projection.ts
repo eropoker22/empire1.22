@@ -40,6 +40,11 @@ export const createDistrictAttackTargetViews = (
         clientRequestId: null
       };
       const errors = validateAttack(state, previewCommand);
+      const player = state.playersById[playerId];
+      const cooldownUntilTick = player
+        ? state.cooldownStatesById[player.cooldownStateId]?.cooldowns?.[`attack:${targetDistrict.id}`]
+        : 0;
+      const cooldownRemainingTicks = Math.max(0, Number(cooldownUntilTick || 0) - state.root.tick);
 
       return {
         districtId: targetDistrict.id,
@@ -47,7 +52,8 @@ export const createDistrictAttackTargetViews = (
         ownerPlayerId: targetDistrict.ownerPlayerId,
         status: targetDistrict.status,
         enabled: errors.length === 0,
-        disabledReason: errors[0]?.message ?? null
+        disabledReason: errors[0]?.message ?? null,
+        cooldownRemainingTicks
       };
     });
 };

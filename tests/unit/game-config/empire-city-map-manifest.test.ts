@@ -19,8 +19,43 @@ describe("Empire Streets city map manifest", () => {
     expect(issues.filter((issue) => issue.severity === "error")).toEqual([]);
     expect(empireStreetsCityMapManifest.districts).toHaveLength(161);
     expect(empireStreetsCityMapManifest.districts.filter((district) => district.isDowntown)).toHaveLength(8);
-    expect(empireStreetsCityMapManifest.districts.filter((district) => district.isSpawnCandidate)).toHaveLength(20);
+    expect(empireStreetsCityMapManifest.districts.filter((district) => district.isSpawnCandidate)).toHaveLength(83);
     expect(empireStreetsCityMapManifest.districts.some((district) => district.isDowntown && district.isSpawnCandidate)).toBe(false);
+  });
+
+  it("keeps spawn candidates in the west/east side bands plus the bottom row", () => {
+    const spawnBandColumns = 5;
+    const columns = empireStreetsCityMapManifest.districts.map((district) => district.columnIndex ?? 0);
+    const rows = empireStreetsCityMapManifest.districts.map((district) => district.rowIndex ?? 0);
+    const minColumn = Math.min(...columns);
+    const maxColumn = Math.max(...columns);
+    const minRow = Math.min(...rows);
+    const maxRow = Math.max(...rows);
+    const spawnCandidates = empireStreetsCityMapManifest.districts.filter((district) => district.isSpawnCandidate);
+
+    expect(spawnCandidates).toHaveLength(83);
+    expect(spawnCandidates.every((district) =>
+      (district.columnIndex ?? 0) < minColumn + spawnBandColumns
+      || (district.columnIndex ?? 0) > maxColumn - spawnBandColumns
+      || (district.rowIndex ?? 0) === maxRow
+    )).toBe(true);
+    expect(spawnCandidates.filter((district) => district.spawnZones?.includes("west"))).toHaveLength(35);
+    expect(spawnCandidates.filter((district) => district.spawnZones?.includes("east"))).toHaveLength(35);
+    expect(spawnCandidates.filter((district) => district.spawnZones?.includes("south"))).toHaveLength(23);
+    expect(spawnCandidates.every((district) =>
+      !district.spawnZones?.includes("west")
+      || (district.columnIndex ?? 0) < minColumn + spawnBandColumns
+    )).toBe(true);
+    expect(spawnCandidates.every((district) =>
+      !district.spawnZones?.includes("east")
+      || (district.columnIndex ?? 0) > maxColumn - spawnBandColumns
+    )).toBe(true);
+    expect(spawnCandidates.every((district) =>
+      !district.spawnZones?.includes("south")
+      || (district.rowIndex ?? 0) === maxRow
+    )).toBe(true);
+    expect(spawnCandidates.some((district) => (district.rowIndex ?? 0) === minRow)).toBe(true);
+    expect(spawnCandidates.some((district) => (district.rowIndex ?? 0) === maxRow)).toBe(true);
   });
 
   it("keeps generated browser asset hash identical to canonical manifest hash", () => {
@@ -44,8 +79,8 @@ describe("Empire Streets city map manifest", () => {
 
     expect(report.manifestHash).toBe(empireStreetsCityMapManifestHash);
     expect(report.distanceToNearestDowntown["district:1"]).toEqual(expect.any(Number));
-    expect(Object.keys(report.spawnCandidateNeighborCount)).toHaveLength(20);
-    expect(Object.keys(report.spawnCandidateRouteToCenter)).toHaveLength(20);
+    expect(Object.keys(report.spawnCandidateNeighborCount)).toHaveLength(83);
+    expect(Object.keys(report.spawnCandidateRouteToCenter)).toHaveLength(83);
     expect(Array.isArray(report.articulationPoints)).toBe(true);
     expect(Array.isArray(report.bridgeEdges)).toBe(true);
   });

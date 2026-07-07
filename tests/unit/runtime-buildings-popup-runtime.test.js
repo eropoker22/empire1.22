@@ -86,6 +86,30 @@ describe("buildings popup runtime", () => {
     }));
   });
 
+  it("labels passive and production building chips distinctly", () => {
+    const { runtime, renderDistrictBuildingList } = createRuntime({
+      resolveDistrictBuildingProfile: () => ({
+        buildings: [
+          { baseName: "Autosalon", displayName: "Neon Cars" },
+          { baseName: "Lékárna", displayName: "Noční Lékárna" }
+        ],
+        districtLabel: "District 1",
+        setTitle: "Sada",
+        tier: "early",
+        typeKey: "resident"
+      })
+    });
+
+    runtime.renderDistrictPopupBuildings({ id: 1, districtType: "resident" });
+
+    expect(renderDistrictBuildingList).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
+      buildings: [
+        expect.objectContaining({ name: "Autosalon", kindLabel: "Pasivní bonus" }),
+        expect.objectContaining({ name: "Lékárna", kindLabel: "Výroba" })
+      ]
+    }));
+  });
+
   it("marks live-mode building district entries that are not owned by the current player", () => {
     const { runtime, renderBuildingsPopupDetailPanel } = createRuntime({
       getCurrentPlayerOwnedDistrictIds: () => new Set([1]),

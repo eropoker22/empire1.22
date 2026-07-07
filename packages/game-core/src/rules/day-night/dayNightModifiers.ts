@@ -13,7 +13,7 @@ const LEGAL_BUILDINGS = new Set([
 ]);
 
 const ILLEGAL_BUILDINGS = new Set([
-  "casino", "exchange_office", "arcade", "strip_club", "vip_lounge",
+  "casino", "exchange", "exchange_office", "arcade", "strip_club", "vip_lounge",
   "smuggling_tunnel", "street_dealers", "drug_lab", "armory"
 ]);
 

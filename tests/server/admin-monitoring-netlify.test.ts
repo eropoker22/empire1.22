@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createServerApp } from "../../apps/server/src/app";
 import {
   createAdminMonitoringPayload,
-  handleAdminMonitoringNetlifyRequest
+  handleAdminMonitoringNetlifyRequest,
+  sanitizeAdminMonitoringText
 } from "../../apps/server/src/netlify/admin-monitoring-netlify";
 
 describe("admin monitoring netlify guard", () => {
@@ -69,6 +70,28 @@ describe("admin monitoring netlify guard", () => {
     expect(JSON.stringify(response.json)).not.toContain("correct-secret");
   });
 
+  it("rejects query-string secrets and requires the canonical header", async () => {
+    const response = await readJson(
+      handleAdminMonitoringNetlifyRequest(
+        createServerApp(),
+        {
+          headers: {},
+          queryStringParameters: {
+            "x-empire-admin-secret": "correct-secret",
+            EMPIRE_ADMIN_SECRET: "correct-secret"
+          }
+        } as unknown as Parameters<typeof handleAdminMonitoringNetlifyRequest>[1],
+        {
+          NODE_ENV: "production",
+          EMPIRE_ADMIN_SECRET: "correct-secret"
+        }
+      )
+    );
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.stringify(response.json)).not.toContain("correct-secret");
+  });
+
   it("allows non-production access without a configured secret", async () => {
     const response = await readJson(
       handleAdminMonitoringNetlifyRequest(
@@ -90,6 +113,12 @@ describe("admin monitoring netlify guard", () => {
     expect(serialized).not.toContain("sessionToken");
     expect(serialized).not.toContain("authorization");
     expect(serialized).not.toContain("EMPIRE_DATABASE_URL");
+  });
+
+  it("redacts secret-like values from admin monitoring text fields", () => {
+    expect(sanitizeAdminMonitoringText(
+      "diagnostic sessionToken=abc123 dbUrl=postgres://user:pass@example/db"
+    )).toBe("diagnostic sessionToken=[redacted] dbUrl=[redacted]");
   });
 });
 

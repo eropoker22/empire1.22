@@ -81,7 +81,7 @@ describe("gameplay slice read model contract", () => {
         "server": {
           "currentTick": 0,
           "generatedAt": "2026-05-21T00:00:00.000Z",
-          "mapManifestHash": "fnv1a32:f30dfc61",
+          "mapManifestHash": "fnv1a32:a3aa0021",
           "mapManifestId": "empire-streets-city",
           "mapManifestVersion": 1,
           "maxPlayersPerServer": 20,
@@ -293,7 +293,7 @@ describe("gameplay slice read model contract", () => {
         "server": {
           "currentTick": 1,
           "generatedAt": "2026-05-21T00:00:00.000Z",
-          "mapManifestHash": "fnv1a32:f30dfc61",
+          "mapManifestHash": "fnv1a32:a3aa0021",
           "mapManifestId": "empire-streets-city",
           "mapManifestVersion": 1,
           "maxPlayersPerServer": 20,

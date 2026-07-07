@@ -150,7 +150,7 @@ export const renderDistrictPanel = (panel: DistrictPanelViewModel): string =>
               `<div class="district-panel__action-row">`,
               `<button class="district-panel__action-button district-panel__action-button--attack" data-attack-target-id="${escapeAttribute(target.districtId)}"${disabledAttribute}${reasonAttribute}>`,
               `<span class="district-panel__action-title">${escapeHtml(target.label)}</span>`,
-              `<span class="district-panel__action-meta">${escapeHtml(target.ownerLabel)} · ${escapeHtml(target.statusLabel)}</span>`,
+              `<span class="district-panel__action-meta">${escapeHtml(target.ownerLabel)} · ${escapeHtml(target.statusLabel)}${target.cooldownLabel ? ` · čekání ${escapeHtml(target.cooldownLabel)}` : ""}</span>`,
               `</button>`,
               target.disabledReason
                 ? `<p class="district-panel__action-reason">${escapeHtml(target.disabledReason)}</p>`

@@ -40,7 +40,7 @@ export const PRODUCTION_RESOURCE_LABELS = Object.freeze({
   "stim-pack": "Stim Pack",
   "metal-parts": "Metal Parts",
   "tech-core": "Tech Core",
-  "combat-module": "Combat Module"
+  "combat-module": "Bojový modul"
 });
 
 export const PRODUCTION_SLOT_VISUALS = Object.freeze({

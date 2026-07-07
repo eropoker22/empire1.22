@@ -14,6 +14,7 @@ import type {
   QueueSummary,
   SnapshotSummary
 } from "@empire/shared-types";
+import { createAdminRuntimeDetailProjection } from "./admin-runtime-projection";
 
 /**
  * Responsibility: Read-only admin-facing monitoring facade over instance runtime data.
@@ -164,7 +165,9 @@ export const createAdminMonitoringFacade = (
         .map((runtime) => instanceManager.getInstanceMonitorSnapshot(runtime.record.id))
         .filter((snapshot): snapshot is NonNullable<typeof snapshot> => Boolean(snapshot)),
     getHealthSummary: () => healthService.getSummary(),
-    getInstanceHistorySummary: (instanceId: string) => replayLogReader.getInstanceSummary(instanceId)
+    getInstanceHistorySummary: (instanceId: string) => replayLogReader.getInstanceSummary(instanceId),
+    getRuntimeDetailProjection: () =>
+      createAdminRuntimeDetailProjection(instanceManager.listInstances(), new Date().toISOString())
   };
 };
 

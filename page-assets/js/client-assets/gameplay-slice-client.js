@@ -113,6 +113,13 @@ var EmpireGameplaySliceClient = function(exports) {
       `<div class="district-building-popup__info-card">`,
       `<span class="district-building-popup__section-label">Info</span>`,
       `<p class="district-building-popup__info">${escapeHtml(building.info)}</p>`,
+      building.phaseTooltip || building.phaseBadgeLabel ? [
+        `<p class="district-building-popup__phase-effect">`,
+        `<span class="district-building-popup__section-label">Efekt</span>`,
+        renderPhaseBadge$1(building),
+        building.phaseTooltip ? `<span>${escapeHtml(building.phaseTooltip)}</span>` : "",
+        `</p>`
+      ].join("") : "",
       `</div>`,
       `<p class="district-building-popup__section-label">Statistiky</p>`,
       `<div class="district-building-popup__stats">`,
@@ -144,7 +151,10 @@ var EmpireGameplaySliceClient = function(exports) {
       `<article class="district-building-popup__action${action.disabled ? " is-disabled" : ""}" data-special-action-id="${escapeAttribute(action.actionId)}">`,
       `<span class="district-building-popup__action-light" aria-hidden="true"></span>`,
       `<div class="district-building-popup__action-copy">`,
+      `<div class="district-building-popup__action-state-row">`,
       `<span class="district-building-popup__action-state">${action.disabled ? "Blokováno" : "Připraveno"}</span>`,
+      renderPhaseBadge$1(action),
+      `</div>`,
       `<strong>${escapeHtml(action.label)}</strong>`,
       `<span>${escapeHtml(action.description)}</span>`,
       `<div class="district-building-popup__action-metrics">`,
@@ -168,6 +178,12 @@ var EmpireGameplaySliceClient = function(exports) {
     escapeHtml(action.cooldownLabel.replace(/^(?:Cooldown|Čekání)\s+/u, "")),
     `</span>`
   ].join("") : escapeHtml(action.cooldownLabel);
+  const renderPhaseBadge$1 = (action) => {
+    if (!action.phaseBadgeLabel) return "";
+    const availability = toCssToken$1(action.phaseAvailability || "neutral");
+    const tooltip = action.phaseTooltip || action.phaseBadgeLabel;
+    return `<span class="district-panel__phase-badge district-panel__phase-badge--${escapeAttribute(availability)}" title="${escapeAttribute(tooltip)}">${escapeHtml(action.phaseBadgeLabel)}</span>`;
+  };
   const createRunBuildingActionCommand = (input) => {
     const district = input.slice.district;
     const building = district == null ? void 0 : district.buildings.find((candidate) => candidate.buildingId === input.buildingId);
@@ -295,7 +311,10 @@ var EmpireGameplaySliceClient = function(exports) {
       return [
         `<div class="district-panel__production" data-building-action-controls="${escapeAttribute(action.actionId)}">`,
         `<div class="district-panel__production-head">`,
+        `<div class="district-panel__production-title-row">`,
         `<strong class="district-panel__production-title">${escapeHtml(action.label)}</strong>`,
+        renderPhaseBadge(action),
+        `</div>`,
         `<span class="district-panel__production-rate">${escapeHtml(action.statusLabel)} · ${renderLiveCooldown(action)}</span>`,
         `</div>`,
         `<p class="district-panel__slot-summary">${escapeHtml(action.description)}</p>`,
@@ -355,6 +374,12 @@ var EmpireGameplaySliceClient = function(exports) {
     escapeHtml(action.cooldownLabel),
     `</span>`
   ].join("") : escapeHtml(action.cooldownLabel);
+  const renderPhaseBadge = (action) => {
+    if (!action.phaseBadgeLabel) return "";
+    const availability = toCssToken(action.phaseAvailability || "neutral");
+    const tooltip = action.phaseTooltip || action.phaseBadgeLabel;
+    return `<span class="district-panel__phase-badge district-panel__phase-badge--${escapeAttribute(availability)}" title="${escapeAttribute(tooltip)}">${escapeHtml(action.phaseBadgeLabel)}</span>`;
+  };
   const createAttackDistrictCommand = (input) => {
     const district = input.slice.district;
     if (!district) {
@@ -588,6 +613,7 @@ var EmpireGameplaySliceClient = function(exports) {
       `<button class="district-panel__action-button district-panel__action-button--${escapeAttribute(input.buttonModifier)}" ${input.targetAttribute}="${escapeAttribute(target.districtId)}"${disabledAttribute}${reasonAttribute}>`,
       `<span class="district-panel__action-title">${escapeHtml(target.label)}</span>`,
       `<span class="district-panel__action-meta">${escapeHtml(input.renderMeta(target))}</span>`,
+      target.cooldownLabel ? `<span class="district-panel__action-meta">${escapeHtml(`Čekání ${target.cooldownLabel}`)}</span>` : "",
       `</button>`,
       target.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(target.disabledReason)}</p>` : "",
       `</div>`
@@ -709,7 +735,7 @@ var EmpireGameplaySliceClient = function(exports) {
         `<div class="district-panel__action-row">`,
         `<button class="district-panel__action-button district-panel__action-button--attack" data-attack-target-id="${escapeAttribute(target.districtId)}"${disabledAttribute}${reasonAttribute}>`,
         `<span class="district-panel__action-title">${escapeHtml(target.label)}</span>`,
-        `<span class="district-panel__action-meta">${escapeHtml(target.ownerLabel)} · ${escapeHtml(target.statusLabel)}</span>`,
+        `<span class="district-panel__action-meta">${escapeHtml(target.ownerLabel)} · ${escapeHtml(target.statusLabel)}${target.cooldownLabel ? ` · čekání ${escapeHtml(target.cooldownLabel)}` : ""}</span>`,
         `</button>`,
         target.disabledReason ? `<p class="district-panel__action-reason">${escapeHtml(target.disabledReason)}</p>` : "",
         `</div>`
@@ -1028,11 +1054,17 @@ var EmpireGameplaySliceClient = function(exports) {
     }
     return suppressed;
   };
-  const openOverlayEntry = (type, owner) => {
-    if (overlayStack.length === 0) {
+  const hasScrollLockingOverlay = () => overlayStack.some((entry) => entry.lockScroll);
+  const openOverlayEntry = (type, owner, options = {}) => {
+    const entry = {
+      lockScroll: options.lockScroll !== false,
+      type,
+      owner
+    };
+    if (entry.lockScroll && !hasScrollLockingOverlay()) {
       lockBodyScroll();
     }
-    overlayStack.push({ type, owner });
+    overlayStack.push(entry);
   };
   const findOverlayEntryIndexByOwner = (owner) => {
     var _a;
@@ -1046,17 +1078,15 @@ var EmpireGameplaySliceClient = function(exports) {
   const closeOverlayEntry = (_reason, owner) => {
     const closeIndex = owner ? findOverlayEntryIndexByOwner(owner) : overlayStack.length - 1;
     const hadEntry = closeIndex >= 0;
-    if (hadEntry) {
-      overlayStack.splice(closeIndex, 1);
-    }
+    const [entry] = hadEntry ? overlayStack.splice(closeIndex, 1) : [null];
     suppressMapInputFor();
-    if (overlayStack.length === 0) {
+    if ((entry == null ? void 0 : entry.lockScroll) && !hasScrollLockingOverlay()) {
       unlockBodyScroll();
     }
     return hadEntry;
   };
-  const openOverlay = (type) => {
-    openOverlayEntry(type);
+  const openOverlay = (type, options = {}) => {
+    openOverlayEntry(type, void 0, options);
   };
   const closeOverlay = (_reason) => {
     closeOverlayEntry();
@@ -1075,7 +1105,7 @@ var EmpireGameplaySliceClient = function(exports) {
     return true;
   };
   const unlockModalScroll = (_owner) => closeOverlayEntry("modal scroll lock released", MODAL_SCROLL_LOCK_OWNER);
-  const isModalScrollLocked = (_owner) => isOverlayOpen();
+  const isModalScrollLocked = (_owner) => hasScrollLockingOverlay();
   const getModalScrollLockDebugState = () => {
     const body = getBody();
     return {
@@ -1556,7 +1586,8 @@ var EmpireGameplaySliceClient = function(exports) {
       label: target.name,
       statusLabel: target.status,
       disabled: hasPendingCommand || !target.enabled,
-      disabledReason: getDisabledReason(hasPendingCommand, target.disabledReason)
+      disabledReason: getDisabledReason(hasPendingCommand, target.disabledReason),
+      cooldownLabel: (target.cooldownRemainingTicks ?? 0) > 0 ? `${target.cooldownRemainingTicks} ticks` : null
     })),
     heistTargets: (district.heistTargets ?? []).map((target) => ({
       districtId: target.districtId,
@@ -1564,7 +1595,8 @@ var EmpireGameplaySliceClient = function(exports) {
       ownerLabel: target.ownerPlayerId ? `Vlastník ${target.ownerPlayerId}` : "Neutrální distrikt",
       statusLabel: target.status,
       disabled: hasPendingCommand || !target.enabled,
-      disabledReason: getDisabledReason(hasPendingCommand, target.disabledReason)
+      disabledReason: getDisabledReason(hasPendingCommand, target.disabledReason),
+      cooldownLabel: (target.cooldownRemainingTicks ?? 0) > 0 ? `${target.cooldownRemainingTicks} ticks` : null
     })),
     placeDefense: district.placeDefense ? {
       actionLabel: "Vložit obranu",
@@ -1600,8 +1632,13 @@ var EmpireGameplaySliceClient = function(exports) {
   const formatHeatLabel$1 = (value) => String(Math.round(Number.isFinite(value) ? value : 0));
   const formatResourceSummary = (values, emptyLabel) => {
     const parts = Object.entries(values).filter(([, amount]) => amount > 0);
-    return parts.length > 0 ? parts.map(([resourceKey, amount]) => `${amount} ${toTitleCase$3(resourceKey)}`).join(" + ") : emptyLabel;
+    return parts.length > 0 ? parts.map(([resourceKey, amount]) => `${amount} ${formatResourceLabel$2(resourceKey)}`).join(" + ") : emptyLabel;
   };
+  const RESOURCE_LABELS$2 = {
+    "combat-module": "Bojový modul",
+    combatModule: "Bojový modul"
+  };
+  const formatResourceLabel$2 = (resourceKey) => RESOURCE_LABELS$2[resourceKey] ?? toTitleCase$3(resourceKey);
   const formatSigned$1 = (value) => value >= 0 ? `+${value}` : String(value);
   const createDistrictPanelViewModel = (slice, uiState, options = {}) => {
     if (!(slice == null ? void 0 : slice.district) || uiState.selectedDistrictId !== slice.district.districtId) {
@@ -1660,7 +1697,8 @@ var EmpireGameplaySliceClient = function(exports) {
         ownerLabel: target.ownerPlayerId ? `Vlastník ${target.ownerPlayerId}` : "Neutrální distrikt",
         statusLabel: target.status,
         disabled: hasPendingCommand || !target.enabled,
-        disabledReason: hasPendingCommand ? "Akce se zpracovává." : target.disabledReason
+        disabledReason: hasPendingCommand ? "Akce se zpracovává." : target.disabledReason,
+        cooldownLabel: (target.cooldownRemainingTicks ?? 0) > 0 ? `${target.cooldownRemainingTicks} ticks` : null
       })),
       buildings: slice.district.buildings.map((building) => ({
         buildingId: building.buildingId,
@@ -1677,6 +1715,9 @@ var EmpireGameplaySliceClient = function(exports) {
           label: stat.label,
           value: stat.value
         })),
+        phaseAvailability: building.phaseAvailability ?? "neutral",
+        phaseBadgeLabel: building.phaseBadgeLabel ?? null,
+        phaseTooltip: building.phaseTooltip ?? null,
         specialActions: building.specialActions.map((action) => {
           const cooldown = createCooldownCountdown(action.cooldownRemainingTicks ?? 0, tickRateMs, nowMs);
           return {
@@ -1690,7 +1731,10 @@ var EmpireGameplaySliceClient = function(exports) {
             cooldownEndsAtMs: cooldown.endsAtMs,
             heatLabel: `+${action.heatGain}`,
             disabled: hasPendingCommand || !action.enabled,
-            disabledReason: hasPendingCommand ? "Akce se zpracovává." : action.disabledReason
+            disabledReason: hasPendingCommand ? "Akce se zpracovává." : action.disabledReason,
+            phaseAvailability: action.phaseAvailability ?? "neutral",
+            phaseBadgeLabel: action.phaseBadgeLabel ?? null,
+            phaseTooltip: action.phaseTooltip ?? null
           };
         }),
         actions: building.actions.map((action) => {
@@ -1719,7 +1763,10 @@ var EmpireGameplaySliceClient = function(exports) {
             heatLabel: `+${action.heatGain}`,
             influenceLabel: formatSigned$1(action.influenceChange),
             disabled: hasPendingCommand || !action.enabled,
-            disabledReason: hasPendingCommand ? "Akce se zpracovává." : action.disabledReason
+            disabledReason: hasPendingCommand ? "Akce se zpracovává." : action.disabledReason,
+            phaseAvailability: action.phaseAvailability ?? "neutral",
+            phaseBadgeLabel: action.phaseBadgeLabel ?? null,
+            phaseTooltip: action.phaseTooltip ?? null
           };
         })
       })),
@@ -1829,21 +1876,26 @@ var EmpireGameplaySliceClient = function(exports) {
       for (const [resourceId, amount] of Object.entries(balances)) {
         seenResourceIds.add(resourceId);
         if (amount > 0) {
-          parts.push(`${toTitleCase$1(resourceId)} ${amount}`);
+          parts.push(`${formatResourceLabel$1(resourceId)} ${amount}`);
         }
       }
     }
     for (const [resourceId, amount] of Object.entries(economy.resources)) {
       if (!seenResourceIds.has(resourceId) && amount > 0) {
-        parts.push(`${toTitleCase$1(resourceId)} ${amount}`);
+        parts.push(`${formatResourceLabel$1(resourceId)} ${amount}`);
       }
     }
     return parts.join(" · ");
   };
   const formatResourceBalances = (balances) => {
     const parts = Object.entries(balances).filter(([, amount]) => amount > 0);
-    return parts.length > 0 ? parts.map(([resourceKey, amount]) => `${toTitleCase$1(resourceKey)} ${amount}`).join(" · ") : "No resources";
+    return parts.length > 0 ? parts.map(([resourceKey, amount]) => `${formatResourceLabel$1(resourceKey)} ${amount}`).join(" · ") : "No resources";
   };
+  const RESOURCE_LABELS$1 = {
+    "combat-module": "Bojový modul",
+    combatModule: "Bojový modul"
+  };
+  const formatResourceLabel$1 = (value) => RESOURCE_LABELS$1[value] ?? toTitleCase$1(value);
   const toTitleCase$1 = (value) => value.split("-").filter(Boolean).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
   const createReportViewModels = (reports) => reports.map((report) => ({
     id: report.reportId,
@@ -1928,18 +1980,23 @@ var EmpireGameplaySliceClient = function(exports) {
   };
   const formatResourceDelta = (values) => {
     const parts = Object.entries(values).filter(([, amount]) => amount > 0);
-    return parts.length > 0 ? parts.map(([resourceKey, amount]) => `+${amount} ${toTitleCase(resourceKey)}`).join(", ") : "Bez výstupu zdrojů";
+    return parts.length > 0 ? parts.map(([resourceKey, amount]) => `+${amount} ${formatResourceLabel(resourceKey)}`).join(", ") : "Bez výstupu zdrojů";
   };
   const formatDefenseDelta = (values) => {
     const parts = Object.entries(values).filter(([, amount]) => amount > 0);
-    return parts.length > 0 ? `Obrana ${parts.map(([resourceKey, amount]) => `+${amount} ${toTitleCase(resourceKey)}`).join(", ")}` : "";
+    return parts.length > 0 ? `Obrana ${parts.map(([resourceKey, amount]) => `+${amount} ${formatResourceLabel(resourceKey)}`).join(", ")}` : "";
   };
   const formatIntelDelta = (districtIds) => districtIds.length > 0 ? `Intel ${districtIds.length} distriktů` : "";
   const formatSigned = (value) => value >= 0 ? `+${value}` : String(value);
   const formatNumberRecord = (values) => {
     const parts = Object.entries(values).filter(([, amount]) => Number(amount ?? 0) !== 0);
-    return parts.length > 0 ? parts.map(([key, amount]) => `${Number(amount)} ${toTitleCase(key)}`).join(", ") : "none";
+    return parts.length > 0 ? parts.map(([key, amount]) => `${Number(amount)} ${formatResourceLabel(key)}`).join(", ") : "none";
   };
+  const RESOURCE_LABELS = {
+    "combat-module": "Bojový modul",
+    combatModule: "Bojový modul"
+  };
+  const formatResourceLabel = (resourceKey) => RESOURCE_LABELS[resourceKey] ?? toTitleCase(resourceKey);
   const toTitleCase = (value) => value.replaceAll("_", "-").split("-").filter(Boolean).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
   const renderReportLayer = (reports, options = {}) => {
     const commandStatusHtml = renderCommandReportStatus(reports, options);
@@ -2136,7 +2193,7 @@ var EmpireGameplaySliceClient = function(exports) {
         return "Nedostupné";
     }
   };
-  const empireCityMapManifestHash = "fnv1a32:f30dfc61";
+  const empireCityMapManifestHash = "fnv1a32:a3aa0021";
   const getMapManifestMismatch = (response) => {
     var _a, _b, _c;
     const serverHash = ((_a = response.readModel) == null ? void 0 : _a.server.mapManifestHash) ?? null;
@@ -2483,13 +2540,18 @@ var EmpireGameplaySliceClient = function(exports) {
     const normalized = String(value ?? "").trim();
     return normalized.length > 0 ? normalized : null;
   };
+  const MOBILE_DISTRICT_SHEET_SCROLL_MEDIA = "(max-width: 720px), (hover: none) and (pointer: coarse), (any-hover: none), (any-pointer: coarse)";
+  const shouldLockDistrictSheetScroll = () => {
+    var _a;
+    return !(typeof window !== "undefined" && ((_a = window.matchMedia) == null ? void 0 : _a.call(window, MOBILE_DISTRICT_SHEET_SCROLL_MEDIA).matches));
+  };
   const createDistrictSheetOverlayController = () => {
     let isDistrictSheetOpen = false;
     const syncFromState = (state) => {
       var _a;
       const shouldShowDistrictSheet = Boolean((_a = state.districtPanel) == null ? void 0 : _a.districtId);
       if (shouldShowDistrictSheet && !isDistrictSheetOpen) {
-        openOverlay("district_sheet");
+        openOverlay("district_sheet", { lockScroll: shouldLockDistrictSheetScroll() });
         isDistrictSheetOpen = true;
         return;
       }

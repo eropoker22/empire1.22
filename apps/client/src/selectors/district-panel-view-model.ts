@@ -113,7 +113,10 @@ export const createDistrictPanelViewModel = (
       disabled: hasPendingCommand || !target.enabled,
       disabledReason: hasPendingCommand
         ? "Akce se zpracovává."
-        : target.disabledReason
+        : target.disabledReason,
+      cooldownLabel: (target.cooldownRemainingTicks ?? 0) > 0
+        ? `${target.cooldownRemainingTicks} ticks`
+        : null
     })),
     buildings: slice.district.buildings.map((building) => ({
       buildingId: building.buildingId,
@@ -130,6 +133,9 @@ export const createDistrictPanelViewModel = (
         label: stat.label,
         value: stat.value
       })),
+      phaseAvailability: building.phaseAvailability ?? "neutral",
+      phaseBadgeLabel: building.phaseBadgeLabel ?? null,
+      phaseTooltip: building.phaseTooltip ?? null,
       specialActions: building.specialActions.map((action) => {
         const cooldown = createCooldownCountdown(action.cooldownRemainingTicks ?? 0, tickRateMs, nowMs);
 
@@ -148,7 +154,10 @@ export const createDistrictPanelViewModel = (
           disabled: hasPendingCommand || !action.enabled,
           disabledReason: hasPendingCommand
             ? "Akce se zpracovává."
-            : action.disabledReason
+            : action.disabledReason,
+          phaseAvailability: action.phaseAvailability ?? "neutral",
+          phaseBadgeLabel: action.phaseBadgeLabel ?? null,
+          phaseTooltip: action.phaseTooltip ?? null
         };
       }),
       actions: building.actions.map((action) => {
@@ -182,7 +191,10 @@ export const createDistrictPanelViewModel = (
           disabled: hasPendingCommand || !action.enabled,
           disabledReason: hasPendingCommand
             ? "Akce se zpracovává."
-            : action.disabledReason
+            : action.disabledReason,
+          phaseAvailability: action.phaseAvailability ?? "neutral",
+          phaseBadgeLabel: action.phaseBadgeLabel ?? null,
+          phaseTooltip: action.phaseTooltip ?? null
         };
       })
     })),

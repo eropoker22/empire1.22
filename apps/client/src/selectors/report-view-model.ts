@@ -148,14 +148,14 @@ const formatBuildingActionSummary = (report: Extract<ConflictReportView, { repor
 const formatResourceDelta = (values: Record<string, number>): string => {
   const parts = Object.entries(values).filter(([, amount]) => amount > 0);
   return parts.length > 0
-    ? parts.map(([resourceKey, amount]) => `+${amount} ${toTitleCase(resourceKey)}`).join(", ")
+    ? parts.map(([resourceKey, amount]) => `+${amount} ${formatResourceLabel(resourceKey)}`).join(", ")
     : "Bez výstupu zdrojů";
 };
 
 const formatDefenseDelta = (values: Record<string, number>): string => {
   const parts = Object.entries(values).filter(([, amount]) => amount > 0);
   return parts.length > 0
-    ? `Obrana ${parts.map(([resourceKey, amount]) => `+${amount} ${toTitleCase(resourceKey)}`).join(", ")}`
+    ? `Obrana ${parts.map(([resourceKey, amount]) => `+${amount} ${formatResourceLabel(resourceKey)}`).join(", ")}`
     : "";
 };
 
@@ -168,9 +168,17 @@ const formatNumberRecord = (values: Partial<Record<string, number>>): string => 
   const parts = Object.entries(values).filter(([, amount]) => Number(amount ?? 0) !== 0);
 
   return parts.length > 0
-    ? parts.map(([key, amount]) => `${Number(amount)} ${toTitleCase(key)}`).join(", ")
+    ? parts.map(([key, amount]) => `${Number(amount)} ${formatResourceLabel(key)}`).join(", ")
     : "none";
 };
+
+const RESOURCE_LABELS: Record<string, string> = {
+  "combat-module": "Bojový modul",
+  combatModule: "Bojový modul"
+};
+
+const formatResourceLabel = (resourceKey: string): string =>
+  RESOURCE_LABELS[resourceKey] ?? toTitleCase(resourceKey);
 
 const toTitleCase = (value: string): string =>
   value

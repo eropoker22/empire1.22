@@ -200,7 +200,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   }),
   tovarna: Object.freeze({
     role: "Průmyslová výroba",
-    info: "Továrna vyrábí Metal Parts, Tech Core a Combat Module pro zbrojovku, útoky a průmyslové linky.",
+    info: "Továrna vyrábí Metal Parts, Tech Core a bojový modul jako součástku pro zbrojovku, útoky a průmyslové linky.",
     actions: Object.freeze([])
   }),
   zbrojovka: Object.freeze({
