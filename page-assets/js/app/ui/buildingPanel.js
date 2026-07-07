@@ -172,22 +172,25 @@ export function renderBuildingsPopupDetail(mount, view = {}) {
     if (entries.length > 0) {
       for (const entry of entries) {
         const isOwnedByCurrentPlayer = entry.isOwnedByCurrentPlayer !== false;
+        const canOpenBuilding = isOwnedByCurrentPlayer || entry.canOpenFromBuildingsPopup === true;
         const button = createElement(
           mount,
           "button",
-          `button buildings-popup__building buildings-popup__building--name${isOwnedByCurrentPlayer ? " buildings-popup__building--interactive" : " buildings-popup__building--locked"}`
+          `button buildings-popup__building buildings-popup__building--name${canOpenBuilding ? " buildings-popup__building--interactive" : " buildings-popup__building--locked"}`
         );
         const label = createElement(mount, "span");
         if (!button || !label) {
           continue;
         }
         button.type = "button";
-        button.disabled = !isOwnedByCurrentPlayer;
-        if (isOwnedByCurrentPlayer) {
+        button.disabled = !canOpenBuilding;
+        if (canOpenBuilding) {
           button.dataset.buildingsOpenBuildingName = entry.baseName || "";
           button.dataset.buildingsOpenBuildingDisplayName = entry.displayName || "";
           button.dataset.buildingsOpenBuildingDistrictId = String(entry.districtId || "");
-          button.title = `${entry.displayName || entry.baseName || "Budova"} · ${entry.districtLabel || "District"}`;
+          button.title = isOwnedByCurrentPlayer
+            ? `${entry.displayName || entry.baseName || "Budova"} · ${entry.districtLabel || "District"}`
+            : `${entry.displayName || entry.baseName || "Budova"} · ${entry.districtLabel || "District"} · demo nastavení`;
         } else {
           button.setAttribute("aria-disabled", "true");
           button.title = `${entry.districtLabel || "District"} nevlastníš`;

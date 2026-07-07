@@ -153,7 +153,8 @@ describe("building panel rendering", () => {
       activeBaseName: "Bytový blok",
       entries: [
         { baseName: "Bytový blok", displayName: "Blok 1", districtId: 12, districtLabel: "District 12", isOwnedByCurrentPlayer: true, apartmentIsFull: true },
-        { baseName: "Bytový blok", displayName: "Blok 2", districtId: 13, districtLabel: "District 13", isOwnedByCurrentPlayer: false }
+        { baseName: "Bytový blok", displayName: "Blok 2", districtId: 13, districtLabel: "District 13", isOwnedByCurrentPlayer: false },
+        { baseName: "Bytový blok", displayName: "Blok 3", districtId: 14, districtLabel: "District 14", isOwnedByCurrentPlayer: false, canOpenFromBuildingsPopup: true }
       ]
     });
 
@@ -167,6 +168,10 @@ describe("building panel rendering", () => {
     expect(card.children[4].children[0].children[1].disabled).toBe(true);
     expect(card.children[4].children[0].children[1].classList.contains("buildings-popup__building--locked")).toBe(true);
     expect(card.children[4].children[0].children[1].dataset.buildingsOpenBuildingDistrictId).toBeUndefined();
+    expect(card.children[4].children[0].children[2].disabled).toBe(false);
+    expect(card.children[4].children[0].children[2].classList.contains("buildings-popup__building--interactive")).toBe(true);
+    expect(card.children[4].children[0].children[2].dataset.buildingsOpenBuildingDistrictId).toBe("14");
+    expect(card.children[4].children[0].children[2].title).toContain("demo nastavení");
   });
 
   it("renders building detail stats and mechanics rows", () => {

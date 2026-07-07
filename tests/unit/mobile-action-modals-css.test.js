@@ -208,6 +208,18 @@ describe("mobile action modal CSS", () => {
     }
   });
 
+  it("keeps hidden district owner rows single-column on mobile", () => {
+    for (const stylesheet of [districtCss, clientDistrictCss]) {
+      expect(stylesheet).toContain(".district-popup-owner-card:has(.district-popup-owner-avatar-wrap.is-owner-hidden) {\n  grid-template-columns: minmax(0, 1fr);\n  min-height: auto;\n}");
+      expect(stylesheet).toContain(".district-popup-owner-card:has(.district-popup-owner-avatar-wrap.is-owner-hidden) .district-popup-owner-copy {\n  grid-column: 1 / -1;\n}");
+    }
+
+    for (const stylesheet of [css, clientCss]) {
+      expect(stylesheet).toContain(".district-popup-owner-card:has(.district-popup-owner-avatar-wrap.is-owner-hidden) {\n    grid-template-columns: minmax(0, 1fr) !important;\n    min-height: auto !important;\n  }");
+      expect(stylesheet).toContain(".district-popup-owner-card:has(.district-popup-owner-avatar-wrap.is-owner-hidden) .district-popup-owner-copy {\n    grid-column: 1 / -1 !important;\n  }");
+    }
+  });
+
   it("keeps mobile confirmation colors action-specific", () => {
     expect(css).toContain("html body #spy-confirm-modal-confirm");
     expect(css).toContain("html body #raid-confirm-modal-confirm");

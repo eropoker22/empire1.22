@@ -1554,26 +1554,41 @@ html body .market-popup-shell[data-market-mode="black-market"] .market-popup-row
 html body.game-body .city-status-ai-button {
   --purge-button-carmine: 196, 18, 48;
   --purge-button-carmine-hot: 255, 45, 96;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   width: 100% !important;
-  min-height: 0 !important;
+  min-height: 100% !important;
   height: 100% !important;
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-  border-radius: 999px !important;
-  border-color: rgba(var(--purge-button-carmine), 0.64) !important;
+  padding: 0 6px !important;
+  border-radius: inherit !important;
+  border-color: rgba(var(--purge-button-carmine-hot), 0.46) !important;
   background:
-    linear-gradient(135deg, rgba(var(--purge-button-carmine), 0.26), rgba(var(--purge-button-carmine-hot), 0.14)),
-    rgba(22, 4, 10, 0.92) !important;
-  color: #ffe4ec !important;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.012)),
+    linear-gradient(135deg, rgba(var(--purge-button-carmine), 0.34), rgba(var(--purge-button-carmine-hot), 0.18)),
+    rgba(38, 5, 13, 0.58) !important;
+  color: #fff2f5 !important;
   animation: cityStatusAiButtonBlink 4.8s ease-in-out infinite !important;
   will-change: border-color, background-color, box-shadow, color, filter;
 }
 
 html body.game-body .city-status-bar .city-status-pill--action {
+  --city-status-accent: 255, 45, 96;
+  --city-status-accent-alt: 196, 18, 48;
+  display: block !important;
   height: 18px !important;
   padding: 0 !important;
   border-radius: 9px !important;
+  border-color: rgba(255, 64, 112, 0.34) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.012)),
+    linear-gradient(135deg, rgba(196, 18, 48, 0.28), rgba(255, 45, 96, 0.12)),
+    rgba(38, 5, 13, 0.42) !important;
   overflow: hidden !important;
+}
+
+html body.game-body .city-status-bar .city-status-pill--action .city-status-pill__label {
+  display: none !important;
 }
 
 html body.game-body #game-command-bar-mount {
@@ -1679,7 +1694,7 @@ html body.game-body .city-status-bar .city-status-pill:nth-child(4) .city-status
 
   html body.game-body #game-command-bar-mount .city-status-ai-button {
     height: 100% !important;
-    min-height: 0 !important;
+    min-height: 100% !important;
     border-radius: 7px !important;
     font-size: 0.36rem !important;
   }
@@ -1693,8 +1708,9 @@ html body.game-body .city-status-bar .city-status-pill:nth-child(4) .city-status
   0%, 100% {
     border-color: rgba(var(--purge-button-carmine), 0.54);
     background:
-      linear-gradient(135deg, rgba(var(--purge-button-carmine), 0.22), rgba(var(--purge-button-carmine-hot), 0.1)),
-      rgba(22, 4, 10, 0.92);
+      linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01)),
+      linear-gradient(135deg, rgba(var(--purge-button-carmine), 0.32), rgba(148, 10, 32, 0.16)),
+      rgba(34, 5, 12, 0.58);
     color: #ffdce6;
     text-shadow: 0 0 7px rgba(var(--purge-button-carmine), 0.34);
     box-shadow:
@@ -1705,8 +1721,9 @@ html body.game-body .city-status-bar .city-status-pill:nth-child(4) .city-status
   48%, 58% {
     border-color: rgba(var(--purge-button-carmine-hot), 0.96);
     background:
-      linear-gradient(135deg, rgba(var(--purge-button-carmine-hot), 0.34), rgba(var(--purge-button-carmine), 0.22)),
-      rgba(33, 5, 14, 0.96);
+      linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.014)),
+      linear-gradient(135deg, rgba(var(--purge-button-carmine-hot), 0.4), rgba(var(--purge-button-carmine), 0.24)),
+      rgba(48, 6, 16, 0.66);
     color: #ffffff;
     text-shadow:
       0 0 8px rgba(255, 255, 255, 0.78),
@@ -2915,6 +2932,10 @@ html body.game-body .map-phase-toolbar .map-phase-button[data-border-toggle] {
   text-shadow: 0 0 8px rgba(255, 255, 255, 0.22) !important;
 }
 
+html body.game-body .map-phase-toolbar .map-phase-button[data-game-phase-toggle] {
+  display: none !important;
+}
+
 html body.game-body .map-phase-toolbar .map-phase-button[data-border-toggle][data-border-color="white"] {
   border-color: rgba(255, 255, 255, 0.48) !important;
   background: #050505 !important;
@@ -2922,8 +2943,8 @@ html body.game-body .map-phase-toolbar .map-phase-button[data-border-toggle][dat
 }
 
 html body.game-body .map-phase-toolbar .map-phase-button[data-border-toggle][data-border-color="black"] {
-  border-color: rgba(255, 255, 255, 0.9) !important;
-  background: #ffffff !important;
+  border-color: rgba(214, 219, 226, 0.82) !important;
+  background: linear-gradient(180deg, #d7dce3 0%, #c3cad3 100%) !important;
   color: #050505 !important;
   text-shadow: none !important;
 }

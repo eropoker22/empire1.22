@@ -96,7 +96,7 @@ import {
   START_PHASE_PLAYER_NAMES,
   START_PHASE_RESOURCE_SIMULATION,
   isDemoScenarioMode
-} from "./dev/demoScenarios.js";
+} from "./onboarding/demoScenarios.js";
 import { bindLeaderboardPopup } from "./features/leaderboard.js";
 import { bindMapNavigation } from "./map-navigation.js";
 import { createMapCanvasAnimationRenderers } from "./map/mapCanvasAnimations.js";
@@ -5401,7 +5401,6 @@ const {
   getStoredFactorySupplies,
   getStoredMaterialInventory,
   getStoredWeaponInventory,
-  getMinimumOwnedBuildingCountByBaseName: getDemoLiveMinimumOwnedDistrictBuildingCount,
   normalizeBuildingLookupKey,
   restaurantNetworkConfig: RESTAURANT_NETWORK_CONFIG,
   resolveDistrictBuildingProfile,
@@ -5445,18 +5444,7 @@ function getOwnedDistrictBuildingCountByBaseName(baseName) {
     return count + matchingCount;
   }, 0);
 
-  return Math.max(actualCount, getDemoLiveMinimumOwnedDistrictBuildingCount(normalizedBaseName, worldState));
-}
-
-function getDemoLiveMinimumOwnedDistrictBuildingCount(baseName, worldState = getResolvedWorldState()) {
-  const normalizedBaseName = normalizeBuildingLookupKey(baseName);
-  const gamePhase = worldState?.phaseState?.gamePhase === "launch" ? "launch" : "live";
-  if (gamePhase !== "live") {
-    return 0;
-  }
-
-  // Demo LIVE starts building cards with visible network effects without mutating map ownership.
-  return normalizedBaseName === "sklad" ? 0 : 2;
+  return actualCount;
 }
 
 function applyShoppingMallMarketDiscountToPrice(basePrice, discount) {
@@ -9318,6 +9306,7 @@ function bindDistrictCanvas(root) {
         return false;
       }
     },
+    isDemoLiveBuildingCatalogUnlocked: () => normalizeRuntimeGamePhase(getResolvedPhaseState().gamePhase) === "live",
     isDistrictTypeHidden,
     renderBuildingsPopupDetailPanel,
     renderBuildingsPopupTypesPanel,
@@ -11598,20 +11587,6 @@ const {
   syncPhaseHostFromAuthority,
   onBorderColorChange: ({ borderColor, mapPhaseHost }) => {
     mapPhaseHost.dispatchEvent(new CustomEvent("mapborderchange", { detail: { borderColor } }));
-  },
-  onGamePhaseToggle: ({ gamePhase, updateGamePhaseLabel }) => {
-    const worldState = getResolvedWorldState();
-    setStoredWorldState({
-      ...worldState,
-      phaseState: {
-        ...(worldState.phaseState || {}),
-        mapPhase: worldState.phaseState?.mapPhase === "day" ? "day" : "night",
-        gamePhase: gamePhase === "launch" ? "launch" : "live",
-        cityMinutes: worldState.phaseState?.cityMinutes ?? DEFAULT_CITY_MINUTES
-      }
-    });
-    syncDevOnlyDestroyedDistrictState();
-    updateGamePhaseLabel();
   }
 });
 

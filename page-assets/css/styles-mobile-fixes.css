@@ -2560,6 +2560,15 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     overflow: visible !important;
   }
 
+  .district-popup-owner-card:has(.district-popup-owner-avatar-wrap.is-owner-hidden) {
+    grid-template-columns: minmax(0, 1fr) !important;
+    min-height: auto !important;
+  }
+
+  .district-popup-owner-card:has(.district-popup-owner-avatar-wrap.is-owner-hidden) .district-popup-owner-copy {
+    grid-column: 1 / -1 !important;
+  }
+
   .district-popup-owner-avatar-wrap {
     width: 40px !important;
     height: 40px !important;

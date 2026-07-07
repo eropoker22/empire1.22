@@ -9,6 +9,18 @@
   directory = "netlify/functions"
 
 [[redirects]]
+  from = "https://www.empirestreets.cz/*"
+  to = "https://empirestreets.cz/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://www.empirestreets.cz/*"
+  to = "https://empirestreets.cz/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/api/servers"
   to = "/.netlify/functions/gameplay-slice/servers"
   status = 200

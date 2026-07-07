@@ -2,7 +2,7 @@ import { submitServerAllianceCommand } from "./runtime.js";
 import { STORAGE_KEYS } from "../config.js";
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
 import { ALLIANCE_ICON_OPTIONS, getAllianceIconById, getAllianceIconByTag } from "./alliance-icons.js";
-import { LAUNCH_PLAYER_AVATAR_BY_FACTION_ID, START_PHASE_PLAYER_NAMES } from "./dev/demoScenarios.js";
+import { LAUNCH_PLAYER_AVATAR_BY_FACTION_ID, START_PHASE_PLAYER_NAMES } from "./onboarding/demoScenarios.js";
 
 const LOCAL_ALLIANCE_KEY = "empire_local_alliance_state";
 const GLOBAL_CHAT_KEY = "empire_local_global_chat_state";

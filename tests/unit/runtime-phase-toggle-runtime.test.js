@@ -13,11 +13,13 @@ function createElement() {
   return {
     dataset: {},
     disabled: false,
+    hidden: false,
     textContent: "",
     title: "",
     addEventListener: vi.fn((type, listener) => {
       listeners.set(type, [...(listeners.get(type) || []), listener]);
     }),
+    setAttribute: vi.fn(),
     dispatch(type) {
       for (const listener of listeners.get(type) || []) {
         listener({ type });
@@ -54,7 +56,7 @@ describe("phase toggle runtime", () => {
   it("keeps phase and border labels stable", () => {
     expect(getMapPhaseToggleLabel({ mapPhase: "day" })).toBe("Fáze: DEN");
     expect(getMapPhaseToggleLabel({ mapPhase: "night" })).toBe("Fáze: NOC");
-    expect(getGamePhaseToggleLabel({ gamePhase: "launch" })).toBe("Fáze hry: DEV-ONLY");
+    expect(getGamePhaseToggleLabel({ gamePhase: "launch" })).toBe("Fáze hry: ONBOARDING");
     expect(getGamePhaseToggleLabel({ gamePhase: "live" })).toBe("Fáze hry: LIVE");
     expect(normalizeBorderColor("bad")).toBe("white");
     expect(normalizeBorderColor("black")).toBe("black");
@@ -102,7 +104,7 @@ describe("phase toggle runtime", () => {
     });
   });
 
-  it("delegates game phase mutation to runtime callback", () => {
+  it("keeps game phase toggle hidden and non-interactive", () => {
     const phaseHost = createElement();
     const gameToggle = createElement();
     const onGamePhaseToggle = vi.fn(({ updateGamePhaseLabel }) => {
@@ -114,16 +116,14 @@ describe("phase toggle runtime", () => {
       "#game": gameToggle,
       "#phase": phaseHost
     }))).toBe(true);
-    expect(gameToggle.textContent).toBe("Fáze hry: DEV-ONLY");
-    expect(gameToggle.disabled).toBe(false);
+    expect(gameToggle.textContent).toBe("Fáze hry: ONBOARDING");
+    expect(gameToggle.disabled).toBe(true);
+    expect(gameToggle.hidden).toBe(true);
+    expect(gameToggle.setAttribute).toHaveBeenCalledWith("aria-hidden", "true");
 
     gameToggle.dispatch("click");
 
-    expect(onGamePhaseToggle).toHaveBeenCalledWith(expect.objectContaining({
-      gamePhase: "live",
-      mapPhaseHost: phaseHost,
-      updateGamePhaseLabel: expect.any(Function)
-    }));
+    expect(onGamePhaseToggle).not.toHaveBeenCalled();
   });
 
   it("handles missing toggle DOM without crashing", () => {

@@ -86,6 +86,18 @@ export function createBuildingsPopupRuntime(deps = {}) {
   const isApartmentBlockFull = typeof deps.isApartmentBlockFull === "function"
     ? deps.isApartmentBlockFull
     : () => false;
+  const isDemoLiveBuildingCatalogUnlocked = typeof deps.isDemoLiveBuildingCatalogUnlocked === "function"
+    ? deps.isDemoLiveBuildingCatalogUnlocked
+    : () => false;
+
+  const isLiveDemoCatalogUnlocked = (interactionState = getInteractionState()) => (
+    String(interactionState?.gamePhase || "launch").trim().toLowerCase() === "live"
+    && Boolean(isDemoLiveBuildingCatalogUnlocked(interactionState))
+  );
+
+  const isDestroyedDistrict = (district, interactionState = getInteractionState()) => (
+    Boolean(interactionState.destroyedDistrictIds?.has?.(Number(district?.id)))
+  );
 
   const getSelectedDistrictForBuildingsPopup = () => {
     const selectedDistrictId = getInteractionState().selectedDistrictId;
@@ -224,10 +236,12 @@ export function createBuildingsPopupRuntime(deps = {}) {
 
     const interactionState = getInteractionState();
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+    const demoLiveCatalogUnlocked = isLiveDemoCatalogUnlocked(interactionState);
 
     return geometry.districts
       .filter((district) => !typeKey || district.districtType === typeKey)
-      .filter((district) => currentPlayerOwnedDistrictIds.has(Number(district.id)))
+      .filter((district) => !isDestroyedDistrict(district, interactionState))
+      .filter((district) => demoLiveCatalogUnlocked || currentPlayerOwnedDistrictIds.has(Number(district.id)))
       .sort((left, right) => Number(left?.id || 0) - Number(right?.id || 0));
   };
 
@@ -252,6 +266,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
     const districts = getSourceDistrictsForBuildingType(typeKey);
     const interactionState = getInteractionState();
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
+    const demoLiveCatalogUnlocked = isLiveDemoCatalogUnlocked(interactionState);
     const entries = [];
 
     for (const district of districts) {
@@ -273,6 +288,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
           districtLabel,
           districtType: buildingProfile.typeKey,
           isOwnedByCurrentPlayer: currentPlayerOwnedDistrictIds.has(Number(district.id)),
+          canOpenFromBuildingsPopup: demoLiveCatalogUnlocked || currentPlayerOwnedDistrictIds.has(Number(district.id)),
           apartmentIsFull: isApartmentBlockBaseName(baseName) && isApartmentBlockFull({ district, building, baseName, displayName }),
           setTitle: buildingProfile.setTitle,
           tier: buildingProfile.tier
@@ -294,13 +310,16 @@ export function createBuildingsPopupRuntime(deps = {}) {
         const districtCount = getSourceDistrictsForBuildingType(typeKey).length;
         const ownedDistrictCount = getOwnedDistrictCountForBuildingType(typeKey);
         const disabled = districtCount <= 0;
+        const demoLiveCatalogUnlocked = isLiveDemoCatalogUnlocked();
         return {
           typeKey,
           label: meta.shortLabel,
           districtCount,
           ownedDistrictCount,
           disabled,
-          meta: ownedDistrictCount > 0 ? `(${ownedDistrictCount})` : "",
+          meta: demoLiveCatalogUnlocked && districtCount > 0
+            ? `(${districtCount})`
+            : ownedDistrictCount > 0 ? `(${ownedDistrictCount})` : "",
           active: typeKey === selectedType
         };
       })
@@ -355,8 +374,12 @@ export function createBuildingsPopupRuntime(deps = {}) {
       deps.renderBuildingsPopupDetailPanel(elements.buildingsPopupDetailMount, {
         selectedType,
         title: meta.label,
-        copy: "Zobrazuje pouze budovy v districtech, které máš pod kontrolou.",
-        emptyText: "Zaber nebo kup district tohoto typu a tady se objeví jeho budovy."
+        copy: isLiveDemoCatalogUnlocked()
+          ? "Zobrazuje všechny budovy na mapě."
+          : "Zobrazuje pouze budovy v districtech, které máš pod kontrolou.",
+        emptyText: isLiveDemoCatalogUnlocked()
+          ? "V tomhle typu districtu nejsou žádné použitelné budovy."
+          : "Zaber nebo kup district tohoto typu a tady se objeví jeho budovy."
       });
       return;
     }
@@ -364,7 +387,9 @@ export function createBuildingsPopupRuntime(deps = {}) {
     deps.renderBuildingsPopupDetailPanel(elements.buildingsPopupDetailMount, {
       selectedType,
       title: meta.label,
-      copy: "Zobrazuje pouze budovy v districtech, které máš pod kontrolou.",
+      copy: isLiveDemoCatalogUnlocked()
+        ? "Zobrazuje všechny budovy na mapě."
+        : "Zobrazuje pouze budovy v districtech, které máš pod kontrolou.",
       baseTypes,
       activeBaseName,
       entries: scopedEntries,

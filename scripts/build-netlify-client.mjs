@@ -51,6 +51,8 @@ try {
 await writeFile(
   resolve(publishDir, "_redirects"),
   [
+    "https://www.empirestreets.cz/* https://empirestreets.cz/:splat 301!",
+    "http://www.empirestreets.cz/* https://empirestreets.cz/:splat 301!",
     "/ /pages/login.html 200",
     "/login.html /pages/login.html 200",
     "/lobby.html /pages/lobby.html 200",
@@ -69,6 +71,8 @@ await writeFile(
     "Options -MultiViews",
     "DirectoryIndex pages/login.html",
     "RewriteEngine On",
+    "RewriteCond %{HTTP_HOST} ^www\\.empirestreets\\.cz$ [NC]",
+    "RewriteRule ^(.*)$ https://empirestreets.cz/$1 [L,R=301]",
     "RewriteRule ^$ pages/login.html [L]",
     "RewriteRule ^login\\.html$ pages/login.html [L]",
     "RewriteRule ^lobby\\.html$ pages/lobby.html [L]",

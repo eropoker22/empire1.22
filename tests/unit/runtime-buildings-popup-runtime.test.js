@@ -163,6 +163,41 @@ describe("buildings popup runtime", () => {
     }));
   });
 
+  it("unlocks every non-destroyed building entry for the live demo catalog", () => {
+    const { runtime, renderBuildingsPopupTypesPanel, renderBuildingsPopupDetailPanel } = createRuntime({
+      getCurrentPlayerOwnedDistrictIds: () => new Set([1]),
+      getInteractionState: () => ({ gamePhase: "live", destroyedDistrictIds: new Set() }),
+      isDemoLiveBuildingCatalogUnlocked: () => true
+    });
+
+    expect(runtime.getSourceDistrictsForBuildingType("resident").map((district) => district.id)).toEqual([1, 3]);
+    expect(runtime.getSourceDistrictsForBuildingType("industrial").map((district) => district.id)).toEqual([2]);
+
+    runtime.renderBuildingsPopup("industrial");
+
+    expect(renderBuildingsPopupTypesPanel).toHaveBeenLastCalledWith(undefined, expect.objectContaining({
+      types: expect.arrayContaining([
+        expect.objectContaining({
+          typeKey: "industrial",
+          disabled: false,
+          districtCount: 1,
+          ownedDistrictCount: 0,
+          meta: "(1)"
+        })
+      ])
+    }));
+    expect(renderBuildingsPopupDetailPanel).toHaveBeenLastCalledWith(undefined, expect.objectContaining({
+      copy: "Zobrazuje všechny budovy na mapě.",
+      entries: [
+        expect.objectContaining({
+          districtId: 2,
+          isOwnedByCurrentPlayer: false,
+          canOpenFromBuildingsPopup: true
+        })
+      ]
+    }));
+  });
+
   it("disables building zone tabs when the player owns no district in that zone", () => {
     const { runtime, renderBuildingsPopupTypesPanel } = createRuntime({
       getCurrentPlayerOwnedDistrictIds: () => new Set([1])

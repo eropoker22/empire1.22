@@ -11,7 +11,7 @@ import {
   START_PHASE_PLAYER_NAMES,
   START_PHASE_RESOURCE_SIMULATION,
   isDemoScenarioMode
-} from "../../page-assets/js/app/dev/demoScenarios.js";
+} from "../../page-assets/js/app/onboarding/demoScenarios.js";
 import {
   MAP_GRID_COLUMNS,
   MAP_GRID_ROWS

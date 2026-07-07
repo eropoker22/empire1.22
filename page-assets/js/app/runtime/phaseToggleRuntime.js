@@ -8,7 +8,7 @@ export function getMapPhaseToggleLabel(phaseState = {}) {
 }
 
 export function getGamePhaseToggleLabel(phaseState = {}) {
-  return phaseState.gamePhase === "launch" ? "Fáze hry: DEV-ONLY" : "Fáze hry: LIVE";
+  return phaseState.gamePhase === "launch" ? "Fáze hry: ONBOARDING" : "Fáze hry: LIVE";
 }
 
 export function getBorderColorToggleLabel(borderColor) {
@@ -97,19 +97,10 @@ export function createPhaseToggleRuntime(deps = {}) {
     };
 
     updateGamePhaseLabel();
-    toggleButton.disabled = false;
-    toggleButton.title = "Přepnout fázi hry";
-
-    toggleButton.addEventListener("click", () => {
-      const currentPhaseState = deps.getResolvedPhaseState?.() || {};
-      const nextGamePhase = currentPhaseState.gamePhase === "launch" ? "live" : "launch";
-
-      deps.onGamePhaseToggle?.({
-        gamePhase: nextGamePhase,
-        mapPhaseHost,
-        updateGamePhaseLabel
-      });
-    });
+    toggleButton.disabled = true;
+    toggleButton.hidden = true;
+    toggleButton.setAttribute?.("aria-hidden", "true");
+    toggleButton.title = "Fáze hry se přepíná pouze onboardingem a autoritativním stavem.";
 
     return true;
   };

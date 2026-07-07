@@ -232,15 +232,15 @@ export function updateTopbarResources(playerState = {}, options = {}) {
 
     if (cleanMoneyPill) {
       cleanMoneyPill.title = isDistrictResourceMode
-        ? `DEV-ONLY: čisté peníze běží +${formatMoneyAmount(playerState.cleanMoneyPerMinute)}/min z ${normalizeCount(playerState.districtCount)} distriktů.`
+        ? `Onboarding: čisté peníze běží +${formatMoneyAmount(playerState.cleanMoneyPerMinute)}/min z ${normalizeCount(playerState.districtCount)} distriktů.`
         : "Aktuální stav čistých peněz.";
     }
 
     if (dirtyMoneyPill) {
       dirtyMoneyPill.title = isDistrictResourceMode
         ? (Number(playerState.dirtyMoneyPerMinute || 0) > 0
-            ? `DEV-ONLY: špinavé peníze běží +${formatMoneyAmount(playerState.dirtyMoneyPerMinute)}/min z ${normalizeCount(playerState.districtCount)} distriktů.`
-            : "DEV-ONLY: distrikty právě nepřidávají špinavé peníze.")
+            ? `Onboarding: špinavé peníze běží +${formatMoneyAmount(playerState.dirtyMoneyPerMinute)}/min z ${normalizeCount(playerState.districtCount)} distriktů.`
+            : "Onboarding: distrikty právě nepřidávají špinavé peníze.")
         : "Aktuální stav špinavých peněz.";
     }
 
@@ -343,7 +343,7 @@ export function updateTopbarResources(playerState = {}, options = {}) {
         ? `Dostupní špehové ${spyAvailable}/${maxSpies}. Klikni pro přepnutí na vliv.`
         : "Všichni špehové jsou právě na misi. Klikni pro přepnutí na vliv.")
     : (isDistrictResourceMode
-        ? `DEV-ONLY: vliv běží +${formatMetricNumber(playerState.influencePerMinute, 2)}/min z ${normalizeCount(playerState.districtCount)} distriktů. Klikni pro přepnutí na špehy.`
+        ? `Onboarding: vliv běží +${formatMetricNumber(playerState.influencePerMinute, 2)}/min z ${normalizeCount(playerState.districtCount)} distriktů. Klikni pro přepnutí na špehy.`
         : `Vliv: ${influence}. Klikni pro přepnutí na špehy.`);
 
   if (animate) {

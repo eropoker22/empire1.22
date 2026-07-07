@@ -3,7 +3,7 @@ import {
   MARKET_TAB_CONFIG,
   getMarketPriceKey
 } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
-import { MARKET_PLAYER_DEMO_SELLERS } from "../dev/demoScenarios.js";
+import { MARKET_PLAYER_DEMO_SELLERS } from "../onboarding/demoScenarios.js";
 import {
   DEFAULT_MARKET_SERVER_ID,
   MARKET_PLAYER_LISTING_LIMIT,
