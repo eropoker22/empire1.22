@@ -3862,8 +3862,7 @@ html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__action-
     #trap-confirm-modal:not(.hidden):not([hidden]),
     #spy-confirm-modal:not(.hidden):not([hidden]),
     #occupy-confirm-modal:not(.hidden):not([hidden]),
-    .attack-setup-popup-shell:not([hidden]),
-    .robbery-setup-popup-shell:not([hidden])
+    .attack-setup-popup-shell:not(.robbery-setup-popup-shell):not([hidden])
   )) #game-header,
   html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(:is(
     #attack-confirm-modal:not(.hidden):not([hidden]),
@@ -3871,8 +3870,7 @@ html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__action-
     #trap-confirm-modal:not(.hidden):not([hidden]),
     #spy-confirm-modal:not(.hidden):not([hidden]),
     #occupy-confirm-modal:not(.hidden):not([hidden]),
-    .attack-setup-popup-shell:not([hidden]),
-    .robbery-setup-popup-shell:not([hidden])
+    .attack-setup-popup-shell:not(.robbery-setup-popup-shell):not([hidden])
   )) .game-topbar,
   html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(:is(
     #attack-confirm-modal:not(.hidden):not([hidden]),
@@ -3880,8 +3878,7 @@ html body.game-body .elimination-ai-panel.is-open .elimination-ai-panel__action-
     #trap-confirm-modal:not(.hidden):not([hidden]),
     #spy-confirm-modal:not(.hidden):not([hidden]),
     #occupy-confirm-modal:not(.hidden):not([hidden]),
-    .attack-setup-popup-shell:not([hidden]),
-    .robbery-setup-popup-shell:not([hidden])
+    .attack-setup-popup-shell:not(.robbery-setup-popup-shell):not([hidden])
   )) .game-resource-strip {
     visibility: hidden !important;
     opacity: 0 !important;
@@ -4661,11 +4658,22 @@ html body.game-body :is(
 /* Absolute final mobile robbery confirmation placement guard. */
 @media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
   html body.game-body {
+    --robbery-setup-window-safe-top-final: calc(max(var(--mobile-overlay-top-offset, 0px), var(--mobile-topbar-offset, 72px)) + 10px);
+    --robbery-setup-window-safe-bottom-final: max(8px, env(safe-area-inset-bottom));
+    --robbery-setup-window-safe-height-final: calc(var(--mobile-locked-vh, 100svh) - var(--robbery-setup-window-safe-top-final) - var(--robbery-setup-window-safe-bottom-final));
     --robbery-confirm-window-safe-top-final: calc(max(var(--mobile-overlay-top-offset, 0px), var(--mobile-topbar-offset, 72px)) + 10px);
     --robbery-confirm-window-safe-bottom-final: max(8px, env(safe-area-inset-bottom));
     --robbery-confirm-window-safe-height-final: calc(var(--mobile-locked-vh, 100svh) - var(--robbery-confirm-window-safe-top-final) - var(--robbery-confirm-window-safe-bottom-final));
   }
 
+  html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip,
   html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) #game-header,
   html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
   html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
@@ -4681,18 +4689,94 @@ html body.game-body :is(
     transform: none !important;
   }
 
+  html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) .game-topbar,
   html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar,
   html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar {
     display: block !important;
   }
 
+  html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) > #game-header,
+  html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) > .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) > #game-header,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) > .game-topbar {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: 0 !important;
+    z-index: 26050 !important;
+    display: block !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) .game-topbar-inner,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) .game-topbar-inner,
+  html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) .game-topbar-controls,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) .game-topbar-controls {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    justify-items: stretch !important;
+    justify-content: stretch !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar-inner,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar-inner,
+  html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar-controls,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar-controls {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    justify-items: stretch !important;
+    justify-content: stretch !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip,
   html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
   html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
   html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip,
   html body.game-body.game-modal-scroll-locked.is-mobile-topbar-condensed:has(.district-popup-shell:not([hidden])):has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-resource-strip {
     display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    justify-items: stretch !important;
+    justify-content: stretch !important;
+    align-items: stretch !important;
+    gap: 6px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
+  html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) .game-topbar .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip > *,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) .game-topbar .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) .game-topbar .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip > *,
   html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-resource-strip,
   html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .resource-pill,
   html body.game-body.game-modal-scroll-locked:has(#raid-confirm-modal:not(.hidden):not([hidden])) .game-topbar .game-toolbar-button,
@@ -4704,6 +4788,24 @@ html body.game-body :is(
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip > .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip > .resource-pill {
+    display: flex !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip > .game-toolbar-button,
+  html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip > .game-toolbar-button {
+    display: inline-flex !important;
+  }
+
+  html body.game-modal-scroll-locked .robbery-setup-popup-shell:not([hidden]) {
+    padding: var(--robbery-setup-window-safe-top-final) 8px var(--robbery-setup-window-safe-bottom-final) !important;
+  }
+
+  html body.game-modal-scroll-locked .robbery-setup-popup-shell:not([hidden]) .robbery-setup-popup-card {
+    max-height: var(--robbery-setup-window-safe-height-final) !important;
   }
 
   html body #raid-confirm-modal:not(.hidden):not([hidden]),
@@ -4758,7 +4860,7 @@ html body.game-body :is(
 
   html body.game-body.game-modal-scroll-locked > .game-shell,
   html body.game-body.alliance-modal-open > .game-shell {
-    padding-top: var(--modal-topbar-reserve, 52px) !important;
+    margin-top: var(--modal-topbar-reserve, 52px) !important;
   }
 
   html body.game-body.game-modal-scroll-locked .game-topbar-inner,

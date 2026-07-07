@@ -94,6 +94,19 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("padding: var(--robbery-confirm-window-safe-top) 8px var(--robbery-confirm-window-safe-bottom) !important;");
       expect(stylesheet).toContain("max-height: var(--robbery-confirm-window-safe-height) !important;");
       expect(stylesheet).toContain("Absolute final mobile robbery confirmation placement guard.");
+      expect(stylesheet).toContain("--robbery-setup-window-safe-top-final: calc(max(var(--mobile-overlay-top-offset, 0px), var(--mobile-topbar-offset, 72px)) + 10px);");
+      expect(stylesheet).toContain("--robbery-setup-window-safe-height-final: calc(var(--mobile-locked-vh, 100svh) - var(--robbery-setup-window-safe-top-final) - var(--robbery-setup-window-safe-bottom-final));");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.district-popup-shell:not([hidden])):has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) > #game-header");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) > .game-topbar");
+      expect(stylesheet).toContain("z-index: 26050 !important;");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) .game-topbar-inner");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip > .resource-pill");
+      expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked:has(.robbery-setup-popup-shell:not([hidden])) .game-resource-strip > .game-toolbar-button");
+      expect(stylesheet).toContain("html body.game-modal-scroll-locked .robbery-setup-popup-shell:not([hidden])");
+      expect(stylesheet).toContain("padding: var(--robbery-setup-window-safe-top-final) 8px var(--robbery-setup-window-safe-bottom-final) !important;");
+      expect(stylesheet).toContain("max-height: var(--robbery-setup-window-safe-height-final) !important;");
       expect(stylesheet).toContain("--robbery-confirm-window-safe-top-final: calc(max(var(--mobile-overlay-top-offset, 0px), var(--mobile-topbar-offset, 72px)) + 10px);");
       expect(stylesheet).toContain("padding: var(--robbery-confirm-window-safe-top-final) 8px var(--robbery-confirm-window-safe-bottom-final) !important;");
       expect(stylesheet).toContain("max-height: var(--robbery-confirm-window-safe-height-final) !important;");
@@ -134,7 +147,8 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("top: 0 !important;");
       expect(stylesheet).toContain("z-index: 26050 !important;");
       expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked > .game-shell,\n  html body.game-body.alliance-modal-open > .game-shell");
-      expect(stylesheet).toContain("padding-top: var(--modal-topbar-reserve, 52px) !important;");
+      expect(stylesheet).toContain("margin-top: var(--modal-topbar-reserve, 52px) !important;");
+      expect(stylesheet).not.toContain("padding-top: var(--modal-topbar-reserve, 52px) !important;");
       expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked .game-topbar-inner");
       expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked .game-topbar-controls");
       expect(stylesheet).toContain("html body.game-body.game-modal-scroll-locked .game-resource-strip");
@@ -158,6 +172,7 @@ describe("mobile action modal CSS", () => {
       expect(source).toContain("root.style.setProperty(LOCKED_SCROLL_Y_CSS_VAR, `${scrollPosition.y}px`);");
       expect(source).toContain("root.style.setProperty(LOCKED_TOPBAR_RESERVE_CSS_VAR, `${getCurrentTopbarReserveHeight() || 52}px`);");
       expect(source).toContain("if (isViewportWidthScrollLock) {");
+      expect(source).toContain("root.style.overflow = \"hidden\";");
       expect(source).toContain("body.style.position = \"fixed\";");
       expect(source).toContain("root.style.removeProperty(LOCKED_SCROLL_Y_CSS_VAR);");
       expect(source).toContain("root.style.removeProperty(LOCKED_TOPBAR_RESERVE_CSS_VAR);");
@@ -753,6 +768,7 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("Final mobile action modal topbar layer override.");
       expect(stylesheet).toContain("game-modal-scroll-locked:has(:is(");
       expect(stylesheet).toContain(".attack-setup-popup-shell:not([hidden])");
+      expect(stylesheet).toContain(".attack-setup-popup-shell:not(.robbery-setup-popup-shell):not([hidden])");
       expect(stylesheet).toContain(".robbery-setup-popup-shell:not([hidden])");
       expect(stylesheet).toContain("z-index: 24050 !important;");
       expect(stylesheet).toContain(".game-topbar .resource-pill");
@@ -950,7 +966,9 @@ describe("mobile action modal CSS", () => {
       expect(source).toContain("isViewportWidthScrollLock");
       expect(source).toContain("if (isViewportWidthScrollLock) {");
       expect(source).toContain("body.style.width = lockedLayoutWidth > 0");
-      expect(source).toContain("!isViewportWidthScrollLock && scrollbarWidth > 0");
+      expect(source).not.toContain("!isViewportWidthScrollLock && scrollbarWidth > 0");
+      expect(source).not.toContain("const scrollbarWidth");
+      expect(source).toContain('root.style.setProperty("scrollbar-gutter", "stable")');
       expect(source).toContain("body.style.paddingRight");
       expect(source).not.toContain("let lockedPageScrollY");
       expect(source).not.toContain("window.setTimeout?.(restore, 180);");

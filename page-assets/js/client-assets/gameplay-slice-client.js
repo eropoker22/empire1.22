@@ -991,11 +991,8 @@ var EmpireGameplaySliceClient = function(exports) {
     }
     const root = document.documentElement;
     const scrollPosition = getScrollPosition();
-    const bodyComputed = (_a = window.getComputedStyle) == null ? void 0 : _a.call(window, body);
     const isViewportWidthScrollLock = shouldUseViewportWidthLock();
     const lockedLayoutWidth = isViewportWidthScrollLock ? getCurrentLayoutLockWidth(body, root) : 0;
-    const scrollbarWidth = Math.max(0, Math.floor((window.innerWidth || root.clientWidth || 0) - (root.clientWidth || 0)));
-    const currentPaddingRight = Number.parseFloat((bodyComputed == null ? void 0 : bodyComputed.paddingRight) || "0") || 0;
     lockedPageScroll = scrollPosition;
     lockedBodyStyles = {
       left: body.style.left,
@@ -1017,13 +1014,13 @@ var EmpireGameplaySliceClient = function(exports) {
     root.classList.add(LOCKED_BODY_CLASS);
     body.classList.add(LOCKED_BODY_CLASS);
     root.style.setProperty(LOCKED_SCROLL_Y_CSS_VAR, `${scrollPosition.y}px`);
-    root.style.overflow = "hidden";
     root.style.overscrollBehavior = "none";
     if (!isViewportWidthScrollLock) {
       root.style.setProperty("scrollbar-gutter", "stable");
       root.style.setProperty(LOCKED_TOPBAR_RESERVE_CSS_VAR, `${getCurrentTopbarReserveHeight() || 52}px`);
     }
     if (isViewportWidthScrollLock) {
+      root.style.overflow = "hidden";
       body.style.position = "fixed";
       body.style.top = `-${scrollPosition.y}px`;
       body.style.left = `-${scrollPosition.x}px`;
@@ -1033,9 +1030,6 @@ var EmpireGameplaySliceClient = function(exports) {
     if (isViewportWidthScrollLock) {
       body.style.overflow = "hidden";
       body.style.overscrollBehavior = "none";
-    }
-    if (!isViewportWidthScrollLock && scrollbarWidth > 0) {
-      body.style.paddingRight = `${currentPaddingRight + scrollbarWidth}px`;
     }
     body.dataset[LOCKED_BODY_DATA_ATTRIBUTE] = "true";
   };

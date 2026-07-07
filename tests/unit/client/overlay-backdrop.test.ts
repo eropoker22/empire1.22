@@ -188,7 +188,8 @@ describe("overlay backdrop", () => {
     expect(document.body.style.right).toBe("");
     expect(document.body.style.width).toBe("");
     expect(document.body.style.overflow).toBe("");
-    expect(document.documentElement.style.overflow).toBe("hidden");
+    expect(document.body.style.paddingRight).toBe("");
+    expect(document.documentElement.style.overflow).toBe("");
     expect(document.documentElement.style.getPropertyValue("scrollbar-gutter")).toBe("stable");
     expect(document.documentElement.style.getPropertyValue("--modal-scroll-lock-y")).toBe(`${initialScrollY}px`);
     expect(document.documentElement.style.getPropertyValue("--modal-topbar-reserve")).toBe("52px");
@@ -251,6 +252,7 @@ describe("overlay backdrop", () => {
 
       expect(document.body.dataset.overlayScrollLocked).toBe("true");
       expect(document.body.style.position).toBe("fixed");
+      expect(document.documentElement.style.overflow).toBe("hidden");
       expect(document.body.style.width).toBe("360px");
       expect(document.body.style.paddingRight).toBe("");
       expect(document.documentElement.style.getPropertyValue("scrollbar-gutter")).toBe("");
