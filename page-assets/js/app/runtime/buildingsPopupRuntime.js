@@ -65,6 +65,7 @@ const resolveBuildingChipKind = (buildingName) => {
 };
 
 const isApartmentBlockBaseName = (buildingName) => normalizeBuildingChipName(buildingName) === "bytovy blok";
+const isClinicBaseName = (buildingName) => normalizeBuildingChipName(buildingName) === "klinika";
 
 const createBuildingsPopupBackgroundStack = (backgroundImage) => backgroundImage
   ? `linear-gradient(rgba(3, 7, 18, 0.44), rgba(3, 7, 18, 0.58)), url("${escapeCssUrl(backgroundImage)}")`
@@ -86,10 +87,12 @@ export function createBuildingsPopupRuntime(deps = {}) {
   const isApartmentBlockFull = typeof deps.isApartmentBlockFull === "function"
     ? deps.isApartmentBlockFull
     : () => false;
+  const isClinicStabilizationReady = typeof deps.isClinicStabilizationReady === "function"
+    ? deps.isClinicStabilizationReady
+    : () => false;
   const isDemoLiveBuildingCatalogUnlocked = typeof deps.isDemoLiveBuildingCatalogUnlocked === "function"
     ? deps.isDemoLiveBuildingCatalogUnlocked
     : () => false;
-
   const isLiveDemoCatalogUnlocked = (interactionState = getInteractionState()) => (
     String(interactionState?.gamePhase || "launch").trim().toLowerCase() === "live"
     && Boolean(isDemoLiveBuildingCatalogUnlocked(interactionState))
@@ -290,6 +293,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
           isOwnedByCurrentPlayer: currentPlayerOwnedDistrictIds.has(Number(district.id)),
           canOpenFromBuildingsPopup: demoLiveCatalogUnlocked || currentPlayerOwnedDistrictIds.has(Number(district.id)),
           apartmentIsFull: isApartmentBlockBaseName(baseName) && isApartmentBlockFull({ district, building, baseName, displayName }),
+          clinicStabilizationReady: isClinicBaseName(baseName) && isClinicStabilizationReady({ district, building, baseName, displayName }),
           setTitle: buildingProfile.setTitle,
           tier: buildingProfile.tier
         });
@@ -343,11 +347,13 @@ export function createBuildingsPopupRuntime(deps = {}) {
       const existing = groupedByBaseName.get(entry.baseName) || {
         baseName: entry.baseName,
         count: 0,
-        apartmentIsFull: false
+        apartmentIsFull: false,
+        clinicStabilizationReady: false
       };
 
       existing.count += 1;
       existing.apartmentIsFull = Boolean(existing.apartmentIsFull || entry.apartmentIsFull);
+      existing.clinicStabilizationReady = Boolean(existing.clinicStabilizationReady || entry.clinicStabilizationReady);
       groupedByBaseName.set(entry.baseName, existing);
     }
 

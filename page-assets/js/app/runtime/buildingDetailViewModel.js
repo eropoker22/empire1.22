@@ -5,10 +5,14 @@ import {
 } from "../map/mapConstants.js";
 import {
   APARTMENT_BLOCK_MIN_COLLECT_POPULATION,
+  ARCADE_NETWORK_CONFIG,
   AUTO_SALON_SUPPORT_CONFIG,
+  CLINIC_COUNT_ON_MAP,
   DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS,
+  EXCHANGE_OFFICE_NETWORK_CONFIG,
   FITNESS_CLUB_SUPPORT_CONFIG,
   GARAGE_SUPPORT_CONFIG,
+  RECRUITMENT_CENTER_SUPPORT_CONFIG,
   RESTAURANT_NETWORK_CONFIG,
   SCHOOL_CONFIG,
   SHOPPING_MALL_NETWORK_CONFIG,
@@ -21,6 +25,16 @@ import {
   formatDistrictBuildingCooldown,
   formatDistrictBuildingMoney
 } from "./formatters.js";
+import {
+  formatGarageEffectiveCooldownLabel,
+  resolveGarageCategoryForBuildingAction,
+  resolveGarageEffectiveCooldownMs,
+  resolveGarageCooldownReductionPctForCategory
+} from "./garageCooldownRuntime.js";
+import {
+  normalizeDayNightPhaseId,
+  resolvePhaseLockedBuildingActionDisabledReason
+} from "./dayNightActionPhaseRuntime.js";
 import {
   PRODUCTION_RESOURCE_LABELS
 } from "./productionBuildingData.js";
@@ -116,6 +130,36 @@ function hasBuildingUpgradeCapability(mechanics = {}) {
 
 function normalizeEffectToneLabel(value = "") {
   return normalizeBuildingLookupKey(value).replace(/\s+/g, " ");
+}
+
+function normalizeClinicRecoveryItemType(itemType = "") {
+  const normalized = normalizeBuildingLookupKey(itemType).replace(/\s+/g, "-");
+  if (normalized === "gang-members" || normalized === "gang-member" || normalized === "members") return "population";
+  if (normalized === "population" || normalized === "populace" || normalized === "obyvatele") return "population";
+  return normalized;
+}
+
+function createClinicStabilizationPreview(mechanics = {}) {
+  const fresh = Array.isArray(mechanics.clinicRecoveryPool?.fresh) ? mechanics.clinicRecoveryPool.fresh : [];
+  const recoveryRate = Math.max(0, Number(mechanics.clinicRecoveryRatePct || 0)) / 100;
+  const rawByType = {};
+  let recoverableAmount = 0;
+  for (const entry of fresh) {
+    const itemType = normalizeClinicRecoveryItemType(entry?.itemType || entry?.itemId);
+    if (itemType !== "population") continue;
+    recoverableAmount += Math.max(0, Math.floor(Number(entry?.amount || 0)));
+    const source = String(entry?.source || "");
+    const rate = source === "trap" || source === "toxic_trap" ? recoveryRate * 0.5 : recoveryRate;
+    rawByType[itemType] = Math.max(0, Number(rawByType[itemType] || 0)) + Math.max(0, Number(entry?.amount || 0)) * rate;
+  }
+  return {
+    recoverableAmount,
+    population: Math.floor(Math.max(0, Number(rawByType.population || 0)))
+  };
+}
+
+function formatClinicStabilizationRewardSummary(preview = {}) {
+  return `Návrat z léčby: Populace +${Math.max(0, Math.floor(Number(preview.population || 0)))}`;
 }
 
 const DAY_NIGHT_PHASE_EFFECTS = Object.freeze({
@@ -364,17 +408,7 @@ function formatCompactNumber(value) {
 }
 
 function normalizeDayNightPhase(phaseState = null) {
-  const rawPhase = typeof phaseState === "string"
-    ? phaseState
-    : phaseState?.mapPhase ?? phaseState?.phaseId ?? phaseState?.phase ?? phaseState?.uiThemeHint ?? "";
-  const normalized = String(rawPhase || "").trim().toLowerCase();
-  if (normalized === "day" || normalized === "den" || normalized.includes("day")) {
-    return "day";
-  }
-  if (normalized === "night" || normalized === "noc" || normalized.includes("night")) {
-    return "night";
-  }
-  return "";
+  return normalizeDayNightPhaseId(phaseState);
 }
 
 function resolveBuildingDayNightType(buildingName = "", mechanics = {}) {
@@ -588,6 +622,19 @@ function createEffectItemsWithOwnedCount(effectsLabel = "", mechanics = {}, opti
       tone: "cooldown"
     });
   }
+  if (mechanics.mechanicsType === "recruitment-center") {
+    const support = mechanics.recruitmentCenterSupport || {};
+    const network = mechanics.recruitmentCenterNetwork || {};
+    return [
+      { text: `Population produkce +${Math.max(0, Number(support.populationProductionBonusPct || 0))} %`, tone: "population" },
+      { text: `Kapacita bloků +${Math.max(0, Number(support.apartmentCapacityBonusPct || 0))} %`, tone: "network" },
+      { text: `Síla zbraní +${Math.max(0, Number(support.attackWeaponStrengthBonusPct || 0))} %`, tone: "attack" },
+      { text: `Obrana +${Math.max(0, Number(support.defenseItemStrengthBonusPct || 0))} %`, tone: "defense" },
+      { text: `Kamery/alarmy +${Math.max(0, Number(support.cameraStrengthBonusPct || 0))} %`, tone: "defense" },
+      { text: `Clean/heat x${Number(network.incomeMultiplier || 1).toFixed(2)} / x${Number(network.heatMultiplier || 1).toFixed(2)}`, tone: "network" },
+      ...items.filter((item) => /^DEN:|^NOC:/u.test(item.text || ""))
+    ];
+  }
   return items;
 }
 
@@ -738,7 +785,7 @@ export function createBuildingDetailStatRows({
       createStat("Čisté / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
       createStat("Dirty / min", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly / 60)}`),
       createStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
-      createStat("Směnárny", `${mechanics.ownedExchangeOffices}/13`),
+      createStat("Směnárny", `${mechanics.ownedExchangeOffices}/${EXCHANGE_OFFICE_NETWORK_CONFIG.countOnMap}`),
       createStat("Síť", `income x${mechanics.exchangeNetwork.incomeMultiplier.toFixed(2)} · limit x${mechanics.exchangeNetwork.launderingLimitMultiplier.toFixed(2)}`),
       createStat("Kapacita praní", formatDistrictBuildingMoney(mechanics.exchangeLaunderingCapacity)),
       createStat("Audit risk", mechanics.exchangeAuditRisk),
@@ -749,7 +796,7 @@ export function createBuildingDetailStatRows({
       createStat("Clean / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
       createStat("Dirty / min", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly / 60)}`),
       createStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
-      createStat("Herny", `${mechanics.ownedArcades}/20`),
+      createStat("Herny", `${mechanics.ownedArcades}/${ARCADE_NETWORK_CONFIG.countOnMap}`),
       createStat("Kapacita praní", formatDistrictBuildingMoney(mechanics.arcadeLaunderingCapacity)),
       createStat("Audit risk", mechanics.arcadeAuditRisk)
     );
@@ -766,18 +813,22 @@ export function createBuildingDetailStatRows({
     );
   } else if (mechanics.mechanicsType === "clinic") {
     statRows.splice(0, statRows.length,
-      createStat("Clean / min", `+${formatDistrictBuildingMoney(55 * mechanics.clinicNetwork.incomeMultiplier)}`),
-      createStat("Heat / min", `+${(0.03 * mechanics.clinicNetwork.heatMultiplier).toFixed(3)}`),
+      createStat("Clean / hod", `+${formatDistrictBuildingMoney(mechanics.cleanHourly)}`),
+      createStat("Heat / den", `+${formatCompactNumber(mechanics.dailyHeat)}`),
       createStat("Recovery rate", `${mechanics.clinicRecoveryRatePct} %`),
       createStat("Recovery pool", `${mechanics.clinicRecoveryPool.totalFreshAmount} položek`),
-      createStat("Kliniky", `${mechanics.ownedClinics}/14`)
+      createStat("Kliniky", `${mechanics.ownedClinics}/${CLINIC_COUNT_ON_MAP}`)
     );
   } else if (mechanics.mechanicsType === "recruitment-center") {
+    const support = mechanics.recruitmentCenterSupport || {};
+    const network = mechanics.recruitmentCenterNetwork || {};
     statRows.splice(0, statRows.length,
       createStat("Clean / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
       createStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
-      createStat("Úkol", "posílit gang"),
-      createStat("Akce", "pasivní")
+      createStat("Počet", `${mechanics.ownedRecruitmentCenters || 0}/${RECRUITMENT_CENTER_SUPPORT_CONFIG.countOnMap}`),
+      createStat("Síť", `income x${Number(network.incomeMultiplier || 1).toFixed(2)} · heat x${Number(network.heatMultiplier || 1).toFixed(2)}`),
+      createStat("Population", `+${Math.max(0, Number(support.populationProductionBonusPct || 0))}% / cap +${Math.max(0, Number(support.apartmentCapacityBonusPct || 0))}%`),
+      createStat("Boj", `útok +${Math.max(0, Number(support.attackWeaponStrengthBonusPct || 0))}% · obrana +${Math.max(0, Number(support.defenseItemStrengthBonusPct || 0))}%`)
     );
   } else if (mechanics.mechanicsType === "garage") {
     statRows.splice(0, statRows.length,
@@ -927,20 +978,21 @@ export function createBuildingDetailMechanicRows({
     );
   } else if (mechanics.mechanicsType === "clinic") {
     mechanicRows.push(
-      createMechanic("Stabilizace", mechanics.clinicRecoveryPool.totalFreshAmount > 0 ? "připravená" : "čeká na čerstvé ztráty"),
-      createMechanic("Expirace poolu", mechanics.clinicRecoveryPool.nextExpiryMs ? formatDistrictBuildingCooldown(mechanics.clinicRecoveryPool.nextExpiryMs) : "nic nečeká"),
+      createMechanic("Stabilizace", mechanics.clinicRecoveryPool.totalFreshAmount > 0 ? "připravená" : "Čeká na ztráty tvojich členů za posledních 90min"),
       createMechanic("Síť klinik", `income x${mechanics.clinicNetwork.incomeMultiplier.toFixed(2)} · heat x${mechanics.clinicNetwork.heatMultiplier.toFixed(2)}`)
     );
   } else if (mechanics.mechanicsType === "recruitment-center") {
+    const support = mechanics.recruitmentCenterSupport || {};
     mechanicRows.push(
-      createMechanic("Populace", "zlepšuje tempo a kapacitu bytových bloků"),
-      createMechanic("Útok", "posiluje efekt zbraní v boji"),
-      createMechanic("Obrana", "zvedá hodnotu obranného vybavení")
+      createMechanic("Bytové bloky", `produkce +${Math.max(0, Number(support.populationProductionBonusPct || 0))}% · kapacita +${Math.max(0, Number(support.apartmentCapacityBonusPct || 0))}%`),
+      createMechanic("Útok", `zbraně v útoku +${Math.max(0, Number(support.attackWeaponStrengthBonusPct || 0))}%`),
+      createMechanic("Obrana", `obranné vybavení +${Math.max(0, Number(support.defenseItemStrengthBonusPct || 0))}%`),
+      createMechanic("Špionážní obrana", `kamery a alarm +${Math.max(0, Number(support.cameraStrengthBonusPct || 0))}% · cap ${Math.max(0, Number(support.combinedCameraAlarmCapPct || 0))}%`)
     );
   } else if (mechanics.mechanicsType === "garage") {
     mechanicRows.push(
       createMechanic("Síť garáží", `Každá další garáž zvedá čistý výnos o ${formatMultiplierIncreasePercent(mechanics.garageNetwork.incomeMultiplier)} a heat o ${formatMultiplierIncreasePercent(mechanics.garageNetwork.heatMultiplier)}.`),
-      createMechanic("Plný cooldown bonus", "Nejvíc zkracuje pohyb gangu, útoky, obsazení districtů, přesuny zásob a obranné přesuny."),
+      createMechanic("Plný cooldown bonus", "Nejvíc zkracuje útoky, obsazení districtů a výbavu."),
       createMechanic("Částečný cooldown bonus", "Menší zkrácení dostane špionáž, pasti, klinika, továrna a zbrojovka.")
     );
   } else if (mechanics.mechanicsType === "retail" || buildingKey === "obchodni centrum") {
@@ -1058,6 +1110,7 @@ export function createBuildingDetailActionRows({
   detailEntry = {},
   economyState = {},
   actionProfiles = [],
+  phaseState = null,
   now = Date.now()
 } = {}) {
   return (Array.isArray(profile.actions) ? profile.actions : []).flatMap((action, actionIndex) => {
@@ -1071,6 +1124,10 @@ export function createBuildingDetailActionRows({
       actionIndex,
       actionProfile
     });
+    const baseCooldownMs = Math.max(0, Number(actionDefinition.cooldownMs || 0));
+    const garageCategory = resolveGarageCategoryForBuildingAction(buildingName, action, actionDefinition);
+    const effectiveCooldownMs = resolveGarageEffectiveCooldownMs(baseCooldownMs, mechanics.garageSupport, garageCategory);
+    const garageCooldownReductionPct = resolveGarageCooldownReductionPctForCategory(mechanics.garageSupport, garageCategory);
     const cooldownUntil = getBuildingSpecialActionCooldownUntil(mechanics.actionCooldowns, actionDefinition.actionId, actionIndex);
     const cooldownRemaining = Math.max(0, cooldownUntil - now);
     const actionUiOptions = createBuildingActionUiFormatOptions({
@@ -1079,7 +1136,12 @@ export function createBuildingDetailActionRows({
       actionIndex,
       actionProfile
     });
-    const rewardSummary = actionProfile
+    const clinicStabilizationPreview = actionProfile?.clinicStabilizationProtocol
+      ? createClinicStabilizationPreview(mechanics)
+      : null;
+    const rewardSummary = clinicStabilizationPreview
+      ? formatClinicStabilizationRewardSummary(clinicStabilizationPreview)
+      : actionProfile
       ? formatBuildingActionOutputProfile(actionProfile, actionUiOptions)
       : actionDefinition.rewardSummary;
     const riskSummary = actionProfile
@@ -1103,7 +1165,9 @@ export function createBuildingDetailActionRows({
     const missingMaterialCost = Object.entries(actionProfile?.materialCost || {}).find(([itemId, amount]) =>
       Number(economyState.materials?.[itemId] || 0) < Math.max(0, Math.floor(Number(amount || 0)))
     ) || null;
+    const phaseDisabledReason = resolvePhaseLockedBuildingActionDisabledReason(actionDefinition.actionId, phaseState);
     const casinoDisabledReason = actionDefinition.disabledReason
+      || phaseDisabledReason
       || (cooldownRemaining > 0 ? `Cooldown ${formatDistrictBuildingCooldown(cooldownRemaining)}.` : "")
       || (hasMissingCleanCash && actionProfile?.cleanCost
         ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.cleanCost)} clean cash.`
@@ -1134,8 +1198,8 @@ export function createBuildingDetailActionRows({
         ? `Večerní kurz běží. Zbývá ${formatDistrictBuildingCooldown(mechanics.schoolEveningCourseRemainingMs)}.`
       : actionProfile?.clinicStabilizationProtocol && Number(economyState.cleanMoney || 0) < Number(actionProfile.cleanCost || 0)
         ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.cleanCost)} clean cash.`
-      : actionProfile?.clinicStabilizationProtocol && (!mechanics.clinicRecoveryPool || mechanics.clinicRecoveryPool.fresh.length <= 0)
-        ? "Recovery pool je prázdný."
+      : actionProfile?.clinicStabilizationProtocol && (!clinicStabilizationPreview || clinicStabilizationPreview.recoverableAmount <= 0)
+        ? "Žádné ztráty k léčbě."
       : actionProfile?.recyclingExtractLosses && (!recyclingSalvagePool || recyclingSalvagePool.fresh.length <= 0)
         ? "Nemáš žádné ztráty k vytěžení."
       : "");
@@ -1180,7 +1244,10 @@ export function createBuildingDetailActionRows({
       disabledTone: hasMissingCleanCash || hasMissingDirtyCash || Boolean(missingMaterialCost)
         ? "insufficient-funds"
         : "",
-      cooldownMs: actionDefinition.cooldownMs,
+      cooldownMs: effectiveCooldownMs,
+      baseCooldownMs,
+      effectiveCooldownMs,
+      garageCooldownReductionPct,
       cooldownRemainingMs: cooldownRemaining,
       cooldownLabel: cooldownRemaining > 0
         ? `Zbývá ${formatDistrictBuildingCooldown(cooldownRemaining)}`
@@ -1188,8 +1255,12 @@ export function createBuildingDetailActionRows({
           ? "Aktivní boost"
           : activeSameArcadeBoost
             ? "Aktivní boost"
-            : actionDefinition.cooldownMs > 0
-              ? `Cooldown ${formatDistrictBuildingCooldown(actionDefinition.cooldownMs)}`
+            : effectiveCooldownMs > 0
+              ? `Cooldown ${formatGarageEffectiveCooldownLabel({
+                  baseCooldownMs,
+                  effectiveCooldownMs,
+                  formatCooldown: formatDistrictBuildingCooldown
+                })}`
               : "Ready"
     }];
   });
@@ -1246,6 +1317,7 @@ export function createBuildingDetailViewModel({
   return {
     title: displayLabel,
     badge,
+    typeLabel: badge,
     countLabel: createBuildingDetailCountLabel(mechanics),
     backgroundImagePath: buildingBackgroundPath,
     mechanicsType: mechanics.mechanicsType,
@@ -1280,6 +1352,6 @@ export function createBuildingDetailViewModel({
     showActionsInSinglePanel: !suppressSinglePanelActions,
     actions: suppressSinglePanelActions
       ? []
-      : createBuildingDetailActionRows({ buildingName, profile, mechanics, detailEntry, economyState, actionProfiles, now })
+      : createBuildingDetailActionRows({ buildingName, profile, mechanics, detailEntry, economyState, actionProfiles, phaseState, now })
   };
 }

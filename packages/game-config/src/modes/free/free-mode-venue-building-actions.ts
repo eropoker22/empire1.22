@@ -121,21 +121,6 @@ export const freeModeVenueBuildingActions: NonNullable<ResolvedGameModeConfig["b
     allowedIfContested: false,
     reportText: "VIP klienti jsou aktivní. Boost se sám se sebou nestackuje."
   },
-  bar_whispers: {
-    actionId: "bar_whispers",
-    buildingType: "strip_club",
-    label: "Šeptanda u baru",
-    description: "Okamžitě vygeneruje pravděpodobnostní drb.",
-    durationMs: 0,
-    cooldownMs: freeModeStripClubConfig.barWhispers.cooldownMinutes * 60 * 1000,
-    inputCost: {},
-    outputGain: {},
-    heatGain: freeModeStripClubConfig.barWhispers.heatGain,
-    influenceChange: 0,
-    requiredOwner: true,
-    allowedIfContested: false,
-    reportText: "Šeptanda u baru vygenerovala drb. Pravdivost není jistá."
-  },
   private_party: {
     actionId: "private_party",
     buildingType: "strip_club",

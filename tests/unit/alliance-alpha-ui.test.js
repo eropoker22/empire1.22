@@ -119,7 +119,7 @@ describe("alliance alpha UI", () => {
     expect(html).toContain("Globální chat");
     expect(html).not.toContain("Globální chat (preview)");
     expect(html).toContain("Globální chat je v alphě jen lokální kanál.");
-    expect(runtime).toContain("const ALLIANCE_CREATE_REQUIRED_INFLUENCE = 150;");
+    expect(runtime).toContain("const ALLIANCE_CREATE_REQUIRED_INFLUENCE = 40;");
     expect(runtime).toContain("ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE");
     expect(runtime).toContain("Vytvořit alianci půjde až pokud má hráč");
     expect(runtime).toContain("getCurrentGamePhaseForAllianceDemo");

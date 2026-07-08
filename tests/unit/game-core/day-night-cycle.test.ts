@@ -621,12 +621,6 @@ describe("day night cycle", () => {
     const context = createContext("free");
 
     state.root.tick = 0;
-    expect(resolveDayNightActionRule(state, context, "bar_whispers", "strip_club")).toMatchObject({
-      allowed: true,
-      phaseAvailability: "neutral",
-      phaseBadgeLabel: "LEPŠÍ V NOCI",
-      mechanicalEffectLabels: []
-    });
     expect(resolveDayNightActionRule(state, context, "quiet_backroom", "casino")).toMatchObject({
       allowed: true,
       phaseAvailability: "penalized",

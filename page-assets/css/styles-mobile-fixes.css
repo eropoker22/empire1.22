@@ -5117,7 +5117,26 @@ html body .storage-popup-heading > .storage-popup-close::before {
   }
 
   html body #spy-confirm-modal .spy-confirm-popup-body {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  html body #spy-confirm-modal .spy-confirm-popup-card {
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  html body #spy-confirm-modal .spy-confirm-popup-card .district-modal-hero {
+    display: block !important;
+    flex: 0 0 128px !important;
+    min-height: 128px !important;
+    margin-bottom: 8px !important;
+    overflow: hidden !important;
+  }
+
+  html body #spy-confirm-modal .spy-confirm-popup-card .district-modal-hero__image {
+    display: block !important;
+    opacity: 0.94 !important;
   }
 
   html body .district-action-confirm-popup-body .attack-setup-popup-row {
@@ -6406,11 +6425,25 @@ html body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle--with
     gap: 4px !important;
     padding: 3px !important;
     border-radius: 13px !important;
-    border: 1px solid rgba(186, 119, 255, 0.28) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.012)),
-      linear-gradient(135deg, rgba(186, 119, 255, 0.16), rgba(255, 89, 185, 0.08)),
-      rgba(9, 7, 18, 0.78) !important;
+      linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.006)),
+      rgba(2, 3, 6, 0.86) !important;
+  }
+
+  html body #spy-confirm-modal .spy-confirm-popup-body .attack-setup-popup-row {
+    justify-content: space-between !important;
+    gap: 8px !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+  }
+
+  html body #spy-confirm-modal .spy-confirm-popup-body .attack-setup-popup-row span {
+    width: auto !important;
+    margin-left: auto !important;
+    justify-content: flex-end !important;
+    text-align: right !important;
+    white-space: nowrap !important;
   }
 
   html body .robbery-setup-popup-card .attack-setup-popup-stepper:has([data-robbery-member-input]) .attack-setup-popup-weapon__input {
@@ -6427,6 +6460,11 @@ html body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle--with
     min-height: 32px !important;
     border-radius: 9px !important;
     font-size: 0.78rem !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+      rgba(0, 0, 0, 0.9) !important;
+    color: #f7fafc !important;
   }
 
   html body.game-modal-scroll-locked .district-popup-shell:not([hidden]),

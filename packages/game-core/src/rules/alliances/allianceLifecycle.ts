@@ -23,7 +23,7 @@ import type { AllianceLifecycleBalanceConfig } from "../../contracts/game-mode-c
 import { cleanupAllianceDefense } from "./allianceDefenseCleanup";
 
 export const ALLIANCE_READY_TOO_EARLY = "READY_TOO_EARLY";
-export const ALLIANCE_CREATE_REQUIRED_INFLUENCE = 150;
+export const ALLIANCE_CREATE_REQUIRED_INFLUENCE = 40;
 
 export interface AllianceLifecycleResult {
   nextState: CoreGameState;

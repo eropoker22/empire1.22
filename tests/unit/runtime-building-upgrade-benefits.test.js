@@ -181,13 +181,13 @@ describe("building upgrade confirmation benefits", () => {
       currentMechanics: {
         mechanicsType: "clinic",
         level: 1,
-        cleanHourly: 3300,
+        cleanHourly: 3100,
         clinicRecoveryRatePct: 15
       },
       nextMechanics: {
         mechanicsType: "clinic",
         level: 2,
-        cleanHourly: 3465,
+        cleanHourly: 3255,
         clinicRecoveryRatePct: 18
       }
     });
@@ -244,13 +244,13 @@ describe("building upgrade confirmation benefits", () => {
         level: 1,
         nextLevel: 2,
         upgradeCostLabel: "$6,500",
-        cleanHourly: 3300,
+        cleanHourly: 3100,
         clinicRecoveryRatePct: 15
       },
       nextMechanics: {
         mechanicsType: "clinic",
         level: 2,
-        cleanHourly: 3465,
+        cleanHourly: 3255,
         clinicRecoveryRatePct: 18
       },
       resourceStatus: { canConfirm: true, missing: [] }

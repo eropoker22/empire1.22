@@ -298,12 +298,19 @@ export function getBuildingSpecialActionCooldownUntil(actionCooldowns = {}, acti
 
 export function getRecyclingSalvagePoolView(clinicRecoveryPool = null) {
   const fresh = Array.isArray(clinicRecoveryPool?.fresh)
-    ? clinicRecoveryPool.fresh.filter((entry) => !CLINIC_RECOVERABLE_ITEMS.includes(normalizeBuildingSpecialActionKey(entry?.itemType).replace(/\s+/g, "-")))
+    ? clinicRecoveryPool.fresh.filter((entry) => !CLINIC_RECOVERABLE_ITEMS.includes(normalizeClinicRecoverableActionKey(entry?.itemType)))
     : [];
   return {
     fresh,
     totalFreshAmount: fresh.reduce((total, entry) => total + Math.max(0, Math.floor(Number(entry?.amount || 0))), 0)
   };
+}
+
+function normalizeClinicRecoverableActionKey(itemType = "") {
+  const key = normalizeBuildingSpecialActionKey(itemType).replace(/\s+/g, "-");
+  if (key === "gang-members" || key === "gang-member" || key === "members") return "population";
+  if (key === "population" || key === "populace" || key === "obyvatele") return "population";
+  return key;
 }
 
 export function createBuildingSpecialActionAuditRows() {

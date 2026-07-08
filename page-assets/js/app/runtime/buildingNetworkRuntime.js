@@ -31,14 +31,29 @@ export function createBuildingNetworkRuntime(deps = {}) {
     return deps.getDistrictResourceCatalog().reduce((count, district) => {
       if (!ownedDistrictIds.has(Number(district.id))) return count;
       const profile = deps.resolveDistrictBuildingProfile(district);
-      const hasBuilding = (profile?.buildings || []).some((building) => deps.normalizeBuildingLookupKey(building.baseName) === baseName);
-      return count + (hasBuilding ? 1 : 0);
+      return count + (profile?.buildings || []).reduce((total, building) => (
+        deps.normalizeBuildingLookupKey(building.baseName) === baseName ? total + 1 : total
+      ), 0);
+    }, 0);
+  };
+
+  const countAvailableBuildingByBaseName = (baseName) => {
+    const worldState = deps.getResolvedWorldState();
+    const destroyedDistrictIds = new Set(worldState.destroyedDistrictIds || []);
+    return deps.getDistrictResourceCatalog().reduce((count, district) => {
+      if (destroyedDistrictIds.has(Number(district.id))) return count;
+      const profile = deps.resolveDistrictBuildingProfile(district);
+      return count + (profile?.buildings || []).reduce((total, building) => (
+        deps.normalizeBuildingLookupKey(building.baseName) === baseName ? total + 1 : total
+      ), 0);
     }, 0);
   };
 
   const countOwnedBuildingByBaseName = (baseName) => {
     const actualCount = countActualOwnedBuildingByBaseName(baseName);
-    return Math.max(actualCount, getMinimumOwnedBuildingCountByBaseName(baseName, deps.getResolvedWorldState()));
+    const availableCount = countAvailableBuildingByBaseName(baseName);
+    const visibleCount = Math.max(actualCount, getMinimumOwnedBuildingCountByBaseName(baseName, deps.getResolvedWorldState()));
+    return availableCount > 0 ? Math.min(visibleCount, availableCount) : 0;
   };
 
   const getOwnedShoppingMallCountForMarket = () => countOwnedBuildingByBaseName("obchodni centrum");
@@ -146,6 +161,30 @@ export function createBuildingNetworkRuntime(deps = {}) {
     };
   };
 
+  const getOwnedRecruitmentCenterCount = () => countOwnedBuildingByBaseName("rekrutacni centrum");
+  const getRecruitmentCenterNetworkMultipliers = (count = getOwnedRecruitmentCenterCount()) => {
+    const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
+    const config = deps.recruitmentCenterSupportConfig;
+    return {
+      incomeMultiplier: Math.min(config.maxIncomeMultiplier, 1 + extra * config.incomeBonusPctPerExtraCenter / 100),
+      heatMultiplier: Math.min(config.maxHeatMultiplier, 1 + extra * config.heatBonusPctPerExtraCenter / 100)
+    };
+  };
+  const getRecruitmentCenterSupportStats = (count = getOwnedRecruitmentCenterCount()) => {
+    const ownedCount = Math.max(0, Math.floor(Number(count || 0)));
+    const config = deps.recruitmentCenterSupportConfig;
+    return {
+      ownedCount,
+      populationProductionBonusPct: Math.min(config.maxPopulationProductionBonusPct, ownedCount * config.populationProductionBonusPctPerCenter),
+      apartmentCapacityBonusPct: Math.min(config.maxApartmentCapacityBonusPct, ownedCount * config.apartmentCapacityBonusPctPerCenter),
+      attackWeaponStrengthBonusPct: Math.min(config.maxAttackWeaponStrengthBonusPct, ownedCount * config.attackWeaponStrengthBonusPctPerCenter),
+      defenseItemStrengthBonusPct: Math.min(config.maxDefenseItemStrengthBonusPct, ownedCount * config.defenseItemStrengthBonusPctPerCenter),
+      cameraStrengthBonusPct: Math.min(config.maxDefenseItemStrengthBonusPct, ownedCount * config.defenseItemStrengthBonusPctPerCenter),
+      alarmStrengthBonusPct: Math.min(config.maxDefenseItemStrengthBonusPct, ownedCount * config.defenseItemStrengthBonusPctPerCenter),
+      combinedCameraAlarmCapPct: config.maxCombinedCameraAlarmBonusPct
+    };
+  };
+
   const getOwnedSmugglingTunnelCount = () => countOwnedBuildingByBaseName("pasovaci tunel");
   const getSmugglingTunnelNetworkMultipliers = (count = getOwnedSmugglingTunnelCount()) => {
     const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
@@ -218,7 +257,9 @@ export function createBuildingNetworkRuntime(deps = {}) {
 
   const getOwnedWarehouseCount = () => {
     const actualCount = countActualOwnedBuildingByBaseName("sklad") + countActualOwnedBuildingByBaseName("skladiste");
-    return Math.max(actualCount, getMinimumOwnedBuildingCountByBaseName("skladiste", deps.getResolvedWorldState()));
+    const availableCount = countAvailableBuildingByBaseName("sklad") + countAvailableBuildingByBaseName("skladiste");
+    const visibleCount = Math.max(actualCount, getMinimumOwnedBuildingCountByBaseName("skladiste", deps.getResolvedWorldState()));
+    return availableCount > 0 ? Math.min(visibleCount, availableCount) : 0;
   };
   const getWarehouseNetworkMultipliers = (count = getOwnedWarehouseCount()) => {
     const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
@@ -315,11 +356,14 @@ export function createBuildingNetworkRuntime(deps = {}) {
     getOwnedExchangeOfficeCount,
     getOwnedFitnessClubCount,
     getOwnedGarageCount,
+    getOwnedRecruitmentCenterCount,
     getOwnedRestaurantCount,
     getOwnedSchoolCount,
     getOwnedShoppingMallCountForMarket,
     getOwnedSmugglingTunnelCount,
     getOwnedWarehouseCount,
+    getRecruitmentCenterNetworkMultipliers,
+    getRecruitmentCenterSupportStats,
     getRestaurantNetworkMultipliers,
     getSchoolNetworkMultipliers,
     getSchoolTalentChancePct,

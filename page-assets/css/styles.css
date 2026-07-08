@@ -78,7 +78,10 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
 
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full,
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full:hover,
-html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full:focus-visible {
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full:focus-visible,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready:hover,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready:focus-visible {
   position: relative !important;
   overflow: hidden !important;
   isolation: isolate !important;
@@ -96,13 +99,16 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
   animation: buildings-apartment-full-pulse 2.4s ease-in-out infinite !important;
 }
 
-html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full > * {
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full > *,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready > * {
   position: relative !important;
   z-index: 2 !important;
 }
 
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full > span:first-child,
-html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full > span:nth-child(2) {
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full > span:nth-child(2),
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready > span:first-child,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready > span:nth-child(2) {
   color: #ffffff !important;
   text-shadow:
     0 0 8px var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)),
@@ -110,7 +116,8 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
   animation: buildings-apartment-full-text-blink 2.4s ease-in-out infinite !important;
 }
 
-html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full::before {
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full::before,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready::before {
   background: var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)) !important;
   box-shadow:
     0 0 12px var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)),
@@ -118,7 +125,8 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
   z-index: 3 !important;
 }
 
-html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full::after {
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full::after,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready::after {
   content: "" !important;
   position: absolute !important;
   inset: 0 !important;
@@ -550,6 +558,59 @@ html body.game-body .district-building-detail-card [data-district-building-detai
     0 0 18px rgba(234, 179, 8, 0.1) !important;
 }
 
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding-bottom: 0 !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="recruitment-center"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding-bottom: 0 !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"].is-building-detail-single-panel .district-building-detail-panel--merged [data-district-building-detail-action-section] ~ * {
+  display: none !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="recruitment-center"].is-building-detail-single-panel .district-building-detail-panel--merged [data-district-building-detail-action-section],
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="recruitment-center"].is-building-detail-single-panel .district-building-detail-panel--merged [data-district-building-detail-action-section] ~ * {
+  display: none !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel[data-district-building-detail-panel="info"],
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-info-card {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="recruitment-center"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel[data-district-building-detail-panel="info"],
+html body.game-body .district-building-detail-shell[data-building-mechanics-type="recruitment-center"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-info-card {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
 @media (min-width: 721px) {
   html body.game-body .district-building-detail-card [data-district-building-detail-action-section] > h5 {
     margin-bottom: 120px !important;
@@ -845,7 +906,7 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
 
 @media (min-width: 721px) {
   html body.game-body .district-building-detail-shell[data-building-mechanics-type="arcade"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
-    margin-bottom: 120px !important;
+    margin-bottom: 15px !important;
   }
 }
 
@@ -960,6 +1021,217 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
 @media (min-width: 721px) {
   html body.game-body .district-building-detail-shell[data-building-mechanics-type="exchange"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
     margin-bottom: 44px !important;
+  }
+}
+
+@media (min-width: 721px) and (hover: hover) and (pointer: fine) {
+  html body.game-body .district-building-detail-card.building-detail-modal__content {
+    display: flex !important;
+    flex-direction: column !important;
+    max-height: calc(100dvh - 32px) !important;
+    overflow: hidden !important;
+  }
+
+  html body.game-body .district-building-detail-card .modal__header {
+    flex: 0 0 auto !important;
+    min-height: 44px !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+
+  html body.game-body .district-building-detail-card .district-building-detail-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    gap: 6px !important;
+    padding: 9px !important;
+    overflow: visible !important;
+  }
+
+  html body.game-body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-card .district-building-detail-body {
+    grid-template-rows: minmax(0, 1fr) !important;
+  }
+
+  html body.game-body .district-building-detail-card .district-building-detail-panel,
+  html body.game-body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-panel--merged {
+    min-height: 0 !important;
+    gap: 6px !important;
+    padding: 8px !important;
+    overflow: visible !important;
+  }
+
+  html body.game-body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    flex-direction: column !important;
+  }
+
+  html body.game-body .district-building-detail-card .building-info-card__section,
+  html body.game-body .district-building-detail-card .building-info-card__effects {
+    gap: 5px !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding: 7px !important;
+    min-height: 0 !important;
+  }
+
+  html body.game-body .district-building-detail-card [data-district-building-detail-action-section] {
+    order: 150 !important;
+    width: 100% !important;
+    margin-top: auto !important;
+    padding-top: 52px !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  html body.game-body .district-building-detail-card .building-info-card__section > h5,
+  html body.game-body .district-building-detail-card [data-district-building-detail-effects-section] > h5,
+  html body.game-body .district-building-detail-card [data-district-building-detail-action-section] > h5 {
+    margin-top: 0 !important;
+    margin-bottom: 4px !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+  }
+
+  html body.game-body .district-building-detail-card [data-district-building-detail-effects-section],
+  html body.game-body .district-building-detail-card [data-district-building-detail-action-section],
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="school"] .district-building-detail-card [data-district-building-detail-action-section] {
+    margin-top: 0 !important;
+  }
+
+  html body.game-body .district-building-detail-card .district-building-detail-mechanics,
+  html body.game-body .district-building-detail-card .building-info-card__effects,
+  html body.game-body .district-building-detail-card .district-building-detail-actions {
+    gap: 6px !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card .building-info-card__effects {
+    row-gap: 28px !important;
+    column-gap: 0 !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="apartment-block"] .district-building-detail-card .building-info-card__effects {
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: center !important;
+    row-gap: 18px !important;
+    column-gap: 0 !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="apartment-block"] .district-building-detail-card .district-building-detail-effect-cell {
+    flex: 0 1 auto !important;
+    width: auto !important;
+    max-width: min(100%, 280px) !important;
+    align-self: center !important;
+    justify-content: center !important;
+    border-radius: 999px !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-mechanics {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    justify-items: center !important;
+    row-gap: 18px !important;
+    column-gap: 0 !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-mechanic-row {
+    width: auto !important;
+    max-width: min(100%, 280px) !important;
+    justify-content: center !important;
+    border-radius: 999px !important;
+  }
+
+  html body.game-body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged {
+    padding-bottom: 0 !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged {
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 8px 8px 0 !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"].is-building-detail-single-panel .district-building-detail-card [data-district-building-detail-action-section] {
+    margin-bottom: 0 !important;
+    padding-top: 20px !important;
+    padding-bottom: 0 !important;
+  }
+
+  html body.game-body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-card [data-district-building-detail-action-section] {
+    border-bottom: 0 !important;
+  }
+
+  html body.game-body .district-building-detail-card .district-building-detail-mechanic-row,
+  html body.game-body .district-building-detail-card .district-building-detail-effect-cell {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+
+  html body.game-body .district-building-detail-actions .building-info-action-row {
+    min-height: 50px !important;
+    gap: 3px !important;
+    padding: 6px 8px 21px !important;
+  }
+
+  html body.game-body .district-building-detail-actions .building-info-action-row__title {
+    font-size: 0.74rem !important;
+    line-height: 1.05 !important;
+  }
+
+  html body.game-body .district-building-detail-actions .building-info-action-row__desc,
+  html body.game-body .district-building-detail-actions .building-info-action-row__cooldown {
+    font-size: 0.58rem !important;
+    line-height: 1.05 !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="arcade"] [data-district-building-detail-action-section] {
+    gap: 0 !important;
+    margin-top: 8px !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="arcade"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
+    margin-bottom: 15px !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="arcade"] .district-building-detail-actions {
+    margin-top: 0 !important;
+    gap: 5px !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="arcade"] .district-building-detail-mechanics {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    justify-items: center !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="arcade"] .building-info-card__effects {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 5px 6px !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="arcade"] .district-building-detail-mechanic-row,
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="arcade"] .district-building-detail-effect-cell {
+    width: fit-content !important;
+    max-width: 100% !important;
+    border-radius: 999px !important;
+    padding: 8px 12px !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="arcade"] .district-building-detail-mechanic-row strong,
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="arcade"] .district-building-detail-effect-cell strong {
+    font-size: 0.84rem !important;
+    line-height: 1.14 !important;
+    text-align: center !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="arcade"] .district-building-detail-effect-cell strong {
+    white-space: nowrap !important;
   }
 }
 
@@ -4337,6 +4609,10 @@ html body.game-body .district-action-confirm-popup-card .district-modal-hero__sc
     linear-gradient(180deg, rgba(2, 6, 18, 0.02), rgba(2, 6, 18, 0.24) 48%, rgba(2, 6, 18, 0.64)) !important;
 }
 
+html body.game-body .robbery-setup-popup-card [data-robbery-setup-atmosphere-label] {
+  display: none !important;
+}
+
 html body.game-body .attack-setup-popup-card .attack-setup-popup-close,
 html body.game-body .district-action-confirm-popup-card .attack-setup-popup-close {
   top: 12px !important;
@@ -4442,6 +4718,8 @@ html body.game-body #raid-result-modal .spy-result-modal__content {
 }
 
 html body.game-body #spy-confirm-modal .spy-confirm-popup-card {
+  display: flex !important;
+  flex-direction: column !important;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
     radial-gradient(circle at 50% 0%, rgba(251, 191, 36, 0.2), transparent 58%),
@@ -4449,6 +4727,37 @@ html body.game-body #spy-confirm-modal .spy-confirm-popup-card {
     rgba(5, 10, 18, 0.34) !important;
   backdrop-filter: blur(24px) saturate(150%) !important;
   -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
+}
+
+html body.game-body #spy-confirm-modal .spy-confirm-popup-card .district-modal-hero {
+  display: block !important;
+  flex: 0 0 146px !important;
+  min-height: 146px !important;
+  overflow: hidden !important;
+}
+
+html body.game-body #spy-confirm-modal .spy-confirm-popup-card .district-modal-hero__image {
+  display: block !important;
+  opacity: 0.94 !important;
+}
+
+html body.game-body #spy-confirm-modal .spy-confirm-popup-body {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+html body.game-body #spy-confirm-modal .spy-confirm-popup-body .attack-setup-popup-row {
+  justify-content: space-between !important;
+  gap: 10px !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+}
+
+html body.game-body #spy-confirm-modal .spy-confirm-popup-body .attack-setup-popup-row span {
+  width: auto !important;
+  margin-left: auto !important;
+  justify-content: flex-end !important;
+  text-align: right !important;
+  white-space: nowrap !important;
 }
 
 /* Final loaded mobile robbery, city events and district popup guard. */
@@ -4480,11 +4789,10 @@ html body.game-body #spy-confirm-modal .spy-confirm-popup-card {
     gap: 4px !important;
     padding: 3px !important;
     border-radius: 13px !important;
-    border: 1px solid rgba(186, 119, 255, 0.28) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.012)),
-      linear-gradient(135deg, rgba(186, 119, 255, 0.16), rgba(255, 89, 185, 0.08)),
-      rgba(9, 7, 18, 0.78) !important;
+      linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.006)),
+      rgba(2, 3, 6, 0.86) !important;
   }
 
   html body.game-body .robbery-setup-popup-card .attack-setup-popup-stepper:has([data-robbery-member-input]) .attack-setup-popup-weapon__input {
@@ -4501,6 +4809,11 @@ html body.game-body #spy-confirm-modal .spy-confirm-popup-card {
     min-height: 32px !important;
     border-radius: 9px !important;
     font-size: 0.78rem !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+      rgba(0, 0, 0, 0.9) !important;
+    color: #f7fafc !important;
   }
 
   html body.game-body.game-modal-scroll-locked .district-popup-shell:not([hidden]),
@@ -4551,6 +4864,40 @@ html body.game-body #spy-confirm-modal .spy-confirm-popup-card {
 }
 
 /* Final layered popup guard: child windows opened from another popup must always sit above their parent. */
+@keyframes mobile-modal-center-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  58% {
+    opacity: 1;
+    transform: scale(1.018);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes mobile-modal-positioned-center-pop-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+
+  58% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.018);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
 html body.game-body :is(
   .district-popup-shell[data-district-popup]:not([hidden]),
   #buildings-modal.buildings-popup-shell:not([hidden]),
@@ -4559,7 +4906,20 @@ html body.game-body :is(
     .alliance-popup-shell:not([hidden]),
     .market-popup-shell:not([hidden]),
     .storage-popup-shell:not([hidden]),
-    #events-modal:not(.hidden):not([hidden])
+    #events-modal:not(.hidden):not([hidden]),
+    #event-detail-modal:not(.hidden):not([hidden]),
+    #bounty-modal:not(.hidden):not([hidden]),
+    #bounty-confirm-modal:not(.hidden):not([hidden]),
+    #boost-modal:not(.hidden):not([hidden]),
+    #faction-actions-modal:not(.hidden):not([hidden]),
+    #battle-royale-info-modal:not(.hidden):not([hidden]),
+    #alliance-modal:not(.hidden):not([hidden]),
+    #alliance-create-modal:not(.hidden):not([hidden]),
+    #alliance-leave-modal:not(.hidden):not([hidden]),
+    #alliance-ready-confirm-modal:not(.hidden):not([hidden]),
+    #alliance-public-action-modal:not(.hidden):not([hidden]),
+    #alliance-kick-confirm-modal:not(.hidden):not([hidden]),
+    .leaderboard-popup-shell:not([hidden])
 ) {
   z-index: 22000 !important;
   isolation: isolate !important;
@@ -4652,6 +5012,72 @@ html body.game-body :is(
     #event-detail-modal:not(.hidden):not([hidden])
   )) .district-popup-shell[data-district-popup]:not([hidden]) {
     z-index: 22000 !important;
+  }
+
+  html body.game-body :is(
+    .district-popup-shell[data-district-popup]:not([hidden]) .district-popup-card,
+    #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card,
+    .market-popup-shell:not([hidden]) .market-popup-card,
+    .storage-popup-shell[data-storage-popup]:not([hidden]) .storage-popup-card,
+    .armory-popup-shell:not([hidden]) .armory-popup-card,
+    .pharmacy-popup-shell:not([hidden]) .pharmacy-popup-card,
+    .druglab-popup-shell:not([hidden]) .druglab-popup-card,
+    .factory-popup-shell:not([hidden]) .factory-popup-card,
+    .district-building-detail-shell:not([hidden]) .district-building-detail-card,
+    .alliance-popup-shell:not([hidden]) .alliance-popup-card,
+    .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-card
+  ) {
+    transform-origin: center center !important;
+    will-change: transform, opacity !important;
+    backface-visibility: hidden !important;
+    animation: mobile-modal-positioned-center-pop-in 220ms var(--motion-modal-ease, cubic-bezier(0.22, 1, 0.36, 1)) both !important;
+  }
+
+  html body.game-body :is(
+    #events-modal:not(.hidden):not([hidden]) .modal__content,
+    #event-detail-modal:not(.hidden):not([hidden]) .modal__content,
+    #bounty-modal:not(.hidden):not([hidden]) .modal__content,
+    #bounty-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+    #boost-modal:not(.hidden):not([hidden]) .modal__content,
+    #faction-actions-modal:not(.hidden):not([hidden]) .modal__content,
+    #battle-royale-info-modal:not(.hidden):not([hidden]) .modal__content,
+    #alliance-modal:not(.hidden):not([hidden]) .modal__content,
+    #alliance-create-modal:not(.hidden):not([hidden]) .modal__content,
+    #alliance-leave-modal:not(.hidden):not([hidden]) .modal__content,
+    #alliance-ready-confirm-modal:not(.hidden):not([hidden]) .modal__content,
+    #alliance-public-action-modal:not(.hidden):not([hidden]) .modal__content,
+    #alliance-kick-confirm-modal:not(.hidden):not([hidden]) .modal__content
+  ) {
+    transform-origin: center center !important;
+    will-change: transform, opacity !important;
+    backface-visibility: hidden !important;
+    animation: mobile-modal-center-pop-in 220ms var(--motion-modal-ease, cubic-bezier(0.22, 1, 0.36, 1)) both !important;
+  }
+
+  html body.game-body :is(
+    #events-modal:not(.hidden):not([hidden]) > .modal__backdrop,
+    #event-detail-modal:not(.hidden):not([hidden]) > .modal__backdrop,
+    #bounty-modal:not(.hidden):not([hidden]) > .modal__backdrop,
+    #bounty-confirm-modal:not(.hidden):not([hidden]) > .modal__backdrop,
+    #boost-modal:not(.hidden):not([hidden]) > .modal__backdrop,
+    #faction-actions-modal:not(.hidden):not([hidden]) > .modal__backdrop,
+    #battle-royale-info-modal:not(.hidden):not([hidden]) > .modal__backdrop,
+    #alliance-modal:not(.hidden):not([hidden]) > .modal__backdrop,
+    #alliance-create-modal:not(.hidden):not([hidden]) > .modal__backdrop,
+    #alliance-leave-modal:not(.hidden):not([hidden]) > .modal__backdrop,
+    #alliance-ready-confirm-modal:not(.hidden):not([hidden]) > .modal__backdrop,
+    #alliance-public-action-modal:not(.hidden):not([hidden]) > .modal__backdrop,
+    #alliance-kick-confirm-modal:not(.hidden):not([hidden]) > .modal__backdrop,
+    .alliance-popup-shell:not([hidden]) .alliance-popup-backdrop,
+    .market-popup-shell:not([hidden]) .market-popup-backdrop,
+    .leaderboard-popup-shell:not([hidden]) .leaderboard-popup-backdrop,
+    .storage-popup-shell[data-storage-popup]:not([hidden]) .storage-popup-backdrop,
+    .armory-popup-shell:not([hidden]) .armory-popup-backdrop,
+    .pharmacy-popup-shell:not([hidden]) .pharmacy-popup-backdrop,
+    .druglab-popup-shell:not([hidden]) .druglab-popup-backdrop,
+    .factory-popup-shell:not([hidden]) .factory-popup-backdrop
+  ) {
+    animation: ui-fade-in var(--motion-modal-fade-duration, 180ms) ease-out both !important;
   }
 }
 

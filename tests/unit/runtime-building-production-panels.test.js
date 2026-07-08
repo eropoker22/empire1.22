@@ -136,6 +136,9 @@ class FakeElement {
       const key = dataMatch[1].replace(/-([a-z])/gu, (_, letter) => letter.toUpperCase());
       return dataMatch[2] == null ? key in this.dataset : this.dataset[key] === dataMatch[2];
     }
+    if (/^[a-z][a-z0-9-]*$/iu.test(selector)) {
+      return this.tagName.toLowerCase() === selector.toLowerCase();
+    }
     return false;
   }
 
@@ -331,7 +334,7 @@ describe("building detail, production and recipe UI modules", () => {
     expect(card.classList.contains("building-detail-card--casino")).toBe(true);
   });
 
-  it("hides generic building header role badges on desktop too", () => {
+  it("hides building header badges when only the type text is present", () => {
     const document = setupDocument();
     const root = document.createElement("div");
     const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:casino" });
@@ -354,10 +357,11 @@ describe("building detail, production and recipe UI modules", () => {
     expect(badge.textContent).toBe("");
     expect(badge.hidden).toBe(true);
     expect(badge.style.display).toBe("none");
+    expect(badge.dataset.districtBuildingDetailBadgeKind).toBe("");
     expect(badge.attributes.get("aria-hidden")).toBe("true");
   });
 
-  it("shows building count next to the title when the view model provides it", () => {
+  it("shows only the building count in the detail header", () => {
     const document = setupDocument();
     const root = document.createElement("div");
     const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:restaurant" });
@@ -482,7 +486,8 @@ describe("building detail, production and recipe UI modules", () => {
     expect(shell.classList.contains("is-building-detail-single-panel")).toBe(true);
     expect(statsPanel.hidden).toBe(false);
     expect(infoPanel.hidden).toBe(true);
-    expect(shell.querySelector(".district-building-detail-info-card").parentNode).toBe(statsPanel);
+    expect(infoPanel.style.display).toBe("none");
+    expect(statsPanel.querySelector(".district-building-detail-info-card")).toBe(null);
   });
 
   it("renders apartment block detail as one combined panel without tabs", () => {
@@ -518,7 +523,8 @@ describe("building detail, production and recipe UI modules", () => {
     expect(statsPanel.classList.contains("district-building-detail-panel--merged")).toBe(true);
     expect(infoPanel.hidden).toBe(true);
     expect(infoPanel.classList.contains("hidden")).toBe(true);
-    expect(shell.querySelector(".district-building-detail-info-card").parentNode).toBe(statsPanel);
+    expect(infoPanel.style.display).toBe("none");
+    expect(statsPanel.querySelector(".district-building-detail-info-card")).toBe(null);
     expect(shell.querySelector("[data-district-building-detail-action-section]")).toBe(null);
   });
 
@@ -558,7 +564,9 @@ describe("building detail, production and recipe UI modules", () => {
     expect(shell.classList.contains("is-building-detail-single-panel")).toBe(true);
     expect(statsPanel.hidden).toBe(false);
     expect(infoPanel.hidden).toBe(true);
-    expect(shell.querySelector(".district-building-detail-info-card").parentNode).toBe(statsPanel);
+    expect(infoPanel.style.display).toBe("none");
+    expect(statsPanel.querySelector(".building-detail-info-text").textContent).toBe("Klinika drží gang při životě.");
+    expect(statsPanel.querySelector(".district-building-detail-info-card")).toBe(null);
     expect(actions).toHaveLength(1);
     expect(actions[0].querySelector(".building-info-action-row__title").textContent).toBe("Stabilizační protokol");
   });
@@ -772,6 +780,61 @@ describe("building detail, production and recipe UI modules", () => {
     expect(actions[0].querySelector(".building-info-action-row__title").textContent).toBe("Otevřít kanál");
   });
 
+  it("keeps arcade special actions at the bottom of the single-panel card", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:arcade" });
+    const infoSection = shell.querySelector("[data-district-building-detail-info-section]");
+
+    renderBuildingDetailInfoSection(infoSection, {
+      intro: "Herna je pouliční cashflow a menší pračka.",
+      rows: [],
+      actions: []
+    });
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "arcade",
+      title: "Herna",
+      badge: "Dirty cash",
+      levelLabel: "",
+      name: "Herna",
+      meta: "",
+      stats: [{ label: "Dirty / min", value: "+$72" }],
+      mechanics: [{ label: "Noční automaty", value: "NOC only" }],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { visible: false, disabled: true, title: "" },
+      showActionsInSinglePanel: true,
+      actions: [
+        {
+          index: 0,
+          actionId: "night_machines",
+          buildingTypeId: "arcade",
+          title: "Noční automaty",
+          rewardSummary: "Clean income +35%",
+          cooldownLabel: "Cooldown 16m 00s"
+        },
+        {
+          index: 1,
+          actionId: "back_cashdesk",
+          buildingTypeId: "arcade",
+          title: "Zadní pokladna",
+          rewardSummary: "Praní 13% dirty cash",
+          cooldownLabel: "Cooldown 12m 00s"
+        }
+      ]
+    });
+
+    const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
+    const intro = statsPanel.querySelector(".building-detail-info-text");
+    const actionSection = shell.querySelector("[data-district-building-detail-action-section]");
+    const actions = shell.querySelectorAll("[data-district-building-detail-action-index]");
+
+    expect(actions).toHaveLength(2);
+    expect(actionSection.parentNode).toBe(statsPanel);
+    expect(statsPanel.children.indexOf(actionSection)).toBe(statsPanel.children.length - 1);
+    expect(statsPanel.children.indexOf(actionSection)).toBeGreaterThan(statsPanel.children.indexOf(intro));
+  });
+
   it("keeps a single pinned apartment intro across live refresh renders", () => {
     const document = setupDocument();
     const root = document.createElement("div");
@@ -803,6 +866,45 @@ describe("building detail, production and recipe UI modules", () => {
     const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
     const pinnedIntroCount = statsPanel.children.filter((child) => child.classList.contains("building-detail-info-text")).length;
     expect(pinnedIntroCount).toBe(1);
+  });
+
+  it("does not pin empty single-panel intro rows", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:clinic-empty-info" });
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "clinic",
+      title: "Klinika",
+      badge: "Recovery",
+      levelLabel: "",
+      name: "Klinika",
+      meta: "",
+      stats: [{ label: "Recovery pool", value: "0 položek" }],
+      mechanics: [{ label: "Stabilizace", value: "čeká" }],
+      effects: [{ text: "Clean cash +$3100/hod", tone: "clean" }],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { visible: false, disabled: true, title: "" },
+      showActionsInSinglePanel: true,
+      actions: [{
+        index: 0,
+        actionId: "stabilization_protocol",
+        buildingTypeId: "clinic",
+        title: "Stabilizační protokol",
+        disabled: true,
+        disabledReason: "Žádné ztráty k léčbě.",
+        cooldownLabel: "Cooldown 17m 39s"
+      }]
+    });
+
+    const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
+    const infoPanel = shell.querySelector("[data-district-building-detail-panel='info']");
+
+    expect(statsPanel.querySelector(".building-detail-info-text")).toBe(null);
+    expect(statsPanel.querySelector(".district-building-detail-info-card")).toBe(null);
+    expect(infoPanel.querySelector(".district-building-detail-info-card")).not.toBe(null);
+    expect(infoPanel.style.display).toBe("none");
   });
 
   it("renders production outputs and empty production panels", () => {

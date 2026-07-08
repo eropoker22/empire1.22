@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  formatBuildingActionCategoryLabels,
   getActionDescription,
   getActionDisabledReason,
   getActionIcon,
@@ -103,6 +104,15 @@ describe("building action UI registry", () => {
       cooldownRemainingMs: 1200,
       formatCooldown: () => "2s"
     })).toBe("Akce má cooldown 2s.");
+  });
+
+  it("hides unused cooldown categories from UI labels", () => {
+    expect(formatBuildingActionCategoryLabels([
+      "gangMovement",
+      "attackPreparation",
+      "resourceTransfer",
+      "districtOccupy"
+    ])).toBe("příprava útoku · obsazení districtu");
   });
 });
 

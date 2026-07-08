@@ -3,19 +3,19 @@ import type { ClinicBalanceConfig } from "../contracts/balance-config";
 export const freeModeClinicConfig: ClinicBalanceConfig = {
   id: "clinic",
   buildingTypeId: "clinic",
-  countOnMap: 14,
+  countOnMap: 8,
   category: ["economy", "recovery", "support"],
-  cleanCashPerMinute: 55,
+  cleanCashPerMinute: 3100 / 60,
   dirtyCashPerMinute: 0,
   influencePerMinute: 0,
-  heatPerMinute: 0.03,
+  heatPerMinute: 85 / (60 * 24),
   noLaundering: true,
   noAuditRisk: true,
   recovery: {
     baseRecoveryRatePct: 15,
     recoveryRatePctPerExtraClinic: 3,
     maxRecoveryRatePct: 40,
-    poolTtlMinutes: 20,
+    poolTtlMinutes: 90,
     toxicTrapRateMultiplier: 0.5
   },
   network: {

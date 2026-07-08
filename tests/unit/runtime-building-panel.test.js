@@ -148,7 +148,8 @@ describe("building panel rendering", () => {
       copy: "Zobrazuje pouze budovy v districtech, které máš pod kontrolou.",
       baseTypes: [
         { baseName: "Bytový blok", count: 2, apartmentIsFull: true },
-        { baseName: "Fitness Club", count: 1 }
+        { baseName: "Fitness Club", count: 1 },
+        { baseName: "Klinika", count: 1, clinicStabilizationReady: true }
       ],
       activeBaseName: "Bytový blok",
       entries: [
@@ -163,6 +164,8 @@ describe("building panel rendering", () => {
     expect(card.children[2].children[0].children[0].dataset.buildingsSelectBaseName).toBe("Bytový blok");
     expect(card.children[2].children[0].children[0].classList.contains("is-apartment-full")).toBe(true);
     expect(card.children[2].children[0].children[0].title).toBe("Bytový blok je plný. Obyvatelé čekají na vybrání.");
+    expect(card.children[2].children[0].children[2].classList.contains("is-clinic-stabilization-ready")).toBe(true);
+    expect(card.children[2].children[0].children[2].title).toBe("Stabilizační protokol je připravený ke spuštění.");
     expect(card.children[4].children[0].children[0].dataset.buildingsOpenBuildingDistrictId).toBe("12");
     expect(card.children[4].children[0].children[0].classList.contains("is-apartment-full")).toBe(false);
     expect(card.children[4].children[0].children[1].disabled).toBe(true);

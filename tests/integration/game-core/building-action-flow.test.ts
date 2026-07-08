@@ -55,11 +55,11 @@ describe("run-building-action command flow", () => {
     const buildingActions = context.config.balance.buildingActions ?? {};
     const downtownCountByType: Record<string, number> = {
       court: 2,
-      central_bank: 2,
+      central_bank: 3,
       lobby_club: 2,
       city_hall: 1,
       stock_exchange: 1,
-      vip_lounge: 2
+      vip_lounge: 3
     };
 
     expect(definitions).not.toHaveLength(0);
@@ -149,7 +149,12 @@ describe("run-building-action command flow", () => {
       }
     });
     const result = collectIncome(state, context);
+    const clinicBalance = context.config.balance.fixedBuildings?.clinic;
 
+    expect(clinicBalance?.cleanPerHour).toBe(3100);
+    expect(clinicBalance?.dirtyPerHour).toBe(0);
+    expect(clinicBalance?.heatPerDay).toBeCloseTo(85, 5);
+    expect(clinicBalance?.influencePerDay).toBe(0);
     expect(result.resourceStatesById["resource:1"].balances.cash).toBeGreaterThan(0);
     expect(result.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(0);
     expect(result.districtsById["district:1"].heat).toBeGreaterThan(0);
@@ -1358,20 +1363,31 @@ describe("run-building-action command flow", () => {
     expectMafianHeat(result.nextState.districtsById["district:1"].heat, 3);
     expect(result.nextState.districtsById["district:1"].influence).toBe(1);
     expect(result.nextState.buildingsById[building.id].metadata?.arcade).toMatchObject({
-      launderedEvents: [{ tick: 0, amount: 1300 }]
+      launderedEvents: [{ tick: 0, amount: 1300 }],
+      auditRiskBonuses: [{ expiresAtTick: 96, riskPct: 3, source: "back_cashdesk" }]
     });
+    expect(result.nextState.buildingsById[building.id].actionCooldowns.back_cashdesk).toBe(
+      cooldownTicksForMs(16 * 60 * 1000)
+    );
     expect(report).toMatchObject({
       arcadeResult: {
         launderedDirtyCash: 1300,
         cleanCashGained: 1105,
         feePaid: 195,
-        heatGain: 3
+        heatGain: 3,
+        influenceGain: 1,
+        auditRiskBonusPct: 3,
+        auditRiskDurationMinutes: 8
       }
     });
+    expect(report.message).toContain("Vliv +1");
+    expect(report.message).toContain("Audit risk +3% na 8 min");
   });
 
   it("activates arcade night machines and blocks stacking while active", () => {
     const { state, building } = createStateWithFixedBuilding("arcade");
+    const nightStartTick = context.config.balance.dayNight?.phases.day.durationTicks ?? 1440;
+    state.root.tick = nightStartTick;
     const first = applyCommand(
       state,
       createRunBuildingActionCommandFixture({
@@ -1399,7 +1415,7 @@ describe("run-building-action command flow", () => {
 
     expect(first.errors).toEqual([]);
     expect(first.nextState.buildingsById[building.id].metadata?.arcade).toMatchObject({
-      nightMachinesExpiresAtTick: 84
+      nightMachinesExpiresAtTick: nightStartTick + 84
     });
     expect(second.errors.map((error) => error.code)).toContain("building_action_cooldown");
     expect(second.errors.map((error) => error.code)).toContain("arcade_night_machines_active");
@@ -1665,6 +1681,16 @@ describe("run-building-action command flow", () => {
   });
 
   it("collects garage income without dirty cash, influence, population, or actions", () => {
+    const singleGarage = createStateWithFixedBuilding("garage", {
+      playerBalances: {
+        cash: 0,
+        "dirty-cash": 0
+      }
+    });
+    const singleResult = collectIncome(singleGarage.state, context);
+    const singleCash = Number(singleResult.resourceStatesById["resource:1"].balances.cash || 0);
+    const singleHeat = Number(singleResult.districtsById["district:1"].heat || 0);
+
     const { state, building } = createStateWithFixedBuilding("garage", {
       playerBalances: {
         cash: 0,
@@ -1685,10 +1711,12 @@ describe("run-building-action command flow", () => {
     const actions = context.config.balance.buildingActions ?? {};
 
     expect(result.resourceStatesById["resource:1"].balances.cash).toBeGreaterThan(0);
+    expect(result.resourceStatesById["resource:1"].balances.cash).toBeGreaterThan(singleCash * 2);
     expect(result.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(0);
     expect(result.resourceStatesById["resource:1"].balances.influence).toBeUndefined();
     expect(result.resourceStatesById["resource:1"].balances.population).toBeUndefined();
     expect(result.districtsById["district:1"].heat).toBeGreaterThan(0);
+    expect(result.districtsById["district:1"].heat).toBeGreaterThan(singleHeat * 2);
     expect(result.districtsById["district:1"].influence).toBe(0);
     expect(actions.garage_prepare_vehicles).toBeUndefined();
     expect(actions.garage_fast_route).toBeUndefined();
@@ -1817,7 +1845,7 @@ describe("run-building-action command flow", () => {
     expect(metadata.wasFull).toBe(true);
   });
 
-  it("collects school students into player population without dirty cash, heat, or gang-member storage", () => {
+  it("rejects removed school student collection action", () => {
     const { state, building } = createStateWithFixedBuilding("school", {
       metadata: {
         school: {
@@ -1848,34 +1876,16 @@ describe("run-building-action command flow", () => {
       }),
       context
     );
-    const report = createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })[0];
 
-    expect(result.errors).toEqual([]);
-    expect(result.nextState.playersById["player:1"].population).toBe(15);
+    expect(result.errors.map((error) => error.code)).toContain("building_action_not_found");
+    expect(result.nextState.playersById["player:1"].population).toBe(11);
     expect(result.nextState.resourceStatesById["resource:1"].balances["gang-members"]).toBeUndefined();
     expect(result.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(250);
     expect(result.nextState.districtsById["district:1"].heat).toBe(0);
     expect(result.nextState.districtsById["district:1"].influence).toBe(0);
     expect(result.nextState.buildingsById[building.id].metadata?.school).toMatchObject({
-      storedStudents: 0,
+      storedStudents: 4.8,
       wasFull: false
-    });
-    expect(result.nextState.buildingsById[building.id].metadata?.school).not.toHaveProperty("activeTalentBonuses");
-    expect(result.nextState.buildingsById[building.id].metadata?.school).not.toHaveProperty("talentEvents");
-    expect(report).toMatchObject({
-      reportType: "building-action",
-      buildingActionId: "collect_students",
-      schoolResult: {
-        type: "collect_students",
-        collectedPopulation: 4,
-        talent: {
-          id: "negotiator",
-          label: "Vyjednavač"
-        },
-        streetNews: expect.stringContaining("Uliční zpráva")
-      },
-      heatGain: 0,
-      influenceChange: 0
     });
   });
 
@@ -1990,6 +2000,7 @@ describe("run-building-action command flow", () => {
       population: 10,
       recoveryPool: [
         { id: "recovery:test:members", itemType: "gang-members", amount: 10, source: "attack", lostAtTick: 0 },
+        { id: "recovery:test:population", itemType: "population", amount: 20, source: "attack", lostAtTick: 0 },
         { id: "recovery:test:pistol", itemType: "pistol", amount: 5, source: "attack", lostAtTick: 0 }
       ]
     };
@@ -2023,7 +2034,7 @@ describe("run-building-action command flow", () => {
     expect(balances.cash).toBe(3800);
     expect(balances.chemicals).toBe(0);
     expect(balances["gang-members"]).toBeUndefined();
-    expect(result.nextState.playersById["player:1"].population).toBe(11);
+    expect(result.nextState.playersById["player:1"].population).toBe(14);
     expect(result.nextState.playersById["player:1"].recoveryPool).toEqual([
       { id: "recovery:test:pistol", itemType: "pistol", amount: 5, source: "attack", lostAtTick: 0 }
     ]);
@@ -2033,7 +2044,7 @@ describe("run-building-action command flow", () => {
       clinicResult: {
         type: "recovery",
         recovered: {
-          population: 1
+          population: 4
         },
         keptForRecycling: 5,
         cleanCashCost: 1200,
@@ -2720,7 +2731,7 @@ describe("run-building-action command flow", () => {
     expect(second.errors.map((error) => error.code)).toContain("strip_club_vip_lounge_active");
   });
 
-  it("runs bar whispers as an immediate probabilistic rumor without probability visibility", () => {
+  it("rejects removed bar whispers action", () => {
     const { state, building } = createStateWithFixedBuilding("strip_club", {
       playerBalances: {
         cash: 1000,
@@ -2743,20 +2754,10 @@ describe("run-building-action command flow", () => {
       }),
       context
     );
-    const report = createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })[0];
 
-    expect(result.errors).toEqual([]);
-    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 2);
-    expect(result.nextState.districtsById["district:1"].influence).toBe(5);
-    expect(report).toMatchObject({
-      buildingActionId: "bar_whispers",
-      stripClubResult: {
-        type: "rumor_generation",
-        rumor: {
-          probabilityVisible: false
-        }
-      }
-    });
+    expect(result.errors.map((error) => error.code)).toContain("building_action_not_found");
+    expect(result.nextState.districtsById["district:1"].heat).toBe(0);
+    expect(result.nextState.districtsById["district:1"].influence).toBe(30);
   });
 
   it("runs private party with influence boost and scandal fallout when the roll hits", () => {

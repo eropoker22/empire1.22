@@ -217,18 +217,39 @@
 }
 
 #spy-confirm-modal .spy-confirm-popup-body {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#spy-confirm-modal .spy-confirm-popup-card {
+  display: flex;
+  flex-direction: column;
+}
+
+#spy-confirm-modal .spy-confirm-popup-card .district-modal-hero {
+  display: block;
+  flex: 0 0 146px;
+  min-height: 146px;
+  overflow: hidden;
+}
+
+#spy-confirm-modal .spy-confirm-popup-card .district-modal-hero__image {
+  display: block;
+  opacity: 0.94;
 }
 
 #spy-confirm-modal .spy-confirm-popup-body .attack-setup-popup-row {
-  justify-content: center;
-  text-align: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  white-space: nowrap;
 }
 
 #spy-confirm-modal .spy-confirm-popup-body .attack-setup-popup-row span {
-  width: 100%;
+  width: auto;
+  margin-left: auto;
   justify-content: center;
-  text-align: center;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .district-action-confirm-popup-body .attack-setup-popup-row {
@@ -281,7 +302,7 @@
   }
 
   #spy-confirm-modal .spy-confirm-popup-body {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

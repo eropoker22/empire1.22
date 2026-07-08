@@ -40,12 +40,6 @@ export const freeModeStripClubConfig: StripClubBalanceConfig = {
     heatBonusPct: 50,
     rumorChanceFlatBonusPct: 10
   },
-  barWhispers: {
-    actionId: "bar_whispers",
-    cooldownMinutes: 14,
-    influenceCost: 25,
-    heatGain: 2
-  },
   privateParty: {
     actionId: "private_party",
     cooldownMinutes: 30,

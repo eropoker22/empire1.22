@@ -150,27 +150,6 @@ export const resolveStripClubAction = (input: {
     };
   }
 
-  if (input.action.actionId === config.barWhispers.actionId) {
-    const rumor = generateStripClubRumor({
-      state: input.state,
-      playerId: input.building.ownerPlayerId ?? "",
-      buildingId: input.building.id,
-      config,
-      seed: `${input.commandId}:bar:${input.state.root.tick}`
-    });
-    metadata.rumorEvents.push(rumor);
-    return {
-      balances: { ...input.balances },
-      buildingMetadata: withStripClubMetadata(input.building, metadata),
-      heatGain: config.barWhispers.heatGain,
-      influenceChange: -config.barWhispers.influenceCost,
-      inputCost: { influence: config.barWhispers.influenceCost },
-      outputGain: {},
-      reportText: "Šeptanda u baru dorazila do city feedu.",
-      stripClubResult: { type: "rumor_generation", rumor }
-    };
-  }
-
   if (input.action.actionId === config.privateParty.actionId) {
     metadata.privatePartyExpiresAtTick = input.state.root.tick + minutesToTicks(config.privateParty.durationMinutes, input.tickRateMs);
     const extraRumor = deterministicRollPct(`${input.commandId}:extra-rumor:${input.state.root.tick}`) < config.privateParty.extraRumorChancePct
@@ -249,9 +228,6 @@ export const validateStripClubAction = (input: {
   }
   if (input.actionId === config.privateParty.actionId && (metadata.privatePartyExpiresAtTick ?? 0) > input.state.root.tick) {
     return "strip_club_private_party_active";
-  }
-  if (input.actionId === config.barWhispers.actionId && Math.max(0, Number(input.district.influence || 0)) < config.barWhispers.influenceCost) {
-    return "strip_club_insufficient_influence";
   }
   return null;
 };

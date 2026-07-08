@@ -240,15 +240,21 @@ describe("district action confirmation panel", () => {
   it("marks missing spies in the spy confirmation cell", () => {
     const source = element();
     const available = element();
+    const image = { src: "", alt: "", dataset: {} };
+    const label = element();
     const button = element();
     const viewModel = createSpyConfirmationViewModel({
       district: { id: 6 },
       adjacentOwnedDistrictIds: [1],
       spyState: { available: 0 },
-      spyCooldownMs: 20_000
+      spyCooldownMs: 20_000,
+      atmosphereMeta: { typeKey: "park", label: "Parkový sektor", imagePath: "img/park.webp" }
     });
 
     renderSpyConfirmationPanel(viewModel, {
+      spyConfirmCard: element(),
+      spyConfirmAtmosphereImage: image,
+      spyConfirmAtmosphereLabel: label,
       spyConfirmTitle: element(),
       spyConfirmSource: source,
       spyConfirmAvailable: available,
@@ -260,6 +266,8 @@ describe("district action confirmation panel", () => {
     expect(button.disabled).toBe(true);
     expect(source.dataset.validationState).toBeUndefined();
     expect(available.dataset.validationState).toBe("error");
+    expect(image.src).toBe("img/park.webp");
+    expect(label.textContent).toBe("Parkový sektor");
   });
 
   it("marks empty attack loadout in the attack confirmation members cell", () => {

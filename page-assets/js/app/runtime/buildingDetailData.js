@@ -229,7 +229,7 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
   ]),
   herna: Object.freeze([
     Object.freeze({ arcadeNightMachines: true, durationMs: 7 * 60 * 1000, cooldownMs: 16 * 60 * 1000, cleanIncomeBoostPct: 35, dirtyIncomeBoostPct: 65, influenceBoostPct: 15, heatMultiplier: 1.45, auditRiskBoostPct: 4, summary: "Noční automaty zvednou income, vliv, heat a audit risk." }),
-    Object.freeze({ arcadeBackCashdesk: true, minimumDirty: 500, dirtySharePct: 13, maxDirty: 3800, feePct: 15, influence: 1, heat: 3, cooldownMs: 12 * 60 * 1000, auditRiskBoostPct: 3, auditRiskDurationMs: 8 * 60 * 1000, summary: "Zadní pokladna vypere část dirty cash a zvýší audit risk." })
+    Object.freeze({ arcadeBackCashdesk: true, minimumDirty: 500, dirtySharePct: 13, maxDirty: 3800, feePct: 15, influence: 1, heat: 3, cooldownMs: 16 * 60 * 1000, auditRiskBoostPct: 3, auditRiskDurationMs: 8 * 60 * 1000, summary: "Zadní pokladna vypere část dirty cash a zvýší audit risk." })
   ]),
   smenarna: Object.freeze([
     Object.freeze({ exchangeOfficeGoodRate: true, minimumDirty: 800, dirtySharePct: 16, maxDirty: 6000, feePct: 12, influence: 1.5, heat: 4, cooldownMs: 11 * 60 * 1000, auditRiskBoostPct: 4, auditRiskDurationMs: 8 * 60 * 1000, summary: "Výhodný kurz vypere menší část dirty cash a zvedne audit risk." })
@@ -326,6 +326,7 @@ export const CASINO_DETAIL_UPGRADES = Object.freeze({
 export const EXCHANGE_OFFICE_BASE_LAUNDERING_CAPACITY = 6000;
 export const EXCHANGE_OFFICE_BASE_AUDIT_RISK_PCT = 4;
 export const EXCHANGE_OFFICE_NETWORK_CONFIG = Object.freeze({
+  countOnMap: 11,
   incomeBonusPctPerExtraExchange: 8,
   launderingLimitBonusPctPerExtraExchange: 10,
   heatBonusPctPerExtraExchange: 4,
@@ -336,6 +337,7 @@ export const EXCHANGE_OFFICE_NETWORK_CONFIG = Object.freeze({
 export const ARCADE_BASE_LAUNDERING_CAPACITY = 3800;
 export const ARCADE_BASE_AUDIT_RISK_PCT = 3;
 export const ARCADE_NETWORK_CONFIG = Object.freeze({
+  countOnMap: 16,
   incomeBonusPctPerExtraArcade: 5,
   launderingLimitBonusPctPerExtraArcade: 6,
   heatBonusPctPerExtraArcade: 3,
@@ -347,6 +349,7 @@ export const APARTMENT_BLOCK_BASE_CAPACITY = 50;
 export const APARTMENT_BLOCK_POPULATION_PER_MINUTE = 2;
 export const APARTMENT_BLOCK_MIN_COLLECT_POPULATION = 10;
 export const APARTMENT_BLOCK_NETWORK_CONFIG = Object.freeze({
+  countOnMap: 29,
   populationProductionBonusPctPerExtraBlock: 6,
   capacityBonusPctPerExtraBlock: 8,
   maxPopulationProductionMultiplier: 1.55,
@@ -505,6 +508,24 @@ export const FITNESS_CLUB_SUPPORT_CONFIG = Object.freeze({
   maxIncomeMultiplier: 1.2,
   maxHeatMultiplier: 1.12
 });
+export const RECRUITMENT_CENTER_SUPPORT_CONFIG = Object.freeze({
+  countOnMap: 16,
+  cleanCashPerMinute: 35,
+  heatPerMinute: 0.07,
+  populationProductionBonusPctPerCenter: 3,
+  apartmentCapacityBonusPctPerCenter: 4,
+  maxPopulationProductionBonusPct: 24,
+  maxApartmentCapacityBonusPct: 32,
+  attackWeaponStrengthBonusPctPerCenter: 2,
+  defenseItemStrengthBonusPctPerCenter: 1.5,
+  maxAttackWeaponStrengthBonusPct: 16,
+  maxDefenseItemStrengthBonusPct: 12,
+  maxCombinedCameraAlarmBonusPct: 50,
+  incomeBonusPctPerExtraCenter: 3,
+  heatBonusPctPerExtraCenter: 3,
+  maxIncomeMultiplier: 1.21,
+  maxHeatMultiplier: 1.21
+});
 export const SMUGGLING_TUNNEL_CONFIG = Object.freeze({
   countOnMap: 18,
   dirtyCashPerMinute: 54,
@@ -543,8 +564,9 @@ export const SMUGGLING_TUNNEL_CONFIG = Object.freeze({
 export const CLINIC_BASE_RECOVERY_RATE_PCT = 15;
 export const CLINIC_RECOVERY_RATE_PCT_PER_EXTRA = 3;
 export const CLINIC_MAX_RECOVERY_RATE_PCT = 40;
-export const CLINIC_POOL_TTL_MS = 20 * 60 * 1000;
-export const CLINIC_RECOVERABLE_ITEMS = Object.freeze(["population", "gang-members"]);
+export const CLINIC_COUNT_ON_MAP = 8;
+export const CLINIC_POOL_TTL_MS = 90 * 60 * 1000;
+export const CLINIC_RECOVERABLE_ITEMS = Object.freeze(["population"]);
 export const CLINIC_RARE_ITEMS = Object.freeze([]);
 
 export const DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES = Object.freeze({

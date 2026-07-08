@@ -10,7 +10,7 @@ const ALLIANCE_CHAT_PREVIEW_KEY = "empire_local_alliance_chat_state";
 const ALLIANCE_COLOR_PREVIEW_KEY = "empire_local_alliance_color_state";
 const MAX_ALLIANCE_SIZE_FALLBACK = 4;
 const MAX_ALLIANCE_NAME_LENGTH = 32;
-const ALLIANCE_CREATE_REQUIRED_INFLUENCE = 150;
+const ALLIANCE_CREATE_REQUIRED_INFLUENCE = 40;
 const DEFAULT_ALLIANCE_EMBLEM_COLOR = "#f7c948";
 
 let latestAllianceBoard = null;
@@ -114,7 +114,7 @@ const CREATE_DISABLED_COPY = {
   already_in_alliance: "Už jsi v alianci.",
   PLAYER_ALREADY_IN_ALLIANCE: "Už jsi v alianci.",
   ALLIANCE_CREATE_LOCKED: "Po odchodu z aliance musíš počkat, než založíš novou.",
-  ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE: "Vytvořit alianci půjde až od 150 vlivu.",
+  ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE: "Vytvořit alianci půjde až od 40 vlivu.",
   ALLIANCE_JOIN_LOCKED: "Po odchodu z aliance musíš počkat, než se přidáš.",
   ALLIANCE_EXIT_PENDING: "Odchod z aliance se ještě dokončuje.",
   server_locked: "Server teď nepovoluje vytvoření aliance.",
@@ -141,7 +141,7 @@ const PLAYER_FACING_ERROR_COPY = {
   PLAYER_ALREADY_IN_ALLIANCE: "Už jsi v alianci.",
   ALLIANCE_JOIN_LOCKED: "Po odchodu z aliance musíš počkat, než se přidáš.",
   ALLIANCE_CREATE_LOCKED: "Po odchodu z aliance musíš počkat, než založíš novou.",
-  ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE: "Vytvořit alianci půjde až od 150 vlivu.",
+  ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE: "Vytvořit alianci půjde až od 40 vlivu.",
   ALLIANCE_EXIT_PENDING: "Odchod z aliance se ještě dokončuje.",
   READY_TOO_EARLY: "Aktivitu zatím není potřeba obnovit.",
   READY_NOT_ALLOWED: "Tahle akce aktivity teď nejde provést.",

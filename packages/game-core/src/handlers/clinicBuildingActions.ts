@@ -17,10 +17,7 @@ export interface ClinicActionResolution {
   clinicResult: Record<string, unknown>;
 }
 
-const CLINIC_RECOVERABLE_ITEMS = new Set([
-  "population",
-  "gang-members"
-]);
+const CLINIC_RECOVERABLE_ITEMS = new Set(["population"]);
 const RARE_ITEMS = new Set<string>();
 
 export const getOwnedClinicCount = (state: CoreGameState, playerId: string, config: ClinicBalanceConfig): number =>
@@ -95,6 +92,10 @@ export const appendRecoveryPoolEntries = (
   const player = state.playersById[playerId];
   if (!player) return state;
   const safeEntries = entries
+    .map((entry) => ({
+      ...entry,
+      itemType: normalizeClinicRecoverableItem(entry.itemType)
+    }))
     .filter((entry) => Math.floor(Number(entry.amount || 0)) > 0 && entry.itemType)
     .map((entry, index) => ({
       ...entry,
@@ -124,7 +125,7 @@ export const createRecoveryEntriesFromLosses = (
   Object.entries(losses ?? {}).flatMap(([itemType, amount]) =>
     isClinicRecoverableItem(itemType)
       ? [{
-          itemType,
+          itemType: normalizeClinicRecoverableItem(itemType),
           amount: Math.floor(Number(amount || 0)),
           source
         }]
@@ -161,31 +162,37 @@ export const resolveClinicAction = (input: {
   const random = input.random ?? Math.random;
   const recovered: Record<string, number> = {};
   const lostByCapacity: Record<string, number> = {};
+  const rawRecoverableByType: Record<string, number> = {};
   const capacity = input.warehouseConfig
     ? resolveWarehouseStorageCapacity(input.state, input.playerId, input.warehouseConfig, input.powerStationConfig)
     : null;
 
   for (const entry of recoverableFresh) {
+    const itemType = normalizeClinicRecoverableItem(entry.itemType);
     const rate = entry.source === "trap" || entry.source === "toxic_trap"
       ? baseRate * input.clinicConfig.recovery.toxicTrapRateMultiplier
       : baseRate;
     const raw = Math.max(0, Number(entry.amount || 0)) * rate;
-    let amount = Math.floor(raw);
-    if (RARE_ITEMS.has(entry.itemType) && random() < raw - amount) amount += 1;
+    rawRecoverableByType[itemType] = Math.max(0, Number(rawRecoverableByType[itemType] || 0)) + raw;
+  }
+
+  for (const [itemType, raw] of Object.entries(rawRecoverableByType)) {
+    let amount = Math.floor(Math.max(0, Number(raw || 0)));
+    if (RARE_ITEMS.has(itemType) && random() < raw - amount) amount += 1;
     if (amount <= 0) continue;
-    if (entry.itemType === "population" || entry.itemType === "gang-members") {
+    if (itemType === "population") {
       recovered.population = Math.max(0, Number(recovered.population || 0) + amount);
       continue;
     }
-    const cap = capacity ? getWarehouseCapacityForResource(capacity, entry.itemType) : Number.POSITIVE_INFINITY;
-    const current = Math.max(0, Number(nextBalances[entry.itemType] || 0));
+    const cap = capacity ? getWarehouseCapacityForResource(capacity, itemType) : Number.POSITIVE_INFINITY;
+    const current = Math.max(0, Number(nextBalances[itemType] || 0));
     const accepted = Number.isFinite(cap) ? Math.max(0, Math.min(amount, cap - current)) : amount;
     const overflow = Math.max(0, amount - accepted);
     if (accepted > 0) {
-      nextBalances[entry.itemType] = current + accepted;
-      recovered[entry.itemType] = Math.max(0, Number(recovered[entry.itemType] || 0) + accepted);
+      nextBalances[itemType] = current + accepted;
+      recovered[itemType] = Math.max(0, Number(recovered[itemType] || 0) + accepted);
     }
-    if (overflow > 0) lostByCapacity[entry.itemType] = Math.max(0, Number(lostByCapacity[entry.itemType] || 0) + overflow);
+    if (overflow > 0) lostByCapacity[itemType] = Math.max(0, Number(lostByCapacity[itemType] || 0) + overflow);
   }
 
   return {
@@ -231,8 +238,25 @@ export const validateClinicAction = (input: {
   return hasFresh ? null : "clinic_recovery_pool_empty";
 };
 
+const normalizeClinicRecoverableItem = (itemType: string): string => {
+  const key = String(itemType || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, "-");
+  if (key === "gang-members" || key === "gang-member" || key === "members" || key === "clenove") {
+    return "population";
+  }
+  if (key === "population" || key === "populace" || key === "obyvatele") {
+    return "population";
+  }
+  return key;
+};
+
 const isClinicRecoverableItem = (itemType: string): boolean =>
-  CLINIC_RECOVERABLE_ITEMS.has(String(itemType || ""));
+  CLINIC_RECOVERABLE_ITEMS.has(normalizeClinicRecoverableItem(itemType));
 
 const isRecoveryEntryFresh = (
   entry: PlayerRecoveryPoolEntry,

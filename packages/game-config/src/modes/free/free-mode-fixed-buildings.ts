@@ -44,8 +44,8 @@ export const freeModeFixedBuildings: NonNullable<ResolvedGameModeConfig["balance
   arcade: {
     cleanPerHour: freeModeArcadeConfig.cleanCashPerMinute * 60,
     dirtyPerHour: freeModeArcadeConfig.dirtyCashPerMinute * 60,
-    heatPerDay: 172.8,
-    influencePerDay: 259.2,
+    heatPerDay: Math.round(freeModeArcadeConfig.heatPerMinute * 60 * 24 * 10) / 10,
+    influencePerDay: freeModeArcadeConfig.influencePerMinute * 60 * 24,
     maxLevel: 1
   },
   apartment_block: {
@@ -72,7 +72,7 @@ export const freeModeFixedBuildings: NonNullable<ResolvedGameModeConfig["balance
   clinic: {
     cleanPerHour: freeModeClinicConfig.cleanCashPerMinute * 60,
     dirtyPerHour: 0,
-    heatPerDay: 43.2,
+    heatPerDay: freeModeClinicConfig.heatPerMinute * 60 * 24,
     influencePerDay: 0,
     maxLevel: 1
   },

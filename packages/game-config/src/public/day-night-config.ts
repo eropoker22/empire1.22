@@ -379,12 +379,6 @@ export const dayNightActionRules: Record<string, DayNightActionRuleConfig> = Obj
     rumorChanceModifierPct: -10,
     phaseEffectSummary: "NOC BONUS: VIP klienti chodí v noci. Přes den je menší rumor value."
   },
-  bar_whispers: {
-    preferredPhase: "night",
-    rumorChanceModifierPct: -15,
-    rumorTruthModifierPct: 10,
-    phaseEffectSummary: "NOC BONUS: šeptanda je častější v noci, přes den bývá přesnější."
-  },
   private_party: {
     preferredPhase: "night",
     heatMultiplier: 1.25,

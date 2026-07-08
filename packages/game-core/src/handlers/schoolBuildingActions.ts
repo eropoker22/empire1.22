@@ -284,61 +284,6 @@ export const resolveSchoolAction = (input: {
   tickRateMs: number;
 }): SchoolActionResolution | null => {
   const metadata = getSchoolMetadata(input.building, input.state.root.tick);
-  if (input.actionId === input.config.collectStudents.actionId) {
-    const collected = Math.max(0, Math.floor(metadata.storedStudents));
-    const ownedCount = input.building.ownerPlayerId
-      ? getOwnedSchoolCount(input.state, input.building.ownerPlayerId, input.config)
-      : 0;
-    const courseActive = isEveningCourseActive(metadata, input.state.root.tick);
-    const talentChancePct = resolveSchoolTalentChancePct({
-      ownedCount,
-      config: input.config,
-      eveningCourseActive: courseActive
-    });
-    const talent = rollSchoolTalent({
-      state: input.state,
-      building: input.building,
-      config: input.config,
-      chancePct: talentChancePct,
-      eveningCourseActive: courseActive
-    });
-    const nextMetadata: SchoolMetadata = {
-      ...metadata,
-      storedStudents: 0,
-      lastUpdatedTick: input.state.root.tick,
-      wasFull: false
-    };
-    const talentText = talent
-      ? `Uliční zpráva: ${talent.label}. ${talent.summary}`
-      : `Talent nepadl (${talentChancePct} % šance).`;
-
-    return {
-      balances: input.balances,
-      buildingMetadata: withSchoolMetadata(input.building, nextMetadata),
-      heatGain: 0,
-      influenceChange: 0,
-      inputCost: {},
-      outputGain: {
-        population: collected
-      },
-      reportText: `Vybral jsi ${collected} obyvatel ze Školy. ${talentText}`,
-      schoolResult: {
-        type: "collect_students",
-        collectedPopulation: collected,
-        remainingStoredStudents: 0,
-        talentChancePct,
-        talent: talent
-          ? {
-              id: talent.talentId,
-              label: talent.label,
-              summary: talent.summary
-            }
-          : null,
-        streetNews: talentText
-      }
-    };
-  }
-
   if (input.actionId !== input.config.eveningCourse.actionId) {
     return null;
   }
@@ -380,9 +325,6 @@ export const validateSchoolAction = (input: {
   const config = input.config;
   if (!config || input.building.buildingTypeId !== config.buildingTypeId) return null;
   const metadata = getSchoolMetadata(input.building, input.state.root.tick);
-  if (input.actionId === config.collectStudents.actionId) {
-    return metadata.storedStudents > 0 ? null : "school_no_students";
-  }
   if (input.actionId !== config.eveningCourse.actionId) return null;
   if (isEveningCourseActive(metadata, input.state.root.tick)) return "school_evening_course_active";
   if (Math.max(0, Number(input.balances.cash || 0)) < config.eveningCourse.costCleanCash) {

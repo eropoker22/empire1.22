@@ -1,5 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
+import { createDistrictBuildingProfileRuntime } from "../../page-assets/js/app/runtime/districtBuildingProfileRuntime.js";
 import { createBuildingsPopupRuntime } from "../../page-assets/js/app/runtime/buildingsPopupRuntime.js";
+import { DISTRICT_BUILDING_BACKGROUND_IMAGES_BY_BASE_NAME } from "../../page-assets/js/app/runtime/buildingBackgroundData.js";
+import { DISTRICT_BUILDING_VARIANT_NAMES_BY_BASE_NAME } from "../../page-assets/js/app/runtime/buildingDisplayData.js";
+import { clamp, hashCell } from "../../page-assets/js/app/runtime/utils.js";
+import {
+  DISTRICT_TYPE_GRID,
+  remapDistrictId,
+  remapDistrictType
+} from "../../page-assets/js/app/map/mapGeometry.js";
+import {
+  DISTRICT_BUILDING_PACKAGE_POOLS,
+  DOWNTOWN_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID
+} from "../../page-assets/js/data/districtPools.js";
+import {
+  DISTRICT_BUILDING_TYPE_META,
+  DISTRICT_BUILDING_TYPE_ORDER
+} from "../../page-assets/js/data/buildings.js";
 
 function createRuntime(overrides = {}) {
   const renderDistrictBuildingList = vi.fn();
@@ -42,6 +59,35 @@ function createRuntime(overrides = {}) {
       ...overrides
     })
   };
+}
+
+function createGeneratedMapProfileRuntime() {
+  return createDistrictBuildingProfileRuntime({
+    clamp,
+    currentPlayerId: 1,
+    defaultDistrictType: "resident",
+    districtBuildingPackagePools: DISTRICT_BUILDING_PACKAGE_POOLS,
+    districtBuildingTypeMeta: DISTRICT_BUILDING_TYPE_META,
+    districtTypeGrid: DISTRICT_TYPE_GRID,
+    downtownDistrictType: "downtown",
+    downtownFixedPackagesByDistrictId: DOWNTOWN_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
+    getCurrentPlayerOwnedDistrictIds: () => new Set(),
+    getEffectiveOwnedDistrictIds: () => new Set(),
+    getResolvedSpyIntel: () => ({ revealedTypeDistrictIds: [] }),
+    hashCell,
+    remapDistrictId,
+    remapDistrictType,
+    startPhaseOwnerByDistrictId: new Map(),
+    variantNamesByBaseName: DISTRICT_BUILDING_VARIANT_NAMES_BY_BASE_NAME,
+    backgroundImagesByBaseName: DISTRICT_BUILDING_BACKGROUND_IMAGES_BY_BASE_NAME
+  });
+}
+
+function groupEntriesByBaseName(entries = []) {
+  return entries.reduce((counts, entry) => {
+    counts.set(entry.baseName, (counts.get(entry.baseName) || 0) + 1);
+    return counts;
+  }, new Map());
 }
 
 describe("buildings popup runtime", () => {
@@ -167,6 +213,7 @@ describe("buildings popup runtime", () => {
     const { runtime, renderBuildingsPopupTypesPanel, renderBuildingsPopupDetailPanel } = createRuntime({
       getCurrentPlayerOwnedDistrictIds: () => new Set([1]),
       getInteractionState: () => ({ gamePhase: "live", destroyedDistrictIds: new Set() }),
+      getMinimumOwnedBuildingCountByBaseName: () => 2,
       isDemoLiveBuildingCatalogUnlocked: () => true
     });
 
@@ -188,6 +235,12 @@ describe("buildings popup runtime", () => {
     }));
     expect(renderBuildingsPopupDetailPanel).toHaveBeenLastCalledWith(undefined, expect.objectContaining({
       copy: "Zobrazuje všechny budovy na mapě.",
+      baseTypes: [
+        expect.objectContaining({
+          baseName: "Skladiště",
+          count: 1
+        })
+      ],
       entries: [
         expect.objectContaining({
           districtId: 2,
@@ -196,6 +249,67 @@ describe("buildings popup runtime", () => {
         })
       ]
     }));
+  });
+
+  it("keeps building type counts aligned with selectable building entries", () => {
+    const { runtime, renderBuildingsPopupDetailPanel } = createRuntime({
+      getCurrentPlayerOwnedDistrictIds: () => new Set([1]),
+      getInteractionState: () => ({ gamePhase: "live", destroyedDistrictIds: new Set() }),
+      getMinimumOwnedBuildingCountByBaseName: () => 30,
+      isDemoLiveBuildingCatalogUnlocked: () => true,
+      resolveDistrictBuildingProfile: (district) => ({
+        buildings: [{ baseName: "Bytový blok", displayName: `Blok ${district.id}` }],
+        districtLabel: `District ${district.id}`,
+        setTitle: "Sada",
+        tier: "early",
+        typeKey: district.districtType
+      })
+    });
+
+    runtime.renderBuildingsPopup("resident");
+
+    expect(renderBuildingsPopupDetailPanel).toHaveBeenLastCalledWith(undefined, expect.objectContaining({
+      baseTypes: [
+        expect.objectContaining({
+          baseName: "Bytový blok",
+          count: 2
+        })
+      ],
+      entries: [
+        expect.objectContaining({ displayName: "Blok 1" }),
+        expect.objectContaining({ displayName: "Blok 3" })
+      ]
+    }));
+  });
+
+  it("keeps every generated-map building type count aligned with selectable entries", () => {
+    const profileRuntime = createGeneratedMapProfileRuntime();
+    const catalog = profileRuntime.getDistrictResourceCatalog();
+    const { runtime, renderBuildingsPopupDetailPanel } = createRuntime({
+      districtBuildingTypeMeta: DISTRICT_BUILDING_TYPE_META,
+      districtBuildingTypeOrder: DISTRICT_BUILDING_TYPE_ORDER,
+      getCurrentPlayerOwnedDistrictIds: () => new Set(),
+      getGeometry: () => ({ districts: catalog }),
+      getInteractionState: () => ({ gamePhase: "live", destroyedDistrictIds: new Set() }),
+      isDemoLiveBuildingCatalogUnlocked: () => true,
+      resolveDistrictBuildingProfile: (district) => profileRuntime.resolveDistrictBuildingProfile(district)
+    });
+
+    for (const typeKey of DISTRICT_BUILDING_TYPE_ORDER) {
+      const entries = runtime.getBuildingEntriesForDistrictType(typeKey);
+      const expectedCounts = groupEntriesByBaseName(entries);
+      runtime.renderBuildingsPopup(typeKey);
+      let view = renderBuildingsPopupDetailPanel.mock.calls.at(-1)?.[1] || {};
+      expect(Object.fromEntries((view.baseTypes || []).map((item) => [item.baseName, item.count]))).toEqual(Object.fromEntries(expectedCounts));
+
+      for (const [baseName, count] of expectedCounts) {
+        runtime.selectBuildingsPopupBaseName(typeKey, baseName);
+        runtime.renderBuildingsPopupDetail(typeKey);
+        view = renderBuildingsPopupDetailPanel.mock.calls.at(-1)?.[1] || {};
+        expect(view.activeBaseName).toBe(baseName);
+        expect(view.entries).toHaveLength(count);
+      }
+    }
   });
 
   it("disables building zone tabs when the player owns no district in that zone", () => {
@@ -276,6 +390,39 @@ describe("buildings popup runtime", () => {
         expect.objectContaining({
           displayName: "Blok 1",
           apartmentIsFull: true
+        })
+      ]
+    }));
+  });
+
+  it("marks the clinic base cell when stabilization protocol can run", () => {
+    const isClinicStabilizationReady = vi.fn(({ district }) => Number(district.id) === 1);
+    const { runtime, renderBuildingsPopupDetailPanel } = createRuntime({
+      isClinicStabilizationReady,
+      resolveDistrictBuildingProfile: (district) => ({
+        buildings: [{ baseName: "Klinika", displayName: `Klinika ${district.id}` }],
+        districtLabel: `District ${district.id}`,
+        setTitle: "Sada",
+        tier: "early",
+        typeKey: district.districtType
+      })
+    });
+
+    runtime.renderBuildingsPopup("resident");
+
+    expect(isClinicStabilizationReady).toHaveBeenCalled();
+    expect(renderBuildingsPopupDetailPanel).toHaveBeenLastCalledWith(undefined, expect.objectContaining({
+      baseTypes: [
+        expect.objectContaining({
+          baseName: "Klinika",
+          count: 1,
+          clinicStabilizationReady: true
+        })
+      ],
+      entries: [
+        expect.objectContaining({
+          displayName: "Klinika 1",
+          clinicStabilizationReady: true
         })
       ]
     }));

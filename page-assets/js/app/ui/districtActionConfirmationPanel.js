@@ -107,7 +107,6 @@ const TRAP_CONFIRMATION_REQUIRED_KEYS = [
 
 const SPY_CONFIRMATION_REQUIRED_KEYS = [
   "spyConfirmTitle",
-  "spyConfirmSource",
   "spyConfirmAvailable",
   "spyConfirmDuration",
   "spyConfirmNote"

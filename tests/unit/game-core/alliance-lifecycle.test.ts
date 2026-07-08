@@ -91,7 +91,7 @@ describe("alliance lifecycle", () => {
     expect(created.nextState.alliancesById[allianceId].emblemColor).toBe("#ff2f5f");
   });
 
-  it("requires 150 influence before creating an alliance", () => {
+  it("requires 40 influence before creating an alliance", () => {
     const state = createInitialState("instance:1", "free");
     state.playersById["player:1"] = createPlayerFixture({
       id: "player:1",
@@ -103,7 +103,7 @@ describe("alliance lifecycle", () => {
       policeStateId: "police:player:1"
     }) as Player;
     state.root.playerIds.push("player:1");
-    grantAllianceCreateInfluence(state, "player:1", 149);
+    grantAllianceCreateInfluence(state, "player:1", 39);
 
     const result = applyCommand(
       state,
@@ -525,7 +525,7 @@ const createAllianceState = (playerIds: string[]) => {
   return { state, membership: membershipByPlayerId[playerIds[0]] };
 };
 
-const grantAllianceCreateInfluence = (state: ReturnType<typeof createInitialState>, playerId: string, influence = 150): void => {
+const grantAllianceCreateInfluence = (state: ReturnType<typeof createInitialState>, playerId: string, influence = 40): void => {
   const districtId = `district:alliance-create:${playerId}`;
   state.districtsById[districtId] = createDistrictFixture({
     id: districtId,

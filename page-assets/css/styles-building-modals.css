@@ -6806,8 +6806,12 @@
     text-align: center;
   }
 
+  .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-card [data-district-building-detail-effects-section] {
+    margin-top: 88px;
+  }
+
   .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-card [data-district-building-detail-effects-section] > h5 {
-    margin-bottom: 80px;
+    margin-bottom: 10px;
   }
 
   .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanics {
@@ -6873,6 +6877,259 @@
 
   .district-building-detail-shell[data-building-mechanics-type="exchange"] .district-building-detail-mechanic-row strong {
     text-align: center;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-card.building-detail-modal__content {
+    width: min(640px, calc(100vw - 40px));
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-body {
+    gap: 6px;
+    padding: 9px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-panel--merged {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-card .building-info-card__section,
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-card .building-info-card__effects {
+    gap: 5px;
+    padding: 7px;
+    border-radius: 8px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged > .building-detail-info-text {
+    padding: 8px 10px;
+    font-size: 0.72rem;
+    line-height: 1.24;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-mechanics,
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-card .building-info-card__effects {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: stretch;
+    gap: 5px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-mechanic-row,
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-effect-cell {
+    width: 100%;
+    justify-content: center;
+    border-radius: 8px;
+    padding: 7px 9px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-mechanic-row strong,
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-effect-cell strong {
+    font-size: 0.72rem;
+    line-height: 1.12;
+    text-align: center;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-card .building-info-card__section h5 {
+    margin: 0 0 4px 4px;
+    padding: 0;
+    font-size: 0.56rem;
+    line-height: 1;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-card [data-district-building-detail-effects-section] > h5,
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-card [data-district-building-detail-action-section] > h5 {
+    margin-bottom: 4px !important;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel [data-district-building-detail-action-section] {
+    gap: 4px;
+    margin-top: 0;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-actions {
+    gap: 6px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-actions .building-info-action-row {
+    min-height: 54px;
+    gap: 3px;
+    padding: 7px 8px 22px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-actions .building-info-action-row__title {
+    font-size: 0.72rem;
+    line-height: 1.04;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-actions .building-info-action-row__desc,
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-actions .building-info-action-row__cooldown {
+    font-size: 0.58rem;
+    line-height: 1.05;
+  }
+
+  .district-building-detail-card .building-info-card__effects,
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-card .building-info-card__effects {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center;
+    justify-content: center;
+    justify-items: center;
+    gap: 6px 8px;
+  }
+
+  .district-building-detail-card .district-building-detail-effect-cell,
+  .district-building-detail-shell[data-building-mechanics-type="arcade"].is-building-detail-single-panel .district-building-detail-effect-cell {
+    flex: 0 1 auto !important;
+    width: auto !important;
+    max-width: min(100%, 280px);
+    justify-content: center;
+    border-radius: 999px;
+    padding: 6px 11px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"] .district-building-detail-card .building-info-card__effects {
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: center;
+    justify-content: center;
+    row-gap: 18px;
+    column-gap: 0;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="apartment-block"] .district-building-detail-card .district-building-detail-effect-cell {
+    flex: 0 1 auto !important;
+    width: auto !important;
+    max-width: min(100%, 280px);
+    align-self: center;
+    justify-content: center;
+    border-radius: 999px;
+  }
+}
+
+.district-building-detail-card .building-info-card__effects,
+.armory-popup-card.building-detail-modal__content .building-info-card__effects,
+.pharmacy-popup-card.building-detail-modal__content .building-info-card__effects,
+.druglab-popup-card.building-detail-modal__content .building-info-card__effects,
+.factory-popup-card.building-detail-modal__content .building-info-card__effects {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-card .building-info-card__effects {
+  display: flex !important;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-card .district-building-detail-effect-cell {
+  flex: 0 1 auto !important;
+  width: auto !important;
+  max-width: min(100%, 280px);
+  align-self: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card .building-info-card__effects {
+  display: flex !important;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card .district-building-detail-effect-cell {
+  flex: 0 1 auto !important;
+  width: auto !important;
+  max-width: min(100%, 280px);
+  align-self: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-card .building-info-card__effects {
+  display: flex !important;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-card .district-building-detail-effect-cell {
+  flex: 0 1 auto !important;
+  width: auto !important;
+  max-width: min(100%, 300px);
+  align-self: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+@media (min-width: 721px) {
+  .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-card .building-info-card__stats,
+  .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-mechanics {
+    row-gap: 26px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-card .building-info-card__effects {
+    row-gap: 38px;
+    column-gap: 0;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card .building-info-card__effects {
+    row-gap: 18px;
+    column-gap: 0;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-mechanics {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    row-gap: 18px;
+    column-gap: 0;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-mechanic-row {
+    width: auto;
+    max-width: min(100%, 280px);
+    justify-content: center;
+    border-radius: 999px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-card .building-info-card__effects,
+  .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-mechanics {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    row-gap: 14px;
+    column-gap: 0;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-mechanic-row {
+    width: auto;
+    max-width: min(100%, 320px);
+    justify-content: center;
+    border-radius: 999px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-card .district-building-detail-effect-cell {
+    margin-top: 6px;
+    margin-bottom: 6px;
   }
 }
 
@@ -7002,6 +7259,13 @@
 }
 
 @media (min-width: 721px) {
+  .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card [data-district-building-detail-action-section] {
+    order: 150;
+    width: 100%;
+    margin-top: auto;
+    padding-top: 18px;
+  }
+
   .district-building-detail-shell[data-building-mechanics-type="smuggling-tunnel"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
     margin-bottom: 18px !important;
   }
@@ -7118,6 +7382,11 @@
 
 .district-building-detail-actions[data-district-building-detail-action-count="1"] .building-info-action-row__desc {
   font-size: 0.61rem;
+}
+
+.district-building-detail-actions .building-info-action-row[data-district-building-detail-has-cooldown="false"] {
+  min-height: 0;
+  padding-bottom: 8px;
 }
 
 .district-building-detail-actions .building-info-action-row::before {

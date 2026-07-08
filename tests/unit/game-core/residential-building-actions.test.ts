@@ -108,22 +108,50 @@ describe("residential building actions", () => {
   it("runs clinic stabilization when recovery pool exists and starts cooldown only after success", () => {
     const { state, building } = createClinicState({
       cash: 2_000,
-      recoveryPool: [{
-        id: "recovery:test:gang-members",
-        itemType: "gang-members",
-        amount: 10,
-        source: "combat",
-        lostAtTick: 0,
-        lostAt: new Date(0).toISOString()
-      }]
+      recoveryPool: [
+        {
+          id: "recovery:test:gang-members:1",
+          itemType: "gang-members",
+          amount: 5,
+          source: "combat",
+          lostAtTick: 0,
+          lostAt: new Date(0).toISOString()
+        },
+        {
+          id: "recovery:test:gang-members:2",
+          itemType: "gang-members",
+          amount: 5,
+          source: "combat",
+          lostAtTick: 0,
+          lostAt: new Date(0).toISOString()
+        },
+        {
+          id: "recovery:test:population:1",
+          itemType: "population",
+          amount: 10,
+          source: "combat",
+          lostAtTick: 0,
+          lostAt: new Date(0).toISOString()
+        },
+        {
+          id: "recovery:test:population:2",
+          itemType: "population",
+          amount: 10,
+          source: "combat",
+          lostAtTick: 0,
+          lostAt: new Date(0).toISOString()
+        }
+      ]
     });
     state.playersById["player:1"] = { ...state.playersById["player:1"], population: 0 };
 
     const result = applyCommand(state, createBuildingActionCommand(building.id, "stabilization_protocol"), context);
 
     expect(result.errors).toEqual([]);
+    expect(freeConfig.balance.clinic?.recovery.poolTtlMinutes).toBe(90);
     expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(800);
-    expect(result.nextState.playersById["player:1"].population).toBe(1);
+    expect(result.nextState.resourceStatesById["resource:1"].balances["gang-members"]).toBeUndefined();
+    expect(result.nextState.playersById["player:1"].population).toBe(4);
     expect(result.nextState.playersById["player:1"].recoveryPool).toEqual([]);
     expect(result.nextState.buildingsById[building.id].actionCooldowns?.stabilization_protocol).toBe(cooldownTicks(18));
   });

@@ -166,6 +166,77 @@ describe("district building profile runtime", () => {
     expect(suffixedNames).toEqual([]);
   });
 
+  it("uses fixed downtown packages after district id remapping", () => {
+    const runtime = createMapRuntime();
+    const downtownProfiles = runtime.getDistrictResourceCatalog()
+      .filter((district) => district.districtType === "downtown")
+      .map((district) => ({
+        districtId: district.id,
+        packageKey: runtime.resolveDistrictBuildingPackage(district).key,
+        buildings: runtime.resolveDistrictBuildingPackage(district).buildings
+      }));
+    const centralBankCount = downtownProfiles.reduce(
+      (total, profile) => total + profile.buildings.filter((building) => building === "Centrální banka").length,
+      0
+    );
+
+    expect(Object.fromEntries(downtownProfiles.map((profile) => [profile.districtId, profile.packageKey]))).toMatchObject({
+      102: "downtown-fixed-83",
+      103: "downtown-fixed-58",
+      104: "downtown-fixed-57",
+      105: "downtown-fixed-59"
+    });
+    expect(centralBankCount).toBe(2);
+  });
+
+  it("keeps generated map building counts stable", () => {
+    const runtime = createMapRuntime();
+    const counts = new Map();
+
+    for (const district of runtime.getDistrictResourceCatalog()) {
+      const profile = runtime.resolveDistrictBuildingProfile(district);
+
+      for (const building of profile.buildings) {
+        counts.set(building.baseName, (counts.get(building.baseName) || 0) + 1);
+      }
+    }
+
+    expect(Object.fromEntries([...counts.entries()].sort((left, right) => left[0].localeCompare(right[0], "cs")))).toEqual({
+      Autosalon: 10,
+      Burza: 1,
+      "Bytový blok": 29,
+      "Centrální banka": 2,
+      "Drug lab": 7,
+      "Energetická stanice": 9,
+      "Fitness Club": 5,
+      Garage: 16,
+      Herna: 16,
+      Kasino: 3,
+      Klinika: 8,
+      "Lékárna": 16,
+      Letiště: 1,
+      "Lobby klub": 2,
+      Magistrát: 1,
+      "Obchodní centrum": 10,
+      Parlament: 1,
+      "Pašovací tunel": 18,
+      "Pouliční dealeři": 19,
+      "Přístav": 1,
+      "Recyklační centrum": 14,
+      "Rekrutační centrum": 16,
+      Restaurace: 36,
+      Skladiště: 18,
+      "Směnárna": 11,
+      Soud: 2,
+      "Strip club": 17,
+      "Škola": 6,
+      "Továrna": 28,
+      "Večerka": 17,
+      "VIP salonek": 2,
+      Zbrojovka: 15
+    });
+  });
+
   it("covers every generated map building occurrence with a named variant", () => {
     const runtime = createMapRuntime();
     const occurrenceCounts = new Map();

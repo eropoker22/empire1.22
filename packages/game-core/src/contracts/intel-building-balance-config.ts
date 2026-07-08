@@ -38,12 +38,6 @@ export interface StripClubBalanceConfig {
     heatBonusPct: number;
     rumorChanceFlatBonusPct: number;
   };
-  barWhispers: {
-    actionId: "bar_whispers";
-    cooldownMinutes: number;
-    influenceCost: number;
-    heatGain: number;
-  };
   privateParty: {
     actionId: "private_party";
     cooldownMinutes: number;
@@ -103,7 +97,7 @@ export interface RestaurantBalanceConfig {
 export interface VipLoungeBalanceConfig {
   id: "vip_lounge";
   buildingTypeId: "vip_lounge";
-  countOnMap: 3;
+  countOnMap: 2;
   category: string[];
   cleanCashPerMinute: number;
   dirtyCashPerMinute: number;

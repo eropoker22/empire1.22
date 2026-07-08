@@ -531,9 +531,6 @@ const resolveStripClubDisabledReason = (input: {
   if (input.action.actionId === config.privateParty.actionId && (metadata.privatePartyExpiresAtTick ?? 0) > input.tick) {
     return `Soukromá party active ${formatTickLabel((metadata.privatePartyExpiresAtTick ?? input.tick) - input.tick)}.`;
   }
-  if (input.action.actionId === config.barWhispers.actionId && Math.max(0, Number(input.district.influence || 0)) < config.barWhispers.influenceCost) {
-    return `Need ${config.barWhispers.influenceCost} influence.`;
-  }
   return null;
 };
 
@@ -817,9 +814,6 @@ const resolveSchoolDisabledReason = (input: {
     return null;
   }
   const metadata = getSchoolMetadata(input.building, input.tick);
-  if (input.action.actionId === config.collectStudents.actionId) {
-    return metadata.storedStudents > 0 ? null : "Škola zatím nemá studenty k vybrání.";
-  }
   if (input.action.actionId !== config.eveningCourse.actionId) {
     return null;
   }

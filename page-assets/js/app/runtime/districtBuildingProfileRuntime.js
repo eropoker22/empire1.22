@@ -160,8 +160,12 @@ export function createDistrictBuildingProfileRuntime(deps = {}) {
 
   const resolveDistrictBuildingPackage = (district) => {
     const districtType = deps.districtBuildingTypeMeta[district?.districtType] ? district.districtType : "resident";
+    const districtId = Number(district?.id || 0);
+    const remappedDistrictId = typeof deps.remapDistrictId === "function"
+      ? Number(deps.remapDistrictId(districtId))
+      : districtId;
     const fixedDowntownPackage = districtType === "downtown"
-      ? deps.downtownFixedPackagesByDistrictId[Number(district?.id || 0)]
+      ? deps.downtownFixedPackagesByDistrictId[districtId] || deps.downtownFixedPackagesByDistrictId[remappedDistrictId]
       : null;
 
     if (fixedDowntownPackage) {

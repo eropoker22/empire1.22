@@ -76,6 +76,46 @@ describe("district action panel runtime", () => {
     expect(() => runtime.populateSpyConfirmPopup({ id: 1 })).not.toThrow();
   });
 
+  it("renders spy confirmation without source row and keeps unknown target atmosphere hidden", () => {
+    const spyConfirmAtmosphereImage = { src: "", alt: "", dataset: {} };
+    const spyConfirmAtmosphereLabel = textElement();
+    const getDistrictAtmosphereMeta = vi.fn((district, interactionState = {}) => ({
+      typeKey: "unknown",
+      label: "Skrytý sektor",
+      imagePath: "../img/blackout.png",
+      interactionState
+    }));
+    const runtime = createDistrictActionPanelRuntime({
+      getAdjacentDistrictIdsFromGeometry: () => [1],
+      getCurrentPlayerOwnedDistrictIds: () => new Set([1]),
+      getDistrictAtmosphereMeta,
+      getGeometry: () => ({}),
+      getInteractionState: () => ({ revealedTypeDistrictIds: [] }),
+      getResolvedSpyState: () => ({ available: 2 }),
+      spyCooldownMs: 16000,
+      elements: {
+        spyConfirmPopup: textElement(),
+        spyConfirmCard: textElement(),
+        spyConfirmAtmosphereImage,
+        spyConfirmAtmosphereLabel,
+        spyConfirmTitle: textElement(),
+        spyConfirmAvailable: textElement(),
+        spyConfirmDuration: textElement(),
+        spyConfirmNote: textElement(),
+        spyConfirmButton: textElement()
+      }
+    });
+
+    runtime.populateSpyConfirmPopup({ id: 7, districtType: "park" });
+
+    expect(getDistrictAtmosphereMeta).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 7, districtType: "park" }),
+      expect.not.objectContaining({ forceRevealAtmosphere: true })
+    );
+    expect(spyConfirmAtmosphereImage.src).toBe("../img/blackout.png");
+    expect(spyConfirmAtmosphereLabel.textContent).toBe("");
+  });
+
   it("marks setup status as an error while attack or robbery confirmation is blocked", () => {
     const attackStatus = textElement();
     const attackConfirmButton = textElement();

@@ -3,7 +3,7 @@ import type { ExchangeOfficeBalanceConfig } from "../contracts/balance-config";
 export const freeModeExchangeOfficeConfig: ExchangeOfficeBalanceConfig = {
   id: "exchange_office",
   buildingTypeId: "exchange",
-  countOnMap: 13,
+  countOnMap: 11,
   category: ["economy", "laundering", "network"],
   cleanCashPerMinute: 70,
   dirtyCashPerMinute: 95,

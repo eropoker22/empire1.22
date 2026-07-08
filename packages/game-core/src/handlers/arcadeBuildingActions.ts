@@ -256,8 +256,8 @@ const resolveBackCashdesk = (input: Parameters<typeof resolveArcadeAction>[0]): 
     influenceChange: input.arcadeConfig.backCashdesk.influenceGain,
     inputCost: { "dirty-cash": amount },
     outputGain: { cash: cleanGain },
-    reportText: `Zadní pokladna vyprala ${amount} dirty cash na ${cleanGain} clean cash. Poplatek ${fee}. Heat +${input.arcadeConfig.backCashdesk.heatGain}.`,
-    arcadeResult: { type: "laundering", launderedDirtyCash: amount, cleanCashGained: cleanGain, feePaid: fee, heatGain: input.arcadeConfig.backCashdesk.heatGain, influenceGain: input.arcadeConfig.backCashdesk.influenceGain, ownedArcades: ownedCount, networkMultiplier: network }
+    reportText: `Zadní pokladna vyprala ${amount} dirty cash na ${cleanGain} clean cash. Poplatek ${fee}. Heat +${input.arcadeConfig.backCashdesk.heatGain}. Vliv +${input.arcadeConfig.backCashdesk.influenceGain}. Audit risk +${input.arcadeConfig.backCashdesk.auditRiskBonusPct}% na ${input.arcadeConfig.backCashdesk.auditRiskDurationMinutes} min.`,
+    arcadeResult: { type: "laundering", launderedDirtyCash: amount, cleanCashGained: cleanGain, feePaid: fee, heatGain: input.arcadeConfig.backCashdesk.heatGain, influenceGain: input.arcadeConfig.backCashdesk.influenceGain, auditRiskBonusPct: input.arcadeConfig.backCashdesk.auditRiskBonusPct, auditRiskDurationMinutes: input.arcadeConfig.backCashdesk.auditRiskDurationMinutes, ownedArcades: ownedCount, networkMultiplier: network }
   };
 };
 

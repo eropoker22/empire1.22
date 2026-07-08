@@ -303,6 +303,132 @@ describe("building detail view-model builder", () => {
     ]));
   });
 
+  it("blocks arcade night machines during day and rewrites arcade phase effects", () => {
+    const createArcadeModel = (phase) => createBuildingDetailViewModel({
+      buildingName: "Herna",
+      displayName: "Herna",
+      profile: { role: "Dirty cash", actions: ["Noční automaty", "Zadní pokladna"] },
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "arcade",
+        cleanHourly: 1800,
+        dirtyHourly: 1200,
+        arcadeNetwork: {
+          incomeMultiplier: 1,
+          launderingLimitMultiplier: 1,
+          heatMultiplier: 1
+        },
+        arcadeLaunderingCapacity: 3800,
+        arcadeAuditRisk: "3 %",
+        ownedArcades: 1,
+        actionCooldowns: {}
+      },
+      economyState: { cleanMoney: 10000, dirtyMoney: 10000 },
+      actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.herna,
+      phaseState: { mapPhase: phase },
+      now: 1000
+    });
+
+    const dayModel = createArcadeModel("day");
+    const nightModel = createArcadeModel("night");
+
+    expect(dayModel.effects).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        text: "DEN: dirty $1200/h -> $1080/h",
+        tone: "day-night-day"
+      })
+    ]));
+    expect(dayModel.actions[0]).toMatchObject({
+      actionId: "night_machines",
+      disabled: true,
+      disabledReason: "Noční automaty se rozjíždí až po setmění."
+    });
+
+    expect(nightModel.effects).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        text: "NOC: clean $1800/h -> $1890/h · dirty $1200/h -> $1440/h",
+        tone: "day-night-night"
+      })
+    ]));
+    expect(nightModel.actions[0]).toMatchObject({
+      actionId: "night_machines",
+      disabled: false,
+      disabledReason: ""
+    });
+    expect(nightModel.actions.map((action) => action.cooldownMs)).toEqual([
+      16 * 60 * 1000,
+      16 * 60 * 1000
+    ]);
+  });
+
+  it("blocks every phase-only building action in the wrong phase with its explicit message", () => {
+    const cases = [
+      {
+        buildingName: "Herna",
+        phase: "day",
+        profile: { role: "Dirty cash", actions: ["Noční automaty", "Zadní pokladna"] },
+        mechanics: { ...baseMechanics, mechanicsType: "arcade", actionCooldowns: {} },
+        actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.herna,
+        expected: {
+          actionId: "night_machines",
+          disabledReason: "Noční automaty se rozjíždí až po setmění."
+        }
+      },
+      {
+        buildingName: "Kasino",
+        phase: "day",
+        profile: { role: "High-risk praní", actions: ["Tichá herna", "VIP noc", "Podplacený inspektor"] },
+        mechanics: { ...baseMechanics, mechanicsType: "casino", actionCooldowns: {} },
+        actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.kasino,
+        expected: {
+          actionId: "vip_night",
+          disabledReason: "VIP noc můžeš spustit jen v noci."
+        }
+      },
+      {
+        buildingName: "Letiště",
+        phase: "day",
+        profile: { role: "Logistika", actions: ["Expresní dovoz", "Černý charter", "Evakuační koridor"] },
+        mechanics: { ...baseMechanics, mechanicsType: "airport", actionCooldowns: {} },
+        economyState: { cleanMoney: 10000, dirtyMoney: 10000 },
+        actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.letiste,
+        expected: {
+          actionId: "black_charter",
+          disabledReason: "Černý charter odlétá jen v noci."
+        }
+      },
+      {
+        buildingName: "Parlament",
+        phase: "night",
+        profile: { role: "Politika", actions: ["Policy Window"] },
+        mechanics: { ...baseMechanics, mechanicsType: "parliament", actionCooldowns: {} },
+        actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.parlament,
+        expected: {
+          actionId: "parliament_policy_window",
+          disabledReason: "Policy Window se otevírá jen přes den."
+        }
+      }
+    ];
+
+    for (const item of cases) {
+      const rows = createBuildingDetailActionRows({
+        buildingName: item.buildingName,
+        profile: item.profile,
+        mechanics: item.mechanics,
+        economyState: item.economyState || { cleanMoney: 10000, dirtyMoney: 10000 },
+        actionProfiles: item.actionProfiles,
+        phaseState: { mapPhase: item.phase },
+        now: 1000
+      });
+      const row = rows.find((candidate) => candidate.actionId === item.expected.actionId);
+
+      expect(row).toMatchObject({
+        disabled: true,
+        disabledReason: item.expected.disabledReason
+      });
+    }
+  });
+
   it("resolves production day/night copy from the displayed building name when mechanics are generic", () => {
     const model = createBuildingDetailViewModel({
       buildingName: "Továrna",
@@ -556,8 +682,8 @@ describe("building detail view-model builder", () => {
       mechanics: {
         ...baseMechanics,
         mechanicsType: "clinic",
-        cleanHourly: 3300,
-        dailyHeat: 43.2,
+        cleanHourly: 3100,
+        dailyHeat: 85,
         ownedClinics: 2,
         clinicNetwork: { incomeMultiplier: 1.1, heatMultiplier: 1.05 },
         clinicRecoveryRatePct: 15,
@@ -576,11 +702,75 @@ describe("building detail view-model builder", () => {
     expect(clinicModel.meta).toBe("");
     expect(clinicModel.intro).toBe("Klinika drží gang při životě.");
     expect(clinicModel.showActionsInSinglePanel).toBe(true);
-    expect(clinicModel.stats.map((row) => row.label)).toEqual(["Clean / min", "Heat / min", "Recovery rate", "Recovery pool", "Kliniky"]);
+    expect(clinicModel.stats.map((row) => row.label)).toEqual(["Clean / hod", "Heat / den", "Recovery rate", "Recovery pool", "Kliniky"]);
+    expect(clinicModel.stats.find((row) => row.label === "Clean / hod")?.value).toBe("+$3100");
+    expect(clinicModel.stats.find((row) => row.label === "Heat / den")?.value).toBe("+85");
     expect(clinicModel.mechanics.find((row) => row.label === "Stabilizace")?.value).toBe("připravená");
+    expect(clinicModel.mechanics.some((row) => row.label === "Expirace poolu")).toBe(false);
     expect(clinicModel.actions).toHaveLength(1);
 
     expect(createBuildingDetailInfoRows({ buildingName: "Klinika", mechanics: clinicModel })).toEqual([]);
+  });
+
+  it("keeps clinic empty recovery wording concrete without expiry filler", () => {
+    const model = createBuildingDetailViewModel({
+      buildingName: "Klinika",
+      profile: { role: "Recovery", actions: ["Stabilizační protokol"] },
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "clinic",
+        ownedClinics: 1,
+        clinicNetwork: { incomeMultiplier: 1, heatMultiplier: 1 },
+        clinicRecoveryRatePct: 15,
+        clinicRecoveryPool: { totalFreshAmount: 0, fresh: [], nextExpiryMs: null }
+      },
+      actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.klinika
+    });
+
+    expect(model.mechanics.find((row) => row.label === "Stabilizace")?.value).toBe("Čeká na ztráty tvojich členů za posledních 90min");
+    expect(model.mechanics.some((row) => row.label === "Expirace poolu" || row.value === "nic nečeká")).toBe(false);
+  });
+
+  it("shows garage-reduced cooldowns for supported building actions", () => {
+    const model = createBuildingDetailViewModel({
+      district: { id: 9 },
+      buildingName: "Klinika",
+      profile: {
+        role: "Recovery",
+        info: "Klinika drží gang při životě.",
+        actions: ["Stabilizační protokol"]
+      },
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "clinic",
+        cleanHourly: 3100,
+        dailyHeat: 85,
+        ownedClinics: 2,
+        clinicNetwork: { incomeMultiplier: 1.1, heatMultiplier: 1.05 },
+        clinicRecoveryRatePct: 15,
+        clinicRecoveryPool: {
+          totalFreshAmount: 2,
+          fresh: [{ itemId: "gang-members", amount: 2 }],
+          label: "2 položky",
+          nextExpiryMs: 120000
+        },
+        garageSupport: {
+          cooldownReductionPct: 10,
+          maxCooldownReductionPct: 16,
+          fullBonusCategories: ["attackPreparation"],
+          halfBonusCategories: ["clinicRecovery"],
+          excludedCategories: []
+        }
+      },
+      actionProfiles: [{ clinicStabilizationProtocol: true, cleanCost: 1200, cooldownMs: 18 * 60 * 1000 }]
+    });
+
+    expect(model.actions[0]).toMatchObject({
+      baseCooldownMs: 18 * 60 * 1000,
+      effectiveCooldownMs: 17 * 60 * 1000 + 6 * 1000,
+      garageCooldownReductionPct: 5,
+      cooldownLabel: "Cooldown 17m 06s (-54s)"
+    });
   });
 
   it("does not render a collect mechanic row for apartment blocks", () => {
@@ -707,15 +897,21 @@ describe("building detail view-model builder", () => {
 
     expect(model.title).toBe("Garáž");
     expect(model.badge).toBe("Logistika");
+    expect(model.typeLabel).toBe("Logistika");
+    expect(model.countLabel).toBe("Počet: 3");
     expect(model.meta).toBe("");
     expect(model.collect.visible).toBe(false);
     expect(model.upgrade.visible).toBe(false);
     expect(model.upgrade.disabled).toBe(true);
     expect(model.stats.map((row) => row.label)).toEqual(["Clean / min", "Heat / min", "Garáže", "Cooldowny"]);
     expect(model.mechanics.find((row) => row.label === "Síť garáží")?.value).toBe("Každá další garáž zvedá čistý výnos o +6 % a heat o +4 %.");
-    expect(model.mechanics.find((row) => row.label === "Plný cooldown bonus")?.value).toContain("útoky");
+    const fullCooldownBonus = model.mechanics.find((row) => row.label === "Plný cooldown bonus")?.value || "";
+    expect(fullCooldownBonus).toBe("Nejvíc zkracuje útoky, obsazení districtů a výbavu.");
+    expect(fullCooldownBonus).not.toContain("pohyb gangu");
+    expect(fullCooldownBonus).not.toContain("zásob");
     expect(model.mechanics.find((row) => row.label === "Upgrade")).toBeUndefined();
     expect(model.actions).toEqual([]);
+    expect(JSON.stringify(model.effects)).not.toContain("Počet:");
 
     const infoModel = createBuildingDetailInfoViewModel({
       buildingName: "Garáž",
@@ -1273,6 +1469,7 @@ describe("building detail view-model builder", () => {
       mechanics: {
         ...baseMechanics,
         mechanicsType: "clinic",
+        clinicRecoveryRatePct: 15,
         actionCooldowns: cooldownUntil > 0 ? { stabilization_protocol: cooldownUntil } : {},
         clinicRecoveryPool: {
           totalFreshAmount: fresh.reduce((total, entry) => total + entry.amount, 0),
@@ -1289,11 +1486,12 @@ describe("building detail view-model builder", () => {
     expect(empty[0]).toMatchObject({
       actionId: "stabilization_protocol",
       disabled: true,
-      disabledReason: "Recovery pool je prázdný."
+      disabledReason: "Žádné ztráty k léčbě."
     });
 
-    const ready = createRows({ fresh: [{ itemType: "gang-members", amount: 3 }] });
+    const ready = createRows({ fresh: [{ itemType: "gang-members", amount: 10 }, { itemType: "population", amount: 20 }] });
     expect(ready[0].disabled).toBe(false);
+    expect(ready[0].rewardSummary).toBe("Návrat z léčby: Populace +4");
     expect(ready[0].cooldownLabel).toBe("Cooldown 18m 00s");
 
     const withoutCash = createRows({ cleanMoney: 1_199, fresh: [{ itemType: "gang-members", amount: 3 }] });
@@ -1318,14 +1516,47 @@ describe("building detail view-model builder", () => {
         ...baseMechanics,
         mechanicsType: "recruitment-center",
         cleanHourly: 2_100,
-        dailyHeat: 100.8
+        dailyHeat: 100.8,
+        ownedRecruitmentCenters: 4,
+        recruitmentCenterNetwork: {
+          incomeMultiplier: 1.09,
+          heatMultiplier: 1.09
+        },
+        recruitmentCenterSupport: {
+          populationProductionBonusPct: 12,
+          apartmentCapacityBonusPct: 16,
+          attackWeaponStrengthBonusPct: 8,
+          defenseItemStrengthBonusPct: 6,
+          cameraStrengthBonusPct: 6,
+          alarmStrengthBonusPct: 6,
+          combinedCameraAlarmCapPct: 50
+        }
       }
     });
 
     expect(model.title).toBe("Rekrutační centrum");
     expect(model.badge).toBe("Nábor");
+    expect(model.countLabel).toBe("Počet: 4");
     expect(model.actions).toEqual([]);
-    expect(model.mechanics.map((row) => row.label)).toEqual(["Populace", "Útok", "Obrana"]);
+    expect(model.stats).toEqual(expect.arrayContaining([
+      { label: "Počet", value: "4/16" },
+      { label: "Population", value: "+12% / cap +16%" },
+      { label: "Boj", value: "útok +8% · obrana +6%" }
+    ]));
+    expect(model.mechanics).toEqual(expect.arrayContaining([
+      { label: "Bytové bloky", value: "produkce +12% · kapacita +16%" },
+      { label: "Útok", value: "zbraně v útoku +8%" },
+      { label: "Obrana", value: "obranné vybavení +6%" },
+      { label: "Špionážní obrana", value: "kamery a alarm +6% · cap 50%" }
+    ]));
+    expect(model.effects).toEqual(expect.arrayContaining([
+      { text: "Population produkce +12 %", tone: "population" },
+      { text: "Kapacita bloků +16 %", tone: "network" },
+      { text: "Síla zbraní +8 %", tone: "attack" },
+      { text: "Obrana +6 %", tone: "defense" },
+      { text: "Kamery/alarmy +6 %", tone: "defense" },
+      { text: "Clean/heat x1.09 / x1.09", tone: "network" }
+    ]));
     expectNoGenericBuildingCardCopy(model);
   });
 

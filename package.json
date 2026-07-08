@@ -55,6 +55,8 @@
     "smoke:free-session:server": "node scripts/free-session-ux-pass.mjs --expect-runtime=server-authoritative-ready",
     "smoke:gameplay-slice": "node scripts/gameplay-slice-smoke.mjs --allow-server-missing",
     "smoke:gameplay-slice:server": "node scripts/gameplay-slice-smoke.mjs",
+    "simulate:20p": "node scripts/run-local-bin.mjs vite-node/vite-node.mjs tools/debug/src/closed-alpha-20p-simulation/cli.ts",
+    "simulate:20p:matrix": "npm run simulate:20p -- --seeds=10 --steps=1000",
     "simulate:free-br": "node scripts/run-local-bin.mjs vite-node/vite-node.mjs tools/debug/src/free-br-simulation/cli.ts",
     "simulate:free-br:json": "npm run simulate:free-br -- --json",
     "simulate:free-br:matrix": "npm run simulate:free-br -- --matrix --scenarios=canonical-20p,aggressive-heavy,casual-heavy,downtown-rush,alliance-heavy,no-alliance-control,high-risk-crime",

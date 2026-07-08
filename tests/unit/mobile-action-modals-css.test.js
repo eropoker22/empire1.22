@@ -35,6 +35,7 @@ describe("mobile action modal CSS", () => {
   const buildingsPopupRuntime = readText("page-assets/js/app/runtime/buildingsPopupRuntime.js");
   const clientBuildingsPopupRuntime = readText("client/page-assets/js/app/runtime/buildingsPopupRuntime.js");
   const runtimeSource = readText("page-assets/js/app/runtime.js");
+  const clientRuntimeSource = readText("client/page-assets/js/app/runtime.js");
   const onboardingCss = readText("page-assets/css/styles-onboarding.css");
   const cityEventsCss = readText("page-assets/css/styles-city-events.css");
   const clientCityEventsCss = readText("client/page-assets/css/styles-city-events.css");
@@ -46,6 +47,105 @@ describe("mobile action modal CSS", () => {
     expect(css).toContain("html body .police-action-result-modal__details");
     expect(css).toContain("grid-template-columns: repeat(2, minmax(0, 1fr)) !important;");
     expect(css).toContain("max-height: calc(100dvh - 16px) !important;");
+  });
+
+  it("keeps district building effects as desktop pill chips instead of full-width rows", () => {
+    expect(buildingModalCss).toContain(".district-building-detail-card .building-info-card__effects,");
+    expect(buildingModalCss).toContain("display: flex !important;");
+    expect(buildingModalCss).toContain("flex-wrap: wrap !important;");
+    expect(buildingModalCss).toContain(".factory-popup-card.building-detail-modal__content .building-info-card__effects {\n  border: 0 !important;");
+    expect(buildingModalCss).toContain("padding: 0 !important;");
+    expect(buildingModalCss).toContain(".district-building-detail-card .district-building-detail-effect-cell,");
+    expect(buildingModalCss).toContain("flex: 0 1 auto !important;");
+    expect(buildingModalCss).toContain("width: auto !important;");
+    expect(buildingModalCss).toContain("border-radius: 999px;");
+    expect(buildingModalCss).not.toContain('data-building-mechanics-type="clinic"] .district-building-detail-card .district-building-detail-effect-cell {\n    width: 100%;');
+  });
+
+  it("stacks garage effect chips vertically on desktop and mobile", () => {
+    expect(buildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-card .building-info-card__effects');
+    expect(buildingModalCss).toContain("flex-direction: column !important;");
+    expect(buildingModalCss).toContain("flex-wrap: nowrap !important;");
+    expect(buildingModalCss).toContain("border: 0 !important;");
+    expect(buildingModalCss).toContain("background: transparent !important;");
+    expect(buildingModalCss).toContain("box-shadow: none !important;");
+    expect(buildingModalCss).toContain("row-gap: 26px;");
+    expect(buildingModalCss).toContain("row-gap: 38px;");
+    expect(buildingModalCss).toContain("column-gap: 0;");
+    expect(buildingModalCss).toContain("margin-top: 6px;");
+    expect(buildingModalCss).toContain("margin-bottom: 6px;");
+    expect(buildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-card .district-building-detail-effect-cell');
+    expect(buildingModalCss).toContain("width: auto !important;");
+    expect(buildingModalCss).toContain("align-self: center;");
+  });
+
+  it("stacks apartment block effect chips vertically without changing other cards", () => {
+    expect(buildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="apartment-block"] .district-building-detail-card .building-info-card__effects {\n    display: flex !important;');
+    expect(buildingModalCss).toContain("flex-direction: column !important;");
+    expect(buildingModalCss).toContain("flex-wrap: nowrap !important;");
+    expect(buildingModalCss).toContain("row-gap: 18px;");
+    expect(clientBuildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="apartment-block"] .district-building-detail-card .building-info-card__effects {\n    display: flex !important;');
+    expect(mainCss).toContain('html body.game-body .district-building-detail-shell[data-building-mechanics-type="apartment-block"] .district-building-detail-card .building-info-card__effects {\n    display: flex !important;');
+    expect(mainCss).toContain("row-gap: 18px !important;");
+    expect(clientMainCss).toContain('html body.game-body .district-building-detail-shell[data-building-mechanics-type="apartment-block"] .district-building-detail-card .building-info-card__effects {\n    display: flex !important;');
+  });
+
+  it("stacks clinic effect chips vertically", () => {
+    expect(buildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card .building-info-card__effects');
+    expect(buildingModalCss).toContain("flex-direction: column !important;");
+    expect(buildingModalCss).toContain("flex-wrap: nowrap !important;");
+    expect(buildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card .district-building-detail-effect-cell');
+    expect(buildingModalCss).toContain("align-self: center;");
+    expect(buildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card .building-info-card__effects {\n    row-gap: 18px;');
+    expect(clientBuildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card .building-info-card__effects {\n    row-gap: 18px;');
+    expect(mainCss).toContain('html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card .building-info-card__effects {\n    row-gap: 28px !important;');
+    expect(clientMainCss).toContain('html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card .building-info-card__effects {\n    row-gap: 28px !important;');
+  });
+
+  it("stacks clinic mechanics vertically on desktop", () => {
+    expect(buildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-mechanics {\n    display: grid;');
+    expect(buildingModalCss).toContain("grid-template-columns: minmax(0, 1fr);");
+    expect(buildingModalCss).toContain("row-gap: 18px;");
+    expect(clientBuildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-mechanics {\n    display: grid;');
+    expect(mainCss).toContain('html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-mechanics {\n    display: grid !important;');
+    expect(clientMainCss).toContain('html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-mechanics {\n    display: grid !important;');
+  });
+
+  it("stacks recruitment center effect chips and removes the empty single-panel strip", () => {
+    expect(buildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-card .building-info-card__effects');
+    expect(buildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-card .district-building-detail-effect-cell');
+    expect(buildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-mechanics');
+    expect(clientBuildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-card .building-info-card__effects');
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain('html body.game-body .district-building-detail-shell[data-building-mechanics-type="recruitment-center"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged');
+      expect(stylesheet).toContain('html body.game-body .district-building-detail-shell[data-building-mechanics-type="recruitment-center"].is-building-detail-single-panel .district-building-detail-panel--merged [data-district-building-detail-action-section]');
+      expect(stylesheet).toContain('html body.game-body .district-building-detail-shell[data-building-mechanics-type="recruitment-center"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-info-card');
+    }
+  });
+
+  it("keeps clinic special action section at the bottom on desktop", () => {
+    expect(buildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card [data-district-building-detail-action-section] {');
+    expect(buildingModalCss).toContain("order: 150;");
+    expect(buildingModalCss).toContain("margin-top: auto;");
+    expect(buildingModalCss).toContain("padding-top: 18px;");
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain("html body.game-body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-card .district-building-detail-body");
+      expect(stylesheet).toContain("grid-template-rows: minmax(0, 1fr) !important;");
+      expect(stylesheet).toContain("html body.game-body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel");
+      expect(stylesheet).toContain("flex: 1 1 auto !important;");
+      expect(stylesheet).toContain("html body.game-body .district-building-detail-card [data-district-building-detail-action-section]");
+      expect(stylesheet).toContain("padding-top: 52px !important;");
+      expect(stylesheet).toContain("padding-bottom: 0 !important;");
+      expect(stylesheet).toContain("margin-bottom: 0 !important;");
+      expect(stylesheet).toContain("html body.game-body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged");
+      expect(stylesheet).toContain('html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged');
+      expect(stylesheet).toContain("border: 0 !important;");
+      expect(stylesheet).toContain("background: transparent !important;");
+      expect(stylesheet).toContain("box-shadow: none !important;");
+      expect(stylesheet).toContain("padding: 8px 8px 0 !important;");
+      expect(stylesheet).toContain('html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"].is-building-detail-single-panel .district-building-detail-card [data-district-building-detail-action-section]');
+      expect(stylesheet).toContain("padding-top: 20px !important;");
+    }
   });
 
   it("keeps robbery setup short enough for mobile", () => {
@@ -248,7 +348,8 @@ describe("mobile action modal CSS", () => {
 
   it("keeps spy and robbery action confirmation rows compact", () => {
     expect(gameHtml).toContain('class="modal__body spy-confirm-modal__body district-action-confirm-popup-body spy-confirm-popup-body"');
-    expect(gameHtml).toContain('class="attack-setup-popup-row spy-confirm-popup-row--source"><span><strong data-spy-confirm-source>---</strong></span></p>');
+    expect(gameHtml).not.toContain("data-spy-confirm-source");
+    expect(gameHtml).not.toContain("spy-confirm-popup-row--source");
     expect(gameHtml).not.toContain('class="attack-setup-popup-row">Zdroj <span><strong data-spy-confirm-source>');
     expect(gameHtml).toContain('class="attack-setup-popup-row robbery-setup-popup-row--status"');
     expect(gameHtml).toContain('class="attack-setup-popup-row robbery-setup-popup-row--members"');
@@ -257,8 +358,9 @@ describe("mobile action modal CSS", () => {
     expect(gameHtml).toContain("data-robbery-available-members");
     expect(gameHtml).not.toContain("data-robbery-available-spies");
     expect(actionCss).toContain("#spy-confirm-modal .spy-confirm-popup-body");
-    expect(actionCss).toContain("grid-template-columns: repeat(3, minmax(0, 1fr));");
+    expect(actionCss).toContain("grid-template-columns: repeat(2, minmax(0, 1fr));");
     expect(css).toContain("html body #spy-confirm-modal .spy-confirm-popup-body");
+    expect(css).toContain("grid-template-columns: repeat(2, minmax(0, 1fr)) !important;");
     expect(css).toContain("html body .robbery-setup-popup-card .robbery-setup-popup-row--status");
     expect(css).toContain("html body .robbery-setup-popup-card .robbery-setup-popup-row--members");
     expect(districtCss).toContain("grid-template-columns: 34px minmax(54px, 1fr) 34px;");
@@ -316,6 +418,20 @@ describe("mobile action modal CSS", () => {
     expect(apartmentFullBlock).not.toContain("animation: none");
   });
 
+  it("uses the same pulsing building cell for ready clinic stabilization", () => {
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      const readyClinicBlock = stylesheet.slice(
+        stylesheet.indexOf(".buildings-popup__building--type.is-apartment-full"),
+        stylesheet.indexOf("html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building-grid--names")
+      );
+
+      expect(readyClinicBlock).toContain(".buildings-popup__building--type.is-clinic-stabilization-ready");
+      expect(readyClinicBlock).toContain("animation: buildings-apartment-full-pulse 2.4s ease-in-out infinite !important;");
+      expect(readyClinicBlock).toContain("animation: buildings-apartment-full-cell-blink 2.4s ease-in-out infinite !important;");
+      expect(readyClinicBlock).toContain("animation: buildings-apartment-full-text-blink 2.4s ease-in-out infinite !important;");
+    }
+  });
+
   it("stores district building detail state by shared building type", () => {
     expect(runtimeSource).toContain('const SHARED_DISTRICT_BUILDING_DETAIL_KEY_PREFIX = "__shared:";');
     expect(runtimeSource).toContain("function getSharedDistrictBuildingDetailStorageKey");
@@ -334,6 +450,18 @@ describe("mobile action modal CSS", () => {
     );
     expect(apartmentCollectBlock).toContain("const remainingPopulation = 0;");
     expect(apartmentCollectBlock).not.toContain("storedPopulation: remainingPopulation");
+  });
+
+  it("pulses apartment block chips only on full capacity, not regular collect readiness", () => {
+    for (const source of [runtimeSource, clientRuntimeSource]) {
+      const apartmentPulsePredicate = source.slice(
+        source.indexOf("isApartmentBlockFull({ district, baseName } = {})"),
+        source.indexOf("isClinicStabilizationReady", source.indexOf("isApartmentBlockFull({ district, baseName } = {})"))
+      );
+
+      expect(apartmentPulsePredicate).toContain("Boolean(mechanics.apartmentIsFull)");
+      expect(apartmentPulsePredicate).not.toContain("mechanics.canCollect");
+    }
   });
 
   it("keeps blocked action confirmations grey with red missing-value cells", () => {

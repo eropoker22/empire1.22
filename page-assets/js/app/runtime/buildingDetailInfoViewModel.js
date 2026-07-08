@@ -10,6 +10,11 @@ import {
   formatDistrictBuildingCooldown,
   formatDistrictBuildingMoney
 } from "./formatters.js";
+import {
+  formatGarageEffectiveCooldownLabel,
+  resolveGarageCategoryForBuildingAction,
+  resolveGarageEffectiveCooldownMs
+} from "./garageCooldownRuntime.js";
 import { PRODUCTION_RESOURCE_LABELS } from "./productionBuildingData.js";
 import {
   formatBuildingActionCategoryLabels,
@@ -221,6 +226,15 @@ export function createBuildingDetailInfoActionRows({
 } = {}) {
   return (Array.isArray(profile.actions) ? profile.actions : []).map((action, actionIndex) => {
     const actionProfile = actionProfiles[actionIndex] || null;
+    const baseCooldownMs = actionProfile && Object.prototype.hasOwnProperty.call(actionProfile, "cooldownMs")
+      ? Math.max(0, Number(actionProfile.cooldownMs || 0))
+      : DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS;
+    const actionDefinition = {
+      actionId: actionProfile?.actionId || "",
+      buildingTypeId: actionProfile?.buildingTypeId || ""
+    };
+    const garageCategory = resolveGarageCategoryForBuildingAction(buildingName, action, actionDefinition);
+    const effectiveCooldownMs = resolveGarageEffectiveCooldownMs(baseCooldownMs, mechanics.garageSupport, garageCategory);
     const actionUiOptions = createBuildingActionUiFormatOptions({
       mechanics,
       buildingType: buildingName,
@@ -232,7 +246,11 @@ export function createBuildingDetailInfoActionRows({
       description: getActionDescription(action, actionUiOptions),
       result: [
         formatBuildingActionOutputProfile(actionProfile || {}, actionUiOptions),
-        `Cooldown ${formatDistrictBuildingCooldown(actionProfile && Object.prototype.hasOwnProperty.call(actionProfile, "cooldownMs") ? actionProfile.cooldownMs : DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS)}`
+        `Cooldown ${formatGarageEffectiveCooldownLabel({
+          baseCooldownMs,
+          effectiveCooldownMs,
+          formatCooldown: formatDistrictBuildingCooldown
+        })}`
       ].join(" · ")
     };
   });

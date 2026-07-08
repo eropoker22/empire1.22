@@ -27,6 +27,7 @@ function setDisabled(element, disabled) {
 
 function applyPanelAtmosphere(elements = {}, atmosphereMeta = {}) {
   const { card, imageElement, labelElement } = elements;
+  const isAtmosphereLocked = atmosphereMeta.typeKey === "unknown";
 
   if (card?.dataset) {
     card.dataset.districtType = atmosphereMeta.typeKey || "unknown";
@@ -41,7 +42,7 @@ function applyPanelAtmosphere(elements = {}, atmosphereMeta = {}) {
     }
   }
 
-  setText(labelElement, atmosphereMeta.label || "");
+  setText(labelElement, isAtmosphereLocked ? "" : (atmosphereMeta.label || ""));
 }
 
 function bindButtonCallback(button, callbackKey, callback, payloadResolver) {

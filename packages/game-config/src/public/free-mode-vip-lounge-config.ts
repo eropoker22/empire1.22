@@ -3,7 +3,7 @@ import type { VipLoungeBalanceConfig } from "../contracts/balance-config";
 export const freeModeVipLoungeConfig: VipLoungeBalanceConfig = {
   id: "vip_lounge",
   buildingTypeId: "vip_lounge",
-  countOnMap: 3,
+  countOnMap: 2,
   category: ["rare", "elite_rumors", "high_truth_intel", "influence"],
   cleanCashPerMinute: 105,
   dirtyCashPerMinute: 30,

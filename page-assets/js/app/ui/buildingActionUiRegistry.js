@@ -68,7 +68,10 @@ const AUTO_SALON_ACTION_CATEGORY_LABELS = Object.freeze({
   equipmentTransfer: "výbava",
   resourceTransfer: "zásoby",
   districtRobbery: "district loupeže",
+  districtOccupy: "obsazení districtu",
   attackPreparation: "příprava útoku",
+  defenseRepair: "opravy obrany",
+  defenseRestore: "obnova obrany",
   retreatReturn: "návrat",
   attackTravelTime: "cesta k útoku",
   defenseReposition: "obranný přesun",
@@ -83,6 +86,11 @@ const AUTO_SALON_ACTION_CATEGORY_LABELS = Object.freeze({
   intelScan: "intel scan",
   trapDetection: "detekce pastí"
 });
+
+const HIDDEN_ACTION_CATEGORY_LABELS = new Set([
+  "gangMovement",
+  "resourceTransfer"
+]);
 
 function normalizeActionId(value) {
   return String(value || "")
@@ -451,6 +459,7 @@ export function formatBuildingActionRiskProfile(profile = {}, options = {}) {
 
 export function formatBuildingActionCategoryLabels(categories) {
   return (Array.isArray(categories) ? categories : [])
+    .filter((category) => !HIDDEN_ACTION_CATEGORY_LABELS.has(category))
     .map((category) => AUTO_SALON_ACTION_CATEGORY_LABELS[category] || category)
     .join(" · ");
 }

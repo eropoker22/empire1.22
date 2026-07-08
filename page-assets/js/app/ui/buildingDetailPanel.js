@@ -393,6 +393,15 @@ function moveElementToEnd(parent, child) {
   }
 }
 
+function hasMeaningfulInfoContent(infoSection) {
+  if (!(infoSection instanceof HTMLElement)) return false;
+  return Array.from(infoSection.children || []).some((child) => {
+    if (!(child instanceof HTMLElement) || child.hidden) return false;
+    if (child.matches?.("h5") && child.textContent?.trim().toLowerCase() === "info") return false;
+    return Boolean(String(child.textContent || "").trim());
+  });
+}
+
 function mergeSinglePanelBuildingDetail(shell) {
   const statsPanel = shell?.querySelector?.("[data-district-building-detail-panel='stats']");
   const infoPanel = shell?.querySelector?.("[data-district-building-detail-panel='info']");
@@ -400,16 +409,31 @@ function mergeSinglePanelBuildingDetail(shell) {
 
   const infoSection = shell.querySelector(".district-building-detail-info-card");
   const intro = infoSection?.querySelector?.(".building-detail-info-text");
-  statsPanel.querySelectorAll?.(".building-detail-info-text")?.forEach((element) => {
-    if (element !== intro && element.parentNode === statsPanel) {
-      element.remove?.();
-    }
-  });
-  if (intro instanceof HTMLElement) {
-    moveElementToStart(statsPanel, intro);
+  const hasInfoContent = hasMeaningfulInfoContent(infoSection);
+  const hasIntro = intro instanceof HTMLElement && Boolean(String(intro.textContent || "").trim());
+  if (infoSection instanceof HTMLElement) {
+    statsPanel.querySelectorAll?.(".building-detail-info-text")?.forEach((element) => {
+      if (element !== intro && element.parentNode === statsPanel) {
+        element.remove?.();
+      }
+    });
   }
-  if (infoSection instanceof HTMLElement && infoSection.parentNode !== statsPanel) {
+  if (!infoSection) {
+    statsPanel.querySelectorAll?.(".building-detail-info-text")?.forEach((element) => {
+      if (element.parentNode === statsPanel && !String(element.textContent || "").trim()) {
+        element.remove?.();
+      }
+    });
+  }
+  if (hasIntro) {
+    moveElementToStart(statsPanel, intro);
+  } else if (intro instanceof HTMLElement) {
+    intro.remove();
+  }
+  if (infoSection instanceof HTMLElement && hasInfoContent && !hasIntro && infoSection.parentNode !== statsPanel) {
     statsPanel.append(infoSection);
+  } else if (infoSection instanceof HTMLElement && infoPanel instanceof HTMLElement && infoSection.parentNode !== infoPanel) {
+    infoPanel.append(infoSection);
   }
 
   statsPanel.hidden = false;
@@ -418,15 +442,30 @@ function mergeSinglePanelBuildingDetail(shell) {
   statsPanel.setAttribute("aria-hidden", "false");
   infoPanel.hidden = true;
   infoPanel.classList.add("hidden");
+  infoPanel.style.display = "none";
   infoPanel.setAttribute("aria-hidden", "true");
 }
 
 function restoreTabbedBuildingDetail(shell) {
   const statsPanel = shell?.querySelector?.("[data-district-building-detail-panel='stats']");
   const infoPanel = shell?.querySelector?.("[data-district-building-detail-panel='info']");
-  const infoSection = shell?.querySelector?.(".district-building-detail-info-card");
+  let infoSection = shell?.querySelector?.(".district-building-detail-info-card");
   if (statsPanel instanceof HTMLElement) {
     statsPanel.classList.remove("district-building-detail-panel--merged");
+  }
+  if (infoPanel instanceof HTMLElement) {
+    infoPanel.style.display = "";
+    if (!(infoSection instanceof HTMLElement)) {
+      infoSection = createElement(infoPanel, "div", "building-info-card building-info-card__section district-building-detail-info-card");
+      if (infoSection) {
+        infoSection.dataset.districtBuildingDetailInfoSection = "true";
+        const infoTitle = createElement(infoPanel, "h5");
+        const info = createElement(infoPanel, "p", "building-detail-info-text");
+        if (infoTitle) infoTitle.textContent = "Info";
+        if (info) info.dataset.districtBuildingDetailInfo = "true";
+        infoSection.append(infoTitle, info);
+      }
+    }
   }
   if (infoPanel instanceof HTMLElement && infoSection instanceof HTMLElement && infoSection.parentNode !== infoPanel) {
     infoPanel.append(infoSection);
@@ -480,7 +519,10 @@ export function renderBuildingActions(buildingViewModel = {}, callbacks = {}, op
       : rowView.buttonCostLabel || rowView.rewardSummary;
     description.textContent = inlineDescription || "";
     description.hidden = !inlineDescription;
-    cooldown.textContent = rowView.cooldownLabel || "";
+    const cooldownLabel = String(rowView.cooldownLabel || "").trim();
+    cooldown.textContent = cooldownLabel;
+    cooldown.hidden = !cooldownLabel;
+    row.dataset.districtBuildingDetailHasCooldown = cooldownLabel ? "true" : "false";
     row.append(title, description, cooldown);
     mount.append(row);
   }
@@ -550,7 +592,10 @@ export function renderBuildingDetailInfoSection(infoElement, viewModel = {}) {
     if (!row || !rowTitle || !desc || !result) continue;
     rowTitle.textContent = action.title;
     desc.textContent = action.description;
-    result.textContent = action.result;
+    const resultText = String(action.result || "").trim();
+    result.textContent = resultText;
+    result.hidden = !resultText;
+    row.dataset.districtBuildingDetailHasCooldown = resultText ? "true" : "false";
     row.append(rowTitle, desc, result);
     actionList?.append(row);
   }
