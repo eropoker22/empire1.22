@@ -153,6 +153,7 @@ export const createDistrictPanelBuildingViews = (
         building,
         playerId: input.playerId,
         playerBalances: input.playerBalances,
+        dayNightConfig: input.config,
         stripClubConfig: input.stripClubConfig,
         restaurantConfig: input.restaurantConfig,
         convenienceStoreConfig: input.convenienceStoreConfig,

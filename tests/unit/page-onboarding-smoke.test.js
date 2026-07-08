@@ -415,8 +415,7 @@ describe("page onboarding smoke", () => {
     expect(runtimeSource).toContain('mechanicsType === "school"');
     expect(runtimeSource).toContain('if (mechanics.mechanicsType === "school")');
     expect(runtimeSource).toContain("SCHOOL_CONFIG");
-    expect(runtimeSource).toContain("rollSchoolTalent");
-    expect(buildingDetailUiSource).toContain("Výsledek talentu");
-    expect(buildingDetailUiSource).toContain("zapíše se do uličních zpráv");
+    expect(buildingDetailUiSource).toContain("Populace");
+    expect(buildingDetailUiSource).toContain("Škola pasivně zvyšuje lokální populační zásobu");
   });
 });

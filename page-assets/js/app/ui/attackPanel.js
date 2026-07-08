@@ -135,7 +135,7 @@ export function renderAttackProgress(activeAttack = {}, options = {}) {
 
   setText(elements.availablePopulation, activeAttack.availablePopulation ?? "");
   setText(elements.requiredPopulation, activeAttack.totalResidents ?? activeAttack.requiredPopulation ?? "");
-  setText(elements.estimatedPower, activeAttack.totalPower ?? activeAttack.estimatedPower ?? "");
+  setText(elements.estimatedPower, activeAttack.powerLabel ?? activeAttack.totalPower ?? activeAttack.estimatedPower ?? "");
   setText(elements.status, activeAttack.status ?? "");
   setDisabled(elements.confirmButton, !activeAttack.canConfirm);
 

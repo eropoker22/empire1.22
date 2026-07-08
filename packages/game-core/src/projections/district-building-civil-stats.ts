@@ -89,7 +89,8 @@ export const createCivilBuildingStats = (
       const rumorStats = resolveRestaurantRumorStats({
         state: input.state,
         playerId: input.building.ownerPlayerId,
-        config: input.restaurantConfig
+        config: input.restaurantConfig,
+        dayNightConfig: input.dayNightConfig
       });
       return [
         { label: "Clean / min", value: `$${formatNumber(input.restaurantConfig.cleanCashPerMinute * network.incomeMultiplier)}` },

@@ -31,7 +31,7 @@ export const BUILDING_POPUP_TARGETS = Object.freeze([
 
 const GARAGE_DETAIL_PROFILE = Object.freeze({
   role: "Logistika",
-  info: "Garáž je pasivní logistické zázemí. Generuje clean cash, zvedá heat a každá vlastněná garáž zkracuje cooldowny pohybu, útoku, obsazení, přesunů a části support akcí.",
+  info: "Garáž je pasivní logistické zázemí. Generuje clean cash, zvedá heat a každá vlastněná garáž zkracuje cooldowny útoků, obsazení districtů, district loupeží a části support akcí.",
   actions: Object.freeze([])
 });
 
@@ -55,7 +55,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   }),
   skola: Object.freeze({
     role: "Vzdělání",
-    info: "Škola pomalu přidává obyvatele a malé clean cash. Večerní kurz dočasně zrychlí výrobu lidí v bytových blocích.",
+    info: "Škola pomalu přidává populaci a malé clean cash. Večerní kurz dočasně zrychlí nábor členů v bytových blocích.",
     actions: Object.freeze(["Večerní kurz"])
   }),
   restaurace: Object.freeze({
@@ -216,10 +216,10 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
     Object.freeze({ apartmentCollectPopulation: true, cooldownMs: 0, summary: "Přesune lokálně uložené obyvatele do globální populace gangu." })
   ]),
   skola: Object.freeze([
-    Object.freeze({ schoolEveningCourse: true, cleanCost: 600, durationMs: 20 * 60 * 1000, durationBonusMsPerLevel: 2 * 60 * 1000, cooldownMs: 35 * 60 * 1000, apartmentPopulationBoostPct: 60, summary: "Večerní kurz zrychlí výrobu lidí v bytových blocích." })
+    Object.freeze({ schoolEveningCourse: true, cleanCost: 1000, durationMs: 20 * 60 * 1000, cooldownMs: 35 * 60 * 1000, apartmentPopulationBoostPct: 60, summary: "Večerní kurz zrychlí nábor členů v bytových blocích." })
   ]),
   restaurace: Object.freeze([
-    Object.freeze({ clean: 180, dirty: 90, heat: 1, durationMs: 30 * 60 * 1000, cooldownMs: 30 * 60 * 1000, summary: "Lokální tržby přepsány do zdrojů." }),
+    Object.freeze({ clean: 180, dirty: 90, heat: 1, durationMs: 0, cooldownMs: 30 * 60 * 1000, summary: "Lokální tržby přepsány do zdrojů." }),
     Object.freeze({ durationMs: 30 * 60 * 1000, cooldownMs: 30 * 60 * 1000, incomeBoostPct: 18, influence: 2, heat: 1, summary: "Schůzky zvedly dočasný income budovy." }),
     Object.freeze({ influence: 4, heat: 2, durationMs: 30 * 60 * 1000, cooldownMs: 30 * 60 * 1000, influenceBoostPct: 12, summary: "Lokální síť posílila vliv districtu." })
   ]),
@@ -367,14 +367,10 @@ export const SCHOOL_CONFIG = Object.freeze({
   maxPopulationProductionMultiplier: 1.4,
   maxStudentCapacityMultiplier: 1.5,
   maxIncomeMultiplier: 1.2,
-  baseTalentChancePct: 0,
-  talentChancePctPerExtraSchool: 0,
-  maxTalentChancePct: 0,
-  eveningCourseTalentChanceBonusPct: 0,
   eveningCourseDurationMs: 20 * 60 * 1000,
-  eveningCourseDurationBonusMsPerLevel: 2 * 60 * 1000,
+  eveningCourseDurationBonusMsPerLevel: 0,
   eveningCourseCooldownMs: 35 * 60 * 1000,
-  eveningCourseCleanCost: 600,
+  eveningCourseCleanCost: 1000,
   eveningCoursePopulationMultiplier: 1.6,
   eveningCourseCleanIncomeMultiplier: 1
 });
@@ -426,14 +422,9 @@ export const GARAGE_SUPPORT_CONFIG = Object.freeze({
   cooldownReductionPctPerGarage: 2,
   maxCooldownReductionPct: 16,
   fullBonusCategories: Object.freeze([
-    "gangMovement",
     "attackPreparation",
     "districtOccupy",
-    "districtRobbery",
-    "equipmentTransfer",
-    "resourceTransfer",
-    "defenseRepair",
-    "defenseRestore"
+    "districtRobbery"
   ]),
   halfBonusCategories: Object.freeze([
     "districtSpy",
@@ -465,7 +456,7 @@ export const AUTO_SALON_SUPPORT_CONFIG = Object.freeze({
   combinedGarageDealerMaxReductionPct: 22,
   escapeChanceBonusPctPerDealer: 2,
   maxEscapeChanceBonusPct: 12,
-  fullBonusCategories: Object.freeze(["gangMovement", "equipmentTransfer", "resourceTransfer", "districtRobbery", "attackPreparation", "retreatReturn"]),
+  fullBonusCategories: Object.freeze(["districtRobbery", "districtOccupy", "attackPreparation", "retreatReturn"]),
   halfBonusCategories: Object.freeze(["attackTravelTime", "defenseReposition"]),
   smallBonusCategories: Object.freeze(["clinicEvacuationRecovery", "recyclingSalvageTransport"]),
   excludedCategories: Object.freeze(["moneyLaundering", "casinoActions", "exchangeOfficeActions", "arcadeLaunderingActions", "rumorGeneration", "passiveProduction", "intelScan", "trapDetection"]),

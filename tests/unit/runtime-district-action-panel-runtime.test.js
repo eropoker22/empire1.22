@@ -57,13 +57,73 @@ describe("district action panel runtime", () => {
     const context = runtime.getPreparedAttackContext({ id: 9, districtType: "industrial" });
     runtime.setPendingAttackContext(context);
 
-    expect(summary).toEqual({ totalResidents: 3, totalPower: 12, canConfirm: true });
+    expect(summary).toEqual({
+      totalResidents: 3,
+      totalPower: 12,
+      canConfirm: true,
+      bonusPowerLabel: "",
+      powerLabel: "12"
+    });
     expect(attackRequiredPopulation.textContent).toBe("3");
     expect(context.selectedWeaponsLabel).toBe("Pistole x2");
     expect(runtime.getPendingAttackContext()).toBe(context);
 
     runtime.clearPendingAttackContext();
     expect(runtime.getPendingAttackContext()).toBe(null);
+  });
+
+  it("shows recruitment strength bonus in attack and defense power labels", () => {
+    const attackEstimatedPower = textElement();
+    const attackStatus = textElement();
+    const attackConfirmButton = textElement();
+    const defenseEstimatedPower = textElement();
+    const defenseStatus = textElement();
+    const defenseConfirmButton = textElement();
+    const runtime = createDistrictActionPanelRuntime({
+      attackSetupWeapons: { pistol: true },
+      attackWeaponLabels: { pistol: "Pistole" },
+      calculateAttackDeployment: () => ({
+        totalResidents: 2,
+        totalPower: 21.6,
+        basePower: 20,
+        bonusPower: 1.6,
+        bonusPowerLabel: "+1.6"
+      }),
+      calculateTotalDefensePower: () => ({
+        totalPower: 12.9,
+        basePower: 12,
+        bonusPower: 0.9,
+        bonusPowerLabel: "+0.9"
+      }),
+      renderAttackProgress: vi.fn((payload, options) => {
+        options.elements.estimatedPower.textContent = payload.powerLabel;
+        options.elements.status.textContent = payload.status;
+        options.elements.confirmButton.disabled = !payload.canConfirm;
+      }),
+      validateAttackSelection: () => ({ canConfirm: true, status: "Připraveno" }),
+      elements: {
+        attackSourceSelect: { value: "2", replaceChildren: vi.fn(), append: vi.fn(), disabled: false },
+        attackRequiredPopulation: textElement(),
+        attackEstimatedPower,
+        attackStatus,
+        attackConfirmButton,
+        attackWeaponInputs: [input("2", { attackWeaponInput: "pistol" })],
+        defenseWeaponInputs: [input("1", { defenseWeaponInput: "vest" })],
+        defenseResidentsInput: input("0"),
+        defenseEstimatedPower,
+        defenseStatus,
+        defenseConfirmButton,
+        gangMembersValue: textElement("12")
+      }
+    });
+
+    const attackSummary = runtime.renderAttackSummary();
+    const defenseSummary = runtime.renderDefenseSummary();
+
+    expect(attackSummary.powerLabel).toBe("21.6 (+1.6)");
+    expect(attackEstimatedPower.textContent).toBe("21.6 (+1.6)");
+    expect(defenseSummary.powerLabel).toBe("12.9 (+0.9)");
+    expect(defenseEstimatedPower.textContent).toBe("12.9 (+0.9)");
   });
 
   it("handles missing panel DOM without crashing", () => {

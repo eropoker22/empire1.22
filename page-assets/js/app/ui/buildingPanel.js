@@ -14,6 +14,25 @@ function createElement(scopeElement, tagName, className = "") {
   return element;
 }
 
+function resolveBuildingsPopupTypeSymbol(typeKey = "") {
+  switch (String(typeKey || "").trim().toLowerCase()) {
+    case "resident":
+    case "residential":
+      return "⌂";
+    case "park":
+      return "♧";
+    case "economy":
+    case "commercial":
+      return "€";
+    case "industrial":
+      return "⚙";
+    case "downtown":
+      return "★";
+    default:
+      return "";
+  }
+}
+
 export function createBuildingDetailStat(label, value) {
   const stat = createElement(null, "div", "building-info-card__stat");
   const statLabel = createElement(stat, "span");
@@ -51,10 +70,13 @@ export function renderBuildingsPopupTypes(mount, view = {}) {
     const button = createElement(
       mount,
       "button",
-      `button buildings-popup__type-btn buildings-popup__type-btn--${item.typeKey || "unknown"}${item.active ? " is-active" : ""}${isDisabled ? " is-locked" : ""}`
+      `button buildings-popup__type-btn buildings-popup__type-btn--${item.typeKey || "unknown"}${item.active ? " is-active" : ""}${isDisabled ? " is-locked" : ""}${item.hasPulsingBuilding ? " has-building-pulse" : ""}`
     );
     const label = createElement(mount, "span", "buildings-popup__type-label");
     const count = createElement(mount, "span", "buildings-popup__type-meta");
+    const pulse = item.hasPulsingBuilding
+      ? createElement(mount, "span", "buildings-popup__type-pulse")
+      : null;
     if (!button || !label || !count) {
       continue;
     }
@@ -65,13 +87,22 @@ export function renderBuildingsPopupTypes(mount, view = {}) {
       button.title = `${item.label || "Zóna"} nevlastníš`;
     } else {
       button.dataset.buildingsDistrictType = item.typeKey || "";
+      if (item.hasPulsingBuilding) {
+        button.title = "Některá budova v téhle zóně čeká na vyřešení.";
+      }
     }
     label.textContent = item.label || "";
     count.textContent = item.meta || "";
     if (Number(item.ownedDistrictCount) > 0) {
       count.dataset.mobileCount = String(item.ownedDistrictCount);
     }
-    button.append(label, count);
+    if (pulse) {
+      pulse.setAttribute("aria-hidden", "true");
+      pulse.textContent = resolveBuildingsPopupTypeSymbol(item.typeKey);
+      button.append(pulse, label, count);
+    } else {
+      button.append(label, count);
+    }
     buttons.push(button);
   }
 
@@ -139,7 +170,7 @@ export function renderBuildingsPopupDetail(mount, view = {}) {
       const button = createElement(
         mount,
         "button",
-        `button buildings-popup__building buildings-popup__building--type buildings-popup__building--interactive${item.baseName === view.activeBaseName ? " is-active" : ""}${item.apartmentIsFull ? " is-apartment-full" : ""}${item.clinicStabilizationReady ? " is-clinic-stabilization-ready" : ""}`
+        `button buildings-popup__building buildings-popup__building--type buildings-popup__building--interactive${item.baseName === view.activeBaseName ? " is-active" : ""}${item.apartmentIsFull ? " is-apartment-full" : ""}${item.clinicStabilizationReady ? " is-clinic-stabilization-ready" : ""}${item.schoolIsFull ? " is-school-full" : ""}`
       );
       const name = createElement(mount, "span");
       const count = createElement(mount, "span");
@@ -153,6 +184,8 @@ export function renderBuildingsPopupDetail(mount, view = {}) {
         button.title = "Bytový blok je plný. Obyvatelé čekají na vybrání.";
       } else if (item.clinicStabilizationReady) {
         button.title = "Stabilizační protokol je připravený ke spuštění.";
+      } else if (item.schoolIsFull) {
+        button.title = "Škola je plná. Členové čekají na vybrání.";
       }
       name.textContent = item.baseName || "Budova";
       count.textContent = `${Math.max(0, Number(item.count || 0))}x`;

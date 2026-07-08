@@ -32,6 +32,7 @@ import {
 import {
   calculateAttackDeployment,
   calculateDefensePower,
+  DEFENSE_POWER_BY_WEAPON,
   calculateTotalDefensePower,
   estimateDistrictDefense,
   formatDefenseLoadout,
@@ -579,6 +580,7 @@ import {
   DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2,
   DISTRICT_BUILDING_MINUTE_INCOME_RULES_EMPIRE2,
   DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2,
+  DISTRICT_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
   DISTRICT_BUILDING_PACKAGE_POOLS,
   DISTRICT_MINUTE_INCOME_RULES_EMPIRE2,
   DOWNTOWN_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
@@ -4237,6 +4239,7 @@ const {
   getOwnedDrugLabCount: () => getOwnedSpecialProductionBuildingCount("drug lab"),
   getOwnedPharmacyCount: () => getOwnedSpecialProductionBuildingCount("lekarna"),
   getOwnedWarehouseCount: getOwnedWarehouseCountForProductionOutput,
+  getArmoryRecipeStrengthPreview,
   getResolvedEconomyState,
   getScaledProductionInputs,
   getStoredProductionBuildingState,
@@ -5349,6 +5352,7 @@ const {
   districtBuildingPackagePools: DISTRICT_BUILDING_PACKAGE_POOLS,
   districtBuildingTypeMeta: DISTRICT_BUILDING_TYPE_META,
   districtTypeGrid: DISTRICT_TYPE_GRID,
+  districtFixedPackagesByDistrictId: DISTRICT_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
   downtownDistrictType: MAP_DOWNTOWN_DISTRICT_TYPE,
   downtownFixedPackagesByDistrictId: DOWNTOWN_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
   getCurrentPlayerOwnedDistrictIds,
@@ -5400,7 +5404,6 @@ const {
   getOwnedWarehouseCount,
   getRestaurantNetworkMultipliers,
   getSchoolNetworkMultipliers,
-  getSchoolTalentChancePct,
   getShoppingMallMarketDiscountForTab,
   getShoppingMallNetworkMultipliers,
   getSmugglingTunnelCollectHeat,
@@ -5473,6 +5476,95 @@ function getOwnedDistrictBuildingCountByBaseName(baseName) {
   }, 0);
 
   return Math.max(actualCount, getDemoLiveMinimumOwnedBuildingCountByBaseName(normalizedBaseName, worldState));
+}
+
+function formatStrengthNumber(value = 0) {
+  const rounded = Math.round(Number(value || 0) * 10) / 10;
+  return Number.isInteger(rounded)
+    ? String(rounded)
+    : rounded.toFixed(1).replace(/0+$/u, "").replace(/\.$/u, "");
+}
+
+function formatStrengthBonusLabel(value = 0) {
+  const safeValue = Math.max(0, Number(value || 0));
+  return safeValue > 0 ? `+${formatStrengthNumber(safeValue)}` : "";
+}
+
+function resolveCurrentRecruitmentCenterCombatSupport() {
+  return getRecruitmentCenterSupportStats(getOwnedRecruitmentCenterCount()) || {};
+}
+
+function getArmoryRecipeStrengthPreview(recipeId = "", recipe = {}) {
+  const itemId = String(recipe?.output?.itemId || recipeId || "").trim();
+  const isDefense = Object.prototype.hasOwnProperty.call(DEFENSE_POWER_BY_WEAPON, itemId);
+  const basePower = isDefense
+    ? Number(DEFENSE_POWER_BY_WEAPON[itemId] || 0)
+    : Number(ATTACK_SETUP_WEAPONS[itemId]?.power || 0);
+  if (!basePower) {
+    return null;
+  }
+  const support = resolveCurrentRecruitmentCenterCombatSupport();
+  const bonusPct = isDefense
+    ? Math.max(0, Number(support.defenseItemStrengthBonusPct || 0))
+    : Math.max(0, Number(support.attackWeaponStrengthBonusPct || 0));
+  const bonusPower = basePower * bonusPct / 100;
+  return {
+    label: isDefense ? "Síla obrany" : "Síla útoku",
+    basePower,
+    bonusPower,
+    bonusLabel: formatStrengthBonusLabel(bonusPower)
+  };
+}
+
+function getRecruitmentAttackWeaponModifiers() {
+  const support = resolveCurrentRecruitmentCenterCombatSupport();
+  const bonusPct = Math.max(0, Number(support.attackWeaponStrengthBonusPct || 0));
+  return Object.fromEntries(Object.keys(ATTACK_SETUP_WEAPONS).map((weaponId) => [
+    weaponId,
+    1 + bonusPct / 100
+  ]));
+}
+
+function getRecruitmentDefenseItemModifiers() {
+  const support = resolveCurrentRecruitmentCenterCombatSupport();
+  const defenseBonusPct = Math.max(0, Number(support.defenseItemStrengthBonusPct || 0));
+  const cameraBonusPct = Math.max(0, Number(support.cameraStrengthBonusPct ?? defenseBonusPct));
+  const alarmBonusPct = Math.max(0, Number(support.alarmStrengthBonusPct ?? defenseBonusPct));
+  return Object.fromEntries(Object.keys(DEFENSE_POWER_BY_WEAPON).map((itemId) => {
+    const bonusPct = itemId === "cameras"
+      ? cameraBonusPct
+      : itemId === "alarm"
+        ? alarmBonusPct
+        : defenseBonusPct;
+    return [itemId, 1 + bonusPct / 100];
+  }));
+}
+
+function calculateAttackDeploymentWithRecruitmentSupport(loadout = {}) {
+  const base = calculateAttackDeployment(loadout);
+  const boosted = calculateAttackDeployment(loadout, getRecruitmentAttackWeaponModifiers());
+  const bonusPower = Math.max(0, Number(boosted.totalPower || 0) - Number(base.totalPower || 0));
+  return {
+    ...boosted,
+    basePower: base.totalPower,
+    bonusPower,
+    bonusPowerLabel: formatStrengthBonusLabel(bonusPower)
+  };
+}
+
+function calculateTotalDefensePowerWithRecruitmentSupport(input = {}) {
+  const basePower = calculateTotalDefensePower(input);
+  const totalPower = calculateTotalDefensePower({
+    ...input,
+    modifiers: getRecruitmentDefenseItemModifiers()
+  });
+  const bonusPower = Math.max(0, Number(totalPower || 0) - Number(basePower || 0));
+  return {
+    totalPower,
+    basePower,
+    bonusPower,
+    bonusPowerLabel: formatStrengthBonusLabel(bonusPower)
+  };
 }
 
 function applyShoppingMallMarketDiscountToPrice(basePrice, discount) {
@@ -6008,45 +6100,6 @@ function getCasinoDetailUpgradeCostLabel(level) {
   return parts.join(" + ") || "Zdarma";
 }
 
-function getSchoolTalentLabel(talentId) {
-  const labels = {
-    technician: "Technik",
-    informant: "Informátor",
-    medic: "Medik",
-    negotiator: "Vyjednavač",
-    organizer: "Organizátor",
-    protector: "Ochránce"
-  };
-  return labels[talentId] || "Talent";
-}
-
-function getSchoolTalentSummary(talentId) {
-  const summaries = {
-    technician: "Technik umí zrychlit výrobu ve Zbrojovce nebo Továrně.",
-    informant: "Informátor přinesl slabý civilní drb z okolí Školy.",
-    medic: "Medik zná levnější postup pro stabilizaci zraněných.",
-    negotiator: "Vyjednavač umí vytěžit z města drobný vliv.",
-    organizer: "Organizátor umí zkrátit logistické zdržení.",
-    protector: "Ochránce umí krátce podržet obranu nejbližšího vlastního districtu."
-  };
-  return summaries[talentId] || "malá výhoda zapsaná do uličních zpráv";
-}
-
-function rollSchoolTalent(chancePct, eveningCourseActive = false) {
-  if (Math.random() >= Math.max(0, Number(chancePct || 0)) / 100) {
-    return null;
-  }
-  const regularPool = ["technician", "informant", "medic", "negotiator", "organizer", "protector"];
-  const betterPool = ["technician", "medic", "organizer", "protector", "negotiator", "informant"];
-  const pool = eveningCourseActive && Math.random() < 0.2 ? betterPool : regularPool;
-  const talentId = pool[Math.floor(Math.random() * pool.length)] || "informant";
-  return {
-    id: talentId,
-    label: getSchoolTalentLabel(talentId),
-    summary: getSchoolTalentSummary(talentId)
-  };
-}
-
 function getStoredClinicRecoveryPool() {
   return loadClinicRecoveryPool().filter((entry) => entry && typeof entry === "object");
 }
@@ -6396,6 +6449,18 @@ function resetOwnedApartmentBlockPopulationEntries(sourceDistrict, populationCap
   }));
 }
 
+function resetOwnedSchoolPopulationEntries(sourceDistrict, studentCapacity = SCHOOL_CONFIG.baseStudentCapacity) {
+  const now = Date.now();
+  updateDistrictBuildingDetailEntry(sourceDistrict, "Škola", (entry) => ({
+    ...entry,
+    storedStudents: 0,
+    schoolLastUpdatedAt: now,
+    studentCapacity,
+    studentFullNotifiedAt: 0,
+    lastCollectedAt: now
+  }));
+}
+
 function resolveDistrictBuildingDetailMechanicsType(buildingName) {
   const lookupKey = resolveDistrictBuildingCanonicalLookupKey(buildingName);
   return DISTRICT_BUILDING_DETAIL_MECHANICS_TYPES[lookupKey] || "district-asset";
@@ -6463,7 +6528,7 @@ function resolveDistrictBuildingNetworkEffectLabel({
   }
   if (mechanicsType === "school" && schoolNetwork) {
     return joinNetworkEffectParts("Síť škol", [
-      formatNetworkEffectPart("studenti", schoolNetwork.populationProductionMultiplier),
+      formatNetworkEffectPart("populace", schoolNetwork.populationProductionMultiplier),
       formatNetworkEffectPart("kapacita", schoolNetwork.studentCapacityMultiplier),
       formatNetworkEffectPart("income", schoolNetwork.incomeMultiplier)
     ]);
@@ -6578,7 +6643,6 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
   const ownedSchools = mechanicsType === "school" ? getOwnedSchoolCount() : 0;
   const schoolNetwork = mechanicsType === "school" ? getSchoolNetworkMultipliers(ownedSchools) : null;
   const schoolEveningCourseActive = mechanicsType === "school" && Number(entry.schoolEveningCourseExpiresAt || 0) > now;
-  const schoolTalentChancePct = mechanicsType === "school" ? getSchoolTalentChancePct(ownedSchools, schoolEveningCourseActive) : 0;
   const schoolApartmentBoost = mechanicsType === "apartment-block" ? getActiveSchoolApartmentBoost(now) : null;
   const schoolApartmentBoostMultiplier = schoolApartmentBoost
     ? 1 + Math.max(0, Number(schoolApartmentBoost.apartmentPopulationBoostPct || 0)) / 100
@@ -6756,24 +6820,24 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     .map((effect) => formatActiveDistrictBuildingEffectLabel(effect, now))
     .filter(Boolean);
   const canCollect =
-    mechanicsType === "apartment-block" && apartmentWholePopulation >= APARTMENT_BLOCK_MIN_COLLECT_POPULATION
-    || mechanicsType === "school" && schoolWholeStudents > 0;
+    mechanicsType === "apartment-block" ? apartmentWholePopulation >= APARTMENT_BLOCK_MIN_COLLECT_POPULATION
+      : mechanicsType === "school" ? schoolWholeStudents > 0
+      : false;
   const hasManualCollect =
-    mechanicsType === "apartment-block"
-    || mechanicsType === "school";
+    mechanicsType === "apartment-block" || mechanicsType === "school";
   const storedOutputLabel = [
     mechanicsType === "apartment-block" ? `${apartmentWholePopulation}/${apartmentCapacity} obyvatel` : "",
-    mechanicsType === "school" ? `${schoolWholeStudents}/${schoolCapacity} studentů` : ""
+    mechanicsType === "school" ? `${schoolWholeStudents}/${schoolCapacity} členů` : ""
   ].filter(Boolean).join(" · ") || "Zatím nic";
   const effectsLabel = [
     cleanHourly > 0 ? `Clean cash +${formatDistrictBuildingMoney(cleanHourly)}/hod` : "",
     dirtyHourly > 0 ? `Dirty cash +${formatDistrictBuildingMoney(dirtyHourly)}/hod` : "",
     mechanicsType === "apartment-block" ? `Populace +${apartmentPopulationPerMinute.toFixed(2)}/min` : "",
-    mechanicsType === "school" ? `Studenti +${schoolPopulationPerMinute.toFixed(2)}/min` : "",
+    mechanicsType === "school" ? `Populace +${schoolPopulationPerMinute.toFixed(2)}/min` : "",
     mechanicsType === "smuggling-tunnel" ? `Kontraband Flow ${smugglingContrabandFlowLabel} · Dealer Supply +${smugglingDealerSupplyBonusPct}%` : "",
     isGarage ? `Cooldowny -${garageSupport?.cooldownReductionPct || 0}%` : "",
     apartmentIsFull ? "Plná kapacita · Bytový blok je plný. Obyvatelé čekají na vybrání." : "",
-    schoolIsFull ? "Plná kapacita · Škola je plná. Studenti čekají na vybrání." : "",
+    schoolIsFull ? "Plná kapacita · Škola má naplněnou lokální populační kapacitu." : "",
     mechanicsType === "smuggling-tunnel" && smugglingOpenChannelActive ? `Otevřený kanál aktivní ${formatDistrictBuildingCooldown(Number(entry.openChannelExpiresAt || entry.silentChannelExpiresAt || 0) - now)}` : "",
     ...warehouseWarnings,
     dailyHeat > 0 ? `Heat +${dailyHeat}/den` : "",
@@ -6839,7 +6903,6 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     schoolWholeStudents,
     schoolIsFull,
     schoolTimeToFullMs,
-    schoolTalentChancePct,
     schoolEveningCourseActive,
     schoolEveningCourseRemainingMs: Math.max(0, Number(entry.schoolEveningCourseExpiresAt || 0) - now),
     ownedWarehouses,
@@ -7197,44 +7260,28 @@ function collectDistrictBuildingDetailOutput(root, shell) {
   }
 
   if (mechanics.mechanicsType === "school") {
-    const collectedStudents = Math.max(0, Math.floor(Number(mechanics.schoolStoredStudents || 0)));
-    if (collectedStudents <= 0) {
-      setBuildingActionFeedback(root, "warning", context.buildingName, "Škola zatím nemá studenty k vybrání.", "Počkej na další produkci.");
+    const collectedPopulation = Math.max(0, Math.floor(Number(mechanics.schoolStoredStudents || 0)));
+    if (collectedPopulation <= 0) {
+      setBuildingActionFeedback(root, "warning", context.buildingName, "Škola zatím nemá připravené členy k výběru.", mechanics.storedOutputLabel);
       return;
     }
     const gangState = getResolvedGangState();
-    setStoredGangState({ members: Math.max(0, Math.floor(Number(gangState.members || 0)) + collectedStudents) });
+    setStoredGangState({ members: Math.max(0, Math.floor(Number(gangState.members || 0)) + collectedPopulation) });
     renderGangMembersState(root);
-    updateDistrictBuildingDetailEntry(context.district, context.buildingName, (entry) => ({
-      ...entry,
-      storedStudents: 0,
-      schoolLastUpdatedAt: Date.now(),
-      studentCapacity: mechanics.schoolCapacity,
-      studentFullNotifiedAt: 0,
-      lastCollectedAt: Date.now()
-    }));
+    summary.push(`${collectedPopulation} členů`);
+    resetOwnedSchoolPopulationEntries(context.district, mechanics.schoolCapacity);
     setBuildingActionFeedback(
       root,
       "success",
       context.buildingName,
-      `Vybral jsi ${collectedStudents} obyvatel ze Školy.`,
-      "Obyvatelé byli přidáni do gangu."
+      `Vybral jsi ${collectedPopulation} členů ze Školy.`,
+      `0/${mechanics.schoolCapacity} zůstává lokálně`
     );
-    appendBuildingActionResultEntry(root, "police", {
-      tone: "event",
-      title: `${context.buildingName}: Výběr studentů`,
-      badge: "Škola",
-      summary: `Vybral jsi ${collectedStudents} obyvatel ze Školy.`,
-      rows: [
-        { label: "Budova", value: context.buildingName },
-        context.district?.id ? { label: "District", value: `District ${context.district.id}` } : null,
-        { label: "Vybráno", value: `${collectedStudents} obyvatel`, nowrap: true }
-      ].filter(Boolean)
-    }, {}, { syncPreview: true, forceLog: true });
+    appendBuildingActionResultEntry(root, "police", createStorageCollectResultPayload({ buildingLabel: context.buildingName, items: summary.map((value, index) => ({ label: `Položka ${index + 1}`, value })), meta: "Vybrat členy", districtLabel: context.district?.id ? `District ${context.district.id}` : "Fixed building" }), {}, { syncPreview: true, forceLog: true });
     dispatchDistrictBuildingProductionCollected(root, context, {
       mechanicsType: mechanics.mechanicsType,
-      amount: collectedStudents,
-      itemLabel: "obyvatelé"
+      amount: collectedPopulation,
+      itemLabel: "členové"
     });
     refreshDistrictBuildingDetailPopup(root, shell);
     return;
@@ -8594,7 +8641,7 @@ function openGenericDistrictBuildingDetail(root, district, buildingName, display
       studentCapacity: mechanics.schoolCapacity,
       studentFullNotifiedAt: Date.now()
     }));
-    setBuildingActionFeedback(root, "warning", displayLabel, "Škola je plná. Studenti čekají na vybrání.", "Plná kapacita");
+    setBuildingActionFeedback(root, "warning", displayLabel, "Škola má naplněnou lokální populační kapacitu.", "Plná kapacita");
   }
 
   if (
@@ -9465,6 +9512,15 @@ function bindDistrictCanvas(root) {
         return false;
       }
     },
+    isSchoolFull({ district, baseName } = {}) {
+      try {
+        const mechanics = resolveDistrictBuildingDetailMechanics(district, baseName || "Škola");
+        return mechanics?.mechanicsType === "school"
+          && Boolean(mechanics.schoolIsFull);
+      } catch {
+        return false;
+      }
+    },
     isClinicStabilizationReady: isClinicStabilizationProtocolReady,
     isDemoLiveBuildingCatalogUnlocked: () => normalizeRuntimeGamePhase(getResolvedPhaseState().gamePhase) === "live",
     isDistrictTypeHidden,
@@ -9624,8 +9680,8 @@ function bindDistrictCanvas(root) {
     attackCooldownMs: ATTACK_COOLDOWN_MS,
     attackSetupWeapons: ATTACK_SETUP_WEAPONS,
     attackWeaponLabels: ATTACK_WEAPON_LABELS,
-    calculateAttackDeployment,
-    calculateTotalDefensePower,
+    calculateAttackDeployment: calculateAttackDeploymentWithRecruitmentSupport,
+    calculateTotalDefensePower: calculateTotalDefensePowerWithRecruitmentSupport,
     clamp,
     createRobberySetupPreview,
     estimateDistrictDefense,

@@ -115,7 +115,7 @@ describe("building panel rendering", () => {
 
     renderBuildingsPopupTypes(mount, {
       types: [
-        { typeKey: "resident", label: "Rezidence", meta: "2 districtů", active: true },
+        { typeKey: "resident", label: "Rezidence", meta: "2 districtů", active: true, hasPulsingBuilding: true },
         { typeKey: "economy", label: "Komerce", meta: "Bez vlastního districtu", active: false, disabled: true }
       ]
     });
@@ -123,6 +123,11 @@ describe("building panel rendering", () => {
     expect(mount.children).toHaveLength(3);
     expect(mount.children[0].dataset.buildingsDistrictType).toBe("resident");
     expect(mount.children[0].classList.contains("is-active")).toBe(true);
+    expect(mount.children[0].classList.contains("has-building-pulse")).toBe(true);
+    expect(mount.children[0].title).toBe("Některá budova v téhle zóně čeká na vyřešení.");
+    expect(mount.children[0].children[0].classList.contains("buildings-popup__type-pulse")).toBe(true);
+    expect(mount.children[0].children[0].attributes.get("aria-hidden")).toBe("true");
+    expect(mount.children[0].children[0].textContent).toBe("⌂");
     expect(mount.children[1].children[1].textContent).toBe("Bez vlastního districtu");
     expect(mount.children[1].disabled).toBe(true);
     expect(mount.children[1].classList.contains("is-locked")).toBe(true);
@@ -149,7 +154,8 @@ describe("building panel rendering", () => {
       baseTypes: [
         { baseName: "Bytový blok", count: 2, apartmentIsFull: true },
         { baseName: "Fitness Club", count: 1 },
-        { baseName: "Klinika", count: 1, clinicStabilizationReady: true }
+        { baseName: "Klinika", count: 1, clinicStabilizationReady: true },
+        { baseName: "Škola", count: 1, schoolIsFull: true }
       ],
       activeBaseName: "Bytový blok",
       entries: [
@@ -166,6 +172,8 @@ describe("building panel rendering", () => {
     expect(card.children[2].children[0].children[0].title).toBe("Bytový blok je plný. Obyvatelé čekají na vybrání.");
     expect(card.children[2].children[0].children[2].classList.contains("is-clinic-stabilization-ready")).toBe(true);
     expect(card.children[2].children[0].children[2].title).toBe("Stabilizační protokol je připravený ke spuštění.");
+    expect(card.children[2].children[0].children[3].classList.contains("is-school-full")).toBe(true);
+    expect(card.children[2].children[0].children[3].title).toBe("Škola je plná. Členové čekají na vybrání.");
     expect(card.children[4].children[0].children[0].dataset.buildingsOpenBuildingDistrictId).toBe("12");
     expect(card.children[4].children[0].children[0].classList.contains("is-apartment-full")).toBe(false);
     expect(card.children[4].children[0].children[1].disabled).toBe(true);

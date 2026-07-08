@@ -427,4 +427,45 @@ describe("buildings popup runtime", () => {
       ]
     }));
   });
+
+  it("marks the school base cell as full when any school is full", () => {
+    const isSchoolFull = vi.fn(({ district }) => Number(district.id) === 1);
+    const { runtime, renderBuildingsPopupDetailPanel, renderBuildingsPopupTypesPanel } = createRuntime({
+      isSchoolFull,
+      resolveDistrictBuildingProfile: (district) => ({
+        buildings: [{ baseName: "Škola", displayName: `Škola ${district.id}` }],
+        districtLabel: `District ${district.id}`,
+        setTitle: "Sada",
+        tier: "early",
+        typeKey: district.districtType
+      })
+    });
+
+    runtime.renderBuildingsPopup("resident");
+
+    expect(isSchoolFull).toHaveBeenCalled();
+    expect(renderBuildingsPopupTypesPanel).toHaveBeenLastCalledWith(undefined, expect.objectContaining({
+      types: expect.arrayContaining([
+        expect.objectContaining({
+          typeKey: "resident",
+          hasPulsingBuilding: true
+        })
+      ])
+    }));
+    expect(renderBuildingsPopupDetailPanel).toHaveBeenLastCalledWith(undefined, expect.objectContaining({
+      baseTypes: [
+        expect.objectContaining({
+          baseName: "Škola",
+          count: 1,
+          schoolIsFull: true
+        })
+      ],
+      entries: [
+        expect.objectContaining({
+          displayName: "Škola 1",
+          schoolIsFull: true
+        })
+      ]
+    }));
+  });
 });

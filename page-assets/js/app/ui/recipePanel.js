@@ -292,6 +292,24 @@ function getArmorySlotRole(recipeId = "", recipe = {}) {
     : "attack";
 }
 
+function createArmoryStrengthLabel(scopeElement, preview = null) {
+  if (!preview || !preview.label || !Number.isFinite(Number(preview.basePower))) {
+    return null;
+  }
+  const label = createElement(scopeElement, "span", "armory-slot__strength");
+  if (!label) return null;
+  label.append(getDocument(scopeElement).createTextNode(`${preview.label} ${preview.basePower}`));
+  const bonusLabel = String(preview.bonusLabel || "").trim();
+  if (bonusLabel) {
+    const bonus = createElement(scopeElement, "span", "armory-slot__strength-bonus");
+    if (bonus) {
+      bonus.textContent = `(${bonusLabel})`;
+      label.append(getDocument(scopeElement).createTextNode(" "), bonus);
+    }
+  }
+  return label;
+}
+
 function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
   const recipe = viewModel.recipe || {};
   const job = viewModel.job || null;
@@ -469,15 +487,16 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     const titles = createElement(options.mount, "div", "drug-production-slot__titles");
     const product = createElement(options.mount, "span", "drug-production-slot__product");
     const title = createElement(options.mount, "strong", "drug-production-slot__title");
+    const strengthLabel = isArmory ? createArmoryStrengthLabel(options.mount, viewModel.armoryStrengthPreview) : null;
     const state = createElement(options.mount, "span", "drug-production-slot__state");
     const metrics = createElement(options.mount, "div", "drug-production-slot__metrics");
     const actions = createElement(options.mount, "div", "drug-production-slot__controls");
     if (icon) icon.setAttribute("aria-hidden", "true");
-    const productLabel = visual?.productLabel ?? (isArmory ? "Attack" : "");
+    const productLabel = isArmory ? "" : (visual?.productLabel ?? "");
     if (product && productLabel) product.textContent = productLabel;
     if (title) title.textContent = recipe.name || "";
     if (state) state.textContent = slotState.label;
-    appendChildren(titles, [productLabel ? product : null, title]);
+    appendChildren(titles, [productLabel ? product : null, title, strengthLabel]);
     appendChildren(titleWrap, [icon, titles]);
     appendChildren(head, [titleWrap, state]);
     const timeMetric = createMetricBlock(options.mount, { label: "Čas", value: formatRecipeSlotTime(job, effectiveDurationMs, 1, options) });

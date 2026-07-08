@@ -132,6 +132,13 @@ export const DOWNTOWN_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID = Object.freeze({
   59: Object.freeze({ key: "downtown-fixed-59", tier: "core", title: "VIP patro", buildings: Object.freeze(["VIP salonek", "Přístav"]) })
 });
 
+export const DISTRICT_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID = Object.freeze({
+  40: Object.freeze({ key: "resident-fixed-40", tier: "mid", title: "Regenerace fronty", buildings: Object.freeze(["Rekrutační centrum", "Škola"]) }),
+  49: Object.freeze({ key: "resident-fixed-49", tier: "mid", title: "Kontrolovaný development", buildings: Object.freeze(["Bytový blok", "Herna", "Klinika"]) }),
+  60: Object.freeze({ key: "resident-fixed-60", tier: "late", title: "Mobilní tlak", buildings: Object.freeze(["Rekrutační centrum", "Škola", "Klinika"]) }),
+  88: Object.freeze({ key: "resident-fixed-88", tier: "late", title: "Elitní rezidenční zóna", buildings: Object.freeze(["Bytový blok", "Garage", "Klinika"]) })
+});
+
 export const residentialDistrictPools = DISTRICT_BUILDING_PACKAGE_POOLS.resident;
 export const commercialDistrictPools = DISTRICT_BUILDING_PACKAGE_POOLS.economy;
 export const parkDistrictPools = DISTRICT_BUILDING_PACKAGE_POOLS.park;
@@ -159,6 +166,7 @@ export function formatDistrictBuildingTierLabel(tier) {
 
 export const districtPoolsData = registerEmpireData("districtPools", Object.freeze({
   districtBuildingPackagePools: DISTRICT_BUILDING_PACKAGE_POOLS,
+  districtFixedBuildingPackagesByDistrictId: DISTRICT_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
   downtownFixedBuildingPackagesByDistrictId: DOWNTOWN_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
   residentialDistrictPools,
   commercialDistrictPools,

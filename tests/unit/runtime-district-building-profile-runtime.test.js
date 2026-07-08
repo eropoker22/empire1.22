@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createDistrictBuildingProfileRuntime } from "../../page-assets/js/app/runtime/districtBuildingProfileRuntime.js";
 import {
+  DISTRICT_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
   DOWNTOWN_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
   DISTRICT_BUILDING_PACKAGE_POOLS
 } from "../../page-assets/js/data/districtPools.js";
@@ -19,6 +20,7 @@ function createRuntime(overrides = {}) {
     clamp: (value, min, max) => Math.min(Math.max(value, min), max),
     currentPlayerId: 1,
     defaultDistrictType: "resident",
+    districtFixedPackagesByDistrictId: {},
     districtBuildingPackagePools: {
       resident: {
         early: [{ key: "resident-early", tier: "early", title: "Start", buildings: ["Kasino"] }],
@@ -56,6 +58,7 @@ function createMapRuntime() {
     districtBuildingPackagePools: DISTRICT_BUILDING_PACKAGE_POOLS,
     districtBuildingTypeMeta: DISTRICT_BUILDING_TYPE_META,
     districtTypeGrid: DISTRICT_TYPE_GRID,
+    districtFixedPackagesByDistrictId: DISTRICT_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
     downtownDistrictType: "downtown",
     downtownFixedPackagesByDistrictId: DOWNTOWN_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
     getCurrentPlayerOwnedDistrictIds: () => new Set(),
@@ -235,6 +238,24 @@ describe("district building profile runtime", () => {
       "VIP salonek": 2,
       Zbrojovka: 15
     });
+  });
+
+  it("keeps school and apartment block out of the same generated district", () => {
+    const runtime = createMapRuntime();
+    const conflicts = [];
+
+    for (const district of runtime.getDistrictResourceCatalog()) {
+      const profile = runtime.resolveDistrictBuildingProfile(district);
+      const buildings = profile.buildings.map((building) => building.baseName);
+      if (buildings.includes("Škola") && buildings.includes("Bytový blok")) {
+        conflicts.push({
+          districtId: profile.districtId,
+          buildings
+        });
+      }
+    }
+
+    expect(conflicts).toEqual([]);
   });
 
   it("covers every generated map building occurrence with a named variant", () => {

@@ -81,7 +81,10 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full:focus-visible,
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready,
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready:hover,
-html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready:focus-visible {
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready:focus-visible,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full:hover,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full:focus-visible {
   position: relative !important;
   overflow: hidden !important;
   isolation: isolate !important;
@@ -100,7 +103,8 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
 }
 
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full > *,
-html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready > * {
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready > *,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full > * {
   position: relative !important;
   z-index: 2 !important;
 }
@@ -108,7 +112,9 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full > span:first-child,
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full > span:nth-child(2),
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready > span:first-child,
-html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready > span:nth-child(2) {
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready > span:nth-child(2),
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full > span:first-child,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full > span:nth-child(2) {
   color: #ffffff !important;
   text-shadow:
     0 0 8px var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)),
@@ -117,7 +123,8 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
 }
 
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full::before,
-html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready::before {
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready::before,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full::before {
   background: var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)) !important;
   box-shadow:
     0 0 12px var(--buildings-type-border-hover, rgba(34, 211, 238, 0.74)),
@@ -126,7 +133,8 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
 }
 
 html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-apartment-full::after,
-html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready::after {
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-clinic-stabilization-ready::after,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building--type.is-school-full::after {
   content: "" !important;
   position: absolute !important;
   inset: 0 !important;
@@ -612,8 +620,12 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
 }
 
 @media (min-width: 721px) {
+  html body.game-body .district-building-detail-card [data-district-building-detail-action-section] {
+    margin-top: 58px !important;
+  }
+
   html body.game-body .district-building-detail-card [data-district-building-detail-action-section] > h5 {
-    margin-bottom: 120px !important;
+    margin-bottom: 15px !important;
   }
 }
 
@@ -690,7 +702,7 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
 
 @media (min-width: 721px) {
   html body.game-body .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
-    margin-bottom: 120px !important;
+    margin-bottom: 15px !important;
   }
 }
 
@@ -744,7 +756,7 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
 
 @media (min-width: 721px) {
   html body.game-body .district-building-detail-shell[data-building-mechanics-type="casino"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
-    margin-bottom: 120px !important;
+    margin-bottom: 15px !important;
   }
 }
 
@@ -798,7 +810,7 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
 
 @media (min-width: 721px) {
   html body.game-body .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
-    margin-bottom: 120px !important;
+    margin-bottom: 15px !important;
   }
 }
 
@@ -852,7 +864,7 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
 
 @media (min-width: 721px) {
   html body.game-body .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
-    margin-bottom: 120px !important;
+    margin-bottom: 15px !important;
   }
 }
 
@@ -960,7 +972,7 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
 
 @media (min-width: 721px) {
   html body.game-body .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
-    margin-bottom: 120px !important;
+    margin-bottom: 15px !important;
   }
 }
 
@@ -1014,7 +1026,7 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
 
 @media (min-width: 721px) {
   html body.game-body .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-card [data-district-building-detail-action-section] > h5 {
-    margin-bottom: 120px !important;
+    margin-bottom: 15px !important;
   }
 }
 
@@ -1098,10 +1110,54 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
     margin-top: 0 !important;
   }
 
+  html body.game-body .district-building-detail-card [data-district-building-detail-effects-section],
+  html body.game-body .district-building-detail-card .building-info-card__effects,
+  html body.game-body .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] [data-district-building-detail-effects-section],
+  html body.game-body .district-building-detail-card.building-detail-modal__content[data-building-has-custom-background="true"] .building-info-card__effects {
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  html body.game-body .district-building-detail-card [data-district-building-detail-effects-section]::before {
+    content: none !important;
+    display: none !important;
+  }
+
   html body.game-body .district-building-detail-card .district-building-detail-mechanics,
   html body.game-body .district-building-detail-card .building-info-card__effects,
   html body.game-body .district-building-detail-card .district-building-detail-actions {
     gap: 6px !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-card [data-district-building-detail-effects-section] {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    flex-direction: column !important;
+    min-height: clamp(390px, 60vh, 640px) !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-card .building-info-card__effects {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: space-evenly !important;
+    gap: 34px !important;
+    row-gap: 34px !important;
+    width: 100% !important;
+    min-height: clamp(340px, 52vh, 560px) !important;
+  }
+
+  html body.game-body .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-card .district-building-detail-effect-cell {
+    width: auto !important;
+    max-width: min(100%, 320px) !important;
+    align-self: center !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
   }
 
   html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card .building-info-card__effects {
@@ -1144,7 +1200,10 @@ html body.game-body .district-building-detail-shell[data-building-mechanics-type
   }
 
   html body.game-body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged {
-    padding-bottom: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 8px 8px 0 !important;
   }
 
   html body.game-body .district-building-detail-shell[data-building-mechanics-type="clinic"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged {
@@ -5030,7 +5089,7 @@ html body.game-body :is(
     transform-origin: center center !important;
     will-change: transform, opacity !important;
     backface-visibility: hidden !important;
-    animation: mobile-modal-positioned-center-pop-in 220ms var(--motion-modal-ease, cubic-bezier(0.22, 1, 0.36, 1)) both !important;
+    animation: mobile-modal-center-pop-in 220ms var(--motion-modal-ease, cubic-bezier(0.22, 1, 0.36, 1)) both !important;
   }
 
   html body.game-body :is(
@@ -5324,5 +5383,87 @@ html body.game-body :is(
     opacity: 1 !important;
     pointer-events: auto !important;
     transform: none !important;
+  }
+}
+
+/* Final district building detail hidden-strip guard. */
+html body.game-body .district-building-detail-shell [hidden],
+html body.game-body .district-building-detail-shell [aria-hidden="true"],
+html body.game-body .district-building-detail-shell .district-building-detail-panel.hidden,
+html body.game-body .district-building-detail-shell .building-info-card__section:empty,
+html body.game-body .district-building-detail-shell .building-info-card__effects:empty,
+html body.game-body .district-building-detail-shell .district-building-detail-actions:empty {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+/* Final buildings district type icon pulse guard. */
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__type-btn.has-building-pulse:not(:disabled) .buildings-popup__type-pulse {
+  position: absolute !important;
+  z-index: 4 !important;
+  display: grid !important;
+  place-items: center !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: color-mix(in srgb, var(--buildings-type-text, #e6fbff) 92%, #ffffff) !important;
+  font-weight: 950 !important;
+  line-height: 1 !important;
+  text-shadow:
+    0 0 8px var(--buildings-type-border-hover, rgba(34, 211, 238, 0.82)),
+    0 0 18px var(--buildings-type-glow, rgba(34, 211, 238, 0.48)),
+    0 0 30px var(--buildings-type-glow, rgba(34, 211, 238, 0.28)) !important;
+  pointer-events: none !important;
+  animation: buildings-zone-icon-pulse 2.2s ease-in-out infinite !important;
+}
+
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__type-btn.has-building-pulse:not(:disabled) .buildings-popup__type-label,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__type-btn.has-building-pulse:not(:disabled) .buildings-popup__type-meta {
+  z-index: 3 !important;
+}
+
+@media (min-width: 781px) {
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__type-btn.has-building-pulse:not(:disabled) .buildings-popup__type-pulse {
+    left: -10px !important;
+    top: 52% !important;
+    width: 76px !important;
+    height: 76px !important;
+    font-size: 58px !important;
+    transform: translateY(-50%) rotate(-8deg) !important;
+  }
+}
+
+@media (max-width: 780px) {
+  html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__type-btn.has-building-pulse:not(:disabled) .buildings-popup__type-pulse {
+    left: 50% !important;
+    top: 50% !important;
+    width: 46px !important;
+    height: 46px !important;
+    font-size: 31px !important;
+    transform: translate(-50%, -56%) !important;
+  }
+}
+
+@keyframes buildings-zone-icon-pulse {
+  0%,
+  100% {
+    opacity: 0.34;
+    filter: saturate(1.4) brightness(1.05);
+  }
+
+  50% {
+    opacity: 1;
+    filter: saturate(2.1) brightness(1.55) drop-shadow(0 0 14px var(--buildings-type-border-hover, rgba(34, 211, 238, 0.86)));
   }
 }

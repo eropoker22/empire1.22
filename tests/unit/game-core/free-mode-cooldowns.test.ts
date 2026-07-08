@@ -4,6 +4,7 @@ import { resolveModeConfig } from "@empire/game-config";
 import {
   createAttackDistrictCommandFixture,
   createOccupyDistrictCommandFixture,
+  createRobDistrictCommandFixture,
   createRunBuildingActionCommandFixture,
   createSpyDistrictCommandFixture
 } from "../../fixtures/command-fixtures";
@@ -63,7 +64,7 @@ describe("Free BR strategic cooldowns", () => {
     expect(Number(reducedTicks)).toBeGreaterThanOrEqual(15 * TICKS_PER_MINUTE);
   });
 
-  it("keeps spy and occupy cooldown reductions above Free guardrails", () => {
+  it("keeps spy, rob and occupy cooldown reductions above Free guardrails", () => {
     const spyState = createCombatStateFixture();
     addOwnedBuildings(spyState, "garage", 8);
     const spyResult = applyCommand(spyState, createSpyDistrictCommandFixture(), context);
@@ -80,6 +81,14 @@ describe("Free BR strategic cooldowns", () => {
     expect(occupyResult.errors).toEqual([]);
     expect(occupyResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:district:2"]).toBe(113);
     expect(occupyResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:district:2"]).toBeGreaterThanOrEqual(8 * TICKS_PER_MINUTE);
+
+    const robState = createNeutralRobState();
+    addOwnedBuildings(robState, "garage", 8);
+    const robResult = applyCommand(robState, createRobDistrictCommandFixture(), context);
+
+    expect(robResult.errors).toEqual([]);
+    expect(robResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["rob:district:2"]).toBe(101);
+    expect(robResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["rob-source:district:1"]).toBe(101);
   });
 
   it("keeps canonical craft durations in strategic minute ranges after cooldownMultiplier", () => {
@@ -187,6 +196,22 @@ const createNeutralOccupyState = (): CoreGameState => {
   };
   state.buildingsById[building.id] = building;
 
+  return state;
+};
+
+const createNeutralRobState = (): CoreGameState => {
+  const state = createCombatStateFixture();
+  state.playersById["player:1"] = {
+    ...state.playersById["player:1"],
+    population: 2
+  };
+  state.districtsById["district:2"] = {
+    ...state.districtsById["district:2"],
+    ownerPlayerId: null,
+    controllerAllianceId: null,
+    status: "neutral",
+    defenseLoadout: {}
+  };
   return state;
 };
 

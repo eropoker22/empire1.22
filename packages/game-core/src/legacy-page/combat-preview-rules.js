@@ -1,7 +1,7 @@
 import { ATTACK_SETUP_WEAPONS } from "../../../game-config/src/legacy-page/combat-config.js";
 
 // Preview-only legacy helpers. Server-authoritative combat results are resolved by game-core command handlers.
-export function calculateAttackDeployment(loadout = {}) {
+export function calculateAttackDeployment(loadout = {}, modifiers = {}) {
   return Object.entries(loadout).reduce(
     (totals, [weaponId, amount]) => {
       const weapon = ATTACK_SETUP_WEAPONS[weaponId];
@@ -11,9 +11,10 @@ export function calculateAttackDeployment(loadout = {}) {
         return totals;
       }
 
+      const multiplier = Math.max(0, Number(modifiers[weaponId] ?? 1));
       return {
         totalResidents: totals.totalResidents + normalizedAmount * weapon.residents,
-        totalPower: totals.totalPower + normalizedAmount * weapon.power
+        totalPower: totals.totalPower + normalizedAmount * weapon.power * multiplier
       };
     },
     { totalResidents: 0, totalPower: 0 }
@@ -36,16 +37,17 @@ export const DEFENSE_LABEL_BY_WEAPON = {
   alarm: "Alarm"
 };
 
-export function calculateDefensePower(loadout = {}) {
+export function calculateDefensePower(loadout = {}, modifiers = {}) {
   return Object.entries(loadout).reduce((totalPower, [weaponId, amount]) => {
     const normalizedAmount = Math.max(0, Number.parseInt(String(amount ?? 0), 10) || 0);
-    return totalPower + normalizedAmount * (DEFENSE_POWER_BY_WEAPON[weaponId] ?? 0);
+    const multiplier = Math.max(0, Number(modifiers[weaponId] ?? 1));
+    return totalPower + normalizedAmount * (DEFENSE_POWER_BY_WEAPON[weaponId] ?? 0) * multiplier;
   }, 0);
 }
 
-export function calculateTotalDefensePower({ loadout = {}, residents = 0 } = {}) {
+export function calculateTotalDefensePower({ loadout = {}, residents = 0, modifiers = {} } = {}) {
   const normalizedResidents = Math.max(0, Number.parseInt(String(residents ?? 0), 10) || 0);
-  return calculateDefensePower(loadout) + normalizedResidents;
+  return calculateDefensePower(loadout, modifiers) + normalizedResidents;
 }
 
 export function formatDefenseLoadout(loadout = {}) {

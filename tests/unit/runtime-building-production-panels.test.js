@@ -18,6 +18,7 @@ import {
   renderRecipeList,
   renderRecipeRequirements
 } from "../../page-assets/js/app/ui/recipePanel.js";
+import { PRODUCTION_SLOT_VISUALS } from "../../page-assets/js/app/runtime/productionBuildingData.js";
 
 const originalDocument = globalThis.document;
 const originalWindow = globalThis.window;
@@ -475,18 +476,16 @@ describe("building detail, production and recipe UI modules", () => {
     });
 
     const upgradeButton = shell.querySelector("[data-district-building-detail-upgrade]");
-    const tabs = shell.querySelector(".district-building-detail-tabs");
     const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
     const infoPanel = shell.querySelector("[data-district-building-detail-panel='info']");
 
     expect(upgradeButton.hidden).toBe(true);
     expect(upgradeButton.style.display).toBe("none");
     expect(upgradeButton.disabled).toBe(true);
-    expect(tabs.hidden).toBe(true);
+    expect(shell.querySelector(".district-building-detail-tabs")).toBe(null);
     expect(shell.classList.contains("is-building-detail-single-panel")).toBe(true);
     expect(statsPanel.hidden).toBe(false);
-    expect(infoPanel.hidden).toBe(true);
-    expect(infoPanel.style.display).toBe("none");
+    expect(infoPanel).toBe(null);
     expect(statsPanel.querySelector(".district-building-detail-info-card")).toBe(null);
   });
 
@@ -510,39 +509,79 @@ describe("building detail, production and recipe UI modules", () => {
       actions: [{ index: 0, title: "Vybrat obyvatele", description: "Přidá členy gangu.", cooldownLabel: "Cooldown: 0s" }]
     });
 
-    const tabs = shell.querySelector(".district-building-detail-tabs");
     const panels = shell.querySelectorAll("[data-district-building-detail-panel]");
     const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
     const infoPanel = shell.querySelector("[data-district-building-detail-panel='info']");
 
-    expect(tabs.hidden).toBe(true);
-    expect(tabs.style.display).toBe("none");
+    expect(shell.querySelector(".district-building-detail-tabs")).toBe(null);
     expect(shell.classList.contains("is-building-detail-single-panel")).toBe(true);
-    expect(panels).toHaveLength(2);
+    expect(panels).toHaveLength(1);
     expect(statsPanel.hidden).toBe(false);
     expect(statsPanel.classList.contains("district-building-detail-panel--merged")).toBe(true);
-    expect(infoPanel.hidden).toBe(true);
-    expect(infoPanel.classList.contains("hidden")).toBe(true);
-    expect(infoPanel.style.display).toBe("none");
+    expect(infoPanel).toBe(null);
     expect(statsPanel.querySelector(".district-building-detail-info-card")).toBe(null);
-    expect(shell.querySelector("[data-district-building-detail-action-section]")).toBe(null);
+    expect(shell.querySelector("[data-district-building-detail-action-section]").hidden).toBe(true);
+  });
+
+  it("keeps restaurant detail sections alive across an empty refresh render", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:restaurant" });
+    const restaurantView = {
+      shell,
+      mechanicsType: "restaurant",
+      title: "Restaurace",
+      intro: "Restaurace generuje čisté peníze a městské drby.",
+      badge: "Lokální cashflow",
+      levelLabel: "L1",
+      name: "Restaurace",
+      meta: "",
+      stats: [{ label: "Clean / min", value: "+$38" }],
+      mechanics: [{ label: "Drby", value: "šance x1.12" }],
+      effects: [{ text: "Clean cash +2280/hod", tone: "clean" }],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { disabled: false, title: "Upgrade" },
+      showActionsInSinglePanel: true,
+      actions: [{ index: 0, title: "Vybrat tržby", description: "Vybere lokální tržby.", cooldownLabel: "Cooldown: 30m" }]
+    };
+
+    renderBuildingDetailPanel(restaurantView);
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "restaurant",
+      title: "Restaurace",
+      stats: [],
+      mechanics: [],
+      effects: [],
+      collect: { visible: false },
+      upgrade: { disabled: false },
+      showActionsInSinglePanel: true,
+      actions: []
+    });
+    renderBuildingDetailPanel(restaurantView);
+
+    const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
+    const mechanics = statsPanel.querySelector("[data-district-building-detail-mechanics]");
+    const effects = statsPanel.querySelector("[data-district-building-detail-effects]");
+    const actionSection = statsPanel.querySelector("[data-district-building-detail-action-section]");
+    const action = shell.querySelector("[data-district-building-detail-action-index]");
+
+    expect(mechanics.children[0].children[0].textContent).toBe("Drby");
+    expect(mechanics.children[0].children[1].textContent).toBe("šance x1.12");
+    expect(effects.children[0].children[0].textContent).toBe("Clean cash +2280/hod");
+    expect(actionSection.hidden).toBe(false);
+    expect(action.querySelector(".building-info-action-row__title").textContent).toBe("Vybrat tržby");
   });
 
   it("renders focused action buildings as a single panel while keeping action controls", () => {
     const document = setupDocument();
     const root = document.createElement("div");
     const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:clinic" });
-    const infoSection = shell.querySelector("[data-district-building-detail-info-section]");
-
-    renderBuildingDetailInfoSection(infoSection, {
-      intro: "Klinika drží gang při životě.",
-      rows: [],
-      actions: []
-    });
     renderBuildingDetailPanel({
       shell,
       mechanicsType: "clinic",
       title: "Klinika",
+      intro: "Klinika drží gang při životě.",
       badge: "Recovery",
       levelLabel: "L1",
       name: "Klinika",
@@ -555,16 +594,14 @@ describe("building detail, production and recipe UI modules", () => {
       actions: [{ index: 0, title: "Stabilizační protokol", description: "Vrací čerstvé ztráty.", cooldownLabel: "Cooldown: 18m 00s" }]
     });
 
-    const tabs = shell.querySelector(".district-building-detail-tabs");
     const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
     const infoPanel = shell.querySelector("[data-district-building-detail-panel='info']");
     const actions = shell.querySelectorAll("[data-district-building-detail-action-index]");
 
-    expect(tabs.hidden).toBe(true);
+    expect(shell.querySelector(".district-building-detail-tabs")).toBe(null);
     expect(shell.classList.contains("is-building-detail-single-panel")).toBe(true);
     expect(statsPanel.hidden).toBe(false);
-    expect(infoPanel.hidden).toBe(true);
-    expect(infoPanel.style.display).toBe("none");
+    expect(infoPanel).toBe(null);
     expect(statsPanel.querySelector(".building-detail-info-text").textContent).toBe("Klinika drží gang při životě.");
     expect(statsPanel.querySelector(".district-building-detail-info-card")).toBe(null);
     expect(actions).toHaveLength(1);
@@ -575,17 +612,11 @@ describe("building detail, production and recipe UI modules", () => {
     const document = setupDocument();
     const root = document.createElement("div");
     const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:casino" });
-    const infoSection = shell.querySelector("[data-district-building-detail-info-section]");
-
-    renderBuildingDetailInfoSection(infoSection, {
-      intro: "Kasino pere velké částky s velkým rizikem.",
-      rows: [],
-      actions: []
-    });
     renderBuildingDetailPanel({
       shell,
       mechanicsType: "casino",
       title: "Kasino",
+      intro: "Kasino pere velké částky s velkým rizikem.",
       badge: "High-risk praní",
       levelLabel: "L2",
       name: "Kasino",
@@ -598,15 +629,14 @@ describe("building detail, production and recipe UI modules", () => {
       actions: [{ index: 0, title: "Tichá herna", description: "Vypere dirty cash.", cooldownLabel: "Cooldown: 14m 00s" }]
     });
 
-    const tabs = shell.querySelector(".district-building-detail-tabs");
     const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
     const infoPanel = shell.querySelector("[data-district-building-detail-panel='info']");
     const actions = shell.querySelectorAll("[data-district-building-detail-action-index]");
 
-    expect(tabs.hidden).toBe(true);
+    expect(shell.querySelector(".district-building-detail-tabs")).toBe(null);
     expect(shell.classList.contains("is-building-detail-single-panel")).toBe(true);
     expect(statsPanel.classList.contains("district-building-detail-panel--merged")).toBe(true);
-    expect(infoPanel.hidden).toBe(true);
+    expect(infoPanel).toBe(null);
     expect(actions).toHaveLength(1);
     expect(actions[0].querySelector(".building-info-action-row__title").textContent).toBe("Tichá herna");
   });
@@ -704,17 +734,11 @@ describe("building detail, production and recipe UI modules", () => {
     const document = setupDocument();
     const root = document.createElement("div");
     const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:power" });
-    const infoSection = shell.querySelector("[data-district-building-detail-info-section]");
-
-    renderBuildingDetailInfoSection(infoSection, {
-      intro: "Energetická stanice drží provoz districtu stabilní.",
-      rows: [],
-      actions: []
-    });
     renderBuildingDetailPanel({
       shell,
       mechanicsType: "power-plant",
       title: "Energetická stanice",
+      intro: "Energetická stanice drží provoz districtu stabilní.",
       badge: "Infrastruktura",
       levelLabel: "L2",
       name: "Energetická stanice",
@@ -731,13 +755,12 @@ describe("building detail, production and recipe UI modules", () => {
       ]
     });
 
-    const tabs = shell.querySelector(".district-building-detail-tabs");
     const infoPanel = shell.querySelector("[data-district-building-detail-panel='info']");
     const actions = shell.querySelectorAll("[data-district-building-detail-action-index]");
 
-    expect(tabs.hidden).toBe(true);
+    expect(shell.querySelector(".district-building-detail-tabs")).toBe(null);
     expect(shell.classList.contains("is-building-detail-single-panel")).toBe(true);
-    expect(infoPanel.hidden).toBe(true);
+    expect(infoPanel).toBe(null);
     expect(actions).toHaveLength(3);
     expect(actions[2].querySelector(".building-info-action-row__title").textContent).toBe("Snížit heat");
   });
@@ -746,17 +769,11 @@ describe("building detail, production and recipe UI modules", () => {
     const document = setupDocument();
     const root = document.createElement("div");
     const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:smuggling" });
-    const infoSection = shell.querySelector("[data-district-building-detail-info-section]");
-
-    renderBuildingDetailInfoSection(infoSection, {
-      intro: "Pašovací tunel drží dirty proud mimo světlo.",
-      rows: [],
-      actions: []
-    });
     renderBuildingDetailPanel({
       shell,
       mechanicsType: "smuggling-tunnel",
       title: "Pašovací tunel",
+      intro: "Pašovací tunel drží dirty proud mimo světlo.",
       badge: "Pašování",
       levelLabel: "L2",
       name: "Pašovací tunel",
@@ -769,13 +786,12 @@ describe("building detail, production and recipe UI modules", () => {
       actions: [{ index: 0, title: "Otevřít kanál", description: "Zvedne dirty cash tunelů.", cooldownLabel: "Cooldown: 18m 00s" }]
     });
 
-    const tabs = shell.querySelector(".district-building-detail-tabs");
     const infoPanel = shell.querySelector("[data-district-building-detail-panel='info']");
     const actions = shell.querySelectorAll("[data-district-building-detail-action-index]");
 
-    expect(tabs.hidden).toBe(true);
+    expect(shell.querySelector(".district-building-detail-tabs")).toBe(null);
     expect(shell.classList.contains("is-building-detail-single-panel")).toBe(true);
-    expect(infoPanel.hidden).toBe(true);
+    expect(infoPanel).toBe(null);
     expect(actions).toHaveLength(1);
     expect(actions[0].querySelector(".building-info-action-row__title").textContent).toBe("Otevřít kanál");
   });
@@ -784,17 +800,11 @@ describe("building detail, production and recipe UI modules", () => {
     const document = setupDocument();
     const root = document.createElement("div");
     const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:arcade" });
-    const infoSection = shell.querySelector("[data-district-building-detail-info-section]");
-
-    renderBuildingDetailInfoSection(infoSection, {
-      intro: "Herna je pouliční cashflow a menší pračka.",
-      rows: [],
-      actions: []
-    });
     renderBuildingDetailPanel({
       shell,
       mechanicsType: "arcade",
       title: "Herna",
+      intro: "Herna je pouliční cashflow a menší pračka.",
       badge: "Dirty cash",
       levelLabel: "",
       name: "Herna",
@@ -839,11 +849,11 @@ describe("building detail, production and recipe UI modules", () => {
     const document = setupDocument();
     const root = document.createElement("div");
     const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:apartment-refresh" });
-    const infoSection = shell.querySelector("[data-district-building-detail-info-section]");
     const viewModel = {
       shell,
       mechanicsType: "apartment-block",
       title: "Bytový blok",
+      intro: "Bytový blok negeneruje cash ani heat.",
       badge: "Členové gangu",
       levelLabel: "L1",
       stats: [],
@@ -852,20 +862,46 @@ describe("building detail, production and recipe UI modules", () => {
       upgrade: { disabled: true, title: "Bez upgradu" },
       actions: []
     };
-    const infoViewModel = {
-      intro: "Bytový blok negeneruje cash ani heat.",
-      rows: [{ label: "Čas do naplnění", value: "1m 00s" }],
-      actions: []
-    };
-
-    renderBuildingDetailInfoSection(infoSection, infoViewModel);
     renderBuildingDetailPanel(viewModel);
-    renderBuildingDetailInfoSection(infoSection, infoViewModel);
     renderBuildingDetailPanel(viewModel);
 
     const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
     const pinnedIntroCount = statsPanel.children.filter((child) => child.classList.contains("building-detail-info-text")).length;
     expect(pinnedIntroCount).toBe(1);
+  });
+
+  it("deduplicates legacy pinned intros without dropping school card content", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:school-refresh" });
+    const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
+    const legacyIntro = document.createElement("p");
+    legacyIntro.className = "building-detail-info-text";
+    legacyIntro.textContent = "Starý popisek školy.";
+    statsPanel.append(legacyIntro);
+
+    const viewModel = {
+      shell,
+      mechanicsType: "school",
+      title: "Škola",
+      intro: "Škola pasivně zvyšuje lokální populační zásobu.",
+      badge: "Vzdělání",
+      levelLabel: "L1",
+      stats: [{ label: "Populace", value: "4/12" }],
+      mechanics: [{ label: "K výběru", value: "4/12" }],
+      effects: [{ text: "Populace +0.25/min", tone: "population" }],
+      collect: { visible: true, enabled: true, title: "Vybrat připravený výstup: 4/12 členů" },
+      upgrade: { disabled: true, title: "Bez upgradu" },
+      actions: []
+    };
+    renderBuildingDetailPanel(viewModel);
+    renderBuildingDetailPanel(viewModel);
+
+    const pinnedIntros = statsPanel.children.filter((child) => child.classList.contains("building-detail-info-text"));
+    expect(pinnedIntros).toHaveLength(1);
+    expect(pinnedIntros[0].dataset.districtBuildingDetailInlineInfo).toBe("true");
+    expect(statsPanel.querySelector("[data-district-building-detail-stats]").children).toHaveLength(1);
+    expect(statsPanel.querySelector("[data-district-building-detail-mechanics]").children).toHaveLength(1);
   });
 
   it("does not pin empty single-panel intro rows", () => {
@@ -903,8 +939,44 @@ describe("building detail, production and recipe UI modules", () => {
 
     expect(statsPanel.querySelector(".building-detail-info-text")).toBe(null);
     expect(statsPanel.querySelector(".district-building-detail-info-card")).toBe(null);
-    expect(infoPanel.querySelector(".district-building-detail-info-card")).not.toBe(null);
-    expect(infoPanel.style.display).toBe("none");
+    expect(infoPanel).toBe(null);
+  });
+
+  it("removes empty visible single-panel sections after rendering", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:clinic-empty-strip" });
+    const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
+    const emptyStrip = document.createElement("div");
+    emptyStrip.className = "building-info-card__section";
+    statsPanel.append(emptyStrip);
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "clinic",
+      title: "Klinika",
+      badge: "Recovery",
+      levelLabel: "",
+      name: "Klinika",
+      meta: "",
+      stats: [{ label: "Recovery pool", value: "0 položek" }],
+      mechanics: [{ label: "Stabilizace", value: "čeká" }],
+      effects: [{ text: "Clean cash +$3100/hod", tone: "clean" }],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { visible: false, disabled: true, title: "" },
+      showActionsInSinglePanel: true,
+      actions: [{
+        index: 0,
+        actionId: "stabilization_protocol",
+        buildingTypeId: "clinic",
+        title: "Stabilizační protokol",
+        disabled: true,
+        disabledReason: "Žádné ztráty k léčbě.",
+        cooldownLabel: "Cooldown 17m 39s"
+      }]
+    });
+
+    expect(statsPanel.children.includes(emptyStrip)).toBe(false);
   });
 
   it("renders production outputs and empty production panels", () => {
@@ -1411,6 +1483,12 @@ describe("building detail, production and recipe UI modules", () => {
       buildingName: "armory",
       recipeId: "baseball-bat",
       recipe: attackRecipe,
+      armoryStrengthPreview: {
+        label: "Síla útoku",
+        basePower: 5,
+        bonusPower: 0.4,
+        bonusLabel: "+0.4"
+      },
       outputCap: 15
     }, {}, { mount });
     const readyCard = renderRecipeCard({
@@ -1429,6 +1507,12 @@ describe("building detail, production and recipe UI modules", () => {
       buildingName: "armory",
       recipeId: "vest",
       recipe: defenseRecipe,
+      armoryStrengthPreview: {
+        label: "Síla obrany",
+        basePower: 6,
+        bonusPower: 0.3,
+        bonusLabel: "+0.3"
+      },
       outputCap: 15
     }, {}, { mount });
 
@@ -1439,6 +1523,26 @@ describe("building detail, production and recipe UI modules", () => {
     expect(readyCard.querySelectorAll(".drug-lab-mini-btn")[1].disabled).toBe(true);
     expect(idleCard.className).toContain("armory-slot--attack");
     expect(defenseCard.className).toContain("armory-slot--defense");
+    expect(idleCard.querySelector(".drug-production-slot__product")).toBe(null);
+    expect(defenseCard.querySelector(".drug-production-slot__product")).toBe(null);
+    expect(idleCard.querySelector(".armory-slot__strength").children.map((child) => child.textContent).join("")).toBe("Síla útoku 5 (+0.4)");
+    expect(idleCard.querySelector(".armory-slot__strength-bonus").textContent).toBe("(+0.4)");
+    expect(defenseCard.querySelector(".armory-slot__strength").children.map((child) => child.textContent).join("")).toBe("Síla obrany 6 (+0.3)");
+  });
+
+  it("keeps armory attack and defense recipe visuals grouped by icon role", () => {
+    const attackGlyph = PRODUCTION_SLOT_VISUALS.armory.smg.iconGlyphClass;
+    const defenseGlyph = PRODUCTION_SLOT_VISUALS.armory.barricades.iconGlyphClass;
+
+    for (const recipeId of ["baseball-bat", "pistol", "grenade", "smg", "bazooka"]) {
+      expect(PRODUCTION_SLOT_VISUALS.armory[recipeId].iconGlyphClass).toBe(attackGlyph);
+      expect(PRODUCTION_SLOT_VISUALS.armory[recipeId].productLabel).toBeUndefined();
+    }
+
+    for (const recipeId of ["vest", "barricades", "cameras", "defense-tower", "alarm"]) {
+      expect(PRODUCTION_SLOT_VISUALS.armory[recipeId].iconGlyphClass).toBe(defenseGlyph);
+      expect(PRODUCTION_SLOT_VISUALS.armory[recipeId].productLabel).toBeUndefined();
+    }
   });
 
   it("renders factory slots with queue quantity controls and scaled price", () => {

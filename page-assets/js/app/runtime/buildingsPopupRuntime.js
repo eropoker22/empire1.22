@@ -66,6 +66,12 @@ const resolveBuildingChipKind = (buildingName) => {
 
 const isApartmentBlockBaseName = (buildingName) => normalizeBuildingChipName(buildingName) === "bytovy blok";
 const isClinicBaseName = (buildingName) => normalizeBuildingChipName(buildingName) === "klinika";
+const isSchoolBaseName = (buildingName) => normalizeBuildingChipName(buildingName) === "skola";
+const hasPulsingBuildingState = (entry = {}) => Boolean(
+  entry.apartmentIsFull
+  || entry.clinicStabilizationReady
+  || entry.schoolIsFull
+);
 
 const createBuildingsPopupBackgroundStack = (backgroundImage) => backgroundImage
   ? `linear-gradient(rgba(3, 7, 18, 0.44), rgba(3, 7, 18, 0.58)), url("${escapeCssUrl(backgroundImage)}")`
@@ -89,6 +95,9 @@ export function createBuildingsPopupRuntime(deps = {}) {
     : () => false;
   const isClinicStabilizationReady = typeof deps.isClinicStabilizationReady === "function"
     ? deps.isClinicStabilizationReady
+    : () => false;
+  const isSchoolFull = typeof deps.isSchoolFull === "function"
+    ? deps.isSchoolFull
     : () => false;
   const isDemoLiveBuildingCatalogUnlocked = typeof deps.isDemoLiveBuildingCatalogUnlocked === "function"
     ? deps.isDemoLiveBuildingCatalogUnlocked
@@ -294,6 +303,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
           canOpenFromBuildingsPopup: demoLiveCatalogUnlocked || currentPlayerOwnedDistrictIds.has(Number(district.id)),
           apartmentIsFull: isApartmentBlockBaseName(baseName) && isApartmentBlockFull({ district, building, baseName, displayName }),
           clinicStabilizationReady: isClinicBaseName(baseName) && isClinicStabilizationReady({ district, building, baseName, displayName }),
+          schoolIsFull: isSchoolBaseName(baseName) && isSchoolFull({ district, building, baseName, displayName }),
           setTitle: buildingProfile.setTitle,
           tier: buildingProfile.tier
         });
@@ -321,6 +331,7 @@ export function createBuildingsPopupRuntime(deps = {}) {
           districtCount,
           ownedDistrictCount,
           disabled,
+          hasPulsingBuilding: getBuildingEntriesForDistrictType(typeKey).some(hasPulsingBuildingState),
           meta: demoLiveCatalogUnlocked && districtCount > 0
             ? `(${districtCount})`
             : ownedDistrictCount > 0 ? `(${ownedDistrictCount})` : "",
@@ -348,12 +359,14 @@ export function createBuildingsPopupRuntime(deps = {}) {
         baseName: entry.baseName,
         count: 0,
         apartmentIsFull: false,
-        clinicStabilizationReady: false
+        clinicStabilizationReady: false,
+        schoolIsFull: false
       };
 
       existing.count += 1;
       existing.apartmentIsFull = Boolean(existing.apartmentIsFull || entry.apartmentIsFull);
       existing.clinicStabilizationReady = Boolean(existing.clinicStabilizationReady || entry.clinicStabilizationReady);
+      existing.schoolIsFull = Boolean(existing.schoolIsFull || entry.schoolIsFull);
       groupedByBaseName.set(entry.baseName, existing);
     }
 

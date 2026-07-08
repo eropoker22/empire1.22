@@ -114,12 +114,17 @@ describe("mobile action modal CSS", () => {
   it("stacks recruitment center effect chips and removes the empty single-panel strip", () => {
     expect(buildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-card .building-info-card__effects');
     expect(buildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-card .district-building-detail-effect-cell');
-    expect(buildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-mechanics');
+    expect(buildingModalCss).toContain('align-items: center;');
+    expect(buildingModalCss).toContain('width: auto !important;');
     expect(clientBuildingModalCss).toContain('.district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-card .building-info-card__effects');
+    expect(buildingModalCss).toContain(".armory-slot__strength-bonus");
     for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain('html body.game-body .district-building-detail-shell[data-building-mechanics-type="recruitment-center"] .district-building-detail-card .building-info-card__effects');
+      expect(stylesheet).toContain('row-gap: 34px !important;');
+      expect(stylesheet).toContain('max-width: min(100%, 320px) !important;');
       expect(stylesheet).toContain('html body.game-body .district-building-detail-shell[data-building-mechanics-type="recruitment-center"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-panel--merged');
       expect(stylesheet).toContain('html body.game-body .district-building-detail-shell[data-building-mechanics-type="recruitment-center"].is-building-detail-single-panel .district-building-detail-panel--merged [data-district-building-detail-action-section]');
-      expect(stylesheet).toContain('html body.game-body .district-building-detail-shell[data-building-mechanics-type="recruitment-center"].is-building-detail-single-panel .district-building-detail-card .district-building-detail-info-card');
+      expect(stylesheet).toContain("Final district building detail hidden-strip guard");
     }
   });
 
@@ -418,7 +423,7 @@ describe("mobile action modal CSS", () => {
     expect(apartmentFullBlock).not.toContain("animation: none");
   });
 
-  it("uses the same pulsing building cell for ready clinic stabilization", () => {
+  it("uses the same pulsing building cell for ready clinic stabilization and full schools", () => {
     for (const stylesheet of [mainCss, clientMainCss]) {
       const readyClinicBlock = stylesheet.slice(
         stylesheet.indexOf(".buildings-popup__building--type.is-apartment-full"),
@@ -426,9 +431,20 @@ describe("mobile action modal CSS", () => {
       );
 
       expect(readyClinicBlock).toContain(".buildings-popup__building--type.is-clinic-stabilization-ready");
+      expect(readyClinicBlock).toContain(".buildings-popup__building--type.is-school-full");
       expect(readyClinicBlock).toContain("animation: buildings-apartment-full-pulse 2.4s ease-in-out infinite !important;");
       expect(readyClinicBlock).toContain("animation: buildings-apartment-full-cell-blink 2.4s ease-in-out infinite !important;");
       expect(readyClinicBlock).toContain("animation: buildings-apartment-full-text-blink 2.4s ease-in-out infinite !important;");
+    }
+  });
+
+  it("keeps district type tabs softly pulsing when any building inside is pulsing", () => {
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain(".buildings-popup__type-btn.has-building-pulse:not(:disabled)");
+      expect(stylesheet).toContain(".buildings-popup__type-btn.has-building-pulse:not(:disabled) .buildings-popup__type-pulse");
+      expect(stylesheet).toContain("animation: buildings-zone-icon-pulse 2.2s ease-in-out infinite !important;");
+      expect(stylesheet).toContain("@keyframes buildings-zone-icon-pulse");
+      expect(stylesheet).not.toContain("animation: buildings-zone-soft-pulse 3.8s ease-in-out infinite !important;");
     }
   });
 
@@ -461,6 +477,18 @@ describe("mobile action modal CSS", () => {
 
       expect(apartmentPulsePredicate).toContain("Boolean(mechanics.apartmentIsFull)");
       expect(apartmentPulsePredicate).not.toContain("mechanics.canCollect");
+    }
+  });
+
+  it("pulses school chips only on full capacity", () => {
+    for (const source of [runtimeSource, clientRuntimeSource]) {
+      const schoolPulsePredicate = source.slice(
+        source.indexOf("isSchoolFull({ district, baseName } = {})"),
+        source.indexOf("isClinicStabilizationReady", source.indexOf("isSchoolFull({ district, baseName } = {})"))
+      );
+
+      expect(schoolPulsePredicate).toContain("Boolean(mechanics.schoolIsFull)");
+      expect(schoolPulsePredicate).not.toContain("mechanics.canCollect");
     }
   });
 
@@ -881,6 +909,9 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).not.toContain("Final stable page background: opening game cards must not visually change the page behind them.");
       expect(stylesheet).not.toContain("Final stable card backdrop: opening cards must not dim or shift the page behind them.");
       expect(stylesheet).not.toContain("visibility: visible !important;\n  opacity: 1 !important;\n  filter: none !important;\n  transform: none !important;");
+      expect(stylesheet).toContain(".district-popup-shell[data-district-popup]:not([hidden]) .district-popup-card");
+      expect(stylesheet).toContain("#buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card");
+      expect(stylesheet).toContain("animation: mobile-modal-center-pop-in 220ms var(--motion-modal-ease, cubic-bezier(0.22, 1, 0.36, 1)) both !important;");
       expect(stylesheet).toContain("--district-mobile-resource-clearance: 0px;");
       expect(stylesheet).toContain("--mobile-overlay-top-offset: 0px !important;");
       expect(stylesheet).not.toContain("is-district-popup-resource-visible");

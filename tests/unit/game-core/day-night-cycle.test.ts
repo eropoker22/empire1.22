@@ -16,6 +16,7 @@ import {
   resolveDayNightBuildingEconomyType,
   resolveDayNightPassiveBuildingRule,
   resolveEffectiveBuildingActionPreview,
+  resolveRestaurantRumorStats,
   runTick,
   validateRunBuildingAction
 } from "@empire/game-core";
@@ -244,6 +245,34 @@ describe("day night cycle", () => {
     expect(cityHallDayRule.modifiers.passiveHeatMultiplier).toBeLessThan(1);
   });
 
+  it("applies day and night modifiers to restaurant rumor generation and truth", () => {
+    const context = createContext("free");
+    const { state } = createCoreStateWithFixedBuildingFixture("restaurant", {
+      playerBalances: { cash: 1000 }
+    });
+
+    state.root.tick = 0;
+    const day = resolveRestaurantRumorStats({
+      state,
+      playerId: "player:1",
+      config: context.config.balance.restaurant!,
+      dayNightConfig: context.config
+    });
+
+    state.root.tick = 1440;
+    const night = resolveRestaurantRumorStats({
+      state,
+      playerId: "player:1",
+      config: context.config.balance.restaurant!,
+      dayNightConfig: context.config
+    });
+
+    expect(day.passiveRumorChancePct).toBeCloseTo(6.48, 5);
+    expect(day.truthChancePct).toBe(65);
+    expect(night.passiveRumorChancePct).toBeCloseTo(13.365, 5);
+    expect(night.truthChancePct).toBe(35);
+  });
+
   it("makes casino stronger at night for passive dirty income", () => {
     const state = createCoreStateFixture();
     const context = createContext("free");
@@ -295,10 +324,10 @@ describe("day night cycle", () => {
 
     const daySchool = collectIncome(daySchoolFixture.state, context);
     const nightSchool = collectIncome(nightSchoolFixture.state, context);
-    const dayStudents = Number((daySchool.buildingsById[daySchoolFixture.building.id]?.metadata as any)?.school?.storedStudents || 0);
-    const nightStudents = Number((nightSchool.buildingsById[nightSchoolFixture.building.id]?.metadata as any)?.school?.storedStudents || 0);
+    const dayPopulation = Number((daySchool.buildingsById[daySchoolFixture.building.id]?.metadata as any)?.school?.storedStudents || 0);
+    const nightPopulation = Number((nightSchool.buildingsById[nightSchoolFixture.building.id]?.metadata as any)?.school?.storedStudents || 0);
 
-    expect(dayStudents).toBeGreaterThan(nightStudents);
+    expect(dayPopulation).toBeGreaterThan(nightPopulation);
 
     const state = createCoreStateFixture();
     state.root.tick = 0;

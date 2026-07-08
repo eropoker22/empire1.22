@@ -180,6 +180,9 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       outputCap,
       queueCap,
       visual: deps.PRODUCTION_SLOT_VISUALS?.[buildingName]?.[recipeId] || null,
+      armoryStrengthPreview: buildingName === "armory"
+        ? deps.getArmoryRecipeStrengthPreview?.(recipeId, recipe) || null
+        : null,
       inputAmounts,
       canStart: allowLegacyLocalProduction && (deps.hasEnoughMaterials?.(recipe?.inputs || {}) || false),
       maxBatches: allowLegacyLocalProduction ? getMaxBatches() : 0,

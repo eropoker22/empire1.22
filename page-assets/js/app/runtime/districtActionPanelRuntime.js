@@ -56,6 +56,35 @@ function getWeaponInputId(input, datasetKey) {
   return String(input?.dataset?.[datasetKey] || "").trim();
 }
 
+function normalizePowerResult(result) {
+  if (result && typeof result === "object") {
+    const totalPower = Number(result.totalPower ?? result.power ?? 0) || 0;
+    const bonusPowerLabel = String(result.bonusPowerLabel || "").trim();
+    return {
+      totalPower,
+      basePower: Number(result.basePower ?? totalPower) || 0,
+      bonusPower: Number(result.bonusPower || 0) || 0,
+      bonusPowerLabel,
+      powerLabel: bonusPowerLabel ? `${formatPanelPower(totalPower)} (${bonusPowerLabel})` : formatPanelPower(totalPower)
+    };
+  }
+  const totalPower = Number(result || 0) || 0;
+  return {
+    totalPower,
+    basePower: totalPower,
+    bonusPower: 0,
+    bonusPowerLabel: "",
+    powerLabel: formatPanelPower(totalPower)
+  };
+}
+
+function formatPanelPower(value = 0) {
+  const rounded = Math.round(Number(value || 0) * 10) / 10;
+  return Number.isInteger(rounded)
+    ? String(rounded)
+    : rounded.toFixed(1).replace(/0+$/u, "").replace(/\.$/u, "");
+}
+
 export function createDistrictActionPanelRuntime(deps = {}) {
   const elements = deps.elements || {};
   const state = {
@@ -162,7 +191,10 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       }
     }
 
-    const { totalResidents, totalPower } = deps.calculateAttackDeployment(selectedLoadout);
+    const attackPowerResult = deps.calculateAttackDeployment(selectedLoadout);
+    const { totalResidents = 0 } = attackPowerResult || {};
+    const powerView = normalizePowerResult(attackPowerResult);
+    const totalPower = powerView.totalPower;
     const availablePopulation = getAvailableAttackPopulation();
     const { canConfirm, status } = deps.validateAttackSelection({
       sourceDistrictId: elements.attackSourceSelect.value,
@@ -175,6 +207,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       availablePopulation,
       totalResidents,
       totalPower,
+      powerLabel: powerView.powerLabel,
       status,
       canConfirm
     }, {
@@ -188,7 +221,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     });
     setElementValidationState(elements.attackStatus, canConfirm ? "" : "error");
 
-    return { totalResidents, totalPower, canConfirm };
+    return { totalResidents, totalPower, canConfirm, bonusPowerLabel: powerView.bonusPowerLabel, powerLabel: powerView.powerLabel };
   };
 
   const getPreparedAttackContext = (district) => {
@@ -198,7 +231,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
 
     const interactionState = getInteractionState();
     const sourceDistrictId = isHtmlSelectElement(elements.attackSourceSelect) ? elements.attackSourceSelect.value : "";
-    const { totalResidents, totalPower, canConfirm } = renderAttackSummary();
+    const { totalResidents, totalPower, canConfirm, bonusPowerLabel, powerLabel } = renderAttackSummary();
     const worldState = deps.getResolvedWorldState();
     const baseDefensePower = worldState.districtDefenseById?.[district.id]
       ?? deps.estimateDistrictDefense({
@@ -234,6 +267,8 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       sourceDistrictId,
       totalResidents,
       totalPower,
+      bonusPowerLabel,
+      powerLabel,
       canConfirm,
       attackLoadout,
       selectedWeaponsLabel: selectedWeapons.join(", "),
@@ -319,12 +354,13 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     const residents = Math.max(0, Number.parseInt(elements.defenseResidentsInput.value || "0", 10) || 0);
     elements.defenseResidentsInput.value = String(residents);
 
-    const totalPower = deps.calculateTotalDefensePower({ loadout: selectedLoadout, residents });
-    elements.defenseEstimatedPower.textContent = String(totalPower);
+    const powerView = normalizePowerResult(deps.calculateTotalDefensePower({ loadout: selectedLoadout, residents }));
+    const totalPower = powerView.totalPower;
+    elements.defenseEstimatedPower.textContent = powerView.powerLabel;
     elements.defenseStatus.textContent = totalPower > 0 ? "Připraveno" : "Bez obrany";
     setElementDisabled(elements.defenseConfirmButton, false);
 
-    return { residents, totalPower, canConfirm: true };
+    return { residents, totalPower, canConfirm: true, bonusPowerLabel: powerView.bonusPowerLabel, powerLabel: powerView.powerLabel };
   };
 
   const populateAttackSetupPopup = (district) => {

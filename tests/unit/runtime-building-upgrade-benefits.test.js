@@ -156,7 +156,7 @@ describe("building upgrade confirmation benefits", () => {
     expect(benefits.find((benefit) => benefit.label === "Síla útoku")?.detail).toBe("2% → 4%");
   });
 
-  it("returns concrete school student production and capacity benefits when supplied", () => {
+  it("returns concrete school population production and capacity benefits when supplied", () => {
     const { benefits } = resolveBuildingUpgradeBenefits({
       currentMechanics: {
         mechanicsType: "school",
@@ -172,8 +172,8 @@ describe("building upgrade confirmation benefits", () => {
       }
     });
 
-    expect(benefits.map((benefit) => benefit.label)).toEqual(["Studenti / min", "Kapacita studentů", "Level bonus"]);
-    expect(benefits.find((benefit) => benefit.label === "Studenti / min")?.value).toBe("+0.04");
+    expect(benefits.map((benefit) => benefit.label)).toEqual(["Populace / min", "Kapacita populace", "Level bonus"]);
+    expect(benefits.find((benefit) => benefit.label === "Populace / min")?.value).toBe("+0.04");
   });
 
   it("returns concrete clinic recovery and income benefits when supplied", () => {

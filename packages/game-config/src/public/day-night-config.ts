@@ -129,7 +129,7 @@ export const dayNightBuildingRules: Record<string, DayNightBuildingRuleConfig> =
   },
   school: {
     preferredPhase: "day",
-    phaseEffectSummary: "DEN BONUS: škola vyrábí studenty rychleji přes den.",
+    phaseEffectSummary: "DEN BONUS: škola zvyšuje populaci rychleji přes den.",
     phasePassiveModifiers: {
       day: { passiveCleanIncomeMultiplier: 1.05, passivePopulationMultiplier: 1.2 },
       night: { passiveCleanIncomeMultiplier: 0.9, passivePopulationMultiplier: 0.9 }

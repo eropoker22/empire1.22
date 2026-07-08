@@ -8,6 +8,7 @@ import { createRobCooldownKey, createRobSourceCooldownKey, resolveRobCooldownTic
 import { composeEntityId } from "../utils";
 import { validateRob } from "../validation";
 import { createPlayerCooldownState } from "./attackDistrictHelpers";
+import { applyCarDealerCooldownReductionTicks } from "./carDealerBuildingActions";
 import { resolveCityHallNightPatrolPressure } from "./cityHallBuildingActions";
 
 const ROB_LOOT = Object.freeze({ cash: 25, "dirty-cash": 10 });
@@ -31,7 +32,14 @@ export const handleRobDistrict = (
     targetDistrict,
     tick: state.root.tick
   });
-  const cooldownTicks = Math.ceil(resolveRobCooldownTicks(context.config.balance.conflict) * cityHallNightPatrol.cooldownMultiplier);
+  const cooldownTicks = Math.ceil(applyCarDealerCooldownReductionTicks({
+    baseTicks: resolveRobCooldownTicks(context.config.balance.conflict),
+    state,
+    playerId: player.id,
+    config: context.config.balance.carDealer,
+    garageConfig: context.config.balance.garage,
+    category: "districtRobbery"
+  }) * cityHallNightPatrol.cooldownMultiplier);
   const heatGain = Math.ceil(ROB_HEAT_GAIN * cityHallNightPatrol.heatMultiplier);
   const resourceState = state.resourceStatesById[player.resourceStateId] ?? createPlayerResourceState(player.resourceStateId, player.id, state.root.tick);
   const nextResourceState: ResourceState = {

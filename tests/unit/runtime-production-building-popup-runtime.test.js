@@ -60,6 +60,7 @@ describe("production building popup runtime", () => {
       getInventoryAmount: () => 10,
       getProductionBuildingMultiplier: () => 1,
       getProductionJob: () => null,
+      getArmoryRecipeStrengthPreview: vi.fn(() => ({ label: "Síla útoku", basePower: 10, bonusLabel: "+0.8" })),
       getResolvedEconomyState: () => ({ cleanMoney: 100 }),
       getScaledProductionInputs,
       getStoredProductionBuildingState: () => ({ level: 1 }),
@@ -928,6 +929,45 @@ describe("production building popup runtime", () => {
       output: expect.objectContaining({ amount: 15 }),
       durationMs: 15000
     }));
+  });
+
+  it("passes recruitment strength preview into armory recipe cards", () => {
+    const renderRecipeCard = vi.fn((viewModel) => ({ viewModel }));
+    const getArmoryRecipeStrengthPreview = vi.fn(() => ({ label: "Síla útoku", basePower: 10, bonusPower: 0.8, bonusLabel: "+0.8" }));
+    const runtime = createProductionBuildingPopupRuntime({
+      getArmoryRecipeStrengthPreview,
+      getInventoryAmount: () => 10,
+      getProductionBuildingMultiplier: () => 1,
+      getProductionJob: () => null,
+      getResolvedEconomyState: () => ({ cleanMoney: 100 }),
+      getStoredProductionBuildingState: () => ({ level: 1 }),
+      hasEnoughMaterials: () => true,
+      renderProductionPanelUi: vi.fn(() => true),
+      renderRecipeCard,
+      syncCompletedProductionJobs: vi.fn()
+    });
+
+    const root = createRoot({
+      '[data-production-panel="armory"]': {}
+    });
+    expect(runtime.renderProductionPanel(root, "armory", {
+      pistol: {
+        durationMs: 1000,
+        inputs: { "metal-parts": 2 },
+        output: { inventory: "weapons", itemId: "pistol", amount: 1 }
+      }
+    })).toBe(true);
+
+    expect(getArmoryRecipeStrengthPreview).toHaveBeenCalledWith("pistol", expect.objectContaining({
+      output: expect.objectContaining({ itemId: "pistol" })
+    }));
+    expect(renderRecipeCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        armoryStrengthPreview: { label: "Síla útoku", basePower: 10, bonusPower: 0.8, bonusLabel: "+0.8" }
+      }),
+      expect.any(Object),
+      expect.any(Object)
+    );
   });
 
   it("applies special building count to queue cap and warehouse count to output cap", () => {

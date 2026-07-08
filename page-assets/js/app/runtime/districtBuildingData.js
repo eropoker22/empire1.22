@@ -1,5 +1,6 @@
 export {
   DISTRICT_BUILDING_PACKAGE_POOLS,
+  DISTRICT_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
   DOWNTOWN_FIXED_BUILDING_PACKAGES_BY_DISTRICT_ID,
   formatDistrictBuildingTierLabel
 } from "../../data/districtPools.js";
@@ -19,7 +20,7 @@ export const DISTRICT_BUILDING_MINUTE_INCOME_RULES_EMPIRE2 = Object.freeze({
   Kasino: Object.freeze({ clean: 140, dirty: 260 }),
   "Lékárna": Object.freeze({ clean: 3, dirty: 0.4 }),
   "Obchodní centrum": Object.freeze({ clean: 95, dirty: 22 }),
-  Restaurace: Object.freeze({ clean: 3, dirty: 2 }),
+  Restaurace: Object.freeze({ clean: 38, dirty: 0 }),
   "Směnárna": Object.freeze({ clean: 70, dirty: 95 }),
   "Energetická stanice": Object.freeze({ clean: 4, dirty: 0.3 }),
   Sklad: Object.freeze({ clean: 45, dirty: 0 }),
@@ -57,6 +58,7 @@ export const DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2 = Object.freeze({
   Herna: Object.freeze({ heat: 0.12 }),
   "Obchodní centrum": Object.freeze({ heat: 0.09 }),
   Kasino: Object.freeze({ heat: 0.45 }),
+  Restaurace: Object.freeze({ heat: 0.04 }),
   "Směnárna": Object.freeze({ heat: 0.16 }),
   "Pašovací tunel": Object.freeze({ heat: 0.07 }),
   "Pouliční dealeři": Object.freeze({ heat: 0.06 }),
@@ -85,6 +87,7 @@ export const DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2 = Object.freeze({
   Herna: Object.freeze({ influence: 80 / (60 * 24) }),
   "Obchodní centrum": Object.freeze({ influence: 0.24 }),
   Kasino: Object.freeze({ influence: 0.7 }),
+  Restaurace: Object.freeze({ influence: 0.12 }),
   "Směnárna": Object.freeze({ influence: 0.28 }),
   "Pašovací tunel": Object.freeze({ influence: 0 }),
   "Pouliční dealeři": Object.freeze({ influence: 0 }),

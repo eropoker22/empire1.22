@@ -241,6 +241,50 @@ describe("attack-district command flow", () => {
     expect(Object.values(attackerLosses).reduce((sum, amount) => sum + Number(amount || 0), 0)).toBeLessThanOrEqual(1);
   });
 
+  it("applies recruitment center combat bonuses to attack weapons and defensive equipment", () => {
+    const state = createCombatStateFixture();
+    const resolvedConfig = resolveModeConfig("free");
+    const recruitmentContext = { config: resolvedConfig };
+    const attackerRecruitmentBuildings = Array.from({ length: 4 }, (_value, index) =>
+      createFixedBuildingFixture("recruitment_center", {
+        id: `building:district-1:recruitment-center:${index + 1}`,
+        districtId: "district:1",
+        ownerPlayerId: "player:1"
+      })
+    );
+    const defenderRecruitmentBuildings = Array.from({ length: 2 }, (_value, index) =>
+      createFixedBuildingFixture("recruitment_center", {
+        id: `building:district-2:recruitment-center:${index + 1}`,
+        districtId: "district:2",
+        ownerPlayerId: "player:2"
+      })
+    );
+    for (const building of [...attackerRecruitmentBuildings, ...defenderRecruitmentBuildings]) {
+      state.buildingsById[building.id] = building;
+    }
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      buildingIds: attackerRecruitmentBuildings.map((building) => building.id),
+      slotCount: attackerRecruitmentBuildings.length
+    };
+    state.districtsById["district:2"] = {
+      ...state.districtsById["district:2"],
+      buildingIds: defenderRecruitmentBuildings.map((building) => building.id),
+      slotCount: defenderRecruitmentBuildings.length
+    };
+
+    const result = applyCommand(state, createAttackDistrictCommandFixture(), recruitmentContext);
+    const attackPayload = result.events.find((event) => event.type === "district-attacked")?.payload as Record<string, unknown>;
+
+    expect(result.errors).toEqual([]);
+    expect(attackPayload.recruitmentAttackWeaponStrengthBonusPct).toBe(8);
+    expect(attackPayload.recruitmentDefenseItemStrengthBonusPct).toBe(3);
+    expect(attackPayload.cameraStrengthBonusPct).toBe(3);
+    expect(attackPayload.alarmStrengthBonusPct).toBe(3);
+    expect(Number(attackPayload.attackPower)).toBeCloseTo(83.376);
+    expect(Number(attackPayload.defensePower)).toBeCloseTo(127.72);
+  });
+
   it("reduces attack preparation cooldown with car dealers and respects garage combined cap", () => {
     const state = createCombatStateFixture();
     const resolvedConfig = resolveModeConfig("free");

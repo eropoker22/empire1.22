@@ -89,6 +89,7 @@ const AUTO_SALON_ACTION_CATEGORY_LABELS = Object.freeze({
 
 const HIDDEN_ACTION_CATEGORY_LABELS = new Set([
   "gangMovement",
+  "equipmentTransfer",
   "resourceTransfer"
 ]);
 
@@ -312,7 +313,7 @@ export function getActionDescription(actionId, options = {}) {
       actionProfile.arcadeBackCashdesk ? `Pere ${actionProfile.dirtySharePct}% aktuálního dirty cash, max ${formatMoneyValue(mechanics.arcadeLaunderingCapacity || actionProfile.maxDirty, options)}` : "",
       actionProfile.apartmentCollectPopulation ? `Vybere ${mechanics.apartmentWholePopulation}/${mechanics.apartmentCapacity} obyvatel do členů gangu` : "",
       actionProfile.clinicStabilizationProtocol ? `Cena ${formatMoneyValue(actionProfile.cleanCost, options)} · recovery ${mechanics.clinicRecoveryRatePct}% · pool ${mechanics.clinicRecoveryPool?.totalFreshAmount || 0} položek` : "",
-      actionProfile.schoolEveningCourse ? `Cena ${formatMoneyValue(actionProfile.cleanCost, options)} · bytové bloky +${actionProfile.apartmentPopulationBoostPct}% výroba lidí · efekt ${formatCooldownValue(actionProfile.durationMs, options)}` : "",
+      actionProfile.schoolEveningCourse ? `Cena ${formatMoneyValue(actionProfile.cleanCost, options)} · bytové bloky +${actionProfile.apartmentPopulationBoostPct}% nábor členů · efekt ${formatCooldownValue(actionProfile.durationMs, options)}` : "",
       actionProfile.clean ? `Clean +${formatMoneyValue(actionProfile.clean, options)}` : "",
       actionProfile.dirty ? `Dirty cash +${formatMoneyValue(actionProfile.dirty, options)}` : "",
       actionProfile.influence ? `Vliv +${actionProfile.influence}` : "",
@@ -404,7 +405,7 @@ export function formatBuildingActionOutputProfile(profile = {}, options = {}) {
     profile.arcadeBackCashdesk ? `Vypere ${profile.dirtySharePct}% dirty cash, max ${formatMoneyValue(profile.maxDirty, options)} · fee ${profile.feePct}%` : "",
     profile.apartmentCollectPopulation ? "Přesune uložené obyvatele do členů gangu" : "",
     profile.clinicStabilizationProtocol ? `Recovery pool · cena ${formatMoneyValue(profile.cleanCost, options)} clean · heat +${profile.heat}` : "",
-    profile.schoolEveningCourse ? `Večerní kurz · cena ${formatMoneyValue(profile.cleanCost, options)} clean · bytové bloky +${profile.apartmentPopulationBoostPct}% výroba lidí` : "",
+    profile.schoolEveningCourse ? `Večerní kurz · cena ${formatMoneyValue(profile.cleanCost, options)} clean · bytové bloky +${profile.apartmentPopulationBoostPct}% nábor členů` : "",
     profile.clean ? `Clean +${formatMoneyValue(profile.clean, options)}` : "",
     profile.dirty ? `Dirty cash +${formatMoneyValue(profile.dirty, options)}` : "",
     profile.exchangeDirty ? `Převod dirty ${formatMoneyValue(profile.exchangeDirty, options)} -> clean` : "",

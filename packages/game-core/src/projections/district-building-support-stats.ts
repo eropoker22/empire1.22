@@ -18,8 +18,7 @@ import {
   getSchoolMetadata,
   isEveningCourseActive,
   resolveSchoolCapacity,
-  resolveSchoolNetworkMultipliers,
-  resolveSchoolTalentChancePct
+  resolveSchoolNetworkMultipliers
 } from "../handlers/schoolBuildingActions";
 import { formatCategoryList, formatNumber, formatTickLabel } from "./district-building-action-formatters";
 import type { BuildingStatsProjectionInput, BuildingStatView } from "./district-building-stats-types";
@@ -37,28 +36,20 @@ export const createSupportBuildingStats = (input: BuildingStatsProjectionInput):
     });
     const stored = Math.min(capacity, metadata.storedStudents);
     const productionPerMinute = input.schoolConfig.populationPerMinute
-      * network.populationProductionMultiplier
-      * (eveningActive ? input.schoolConfig.eveningCourse.populationProductionMultiplier : 1);
+      * network.populationProductionMultiplier;
     const timeToFullTicks = productionPerMinute > 0 && stored < capacity
       ? Math.ceil((capacity - stored) / productionPerMinute * 60000 / Math.max(1, input.tickRateMs ?? 5000))
       : 0;
-    const talentChancePct = resolveSchoolTalentChancePct({
-      ownedCount,
-      config: input.schoolConfig,
-      eveningCourseActive: eveningActive
-    });
     return [
       { label: "Clean / min", value: `$${formatNumber(input.schoolConfig.cleanCashPerMinute * network.incomeMultiplier * (eveningActive ? input.schoolConfig.eveningCourse.cleanIncomeMultiplier : 1))}` },
       { label: "Influence / min", value: formatNumber(input.schoolConfig.influencePerMinute) },
       { label: "Population / min", value: formatNumber(productionPerMinute) },
-      { label: "Students", value: `${formatNumber(Math.floor(stored))} / ${formatNumber(capacity)}` },
+      { label: "Population", value: `${formatNumber(Math.floor(stored))} / ${formatNumber(capacity)}` },
       { label: "Time to full", value: stored >= capacity ? "Plná kapacita" : formatTickLabel(timeToFullTicks) },
       { label: "Owned schools", value: `${ownedCount}/${input.schoolConfig.countOnMap}` },
       { label: "Population multiplier", value: `x${formatNumber(network.populationProductionMultiplier)}` },
       { label: "Capacity multiplier", value: `x${formatNumber(network.studentCapacityMultiplier)}` },
       { label: "Income multiplier", value: `x${formatNumber(network.incomeMultiplier)}` },
-      { label: "Talent chance", value: `${formatNumber(talentChancePct)} %` },
-      { label: "Výsledek talentu", value: "jen uliční zprávy" },
       { label: "Evening course", value: eveningActive ? `active ${formatTickLabel(Math.max(0, Number(metadata.eveningCourseExpiresAtTick || 0) - input.tick))}` : "ready when off cooldown" }
     ];
   }

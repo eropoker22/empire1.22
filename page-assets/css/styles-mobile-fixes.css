@@ -2860,6 +2860,16 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     min-height: 0 !important;
     overflow: hidden !important;
     max-height: none !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  body.game-modal-scroll-locked .district-building-detail-card [data-district-building-detail-effects-section]::before {
+    content: none !important;
+    display: none !important;
   }
 
   body.game-modal-scroll-locked .district-building-detail-card .building-info-card__effects {
@@ -6045,8 +6055,10 @@ html body.game-modal-scroll-locked #raid-result-modal:not(.hidden):not([hidden])
     display: flex !important;
     flex-direction: column !important;
     gap: 7px !important;
-    padding: 8px !important;
-    background: rgba(3, 8, 16, 0.34) !important;
+    padding: 8px 8px 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
   }
 
   html body .district-building-detail-shell.is-building-detail-single-panel .district-building-detail-panel--merged > .building-detail-info-text {
@@ -7182,4 +7194,26 @@ html body .storage-popup-shell[data-storage-popup] .storage-popup-subtitle--with
     overflow-y: auto !important;
     box-sizing: border-box !important;
   }
+}
+
+/* Final mobile district building detail hidden-strip guard. */
+html body.game-modal-scroll-locked .district-building-detail-shell [hidden],
+html body.game-modal-scroll-locked .district-building-detail-shell [aria-hidden="true"],
+html body.game-modal-scroll-locked .district-building-detail-shell .district-building-detail-panel.hidden,
+html body.game-modal-scroll-locked .district-building-detail-shell .building-info-card__section:empty,
+html body.game-modal-scroll-locked .district-building-detail-shell .building-info-card__effects:empty,
+html body.game-modal-scroll-locked .district-building-detail-shell .district-building-detail-actions:empty {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
 }

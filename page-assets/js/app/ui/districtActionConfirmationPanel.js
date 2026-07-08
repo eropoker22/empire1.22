@@ -240,6 +240,9 @@ export function createAttackConfirmationViewModel({
     sourceLabel: context?.sourceDistrictId ? `District ${context.sourceDistrictId}` : "Žádný soused",
     totalResidents: context?.totalResidents ?? 0,
     attackPower: context?.boostContext?.effectiveAttackPower ?? context?.totalPower ?? 0,
+    powerLabel: context?.powerLabel || (context?.bonusPowerLabel
+      ? `${context?.boostContext?.effectiveAttackPower ?? context?.totalPower ?? 0} (${context.bonusPowerLabel})`
+      : ""),
     scenarioLabel,
     durationLabel: formatActionDuration(cooldownMs),
     note,

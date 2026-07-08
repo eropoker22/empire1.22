@@ -248,13 +248,6 @@ export function createBuildingNetworkRuntime(deps = {}) {
       incomeMultiplier: Math.min(config.maxIncomeMultiplier, 1 + extra * config.incomeBonusPctPerExtraSchool / 100)
     };
   };
-  const getSchoolTalentChancePct = (count = getOwnedSchoolCount(), eveningCourseActive = false) => {
-    const extra = Math.max(0, Math.floor(Number(count || 0)) - 1);
-    const config = deps.schoolConfig;
-    const baseChance = Math.min(config.maxTalentChancePct, config.baseTalentChancePct + extra * config.talentChancePctPerExtraSchool);
-    return Math.min(100, baseChance + (eveningCourseActive ? config.eveningCourseTalentChanceBonusPct : 0));
-  };
-
   const getOwnedWarehouseCount = () => {
     const actualCount = countActualOwnedBuildingByBaseName("sklad") + countActualOwnedBuildingByBaseName("skladiste");
     const availableCount = countAvailableBuildingByBaseName("sklad") + countAvailableBuildingByBaseName("skladiste");
@@ -366,7 +359,6 @@ export function createBuildingNetworkRuntime(deps = {}) {
     getRecruitmentCenterSupportStats,
     getRestaurantNetworkMultipliers,
     getSchoolNetworkMultipliers,
-    getSchoolTalentChancePct,
     getShoppingMallMarketDiscountForTab,
     getShoppingMallNetworkMultipliers,
     getSmugglingTunnelCollectHeat,

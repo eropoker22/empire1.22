@@ -3,15 +3,6 @@ import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import { resolveDayNightPassiveBuildingRule } from "../rules/day-night/dayNight";
 import { applyFactionPopulationGeneration, getFactionPassiveModifiers } from "../rules/factions/factionRules";
-import { deterministicUnitInterval } from "../utils/math";
-
-export type SchoolTalentId =
-  | "technician"
-  | "informant"
-  | "medic"
-  | "negotiator"
-  | "organizer"
-  | "protector";
 
 export interface SchoolMetadata {
   storedStudents: number;
@@ -38,24 +29,6 @@ export interface SchoolActionResolution {
   reportText: string;
   schoolResult: Record<string, unknown>;
 }
-
-const TALENT_LABELS: Record<SchoolTalentId, string> = {
-  technician: "Technik",
-  informant: "Informátor",
-  medic: "Medik",
-  negotiator: "Vyjednavač",
-  organizer: "Organizátor",
-  protector: "Ochránce"
-};
-
-const TALENT_SUMMARIES: Record<SchoolTalentId, string> = {
-  technician: "Technik umí zrychlit výrobu ve Zbrojovce nebo Továrně.",
-  informant: "Informátor přinesl slabý civilní drb z okolí Školy.",
-  medic: "Medik zná levnější postup pro stabilizaci zraněných.",
-  negotiator: "Vyjednavač umí vytěžit z města drobný vliv.",
-  organizer: "Organizátor umí zkrátit logistické zdržení.",
-  protector: "Ochránce umí krátce podržet obranu nejbližšího vlastního districtu."
-};
 
 export const getOwnedSchoolCount = (
   state: CoreGameState,
@@ -137,22 +110,6 @@ export const resolveSchoolEveningCourseApartmentProductionMultiplier = (input: {
     : 1;
 };
 
-export const resolveSchoolTalentChancePct = (input: {
-  ownedCount: number;
-  config: SchoolBalanceConfig;
-  eveningCourseActive?: boolean;
-}): number => {
-  const extra = Math.max(0, Math.floor(Number(input.ownedCount || 0)) - 1);
-  const baseChance = Math.min(
-    input.config.talentPool.maxChancePct,
-    input.config.talentPool.baseChancePct + extra * input.config.talentPool.chancePctPerExtraSchool
-  );
-  return Math.min(
-    100,
-    baseChance + (input.eveningCourseActive ? input.config.talentPool.eveningCourseTalentChanceBonusPct : 0)
-  );
-};
-
 export const applySchoolIncomeModifiers = (input: {
   config: SchoolBalanceConfig;
   state: CoreGameState;
@@ -221,9 +178,6 @@ export const applySchoolStudentProduction = (
     const network = resolveSchoolNetworkMultipliers(ownedCount, config);
     const capacity = resolveSchoolCapacity({ state, building, config });
     const currentStored = Math.min(capacity, metadata.storedStudents);
-    const eveningMultiplier = isEveningCourseActive(metadata, state.root.tick)
-      ? config.eveningCourse.populationProductionMultiplier
-      : 1;
     const dayNightPopulationMultiplier = context
       ? safeMultiplier(resolveDayNightPassiveBuildingRule(
           state,
@@ -235,7 +189,6 @@ export const applySchoolStudentProduction = (
       ? 0
       : config.populationPerMinute
         * network.populationProductionMultiplier
-        * eveningMultiplier
         * dayNightPopulationMultiplier
         * elapsedTicks
         * Math.max(1, tickRateMs)
@@ -304,12 +257,11 @@ export const resolveSchoolAction = (input: {
     influenceChange: 0,
     inputCost: { cash: input.config.eveningCourse.costCleanCash },
     outputGain: {},
-    reportText: "Večerní kurz běží. Škola dočasně zvedá výrobu lidí v bytových blocích.",
+    reportText: "Večerní kurz běží. Škola dočasně zvedá nábor členů v bytových blocích.",
     schoolResult: {
       type: "education_boost",
       expiresAtTick: nextMetadata.eveningCourseExpiresAtTick,
-      talentChanceFlatBonusPct: input.config.eveningCourse.talentChanceFlatBonusPct,
-      populationProductionMultiplier: input.config.eveningCourse.populationProductionMultiplier,
+      apartmentRecruitmentMultiplier: input.config.eveningCourse.populationProductionMultiplier,
       cleanIncomeMultiplier: input.config.eveningCourse.cleanIncomeMultiplier
     }
   };
@@ -331,34 +283,6 @@ export const validateSchoolAction = (input: {
     return "school_insufficient_clean_cash";
   }
   return null;
-};
-
-const rollSchoolTalent = (input: {
-  state: CoreGameState;
-  building: CoreGameState["buildingsById"][string];
-  config: SchoolBalanceConfig;
-  chancePct: number;
-  eveningCourseActive: boolean;
-}): {
-  talentId: SchoolTalentId;
-  label: string;
-  summary: string;
-} | null => {
-  const roll = deterministicUnitInterval(`${input.state.serverInstance.worldSeed}:school:talent:${input.building.id}:${input.state.root.tick}`);
-  if (roll >= input.chancePct / 100) {
-    return null;
-  }
-  const betterRoll = deterministicUnitInterval(`${input.state.serverInstance.worldSeed}:school:talent:quality:${input.building.id}:${input.state.root.tick}`);
-  const betterTalent = input.eveningCourseActive && betterRoll < input.config.talentPool.betterTalentChanceBonusPct / 100;
-  const pool: SchoolTalentId[] = betterTalent
-    ? ["technician", "medic", "organizer", "protector", "negotiator", "informant"]
-    : ["technician", "informant", "medic", "negotiator", "organizer", "protector"];
-  const pick = deterministicUnitInterval(`${input.state.serverInstance.worldSeed}:school:talent:pick:${input.building.id}:${input.state.root.tick}`);
-  const talentId = pool[Math.min(pool.length - 1, Math.floor(pick * pool.length))] ?? "informant";
-  const label = TALENT_LABELS[talentId];
-  const summary = TALENT_SUMMARIES[talentId];
-
-  return { talentId, label, summary };
 };
 
 const withSchoolMetadata = (

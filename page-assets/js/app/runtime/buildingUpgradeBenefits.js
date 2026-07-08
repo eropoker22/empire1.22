@@ -224,7 +224,7 @@ function addRoleBenefitDeltas(benefits, currentMechanics, nextMechanics) {
   addNumericDelta(benefits, {
     id: "student-rate",
     icon: "+",
-    label: "Studenti / min",
+    label: "Populace / min",
     before: currentMechanics.schoolPopulationPerMinute,
     after: nextMechanics.schoolPopulationPerMinute,
     formatter: formatDecimal,
@@ -233,7 +233,7 @@ function addRoleBenefitDeltas(benefits, currentMechanics, nextMechanics) {
   addNumericDelta(benefits, {
     id: "student-capacity",
     icon: "#",
-    label: "Kapacita studentů",
+    label: "Kapacita populace",
     before: currentMechanics.schoolCapacity,
     after: nextMechanics.schoolCapacity,
     formatter: formatInteger,

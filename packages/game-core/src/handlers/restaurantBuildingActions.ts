@@ -1,5 +1,6 @@
 import type { FixedBuildingBalanceConfig, LobbyClubBalanceConfig, ResolvedGameModeConfig, RestaurantBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
+import { applyDayNightRumorTruthChancePct, getDayNightModifiers, resolveDayNightPassiveBuildingRule } from "../rules/day-night/dayNight";
 import { applyResolvedRumorEventsToState, createPassiveBuildingRumorInput, type ResolveRumorEventInput } from "../rules/events/rumorPipeline";
 import { getOwnedLobbyClubCount } from "./lobbyClubBuildingActions";
 
@@ -55,6 +56,7 @@ export const resolveRestaurantRumorStats = (input: {
   playerId: string;
   config: RestaurantBalanceConfig;
   lobbyClubConfig?: LobbyClubBalanceConfig;
+  dayNightConfig?: ResolvedGameModeConfig;
 }) => {
   const restaurantCount = getOwnedRestaurantCount(input.state, input.playerId, input.config);
   const network = resolveRestaurantNetworkMultipliers(restaurantCount, input.config);
@@ -62,11 +64,24 @@ export const resolveRestaurantRumorStats = (input: {
   const lobbyTruthBonusPct = input.lobbyClubConfig && getOwnedLobbyClubCount(input.state, input.playerId, input.lobbyClubConfig) > 0
     ? input.lobbyClubConfig.civilNetworkSupport.restaurantCivilRumorTruthPct
     : 0;
+  const dayNightContext = input.dayNightConfig ? { config: input.dayNightConfig } : undefined;
+  const dayNightModifiers = getDayNightModifiers(input.state, dayNightContext);
+  const passiveRule = dayNightContext
+    ? resolveDayNightPassiveBuildingRule(input.state, dayNightContext, input.config.buildingTypeId)
+    : null;
+  const rumorGenerationMultiplier = safeMultiplier(dayNightModifiers.rumorGenerationMultiplier)
+    * safeMultiplier(passiveRule?.modifiers.passiveRumorGenerationMultiplier);
+  const truthChancePct = applyDayNightRumorTruthChancePct(
+    clampPct(baseTruthChancePct + lobbyTruthBonusPct),
+    input.state,
+    dayNightContext,
+    input.config.buildingTypeId
+  );
   return {
     restaurantCount,
     network,
-    passiveRumorChancePct: Math.min(100, input.config.baseRumorChancePct * network.rumorMultiplier),
-    truthChancePct: Math.min(100, baseTruthChancePct + lobbyTruthBonusPct),
+    passiveRumorChancePct: clampPct(input.config.baseRumorChancePct * network.rumorMultiplier * rumorGenerationMultiplier),
+    truthChancePct: clampPct(truthChancePct),
     districtHintChancePct: input.config.districtHintChancePct,
     buildingHintChancePct: input.config.buildingHintChancePct,
     reliabilityVisible: false
@@ -127,7 +142,7 @@ export const applyRestaurantPassiveRumors = (
     if ((metadata.lastPassiveRumorCheckTick ?? -Infinity) + intervalTicks > state.root.tick) {
       continue;
     }
-    const stats = resolveRestaurantRumorStats({ state, playerId: building.ownerPlayerId, config, lobbyClubConfig });
+    const stats = resolveRestaurantRumorStats({ state, playerId: building.ownerPlayerId, config, lobbyClubConfig, dayNightConfig });
     metadata.lastPassiveRumorCheckTick = state.root.tick;
     if (deterministicRollPct(`${building.id}:restaurant-passive-rumor:${state.root.tick}`) < stats.passiveRumorChancePct) {
       const rumor = generateRestaurantRumor({
@@ -135,6 +150,7 @@ export const applyRestaurantPassiveRumors = (
         playerId: building.ownerPlayerId,
         config,
         lobbyClubConfig,
+        dayNightConfig,
         seed: `${building.id}:restaurant-rumor-event:${state.root.tick}`
       });
       metadata.rumorEvents.push(rumor);
@@ -182,9 +198,10 @@ const generateRestaurantRumor = (input: {
   playerId: string;
   config: RestaurantBalanceConfig;
   lobbyClubConfig?: LobbyClubBalanceConfig;
+  dayNightConfig?: ResolvedGameModeConfig;
   seed: string;
 }): RestaurantRumor => {
-  const stats = resolveRestaurantRumorStats({ state: input.state, playerId: input.playerId, config: input.config, lobbyClubConfig: input.lobbyClubConfig });
+  const stats = resolveRestaurantRumorStats({ state: input.state, playerId: input.playerId, config: input.config, lobbyClubConfig: input.lobbyClubConfig, dayNightConfig: input.dayNightConfig });
   const type = input.config.rumorTypes[Math.floor(deterministicRollPct(`${input.seed}:type`) / 100 * input.config.rumorTypes.length)] ?? "fake";
   const isTrue = deterministicRollPct(`${input.seed}:truth`) < stats.truthChancePct;
   const districtHint = deterministicRollPct(`${input.seed}:district`) < stats.districtHintChancePct ? pickDistrictHint(input.state, input.seed) : null;
@@ -217,6 +234,16 @@ const cleanupRestaurantMetadata = (metadata: RestaurantMetadata): RestaurantMeta
   ...metadata,
   rumorEvents: metadata.rumorEvents.slice(-12)
 });
+
+const safeMultiplier = (value: unknown): number => {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : 1;
+};
+
+const clampPct = (value: unknown): number => {
+  const number = Number(value);
+  return Math.min(100, Math.max(0, Number.isFinite(number) ? number : 0));
+};
 
 const withRestaurantMetadata = (
   building: CoreGameState["buildingsById"][string],

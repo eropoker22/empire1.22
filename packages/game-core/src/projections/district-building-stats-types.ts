@@ -20,7 +20,8 @@ import type {
   StockExchangeBalanceConfig,
   StreetDealersBalanceConfig,
   StripClubBalanceConfig,
-  VipLoungeBalanceConfig
+  VipLoungeBalanceConfig,
+  ResolvedGameModeConfig
 } from "../contracts/game-mode-config";
 
 export interface BuildingStatView {
@@ -41,6 +42,7 @@ export interface BuildingStatsProjectionInput {
   building: CoreGameState["buildingsById"][string];
   playerId: string;
   playerBalances: Record<string, number>;
+  dayNightConfig?: ResolvedGameModeConfig;
   stripClubConfig?: StripClubBalanceConfig;
   restaurantConfig?: RestaurantBalanceConfig;
   convenienceStoreConfig?: ConvenienceStoreBalanceConfig;

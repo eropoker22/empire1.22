@@ -4,7 +4,7 @@ export const freeModeSchoolConfig: SchoolBalanceConfig = {
   id: "school",
   buildingTypeId: "school",
   countOnMap: 6,
-  category: ["population", "education", "talent_support", "city_life"],
+  category: ["population", "education", "city_life"],
   cleanCashPerMinute: 18,
   dirtyCashPerMinute: 0,
   influencePerMinute: 0.05,
@@ -27,17 +27,17 @@ export const freeModeSchoolConfig: SchoolBalanceConfig = {
     maxIncomeMultiplier: 1.2
   },
   talentPool: {
-    baseChancePct: 12,
-    chancePctPerExtraSchool: 5,
-    maxChancePct: 38,
-    eveningCourseTalentChanceBonusPct: 12,
-    betterTalentChanceBonusPct: 20
+    baseChancePct: 0,
+    chancePctPerExtraSchool: 0,
+    maxChancePct: 0,
+    eveningCourseTalentChanceBonusPct: 0,
+    betterTalentChanceBonusPct: 0
   },
   eveningCourse: {
     actionId: "evening_course",
     cooldownMinutes: 35,
     durationMinutes: 20,
-    costCleanCash: 600,
+    costCleanCash: 1000,
     heatGain: 0,
     populationProductionMultiplier: 1.6,
     talentChanceFlatBonusPct: 0,

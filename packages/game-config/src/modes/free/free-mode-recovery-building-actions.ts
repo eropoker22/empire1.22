@@ -70,7 +70,7 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     actionId: "evening_course",
     buildingType: "school",
     label: "Večerní kurz",
-    description: "Na 20 minut zvýší produkci lidí. Nestackuje se.",
+    description: "Na 20 minut zrychlí nábor členů v bytových blocích. Nestackuje se.",
     durationMs: freeModeSchoolConfig.eveningCourse.durationMinutes * 60 * 1000,
     cooldownMs: freeModeSchoolConfig.eveningCourse.cooldownMinutes * 60 * 1000,
     inputCost: { cash: freeModeSchoolConfig.eveningCourse.costCleanCash },
@@ -79,7 +79,7 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     influenceChange: 0,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Večerní kurz dočasně zvedne produkci lidí."
+    reportText: "Večerní kurz dočasně zvedne nábor členů v bytových blocích."
   },
   night_machines: {
     actionId: "night_machines",

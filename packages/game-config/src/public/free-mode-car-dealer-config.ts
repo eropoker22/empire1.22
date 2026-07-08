@@ -20,9 +20,6 @@ export const freeModeCarDealerConfig: CarDealerBalanceConfig = {
     bonusPctPerDealer: 3,
     maxBonusPct: 21,
     fullBonusActionCategories: [
-      "gangMovement",
-      "equipmentTransfer",
-      "resourceTransfer",
       "districtRobbery",
       "districtOccupy",
       "attackPreparation",
@@ -52,9 +49,6 @@ export const freeModeCarDealerConfig: CarDealerBalanceConfig = {
     maxReductionPct: 10.5,
     combinedGarageDealerMaxReductionPct: 22,
     fullBonusActionCategories: [
-      "gangMovement",
-      "equipmentTransfer",
-      "resourceTransfer",
       "districtRobbery",
       "districtOccupy",
       "attackPreparation",

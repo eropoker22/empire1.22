@@ -130,6 +130,27 @@ describe("building network runtime", () => {
     });
   });
 
+  it("uses the live minimum owned count fallback when actual owned buildings are lower", () => {
+    const runtime = createRuntime({
+      getMinimumOwnedBuildingCountByBaseName: () => 2,
+      resolveDistrictBuildingProfile: (district) => ({
+        buildings: {
+          1: [{ baseName: "rekrutacni centrum" }],
+          2: [],
+          3: [{ baseName: "rekrutacni centrum" }]
+        }[district.id] || []
+      })
+    });
+
+    expect(runtime.getOwnedRecruitmentCenterCount()).toBe(2);
+    expect(runtime.getRecruitmentCenterSupportStats()).toMatchObject({
+      populationProductionBonusPct: 6,
+      apartmentCapacityBonusPct: 8,
+      attackWeaponStrengthBonusPct: 4,
+      defenseItemStrengthBonusPct: 3
+    });
+  });
+
   it("counts owned restaurants and resolves restaurant network multipliers", () => {
     const runtime = createRuntime({
       resolveDistrictBuildingProfile: (district) => ({

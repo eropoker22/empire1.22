@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { ROBBERY_COOLDOWN_MS } from "../../../packages/game-config/src/legacy-page/combat-config.js";
 import {
   ROBBERY_ZONE_CONFIG,
+  calculateAttackDeployment,
+  calculateTotalDefensePower,
   createRobberySetupPreview,
   getRobberyDistrictLootLabel,
   getRobberyDistrictLootTable,
@@ -13,6 +15,13 @@ import {
 describe("legacy robbery rules", () => {
   it("keeps empty district robbery duration at 10 minutes", () => {
     expect(ROBBERY_COOLDOWN_MS).toBe(10 * 60 * 1000);
+  });
+
+  it("applies optional combat strength multipliers for preview UI", () => {
+    expect(calculateAttackDeployment({ pistol: 2 })).toEqual({ totalResidents: 2, totalPower: 20 });
+    expect(calculateAttackDeployment({ pistol: 2 }, { pistol: 1.08 })).toEqual({ totalResidents: 2, totalPower: 21.6 });
+    expect(calculateTotalDefensePower({ loadout: { vest: 2 }, residents: 3 })).toBe(15);
+    expect(calculateTotalDefensePower({ loadout: { vest: 2 }, residents: 3, modifiers: { vest: 1.075 } })).toBeCloseTo(15.9);
   });
 
   it("defines recommended member counts for every robbery zone", () => {

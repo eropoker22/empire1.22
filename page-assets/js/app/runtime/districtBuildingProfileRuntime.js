@@ -164,9 +164,16 @@ export function createDistrictBuildingProfileRuntime(deps = {}) {
     const remappedDistrictId = typeof deps.remapDistrictId === "function"
       ? Number(deps.remapDistrictId(districtId))
       : districtId;
+    const fixedDistrictPackage = deps.districtFixedPackagesByDistrictId?.[districtId]
+      || deps.districtFixedPackagesByDistrictId?.[remappedDistrictId]
+      || null;
     const fixedDowntownPackage = districtType === "downtown"
       ? deps.downtownFixedPackagesByDistrictId[districtId] || deps.downtownFixedPackagesByDistrictId[remappedDistrictId]
       : null;
+
+    if (fixedDistrictPackage) {
+      return fixedDistrictPackage;
+    }
 
     if (fixedDowntownPackage) {
       return fixedDowntownPackage;

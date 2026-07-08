@@ -109,6 +109,7 @@ describe("building action UI registry", () => {
   it("hides unused cooldown categories from UI labels", () => {
     expect(formatBuildingActionCategoryLabels([
       "gangMovement",
+      "equipmentTransfer",
       "attackPreparation",
       "resourceTransfer",
       "districtOccupy"

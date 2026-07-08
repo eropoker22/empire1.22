@@ -223,25 +223,9 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
   if (header) header.append(title, headerTools);
 
   const body = createElement(root, "div", "modal__body district-building-detail-body");
-  const tabs = createElement(root, "div", "building-detail-tabs district-building-detail-tabs");
-  const statsTab = createElement(root, "button", "building-detail-tabs__btn is-active");
-  const infoTab = createElement(root, "button", "building-detail-tabs__btn");
-  if (statsTab) {
-    statsTab.type = "button";
-    statsTab.dataset.districtBuildingDetailTab = "stats";
-    statsTab.textContent = "Statistiky";
-  }
-  if (infoTab) {
-    infoTab.type = "button";
-    infoTab.dataset.districtBuildingDetailTab = "info";
-    infoTab.textContent = "Info";
-  }
-  if (tabs) tabs.append(statsTab, infoTab);
 
   const statsPanel = createElement(root, "div", "building-detail-panel district-building-detail-panel");
   if (statsPanel) statsPanel.dataset.districtBuildingDetailPanel = "stats";
-  const infoPanel = createElement(root, "div", "building-detail-panel district-building-detail-panel hidden");
-  if (infoPanel) infoPanel.dataset.districtBuildingDetailPanel = "info";
 
   const name = createElement(root, "h4", "district-building-detail-name");
   if (name) name.dataset.districtBuildingDetailName = "true";
@@ -265,14 +249,6 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
   if (effects) effects.dataset.districtBuildingDetailEffects = "true";
   if (effectsSection) effectsSection.append(effectsTitle, effects);
 
-  const infoSection = createElement(root, "div", "building-info-card building-info-card__section district-building-detail-info-card");
-  if (infoSection) infoSection.dataset.districtBuildingDetailInfoSection = "true";
-  const infoTitle = createElement(root, "h5");
-  const info = createElement(root, "p", "building-detail-info-text");
-  if (infoTitle) infoTitle.textContent = "Info";
-  if (info) info.dataset.districtBuildingDetailInfo = "true";
-  if (infoSection) infoSection.append(infoTitle, info);
-
   const actionSection = createElement(root, "div", "building-info-card__section");
   if (actionSection) actionSection.dataset.districtBuildingDetailActionSection = "true";
   const actionTitle = createElement(root, "h5");
@@ -282,8 +258,7 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
   if (actionSection) actionSection.append(actionTitle, actions);
 
   if (statsPanel) statsPanel.append(name, meta, stats, mechanicsSection, effectsSection, actionSection);
-  if (infoPanel) infoPanel.append(infoSection);
-  if (body) body.append(tabs, statsPanel, infoPanel);
+  if (body) body.append(statsPanel);
   card.append(header, body);
   shell.append(backdrop, card);
   root.append(shell);
@@ -393,6 +368,72 @@ function moveElementToEnd(parent, child) {
   }
 }
 
+function setImportantStyle(element, name, value) {
+  if (!(element instanceof HTMLElement)) return;
+  if (typeof element.style?.setProperty === "function") {
+    element.style.setProperty(name, value, "important");
+    return;
+  }
+  element.style[name] = value;
+}
+
+function removeInlineStyle(element, name) {
+  if (!(element instanceof HTMLElement)) return;
+  if (typeof element.style?.removeProperty === "function") {
+    element.style.removeProperty(name);
+    return;
+  }
+  element.style[name] = "";
+}
+
+function hardHideStructuralElement(element) {
+  if (!(element instanceof HTMLElement)) return;
+  element.hidden = true;
+  element.classList?.add?.("hidden");
+  element.setAttribute?.("aria-hidden", "true");
+  for (const [name, value] of [
+    ["display", "none"],
+    ["width", "0"],
+    ["height", "0"],
+    ["min-width", "0"],
+    ["min-height", "0"],
+    ["max-height", "0"],
+    ["margin", "0"],
+    ["padding", "0"],
+    ["border", "0"],
+    ["outline", "0"],
+    ["background", "transparent"],
+    ["box-shadow", "none"],
+    ["overflow", "hidden"]
+  ]) {
+    setImportantStyle(element, name, value);
+  }
+}
+
+function clearHardHiddenStructuralElement(element) {
+  if (!(element instanceof HTMLElement)) return;
+  element.hidden = false;
+  element.classList?.remove?.("hidden");
+  element.setAttribute?.("aria-hidden", "false");
+  for (const name of [
+    "display",
+    "width",
+    "height",
+    "min-width",
+    "min-height",
+    "max-height",
+    "margin",
+    "padding",
+    "border",
+    "outline",
+    "background",
+    "box-shadow",
+    "overflow"
+  ]) {
+    removeInlineStyle(element, name);
+  }
+}
+
 function hasMeaningfulInfoContent(infoSection) {
   if (!(infoSection instanceof HTMLElement)) return false;
   return Array.from(infoSection.children || []).some((child) => {
@@ -402,10 +443,150 @@ function hasMeaningfulInfoContent(infoSection) {
   });
 }
 
+function removeBuildingDetailInfoPanel(shell) {
+  shell?.querySelectorAll?.(".district-building-detail-tabs, [data-district-building-detail-panel='info'], .district-building-detail-info-card")?.forEach((element) => {
+    element.remove?.();
+  });
+}
+
+function createStructuralSection(statsPanel, titleText, sectionDatasetKey, mountClassName, mountDatasetKey) {
+  const section = createElement(statsPanel, "div", "building-info-card__section");
+  const title = createElement(statsPanel, "h5");
+  const mount = createElement(statsPanel, "div", mountClassName);
+  if (!section || !title || !mount) return null;
+  section.dataset[sectionDatasetKey] = "true";
+  title.textContent = titleText;
+  mount.dataset[mountDatasetKey] = "true";
+  section.append(title, mount);
+  return section;
+}
+
+function ensureBuildingDetailStructuralSections(shell) {
+  const statsPanel = shell?.querySelector?.("[data-district-building-detail-panel='stats']");
+  if (!(statsPanel instanceof HTMLElement)) return;
+
+  if (!statsPanel.querySelector("[data-district-building-detail-mechanics]")) {
+    const section = createStructuralSection(
+      statsPanel,
+      "Mechaniky",
+      "districtBuildingDetailMechanicsSection",
+      "building-detail-mechanics district-building-detail-mechanics",
+      "districtBuildingDetailMechanics"
+    );
+    if (section) statsPanel.append(section);
+  }
+
+  if (!statsPanel.querySelector("[data-district-building-detail-effects]")) {
+    const section = createStructuralSection(
+      statsPanel,
+      "Efekty",
+      "districtBuildingDetailEffectsSection",
+      "building-info-card__effects district-building-detail-effects-list",
+      "districtBuildingDetailEffects"
+    );
+    if (section) statsPanel.append(section);
+  }
+
+  if (!statsPanel.querySelector("[data-district-building-detail-actions]")) {
+    const section = createStructuralSection(
+      statsPanel,
+      "Speciální akce",
+      "districtBuildingDetailActionSection",
+      "building-info-card__actions district-building-detail-actions",
+      "districtBuildingDetailActions"
+    );
+    if (section) statsPanel.append(section);
+  }
+}
+
+function syncInlineBuildingIntro(statsPanel, introText = "") {
+  if (!(statsPanel instanceof HTMLElement)) return;
+  const text = String(introText || "").trim();
+  const introCandidates = Array.from(statsPanel.children || []).filter((child) =>
+    child instanceof HTMLElement
+    && (
+      child.dataset?.districtBuildingDetailInlineInfo === "true"
+      || child.classList?.contains?.("building-detail-info-text")
+    )
+  );
+  let intro = introCandidates[0] || null;
+  introCandidates.slice(1).forEach((element) => element.remove?.());
+  if (!text) {
+    intro?.remove?.();
+    return;
+  }
+  if (!(intro instanceof HTMLElement)) {
+    intro = createElement(statsPanel, "p", "building-detail-info-text");
+    if (!intro) return;
+  }
+  intro.dataset.districtBuildingDetailInlineInfo = "true";
+  intro.dataset.districtBuildingDetailInfo = "true";
+  intro.textContent = text;
+  moveElementToStart(statsPanel, intro);
+}
+
+function getRenderedText(element) {
+  if (!(element instanceof HTMLElement)) return "";
+  const ownText = String(element.textContent || "").trim();
+  const childText = Array.from(element.children || [])
+    .map((child) => getRenderedText(child))
+    .join(" ")
+    .trim();
+  return [ownText, childText].filter(Boolean).join(" ").trim();
+}
+
+function hasVisibleMeaningfulContent(element) {
+  if (!(element instanceof HTMLElement)) return false;
+  if (element.hidden || element.getAttribute?.("aria-hidden") === "true" || element.style?.display === "none") {
+    return false;
+  }
+  if (element.matches?.("button") || element.matches?.("[data-district-building-detail-action-index]")) {
+    return true;
+  }
+  if (element.matches?.(".district-building-detail-effect-cell")) {
+    return Boolean(getRenderedText(element));
+  }
+  if (
+    element.dataset?.districtBuildingDetailStats === "true"
+    || element.dataset?.districtBuildingDetailMechanics === "true"
+    || element.dataset?.districtBuildingDetailEffects === "true"
+    || element.dataset?.districtBuildingDetailActions === "true"
+  ) {
+    return Array.from(element.children || []).some((child) => child instanceof HTMLElement);
+  }
+  return Array.from(element.children || []).some((child) => {
+    if (!(child instanceof HTMLElement)) return false;
+    if (child.matches?.("h5")) return false;
+    return hasVisibleMeaningfulContent(child) || Boolean(getRenderedText(child));
+  });
+}
+
+function removeEmptySinglePanelSections(shell) {
+  const statsPanel = shell?.querySelector?.("[data-district-building-detail-panel='stats']");
+  if (!(statsPanel instanceof HTMLElement) || !statsPanel.classList.contains("district-building-detail-panel--merged")) {
+    return;
+  }
+  Array.from(statsPanel.children || []).forEach((section) => {
+    if (!(section instanceof HTMLElement)) return;
+    if (!section.matches?.(".building-info-card__section") && !section.matches?.(".district-building-detail-info-card")) return;
+    if (
+      section.dataset?.districtBuildingDetailMechanicsSection === "true"
+      || section.dataset?.districtBuildingDetailEffectsSection === "true"
+      || section.dataset?.districtBuildingDetailActionSection === "true"
+    ) {
+      return;
+    }
+    if (section.hidden || section.style?.display === "none" || section.getAttribute?.("aria-hidden") === "true") return;
+    if (!hasVisibleMeaningfulContent(section)) {
+      section.remove?.();
+    }
+  });
+}
+
 function mergeSinglePanelBuildingDetail(shell) {
   const statsPanel = shell?.querySelector?.("[data-district-building-detail-panel='stats']");
   const infoPanel = shell?.querySelector?.("[data-district-building-detail-panel='info']");
-  if (!(statsPanel instanceof HTMLElement) || !(infoPanel instanceof HTMLElement)) return;
+  if (!(statsPanel instanceof HTMLElement)) return;
 
   const infoSection = shell.querySelector(".district-building-detail-info-card");
   const intro = infoSection?.querySelector?.(".building-detail-info-text");
@@ -440,10 +621,7 @@ function mergeSinglePanelBuildingDetail(shell) {
   statsPanel.classList.remove("hidden");
   statsPanel.classList.add("district-building-detail-panel--merged");
   statsPanel.setAttribute("aria-hidden", "false");
-  infoPanel.hidden = true;
-  infoPanel.classList.add("hidden");
-  infoPanel.style.display = "none";
-  infoPanel.setAttribute("aria-hidden", "true");
+  if (infoPanel instanceof HTMLElement) hardHideStructuralElement(infoPanel);
 }
 
 function restoreTabbedBuildingDetail(shell) {
@@ -454,7 +632,7 @@ function restoreTabbedBuildingDetail(shell) {
     statsPanel.classList.remove("district-building-detail-panel--merged");
   }
   if (infoPanel instanceof HTMLElement) {
-    infoPanel.style.display = "";
+    clearHardHiddenStructuralElement(infoPanel);
     if (!(infoSection instanceof HTMLElement)) {
       infoSection = createElement(infoPanel, "div", "building-info-card building-info-card__section district-building-detail-info-card");
       if (infoSection) {
@@ -620,6 +798,8 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
   const card = shell.querySelector(".district-building-detail-card");
   const mechanicsType = syncBuildingDetailIdentityHooks(shell, card, rawMechanicsType);
   const useSinglePanelLayout = SINGLE_PANEL_BUILDING_DETAIL_TYPES.has(mechanicsType);
+  removeBuildingDetailInfoPanel(shell);
+  ensureBuildingDetailStructuralSections(shell);
 
   if (districtType) {
     shell.dataset.buildingDistrictType = districtType;
@@ -703,12 +883,23 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
 
   const statsMount = shell.querySelector("[data-district-building-detail-stats]");
   renderBuildingStats({ ...buildingViewModel, statsMount });
+  const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
+  syncInlineBuildingIntro(statsPanel, buildingViewModel.intro);
 
   const mechanicsMount = shell.querySelector("[data-district-building-detail-mechanics]");
   if (mechanicsMount) {
+    const mechanicsSection = mechanicsMount.closest?.(".building-info-card__section");
+    const hideMechanicsSection = Boolean(buildingViewModel.hideMechanicsSection);
+    if (mechanicsSection instanceof HTMLElement) {
+      mechanicsSection.hidden = hideMechanicsSection;
+      mechanicsSection.style.display = hideMechanicsSection ? "none" : "";
+      mechanicsSection.setAttribute("aria-hidden", hideMechanicsSection ? "true" : "false");
+    }
     mechanicsMount.replaceChildren();
     const mechanics = Array.isArray(buildingViewModel.mechanics) ? buildingViewModel.mechanics : [];
-    if (mechanics.length === 0) {
+    if (hideMechanicsSection) {
+      // Hidden focused cards keep their effect chips as the single source of truth.
+    } else if (mechanics.length === 0) {
       appendEmptyMessage(mechanicsMount, "Bez mechanik.");
     } else {
       mechanicsMount.replaceChildren(...mechanics.map((row) => createMechanicRow(mechanicsMount, row)).filter(Boolean));
@@ -716,15 +907,14 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
   }
 
   const actionSection = shell.querySelector("[data-district-building-detail-action-section]");
-  const statsPanel = shell.querySelector("[data-district-building-detail-panel='stats']");
   const displayActions = useSinglePanelLayout && buildingViewModel.showActionsInSinglePanel !== true ? [] : buildingViewModel.actions || [];
   const hasSpecialActions = Array.isArray(displayActions) && displayActions.length > 0;
   if (actionSection instanceof HTMLElement) {
     actionSection.hidden = !hasSpecialActions;
+    actionSection.style.display = hasSpecialActions ? "" : "none";
+    actionSection.setAttribute("aria-hidden", hasSpecialActions ? "false" : "true");
     if (hasSpecialActions) {
       if (!actionSection.isConnected && statsPanel instanceof HTMLElement) statsPanel.append(actionSection);
-    } else {
-      actionSection.remove();
     }
   }
   renderBuildingActions({
@@ -732,12 +922,6 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
     actions: displayActions
   }, callbacks);
 
-  const tabs = shell.querySelector(".district-building-detail-tabs");
-  if (tabs instanceof HTMLElement) {
-    tabs.hidden = useSinglePanelLayout;
-    tabs.style.display = useSinglePanelLayout ? "none" : "";
-    tabs.setAttribute("aria-hidden", useSinglePanelLayout ? "true" : "false");
-  }
   shell.classList.toggle("is-building-detail-single-panel", useSinglePanelLayout);
   if (useSinglePanelLayout) {
     shell.dataset.activeDistrictBuildingDetailTab = "all";
@@ -749,6 +933,7 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
   if (hasSpecialActions && actionSection instanceof HTMLElement && statsPanel instanceof HTMLElement) {
     moveElementToEnd(statsPanel, actionSection);
   }
+  removeEmptySinglePanelSections(shell);
   const wasHidden = shell.hidden;
   shell.hidden = false;
   if (wasHidden) {

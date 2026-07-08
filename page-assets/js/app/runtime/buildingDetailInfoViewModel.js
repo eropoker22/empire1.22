@@ -155,8 +155,8 @@ export function createBuildingDetailInfoRows({
     return [];
   } else if (mechanics.mechanicsType === "school") {
     return [
-      createInfoLine("Výsledek talentu", "Úspěšný trénink: zapíše se do uličních zpráv."),
-      createInfoLine("Pravidla", "Škola je podpůrná budova; autoritativní efekt dál potvrzuje server.")
+      createInfoLine("Populace", "Škola pasivně zvyšuje lokální populační zásobu a podporuje bytové bloky."),
+      createInfoLine("Pravidla", "Škola je podpůrná budova; autoritativní efekt potvrzuje server.")
     ];
   } else if (mechanics.mechanicsType === "warehouse") {
     rows.push(

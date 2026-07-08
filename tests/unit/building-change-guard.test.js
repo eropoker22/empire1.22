@@ -8,7 +8,8 @@ import {
   publicBuildingNameVariants
 } from "../../packages/game-config/src/public/building-name-variants";
 import {
-  publicDistrictBuildingSetPools
+  publicDistrictBuildingSetPools,
+  resolveDistrictBuildingTypes
 } from "../../packages/game-config/src/public/district-building-sets";
 
 const root = process.cwd();
@@ -40,6 +41,37 @@ describe("building change guard", () => {
     for (const buildingTypeId of downtownBuildingIds) {
       expect(downtownSetBuildingIds.has(buildingTypeId), `downtown sets should include ${buildingTypeId}`).toBe(true);
     }
+  });
+
+  it("keeps public resident district building resolution aligned with the playable map", () => {
+    const mapManifest = JSON.parse(read("packages/game-config/src/maps/empire-streets-city-map.json"));
+    const residentDistricts = (mapManifest.districts || []).filter((district) => district.zone === "residential");
+    const counts = new Map();
+    const schoolApartmentConflicts = [];
+
+    for (const district of residentDistricts) {
+      const buildingTypes = resolveDistrictBuildingTypes({
+        districtId: String(district.legacyId),
+        zone: district.zone
+      });
+      for (const buildingType of buildingTypes) {
+        counts.set(buildingType, (counts.get(buildingType) || 0) + 1);
+      }
+      if (buildingTypes.includes("school") && buildingTypes.includes("apartment_block")) {
+        schoolApartmentConflicts.push({ districtId: district.legacyId, buildingTypes });
+      }
+    }
+
+    expect(residentDistricts).toHaveLength(38);
+    expect(Object.fromEntries([...counts.entries()].sort())).toEqual({
+      apartment_block: 29,
+      arcade: 16,
+      clinic: 8,
+      garage: 16,
+      recruitment_center: 16,
+      school: 6
+    });
+    expect(schoolApartmentConflicts).toEqual([]);
   });
 
   it("keeps every public building backed by non-empty display name variants", () => {

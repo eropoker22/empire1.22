@@ -17,6 +17,7 @@ export * from "./marketCommands";
 export * from "./occupyDistrict";
 export * from "./placeTrap";
 export * from "./playerPoliceState";
+export * from "./restaurantBuildingActions";
 export * from "./selectSpawnDistrict";
 export * from "./robDistrict";
 export * from "./spyDistrict";

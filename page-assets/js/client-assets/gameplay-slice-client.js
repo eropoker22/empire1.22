@@ -972,16 +972,15 @@ var EmpireGameplaySliceClient = function(exports) {
     );
   };
   const getCurrentTopbarReserveHeight = () => {
-    var _a, _b;
+    var _a;
     if (typeof document === "undefined") {
       return 0;
     }
     const topbar = document.getElementById("game-header") || document.querySelector(".game-topbar");
     const rectHeight = Math.ceil(((_a = topbar == null ? void 0 : topbar.getBoundingClientRect) == null ? void 0 : _a.call(topbar).height) || 0);
-    return Math.max(0, rectHeight || ((_b = topbar == null ? void 0 : topbar.offsetHeight) != null ? _b : 0));
+    return Math.max(0, rectHeight || (topbar == null ? void 0 : topbar.offsetHeight) || 0);
   };
   const lockBodyScroll = () => {
-    var _a;
     const body = getBody();
     if (!body || typeof window === "undefined") {
       return;

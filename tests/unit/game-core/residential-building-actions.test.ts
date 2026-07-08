@@ -50,14 +50,14 @@ describe("residential building actions", () => {
     const result = applyCommand(state, createBuildingActionCommand(building.id, "evening_course"), context);
 
     expect(result.errors).toEqual([]);
-    expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(400);
+    expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(0);
     expect(result.nextState.buildingsById[building.id].metadata?.school).toMatchObject({
       eveningCourseExpiresAtTick: 20 * ticksPerMinute
     });
     expect(result.nextState.buildingsById[building.id].actionCooldowns?.evening_course).toBe(cooldownTicks(35));
     expect(result.events.find((event) => event.type === "building-action-resolved")?.payload).toMatchObject({
       actionId: "evening_course",
-      reportText: "Večerní kurz běží. Škola dočasně zvedá výrobu lidí v bytových blocích."
+      reportText: "Večerní kurz běží. Škola dočasně zvedá nábor členů v bytových blocích."
     });
     expect(JSON.stringify(result)).not.toContain("talent roll");
     expect(JSON.stringify(result)).not.toContain("clean income");
@@ -94,6 +94,19 @@ describe("residential building actions", () => {
       inactiveStored * freeConfig.balance.school!.eveningCourse.populationProductionMultiplier,
       5
     );
+  });
+
+  it("does not apply active school evening course to school population production", () => {
+    const inactiveCourse = createSchoolProductionState(false);
+    const activeCourse = createSchoolProductionState(true);
+
+    const inactiveResult = collectIncome(inactiveCourse.state, context);
+    const activeResult = collectIncome(activeCourse.state, context);
+    const inactiveStored = getSchoolStoredPopulation(inactiveResult, inactiveCourse.school.id);
+    const activeStored = getSchoolStoredPopulation(activeResult, activeCourse.school.id);
+
+    expect(inactiveStored).toBeGreaterThan(0);
+    expect(activeStored).toBeCloseTo(inactiveStored, 5);
   });
 
   it("keeps clinic stabilization disabled with an empty recovery pool and no cooldown", () => {
@@ -237,6 +250,24 @@ function createSchoolState(options: { cash: number; metadata?: Record<string, un
   });
 }
 
+function createSchoolProductionState(courseActive: boolean) {
+  const fixture = createSchoolState({
+    cash: 1_000,
+    metadata: {
+      school: {
+        storedStudents: 0,
+        lastUpdatedTick: 0,
+        eveningCourseExpiresAtTick: courseActive ? 2 * ticksPerMinute : 0
+      }
+    }
+  });
+  fixture.state.root.tick = ticksPerMinute;
+  return {
+    state: fixture.state,
+    school: fixture.building
+  };
+}
+
 function createClinicState(options: { cash: number; recoveryPool: PlayerRecoveryPoolEntry[] }) {
   const fixture = createCoreStateWithFixedBuildingFixture("clinic", {
     playerBalances: {
@@ -253,6 +284,11 @@ function createClinicState(options: { cash: number; recoveryPool: PlayerRecovery
 function getApartmentStoredPopulation(state: ReturnType<typeof collectIncome>, buildingId: string): number {
   const raw = state.buildingsById[buildingId].metadata?.apartmentBlock;
   return isRecord(raw) ? Math.max(0, Number(raw.storedPopulation || 0)) : 0;
+}
+
+function getSchoolStoredPopulation(state: ReturnType<typeof collectIncome>, buildingId: string): number {
+  const raw = state.buildingsById[buildingId].metadata?.school;
+  return isRecord(raw) ? Math.max(0, Number(raw.storedStudents || 0)) : 0;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -17,14 +17,9 @@ export const freeModeGarageConfig: GarageBalanceConfig = {
     reductionPctPerGarage: 2,
     maxReductionPct: 16,
     fullBonusActionCategories: [
-      "gangMovement",
       "attackPreparation",
       "districtOccupy",
-      "districtRobbery",
-      "equipmentTransfer",
-      "resourceTransfer",
-      "defenseRepair",
-      "defenseRestore"
+      "districtRobbery"
     ],
     halfBonusActionCategories: [
       "districtSpy",
