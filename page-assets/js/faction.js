@@ -225,7 +225,6 @@ const FACTION_META = {
 };
 
 const factionOrder = ["mafian", "kartel", "kult", "tajna-organizace", "hackeri", "motorkarsky-gang", "soukroma-armada", "korporace"];
-const RECOMMENDED_START_FACTIONS = new Set(["mafian", "korporace", "soukroma-armada"]);
 const FACTION_PLAYER_GUIDE = Object.freeze({
   mafian: { style: "Stabilní vliv a bezpečnější tempo", difficulty: "Lehká" },
   kartel: { style: "Rychlý dirty cash a tvrdá expanze", difficulty: "Střední" },
@@ -372,21 +371,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return values.join(" • ") || fallback;
   }
 
-  function renderFactionRecommendations() {
-    structureGrid?.querySelectorAll(".structure-card").forEach((button) => {
-      if (!RECOMMENDED_START_FACTIONS.has(button.dataset.factionId)) {
-        return;
-      }
-      if (button.querySelector(".structure-card__recommendation")) {
-        return;
-      }
-      const badge = document.createElement("span");
-      badge.className = "structure-card__recommendation";
-      badge.textContent = "Doporučeno pro start";
-      button.appendChild(badge);
-    });
-  }
-
   function getAvailableAvatars() {
     if (!selectedFactionId) return [];
     return getFactionMeta(selectedFactionId).avatars || [];
@@ -480,28 +464,26 @@ function renderFactionPreview(factionId) {
       const actionCopy = action?.description || meta.bonusCopy;
       const activeBonusCopy = formatPlayerEffectList(
         faction.advantages?.length ? faction.advantages : faction.coreBackedEffects,
-        "Základní frakční profil je aktivní.",
-        "Aktivní: "
+        "Základní frakční profil je aktivní."
       );
       const disadvantageCopy = formatPlayerEffectList(
         faction.disadvantages,
-        "Bez výrazné úvodní slabiny.",
-        "Slabina: "
+        "Bez výrazné úvodní slabiny."
       );
       const plannedCopy = formatPlayerEffectList([
         ...(faction.plannedEffects || []),
         ...(faction.plannedAdvantages || []),
         ...(faction.plannedDisadvantages || [])
-      ], "Frakce už má aktivní pasivy. Další efekty přijdou později.", "Připravuje se: ");
+      ], "Frakce už má aktivní pasivy. Další efekty přijdou později.");
       bonus.innerHTML = `
         <span class="faction-bonus__icon" aria-hidden="true">✦</span>
         <span class="faction-bonus__copy faction-bonus__copy--rows">
-          <span class="faction-bonus__row"><strong>Styl hry</strong><span>${guide.style || faction.playstyleSummary || "Vyvážený pouliční profil"}</span></span>
+          <span class="faction-bonus__row"><strong>Styl</strong><span>${guide.style || faction.playstyleSummary || "Vyvážený pouliční profil"}</span></span>
           <span class="faction-bonus__row"><strong>Obtížnost</strong><span>${guide.difficulty}</span></span>
-          <span class="faction-bonus__row"><strong>Funguje teď</strong><span>${activeBonusCopy}</span></span>
+          <span class="faction-bonus__row"><strong>Aktivní</strong><span>${activeBonusCopy}</span></span>
           <span class="faction-bonus__row"><strong>Slabina</strong><span>${disadvantageCopy}</span></span>
-          <span class="faction-bonus__row"><strong>Připravuje se</strong><span>${plannedCopy}</span></span>
-          <span class="faction-bonus__row"><strong>Speciální schopnost — preview</strong><span>${actionTitle}: ${actionCopy} <em>Tahle schopnost je zatím jen preview.</em> Efekt je součást identity frakce, ale v alphě ještě neběží.</span></span>
+          <span class="faction-bonus__row"><strong>Plán</strong><span>${plannedCopy}</span></span>
+          <span class="faction-bonus__row"><strong>Preview</strong><span>${actionTitle}: ${actionCopy} <em>Zatím jen preview.</em> Efekt patří k identitě frakce, ale v alphě ještě neběží.</span></span>
         </span>
       `;
     }
@@ -903,7 +885,6 @@ function renderFactionPreview(factionId) {
     });
   }
 
-  renderFactionRecommendations();
   renderGangColorOptions();
   renderGangColorSelectionState(selectedGangColor);
   if (selectedFactionId) {
