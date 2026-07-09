@@ -276,7 +276,8 @@ describe("building detail view-model builder", () => {
 
     expect(JSON.stringify(mechanics)).not.toContain("infrastruktura bez skladu");
     expect(mechanics.map((row) => row.label)).toEqual([
-      "Stabilizovat síť",
+      "Infrastruktura",
+      "Záložní síť",
       "Napájet výrobu",
       "Snížit heat"
     ]);
@@ -287,10 +288,14 @@ describe("building detail view-model builder", () => {
 
     expect(powerStationActions).toHaveLength(3);
     expect(powerStationActions.every((action) => action.cooldownMs === 60 * 60 * 1000)).toBe(true);
+    expect(powerStationActions[0].cleanCost).toBe(3500);
     expect(powerStationActions[0].durationMs).toBe(25 * 60 * 1000);
-    expect(powerStationActions[1].durationMs).toBe(25 * 60 * 1000);
+    expect(powerStationActions[1].durationMs).toBeUndefined();
+    expect(powerStationActions[1].clean).toBe(2000);
+    expect(powerStationActions[1].dirty).toBe(500);
+    expect(powerStationActions[1].heat).toBe(10);
     expect(powerStationActions[2].durationMs).toBeUndefined();
-    expect(powerStationActions[2].heat).toBe(-2);
+    expect(powerStationActions[2].heat).toBe(-20);
   });
 
   it("keeps recycling center card copy focused on item recovery", () => {
@@ -305,7 +310,7 @@ describe("building detail view-model builder", () => {
     const [extractLosses] = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["recyklacni centrum"];
     const copy = JSON.stringify({ stats, mechanics, extractLosses });
 
-    expect(stats.find((row) => row.label === "Akce")?.value).toBe("itemové ztráty");
+    expect(stats.find((row) => row.label === "Ztráty k vytěžení")?.value).toBe("0");
     expect(copy).not.toContain("salvage pool");
     expect(copy).not.toContain("populaci ani");
     expect(copy).not.toContain("členy gangu");
@@ -1023,6 +1028,36 @@ describe("building detail view-model builder", () => {
         expected: "Síť pašovacích tunelů zvyšuje dirty tok +5 % a Heat +4 %."
       },
       {
+        buildingName: "Energetická stanice",
+        mechanics: {
+          mechanicsType: "power-plant",
+          ownedPowerStations: 2,
+          powerStationNetwork: {
+            infrastructureBonusPct: 8,
+            incomeMultiplier: 1.04,
+            heatMultiplier: 1.03,
+            cameraStrengthBonusPct: 10,
+            alarmStrengthBonusPct: 10
+          },
+          powerStationBackupActive: false,
+          powerStationBackupRemainingMs: 0,
+          effectsLabel: "Clean cash +100/hod · Síť energetických stanic: income +4 %, heat +3 %"
+        },
+        expected: "Síť energetických stanic zvyšuje Income +4 % a Heat +3 %."
+      },
+      {
+        buildingName: "Recyklační centrum",
+        mechanics: {
+          mechanicsType: "recycling-center",
+          ownedRecyclingCenters: 2,
+          recyclingCenterNetwork: { incomeMultiplier: 1.04, heatMultiplier: 1.03, salvageRatePct: 15 },
+          recyclingSalvageRatePct: 15,
+          recyclingSalvagePool: { fresh: [], totalFreshAmount: 0 },
+          effectsLabel: "Clean cash +100/hod · Síť recyklačních center: income +4 %, heat +3 %"
+        },
+        expected: "Síť recyklačních center zvyšuje Income +4 % a Heat +3 %."
+      },
+      {
         buildingName: "Rekrutační centrum",
         mechanics: {
           mechanicsType: "recruitment-center",
@@ -1645,9 +1680,9 @@ describe("building detail view-model builder", () => {
       {
         buildingName: "Recyklační centrum",
         mechanics: { ...baseMechanics, mechanicsType: "recycling-center" },
-        profile: { role: "Salvage", info: "Recyklační centrum vrací itemové ztráty ze šrotu.", actions: ["Vytěžit ztráty"] },
+        profile: { role: "Vytěžení ztrát", info: "Recyklační centrum vrací itemové ztráty ze šrotu.", actions: ["Vytěžit ztráty"] },
         expectedTitle: "Recyklační centrum",
-        expectedBadge: "Salvage",
+        expectedBadge: "Vytěžení ztrát",
         expectedActionCount: 1
       },
       {
@@ -1809,6 +1844,31 @@ describe("building detail view-model builder", () => {
     expect(rows[0].riskSummary).toContain("Pouliční incident +5%");
   });
 
+  it("keeps power station action buttons aligned with server-backed values", () => {
+    const rows = createBuildingDetailActionRows({
+      buildingName: "Energetická stanice",
+      profile: { actions: ["Stabilizovat síť", "Napájet výrobu", "Snížit heat"] },
+      mechanics: { ...baseMechanics, mechanicsType: "power-plant" },
+      economyState: { cleanMoney: 3499, dirtyMoney: 0 },
+      actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["energeticka stanice"],
+      now: 1000
+    });
+
+    expect(rows[0]).toMatchObject({
+      actionId: "backup_grid_switch",
+      buttonCostLabel: "$3500 clean cash",
+      disabled: true,
+      disabledReason: "Potřebuješ $3500 clean cash.",
+      disabledTone: "insufficient-funds"
+    });
+    expect(rows[1].rewardSummary).toContain("Clean +$2000");
+    expect(rows[1].rewardSummary).toContain("Dirty cash +$500");
+    expect(rows[1].rewardSummary).toContain("Heat +10");
+    expect(rows[1].rewardSummary).not.toContain("Trvání");
+    expect(rows[2].rewardSummary).toContain("Heat -20");
+    expect(rows[2].riskSummary).toContain("Heat -20");
+  });
+
   it("adds stable action ids and keeps server-backed downtown actions out of legacy fallback", () => {
     const rows = createBuildingDetailActionRows({
       buildingName: "Burza",
@@ -1855,12 +1915,30 @@ describe("building detail view-model builder", () => {
       actionProfiles,
       now: 1000
     });
+    const missingCashRows = createBuildingDetailActionRows({
+      buildingName: "Recyklační centrum",
+      profile,
+      mechanics: {
+        ...baseMechanics,
+        mechanicsType: "recycling-center",
+        recyclingSalvagePool: { fresh: [{ id: "loss-1", itemType: "metal-parts", amount: 8 }] }
+      },
+      economyState: { cleanMoney: 899, dirtyMoney: 0 },
+      actionProfiles,
+      now: 1000
+    });
 
     expect(emptyRows[0].actionId).toBe("extract_losses");
     expect(emptyRows[0].disabled).toBe(true);
     expect(emptyRows[0].disabledReason).toBe("Nemáš žádné ztráty k vytěžení.");
     expect(readyRows[0].disabled).toBe(false);
+    expect(readyRows[0].buttonCostLabel).toBe("$900 clean cash");
     expect(readyRows[0].cooldownLabel).toBe("Cooldown 16m 00s");
+    expect(missingCashRows[0]).toMatchObject({
+      disabled: true,
+      disabledReason: "Potřebuješ $900 clean cash.",
+      disabledTone: "insufficient-funds"
+    });
   });
 
   it("keeps street dealer UI actions aligned with all special action profiles", () => {

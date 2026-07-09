@@ -1064,6 +1064,7 @@ describe("mobile action modal CSS", () => {
     expect(onboardingCss).toContain("z-index: calc(var(--onboarding-z-backdrop) + 10) !important;");
     expect(onboardingCss).toContain("#game-gang-panel-mount.is-onboarding-focus-target");
     expect(onboardingCss).toContain("#profile-gang-card.is-onboarding-focus-target");
+    expect(onboardingCss).toContain('html[data-onboarding-step="building-action"] body.game-body #profile-gang-card.is-onboarding-focus-target');
     expect(onboardingCss).toContain("z-index: calc(var(--onboarding-z-backdrop) + 12) !important;");
     expect(onboardingCss).toContain("#game-rail-left.is-onboarding-focus-target");
     expect(onboardingCss).toContain("#game-left-nav.is-onboarding-focus-target");

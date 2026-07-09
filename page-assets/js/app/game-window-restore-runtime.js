@@ -2,6 +2,7 @@ const PAGE_SELECTOR = 'main[data-page="game"]';
 const STORAGE_KEY = "empire:game:last-open-window:v1";
 const RESTORE_MAX_AGE_MS = 10 * 60 * 1000;
 const RESTORE_DELAY_MS = 140;
+const RESTORE_WINDOWS_ON_REFRESH = false;
 
 export const GAME_WINDOW_RESTORE_DEFINITIONS = Object.freeze([
   {
@@ -38,7 +39,8 @@ export const GAME_WINDOW_RESTORE_DEFINITIONS = Object.freeze([
     id: "buildings",
     openSelector: "[data-buildings-popup-open]",
     closeSelector: "[data-buildings-popup-close], [data-nav-logout]",
-    windowSelector: "[data-buildings-popup]"
+    windowSelector: "[data-buildings-popup]",
+    restoreOnRefresh: false
   },
   {
     id: "market",
@@ -293,6 +295,9 @@ function bindVisibilityTracking(root, storage, definitions = GAME_WINDOW_RESTORE
 }
 
 function restoreOpenWindow(root, storage, definitions = GAME_WINDOW_RESTORE_DEFINITIONS) {
+  if (!RESTORE_WINDOWS_ON_REFRESH) {
+    return false;
+  }
   const scope = getScope(root);
   const stored = readStoredWindow(storage);
   if (stored?.id === "building-detail") {
@@ -318,15 +323,14 @@ function restoreOpenWindow(root, storage, definitions = GAME_WINDOW_RESTORE_DEFI
           });
 
       if (!opened) {
-        const buildingsButton = scope?.querySelector?.("[data-buildings-popup-open]");
-        buildingsButton?.click?.();
+        clearOpenWindow(storage);
       }
     }, RESTORE_DELAY_MS);
     return true;
   }
 
   const definition = stored ? getDefinitionById(stored.id, definitions) : null;
-  if (!definition) {
+  if (!definition || definition.restoreOnRefresh === false) {
     clearOpenWindow(storage);
     return false;
   }

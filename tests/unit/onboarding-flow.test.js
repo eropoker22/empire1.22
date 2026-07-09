@@ -187,15 +187,13 @@ describe("Empire onboarding flow", () => {
     expect(districtStep?.placement).toBe("center");
     expect(districtStep?.completionCondition).toBe("manual");
     expect(buildingActionStep?.targetSelector).toContain("[data-gang-stars]");
-    expect(buildingActionStep?.targetSelector).toContain(".profile-row--members");
-    expect(buildingActionStep?.targetSelector).toContain(".profile-row--wanted");
-    expect(buildingActionStep?.targetSelector).toContain(".profile-row--faction");
-    expect(buildingActionStep?.targetSelector).toContain(".profile-row--districts");
-    expect(buildingActionStep?.targetSelector).toContain(".profile-row--alliance");
+    expect(buildingActionStep?.targetSelector).toContain(".gang-profile-row");
     expect(buildingActionStep?.targetSelector).not.toMatch(/game-gang-panel-mount|building-action|building-card|district-popup-buildings/iu);
-    expect(buildingActionStep?.focusSelectors).toHaveLength(8);
+    expect(buildingActionStep?.focusSelectors).toContain("#profile-gang-card .gang-profile-row");
+    expect(buildingActionStep?.focusSelectors).toHaveLength(4);
     expect(buildingActionStep?.focusBackdrop).toBe(true);
     expect(buildingActionStep?.focusBackdropHoleSelector).toBe("#profile-gang-card");
+    expect(buildingActionStep?.focusBackdropPadding).toBe(8);
     expect(buildingActionStep?.scrollFocusIntoView).toBe(true);
     expect(buildingActionStep?.placement).toBe("center");
     expect(buildingActionStep?.raiseFocusTargets).toBe(true);
@@ -376,7 +374,7 @@ describe("Empire onboarding flow", () => {
       }
       expect(document.querySelector("#game-header")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "your-district");
       expect(document.querySelector("#game-gang-panel-mount")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "your-district" || step.id === "building-action");
-      expect(document.querySelector("#profile-gang-card")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "building-action");
+      expect(document.querySelector("#profile-gang-card")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "your-district" || step.id === "building-action");
       expect(document.querySelector("#game-rail-left")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "heat-police");
       expect(document.querySelector("#game-left-nav")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "heat-police");
       expect(document.querySelector("#city-events-card")?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "heat-police");
@@ -394,6 +392,9 @@ describe("Empire onboarding flow", () => {
       for (const selector of gangProfileFocusSelectors) {
         expect(document.querySelector(selector)?.classList.contains("is-onboarding-focus-target")).toBe(step.id === "building-action");
       }
+      expect(Array.from(document.querySelectorAll("#profile-gang-card .gang-profile-row")).every((row) =>
+        row.classList.contains("is-onboarding-focus-target")
+      )).toBe(step.id === "building-action");
       expect(document.querySelectorAll("[data-onboarding-highlight-extra]")).toHaveLength(0);
       const mapDistrictHighlights = document.querySelectorAll("[data-onboarding-map-district-highlight]");
       expect(mapDistrictHighlights).toHaveLength(isMapOnboardingStep ? 1 : 0);

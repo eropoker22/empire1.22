@@ -116,13 +116,14 @@ export const createCivilBuildingStats = (
     const remaining = Math.max(0, (metadata.backupGridSwitchExpiresAtTick ?? 0) - input.tick);
     return [
       { label: "Clean / min", value: `$${formatNumber(input.powerStationConfig.cleanCashPerMinute * network.incomeMultiplier)}` },
+      { label: "Dirty / min", value: `$${formatNumber(input.powerStationConfig.dirtyCashPerMinute * network.incomeMultiplier)}` },
       { label: "Heat / min", value: formatNumber(input.powerStationConfig.heatPerMinute * network.heatMultiplier) },
-      { label: "Owned stations", value: `${ownedCount}/${input.powerStationConfig.countOnMap}` },
-      { label: "Infrastructure bonus", value: `${formatNumber(infrastructureBonusPct)} %` },
-      { label: "Station income multiplier", value: `x${formatNumber(network.incomeMultiplier)}` },
-      { label: "Camera bonus", value: `${formatNumber(network.cameraStrengthBonusPct + (remaining > 0 ? input.powerStationConfig.backupGridSwitch.cameraStrengthBonusPct : 0))} %` },
-      { label: "Alarm bonus", value: `${formatNumber(network.alarmStrengthBonusPct + (remaining > 0 ? input.powerStationConfig.backupGridSwitch.alarmStrengthBonusPct : 0))} %` },
-      { label: "Backup grid boost", value: remaining > 0 ? formatTickLabel(remaining) : "inactive" }
+      { label: "Vlastněné stanice", value: `${ownedCount}/${input.powerStationConfig.countOnMap}` },
+      { label: "Infrastruktura", value: `+${formatNumber(infrastructureBonusPct)} %` },
+      { label: "Síťový income", value: `+${formatNumber((network.incomeMultiplier - 1) * 100)} %` },
+      { label: "Kamery", value: `+${formatNumber(network.cameraStrengthBonusPct + (remaining > 0 ? input.powerStationConfig.backupGridSwitch.cameraStrengthBonusPct : 0))} %` },
+      { label: "Alarm", value: `+${formatNumber(network.alarmStrengthBonusPct + (remaining > 0 ? input.powerStationConfig.backupGridSwitch.alarmStrengthBonusPct : 0))} %` },
+      { label: "Záložní síť", value: remaining > 0 ? `aktivní ${formatTickLabel(remaining)}` : "neaktivní" }
     ];
   }
   const ownedCount = getOwnedStripClubCount(input.state, input.building.ownerPlayerId, input.stripClubConfig);

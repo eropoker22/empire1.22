@@ -548,7 +548,7 @@ const resolvePowerStationDisabledReason = (input: {
   }
   const expiresAtTick = getPowerStationMetadata(input.building).backupGridSwitchExpiresAtTick ?? 0;
   if (expiresAtTick > input.tick) {
-    return `Záložní síť active ${formatTickLabel(expiresAtTick - input.tick)}.`;
+    return `Záložní síť běží ještě ${formatTickLabel(expiresAtTick - input.tick)}.`;
   }
   return null;
 };
@@ -571,7 +571,7 @@ const resolveRecyclingCenterDisabledReason = (input: {
     tickRateMs: input.tickRateMs
   });
   if (stats.freshPool.length <= 0) {
-    return "Salvage pool is empty.";
+    return "Nemáš žádné itemové ztráty k vytěžení.";
   }
   return null;
 };

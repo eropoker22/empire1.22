@@ -22,7 +22,7 @@ export const DISTRICT_BUILDING_MINUTE_INCOME_RULES_EMPIRE2 = Object.freeze({
   "Obchodní centrum": Object.freeze({ clean: 3700 / 60, dirty: 22 }),
   Restaurace: Object.freeze({ clean: 38, dirty: 0 }),
   "Směnárna": Object.freeze({ clean: 70, dirty: 95 }),
-  "Energetická stanice": Object.freeze({ clean: 4, dirty: 0.3 }),
+  "Energetická stanice": Object.freeze({ clean: 2780 / 60, dirty: 780 / 60 }),
   Sklad: Object.freeze({ clean: 45, dirty: 0 }),
   Skladiště: Object.freeze({ clean: 45, dirty: 0 }),
   "Továrna": Object.freeze({ clean: 1, dirty: 0.2 }),

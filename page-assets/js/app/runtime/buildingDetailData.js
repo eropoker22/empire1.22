@@ -179,7 +179,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
     actions: Object.freeze(["Stabilizovat síť", "Napájet výrobu", "Snížit heat"])
   }),
   "recyklacni centrum": Object.freeze({
-    role: "Salvage",
+    role: "Vytěžení ztrát",
     info: "Recyklační centrum vrací železo, zbraně, moduly a všechno, co se dá po boji ještě vytáhnout ze šrotu.",
     actions: Object.freeze(["Vytěžit ztráty"])
   }),
@@ -295,9 +295,9 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
   sklad: Object.freeze([]),
   skladiste: Object.freeze([]),
   "energeticka stanice": Object.freeze([
-    Object.freeze({ cleanCost: 1200, durationMs: 25 * 60 * 1000, cooldownMs: 60 * 60 * 1000, heat: 3, serverEffectSummary: "Infrastructure +12% · kamery +20% · alarm +20% · výroba +10%", summary: "Záložní síť dočasně posílí infrastrukturu, obranu a průmyslovou výrobu." }),
-    Object.freeze({ durationMs: 25 * 60 * 1000, cooldownMs: 60 * 60 * 1000, cleanIncomeBoostPct: 18, heat: 2, summary: "Napájení dočasně zvedne čistý provoz districtu." }),
-    Object.freeze({ cooldownMs: 60 * 60 * 1000, heat: -2, summary: "Serverově sníží heat districtu." })
+    Object.freeze({ cleanCost: 3500, durationMs: 25 * 60 * 1000, cooldownMs: 60 * 60 * 1000, heat: 3, serverEffectSummary: "Infrastruktura +12% · kamery +20% · alarm +20% · výroba +10%", summary: "Záložní síť dočasně posílí infrastrukturu, obranu a průmyslovou výrobu." }),
+    Object.freeze({ clean: 2000, dirty: 500, heat: 10, cooldownMs: 60 * 60 * 1000, summary: "Napájení okamžitě přidá clean a dirty výnos z výroby." }),
+    Object.freeze({ cooldownMs: 60 * 60 * 1000, heat: -20, summary: "Serverově sníží heat districtu." })
   ]),
   "recyklacni centrum": Object.freeze([
     Object.freeze({ recyclingExtractLosses: true, cleanCost: 900, heat: 2, cooldownMs: 16 * 60 * 1000, summary: "Vytěží část neexpirovaných itemových ztrát." })
@@ -551,6 +551,51 @@ export const SMUGGLING_TUNNEL_CONFIG = Object.freeze({
   silentChannelHeatMultiplier: 1,
   silentChannelBatchCapacityMultiplier: 1,
   silentChannelRaidChancePct: 0
+});
+export const POWER_STATION_CONFIG = Object.freeze({
+  countOnMap: 9,
+  cleanCashPerMinute: 2780 / 60,
+  dirtyCashPerMinute: 780 / 60,
+  heatPerMinute: 0.08,
+  infrastructureBonusPctPerStation: 4,
+  maxInfrastructureBonusPct: 28,
+  incomeBonusPctPerExtraStation: 4,
+  heatBonusPctPerExtraStation: 3,
+  maxIncomeMultiplier: 1.24,
+  maxHeatMultiplier: 1.18,
+  cameraStrengthBonusPctPerStation: 5,
+  alarmStrengthBonusPctPerStation: 5,
+  maxCameraStrengthBonusPct: 35,
+  maxAlarmStrengthBonusPct: 35,
+  backupGridSwitch: Object.freeze({
+    cleanCost: 3500,
+    heatGain: 3,
+    durationMs: 25 * 60 * 1000,
+    cooldownMs: 60 * 60 * 1000,
+    temporaryInfrastructureBonusPct: 12,
+    cameraStrengthBonusPct: 20,
+    alarmStrengthBonusPct: 20,
+    factoryProductionSpeedBonusPct: 10,
+    armoryProductionSpeedBonusPct: 10
+  })
+});
+export const RECYCLING_CENTER_CONFIG = Object.freeze({
+  countOnMap: 14,
+  cleanCashPerMinute: 40,
+  heatPerMinute: 0.08,
+  baseSalvageRatePct: 12,
+  salvageRatePctPerExtraCenter: 3,
+  maxSalvageRatePct: 34,
+  salvagePoolTtlMs: 18 * 60 * 1000,
+  incomeBonusPctPerExtraCenter: 4,
+  heatBonusPctPerExtraCenter: 3,
+  maxIncomeMultiplier: 1.28,
+  maxHeatMultiplier: 1.21,
+  extractLosses: Object.freeze({
+    cleanCost: 900,
+    heatGain: 2,
+    cooldownMs: 16 * 60 * 1000
+  })
 });
 export const CLINIC_BASE_RECOVERY_RATE_PCT = 15;
 export const CLINIC_RECOVERY_RATE_PCT_PER_EXTRA = 3;

@@ -114,13 +114,13 @@ export const createSupportBuildingStats = (input: BuildingStatsProjectionInput):
     return [
       { label: "Clean / min", value: `$${formatNumber(recyclingCenterConfig.cleanCashPerMinute * network.incomeMultiplier)}` },
       { label: "Heat / min", value: formatNumber(recyclingCenterConfig.heatPerMinute * network.heatMultiplier) },
-      { label: "Owned centers", value: `${ownedCount}/${recyclingCenterConfig.countOnMap}` },
-      { label: "Income multiplier", value: `x${formatNumber(network.incomeMultiplier)}` },
-      { label: "Salvage rate", value: `${formatNumber(salvageStats.salvageRatePct)} %` },
-      { label: "Material salvage pool", value: `${formatNumber(poolTotal)} materials` },
-      { label: "Next expiry", value: nextExpiry === null ? "none" : formatTickLabel(nextExpiry) },
-      { label: "Action cost", value: `$${formatNumber(recyclingCenterConfig.extractLosses.cleanCashCost)}` },
-      { label: "Recovery scope", value: "lost materials only" }
+      { label: "Vlastněná centra", value: `${ownedCount}/${recyclingCenterConfig.countOnMap}` },
+      { label: "Síťový income", value: `+${formatNumber((network.incomeMultiplier - 1) * 100)} %` },
+      { label: "Návrat itemů", value: `${formatNumber(salvageStats.salvageRatePct)} %` },
+      { label: "Ztráty k vytěžení", value: `${formatNumber(poolTotal)} itemů` },
+      { label: "Nejbližší expirace", value: nextExpiry === null ? "žádná" : formatTickLabel(nextExpiry) },
+      { label: "Cena akce", value: `$${formatNumber(recyclingCenterConfig.extractLosses.cleanCashCost)} clean` },
+      { label: "Rozsah", value: "jen ztracené itemy" }
     ];
   }
   return null;

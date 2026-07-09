@@ -147,6 +147,16 @@ describe("runtime main UI flow smoke guard", () => {
     }
   });
 
+  it("keeps the Buildings card closed on every game.html refresh", () => {
+    for (const sourcePath of ["page-assets/js/app/runtime.js", "client/page-assets/js/app/runtime.js"]) {
+      const source = read(sourcePath);
+
+      expect(source).toContain("const shouldAutoOpenBuildingsPopupOnRefresh = () => {\n    return false;\n  };");
+      expect(source).not.toContain('const requested = params.get("openBuildings") || params.get("buildingsPopup") || "";');
+      expect(source).not.toContain('return !resolveDevBuildingCardAutoOpenKey();');
+    }
+  });
+
   it("keeps foreign discovered district buildings from opening details", () => {
     const runtimeSource = read("page-assets/js/app/runtime.js");
     const clientRuntimeSource = read("client/page-assets/js/app/runtime.js");

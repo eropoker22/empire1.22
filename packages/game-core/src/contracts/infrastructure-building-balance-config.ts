@@ -39,7 +39,7 @@ export interface PowerStationBalanceConfig {
   countOnMap: number;
   category: string[];
   cleanCashPerMinute: number;
-  dirtyCashPerMinute: 0;
+  dirtyCashPerMinute: number;
   influencePerMinute: 0;
   heatPerMinute: number;
   noPowerCapacity: true;

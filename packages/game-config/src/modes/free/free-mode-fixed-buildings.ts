@@ -88,7 +88,7 @@ export const freeModeFixedBuildings: NonNullable<ResolvedGameModeConfig["balance
   },
   power_station: {
     cleanPerHour: freeModePowerStationConfig.cleanCashPerMinute * 60,
-    dirtyPerHour: 0,
+    dirtyPerHour: freeModePowerStationConfig.dirtyCashPerMinute * 60,
     heatPerDay: 115.2,
     influencePerDay: 0,
     maxLevel: 1

@@ -360,7 +360,7 @@ describe("building special action registry", () => {
       buildingName: "Energetická stanice",
       actionLabel: "Snížit heat",
       actionIndex: 2,
-      actionProfile: { cooldownMs: 60 * 60 * 1000, heat: -2, summary: "Heat byl snížený." }
+      actionProfile: { cooldownMs: 60 * 60 * 1000, heat: -20, summary: "Heat byl snížený." }
     });
 
     expect(definition.actionId).toBe("power_station_reduce_heat");
@@ -368,7 +368,7 @@ describe("building special action registry", () => {
     expect(definition.handlerId).toBe("server-run-building-action");
     expect(definition.disabledReason).toBe("");
     expect(definition.rewardSummary).toBe("Efekt podle akce");
-    expect(definition.riskSummary).toBe("Heat -2");
+    expect(definition.riskSummary).toBe("Heat -20");
     expect(definition.confirmTitle).toBe("Snížit heat");
   });
 

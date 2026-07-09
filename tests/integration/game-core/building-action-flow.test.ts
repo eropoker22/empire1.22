@@ -3065,7 +3065,7 @@ describe("run-building-action command flow", () => {
     });
   });
 
-  it("runs Power Station as clean-only infrastructure support with no energy resource", () => {
+  it("runs Power Station as infrastructure support with no energy resource", () => {
     const { state, building } = createStateWithFixedBuilding("power_station", {
       playerBalances: {
         cash: 0,
@@ -3092,7 +3092,7 @@ describe("run-building-action command flow", () => {
     const balances = result.resourceStatesById["resource:1"].balances;
 
     expect(balances.cash).toBeGreaterThan(0);
-    expect(balances["dirty-cash"]).toBe(0);
+    expect(balances["dirty-cash"]).toBeGreaterThan(0);
     expect(balances.influence).toBe(0);
     expect(balances.energy).toBe(0);
     expect(balances["power-capacity"]).toBe(0);
@@ -3138,7 +3138,7 @@ describe("run-building-action command flow", () => {
     const report = createConflictReportViews(first.nextState, { playerId: "player:1", limit: 1 })[0];
 
     expect(first.errors).toEqual([]);
-    expect(first.nextState.resourceStatesById["resource:1"].balances.cash).toBe(3800);
+    expect(first.nextState.resourceStatesById["resource:1"].balances.cash).toBe(1500);
     expectMafianHeat(first.nextState.districtsById["district:1"].heat, 3);
     expect(first.nextState.districtsById["district:1"].influence).toBe(0);
     expect(first.nextState.buildingsById[building.id].metadata?.powerStation).toMatchObject({
@@ -3200,22 +3200,16 @@ describe("run-building-action command flow", () => {
     );
 
     expect(boost.errors).toEqual([]);
-    expectMafianHeat(boost.nextState.districtsById["district:1"].heat, 2);
+    expect(boost.nextState.resourceStatesById["resource:1"].balances.cash).toBe(2000);
+    expect(boost.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(500);
+    expectMafianHeat(boost.nextState.districtsById["district:1"].heat, 10);
     expect(boost.nextState.buildingsById[building.id].actionCooldowns.power_station_feed_production).toBe(
       cooldownTicksForMs(60 * 60 * 1000)
     );
-    expect(effectState.effects).toEqual([
-      expect.objectContaining({
-        stackPolicyKey: "power_station_feed_production",
-        payload: expect.objectContaining({
-          actionId: "power_station_feed_production",
-          cleanIncomeMultiplier: 1.18
-        })
-      })
-    ]);
+    expect(effectState).toBeUndefined();
 
     expect(reduced.errors).toEqual([]);
-    expect(reduced.nextState.districtsById["district:1"].heat).toBe(5);
+    expect(reduced.nextState.districtsById["district:1"].heat).toBe(0);
     expect(reduced.nextState.buildingsById[building.id].actionCooldowns.power_station_reduce_heat).toBe(
       cooldownTicksForMs(60 * 60 * 1000)
     );
@@ -3254,6 +3248,6 @@ describe("run-building-action command flow", () => {
 
     const productionState = completeProduction(state, context);
 
-    expect(productionState.resourceStatesById[`resource:${building.id}`].balances["metal-parts"]).toBe(5);
+    expect(productionState.resourceStatesById[`resource:${building.id}`].balances["metal-parts"]).toBe(6);
   });
 });

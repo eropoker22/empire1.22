@@ -12,6 +12,8 @@ import {
   EXCHANGE_OFFICE_NETWORK_CONFIG,
   FITNESS_CLUB_SUPPORT_CONFIG,
   GARAGE_SUPPORT_CONFIG,
+  POWER_STATION_CONFIG,
+  RECYCLING_CENTER_CONFIG,
   RECRUITMENT_CENTER_SUPPORT_CONFIG,
   RESTAURANT_NETWORK_CONFIG,
   SCHOOL_CONFIG,
@@ -772,6 +774,26 @@ function createConcreteNetworkEffectItem(mechanics = {}) {
           ["Heat", mechanics.smugglingTunnelNetwork?.heatMultiplier || mechanics.smugglingTunnelNetwork?.passiveHeatMultiplier]
         ]
       });
+    case "power-plant":
+      return createNetworkEffectSummary({
+        mechanics,
+        ownedKeys: ["ownedPowerStations"],
+        prefix: "Síť energetických stanic",
+        metrics: [
+          ["Income", mechanics.powerStationNetwork?.incomeMultiplier],
+          ["Heat", mechanics.powerStationNetwork?.heatMultiplier]
+        ]
+      });
+    case "recycling-center":
+      return createNetworkEffectSummary({
+        mechanics,
+        ownedKeys: ["ownedRecyclingCenters"],
+        prefix: "Síť recyklačních center",
+        metrics: [
+          ["Income", mechanics.recyclingCenterNetwork?.incomeMultiplier],
+          ["Heat", mechanics.recyclingCenterNetwork?.heatMultiplier]
+        ]
+      });
     case "recruitment-center":
       return createNetworkEffectSummary({
         mechanics,
@@ -875,6 +897,34 @@ function createEffectItemsWithOwnedCount(effectsLabel = "", mechanics = {}, opti
       tone: "cooldown"
     });
   }
+  if (mechanics.mechanicsType === "power-plant") {
+    const network = mechanics.powerStationNetwork || {};
+    if (Number(network.cameraStrengthBonusPct || 0) > 0 || Number(network.alarmStrengthBonusPct || 0) > 0) {
+      items.push({
+        text: `Obrana districtů: kamery +${Math.max(0, Math.round(Number(network.cameraStrengthBonusPct || 0)))} %, alarm +${Math.max(0, Math.round(Number(network.alarmStrengthBonusPct || 0)))} %.`,
+        tone: "defense"
+      });
+    }
+    if (mechanics.powerStationBackupActive) {
+      const remainingMs = Math.max(0, Number(mechanics.powerStationBackupRemainingMs || 0));
+      const remainingLabel = remainingMs > 0
+        ? ` · zbývá ${formatDistrictBuildingCooldown(remainingMs)}`
+        : "";
+      items.push({
+        text: `Záložní síť běží: infrastruktura +${POWER_STATION_CONFIG.backupGridSwitch.temporaryInfrastructureBonusPct} %, kamery +${POWER_STATION_CONFIG.backupGridSwitch.cameraStrengthBonusPct} %, alarm +${POWER_STATION_CONFIG.backupGridSwitch.alarmStrengthBonusPct} %${remainingLabel}`,
+        tone: "defense"
+      });
+    }
+  }
+  if (mechanics.mechanicsType === "recycling-center") {
+    const salvagePool = getRecyclingSalvagePoolView(mechanics.recyclingSalvagePool || mechanics.clinicRecoveryPool);
+    if (salvagePool.totalFreshAmount > 0) {
+      items.push({
+        text: `K vytěžení: ${salvagePool.totalFreshAmount} itemových ztrát. Akce vrací ${Math.max(0, Math.round(Number(mechanics.recyclingSalvageRatePct || 0)))} %.`,
+        tone: "network"
+      });
+    }
+  }
   if (mechanics.mechanicsType === "recruitment-center") {
     const support = mechanics.recruitmentCenterSupport || {};
     return finalizeEffectItems([
@@ -932,7 +982,7 @@ const FOCUSED_BUILDING_DETAIL_BADGES = Object.freeze({
   casino: "High-risk praní",
   warehouse: "Skladiště zásob",
   "power-plant": "Infrastruktura",
-  "recycling-center": "Salvage",
+  "recycling-center": "Vytěžení ztrát",
   "street-dealers": "Distribuce",
   "convenience-store": "Pouliční provoz",
   "smuggling-tunnel": "Pašování",
@@ -1160,21 +1210,25 @@ export function createBuildingDetailStatRows({
       statRows.push(createStat("Síť", networkParts.join(" · ")));
     }
   } else if (mechanics.mechanicsType === "power-plant" || buildingKey === "energeticka stanice") {
+    const network = mechanics.powerStationNetwork || {};
     statRows.splice(0, statRows.length,
-      createStat("Čisté / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
-      createStat("Dirty / min", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly / 60)}`),
-      createStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
-      createStat("Vliv / den", `+${mechanics.dailyInfluence}`),
-      createStat("Akce", "síť / výroba / výpadky"),
-      createStat("Upgrade", mechanics.nextLevel ? `${mechanics.upgradeCostLabel} -> L${mechanics.nextLevel}` : "Max level")
+      createStat("Čisté / hod", `+${formatDistrictBuildingMoney(mechanics.cleanHourly)}`),
+      createStat("Špinavé / hod", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly)}`),
+      createStat("Heat / den", `+${formatCompactNumber(mechanics.dailyHeat)}`),
+      createStat("Stanice", `${mechanics.ownedPowerStations || resolveOwnedBuildingCount(mechanics) || 0}/${POWER_STATION_CONFIG.countOnMap}`),
+      createStat("Infrastruktura", `+${formatCompactNumber(network.infrastructureBonusPct || 0)} %`),
+      createStat("Obrana", `kamery +${formatCompactNumber(network.cameraStrengthBonusPct || 0)} % · alarm +${formatCompactNumber(network.alarmStrengthBonusPct || 0)} %`),
+      createStat("Záložní síť", mechanics.powerStationBackupActive ? formatDistrictBuildingCooldown(mechanics.powerStationBackupRemainingMs) : "Neaktivní")
     );
   } else if (mechanics.mechanicsType === "recycling-center" || buildingKey === "recyklacni centrum") {
+    const salvagePool = getRecyclingSalvagePoolView(mechanics.recyclingSalvagePool || mechanics.clinicRecoveryPool);
     statRows.splice(0, statRows.length,
-      createStat("Čisté / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
-      createStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
-      createStat("Vliv / den", `+${mechanics.dailyInfluence}`),
-      createStat("Akce", "itemové ztráty"),
-      createStat("Upgrade", mechanics.nextLevel ? `${mechanics.upgradeCostLabel} -> L${mechanics.nextLevel}` : "Max level")
+      createStat("Čisté / hod", `+${formatDistrictBuildingMoney(mechanics.cleanHourly)}`),
+      createStat("Heat / den", `+${formatCompactNumber(mechanics.dailyHeat)}`),
+      createStat("Centra", `${mechanics.ownedRecyclingCenters || resolveOwnedBuildingCount(mechanics) || 0}/${RECYCLING_CENTER_CONFIG.countOnMap}`),
+      createStat("Návrat itemů", `${formatCompactNumber(mechanics.recyclingSalvageRatePct || 0)} %`),
+      createStat("Ztráty k vytěžení", `${salvagePool.totalFreshAmount || 0}`),
+      createStat("Okno ztrát", formatDistrictBuildingCooldown(RECYCLING_CENTER_CONFIG.salvagePoolTtlMs))
     );
   } else if (mechanics.mechanicsType === "street-dealers" || buildingKey === "poulicni dealeri") {
     statRows.splice(0, statRows.length,
@@ -1321,16 +1375,21 @@ export function createBuildingDetailMechanicRows({
       createMechanic("Riziko kontroly", `${mechanics.exchangeAuditRisk} audit risk · heat sítě ${formatMultiplierIncreasePercent(mechanics.exchangeNetwork.heatMultiplier)}`)
     );
   } else if (mechanics.mechanicsType === "power-plant" || buildingKey === "energeticka stanice") {
+    const network = mechanics.powerStationNetwork || {};
     mechanicRows.push(
-      createMechanic("Stabilizovat síť", "dočasně zvedne income districtu"),
-      createMechanic("Napájet výrobu", "posílí čistý výrobní výkon"),
-      createMechanic("Snížit heat", "okamžitě sníží heat")
+      createMechanic("Infrastruktura", `Pasivně posiluje výrobu, sklady, kliniky a vybrané cash budovy o +${formatCompactNumber(network.infrastructureBonusPct || 0)} %.`),
+      createMechanic("Záložní síť", `Za ${formatDistrictBuildingMoney(POWER_STATION_CONFIG.backupGridSwitch.cleanCost)} clean dočasně posílí infrastrukturu a obranu.`),
+      createMechanic("Napájet výrobu", "Okamžitě přidá $2000 clean a $500 dirty. Heat +10."),
+      createMechanic("Snížit heat", "Okamžitě stáhne heat districtu o 20.")
     );
   } else if (mechanics.mechanicsType === "recycling-center" || buildingKey === "recyklacni centrum") {
+    const salvagePool = getRecyclingSalvagePoolView(mechanics.recyclingSalvagePool || mechanics.clinicRecoveryPool);
+    const network = mechanics.recyclingCenterNetwork || {};
     mechanicRows.push(
-      createMechanic("Vytěžit ztráty", "vrací část itemových ztrát"),
-      createMechanic("Materiály", "železo, zbraně, moduly a obranné vybavení podle ztrát"),
-      createMechanic("Riziko", "akce stojí clean cash a přidá heat")
+      createMechanic("Vytěžit ztráty", `Vrátí ${formatCompactNumber(mechanics.recyclingSalvageRatePct || 0)} % čerstvých itemových ztrát.`),
+      createMechanic("Ztráty", salvagePool.totalFreshAmount > 0 ? `${salvagePool.totalFreshAmount} itemů čeká na vytěžení.` : "Čeká na ztráty materiálu, modulů nebo výbavy."),
+      createMechanic("Síť center", `Více center zvedá clean ${formatMultiplierIncreasePercent(network.incomeMultiplier)} a heat ${formatMultiplierIncreasePercent(network.heatMultiplier)}.`),
+      createMechanic("Riziko", `Akce stojí ${formatDistrictBuildingMoney(RECYCLING_CENTER_CONFIG.extractLosses.cleanCost)} clean a přidá heat +${RECYCLING_CENTER_CONFIG.extractLosses.heatGain}.`)
     );
   } else if (mechanics.mechanicsType === "street-dealers" || buildingKey === "poulicni dealeri") {
     mechanicRows.push(
@@ -1444,6 +1503,7 @@ export function createBuildingDetailActionRows({
       || (actionProfile?.casinoBribedInspector && Number(economyState.cleanMoney || 0) < Number(actionProfile.cleanCost || 0))
       || (actionProfile?.schoolEveningCourse && Number(economyState.cleanMoney || 0) < Number(actionProfile.cleanCost || 0))
       || (actionProfile?.clinicStabilizationProtocol && Number(economyState.cleanMoney || 0) < Number(actionProfile.cleanCost || 0))
+      || (actionProfile?.recyclingExtractLosses && Number(economyState.cleanMoney || 0) < Number(actionProfile.cleanCost || 0))
     );
     const hasMissingDirtyCash = (
       (actionProfile?.dirtyCost && Number(economyState.dirtyMoney || 0) < Number(actionProfile.dirtyCost || 0))
@@ -1491,6 +1551,8 @@ export function createBuildingDetailActionRows({
         ? `Večerní kurz běží. Zbývá ${formatDistrictBuildingCooldown(mechanics.schoolEveningCourseRemainingMs)}.`
       : actionProfile?.clinicStabilizationProtocol && Number(economyState.cleanMoney || 0) < Number(actionProfile.cleanCost || 0)
         ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.cleanCost)} clean cash.`
+      : actionProfile?.recyclingExtractLosses && Number(economyState.cleanMoney || 0) < Number(actionProfile.cleanCost || 0)
+        ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.cleanCost)} clean cash.`
       : actionProfile?.clinicStabilizationProtocol && (!clinicStabilizationPreview || clinicStabilizationPreview.recoverableAmount <= 0)
         ? "Žádné ztráty k léčbě."
       : actionProfile?.recyclingExtractLosses && (!recyclingSalvagePool || recyclingSalvagePool.fresh.length <= 0)
@@ -1531,7 +1593,7 @@ export function createBuildingDetailActionRows({
       confirmBody: actionDefinition.confirmBody,
       costSummary: actionDefinition.costSummary,
       inputSummary: actionDefinition.inputSummary,
-      buttonCostLabel: mechanics.mechanicsType === "casino" || mechanics.mechanicsType === "smuggling-tunnel" ? actionDefinition.costSummary : "",
+      buttonCostLabel: ["casino", "smuggling-tunnel", "recycling-center", "power-plant"].includes(mechanics.mechanicsType) ? actionDefinition.costSummary : "",
       phaseLockLabel,
       phaseLockTone: phaseLockRule ? String(phaseLockRule.allowedPhase || "") : "",
       rewardSummary,

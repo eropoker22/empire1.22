@@ -92,19 +92,16 @@ const ONBOARDING_STEPS_DATA = Object.freeze([
       Object.freeze({ text: "populaci", tone: "green" }),
       Object.freeze({ text: "Heat", tone: "red" })
     ]),
-    targetSelector: "#profile-gang-card [data-gang-stars], #profile-gang-card .profile-row--members, #profile-gang-card .profile-row--wanted, #profile-gang-card .profile-row--faction, #profile-gang-card .profile-row--districts, #profile-gang-card .profile-row--alliance",
+    targetSelector: "#profile-gang-card [data-gang-stars], #profile-gang-card .gang-profile-row",
     focusSelectors: Object.freeze([
       "#game-gang-panel-mount, [data-mount-role=\"gang-panel\"]",
       "#profile-gang-card",
       "#profile-gang-card [data-gang-stars], #profile-gang-card .gang-profile-stars",
-      "#profile-gang-card .profile-row--members",
-      "#profile-gang-card .profile-row--wanted",
-      "#profile-gang-card .profile-row--faction",
-      "#profile-gang-card .profile-row--districts",
-      "#profile-gang-card .profile-row--alliance"
+      "#profile-gang-card .gang-profile-row"
     ]),
     focusBackdrop: true,
     focusBackdropHoleSelector: "#profile-gang-card",
+    focusBackdropPadding: 8,
     scrollFocusIntoView: true,
     raiseFocusTargets: true,
     showTargetRing: false,

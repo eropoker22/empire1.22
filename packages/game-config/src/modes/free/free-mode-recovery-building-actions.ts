@@ -115,40 +115,37 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     influenceChange: 0,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Záložní síť aktivní. Infrastructure a defense systémy jsou dočasně posílené."
+    reportText: "Záložní síť aktivní. Infrastruktura a obranné systémy jsou dočasně posílené."
   },
   power_station_feed_production: {
     actionId: "power_station_feed_production",
     buildingType: "power_station",
     label: "Napájet výrobu",
-    description: "Na 25 minut dočasně zvýší čistý provoz districtu. Nejde o lokální production reward.",
-    durationMs: 25 * 60 * 1000,
+    description: "Okamžitě přidá menší clean a dirty výnos z přesměrované výroby.",
+    durationMs: 0,
     cooldownMs: 60 * 60 * 1000,
     inputCost: {},
-    outputGain: {},
-    heatGain: 2,
+    outputGain: { cash: 2000, "dirty-cash": 500 },
+    heatGain: 10,
     influenceChange: 0,
-    effectModifiers: {
-      cleanIncomeMultiplier: 1.18
-    },
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Napájení výroby dočasně zvýšilo čistý provoz districtu. Heat +2."
+    reportText: "Napájení výroby přidalo 2000 clean cash a 500 dirty cash. Heat +10."
   },
   power_station_reduce_heat: {
     actionId: "power_station_reduce_heat",
     buildingType: "power_station",
     label: "Snížit heat",
-    description: "Serverově sníží heat districtu o 2 body.",
+    description: "Serverově sníží heat districtu o 20 bodů.",
     durationMs: 0,
     cooldownMs: 60 * 60 * 1000,
     inputCost: {},
     outputGain: {},
-    heatGain: -2,
+    heatGain: -20,
     influenceChange: 0,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Energetická stanice stabilizovala provoz a snížila heat districtu o 2."
+    reportText: "Energetická stanice stabilizovala provoz a snížila heat districtu o 20."
   },
   start_drug_sale: {
     actionId: "start_drug_sale",

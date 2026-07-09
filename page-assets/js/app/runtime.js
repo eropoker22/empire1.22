@@ -618,6 +618,8 @@ import {
   EXCHANGE_OFFICE_NETWORK_CONFIG,
   FITNESS_CLUB_SUPPORT_CONFIG,
   GARAGE_SUPPORT_CONFIG,
+  POWER_STATION_CONFIG,
+  RECYCLING_CENTER_CONFIG,
   RECRUITMENT_CENTER_SUPPORT_CONFIG,
   RESTAURANT_NETWORK_CONFIG,
   SCHOOL_CONFIG,
@@ -5437,7 +5439,9 @@ const {
   getFitnessClubSupportStats,
   getGarageNetworkMultipliers,
   getGarageSupportStats,
+  getPowerStationNetworkMultipliers,
   getOwnedRecruitmentCenterCount,
+  getRecyclingCenterNetworkMultipliers,
   getRecruitmentCenterNetworkMultipliers,
   getRecruitmentCenterSupportStats,
   getOwnedApartmentBlockCount,
@@ -5447,6 +5451,8 @@ const {
   getOwnedExchangeOfficeCount,
   getOwnedFitnessClubCount,
   getOwnedGarageCount,
+  getOwnedPowerStationCount,
+  getOwnedRecyclingCenterCount,
   getOwnedRestaurantCount,
   getOwnedSchoolCount,
   getOwnedShoppingMallCountForMarket,
@@ -5482,6 +5488,8 @@ const {
   getStoredWeaponInventory,
   getMinimumOwnedBuildingCountByBaseName: getDemoLiveMinimumOwnedBuildingCountByBaseName,
   normalizeBuildingLookupKey,
+  powerStationConfig: POWER_STATION_CONFIG,
+  recyclingCenterConfig: RECYCLING_CENTER_CONFIG,
   recruitmentCenterSupportConfig: RECRUITMENT_CENTER_SUPPORT_CONFIG,
   restaurantNetworkConfig: RESTAURANT_NETWORK_CONFIG,
   resolveDistrictBuildingProfile,
@@ -6636,6 +6644,8 @@ function resolveDistrictBuildingNetworkEffectLabel({
   fitnessClubNetwork = null,
   garageNetwork = null,
   multiplier = 1,
+  powerStationNetwork = null,
+  recyclingCenterNetwork = null,
   restaurantNetwork = null,
   schoolNetwork = null,
   shoppingMallNetwork = null,
@@ -6723,6 +6733,18 @@ function resolveDistrictBuildingNetworkEffectLabel({
       formatNetworkEffectPart("heat", smugglingTunnelNetwork.heatMultiplier || smugglingTunnelNetwork.passiveHeatMultiplier)
     ]);
   }
+  if (powerStationNetwork) {
+    return joinNetworkEffectParts("Síť energetických stanic", [
+      formatNetworkEffectPart("Income", powerStationNetwork.incomeMultiplier),
+      formatNetworkEffectPart("Heat", powerStationNetwork.heatMultiplier)
+    ]);
+  }
+  if (recyclingCenterNetwork) {
+    return joinNetworkEffectParts("Síť recyklačních center", [
+      formatNetworkEffectPart("Income", recyclingCenterNetwork.incomeMultiplier),
+      formatNetworkEffectPart("Heat", recyclingCenterNetwork.heatMultiplier)
+    ]);
+  }
 
   const levelBonus = formatNetworkBonusPercent(multiplier);
   return levelBonus ? `Level bonus ${levelBonus}` : "";
@@ -6742,6 +6764,8 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
   const isRecruitmentCenter = mechanicsType === "recruitment-center";
   const isRestaurant = mechanicsType === "restaurant" || buildingLookupKey === "restaurace";
   const isGarage = mechanicsType === "garage";
+  const isPowerStation = mechanicsType === "power-plant" || buildingLookupKey === "energeticka stanice";
+  const isRecyclingCenter = mechanicsType === "recycling-center" || buildingLookupKey === "recyklacni centrum";
   const income = getDistrictBuildingRule(DISTRICT_BUILDING_MINUTE_INCOME_RULES_EMPIRE2, buildingName, { clean: 0, dirty: 0 });
   const heatRule = getDistrictBuildingRule(DISTRICT_BUILDING_MINUTE_HEAT_RULES_EMPIRE2, buildingName, { heat: 0 });
   const influenceRule = getDistrictBuildingRule(DISTRICT_BUILDING_MINUTE_INFLUENCE_RULES_EMPIRE2, buildingName, { influence: 0 });
@@ -6802,6 +6826,12 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
   const garageSupport = getGarageSupportStats(ownedGarages);
   const ownedSmugglingTunnels = mechanicsType === "smuggling-tunnel" ? getOwnedSmugglingTunnelCount() : 0;
   const smugglingTunnelNetwork = mechanicsType === "smuggling-tunnel" ? getSmugglingTunnelNetworkMultipliers(ownedSmugglingTunnels) : null;
+  const ownedPowerStations = isPowerStation ? getOwnedPowerStationCount() : 0;
+  const powerStationNetwork = isPowerStation ? getPowerStationNetworkMultipliers(ownedPowerStations) : null;
+  const ownedRecyclingCenters = isRecyclingCenter ? getOwnedRecyclingCenterCount() : 0;
+  const recyclingCenterNetwork = isRecyclingCenter ? getRecyclingCenterNetworkMultipliers(ownedRecyclingCenters) : null;
+  const powerStationBackupActive = isPowerStation && Number(entry.backupGridSwitchExpiresAt || 0) > now;
+  const powerStationBackupRemainingMs = Math.max(0, Number(entry.backupGridSwitchExpiresAt || 0) - now);
   const smugglingOpenChannelActive = mechanicsType === "smuggling-tunnel" && Number(entry.openChannelExpiresAt || entry.silentChannelExpiresAt || 0) > now;
   const smugglingTunnelEntryForStreetDealers = mechanicsType === "street-dealers"
     ? getDistrictBuildingDetailEntry(district, "Pašovací tunel")
@@ -6847,6 +6877,10 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     ? schoolNetwork.incomeMultiplier
     : autoSalonNetwork
     ? autoSalonNetwork.cleanIncomeMultiplier
+    : powerStationNetwork
+    ? powerStationNetwork.incomeMultiplier
+    : recyclingCenterNetwork
+    ? recyclingCenterNetwork.incomeMultiplier
     : casinoUpgrade
     ? 1 + (casinoUpgrade.incomeBonusPct / 100)
     : 1 + ((level - 1) * 0.14);
@@ -6948,7 +6982,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
   const smugglingTimeToFullMs = mechanicsType === "smuggling-tunnel" && !smugglingIsFull && smugglingDirtyPerMinute > 0
     ? Math.ceil((smugglingBatchCapacity - smugglingStoredDirtyCash) / smugglingDirtyPerMinute * 60000)
     : 0;
-  const dailyHeat = Math.round(Number(heatRule.heat || 0) * (smugglingTunnelNetwork?.heatMultiplier || smugglingTunnelNetwork?.passiveHeatMultiplier || garageNetwork?.heatMultiplier || fitnessClubNetwork?.heatMultiplier || recruitmentCenterNetwork?.heatMultiplier || restaurantNetwork?.heatMultiplier || autoSalonNetwork?.heatMultiplier || clinicNetwork?.heatMultiplier || warehouseNetwork?.heatMultiplier || arcadeNetwork?.heatMultiplier || exchangeNetwork?.heatMultiplier || 1) * 1440 * 10) / 10;
+  const dailyHeat = Math.round(Number(heatRule.heat || 0) * (smugglingTunnelNetwork?.heatMultiplier || smugglingTunnelNetwork?.passiveHeatMultiplier || powerStationNetwork?.heatMultiplier || recyclingCenterNetwork?.heatMultiplier || garageNetwork?.heatMultiplier || fitnessClubNetwork?.heatMultiplier || recruitmentCenterNetwork?.heatMultiplier || restaurantNetwork?.heatMultiplier || autoSalonNetwork?.heatMultiplier || clinicNetwork?.heatMultiplier || warehouseNetwork?.heatMultiplier || arcadeNetwork?.heatMultiplier || exchangeNetwork?.heatMultiplier || 1) * 1440 * 10) / 10;
   const dailyInfluence = Math.round(Number(influenceRule.influence || 0) * (restaurantNetwork?.influenceMultiplier || 1) * 1440 * 10) / 10;
   const activeEffectsForLabel = [
     ...(entry.activeEffects || []),
@@ -6979,6 +7013,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     apartmentIsFull ? "Plná kapacita · Bytový blok je plný. Obyvatelé čekají na vybrání." : "",
     schoolIsFull ? "Plná kapacita · Škola má naplněnou lokální populační kapacitu." : "",
     mechanicsType === "smuggling-tunnel" && smugglingOpenChannelActive ? `Otevřený kanál aktivní ${formatDistrictBuildingCooldown(Number(entry.openChannelExpiresAt || entry.silentChannelExpiresAt || 0) - now)}` : "",
+    isPowerStation && powerStationBackupActive ? `Záložní síť aktivní ${formatDistrictBuildingCooldown(powerStationBackupRemainingMs)}` : "",
     ...warehouseWarnings,
     dailyHeat > 0 ? `Heat +${dailyHeat}/den` : "",
     dailyInfluence > 0 ? `Vliv +${dailyInfluence}/den` : "",
@@ -6997,6 +7032,8 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
       schoolNetwork,
       shoppingMallNetwork,
       smugglingTunnelNetwork,
+      powerStationNetwork,
+      recyclingCenterNetwork,
       warehouseNetwork
     })
   ].filter(Boolean).join(" · ");
@@ -7075,6 +7112,13 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     garageSupport,
     ownedSmugglingTunnels,
     smugglingTunnelNetwork,
+    ownedPowerStations,
+    powerStationNetwork,
+    powerStationBackupActive,
+    powerStationBackupRemainingMs,
+    ownedRecyclingCenters,
+    recyclingCenterNetwork,
+    recyclingSalvageRatePct: recyclingCenterNetwork?.salvageRatePct || 0,
     smugglingBatchCapacity,
     smugglingStoredDirtyCash,
     smugglingWholeDirtyCash,
@@ -8010,7 +8054,7 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
     }
 
     if (Object.keys(acceptedByType).length <= 0) {
-      setBuildingActionFeedback(root, "warning", action, "Salvage pool je příliš malý na vytěžení použitelných itemů.", context.buildingName);
+      setBuildingActionFeedback(root, "warning", action, "Ztráty jsou zatím příliš malé na vytěžení použitelných itemů.", context.buildingName);
       return null;
     }
 
@@ -9692,16 +9736,7 @@ function bindDistrictCanvas(root) {
     }
   });
   const shouldAutoOpenBuildingsPopupOnRefresh = () => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-    const params = new URLSearchParams(window.location?.search || "");
-    const disabled = params.get("openBuildings") || params.get("buildingsPopup") || "";
-    const normalizedDisabled = String(disabled || "").trim().toLowerCase();
-    if (normalizedDisabled === "0" || normalizedDisabled === "false" || normalizedDisabled === "off") {
-      return false;
-    }
-    return !resolveDevBuildingCardAutoOpenKey();
+    return false;
   };
   const scheduleBuildingsPopupOpenOnRefresh = (attempt = 0) => {
     if (!shouldAutoOpenBuildingsPopupOnRefresh()) {

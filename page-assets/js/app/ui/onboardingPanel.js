@@ -226,6 +226,26 @@ function resolveTargetElement(ownerDocument, root, selector = "") {
   }
 }
 
+function resolveTargetElements(ownerDocument, root, selector = "") {
+  const safeSelector = String(selector || "").trim();
+  if (!safeSelector) {
+    return [];
+  }
+  const targets = [];
+  for (const scope of [root, ownerDocument]) {
+    try {
+      for (const target of scope?.querySelectorAll?.(safeSelector) || []) {
+        if (target && !targets.includes(target)) {
+          targets.push(target);
+        }
+      }
+    } catch {
+      // UI-only helper: an invalid optional selector must not break onboarding.
+    }
+  }
+  return targets;
+}
+
 function resolveFocusTargets(ownerDocument, root, step = {}, primaryTarget = null) {
   const selectors = asArray(step.focusSelectors).map((selector) => String(selector || "").trim()).filter(Boolean);
   const targets = [];
@@ -233,9 +253,10 @@ function resolveFocusTargets(ownerDocument, root, step = {}, primaryTarget = nul
     targets.push(primaryTarget);
   }
   for (const selector of selectors) {
-    const target = resolveTargetElement(ownerDocument, root, selector);
-    if (target && !targets.includes(target)) {
-      targets.push(target);
+    for (const target of resolveTargetElements(ownerDocument, root, selector)) {
+      if (target && !targets.includes(target)) {
+        targets.push(target);
+      }
     }
   }
   return targets;

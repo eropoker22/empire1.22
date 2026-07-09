@@ -336,6 +336,32 @@ export function createBuildingNetworkRuntime(deps = {}) {
     return Math.min(deps.clinicMaxRecoveryRatePct, deps.clinicBaseRecoveryRatePct + extra * deps.clinicRecoveryRatePctPerExtra);
   };
 
+  const getOwnedPowerStationCount = () => countOwnedBuildingByBaseName("energeticka stanice");
+  const getPowerStationNetworkMultipliers = (count = getOwnedPowerStationCount()) => {
+    const safeCount = Math.max(0, Math.floor(Number(count || 0)));
+    const extra = Math.max(0, safeCount - 1);
+    const config = deps.powerStationConfig;
+    return {
+      infrastructureBonusPct: Math.min(config.maxInfrastructureBonusPct, safeCount * config.infrastructureBonusPctPerStation),
+      incomeMultiplier: Math.min(config.maxIncomeMultiplier, 1 + extra * config.incomeBonusPctPerExtraStation / 100),
+      heatMultiplier: Math.min(config.maxHeatMultiplier, 1 + extra * config.heatBonusPctPerExtraStation / 100),
+      cameraStrengthBonusPct: Math.min(config.maxCameraStrengthBonusPct, safeCount * config.cameraStrengthBonusPctPerStation),
+      alarmStrengthBonusPct: Math.min(config.maxAlarmStrengthBonusPct, safeCount * config.alarmStrengthBonusPctPerStation)
+    };
+  };
+
+  const getOwnedRecyclingCenterCount = () => countOwnedBuildingByBaseName("recyklacni centrum");
+  const getRecyclingCenterNetworkMultipliers = (count = getOwnedRecyclingCenterCount()) => {
+    const safeCount = Math.max(0, Math.floor(Number(count || 0)));
+    const extra = Math.max(0, safeCount - 1);
+    const config = deps.recyclingCenterConfig;
+    return {
+      incomeMultiplier: Math.min(config.maxIncomeMultiplier, 1 + extra * config.incomeBonusPctPerExtraCenter / 100),
+      heatMultiplier: Math.min(config.maxHeatMultiplier, 1 + extra * config.heatBonusPctPerExtraCenter / 100),
+      salvageRatePct: Math.min(config.maxSalvageRatePct, config.baseSalvageRatePct + extra * config.salvageRatePctPerExtraCenter)
+    };
+  };
+
   return {
     getApartmentBlockNetworkMultipliers,
     getArcadeNetworkMultipliers,
@@ -355,12 +381,16 @@ export function createBuildingNetworkRuntime(deps = {}) {
     getOwnedExchangeOfficeCount,
     getOwnedFitnessClubCount,
     getOwnedGarageCount,
+    getOwnedPowerStationCount,
     getOwnedRecruitmentCenterCount,
+    getOwnedRecyclingCenterCount,
     getOwnedRestaurantCount,
     getOwnedSchoolCount,
     getOwnedShoppingMallCountForMarket,
     getOwnedSmugglingTunnelCount,
     getOwnedWarehouseCount,
+    getPowerStationNetworkMultipliers,
+    getRecyclingCenterNetworkMultipliers,
     getRecruitmentCenterNetworkMultipliers,
     getRecruitmentCenterSupportStats,
     getRestaurantNetworkMultipliers,

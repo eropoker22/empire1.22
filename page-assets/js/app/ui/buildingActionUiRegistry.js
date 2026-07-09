@@ -45,7 +45,7 @@ const ACTION_UI_BY_ID = Object.freeze({
   "napajet vyrobu": Object.freeze({ label: "Napájet výrobu", icon: "PWR", category: "production", badge: "Výroba" }),
   "snizit heat": Object.freeze({ label: "Snížit heat", icon: "HEAT", category: "heat", badge: "Heat" }),
   "snizit vypadky": Object.freeze({ label: "Snížit heat", icon: "HEAT", category: "heat", badge: "Heat" }),
-  "vytezit ztraty": Object.freeze({ label: "Vytěžit ztráty", icon: "REC", category: "salvage", badge: "Salvage" }),
+  "vytezit ztraty": Object.freeze({ label: "Vytěžit ztráty", icon: "REC", category: "salvage", badge: "Ztráty" }),
   "vyrobit stim pack": Object.freeze({ label: "Vyrobit stim pack", icon: "MED", category: "production", badge: "Lékárna" }),
   "black market med kit": Object.freeze({ label: "Black market med kit", icon: "MED", category: "black-market", badge: "Market" }),
   "medical cover": Object.freeze({ label: "Medical cover", icon: "HEAT", category: "heat", badge: "Krytí" }),

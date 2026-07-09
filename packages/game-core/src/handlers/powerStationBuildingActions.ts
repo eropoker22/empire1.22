@@ -174,7 +174,7 @@ export const applyPowerStationIncomeModifiers = (input: {
     );
     return {
       cleanPerHour: input.cleanPerHour * network.incomeMultiplier,
-      dirtyPerHour: 0,
+      dirtyPerHour: input.dirtyPerHour * network.incomeMultiplier,
       heatPerDay: input.heatPerDay * network.heatMultiplier,
       influencePerDay: 0,
       maxLevel: 1
@@ -223,7 +223,7 @@ export const resolvePowerStationAction = (input: {
     influenceChange: 0,
     inputCost: { cash: config.backupGridSwitch.cleanCashCost },
     outputGain: {},
-    reportText: `Záložní síť aktivní ${config.backupGridSwitch.durationMinutes} minut. Infrastructure +${config.backupGridSwitch.temporaryInfrastructureBonusPct} %, kamery +${config.backupGridSwitch.cameraStrengthBonusPct} %, alarm +${config.backupGridSwitch.alarmStrengthBonusPct} %.`,
+    reportText: `Záložní síť aktivní ${config.backupGridSwitch.durationMinutes} minut. Infrastruktura +${config.backupGridSwitch.temporaryInfrastructureBonusPct} %, kamery +${config.backupGridSwitch.cameraStrengthBonusPct} %, alarm +${config.backupGridSwitch.alarmStrengthBonusPct} %.`,
     powerStationResult: {
       type: "infrastructure_defense_boost",
       activeUntilTick: metadata.backupGridSwitchExpiresAtTick,
