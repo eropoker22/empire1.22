@@ -134,9 +134,9 @@ function initBoostRuntime() {
   const open = () => {
     render();
     setTab("actions");
-    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     modal.hidden = false;
     modal.classList.remove("hidden");
+    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
   };
 
   const close = () => {

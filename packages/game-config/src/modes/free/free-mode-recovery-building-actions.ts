@@ -19,7 +19,7 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     influenceChange: 0,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Otevřený kanál krátkodobě zvedne tok špinavých peněz, dealer rewardy a street risk."
+    reportText: "Otevřený kanál krátkodobě zvedne tok špinavých peněz v tunelech. Pouliční dealeři prodávají výhodněji, ale roste riziko pouličního incidentu."
   },
   extract_losses: {
     actionId: "extract_losses",
@@ -154,7 +154,7 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     actionId: "start_drug_sale",
     buildingType: "street_dealers",
     label: "Spustit prodej",
-    description: "Použije globální dealer slot k prodeji látky vyrobené v Drug Labu za dirty cash.",
+    description: "Použije globální slot Pouličních dealerů k prodeji látky vyrobené v Drug Labu za dirty cash.",
     durationMs: 0,
     cooldownMs: 0,
     inputCost: {},

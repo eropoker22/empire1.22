@@ -88,7 +88,7 @@ export const resolveStreetDealersAction = (input: {
     influenceChange: 0,
     inputCost: { [drug.itemId]: amount },
     outputGain: {},
-    reportText: `Dealer slot ${slotId} prodává ${amount}x ${drug.label}. Hotovo za ${durationTicks} ticků, street risk ${streetRiskPct} %.`,
+    reportText: `Slot Pouličních dealerů ${slotId} prodává ${amount}x ${drug.label}. Hotovo za ${durationTicks} ticků, pouliční riziko ${streetRiskPct} %.`,
     streetDealerResult: {
       type: "sale_started",
       slotId,

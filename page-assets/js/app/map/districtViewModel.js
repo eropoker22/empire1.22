@@ -198,9 +198,12 @@ export function buildDistrictActionViewModel(district = {}, playerState = {}, op
               id: action.id,
               label: action.label,
               enabled: countdown ? false : action.enabled,
+              stacked: Boolean(action.stacked),
+              subtitle: action.subtitle || "",
+              disabledTone: action.disabledTone || "",
               countdownLabel: countdown?.label || "",
               countdownEndsAt: countdown?.endsAt || null,
-              title: action.reason || "",
+              title: action.title || action.reason || "",
               reason: action.reason ? normalizeReason(action.reason) : ""
             };
           }

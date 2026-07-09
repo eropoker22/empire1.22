@@ -14,6 +14,14 @@ export const PHASE_LOCKED_BUILDING_ACTION_RULES = Object.freeze({
   parliament_policy_window: Object.freeze({
     allowedPhase: "day",
     blockedReason: "Policy Window se otevírá jen přes den."
+  }),
+  restaurant_collect_revenue: Object.freeze({
+    allowedPhase: "day",
+    blockedReason: "Tržby restaurace můžeš vybrat jen přes den."
+  }),
+  good_rate: Object.freeze({
+    allowedPhase: "day",
+    blockedReason: "Výhodný kurz můžeš spustit jen přes den."
   })
 });
 

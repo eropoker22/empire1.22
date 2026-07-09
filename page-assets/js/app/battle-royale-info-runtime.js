@@ -18,9 +18,9 @@ function initBattleRoyaleInfoRuntime() {
   }
 
   const open = () => {
-    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     modal.hidden = false;
     modal.classList.remove("hidden");
+    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     document.body?.classList.add(MODAL_OPEN_CLASS);
   };
 

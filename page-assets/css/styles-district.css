@@ -973,6 +973,26 @@
   color: rgba(255, 243, 173, 0.92);
 }
 
+.district-popup-action[data-district-action-id="spy"][data-district-action-disabled-tone="no-spies"]:disabled {
+  border-color: rgba(148, 163, 184, 0.3);
+  background:
+    linear-gradient(135deg, rgba(71, 85, 105, 0.54), rgba(15, 23, 42, 0.72)),
+    rgba(15, 23, 42, 0.64);
+  color: rgba(226, 232, 240, 0.76);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 18px rgba(2, 6, 23, 0.18);
+  filter: saturate(0.5);
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.district-popup-action[data-district-action-id="spy"][data-district-action-disabled-tone="no-spies"] .district-popup-action__sub {
+  color: #f87171;
+  font-weight: 900;
+  text-shadow: 0 0 8px rgba(248, 113, 113, 0.32);
+}
+
 .district-popup-shell:not([hidden]) .district-popup-owner-card,
 .district-popup-shell:not([hidden]) .district-popup-summary-card,
 .district-popup-shell:not([hidden]) .district-popup-buildings,

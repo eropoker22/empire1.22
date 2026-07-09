@@ -328,4 +328,60 @@ describe("district action panel runtime", () => {
     expect(robberyAvailableMembers.textContent).toBe("6");
     expect(robberyHeatEstimate.textContent).toBe("+7");
   });
+
+  it("uses precomputed cooldown labels in robbery and occupy confirmations", () => {
+    const robberyDuration = textElement();
+    const robberyRuntime = createDistrictActionPanelRuntime({
+      clamp: (value, min, max) => Math.min(Math.max(value, min), max),
+      robberyCooldownMs: 10 * 60 * 1000,
+      getRobberyCooldownView: () => ({
+        effectiveCooldownMs: 9 * 60 * 1000,
+        label: "9m 00s (-1m 00s)"
+      }),
+      elements: {
+        robberySourceSelect: { value: "5", replaceChildren: vi.fn(), append: vi.fn(), disabled: false },
+        robberyMemberInput: input("4"),
+        robberyAvailableMembers: textElement(),
+        robberyStatus: textElement(),
+        robberyConfirmTitle: textElement(),
+        robberyConfirmMembers: textElement(),
+        robberyConfirmDuration: robberyDuration,
+        robberyConfirmFinalButton: textElement(),
+        gangMembersValue: textElement("10")
+      }
+    });
+
+    robberyRuntime.populateRobberyConfirmPopup({ id: 12, districtType: "park" });
+
+    expect(robberyDuration.textContent).toBe("9m 00s (-1m 00s)");
+
+    const occupyDuration = textElement();
+    const occupyNote = textElement();
+    const occupyRuntime = createDistrictActionPanelRuntime({
+      getAdjacentDistrictIdsFromGeometry: () => [1],
+      getCurrentPlayerOwnedDistrictIds: () => new Set([1]),
+      getGeometry: () => ({}),
+      getResolvedSpyIntel: () => ({ occupiableDistrictIds: [12] }),
+      occupyCooldownMs: 12 * 60 * 1000,
+      getOccupyCooldownView: () => ({
+        effectiveCooldownMs: 11 * 60 * 1000,
+        label: "11m 00s (-1m 00s)"
+      }),
+      elements: {
+        occupyConfirmTitle: textElement(),
+        occupyConfirmSource: textElement(),
+        occupyConfirmCondition: textElement(),
+        occupyConfirmCost: textElement(),
+        occupyConfirmDuration: occupyDuration,
+        occupyConfirmNote: occupyNote,
+        occupyConfirmButton: textElement(),
+        gangMembersValue: textElement("100")
+      }
+    });
+
+    occupyRuntime.populateOccupyConfirmPopup({ id: 12, districtType: "park" });
+
+    expect(occupyDuration.textContent).toBe("11m 00s (-1m 00s)");
+    expect(occupyNote.textContent).toContain("11m 00s (-1m 00s)");
+  });
 });

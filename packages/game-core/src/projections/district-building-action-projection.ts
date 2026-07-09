@@ -842,7 +842,7 @@ const resolveStreetDealerDisabledReason = (input: {
   const slotCount = resolveStreetDealerSlotCount(ownedCount, config);
   const metadata = player ? getStreetDealersPlayerMetadata(player) : { slots: [], saleHistory: [] };
   const lockedSlots = metadata.slots.filter((slot) => slot.saleId || Number(slot.cooldownUntilTick || 0) > input.tick).length;
-  if (slotCount <= 0 || lockedSlots >= slotCount) return "No free dealer slot.";
+  if (slotCount <= 0 || lockedSlots >= slotCount) return "Nemáš volný slot Pouličních dealerů.";
   const hasDrugStock = config.sellableDrugs.some((drug) => Number(input.playerBalances[drug.itemId] || 0) > 0);
   return hasDrugStock ? null : "Need a Drug Lab product in storage.";
 };

@@ -114,7 +114,13 @@ export function createBuildingNetworkRuntime(deps = {}) {
       ownedCount,
       mobilityBonusPct: Math.min(config.maxMobilityBonusPct, ownedCount * config.mobilityBonusPctPerDealer),
       cooldownReductionPct: Math.min(config.maxCooldownReductionPct, ownedCount * config.cooldownReductionPctPerDealer),
-      escapeChanceBonusPct: Math.min(config.maxEscapeChanceBonusPct, ownedCount * config.escapeChanceBonusPctPerDealer)
+      maxCooldownReductionPct: config.maxCooldownReductionPct,
+      combinedGarageDealerMaxReductionPct: config.combinedGarageDealerMaxReductionPct,
+      escapeChanceBonusPct: Math.min(config.maxEscapeChanceBonusPct, ownedCount * config.escapeChanceBonusPctPerDealer),
+      fullBonusCategories: [...config.fullBonusCategories],
+      halfBonusCategories: [...config.halfBonusCategories],
+      smallBonusCategories: [...config.smallBonusCategories],
+      excludedCategories: [...config.excludedCategories]
     };
   };
 

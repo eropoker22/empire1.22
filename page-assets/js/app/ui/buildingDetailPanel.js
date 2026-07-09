@@ -96,6 +96,23 @@ function createEffectCell(scopeElement, effect = "", effectIndex = 0) {
   return element;
 }
 
+function isCooldownOnlyActionDescription(value = "") {
+  const normalized = String(value || "").trim();
+  return /^(?:cooldown|zbývá)\b/iu.test(normalized);
+}
+
+function resolveActionButtonInlineDescription(rowView = {}) {
+  const fallback = rowView.buttonCostLabel || rowView.rewardSummary || "";
+  if (!rowView.disabled) {
+    return fallback;
+  }
+  const disabledReason = String(rowView.disabledReason || "").trim();
+  if (String(rowView.cooldownLabel || "").trim() && isCooldownOnlyActionDescription(disabledReason)) {
+    return fallback;
+  }
+  return disabledReason || fallback;
+}
+
 function resolveBuildingDetailBackgroundUrl(scopeElement, imagePath = "") {
   const value = String(imagePath || "").trim();
   if (!value) return "";
@@ -673,8 +690,9 @@ export function renderBuildingActions(buildingViewModel = {}, callbacks = {}, op
     const row = createElement(mount, "button", "building-info-action-row");
     const title = createElement(mount, "strong", "building-info-action-row__title");
     const description = createElement(mount, "span", "building-info-action-row__desc");
+    const phase = createElement(mount, "span", "building-info-action-row__phase");
     const cooldown = createElement(mount, "span", "building-info-action-row__cooldown");
-    if (!row || !title || !description || !cooldown) continue;
+    if (!row || !title || !description || !phase || !cooldown) continue;
     row.type = "button";
     row.dataset.districtBuildingDetailActionIndex = String(rowView.index ?? "");
     row.dataset.districtBuildingDetailActionId = String(rowView.actionId || "");
@@ -692,16 +710,18 @@ export function renderBuildingActions(buildingViewModel = {}, callbacks = {}, op
       row.setAttribute("aria-label", `${rowView.title || "Akce"}: ${rowView.disabledReason}`);
     }
     title.textContent = rowView.title || "";
-    const inlineDescription = rowView.disabled
-      ? rowView.disabledReason || rowView.buttonCostLabel || rowView.rewardSummary
-      : rowView.buttonCostLabel || rowView.rewardSummary;
+    const inlineDescription = resolveActionButtonInlineDescription(rowView);
     description.textContent = inlineDescription || "";
     description.hidden = !inlineDescription;
+    const phaseLabel = String(rowView.phaseLockLabel || "").trim();
+    phase.textContent = phaseLabel;
+    phase.hidden = !phaseLabel;
     const cooldownLabel = String(rowView.cooldownLabel || "").trim();
     cooldown.textContent = cooldownLabel;
     cooldown.hidden = !cooldownLabel;
+    row.dataset.districtBuildingDetailHasPhaseLock = phaseLabel ? "true" : "false";
     row.dataset.districtBuildingDetailHasCooldown = cooldownLabel ? "true" : "false";
-    row.append(title, description, cooldown);
+    row.append(title, description, phase, cooldown);
     mount.append(row);
   }
   return true;

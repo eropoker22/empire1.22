@@ -15,7 +15,6 @@ import {
   RECRUITMENT_CENTER_SUPPORT_CONFIG,
   RESTAURANT_NETWORK_CONFIG,
   SCHOOL_CONFIG,
-  SHOPPING_MALL_NETWORK_CONFIG,
   SMUGGLING_TUNNEL_CONFIG,
   WAREHOUSE_BASE_STORAGE_CAPACITIES,
   WAREHOUSE_NETWORK_CONFIG
@@ -27,11 +26,12 @@ import {
 } from "./formatters.js";
 import {
   formatGarageEffectiveCooldownLabel,
-  resolveGarageCategoryForBuildingAction,
-  resolveGarageEffectiveCooldownMs,
-  resolveGarageCooldownReductionPctForCategory
+  resolveAutoSalonCategoryForBuildingAction,
+  resolveCombinedEffectiveCooldownMs,
+  resolveGarageCategoryForBuildingAction
 } from "./garageCooldownRuntime.js";
 import {
+  getPhaseLockedBuildingActionRule,
   normalizeDayNightPhaseId,
   resolvePhaseLockedBuildingActionDisabledReason
 } from "./dayNightActionPhaseRuntime.js";
@@ -271,7 +271,7 @@ const PASSIVE_DAY_NIGHT_BUILDING_EFFECTS = Object.freeze({
     night: { dirtyIncomePct: 20, cleanIncomePct: 8 }
   },
   "smuggling-tunnel": {
-    day: { heatPct: 12 },
+    day: { dirtyIncomePct: -50, heatPct: 12 },
     night: { dirtyIncomePct: 25 }
   },
   "street-dealers": {
@@ -556,11 +556,37 @@ function formatLevelMultiplierEffect(value = "", mechanicsType = "") {
   return `Level bonus +${bonusPct}%`;
 }
 
-function createEffectItems(effectsLabel = "", mechanicsType = "") {
-  return String(effectsLabel || "")
+function isRawNetworkMetricText(value = "") {
+  const rawNetworkMetric = "(?:clean|dirty|income|výnos|vliv|influence|drby|heat|produkce|kapacita|populace|limit praní)";
+  return new RegExp(`^${rawNetworkMetric}\\s+[+-]\\d+\\s*%$`, "iu").test(String(value || "").trim());
+}
+
+function isRawNetworkPrefixText(value = "") {
+  const rawNetworkMetric = "(?:clean|dirty|income|výnos|vliv|influence|drby|heat|produkce|kapacita|populace|limit praní)";
+  return new RegExp(`^Síť [^:]+:\\s*${rawNetworkMetric}\\s+[+-]\\d+\\s*%`, "iu").test(String(value || "").trim());
+}
+
+function splitEffectLabelItems(effectsLabel = "") {
+  const parts = String(effectsLabel || "")
     .split(" · ")
     .map((item) => item.trim())
-    .filter(Boolean)
+    .filter(Boolean);
+  const items = [];
+  for (let index = 0; index < parts.length; index += 1) {
+    let item = parts[index];
+    if (isRawNetworkPrefixText(item)) {
+      while (index + 1 < parts.length && isRawNetworkMetricText(parts[index + 1])) {
+        index += 1;
+        item = `${item}, ${parts[index]}`;
+      }
+    }
+    items.push(item);
+  }
+  return items;
+}
+
+function createEffectItems(effectsLabel = "", mechanicsType = "") {
+  return splitEffectLabelItems(effectsLabel)
     .map((item) => {
       const text = formatLevelMultiplierEffect(item, mechanicsType);
       return {
@@ -570,12 +596,220 @@ function createEffectItems(effectsLabel = "", mechanicsType = "") {
     });
 }
 
+function resolveOwnedNetworkCount(mechanics = {}, keys = []) {
+  for (const key of keys) {
+    const value = Number(mechanics[key]);
+    if (Number.isFinite(value) && value >= 0) {
+      return Math.floor(value);
+    }
+  }
+  return resolveOwnedBuildingCount(mechanics);
+}
+
+function isActiveNetworkMultiplier(value = 1) {
+  const multiplier = Number(value);
+  return Number.isFinite(multiplier) && Math.round((multiplier - 1) * 100) !== 0;
+}
+
+function joinEffectPhraseParts(parts = []) {
+  const values = parts.filter(Boolean);
+  if (values.length <= 1) {
+    return values[0] || "";
+  }
+  if (values.length === 2) {
+    return `${values[0]} a ${values[1]}`;
+  }
+  return `${values.slice(0, -1).join(", ")} i ${values[values.length - 1]}`;
+}
+
+function createNetworkEffectSummary({ mechanics = {}, ownedKeys = [], prefix = "", metrics = [] } = {}) {
+  const ownedCount = resolveOwnedNetworkCount(mechanics, ownedKeys);
+  if (ownedCount !== null && ownedCount < 2) {
+    return null;
+  }
+
+  const parts = metrics
+    .map(([label, multiplier]) => [label, multiplier])
+    .filter(([, multiplier]) => isActiveNetworkMultiplier(multiplier))
+    .map(([label, multiplier]) => `${label} ${formatMultiplierIncreasePercent(multiplier)}`);
+  if (!parts.length) {
+    return null;
+  }
+
+  return {
+    text: `${prefix} zvyšuje ${joinEffectPhraseParts(parts)}.`,
+    tone: "network"
+  };
+}
+
+function createConcreteNetworkEffectItem(mechanics = {}) {
+  switch (mechanics.mechanicsType) {
+    case "apartment-block":
+      return createNetworkEffectSummary({
+        mechanics,
+        ownedKeys: ["ownedApartmentBlocks"],
+        prefix: "Síť bytových bloků",
+        metrics: [
+          ["produkci", mechanics.apartmentNetwork?.populationProductionMultiplier],
+          ["kapacitu", mechanics.apartmentNetwork?.capacityMultiplier]
+        ]
+      });
+    case "school":
+      return createNetworkEffectSummary({
+        mechanics,
+        ownedKeys: ["ownedSchools"],
+        prefix: "Síť škol",
+        metrics: [
+          ["populaci", mechanics.schoolNetwork?.populationProductionMultiplier],
+          ["kapacitu", mechanics.schoolNetwork?.studentCapacityMultiplier],
+          ["Income", mechanics.schoolNetwork?.incomeMultiplier]
+        ]
+      });
+    case "restaurant":
+      return createNetworkEffectSummary({
+        mechanics,
+        ownedKeys: ["ownedRestaurants", "ownedBuildingCount"],
+        prefix: "Síť restaurací",
+        metrics: [
+          ["Income", mechanics.restaurantNetwork?.incomeMultiplier],
+          ["Vliv", mechanics.restaurantNetwork?.influenceMultiplier],
+          ["Drby", mechanics.restaurantNetwork?.rumorMultiplier],
+          ["Heat", mechanics.restaurantNetwork?.heatMultiplier]
+        ]
+      });
+    case "retail":
+      return createNetworkEffectSummary({
+        mechanics,
+        ownedKeys: ["ownedShoppingMalls"],
+        prefix: "Síť obchodních center",
+        metrics: [
+          ["Income", mechanics.shoppingMallNetwork?.cleanIncomeMultiplier],
+          ["Vliv", mechanics.shoppingMallNetwork?.influenceMultiplier],
+          ["Heat", mechanics.shoppingMallNetwork?.heatMultiplier]
+        ]
+      });
+    case "auto-salon":
+      return createNetworkEffectSummary({
+        mechanics,
+        ownedKeys: ["ownedAutoSalons"],
+        prefix: "Síť autosalonů",
+        metrics: [
+          ["clean", mechanics.autoSalonNetwork?.cleanIncomeMultiplier],
+          ["dirty", mechanics.autoSalonNetwork?.dirtyIncomeMultiplier],
+          ["Heat", mechanics.autoSalonNetwork?.heatMultiplier]
+        ]
+      });
+    case "fitness-club":
+      return createNetworkEffectSummary({
+        mechanics,
+        ownedKeys: ["ownedFitnessClubs"],
+        prefix: "Síť fitness clubů",
+        metrics: [
+          ["Income", mechanics.fitnessClubNetwork?.incomeMultiplier],
+          ["Heat", mechanics.fitnessClubNetwork?.heatMultiplier]
+        ]
+      });
+    case "garage":
+      return createNetworkEffectSummary({
+        mechanics,
+        ownedKeys: ["ownedGarages"],
+        prefix: "Síť garáží",
+        metrics: [
+          ["Income", mechanics.garageNetwork?.incomeMultiplier],
+          ["Heat", mechanics.garageNetwork?.heatMultiplier]
+        ]
+      });
+    case "warehouse":
+      return createNetworkEffectSummary({
+        mechanics,
+        ownedKeys: ["ownedWarehouses"],
+        prefix: "Síť skladišť",
+        metrics: [
+          ["Income", mechanics.warehouseNetwork?.incomeMultiplier],
+          ["kapacitu", mechanics.warehouseNetwork?.storageCapacityMultiplier],
+          ["Heat", mechanics.warehouseNetwork?.heatMultiplier]
+        ]
+      });
+    case "clinic":
+      return createNetworkEffectSummary({
+        mechanics,
+        ownedKeys: ["ownedClinics"],
+        prefix: "Síť klinik",
+        metrics: [
+          ["Income", mechanics.clinicNetwork?.incomeMultiplier],
+          ["Heat", mechanics.clinicNetwork?.heatMultiplier]
+        ]
+      });
+    case "exchange":
+      return createNetworkEffectSummary({
+        mechanics,
+        ownedKeys: ["ownedExchangeOffices"],
+        prefix: "Síť směnáren",
+        metrics: [
+          ["výnos", mechanics.exchangeNetwork?.incomeMultiplier],
+          ["limit praní", mechanics.exchangeNetwork?.launderingLimitMultiplier],
+          ["Heat", mechanics.exchangeNetwork?.heatMultiplier]
+        ]
+      });
+    case "arcade":
+      return createNetworkEffectSummary({
+        mechanics,
+        ownedKeys: ["ownedArcades"],
+        prefix: "Síť heren",
+        metrics: [
+          ["Income", mechanics.arcadeNetwork?.incomeMultiplier],
+          ["limit praní", mechanics.arcadeNetwork?.launderingLimitMultiplier],
+          ["Heat", mechanics.arcadeNetwork?.heatMultiplier]
+        ]
+      });
+    case "smuggling-tunnel":
+      return createNetworkEffectSummary({
+        mechanics,
+        ownedKeys: ["ownedSmugglingTunnels"],
+        prefix: "Síť pašovacích tunelů",
+        metrics: [
+          ["dirty tok", mechanics.smugglingTunnelNetwork?.dirtyProductionMultiplier],
+          ["Heat", mechanics.smugglingTunnelNetwork?.heatMultiplier || mechanics.smugglingTunnelNetwork?.passiveHeatMultiplier]
+        ]
+      });
+    case "recruitment-center":
+      return createNetworkEffectSummary({
+        mechanics,
+        ownedKeys: ["ownedRecruitmentCenters"],
+        prefix: "Síť rekrutačních center",
+        metrics: [
+          ["Income", mechanics.recruitmentCenterNetwork?.incomeMultiplier],
+          ["Heat", mechanics.recruitmentCenterNetwork?.heatMultiplier]
+        ]
+      });
+    default:
+      return null;
+  }
+}
+
+function isRawNetworkDetailEffectItem(item = {}) {
+  const text = String(item?.text || "").trim();
+  return isRawNetworkPrefixText(text);
+}
+
+function isEmptyEffectPlaceholder(item = {}) {
+  return normalizeEffectToneLabel(item?.text || "") === "zadne aktivni mechaniky";
+}
+
+function finalizeEffectItems(items = []) {
+  if (items.length <= 1) {
+    return items;
+  }
+  return items.filter((item) => !isEmptyEffectPlaceholder(item));
+}
+
 function isZeroNetworkEffectItem(item = {}) {
   if (!item || item.tone !== "network") {
     return false;
   }
-  const normalized = normalizeEffectToneLabel(item.text || "");
-  return /\+0\s*%/u.test(normalized)
+  const rawText = String(item.text || "");
+  const normalized = normalizeEffectToneLabel(rawText);
+  return /\+0\s*%/u.test(rawText)
     || /1x0\b/u.test(normalized)
     || /\bx1(?:[.,]0+)?\b/u.test(normalized);
 }
@@ -601,7 +835,8 @@ function createEffectItemsWithOwnedCount(effectsLabel = "", mechanics = {}, opti
   const ownedBuildingCount = resolveOwnedBuildingCount(mechanics);
   const suppressZeroNetworkEffect = ownedBuildingCount !== null && ownedBuildingCount <= 1;
   const items = createEffectItems(effectsLabel, mechanics.mechanicsType)
-    .filter((item) => !(suppressZeroNetworkEffect && isZeroNetworkEffectItem(item)));
+    .filter((item) => !(suppressZeroNetworkEffect && isZeroNetworkEffectItem(item)))
+    .filter((item) => !isRawNetworkDetailEffectItem(item));
   const dayNightEffect = resolveDayNightBuildingEffect({
     buildingName: options.buildingName,
     mechanics,
@@ -609,6 +844,10 @@ function createEffectItemsWithOwnedCount(effectsLabel = "", mechanics = {}, opti
   });
   if (dayNightEffect) {
     items.push(dayNightEffect);
+  }
+  const networkEffect = createConcreteNetworkEffectItem(mechanics);
+  if (networkEffect) {
+    items.push(networkEffect);
   }
   if (mechanics.mechanicsType === "apartment-block") {
     items.push({
@@ -638,18 +877,17 @@ function createEffectItemsWithOwnedCount(effectsLabel = "", mechanics = {}, opti
   }
   if (mechanics.mechanicsType === "recruitment-center") {
     const support = mechanics.recruitmentCenterSupport || {};
-    const network = mechanics.recruitmentCenterNetwork || {};
-    return [
+    return finalizeEffectItems([
       { text: `Population produkce +${Math.max(0, Number(support.populationProductionBonusPct || 0))} %`, tone: "population" },
       { text: `Kapacita bloků +${Math.max(0, Number(support.apartmentCapacityBonusPct || 0))} %`, tone: "network" },
       { text: `Síla zbraní +${Math.max(0, Number(support.attackWeaponStrengthBonusPct || 0))} %`, tone: "attack" },
       { text: `Obrana +${Math.max(0, Number(support.defenseItemStrengthBonusPct || 0))} %`, tone: "defense" },
       { text: `Kamery/alarmy +${Math.max(0, Number(support.cameraStrengthBonusPct || 0))} %`, tone: "defense" },
-      { text: `Clean/heat x${Number(network.incomeMultiplier || 1).toFixed(2)} / x${Number(network.heatMultiplier || 1).toFixed(2)}`, tone: "network" },
+      ...(networkEffect ? [networkEffect] : []),
       ...items.filter((item) => /^DEN:|^NOC:/u.test(item.text || ""))
-    ];
+    ]);
   }
-  return items;
+  return finalizeEffectItems(items);
 }
 
 function createBuildingDetailCountLabel(mechanics = {}) {
@@ -689,7 +927,7 @@ const FOCUSED_BUILDING_DETAIL_BADGES = Object.freeze({
   restaurant: "Lokální cashflow",
   "fitness-club": "Síla gangu",
   exchange: "Praní peněz",
-  "auto-salon": "Mobilita",
+  "auto-salon": "Cooldowny",
   retail: "Market",
   casino: "High-risk praní",
   warehouse: "Skladiště zásob",
@@ -795,16 +1033,23 @@ export function createBuildingDetailStatRows({
       createStat("Školy", `${mechanics.ownedSchools}/${SCHOOL_CONFIG.countOnMap}`)
     );
   } else if (mechanics.mechanicsType === "exchange") {
+    const network = mechanics.exchangeNetwork || {};
+    const networkParts = [
+      isActiveNetworkMultiplier(network.incomeMultiplier) ? `výnos ${formatMultiplierIncreasePercent(network.incomeMultiplier)}` : "",
+      isActiveNetworkMultiplier(network.launderingLimitMultiplier) ? `limit praní ${formatMultiplierIncreasePercent(network.launderingLimitMultiplier)}` : "",
+      isActiveNetworkMultiplier(network.heatMultiplier) ? `heat ${formatMultiplierIncreasePercent(network.heatMultiplier)}` : ""
+    ].filter(Boolean);
     statRows.splice(0, statRows.length,
       createStat("Čisté / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
       createStat("Dirty / min", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly / 60)}`),
       createStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
       createStat("Směnárny", `${mechanics.ownedExchangeOffices}/${EXCHANGE_OFFICE_NETWORK_CONFIG.countOnMap}`),
-      createStat("Síť", `income x${mechanics.exchangeNetwork.incomeMultiplier.toFixed(2)} · limit x${mechanics.exchangeNetwork.launderingLimitMultiplier.toFixed(2)}`),
       createStat("Kapacita praní", formatDistrictBuildingMoney(mechanics.exchangeLaunderingCapacity)),
-      createStat("Audit risk", mechanics.exchangeAuditRisk),
-      createStat("Upgrade", mechanics.nextLevel ? `${mechanics.upgradeCostLabel} -> L${mechanics.nextLevel}` : "Max level")
+      createStat("Audit risk", mechanics.exchangeAuditRisk)
     );
+    if (networkParts.length) {
+      statRows.push(createStat("Síť", networkParts.join(" · ")));
+    }
   } else if (mechanics.mechanicsType === "arcade") {
     statRows.splice(0, statRows.length,
       createStat("Clean / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
@@ -853,49 +1098,67 @@ export function createBuildingDetailStatRows({
     );
   } else if (mechanics.mechanicsType === "retail" || buildingKey === "obchodni centrum") {
     statRows.splice(0, statRows.length,
-      createStat("Market sleva", `${mechanics.shoppingMallMarketDiscount.discountPct}%`),
-      createStat("Černý market", `${mechanics.shoppingMallBlackMarketDiscount.discountPct}%`),
-      createStat("Poplatky", `-${mechanics.shoppingMallMarketDiscount.feeReductionPct}%`),
-      createStat("Vlastněné mally", `${mechanics.ownedShoppingMalls}/${SHOPPING_MALL_NETWORK_CONFIG.countOnMap}`),
-      createStat("Čistý výnos", `x${mechanics.shoppingMallNetwork.cleanIncomeMultiplier.toFixed(2)}`),
-      createStat("Dirty výnos", `x${mechanics.shoppingMallNetwork.dirtyIncomeMultiplier.toFixed(2)}`),
-      createStat("Vliv / heat", `x${mechanics.shoppingMallNetwork.influenceMultiplier.toFixed(2)} / x${mechanics.shoppingMallNetwork.heatMultiplier.toFixed(2)}`)
+      createStat("Market", `${mechanics.shoppingMallMarketDiscount.discountPct}% běžný / ${mechanics.shoppingMallBlackMarketDiscount.discountPct}% černý`),
+      createStat("Poplatky", `${mechanics.shoppingMallMarketDiscount.feeReductionPct}% nižší`),
+      createStat("Výnosy", `clean ${formatMultiplierIncreasePercent(mechanics.shoppingMallNetwork.cleanIncomeMultiplier)} / dirty ${formatMultiplierIncreasePercent(mechanics.shoppingMallNetwork.dirtyIncomeMultiplier)}`),
+      createStat("Vliv a heat", `vliv ${formatMultiplierIncreasePercent(mechanics.shoppingMallNetwork.influenceMultiplier)} / heat ${formatMultiplierIncreasePercent(mechanics.shoppingMallNetwork.heatMultiplier)}`)
     );
   } else if (mechanics.mechanicsType === "auto-salon" || buildingKey === "autosalon") {
+    const network = mechanics.autoSalonNetwork || {};
+    const networkParts = [
+      isActiveNetworkMultiplier(network.cleanIncomeMultiplier) ? `clean ${formatMultiplierIncreasePercent(network.cleanIncomeMultiplier)}` : "",
+      isActiveNetworkMultiplier(network.dirtyIncomeMultiplier) ? `dirty ${formatMultiplierIncreasePercent(network.dirtyIncomeMultiplier)}` : "",
+      isActiveNetworkMultiplier(network.heatMultiplier) ? `heat ${formatMultiplierIncreasePercent(network.heatMultiplier)}` : ""
+    ].filter(Boolean);
     statRows.splice(0, statRows.length,
-      createStat("Čisté / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
-      createStat("Špinavé / min", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly / 60)}`),
-      createStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
+      createStat("Čisté / hod", `+${formatDistrictBuildingMoney(mechanics.cleanHourly)}`),
+      createStat("Špinavé / hod", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly)}`),
+      createStat("Heat / den", `+${formatCompactNumber(mechanics.dailyHeat)}`),
+      createStat("Vliv / hod", `+${formatCompactNumber(Number(mechanics.dailyInfluence || 0) / 24)}`),
       createStat("Autosalony", `${mechanics.ownedAutoSalons}/${AUTO_SALON_SUPPORT_CONFIG.countOnMap}`),
-      createStat("Čisté peníze", `x${mechanics.autoSalonNetwork.cleanIncomeMultiplier.toFixed(2)}`),
-      createStat("Špinavé peníze", `x${mechanics.autoSalonNetwork.dirtyIncomeMultiplier.toFixed(2)}`),
-      createStat("Mobilita", `+${mechanics.autoSalonSupport.mobilityBonusPct}%`),
       createStat("Cooldown", `-${mechanics.autoSalonSupport.cooldownReductionPct}%`),
       createStat("Únik", `+${mechanics.autoSalonSupport.escapeChanceBonusPct}%`),
       createStat("Cooldown cap", `-${mechanics.autoSalonSupport.combinedGarageDealerMaxReductionPct}%`)
     );
+    if (networkParts.length) {
+      statRows.push(createStat("Síť", networkParts.join(" · ")));
+    }
   } else if (mechanics.mechanicsType === "fitness-club" || buildingKey === "fitness club") {
+    const network = mechanics.fitnessClubNetwork || {};
+    const networkParts = [
+      isActiveNetworkMultiplier(network.incomeMultiplier) ? `income ${formatMultiplierIncreasePercent(network.incomeMultiplier)}` : "",
+      isActiveNetworkMultiplier(network.heatMultiplier) ? `heat ${formatMultiplierIncreasePercent(network.heatMultiplier)}` : ""
+    ].filter(Boolean);
     statRows.splice(0, statRows.length,
       createStat("Čisté / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
       createStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
       createStat("Fitness cluby", `${mechanics.ownedFitnessClubs}/${FITNESS_CLUB_SUPPORT_CONFIG.countOnMap}`),
-      createStat("Síť výnosu", `x${mechanics.fitnessClubNetwork.incomeMultiplier.toFixed(2)}`),
-      createStat("Síť heatu", `x${mechanics.fitnessClubNetwork.heatMultiplier.toFixed(2)}`),
       createStat("Útok", `+${mechanics.fitnessClubSupport.attackStrengthBonusPct}%`),
       createStat("Obrana", `+${mechanics.fitnessClubSupport.defenseStrengthBonusPct}%`),
       createStat("Cap s rekrutací", `+${mechanics.fitnessClubSupport.combinedRecruitmentFitnessAttackCapPct}% / +${mechanics.fitnessClubSupport.combinedRecruitmentFitnessDefenseCapPct}%`)
     );
+    if (networkParts.length) {
+      statRows.push(createStat("Síť", networkParts.join(" · ")));
+    }
   } else if (mechanics.mechanicsType === "restaurant" || buildingKey === "restaurace") {
+    const ownedRestaurants = Math.max(0, Math.floor(Number(mechanics.ownedRestaurants || mechanics.ownedBuildingCount || 0)));
+    const network = mechanics.restaurantNetwork || {};
+    const networkParts = [
+      isActiveNetworkMultiplier(network.incomeMultiplier) ? `income ${formatMultiplierIncreasePercent(network.incomeMultiplier)}` : "",
+      isActiveNetworkMultiplier(network.influenceMultiplier) ? `vliv ${formatMultiplierIncreasePercent(network.influenceMultiplier)}` : "",
+      isActiveNetworkMultiplier(network.rumorMultiplier) ? `drby ${formatMultiplierIncreasePercent(network.rumorMultiplier)}` : "",
+      isActiveNetworkMultiplier(network.heatMultiplier) ? `heat ${formatMultiplierIncreasePercent(network.heatMultiplier)}` : ""
+    ].filter(Boolean);
     statRows.splice(0, statRows.length,
-      createStat("Čisté / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
-      createStat("Dirty / min", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly / 60)}`),
-      createStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
-      createStat("Vliv / den", `+${mechanics.dailyInfluence}`),
-      createStat("Počet", `${mechanics.ownedRestaurants || mechanics.ownedBuildingCount || 0}/${RESTAURANT_NETWORK_CONFIG.countOnMap}`),
-      createStat("Síť výnosu", `x${(mechanics.restaurantNetwork?.incomeMultiplier || 1).toFixed(2)}`),
-      createStat("Akce", "tržby / schůzky / síť"),
-      createStat("Upgrade", mechanics.nextLevel ? `${mechanics.upgradeCostLabel} -> L${mechanics.nextLevel}` : "Max level")
+      createStat("Čisté / hod", `+${formatDistrictBuildingMoney(mechanics.cleanHourly)}`),
+      createStat("Heat / den", `+${formatCompactNumber(mechanics.dailyHeat)}`),
+      createStat("Vliv / den", `+${formatCompactNumber(mechanics.dailyInfluence)}`),
+      createStat("Počet", `${ownedRestaurants}/${RESTAURANT_NETWORK_CONFIG.countOnMap}`),
+      createStat("Drby", "pasivní městské tipy")
     );
+    if (networkParts.length) {
+      statRows.push(createStat("Síť", networkParts.join(" · ")));
+    }
   } else if (mechanics.mechanicsType === "power-plant" || buildingKey === "energeticka stanice") {
     statRows.splice(0, statRows.length,
       createStat("Čisté / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
@@ -915,41 +1178,46 @@ export function createBuildingDetailStatRows({
     );
   } else if (mechanics.mechanicsType === "street-dealers" || buildingKey === "poulicni dealeri") {
     statRows.splice(0, statRows.length,
-      createStat("Dirty / min", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly / 60)}`),
-      createStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
-      createStat("Vliv / den", `+${mechanics.dailyInfluence}`),
+      createStat("Špinavé / hod", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly)}`),
+      createStat("Heat / den", `+${formatCompactNumber(mechanics.dailyHeat)}`),
       createStat("Zdroj", "produkty z Labu"),
-      createStat("Akce", "prodej / cash / stash"),
-      createStat("Upgrade", mechanics.nextLevel ? `${mechanics.upgradeCostLabel} -> L${mechanics.nextLevel}` : "Max level")
+      createStat("Akce", "prodej / cash / stash")
     );
   } else if (mechanics.mechanicsType === "convenience-store" || buildingKey === "vecerka") {
     statRows.splice(0, statRows.length,
-      createStat("Čisté / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
-      createStat("Dirty / min", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly / 60)}`),
-      createStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
-      createStat("Vliv / den", `+${mechanics.dailyInfluence}`),
+      createStat("Čisté / hod", `+${formatDistrictBuildingMoney(mechanics.cleanHourly)}`),
+      createStat("Špinavé / hod", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly)}`),
+      createStat("Heat / den", `+${formatCompactNumber(mechanics.dailyHeat)}`),
+      createStat("Vliv / den", `+${formatCompactNumber(mechanics.dailyInfluence)}`),
       createStat("Drby", "pasivní ulice"),
       createStat("Akce", "Žádné")
     );
   } else if (mechanics.mechanicsType === "strip-club" || buildingKey === "strip club") {
     statRows.splice(0, statRows.length,
-      createStat("Čisté / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
-      createStat("Dirty / min", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly / 60)}`),
-      createStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
-      createStat("Vliv / den", `+${mechanics.dailyInfluence}`),
-      createStat("Akce", "cash / VIP / kompromat"),
-      createStat("Upgrade", mechanics.nextLevel ? `${mechanics.upgradeCostLabel} -> L${mechanics.nextLevel}` : "Max level")
+      createStat("Čisté / hod", `+${formatDistrictBuildingMoney(mechanics.cleanHourly)}`),
+      createStat("Špinavé / hod", `+${formatDistrictBuildingMoney(mechanics.dirtyHourly)}`),
+      createStat("Heat / den", `+${formatCompactNumber(mechanics.dailyHeat)}`),
+      createStat("Vliv / den", `+${formatCompactNumber(mechanics.dailyInfluence)}`),
+      createStat("Drby", "pasivní VIP tipy"),
+      createStat("Akce", "cash / VIP / kompromat")
     );
   } else if (mechanics.mechanicsType === "smuggling-tunnel") {
+    const tunnelNetwork = mechanics.smugglingTunnelNetwork || {};
+    const tunnelHeatMultiplier = tunnelNetwork.heatMultiplier || tunnelNetwork.passiveHeatMultiplier;
+    const tunnelNetworkParts = [
+      isActiveNetworkMultiplier(tunnelNetwork.dirtyProductionMultiplier) ? `dirty tok ${formatMultiplierIncreasePercent(tunnelNetwork.dirtyProductionMultiplier)}` : "",
+      isActiveNetworkMultiplier(tunnelHeatMultiplier) ? `heat ${formatMultiplierIncreasePercent(tunnelHeatMultiplier)}` : ""
+    ].filter(Boolean);
     statRows.splice(0, statRows.length,
-      createStat("Dirty / min", `+${formatDistrictBuildingMoney(mechanics.smugglingDirtyPerMinute)}`),
-      createStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
+      createStat("Špinavé / hod", `+${formatDistrictBuildingMoney(mechanics.smugglingDirtyPerMinute * 60)}`),
+      createStat("Heat / den", `+${formatCompactNumber(mechanics.dailyHeat)}`),
       createStat("Tunely", `${mechanics.ownedSmugglingTunnels}/${SMUGGLING_TUNNEL_CONFIG.countOnMap}`),
-      createStat("Síť dirty", `x${mechanics.smugglingTunnelNetwork.dirtyProductionMultiplier.toFixed(2)}`),
-      createStat("Síť heat", `x${(mechanics.smugglingTunnelNetwork.heatMultiplier || mechanics.smugglingTunnelNetwork.passiveHeatMultiplier).toFixed(2)}`),
-      createStat("Dealer Supply", `+${mechanics.smugglingDealerSupplyBonusPct}%`),
+      createStat("Pouliční dealeři", `+${mechanics.smugglingDealerSupplyBonusPct}% podpora`),
       createStat("Kanál", mechanics.smugglingOpenChannelActive ? formatDistrictBuildingCooldown(mechanics.smugglingOpenChannelRemainingMs) : "Neaktivní")
     );
+    if (tunnelNetworkParts.length) {
+      statRows.push(createStat("Síť", tunnelNetworkParts.join(" · ")));
+    }
   }
 
   return statRows;
@@ -1006,18 +1274,19 @@ export function createBuildingDetailMechanicRows({
     );
   } else if (mechanics.mechanicsType === "retail" || buildingKey === "obchodni centrum") {
     mechanicRows.push(
-      createMechanic("Market sleva", `${mechanics.shoppingMallMarketDiscount.discountPct}% regular · ${mechanics.shoppingMallBlackMarketDiscount.discountPct}% black market`),
-      createMechanic("Poplatky", `-${mechanics.shoppingMallMarketDiscount.feeReductionPct}% market fees`),
-      createMechanic("Síť", `${mechanics.ownedShoppingMalls}/${SHOPPING_MALL_NETWORK_CONFIG.countOnMap} obchodních center`),
-      createMechanic("Výnos", `clean x${mechanics.shoppingMallNetwork.cleanIncomeMultiplier.toFixed(2)} · dirty x${mechanics.shoppingMallNetwork.dirtyIncomeMultiplier.toFixed(2)}`),
-      createMechanic("Vliv / heat", `vliv x${mechanics.shoppingMallNetwork.influenceMultiplier.toFixed(2)} · heat x${mechanics.shoppingMallNetwork.heatMultiplier.toFixed(2)}`)
+      createMechanicWithTone("Běžný market", `Nakupuješ levněji: ${mechanics.shoppingMallMarketDiscount.discountPct}% sleva.`, "retail-market"),
+      createMechanicWithTone("Černý market", `Levnější nákupy: ${mechanics.shoppingMallBlackMarketDiscount.discountPct}% sleva.`, "retail-black-market"),
+      createMechanicWithTone("Poplatky", `Market fee je nižší o ${mechanics.shoppingMallMarketDiscount.feeReductionPct}%.`, "retail-fee"),
+      createMechanicWithTone("Clean / dirty", `Výnosy: clean ${formatMultiplierIncreasePercent(mechanics.shoppingMallNetwork.cleanIncomeMultiplier)}, dirty ${formatMultiplierIncreasePercent(mechanics.shoppingMallNetwork.dirtyIncomeMultiplier)}.`, "retail-income"),
+      createMechanicWithTone("Vliv", `Pasivní vliv ${formatMultiplierIncreasePercent(mechanics.shoppingMallNetwork.influenceMultiplier)}.`, "retail-influence"),
+      createMechanicWithTone("Heat", `Pasivní heat ${formatMultiplierIncreasePercent(mechanics.shoppingMallNetwork.heatMultiplier)}.`, "retail-heat")
     );
   } else if (mechanics.mechanicsType === "auto-salon" || buildingKey === "autosalon") {
     mechanicRows.push(
-      createMechanic("Plný cooldown", `${formatBuildingActionCategoryLabels(AUTO_SALON_SUPPORT_CONFIG.fullBonusCategories)} · největší zkrácení`),
-      createMechanic("Mobilita", `+${mechanics.autoSalonSupport.mobilityBonusPct}% rychlejší přesuny a návraty`),
-      createMechanic("Únik", `+${mechanics.autoSalonSupport.escapeChanceBonusPct}% · čím vyšší %, tím větší šance, že se gang po akci stáhne úspěšněji`),
-      createMechanic("Multiplier", `clean x${mechanics.autoSalonNetwork.cleanIncomeMultiplier.toFixed(2)} · dirty x${mechanics.autoSalonNetwork.dirtyIncomeMultiplier.toFixed(2)} · heat x${mechanics.autoSalonNetwork.heatMultiplier.toFixed(2)}`)
+      createMechanic("Rychlejší akce", `Zkracuje Vykrást district, Obsazení districtu a přípravu útoku o ${mechanics.autoSalonSupport.cooldownReductionPct}%.`),
+      createMechanic("Podpora zázemí", "Menší zkrácení dostane Stabilizační protokol v Klinice a Vytěžit ztráty v Recyklaci."),
+      createMechanic("Únik po failu", `Při neúspěšném útoku přidá +${mechanics.autoSalonSupport.escapeChanceBonusPct}% k šanci, že gang sníží dopad ztrát.`),
+      createMechanic("Síť autosalonů", `Další autosalony zvedají clean ${formatMultiplierIncreasePercent(mechanics.autoSalonNetwork.cleanIncomeMultiplier)}, dirty ${formatMultiplierIncreasePercent(mechanics.autoSalonNetwork.dirtyIncomeMultiplier)} a heat ${formatMultiplierIncreasePercent(mechanics.autoSalonNetwork.heatMultiplier)}.`)
     );
   } else if (mechanics.mechanicsType === "fitness-club" || buildingKey === "fitness club") {
     mechanicRows.push(
@@ -1029,23 +1298,27 @@ export function createBuildingDetailMechanicRows({
   } else if (mechanics.mechanicsType === "restaurant" || buildingKey === "restaurace") {
     const network = mechanics.restaurantNetwork || {};
     mechanicRows.push(
-      createMechanic("Cashflow", `clean x${Number(network.incomeMultiplier || 1).toFixed(2)} · dirty cash negeneruje pasivně`),
-      createMechanic("Drby", `šance x${Number(network.rumorMultiplier || 1).toFixed(2)} · přesnost podle počtu restaurací`),
-      createMechanic("Síť restaurací", `income x${Number(network.incomeMultiplier || 1).toFixed(2)} · vliv x${Number(network.influenceMultiplier || 1).toFixed(2)} · drby x${Number(network.rumorMultiplier || 1).toFixed(2)} · heat x${Number(network.heatMultiplier || 1).toFixed(2)}`)
+      createMechanic("Denní provoz", `Restaurace vydělává čisté peníze a přidává lokální vliv.`),
+      createMechanic("Pouliční drby", `Čím víc restaurací vlastníš, tím častěji se dozvíš, co se ve městě chystá.`),
+      createMechanic("Síť restaurací", `Více restaurací zvedá příjem, vliv a drby, ale taky trochu zvyšuje heat.`)
     );
   } else if (mechanics.mechanicsType === "casino") {
+    const casinoLaunderingCapacity = Math.max(0, Math.floor(Number(mechanics.casinoLaunderingCapacity || 0)));
+    const casinoLaunderingFeePct = Number.isFinite(Number(mechanics.casinoLaunderingFeePct))
+      ? Number(mechanics.casinoLaunderingFeePct)
+      : 9;
     mechanicRows.push(
-      createMechanic("Tichá herna", "dirty fee wash"),
-      createMechanic("VIP noc", "income vliv heat"),
-      createMechanic("Inspektor", "drahá risk ochrana"),
-      createMechanic("Riziko", "heat audit risk")
+      createMechanic("Tichá herna", `Vypere část dirty cash až do ${formatDistrictBuildingMoney(casinoLaunderingCapacity)} za ${casinoLaunderingFeePct}% fee.`),
+      createMechanic("VIP noc", "Noční boost zvedne clean, dirty, vliv, heat a audit risk."),
+      createMechanic("Inspektor", "Drahá ochrana sníží heat a audit risk, ale může selhat."),
+      createMechanic("Riziko auditu", "Kontroly sledují objem vypraných peněz v posledních 30 minutách.")
     );
   } else if (mechanics.mechanicsType === "exchange") {
     mechanicRows.push(
-      createMechanic("Výhodný kurz", "pere menší část dirty cash za fee"),
-      createMechanic("Síť směnáren", `income x${mechanics.exchangeNetwork.incomeMultiplier.toFixed(2)} · limit x${mechanics.exchangeNetwork.launderingLimitMultiplier.toFixed(2)}`),
-      createMechanic("Heat", `akce i síť drží heat x${mechanics.exchangeNetwork.heatMultiplier.toFixed(2)}`),
-      createMechanic("Audit", `${mechanics.exchangeAuditRisk} · kontrola v časovém okně`)
+      createMechanic("Denní praní", "Výhodný kurz funguje jen přes den a vypere část aktuálního dirty cash."),
+      createMechanic("Limit směny", `Základ je 16 % dirty cash, síť směnáren zvedá strop na ${formatDistrictBuildingMoney(mechanics.exchangeLaunderingCapacity)}.`),
+      createMechanic("Síť směnáren", `Více směnáren zvedá výnos o ${formatMultiplierIncreasePercent(mechanics.exchangeNetwork.incomeMultiplier)} a limit praní o ${formatMultiplierIncreasePercent(mechanics.exchangeNetwork.launderingLimitMultiplier)}.`),
+      createMechanic("Riziko kontroly", `${mechanics.exchangeAuditRisk} audit risk · heat sítě ${formatMultiplierIncreasePercent(mechanics.exchangeNetwork.heatMultiplier)}`)
     );
   } else if (mechanics.mechanicsType === "power-plant" || buildingKey === "energeticka stanice") {
     mechanicRows.push(
@@ -1061,25 +1334,25 @@ export function createBuildingDetailMechanicRows({
     );
   } else if (mechanics.mechanicsType === "street-dealers" || buildingKey === "poulicni dealeri") {
     mechanicRows.push(
-      createMechanic("Distribuce", "mění lab produkty na dirty cash"),
-      createMechanic("Prodej", "spustí krátký dirty cash boost"),
-      createMechanic("Stash", "může přesunout biomass do zásob"),
-      createMechanic("Riziko", "prodej a stash přidávají heat")
+      createMechanic("Distribuce", "Prodává látky z Drug Labu přes sloty Pouličních dealerů."),
+      createMechanic("Hot cash", "Rychlý výběr dá dirty cash a přidá heat."),
+      createMechanic("Stash", "Spotřebuje biomass a převede ho na dirty cash."),
+      createMechanic("Riziko", "Dealerské akce pracují s heatem a pouličním rizikem.")
     );
   } else if (mechanics.mechanicsType === "convenience-store" || buildingKey === "vecerka") {
     mechanicRows.push(
-      createMechanic("Cashflow", "malý clean a dirty příjem"),
-      createMechanic("Drby", "lokální pouliční signál pro district"),
-      createMechanic("Generuje drby", "každých 10 minut vytvoří pouliční drb"),
-      createMechanic("Vliv", "drobný pasivní vliv z provozu")
+      createMechanic("Cashflow", "Malý clean i dirty příjem bez speciálních akcí."),
+      createMechanic("Drby", "Každých 10 minut může vytvořit pouliční drb."),
+      createMechanic("Síť večerek", "Více večerek zvedá income, vliv a šanci na drb."),
+      createMechanic("Synergie", "Restaurace zlepšují civilní drby z večerek.")
     );
   } else if (mechanics.mechanicsType === "strip-club" || buildingKey === "strip club") {
     mechanicRows.push(
-      createMechanic("Noční cash", "přímý dirty výběr"),
-      createMechanic("VIP klienti", "dočasně zvednou income a vliv"),
+      createMechanic("Noční cash", "Přímý dirty výběr s krátkým cooldownem."),
+      createMechanic("VIP klienti", "Dočasně zvednou income, vliv, heat a šanci na drb."),
       createMechanic("Drby", "každý Strip club vytvoří 1 drb každých 30 min"),
-      createMechanic("Kompromat", "přidá vliv za heat"),
-      createMechanic("Riziko", "noční provoz zvedá tlak districtu")
+      createMechanic("Kompromat", "Přidá vliv a krátký influence boost za heat."),
+      createMechanic("Síť clubů", "Více clubů zvedá income, vliv, drby i heat.")
     );
   } else if (mechanics.mechanicsType === "smuggling-tunnel") {
     const dealerSalePriceBoostPct = mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySalePriceSharePct / 100;
@@ -1087,10 +1360,9 @@ export function createBuildingDetailMechanicRows({
     const streetRiskReductionPct = mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplyStreetRiskReductionSharePct / 100;
     const dealerHeatBoostPct = mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleHeatRiskSharePct / 100;
     mechanicRows.push(
-      createMechanic("Tok dirty cash", `tunel pasivně ukládá dirty cash do zásoby`),
-      createMechanic("Síť tunelů", `víc tunelů zvyšuje tok a kapacitu kontrabandu`),
-      createMechanic("Podpora dealerů", `prodejní cena z labu: +${dealerSalePriceBoostPct}% · rychlost prodeje +${dealerSaleSpeedBoostPct}%`),
-      createMechanic("Menší pouliční riziko", `riziko při prodeji -${streetRiskReductionPct}% · heat z prodeje +${dealerHeatBoostPct}%`)
+      createMechanic("Tok dirty cash", "Tunel pasivně vyrábí dirty cash."),
+      createMechanic("Pouliční dealeři", `Prodej z Labu: cena +${dealerSalePriceBoostPct}% · rychlost +${dealerSaleSpeedBoostPct}%.`),
+      createMechanic("Pouliční riziko", `Riziko při prodeji -${streetRiskReductionPct}% · heat z prodeje +${dealerHeatBoostPct}%.`)
     );
   } else if (mechanics.mechanicsType === "arcade") {
     mechanicRows.push(
@@ -1135,8 +1407,16 @@ export function createBuildingDetailActionRows({
     });
     const baseCooldownMs = Math.max(0, Number(actionDefinition.cooldownMs || 0));
     const garageCategory = resolveGarageCategoryForBuildingAction(buildingName, action, actionDefinition);
-    const effectiveCooldownMs = resolveGarageEffectiveCooldownMs(baseCooldownMs, mechanics.garageSupport, garageCategory);
-    const garageCooldownReductionPct = resolveGarageCooldownReductionPctForCategory(mechanics.garageSupport, garageCategory);
+    const autoSalonCategory = resolveAutoSalonCategoryForBuildingAction(buildingName, action, actionDefinition);
+    const cooldownReductionView = resolveCombinedEffectiveCooldownMs({
+      baseCooldownMs,
+      garageSupport: mechanics.garageSupport,
+      garageCategory,
+      autoSalonSupport: mechanics.autoSalonSupport,
+      autoSalonCategory
+    });
+    const effectiveCooldownMs = cooldownReductionView.effectiveCooldownMs;
+    const garageCooldownReductionPct = cooldownReductionView.garageReductionPct;
     const cooldownUntil = getBuildingSpecialActionCooldownUntil(mechanics.actionCooldowns, actionDefinition.actionId, actionIndex);
     const cooldownRemaining = Math.max(0, cooldownUntil - now);
     const actionUiOptions = createBuildingActionUiFormatOptions({
@@ -1174,6 +1454,10 @@ export function createBuildingDetailActionRows({
     const missingMaterialCost = Object.entries(actionProfile?.materialCost || {}).find(([itemId, amount]) =>
       Number(economyState.materials?.[itemId] || 0) < Math.max(0, Math.floor(Number(amount || 0)))
     ) || null;
+    const phaseLockRule = getPhaseLockedBuildingActionRule(actionDefinition.actionId);
+    const phaseLockLabel = phaseLockRule
+      ? phaseLockRule.allowedPhase === "night" ? "Jen v noci" : "Jen ve dne"
+      : "";
     const phaseDisabledReason = resolvePhaseLockedBuildingActionDisabledReason(actionDefinition.actionId, phaseState);
     const casinoDisabledReason = actionDefinition.disabledReason
       || phaseDisabledReason
@@ -1248,6 +1532,8 @@ export function createBuildingDetailActionRows({
       costSummary: actionDefinition.costSummary,
       inputSummary: actionDefinition.inputSummary,
       buttonCostLabel: mechanics.mechanicsType === "casino" || mechanics.mechanicsType === "smuggling-tunnel" ? actionDefinition.costSummary : "",
+      phaseLockLabel,
+      phaseLockTone: phaseLockRule ? String(phaseLockRule.allowedPhase || "") : "",
       rewardSummary,
       riskSummary,
       disabledTone: hasMissingCleanCash || hasMissingDirtyCash || Boolean(missingMaterialCost)
@@ -1257,6 +1543,8 @@ export function createBuildingDetailActionRows({
       baseCooldownMs,
       effectiveCooldownMs,
       garageCooldownReductionPct,
+      autoSalonCooldownReductionPct: cooldownReductionView.autoSalonReductionPct,
+      combinedCooldownReductionPct: cooldownReductionView.combinedReductionPct,
       cooldownRemainingMs: cooldownRemaining,
       cooldownLabel: cooldownRemaining > 0
         ? `Zbývá ${formatDistrictBuildingCooldown(cooldownRemaining)}`

@@ -34,7 +34,7 @@ export interface CarDealerBalanceConfig {
   category: string[];
   cleanCashPerMinute: number;
   dirtyCashPerMinute: number;
-  influencePerMinute: 0;
+  influencePerMinute: number;
   heatPerMinute: number;
   actions: [];
   noSpecialActions: true;

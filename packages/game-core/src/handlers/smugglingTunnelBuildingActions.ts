@@ -240,7 +240,7 @@ export const resolveSmugglingTunnelAction = (input: {
     influenceChange: 0,
     inputCost: { cash: input.config.openChannel.costCleanCash },
     outputGain: {},
-    reportText: "Otevřený kanál běží. Tunely zvedají dirty cash a Pouliční dealeři prodávají rychleji za víc, ale s vyšší heat a incident risk.",
+    reportText: "Otevřený kanál běží. Tunely zvedají dirty cash a Pouliční dealeři prodávají rychleji za víc, ale roste heat a riziko pouličního incidentu.",
     smugglingTunnelResult: {
       type: "open_channel",
       activeUntilTick: expiresAtTick,
@@ -286,18 +286,18 @@ const resolveContrabandFlow = (
   ownedTunnelCount: number
 ): { level: DealerSupplyStats["contrabandFlowLevel"]; label: string; effect: string } => {
   if (ownedTunnelCount >= 10) {
-    return { level: "underground", label: "Podzemní síť", effect: "maximální dealer support, ale vysoká heat stopa" };
+    return { level: "underground", label: "Podzemní síť", effect: "maximální podpora Pouličních dealerů, ale vysoká heat stopa" };
   }
   if (ownedTunnelCount >= 6) {
-    return { level: "strong", label: "Silný tok", effect: "výraznější dirty cash ekonomika" };
+    return { level: "strong", label: "Silná podpora", effect: "výraznější dirty cash ekonomika" };
   }
   if (ownedTunnelCount >= 3) {
-    return { level: "stable", label: "Stabilní tok", effect: "lepší prodej drog" };
+    return { level: "stable", label: "Stabilní podpora", effect: "lepší prodej přes Pouliční dealery" };
   }
   if (ownedTunnelCount >= 1) {
-    return { level: "low", label: "Nízký tok", effect: "malé posílení dealerů" };
+    return { level: "low", label: "Nízká podpora", effect: "malé posílení Pouličních dealerů" };
   }
-  return { level: "none", label: "Žádný tok", effect: "bez dealer supportu" };
+  return { level: "none", label: "Bez podpory", effect: "bez podpory Pouličních dealerů" };
 };
 
 const withSmugglingTunnelPlayerMetadata = (

@@ -120,6 +120,28 @@ describe("district action hub", () => {
     expect(callback).not.toHaveBeenCalled();
   });
 
+  it("renders no-spies spy action as disabled grey stacked button", () => {
+    const document = new FakeDocument();
+    const mount = createElement(document);
+    const callback = vi.fn();
+    const button = renderDistrictActionButton({
+      id: "spy",
+      label: "Špehovat",
+      enabled: false,
+      stacked: true,
+      subtitle: "Žádní špehové",
+      disabledTone: "no-spies"
+    }, callback, { mount });
+
+    expect(button.disabled).toBe(true);
+    expect(button.dataset.districtActionDisabledTone).toBe("no-spies");
+    expect(button.classList.contains("district-popup-action--stacked")).toBe(true);
+    expect(button.children[0].textContent).toBe("Špehovat");
+    expect(button.children[1].textContent).toBe("Žádní špehové");
+    button.dispatch("click");
+    expect(callback).not.toHaveBeenCalled();
+  });
+
   it("renders action countdowns under the button label and keeps the action locked", () => {
     const document = new FakeDocument();
     const mount = createElement(document);

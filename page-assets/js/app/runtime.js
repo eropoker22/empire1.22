@@ -637,9 +637,9 @@ import { submitServerBuildingActionCommandBridge } from "./runtime/buildingSpeci
 import { createBuildingSpecialActionConfirmationController } from "./runtime/buildingSpecialActionConfirmation.js";
 import {
   formatGarageEffectiveCooldownLabel,
-  resolveGarageCategoryForBuildingAction,
-  resolveGarageEffectiveCooldownMs,
-  resolveGarageCooldownReductionPctForCategory
+  resolveAutoSalonCategoryForBuildingAction,
+  resolveCombinedEffectiveCooldownMs,
+  resolveGarageCategoryForBuildingAction
 } from "./runtime/garageCooldownRuntime.js";
 import {
   resolvePhaseLockedBuildingActionDisabledReason
@@ -3379,6 +3379,9 @@ function collectBuildingCooldownStreetNewsEntries(now) {
     const districtLabel = isSharedBuildingKey ? "Sdílená budova" : formatStreetNewsCooldownDistrict(districtId);
 
     for (const [actionKey, rawExpiresAt] of Object.entries(entry.actionCooldowns)) {
+      if (/ActiveUntil$/i.test(String(actionKey || ""))) {
+        continue;
+      }
       const expiresAt = parseStreetNewsCooldownTimestamp(rawExpiresAt);
       if (!expiresAt || expiresAt <= now) {
         continue;
@@ -4983,10 +4986,36 @@ function getFactoryBoostSnapshot(now = Date.now()) {
   };
 }
 
+function resolveDistrictActionCooldownView(baseMs = 0, category = "", extraSpeedPct = 0) {
+  const baseCooldownMs = Math.max(0, Math.floor(Number(baseMs || 0)));
+  const supportView = resolveCombinedEffectiveCooldownMs({
+    baseCooldownMs,
+    garageSupport: getGarageSupportStats(getOwnedGarageCount()),
+    garageCategory: category,
+    autoSalonSupport: getAutoSalonSupportStats(getOwnedAutoSalonCount()),
+    autoSalonCategory: category
+  });
+  const speedPct = Math.max(0, Number(extraSpeedPct || 0));
+  const effectiveCooldownMs = speedPct > 0
+    ? Math.max(1000, Math.ceil(supportView.effectiveCooldownMs * (1 - speedPct / 100)))
+    : supportView.effectiveCooldownMs;
+
+  return {
+    ...supportView,
+    baseCooldownMs,
+    effectiveCooldownMs,
+    label: formatGarageEffectiveCooldownLabel({
+      baseCooldownMs,
+      effectiveCooldownMs,
+      formatCooldown: formatDistrictBuildingCooldown
+    })
+  };
+}
+
 function getAttackActionDurationMs(baseMs = ATTACK_COOLDOWN_MS) {
   const snapshot = getPharmacyBoostSnapshot();
   const speedPct = Number(snapshot.effective.attackSpeedPct || 0);
-  return Math.max(1000, Math.round(baseMs * (1 - speedPct / 100)));
+  return resolveDistrictActionCooldownView(baseMs, "attackPreparation", speedPct).effectiveCooldownMs;
 }
 
 function getSpyActionDurationMs(baseMs = SPY_COOLDOWN_MS) {
@@ -4999,7 +5028,18 @@ function getRobberyActionDurationMs(baseMs = ROBBERY_COOLDOWN_MS) {
   const factorySnapshot = getFactoryBoostSnapshot();
   const pharmacySnapshot = getPharmacyBoostSnapshot();
   const speedPct = Number(factorySnapshot.effective.raidSpeedPct || 0) + Number(pharmacySnapshot.effective.stealSpeedPct || 0);
-  return Math.max(1000, Math.round(baseMs * (1 - speedPct / 100)));
+  return resolveDistrictActionCooldownView(baseMs, "districtRobbery", speedPct).effectiveCooldownMs;
+}
+
+function getRobberyActionCooldownView(baseMs = ROBBERY_COOLDOWN_MS) {
+  const factorySnapshot = getFactoryBoostSnapshot();
+  const pharmacySnapshot = getPharmacyBoostSnapshot();
+  const speedPct = Number(factorySnapshot.effective.raidSpeedPct || 0) + Number(pharmacySnapshot.effective.stealSpeedPct || 0);
+  return resolveDistrictActionCooldownView(baseMs, "districtRobbery", speedPct);
+}
+
+function getOccupyActionCooldownView(baseMs = OCCUPY_COOLDOWN_MS) {
+  return resolveDistrictActionCooldownView(baseMs, "districtOccupy", 0);
 }
 
 function getSpyMissionDefenseContext(mission) {
@@ -5029,11 +5069,17 @@ function getFactoryAttackBoostContext({ attackPower, defensePower } = {}) {
   const pharmacySnapshot = getPharmacyBoostSnapshot();
   const normalizedAttackPower = Math.max(0, Math.round(Number(attackPower || 0)));
   const normalizedDefensePower = Math.max(0, Math.round(Number(defensePower || 0)));
+  const attackCooldownView = resolveDistrictActionCooldownView(
+    ATTACK_COOLDOWN_MS,
+    "attackPreparation",
+    Number(pharmacySnapshot.effective.attackSpeedPct || 0)
+  );
   const context = {
     activeBoost: activeBoost || null,
     effectiveAttackPower: normalizedAttackPower,
     effectiveDefensePower: normalizedDefensePower,
-    cooldownMs: getAttackActionDurationMs(ATTACK_COOLDOWN_MS),
+    cooldownMs: attackCooldownView.effectiveCooldownMs,
+    cooldownLabel: attackCooldownView.label,
     summaryLabel: ""
   };
 
@@ -5044,8 +5090,8 @@ function getFactoryAttackBoostContext({ attackPower, defensePower } = {}) {
   const config = activeBoost.config || FACTORY_COMBAT_BOOSTS[activeBoost.type] || null;
 
   if (!config) {
-    if (Number(pharmacySnapshot.effective.attackSpeedPct || 0) > 0) {
-      context.summaryLabel = `Pharmacy boost: útok dorazí za ${formatDurationLabel(context.cooldownMs)}`;
+    if (Number(pharmacySnapshot.effective.attackSpeedPct || 0) > 0 || attackCooldownView.combinedReductionPct > 0) {
+      context.summaryLabel = `Útok dorazí za ${context.cooldownLabel}`;
     }
     return context;
   }
@@ -5065,14 +5111,18 @@ function getFactoryAttackBoostContext({ attackPower, defensePower } = {}) {
   }
 
   const totalAttackSpeedPct = Number(config.attackSpeedPct || 0) + Number(pharmacySnapshot.effective.attackSpeedPct || 0);
-  if (totalAttackSpeedPct) {
-    context.cooldownMs = Math.max(1000, Math.round(ATTACK_COOLDOWN_MS * (1 - totalAttackSpeedPct / 100)));
-  }
+  const boostedCooldownView = resolveDistrictActionCooldownView(
+    ATTACK_COOLDOWN_MS,
+    "attackPreparation",
+    totalAttackSpeedPct
+  );
+  context.cooldownMs = boostedCooldownView.effectiveCooldownMs;
+  context.cooldownLabel = boostedCooldownView.label;
 
   context.summaryLabel = activeBoost.type === "assault"
     ? `Boost ${config.label}: síla útoku +${config.attackPowerPct}%`
     : activeBoost.type === "rapid"
-      ? `Boost ${config.label}: útok dorazí za ${formatDurationLabel(context.cooldownMs)}`
+      ? `Boost ${config.label}: útok dorazí za ${context.cooldownLabel}`
       : activeBoost.type === "breach"
         ? `Boost ${config.label}: obrana cíle -${config.defenseIgnorePct}%`
         : `Boost ${config.label}`;
@@ -5579,7 +5629,7 @@ function formatActiveDistrictBuildingEffectLabel(effect = {}, now = Date.now()) 
     return "";
   }
   const label = String(effect.label || "Efekt").trim() || "Efekt";
-  const parts = [formatDistrictBuildingCooldown(remainingMs)];
+  const parts = [];
   if (Number(effect.auditRiskBoostPct || 0) > 0) {
     parts.push(`audit risk +${Math.max(0, Number(effect.auditRiskBoostPct || 0))}%`);
   }
@@ -5591,6 +5641,18 @@ function formatActiveDistrictBuildingEffectLabel(effect = {}, now = Date.now()) 
   }
   if (Number(effect.dirtyIncomeBoostPct || 0) > 0) {
     parts.push(`dirty income +${Math.max(0, Number(effect.dirtyIncomeBoostPct || 0))}%`);
+  }
+  if (Number(effect.dealerSalePriceBonusPct || 0) > 0) {
+    parts.push(`cena prodeje +${Math.max(0, Number(effect.dealerSalePriceBonusPct || 0))}%`);
+  }
+  if (Number(effect.dealerSaleSpeedBonusPct || 0) > 0) {
+    parts.push(`čas prodeje -${Math.max(0, Number(effect.dealerSaleSpeedBonusPct || 0))}%`);
+  }
+  if (Number(effect.dealerRewardBonusPct || effect.dealerCompletionRewardBonusPct || 0) > 0) {
+    parts.push(`výplata +${Math.max(0, Number(effect.dealerRewardBonusPct || effect.dealerCompletionRewardBonusPct || 0))}%`);
+  }
+  if (Number(effect.streetIncidentFlatRiskPct || 0) > 0) {
+    parts.push(`incident +${Math.max(0, Number(effect.streetIncidentFlatRiskPct || 0))}%`);
   }
   if (Number(effect.influenceBoostPct || 0) > 0) {
     parts.push(`vliv +${Math.max(0, Number(effect.influenceBoostPct || 0))}%`);
@@ -5609,7 +5671,7 @@ function formatActiveDistrictBuildingEffectLabel(effect = {}, now = Date.now()) 
     }
     parts.push(`okamžitě: ${instant.join(", ")}`);
   }
-  return `${label} ${parts.join(" · ")}`;
+  return `${label}: ${[...parts, `zbývá ${formatDistrictBuildingCooldown(remainingMs)}`].join(", ")}`;
 }
 
 function getDistrictEconomySnapshot(district) {
@@ -6266,6 +6328,58 @@ function setActiveSchoolApartmentBoost(payload = {}) {
   setStoredDistrictBuildingDetailState(state);
 }
 
+function upsertDistrictBuildingActiveEffect(entry = {}, effect = {}) {
+  const label = String(effect.label || "").trim();
+  const effects = Array.isArray(entry.activeEffects) ? entry.activeEffects : [];
+  return [
+    ...effects.filter((item) => String(item?.label || "").trim() !== label),
+    effect
+  ];
+}
+
+function createOpenChannelDealerActiveEffect(expiresAt = 0, actionProfile = {}) {
+  return {
+    label: "Otevřený kanál",
+    expiresAt,
+    dealerSalePriceBonusPct: Math.max(0, Number(actionProfile.dealerSalePriceBonusPct || SMUGGLING_TUNNEL_CONFIG.openChannelDealerSalePriceBonusPct || 0)),
+    dealerSaleSpeedBonusPct: Math.max(0, Number(actionProfile.dealerSaleSpeedBonusPct || SMUGGLING_TUNNEL_CONFIG.openChannelDealerSaleSpeedBonusPct || 0)),
+    dealerRewardBonusPct: Math.max(0, Number(actionProfile.dealerRewardBonusPct || SMUGGLING_TUNNEL_CONFIG.openChannelDealerCompletionRewardBonusPct || 0)),
+    streetIncidentFlatRiskPct: Math.max(0, Number(actionProfile.streetIncidentFlatRiskPct || SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct || 0))
+  };
+}
+
+function applyServerBuildingActionLocalPreviewEffects(context = {}, definition = {}, actionProfile = {}, actionCooldownUntil = 0) {
+  if (definition.actionId !== "open_channel") {
+    return;
+  }
+  const now = Date.now();
+  const durationMs = Math.max(0, Number(actionProfile.durationMs || SMUGGLING_TUNNEL_CONFIG.openChannelDurationMs || 0));
+  const expiresAt = now + durationMs;
+  const tunnelActiveEffect = {
+    label: "Otevřený kanál",
+    expiresAt,
+    dirtyIncomeBoostPct: Math.max(0, Number(actionProfile.dirtyIncomeBoostPct || SMUGGLING_TUNNEL_CONFIG.openChannelTunnelDirtyProductionBonusPct || 0)),
+    dealerSalePriceBonusPct: Math.max(0, Number(actionProfile.dealerSalePriceBonusPct || SMUGGLING_TUNNEL_CONFIG.openChannelDealerSalePriceBonusPct || 0)),
+    dealerSaleSpeedBonusPct: Math.max(0, Number(actionProfile.dealerSaleSpeedBonusPct || SMUGGLING_TUNNEL_CONFIG.openChannelDealerSaleSpeedBonusPct || 0)),
+    dealerRewardBonusPct: Math.max(0, Number(actionProfile.dealerRewardBonusPct || SMUGGLING_TUNNEL_CONFIG.openChannelDealerCompletionRewardBonusPct || 0)),
+    streetIncidentFlatRiskPct: Math.max(0, Number(actionProfile.streetIncidentFlatRiskPct || SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct || 0))
+  };
+  const dealerActiveEffect = createOpenChannelDealerActiveEffect(expiresAt, actionProfile);
+  const patchOpenChannelEntry = (buildingName, activeEffect, extra = {}) => {
+    updateDistrictBuildingDetailEntry(context.district, buildingName, (entry) => ({
+      ...entry,
+      ...extra,
+      activeEffects: upsertDistrictBuildingActiveEffect(entry, activeEffect),
+      actionCooldowns: {
+        ...(entry.actionCooldowns || {}),
+        [definition.actionId]: actionCooldownUntil
+      }
+    }));
+  };
+  patchOpenChannelEntry("Pašovací tunel", tunnelActiveEffect, { openChannelExpiresAt: expiresAt });
+  patchOpenChannelEntry("Pouliční dealeři", dealerActiveEffect);
+}
+
 function hasStoredDistrictBuildingDetailEntry(district, buildingName) {
   const state = getStoredDistrictBuildingDetailState();
   const key = getDistrictBuildingDetailStorageKey(district, buildingName);
@@ -6296,6 +6410,9 @@ function mergeLegacyDistrictBuildingDetailEntries(entries = []) {
     if (entry.actionCooldowns && typeof entry.actionCooldowns === "object") {
       merged.actionCooldowns = merged.actionCooldowns || {};
       for (const [actionId, expiresAt] of Object.entries(entry.actionCooldowns)) {
+        if (String(actionId || "") === "openChannelActiveUntil") {
+          continue;
+        }
         merged.actionCooldowns[actionId] = Math.max(
           Number(merged.actionCooldowns[actionId] || 0),
           Number(expiresAt || 0)
@@ -6374,8 +6491,13 @@ function getDistrictBuildingDetailEntry(district, buildingName) {
     ? Number(entry.lastCollectedAt)
     : now - DISTRICT_BUILDING_DETAIL_DEFAULT_ACCRUAL_MS;
   const actionCooldowns = entry.actionCooldowns && typeof entry.actionCooldowns === "object"
-    ? entry.actionCooldowns
+    ? { ...entry.actionCooldowns }
     : {};
+  for (const actionId of Object.keys(actionCooldowns)) {
+    if (String(actionId || "") === "openChannelActiveUntil") {
+      delete actionCooldowns[actionId];
+    }
+  }
   const activeEffects = Array.isArray(entry.activeEffects)
     ? entry.activeEffects
         .filter((effect) => effect && typeof effect === "object")
@@ -6583,7 +6705,7 @@ function resolveDistrictBuildingNetworkEffectLabel({
   }
   if (exchangeNetwork) {
     return joinNetworkEffectParts("Síť směnáren", [
-      formatNetworkEffectPart("income", exchangeNetwork.incomeMultiplier),
+      formatNetworkEffectPart("výnos", exchangeNetwork.incomeMultiplier),
       formatNetworkEffectPart("limit praní", exchangeNetwork.launderingLimitMultiplier),
       formatNetworkEffectPart("heat", exchangeNetwork.heatMultiplier)
     ]);
@@ -6664,9 +6786,9 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
   const shoppingMallMarketDiscount = isShoppingMall ? getShoppingMallMarketDiscountForTab("market") : null;
   const shoppingMallBlackMarketDiscount = isShoppingMall ? getShoppingMallMarketDiscountForTab("black-market") : null;
   const shoppingMallNetwork = isShoppingMall ? getShoppingMallNetworkMultipliers(ownedShoppingMalls) : null;
-  const ownedAutoSalons = isAutoSalon ? getOwnedAutoSalonCount() : 0;
+  const ownedAutoSalons = getOwnedAutoSalonCount();
   const autoSalonNetwork = isAutoSalon ? getAutoSalonNetworkMultipliers(ownedAutoSalons) : null;
-  const autoSalonSupport = isAutoSalon ? getAutoSalonSupportStats(ownedAutoSalons) : null;
+  const autoSalonSupport = getAutoSalonSupportStats(ownedAutoSalons);
   const ownedFitnessClubs = isFitnessClub ? getOwnedFitnessClubCount() : 0;
   const fitnessClubNetwork = isFitnessClub ? getFitnessClubNetworkMultipliers(ownedFitnessClubs) : null;
   const fitnessClubSupport = isFitnessClub ? getFitnessClubSupportStats(ownedFitnessClubs) : null;
@@ -6681,18 +6803,30 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
   const ownedSmugglingTunnels = mechanicsType === "smuggling-tunnel" ? getOwnedSmugglingTunnelCount() : 0;
   const smugglingTunnelNetwork = mechanicsType === "smuggling-tunnel" ? getSmugglingTunnelNetworkMultipliers(ownedSmugglingTunnels) : null;
   const smugglingOpenChannelActive = mechanicsType === "smuggling-tunnel" && Number(entry.openChannelExpiresAt || entry.silentChannelExpiresAt || 0) > now;
+  const smugglingTunnelEntryForStreetDealers = mechanicsType === "street-dealers"
+    ? getDistrictBuildingDetailEntry(district, "Pašovací tunel")
+    : null;
+  const streetDealerOpenChannelExpiresAt = smugglingTunnelEntryForStreetDealers
+    ? Math.max(
+        Number(smugglingTunnelEntryForStreetDealers.openChannelExpiresAt || 0),
+        Number(smugglingTunnelEntryForStreetDealers.silentChannelExpiresAt || 0)
+      )
+    : 0;
+  const streetDealerOpenChannelEffect = streetDealerOpenChannelExpiresAt > now
+    ? createOpenChannelDealerActiveEffect(streetDealerOpenChannelExpiresAt)
+    : null;
   const smugglingDealerSupplyBonusPct = mechanicsType === "smuggling-tunnel"
     ? Math.min(SMUGGLING_TUNNEL_CONFIG.dealerSupplyMaxBonusPct, ownedSmugglingTunnels * SMUGGLING_TUNNEL_CONFIG.dealerSupplyBonusPctPerTunnel)
     : 0;
   const smugglingContrabandFlowLabel = ownedSmugglingTunnels >= 10
     ? "Podzemní síť"
     : ownedSmugglingTunnels >= 6
-      ? "Silný tok"
+      ? "Silná podpora"
       : ownedSmugglingTunnels >= 3
-        ? "Stabilní tok"
+        ? "Stabilní podpora"
         : ownedSmugglingTunnels >= 1
-          ? "Nízký tok"
-          : "Žádný tok";
+          ? "Nízká podpora"
+          : "Bez podpory";
   const multiplier = arcadeNetwork
     ? arcadeNetwork.incomeMultiplier
     : exchangeNetwork
@@ -6816,7 +6950,13 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     : 0;
   const dailyHeat = Math.round(Number(heatRule.heat || 0) * (smugglingTunnelNetwork?.heatMultiplier || smugglingTunnelNetwork?.passiveHeatMultiplier || garageNetwork?.heatMultiplier || fitnessClubNetwork?.heatMultiplier || recruitmentCenterNetwork?.heatMultiplier || restaurantNetwork?.heatMultiplier || autoSalonNetwork?.heatMultiplier || clinicNetwork?.heatMultiplier || warehouseNetwork?.heatMultiplier || arcadeNetwork?.heatMultiplier || exchangeNetwork?.heatMultiplier || 1) * 1440 * 10) / 10;
   const dailyInfluence = Math.round(Number(influenceRule.influence || 0) * (restaurantNetwork?.influenceMultiplier || 1) * 1440 * 10) / 10;
-  const activeEffectLabels = (entry.activeEffects || [])
+  const activeEffectsForLabel = [
+    ...(entry.activeEffects || []),
+    ...(streetDealerOpenChannelEffect && !(entry.activeEffects || []).some((effect) => String(effect?.label || "") === streetDealerOpenChannelEffect.label)
+      ? [streetDealerOpenChannelEffect]
+      : [])
+  ];
+  const activeEffectLabels = activeEffectsForLabel
     .map((effect) => formatActiveDistrictBuildingEffectLabel(effect, now))
     .filter(Boolean);
   const canCollect =
@@ -6834,7 +6974,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     dirtyHourly > 0 ? `Dirty cash +${formatDistrictBuildingMoney(dirtyHourly)}/hod` : "",
     mechanicsType === "apartment-block" ? `Populace +${apartmentPopulationPerMinute.toFixed(2)}/min` : "",
     mechanicsType === "school" ? `Populace +${schoolPopulationPerMinute.toFixed(2)}/min` : "",
-    mechanicsType === "smuggling-tunnel" ? `Kontraband Flow ${smugglingContrabandFlowLabel} · Dealer Supply +${smugglingDealerSupplyBonusPct}%` : "",
+    mechanicsType === "smuggling-tunnel" ? `Pouliční dealeři +${smugglingDealerSupplyBonusPct}% z pašovacích tunelů` : "",
     isGarage ? `Cooldowny -${garageSupport?.cooldownReductionPct || 0}%` : "",
     apartmentIsFull ? "Plná kapacita · Bytový blok je plný. Obyvatelé čekají na vybrání." : "",
     schoolIsFull ? "Plná kapacita · Škola má naplněnou lokální populační kapacitu." : "",
@@ -7620,9 +7760,9 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
 
   if (actionProfile.smugglingOpenChannel) {
     const cost = Math.max(0, Math.floor(Number(actionProfile.cleanCost || SMUGGLING_TUNNEL_CONFIG.openChannelCleanCost || 0)));
-    const activeUntil = Number(mechanics.actionCooldowns?.openChannelActiveUntil || 0);
-    if (activeUntil > Date.now()) {
-      setBuildingActionFeedback(root, "warning", action, `Otevřený kanál už běží. Zbývá ${formatDistrictBuildingCooldown(activeUntil - Date.now())}.`, context.buildingName);
+    const activeRemainingMs = Math.max(0, Number(mechanics.smugglingOpenChannelRemainingMs || 0));
+    if (activeRemainingMs > 0) {
+      setBuildingActionFeedback(root, "warning", action, `Otevřený kanál už běží. Zbývá ${formatDistrictBuildingCooldown(activeRemainingMs)}.`, context.buildingName);
       return null;
     }
     if (cleanMoney < cost) {
@@ -7639,13 +7779,12 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
       openChannelExpiresAt: expiresAt,
       actionCooldowns: {
         ...(entry.actionCooldowns || {}),
-        openChannel: Date.now() + SMUGGLING_TUNNEL_CONFIG.openChannelCooldownMs,
-        openChannelActiveUntil: expiresAt
+        openChannel: Date.now() + SMUGGLING_TUNNEL_CONFIG.openChannelCooldownMs
       }
     }));
     economyChanged = true;
     summaryParts.push(`Otevřený kanál aktivní na ${formatDistrictBuildingCooldown(SMUGGLING_TUNNEL_CONFIG.openChannelDurationMs)}.`);
-    summaryParts.push(`Dealer bonus +${SMUGGLING_TUNNEL_CONFIG.openChannelDealerSalePriceBonusPct}% cena, +${SMUGGLING_TUNNEL_CONFIG.openChannelDealerSaleSpeedBonusPct}% rychlost, incident risk +${SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct}%.`);
+    summaryParts.push(`Pouliční dealeři: cena +${SMUGGLING_TUNNEL_CONFIG.openChannelDealerSalePriceBonusPct}%, rychlost +${SMUGGLING_TUNNEL_CONFIG.openChannelDealerSaleSpeedBonusPct}%, riziko incidentu +${SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct}%.`);
   }
 
   if (actionProfile.schoolEveningCourse) {
@@ -8257,13 +8396,27 @@ function resolveDistrictBuildingActionEffectiveCooldownView(context = {}, resolv
     resolved.action,
     resolved.definition
   );
-  const effectiveCooldownMs = resolveGarageEffectiveCooldownMs(baseCooldownMs, mechanics.garageSupport, garageCategory);
-  const garageCooldownReductionPct = resolveGarageCooldownReductionPctForCategory(mechanics.garageSupport, garageCategory);
+  const autoSalonCategory = resolveAutoSalonCategoryForBuildingAction(
+    context.buildingName,
+    resolved.action,
+    resolved.definition
+  );
+  const cooldownReductionView = resolveCombinedEffectiveCooldownMs({
+    baseCooldownMs,
+    garageSupport: mechanics.garageSupport,
+    garageCategory,
+    autoSalonSupport: mechanics.autoSalonSupport,
+    autoSalonCategory
+  });
+  const effectiveCooldownMs = cooldownReductionView.effectiveCooldownMs;
   return {
     baseCooldownMs,
     effectiveCooldownMs,
     garageCategory,
-    garageCooldownReductionPct,
+    autoSalonCategory,
+    garageCooldownReductionPct: cooldownReductionView.garageReductionPct,
+    autoSalonCooldownReductionPct: cooldownReductionView.autoSalonReductionPct,
+    combinedCooldownReductionPct: cooldownReductionView.combinedReductionPct,
     label: formatGarageEffectiveCooldownLabel({
       baseCooldownMs,
       effectiveCooldownMs,
@@ -8344,6 +8497,7 @@ async function runDistrictBuildingActionFromContext(root, context, request, opti
           [definition.actionId]: actionCooldownUntil
         }
       }));
+      applyServerBuildingActionLocalPreviewEffects(context, definition, actionProfile || {}, actionCooldownUntil);
       setBuildingActionFeedback(
         root,
         "success",
@@ -9703,7 +9857,9 @@ function bindDistrictCanvas(root) {
     renderAttackProgress,
     resolveAttackOutcome,
     robberyCooldownMs: ROBBERY_COOLDOWN_MS,
+    getRobberyCooldownView: () => getRobberyActionCooldownView(),
     occupyCooldownMs: OCCUPY_COOLDOWN_MS,
+    getOccupyCooldownView: () => getOccupyActionCooldownView(),
     spyCooldownMs: SPY_COOLDOWN_MS,
     validateAttackSelection,
     elements: createDistrictActionConfirmationPanelElements(districtPopupElements)
@@ -9915,7 +10071,7 @@ function bindDistrictCanvas(root) {
       summary: createdOrder.hasTrapDefense
         ? `District ${context.sourceDistrictId} zahájí útok na District ${selectedDistrict.id}. Cíl je krytý toxickou pastí. Výzbroj: ${context.selectedWeaponsLabel}.${context.boostContext.summaryLabel ? ` ${context.boostContext.summaryLabel}.` : ""}`
         : `District ${context.sourceDistrictId} zahájí útok na District ${selectedDistrict.id}. Výzbroj: ${context.selectedWeaponsLabel}. Výsledek: ${createdOrder.resolvedScenario.label}.${context.boostContext.summaryLabel ? ` ${context.boostContext.summaryLabel}.` : ""}`,
-      meta: `Síla ${createdOrder.estimatedAttackPower} · Obrana ${createdOrder.targetDefensePower} · Obyvatelé ${context.totalResidents} · cooldown ${formatDurationLabel(context.boostContext.cooldownMs)}`
+      meta: `Síla ${createdOrder.estimatedAttackPower} · Obrana ${createdOrder.targetDefensePower} · Obyvatelé ${context.totalResidents} · cooldown ${context.boostContext.cooldownLabel || formatDurationLabel(context.boostContext.cooldownMs)}`
     }, {
       elements: {
         state: buildingActionState,
@@ -10050,12 +10206,15 @@ function bindDistrictCanvas(root) {
       return false;
     }
 
+    const occupyCooldownView = getOccupyActionCooldownView();
+    const occupyDurationMs = occupyCooldownView.effectiveCooldownMs;
+    const occupyDurationLabel = occupyCooldownView.label || formatDurationLabel(occupyDurationMs);
     const createdOrder = {
       id: `occupy-order:${Date.now()}`,
       sourceDistrictId: `district:${adjacentOwnedDistrictIds[0]}`,
       targetDistrictId: `district:${selectedDistrict.id}`,
       createdAt: new Date().toISOString(),
-      resolveAt: new Date(Date.now() + OCCUPY_COOLDOWN_MS).toISOString(),
+      resolveAt: new Date(Date.now() + occupyDurationMs).toISOString(),
       populationCost,
       failureChance: LEGACY_OCCUPY_FAILURE_CHANCE,
       populationRefundRatio: LEGACY_OCCUPY_POPULATION_REFUND_RATIO,
@@ -10093,11 +10252,11 @@ function bindDistrictCanvas(root) {
     }
 
     if (buildingActionSummary) {
-      buildingActionSummary.textContent = `District ${selectedDistrict.id} se obsazuje po spy akci Úspěch. Cena ${populationCost} populace. Neúspěšnost 5 %. Při úspěchu se vrátí 10 % ceny. Obsazení potrvá ${formatDurationLabel(OCCUPY_COOLDOWN_MS)}.`;
+      buildingActionSummary.textContent = `District ${selectedDistrict.id} se obsazuje po spy akci Úspěch. Cena ${populationCost} populace. Neúspěšnost 5 %. Při úspěchu se vrátí 10 % ceny. Obsazení potrvá ${occupyDurationLabel}.`;
     }
 
     if (buildingActionMeta) {
-      buildingActionMeta.textContent = `Zdroj District ${adjacentOwnedDistrictIds[0]} · District ${selectedDistrict.id} · cooldown ${formatDurationLabel(OCCUPY_COOLDOWN_MS)}`;
+      buildingActionMeta.textContent = `Zdroj District ${adjacentOwnedDistrictIds[0]} · District ${selectedDistrict.id} · cooldown ${occupyDurationLabel}`;
     }
 
     closeOccupyConfirmPopup();
@@ -10132,7 +10291,9 @@ function bindDistrictCanvas(root) {
     });
     renderGangMembersState(root);
 
-    const robberyDurationMs = getRobberyActionDurationMs();
+    const robberyCooldownView = getRobberyActionCooldownView();
+    const robberyDurationMs = robberyCooldownView.effectiveCooldownMs;
+    const robberyDurationLabel = robberyCooldownView.label || formatDurationLabel(robberyDurationMs);
     const createdOrder = {
       id: `robbery-order:${Date.now()}`,
       playerId: `player:${CURRENT_PLAYER_ID}`,
@@ -10172,11 +10333,11 @@ function bindDistrictCanvas(root) {
     }
 
     if (buildingActionSummary) {
-      buildingActionSummary.textContent = `District ${sourceDistrictId} spouští Vykrást district na prázdný District ${selectedDistrict.id}. Nasazeno ${deployedMembers} členů gangu. Akce neobsazuje území a běží ${formatDurationLabel(robberyDurationMs)}.`;
+      buildingActionSummary.textContent = `District ${sourceDistrictId} spouští Vykrást district na prázdný District ${selectedDistrict.id}. Nasazeno ${deployedMembers} členů gangu. Akce neobsazuje území a běží ${robberyDurationLabel}.`;
     }
 
     if (buildingActionMeta) {
-      buildingActionMeta.textContent = `Vykrást district · Městský loot · Členové ${deployedMembers} · Cíl District ${selectedDistrict.id} · cooldown ${formatDurationLabel(robberyDurationMs)}`;
+      buildingActionMeta.textContent = `Vykrást district · Městský loot · Členové ${deployedMembers} · Cíl District ${selectedDistrict.id} · cooldown ${robberyDurationLabel}`;
     }
 
     hideTooltip();

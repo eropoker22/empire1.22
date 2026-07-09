@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCommand, type CoreGameState } from "@empire/game-core";
+import { applyCommand, resolveCarDealerEscapeChanceBonusPct, type CoreGameState } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
 import {
   createAttackDistrictCommandFixture,
@@ -89,6 +89,31 @@ describe("Free BR strategic cooldowns", () => {
     expect(robResult.errors).toEqual([]);
     expect(robResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["rob:district:2"]).toBe(101);
     expect(robResult.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["rob-source:district:1"]).toBe(101);
+  });
+
+  it("applies car dealer escape chance bonus from owned autosalons with cap", () => {
+    const noDealerState = createCombatStateFixture();
+    expect(resolveCarDealerEscapeChanceBonusPct({
+      state: noDealerState,
+      playerId: "player:1",
+      config: freeConfig.balance.carDealer
+    })).toBe(0);
+
+    const threeDealerState = createCombatStateFixture();
+    addOwnedBuildings(threeDealerState, "car_dealer", 3);
+    expect(resolveCarDealerEscapeChanceBonusPct({
+      state: threeDealerState,
+      playerId: "player:1",
+      config: freeConfig.balance.carDealer
+    })).toBe(6);
+
+    const cappedDealerState = createCombatStateFixture();
+    addOwnedBuildings(cappedDealerState, "car_dealer", 9);
+    expect(resolveCarDealerEscapeChanceBonusPct({
+      state: cappedDealerState,
+      playerId: "player:1",
+      config: freeConfig.balance.carDealer
+    })).toBe(12);
   });
 
   it("keeps canonical craft durations in strategic minute ranges after cooldownMultiplier", () => {

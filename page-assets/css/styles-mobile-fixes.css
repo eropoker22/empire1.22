@@ -2113,6 +2113,23 @@ html body .wanted-popup-card .wanted-popup-police-feed.police-feed-panel {
     color: #fff4cf !important;
   }
 
+  .district-popup-action[data-district-action-id="spy"][data-district-action-disabled-tone="no-spies"]:disabled {
+    border-color: rgba(148, 163, 184, 0.32) !important;
+    background:
+      linear-gradient(135deg, rgba(71, 85, 105, 0.56), rgba(15, 23, 42, 0.74)),
+      rgba(15, 23, 42, 0.66) !important;
+    color: rgba(226, 232, 240, 0.76) !important;
+    filter: saturate(0.5) !important;
+    opacity: 1 !important;
+    cursor: not-allowed !important;
+  }
+
+  .district-popup-action[data-district-action-id="spy"][data-district-action-disabled-tone="no-spies"] .district-popup-action__sub {
+    color: #f87171 !important;
+    font-weight: 900 !important;
+    text-shadow: 0 0 8px rgba(248, 113, 113, 0.32) !important;
+  }
+
   .district-popup-action[data-district-action-id="occupy"] {
     --district-action-rgb: 220, 20, 60;
     --district-action-secondary-rgb: 136, 19, 55;

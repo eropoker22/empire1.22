@@ -171,17 +171,22 @@ export function resolveDistrictActions(context) {
     if (action.id === "spy") {
       const visible = !isOwnedByCurrentPlayer && hasAdjacentOwnedDistrict && !canOccupyAfterSpy;
       const enabled = visible && availableSpies > 0;
+      const noSpiesAvailable = visible && !enabled;
 
       return {
         id: action.id,
         visible,
         enabled,
         label: action.defaultLabel,
+        stacked: noSpiesAvailable,
+        subtitle: noSpiesAvailable ? "Žádní špehové" : "",
+        disabledTone: noSpiesAvailable ? "no-spies" : "",
+        title: noSpiesAvailable ? "Žádní špehové nejsou dostupní." : "",
         reason: enabled
           ? null
           : !visible
             ? "Špehování vyžaduje sousední vlastněný district."
-            : "Nemáš dostupného špeha."
+            : null
       };
     }
 

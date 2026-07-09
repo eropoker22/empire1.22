@@ -244,6 +244,9 @@ function createDistrictActionButton(mount, action) {
   button.type = "button";
   button.dataset.districtActionId = action.id || "";
   button.dataset.districtActionLabel = action.label || "";
+  if (action.disabledTone) {
+    button.dataset.districtActionDisabledTone = String(action.disabledTone);
+  }
   button.disabled = !action.enabled;
 
   if (action.stacked) {

@@ -303,6 +303,37 @@ describe("day night cycle", () => {
     expect(night.influencePerDay).toBeGreaterThan(day.influencePerDay);
   });
 
+  it("heavily cuts smuggling tunnel dirty income during day", () => {
+    const state = createCoreStateFixture();
+    const context = createContext("free");
+
+    state.root.tick = 0;
+    const day = applyDayNightBuildingIncomeModifiers({
+      state,
+      context,
+      buildingTypeId: "smuggling_tunnel",
+      cleanPerHour: 0,
+      dirtyPerHour: 100,
+      heatPerDay: 10,
+      influencePerDay: 0
+    });
+
+    state.root.tick = 1440;
+    const night = applyDayNightBuildingIncomeModifiers({
+      state,
+      context,
+      buildingTypeId: "smuggling_tunnel",
+      cleanPerHour: 0,
+      dirtyPerHour: 100,
+      heatPerDay: 10,
+      influencePerDay: 0
+    });
+
+    expect(day.dirtyPerHour).toBe(45);
+    expect(night.dirtyPerHour).toBe(156);
+    expect(day.dirtyPerHour).toBeLessThan(night.dirtyPerHour / 3);
+  });
+
   it("applies passive population and production modifiers to school and lab loops", () => {
     const context = createContext("free");
     const daySchoolFixture = createCoreStateWithFixedBuildingFixture("school");
@@ -587,6 +618,26 @@ describe("day night cycle", () => {
       allowed: false,
       phaseAvailability: "blocked",
       blockedReason: "Policy Window se otevírá jen přes den."
+    });
+  });
+
+  it("allows exchange good rate during day and blocks it at night", () => {
+    const state = createCoreStateFixture();
+    const context = createContext("free");
+
+    state.root.tick = 0;
+    expect(resolveDayNightActionRule(state, context, "good_rate", "exchange")).toMatchObject({
+      allowed: true,
+      phaseAvailability: "buffed",
+      phaseBadgeLabel: "DEN BONUS"
+    });
+    expect(applyDayNightActionHeat(12, state, context, "good_rate", "exchange")).toBe(12);
+
+    state.root.tick = 1440;
+    expect(resolveDayNightActionRule(state, context, "good_rate", "exchange")).toMatchObject({
+      allowed: false,
+      phaseAvailability: "blocked",
+      blockedReason: "Výhodný kurz můžeš spustit jen přes den."
     });
   });
 

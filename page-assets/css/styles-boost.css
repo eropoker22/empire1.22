@@ -199,6 +199,42 @@
   width: min(430px, 92vw);
 }
 
+#boost-modal:not(.hidden):not([hidden]),
+#faction-actions-modal:not(.hidden):not([hidden]) {
+  position: fixed;
+  inset: 72px 0 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 22000;
+  isolation: isolate;
+}
+
+#boost-modal:not(.hidden):not([hidden]) > .modal__backdrop,
+#faction-actions-modal:not(.hidden):not([hidden]) > .modal__backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: rgba(2, 6, 12, 0.46);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: buildings-popup-backdrop-in 180ms ease-out both;
+}
+
+#boost-modal:not(.hidden):not([hidden]) > .modal__content,
+#faction-actions-modal:not(.hidden):not([hidden]) > .modal__content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  width: min(920px, calc(100vw - 36px));
+  max-height: min(78vh, 860px);
+  border-radius: 22px;
+  transform-origin: center top;
+  animation: buildings-popup-content-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 .boost-modal__body {
   display: grid;
   gap: 8px;

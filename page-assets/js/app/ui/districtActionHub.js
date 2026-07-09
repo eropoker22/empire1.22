@@ -38,6 +38,9 @@ export function renderDistrictActionButton(action = {}, callback = null, options
   if (action.id) {
     button.dataset.testid = `district-action-${action.id}`;
   }
+  if (action.disabledTone) {
+    button.dataset.districtActionDisabledTone = String(action.disabledTone);
+  }
   if (action.countdownLabel) {
     button.dataset.districtActionCountdown = "true";
     if (action.countdownEndsAt) {

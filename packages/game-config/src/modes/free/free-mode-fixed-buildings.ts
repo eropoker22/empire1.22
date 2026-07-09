@@ -26,19 +26,22 @@ import { freeModeStreetDealersConfig } from "../../public/free-mode-street-deale
 import { freeModeStripClubConfig } from "../../public/free-mode-strip-club-config";
 import { freeModeVipLoungeConfig } from "../../public/free-mode-vip-lounge-config";
 import { freeModeWarehouseConfig } from "../../public/free-mode-warehouse-config";
+
+const roundPassiveStat = (value: number): number => Number(Number(value).toFixed(10));
+
 export const freeModeFixedBuildings: NonNullable<ResolvedGameModeConfig["balance"]["fixedBuildings"]> = {
   casino: {
-    cleanPerHour: freeModeCasinoConfig.cleanCashPerMinute * 60,
-    dirtyPerHour: freeModeCasinoConfig.dirtyCashPerMinute * 60,
-    heatPerDay: freeModeCasinoConfig.heatPerMinute * 60 * 24,
-    influencePerDay: freeModeCasinoConfig.influencePerMinute * 60 * 24,
+    cleanPerHour: roundPassiveStat(freeModeCasinoConfig.cleanCashPerMinute * 60),
+    dirtyPerHour: roundPassiveStat(freeModeCasinoConfig.dirtyCashPerMinute * 60),
+    heatPerDay: roundPassiveStat(freeModeCasinoConfig.heatPerMinute * 60 * 24),
+    influencePerDay: roundPassiveStat(freeModeCasinoConfig.influencePerMinute * 60 * 24),
     maxLevel: 4
   },
   exchange: {
     cleanPerHour: freeModeExchangeOfficeConfig.cleanCashPerMinute * 60,
     dirtyPerHour: freeModeExchangeOfficeConfig.dirtyCashPerMinute * 60,
-    heatPerDay: 230.4,
-    influencePerDay: 403.2,
+    heatPerDay: freeModeExchangeOfficeConfig.heatPerMinute * 60 * 24,
+    influencePerDay: freeModeExchangeOfficeConfig.influencePerMinute * 60 * 24,
     maxLevel: 1
   },
   arcade: {
@@ -105,10 +108,10 @@ export const freeModeFixedBuildings: NonNullable<ResolvedGameModeConfig["balance
     maxLevel: 1
   },
   shopping_mall: {
-    cleanPerHour: freeModeShoppingMallConfig.cleanCashPerMinute * 60,
-    dirtyPerHour: freeModeShoppingMallConfig.dirtyCashPerMinute * 60,
-    heatPerDay: freeModeShoppingMallConfig.heatPerMinute * 60 * 24,
-    influencePerDay: freeModeShoppingMallConfig.influencePerMinute * 60 * 24,
+    cleanPerHour: roundPassiveStat(freeModeShoppingMallConfig.cleanCashPerMinute * 60),
+    dirtyPerHour: roundPassiveStat(freeModeShoppingMallConfig.dirtyCashPerMinute * 60),
+    heatPerDay: roundPassiveStat(freeModeShoppingMallConfig.heatPerMinute * 60 * 24),
+    influencePerDay: roundPassiveStat(freeModeShoppingMallConfig.influencePerMinute * 60 * 24),
     maxLevel: 1
   },
   central_bank: {
@@ -199,7 +202,7 @@ export const freeModeFixedBuildings: NonNullable<ResolvedGameModeConfig["balance
     cleanPerHour: freeModeCarDealerConfig.cleanCashPerMinute * 60,
     dirtyPerHour: freeModeCarDealerConfig.dirtyCashPerMinute * 60,
     heatPerDay: freeModeCarDealerConfig.heatPerMinute * 60 * 24,
-    influencePerDay: 0,
+    influencePerDay: freeModeCarDealerConfig.influencePerMinute * 60 * 24,
     maxLevel: 1
   },
   recycling_center: {

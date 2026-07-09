@@ -669,6 +669,7 @@ describe("building detail, production and recipe UI modules", () => {
         buildingTypeId: "casino",
         title: "VIP noc",
         description: "Dlouhý popis nesmí být na tlačítku.",
+        phaseLockLabel: "Jen v noci",
         cooldownLabel: "Ready"
       }]
     });
@@ -680,6 +681,8 @@ describe("building detail, production and recipe UI modules", () => {
     }
 
     expect(action.querySelector(".building-info-action-row__desc").textContent).toBe("");
+    expect(action.dataset.districtBuildingDetailHasPhaseLock).toBe("true");
+    expect(action.querySelector(".building-info-action-row__phase").textContent).toBe("Jen v noci");
     expect(onRunAction).toHaveBeenCalledTimes(1);
     const [receivedShell, payload] = onRunAction.mock.calls[0];
     expect(receivedShell).toBe(shell);
@@ -728,6 +731,42 @@ describe("building detail, production and recipe UI modules", () => {
     expect(action.dataset.districtBuildingDetailDisabledTone).toBe("insufficient-funds");
     expect(action.querySelector(".building-info-action-row__desc").hidden).toBe(false);
     expect(action.querySelector(".building-info-action-row__desc").textContent).toBe("Potřebuješ biomass x3.");
+  });
+
+  it("keeps action cooldown only in the corner label", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "2:casino" });
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "casino",
+      title: "Kasino",
+      badge: "High-risk praní",
+      levelLabel: "L1",
+      name: "Kasino",
+      meta: "",
+      stats: [],
+      mechanics: [],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { disabled: true, title: "" },
+      showActionsInSinglePanel: true,
+      actions: [{
+        index: 0,
+        actionId: "vip_night",
+        buildingTypeId: "casino",
+        title: "VIP noc",
+        disabled: true,
+        disabledReason: "Cooldown 12m 00s.",
+        rewardSummary: "Clean cash +500",
+        cooldownLabel: "Zbývá 12m 00s",
+        cooldownRemainingMs: 12 * 60 * 1000
+      }]
+    });
+
+    const action = shell.querySelector("[data-district-building-detail-action-id='vip_night']");
+    expect(action.querySelector(".building-info-action-row__desc").textContent).toBe("Clean cash +500");
+    expect(action.querySelector(".building-info-action-row__cooldown").textContent).toBe("Zbývá 12m 00s");
   });
 
   it("renders infrastructure buildings as one merged panel with support actions", () => {

@@ -1528,11 +1528,28 @@ body.game-body--booting .game-logo-slot {
 }
 
 .map-stage-title {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
   margin: 0;
-  font-size: 1.22rem;
-  font-weight: 700;
-  color: #f0f6fb;
-  line-height: 1;
+  padding: 6px 12px;
+  border: 1px solid rgba(226, 232, 240, 0.26);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, 0.12), rgba(148, 163, 184, 0.08)),
+    rgba(15, 23, 42, 0.62);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 8px 18px rgba(2, 6, 23, 0.22),
+    0 0 0 1px rgba(255, 255, 255, 0.035);
+  color: #e5e7eb;
+  font-size: 0.78rem;
+  font-weight: 850;
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(226, 232, 240, 0.14);
 }
 
 .map-phase-toolbar {
@@ -1787,9 +1804,15 @@ body.game-body--booting .game-logo-slot {
 }
 
 .map-stage-shell.has-map-hover .map-stage-title {
+  border-color: rgba(226, 232, 240, 0.34);
+  color: #f8fafc;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 8px 18px rgba(2, 6, 23, 0.22),
+    0 0 18px rgba(226, 232, 240, 0.09);
   text-shadow:
-    0 0 14px rgba(103, 225, 255, 0.18),
-    0 0 26px rgba(103, 225, 255, 0.08);
+    0 0 12px rgba(226, 232, 240, 0.18),
+    0 0 24px rgba(148, 163, 184, 0.1);
 }
 
 .mount-point--map.has-map-hover {
@@ -1818,9 +1841,15 @@ body.game-body--booting .game-logo-slot {
 }
 
 .map-stage-shell.is-district-focused .map-stage-title {
+  border-color: rgba(203, 213, 225, 0.4);
+  color: #f8fafc;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 8px 18px rgba(2, 6, 23, 0.24),
+    0 0 20px rgba(203, 213, 225, 0.12);
   text-shadow:
-    0 0 16px rgba(255, 154, 61, 0.22),
-    0 0 28px rgba(103, 225, 255, 0.12);
+    0 0 12px rgba(248, 250, 252, 0.2),
+    0 0 22px rgba(148, 163, 184, 0.12);
 }
 
 .map-canvas-shell.is-district-focused {
@@ -3318,15 +3347,16 @@ body.game-body--booting .game-logo-slot {
   .map-stage-title {
     position: relative;
     font-size: 0;
-    letter-spacing: 0.02em;
-    text-shadow: 0 0 18px rgba(34, 211, 238, 0.14);
+    padding: 5px 10px;
+    letter-spacing: 0;
   }
 
   .map-stage-title::after {
     content: "Mapa";
-    font-size: 0.92rem;
-    font-weight: 700;
+    font-size: 0.72rem;
+    font-weight: 850;
     line-height: 1;
+    letter-spacing: 0.05em;
   }
 
   .map-phase-toolbar {
@@ -4883,13 +4913,20 @@ body.game-body--booting .game-logo-slot {
 
 /* Battle Royale info button and briefing modal. */
 #battle-royale-info-modal:not(.hidden) {
+  position: fixed;
+  inset: 72px 0 0 0;
+  display: flex;
   align-items: center;
   justify-content: center;
   padding: 18px;
-  z-index: 96;
+  z-index: 22000;
+  isolation: isolate;
 }
 
 #battle-royale-info-modal .modal__backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   background:
     radial-gradient(circle at 50% 18%, rgba(34, 211, 238, 0.18), transparent 34%),
     radial-gradient(circle at 18% 78%, rgba(244, 114, 182, 0.14), transparent 30%),
@@ -4899,6 +4936,8 @@ body.game-body--booting .game-logo-slot {
 }
 
 .battle-royale-info-modal__content {
+  position: relative;
+  z-index: 1;
   width: min(560px, calc(100vw - 36px));
   max-height: min(82vh, 660px);
   border-radius: 22px;

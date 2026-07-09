@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { createBuildingNetworkRuntime as createClientBuildingNetworkRuntime } from "../../client/page-assets/js/app/runtime/buildingNetworkRuntime.js";
 import { createBuildingNetworkRuntime } from "../../page-assets/js/app/runtime/buildingNetworkRuntime.js";
 
-function createRuntime(overrides = {}) {
+function createRuntime(overrides = {}, runtimeFactory = createBuildingNetworkRuntime) {
   const profiles = {
     1: [{ baseName: "autosalon" }, { baseName: "skladiste" }, { baseName: "obchodni centrum" }],
     2: [{ baseName: "autosalon" }, { baseName: "klinika" }],
     3: [{ baseName: "skola" }]
   };
-  return createBuildingNetworkRuntime({
+  return runtimeFactory({
     apartmentBlockNetworkConfig: { maxPopulationProductionMultiplier: 2, populationProductionBonusPctPerExtraBlock: 10, maxCapacityMultiplier: 2, capacityBonusPctPerExtraBlock: 10 },
     arcadeNetworkConfig: { maxIncomeMultiplier: 2, incomeBonusPctPerExtraArcade: 10, maxLaunderingLimitMultiplier: 2, launderingLimitBonusPctPerExtraArcade: 10, maxHeatMultiplier: 2, heatBonusPctPerExtraArcade: 10 },
     autoSalonSupportConfig: {
@@ -21,8 +22,13 @@ function createRuntime(overrides = {}) {
       mobilityBonusPctPerDealer: 5,
       maxCooldownReductionPct: 40,
       cooldownReductionPctPerDealer: 4,
+      combinedGarageDealerMaxReductionPct: 40,
       maxEscapeChanceBonusPct: 30,
-      escapeChanceBonusPctPerDealer: 3
+      escapeChanceBonusPctPerDealer: 3,
+      fullBonusCategories: ["attackPreparation", "districtOccupy"],
+      halfBonusCategories: ["districtSpy", "clinicRecovery"],
+      smallBonusCategories: ["marketDelivery"],
+      excludedCategories: ["moneyLaundering"]
     },
     clinicBaseRecoveryRatePct: 10,
     clinicMaxRecoveryRatePct: 30,
@@ -210,6 +216,33 @@ describe("building network runtime", () => {
     });
 
     expect(runtime.getOwnedShoppingMallCountForMarket()).toBe(1);
+  });
+
+  it("counts every owned shopping mall occurrence in both runtime bundles", () => {
+    for (const runtimeFactory of [createBuildingNetworkRuntime, createClientBuildingNetworkRuntime]) {
+      const runtime = createRuntime({
+        resolveDistrictBuildingProfile: (district) => ({
+          buildings: {
+            1: [{ baseName: "obchodni centrum" }, { baseName: "obchodni centrum" }],
+            2: [],
+            3: []
+          }[district.id] || []
+        })
+      }, runtimeFactory);
+
+      expect(runtime.getOwnedShoppingMallCountForMarket()).toBe(2);
+      expect(runtime.getShoppingMallMarketDiscountForTab("market")).toMatchObject({
+        ownedMalls: 2,
+        discountPct: 4,
+        feeReductionPct: 10
+      });
+      expect(runtime.getShoppingMallNetworkMultipliers()).toMatchObject({
+        cleanIncomeMultiplier: 1.1,
+        dirtyIncomeMultiplier: 1.1,
+        influenceMultiplier: 1.1,
+        heatMultiplier: 1.1
+      });
+    }
   });
 
   it("caps demo live minimum counts to buildings available in the current map", () => {

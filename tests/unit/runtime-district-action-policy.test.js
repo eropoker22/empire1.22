@@ -40,6 +40,21 @@ describe("legacy district action policy", () => {
     expect(actions.some((action) => action.id === "heist")).toBe(false);
   });
 
+  it("keeps spy visible but disabled when all spies are deployed", () => {
+    const actions = getVisibleActions({ availableSpies: 0 });
+    const spy = actions.find((action) => action.id === "spy");
+
+    expect(spy).toMatchObject({
+      visible: true,
+      enabled: false,
+      label: "Špehovat",
+      stacked: true,
+      subtitle: "Žádní špehové",
+      disabledTone: "no-spies",
+      reason: null
+    });
+  });
+
   it("keeps neutral districts on occupy and city robbery after successful spy intel", () => {
     const actions = getVisibleActions({ isUnoccupied: true, canOccupyAfterSpy: true });
 

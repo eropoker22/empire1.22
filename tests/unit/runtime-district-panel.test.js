@@ -299,6 +299,24 @@ describe("district panel rendering", () => {
 
     renderDistrictActionPanel({ section, head, mount }, {
       hidden: false,
+      actions: [
+        {
+          id: "spy",
+          label: "Špehovat",
+          enabled: false,
+          stacked: true,
+          subtitle: "Žádní špehové",
+          disabledTone: "no-spies"
+        }
+      ]
+    });
+
+    expect(mount.children[0].children[0].disabled).toBe(true);
+    expect(mount.children[0].children[0].dataset.districtActionDisabledTone).toBe("no-spies");
+    expect(mount.children[0].children[0].children[1].textContent).toBe("Žádní špehové");
+
+    renderDistrictActionPanel({ section, head, mount }, {
+      hidden: false,
       policeMessage: "District je právě pod policejní akcí."
     });
 

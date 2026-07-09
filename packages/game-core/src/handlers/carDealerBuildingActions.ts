@@ -59,9 +59,10 @@ const resolveGarageReductionPctForCategory = (input: {
   if (!input.config || !input.playerId) {
     return 0;
   }
-  const scale = input.config.cooldownReduction.fullBonusActionCategories.includes(input.category)
+  const garageCategory = input.category === "clinicEvacuationRecovery" ? "clinicRecovery" : input.category;
+  const scale = input.config.cooldownReduction.fullBonusActionCategories.includes(garageCategory)
     ? 1
-    : input.config.cooldownReduction.halfBonusActionCategories.includes(input.category)
+    : input.config.cooldownReduction.halfBonusActionCategories.includes(garageCategory)
       ? 0.5
       : 0;
   return Math.min(
@@ -264,7 +265,7 @@ export const applyCarDealerIncomeModifiers = (input: {
     cleanPerHour: input.cleanPerHour * network.cleanIncomeMultiplier,
     dirtyPerHour: input.dirtyPerHour * network.dirtyIncomeMultiplier,
     heatPerDay: input.heatPerDay * network.heatMultiplier,
-    influencePerDay: 0,
+    influencePerDay: input.influencePerDay,
     maxLevel: 1
   };
 };

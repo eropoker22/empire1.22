@@ -106,9 +106,9 @@ function initFactionActionsRuntime() {
     if (status) {
       status.textContent = `${playerAction.name}: pasivní frakční efekty jsou aktivní. Speciální schopnost je preview.`;
     }
-    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
     modal.hidden = false;
     modal.classList.remove("hidden");
+    openOverlay(modal, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
   };
 
   const close = () => {

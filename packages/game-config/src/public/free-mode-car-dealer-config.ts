@@ -6,10 +6,10 @@ export const freeModeCarDealerConfig: CarDealerBalanceConfig = {
   legacyBuildingTypeIds: ["auto_salon"],
   countOnMap: 10,
   category: ["economy", "mobility", "logistics", "cooldown_multiplier"],
-  cleanCashPerMinute: 68,
-  dirtyCashPerMinute: 18,
-  influencePerMinute: 0,
-  heatPerMinute: 0.08,
+  cleanCashPerMinute: 2145 / 60,
+  dirtyCashPerMinute: 650 / 60,
+  influencePerMinute: 1 / 60,
+  heatPerMinute: 60 / (60 * 24),
   actions: [],
   noSpecialActions: true,
   noLaundering: true,
@@ -22,13 +22,9 @@ export const freeModeCarDealerConfig: CarDealerBalanceConfig = {
     fullBonusActionCategories: [
       "districtRobbery",
       "districtOccupy",
-      "attackPreparation",
-      "retreatReturn"
+      "attackPreparation"
     ],
-    halfBonusActionCategories: [
-      "attackTravelTime",
-      "defenseReposition"
-    ],
+    halfBonusActionCategories: [],
     smallBonusActionCategories: [
       "clinicEvacuationRecovery",
       "recyclingSalvageTransport"
@@ -51,13 +47,9 @@ export const freeModeCarDealerConfig: CarDealerBalanceConfig = {
     fullBonusActionCategories: [
       "districtRobbery",
       "districtOccupy",
-      "attackPreparation",
-      "retreatReturn"
+      "attackPreparation"
     ],
-    halfBonusActionCategories: [
-      "attackTravelTime",
-      "defenseReposition"
-    ],
+    halfBonusActionCategories: [],
     smallBonusActionCategories: [
       "clinicEvacuationRecovery",
       "recyclingSalvageTransport"
@@ -77,10 +69,7 @@ export const freeModeCarDealerConfig: CarDealerBalanceConfig = {
     bonusPctPerDealer: 2,
     maxBonusPct: 12,
     appliesTo: [
-      "districtRobberyFailure",
-      "spyDetectedFailure",
-      "movementAmbush",
-      "attackReturn"
+      "attackFailure"
     ]
   },
   network: {

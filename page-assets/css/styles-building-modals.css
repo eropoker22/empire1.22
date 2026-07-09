@@ -729,6 +729,14 @@
   background: rgba(30, 27, 48, 0.55);
 }
 
+.building-info-action-row__phase {
+  color: #f87171;
+  font-size: 0.62rem;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+}
+
 .building-info-upgrade-mini {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6709,6 +6717,77 @@
   text-shadow: 0 0 10px rgba(226, 232, 240, 0.28);
 }
 
+.district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  justify-items: stretch;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row {
+  --retail-mechanic-accent: 56, 189, 248;
+  display: grid;
+  grid-template-columns: minmax(92px, 0.34fr) minmax(0, 1fr);
+  width: 100%;
+  align-items: center;
+  justify-content: stretch;
+  gap: 10px;
+  padding: 10px 13px 10px 14px;
+  border-radius: 8px;
+  border-color: rgba(var(--retail-mechanic-accent), 0.26);
+  background:
+    linear-gradient(135deg, rgba(var(--retail-mechanic-accent), 0.08), rgba(255, 255, 255, 0.026) 44%, rgba(15, 23, 42, 0.16)),
+    rgba(5, 12, 22, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(var(--retail-mechanic-accent), 0.05),
+    0 7px 16px rgba(2, 6, 23, 0.16);
+  text-align: left;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row::before {
+  content: "";
+  position: absolute;
+  inset: 9px auto 9px 7px;
+  width: 3px;
+  border-radius: 999px;
+  background: rgba(var(--retail-mechanic-accent), 0.72);
+  box-shadow: 0 0 12px rgba(var(--retail-mechanic-accent), 0.28);
+}
+
+.district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row span {
+  display: block;
+  color: rgba(203, 213, 225, 0.78);
+  font-size: 0.64rem;
+  font-weight: 850;
+  line-height: 1.1;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row strong {
+  color: #f8fafc;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row[data-mechanic-tone="retail-market"],
+.district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row[data-mechanic-tone="retail-black-market"],
+.district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row[data-mechanic-tone="retail-fee"] {
+  --retail-mechanic-accent: 56, 189, 248;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row[data-mechanic-tone="retail-income"],
+.district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row[data-mechanic-tone="retail-influence"] {
+  --retail-mechanic-accent: 45, 212, 191;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row[data-mechanic-tone="retail-heat"] {
+  --retail-mechanic-accent: 251, 146, 60;
+}
+
 .district-building-detail-shell[data-building-mechanics-type="warehouse"] .district-building-detail-mechanic-row[data-mechanic-tone="warehouse-medium"] {
   border-color: rgba(251, 146, 60, 0.5);
   background:
@@ -6787,14 +6866,16 @@
   .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-mechanics {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
     gap: 8px;
   }
 
   .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-mechanic-row {
     display: flex;
-    width: 100%;
-    justify-content: flex-start;
-    border-radius: 10px;
+    width: auto;
+    max-width: min(100%, 360px);
+    justify-content: center;
+    border-radius: 999px;
     padding: 10px 12px;
   }
 
@@ -6856,15 +6937,43 @@
   }
 
   .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row {
-    display: flex;
-    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: min(100%, 460px);
     justify-content: center;
-    border-radius: 10px;
-    padding: 10px 12px;
+    justify-self: center;
+    border-radius: 8px;
+    padding: 12px 16px;
+    text-align: center;
   }
 
+  .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row::before {
+    content: none;
+    display: none;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row span,
   .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row strong {
     text-align: center;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row span {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-self: center;
+    gap: 2px;
+    margin-bottom: -2px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row span::after {
+    content: "";
+    display: block;
+    width: 28px;
+    height: 2px;
+    border-radius: 999px;
+    background: rgba(var(--retail-mechanic-accent), 0.58);
+    box-shadow: 0 0 8px rgba(var(--retail-mechanic-accent), 0.18);
   }
 
   .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card [data-district-building-detail-effects-section] > h5 {
@@ -7078,6 +7187,72 @@
   border-radius: 999px;
 }
 
+.district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card .building-info-card__effects {
+  display: flex !important;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card .district-building-detail-effect-cell {
+  flex: 0 1 auto !important;
+  width: auto !important;
+  max-width: min(100%, 280px);
+  align-self: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card .building-info-card__effects {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  align-items: center;
+  justify-content: center;
+  row-gap: 12px;
+  column-gap: 6px;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card .district-building-detail-effect-cell {
+  grid-column: 1 / -1;
+  width: auto !important;
+  max-width: min(100%, 320px);
+  justify-self: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card .district-building-detail-effect-cell[data-effect-tone="clean"],
+.district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card .district-building-detail-effect-cell[data-effect-tone="heat"],
+.district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card .district-building-detail-effect-cell[data-effect-tone="influence"] {
+  grid-column: auto;
+  max-width: 100%;
+}
+
+@media (min-width: 721px) {
+  .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card .building-info-card__effects {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    align-items: center;
+    justify-content: center;
+    row-gap: 12px;
+    column-gap: 8px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card .district-building-detail-effect-cell {
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card .district-building-detail-effect-cell[data-effect-tone="clean"],
+  .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card .district-building-detail-effect-cell[data-effect-tone="heat"],
+  .district-building-detail-shell[data-building-mechanics-type="restaurant"] .district-building-detail-card .district-building-detail-effect-cell[data-effect-tone="influence"] {
+    grid-column: auto;
+    max-width: 100%;
+  }
+}
+
 .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card .building-info-card__effects {
   display: flex !important;
   flex-direction: column !important;
@@ -7134,6 +7309,11 @@
     column-gap: 0;
   }
 
+  .district-building-detail-shell[data-building-mechanics-type="auto-salon"] .district-building-detail-card .building-info-card__effects {
+    row-gap: 18px;
+    column-gap: 0;
+  }
+
   .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card .building-info-card__effects {
     row-gap: 18px;
     column-gap: 0;
@@ -7178,6 +7358,40 @@
   .district-building-detail-shell[data-building-mechanics-type="garage"] .district-building-detail-card .district-building-detail-effect-cell {
     margin-top: 6px;
     margin-bottom: 6px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="smuggling-tunnel"] .district-building-detail-card .building-info-card__effects {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: center;
+    justify-content: center;
+    justify-items: center;
+    gap: 8px !important;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="smuggling-tunnel"] .district-building-detail-card .district-building-detail-effect-cell {
+    grid-column: 1 / -1;
+    order: 3;
+    width: fit-content !important;
+    max-width: min(100%, 520px);
+    justify-self: center;
+    justify-content: center;
+    border-radius: 999px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="smuggling-tunnel"] .district-building-detail-card .district-building-detail-effect-cell[data-effect-tone="dirty"],
+  .district-building-detail-shell[data-building-mechanics-type="smuggling-tunnel"] .district-building-detail-card .district-building-detail-effect-cell[data-effect-tone="heat"] {
+    grid-column: auto;
+    width: fit-content !important;
+    max-width: 100%;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="smuggling-tunnel"] .district-building-detail-card .district-building-detail-effect-cell[data-effect-tone="dirty"] {
+    order: 1;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="smuggling-tunnel"] .district-building-detail-card .district-building-detail-effect-cell[data-effect-tone="heat"] {
+    order: 2;
   }
 }
 
@@ -7269,17 +7483,67 @@
     text-align: center;
   }
 
-  .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanics,
   .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-card .building-info-card__effects {
     justify-content: center;
   }
 
-  .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row {
-    justify-content: center;
+  .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanics {
+    justify-content: stretch;
+    justify-items: stretch;
   }
 
-  .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row strong,
+  .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row {
+    justify-content: stretch;
+  }
+
   .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-effect-cell strong {
+    text-align: center;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row span,
+  .district-building-detail-shell[data-building-mechanics-type="retail"] .district-building-detail-mechanic-row strong {
+    text-align: left;
+  }
+
+  .district-building-detail-card .building-info-card__effects {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    justify-items: center;
+    gap: 9px !important;
+  }
+
+  .district-building-detail-card .district-building-detail-effect-cell {
+    width: fit-content !important;
+    max-width: 100%;
+    justify-self: center;
+    justify-content: center;
+    margin-top: 2px;
+    margin-bottom: 2px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="smuggling-tunnel"] .district-building-detail-card .building-info-card__effects {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center;
+    justify-content: center;
+    justify-items: center;
+    gap: 8px !important;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="smuggling-tunnel"] .district-building-detail-card .district-building-detail-effect-cell {
+    width: fit-content !important;
+    max-width: min(100%, 292px);
+    min-height: 0;
+    justify-self: center;
+    justify-content: center;
+    margin: 0;
+    padding: 6px 11px;
+    border-radius: 999px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="smuggling-tunnel"] .district-building-detail-card .district-building-detail-effect-cell strong {
+    font-size: 0.66rem;
+    line-height: 1.08;
     text-align: center;
   }
 }
@@ -7301,12 +7565,37 @@
   margin-top: 10px;
 }
 
+.district-building-detail-shell[data-building-mechanics-type="smuggling-tunnel"] .district-building-detail-mechanics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: 12px;
+}
+
+.district-building-detail-shell[data-building-mechanics-type="smuggling-tunnel"] .district-building-detail-mechanic-row {
+  width: min(100%, 520px);
+  justify-content: center;
+  border-radius: 10px;
+  padding: 10px 13px;
+}
+
 .district-building-detail-shell[data-building-mechanics-type="strip-club"] [data-district-building-detail-action-section] {
   gap: 1px;
   margin-top: 0;
 }
 
 @media (min-width: 721px) {
+  .district-building-detail-shell[data-building-mechanics-type="smuggling-tunnel"] .district-building-detail-mechanics {
+    row-gap: 16px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+  }
+
+  .district-building-detail-shell[data-building-mechanics-type="smuggling-tunnel"] .district-building-detail-mechanic-row {
+    margin-top: 2px;
+    margin-bottom: 2px;
+  }
+
   .district-building-detail-shell[data-building-mechanics-type="clinic"] .district-building-detail-card [data-district-building-detail-action-section] {
     order: 150;
     width: 100%;
@@ -7437,6 +7726,10 @@
   padding-bottom: 8px;
 }
 
+.district-building-detail-actions .building-info-action-row[data-district-building-detail-has-phase-lock="true"][data-district-building-detail-has-cooldown="false"] {
+  padding-bottom: 10px;
+}
+
 .district-building-detail-actions .building-info-action-row::before {
   content: "";
   position: absolute;
@@ -7490,6 +7783,23 @@
   line-height: 1.26;
   overflow-wrap: anywhere;
   text-align: center;
+}
+
+.district-building-detail-actions .building-info-action-row__phase {
+  color: #f87171;
+  font-size: 0.57rem;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-shadow: 0 0 8px rgba(248, 113, 113, 0.28);
+}
+
+.district-building-detail-actions .building-info-action-row[data-district-building-detail-action-state="disabled"] .building-info-action-row__phase,
+.district-building-detail-actions .building-info-action-row[data-district-building-detail-disabled-tone="insufficient-funds"] .building-info-action-row__phase {
+  color: #f87171;
+  text-shadow: 0 0 8px rgba(248, 113, 113, 0.22);
 }
 
 .district-building-detail-actions .building-info-action-row__cooldown {

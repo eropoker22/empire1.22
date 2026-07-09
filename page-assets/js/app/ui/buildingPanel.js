@@ -258,18 +258,26 @@ export function renderBuildingActionRows(mount, rows = [], options = {}) {
     const row = createElement(mount, "button", "building-info-action-row");
     const title = createElement(mount, "strong", "building-info-action-row__title");
     const description = createElement(mount, "span", "building-info-action-row__desc");
+    const phase = createElement(mount, "span", "building-info-action-row__phase");
     const cooldown = createElement(mount, "span", "building-info-action-row__cooldown");
-    if (!row || !title || !description || !cooldown) {
+    if (!row || !title || !description || !phase || !cooldown) {
       continue;
     }
 
     row.type = "button";
     row.dataset.districtBuildingDetailActionIndex = String(rowView.index ?? "");
+    row.dataset.districtBuildingDetailHasPhaseLock = String(rowView.phaseLockLabel || "").trim() ? "true" : "false";
     row.disabled = Boolean(rowView.disabled);
     title.textContent = rowView.title || "";
-    description.textContent = rowView.description || "";
-    cooldown.textContent = rowView.cooldownLabel || "";
-    row.append(title, description, cooldown);
+    const cooldownLabel = String(rowView.cooldownLabel || "").trim();
+    const descriptionText = String(rowView.description || "").trim();
+    const shouldHideCooldownDescription = cooldownLabel && /^(?:cooldown|zbývá)\b/iu.test(descriptionText);
+    description.textContent = shouldHideCooldownDescription ? "" : descriptionText;
+    description.hidden = !description.textContent;
+    phase.textContent = String(rowView.phaseLockLabel || "").trim();
+    phase.hidden = !phase.textContent;
+    cooldown.textContent = cooldownLabel;
+    row.append(title, description, phase, cooldown);
 
     if (typeof options.onRunAction === "function") {
       row.addEventListener("click", () => {

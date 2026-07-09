@@ -337,6 +337,7 @@ const isRumorEligible = (
     const publishRoll = deterministicRollPct(`${sourceSeed}:lobby-negative-rumor-publish`);
     if (publishRoll < lobbyClubReductionPct) return false;
   }
+  if (input.sourceType === "building_action" && input.sourceBuildingType) return true;
   return shouldGenerateDayNightRumor({
     state,
     context: context.config ? { config: context.config } : undefined,

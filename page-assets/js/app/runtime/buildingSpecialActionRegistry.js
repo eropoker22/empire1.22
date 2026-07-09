@@ -197,10 +197,10 @@ function formatRewardSummary(actionProfile = {}) {
   if (serverEffectSummary) rewards.push(serverEffectSummary);
   if (Number(actionProfile.clean || 0) > 0) rewards.push(`Clean +${formatDistrictBuildingMoney(actionProfile.clean)}`);
   if (Number(actionProfile.dirty || 0) > 0) rewards.push(`Dirty cash +${formatDistrictBuildingMoney(actionProfile.dirty)}`);
-  if (Number(actionProfile.influence || 0) > 0) rewards.push(`Vliv +${Math.floor(Number(actionProfile.influence))}`);
+  if (Number(actionProfile.influence || 0) > 0) rewards.push(`Vliv +${formatNumberValue(actionProfile.influence)}`);
   if (Number(actionProfile.members || 0) > 0) rewards.push(`Členové +${Math.floor(Number(actionProfile.members))}`);
   if (Number(actionProfile.heatSuccess || 0) !== 0) rewards.push(`Heat ${Number(actionProfile.heatSuccess) > 0 ? "+" : ""}${Math.floor(Number(actionProfile.heatSuccess))}`);
-  if (Number(actionProfile.influenceSuccess || 0) > 0) rewards.push(`Vliv +${Math.floor(Number(actionProfile.influenceSuccess))}`);
+  if (Number(actionProfile.influenceSuccess || 0) > 0) rewards.push(`Vliv +${formatNumberValue(actionProfile.influenceSuccess)}`);
   if (Number(actionProfile.auditRiskReductionPct || 0) > 0) rewards.push(`Audit -${formatNumberValue(actionProfile.auditRiskReductionPct)}%`);
   if (Number(actionProfile.incomeBoostPct || 0) > 0) rewards.push(`Income +${formatNumberValue(actionProfile.incomeBoostPct)}%`);
   if (Number(actionProfile.cleanIncomeBoostPct || 0) > 0) rewards.push(`Clean income +${formatNumberValue(actionProfile.cleanIncomeBoostPct)}%`);
@@ -221,9 +221,9 @@ function formatRewardSummary(actionProfile = {}) {
   if (Number(actionProfile.marketFeeReductionPct || 0) > 0) rewards.push(`Market fee -${formatNumberValue(actionProfile.marketFeeReductionPct)}%`);
   if (Number(actionProfile.stockExchangeEffectReductionPct || 0) > 0) rewards.push(`Burza efekt -${formatNumberValue(actionProfile.stockExchangeEffectReductionPct)}%`);
   if (Number(actionProfile.offerDiscountPct || 0) > 0) rewards.push(`Sleva +${formatNumberValue(actionProfile.offerDiscountPct)}%`);
-  if (Number(actionProfile.dealerSalePriceBonusPct || 0) > 0) rewards.push(`Dealer price +${formatNumberValue(actionProfile.dealerSalePriceBonusPct)}%`);
-  if (Number(actionProfile.dealerSaleSpeedBonusPct || 0) > 0) rewards.push(`Dealer speed +${formatNumberValue(actionProfile.dealerSaleSpeedBonusPct)}%`);
-  if (Number(actionProfile.dealerRewardBonusPct || 0) > 0) rewards.push(`Dealer reward +${formatNumberValue(actionProfile.dealerRewardBonusPct)}%`);
+  if (Number(actionProfile.dealerSalePriceBonusPct || 0) > 0) rewards.push(`Pouliční dealeři cena +${formatNumberValue(actionProfile.dealerSalePriceBonusPct)}%`);
+  if (Number(actionProfile.dealerSaleSpeedBonusPct || 0) > 0) rewards.push(`Pouliční dealeři rychlost +${formatNumberValue(actionProfile.dealerSaleSpeedBonusPct)}%`);
+  if (Number(actionProfile.dealerRewardBonusPct || 0) > 0) rewards.push(`Pouliční dealeři reward +${formatNumberValue(actionProfile.dealerRewardBonusPct)}%`);
   for (const [itemId, amount] of Object.entries(actionProfile.materials || {})) rewards.push(`${itemId} x${amount}`);
   for (const [itemId, amount] of Object.entries(actionProfile.drugs || {})) rewards.push(`${itemId} x${amount}`);
   for (const [itemId, amount] of Object.entries(actionProfile.weapons || {})) rewards.push(`${itemId} x${amount}`);
@@ -245,7 +245,7 @@ function formatRiskSummary(actionProfile = {}) {
   if (Number(actionProfile.marketFeePenaltyPct || 0) > 0) risks.push(`Market fee +${formatNumberValue(actionProfile.marketFeePenaltyPct)}%`);
   if (Number(actionProfile.purchaseCustomsRiskPct || 0) > 0) risks.push(`Celnice +${formatNumberValue(actionProfile.purchaseCustomsRiskPct)}%`);
   if (Number(actionProfile.heatRiskBonusPct || 0) > 0) risks.push(`Heat risk +${formatNumberValue(actionProfile.heatRiskBonusPct)}%`);
-  if (Number(actionProfile.streetIncidentFlatRiskPct || 0) > 0) risks.push(`Incident +${formatNumberValue(actionProfile.streetIncidentFlatRiskPct)}%`);
+  if (Number(actionProfile.streetIncidentFlatRiskPct || 0) > 0) risks.push(`Pouliční incident +${formatNumberValue(actionProfile.streetIncidentFlatRiskPct)}%`);
   return risks.join(" · ") || "Bez přímého heat rizika";
 }
 
@@ -335,6 +335,7 @@ export function createBuildingSpecialActionAuditRows() {
       });
       rows.push({
         buildingName: buildingKey,
+        actionIndex: index,
         actionId: definition.actionId,
         label: label || "(není v kartě)",
         inCard: Boolean(label),

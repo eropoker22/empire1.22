@@ -4,6 +4,7 @@ export * from "./attackDistrict";
 export * from "./airportBuildingActions";
 export * from "./bountyCommands";
 export * from "./buildStructure";
+export * from "./carDealerBuildingActions";
 export * from "./centralBankBuildingActions";
 export * from "./cityHallBuildingActions";
 export * from "./collectProduction";

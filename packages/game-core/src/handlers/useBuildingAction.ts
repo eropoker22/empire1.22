@@ -277,6 +277,20 @@ export const handleUseBuildingAction = (
     wantedLevel: resolveWantedLevel(Math.max(0, Number(currentPoliceState.heat || 0) + resolvedAction.heatGain)),
     version: currentPoliceState.version + (state.policeStatesById[player.policeStateId] ? 1 : 0)
   };
+  const effectiveCasinoResult = createEffectiveCasinoResult(casinoResolution?.casinoResult, resolvedAction);
+  if (effectiveCasinoResult) {
+    resolvedAction = {
+      ...resolvedAction,
+      reportText: createEffectiveCasinoReportText(effectiveCasinoResult, resolvedAction.reportText)
+    };
+  }
+  const effectiveExchangeResult = createEffectiveExchangeOfficeResult(exchangeOfficeResolution?.exchangeResult, resolvedAction);
+  if (effectiveExchangeResult) {
+    resolvedAction = {
+      ...resolvedAction,
+      reportText: createEffectiveExchangeOfficeReportText(effectiveExchangeResult)
+    };
+  }
   const eventId = composeEntityId("event", `${command.id}:building-action`);
   const notification = createBuildingActionReportNotification({
     command,
@@ -294,8 +308,8 @@ export const handleUseBuildingAction = (
       wantedLevel: nextPoliceState.wantedLevel,
       heatDelta: resolvedAction.heatGain
     },
-    casinoResult: casinoResolution?.casinoResult,
-    exchangeResult: exchangeOfficeResolution?.exchangeResult,
+    casinoResult: effectiveCasinoResult,
+    exchangeResult: effectiveExchangeResult,
     arcadeResult: arcadeResolution?.arcadeResult,
     apartmentResult: apartmentBlockResolution?.apartmentResult,
     clinicResult: clinicResolution?.clinicResult,
@@ -392,6 +406,84 @@ export const handleUseBuildingAction = (
     ],
     errors: []
   };
+};
+
+const createEffectiveCasinoResult = (
+  rawResult: Record<string, unknown> | undefined,
+  action: BuildingActionBalanceConfig
+): Record<string, unknown> | undefined => {
+  if (!rawResult) {
+    return undefined;
+  }
+  if (rawResult.type === "laundering") {
+    const launderedDirtyCash = Math.max(0, Number(action.inputCost["dirty-cash"] || 0));
+    const cleanCashGained = Math.max(0, Number(action.outputGain.cash || 0));
+    return {
+      ...rawResult,
+      launderedDirtyCash,
+      cleanCashGained,
+      feePaid: Math.max(0, launderedDirtyCash - cleanCashGained),
+      heatGain: sanitizeNumber(action.heatGain),
+      influenceGain: sanitizeNumber(action.influenceChange)
+    };
+  }
+  if (rawResult.type === "heat_control") {
+    const heatGain = sanitizeNumber(action.heatGain);
+    return {
+      ...rawResult,
+      costPaid: Math.max(0, Number(action.inputCost.cash || 0)),
+      ...(heatGain < 0 ? { heatReduction: Math.abs(heatGain) } : { heatGain })
+    };
+  }
+  return rawResult;
+};
+
+const createEffectiveCasinoReportText = (
+  result: Record<string, unknown>,
+  fallback: string
+): string => {
+  if (result.type === "laundering") {
+    const launderedDirtyCash = Math.max(0, Number(result.launderedDirtyCash || 0));
+    const cleanCashGained = Math.max(0, Number(result.cleanCashGained || 0));
+    const feePaid = Math.max(0, Number(result.feePaid || 0));
+    const heatGain = sanitizeNumber(result.heatGain);
+    return `Tichá herna vyprala ${formatReportNumber(launderedDirtyCash)} dirty cash na ${formatReportNumber(cleanCashGained)} clean cash. Poplatek ${formatReportNumber(feePaid)}. Heat ${heatGain >= 0 ? "+" : ""}${formatReportNumber(heatGain)}.`;
+  }
+  return fallback;
+};
+
+const createEffectiveExchangeOfficeResult = (
+  rawResult: Record<string, unknown> | undefined,
+  action: BuildingActionBalanceConfig
+): Record<string, unknown> | undefined => {
+  if (!rawResult) {
+    return undefined;
+  }
+  const launderedDirtyCash = Math.max(0, Number(action.inputCost["dirty-cash"] || 0));
+  const cleanCashGained = Math.max(0, Number(action.outputGain.cash || 0));
+  return {
+    ...rawResult,
+    launderedDirtyCash,
+    cleanCashGained,
+    feePaid: Math.max(0, launderedDirtyCash - cleanCashGained),
+    heatGain: sanitizeNumber(action.heatGain),
+    influenceGain: sanitizeNumber(action.influenceChange)
+  };
+};
+
+const createEffectiveExchangeOfficeReportText = (result: Record<string, unknown>): string => {
+  const launderedDirtyCash = Math.max(0, Number(result.launderedDirtyCash || 0));
+  const cleanCashGained = Math.max(0, Number(result.cleanCashGained || 0));
+  const feePaid = Math.max(0, Number(result.feePaid || 0));
+  const heatGain = sanitizeNumber(result.heatGain);
+  return `Výhodný kurz vypral ${formatReportNumber(launderedDirtyCash)} dirty cash na ${formatReportNumber(cleanCashGained)} clean cash. Poplatek ${formatReportNumber(feePaid)}. Heat ${heatGain >= 0 ? "+" : ""}${formatReportNumber(heatGain)}.`;
+};
+
+const formatReportNumber = (value: number): string => {
+  const rounded = Math.round(Number(value || 0) * 100) / 100;
+  return Number.isInteger(rounded)
+    ? String(rounded)
+    : rounded.toFixed(2).replace(/\.?0+$/u, "");
 };
 
 const reconcileDayNightSpecialBalances = (input: {

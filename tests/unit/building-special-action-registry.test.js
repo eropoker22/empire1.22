@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { resolveModeConfig } from "@empire/game-config";
 import {
   createBuildingSpecialActionAuditRows,
   hasLegacyBuildingSpecialActionHandler,
@@ -7,6 +8,8 @@ import {
 import { DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES } from "../../page-assets/js/app/runtime/buildingDetailData.js";
 
 describe("building special action registry", () => {
+  const freeBuildingActions = resolveModeConfig("free").balance.buildingActions ?? {};
+
   it("assigns every audited card/profile action a stable action id", () => {
     const rows = createBuildingSpecialActionAuditRows();
 
@@ -71,6 +74,46 @@ describe("building special action registry", () => {
     expect(restaurantRows.every((row) => row.note === "Server-authoritative handler")).toBe(true);
   });
 
+  it("keeps server-backed action UI profiles aligned with authoritative action values", () => {
+    const rows = createBuildingSpecialActionAuditRows()
+      .filter((row) => row.hasServerConfig && freeBuildingActions[row.actionId]);
+
+    expect(rows.length).toBeGreaterThan(20);
+    for (const row of rows) {
+      const profile = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES[row.buildingName]?.[row.actionIndex] || {};
+      const action = freeBuildingActions[row.actionId];
+      const label = `${row.buildingName} / ${row.label} / ${row.actionId}`;
+
+      if (Object.prototype.hasOwnProperty.call(profile, "clean")) {
+        expect(profile.clean, `${label} clean`).toBe(action.outputGain?.cash ?? 0);
+      }
+      if (Object.prototype.hasOwnProperty.call(profile, "dirty")) {
+        expect(profile.dirty, `${label} dirty`).toBe(action.outputGain?.["dirty-cash"] ?? 0);
+      }
+      if (Object.prototype.hasOwnProperty.call(profile, "heat")) {
+        expect(profile.heat, `${label} heat`).toBe(action.heatGain ?? 0);
+      }
+      if (Object.prototype.hasOwnProperty.call(profile, "influence")) {
+        expect(profile.influence, `${label} influence`).toBe(action.influenceChange ?? 0);
+      }
+      if (Object.prototype.hasOwnProperty.call(profile, "cooldownMs")) {
+        expect(profile.cooldownMs, `${label} cooldown`).toBe(action.cooldownMs ?? 0);
+      }
+      if (Object.prototype.hasOwnProperty.call(profile, "durationMs") && Number(action.durationMs ?? 0) > 0) {
+        expect(profile.durationMs, `${label} duration`).toBe(action.durationMs ?? 0);
+      }
+      if (Object.prototype.hasOwnProperty.call(profile, "cleanCost")) {
+        expect(profile.cleanCost, `${label} clean cost`).toBe(action.inputCost?.cash ?? 0);
+      }
+      if (Object.prototype.hasOwnProperty.call(profile, "dirtyCost")) {
+        expect(profile.dirtyCost, `${label} dirty cost`).toBe(action.inputCost?.["dirty-cash"] ?? 0);
+      }
+      if (Object.prototype.hasOwnProperty.call(profile, "influenceCost")) {
+        expect(profile.influenceCost, `${label} influence cost`).toBe(Math.abs(action.influenceChange ?? 0));
+      }
+    }
+  });
+
   it("keeps generic output actions executable only through server config", () => {
     const definition = resolveBuildingSpecialActionDefinition({
       buildingName: "Přístav",
@@ -118,11 +161,11 @@ describe("building special action registry", () => {
       actionIndex: 2,
       actionProfile: {
         casinoBribedInspector: true,
-        cleanCost: 5500,
+        cleanCost: 15000,
         failureChancePct: 14,
         durationMs: 12 * 60 * 1000,
-        cooldownMs: 32 * 60 * 1000,
-        heatSuccess: -16,
+        cooldownMs: 105 * 60 * 1000,
+        heatSuccess: -15,
         heatFailure: 12,
         influenceSuccess: 4,
         auditRiskReductionPct: 35,
@@ -131,7 +174,7 @@ describe("building special action registry", () => {
       }
     });
 
-    expect(definition.rewardSummary).toContain("Heat -16");
+    expect(definition.rewardSummary).toContain("Heat -15");
     expect(definition.rewardSummary).toContain("Vliv +4");
     expect(definition.rewardSummary).toContain("Audit -35%");
     expect(definition.rewardSummary).toContain("Efekt 12m 00s");
@@ -173,7 +216,7 @@ describe("building special action registry", () => {
       "server-run-building-action",
       "server-run-building-action"
     ]);
-    expect(sale.rewardSummary).toContain("Dealer slot prodá vybranou látku");
+    expect(sale.rewardSummary).toContain("Slot Pouličních dealerů prodá vybranou látku");
     expect(sale.inputSummary).toContain("Slot: slot-1");
     expect(sale.inputSummary).toContain("Produkt: neon-dust");
     expect(sale.inputSummary).toContain("Množství: 1");
@@ -199,14 +242,14 @@ describe("building special action registry", () => {
 
     expect(openChannel.status).toBe("implemented");
     expect(openChannel.actionId).toBe("open_channel");
-    expect(openChannel.costSummary).toBe("$800 clean cash");
+    expect(openChannel.costSummary).toBe("$1800 clean cash");
     expect(openChannel.rewardSummary).toContain("Dirty income +45%");
-    expect(openChannel.rewardSummary).toContain("Dealer price +12%");
-    expect(openChannel.rewardSummary).toContain("Dealer speed +10%");
-    expect(openChannel.rewardSummary).toContain("Dealer reward +10%");
+    expect(openChannel.rewardSummary).toContain("Pouliční dealeři cena +12%");
+    expect(openChannel.rewardSummary).toContain("Pouliční dealeři rychlost +10%");
+    expect(openChannel.rewardSummary).toContain("Pouliční dealeři reward +10%");
     expect(openChannel.rewardSummary).toContain("Efekt 15m 00s");
     expect(openChannel.riskSummary).toContain("Heat +5");
-    expect(openChannel.riskSummary).toContain("Incident +5%");
+    expect(openChannel.riskSummary).toContain("Pouliční incident +5%");
     expect(openChannel.cooldownMs).toBe(30 * 60 * 1000);
   });
 
@@ -275,6 +318,41 @@ describe("building special action registry", () => {
     expect(definition.confirmBody).not.toContain("byly");
     expect(definition.shortDescription).toBe("Akce se spustí po potvrzení.");
     expect(definition.rewardSummary).toContain("Clean +$180");
+  });
+
+  it("keeps restaurant confirmation summaries aligned with button and server values", () => {
+    const profiles = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.restaurace;
+    const collect = resolveBuildingSpecialActionDefinition({
+      buildingName: "Restaurace",
+      actionLabel: "Vybrat tržby",
+      actionIndex: 0,
+      actionProfile: profiles[0]
+    });
+    const meetings = resolveBuildingSpecialActionDefinition({
+      buildingName: "Restaurace",
+      actionLabel: "Krýt schůzky",
+      actionIndex: 1,
+      actionProfile: profiles[1]
+    });
+    const network = resolveBuildingSpecialActionDefinition({
+      buildingName: "Restaurace",
+      actionLabel: "Posílit lokální síť",
+      actionIndex: 2,
+      actionProfile: profiles[2]
+    });
+
+    expect(collect.rewardSummary).toContain("Clean +$869");
+    expect(collect.rewardSummary).toContain("Dirty cash +$550");
+    expect(collect.riskSummary).toBe("Heat +5");
+    expect(collect.cooldownMs).toBe(30 * 60 * 1000);
+
+    expect(meetings.rewardSummary).toContain("Vliv +8");
+    expect(meetings.riskSummary).toBe("Heat +4");
+    expect(meetings.cooldownMs).toBe(45 * 60 * 1000);
+
+    expect(network.rewardSummary).toContain("Vliv +4");
+    expect(network.riskSummary).toBe("Heat +8");
+    expect(network.cooldownMs).toBe(30 * 60 * 1000);
   });
 
   it("maps renamed power station heat action to a server handler", () => {

@@ -2,8 +2,8 @@ import { ATTACK_WEAPON_LABELS } from "./combatData.js";
 import {
   AUTO_SALON_SUPPORT_CONFIG,
   DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS,
+  EXCHANGE_OFFICE_NETWORK_CONFIG,
   FITNESS_CLUB_SUPPORT_CONFIG,
-  SHOPPING_MALL_NETWORK_CONFIG,
   SMUGGLING_TUNNEL_CONFIG
 } from "./buildingDetailData.js";
 import {
@@ -12,8 +12,9 @@ import {
 } from "./formatters.js";
 import {
   formatGarageEffectiveCooldownLabel,
-  resolveGarageCategoryForBuildingAction,
-  resolveGarageEffectiveCooldownMs
+  resolveAutoSalonCategoryForBuildingAction,
+  resolveCombinedEffectiveCooldownMs,
+  resolveGarageCategoryForBuildingAction
 } from "./garageCooldownRuntime.js";
 import { PRODUCTION_RESOURCE_LABELS } from "./productionBuildingData.js";
 import {
@@ -143,11 +144,11 @@ export function createBuildingDetailInfoRows({
     );
   } else if (mechanics.mechanicsType === "exchange") {
     rows.push(
-      createInfoLine("Vlastněné směnárny", `${mechanics.ownedExchangeOffices}/13`),
+      createInfoLine("Vlastněné směnárny", `${mechanics.ownedExchangeOffices}/${EXCHANGE_OFFICE_NETWORK_CONFIG.countOnMap}`),
       createInfoLine("Network multiplier", `Income x${mechanics.exchangeNetwork.incomeMultiplier.toFixed(2)} · limit x${mechanics.exchangeNetwork.launderingLimitMultiplier.toFixed(2)} · heat x${mechanics.exchangeNetwork.heatMultiplier.toFixed(2)}`),
       createInfoLine("Laundering kapacita", `${formatDistrictBuildingMoney(mechanics.exchangeLaunderingCapacity)} dirty / akce`),
       createInfoLine("Audit risk", `${mechanics.exchangeAuditRisk} · kontrola každých 6 min · okno 30 min`),
-      createInfoLine("Mapa", "Dostupná síťová budova: 13x na mapě")
+      createInfoLine("Mapa", `Dostupná síťová budova: ${EXCHANGE_OFFICE_NETWORK_CONFIG.countOnMap}x na mapě`)
     );
   } else if (mechanics.mechanicsType === "arcade") {
     return [];
@@ -173,25 +174,15 @@ export function createBuildingDetailInfoRows({
     return [];
   } else if (mechanics.mechanicsType === "recruitment-center") {
     return [];
-  } else if (buildingKey === "obchodni centrum") {
-    rows.push(
-      createInfoLine("Vlastněné mally", `${mechanics.ownedShoppingMalls}/${SHOPPING_MALL_NETWORK_CONFIG.countOnMap}`),
-      createInfoLine("Market sleva", `${mechanics.shoppingMallMarketDiscount.discountPct}% regular market · ${mechanics.shoppingMallBlackMarketDiscount.discountPct}% black market`),
-      createInfoLine("Fee reduction", `-${mechanics.shoppingMallMarketDiscount.feeReductionPct}% market fees · minimální cena ${Math.round(mechanics.shoppingMallMarketDiscount.minFinalPriceMultiplier * 100)}%`),
-      createInfoLine("Income network", `clean x${mechanics.shoppingMallNetwork.cleanIncomeMultiplier.toFixed(2)} · dirty x${mechanics.shoppingMallNetwork.dirtyIncomeMultiplier.toFixed(2)}`),
-      createInfoLine("Vliv / heat", `vliv x${mechanics.shoppingMallNetwork.influenceMultiplier.toFixed(2)} · heat x${mechanics.shoppingMallNetwork.heatMultiplier.toFixed(2)}`),
-      createInfoLine("Pasivní market bonus", "Sleva se aplikuje automaticky bez speciální akce."),
-      createInfoLine("Pravidla", "Pasivní budova bez přímých akcí; bonus se projeví v marketu a server income projekci.")
-    );
   } else if (buildingKey === "autosalon") {
     rows.push(
       createInfoLine("Síť autosalonů", `${mechanics.ownedAutoSalons}/${AUTO_SALON_SUPPORT_CONFIG.countOnMap} vlastněno`),
-      createInfoLine("Výnos", `čisté x${mechanics.autoSalonNetwork.cleanIncomeMultiplier.toFixed(2)} · špinavé x${mechanics.autoSalonNetwork.dirtyIncomeMultiplier.toFixed(2)} · heat x${mechanics.autoSalonNetwork.heatMultiplier.toFixed(2)}`),
-      createInfoLine("Mobilita a únik", `mobilita +${mechanics.autoSalonSupport.mobilityBonusPct}% · únik +${mechanics.autoSalonSupport.escapeChanceBonusPct}%`),
+      createInfoLine("Výnos", `čisté x${mechanics.autoSalonNetwork.cleanIncomeMultiplier.toFixed(2)} · špinavé x${mechanics.autoSalonNetwork.dirtyIncomeMultiplier.toFixed(2)} · heat x${mechanics.autoSalonNetwork.heatMultiplier.toFixed(2)} · vliv +${mechanics.dailyInfluence}/den`),
+      createInfoLine("Cooldown a únik", `cooldown -${mechanics.autoSalonSupport.cooldownReductionPct}% · únik +${mechanics.autoSalonSupport.escapeChanceBonusPct}% při neúspěšném útoku`),
       createInfoLine("Cooldowny", `autosalon -${mechanics.autoSalonSupport.cooldownReductionPct}% · společný cap -${mechanics.autoSalonSupport.combinedGarageDealerMaxReductionPct}%`),
       createInfoLine("Kde pomáhá", formatBuildingActionCategoryLabels(AUTO_SALON_SUPPORT_CONFIG.fullBonusCategories.concat(AUTO_SALON_SUPPORT_CONFIG.halfBonusCategories, AUTO_SALON_SUPPORT_CONFIG.smallBonusCategories))),
-      createInfoLine("Bez vlivu", formatBuildingActionCategoryLabels(AUTO_SALON_SUPPORT_CONFIG.excludedCategories)),
-      createInfoLine("Pravidla", "Pasivní mobilita bez praní, auditu, vlivu, populace a Intel Power.")
+      createInfoLine("Bez zkrácení", formatBuildingActionCategoryLabels(AUTO_SALON_SUPPORT_CONFIG.excludedCategories)),
+      createInfoLine("Pravidla", "Pasivní mobilita bez praní, auditu, populace a Intel Power. Vliv generuje automaticky.")
     );
   } else if (buildingKey === "fitness club") {
     rows.push(
@@ -206,11 +197,10 @@ export function createBuildingDetailInfoRows({
   } else if (mechanics.mechanicsType === "smuggling-tunnel") {
     rows.push(
       createInfoLine("Dirty / min", `+${formatDistrictBuildingMoney(mechanics.smugglingDirtyPerMinute)}`),
-      createInfoLine("Network multiplier", `dirty x${mechanics.smugglingTunnelNetwork.dirtyProductionMultiplier.toFixed(2)} · heat x${(mechanics.smugglingTunnelNetwork.heatMultiplier || mechanics.smugglingTunnelNetwork.passiveHeatMultiplier).toFixed(2)}`),
+      createInfoLine("Síťový bonus", `dirty x${mechanics.smugglingTunnelNetwork.dirtyProductionMultiplier.toFixed(2)} · heat x${(mechanics.smugglingTunnelNetwork.heatMultiplier || mechanics.smugglingTunnelNetwork.passiveHeatMultiplier).toFixed(2)}`),
       createInfoLine("Vlastněné tunely", `${mechanics.ownedSmugglingTunnels}/${SMUGGLING_TUNNEL_CONFIG.countOnMap}`),
-      createInfoLine("Dealer Supply", `+${mechanics.smugglingDealerSupplyBonusPct}% · price +${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySalePriceSharePct / 100}% · speed +${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleSpeedSharePct / 100}%`),
-      createInfoLine("Kontraband Flow", mechanics.smugglingContrabandFlowLabel),
-      createInfoLine("Otevřít kanál", mechanics.smugglingOpenChannelActive ? `Aktivní ještě ${formatDistrictBuildingCooldown(mechanics.smugglingOpenChannelRemainingMs)}` : `Cena ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.openChannelCleanCost)} clean · cooldown 30 min · incident risk +${SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct}%`),
+      createInfoLine("Pouliční dealeři", `podpora +${mechanics.smugglingDealerSupplyBonusPct}% · cena +${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySalePriceSharePct / 100}% · rychlost +${mechanics.smugglingDealerSupplyBonusPct * SMUGGLING_TUNNEL_CONFIG.dealerSupplySaleSpeedSharePct / 100}%`),
+      createInfoLine("Otevřít kanál", mechanics.smugglingOpenChannelActive ? `Aktivní ještě ${formatDistrictBuildingCooldown(mechanics.smugglingOpenChannelRemainingMs)}` : `Cena ${formatDistrictBuildingMoney(SMUGGLING_TUNNEL_CONFIG.openChannelCleanCost)} clean · cooldown 30 min · riziko incidentu +${SMUGGLING_TUNNEL_CONFIG.openChannelStreetIncidentFlatRiskPct}%`),
       createInfoLine("Pravidla", "Pouze dirty cash a heat; žádné clean cash, vliv, populace, Intel Power, praní ani audit")
     );
   }
@@ -234,7 +224,15 @@ export function createBuildingDetailInfoActionRows({
       buildingTypeId: actionProfile?.buildingTypeId || ""
     };
     const garageCategory = resolveGarageCategoryForBuildingAction(buildingName, action, actionDefinition);
-    const effectiveCooldownMs = resolveGarageEffectiveCooldownMs(baseCooldownMs, mechanics.garageSupport, garageCategory);
+    const autoSalonCategory = resolveAutoSalonCategoryForBuildingAction(buildingName, action, actionDefinition);
+    const cooldownReductionView = resolveCombinedEffectiveCooldownMs({
+      baseCooldownMs,
+      garageSupport: mechanics.garageSupport,
+      garageCategory,
+      autoSalonSupport: mechanics.autoSalonSupport,
+      autoSalonCategory
+    });
+    const effectiveCooldownMs = cooldownReductionView.effectiveCooldownMs;
     const actionUiOptions = createBuildingActionUiFormatOptions({
       mechanics,
       buildingType: buildingName,

@@ -5,16 +5,32 @@ import {
   publicBuildingDefinitions
 } from "../../packages/game-config/src/public/building-definitions";
 import {
+  publicBuildingDefinitions as clientPublicBuildingDefinitions
+} from "../../client/packages/game-config/src/public/building-definitions";
+import {
   publicBuildingNameVariants
 } from "../../packages/game-config/src/public/building-name-variants";
 import {
   publicDistrictBuildingSetPools,
   resolveDistrictBuildingTypes
 } from "../../packages/game-config/src/public/district-building-sets";
+import { freeModeCarDealerConfig } from "../../packages/game-config/src/public/free-mode-car-dealer-config";
+import { freeModeConvenienceStoreConfig } from "../../packages/game-config/src/public/free-mode-convenience-store-config";
+import { freeModeExchangeOfficeConfig } from "../../packages/game-config/src/public/free-mode-exchange-office-config";
+import { freeModeSmugglingTunnelConfig } from "../../packages/game-config/src/public/free-mode-smuggling-tunnel-config";
+import { freeModeStreetDealersConfig } from "../../packages/game-config/src/public/free-mode-street-dealers-config";
+import { freeModeStripClubConfig } from "../../packages/game-config/src/public/free-mode-strip-club-config";
+import { freeModeCarDealerConfig as clientFreeModeCarDealerConfig } from "../../client/packages/game-config/src/public/free-mode-car-dealer-config";
+import { freeModeConvenienceStoreConfig as clientFreeModeConvenienceStoreConfig } from "../../client/packages/game-config/src/public/free-mode-convenience-store-config";
+import { freeModeExchangeOfficeConfig as clientFreeModeExchangeOfficeConfig } from "../../client/packages/game-config/src/public/free-mode-exchange-office-config";
+import { freeModeSmugglingTunnelConfig as clientFreeModeSmugglingTunnelConfig } from "../../client/packages/game-config/src/public/free-mode-smuggling-tunnel-config";
+import { freeModeStreetDealersConfig as clientFreeModeStreetDealersConfig } from "../../client/packages/game-config/src/public/free-mode-street-dealers-config";
+import { freeModeStripClubConfig as clientFreeModeStripClubConfig } from "../../client/packages/game-config/src/public/free-mode-strip-club-config";
 
 const root = process.cwd();
 const read = (relativePath) => readFileSync(resolve(root, relativePath), "utf8");
 const removedBuildingIds = ["data_center", "brainwash_center", "taxi_service"];
+const byId = (definitions, buildingTypeId) => definitions.find((definition) => definition.buildingTypeId === buildingTypeId);
 
 describe("building change guard", () => {
   it("keeps district building sets aligned with the public catalog", () => {
@@ -82,6 +98,66 @@ describe("building change guard", () => {
       expect(variants.length, definition.buildingTypeId).toBeGreaterThan(0);
       expect(definition.nameVariants.length, definition.buildingTypeId).toBeGreaterThan(0);
     }
+  });
+
+  it("keeps commercial public definitions and client mirror aligned", () => {
+    const commercialBuildingIds = [
+      "restaurant",
+      "fitness_club",
+      "pharmacy",
+      "exchange",
+      "car_dealer",
+      "shopping_mall",
+      "casino"
+    ];
+
+    for (const buildingTypeId of commercialBuildingIds) {
+      const canonical = byId(publicBuildingDefinitions, buildingTypeId);
+      const client = byId(clientPublicBuildingDefinitions, buildingTypeId);
+
+      expect(client?.stats, buildingTypeId).toEqual(canonical?.stats);
+      expect(client?.specialActions.map((action) => action.actionId), buildingTypeId).toEqual(
+        canonical?.specialActions.map((action) => action.actionId)
+      );
+    }
+
+    expect(clientFreeModeCarDealerConfig.cleanCashPerMinute).toBe(freeModeCarDealerConfig.cleanCashPerMinute);
+    expect(clientFreeModeCarDealerConfig.dirtyCashPerMinute).toBe(freeModeCarDealerConfig.dirtyCashPerMinute);
+    expect(clientFreeModeCarDealerConfig.heatPerMinute).toBe(freeModeCarDealerConfig.heatPerMinute);
+    expect(clientFreeModeCarDealerConfig.influencePerMinute).toBe(freeModeCarDealerConfig.influencePerMinute);
+    expect(clientFreeModeCarDealerConfig.mobility.fullBonusActionCategories).toEqual(
+      freeModeCarDealerConfig.mobility.fullBonusActionCategories
+    );
+    expect(clientFreeModeCarDealerConfig.escapeChance.appliesTo).toEqual(freeModeCarDealerConfig.escapeChance.appliesTo);
+
+    expect(clientFreeModeExchangeOfficeConfig.countOnMap).toBe(freeModeExchangeOfficeConfig.countOnMap);
+    expect(clientFreeModeExchangeOfficeConfig.heatPerMinute).toBe(freeModeExchangeOfficeConfig.heatPerMinute);
+    expect(clientFreeModeExchangeOfficeConfig.influencePerMinute).toBe(freeModeExchangeOfficeConfig.influencePerMinute);
+    expect(clientFreeModeExchangeOfficeConfig.goodRate).toEqual(freeModeExchangeOfficeConfig.goodRate);
+  });
+
+  it("keeps park public definitions and client mirror aligned except drug lab", () => {
+    const parkBuildingIds = [
+      "street_dealers",
+      "convenience_store",
+      "smuggling_tunnel",
+      "strip_club"
+    ];
+
+    for (const buildingTypeId of parkBuildingIds) {
+      const canonical = byId(publicBuildingDefinitions, buildingTypeId);
+      const client = byId(clientPublicBuildingDefinitions, buildingTypeId);
+
+      expect(client?.stats, buildingTypeId).toEqual(canonical?.stats);
+      expect(client?.specialActions.map((action) => action.actionId), buildingTypeId).toEqual(
+        canonical?.specialActions.map((action) => action.actionId)
+      );
+    }
+
+    expect(clientFreeModeStreetDealersConfig).toEqual(freeModeStreetDealersConfig);
+    expect(clientFreeModeConvenienceStoreConfig).toEqual(freeModeConvenienceStoreConfig);
+    expect(clientFreeModeSmugglingTunnelConfig).toEqual(freeModeSmugglingTunnelConfig);
+    expect(clientFreeModeStripClubConfig).toEqual(freeModeStripClubConfig);
   });
 
   it("keeps removed buildings out of canonical source paths", () => {

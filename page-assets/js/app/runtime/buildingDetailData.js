@@ -79,13 +79,13 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
     actions: Object.freeze(["Výhodný kurz"])
   }),
   autosalon: Object.freeze({
-    role: "Mobilita",
+    role: "Cooldowny",
     info: "Autosalon generuje peníze a zlepšuje mobilitu gangu. Lesklé kapoty vpředu, falešné smlouvy vzadu a klíče od aut, která nikdy neuvidí papíry. Autosalon není jen showroom. Je to strategická budova k mobilitě hráče.",
     actions: Object.freeze([])
   }),
   "obchodni centrum": Object.freeze({
     role: "Market",
-    info: "Obchodní centrum generuje peníze, menší dirty cash, vliv a snižuje ceny na marketu. Výlohy svítí, kasy pípají a pod parkovištěm se domlouvají dohody, které nikdy neuvidíš na účtence.",
+    info: "Obchodní centrum generuje peníze, menší dirty cash, vliv a snižuje ceny na marketu. Výlohy svítí, kasy pípají a v podzemních garážích se domlouvají dohody, které nikdy neuvidíš na účtence.",
     actions: Object.freeze([])
   }),
   kasino: Object.freeze({
@@ -219,9 +219,9 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
     Object.freeze({ schoolEveningCourse: true, cleanCost: 1000, durationMs: 20 * 60 * 1000, cooldownMs: 35 * 60 * 1000, apartmentPopulationBoostPct: 60, summary: "Večerní kurz zrychlí nábor členů v bytových blocích." })
   ]),
   restaurace: Object.freeze([
-    Object.freeze({ clean: 180, dirty: 90, heat: 1, durationMs: 0, cooldownMs: 30 * 60 * 1000, summary: "Lokální tržby přepsány do zdrojů." }),
-    Object.freeze({ durationMs: 30 * 60 * 1000, cooldownMs: 30 * 60 * 1000, incomeBoostPct: 18, influence: 2, heat: 1, summary: "Schůzky zvedly dočasný income budovy." }),
-    Object.freeze({ influence: 4, heat: 2, durationMs: 30 * 60 * 1000, cooldownMs: 30 * 60 * 1000, influenceBoostPct: 12, summary: "Lokální síť posílila vliv districtu." })
+    Object.freeze({ clean: 869, dirty: 550, heat: 5, durationMs: 0, cooldownMs: 30 * 60 * 1000, summary: "Lokální tržby přepsány do zdrojů." }),
+    Object.freeze({ durationMs: 30 * 60 * 1000, cooldownMs: 45 * 60 * 1000, incomeBoostPct: 18, influence: 8, heat: 4, summary: "Schůzky zvedly dočasný income budovy." }),
+    Object.freeze({ influence: 4, heat: 8, durationMs: 30 * 60 * 1000, cooldownMs: 30 * 60 * 1000, influenceBoostPct: 12, summary: "Lokální síť posílila vliv districtu." })
   ]),
   "fitness club": Object.freeze([]),
   klinika: Object.freeze([
@@ -232,23 +232,23 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
     Object.freeze({ arcadeBackCashdesk: true, minimumDirty: 500, dirtySharePct: 13, maxDirty: 3800, feePct: 15, influence: 1, heat: 3, cooldownMs: 16 * 60 * 1000, auditRiskBoostPct: 3, auditRiskDurationMs: 8 * 60 * 1000, summary: "Zadní pokladna vypere část dirty cash a zvýší audit risk." })
   ]),
   smenarna: Object.freeze([
-    Object.freeze({ exchangeOfficeGoodRate: true, minimumDirty: 800, dirtySharePct: 16, maxDirty: 6000, feePct: 12, influence: 1.5, heat: 4, cooldownMs: 11 * 60 * 1000, auditRiskBoostPct: 4, auditRiskDurationMs: 8 * 60 * 1000, summary: "Výhodný kurz vypere menší část dirty cash a zvedne audit risk." })
+    Object.freeze({ exchangeOfficeGoodRate: true, minimumDirty: 800, dirtySharePct: 16, maxDirty: 6000, feePct: 12, influence: 3, heat: 12, cooldownMs: 18 * 60 * 1000, auditRiskBoostPct: 4, auditRiskDurationMs: 8 * 60 * 1000, summary: "Výhodný kurz ve dne vypere menší část dirty cash a zvedne audit risk." })
   ]),
   autosalon: Object.freeze([]),
   "obchodni centrum": Object.freeze([]),
   kasino: Object.freeze([
     Object.freeze({ casinoQuietBackroom: true, minimumDirty: 1500, dirtySharePct: 24, maxDirty: 18000, feePct: 9, influence: 3, heat: 7, cooldownMs: 14 * 60 * 1000, durationMs: 10 * 60 * 1000, auditRiskBoostPct: 6, summary: "Tichá herna vypere část dirty cash a zvýší audit risk." }),
     Object.freeze({ casinoVipNight: true, durationMs: 10 * 60 * 1000, cooldownMs: 26 * 60 * 1000, cleanIncomeBoostPct: 70, dirtyIncomeBoostPct: 55, influenceBoostPct: 25, heatMultiplier: 1.6, auditRiskBoostPct: 8, summary: "VIP noc masivně zvedá income, vliv, heat a audit risk." }),
-    Object.freeze({ casinoBribedInspector: true, cleanCost: 5500, failureChancePct: 14, durationMs: 12 * 60 * 1000, cooldownMs: 32 * 60 * 1000, heatSuccess: -16, heatFailure: 12, influenceSuccess: 4, auditRiskReductionPct: 35, auditRiskFailurePct: 10, summary: "Podplacený inspektor je drahá ochrana s rizikem selhání." })
+    Object.freeze({ casinoBribedInspector: true, cleanCost: 15000, failureChancePct: 14, durationMs: 12 * 60 * 1000, cooldownMs: 105 * 60 * 1000, heatSuccess: -15, heatFailure: 12, influenceSuccess: 4, auditRiskReductionPct: 35, auditRiskFailurePct: 10, summary: "Podplacený inspektor je drahá ochrana s rizikem selhání." })
   ]),
   "poulicni dealeri": Object.freeze([
-    Object.freeze({ cooldownMs: 0, serverEffectSummary: "Dealer slot prodá vybranou látku za serverově spočítaný dirty cash.", summary: "Spustí serverový prodej látky přes dealer slot." }),
+    Object.freeze({ cooldownMs: 0, serverEffectSummary: "Slot Pouličních dealerů prodá vybranou látku za serverově spočítaný dirty cash.", summary: "Spustí serverový prodej látky přes Pouliční dealery." }),
     Object.freeze({ dirty: 280, heat: 3, cooldownMs: 10 * 60 * 1000, summary: "Hotový cash byl vybrán." }),
     Object.freeze({ materialCost: { biomass: 3 }, dirty: 1000, heat: 1, cooldownMs: 10 * 60 * 1000, summary: "Stash proměněn na dirty cash." })
   ]),
   vecerka: Object.freeze([]),
   "pasovaci tunel": Object.freeze([
-    Object.freeze({ smugglingOpenChannel: true, cleanCost: 800, heat: 5, durationMs: 15 * 60 * 1000, cooldownMs: 30 * 60 * 1000, dirtyIncomeBoostPct: 45, dealerSalePriceBonusPct: 12, dealerSaleSpeedBonusPct: 10, dealerRewardBonusPct: 10, heatRiskBonusPct: 15, streetIncidentFlatRiskPct: 5, summary: "Otevřený kanál zvedne dirty cash tunelů a prodej dealerů, ale přidá heat a street incident risk." })
+    Object.freeze({ smugglingOpenChannel: true, cleanCost: 1800, heat: 5, durationMs: 15 * 60 * 1000, cooldownMs: 30 * 60 * 1000, dirtyIncomeBoostPct: 45, dealerSalePriceBonusPct: 12, dealerSaleSpeedBonusPct: 10, dealerRewardBonusPct: 10, heatRiskBonusPct: 15, streetIncidentFlatRiskPct: 5, summary: "Otevřený kanál zvedne dirty cash tunelů a prodej Pouličních dealerů, ale přidá heat a riziko pouličního incidentu." })
   ]),
   burza: Object.freeze([
     Object.freeze({ stockSpeculativeBuy: true, cleanCost: 2500, maxInvestmentCleanCash: 10000, heat: 5, cooldownMs: 16 * 60 * 1000, successChancePct: 65, neutralChancePct: 25, badChancePct: 10, summary: "Investuje clean cash do vybrané market kategorie. Výsledek může být zisk, neutrální pohyb nebo ztráta." }),
@@ -456,11 +456,11 @@ export const AUTO_SALON_SUPPORT_CONFIG = Object.freeze({
   combinedGarageDealerMaxReductionPct: 22,
   escapeChanceBonusPctPerDealer: 2,
   maxEscapeChanceBonusPct: 12,
-  fullBonusCategories: Object.freeze(["districtRobbery", "districtOccupy", "attackPreparation", "retreatReturn"]),
-  halfBonusCategories: Object.freeze(["attackTravelTime", "defenseReposition"]),
+  fullBonusCategories: Object.freeze(["districtRobbery", "districtOccupy", "attackPreparation"]),
+  halfBonusCategories: Object.freeze([]),
   smallBonusCategories: Object.freeze(["clinicEvacuationRecovery", "recyclingSalvageTransport"]),
   excludedCategories: Object.freeze(["moneyLaundering", "casinoActions", "exchangeOfficeActions", "arcadeLaunderingActions", "rumorGeneration", "passiveProduction", "intelScan", "trapDetection"]),
-  escapeAppliesTo: Object.freeze(["neúspěšné Vykrást district", "odhalená špionáž", "přepadení při přesunu", "návrat po útoku"]),
+  escapeAppliesTo: Object.freeze(["neúspěšný útok"]),
   cleanIncomeBonusPctPerExtraDealer: 4,
   dirtyIncomeBonusPctPerExtraDealer: 4,
   heatBonusPctPerExtraDealer: 3,
@@ -532,7 +532,7 @@ export const SMUGGLING_TUNNEL_CONFIG = Object.freeze({
   dealerSupplyStreetRiskReductionSharePct: 40,
   dealerSupplyPassiveDirtyIncomeSharePct: 25,
   dealerSupplySaleHeatRiskSharePct: 20,
-  openChannelCleanCost: 800,
+  openChannelCleanCost: 1800,
   openChannelHeatGain: 5,
   openChannelDurationMs: 15 * 60 * 1000,
   openChannelCooldownMs: 30 * 60 * 1000,

@@ -56,13 +56,13 @@ export const createMarketBuildingStats = (input: BuildingStatsProjectionInput): 
       garageConfig: input.garageConfig
     });
     return [
-      { label: "Clean / min", value: `$${formatNumber(input.carDealerConfig.cleanCashPerMinute * network.cleanIncomeMultiplier)}` },
-      { label: "Dirty / min", value: `$${formatNumber(input.carDealerConfig.dirtyCashPerMinute * network.dirtyIncomeMultiplier)}` },
-      { label: "Heat / min", value: formatNumber(input.carDealerConfig.heatPerMinute * network.heatMultiplier) },
+      { label: "Clean / hour", value: `$${formatNumber(input.carDealerConfig.cleanCashPerMinute * 60 * network.cleanIncomeMultiplier)}` },
+      { label: "Dirty / hour", value: `$${formatNumber(input.carDealerConfig.dirtyCashPerMinute * 60 * network.dirtyIncomeMultiplier)}` },
+      { label: "Heat / day", value: formatNumber(input.carDealerConfig.heatPerMinute * 60 * 24 * network.heatMultiplier) },
+      { label: "Influence / day", value: formatNumber(input.carDealerConfig.influencePerMinute * 60 * 24) },
       { label: "Owned car dealers", value: `${ownedCount}/${input.carDealerConfig.countOnMap}` },
       { label: "Clean income multiplier", value: `x${formatNumber(network.cleanIncomeMultiplier)}` },
       { label: "Dirty income multiplier", value: `x${formatNumber(network.dirtyIncomeMultiplier)}` },
-      { label: "Mobility bonus", value: `+${formatNumber(support.mobilityBonusPct)} %` },
       { label: "Cooldown reduction", value: `-${formatNumber(support.cooldownReductionPct)} %` },
       { label: "Escape chance bonus", value: `+${formatNumber(support.escapeChanceBonusPct)} %` },
       { label: "Garage + dealer cap", value: `-${formatNumber(support.combinedGarageDealerMaxReductionPct)} %` },
@@ -91,18 +91,17 @@ export const createMarketBuildingStats = (input: BuildingStatsProjectionInput): 
     return [
       { label: "Dirty / min", value: `$${formatNumber(productionPerMinute)}` },
       { label: "Heat / min", value: formatNumber(heatPerMinute) },
-      { label: "Owned tunnels", value: `${ownedCount}/${input.smugglingTunnelConfig.countOnMap}` },
-      { label: "Dirty production multiplier", value: `x${formatNumber(network.dirtyProductionMultiplier)}` },
-      { label: "Heat multiplier", value: `x${formatNumber(network.heatMultiplier)}` },
-      { label: "Dealer Supply bonus", value: `+${formatNumber(dealerSupply.dealerSupplyBonusPct)} %` },
-      { label: "Kontraband Flow", value: dealerSupply.contrabandFlowLabel },
-      { label: "Dealer sale price bonus", value: `+${formatNumber(dealerSupply.salePriceBonusPct + openChannel.dealerSalePriceBonusPct)} %` },
-      { label: "Dealer sale speed bonus", value: `+${formatNumber(dealerSupply.saleSpeedBonusPct + openChannel.dealerSaleSpeedBonusPct)} %` },
-      { label: "Dealer passive dirty bonus", value: `+${formatNumber(dealerSupply.passiveDirtyIncomeBonusPct)} %` },
-      { label: "Dealer street risk reduction", value: `-${formatNumber(dealerSupply.streetRiskReductionPct)} %` },
-      { label: "Dealer heat risk bonus", value: `+${formatNumber(dealerSupply.saleHeatRiskBonusPct + openChannel.dealerSaleHeatBonusPct)} %` },
-      { label: "Otevřít kanál", value: openChannel.active ? `active ${formatTickLabel(openChannel.remainingTicks)}` : "ready when off cooldown" },
-      { label: "Boost incident risk", value: `+${formatNumber(openChannel.streetIncidentFlatRiskPct)} %` }
+      { label: "Vlastněné tunely", value: `${ownedCount}/${input.smugglingTunnelConfig.countOnMap}` },
+      { label: "Dirty bonus sítě", value: `x${formatNumber(network.dirtyProductionMultiplier)}` },
+      { label: "Heat bonus sítě", value: `x${formatNumber(network.heatMultiplier)}` },
+      { label: "Podpora Pouličních dealerů", value: `+${formatNumber(dealerSupply.dealerSupplyBonusPct)} %` },
+      { label: "Cena prodeje Pouličních dealerů", value: `+${formatNumber(dealerSupply.salePriceBonusPct + openChannel.dealerSalePriceBonusPct)} %` },
+      { label: "Rychlost prodeje Pouličních dealerů", value: `+${formatNumber(dealerSupply.saleSpeedBonusPct + openChannel.dealerSaleSpeedBonusPct)} %` },
+      { label: "Pasivní dirty bonus Pouličních dealerů", value: `+${formatNumber(dealerSupply.passiveDirtyIncomeBonusPct)} %` },
+      { label: "Snížení pouličního rizika", value: `-${formatNumber(dealerSupply.streetRiskReductionPct)} %` },
+      { label: "Heat riziko Pouličních dealerů", value: `+${formatNumber(dealerSupply.saleHeatRiskBonusPct + openChannel.dealerSaleHeatBonusPct)} %` },
+      { label: "Otevřený kanál", value: openChannel.active ? `aktivní ${formatTickLabel(openChannel.remainingTicks)}` : "připravený po cooldownu" },
+      { label: "Riziko pouličního incidentu", value: `+${formatNumber(openChannel.streetIncidentFlatRiskPct)} %` }
     ];
   }
   if (input.building.buildingTypeId === "street_dealers" && input.streetDealersConfig && input.building.ownerPlayerId) {
@@ -131,24 +130,24 @@ export const createMarketBuildingStats = (input: BuildingStatsProjectionInput): 
       ? activeSales
           .map((slot) => `${slot.slotId} ${slot.itemLabel ?? slot.itemId} ${formatTickLabel(Math.max(0, Number(slot.completesAtTick || 0) - input.tick))}`)
           .join(", ")
-      : "none";
+      : "žádné";
     return [
       { label: "Dirty / min", value: `$${formatNumber(input.streetDealersConfig.dirtyCashPerMinute * network.passiveDirtyIncomeMultiplier * (1 + dealerSupply.passiveDirtyIncomeBonusPct / 100))}` },
       { label: "Heat / min", value: formatNumber(input.streetDealersConfig.heatPerMinute * network.heatMultiplier) },
-      { label: "Owned dealers", value: `${ownedCount}/${input.streetDealersConfig.countOnMap}` },
-      { label: "Dealer slots", value: `${Math.max(0, slotCount - lockedSlots.length)}/${slotCount} free` },
-      { label: "Active sales", value: activeSaleSummary },
-      { label: "Drug inventory", value: inventory || "empty" },
-      { label: "Passive dirty multiplier", value: `x${formatNumber(network.passiveDirtyIncomeMultiplier)}` },
-      { label: "Sale price multiplier", value: `x${formatNumber(network.salePriceMultiplier)}` },
-      { label: "Sale speed multiplier", value: `x${formatNumber(network.saleSpeedMultiplier)}` },
-      { label: "Heat multiplier", value: `x${formatNumber(network.heatMultiplier)}` },
-      { label: "Tunnel sale price bonus", value: `+${formatNumber(dealerSupply.salePriceBonusPct + openChannel.dealerSalePriceBonusPct)} %` },
-      { label: "Tunnel sale speed bonus", value: `+${formatNumber(dealerSupply.saleSpeedBonusPct + openChannel.dealerSaleSpeedBonusPct)} %` },
-      { label: "Tunnel passive dirty bonus", value: `+${formatNumber(dealerSupply.passiveDirtyIncomeBonusPct)} %` },
-      { label: "Tunnel street risk reduction", value: `-${formatNumber(dealerSupply.streetRiskReductionPct)} %` },
-      { label: "Tunnel heat risk bonus", value: `+${formatNumber(dealerSupply.saleHeatRiskBonusPct + openChannel.dealerSaleHeatBonusPct)} %` },
-      { label: "Otevřít kanál", value: openChannel.active ? `active ${formatTickLabel(openChannel.remainingTicks)}` : "inactive" }
+      { label: "Vlastnění dealeři", value: `${ownedCount}/${input.streetDealersConfig.countOnMap}` },
+      { label: "Sloty dealerů", value: `${Math.max(0, slotCount - lockedSlots.length)}/${slotCount} volné` },
+      { label: "Aktivní prodeje", value: activeSaleSummary },
+      { label: "Sklad drog", value: inventory || "prázdný" },
+      { label: "Pasivní dirty bonus", value: `x${formatNumber(network.passiveDirtyIncomeMultiplier)}` },
+      { label: "Bonus ceny prodeje", value: `x${formatNumber(network.salePriceMultiplier)}` },
+      { label: "Bonus rychlosti prodeje", value: `x${formatNumber(network.saleSpeedMultiplier)}` },
+      { label: "Heat bonus sítě", value: `x${formatNumber(network.heatMultiplier)}` },
+      { label: "Bonus ceny z Pašovacích tunelů", value: `+${formatNumber(dealerSupply.salePriceBonusPct + openChannel.dealerSalePriceBonusPct)} %` },
+      { label: "Bonus rychlosti z Pašovacích tunelů", value: `+${formatNumber(dealerSupply.saleSpeedBonusPct + openChannel.dealerSaleSpeedBonusPct)} %` },
+      { label: "Pasivní dirty bonus z Pašovacích tunelů", value: `+${formatNumber(dealerSupply.passiveDirtyIncomeBonusPct)} %` },
+      { label: "Snížení rizika z Pašovacích tunelů", value: `-${formatNumber(dealerSupply.streetRiskReductionPct)} %` },
+      { label: "Heat riziko z Pašovacích tunelů", value: `+${formatNumber(dealerSupply.saleHeatRiskBonusPct + openChannel.dealerSaleHeatBonusPct)} %` },
+      { label: "Otevřený kanál", value: openChannel.active ? `aktivní ${formatTickLabel(openChannel.remainingTicks)}` : "neaktivní" }
     ];
   }
   return null;

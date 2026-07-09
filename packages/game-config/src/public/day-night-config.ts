@@ -201,9 +201,9 @@ export const dayNightBuildingRules: Record<string, DayNightBuildingRuleConfig> =
   },
   smuggling_tunnel: {
     preferredPhase: "night",
-    phaseEffectSummary: "NOC BONUS: pašovací kanály jsou bezpečnější po setmění.",
+    phaseEffectSummary: "NOC BONUS: pašovací kanály jsou bezpečnější po setmění. Přes den dirty tok výrazně padá.",
     phasePassiveModifiers: {
-      day: { passiveHeatMultiplier: 1.12 },
+      day: { passiveDirtyIncomeMultiplier: 0.5, passiveHeatMultiplier: 1.12 },
       night: { passiveDirtyIncomeMultiplier: 1.25 }
     }
   },
@@ -316,6 +316,12 @@ export const dayNightActionRules: Record<string, DayNightActionRuleConfig> = Obj
     blockedReason: "Policy Window se otevírá jen přes den.",
     phaseEffectSummary: "DEN ONLY: politické okno běží jen přes den."
   },
+  restaurant_collect_revenue: {
+    allowedPhases: ["day"],
+    preferredPhase: "day",
+    blockedReason: "Tržby restaurace můžeš vybrat jen přes den.",
+    phaseEffectSummary: "DEN ONLY: tržby restaurace lze vybrat jen přes den."
+  },
   official_cover: {
     preferredPhase: "day",
     heatMultiplier: 1.35,
@@ -348,17 +354,16 @@ export const dayNightActionRules: Record<string, DayNightActionRuleConfig> = Obj
     phaseEffectSummary: "NOC BONUS: tichá herna pere efektivněji v noci. Přes den je vyšší audit/heat."
   },
   good_rate: {
-    preferredPhase: "night",
-    rewardMultiplier: 0.9,
-    heatMultiplier: 1.25,
-    auditRiskModifierPct: 10,
-    phaseEffectSummary: "NOC BONUS: výhodný kurz je bezpečnější v noci. Přes den roste audit/heat."
+    allowedPhases: ["day"],
+    preferredPhase: "day",
+    blockedReason: "Výhodný kurz můžeš spustit jen přes den.",
+    phaseEffectSummary: "DEN ONLY: výhodný kurz směnárny běží jen přes den."
   },
   open_channel: {
     preferredPhase: "night",
     heatMultiplier: 1.3,
     detectionChanceModifierPct: 10,
-    phaseEffectSummary: "NOC BONUS: kanál je tmavší v noci. Přes den roste police/street risk."
+    phaseEffectSummary: "NOC BONUS: kanál je bezpečnější po setmění. Přes den roste policejní tlak a pouliční riziko."
   },
   start_drug_sale: {
     preferredPhase: "night",

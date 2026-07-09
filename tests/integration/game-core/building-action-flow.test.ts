@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCommand, buyResource, calculateMarketPrice, collectIncome, completeProduction, createConflictReportViews, runTick } from "@empire/game-core";
+import { applyCommand, buyResource, calculateMarketPrice, collectIncome, completeProduction, createCityFeedProjection, createConflictReportViews, runTick } from "@empire/game-core";
 import { getAllPublicBuildingDefinitions, getPublicBuildingCatalog, resolveDistrictBuildingTypes, resolveModeConfig } from "@empire/game-config";
 import {
   createCoreStateWithFixedBuildingFixture,
@@ -17,6 +17,7 @@ const context = {
 const MAFIAN_HEAT_GAIN_MULTIPLIER = 0.96;
 
 const mafianHeat = (baseHeat: number): number => baseHeat * MAFIAN_HEAT_GAIN_MULTIPLIER;
+const mafianIllegalHeat = (baseHeat: number): number => Math.floor(baseHeat * MAFIAN_HEAT_GAIN_MULTIPLIER);
 const ticksForMs = (ms: number): number => Math.ceil(ms / context.config.tickRateMs);
 const cooldownTicksForMs = (ms: number): number =>
   Math.ceil(ticksForMs(ms) * context.config.balance.cooldownMultiplier);
@@ -346,7 +347,7 @@ describe("run-building-action command flow", () => {
     expect(rejected.nextState.buildingsById[stashState.building.id].actionCooldowns.street_dealers_move_stash).toBeUndefined();
   });
 
-  it("applies smuggling tunnel Dealer Supply bonuses to street dealer sale previews", () => {
+  it("applies smuggling tunnel Pouliční dealeři bonuses to street dealer sale previews", () => {
     const { state, building } = createStateWithFixedBuilding("street_dealers", {
       playerBalances: {
         cash: 0,
@@ -1175,6 +1176,41 @@ describe("run-building-action command flow", () => {
     expect(result.errors.map((error) => error.code)).toContain("building_action_insufficient_resources");
   });
 
+  it("runs casino bribed inspector with the configured cost and cooldown", () => {
+    const { state, building } = createStateWithFixedBuilding("casino", {
+      playerBalances: {
+        cash: 15000,
+        "dirty-cash": 250
+      }
+    });
+    const result = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:casino:bribed-inspector",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "bribed_inspector"
+        }
+      }),
+      context
+    );
+    const balances = result.nextState.resourceStatesById["resource:1"].balances;
+    const report = createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })[0];
+
+    expect(result.errors).toEqual([]);
+    expect(balances.cash).toBe(0);
+    expect(result.nextState.buildingsById[building.id].actionCooldowns.bribed_inspector).toBe(
+      cooldownTicksForMs(105 * 60 * 1000)
+    );
+    expect(report).toMatchObject({
+      casinoResult: {
+        type: "heat_control",
+        costPaid: 15000
+      }
+    });
+  });
+
   it("runs casino quiet backroom as dynamic high-risk laundering", () => {
     const { state, building } = createStateWithFixedBuilding("casino", {
       playerBalances: {
@@ -1199,8 +1235,8 @@ describe("run-building-action command flow", () => {
 
     expect(result.errors).toEqual([]);
     expect(balances["dirty-cash"]).toBe(7600);
-    expect(balances.cash).toBe(2184);
-    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 7);
+    expect(balances.cash).toBe(1965);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 9);
     expect(result.nextState.districtsById["district:1"].influence).toBe(3);
     expect(result.nextState.buildingsById[building.id].metadata?.casino).toMatchObject({
       launderedEvents: [{ tick: 0, amount: 2400 }]
@@ -1208,9 +1244,9 @@ describe("run-building-action command flow", () => {
     expect(report).toMatchObject({
       casinoResult: {
         launderedDirtyCash: 2400,
-        cleanCashGained: 2184,
-        feePaid: 216,
-        heatGain: 7
+        cleanCashGained: 1965,
+        feePaid: 435,
+        heatGain: mafianHeat(9)
       }
     });
   });
@@ -1239,6 +1275,8 @@ describe("run-building-action command flow", () => {
 
   it("activates casino VIP night and blocks stacking while active", () => {
     const { state, building } = createStateWithFixedBuilding("casino");
+    const nightStartTick = context.config.balance.dayNight?.phases.day.durationTicks ?? 1440;
+    state.root.tick = nightStartTick;
     const first = applyCommand(
       state,
       createRunBuildingActionCommandFixture({
@@ -1266,7 +1304,7 @@ describe("run-building-action command flow", () => {
 
     expect(first.errors).toEqual([]);
     expect(first.nextState.buildingsById[building.id].metadata?.casino).toMatchObject({
-      vipNightExpiresAtTick: 120
+      vipNightExpiresAtTick: nightStartTick + ticksForMs(10 * 60 * 1000)
     });
     expect(second.errors.map((error) => error.code)).toContain("building_action_cooldown");
     expect(second.errors.map((error) => error.code)).toContain("casino_vip_night_active");
@@ -1297,19 +1335,53 @@ describe("run-building-action command flow", () => {
     expect(result.errors).toEqual([]);
     expect(balances["dirty-cash"]).toBe(8400);
     expect(balances.cash).toBe(1408);
-    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 4);
-    expect(result.nextState.districtsById["district:1"].influence).toBe(1.5);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 12);
+    expect(result.nextState.districtsById["district:1"].influence).toBe(3);
+    expect(result.nextState.buildingsById[building.id].actionCooldowns.good_rate).toBe(
+      cooldownTicksForMs(18 * 60 * 1000)
+    );
     expect(result.nextState.buildingsById[building.id].metadata?.exchangeOffice).toMatchObject({
-      launderedEvents: [{ tick: 0, amount: 1600 }]
+      launderedEvents: [{ tick: 0, amount: 1600 }],
+      auditRiskBonuses: [{ expiresAtTick: 96, riskPct: 4, source: "good_rate" }]
     });
     expect(report).toMatchObject({
+      message: expect.stringContaining("1408 clean cash"),
       exchangeResult: {
         launderedDirtyCash: 1600,
         cleanCashGained: 1408,
         feePaid: 192,
-        heatGain: 4
+        heatGain: mafianHeat(12),
+        influenceGain: 3
       }
     });
+  });
+
+  it("blocks exchange office good rate at night", () => {
+    const { state, building } = createStateWithFixedBuilding("exchange", {
+      playerBalances: {
+        cash: 0,
+        "dirty-cash": 10000
+      }
+    });
+    state.root.tick = context.config.balance.dayNight?.phases.day.durationTicks ?? 1440;
+
+    const result = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:exchange:good-rate:night",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "good_rate"
+        }
+      }),
+      context
+    );
+
+    expect(result.errors.map((error) => error.code)).toContain("building_action_phase_blocked");
+    expect(result.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(10000);
+    expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(0);
+    expect(result.nextState.buildingsById[building.id].actionCooldowns.good_rate).toBeUndefined();
   });
 
   it("rejects exchange office laundering below minimum dirty cash", () => {
@@ -1725,7 +1797,7 @@ describe("run-building-action command flow", () => {
     expect(actions.garage_escape_routes).toBeUndefined();
   });
 
-  it("collects car dealer income with clean money, dirty money, heat, and no influence, population, or actions", () => {
+  it("collects car dealer income with clean money, dirty money, heat, influence, and no population or actions", () => {
     const { state, building } = createStateWithFixedBuilding("car_dealer", {
       playerBalances: {
         cash: 0,
@@ -1744,13 +1816,18 @@ describe("run-building-action command flow", () => {
 
     const result = collectIncome(state, context);
     const actions = context.config.balance.buildingActions ?? {};
+    const carDealerBalance = context.config.balance.fixedBuildings?.car_dealer;
 
     expect(result.resourceStatesById["resource:1"].balances.cash).toBeGreaterThan(0);
     expect(result.resourceStatesById["resource:1"].balances["dirty-cash"]).toBeGreaterThan(0);
     expect(result.resourceStatesById["resource:1"].balances.influence).toBeUndefined();
     expect(result.resourceStatesById["resource:1"].balances.population).toBeUndefined();
     expect(result.districtsById["district:1"].heat).toBeGreaterThan(0);
-    expect(result.districtsById["district:1"].influence).toBe(0);
+    expect(result.districtsById["district:1"].influence).toBeGreaterThan(0);
+    expect(carDealerBalance?.cleanPerHour).toBe(2145);
+    expect(carDealerBalance?.dirtyPerHour).toBeCloseTo(650, 5);
+    expect(carDealerBalance?.heatPerDay).toBeCloseTo(60, 5);
+    expect(carDealerBalance?.influencePerDay).toBeCloseTo(24, 5);
     expect(context.config.balance.carDealer?.actions).toHaveLength(0);
     expect(actions.car_dealer).toBeUndefined();
   });
@@ -2056,6 +2133,59 @@ describe("run-building-action command flow", () => {
     });
   });
 
+  it("sums garage and car dealer cooldown support for clinic stabilization", () => {
+    const { state, building } = createStateWithFixedBuilding("clinic", {
+      playerBalances: {
+        cash: 5000,
+        "dirty-cash": 0
+      }
+    });
+    state.playersById["player:1"] = {
+      ...state.playersById["player:1"],
+      recoveryPool: [
+        { id: "recovery:test:population", itemType: "population", amount: 20, source: "attack", lostAtTick: 0 }
+      ]
+    };
+    const supportBuildings = [
+      ...Array.from({ length: 5 }, (_value, index) =>
+        createFixedBuildingFixture("garage", {
+          id: `building:district-1:garage:clinic-support:${index + 1}`
+        })
+      ),
+      ...Array.from({ length: 4 }, (_value, index) =>
+        createFixedBuildingFixture("car_dealer", {
+          id: `building:district-1:car_dealer:clinic-support:${index + 1}`
+        })
+      )
+    ];
+    for (const supportBuilding of supportBuildings) {
+      state.buildingsById[supportBuilding.id] = supportBuilding;
+    }
+    state.districtsById["district:1"] = {
+      ...state.districtsById["district:1"],
+      buildingIds: [building.id, ...supportBuildings.map((supportBuilding) => supportBuilding.id)]
+    };
+
+    const result = applyCommand(
+      state,
+      createRunBuildingActionCommandFixture({
+        id: "command:clinic:stabilization:support",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "stabilization_protocol"
+        }
+      }),
+      context
+    );
+
+    const baseCooldownTicks = cooldownTicksForMs(18 * 60 * 1000);
+    const expectedCooldownTicks = Math.ceil(baseCooldownTicks * (1 - 0.065));
+
+    expect(result.errors).toEqual([]);
+    expect(result.nextState.buildingsById[building.id].actionCooldowns.stabilization_protocol).toBe(expectedCooldownTicks);
+  });
+
   it("does not let clinic stabilization consume non-clinic recovery items", () => {
     const { state, building } = createStateWithFixedBuilding("clinic", {
       playerBalances: {
@@ -2295,12 +2425,12 @@ describe("run-building-action command flow", () => {
     expect(openChannelConfig).toMatchObject({
       durationMinutes: 15,
       cooldownMinutes: 30,
-      costCleanCash: 800,
+      costCleanCash: 1800,
       heatGain: 5
     });
     const { state, building } = createStateWithFixedBuilding("smuggling_tunnel", {
       playerBalances: {
-        cash: 1000,
+        cash: 2000,
         "dirty-cash": 1000
       }
     });
@@ -2341,7 +2471,7 @@ describe("run-building-action command flow", () => {
     expect(first.nextState.buildingsById[building.id].actionCooldowns.open_channel).toBe(
       cooldownTicksForMs((openChannelConfig?.cooldownMinutes ?? 0) * 60 * 1000)
     );
-    expect(first.nextState.districtsById["district:1"].heat).toBe(4);
+    expect(first.nextState.districtsById["district:1"].heat).toBe(mafianIllegalHeat(7));
     expect(second.errors.map((error) => error.code)).toContain("building_action_cooldown");
     expect(second.errors.map((error) => error.code)).toContain("smuggling_tunnel_open_channel_active");
     expect(report).toMatchObject({
@@ -2349,7 +2479,7 @@ describe("run-building-action command flow", () => {
       buildingActionId: "open_channel",
       smugglingTunnelResult: {
         type: "open_channel",
-        cleanCashCost: 800,
+        cleanCashCost: 1800,
         durationTicks: ticksForMs((openChannelConfig?.durationMinutes ?? 0) * 60 * 1000),
         heatGain: 5,
         tunnelDirtyProductionBonusPct: 45,
@@ -2452,8 +2582,8 @@ describe("run-building-action command flow", () => {
     const report = createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })[0];
 
     expect(result.errors).toEqual([]);
-    expect(result.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(360);
-    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 3);
+    expect(result.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(306);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 4);
     expect(result.nextState.buildingsById[building.id].actionCooldowns.strip_club_collect_cash).toBe(
       cooldownTicksForMs(10 * 60 * 1000)
     );
@@ -2501,9 +2631,10 @@ describe("run-building-action command flow", () => {
     expect((context.config.balance.buildingActions ?? {}).restaurant_collect_revenue).toMatchObject({
       actionId: "restaurant_collect_revenue",
       buildingType: "restaurant",
+      heatGain: 5,
       outputGain: {
-        cash: 180,
-        "dirty-cash": 90
+        cash: 869,
+        "dirty-cash": 550
       }
     });
   });
@@ -2532,9 +2663,9 @@ describe("run-building-action command flow", () => {
     );
 
     expect(result.errors).toEqual([]);
-    expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(180);
-    expect(result.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(90);
-    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 1);
+    expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(869);
+    expect(result.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(550);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 5);
     expect(result.nextState.buildingsById[building.id].actionCooldowns.restaurant_collect_revenue).toBe(
       cooldownTicksForMs(30 * 60 * 1000)
     );
@@ -2542,10 +2673,39 @@ describe("run-building-action command flow", () => {
       type: "building-action-resolved",
       payload: {
         actionId: "restaurant_collect_revenue",
-        cashDelta: 180,
-        dirtyCashDelta: 90
+        cashDelta: 869,
+        dirtyCashDelta: 550
       }
     });
+
+    const nightState = createStateWithFixedBuilding("restaurant", {
+      id: "building:district-1:restaurant:night",
+      playerBalances: {
+        cash: 0,
+        "dirty-cash": 0,
+        influence: 0
+      }
+    });
+    nightState.state.root.tick = context.config.balance.dayNight?.phases.day.durationTicks ?? 1440;
+
+    const blocked = applyCommand(
+      nightState.state,
+      createRunBuildingActionCommandFixture({
+        id: "command:restaurant:collect-revenue:night",
+        payload: {
+          districtId: "district:1",
+          buildingId: nightState.building.id,
+          actionId: "restaurant_collect_revenue"
+        }
+      }),
+      context
+    );
+
+    expect(blocked.errors.map((error) => error.code)).toContain("building_action_phase_blocked");
+    expect(blocked.nextState.resourceStatesById["resource:1"].balances.cash).toBe(0);
+    expect(blocked.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(0);
+    expect(blocked.nextState.districtsById["district:1"].heat).toBe(0);
+    expect(blocked.nextState.buildingsById[nightState.building.id].actionCooldowns.restaurant_collect_revenue).toBeUndefined();
   });
 
   it("runs Restaurant cover meetings effect through server state", () => {
@@ -2573,10 +2733,10 @@ describe("run-building-action command flow", () => {
     const effectState = result.nextState.effectStatesById["effect:district:1"];
 
     expect(result.errors).toEqual([]);
-    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 1);
-    expect(result.nextState.districtsById["district:1"].influence).toBe(2);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 4);
+    expect(result.nextState.districtsById["district:1"].influence).toBe(8);
     expect(result.nextState.buildingsById[building.id].actionCooldowns.restaurant_cover_meetings).toBe(
-      cooldownTicksForMs(30 * 60 * 1000)
+      cooldownTicksForMs(45 * 60 * 1000)
     );
     expect(effectState.effects).toEqual([
       expect.objectContaining({
@@ -2619,7 +2779,7 @@ describe("run-building-action command flow", () => {
     const effectState = result.nextState.effectStatesById["effect:district:1"];
 
     expect(result.errors).toEqual([]);
-    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 2);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 8);
     expect(result.nextState.districtsById["district:1"].influence).toBe(4);
     expect(result.nextState.buildingsById[building.id].actionCooldowns.restaurant_local_network).toBe(
       cooldownTicksForMs(30 * 60 * 1000)
@@ -2638,7 +2798,7 @@ describe("run-building-action command flow", () => {
     ]);
   });
 
-  it("generates Restaurant passive rumors without reliability visibility", () => {
+  it("generates Restaurant passive rumors and publishes them to street news without reliability visibility", () => {
     const rumorContext = {
       config: {
         ...context.config,
@@ -2682,9 +2842,22 @@ describe("run-building-action command flow", () => {
     }
 
     const metadata = result.buildingsById[building.id].metadata?.restaurant as { rumorEvents?: Array<Record<string, unknown>> } | undefined;
+    const cityFeedEvents = Object.values(result.cityFeedEventsById);
+    const restaurantCityFeedEvent = cityFeedEvents.find((event) => event.sourceBuildingType === "restaurant");
+    const projection = createCityFeedProjection(result, {
+      playerId: "player:1",
+      selectedDistrictId: building.districtId
+    });
+
     expect(metadata?.rumorEvents?.length).toBeGreaterThan(0);
     expect(metadata?.rumorEvents?.[0]?.reliabilityVisible).toBe(false);
     expect(metadata?.rumorEvents?.[0]?.text).not.toContain("Spolehlivost:");
+    expect(restaurantCityFeedEvent).toMatchObject({
+      category: "rumor",
+      districtId: building.districtId,
+      sourceBuildingType: "restaurant"
+    });
+    expect(projection.selectedDistrictFeed.some((event) => event.id === restaurantCityFeedEvent?.id)).toBe(true);
   });
 
   it("runs Convenience Store as passive street cash, influence, heat, and rumor building without actions", () => {
@@ -2877,7 +3050,7 @@ describe("run-building-action command flow", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(3500);
-    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 16);
+    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 20);
     expect(result.nextState.districtsById["district:1"].influence).toBe(4);
     expect(result.nextState.buildingsById[building.id].metadata?.stripClub).toMatchObject({
       privatePartyExpiresAtTick: 120,

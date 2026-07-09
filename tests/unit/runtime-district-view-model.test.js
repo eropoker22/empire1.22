@@ -180,6 +180,34 @@ describe("district view model adapter", () => {
     });
   });
 
+  it("preserves no-spies disabled button state for spy actions", () => {
+    const model = buildDistrictActionViewModel({ id: 9 }, {
+      activePoliceAction: null,
+      resolvedActions: [
+        {
+          id: "spy",
+          label: "Špehovat",
+          enabled: false,
+          stacked: true,
+          subtitle: "Žádní špehové",
+          disabledTone: "no-spies",
+          title: "Žádní špehové nejsou dostupní.",
+          reason: ""
+        }
+      ]
+    });
+
+    expect(model.actions[0]).toMatchObject({
+      id: "spy",
+      enabled: false,
+      stacked: true,
+      subtitle: "Žádní špehové",
+      disabledTone: "no-spies",
+      title: "Žádní špehové nejsou dostupní.",
+      reason: ""
+    });
+  });
+
   it("shows only a district occupation status while occupation cooldown is running", () => {
     const model = buildDistrictActionViewModel({ id: 4 }, {
       activePoliceAction: null,

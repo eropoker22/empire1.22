@@ -106,6 +106,12 @@ export function createDistrictActionPanelRuntime(deps = {}) {
   const getDistrictAtmosphereMeta = typeof deps.getDistrictAtmosphereMeta === "function"
     ? deps.getDistrictAtmosphereMeta
     : () => ({});
+  const getRobberyCooldownView = typeof deps.getRobberyCooldownView === "function"
+    ? deps.getRobberyCooldownView
+    : () => ({ effectiveCooldownMs: deps.robberyCooldownMs, label: "" });
+  const getOccupyCooldownView = typeof deps.getOccupyCooldownView === "function"
+    ? deps.getOccupyCooldownView
+    : () => ({ effectiveCooldownMs: deps.occupyCooldownMs, label: "" });
 
   const getAvailableAttackPopulation = () => {
     const rawValue = elements.gangMembersValue?.textContent || "0";
@@ -449,13 +455,15 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     const atmosphereMeta = getDistrictAtmosphereMeta(district, getInteractionState());
     const { deployedMembers, canConfirm } = renderRobberySummary();
     const sourceDistrictId = isHtmlSelectElement(elements.robberySourceSelect) ? elements.robberySourceSelect.value : "";
+    const cooldownView = getRobberyCooldownView();
 
     renderPreparedRobberyConfirmationPanel({
       district,
       sourceDistrictId,
       deployedMembers,
       canConfirm,
-      robberyCooldownMs: deps.robberyCooldownMs,
+      robberyCooldownMs: cooldownView.effectiveCooldownMs || deps.robberyCooldownMs,
+      robberyCooldownLabel: cooldownView.label || "",
       atmosphereMeta
     }, elements);
   };
@@ -531,6 +539,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     const ownedDistrictCount = getCurrentPlayerOwnedDistrictIds(interactionState).size;
     const spyIntel = deps.getResolvedSpyIntel();
     const canOccupyAfterSpy = spyIntel.occupiableDistrictIds.includes(Number(district.id));
+    const cooldownView = getOccupyCooldownView();
 
     renderPreparedOccupyConfirmationPanel({
       district,
@@ -538,7 +547,8 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       canOccupyAfterSpy,
       ownedDistrictCount,
       availablePopulation: getAvailableAttackPopulation(),
-      occupyCooldownMs: deps.occupyCooldownMs,
+      occupyCooldownMs: cooldownView.effectiveCooldownMs || deps.occupyCooldownMs,
+      occupyCooldownLabel: cooldownView.label || "",
       atmosphereMeta
     }, elements);
   };

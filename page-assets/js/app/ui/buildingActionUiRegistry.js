@@ -72,11 +72,11 @@ const AUTO_SALON_ACTION_CATEGORY_LABELS = Object.freeze({
   attackPreparation: "příprava útoku",
   defenseRepair: "opravy obrany",
   defenseRestore: "obnova obrany",
-  retreatReturn: "návrat",
+  retreatReturn: "návrat po útoku/ústupu",
   attackTravelTime: "cesta k útoku",
   defenseReposition: "obranný přesun",
   clinicEvacuationRecovery: "evakuace kliniky",
-  recyclingSalvageTransport: "salvage transport",
+  recyclingSalvageTransport: "odvoz vytěžených ztrát",
   moneyLaundering: "praní peněz",
   casinoActions: "kasino",
   exchangeOfficeActions: "směnárna",
@@ -221,9 +221,9 @@ function formatActionProfileConfiguredEffects(profile = {}, options = {}) {
     Number.isFinite(Number(profile.heatSuccess)) ? `Heat při úspěchu ${Number(profile.heatSuccess) > 0 ? "+" : ""}${formatCompactNumber(profile.heatSuccess)}` : "",
     Number.isFinite(Number(profile.influenceSuccess)) ? `Vliv při úspěchu +${formatCompactNumber(profile.influenceSuccess)}` : "",
     formatReductionPctLabel("Audit risk", profile.auditRiskReductionPct),
-    formatPctLabel("Dealer cena", profile.dealerSalePriceBonusPct),
-    formatPctLabel("Dealer reward", profile.dealerRewardBonusPct),
-    formatReductionPctLabel("Dealer čas prodeje", profile.dealerSaleSpeedBonusPct),
+    formatPctLabel("Pouliční dealeři cena", profile.dealerSalePriceBonusPct),
+    formatPctLabel("Pouliční dealeři reward", profile.dealerRewardBonusPct),
+    formatReductionPctLabel("Pouliční dealeři čas prodeje", profile.dealerSaleSpeedBonusPct),
     formatPctLabel("Pump", profile.pumpPct),
     formatPctLabel("Dump", profile.dumpPct),
     formatPctLabel("Black market dopad", profile.blackMarketEffectSharePct),
@@ -305,7 +305,7 @@ export function getActionDescription(actionId, options = {}) {
     const actionEffectSummary = formatBuildingActionOutputProfile(actionProfile, options);
     const uniqueActionEffectSummary = actionEffectSummary !== actionSummary ? actionEffectSummary : "";
     const parts = [
-      actionProfile.casinoQuietBackroom ? `Pere ${actionProfile.dirtySharePct}% aktuálního dirty cash, max ${formatMoneyValue(actionProfile.maxDirty, options)}` : "",
+      actionProfile.casinoQuietBackroom ? `Pere ${actionProfile.dirtySharePct}% aktuálního dirty cash, max ${formatMoneyValue(mechanics.casinoLaunderingCapacity || actionProfile.maxDirty, options)}` : "",
       actionProfile.casinoVipNight ? uniqueActionEffectSummary : "",
       actionProfile.casinoBribedInspector ? `Cena ${formatMoneyValue(actionProfile.cleanCost, options)} · šance selhání ${actionProfile.failureChancePct}%` : "",
       actionProfile.exchangeOfficeGoodRate ? `Pere ${actionProfile.dirtySharePct}% aktuálního dirty cash, max ${formatMoneyValue(mechanics.exchangeLaunderingCapacity || actionProfile.maxDirty, options)}` : "",
@@ -397,10 +397,10 @@ export function formatBuildingActionOutputProfile(profile = {}, options = {}) {
   const incomeBoostParts = formatIncomeBoostParts(profile, options);
   const configuredEffectParts = formatActionProfileConfiguredEffects(profile, options);
   const parts = [
-    profile.casinoQuietBackroom ? `Vypere ${profile.dirtySharePct}% dirty cash, max ${formatMoneyValue(profile.maxDirty, options)}` : "",
+    profile.casinoQuietBackroom ? `Vypere ${profile.dirtySharePct}% dirty cash, max ${formatMoneyValue(mechanics.casinoLaunderingCapacity || profile.maxDirty, options)} · fee ${Number.isFinite(Number(mechanics.casinoLaunderingFeePct)) ? mechanics.casinoLaunderingFeePct : profile.feePct}%` : "",
     profile.casinoVipNight ? incomeBoostParts.join(" · ") : "",
     profile.casinoBribedInspector ? `Cena ${formatMoneyValue(profile.cleanCost, options)} clean · selhání ${profile.failureChancePct}%` : "",
-    profile.exchangeOfficeGoodRate ? `Vypere ${profile.dirtySharePct}% dirty cash, max ${formatMoneyValue(profile.maxDirty, options)} · fee ${profile.feePct}%` : "",
+    profile.exchangeOfficeGoodRate ? `Vypere ${profile.dirtySharePct}% dirty cash, max ${formatMoneyValue(mechanics.exchangeLaunderingCapacity || profile.maxDirty, options)} · fee ${profile.feePct}%` : "",
     profile.arcadeNightMachines ? incomeBoostParts.join(" · ") : "",
     profile.arcadeBackCashdesk ? `Vypere ${profile.dirtySharePct}% dirty cash, max ${formatMoneyValue(profile.maxDirty, options)} · fee ${profile.feePct}%` : "",
     profile.apartmentCollectPopulation ? "Přesune uložené obyvatele do členů gangu" : "",
@@ -411,7 +411,7 @@ export function formatBuildingActionOutputProfile(profile = {}, options = {}) {
     profile.exchangeDirty ? `Převod dirty ${formatMoneyValue(profile.exchangeDirty, options)} -> clean` : "",
     profile.members ? `Členové +${Math.floor(Number(profile.members || 0))}` : "",
     profile.population ? `Obyvatelé +${Math.floor(Number(profile.population || 0))}` : "",
-    profile.influence ? `Vliv +${Math.floor(Number(profile.influence || 0))}` : "",
+    profile.influence ? `Vliv +${formatCompactNumber(profile.influence)}` : "",
     Number.isFinite(Number(profile.heat)) && Number(profile.heat) !== 0
       ? `Heat ${Number(profile.heat) > 0 ? "+" : ""}${Math.floor(Number(profile.heat))}`
       : "",
@@ -454,7 +454,7 @@ export function formatBuildingActionRiskProfile(profile = {}, options = {}) {
   if (Number(profile.marketFeePenaltyPct || 0) > 0) risks.push(`Market fee +${formatCompactNumber(profile.marketFeePenaltyPct)}%`);
   if (Number(profile.purchaseCustomsRiskPct || 0) > 0) risks.push(`Celnice +${formatCompactNumber(profile.purchaseCustomsRiskPct)}%`);
   if (Number(profile.heatRiskBonusPct || 0) > 0) risks.push(`Heat risk +${formatCompactNumber(profile.heatRiskBonusPct)}%`);
-  if (Number(profile.streetIncidentFlatRiskPct || 0) > 0) risks.push(`Incident +${formatCompactNumber(profile.streetIncidentFlatRiskPct)}%`);
+  if (Number(profile.streetIncidentFlatRiskPct || 0) > 0) risks.push(`Pouliční incident +${formatCompactNumber(profile.streetIncidentFlatRiskPct)}%`);
   return risks.join(" · ") || "Bez přímého heat rizika";
 }
 
