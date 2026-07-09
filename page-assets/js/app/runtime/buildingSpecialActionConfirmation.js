@@ -75,7 +75,7 @@ export function createBuildingSpecialActionConfirmationController({
   const reward = createInfoRow(documentRef, "Efekt");
   const input = createInfoRow(documentRef, "Volba");
   const risk = createInfoRow(documentRef, "Riziko");
-  const cooldown = createInfoRow(documentRef, "Cooldown");
+  const cooldown = createInfoRow(documentRef, "Čekání");
   grid.append(cost.row, reward.row, input.row, risk.row, cooldown.row);
 
   const reason = documentRef.createElement("p");
@@ -130,7 +130,7 @@ export function createBuildingSpecialActionConfirmationController({
     rewardSummary = "Efekt podle akce",
     inputSummary = "",
     riskSummary = "Bez přímého heat rizika",
-    cooldownLabel = "Ready",
+    cooldownLabel = "Připraveno",
     disabledReason = "",
     canConfirm = true
   } = {}) => {

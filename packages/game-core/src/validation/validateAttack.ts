@@ -20,7 +20,7 @@ export const validateAttack = (
     return [
       {
         code: "attacker_not_found",
-        message: `Attacking player ${command.playerId} was not found.`
+        message: `Útočící hráč ${command.playerId} nebyl nalezen.`
       }
     ];
   }
@@ -29,7 +29,7 @@ export const validateAttack = (
     return [
       {
         code: "district_not_found",
-        message: `Target district ${command.payload.districtId} was not found.`
+        message: `Cílový district ${command.payload.districtId} nebyl nalezen.`
       }
     ];
   }
@@ -61,7 +61,7 @@ export const validateAttack = (
     return [
       {
         code: "no_attack_weapons",
-        message: "Player has no attack weapons available for this attack."
+        message: "Hráč nemá pro tenhle útok dostupné žádné útočné zbraně."
       }
     ];
   }
@@ -74,7 +74,7 @@ export const validateAttack = (
     return [
       {
         code: "attack_cooldown_active",
-        message: `Attack route to ${targetDistrict.name} is cooling down for ${activeAttackCooldownTick - state.root.tick} more ticks.`
+        message: `Útočná trasa do ${targetDistrict.name} čeká ještě ${activeAttackCooldownTick - state.root.tick} ticků.`
       }
     ];
   }
@@ -85,20 +85,20 @@ export const validateAttack = (
 const mapActionErrorMessage = (reasonCode: string | undefined): string => {
   switch (reasonCode) {
     case "TARGET_IS_SELF":
-      return "Player cannot attack a district they already own.";
+      return "Nemůžeš útočit na district, který už vlastníš.";
     case "TARGET_IS_ALLY":
-      return "Player cannot attack an allied district.";
+      return "Nemůžeš útočit na spojenecký district.";
     case "TARGET_NOT_ENEMY":
-      return "Player can only attack an enemy-owned district.";
+      return "Útočit můžeš jen na nepřátelský district.";
     case "NO_VALID_ORIGIN":
-      return "Player must attack from one owned neighboring district.";
+      return "Útok musí vycházet z jednoho vlastního sousedního districtu.";
     case "TARGET_NOT_ADJACENT":
-      return "Player can only attack a district that borders the selected source district.";
+      return "Útočit můžeš jen na district, který sousedí s vybraným zdrojovým districtem.";
     case "SPY_REQUIRED":
-      return "A valid successful spy authorization is required before attacking this district.";
+      return "Před útokem na tenhle district potřebuješ platné úspěšné špehování.";
     case "DISTRICT_LOCKED":
-      return "Locked or destroyed districts cannot be attacked.";
+      return "Zamčené nebo zničené districty nejde napadnout.";
     default:
-      return "Attack is not allowed for this district.";
+      return "V tomhle districtu nejde útok spustit.";
   }
 };

@@ -342,7 +342,7 @@ function addRoleBenefitDeltas(benefits, currentMechanics, nextMechanics) {
   addNumericDelta(benefits, {
     id: "dealer-supply",
     icon: "%",
-    label: "Dealer supply",
+    label: "Podpora dealerů",
     before: currentMechanics.smugglingDealerSupplyBonusPct,
     after: nextMechanics.smugglingDealerSupplyBonusPct,
     formatter: formatPct,
@@ -366,9 +366,9 @@ function addLevelMultiplierBenefit(benefits, currentMechanics, nextMechanics) {
   benefits.push({
     id: "level-bonus",
     icon: "L",
-    label: "Level bonus",
-    value: `x${afterMultiplier.toFixed(2)}`,
-    detail: `x${beforeMultiplier.toFixed(2)} → x${afterMultiplier.toFixed(2)}`,
+    label: "Bonus levelu",
+    value: formatPct(Math.round((afterMultiplier - 1) * 100)),
+    detail: `${formatPct(Math.round((beforeMultiplier - 1) * 100))} → ${formatPct(Math.round((afterMultiplier - 1) * 100))}`,
     tone: "positive",
     priority: BENEFIT_PRIORITY["level-bonus"]
   });

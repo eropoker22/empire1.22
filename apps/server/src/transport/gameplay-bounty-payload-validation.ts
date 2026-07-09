@@ -31,7 +31,7 @@ export const validateBountyCommandPayload = (
       if (typeof payload.rewardCleanCash === "number" && payload.rewardCleanCash < BOUNTY_MIN_REWARD_CLEAN_CASH) {
         errors.push(createInvalidFieldError(
           "command.payload.rewardCleanCash",
-          `Bounty reward must be at least ${BOUNTY_MIN_REWARD_CLEAN_CASH} clean cash.`
+          `Odměna bounty musí být aspoň ${BOUNTY_MIN_REWARD_CLEAN_CASH} clean cash.`
         ));
       }
       requireIntegerChoiceField(errors, payload, "durationHours", "command.payload.durationHours", [...BOUNTY_DURATION_OPTIONS_HOURS]);
@@ -39,7 +39,7 @@ export const validateBountyCommandPayload = (
       if (payload.objectiveType === "attack-district" && typeof payload.targetDistrictId !== "string") {
         errors.push(createInvalidFieldError(
           "command.payload.targetDistrictId",
-          "Target district is required for attack-district bounty."
+          "Pro bounty na obsazení districtu musíš vybrat cílový district."
         ));
       }
       return true;
@@ -62,7 +62,7 @@ const rejectUnknownPayloadFields = (
     if (!allowed.has(field)) {
       errors.push(createInvalidFieldError(
         `command.payload.${field}`,
-        "Command payload field is not allowed for this command type."
+        "Tohle pole payloadu není pro daný command povolené."
       ));
     }
   }
@@ -76,7 +76,7 @@ const requireStringField = (
 ): void => {
   const fieldValue = getFieldPath(value, fieldPath);
   if (typeof fieldValue !== "string" || fieldValue.trim().length === 0) {
-    errors.push(createInvalidFieldError(errorFieldPath, "Command payload field must be a non-empty string."));
+    errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být neprázdný text."));
   }
 };
 
@@ -88,7 +88,7 @@ const requireOptionalStringOrNullField = (
 ): void => {
   const fieldValue = getFieldPath(value, fieldPath);
   if (fieldValue !== undefined && fieldValue !== null && (typeof fieldValue !== "string" || fieldValue.trim().length === 0)) {
-    errors.push(createInvalidFieldError(errorFieldPath, "Command payload field must be a non-empty string or null."));
+    errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být neprázdný text nebo null."));
   }
 };
 
@@ -101,7 +101,7 @@ const requireChoiceField = (
 ): void => {
   const fieldValue = getFieldPath(value, fieldPath);
   if (typeof fieldValue !== "string" || !choices.includes(fieldValue)) {
-    errors.push(createInvalidFieldError(errorFieldPath, `Command payload field must be one of: ${choices.join(", ")}.`));
+    errors.push(createInvalidFieldError(errorFieldPath, `Pole payloadu musí být jedna z hodnot: ${choices.join(", ")}.`));
   }
 };
 
@@ -114,7 +114,7 @@ const requireIntegerChoiceField = (
 ): void => {
   const fieldValue = getFieldPath(value, fieldPath);
   if (typeof fieldValue !== "number" || !Number.isInteger(fieldValue) || !choices.includes(fieldValue)) {
-    errors.push(createInvalidFieldError(errorFieldPath, `Command payload field must be one of: ${choices.join(", ")}.`));
+    errors.push(createInvalidFieldError(errorFieldPath, `Pole payloadu musí být jedna z hodnot: ${choices.join(", ")}.`));
   }
 };
 
@@ -127,7 +127,7 @@ const requirePositiveIntegerField = (
 ): void => {
   const fieldValue = getFieldPath(value, fieldPath);
   if (typeof fieldValue !== "number" || !Number.isInteger(fieldValue) || fieldValue <= 0 || fieldValue > maxValue) {
-    errors.push(createInvalidFieldError(errorFieldPath, `Command payload field must be a positive integer up to ${maxValue}.`));
+    errors.push(createInvalidFieldError(errorFieldPath, `Pole payloadu musí být kladné celé číslo do ${maxValue}.`));
   }
 };
 
@@ -139,7 +139,7 @@ const requireOptionalBooleanField = (
 ): void => {
   const fieldValue = getFieldPath(value, fieldPath);
   if (fieldValue !== undefined && typeof fieldValue !== "boolean") {
-    errors.push(createInvalidFieldError(errorFieldPath, "Command payload field must be a boolean."));
+    errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být boolean."));
   }
 };
 

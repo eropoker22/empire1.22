@@ -149,7 +149,7 @@ export const resolveStockExchangeAction = (input: {
       influenceChange: 0,
       inputCost: { cash: input.config.insiderWindow.costCleanCash },
       outputGain: {},
-      reportText: "Insider Window je aktivní. Trend hints jsou hlubší a Spekulativní nákup má vyšší šanci.",
+      reportText: "Vnitřní tipy jsou aktivní. Trend hinty jsou hlubší a Spekulativní nákup má vyšší šanci.",
       stockExchangeResult: {
         type: "insider_window",
         activeUntilTick: expiresAtTick,
@@ -163,4 +163,3 @@ export const resolveStockExchangeAction = (input: {
 
   return null;
 };
-

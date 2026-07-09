@@ -1115,7 +1115,7 @@ export function createBuildingDetailStatRows({
       createStat("Čisté / min", `+${formatDistrictBuildingMoney(45 * mechanics.warehouseNetwork.incomeMultiplier)}`),
       createStat("Heat / min", `+${(0.06 * mechanics.warehouseNetwork.heatMultiplier).toFixed(3)}`),
       createStat("Skladiště", `${mechanics.ownedWarehouses}/${WAREHOUSE_NETWORK_CONFIG.countOnMap}`),
-      createStat("Síť skladišť", `income x${mechanics.warehouseNetwork.incomeMultiplier.toFixed(2)} · kapacita x${mechanics.warehouseNetwork.storageCapacityMultiplier.toFixed(2)}`),
+      createStat("Síť skladišť", `income ${formatMultiplierIncreasePercent(mechanics.warehouseNetwork.incomeMultiplier)} · kapacita ${formatMultiplierIncreasePercent(mechanics.warehouseNetwork.storageCapacityMultiplier)}`),
       createStat("Kapacita zásob", `+${warehouseCapacity.genericResources}`),
       createStat("Dirty / vliv", "0 / 0"),
       createStat("Akce", "Žádné")
@@ -1135,7 +1135,7 @@ export function createBuildingDetailStatRows({
       createStat("Clean / min", `+${formatDistrictBuildingMoney(mechanics.cleanHourly / 60)}`),
       createStat("Heat / min", `+${(mechanics.dailyHeat / 1440).toFixed(3)}`),
       createStat("Počet", `${mechanics.ownedRecruitmentCenters || 0}/${RECRUITMENT_CENTER_SUPPORT_CONFIG.countOnMap}`),
-      createStat("Síť", `income x${Number(network.incomeMultiplier || 1).toFixed(2)} · heat x${Number(network.heatMultiplier || 1).toFixed(2)}`),
+      createStat("Síť", `income ${formatMultiplierIncreasePercent(network.incomeMultiplier || 1)} · heat ${formatMultiplierIncreasePercent(network.heatMultiplier || 1)}`),
       createStat("Population", `+${Math.max(0, Number(support.populationProductionBonusPct || 0))}% / cap +${Math.max(0, Number(support.apartmentCapacityBonusPct || 0))}%`),
       createStat("Boj", `útok +${Math.max(0, Number(support.attackWeaponStrengthBonusPct || 0))}% · obrana +${Math.max(0, Number(support.defenseItemStrengthBonusPct || 0))}%`)
     );
@@ -1166,9 +1166,9 @@ export function createBuildingDetailStatRows({
       createStat("Heat / den", `+${formatCompactNumber(mechanics.dailyHeat)}`),
       createStat("Vliv / hod", `+${formatCompactNumber(Number(mechanics.dailyInfluence || 0) / 24)}`),
       createStat("Autosalony", `${mechanics.ownedAutoSalons}/${AUTO_SALON_SUPPORT_CONFIG.countOnMap}`),
-      createStat("Cooldown", `-${mechanics.autoSalonSupport.cooldownReductionPct}%`),
+      createStat("Čekání", `-${mechanics.autoSalonSupport.cooldownReductionPct}%`),
       createStat("Únik", `+${mechanics.autoSalonSupport.escapeChanceBonusPct}%`),
-      createStat("Cooldown cap", `-${mechanics.autoSalonSupport.combinedGarageDealerMaxReductionPct}%`)
+      createStat("Strop čekání", `-${mechanics.autoSalonSupport.combinedGarageDealerMaxReductionPct}%`)
     );
     if (networkParts.length) {
       statRows.push(createStat("Síť", networkParts.join(" · ")));
@@ -1297,7 +1297,7 @@ export function createBuildingDetailMechanicRows({
     mechanicRows.push(
       createMechanic("K výběru", `${mechanics.schoolWholeStudents}/${mechanics.schoolCapacity}`),
       createMechanic("Produkce", `+${mechanics.schoolPopulationPerMinute.toFixed(2)} populace/min`),
-      createMechanic("Síť škol", `kapacita x${mechanics.schoolNetwork.studentCapacityMultiplier.toFixed(2)} · income x${mechanics.schoolNetwork.incomeMultiplier.toFixed(2)}`),
+      createMechanic("Síť škol", `kapacita ${formatMultiplierIncreasePercent(mechanics.schoolNetwork.studentCapacityMultiplier)} · income ${formatMultiplierIncreasePercent(mechanics.schoolNetwork.incomeMultiplier)}`),
       createMechanic("Večerní kurz", mechanics.schoolEveningCourseActive ? `bytové bloky zrychlené ${formatDistrictBuildingCooldown(mechanics.schoolEveningCourseRemainingMs)}` : "zrychlí nábor členů v bytových blocích")
     );
   } else if (mechanics.mechanicsType === "warehouse") {
@@ -1316,7 +1316,7 @@ export function createBuildingDetailMechanicRows({
   } else if (mechanics.mechanicsType === "clinic") {
     mechanicRows.push(
       createMechanic("Stabilizace", mechanics.clinicRecoveryPool.totalFreshAmount > 0 ? "připravená" : "Čeká na ztráty tvojich členů za posledních 90min"),
-      createMechanic("Síť klinik", `income x${mechanics.clinicNetwork.incomeMultiplier.toFixed(2)} · heat x${mechanics.clinicNetwork.heatMultiplier.toFixed(2)}`)
+      createMechanic("Síť klinik", `income ${formatMultiplierIncreasePercent(mechanics.clinicNetwork.incomeMultiplier)} · heat ${formatMultiplierIncreasePercent(mechanics.clinicNetwork.heatMultiplier)}`)
     );
   } else if (mechanics.mechanicsType === "recruitment-center") {
     return mechanicRows;
@@ -1425,7 +1425,7 @@ export function createBuildingDetailMechanicRows({
     );
   } else if (mechanics.mechanicsType === "arcade") {
     mechanicRows.push(
-      createMechanic("Síť heren", `income x${mechanics.arcadeNetwork.incomeMultiplier.toFixed(2)} · limit x${mechanics.arcadeNetwork.launderingLimitMultiplier.toFixed(2)}`),
+      createMechanic("Síť heren", `income ${formatMultiplierIncreasePercent(mechanics.arcadeNetwork.incomeMultiplier)} · limit ${formatMultiplierIncreasePercent(mechanics.arcadeNetwork.launderingLimitMultiplier)}`),
       createMechanic("Noční automaty", "dočasně zvednou income, vliv, heat a audit risk"),
       createMechanic("Zadní pokladna", "pere část dirty cash za fee"),
       createMechanic("Riziko", `audit ${mechanics.arcadeAuditRisk} · heat z akcí`)
@@ -1438,7 +1438,7 @@ export function createBuildingDetailMechanicRows({
     if (mechanics.hasManualCollect) {
       mechanicRows.push(createMechanic("Collect", mechanics.canCollect ? "Připraveno" : "Čeká na výstup"));
     }
-    mechanicRows.push(createMechanic("Cooldown akce", formatDistrictBuildingCooldown(DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS)));
+    mechanicRows.push(createMechanic("Čekání akce", formatDistrictBuildingCooldown(DISTRICT_BUILDING_DETAIL_ACTION_COOLDOWN_MS)));
   }
   return mechanicRows;
 }
@@ -1521,7 +1521,7 @@ export function createBuildingDetailActionRows({
     const phaseDisabledReason = resolvePhaseLockedBuildingActionDisabledReason(actionDefinition.actionId, phaseState);
     const casinoDisabledReason = actionDefinition.disabledReason
       || phaseDisabledReason
-      || (cooldownRemaining > 0 ? `Cooldown ${formatDistrictBuildingCooldown(cooldownRemaining)}.` : "")
+      || (cooldownRemaining > 0 ? `Akce čeká ${formatDistrictBuildingCooldown(cooldownRemaining)}.` : "")
       || (hasMissingCleanCash && actionProfile?.cleanCost
         ? `Potřebuješ ${formatDistrictBuildingMoney(actionProfile.cleanCost)} clean cash.`
         : "")
@@ -1615,12 +1615,12 @@ export function createBuildingDetailActionRows({
           : activeSameArcadeBoost
             ? "Aktivní boost"
             : effectiveCooldownMs > 0
-              ? `Cooldown ${formatGarageEffectiveCooldownLabel({
+              ? `Čekání ${formatGarageEffectiveCooldownLabel({
                   baseCooldownMs,
                   effectiveCooldownMs,
                   formatCooldown: formatDistrictBuildingCooldown
                 })}`
-              : "Ready"
+              : "Připraveno"
     }];
   });
 }

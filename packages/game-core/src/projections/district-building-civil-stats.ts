@@ -28,6 +28,9 @@ import {
 import { formatNumber, formatTickLabel } from "./district-building-action-formatters";
 import type { BuildingStatsProjectionInput, BuildingStatView } from "./district-building-stats-types";
 
+const formatMultiplierBonus = (value: number): string =>
+  `${Number(value || 1) >= 1 ? "+" : ""}${formatNumber((Number(value || 1) - 1) * 100)} %`;
+
 export const createCivilBuildingStats = (
   input: BuildingStatsProjectionInput,
   baseStats: BuildingStatView[]
@@ -49,13 +52,13 @@ export const createCivilBuildingStats = (
           return [
             { label: "Clean / min", value: `$${formatNumber(input.recruitmentCenterConfig.cleanCashPerMinute * network.incomeMultiplier)}` },
             { label: "Heat / min", value: formatNumber(input.recruitmentCenterConfig.heatPerMinute * network.heatMultiplier) },
-            { label: "Owned centers", value: `${ownedCount}/${input.recruitmentCenterConfig.countOnMap}` },
-            { label: "Income multiplier", value: `x${formatNumber(network.incomeMultiplier)}` },
-            { label: "Apartment production bonus", value: `+${formatNumber(support.populationProductionBonusPct)} %` },
-            { label: "Apartment capacity bonus", value: `+${formatNumber(support.apartmentCapacityBonusPct)} %` },
-            { label: "Attack weapon strength", value: `+${formatNumber(support.attackWeaponStrengthBonusPct)} %` },
-            { label: "Defense item strength", value: `+${formatNumber(support.defenseItemStrengthBonusPct)} %` },
-            { label: "Camera/alarm combined cap", value: `max +${formatNumber(support.combinedCameraAlarmCapPct)} %` }
+            { label: "Vlastněná centra", value: `${ownedCount}/${input.recruitmentCenterConfig.countOnMap}` },
+            { label: "Income", value: formatMultiplierBonus(network.incomeMultiplier) },
+            { label: "Produkce bytů", value: `+${formatNumber(support.populationProductionBonusPct)} %` },
+            { label: "Kapacita bytů", value: `+${formatNumber(support.apartmentCapacityBonusPct)} %` },
+            { label: "Síla útočných zbraní", value: `+${formatNumber(support.attackWeaponStrengthBonusPct)} %` },
+            { label: "Síla obranných itemů", value: `+${formatNumber(support.defenseItemStrengthBonusPct)} %` },
+            { label: "Cap kamer/alarmu", value: `max +${formatNumber(support.combinedCameraAlarmCapPct)} %` }
           ];
           }
           const ownedCount = getOwnedConvenienceStoreCount(input.state, input.building.ownerPlayerId, input.convenienceStoreConfig);
@@ -68,20 +71,20 @@ export const createCivilBuildingStats = (
         });
         const civilNetworkBonus = rumorStats.civilRumorChanceBonusPct > 0
           ? `+${formatNumber(rumorStats.civilRumorChanceBonusPct)} %`
-          : "inactive";
+          : "neaktivní";
         return [
           { label: "Clean / min", value: `$${formatNumber(input.convenienceStoreConfig.cleanCashPerMinute * network.cleanIncomeMultiplier)}` },
           { label: "Dirty / min", value: `$${formatNumber(input.convenienceStoreConfig.dirtyCashPerMinute * network.dirtyIncomeMultiplier)}` },
           { label: "Influence / min", value: formatNumber(input.convenienceStoreConfig.influencePerMinute * network.influenceMultiplier) },
           { label: "Heat / min", value: formatNumber(input.convenienceStoreConfig.heatPerMinute * network.heatMultiplier) },
-          { label: "Owned stores", value: `${ownedCount}/${input.convenienceStoreConfig.countOnMap}` },
-          { label: "Clean income multiplier", value: `x${formatNumber(network.cleanIncomeMultiplier)}` },
-          { label: "Dirty income multiplier", value: `x${formatNumber(network.dirtyIncomeMultiplier)}` },
-          { label: "Influence multiplier", value: `x${formatNumber(network.influenceMultiplier)}` },
-          { label: "Rumor multiplier", value: `x${formatNumber(network.rumorMultiplier)}` },
-          { label: "Passive rumor chance", value: `${formatNumber(rumorStats.passiveRumorChancePct)} %` },
-          { label: "Rumor truth chance", value: `${formatNumber(rumorStats.truthChancePct)} %` },
-          { label: "Civil network bonus", value: civilNetworkBonus }
+          { label: "Vlastněné večerky", value: `${ownedCount}/${input.convenienceStoreConfig.countOnMap}` },
+          { label: "Clean výnos", value: formatMultiplierBonus(network.cleanIncomeMultiplier) },
+          { label: "Dirty výnos", value: formatMultiplierBonus(network.dirtyIncomeMultiplier) },
+          { label: "Vliv", value: formatMultiplierBonus(network.influenceMultiplier) },
+          { label: "Drby", value: formatMultiplierBonus(network.rumorMultiplier) },
+          { label: "Šance pasivního drbu", value: `${formatNumber(rumorStats.passiveRumorChancePct)} %` },
+          { label: "Šance pravdivého drbu", value: `${formatNumber(rumorStats.truthChancePct)} %` },
+          { label: "Civilní síť", value: civilNetworkBonus }
         ];
       }
       const ownedCount = getOwnedRestaurantCount(input.state, input.building.ownerPlayerId, input.restaurantConfig);
@@ -96,12 +99,12 @@ export const createCivilBuildingStats = (
         { label: "Clean / min", value: `$${formatNumber(input.restaurantConfig.cleanCashPerMinute * network.incomeMultiplier)}` },
         { label: "Influence / min", value: formatNumber(input.restaurantConfig.influencePerMinute * network.influenceMultiplier) },
         { label: "Heat / min", value: formatNumber(input.restaurantConfig.heatPerMinute * network.heatMultiplier) },
-        { label: "Owned restaurants", value: `${ownedCount}/${input.restaurantConfig.countOnMap}` },
-        { label: "Income multiplier", value: `x${formatNumber(network.incomeMultiplier)}` },
-        { label: "Influence multiplier", value: `x${formatNumber(network.influenceMultiplier)}` },
-        { label: "Rumor multiplier", value: `x${formatNumber(network.rumorMultiplier)}` },
-        { label: "Passive rumor chance", value: `${formatNumber(rumorStats.passiveRumorChancePct)} %` },
-        { label: "Rumor truth chance", value: `${formatNumber(rumorStats.truthChancePct)} %` }
+        { label: "Vlastněné restaurace", value: `${ownedCount}/${input.restaurantConfig.countOnMap}` },
+        { label: "Income", value: formatMultiplierBonus(network.incomeMultiplier) },
+        { label: "Vliv", value: formatMultiplierBonus(network.influenceMultiplier) },
+        { label: "Drby", value: formatMultiplierBonus(network.rumorMultiplier) },
+        { label: "Šance pasivního drbu", value: `${formatNumber(rumorStats.passiveRumorChancePct)} %` },
+        { label: "Šance pravdivého drbu", value: `${formatNumber(rumorStats.truthChancePct)} %` }
       ];
     }
     const ownedCount = getOwnedPowerStationCount(input.state, input.building.ownerPlayerId, input.powerStationConfig);
@@ -144,12 +147,12 @@ export const createCivilBuildingStats = (
     { label: "Dirty / min", value: `$${formatNumber(input.stripClubConfig.dirtyCashPerMinute * network.incomeMultiplier)}` },
     { label: "Influence / min", value: formatNumber(input.stripClubConfig.influencePerMinute * network.influenceMultiplier) },
     { label: "Heat / min", value: formatNumber(input.stripClubConfig.heatPerMinute * network.heatMultiplier) },
-    { label: "Owned clubs", value: `${ownedCount}/${input.stripClubConfig.countOnMap}` },
-    { label: "Income multiplier", value: `x${formatNumber(network.incomeMultiplier)}` },
-    { label: "Influence multiplier", value: `x${formatNumber(network.influenceMultiplier)}` },
-    { label: "Rumor multiplier", value: `x${formatNumber(network.rumorMultiplier)}` },
-    { label: "Passive rumor chance", value: `${formatNumber(rumorStats.passiveRumorChancePct)} %` },
-    { label: "Rumor truth chance", value: `${formatNumber(rumorStats.truthChancePct)} %` },
-    { label: "Active contacts", value: activeContacts || "none" },
-    { label: "Scandal risk", value: `${input.stripClubConfig.privateParty.scandalChancePct} %` }
+    { label: "Vlastněné kluby", value: `${ownedCount}/${input.stripClubConfig.countOnMap}` },
+    { label: "Income", value: formatMultiplierBonus(network.incomeMultiplier) },
+    { label: "Vliv", value: formatMultiplierBonus(network.influenceMultiplier) },
+    { label: "Drby", value: formatMultiplierBonus(network.rumorMultiplier) },
+    { label: "Šance pasivního drbu", value: `${formatNumber(rumorStats.passiveRumorChancePct)} %` },
+    { label: "Šance pravdivého drbu", value: `${formatNumber(rumorStats.truthChancePct)} %` },
+    { label: "Aktivní kontakty", value: activeContacts || "žádné" },
+    { label: "Riziko skandálu", value: `${input.stripClubConfig.privateParty.scandalChancePct} %` }
   ];};

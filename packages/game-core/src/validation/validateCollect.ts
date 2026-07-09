@@ -20,7 +20,7 @@ export const validateCollect = (
     return [
       {
         code: "building_not_found",
-        message: "Target production building does not exist."
+        message: "Cílová výrobní budova neexistuje."
       }
     ];
   }
@@ -31,7 +31,7 @@ export const validateCollect = (
     return [
       {
         code: "district_not_found",
-        message: "Target district for collection does not exist."
+        message: "Cílový district pro vybrání produkce neexistuje."
       }
     ];
   }
@@ -40,7 +40,7 @@ export const validateCollect = (
     return [
       {
         code: "production_not_owned",
-        message: "Player does not own the target production building."
+        message: "Hráč nevlastní cílovou výrobní budovu."
       }
     ];
   }
@@ -49,7 +49,7 @@ export const validateCollect = (
     return [
       {
         code: "building_not_active",
-        message: "Only active production buildings can be collected."
+        message: "Produkci jde vybrat jen z aktivních výrobních budov."
       }
     ];
   }
@@ -60,7 +60,7 @@ export const validateCollect = (
     return [
       {
         code: "production_not_supported",
-        message: "The target building does not support migrated production collection."
+        message: "Cílová budova nepodporuje serverové vybrání produkce."
       }
     ];
   }
@@ -72,7 +72,7 @@ export const validateCollect = (
     return [
       {
         code: "production_empty",
-        message: `No ${productionProfile.resourceLabel} is ready to collect.`
+        message: `${productionProfile.resourceLabel} ještě není připravený k vybrání.`
       }
     ];
   }

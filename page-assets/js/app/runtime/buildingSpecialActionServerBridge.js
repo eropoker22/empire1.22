@@ -19,7 +19,7 @@ export function formatServerBuildingActionDisabledReason(actionView, deps = {}) 
   const cooldownTicks = Math.max(0, Math.floor(Number(actionView?.cooldownRemainingTicks || 0)));
   if (cooldownTicks > 0) {
     const formatCooldown = deps.formatCooldown || ((ms) => `${ms}ms`);
-    return `Cooldown ${formatCooldown(cooldownTicks * 5000)}.`;
+    return `Akce čeká ${formatCooldown(cooldownTicks * 5000)}.`;
   }
   return String(actionView?.disabledReason || "").trim();
 }

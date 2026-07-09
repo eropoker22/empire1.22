@@ -33,6 +33,12 @@ function formatDuration(value, options = {}) {
   return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${seconds}s`;
 }
 
+function formatProductionSpeedBonus(multiplier) {
+  const numeric = Number(multiplier || 1);
+  const bonusPct = Math.max(0, Math.round((numeric - 1) * 100));
+  return bonusPct > 0 ? `+${bonusPct} %` : "základní rychlost";
+}
+
 function getCurrentTimeMs(options = {}) {
   const now = Number(options.now);
   return Number.isFinite(now) ? now : Date.now();
@@ -230,9 +236,9 @@ export function renderProductionBuildingInfo(viewModel = {}, callbacks = {}, opt
       ? (config.infoText || "Budova vyrábí materiály pro další produkci.")
       : [
           config.infoText || "",
-          `Level ${state.level}: rychlost x${Number(multiplier || 1).toFixed(2)}.`,
+          `Level ${state.level}: rychlost ${formatProductionSpeedBonus(multiplier)}.`,
           state.level < maxLevel
-            ? `Upgrade stojí ${formatMoney(upgradeCost, options)} a zvedne rychlost na x${Number(nextMultiplier || multiplier || 1).toFixed(2)}.`
+            ? `Upgrade stojí ${formatMoney(upgradeCost, options)} a zvedne rychlost na ${formatProductionSpeedBonus(nextMultiplier || multiplier || 1)}.`
             : "Budova je na maximálním levelu.",
           `Hotovo k vyzvednutí: ${readyCount} receptů.`
         ].filter(Boolean).join(" ");
@@ -263,7 +269,7 @@ export function renderProductionBuildingInfo(viewModel = {}, callbacks = {}, opt
     const lines = [
       `+ Vybrat hotové: přesune ${readyCount > 0 ? `${readyCount} hotových receptů` : "hotové recepty"} do skladu.`,
       state.level < maxLevel
-        ? `⇪ Upgrade: cena ${formatMoney(upgradeCost, options)}, nový multiplier x${Number(nextMultiplier || multiplier || 1).toFixed(2)}.`
+        ? `⇪ Upgrade: cena ${formatMoney(upgradeCost, options)}, nová rychlost ${formatProductionSpeedBonus(nextMultiplier || multiplier || 1)}.`
         : "⇪ Upgrade: max level.",
       ...recipeLines
     ];
@@ -305,7 +311,7 @@ export function renderFactoryBuildingInfo(infoPanel, viewModel = {}, options = {
   head.append(title, subtitle);
 
   mechanicsTitle.textContent = "Aktivní mechaniky";
-  mechanicsText.textContent = viewModel.effectsLabel || "Multiplier x1.00 · další level x1.10";
+  mechanicsText.textContent = viewModel.effectsLabel || "Základní rychlost · další level +10 %";
   mechanicsSection.append(mechanicsTitle, mechanicsText);
 
   upgradeTitle.textContent = "Další level";

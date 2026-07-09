@@ -39,6 +39,11 @@ import {
   resolveDayNightPassiveBuildingRule
 } from "../rules/day-night/dayNight";
 import { resolveEffectiveBuildingActionPreview } from "../rules/buildings/buildingActionCosts";
+import {
+  createBaseBuildingActionPreview,
+  normalizeBuildingDisplayName,
+  resolveCatalogVariantName
+} from "./district-building-display-helpers";
 
 export interface CreateDistrictPanelBuildingViewsInput {
   state: CoreGameState;
@@ -143,8 +148,8 @@ export const createDistrictPanelBuildingViews = (
       displayName: variantName ?? baseLabel,
       variantName,
       zone: definition?.zone ?? input.district.zone,
-      role: definition?.role ?? "Fixed building",
-      info: definition?.info ?? "Fixed district building.",
+      role: definition?.role ?? "Pevná budova",
+      info: definition?.info ?? "Pevná budova districtu.",
       stats: createBuildingStats({
         definition,
         effectivePassiveStats,
@@ -193,31 +198,6 @@ export const createDistrictPanelBuildingViews = (
   });
 };
 
-const normalizeBuildingDisplayName = (value: string | null | undefined): string | null => {
-  const normalized = String(value || "").trim();
-  return normalized || null;
-};
-
-const resolveCatalogVariantName = (
-  definition: CreateDistrictPanelBuildingViewsInput["buildCatalog"][number] | undefined,
-  seed: string
-): string | null => {
-  const variants = definition?.nameVariants ?? [];
-  if (variants.length < 1) {
-    return null;
-  }
-  return variants[hashString(seed) % variants.length] ?? null;
-};
-
-const hashString = (value: string): number => {
-  const text = String(value || "");
-  let hash = 0;
-  for (let index = 0; index < text.length; index += 1) {
-    hash = (hash * 31 + text.charCodeAt(index)) >>> 0;
-  }
-  return hash;
-};
-
 const createSpecialActionViews = (
   definition: CreateDistrictPanelBuildingViewsInput["buildCatalog"][number] | undefined,
   actions: ReturnType<typeof createBuildingActionViews>
@@ -245,7 +225,7 @@ const createSpecialActionViews = (
       baseDurationMs: commandAction?.baseDurationMs ?? specialAction.durationMs,
       effectiveDurationMs: commandAction?.effectiveDurationMs ?? specialAction.durationMs,
       enabled: commandAction?.enabled ?? false,
-      disabledReason: commandAction?.disabledReason ?? "This special action is not wired to the command dispatcher yet.",
+      disabledReason: commandAction?.disabledReason ?? "Tato speciální akce ještě není napojená na command dispatcher.",
       phaseAvailability: commandAction?.phaseAvailability ?? "neutral",
       phaseBadgeLabel: commandAction?.phaseBadgeLabel ?? null,
       phaseTooltip: commandAction?.phaseTooltip ?? null,
@@ -406,11 +386,11 @@ const createBuildingActionViews = (input: {
       const disabledReason = effectivePreview.blockedReason
         ? effectivePreview.blockedReason
         : ownerBlocked
-        ? "Only the district owner can run this building action."
+        ? "Tuhle akci může spustit jen majitel districtu."
         : input.building.status !== "active"
-          ? "Only active fixed buildings can run actions."
+          ? "Akce může spustit jen aktivní pevná budova."
           : input.district.status === "contested" && !action.allowedIfContested
-            ? "This action is blocked while the district is contested."
+            ? "Akce je blokovaná, dokud je district sporný."
             : stripClubDisabledReason
               ? stripClubDisabledReason
               : powerStationDisabledReason
@@ -434,9 +414,9 @@ const createBuildingActionViews = (input: {
                                 : streetDealerDisabledReason
                                   ? streetDealerDisabledReason
                               : cooldownRemainingTicks > 0
-                                ? `Cooldown ${formatTickLabel(cooldownRemainingTicks)}.`
+                                ? `Akce čeká ${formatTickLabel(cooldownRemainingTicks)}.`
                                 : missingCosts.length > 0
-                                ? `Need ${formatInputSummary(Object.fromEntries(missingCosts))}.`
+                                ? `Chybí ${formatInputSummary(Object.fromEntries(missingCosts))}.`
                                   : null;
       const status = resolveBuildingActionStatus({
         disabledReason,
@@ -493,26 +473,6 @@ const createBuildingActionViews = (input: {
       };
     });
 
-const createBaseBuildingActionPreview = (action: BuildingActionBalanceConfig) => ({
-  baseInputCost: { ...action.inputCost },
-  effectiveInputCost: { ...action.inputCost },
-  baseOutputGain: { ...action.outputGain },
-  effectiveOutputGain: { ...action.outputGain },
-  baseHeatGain: action.heatGain,
-  effectiveHeatGain: action.heatGain,
-  baseCooldownMs: action.cooldownMs,
-  effectiveCooldownMs: action.cooldownMs,
-  baseDurationMs: action.durationMs,
-  effectiveDurationMs: action.durationMs,
-  phaseAvailability: "neutral" as const,
-  phaseBadgeLabel: null,
-  phaseTooltip: null,
-  blockedReason: null,
-  preferredPhase: null,
-  currentPhase: "day" as const,
-  phaseEffectSummary: []
-});
-
 const resolveStripClubDisabledReason = (input: {
   state: CoreGameState;
   district: CoreGameState["districtsById"][string];
@@ -527,10 +487,10 @@ const resolveStripClubDisabledReason = (input: {
   }
   const metadata = getStripClubMetadata(input.building);
   if (input.action.actionId === config.vipLounge.actionId && (metadata.vipLoungeExpiresAtTick ?? 0) > input.tick) {
-    return `VIP salonek active ${formatTickLabel((metadata.vipLoungeExpiresAtTick ?? input.tick) - input.tick)}.`;
+    return `VIP salonek je aktivní ještě ${formatTickLabel((metadata.vipLoungeExpiresAtTick ?? input.tick) - input.tick)}.`;
   }
   if (input.action.actionId === config.privateParty.actionId && (metadata.privatePartyExpiresAtTick ?? 0) > input.tick) {
-    return `Soukromá party active ${formatTickLabel((metadata.privatePartyExpiresAtTick ?? input.tick) - input.tick)}.`;
+    return `Soukromá party je aktivní ještě ${formatTickLabel((metadata.privatePartyExpiresAtTick ?? input.tick) - input.tick)}.`;
   }
   return null;
 };
@@ -597,7 +557,7 @@ const resolveSmugglingTunnelDisabledReason = (input: {
     tick: input.tick
   });
   if (channel.active) {
-    return `Otevřený kanál active ${formatTickLabel(channel.remainingTicks)}.`;
+    return `Otevřený kanál je aktivní ještě ${formatTickLabel(channel.remainingTicks)}.`;
   }
   return null;
 };
@@ -616,19 +576,19 @@ const resolveStockExchangeDisabledReason = (input: {
   const metadata = getStockExchangeMetadata(input.building, input.tick);
   if (input.action.actionId === config.marketPressure.actionId) {
     if (Math.max(0, Number(input.district.influence || 0)) < config.marketPressure.costInfluence) {
-      return `Need ${config.marketPressure.costInfluence} influence.`;
+      return `Chybí ${config.marketPressure.costInfluence} vlivu.`;
     }
     if (metadata.marketEffects.some((effect) => effect.expiresAtTick > input.tick)) {
-      return "Market pressure is already active.";
+      return "Tlak na market už je aktivní.";
     }
   }
   if (input.action.actionId === config.insiderWindow.actionId && Number(metadata.insiderWindowExpiresAtTick || 0) > input.tick) {
-    return `Insider Window active ${formatTickLabel(Number(metadata.insiderWindowExpiresAtTick) - input.tick)}.`;
+    return `Vnitřní tipy jsou aktivní ještě ${formatTickLabel(Number(metadata.insiderWindowExpiresAtTick) - input.tick)}.`;
   }
   if (input.action.actionId === config.speculativeBuy.actionId) {
     const minimumTotal = config.speculativeBuy.costCleanCash + 1;
     if (Math.max(0, Number(input.playerBalances.cash || 0)) < minimumTotal) {
-      return `Need at least ${minimumTotal} clean cash.`;
+      return `Chybí alespoň ${minimumTotal} clean cash.`;
     }
   }
   return null;
@@ -649,23 +609,23 @@ const resolveAirportDisabledReason = (input: {
     const penaltyPct = Math.max(0, Number(metadata.nextImportCostPenaltyPct || 0));
     const cost = Math.ceil(config.expressImport.costCleanCash * (1 + penaltyPct / 100));
     if (Math.max(0, Number(input.playerBalances.cash || 0)) < cost) {
-      return `Need ${cost} clean cash.`;
+      return `Chybí ${cost} clean cash.`;
     }
   }
   if (input.action.actionId === config.blackCharter.actionId) {
     if (Number(metadata.blackCharterExpiresAtTick || 0) > input.tick) {
-      return `Černý charter active ${formatTickLabel(Number(metadata.blackCharterExpiresAtTick) - input.tick)}.`;
+      return `Černý charter je aktivní ještě ${formatTickLabel(Number(metadata.blackCharterExpiresAtTick) - input.tick)}.`;
     }
     if (Math.max(0, Number(input.playerBalances["dirty-cash"] || 0)) < config.blackCharter.costDirtyCash) {
-      return `Need ${config.blackCharter.costDirtyCash} dirty cash.`;
+      return `Chybí ${config.blackCharter.costDirtyCash} dirty cash.`;
     }
   }
   if (input.action.actionId === config.evacuationCorridor.actionId) {
     if (Number(metadata.evacuationCorridorExpiresAtTick || 0) > input.tick) {
-      return `Evakuační koridor active ${formatTickLabel(Number(metadata.evacuationCorridorExpiresAtTick) - input.tick)}.`;
+      return `Evakuační koridor je aktivní ještě ${formatTickLabel(Number(metadata.evacuationCorridorExpiresAtTick) - input.tick)}.`;
     }
     if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.evacuationCorridor.costCleanCash) {
-      return `Need ${config.evacuationCorridor.costCleanCash} clean cash.`;
+      return `Chybí ${config.evacuationCorridor.costCleanCash} clean cash.`;
     }
   }
   return null;
@@ -685,36 +645,36 @@ const resolveCityHallDisabledReason = (input: {
   const metadata = getCityHallMetadata(input.building, input.tick);
   if (input.action.actionId === config.officialCover.actionId) {
     if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.officialCover.costCleanCash) {
-      return `Need ${config.officialCover.costCleanCash} clean cash.`;
+      return `Chybí ${config.officialCover.costCleanCash} clean cash.`;
     }
     if (Math.max(0, Number(input.district.influence || 0)) < config.officialCover.costInfluence) {
-      return `Need ${config.officialCover.costInfluence} influence.`;
+      return `Chybí ${config.officialCover.costInfluence} vlivu.`;
     }
     const activeCover = Object.values(input.state.districtsById)
       .filter((district) => district.ownerPlayerId === input.building.ownerPlayerId && district.status !== "destroyed")
       .map((district) => metadata.officialCoverByDistrictId[district.id])
       .find((cover) => Number(cover?.expiresAtTick || 0) > input.tick);
     if (activeCover) {
-      return `Úřední krytí active ${formatTickLabel(activeCover.expiresAtTick - input.tick)} ve vlastněných districtech.`;
+      return `Úřední krytí je aktivní ještě ${formatTickLabel(activeCover.expiresAtTick - input.tick)} ve vlastněných districtech.`;
     }
   }
   if (input.action.actionId === config.cityContract.actionId) {
     if (Number(metadata.cityContractBlockedUntilTick || 0) > input.tick) {
-      return `Městská zakázka blocked ${formatTickLabel(Number(metadata.cityContractBlockedUntilTick) - input.tick)}.`;
+      return `Městská zakázka je blokovaná ještě ${formatTickLabel(Number(metadata.cityContractBlockedUntilTick) - input.tick)}.`;
     }
     if (Math.max(0, Number(input.district.influence || 0)) < config.cityContract.costInfluence) {
-      return `Need ${config.cityContract.costInfluence} influence.`;
+      return `Chybí ${config.cityContract.costInfluence} vlivu.`;
     }
   }
   if (input.action.actionId === config.emergencyDecree.actionId) {
     if (Number(metadata.emergencyDecree?.expiresAtTick || 0) > input.tick) {
-      return `Nouzová vyhláška active ${formatTickLabel(Number(metadata.emergencyDecree?.expiresAtTick || 0) - input.tick)}.`;
+      return `Nouzová vyhláška je aktivní ještě ${formatTickLabel(Number(metadata.emergencyDecree?.expiresAtTick || 0) - input.tick)}.`;
     }
     if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.emergencyDecree.costCleanCash) {
-      return `Need ${config.emergencyDecree.costCleanCash} clean cash.`;
+      return `Chybí ${config.emergencyDecree.costCleanCash} clean cash.`;
     }
     if (Math.max(0, Number(input.district.influence || 0)) < config.emergencyDecree.costInfluence) {
-      return `Need ${config.emergencyDecree.costInfluence} influence.`;
+      return `Chybí ${config.emergencyDecree.costInfluence} vlivu.`;
     }
   }
   return null;
@@ -734,29 +694,29 @@ const resolveCentralBankDisabledReason = (input: {
   const metadata = getCentralBankMetadata(input.building, input.tick);
   if (input.action.actionId === config.liquidityInjection.actionId) {
     if (Number(metadata.liquidityBlockedUntilTick || 0) > input.tick) {
-      return `Likviditní injekce blocked ${formatTickLabel(Number(metadata.liquidityBlockedUntilTick) - input.tick)}.`;
+      return `Likviditní injekce je blokovaná ještě ${formatTickLabel(Number(metadata.liquidityBlockedUntilTick) - input.tick)}.`;
     }
     if (Math.max(0, Number(input.district.influence || 0)) < config.liquidityInjection.costInfluence) {
-      return `Need ${config.liquidityInjection.costInfluence} influence.`;
+      return `Chybí ${config.liquidityInjection.costInfluence} vlivu.`;
     }
   }
   if (input.action.actionId === config.frozenAccounts.actionId) {
     if (Number(metadata.frozenAccountsExpiresAtTick || 0) > input.tick) {
-      return `Zmrazené účty active ${formatTickLabel(Number(metadata.frozenAccountsExpiresAtTick) - input.tick)}.`;
+      return `Zmrazené účty jsou aktivní ještě ${formatTickLabel(Number(metadata.frozenAccountsExpiresAtTick) - input.tick)}.`;
     }
     if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.frozenAccounts.costCleanCash) {
-      return `Need ${config.frozenAccounts.costCleanCash} clean cash.`;
+      return `Chybí ${config.frozenAccounts.costCleanCash} clean cash.`;
     }
   }
   if (input.action.actionId === config.currencyIntervention.actionId) {
     if (metadata.currencyInterventions.some((effect) => effect.expiresAtTick > input.tick)) {
-      return "Kurzovní intervence is already active.";
+      return "Kurzovní intervence už je aktivní.";
     }
     if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.currencyIntervention.costCleanCash) {
-      return `Need ${config.currencyIntervention.costCleanCash} clean cash.`;
+      return `Chybí ${config.currencyIntervention.costCleanCash} clean cash.`;
     }
     if (Math.max(0, Number(input.district.influence || 0)) < config.currencyIntervention.costInfluence) {
-      return `Need ${config.currencyIntervention.costInfluence} influence.`;
+      return `Chybí ${config.currencyIntervention.costInfluence} vlivu.`;
     }
   }
   return null;
@@ -775,29 +735,29 @@ const resolveLobbyClubDisabledReason = (input: {
   const metadata = getLobbyClubMetadata(input.building, input.tick);
   if (input.action.actionId === config.backroomPressure.actionId) {
     if (Number(metadata.backroomPressureExpiresAtTick || 0) > input.tick) {
-      return `Zákulisní tlak active ${formatTickLabel(Number(metadata.backroomPressureExpiresAtTick) - input.tick)}.`;
+      return `Zákulisní tlak je aktivní ještě ${formatTickLabel(Number(metadata.backroomPressureExpiresAtTick) - input.tick)}.`;
     }
     if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.backroomPressure.costCleanCash) {
-      return `Need ${config.backroomPressure.costCleanCash} clean cash.`;
+      return `Chybí ${config.backroomPressure.costCleanCash} clean cash.`;
     }
     if (Math.max(0, Number(input.district.influence || 0)) < config.backroomPressure.costInfluence) {
-      return `Need ${config.backroomPressure.costInfluence} influence.`;
+      return `Chybí ${config.backroomPressure.costInfluence} vlivu.`;
     }
   }
   if (input.action.actionId === config.quietNegotiation.actionId) {
     if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.quietNegotiation.costCleanCash) {
-      return `Need ${config.quietNegotiation.costCleanCash} clean cash.`;
+      return `Chybí ${config.quietNegotiation.costCleanCash} clean cash.`;
     }
     if (Math.max(0, Number(input.district.influence || 0)) < config.quietNegotiation.costInfluence) {
-      return `Need ${config.quietNegotiation.costInfluence} influence.`;
+      return `Chybí ${config.quietNegotiation.costInfluence} vlivu.`;
     }
   }
   if (input.action.actionId === config.mediaScreen.actionId) {
     if (Number(metadata.mediaScreenExpiresAtTick || 0) > input.tick) {
-      return `Mediální clona active ${formatTickLabel(Number(metadata.mediaScreenExpiresAtTick) - input.tick)}.`;
+      return `Mediální clona je aktivní ještě ${formatTickLabel(Number(metadata.mediaScreenExpiresAtTick) - input.tick)}.`;
     }
     if (Math.max(0, Number(input.playerBalances.cash || 0)) < config.mediaScreen.costCleanCash) {
-      return `Need ${config.mediaScreen.costCleanCash} clean cash.`;
+      return `Chybí ${config.mediaScreen.costCleanCash} clean cash.`;
     }
   }
   return null;
@@ -819,7 +779,7 @@ const resolveSchoolDisabledReason = (input: {
     return null;
   }
   if (isEveningCourseActive(metadata, input.tick)) {
-    return `Večerní kurz active ${formatTickLabel(Math.max(0, Number(metadata.eveningCourseExpiresAtTick || 0) - input.tick))}.`;
+    return `Večerní kurz je aktivní ještě ${formatTickLabel(Math.max(0, Number(metadata.eveningCourseExpiresAtTick || 0) - input.tick))}.`;
   }
   return null;
 };
@@ -844,5 +804,5 @@ const resolveStreetDealerDisabledReason = (input: {
   const lockedSlots = metadata.slots.filter((slot) => slot.saleId || Number(slot.cooldownUntilTick || 0) > input.tick).length;
   if (slotCount <= 0 || lockedSlots >= slotCount) return "Nemáš volný slot Pouličních dealerů.";
   const hasDrugStock = config.sellableDrugs.some((drug) => Number(input.playerBalances[drug.itemId] || 0) > 0);
-  return hasDrugStock ? null : "Need a Drug Lab product in storage.";
+  return hasDrugStock ? null : "Chybí produkt z drug labu ve skladu.";
 };

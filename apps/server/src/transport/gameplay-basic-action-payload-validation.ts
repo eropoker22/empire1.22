@@ -78,7 +78,7 @@ const rejectUnknownPayloadFields = (
     if (!allowed.has(field)) {
       errors.push(createInvalidFieldError(
         `command.payload.${field}`,
-        "Command payload field is not allowed for this command type."
+        "Tohle pole payloadu není pro daný command povolené."
       ));
     }
   }
@@ -104,7 +104,7 @@ const requireOptionalStringField = (
 ): void => {
   const fieldValue = getFieldPath(value, fieldPath);
   if (fieldValue !== undefined && (typeof fieldValue !== "string" || fieldValue.trim().length === 0)) {
-    errors.push(createInvalidFieldError(errorFieldPath, "Command payload field must be a non-empty string."));
+    errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být neprázdný text."));
   }
 };
 
@@ -116,7 +116,7 @@ const requireOptionalFiniteNumberField = (
 ): void => {
   const fieldValue = getFieldPath(value, fieldPath);
   if (fieldValue !== undefined && (typeof fieldValue !== "number" || !Number.isFinite(fieldValue))) {
-    errors.push(createInvalidFieldError(errorFieldPath, "Command payload field must be a finite number."));
+    errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být konečné číslo."));
   }
 };
 
@@ -129,7 +129,7 @@ const requireChoiceField = (
 ): void => {
   const fieldValue = getFieldPath(value, fieldPath);
   if (typeof fieldValue !== "string" || !choices.includes(fieldValue)) {
-    errors.push(createInvalidFieldError(errorFieldPath, `Command payload field must be one of: ${choices.join(", ")}.`));
+    errors.push(createInvalidFieldError(errorFieldPath, `Pole payloadu musí být jedna z hodnot: ${choices.join(", ")}.`));
   }
 };
 
@@ -141,13 +141,13 @@ const requirePositiveIntegerField = (
 ): void => {
   const fieldValue = getFieldPath(value, fieldPath);
   if (typeof fieldValue !== "number" || !Number.isInteger(fieldValue) || fieldValue <= 0) {
-    errors.push(createInvalidFieldError(errorFieldPath, "Command payload field must be a positive integer."));
+    errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být kladné celé číslo."));
   }
 };
 
 const createMissingFieldError = (
   fieldPath: string,
-  message = `Gameplay slice submit request is missing required field '${fieldPath}'.`
+  message = `V gameplay submit requestu chybí povinné pole '${fieldPath}'.`
 ): DomainError => ({
   code: "transport.invalid_request",
   message,

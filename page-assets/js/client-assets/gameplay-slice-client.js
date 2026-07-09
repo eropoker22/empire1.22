@@ -92,7 +92,7 @@ var EmpireGameplaySliceClient = function(exports) {
         endsAtMs,
         nowMs,
         prefix: node.dataset.cooldownPrefix ?? "Čekání ",
-        readyLabel: node.dataset.cooldownReadyLabel ?? "Ready"
+        readyLabel: node.dataset.cooldownReadyLabel ?? "Připraveno"
       });
       node.dataset.cooldownState = endsAtMs > nowMs ? "cooling" : "ready";
     });
@@ -1529,22 +1529,70 @@ var EmpireGameplaySliceClient = function(exports) {
     intervalMs,
     enabled = true,
     timerDriver = browserTimerDriver,
+    visibilityDocument = typeof document === "undefined" ? null : document,
+    intervalMultiplier = 1,
+    maxErrorIntervalMultiplier = 4,
+    onRunningChange,
     onResponse,
     onError
   }) => {
-    const safeIntervalMs = Math.max(1, Math.floor(intervalMs));
+    var _a;
+    const baseIntervalMs = Math.max(1, Math.floor(intervalMs * Math.max(1, intervalMultiplier)));
+    const maxBackoffMultiplier = Math.max(1, Math.floor(maxErrorIntervalMultiplier));
     let intervalHandle = null;
+    let currentIntervalMs = baseIntervalMs;
+    let consecutiveErrors = 0;
     let refreshInProgress = false;
     let pollingEnabled = enabled;
+    let destroyed = false;
+    const isPausedForVisibility = () => Boolean(visibilityDocument == null ? void 0 : visibilityDocument.hidden);
     const stop = () => {
       if (intervalHandle === null) {
         return;
       }
       timerDriver.clearInterval(intervalHandle);
       intervalHandle = null;
+      onRunningChange == null ? void 0 : onRunningChange(-1);
+    };
+    const startInterval = () => {
+      if (!pollingEnabled || destroyed || intervalHandle !== null || isPausedForVisibility()) {
+        return;
+      }
+      intervalHandle = timerDriver.setInterval(() => {
+        if (isPausedForVisibility()) {
+          stop();
+          return;
+        }
+        void refreshOnce();
+      }, currentIntervalMs);
+      onRunningChange == null ? void 0 : onRunningChange(1);
+    };
+    const restartWithInterval = (nextIntervalMs) => {
+      const wasRunning = intervalHandle !== null;
+      stop();
+      currentIntervalMs = Math.max(1, Math.floor(nextIntervalMs));
+      if (wasRunning) {
+        startInterval();
+      }
+    };
+    const syncErrorBackoff = () => {
+      const multiplier = Math.min(maxBackoffMultiplier, consecutiveErrors + 1);
+      const nextIntervalMs = baseIntervalMs * multiplier;
+      if (nextIntervalMs !== currentIntervalMs) {
+        restartWithInterval(nextIntervalMs);
+      }
+    };
+    const resetErrorBackoff = () => {
+      if (consecutiveErrors === 0 && currentIntervalMs === baseIntervalMs) {
+        return;
+      }
+      consecutiveErrors = 0;
+      if (currentIntervalMs !== baseIntervalMs) {
+        restartWithInterval(baseIntervalMs);
+      }
     };
     const refreshOnce = async () => {
-      if (refreshInProgress) {
+      if (refreshInProgress || destroyed || isPausedForVisibility()) {
         return null;
       }
       const request = getRequest();
@@ -1555,30 +1603,54 @@ var EmpireGameplaySliceClient = function(exports) {
       try {
         const response = await load(request);
         await (onResponse == null ? void 0 : onResponse(response));
+        resetErrorBackoff();
         return response;
       } catch (error) {
+        consecutiveErrors += 1;
         onError == null ? void 0 : onError(error);
+        syncErrorBackoff();
         return null;
       } finally {
         refreshInProgress = false;
       }
     };
+    const handleVisibilityChange = () => {
+      if (isPausedForVisibility()) {
+        stop();
+        return;
+      }
+      if (!pollingEnabled || destroyed) {
+        return;
+      }
+      void refreshOnce();
+      startInterval();
+    };
+    (_a = visibilityDocument == null ? void 0 : visibilityDocument.addEventListener) == null ? void 0 : _a.call(visibilityDocument, "visibilitychange", handleVisibilityChange);
     return {
       start: () => {
         if (!pollingEnabled || intervalHandle !== null) {
           return;
         }
-        intervalHandle = timerDriver.setInterval(() => {
-          void refreshOnce();
-        }, safeIntervalMs);
+        startInterval();
       },
       stop,
+      destroy: () => {
+        var _a2;
+        if (destroyed) {
+          return;
+        }
+        destroyed = true;
+        stop();
+        (_a2 = visibilityDocument == null ? void 0 : visibilityDocument.removeEventListener) == null ? void 0 : _a2.call(visibilityDocument, "visibilitychange", handleVisibilityChange);
+      },
       isRunning: () => intervalHandle !== null,
       isEnabled: () => pollingEnabled,
       setEnabled: (nextEnabled) => {
         pollingEnabled = nextEnabled;
         if (!pollingEnabled) {
           stop();
+        } else {
+          startInterval();
         }
       },
       refreshOnce
@@ -1608,8 +1680,8 @@ var EmpireGameplaySliceClient = function(exports) {
             `<span>Zóna: ${escapeHtml(district.zoneLabel)}</span>`,
             `<span>Budovy: ${escapeHtml(district.buildingSummary)}</span>`,
             `<span>Hledanost: ${escapeHtml(district.heatLabel)} · Vliv: ${escapeHtml(district.influenceLabel)}</span>`,
-            district.isAttackTarget ? `<span>${escapeHtml(district.attackEnabled ? "Attack Ready" : district.attackDisabledReason ?? "Attack unavailable")}</span>` : "",
-            district.isContested ? "<span>Contested</span>" : "",
+            district.isAttackTarget ? `<span>${escapeHtml(district.attackEnabled ? "Útok připraven" : district.attackDisabledReason ?? "Útok není dostupný")}</span>` : "",
+            district.isContested ? "<span>Sporný district</span>" : "",
             "</button>"
           ].join("");
         }
@@ -1957,13 +2029,15 @@ var EmpireGameplaySliceClient = function(exports) {
     if (!police) {
       return null;
     }
+    const raidConsequenceChangePct = Math.round((1 - police.protection.raidConsequenceMultiplier) * 100);
+    const raidConsequenceLabel = raidConsequenceChangePct >= 0 ? `-${raidConsequenceChangePct} % následky raidu` : `+${Math.abs(raidConsequenceChangePct)} % následky raidu`;
     return {
       heatLabel: String(Math.max(0, Number(police.heat || 0))),
       wantedLevelLabel: police.wantedLevelLabel || police.wantedLabel || `${police.wantedLevel} / 5`,
       pendingRaidLabel: police.pendingRaid ? `${police.pendingRaid.severity.toUpperCase()} raid` : null,
       raidConsequenceStatus: police.raidConsequenceStatus || "none",
       selectedDistrictHeatLabel: String(Math.max(0, Number(police.selectedDistrictHeat || 0))),
-      protectionLabel: police.protection.sources.length > 0 ? `${police.protection.sources.join(", ")} x${police.protection.raidConsequenceMultiplier.toFixed(2)}` : "none"
+      protectionLabel: police.protection.sources.length > 0 ? `${police.protection.sources.join(", ")} ${raidConsequenceLabel}` : "žádná"
     };
   };
   const formatEconomySummary = (economy) => {
@@ -2198,14 +2272,14 @@ var EmpireGameplaySliceClient = function(exports) {
   const renderSidePanelShell = ({ activePanel, contentHtml }) => activePanel ? `<aside class="side-panel-shell mobile-sheet" data-panel="${escapeAttribute(activePanel)}"><div class="mobile-sheet__body">${contentHtml}</div></aside>` : '<aside class="side-panel-shell" data-panel="none"></aside>';
   const renderTopBarShell = ({ player }) => {
     var _a;
-    return player ? `<header data-mode="${escapeAttribute(player.modeLabel)}" data-city-phase="${escapeAttribute(((_a = player.dayNight) == null ? void 0 : _a.uiThemeHint) ?? "day")}">Mode: ${escapeHtml(player.modeLabel)} · Player: ${escapeHtml(player.playerId)}${renderHomeDistrict(player)} · Resources: ${escapeHtml(player.resourceSummary)} · Alerts: ${escapeHtml(player.notificationCount)}${renderPoliceBadge(player)}${renderDayNightBadge(player)}</header>` : "";
+    return player ? `<header data-mode="${escapeAttribute(player.modeLabel)}" data-city-phase="${escapeAttribute(((_a = player.dayNight) == null ? void 0 : _a.uiThemeHint) ?? "day")}">Režim: ${escapeHtml(player.modeLabel)} · Hráč: ${escapeHtml(player.playerId)}${renderHomeDistrict(player)} · Zdroje: ${escapeHtml(player.resourceSummary)} · Hlášení: ${escapeHtml(player.notificationCount)}${renderPoliceBadge(player)}${renderDayNightBadge(player)}</header>` : "";
   };
-  const renderHomeDistrict = (player) => player.homeDistrictId ? ` · Server assigned home: ${escapeHtml(player.homeDistrictId)}` : "";
+  const renderHomeDistrict = (player) => player.homeDistrictId ? ` · Domovský district: ${escapeHtml(player.homeDistrictId)}` : "";
   const renderPoliceBadge = (player) => {
     const police = player.police;
     if (!police) return "";
-    const pending = police.pendingRaidLabel ? ` · Pending: ${escapeHtml(police.pendingRaidLabel)}` : "";
-    return ` · <span class="police-badge" data-raid-status="${escapeAttribute(police.raidConsequenceStatus)}" title="${escapeAttribute(`Hledanost distriktu ${police.selectedDistrictHeatLabel} · Ochrana ${police.protectionLabel}`)}">Hledanost ${escapeHtml(police.heatLabel)} · Wanted ${escapeHtml(police.wantedLevelLabel)}${pending}</span>`;
+    const pending = police.pendingRaidLabel ? ` · Čeká: ${escapeHtml(police.pendingRaidLabel)}` : "";
+    return ` · <span class="police-badge" data-raid-status="${escapeAttribute(police.raidConsequenceStatus)}" title="${escapeAttribute(`Hledanost distriktu ${police.selectedDistrictHeatLabel} · Ochrana ${police.protectionLabel}`)}">Hledanost ${escapeHtml(police.heatLabel)} · Úroveň ${escapeHtml(police.wantedLevelLabel)}${pending}</span>`;
   };
   const renderDayNightBadge = (player) => {
     const dayNight = player.dayNight;
@@ -2703,6 +2777,71 @@ var EmpireGameplaySliceClient = function(exports) {
       }
     };
   };
+  const getPerformanceMetrics = () => {
+    var _a;
+    window.empireStreetsPerformanceMetrics ?? (window.empireStreetsPerformanceMetrics = {
+      activeIntervalsCount: 0,
+      gameplaySliceRefreshCount: 0,
+      managedIntervalCounts: {}
+    });
+    (_a = window.empireStreetsPerformanceMetrics).managedIntervalCounts ?? (_a.managedIntervalCounts = {});
+    return window.empireStreetsPerformanceMetrics;
+  };
+  const trackIntervalMetric = (label, delta) => {
+    const metrics = getPerformanceMetrics();
+    const counts = metrics.managedIntervalCounts ?? {};
+    counts[label] = Math.max(0, (counts[label] ?? 0) + delta);
+    metrics.managedIntervalCounts = counts;
+    metrics.activeIntervalsCount = Object.values(counts).reduce((sum, count) => sum + Math.max(0, count), 0);
+  };
+  const recordGameplaySliceRefresh = () => {
+    const metrics = getPerformanceMetrics();
+    metrics.gameplaySliceRefreshCount = (metrics.gameplaySliceRefreshCount ?? 0) + 1;
+    metrics.lastGameplaySliceRefreshAt = Date.now();
+  };
+  const getPollingIntervalMultiplier = () => {
+    var _a;
+    const multiplier = Number(((_a = window.empireStreetsPerformanceMode) == null ? void 0 : _a.pollingMultiplier) ?? 1);
+    return Number.isFinite(multiplier) && multiplier >= 1 ? multiplier : 1;
+  };
+  const getGameplaySlicePollerPerformanceOptions = () => ({
+    visibilityDocument: document,
+    intervalMultiplier: getPollingIntervalMultiplier(),
+    onRunningChange: (delta) => trackIntervalMetric("gameplay-slice-poller", delta)
+  });
+  const createGameplaySliceVisibilityRuntime = ({ root, poller }) => {
+    let cooldownTimerId = null;
+    const stopCooldownTimer = () => {
+      if (cooldownTimerId === null) return;
+      window.clearInterval(cooldownTimerId);
+      cooldownTimerId = null;
+      trackIntervalMetric("gameplay-slice-cooldowns", -1);
+    };
+    const startCooldownTimer = () => {
+      if (cooldownTimerId !== null || document.hidden) return;
+      cooldownTimerId = window.setInterval(() => refreshLiveCooldownLabels(root), 1e3);
+      trackIntervalMetric("gameplay-slice-cooldowns", 1);
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopCooldownTimer();
+        return;
+      }
+      refreshLiveCooldownLabels(root);
+      startCooldownTimer();
+      void poller.refreshOnce();
+    };
+    return {
+      start() {
+        startCooldownTimer();
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+      },
+      destroy() {
+        stopCooldownTimer();
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      }
+    };
+  };
   const setGameplayRuntimeMarker = (root, marker, details = {}) => {
     root.dataset.gameplayRuntime = marker;
     root.dataset.gameplaySliceRuntime = marker;
@@ -3012,7 +3151,11 @@ var EmpireGameplaySliceClient = function(exports) {
       getRequest: () => currentLoadRequest,
       intervalMs: parsePollingIntervalMs(options.root.dataset.gameplaySlicePollingIntervalMs),
       enabled: options.root.dataset.gameplaySlicePolling === "true",
-      onResponse: render,
+      ...getGameplaySlicePollerPerformanceOptions(),
+      onResponse: (state) => {
+        recordGameplaySliceRefresh();
+        render(state);
+      },
       onError: () => {
         mounts.status.innerHTML = [
           "<strong>Synchronizace se serverem zastarala</strong>",
@@ -3020,7 +3163,8 @@ var EmpireGameplaySliceClient = function(exports) {
         ].join("");
       }
     });
-    const cooldownTimerId = window.setInterval(() => refreshLiveCooldownLabels(options.root), 1e3);
+    const visibilityRuntime = createGameplaySliceVisibilityRuntime({ root: options.root, poller });
+    visibilityRuntime.start();
     legacyDistrictPopupObserver == null ? void 0 : legacyDistrictPopupObserver.observe(legacyDistrictPopup, {
       attributeFilter: ["aria-hidden", "class", "hidden"],
       attributes: true
@@ -3031,6 +3175,7 @@ var EmpireGameplaySliceClient = function(exports) {
     options.root.addEventListener("pointerup", handlePointerUp);
     options.root.addEventListener("pointercancel", handlePointerCancel);
     void client.load(request).then((state) => {
+      recordGameplaySliceRefresh();
       render(state);
       poller.start();
     }).catch((error) => {
@@ -3046,8 +3191,8 @@ var EmpireGameplaySliceClient = function(exports) {
     const mountedPage = {
       closeDistrictSheetFromExternal: (reason = "external district popup close") => closeDistrictSheetAfterLegacyClose(reason),
       destroy: () => {
-        poller.stop();
-        window.clearInterval(cooldownTimerId);
+        poller.destroy();
+        visibilityRuntime.destroy();
         legacyDistrictPopupObserver == null ? void 0 : legacyDistrictPopupObserver.disconnect();
         document.removeEventListener("empire:district-closed", handleLegacyDistrictClosed);
         options.root.removeEventListener("click", handleClick);

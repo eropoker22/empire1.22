@@ -49,7 +49,7 @@ function renderFeedRows(list, entries = []) {
     if (!item || !title || !copy) {
       continue;
     }
-    title.textContent = safeText(entry.title || entry.badge || entry.kind, "Police status");
+    title.textContent = safeText(entry.title || entry.badge || entry.kind, "Policejní stav");
     copy.textContent = safeText(entry.message || entry.summary || entry.detail, "Bez detailu.");
     item.append(title, copy);
     list.append(item);
@@ -88,17 +88,17 @@ export function renderPoliceFeedPanel(mount, viewModel = {}, callbacks = {}, opt
     return false;
   }
 
-  eyebrow.textContent = "POLICE";
-  title.textContent = "Police pressure";
-  status.textContent = safeText(viewModel.statusLabel, "Low");
-  setStat(wanted, "Wanted level", safeText(viewModel.wantedLabel, "0 / 5"), "Osobní policejní stopa hráče. Není to jediné policejní riziko.");
-  setStat(heat, "Player heat", Number(viewModel.playerHeat ?? viewModel.heat ?? 0), "Heat přímo na hráči.");
-  setStat(districtPressure, "District heat", Number(viewModel.ownedDistrictHeat ?? viewModel.districtHeatPressure ?? 0), "Heat z vlastněných districtů.");
-  setStat(pressure, "Raid pressure", Number(viewModel.raidPressure ?? viewModel.aggregatePressure ?? viewModel.heat ?? 0), "Celkový tlak policie, který rozhoduje o warningu a raidu.");
-  setStat(playerPressure, "Player pressure", Number(viewModel.playerHeatPressure || viewModel.heat || 0), "Příspěvek player heat do raid pressure.");
-  setStat(hottestDistrict, "Top district", `${safeText(viewModel.hottestDistrictId, "-")} ${Number(viewModel.hottestDistrictHeat || 0)}`, "Nejhorkější vlastněný district.");
+  eyebrow.textContent = "POLICIE";
+  title.textContent = "Policejní tlak";
+  status.textContent = safeText(viewModel.statusLabel, "Nízký");
+  setStat(wanted, "Hledanost", safeText(viewModel.wantedLabel, "0 / 5"), "Osobní policejní stopa hráče. Není to jediné policejní riziko.");
+  setStat(heat, "Heat hráče", Number(viewModel.playerHeat ?? viewModel.heat ?? 0), "Heat přímo na hráči.");
+  setStat(districtPressure, "Heat districtů", Number(viewModel.ownedDistrictHeat ?? viewModel.districtHeatPressure ?? 0), "Heat z vlastněných districtů.");
+  setStat(pressure, "Tlak raidu", Number(viewModel.raidPressure ?? viewModel.aggregatePressure ?? viewModel.heat ?? 0), "Celkový tlak policie, který rozhoduje o varování a raidu.");
+  setStat(playerPressure, "Tlak hráče", Number(viewModel.playerHeatPressure || viewModel.heat || 0), "Příspěvek heat hráče do tlaku raidu.");
+  setStat(hottestDistrict, "Nejhorší district", `${safeText(viewModel.hottestDistrictId, "-")} ${Number(viewModel.hottestDistrictHeat || 0)}`, "Nejhorkější vlastněný district.");
   risk.textContent = safeText(viewModel.riskMessage, "Nízký dohled. Policie zatím jen sbírá šum z ulice.");
-  explanation.textContent = safeText(viewModel.raidPressureExplanation, "District heat může přitáhnout raid i bez vysokého wanted levelu.");
+  explanation.textContent = safeText(viewModel.raidPressureExplanation, "Heat districtů může přitáhnout raid i bez vysoké hledanosti.");
   latest.textContent = safeText(viewModel.lastMessage, "Poslední zpráva: bez aktivního hlášení.");
   const preview = viewModel.previewConsequences && typeof viewModel.previewConsequences === "object"
     ? viewModel.previewConsequences
@@ -107,7 +107,7 @@ export function renderPoliceFeedPanel(mount, viewModel = {}, callbacks = {}, opt
     ? preview.courthouseMitigation
     : null;
   pending.textContent = viewModel.pendingRaid
-    ? `Pending raid: ${safeText(viewModel.pendingRaid.severity, "high")} · dirty cash ${Number(preview?.seizedDirtyCash || 0)} · heat -${Number(preview?.heatReducedBy || 0)}${mitigation ? ` · Soud -${Number(mitigation.reductionPct || 0)} %` : ""}`
+    ? `Připravená razie: ${safeText(viewModel.pendingRaid.severity, "vysoká")} · zabavený dirty cash ${Number(preview?.seizedDirtyCash || 0)} · heat -${Number(preview?.heatReducedBy || 0)}${mitigation ? ` · Soud -${Number(mitigation.reductionPct || 0)} %` : ""}`
     : safeText(viewModel.recommendedAction, "");
 
   titleWrap.append(eyebrow, title);

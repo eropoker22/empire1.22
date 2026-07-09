@@ -618,10 +618,10 @@ export const getHeistViewModel = (
     reasonsBlocked.push("Vykrást hráče nejde spustit na vlastním districtu");
   }
   if (getRemainingSeconds(heistState.cooldowns.globalUntil, now) > 0) {
-    reasonsBlocked.push("Globální cooldown je aktivní");
+    reasonsBlocked.push("Globální čekání je aktivní");
   }
   if (getRemainingSeconds(heistState.cooldowns.targetUntilByDistrictId[targetDistrictId], now) > 0) {
-    reasonsBlocked.push("Cooldown cílového districtu je aktivní");
+    reasonsBlocked.push("Čekání cílového districtu je aktivní");
   }
   if (district && isDistrictInPoliceLockdown(district, now)) {
     reasonsBlocked.push("District je pod policejním lockdownem");

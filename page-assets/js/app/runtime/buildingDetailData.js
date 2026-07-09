@@ -109,54 +109,54 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
     actions: Object.freeze(["Otevřít kanál"])
   }),
   burza: Object.freeze({
-    role: "Ultra rare / economy / market control / financial power",
+    role: "Ultra vzácná / ekonomika / kontrola marketu / finanční síla",
     info: "Burza je jediná na mapě. Neprodává zboží. Ovládá ceny, poplatky a rytmus celé ekonomiky. Skleněná věž v Downtownu, kde se války nevedou noži, ale grafy.",
-    actions: Object.freeze(["Spekulativní nákup", "Tržní tlak", "Insider Window"])
+    actions: Object.freeze(["Spekulativní nákup", "Tržní tlak", "Vnitřní tipy"])
   }),
   "centralni banka": Object.freeze({
-    role: "Ultra rare / finance / reserve / market stability",
+    role: "Ultra vzácná / finance / rezervy / stabilita marketu",
     info: "Centrální banka drží rezervy města pod zámkem. Kdo ovládá likviditu, přežije i drahou krizi.",
     actions: Object.freeze(["Likviditní injekce", "Zmrazené účty", "Kurzovní intervence"])
   }),
   magistrat: Object.freeze({
-    role: "Ultra rare / politics / city control / heat management",
+    role: "Ultra vzácná / politika / kontrola města / řízení heatu",
     info: "Magistrát není gangová základna. Je to místo, kde se zločin mění na razítko. Kdo drží magistrát, nemusí mít vždy větší zbraň. Stačí, když má správný podpis.",
     actions: Object.freeze(["Úřední krytí", "Městská zakázka", "Nouzová vyhláška"])
   }),
   "lobby klub": Object.freeze({
-    role: "Ultra rare / lobbying / influence / political support",
+    role: "Ultra vzácná / lobby / vliv / politická podpora",
     info: "Lobby Club není úřad. Je to místnost vedle úřadu, kde se rozhodne dřív, než někdo zvedne ruku. Kdo drží Lobby Club, nevládne městu přímo. Jen šeptá lidem, kteří městem hýbou.",
     actions: Object.freeze(["Zákulisní tlak", "Tiché vyjednávání", "Mediální clona"])
   }),
   "lobby club": Object.freeze({
-    role: "Ultra rare / lobbying / influence / political support",
+    role: "Ultra vzácná / lobby / vliv / politická podpora",
     info: "Lobby Club není úřad. Je to místnost vedle úřadu, kde se rozhodne dřív, než někdo zvedne ruku. Kdo drží Lobby Club, nevládne městu přímo. Jen šeptá lidem, kteří městem hýbou.",
     actions: Object.freeze(["Zákulisní tlak", "Tiché vyjednávání", "Mediální clona"])
   }),
   soud: Object.freeze({
-    role: "Ultra rare / passive legal protection / police raid mitigation / influence",
+    role: "Ultra vzácná / právní ochrana / zmírnění razií / vliv",
     info: "Soud nevypne policii. Jen zařídí, aby její zásah bolel míň. Když máš rozsudky, odklady a správné právníky, i razie ztratí zuby.",
     actions: Object.freeze([])
   }),
   "vip salonek": Object.freeze({
-    role: "Rare / elite rumors / high truth intel / influence",
+    role: "Vzácná / elitní drby / přesnější intel / vliv",
     info: "VIP Salonek je luxusní informační uzel. Drby vznikají rychleji a s vyšší pravdivostí než v běžném městském šumu, ale nikdy nejsou stoprocentní jistota.",
     actions: Object.freeze([])
   }),
   letiste: Object.freeze({
-    role: "Ultra rare / logistics / import / black market support / mobility",
+    role: "Ultra vzácná / logistika / import / černý trh / mobilita",
     info: "Letiště je brána města. Co ostatní musí vyrábět, ty můžeš dovézt. Co ostatní musí vozit ulicemi, ty pošleš přes runway. Ale každý kontejner má papíry. A každý falešný papír jednou někdo zkontroluje.",
     actions: Object.freeze(["Expresní dovoz", "Černý charter", "Evakuační koridor"])
   }),
   pristav: Object.freeze({
-    role: "Logistics / containers / materials / dirty cash routes",
+    role: "Logistika / kontejnery / materiály / dirty cash trasy",
     info: "Přístav drží těžkou logistiku města. Kontejnery nosí materiály, špinavé peníze a trasy, které se ztrácí mezi papíry.",
-    actions: Object.freeze(["Container Cut"])
+    actions: Object.freeze(["Proříznout kontejner"])
   }),
   parlament: Object.freeze({
-    role: "Ultra rare / power / politics / influence",
+    role: "Ultra vzácná / moc / politika / vliv",
     info: "Parlament je nejvyšší politická páka města. Kdo ovládá hlasování, mění tlak ulice na čisté peníze a vliv.",
-    actions: Object.freeze(["Policy Window"])
+    actions: Object.freeze(["Politické okno"])
   }),
   "strip club": Object.freeze({
     role: "Noční provoz",
@@ -282,10 +282,10 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
     Object.freeze({ airportEvacuationCorridor: true, cleanCost: 1800, heat: 5, durationMs: 7 * 60 * 1000, cooldownMs: 26 * 60 * 1000, escapeChanceBonusPct: 18, lossReductionPct: 10, summary: "Zvedne šanci úniku, sníží ztráty při neúspěchu a zrychlí návratovou logistiku." })
   ]),
   pristav: Object.freeze([
-    Object.freeze({ dirty: 160, materials: { "metal-parts": 3 }, influence: 1, heat: 6, cooldownMs: 14 * 60 * 1000, summary: "Container Cut vytáhne z kontejnerové trasy dirty cash a metal parts." })
+    Object.freeze({ dirty: 160, materials: { "metal-parts": 3 }, influence: 1, heat: 6, cooldownMs: 14 * 60 * 1000, summary: "Proříznutí kontejneru vytáhne z kontejnerové trasy dirty cash a metal parts." })
   ]),
   parlament: Object.freeze([
-    Object.freeze({ clean: 160, influence: 5, heat: 5, cooldownMs: 18 * 60 * 1000, summary: "Policy Window otevře krátké politické okno pro clean cash a vliv." })
+    Object.freeze({ clean: 160, influence: 5, heat: 5, cooldownMs: 18 * 60 * 1000, summary: "Politické okno otevře krátký prostor pro clean cash a vliv." })
   ]),
   "strip club": Object.freeze([
     Object.freeze({ dirty: 360, heat: 3, cooldownMs: 10 * 60 * 1000, summary: "Noční cash vybrán." }),

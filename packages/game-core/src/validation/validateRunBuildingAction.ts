@@ -25,28 +25,28 @@ export const validateRunBuildingAction = (
   if (!player) {
     errors.push({
       code: "player_not_found",
-      message: `Player ${command.playerId} was not found.`
+      message: `Hráč ${command.playerId} nebyl nalezen.`
     });
   }
 
   if (!district) {
     errors.push({
       code: "district_not_found",
-      message: `District ${command.payload.districtId} was not found.`
+      message: `District ${command.payload.districtId} nebyl nalezen.`
     });
   }
 
   if (!building) {
     errors.push({
       code: "building_not_found",
-      message: `Building ${command.payload.buildingId} was not found.`
+      message: `Budova ${command.payload.buildingId} nebyla nalezena.`
     });
   }
 
   if (!action) {
     errors.push({
       code: "building_action_not_found",
-      message: `Building action ${command.payload.actionId} is not configured.`
+      message: `Akce budovy ${command.payload.actionId} není nakonfigurovaná.`
     });
   }
 
@@ -57,21 +57,21 @@ export const validateRunBuildingAction = (
   if (!district.buildingIds.includes(building.id) || building.districtId !== district.id) {
     errors.push({
       code: "building_not_in_district",
-      message: "Target building is not fixed in the selected district."
+      message: "Cílová budova není pevně umístěná ve vybraném districtu."
     });
   }
 
   if (district.status === "destroyed") {
     errors.push({
       code: "district_destroyed",
-      message: "Destroyed districts cannot run fixed-building actions."
+      message: "Zničený district nemůže spouštět akce pevných budov."
     });
   }
 
   if (action.buildingType !== building.buildingTypeId) {
     errors.push({
       code: "building_action_type_mismatch",
-      message: `Action ${action.actionId} cannot run on ${building.buildingTypeId}.`
+      message: `Akci ${action.actionId} nejde spustit na budově ${building.buildingTypeId}.`
     });
   }
 
@@ -79,28 +79,28 @@ export const validateRunBuildingAction = (
   if (!dayNightRule.allowed) {
     errors.push({
       code: "building_action_phase_blocked",
-      message: dayNightRule.blockedReason || "This building action is blocked by the current city phase."
+      message: dayNightRule.blockedReason || "Tahle akce budovy je blokovaná aktuální fází města."
     });
   }
 
   if (action.requiredOwner && (district.ownerPlayerId !== command.playerId || building.ownerPlayerId !== command.playerId)) {
     errors.push({
       code: "building_action_owner_required",
-      message: "Player must own the district and fixed building to run this action."
+      message: "Tuhle akci může spustit jen majitel districtu i pevné budovy."
     });
   }
 
   if (district.status === "contested" && !action.allowedIfContested) {
     errors.push({
       code: "building_action_contested",
-      message: "This building action cannot run while the district is contested."
+      message: "Tahle akce nejde spustit, dokud je district sporný."
     });
   }
 
   if (building.status !== "active") {
     errors.push({
       code: "building_not_active",
-      message: "Only active fixed buildings can run actions."
+      message: "Akce může spustit jen aktivní pevná budova."
     });
   }
 
@@ -108,7 +108,7 @@ export const validateRunBuildingAction = (
   if (cooldownUntilTick > state.root.tick) {
     errors.push({
       code: "building_action_cooldown",
-      message: `Building action is cooling down for ${cooldownUntilTick - state.root.tick} more ticks.`
+      message: `Akce čeká ještě ${cooldownUntilTick - state.root.tick} ticků.`
     });
   }
 
@@ -126,7 +126,7 @@ export const validateRunBuildingAction = (
   if (missingCosts.length > 0) {
     errors.push({
       code: "building_action_insufficient_resources",
-      message: `Missing resources: ${missingCosts.map(([key, amount]) => `${amount} ${key}`).join(", ")}.`
+      message: `Chybí suroviny: ${missingCosts.map(([key, amount]) => `${amount} ${key}`).join(", ")}.`
     });
   }
 

@@ -21,23 +21,23 @@ function riskCopy(riskKey) {
   switch (riskKey) {
     case "extreme":
       return {
-        statusLabel: "Extreme",
+        statusLabel: "Extrémní",
         message: "Další hlučná akce může vyvolat zásah. Stáhni heat nebo počítej s kontrolou."
       };
     case "high":
       return {
-        statusLabel: "High",
+        statusLabel: "Vysoký",
         message: "Policie je blízko. Útoky, dirty cash a černý trh můžou spustit tvrdý zásah."
       };
     case "medium":
       return {
-        statusLabel: "Medium",
+        statusLabel: "Střední",
         message: "Policie sleduje tvoje lidi. Risk roste hlavně po špinavých akcích."
       };
     case "low":
     default:
       return {
-        statusLabel: "Low",
+        statusLabel: "Nízký",
         message: "Nízký dohled. Gang je zatím skoro pod radarem."
       };
   }
@@ -61,15 +61,15 @@ function normalizeCorePoliceEntries(model = {}) {
   const pendingRaid = safeObject(model.pendingRaid);
   const entries = feed.map((event) => ({
     kind: event.type || "police-event",
-    title: event.type || "Police event",
+    title: event.type || "Policejní event",
     message: event.message || event.payload?.message || "Bez detailu."
   }));
 
   if (pendingRaid.raidId) {
     entries.unshift({
       kind: "pending-raid",
-      title: `Pending raid · ${pendingRaid.severity || "high"}`,
-      message: pendingRaid.reason || `Expires at tick ${pendingRaid.expiresAtTick ?? "?"}`
+      title: `Připravená razie · ${pendingRaid.severity || "vysoká"}`,
+      message: pendingRaid.reason || `Vyprší v ticku ${pendingRaid.expiresAtTick ?? "?"}`
     });
   }
 
@@ -82,14 +82,14 @@ function normalizePoliceEntries(policeActions = {}, lastMessage = "") {
     .sort((left, right) => Number(right.startedAt || 0) - Number(left.startedAt || 0))
     .map((entry) => ({
       kind: "police-event",
-      title: entry.operationType || "Police event",
+      title: entry.operationType || "Policejní event",
       message: `District ${entry.districtId || "?"} · ${entry.raidSpecialtyKey || "monitoring"}`
     }));
 
   if (!entries.length && lastMessage) {
     entries.push({
       kind: "fallback",
-      title: "Fallback warning",
+      title: "Záložní varování",
       message: lastMessage
     });
   }
@@ -122,7 +122,7 @@ export function resolvePoliceHeatFeedback(input = {}) {
       entries: normalizeCorePoliceEntries(coreModel),
       aggregatePressure: Math.max(0, Number(coreModel.aggregatePressure || 0) || 0),
       raidPressure: Math.max(0, Number(coreModel.raidPressure ?? coreModel.aggregatePressure ?? 0) || 0),
-      raidPressureExplanation: String(coreModel.raidPressureExplanation || "Raid pressure je celkový tlak policie. District heat může přitáhnout raid i bez vysokého wanted levelu."),
+      raidPressureExplanation: String(coreModel.raidPressureExplanation || "Tlak raidu je celkový tlak policie. Heat districtů může přitáhnout raid i bez vysoké hledanosti."),
       heatBreakdown: asArray(coreModel.heatBreakdown),
       playerHeatPressure: Math.max(0, Number(coreModel.playerHeatPressure || 0) || 0),
       districtHeatPressure: Math.max(0, Number(coreModel.districtHeatPressure || 0) || 0),
@@ -159,7 +159,7 @@ export function resolvePoliceHeatFeedback(input = {}) {
     entries,
     aggregatePressure: heat,
     raidPressure: heat,
-    raidPressureExplanation: "Raid pressure je celkový tlak policie. Bez core read modelu se používá legacy heat fallback.",
+    raidPressureExplanation: "Tlak raidu je celkový tlak policie. Bez core read modelu se používá legacy heat fallback.",
     heatBreakdown: [],
     playerHeat: heat,
     ownedDistrictHeat: 0,
@@ -203,7 +203,7 @@ function createMount(root, documentRef) {
     };
     wantedFeedMount.classList?.add?.("police-feed-panel");
     wantedFeedMount.setAttribute?.("data-police-feed", "");
-    wantedFeedMount.setAttribute?.("aria-label", "Police feedback");
+    wantedFeedMount.setAttribute?.("aria-label", "Policejní zpětná vazba");
     panelHost.hidden = true;
     if (toggleButton && !toggleButton.dataset?.policeFeedToggleBound) {
       if (toggleButton.dataset) {
@@ -236,7 +236,7 @@ function createMount(root, documentRef) {
   }
   mount.className = "police-feed-panel";
   mount.setAttribute("data-police-feed", "");
-  mount.setAttribute("aria-label", "Police feedback");
+  mount.setAttribute("aria-label", "Policejní zpětná vazba");
 
   const container = root?.querySelector?.(".wanted-popup-card")
     || root;

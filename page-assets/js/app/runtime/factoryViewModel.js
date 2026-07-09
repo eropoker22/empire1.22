@@ -4,6 +4,15 @@ function getFactorySlotPerHour(slot = {}, rates = {}) {
   return rates.combatModulePerHour;
 }
 
+function formatFactorySpeedBonus(multiplier = 1) {
+  const safeMultiplier = Number(multiplier);
+  if (!Number.isFinite(safeMultiplier)) {
+    return "+0%";
+  }
+  const pct = Math.round((safeMultiplier - 1) * 100);
+  return `${pct >= 0 ? "+" : ""}${pct}%`;
+}
+
 const FACTORY_SLOT_DISPLAY_INFO = Object.freeze({
   metalParts: Object.freeze({
     durationLabel: "4 min",
@@ -140,7 +149,7 @@ export function buildFactoryDashboardViewModel({
     collectableAmount: Math.max(0, Math.floor(Number(collectableAmount || 0))),
     levelLabel: String(level),
     headerLevelLabel: `Lv ${level}`,
-    multiplierLabel: `${Number(syncResult.productionMultiplier || 0).toFixed(2)}x`,
+    multiplierLabel: formatFactorySpeedBonus(syncResult.productionMultiplier || 1),
     ownedCountLabel: String(Math.max(0, Math.floor(Number(syncResult.ownedFactoryCount || 0)))),
     upgradeCostLabel: isMaxLevel ? "MAX" : formatCurrency(nextUpgradeCost),
     resources: {

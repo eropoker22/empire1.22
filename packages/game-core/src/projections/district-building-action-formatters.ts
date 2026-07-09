@@ -18,28 +18,28 @@ const RESOURCE_LABELS: Record<string, string> = {
 export const formatCategoryList = (categories: string[]): string =>
   categories.length > 0
     ? categories.map((category) => GARAGE_CATEGORY_LABELS[category] ?? formatResourceLabel(category)).join(", ")
-    : "none";
+    : "žádné";
 
 const GARAGE_CATEGORY_LABELS: Record<string, string> = {
-  gangMovement: "Gang movement",
-  attackPreparation: "Attack preparation",
-  districtRobbery: "District robbery",
-  equipmentTransfer: "Equipment transfer",
-  resourceTransfer: "Resource transfer",
-  defenseRepair: "Defense repair",
-  defenseRestore: "Defense restore",
-  districtSpy: "District spy",
-  trapDetection: "Trap detection",
-  clinicRecovery: "Clinic recovery",
-  factoryProductionActions: "Factory production actions",
-  armoryProductionActions: "Armory production actions",
-  moneyLaundering: "Money laundering",
-  casinoActions: "Casino actions",
-  exchangeOfficeActions: "Exchange office actions",
-  arcadeLaunderingActions: "Arcade laundering actions",
-  vipBoosts: "VIP boosts",
-  rumorGeneration: "Rumor generation",
-  passiveProduction: "Passive production"
+  gangMovement: "Pohyb gangu",
+  attackPreparation: "Příprava útoku",
+  districtRobbery: "Loupež districtu",
+  equipmentTransfer: "Přesun výbavy",
+  resourceTransfer: "Přesun surovin",
+  defenseRepair: "Oprava obrany",
+  defenseRestore: "Obnova obrany",
+  districtSpy: "Špionáž districtu",
+  trapDetection: "Detekce pastí",
+  clinicRecovery: "Klinické zotavení",
+  factoryProductionActions: "Akce továrny",
+  armoryProductionActions: "Akce zbrojovky",
+  moneyLaundering: "Praní peněz",
+  casinoActions: "Akce kasina",
+  exchangeOfficeActions: "Akce směnárny",
+  arcadeLaunderingActions: "Praní v herně",
+  vipBoosts: "VIP boosty",
+  rumorGeneration: "Tvorba drbů",
+  passiveProduction: "Pasivní produkce"
 };
 
 export const formatNumber = (value: number): string => {
@@ -47,4 +47,8 @@ export const formatNumber = (value: number): string => {
   return Number.isInteger(normalized) ? String(normalized) : normalized.toFixed(1);
 };
 
-export const formatTickLabel = (tickCount: number): string => `${tickCount} ${tickCount === 1 ? "tick" : "ticks"}`;
+export const formatTickLabel = (tickCount: number): string => {
+  const normalized = Math.max(0, Math.floor(Number(tickCount || 0)));
+  const suffix = normalized === 1 ? "tick" : normalized >= 2 && normalized <= 4 ? "ticky" : "ticků";
+  return `${normalized} ${suffix}`;
+};

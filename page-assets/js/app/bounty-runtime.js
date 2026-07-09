@@ -496,6 +496,7 @@ function initBountyRuntime() {
     isBoardLoading: false,
     isTargetPickerOpen: false,
     isDistrictPickerOpen: false,
+    pendingTargetPlayerId: null,
     activeTab: "create"
   };
 
@@ -562,7 +563,8 @@ function initBountyRuntime() {
 
   const renderTargetOptions = () => {
     const targets = getTargets();
-    const previous = String(targetSelect.value || "").trim();
+    const requestedTargetId = String(uiState.pendingTargetPlayerId || "").trim();
+    const previous = requestedTargetId || String(targetSelect.value || "").trim();
     const devHelp = isDevOnlyBountyFallbackEnabled()
       ? '<small>Pro demo cíle nastav EMPIRE_ENABLE_BOUNTY_DEMO_TARGETS=1.</small>'
       : "";
@@ -580,6 +582,7 @@ function initBountyRuntime() {
       const firstTarget = targets.find((target) => target.canTarget) || targets[0] || null;
       targetSelect.value = firstTarget?.playerId || "";
     }
+    uiState.pendingTargetPlayerId = null;
 
     if (targetPicker) {
       const selectedTarget = targets.find((target) => String(target.playerId) === String(targetSelect.value || "")) || targets[0] || null;
@@ -1158,6 +1161,11 @@ function initBountyRuntime() {
 
   const onOpenTrigger = (event) => {
     event?.preventDefault?.();
+    const requestedTargetId = String(event?.detail?.targetPlayerId || event?.target?.dataset?.playerId || "").trim();
+    if (requestedTargetId) {
+      uiState.pendingTargetPlayerId = requestedTargetId;
+      uiState.activeTab = "create";
+    }
     const now = Date.now();
     if (now - uiState.openLock < 220) {
       return;

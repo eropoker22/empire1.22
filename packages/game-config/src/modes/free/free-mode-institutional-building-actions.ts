@@ -100,7 +100,7 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
   port_container_cut: {
     actionId: "port_container_cut",
     buildingType: "port",
-    label: "Container Cut",
+    label: "Proříznout kontejner",
     description: "Vybere z kontejnerů užitečné zásoby a dirty cash přes přístavní trasu.",
     durationMs: 0,
     cooldownMs: freeModePortConfig.containerCut.cooldownMinutes * 60 * 1000,
@@ -118,7 +118,7 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
   parliament_policy_window: {
     actionId: "parliament_policy_window",
     buildingType: "parliament",
-    label: "Policy Window",
+    label: "Politické okno",
     description: "Otevře krátké politické okno pro zisk vlivu a clean cash.",
     durationMs: 0,
     cooldownMs: freeModeParliamentConfig.policyWindow.cooldownMinutes * 60 * 1000,
@@ -163,8 +163,8 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
   insider_window: {
     actionId: "insider_window",
     buildingType: "stock_exchange",
-    label: "Insider Window",
-    description: "Na 6 minut zlepší trend hints, fee reduction a šanci Spekulativního nákupu.",
+    label: "Vnitřní tipy",
+    description: "Na 6 minut zlepší trend hinty, sníží market poplatek a zvedne šanci Spekulativního nákupu.",
     durationMs: freeModeStockExchangeConfig.insiderWindow.durationMinutes * 60 * 1000,
     cooldownMs: freeModeStockExchangeConfig.insiderWindow.cooldownMinutes * 60 * 1000,
     inputCost: { cash: freeModeStockExchangeConfig.insiderWindow.costCleanCash },
@@ -173,7 +173,7 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
     influenceChange: 0,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Insider Window aktivní. Burza ukazuje hlubší trend hints, ale zvedá financial inspection risk."
+    reportText: "Vnitřní tipy jsou aktivní. Burza ukazuje hlubší trend hinty, ale zvedá financial inspection risk."
   },
   liquidity_injection: {
     actionId: "liquidity_injection",

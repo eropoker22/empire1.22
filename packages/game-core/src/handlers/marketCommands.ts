@@ -23,15 +23,15 @@ export const handleMarketCommand = (
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
   const player = state.playersById[command.playerId];
   if (!player) {
-    return rejected(state, "market_player_not_found", "Player was not found for market command.");
+    return rejected(state, "market_player_not_found", "Hráč pro market akci nebyl nalezen.");
   }
 
   if (!isMarketResourceId(command.payload.resourceId)) {
-    return rejected(state, "market_unknown_resource", "Resource is not supported by the server market.");
+    return rejected(state, "market_unknown_resource", "Tuhle surovinu serverový market nepodporuje.");
   }
 
   if (!Number.isInteger(command.payload.amount) || command.payload.amount <= 0) {
-    return rejected(state, "market_invalid_amount", "Market amount must be a positive integer.");
+    return rejected(state, "market_invalid_amount", "Množství v marketu musí být kladné celé číslo.");
   }
 
   const result = command.type === "buy-market-resource"
@@ -49,7 +49,7 @@ export const handleMarketCommand = (
     return rejected(
       state,
       `market_${String(result.reason || "rejected").toLowerCase()}`,
-      result.message || "Market command was rejected."
+      result.message || "Market akce byla zamítnuta."
     );
   }
 

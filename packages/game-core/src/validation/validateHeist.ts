@@ -14,7 +14,7 @@ export const validateHeist = (
   if (!HEIST_STYLES.has(command.payload.style)) {
     return [{
       code: "HEIST_STYLE_INVALID",
-      message: "Heist style is not supported.",
+      message: "Tenhle styl heistu není podporovaný.",
       details: { style: command.payload.style }
     }];
   }
@@ -22,7 +22,7 @@ export const validateHeist = (
   if (!Number.isInteger(command.payload.gangMembersSent) || command.payload.gangMembersSent <= 0) {
     return [{
       code: "HEIST_GANG_MEMBERS_INVALID",
-      message: "Heist requires a positive integer gang member count.",
+      message: "Heist vyžaduje kladný počet členů gangu.",
       details: { gangMembersSent: command.payload.gangMembersSent }
     }];
   }
@@ -32,7 +32,7 @@ export const validateHeist = (
   if (availablePopulation < command.payload.gangMembersSent) {
     return [{
       code: "INSUFFICIENT_GANG_MEMBERS",
-      message: "Not enough available gang members for this heist.",
+      message: "Na tenhle heist nemáš dost dostupných členů gangu.",
       details: {
         requested: command.payload.gangMembersSent,
         available: availablePopulation
@@ -46,7 +46,7 @@ export const validateHeist = (
   if (!originDistrictId) {
     return [{
       code: "NO_VALID_ORIGIN",
-      message: "Heist command requires one unambiguous owned adjacent source district.",
+      message: "Heist vyžaduje jeden jasný vlastní sousední zdrojový district.",
       details: { targetDistrictId: command.payload.targetDistrictId }
     }];
   }
@@ -63,7 +63,7 @@ export const validateHeist = (
   if (!result.allowed) {
     return [{
       code: result.reasonCode ?? "HEIST_BLOCKED",
-      message: "Heist command is not allowed for this district.",
+      message: "Heist není v tomhle districtu povolený.",
       details: {
         targetDistrictId: command.payload.targetDistrictId,
         sourceDistrictId: originDistrictId,
@@ -83,7 +83,7 @@ export const validateHeist = (
   if (activeCooldown) {
     return [{
       code: "heist_cooldown_active",
-      message: `Vykradení hráče nebo zdrojová trasa se obnoví za ${activeCooldown.remainingTicks} ticks.`,
+      message: `Vykradení hráče nebo zdrojová trasa se obnoví za ${activeCooldown.remainingTicks} ticků.`,
       details: {
         targetDistrictId: command.payload.targetDistrictId,
         sourceDistrictId: originDistrictId,

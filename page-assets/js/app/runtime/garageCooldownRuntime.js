@@ -163,7 +163,7 @@ export function formatGarageEffectiveCooldownLabel({
   const base = Math.max(0, Math.floor(Number(baseCooldownMs || 0)));
   const effective = Math.max(0, Math.floor(Number(effectiveCooldownMs || 0)));
   if (base <= 0) {
-    return "Ready";
+    return "Připraveno";
   }
   if (effective > 0 && effective < base) {
     return `${format(effective)} (-${format(base - effective)})`;

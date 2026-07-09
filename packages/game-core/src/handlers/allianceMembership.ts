@@ -55,7 +55,7 @@ export const handleAllianceMembershipCommand = (
     case "send-public-alliance-invite":
       return sendPublicAllianceInvite(state, command, context);
     default:
-      return rejected(state, "unsupported_command", "Unsupported alliance membership command.");
+      return rejected(state, "unsupported_command", "Nepodporovaný membership command aliance.");
   }
 };
 
@@ -65,13 +65,13 @@ const createAlliance = (
   context: GameCoreContext
 ): AllianceMembershipResult => {
   const player = state.playersById[command.playerId];
-  if (!player) return rejected(state, "PLAYER_NOT_FOUND", "Player was not found.");
+  if (!player) return rejected(state, "PLAYER_NOT_FOUND", "Hráč nebyl nalezen.");
   const nowIso = nowIsoFromContext(context);
   const eligibility = canJoinOrCreateAlliance(state, player.id, "create", nowIso);
-  if (eligibility !== true) return rejected(state, eligibility, "Player cannot create an alliance right now.");
+  if (eligibility !== true) return rejected(state, eligibility, "Teď nemůžeš založit alianci.");
 
   const name = sanitizeAllianceName(command.payload.name);
-  if (!name) return rejected(state, "ALLIANCE_NAME_REQUIRED", "Alliance name is required.");
+  if (!name) return rejected(state, "ALLIANCE_NAME_REQUIRED", "Název aliance je povinný.");
   const tag = sanitizeAllianceTag(command.payload.tag || name);
   const emblemColor = sanitizeAllianceEmblemColor(command.payload.emblemColor);
   const allianceId = `alliance:${command.id}`;
@@ -127,16 +127,16 @@ const inviteAllianceMember = (
   const alliance = state.alliancesById[command.payload.allianceId];
   const actorMembership = alliance?.membershipByPlayerId?.[command.playerId];
   const target = state.playersById[command.payload.targetPlayerId];
-  if (!alliance || alliance.status !== "active") return rejected(state, "ALLIANCE_NOT_FOUND", "Alliance was not found.");
-  if (!actorMembership || actorMembership.role !== "leader") return rejected(state, "ALLIANCE_INVITE_NOT_ALLOWED", "Only alliance leader can invite members.");
-  if (!target) return rejected(state, "TARGET_PLAYER_NOT_FOUND", "Target player was not found.");
-  if (target.allianceId) return rejected(state, "TARGET_ALREADY_IN_ALLIANCE", "Target player is already in an alliance.");
-  if (alliance.memberIds.length >= context.config.balance.maxAllianceSize) return rejected(state, "ALLIANCE_FULL", "Alliance is full.");
+  if (!alliance || alliance.status !== "active") return rejected(state, "ALLIANCE_NOT_FOUND", "Aliance nebyla nalezena.");
+  if (!actorMembership || actorMembership.role !== "leader") return rejected(state, "ALLIANCE_INVITE_NOT_ALLOWED", "Členy může zvát jen leader aliance.");
+  if (!target) return rejected(state, "TARGET_PLAYER_NOT_FOUND", "Cílový hráč nebyl nalezen.");
+  if (target.allianceId) return rejected(state, "TARGET_ALREADY_IN_ALLIANCE", "Cílový hráč už je v alianci.");
+  if (alliance.memberIds.length >= context.config.balance.maxAllianceSize) return rejected(state, "ALLIANCE_FULL", "Aliance je plná.");
 
   const pendingExists = Object.values(state.allianceInvitesById ?? {}).some((invite) =>
     invite.allianceId === alliance.id && invite.targetPlayerId === target.id && invite.status === "pending"
   );
-  if (pendingExists) return rejected(state, "ALLIANCE_INVITE_ALREADY_PENDING", "Alliance invite is already pending.");
+  if (pendingExists) return rejected(state, "ALLIANCE_INVITE_ALREADY_PENDING", "Pozvánka do aliance už čeká na odpověď.");
 
   const nowIso = nowIsoFromContext(context);
   const invite: AllianceInvite = {
@@ -169,8 +169,8 @@ const respondAllianceInvite = (
   context: GameCoreContext
 ): AllianceMembershipResult => {
   const invite = state.allianceInvitesById?.[command.payload.inviteId];
-  if (!invite || invite.status !== "pending") return rejected(state, "ALLIANCE_INVITE_NOT_FOUND", "Alliance invite was not found.");
-  if (invite.targetPlayerId !== command.playerId) return rejected(state, "ALLIANCE_INVITE_NOT_OWNED", "Alliance invite belongs to another player.");
+  if (!invite || invite.status !== "pending") return rejected(state, "ALLIANCE_INVITE_NOT_FOUND", "Pozvánka do aliance nebyla nalezena.");
+  if (invite.targetPlayerId !== command.playerId) return rejected(state, "ALLIANCE_INVITE_NOT_OWNED", "Pozvánka patří jinému hráči.");
 
   const nowIso = nowIsoFromContext(context);
   const response = command.payload.response === "accept" ? "accepted" : "rejected";
@@ -234,11 +234,11 @@ const sendAllianceChatMessage = (
   const alliance = state.alliancesById[command.payload.allianceId];
   const membership = alliance?.membershipByPlayerId?.[command.playerId];
   if (!alliance || alliance.status !== "active" || !membership || membership.status === "removed") {
-    return rejected(state, "ALLIANCE_CHAT_NOT_ALLOWED", "Player is not an active alliance member.");
+    return rejected(state, "ALLIANCE_CHAT_NOT_ALLOWED", "Hráč není aktivní člen aliance.");
   }
 
   const body = String(command.payload.body || "").trim().slice(0, 240);
-  if (!body) return rejected(state, "ALLIANCE_CHAT_EMPTY", "Alliance chat message is empty.");
+  if (!body) return rejected(state, "ALLIANCE_CHAT_EMPTY", "Zpráva do aliance je prázdná.");
   const message: AllianceChatMessage = {
     id: `alliance-chat:${command.id}`,
     allianceId: alliance.id,
@@ -268,16 +268,16 @@ const sendPublicAllianceMessage = (
   const actorAlliance = actor?.allianceId ? state.alliancesById[actor.allianceId] : null;
   const actorActiveAlliance = actorAlliance?.status === "active" ? actorAlliance : null;
   const targetAlliance = state.alliancesById[command.payload.allianceId];
-  if (!actor) return rejected(state, "PLAYER_NOT_FOUND", "Player was not found.");
+  if (!actor) return rejected(state, "PLAYER_NOT_FOUND", "Hráč nebyl nalezen.");
   if (!targetAlliance || targetAlliance.status !== "active") {
-    return rejected(state, "ALLIANCE_NOT_FOUND", "Target alliance was not found.");
+    return rejected(state, "ALLIANCE_NOT_FOUND", "Cílová aliance nebyla nalezena.");
   }
   if (targetAlliance.id === actorActiveAlliance?.id) {
-    return rejected(state, "PUBLIC_ALLIANCE_CONTACT_SELF", "Target alliance must be different.");
+    return rejected(state, "PUBLIC_ALLIANCE_CONTACT_SELF", "Cílová aliance musí být jiná.");
   }
 
   const body = String(command.payload.body || "").trim().slice(0, 240);
-  if (!body) return rejected(state, "ALLIANCE_CHAT_EMPTY", "Alliance chat message is empty.");
+  if (!body) return rejected(state, "ALLIANCE_CHAT_EMPTY", "Zpráva do aliance je prázdná.");
   const message: AllianceChatMessage = {
     id: `alliance-public-chat:${command.id}`,
     allianceId: targetAlliance.id,
@@ -307,12 +307,12 @@ const sendPublicAllianceInvite = (
   const actorAlliance = actor?.allianceId ? state.alliancesById[actor.allianceId] : null;
   const actorActiveAlliance = actorAlliance?.status === "active" ? actorAlliance : null;
   const targetAlliance = state.alliancesById[command.payload.allianceId];
-  if (!actor) return rejected(state, "PLAYER_NOT_FOUND", "Player was not found.");
+  if (!actor) return rejected(state, "PLAYER_NOT_FOUND", "Hráč nebyl nalezen.");
   if (!targetAlliance || targetAlliance.status !== "active") {
-    return rejected(state, "ALLIANCE_NOT_FOUND", "Target alliance was not found.");
+    return rejected(state, "ALLIANCE_NOT_FOUND", "Cílová aliance nebyla nalezena.");
   }
   if (targetAlliance.id === actorActiveAlliance?.id) {
-    return rejected(state, "PUBLIC_ALLIANCE_CONTACT_SELF", "Target alliance must be different.");
+    return rejected(state, "PUBLIC_ALLIANCE_CONTACT_SELF", "Cílová aliance musí být jiná.");
   }
   const sourceAllianceId = actorActiveAlliance?.id ?? targetAlliance.id;
 
@@ -323,7 +323,7 @@ const sendPublicAllianceInvite = (
     && invite.targetAllianceId === targetAlliance.id
     && invite.status === "pending"
   );
-  if (pendingExists) return rejected(state, "ALLIANCE_INVITE_ALREADY_PENDING", "Alliance contact invite is already pending.");
+  if (pendingExists) return rejected(state, "ALLIANCE_INVITE_ALREADY_PENDING", "Kontakt s touto aliancí už čeká na odpověď.");
 
   const nowIso = nowIsoFromContext(context);
   const invite: AllianceInvite = {

@@ -52,43 +52,43 @@ const SERVER_LABELS = Object.freeze({
 const TAB_CONFIG = Object.freeze({
   overall: {
     label: "CELKOVĚ",
-    title: "Empire Score",
+    title: "Skóre impéria",
     copy: "Tady se ukazuje, kdo skutečně vlastní město.",
     empty: "Žádný boss neodpovídá aktuálním filtrům."
   },
   influence: {
     label: "VLIV",
-    title: "Influence Control",
+    title: "Kontrola vlivu",
     copy: "Vliv ukazuje, kdo tahá za kontakty, strach a loajalitu ulic.",
     empty: "Žádný vlivový cíl neodpovídá filtrům."
   },
   districts: {
     label: "DISTRIKTY",
-    title: "District Control",
+    title: "Kontrola districtů",
     copy: "Kontrola districtů rozhoduje, kdo drží mapu pod krkem.",
     empty: "Žádné district skóre neodpovídá filtrům."
   },
   money: {
     label: "PENÍZE",
-    title: "Cash Pressure",
+    title: "Finanční tlak",
     copy: "Čisté a špinavé peníze ukazují, kdo dokáže válku financovat.",
     empty: "Žádná ekonomická stopa neodpovídá filtrům."
   },
   wanted: {
     label: "WANTED",
-    title: "PUBLIC ENEMY LIST",
-    copy: "Public Enemy List ukazuje bosse, kterým už policie dýchá na záda.",
+    title: "Seznam hledaných",
+    copy: "Seznam hledaných ukazuje bosse, kterým už policie dýchá na záda.",
     empty: "Nikdo v hledáčku policie neodpovídá filtrům."
   },
   attacks: {
     label: "ÚTOKY",
-    title: "Attack Index",
+    title: "Index útoků",
     copy: "Útoky, robbery a zabité jednotky ukazují, kdo na serveru tlačí násilím.",
     empty: "Žádný agresor neodpovídá filtrům."
   },
   alliance: {
     label: "ALIANCE",
-    title: "Alliance Dominance",
+    title: "Síla aliancí",
     copy: "Aliance ukazují, které pakty mají město rozebrané na části.",
     empty: "Žádná aliance neodpovídá filtrům."
   }
@@ -1051,7 +1051,7 @@ function renderStats(players, alliances = []) {
       createStat("Aliance", formatNumber(alliances.length)),
       createStat("Top pakt", topAlliance?.alliance || "-"),
       createStat("District tlak", formatNumber(alliances.reduce((sum, alliance) => sum + alliance.totalDistricts, 0))),
-      createStat("Wanted pressure", formatNumber(alliances.reduce((sum, alliance) => sum + alliance.totalWanted, 0)))
+      createStat("Tlak hledanosti", formatNumber(alliances.reduce((sum, alliance) => sum + alliance.totalWanted, 0)))
     ].join("");
     return;
   }
@@ -1110,7 +1110,7 @@ function renderPlayerTable(players) {
       <span>Distrikty</span>
       <span>Vliv</span>
       <span>Wanted</span>
-      <span>Empire Score</span>
+      <span>Skóre impéria</span>
       <span>Akce</span>
     </div>
     ${players.map(renderPlayerRow).join("")}
@@ -1153,9 +1153,9 @@ function renderAllianceTable(alliances) {
       <span>Členové</span>
       <span>Distrikty</span>
       <span>Celkový vliv</span>
-      <span>Total Empire Score</span>
+      <span>Skóre impéria celkem</span>
       <span>Top hráč</span>
-      <span>Wanted pressure</span>
+      <span>Tlak hledanosti</span>
       <span>Akce</span>
     </div>
     ${alliances.map(renderAllianceRow).join("")}
@@ -1216,7 +1216,7 @@ export function renderPlayerDetail(playerId) {
 
   const stats = [
     ["Rank", `#${rankedPlayer.currentRank}`],
-    ["Empire Score", formatNumber(score)],
+    ["Skóre impéria", formatNumber(score)],
     ["Distrikty", formatNumber(player.districts)],
     ["Vliv", formatNumber(player.influence)],
     ["Clean", formatMoney(player.cleanMoney)],
@@ -1324,15 +1324,27 @@ export function renderLeaderboard() {
 
 function getActionMessage(action) {
   const actionLabels = {
-    view: "Zobrazení profilu bude napojeno později.",
-    target: "Označení cíle bude napojeno později.",
-    bounty: "Bounty systém bude napojen později.",
-    profile: "Profil hráče bude napojen později.",
-    message: "Zprávy budou napojeny později.",
-    "view-alliance": "Detail aliance bude napojen později."
+    view: "Profil hráče zatím není dostupný.",
+    target: "Označení cíle zatím není dostupné.",
+    bounty: "Otevři bounty kartu a vyber cílového hráče.",
+    profile: "Profil hráče zatím není dostupný.",
+    message: "Zprávy zatím nejsou dostupné.",
+    "view-alliance": "Detail aliance zatím není dostupný."
   };
 
-  return actionLabels[action] || "Funkce bude napojena později.";
+  return actionLabels[action] || "Funkce zatím není dostupná.";
+}
+
+function openBountyFromLeaderboard(playerId) {
+  closeLeaderboard();
+  window.setTimeout(() => {
+    document.dispatchEvent(new CustomEvent("empire:open-bounty-modal", {
+      detail: {
+        source: "leaderboard",
+        targetPlayerId: String(playerId || "")
+      }
+    }));
+  }, 0);
 }
 
 function openPlayerDetail(playerId) {
@@ -1355,7 +1367,7 @@ function closePlayerDetail() {
   leaderboardContext.playerDetailShell.hidden = true;
 }
 
-export function showLeaderboardToast(message = "Funkce bude napojena později.", type = "info") {
+export function showLeaderboardToast(message = "Funkce zatím není dostupná.", type = "info") {
   const toast = leaderboardContext.toastElement;
   if (!toast) {
     return;
@@ -1365,7 +1377,7 @@ export function showLeaderboardToast(message = "Funkce bude napojena později.",
   toast.dataset.type = type;
 
   if (leaderboardContext.toastTitleElement) {
-    leaderboardContext.toastTitleElement.textContent = type === "warning" ? "WARNING" : "TERMINAL";
+    leaderboardContext.toastTitleElement.textContent = type === "warning" ? "VAROVÁNÍ" : "TERMINÁL";
   }
 
   if (leaderboardContext.toastMessageElement) {
@@ -1457,6 +1469,12 @@ function handleDetailClick(event) {
   const target = typeof Element !== "undefined" && event.target instanceof Element ? event.target : event.target?.parentElement;
   const actionButton = target?.closest("[data-leaderboard-action]");
   if (actionButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (actionButton.dataset.leaderboardAction === "bounty") {
+      openBountyFromLeaderboard(actionButton.dataset.playerId);
+      return;
+    }
     showLeaderboardToast(getActionMessage(actionButton.dataset.leaderboardAction), "info");
   }
 }

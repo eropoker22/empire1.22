@@ -129,25 +129,25 @@ export const createHeatBreakdown = (input: {
 }): PoliceHeatBreakdownView[] => [
   {
     key: "wantedLevel",
-    label: "Wanted level",
+    label: "Hledanost",
     value: input.wantedLabel,
-    description: "Osobní policejní stopa hráče. Počítá se z player heat, ne z district heat."
+    description: "Osobní policejní stopa hráče. Počítá se z heat hráče, ne z heat districtů."
   },
   {
     key: "playerHeat",
-    label: "Player heat",
+    label: "Heat hráče",
     value: String(input.playerHeat),
     description: "Heat přímo na hráči z hlučných akcí, útoků a špinavých operací."
   },
   {
     key: "districtHeat",
-    label: "District heat",
+    label: "Heat districtů",
     value: String(input.districtHeat),
-    description: "Součet heat ve vlastněných districtech. Může táhnout raid pressure nahoru i při nízkém wanted levelu."
+    description: "Součet heat ve vlastněných districtech. Může táhnout tlak raidu nahoru i při nízké hledanosti."
   },
   {
     key: "raidPressure",
-    label: "Raid pressure",
+    label: "Tlak raidu",
     value: String(input.raidPressure),
     description: "Celkový tlak policie, který rozhoduje o warningu a raidu."
   }
@@ -173,11 +173,11 @@ export const getRecommendedAction = (input: {
 
   let action: string;
   if (input.raidPending) {
-    action = "Pending raid je aktivní. Přesuň dirty cash a počítej s následky zásahu.";
+    action = "Připravená razie je aktivní. Přesuň dirty cash a počítej s následky zásahu.";
   } else if (districtDominant && input.wantedLevel <= 2) {
-    action = "Tvůj wanted level je nízký, ale tvoje districty jsou příliš horké. Policie sleduje hlavně tvoje podniky, ne tebe osobně.";
+    action = "Tvoje hledanost je nízká, ale tvoje districty jsou příliš horké. Policie sleduje hlavně tvoje podniky, ne tebe osobně.";
   } else if (districtDominant) {
-    action = "Raid pressure roste hlavně kvůli lokálnímu heat ve vlastněných districtech.";
+    action = "Tlak raidu roste hlavně kvůli lokálnímu heat ve vlastněných districtech.";
   } else if (playerDominant) {
     action = "Tvoje osobní policejní stopa je horká. Omez útoky a hlučné akce, než z tebe bude snadný cíl.";
   } else {
@@ -197,13 +197,13 @@ export const getRecommendedAction = (input: {
 const getPressureTierAction = (riskTier: SharedPoliceReadModel["riskTier"]): string => {
   switch (riskTier) {
     case "extreme":
-      return "Raid pressure je extrémní. Okamžitě ztiš operace, jinak policie udeří.";
+      return "Tlak raidu je extrémní. Okamžitě ztiš operace, jinak policie udeří.";
     case "high":
-      return "Raid pressure je vysoký. Zvaž pauzu v útocích a stáhni heat z horkých districtů.";
+      return "Tlak raidu je vysoký. Zvaž pauzu v útocích a stáhni heat z horkých districtů.";
     case "medium":
       return "Policejní tlak roste. Sniž hluk, drž dirty cash mimo ránu a sleduj district heat.";
     case "low":
     default:
-      return "Pokračuj opatrně. District heat může přitáhnout raid i bez vysokého wanted levelu.";
+      return "Pokračuj opatrně. Heat districtů může přitáhnout raid i bez vysoké hledanosti.";
   }
 };

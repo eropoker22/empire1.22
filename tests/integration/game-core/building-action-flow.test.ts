@@ -832,8 +832,16 @@ describe("run-building-action command flow", () => {
       }
     });
 
+    const nightStartTick = context.config.balance.dayNight?.phases.day.durationTicks ?? 1440;
+    const nightState = {
+      ...state,
+      root: {
+        ...state.root,
+        tick: nightStartTick
+      }
+    };
     const charter = applyCommand(
-      state,
+      nightState,
       createRunBuildingActionCommandFixture({
         id: "command:airport:charter",
         payload: {
@@ -847,7 +855,7 @@ describe("run-building-action command flow", () => {
     expect(charter.errors).toEqual([]);
     expect(charter.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(2500);
     expect(charter.nextState.buildingsById[building.id].metadata?.airport).toMatchObject({
-      blackCharterExpiresAtTick: 96,
+      blackCharterExpiresAtTick: nightStartTick + 96,
       blackCharterOffer: {
         discountPct: 6,
         purchaseCustomsRiskPct: 15

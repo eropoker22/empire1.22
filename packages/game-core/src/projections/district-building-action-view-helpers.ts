@@ -24,15 +24,15 @@ export const createExpectedEffectSummary = (action: BuildingActionBalanceConfig)
   ...Object.entries(action.outputGain)
     .filter(([, amount]) => Number(amount || 0) > 0)
     .map(([resourceKey, amount]) => `+${formatNumber(amount)} ${formatResourceLabel(resourceKey)}`),
-  action.influenceChange !== 0 ? `Influence ${formatSigned(action.influenceChange)}` : "",
-  action.durationMs > 0 ? `Duration ${Math.ceil(action.durationMs / 1000)}s` : "",
-  action.effectModifiers ? "Timed building effect" : "",
+  action.influenceChange !== 0 ? `Vliv ${formatSigned(action.influenceChange)}` : "",
+  action.durationMs > 0 ? `Trvání ${Math.ceil(action.durationMs / 1000)}s` : "",
+  action.effectModifiers ? "Dočasný efekt budovy" : "",
   action.reportText
 ].filter(Boolean);
 
 export const createRiskSummary = (action: BuildingActionBalanceConfig): string[] => [
   action.heatGain > 0 ? `Heat +${formatNumber(action.heatGain)}` : "",
-  action.cooldownMs > 0 ? `Cooldown ${Math.ceil(action.cooldownMs / 1000)}s` : ""
+  action.cooldownMs > 0 ? `Čekání ${Math.ceil(action.cooldownMs / 1000)}s` : ""
 ].filter(Boolean);
 
 export const createRequiredInputViews = (input: {
@@ -50,7 +50,7 @@ export const createRequiredInputViews = (input: {
       {
         id: "dealerSlotId",
         type: "select",
-        label: "Dealer slot",
+        label: "Slot dealerů",
         required: true,
         options: Array.from({ length: 5 }, (_value, index) => ({
           value: `slot-${index + 1}`,
@@ -60,7 +60,7 @@ export const createRequiredInputViews = (input: {
       {
         id: "itemId",
         type: "select",
-        label: "Drug item",
+        label: "Droga",
         required: true,
         options: input.streetDealersConfig.sellableDrugs.map((drug) => ({
           value: drug.itemId,
@@ -70,7 +70,7 @@ export const createRequiredInputViews = (input: {
       {
         id: "amount",
         type: "number",
-        label: "Amount",
+        label: "Množství",
         required: true,
         min: 1,
         max: 12
@@ -79,16 +79,16 @@ export const createRequiredInputViews = (input: {
   }
 
   if (input.airportConfig && actionId === input.airportConfig.expressImport.actionId) {
-    return [createSelectInput("targetCategory", "Import category", input.airportConfig.expressImport.targetCategories)];
+    return [createSelectInput("targetCategory", "Kategorie importu", input.airportConfig.expressImport.targetCategories)];
   }
 
   if (input.stockExchangeConfig && actionId === input.stockExchangeConfig.speculativeBuy.actionId) {
     return [
-      createSelectInput("targetCategory", "Market category", input.stockExchangeConfig.speculativeBuy.targetCategories),
+      createSelectInput("targetCategory", "Kategorie marketu", input.stockExchangeConfig.speculativeBuy.targetCategories),
       {
         id: "investmentCleanCash",
         type: "number",
-        label: "Investment",
+        label: "Investice",
         required: true,
         min: 1
       }
@@ -97,24 +97,24 @@ export const createRequiredInputViews = (input: {
 
   if (input.stockExchangeConfig && actionId === input.stockExchangeConfig.marketPressure.actionId) {
     return [
-      createSelectInput("targetCategory", "Market category", input.stockExchangeConfig.marketPressure.targetCategories),
-      createSelectInput("mode", "Pressure mode", ["pump", "dump"])
+      createSelectInput("targetCategory", "Kategorie marketu", input.stockExchangeConfig.marketPressure.targetCategories),
+      createSelectInput("mode", "Režim tlaku", ["pump", "dump"])
     ];
   }
 
   if (input.centralBankConfig && actionId === input.centralBankConfig.currencyIntervention.actionId) {
     return [
-      createSelectInput("targetCategory", "Market category", input.centralBankConfig.currencyIntervention.targetCategories)
+      createSelectInput("targetCategory", "Kategorie marketu", input.centralBankConfig.currencyIntervention.targetCategories)
     ];
   }
 
   if (input.cityHallConfig && actionId === input.cityHallConfig.emergencyDecree.actionId) {
     return [
-      createSelectInput("mode", "Decree mode", Object.keys(input.cityHallConfig.emergencyDecree.modes)),
+      createSelectInput("mode", "Režim vyhlášky", Object.keys(input.cityHallConfig.emergencyDecree.modes)),
       {
         id: "targetZone",
         type: "text",
-        label: "Target zone",
+        label: "Cílová zóna",
         required: false
       }
     ];

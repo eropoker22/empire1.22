@@ -23,6 +23,9 @@ import {
 import { formatCategoryList, formatNumber, formatTickLabel } from "./district-building-action-formatters";
 import type { BuildingStatsProjectionInput, BuildingStatView } from "./district-building-stats-types";
 
+const formatMultiplierBonus = (value: number): string =>
+  `${Number(value || 1) >= 1 ? "+" : ""}${formatNumber((Number(value || 1) - 1) * 100)} %`;
+
 export const createSupportBuildingStats = (input: BuildingStatsProjectionInput): BuildingStatView[] | null => {
   if (input.building.buildingTypeId === "school" && input.schoolConfig && input.building.ownerPlayerId) {
     const ownedCount = getOwnedSchoolCount(input.state, input.building.ownerPlayerId, input.schoolConfig);
@@ -43,14 +46,14 @@ export const createSupportBuildingStats = (input: BuildingStatsProjectionInput):
     return [
       { label: "Clean / min", value: `$${formatNumber(input.schoolConfig.cleanCashPerMinute * network.incomeMultiplier * (eveningActive ? input.schoolConfig.eveningCourse.cleanIncomeMultiplier : 1))}` },
       { label: "Influence / min", value: formatNumber(input.schoolConfig.influencePerMinute) },
-      { label: "Population / min", value: formatNumber(productionPerMinute) },
-      { label: "Population", value: `${formatNumber(Math.floor(stored))} / ${formatNumber(capacity)}` },
-      { label: "Time to full", value: stored >= capacity ? "Plná kapacita" : formatTickLabel(timeToFullTicks) },
-      { label: "Owned schools", value: `${ownedCount}/${input.schoolConfig.countOnMap}` },
-      { label: "Population multiplier", value: `x${formatNumber(network.populationProductionMultiplier)}` },
-      { label: "Capacity multiplier", value: `x${formatNumber(network.studentCapacityMultiplier)}` },
-      { label: "Income multiplier", value: `x${formatNumber(network.incomeMultiplier)}` },
-      { label: "Evening course", value: eveningActive ? `active ${formatTickLabel(Math.max(0, Number(metadata.eveningCourseExpiresAtTick || 0) - input.tick))}` : "ready when off cooldown" }
+      { label: "Populace / min", value: formatNumber(productionPerMinute) },
+      { label: "Populace", value: `${formatNumber(Math.floor(stored))} / ${formatNumber(capacity)}` },
+      { label: "Do naplnění", value: stored >= capacity ? "Plná kapacita" : formatTickLabel(timeToFullTicks) },
+      { label: "Vlastněné školy", value: `${ownedCount}/${input.schoolConfig.countOnMap}` },
+      { label: "Produkce populace", value: formatMultiplierBonus(network.populationProductionMultiplier) },
+      { label: "Kapacita", value: formatMultiplierBonus(network.studentCapacityMultiplier) },
+      { label: "Income", value: formatMultiplierBonus(network.incomeMultiplier) },
+      { label: "Večerní kurz", value: eveningActive ? `aktivní ${formatTickLabel(Math.max(0, Number(metadata.eveningCourseExpiresAtTick || 0) - input.tick))}` : "připraveno po čekání" }
     ];
   }
   if (input.building.buildingTypeId === "fitness_club" && input.fitnessClubConfig && input.building.ownerPlayerId) {
@@ -64,14 +67,14 @@ export const createSupportBuildingStats = (input: BuildingStatsProjectionInput):
     return [
       { label: "Clean / min", value: `$${formatNumber(input.fitnessClubConfig.cleanCashPerMinute * network.incomeMultiplier)}` },
       { label: "Heat / min", value: formatNumber(input.fitnessClubConfig.heatPerMinute * network.heatMultiplier) },
-      { label: "Owned fitness clubs", value: `${ownedCount}/${input.fitnessClubConfig.countOnMap}` },
-      { label: "Income multiplier", value: `x${formatNumber(network.incomeMultiplier)}` },
-      { label: "Attack strength bonus", value: `+${formatNumber(support.attackStrengthBonusPct)} %` },
-      { label: "Defense strength bonus", value: `+${formatNumber(support.defenseStrengthBonusPct)} %` },
-      { label: "Recruitment + fitness attack cap", value: `+${formatNumber(support.combinedRecruitmentFitnessAttackCapPct)} %` },
-      { label: "Recruitment + fitness defense cap", value: `+${formatNumber(support.combinedRecruitmentFitnessDefenseCapPct)} %` },
-      { label: "Attack applies to", value: "gang body, bats, pistols, grenades, SMGs, bazookas by weight" },
-      { label: "Defense applies to", value: "gang body, vests, barricades; not cameras or alarm" }
+      { label: "Vlastněné fitness cluby", value: `${ownedCount}/${input.fitnessClubConfig.countOnMap}` },
+      { label: "Income", value: formatMultiplierBonus(network.incomeMultiplier) },
+      { label: "Síla útoku", value: `+${formatNumber(support.attackStrengthBonusPct)} %` },
+      { label: "Síla obrany", value: `+${formatNumber(support.defenseStrengthBonusPct)} %` },
+      { label: "Cap útoku", value: `+${formatNumber(support.combinedRecruitmentFitnessAttackCapPct)} %` },
+      { label: "Cap obrany", value: `+${formatNumber(support.combinedRecruitmentFitnessDefenseCapPct)} %` },
+      { label: "Platí na útok", value: "gang, pálky, pistole, granáty, samopaly a bazuky podle váhy" },
+      { label: "Platí na obranu", value: "gang, vesty a barikády; ne kamery ani alarm" }
     ];
   }
   if (input.building.buildingTypeId === "garage" && input.garageConfig && input.building.ownerPlayerId) {
@@ -85,12 +88,12 @@ export const createSupportBuildingStats = (input: BuildingStatsProjectionInput):
     return [
       { label: "Clean / min", value: `$${formatNumber(input.garageConfig.cleanCashPerMinute * network.incomeMultiplier)}` },
       { label: "Heat / min", value: formatNumber(input.garageConfig.heatPerMinute * network.heatMultiplier) },
-      { label: "Owned garages", value: `${ownedCount}/${input.garageConfig.countOnMap}` },
-      { label: "Income multiplier", value: `x${formatNumber(network.incomeMultiplier)}` },
-      { label: "Cooldown reduction", value: `-${formatNumber(cooldownStats.cooldownReductionPct)} %` },
-      { label: "Full bonus categories", value: formatCategoryList(cooldownStats.fullBonusCategories) },
-      { label: "Half bonus categories", value: formatCategoryList(cooldownStats.halfBonusCategories) },
-      { label: "No bonus categories", value: formatCategoryList(cooldownStats.excludedCategories) }
+      { label: "Vlastněné garáže", value: `${ownedCount}/${input.garageConfig.countOnMap}` },
+      { label: "Income", value: formatMultiplierBonus(network.incomeMultiplier) },
+      { label: "Zkrácení čekání", value: `-${formatNumber(cooldownStats.cooldownReductionPct)} %` },
+      { label: "Plný bonus", value: formatCategoryList(cooldownStats.fullBonusCategories) },
+      { label: "Poloviční bonus", value: formatCategoryList(cooldownStats.halfBonusCategories) },
+      { label: "Bez bonusu", value: formatCategoryList(cooldownStats.excludedCategories) }
     ];
   }
   if (input.building.buildingTypeId === "recycling_center" && input.recyclingCenterConfig && input.building.ownerPlayerId) {

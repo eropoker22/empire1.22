@@ -30,7 +30,7 @@ describe("craft-item command flow", () => {
       context
     );
 
-    expect(collectedState.nextState.resourceStatesById["resource:1"]?.balances.chemicals).toBe(12);
+    expect(collectedState.nextState.resourceStatesById["resource:1"]?.balances.chemicals).toBe(14);
 
     const crafted = applyCommand(
       collectedState.nextState,
@@ -45,7 +45,7 @@ describe("craft-item command flow", () => {
     );
 
     expect(crafted.errors).toEqual([]);
-    expect(crafted.nextState.resourceStatesById["resource:1"]?.balances.chemicals).toBe(6);
+    expect(crafted.nextState.resourceStatesById["resource:1"]?.balances.chemicals).toBe(8);
     expect(crafted.nextState.resourceStatesById["resource:1"]?.balances["stim-pack"]).toBeUndefined();
     expect(crafted.nextState.buildingsById[buildingId]?.processing).toEqual({
       recipeId: "stim-pack",

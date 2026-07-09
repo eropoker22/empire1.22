@@ -159,7 +159,8 @@ const PLAYER_FACING_ERROR_COPY = {
   unsupported_command: "Tahle alianční akce zatím není dostupná.",
   UNSUPPORTED_COMMAND: "Tahle alianční akce zatím není dostupná.",
   "Server-authoritative gameplay runtime není připravený.": "Aliance teď čeká na herní server. Zkus to za chvíli.",
-  "Alliance command nejde odeslat bez server slice kontextu.": "Aliance ještě nemá načtený herní stav. Zkus to za chvíli."
+  "Alliance command nejde odeslat bez server slice kontextu.": "Aliance ještě nemá načtený herní stav. Zkus to za chvíli.",
+  "Aliance akci nejde odeslat bez server slice kontextu.": "Aliance ještě nemá načtený herní stav. Zkus to za chvíli."
 };
 
 const escapeHtml = (value) => String(value || "")

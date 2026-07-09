@@ -42,7 +42,7 @@ export const handleAllianceLifecycleCommand = (
       return {
         nextState: state,
         events: [],
-        errors: [{ code: "unsupported_command", message: "Unsupported alliance command." }]
+        errors: [{ code: "unsupported_command", message: "Nepodporovaný alliance command." }]
       };
   }
 };

@@ -171,13 +171,13 @@ export const confirmAllianceReady = (
   const alliance = prepared.alliance;
   const membership = alliance.membershipByPlayerId?.[command.playerId];
   const activeVote = membership?.activeVoteId ? alliance.kickVotesById?.[membership.activeVoteId] : null;
-  if (!membership || membership.status === "removed") return failure(state, "MEMBERSHIP_NOT_FOUND", "Alliance membership was not found.");
-  if (membership.status === "exit_pending") return failure(state, "READY_NOT_ALLOWED", "Exiting members cannot confirm READY.");
+  if (!membership || membership.status === "removed") return failure(state, "MEMBERSHIP_NOT_FOUND", "Členství v alianci nebylo nalezeno.");
+  if (membership.status === "exit_pending") return failure(state, "READY_NOT_ALLOWED", "Hráč na odchodu nemůže potvrdit aktivitu.");
   if (
     typeof command.payload.expectedMembershipVersion === "number"
     && membership.version !== command.payload.expectedMembershipVersion
   ) {
-    return failure(state, "MEMBERSHIP_VERSION_CONFLICT", "Alliance membership version changed.");
+    return failure(state, "MEMBERSHIP_VERSION_CONFLICT", "Verze členství v alianci se změnila.");
   }
 
   const nextMembership = createReadyMembership(membership, nowIso, config);
@@ -225,28 +225,28 @@ export const startInactiveMemberKickVote = (
   const alliance = prepared.alliance;
   const initiator = alliance.membershipByPlayerId?.[command.playerId];
   const target = alliance.membershipByPlayerId?.[command.payload.targetPlayerId];
-  if (!initiator || initiator.status === "removed") return failure(state, "MEMBERSHIP_NOT_FOUND", "Initiator is not an alliance member.");
-  if (!target || target.status === "removed") return failure(state, "MEMBERSHIP_NOT_FOUND", "Target is not an alliance member.");
-  if (command.playerId === command.payload.targetPlayerId) return failure(state, "TARGET_CANNOT_VOTE", "Target cannot start a vote against self.");
+  if (!initiator || initiator.status === "removed") return failure(state, "MEMBERSHIP_NOT_FOUND", "Hráč, který spouští hlasování, není člen aliance.");
+  if (!target || target.status === "removed") return failure(state, "MEMBERSHIP_NOT_FOUND", "Cílový hráč není člen aliance.");
+  if (command.playerId === command.payload.targetPlayerId) return failure(state, "TARGET_CANNOT_VOTE", "Nemůžeš spustit hlasování sám proti sobě.");
   if (
     typeof command.payload.expectedTargetMembershipVersion === "number"
     && target.version !== command.payload.expectedTargetMembershipVersion
   ) {
-    return failure(state, "MEMBERSHIP_VERSION_CONFLICT", "Target membership version changed.");
+    return failure(state, "MEMBERSHIP_VERSION_CONFLICT", "Verze členství cílového hráče se změnila.");
   }
   if (alliance.memberIds.filter((id) => alliance.membershipByPlayerId?.[id]?.status !== "removed").length < 2) {
-    return failure(state, "READY_NOT_ALLOWED", "Alliance needs at least two members to vote.");
+    return failure(state, "READY_NOT_ALLOWED", "Aliance potřebuje na hlasování aspoň dva členy.");
   }
   if (Date.parse(target.nextKickVoteAllowedAt ?? "") > Date.parse(nowIso)) {
-    return failure(state, "VOTE_RETRY_COOLDOWN", "Kick vote retry cooldown is active.");
+    return failure(state, "VOTE_RETRY_COOLDOWN", "Cooldown pro další hlasování je aktivní.");
   }
 
   const targetVote = target.activeVoteId ? alliance.kickVotesById?.[target.activeVoteId] : null;
-  if (targetVote?.status === "pending") return failure(state, "VOTE_ALREADY_ACTIVE", "A vote is already active.");
+  if (targetVote?.status === "pending") return failure(state, "VOTE_ALREADY_ACTIVE", "Hlasování už běží.");
 
   const targetStatus = deriveAllianceMembershipStatus(target, nowIso, config, null);
   if (targetStatus !== "vote_eligible") {
-    return failure(state, "TARGET_NOT_VOTE_ELIGIBLE", "Target is not eligible for inactive kick voting.");
+    return failure(state, "TARGET_NOT_VOTE_ELIGIBLE", "Cílový hráč zatím nesplňuje podmínky pro hlasování o neaktivitě.");
   }
 
   const eligibleVoterIds = alliance.memberIds.filter((id) => {
@@ -304,26 +304,26 @@ export const castAllianceKickVote = (
   const nowIso = nowIsoFromContext(context);
   const config = getAllianceLifecycleConfig(context);
   const voteEntry = findVote(state, command.payload.voteId);
-  if (!voteEntry) return failure(state, "VOTE_NOT_FOUND", "Vote was not found.");
+  if (!voteEntry) return failure(state, "VOTE_NOT_FOUND", "Hlasování nebylo nalezeno.");
   const prepared = prepareAlliance(state, voteEntry.alliance.id, nowIso, config);
   if (prepared.errors.length) return { nextState: state, events: [], errors: prepared.errors };
 
   const vote = prepared.alliance.kickVotesById?.[command.payload.voteId];
-  if (!vote) return failure(state, "VOTE_NOT_FOUND", "Vote was not found.");
-  if (vote.status !== "pending") return failure(state, "VOTE_NOT_PENDING", "Vote is not pending.");
+  if (!vote) return failure(state, "VOTE_NOT_FOUND", "Hlasování nebylo nalezeno.");
+  if (vote.status !== "pending") return failure(state, "VOTE_NOT_PENDING", "Hlasování už nečeká na hlasy.");
   if (Date.parse(vote.expiresAt) <= Date.parse(nowIso)) return finalizeVote(prepared.nextState, vote.id, context);
-  if (vote.targetPlayerId === command.playerId) return failure(state, "TARGET_CANNOT_VOTE", "Target cannot vote.");
-  if (!vote.eligibleVoterIds.includes(command.playerId)) return failure(state, "VOTER_NOT_ELIGIBLE", "Voter is not eligible.");
+  if (vote.targetPlayerId === command.playerId) return failure(state, "TARGET_CANNOT_VOTE", "Cílový hráč nemůže hlasovat.");
+  if (!vote.eligibleVoterIds.includes(command.playerId)) return failure(state, "VOTER_NOT_ELIGIBLE", "Hráč nemá právo hlasovat.");
   if (
     typeof command.payload.expectedVoteVersion === "number"
     && vote.version !== command.payload.expectedVoteVersion
   ) {
-    return failure(state, "VOTE_INVALIDATED", "Vote version changed.");
+    return failure(state, "VOTE_INVALIDATED", "Verze hlasování se změnila.");
   }
 
   const voterMembership = prepared.alliance.membershipByPlayerId?.[command.playerId];
   if (!voterMembership || voterMembership.status === "removed") {
-    return failure(state, "VOTER_NOT_ELIGIBLE", "Voter is not an active member.");
+    return failure(state, "VOTER_NOT_ELIGIBLE", "Hlasující hráč není aktivní člen.");
   }
 
   const previousChoice = vote.votes[command.playerId];
@@ -371,14 +371,14 @@ export const finalizeVote = (
   const nowIso = nowIsoFromContext(context);
   const config = getAllianceLifecycleConfig(context);
   const voteEntry = findVote(state, voteId);
-  if (!voteEntry) return failure(state, "VOTE_NOT_FOUND", "Vote was not found.");
+  if (!voteEntry) return failure(state, "VOTE_NOT_FOUND", "Hlasování nebylo nalezeno.");
   const prepared = prepareAlliance(state, voteEntry.alliance.id, nowIso, config);
   if (prepared.errors.length) return { nextState: state, events: [], errors: prepared.errors };
 
   const alliance = prepared.alliance;
   const vote = alliance.kickVotesById?.[voteId];
   const target = vote ? alliance.membershipByPlayerId?.[vote.targetPlayerId] : null;
-  if (!vote || !target) return failure(state, "VOTE_NOT_FOUND", "Vote target was not found.");
+  if (!vote || !target) return failure(state, "VOTE_NOT_FOUND", "Cíl hlasování nebyl nalezen.");
   if (vote.status !== "pending" && vote.status !== "passed") return { nextState: prepared.nextState, events: [], errors: [] };
 
   const revalidatedVoters = vote.eligibleVoterIds.every((id) => {
@@ -438,19 +438,19 @@ export const leaveAlliance = (
   if (prepared.errors.length) return { nextState: state, events: [], errors: prepared.errors };
 
   const membership = prepared.alliance.membershipByPlayerId?.[command.playerId];
-  if (!membership || membership.status === "removed") return failure(state, "MEMBERSHIP_NOT_FOUND", "Membership was not found.");
-  if (membership.status === "exit_pending") return failure(state, "PLAYER_ALREADY_EXITING", "Player is already leaving alliance.");
+  if (!membership || membership.status === "removed") return failure(state, "MEMBERSHIP_NOT_FOUND", "Členství nebylo nalezeno.");
+  if (membership.status === "exit_pending") return failure(state, "PLAYER_ALREADY_EXITING", "Hráč už alianci opouští.");
   if (
     typeof command.payload.expectedMembershipVersion === "number"
     && membership.version !== command.payload.expectedMembershipVersion
   ) {
-    return failure(state, "MEMBERSHIP_VERSION_CONFLICT", "Membership version changed.");
+    return failure(state, "MEMBERSHIP_VERSION_CONFLICT", "Verze členství se změnila.");
   }
 
   const remainingIds = prepared.alliance.memberIds.filter((id) => id !== command.playerId);
   const successor = chooseLeaderSuccessor(prepared.alliance, command.payload.chosenSuccessorPlayerId, nowIso, config, command.playerId);
   if (membership.role === "leader" && remainingIds.length > 0 && !successor) {
-    return failure(state, "LEADER_SUCCESSOR_REQUIRED", "Leader must select a valid successor.");
+    return failure(state, "LEADER_SUCCESSOR_REQUIRED", "Leader musí vybrat platného nástupce.");
   }
 
   const removal = removeMemberFromAlliance(
@@ -477,7 +477,7 @@ export const disbandAlliance = (
   if (prepared.errors.length) return { nextState: state, events: [], errors: prepared.errors };
   const membership = prepared.alliance.membershipByPlayerId?.[command.playerId];
   if (!membership || membership.role !== "leader") {
-    return failure(state, "READY_NOT_ALLOWED", "Only alliance leader can disband alliance.");
+    return failure(state, "READY_NOT_ALLOWED", "Alianci může rozpustit jen leader.");
   }
 
   let nextState = prepared.nextState;
@@ -603,7 +603,7 @@ const prepareAlliance = (
 ): { nextState: CoreGameState; alliance: Alliance; errors: CoreError[] } => {
   const alliance = state.alliancesById[allianceId];
   if (!alliance || alliance.status === "disbanded") {
-    return { nextState: state, alliance: alliance as Alliance, errors: [{ code: "MEMBERSHIP_NOT_FOUND", message: "Alliance was not found." }] };
+    return { nextState: state, alliance: alliance as Alliance, errors: [{ code: "MEMBERSHIP_NOT_FOUND", message: "Aliance nebyla nalezena." }] };
   }
   const membershipByPlayerId = { ...(alliance.membershipByPlayerId ?? {}) };
   let changed = false;

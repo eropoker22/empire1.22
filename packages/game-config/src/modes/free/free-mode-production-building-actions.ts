@@ -5,7 +5,7 @@ export const freeModeProductionBuildingActions: NonNullable<ResolvedGameModeConf
   produce_chemicals: {
     actionId: "produce_chemicals",
     buildingType: "pharmacy",
-    label: "Produce Chemicals",
+    label: "Vyrobit chemikálie",
     description: "Vyrobi zakladni chemikalie pro leky a lab.",
     durationMs: 0,
     cooldownMs: baseCooldownMsForFinalMinutes(2),
@@ -20,7 +20,7 @@ export const freeModeProductionBuildingActions: NonNullable<ResolvedGameModeConf
   produce_biomass: {
     actionId: "produce_biomass",
     buildingType: "pharmacy",
-    label: "Produce Biomass",
+    label: "Vyrobit biomasu",
     description: "Vyrobi biomasu pro leky a drogy.",
     durationMs: 0,
     cooldownMs: baseCooldownMsForFinalMinutes(2),
@@ -35,7 +35,7 @@ export const freeModeProductionBuildingActions: NonNullable<ResolvedGameModeConf
   produce_stim_pack: {
     actionId: "produce_stim_pack",
     buildingType: "pharmacy",
-    label: "Produce Stim Pack",
+    label: "Vyrobit stim pack",
     description: "Prevede chemicals a biomass na Stim Pack.",
     durationMs: 0,
     cooldownMs: baseCooldownMsForFinalMinutes(4),
@@ -50,7 +50,7 @@ export const freeModeProductionBuildingActions: NonNullable<ResolvedGameModeConf
   produce_neon_dust: {
     actionId: "produce_neon_dust",
     buildingType: "drug_lab",
-    label: "Produce Neon Dust",
+    label: "Vyrobit Neon Dust",
     description: "Syntetizuje Neon Dust.",
     durationMs: 0,
     cooldownMs: baseCooldownMsForFinalMinutes(4),
@@ -65,7 +65,7 @@ export const freeModeProductionBuildingActions: NonNullable<ResolvedGameModeConf
   produce_pulse_shot: {
     actionId: "produce_pulse_shot",
     buildingType: "drug_lab",
-    label: "Produce Pulse Shot",
+    label: "Vyrobit Pulse Shot",
     description: "Uvari Pulse Shot.",
     durationMs: 0,
     cooldownMs: baseCooldownMsForFinalMinutes(5),
@@ -80,7 +80,7 @@ export const freeModeProductionBuildingActions: NonNullable<ResolvedGameModeConf
   produce_velvet_smoke: {
     actionId: "produce_velvet_smoke",
     buildingType: "drug_lab",
-    label: "Produce Velvet Smoke",
+    label: "Vyrobit Velvet Smoke",
     description: "Vyrobi Velvet Smoke.",
     durationMs: 0,
     cooldownMs: baseCooldownMsForFinalMinutes(6),
@@ -95,7 +95,7 @@ export const freeModeProductionBuildingActions: NonNullable<ResolvedGameModeConf
   produce_tech_core: {
     actionId: "produce_tech_core",
     buildingType: "factory",
-    label: "Produce Tech Core",
+    label: "Vyrobit Tech Core",
     description: "Sestavi Tech Core z dilu.",
     durationMs: 0,
     cooldownMs: baseCooldownMsForFinalMinutes(6),

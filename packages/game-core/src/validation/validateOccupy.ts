@@ -28,7 +28,7 @@ export const validateOccupy = (
     return [
       {
         code: "occupy_player_not_found",
-        message: `Player ${command.playerId} was not found.`
+        message: `Hráč ${command.playerId} nebyl nalezen.`
       }
     ];
   }
@@ -37,7 +37,7 @@ export const validateOccupy = (
     return [
       {
         code: "occupy_target_not_found",
-        message: `Target district ${command.payload.districtId} was not found.`
+        message: `Cílový district ${command.payload.districtId} nebyl nalezen.`
       }
     ];
   }
@@ -76,7 +76,7 @@ export const validateOccupy = (
     return [
       {
         code: "occupy_on_cooldown",
-        message: `Occupation route to ${targetDistrict.name} is cooling down for ${activeOccupyCooldownTick - state.root.tick} more ticks.`
+        message: `Trasa obsazení do ${targetDistrict.name} čeká ještě ${activeOccupyCooldownTick - state.root.tick} ticků.`
       }
     ];
   }
@@ -85,7 +85,7 @@ export const validateOccupy = (
     return [
       {
         code: "NO_VALID_ORIGIN",
-        message: "Player must occupy from one owned neighboring district."
+        message: "Obsazení musí vycházet z jednoho vlastního sousedního districtu."
       }
     ];
   }
@@ -94,7 +94,7 @@ export const validateOccupy = (
     return [
       {
         code: "occupy_not_enough_influence",
-        message: `Occupation requires ${balance.influenceCost} influence in the source district.`
+        message: `Obsazení vyžaduje ${balance.influenceCost} vlivu ve zdrojovém districtu.`
       }
     ];
   }
@@ -112,7 +112,7 @@ export const validateOccupy = (
     return [
       {
         code: "occupy_not_enough_population",
-        message: `Occupation requires ${populationCost} population.`
+        message: `Obsazení vyžaduje ${populationCost} populace.`
       }
     ];
   }
@@ -123,28 +123,28 @@ export const validateOccupy = (
 const occupyMapActionErrorMessage = (reasonCode: string | undefined): string => {
   switch (reasonCode) {
     case "TARGET_IS_SELF":
-      return "Player already controls this district.";
+      return "Tenhle district už kontroluješ.";
     case "TARGET_IS_ALLY":
     case "TARGET_NOT_EMPTY":
-      return "Only empty neighboring districts can be occupied.";
+      return "Obsadit můžeš jen prázdné sousední districty.";
     case "NO_VALID_ORIGIN":
-      return "Player must occupy from one owned neighboring district.";
+      return "Obsazení musí vycházet z jednoho vlastního sousedního districtu.";
     case "TARGET_NOT_ADJACENT":
-      return "Player can only occupy a district that borders the selected source district.";
+      return "Obsadit můžeš jen district, který sousedí s vybraným zdrojovým districtem.";
     case "DISTRICT_LOCKED":
-      return "Locked or destroyed districts cannot be occupied.";
+      return "Zamčené nebo zničené districty nejde obsadit.";
     case "OCCUPY_SPY_REQUIRED":
-      return "Successful spy authorization is required before occupying this district.";
+      return "Před obsazením tenhle district musíš úspěšně vyšpehovat.";
     case "OCCUPY_SPY_AUTH_EXPIRED":
-      return "Spy authorization for this district has expired.";
+      return "Špionážní oprávnění pro tenhle district vypršelo.";
     case "OCCUPY_SPY_AUTH_INVALIDATED":
     case "OCCUPY_TARGET_CHANGED":
-      return "Spy authorization no longer matches the target district state.";
+      return "Špionážní oprávnění už neodpovídá aktuálnímu stavu districtu.";
     case "DOWNTOWN_LOCKED_UNTIL_FINAL_LOCKDOWN":
-      return "Downtown districts can only be occupied during final lockdown.";
+      return "Downtown districty jde obsadit až během final lockdownu.";
     case "CONSENT_REQUIRED":
-      return "Occupying this district would close an ally's last empty frontier and requires consent.";
+      return "Obsazení by spojenci zavřelo poslední prázdnou hranici a vyžaduje souhlas.";
     default:
-      return "Occupation is not allowed for this district.";
+      return "V tomhle districtu nejde obsazení spustit.";
   }
 };

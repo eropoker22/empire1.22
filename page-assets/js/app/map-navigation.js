@@ -49,6 +49,10 @@ function bindMapNavigation(root) {
   const render = () => {
     clampOffset();
     canvasHost.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
+    viewport.dispatchEvent(new CustomEvent("empire:map-transform-changed", {
+      bubbles: true,
+      detail: { scale: state.scale, x: state.x, y: state.y }
+    }));
   };
 
   const setScale = (nextScale) => {

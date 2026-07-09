@@ -223,7 +223,7 @@ export const resolvePowerStationAction = (input: {
     influenceChange: 0,
     inputCost: { cash: config.backupGridSwitch.cleanCashCost },
     outputGain: {},
-    reportText: `Záložní síť aktivní ${config.backupGridSwitch.durationMinutes} minut. Infrastruktura +${config.backupGridSwitch.temporaryInfrastructureBonusPct} %, kamery +${config.backupGridSwitch.cameraStrengthBonusPct} %, alarm +${config.backupGridSwitch.alarmStrengthBonusPct} %.`,
+    reportText: `Stabilizovaná síť aktivní ${config.backupGridSwitch.durationMinutes} minut. Infrastruktura +${config.backupGridSwitch.temporaryInfrastructureBonusPct} %, kamery +${config.backupGridSwitch.cameraStrengthBonusPct} %, alarm +${config.backupGridSwitch.alarmStrengthBonusPct} %.`,
     powerStationResult: {
       type: "infrastructure_defense_boost",
       activeUntilTick: metadata.backupGridSwitchExpiresAtTick,

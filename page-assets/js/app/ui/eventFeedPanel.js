@@ -257,7 +257,7 @@ function bindBuildingActionFeedCountdown(element, expiresAt) {
 
   const update = () => {
     const remainingMs = Math.max(0, targetMs - Date.now());
-    element.textContent = `Cooldown ${formatBuildingActionFeedCountdown(remainingMs)}`;
+    element.textContent = `Čekání ${formatBuildingActionFeedCountdown(remainingMs)}`;
     if (remainingMs <= 0 && timerId) {
       windowRef.clearInterval(timerId);
     }

@@ -41,6 +41,15 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     return Number.isFinite(normalizedFallback) ? Math.max(minValue, normalizedFallback) : minValue;
   };
 
+  const formatProductionSpeedBonus = (multiplier = 1) => {
+    const safeMultiplier = Number(multiplier);
+    if (!Number.isFinite(safeMultiplier)) {
+      return "+0%";
+    }
+    const pct = Math.round((safeMultiplier - 1) * 100);
+    return `${pct >= 0 ? "+" : ""}${pct}%`;
+  };
+
   const getOwnedWarehouseCount = () => normalizeCount(deps.getOwnedWarehouseCount?.(), 0, 0);
 
   const getOwnedProductionBuildingCount = (buildingName, fallbackLevel = 1) => {
@@ -448,12 +457,12 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       const ownedBuildingCount = getOwnedProductionBuildingCount(buildingName, state.level);
       const speedGainPct = Math.max(0, Math.round((Number(nextMultiplier || multiplier || 1) - Number(multiplier || 1)) * 100));
       const upgradeBenefitLabel = state.level < maxLevel
-        ? `+${speedGainPct}% rychlost · x${Number(nextMultiplier || multiplier || 1).toFixed(2)}`
-        : "Max level";
+        ? `+${speedGainPct}% rychlost · celkem ${formatProductionSpeedBonus(nextMultiplier || multiplier || 1)}`
+        : "Maximální level";
 
       if (levelElement) levelElement.textContent = String(ownedBuildingCount);
       if (headerLevelElement) headerLevelElement.textContent = `Lv ${state.level}`;
-      if (multiplierElement) multiplierElement.textContent = `${multiplier.toFixed(2)}x`;
+      if (multiplierElement) multiplierElement.textContent = formatProductionSpeedBonus(multiplier);
       if (readyElement) readyElement.textContent = `${readyCount}/${Object.keys(recipes || {}).length}`;
       if (upgradeCostElement) upgradeCostElement.textContent = state.level < maxLevel ? deps.formatCurrency?.(upgradeCost) : "MAX";
       if (infoUpgradeCostElement) infoUpgradeCostElement.textContent = state.level < maxLevel ? deps.formatCurrency?.(upgradeCost) : "MAX";
@@ -563,13 +572,15 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         const currentMultiplier = deps.getProductionBuildingMultiplier?.(buildingName, currentState.level) || 1;
         const nextMultiplier = deps.getProductionBuildingMultiplier?.(buildingName, nextLevel) || currentMultiplier;
         const speedGainPct = Math.max(0, Math.round((Number(nextMultiplier || currentMultiplier || 1) - Number(currentMultiplier || 1)) * 100));
+        const currentSpeedLabel = formatProductionSpeedBonus(currentMultiplier || 1);
+        const nextSpeedLabel = formatProductionSpeedBonus(nextMultiplier || currentMultiplier || 1);
         const hasEnoughMoney = Number(economyState.cleanMoney || 0) >= upgradeCost;
         const confirmed = await upgradeConfirmation.open({
           benefits: [{
             icon: "x",
             label: "Rychlost výroby",
             value: `+${speedGainPct}%`,
-            detail: `x${Number(currentMultiplier || 1).toFixed(2)} → x${Number(nextMultiplier || currentMultiplier || 1).toFixed(2)}`
+            detail: `${currentSpeedLabel} → ${nextSpeedLabel}`
           }],
           buildingLabel: config?.label || "Budova",
           canConfirm: hasEnoughMoney,

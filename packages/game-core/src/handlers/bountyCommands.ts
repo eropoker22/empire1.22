@@ -47,27 +47,27 @@ export const createBounty = (
   const objectiveType = command.payload.objectiveType;
   const targetDistrictId = command.payload.targetDistrictId ?? null;
 
-  if (!creator) return rejected(state, "bounty_creator_not_found", "Bounty creator was not found.");
-  if (!target || target.status !== "active") return rejected(state, "bounty_target_not_found", "Bounty target is not active.");
-  if (target.id === creator.id) return rejected(state, "bounty_target_self", "Cannot create a bounty on yourself.");
-  if (!isBountyObjectiveType(objectiveType)) return rejected(state, "bounty_invalid_objective", "Invalid bounty objective type.");
+  if (!creator) return rejected(state, "bounty_creator_not_found", "Zadavatel bounty nebyl nalezen.");
+  if (!target || target.status !== "active") return rejected(state, "bounty_target_not_found", "Cíl bounty není aktivní.");
+  if (target.id === creator.id) return rejected(state, "bounty_target_self", "Nemůžeš vypsat bounty sám na sebe.");
+  if (!isBountyObjectiveType(objectiveType)) return rejected(state, "bounty_invalid_objective", "Neplatný typ cíle bounty.");
   if (!Number.isInteger(command.payload.rewardCleanCash) || rewardCleanCash < BOUNTY_MIN_REWARD_CLEAN_CASH) {
-    return rejected(state, "bounty_reward_too_low", `Minimum bounty reward is ${BOUNTY_MIN_REWARD_CLEAN_CASH} clean cash.`);
+    return rejected(state, "bounty_reward_too_low", `Minimální odměna bounty je ${BOUNTY_MIN_REWARD_CLEAN_CASH} clean cash.`);
   }
   if (!BOUNTY_DURATION_OPTIONS_HOURS.includes(durationHours as typeof BOUNTY_DURATION_OPTIONS_HOURS[number])) {
-    return rejected(state, "bounty_invalid_duration", "Invalid bounty duration.");
+    return rejected(state, "bounty_invalid_duration", "Neplatná délka bounty.");
   }
   if (objectiveType === "attack-district" && !targetDistrictId) {
-    return rejected(state, "bounty_target_district_required", "Target district is required for district bounty.");
+    return rejected(state, "bounty_target_district_required", "Pro bounty na district musíš vybrat cílový district.");
   }
   if (targetDistrictId && !isActiveDistrictOwnedBy(state, targetDistrictId, target.id)) {
-    return rejected(state, "bounty_target_district_invalid", "Target district does not belong to the bounty target.");
+    return rejected(state, "bounty_target_district_invalid", "Vybraný district nepatří cíli bounty.");
   }
 
   const resourceState = getPlayerResourceState(state, creator);
-  if (!resourceState) return rejected(state, "bounty_resource_state_not_found", "Player resource state was not found.");
+  if (!resourceState) return rejected(state, "bounty_resource_state_not_found", "Resource state hráče nebyl nalezen.");
   if (Math.floor(Number(resourceState.balances.cash || 0)) < rewardCleanCash) {
-    return rejected(state, "bounty_insufficient_clean_cash", "Not enough clean cash for bounty escrow.");
+    return rejected(state, "bounty_insufficient_clean_cash", "Nemáš dost clean cash na složení bounty.");
   }
 
   const bountyId = `bounty:${command.id}`;
@@ -121,13 +121,13 @@ export const cancelBounty = (
   command: CancelBountyCommand
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
   const bounty = state.bountiesById?.[command.payload.bountyId];
-  if (!bounty) return rejected(state, "bounty_not_found", "Bounty was not found.");
-  if (bounty.createdByPlayerId !== command.playerId) return rejected(state, "bounty_cancel_forbidden", "Only bounty creator can cancel this bounty.");
-  if (bounty.status !== "active") return rejected(state, "bounty_cancel_not_active", "Only active bounty can be cancelled.");
+  if (!bounty) return rejected(state, "bounty_not_found", "Bounty nebyla nalezena.");
+  if (bounty.createdByPlayerId !== command.playerId) return rejected(state, "bounty_cancel_forbidden", "Bounty může zrušit jen její zadavatel.");
+  if (bounty.status !== "active") return rejected(state, "bounty_cancel_not_active", "Zrušit jde jen aktivní bounty.");
 
   const creator = state.playersById[bounty.createdByPlayerId];
   const resourceState = creator ? getPlayerResourceState(state, creator) : null;
-  if (!resourceState) return rejected(state, "bounty_resource_state_not_found", "Creator resource state was not found.");
+  if (!resourceState) return rejected(state, "bounty_resource_state_not_found", "Resource state zadavatele nebyl nalezen.");
 
   const cancelled: Bounty = {
     ...bounty,

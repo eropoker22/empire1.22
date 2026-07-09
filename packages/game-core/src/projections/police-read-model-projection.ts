@@ -113,7 +113,7 @@ export const createPoliceReadModel = (
         source: (cityHallMitigation ?? cityHallNetworkCover)!.source,
         label: cityHallMitigation
           ? `${cityHallMitigation.label} Snižuje šanci vytvoření zásahu.`
-          : `${cityHallNetworkCover!.label} Raidy čistě z player heat bez cílového districtu zatím nekryje.`,
+          : `${cityHallNetworkCover!.label} Raidy čistě z heat hráče bez cílového districtu zatím nekryje.`,
         districtId: cityHallMitigation?.districtId ?? null,
         coveredDistrictIds: cityHallMitigation?.coveredDistrictIds ?? cityHallNetworkCover!.coveredDistrictIds,
         effectiveReductionPct: cityHallMitigation?.effectiveReductionPct ?? 0,
@@ -135,7 +135,7 @@ export const createPoliceReadModel = (
     districtHeat,
     raidPressure: pressure.aggregatePressure
   });
-  const raidPressureExplanation = "Raid pressure je celkový tlak policie: player heat plus vážený district heat z vlastněných districtů. District heat může přitáhnout raid i bez vysokého wanted levelu.";
+  const raidPressureExplanation = "Tlak raidu je celkový tlak policie: heat hráče plus vážený heat z vlastněných districtů. Heat districtů může přitáhnout raid i bez vysoké hledanosti.";
   const selectedDistrictId = sanitizeDistrictId(options.selectedDistrictId);
   const selectedDistrict = selectedDistrictId ? state.districtsById[selectedDistrictId] ?? null : null;
   const protection = createProtectionView(mitigations);

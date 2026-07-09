@@ -19,7 +19,7 @@ export const validateCraft = (
     return [
       {
         code: "building_not_found",
-        message: "Target crafting building does not exist."
+        message: "Cílová craft budova neexistuje."
       }
     ];
   }
@@ -30,7 +30,7 @@ export const validateCraft = (
     return [
       {
         code: "district_not_found",
-        message: "Target district for crafting does not exist."
+        message: "Cílový district pro craft neexistuje."
       }
     ];
   }
@@ -39,7 +39,7 @@ export const validateCraft = (
     return [
       {
         code: "craft_not_owned",
-        message: "Player does not own the target crafting building."
+        message: "Hráč nevlastní cílovou craft budovu."
       }
     ];
   }
@@ -48,7 +48,7 @@ export const validateCraft = (
     return [
       {
         code: "building_not_active",
-        message: "Only active buildings can process items."
+        message: "Itemy může zpracovat jen aktivní budova."
       }
     ];
   }
@@ -59,7 +59,7 @@ export const validateCraft = (
     return [
       {
         code: "craft_not_supported",
-        message: "The target building does not support migrated crafting yet."
+        message: "Cílová budova zatím nepodporuje serverový craft."
       }
     ];
   }
@@ -70,7 +70,7 @@ export const validateCraft = (
     return [
       {
         code: "craft_recipe_not_found",
-        message: "Requested crafting recipe does not exist for this building."
+        message: "Požadovaný craft recept pro tuhle budovu neexistuje."
       }
     ];
   }
@@ -82,8 +82,8 @@ export const validateCraft = (
       {
         code: "craft_processing_active",
         message: activeRecipe
-          ? `${activeRecipe.label} is already processing in this building.`
-          : "Another processing job is already running in this building."
+          ? `${activeRecipe.label} už se v téhle budově zpracovává.`
+          : "V téhle budově už běží jiné zpracování."
       }
     ];
   }
@@ -100,7 +100,7 @@ export const validateCraft = (
       return [
         {
           code: "craft_missing_inputs",
-          message: `Need ${requiredAmount} ${formatResourceLabel(resourceKey)} to process ${recipe.label}.`
+          message: `Chybí ${requiredAmount} ${formatResourceLabel(resourceKey)} pro zpracování ${recipe.label}.`
         }
       ];
     }

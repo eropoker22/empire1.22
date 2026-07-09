@@ -22,7 +22,7 @@ export const validateSpy = (
     return [
       {
         code: "spy_player_not_found",
-        message: `Player ${command.playerId} was not found.`
+        message: `Hráč ${command.playerId} nebyl nalezen.`
       }
     ];
   }
@@ -31,7 +31,7 @@ export const validateSpy = (
     return [
       {
         code: "spy_target_not_found",
-        message: `Target district ${command.payload.districtId} was not found.`
+        message: `Cílový district ${command.payload.districtId} nebyl nalezen.`
       }
     ];
   }
@@ -57,7 +57,7 @@ export const validateSpy = (
     return [
       {
         code: "spy_capacity_exceeded",
-        message: `Player already has ${MAX_ACTIVE_SPY_SLOTS} active or blocked spies.`
+        message: `Hráč už má ${MAX_ACTIVE_SPY_SLOTS} aktivní nebo blokované špehy.`
       }
     ];
   }
@@ -69,7 +69,7 @@ export const validateSpy = (
     return [
       {
         code: "spy_cooldown_active",
-        message: `Spy route to ${targetDistrict.name} is cooling down for ${activeSpyCooldownTick - state.root.tick} more ticks.`
+        message: `Špionáž do ${targetDistrict.name} čeká ještě ${activeSpyCooldownTick - state.root.tick} ticků.`
       }
     ];
   }
@@ -80,19 +80,19 @@ export const validateSpy = (
 const spyMapActionErrorMessage = (reasonCode: string | undefined): string => {
   switch (reasonCode) {
     case "SPY_TARGET_IS_SELF":
-      return "Player cannot spy on a district they already own.";
+      return "Nemůžeš špehovat district, který už vlastníš.";
     case "SPY_TARGET_IS_ALLY":
-      return "Player cannot spy on an allied district.";
+      return "Nemůžeš špehovat spojenecký district.";
     case "SPY_TARGET_INVALID":
-      return "Player can only spy on empty or enemy-owned districts.";
+      return "Špehovat můžeš jen prázdné nebo nepřátelské districty.";
     case "NO_VALID_ORIGIN":
-      return "Player must spy from one owned neighboring district.";
+      return "Špionáž musí vycházet z jednoho vlastního sousedního districtu.";
     case "SPY_TARGET_NOT_ADJACENT":
-      return "Player can only spy on a district that borders the selected source district.";
+      return "Špehovat můžeš jen district, který sousedí s vybraným zdrojovým districtem.";
     case "DISTRICT_LOCKED":
-      return "Locked or destroyed districts cannot be spied on.";
+      return "Zamčené nebo zničené districty nejde špehovat.";
     default:
-      return "Spy action is not allowed for this district.";
+      return "V tomhle districtu nejde špionáž spustit.";
   }
 };
 

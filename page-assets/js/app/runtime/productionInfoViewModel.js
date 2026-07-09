@@ -6,6 +6,12 @@ function safeFunction(fn, fallback) {
   return typeof fn === "function" ? fn : fallback;
 }
 
+function formatMultiplierBonus(multiplier) {
+  const numeric = Number(multiplier || 1);
+  const bonusPct = Math.max(0, Math.round((numeric - 1) * 100));
+  return bonusPct > 0 ? `+${bonusPct}%` : "základní rychlost";
+}
+
 export function formatProductionRecipeInputList(recipe = {}, options = {}) {
   const formatCurrency = safeFunction(options.formatCurrency, (value) => String(value));
   const getResourceLabel = safeFunction(options.getResourceLabel, (itemId) => itemId);
@@ -97,10 +103,10 @@ export function createFactoryBuildingInfoViewModel({
     description: "Továrna vyrábí technické komponenty pro zbraně, obranu a boost. Výroba v továrně je za čisté peníze.",
     effectsLabel: nextLevel
       ? `Další level +${Math.round((safeNextMultiplier - currentMultiplier) * 100)}% rychlost`
-      : "Max level",
+      : "Maximální level",
     upgrade: {
       costLabel: nextLevel ? formatCurrency(upgradeCost) : "MAX",
-      benefitLabel: nextLevel ? `L${nextLevel} · produkce x${safeNextMultiplier.toFixed(2)}` : "Max level"
+      benefitLabel: nextLevel ? `L${nextLevel} · produkce ${formatMultiplierBonus(safeNextMultiplier)}` : "Maximální level"
     },
     products: [
       {
@@ -127,15 +133,15 @@ export function createFactoryBuildingInfoViewModel({
     ],
     rows: [
       { label: "Level", value: `L${factoryState.level}` },
-      { label: "Upgrade", value: nextLevel ? `${formatCurrency(upgradeCost)} -> L${nextLevel}` : "Max level" },
-      { label: "Další level", value: nextLevel ? `Produkce a craft rychlost x${safeNextMultiplier.toFixed(2)}.` : "Budova už je na maximu." },
+      { label: "Upgrade", value: nextLevel ? `${formatCurrency(upgradeCost)} -> L${nextLevel}` : "Maximální level" },
+      { label: "Další level", value: nextLevel ? `Produkce a craft rychlost ${formatMultiplierBonus(safeNextMultiplier)}.` : "Budova už je na maximu." },
       { label: "Výstup", value: `Metal Parts ${Number(syncResult.rates?.metalPartsPerHour || 0).toFixed(2)}/h · Tech Core ${Number(syncResult.rates?.techCorePerHour || 0).toFixed(2)}/h · Bojový modul ${Number(syncResult.rates?.combatModulePerHour || 0).toFixed(2)}/h` },
       { label: "Vyzvednutí", value: collectableAmount > 0 ? `${collectableAmount} ks hotovo do skladu` : "Zatím nic hotového" },
       { label: "Bojový modul", value: `${config.combatModule?.metalPartsCost || 0} Metal Parts + ${config.combatModule?.techCoreCost || 0} Tech Core · ${formatDurationLabel(config.combatModule?.durationMs || 0)} · heat +${config.combatModule?.heatPerUnit || 0}/ks` }
     ],
     actions: [
       { title: "+ Vybrat hotové", description: collectableAmount > 0 ? `Přesune ${collectableAmount} ks hotových továrních výstupů do skladu.` : "Přesune hotové tovární výstupy do skladu, až budou připravené." },
-      { title: "⇪ Upgrade", description: nextLevel ? `Stojí ${formatCurrency(upgradeCost)} clean cash a zvedne produkci na x${safeNextMultiplier.toFixed(2)}.` : "Max level, další upgrade není dostupný." },
+      { title: "⇪ Upgrade", description: nextLevel ? `Stojí ${formatCurrency(upgradeCost)} clean cash a zvedne produkci na ${formatMultiplierBonus(safeNextMultiplier)}.` : "Maximální level, další upgrade není dostupný." },
       { title: "Spustit / Zrušit slot", description: "Řídí jednotlivé linky: Metal Parts, Tech Core a bojový modul. Zrušení smaže aktivní frontu slotu." }
     ]
   };

@@ -68,6 +68,10 @@ const createPoliceViewModel = (view: PlayerView): PoliceViewModel | null => {
   if (!police) {
     return null;
   }
+  const raidConsequenceChangePct = Math.round((1 - police.protection.raidConsequenceMultiplier) * 100);
+  const raidConsequenceLabel = raidConsequenceChangePct >= 0
+    ? `-${raidConsequenceChangePct} % následky raidu`
+    : `+${Math.abs(raidConsequenceChangePct)} % následky raidu`;
 
   return {
     heatLabel: String(Math.max(0, Number(police.heat || 0))),
@@ -78,8 +82,8 @@ const createPoliceViewModel = (view: PlayerView): PoliceViewModel | null => {
     raidConsequenceStatus: police.raidConsequenceStatus || "none",
     selectedDistrictHeatLabel: String(Math.max(0, Number(police.selectedDistrictHeat || 0))),
     protectionLabel: police.protection.sources.length > 0
-      ? `${police.protection.sources.join(", ")} x${police.protection.raidConsequenceMultiplier.toFixed(2)}`
-      : "none"
+      ? `${police.protection.sources.join(", ")} ${raidConsequenceLabel}`
+      : "žádná"
   };
 };
 

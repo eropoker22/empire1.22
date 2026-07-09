@@ -19,12 +19,12 @@ export const addPlayerToAlliance = (
 ): AllianceMembershipResult => {
   const player = state.playersById[playerId];
   const alliance = state.alliancesById[allianceId];
-  if (!player) return rejected(state, "PLAYER_NOT_FOUND", "Player was not found.");
-  if (!alliance || alliance.status !== "active") return rejected(state, "ALLIANCE_NOT_FOUND", "Alliance was not found.");
+  if (!player) return rejected(state, "PLAYER_NOT_FOUND", "Hráč nebyl nalezen.");
+  if (!alliance || alliance.status !== "active") return rejected(state, "ALLIANCE_NOT_FOUND", "Aliance nebyla nalezena.");
   const nowIso = nowIsoFromContext(context);
   const eligibility = canJoinOrCreateAlliance(state, player.id, "join", nowIso);
-  if (eligibility !== true) return rejected(state, eligibility, "Player cannot join an alliance right now.");
-  if (alliance.memberIds.length >= context.config.balance.maxAllianceSize) return rejected(state, "ALLIANCE_FULL", "Alliance is full.");
+  if (eligibility !== true) return rejected(state, eligibility, "Teď se nemůžeš přidat do aliance.");
+  if (alliance.memberIds.length >= context.config.balance.maxAllianceSize) return rejected(state, "ALLIANCE_FULL", "Aliance je plná.");
 
   const membership = createInitialAllianceMembership(alliance.id, player.id, "member", nowIso, context);
   const nextAlliance: Alliance = {

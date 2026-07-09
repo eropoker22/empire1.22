@@ -13,7 +13,7 @@ const ACTION_UI_BY_ID = Object.freeze({
   "ticha herna": Object.freeze({ label: "Tichá herna", icon: "VIP", category: "laundering", badge: "Kasino" }),
   "vip noc": Object.freeze({ label: "VIP noc", icon: "VIP", category: "boost", badge: "Boost" }),
   "podplaceny inspektor": Object.freeze({ label: "Podplacený inspektor", icon: "HEAT", category: "heat", badge: "Heat" }),
-  "spustit prodej": Object.freeze({ label: "Spustit prodej", icon: "DEAL", category: "dirty-cash", badge: "Dealer slot" }),
+  "spustit prodej": Object.freeze({ label: "Spustit prodej", icon: "DEAL", category: "dirty-cash", badge: "Slot dealerů" }),
   "rozsirit distribuci": Object.freeze({ label: "Rozšířit distribuci", icon: "DIST", category: "dirty-cash", badge: "Distribuce" }),
   "vybrat cash": Object.freeze({ label: "Vybrat cash", icon: "CASH", category: "economy", badge: "Cashflow" }),
   "presunout stash": Object.freeze({ label: "Přesunout stash", icon: "STASH", category: "storage", badge: "Sklad" }),
@@ -22,7 +22,7 @@ const ACTION_UI_BY_ID = Object.freeze({
   "otevrit kanal": Object.freeze({ label: "Otevřít kanál", icon: "TUN", category: "boost", badge: "Tunel" }),
   "speculative buy": Object.freeze({ label: "Spekulativní nákup", icon: "MK+", category: "market", badge: "Burza" }),
   "market pressure": Object.freeze({ label: "Tržní tlak", icon: "P/D", category: "market", badge: "Burza" }),
-  "insider window": Object.freeze({ label: "Insider Window", icon: "INS", category: "market", badge: "Burza" }),
+  "insider window": Object.freeze({ label: "Vnitřní tipy", icon: "INS", category: "market", badge: "Burza" }),
   "likviditni injekce": Object.freeze({ label: "Likviditní injekce", icon: "CB+", category: "economy", badge: "Banka" }),
   "liquidity injection": Object.freeze({ label: "Likviditní injekce", icon: "CB+", category: "economy", badge: "Banka" }),
   "zakulisni tlak": Object.freeze({ label: "Zákulisní tlak", icon: "LOBBY", category: "influence", badge: "Lobby" }),
@@ -47,17 +47,17 @@ const ACTION_UI_BY_ID = Object.freeze({
   "snizit vypadky": Object.freeze({ label: "Snížit heat", icon: "HEAT", category: "heat", badge: "Heat" }),
   "vytezit ztraty": Object.freeze({ label: "Vytěžit ztráty", icon: "REC", category: "salvage", badge: "Ztráty" }),
   "vyrobit stim pack": Object.freeze({ label: "Vyrobit stim pack", icon: "MED", category: "production", badge: "Lékárna" }),
-  "black market med kit": Object.freeze({ label: "Black market med kit", icon: "MED", category: "black-market", badge: "Market" }),
-  "medical cover": Object.freeze({ label: "Medical cover", icon: "HEAT", category: "heat", badge: "Krytí" }),
-  "overclock batch": Object.freeze({ label: "Overclock batch", icon: "LAB", category: "production", badge: "Lab" }),
-  "clean batch": Object.freeze({ label: "Clean batch", icon: "LAB", category: "production", badge: "Lab" }),
-  "hidden operation": Object.freeze({ label: "Hidden operation", icon: "STEALTH", category: "heat", badge: "Krytí" }),
+  "black market med kit": Object.freeze({ label: "Medkit z černého trhu", icon: "MED", category: "black-market", badge: "Market" }),
+  "medical cover": Object.freeze({ label: "Zdravotní krytí", icon: "HEAT", category: "heat", badge: "Krytí" }),
+  "overclock batch": Object.freeze({ label: "Přetížit várku", icon: "LAB", category: "production", badge: "Lab" }),
+  "clean batch": Object.freeze({ label: "Čistá várka", icon: "LAB", category: "production", badge: "Lab" }),
+  "hidden operation": Object.freeze({ label: "Skrytý provoz", icon: "STEALTH", category: "heat", badge: "Krytí" }),
   "combat module run": Object.freeze({ label: "Bojový modul", icon: "FACT", category: "production", badge: "Továrna" }),
-  "rapid assembly": Object.freeze({ label: "Rapid assembly", icon: "FACT", category: "production", badge: "Továrna" }),
-  "industrial overdrive": Object.freeze({ label: "Industrial overdrive", icon: "FACT", category: "boost", badge: "Továrna" }),
-  "attack loadout": Object.freeze({ label: "Attack loadout", icon: "ATK", category: "weapons", badge: "Výzbroj" }),
-  "defense kit": Object.freeze({ label: "Defense kit", icon: "DEF", category: "weapons", badge: "Obrana" }),
-  "fortify district": Object.freeze({ label: "Fortify district", icon: "DEF", category: "weapons", badge: "Obrana" }),
+  "rapid assembly": Object.freeze({ label: "Rychlá montáž", icon: "FACT", category: "production", badge: "Továrna" }),
+  "industrial overdrive": Object.freeze({ label: "Průmyslové přetížení", icon: "FACT", category: "boost", badge: "Továrna" }),
+  "attack loadout": Object.freeze({ label: "Útočná výbava", icon: "ATK", category: "weapons", badge: "Výzbroj" }),
+  "defense kit": Object.freeze({ label: "Obranný kit", icon: "DEF", category: "weapons", badge: "Obrana" }),
+  "fortify district": Object.freeze({ label: "Opevnit district", icon: "DEF", category: "weapons", badge: "Obrana" }),
   "zkontrolovat provoz": Object.freeze({ label: "Zkontrolovat provoz", icon: "CHK", category: "inspection", badge: "Kontrola" }),
   "vybrat lokalni vynos": Object.freeze({ label: "Vybrat lokální výnos", icon: "CASH", category: "economy", badge: "Výnos" }),
   "proverit napojeni": Object.freeze({ label: "Prověřit napojení", icon: "NET", category: "influence", badge: "Napojení" })
@@ -83,7 +83,7 @@ const AUTO_SALON_ACTION_CATEGORY_LABELS = Object.freeze({
   arcadeLaunderingActions: "herna",
   rumorGeneration: "drby",
   passiveProduction: "pasivní výroba",
-  intelScan: "intel scan",
+  intelScan: "intel průzkum",
   trapDetection: "detekce pastí"
 });
 
@@ -177,17 +177,17 @@ function formatIncomeBoostParts(profile = {}, options = {}) {
     const dirty = formatHourlyMoneyChange("Dirty", mechanics.dirtyHourly, incomeBoostPct, options);
     if (clean) parts.push(clean);
     if (dirty) parts.push(dirty);
-    if (!clean && !dirty) parts.push(`Income +${formatCompactNumber(incomeBoostPct)}%`);
+    if (!clean && !dirty) parts.push(`Výnos +${formatCompactNumber(incomeBoostPct)}%`);
   }
 
   const cleanBoostPct = Number(profile.cleanIncomeBoostPct || 0);
   if (cleanBoostPct) {
-    parts.push(formatHourlyMoneyChange("Clean", mechanics.cleanHourly, cleanBoostPct, options) || `Clean income +${formatCompactNumber(cleanBoostPct)}%`);
+    parts.push(formatHourlyMoneyChange("Clean", mechanics.cleanHourly, cleanBoostPct, options) || `Clean výnos +${formatCompactNumber(cleanBoostPct)}%`);
   }
 
   const dirtyBoostPct = Number(profile.dirtyIncomeBoostPct || 0);
   if (dirtyBoostPct) {
-    parts.push(formatHourlyMoneyChange("Dirty", mechanics.dirtyHourly, dirtyBoostPct, options) || `Dirty income +${formatCompactNumber(dirtyBoostPct)}%`);
+    parts.push(formatHourlyMoneyChange("Dirty", mechanics.dirtyHourly, dirtyBoostPct, options) || `Dirty výnos +${formatCompactNumber(dirtyBoostPct)}%`);
   }
 
   const influenceBoostPct = Number(profile.influenceBoostPct || 0);
@@ -226,9 +226,9 @@ function formatActionProfileConfiguredEffects(profile = {}, options = {}) {
     formatReductionPctLabel("Pouliční dealeři čas prodeje", profile.dealerSaleSpeedBonusPct),
     formatPctLabel("Pump", profile.pumpPct),
     formatPctLabel("Dump", profile.dumpPct),
-    formatPctLabel("Black market dopad", profile.blackMarketEffectSharePct),
+    formatPctLabel("Dopad černého trhu", profile.blackMarketEffectSharePct),
     Number(profile.trendHints || 0) > 0 ? `Trend hinty +${formatCompactNumber(profile.trendHints)}` : "",
-    formatReductionPctLabel("Market fee", profile.extraFeeReductionPct || profile.marketFeeReductionPct),
+    formatReductionPctLabel("Market poplatek", profile.extraFeeReductionPct || profile.marketFeeReductionPct),
     formatPctLabel("Šance spekulace", profile.speculativeSuccessBonusPct),
     formatPctLabel("Ochrana clean cash", profile.cleanCashProtectionBonusPct),
     formatPctLabel("Ochrana dirty cash", profile.dirtyCashProtectionPct),
@@ -241,13 +241,13 @@ function formatActionProfileConfiguredEffects(profile = {}, options = {}) {
     formatReductionPctLabel("Šance drbů", profile.rumorChanceReductionPct),
     formatReductionPctLabel("Cena influence akcí", profile.influenceActionCostReductionPct),
     formatReductionPctLabel("Negativní drby", profile.negativeRumorReductionPct),
-    formatPctLabel("District pressure", profile.districtControlPressurePct),
+    formatPctLabel("Tlak districtu", profile.districtControlPressurePct),
     formatReductionPctLabel("Cooldowny", profile.cooldownRemainingReductionPct),
     formatReductionPctLabel("Riziko", profile.riskReductionPct),
     formatReductionPctLabel("Další influence akce", profile.nextInfluenceActionDiscountPct),
     formatReductionPctLabel("Pravdivost drbů", profile.truthReductionPct),
     formatPctLabel("Raid warning", profile.policeRaidWarningChancePct),
-    formatPctLabel("Black market sleva", profile.offerDiscountPct),
+    formatPctLabel("Sleva černý trh", profile.offerDiscountPct),
     formatPctLabel("Šance úniku", profile.escapeChanceBonusPct),
     formatReductionPctLabel("Ztráty", profile.lossReductionPct),
     profile.modes ? `Režimy ${profile.modes}` : "",
@@ -323,7 +323,7 @@ export function getActionDescription(actionId, options = {}) {
       ...Object.entries(actionProfile.weapons || {}).map(([itemId, amount]) => `${getWeaponLabel(itemId, options)} x${amount}`),
       ...Object.entries(actionProfile.factorySupplies || {}).map(([itemId, amount]) => `${itemId} x${amount}`),
       !actionProfile.casinoVipNight && !actionProfile.arcadeNightMachines ? uniqueActionEffectSummary : "",
-      actionProfile.cooldownMs ? `Cooldown ${formatCooldownValue(actionProfile.cooldownMs, options)}` : ""
+      actionProfile.cooldownMs ? `Čekání ${formatCooldownValue(actionProfile.cooldownMs, options)}` : ""
     ].filter(Boolean).filter((part, index, list) => list.indexOf(part) === index);
 
     return parts.length > 0
@@ -369,7 +369,7 @@ export function getActionDisabledReason(actionState = {}) {
 
   const cooldownRemainingMs = Math.max(0, Number(actionState.cooldownRemainingMs || actionState.cooldownRemaining || 0));
   if (cooldownRemainingMs > 0) {
-    return `Akce má cooldown ${formatCooldownValue(cooldownRemainingMs, actionState)}.`;
+    return `Akce čeká ${formatCooldownValue(cooldownRemainingMs, actionState)}.`;
   }
 
   return "";
@@ -422,10 +422,10 @@ export function formatBuildingActionOutputProfile(profile = {}, options = {}) {
     !profile.casinoVipNight && !profile.arcadeNightMachines ? incomeBoostParts.join(" · ") : "",
     ...configuredEffectParts,
     profile.heatMultiplier && Number(profile.heatMultiplier) !== 1
-      ? formatDailyNumberChange("Heat", mechanics.dailyHeat, (Number(profile.heatMultiplier) - 1) * 100) || `Heat x${Number(profile.heatMultiplier).toFixed(2)}`
+      ? formatDailyNumberChange("Heat", mechanics.dailyHeat, (Number(profile.heatMultiplier) - 1) * 100) || `Heat ${Number(profile.heatMultiplier) > 1 ? "+" : ""}${formatCompactNumber((Number(profile.heatMultiplier) - 1) * 100)}%`
       : "",
     profile.durationMs ? `Trvání ${formatCooldownValue(profile.durationMs, options)}` : "",
-    profile.cooldownMs ? `Cooldown ${formatCooldownValue(profile.cooldownMs, options)}` : ""
+    profile.cooldownMs ? `Čekání ${formatCooldownValue(profile.cooldownMs, options)}` : ""
   ].filter(Boolean);
 
   const resolved = parts
@@ -445,13 +445,13 @@ export function formatBuildingActionRiskProfile(profile = {}, options = {}) {
   if (heat !== 0) risks.push(`Heat ${heat > 0 ? "+" : ""}${Math.floor(heat)}`);
   const heatMultiplier = Number(profile.heatMultiplier);
   if (Number.isFinite(heatMultiplier) && heatMultiplier !== 1) {
-    risks.push(formatDailyNumberChange("Heat", mechanics.dailyHeat, (heatMultiplier - 1) * 100) || `Heat x${heatMultiplier.toFixed(2)}`);
+    risks.push(formatDailyNumberChange("Heat", mechanics.dailyHeat, (heatMultiplier - 1) * 100) || `Heat ${heatMultiplier > 1 ? "+" : ""}${formatCompactNumber((heatMultiplier - 1) * 100)}%`);
   }
   if (Number(profile.auditRiskBoostPct || 0) > 0) risks.push(`Audit +${formatCompactNumber(profile.auditRiskBoostPct)}%`);
   if (Number(profile.auditRiskFailurePct || 0) > 0) risks.push(`Audit fail +${formatCompactNumber(profile.auditRiskFailurePct)}%`);
   if (Number(profile.failureChancePct || 0) > 0) risks.push(`Selhání ${formatCompactNumber(profile.failureChancePct)}%`);
   if (Number(profile.heatFailure || 0) !== 0) risks.push(`Fail heat ${Number(profile.heatFailure) > 0 ? "+" : ""}${Math.floor(Number(profile.heatFailure))}`);
-  if (Number(profile.marketFeePenaltyPct || 0) > 0) risks.push(`Market fee +${formatCompactNumber(profile.marketFeePenaltyPct)}%`);
+  if (Number(profile.marketFeePenaltyPct || 0) > 0) risks.push(`Market poplatek +${formatCompactNumber(profile.marketFeePenaltyPct)}%`);
   if (Number(profile.purchaseCustomsRiskPct || 0) > 0) risks.push(`Celnice +${formatCompactNumber(profile.purchaseCustomsRiskPct)}%`);
   if (Number(profile.heatRiskBonusPct || 0) > 0) risks.push(`Heat risk +${formatCompactNumber(profile.heatRiskBonusPct)}%`);
   if (Number(profile.streetIncidentFlatRiskPct || 0) > 0) risks.push(`Pouliční incident +${formatCompactNumber(profile.streetIncidentFlatRiskPct)}%`);

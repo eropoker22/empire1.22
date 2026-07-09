@@ -21,35 +21,35 @@ export const handleSelectSpawnDistrict = (
   const district = state.districtsById[command.payload.districtId];
 
   if (!player) {
-    return failed(state, "player_not_found", `Player ${command.playerId} was not found.`);
+    return failed(state, "player_not_found", `Hráč ${command.playerId} nebyl nalezen.`);
   }
 
   if (player.homeDistrictId) {
-    return failed(state, "PLAYER_ALREADY_HAS_SPAWN", "Player already has a start district.");
+    return failed(state, "PLAYER_ALREADY_HAS_SPAWN", "Hráč už má startovní district.");
   }
 
   if (!district) {
-    return failed(state, "TARGET_NOT_FOUND", `Spawn district ${command.payload.districtId} was not found.`);
+    return failed(state, "TARGET_NOT_FOUND", `Startovní district ${command.payload.districtId} nebyl nalezen.`);
   }
 
   if (!policy.isEnabledSpawnCandidate(district.id)) {
-    return failed(state, "SPAWN_NOT_ALLOWED", "District is not an enabled spawn candidate.");
+    return failed(state, "SPAWN_NOT_ALLOWED", "Tenhle district není povolený jako start.");
   }
 
   if (district.zone === "downtown") {
-    return failed(state, "SPAWN_NOT_ALLOWED", "Downtown districts cannot be selected as spawn.");
+    return failed(state, "SPAWN_NOT_ALLOWED", "Downtown district nejde vybrat jako start.");
   }
 
   if (district.status === "locked" || district.status === "destroyed" || district.lockdownUntilTick) {
-    return failed(state, "SPAWN_LOCKED", "Spawn district is locked.");
+    return failed(state, "SPAWN_LOCKED", "Startovní district je zamčený.");
   }
 
   if (district.ownerPlayerId) {
-    return failed(state, "SPAWN_ALREADY_OCCUPIED", "Spawn district is already occupied.");
+    return failed(state, "SPAWN_ALREADY_OCCUPIED", "Startovní district už někdo drží.");
   }
 
   if (district.status !== "neutral") {
-    return failed(state, "SPAWN_NOT_NEUTRAL", "Spawn district is not neutral.");
+    return failed(state, "SPAWN_NOT_NEUTRAL", "Startovní district není neutrální.");
   }
 
   const updatedBuildingsById = { ...state.buildingsById };

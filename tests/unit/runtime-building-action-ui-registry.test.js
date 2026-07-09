@@ -103,7 +103,7 @@ describe("building action UI registry", () => {
     expect(getActionDisabledReason({
       cooldownRemainingMs: 1200,
       formatCooldown: () => "2s"
-    })).toBe("Akce má cooldown 2s.");
+    })).toBe("Akce čeká 2s.");
   });
 
   it("hides unused cooldown categories from UI labels", () => {

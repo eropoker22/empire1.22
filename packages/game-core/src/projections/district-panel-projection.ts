@@ -1,9 +1,5 @@
 import type { DistrictPanelView } from "@empire/shared-types";
 import type { CoreGameState } from "../entities/game-state";
-import type { CraftBuildingBalanceConfig, PowerStationBalanceConfig } from "../contracts/game-mode-config";
-import { resolvePowerStationInfrastructureMultiplier } from "../handlers/powerStationBuildingActions";
-import { applyDayNightProductionMultiplier } from "../rules/day-night/dayNight";
-import { composeEntityId } from "../utils";
 import { createDistrictAttackTargetViews } from "./district-attack-target-projection";
 import {
   createDistrictDefenseActionView,
@@ -13,8 +9,8 @@ import {
 import { createDistrictCapabilitiesView } from "./district-capabilities-projection";
 import { createDistrictPanelBuildingViews } from "./district-building-action-projection";
 import { createDistrictOccupyTargetViews } from "./district-occupy-target-projection";
+import { createDistrictSlotViews } from "./district-panel-slot-projection";
 import type { DistrictPanelProjectionInput } from "./district-panel-projection-types";
-import { resolveProjectionProductionLevelMultiplier } from "./production-level-projection";
 import { createDistrictSpyTargetViews } from "./district-spy-target-projection";
 
 export type { DistrictPanelProjectionInput } from "./district-panel-projection-types";
@@ -108,99 +104,9 @@ export const createDistrictPanelView = (
     removeDefense: isDestroyed ? null : removeDefense,
     trap: isDestroyed ? null : trap,
     capabilities: createDistrictCapabilitiesView(state, input.playerId, district.id),
-    slots: isDestroyed ? [] : Array.from({ length: district.slotCount }, (_value, slotIndex) => {
-      const buildingId = district.buildingIds[slotIndex];
-      const building = buildingId ? state.buildingsById[buildingId] : undefined;
-
-      if (building) {
-        const productionProfile = input.productionCatalog[building.buildingTypeId];
-        const craftProfile = input.craftCatalog[building.buildingTypeId];
-        const processingView = createProcessingView(building, craftProfile, state.root.tick);
-        const productionState = productionProfile
-          ? state.resourceStatesById[composeEntityId("resource", building.id)]
-          : null;
-        const storedAmount = productionProfile
-          ? Math.max(0, Number(productionState?.balances?.[productionProfile.resourceKey] || 0))
-          : 0;
-
-        return {
-          slotIndex,
-          buildingId: building.id,
-          buildingTypeId: building.buildingTypeId,
-          status: building.status,
-          canBuild: false,
-          production: productionProfile
-            ? {
-                resourceKey: productionProfile.resourceKey,
-                resourceLabel: productionProfile.resourceLabel,
-                storedAmount,
-                storageCap: productionProfile.storageCap,
-                amountPerTick: resolveProjectedProductionAmountPerTick({
-                  state,
-                  input,
-                  building,
-                  productionProfile,
-                  craftProfile
-                }),
-                canCollect: isOwnedByPlayer && building.ownerPlayerId === input.playerId && building.status === "active" && storedAmount > 0,
-                collectDisabledReason: !isOwnedByPlayer || building.ownerPlayerId !== input.playerId
-                  ? "Only the building owner can collect production here."
-                  : building.status !== "active"
-                    ? "Only active buildings can collect production."
-                    : storedAmount > 0
-                      ? null
-                      : `No ${productionProfile.resourceLabel} ready to collect yet.`
-              }
-            : null,
-          processing: processingView,
-          craftOptions: craftProfile
-            ? Object.entries(craftProfile.recipes).map(([recipeId, recipe]) => {
-                const missingInputs = Object.entries(recipe.inputCosts).filter(
-                  ([resourceKey, requiredAmount]) =>
-                    Math.max(0, Number(playerBalances[resourceKey] || 0)) < requiredAmount
-                );
-
-                return {
-                  recipeId,
-                  label: recipe.label,
-                  inputSummary: formatInputSummary(recipe.inputCosts),
-                  outputResourceKey: recipe.outputResourceKey,
-                  outputResourceLabel: recipe.outputResourceLabel,
-                  outputAmount: recipe.outputAmount,
-                  canCraft:
-                    isOwnedByPlayer &&
-                    building.ownerPlayerId === input.playerId &&
-                    building.status === "active" &&
-                    !processingView &&
-                    missingInputs.length === 0,
-                  craftDisabledReason: !isOwnedByPlayer || building.ownerPlayerId !== input.playerId
-                    ? "Only the building owner can process items here."
-                    : building.status !== "active"
-                      ? "Only active buildings can process items."
-                      : processingView
-                        ? `Processing ${processingView.label} completes in ${formatTickLabel(processingView.remainingTicks)}.`
-                      : missingInputs.length > 0
-                        ? `Need ${formatInputSummary(Object.fromEntries(missingInputs))}.`
-                        : null
-                };
-              })
-            : [],
-          buildOptions: []
-        };
-      }
-
-      return {
-        slotIndex,
-        buildingId: null,
-        buildingTypeId: null,
-        status: "empty",
-        canBuild: false,
-        production: null,
-        processing: null,
-        craftOptions: [],
-        buildOptions: []
-      };
-    })
+    slots: isDestroyed
+      ? []
+      : createDistrictSlotViews({ state, input, district, playerBalances, isOwnedByPlayer })
   };
 };
 
@@ -225,107 +131,16 @@ const createTrapView = (
   return {
     enabled: !activeTrap && !otherActiveTrap,
     disabledReason: activeTrap
-      ? `Trap already armed on ${district.name}.`
+      ? `Past už je v districtu ${district.name} nastražená.`
       : otherActiveTrap
-        ? "Only one active trap can be armed at a time."
+        ? "Najednou můžeš mít nastraženou jen jednu aktivní past."
         : null,
     activeTrap: activeTrap
       ? {
           trapId: activeTrap.id,
-          label: "Hidden trap armed",
+          label: "Skrytá past nastražená",
           placedAtTick: activeTrap.placedAtTick
         }
       : null
   };
 };
-
-const resolveProjectedProductionAmountPerTick = (params: {
-  state: CoreGameState;
-  input: DistrictPanelProjectionInput;
-  building: CoreGameState["buildingsById"][string];
-  productionProfile: NonNullable<DistrictPanelProjectionInput["productionCatalog"][string]>;
-  craftProfile?: DistrictPanelProjectionInput["craftCatalog"][string];
-}): number => {
-  const baseAmountPerTick = Math.max(0, Math.floor(
-    params.productionProfile.amountPerTick
-      * params.input.productionMultiplier
-      * resolveProjectionProductionLevelMultiplier(
-        params.building.level,
-        params.productionProfile.upgrade ?? params.craftProfile?.upgrade
-      )
-      * resolveProductionInfrastructureMultiplier({
-        state: params.state,
-        building: params.building,
-        powerStationConfig: params.input.powerStationConfig
-      })
-  ));
-
-  return params.input.config
-    ? Math.max(0, applyDayNightProductionMultiplier({
-        state: params.state,
-        context: { config: params.input.config },
-        buildingTypeId: params.building.buildingTypeId,
-        amountPerTick: baseAmountPerTick
-      }))
-    : baseAmountPerTick;
-};
-
-const formatInputSummary = (inputCosts: Record<string, number>): string =>
-  Object.entries(inputCosts)
-    .map(([resourceKey, amount]) => `${amount} ${formatResourceLabel(resourceKey)}`)
-    .join(" + ");
-
-const formatResourceLabel = (resourceKey: string): string =>
-  RESOURCE_LABELS[resourceKey] ??
-  resourceKey
-    .split("-")
-    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
-    .join(" ");
-
-const RESOURCE_LABELS: Record<string, string> = {
-  "combat-module": "Bojový modul",
-  combatModule: "Bojový modul"
-};
-
-const createProcessingView = (
-  building: CoreGameState["buildingsById"][string],
-  craftProfile: CraftBuildingBalanceConfig | undefined,
-  tick: number
-) => {
-  if (!building.processing) {
-    return null;
-  }
-
-  const recipe = craftProfile?.recipes[building.processing.recipeId];
-
-  if (!recipe) {
-    return null;
-  }
-
-  return {
-    recipeId: building.processing.recipeId,
-    label: recipe.label,
-    remainingTicks: Math.max(0, building.processing.completesAtTick - tick),
-    totalTicks: Math.max(1, building.processing.completesAtTick - building.processing.startedAtTick),
-    outputResourceKey: recipe.outputResourceKey,
-    outputResourceLabel: recipe.outputResourceLabel,
-    outputAmount: recipe.outputAmount
-  };
-};
-
-const formatTickLabel = (tickCount: number): string => `${tickCount} ${tickCount === 1 ? "tick" : "ticks"}`;
-
-const resolveProductionInfrastructureMultiplier = (input: {
-  state: CoreGameState;
-  building: CoreGameState["buildingsById"][string];
-  powerStationConfig?: PowerStationBalanceConfig;
-}): number =>
-  input.building.buildingTypeId === "factory"
-    ? resolvePowerStationInfrastructureMultiplier({
-        state: input.state,
-        playerId: input.building.ownerPlayerId,
-        config: input.powerStationConfig,
-        tick: input.state.root.tick,
-        target: "factoryProductionSpeed"
-      })
-    : 1;

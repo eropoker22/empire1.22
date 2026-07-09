@@ -91,38 +91,38 @@ const validateUpgradeBuilding = (
   const player = state.playersById[command.playerId];
 
   if (!district) {
-    errors.push({ code: "district_not_found", message: "District does not exist." });
+    errors.push({ code: "district_not_found", message: "District neexistuje." });
   }
   if (!building) {
-    errors.push({ code: "building_not_found", message: "Building does not exist." });
+    errors.push({ code: "building_not_found", message: "Budova neexistuje." });
   }
   if (!player) {
-    errors.push({ code: "player_not_found", message: "Player does not exist." });
+    errors.push({ code: "player_not_found", message: "Hráč neexistuje." });
   }
   if (errors.length > 0 || !district || !building || !player) {
     return { building: building as CoreGameState["buildingsById"][string], playerResourceState: undefined, upgradeCost: null, errors };
   }
 
   if (building.districtId !== district.id || !district.buildingIds.includes(building.id)) {
-    errors.push({ code: "building_district_mismatch", message: "Building is not in the submitted district." });
+    errors.push({ code: "building_district_mismatch", message: "Budova není v odeslaném districtu." });
   }
   if (building.ownerPlayerId !== command.playerId || district.ownerPlayerId !== command.playerId) {
-    errors.push({ code: "building_not_owned", message: "Only the owner can upgrade this building." });
+    errors.push({ code: "building_not_owned", message: "Tuhle budovu může upgradovat jen majitel." });
   }
   if (building.status !== "active" || district.status === "destroyed") {
-    errors.push({ code: "building_not_active", message: "Only active buildings in active districts can be upgraded." });
+    errors.push({ code: "building_not_active", message: "Upgradovat jde jen aktivní budovy v aktivních districtech." });
   }
 
   const upgradeCost = resolveBuildingUpgradeCost(building, context);
   if (!upgradeCost) {
-    errors.push({ code: "building_upgrade_unavailable", message: "This building has no next upgrade level." });
+    errors.push({ code: "building_upgrade_unavailable", message: "Tahle budova už nemá další level upgradu." });
   }
 
   const playerResourceState = state.resourceStatesById[player.resourceStateId] ?? createPlayerResourceState(player, state.root.tick);
   if (upgradeCost && !hasEnoughResourcesForUpgrade(playerResourceState, upgradeCost.costs)) {
     errors.push({
       code: "insufficient_upgrade_resources",
-      message: "Player does not have enough resources for this building upgrade.",
+      message: "Hráč nemá dost zdrojů na upgrade téhle budovy.",
       details: {
         costs: upgradeCost.costs
       }

@@ -6,6 +6,7 @@ import { getTopOverlay, isOverlayOpen, shouldSuppressMapInput } from "../modals/
 import { resolveGameplaySliceBootstrapRequest } from "./gameplay-slice-bootstrap";
 import { persistServerConfirmedGameplaySliceFocus } from "./gameplay-slice-focus-cache";
 import { createDistrictSheetOverlayController } from "./gameplay-slice-overlays";
+import { createGameplaySliceVisibilityRuntime, getGameplaySlicePollerPerformanceOptions, recordGameplaySliceRefresh } from "./gameplay-slice-performance-metrics";
 import {
   createSafeErrorMessage,
   isGameplayDiagnosticsEnabled,
@@ -24,19 +25,9 @@ const DISTRICT_TAP_DEBOUNCE_MS = 350;
 
 export interface GameplaySlicePageMountOptions { root: HTMLElement; transport?: ClientTransport; }
 export interface MountedGameplaySlicePage { destroy(): void; }
-interface MountedGameplaySlicePageInternal extends MountedGameplaySlicePage {
-  closeDistrictSheetFromExternal(reason?: string): boolean;
-}
+interface MountedGameplaySlicePageInternal extends MountedGameplaySlicePage { closeDistrictSheetFromExternal(reason?: string): boolean; }
 
-declare global {
-  interface Window {
-    EmpireGameplaySliceClient?: {
-      closeDistrictSheet(reason?: string): boolean;
-      mount(options: GameplaySlicePageMountOptions): MountedGameplaySlicePage | null;
-      autoMount(): MountedGameplaySlicePage[];
-    };
-  }
-}
+declare global { interface Window { EmpireGameplaySliceClient?: { closeDistrictSheet(reason?: string): boolean; mount(options: GameplaySlicePageMountOptions): MountedGameplaySlicePage | null; autoMount(): MountedGameplaySlicePage[]; }; } }
 
 const activeGameplaySlicePages = new Set<MountedGameplaySlicePageInternal>();
 
@@ -327,7 +318,11 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     getRequest: () => currentLoadRequest,
     intervalMs: parsePollingIntervalMs(options.root.dataset.gameplaySlicePollingIntervalMs),
     enabled: options.root.dataset.gameplaySlicePolling === "true",
-    onResponse: render,
+    ...getGameplaySlicePollerPerformanceOptions(),
+    onResponse: (state) => {
+      recordGameplaySliceRefresh();
+      render(state);
+    },
     onError: () => {
       mounts.status.innerHTML = [
         "<strong>Synchronizace se serverem zastarala</strong>",
@@ -336,7 +331,8 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     }
   });
 
-  const cooldownTimerId = window.setInterval(() => refreshLiveCooldownLabels(options.root), 1000);
+  const visibilityRuntime = createGameplaySliceVisibilityRuntime({ root: options.root, poller });
+  visibilityRuntime.start();
   legacyDistrictPopupObserver?.observe(legacyDistrictPopup as HTMLElement, {
     attributeFilter: ["aria-hidden", "class", "hidden"],
     attributes: true
@@ -349,6 +345,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
   void client
     .load(request)
     .then((state) => {
+      recordGameplaySliceRefresh();
       render(state);
       poller.start();
     })
@@ -367,8 +364,8 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     closeDistrictSheetFromExternal: (reason = "external district popup close") =>
       closeDistrictSheetAfterLegacyClose(reason),
     destroy: () => {
-      poller.stop();
-      window.clearInterval(cooldownTimerId);
+      poller.destroy();
+      visibilityRuntime.destroy();
       legacyDistrictPopupObserver?.disconnect();
       document.removeEventListener("empire:district-closed", handleLegacyDistrictClosed);
       options.root.removeEventListener("click", handleClick);

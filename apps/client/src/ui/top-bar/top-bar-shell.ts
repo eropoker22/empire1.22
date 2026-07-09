@@ -12,20 +12,20 @@ export interface TopBarShellProps {
 
 export const renderTopBarShell = ({ player }: TopBarShellProps): string =>
   player
-    ? `<header data-mode="${escapeAttribute(player.modeLabel)}" data-city-phase="${escapeAttribute(player.dayNight?.uiThemeHint ?? "day")}">Mode: ${escapeHtml(player.modeLabel)} · Player: ${escapeHtml(player.playerId)}${renderHomeDistrict(player)} · Resources: ${escapeHtml(player.resourceSummary)} · Alerts: ${escapeHtml(player.notificationCount)}${renderPoliceBadge(player)}${renderDayNightBadge(player)}</header>`
+    ? `<header data-mode="${escapeAttribute(player.modeLabel)}" data-city-phase="${escapeAttribute(player.dayNight?.uiThemeHint ?? "day")}">Režim: ${escapeHtml(player.modeLabel)} · Hráč: ${escapeHtml(player.playerId)}${renderHomeDistrict(player)} · Zdroje: ${escapeHtml(player.resourceSummary)} · Hlášení: ${escapeHtml(player.notificationCount)}${renderPoliceBadge(player)}${renderDayNightBadge(player)}</header>`
     : "";
 
 const renderHomeDistrict = (player: PlayerViewModel): string =>
   player.homeDistrictId
-    ? ` · Server assigned home: ${escapeHtml(player.homeDistrictId)}`
+    ? ` · Domovský district: ${escapeHtml(player.homeDistrictId)}`
     : "";
 
 const renderPoliceBadge = (player: PlayerViewModel): string => {
   const police = player.police;
   if (!police) return "";
 
-  const pending = police.pendingRaidLabel ? ` · Pending: ${escapeHtml(police.pendingRaidLabel)}` : "";
-  return ` · <span class="police-badge" data-raid-status="${escapeAttribute(police.raidConsequenceStatus)}" title="${escapeAttribute(`Hledanost distriktu ${police.selectedDistrictHeatLabel} · Ochrana ${police.protectionLabel}`)}">Hledanost ${escapeHtml(police.heatLabel)} · Wanted ${escapeHtml(police.wantedLevelLabel)}${pending}</span>`;
+  const pending = police.pendingRaidLabel ? ` · Čeká: ${escapeHtml(police.pendingRaidLabel)}` : "";
+  return ` · <span class="police-badge" data-raid-status="${escapeAttribute(police.raidConsequenceStatus)}" title="${escapeAttribute(`Hledanost distriktu ${police.selectedDistrictHeatLabel} · Ochrana ${police.protectionLabel}`)}">Hledanost ${escapeHtml(police.heatLabel)} · Úroveň ${escapeHtml(police.wantedLevelLabel)}${pending}</span>`;
 };
 
 const renderDayNightBadge = (player: PlayerViewModel): string => {

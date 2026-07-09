@@ -1,28 +1,18 @@
 import { publicBuildingDefinitions } from "./building-definitions";
+import {
+  downtownFixedBuildingSetByDistrictId,
+  fixedBuildingSetByDistrictId
+} from "./district-building-fixed-sets";
+import { createDistrictBuildingSet as set } from "./district-building-set-types";
+import type {
+  PublicDistrictBuildingSet,
+  ResolveDistrictBuildingTypesInput
+} from "./district-building-set-types";
 
-export interface PublicDistrictBuildingSet {
-  key: string;
-  zone: string;
-  tier: string;
-  title: string;
-  buildingTypes: string[];
-}
-
-export interface ResolveDistrictBuildingTypesInput {
-  districtId: string;
-  zone?: string | null;
-  buildingSetKey?: string | null;
-  buildingTier?: string | null;
-  legacyBuildingNames?: readonly string[] | null;
-}
-
-const set = (
-  zone: string,
-  tier: string,
-  key: string,
-  title: string,
-  buildingTypes: string[]
-): PublicDistrictBuildingSet => ({ key, zone, tier, title, buildingTypes });
+export type {
+  PublicDistrictBuildingSet,
+  ResolveDistrictBuildingTypesInput
+} from "./district-building-set-types";
 
 export const publicDistrictBuildingSetPools: Record<string, PublicDistrictBuildingSet[]> = {
   commercial: [
@@ -31,7 +21,7 @@ export const publicDistrictBuildingSetPools: Record<string, PublicDistrictBuildi
     set("commercial", "early", "early-cash", "Lehký cashflow", ["restaurant", "exchange"]),
     set("commercial", "early", "early-safe-3", "Bezpečný mix", ["restaurant", "pharmacy", "fitness_club"]),
     set("commercial", "early", "early-launder", "Startovní mobilita", ["car_dealer", "restaurant"]),
-    set("commercial", "mid", "mid-balance-1", "Utility growth", ["car_dealer", "pharmacy"]),
+    set("commercial", "mid", "mid-balance-1", "Růst utility", ["car_dealer", "pharmacy"]),
     set("commercial", "mid", "mid-balance-2", "Finanční uzel", ["car_dealer", "exchange"]),
     set("commercial", "mid", "mid-corp-1", "Korporátní stabilita", ["shopping_mall", "restaurant"]),
     set("commercial", "mid", "mid-corp-2", "Administrativní utility", ["shopping_mall", "pharmacy", "restaurant"]),
@@ -39,10 +29,10 @@ export const publicDistrictBuildingSetPools: Record<string, PublicDistrictBuildi
     set("commercial", "mid", "mid-mix-1", "Vyvážený obchod", ["restaurant", "pharmacy", "exchange"]),
     set("commercial", "mid", "mid-mix-2", "Mobilní front", ["car_dealer", "exchange", "restaurant"]),
     set("commercial", "top", "top-casino-1", "Kasino hotspot", ["casino", "restaurant"]),
-    set("commercial", "top", "top-casino-2", "Shady premium", ["casino", "restaurant", "pharmacy"]),
-    set("commercial", "top", "top-casino-3", "Black cash engine", ["casino", "exchange", "car_dealer"]),
+    set("commercial", "top", "top-casino-2", "Stínové premium", ["casino", "restaurant", "pharmacy"]),
+    set("commercial", "top", "top-casino-3", "Motor dirty cash", ["casino", "exchange", "car_dealer"]),
     set("commercial", "top", "top-mall-1", "Prémiový retail", ["shopping_mall", "pharmacy", "restaurant"]),
-    set("commercial", "top", "top-mall-2", "Financial boulevard", ["shopping_mall", "exchange", "restaurant"])
+    set("commercial", "top", "top-mall-2", "Finanční bulvár", ["shopping_mall", "exchange", "restaurant"])
   ],
   residential: [
     set("residential", "early", "res-early-1", "Startovní růst", ["apartment_block", "garage"]),
@@ -62,8 +52,8 @@ export const publicDistrictBuildingSetPools: Record<string, PublicDistrictBuildi
     set("residential", "late", "res-late-5", "Strategická mobilizace", ["apartment_block", "recruitment_center", "school"])
   ],
   park: [
-    set("park", "early", "park-early-1", "Street cash", ["street_dealers", "convenience_store"]),
-    set("park", "early", "park-early-2", "Quick runners", ["street_dealers", "smuggling_tunnel"]),
+    set("park", "early", "park-early-1", "Pouliční cash", ["street_dealers", "convenience_store"]),
+    set("park", "early", "park-early-2", "Rychlí běžci", ["street_dealers", "smuggling_tunnel"]),
     set("park", "early", "park-early-3", "Night cover", ["strip_club", "convenience_store"]),
     set("park", "mid", "park-mid-1", "Distribution lane", ["drug_lab", "smuggling_tunnel"]),
     set("park", "mid", "park-mid-2", "Vice market", ["strip_club", "street_dealers"]),
@@ -89,12 +79,12 @@ export const publicDistrictBuildingSetPools: Record<string, PublicDistrictBuildi
     set("industrial", "mid", "ind-mid-5", "Recyklační sklad", ["warehouse", "recycling_center"]),
     set("industrial", "mid", "ind-mid-6", "Recyklace a obrana", ["recycling_center", "armory"]),
     set("industrial", "mid", "ind-mid-7", "Obnova zdrojů", ["factory", "recycling_center", "warehouse"]),
-    set("industrial", "top", "ind-top-1", "Arms grid", ["factory", "armory", "warehouse"]),
-    set("industrial", "top", "ind-top-2", "Power forge", ["factory", "armory", "power_station"]),
-    set("industrial", "top", "ind-top-3", "Scrap foundry", ["armory", "recycling_center", "warehouse"]),
+    set("industrial", "top", "ind-top-1", "Zbrojní síť", ["factory", "armory", "warehouse"]),
+    set("industrial", "top", "ind-top-2", "Napájená kovárna", ["factory", "armory", "power_station"]),
+    set("industrial", "top", "ind-top-3", "Šrotová slévárna", ["armory", "recycling_center", "warehouse"]),
     set("industrial", "top", "ind-top-4", "Critical recovery", ["power_station", "recycling_center", "warehouse"]),
     set("industrial", "top", "ind-top-5", "Heavy recycle", ["armory", "recycling_center", "factory"]),
-    set("industrial", "top", "ind-top-6", "Circular war industry", ["armory", "recycling_center", "factory"])
+    set("industrial", "top", "ind-top-6", "Cirkulární válečný průmysl", ["armory", "recycling_center", "factory"])
   ],
   downtown: [
     set("downtown", "mid", "down-mid-1", "Městské finance", ["central_bank", "city_hall"]),
@@ -106,66 +96,14 @@ export const publicDistrictBuildingSetPools: Record<string, PublicDistrictBuildi
     set("downtown", "high", "down-high-2", "Státní pevnost", ["city_hall", "court"]),
     set("downtown", "high", "down-high-3", "Elitní arbitráž", ["court", "vip_lounge"]),
     set("downtown", "high", "down-high-4", "Burzovní manipulace", ["stock_exchange", "lobby_club"]),
-    set("downtown", "high", "down-high-5", "Executive chamber", ["city_hall", "vip_lounge"]),
+    set("downtown", "high", "down-high-5", "Výkonná komora", ["city_hall", "vip_lounge"]),
     set("downtown", "high", "down-high-6", "Politický terminál", ["parliament", "airport"]),
-    set("downtown", "core", "down-core-1", "Capital nexus", ["central_bank", "city_hall", "vip_lounge"]),
-    set("downtown", "core", "down-core-2", "Shadow exchange", ["stock_exchange", "lobby_club", "vip_lounge"]),
+    set("downtown", "core", "down-core-1", "Kapitálový uzel", ["central_bank", "city_hall", "vip_lounge"]),
+    set("downtown", "core", "down-core-2", "Stínová burza", ["stock_exchange", "lobby_club", "vip_lounge"]),
     set("downtown", "core", "down-core-3", "Judicial machine", ["city_hall", "court", "lobby_club"]),
-    set("downtown", "core", "down-core-4", "System override", ["central_bank", "court", "lobby_club"]),
+    set("downtown", "core", "down-core-4", "Přepsání systému", ["central_bank", "court", "lobby_club"]),
     set("downtown", "core", "down-core-5", "Capital logistics", ["parliament", "airport", "port"])
   ]
-};
-
-const downtownFixedBuildingSetByDistrictId: Record<string, PublicDistrictBuildingSet> = {
-  "79": set("downtown", "core", "downtown-fixed-79", "Elitní arbitráž", ["court", "vip_lounge"]),
-  "80": set("downtown", "core", "downtown-fixed-80", "Městské finance", ["central_bank"]),
-  "81": set("downtown", "core", "downtown-fixed-81", "Politický vliv", ["lobby_club", "central_bank"]),
-  "82": set("downtown", "core", "downtown-fixed-82", "Volatilní kapitál", ["stock_exchange"]),
-  "83": set("downtown", "core", "downtown-fixed-83", "Právní tlak", ["court"]),
-  "58": set("downtown", "core", "downtown-fixed-58", "Městská kontrola", ["city_hall", "parliament"]),
-  "57": set("downtown", "core", "downtown-fixed-57", "Lobby síť", ["lobby_club", "airport"]),
-  "59": set("downtown", "core", "downtown-fixed-59", "VIP patro", ["vip_lounge", "port"])
-};
-
-const fixedBuildingSetByDistrictId: Record<string, PublicDistrictBuildingSet> = {
-  "4": set("residential", "early", "residential-fixed-4", "Obytná kontrola", ["apartment_block", "arcade", "garage"]),
-  "7": set("residential", "early", "residential-fixed-7", "Stabilní základna", ["apartment_block", "arcade"]),
-  "10": set("residential", "early", "residential-fixed-10", "Stabilní základna", ["apartment_block", "arcade"]),
-  "15": set("residential", "early", "residential-fixed-15", "Startovní růst", ["apartment_block", "garage"]),
-  "19": set("residential", "early", "residential-fixed-19", "Stabilní základna", ["apartment_block", "arcade"]),
-  "22": set("residential", "early", "residential-fixed-22", "První nábor", ["apartment_block", "recruitment_center"]),
-  "24": set("residential", "early", "residential-fixed-24", "Stabilní základna", ["apartment_block", "arcade"]),
-  "28": set("residential", "early", "residential-fixed-28", "Stabilní základna", ["apartment_block", "arcade"]),
-  "32": set("residential", "mid", "residential-fixed-32", "Mobilní posily", ["apartment_block", "recruitment_center", "garage"]),
-  "35": set("residential", "mid", "residential-fixed-35", "Mobilní posily", ["apartment_block", "recruitment_center", "garage"]),
-  "40": set("residential", "mid", "residential-fixed-40", "Regenerace fronty", ["recruitment_center", "school"]),
-  "44": set("residential", "early", "residential-fixed-44", "První nábor", ["apartment_block", "recruitment_center"]),
-  "49": set("residential", "mid", "residential-fixed-49", "Kontrolovaný development", ["apartment_block", "arcade", "clinic"]),
-  "54": set("residential", "mid", "residential-fixed-54", "Mobilní posily", ["apartment_block", "recruitment_center", "garage"]),
-  "60": set("residential", "late", "residential-fixed-60", "Mobilní tlak", ["recruitment_center", "school", "clinic"]),
-  "65": set("residential", "mid", "residential-fixed-65", "Regenerace fronty", ["recruitment_center", "clinic"]),
-  "69": set("residential", "early", "residential-fixed-69", "Stabilní základna", ["apartment_block", "arcade"]),
-  "71": set("residential", "mid", "residential-fixed-71", "Regenerace fronty", ["recruitment_center", "clinic"]),
-  "74": set("residential", "late", "residential-fixed-74", "Válečné zázemí", ["apartment_block", "recruitment_center", "clinic"]),
-  "85": set("residential", "late", "residential-fixed-85", "Mobilní tlak", ["recruitment_center", "garage", "clinic"]),
-  "88": set("residential", "late", "residential-fixed-88", "Elitní rezidenční zóna", ["apartment_block", "garage", "clinic"]),
-  "90": set("residential", "mid", "residential-fixed-90", "Loajalita a výcvik", ["arcade", "school"]),
-  "96": set("residential", "mid", "residential-fixed-96", "Loajalita a výcvik", ["arcade", "school"]),
-  "99": set("residential", "mid", "residential-fixed-99", "Loajalita a výcvik", ["arcade", "school"]),
-  "101": set("residential", "mid", "residential-fixed-101", "Loajalita a výcvik", ["arcade", "school"]),
-  "108": set("residential", "mid", "residential-fixed-108", "Udržitelný růst", ["apartment_block", "clinic"]),
-  "115": set("residential", "early", "residential-fixed-115", "Stabilní základna", ["apartment_block", "arcade"]),
-  "117": set("residential", "early", "residential-fixed-117", "První nábor", ["apartment_block", "recruitment_center"]),
-  "122": set("residential", "mid", "residential-fixed-122", "Mobilní posily", ["apartment_block", "recruitment_center", "garage"]),
-  "126": set("residential", "mid", "residential-fixed-126", "Mobilní posily", ["apartment_block", "recruitment_center", "garage"]),
-  "129": set("residential", "mid", "residential-fixed-129", "Mobilní posily", ["apartment_block", "recruitment_center", "garage"]),
-  "133": set("residential", "early", "residential-fixed-133", "Obytná kontrola", ["apartment_block", "arcade", "garage"]),
-  "135": set("residential", "early", "residential-fixed-135", "Startovní růst", ["apartment_block", "garage"]),
-  "142": set("residential", "early", "residential-fixed-142", "Obytná kontrola", ["apartment_block", "arcade", "garage"]),
-  "147": set("residential", "early", "residential-fixed-147", "Startovní růst", ["apartment_block", "garage"]),
-  "151": set("residential", "early", "residential-fixed-151", "První nábor", ["apartment_block", "recruitment_center"]),
-  "154": set("residential", "early", "residential-fixed-154", "Obytná kontrola", ["apartment_block", "arcade", "garage"]),
-  "160": set("residential", "early", "residential-fixed-160", "Startovní růst", ["apartment_block", "garage"])
 };
 
 const tierOrderByZone: Record<string, string[]> = {

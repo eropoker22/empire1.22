@@ -8,9 +8,16 @@ export interface PollingTimerDriver {
   clearInterval(handle: unknown): void;
 }
 
+export interface PollingVisibilityDocument {
+  readonly hidden: boolean;
+  addEventListener?(type: "visibilitychange", listener: () => void): void;
+  removeEventListener?(type: "visibilitychange", listener: () => void): void;
+}
+
 export interface GameplaySlicePoller<TResponse = GameplaySliceResponse> {
   start(): void;
   stop(): void;
+  destroy(): void;
   isRunning(): boolean;
   isEnabled(): boolean;
   setEnabled(enabled: boolean): void;
@@ -23,6 +30,10 @@ export interface GameplaySlicePollerOptions<TResponse = GameplaySliceResponse> {
   intervalMs: number;
   enabled?: boolean;
   timerDriver?: PollingTimerDriver;
+  visibilityDocument?: PollingVisibilityDocument | null;
+  intervalMultiplier?: number;
+  maxErrorIntervalMultiplier?: number;
+  onRunningChange?(delta: 1 | -1): void;
   onResponse?(response: TResponse): void | Promise<void>;
   onError?(error: unknown): void;
 }
@@ -43,13 +54,23 @@ export const createGameplaySlicePoller = <TResponse = GameplaySliceResponse>({
   intervalMs,
   enabled = true,
   timerDriver = browserTimerDriver,
+  visibilityDocument = typeof document === "undefined" ? null : document,
+  intervalMultiplier = 1,
+  maxErrorIntervalMultiplier = 4,
+  onRunningChange,
   onResponse,
   onError
 }: GameplaySlicePollerOptions<TResponse>): GameplaySlicePoller<TResponse> => {
-  const safeIntervalMs = Math.max(1, Math.floor(intervalMs));
+  const baseIntervalMs = Math.max(1, Math.floor(intervalMs * Math.max(1, intervalMultiplier)));
+  const maxBackoffMultiplier = Math.max(1, Math.floor(maxErrorIntervalMultiplier));
   let intervalHandle: unknown | null = null;
+  let currentIntervalMs = baseIntervalMs;
+  let consecutiveErrors = 0;
   let refreshInProgress = false;
   let pollingEnabled = enabled;
+  let destroyed = false;
+
+  const isPausedForVisibility = (): boolean => Boolean(visibilityDocument?.hidden);
 
   const stop = (): void => {
     if (intervalHandle === null) {
@@ -58,10 +79,53 @@ export const createGameplaySlicePoller = <TResponse = GameplaySliceResponse>({
 
     timerDriver.clearInterval(intervalHandle);
     intervalHandle = null;
+    onRunningChange?.(-1);
+  };
+
+  const startInterval = (): void => {
+    if (!pollingEnabled || destroyed || intervalHandle !== null || isPausedForVisibility()) {
+      return;
+    }
+
+    intervalHandle = timerDriver.setInterval(() => {
+      if (isPausedForVisibility()) {
+        stop();
+        return;
+      }
+      void refreshOnce();
+    }, currentIntervalMs);
+    onRunningChange?.(1);
+  };
+
+  const restartWithInterval = (nextIntervalMs: number): void => {
+    const wasRunning = intervalHandle !== null;
+    stop();
+    currentIntervalMs = Math.max(1, Math.floor(nextIntervalMs));
+    if (wasRunning) {
+      startInterval();
+    }
+  };
+
+  const syncErrorBackoff = (): void => {
+    const multiplier = Math.min(maxBackoffMultiplier, consecutiveErrors + 1);
+    const nextIntervalMs = baseIntervalMs * multiplier;
+    if (nextIntervalMs !== currentIntervalMs) {
+      restartWithInterval(nextIntervalMs);
+    }
+  };
+
+  const resetErrorBackoff = (): void => {
+    if (consecutiveErrors === 0 && currentIntervalMs === baseIntervalMs) {
+      return;
+    }
+    consecutiveErrors = 0;
+    if (currentIntervalMs !== baseIntervalMs) {
+      restartWithInterval(baseIntervalMs);
+    }
   };
 
   const refreshOnce = async (): Promise<TResponse | null> => {
-    if (refreshInProgress) {
+    if (refreshInProgress || destroyed || isPausedForVisibility()) {
       return null;
     }
 
@@ -76,14 +140,33 @@ export const createGameplaySlicePoller = <TResponse = GameplaySliceResponse>({
     try {
       const response = await load(request);
       await onResponse?.(response);
+      resetErrorBackoff();
       return response;
     } catch (error) {
+      consecutiveErrors += 1;
       onError?.(error);
+      syncErrorBackoff();
       return null;
     } finally {
       refreshInProgress = false;
     }
   };
+
+  const handleVisibilityChange = (): void => {
+    if (isPausedForVisibility()) {
+      stop();
+      return;
+    }
+
+    if (!pollingEnabled || destroyed) {
+      return;
+    }
+
+    void refreshOnce();
+    startInterval();
+  };
+
+  visibilityDocument?.addEventListener?.("visibilitychange", handleVisibilityChange);
 
   return {
     start: () => {
@@ -91,11 +174,17 @@ export const createGameplaySlicePoller = <TResponse = GameplaySliceResponse>({
         return;
       }
 
-      intervalHandle = timerDriver.setInterval(() => {
-        void refreshOnce();
-      }, safeIntervalMs);
+      startInterval();
     },
     stop,
+    destroy: () => {
+      if (destroyed) {
+        return;
+      }
+      destroyed = true;
+      stop();
+      visibilityDocument?.removeEventListener?.("visibilitychange", handleVisibilityChange);
+    },
     isRunning: () => intervalHandle !== null,
     isEnabled: () => pollingEnabled,
     setEnabled: (nextEnabled) => {
@@ -103,6 +192,8 @@ export const createGameplaySlicePoller = <TResponse = GameplaySliceResponse>({
 
       if (!pollingEnabled) {
         stop();
+      } else {
+        startInterval();
       }
     },
     refreshOnce

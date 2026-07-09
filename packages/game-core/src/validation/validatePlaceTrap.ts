@@ -19,7 +19,7 @@ export const validatePlaceTrap = (
     return [
       {
         code: "trap_player_not_found",
-        message: `Player ${command.playerId} was not found.`
+        message: `Hráč ${command.playerId} nebyl nalezen.`
       }
     ];
   }
@@ -28,7 +28,7 @@ export const validatePlaceTrap = (
     return [
       {
         code: "trap_district_not_found",
-        message: `Target district ${command.payload.districtId} was not found.`
+        message: `Cílový district ${command.payload.districtId} nebyl nalezen.`
       }
     ];
   }
@@ -56,7 +56,7 @@ export const validatePlaceTrap = (
     return [
       {
         code: "trap_already_active",
-        message: `A trap is already armed on ${district.name}.`
+        message: `Past už je v districtu ${district.name} nastražená.`
       }
     ];
   }
@@ -65,7 +65,7 @@ export const validatePlaceTrap = (
     return [
       {
         code: "trap_limit_reached",
-        message: "Player can only keep one active trap armed at a time."
+        message: "Hráč může mít najednou nastraženou jen jednu aktivní past."
       }
     ];
   }
@@ -76,10 +76,10 @@ export const validatePlaceTrap = (
 const trapMapActionErrorMessage = (reasonCode: string | undefined): string => {
   switch (reasonCode) {
     case "TRAP_TARGET_NOT_OWNED":
-      return "Player can only arm a trap on a district they own.";
+      return "Past můžeš nastražit jen ve vlastním districtu.";
     case "DISTRICT_LOCKED":
-      return "Locked or destroyed districts cannot be trapped.";
+      return "Zamčené nebo zničené districty nejde zapastit.";
     default:
-      return "Trap placement is not allowed for this district.";
+      return "V tomhle districtu nejde past nastražit.";
   }
 };

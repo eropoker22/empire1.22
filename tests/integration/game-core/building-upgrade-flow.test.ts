@@ -161,7 +161,7 @@ describe("upgrade-building command flow", () => {
 
     const nextState = completeProduction(state, context);
 
-    expect(nextState.resourceStatesById[`resource:${building.id}`].balances["metal-parts"]).toBe(5);
+    expect(nextState.resourceStatesById[`resource:${building.id}`].balances["metal-parts"]).toBe(6);
   });
 
   it("applies production level multiplier to craft processing duration", () => {

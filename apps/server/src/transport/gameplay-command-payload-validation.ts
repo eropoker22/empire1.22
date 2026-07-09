@@ -16,7 +16,7 @@ export const validateGameCommandPayload = (
   }
 
   if (!isRecord(command.payload)) {
-    errors.push(createMissingFieldError("submit", "command.payload", "Command payload must be a JSON object."));
+    errors.push(createMissingFieldError("submit", "command.payload", "Payload commandu musí být JSON objekt."));
     return;
   }
 
@@ -49,7 +49,7 @@ export const validateGameCommandPayload = (
     case "build-structure":
       errors.push(createInvalidFieldError(
         "command.type",
-        "Deprecated build-structure is not accepted by the public gameplay slice transport."
+        "Zastaralý build-structure veřejný gameplay transport nepřijímá."
       ));
       break;
     case "occupy-district":
@@ -193,7 +193,7 @@ const rejectUnknownPayloadFields = (
     }
     errors.push(createInvalidFieldError(
       `command.payload.${field}`,
-      "Command payload field is not allowed for this command type."
+      "Tohle pole payloadu není pro daný command povolené."
     ));
   }
 };
@@ -214,7 +214,7 @@ const requireOptionalStringField = (
     return;
   }
 
-  errors.push(createInvalidFieldError(errorFieldPath, "Command payload field must be a non-empty string."));
+  errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být neprázdný text."));
 };
 
 const requireOptionalFiniteNumberField = (
@@ -228,13 +228,13 @@ const requireOptionalFiniteNumberField = (
     return;
   }
 
-  errors.push(createInvalidFieldError(errorFieldPath, "Command payload field must be a finite number."));
+  errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být konečné číslo."));
 };
 
 const createMissingFieldError = (
   kind: GameplaySliceRequestKind,
   fieldPath: string,
-  message = `Gameplay slice ${kind} request is missing required field '${fieldPath}'.`
+  message = `V gameplay ${kind} requestu chybí povinné pole '${fieldPath}'.`
 ): DomainError => ({
   code: "transport.invalid_request",
   message,

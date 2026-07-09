@@ -196,10 +196,12 @@ export const describeBuildingUpgradeEffects = (
   if (productionUpgrade) {
     const before = resolveProductionBuildingLevelMultiplier(building, context);
     const after = resolveProductionBuildingLevelMultiplier({ ...building, level: upgradeCost.nextLevel }, context);
+    const beforePct = Math.round((before - 1) * 100);
+    const afterPct = Math.round((after - 1) * 100);
     return [{
       label: "Produkce",
       value: `+${Math.round((after - before) * 100)}%`,
-      detail: `x${before.toFixed(2)} -> x${after.toFixed(2)}`
+      detail: `${beforePct >= 0 ? "+" : ""}${beforePct}% -> ${afterPct >= 0 ? "+" : ""}${afterPct}%`
     }];
   }
 
@@ -207,10 +209,12 @@ export const describeBuildingUpgradeEffects = (
   if (!fixedConfig) return [];
   const before = 1 + ((Math.max(1, upgradeCost.level) - 1) * GENERIC_FIXED_BUILDING_UPGRADE_PCT_PER_LEVEL / 100);
   const after = 1 + ((Math.max(1, upgradeCost.nextLevel) - 1) * GENERIC_FIXED_BUILDING_UPGRADE_PCT_PER_LEVEL / 100);
+  const beforePct = Math.round((before - 1) * 100);
+  const afterPct = Math.round((after - 1) * 100);
   return [{
-    label: "Level multiplier",
-    value: `x${after.toFixed(2)}`,
-    detail: `x${before.toFixed(2)} -> x${after.toFixed(2)}`
+    label: "Bonus levelu",
+    value: `${afterPct >= 0 ? "+" : ""}${afterPct}%`,
+    detail: `${beforePct >= 0 ? "+" : ""}${beforePct}% -> ${afterPct >= 0 ? "+" : ""}${afterPct}%`
   }];
 };
 

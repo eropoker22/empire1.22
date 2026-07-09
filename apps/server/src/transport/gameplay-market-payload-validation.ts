@@ -22,7 +22,7 @@ export const validateMarketCommandPayload = (
       if (payload.marketType === "normal" && payload.paymentType === "dirtyCash") {
         errors.push(createInvalidFieldError(
           "command.payload.paymentType",
-          "Dirty cash payment is allowed only for black market buys."
+          "Dirty cash lze použít jen při nákupu na černém trhu."
         ));
       }
       return true;
@@ -46,7 +46,7 @@ const rejectUnknownPayloadFields = (
     if (!allowed.has(field)) {
       errors.push(createInvalidFieldError(
         `command.payload.${field}`,
-        "Command payload field is not allowed for this command type."
+        "Tohle pole payloadu není pro daný command povolené."
       ));
     }
   }
@@ -61,7 +61,7 @@ const requireChoiceField = (
 ): void => {
   const fieldValue = getFieldPath(value, fieldPath);
   if (typeof fieldValue !== "string" || !choices.includes(fieldValue)) {
-    errors.push(createInvalidFieldError(errorFieldPath, `Command payload field must be one of: ${choices.join(", ")}.`));
+    errors.push(createInvalidFieldError(errorFieldPath, `Pole payloadu musí být jedna z hodnot: ${choices.join(", ")}.`));
   }
 };
 
@@ -74,7 +74,7 @@ const requirePositiveIntegerField = (
 ): void => {
   const fieldValue = getFieldPath(value, fieldPath);
   if (typeof fieldValue !== "number" || !Number.isInteger(fieldValue) || fieldValue <= 0 || fieldValue > maxValue) {
-    errors.push(createInvalidFieldError(errorFieldPath, `Command payload field must be a positive integer up to ${maxValue}.`));
+    errors.push(createInvalidFieldError(errorFieldPath, `Pole payloadu musí být kladné celé číslo do ${maxValue}.`));
   }
 };
 

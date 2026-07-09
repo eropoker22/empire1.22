@@ -22,6 +22,9 @@ import {
 import { formatCategoryList, formatNumber, formatTickLabel } from "./district-building-action-formatters";
 import type { BuildingStatsProjectionInput, BuildingStatView } from "./district-building-stats-types";
 
+const formatMultiplierBonus = (value: number): string =>
+  `${Number(value || 1) >= 1 ? "+" : ""}${formatNumber((Number(value || 1) - 1) * 100)} %`;
+
 export const createMarketBuildingStats = (input: BuildingStatsProjectionInput): BuildingStatView[] | null => {
   if (input.building.buildingTypeId === "vip_lounge" && input.vipLoungeConfig && input.building.ownerPlayerId) {
     const stats = resolveVipLoungeRumorStats({
@@ -30,20 +33,20 @@ export const createMarketBuildingStats = (input: BuildingStatsProjectionInput): 
       config: input.vipLoungeConfig
     });
     const metadata = getVipLoungeMetadata(input.building);
-    const latestRumorStatus = metadata.rumorEvents.length > 0 ? "available in city feed" : "waiting for next whisper";
+    const latestRumorStatus = metadata.rumorEvents.length > 0 ? "dostupné v městských zprávách" : "čeká na další šeptandu";
     return [
       { label: "Clean / min", value: `$${formatNumber(input.vipLoungeConfig.cleanCashPerMinute * stats.tier.incomeMultiplier)}` },
       { label: "Dirty / min", value: `$${formatNumber(input.vipLoungeConfig.dirtyCashPerMinute * stats.tier.incomeMultiplier)}` },
       { label: "Influence / min", value: formatNumber(input.vipLoungeConfig.influencePerMinute * stats.tier.influenceMultiplier) },
       { label: "Heat / min", value: formatNumber(input.vipLoungeConfig.heatPerMinute * stats.tier.heatMultiplier) },
-      { label: "Owned VIP lounges", value: `${stats.ownedCount}/${input.vipLoungeConfig.countOnMap}` },
-      { label: "Rumor interval", value: `${formatNumber(stats.rumorIntervalMinutes)} min` },
-      { label: "Backroom rumor chance", value: `${formatNumber(stats.passiveRumorChancePct)} %` },
-      { label: "Truth chance", value: `${formatNumber(stats.truthChancePct)} %` },
-      { label: "District hint chance", value: `${formatNumber(stats.districtHintChancePct)} %` },
-      { label: "Building hint chance", value: `${formatNumber(stats.buildingHintChancePct)} %` },
-      { label: "Reliability label chance", value: `${formatNumber(stats.reliabilityLabelChancePct)} %` },
-      { label: "Latest backroom rumor", value: latestRumorStatus }
+      { label: "Vlastněné VIP lounge", value: `${stats.ownedCount}/${input.vipLoungeConfig.countOnMap}` },
+      { label: "Interval drbů", value: `${formatNumber(stats.rumorIntervalMinutes)} min` },
+      { label: "Šance zákulisního drbu", value: `${formatNumber(stats.passiveRumorChancePct)} %` },
+      { label: "Šance pravdy", value: `${formatNumber(stats.truthChancePct)} %` },
+      { label: "Šance hintu districtu", value: `${formatNumber(stats.districtHintChancePct)} %` },
+      { label: "Šance hintu budovy", value: `${formatNumber(stats.buildingHintChancePct)} %` },
+      { label: "Šance spolehlivosti", value: `${formatNumber(stats.reliabilityLabelChancePct)} %` },
+      { label: "Poslední zákulisní drb", value: latestRumorStatus }
     ];
   }
   if (input.building.buildingTypeId === "car_dealer" && input.carDealerConfig && input.building.ownerPlayerId) {
@@ -60,14 +63,14 @@ export const createMarketBuildingStats = (input: BuildingStatsProjectionInput): 
       { label: "Dirty / hour", value: `$${formatNumber(input.carDealerConfig.dirtyCashPerMinute * 60 * network.dirtyIncomeMultiplier)}` },
       { label: "Heat / day", value: formatNumber(input.carDealerConfig.heatPerMinute * 60 * 24 * network.heatMultiplier) },
       { label: "Influence / day", value: formatNumber(input.carDealerConfig.influencePerMinute * 60 * 24) },
-      { label: "Owned car dealers", value: `${ownedCount}/${input.carDealerConfig.countOnMap}` },
-      { label: "Clean income multiplier", value: `x${formatNumber(network.cleanIncomeMultiplier)}` },
-      { label: "Dirty income multiplier", value: `x${formatNumber(network.dirtyIncomeMultiplier)}` },
-      { label: "Cooldown reduction", value: `-${formatNumber(support.cooldownReductionPct)} %` },
-      { label: "Escape chance bonus", value: `+${formatNumber(support.escapeChanceBonusPct)} %` },
-      { label: "Garage + dealer cap", value: `-${formatNumber(support.combinedGarageDealerMaxReductionPct)} %` },
-      { label: "Applies to", value: formatCategoryList([...support.fullBonusCategories, ...support.halfBonusCategories, ...support.smallBonusCategories]) },
-      { label: "No bonus", value: formatCategoryList(support.excludedCategories) }
+      { label: "Vlastněné autosalony", value: `${ownedCount}/${input.carDealerConfig.countOnMap}` },
+      { label: "Clean výnos", value: formatMultiplierBonus(network.cleanIncomeMultiplier) },
+      { label: "Dirty výnos", value: formatMultiplierBonus(network.dirtyIncomeMultiplier) },
+      { label: "Zkrácení čekání", value: `-${formatNumber(support.cooldownReductionPct)} %` },
+      { label: "Šance úniku", value: `+${formatNumber(support.escapeChanceBonusPct)} %` },
+      { label: "Cap garáž + autosalon", value: `-${formatNumber(support.combinedGarageDealerMaxReductionPct)} %` },
+      { label: "Platí na", value: formatCategoryList([...support.fullBonusCategories, ...support.halfBonusCategories, ...support.smallBonusCategories]) },
+      { label: "Bez bonusu", value: formatCategoryList(support.excludedCategories) }
     ];
   }
   if (input.building.buildingTypeId === "smuggling_tunnel" && input.smugglingTunnelConfig && input.building.ownerPlayerId) {
@@ -92,15 +95,15 @@ export const createMarketBuildingStats = (input: BuildingStatsProjectionInput): 
       { label: "Dirty / min", value: `$${formatNumber(productionPerMinute)}` },
       { label: "Heat / min", value: formatNumber(heatPerMinute) },
       { label: "Vlastněné tunely", value: `${ownedCount}/${input.smugglingTunnelConfig.countOnMap}` },
-      { label: "Dirty bonus sítě", value: `x${formatNumber(network.dirtyProductionMultiplier)}` },
-      { label: "Heat bonus sítě", value: `x${formatNumber(network.heatMultiplier)}` },
+      { label: "Dirty bonus sítě", value: formatMultiplierBonus(network.dirtyProductionMultiplier) },
+      { label: "Heat bonus sítě", value: formatMultiplierBonus(network.heatMultiplier) },
       { label: "Podpora Pouličních dealerů", value: `+${formatNumber(dealerSupply.dealerSupplyBonusPct)} %` },
       { label: "Cena prodeje Pouličních dealerů", value: `+${formatNumber(dealerSupply.salePriceBonusPct + openChannel.dealerSalePriceBonusPct)} %` },
       { label: "Rychlost prodeje Pouličních dealerů", value: `+${formatNumber(dealerSupply.saleSpeedBonusPct + openChannel.dealerSaleSpeedBonusPct)} %` },
       { label: "Pasivní dirty bonus Pouličních dealerů", value: `+${formatNumber(dealerSupply.passiveDirtyIncomeBonusPct)} %` },
       { label: "Snížení pouličního rizika", value: `-${formatNumber(dealerSupply.streetRiskReductionPct)} %` },
       { label: "Heat riziko Pouličních dealerů", value: `+${formatNumber(dealerSupply.saleHeatRiskBonusPct + openChannel.dealerSaleHeatBonusPct)} %` },
-      { label: "Otevřený kanál", value: openChannel.active ? `aktivní ${formatTickLabel(openChannel.remainingTicks)}` : "připravený po cooldownu" },
+      { label: "Otevřený kanál", value: openChannel.active ? `aktivní ${formatTickLabel(openChannel.remainingTicks)}` : "připravený po čekání" },
       { label: "Riziko pouličního incidentu", value: `+${formatNumber(openChannel.streetIncidentFlatRiskPct)} %` }
     ];
   }
@@ -138,10 +141,10 @@ export const createMarketBuildingStats = (input: BuildingStatsProjectionInput): 
       { label: "Sloty dealerů", value: `${Math.max(0, slotCount - lockedSlots.length)}/${slotCount} volné` },
       { label: "Aktivní prodeje", value: activeSaleSummary },
       { label: "Sklad drog", value: inventory || "prázdný" },
-      { label: "Pasivní dirty bonus", value: `x${formatNumber(network.passiveDirtyIncomeMultiplier)}` },
-      { label: "Bonus ceny prodeje", value: `x${formatNumber(network.salePriceMultiplier)}` },
-      { label: "Bonus rychlosti prodeje", value: `x${formatNumber(network.saleSpeedMultiplier)}` },
-      { label: "Heat bonus sítě", value: `x${formatNumber(network.heatMultiplier)}` },
+      { label: "Pasivní dirty bonus", value: formatMultiplierBonus(network.passiveDirtyIncomeMultiplier) },
+      { label: "Bonus ceny prodeje", value: formatMultiplierBonus(network.salePriceMultiplier) },
+      { label: "Bonus rychlosti prodeje", value: formatMultiplierBonus(network.saleSpeedMultiplier) },
+      { label: "Heat bonus sítě", value: formatMultiplierBonus(network.heatMultiplier) },
       { label: "Bonus ceny z Pašovacích tunelů", value: `+${formatNumber(dealerSupply.salePriceBonusPct + openChannel.dealerSalePriceBonusPct)} %` },
       { label: "Bonus rychlosti z Pašovacích tunelů", value: `+${formatNumber(dealerSupply.saleSpeedBonusPct + openChannel.dealerSaleSpeedBonusPct)} %` },
       { label: "Pasivní dirty bonus z Pašovacích tunelů", value: `+${formatNumber(dealerSupply.passiveDirtyIncomeBonusPct)} %` },

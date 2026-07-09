@@ -70,7 +70,7 @@ describe("police read model projection", () => {
       hottestDistrictHeat: 20,
       raidPressure: 117,
       raidThreshold: 100,
-      raidPressureExplanation: "Raid pressure je celkový tlak policie: player heat plus vážený district heat z vlastněných districtů. District heat může přitáhnout raid i bez vysokého wanted levelu.",
+      raidPressureExplanation: "Tlak raidu je celkový tlak policie: heat hráče plus vážený heat z vlastněných districtů. Heat districtů může přitáhnout raid i bez vysoké hledanosti.",
       selectedDistrictId: "district:1",
       selectedDistrictHeat: 20,
       raidPending: false,
@@ -85,25 +85,25 @@ describe("police read model projection", () => {
     expect(model.heatBreakdown).toEqual([
       {
         key: "wantedLevel",
-        label: "Wanted level",
+        label: "Hledanost",
         value: "3 / 5",
-        description: "Osobní policejní stopa hráče. Počítá se z player heat, ne z district heat."
+        description: "Osobní policejní stopa hráče. Počítá se z heat hráče, ne z heat districtů."
       },
       {
         key: "playerHeat",
-        label: "Player heat",
+        label: "Heat hráče",
         value: "65",
         description: "Heat přímo na hráči z hlučných akcí, útoků a špinavých operací."
       },
       {
         key: "districtHeat",
-        label: "District heat",
+        label: "Heat districtů",
         value: "20",
-        description: "Součet heat ve vlastněných districtech. Může táhnout raid pressure nahoru i při nízkém wanted levelu."
+        description: "Součet heat ve vlastněných districtech. Může táhnout tlak raidu nahoru i při nízké hledanosti."
       },
       {
         key: "raidPressure",
-        label: "Raid pressure",
+        label: "Tlak raidu",
         value: "117",
         description: "Celkový tlak policie, který rozhoduje o warningu a raidu."
       }
@@ -160,7 +160,7 @@ describe("police read model projection", () => {
     const districtModel = createPoliceReadModel(districtHeatState, "player:1", createPoliceContext());
 
     expect(playerModel.recommendedAction).toContain("osobní policejní stopa");
-    expect(districtModel.recommendedAction).toContain("wanted level je nízký");
+    expect(districtModel.recommendedAction).toContain("hledanost je nízká");
     expect(districtModel.recommendedAction).toContain("Policie sleduje hlavně tvoje podniky");
   });
 

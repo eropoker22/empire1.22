@@ -15,7 +15,7 @@ export const validateRob = (
   if (!originDistrictId) {
     return [{
       code: "NO_VALID_ORIGIN",
-      message: "Rob command requires one unambiguous owned adjacent source district.",
+      message: "Vykradení vyžaduje jeden jasný vlastní sousední zdrojový district.",
       details: { targetDistrictId: command.payload.targetDistrictId }
     }];
   }
@@ -33,7 +33,7 @@ export const validateRob = (
   if (!player) {
     return [{
       code: "PLAYER_NOT_FOUND",
-      message: "Rob command can only be executed by an existing player.",
+      message: "Vykradení může spustit jen existující hráč.",
       details: { playerId: command.playerId }
     }];
   }
@@ -50,7 +50,7 @@ export const validateRob = (
     if (!Number.isFinite(availablePopulation) || availablePopulation < 1) {
       return [{
         code: "INSUFFICIENT_POPULATION",
-        message: "Rob command requires at least one person from population.",
+        message: "Vykradení vyžaduje alespoň jednoho člověka z populace.",
         details: {
           requiredPopulation: 1,
           availablePopulation
@@ -62,7 +62,7 @@ export const validateRob = (
   if (!result.allowed) {
     return [{
       code: result.reasonCode ?? "ROB_BLOCKED",
-      message: "Rob command is not allowed for this district.",
+      message: "Vykradení není v tomhle districtu povolené.",
       details: {
         targetDistrictId: command.payload.targetDistrictId,
         sourceDistrictId: originDistrictId,
@@ -82,7 +82,7 @@ export const validateRob = (
   if (activeCooldown) {
     return [{
       code: "rob_cooldown_active",
-      message: `Vykradení tohoto districtu nebo zdrojové trasy se obnoví za ${activeCooldown.remainingTicks} ticks.`,
+      message: `Vykradení tohoto districtu nebo zdrojové trasy se obnoví za ${activeCooldown.remainingTicks} ticků.`,
       details: {
         targetDistrictId: command.payload.targetDistrictId,
         sourceDistrictId: originDistrictId,

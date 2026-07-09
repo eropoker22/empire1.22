@@ -51,7 +51,7 @@ export const refreshLiveCooldownLabels = (
       endsAtMs,
       nowMs,
       prefix: node.dataset.cooldownPrefix ?? "Čekání ",
-      readyLabel: node.dataset.cooldownReadyLabel ?? "Ready"
+      readyLabel: node.dataset.cooldownReadyLabel ?? "Připraveno"
     });
     node.dataset.cooldownState = endsAtMs > nowMs ? "cooling" : "ready";
   });

@@ -518,12 +518,12 @@ describe("building detail view-model builder", () => {
       {
         buildingName: "Parlament",
         phase: "night",
-        profile: { role: "Politika", actions: ["Policy Window"] },
+        profile: { role: "Politika", actions: ["Politické okno"] },
         mechanics: { ...baseMechanics, mechanicsType: "parliament", actionCooldowns: {} },
         actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.parlament,
         expected: {
           actionId: "parliament_policy_window",
-          disabledReason: "Policy Window se otevírá jen přes den."
+          disabledReason: "Politické okno se otevírá jen přes den."
         }
       },
       {
@@ -580,7 +580,7 @@ describe("building detail view-model builder", () => {
       {
         buildingName: "Parlament",
         phase: "day",
-        profile: { role: "Politika", actions: ["Policy Window"] },
+        profile: { role: "Politika", actions: ["Politické okno"] },
         mechanics: { ...baseMechanics, mechanicsType: "parliament", actionCooldowns: {} },
         actionProfiles: DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES.parlament,
         expected: { actionId: "parliament_policy_window", phaseLockLabel: "Jen ve dne", phaseLockTone: "day" }
@@ -1304,7 +1304,7 @@ describe("building detail view-model builder", () => {
       baseCooldownMs: 18 * 60 * 1000,
       effectiveCooldownMs: 17 * 60 * 1000 + 6 * 1000,
       garageCooldownReductionPct: 5,
-      cooldownLabel: "Cooldown 17m 06s (-54s)"
+      cooldownLabel: "Čekání 17m 06s (-54s)"
     });
   });
 
@@ -1357,7 +1357,7 @@ describe("building detail view-model builder", () => {
       garageCooldownReductionPct: 5,
       autoSalonCooldownReductionPct: 1.5,
       combinedCooldownReductionPct: 6.5,
-      cooldownLabel: "Cooldown 16m 50s (-1m 11s)"
+      cooldownLabel: "Čekání 16m 50s (-1m 11s)"
     });
   });
 
@@ -1933,7 +1933,7 @@ describe("building detail view-model builder", () => {
     expect(emptyRows[0].disabledReason).toBe("Nemáš žádné ztráty k vytěžení.");
     expect(readyRows[0].disabled).toBe(false);
     expect(readyRows[0].buttonCostLabel).toBe("$900 clean cash");
-    expect(readyRows[0].cooldownLabel).toBe("Cooldown 16m 00s");
+    expect(readyRows[0].cooldownLabel).toBe("Čekání 16m 00s");
     expect(missingCashRows[0]).toMatchObject({
       disabled: true,
       disabledReason: "Potřebuješ $900 clean cash.",
@@ -2006,7 +2006,7 @@ describe("building detail view-model builder", () => {
 
     expect(rows[0].disabled).toBe(true);
     expect(rows[0].cooldownLabel).toBe("Zbývá 1m 00s");
-    expect(rows[0].disabledReason).toBe("Cooldown 1m 00s.");
+    expect(rows[0].disabledReason).toBe("Akce čeká 1m 00s.");
   });
 
   it("keeps restaurant button text aligned with configured rewards, heat, influence, and cooldown", () => {
@@ -2029,21 +2029,21 @@ describe("building detail view-model builder", () => {
     expect(rows).toHaveLength(3);
     expect(rows[0]).toMatchObject({
       actionId: "restaurant_collect_revenue",
-      rewardSummary: "Clean +$869 · Dirty cash +$550 · Heat +5 · Cooldown 30m 00s",
+      rewardSummary: "Clean +$869 · Dirty cash +$550 · Heat +5 · Čekání 30m 00s",
       riskSummary: "Heat +5",
-      cooldownLabel: "Cooldown 30m 00s"
+      cooldownLabel: "Čekání 30m 00s"
     });
     expect(rows[1]).toMatchObject({
       actionId: "restaurant_cover_meetings",
-      rewardSummary: "Vliv +8 · Heat +4 · Clean $1800/h -> $2124/h · Dirty $1200/h -> $1416/h · Trvání 30m 00s · Cooldown 45m 00s",
+      rewardSummary: "Vliv +8 · Heat +4 · Clean $1800/h -> $2124/h · Dirty $1200/h -> $1416/h · Trvání 30m 00s · Čekání 45m 00s",
       riskSummary: "Heat +4",
-      cooldownLabel: "Cooldown 45m 00s"
+      cooldownLabel: "Čekání 45m 00s"
     });
     expect(rows[2]).toMatchObject({
       actionId: "restaurant_local_network",
-      rewardSummary: "Vliv +4 · Heat +8 · Vliv 80/den -> 89/den · Trvání 30m 00s · Cooldown 30m 00s",
+      rewardSummary: "Vliv +4 · Heat +8 · Vliv 80/den -> 89/den · Trvání 30m 00s · Čekání 30m 00s",
       riskSummary: "Heat +8",
-      cooldownLabel: "Cooldown 30m 00s"
+      cooldownLabel: "Čekání 30m 00s"
     });
   });
 
@@ -2070,9 +2070,9 @@ describe("building detail view-model builder", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       actionId: "good_rate",
-      rewardSummary: "Vypere 16% dirty cash, max $7800 · fee 12% · Vliv +3 · Heat +12 · Cooldown 18m 00s",
+      rewardSummary: "Vypere 16% dirty cash, max $7800 · fee 12% · Vliv +3 · Heat +12 · Čekání 18m 00s",
       riskSummary: "Heat +12 · Audit +4%",
-      cooldownLabel: "Cooldown 18m 00s"
+      cooldownLabel: "Čekání 18m 00s"
     });
   });
 
@@ -2169,9 +2169,9 @@ describe("building detail view-model builder", () => {
 
     expect(rows[0]).toMatchObject({
       actionId: "quiet_backroom",
-      rewardSummary: "Vypere 24% dirty cash, max $22500 · fee 7% · Vliv +3 · Heat +7 · Trvání 10m 00s · Cooldown 14m 00s",
+      rewardSummary: "Vypere 24% dirty cash, max $22500 · fee 7% · Vliv +3 · Heat +7 · Trvání 10m 00s · Čekání 14m 00s",
       riskSummary: "Heat +7 · Audit +6%",
-      cooldownLabel: "Cooldown 14m 00s"
+      cooldownLabel: "Čekání 14m 00s"
     });
   });
 
@@ -2247,10 +2247,10 @@ describe("building detail view-model builder", () => {
     expect(model.title).toBe("Co hráč musí vědět");
     expect(model.intro).toBe("Lokální provoz.");
     expect(model.rows.find((row) => row.label === "Role")?.value).toBe("Výroba · Továrna");
-    expect(model.rows.find((row) => row.label === "Další level")?.value).toContain("Multiplier x1.28");
+    expect(model.rows.find((row) => row.label === "Další level")?.value).toContain("Bonus +28 %");
     expect(model.actions).toHaveLength(1);
     expect(model.actions[0].title).toBe("Vybrat lokální výnos");
-    expect(model.actions[0].result).toContain("Cooldown 1m 00s");
+    expect(model.actions[0].result).toContain("Čekání 1m 00s");
   });
 
   it("omits apartment block info title and special action copy", () => {
@@ -2336,7 +2336,7 @@ describe("building detail view-model builder", () => {
       actionId: "evening_course",
       title: "Večerní kurz",
       disabled: false,
-      cooldownLabel: "Cooldown 35m 00s"
+      cooldownLabel: "Čekání 35m 00s"
     });
     expect(ready[0].description).not.toContain("talent");
 
@@ -2386,7 +2386,7 @@ describe("building detail view-model builder", () => {
     const ready = createRows({ fresh: [{ itemType: "gang-members", amount: 10 }, { itemType: "population", amount: 20 }] });
     expect(ready[0].disabled).toBe(false);
     expect(ready[0].rewardSummary).toBe("Návrat z léčby: Populace +4");
-    expect(ready[0].cooldownLabel).toBe("Cooldown 18m 00s");
+    expect(ready[0].cooldownLabel).toBe("Čekání 18m 00s");
 
     const withoutCash = createRows({ cleanMoney: 1_199, fresh: [{ itemType: "gang-members", amount: 3 }] });
     expect(withoutCash[0].disabled).toBe(true);

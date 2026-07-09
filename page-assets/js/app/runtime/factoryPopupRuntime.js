@@ -248,13 +248,15 @@ export function createFactoryPopupRuntime(deps = {}) {
       const currentMultiplier = deps.getFactoryLevelMultiplier?.(factoryState.level) || 1;
       const nextMultiplier = deps.getFactoryLevelMultiplier?.(nextLevel) || currentMultiplier;
       const speedGainPct = Math.max(0, Math.round((Number(nextMultiplier || currentMultiplier || 1) - Number(currentMultiplier || 1)) * 100));
+      const currentSpeedPct = Math.round((Number(currentMultiplier || 1) - 1) * 100);
+      const nextSpeedPct = Math.round((Number(nextMultiplier || currentMultiplier || 1) - 1) * 100);
       const hasEnoughMoney = Number(economyState.cleanMoney || 0) >= upgradeCost;
       const confirmed = await upgradeConfirmation.open({
         benefits: [{
           icon: "x",
           label: "Rychlost výroby",
           value: `+${speedGainPct}%`,
-          detail: `x${Number(currentMultiplier || 1).toFixed(2)} → x${Number(nextMultiplier || currentMultiplier || 1).toFixed(2)}`
+          detail: `+${currentSpeedPct}% → +${nextSpeedPct}%`
         }],
         buildingLabel: "Továrna",
         canConfirm: hasEnoughMoney,

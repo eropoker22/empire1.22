@@ -124,7 +124,7 @@ describe("building upgrade confirmation benefits", () => {
       }
     });
 
-    expect(benefits.map((benefit) => benefit.label)).toEqual(["Populace / min", "Kapacita obyvatel", "Level bonus"]);
+    expect(benefits.map((benefit) => benefit.label)).toEqual(["Populace / min", "Kapacita obyvatel", "Bonus levelu"]);
   });
 
   it("returns concrete recruitment center support benefits when supplied", () => {
@@ -172,7 +172,7 @@ describe("building upgrade confirmation benefits", () => {
       }
     });
 
-    expect(benefits.map((benefit) => benefit.label)).toEqual(["Populace / min", "Kapacita populace", "Level bonus"]);
+    expect(benefits.map((benefit) => benefit.label)).toEqual(["Populace / min", "Kapacita populace", "Bonus levelu"]);
     expect(benefits.find((benefit) => benefit.label === "Populace / min")?.value).toBe("+0.04");
   });
 
@@ -192,7 +192,7 @@ describe("building upgrade confirmation benefits", () => {
       }
     });
 
-    expect(benefits.map((benefit) => benefit.label)).toEqual(["Recovery rate", "Clean cash", "Level bonus"]);
+    expect(benefits.map((benefit) => benefit.label)).toEqual(["Recovery rate", "Clean cash", "Bonus levelu"]);
     expect(benefits.find((benefit) => benefit.label === "Recovery rate")?.value).toBe("+3%");
   });
 
