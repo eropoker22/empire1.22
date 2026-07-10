@@ -10,6 +10,32 @@ import { createClientApp } from "../../../apps/client/src/app";
 import type { ClientTransport } from "../../../apps/client/src/transport";
 
 describe("client optimistic concurrency", () => {
+  it("reuses the client render state for an unchanged server slice", async () => {
+    const view = createGameplaySliceView(7);
+    const recomputeReasons: string[] = [];
+    const client = createClientApp({
+      transport: {
+        load: async () => ({ accepted: true, readModel: view, errors: [] }),
+        send: async () => ({ accepted: true, readModel: view, errors: [] })
+      },
+      onStateRecompute: (reason) => recomputeReasons.push(reason)
+    });
+    const request = {
+      serverInstanceId: "instance:client-concurrency",
+      playerId: "player:client-concurrency",
+      districtId: "district:client-concurrency"
+    };
+
+    const firstRender = await client.load(request);
+    const secondRender = await client.load(request);
+
+    expect(secondRender).toBe(firstRender);
+    expect(recomputeReasons).toEqual([
+      "initial-client-shell",
+      "server-slice-response"
+    ]);
+  });
+
   it("sends expectedStateVersion and clears pending state after a stale response", async () => {
     const sent: SubmitGameplayCommandRequest[] = [];
     const view = createGameplaySliceView(7);

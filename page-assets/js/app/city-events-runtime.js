@@ -499,6 +499,9 @@ function initCityEventsRuntime() {
   const root = document.querySelector("main[data-page='game']");
   if (!root) return;
 
+  const diagnostics = window.empireStreetsRuntimeDiagnostics || null;
+  const shouldRunLocalCityEvents = () => diagnostics?.shouldRunLocalTick?.() ?? false;
+
   const openBtn = document.getElementById("city-events-open");
   const modal = document.getElementById("events-modal");
   const backdrop = document.getElementById("events-modal-backdrop");
@@ -826,6 +829,7 @@ function initCityEventsRuntime() {
   detailCloseBtn?.addEventListener("click", closeEventDetailModal);
   detailDeclineBtn?.addEventListener("click", closeEventDetailModal);
   detailAcceptBtn?.addEventListener("click", () => {
+    if (!shouldRunLocalCityEvents()) return;
     if (!selectedEventTask) return;
     if (startCityEventRun(selectedEventTask)) {
       closeEventDetailModal();
@@ -901,9 +905,47 @@ function initCityEventsRuntime() {
     syncRefreshLabel(nowMs);
   };
 
-  tick();
-  window.setInterval(tick, 1000);
-  window.setInterval(syncCountdownTick, CHARACTER_EVENTS_COUNTDOWN_SYNC_MS);
+  let tickTimerId = null;
+  let countdownTimerId = null;
+  const stopLocalTimers = () => {
+    if (tickTimerId !== null) window.clearInterval(tickTimerId);
+    if (countdownTimerId !== null) window.clearInterval(countdownTimerId);
+    tickTimerId = null;
+    countdownTimerId = null;
+    diagnostics?.setLocalTickActive?.("legacy-city-events", false);
+  };
+  const startLocalTimers = () => {
+    if (!shouldRunLocalCityEvents() || tickTimerId !== null || document.hidden) return;
+    const tickIntervalMs = diagnostics?.getLocalTickIntervalMs?.(1000) || 1000;
+    const countdownIntervalMs = diagnostics?.getLocalTickIntervalMs?.(CHARACTER_EVENTS_COUNTDOWN_SYNC_MS)
+      || CHARACTER_EVENTS_COUNTDOWN_SYNC_MS;
+    tick();
+    tickTimerId = window.setInterval(() => {
+      diagnostics?.recordLocalTick?.();
+      tick();
+    }, tickIntervalMs);
+    countdownTimerId = window.setInterval(syncCountdownTick, countdownIntervalMs);
+    diagnostics?.setLocalTickActive?.("legacy-city-events", true);
+  };
+  const restartLocalTimers = () => {
+    stopLocalTimers();
+    startLocalTimers();
+  };
+  const handleVisibilityChange = () => {
+    if (document.hidden) stopLocalTimers();
+    else startLocalTimers();
+  };
+
+  document.addEventListener("empire:runtime-mode-changed", restartLocalTimers);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.addEventListener("empire:mobile-performance-mode-changed", restartLocalTimers);
+  window.addEventListener("beforeunload", () => {
+    stopLocalTimers();
+    document.removeEventListener("empire:runtime-mode-changed", restartLocalTimers);
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+    window.removeEventListener("empire:mobile-performance-mode-changed", restartLocalTimers);
+  }, { once: true });
+  startLocalTimers();
 }
 
 if (typeof document !== "undefined") {

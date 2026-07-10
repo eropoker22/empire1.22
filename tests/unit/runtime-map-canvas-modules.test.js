@@ -89,6 +89,7 @@ describe("map canvas extraction modules", () => {
     expect(() => animations.drawOccupyDistrictAnimation(context, district, 0.5)).not.toThrow();
     expect(() => animations.drawReducedMapActivityMarker(context, district, "spy", "#67e1ff")).not.toThrow();
     expect(context.calls.length).toBeGreaterThan(0);
+    expect(context.calls.some(([name]) => name === "fillText")).toBe(false);
   });
 
   it("renders a district canvas through the extracted renderer", () => {
@@ -111,7 +112,40 @@ describe("map canvas extraction modules", () => {
 
     expect(geometry.districts).toHaveLength(1);
     expect(context.calls.some(([name]) => name === "clearRect")).toBe(true);
-    expect(context.calls.some(([name]) => name === "badge")).toBe(true);
+    expect(context.calls.some(([name]) => name === "badge")).toBe(false);
+  });
+
+  it("keeps activity effects in a separate canvas and omits foreign player tags", () => {
+    const baseContext = createFakeContext();
+    const effectsContext = createFakeContext();
+    const canvas = { width: 120, height: 80, getContext: () => baseContext };
+    const effectsCanvas = { width: 120, height: 80, getContext: () => effectsContext };
+    const district = createDistrict();
+    const renderer = createDistrictCanvasRenderer({
+      createDistrictGeometry: () => ({ width: 120, height: 80, districts: [district] }),
+      getEffectiveOwnedDistrictIds: () => new Set([district.id]),
+      getCurrentPlayerOwnedDistrictIds: () => new Set(),
+      startPhaseOwnerByDistrictId: new Map([[district.id, 2]]),
+      getDistrictFillStyle: () => "rgba(103, 225, 255, 0.16)",
+      drawDistrictPolygon: drawFakeDistrictPolygon,
+      getLaunchPlayerColor: () => "#67e1ff",
+      drawSpyDistrictAnimation: () => effectsContext.calls.push(["spy"]),
+      currentPlayerId: 1
+    });
+    const state = {
+      mapVisibilityMode: "all",
+      activeSpyDistrictIds: new Set([district.id]),
+      activeSpyMarkersByDistrictId: new Map([[district.id, {}]])
+    };
+
+    const geometry = renderer.renderDistrictCanvas(canvas, "day", state, null, {
+      renderActivityEffects: false
+    });
+    renderer.renderDistrictEffectsCanvas(effectsCanvas, "day", state, geometry);
+
+    expect(baseContext.calls.some(([name]) => name === "spy")).toBe(false);
+    expect(effectsContext.calls.some(([name]) => name === "spy")).toBe(true);
+    expect(baseContext.calls.some(([name, text]) => name === "fillText" && /^P\\d+$/u.test(String(text)))).toBe(false);
   });
 
   it("draws a cyberpunk destroyed district overlay without mutating map state", () => {

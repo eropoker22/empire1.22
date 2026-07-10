@@ -2410,11 +2410,31 @@ var EmpireGameplaySliceClient = function(exports) {
     const serverHash = (slice == null ? void 0 : slice.server.mapManifestHash) ?? null;
     return Boolean(serverHash && serverHash !== empireCityMapManifestHash);
   };
+  const createServerSliceRenderFingerprint = (readModel, selectedDistrictId) => {
+    var _a, _b;
+    return readModel ? JSON.stringify({
+      instanceId: readModel.server.serverInstanceId,
+      playerId: readModel.player.playerId,
+      stateVersion: readModel.server.stateVersion,
+      currentTick: readModel.server.currentTick,
+      selectedDistrictId: ((_a = readModel.district) == null ? void 0 : _a.districtId) ?? readModel.server.selectedDistrictId ?? selectedDistrictId ?? "",
+      spawnStatus: ((_b = readModel.spawnSelection) == null ? void 0 : _b.status) || ""
+    }) : "";
+  };
+  const canReuseServerSliceRender = (nextFingerprint, previousFingerprint, commandId, errorCount) => Boolean(
+    nextFingerprint && nextFingerprint === previousFingerprint && !commandId && errorCount === 0
+  );
   const spawnSelectionFeature = "spawn-selection";
-  const createClientApp = ({ transport }) => {
+  const createClientApp = ({ transport, onStateRecompute }) => {
     const store = createClientStore(createInitialClientUiState());
     const dispatcher = createCommandDispatcher(transport);
     let renderState = createInitialClientRenderState();
+    let lastCommittedSliceFingerprint = "";
+    const recomputeRenderState = (reason) => {
+      onStateRecompute == null ? void 0 : onStateRecompute(reason);
+      renderState = renderClientShell(store);
+      return renderState;
+    };
     const commitResponse = (response, selectedDistrictId, commandId) => {
       var _a, _b, _c;
       const hasAuthoritativeReadModel = Boolean(response.readModel);
@@ -2422,6 +2442,21 @@ var EmpireGameplaySliceClient = function(exports) {
       const mapManifestMismatch = getMapManifestMismatch(response);
       const responseErrors = mapManifestMismatch ? [...response.errors, mapManifestMismatch] : response.errors;
       const firstErrorMessage = ((_a = responseErrors[0]) == null ? void 0 : _a.message) ?? null;
+      const nextSliceFingerprint = createServerSliceRenderFingerprint(response.readModel, selectedDistrictId);
+      const canReuseCommittedRenderState = canReuseServerSliceRender(
+        nextSliceFingerprint,
+        lastCommittedSliceFingerprint,
+        commandId,
+        responseErrors.length
+      );
+      if (canReuseCommittedRenderState) {
+        store.setConnectionState({
+          status: "ready",
+          lastErrorMessage: null,
+          staleData: false
+        });
+        return renderState;
+      }
       if (response.readModel) {
         const serverSelectedDistrictId = ((_b = response.readModel.district) == null ? void 0 : _b.districtId) ?? response.readModel.player.homeDistrictId ?? selectedDistrictId ?? null;
         const activeSidePanel = ((_c = response.readModel.spawnSelection) == null ? void 0 : _c.status) === "awaiting_spawn_selection" ? spawnSelectionFeature : districtPanelFeature;
@@ -2449,16 +2484,11 @@ var EmpireGameplaySliceClient = function(exports) {
         lastErrorMessage: firstErrorMessage ?? (hasAuthoritativeReadModel ? null : missingReadModelMessage),
         staleData: responseErrors.length > 0 || !hasAuthoritativeReadModel
       });
-      renderState = renderClientShell(store);
-      return renderState;
+      if (nextSliceFingerprint) lastCommittedSliceFingerprint = nextSliceFingerprint;
+      return recomputeRenderState(commandId ? "server-command-response" : "server-slice-response");
     };
     const commitTransportFailure = (message, commandId) => {
-      const errors = [
-        {
-          code: "client.transport_error",
-          message
-        }
-      ];
+      const errors = [{ code: "client.transport_error", message }];
       store.setErrors(errors);
       store.setConnectionState({
         status: "error",
@@ -2473,10 +2503,9 @@ var EmpireGameplaySliceClient = function(exports) {
           }
         });
       }
-      renderState = renderClientShell(store);
-      return renderState;
+      return recomputeRenderState("transport-failure");
     };
-    renderState = renderClientShell(store);
+    recomputeRenderState("initial-client-shell");
     const createLoadRequestForSelectedDistrict = (districtId) => {
       const playerView = store.getReadModel().playerView;
       if (!playerView) {
@@ -2511,8 +2540,7 @@ var EmpireGameplaySliceClient = function(exports) {
           selectedBuildingId: null,
           selectedDistrictId: null
         });
-        renderState = renderClientShell(store);
-        return renderState;
+        return recomputeRenderState("ui-clear-district-selection");
       },
       selectDistrict: async (districtId) => {
         const request = createLoadRequestForSelectedDistrict(districtId);
@@ -2527,7 +2555,7 @@ var EmpireGameplaySliceClient = function(exports) {
         store.patchUiState({
           selectedBuildingId: null
         });
-        renderState = renderClientShell(store);
+        recomputeRenderState("ui-select-district-pending");
         try {
           const response = await transport.load(request);
           return commitResponse(response, districtId);
@@ -2541,8 +2569,7 @@ var EmpireGameplaySliceClient = function(exports) {
         store.patchUiState({
           selectedBuildingId: buildingId
         });
-        renderState = renderClientShell(store);
-        return renderState;
+        return recomputeRenderState("ui-select-building");
       },
       dispatch: async (command) => {
         var _a;
@@ -2557,7 +2584,7 @@ var EmpireGameplaySliceClient = function(exports) {
         store.patchUiState({
           pendingCommandIds: [...uiState.pendingCommandIds, command.id]
         });
-        renderState = renderClientShell(store);
+        recomputeRenderState("ui-command-pending");
         const focusDistrictId = command.type === "select-spawn-district" ? command.payload.districtId : uiState.selectedDistrictId;
         try {
           const response = await dispatcher.dispatch({
@@ -2787,6 +2814,30 @@ var EmpireGameplaySliceClient = function(exports) {
     (_a = window.empireStreetsPerformanceMetrics).managedIntervalCounts ?? (_a.managedIntervalCounts = {});
     return window.empireStreetsPerformanceMetrics;
   };
+  const serverSliceRefreshTimestamps = [];
+  let lastServerSliceFingerprint = "";
+  const pruneTimestamps = (timestamps, nowMs) => {
+    const cutoff = nowMs - 6e4;
+    while (timestamps.length > 0 && (timestamps[0] ?? 0) < cutoff) {
+      timestamps.shift();
+    }
+    return timestamps.length;
+  };
+  const createServerSliceFingerprint = (gameplaySlice) => {
+    var _a, _b;
+    if (!gameplaySlice || typeof gameplaySlice !== "object") return "";
+    const server = gameplaySlice.server ?? {};
+    const player = gameplaySlice.player ?? {};
+    return JSON.stringify({
+      instanceId: server.serverInstanceId || player.instanceId || "",
+      playerId: player.playerId || "",
+      stateVersion: server.stateVersion ?? null,
+      currentTick: server.currentTick ?? null,
+      selectedDistrictId: ((_a = gameplaySlice.district) == null ? void 0 : _a.districtId) || server.selectedDistrictId || "",
+      spawnStatus: ((_b = gameplaySlice.spawnSelection) == null ? void 0 : _b.status) || "",
+      gamePhase: gameplaySlice.gamePhase || ""
+    });
+  };
   const trackIntervalMetric = (label, delta) => {
     const metrics = getPerformanceMetrics();
     const counts = metrics.managedIntervalCounts ?? {};
@@ -2794,10 +2845,36 @@ var EmpireGameplaySliceClient = function(exports) {
     metrics.managedIntervalCounts = counts;
     metrics.activeIntervalsCount = Object.values(counts).reduce((sum, count) => sum + Math.max(0, count), 0);
   };
-  const recordGameplaySliceRefresh = () => {
+  const recordGameplaySliceRefresh = (gameplaySlice) => {
+    var _a, _b;
     const metrics = getPerformanceMetrics();
+    const nowMs = Date.now();
     metrics.gameplaySliceRefreshCount = (metrics.gameplaySliceRefreshCount ?? 0) + 1;
-    metrics.lastGameplaySliceRefreshAt = Date.now();
+    metrics.lastGameplaySliceRefreshAt = nowMs;
+    serverSliceRefreshTimestamps.push(nowMs);
+    metrics.serverSliceRefreshPerMinute = pruneTimestamps(serverSliceRefreshTimestamps, nowMs);
+    const diagnosticsObservation = (_b = (_a = window.empireStreetsRuntimeDiagnostics) == null ? void 0 : _a.observeServerSlice) == null ? void 0 : _b.call(_a, gameplaySlice);
+    if (diagnosticsObservation) {
+      return diagnosticsObservation;
+    }
+    const fingerprint = createServerSliceFingerprint(gameplaySlice);
+    const changed = Boolean(fingerprint && fingerprint !== lastServerSliceFingerprint);
+    if (fingerprint) lastServerSliceFingerprint = fingerprint;
+    metrics.runtimeMode = "server-authoritative";
+    metrics.serverSliceActive = Boolean(gameplaySlice);
+    metrics.localTickActive = false;
+    metrics.localProjectionActive = false;
+    metrics.demoFallbackActive = false;
+    return { changed, fingerprint };
+  };
+  const recordClientStateRecompute = (reason) => {
+    const diagnostics = window.empireStreetsRuntimeDiagnostics;
+    if (diagnostics == null ? void 0 : diagnostics.recordClientStateRecompute) {
+      diagnostics.recordClientStateRecompute(reason);
+      return;
+    }
+    const metrics = getPerformanceMetrics();
+    metrics.clientStateRecomputePerMinute = (metrics.clientStateRecomputePerMinute ?? 0) + 1;
   };
   const getPollingIntervalMultiplier = () => {
     var _a;
@@ -2843,6 +2920,7 @@ var EmpireGameplaySliceClient = function(exports) {
     };
   };
   const setGameplayRuntimeMarker = (root, marker, details = {}) => {
+    var _a, _b, _c, _d;
     root.dataset.gameplayRuntime = marker;
     root.dataset.gameplaySliceRuntime = marker;
     root.dataset.gameplaySliceEndpoint = details.endpoint ?? root.dataset.gameplaySliceEndpoint ?? "";
@@ -2875,6 +2953,42 @@ var EmpireGameplaySliceClient = function(exports) {
         delete document.body.dataset.gameplayFallback;
       }
     }
+    const diagnostics = typeof window === "undefined" ? null : window.empireStreetsRuntimeDiagnostics;
+    if (marker === "server-authoritative-ready") {
+      (_a = diagnostics == null ? void 0 : diagnostics.setMode) == null ? void 0 : _a.call(diagnostics, "server-authoritative", {
+        serverSliceActive: true,
+        reason: "gameplay-slice-ready"
+      });
+    } else if (marker === "server-authoritative-error") {
+      (_b = diagnostics == null ? void 0 : diagnostics.setMode) == null ? void 0 : _b.call(diagnostics, "server-authoritative", {
+        serverSliceActive: false,
+        reason: "gameplay-slice-error"
+      });
+    } else if (marker === "legacy-fallback" || details.fallback === "legacy") {
+      (_c = diagnostics == null ? void 0 : diagnostics.setMode) == null ? void 0 : _c.call(diagnostics, "legacy-fallback", {
+        serverSliceActive: false,
+        reason: "legacy-fallback"
+      });
+    } else if (marker === "demo-ready") {
+      (_d = diagnostics == null ? void 0 : diagnostics.setMode) == null ? void 0 : _d.call(diagnostics, "demo", {
+        serverSliceActive: false,
+        reason: "demo-runtime"
+      });
+    }
+  };
+  const isLegacyGameplayFallbackAllowed = () => {
+    var _a, _b;
+    if (typeof window === "undefined") return false;
+    const diagnosticsDecision = (_b = (_a = window.empireStreetsRuntimeDiagnostics) == null ? void 0 : _a.shouldAllowDemoFallback) == null ? void 0 : _b.call(_a);
+    if (typeof diagnosticsDecision === "boolean") return diagnosticsDecision;
+    const host = window.location.hostname;
+    return window.location.protocol === "file:" || !host || host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".local");
+  };
+  const getForcedDevelopmentRuntimeMode = () => {
+    var _a;
+    if (typeof window === "undefined") return null;
+    const requestedMode = ((_a = window.empireStreetsRuntimeDiagnostics) == null ? void 0 : _a.requestedMode) || new URLSearchParams(window.location.search).get("runtimeMode");
+    return requestedMode === "demo" || requestedMode === "legacy-fallback" || requestedMode === "local" ? requestedMode : null;
   };
   const isGameplayDiagnosticsEnabled = () => {
     if (typeof window === "undefined") {
@@ -2900,6 +3014,45 @@ var EmpireGameplaySliceClient = function(exports) {
   ].join("");
   const createSafeErrorMessage = (error) => error instanceof Error && error.message.trim() ? error.message.trim() : "Unknown gameplay slice error.";
   const sanitizeDiagnosticText = (value, maxLength) => String(value || "").replace(/(snapshotToken|sessionToken|token)["':=\s]+[^,}\s]+/giu, "$1=<redacted>").replace(/[A-Za-z0-9_-]{32,}\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/gu, "<redacted-token>").slice(0, maxLength);
+  const applyDevelopmentRuntimeOverride = (root) => {
+    var _a, _b;
+    const forcedMode = getForcedDevelopmentRuntimeMode();
+    if (!forcedMode || !isLegacyGameplayFallbackAllowed()) return false;
+    setGameplayRuntimeMarker(root, forcedMode === "legacy-fallback" ? "legacy-fallback" : "demo-ready", {
+      ...forcedMode === "legacy-fallback" ? { fallback: "legacy" } : {},
+      serverRuntime: "not-requested"
+    });
+    (_b = (_a = window.empireStreetsRuntimeDiagnostics) == null ? void 0 : _a.setMode) == null ? void 0 : _b.call(_a, forcedMode, {
+      serverSliceActive: false,
+      reason: "development-runtime-override"
+    });
+    root.hidden = true;
+    return true;
+  };
+  const markMissingGameplaySessionRuntime = (root) => {
+    if (isLegacyGameplayFallbackAllowed()) {
+      setGameplayRuntimeMarker(root, "demo-ready", {
+        fallback: "legacy",
+        serverRuntime: "not-requested"
+      });
+    } else {
+      setGameplayRuntimeMarker(root, "server-authoritative-error", {
+        error: "A validated gameplay session is required.",
+        serverRuntime: "not-requested"
+      });
+    }
+    root.hidden = true;
+  };
+  const markGameplaySliceUnavailableRuntime = (root, endpoint, message) => {
+    const allowLegacyFallback = isLegacyGameplayFallbackAllowed();
+    setGameplayRuntimeMarker(root, allowLegacyFallback ? "legacy-fallback" : "server-authoritative-error", {
+      endpoint,
+      error: message,
+      ...allowLegacyFallback ? { fallback: "legacy" } : {},
+      serverRuntime: "server-authoritative-error"
+    });
+    return allowLegacyFallback;
+  };
   const DEFAULT_ENDPOINT_BASE = "/api/gameplay-slice";
   const LEGACY_DISTRICT_POPUP_SELECTOR = "[data-testid='district-popup']";
   const MOBILE_SHEET_SELECTOR = ".mobile-sheet";
@@ -2907,19 +3060,17 @@ var EmpireGameplaySliceClient = function(exports) {
   const DISTRICT_TAP_DEBOUNCE_MS = 350;
   const activeGameplaySlicePages = /* @__PURE__ */ new Set();
   const mountGameplaySlicePage = (options) => {
+    if (applyDevelopmentRuntimeOverride(options.root)) return null;
     const request = resolveGameplaySliceBootstrapRequest(options.root.dataset, getBrowserStorage());
     if (!request) {
-      setGameplayRuntimeMarker(options.root, "demo-ready", {
-        fallback: "legacy",
-        serverRuntime: "not-requested"
-      });
-      options.root.hidden = true;
+      markMissingGameplaySessionRuntime(options.root);
       return null;
     }
     const endpointBase = options.root.dataset.gameplaySliceEndpointBase || DEFAULT_ENDPOINT_BASE;
     setGameplayRuntimeMarker(options.root, "initializing", { endpoint: `${endpointBase}/load` });
     const client = createClientApp({
-      transport: options.transport ?? createFetchClientTransport({ endpointBase })
+      transport: options.transport ?? createFetchClientTransport({ endpointBase }),
+      onStateRecompute: recordClientStateRecompute
     });
     const router = createClientSurfaceActionRouter({
       client,
@@ -2976,12 +3127,7 @@ var EmpireGameplaySliceClient = function(exports) {
     const hideUnavailableGameplaySlice = (state = null) => {
       const message = (state == null ? void 0 : state.connection.lastErrorMessage) || "Gameplay slice did not return an authoritative read model.";
       const endpoint = `${endpointBase}/load`;
-      setGameplayRuntimeMarker(options.root, "demo-ready", {
-        endpoint,
-        error: message,
-        fallback: "legacy",
-        serverRuntime: "server-authoritative-error"
-      });
+      markGameplaySliceUnavailableRuntime(options.root, endpoint, message);
       writeGameplaySliceDiagnostic(endpoint, message);
       options.root.dataset.gameplaySliceUnavailable = "true";
       if (isGameplayDiagnosticsEnabled()) {
@@ -2997,7 +3143,7 @@ var EmpireGameplaySliceClient = function(exports) {
         });
       }
     };
-    function render(state) {
+    function render(state, reason = "ui-interaction") {
       var _a, _b, _c, _d;
       const gameplaySlice = client.getGameplaySlice();
       if (!gameplaySlice && state.connection.status === "error") {
@@ -3006,6 +3152,7 @@ var EmpireGameplaySliceClient = function(exports) {
       }
       delete options.root.dataset.gameplaySliceUnavailable;
       setGameplayRuntimeMarker(options.root, "server-authoritative-ready");
+      options.root.dataset.lastClientRenderReason = reason;
       options.root.hidden = false;
       if (((_a = gameplaySlice == null ? void 0 : gameplaySlice.spawnSelection) == null ? void 0 : _a.status) === "awaiting_spawn_selection" && !gameplaySlice.player.homeDistrictId) {
         options.root.dataset.spawnSelectionVisible = "true";
@@ -3121,7 +3268,8 @@ var EmpireGameplaySliceClient = function(exports) {
             if (nextState2) {
               event.preventDefault();
               event.stopPropagation();
-              render(nextState2);
+              recordGameplaySliceRefresh(client.getGameplaySlice());
+              render(nextState2, "ui:select-district");
             }
           } finally {
             pendingDistrictSelection = { districtId: null };
@@ -3143,7 +3291,8 @@ var EmpireGameplaySliceClient = function(exports) {
       if (nextState) {
         event.preventDefault();
         event.stopPropagation();
-        render(nextState);
+        recordGameplaySliceRefresh(client.getGameplaySlice());
+        render(nextState, `ui:${(action == null ? void 0 : action.kind) || "command"}`);
       }
     };
     const poller = createGameplaySlicePoller({
@@ -3153,8 +3302,10 @@ var EmpireGameplaySliceClient = function(exports) {
       enabled: options.root.dataset.gameplaySlicePolling === "true",
       ...getGameplaySlicePollerPerformanceOptions(),
       onResponse: (state) => {
-        recordGameplaySliceRefresh();
-        render(state);
+        const observation = recordGameplaySliceRefresh(client.getGameplaySlice());
+        if (observation.changed) {
+          render(state, "server-slice-change");
+        }
       },
       onError: () => {
         mounts.status.innerHTML = [
@@ -3175,8 +3326,8 @@ var EmpireGameplaySliceClient = function(exports) {
     options.root.addEventListener("pointerup", handlePointerUp);
     options.root.addEventListener("pointercancel", handlePointerCancel);
     void client.load(request).then((state) => {
-      recordGameplaySliceRefresh();
-      render(state);
+      recordGameplaySliceRefresh(client.getGameplaySlice());
+      render(state, "server-slice-initial-load");
       poller.start();
     }).catch((error) => {
       hideUnavailableGameplaySlice({

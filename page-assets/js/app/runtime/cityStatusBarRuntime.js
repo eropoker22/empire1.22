@@ -278,6 +278,36 @@ export function createCityStatusBarRuntime(deps = {}) {
 
     let clockTimerId = null;
     let latestGameplaySlice = null;
+    const shouldRunLocalTick = () => deps.shouldRunLocalTick?.() !== false;
+    const stopClockTimer = () => {
+      if (clockTimerId === null) return;
+      windowRef?.clearInterval?.(clockTimerId);
+      clockTimerId = null;
+      deps.onLocalTickActiveChange?.(false);
+    };
+    const startClockTimer = () => {
+      if (clockTimerId !== null || !shouldRunLocalTick() || root.ownerDocument?.hidden) return;
+      const intervalMs = Math.max(1, Number(deps.getTickIntervalMs?.(tickMs) || tickMs));
+      clockTimerId = windowRef?.setInterval?.(() => {
+        if (!shouldRunLocalTick()) {
+          stopClockTimer();
+          return;
+        }
+        deps.recordLocalTick?.();
+        deps.onTick?.({
+          getMapPhaseFromClock: getMapPhaseFromCityMinutes,
+          minuteStep,
+          phaseHost: elements.phaseHost,
+          root,
+          updatePhaseStatus
+        });
+      }, intervalMs) ?? null;
+      if (clockTimerId !== null) deps.onLocalTickActiveChange?.(true);
+    };
+    const restartClockTimer = () => {
+      stopClockTimer();
+      startClockTimer();
+    };
     const updatePhaseStatus = () => {
       const phaseState = deps.syncPhaseHostFromAuthority?.(elements.phaseHost) || {};
       const viewModel = buildCityStatusViewModel(phaseState, {
@@ -292,24 +322,27 @@ export function createCityStatusBarRuntime(deps = {}) {
     const handleGameplaySliceRendered = (event) => {
       latestGameplaySlice = event?.detail?.gameplaySlice || null;
       updatePhaseStatus();
+      restartClockTimer();
+    };
+    const handleRuntimeModeChange = () => restartClockTimer();
+    const handlePerformanceModeChange = () => restartClockTimer();
+    const handleVisibilityChange = () => {
+      if (root.ownerDocument?.hidden) {
+        stopClockTimer();
+      } else {
+        startClockTimer();
+      }
     };
 
     updatePhaseStatus();
-    deps.onInitialSync?.({
-      root,
-      phaseHost: elements.phaseHost,
-      updatePhaseStatus
-    });
-
-    clockTimerId = windowRef?.setInterval?.(() => {
-      deps.onTick?.({
-        getMapPhaseFromClock: getMapPhaseFromCityMinutes,
-        minuteStep,
-        phaseHost: elements.phaseHost,
+    if (shouldRunLocalTick()) {
+      deps.onInitialSync?.({
         root,
+        phaseHost: elements.phaseHost,
         updatePhaseStatus
       });
-    }, tickMs) ?? null;
+    }
+    startClockTimer();
 
     elements.phaseHost.addEventListener("mapphasechange", updatePhaseStatus);
     elements.phaseHost.addEventListener("gamephasechange", updatePhaseStatus);
@@ -321,12 +354,16 @@ export function createCityStatusBarRuntime(deps = {}) {
       });
     });
     root.ownerDocument?.addEventListener?.("empire:gameplay-slice-rendered", handleGameplaySliceRendered);
+    root.ownerDocument?.addEventListener?.("empire:runtime-mode-changed", handleRuntimeModeChange);
+    root.ownerDocument?.addEventListener?.("visibilitychange", handleVisibilityChange);
+    windowRef?.addEventListener?.("empire:mobile-performance-mode-changed", handlePerformanceModeChange);
 
     windowRef?.addEventListener?.("beforeunload", () => {
-      if (clockTimerId !== null) {
-        windowRef.clearInterval(clockTimerId);
-      }
+      stopClockTimer();
       root.ownerDocument?.removeEventListener?.("empire:gameplay-slice-rendered", handleGameplaySliceRendered);
+      root.ownerDocument?.removeEventListener?.("empire:runtime-mode-changed", handleRuntimeModeChange);
+      root.ownerDocument?.removeEventListener?.("visibilitychange", handleVisibilityChange);
+      windowRef?.removeEventListener?.("empire:mobile-performance-mode-changed", handlePerformanceModeChange);
     }, { once: true });
 
     return true;

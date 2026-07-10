@@ -12,6 +12,20 @@ export type GameplayServerRuntimeMarker =
   | "server-authoritative-ready"
   | "server-authoritative-error";
 
+declare global {
+  interface EmpireStreetsRuntimeDiagnostics {
+    readonly requestedMode?: "server-authoritative" | "demo" | "legacy-fallback" | "local" | null;
+    shouldAllowDemoFallback?(): boolean;
+    setMode?(mode: "server-authoritative" | "demo" | "legacy-fallback" | "local", details?: {
+      serverSliceActive?: boolean;
+      reason?: string;
+    }): string;
+  }
+  interface Window {
+    empireStreetsRuntimeDiagnostics?: EmpireStreetsRuntimeDiagnostics;
+  }
+}
+
 export const setGameplayRuntimeMarker = (
   root: HTMLElement,
   marker: GameplayRuntimeMarker,
@@ -55,6 +69,51 @@ export const setGameplayRuntimeMarker = (
       delete document.body.dataset.gameplayFallback;
     }
   }
+
+  const diagnostics = typeof window === "undefined" ? null : window.empireStreetsRuntimeDiagnostics;
+  if (marker === "server-authoritative-ready") {
+    diagnostics?.setMode?.("server-authoritative", {
+      serverSliceActive: true,
+      reason: "gameplay-slice-ready"
+    });
+  } else if (marker === "server-authoritative-error") {
+    diagnostics?.setMode?.("server-authoritative", {
+      serverSliceActive: false,
+      reason: "gameplay-slice-error"
+    });
+  } else if (marker === "legacy-fallback" || details.fallback === "legacy") {
+    diagnostics?.setMode?.("legacy-fallback", {
+      serverSliceActive: false,
+      reason: "legacy-fallback"
+    });
+  } else if (marker === "demo-ready") {
+    diagnostics?.setMode?.("demo", {
+      serverSliceActive: false,
+      reason: "demo-runtime"
+    });
+  }
+};
+
+export const isLegacyGameplayFallbackAllowed = (): boolean => {
+  if (typeof window === "undefined") return false;
+  const diagnosticsDecision = window.empireStreetsRuntimeDiagnostics?.shouldAllowDemoFallback?.();
+  if (typeof diagnosticsDecision === "boolean") return diagnosticsDecision;
+  const host = window.location.hostname;
+  return window.location.protocol === "file:"
+    || !host
+    || host === "localhost"
+    || host === "127.0.0.1"
+    || host === "::1"
+    || host.endsWith(".local");
+};
+
+export const getForcedDevelopmentRuntimeMode = (): "demo" | "legacy-fallback" | "local" | null => {
+  if (typeof window === "undefined") return null;
+  const requestedMode = window.empireStreetsRuntimeDiagnostics?.requestedMode
+    || new URLSearchParams(window.location.search).get("runtimeMode");
+  return requestedMode === "demo" || requestedMode === "legacy-fallback" || requestedMode === "local"
+    ? requestedMode
+    : null;
 };
 
 export const isGameplayDiagnosticsEnabled = (): boolean => {

@@ -26,7 +26,6 @@ export function createDistrictCanvasRenderer(deps = {}) {
     getAllianceMapBadge = noopGetBadge,
     getBountyDistrictMarkers = noopGetMarkers,
     getLaunchPlayerColor = () => '#67e1ff',
-    getLaunchPlayerLabel = (playerId) => String(playerId || ''),
     getDistrictFillStyle = () => 'rgba(103, 225, 255, 0.16)',
     drawDistrictPolygon = noopDrawPolygon,
     drawAllianceDistrictBadge = noopDrawAnimation,
@@ -34,7 +33,6 @@ export function createDistrictCanvasRenderer(deps = {}) {
     drawBountyDistrictHighlight = noopDrawAnimation,
     drawBountyDistrictBadge = noopDrawAnimation,
     drawReducedMapActivityMarker = noopDrawAnimation,
-    drawOccupyCountdownLabel = noopDrawAnimation,
     drawSpyDistrictAnimation = noopDrawAnimation,
     drawPoliceDistrictAnimation = noopDrawAnimation,
     drawAttackDistrictAnimation = noopDrawAnimation,
@@ -277,7 +275,87 @@ function drawDestroyedDistrictOverlay(context, district, isNight, reducedMapEffe
 
 }
 
-function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = null) {
+function renderDistrictActivityEffects(context, geometry, interactionState = {}, options = {}) {
+  const reducedMapEffects = Boolean(options.reducedMapEffects ?? interactionState.reducedMapEffects);
+  const activeSpyDistrictIds = interactionState.activeSpyDistrictIds || new Set();
+  const activeSpyMarkersByDistrictId = interactionState.activeSpyMarkersByDistrictId || new Map();
+  const activePoliceDistrictIds = interactionState.activePoliceDistrictIds || new Set();
+  const activePoliceMarkersByDistrictId = interactionState.activePoliceMarkersByDistrictId || new Map();
+  const activeAttackDistrictIds = interactionState.activeAttackDistrictIds || new Set();
+  const activeAttackMarkersByDistrictId = interactionState.activeAttackMarkersByDistrictId || new Map();
+  const activeOccupyDistrictIds = interactionState.activeOccupyDistrictIds || new Set();
+  const activeOccupyCountdownByDistrictId = interactionState.activeOccupyCountdownByDistrictId || new Map();
+  const activeRobberyDistrictIds = interactionState.activeRobberyDistrictIds || new Set();
+  const activeRobberyMarkersByDistrictId = interactionState.activeRobberyMarkersByDistrictId || new Map();
+  const activeTrapDistrictIds = interactionState.activeTrapDistrictIds || new Set();
+  const animationTick = interactionState.animationTick ?? 0;
+
+  for (const district of geometry?.districts || []) {
+    if (reducedMapEffects) {
+      if (activeSpyDistrictIds.has(district.id)) {
+        drawReducedMapActivityMarker(context, district, "spy", reducedActivityColors.spy);
+      }
+      if (activePoliceDistrictIds.has(district.id)) {
+        drawReducedMapActivityMarker(context, district, "police", reducedActivityColors.police);
+      }
+      if (activeAttackDistrictIds.has(district.id)) {
+        drawReducedMapActivityMarker(context, district, "attack", reducedActivityColors.attack);
+      }
+      if (activeOccupyDistrictIds.has(district.id)) {
+        drawReducedMapActivityMarker(context, district, "occupy", getLaunchPlayerColor(currentPlayerId));
+      }
+      if (activeRobberyDistrictIds.has(district.id)) {
+        drawReducedMapActivityMarker(context, district, "robbery", reducedActivityColors.robbery);
+      }
+      if (activeTrapDistrictIds.has(district.id)) {
+        drawReducedMapActivityMarker(context, district, "trap", reducedActivityColors.trap);
+      }
+      continue;
+    }
+
+    if (activeSpyDistrictIds.has(district.id)) {
+      drawSpyDistrictAnimation(context, district, activeSpyMarkersByDistrictId.get(district.id), animationTick);
+    }
+    if (activePoliceDistrictIds.has(district.id)) {
+      drawPoliceDistrictAnimation(context, district, activePoliceMarkersByDistrictId.get(district.id), animationTick);
+    }
+    if (activeAttackDistrictIds.has(district.id)) {
+      drawAttackDistrictAnimation(context, district, activeAttackMarkersByDistrictId.get(district.id), animationTick);
+    }
+    if (activeOccupyDistrictIds.has(district.id)) {
+      drawOccupyDistrictAnimation(context, district, animationTick / 1600);
+    }
+    if (activeRobberyDistrictIds.has(district.id)) {
+      drawRobberyDistrictAnimation(context, district, activeRobberyMarkersByDistrictId.get(district.id), animationTick);
+    }
+    if (activeTrapDistrictIds.has(district.id)) {
+      drawTrapDistrictAnimation(context, district, animationTick / 2800);
+    }
+  }
+}
+
+function renderDistrictEffectsCanvas(canvas, phase, interactionState = {}, geometry = null, options = {}) {
+  if (!canvas || typeof canvas.getContext !== "function") {
+    return geometry;
+  }
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return geometry;
+  }
+
+  const resolvedGeometry = geometry || interactionState.geometryCache || createDistrictGeometry(
+    canvas.width,
+    canvas.height,
+    0,
+    districtGeometryTopInset,
+    0
+  );
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  renderDistrictActivityEffects(context, resolvedGeometry, interactionState, options);
+  return resolvedGeometry;
+}
+
+function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = null, options = {}) {
   if (!canvas || typeof canvas.getContext !== "function") {
     return null;
   }
@@ -308,18 +386,6 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
   const effectiveOwnedDistrictIds = getEffectiveOwnedDistrictIds(interactionState);
   const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
   const launchOwnerByDistrictId = interactionState.launchOwnerByDistrictId || startPhaseOwnerByDistrictId;
-  const activeSpyDistrictIds = interactionState.activeSpyDistrictIds || new Set();
-  const activeSpyMarkersByDistrictId = interactionState.activeSpyMarkersByDistrictId || new Map();
-  const activePoliceDistrictIds = interactionState.activePoliceDistrictIds || new Set();
-  const activePoliceMarkersByDistrictId = interactionState.activePoliceMarkersByDistrictId || new Map();
-  const activeAttackDistrictIds = interactionState.activeAttackDistrictIds || new Set();
-  const activeAttackMarkersByDistrictId = interactionState.activeAttackMarkersByDistrictId || new Map();
-  const activeOccupyDistrictIds = interactionState.activeOccupyDistrictIds || new Set();
-  const activeOccupyCountdownByDistrictId = interactionState.activeOccupyCountdownByDistrictId || new Map();
-  const activeRobberyDistrictIds = interactionState.activeRobberyDistrictIds || new Set();
-  const activeRobberyMarkersByDistrictId = interactionState.activeRobberyMarkersByDistrictId || new Map();
-  const activeTrapDistrictIds = interactionState.activeTrapDistrictIds || new Set();
-  const animationTick = interactionState.animationTick ?? 0;
   const getDistrictAllianceBadge = (ownerId) => (
     showAllianceSymbols && mapVisibilityMode !== "only-player" && ownerId !== null && ownerId !== undefined
       ? getAllianceMapBadge(ownerId)
@@ -445,27 +511,10 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
       const allianceBadge = getDistrictAllianceBadge(launchOwnerId);
       if (allianceBadge) {
         drawAllianceDistrictBadge(context, district, allianceBadge, isNight);
-      } else {
-        context.save();
-        context.font = "700 10px Bahnschrift, Segoe UI, sans-serif";
-        context.textAlign = "center";
-        context.textBaseline = "middle";
-        context.fillStyle = launchOwnerColor;
-        context.shadowBlur = 16;
-        context.shadowColor = launchOwnerColor;
-        context.fillText(getLaunchPlayerLabel(launchOwnerId), district.centerX, district.centerY);
-        context.restore();
       }
     }
 
-    if (!launchOwnerId && isOwnedByCurrentPlayer) {
-      const allianceBadge = getDistrictAllianceBadge(currentPlayerId);
-      if (allianceBadge) {
-        drawAllianceDistrictBadge(context, district, allianceBadge, isNight);
-      } else {
-        drawCurrentPlayerFactionBadge(context, district, isNight);
-      }
-    } else if (!launchOwnerId && isOwned) {
+    if (!launchOwnerId && isOwned && !isOwnedByCurrentPlayer) {
       const allianceBadge = getDistrictAllianceBadge(district.ownerPlayerId ?? district.ownerId ?? null);
       if (allianceBadge) {
         drawAllianceDistrictBadge(context, district, allianceBadge, isNight);
@@ -481,57 +530,10 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
       drawBountyDistrictBadge(context, district, bountyMarker, isNight);
     }
 
-    if (reducedMapEffects) {
-      if (activeSpyDistrictIds.has(district.id)) {
-        drawReducedMapActivityMarker(context, district, "spy", reducedActivityColors.spy);
-      }
+  }
 
-      if (activePoliceDistrictIds.has(district.id)) {
-        drawReducedMapActivityMarker(context, district, "police", reducedActivityColors.police);
-      }
-
-      if (activeAttackDistrictIds.has(district.id)) {
-        drawReducedMapActivityMarker(context, district, "attack", reducedActivityColors.attack);
-      }
-
-      if (activeOccupyDistrictIds.has(district.id)) {
-        drawReducedMapActivityMarker(context, district, "occupy", getLaunchPlayerColor(currentPlayerId));
-        drawOccupyCountdownLabel(context, district, activeOccupyCountdownByDistrictId.get(district.id) ?? 0);
-      }
-
-      if (activeRobberyDistrictIds.has(district.id)) {
-        drawReducedMapActivityMarker(context, district, "robbery", reducedActivityColors.robbery);
-      }
-
-      if (activeTrapDistrictIds.has(district.id)) {
-        drawReducedMapActivityMarker(context, district, "trap", reducedActivityColors.trap);
-      }
-    } else {
-      if (activeSpyDistrictIds.has(district.id)) {
-        drawSpyDistrictAnimation(context, district, activeSpyMarkersByDistrictId.get(district.id), animationTick);
-      }
-
-      if (activePoliceDistrictIds.has(district.id)) {
-        drawPoliceDistrictAnimation(context, district, activePoliceMarkersByDistrictId.get(district.id), animationTick);
-      }
-
-      if (activeAttackDistrictIds.has(district.id)) {
-        drawAttackDistrictAnimation(context, district, activeAttackMarkersByDistrictId.get(district.id), animationTick);
-      }
-
-      if (activeOccupyDistrictIds.has(district.id)) {
-        drawOccupyDistrictAnimation(context, district, animationTick / 1600);
-        drawOccupyCountdownLabel(context, district, activeOccupyCountdownByDistrictId.get(district.id) ?? 0);
-      }
-
-      if (activeRobberyDistrictIds.has(district.id)) {
-        drawRobberyDistrictAnimation(context, district, activeRobberyMarkersByDistrictId.get(district.id), animationTick);
-      }
-
-      if (activeTrapDistrictIds.has(district.id)) {
-        drawTrapDistrictAnimation(context, district, animationTick / 2800);
-      }
-    }
+  if (options.renderActivityEffects !== false) {
+    renderDistrictActivityEffects(context, geometry, interactionState, { reducedMapEffects });
   }
 
   context.fillStyle = isNight ? "rgba(6, 12, 22, 0.08)" : "rgba(255, 255, 255, 0.015)";
@@ -544,6 +546,7 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
 
   return {
     drawMapImage,
+    renderDistrictEffectsCanvas,
     renderDistrictCanvas
   };
 }

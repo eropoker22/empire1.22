@@ -6,7 +6,12 @@ import { getTopOverlay, isOverlayOpen, shouldSuppressMapInput } from "../modals/
 import { resolveGameplaySliceBootstrapRequest } from "./gameplay-slice-bootstrap";
 import { persistServerConfirmedGameplaySliceFocus } from "./gameplay-slice-focus-cache";
 import { createDistrictSheetOverlayController } from "./gameplay-slice-overlays";
-import { createGameplaySliceVisibilityRuntime, getGameplaySlicePollerPerformanceOptions, recordGameplaySliceRefresh } from "./gameplay-slice-performance-metrics";
+import {
+  createGameplaySliceVisibilityRuntime,
+  getGameplaySlicePollerPerformanceOptions,
+  recordClientStateRecompute,
+  recordGameplaySliceRefresh
+} from "./gameplay-slice-performance-metrics";
 import {
   createSafeErrorMessage,
   isGameplayDiagnosticsEnabled,
@@ -14,21 +19,22 @@ import {
   setGameplayRuntimeMarker,
   writeGameplaySliceDiagnostic
 } from "./gameplay-slice-runtime-diagnostics";
+import {
+  applyDevelopmentRuntimeOverride,
+  markGameplaySliceUnavailableRuntime,
+  markMissingGameplaySessionRuntime
+} from "./gameplay-slice-runtime-policy";
 export { persistServerConfirmedGameplaySliceFocus } from "./gameplay-slice-focus-cache";
 export { setGameplayRuntimeMarker, type GameplayRuntimeMarker } from "./gameplay-slice-runtime-diagnostics";
-
 const DEFAULT_ENDPOINT_BASE = "/api/gameplay-slice";
 const LEGACY_DISTRICT_POPUP_SELECTOR = "[data-testid='district-popup']";
 const MOBILE_SHEET_SELECTOR = ".mobile-sheet";
 const MAP_TAP_PIXEL_THRESHOLD = 10;
 const DISTRICT_TAP_DEBOUNCE_MS = 350;
-
 export interface GameplaySlicePageMountOptions { root: HTMLElement; transport?: ClientTransport; }
 export interface MountedGameplaySlicePage { destroy(): void; }
 interface MountedGameplaySlicePageInternal extends MountedGameplaySlicePage { closeDistrictSheetFromExternal(reason?: string): boolean; }
-
 declare global { interface Window { EmpireGameplaySliceClient?: { closeDistrictSheet(reason?: string): boolean; mount(options: GameplaySlicePageMountOptions): MountedGameplaySlicePage | null; autoMount(): MountedGameplaySlicePage[]; }; } }
-
 const activeGameplaySlicePages = new Set<MountedGameplaySlicePageInternal>();
 
 /**
@@ -37,21 +43,18 @@ const activeGameplaySlicePages = new Set<MountedGameplaySlicePageInternal>();
  * Does not belong here: gameplay resolution or legacy runtime mutation.
  */
 export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): MountedGameplaySlicePage | null => {
+  if (applyDevelopmentRuntimeOverride(options.root)) return null;
   const request = resolveGameplaySliceBootstrapRequest(options.root.dataset, getBrowserStorage());
 
   if (!request) {
-    setGameplayRuntimeMarker(options.root, "demo-ready", {
-      fallback: "legacy",
-      serverRuntime: "not-requested"
-    });
-    options.root.hidden = true;
+    markMissingGameplaySessionRuntime(options.root);
     return null;
   }
-
   const endpointBase = options.root.dataset.gameplaySliceEndpointBase || DEFAULT_ENDPOINT_BASE;
   setGameplayRuntimeMarker(options.root, "initializing", { endpoint: `${endpointBase}/load` });
   const client = createClientApp({
-    transport: options.transport ?? createFetchClientTransport({ endpointBase })
+    transport: options.transport ?? createFetchClientTransport({ endpointBase }),
+    onStateRecompute: recordClientStateRecompute
   });
   const router = createClientSurfaceActionRouter({
     client,
@@ -113,12 +116,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
   const hideUnavailableGameplaySlice = (state: ClientRenderState | null = null): void => {
     const message = state?.connection.lastErrorMessage || "Gameplay slice did not return an authoritative read model.";
     const endpoint = `${endpointBase}/load`;
-    setGameplayRuntimeMarker(options.root, "demo-ready", {
-      endpoint,
-      error: message,
-      fallback: "legacy",
-      serverRuntime: "server-authoritative-error"
-    });
+    const allowLegacyFallback = markGameplaySliceUnavailableRuntime(options.root, endpoint, message);
     writeGameplaySliceDiagnostic(endpoint, message);
     options.root.dataset.gameplaySliceUnavailable = "true";
     if (isGameplayDiagnosticsEnabled()) {
@@ -135,7 +133,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     }
   };
 
-  function render(state: ClientRenderState): void {
+  function render(state: ClientRenderState, reason = "ui-interaction"): void {
     const gameplaySlice = client.getGameplaySlice();
     if (!gameplaySlice && state.connection.status === "error") {
       hideUnavailableGameplaySlice(state);
@@ -144,6 +142,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
 
     delete options.root.dataset.gameplaySliceUnavailable;
     setGameplayRuntimeMarker(options.root, "server-authoritative-ready");
+    options.root.dataset.lastClientRenderReason = reason;
     options.root.hidden = false;
     if (gameplaySlice?.spawnSelection?.status === "awaiting_spawn_selection" && !gameplaySlice.player.homeDistrictId) {
       options.root.dataset.spawnSelectionVisible = "true";
@@ -283,7 +282,8 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
           if (nextState) {
             event.preventDefault();
             event.stopPropagation();
-            render(nextState);
+            recordGameplaySliceRefresh(client.getGameplaySlice());
+            render(nextState, "ui:select-district");
           }
         } finally {
           pendingDistrictSelection = { districtId: null };
@@ -309,7 +309,8 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     if (nextState) {
       event.preventDefault();
       event.stopPropagation();
-      render(nextState);
+      recordGameplaySliceRefresh(client.getGameplaySlice());
+      render(nextState, `ui:${action?.kind || "command"}`);
     }
   };
 
@@ -320,8 +321,10 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     enabled: options.root.dataset.gameplaySlicePolling === "true",
     ...getGameplaySlicePollerPerformanceOptions(),
     onResponse: (state) => {
-      recordGameplaySliceRefresh();
-      render(state);
+      const observation = recordGameplaySliceRefresh(client.getGameplaySlice());
+      if (observation.changed) {
+        render(state, "server-slice-change");
+      }
     },
     onError: () => {
       mounts.status.innerHTML = [
@@ -345,8 +348,8 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
   void client
     .load(request)
     .then((state) => {
-      recordGameplaySliceRefresh();
-      render(state);
+      recordGameplaySliceRefresh(client.getGameplaySlice());
+      render(state, "server-slice-initial-load");
       poller.start();
     })
     .catch((error) => {

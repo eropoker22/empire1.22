@@ -85,7 +85,7 @@ export function createLaunchPlayerRuntime(deps = {}) {
   };
 
   const getLaunchPlayerLabel = (ownerId) => (
-    Number(ownerId) === currentPlayerId ? "TY" : `P${ownerId}`
+    Number(ownerId) === currentPlayerId ? "TY" : `Hráč ${ownerId}`
   );
 
   const getEffectiveOwnedDistrictIds = (interactionState = {}) => {

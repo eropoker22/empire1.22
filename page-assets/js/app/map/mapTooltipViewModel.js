@@ -30,7 +30,7 @@ function getLaunchOwnerLabel(launchOwnerId, options = {}) {
     ? "TY"
     : typeof options.getLaunchPlayerName === "function"
       ? options.getLaunchPlayerName(ownerId)
-      : `P${ownerId}`;
+      : `Hráč ${ownerId}`;
 }
 
 function getTooltipGossipEntries(district, options = {}) {

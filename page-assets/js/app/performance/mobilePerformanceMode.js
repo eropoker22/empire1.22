@@ -67,6 +67,15 @@ export function getPerformanceMetrics(windowRef = typeof window === "undefined" 
       mapRendersPerMinute: 0,
       activeIntervalsCount: 0,
       gameplaySliceRefreshCount: 0,
+      runtimeMode: "local",
+      localTickActive: false,
+      localProjectionActive: false,
+      serverSliceActive: false,
+      serverSliceRefreshPerMinute: 0,
+      clientStateRecomputePerMinute: 0,
+      mapInvalidationReasonCounts: {},
+      lastMapInvalidationReason: null,
+      demoFallbackActive: false,
       lastRenderDurationMs: 0,
       mobilePerformanceModeActive: false
     };
@@ -86,7 +95,12 @@ export function getPerformanceMetrics(windowRef = typeof window === "undefined" 
     };
   }
 
-  return windowRef[METRICS_KEY];
+  const metrics = windowRef[METRICS_KEY];
+  metrics.mapInvalidationReasonCounts ??= {};
+  metrics.serverSliceRefreshPerMinute ??= 0;
+  metrics.clientStateRecomputePerMinute ??= 0;
+
+  return metrics;
 }
 
 export function applyMobilePerformanceMode(mode, options = {}) {
@@ -142,6 +156,23 @@ export function recordMapRender(windowRef, durationMs = 0, nowMs = Date.now()) {
   return metrics;
 }
 
+export function recordMapEffectRender(windowRef, durationMs = 0, nowMs = Date.now()) {
+  const metrics = getPerformanceMetrics(windowRef);
+  const timestamps = Array.isArray(metrics.mapEffectRenderTimestamps) ? metrics.mapEffectRenderTimestamps : [];
+  const cutoff = nowMs - 60_000;
+  timestamps.push(nowMs);
+
+  while (timestamps.length > 0 && timestamps[0] < cutoff) {
+    timestamps.shift();
+  }
+
+  metrics.mapEffectRenderTimestamps = timestamps;
+  metrics.mapEffectRendersPerMinute = timestamps.length;
+  metrics.lastEffectRenderDurationMs = Number(Number(durationMs || 0).toFixed(2));
+  metrics.lastRenderDurationMs = metrics.lastEffectRenderDurationMs;
+  return metrics;
+}
+
 export function recordGameplaySliceRefresh(windowRef, nowMs = Date.now()) {
   const metrics = getPerformanceMetrics(windowRef);
   metrics.gameplaySliceRefreshCount = Number(metrics.gameplaySliceRefreshCount || 0) + 1;
@@ -160,4 +191,3 @@ export function trackManagedInterval(windowRef, label, delta) {
   metrics.activeIntervalsCount = Object.values(counts).reduce((sum, value) => sum + Math.max(0, Number(value || 0)), 0);
   return metrics.activeIntervalsCount;
 }
-

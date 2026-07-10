@@ -2,6 +2,7 @@ import {
   applyMobilePerformanceMode,
   detectMobilePerformanceMode
 } from "./performance/mobilePerformanceMode.js";
+import "./performance/runtimePerformanceDiagnostics.js";
 
 const PERFORMANCE_MEDIA_QUERIES = [
   "(max-width: 840px)",
@@ -65,4 +66,3 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
 }
 
 export { initMobilePerformanceRuntime };
-

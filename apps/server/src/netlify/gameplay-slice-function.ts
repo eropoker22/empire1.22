@@ -35,18 +35,16 @@ interface GameplaySliceFunctionHandlerOptions {
 export const createGameplaySliceFunctionHandler = (
   options: GameplaySliceFunctionHandlerOptions = {}
 ) => {
-  const snapshotSecret = readRequiredSnapshotSecret(options.environment);
-  const gameplaySessionSecret = readRequiredGameplaySessionSecret(
-    options.environment,
-    snapshotSecret.secret
-  );
+  const environment = options.environment ?? readProcessEnvironment();
+  const snapshotSecret = readRequiredSnapshotSecret(environment);
+  const gameplaySessionSecret = readRequiredGameplaySessionSecret(environment, snapshotSecret.secret);
   const server = options.server ?? createServerApp({
     gameplaySessionTokenSecret: gameplaySessionSecret.secret ?? undefined,
-    environment: options.environment
+    environment
   });
   ensureDefaultLobbyServers(server);
   const allowImplicitInstanceCreation =
-    options.allowImplicitInstanceCreation ?? options.environment?.NODE_ENV !== "production";
+    options.allowImplicitInstanceCreation ?? environment.NODE_ENV !== "production";
   const snapshotTokenCodec = snapshotSecret.secret
     ? createSnapshotTokenCodec({
         secret: snapshotSecret.secret,
@@ -64,7 +62,7 @@ export const createGameplaySliceFunctionHandler = (
         sessionTokenCodec,
         snapshotTokenCodec,
         allowImplicitInstanceCreation,
-        environment: options.environment,
+        environment,
         toFunctionResponse
       })
     : null;
@@ -84,7 +82,7 @@ export const createGameplaySliceFunctionHandler = (
     }
 
     if (route === "admin-monitoring") {
-      return handleAdminMonitoringNetlifyRequest(server, { headers: event.headers }, options.environment);
+      return handleAdminMonitoringNetlifyRequest(server, { headers: event.headers }, environment);
     }
 
     if (!snapshotSecret.accepted || !snapshotTokenCodec) {
@@ -116,7 +114,7 @@ export const createGameplaySliceFunctionHandler = (
     }
 
     if (isStateChangingRoute(route)) {
-      const originError = validateStateChangingOrigin(event.headers, options.environment);
+      const originError = validateStateChangingOrigin(event.headers, environment);
       if (originError) {
         return createJsonResponse(200, createErrorResponseFromErrors([originError]));
       }
@@ -249,11 +247,12 @@ export const createGameplaySliceFunctionHandler = (
   ): string | null {
     const cookieToken = String(readGameplaySessionCookie(headers) ?? "").trim();
     if (cookieToken) return cookieToken;
-    if (options.environment?.NODE_ENV === "production") return null;
+    if (environment.NODE_ENV === "production") return null;
     return String(bodySessionToken ?? "").trim() || null;
   }
 };
 
+const readProcessEnvironment = (): Record<string, string | undefined> => (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
 export const handler = createGameplaySliceFunctionHandler();
 
 const createErrorResponse = (

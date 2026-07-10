@@ -30,6 +30,7 @@ export const MAP_LAUNCH_UNOWNED_FILL_STYLE = "rgba(0, 0, 0, 0)";
 export const MAP_DISTRICT_SELECTION_DRAG_THRESHOLD = 10;
 export const MAP_DISTRICT_SELECTION_SUPPRESS_MS = 220;
 export const MAP_INTERACTION_OVERLAY_CLASS = "map-interaction-overlay";
+export const MAP_EFFECTS_CANVAS_CLASS = "map-effects-canvas";
 export const MAP_HOVER_CANVAS_CLASS = "map-hover-canvas";
 export const MAP_HAS_HOVER_CLASS = "has-map-hover";
 export const MAP_DISTRICT_FOCUSED_CLASS = "is-district-focused";

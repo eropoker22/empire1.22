@@ -141,6 +141,32 @@ export function ensureMapHoverCanvas(canvas, canvasHost, className, options = {}
   return hoverCanvas;
 }
 
+export function ensureMapEffectsCanvas(canvas, canvasHost, className, options = {}) {
+  if (!canvas || !canvasHost || !className) {
+    return null;
+  }
+
+  let effectsCanvas = canvasHost.querySelector?.(`.${className}`) || null;
+  if (getCanvasLike(effectsCanvas)) {
+    return effectsCanvas;
+  }
+
+  const ownerDocument = getOwnerDocument(canvasHost, options.document);
+  if (!ownerDocument?.createElement) {
+    return null;
+  }
+
+  effectsCanvas = ownerDocument.createElement("canvas");
+  effectsCanvas.className = className;
+  effectsCanvas.setAttribute?.("aria-hidden", "true");
+  if (typeof canvas.after === "function") {
+    canvas.after(effectsCanvas);
+  } else {
+    canvasHost.append?.(effectsCanvas);
+  }
+  return effectsCanvas;
+}
+
 export function setMapOverlayPoint(interactionOverlay, name, x, y) {
   if (!interactionOverlay?.style || !name) {
     return false;
@@ -212,10 +238,17 @@ export function initMapShell(options = {}) {
     options.classes?.hoverCanvas || options.hoverCanvasClass,
     options
   );
+  const effectsCanvas = ensureMapEffectsCanvas(
+    elements.canvas,
+    elements.canvasHost,
+    options.classes?.effectsCanvas || options.effectsCanvasClass,
+    options
+  );
 
   return {
     ...elements,
     interactionOverlay,
+    effectsCanvas,
     hoverCanvas,
     canRender: true
   };

@@ -51,7 +51,7 @@
     "presmoke:gameplay-slice:server": "node scripts/require-node20.mjs",
     "smoke:ui": "node scripts/smoke-ui-pages.mjs",
     "smoke:ui:legacy": "node scripts/smoke-ui-pages.mjs",
-    "smoke:free-session": "node scripts/free-session-ux-pass.mjs --expect-runtime=demo-ready",
+    "smoke:free-session": "node scripts/free-session-ux-pass.mjs --expect-runtime=legacy-fallback",
     "smoke:free-session:server": "node scripts/free-session-ux-pass.mjs --expect-runtime=server-authoritative-ready",
     "smoke:gameplay-slice": "node scripts/gameplay-slice-smoke.mjs --allow-server-missing",
     "smoke:gameplay-slice:server": "node scripts/gameplay-slice-smoke.mjs",

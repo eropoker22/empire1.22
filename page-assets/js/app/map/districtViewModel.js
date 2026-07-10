@@ -77,7 +77,7 @@ export function getDistrictOwnerLabel(district = {}, state = {}, options = {}) {
   if (launchOwnerId) {
     return typeof options.getLaunchPlayerName === "function"
       ? options.getLaunchPlayerName(launchOwnerId)
-      : `P${launchOwnerId}`;
+      : `Hráč ${launchOwnerId}`;
   }
 
   return "Neobsazeno";

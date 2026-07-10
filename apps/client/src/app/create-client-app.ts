@@ -6,22 +6,25 @@ import { createClientAppShell, type ClientAppShell } from "./client-app-shell";
 import { createInitialClientRenderState, type ClientRenderState } from "./client-render-state";
 import { renderClientShell } from "./client-shell-renderer";
 import { getMapManifestMismatch, hasCurrentMapManifestMismatch } from "./map-manifest-guard";
+import { canReuseServerSliceRender, createServerSliceRenderFingerprint } from "./server-slice-render-reuse";
 
 /**
  * Responsibility: Client composition root that wires store, transport, and UI shell boundaries.
  * Belongs here: top-level bootstrap for the player-facing application.
  * Does not belong here: gameplay logic or server authority decisions.
  */
-export interface CreateClientAppOptions {
-  transport: ClientTransport;
-}
-
+export interface CreateClientAppOptions { transport: ClientTransport; onStateRecompute?(reason: string): void; }
 const spawnSelectionFeature = "spawn-selection";
-
-export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAppShell => {
+export const createClientApp = ({ transport, onStateRecompute }: CreateClientAppOptions): ClientAppShell => {
   const store = createClientStore(createInitialClientUiState());
   const dispatcher = createCommandDispatcher(transport);
   let renderState = createInitialClientRenderState();
+  let lastCommittedSliceFingerprint = "";
+  const recomputeRenderState = (reason: string): ClientRenderState => {
+    onStateRecompute?.(reason);
+    renderState = renderClientShell(store);
+    return renderState;
+  };
 
   const commitResponse = (
     response: GameplaySliceResponse,
@@ -35,6 +38,22 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
       ? [...response.errors, mapManifestMismatch]
       : response.errors;
     const firstErrorMessage = responseErrors[0]?.message ?? null;
+    const nextSliceFingerprint = createServerSliceRenderFingerprint(response.readModel, selectedDistrictId);
+    const canReuseCommittedRenderState = canReuseServerSliceRender(
+      nextSliceFingerprint,
+      lastCommittedSliceFingerprint,
+      commandId,
+      responseErrors.length
+    );
+
+    if (canReuseCommittedRenderState) {
+      store.setConnectionState({
+        status: "ready",
+        lastErrorMessage: null,
+        staleData: false
+      });
+      return renderState;
+    }
 
     if (response.readModel) {
       const serverSelectedDistrictId = response.readModel.district?.districtId ??
@@ -74,18 +93,11 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
       lastErrorMessage: firstErrorMessage ?? (hasAuthoritativeReadModel ? null : missingReadModelMessage),
       staleData: responseErrors.length > 0 || !hasAuthoritativeReadModel
     });
-    renderState = renderClientShell(store);
-    return renderState;
+    if (nextSliceFingerprint) lastCommittedSliceFingerprint = nextSliceFingerprint;
+    return recomputeRenderState(commandId ? "server-command-response" : "server-slice-response");
   };
-
   const commitTransportFailure = (message: string, commandId?: string): ClientRenderState => {
-    const errors: DomainError[] = [
-      {
-        code: "client.transport_error",
-        message
-      }
-    ];
-
+    const errors: DomainError[] = [{ code: "client.transport_error", message }];
     store.setErrors(errors);
     store.setConnectionState({
       status: "error",
@@ -100,11 +112,9 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
         }
       });
     }
-    renderState = renderClientShell(store);
-    return renderState;
+    return recomputeRenderState("transport-failure");
   };
-
-  renderState = renderClientShell(store);
+  recomputeRenderState("initial-client-shell");
 
   const createLoadRequestForSelectedDistrict = (districtId: string) => {
     const playerView = store.getReadModel().playerView;
@@ -144,8 +154,7 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
         selectedBuildingId: null,
         selectedDistrictId: null
       });
-      renderState = renderClientShell(store);
-      return renderState;
+      return recomputeRenderState("ui-clear-district-selection");
     },
     selectDistrict: async (districtId: string) => {
       const request = createLoadRequestForSelectedDistrict(districtId);
@@ -162,7 +171,7 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
       store.patchUiState({
         selectedBuildingId: null
       });
-      renderState = renderClientShell(store);
+      recomputeRenderState("ui-select-district-pending");
 
       try {
         const response = await transport.load(request);
@@ -177,8 +186,7 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
       store.patchUiState({
         selectedBuildingId: buildingId
       });
-      renderState = renderClientShell(store);
-      return renderState;
+      return recomputeRenderState("ui-select-building");
     },
     dispatch: async (command: GameCommand) => {
       const uiState = store.getUiState();
@@ -195,7 +203,7 @@ export const createClientApp = ({ transport }: CreateClientAppOptions): ClientAp
       store.patchUiState({
         pendingCommandIds: [...uiState.pendingCommandIds, command.id]
       });
-      renderState = renderClientShell(store);
+      recomputeRenderState("ui-command-pending");
       const focusDistrictId = command.type === "select-spawn-district"
         ? command.payload.districtId
         : uiState.selectedDistrictId!;

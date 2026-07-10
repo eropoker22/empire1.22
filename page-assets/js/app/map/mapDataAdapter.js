@@ -114,7 +114,7 @@ export function resolveMapDistrictOwnerLabel(district, interactionState = {}, op
   if (launchOwnerId) {
     return Number(launchOwnerId) === currentPlayerId
       ? (options.currentPlayerLabel || MAP_CURRENT_PLAYER_LABEL)
-      : options.getLaunchPlayerName?.(launchOwnerId) || `P${launchOwnerId}`;
+      : options.getLaunchPlayerName?.(launchOwnerId) || `Hráč ${launchOwnerId}`;
   }
 
   const ownedDistrictIds = interactionState.ownedDistrictIds || new Set();

@@ -222,7 +222,7 @@ describe("building panel rendering", () => {
 
     expect(mount.children).toHaveLength(2);
     expect(mount.children[0].disabled).toBe(true);
-    expect(mount.children[0].children[2].textContent).toBe("Cooldown: 18m 00s");
+    expect(mount.children[0].children.at(-1).textContent).toBe("Cooldown: 18m 00s");
     expect(mount.children[1].dataset.districtBuildingDetailActionIndex).toBe("1");
 
     mount.children[1].click();

@@ -5514,3 +5514,132 @@ html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup_
     filter: saturate(2.1) brightness(1.55) drop-shadow(0 0 14px var(--buildings-type-border-hover, rgba(34, 211, 238, 0.86)));
   }
 }
+
+/* Keep the mobile resource strip visible while a result modal is open. */
+@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+  html body.game-body.game-modal-scroll-locked:has(
+    #spy-result-modal:not(.hidden):not([hidden]),
+    #spy-warning-modal:not(.hidden):not([hidden]),
+    #raid-result-modal:not(.hidden):not([hidden]),
+    #attack-result-modal:not(.hidden):not([hidden]),
+    #police-action-result-modal:not(.hidden):not([hidden])
+  ) #game-header,
+  html body.game-body.game-modal-scroll-locked:has(
+    #spy-result-modal:not(.hidden):not([hidden]),
+    #spy-warning-modal:not(.hidden):not([hidden]),
+    #raid-result-modal:not(.hidden):not([hidden]),
+    #attack-result-modal:not(.hidden):not([hidden]),
+    #police-action-result-modal:not(.hidden):not([hidden])
+  ) .game-topbar,
+  html body.game-body.game-modal-scroll-locked:has(
+    #spy-result-modal:not(.hidden):not([hidden]),
+    #spy-warning-modal:not(.hidden):not([hidden]),
+    #raid-result-modal:not(.hidden):not([hidden]),
+    #attack-result-modal:not(.hidden):not([hidden]),
+    #police-action-result-modal:not(.hidden):not([hidden])
+  ) .game-resource-strip,
+  html body.game-body.game-modal-scroll-locked:has(
+    #spy-result-modal:not(.hidden):not([hidden]),
+    #spy-warning-modal:not(.hidden):not([hidden]),
+    #raid-result-modal:not(.hidden):not([hidden]),
+    #attack-result-modal:not(.hidden):not([hidden]),
+    #police-action-result-modal:not(.hidden):not([hidden])
+  ) .game-topbar .resource-pill,
+  html body.game-body.game-modal-scroll-locked:has(
+    #spy-result-modal:not(.hidden):not([hidden]),
+    #spy-warning-modal:not(.hidden):not([hidden]),
+    #raid-result-modal:not(.hidden):not([hidden]),
+    #attack-result-modal:not(.hidden):not([hidden]),
+    #police-action-result-modal:not(.hidden):not([hidden])
+  ) .game-topbar .game-toolbar-button {
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(
+    #spy-result-modal:not(.hidden):not([hidden]),
+    #spy-warning-modal:not(.hidden):not([hidden]),
+    #raid-result-modal:not(.hidden):not([hidden]),
+    #attack-result-modal:not(.hidden):not([hidden]),
+    #police-action-result-modal:not(.hidden):not([hidden])
+  ) .game-topbar {
+    display: block !important;
+    z-index: 24050 !important;
+    pointer-events: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(
+    #spy-result-modal:not(.hidden):not([hidden]),
+    #spy-warning-modal:not(.hidden):not([hidden]),
+    #raid-result-modal:not(.hidden):not([hidden]),
+    #attack-result-modal:not(.hidden):not([hidden]),
+    #police-action-result-modal:not(.hidden):not([hidden])
+  ) .game-resource-strip {
+    display: grid !important;
+    pointer-events: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(
+    #spy-result-modal:not(.hidden):not([hidden]),
+    #spy-warning-modal:not(.hidden):not([hidden]),
+    #raid-result-modal:not(.hidden):not([hidden]),
+    #attack-result-modal:not(.hidden):not([hidden]),
+    #police-action-result-modal:not(.hidden):not([hidden])
+  ) .game-resource-strip > * {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+
+  html body.game-body.game-modal-scroll-locked:has(
+    #spy-result-modal:not(.hidden):not([hidden]),
+    #spy-warning-modal:not(.hidden):not([hidden]),
+    #raid-result-modal:not(.hidden):not([hidden]),
+    #attack-result-modal:not(.hidden):not([hidden]),
+    #police-action-result-modal:not(.hidden):not([hidden])
+  ) :is(#spy-result-modal, #spy-warning-modal, #raid-result-modal, #attack-result-modal, #police-action-result-modal) {
+    padding-top: var(--mobile-topbar-offset, 72px) !important;
+  }
+}
+
+/* Buildings popup: keep the indexed city image visible through a lighter glass layer. */
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup-card.buildings-modal__content {
+  background:
+    linear-gradient(180deg, rgba(3, 7, 18, 0.18), rgba(3, 7, 18, 0.36)),
+    url("../../img/index.png") center / cover no-repeat !important;
+  background-color: rgba(3, 7, 18, 0.2) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(148, 163, 184, 0.16),
+    inset 0 -26px 60px rgba(2, 6, 23, 0.16),
+    0 24px 60px rgba(0, 0, 0, 0.38) !important;
+  backdrop-filter: blur(2px) saturate(108%);
+  -webkit-backdrop-filter: blur(2px) saturate(108%);
+}
+
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__detail-card,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__group--types,
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__group--names {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.008)),
+    rgba(15, 23, 42, 0.3) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.025),
+    0 8px 24px rgba(0, 0, 0, 0.16) !important;
+  backdrop-filter: blur(2px) saturate(108%);
+  -webkit-backdrop-filter: blur(2px) saturate(108%);
+}
+
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__detail:has(> .buildings-popup__detail-card:not([data-building-district-type])) {
+  height: auto !important;
+  min-height: 0 !important;
+  align-self: start !important;
+  overflow: visible !important;
+}
+
+html body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__detail-card:not([data-building-district-type]) {
+  height: auto !important;
+  min-height: 0 !important;
+  align-self: start !important;
+  padding-bottom: 18px !important;
+}

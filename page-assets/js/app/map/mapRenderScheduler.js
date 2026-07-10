@@ -32,6 +32,13 @@ function cancelFrame(windowRef, frameId) {
   }
 }
 
+function normalizeInvalidationReason(reason) {
+  if (typeof reason === "string" && reason.trim()) return reason.trim();
+  if (reason?.detail?.reason) return String(reason.detail.reason);
+  if (reason?.type) return `ui:${String(reason.type)}`;
+  return "state-change";
+}
+
 export function createMapRenderScheduler(options = {}) {
   const windowRef = options.windowRef || (typeof window === "undefined" ? null : window);
   const documentRef = options.documentRef || windowRef?.document || (typeof document === "undefined" ? null : document);
@@ -103,7 +110,8 @@ export function createMapRenderScheduler(options = {}) {
     }
 
     dirty = true;
-    lastReason = String(reason || "state-change");
+    lastReason = normalizeInvalidationReason(reason);
+    windowRef?.empireStreetsRuntimeDiagnostics?.recordMapInvalidation?.(lastReason);
 
     if (invalidateOptions.immediate) {
       clearScheduledFrame();
@@ -147,4 +155,3 @@ export function createMapRenderScheduler(options = {}) {
     }
   };
 }
-

@@ -595,13 +595,6 @@ function drawAttackDistrictAnimation(context, district, marker, now = Date.now()
       phase,
       pulse
     );
-    context.globalAlpha = Math.max(0.2, alpha * (0.36 + safeScale * 0.08));
-    context.font = `${flameSize}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.shadowBlur = 8 + flameSize * 0.4;
-    context.shadowColor = "rgba(255, 113, 0, 0.9)";
-    context.fillText("🔥", Number(anchor.x || district.centerX) + wobbleX, Number(anchor.y || district.centerY) + wobbleY);
   });
 
   context.globalAlpha = alpha * 0.54;
@@ -889,35 +882,41 @@ function drawReducedMapActivityIcon(context, type, x, y, size, color) {
   context.restore();
 }
 
-function drawReducedMapActivityMarker(context, district, type, color) {
+function drawReducedMapActivityMarker(context, district, _type, color) {
   if (!district || !Array.isArray(district.polygon) || district.polygon.length < 3) {
     return;
   }
 
-  const markerType = String(type || "").trim().toLowerCase();
   const markerColor = String(color || reducedActivityFallbackColor).trim() || reducedActivityFallbackColor;
-  const iconSize = 24;
-  const iconRadius = 15;
+  const bounds = getPolygonBounds(district.polygon);
+  const pulse = 0.5 + Math.sin(Date.now() / 420 + Number(district.id || 0)) * 0.5;
+  const radius = Math.max(18, Math.min(56, Math.min(bounds.width || 18, bounds.height || 18) * 0.58));
 
   context.save();
   drawDistrictPolygon(context, district.polygon);
-  context.strokeStyle = markerColor;
-  context.lineWidth = 1.8;
-  context.setLineDash([5, 4]);
-  context.stroke();
-  context.setLineDash([]);
+  context.clip();
+  const glow = context.createRadialGradient(
+    district.centerX,
+    district.centerY,
+    radius * 0.08,
+    district.centerX,
+    district.centerY,
+    radius * (1.1 + pulse * 0.25)
+  );
+  glow.addColorStop(0, `${markerColor}38`);
+  glow.addColorStop(0.58, `${markerColor}18`);
+  glow.addColorStop(1, `${markerColor}00`);
+  context.fillStyle = glow;
+  context.fillRect(bounds.minX, bounds.minY, bounds.width, bounds.height);
+  context.restore();
 
-  context.fillStyle = "rgba(4, 10, 18, 0.82)";
-  context.strokeStyle = markerColor;
-  context.lineWidth = 1.2;
-  context.shadowBlur = 14;
+  context.save();
+  drawDistrictPolygon(context, district.polygon);
+  context.strokeStyle = `${markerColor}9c`;
+  context.lineWidth = 1.1 + pulse * 0.8;
+  context.shadowBlur = 6 + pulse * 8;
   context.shadowColor = markerColor;
-  context.beginPath();
-  context.arc(district.centerX, district.centerY, iconRadius, 0, Math.PI * 2);
-  context.fill();
   context.stroke();
-
-  drawReducedMapActivityIcon(context, markerType, district.centerX, district.centerY, iconSize, markerColor);
   context.restore();
 }
 

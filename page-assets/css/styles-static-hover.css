@@ -528,6 +528,7 @@ html {
 
   :where(
     .map-district-canvas,
+    .map-effects-canvas,
     .map-hover-canvas,
     .map-canvas-shell
   ) {

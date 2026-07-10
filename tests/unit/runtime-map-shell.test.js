@@ -95,11 +95,12 @@ describe("map shell", () => {
     const shell = initMapShell({
       root,
       selectors: { canvas: "[data-canvas]", phaseHost: "[data-phase]", viewport: "[data-viewport]", canvasHost: "[data-host]" },
-      classes: { interactionOverlay: "map-interaction", hoverCanvas: "map-hover" }
+      classes: { effectsCanvas: "map-effects", interactionOverlay: "map-interaction", hoverCanvas: "map-hover" }
     });
 
     expect(shell.canRender).toBe(true);
     expect(shell.interactionOverlay.classList.contains("map-interaction")).toBe(true);
+    expect(shell.effectsCanvas.classList.contains("map-effects")).toBe(true);
     expect(shell.hoverCanvas.classList.contains("map-hover")).toBe(true);
     expect(shell.statusPanel).toBe(statusPanel);
 

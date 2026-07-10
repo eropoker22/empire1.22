@@ -1741,14 +1741,19 @@ body.game-body--booting .game-logo-slot {
     transform 260ms var(--motion-modal-ease);
 }
 
+.map-effects-canvas,
 .map-hover-canvas {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 3;
   width: 100%;
   height: 100%;
   border-radius: 18px 18px 10px 10px;
   pointer-events: none;
+}
+
+.map-hover-canvas {
+  z-index: 4;
 }
 
 .map-stage-shell,
@@ -4865,6 +4870,7 @@ body.game-body--booting .game-logo-slot {
   }
 
   .map-district-canvas,
+  .map-effects-canvas,
   .map-hover-canvas {
     width: 100%;
     min-height: 0;

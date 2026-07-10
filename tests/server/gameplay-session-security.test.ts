@@ -41,6 +41,41 @@ const readBody = async (responsePromise: ReturnType<ReturnType<typeof createGame
 };
 
 describe("gameplay session security", () => {
+  it("resolves process environment before composing the default Netlify server", async () => {
+    const keys = [
+      "NODE_ENV",
+      "GAMEPLAY_SLICE_SNAPSHOT_SECRET",
+      "GAMEPLAY_SLICE_SESSION_SECRET",
+      "EMPIRE_DATABASE_URL",
+      "GAMEPLAY_DATABASE_URL"
+    ] as const;
+    const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+
+    try {
+      process.env.NODE_ENV = "production";
+      process.env.GAMEPLAY_SLICE_SNAPSHOT_SECRET = "production-snapshot-secret";
+      process.env.GAMEPLAY_SLICE_SESSION_SECRET = "production-session-secret";
+      delete process.env.EMPIRE_DATABASE_URL;
+      delete process.env.GAMEPLAY_DATABASE_URL;
+      const handler = createGameplaySliceFunctionHandler();
+      const load = await readBody(handler(postEvent("/api/gameplay-slice/load", {
+        serverInstanceId,
+        playerId: "player:forged"
+      })));
+
+      expect(load.statusCode).toBe(500);
+      expect(load.json.errors[0]).toMatchObject({
+        code: "SESSION_INVALID",
+        message: "Production gameplay session repository is not configured."
+      });
+    } finally {
+      for (const key of keys) {
+        if (previous[key] === undefined) delete process.env[key];
+        else process.env[key] = previous[key];
+      }
+    }
+  });
+
   it("does not use the dev account provider as the production default", () => {
     const server = createServerApp({
       environment: {
