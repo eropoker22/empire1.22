@@ -60,6 +60,7 @@ describe("onboarding district popup layer", () => {
     expect(onboardingCss).toContain("animation: onboardingTargetPulse 1.15s ease-in-out infinite;");
     expect(onboardingCss).toContain("isolation: isolate;");
     expect(onboardingCss).toContain("z-index: 13000 !important;");
+    expect(onboardingCss).toContain("z-index: 26000 !important;");
     expect(onboardingCss).toContain('#spy-confirm-modal[data-onboarding-action-confirm-layer="spy"]:not(.hidden):not([hidden])');
     expect(onboardingCss).toContain('#trap-confirm-modal[data-onboarding-action-confirm-layer="trap"]:not(.hidden):not([hidden])');
     expect(onboardingCss).toContain("z-index: var(--empire-z-action-confirmation) !important;");

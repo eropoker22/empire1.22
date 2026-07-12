@@ -11,6 +11,7 @@ const FOCUSABLE_SELECTOR = [
 ].join(",");
 
 const overlayStack = [];
+const overlayZIndexRestore = new WeakMap();
 let suppressMapInputUntil = 0;
 
 function getElementView(element) {
@@ -44,6 +45,20 @@ function unlockBodyScroll(element) {
 
 function hasScrollLockingOverlay() {
   return overlayStack.some((entry) => entry.lockScroll !== false);
+}
+
+function hasAlwaysOnTopOverlay() {
+  return overlayStack.some((entry) => entry.alwaysOnTop === true);
+}
+
+function normalizeOverlayStackOrder() {
+  const prioritized = overlayStack.filter((entry) => entry.alwaysOnTop === true);
+  if (prioritized.length === 0) {
+    return;
+  }
+
+  const regular = overlayStack.filter((entry) => entry.alwaysOnTop !== true);
+  overlayStack.splice(0, overlayStack.length, ...regular, ...prioritized);
 }
 
 function isElementVisible(element) {
@@ -94,6 +109,52 @@ function resolveFocusTarget(element, preferredFocus) {
   return isHtmlElement(element) ? element : null;
 }
 
+function restoreOverlayZIndex(element) {
+  const previous = overlayZIndexRestore.get(element);
+  if (!previous || !element?.style) {
+    return;
+  }
+
+  if (previous.value) {
+    element.style.setProperty("z-index", previous.value, previous.priority || "");
+  } else {
+    element.style.removeProperty("z-index");
+  }
+  overlayZIndexRestore.delete(element);
+}
+
+function raiseOverlayAbovePrevious(element) {
+  const currentEntry = overlayStack.findLast((entry) => entry.element === element);
+  const previousEntry = overlayStack.at(-1);
+  if (hasAlwaysOnTopOverlay() && currentEntry?.alwaysOnTop !== true) {
+    return;
+  }
+
+  const previousElement = previousEntry?.element;
+  if (!previousElement || previousElement === element || !element?.style) {
+    return;
+  }
+
+  const view = getElementView(element);
+  if (!view?.getComputedStyle) {
+    return;
+  }
+
+  const previousZIndex = Number.parseInt(view.getComputedStyle(previousElement).zIndex, 10);
+  const currentZIndex = Number.parseInt(view.getComputedStyle(element).zIndex, 10);
+  if (!Number.isFinite(previousZIndex) || !Number.isFinite(currentZIndex) || currentZIndex > previousZIndex) {
+    return;
+  }
+
+  if (!overlayZIndexRestore.has(element)) {
+    overlayZIndexRestore.set(element, {
+      value: element.style.zIndex || "",
+      priority: element.style.getPropertyPriority?.("z-index") || ""
+    });
+  }
+  element.style.setProperty("z-index", String(previousZIndex + 1), "important");
+}
+
 function pruneClosedOverlays() {
   const previousLength = overlayStack.length;
   const hadScrollLockingOverlay = hasScrollLockingOverlay();
@@ -101,6 +162,7 @@ function pruneClosedOverlays() {
   for (let index = overlayStack.length - 1; index >= 0; index -= 1) {
     if (!isElementVisible(overlayStack[index].element)) {
       lastPrunedElement = overlayStack[index].element;
+      restoreOverlayZIndex(lastPrunedElement);
       overlayStack.splice(index, 1);
     }
   }
@@ -173,8 +235,13 @@ export function openOverlay(element, options = {}) {
         unlockBodyScroll(element);
       }
     }
+    if (Object.prototype.hasOwnProperty.call(options, "alwaysOnTop")) {
+      existingEntry.alwaysOnTop = options.alwaysOnTop === true;
+    }
     overlayStack.push(existingEntry);
-    if (options.skipFocus !== true) {
+    normalizeOverlayStackOrder();
+    raiseOverlayAbovePrevious(element);
+    if (options.skipFocus !== true && isTopOverlayElement(element)) {
       const focusTarget = resolveFocusTarget(element, options.focusTarget);
       safeFocus(focusTarget);
     }
@@ -185,6 +252,7 @@ export function openOverlay(element, options = {}) {
     element,
     type: options.type || "modal",
     lockScroll: options.lockScroll !== false,
+    alwaysOnTop: options.alwaysOnTop === true,
     restoreFocusTo: isHtmlElement(restoreFocusTo) ? restoreFocusTo : null,
     restoreFocusOnClose: options.restoreFocusOnClose !== false
   };
@@ -193,8 +261,10 @@ export function openOverlay(element, options = {}) {
     lockBodyScroll(element);
   }
   overlayStack.push(entry);
+  normalizeOverlayStackOrder();
+  raiseOverlayAbovePrevious(element);
 
-  if (options.skipFocus !== true) {
+  if (options.skipFocus !== true && isTopOverlayElement(element)) {
     const focusTarget = resolveFocusTarget(element, options.focusTarget);
     safeFocus(focusTarget);
   }
@@ -209,6 +279,7 @@ export function closeOverlay(element, options = {}) {
   const index = overlayStack.findLastIndex((entry) => entry.element === element);
   const hadEntry = index >= 0;
   const [entry] = index >= 0 ? overlayStack.splice(index, 1) : [null];
+  restoreOverlayZIndex(element);
   element.setAttribute("aria-hidden", "true");
 
   if (options.suppressMapInput !== false) {

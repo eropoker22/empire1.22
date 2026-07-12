@@ -2276,7 +2276,8 @@ describe("run-building-action command flow", () => {
       salvagePool: [
         { id: "salvage:test:metal", itemId: "metal-parts", itemName: "Metal Parts", category: "materials", amount: 20, source: "attack", lostAtTick: 0 },
         { id: "salvage:test:bat", itemId: "baseball-bat", itemName: "Baseballová pálka", category: "weapons", amount: 20, source: "attack", lostAtTick: 0 },
-        { id: "salvage:test:vest", itemId: "vest", itemName: "Neprůstřelná vesta", category: "defenseItems", amount: 20, source: "defense", lostAtTick: 0 }
+        { id: "salvage:test:vest", itemId: "vest", itemName: "Neprůstřelná vesta", category: "defenseItems", amount: 20, source: "defense", lostAtTick: 0 },
+        { id: "salvage:test:future", itemId: "future-component", itemName: "Future Component", category: "rareComponents", amount: 4, source: "attack", lostAtTick: 0 }
       ]
     };
 
@@ -2301,7 +2302,11 @@ describe("run-building-action command flow", () => {
     expect(balances["baseball-bat"]).toBe(0);
     expect(balances.vest).toBe(0);
     expect(result.nextState.playersById["player:1"].population).toBe(10);
-    expect(result.nextState.playersById["player:1"].salvagePool).toEqual([]);
+    expect(result.nextState.playersById["player:1"].salvagePool).toEqual(expect.arrayContaining([
+      expect.objectContaining({ itemId: "baseball-bat", amount: 20 }),
+      expect.objectContaining({ itemId: "vest", amount: 20 }),
+      expect.objectContaining({ itemId: "future-component", amount: 4 })
+    ]));
     expectMafianHeat(result.nextState.districtsById["district:1"].heat, 2);
     expect(report).toMatchObject({
       buildingActionId: "extract_losses",

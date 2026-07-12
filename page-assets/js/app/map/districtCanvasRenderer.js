@@ -64,7 +64,7 @@ function drawMapImage(context, image, width, height) {
   context.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
 }
 
-function drawDowntownNeonBorder(context, district, isNight, reducedMapEffects) {
+function drawDowntownNeonBorder(context, district, isNight, reducedMapEffects, borderScale = 1) {
   if (String(district?.districtType || "").trim().toLowerCase() !== "downtown") {
     return;
   }
@@ -80,7 +80,7 @@ function drawDowntownNeonBorder(context, district, isNight, reducedMapEffects) {
   context.strokeStyle = isNight
     ? "rgba(255, 44, 202, 0.42)"
     : "rgba(255, 44, 202, 0.34)";
-  context.lineWidth = reducedMapEffects ? 3.2 : 6.8;
+  context.lineWidth = (reducedMapEffects ? 3.2 : 6.8) * borderScale;
   context.stroke();
 
   if (!reducedMapEffects) {
@@ -90,7 +90,7 @@ function drawDowntownNeonBorder(context, district, isNight, reducedMapEffects) {
     context.strokeStyle = isNight
       ? "rgba(255, 104, 224, 0.78)"
       : "rgba(255, 71, 194, 0.68)";
-    context.lineWidth = 3.3;
+    context.lineWidth = 3.3 * borderScale;
     context.stroke();
   }
 
@@ -100,7 +100,7 @@ function drawDowntownNeonBorder(context, district, isNight, reducedMapEffects) {
   context.strokeStyle = isNight
     ? "rgba(255, 232, 252, 0.96)"
     : "rgba(255, 184, 242, 0.88)";
-  context.lineWidth = reducedMapEffects ? 1.4 : 1.65;
+  context.lineWidth = (reducedMapEffects ? 1.4 : 1.65) * borderScale;
   context.stroke();
 
   context.restore();
@@ -140,7 +140,7 @@ function deterministicUnit(seed) {
   return value - Math.floor(value);
 }
 
-function drawDestroyedDistrictOverlay(context, district, isNight, reducedMapEffects) {
+function drawDestroyedDistrictOverlay(context, district, isNight, reducedMapEffects, borderScale = 1) {
   const bounds = getPolygonBounds(district?.polygon);
   const centerX = Number(district?.centerX ?? ((bounds.minX + bounds.maxX) / 2));
   const centerY = Number(district?.centerY ?? ((bounds.minY + bounds.maxY) / 2));
@@ -269,7 +269,7 @@ function drawDestroyedDistrictOverlay(context, district, isNight, reducedMapEffe
   context.shadowBlur = reducedMapEffects ? 8 : 18;
   context.shadowColor = "rgba(255, 31, 31, 0.96)";
   context.strokeStyle = isNight ? "rgba(255, 45, 45, 0.86)" : "rgba(248, 45, 45, 0.76)";
-  context.lineWidth = reducedMapEffects ? 2.2 : 3.6;
+  context.lineWidth = (reducedMapEffects ? 2.2 : 3.6) * borderScale;
   context.stroke();
   context.restore();
 
@@ -382,6 +382,7 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
   const showDistrictBorders = interactionState.showDistrictBorders !== false;
   const showAllianceSymbols = interactionState.showAllianceSymbols !== false;
   const reducedMapEffects = Boolean(interactionState.reducedMapEffects);
+  const borderScale = options.compactDistrictBorders ? 0.72 : 1;
   const mapVisibilityMode = normalizeMapVisibilityMode(interactionState.mapVisibilityMode);
   const effectiveOwnedDistrictIds = getEffectiveOwnedDistrictIds(interactionState);
   const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
@@ -449,10 +450,10 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
     context.fill();
 
     if (isDestroyed) {
-      drawDestroyedDistrictOverlay(context, district, isNight, reducedMapEffects);
+      drawDestroyedDistrictOverlay(context, district, isNight, reducedMapEffects, borderScale);
     }
 
-    drawDowntownNeonBorder(context, district, isNight, reducedMapEffects);
+    drawDowntownNeonBorder(context, district, isNight, reducedMapEffects, borderScale);
 
     if (isSelected) {
       context.save();
@@ -460,7 +461,7 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
       context.shadowColor = isNight ? "rgba(255, 154, 61, 0.74)" : "rgba(255, 154, 61, 0.6)";
       drawDistrictPolygon(context, district.polygon);
       context.strokeStyle = "rgba(255, 154, 61, 0.96)";
-      context.lineWidth = reducedMapEffects ? 2.4 : 4;
+      context.lineWidth = (reducedMapEffects ? 2.4 : 4) * borderScale;
       context.stroke();
       context.restore();
     }
@@ -481,7 +482,7 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
           : isNight
             ? "rgba(242, 248, 255, 0.96)"
             : "rgba(245, 250, 255, 0.92)";
-      context.lineWidth = isSelected ? 2.8 : isOwnedByCurrentPlayer || launchOwnerColor ? 1.8 : 1.2;
+      context.lineWidth = (isSelected ? 2.8 : isOwnedByCurrentPlayer || launchOwnerColor ? 1.8 : 1.2) * borderScale;
       context.stroke();
     }
 
@@ -492,10 +493,10 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
       context.shadowColor = currentPlayerColor;
       drawDistrictPolygon(context, district.polygon);
       context.strokeStyle = currentPlayerColor;
-      context.lineWidth = reducedMapEffects ? 3.2 : 5;
+      context.lineWidth = (reducedMapEffects ? 3.2 : 5) * borderScale;
       context.stroke();
       context.shadowBlur = reducedMapEffects ? 5 : 12;
-      context.lineWidth = reducedMapEffects ? 1.8 : 2.3;
+      context.lineWidth = (reducedMapEffects ? 1.8 : 2.3) * borderScale;
       context.stroke();
       context.restore();
     }

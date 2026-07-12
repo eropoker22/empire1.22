@@ -34,7 +34,7 @@ export const createRaidPreviewConsequences = (
 
   for (const [resourceKey, value] of Object.entries(balances).sort(([left], [right]) => left.localeCompare(right))) {
     if (protectedResources.has(resourceKey)) continue;
-    const baseSeized = applySeizureCap(Math.floor(sanitizeAmount(value) * resourcePct), remainingCap);
+    const baseSeized = applySeizureCap(resolveResourceSeizureAmount(value, resourcePct), remainingCap);
     if (baseSeized <= 0) continue;
     baseSeizedResources[resourceKey] = baseSeized;
     const seized = mitigateLoss(baseSeized, consequenceMultiplier);
@@ -114,6 +114,14 @@ const reduceCap = (cap: number | null, amount: number): number | null =>
 
 const mitigateLoss = (amount: number, multiplier: number): number =>
   Math.max(0, Math.floor(amount * multiplier));
+
+const resolveResourceSeizureAmount = (value: unknown, percent: number): number => {
+  const amount = sanitizeAmount(value);
+  if (amount <= 0 || percent <= 0) {
+    return 0;
+  }
+  return Math.max(1, Math.floor(amount * percent));
+};
 
 const mitigateDurationTicks = (ticks: number, multiplier: number): number => {
   if (ticks <= 0) return 0;

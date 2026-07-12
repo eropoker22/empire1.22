@@ -711,6 +711,36 @@ describe("Empire onboarding flow", () => {
     }));
   });
 
+  it("runs the completion callback when onboarding is skipped", () => {
+    const { document, root } = createOnboardingDom();
+    const onComplete = vi.fn();
+    const bridge = createOnboardingBridge({
+      documentRef: document,
+      root,
+      storage: createMemoryStorage(),
+      getContext: () => ({
+        registration: { identity: "Operator" },
+        mode: "dev-only",
+        world: { ownedDistrictIds: [1] }
+      }),
+      onComplete
+    });
+
+    bridge.init();
+    document.querySelector("[data-onboarding-skip-action]")?.click();
+
+    expect(bridge.getProgress()).toEqual(expect.objectContaining({
+      completed: true,
+      skipped: true,
+      currentStepId: "skipped"
+    }));
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({
+      mode: "dev-only",
+      progress: expect.objectContaining({ completed: true, skipped: true })
+    }));
+  });
+
   it("finds the first owned district in the dev-only read model", () => {
     const readModel = createOnboardingReadModel({
       registration: { identity: "Operator" },

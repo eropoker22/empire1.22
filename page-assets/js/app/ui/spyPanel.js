@@ -6,7 +6,10 @@ import {
   SPY_WARNING_MODAL_SUMMARY_SELECTOR,
   SPY_WARNING_MODAL_TITLE_SELECTOR
 } from "../runtime/constants.js";
-import { openOverlay } from "./legacyOverlayCoordinator.js";
+import {
+  closeOverlay,
+  openOverlay
+} from "./legacyOverlayCoordinator.js";
 import {
   escapeModalHtml,
   renderActionResultRows,
@@ -92,6 +95,7 @@ export function openSpyPanel(targetDistrict = null, options = {}) {
     return false;
   }
 
+  openOverlay(popup, { type: "modal", ariaModal: true });
   popup.hidden = false;
   return true;
 }
@@ -103,6 +107,7 @@ export function closeSpyPanel(options = {}) {
   }
 
   popup.hidden = true;
+  closeOverlay(popup, { restoreFocus: false });
   return true;
 }
 

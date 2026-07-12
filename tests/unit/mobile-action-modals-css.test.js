@@ -1014,7 +1014,7 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("html body.game-body .wanted-popup-shell:not([hidden]) > .wanted-popup-police-window");
       expect(stylesheet).toContain("z-index: 21020 !important;");
       expect(stylesheet).toContain("html body.game-body .storage-popup-shell[data-storage-popup]:not([hidden])");
-      expect(stylesheet).toContain("z-index: 18000 !important;");
+      expect(stylesheet).toContain("z-index: 50000 !important;");
     }
   });
 

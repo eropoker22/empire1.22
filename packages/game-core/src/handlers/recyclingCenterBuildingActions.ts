@@ -141,6 +141,15 @@ export const resolveRecyclingCenterAction = (input: {
     config,
     tickRateMs: input.tickRateMs
   });
+  const player = input.state.playersById[input.playerId];
+  const retainedFreshEntries = (player?.salvagePool ?? []).filter((entry) =>
+    isSalvageEntryFresh(
+      entry,
+      input.state.root.tick,
+      Math.ceil(config.salvage.poolTtlMinutes * 60000 / Math.max(1, input.tickRateMs)),
+      config.salvage.poolTtlMinutes * 60000
+    ) && !isRecyclingRecoverableItem(entry.itemId, config)
+  );
   const nextBalances: Record<string, number> = {
     ...input.balances,
     cash: Math.max(0, Number(input.balances.cash || 0) - config.extractLosses.cleanCashCost)
@@ -177,7 +186,7 @@ export const resolveRecyclingCenterAction = (input: {
 
   return {
     balances: nextBalances,
-    playerSalvagePool: [],
+    playerSalvagePool: retainedFreshEntries,
     heatGain: config.extractLosses.heatGain,
     influenceChange: 0,
     inputCost: { cash: config.extractLosses.cleanCashCost },

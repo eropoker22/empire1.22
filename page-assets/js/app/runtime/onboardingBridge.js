@@ -363,10 +363,10 @@ export function createOnboardingBridge(deps = {}) {
     const wasCompleted = normalizeOnboardingProgress(progress).completed;
     progress = markPanelStepDone(stepId || progress.currentStepId, progress);
     persist();
-    render();
     if (!wasCompleted && progress.completed && typeof deps.onComplete === "function") {
       deps.onComplete(getContext());
     }
+    render();
     return progress;
   };
 
@@ -379,8 +379,12 @@ export function createOnboardingBridge(deps = {}) {
   };
 
   const skip = (currentStepId = "skipped") => {
+    const wasCompleted = normalizeOnboardingProgress(progress).completed;
     progress = completeOnboardingProgress(progress, currentStepId, { skipped: currentStepId !== "completed" });
     persist();
+    if (!wasCompleted && progress.completed && typeof deps.onComplete === "function") {
+      deps.onComplete(getContext());
+    }
     render();
     return progress;
   };

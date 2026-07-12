@@ -1188,6 +1188,13 @@ html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[dat
   padding: var(--onboarding-trap-confirm-top) 18px 18px !important;
 }
 
+/* These onboarding confirmations can be moved directly under <body>. Keep them
+   above the mobile district sheet even when the sheet has its own critical layer. */
+html[data-onboarding-step="spy"] body.game-body #spy-confirm-modal[data-onboarding-action-confirm-layer="spy"]:not(.hidden):not([hidden]),
+html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[data-onboarding-action-confirm-layer="trap"]:not(.hidden):not([hidden]) {
+  z-index: 26000 !important;
+}
+
 html[data-onboarding-step="spy"] body.game-body #spy-confirm-modal[data-onboarding-action-confirm-layer="spy"]:not(.hidden):not([hidden]) .district-action-confirm-popup-card,
 html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[data-onboarding-action-confirm-layer="trap"]:not(.hidden):not([hidden]) .district-action-confirm-popup-card {
   position: relative;
@@ -1213,7 +1220,7 @@ html[data-onboarding-step="attack-order"] body.game-body #trap-confirm-modal[dat
     filter: none !important;
     transform: none !important;
     isolation: isolate;
-    scroll-margin-top: calc(var(--mobile-topbar-offset, 72px) + 8px);
+    scroll-margin-top: calc(var(--mobile-topbar-offset, 72px) + 18px);
     scroll-margin-bottom: calc(42dvh + 24px);
   }
 

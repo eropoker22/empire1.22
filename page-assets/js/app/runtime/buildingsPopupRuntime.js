@@ -73,9 +73,9 @@ const hasPulsingBuildingState = (entry = {}) => Boolean(
   || entry.schoolIsFull
 );
 
-const createBuildingsPopupBackgroundStack = (backgroundImage) => backgroundImage
-  ? `linear-gradient(rgba(3, 7, 18, 0.44), rgba(3, 7, 18, 0.58)), url("${escapeCssUrl(backgroundImage)}")`
-  : "linear-gradient(rgba(3, 7, 18, 0.66), rgba(3, 7, 18, 0.78)), rgba(3, 7, 18, 0.92)";
+const createBuildingsPopupBackgroundImage = (backgroundImage) => backgroundImage
+  ? `url("${escapeCssUrl(backgroundImage)}")`
+  : "";
 
 export function createBuildingsPopupRuntime(deps = {}) {
   const elements = deps.elements || {};
@@ -132,29 +132,26 @@ export function createBuildingsPopupRuntime(deps = {}) {
     card.dataset.buildingsSelectedDistrictId = selectedDistrict?.id !== undefined ? String(selectedDistrict.id) : "";
     card.dataset.buildingsSelectedDistrictType = selectedDistrictType || "";
     card.dataset.buildingsActiveDistrictType = activeDistrictType || "";
-    card.style.removeProperty("--buildings-popup-background-image");
+    card.style.removeProperty("--buildings-popup-background-stack");
+    card.style.removeProperty("background");
+    card.style.removeProperty("background-size");
+    card.style.removeProperty("background-position");
+    card.style.removeProperty("background-repeat");
 
     if (!activeDistrictType) {
       card.dataset.buildingsBackgroundMode = "default";
-      card.style.removeProperty("--buildings-popup-background-stack");
-      card.style.removeProperty("background");
-      card.style.removeProperty("background-size");
-      card.style.removeProperty("background-position");
-      card.style.removeProperty("background-repeat");
+      card.style.removeProperty("--buildings-popup-background-image");
       return;
     }
 
     const backgroundImage = BUILDINGS_POPUP_BACKGROUND_BY_DISTRICT_TYPE[districtType] || "";
-    const backgroundStack = createBuildingsPopupBackgroundStack(backgroundImage);
+    const backgroundLayer = createBuildingsPopupBackgroundImage(backgroundImage);
     card.dataset.buildingsBackgroundMode = backgroundImage ? districtType : "none";
-    card.style.setProperty(
-      "--buildings-popup-background-stack",
-      backgroundStack
-    );
-    card.style.setProperty("background", backgroundStack, "important");
-    card.style.setProperty("background-size", "cover, cover", "important");
-    card.style.setProperty("background-position", "center, center", "important");
-    card.style.setProperty("background-repeat", "no-repeat, no-repeat", "important");
+    if (backgroundLayer) {
+      card.style.setProperty("--buildings-popup-background-image", backgroundLayer);
+    } else {
+      card.style.removeProperty("--buildings-popup-background-image");
+    }
   };
 
   const renderDistrictPopupBuildings = (district) => {

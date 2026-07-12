@@ -180,7 +180,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   }),
   "recyklacni centrum": Object.freeze({
     role: "Vytěžení ztrát",
-    info: "Recyklační centrum vrací železo, zbraně, moduly a všechno, co se dá po boji ještě vytáhnout ze šrotu.",
+    info: "Recyklační centrum vrací materiály a moduly, které se dají po boji ještě vytáhnout ze šrotu.",
     actions: Object.freeze(["Vytěžit ztráty"])
   }),
   lekarna: Object.freeze({

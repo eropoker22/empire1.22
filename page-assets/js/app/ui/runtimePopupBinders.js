@@ -436,12 +436,26 @@ function bindStoragePopup(root) {
       materials: getResolvedMaterialInventory(),
       drugs: getResolvedDrugInventory(),
       factorySupplies: getStoredFactorySupplies()
-    }, { root });
+    }, { root: scope });
+  };
+
+  const moveStoragePopupToTopLayer = () => {
+    const body = popup.ownerDocument?.body || null;
+    if (!body || popup.parentElement === body) {
+      return false;
+    }
+    body.append(popup);
+    return true;
   };
 
   const openPopup = () => {
+    moveStoragePopupToTopLayer();
     renderStorageInventory();
-    showOverlay(popup, { focusTarget: popupCard, restoreFocusOnClose: false });
+    showOverlay(popup, {
+      focusTarget: popupCard,
+      restoreFocusOnClose: false,
+      alwaysOnTop: true
+    });
   };
 
   const closePopup = () => {
@@ -463,6 +477,12 @@ function bindStoragePopup(root) {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !popup.hidden) {
       closePopup();
+    }
+  });
+
+  scope.addEventListener?.("empire:gameplay-slice-rendered", () => {
+    if (!popup.hidden) {
+      renderStorageInventory();
     }
   });
 

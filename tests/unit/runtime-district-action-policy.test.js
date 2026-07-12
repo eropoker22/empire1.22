@@ -26,6 +26,18 @@ describe("legacy district action policy", () => {
     });
   });
 
+  it("keeps server-authoritative map actions clickable for the server to validate", () => {
+    const actions = getVisibleActions({
+      serverAuthoritative: true,
+      isOwnedByCurrentPlayer: true,
+      hasAdjacentOwnedDistrict: false,
+      availableSpies: 0
+    });
+
+    expect(actions.map((action) => action.id)).toEqual(["trap", "attack", "heist", "occupy", "rob", "spy"]);
+    expect(actions.every((action) => action.enabled)).toBe(true);
+  });
+
   it("keeps enemy-owned districts on attack and heist after successful spy intel", () => {
     const actions = getVisibleActions({ canOccupyAfterSpy: true });
 

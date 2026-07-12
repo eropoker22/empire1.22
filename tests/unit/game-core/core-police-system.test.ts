@@ -369,6 +369,22 @@ describe("core police system completion", () => {
     });
   });
 
+  it("seizes one stored resource from a live raid even when the percentage rounds below one", () => {
+    const state = createRaidPreviewState(0);
+    state.resourceStatesById["resource:1"] = {
+      ...state.resourceStatesById["resource:1"],
+      balances: {
+        cash: 1000,
+        "dirty-cash": 1000,
+        chemicals: 1
+      }
+    };
+
+    const preview = createRaidPreviewConsequences(state, "player:1", "high", "district:1", createContext());
+
+    expect(preview.seizedResources).toMatchObject({ chemicals: 1 });
+  });
+
   it("mitigates raid consequences by 50 percent with one Court", () => {
     const state = createRaidPreviewState(1);
     const preview = createRaidPreviewConsequences(state, "player:1", "extreme", "district:1", createContext());

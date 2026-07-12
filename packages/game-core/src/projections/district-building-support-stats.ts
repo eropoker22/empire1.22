@@ -107,10 +107,16 @@ export const createSupportBuildingStats = (input: BuildingStatsProjectionInput):
       tickRateMs: input.tickRateMs ?? 5000
     });
     const poolTotal = salvageStats.freshPool.reduce((total, entry) => total + Math.max(0, Number(entry.amount || 0)), 0);
+    const ttlMs = recyclingCenterConfig.salvage.poolTtlMinutes * 60000;
+    const ttlTicks = Math.ceil(ttlMs / Math.max(1, input.tickRateMs ?? 5000));
     const nextExpiry = salvageStats.freshPool.reduce<number | null>((next, entry) => {
       const lostAtTick = Number(entry.lostAtTick);
-      if (!Number.isFinite(lostAtTick)) return next;
-      const expiresAtTick = lostAtTick + Math.ceil(recyclingCenterConfig.salvage.poolTtlMinutes * 60000 / Math.max(1, input.tickRateMs ?? 5000));
+      const expiresAtTick = Number.isFinite(lostAtTick)
+        ? lostAtTick + ttlTicks
+        : Number.isFinite(Date.parse(entry.lostAt || ""))
+          ? input.tick + Math.ceil(Math.max(0, Date.parse(entry.lostAt || "") + ttlMs - Date.now()) / Math.max(1, input.tickRateMs ?? 5000))
+          : null;
+      if (expiresAtTick === null) return next;
       const remaining = Math.max(0, expiresAtTick - input.tick);
       return next === null ? remaining : Math.min(next, remaining);
     }, null);

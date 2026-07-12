@@ -64,6 +64,18 @@ export function resolveDistrictActions(context) {
     }));
   }
 
+  if (context.serverAuthoritative) {
+    return DISTRICT_ACTION_CATALOG
+      .filter((action) => action.id !== "defense")
+      .map((action) => ({
+        id: action.id,
+        visible: true,
+        enabled: true,
+        label: action.defaultLabel,
+        reason: null
+      }));
+  }
+
   return DISTRICT_ACTION_CATALOG.map((action) => {
     if (action.id === "defense") {
       const visible = isOwnedByCurrentPlayer;
