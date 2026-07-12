@@ -138,18 +138,14 @@ describe("Free BR strategic cooldowns", () => {
     expect(finalDurationTicks(armory.recipes["defense-tower"].durationTicksPerUnit)).toBe(15 * TICKS_PER_MINUTE);
   });
 
-  it("keeps production building actions on the Free timing contract and preserves Black Charter phase gating", () => {
-    const actionCooldownTicks = (actionId: string): number => {
-      const action = freeConfig.balance.buildingActions![actionId];
-      const rawTicks = Math.ceil(action.cooldownMs / freeConfig.tickRateMs);
-      return Math.ceil(rawTicks * freeConfig.balance.cooldownMultiplier);
-    };
-
+  it("removes legacy production actions and preserves Black Charter phase gating", () => {
     expect(freeConfig.balance.buildingActions!.produce_chemicals).toBeUndefined();
     expect(freeConfig.balance.buildingActions!.produce_biomass).toBeUndefined();
     expect(freeConfig.balance.buildingActions!.produce_neon_dust).toBeUndefined();
     expect(freeConfig.balance.buildingActions!.produce_stim_pack).toBeUndefined();
-    expect(actionCooldownTicks("produce_combat_module")).toBe(4);
+    expect(freeConfig.balance.buildingActions!.produce_metal_parts).toBeUndefined();
+    expect(freeConfig.balance.buildingActions!.produce_tech_core).toBeUndefined();
+    expect(freeConfig.balance.buildingActions!.produce_combat_module).toBeUndefined();
     expect(freeConfig.balance.buildingActions!.armory_craft_weapons).toBeUndefined();
     expect(freeConfig.balance.buildingActions!.black_charter.durationMs).toBe(8 * 60_000);
 

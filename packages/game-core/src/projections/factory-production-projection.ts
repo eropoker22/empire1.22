@@ -96,6 +96,7 @@ export const createFactoryProductionBuildingView = (input: {
   });
   return {
     buildingId: input.building.id,
+    districtId: input.building.districtId,
     buildingTypeId: FACTORY_BUILDING_TYPE_ID,
     level: input.building.level,
     network: {

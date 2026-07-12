@@ -20,6 +20,7 @@ import {
   resolvePlayerStorageCapacitySummary
 } from "../handlers/warehouseBuilding";
 import { resolveAttackWeaponInventory } from "../rules";
+import { createFactoryProductionBuildingView } from "./factory-production-projection";
 
 /**
  * Responsibility: Builds a minimal player-facing projection from authoritative core state.
@@ -48,6 +49,11 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
     resourceBalances.population = Math.max(0, Number(player.population || 0));
   }
   const economy = createPlayerEconomyView(state, playerId, resourceBalances);
+  const factoryBuilding = Object.values(state.buildingsById)
+    .filter((building) => building.buildingTypeId === "factory"
+      && building.ownerPlayerId === playerId
+      && building.status === "active")
+    .sort((left, right) => left.districtId.localeCompare(right.districtId) || left.id.localeCompare(right.id))[0] ?? null;
 
   return {
     playerId,
@@ -76,6 +82,15 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
             };
           })
         }
+      : null,
+    factoryProduction: factoryBuilding && context?.config.balance.factory
+      ? createFactoryProductionBuildingView({
+          state,
+          building: factoryBuilding,
+          playerId,
+          config: context.config,
+          tickRateMs: context.config.tickRateMs
+        })
       : null,
     economy,
     faction: createFactionReadModel(state, playerId, context),

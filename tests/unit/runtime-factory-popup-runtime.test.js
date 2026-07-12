@@ -35,6 +35,20 @@ function createRoot(elements = {}, all = {}) {
   };
 }
 
+function createEventTarget() {
+  const listeners = new Map();
+  return {
+    addEventListener: vi.fn((type, listener) => {
+      listeners.set(type, [...(listeners.get(type) || []), listener]);
+    }),
+    async dispatch(type) {
+      for (const listener of listeners.get(type) || []) {
+        await listener({ type });
+      }
+    }
+  };
+}
+
 function createRuntime(overrides = {}) {
   return createFactoryPopupRuntime({
     FACTORY_CONFIG: { maxLevel: 14 },
@@ -88,6 +102,7 @@ describe("factory popup runtime", () => {
     const collect = createElement();
     const upgrade = createElement();
     const renderServerFactorySlotList = vi.fn();
+    const refreshServerFactoryReadModel = vi.fn(() => Promise.resolve(null));
     const submitServerFactoryCommand = vi.fn(async () => ({ errors: [] }));
     const serverFactory = {
       districtId: "district:1",
@@ -105,6 +120,7 @@ describe("factory popup runtime", () => {
       allowLegacyLocalProduction: false,
       getServerFactoryReadModel: () => serverFactory,
       getServerTickRateMs: () => 5000,
+      refreshServerFactoryReadModel,
       renderServerFactorySlotList,
       setBuildingActionFeedback: vi.fn(),
       submitServerFactoryCommand,
@@ -136,12 +152,70 @@ describe("factory popup runtime", () => {
     expect(root.querySelector(".tech").textContent).toBe("3 / 5");
     expect(root.querySelector(".combat").textContent).toBe("1 / 2");
     expect(renderServerFactorySlotList).toHaveBeenCalled();
+    expect(refreshServerFactoryReadModel).toHaveBeenCalledTimes(1);
     const callbacks = renderServerFactorySlotList.mock.calls[0][2];
     await callbacks.onStartSlot(serverFactory.productionLines[0], { batchCount: 2 });
     expect(submitServerFactoryCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: "craft-item",
       payload: expect.objectContaining({ buildingId: "building:factory", quantity: 2 })
     }));
+  });
+
+  it("renders authoritative Factory slots when the gameplay slice arrives after the popup opens", async () => {
+    const open = createElement();
+    const popup = createElement();
+    const close = createElement();
+    const collect = createElement();
+    const upgrade = createElement();
+    const documentRef = createEventTarget();
+    const renderServerFactorySlotList = vi.fn();
+    let serverFactory = null;
+    const runtime = createRuntime({
+      allowLegacyLocalProduction: false,
+      documentRef,
+      getServerFactoryReadModel: () => serverFactory,
+      renderServerFactorySlotList,
+      syncBuildingDetailTopbarVisibility: vi.fn()
+    });
+    const root = createRoot({
+      ".collect": collect,
+      ".combat": createElement(),
+      ".header": createElement(),
+      ".level": createElement(),
+      ".metal": createElement(),
+      ".multiplier": createElement(),
+      ".open": open,
+      ".owned": createElement(),
+      ".popup": popup,
+      ".slots": createElement(),
+      ".supply-combat": createElement(),
+      ".supply-metal": createElement(),
+      ".supply-tech": createElement(),
+      ".tech": createElement(),
+      ".upgrade": upgrade,
+      ".upgrade-cost": createElement()
+    }, { ".close": [close] });
+
+    runtime.bindFactoryPopup(root);
+    await open.dispatch("click");
+    expect(renderServerFactorySlotList).not.toHaveBeenCalled();
+
+    serverFactory = {
+      districtId: "district:1",
+      buildingId: "building:factory",
+      level: 1,
+      network: { activeFactoryCount: 1, networkSpeedMultiplier: 1 },
+      producedSummary: [],
+      productionLines: [{ recipeId: "metal-parts", resourceKey: "metal-parts", label: "Metal Parts" }]
+    };
+    await documentRef.dispatch("empire:gameplay-slice-rendered");
+
+    expect(renderServerFactorySlotList).toHaveBeenCalledWith(
+      expect.anything(),
+      serverFactory.productionLines,
+      expect.anything(),
+      expect.anything()
+    );
   });
 
   it("handles missing factory DOM without crashing", () => {

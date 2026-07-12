@@ -17,6 +17,7 @@ import type { FinalLockdownReadModel } from "./final-lockdown-read-model-view";
 import type { PlayerEconomyView } from "./player-economy-view";
 import type { PoliceReadModel } from "./police-read-model-view";
 import type { AttackWeaponId } from "../entities/weapon";
+import type { FactoryProductionBuildingView } from "./factory-production-view";
 
 /**
  * Responsibility: Minimal player-facing projection rendered by the client.
@@ -36,6 +37,8 @@ export interface PlayerView {
   storage?: PlayerStorageView | null;
   /** Present on gameplay read models from the authoritative server. */
   attackWeapons?: PlayerAttackWeaponsView | null;
+  /** The first active Factory owned by this player, selected server-side for the Factory shortcut. */
+  factoryProduction?: FactoryProductionBuildingView | null;
   economy: PlayerEconomyView;
   faction?: FactionReadModel | null;
   dayNight?: DayNightReadModel | null;

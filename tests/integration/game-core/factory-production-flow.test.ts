@@ -3,6 +3,7 @@ import { resolveModeConfig } from "@empire/game-config";
 import {
   applyCommand,
   createFactoryProductionBuildingView,
+  createPlayerView,
   migrateFactoryProductionState,
   resolveActiveFactoryCount,
   resolveFactoryNetworkSpeedMultiplier,
@@ -45,6 +46,22 @@ describe("factory production", () => {
     expect(factory.recipes["tech-core"]).toMatchObject({ cleanCashCostPerUnit: 900, inputCosts: { "metal-parts": 4 }, outputAmount: 1, localOutputCap: 5, queueCap: 4 });
     expect(factory.recipes["combat-module"]).toMatchObject({ cleanCashCostPerUnit: 2500, inputCosts: { "metal-parts": 4, "tech-core": 2 }, outputAmount: 1, localOutputCap: 2, queueCap: 2 });
     expect(metalDuration).toBe(4 * Math.ceil(60_000 / context.config.tickRateMs));
+  });
+
+  it("exposes an owned active Factory through the player read model for the global Factory shortcut", () => {
+    const { state, building } = createCoreStateWithFixedBuildingFixture("factory");
+    const playerView = createPlayerView(state, "player:1", context);
+
+    expect(playerView.factoryProduction).toMatchObject({
+      buildingId: building.id,
+      districtId: building.districtId,
+      buildingTypeId: "factory"
+    });
+    expect(playerView.factoryProduction?.productionLines).toHaveLength(3);
+    expect(playerView.factoryProduction?.productionLines.find((line) => line.recipeId === "metal-parts")).toMatchObject({
+      canStart: true,
+      maxStartQuantity: 3
+    });
   });
 
   it("starts all three independent lines and reserves exact clean cash plus materials", () => {

@@ -71,6 +71,18 @@ export function createFactoryPopupRuntime(deps = {}) {
       host: popup,
       variant: "factory"
     });
+    let lastServerFactory = null;
+
+    const getAuthoritativeFactory = () => {
+      if (allowLegacyLocalProduction) {
+        return null;
+      }
+      const serverFactory = deps.getServerFactoryReadModel?.() || null;
+      if (serverFactory && Array.isArray(serverFactory.productionLines) && serverFactory.productionLines.length > 0) {
+        lastServerFactory = serverFactory;
+      }
+      return serverFactory || lastServerFactory;
+    };
 
     const setActiveTab = (tabName = "stats") => {
       for (const button of tabButtons) {
@@ -85,7 +97,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     };
 
     const renderFactoryDashboard = () => {
-      const serverFactory = !allowLegacyLocalProduction ? deps.getServerFactoryReadModel?.() : null;
+      const serverFactory = getAuthoritativeFactory();
       if (serverFactory) {
         const produced = Object.fromEntries((serverFactory.producedSummary || []).map((item) => [item.resourceKey, item]));
         const formatProduced = (item) => item ? String(item.currentAmount) + " / " + String(item.capacity) : "0 / 0";
@@ -244,13 +256,33 @@ export function createFactoryPopupRuntime(deps = {}) {
       }
     };
 
+    const refreshAuthoritativeFactory = () => {
+      if (allowLegacyLocalProduction || typeof deps.refreshServerFactoryReadModel !== "function") {
+        return;
+      }
+      Promise.resolve(deps.refreshServerFactoryReadModel())
+        .catch(() => null)
+        .finally(() => {
+          if (!popup.hidden) {
+            renderFactoryDashboard();
+          }
+        });
+    };
+
     const openPopup = () => {
       setActiveTab("stats");
       renderFactoryDashboard();
       openOverlay(popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
       popup.hidden = false;
       deps.syncBuildingDetailTopbarVisibility?.(root);
+      refreshAuthoritativeFactory();
     };
+
+    documentRef?.addEventListener?.("empire:gameplay-slice-rendered", () => {
+      if (!allowLegacyLocalProduction && !popup.hidden) {
+        renderFactoryDashboard();
+      }
+    });
 
     const closePopup = () => {
       upgradeConfirmation.close?.();
@@ -268,7 +300,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     }
 
     collectButton.addEventListener("click", () => {
-      const serverFactory = !allowLegacyLocalProduction ? deps.getServerFactoryReadModel?.() : null;
+      const serverFactory = getAuthoritativeFactory();
       if (serverFactory) {
         deps.submitServerFactoryCommand?.({
           type: "collect-production",

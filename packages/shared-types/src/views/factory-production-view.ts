@@ -34,6 +34,7 @@ export interface FactoryProductionLineView {
 
 export interface FactoryProductionBuildingView {
   buildingId: string;
+  districtId: string;
   buildingTypeId: "factory";
   level: number;
   network: {

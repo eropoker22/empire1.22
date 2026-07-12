@@ -1039,6 +1039,10 @@ function getServerDrugLabReadModel() {
 }
 
 function getServerFactoryReadModel() {
+  const playerFactory = latestGameplaySliceReadModel?.player?.factoryProduction;
+  if (playerFactory?.buildingId && playerFactory?.districtId && Array.isArray(playerFactory.productionLines)) {
+    return playerFactory;
+  }
   const district = latestGameplaySliceReadModel?.district;
   const building = district?.buildings?.find?.((candidate) => candidate?.buildingTypeId === "factory" && candidate?.factory);
   if (!building?.factory || !district?.districtId) {
@@ -1403,7 +1407,7 @@ function getServerAuthoritativeBuildingUpgradeMaxLevel(mechanicsType = "") {
   return Math.max(1, Math.floor(Number(SERVER_BUILDING_UPGRADE_MAX_LEVEL_BY_TYPE[serverType] || 1)));
 }
 
-async function loadServerGameplaySliceForDistrict(districtId) {
+async function loadServerGameplaySliceForDistrict(districtId, { forceRefresh = false } = {}) {
   if (!isServerAuthoritativeGameplayRuntimeReady()) {
     return {
       accepted: false,
@@ -1420,7 +1424,7 @@ async function loadServerGameplaySliceForDistrict(districtId) {
     };
   }
 
-  if (slice?.district?.districtId === districtId) {
+  if (!forceRefresh && slice?.district?.districtId === districtId) {
     return { accepted: true, readModel: slice, errors: [] };
   }
 
@@ -12976,6 +12980,12 @@ const {
   setStoredEconomyState,
   setStoredFactoryState,
   getServerFactoryReadModel,
+  refreshServerFactoryReadModel: () => {
+    const districtId = latestGameplaySliceReadModel?.district?.districtId
+      || latestGameplaySliceReadModel?.player?.homeDistrictId
+      || null;
+    return districtId ? loadServerGameplaySliceForDistrict(districtId, { forceRefresh: true }) : null;
+  },
   getServerTickRateMs,
   submitServerFactoryCommand,
   syncBuildingDetailTopbarVisibility,

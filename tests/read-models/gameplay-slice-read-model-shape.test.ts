@@ -5,7 +5,6 @@ import { createFixedClock } from "../../apps/server/src/runtime/scheduling/clock
 import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
 import {
   createAttackDistrictCommandFixture,
-  createCollectProductionCommandFixture,
   createSpyDistrictCommandFixture
 } from "../fixtures/command-fixtures";
 import {
@@ -67,6 +66,8 @@ describe("gameplay slice read model contract", () => {
             "chemicals": 10,
             "dirty-cash": 300,
             "metal-parts": 8,
+            "pistol": 2,
+            "smg": 1,
             "tech-core": 2,
           },
           "resources": {
@@ -181,7 +182,7 @@ describe("gameplay slice read model contract", () => {
     `);
   });
 
-  it("projects updated player resources after collect-production", async () => {
+  it("projects Factory production without legacy special actions", async () => {
     const server = createServerApp({
       clock: createFixedClock("2026-05-21T00:00:00.000Z")
     });
@@ -201,109 +202,22 @@ describe("gameplay slice read model contract", () => {
       }
     });
     server.instanceManager.startInstance(instanceId);
-    server.instanceManager.tickInstance(instanceId);
-    server.instanceManager.tickInstance(instanceId);
-
-    const { response, sessionToken } = await loadWithDevGameplaySession(server, {
+    const { response } = await loadWithDevGameplaySession(server, {
       serverInstanceId: instanceId,
       playerId,
       districtId,
       factionId: "mafian"
     });
     const load = expectReadModel(response);
-    const buildingId = load.district?.buildings.find(
-      (building) => building.buildingTypeId === "factory"
-    )?.buildingId;
-    const collected = await server.gameplaySliceTransport.submit({
-      sessionToken,
-      focusDistrictId: districtId,
-      command: createCollectProductionCommandFixture({
-        id: "command:read-model:collect",
-        serverInstanceId: instanceId,
-        playerId,
-        payload: {
-          districtId,
-          buildingId: buildingId!
-        }
-      })
+    const factory = load.district?.buildings.find((building) => building.buildingTypeId === "factory");
+
+    expect(factory?.actions).toEqual([]);
+    expect(load.commandHints.availableBuildingActionCount).toBe(0);
+    expect(load.player.factoryProduction).toMatchObject({
+      buildingId: factory?.buildingId,
+      districtId,
+      productionLines: expect.any(Array)
     });
-    expect(summarizeSlice(expectReadModel(collected))).toMatchInlineSnapshot(`
-      {
-        "cityFeed": {
-          "currentPlayer": 1,
-          "selectedDistrict": 0,
-        },
-        "commandHints": {
-          "availableAttackTargetCount": 0,
-          "availableBuildingActionCount": 3,
-          "availableOccupyTargetCount": 0,
-          "availableSpyTargetCount": 0,
-          "cooldowns": [],
-          "disabledReasonCount": 0,
-          "selectedDistrictId": "district:read-model:collect",
-        },
-        "district": {
-          "actionCounts": [
-            {
-              "buildingTypeId": "factory",
-              "enabled": 3,
-              "total": 3,
-            },
-            {
-              "buildingTypeId": "warehouse",
-              "enabled": 0,
-              "total": 0,
-            },
-          ],
-          "buildingCount": 2,
-          "districtId": "district:read-model:collect",
-          "isOwnedByPlayer": true,
-          "ownerPlayerId": "player:read-model:collect",
-          "status": "claimed",
-        },
-        "map": {
-          "districtCount": 1,
-          "selectedSummary": {
-            "isOwnedByPlayer": true,
-            "ownerPlayerId": "player:read-model:collect",
-            "status": "claimed",
-          },
-        },
-        "player": {
-          "factionId": "mafian",
-          "homeDistrictId": "district:read-model:collect",
-          "playerId": "player:read-model:collect",
-          "resourceBalances": {
-            "biomass": 6,
-            "cash": 1505.693,
-            "chemicals": 10,
-            "dirty-cash": 300,
-            "metal-parts": 12,
-            "tech-core": 2,
-          },
-          "resources": {
-            "cleanCash": 1505.693,
-            "dirtyCash": 300,
-            "gangMembers": 0,
-            "influence": 0.001,
-            "population": 0,
-          },
-        },
-        "reports": [],
-        "server": {
-          "currentTick": 1,
-          "generatedAt": "2026-05-21T00:00:00.000Z",
-          "mapManifestHash": "fnv1a32:a3aa0021",
-          "mapManifestId": "empire-streets-city",
-          "mapManifestVersion": 1,
-          "maxPlayersPerServer": 20,
-          "mode": "free",
-          "selectedDistrictId": "district:read-model:collect",
-          "serverInstanceId": "instance:read-model:collect",
-          "stateVersion": 4,
-        },
-      }
-    `);
   });
 
   it("projects reports and city feed after spy and attack events", async () => {
