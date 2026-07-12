@@ -150,6 +150,7 @@ describe("production building popup runtime", () => {
       return {};
     });
     const runtime = createProductionBuildingPopupRuntime({
+      allowLegacyLocalProduction: false,
       getServerArmoryReadModel: () => ({
         districtId: "district:1",
         buildingId: "building:armory:1",
@@ -187,6 +188,46 @@ describe("production building popup runtime", () => {
       type: "cancel-production-line",
       payload: { districtId: "district:1", buildingId: "building:armory:1", recipeId: "pistol" }
     });
+  });
+
+  it("keeps Drug Lab and Armory in local edit mode without reading server production", () => {
+    const getServerDrugLabReadModel = vi.fn();
+    const getServerArmoryReadModel = vi.fn();
+    const renderRecipeCard = vi.fn((viewModel) => ({ viewModel }));
+    const renderProductionPanelUi = vi.fn(() => true);
+    const runtime = createProductionBuildingPopupRuntime({
+      allowLegacyLocalProduction: true,
+      getInventoryAmount: () => 20,
+      getProductionBuildingMultiplier: () => 1,
+      getProductionJob: () => null,
+      getResolvedEconomyState: () => ({ cleanMoney: 1000 }),
+      getServerDrugLabReadModel,
+      getServerArmoryReadModel,
+      getStoredProductionBuildingState: () => ({ level: 1 }),
+      hasEnoughMaterials: () => true,
+      renderProductionPanelUi,
+      renderRecipeCard,
+      syncCompletedProductionJobs: vi.fn()
+    });
+    const root = createRoot({
+      '[data-production-panel="druglab"]': {},
+      '[data-production-panel="armory"]': {}
+    });
+    const recipe = {
+      cleanMoneyCost: 0,
+      durationMs: 1000,
+      inputs: {},
+      output: { inventory: "materials", itemId: "neon-dust", amount: 1 }
+    };
+
+    expect(runtime.renderProductionPanel(root, "druglab", { "neon-dust": recipe })).toBe(true);
+    expect(runtime.renderProductionPanel(root, "armory", { pistol: recipe })).toBe(true);
+
+    expect(getServerDrugLabReadModel).not.toHaveBeenCalled();
+    expect(getServerArmoryReadModel).not.toHaveBeenCalled();
+    expect(renderRecipeCard).toHaveBeenCalledTimes(2);
+    expect(renderRecipeCard.mock.calls[0][0]).toMatchObject({ buildingName: "druglab", canStart: true });
+    expect(renderRecipeCard.mock.calls[1][0]).toMatchObject({ buildingName: "armory", canStart: true });
   });
 
   it("keeps production upgrade button clickable in server-owned mode to explain the route", async () => {
@@ -766,6 +807,7 @@ describe("production building popup runtime", () => {
       return { viewModel };
     });
     const runtime = createProductionBuildingPopupRuntime({
+      allowLegacyLocalProduction: false,
       getServerDrugLabReadModel: () => ({
         districtId: "district:1",
         buildingId: "building:drug-lab:1",
@@ -813,6 +855,7 @@ describe("production building popup runtime", () => {
       return { viewModel };
     });
     const runtime = createProductionBuildingPopupRuntime({
+      allowLegacyLocalProduction: false,
       getServerDrugLabReadModel: () => ({
         districtId: "district:1",
         buildingId: "building:drug-lab:1",
@@ -855,6 +898,7 @@ describe("production building popup runtime", () => {
       return { viewModel };
     });
     const runtime = createProductionBuildingPopupRuntime({
+      allowLegacyLocalProduction: false,
       getInventoryAmount: () => 0,
       getProductionBuildingMultiplier: () => 1,
       getProductionJob: () => null,

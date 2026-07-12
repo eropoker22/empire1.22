@@ -138,7 +138,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
   };
 
   const createProductionCard = (root, buildingName, recipeId, recipeKey, recipe, rerender) => {
-    const legacyProductionEnabled = allowLegacyLocalProduction && buildingName !== "druglab";
+    const legacyProductionEnabled = allowLegacyLocalProduction;
     const job = deps.getProductionJob?.(recipeKey);
     const buildingState = deps.getStoredProductionBuildingState?.(buildingName) || {};
     const ownedBuildingCount = getOwnedProductionBuildingCount(buildingName, buildingState.level);
@@ -552,10 +552,10 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const serverPharmacy = panelName === "pharmacy" && !allowLegacyLocalProduction
       ? deps.getServerPharmacyReadModel?.()
       : null;
-    const serverDrugLab = panelName === "druglab"
+    const serverDrugLab = panelName === "druglab" && !allowLegacyLocalProduction
       ? deps.getServerDrugLabReadModel?.()
       : null;
-    const serverArmory = panelName === "armory"
+    const serverArmory = panelName === "armory" && !allowLegacyLocalProduction
       ? deps.getServerArmoryReadModel?.()
       : null;
     const serverProduction = serverPharmacy || serverDrugLab || serverArmory;
@@ -648,10 +648,10 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       const serverPharmacy = buildingName === "pharmacy" && !allowLegacyLocalProduction
         ? deps.getServerPharmacyReadModel?.()
         : null;
-      const serverDrugLab = buildingName === "druglab"
+      const serverDrugLab = buildingName === "druglab" && !allowLegacyLocalProduction
         ? deps.getServerDrugLabReadModel?.()
         : null;
-      const serverArmory = buildingName === "armory"
+      const serverArmory = buildingName === "armory" && !allowLegacyLocalProduction
         ? deps.getServerArmoryReadModel?.()
         : null;
       const serverProduction = serverPharmacy || serverDrugLab || serverArmory;
@@ -697,7 +697,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       });
 
       if (isButtonElement(collectButton, ButtonCtor)) {
-        collectButton.disabled = serverProduction ? readyCount <= 0 : !allowLegacyLocalProduction || buildingName === "druglab" || readyCount <= 0;
+        collectButton.disabled = serverProduction ? readyCount <= 0 : !allowLegacyLocalProduction || readyCount <= 0;
         collectButton.textContent = "+";
         const collectLabel = serverProduction
           ? readyCount > 0 ? "Vybrat hotovou produkci do skladu" : "Není nic hotového k vyzvednutí"
@@ -740,10 +740,10 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         const serverPharmacy = buildingName === "pharmacy" && !allowLegacyLocalProduction
           ? deps.getServerPharmacyReadModel?.()
           : null;
-        const serverDrugLab = buildingName === "druglab"
+        const serverDrugLab = buildingName === "druglab" && !allowLegacyLocalProduction
           ? deps.getServerDrugLabReadModel?.()
           : null;
-        const serverArmory = buildingName === "armory"
+        const serverArmory = buildingName === "armory" && !allowLegacyLocalProduction
           ? deps.getServerArmoryReadModel?.()
           : null;
         const serverProduction = serverPharmacy || serverDrugLab || serverArmory;
@@ -791,7 +791,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           renderDashboard();
           return;
         }
-        if (!allowLegacyLocalProduction || buildingName === "druglab") {
+        if (!allowLegacyLocalProduction) {
           deps.setBuildingActionFeedback?.(root, "warning", config?.label || "Budova", productionBridgeMessage);
           renderDashboard();
           return;
@@ -823,7 +823,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
     if (isButtonElement(upgradeButton, ButtonCtor)) {
       upgradeButton.addEventListener("click", async () => {
-        if (!allowLegacyProductionUpgrade || buildingName === "druglab") {
+        if (!allowLegacyProductionUpgrade) {
           deps.setBuildingActionFeedback?.(root, "warning", config?.label || "Budova", productionUpgradeMessage);
           renderDashboard();
           return;

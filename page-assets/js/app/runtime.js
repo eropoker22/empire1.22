@@ -943,6 +943,9 @@ const eliminationResultPopupsByRoot = new WeakMap();
 const eliminationCountdownWarningsByRoot = new WeakMap();
 const ELIMINATION_RESULT_POPUP_SELECTOR = "[data-elimination-result-popup]";
 let latestGameplaySliceReadModel = null;
+// Temporary authoring mode for all four production panels. Re-enable the
+// authoritative bridges only when their final UI revisions are complete together.
+const LOCAL_PRODUCTION_EDIT_MODE = true;
 
 function getRuntimePerformanceDiagnostics() {
   return typeof window === "undefined" ? null : window.empireStreetsRuntimeDiagnostics || null;
@@ -4472,8 +4475,8 @@ const {
   renderProductionBuildingInfo,
   renderProductionPanel
 } = createProductionBuildingPopupRuntime({
-  allowLegacyLocalProduction: shouldRunLocalGameplayRuntime(),
-  allowLegacyProductionUpgrade: shouldRunLocalGameplayRuntime(),
+  allowLegacyLocalProduction: LOCAL_PRODUCTION_EDIT_MODE,
+  allowLegacyProductionUpgrade: LOCAL_PRODUCTION_EDIT_MODE,
   ARMORY_POPUP_CLOSE_SELECTOR,
   ARMORY_POPUP_OPEN_SELECTOR,
   ARMORY_POPUP_SELECTOR,
@@ -12930,8 +12933,8 @@ const {
 const {
   bindFactoryPopup
 } = createFactoryPopupRuntime({
-  allowLegacyLocalProduction: false,
-  allowLegacyProductionUpgrade: false,
+  allowLegacyLocalProduction: LOCAL_PRODUCTION_EDIT_MODE,
+  allowLegacyProductionUpgrade: LOCAL_PRODUCTION_EDIT_MODE,
   FACTORY_CONFIG,
   FACTORY_SLOT_CONFIG,
   FACTORY_SLOT_STORAGE_CAP,
