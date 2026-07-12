@@ -61,6 +61,7 @@ export const handleFactoryProductionStart = (
   const nextLine = startFactoryLine(state, queuedLine, building, recipe, state.root.tick, context);
   const nextBuilding = {
     ...building,
+    ownerPlayerId: player.id,
     productionLines: { ...building.productionLines, [recipe.outputResourceKey]: nextLine },
     version: building.version + 1
   };

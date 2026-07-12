@@ -3,7 +3,7 @@ import type { CoreError } from "../errors";
 import type { CoreGameState } from "../entities";
 import type { CoreEvent } from "../events";
 import type { GameCoreContext } from "../engine/context";
-import { FACTORY_BUILDING_TYPE_ID, getFactoryRecipe } from "./factoryProductionShared";
+import { FACTORY_BUILDING_TYPE_ID, getFactoryRecipe, isFactoryOwnedBy } from "./factoryProductionShared";
 
 export type FactoryHandlerResult = { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] };
 
@@ -26,7 +26,7 @@ export const validateFactoryTarget = (
   if (!district || district.id !== building.districtId) {
     return { building: null, recipe: null, errors: [{ code: "district_not_found", message: "Cílový district neexistuje." }] satisfies CoreError[] };
   }
-  if (district.ownerPlayerId !== command.playerId || building.ownerPlayerId !== command.playerId) {
+  if (district.ownerPlayerId !== command.playerId || !isFactoryOwnedBy(state, building, command.playerId)) {
     return { building: null, recipe: null, errors: [{ code: "factory_not_owned", message: "Hráč nevlastní cílovou Továrnu." }] satisfies CoreError[] };
   }
   if (building.status !== "active") {

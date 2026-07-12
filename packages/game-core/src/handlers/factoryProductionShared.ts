@@ -12,6 +12,30 @@ import {
 } from "./productionLineShared";
 
 export const FACTORY_BUILDING_TYPE_ID = "factory";
+const LEGACY_NEUTRAL_FACTORY_OWNER_ID = "player:neutral";
+
+export const isFactoryOwnedBy = (
+  state: CoreGameState,
+  building: Building,
+  playerId: string
+): boolean => {
+  if (building.ownerPlayerId === playerId) {
+    return true;
+  }
+  const district = state.districtsById[building.districtId];
+  return building.ownerPlayerId === LEGACY_NEUTRAL_FACTORY_OWNER_ID
+    && district?.ownerPlayerId === playerId;
+};
+
+export const resolveFactoryOwnerPlayerId = (
+  state: CoreGameState,
+  building: Building
+): string => {
+  const districtOwnerId = state.districtsById[building.districtId]?.ownerPlayerId;
+  return building.ownerPlayerId === LEGACY_NEUTRAL_FACTORY_OWNER_ID && districtOwnerId
+    ? districtOwnerId
+    : building.ownerPlayerId;
+};
 
 export const getFactoryRecipe = (
   config: FactoryBalanceConfig | undefined,
@@ -36,7 +60,7 @@ export const getFactoryProducedAmount = (
 export const resolveActiveFactoryCount = (state: CoreGameState, playerId: string): number =>
   Object.values(state.buildingsById).filter((building) =>
     building.buildingTypeId === FACTORY_BUILDING_TYPE_ID
-      && building.ownerPlayerId === playerId
+      && isFactoryOwnedBy(state, building, playerId)
       && building.status === "active"
   ).length;
 
@@ -62,7 +86,7 @@ export const resolveFactoryDurationTicks = (
     context.config.balance.cooldownMultiplier
   );
   const networkMultiplier = resolveFactoryNetworkSpeedMultiplier(
-    resolveActiveFactoryCount(state, building.ownerPlayerId ?? ""),
+    resolveActiveFactoryCount(state, resolveFactoryOwnerPlayerId(state, building)),
     factory
   );
   return Math.max(1, Math.ceil(

@@ -64,6 +64,23 @@ describe("factory production", () => {
     });
   });
 
+  it("keeps a legacy neutral Factory in an owned district usable and repairs its owner on start", () => {
+    const { state, building } = createCoreStateWithFixedBuildingFixture("factory");
+    const legacyState = {
+      ...state,
+      buildingsById: {
+        ...state.buildingsById,
+        [building.id]: { ...building, ownerPlayerId: "player:neutral" }
+      }
+    };
+    const playerView = createPlayerView(legacyState, "player:1", context);
+    const started = applyCommand(legacyState, start(building.id, "metal-parts", 1), context);
+
+    expect(playerView.factoryProduction?.productionLines.find((line) => line.recipeId === "metal-parts")?.canStart).toBe(true);
+    expect(started.errors).toEqual([]);
+    expect(started.nextState.buildingsById[building.id]?.ownerPlayerId).toBe("player:1");
+  });
+
   it("starts all three independent lines and reserves exact clean cash plus materials", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("factory", {
       playerBalances: { cash: 12_000, "metal-parts": 20, "tech-core": 10 }

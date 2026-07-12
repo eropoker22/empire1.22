@@ -6,6 +6,7 @@ import {
   FACTORY_BUILDING_TYPE_ID,
   getFactoryLine,
   getFactoryProducedAmount,
+  isFactoryOwnedBy,
   resolveActiveFactoryCount,
   resolveFactoryDurationTicks,
   resolveFactoryNetworkSpeedMultiplier
@@ -29,7 +30,7 @@ export const createFactoryProductionBuildingView = (input: {
   if (input.building.buildingTypeId !== FACTORY_BUILDING_TYPE_ID || !factory) return null;
   const player = input.state.playersById[input.playerId];
   const balances = player ? input.state.resourceStatesById[player.resourceStateId]?.balances ?? {} : {};
-  const isOwner = input.building.ownerPlayerId === input.playerId && input.building.status === "active";
+  const isOwner = isFactoryOwnedBy(input.state, input.building, input.playerId) && input.building.status === "active";
   const activeFactoryCount = resolveActiveFactoryCount(input.state, input.playerId);
   const networkSpeedMultiplier = resolveFactoryNetworkSpeedMultiplier(activeFactoryCount, factory);
   const levelSpeedMultiplier = resolveProductionBuildingLevelMultiplier(input.building, { config: input.config! });

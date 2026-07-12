@@ -21,6 +21,7 @@ import {
 } from "../handlers/warehouseBuilding";
 import { resolveAttackWeaponInventory } from "../rules";
 import { createFactoryProductionBuildingView } from "./factory-production-projection";
+import { isFactoryOwnedBy } from "../handlers/factoryProductionShared";
 
 /**
  * Responsibility: Builds a minimal player-facing projection from authoritative core state.
@@ -51,7 +52,7 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
   const economy = createPlayerEconomyView(state, playerId, resourceBalances);
   const factoryBuilding = Object.values(state.buildingsById)
     .filter((building) => building.buildingTypeId === "factory"
-      && building.ownerPlayerId === playerId
+      && isFactoryOwnedBy(state, building, playerId)
       && building.status === "active")
     .sort((left, right) => left.districtId.localeCompare(right.districtId) || left.id.localeCompare(right.id))[0] ?? null;
 
