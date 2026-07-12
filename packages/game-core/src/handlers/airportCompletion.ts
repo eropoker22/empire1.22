@@ -1,7 +1,11 @@
 import type { AirportBalanceConfig, LobbyClubBalanceConfig, PowerStationBalanceConfig, SmugglingTunnelBalanceConfig, WarehouseBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { deterministicUnitInterval } from "../utils/math";
-import { getWarehouseCapacityForResource, resolveWarehouseStorageCapacity } from "./warehouseBuilding";
+import {
+  getWarehouseCapacityForResource,
+  normalizeStorageBalances,
+  resolveWarehouseStorageCapacity
+} from "./warehouseBuilding";
 import type { AirportCustomsEvent, AirportMetadata, PendingAirportImport } from "./airportTypes";
 import { getAirportMetadata, minutesToTicks, withAirportMetadata } from "./airportMetadata";
 import { scaleShipment } from "./airportShipments";
@@ -23,6 +27,7 @@ export const completeAirportImportsAndCustoms = (
     let currentBuilding = nextState.buildingsById[building.id] ?? building;
     let metadata = getAirportMetadata(currentBuilding, nextState.root.tick);
     const completed = metadata.pendingImports.filter((entry) => entry.completesAtTick <= nextState.root.tick);
+    const pendingRemainders: PendingAirportImport[] = [];
     if (completed.length > 0) {
       for (const pending of completed) {
         const completion = completePendingImport(nextState, currentBuilding, pending, config, warehouseConfig, powerStationConfig, lobbyClubConfig);
@@ -35,10 +40,21 @@ export const completeAirportImportsAndCustoms = (
             ? [...getAirportMetadata(currentBuilding, nextState.root.tick).customsEvents, completion.customsEvent].slice(-10)
             : getAirportMetadata(currentBuilding, nextState.root.tick).customsEvents
         };
+        if (completion.remainingShipment && Object.values(completion.remainingShipment).some((amount) => amount > 0)) {
+          pendingRemainders.push({
+            ...pending,
+            shipment: completion.remainingShipment,
+            completesAtTick: nextState.root.tick + 1,
+            customsResolved: true
+          });
+        }
       }
       metadata = {
         ...metadata,
-        pendingImports: metadata.pendingImports.filter((entry) => entry.completesAtTick > nextState.root.tick)
+        pendingImports: [
+          ...metadata.pendingImports.filter((entry) => entry.completesAtTick > nextState.root.tick),
+          ...pendingRemainders
+        ]
       };
     }
 
@@ -83,7 +99,7 @@ const completePendingImport = (
   warehouseConfig?: WarehouseBalanceConfig,
   powerStationConfig?: PowerStationBalanceConfig,
   lobbyClubConfig?: LobbyClubBalanceConfig
-): { state: CoreGameState; lastImportShipment: NonNullable<AirportMetadata["lastImportShipment"]>; customsEvent?: AirportCustomsEvent } => {
+): { state: CoreGameState; lastImportShipment: NonNullable<AirportMetadata["lastImportShipment"]>; customsEvent?: AirportCustomsEvent; remainingShipment?: Record<string, number> } => {
   const player = state.playersById[building.ownerPlayerId ?? ""];
   if (!player) {
     return {
@@ -91,7 +107,8 @@ const completePendingImport = (
       lastImportShipment: { tick: state.root.tick, category: pending.category, requestedItems: pending.shipment, acceptedItems: {}, lostItems: pending.shipment, customsTriggered: false }
     };
   }
-  const customsTriggered = deterministicUnitInterval(`${state.serverInstance.worldSeed}:${pending.importId}:customs`) < config.expressImport.customsRiskPct / 100;
+  const customsTriggered = !pending.customsResolved
+    && deterministicUnitInterval(`${state.serverInstance.worldSeed}:${pending.importId}:customs`) < config.expressImport.customsRiskPct / 100;
   const shipment = customsTriggered
     ? scaleShipment(pending.shipment, 1 - config.expressImport.customsShipmentPenaltyPct / 100)
     : pending.shipment;
@@ -109,7 +126,8 @@ const completePendingImport = (
     : null;
   const acceptedItems: Record<string, number> = {};
   const lostItems: Record<string, number> = {};
-  const nextBalances = { ...playerResourceState.balances };
+  const nextBalances = normalizeStorageBalances(playerResourceState.balances);
+  const remainingShipment: Record<string, number> = {};
 
   for (const [itemId, amount] of Object.entries(shipment)) {
     const requested = Math.max(0, Math.floor(Number(amount || 0)));
@@ -121,7 +139,7 @@ const completePendingImport = (
       acceptedItems[itemId] = accepted;
     }
     if (requested > accepted) {
-      lostItems[itemId] = requested - accepted;
+      remainingShipment[itemId] = requested - accepted;
     }
   }
 
@@ -157,7 +175,8 @@ const completePendingImport = (
       acceptedItems,
       lostItems,
       customsTriggered
-    }
+    },
+    remainingShipment
   };
 };
 

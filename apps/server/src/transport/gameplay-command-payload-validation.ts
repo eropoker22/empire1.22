@@ -70,10 +70,17 @@ export const validateGameCommandPayload = (
       requireStringField(errors, "submit", payload, "districtId", "command.payload.districtId");
       break;
     case "collect-production":
-      rejectUnknownPayloadFields(errors, payload, ["districtId", "buildingId"]);
+      rejectUnknownPayloadFields(errors, payload, ["districtId", "buildingId", "resourceKey"]);
       validateBuildingPayload(errors, payload);
+      requireOptionalStringField(errors, payload, "resourceKey", "command.payload.resourceKey");
       break;
     case "craft-item":
+      rejectUnknownPayloadFields(errors, payload, ["districtId", "buildingId", "recipeId", "quantity"]);
+      validateBuildingPayload(errors, payload);
+      requireStringField(errors, "submit", payload, "recipeId", "command.payload.recipeId");
+      requireOptionalPositiveIntegerField(errors, payload, "quantity", "command.payload.quantity");
+      break;
+    case "cancel-pharmacy-production":
       rejectUnknownPayloadFields(errors, payload, ["districtId", "buildingId", "recipeId"]);
       validateBuildingPayload(errors, payload);
       requireStringField(errors, "submit", payload, "recipeId", "command.payload.recipeId");
@@ -106,58 +113,25 @@ export const validateGameCommandPayload = (
   }
 };
 
-const validateDistrictPayload = (
-  errors: DomainError[],
-  payload: Record<string, unknown>,
-  sourceDistrictMayBeNull: boolean
-): void => {
+const validateDistrictPayload = (errors: DomainError[], payload: Record<string, unknown>, sourceDistrictMayBeNull: boolean): void => {
   requireStringField(errors, "submit", payload, "districtId", "command.payload.districtId");
-  requireOptionalStringField(
-    errors,
-    payload,
-    "sourceDistrictId",
-    "command.payload.sourceDistrictId",
-    sourceDistrictMayBeNull
-  );
+  requireOptionalStringField(errors, payload, "sourceDistrictId", "command.payload.sourceDistrictId", sourceDistrictMayBeNull);
 };
 
-const validateBuildingPayload = (
-  errors: DomainError[],
-  payload: Record<string, unknown>
-): void => {
+const validateBuildingPayload = (errors: DomainError[], payload: Record<string, unknown>): void => {
   requireStringField(errors, "submit", payload, "districtId", "command.payload.districtId");
   requireStringField(errors, "submit", payload, "buildingId", "command.payload.buildingId");
 };
 
 const hasPayloadSchema = (type: string): boolean =>
-  [
-    "attack-district",
-    "acknowledge-pending-raid",
-    "build-structure",
-    "occupy-district",
-    "spy-district",
-    "place-trap",
-    "select-spawn-district",
-    "collect-production",
-    "craft-item",
-    "run-building-action",
-    "upgrade-building"
-  ].includes(type) || isBasicActionCommandType(type) || isAllianceCommandType(type) || isMarketCommandType(type) || isBountyCommandType(type);
+  ["attack-district", "acknowledge-pending-raid", "build-structure", "occupy-district", "spy-district", "place-trap", "select-spawn-district", "collect-production", "craft-item", "cancel-pharmacy-production", "run-building-action", "upgrade-building"].includes(type)
+  || isBasicActionCommandType(type) || isAllianceCommandType(type) || isMarketCommandType(type) || isBountyCommandType(type);
 
 const validateRunBuildingActionOptionalPayload = (
   errors: DomainError[],
   payload: Record<string, unknown>
 ): void => {
-  for (const field of [
-    "dealerSlotId",
-    "slotId",
-    "itemId",
-    "targetCategory",
-    "category",
-    "mode",
-    "targetDistrictId",
-    "targetZone"
-  ]) {
+  for (const field of ["dealerSlotId", "slotId", "itemId", "targetCategory", "category", "mode", "targetDistrictId", "targetZone"]) {
     requireOptionalStringField(errors, payload, field, `command.payload.${field}`);
   }
 
@@ -229,6 +203,19 @@ const requireOptionalFiniteNumberField = (
   }
 
   errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být konečné číslo."));
+};
+
+const requireOptionalPositiveIntegerField = (
+  errors: DomainError[],
+  value: Record<string, unknown>,
+  fieldPath: string,
+  errorFieldPath = fieldPath
+): void => {
+  const fieldValue = getFieldPath(value, fieldPath);
+  if (fieldValue === undefined || (typeof fieldValue === "number" && Number.isInteger(fieldValue) && fieldValue > 0)) {
+    return;
+  }
+  errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být kladné celé číslo."));
 };
 
 const createMissingFieldError = (

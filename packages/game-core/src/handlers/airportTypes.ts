@@ -7,6 +7,8 @@ export interface PendingAirportImport {
   startedAtTick: number;
   completesAtTick: number;
   shipment: Record<string, number>;
+  /** Customs is rolled once; capacity retries must not reroll it. */
+  customsResolved?: boolean;
 }
 
 export interface AirportCustomsEvent {

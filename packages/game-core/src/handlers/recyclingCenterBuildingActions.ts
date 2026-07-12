@@ -7,13 +7,11 @@ import type {
   RecyclingCenterNetworkMultipliers,
   RecyclingCenterSalvageStats
 } from "./recyclingCenterTypes";
-
 export type {
   RecyclingCenterActionResolution,
   RecyclingCenterNetworkMultipliers,
   RecyclingCenterSalvageStats
 } from "./recyclingCenterTypes";
-
 export const getOwnedRecyclingCenterCount = (
   state: CoreGameState,
   playerId: string,
@@ -24,7 +22,6 @@ export const getOwnedRecyclingCenterCount = (
     && building.ownerPlayerId === playerId
     && building.status === "active"
   ).length;
-
 export const resolveRecyclingCenterNetworkMultipliers = (
   count: number,
   config: RecyclingCenterBalanceConfig

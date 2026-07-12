@@ -31,6 +31,8 @@ export interface PlayerView {
   color: PlayerColorHex;
   serverTime: string;
   resourceBalances: Record<string, number>;
+  /** Present on gameplay read models from the authoritative server. */
+  storage?: PlayerStorageView | null;
   economy: PlayerEconomyView;
   faction?: FactionReadModel | null;
   dayNight?: DayNightReadModel | null;
@@ -40,6 +42,36 @@ export interface PlayerView {
   alliance?: PlayerAllianceLifecycleView | null;
   notifications: Notification[];
   victoryState: VictoryState | null;
+}
+
+export interface PlayerStorageView {
+  warehouseSummary: {
+    ownedWarehouseCount: number;
+    highestWarehouseLevel: number;
+    warehouseCountMultiplier: number;
+    warehouseLevelMultiplier: number;
+    totalCapacityMultiplier: number;
+  };
+  groups: PlayerStorageGroupView[];
+}
+
+export interface PlayerStorageGroupView {
+  id: "bulk" | "tactical" | "strategic";
+  label: string;
+  baseCapacity: number;
+  currentCapacity: number;
+  items: PlayerStorageItemView[];
+}
+
+export interface PlayerStorageItemView {
+  resourceKey: string;
+  label: string;
+  currentAmount: number;
+  maxAmount: number;
+  fillPercent: number;
+  isNearCapacity: boolean;
+  isFull: boolean;
+  isOverCapacity: boolean;
 }
 
 export interface PlayerAllianceLifecycleView {

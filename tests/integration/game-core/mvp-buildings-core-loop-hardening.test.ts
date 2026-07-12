@@ -57,9 +57,14 @@ describe("MVP buildings core loop hardening", () => {
     }
 
     expect(productionBuildings).toMatchObject({
-      pharmacy: { resourceKey: "chemicals" },
       factory: { resourceKey: "metal-parts" },
       drug_lab: { resourceKey: "neon-dust" }
+    });
+    expect(productionBuildings.pharmacy).toBeUndefined();
+    expect(context.config.balance.pharmacy?.recipes).toMatchObject({
+      chemicals: { outputAmount: 1, cleanCashCostPerUnit: 360 },
+      biomass: { outputAmount: 1, cleanCashCostPerUnit: 420 },
+      "stim-pack": { outputAmount: 1, cleanCashCostPerUnit: 800 }
     });
     expect(craftBuildings.armory?.recipes.pistol).toMatchObject({
       outputResourceKey: "pistol",

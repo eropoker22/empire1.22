@@ -4,6 +4,10 @@ import type { GameCoreContext } from "../../engine/context";
 import type { CoreEvent } from "../../events";
 import { CORE_EVENT_TYPES, createEvent, createNotification } from "../../events";
 import { composeEntityId } from "../../utils";
+import {
+  canPlayerReceiveResource,
+  normalizeStorageBalances
+} from "../../handlers/warehouseBuilding";
 
 /**
  * Responsibility: Completes in-flight building processing jobs once their authoritative tick finishes.
@@ -35,7 +39,29 @@ export const completeCraftProcessing = (
       continue;
     }
 
-    const currentPlayerResourceState = nextResourceStates[player.resourceStateId] ?? createPlayerResourceState(player, state.root.tick);
+    const storedPlayerResourceState = nextResourceStates[player.resourceStateId];
+    const currentPlayerResourceState = storedPlayerResourceState
+      ? { ...storedPlayerResourceState, balances: normalizeStorageBalances(storedPlayerResourceState.balances) }
+      : createPlayerResourceState(player, state.root.tick);
+    const warehouseConfig = context.config.balance.warehouse;
+    const stateWithPendingCredits = nextResourceStates === state.resourceStatesById
+      ? state
+      : { ...state, resourceStatesById: nextResourceStates };
+    const capacityCheck = warehouseConfig
+      ? canPlayerReceiveResource(
+          stateWithPendingCredits,
+          player.id,
+          recipe.outputResourceKey,
+          recipe.outputAmount,
+          warehouseConfig
+        )
+      : null;
+
+    // A completed job remains on its building until its output can be received.
+    // This preserves both the finished product and already-consumed inputs.
+    if (capacityCheck && !capacityCheck.allowed) {
+      continue;
+    }
     const nextPlayerResourceState: ResourceState = {
       ...currentPlayerResourceState,
       balances: {
@@ -46,7 +72,7 @@ export const completeCraftProcessing = (
         )
       },
       lastUpdatedTick: state.root.tick,
-      version: currentPlayerResourceState.version + (nextResourceStates[player.resourceStateId] ? 1 : 0)
+      version: currentPlayerResourceState.version + (storedPlayerResourceState ? 1 : 0)
     };
 
     nextResourceStates = {

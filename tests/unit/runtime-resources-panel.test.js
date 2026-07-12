@@ -367,6 +367,45 @@ describe("resources panel UI rendering", () => {
     expect(metalParts.textContent).toBe("14 ks");
   });
 
+  it("renders authoritative storage amounts, summary, and capacity states", () => {
+    const document = new FakeDocument();
+    const root = document.createElement("main");
+    const summary = createElement(document, "div", { "data-storage-summary": "" });
+    const warehouseCount = createElement(document, "strong", { "data-storage-warehouse-count": "" });
+    const warehouseLevel = createElement(document, "strong", { "data-storage-warehouse-level": "" });
+    const multiplier = createElement(document, "strong", { "data-storage-total-multiplier": "" });
+    const capacities = createElement(document, "strong", { "data-storage-capacity-summary": "" });
+    const row = createElement(document, "p", { "data-storage-resource": "chemicals" });
+    const value = createElement(document, "span", { "data-storage-value": "" });
+    row.append(value);
+    root.append(summary, warehouseCount, warehouseLevel, multiplier, capacities, row);
+    document.append(root);
+
+    renderStorageList({
+      summary: {
+        warehouseSummary: {
+          ownedWarehouseCount: 2,
+          highestWarehouseLevel: 3,
+          totalCapacityMultiplier: 2
+        },
+        groups: [{
+          id: "bulk",
+          label: "Hromadné zásoby",
+          currentCapacity: 120,
+          items: [{ resourceKey: "chemicals", currentAmount: 121, maxAmount: 120, isNearCapacity: false, isFull: false, isOverCapacity: true }]
+        }]
+      }
+    }, { root });
+
+    expect(value.textContent).toBe("121 / 120");
+    expect(row.dataset.storageState).toBe("over");
+    expect(row.title).toContain("překračuje");
+    expect(warehouseCount.textContent).toBe("2");
+    expect(warehouseLevel.textContent).toBe("L3");
+    expect(multiplier.textContent).toBe("x2.00");
+    expect(capacities.textContent).toContain("Hromadné zásoby 120");
+  });
+
   it("keeps the runtime facade resource renderer working", () => {
     const { root, gangMembers } = createResourceFixture();
 

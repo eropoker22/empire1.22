@@ -86,23 +86,13 @@ export interface WarehouseBalanceConfig {
   auditRisk: 0;
   noLaundering: true;
   specialActions: "none";
-  storageCapacityBonus: number;
-  storageCapacities: {
-    genericResources: number;
-    chemicals: number;
-    biomass: number;
-    metalParts: number;
-    techCore: number;
-    combatModule: number;
-    drugsAndBoosts: number;
-    weaponsAndDefense: number;
-  };
+  storageCapacityGroups: Record<StorageCapacityGroupId, StorageCapacityGroupConfig>;
+  warehouseCountMultipliers: Record<WarehouseCountMultiplierTier, number>;
+  warehouseLevelMultipliers: Record<WarehouseLevelMultiplierLevel, number>;
   network: {
     incomeBonusPctPerExtraWarehouse: number;
-    storageCapacityBonusPctPerExtraWarehouse: number;
     heatBonusPctPerExtraWarehouse: number;
     maxIncomeMultiplier: number;
-    maxStorageCapacityMultiplier: number;
     maxHeatMultiplier: number;
   };
   upgrades?: Record<number, {
@@ -110,9 +100,18 @@ export interface WarehouseBalanceConfig {
     metalPartsCost: number;
     techCoreCost: number;
     incomeBonusPct: number;
-    storageBonusPct: number;
     heatReductionPct: number;
   }>;
+}
+
+export type StorageCapacityGroupId = "bulk" | "tactical" | "strategic";
+export type WarehouseCountMultiplierTier = 0 | 1 | 2 | 3 | 4 | 5;
+export type WarehouseLevelMultiplierLevel = 1 | 2 | 3 | 4;
+
+export interface StorageCapacityGroupConfig {
+  label: string;
+  baseCapacity: number;
+  resourceKeys: readonly string[];
 }
 
 export interface ClinicBalanceConfig {

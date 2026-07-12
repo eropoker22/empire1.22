@@ -95,6 +95,5 @@ describe("onboarding gameplay bootstrap", () => {
     expect(render.mapDistricts.find((district) => district.districtId === bootstrap.districtId)?.ownerColor).toBe("#3b82f6");
     expect(render.mapHtml).toContain("data-owner-color=\"#3b82f6\"");
     expect(render.sidePanelHtml).toContain("Pulse Pharmacy");
-    expect(render.sidePanelHtml).toContain("Produce Chemicals");
   });
 });

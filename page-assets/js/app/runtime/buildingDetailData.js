@@ -165,12 +165,12 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   }),
   sklad: Object.freeze({
     role: "Skladiště zásob",
-    info: "Skladiště drží zásoby města pohromadě. Negeneruje špinavé peníze ani vliv, ale bez skladišť se impérium zadusí vlastním materiálem.",
+    info: "Skladiště zvyšuje maximum každé zásoby. První aktivní sklad přidá 50 %, další menší síťový bonus a z levelů platí jen nejvyšší aktivní level.",
     actions: Object.freeze([])
   }),
   skladiste: Object.freeze({
     role: "Skladiště zásob",
-    info: "Skladiště drží zásoby města pohromadě. Negeneruje špinavé peníze ani vliv, ale bez skladišť se impérium zadusí vlastním materiálem.",
+    info: "Skladiště zvyšuje maximum každé zásoby. První aktivní sklad přidá 50 %, další menší síťový bonus a z levelů platí jen nejvyšší aktivní level.",
     actions: Object.freeze([])
   }),
   "energeticka stanice": Object.freeze({

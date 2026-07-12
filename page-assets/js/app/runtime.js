@@ -979,6 +979,31 @@ function getServerPlayerView() {
   return latestGameplaySliceReadModel?.player || null;
 }
 
+function getServerPharmacyReadModel() {
+  const district = latestGameplaySliceReadModel?.district;
+  const building = district?.buildings?.find?.((candidate) => candidate?.buildingTypeId === "pharmacy" && candidate?.pharmacy);
+  if (!building?.pharmacy || !district?.districtId) {
+    return null;
+  }
+  return {
+    ...building.pharmacy,
+    districtId: district.districtId,
+    level: building.level
+  };
+}
+
+function getServerTickRateMs() {
+  return Math.max(1, Number(latestGameplaySliceReadModel?.mode?.tickRateMs || 5000));
+}
+
+function submitServerPharmacyCommand({ type, payload } = {}) {
+  return submitServerDistrictActionCommand({
+    type,
+    payload,
+    focusDistrictId: payload?.districtId || latestGameplaySliceReadModel?.district?.districtId
+  });
+}
+
 function createGameplaySliceCommandId(prefix = "command:market") {
   return `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -1676,6 +1701,14 @@ function getServerPlayerResourceBalances() {
   const player = latestGameplaySliceReadModel?.player || null;
   const balances = player?.resourceBalances || player?.economy?.resources || null;
   return balances && typeof balances === "object" ? balances : null;
+}
+
+function getServerStorageSummary() {
+  if (!isServerAuthoritativeGameplayRuntimeReady()) {
+    return null;
+  }
+  const summary = latestGameplaySliceReadModel?.player?.storage;
+  return summary && typeof summary === "object" ? summary : null;
 }
 
 function getServerInventoryGroup(groupName, defaults = {}) {
@@ -4372,6 +4405,8 @@ const {
   getProductionBuildingUpgradeCost,
   getProductionJob,
   getProductionResourceLabel,
+  getServerPharmacyReadModel,
+  getServerTickRateMs,
   getOwnedArmoryCount: () => getOwnedSpecialProductionBuildingCount("zbrojovka"),
   getOwnedDrugLabCount: () => getOwnedSpecialProductionBuildingCount("drug lab"),
   getOwnedPharmacyCount: () => getOwnedSpecialProductionBuildingCount("lekarna"),
@@ -4407,6 +4442,7 @@ const {
   setBuildingActionFeedback,
   setStoredEconomyState,
   setStoredProductionBuildingState,
+  submitServerPharmacyCommand,
   syncBuildingDetailTopbarVisibility,
   syncCompletedProductionJobs
 });
@@ -6939,11 +6975,20 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
   const schoolApartmentBoostMultiplier = schoolApartmentBoost
     ? 1 + Math.max(0, Number(schoolApartmentBoost.apartmentPopulationBoostPct || 0)) / 100
     : 1;
-  const ownedWarehouses = mechanicsType === "warehouse" ? getOwnedWarehouseCount() : 0;
+  const serverStorageSummary = mechanicsType === "warehouse" ? getServerStorageSummary() : null;
+  const ownedWarehouses = mechanicsType === "warehouse"
+    ? serverStorageSummary?.warehouseSummary?.ownedWarehouseCount ?? getOwnedWarehouseCount()
+    : 0;
   const warehouseNetwork = mechanicsType === "warehouse" ? getWarehouseNetworkMultipliers(ownedWarehouses) : null;
-  const warehouseCapacity = mechanicsType === "warehouse" ? getWarehouseCapacityBreakdown(ownedWarehouses) : null;
-  const warehouseUsage = mechanicsType === "warehouse" ? getWarehouseStorageUsage(warehouseCapacity) : null;
-  const warehouseWarnings = mechanicsType === "warehouse" ? getWarehouseCapacityWarnings(warehouseUsage) : [];
+  const warehouseCapacity = mechanicsType === "warehouse" && !serverStorageSummary
+    ? getWarehouseCapacityBreakdown(ownedWarehouses)
+    : null;
+  const warehouseUsage = mechanicsType === "warehouse" && !serverStorageSummary
+    ? getWarehouseStorageUsage(warehouseCapacity)
+    : null;
+  const warehouseWarnings = mechanicsType === "warehouse" && !serverStorageSummary
+    ? getWarehouseCapacityWarnings(warehouseUsage)
+    : [];
   const ownedClinics = mechanicsType === "clinic" ? getOwnedClinicCount() : 0;
   const clinicNetwork = mechanicsType === "clinic" ? getClinicNetworkMultipliers(ownedClinics) : null;
   const clinicRecoveryRatePct = mechanicsType === "clinic" ? getClinicRecoveryRatePct(ownedClinics) : 0;
@@ -7229,6 +7274,7 @@ function resolveDistrictBuildingDetailMechanics(district, buildingName, options 
     schoolEveningCourseActive,
     schoolEveningCourseRemainingMs: Math.max(0, Number(entry.schoolEveningCourseExpiresAt || 0) - now),
     ownedWarehouses,
+    serverStorageSummary,
     warehouseNetwork,
     warehouseCapacity,
     warehouseUsage,
@@ -7832,12 +7878,18 @@ async function confirmDistrictBuildingDetailUpgrade(root, shell) {
       level: mechanics.nextLevel
     }
   });
+  let warehouseUpgradePreview = null;
+  if (mechanics.mechanicsType === "warehouse" && isServerAuthoritativeGameplayRuntimeReady()) {
+    const target = await resolveServerBuildingUpgradeTarget(context, mechanics);
+    warehouseUpgradePreview = target.ok ? target.building?.warehouseUpgradePreview || null : null;
+  }
   const confirmationViewModel = createBuildingUpgradeConfirmationViewModel({
     buildingName: context.buildingName,
     displayName: displayLabel,
     currentMechanics: mechanics,
     nextMechanics,
-    resourceStatus
+    resourceStatus,
+    warehouseUpgradePreview
   });
   const confirmation = getDistrictBuildingDetailUpgradeConfirmation(root, shell);
   const confirmed = await confirmation.open({
@@ -12570,7 +12622,7 @@ const runtimePopupBinders = createRuntimePopupBinders({
   getCurrentPlayerLaunchStartDistrictId, syncCurrentPlayerDistrictCountDisplays, getResolvedGangState,
   getLaunchPlayerColor, createPlayerProfileViewModel, resolveRuntimeAssetUrl, formatGangHeatProtectionLabel,
   renderPlayerProfilePanel, renderStorageList, getResolvedWeaponInventory, getResolvedMaterialInventory,
-  getResolvedDrugInventory, getStoredFactorySupplies, clearLegacyState, renderSpyResourceState,
+  getResolvedDrugInventory, getStoredFactorySupplies, getServerStorageSummary, clearLegacyState, renderSpyResourceState,
   windowRef: typeof window === "undefined" ? null : window
 });
 

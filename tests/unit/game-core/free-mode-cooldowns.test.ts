@@ -118,10 +118,13 @@ describe("Free BR strategic cooldowns", () => {
 
   it("keeps canonical craft durations in strategic minute ranges after cooldownMultiplier", () => {
     const recipes = freeConfig.balance.craftBuildings!;
+    const pharmacy = freeConfig.balance.pharmacy!;
     const finalDurationTicks = (durationTicks: number): number =>
       Math.ceil(durationTicks * freeConfig.balance.cooldownMultiplier);
 
-    expect(finalDurationTicks(recipes.pharmacy.recipes["stim-pack"].durationTicks)).toBe(10 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(pharmacy.recipes.chemicals.durationTicksPerUnit)).toBe(2 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(pharmacy.recipes.biomass.durationTicksPerUnit)).toBe(4 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(pharmacy.recipes["stim-pack"].durationTicksPerUnit)).toBe(10 * TICKS_PER_MINUTE);
     expect(finalDurationTicks(recipes.drug_lab.recipes["neon-dust"].durationTicks)).toBe(5 * TICKS_PER_MINUTE);
     expect(finalDurationTicks(recipes.drug_lab.recipes["pulse-shot"].durationTicks)).toBe(8 * TICKS_PER_MINUTE);
     expect(finalDurationTicks(recipes.drug_lab.recipes["velvet-smoke"].durationTicks)).toBe(15 * TICKS_PER_MINUTE);
@@ -140,9 +143,9 @@ describe("Free BR strategic cooldowns", () => {
       return Math.ceil(rawTicks * freeConfig.balance.cooldownMultiplier);
     };
 
-    expect(actionCooldownTicks("produce_chemicals")).toBe(2 * TICKS_PER_MINUTE);
-    expect(actionCooldownTicks("produce_biomass")).toBe(2 * TICKS_PER_MINUTE);
-    expect(actionCooldownTicks("produce_stim_pack")).toBe(4 * TICKS_PER_MINUTE);
+    expect(freeConfig.balance.buildingActions!.produce_chemicals).toBeUndefined();
+    expect(freeConfig.balance.buildingActions!.produce_biomass).toBeUndefined();
+    expect(freeConfig.balance.buildingActions!.produce_stim_pack).toBeUndefined();
     expect(actionCooldownTicks("produce_neon_dust")).toBe(4 * TICKS_PER_MINUTE);
     expect(actionCooldownTicks("produce_combat_module")).toBe(12 * TICKS_PER_MINUTE);
     expect(actionCooldownTicks("armory_craft_weapons")).toBe(12 * TICKS_PER_MINUTE);

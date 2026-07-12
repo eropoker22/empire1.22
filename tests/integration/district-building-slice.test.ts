@@ -86,7 +86,6 @@ describe("district building gameplay slice", () => {
     expect(initialRender.sidePanelHtml).toContain("Pulse Pharmacy");
     expect(initialRender.sidePanelHtml).toContain("Lékárna");
     expect(initialRender.sidePanelHtml).toContain("Restaurace");
-    expect(initialRender.sidePanelHtml).toContain("Produce Chemicals");
     expect(initialRender.sidePanelHtml).toContain("district-building-popup");
     expect(initialRender.sidePanelHtml).toContain("Speciální akce");
     expect(initialRender.sidePanelHtml).toContain("Clean / h");
@@ -94,7 +93,7 @@ describe("district building gameplay slice", () => {
     expect(initialRender.sidePanelHtml).not.toContain("data-build-actions");
     expect(initialRender.sidePanelHtml).not.toContain("<button class=\"district-panel__action-button\" data-building-type=");
     expect(initialRender.mapHtml).toContain("Budovy: 2 pevných");
-    expect(initialRender.topBarHtml).toContain("Resources:");
+    expect(initialRender.topBarHtml).toContain("Zdroje:");
     expect(client.getRenderState().districtPanel?.buildingSummary).toBe("2 pevných budov");
 
     const enemyDistrictRender = await client.selectDistrict(enemyDistrictId);
@@ -110,41 +109,31 @@ describe("district building gameplay slice", () => {
     const homeDistrictRender = await client.selectDistrict(districtId);
 
     expect(homeDistrictRender.districtPanel?.districtId).toBe(districtId);
-    const pharmacyAction = homeDistrictRender.districtPanel?.buildings.find((building) => building.buildingTypeId === "pharmacy")?.actions.find((action) => action.actionId === "produce_chemicals");
-    expect(pharmacyAction?.disabled).toBe(false);
-    expect(pharmacyAction?.statusLabel).toBe("Available");
-    expect(pharmacyAction?.inputSummary).toBe("Zdarma");
-    expect(pharmacyAction?.expectedEffectSummary).toContain("+6 Chemicals");
-    expect(pharmacyAction?.riskSummary).toContain("Heat +1");
+    const pharmacy = client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingTypeId === "pharmacy")?.pharmacy;
+    expect(pharmacy?.lines).toHaveLength(3);
+    expect(pharmacy?.lines.find((line) => line.recipeId === "chemicals")?.maxStartQuantity).toBeGreaterThan(0);
     expect(homeDistrictRender.mapDistricts.find((district) => district.districtId === neutralDistrictId)?.isAttackTarget).toBe(true);
 
     const pharmacyBuildingId = homeDistrictRender.districtPanel?.buildings.find(
       (building) => building.buildingTypeId === "pharmacy"
     )?.buildingId;
-    const actionCommand = createRunBuildingActionCommand({
-      commandId: "command:building-action:chemicals",
-      slice: client.getGameplaySlice()!,
-      buildingId: pharmacyBuildingId!,
-      actionId: "produce_chemicals",
-      issuedAt: new Date(0).toISOString()
-    });
+    const actionCommand = {
+      id: "command:craft:chemicals",
+      type: "craft-item" as const,
+      mode: "free" as const,
+      playerId,
+      serverInstanceId: instanceId,
+      issuedAt: new Date().toISOString(),
+      clientRequestId: null,
+      payload: { districtId, buildingId: pharmacyBuildingId!, recipeId: "chemicals", quantity: 1 }
+    };
     const updatedRender = await client.dispatch(actionCommand);
 
     expect(updatedRender.errors).toEqual([]);
-    expect(updatedRender.player?.resourceSummary).toContain("Chemicals 16");
     expect(updatedRender.sidePanelHtml).toContain("data-building-action-building-id");
     expect(updatedRender.sidePanelHtml).not.toContain("data-build-actions");
-    expect(updatedRender.topBarHtml).toContain("Chemicals 16");
-    expect(updatedRender.districtPanel?.heatLabel).toBe("1");
-    expect(updatedRender.districtPanel?.influenceLabel).toBe("0");
-    expect(updatedRender.districtPanel?.buildings.find((building) => building.buildingId === pharmacyBuildingId)?.actions.find((action) => action.actionId === "produce_chemicals")?.disabled).toBe(true);
-    expect(updatedRender.reports[0]?.category).toBe("building-action");
-    expect(updatedRender.sidePanelHtml).toContain("Produce Chemicals v district:vertical-slice");
+    expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === pharmacyBuildingId)?.pharmacy?.lines.find((line) => line.recipeId === "chemicals")).toMatchObject({ queuedAmount: 1, activeAmount: 1 });
     expect(server.instanceManager.getInstanceById(instanceId)?.state.districtsById[districtId].buildingIds).toHaveLength(2);
-    expect(server.instanceManager.getInstanceById(instanceId)?.state.districtsById[districtId].heat).toBe(0.96);
-    expect(server.instanceManager.getInstanceById(instanceId)?.state.resourceStatesById[`resource:${playerId}`]?.balances.chemicals).toBe(16);
-    expect((await server.gameplaySliceTransport.load(session.loadRequest)).readModel?.district?.buildings.find((building) => building.buildingId === pharmacyBuildingId)?.actions.find((action) => action.actionId === "produce_chemicals")?.enabled).toBe(false);
-    expect((await server.gameplaySliceTransport.load(session.loadRequest)).readModel?.districts.find((district) => district.districtId === districtId)?.heat).toBe(0.96);
 
     expect(updatedRender.mapDistricts.find((district) => district.districtId === neutralDistrictId)?.isOwnedByPlayer).toBe(false);
     expect(updatedRender.mapDistricts.find((district) => district.districtId === neutralDistrictId)?.attackEnabled).toBe(false);

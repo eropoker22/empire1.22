@@ -457,6 +457,10 @@ export function renderStorageList(storageState = {}, options = {}) {
     return;
   }
 
+  if (renderAuthoritativeStorageList(root, storageState.summary)) {
+    return;
+  }
+
   const inventories = {
     weapons: storageState.weapons || {},
     materials: storageState.materials || {},
@@ -480,4 +484,76 @@ export function renderStorageList(storageState = {}, options = {}) {
       counter.textContent = `${normalizeCount(group.inventory[itemId])} ks`;
     }
   }
+
+  const legacyAmounts = {
+    ...inventories.weapons,
+    ...inventories.materials,
+    ...inventories.drugs,
+    ...inventories.factorySupplies
+  };
+  for (const row of safeQueryAll(root, "[data-storage-resource]")) {
+    const resourceKey = row.dataset?.storageResource;
+    const value = row.querySelector?.("[data-storage-value]");
+    if (!resourceKey || !value) continue;
+    const legacyKey = resourceKey === "metal-parts"
+      ? "metalParts"
+      : resourceKey === "tech-core"
+        ? "techCore"
+        : resourceKey === "combat-module"
+          ? "combatModule"
+          : resourceKey;
+    value.textContent = `${normalizeCount(legacyAmounts[resourceKey] ?? legacyAmounts[legacyKey])} / -`;
+  }
+}
+
+function renderAuthoritativeStorageList(root, summary) {
+  if (!summary || typeof summary !== "object" || !Array.isArray(summary.groups)) {
+    const panel = safeQuery(root, "[data-storage-summary]");
+    if (panel) panel.hidden = true;
+    return false;
+  }
+
+  const itemsByKey = new Map();
+  for (const group of summary.groups) {
+    for (const item of Array.isArray(group?.items) ? group.items : []) {
+      if (item?.resourceKey) itemsByKey.set(item.resourceKey, item);
+    }
+  }
+
+  for (const row of safeQueryAll(root, "[data-storage-resource]")) {
+    const item = itemsByKey.get(row.dataset?.storageResource);
+    const value = row.querySelector?.("[data-storage-value]");
+    if (!item || !value) continue;
+    const current = normalizeCount(item.currentAmount);
+    const maximum = normalizeCount(item.maxAmount);
+    value.textContent = `${current} / ${maximum}`;
+    row.dataset.storageState = item.isOverCapacity
+      ? "over"
+      : item.isFull
+        ? "full"
+        : item.isNearCapacity
+          ? "near"
+          : "normal";
+    row.title = item.isOverCapacity
+      ? "Zásoba překračuje aktuální maximum. Další kusy nelze přijmout."
+      : item.isFull
+        ? "Kapacita je plná"
+        : "";
+  }
+
+  const warehouse = summary.warehouseSummary || {};
+  const panel = safeQuery(root, "[data-storage-summary]");
+  if (panel) panel.hidden = false;
+  setText(root, "[data-storage-warehouse-count]", normalizeCount(warehouse.ownedWarehouseCount));
+  setText(root, "[data-storage-warehouse-level]", `L${normalizeCount(warehouse.highestWarehouseLevel)}`);
+  setText(root, "[data-storage-total-multiplier]", `x${Number(warehouse.totalCapacityMultiplier || 1).toFixed(2)}`);
+  setText(root, "[data-storage-capacity-summary]", summary.groups
+    .map((group) => `${group.label} ${normalizeCount(group.currentCapacity)}`)
+    .join(" | "));
+  return true;
+}
+
+function setText(root, selector, value) {
+  const element = safeQuery(root, selector);
+  if (element) element.textContent = String(value);
 }

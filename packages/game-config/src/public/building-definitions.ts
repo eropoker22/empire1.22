@@ -218,7 +218,7 @@ export const publicBuildingDefinitions: PublicBuildingDefinition[] = [
     legacyAction("armory_craft_weapons", "Vyrobit výzbrojní modul", "Vyrobí výzbrojní modul ze skladových materiálů.", "+výzbrojní modul, +heat", 0.006, 3, out("combat-module", 1), 1, { "metal-parts": 2 }),
     legacyAction("armory_fortify", "Opevnit district", "Zvedne obrannou připravenost území.", "+vliv, +heat", 8, 4, {}, 3)
   ]),
-  building("warehouse", "Skladiště", "industrial", "Economy / storage / logistics", "Skladiště drží zásoby města pohromadě. Negeneruje špinavé peníze ani vliv, ale bez skladišť se impérium zadusí vlastním materiálem.", stat(2700, 0, 86.4, 0, 4), []),
+  building("warehouse", "Skladiště", "industrial", "Economy / storage / logistics", "Skladiště zvyšuje maximum každé zásoby. První aktivní sklad přidá 50 %, další přidávají menší síťový bonus a z levelů platí jen nejvyšší aktivní level.", stat(2700, 0, 86.4, 0, 4), []),
   building("power_station", "Energetická stanice", "industrial", "Infrastruktura / podpora / obrana", "Energetická stanice nezavádí nový zdroj. Zvedá výkon města, drží infrastrukturu při životě a posiluje bezpečnostní systémy. Když svítí stanice, město dýchá rychleji. Kamery vidí ostřeji. Alarmy řvou dřív.", perMinuteStat(2780 / 60, 780 / 60, 115.2, 0, 1), [
     action({ actionId: "backup_grid_switch", label: "Stabilizovat síť", description: "Na 25 minut zvýší bonus infrastruktury, posílí kamery a alarmy a přidá výkon Továrnám a Zbrojovkám. Nestackuje se sama se sebou.", effectSummary: "Cena 3500 clean cash, +12 % infrastruktura, +20 % kamery, +20 % alarm, heat +3 na 25 minut", cooldownMs: 60 * minute, durationMs: 25 * minute, inputCost: out("cash", 3500), heatGain: 3 }),
     action({ actionId: "power_station_feed_production", label: "Napájet výrobu", description: "Okamžitě přidá menší clean a dirty výnos z přesměrované výroby.", effectSummary: "+2000 clean cash, +500 dirty cash, heat +10", cooldownMs: 60 * minute, outputGain: resources({ cash: 2000, "dirty-cash": 500 }), heatGain: 10 }),
@@ -228,11 +228,7 @@ export const publicBuildingDefinitions: PublicBuildingDefinition[] = [
     action({ actionId: "extract_losses", label: "Vytěžit ztráty", description: "Vrátí část neexpirovaných itemových ztrát ze zásobníku ztrát. Nikdy nevrací populaci ani členy gangu.", effectSummary: "Cena 900 clean cash, návrat itemů podle sítě Recyklačních center, heat +2", cooldownMs: 16 * minute, inputCost: out("cash", 900), heatGain: 2 })
   ]),
 
-  building("pharmacy", "Lékárna", "commercial", "Výroba", "Support budova se sloty Chemicals, Biomass a Stim Pack. Vyrobené látky živí Drug Lab a bojové boosty.", stat(0, 0, 3, 8, 14), [
-    legacyAction("produce_chemicals", "Vyrobit chemikálie", "Vyrobí základní chemikálie.", "+chemicals, +heat", 0.003, 1, out("chemicals", 6)),
-    legacyAction("produce_biomass", "Vyrobit biomasu", "Vyrobí biomasu pro léky a drogy.", "+biomass, +heat", 0.003, 1, out("biomass", 4)),
-    legacyAction("produce_stim_pack", "Vyrobit stim pack", "Převede chemicals a biomass na Stim Pack.", "+stim pack, +vliv, +heat", 0.004, 2, out("stim-pack", 1), 1, { chemicals: 2, biomass: 1 })
-  ]),
+  building("pharmacy", "Lékárna", "commercial", "Výroba", "Tři nezávislé serverové linky vyrábějí Chemicals, Biomass a Stim Pack za clean cash.", stat(0, 0, 3, 8, 14), []),
   building("drug_lab", "Drug Lab", "park", "Výroba drog", "Core produkční budova pro Neon Dust, Pulse Shot a Velvet Smoke. Produkce generuje heat a zásoby drog.", stat(0, 0, 6, 20, 14), [
     legacyAction("produce_neon_dust", "Vyrobit Neon Dust", "Syntetizuje Neon Dust.", "+neon dust, +vliv, +heat", 0.004, 3, out("neon-dust", 2), 1, out("chemicals", 1)),
     legacyAction("produce_pulse_shot", "Vyrobit Pulse Shot", "Uvaří Pulse Shot.", "+pulse shot, +vliv, +heat", 0.004, 3, out("pulse-shot", 1), 1, { chemicals: 2, biomass: 1 }),

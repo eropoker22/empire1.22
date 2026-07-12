@@ -90,6 +90,7 @@ describe("run-building-action command flow", () => {
         || definition.buildingTypeId === "fitness_club"
         || definition.buildingTypeId === "vip_lounge"
         || definition.buildingTypeId === "court"
+        || definition.buildingTypeId === "pharmacy"
       ) {
         expect(definition.specialActions).toHaveLength(0);
       } else {
@@ -1078,31 +1079,30 @@ describe("run-building-action command flow", () => {
   });
 
   it("runs a valid fixed building action and updates resources, district heat, influence, cooldown, and report", () => {
-    const { state, building } = createStateWithFixedBuilding("pharmacy");
+    const { state, building } = createStateWithFixedBuilding("drug_lab");
     const result = applyCommand(
       state,
       createRunBuildingActionCommandFixture({
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "produce_stim_pack"
+          actionId: "produce_neon_dust"
         }
       }),
       context
     );
 
     expect(result.errors).toEqual([]);
-    expect(result.nextState.resourceStatesById["resource:1"].balances.chemicals).toBe(8);
-    expect(result.nextState.resourceStatesById["resource:1"].balances.biomass).toBe(5);
-    expect(result.nextState.resourceStatesById["resource:1"].balances["stim-pack"]).toBe(1);
-    expectMafianHeat(result.nextState.districtsById["district:1"].heat, 2);
+    expect(result.nextState.resourceStatesById["resource:1"].balances.chemicals).toBe(9);
+    expect(result.nextState.resourceStatesById["resource:1"].balances["neon-dust"]).toBe(2);
+    expect(result.nextState.districtsById["district:1"].heat).toBe(2);
     expect(result.nextState.districtsById["district:1"].influence).toBe(1);
-    expect(result.nextState.buildingsById[building.id].actionCooldowns.produce_stim_pack).toBeGreaterThan(0);
+    expect(result.nextState.buildingsById[building.id].actionCooldowns.produce_neon_dust).toBeGreaterThan(0);
     expect(Object.values(result.nextState.notificationsById).some((notification) => notification.category === "report.building-action")).toBe(true);
   });
 
   it("rejects an action when the building is not fixed in the district", () => {
-    const { state, building } = createStateWithFixedBuilding("pharmacy");
+    const { state, building } = createStateWithFixedBuilding("drug_lab");
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       buildingIds: []
@@ -1113,7 +1113,7 @@ describe("run-building-action command flow", () => {
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "produce_chemicals"
+          actionId: "produce_neon_dust"
         }
       }),
       context
@@ -1130,7 +1130,7 @@ describe("run-building-action command flow", () => {
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "produce_chemicals"
+          actionId: "produce_neon_dust"
         }
       }),
       context
@@ -1140,9 +1140,9 @@ describe("run-building-action command flow", () => {
   });
 
   it("rejects an action blocked by building cooldown", () => {
-    const { state, building } = createStateWithFixedBuilding("pharmacy", {
+    const { state, building } = createStateWithFixedBuilding("drug_lab", {
       actionCooldowns: {
-        produce_chemicals: 3
+        produce_neon_dust: 3
       }
     });
     const result = applyCommand(
@@ -1151,7 +1151,7 @@ describe("run-building-action command flow", () => {
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "produce_chemicals"
+          actionId: "produce_neon_dust"
         }
       }),
       context
@@ -2347,13 +2347,13 @@ describe("run-building-action command flow", () => {
   });
 
   it("caps collected production by warehouse storage capacity", () => {
-    const { state, building } = createStateWithFixedBuilding("pharmacy", {
-      productionResourceKey: "chemicals",
+    const { state, building } = createStateWithFixedBuilding("factory", {
+      productionResourceKey: "metal-parts",
       productionStoredAmount: 20,
       playerBalances: {
         cash: 0,
         "dirty-cash": 0,
-        chemicals: 345
+        "metal-parts": 88
       }
     });
     const warehouse = {
@@ -2373,15 +2373,16 @@ describe("run-building-action command flow", () => {
         id: "command:collect:warehouse-cap",
         payload: {
           districtId: "district:1",
-          buildingId: building.id
+          buildingId: building.id,
+          resourceKey: "metal-parts"
         }
       }),
       context
     );
 
     expect(result.errors).toEqual([]);
-    expect(result.nextState.resourceStatesById["resource:1"].balances.chemicals).toBe(350);
-    expect(result.nextState.resourceStatesById[`resource:${building.id}`].balances.chemicals).toBe(15);
+    expect(result.nextState.resourceStatesById["resource:1"].balances["metal-parts"]).toBe(90);
+    expect(result.nextState.resourceStatesById["resource:" + building.id].balances["metal-parts"]).toBe(18);
   });
 
   it("keeps smuggling tunnel as dirty-only passive income with heat", () => {

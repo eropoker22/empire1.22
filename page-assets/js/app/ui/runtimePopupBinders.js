@@ -92,6 +92,7 @@ export function createRuntimePopupBinders(deps = {}) {
     getResolvedMaterialInventory = () => ({}),
     getResolvedDrugInventory = () => ({}),
     getStoredFactorySupplies = () => ({}),
+    getServerStorageSummary = () => null,
     windowRef = typeof window !== 'undefined' ? window : null
   } = deps;
 
@@ -432,6 +433,7 @@ function bindStoragePopup(root) {
 
   const renderStorageInventory = () => {
     renderStorageList({
+      summary: getServerStorageSummary(),
       weapons: getResolvedWeaponInventory(),
       materials: getResolvedMaterialInventory(),
       drugs: getResolvedDrugInventory(),

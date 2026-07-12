@@ -16,4 +16,5 @@ export * from "./district-summary-projection";
 export * from "./onboarding-read-model-projection";
 export * from "./player-projection";
 export * from "./player-frontier-projection";
+export * from "./pharmacy-production-projection";
 export * from "./police-read-model-projection";

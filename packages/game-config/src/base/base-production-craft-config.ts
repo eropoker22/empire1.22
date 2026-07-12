@@ -1,18 +1,6 @@
 import type { BalanceConfig } from "../contracts/balance-config";
 
 export const baseProductionBuildingsConfig: NonNullable<BalanceConfig["productionBuildings"]> = {
-  pharmacy: {
-    resourceKey: "chemicals",
-    resourceLabel: "Chemicals",
-    amountPerTick: 5,
-    storageCap: 25,
-    upgrade: {
-      maxLevel: 14,
-      upgradeBaseCost: 3200,
-      costGrowth: 1.42,
-      productionMultiplierPerLevel: 10
-    }
-  },
   factory: {
     resourceKey: "metal-parts",
     resourceLabel: "Metal Parts",
@@ -41,24 +29,6 @@ export const baseProductionBuildingsConfig: NonNullable<BalanceConfig["productio
 };
 
 export const baseCraftBuildingsConfig: NonNullable<BalanceConfig["craftBuildings"]> = {
-  pharmacy: {
-    upgrade: {
-      maxLevel: 14,
-      upgradeBaseCost: 3200,
-      costGrowth: 1.42,
-      productionMultiplierPerLevel: 10
-    },
-    recipes: {
-      "stim-pack": {
-        label: "Stim Pack",
-        durationTicks: 2,
-        inputCosts: { chemicals: 6 },
-        outputResourceKey: "stim-pack",
-        outputResourceLabel: "Stim Pack",
-        outputAmount: 1
-      }
-    }
-  },
   factory: {
     upgrade: {
       maxLevel: 14,

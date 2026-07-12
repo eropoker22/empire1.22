@@ -12,6 +12,7 @@ import type { ActionCommand } from "./action-command";
 export interface CollectProductionPayload {
   districtId: DistrictId;
   buildingId: BuildingId;
+  resourceKey?: string;
 }
 
 export type CollectProductionCommand = ActionCommand<"collect-production", CollectProductionPayload>;

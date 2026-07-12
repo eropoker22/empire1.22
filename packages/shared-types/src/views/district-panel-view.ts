@@ -6,7 +6,7 @@ import type {
   PlayerId
 } from "../ids/entity-id";
 import type { DistrictCapabilitiesView } from "./map-capabilities-view";
-
+import type { WarehouseUpgradePreviewView } from "./warehouse-storage-view"; import type { PharmacyProductionBuildingView } from "./pharmacy-production-view";
 /**
  * Responsibility: Server-fed district panel projection for fixed district buildings.
  * Belongs here: ownership, fixed buildings, actions, cooldowns, and district action targets.
@@ -178,6 +178,8 @@ export interface DistrictPanelBuildingView {
   status: BuildingStatus;
   actionCooldowns: Record<string, number>;
   actions: DistrictPanelBuildingActionView[];
+  warehouseUpgradePreview?: WarehouseUpgradePreviewView | null;
+  pharmacy?: PharmacyProductionBuildingView | null;
   phaseAvailability?: BuildingActionPhaseAvailability;
   phaseBadgeLabel?: string | null;
   phaseTooltip?: string | null;
@@ -186,7 +188,6 @@ export interface DistrictPanelBuildingView {
   passivePhaseEffectLabel?: string | null;
   passivePhaseTooltip?: string | null;
 }
-
 export interface DistrictAttackTargetView {
   districtId: DistrictId;
   name: string;
@@ -196,7 +197,6 @@ export interface DistrictAttackTargetView {
   disabledReason: string | null;
   cooldownRemainingTicks?: number;
 }
-
 export interface DistrictSpyTargetView {
   districtId: DistrictId;
   name: string;

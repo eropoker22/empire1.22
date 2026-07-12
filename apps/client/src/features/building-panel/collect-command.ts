@@ -7,6 +7,7 @@ export interface CreateCollectProductionCommandInput {
   mode: GameModeId;
   districtId: string;
   buildingId: string;
+  resourceKey?: string;
   issuedAt: string;
   clientRequestId?: string | null;
 }
@@ -27,7 +28,8 @@ export const createCollectProductionCommand = (
   issuedAt: input.issuedAt,
   payload: {
     districtId: input.districtId,
-    buildingId: input.buildingId
+    buildingId: input.buildingId,
+    ...(input.resourceKey === undefined ? {} : { resourceKey: input.resourceKey })
   },
   clientRequestId: input.clientRequestId ?? null
 });

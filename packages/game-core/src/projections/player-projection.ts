@@ -15,6 +15,10 @@ import { createFactionReadModel } from "./faction-read-model-projection";
 import { createFinalLockdownReadModel } from "./final-lockdown-read-model-projection";
 import { createPoliceReadModel } from "./police-read-model-projection";
 import { createPlayerAllianceLifecycleView } from "./alliance-lifecycle-projection";
+import {
+  normalizeStorageBalances,
+  resolvePlayerStorageCapacitySummary
+} from "../handlers/warehouseBuilding";
 
 /**
  * Responsibility: Builds a minimal player-facing projection from authoritative core state.
@@ -28,7 +32,9 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
     .filter((notification): notification is Notification => notification?.recipientId === playerId);
 
   const victoryState: VictoryState | null = state.victoryState;
-  const resourceBalances = player ? { ...(state.resourceStatesById[player.resourceStateId]?.balances ?? {}) } : {};
+  const resourceBalances = player
+    ? normalizeStorageBalances(state.resourceStatesById[player.resourceStateId]?.balances ?? {})
+    : {};
   if (player && Number.isFinite(Number(player.population))) {
     resourceBalances.population = Math.max(0, Number(player.population || 0));
   }
@@ -43,6 +49,9 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
     color: player?.color ?? DEFAULT_PLAYER_COLOR,
     serverTime: context?.clock?.nowIso() ?? new Date().toISOString(),
     resourceBalances,
+    storage: player && context?.config.balance.warehouse
+      ? resolvePlayerStorageCapacitySummary(state, playerId, context.config.balance.warehouse)
+      : null,
     economy,
     faction: createFactionReadModel(state, playerId, context),
     dayNight: context ? createDayNightReadModel(state, context) : null,
@@ -61,10 +70,7 @@ const MATERIAL_RESOURCE_IDS = [
   "stim-pack",
   "metal-parts",
   "tech-core",
-  "combat-module",
-  "metalParts",
-  "techCore",
-  "combatModule"
+  "combat-module"
 ] as const;
 
 const DRUG_RESOURCE_IDS = [

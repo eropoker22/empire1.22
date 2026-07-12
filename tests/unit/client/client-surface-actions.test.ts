@@ -89,7 +89,7 @@ const createGameplaySliceFixture = (): GameplaySliceView => ({
         ],
         specialActions: [
           {
-            actionId: "produce_chemicals",
+            actionId: "produce_neon_dust",
             label: "Produce Chemicals",
             description: "Produce chemicals.",
             effectSummary: "+chemicals, +heat",
@@ -108,7 +108,7 @@ const createGameplaySliceFixture = (): GameplaySliceView => ({
           {
             buildingId: "building:pharmacy:1",
             buildingTypeId: "pharmacy",
-            actionId: "produce_chemicals",
+            actionId: "produce_neon_dust",
             label: "Produce Chemicals",
             description: "Produce chemicals.",
             status: "available",
@@ -255,7 +255,7 @@ describe("client surface actions", () => {
   it("resolves fixed building action click targets", () => {
     const actionButton = createMockElement({
       buildingActionBuildingId: "building:pharmacy:1",
-      buildingActionId: "produce_chemicals"
+      buildingActionId: "produce_neon_dust"
     });
     const buildingCard = createMockElement({
       buildingId: "building:pharmacy:1",
@@ -273,7 +273,7 @@ describe("client surface actions", () => {
     expect(resolveClientSurfaceAction(actionButton.element)).toEqual({
       kind: "building-action",
       buildingId: "building:pharmacy:1",
-      actionId: "produce_chemicals"
+      actionId: "produce_neon_dust"
     });
   });
 
@@ -296,7 +296,7 @@ describe("client surface actions", () => {
 
     const actionButton = createMockElement({
       buildingActionBuildingId: "building:pharmacy:1",
-      buildingActionId: "produce_chemicals"
+      buildingActionId: "produce_neon_dust"
     });
     actionButton.setClosest(
       "button[data-building-action-building-id][data-building-action-id]",
@@ -307,7 +307,7 @@ describe("client surface actions", () => {
     expect(resolveClientSurfaceAction(actionButton.element)).toEqual({
       kind: "building-action",
       buildingId: "building:pharmacy:1",
-      actionId: "produce_chemicals",
+      actionId: "produce_neon_dust",
       amount: 7
     });
     expect(controls.element.querySelectorAll).toHaveBeenCalledWith("[data-building-action-input]");
@@ -366,7 +366,7 @@ describe("client surface actions", () => {
 
     const actionButton = createMockElement({
       buildingActionBuildingId: "building:pharmacy:1",
-      buildingActionId: "produce_chemicals"
+      buildingActionId: "produce_neon_dust"
     });
     actionButton.setClosest(
       "button[data-building-action-building-id][data-building-action-id]",
@@ -381,7 +381,7 @@ describe("client surface actions", () => {
         payload: {
           districtId: "district:1",
           buildingId: "building:pharmacy:1",
-          actionId: "produce_chemicals"
+          actionId: "produce_neon_dust"
         }
       }
     ]);

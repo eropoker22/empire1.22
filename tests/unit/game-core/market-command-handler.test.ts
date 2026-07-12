@@ -59,7 +59,8 @@ describe("market command handler", () => {
 
     expect(result.errors).toHaveLength(0);
     expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(10000 - unitPrice * 2);
-    expect(result.nextState.resourceStatesById["resource:1"].balances.metalParts).toBe(12);
+    expect(result.nextState.resourceStatesById["resource:1"].balances["metal-parts"]).toBe(12);
+    expect(result.nextState.resourceStatesById["resource:1"].balances.metalParts).toBeUndefined();
     expect(result.nextState.market?.stock).toMatchObject({ metalParts: 898 });
     expect(result.events[0]).toMatchObject({
       type: "market-transaction-resolved",
@@ -83,7 +84,7 @@ describe("market command handler", () => {
     }), context);
 
     expect(result.errors).toHaveLength(0);
-    expect(result.nextState.resourceStatesById["resource:1"].balances.metalParts).toBe(7);
+    expect(result.nextState.resourceStatesById["resource:1"].balances["metal-parts"]).toBe(7);
     expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(10000 + unitPrice * 3);
     expect(result.nextState.market?.stock).toMatchObject({ metalParts: 903 });
   });
@@ -123,6 +124,25 @@ describe("market command handler", () => {
     expect(result.nextState.resourceStatesById["resource:1"].balances.chemicals).toBe(2);
     expect(result.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBeLessThan(10000);
     expect((result.nextState.playersById["player:1"] as any).heat).toBeGreaterThan(0);
+  });
+
+  it("rejects a buy at capacity before cash or market stock change", () => {
+    const state = createState();
+    state.resourceStatesById["resource:1"] = {
+      ...state.resourceStatesById["resource:1"],
+      balances: { ...state.resourceStatesById["resource:1"].balances, chemicals: 60 }
+    };
+    const result = applyCommand(state, buyCommand({
+      resourceId: "chemicals",
+      amount: 1,
+      marketType: "normal",
+      paymentType: "cleanCash"
+    }), context);
+
+    expect(result.errors[0]?.code).toBe("storage_capacity_full");
+    expect(result.nextState).toBe(state);
+    expect(state.resourceStatesById["resource:1"].balances.cash).toBe(10000);
+    expect(state.market).toBeUndefined();
   });
 });
 

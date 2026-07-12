@@ -5,6 +5,7 @@ import type {
   BuildingActionBalanceConfig,
   CraftBuildingBalanceConfig,
   FixedBuildingBalanceConfig,
+  PharmacyBalanceConfig,
   ProductionBuildingBalanceConfig
 } from "./building-balance-config";
 import type {
@@ -280,6 +281,7 @@ export interface GameModeConfig {
     police?: PoliceSystemBalanceConfig;
     productionBuildings?: Record<string, ProductionBuildingBalanceConfig>;
     craftBuildings?: Record<string, CraftBuildingBalanceConfig>;
+    pharmacy?: PharmacyBalanceConfig;
     fixedBuildings?: Record<string, FixedBuildingBalanceConfig>;
     buildingActions?: Record<string, BuildingActionBalanceConfig>;
     casino?: CasinoBalanceConfig;

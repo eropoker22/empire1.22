@@ -1,4 +1,8 @@
-import type { CoreGameState } from "@empire/game-core";
+import {
+  migratePharmacyProductionState,
+  normalizePlayerStorageResourceAliases,
+  type CoreGameState
+} from "@empire/game-core";
 import type { InstanceSnapshotDto } from "../dto";
 
 /**
@@ -6,5 +10,5 @@ import type { InstanceSnapshotDto } from "../dto";
  * Belongs here: pure mapping from persistence snapshot shape back to core state.
  * Does not belong here: runtime scheduler creation or repository access.
  */
-export const restoreInstanceState = (snapshot: InstanceSnapshotDto): CoreGameState => snapshot.state;
-
+export const restoreInstanceState = (snapshot: InstanceSnapshotDto): CoreGameState =>
+  migratePharmacyProductionState(normalizePlayerStorageResourceAliases(snapshot.state));

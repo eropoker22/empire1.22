@@ -12,6 +12,8 @@ import {
   handleCraftItem,
   handleHeistDistrict,
   handleMarketCommand,
+  handleCancelPharmacyProduction,
+  handlePharmacyProductionStart,
   handleOccupyDistrict,
   handlePlaceDefense,
   handlePlaceTrap,
@@ -94,8 +96,12 @@ export const routeCommand = (
       return handleBountyCommand(state, command, context);
     case "collect-production":
       return handleCollectProduction(state, command, context);
+    case "cancel-pharmacy-production":
+      return handleCancelPharmacyProduction(state, command, context);
     case "craft-item":
-      return handleCraftItem(state, command, context);
+      return state.buildingsById[command.payload.buildingId]?.buildingTypeId === "pharmacy"
+        ? handlePharmacyProductionStart(state, command, context)
+        : handleCraftItem(state, command, context);
     case "heist-district":
       return handleHeistDistrict(state, command, context);
     case "buy-market-resource":

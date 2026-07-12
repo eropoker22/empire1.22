@@ -367,11 +367,80 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     return card;
   };
 
+  const createServerPharmacyCard = (root, pharmacy, line, rerender) => {
+    const recipe = {
+      name: line.label,
+      cleanMoneyCost: line.unitCleanCashCost,
+      output: { itemId: line.resourceKey, amount: 1 }
+    };
+    return deps.renderRecipeCard?.({
+      root,
+      buildingName: "pharmacy",
+      recipeId: line.recipeId,
+      recipe,
+      serverLine: line,
+      tickRateMs: deps.getServerTickRateMs?.() || 5000,
+      visual: deps.PRODUCTION_SLOT_VISUALS?.pharmacy?.[line.recipeId] || null
+    }, {
+      onStart: async ({ batchCount }) => {
+        const response = await deps.submitServerPharmacyCommand?.({
+          type: "craft-item",
+          payload: {
+            districtId: pharmacy.districtId,
+            buildingId: pharmacy.buildingId,
+            recipeId: line.recipeId,
+            quantity: batchCount
+          }
+        });
+        reportServerPharmacyResult(root, response, line.label);
+        rerender?.();
+      },
+      onStop: async () => {
+        const response = await deps.submitServerPharmacyCommand?.({
+          type: "cancel-pharmacy-production",
+          payload: {
+            districtId: pharmacy.districtId,
+            buildingId: pharmacy.buildingId,
+            recipeId: line.recipeId
+          }
+        });
+        reportServerPharmacyResult(root, response, line.label);
+        rerender?.();
+      }
+    }, {
+      mount: root,
+      formatCurrency: deps.formatCurrency,
+      formatDurationLabel: deps.formatDurationLabel
+    });
+  };
+
+  const reportServerPharmacyResult = (root, response, label) => {
+    const error = response?.errors?.[0];
+    if (error) {
+      deps.setBuildingActionFeedback?.(root, "warning", "Lékárna", error.message || "Akci se nepodařilo provést.");
+      return;
+    }
+    deps.setBuildingActionFeedback?.(root, "success", "Lékárna", label + " byl aktualizován.");
+  };
+
   const renderProductionPanel = (root, panelName, recipes, rerender) => {
     const mount = root?.querySelector?.(`[data-production-panel="${panelName}"]`);
 
     if (!mount) {
       return false;
+    }
+
+    const serverPharmacy = panelName === "pharmacy" && !allowLegacyLocalProduction
+      ? deps.getServerPharmacyReadModel?.()
+      : null;
+    if (serverPharmacy) {
+      const safeRerender = typeof rerender === "function" ? rerender : () => renderProductionPanel(root, panelName, recipes);
+      return deps.renderProductionPanelUi?.({
+        mount,
+        recipes: serverPharmacy.lines.map((line) => ({
+          prebuiltCard: createServerPharmacyCard(root, serverPharmacy, line, safeRerender)
+        }))
+      }, {}, { mount });
     }
 
     deps.syncCompletedProductionJobs?.();
@@ -446,13 +515,20 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     };
 
     const renderDashboard = () => {
+      const serverPharmacy = buildingName === "pharmacy" && !allowLegacyLocalProduction
+        ? deps.getServerPharmacyReadModel?.()
+        : null;
       deps.syncCompletedProductionJobs?.();
-      const state = deps.getStoredProductionBuildingState?.(buildingName) || {};
+      const state = serverPharmacy
+        ? { level: serverPharmacy.level || 1 }
+        : deps.getStoredProductionBuildingState?.(buildingName) || {};
       const multiplier = deps.getProductionBuildingMultiplier?.(buildingName, state.level) || 1;
       const nextMultiplier = state.level < maxLevel
         ? deps.getProductionBuildingMultiplier?.(buildingName, state.level + 1) || multiplier
         : multiplier;
-      const readyCount = deps.getProductionBuildingReadyCount?.(buildingName, recipes) || 0;
+      const readyCount = serverPharmacy
+        ? serverPharmacy.lines.filter((line) => Number(line.producedAmount || 0) > 0).length
+        : deps.getProductionBuildingReadyCount?.(buildingName, recipes) || 0;
       const upgradeCost = state.level < maxLevel ? deps.getProductionBuildingUpgradeCost?.(buildingName, state.level + 1) || 0 : 0;
       const ownedBuildingCount = getOwnedProductionBuildingCount(buildingName, state.level);
       const speedGainPct = Math.max(0, Math.round((Number(nextMultiplier || multiplier || 1) - Number(multiplier || 1)) * 100));
@@ -484,9 +560,11 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       });
 
       if (isButtonElement(collectButton, ButtonCtor)) {
-        collectButton.disabled = !allowLegacyLocalProduction || readyCount <= 0;
+        collectButton.disabled = serverPharmacy ? readyCount <= 0 : !allowLegacyLocalProduction || readyCount <= 0;
         collectButton.textContent = "+";
-        const collectLabel = !allowLegacyLocalProduction
+        const collectLabel = serverPharmacy
+          ? readyCount > 0 ? "Vybrat hotovou produkci do skladu" : "Není nic hotového k vyzvednutí"
+          : !allowLegacyLocalProduction
           ? productionBridgeMessage
           : readyCount > 0
           ? `Vybrat hotové do skladu (${readyCount})`
@@ -521,7 +599,37 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     }
 
     if (isButtonElement(collectButton, ButtonCtor)) {
-      collectButton.addEventListener("click", () => {
+      collectButton.addEventListener("click", async () => {
+        const serverPharmacy = buildingName === "pharmacy" && !allowLegacyLocalProduction
+          ? deps.getServerPharmacyReadModel?.()
+          : null;
+        if (serverPharmacy) {
+          for (const line of serverPharmacy.lines.filter((item) => item.canCollect)) {
+            const response = await deps.submitServerPharmacyCommand?.({
+              type: "collect-production",
+              payload: {
+                districtId: serverPharmacy.districtId,
+                buildingId: serverPharmacy.buildingId,
+                resourceKey: line.resourceKey
+              }
+            });
+            if (response?.errors?.length) {
+              reportServerPharmacyResult(root, response, line.label);
+              renderDashboard();
+              return;
+            }
+          }
+          const updated = deps.getServerPharmacyReadModel?.();
+          const partial = updated?.lines?.some((line) => Number(line.producedAmount || 0) > 0);
+          deps.setBuildingActionFeedback?.(
+            root,
+            partial ? "warning" : "success",
+            "Lékárna",
+            partial ? "Do skladu se vešla pouze část produkce. Zbytek zůstal v Lékárně." : "Hotová produkce byla přesunuta do skladu."
+          );
+          renderDashboard();
+          return;
+        }
         if (!allowLegacyLocalProduction) {
           deps.setBuildingActionFeedback?.(root, "warning", config?.label || "Budova", productionBridgeMessage);
           renderDashboard();
@@ -689,6 +797,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     bindPharmacyPopup,
     bindProductionBuildingPopup,
     createProductionCard,
+    createServerPharmacyCard,
     getProductionSlotState,
     renderProductionBuildingInfo,
     renderProductionPanel

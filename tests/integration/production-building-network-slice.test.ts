@@ -10,7 +10,7 @@ import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
 import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 describe("production building network gameplay slice", () => {
-  it("exposes pharmacy, drug lab, factory and armory as fixed production/craft slots", async () => {
+  it("exposes pharmacy as independent server lines alongside other fixed production slots", async () => {
     const server = createServerApp();
     const instanceId = "instance:production-network";
     const playerId = "player:producer";
@@ -42,7 +42,6 @@ describe("production building network gameplay slice", () => {
     const initialRender = await client.load(session.loadRequest);
 
     expect(initialRender.sidePanelHtml).toContain("Produkční sloty");
-    expect(initialRender.sidePanelHtml).toContain('data-slot-building-type="pharmacy"');
     expect(initialRender.sidePanelHtml).toContain('data-slot-building-type="drug-lab"');
     expect(initialRender.sidePanelHtml).toContain('data-slot-building-type="factory"');
     expect(initialRender.sidePanelHtml).toContain('data-slot-building-type="armory"');
@@ -51,6 +50,7 @@ describe("production building network gameplay slice", () => {
     expect(initialRender.sidePanelHtml).toContain("Zpracovat Bojový modul");
     expect(initialRender.sidePanelHtml).toContain("Zpracovat Pulse Shot");
     expect(initialRender.sidePanelHtml).toContain("Zpracovat Pistol");
+    expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingTypeId === "pharmacy")?.pharmacy?.lines).toHaveLength(3);
 
     const factoryId = initialRender.districtPanel?.buildings.find((building) => building.buildingTypeId === "factory")?.buildingId;
     const drugLabId = initialRender.districtPanel?.buildings.find((building) => building.buildingTypeId === "drug_lab")?.buildingId;

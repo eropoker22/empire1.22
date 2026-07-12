@@ -5,6 +5,7 @@ export interface CreateCraftItemCommandInput {
   slice: GameplaySliceView;
   buildingId: string;
   recipeId: string;
+  quantity?: number;
   issuedAt: string;
   clientRequestId?: string | null;
 }
@@ -35,7 +36,8 @@ export const createCraftItemCommand = (
     payload: {
       districtId: district.districtId,
       buildingId: input.buildingId,
-      recipeId: craftOption.recipeId
+      recipeId: craftOption.recipeId,
+      ...(input.quantity === undefined ? {} : { quantity: input.quantity })
     },
     clientRequestId: input.clientRequestId ?? null
   };

@@ -2,26 +2,6 @@ import type { BalanceConfig } from "../../contracts/balance-config";
 import { baseCooldownTicksForFinalMinutes } from "./free-mode-timing";
 
 export const freeModeCraftBuildings: NonNullable<BalanceConfig["craftBuildings"]> = {
-  pharmacy: {
-    upgrade: {
-      maxLevel: 14,
-      upgradeBaseCost: 3200,
-      costGrowth: 1.42,
-      productionMultiplierPerLevel: 10
-    },
-    recipes: {
-      "stim-pack": {
-        label: "Stim Pack",
-        durationTicks: baseCooldownTicksForFinalMinutes(10),
-        inputCosts: {
-          chemicals: 6
-        },
-        outputResourceKey: "stim-pack",
-        outputResourceLabel: "Stim Pack",
-        outputAmount: 1
-      }
-    }
-  },
   drug_lab: {
     upgrade: {
       maxLevel: 14,

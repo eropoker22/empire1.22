@@ -3,12 +3,8 @@ export const PRODUCTION_BUILDING_CONFIG = Object.freeze({
     label: "Lékárna",
     title: "Výroba látek",
     upgradeBaseCost: 3200,
-    outputCap: 15,
-    queueCap: 15,
-    queueCapPerExtraBuilding: 4,
-    outputCapPerWarehouse: 5,
     infoText: "Lékárna vyrábí základní materiály pro Lab: Chemicals, Biomass a Stim Pack.",
-    infoActions: Object.freeze(["+ Vybrat hotové patří do serverového production/collect flow.", "⇪ Každý level zvedá serverovou produkci a craft rychlost o 10%.", "Chemicals, Biomass a Stim Pack napájí recepty v Labu."])
+    infoActions: Object.freeze(["+ Vybrat hotové patří do serverového production/collect flow.", "⇪ Rychlost výroby určuje serverový level budovy.", "Chemicals, Biomass a Stim Pack napájí recepty v Labu."])
   }),
   druglab: Object.freeze({
     label: "Lab",

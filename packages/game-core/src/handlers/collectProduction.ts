@@ -6,7 +6,12 @@ import { createEvent, CORE_EVENT_TYPES } from "../events";
 import type { GameCoreContext } from "../engine/context";
 import { validateCollect } from "../validation";
 import { composeEntityId } from "../utils";
-import { getWarehouseCapacityForResource, resolveWarehouseStorageCapacity } from "./warehouseBuilding";
+import {
+  getWarehouseCapacityForResource,
+  normalizeStorageBalances,
+  resolveWarehouseStorageCapacity
+} from "./warehouseBuilding";
+import { collectPharmacyProduction } from "./pharmacyProductionHandlers";
 
 /**
  * Responsibility: Placeholder handler for production collection commands.
@@ -18,6 +23,16 @@ export const handleCollectProduction = (
   command: CollectProductionCommand,
   context: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
+  const targetBuilding = state.buildingsById[command.payload.buildingId];
+  if (targetBuilding?.buildingTypeId === "pharmacy") {
+    return collectPharmacyProduction(state, {
+      ...command,
+      payload: {
+        ...command.payload,
+        recipeId: command.payload.resourceKey || ""
+      }
+    }, context);
+  }
   const errors = validateCollect(state, command, context);
 
   if (errors.length > 0) {
@@ -51,7 +66,10 @@ export const handleCollectProduction = (
     0,
     Number(buildingResourceState?.balances?.[productionProfile?.resourceKey || ""] || 0)
   );
-  const playerResourceState = state.resourceStatesById[player.resourceStateId] ?? createPlayerResourceState(player, state.root.tick);
+  const storedPlayerResourceState = state.resourceStatesById[player.resourceStateId];
+  const playerResourceState = storedPlayerResourceState
+    ? { ...storedPlayerResourceState, balances: normalizeStorageBalances(storedPlayerResourceState.balances) }
+    : createPlayerResourceState(player, state.root.tick);
   const warehouseCapacity = context.config.balance.warehouse
     ? resolveWarehouseStorageCapacity(state, player.id, context.config.balance.warehouse, context.config.balance.powerStation)
     : null;
@@ -70,8 +88,8 @@ export const handleCollectProduction = (
       events: [],
       errors: [
         {
-          code: "production_storage_full",
-          message: `${productionProfile.resourceLabel} storage is full.`
+          code: "storage_capacity_full",
+          message: "Sklad je pro tuto položku plný."
         }
       ]
     };
@@ -97,7 +115,7 @@ export const handleCollectProduction = (
       )
     },
     lastUpdatedTick: state.root.tick,
-    version: playerResourceState.version + (state.resourceStatesById[player.resourceStateId] ? 1 : 0)
+    version: playerResourceState.version + (storedPlayerResourceState ? 1 : 0)
   };
 
   return {

@@ -20,6 +20,25 @@ export interface CraftBuildingBalanceConfig {
   upgrade?: BuildingUpgradeBalanceConfig;
 }
 
+export type PharmacyRecipeId = "chemicals" | "biomass" | "stim-pack";
+
+export interface PharmacyRecipeBalanceConfig {
+  label: string;
+  outputResourceKey: PharmacyRecipeId;
+  outputAmount: 1;
+  cleanCashCostPerUnit: number;
+  inputCosts: Record<string, never>;
+  durationTicksPerUnit: number;
+  localOutputCap: number;
+  queueCap: number;
+}
+
+export interface PharmacyBalanceConfig {
+  independentProductionLines: true;
+  recipes: Record<PharmacyRecipeId, PharmacyRecipeBalanceConfig>;
+  upgrade?: BuildingUpgradeBalanceConfig;
+}
+
 export interface BuildingUpgradeBalanceConfig {
   maxLevel: number;
   upgradeBaseCost: number;

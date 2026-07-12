@@ -1110,16 +1110,31 @@ export function createBuildingDetailStatRows({
       createStat("Audit risk", mechanics.arcadeAuditRisk)
     );
   } else if (mechanics.mechanicsType === "warehouse") {
-    const warehouseCapacity = resolveWarehouseDisplayCapacity(mechanics.warehouseCapacity);
-    statRows.splice(0, statRows.length,
-      createStat("Čisté / min", `+${formatDistrictBuildingMoney(45 * mechanics.warehouseNetwork.incomeMultiplier)}`),
-      createStat("Heat / min", `+${(0.06 * mechanics.warehouseNetwork.heatMultiplier).toFixed(3)}`),
-      createStat("Skladiště", `${mechanics.ownedWarehouses}/${WAREHOUSE_NETWORK_CONFIG.countOnMap}`),
-      createStat("Síť skladišť", `income ${formatMultiplierIncreasePercent(mechanics.warehouseNetwork.incomeMultiplier)} · kapacita ${formatMultiplierIncreasePercent(mechanics.warehouseNetwork.storageCapacityMultiplier)}`),
-      createStat("Kapacita zásob", `+${warehouseCapacity.genericResources}`),
-      createStat("Dirty / vliv", "0 / 0"),
-      createStat("Akce", "Žádné")
-    );
+    const storage = mechanics.serverStorageSummary;
+    if (storage?.warehouseSummary) {
+      const summary = storage.warehouseSummary;
+      statRows.splice(0, statRows.length,
+        createStat("Čisté / min", `+${formatDistrictBuildingMoney(45 * mechanics.warehouseNetwork.incomeMultiplier)}`),
+        createStat("Heat / min", `+${(0.06 * mechanics.warehouseNetwork.heatMultiplier).toFixed(3)}`),
+        createStat("Síť skladišť", String(summary.ownedWarehouseCount)),
+        createStat("Nejvyšší level", `L${summary.highestWarehouseLevel}`),
+        createStat("Bonus sítě", `x${Number(summary.warehouseCountMultiplier || 1).toFixed(2)}`),
+        createStat("Bonus levelu", `x${Number(summary.warehouseLevelMultiplier || 1).toFixed(2)}`),
+        createStat("Celkový násobitel", `x${Number(summary.totalCapacityMultiplier || 1).toFixed(2)}`),
+        ...storage.groups.map((group) => createStat(group.label, `${group.currentCapacity} ks na položku`)),
+        createStat("Akce", "Žádné")
+      );
+    } else {
+      const warehouseCapacity = resolveWarehouseDisplayCapacity(mechanics.warehouseCapacity);
+      statRows.splice(0, statRows.length,
+        createStat("Čisté / min", `+${formatDistrictBuildingMoney(45 * mechanics.warehouseNetwork.incomeMultiplier)}`),
+        createStat("Heat / min", `+${(0.06 * mechanics.warehouseNetwork.heatMultiplier).toFixed(3)}`),
+        createStat("Skladiště", `${mechanics.ownedWarehouses}/${WAREHOUSE_NETWORK_CONFIG.countOnMap}`),
+        createStat("Kapacita zásob", `+${warehouseCapacity.genericResources}`),
+        createStat("Dirty / vliv", "0 / 0"),
+        createStat("Akce", "Žádné")
+      );
+    }
   } else if (mechanics.mechanicsType === "clinic") {
     statRows.splice(0, statRows.length,
       createStat("Clean / hod", `+${formatDistrictBuildingMoney(mechanics.cleanHourly)}`),
@@ -1301,18 +1316,31 @@ export function createBuildingDetailMechanicRows({
       createMechanic("Večerní kurz", mechanics.schoolEveningCourseActive ? `bytové bloky zrychlené ${formatDistrictBuildingCooldown(mechanics.schoolEveningCourseRemainingMs)}` : "zrychlí nábor členů v bytových blocích")
     );
   } else if (mechanics.mechanicsType === "warehouse") {
-    const warehouseCapacity = resolveWarehouseDisplayCapacity(mechanics.warehouseCapacity);
-    const warehouseUsage = mechanics.warehouseUsage || {};
-    mechanicRows.push(
-      createMechanicWithTone("Materiál", `Chemicals ${warehouseUsage.chemicals || 0}/${warehouseCapacity.chemicals}`, resolveWarehouseCapacityTone(warehouseUsage.chemicals, warehouseCapacity.chemicals)),
-      createMechanicWithTone("Materiál", `Biomass ${warehouseUsage.biomass || 0}/${warehouseCapacity.biomass}`, resolveWarehouseCapacityTone(warehouseUsage.biomass, warehouseCapacity.biomass)),
-      createMechanicWithTone("Materiál", `Metal parts ${warehouseUsage.metalParts || 0}/${warehouseCapacity.metalParts}`, resolveWarehouseCapacityTone(warehouseUsage.metalParts, warehouseCapacity.metalParts)),
-      createMechanicWithTone("Materiál", `Tech core ${warehouseUsage.techCore || 0}/${warehouseCapacity.techCore}`, resolveWarehouseCapacityTone(warehouseUsage.techCore, warehouseCapacity.techCore)),
-      createMechanicWithTone("Materiál", `Bojové moduly ${warehouseUsage.combatModule || 0}/${warehouseCapacity.combatModule}`, resolveWarehouseCapacityTone(warehouseUsage.combatModule, warehouseCapacity.combatModule)),
-      createMechanicWithTone("Materiál", `Drogy a boosty ${warehouseUsage.drugsAndBoosts || 0}/${warehouseCapacity.drugsAndBoosts}`, resolveWarehouseCapacityTone(warehouseUsage.drugsAndBoosts, warehouseCapacity.drugsAndBoosts)),
-      createMechanicWithTone("Materiál", `Zbraně a obrana ${warehouseUsage.weaponsAndDefense || 0}/${warehouseCapacity.weaponsAndDefense}`, resolveWarehouseCapacityTone(warehouseUsage.weaponsAndDefense, warehouseCapacity.weaponsAndDefense)),
-      createMechanic("Stav kapacity", (mechanics.warehouseWarnings || []).join(" · ") || "Kapacity jsou v pořádku.")
-    );
+    const storage = mechanics.serverStorageSummary;
+    if (storage?.warehouseSummary) {
+      const summary = storage.warehouseSummary;
+      mechanicRows.push(
+        createMechanic("Síť skladišť", String(summary.ownedWarehouseCount)),
+        createMechanic("Nejvyšší level", `L${summary.highestWarehouseLevel}`),
+        createMechanic("Bonus sítě", `x${Number(summary.warehouseCountMultiplier || 1).toFixed(2)}`),
+        createMechanic("Bonus levelu", `x${Number(summary.warehouseLevelMultiplier || 1).toFixed(2)}`),
+        createMechanic("Celkový násobitel", `x${Number(summary.totalCapacityMultiplier || 1).toFixed(2)}`),
+        ...storage.groups.map((group) => createMechanic(group.label, `${group.currentCapacity} ks na položku`))
+      );
+    } else {
+      const warehouseCapacity = resolveWarehouseDisplayCapacity(mechanics.warehouseCapacity);
+      const warehouseUsage = mechanics.warehouseUsage || {};
+      mechanicRows.push(
+        createMechanicWithTone("Materiál", `Chemicals ${warehouseUsage.chemicals || 0}/${warehouseCapacity.chemicals}`, resolveWarehouseCapacityTone(warehouseUsage.chemicals, warehouseCapacity.chemicals)),
+        createMechanicWithTone("Materiál", `Biomass ${warehouseUsage.biomass || 0}/${warehouseCapacity.biomass}`, resolveWarehouseCapacityTone(warehouseUsage.biomass, warehouseCapacity.biomass)),
+        createMechanicWithTone("Materiál", `Metal parts ${warehouseUsage.metalParts || 0}/${warehouseCapacity.metalParts}`, resolveWarehouseCapacityTone(warehouseUsage.metalParts, warehouseCapacity.metalParts)),
+        createMechanicWithTone("Materiál", `Tech core ${warehouseUsage.techCore || 0}/${warehouseCapacity.techCore}`, resolveWarehouseCapacityTone(warehouseUsage.techCore, warehouseCapacity.techCore)),
+        createMechanicWithTone("Materiál", `Bojové moduly ${warehouseUsage.combatModule || 0}/${warehouseCapacity.combatModule}`, resolveWarehouseCapacityTone(warehouseUsage.combatModule, warehouseCapacity.combatModule)),
+        createMechanicWithTone("Materiál", `Drogy a boosty ${warehouseUsage.drugsAndBoosts || 0}/${warehouseCapacity.drugsAndBoosts}`, resolveWarehouseCapacityTone(warehouseUsage.drugsAndBoosts, warehouseCapacity.drugsAndBoosts)),
+        createMechanicWithTone("Materiál", `Zbraně a obrana ${warehouseUsage.weaponsAndDefense || 0}/${warehouseCapacity.weaponsAndDefense}`, resolveWarehouseCapacityTone(warehouseUsage.weaponsAndDefense, warehouseCapacity.weaponsAndDefense)),
+        createMechanic("Stav kapacity", (mechanics.warehouseWarnings || []).join(" · ") || "Kapacity jsou v pořádku.")
+      );
+    }
   } else if (mechanics.mechanicsType === "clinic") {
     mechanicRows.push(
       createMechanic("Stabilizace", mechanics.clinicRecoveryPool.totalFreshAmount > 0 ? "připravená" : "Čeká na ztráty tvojich členů za posledních 90min"),

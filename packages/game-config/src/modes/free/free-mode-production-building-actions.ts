@@ -2,51 +2,6 @@ import type { ResolvedGameModeConfig } from "../../contracts/game-mode-config";
 import { baseCooldownMsForFinalMinutes } from "./free-mode-timing";
 
 export const freeModeProductionBuildingActions: NonNullable<ResolvedGameModeConfig["balance"]["buildingActions"]> = {
-  produce_chemicals: {
-    actionId: "produce_chemicals",
-    buildingType: "pharmacy",
-    label: "Vyrobit chemikálie",
-    description: "Vyrobi zakladni chemikalie pro leky a lab.",
-    durationMs: 0,
-    cooldownMs: baseCooldownMsForFinalMinutes(2),
-    inputCost: {},
-    outputGain: { chemicals: 6 },
-    heatGain: 1,
-    influenceChange: 0,
-    requiredOwner: true,
-    allowedIfContested: false,
-    reportText: "Lekarna vyrobila chemicals."
-  },
-  produce_biomass: {
-    actionId: "produce_biomass",
-    buildingType: "pharmacy",
-    label: "Vyrobit biomasu",
-    description: "Vyrobi biomasu pro leky a drogy.",
-    durationMs: 0,
-    cooldownMs: baseCooldownMsForFinalMinutes(2),
-    inputCost: {},
-    outputGain: { biomass: 4 },
-    heatGain: 1,
-    influenceChange: 0,
-    requiredOwner: true,
-    allowedIfContested: false,
-    reportText: "Lekarna vyrobila biomass."
-  },
-  produce_stim_pack: {
-    actionId: "produce_stim_pack",
-    buildingType: "pharmacy",
-    label: "Vyrobit stim pack",
-    description: "Prevede chemicals a biomass na Stim Pack.",
-    durationMs: 0,
-    cooldownMs: baseCooldownMsForFinalMinutes(4),
-    inputCost: { chemicals: 2, biomass: 1 },
-    outputGain: { "stim-pack": 1 },
-    heatGain: 2,
-    influenceChange: 1,
-    requiredOwner: true,
-    allowedIfContested: false,
-    reportText: "Lekarna vyrobila Stim Pack."
-  },
   produce_neon_dust: {
     actionId: "produce_neon_dust",
     buildingType: "drug_lab",

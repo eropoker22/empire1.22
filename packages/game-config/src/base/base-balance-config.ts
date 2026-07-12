@@ -4,6 +4,7 @@ import { baseFixedBuildingsConfig } from "./base-fixed-buildings-config";
 import { basePoliceConfig } from "./base-police-config";
 import { baseCraftBuildingsConfig, baseProductionBuildingsConfig } from "./base-production-craft-config";
 import { createDayNightConfig } from "../public/day-night-config";
+import { freeModeWarehouseConfig } from "../public/free-mode-warehouse-config";
 
 /**
  * Responsibility: Neutral default balance values shared by all modes.
@@ -114,6 +115,7 @@ export const baseBalanceConfig: BalanceConfig = {
   },
   productionBuildings: baseProductionBuildingsConfig,
   craftBuildings: baseCraftBuildingsConfig,
+  warehouse: freeModeWarehouseConfig,
   fixedBuildings: baseFixedBuildingsConfig,
   buildingActions: baseBuildingActionsConfig
 };

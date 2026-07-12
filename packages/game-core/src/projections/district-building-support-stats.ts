@@ -20,6 +20,7 @@ import {
   resolveSchoolCapacity,
   resolveSchoolNetworkMultipliers
 } from "../handlers/schoolBuildingActions";
+import { resolvePlayerStorageCapacitySummary } from "../handlers/warehouseBuilding";
 import { formatCategoryList, formatNumber, formatTickLabel } from "./district-building-action-formatters";
 import type { BuildingStatsProjectionInput, BuildingStatView } from "./district-building-stats-types";
 
@@ -27,6 +28,29 @@ const formatMultiplierBonus = (value: number): string =>
   `${Number(value || 1) >= 1 ? "+" : ""}${formatNumber((Number(value || 1) - 1) * 100)} %`;
 
 export const createSupportBuildingStats = (input: BuildingStatsProjectionInput): BuildingStatView[] | null => {
+  const warehouseConfig = input.dayNightConfig?.balance.warehouse;
+  if (
+    input.building.buildingTypeId === warehouseConfig?.buildingTypeId
+    && input.building.ownerPlayerId === input.playerId
+  ) {
+    const storage = resolvePlayerStorageCapacitySummary(input.state, input.playerId, warehouseConfig);
+    const summary = storage.warehouseSummary;
+    return [
+      { label: "Síť skladišť", value: String(summary.ownedWarehouseCount) },
+      { label: "Nejvyšší level", value: `L${summary.highestWarehouseLevel}` },
+      { label: "Bonus sítě", value: `x${summary.warehouseCountMultiplier.toFixed(2)}` },
+      { label: "Bonus levelu", value: `x${summary.warehouseLevelMultiplier.toFixed(2)}` },
+      { label: "Celkový násobitel", value: `x${summary.totalCapacityMultiplier.toFixed(2)}` },
+      ...storage.groups.map((group) => ({
+        label: group.label,
+        value: `${formatNumber(group.currentCapacity)} ks na položku`
+      })),
+      {
+        label: "Efekt",
+        value: "Počet aktivních skladišť a nejvyšší level zvyšují maximum každé položky."
+      }
+    ];
+  }
   if (input.building.buildingTypeId === "school" && input.schoolConfig && input.building.ownerPlayerId) {
     const ownedCount = getOwnedSchoolCount(input.state, input.building.ownerPlayerId, input.schoolConfig);
     const network = resolveSchoolNetworkMultipliers(ownedCount, input.schoolConfig);

@@ -40,6 +40,10 @@ import {
   isFactionIllegalActionBuilding
 } from "../rules/factions/factionRules";
 import { resolveEffectiveBuildingActionPreview } from "../rules/buildings/buildingActionCosts";
+import {
+  resolveBuildingActionStorageError,
+  resolveNormalizedPlayerResourceState
+} from "./buildingActionStorage";
 
 /**
  * Responsibility: Placeholder handler for building-specific actions.
@@ -79,7 +83,7 @@ export const handleUseBuildingAction = (
     };
   }
 
-  const currentPlayerResourceState = state.resourceStatesById[player.resourceStateId] ?? createPlayerResourceState(player, state.root.tick);
+  const { resourceState: currentPlayerResourceState, existed: hadPlayerResourceState } = resolveNormalizedPlayerResourceState(state, player, state.root.tick);
   let nextBalances = {
     ...currentPlayerResourceState.balances
   };
@@ -187,6 +191,11 @@ export const handleUseBuildingAction = (
     influenceChange: applyFactionInfluenceGain(resolvedAction.influenceChange, factionModifiers)
   };
 
+  const storageError = specialResolution ? null : resolveBuildingActionStorageError({ state, playerId: player.id, outputGain: resolvedAction.outputGain, context });
+  if (storageError) {
+    return { nextState: state, events: [], errors: [storageError] };
+  }
+
   if (specialResolution) {
     nextBalances = reconcileDayNightSpecialBalances({
       balances: specialResolution.balances,
@@ -213,7 +222,7 @@ export const handleUseBuildingAction = (
     ...currentPlayerResourceState,
     balances: nextBalances,
     lastUpdatedTick: state.root.tick,
-    version: currentPlayerResourceState.version + (state.resourceStatesById[player.resourceStateId] ? 1 : 0)
+    version: currentPlayerResourceState.version + (hadPlayerResourceState ? 1 : 0)
   };
   const cooldownTicks = resolveBuildingActionCooldownTicks({
     action: resolvedAction,
@@ -558,19 +567,6 @@ const resolveBuildingActionCooldownTicks = (input: {
       })
     : synergyAdjustedBaseTicks;
 };
-
-const createPlayerResourceState = (
-  player: CoreGameState["playersById"][string],
-  tick: number
-): ResourceState => ({
-  id: player.resourceStateId,
-  ownerType: "player",
-  ownerId: player.id,
-  balances: {},
-  incomeModifiers: {},
-  lastUpdatedTick: tick,
-  version: 1
-});
 
 const readSpecialBuildingPatches = (
   specialResolution: unknown

@@ -13,13 +13,14 @@ import {
   type MarketResourceId,
   type MarketType
 } from "../rules/market";
+import { canPlayerReceiveResource, normalizeStorageBalances } from "./warehouseBuilding";
 
 type MarketCommand = BuyMarketResourceCommand | SellMarketResourceCommand;
 
 export const handleMarketCommand = (
   state: CoreGameState,
   command: MarketCommand,
-  _context: GameCoreContext
+  context: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
   const player = state.playersById[command.playerId];
   if (!player) {
@@ -34,16 +35,34 @@ export const handleMarketCommand = (
     return rejected(state, "market_invalid_amount", "Množství v marketu musí být kladné celé číslo.");
   }
 
+  const normalizedState = normalizePlayerStorageAliases(state, player.id);
+  if (command.type === "buy-market-resource" && context.config.balance.warehouse) {
+    const capacityCheck = canPlayerReceiveResource(
+      normalizedState,
+      player.id,
+      command.payload.resourceId,
+      command.payload.amount,
+      context.config.balance.warehouse
+    );
+    if (!capacityCheck.allowed) {
+      return rejected(
+        state,
+        capacityCheck.code ?? "storage_capacity_full",
+        capacityCheck.message ?? "Sklad je pro tuto položku plný."
+      );
+    }
+  }
+
   const result = command.type === "buy-market-resource"
     ? buyResource(
-        state,
+        normalizedState,
         player,
         command.payload.resourceId,
         command.payload.amount,
         command.payload.marketType as MarketType,
         command.payload.paymentType as MarketPaymentType
       )
-    : sellResource(state, player, command.payload.resourceId, command.payload.amount);
+    : sellResource(normalizedState, player, command.payload.resourceId, command.payload.amount);
 
   if (!result.success || !result.nextState) {
     return rejected(
@@ -77,6 +96,20 @@ const createMarketEventPayload = (
   policeSuspicionAdded: result.policeSuspicionAdded || 0,
   auditTriggered: result.auditTriggered === true
 });
+
+const normalizePlayerStorageAliases = (state: CoreGameState, playerId: string): CoreGameState => {
+  const player = state.playersById[playerId];
+  const resourceState = player ? state.resourceStatesById[player.resourceStateId] : undefined;
+  if (!resourceState) return state;
+  const balances = normalizeStorageBalances(resourceState.balances);
+  return {
+    ...state,
+    resourceStatesById: {
+      ...state.resourceStatesById,
+      [resourceState.id]: { ...resourceState, balances }
+    }
+  };
+};
 
 const isMarketResourceId = (value: unknown): value is MarketResourceId =>
   typeof value === "string" && (marketResourceIds as readonly string[]).includes(value);

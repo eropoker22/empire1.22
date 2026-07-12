@@ -291,4 +291,48 @@ describe("building upgrade confirmation benefits", () => {
     expect(host.querySelector(".building-upgrade-confirm__button--ghost")?.textContent).toBe("Zpět");
     expect(host.querySelector(".building-upgrade-confirm__button--confirm")?.textContent).toBe("Potvrdit upgrade");
   });
+
+  it("uses server-provided warehouse capacities for the upgrade preview", () => {
+    const model = createBuildingUpgradeConfirmationViewModel({
+      buildingName: "Skladiště",
+      currentMechanics: { mechanicsType: "warehouse", level: 2, nextLevel: 3 },
+      nextMechanics: { mechanicsType: "warehouse", level: 3 },
+      warehouseUpgradePreview: {
+        capacityIncreases: true,
+        before: [
+          { id: "bulk", label: "Hromadné zásoby", capacity: 101 },
+          { id: "tactical", label: "Taktické zásoby", capacity: 41 },
+          { id: "strategic", label: "Strategické zásoby", capacity: 14 }
+        ],
+        after: [
+          { id: "bulk", label: "Hromadné zásoby", capacity: 113 },
+          { id: "tactical", label: "Taktické zásoby", capacity: 45 },
+          { id: "strategic", label: "Strategické zásoby", capacity: 15 }
+        ],
+        noIncreaseReason: null
+      }
+    });
+
+    expect(model.benefits.map((benefit) => benefit.detail)).toEqual(expect.arrayContaining([
+      "101 → 113 ks na položku",
+      "41 → 45 ks na položku",
+      "14 → 15 ks na položku"
+    ]));
+  });
+
+  it("states why a warehouse upgrade does not increase capacity", () => {
+    const result = resolveBuildingUpgradeBenefits({
+      warehouseUpgradePreview: {
+        capacityIncreases: false,
+        before: [],
+        after: [],
+        noIncreaseReason: "Kapacita se tímto upgradem nyní nezvýší, protože jiné aktivní Skladiště už má vyšší level."
+      }
+    });
+
+    expect(result.benefits[0]).toMatchObject({
+      value: "Beze změny",
+      detail: expect.stringContaining("jiné aktivní Skladiště")
+    });
+  });
 });

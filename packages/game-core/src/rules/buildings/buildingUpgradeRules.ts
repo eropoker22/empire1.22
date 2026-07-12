@@ -119,7 +119,8 @@ export const resolveProductionUpgradeConfig = (
   buildingTypeId: string,
   context: GameCoreContext
 ): BuildingUpgradeBalanceConfig | null => {
-  return context.config.balance.productionBuildings?.[buildingTypeId]?.upgrade
+  return (buildingTypeId === "pharmacy" ? context.config.balance.pharmacy?.upgrade : undefined)
+    ?? context.config.balance.productionBuildings?.[buildingTypeId]?.upgrade
     ?? context.config.balance.craftBuildings?.[buildingTypeId]?.upgrade
     ?? null;
 };

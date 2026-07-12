@@ -22,6 +22,8 @@ import { resolveRecyclingCenterSalvageStats } from "../handlers/recyclingCenterB
 import { getStripClubMetadata } from "../handlers/stripClubBuildingActions";
 import { getStockExchangeMetadata } from "../handlers/stockExchangeBuildingActions";
 import { resolveOpenChannelStats } from "../handlers/smugglingTunnelBuildingActions";
+import { resolveWarehouseUpgradeCapacityPreview } from "../handlers/warehouseBuilding";
+import { createPharmacyProductionBuildingView } from "./pharmacy-production-projection";
 import {
   getOwnedStreetDealerCount,
   getStreetDealersPlayerMetadata,
@@ -187,6 +189,16 @@ export const createDistrictPanelBuildingViews = (
       status: building.status,
       actionCooldowns: { ...(building.actionCooldowns ?? {}) },
       actions,
+      warehouseUpgradePreview: building.ownerPlayerId === input.playerId && input.config?.balance.warehouse
+        ? resolveWarehouseUpgradeCapacityPreview(input.state, building, input.config.balance.warehouse)
+        : null,
+      pharmacy: createPharmacyProductionBuildingView({
+        state: input.state,
+        building,
+        playerId: input.playerId,
+        config: input.config,
+        tickRateMs: input.tickRateMs
+      }),
       phaseAvailability: buildingPhaseRule?.phaseAvailability ?? "neutral",
       phaseBadgeLabel: buildingPhaseRule?.phaseBadgeLabel ?? null,
       phaseTooltip: buildingPhaseRule?.phaseTooltip ?? null,

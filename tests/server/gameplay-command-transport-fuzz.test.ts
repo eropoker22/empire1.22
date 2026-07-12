@@ -81,6 +81,8 @@ describe("gameplay command transport fuzzing", () => {
     ["occupy-district", { districtId: "district:2", sourceDistrictId: "district:1", ownerPlayerId: "player:1" }, "command.payload.ownerPlayerId"],
     ["collect-production", { districtId: "district:1", buildingId: "building:1", amount: 999 }, "command.payload.amount"],
     ["craft-item", { districtId: "district:1", buildingId: "building:1", recipeId: "pistol", output: { pistol: 99 } }, "command.payload.output"],
+    ["craft-item", { districtId: "district:1", buildingId: "building:1", recipeId: "chemicals", quantity: 2, price: 1 }, "command.payload.price"],
+    ["craft-item", { districtId: "district:1", buildingId: "building:1", recipeId: "chemicals", quantity: 2, durationTicks: 1 }, "command.payload.durationTicks"],
     ["run-building-action", { districtId: "district:1", buildingId: "building:1", actionId: "good_rate", heat: -999 }, "command.payload.heat"]
   ])("rejects unknown authority-shaped payload fields for %s", (type, payload, field) => {
     const result = validateSubmitGameplayCommandRequest(createSubmitRequest(type, payload));

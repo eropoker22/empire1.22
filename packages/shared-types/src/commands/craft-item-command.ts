@@ -13,6 +13,7 @@ export interface CraftItemPayload {
   districtId: DistrictId;
   buildingId: BuildingId;
   recipeId: string;
+  quantity?: number;
 }
 
 export type CraftItemCommand = ActionCommand<"craft-item", CraftItemPayload>;

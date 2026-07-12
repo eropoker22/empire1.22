@@ -4,6 +4,7 @@ import type { GameCoreContext } from "./context";
 import { collectIncome } from "../rules/economy/collectIncome";
 import { completeCraftProcessing } from "../rules/production/completeCraftProcessing";
 import { completeProduction } from "../rules/production/completeProduction";
+import { completePharmacyProduction } from "../rules/production/completePharmacyProduction";
 import { releaseExpiredPoliceConsequences } from "../rules/police/policeConsequenceExpiry";
 import { applyPoliceHeatDecay } from "../rules/police/heatDecay";
 import { expirePendingRaids } from "../rules/police/raidLifecycle";
@@ -43,7 +44,8 @@ export const runTick = (
   const releasedPoliceState = releaseExpiredPoliceConsequences(advancedState);
   const incomeState = collectIncome(releasedPoliceState, context);
   const producedState = completeProduction(incomeState, context);
-  const processingResult = completeCraftProcessing(producedState, context);
+  const pharmacyProductionState = completePharmacyProduction(producedState, context);
+  const processingResult = completeCraftProcessing(pharmacyProductionState, context);
   const streetDealerResult = context.config.balance.streetDealers
     ? completeStreetDealerSales(
         processingResult.nextState,

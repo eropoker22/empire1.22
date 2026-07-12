@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolveModeConfig } from "@empire/game-config";
 import { applyCommand, runTick } from "../../../packages/game-core/src/engine";
-import {
-  createCollectProductionCommandFixture,
-  createCraftItemCommandFixture
-} from "../../fixtures/command-fixtures";
+import { createCraftItemCommandFixture } from "../../fixtures/command-fixtures";
 import { createCoreStateWithFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
 
 const context = {
@@ -14,67 +11,53 @@ const TICKS_PER_MINUTE = Math.ceil(60_000 / context.config.tickRateMs);
 
 describe("craft-item command flow", () => {
   it("starts a processing job, reserves inputs, and credits output on a later server tick", () => {
-    const { state, building } = createCoreStateWithFixedBuildingFixture("pharmacy", {
-      includeWarehouse: true,
-      productionResourceKey: "chemicals"
+    const { state, building } = createCoreStateWithFixedBuildingFixture("factory", {
+      playerBalances: { "metal-parts": 4 }
     });
     const buildingId = building.id;
-    const collectedState = applyCommand(
-      runTick(runTick(state, context).nextState, context).nextState,
-      createCollectProductionCommandFixture({
-        payload: {
-          districtId: "district:1",
-          buildingId
-        }
-      }),
-      context
-    );
-
-    expect(collectedState.nextState.resourceStatesById["resource:1"]?.balances.chemicals).toBe(14);
-
     const crafted = applyCommand(
-      collectedState.nextState,
+      state,
       createCraftItemCommandFixture({
         payload: {
           districtId: "district:1",
           buildingId,
-          recipeId: "stim-pack"
+          recipeId: "tech-core"
         }
       }),
       context
     );
 
     expect(crafted.errors).toEqual([]);
-    expect(crafted.nextState.resourceStatesById["resource:1"]?.balances.chemicals).toBe(8);
-    expect(crafted.nextState.resourceStatesById["resource:1"]?.balances["stim-pack"]).toBeUndefined();
+    expect(crafted.nextState.resourceStatesById["resource:1"]?.balances["metal-parts"]).toBe(0);
+    expect(crafted.nextState.resourceStatesById["resource:1"]?.balances["tech-core"]).toBeUndefined();
     expect(crafted.nextState.buildingsById[buildingId]?.processing).toEqual({
-      recipeId: "stim-pack",
-      startedAtTick: 2,
-      completesAtTick: 2 + 10 * TICKS_PER_MINUTE
+      recipeId: "tech-core",
+      startedAtTick: 0,
+      completesAtTick: 6 * TICKS_PER_MINUTE
     });
     expect(crafted.events).toHaveLength(1);
     expect(crafted.events[0]?.type).toBe("item-processing-started");
     expect(crafted.events[0]?.payload).toMatchObject({
       buildingId,
-      completesAtTick: 2 + 10 * TICKS_PER_MINUTE,
+      completesAtTick: 6 * TICKS_PER_MINUTE,
       districtId: "district:1",
       playerId: "player:1",
-      recipeId: "stim-pack"
+      recipeId: "tech-core"
     });
 
     const afterOneTick = runTick(crafted.nextState, context);
 
-    expect(afterOneTick.nextState.buildingsById[buildingId]?.processing?.recipeId).toBe("stim-pack");
-    expect(afterOneTick.nextState.resourceStatesById["resource:1"]?.balances["stim-pack"]).toBeUndefined();
-    expect(afterOneTick.events).toEqual([]);
+    expect(afterOneTick.nextState.buildingsById[buildingId]?.processing?.recipeId).toBe("tech-core");
+    expect(afterOneTick.nextState.resourceStatesById["resource:1"]?.balances["tech-core"]).toBeUndefined();
+    expect(afterOneTick.events.some((event) => event.type === "item-crafted")).toBe(false);
 
     let completionTick = afterOneTick;
-    for (let index = 1; index < 10 * TICKS_PER_MINUTE; index += 1) {
+    for (let index = 1; index < 6 * TICKS_PER_MINUTE; index += 1) {
       completionTick = runTick(completionTick.nextState, context);
     }
 
     expect(completionTick.nextState.buildingsById[buildingId]?.processing).toBeNull();
-    expect(completionTick.nextState.resourceStatesById["resource:1"]?.balances["stim-pack"]).toBe(1);
+    expect(completionTick.nextState.resourceStatesById["resource:1"]?.balances["tech-core"]).toBe(1);
     const processingNotifications = completionTick.nextState.root.notificationIds
       .map((notificationId) => completionTick.nextState.notificationsById[notificationId])
       .filter((notification) => notification?.category === "processing.completed");
@@ -132,7 +115,6 @@ describe("craft-item command flow", () => {
   });
 
   it.each([
-    ["pharmacy", "stim-pack", {}],
     ["drug_lab", "pulse-shot", { chemicals: 1, biomass: 0 }],
     ["factory", "tech-core", { "metal-parts": 3 }],
     ["armory", "pistol", { "metal-parts": 2, "tech-core": 0 }]

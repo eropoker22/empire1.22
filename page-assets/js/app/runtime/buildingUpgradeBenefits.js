@@ -374,14 +374,47 @@ function addLevelMultiplierBenefit(benefits, currentMechanics, nextMechanics) {
   });
 }
 
+function addWarehouseUpgradePreviewBenefits(benefits, preview) {
+  if (!preview || !Array.isArray(preview.before) || !Array.isArray(preview.after)) {
+    return;
+  }
+  if (!preview.capacityIncreases) {
+    benefits.push({
+      id: "storage-no-change",
+      icon: "#",
+      label: "Kapacita zásob",
+      value: "Beze změny",
+      detail: preview.noIncreaseReason || "Kapacita se tímto upgradem nezvýší.",
+      tone: "neutral",
+      priority: BENEFIT_PRIORITY.storage
+    });
+    return;
+  }
+  for (const before of preview.before) {
+    const after = preview.after.find((candidate) => candidate?.id === before?.id);
+    if (!after || Number(after.capacity) <= Number(before.capacity)) continue;
+    benefits.push({
+      id: `storage-${before.id}`,
+      icon: "#",
+      label: before.label || "Kapacita zásob",
+      value: `${after.capacity} ks`,
+      detail: `${before.capacity} → ${after.capacity} ks na položku`,
+      tone: "positive",
+      priority: BENEFIT_PRIORITY.storage
+    });
+  }
+}
+
 export function resolveBuildingUpgradeBenefits({
   currentMechanics = {},
   nextMechanics = {},
+  warehouseUpgradePreview = null,
   maxVisible = 3
 } = {}) {
   const benefits = [];
   addRoleBenefitDeltas(benefits, currentMechanics, nextMechanics);
   addCommonBenefitDeltas(benefits, currentMechanics, nextMechanics);
+  addWarehouseUpgradePreviewBenefits(benefits, warehouseUpgradePreview);
   addLevelMultiplierBenefit(benefits, currentMechanics, nextMechanics);
 
   const sorted = benefits
@@ -408,7 +441,8 @@ export function createBuildingUpgradeConfirmationViewModel({
   displayName = "",
   currentMechanics = {},
   nextMechanics = {},
-  resourceStatus = {}
+  resourceStatus = {},
+  warehouseUpgradePreview = null
 } = {}) {
   const currentLevel = Math.max(1, Math.floor(Number(currentMechanics.level || 1)));
   const nextLevel = Math.max(currentLevel + 1, Math.floor(Number(currentMechanics.nextLevel || nextMechanics.level || currentLevel + 1)));
@@ -417,7 +451,7 @@ export function createBuildingUpgradeConfirmationViewModel({
     buildingName,
     fallbackLabel: displayName
   });
-  const benefitModel = resolveBuildingUpgradeBenefits({ currentMechanics, nextMechanics });
+  const benefitModel = resolveBuildingUpgradeBenefits({ currentMechanics, nextMechanics, warehouseUpgradePreview });
   return {
     buildingLabel: buildingTypeLabel,
     titleLabel: `${buildingTypeLabel} · L${currentLevel} → L${nextLevel}`,

@@ -418,6 +418,9 @@ export function renderCraftButton(recipe = {}, callbacks = {}, options = {}) {
 }
 
 export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
+  if (viewModel.buildingName === "pharmacy" && viewModel.serverLine) {
+    return renderServerPharmacyRecipeCard(viewModel, callbacks, options);
+  }
   const recipe = viewModel.recipe || {};
   const job = viewModel.job || null;
   const buildingName = String(viewModel.buildingName || "");
@@ -610,3 +613,4 @@ if (typeof window !== "undefined") {
     renderCraftButton
   };
 }
+import { renderServerPharmacyRecipeCard } from "./serverPharmacyRecipeCard.js";

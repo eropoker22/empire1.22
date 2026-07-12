@@ -6,7 +6,6 @@ import { createCoreStateWithFixedBuildingFixture } from "../../fixtures/game-sta
 
 describe("production collect command flow", () => {
   it.each([
-    ["pharmacy", "chemicals", 14],
     ["factory", "metal-parts", 8],
     ["drug_lab", "neon-dust", 2]
   ])("fills %s output on tick and moves it to player resources on collect", (
@@ -48,17 +47,17 @@ describe("production collect command flow", () => {
     expect(collected.events[0]?.type).toBe("production-collected");
   });
 
-  it("rejects collect-production when warehouse storage is already full", () => {
+  it("collects only available capacity and leaves the remainder in the production building", () => {
     const context = {
       config: resolveModeConfig("free")
     };
-    const { state, building } = createCoreStateWithFixedBuildingFixture("pharmacy", {
+    const { state, building } = createCoreStateWithFixedBuildingFixture("factory", {
       includeWarehouse: true,
-      productionResourceKey: "chemicals",
+      productionResourceKey: "metal-parts",
       productionStoredAmount: 12,
       playerBalances: {
         cash: 0,
-        chemicals: 350
+        "metal-parts": 88
       }
     });
     const buildingResourceStateId = `resource:${building.id}`;
@@ -66,13 +65,30 @@ describe("production collect command flow", () => {
     const collected = applyCommand(state, createCollectProductionCommandFixture({
       payload: {
         districtId: "district:1",
-        buildingId: building.id
+        buildingId: building.id,
+        resourceKey: "metal-parts"
       }
     }), context);
 
-    expect(collected.errors.map((error) => error.code)).toEqual(["production_storage_full"]);
-    expect(collected.events).toEqual([]);
-    expect(collected.nextState.resourceStatesById[buildingResourceStateId]?.balances.chemicals).toBe(12);
-    expect(collected.nextState.resourceStatesById["resource:1"]?.balances.chemicals).toBe(350);
+    expect(collected.errors).toEqual([]);
+    expect(collected.nextState.resourceStatesById[buildingResourceStateId]?.balances["metal-parts"]).toBe(10);
+    expect(collected.nextState.resourceStatesById["resource:1"]?.balances["metal-parts"]).toBe(90);
+  });
+
+  it("rejects collect-production when the global capacity is full", () => {
+    const context = { config: resolveModeConfig("free") };
+    const { state, building } = createCoreStateWithFixedBuildingFixture("factory", {
+      includeWarehouse: true,
+      productionResourceKey: "metal-parts",
+      productionStoredAmount: 12,
+      playerBalances: { cash: 0, "metal-parts": 90 }
+    });
+
+    const collected = applyCommand(state, createCollectProductionCommandFixture({
+      payload: { districtId: "district:1", buildingId: building.id, resourceKey: "metal-parts" }
+    }), context);
+
+    expect(collected.errors.map((error) => error.code)).toEqual(["storage_capacity_full"]);
+    expect(collected.nextState.resourceStatesById["resource:" + building.id]?.balances["metal-parts"]).toBe(12);
   });
 });

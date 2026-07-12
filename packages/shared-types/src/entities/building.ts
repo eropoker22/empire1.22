@@ -16,6 +16,16 @@ export interface BuildingProcessingJob {
   completesAtTick: number;
 }
 
+export interface BuildingProductionLine {
+  recipeId: string;
+  queuedAmount: number;
+  activeStartedAtTick: number | null;
+  activeCompletesAtTick: number | null;
+  reservedCleanCash: number;
+  unitCleanCashCost: number;
+  version: number;
+}
+
 export interface Building {
   id: BuildingId;
   serverInstanceId: ServerInstanceId;
@@ -27,6 +37,7 @@ export interface Building {
   status: BuildingStatus;
   disruptedUntilTick?: number | null;
   processing: BuildingProcessingJob | null;
+  productionLines?: Record<string, BuildingProductionLine>;
   actionCooldowns: Record<string, number>;
   metadata?: Record<string, unknown>;
   startedAt: string | null;
