@@ -1717,6 +1717,33 @@ describe("building detail, production and recipe UI modules", () => {
     expect(onPauseSlot).toHaveBeenCalledWith(line);
   });
 
+  it("keeps Factory loading slots visible without exposing local production values", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+
+    renderServerFactorySlotList(mount, [{
+      recipeId: "metal-parts",
+      resourceKey: "metal-parts",
+      label: "Metal Parts",
+      loading: true,
+      status: "loading",
+      queuedAmount: 0,
+      queueCapacity: 0,
+      canStart: false,
+      canCancelWaiting: false,
+      maxStartQuantity: 0,
+      disabledReason: "Načítám serverový detail Továrny."
+    }], {}, { mount });
+
+    const card = mount.children[0];
+    expect(card.querySelector(".drug-production-slot__state").textContent).toBe("Načítání");
+    expect(findMetricValue(card, "Čas")).toBe("—");
+    expect(findMetricValue(card, "Cena")).toBe("—");
+    expect(findMetricValue(card, "Ve frontě")).toBe("—");
+    expect(card.querySelector("[data-factory-slot-toggle-state=\"start\"]").disabled).toBe(true);
+    expect(card.querySelector("[data-factory-slot-toggle-state=\"stop\"]").disabled).toBe(true);
+  });
+
   it("shows pharmacy output as ready-to-collect capacity without unit text", () => {
     const document = setupDocument();
     const mount = document.createElement("div");

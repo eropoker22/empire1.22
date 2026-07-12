@@ -5,6 +5,29 @@ function queryAll(root, selector) {
   return selector ? Array.from(root?.querySelectorAll?.(selector) || []) : [];
 }
 
+const FACTORY_LOADING_SLOT_SPECS = Object.freeze([
+  Object.freeze({ recipeId: "metal-parts", resourceKey: "metal-parts", label: "Metal Parts" }),
+  Object.freeze({ recipeId: "tech-core", resourceKey: "tech-core", label: "Tech Core" }),
+  Object.freeze({ recipeId: "combat-module", resourceKey: "combat-module", label: "Bojový modul" })
+]);
+
+// These cards preserve the Factory shell while the authoritative building view loads.
+// They deliberately contain no balance values and cannot submit production commands.
+const createFactoryLoadingLines = () => FACTORY_LOADING_SLOT_SPECS.map((line) => ({
+  ...line,
+  loading: true,
+  queuedAmount: 0,
+  queueCapacity: 0,
+  activeAmount: 0,
+  waitingAmount: 0,
+  status: "loading",
+  canStart: false,
+  canCancelWaiting: false,
+  canCollect: false,
+  maxStartQuantity: 0,
+  disabledReason: "Načítám serverový detail Továrny."
+}));
+
 export function createFactoryPopupRuntime(deps = {}) {
   const selectors = deps.selectors || {};
   const documentRef = deps.documentRef || (typeof document !== "undefined" ? document : null);
@@ -99,6 +122,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     const renderFactoryDashboard = () => {
       const serverFactory = getAuthoritativeFactory();
       if (serverFactory) {
+        const productionLines = Array.isArray(serverFactory.productionLines) ? serverFactory.productionLines : [];
         const produced = Object.fromEntries((serverFactory.producedSummary || []).map((item) => [item.resourceKey, item]));
         const formatProduced = (item) => item ? String(item.currentAmount) + " / " + String(item.capacity) : "0 / 0";
         if (levelElement) levelElement.textContent = String(serverFactory.level || 1);
@@ -118,7 +142,16 @@ export function createFactoryPopupRuntime(deps = {}) {
           upgradeButton.title = productionUpgradeMessage;
           upgradeButton.setAttribute?.("aria-label", productionUpgradeMessage);
         }
-        deps.renderServerFactorySlotList?.(slotList, serverFactory.productionLines || [], {
+        if (productionLines.length === 0) {
+          deps.renderServerFactorySlotList?.(
+            slotList,
+            createFactoryLoadingLines(),
+            {},
+            { tickRateMs: deps.getServerTickRateMs?.() || 5000, formatDurationLabel: deps.formatDurationLabel }
+          );
+          return;
+        }
+        deps.renderServerFactorySlotList?.(slotList, productionLines, {
           onStartSlot: async (line, payload) => {
             const response = await deps.submitServerFactoryCommand?.({
               type: "craft-item",
@@ -159,7 +192,12 @@ export function createFactoryPopupRuntime(deps = {}) {
         if (combatElement) combatElement.textContent = "— / —";
         if (collectButton) collectButton.disabled = true;
         if (upgradeButton) upgradeButton.disabled = true;
-        slotList?.replaceChildren?.();
+        deps.renderServerFactorySlotList?.(
+          slotList,
+          createFactoryLoadingLines(),
+          {},
+          { tickRateMs: deps.getServerTickRateMs?.() || 5000, formatDurationLabel: deps.formatDurationLabel }
+        );
         return;
       }
       const syncResult = deps.syncFactoryProduction?.(deps.getStoredFactoryState?.()) || {};

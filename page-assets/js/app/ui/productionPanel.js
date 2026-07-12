@@ -432,7 +432,9 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     : slotView.priceLabel || "bez ceny");
   const queuedAmount = Math.max(0, Math.floor(Number(slotView.queuedAmount || slot.queuedAmount || 0)));
   const queueCap = Math.max(0, Math.floor(Number(slotView.queueCap || slot.queueCap || slotView.slotStorageCap || slot.slotCap || 0)));
-  appendMetric("Ve frontě", queueCap > 0 ? `${queuedAmount}/${queueCap} ks` : `${queuedAmount} ks`, true);
+  appendMetric("Ve frontě", serverLine?.loading
+    ? "—"
+    : queueCap > 0 ? `${queuedAmount}/${queueCap} ks` : `${queuedAmount} ks`, true);
 
   let selectedBatches = 1;
   const formatFactorySlotCost = (count = 1) => {
@@ -569,6 +571,7 @@ export function renderServerFactorySlotList(mount, lines = [], callbacks = {}, o
 }
 
 function formatFactoryServerTime(line, options) {
+  if (line.loading) return "—";
   const duration = Number(line.remainingMs || 0) > 0
     ? Number(line.remainingMs)
     : Number(line.effectiveUnitDurationTicks || 0) * Number(options.tickRateMs || 5000);
@@ -576,6 +579,7 @@ function formatFactoryServerTime(line, options) {
 }
 
 function formatFactoryServerCost(line, quantity) {
+  if (line.loading) return "—";
   return (line.costDisplayRows || []).map((row) => {
     const amount = Math.max(0, Number(row.amount || 0) * quantity);
     return row.resourceKey === "cash" ? "$" + amount + " clean" : amount + "× " + row.label;
@@ -584,6 +588,7 @@ function formatFactoryServerCost(line, quantity) {
 
 function getFactoryServerStatusLabel(status) {
   return {
+    loading: "Načítání",
     ready: "Připraveno",
     processing: "Výroba",
     waiting: "Čeká",

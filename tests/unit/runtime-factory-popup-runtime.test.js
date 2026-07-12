@@ -198,7 +198,31 @@ describe("factory popup runtime", () => {
 
     runtime.bindFactoryPopup(root);
     await open.dispatch("click");
-    expect(renderServerFactorySlotList).not.toHaveBeenCalled();
+    expect(renderServerFactorySlotList).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.arrayContaining([
+        expect.objectContaining({
+          recipeId: "metal-parts",
+          label: "Metal Parts",
+          loading: true,
+          canStart: false
+        }),
+        expect.objectContaining({
+          recipeId: "tech-core",
+          label: "Tech Core",
+          loading: true,
+          canStart: false
+        }),
+        expect.objectContaining({
+          recipeId: "combat-module",
+          label: "Bojový modul",
+          loading: true,
+          canStart: false
+        })
+      ]),
+      expect.anything(),
+      expect.anything()
+    );
 
     serverFactory = {
       districtId: "district:1",
