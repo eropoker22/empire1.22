@@ -508,8 +508,6 @@ export function renderStorageList(storageState = {}, options = {}) {
 
 function renderAuthoritativeStorageList(root, summary) {
   if (!summary || typeof summary !== "object" || !Array.isArray(summary.groups)) {
-    const panel = safeQuery(root, "[data-storage-summary]");
-    if (panel) panel.hidden = true;
     return false;
   }
 
@@ -541,19 +539,5 @@ function renderAuthoritativeStorageList(root, summary) {
         : "";
   }
 
-  const warehouse = summary.warehouseSummary || {};
-  const panel = safeQuery(root, "[data-storage-summary]");
-  if (panel) panel.hidden = false;
-  setText(root, "[data-storage-warehouse-count]", normalizeCount(warehouse.ownedWarehouseCount));
-  setText(root, "[data-storage-warehouse-level]", `L${normalizeCount(warehouse.highestWarehouseLevel)}`);
-  setText(root, "[data-storage-total-multiplier]", `x${Number(warehouse.totalCapacityMultiplier || 1).toFixed(2)}`);
-  setText(root, "[data-storage-capacity-summary]", summary.groups
-    .map((group) => `${group.label} ${normalizeCount(group.currentCapacity)}`)
-    .join(" | "));
   return true;
-}
-
-function setText(root, selector, value) {
-  const element = safeQuery(root, selector);
-  if (element) element.textContent = String(value);
 }

@@ -9,6 +9,7 @@ import {
   renderFactoryBuildingInfo,
   renderProductionBuildingInfo,
   renderFactorySlotCard,
+  renderServerFactorySlotList,
   renderProductionOutputs,
   renderProductionPanel
 } from "../../page-assets/js/app/ui/productionPanel.js";
@@ -1629,6 +1630,48 @@ describe("building detail, production and recipe UI modules", () => {
 
     card.querySelector("[data-factory-slot-toggle-state=\"stop\"]").click();
     expect(onPauseSlot).toHaveBeenCalledWith(expect.any(Object));
+  });
+
+  it("uses the existing Factory slot layout for authoritative production lines", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const onStartSlot = vi.fn();
+    const onPauseSlot = vi.fn();
+    const line = {
+      recipeId: "combat-module",
+      resourceKey: "combat-module",
+      label: "Bojový modul",
+      status: "waiting",
+      queuedAmount: 1,
+      queueCapacity: 2,
+      maxStartQuantity: 1,
+      canStart: true,
+      canCancelWaiting: true,
+      effectiveUnitDurationTicks: 180,
+      remainingMs: 0,
+      costDisplayRows: [
+        { resourceKey: "cash", amount: 2500 },
+        { resourceKey: "metal-parts", label: "Metal Parts", amount: 4 },
+        { resourceKey: "tech-core", label: "Tech Core", amount: 2 }
+      ]
+    };
+
+    renderServerFactorySlotList(mount, [line], { onStartSlot, onPauseSlot }, {
+      tickRateMs: 5000,
+      now: 100000
+    });
+
+    const card = mount.children[0];
+    expect(card.className).toContain("factory-slot");
+    expect(card.querySelector(".factory-slot__title-wrap")).not.toBe(null);
+    expect(card.querySelector(".drug-production-slot__icon--red")).not.toBe(null);
+    expect(findMetricValue(card, "Čas")).toBe("15m 00s");
+    expect(findMetricValue(card, "Cena")).toBe("$2500 clean · 4× Metal Parts · 2× Tech Core");
+    expect(findMetricValue(card, "Ve frontě")).toBe("1/2 ks");
+    card.querySelector("[data-factory-slot-toggle-state=\"start\"]").click();
+    card.querySelector("[data-factory-slot-toggle-state=\"stop\"]").click();
+    expect(onStartSlot).toHaveBeenCalledWith(line, { batchCount: 1 });
+    expect(onPauseSlot).toHaveBeenCalledWith(line);
   });
 
   it("shows pharmacy output as ready-to-collect capacity without unit text", () => {

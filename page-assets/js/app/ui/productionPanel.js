@@ -374,6 +374,7 @@ export function renderFactoryBuildingInfo(infoPanel, viewModel = {}, options = {
 }
 
 export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {}) {
+  const serverLine = slotView.serverLine || null;
   const slot = slotView.slot || {};
   const card = createElement(options.mount, "article");
   if (!card) return null;
@@ -398,7 +399,9 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
   icon.setAttribute("aria-hidden", "true");
   eyebrow.textContent = slotView.typeLabel || "";
   title.textContent = slotView.title || slot.resourceKey || "";
-  status.textContent = slot.isProducing ? "Aktivní" : "Pauza";
+  status.textContent = serverLine
+    ? getFactoryServerStatusLabel(serverLine.status)
+    : slot.isProducing ? "Aktivní" : "Pauza";
   if (slotView.typeLabel) {
     labelWrap.append(eyebrow);
   }
@@ -418,11 +421,15 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     return metricValue;
   };
 
-  const timeValue = appendMetric("Čas", formatFactorySlotTime(slotView, options));
-  if (slot.isProducing) {
+  const timeValue = appendMetric("Čas", serverLine
+    ? formatFactoryServerTime(serverLine, options)
+    : formatFactorySlotTime(slotView, options));
+  if (!serverLine && slot.isProducing) {
     bindFactoryMetricCountdown(timeValue, () => formatFactorySlotTime(slotView, options), options);
   }
-  const priceValue = appendMetric("Cena", slotView.priceLabel || "bez ceny");
+  const priceValue = appendMetric("Cena", serverLine
+    ? formatFactoryServerCost(serverLine, 1)
+    : slotView.priceLabel || "bez ceny");
   const queuedAmount = Math.max(0, Math.floor(Number(slotView.queuedAmount || slot.queuedAmount || 0)));
   const queueCap = Math.max(0, Math.floor(Number(slotView.queueCap || slot.queueCap || slotView.slotStorageCap || slot.slotCap || 0)));
   appendMetric("Ve frontě", queueCap > 0 ? `${queuedAmount}/${queueCap} ks` : `${queuedAmount} ks`, true);
@@ -442,6 +449,10 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
   };
   const updatePrice = () => {
     if (!priceValue) return;
+    if (serverLine) {
+      priceValue.textContent = formatFactoryServerCost(serverLine, selectedBatches);
+      return;
+    }
     if (slotView.displayCost) {
       priceValue.textContent = formatFactorySlotCost(selectedBatches);
       return;
@@ -468,11 +479,16 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     plusButton.setAttribute("aria-label", `Přidat výrobu ${slotView.title || slot.resourceKey || "slotu"}`);
     const refreshQuantity = () => {
       const queueSpace = queueCap > 0 ? Math.max(0, queueCap - queuedAmount) : Number.POSITIVE_INFINITY;
-      const selectionLimit = Number.isFinite(queueSpace) ? Math.max(1, queueSpace) : Number.POSITIVE_INFINITY;
+      const serverLimit = serverLine ? Math.max(0, Number(serverLine.maxStartQuantity || 0)) : Number.POSITIVE_INFINITY;
+      const selectionLimit = Math.min(
+        Number.isFinite(queueSpace) ? Math.max(1, queueSpace) : Number.POSITIVE_INFINITY,
+        serverLimit > 0 ? serverLimit : 1
+      );
       selectedBatches = Math.max(1, Math.min(selectedBatches, selectionLimit));
       quantityValue.textContent = String(selectedBatches);
-      minusButton.disabled = selectedBatches <= 1;
-      plusButton.disabled = Number.isFinite(selectionLimit) && selectedBatches >= selectionLimit;
+      minusButton.disabled = selectedBatches <= 1 || Boolean(serverLine && !serverLine.canStart);
+      plusButton.disabled = Boolean(serverLine && !serverLine.canStart)
+        || Number.isFinite(selectionLimit) && selectedBatches >= selectionLimit;
       updatePrice();
     };
     minusButton.addEventListener("click", () => {
@@ -493,16 +509,19 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     startButton.type = "button";
     startButton.dataset.factorySlotToggleState = "start";
     startButton.textContent = "Spustit";
-    startButton.disabled = queueCap > 0 && queuedAmount >= queueCap;
+    startButton.disabled = serverLine ? !serverLine.canStart : queueCap > 0 && queuedAmount >= queueCap;
+    startButton.title = serverLine?.disabledReason || "";
     startButton.addEventListener("click", () => {
-      if (typeof callbacks.onStartSlot === "function") callbacks.onStartSlot(slotView, { batchCount: selectedBatches });
+      if (typeof callbacks.onStartSlot === "function") callbacks.onStartSlot(serverLine || slotView, { batchCount: selectedBatches });
     });
     pauseButton.type = "button";
     pauseButton.dataset.factorySlotToggleState = "stop";
     pauseButton.textContent = "Zrušit";
-    pauseButton.disabled = !slot.isProducing && Math.max(0, Math.floor(Number(slot.queuedAmount ?? slotView.queuedAmount ?? 0))) <= 0;
+    pauseButton.disabled = serverLine
+      ? !serverLine.canCancelWaiting
+      : !slot.isProducing && Math.max(0, Math.floor(Number(slot.queuedAmount ?? slotView.queuedAmount ?? 0))) <= 0;
     pauseButton.addEventListener("click", () => {
-      if (typeof callbacks.onPauseSlot === "function") callbacks.onPauseSlot(slotView);
+      if (typeof callbacks.onPauseSlot === "function") callbacks.onPauseSlot(serverLine || slotView);
     });
     actions.append(quantityControl, startButton, pauseButton);
   }
@@ -526,95 +545,64 @@ export function renderServerFactorySlotList(mount, lines = [], callbacks = {}, o
   if (!mount) return false;
   mount.replaceChildren();
   mount.classList?.add?.("factory-slot-grid");
-  const formatDuration = options.formatDurationLabel || ((value) => String(value) + " ms");
   for (const line of Array.isArray(lines) ? lines : []) {
-    const card = createElement(mount, "article", line.status === "processing"
-      ? "factory-slot drug-production-slot factory-slot--active drug-production-slot--active"
-      : "factory-slot drug-production-slot");
-    if (!card) continue;
-    card.dataset.resourceColor = line.resourceKey || "";
-    const head = createElement(mount, "div", "factory-slot__head drug-production-slot__head");
-    const title = createElement(mount, "strong", "drug-production-slot__title");
-    const badge = createElement(mount, "span", "drug-production-slot__state");
-    const metrics = createElement(mount, "div", "drug-production-slot__metrics");
-    const actions = createElement(mount, "div", "factory-slot__actions");
-    if (!head || !title || !badge || !metrics || !actions) continue;
-    title.textContent = line.label || line.resourceKey || "";
-    badge.textContent = {
-      ready: "Připraveno",
-      processing: "Výroba",
-      waiting: "Čeká",
-      full: "Plná kapacita",
-      over_capacity: "Překročená kapacita",
-      completed: "Hotovo"
-    }[line.status] || "Připraveno";
-    head.append(title, badge);
-    const metric = (label, value) => {
-      const item = createElement(mount, "div", "drug-production-slot__metric");
-      const metricLabel = createElement(mount, "span", "drug-production-slot__metric-label");
-      const metricValue = createElement(mount, "strong", "drug-production-slot__metric-value");
-      if (!item || !metricLabel || !metricValue) return null;
-      metricLabel.textContent = label;
-      metricValue.textContent = value;
-      item.append(metricLabel, metricValue);
-      metrics.append(item);
-      return metricValue;
-    };
-    metric("Čas", line.remainingMs > 0 ? formatDuration(line.remainingMs) : formatDuration(line.effectiveUnitDurationTicks * (options.tickRateMs || 5000)));
-    const costValue = metric("Cena", "");
-    if (costValue) {
-      for (const row of line.costDisplayRows || []) {
-        const rowElement = createElement(mount, "span", "factory-slot__recipe-line");
-        if (!rowElement) continue;
-        rowElement.textContent = row.resourceKey === "cash"
-          ? "$" + row.amount + " clean"
-          : row.amount + "× " + row.label;
-        costValue.append(rowElement);
-      }
-    }
-    metric("Ve frontě", String(line.queuedAmount || 0) + "/" + String(line.queueCapacity || 0) + " ks");
-
-    let quantity = 1;
-    const quantityControl = createElement(mount, "div", "armory-slot__quantity factory-slot__quantity");
-    const minus = createElement(mount, "button", "armory-slot__quantity-btn factory-slot__quantity-btn");
-    const amount = createElement(mount, "strong", "armory-slot__quantity-value factory-slot__quantity-value");
-    const plus = createElement(mount, "button", "armory-slot__quantity-btn factory-slot__quantity-btn");
-    const updateQuantity = () => {
-      quantity = Math.max(1, Math.min(quantity, Math.max(1, Number(line.maxStartQuantity || 0))));
-      amount.textContent = String(quantity);
-      minus.disabled = quantity <= 1 || !line.canStart;
-      plus.disabled = !line.canStart || quantity >= Number(line.maxStartQuantity || 0);
-    };
-    if (quantityControl && minus && amount && plus) {
-      minus.type = "button";
-      plus.type = "button";
-      minus.textContent = "−";
-      plus.textContent = "+";
-      minus.addEventListener("click", () => { quantity -= 1; updateQuantity(); });
-      plus.addEventListener("click", () => { quantity += 1; updateQuantity(); });
-      quantityControl.append(minus, amount, plus);
-      updateQuantity();
-    }
-    const start = createElement(mount, "button", "button drug-lab-mini-btn factory-slot-button");
-    const cancel = createElement(mount, "button", "button drug-lab-mini-btn factory-slot-button");
-    if (start && cancel) {
-      start.type = "button";
-      start.dataset.factorySlotToggleState = "start";
-      start.textContent = "Spustit";
-      start.disabled = !line.canStart;
-      start.title = line.disabledReason || "";
-      start.addEventListener("click", () => callbacks.onStartSlot?.(line, { batchCount: quantity }));
-      cancel.type = "button";
-      cancel.dataset.factorySlotToggleState = "stop";
-      cancel.textContent = "Zrušit";
-      cancel.disabled = !line.canCancelWaiting;
-      cancel.addEventListener("click", () => callbacks.onPauseSlot?.(line));
-      actions.append(quantityControl, start, cancel);
-    }
-    card.append(head, metrics, actions);
-    mount.append(card);
+    const card = renderFactorySlotCard({
+      serverLine: line,
+      slot: {
+        resourceKey: getFactoryLegacyResourceKey(line.resourceKey),
+        isProducing: line.status === "processing",
+        producedAmount: 0,
+        queuedAmount: line.queuedAmount,
+        queueCap: line.queueCapacity,
+        slotCap: line.queueCapacity
+      },
+      title: line.label,
+      resourceColor: line.resourceKey,
+      queuedAmount: line.queuedAmount,
+      queueCap: line.queueCapacity,
+      slotOutputCap: line.queueCapacity,
+      ...getFactoryServerVisual(line.resourceKey)
+    }, callbacks, { ...options, mount });
+    if (card) mount.append(card);
   }
   return true;
+}
+
+function formatFactoryServerTime(line, options) {
+  const duration = Number(line.remainingMs || 0) > 0
+    ? Number(line.remainingMs)
+    : Number(line.effectiveUnitDurationTicks || 0) * Number(options.tickRateMs || 5000);
+  return formatDuration(duration, options);
+}
+
+function formatFactoryServerCost(line, quantity) {
+  return (line.costDisplayRows || []).map((row) => {
+    const amount = Math.max(0, Number(row.amount || 0) * quantity);
+    return row.resourceKey === "cash" ? "$" + amount + " clean" : amount + "× " + row.label;
+  }).join(" · ");
+}
+
+function getFactoryServerStatusLabel(status) {
+  return {
+    ready: "Připraveno",
+    processing: "Výroba",
+    waiting: "Čeká",
+    full: "Plná kapacita",
+    over_capacity: "Překročená kapacita",
+    completed: "Hotovo"
+  }[status] || "Připraveno";
+}
+
+function getFactoryLegacyResourceKey(resourceKey) {
+  return resourceKey === "metal-parts" ? "metalParts" : resourceKey === "tech-core" ? "techCore" : "combatModule";
+}
+
+function getFactoryServerVisual(resourceKey) {
+  return resourceKey === "metal-parts"
+    ? { iconToneClass: "drug-production-slot__icon--amber", iconGlyphClass: "drug-production-slot__icon--crate" }
+    : resourceKey === "tech-core"
+      ? { iconToneClass: "drug-production-slot__icon--cyan", iconGlyphClass: "drug-production-slot__icon--chip" }
+      : { iconToneClass: "drug-production-slot__icon--red", iconGlyphClass: "drug-production-slot__icon--crosshair" };
 }
 
 export function renderProductionPanel(productionViewModel = {}, callbacks = {}, options = {}) {
