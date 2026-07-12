@@ -4,6 +4,7 @@ export * from "./alliances/alliancePenaltyModifiers";
 export * from "./buildings/buildingActionCosts";
 export * from "./buildings/buildingUpgradeRules";
 export * from "./combat/combatMath";
+export * from "./combat/attackWeaponBalance";
 export * from "./combat/combatValidation";
 export * from "./combat/attackDuration";
 export * from "./combat/resolveCombat";

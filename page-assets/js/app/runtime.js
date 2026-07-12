@@ -980,6 +980,37 @@ function getServerPlayerView() {
   return latestGameplaySliceReadModel?.player || null;
 }
 
+function getServerAttackWeaponSetup() {
+  const weapons = latestGameplaySliceReadModel?.player?.attackWeapons?.weapons;
+  if (!Array.isArray(weapons) || weapons.length === 0) {
+    return null;
+  }
+  return Object.fromEntries(weapons.map((weapon) => [
+    weapon.resourceKey,
+    {
+      power: Math.max(0, Number(weapon.baseAttackPower) || 0),
+      residents: Math.max(0, Number(weapon.populationRequired) || 0),
+      label: String(weapon.label || ""),
+      description: String(weapon.description || "")
+    }
+  ]));
+}
+
+function getAttackSetupWeapons() {
+  return getServerAttackWeaponSetup() || ATTACK_SETUP_WEAPONS;
+}
+
+function getAttackWeaponLabels() {
+  const serverSetup = getServerAttackWeaponSetup();
+  if (!serverSetup) {
+    return ATTACK_WEAPON_LABELS;
+  }
+  return Object.fromEntries(Object.entries(serverSetup).map(([weaponId, weapon]) => [
+    weaponId,
+    weapon.label || ATTACK_WEAPON_LABELS[weaponId] || weaponId
+  ]));
+}
+
 function getServerPharmacyReadModel() {
   const district = latestGameplaySliceReadModel?.district;
   const building = district?.buildings?.find?.((candidate) => candidate?.buildingTypeId === "pharmacy" && candidate?.pharmacy);
@@ -5754,7 +5785,7 @@ function getArmoryRecipeStrengthPreview(recipeId = "", recipe = {}) {
   const isDefense = Object.prototype.hasOwnProperty.call(DEFENSE_POWER_BY_WEAPON, itemId);
   const basePower = isDefense
     ? Number(DEFENSE_POWER_BY_WEAPON[itemId] || 0)
-    : Number(ATTACK_SETUP_WEAPONS[itemId]?.power || 0);
+    : Number(getAttackSetupWeapons()[itemId]?.power || 0);
   if (!basePower) {
     return null;
   }
@@ -5771,10 +5802,10 @@ function getArmoryRecipeStrengthPreview(recipeId = "", recipe = {}) {
   };
 }
 
-function getRecruitmentAttackWeaponModifiers() {
+function getRecruitmentAttackWeaponModifiers(weaponDefinitions = getAttackSetupWeapons()) {
   const support = resolveCurrentRecruitmentCenterCombatSupport();
   const bonusPct = Math.max(0, Number(support.attackWeaponStrengthBonusPct || 0));
-  return Object.fromEntries(Object.keys(ATTACK_SETUP_WEAPONS).map((weaponId) => [
+  return Object.fromEntries(Object.keys(weaponDefinitions).map((weaponId) => [
     weaponId,
     1 + bonusPct / 100
   ]));
@@ -5796,8 +5827,9 @@ function getRecruitmentDefenseItemModifiers() {
 }
 
 function calculateAttackDeploymentWithRecruitmentSupport(loadout = {}) {
-  const base = calculateAttackDeployment(loadout);
-  const boosted = calculateAttackDeployment(loadout, getRecruitmentAttackWeaponModifiers());
+  const weaponDefinitions = getAttackSetupWeapons();
+  const base = calculateAttackDeployment(loadout, {}, weaponDefinitions);
+  const boosted = calculateAttackDeployment(loadout, getRecruitmentAttackWeaponModifiers(weaponDefinitions), weaponDefinitions);
   const bonusPower = Math.max(0, Number(boosted.totalPower || 0) - Number(base.totalPower || 0));
   return {
     ...boosted,
@@ -10167,8 +10199,8 @@ function bindDistrictCanvas(root) {
     populateOccupyConfirmPopup
   } = createDistrictActionPanelRuntime({
     attackCooldownMs: ATTACK_COOLDOWN_MS,
-    attackSetupWeapons: ATTACK_SETUP_WEAPONS,
-    attackWeaponLabels: ATTACK_WEAPON_LABELS,
+    getAttackSetupWeapons,
+    getAttackWeaponLabels,
     calculateAttackDeployment: calculateAttackDeploymentWithRecruitmentSupport,
     calculateTotalDefensePower: calculateTotalDefensePowerWithRecruitmentSupport,
     clamp,
@@ -12094,7 +12126,7 @@ function bindDistrictCanvas(root) {
         return;
       }
 
-      if (isServerAuthoritativeGameplayRuntimeReady() && ["attack", "heist", "occupy", "rob", "spy", "trap"].includes(actionId)) {
+      if (isServerAuthoritativeGameplayRuntimeReady() && ["heist", "occupy", "rob", "spy", "trap"].includes(actionId)) {
         const player = latestGameplaySliceReadModel?.player || {};
         const adjacentOwnedDistrictIds = getAdjacentOwnedDistrictIds(selectedDistrict);
         const sourceDistrictId = adjacentOwnedDistrictIds.length
@@ -12255,13 +12287,32 @@ function bindDistrictCanvas(root) {
     input.dispatchEvent(new Event("input", { bubbles: true }));
   };
 
+  const getPopulationLimitedAttackInputMaximum = (targetInput) => {
+    const weaponId = targetInput?.dataset?.attackWeaponInput;
+    const weaponDefinitions = getAttackSetupWeapons();
+    const populationRequired = Math.max(1, Number(weaponDefinitions[weaponId]?.residents || 0));
+    const ownedInventory = getResolvedWeaponInventory();
+    const ownedAmount = Math.max(0, Number(ownedInventory[weaponId] || 0));
+    const populationUsedByOtherWeapons = attackWeaponInputs.reduce((total, input) => {
+      if (input === targetInput) {
+        return total;
+      }
+      const otherWeaponId = input.dataset.attackWeaponInput;
+      const otherPopulationRequired = Math.max(0, Number(weaponDefinitions[otherWeaponId]?.residents || 0));
+      const quantity = Math.max(0, Number.parseInt(input.value || "0", 10) || 0);
+      return total + quantity * otherPopulationRequired;
+    }, 0);
+    const availablePopulation = getAvailableAttackPopulation();
+    const populationMaximum = Math.floor(Math.max(0, availablePopulation - populationUsedByOtherWeapons) / populationRequired);
+    return Math.min(ownedAmount, populationMaximum);
+  };
+
   for (const input of attackWeaponInputs) {
     input.addEventListener("input", () => {
-      const weaponId = input.dataset.attackWeaponInput;
-      const ownedInventory = getResolvedWeaponInventory();
-      const maxInventory = weaponId ? ownedInventory[weaponId] ?? 0 : 0;
+      const maxInventory = getPopulationLimitedAttackInputMaximum(input);
       const normalizedValue = clamp(Number.parseInt(input.value || "0", 10) || 0, 0, maxInventory);
       input.value = String(normalizedValue);
+      input.max = String(maxInventory);
       renderAttackSummary();
     });
   }
@@ -12284,11 +12335,7 @@ function bindDistrictCanvas(root) {
 
       const attackInput = attackWeaponInputs.find((input) => input.dataset.attackWeaponInput === target);
       if (attackInput) {
-        adjustStepperInput(attackInput, delta, () => {
-          const weaponId = attackInput.dataset.attackWeaponInput;
-          const ownedInventory = getResolvedWeaponInventory();
-          return weaponId ? (ownedInventory[weaponId] ?? 0) : 0;
-        });
+        adjustStepperInput(attackInput, delta, () => getPopulationLimitedAttackInputMaximum(attackInput));
         return;
       }
 
@@ -12380,7 +12427,11 @@ function bindDistrictCanvas(root) {
         const context = getPendingAttackContext() || getPreparedAttackContext(selectedDistrict);
         void submitServerDistrictActionCommand({
           type: "attack-district",
-          payload: { districtId: `district:${selectedDistrict.id}`, sourceDistrictId: `district:${context?.sourceDistrictId || ""}` },
+          payload: {
+            districtId: `district:${selectedDistrict.id}`,
+            sourceDistrictId: `district:${context?.sourceDistrictId || ""}`,
+            weapons: context?.attackLoadout || {}
+          },
           focusDistrictId: `district:${selectedDistrict.id}`
         }).then((response) => {
           if (response?.accepted) {

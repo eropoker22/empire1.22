@@ -1,5 +1,9 @@
 import type { ResolvedGameModeConfig } from "../contracts/game-mode-config";
-import { validateDrugLabProductionConfig, validateFactoryProductionConfig, validatePharmacyProductionConfig, validateWarehouseStorageConfig } from "@empire/game-core";
+import { validateDrugLabProductionConfig } from "../../../game-core/src/handlers/drugLabProductionConfig";
+import { validateFactoryProductionConfig } from "../../../game-core/src/handlers/factoryProductionConfig";
+import { validatePharmacyProductionConfig } from "../../../game-core/src/handlers/pharmacyProductionConfig";
+import { validateWarehouseStorageConfig } from "../../../game-core/src/handlers/storageCapacityTypes";
+import { validateAttackWeaponsConfig } from "../../../game-core/src/rules/combat/attackWeaponBalance";
 
 /**
  * Responsibility: Guards resolved mode configs against obviously invalid structural values.
@@ -84,6 +88,9 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
   }
   if (config.balance.factory) {
     validateFactoryProductionConfig(config.balance.factory);
+  }
+  if (config.balance.attackWeapons) {
+    validateAttackWeaponsConfig(config.balance.attackWeapons);
   }
 
   const elimination = config.balance.elimination;

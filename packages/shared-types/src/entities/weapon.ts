@@ -20,7 +20,6 @@ export type DefenseWeaponId = (typeof DEFENSE_WEAPON_IDS)[number];
 export interface AttackWeaponDefinition {
   id: AttackWeaponId;
   name: string;
-  attackPower: number;
   specialRule: string;
 }
 
@@ -35,31 +34,26 @@ export const ATTACK_WEAPONS: readonly AttackWeaponDefinition[] = [
   {
     id: "baseball-bat",
     name: "Baseballová pálka",
-    attackPower: 5,
     specialRule: "Základní melee útočná zbraň bez speciálního bonusu."
   },
   {
     id: "pistol",
     name: "Pistole",
-    attackPower: 10,
     specialRule: "Stabilní standardní střelná zbraň bez dodatečného efektu."
   },
   {
     id: "grenade",
     name: "Granát",
-    attackPower: 14,
     specialRule: "Ignoruje 0,3 % obrany cílového districtu za každý použitý kus."
   },
   {
     id: "smg",
     name: "SMG",
-    attackPower: 18,
     specialRule: "Při použití všech 5 attack zbraní v jednom útoku získá každé SMG bonus +0,2 power za kus."
   },
   {
     id: "bazooka",
     name: "Bazuka",
-    attackPower: 30,
     specialRule: "Každý kus zvyšuje šanci na totální destrukci napadeného districtu o 0,5 %."
   }
 ] as const;

@@ -114,12 +114,14 @@ export function createAttackSetupViewModel({
   district,
   adjacentOwnedDistrictIds = [],
   weaponInventory = {},
+  weaponStats = {},
   atmosphereMeta = {}
 } = {}) {
   return {
     targetDistrictId: district?.id,
     sourceDistrictIds: adjacentOwnedDistrictIds,
     weaponInventory,
+    weaponStats,
     atmosphereMeta
   };
 }

@@ -33,6 +33,7 @@ import { freeModeWarehouseConfig } from "../../public/free-mode-warehouse-config
 import { freeModePharmacyConfig } from "./free-mode-pharmacy-config";
 import { freeModeDrugLabConfig } from "./free-mode-drug-lab-config";
 import { freeModeFactoryConfig } from "./free-mode-factory-config";
+import { freeModeAttackWeaponsConfig } from "../../public/free-mode-attack-weapons-config";
 import { freeModePoliceConfig } from "./free-police-config";
 import {
   FREE_MODE_COOLDOWN_MULTIPLIER,
@@ -141,6 +142,7 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
       "metal-parts": 8,
       "tech-core": 2
     },
+    attackWeapons: freeModeAttackWeaponsConfig,
     factions: FACTION_DEFINITION_BY_ID,
     craftBuildings: freeModeCraftBuildings,
     pharmacy: freeModePharmacyConfig,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyCommand } from "../../../packages/game-core/src/engine";
 import { resolveModeConfig } from "../../../packages/game-config/src";
+import { freeModeAttackWeaponsConfig } from "../../../packages/game-config/src/public/free-mode-attack-weapons-config";
 import { createAttackDistrictCommandFixture } from "../../fixtures/command-fixtures";
 import { createCombatStateFixture, createFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
 
@@ -24,7 +25,8 @@ const context = {
       victoryConditionKey: "default-control",
       startingResources: {
         cash: 1000
-      }
+      },
+      attackWeapons: freeModeAttackWeaponsConfig
     },
     technical: {
       sessionTtlMs: 1,
@@ -77,7 +79,7 @@ describe("attack-district command flow", () => {
     expect(result.errors).toEqual([
       {
         code: "TARGET_NOT_ADJACENT",
-        message: "Player can only attack a district that borders the selected source district."
+        message: "Útočit můžeš jen na district, který sousedí s vybraným zdrojovým districtem."
       }
     ]);
   });
@@ -92,7 +94,7 @@ describe("attack-district command flow", () => {
     expect(result.errors).toEqual([
       {
         code: "SPY_REQUIRED",
-        message: "A valid successful spy authorization is required before attacking this district."
+        message: "Před útokem na tenhle district potřebuješ platné úspěšné špehování."
       }
     ]);
     expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBe("player:2");
@@ -125,7 +127,7 @@ describe("attack-district command flow", () => {
     expect(result.errors).toEqual([
       {
         code: "TARGET_IS_ALLY",
-        message: "Player cannot attack an allied district."
+        message: "Nemůžeš útočit na spojenecký district."
       }
     ]);
   });
@@ -281,7 +283,8 @@ describe("attack-district command flow", () => {
     expect(attackPayload.recruitmentDefenseItemStrengthBonusPct).toBe(3);
     expect(attackPayload.cameraStrengthBonusPct).toBe(3);
     expect(attackPayload.alarmStrengthBonusPct).toBe(3);
-    expect(Number(attackPayload.attackPower)).toBeCloseTo(83.376);
+    expect(Number(attackPayload.attackPower)).toBeCloseTo(77);
+    expect(Number(attackPayload.attackPowerAfterTrap)).toBeCloseTo(83.376);
     expect(Number(attackPayload.defensePower)).toBeCloseTo(127.72);
   });
 

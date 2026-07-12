@@ -144,11 +144,16 @@ describe("attack and spy panel renderers", () => {
     ownedBat.dataset.attackOwned = "bat";
     const batInput = createElement("input", document);
     batInput.dataset.attackWeaponInput = "bat";
+    const batStats = createElement("span", document);
+    batInput.closest = () => ({
+      querySelector: () => batStats
+    });
 
     expect(renderAttackPanel({
       targetDistrictId: 7,
       sourceDistrictIds: [2],
       weaponInventory: { bat: 3 },
+      weaponStats: { bat: { power: 18, residents: 2 } },
       atmosphereMeta: { typeKey: "downtown", label: "Downtown", imagePath: "img/downtown.webp" }
     }, {}, {
       elements: {
@@ -172,6 +177,7 @@ describe("attack and spy panel renderers", () => {
     expect(sourceSelect.value).toBe("2");
     expect(ownedBat.textContent).toBe("3");
     expect(batInput.max).toBe("3");
+    expect(batStats.textContent).toBe("Síla 18 · 2 obyvatelé");
     expect(card.dataset.districtType).toBe("downtown");
     expect(imageElement.src).toBe("img/downtown.webp");
     expect(imageElement.dataset.atmosphereImagePath).toBe("img/downtown.webp");

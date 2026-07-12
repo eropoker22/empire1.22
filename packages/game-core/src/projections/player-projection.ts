@@ -19,6 +19,7 @@ import {
   normalizeStorageBalances,
   resolvePlayerStorageCapacitySummary
 } from "../handlers/warehouseBuilding";
+import { resolveAttackWeaponInventory } from "../rules";
 
 /**
  * Responsibility: Builds a minimal player-facing projection from authoritative core state.
@@ -35,6 +36,14 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
   const resourceBalances = player
     ? normalizeStorageBalances(state.resourceStatesById[player.resourceStateId]?.balances ?? {})
     : {};
+  const attackWeaponInventory = player
+    ? resolveAttackWeaponInventory(resourceBalances, player.attackLoadout)
+    : {};
+  for (const weaponId of ATTACK_WEAPON_IDS) {
+    if (!Object.prototype.hasOwnProperty.call(resourceBalances, weaponId)) {
+      resourceBalances[weaponId] = Number(attackWeaponInventory[weaponId] || 0);
+    }
+  }
   if (player && Number.isFinite(Number(player.population))) {
     resourceBalances.population = Math.max(0, Number(player.population || 0));
   }
@@ -51,6 +60,22 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
     resourceBalances,
     storage: player && context?.config.balance.warehouse
       ? resolvePlayerStorageCapacitySummary(state, playerId, context.config.balance.warehouse)
+      : null,
+    attackWeapons: player && context?.config.balance.attackWeapons
+      ? {
+          availablePopulation: Math.max(0, Math.floor(Number(player.population ?? resourceBalances.population ?? 0))),
+          weapons: ATTACK_WEAPON_IDS.map((weaponId) => {
+            const weapon = context.config.balance.attackWeapons![weaponId];
+            return {
+              resourceKey: weaponId,
+              label: weapon.label,
+              description: weapon.description,
+              baseAttackPower: weapon.baseAttackPower,
+              populationRequired: weapon.populationRequired,
+              availableAmount: Math.max(0, Number(attackWeaponInventory[weaponId] || 0))
+            };
+          })
+        }
       : null,
     economy,
     faction: createFactionReadModel(state, playerId, context),

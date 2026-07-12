@@ -154,6 +154,7 @@ export const createCombatStateFixture = (instanceId = "instance:1") => {
   const state = createInitialState(instanceId, "free");
   const attacker = createPlayerFixture({
     serverInstanceId: instanceId,
+    population: 100,
     attackLoadout: {
       "baseball-bat": 1,
       pistol: 1,
@@ -199,7 +200,8 @@ export const createCombatStateFixture = (instanceId = "instance:1") => {
     ownerType: "player",
     ownerId: attacker.id,
     balances: {
-      cash: 1000
+      cash: 1000,
+      population: 100
     }
   });
   state.resourceStatesById[defender.resourceStateId] = createResourceStateFixture({

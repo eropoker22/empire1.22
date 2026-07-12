@@ -16,6 +16,7 @@ import type { FactionReadModel } from "./faction-read-model-view";
 import type { FinalLockdownReadModel } from "./final-lockdown-read-model-view";
 import type { PlayerEconomyView } from "./player-economy-view";
 import type { PoliceReadModel } from "./police-read-model-view";
+import type { AttackWeaponId } from "../entities/weapon";
 
 /**
  * Responsibility: Minimal player-facing projection rendered by the client.
@@ -33,6 +34,8 @@ export interface PlayerView {
   resourceBalances: Record<string, number>;
   /** Present on gameplay read models from the authoritative server. */
   storage?: PlayerStorageView | null;
+  /** Present on gameplay read models from the authoritative server. */
+  attackWeapons?: PlayerAttackWeaponsView | null;
   economy: PlayerEconomyView;
   faction?: FactionReadModel | null;
   dayNight?: DayNightReadModel | null;
@@ -42,6 +45,20 @@ export interface PlayerView {
   alliance?: PlayerAllianceLifecycleView | null;
   notifications: Notification[];
   victoryState: VictoryState | null;
+}
+
+export interface PlayerAttackWeaponsView {
+  availablePopulation: number;
+  weapons: PlayerAttackWeaponView[];
+}
+
+export interface PlayerAttackWeaponView {
+  resourceKey: AttackWeaponId;
+  label: string;
+  description: string;
+  baseAttackPower: number;
+  populationRequired: number;
+  availableAmount: number;
 }
 
 export interface PlayerStorageView {

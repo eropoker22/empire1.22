@@ -1,5 +1,6 @@
 import type { DomainError } from "@empire/shared-types";
 import { isAllianceCommandType, validateAllianceCommandPayload } from "./gameplay-alliance-payload-validation";
+import { validateAttackWeaponsPayload } from "./gameplay-attack-payload-validation";
 import { isBasicActionCommandType, validateBasicActionCommandPayload } from "./gameplay-basic-action-payload-validation";
 import { isBountyCommandType, validateBountyCommandPayload } from "./gameplay-bounty-payload-validation";
 import { isMarketCommandType, validateMarketCommandPayload } from "./gameplay-market-payload-validation";
@@ -43,8 +44,9 @@ export const validateGameCommandPayload = (
       requireStringField(errors, "submit", payload, "raidId", "command.payload.raidId");
       break;
     case "attack-district":
-      rejectUnknownPayloadFields(errors, payload, ["districtId", "sourceDistrictId"]);
+      rejectUnknownPayloadFields(errors, payload, ["districtId", "sourceDistrictId", "weapons"]);
       validateDistrictPayload(errors, payload, true);
+      validateAttackWeaponsPayload(errors, payload);
       break;
     case "build-structure":
       errors.push(createInvalidFieldError(

@@ -1,7 +1,14 @@
-import type { AttackDistrictCommand } from "@empire/shared-types";
+import { ATTACK_WEAPON_IDS, type AttackDistrictCommand, type AttackWeaponId } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { CoreError } from "../errors";
-import { calculateTotalAttackPower, validateMapAction } from "../rules";
+import type { GameCoreContext } from "../engine/context";
+import {
+  calculateAttackPopulationRequired,
+  calculateTotalAttackPower,
+  normalizeAttackWeaponLoadout,
+  resolveAttackWeaponInventory,
+  validateMapAction
+} from "../rules";
 import { hasValidAttackAuthorization } from "./spyIntel";
 
 /**
@@ -11,7 +18,8 @@ import { hasValidAttackAuthorization } from "./spyIntel";
  */
 export const validateAttack = (
   state: CoreGameState,
-  command: AttackDistrictCommand
+  command: AttackDistrictCommand,
+  context?: GameCoreContext
 ): CoreError[] => {
   const attacker = state.playersById[command.playerId];
   const targetDistrict = state.districtsById[command.payload.districtId];
@@ -57,13 +65,43 @@ export const validateAttack = (
     ];
   }
 
-  if (calculateTotalAttackPower(attacker.attackLoadout) <= 0) {
+  const attackWeapons = context?.config.balance.attackWeapons;
+  const selection = resolveAttackWeaponLoadout(state, attacker, command);
+  if (selection.error) return [selection.error];
+  if (!attackWeapons) {
+    if (context) {
+      return [{
+        code: "attack_weapon_config_missing",
+        message: "Konfigurace útočných zbraní není dostupná."
+      }];
+    }
+    if (Object.values(selection.loadout).some((quantity) => Number(quantity) > 0)) {
+      return [];
+    }
+    return [{
+      code: "attack_empty_loadout",
+      message: "Pro útok musíš vybrat alespoň jednu útočnou zbraň."
+    }];
+  }
+  if (calculateTotalAttackPower(selection.loadout, attackWeapons) <= 0) {
     return [
       {
-        code: "no_attack_weapons",
-        message: "Hráč nemá pro tenhle útok dostupné žádné útočné zbraně."
+        code: "attack_empty_loadout",
+        message: "Pro útok musíš vybrat alespoň jednu útočnou zbraň."
       }
     ];
+  }
+  for (const weaponId of ATTACK_WEAPON_IDS) {
+    if (Number(selection.loadout[weaponId] || 0) > Number(selection.inventory[weaponId] || 0)) {
+      return [{ code: "attack_insufficient_weapon_inventory", message: "Nemáš dost kusů této zbraně." }];
+    }
+  }
+  const availablePopulation = Math.max(0, Math.floor(Number(
+    attacker.population ?? state.resourceStatesById[attacker.resourceStateId]?.balances?.population ?? 0
+  )));
+  const requiredPopulation = calculateAttackPopulationRequired(selection.loadout, attackWeapons);
+  if (availablePopulation < requiredPopulation) {
+    return [{ code: "attack_insufficient_population", message: "Nemáš dost obyvatel pro vybranou výzbroj." }];
   }
 
   const attackCooldownKey = `attack:${targetDistrict.id}`;
@@ -101,4 +139,38 @@ const mapActionErrorMessage = (reasonCode: string | undefined): string => {
     default:
       return "V tomhle districtu nejde útok spustit.";
   }
+};
+
+export const resolveAttackWeaponLoadout = (
+  state: CoreGameState,
+  player: NonNullable<CoreGameState["playersById"][string]>,
+  command: AttackDistrictCommand
+): {
+  loadout: Partial<Record<AttackWeaponId, number>>;
+  inventory: Partial<Record<AttackWeaponId, number>>;
+  error: CoreError | null;
+} => {
+  const inventory = getAttackWeaponInventory(state, player);
+  const normalized = normalizeAttackWeaponLoadout(command.payload.weapons ?? inventory);
+  if (normalized.errorCode) {
+    return {
+      loadout: {},
+      inventory,
+      error: {
+        code: normalized.errorCode,
+        message: normalized.errorCode === "attack_unknown_weapon"
+          ? "Tato zbraň není dostupná."
+          : "Vybrané množství zbraně není platné."
+      }
+    };
+  }
+  return { loadout: normalized.loadout, inventory, error: null };
+};
+
+export const getAttackWeaponInventory = (
+  state: CoreGameState,
+  player: NonNullable<CoreGameState["playersById"][string]>
+): Partial<Record<AttackWeaponId, number>> => {
+  const balances = state.resourceStatesById[player.resourceStateId]?.balances ?? {};
+  return resolveAttackWeaponInventory(balances, player.attackLoadout);
 };

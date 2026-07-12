@@ -5,6 +5,7 @@ import {
   calculateSmgComboBonus,
   calculateTotalAttackPower
 } from "../../../../packages/game-core/src/rules";
+import { freeModeAttackWeaponsConfig } from "../../../../packages/game-config/src/public/free-mode-attack-weapons-config";
 
 describe("combatMath", () => {
   it("adds SMG combo bonus only when all five attack weapons are present", () => {
@@ -27,7 +28,7 @@ describe("combatMath", () => {
         grenade: 1,
         smg: 1,
         bazooka: 1
-      })
+      }, freeModeAttackWeaponsConfig)
     ).toBeCloseTo(77.2);
 
     expect(

@@ -3,6 +3,8 @@ import {
   type AttackWeaponId,
   type DefenseWeaponId
 } from "@empire/shared-types";
+import type { AttackWeaponsBalanceConfig } from "../../contracts";
+import { calculateAttackWeaponPower } from "./attackWeaponBalance";
 
 /**
  * Responsibility: Houses deterministic combat math helpers.
@@ -10,14 +12,6 @@ import {
  * Does not belong here: state mutation or command routing.
  */
 export const calculateCombatDelta = (): number => 0;
-
-const ATTACK_POWER_BY_WEAPON: Record<AttackWeaponId, number> = {
-  "baseball-bat": 5,
-  pistol: 10,
-  grenade: 14,
-  smg: 18,
-  bazooka: 30
-};
 
 const DEFENSE_POWER_BY_WEAPON: Record<DefenseWeaponId, number> = {
   vest: 6,
@@ -29,14 +23,9 @@ const DEFENSE_POWER_BY_WEAPON: Record<DefenseWeaponId, number> = {
 
 export const calculateBaseAttackPower = (
   loadout: Partial<Record<AttackWeaponId, number>>,
+  attackWeapons: AttackWeaponsBalanceConfig,
   modifiers: Partial<Record<AttackWeaponId, number>> = {}
-): number =>
-  Object.entries(loadout).reduce((totalPower, [weaponId, amount]) => {
-    const normalizedAmount = Math.max(0, amount ?? 0);
-    const attackPower = ATTACK_POWER_BY_WEAPON[weaponId as AttackWeaponId] ?? 0;
-    const multiplier = Math.max(0, Number(modifiers[weaponId as AttackWeaponId] ?? 1));
-    return totalPower + normalizedAmount * attackPower * multiplier;
-  }, 0);
+): number => calculateAttackWeaponPower(loadout, attackWeapons, modifiers);
 
 export const hasFullAttackWeaponSet = (
   loadout: Partial<Record<AttackWeaponId, number>>
@@ -68,9 +57,10 @@ export const calculateEffectiveDefenseAfterGrenades = (
 
 export const calculateTotalAttackPower = (
   loadout: Partial<Record<AttackWeaponId, number>>,
+  attackWeapons: AttackWeaponsBalanceConfig,
   strengthMultiplier = 1,
   modifiers: Partial<Record<AttackWeaponId, number>> = {}
-): number => (calculateBaseAttackPower(loadout, modifiers) + calculateSmgComboBonus(loadout, modifiers)) * Math.max(0, Number(strengthMultiplier || 1));
+): number => (calculateBaseAttackPower(loadout, attackWeapons, modifiers) + calculateSmgComboBonus(loadout, modifiers)) * Math.max(0, Number(strengthMultiplier || 1));
 
 export const calculateBaseDefensePower = (
   loadout: Partial<Record<DefenseWeaponId, number>>,

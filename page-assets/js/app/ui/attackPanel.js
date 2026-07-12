@@ -130,6 +130,25 @@ function syncWeaponInputs(elements = [], weaponInventory = {}, selectedLoadout =
   }
 }
 
+function formatPopulationRequirement(value) {
+  const amount = Math.max(0, Math.floor(Number(value) || 0));
+  if (amount === 1) return "1 obyvatel";
+  if (amount >= 2 && amount <= 4) return `${amount} obyvatelé`;
+  return `${amount} obyvatel`;
+}
+
+function syncWeaponMetadata(elements = [], weaponStats = {}) {
+  for (const input of elements || []) {
+    const weaponId = getWeaponIdFromElement(input, "attackWeaponInput");
+    const weapon = weaponStats[weaponId];
+    const statsElement = input?.closest?.("label")?.querySelector?.("[data-attack-weapon-stats]");
+    if (!weapon || !statsElement) {
+      continue;
+    }
+    statsElement.textContent = `Síla ${Math.max(0, Number(weapon.power) || 0)} · ${formatPopulationRequirement(weapon.residents)}`;
+  }
+}
+
 export function renderAttackProgress(activeAttack = {}, options = {}) {
   const elements = options.elements || {};
 
@@ -157,6 +176,7 @@ export function renderAttackPanel(attackViewModel = {}, callbacks = {}, options 
   renderSourceSelect(elements.sourceSelect, attackViewModel.sourceDistrictIds || []);
   syncOwnedWeaponLabels(elements.ownedElements, attackViewModel.weaponInventory || {});
   syncWeaponInputs(elements.weaponInputs, attackViewModel.weaponInventory || {}, attackViewModel.selectedLoadout || {});
+  syncWeaponMetadata(elements.weaponInputs, attackViewModel.weaponStats || {});
 
   if (attackViewModel.summary) {
     renderAttackProgress(attackViewModel.summary, { elements });

@@ -1,10 +1,10 @@
 import { ATTACK_SETUP_WEAPONS } from "../../../game-config/src/legacy-page/combat-config.js";
 
 // Preview-only legacy helpers. Server-authoritative combat results are resolved by game-core command handlers.
-export function calculateAttackDeployment(loadout = {}, modifiers = {}) {
+export function calculateAttackDeployment(loadout = {}, modifiers = {}, weaponDefinitions = ATTACK_SETUP_WEAPONS) {
   return Object.entries(loadout).reduce(
     (totals, [weaponId, amount]) => {
-      const weapon = ATTACK_SETUP_WEAPONS[weaponId];
+      const weapon = weaponDefinitions[weaponId];
       const normalizedAmount = Math.max(0, Number.parseInt(String(amount ?? 0), 10) || 0);
 
       if (!weapon || normalizedAmount <= 0) {

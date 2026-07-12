@@ -5,6 +5,7 @@ import type { CoreEvent } from "../events";
 import type { CoreError } from "../errors";
 import {
   calculateBaseDefensePower,
+  calculateAttackWeaponPower,
   calculateBazookaTotalDestructionBonusPercent,
   calculateEffectiveDefenseAfterGrenades,
   calculateGrenadeDefenseIgnorePercent,
@@ -31,7 +32,7 @@ import {
   resolveFactionBaseDefensePowerMultiplier,
   resolveFactionCameraEffectivenessMultiplier
 } from "../rules/factions/factionRules";
-import { validateAttack } from "../validation";
+import { resolveAttackWeaponLoadout, validateAttack } from "../validation";
 import {
   createBattleReportNotifications, createPlayerCooldownState, markDestroyedDistrictBuildings, reassignCapturedDistrictBuildings
 } from "./attackDistrictHelpers";
@@ -47,6 +48,7 @@ import { applyCarDealerCooldownReductionTicks, resolveCarDealerEscapeChanceBonus
 import { resolveCityHallNightPatrolPressure } from "./cityHallBuildingActions";
 import { resolveCombinedCameraAlarmBonuses, resolveRecruitmentCenterSupportBonuses } from "./recruitmentCenterBuildingActions";
 import { resolveFitnessAttackWeaponModifiers, resolveFitnessDefenseItemModifiers } from "./fitnessClubBuildingActions";
+import { applyAttackWeaponLosses, writeAttackWeaponInventory } from "./attackWeaponInventory";
 
 /**
  * Responsibility: Orchestrates one authoritative district attack command.
@@ -58,7 +60,7 @@ export const handleAttackDistrict = (
   command: AttackDistrictCommand,
   context: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
-  const errors = validateAttack(state, command);
+  const errors = validateAttack(state, command, context);
 
   if (errors.length > 0) {
     return {
@@ -69,6 +71,9 @@ export const handleAttackDistrict = (
   }
 
   const attacker = state.playersById[command.playerId];
+  const attackSelection = resolveAttackWeaponLoadout(state, attacker, command);
+  const selectedLoadout = attackSelection.loadout;
+  const weaponInventory = attackSelection.inventory;
   const targetDistrict = state.districtsById[command.payload.districtId];
   const sourceDistrict = command.payload.sourceDistrictId
     ? state.districtsById[command.payload.sourceDistrictId]
@@ -78,12 +83,12 @@ export const handleAttackDistrict = (
   );
   const trapResolution = activeTrap
     ? resolveTrap({
-        attackLoadout: attacker.attackLoadout,
+        attackLoadout: selectedLoadout,
         trapAttackLosses: context.config.balance.conflict?.trapAttackLosses ?? 1
       })
     : {
         losses: {} as Partial<Record<AttackWeaponId, number>>,
-        nextLoadout: { ...attacker.attackLoadout },
+        nextLoadout: { ...selectedLoadout },
         blocked: false,
         trapType: "toxic" as const,
         report: ""
@@ -143,8 +148,9 @@ export const handleAttackDistrict = (
       alarm: (1 + combinedCameraAlarmBonuses.alarmStrengthBonusPct / 100) * resolveFactionAlarmEffectivenessMultiplier(defenderFactionModifiers)
     }
   });
-  const baseAttackPower = calculateTotalAttackPower(attacker.attackLoadout, 1, attackWeaponModifiers);
-  const trapAdjustedAttackPower = calculateTotalAttackPower(effectiveLoadout, 1, attackWeaponModifiers);
+  const attackWeapons = context.config.balance.attackWeapons!;
+  const baseAttackPower = calculateAttackWeaponPower(selectedLoadout, attackWeapons);
+  const trapAdjustedAttackPower = calculateTotalAttackPower(effectiveLoadout, attackWeapons, 1, attackWeaponModifiers);
   const effectAdjustedAttackPower = applyFactionMultiplier(
     trapAdjustedAttackPower * attackerDistrictModifiers.attackMultiplier * attackerPenaltyModifiers.attackMultiplier,
     attackerFactionModifiers.attackPowerMultiplier
@@ -196,7 +202,7 @@ export const handleAttackDistrict = (
   const factionAdjustedAttackerLosses = applyFactionEquipmentLosses(combatResolution.attackerLosses, attackerFactionModifiers);
   const escapeMitigation = resolveAttackEscapeMitigation({
     losses: factionAdjustedAttackerLosses,
-    nextLoadout: applyFactionEquipmentLossesToLoadout(effectiveLoadout, factionAdjustedAttackerLosses),
+    nextLoadout: applyAttackWeaponLosses(effectiveLoadout, factionAdjustedAttackerLosses),
     heatGained: combatResolution.heatGained,
     enabled: !attackSucceeded,
     bonusPct: escapeChanceBonusPct + airportEvacuation.escapeChanceBonusPct,
@@ -245,6 +251,8 @@ export const handleAttackDistrict = (
   const attackerReport = notificationEntries[0];
   const defenderReport = notificationEntries[1] ?? null;
   const notificationIds = notificationEntries.map((notification) => notification.id);
+  const nextWeaponInventory = applyAttackWeaponLosses(weaponInventory, escapeMitigation.losses);
+  const nextResourceStatesById = writeAttackWeaponInventory(state, attacker, nextWeaponInventory);
   const nextBuildingsById = districtDestroyed
     ? markDestroyedDistrictBuildings(state, targetDistrict.buildingIds)
     : attackSucceeded
@@ -257,11 +265,12 @@ export const handleAttackDistrict = (
       ...state.playersById,
       [attacker.id]: {
         ...attacker,
-        attackLoadout: escapeMitigation.nextLoadout,
+        attackLoadout: nextWeaponInventory,
         lastActionAt: command.issuedAt,
         version: attacker.version + 1
       }
     },
+    resourceStatesById: nextResourceStatesById,
     districtsById: {
       ...state.districtsById,
       [targetDistrict.id]: {
@@ -414,15 +423,4 @@ export const handleAttackDistrict = (
   const bountyResult = resolveBountyClaims(recoveryState, { actorPlayerId: attacker.id, targetPlayerId: targetDistrict.ownerPlayerId, targetDistrictId: targetDistrict.id, actionType: districtDestroyed ? "destroy-district" : "attack-district", successfulAttack: attackSucceeded || districtDestroyed, capturesDistrict: attackSucceeded, destroysDistrict: districtDestroyed, commandId: command.id });
 
   return { nextState: bountyResult.nextState, events: [...events, ...bountyResult.events], errors: [] };
-};
-
-const applyFactionEquipmentLossesToLoadout = (
-  loadout: Partial<Record<AttackWeaponId, number>>,
-  losses: Partial<Record<AttackWeaponId, number>>
-): Partial<Record<AttackWeaponId, number>> => {
-  const nextLoadout = { ...loadout };
-  for (const [itemId, amount] of Object.entries(losses) as Array<[AttackWeaponId, number]>) {
-    nextLoadout[itemId] = Math.max(0, Number(nextLoadout[itemId] || 0) - Math.max(0, Number(amount) || 0));
-  }
-  return nextLoadout;
 };

@@ -117,6 +117,12 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     const rawValue = elements.gangMembersValue?.textContent || "0";
     return Number.parseInt(rawValue.replace(/[^\d]/g, ""), 10) || 0;
   };
+  const getAttackSetupWeapons = typeof deps.getAttackSetupWeapons === "function"
+    ? deps.getAttackSetupWeapons
+    : () => deps.attackSetupWeapons || {};
+  const getAttackWeaponLabels = typeof deps.getAttackWeaponLabels === "function"
+    ? deps.getAttackWeaponLabels
+    : () => deps.attackWeaponLabels || {};
 
   const getAvailableSpies = () => {
     if (typeof deps.getResolvedSpyState !== "function") {
@@ -182,11 +188,12 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     }
 
     const selectedLoadout = {};
+    const attackSetupWeapons = getAttackSetupWeapons();
 
     for (const input of elements.attackWeaponInputs || []) {
       const weaponId = getWeaponInputId(input, "attackWeaponInput");
 
-      if (!weaponId || !deps.attackSetupWeapons?.[weaponId]) {
+      if (!weaponId || !attackSetupWeapons[weaponId]) {
         continue;
       }
 
@@ -266,7 +273,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       }
 
       attackLoadout[weaponId] = amount;
-      selectedWeapons.push(`${deps.attackWeaponLabels?.[weaponId] || weaponId} x${amount}`);
+      selectedWeapons.push(`${getAttackWeaponLabels()[weaponId] || weaponId} x${amount}`);
     }
 
     return {
@@ -395,6 +402,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       district,
       adjacentOwnedDistrictIds,
       weaponInventory: ownedInventory,
+      weaponStats: getAttackSetupWeapons(),
       atmosphereMeta
     }), elements, {
       renderAttackPanel: deps.renderAttackPanel
