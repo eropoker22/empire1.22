@@ -215,7 +215,6 @@ export const publicBuildingDefinitions: PublicBuildingDefinition[] = [
     legacyAction("produce_combat_module", "Vyrobit bojový modul", "Vyrobí bojový modul jako součástku.", "+bojový modul, +vliv, +heat", 0.006, 3, out("combat-module", 1), 1, { "metal-parts": 2, "tech-core": 1 })
   ]),
   building("armory", "Zbrojovka", "industrial", "Výzbroj", "Vyrábí útočné i obranné vybavení z Metal Parts a Tech Core.", stat(0, 0, 4, 18, 14), [
-    legacyAction("armory_craft_weapons", "Vyrobit výzbrojní modul", "Vyrobí výzbrojní modul ze skladových materiálů.", "+výzbrojní modul, +heat", 0.006, 3, out("combat-module", 1), 1, { "metal-parts": 2 }),
     legacyAction("armory_fortify", "Opevnit district", "Zvedne obrannou připravenost území.", "+vliv, +heat", 8, 4, {}, 3)
   ]),
   building("warehouse", "Skladiště", "industrial", "Economy / storage / logistics", "Skladiště zvyšuje maximum každé zásoby. První aktivní sklad přidá 50 %, další přidávají menší síťový bonus a z levelů platí jen nejvyšší aktivní level.", stat(2700, 0, 86.4, 0, 4), []),

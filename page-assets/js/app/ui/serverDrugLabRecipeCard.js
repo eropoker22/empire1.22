@@ -34,6 +34,7 @@ const STATUS_LABELS = Object.freeze({
   processing: "Výroba",
   waiting: "Čeká",
   full: "Plná kapacita",
+  over_capacity: "Překročená kapacita",
   completed: "Hotovo"
 });
 
@@ -44,10 +45,17 @@ const formatMoney = (value, options) => typeof options.formatCurrency === "funct
 export function renderServerDrugLabRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
   const line = viewModel.serverLine || {};
   const visual = viewModel.visual || {};
+  const isArmory = viewModel.buildingName === "armory";
+  const armoryCategory = line.category === "defense" ? "defense" : "attack";
   const card = createElement(options.mount, "article");
   if (!card) return null;
   const active = line.status === "processing";
-  card.className = active ? "drug-production-slot drug-production-slot--active" : "drug-production-slot";
+  card.className = [
+    "drug-production-slot",
+    isArmory ? "armory-slot armory-slot--" + armoryCategory : "",
+    active ? "drug-production-slot--active" : "",
+    active && isArmory ? "armory-slot--active" : ""
+  ].filter(Boolean).join(" ");
   card.dataset.resourceColor = line.resourceKey || viewModel.recipeId || "";
 
   const head = createElement(options.mount, "div", "drug-production-slot__head");
@@ -61,10 +69,10 @@ export function renderServerDrugLabRecipeCard(viewModel = {}, callbacks = {}, op
   const supplyLabel = createElement(options.mount, "span", "drug-production-slot__metric-label");
   const supplyRow = createElement(options.mount, "div", "drug-production-slot__supply-row");
   const actions = createElement(options.mount, "div", "drug-production-slot__controls");
-  const quantity = createElement(options.mount, "div", "drug-production-slot__quantity");
-  const minus = createElement(options.mount, "button", "drug-production-slot__quantity-btn");
-  const value = createElement(options.mount, "strong", "drug-production-slot__quantity-value");
-  const plus = createElement(options.mount, "button", "drug-production-slot__quantity-btn");
+  const quantity = createElement(options.mount, "div", isArmory ? "armory-slot__quantity" : "drug-production-slot__quantity");
+  const minus = createElement(options.mount, "button", isArmory ? "armory-slot__quantity-btn" : "drug-production-slot__quantity-btn");
+  const value = createElement(options.mount, "strong", isArmory ? "armory-slot__quantity-value" : "drug-production-slot__quantity-value");
+  const plus = createElement(options.mount, "button", isArmory ? "armory-slot__quantity-btn" : "drug-production-slot__quantity-btn");
   const start = createElement(options.mount, "button", "button drug-lab-mini-btn");
   const cancel = createElement(options.mount, "button", "button drug-lab-mini-btn");
   if (![head, titleWrap, icon, titles, title, state, metrics, supplyMetric, supplyLabel, supplyRow, actions, quantity, minus, value, plus, start, cancel].every(Boolean)) return card;
@@ -73,14 +81,27 @@ export function renderServerDrugLabRecipeCard(viewModel = {}, callbacks = {}, op
   const maxStart = Math.max(0, Math.floor(Number(line.maxStartQuantity || 0)));
   const inputValues = [];
   const inputs = [
-    { label: "Clean Cash", requiredAmount: line.unitCleanCashCost, availableAmount: viewModel.cleanCashAmount, resourceKey: "cash" },
+    ...(isArmory || Number(line.unitCleanCashCost || 0) <= 0
+      ? []
+      : [{ label: "Clean Cash", requiredAmount: line.unitCleanCashCost, availableAmount: viewModel.cleanCashAmount, resourceKey: "cash" }]),
     ...(Array.isArray(line.inputAvailability) ? line.inputAvailability : [])
   ].slice(0, 3);
-  supplyRow.classList.add("drug-production-slot__supply-row--count-" + String(inputs.length));
+  if (isArmory) {
+    supplyRow.className = "armory-slot__materials-row";
+  } else {
+    supplyRow.classList.add("drug-production-slot__supply-row--count-" + String(inputs.length));
+  }
   for (const input of inputs) {
-    const pill = createElement(options.mount, "div", "drug-production-slot__supply-pill");
-    const name = createElement(options.mount, "span", "drug-production-slot__supply-name");
-    const amount = createElement(options.mount, "strong", "drug-production-slot__supply-value");
+    const materialClass = input.resourceKey === "metal-parts"
+      ? " armory-slot__material-pill--metal"
+      : input.resourceKey === "tech-core"
+        ? " armory-slot__material-pill--tech"
+        : "";
+    const pill = createElement(options.mount, "div", isArmory
+      ? "armory-slot__material-pill" + materialClass
+      : "drug-production-slot__supply-pill");
+    const name = createElement(options.mount, "span", isArmory ? "armory-slot__material-name" : "drug-production-slot__supply-name");
+    const amount = createElement(options.mount, "strong", isArmory ? "armory-slot__material-value" : "drug-production-slot__supply-value");
     if (!pill || !name || !amount) continue;
     pill.dataset.resourceColor = input.resourceKey || "";
     name.textContent = input.label || input.resourceKey || "";
@@ -129,10 +150,12 @@ export function renderServerDrugLabRecipeCard(viewModel = {}, callbacks = {}, op
   quantity.append(minus, value, plus);
   start.type = "button";
   start.textContent = "Spustit";
+  if (isArmory) start.dataset.armorySlotStart = "";
   start.title = line.disabledReason || "";
   start.addEventListener("click", () => callbacks.onStart?.({ ...viewModel, batchCount: selected }));
   cancel.type = "button";
   cancel.textContent = "Zrušit";
+  if (isArmory) cancel.dataset.armorySlotStop = "";
   cancel.disabled = line.canCancelWaiting !== true;
   cancel.title = "Zrušit čekající kusy a vrátit rezervované vstupy";
   cancel.addEventListener("click", () => callbacks.onStop?.(viewModel));

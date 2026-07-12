@@ -2,6 +2,7 @@ import {
   migratePharmacyProductionState,
   migrateDrugLabProductionState,
   migrateFactoryProductionState,
+  migrateArmoryProductionState,
   normalizePlayerStorageResourceAliases,
   type CoreGameState
 } from "@empire/game-core";
@@ -13,4 +14,4 @@ import type { InstanceSnapshotDto } from "../dto";
  * Does not belong here: runtime scheduler creation or repository access.
  */
 export const restoreInstanceState = (snapshot: InstanceSnapshotDto): CoreGameState =>
-  migrateFactoryProductionState(migrateDrugLabProductionState(migratePharmacyProductionState(normalizePlayerStorageResourceAliases(snapshot.state))));
+  migrateArmoryProductionState(migrateFactoryProductionState(migrateDrugLabProductionState(migratePharmacyProductionState(normalizePlayerStorageResourceAliases(snapshot.state)))));

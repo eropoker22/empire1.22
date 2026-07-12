@@ -117,9 +117,10 @@ describe("Free BR strategic cooldowns", () => {
   });
 
   it("keeps canonical craft durations in strategic minute ranges after cooldownMultiplier", () => {
-    const recipes = freeConfig.balance.craftBuildings!;
     const pharmacy = freeConfig.balance.pharmacy!;
     const drugLab = freeConfig.balance.drugLab!;
+    const factory = freeConfig.balance.factory!;
+    const armory = freeConfig.balance.armory!;
     const finalDurationTicks = (durationTicks: number): number =>
       Math.ceil(durationTicks * freeConfig.balance.cooldownMultiplier);
 
@@ -131,13 +132,13 @@ describe("Free BR strategic cooldowns", () => {
     expect(finalDurationTicks(drugLab.recipes["velvet-smoke"].durationTicksPerUnit)).toBe(15 * TICKS_PER_MINUTE);
     expect(finalDurationTicks(drugLab.recipes["ghost-serum"].durationTicksPerUnit)).toBe(20 * TICKS_PER_MINUTE);
     expect(finalDurationTicks(drugLab.recipes["overdrive-x"].durationTicksPerUnit)).toBe(30 * TICKS_PER_MINUTE);
-    expect(finalDurationTicks(recipes.factory.recipes["tech-core"].durationTicks)).toBe(6 * TICKS_PER_MINUTE);
-    expect(finalDurationTicks(recipes.factory.recipes["combat-module"].durationTicks)).toBe(12 * TICKS_PER_MINUTE);
-    expect(finalDurationTicks(recipes.armory.recipes.bazooka.durationTicks)).toBe(14 * TICKS_PER_MINUTE);
-    expect(finalDurationTicks(recipes.armory.recipes["defense-tower"].durationTicks)).toBe(16 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(factory.recipes["tech-core"].durationTicksPerUnit)).toBe(8 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(factory.recipes["combat-module"].durationTicksPerUnit)).toBe(15 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(armory.recipes.bazooka.durationTicksPerUnit)).toBe(14 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(armory.recipes["defense-tower"].durationTicksPerUnit)).toBe(15 * TICKS_PER_MINUTE);
   });
 
-  it("keeps production building actions and black charter on the Free timing contract", () => {
+  it("keeps production building actions on the Free timing contract and preserves Black Charter phase gating", () => {
     const actionCooldownTicks = (actionId: string): number => {
       const action = freeConfig.balance.buildingActions![actionId];
       const rawTicks = Math.ceil(action.cooldownMs / freeConfig.tickRateMs);
@@ -148,8 +149,8 @@ describe("Free BR strategic cooldowns", () => {
     expect(freeConfig.balance.buildingActions!.produce_biomass).toBeUndefined();
     expect(freeConfig.balance.buildingActions!.produce_neon_dust).toBeUndefined();
     expect(freeConfig.balance.buildingActions!.produce_stim_pack).toBeUndefined();
-    expect(actionCooldownTicks("produce_combat_module")).toBe(12 * TICKS_PER_MINUTE);
-    expect(actionCooldownTicks("armory_craft_weapons")).toBe(12 * TICKS_PER_MINUTE);
+    expect(actionCooldownTicks("produce_combat_module")).toBe(4);
+    expect(freeConfig.balance.buildingActions!.armory_craft_weapons).toBeUndefined();
     expect(freeConfig.balance.buildingActions!.black_charter.durationMs).toBe(8 * 60_000);
 
     const { state, building } = createCoreStateWithFixedBuildingFixture("airport", {
@@ -170,10 +171,8 @@ describe("Free BR strategic cooldowns", () => {
       context
     );
 
-    expect(charter.errors).toEqual([]);
-    expect(charter.nextState.buildingsById[building.id].metadata?.airport).toMatchObject({
-      blackCharterExpiresAtTick: 8 * TICKS_PER_MINUTE
-    });
+    expect(charter.errors.map((error) => error.code)).toEqual(["building_action_phase_blocked"]);
+    expect(charter.nextState).toBe(state);
   });
 });
 

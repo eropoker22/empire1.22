@@ -142,6 +142,53 @@ describe("production building popup runtime", () => {
     );
   });
 
+  it("renders Armory lines from the server model and submits generic production commands", async () => {
+    let callbacks = {};
+    const submitServerArmoryCommand = vi.fn(async () => ({ errors: [] }));
+    const renderRecipeCard = vi.fn((_viewModel, nextCallbacks) => {
+      callbacks = nextCallbacks;
+      return {};
+    });
+    const runtime = createProductionBuildingPopupRuntime({
+      getServerArmoryReadModel: () => ({
+        districtId: "district:1",
+        buildingId: "building:armory:1",
+        productionLines: [{
+          recipeId: "pistol",
+          category: "attack",
+          resourceKey: "pistol",
+          label: "Pistole",
+          unitCleanCashCost: 0,
+          inputAvailability: [],
+          maxStartQuantity: 2,
+          canStart: true,
+          canCancelWaiting: true
+        }]
+      }),
+      getServerTickRateMs: () => 4000,
+      renderProductionPanelUi: vi.fn(() => true),
+      renderRecipeCard,
+      setBuildingActionFeedback: vi.fn(),
+      submitServerArmoryCommand
+    });
+    const root = createRoot({
+      '[data-production-panel="armory"]': {}
+    });
+
+    expect(runtime.renderProductionPanel(root, "armory", {})).toBe(true);
+    await callbacks.onStart({ batchCount: 2 });
+    await callbacks.onStop();
+
+    expect(submitServerArmoryCommand).toHaveBeenNthCalledWith(1, {
+      type: "craft-item",
+      payload: { districtId: "district:1", buildingId: "building:armory:1", recipeId: "pistol", quantity: 2 }
+    });
+    expect(submitServerArmoryCommand).toHaveBeenNthCalledWith(2, {
+      type: "cancel-production-line",
+      payload: { districtId: "district:1", buildingId: "building:armory:1", recipeId: "pistol" }
+    });
+  });
+
   it("keeps production upgrade button clickable in server-owned mode to explain the route", async () => {
     const openButton = createElement();
     const popup = createElement();
@@ -303,7 +350,7 @@ describe("production building popup runtime", () => {
 
     expect(levelElement.textContent).toBe("4");
     expect(headerLevelElement.textContent).toBe("Lv 2");
-    expect(multiplierElement.textContent).toBe("1.10x");
+    expect(multiplierElement.textContent).toBe("+10%");
   });
 
   it("keeps pharmacy network count at one even without an owned pharmacy district", async () => {
@@ -449,7 +496,7 @@ describe("production building popup runtime", () => {
 
     expect(levelElement.textContent).toBe("3");
     expect(headerLevelElement.textContent).toBe("Lv 2");
-    expect(multiplierElement.textContent).toBe("1.10x");
+    expect(multiplierElement.textContent).toBe("+10%");
   });
 
   it("shows owned armory network count in the armory overview network slot", async () => {
@@ -524,7 +571,7 @@ describe("production building popup runtime", () => {
 
     expect(levelElement.textContent).toBe("5");
     expect(headerLevelElement.textContent).toBe("Lv 3");
-    expect(multiplierElement.textContent).toBe("1.20x");
+    expect(multiplierElement.textContent).toBe("+20%");
   });
 
   it("hides production upgrade button when no next upgrade exists", async () => {
@@ -711,37 +758,32 @@ describe("production building popup runtime", () => {
     }));
   });
 
-  it("adds selected batches into an already running production queue", () => {
+  it("submits a selected Drug Lab batch through the server command", async () => {
     const recipeCallbacks = {};
-    const persistProductionJob = vi.fn();
+    const submitServerDrugLabCommand = vi.fn(async () => ({ errors: [] }));
     const renderRecipeCard = vi.fn((viewModel, callbacks) => {
       Object.assign(recipeCallbacks, callbacks);
       return { viewModel };
     });
     const runtime = createProductionBuildingPopupRuntime({
-      consumeMaterials: vi.fn(),
-      getInventoryAmount: () => 20,
-      getProductionBuildingMultiplier: () => 1,
-      getProductionJob: () => ({
-        status: "running",
-        readyAt: new Date(Date.now() + 5000).toISOString(),
-        quantity: 1,
-        inputs: { chemicals: 3, biomass: 2 },
-        output: { inventory: "drugs", itemId: "neon-dust", amount: 6 },
-        cleanMoneyCost: 0,
-        durationMs: 1000
+      getServerDrugLabReadModel: () => ({
+        districtId: "district:1",
+        buildingId: "building:drug-lab:1",
+        cleanCashAmount: 1000,
+        lines: [{
+          recipeId: "dust",
+          resourceKey: "neon-dust",
+          label: "Neon Dust",
+          unitCleanCashCost: 500,
+          inputAvailability: [],
+          canStart: true,
+          canCancelWaiting: false,
+          maxStartQuantity: 2
+        }]
       }),
-      getResolvedEconomyState: () => ({ cleanMoney: 100 }),
-      getScaledProductionInputs: (inputs, count) => Object.fromEntries(
-        Object.entries(inputs || {}).map(([itemId, amount]) => [itemId, Number(amount || 0) * count])
-      ),
-      getStoredProductionBuildingState: () => ({ level: 1 }),
-      hasEnoughMaterials: () => true,
-      persistProductionJob,
       renderProductionPanelUi: vi.fn(() => true),
       renderRecipeCard,
-      scheduleProductionJob: vi.fn(),
-      syncCompletedProductionJobs: vi.fn()
+      submitServerDrugLabCommand
     });
 
     const root = createRoot({
@@ -755,77 +797,56 @@ describe("production building popup runtime", () => {
       }
     });
 
-    recipeCallbacks.onStart({ batchCount: 2 });
+    await recipeCallbacks.onStart({ batchCount: 2 });
 
-    expect(persistProductionJob).toHaveBeenCalledWith("druglab:dust", expect.objectContaining({
-      status: "running",
-      quantity: 3,
-      inputs: { chemicals: 9, biomass: 6 },
-      output: expect.objectContaining({ amount: 18 }),
-      durationMs: 3000
-    }));
+    expect(submitServerDrugLabCommand).toHaveBeenCalledWith({
+      type: "craft-item",
+      payload: { districtId: "district:1", buildingId: "building:drug-lab:1", recipeId: "dust", quantity: 2 }
+    });
   });
 
-  it("keeps each drug lab recipe wired to its own production key", () => {
+  it("keeps each server Drug Lab recipe wired to its own command key", async () => {
     const recipeCallbacks = {};
-    const persistProductionJob = vi.fn();
+    const submitServerDrugLabCommand = vi.fn(async () => ({ errors: [] }));
     const renderRecipeCard = vi.fn((viewModel, callbacks) => {
       recipeCallbacks[viewModel.recipeId] = callbacks;
       return { viewModel };
     });
     const runtime = createProductionBuildingPopupRuntime({
-      consumeMaterials: vi.fn(),
-      getInventoryAmount: () => 100,
-      getProductionBuildingMultiplier: () => 1,
-      getProductionJob: () => null,
-      getResolvedEconomyState: () => ({ cleanMoney: 1000 }),
-      getScaledProductionInputs: (inputs, count) => Object.fromEntries(
-        Object.entries(inputs || {}).map(([itemId, amount]) => [itemId, Number(amount || 0) * count])
-      ),
-      getStoredProductionBuildingState: () => ({ level: 1 }),
-      hasEnoughMaterials: () => true,
-      persistProductionJob,
+      getServerDrugLabReadModel: () => ({
+        districtId: "district:1",
+        buildingId: "building:drug-lab:1",
+        cleanCashAmount: 1000,
+        lines: [
+          { recipeId: "pulse-shot", resourceKey: "pulse-shot", label: "Pulse Shot", unitCleanCashCost: 800, inputAvailability: [], canStart: true, canCancelWaiting: false, maxStartQuantity: 2 },
+          { recipeId: "velvet-smoke", resourceKey: "velvet-smoke", label: "Velvet Smoke", unitCleanCashCost: 900, inputAvailability: [], canStart: true, canCancelWaiting: false, maxStartQuantity: 1 }
+        ]
+      }),
       renderProductionPanelUi: vi.fn(() => true),
       renderRecipeCard,
-      scheduleProductionJob: vi.fn(),
-      syncCompletedProductionJobs: vi.fn()
+      submitServerDrugLabCommand
     });
 
     const root = createRoot({
       '[data-production-panel="druglab"]': {}
     });
     runtime.renderProductionPanel(root, "druglab", {
-      "neon-dust": {
-        durationMs: 1000,
-        inputs: { chemicals: 3, biomass: 2 },
-        output: { inventory: "drugs", itemId: "neon-dust", amount: 6 }
-      },
-      "pulse-shot": {
-        durationMs: 1000,
-        inputs: { chemicals: 2, "stim-pack": 1 },
-        output: { inventory: "drugs", itemId: "pulse-shot", amount: 5 }
-      },
-      "velvet-smoke": {
-        durationMs: 1000,
-        inputs: { biomass: 3, chemicals: 1 },
-        output: { inventory: "drugs", itemId: "velvet-smoke", amount: 4 }
-      }
+      "pulse-shot": {},
+      "velvet-smoke": {}
     });
 
-    recipeCallbacks["pulse-shot"].onStart({ batchCount: 2 });
-    recipeCallbacks["velvet-smoke"].onStart({ batchCount: 1 });
+    await recipeCallbacks["pulse-shot"].onStart({ batchCount: 2 });
+    await recipeCallbacks["velvet-smoke"].onStart({ batchCount: 1 });
 
-    expect(persistProductionJob).toHaveBeenNthCalledWith(1, "druglab:pulse-shot", expect.objectContaining({
-      inputs: { chemicals: 4, "stim-pack": 2 },
-      output: expect.objectContaining({ itemId: "pulse-shot", amount: 10 })
+    expect(submitServerDrugLabCommand).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      payload: expect.objectContaining({ recipeId: "pulse-shot", quantity: 2 })
     }));
-    expect(persistProductionJob).toHaveBeenNthCalledWith(2, "druglab:velvet-smoke", expect.objectContaining({
-      inputs: { biomass: 3, chemicals: 1 },
-      output: expect.objectContaining({ itemId: "velvet-smoke", amount: 4 })
+    expect(submitServerDrugLabCommand).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      payload: expect.objectContaining({ recipeId: "velvet-smoke", quantity: 1 })
     }));
   });
 
-  it("reports missing drug lab materials instead of leaving non-neon controls dead", () => {
+  it("does not restore legacy Drug Lab jobs when a server model is unavailable", () => {
     const recipeCallbacks = {};
     const persistProductionJob = vi.fn();
     const setBuildingActionFeedback = vi.fn();
@@ -868,7 +889,7 @@ describe("production building popup runtime", () => {
       root,
       "warning",
       "Budova",
-      "Chybí materiál pro spuštění výroby."
+      expect.stringContaining("serverový production/craft flow")
     );
   });
 

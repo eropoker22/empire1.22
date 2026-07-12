@@ -14,6 +14,7 @@ export * from "./district-panel-projection";
 export * from "./district-spy-target-projection";
 export * from "./district-summary-projection";
 export * from "./drug-lab-production-projection";
+export * from "./armory-production-projection";
 export * from "./factory-production-projection";
 export * from "./onboarding-read-model-projection";
 export * from "./player-projection";

@@ -14,6 +14,7 @@ import {
 import { collectPharmacyProduction } from "./pharmacyProductionHandlers";
 import { collectDrugLabProduction } from "./drugLabProductionHandlers";
 import { collectAllFactoryProduction, collectFactoryProduction } from "./factoryProductionHandlers";
+import { collectAllArmoryProduction, collectArmoryProduction } from "./armoryProductionHandlers";
 
 /**
  * Responsibility: Placeholder handler for production collection commands.
@@ -51,6 +52,14 @@ export const handleCollectProduction = (
           payload: { ...command.payload, recipeId: command.payload.resourceKey }
         }, context)
       : collectAllFactoryProduction(state, command, context);
+  }
+  if (targetBuilding?.buildingTypeId === "armory") {
+    return command.payload.resourceKey
+      ? collectArmoryProduction(state, {
+          ...command,
+          payload: { ...command.payload, recipeId: command.payload.resourceKey }
+        }, context)
+      : collectAllArmoryProduction(state, command, context);
   }
   const errors = validateCollect(state, command, context);
 

@@ -27,6 +27,7 @@ export const completeDrugLabProduction = (
 
     for (const [recipeId, recipe] of Object.entries(drugLab.recipes)) {
       let line = getDrugLabLine({ ...building, productionLines: lines }, recipeId);
+      let lineChanged = false;
       const outputAmount = Math.max(1, Number(line.legacyOutputAmount || 1));
       const producedAmount = Math.max(0, Number(resourceState.balances[recipe.outputResourceKey] || 0));
       if (line.activeCompletesAtTick !== null && line.activeCompletesAtTick <= state.root.tick) {
@@ -48,14 +49,18 @@ export const completeDrugLabProduction = (
           legacyOutputAmount: undefined,
           version: line.version + 1
         };
+        lineChanged = true;
         buildingChanged = true;
       }
       const nextProducedAmount = Math.max(0, Number(resourceState.balances[recipe.outputResourceKey] || 0));
       const startedLine = nextProducedAmount < recipe.localOutputCap
         ? startDrugLabLine(line, building, recipe, state.root.tick, context)
         : line;
-      if (startedLine !== line) buildingChanged = true;
-      if (startedLine.queuedAmount > 0 || line.queuedAmount > 0 || startedLine.activeCompletesAtTick !== null) {
+      if (startedLine !== line) {
+        lineChanged = true;
+        buildingChanged = true;
+      }
+      if (lineChanged || Object.hasOwn(lines, recipeId)) {
         lines = { ...lines, [recipeId]: startedLine };
       }
     }

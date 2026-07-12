@@ -421,7 +421,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
   if (viewModel.buildingName === "pharmacy" && viewModel.serverLine) {
     return renderServerPharmacyRecipeCard(viewModel, callbacks, options);
   }
-  if (viewModel.buildingName === "druglab" && viewModel.serverLine) {
+  if ((viewModel.buildingName === "druglab" || viewModel.buildingName === "armory") && viewModel.serverLine) {
     return renderServerDrugLabRecipeCard(viewModel, callbacks, options);
   }
   const recipe = viewModel.recipe || {};

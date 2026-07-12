@@ -91,6 +91,42 @@ export interface FactoryBalanceConfig {
   upgrade?: BuildingUpgradeBalanceConfig;
 }
 
+export type ArmoryRecipeId =
+  | "baseball-bat"
+  | "pistol"
+  | "grenade"
+  | "smg"
+  | "bazooka"
+  | "vest"
+  | "barricades"
+  | "cameras"
+  | "defense-tower"
+  | "alarm";
+
+export type ArmoryRecipeCategory = "attack" | "defense";
+
+export interface ArmoryRecipeBalanceConfig {
+  category: ArmoryRecipeCategory;
+  label: string;
+  outputResourceKey: ArmoryRecipeId;
+  outputAmount: 1;
+  cleanCashCostPerUnit: 0;
+  inputCosts: Record<string, number>;
+  durationTicksPerUnit: number;
+  localOutputCap: number;
+  queueCap: number;
+}
+
+export interface ArmoryBalanceConfig {
+  independentProductionLines: true;
+  network: {
+    speedMultipliers: Record<1 | 2 | 3 | 4, number>;
+    maxSpeedMultiplier: number;
+  };
+  recipes: Record<ArmoryRecipeId, ArmoryRecipeBalanceConfig>;
+  upgrade: BuildingUpgradeBalanceConfig;
+}
+
 export interface BuildingUpgradeBalanceConfig {
   maxLevel: number;
   upgradeBaseCost: number;

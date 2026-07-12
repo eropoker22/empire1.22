@@ -2,42 +2,40 @@ import type { CoreGameState } from "../../entities";
 import type { GameCoreContext } from "../../engine/context";
 import { normalizeResourceCosts } from "../../handlers/productionLineShared";
 import {
-  FACTORY_BUILDING_TYPE_ID,
-  getFactoryBuildingResourceState,
-  getFactoryLine,
-  startFactoryLine
-} from "../../handlers/factoryProductionShared";
+  ARMORY_BUILDING_TYPE_ID,
+  getArmoryBuildingResourceState,
+  getArmoryLine,
+  startArmoryLine
+} from "../../handlers/armoryProductionShared";
 
-export const completeFactoryProduction = (
+export const completeArmoryProduction = (
   state: CoreGameState,
   context: GameCoreContext
 ): CoreGameState => {
-  const factory = context.config.balance.factory;
-  if (!factory) return state;
+  const armory = context.config.balance.armory;
+  if (!armory) return state;
   let buildingsById = state.buildingsById;
   let resourceStatesById = state.resourceStatesById;
   let changed = false;
 
   for (const building of Object.values(state.buildingsById)) {
-    if (building.buildingTypeId !== FACTORY_BUILDING_TYPE_ID || building.status !== "active") continue;
+    if (building.buildingTypeId !== ARMORY_BUILDING_TYPE_ID || building.status !== "active") continue;
     let lines = building.productionLines ?? {};
-    let resources = getFactoryBuildingResourceState({ ...state, resourceStatesById }, building);
+    let resources = getArmoryBuildingResourceState({ ...state, resourceStatesById }, building);
     let buildingChanged = false;
     let resourcesChanged = false;
 
-    for (const [recipeId, recipe] of Object.entries(factory.recipes)) {
-      let line = getFactoryLine({ ...building, productionLines: lines }, recipeId);
+    for (const [recipeId, recipe] of Object.entries(armory.recipes)) {
+      let line = getArmoryLine({ ...building, productionLines: lines }, recipeId);
       let lineChanged = false;
-      while (
-        line.activeCompletesAtTick !== null
-        && line.activeCompletesAtTick <= state.root.tick
-        && Math.max(0, Number(resources.balances[recipe.outputResourceKey] || 0)) < recipe.localOutputCap
-      ) {
-        const completedAtTick = line.activeCompletesAtTick;
+      while (line.activeCompletesAtTick !== null && line.activeCompletesAtTick <= state.root.tick) {
+        const legacyOutputAmount = Math.max(1, Number(line.legacyOutputAmount || 1));
         const producedAmount = Math.max(0, Number(resources.balances[recipe.outputResourceKey] || 0));
+        if (legacyOutputAmount === 1 && producedAmount >= recipe.localOutputCap) break;
+        const completedAtTick = line.activeCompletesAtTick;
         resources = {
           ...resources,
-          balances: { ...resources.balances, [recipe.outputResourceKey]: producedAmount + 1 },
+          balances: { ...resources.balances, [recipe.outputResourceKey]: producedAmount + legacyOutputAmount },
           lastUpdatedTick: state.root.tick,
           version: resources.version + 1
         };
@@ -52,22 +50,15 @@ export const completeFactoryProduction = (
           legacyOutputAmount: undefined,
           version: line.version + 1
         };
-        if (producedAmount + 1 < recipe.localOutputCap) {
-          line = startFactoryLine(
-            { ...state, resourceStatesById },
-            line,
-            building,
-            recipe,
-            completedAtTick,
-            context
-          );
+        if (producedAmount + legacyOutputAmount < recipe.localOutputCap) {
+          line = startArmoryLine({ ...state, resourceStatesById }, line, building, recipe, completedAtTick, context);
         }
         lineChanged = true;
         buildingChanged = true;
       }
       const producedAmount = Math.max(0, Number(resources.balances[recipe.outputResourceKey] || 0));
       if (line.activeCompletesAtTick === null && line.queuedAmount > 0 && producedAmount < recipe.localOutputCap) {
-        line = startFactoryLine({ ...state, resourceStatesById }, line, building, recipe, state.root.tick, context);
+        line = startArmoryLine({ ...state, resourceStatesById }, line, building, recipe, state.root.tick, context);
         lineChanged = true;
         buildingChanged = true;
       }

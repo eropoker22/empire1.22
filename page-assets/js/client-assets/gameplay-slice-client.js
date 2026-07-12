@@ -26,7 +26,8 @@ var EmpireGameplaySliceClient = function(exports) {
     issuedAt: input.issuedAt,
     payload: {
       districtId: input.districtId,
-      buildingId: input.buildingId
+      buildingId: input.buildingId,
+      ...input.resourceKey === void 0 ? {} : { resourceKey: input.resourceKey }
     },
     clientRequestId: input.clientRequestId ?? null
   });
@@ -47,7 +48,8 @@ var EmpireGameplaySliceClient = function(exports) {
       payload: {
         districtId: district.districtId,
         buildingId: input.buildingId,
-        recipeId: craftOption.recipeId
+        recipeId: craftOption.recipeId,
+        quantity: input.quantity ?? 1
       },
       clientRequestId: input.clientRequestId ?? null
     };

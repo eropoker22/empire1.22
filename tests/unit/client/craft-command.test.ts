@@ -126,7 +126,8 @@ describe("createCraftItemCommand", () => {
     expect(command.payload).toEqual({
       districtId: "district:1",
       buildingId: "building:pharmacy:1",
-      recipeId: "stim-pack"
+      recipeId: "stim-pack",
+      quantity: 1
     });
   });
 

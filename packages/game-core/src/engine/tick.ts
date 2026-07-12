@@ -7,6 +7,7 @@ import { completeProduction } from "../rules/production/completeProduction";
 import { completePharmacyProduction } from "../rules/production/completePharmacyProduction";
 import { completeDrugLabProduction } from "../rules/production/completeDrugLabProduction";
 import { completeFactoryProduction } from "../rules/production/completeFactoryProduction";
+import { completeArmoryProduction } from "../rules/production/completeArmoryProduction";
 import { releaseExpiredPoliceConsequences } from "../rules/police/policeConsequenceExpiry";
 import { applyPoliceHeatDecay } from "../rules/police/heatDecay";
 import { expirePendingRaids } from "../rules/police/raidLifecycle";
@@ -49,7 +50,8 @@ export const runTick = (
   const pharmacyProductionState = completePharmacyProduction(producedState, context);
   const drugLabProductionState = completeDrugLabProduction(pharmacyProductionState, context);
   const factoryProductionState = completeFactoryProduction(drugLabProductionState, context);
-  const processingResult = completeCraftProcessing(factoryProductionState, context);
+  const armoryProductionState = completeArmoryProduction(factoryProductionState, context);
+  const processingResult = completeCraftProcessing(armoryProductionState, context);
   const streetDealerResult = context.config.balance.streetDealers
     ? completeStreetDealerSales(
         processingResult.nextState,

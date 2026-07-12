@@ -108,16 +108,16 @@ export const DRUGLAB_RECIPES = {
 };
 
 export const ARMORY_RECIPES = {
-  "baseball-bat": { name: "Baseballová pálka", inputs: { "metal-parts": 2 }, output: { inventory: "weapons", itemId: "baseball-bat", amount: 5 }, durationMs: 3 * 60 * 1000 },
-  pistol: { name: "Pistole", inputs: { "metal-parts": 3, "tech-core": 1 }, output: { inventory: "weapons", itemId: "pistol", amount: 4 }, durationMs: 5 * 60 * 1000 },
-  grenade: { name: "Granát", inputs: { "metal-parts": 2, "tech-core": 1 }, output: { inventory: "weapons", itemId: "grenade", amount: 3 }, durationMs: 6 * 60 * 1000 },
-  smg: { name: "SMG", inputs: { "metal-parts": 5, "tech-core": 2 }, output: { inventory: "weapons", itemId: "smg", amount: 2 }, durationMs: 8 * 60 * 1000 },
+  "baseball-bat": { name: "Baseballová pálka", inputs: { "metal-parts": 2 }, output: { inventory: "weapons", itemId: "baseball-bat", amount: 1 }, durationMs: 3 * 60 * 1000 },
+  pistol: { name: "Pistole", inputs: { "metal-parts": 3, "tech-core": 1 }, output: { inventory: "weapons", itemId: "pistol", amount: 1 }, durationMs: 5 * 60 * 1000 },
+  grenade: { name: "Granát", inputs: { "metal-parts": 2, "tech-core": 1 }, output: { inventory: "weapons", itemId: "grenade", amount: 1 }, durationMs: 6 * 60 * 1000 },
+  smg: { name: "SMG", inputs: { "metal-parts": 5, "tech-core": 2 }, output: { inventory: "weapons", itemId: "smg", amount: 1 }, durationMs: 8 * 60 * 1000 },
   bazooka: { name: "Bazuka", inputs: { "metal-parts": 7, "tech-core": 3 }, output: { inventory: "weapons", itemId: "bazooka", amount: 1 }, durationMs: 14 * 60 * 1000 },
-  vest: { name: "Vesta", inputs: { "metal-parts": 3, "tech-core": 1 }, output: { inventory: "weapons", itemId: "vest", amount: 3 }, durationMs: 5 * 60 * 1000 },
-  barricades: { name: "Barikády", inputs: { "metal-parts": 4 }, output: { inventory: "weapons", itemId: "barricades", amount: 3 }, durationMs: 5 * 60 * 1000 },
-  cameras: { name: "Kamery", inputs: { "metal-parts": 2, "tech-core": 2 }, output: { inventory: "weapons", itemId: "cameras", amount: 2 }, durationMs: 7 * 60 * 1000 },
-  "defense-tower": { name: "Defense tower", inputs: { "metal-parts": 8, "tech-core": 3 }, output: { inventory: "weapons", itemId: "defense-tower", amount: 1 }, durationMs: 16 * 60 * 1000 },
-  alarm: { name: "Alarm", inputs: { "metal-parts": 2, "tech-core": 1 }, output: { inventory: "weapons", itemId: "alarm", amount: 3 }, durationMs: 5 * 60 * 1000 }
+  vest: { name: "Vesta", inputs: { "metal-parts": 3, "tech-core": 1 }, output: { inventory: "weapons", itemId: "vest", amount: 1 }, durationMs: 5 * 60 * 1000 },
+  barricades: { name: "Barikády", inputs: { "metal-parts": 4 }, output: { inventory: "weapons", itemId: "barricades", amount: 1 }, durationMs: 5 * 60 * 1000 },
+  cameras: { name: "Kamery", inputs: { "metal-parts": 2, "tech-core": 2 }, output: { inventory: "weapons", itemId: "cameras", amount: 1 }, durationMs: 6 * 60 * 1000 },
+  "defense-tower": { name: "Obranná věž", inputs: { "metal-parts": 8, "tech-core": 3 }, output: { inventory: "weapons", itemId: "defense-tower", amount: 1 }, durationMs: 15 * 60 * 1000 },
+  alarm: { name: "Alarm", inputs: { "metal-parts": 2, "tech-core": 1 }, output: { inventory: "weapons", itemId: "alarm", amount: 1 }, durationMs: 5 * 60 * 1000 }
 };
 
 export const MARKET_TAB_CONFIG = {

@@ -1,6 +1,7 @@
 import type { ResolvedGameModeConfig } from "../contracts/game-mode-config";
 import { validateDrugLabProductionConfig } from "../../../game-core/src/handlers/drugLabProductionConfig";
 import { validateFactoryProductionConfig } from "../../../game-core/src/handlers/factoryProductionConfig";
+import { validateArmoryProductionConfig } from "../../../game-core/src/handlers/armoryProductionConfig";
 import { validatePharmacyProductionConfig } from "../../../game-core/src/handlers/pharmacyProductionConfig";
 import { validateWarehouseStorageConfig } from "../../../game-core/src/handlers/storageCapacityTypes";
 import { validateAttackWeaponsConfig } from "../../../game-core/src/rules/combat/attackWeaponBalance";
@@ -88,6 +89,9 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
   }
   if (config.balance.factory) {
     validateFactoryProductionConfig(config.balance.factory);
+  }
+  if (config.balance.armory) {
+    validateArmoryProductionConfig(config.balance.armory);
   }
   if (config.balance.attackWeapons) {
     validateAttackWeaponsConfig(config.balance.attackWeapons);

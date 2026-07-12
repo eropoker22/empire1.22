@@ -26,6 +26,7 @@ export const completePharmacyProduction = (
 
     for (const [recipeId, recipe] of Object.entries(pharmacy.recipes)) {
       let line = getPharmacyLine({ ...building, productionLines: lines }, recipeId);
+      let lineChanged = false;
       const producedAmount = Math.max(0, Number(resourceState.balances[recipe.outputResourceKey] || 0));
       if (line.activeCompletesAtTick !== null && line.activeCompletesAtTick <= state.root.tick) {
         if (producedAmount >= recipe.localOutputCap) continue;
@@ -47,14 +48,18 @@ export const completePharmacyProduction = (
           reservedCleanCash: Math.max(0, line.reservedCleanCash - line.unitCleanCashCost),
           version: line.version + 1
         };
+        lineChanged = true;
         buildingChanged = true;
       }
       const nextProducedAmount = Math.max(0, Number(resourceState.balances[recipe.outputResourceKey] || 0));
       const startedLine = nextProducedAmount < recipe.localOutputCap
         ? startPharmacyLine(line, building, recipe, state.root.tick, context)
         : line;
-      if (startedLine !== line) buildingChanged = true;
-      if (startedLine.queuedAmount > 0 || line.queuedAmount > 0 || startedLine.activeCompletesAtTick !== null) {
+      if (startedLine !== line) {
+        lineChanged = true;
+        buildingChanged = true;
+      }
+      if (lineChanged || Object.hasOwn(lines, recipeId)) {
         lines = { ...lines, [recipeId]: startedLine };
       }
     }

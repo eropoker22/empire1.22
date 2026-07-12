@@ -1,24 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { resolveModeConfig } from "@empire/game-config";
 import { applyCommand, runTick } from "../../../packages/game-core/src/engine";
-import { createCollectProductionCommandFixture } from "../../fixtures/command-fixtures";
+import { createCollectProductionCommandFixture, createCraftItemCommandFixture } from "../../fixtures/command-fixtures";
 import { createCoreStateWithFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
 
 describe("production collect command flow", () => {
   it.each([
-    ["factory", "metal-parts", 8],
-    ["drug_lab", "neon-dust", 2]
-  ])("fills %s output on tick and moves it to player resources on collect", (
+    ["factory", "metal-parts", "metal-parts", { cash: 300 }],
+    ["drug_lab", "neon-dust", "neon-dust", { cash: 500, chemicals: 2 }]
+  ])("moves a completed %s line output to player resources on collect", (
     buildingTypeId,
+    recipeId,
     resourceKey,
-    expectedAmount
+    playerBalances
   ) => {
     const context = {
       config: resolveModeConfig("free")
     };
     const { state, building } = createCoreStateWithFixedBuildingFixture(buildingTypeId, {
       includeWarehouse: true,
-      productionResourceKey: resourceKey
+      productionResourceKey: resourceKey,
+      playerBalances
     });
     const buildingId = building.id;
     const buildingResourceStateId = `resource:${buildingId}`;
@@ -27,22 +29,33 @@ describe("production collect command flow", () => {
     expect(state.districtsById["district:1"].buildingIds).toContain("building:district-1:warehouse:1");
     expect(state.resourceStatesById[buildingResourceStateId]?.balances[resourceKey]).toBe(0);
 
-    const firstTick = runTick(state, context);
-    const secondTick = runTick(firstTick.nextState, context);
+    const started = applyCommand(state, createCraftItemCommandFixture({
+      payload: { districtId: "district:1", buildingId, recipeId, quantity: 1 }
+    }), context);
+    const baseDuration = buildingTypeId === "factory"
+      ? context.config.balance.factory!.recipes[recipeId as "metal-parts"].durationTicksPerUnit
+      : context.config.balance.drugLab!.recipes[recipeId as "neon-dust"].durationTicksPerUnit;
+    const duration = Math.ceil(baseDuration * context.config.balance.cooldownMultiplier);
+    let completedState = started.nextState;
+    for (let index = 0; index < duration + 1; index += 1) {
+      completedState = runTick(completedState, context).nextState;
+    }
 
-    expect(secondTick.nextState.resourceStatesById[buildingResourceStateId]?.balances[resourceKey]).toBe(expectedAmount);
+    expect(started.errors).toEqual([]);
+    expect(completedState.resourceStatesById[buildingResourceStateId]?.balances[resourceKey]).toBe(1);
 
     const collectCommand = createCollectProductionCommandFixture({
       payload: {
         districtId: "district:1",
-        buildingId
+        buildingId,
+        resourceKey
       }
     });
-    const collected = applyCommand(secondTick.nextState, collectCommand, context);
+    const collected = applyCommand(completedState, collectCommand, context);
 
     expect(collected.errors).toEqual([]);
     expect(collected.nextState.resourceStatesById[buildingResourceStateId]?.balances[resourceKey]).toBe(0);
-    expect(collected.nextState.resourceStatesById["resource:1"]?.balances[resourceKey]).toBe(expectedAmount);
+    expect(collected.nextState.resourceStatesById["resource:1"]?.balances[resourceKey]).toBe(1);
     expect(collected.events).toHaveLength(1);
     expect(collected.events[0]?.type).toBe("production-collected");
   });

@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { createClientApp } from "../../apps/client/src/app";
-import {
-  createCraftItemCommand,
-  createRunBuildingActionCommand
-} from "../../apps/client/src/features";
 import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 import { createServerApp } from "../../apps/server/src/app";
 import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
@@ -27,6 +23,24 @@ describe("production building network gameplay slice", () => {
         buildingTypes: ["pharmacy", "drug_lab", "factory", "armory"]
       }
     });
+    const resourceStateId = runtime.state.playersById[playerId]!.resourceStateId;
+    runtime.state = {
+      ...runtime.state,
+      resourceStatesById: {
+        ...runtime.state.resourceStatesById,
+        [resourceStateId]: {
+          ...runtime.state.resourceStatesById[resourceStateId]!,
+          balances: {
+            ...runtime.state.resourceStatesById[resourceStateId]!.balances,
+            cash: 10_000,
+            chemicals: 20,
+            biomass: 20,
+            "metal-parts": 30,
+            "tech-core": 12
+          }
+        }
+      }
+    };
     server.instanceManager.startInstance(instanceId);
     server.instanceManager.tickInstance(instanceId);
     server.instanceManager.tickInstance(instanceId);
@@ -41,13 +55,9 @@ describe("production building network gameplay slice", () => {
     });
     const initialRender = await client.load(session.loadRequest);
 
-    expect(initialRender.sidePanelHtml).toContain("Produkční sloty");
-    expect(initialRender.sidePanelHtml).not.toContain('data-slot-building-type="drug-lab"');
-    expect(initialRender.sidePanelHtml).toContain('data-slot-building-type="factory"');
-    expect(initialRender.sidePanelHtml).toContain('data-slot-building-type="armory"');
-    expect(initialRender.sidePanelHtml).toContain("Vybrat Metal Parts");
-    expect(initialRender.sidePanelHtml).toContain("Zpracovat Bojový modul");
-    expect(initialRender.sidePanelHtml).toContain("Zpracovat Pistol");
+    expect(initialRender.sidePanelHtml).toContain('data-building-type="factory"');
+    expect(initialRender.sidePanelHtml).toContain('data-building-type="armory"');
+    expect(initialRender.sidePanelHtml).not.toContain('data-slot-building-type="armory"');
     expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingTypeId === "pharmacy")?.pharmacy?.lines).toHaveLength(3);
     expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingTypeId === "drug_lab")?.drugLab?.lines).toHaveLength(5);
 
@@ -59,18 +69,18 @@ describe("production building network gameplay slice", () => {
     expect(drugLabId).toBeTruthy();
     expect(armoryId).toBeTruthy();
 
-    const factoryAction = await client.dispatch(
-      createRunBuildingActionCommand({
-        commandId: "command:building-action:factory",
-        slice: client.getGameplaySlice()!,
-        buildingId: factoryId!,
-        actionId: "produce_combat_module",
-        issuedAt: new Date(0).toISOString()
-      })
-    );
-
-    expect(factoryAction.errors).toEqual([]);
-    expect(factoryAction.player?.resourceSummary).toContain("Bojový modul 1");
+    const factoryCraft = await client.dispatch({
+      id: "command:craft:factory",
+      type: "craft-item",
+      mode: "free",
+      playerId,
+      serverInstanceId: instanceId,
+      issuedAt: new Date().toISOString(),
+      clientRequestId: null,
+      payload: { districtId, buildingId: factoryId!, recipeId: "metal-parts", quantity: 1 }
+    });
+    expect(factoryCraft.errors).toEqual([]);
+    expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === factoryId)?.factory?.productionLines).toHaveLength(3);
 
     const drugAction = await client.dispatch({
       id: "command:craft:drug-lab",
@@ -89,16 +99,22 @@ describe("production building network gameplay slice", () => {
     )).toMatchObject({ queuedAmount: 1, activeAmount: 1 });
 
     const armoryCraft = await client.dispatch(
-      createCraftItemCommand({
-        commandId: "command:craft:armory",
-        slice: client.getGameplaySlice()!,
-        buildingId: armoryId!,
-        recipeId: "pistol",
-        issuedAt: new Date(0).toISOString()
-      })
+      {
+        id: "command:craft:armory",
+        type: "craft-item",
+        mode: "free",
+        playerId,
+        serverInstanceId: instanceId,
+        issuedAt: new Date().toISOString(),
+        clientRequestId: null,
+        payload: { districtId, buildingId: armoryId!, recipeId: "pistol", quantity: 1 }
+      }
     );
 
     expect(armoryCraft.errors).toEqual([]);
-    expect(server.instanceManager.getInstanceById(instanceId)?.state.buildingsById[armoryId!]?.processing?.recipeId).toBe("pistol");
+    expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === armoryId)?.armory?.productionLines).toHaveLength(10);
+    expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === armoryId)?.armory?.productionLines.find(
+      (line) => line.recipeId === "pistol"
+    )).toMatchObject({ queuedAmount: 1, activeAmount: 1 });
   });
 });

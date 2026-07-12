@@ -69,7 +69,9 @@ export const createCollectProductionCommandFixture = (
 
 export const createCraftItemCommandFixture = (
   overrides: Partial<CraftItemCommand> = {}
-): CraftItemCommand => ({
+): CraftItemCommand => {
+  const { payload, ...rest } = overrides;
+  return {
   id: "command:craft:1",
   type: "craft-item",
   mode: "free",
@@ -79,11 +81,14 @@ export const createCraftItemCommandFixture = (
   payload: {
     districtId: "district:1",
     buildingId: "building:pharmacy:1",
-    recipeId: "stim-pack"
+    recipeId: "stim-pack",
+    quantity: 1,
+    ...payload
   },
   clientRequestId: null,
-  ...overrides
-});
+  ...rest
+  };
+};
 
 export const createRunBuildingActionCommandFixture = (
   overrides: Partial<RunBuildingActionCommand> = {}

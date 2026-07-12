@@ -25,6 +25,11 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
   const baseOwnedCount = Math.max(1, Math.floor(Number(deps.baseOwnedProductionBuildingCount || 1)));
   const defaultQueueCapPerExtraBuilding = Math.max(0, Math.floor(Number(deps.queueCapPerExtraProductionBuilding ?? 4)));
   const defaultOutputCapPerWarehouse = Math.max(0, Math.floor(Number(deps.outputCapPerWarehouse ?? 5)));
+  const getServerLines = (production) => Array.isArray(production?.productionLines)
+    ? production.productionLines
+    : Array.isArray(production?.lines)
+      ? production.lines
+      : [];
 
   const getConfigNumber = (buildingName, key, fallback = 0) => {
     const value = Number(deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.[key]);
@@ -463,6 +468,53 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     });
   };
 
+  const createServerArmoryCard = (root, armory, line, rerender) => {
+    const recipe = {
+      name: line.label,
+      cleanMoneyCost: 0,
+      output: { itemId: line.resourceKey, amount: 1 }
+    };
+    return deps.renderRecipeCard?.({
+      root,
+      buildingName: "armory",
+      recipeId: line.recipeId,
+      recipe,
+      serverLine: line,
+      tickRateMs: deps.getServerTickRateMs?.() || 5000,
+      visual: deps.PRODUCTION_SLOT_VISUALS?.armory?.[line.recipeId] || null
+    }, {
+      onStart: async ({ batchCount }) => {
+        const response = await deps.submitServerArmoryCommand?.({
+          type: "craft-item",
+          payload: {
+            districtId: armory.districtId,
+            buildingId: armory.buildingId,
+            recipeId: line.recipeId,
+            quantity: batchCount
+          }
+        });
+        reportServerArmoryResult(root, response, line.label);
+        rerender?.();
+      },
+      onStop: async () => {
+        const response = await deps.submitServerArmoryCommand?.({
+          type: "cancel-production-line",
+          payload: {
+            districtId: armory.districtId,
+            buildingId: armory.buildingId,
+            recipeId: line.recipeId
+          }
+        });
+        reportServerArmoryResult(root, response, line.label);
+        rerender?.();
+      }
+    }, {
+      mount: root,
+      formatCurrency: deps.formatCurrency,
+      formatDurationLabel: deps.formatDurationLabel
+    });
+  };
+
   const reportServerPharmacyResult = (root, response, label) => {
     const error = response?.errors?.[0];
     if (error) {
@@ -481,6 +533,15 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     deps.setBuildingActionFeedback?.(root, "success", "Lab", label + " byl aktualizován.");
   };
 
+  const reportServerArmoryResult = (root, response, label) => {
+    const error = response?.errors?.[0];
+    if (error) {
+      deps.setBuildingActionFeedback?.(root, "warning", "Zbrojovka", error.message || "Akci se nepodařilo provést.");
+      return;
+    }
+    deps.setBuildingActionFeedback?.(root, "success", "Zbrojovka", label + " byl aktualizován.");
+  };
+
   const renderProductionPanel = (root, panelName, recipes, rerender) => {
     const mount = root?.querySelector?.(`[data-production-panel="${panelName}"]`);
 
@@ -494,13 +555,18 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const serverDrugLab = panelName === "druglab"
       ? deps.getServerDrugLabReadModel?.()
       : null;
-    const serverProduction = serverPharmacy || serverDrugLab;
+    const serverArmory = panelName === "armory"
+      ? deps.getServerArmoryReadModel?.()
+      : null;
+    const serverProduction = serverPharmacy || serverDrugLab || serverArmory;
     if (serverProduction) {
       const safeRerender = typeof rerender === "function" ? rerender : () => renderProductionPanel(root, panelName, recipes);
       return deps.renderProductionPanelUi?.({
         mount,
-        recipes: serverProduction.lines.map((line) => ({
-          prebuiltCard: serverDrugLab
+        recipes: getServerLines(serverProduction).map((line) => ({
+          prebuiltCard: serverArmory
+            ? createServerArmoryCard(root, serverArmory, line, safeRerender)
+            : serverDrugLab
             ? createServerDrugLabCard(root, serverDrugLab, line, safeRerender)
             : createServerPharmacyCard(root, serverPharmacy, line, safeRerender)
         }))
@@ -585,7 +651,10 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       const serverDrugLab = buildingName === "druglab"
         ? deps.getServerDrugLabReadModel?.()
         : null;
-      const serverProduction = serverPharmacy || serverDrugLab;
+      const serverArmory = buildingName === "armory"
+        ? deps.getServerArmoryReadModel?.()
+        : null;
+      const serverProduction = serverPharmacy || serverDrugLab || serverArmory;
       deps.syncCompletedProductionJobs?.();
       const state = serverProduction
         ? { level: serverProduction.level || 1 }
@@ -595,7 +664,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         ? deps.getProductionBuildingMultiplier?.(buildingName, state.level + 1) || multiplier
         : multiplier;
       const readyCount = serverProduction
-        ? serverProduction.lines.filter((line) => Number(line.producedAmount || 0) > 0).length
+        ? getServerLines(serverProduction).filter((line) => Number(line.producedAmount || 0) > 0).length
         : deps.getProductionBuildingReadyCount?.(buildingName, recipes) || 0;
       const upgradeCost = state.level < maxLevel ? deps.getProductionBuildingUpgradeCost?.(buildingName, state.level + 1) || 0 : 0;
       const ownedBuildingCount = getOwnedProductionBuildingCount(buildingName, state.level);
@@ -674,10 +743,23 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         const serverDrugLab = buildingName === "druglab"
           ? deps.getServerDrugLabReadModel?.()
           : null;
-        const serverProduction = serverPharmacy || serverDrugLab;
+        const serverArmory = buildingName === "armory"
+          ? deps.getServerArmoryReadModel?.()
+          : null;
+        const serverProduction = serverPharmacy || serverDrugLab || serverArmory;
         if (serverProduction) {
-          for (const line of serverProduction.lines.filter((item) => item.canCollect)) {
-            const response = await (serverDrugLab ? deps.submitServerDrugLabCommand : deps.submitServerPharmacyCommand)?.({
+          const submit = serverArmory
+            ? deps.submitServerArmoryCommand
+            : serverDrugLab
+              ? deps.submitServerDrugLabCommand
+              : deps.submitServerPharmacyCommand;
+          const report = serverArmory
+            ? reportServerArmoryResult
+            : serverDrugLab
+              ? reportServerDrugLabResult
+              : reportServerPharmacyResult;
+          for (const line of getServerLines(serverProduction).filter((item) => item.canCollect)) {
+            const response = await submit?.({
               type: "collect-production",
               payload: {
                 districtId: serverProduction.districtId,
@@ -686,19 +768,24 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
               }
             });
             if (response?.errors?.length) {
-              (serverDrugLab ? reportServerDrugLabResult : reportServerPharmacyResult)(root, response, line.label);
+              report(root, response, line.label);
               renderDashboard();
               return;
             }
           }
-          const updated = serverDrugLab ? deps.getServerDrugLabReadModel?.() : deps.getServerPharmacyReadModel?.();
-          const partial = updated?.lines?.some((line) => Number(line.producedAmount || 0) > 0);
+          const updated = serverArmory
+            ? deps.getServerArmoryReadModel?.()
+            : serverDrugLab
+              ? deps.getServerDrugLabReadModel?.()
+              : deps.getServerPharmacyReadModel?.();
+          const partial = getServerLines(updated).some((line) => Number(line.producedAmount || 0) > 0);
+          const buildingLabel = serverArmory ? "Zbrojovka" : serverDrugLab ? "Lab" : "Lékárna";
           deps.setBuildingActionFeedback?.(
             root,
             partial ? "warning" : "success",
-            serverDrugLab ? "Lab" : "Lékárna",
+            buildingLabel,
             partial
-              ? "Do skladu se vešla pouze část produkce. Zbytek zůstal v " + (serverDrugLab ? "Labu." : "Lékárně.")
+              ? "Do skladu se vešla pouze část produkce. Zbytek zůstal v " + (serverArmory ? "Zbrojovce." : serverDrugLab ? "Labu." : "Lékárně.")
               : "Hotová produkce byla přesunuta do skladu."
           );
           renderDashboard();
@@ -871,6 +958,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     bindPharmacyPopup,
     bindProductionBuildingPopup,
     createProductionCard,
+    createServerArmoryCard,
     createServerPharmacyCard,
     getProductionSlotState,
     renderProductionBuildingInfo,

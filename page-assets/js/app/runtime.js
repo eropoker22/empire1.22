@@ -1072,7 +1072,29 @@ function submitServerDrugLabCommand({ type, payload } = {}) {
   });
 }
 
+function getServerArmoryReadModel() {
+  const district = latestGameplaySliceReadModel?.district;
+  const building = district?.buildings?.find?.((candidate) => candidate?.buildingTypeId === "armory" && candidate?.armory);
+  if (!building?.armory || !district?.districtId) {
+    return null;
+  }
+  return {
+    ...building.armory,
+    districtId: district.districtId,
+    buildingId: building.armory.buildingId || building.buildingId,
+    level: building.level
+  };
+}
+
 function submitServerFactoryCommand({ type, payload } = {}) {
+  return submitServerDistrictActionCommand({
+    type,
+    payload,
+    focusDistrictId: payload?.districtId || latestGameplaySliceReadModel?.district?.districtId
+  });
+}
+
+function submitServerArmoryCommand({ type, payload } = {}) {
   return submitServerDistrictActionCommand({
     type,
     payload,
@@ -4481,6 +4503,7 @@ const {
   getProductionBuildingUpgradeCost,
   getProductionJob,
   getProductionResourceLabel,
+  getServerArmoryReadModel,
   getServerDrugLabReadModel,
   getServerPharmacyReadModel,
   getServerTickRateMs,
@@ -4521,6 +4544,7 @@ const {
   setStoredProductionBuildingState,
   submitServerPharmacyCommand,
   submitServerDrugLabCommand,
+  submitServerArmoryCommand,
   syncBuildingDetailTopbarVisibility,
   syncCompletedProductionJobs
 });

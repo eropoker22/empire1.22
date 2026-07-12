@@ -34,6 +34,7 @@ export * from "./police/raidStateMutators";
 export * from "./police/triggerRaid";
 export * from "./police/wantedLevel";
 export * from "./production/completeProduction";
+export * from "./production/completeArmoryProduction";
 export * from "./production/completeCraftProcessing";
 export * from "./production/productionRules";
 export * from "./production/queueProduction";

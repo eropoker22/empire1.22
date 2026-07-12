@@ -1,6 +1,5 @@
 import type { ResolvedGameModeConfig } from "../../contracts/game-mode-config";
 import { freeModeBuildingActions } from "./free-mode-building-actions";
-import { freeModeCraftBuildings } from "./free-mode-craft-config";
 import { freeModeFixedBuildings } from "./free-mode-fixed-buildings";
 import { freeModeApartmentBlockConfig } from "../../public/free-mode-apartment-block-config";
 import { freeModeAirportConfig } from "../../public/free-mode-airport-config";
@@ -33,6 +32,7 @@ import { freeModeWarehouseConfig } from "../../public/free-mode-warehouse-config
 import { freeModePharmacyConfig } from "./free-mode-pharmacy-config";
 import { freeModeDrugLabConfig } from "./free-mode-drug-lab-config";
 import { freeModeFactoryConfig } from "./free-mode-factory-config";
+import { freeModeArmoryConfig } from "./free-mode-armory-config";
 import { freeModeAttackWeaponsConfig } from "../../public/free-mode-attack-weapons-config";
 import { freeModePoliceConfig } from "./free-police-config";
 import {
@@ -144,10 +144,10 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
     },
     attackWeapons: freeModeAttackWeaponsConfig,
     factions: FACTION_DEFINITION_BY_ID,
-    craftBuildings: freeModeCraftBuildings,
     pharmacy: freeModePharmacyConfig,
     drugLab: freeModeDrugLabConfig,
     factory: freeModeFactoryConfig,
+    armory: freeModeArmoryConfig,
     fixedBuildings: freeModeFixedBuildings,
     buildingActions: freeModeBuildingActions,
     casino: freeModeCasinoConfig,

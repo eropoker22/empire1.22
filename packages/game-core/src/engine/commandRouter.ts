@@ -12,7 +12,9 @@ import {
   handleCollectProduction,
   handleCraftItem,
   handleDrugLabProductionStart,
+  handleArmoryProductionStart,
   handleFactoryProductionStart,
+  handleCancelArmoryProduction,
   handleCancelFactoryProduction,
   handleHeistDistrict,
   handleMarketCommand,
@@ -108,6 +110,9 @@ export const routeCommand = (
       if (state.buildingsById[command.payload.buildingId]?.buildingTypeId === "factory") {
         return handleCancelFactoryProduction(state, command, context);
       }
+      if (state.buildingsById[command.payload.buildingId]?.buildingTypeId === "armory") {
+        return handleCancelArmoryProduction(state, command, context);
+      }
       return {
         nextState: state,
         events: [],
@@ -121,6 +126,8 @@ export const routeCommand = (
           return handleDrugLabProductionStart(state, command, context);
         case "factory":
           return handleFactoryProductionStart(state, command, context);
+        case "armory":
+          return handleArmoryProductionStart(state, command, context);
         default:
           return handleCraftItem(state, command, context);
       }

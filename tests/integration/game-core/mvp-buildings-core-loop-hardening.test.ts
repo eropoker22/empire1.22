@@ -11,6 +11,7 @@ import {
   createCoreStateWithFixedBuildingFixture
 } from "../../fixtures/game-state-fixtures";
 import {
+  createCollectProductionCommandFixture,
   createCraftItemCommandFixture,
   createRunBuildingActionCommandFixture
 } from "../../fixtures/command-fixtures";
@@ -56,9 +57,7 @@ describe("MVP buildings core loop hardening", () => {
       expect(fixedBuildings[buildingId], buildingId).toBeTruthy();
     }
 
-    expect(productionBuildings).toMatchObject({
-      factory: { resourceKey: "metal-parts" }
-    });
+    expect(productionBuildings.factory).toBeUndefined();
     expect(productionBuildings.drug_lab).toBeUndefined();
     expect(productionBuildings.pharmacy).toBeUndefined();
     expect(context.config.balance.pharmacy?.recipes).toMatchObject({
@@ -66,11 +65,14 @@ describe("MVP buildings core loop hardening", () => {
       biomass: { outputAmount: 1, cleanCashCostPerUnit: 420 },
       "stim-pack": { outputAmount: 1, cleanCashCostPerUnit: 800 }
     });
-    expect(craftBuildings.armory?.recipes.pistol).toMatchObject({
+    expect(craftBuildings.armory).toBeUndefined();
+    expect(context.config.balance.armory?.recipes.pistol).toMatchObject({
       outputResourceKey: "pistol",
-      inputCosts: { "metal-parts": 3, "tech-core": 1 }
+      inputCosts: { "metal-parts": 3, "tech-core": 1 },
+      outputAmount: 1
     });
-    expect(craftBuildings.factory?.recipes["tech-core"]?.outputResourceKey).toBe("tech-core");
+    expect(craftBuildings.factory).toBeUndefined();
+    expect(context.config.balance.factory?.recipes["tech-core"]?.outputResourceKey).toBe("tech-core");
     expect(context.config.balance.drugLab?.recipes["pulse-shot"]).toMatchObject({
       outputResourceKey: "pulse-shot",
       cleanCashCostPerUnit: 800,
@@ -179,7 +181,7 @@ describe("MVP buildings core loop hardening", () => {
     expect(twice).toHaveLength(0);
   });
 
-  it("completes the factory to armory equipment path and emits a significant craft feed event", () => {
+  it("completes the factory to armory equipment path through local production and collect", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("armory", {
       playerBalances: {
         cash: 0,
@@ -196,27 +198,29 @@ describe("MVP buildings core loop hardening", () => {
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          recipeId: "pistol"
+          recipeId: "pistol",
+          quantity: 1
         }
       }),
       context
     );
-    let completed = runTick(started.nextState, context);
-    for (let index = 1; index < 60; index += 1) {
-      completed = runTick(completed.nextState, context);
+    let completedState = started.nextState;
+    for (let index = 0; index < 100; index += 1) {
+      completedState = runTick(completedState, context).nextState;
     }
-    const balances = completed.nextState.resourceStatesById["resource:1"].balances;
-    const feedEvents = Object.values(completed.nextState.cityFeedEventsById ?? {});
+    const balances = completedState.resourceStatesById["resource:1"].balances;
+    const localOutput = completedState.resourceStatesById["resource:" + building.id]?.balances;
 
     expect(started.errors).toEqual([]);
     expect(balances["metal-parts"]).toBe(7);
     expect(balances["tech-core"]).toBe(3);
-    expect(balances.pistol).toBe(2);
-    expect(completed.nextState.buildingsById[building.id].processing).toBeNull();
-    expect(feedEvents.some((event) =>
-      event.sourceType === "building_action"
-      && event.payload?.outputResourceKey === "pistol"
-      && event.payload?.recipeId === "pistol"
-    )).toBe(true);
+    expect(localOutput?.pistol).toBe(1);
+    expect(completedState.buildingsById[building.id].processing).toBeNull();
+    const collected = applyCommand(completedState, createCollectProductionCommandFixture({
+      id: "command:mvp:armory:collect",
+      payload: { districtId: "district:1", buildingId: building.id, resourceKey: "pistol" }
+    }), context);
+    expect(collected.errors).toEqual([]);
+    expect(collected.nextState.resourceStatesById["resource:1"]?.balances.pistol).toBe(1);
   });
 });

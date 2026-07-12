@@ -37,7 +37,7 @@ export const createCraftItemCommand = (
       districtId: district.districtId,
       buildingId: input.buildingId,
       recipeId: craftOption.recipeId,
-      ...(input.quantity === undefined ? {} : { quantity: input.quantity })
+      quantity: input.quantity ?? 1
     },
     clientRequestId: input.clientRequestId ?? null
   };

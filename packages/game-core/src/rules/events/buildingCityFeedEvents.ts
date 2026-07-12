@@ -141,7 +141,7 @@ const isSignificantBuildingAction = (
 ): boolean => {
   if (!actionId || !buildingTypeId) return false;
   if (buildingTypeId === "drug_lab") return actionId.startsWith("produce_");
-  if (buildingTypeId === "armory") return actionId === "armory_fortify" || actionId === "armory_craft_weapons";
+  if (buildingTypeId === "armory") return actionId === "armory_fortify";
   if (buildingTypeId === "casino") return actionId === "quiet_backroom" || actionId === "vip_night";
   if (buildingTypeId === "exchange") return actionId === "good_rate";
   if (buildingTypeId === "street_dealers") return actionId === "start_drug_sale";

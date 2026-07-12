@@ -1282,6 +1282,49 @@ describe("building detail, production and recipe UI modules", () => {
     expect(card.querySelectorAll(".armory-slot__material-value").map((item) => item.textContent)).toEqual(["4/10", "2/5"]);
   });
 
+  it("renders the Armory server line with canonical storage values and material-only inputs", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const card = renderRecipeCard({
+      buildingName: "armory",
+      recipeId: "pistol",
+      tickRateMs: 4000,
+      visual: PRODUCTION_SLOT_VISUALS.armory.pistol,
+      serverLine: {
+        recipeId: "pistol",
+        category: "attack",
+        label: "Pistole",
+        producedAmount: 2,
+        producedCapacity: 5,
+        playerStoredAmount: 7,
+        playerStoredCapacity: 24,
+        queuedAmount: 3,
+        queueCapacity: 4,
+        activeAmount: 1,
+        waitingAmount: 2,
+        inputAvailability: [
+          { resourceKey: "metal-parts", label: "Metal Parts", requiredAmount: 3, availableAmount: 12 },
+          { resourceKey: "tech-core", label: "Tech Core", requiredAmount: 1, availableAmount: 4 }
+        ],
+        effectiveUnitDurationTicks: 75,
+        remainingMs: 120000,
+        status: "processing",
+        canStart: true,
+        canCancelWaiting: true,
+        maxStartQuantity: 2,
+        disabledReason: null
+      }
+    }, {}, { mount });
+
+    expect(card.className).toContain("armory-slot--attack");
+    expect(findMetricValue(card, "Vyrobeno")).toBe("2/5 ks");
+    expect(findMetricValue(card, "Ve skladu")).toBe("7/24 ks");
+    expect(findMetricValue(card, "Ve frontě")).toBe("3/4 ks");
+    expect(card.querySelectorAll(".armory-slot__material-value").map((item) => item.textContent)).toEqual(["3/12", "1/4"]);
+    expect(card.querySelectorAll(".drug-production-slot__supply-pill")).toHaveLength(0);
+    expect(card.querySelector(".drug-production-slot__state").textContent).toBe("Výroba");
+  });
+
   it("spreads three drug lab inputs across the full supply row", () => {
     const document = setupDocument();
     const mount = document.createElement("div");

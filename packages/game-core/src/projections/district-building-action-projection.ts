@@ -23,6 +23,7 @@ import { resolveWarehouseUpgradeCapacityPreview } from "../handlers/warehouseBui
 import { createPharmacyProductionBuildingView } from "./pharmacy-production-projection";
 import { createDrugLabProductionBuildingView } from "./drug-lab-production-projection";
 import { createFactoryProductionBuildingView } from "./factory-production-projection";
+import { createArmoryProductionBuildingView } from "./armory-production-projection";
 import {
   getOwnedStreetDealerCount,
   getStreetDealersPlayerMetadata,
@@ -206,6 +207,7 @@ export const createDistrictPanelBuildingViews = (
         tickRateMs: input.tickRateMs
       }),
       factory: createFactoryProductionBuildingView({ state: input.state, building, playerId: input.playerId, config: input.config, tickRateMs: input.tickRateMs }),
+      armory: createArmoryProductionBuildingView({ state: input.state, building, playerId: input.playerId, config: input.config, tickRateMs: input.tickRateMs }),
       phaseAvailability: buildingPhaseRule?.phaseAvailability ?? "neutral",
       phaseBadgeLabel: buildingPhaseRule?.phaseBadgeLabel ?? null,
       phaseTooltip: buildingPhaseRule?.phaseTooltip ?? null,
