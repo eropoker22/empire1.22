@@ -19,7 +19,11 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
   const documentRef = deps.documentRef || (typeof document !== "undefined" ? document : null);
   const maxLevel = Number(deps.maxLevel || 14);
   const allowLegacyLocalProduction = deps.allowLegacyLocalProduction !== false;
+  const isServerAuthoritativeProductionReady = () => deps.isServerAuthoritativeGameplayRuntimeReady?.() === true;
+  const isLegacyLocalProductionEnabled = () => allowLegacyLocalProduction && !isServerAuthoritativeProductionReady();
+  const shouldUseServerProduction = () => !isLegacyLocalProductionEnabled();
   const allowLegacyProductionUpgrade = deps.allowLegacyProductionUpgrade !== false;
+  const isLegacyLocalProductionUpgradeEnabled = () => allowLegacyProductionUpgrade && !isServerAuthoritativeProductionReady();
   const productionBridgeMessage = "Výrobní panel používá serverový production/craft flow. Legacy lokální výroba je vypnutá.";
   const productionUpgradeMessage = "Serverový upgrade se provádí přes konkrétní kartu budovy v districtu.";
   const baseOwnedCount = Math.max(1, Math.floor(Number(deps.baseOwnedProductionBuildingCount || 1)));
@@ -69,7 +73,11 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     return normalizeCount(rawCount, fallback, baseOwnedCount);
   };
 
-  const getProductionOutputCap = (buildingName) => {
+  const getProductionOutputCap = (buildingName, recipe = {}) => {
+    const recipeCap = Math.max(0, Math.floor(Number(recipe?.localOutputCap || 0)));
+    if (recipeCap > 0) {
+      return recipeCap;
+    }
     const baseCap = Math.max(0, Math.floor(getConfigNumber(buildingName, "outputCap", 0)));
     const warehouseBonus = getOwnedWarehouseCount() * Math.max(0, Math.floor(getConfigNumber(
       buildingName,
@@ -79,7 +87,11 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     return baseCap > 0 ? baseCap + warehouseBonus : 0;
   };
 
-  const getProductionQueueCap = (buildingName, ownedBuildingCount = baseOwnedCount) => {
+  const getProductionQueueCap = (buildingName, ownedBuildingCount = baseOwnedCount, recipe = {}) => {
+    const recipeCap = Math.max(0, Math.floor(Number(recipe?.queueCap || 0)));
+    if (recipeCap > 0) {
+      return recipeCap;
+    }
     const baseCap = Math.max(0, Math.floor(getConfigNumber(
       buildingName,
       "queueCap",
@@ -138,7 +150,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
   };
 
   const createProductionCard = (root, buildingName, recipeId, recipeKey, recipe, rerender) => {
-    const legacyProductionEnabled = allowLegacyLocalProduction;
+    const legacyProductionEnabled = isLegacyLocalProductionEnabled();
     const job = deps.getProductionJob?.(recipeKey);
     const buildingState = deps.getStoredProductionBuildingState?.(buildingName) || {};
     const ownedBuildingCount = getOwnedProductionBuildingCount(buildingName, buildingState.level);
@@ -147,8 +159,8 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const outputUnitAmount = buildingName === "pharmacy" || buildingName === "armory"
       ? 1
       : Math.max(1, Math.floor(Number(recipe?.output?.amount || 1)));
-    const outputCap = getProductionOutputCap(buildingName);
-    const queueCap = getProductionQueueCap(buildingName, ownedBuildingCount);
+    const outputCap = getProductionOutputCap(buildingName, recipe);
+    const queueCap = getProductionQueueCap(buildingName, ownedBuildingCount, recipe);
     const getQueuedOutputAmount = (productionJob = null) => Math.max(0, Math.floor(Number(productionJob?.output?.amount || 0)));
     const getRemainingOutputSpace = (productionJob = null) => outputCap > 0
       ? Math.max(0, outputCap - getQueuedOutputAmount(productionJob))
@@ -549,13 +561,13 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       return false;
     }
 
-    const serverPharmacy = panelName === "pharmacy" && !allowLegacyLocalProduction
+    const serverPharmacy = panelName === "pharmacy" && shouldUseServerProduction()
       ? deps.getServerPharmacyReadModel?.()
       : null;
-    const serverDrugLab = panelName === "druglab" && !allowLegacyLocalProduction
+    const serverDrugLab = panelName === "druglab" && shouldUseServerProduction()
       ? deps.getServerDrugLabReadModel?.()
       : null;
-    const serverArmory = panelName === "armory" && !allowLegacyLocalProduction
+    const serverArmory = panelName === "armory" && shouldUseServerProduction()
       ? deps.getServerArmoryReadModel?.()
       : null;
     const serverProduction = serverPharmacy || serverDrugLab || serverArmory;
@@ -645,13 +657,13 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     };
 
     const renderDashboard = () => {
-      const serverPharmacy = buildingName === "pharmacy" && !allowLegacyLocalProduction
+      const serverPharmacy = buildingName === "pharmacy" && shouldUseServerProduction()
         ? deps.getServerPharmacyReadModel?.()
         : null;
-      const serverDrugLab = buildingName === "druglab" && !allowLegacyLocalProduction
+      const serverDrugLab = buildingName === "druglab" && shouldUseServerProduction()
         ? deps.getServerDrugLabReadModel?.()
         : null;
-      const serverArmory = buildingName === "armory" && !allowLegacyLocalProduction
+      const serverArmory = buildingName === "armory" && shouldUseServerProduction()
         ? deps.getServerArmoryReadModel?.()
         : null;
       const serverProduction = serverPharmacy || serverDrugLab || serverArmory;
@@ -697,11 +709,11 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       });
 
       if (isButtonElement(collectButton, ButtonCtor)) {
-        collectButton.disabled = serverProduction ? readyCount <= 0 : !allowLegacyLocalProduction || readyCount <= 0;
+        collectButton.disabled = serverProduction ? readyCount <= 0 : !isLegacyLocalProductionEnabled() || readyCount <= 0;
         collectButton.textContent = "+";
         const collectLabel = serverProduction
           ? readyCount > 0 ? "Vybrat hotovou produkci do skladu" : "Není nic hotového k vyzvednutí"
-          : !allowLegacyLocalProduction
+          : !isLegacyLocalProductionEnabled()
           ? productionBridgeMessage
           : readyCount > 0
           ? `Vybrat hotové do skladu (${readyCount})`
@@ -714,9 +726,9 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         const hasNextUpgrade = state.level < maxLevel;
         upgradeButton.hidden = !hasNextUpgrade;
         upgradeButton.style.display = hasNextUpgrade ? "" : "none";
-        upgradeButton.disabled = !hasNextUpgrade || (allowLegacyProductionUpgrade && state.level >= maxLevel);
+        upgradeButton.disabled = !hasNextUpgrade || (isLegacyLocalProductionUpgradeEnabled() && state.level >= maxLevel);
         upgradeButton.textContent = "⇪";
-        const upgradeLabel = !allowLegacyProductionUpgrade
+        const upgradeLabel = !isLegacyLocalProductionUpgradeEnabled()
           ? productionUpgradeMessage
           : !hasNextUpgrade
           ? "Max level"
@@ -728,6 +740,12 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       renderProductionPanel(root, buildingName, recipes, renderDashboard);
     };
 
+    documentRef?.addEventListener?.("empire:gameplay-slice-rendered", () => {
+      if (!isLegacyLocalProductionEnabled() && !popup.hidden) {
+        renderDashboard();
+      }
+    });
+
     for (const button of tabButtons) {
       button.addEventListener("click", () => {
         const tabName = String(button.dataset.productionBuildingTab || "").split(":")[1] || "stats";
@@ -737,13 +755,13 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
     if (isButtonElement(collectButton, ButtonCtor)) {
       collectButton.addEventListener("click", async () => {
-        const serverPharmacy = buildingName === "pharmacy" && !allowLegacyLocalProduction
+        const serverPharmacy = buildingName === "pharmacy" && shouldUseServerProduction()
           ? deps.getServerPharmacyReadModel?.()
           : null;
-        const serverDrugLab = buildingName === "druglab" && !allowLegacyLocalProduction
+        const serverDrugLab = buildingName === "druglab" && shouldUseServerProduction()
           ? deps.getServerDrugLabReadModel?.()
           : null;
-        const serverArmory = buildingName === "armory" && !allowLegacyLocalProduction
+        const serverArmory = buildingName === "armory" && shouldUseServerProduction()
           ? deps.getServerArmoryReadModel?.()
           : null;
         const serverProduction = serverPharmacy || serverDrugLab || serverArmory;
@@ -791,7 +809,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           renderDashboard();
           return;
         }
-        if (!allowLegacyLocalProduction) {
+        if (!isLegacyLocalProductionEnabled()) {
           deps.setBuildingActionFeedback?.(root, "warning", config?.label || "Budova", productionBridgeMessage);
           renderDashboard();
           return;
@@ -823,7 +841,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
     if (isButtonElement(upgradeButton, ButtonCtor)) {
       upgradeButton.addEventListener("click", async () => {
-        if (!allowLegacyProductionUpgrade) {
+        if (!isLegacyLocalProductionUpgradeEnabled()) {
           deps.setBuildingActionFeedback?.(root, "warning", config?.label || "Budova", productionUpgradeMessage);
           renderDashboard();
           return;

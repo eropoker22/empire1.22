@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { createProductionBuildingPopupRuntime } from "../../page-assets/js/app/runtime/productionBuildingPopupRuntime.js";
+import {
+  DRUGLAB_RECIPES,
+  PHARMACY_RECIPES
+} from "../../packages/game-config/src/legacy-page/economy-config.js";
 
 function createElement(dataset = {}) {
   const listeners = new Map();
@@ -150,7 +154,8 @@ describe("production building popup runtime", () => {
       return {};
     });
     const runtime = createProductionBuildingPopupRuntime({
-      allowLegacyLocalProduction: false,
+      allowLegacyLocalProduction: true,
+      isServerAuthoritativeGameplayRuntimeReady: () => true,
       getServerArmoryReadModel: () => ({
         districtId: "district:1",
         buildingId: "building:armory:1",
@@ -228,6 +233,44 @@ describe("production building popup runtime", () => {
     expect(renderRecipeCard).toHaveBeenCalledTimes(2);
     expect(renderRecipeCard.mock.calls[0][0]).toMatchObject({ buildingName: "druglab", canStart: true });
     expect(renderRecipeCard.mock.calls[1][0]).toMatchObject({ buildingName: "armory", canStart: true });
+  });
+
+  it("passes recipe-specific local output and queue capacities to Pharmacy and Drug Lab cards", () => {
+    const renderedCards = [];
+    const runtime = createProductionBuildingPopupRuntime({
+      getInventoryAmount: () => 100,
+      getProductionBuildingMultiplier: () => 1,
+      getProductionJob: () => null,
+      getResolvedEconomyState: () => ({ cleanMoney: 100000 }),
+      getStoredProductionBuildingState: () => ({ level: 1 }),
+      hasEnoughMaterials: () => true,
+      renderProductionPanelUi: vi.fn(() => true),
+      renderRecipeCard: vi.fn((viewModel) => {
+        renderedCards.push(viewModel);
+        return {};
+      }),
+      syncCompletedProductionJobs: vi.fn()
+    });
+    const root = createRoot({
+      '[data-production-panel="pharmacy"]': {},
+      '[data-production-panel="druglab"]': {}
+    });
+
+    runtime.renderProductionPanel(root, "pharmacy", PHARMACY_RECIPES);
+    runtime.renderProductionPanel(root, "druglab", DRUGLAB_RECIPES);
+
+    expect(renderedCards.filter((card) => card.buildingName === "pharmacy")).toEqual(expect.arrayContaining([
+      expect.objectContaining({ recipeId: "chemicals", outputCap: 12, queueCap: 8 }),
+      expect.objectContaining({ recipeId: "biomass", outputCap: 8, queueCap: 6 }),
+      expect.objectContaining({ recipeId: "stim-pack", outputCap: 4, queueCap: 3 })
+    ]));
+    expect(renderedCards.filter((card) => card.buildingName === "druglab")).toEqual(expect.arrayContaining([
+      expect.objectContaining({ recipeId: "neon-dust", outputCap: 10, queueCap: 8 }),
+      expect.objectContaining({ recipeId: "pulse-shot", outputCap: 6, queueCap: 5 }),
+      expect.objectContaining({ recipeId: "velvet-smoke", outputCap: 5, queueCap: 4 }),
+      expect.objectContaining({ recipeId: "ghost-serum", outputCap: 2, queueCap: 2 }),
+      expect.objectContaining({ recipeId: "overdrive-x", outputCap: 1, queueCap: 1 })
+    ]));
   });
 
   it("keeps production upgrade button clickable in server-owned mode to explain the route", async () => {

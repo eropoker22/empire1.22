@@ -5,7 +5,19 @@ const RECIPE_IDS: readonly ArmoryRecipeId[] = [
   "vest", "barricades", "cameras", "defense-tower", "alarm"
 ];
 const ATTACK_RECIPES = new Set(["baseball-bat", "pistol", "grenade", "smg", "bazooka"]);
-const MATERIALS = new Set(["metal-parts", "tech-core"]);
+const MATERIALS = new Set(["metal-parts", "tech-core", "combat-module"]);
+const HIGH_TIER_INPUTS = {
+  smg: { "metal-parts": 2, "combat-module": 1 },
+  bazooka: { "metal-parts": 3, "combat-module": 2 },
+  "defense-tower": { "tech-core": 3, "combat-module": 2 }
+} as const;
+
+const hasExactInputCosts = (actual: Record<string, number>, expected: Record<string, number>): boolean => {
+  const actualEntries = Object.entries(actual);
+  const expectedEntries = Object.entries(expected);
+  return actualEntries.length === expectedEntries.length
+    && expectedEntries.every(([resourceKey, amount]) => actual[resourceKey] === amount);
+};
 
 export const validateArmoryProductionConfig = (config: ArmoryBalanceConfig): void => {
   if (config.independentProductionLines !== true || Object.keys(config.recipes).length !== RECIPE_IDS.length) {
@@ -30,6 +42,13 @@ export const validateArmoryProductionConfig = (config: ArmoryBalanceConfig): voi
       if (!Number.isInteger(value) || value <= 0) {
         throw new Error("Armory recipe \"" + recipeId + "\" requires positive integer timing and capacities.");
       }
+    }
+    if (recipeId in HIGH_TIER_INPUTS
+      && !hasExactInputCosts(recipe.inputCosts, HIGH_TIER_INPUTS[recipeId as keyof typeof HIGH_TIER_INPUTS])) {
+      throw new Error("Armory high-tier recipe \"" + recipeId + "\" has invalid Combat Module inputs.");
+    }
+    if (!(recipeId in HIGH_TIER_INPUTS) && "combat-module" in recipe.inputCosts) {
+      throw new Error("Combat Module is reserved for Armory high-tier recipes only.");
     }
   }
   for (const count of [1, 2, 3, 4] as const) {

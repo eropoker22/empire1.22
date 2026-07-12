@@ -3694,6 +3694,12 @@
   color: #dbeafe;
 }
 
+.armory-slot__material-pill--combat {
+  border-color: rgba(196, 181, 253, 0.42);
+  background: rgba(76, 29, 149, 0.3);
+  color: #e9d5ff;
+}
+
 .armory-slot .drug-production-slot__controls {
   grid-template-columns: minmax(118px, 1.45fr) repeat(2, minmax(72px, 1fr));
   gap: 6px;
@@ -4132,6 +4138,11 @@
 .armory-popup-card.building-detail-modal__content .armory-slot__material-pill--tech {
   border-color: rgba(125, 211, 252, 0.26);
   color: #dbeafe;
+}
+
+.armory-popup-card.building-detail-modal__content .armory-slot__material-pill--combat {
+  border-color: rgba(196, 181, 253, 0.3);
+  color: #e9d5ff;
 }
 
 .armory-popup-card.building-detail-modal__content .armory-slot__material-value {
@@ -8044,6 +8055,11 @@
 .drug-production-slot[data-resource-color="alarm"] {
   --resource-accent-rgb: 96, 165, 250;
   --resource-soft-rgb: 34, 211, 238;
+}
+
+.armory-slot__material-pill[data-resource-color="combat-module"] {
+  --resource-accent-rgb: 196, 181, 253;
+  --resource-soft-rgb: 139, 92, 246;
 }
 
 .pharmacy-slot[data-resource-color],

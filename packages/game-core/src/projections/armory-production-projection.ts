@@ -14,7 +14,8 @@ import { getWarehouseCapacityForResource, resolveWarehouseStorageCapacity } from
 
 const RESOURCE_LABELS: Record<string, string> = {
   "metal-parts": "Metal Parts",
-  "tech-core": "Tech Core"
+  "tech-core": "Tech Core",
+  "combat-module": "Combat Module"
 };
 
 export const createArmoryProductionBuildingView = (input: {
@@ -44,7 +45,11 @@ export const createArmoryProductionBuildingView = (input: {
       resourceKey,
       label: RESOURCE_LABELS[resourceKey] ?? resourceKey,
       requiredAmount,
-      availableAmount: Math.max(0, Number(balances[resourceKey] || 0))
+      availableAmount: Math.max(0, Number(balances[resourceKey] || 0)),
+      requiredPerUnit: requiredAmount,
+      playerStoredAmount: Math.max(0, Number(balances[resourceKey] || 0)),
+      hasEnough: Math.max(0, Number(balances[resourceKey] || 0)) >= requiredAmount,
+      requiredForSelectedQuantity: requiredAmount
     }));
     const queueSpace = Math.max(0, recipe.queueCap - line.queuedAmount);
     const maxByInputs = inputAvailability.reduce(

@@ -264,7 +264,12 @@ function renderArmoryMaterialsRow(viewModel = {}, options = {}) {
     const value = createElement(options.mount, "strong", "armory-slot__material-value");
     if (!pill || !name || !value) continue;
     pill.dataset.resourceColor = normalizeResourceColor(itemId, options);
-    pill.className = `armory-slot__material-pill ${itemId === "metal-parts" ? "armory-slot__material-pill--metal" : "armory-slot__material-pill--tech"}`;
+    const materialVariant = itemId === "metal-parts"
+      ? "armory-slot__material-pill--metal"
+      : itemId === "tech-core"
+        ? "armory-slot__material-pill--tech"
+        : "armory-slot__material-pill--combat";
+    pill.className = `armory-slot__material-pill ${materialVariant}`;
     name.textContent = getResourceLabel(itemId, options);
     const available = getInputAmount(itemId, viewModel);
     const baseRequired = Math.max(0, Number(amount || 0));

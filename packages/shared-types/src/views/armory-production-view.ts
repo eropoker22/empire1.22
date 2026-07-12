@@ -6,6 +6,10 @@ export interface ArmoryMaterialInputView {
   label: string;
   requiredAmount: number;
   availableAmount: number;
+  requiredPerUnit: number;
+  playerStoredAmount: number;
+  hasEnough: boolean;
+  requiredForSelectedQuantity: number;
 }
 
 export interface ArmoryProductionLineView {

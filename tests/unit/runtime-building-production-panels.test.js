@@ -1325,6 +1325,70 @@ describe("building detail, production and recipe UI modules", () => {
     expect(card.querySelector(".drug-production-slot__state").textContent).toBe("Výroba");
   });
 
+  it("renders Combat Module as the second high-tier Armory material chip", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const card = renderRecipeCard({
+      buildingName: "armory",
+      recipeId: "smg",
+      tickRateMs: 4000,
+      visual: PRODUCTION_SLOT_VISUALS.armory.smg,
+      serverLine: {
+        recipeId: "smg",
+        category: "attack",
+        label: "SMG",
+        producedAmount: 0,
+        producedCapacity: 3,
+        playerStoredAmount: 0,
+        playerStoredCapacity: 8,
+        queuedAmount: 0,
+        queueCapacity: 3,
+        activeAmount: 0,
+        waitingAmount: 0,
+        inputAvailability: [
+          { resourceKey: "metal-parts", label: "Metal Parts", requiredPerUnit: 2, playerStoredAmount: 8, hasEnough: true, requiredForSelectedQuantity: 2 },
+          { resourceKey: "combat-module", label: "Combat Module", requiredPerUnit: 1, playerStoredAmount: 3, hasEnough: true, requiredForSelectedQuantity: 1 }
+        ],
+        effectiveUnitDurationTicks: 120,
+        remainingMs: 0,
+        status: "ready",
+        canStart: true,
+        canCancelWaiting: false,
+        maxStartQuantity: 3,
+        disabledReason: null
+      }
+    }, {}, { mount });
+
+    expect(card.querySelectorAll(".armory-slot__material-pill")).toHaveLength(2);
+    expect(card.querySelectorAll(".armory-slot__material-name").map((item) => item.textContent)).toEqual(["Metal Parts", "Combat Module"]);
+    expect(card.querySelectorAll(".armory-slot__material-value").map((item) => item.textContent)).toEqual(["2/8", "1/3"]);
+  });
+
+  it("renders local Armory high-tier recipes with their real Combat Module costs", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const card = renderRecipeCard({
+      buildingName: "armory",
+      recipeId: "bazooka",
+      recipe: {
+        name: "Bazuka",
+        inputs: { "metal-parts": 3, "combat-module": 2 },
+        output: { inventory: "weapons", itemId: "bazooka", amount: 1 },
+        durationMs: 1000
+      },
+      inputAmounts: { "metal-parts": 9, "combat-module": 5 },
+      maxBatches: 2,
+      canStart: true
+    }, {}, {
+      mount,
+      getResourceLabel: (resourceKey) => resourceKey === "combat-module" ? "Bojový modul" : "Metal Parts"
+    });
+
+    expect(card.querySelectorAll(".armory-slot__material-name").map((item) => item.textContent)).toEqual(["Metal Parts", "Bojový modul"]);
+    expect(card.querySelectorAll(".armory-slot__material-value").map((item) => item.textContent)).toEqual(["3/9", "2/5"]);
+    expect(card.querySelector(".armory-slot__material-pill--combat")).not.toBe(null);
+  });
+
   it("spreads three drug lab inputs across the full supply row", () => {
     const document = setupDocument();
     const mount = document.createElement("div");

@@ -31,12 +31,12 @@ export const freeModeArmoryConfig: ArmoryBalanceConfig = {
     },
     smg: {
       category: "attack", label: "SMG", outputResourceKey: "smg", outputAmount: 1,
-      cleanCashCostPerUnit: 0, inputCosts: { "metal-parts": 5, "tech-core": 2 }, durationTicksPerUnit: baseCooldownTicksForFinalMinutes(8),
+      cleanCashCostPerUnit: 0, inputCosts: { "metal-parts": 2, "combat-module": 1 }, durationTicksPerUnit: baseCooldownTicksForFinalMinutes(8),
       localOutputCap: 3, queueCap: 3
     },
     bazooka: {
       category: "attack", label: "Bazuka", outputResourceKey: "bazooka", outputAmount: 1,
-      cleanCashCostPerUnit: 0, inputCosts: { "metal-parts": 7, "tech-core": 3 }, durationTicksPerUnit: baseCooldownTicksForFinalMinutes(14),
+      cleanCashCostPerUnit: 0, inputCosts: { "metal-parts": 3, "combat-module": 2 }, durationTicksPerUnit: baseCooldownTicksForFinalMinutes(14),
       localOutputCap: 2, queueCap: 2
     },
     vest: {
@@ -56,7 +56,7 @@ export const freeModeArmoryConfig: ArmoryBalanceConfig = {
     },
     "defense-tower": {
       category: "defense", label: "Obranná věž", outputResourceKey: "defense-tower", outputAmount: 1,
-      cleanCashCostPerUnit: 0, inputCosts: { "metal-parts": 8, "tech-core": 3 }, durationTicksPerUnit: baseCooldownTicksForFinalMinutes(15),
+      cleanCashCostPerUnit: 0, inputCosts: { "tech-core": 3, "combat-module": 2 }, durationTicksPerUnit: baseCooldownTicksForFinalMinutes(15),
       localOutputCap: 2, queueCap: 2
     },
     alarm: {

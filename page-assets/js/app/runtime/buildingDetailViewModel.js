@@ -122,6 +122,27 @@ function resolveWarehouseCapacityTone(used = 0, capacity = 0) {
   return "warehouse-low";
 }
 
+function resolveServerWarehouseItemTone(item = {}) {
+  if (item.isOverCapacity || item.isFull) {
+    return "warehouse-high";
+  }
+  if (item.isNearCapacity) {
+    return "warehouse-medium";
+  }
+  return "warehouse-low";
+}
+
+function createServerWarehouseMaterialRows(storage = {}) {
+  const groups = Array.isArray(storage.groups) ? storage.groups : [];
+  return groups.flatMap((group) => (Array.isArray(group?.items) ? group.items : []).map((item) => (
+    createMechanicWithTone(
+      "Materiál",
+      `${item.label || item.resourceKey || "Položka"} ${Math.max(0, Number(item.currentAmount || 0))}/${Math.max(0, Number(item.maxAmount || 0))}`,
+      resolveServerWarehouseItemTone(item)
+    )
+  )));
+}
+
 function hasBuildingUpgradeCapability(mechanics = {}) {
   const maxLevel = Number(mechanics?.maxLevel);
   if (Number.isFinite(maxLevel)) {
@@ -1325,7 +1346,7 @@ export function createBuildingDetailMechanicRows({
         createMechanic("Bonus sítě", `x${Number(summary.warehouseCountMultiplier || 1).toFixed(2)}`),
         createMechanic("Bonus levelu", `x${Number(summary.warehouseLevelMultiplier || 1).toFixed(2)}`),
         createMechanic("Celkový násobitel", `x${Number(summary.totalCapacityMultiplier || 1).toFixed(2)}`),
-        ...storage.groups.map((group) => createMechanic(group.label, `${group.currentCapacity} ks na položku`))
+        ...createServerWarehouseMaterialRows(storage)
       );
     } else {
       const warehouseCapacity = resolveWarehouseDisplayCapacity(mechanics.warehouseCapacity);

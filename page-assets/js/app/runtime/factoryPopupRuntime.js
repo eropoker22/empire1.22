@@ -32,7 +32,10 @@ export function createFactoryPopupRuntime(deps = {}) {
   const selectors = deps.selectors || {};
   const documentRef = deps.documentRef || (typeof document !== "undefined" ? document : null);
   const allowLegacyLocalProduction = deps.allowLegacyLocalProduction !== false;
+  const isServerAuthoritativeProductionReady = () => deps.isServerAuthoritativeGameplayRuntimeReady?.() === true;
+  const isLegacyLocalProductionEnabled = () => allowLegacyLocalProduction && !isServerAuthoritativeProductionReady();
   const allowLegacyProductionUpgrade = deps.allowLegacyProductionUpgrade !== false;
+  const isLegacyLocalProductionUpgradeEnabled = () => allowLegacyProductionUpgrade && !isServerAuthoritativeProductionReady();
   const productionBridgeMessage = "Továrna používá serverový production/craft flow. Legacy lokální výroba je vypnutá.";
   const productionUpgradeMessage = "Serverový upgrade Továrny se provádí přes konkrétní kartu budovy v districtu.";
 
@@ -97,7 +100,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     let lastServerFactory = null;
 
     const getAuthoritativeFactory = () => {
-      if (allowLegacyLocalProduction) {
+      if (isLegacyLocalProductionEnabled()) {
         return null;
       }
       const serverFactory = deps.getServerFactoryReadModel?.() || null;
@@ -182,7 +185,7 @@ export function createFactoryPopupRuntime(deps = {}) {
         }, { tickRateMs: deps.getServerTickRateMs?.() || 5000, formatDurationLabel: deps.formatDurationLabel });
         return;
       }
-      if (!allowLegacyLocalProduction) {
+      if (!isLegacyLocalProductionEnabled()) {
         if (levelElement) levelElement.textContent = "—";
         if (headerLevelElement) headerLevelElement.textContent = "Lv —";
         if (multiplierElement) multiplierElement.textContent = "×—";
@@ -207,7 +210,7 @@ export function createFactoryPopupRuntime(deps = {}) {
       const collectableAmount = getFactoryCollectableAmount(factoryState);
 
       const cancelFactorySlotProduction = (slotId) => {
-        if (!allowLegacyLocalProduction) {
+        if (!isLegacyLocalProductionEnabled()) {
           deps.setBuildingActionFeedback?.(root, "warning", "Továrna", productionBridgeMessage);
           return;
         }
@@ -223,7 +226,7 @@ export function createFactoryPopupRuntime(deps = {}) {
         renderFactoryDashboard();
       };
       const queueFactorySlotProduction = (slotView, batchCount = 1) => {
-        if (!allowLegacyLocalProduction) {
+        if (!isLegacyLocalProductionEnabled()) {
           deps.setBuildingActionFeedback?.(root, "warning", "Továrna", productionBridgeMessage);
           return;
         }
@@ -282,12 +285,12 @@ export function createFactoryPopupRuntime(deps = {}) {
         onPauseSlot: (slotView) => cancelFactorySlotProduction(slotView.slot?.id),
         onStartSlot: (slotView, payload) => queueFactorySlotProduction(slotView, payload?.batchCount || 1)
       });
-      if (!allowLegacyLocalProduction && collectButton) {
+      if (!isLegacyLocalProductionEnabled() && collectButton) {
         collectButton.disabled = true;
         collectButton.title = productionBridgeMessage;
         collectButton.setAttribute?.("aria-label", productionBridgeMessage);
       }
-      if (!allowLegacyProductionUpgrade && upgradeButton && !upgradeButton.hidden) {
+      if (!isLegacyLocalProductionUpgradeEnabled() && upgradeButton && !upgradeButton.hidden) {
         upgradeButton.disabled = false;
         upgradeButton.title = productionUpgradeMessage;
         upgradeButton.setAttribute?.("aria-label", productionUpgradeMessage);
@@ -295,7 +298,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     };
 
     const refreshAuthoritativeFactory = () => {
-      if (allowLegacyLocalProduction || typeof deps.refreshServerFactoryReadModel !== "function") {
+      if (isLegacyLocalProductionEnabled() || typeof deps.refreshServerFactoryReadModel !== "function") {
         return;
       }
       Promise.resolve(deps.refreshServerFactoryReadModel())
@@ -317,7 +320,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     };
 
     documentRef?.addEventListener?.("empire:gameplay-slice-rendered", () => {
-      if (!allowLegacyLocalProduction && !popup.hidden) {
+      if (!isLegacyLocalProductionEnabled() && !popup.hidden) {
         renderFactoryDashboard();
       }
     });
@@ -359,7 +362,7 @@ export function createFactoryPopupRuntime(deps = {}) {
         });
         return;
       }
-      if (!allowLegacyLocalProduction) {
+      if (!isLegacyLocalProductionEnabled()) {
         deps.setBuildingActionFeedback?.(root, "warning", "Továrna", productionBridgeMessage);
         renderFactoryDashboard();
         return;
@@ -389,7 +392,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     });
 
     upgradeButton.addEventListener("click", async () => {
-      if (!allowLegacyProductionUpgrade) {
+      if (!isLegacyLocalProductionUpgradeEnabled()) {
         deps.setBuildingActionFeedback?.(root, "warning", "Továrna", productionUpgradeMessage);
         renderFactoryDashboard();
         return;

@@ -268,6 +268,48 @@ describe("building detail view-model builder", () => {
     ]));
   });
 
+  it("renders authoritative warehouse materials as current and maximum amounts", () => {
+    const serverStorageSummary = {
+      warehouseSummary: {
+        ownedWarehouseCount: 2,
+        highestWarehouseLevel: 3,
+        warehouseCountMultiplier: 1.6,
+        warehouseLevelMultiplier: 1.25,
+        totalCapacityMultiplier: 2
+      },
+      groups: [
+        {
+          id: "bulk",
+          label: "Hromadné zásoby",
+          currentCapacity: 120,
+          items: [
+            { resourceKey: "chemicals", label: "Chemicals", currentAmount: 42, maxAmount: 120, isNearCapacity: false, isFull: false, isOverCapacity: false },
+            { resourceKey: "metal-parts", label: "Metal Parts", currentAmount: 125, maxAmount: 120, isNearCapacity: false, isFull: false, isOverCapacity: true }
+          ]
+        },
+        {
+          id: "strategic",
+          label: "Strategické zásoby",
+          currentCapacity: 16,
+          items: [
+            { resourceKey: "combat-module", label: "Combat Module", currentAmount: 16, maxAmount: 16, isNearCapacity: false, isFull: true, isOverCapacity: false }
+          ]
+        }
+      ]
+    };
+    const mechanics = {
+      ...baseMechanics,
+      mechanicsType: "warehouse",
+      serverStorageSummary
+    };
+
+    expect(createBuildingDetailMechanicRows({ buildingName: "Skladiště", mechanics })).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "Materiál", value: "Chemicals 42/120", tone: "warehouse-low" }),
+      expect.objectContaining({ label: "Materiál", value: "Metal Parts 125/120", tone: "warehouse-high" }),
+      expect.objectContaining({ label: "Materiál", value: "Combat Module 16/16", tone: "warehouse-high" })
+    ]));
+  });
+
   it("does not show generic infrastructure restriction copy in power station mechanics", () => {
     const mechanics = createBuildingDetailMechanicRows({
       buildingName: "Energetická stanice",

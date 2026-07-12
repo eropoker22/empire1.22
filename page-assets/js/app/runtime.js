@@ -4477,6 +4477,7 @@ const {
 } = createProductionBuildingPopupRuntime({
   allowLegacyLocalProduction: LOCAL_PRODUCTION_EDIT_MODE,
   allowLegacyProductionUpgrade: LOCAL_PRODUCTION_EDIT_MODE,
+  isServerAuthoritativeGameplayRuntimeReady,
   ARMORY_POPUP_CLOSE_SELECTOR,
   ARMORY_POPUP_OPEN_SELECTOR,
   ARMORY_POPUP_SELECTOR,
@@ -12935,6 +12936,7 @@ const {
 } = createFactoryPopupRuntime({
   allowLegacyLocalProduction: LOCAL_PRODUCTION_EDIT_MODE,
   allowLegacyProductionUpgrade: LOCAL_PRODUCTION_EDIT_MODE,
+  isServerAuthoritativeGameplayRuntimeReady,
   FACTORY_CONFIG,
   FACTORY_SLOT_CONFIG,
   FACTORY_SLOT_STORAGE_CAP,

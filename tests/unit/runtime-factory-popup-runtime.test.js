@@ -117,7 +117,8 @@ describe("factory popup runtime", () => {
       productionLines: [{ recipeId: "metal-parts", canCollect: true, canStart: true, canCancelWaiting: true }]
     };
     const runtime = createRuntime({
-      allowLegacyLocalProduction: false,
+      allowLegacyLocalProduction: true,
+      isServerAuthoritativeGameplayRuntimeReady: () => true,
       getServerFactoryReadModel: () => serverFactory,
       getServerTickRateMs: () => 5000,
       refreshServerFactoryReadModel,

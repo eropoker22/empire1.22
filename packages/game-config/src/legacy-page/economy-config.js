@@ -28,9 +28,9 @@ export const DEFAULT_DRUG_INVENTORY = {
 export const MARKET_PRICE_REFRESH_MS = 45_000;
 
 export const PHARMACY_RECIPES = {
-  chemicals: { name: "Chemicals", cleanMoneyCost: 360, output: { inventory: "materials", itemId: "chemicals", amount: 1 }, durationMs: 2 * 60 * 1000 },
-  biomass: { name: "Biomass", cleanMoneyCost: 420, output: { inventory: "materials", itemId: "biomass", amount: 1 }, durationMs: 4 * 60 * 1000 },
-  "stim-pack": { name: "Stim Pack", cleanMoneyCost: 800, output: { inventory: "materials", itemId: "stim-pack", amount: 1 }, durationMs: 10 * 60 * 1000 }
+  chemicals: { name: "Chemicals", cleanMoneyCost: 360, output: { inventory: "materials", itemId: "chemicals", amount: 1 }, durationMs: 2 * 60 * 1000, localOutputCap: 12, queueCap: 8 },
+  biomass: { name: "Biomass", cleanMoneyCost: 420, output: { inventory: "materials", itemId: "biomass", amount: 1 }, durationMs: 4 * 60 * 1000, localOutputCap: 8, queueCap: 6 },
+  "stim-pack": { name: "Stim Pack", cleanMoneyCost: 800, output: { inventory: "materials", itemId: "stim-pack", amount: 1 }, durationMs: 10 * 60 * 1000, localOutputCap: 4, queueCap: 3 }
 };
 
 export const FACTORY_CONFIG = Object.freeze({
@@ -100,23 +100,23 @@ export const FACTORY_SLOT_CONFIG = Object.freeze([
 ]);
 
 export const DRUGLAB_RECIPES = {
-  "neon-dust": { name: "Neon Dust", inputs: { chemicals: 2 }, cleanMoneyCost: 500, output: { inventory: "drugs", itemId: "neon-dust", amount: 1 }, durationMs: 5 * 60 * 1000 },
-  "pulse-shot": { name: "Pulse Shot", inputs: { chemicals: 2, biomass: 1 }, cleanMoneyCost: 800, output: { inventory: "drugs", itemId: "pulse-shot", amount: 1 }, durationMs: 8 * 60 * 1000 },
-  "velvet-smoke": { name: "Velvet Smoke", inputs: { chemicals: 1, biomass: 2 }, cleanMoneyCost: 900, output: { inventory: "drugs", itemId: "velvet-smoke", amount: 1 }, durationMs: 15 * 60 * 1000 },
-  "ghost-serum": { name: "Ghost Serum", inputs: { "neon-dust": 2, "pulse-shot": 1 }, cleanMoneyCost: 2500, output: { inventory: "drugs", itemId: "ghost-serum", amount: 1 }, durationMs: 20 * 60 * 1000 },
-  "overdrive-x": { name: "Overdrive X", inputs: { "pulse-shot": 1, "velvet-smoke": 2 }, cleanMoneyCost: 4500, output: { inventory: "drugs", itemId: "overdrive-x", amount: 1 }, durationMs: 30 * 60 * 1000 }
+  "neon-dust": { name: "Neon Dust", inputs: { chemicals: 2 }, cleanMoneyCost: 500, output: { inventory: "drugs", itemId: "neon-dust", amount: 1 }, durationMs: 5 * 60 * 1000, localOutputCap: 10, queueCap: 8 },
+  "pulse-shot": { name: "Pulse Shot", inputs: { chemicals: 2, biomass: 1 }, cleanMoneyCost: 800, output: { inventory: "drugs", itemId: "pulse-shot", amount: 1 }, durationMs: 8 * 60 * 1000, localOutputCap: 6, queueCap: 5 },
+  "velvet-smoke": { name: "Velvet Smoke", inputs: { chemicals: 1, biomass: 2 }, cleanMoneyCost: 900, output: { inventory: "drugs", itemId: "velvet-smoke", amount: 1 }, durationMs: 15 * 60 * 1000, localOutputCap: 5, queueCap: 4 },
+  "ghost-serum": { name: "Ghost Serum", inputs: { "neon-dust": 2, "pulse-shot": 1 }, cleanMoneyCost: 2500, output: { inventory: "drugs", itemId: "ghost-serum", amount: 1 }, durationMs: 20 * 60 * 1000, localOutputCap: 2, queueCap: 2 },
+  "overdrive-x": { name: "Overdrive X", inputs: { "pulse-shot": 1, "velvet-smoke": 2 }, cleanMoneyCost: 4500, output: { inventory: "drugs", itemId: "overdrive-x", amount: 1 }, durationMs: 30 * 60 * 1000, localOutputCap: 1, queueCap: 1 }
 };
 
 export const ARMORY_RECIPES = {
   "baseball-bat": { name: "Baseballová pálka", inputs: { "metal-parts": 2 }, output: { inventory: "weapons", itemId: "baseball-bat", amount: 1 }, durationMs: 3 * 60 * 1000 },
   pistol: { name: "Pistole", inputs: { "metal-parts": 3, "tech-core": 1 }, output: { inventory: "weapons", itemId: "pistol", amount: 1 }, durationMs: 5 * 60 * 1000 },
   grenade: { name: "Granát", inputs: { "metal-parts": 2, "tech-core": 1 }, output: { inventory: "weapons", itemId: "grenade", amount: 1 }, durationMs: 6 * 60 * 1000 },
-  smg: { name: "SMG", inputs: { "metal-parts": 5, "tech-core": 2 }, output: { inventory: "weapons", itemId: "smg", amount: 1 }, durationMs: 8 * 60 * 1000 },
-  bazooka: { name: "Bazuka", inputs: { "metal-parts": 7, "tech-core": 3 }, output: { inventory: "weapons", itemId: "bazooka", amount: 1 }, durationMs: 14 * 60 * 1000 },
+  smg: { name: "SMG", inputs: { "metal-parts": 2, "combat-module": 1 }, output: { inventory: "weapons", itemId: "smg", amount: 1 }, durationMs: 8 * 60 * 1000 },
+  bazooka: { name: "Bazuka", inputs: { "metal-parts": 3, "combat-module": 2 }, output: { inventory: "weapons", itemId: "bazooka", amount: 1 }, durationMs: 14 * 60 * 1000 },
   vest: { name: "Vesta", inputs: { "metal-parts": 3, "tech-core": 1 }, output: { inventory: "weapons", itemId: "vest", amount: 1 }, durationMs: 5 * 60 * 1000 },
   barricades: { name: "Barikády", inputs: { "metal-parts": 4 }, output: { inventory: "weapons", itemId: "barricades", amount: 1 }, durationMs: 5 * 60 * 1000 },
   cameras: { name: "Kamery", inputs: { "metal-parts": 2, "tech-core": 2 }, output: { inventory: "weapons", itemId: "cameras", amount: 1 }, durationMs: 6 * 60 * 1000 },
-  "defense-tower": { name: "Obranná věž", inputs: { "metal-parts": 8, "tech-core": 3 }, output: { inventory: "weapons", itemId: "defense-tower", amount: 1 }, durationMs: 15 * 60 * 1000 },
+  "defense-tower": { name: "Obranná věž", inputs: { "tech-core": 3, "combat-module": 2 }, output: { inventory: "weapons", itemId: "defense-tower", amount: 1 }, durationMs: 15 * 60 * 1000 },
   alarm: { name: "Alarm", inputs: { "metal-parts": 2, "tech-core": 1 }, output: { inventory: "weapons", itemId: "alarm", amount: 1 }, durationMs: 5 * 60 * 1000 }
 };
 

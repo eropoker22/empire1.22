@@ -96,7 +96,9 @@ export function renderServerDrugLabRecipeCard(viewModel = {}, callbacks = {}, op
       ? " armory-slot__material-pill--metal"
       : input.resourceKey === "tech-core"
         ? " armory-slot__material-pill--tech"
-        : "";
+        : input.resourceKey === "combat-module"
+          ? " armory-slot__material-pill--combat"
+          : "";
     const pill = createElement(options.mount, "div", isArmory
       ? "armory-slot__material-pill" + materialClass
       : "drug-production-slot__supply-pill");
@@ -107,7 +109,11 @@ export function renderServerDrugLabRecipeCard(viewModel = {}, callbacks = {}, op
     name.textContent = input.label || input.resourceKey || "";
     pill.append(name, amount);
     supplyRow.append(pill);
-    inputValues.push({ amount, required: Math.max(0, Number(input.requiredAmount || 0)), available: Math.max(0, Number(input.availableAmount || 0)) });
+    inputValues.push({
+      amount,
+      required: Math.max(0, Number(input.requiredPerUnit ?? input.requiredAmount ?? 0)),
+      available: Math.max(0, Number(input.playerStoredAmount ?? input.availableAmount ?? 0))
+    });
   }
   const refresh = () => {
     selected = Math.max(1, Math.min(selected, Math.max(1, maxStart)));
