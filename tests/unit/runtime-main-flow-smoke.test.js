@@ -112,14 +112,14 @@ describe("runtime main UI flow smoke guard", () => {
 
     for (const source of [runtimeSource, clientRuntimeSource]) {
       expect(source).toContain("const openPoliceRaidOnlyForDistrict = (district, policeAction = null) => {");
-      expect(source).toContain("closePopup();\n    hideTooltip();");
+      expect(source).toMatch(/closePopup\(\);\r?\n    hideTooltip\(\);/u);
       expect(source).toContain('queueOrOpenResultModal(root, "police", {');
       expect(source).toContain("const openStoredOwnedPoliceRaidAlert = () => {");
       expect(source).toContain('root.dataset.ownedPoliceRaidAlertOpened === "true"');
       expect(source).toContain("createOwnedDistrictPoliceRaidAlertPayload(district, activeOwnedPoliceAction)");
       expect(source).toContain("scheduleStoredOwnedPoliceRaidAlert();");
       expect(source).toContain("return openPoliceRaidOnlyForDistrict(district, activePoliceAction);");
-      expect(source).toContain("event.stopPropagation?.();\n        openPoliceRaidOnlyForDistrict(district, activePoliceAction);\n        return;");
+      expect(source).toMatch(/event\.stopPropagation\?\.\(\);\r?\n        openPoliceRaidOnlyForDistrict\(district, activePoliceAction\);\r?\n        return;/u);
 
       const clickBranchIndex = source.indexOf("const activePoliceAction = getDistrictPoliceAction(district.id);", source.indexOf('viewport.addEventListener("click"'));
       const openPopupIndex = source.indexOf("openPopup(district);", clickBranchIndex);
@@ -151,7 +151,7 @@ describe("runtime main UI flow smoke guard", () => {
     for (const sourcePath of ["page-assets/js/app/runtime.js", "client/page-assets/js/app/runtime.js"]) {
       const source = read(sourcePath);
 
-      expect(source).toContain("const shouldAutoOpenBuildingsPopupOnRefresh = () => {\n    return false;\n  };");
+      expect(source).toMatch(/const shouldAutoOpenBuildingsPopupOnRefresh = \(\) => \{\r?\n    return false;\r?\n  \};/u);
       expect(source).not.toContain('const requested = params.get("openBuildings") || params.get("buildingsPopup") || "";');
       expect(source).not.toContain('return !resolveDevBuildingCardAutoOpenKey();');
     }

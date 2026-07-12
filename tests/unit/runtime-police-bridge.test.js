@@ -259,10 +259,10 @@ describe("runtime police heat bridge", () => {
     bridge.init();
     const text = collectText(wantedFeed);
 
-    expect(text).toContain("Wanted level: 1 / 5");
-    expect(text).toContain("Player heat: 20");
-    expect(text).toContain("District heat: 120");
-    expect(text).toContain("Raid pressure: 128");
+    expect(text).toContain("Hledanost: 1 / 5");
+    expect(text).toContain("Heat hráče: 20");
+    expect(text).toContain("Heat districtů: 120");
+    expect(text).toContain("Tlak raidu: 128");
     expect(text).toContain("District heat může přitáhnout raid");
   });
 });

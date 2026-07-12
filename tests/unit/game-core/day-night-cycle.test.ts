@@ -617,7 +617,7 @@ describe("day night cycle", () => {
     expect(resolveDayNightActionRule(state, context, "parliament_policy_window", "parliament")).toMatchObject({
       allowed: false,
       phaseAvailability: "blocked",
-      blockedReason: "Policy Window se otevírá jen přes den."
+      blockedReason: "Politické okno se otevírá jen přes den."
     });
   });
 
@@ -852,7 +852,7 @@ describe("day night cycle", () => {
 
     expect(validateRunBuildingAction(state, command, context)).toContainEqual(expect.objectContaining({
       code: "building_action_insufficient_resources",
-      message: "Missing resources: 1725 cash."
+      message: "Chybí suroviny: 1725 cash."
     }));
   });
 

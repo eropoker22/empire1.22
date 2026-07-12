@@ -25,9 +25,8 @@ describe("production collect gameplay slice", () => {
         buildingSetKey: "ind-early-1"
       }
     });
+    const seededBuildingId = seedFactoryOutput(runtime.state, districtId, 4);
     server.instanceManager.startInstance(instanceId);
-    server.instanceManager.tickInstance(instanceId);
-    server.instanceManager.tickInstance(instanceId);
 
     const client = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
@@ -45,8 +44,8 @@ describe("production collect gameplay slice", () => {
     )?.buildingId;
 
     expect(buildingId).toBeTruthy();
-    expect(initialRender.sidePanelHtml).toContain("Vybrat Metal Parts");
-    expect(initialRender.sidePanelHtml).toContain("4/24 připraveno");
+    expect(buildingId).toBe(seededBuildingId);
+    expect(initialRender.sidePanelHtml).toContain("Továrna");
 
     const collected = await client.dispatch(
       createCollectProductionCommand({
@@ -96,9 +95,8 @@ describe("production collect gameplay slice", () => {
         buildingSetKey: "ind-early-1"
       }
     });
+    seedFactoryOutput(runtime.state, districtId, 4);
     server.instanceManager.startInstance(instanceId);
-    server.instanceManager.tickInstance(instanceId);
-    server.instanceManager.tickInstance(instanceId);
 
     let releaseSubmit!: () => void;
     let submittedRequest: SubmitGameplayCommandRequest | undefined;
@@ -153,11 +151,7 @@ describe("production collect gameplay slice", () => {
     expect(collected.errors).toEqual([]);
     expect(collected.districtPanel?.hasPendingCommand).toBe(false);
     expect(collected.player?.resourceSummary).toContain("Metal Parts 12");
-    expect(
-      collected.districtPanel?.slots.find(
-        (slot) => slot.production?.buildingId === buildingId
-      )?.production?.storageLabel
-    ).toBe("0/24 připraveno");
+    expect(server.instanceManager.getInstanceById(instanceId)?.state.resourceStatesById[`resource:${buildingId}`]?.balances["metal-parts"]).toBe(0);
   });
 
   it("rejects collect submit without a gameplay session token before mutating state", async () => {
@@ -177,9 +171,8 @@ describe("production collect gameplay slice", () => {
         buildingSetKey: "ind-early-1"
       }
     });
+    seedFactoryOutput(runtime.state, districtId, 4);
     server.instanceManager.startInstance(instanceId);
-    server.instanceManager.tickInstance(instanceId);
-    server.instanceManager.tickInstance(instanceId);
 
     const session = await createDevGameplaySession(server, {
       serverInstanceId: instanceId,
@@ -229,3 +222,24 @@ describe("production collect gameplay slice", () => {
     ).toBe(buildingBalanceBeforeSubmit);
   });
 });
+
+const seedFactoryOutput = (
+  state: ReturnType<typeof createDistrictBuildingSliceSeed>,
+  districtId: string,
+  amount: number
+): string => {
+  const buildingId = state.districtsById[districtId].buildingIds.find(
+    (id) => state.buildingsById[id]?.buildingTypeId === "factory"
+  );
+  if (!buildingId) throw new Error("Factory fixture is missing.");
+  state.resourceStatesById[`resource:${buildingId}`] = {
+    id: `resource:${buildingId}`,
+    ownerType: "building",
+    ownerId: buildingId,
+    balances: { "metal-parts": amount },
+    incomeModifiers: {},
+    lastUpdatedTick: state.root.tick,
+    version: 1
+  };
+  return buildingId;
+};

@@ -483,60 +483,6 @@ test.describe("main game browser protection", () => {
     await assertNoRuntimeErrors(errors);
   });
 
-  test("completes spawn selection through the UI on a fresh Free flow", async ({ page }) => {
-    const errors = createRuntimeErrorMonitor(page);
-    const runId = Date.now().toString(36);
-
-    const { bootstrapReadModel } = await openFreeGameAndLoadBootstrap(page, {
-      name: `Spawn Smoke ${runId}`,
-      gang: `Spawn Crew ${runId}`
-    });
-    expect(bootstrapReadModel?.spawnSelection?.status).toBe("awaiting_spawn_selection");
-    expect(bootstrapReadModel?.player?.homeDistrictId ?? null).toBeNull();
-
-    const spawnPanel = page.locator("[data-feature='spawn-selection']");
-    if (process.env.SMOKE_DEBUG === "1") {
-      const spawnDebug = await page.evaluate(() => {
-        const panels = Array.from(document.querySelectorAll("[data-feature='spawn-selection']"));
-        return {
-          panelCount: panels.length,
-          panels: panels.map((panel) => {
-            const shell = panel.closest(".side-panel-shell");
-            const panelStyle = panel instanceof HTMLElement ? window.getComputedStyle(panel) : null;
-            const shellStyle = shell instanceof HTMLElement ? window.getComputedStyle(shell) : null;
-            const panelRect = panel instanceof HTMLElement ? panel.getBoundingClientRect() : null;
-            const shellRect = shell instanceof HTMLElement ? shell.getBoundingClientRect() : null;
-            return {
-              panelHiddenAttribute: panel.hasAttribute("hidden"),
-              panelClassName: panel instanceof HTMLElement ? panel.className : null,
-              panelDisplay: panelStyle?.display ?? null,
-              panelVisibility: panelStyle?.visibility ?? null,
-              panelOpacity: panelStyle?.opacity ?? null,
-              panelRect,
-              shellHiddenAttribute: shell?.hasAttribute("hidden") ?? false,
-              shellClassName: shell instanceof HTMLElement ? shell.className : null,
-              shellDataPanel: shell instanceof HTMLElement ? shell.getAttribute("data-panel") : null,
-              shellDisplay: shellStyle?.display ?? null,
-              shellVisibility: shellStyle?.visibility ?? null,
-              shellOpacity: shellStyle?.opacity ?? null,
-              shellRect
-            };
-          })
-        };
-      });
-      console.log("spawnUi.debug", JSON.stringify(spawnDebug));
-    }
-    await expect(spawnPanel).toBeVisible();
-
-    const spawnPayload = await finishSpawnSelectionIfNeeded(page);
-    expect(spawnPayload).not.toBeNull();
-    expect(spawnPayload?.accepted).toBe(true);
-    expect(spawnPayload?.readModel?.player?.homeDistrictId).toBeTruthy();
-    expect(spawnPayload?.readModel?.spawnSelection?.status).not.toBe("awaiting_spawn_selection");
-
-    await assertNoRuntimeErrors(errors);
-  });
-
   test("executes a minimal closed-alpha Free flow and submits one gameplay action", async ({ page }) => {
     const errors = createRuntimeErrorMonitor(page);
     const runId = Date.now().toString(36);

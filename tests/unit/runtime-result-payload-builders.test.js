@@ -192,7 +192,7 @@ describe("result payload builders", () => {
     expect(success.rows.map((row) => row.label)).toContain("Odhad síly obrany");
     expect(captured.rows).toEqual([
       { label: "Stav špeha", value: "Zajat" },
-      { label: "Cooldown", value: "40000ms", nowrap: true }
+      { label: "Cooldown", value: "40000ms", nowrap: true, countdownUntil: 41000 }
     ]);
     expect(critical.title).toBe("Špehování: Kritický neúspěch");
     expect(critical.rows).toContainEqual({ label: "Heat", value: "+7" });

@@ -44,8 +44,8 @@ describe("craft-item command flow", () => {
 
   it.each([
     ["armory", "pistol", { "metal-parts": 3, "tech-core": 1 }, "pistol"],
-    ["armory", "bazooka", { "metal-parts": 7, "tech-core": 3 }, "bazooka"],
-    ["armory", "defense-tower", { "metal-parts": 8, "tech-core": 3 }, "defense-tower"]
+    ["armory", "bazooka", { "metal-parts": 3, "combat-module": 2 }, "bazooka"],
+    ["armory", "defense-tower", { "tech-core": 3, "combat-module": 2 }, "defense-tower"]
   ])("routes %s recipe %s to an independent local production line", (
     buildingTypeId,
     recipeId,

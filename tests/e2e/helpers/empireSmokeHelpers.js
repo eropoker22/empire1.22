@@ -360,7 +360,7 @@ async function attachE2eJoinTicket(page, session) {
 export async function openLoginPage(page) {
   await page.goto("/pages/login.html", { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("login-page")).toBeVisible();
-  await expect(page).toHaveTitle(/Přihlášení/);
+  await expect(page).toHaveTitle(/Empire Streets \| Ovládni město/);
 }
 
 export async function openLobbyPage(page, options = {}) {

@@ -67,6 +67,7 @@ describe("server drug lab recipe card", () => {
     const renderRecipeCard = vi.fn((_viewModel, callbacks) => ({ callbacks }));
     const submitServerDrugLabCommand = vi.fn(async () => ({ errors: [] }));
     const runtime = createProductionBuildingPopupRuntime({
+      allowLegacyLocalProduction: false,
       getServerDrugLabReadModel: () => ({
         districtId: "district:1",
         buildingId: "building:drug-lab:1",

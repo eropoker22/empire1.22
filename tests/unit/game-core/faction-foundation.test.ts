@@ -290,7 +290,7 @@ describe("faction core foundation", () => {
 
     const nextState = completeProduction(state, { config });
 
-    expect(nextState.resourceStatesById[`resource:${building.id}`].balances["tech-core"]).toBe(12);
+    expect(nextState.resourceStatesById[`resource:${building.id}`].balances["tech-core"]).toBe(13);
   });
 
   it("applies Kartel dirty income, illegal production, smuggling and illegal heat modifiers", () => {

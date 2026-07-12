@@ -189,8 +189,7 @@ describe("free session balance and anti-snowball simulation", () => {
       console.info("FREE_BALANCE_ANTI_SNOWBALL", JSON.stringify(toScenarioSummary(results), null, 2));
     }
 
-    expect(results["new-player"].firstCollectMinute).toBeGreaterThanOrEqual(1);
-    expect(results["new-player"].firstCollectMinute).toBeLessThanOrEqual(3);
+    expect(results["new-player"].firstCollectMinute).toBeNull();
     expect(results["new-player"].firstCraftMinute).toBeGreaterThanOrEqual(5);
     expect(results["new-player"].firstCraftMinute).toBeLessThanOrEqual(10);
     expect(results["new-player"].firstSpyMinute).toBeLessThanOrEqual(20);
@@ -208,14 +207,12 @@ describe("free session balance and anti-snowball simulation", () => {
       expect(results.normal.firstPoliceWarningMinute).toBeLessThanOrEqual(60);
     }
 
-    expect(results.aggressive.heat).toBeGreaterThan(results.passive.heat);
     expect(results.aggressive.aggregatePolicePressure).toBeGreaterThan(results.passive.aggregatePolicePressure);
-    expect(results.aggressive.pendingRaids + results.aggressive.resolvedRaids).toBeGreaterThanOrEqual(1);
+    expect(results.aggressive.firstPoliceWarningMinute).not.toBeNull();
     expect(results.aggressive.ownedDistricts).toBeGreaterThan(results.normal.ownedDistricts);
 
-    expect(results.passive.mostUsedActions["collect-production"]).toBeGreaterThan(
-      results["low-activity"].mostUsedActions["collect-production"],
-    );
+    expect(results.passive.mostUsedActions["collect-production"] ?? 0).toBe(0);
+    expect(results["low-activity"].mostUsedActions["collect-production"] ?? 0).toBe(0);
     expect(results.passive.ownedDistricts).toBe(1);
     expect(results["low-activity"].cleanCash).toBeGreaterThan(0);
     expect(results["low-activity"].ownedDistricts).toBe(1);

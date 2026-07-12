@@ -96,19 +96,18 @@ describe("ServerInstanceManager", () => {
     expect(readModel.player.police?.updatedAt).toBe(fixedNow);
     expect(readModel.police?.updatedAt).toBe(fixedNow);
     const focusDistrictId = readModel.district!.districtId;
-    const building = readModel.district!.buildings.find((candidate) => candidate.actions.length > 0);
+    const building = readModel.district!.buildings.find((candidate) => candidate.buildingTypeId === "factory");
 
     if (!building) {
-      throw new Error("Fixed clock command fixture failed to find an actionable building.");
+      throw new Error("Fixed clock command fixture failed to find a factory.");
     }
 
-    const action = building.actions[0]!;
     const response = await server.gameplaySliceTransport.submit({
       sessionToken: session.sessionToken,
       focusDistrictId,
       command: {
         id: "command:fixed-clock:building-action:1",
-        type: "run-building-action",
+        type: "craft-item",
         mode: readModel.mode.mode,
         playerId: request.playerId,
         serverInstanceId: request.serverInstanceId,
@@ -116,7 +115,8 @@ describe("ServerInstanceManager", () => {
         payload: {
           districtId: focusDistrictId,
           buildingId: building.buildingId,
-          actionId: action.actionId
+          recipeId: "metal-parts",
+          quantity: 1
         },
         clientRequestId: null
       }

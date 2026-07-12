@@ -46,7 +46,7 @@ describe("factory dashboard view model and panel", () => {
 
     expect(viewModel.levelLabel).toBe("2");
     expect(viewModel.headerLevelLabel).toBe("Lv 2");
-    expect(viewModel.multiplierLabel).toBe("1.25x");
+    expect(viewModel.multiplierLabel).toBe("+25%");
     expect(viewModel.upgradeCostLabel).toBe("100$");
     expect(viewModel.resources).toEqual({ metalParts: "2/20", techCore: "0/10", combatModule: "5/5" });
     expect(viewModel.collectButton.disabled).toBe(false);

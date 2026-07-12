@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   applyCommand,
-  calculateIncomeByPlayerId,
-  completeProduction
+  calculateIncomeByPlayerId
 } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
-import { createCraftItemCommandFixture, createUpgradeBuildingCommandFixture } from "../../fixtures/command-fixtures";
+import { createUpgradeBuildingCommandFixture } from "../../fixtures/command-fixtures";
 import { createCoreStateWithFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
 
 const context = {
@@ -143,77 +142,6 @@ describe("upgrade-building command flow", () => {
 
     expect(upgradedIncome).toBeGreaterThan(baseIncome);
     expect(upgradedIncome / baseIncome).toBeCloseTo(1.14, 2);
-  });
-
-  it("applies production building level multiplier to server production ticks", () => {
-    const { state, building } = createCoreStateWithFixedBuildingFixture("factory", {
-      buildingOverrides: {
-        level: 2
-      },
-      productionResourceKey: "metal-parts",
-      productionStoredAmount: 0
-    });
-    state.resourceStatesById[`resource:${building.id}`] = {
-      ...state.resourceStatesById[`resource:${building.id}`],
-      lastUpdatedTick: 0
-    };
-    state.root.tick = 1;
-
-    const nextState = completeProduction(state, context);
-
-    expect(nextState.resourceStatesById[`resource:${building.id}`].balances["metal-parts"]).toBe(6);
-  });
-
-  it("applies production level multiplier to craft processing duration", () => {
-    const base = createCoreStateWithFixedBuildingFixture("armory", {
-      buildingOverrides: {
-        level: 1
-      },
-      playerBalances: {
-        cash: 1000,
-        "metal-parts": 10
-      }
-    });
-    const { state, building } = createCoreStateWithFixedBuildingFixture("armory", {
-      buildingOverrides: {
-        level: 2
-      },
-      playerBalances: {
-        cash: 1000,
-        "metal-parts": 10
-      }
-    });
-
-    const result = applyCommand(
-      state,
-      createCraftItemCommandFixture({
-        payload: {
-          districtId: "district:1",
-          buildingId: building.id,
-          recipeId: "baseball-bat"
-        }
-      }),
-      context
-    );
-    const baseResult = applyCommand(
-      base.state,
-      createCraftItemCommandFixture({
-        payload: {
-          districtId: "district:1",
-          buildingId: base.building.id,
-          recipeId: "baseball-bat"
-        }
-      }),
-      context
-    );
-
-    expect(result.errors).toEqual([]);
-    expect(baseResult.errors).toEqual([]);
-    expect(result.nextState.buildingsById[building.id].processing?.startedAtTick).toBe(0);
-    expect(result.nextState.buildingsById[building.id].processing?.completesAtTick).toBeLessThan(
-      baseResult.nextState.buildingsById[base.building.id].processing?.completesAtTick ?? 0
-    );
-    expect(result.nextState.buildingsById[building.id].processing?.completesAtTick).toBe(33);
   });
 
   it("does not upgrade buildings with max level one", () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyCommand } from "../../../packages/game-core/src/engine";
+import { resolveModeConfig } from "@empire/game-config";
 import {
   createAttackDistrictCommandFixture,
   createOccupyDistrictCommandFixture,
@@ -11,28 +12,14 @@ import {
   createDistrictFixture
 } from "../../fixtures/game-state-fixtures";
 
+const freeConfig = resolveModeConfig("free");
 const context = {
   config: {
-    mode: "free" as const,
-    tickRateMs: 5000,
+    ...freeConfig,
     balance: {
-      incomeMultiplier: 1,
-      productionMultiplier: 1,
-      cooldownMultiplier: 1,
-      maxPlayersPerServer: 100,
-      maxAllianceSize: 10,
-      buildSlotLimit: 3,
-      eventFrequencyMultiplier: 1,
-      policePressureMultiplier: 1,
-      raidIntensityMultiplier: 1,
-      expansionSpeedMultiplier: 1,
-      dayLengthTicks: 12,
-      nightLengthTicks: 12,
-      victoryConditionKey: "default-control",
-      startingResources: {
-        cash: 1000
-      },
+      ...freeConfig.balance,
       conflict: {
+        ...freeConfig.balance.conflict!,
         spyCooldownTicks: 2,
         attackCooldownTicks: 2,
         spyBaseSuccessChance: 0.72,
@@ -40,24 +27,6 @@ const context = {
         trapAttackLosses: 1,
         reportsLimit: 6
       }
-    },
-    technical: {
-      sessionTtlMs: 1,
-      gameDurationMs: 1,
-      storageKeyPrefix: "test",
-      snapshotIntervalTicks: 1,
-      notificationBatchWindowMs: 1,
-      debug: {
-        allowDebugTools: false,
-        enableDeterministicSeeds: true
-      }
-    },
-    publicMeta: {
-      mode: "free" as const,
-      label: "Free",
-      matchStyle: "short" as const,
-      tickRateMs: 5000,
-      sessionKeyPrefix: "test"
     }
   }
 };

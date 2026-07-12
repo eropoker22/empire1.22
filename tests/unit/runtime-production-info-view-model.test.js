@@ -81,15 +81,15 @@ describe("production info view models", () => {
 
     expect(viewModel.rows[0]).toEqual({ label: "Level", value: "L2" });
     expect(viewModel.rows[1]).toEqual({ label: "Upgrade", value: "100$ -> L3" });
-    expect(viewModel.rows[2].value).toBe("Produkce a craft rychlost x1.50.");
+    expect(viewModel.rows[2].value).toBe("Produkce a craft rychlost +50%.");
     expect(viewModel.rows[4].value).toBe("4 ks hotovo do skladu");
-    expect(viewModel.actions[1].description).toBe("Stojí 100$ clean cash a zvedne produkci na x1.50.");
+    expect(viewModel.actions[1].description).toBe("Stojí 100$ clean cash a zvedne produkci na +50%.");
     expect(viewModel.description).toContain("technické komponenty");
     expect(viewModel.description).toContain("Výroba v továrně je za čisté peníze.");
     expect(viewModel.effectsLabel).toBe("Další level +25% rychlost");
     expect(viewModel.effectsLabel).not.toContain("Výroba běží přes sloty");
     expect(viewModel.effectsLabel).not.toContain("fronta po kusech");
-    expect(viewModel.upgrade).toEqual({ costLabel: "100$", benefitLabel: "L3 · produkce x1.50" });
+    expect(viewModel.upgrade).toEqual({ costLabel: "100$", benefitLabel: "L3 · produkce +50%" });
     expect(viewModel.products).toHaveLength(3);
     expect(viewModel.products[0]).toMatchObject({
       id: "metal-parts",

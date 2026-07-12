@@ -851,7 +851,7 @@ describe("core police system completion", () => {
       districtId: null,
       effectiveReductionPct: 0
     });
-    expect(model.mitigations?.[0]?.label).toContain("Raidy čistě z player heat bez cílového districtu zatím nekryje");
+    expect(model.mitigations?.[0]?.label).toContain("Raidy čistě z heat hráče bez cílového districtu zatím nekryje");
   });
 
   it("decays player heat on the configured interval", () => {

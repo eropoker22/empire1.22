@@ -103,7 +103,7 @@ describe("district building gameplay slice", () => {
     expect(enemyDistrictRender.mapHtml).toContain(`data-selected-district-id="${enemyDistrictId}"`);
     expect(enemyDistrictRender.districtPanel?.attackTargets).toEqual([]);
     expect(enemyDistrictRender.sidePanelHtml).toContain("Zbrojovka");
-    expect(enemyDistrictRender.districtPanel?.buildings[0]?.actions[0]?.disabled).toBe(true);
+    expect(enemyDistrictRender.districtPanel?.buildings[0]?.actions).toEqual([]);
     expect(enemyDistrictRender.districtPanel?.ownershipLabel).toBe("Vlastní player:enemy");
 
     const homeDistrictRender = await client.selectDistrict(districtId);

@@ -34,7 +34,6 @@ describe("legacy faction compatibility bridge", () => {
     expect(previewSource).not.toContain("není core-backed");
     expect(previewSource).toContain("Funguje teď");
     expect(previewSource).toContain("Připravuje se");
-    expect(previewSource).toContain("Speciální schopnost — preview");
     expect(previewSource).toContain("Preview schopnosti");
   });
 

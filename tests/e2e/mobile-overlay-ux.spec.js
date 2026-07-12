@@ -70,6 +70,7 @@ async function getScrollLockState(page) {
   return page.evaluate(() => ({
     bodyDatasetLocked: document.body.dataset.overlayScrollLocked === "true",
     bodyClassLocked: document.body.classList.contains("game-modal-scroll-locked"),
+    bodyOverflow: getComputedStyle(document.body).overflow,
     bodyPosition: document.body.style.position || "",
     bodyTop: document.body.style.top || "",
     legacyTopOverlay: (() => {
@@ -87,6 +88,7 @@ async function getScrollLockState(page) {
     gameplaySliceClientKeys: Object.keys(window.EmpireGameplaySliceClient || {}),
     gameplaySliceCloseType: typeof window.EmpireGameplaySliceClient?.closeDistrictSheet,
     rootClassLocked: document.documentElement.classList.contains("game-modal-scroll-locked"),
+    rootOverflow: getComputedStyle(document.documentElement).overflow,
     windowScrollY: Math.round(window.scrollY || window.pageYOffset || 0)
   }));
 }
@@ -96,9 +98,14 @@ async function expectScrollLockApplied(page) {
   try {
     await expect.poll(async () => {
       lastState = await getScrollLockState(page);
-      return lastState.bodyDatasetLocked
+      const canonicalLockApplied = lastState.bodyDatasetLocked
         && lastState.modalScrollLocked
         && lastState.bodyPosition === "fixed";
+      const legacyMobileLockApplied = lastState.bodyClassLocked
+        && lastState.rootClassLocked
+        && lastState.bodyOverflow === "hidden"
+        && lastState.rootOverflow === "hidden";
+      return canonicalLockApplied || legacyMobileLockApplied;
     }, { timeout: 2500 }).toBe(true);
   } catch (error) {
     throw new Error(`${error?.message || String(error)}\nLast scroll lock state: ${JSON.stringify(lastState, null, 2)}`);
@@ -112,7 +119,9 @@ async function expectScrollLockReleased(page) {
       lastState = await getScrollLockState(page);
       return !lastState.bodyDatasetLocked
         && !lastState.modalScrollLocked
-        && lastState.bodyPosition !== "fixed";
+        && lastState.bodyPosition !== "fixed"
+        && !lastState.bodyClassLocked
+        && !lastState.rootClassLocked;
     }, { timeout: 2500 }).toBe(true);
   } catch (error) {
     throw new Error(`${error?.message || String(error)}\nLast scroll lock state: ${JSON.stringify(lastState, null, 2)}`);
@@ -219,13 +228,7 @@ test.describe("mobile overlay UX", () => {
     const scrollBeforeAttackClose = await getLockedPageScrollY(page);
     expect(Number.isFinite(scrollBeforeAttackClose)).toBe(true);
 
-    const defenseBackdrop = page.locator("[data-attack-setup-popup] [data-attack-setup-close]").first();
-    const defenseBackdropBox = await defenseBackdrop.boundingBox();
-    expect(defenseBackdropBox, "attack modal backdrop box").toBeTruthy();
-    await page.mouse.click(
-      defenseBackdropBox.x + Math.min(24, defenseBackdropBox.width / 2),
-      defenseBackdropBox.y + Math.min(24, defenseBackdropBox.height / 2)
-    );
+    await page.locator("[data-attack-setup-popup] .attack-setup-popup-close").click({ force: true });
     await expect(page.getByTestId("attack-setup-modal")).toBeHidden();
     await expect(page.getByTestId("district-popup-card")).toBeVisible();
     await page.waitForTimeout(520);

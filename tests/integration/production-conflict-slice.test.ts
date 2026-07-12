@@ -64,7 +64,7 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(trapped.errors).toEqual([]);
-    expect(trapped.districtPanel?.trap?.activeLabel).toContain("Hidden trap armed");
+    expect(trapped.districtPanel?.trap?.activeLabel).toContain("Skrytá past nastražená");
 
     const enemyProjection = (await server.gameplaySliceTransport.load({
       ...attackerSession.loadRequest,
@@ -293,14 +293,14 @@ describe("production conflict gameplay slice", () => {
     expect(rejectedSpy.connection).toMatchObject({
       status: "ready",
       staleData: true,
-      lastErrorMessage: expect.stringContaining("cooling down")
+      lastErrorMessage: expect.stringContaining("čeká ještě")
     });
     expect(rejectedSpy.lastCommandStatus).toEqual({
       commandId: "command:spy:cooldown:2",
       accepted: false
     });
     expect(renderGameplaySliceStatus(rejectedSpy)).toContain("Akce odmítnuta");
-    expect(renderGameplaySliceStatus(rejectedSpy)).toContain("cooling down");
+    expect(renderGameplaySliceStatus(rejectedSpy)).toContain("čeká ještě");
     expect(rejectedSpy.sidePanelHtml).toContain("Poslední reporty");
     expect(rejectedSpy.sidePanelHtml).toContain("Akce odmítnuta");
     expect(rejectedSpy.sidePanelHtml).not.toContain("data-report-command-status=\"accepted-without-report\"");

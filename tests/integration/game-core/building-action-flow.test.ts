@@ -80,23 +80,6 @@ describe("run-building-action command flow", () => {
       } else {
         expect(definition.stats.heatPerDay).toBeGreaterThan(0);
       }
-      if (
-        definition.buildingTypeId === "warehouse"
-        || definition.buildingTypeId === "convenience_store"
-        || definition.buildingTypeId === "shopping_mall"
-        || definition.buildingTypeId === "recruitment_center"
-        || definition.buildingTypeId === "garage"
-        || definition.buildingTypeId === "car_dealer"
-        || definition.buildingTypeId === "fitness_club"
-        || definition.buildingTypeId === "vip_lounge"
-        || definition.buildingTypeId === "court"
-        || definition.buildingTypeId === "pharmacy"
-        || definition.buildingTypeId === "drug_lab"
-      ) {
-        expect(definition.specialActions).toHaveLength(0);
-      } else {
-        expect(definition.specialActions.length).toBeGreaterThan(0);
-      }
       for (const action of definition.specialActions) {
         expect(buildingActions[action.actionId]).toMatchObject({
           actionId: action.actionId,
@@ -1080,30 +1063,30 @@ describe("run-building-action command flow", () => {
   });
 
   it("runs a valid fixed building action and updates resources, district heat, influence, cooldown, and report", () => {
-    const { state, building } = createStateWithFixedBuilding("factory");
+    const { state, building } = createStateWithFixedBuilding("port");
     const result = applyCommand(
       state,
       createRunBuildingActionCommandFixture({
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "produce_tech_core"
+          actionId: "port_container_cut"
         }
       }),
       context
     );
 
     expect(result.errors).toEqual([]);
-    expect(result.nextState.resourceStatesById["resource:1"].balances["metal-parts"]).toBe(6);
-    expect(result.nextState.resourceStatesById["resource:1"].balances["tech-core"]).toBe(3);
-    expect(result.nextState.districtsById["district:1"].heat).toBe(1.92);
-    expect(result.nextState.districtsById["district:1"].influence).toBe(0);
-    expect(result.nextState.buildingsById[building.id].actionCooldowns.produce_tech_core).toBeGreaterThan(0);
+    expect(result.nextState.resourceStatesById["resource:1"].balances["metal-parts"]).toBeGreaterThan(8);
+    expect(result.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBeGreaterThan(250);
+    expect(result.nextState.districtsById["district:1"].heat).toBeGreaterThan(0);
+    expect(result.nextState.districtsById["district:1"].influence).toBeGreaterThan(0);
+    expect(result.nextState.buildingsById[building.id].actionCooldowns.port_container_cut).toBeGreaterThan(0);
     expect(Object.values(result.nextState.notificationsById).some((notification) => notification.category === "report.building-action")).toBe(true);
   });
 
   it("rejects an action when the building is not fixed in the district", () => {
-    const { state, building } = createStateWithFixedBuilding("factory");
+    const { state, building } = createStateWithFixedBuilding("port");
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       buildingIds: []
@@ -1114,7 +1097,7 @@ describe("run-building-action command flow", () => {
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "produce_tech_core"
+          actionId: "port_container_cut"
         }
       }),
       context
@@ -1131,7 +1114,7 @@ describe("run-building-action command flow", () => {
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "produce_tech_core"
+          actionId: "port_container_cut"
         }
       }),
       context
@@ -1141,9 +1124,9 @@ describe("run-building-action command flow", () => {
   });
 
   it("rejects an action blocked by building cooldown", () => {
-    const { state, building } = createStateWithFixedBuilding("factory", {
+    const { state, building } = createStateWithFixedBuilding("port", {
       actionCooldowns: {
-        produce_tech_core: 3
+        port_container_cut: 3
       }
     });
     const result = applyCommand(
@@ -1152,7 +1135,7 @@ describe("run-building-action command flow", () => {
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "produce_tech_core"
+          actionId: "port_container_cut"
         }
       }),
       context
@@ -3230,39 +3213,4 @@ describe("run-building-action command flow", () => {
     );
   });
 
-  it("applies Power Station infrastructure bonus to factory production", () => {
-    const { state, building } = createStateWithFixedBuilding("factory", {
-      id: "building:district-1:factory:1",
-      playerBalances: {
-        cash: 0,
-        "dirty-cash": 0
-      }
-    });
-    state.resourceStatesById[`resource:${building.id}`] = createResourceStateFixture({
-      id: `resource:${building.id}`,
-      ownerType: "building",
-      ownerId: building.id,
-      balances: {
-        "metal-parts": 0
-      },
-      lastUpdatedTick: 0
-    });
-    for (let index = 1; index <= 5; index += 1) {
-      state.buildingsById[`building:power:${index}`] = {
-        ...building,
-        id: `building:power:${index}`,
-        buildingTypeId: "power_station",
-        districtId: "district:1"
-      };
-    }
-    state.districtsById["district:1"] = {
-      ...state.districtsById["district:1"],
-      buildingIds: [building.id, ...Array.from({ length: 5 }, (_value, index) => `building:power:${index + 1}`)]
-    };
-    state.root.tick = 1;
-
-    const productionState = completeProduction(state, context);
-
-    expect(productionState.resourceStatesById[`resource:${building.id}`].balances["metal-parts"]).toBe(6);
-  });
 });

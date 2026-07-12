@@ -165,7 +165,7 @@ describe("occupy district command", () => {
       districtId: "district:2",
       enabled: false,
       disabledCode: "DOWNTOWN_LOCKED_UNTIL_FINAL_LOCKDOWN",
-      disabledReason: "Downtown districts can only be occupied during final lockdown."
+      disabledReason: "Downtown districty jde obsadit až během final lockdownu."
     });
 
     const blocked = applyCommand(state, createOccupyDistrictCommandFixture(), context);

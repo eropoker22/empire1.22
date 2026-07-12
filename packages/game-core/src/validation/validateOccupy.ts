@@ -102,8 +102,8 @@ export const validateOccupy = (
   const availablePopulation = Math.max(
     0,
     Math.floor(Number(
-      player.population ??
-        state.resourceStatesById[player.resourceStateId]?.balances?.population ??
+      state.resourceStatesById[player.resourceStateId]?.balances?.population ??
+        player.population ??
         0
     ))
   );

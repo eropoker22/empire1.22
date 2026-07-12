@@ -88,7 +88,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     expect(render.districtPanel?.districtId).toBe(homeDistrictId);
     expect(render.mapDistricts.find((district) => district.districtId === homeDistrictId)?.isSelected).toBe(true);
     expect(render.player?.homeDistrictId).toBe(homeDistrictId);
-    expect(render.topBarHtml).toContain(`Server assigned home: ${homeDistrictId}`);
+    expect(render.topBarHtml).toContain(`Domovský district: ${homeDistrictId}`);
   });
 
   it("loads without a concrete district focus but rejects server-assigned submit focus", async () => {
@@ -220,6 +220,8 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       targetDistrictId
     });
     expect(Array.isArray(spyReadModel!.cityFeed?.currentPlayerFeed)).toBe(true);
+
+    setPlayerPopulation(runtime.state, firstRequest.playerId, 100);
 
     const attack = await server.gameplaySliceTransport.submit({
       sessionToken: initial.sessionToken,
@@ -411,7 +413,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     expect(response.errors).toEqual([
       {
         code: "spy_target_not_found",
-        message: "Target district district:missing-target was not found."
+        message: "Cílový district district:missing-target nebyl nalezen."
       }
     ]);
     expect(readModel.district?.districtId).toBe(homeDistrictId);

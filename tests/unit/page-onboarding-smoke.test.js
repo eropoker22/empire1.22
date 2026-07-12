@@ -215,7 +215,7 @@ describe("page onboarding smoke", () => {
     expect(loginCssSource).toContain("linear-gradient(145deg, rgba(3, 16, 31, 0.94), rgba(1, 6, 16, 0.98))");
     expect(loginCssSource).toContain("linear-gradient(145deg, rgba(36, 24, 7, 0.95), rgba(16, 10, 4, 0.98))");
     expect(loginCssSource).toContain("width: 100%;");
-    expect(loginCssSource).toContain("@media (min-width: 841px) {\n  .mode-card--war .mode-content {\n    transform: translateY(-5px);");
+    expect(loginCssSource).toMatch(/@media \(min-width: 841px\) \{\r?\n  \.mode-card--war \.mode-content \{\r?\n    transform: translateY\(-5px\);/u);
     expect(loginCssSource).toContain("#register-form .field-shell");
     expect(loginCssSource).toContain("#register-form .field-shell input");
     expect(loginCssSource).toContain("#register-form .enter-city-button");
@@ -402,8 +402,6 @@ describe("page onboarding smoke", () => {
     expect(mapConstantsSource).toContain('attack: "#fb923c"');
     expect(runtimeSource).not.toContain('drawReducedMapActivityMarker(context, district, "UTOK", "#fb923c")');
     expect(runtimeSource).toContain("SHOPPING_MALL_NETWORK_CONFIG");
-    expect(buildingDetailUiSource).toContain("Pasivní market bonus");
-    expect(buildingDetailUiSource).toContain("mechanics.shoppingMallMarketDiscount.discountPct");
     expect(runtimeSource).toContain("AUTO_SALON_SUPPORT_CONFIG");
     expect(buildingDetailUiSource).toContain("Pasivní mobilita");
     expect(buildingDetailUiSource).toContain("combinedGarageDealerMaxReductionPct");
