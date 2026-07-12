@@ -133,6 +133,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
   };
 
   const createProductionCard = (root, buildingName, recipeId, recipeKey, recipe, rerender) => {
+    const legacyProductionEnabled = allowLegacyLocalProduction && buildingName !== "druglab";
     const job = deps.getProductionJob?.(recipeKey);
     const buildingState = deps.getStoredProductionBuildingState?.(buildingName) || {};
     const ownedBuildingCount = getOwnedProductionBuildingCount(buildingName, buildingState.level);
@@ -193,15 +194,15 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         ? deps.getArmoryRecipeStrengthPreview?.(recipeId, recipe) || null
         : null,
       inputAmounts,
-      canStart: allowLegacyLocalProduction && (deps.hasEnoughMaterials?.(recipe?.inputs || {}) || false),
-      maxBatches: allowLegacyLocalProduction ? getMaxBatches() : 0,
-      maxSelectableBatches: allowLegacyLocalProduction ? (buildingName === "druglab" ? getMaxCapacityBatches() : getMaxBatches()) : 0,
-      allowStartWithMissingInputs: allowLegacyLocalProduction && buildingName === "druglab"
+      canStart: legacyProductionEnabled && (deps.hasEnoughMaterials?.(recipe?.inputs || {}) || false),
+      maxBatches: legacyProductionEnabled ? getMaxBatches() : 0,
+      maxSelectableBatches: legacyProductionEnabled ? getMaxBatches() : 0,
+      allowStartWithMissingInputs: false
     };
     const card = deps.renderRecipeCard?.(viewModel, {
       getMaxBatches,
       onStart: ({ batchCount }) => {
-        if (!allowLegacyLocalProduction) {
+        if (!legacyProductionEnabled) {
           deps.setBuildingActionFeedback?.(
             root,
             "warning",
@@ -291,7 +292,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         deps.scheduleProductionJob?.(recipeKey, rerender);
       },
       onStop: () => {
-        if (!allowLegacyLocalProduction) {
+        if (!legacyProductionEnabled) {
           deps.setBuildingActionFeedback?.(
             root,
             "warning",
@@ -328,7 +329,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         rerender?.();
       },
       onCollect: () => {
-        if (!allowLegacyLocalProduction) {
+        if (!legacyProductionEnabled) {
           deps.setBuildingActionFeedback?.(
             root,
             "warning",
@@ -414,6 +415,54 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     });
   };
 
+  const createServerDrugLabCard = (root, drugLab, line, rerender) => {
+    const recipe = {
+      name: line.label,
+      cleanMoneyCost: line.unitCleanCashCost,
+      output: { itemId: line.resourceKey, amount: 1 }
+    };
+    return deps.renderRecipeCard?.({
+      root,
+      buildingName: "druglab",
+      recipeId: line.recipeId,
+      recipe,
+      serverLine: line,
+      cleanCashAmount: drugLab.cleanCashAmount,
+      tickRateMs: deps.getServerTickRateMs?.() || 5000,
+      visual: deps.PRODUCTION_SLOT_VISUALS?.druglab?.[line.recipeId] || null
+    }, {
+      onStart: async ({ batchCount }) => {
+        const response = await deps.submitServerDrugLabCommand?.({
+          type: "craft-item",
+          payload: {
+            districtId: drugLab.districtId,
+            buildingId: drugLab.buildingId,
+            recipeId: line.recipeId,
+            quantity: batchCount
+          }
+        });
+        reportServerDrugLabResult(root, response, line.label);
+        rerender?.();
+      },
+      onStop: async () => {
+        const response = await deps.submitServerDrugLabCommand?.({
+          type: "cancel-drug-lab-production",
+          payload: {
+            districtId: drugLab.districtId,
+            buildingId: drugLab.buildingId,
+            recipeId: line.recipeId
+          }
+        });
+        reportServerDrugLabResult(root, response, line.label);
+        rerender?.();
+      }
+    }, {
+      mount: root,
+      formatCurrency: deps.formatCurrency,
+      formatDurationLabel: deps.formatDurationLabel
+    });
+  };
+
   const reportServerPharmacyResult = (root, response, label) => {
     const error = response?.errors?.[0];
     if (error) {
@@ -421,6 +470,15 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       return;
     }
     deps.setBuildingActionFeedback?.(root, "success", "Lékárna", label + " byl aktualizován.");
+  };
+
+  const reportServerDrugLabResult = (root, response, label) => {
+    const error = response?.errors?.[0];
+    if (error) {
+      deps.setBuildingActionFeedback?.(root, "warning", "Lab", error.message || "Akci se nepodařilo provést.");
+      return;
+    }
+    deps.setBuildingActionFeedback?.(root, "success", "Lab", label + " byl aktualizován.");
   };
 
   const renderProductionPanel = (root, panelName, recipes, rerender) => {
@@ -433,12 +491,18 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const serverPharmacy = panelName === "pharmacy" && !allowLegacyLocalProduction
       ? deps.getServerPharmacyReadModel?.()
       : null;
-    if (serverPharmacy) {
+    const serverDrugLab = panelName === "druglab"
+      ? deps.getServerDrugLabReadModel?.()
+      : null;
+    const serverProduction = serverPharmacy || serverDrugLab;
+    if (serverProduction) {
       const safeRerender = typeof rerender === "function" ? rerender : () => renderProductionPanel(root, panelName, recipes);
       return deps.renderProductionPanelUi?.({
         mount,
-        recipes: serverPharmacy.lines.map((line) => ({
-          prebuiltCard: createServerPharmacyCard(root, serverPharmacy, line, safeRerender)
+        recipes: serverProduction.lines.map((line) => ({
+          prebuiltCard: serverDrugLab
+            ? createServerDrugLabCard(root, serverDrugLab, line, safeRerender)
+            : createServerPharmacyCard(root, serverPharmacy, line, safeRerender)
         }))
       }, {}, { mount });
     }
@@ -518,16 +582,20 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       const serverPharmacy = buildingName === "pharmacy" && !allowLegacyLocalProduction
         ? deps.getServerPharmacyReadModel?.()
         : null;
+      const serverDrugLab = buildingName === "druglab"
+        ? deps.getServerDrugLabReadModel?.()
+        : null;
+      const serverProduction = serverPharmacy || serverDrugLab;
       deps.syncCompletedProductionJobs?.();
-      const state = serverPharmacy
-        ? { level: serverPharmacy.level || 1 }
+      const state = serverProduction
+        ? { level: serverProduction.level || 1 }
         : deps.getStoredProductionBuildingState?.(buildingName) || {};
       const multiplier = deps.getProductionBuildingMultiplier?.(buildingName, state.level) || 1;
       const nextMultiplier = state.level < maxLevel
         ? deps.getProductionBuildingMultiplier?.(buildingName, state.level + 1) || multiplier
         : multiplier;
-      const readyCount = serverPharmacy
-        ? serverPharmacy.lines.filter((line) => Number(line.producedAmount || 0) > 0).length
+      const readyCount = serverProduction
+        ? serverProduction.lines.filter((line) => Number(line.producedAmount || 0) > 0).length
         : deps.getProductionBuildingReadyCount?.(buildingName, recipes) || 0;
       const upgradeCost = state.level < maxLevel ? deps.getProductionBuildingUpgradeCost?.(buildingName, state.level + 1) || 0 : 0;
       const ownedBuildingCount = getOwnedProductionBuildingCount(buildingName, state.level);
@@ -560,9 +628,9 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       });
 
       if (isButtonElement(collectButton, ButtonCtor)) {
-        collectButton.disabled = serverPharmacy ? readyCount <= 0 : !allowLegacyLocalProduction || readyCount <= 0;
+        collectButton.disabled = serverProduction ? readyCount <= 0 : !allowLegacyLocalProduction || buildingName === "druglab" || readyCount <= 0;
         collectButton.textContent = "+";
-        const collectLabel = serverPharmacy
+        const collectLabel = serverProduction
           ? readyCount > 0 ? "Vybrat hotovou produkci do skladu" : "Není nic hotového k vyzvednutí"
           : !allowLegacyLocalProduction
           ? productionBridgeMessage
@@ -603,34 +671,40 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         const serverPharmacy = buildingName === "pharmacy" && !allowLegacyLocalProduction
           ? deps.getServerPharmacyReadModel?.()
           : null;
-        if (serverPharmacy) {
-          for (const line of serverPharmacy.lines.filter((item) => item.canCollect)) {
-            const response = await deps.submitServerPharmacyCommand?.({
+        const serverDrugLab = buildingName === "druglab"
+          ? deps.getServerDrugLabReadModel?.()
+          : null;
+        const serverProduction = serverPharmacy || serverDrugLab;
+        if (serverProduction) {
+          for (const line of serverProduction.lines.filter((item) => item.canCollect)) {
+            const response = await (serverDrugLab ? deps.submitServerDrugLabCommand : deps.submitServerPharmacyCommand)?.({
               type: "collect-production",
               payload: {
-                districtId: serverPharmacy.districtId,
-                buildingId: serverPharmacy.buildingId,
+                districtId: serverProduction.districtId,
+                buildingId: serverProduction.buildingId,
                 resourceKey: line.resourceKey
               }
             });
             if (response?.errors?.length) {
-              reportServerPharmacyResult(root, response, line.label);
+              (serverDrugLab ? reportServerDrugLabResult : reportServerPharmacyResult)(root, response, line.label);
               renderDashboard();
               return;
             }
           }
-          const updated = deps.getServerPharmacyReadModel?.();
+          const updated = serverDrugLab ? deps.getServerDrugLabReadModel?.() : deps.getServerPharmacyReadModel?.();
           const partial = updated?.lines?.some((line) => Number(line.producedAmount || 0) > 0);
           deps.setBuildingActionFeedback?.(
             root,
             partial ? "warning" : "success",
-            "Lékárna",
-            partial ? "Do skladu se vešla pouze část produkce. Zbytek zůstal v Lékárně." : "Hotová produkce byla přesunuta do skladu."
+            serverDrugLab ? "Lab" : "Lékárna",
+            partial
+              ? "Do skladu se vešla pouze část produkce. Zbytek zůstal v " + (serverDrugLab ? "Labu." : "Lékárně.")
+              : "Hotová produkce byla přesunuta do skladu."
           );
           renderDashboard();
           return;
         }
-        if (!allowLegacyLocalProduction) {
+        if (!allowLegacyLocalProduction || buildingName === "druglab") {
           deps.setBuildingActionFeedback?.(root, "warning", config?.label || "Budova", productionBridgeMessage);
           renderDashboard();
           return;
@@ -662,7 +736,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
     if (isButtonElement(upgradeButton, ButtonCtor)) {
       upgradeButton.addEventListener("click", async () => {
-        if (!allowLegacyProductionUpgrade) {
+        if (!allowLegacyProductionUpgrade || buildingName === "druglab") {
           deps.setBuildingActionFeedback?.(root, "warning", config?.label || "Budova", productionUpgradeMessage);
           renderDashboard();
           return;

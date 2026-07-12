@@ -119,17 +119,18 @@ describe("Free BR strategic cooldowns", () => {
   it("keeps canonical craft durations in strategic minute ranges after cooldownMultiplier", () => {
     const recipes = freeConfig.balance.craftBuildings!;
     const pharmacy = freeConfig.balance.pharmacy!;
+    const drugLab = freeConfig.balance.drugLab!;
     const finalDurationTicks = (durationTicks: number): number =>
       Math.ceil(durationTicks * freeConfig.balance.cooldownMultiplier);
 
     expect(finalDurationTicks(pharmacy.recipes.chemicals.durationTicksPerUnit)).toBe(2 * TICKS_PER_MINUTE);
     expect(finalDurationTicks(pharmacy.recipes.biomass.durationTicksPerUnit)).toBe(4 * TICKS_PER_MINUTE);
     expect(finalDurationTicks(pharmacy.recipes["stim-pack"].durationTicksPerUnit)).toBe(10 * TICKS_PER_MINUTE);
-    expect(finalDurationTicks(recipes.drug_lab.recipes["neon-dust"].durationTicks)).toBe(5 * TICKS_PER_MINUTE);
-    expect(finalDurationTicks(recipes.drug_lab.recipes["pulse-shot"].durationTicks)).toBe(8 * TICKS_PER_MINUTE);
-    expect(finalDurationTicks(recipes.drug_lab.recipes["velvet-smoke"].durationTicks)).toBe(15 * TICKS_PER_MINUTE);
-    expect(finalDurationTicks(recipes.drug_lab.recipes["ghost-serum"].durationTicks)).toBe(20 * TICKS_PER_MINUTE);
-    expect(finalDurationTicks(recipes.drug_lab.recipes["overdrive-x"].durationTicks)).toBe(20 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(drugLab.recipes["neon-dust"].durationTicksPerUnit)).toBe(5 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(drugLab.recipes["pulse-shot"].durationTicksPerUnit)).toBe(8 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(drugLab.recipes["velvet-smoke"].durationTicksPerUnit)).toBe(15 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(drugLab.recipes["ghost-serum"].durationTicksPerUnit)).toBe(20 * TICKS_PER_MINUTE);
+    expect(finalDurationTicks(drugLab.recipes["overdrive-x"].durationTicksPerUnit)).toBe(30 * TICKS_PER_MINUTE);
     expect(finalDurationTicks(recipes.factory.recipes["tech-core"].durationTicks)).toBe(6 * TICKS_PER_MINUTE);
     expect(finalDurationTicks(recipes.factory.recipes["combat-module"].durationTicks)).toBe(12 * TICKS_PER_MINUTE);
     expect(finalDurationTicks(recipes.armory.recipes.bazooka.durationTicks)).toBe(14 * TICKS_PER_MINUTE);
@@ -145,8 +146,8 @@ describe("Free BR strategic cooldowns", () => {
 
     expect(freeConfig.balance.buildingActions!.produce_chemicals).toBeUndefined();
     expect(freeConfig.balance.buildingActions!.produce_biomass).toBeUndefined();
+    expect(freeConfig.balance.buildingActions!.produce_neon_dust).toBeUndefined();
     expect(freeConfig.balance.buildingActions!.produce_stim_pack).toBeUndefined();
-    expect(actionCooldownTicks("produce_neon_dust")).toBe(4 * TICKS_PER_MINUTE);
     expect(actionCooldownTicks("produce_combat_module")).toBe(12 * TICKS_PER_MINUTE);
     expect(actionCooldownTicks("armory_craft_weapons")).toBe(12 * TICKS_PER_MINUTE);
     expect(freeConfig.balance.buildingActions!.black_charter.durationMs).toBe(8 * 60_000);

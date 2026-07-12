@@ -70,7 +70,6 @@ describe("craft-item command flow", () => {
 
   it.each([
     ["factory", "combat-module", { "metal-parts": 10, "tech-core": 3 }, "combat-module", 1, 12],
-    ["drug_lab", "ghost-serum", { chemicals: 4, biomass: 2, "stim-pack": 2 }, "ghost-serum", 1, 20],
     ["armory", "pistol", { "metal-parts": 6, "tech-core": 2 }, "pistol", 2, 5],
     ["armory", "bazooka", { "metal-parts": 10, "tech-core": 4 }, "bazooka", 1, 14],
     ["armory", "defense-tower", { "metal-parts": 10, "tech-core": 4 }, "defense-tower", 1, 16]
@@ -115,7 +114,6 @@ describe("craft-item command flow", () => {
   });
 
   it.each([
-    ["drug_lab", "pulse-shot", { chemicals: 1, biomass: 0 }],
     ["factory", "tech-core", { "metal-parts": 3 }],
     ["armory", "pistol", { "metal-parts": 2, "tech-core": 0 }]
   ])("rejects %s recipe %s without required inputs", (

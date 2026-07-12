@@ -129,14 +129,14 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
   });
 
   it("adds building action heat to the authoritative player police state", () => {
-    const { state, building } = createCoreStateFixtureWithActionBuilding("drug_lab");
+    const { state, building } = createCoreStateFixtureWithActionBuilding("factory");
     const result = applyCommand(
       state,
       createRunBuildingActionCommandFixture({
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "produce_neon_dust"
+          actionId: "produce_combat_module"
         }
       }),
       {
@@ -147,7 +147,7 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     expect(result.errors).toEqual([]);
     expect(result.nextState.policeStatesById["police:1"]).toMatchObject({
       ownerPlayerId: "player:1",
-      heat: 2,
+      heat: 2.88,
       wantedLevel: 0
     });
   });

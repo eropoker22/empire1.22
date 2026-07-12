@@ -13,18 +13,6 @@ export const baseProductionBuildingsConfig: NonNullable<BalanceConfig["productio
       productionMultiplierPerLevel: 10,
       roundCostTo: 100
     }
-  },
-  drug_lab: {
-    resourceKey: "neon-dust",
-    resourceLabel: "Neon Dust",
-    amountPerTick: 2,
-    storageCap: 18,
-    upgrade: {
-      maxLevel: 14,
-      upgradeBaseCost: 4200,
-      costGrowth: 1.42,
-      productionMultiplierPerLevel: 10
-    }
   }
 };
 
@@ -52,48 +40,6 @@ export const baseCraftBuildingsConfig: NonNullable<BalanceConfig["craftBuildings
         inputCosts: { "metal-parts": 4, "tech-core": 2 },
         outputResourceKey: "combat-module",
         outputResourceLabel: "Bojový modul",
-        outputAmount: 1
-      }
-    }
-  },
-  drug_lab: {
-    upgrade: {
-      maxLevel: 14,
-      upgradeBaseCost: 4200,
-      costGrowth: 1.42,
-      productionMultiplierPerLevel: 10
-    },
-    recipes: {
-      "pulse-shot": {
-        label: "Pulse Shot",
-        durationTicks: 2,
-        inputCosts: { chemicals: 2, biomass: 1 },
-        outputResourceKey: "pulse-shot",
-        outputResourceLabel: "Pulse Shot",
-        outputAmount: 1
-      },
-      "velvet-smoke": {
-        label: "Velvet Smoke",
-        durationTicks: 2,
-        inputCosts: { biomass: 2, chemicals: 1 },
-        outputResourceKey: "velvet-smoke",
-        outputResourceLabel: "Velvet Smoke",
-        outputAmount: 2
-      },
-      "ghost-serum": {
-        label: "Ghost Serum",
-        durationTicks: 3,
-        inputCosts: { chemicals: 2, biomass: 1, "stim-pack": 1 },
-        outputResourceKey: "ghost-serum",
-        outputResourceLabel: "Ghost Serum",
-        outputAmount: 1
-      },
-      "overdrive-x": {
-        label: "Overdrive X",
-        durationTicks: 4,
-        inputCosts: { chemicals: 3, biomass: 2, "stim-pack": 2 },
-        outputResourceKey: "overdrive-x",
-        outputResourceLabel: "Overdrive X",
         outputAmount: 1
       }
     }

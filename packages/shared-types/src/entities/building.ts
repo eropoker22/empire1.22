@@ -22,7 +22,10 @@ export interface BuildingProductionLine {
   activeStartedAtTick: number | null;
   activeCompletesAtTick: number | null;
   reservedCleanCash: number;
+  reservedResourceCosts?: Record<string, number>;
   unitCleanCashCost: number;
+  unitResourceCosts?: Record<string, number>;
+  legacyOutputAmount?: number;
   version: number;
 }
 

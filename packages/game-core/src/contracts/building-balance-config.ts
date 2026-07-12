@@ -39,6 +39,35 @@ export interface PharmacyBalanceConfig {
   upgrade?: BuildingUpgradeBalanceConfig;
 }
 
+export type DrugLabRecipeId =
+  | "neon-dust"
+  | "pulse-shot"
+  | "velvet-smoke"
+  | "ghost-serum"
+  | "overdrive-x";
+
+export type DrugLabItemRole = "trade-material" | "boost-component";
+
+export interface DrugLabRecipeBalanceConfig {
+  label: string;
+  description: string;
+  outputResourceKey: DrugLabRecipeId;
+  outputAmount: 1;
+  itemRole: DrugLabItemRole;
+  directlyUsable: false;
+  cleanCashCostPerUnit: number;
+  inputCosts: Record<string, number>;
+  durationTicksPerUnit: number;
+  localOutputCap: number;
+  queueCap: number;
+}
+
+export interface DrugLabBalanceConfig {
+  independentProductionLines: true;
+  recipes: Record<DrugLabRecipeId, DrugLabRecipeBalanceConfig>;
+  upgrade?: BuildingUpgradeBalanceConfig;
+}
+
 export interface BuildingUpgradeBalanceConfig {
   maxLevel: number;
   upgradeBaseCost: number;

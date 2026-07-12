@@ -13,6 +13,7 @@ export * from "./district-occupy-target-projection";
 export * from "./district-panel-projection";
 export * from "./district-spy-target-projection";
 export * from "./district-summary-projection";
+export * from "./drug-lab-production-projection";
 export * from "./onboarding-read-model-projection";
 export * from "./player-projection";
 export * from "./player-frontier-projection";

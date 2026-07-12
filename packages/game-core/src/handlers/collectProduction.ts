@@ -12,6 +12,7 @@ import {
   resolveWarehouseStorageCapacity
 } from "./warehouseBuilding";
 import { collectPharmacyProduction } from "./pharmacyProductionHandlers";
+import { collectDrugLabProduction } from "./drugLabProductionHandlers";
 
 /**
  * Responsibility: Placeholder handler for production collection commands.
@@ -26,6 +27,15 @@ export const handleCollectProduction = (
   const targetBuilding = state.buildingsById[command.payload.buildingId];
   if (targetBuilding?.buildingTypeId === "pharmacy") {
     return collectPharmacyProduction(state, {
+      ...command,
+      payload: {
+        ...command.payload,
+        recipeId: command.payload.resourceKey || ""
+      }
+    }, context);
+  }
+  if (targetBuilding?.buildingTypeId === "drug_lab") {
+    return collectDrugLabProduction(state, {
       ...command,
       payload: {
         ...command.payload,

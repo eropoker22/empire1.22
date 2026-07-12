@@ -3,6 +3,7 @@ export * from "./alliance-board-view";
 export * from "./bounty-read-model-view";
 export * from "./day-night-read-model-view";
 export * from "./district-panel-view";
+export * from "./drug-lab-production-view";
 export * from "./district-summary-view";
 export * from "./elimination-read-model-view";
 export * from "./final-lockdown-read-model-view";

@@ -57,9 +57,9 @@ describe("MVP buildings core loop hardening", () => {
     }
 
     expect(productionBuildings).toMatchObject({
-      factory: { resourceKey: "metal-parts" },
-      drug_lab: { resourceKey: "neon-dust" }
+      factory: { resourceKey: "metal-parts" }
     });
+    expect(productionBuildings.drug_lab).toBeUndefined();
     expect(productionBuildings.pharmacy).toBeUndefined();
     expect(context.config.balance.pharmacy?.recipes).toMatchObject({
       chemicals: { outputAmount: 1, cleanCashCostPerUnit: 360 },
@@ -71,7 +71,11 @@ describe("MVP buildings core loop hardening", () => {
       inputCosts: { "metal-parts": 3, "tech-core": 1 }
     });
     expect(craftBuildings.factory?.recipes["tech-core"]?.outputResourceKey).toBe("tech-core");
-    expect(craftBuildings.drug_lab?.recipes["pulse-shot"]?.outputResourceKey).toBe("pulse-shot");
+    expect(context.config.balance.drugLab?.recipes["pulse-shot"]).toMatchObject({
+      outputResourceKey: "pulse-shot",
+      cleanCashCostPerUnit: 800,
+      outputAmount: 1
+    });
     expect(actions.collect_population).toMatchObject({
       buildingType: "apartment_block",
       heatGain: 0
@@ -143,24 +147,25 @@ describe("MVP buildings core loop hardening", () => {
     expect(police.heatSources.map((source) => source.kind)).toContain("district");
   });
 
-  it("creates one deduped city feed event for significant drug lab building actions", () => {
+  it("does not create a legacy building-action city feed when Lab production is queued", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("drug_lab", {
       playerBalances: {
-        cash: 0,
+        cash: 2500,
         "dirty-cash": 0,
-        chemicals: 10,
-        biomass: 6
+        "neon-dust": 2,
+        "pulse-shot": 1
       }
     });
 
     const result = applyCommand(
       state,
-      createRunBuildingActionCommandFixture({
+      createCraftItemCommandFixture({
         id: "command:mvp:drug-lab:neon",
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "produce_neon_dust"
+          recipeId: "ghost-serum",
+          quantity: 1
         }
       }),
       context
@@ -170,18 +175,8 @@ describe("MVP buildings core loop hardening", () => {
     const twice = Object.values(duplicateAppend.cityFeedEventsById ?? {});
 
     expect(result.errors).toEqual([]);
-    expect(once).toHaveLength(1);
-    expect(once[0]).toMatchObject({
-      sourceType: "building_action",
-      category: "economy",
-      severity: "high",
-      payload: {
-        actionId: "produce_neon_dust",
-        buildingTypeId: "drug_lab"
-      }
-    });
-    expect(once[0]?.payload).not.toHaveProperty("heatGain");
-    expect(twice).toHaveLength(once.length);
+    expect(once).toHaveLength(0);
+    expect(twice).toHaveLength(0);
   });
 
   it("completes the factory to armory equipment path and emits a significant craft feed event", () => {

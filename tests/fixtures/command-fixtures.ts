@@ -96,8 +96,8 @@ export const createRunBuildingActionCommandFixture = (
   issuedAt: new Date(0).toISOString(),
   payload: {
     districtId: "district:1",
-    buildingId: "building:district-1:drug_lab:1",
-    actionId: "produce_neon_dust"
+    buildingId: "building:district-1:factory:1",
+    actionId: "produce_tech_core"
   },
   clientRequestId: null,
   ...overrides

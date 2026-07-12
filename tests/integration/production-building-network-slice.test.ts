@@ -42,15 +42,14 @@ describe("production building network gameplay slice", () => {
     const initialRender = await client.load(session.loadRequest);
 
     expect(initialRender.sidePanelHtml).toContain("Produkční sloty");
-    expect(initialRender.sidePanelHtml).toContain('data-slot-building-type="drug-lab"');
+    expect(initialRender.sidePanelHtml).not.toContain('data-slot-building-type="drug-lab"');
     expect(initialRender.sidePanelHtml).toContain('data-slot-building-type="factory"');
     expect(initialRender.sidePanelHtml).toContain('data-slot-building-type="armory"');
     expect(initialRender.sidePanelHtml).toContain("Vybrat Metal Parts");
-    expect(initialRender.sidePanelHtml).toContain("Vybrat Neon Dust");
     expect(initialRender.sidePanelHtml).toContain("Zpracovat Bojový modul");
-    expect(initialRender.sidePanelHtml).toContain("Zpracovat Pulse Shot");
     expect(initialRender.sidePanelHtml).toContain("Zpracovat Pistol");
     expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingTypeId === "pharmacy")?.pharmacy?.lines).toHaveLength(3);
+    expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingTypeId === "drug_lab")?.drugLab?.lines).toHaveLength(5);
 
     const factoryId = initialRender.districtPanel?.buildings.find((building) => building.buildingTypeId === "factory")?.buildingId;
     const drugLabId = initialRender.districtPanel?.buildings.find((building) => building.buildingTypeId === "drug_lab")?.buildingId;
@@ -73,18 +72,21 @@ describe("production building network gameplay slice", () => {
     expect(factoryAction.errors).toEqual([]);
     expect(factoryAction.player?.resourceSummary).toContain("Bojový modul 1");
 
-    const drugAction = await client.dispatch(
-      createRunBuildingActionCommand({
-        commandId: "command:building-action:drug-lab",
-        slice: client.getGameplaySlice()!,
-        buildingId: drugLabId!,
-        actionId: "produce_pulse_shot",
-        issuedAt: new Date(0).toISOString()
-      })
-    );
+    const drugAction = await client.dispatch({
+      id: "command:craft:drug-lab",
+      type: "craft-item",
+      mode: "free",
+      playerId,
+      serverInstanceId: instanceId,
+      issuedAt: new Date().toISOString(),
+      clientRequestId: null,
+      payload: { districtId, buildingId: drugLabId!, recipeId: "pulse-shot", quantity: 1 }
+    });
 
     expect(drugAction.errors).toEqual([]);
-    expect(drugAction.player?.resourceSummary).toContain("Pulse Shot 1");
+    expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === drugLabId)?.drugLab?.lines.find(
+      (line) => line.recipeId === "pulse-shot"
+    )).toMatchObject({ queuedAmount: 1, activeAmount: 1 });
 
     const armoryCraft = await client.dispatch(
       createCraftItemCommand({

@@ -5,6 +5,7 @@ import type { BountyCommand } from "./bounty-command";
 import type { BuildStructureCommand } from "./build-structure-command";
 import type { CollectProductionCommand } from "./collect-production-command";
 import type { CancelPharmacyProductionCommand } from "./cancel-pharmacy-production-command";
+import type { CancelDrugLabProductionCommand } from "./cancel-drug-lab-production-command";
 import type { CraftItemCommand } from "./craft-item-command";
 import type { HeistDistrictCommand } from "./heist-district-command";
 import type { MarketCommand } from "./market-command";
@@ -29,6 +30,7 @@ export type GameCommand =
   | BountyCommand
   | AttackDistrictCommand
   | BuildStructureCommand
+  | CancelDrugLabProductionCommand
   | CancelPharmacyProductionCommand
   | CollectProductionCommand
   | CraftItemCommand

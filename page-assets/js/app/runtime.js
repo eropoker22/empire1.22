@@ -992,11 +992,33 @@ function getServerPharmacyReadModel() {
   };
 }
 
+function getServerDrugLabReadModel() {
+  const district = latestGameplaySliceReadModel?.district;
+  const building = district?.buildings?.find?.((candidate) => candidate?.buildingTypeId === "drug_lab" && candidate?.drugLab);
+  if (!building?.drugLab || !district?.districtId) {
+    return null;
+  }
+  return {
+    ...building.drugLab,
+    districtId: district.districtId,
+    level: building.level,
+    cleanCashAmount: Math.max(0, Number(latestGameplaySliceReadModel?.player?.resourceBalances?.cash || 0))
+  };
+}
+
 function getServerTickRateMs() {
   return Math.max(1, Number(latestGameplaySliceReadModel?.mode?.tickRateMs || 5000));
 }
 
 function submitServerPharmacyCommand({ type, payload } = {}) {
+  return submitServerDistrictActionCommand({
+    type,
+    payload,
+    focusDistrictId: payload?.districtId || latestGameplaySliceReadModel?.district?.districtId
+  });
+}
+
+function submitServerDrugLabCommand({ type, payload } = {}) {
   return submitServerDistrictActionCommand({
     type,
     payload,
@@ -4405,6 +4427,7 @@ const {
   getProductionBuildingUpgradeCost,
   getProductionJob,
   getProductionResourceLabel,
+  getServerDrugLabReadModel,
   getServerPharmacyReadModel,
   getServerTickRateMs,
   getOwnedArmoryCount: () => getOwnedSpecialProductionBuildingCount("zbrojovka"),
@@ -4443,6 +4466,7 @@ const {
   setStoredEconomyState,
   setStoredProductionBuildingState,
   submitServerPharmacyCommand,
+  submitServerDrugLabCommand,
   syncBuildingDetailTopbarVisibility,
   syncCompletedProductionJobs
 });
@@ -4997,10 +5021,7 @@ function setStoredPharmacyBoostState(payload) {
   }));
 }
 
-function getPharmacyBoostSnapshot(now = Date.now()) {
-  const nowMs = Math.max(0, Math.floor(Number(now) || Date.now()));
-  const state = getStoredPharmacyBoostState();
-  const activeEffects = [];
+function getPharmacyBoostSnapshot() {
   const totals = {
     spySpeedPct: 0,
     infoQualityPct: 0,
@@ -5015,38 +5036,9 @@ function getPharmacyBoostSnapshot(now = Date.now()) {
   };
   const drugInventory = getStoredDrugInventory();
 
-  const reconRemaining = Math.max(0, Number(state.effects.reconUntil || 0) - nowMs);
-  if (reconRemaining > 0) {
-    counts.recon += 1;
-    totals.spySpeedPct += 50;
-    totals.infoQualityPct += 30;
-    activeEffects.push({ type: "recon", remainingMs: reconRemaining });
-  }
-
-  const actionRemaining = Math.max(0, Number(state.effects.actionUntil || 0) - nowMs);
-  if (actionRemaining > 0) {
-    counts.action += 1;
-    totals.attackSpeedPct += 25;
-    totals.stealSpeedPct += 25;
-    activeEffects.push({ type: "action", remainingMs: actionRemaining });
-  }
-
-  const neuroRemaining = Math.max(0, Number(state.effects.neuroUntil || 0) - nowMs);
-  if (neuroRemaining > 0) {
-    counts.neuro += 1;
-    totals.activeActionsPct += 20;
-    activeEffects.push({ type: "neuro", remainingMs: neuroRemaining });
-  } else {
-    const neuroCrashRemaining = Math.max(0, Number(state.effects.neuroCrashUntil || 0) - nowMs);
-    if (neuroCrashRemaining > 0) {
-      totals.activeActionsPct -= 10;
-      activeEffects.push({ type: "crash", remainingMs: neuroCrashRemaining });
-    }
-  }
-
   return {
-    activeCount: activeEffects.length,
-    activeEffects,
+    activeCount: 0,
+    activeEffects: [],
     counts,
     drugInventory: {
       ghostSerum: Math.max(0, Math.floor(Number(drugInventory["ghost-serum"] || 0))),
@@ -5064,6 +5056,12 @@ function getPharmacyBoostSnapshot(now = Date.now()) {
 }
 
 function usePharmacyBoost(boostType, now = Date.now()) {
+  return {
+    ok: false,
+    code: "item_not_directly_usable",
+    message: "Ghost Serum a Overdrive X jsou výrobní komponenty bez přímého použití."
+  };
+
   const type = String(boostType || "").trim().toLowerCase();
   const nowMs = Math.max(0, Math.floor(Number(now) || Date.now()));
   const state = getStoredPharmacyBoostState();

@@ -24,6 +24,7 @@ import { getStockExchangeMetadata } from "../handlers/stockExchangeBuildingActio
 import { resolveOpenChannelStats } from "../handlers/smugglingTunnelBuildingActions";
 import { resolveWarehouseUpgradeCapacityPreview } from "../handlers/warehouseBuilding";
 import { createPharmacyProductionBuildingView } from "./pharmacy-production-projection";
+import { createDrugLabProductionBuildingView } from "./drug-lab-production-projection";
 import {
   getOwnedStreetDealerCount,
   getStreetDealersPlayerMetadata,
@@ -193,6 +194,13 @@ export const createDistrictPanelBuildingViews = (
         ? resolveWarehouseUpgradeCapacityPreview(input.state, building, input.config.balance.warehouse)
         : null,
       pharmacy: createPharmacyProductionBuildingView({
+        state: input.state,
+        building,
+        playerId: input.playerId,
+        config: input.config,
+        tickRateMs: input.tickRateMs
+      }),
+      drugLab: createDrugLabProductionBuildingView({
         state: input.state,
         building,
         playerId: input.playerId,

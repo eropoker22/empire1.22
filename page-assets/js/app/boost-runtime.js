@@ -3,9 +3,7 @@ import {
   addGangHeat,
   formatDurationLabel,
   getFactoryBoostSnapshot,
-  getPharmacyBoostSnapshot,
-  setBuildingActionFeedback,
-  usePharmacyBoost
+  setBuildingActionFeedback
 } from "./runtime.js";
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
 
@@ -21,28 +19,11 @@ function createFactoryBoostMessage(result) {
 }
 
 function renderBoostActions(content) {
-  const pharmacySnapshot = getPharmacyBoostSnapshot();
   const factorySnapshot = getFactoryBoostSnapshot();
 
-  const ghostSerum = Math.max(0, Math.floor(Number(pharmacySnapshot.drugInventory?.ghostSerum || 0)));
-  const overdriveX = Math.max(0, Math.floor(Number(pharmacySnapshot.drugInventory?.overdriveX || 0)));
   const combatModule = Math.max(0, Math.floor(Number(factorySnapshot.supplies?.combatModule || 0)));
 
   content.innerHTML = `
-    <section class="boost-modal__building">
-      <div class="boost-modal__head">
-        <div class="boost-modal__name">Lab</div>
-        <div class="boost-modal__value">Boost drogy: <strong>Ghost Serum ${ghostSerum} ks • Overdrive X ${overdriveX} ks</strong></div>
-      </div>
-      <div class="boost-modal__actions">
-        <button class="button boost-modal__boost-btn boost-modal__boost-btn--ghost" type="button" data-boost-building="pharmacy" data-boost-action="recon" ${ghostSerum >= 1 ? "" : "disabled"}>
-          Ghost Serum boost
-        </button>
-        <button class="button boost-modal__boost-btn boost-modal__boost-btn--overdrive" type="button" data-boost-building="pharmacy" data-boost-action="neuro" ${overdriveX >= 1 ? "" : "disabled"}>
-          Overdrive X boost
-        </button>
-      </div>
-    </section>
     <section class="boost-modal__building">
       <div class="boost-modal__head">
         <div class="boost-modal__name">Továrna</div>
@@ -64,30 +45,13 @@ function renderBoostActions(content) {
 }
 
 function renderBoostStatus(status) {
-  const pharmacySnapshot = getPharmacyBoostSnapshot();
   const factorySnapshot = getFactoryBoostSnapshot();
 
-  const pharmacyEffects = Array.isArray(pharmacySnapshot.activeEffects)
-    ? pharmacySnapshot.activeEffects.map((entry) => {
-        const label = entry.type === "recon"
-          ? "Recon"
-          : entry.type === "action"
-            ? "Action"
-            : entry.type === "neuro"
-              ? "Neuro"
-              : "Crash";
-        return `${label}: ${formatDurationLabel(entry.remainingMs)}`;
-      })
-    : [];
-
   const factoryEffects = Array.isArray(factorySnapshot.activeEffects)
-    ? factorySnapshot.activeEffects.map((entry) => `${String(entry.type || "").trim()}: ${formatDurationLabel(entry.remainingMs)}`)
+    ? factorySnapshot.activeEffects.map((entry) => String(entry.type || "").trim() + ": " + formatDurationLabel(entry.remainingMs))
     : [];
 
-  status.textContent = [
-    `Lab • aktivní: ${pharmacyEffects.length ? pharmacyEffects.join(", ") : "žádné"}`,
-    `Továrna • aktivní: ${factoryEffects.length ? factoryEffects.join(", ") : "žádné"}`
-  ].join(" | ");
+  status.textContent = "Továrna • aktivní: " + (factoryEffects.length ? factoryEffects.join(", ") : "žádné");
 }
 
 function initBoostRuntime() {
@@ -194,19 +158,7 @@ function initBoostRuntime() {
         );
       }
     } else {
-      const result = usePharmacyBoost(boostKey);
-      if (!result?.ok) {
-        setBuildingActionFeedback(root, "warning", "Lab boost", result.message || "Boost akce se nepodařila.");
-      } else {
-        const nextHeat = addGangHeat(root, Number(result.heatAdded || 0), "Lab boost aktivace.");
-        setBuildingActionFeedback(
-          root,
-          "success",
-          "Lab boost",
-          result.message || "Boost aktivní.",
-          nextHeat > 0 ? `Heat ${nextHeat}` : ""
-        );
-      }
+      setBuildingActionFeedback(root, "warning", "Komponenta", "Ghost Serum a Overdrive X nemají přímé použití.");
     }
 
     render();
@@ -215,8 +167,6 @@ function initBoostRuntime() {
   window.Empire = window.Empire || {};
   window.Empire.Map = {
     ...(window.Empire.Map || {}),
-    getPharmacyBoostSnapshot,
-    usePharmacyBoost,
     getFactoryBoostSnapshot,
     useFactoryBoost: activateFactoryBoost
   };

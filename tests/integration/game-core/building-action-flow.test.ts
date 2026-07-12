@@ -91,6 +91,7 @@ describe("run-building-action command flow", () => {
         || definition.buildingTypeId === "vip_lounge"
         || definition.buildingTypeId === "court"
         || definition.buildingTypeId === "pharmacy"
+        || definition.buildingTypeId === "drug_lab"
       ) {
         expect(definition.specialActions).toHaveLength(0);
       } else {
@@ -1079,30 +1080,30 @@ describe("run-building-action command flow", () => {
   });
 
   it("runs a valid fixed building action and updates resources, district heat, influence, cooldown, and report", () => {
-    const { state, building } = createStateWithFixedBuilding("drug_lab");
+    const { state, building } = createStateWithFixedBuilding("factory");
     const result = applyCommand(
       state,
       createRunBuildingActionCommandFixture({
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "produce_neon_dust"
+          actionId: "produce_tech_core"
         }
       }),
       context
     );
 
     expect(result.errors).toEqual([]);
-    expect(result.nextState.resourceStatesById["resource:1"].balances.chemicals).toBe(9);
-    expect(result.nextState.resourceStatesById["resource:1"].balances["neon-dust"]).toBe(2);
-    expect(result.nextState.districtsById["district:1"].heat).toBe(2);
-    expect(result.nextState.districtsById["district:1"].influence).toBe(1);
-    expect(result.nextState.buildingsById[building.id].actionCooldowns.produce_neon_dust).toBeGreaterThan(0);
+    expect(result.nextState.resourceStatesById["resource:1"].balances["metal-parts"]).toBe(6);
+    expect(result.nextState.resourceStatesById["resource:1"].balances["tech-core"]).toBe(3);
+    expect(result.nextState.districtsById["district:1"].heat).toBe(1.92);
+    expect(result.nextState.districtsById["district:1"].influence).toBe(0);
+    expect(result.nextState.buildingsById[building.id].actionCooldowns.produce_tech_core).toBeGreaterThan(0);
     expect(Object.values(result.nextState.notificationsById).some((notification) => notification.category === "report.building-action")).toBe(true);
   });
 
   it("rejects an action when the building is not fixed in the district", () => {
-    const { state, building } = createStateWithFixedBuilding("drug_lab");
+    const { state, building } = createStateWithFixedBuilding("factory");
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       buildingIds: []
@@ -1113,7 +1114,7 @@ describe("run-building-action command flow", () => {
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "produce_neon_dust"
+          actionId: "produce_tech_core"
         }
       }),
       context
@@ -1123,14 +1124,14 @@ describe("run-building-action command flow", () => {
   });
 
   it("rejects an action for the wrong building type", () => {
-    const { state, building } = createStateWithFixedBuilding("factory");
+    const { state, building } = createStateWithFixedBuilding("drug_lab");
     const result = applyCommand(
       state,
       createRunBuildingActionCommandFixture({
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "produce_neon_dust"
+          actionId: "produce_tech_core"
         }
       }),
       context
@@ -1140,9 +1141,9 @@ describe("run-building-action command flow", () => {
   });
 
   it("rejects an action blocked by building cooldown", () => {
-    const { state, building } = createStateWithFixedBuilding("drug_lab", {
+    const { state, building } = createStateWithFixedBuilding("factory", {
       actionCooldowns: {
-        produce_neon_dust: 3
+        produce_tech_core: 3
       }
     });
     const result = applyCommand(
@@ -1151,7 +1152,7 @@ describe("run-building-action command flow", () => {
         payload: {
           districtId: "district:1",
           buildingId: building.id,
-          actionId: "produce_neon_dust"
+          actionId: "produce_tech_core"
         }
       }),
       context

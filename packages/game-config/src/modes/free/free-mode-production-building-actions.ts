@@ -2,51 +2,6 @@ import type { ResolvedGameModeConfig } from "../../contracts/game-mode-config";
 import { baseCooldownMsForFinalMinutes } from "./free-mode-timing";
 
 export const freeModeProductionBuildingActions: NonNullable<ResolvedGameModeConfig["balance"]["buildingActions"]> = {
-  produce_neon_dust: {
-    actionId: "produce_neon_dust",
-    buildingType: "drug_lab",
-    label: "Vyrobit Neon Dust",
-    description: "Syntetizuje Neon Dust.",
-    durationMs: 0,
-    cooldownMs: baseCooldownMsForFinalMinutes(4),
-    inputCost: { chemicals: 1 },
-    outputGain: { "neon-dust": 2 },
-    heatGain: 3,
-    influenceChange: 1,
-    requiredOwner: true,
-    allowedIfContested: false,
-    reportText: "Drug Lab vyrobil Neon Dust."
-  },
-  produce_pulse_shot: {
-    actionId: "produce_pulse_shot",
-    buildingType: "drug_lab",
-    label: "Vyrobit Pulse Shot",
-    description: "Uvari Pulse Shot.",
-    durationMs: 0,
-    cooldownMs: baseCooldownMsForFinalMinutes(5),
-    inputCost: { chemicals: 2, biomass: 1 },
-    outputGain: { "pulse-shot": 1 },
-    heatGain: 3,
-    influenceChange: 1,
-    requiredOwner: true,
-    allowedIfContested: false,
-    reportText: "Drug Lab vyrobil Pulse Shot."
-  },
-  produce_velvet_smoke: {
-    actionId: "produce_velvet_smoke",
-    buildingType: "drug_lab",
-    label: "Vyrobit Velvet Smoke",
-    description: "Vyrobi Velvet Smoke.",
-    durationMs: 0,
-    cooldownMs: baseCooldownMsForFinalMinutes(6),
-    inputCost: { biomass: 2 },
-    outputGain: { "velvet-smoke": 2 },
-    heatGain: 2,
-    influenceChange: 1,
-    requiredOwner: true,
-    allowedIfContested: false,
-    reportText: "Drug Lab vyrobil Velvet Smoke."
-  },
   produce_tech_core: {
     actionId: "produce_tech_core",
     buildingType: "factory",

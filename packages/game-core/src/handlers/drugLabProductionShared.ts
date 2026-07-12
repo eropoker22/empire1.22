@@ -1,5 +1,5 @@
 import type { Building, BuildingProductionLine, ResourceState } from "@empire/shared-types";
-import type { PharmacyBalanceConfig, PharmacyRecipeBalanceConfig } from "../contracts";
+import type { DrugLabBalanceConfig, DrugLabRecipeBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import {
@@ -11,50 +11,45 @@ import {
   startProductionLine
 } from "./productionLineShared";
 
-export const PHARMACY_BUILDING_TYPE_ID = "pharmacy";
+export const DRUG_LAB_BUILDING_TYPE_ID = "drug_lab";
 
-export const getPharmacyRecipe = (
-  config: PharmacyBalanceConfig | undefined,
+export const getDrugLabRecipe = (
+  config: DrugLabBalanceConfig | undefined,
   recipeId: string
-): PharmacyRecipeBalanceConfig | null => config?.recipes[recipeId as keyof PharmacyBalanceConfig["recipes"]] ?? null;
+): DrugLabRecipeBalanceConfig | null =>
+  config?.recipes[recipeId as keyof DrugLabBalanceConfig["recipes"]] ?? null;
 
-export const getPharmacyLine = (
+export const getDrugLabLine = (
   building: Building,
   recipeId: string
 ): BuildingProductionLine => getProductionLine(building, recipeId);
 
-export const getPharmacyBuildingResourceState = (
+export const getDrugLabBuildingResourceState = (
   state: CoreGameState,
   building: Building
-): ResourceState => {
-  return getBuildingProductionResourceState(state, building);
-};
+): ResourceState => getBuildingProductionResourceState(state, building);
 
-export const getPharmacyProducedAmount = (
+export const getDrugLabProducedAmount = (
   state: CoreGameState,
   building: Building,
   resourceKey: string
 ): number => getProducedAmount(state, building, resourceKey);
 
-export const resolvePharmacyDurationTicks = (
+export const resolveDrugLabDurationTicks = (
   building: Building,
-  recipe: PharmacyRecipeBalanceConfig,
+  recipe: DrugLabRecipeBalanceConfig,
   context: GameCoreContext
-): number => Math.max(1, Math.ceil(
-  resolveProductionLineDurationTicks(building, recipe, context)
-));
+): number => resolveProductionLineDurationTicks(building, recipe, context);
 
-export const startPharmacyLine = (
+export const startDrugLabLine = (
   line: BuildingProductionLine,
   building: Building,
-  recipe: PharmacyRecipeBalanceConfig,
+  recipe: DrugLabRecipeBalanceConfig,
   tick: number,
   context: GameCoreContext
-): BuildingProductionLine => {
-  return startProductionLine(line, building, recipe, tick, context);
-};
+): BuildingProductionLine => startProductionLine(line, building, recipe, tick, context);
 
-export const normalizePharmacyLine = (
+export const normalizeDrugLabLine = (
   line: BuildingProductionLine,
   recipeId: string
 ): BuildingProductionLine => normalizeProductionLine(line, recipeId);

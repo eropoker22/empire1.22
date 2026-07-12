@@ -229,11 +229,7 @@ export const publicBuildingDefinitions: PublicBuildingDefinition[] = [
   ]),
 
   building("pharmacy", "Lékárna", "commercial", "Výroba", "Tři nezávislé serverové linky vyrábějí Chemicals, Biomass a Stim Pack za clean cash.", stat(0, 0, 3, 8, 14), []),
-  building("drug_lab", "Drug Lab", "park", "Výroba drog", "Core produkční budova pro Neon Dust, Pulse Shot a Velvet Smoke. Produkce generuje heat a zásoby drog.", stat(0, 0, 6, 20, 14), [
-    legacyAction("produce_neon_dust", "Vyrobit Neon Dust", "Syntetizuje Neon Dust.", "+neon dust, +vliv, +heat", 0.004, 3, out("neon-dust", 2), 1, out("chemicals", 1)),
-    legacyAction("produce_pulse_shot", "Vyrobit Pulse Shot", "Uvaří Pulse Shot.", "+pulse shot, +vliv, +heat", 0.004, 3, out("pulse-shot", 1), 1, { chemicals: 2, biomass: 1 }),
-    legacyAction("produce_velvet_smoke", "Vyrobit Velvet Smoke", "Vyrobí Velvet Smoke.", "+velvet smoke, +vliv, +heat", 0.004, 2, out("velvet-smoke", 2), 1, out("biomass", 2))
-  ]),
+  building("drug_lab", "Drug Lab", "park", "Výroba drog", "Serverová výroba Neon Dust, Pulse Shot, Velvet Smoke a strategických komponent Ghost Serum a Overdrive X.", stat(0, 0, 6, 20, 14), []),
   building("smuggling_tunnel", "Pašovací tunel", "park", "Dirty cash / smuggling / dealer support / risk reward", "Pašovací tunel je přísun špinavých peněz a tepna pouliční distribuce. Lab vyrobí látky. Dealeři je prodají. Tunely drží proud peněz a zboží dostatečně temný na to, aby město nevidělo, odkud opravdu přichází.", perMinuteStat(0, 54, 0.07 * 60 * 24, 0, 1), [
     action({ actionId: "open_channel", label: "Otevřít kanál", description: "Na 15 minut posílí dirty cash tunelů a prodej Pouličních dealerů. Nestackuje se.", effectSummary: "Cena 1800 clean cash, heat +5, +45 % dirty tok tunelů, Pouliční dealeři prodávají rychleji a s vyšším rizikem incidentu", cooldownMs: 30 * minute, durationMs: 15 * minute, inputCost: out("cash", 1800), heatGain: 5 })
   ]),
