@@ -13,6 +13,7 @@ import {
 } from "./warehouseBuilding";
 import { collectPharmacyProduction } from "./pharmacyProductionHandlers";
 import { collectDrugLabProduction } from "./drugLabProductionHandlers";
+import { collectAllFactoryProduction, collectFactoryProduction } from "./factoryProductionHandlers";
 
 /**
  * Responsibility: Placeholder handler for production collection commands.
@@ -42,6 +43,14 @@ export const handleCollectProduction = (
         recipeId: command.payload.resourceKey || ""
       }
     }, context);
+  }
+  if (targetBuilding?.buildingTypeId === "factory") {
+    return command.payload.resourceKey
+      ? collectFactoryProduction(state, {
+          ...command,
+          payload: { ...command.payload, recipeId: command.payload.resourceKey }
+        }, context)
+      : collectAllFactoryProduction(state, command, context);
   }
   const errors = validateCollect(state, command, context);
 

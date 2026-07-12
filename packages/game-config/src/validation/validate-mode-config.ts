@@ -1,5 +1,5 @@
 import type { ResolvedGameModeConfig } from "../contracts/game-mode-config";
-import { validateDrugLabProductionConfig, validatePharmacyProductionConfig, validateWarehouseStorageConfig } from "@empire/game-core";
+import { validateDrugLabProductionConfig, validateFactoryProductionConfig, validatePharmacyProductionConfig, validateWarehouseStorageConfig } from "@empire/game-core";
 
 /**
  * Responsibility: Guards resolved mode configs against obviously invalid structural values.
@@ -81,6 +81,9 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
   }
   if (config.balance.drugLab) {
     validateDrugLabProductionConfig(config.balance.drugLab);
+  }
+  if (config.balance.factory) {
+    validateFactoryProductionConfig(config.balance.factory);
   }
 
   const elimination = config.balance.elimination;

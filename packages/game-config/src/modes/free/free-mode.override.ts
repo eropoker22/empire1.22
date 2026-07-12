@@ -32,6 +32,7 @@ import { freeModeVipLoungeConfig } from "../../public/free-mode-vip-lounge-confi
 import { freeModeWarehouseConfig } from "../../public/free-mode-warehouse-config";
 import { freeModePharmacyConfig } from "./free-mode-pharmacy-config";
 import { freeModeDrugLabConfig } from "./free-mode-drug-lab-config";
+import { freeModeFactoryConfig } from "./free-mode-factory-config";
 import { freeModePoliceConfig } from "./free-police-config";
 import {
   FREE_MODE_COOLDOWN_MULTIPLIER,
@@ -144,6 +145,7 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
     craftBuildings: freeModeCraftBuildings,
     pharmacy: freeModePharmacyConfig,
     drugLab: freeModeDrugLabConfig,
+    factory: freeModeFactoryConfig,
     fixedBuildings: freeModeFixedBuildings,
     buildingActions: freeModeBuildingActions,
     casino: freeModeCasinoConfig,

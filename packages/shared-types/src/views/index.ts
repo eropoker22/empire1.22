@@ -15,6 +15,7 @@ export * from "./game-snapshot-view";
 export * from "./market-read-model-view";
 export * from "./onboarding-read-model-view";
 export * from "./pharmacy-production-view";
+export * from "./factory-production-view";
 export * from "./player-economy-view";
 export * from "./player-view";
 export * from "./police-read-model-view";

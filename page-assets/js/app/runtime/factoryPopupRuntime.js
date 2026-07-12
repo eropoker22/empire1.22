@@ -85,6 +85,71 @@ export function createFactoryPopupRuntime(deps = {}) {
     };
 
     const renderFactoryDashboard = () => {
+      const serverFactory = !allowLegacyLocalProduction ? deps.getServerFactoryReadModel?.() : null;
+      if (serverFactory) {
+        const produced = Object.fromEntries((serverFactory.producedSummary || []).map((item) => [item.resourceKey, item]));
+        const formatProduced = (item) => item ? String(item.currentAmount) + " / " + String(item.capacity) : "0 / 0";
+        if (levelElement) levelElement.textContent = String(serverFactory.level || 1);
+        if (headerLevelElement) headerLevelElement.textContent = "Lv " + String(serverFactory.level || 1);
+        if (multiplierElement) multiplierElement.textContent = "×" + Number(serverFactory.network?.networkSpeedMultiplier || 1).toFixed(2);
+        if (ownedCountElement) ownedCountElement.textContent = String(serverFactory.network?.activeFactoryCount || 0);
+        if (upgradeCostElement) upgradeCostElement.textContent = "SERVER";
+        if (metalElement) metalElement.textContent = formatProduced(produced["metal-parts"]);
+        if (techElement) techElement.textContent = formatProduced(produced["tech-core"]);
+        if (combatElement) combatElement.textContent = formatProduced(produced["combat-module"]);
+        if (collectButton) {
+          collectButton.disabled = !(serverFactory.productionLines || []).some((line) => line.canCollect);
+          collectButton.title = collectButton.disabled ? "Není nic hotového k vyzvednutí" : "Vybrat hotové do skladu";
+        }
+        if (upgradeButton) {
+          upgradeButton.disabled = true;
+          upgradeButton.title = productionUpgradeMessage;
+          upgradeButton.setAttribute?.("aria-label", productionUpgradeMessage);
+        }
+        deps.renderServerFactorySlotList?.(slotList, serverFactory.productionLines || [], {
+          onStartSlot: async (line, payload) => {
+            const response = await deps.submitServerFactoryCommand?.({
+              type: "craft-item",
+              payload: {
+                districtId: serverFactory.districtId,
+                buildingId: serverFactory.buildingId,
+                recipeId: line.recipeId,
+                quantity: payload?.batchCount || 1
+              }
+            });
+            const error = response?.errors?.[0];
+            deps.setBuildingActionFeedback?.(root, error ? "warning" : "success", "Továrna", error?.message || "Výrobní linka byla aktualizována.");
+            renderFactoryDashboard();
+          },
+          onPauseSlot: async (line) => {
+            const response = await deps.submitServerFactoryCommand?.({
+              type: "cancel-production-line",
+              payload: {
+                districtId: serverFactory.districtId,
+                buildingId: serverFactory.buildingId,
+                recipeId: line.recipeId
+              }
+            });
+            const error = response?.errors?.[0];
+            deps.setBuildingActionFeedback?.(root, error ? "warning" : "success", "Továrna", error?.message || "Čekající výroba byla zrušena.");
+            renderFactoryDashboard();
+          }
+        }, { tickRateMs: deps.getServerTickRateMs?.() || 5000, formatDurationLabel: deps.formatDurationLabel });
+        return;
+      }
+      if (!allowLegacyLocalProduction) {
+        if (levelElement) levelElement.textContent = "—";
+        if (headerLevelElement) headerLevelElement.textContent = "Lv —";
+        if (multiplierElement) multiplierElement.textContent = "×—";
+        if (ownedCountElement) ownedCountElement.textContent = "—";
+        if (metalElement) metalElement.textContent = "— / —";
+        if (techElement) techElement.textContent = "— / —";
+        if (combatElement) combatElement.textContent = "— / —";
+        if (collectButton) collectButton.disabled = true;
+        if (upgradeButton) upgradeButton.disabled = true;
+        slotList?.replaceChildren?.();
+        return;
+      }
       const syncResult = deps.syncFactoryProduction?.(deps.getStoredFactoryState?.()) || {};
       const factoryState = syncResult.state || {};
       const supplyState = deps.getStoredFactorySupplies?.() || {};
@@ -203,6 +268,27 @@ export function createFactoryPopupRuntime(deps = {}) {
     }
 
     collectButton.addEventListener("click", () => {
+      const serverFactory = !allowLegacyLocalProduction ? deps.getServerFactoryReadModel?.() : null;
+      if (serverFactory) {
+        deps.submitServerFactoryCommand?.({
+          type: "collect-production",
+          payload: { districtId: serverFactory.districtId, buildingId: serverFactory.buildingId }
+        }).then((response) => {
+          const error = response?.errors?.[0];
+          const updated = deps.getServerFactoryReadModel?.();
+          const partial = updated?.productionLines?.some((line) => line.canCollect);
+          deps.setBuildingActionFeedback?.(
+            root,
+            error ? "warning" : partial ? "warning" : "success",
+            "Továrna",
+            error?.message || (partial
+              ? "Do skladu se vešla pouze část produkce. Zbytek zůstal v Továrně."
+              : "Hotová produkce byla přesunuta do skladu.")
+          );
+          renderFactoryDashboard();
+        });
+        return;
+      }
       if (!allowLegacyLocalProduction) {
         deps.setBuildingActionFeedback?.(root, "warning", "Továrna", productionBridgeMessage);
         renderFactoryDashboard();

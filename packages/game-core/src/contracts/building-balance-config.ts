@@ -68,6 +68,29 @@ export interface DrugLabBalanceConfig {
   upgrade?: BuildingUpgradeBalanceConfig;
 }
 
+export type FactoryRecipeId = "metal-parts" | "tech-core" | "combat-module";
+
+export interface FactoryRecipeBalanceConfig {
+  label: string;
+  outputResourceKey: FactoryRecipeId;
+  outputAmount: 1;
+  cleanCashCostPerUnit: number;
+  inputCosts: Record<string, number>;
+  durationTicksPerUnit: number;
+  localOutputCap: number;
+  queueCap: number;
+}
+
+export interface FactoryBalanceConfig {
+  independentProductionLines: true;
+  network: {
+    speedMultipliers: Record<1 | 2 | 3 | 4, number>;
+    maxSpeedMultiplier: number;
+  };
+  recipes: Record<FactoryRecipeId, FactoryRecipeBalanceConfig>;
+  upgrade?: BuildingUpgradeBalanceConfig;
+}
+
 export interface BuildingUpgradeBalanceConfig {
   maxLevel: number;
   upgradeBaseCost: number;

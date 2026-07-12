@@ -2,38 +2,6 @@ import type { BalanceConfig } from "../../contracts/balance-config";
 import { baseCooldownTicksForFinalMinutes } from "./free-mode-timing";
 
 export const freeModeCraftBuildings: NonNullable<BalanceConfig["craftBuildings"]> = {
-  factory: {
-    upgrade: {
-      maxLevel: 14,
-      upgradeBaseCost: 5000,
-      costGrowth: 1.47,
-      productionMultiplierPerLevel: 10,
-      roundCostTo: 100
-    },
-    recipes: {
-      "tech-core": {
-        label: "Tech Core",
-        durationTicks: baseCooldownTicksForFinalMinutes(6),
-        inputCosts: {
-          "metal-parts": 4
-        },
-        outputResourceKey: "tech-core",
-        outputResourceLabel: "Tech Core",
-        outputAmount: 1
-      },
-      "combat-module": {
-        label: "Bojový modul",
-        durationTicks: baseCooldownTicksForFinalMinutes(12),
-        inputCosts: {
-          "metal-parts": 4,
-          "tech-core": 2
-        },
-        outputResourceKey: "combat-module",
-        outputResourceLabel: "Bojový modul",
-        outputAmount: 1
-      }
-    }
-  },
   armory: {
     upgrade: {
       maxLevel: 14,

@@ -121,6 +121,7 @@ export const resolveProductionUpgradeConfig = (
 ): BuildingUpgradeBalanceConfig | null => {
   return (buildingTypeId === "pharmacy" ? context.config.balance.pharmacy?.upgrade : undefined)
     ?? (buildingTypeId === "drug_lab" ? context.config.balance.drugLab?.upgrade : undefined)
+    ?? (buildingTypeId === "factory" ? context.config.balance.factory?.upgrade : undefined)
     ?? context.config.balance.productionBuildings?.[buildingTypeId]?.upgrade
     ?? context.config.balance.craftBuildings?.[buildingTypeId]?.upgrade
     ?? null;

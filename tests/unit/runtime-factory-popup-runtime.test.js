@@ -20,6 +20,7 @@ function createElement(dataset = {}) {
     },
     querySelector: vi.fn(),
     querySelectorAll: vi.fn(() => []),
+    replaceChildren: vi.fn(),
     classList: {
       toggle: vi.fn()
     },
@@ -80,6 +81,69 @@ function createRuntime(overrides = {}) {
 }
 
 describe("factory popup runtime", () => {
+  it("renders Factory exclusively from the server read model and submits server intents", async () => {
+    const open = createElement();
+    const popup = createElement();
+    const close = createElement();
+    const collect = createElement();
+    const upgrade = createElement();
+    const renderServerFactorySlotList = vi.fn();
+    const submitServerFactoryCommand = vi.fn(async () => ({ errors: [] }));
+    const serverFactory = {
+      districtId: "district:1",
+      buildingId: "building:factory",
+      level: 3,
+      network: { activeFactoryCount: 2, networkSpeedMultiplier: 1.1 },
+      producedSummary: [
+        { resourceKey: "metal-parts", currentAmount: 7, capacity: 10 },
+        { resourceKey: "tech-core", currentAmount: 3, capacity: 5 },
+        { resourceKey: "combat-module", currentAmount: 1, capacity: 2 }
+      ],
+      productionLines: [{ recipeId: "metal-parts", canCollect: true, canStart: true, canCancelWaiting: true }]
+    };
+    const runtime = createRuntime({
+      allowLegacyLocalProduction: false,
+      getServerFactoryReadModel: () => serverFactory,
+      getServerTickRateMs: () => 5000,
+      renderServerFactorySlotList,
+      setBuildingActionFeedback: vi.fn(),
+      submitServerFactoryCommand,
+      syncBuildingDetailTopbarVisibility: vi.fn()
+    });
+    const root = createRoot({
+      ".collect": collect,
+      ".combat": createElement(),
+      ".header": createElement(),
+      ".level": createElement(),
+      ".metal": createElement(),
+      ".multiplier": createElement(),
+      ".open": open,
+      ".owned": createElement(),
+      ".popup": popup,
+      ".slots": createElement(),
+      ".supply-combat": createElement(),
+      ".supply-metal": createElement(),
+      ".supply-tech": createElement(),
+      ".tech": createElement(),
+      ".upgrade": upgrade,
+      ".upgrade-cost": createElement()
+    }, { ".close": [close] });
+
+    runtime.bindFactoryPopup(root);
+    await open.dispatch("click");
+
+    expect(root.querySelector(".metal").textContent).toBe("7 / 10");
+    expect(root.querySelector(".tech").textContent).toBe("3 / 5");
+    expect(root.querySelector(".combat").textContent).toBe("1 / 2");
+    expect(renderServerFactorySlotList).toHaveBeenCalled();
+    const callbacks = renderServerFactorySlotList.mock.calls[0][2];
+    await callbacks.onStartSlot(serverFactory.productionLines[0], { batchCount: 2 });
+    expect(submitServerFactoryCommand).toHaveBeenCalledWith(expect.objectContaining({
+      type: "craft-item",
+      payload: expect.objectContaining({ buildingId: "building:factory", quantity: 2 })
+    }));
+  });
+
   it("handles missing factory DOM without crashing", () => {
     const runtime = createRuntime();
 

@@ -851,6 +851,7 @@ import {
 } from "./runtime/marketPopupViewModel.js";
 import {
   renderFactoryBuildingInfo as renderFactoryBuildingInfoPanel,
+  renderServerFactorySlotList,
   renderFactorySlotList,
   renderProductionBuildingInfo as renderProductionBuildingInfoPanel,
   renderProductionPanel as renderProductionPanelUi
@@ -1006,6 +1007,20 @@ function getServerDrugLabReadModel() {
   };
 }
 
+function getServerFactoryReadModel() {
+  const district = latestGameplaySliceReadModel?.district;
+  const building = district?.buildings?.find?.((candidate) => candidate?.buildingTypeId === "factory" && candidate?.factory);
+  if (!building?.factory || !district?.districtId) {
+    return null;
+  }
+  return {
+    ...building.factory,
+    districtId: district.districtId,
+    buildingId: building.factory.buildingId || building.buildingId,
+    level: building.level
+  };
+}
+
 function getServerTickRateMs() {
   return Math.max(1, Number(latestGameplaySliceReadModel?.mode?.tickRateMs || 5000));
 }
@@ -1019,6 +1034,14 @@ function submitServerPharmacyCommand({ type, payload } = {}) {
 }
 
 function submitServerDrugLabCommand({ type, payload } = {}) {
+  return submitServerDistrictActionCommand({
+    type,
+    payload,
+    focusDistrictId: payload?.districtId || latestGameplaySliceReadModel?.district?.districtId
+  });
+}
+
+function submitServerFactoryCommand({ type, payload } = {}) {
   return submitServerDistrictActionCommand({
     type,
     payload,
@@ -7501,7 +7524,7 @@ function syncRuntimePassiveProductionState(options = {}) {
 
   lastRuntimePassiveProductionSyncAt = now;
   syncCompletedProductionJobs();
-  const factory = options.includeFactory === false ? null : syncFactoryProductionBuffer(now);
+  const factory = null;
   const districtBuildings = options.includeDistrictBuildings === false
     ? { syncedBuildings: 0 }
     : syncOwnedDistrictBuildingDetailProduction({ now });
@@ -12828,8 +12851,8 @@ const {
 const {
   bindFactoryPopup
 } = createFactoryPopupRuntime({
-  allowLegacyLocalProduction: shouldRunLocalGameplayRuntime(),
-  allowLegacyProductionUpgrade: shouldRunLocalGameplayRuntime(),
+  allowLegacyLocalProduction: false,
+  allowLegacyProductionUpgrade: false,
   FACTORY_CONFIG,
   FACTORY_SLOT_CONFIG,
   FACTORY_SLOT_STORAGE_CAP,
@@ -12850,6 +12873,7 @@ const {
   normalizeProductionResourceColorKey,
   renderFactoryDashboardPanel,
   renderFactoryBuildingInfoPanel,
+  renderServerFactorySlotList,
   renderFactorySlotList,
   selectors: {
     close: FACTORY_POPUP_CLOSE_SELECTOR,
@@ -12876,6 +12900,9 @@ const {
   setBuildingActionFeedback,
   setStoredEconomyState,
   setStoredFactoryState,
+  getServerFactoryReadModel,
+  getServerTickRateMs,
+  submitServerFactoryCommand,
   syncBuildingDetailTopbarVisibility,
   syncFactoryProduction
 });

@@ -2,10 +2,7 @@ import type { DistrictPanelBuildingView } from "@empire/shared-types";
 import type { BuildingActionBalanceConfig, ResolvedGameModeConfig } from "../contracts/game-mode-config";
 import type { CoreGameState } from "../entities/game-state";
 import type { DistrictPanelBuildingCatalogEntry } from "./district-building-catalog-types";
-import {
-  createBuildingStats,
-  createPassivePhaseEffectLabel
-} from "./district-building-stats-projection";
+import { createBuildingStats, createPassivePhaseEffectLabel } from "./district-building-stats-projection";
 import { formatInputSummary, formatResourceLabel, formatTickLabel } from "./district-building-action-formatters";
 import {
   createExpectedEffectSummary,
@@ -25,6 +22,7 @@ import { resolveOpenChannelStats } from "../handlers/smugglingTunnelBuildingActi
 import { resolveWarehouseUpgradeCapacityPreview } from "../handlers/warehouseBuilding";
 import { createPharmacyProductionBuildingView } from "./pharmacy-production-projection";
 import { createDrugLabProductionBuildingView } from "./drug-lab-production-projection";
+import { createFactoryProductionBuildingView } from "./factory-production-projection";
 import {
   getOwnedStreetDealerCount,
   getStreetDealersPlayerMetadata,
@@ -207,6 +205,7 @@ export const createDistrictPanelBuildingViews = (
         config: input.config,
         tickRateMs: input.tickRateMs
       }),
+      factory: createFactoryProductionBuildingView({ state: input.state, building, playerId: input.playerId, config: input.config, tickRateMs: input.tickRateMs }),
       phaseAvailability: buildingPhaseRule?.phaseAvailability ?? "neutral",
       phaseBadgeLabel: buildingPhaseRule?.phaseBadgeLabel ?? null,
       phaseTooltip: buildingPhaseRule?.phaseTooltip ?? null,

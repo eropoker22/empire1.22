@@ -5,6 +5,7 @@ import type {
   BuildingActionBalanceConfig,
   CraftBuildingBalanceConfig,
   DrugLabBalanceConfig,
+  FactoryBalanceConfig,
   FixedBuildingBalanceConfig,
   PharmacyBalanceConfig,
   ProductionBuildingBalanceConfig
@@ -284,6 +285,7 @@ export interface GameModeConfig {
     craftBuildings?: Record<string, CraftBuildingBalanceConfig>;
     pharmacy?: PharmacyBalanceConfig;
     drugLab?: DrugLabBalanceConfig;
+    factory?: FactoryBalanceConfig;
     fixedBuildings?: Record<string, FixedBuildingBalanceConfig>;
     buildingActions?: Record<string, BuildingActionBalanceConfig>;
     casino?: CasinoBalanceConfig;

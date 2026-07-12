@@ -6,7 +6,7 @@ import { createEvent, CORE_EVENT_TYPES } from "../events";
 import type { GameCoreContext } from "../engine/context";
 import { calculateReceivableResourceAmount, normalizeStorageBalances } from "./warehouseBuilding";
 import { normalizeResourceCosts } from "./productionLineShared";
-import { addCosts, creditCosts, debitCosts, equalCosts, hasRequiredResources, limitCosts, scaleCosts, subtractCosts } from "./drugLabProductionCosts";
+import { addCosts, creditCosts, debitCosts, equalCosts, hasRequiredResources, limitCosts, scaleCosts, subtractCosts } from "./productionLineCosts";
 import { createPlayerResourceState, drugLabFailure as failure, type DrugLabHandlerResult, validateDrugLabTarget } from "./drugLabProductionSupport";
 import { getDrugLabBuildingResourceState, getDrugLabLine, getDrugLabProducedAmount, startDrugLabLine } from "./drugLabProductionShared";
 

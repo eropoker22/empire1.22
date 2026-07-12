@@ -25,6 +25,7 @@ export const validateCommand = (
     case "craft-item":
       return validateCraft(state, command, context);
     case "cancel-pharmacy-production":
+    case "cancel-production-line":
       return [];
     case "upgrade-building":
       return [];

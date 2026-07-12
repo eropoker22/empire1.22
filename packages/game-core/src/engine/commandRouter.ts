@@ -12,6 +12,8 @@ import {
   handleCollectProduction,
   handleCraftItem,
   handleDrugLabProductionStart,
+  handleFactoryProductionStart,
+  handleCancelFactoryProduction,
   handleHeistDistrict,
   handleMarketCommand,
   handleCancelPharmacyProduction,
@@ -102,12 +104,23 @@ export const routeCommand = (
       return handleCancelPharmacyProduction(state, command, context);
     case "cancel-drug-lab-production":
       return handleCancelDrugLabProduction(state, command, context);
+    case "cancel-production-line":
+      if (state.buildingsById[command.payload.buildingId]?.buildingTypeId === "factory") {
+        return handleCancelFactoryProduction(state, command, context);
+      }
+      return {
+        nextState: state,
+        events: [],
+        errors: [{ code: "production_line_not_found", message: "Cílová výrobní linka neexistuje." }]
+      };
     case "craft-item":
       switch (state.buildingsById[command.payload.buildingId]?.buildingTypeId) {
         case "pharmacy":
           return handlePharmacyProductionStart(state, command, context);
         case "drug_lab":
           return handleDrugLabProductionStart(state, command, context);
+        case "factory":
+          return handleFactoryProductionStart(state, command, context);
         default:
           return handleCraftItem(state, command, context);
       }

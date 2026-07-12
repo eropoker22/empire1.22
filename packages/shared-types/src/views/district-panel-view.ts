@@ -7,6 +7,7 @@ import type {
 } from "../ids/entity-id";
 import type { DistrictCapabilitiesView } from "./map-capabilities-view";
 import type { WarehouseUpgradePreviewView } from "./warehouse-storage-view"; import type { PharmacyProductionBuildingView } from "./pharmacy-production-view";
+import type { FactoryProductionBuildingView } from "./factory-production-view";
 import type { DrugLabProductionBuildingView } from "./drug-lab-production-view";
 /** Server-fed district panel projection for fixed district buildings. */
 export interface DistrictBuildOptionView {
@@ -178,6 +179,7 @@ export interface DistrictPanelBuildingView {
   warehouseUpgradePreview?: WarehouseUpgradePreviewView | null;
   pharmacy?: PharmacyProductionBuildingView | null;
   drugLab?: DrugLabProductionBuildingView | null;
+  factory?: FactoryProductionBuildingView | null;
   phaseAvailability?: BuildingActionPhaseAvailability;
   phaseBadgeLabel?: string | null;
   phaseTooltip?: string | null;

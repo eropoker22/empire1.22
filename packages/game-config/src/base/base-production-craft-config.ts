@@ -1,49 +1,8 @@
 import type { BalanceConfig } from "../contracts/balance-config";
 
-export const baseProductionBuildingsConfig: NonNullable<BalanceConfig["productionBuildings"]> = {
-  factory: {
-    resourceKey: "metal-parts",
-    resourceLabel: "Metal Parts",
-    amountPerTick: 4,
-    storageCap: 24,
-    upgrade: {
-      maxLevel: 14,
-      upgradeBaseCost: 5000,
-      costGrowth: 1.47,
-      productionMultiplierPerLevel: 10,
-      roundCostTo: 100
-    }
-  }
-};
+export const baseProductionBuildingsConfig: NonNullable<BalanceConfig["productionBuildings"]> = {};
 
 export const baseCraftBuildingsConfig: NonNullable<BalanceConfig["craftBuildings"]> = {
-  factory: {
-    upgrade: {
-      maxLevel: 14,
-      upgradeBaseCost: 5000,
-      costGrowth: 1.47,
-      productionMultiplierPerLevel: 10,
-      roundCostTo: 100
-    },
-    recipes: {
-      "tech-core": {
-        label: "Tech Core",
-        durationTicks: 2,
-        inputCosts: { "metal-parts": 4 },
-        outputResourceKey: "tech-core",
-        outputResourceLabel: "Tech Core",
-        outputAmount: 1
-      },
-      "combat-module": {
-        label: "Bojový modul",
-        durationTicks: 3,
-        inputCosts: { "metal-parts": 4, "tech-core": 2 },
-        outputResourceKey: "combat-module",
-        outputResourceLabel: "Bojový modul",
-        outputAmount: 1
-      }
-    }
-  },
   armory: {
     recipes: {
       pistol: {

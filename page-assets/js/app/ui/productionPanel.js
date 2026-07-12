@@ -522,6 +522,101 @@ export function renderFactorySlotList(mount, slots = [], callbacks = {}, options
   return true;
 }
 
+export function renderServerFactorySlotList(mount, lines = [], callbacks = {}, options = {}) {
+  if (!mount) return false;
+  mount.replaceChildren();
+  mount.classList?.add?.("factory-slot-grid");
+  const formatDuration = options.formatDurationLabel || ((value) => String(value) + " ms");
+  for (const line of Array.isArray(lines) ? lines : []) {
+    const card = createElement(mount, "article", line.status === "processing"
+      ? "factory-slot drug-production-slot factory-slot--active drug-production-slot--active"
+      : "factory-slot drug-production-slot");
+    if (!card) continue;
+    card.dataset.resourceColor = line.resourceKey || "";
+    const head = createElement(mount, "div", "factory-slot__head drug-production-slot__head");
+    const title = createElement(mount, "strong", "drug-production-slot__title");
+    const badge = createElement(mount, "span", "drug-production-slot__state");
+    const metrics = createElement(mount, "div", "drug-production-slot__metrics");
+    const actions = createElement(mount, "div", "factory-slot__actions");
+    if (!head || !title || !badge || !metrics || !actions) continue;
+    title.textContent = line.label || line.resourceKey || "";
+    badge.textContent = {
+      ready: "Připraveno",
+      processing: "Výroba",
+      waiting: "Čeká",
+      full: "Plná kapacita",
+      over_capacity: "Překročená kapacita",
+      completed: "Hotovo"
+    }[line.status] || "Připraveno";
+    head.append(title, badge);
+    const metric = (label, value) => {
+      const item = createElement(mount, "div", "drug-production-slot__metric");
+      const metricLabel = createElement(mount, "span", "drug-production-slot__metric-label");
+      const metricValue = createElement(mount, "strong", "drug-production-slot__metric-value");
+      if (!item || !metricLabel || !metricValue) return null;
+      metricLabel.textContent = label;
+      metricValue.textContent = value;
+      item.append(metricLabel, metricValue);
+      metrics.append(item);
+      return metricValue;
+    };
+    metric("Čas", line.remainingMs > 0 ? formatDuration(line.remainingMs) : formatDuration(line.effectiveUnitDurationTicks * (options.tickRateMs || 5000)));
+    const costValue = metric("Cena", "");
+    if (costValue) {
+      for (const row of line.costDisplayRows || []) {
+        const rowElement = createElement(mount, "span", "factory-slot__recipe-line");
+        if (!rowElement) continue;
+        rowElement.textContent = row.resourceKey === "cash"
+          ? "$" + row.amount + " clean"
+          : row.amount + "× " + row.label;
+        costValue.append(rowElement);
+      }
+    }
+    metric("Ve frontě", String(line.queuedAmount || 0) + "/" + String(line.queueCapacity || 0) + " ks");
+
+    let quantity = 1;
+    const quantityControl = createElement(mount, "div", "armory-slot__quantity factory-slot__quantity");
+    const minus = createElement(mount, "button", "armory-slot__quantity-btn factory-slot__quantity-btn");
+    const amount = createElement(mount, "strong", "armory-slot__quantity-value factory-slot__quantity-value");
+    const plus = createElement(mount, "button", "armory-slot__quantity-btn factory-slot__quantity-btn");
+    const updateQuantity = () => {
+      quantity = Math.max(1, Math.min(quantity, Math.max(1, Number(line.maxStartQuantity || 0))));
+      amount.textContent = String(quantity);
+      minus.disabled = quantity <= 1 || !line.canStart;
+      plus.disabled = !line.canStart || quantity >= Number(line.maxStartQuantity || 0);
+    };
+    if (quantityControl && minus && amount && plus) {
+      minus.type = "button";
+      plus.type = "button";
+      minus.textContent = "−";
+      plus.textContent = "+";
+      minus.addEventListener("click", () => { quantity -= 1; updateQuantity(); });
+      plus.addEventListener("click", () => { quantity += 1; updateQuantity(); });
+      quantityControl.append(minus, amount, plus);
+      updateQuantity();
+    }
+    const start = createElement(mount, "button", "button drug-lab-mini-btn factory-slot-button");
+    const cancel = createElement(mount, "button", "button drug-lab-mini-btn factory-slot-button");
+    if (start && cancel) {
+      start.type = "button";
+      start.dataset.factorySlotToggleState = "start";
+      start.textContent = "Spustit";
+      start.disabled = !line.canStart;
+      start.title = line.disabledReason || "";
+      start.addEventListener("click", () => callbacks.onStartSlot?.(line, { batchCount: quantity }));
+      cancel.type = "button";
+      cancel.dataset.factorySlotToggleState = "stop";
+      cancel.textContent = "Zrušit";
+      cancel.disabled = !line.canCancelWaiting;
+      cancel.addEventListener("click", () => callbacks.onPauseSlot?.(line));
+      actions.append(quantityControl, start, cancel);
+    }
+    card.append(head, metrics, actions);
+    mount.append(card);
+  }
+  return true;
+}
+
 export function renderProductionPanel(productionViewModel = {}, callbacks = {}, options = {}) {
   const mount = productionViewModel.mount || options.mount || null;
   if (!mount) {
