@@ -113,9 +113,11 @@ describe("production building popup runtime", () => {
     expect(persistProductionJob).toHaveBeenCalledWith("pharmacy:chemicals", expect.objectContaining({
       status: "running",
       quantity: 2,
+      queuedAmount: 2,
+      producedAmount: 0,
       inputs: {},
       cleanMoneyCost: 720,
-      output: expect.objectContaining({ amount: 2 })
+      output: expect.objectContaining({ amount: 0 })
     }));
   });
 
@@ -805,14 +807,16 @@ describe("production building popup runtime", () => {
     expect(setStoredEconomyState).toHaveBeenCalledWith({ cleanMoney: 640 });
     expect(persistProductionJob).toHaveBeenCalledWith("pharmacy:chemicals", expect.objectContaining({
       quantity: 1,
+      queuedAmount: 1,
+      producedAmount: 0,
       inputs: {},
       cleanMoneyCost: 360,
-      output: expect.objectContaining({ amount: 1 })
+      output: expect.objectContaining({ amount: 0 })
     }));
     expect(clearProductionJob).not.toHaveBeenCalled();
   });
 
-  it("collects a ready slot before starting a new production batch", () => {
+  it("keeps ready local output in the building when starting a new production batch", () => {
     const recipeCallbacks = {};
     const applyInventoryOutput = vi.fn();
     const clearProductionJob = vi.fn();
@@ -860,12 +864,14 @@ describe("production building popup runtime", () => {
 
     recipeCallbacks.onStart({ batchCount: 1 });
 
-    expect(applyInventoryOutput).toHaveBeenCalledWith({ inventory: "materials", itemId: "chemicals", amount: 2 });
-    expect(clearProductionJob).toHaveBeenCalledWith("pharmacy:chemicals");
+    expect(applyInventoryOutput).not.toHaveBeenCalled();
+    expect(clearProductionJob).not.toHaveBeenCalled();
     expect(persistProductionJob).toHaveBeenCalledWith("pharmacy:chemicals", expect.objectContaining({
       status: "running",
       quantity: 1,
-      output: expect.objectContaining({ amount: 1 })
+      queuedAmount: 1,
+      producedAmount: 2,
+      output: expect.objectContaining({ amount: 2 })
     }));
   });
 
@@ -1053,8 +1059,10 @@ describe("production building popup runtime", () => {
     expect(persistProductionJob).toHaveBeenCalledWith("armory:bat", expect.objectContaining({
       status: "running",
       quantity: 1,
+      queuedAmount: 1,
+      producedAmount: 0,
       inputs: { "metal-parts": 2 },
-      output: expect.objectContaining({ amount: 1 }),
+      output: expect.objectContaining({ amount: 0 }),
       durationMs: 1000
     }));
 

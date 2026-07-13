@@ -697,16 +697,16 @@ describe("building detail, production and recipe UI modules", () => {
     }));
   });
 
-  it("shows disabled action reason directly inside the grey action button", () => {
+  it("shows a disabled action reason directly inside the grey action button", () => {
     const document = setupDocument();
     const root = document.createElement("div");
     const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "2:dealers" });
 
     renderBuildingDetailPanel({
       shell,
-      mechanicsType: "street-dealers",
-      title: "Pouliční dealeři",
-      badge: "Distribuce",
+      mechanicsType: "recycling-center",
+      title: "Recyklační centrum",
+      badge: "Obnova materiálu",
       levelLabel: "L1",
       name: "Pouliční dealeři",
       meta: "",
@@ -717,21 +717,88 @@ describe("building detail, production and recipe UI modules", () => {
       showActionsInSinglePanel: true,
       actions: [{
         index: 2,
-        actionId: "street_dealers_move_stash",
-        buildingTypeId: "street_dealers",
-        title: "Přesunout stash",
+        actionId: "extract_losses",
+        buildingTypeId: "recycling_center",
+        title: "Vytěžit ztráty",
         disabled: true,
-        disabledReason: "Potřebuješ biomass x3.",
+        disabledReason: "Nemáš žádné ztráty k vytěžení.",
         disabledTone: "insufficient-funds",
-        cooldownLabel: "Cooldown 10m 00s"
+        cooldownLabel: "Cooldown 16m 00s"
       }]
     });
 
-    const action = shell.querySelector("[data-district-building-detail-action-id='street_dealers_move_stash']");
+    const action = shell.querySelector("[data-district-building-detail-action-id='extract_losses']");
     expect(action.disabled).toBe(true);
     expect(action.dataset.districtBuildingDetailDisabledTone).toBe("insufficient-funds");
     expect(action.querySelector(".building-info-action-row__desc").hidden).toBe(false);
-    expect(action.querySelector(".building-info-action-row__desc").textContent).toBe("Potřebuješ biomass x3.");
+    expect(action.querySelector(".building-info-action-row__desc").textContent).toBe("Nemáš žádné ztráty k vytěžení.");
+  });
+
+  it("renders dynamic Street Dealer slots and submits the selected local sale intent", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const onRunAction = vi.fn();
+    const shell = ensureBuildingDetailPanel(root, { onRunAction }, { popupKey: "2:dealers" });
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "street-dealers",
+      title: "Pouliční dealeři",
+      badge: "Distribuce",
+      levelLabel: "L1",
+      name: "Pouliční dealeři",
+      stats: [],
+      mechanics: [],
+      collect: { visible: false, enabled: false, title: "" },
+      upgrade: { disabled: true, title: "" },
+      showActionsInSinglePanel: true,
+      actions: [{
+        index: 0,
+        actionId: "start_drug_sale",
+        buildingTypeId: "street_dealers",
+        title: "Spustit prodej",
+        disabled: false,
+        dealerSale: {
+          phase: "day",
+          phaseStatusLabel: "DEN: výnos -10 %, heat +30 %, riziko +10 p. b.",
+          slots: [
+            { slotId: "slot-1", label: "Slot 1", locked: false, statusLabel: "Volný" },
+            { slotId: "slot-2", label: "Slot 2", locked: true, statusLabel: "Obsazený" }
+          ],
+          items: [
+            { itemId: "neon-dust", label: "Neon Dust", ownedAmount: 5, maxAmount: 12 },
+            { itemId: "pulse-shot", label: "Pulse Shot", ownedAmount: 2, maxAmount: 10 },
+            { itemId: "velvet-smoke", label: "Velvet Smoke", ownedAmount: 0, maxAmount: 8 }
+          ]
+        }
+      }]
+    });
+
+    const action = shell.querySelector("[data-district-building-detail-action-id='start_drug_sale']");
+    const slot = shell.querySelector("[data-dealer-sale-slot]");
+    const item = shell.querySelector("[data-dealer-sale-item]");
+    const amount = shell.querySelector("[data-dealer-sale-amount]");
+    expect(slot.children).toHaveLength(2);
+    expect(item.children).toHaveLength(3);
+
+    slot.value = "slot-1";
+    item.value = "neon-dust";
+    amount.value = "2";
+    for (const handler of amount.eventListeners.get("input") || []) handler({ target: amount });
+    expect(shell.querySelector(".dealer-sale-action__status").textContent).toContain("DEN: výnos -10 %, heat +30 %");
+    expect(action.disabled).toBe(false);
+    const modalBody = shell.querySelector(".district-building-detail-body");
+    for (const handler of modalBody.eventListeners.get("click") || []) handler({ target: action });
+
+    expect(onRunAction).toHaveBeenCalledTimes(1);
+    const [receivedShell, payload] = onRunAction.mock.calls[0];
+    expect(receivedShell).toBe(shell);
+    expect(payload).toMatchObject({
+      actionId: "start_drug_sale",
+      dealerSlotId: "slot-1",
+      itemId: "neon-dust",
+      amount: 2
+    });
   });
 
   it("keeps action cooldown only in the corner label", () => {

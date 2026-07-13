@@ -1,4 +1,9 @@
 import { createBuildingUpgradeConfirmationController } from "./buildingUpgradeConfirmation.js";
+import {
+  cancelWaitingLocalProduction,
+  normalizeLocalProductionJob,
+  queueLocalProduction
+} from "./localProductionLineState.js";
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
 
 function isButtonElement(element, ButtonCtor) {
@@ -85,11 +90,25 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       return { label: "Připraveno", isActive: false };
     }
 
-    if (job.status === "running") {
+    if (Number(job.producedAmount || 0) > Number(job.localOutputCap || 0)) {
+      return { label: "Překročená kapacita", isActive: true };
+    }
+    if (Number(job.producedAmount || 0) === Number(job.localOutputCap || 0) && Number(job.localOutputCap || 0) > 0) {
+      return { label: "Plná kapacita", isActive: true };
+    }
+    if (job.status === "running" || job.isProducing) {
       return { label: "Výroba", isActive: true };
     }
-
-    return { label: "Hotovo", isActive: true };
+    if (Number(job.queuedAmount || 0) > 0) {
+      return { label: "Čeká", isActive: true };
+    }
+    if (Number(job.producedAmount || 0) > 0) {
+      return { label: "Hotovo", isActive: true };
+    }
+    if (job.status === "ready") {
+      return { label: "Hotovo", isActive: true };
+    }
+    return { label: "Připraveno", isActive: false };
   };
 
   const renderProductionBuildingInfo = ({
@@ -125,7 +144,6 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
   const createProductionCard = (root, buildingName, recipeId, recipeKey, recipe, rerender) => {
     const legacyProductionEnabled = isLegacyLocalProductionEnabled();
-    const job = deps.getProductionJob?.(recipeKey);
     const buildingState = deps.getStoredProductionBuildingState?.(buildingName) || {};
     const ownedBuildingCount = getOwnedProductionBuildingCount(buildingName, buildingState.level);
     const durationMultiplier = deps.getProductionBuildingMultiplier?.(buildingName, buildingState.level) || 1;
@@ -135,29 +153,32 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       : Math.max(1, Math.floor(Number(recipe?.output?.amount || 1)));
     const outputCap = getProductionOutputCap(buildingName, recipe);
     const queueCap = getProductionQueueCap(buildingName, ownedBuildingCount, recipe);
-    const getQueuedOutputAmount = (productionJob = null) => Math.max(0, Math.floor(Number(productionJob?.output?.amount || 0)));
-    const getRemainingOutputSpace = (productionJob = null) => outputCap > 0
-      ? Math.max(0, outputCap - getQueuedOutputAmount(productionJob))
-      : Number.POSITIVE_INFINITY;
+    const jobDefaults = {
+      unitDurationMs: effectiveDurationMs,
+      localOutputCap: outputCap || 99,
+      queueCapacity: queueCap || 99,
+      unitCleanMoneyCost: Math.max(0, Number(recipe?.cleanMoneyCost || 0)),
+      unitInputs: recipe?.inputs || {},
+      output: recipe?.output
+    };
+    const job = normalizeLocalProductionJob(deps.getProductionJob?.(recipeKey), jobDefaults);
     const getRemainingQueueSpace = (productionJob = null) => {
       if (queueCap <= 0) {
         return Number.POSITIVE_INFINITY;
       }
-      const queuedAmount = productionJob?.status === "running" ? getQueuedOutputAmount(productionJob) : 0;
+      const queuedAmount = Math.max(0, Math.floor(Number(productionJob?.queuedAmount || 0)));
       return Math.max(0, queueCap - queuedAmount);
     };
-    const getRunningJobForCapacity = () => {
-      const current = deps.getProductionJob?.(recipeKey);
-      return current?.status === "running" ? current : null;
-    };
+    const getCurrentJob = () => normalizeLocalProductionJob(deps.getProductionJob?.(recipeKey), jobDefaults);
     const inputAmounts = Object.fromEntries(
       Object.keys(recipe?.inputs || {}).map((itemId) => [itemId, deps.getInventoryAmount?.("materials", itemId) || 0])
     );
     const getMaxCapacityBatches = () => {
+      const current = getCurrentJob();
+      if (current && outputCap > 0 && current.producedAmount >= outputCap) return 0;
       return Math.min(
         99,
-        outputCap > 0 ? Math.floor(getRemainingOutputSpace(getRunningJobForCapacity()) / outputUnitAmount) : 99,
-        queueCap > 0 ? Math.floor(getRemainingQueueSpace(getRunningJobForCapacity()) / outputUnitAmount) : 99
+        queueCap > 0 ? Math.floor(getRemainingQueueSpace(current) / outputUnitAmount) : 99
       );
     };
     const getMaxBatches = () => {
@@ -179,6 +200,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       effectiveDurationMs,
       slotState: getProductionSlotState(job),
       outputInventoryAmount: deps.getInventoryAmount?.(recipe?.output?.inventory, recipe?.output?.itemId) || 0,
+      outputInventoryCapacity: deps.getInventoryCapacity?.(recipe?.output?.itemId) || 0,
       outputCap,
       queueCap,
       visual: deps.PRODUCTION_SLOT_VISUALS?.[buildingName]?.[recipeId] || null,
@@ -206,15 +228,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           rerender?.();
           return;
         }
-        let currentJob = deps.getProductionJob?.(recipeKey);
-        if (currentJob?.status === "ready") {
-          deps.applyInventoryOutput?.(currentJob.output);
-          deps.clearProductionJob?.(recipeKey);
-          currentJob = null;
-        } else if (currentJob && currentJob.status !== "running") {
-          rerender?.();
-          return;
-        }
+        const currentJob = getCurrentJob();
 
         const maxBatches = Math.max(0, Math.floor(Number(getMaxBatches() || 0)));
         const requestedBatchCount = Math.max(1, Math.floor(Number(batchCount || 1)));
@@ -235,7 +249,6 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         const safeBatchCount = requestedBatchCount;
 
         const requiredInputs = deps.getScaledProductionInputs?.(recipe?.inputs || {}, safeBatchCount) || {};
-        const durationMs = effectiveDurationMs * safeBatchCount;
         const cleanCost = Math.max(0, Number(recipe?.cleanMoneyCost || 0) * safeBatchCount);
         const economyState = deps.getResolvedEconomyState?.() || {};
         if (!deps.hasEnoughMaterials?.(requiredInputs) || Number(economyState.cleanMoney || 0) < cleanCost) {
@@ -249,10 +262,9 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           return;
         }
 
-        const remainingOutputSpace = getRemainingOutputSpace(currentJob);
         const remainingQueueSpace = getRemainingQueueSpace(currentJob);
         const outputAmount = outputUnitAmount * safeBatchCount;
-        if (outputAmount <= 0 || outputAmount > remainingOutputSpace || outputAmount > remainingQueueSpace) {
+        if (outputAmount <= 0 || outputAmount > remainingQueueSpace || (currentJob && outputCap > 0 && currentJob.producedAmount >= outputCap)) {
           deps.setBuildingActionFeedback?.(
             root,
             "warning",
@@ -264,32 +276,23 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         }
         deps.consumeMaterials?.(requiredInputs);
         if (cleanCost > 0) deps.setStoredEconomyState?.({ ...economyState, cleanMoney: economyState.cleanMoney - cleanCost });
-        const baseReadyAt = currentJob?.status === "running"
-          ? Math.max(Date.now(), new Date(currentJob.readyAt).getTime())
-          : Date.now();
-        const nextDurationMs = Math.max(0, Number(currentJob?.durationMs || 0)) + durationMs;
-        const mergedInputs = {
-          ...(currentJob?.inputs || {})
-        };
-        for (const [itemId, amount] of Object.entries(requiredInputs)) {
-          mergedInputs[itemId] = Math.max(0, Number(mergedInputs[itemId] || 0) + Number(amount || 0));
-        }
-        deps.persistProductionJob?.(recipeKey, {
-          ...(currentJob || {}),
-          status: "running",
-          readyAt: new Date(baseReadyAt + durationMs).toISOString(),
-          output: {
-            ...recipe.output,
-            ...(currentJob?.output || {}),
-            amount: outputCap > 0
-              ? Math.min(outputCap, Math.max(0, Number(currentJob?.output?.amount || 0) + outputAmount))
-              : Math.max(0, Number(currentJob?.output?.amount || 0) + outputAmount)
-          },
-          quantity: Math.max(0, Number(currentJob?.quantity || 0)) + safeBatchCount,
-          inputs: mergedInputs,
-          cleanMoneyCost: Math.max(0, Number(currentJob?.cleanMoneyCost || 0) + cleanCost),
-          durationMs: nextDurationMs
+        const queued = queueLocalProduction(currentJob, {
+          ...jobDefaults,
+          quantity: safeBatchCount,
+          now: Date.now(),
+          unitCleanMoneyCost: Math.max(0, Number(recipe?.cleanMoneyCost || 0)),
+          unitInputs: recipe?.inputs || {}
         });
+        if (!queued.ok) {
+          // This guard can only be reached after a concurrent local update. Restore the debit.
+          for (const [itemId, amount] of Object.entries(requiredInputs)) {
+            deps.setInventoryAmount?.("materials", itemId, Number(deps.getInventoryAmount?.("materials", itemId) || 0) + Number(amount || 0));
+          }
+          if (cleanCost > 0) deps.setStoredEconomyState?.({ ...economyState });
+          rerender?.();
+          return;
+        }
+        deps.persistProductionJob?.(recipeKey, queued.job);
         rerender?.();
         deps.scheduleProductionJob?.(recipeKey, rerender);
       },
@@ -304,31 +307,17 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           rerender?.();
           return;
         }
-        const currentJob = deps.getProductionJob?.(recipeKey);
-        if (!currentJob || currentJob.status !== "running") return rerender?.();
-        const quantity = Math.max(1, Math.floor(Number(currentJob.quantity || 1)));
-        const waitingAmount = Math.max(0, quantity - 1);
-        if (waitingAmount <= 0) return rerender?.();
-        const reservedInputs = currentJob.inputs && typeof currentJob.inputs === "object"
-          ? currentJob.inputs
-          : deps.getScaledProductionInputs?.(recipe?.inputs || {}, quantity) || {};
-        const waitingInputCosts = deps.getScaledProductionInputs?.(recipe?.inputs || {}, waitingAmount) || {};
-        const inputRefunds = Object.fromEntries(Object.entries(waitingInputCosts).map(([itemId, amount]) => [
-          itemId,
-          Math.min(Math.max(0, Number(reservedInputs[itemId] || 0)), Math.max(0, Number(amount || 0)))
-        ]));
-        for (const [itemId, amount] of Object.entries(inputRefunds)) {
+        const currentJob = getCurrentJob();
+        const cancelled = cancelWaitingLocalProduction(currentJob);
+        if (!cancelled.ok) return rerender?.();
+        for (const [itemId, amount] of Object.entries(cancelled.refund.inputs)) {
           const refundAmount = Math.max(0, Number(amount || 0));
           if (refundAmount > 0) {
             deps.setInventoryAmount?.("materials", itemId, Number(deps.getInventoryAmount?.("materials", itemId) || 0) + refundAmount);
           }
         }
 
-        const reservedCleanCost = Math.max(0, Number(currentJob.cleanMoneyCost ?? Number(recipe?.cleanMoneyCost || 0) * quantity));
-        const cleanRefund = Math.min(
-          reservedCleanCost,
-          Math.max(0, Number(recipe?.cleanMoneyCost || 0) * waitingAmount)
-        );
+        const cleanRefund = Math.max(0, Number(cancelled.refund.cleanMoney || 0));
         if (cleanRefund > 0) {
           const economyState = deps.getResolvedEconomyState?.() || {};
           deps.setStoredEconomyState?.({
@@ -337,23 +326,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           });
           deps.applyTopbarEconomy?.(root);
         }
-        const now = Date.now();
-        const currentReadyAt = new Date(currentJob.readyAt || 0).getTime();
-        deps.persistProductionJob?.(recipeKey, {
-          ...currentJob,
-          quantity: 1,
-          output: { ...currentJob.output, amount: outputUnitAmount },
-          inputs: Object.fromEntries(Object.entries(reservedInputs).map(([itemId, amount]) => [
-            itemId,
-            Math.max(0, Number(amount || 0) - Number(inputRefunds[itemId] || 0))
-          ])),
-          cleanMoneyCost: Math.max(0, reservedCleanCost - cleanRefund),
-          durationMs: effectiveDurationMs,
-          readyAt: new Date(Math.min(
-            Number.isFinite(currentReadyAt) && currentReadyAt > now ? currentReadyAt : now + effectiveDurationMs,
-            now + effectiveDurationMs
-          )).toISOString()
-        });
+        deps.persistProductionJob?.(recipeKey, cancelled.job);
         rerender?.();
       },
       onCollect: () => {
@@ -757,6 +730,12 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       }
     });
 
+    documentRef?.addEventListener?.("empire:production-state-change", () => {
+      if (isLegacyLocalProductionEnabled() && !popup.hidden) {
+        renderDashboard();
+      }
+    });
+
     for (const button of tabButtons) {
       button.addEventListener("click", () => {
         const tabName = String(button.dataset.productionBuildingTab || "").split(":")[1] || "stats";
@@ -829,9 +808,23 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         renderDashboard();
 
         if (collected.total <= 0) {
-          deps.setBuildingActionFeedback?.(root, "warning", config?.label || "Budova", "Není nic hotového k vyzvednutí.");
+          deps.setBuildingActionFeedback?.(
+            root,
+            "warning",
+            config?.label || "Budova",
+            collected.remaining > 0 ? "Ve SKLADU není dost místa." : "Není nic hotového k vyzvednutí."
+          );
           return;
         }
+
+        deps.setBuildingActionFeedback?.(
+          root,
+          collected.partial ? "warning" : "success",
+          config?.label || "Budova",
+          collected.partial
+            ? `Do SKLADU se vešla pouze část produkce. Zbytek zůstal v ${buildingName === "druglab" ? "Labu" : buildingName === "armory" ? "Zbrojovce" : "Lékárně"}.`
+            : "Hotová produkce byla přesunuta do SKLADU."
+        );
 
         deps.appendBuildingActionResultEntry?.(root, "police", deps.createStorageCollectResultPayload?.({
           buildingLabel: config?.label || "Budova",

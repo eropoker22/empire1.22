@@ -1,4 +1,5 @@
 import { renderRecipeCard, renderRecipeList } from "./recipePanel.js";
+import { bindSharedCountdown } from "./sharedCountdownTicker.js";
 
 function getDocument(scopeElement = null) {
   return scopeElement?.ownerDocument || (typeof document !== "undefined" ? document : null);
@@ -76,7 +77,7 @@ function formatFactorySlotTime(slotView = {}, options = {}) {
   const slotCap = Math.max(0, Number(slotView.slotOutputCap ?? slot.slotCap ?? slotView.slotStorageCap ?? slot.slotStorageCap ?? 0));
   const producedAmount = Math.max(0, Number(slot.producedAmount || 0));
   if (slotCap > 0 && producedAmount >= slotCap) {
-    return "plné";
+    return slotView.secondaryLine || formatDuration(slotView.durationMs, options);
   }
 
   const durationMs = getPositiveDurationMs(slotView.durationMs, slot.durationMs, parseDurationLabelMs(slotView.secondaryLine));
@@ -89,20 +90,7 @@ function formatFactorySlotTime(slotView = {}, options = {}) {
 }
 
 function bindFactoryMetricCountdown(valueElement, getValue, options = {}) {
-  if (!valueElement || Number.isFinite(Number(options.now))) {
-    return;
-  }
-  const timerApi = typeof window !== "undefined" ? window : null;
-  if (typeof timerApi?.setInterval !== "function" || typeof timerApi?.clearInterval !== "function") {
-    return;
-  }
-  const intervalId = timerApi.setInterval(() => {
-    if (valueElement.isConnected === false) {
-      timerApi.clearInterval(intervalId);
-      return;
-    }
-    valueElement.textContent = getValue();
-  }, 1000);
+  bindSharedCountdown(valueElement, getValue, options);
 }
 
 function createInfoLine(scopeElement, label, value) {
@@ -398,7 +386,15 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
   title.textContent = slotView.title || slot.resourceKey || "";
   status.textContent = serverLine
     ? getFactoryServerStatusLabel(serverLine.status)
-    : slot.isProducing ? "Aktivní" : "Pauza";
+    : slot.isProducing
+      ? "Výroba"
+      : Number(slot.producedAmount || 0) > Number(slot.slotCap || slotView.slotOutputCap || 0) && Number(slot.slotCap || slotView.slotOutputCap || 0) > 0
+        ? "Překročená kapacita"
+        : Number(slot.producedAmount || 0) === Number(slot.slotCap || slotView.slotOutputCap || 0) && Number(slot.slotCap || slotView.slotOutputCap || 0) > 0
+          ? "Plná kapacita"
+          : Number(slot.queuedAmount || 0) > 0
+            ? "Čeká"
+            : Number(slot.producedAmount || 0) > 0 ? "Hotovo" : "Připraveno";
   if (slotView.typeLabel) {
     labelWrap.append(eyebrow);
   }

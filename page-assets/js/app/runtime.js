@@ -802,6 +802,11 @@ import {
 import { createPhaseToggleRuntime } from "./runtime/phaseToggleRuntime.js";
 import { createProductionBuildingPopupRuntime } from "./runtime/productionBuildingPopupRuntime.js";
 import { createFactoryPopupRuntime } from "./runtime/factoryPopupRuntime.js";
+import {
+  advanceLocalProductionJob,
+  collectLocalProduction,
+  normalizeLocalProductionJob
+} from "./runtime/localProductionLineState.js";
 import { createBuildingUpgradeConfirmationController } from "./runtime/buildingUpgradeConfirmation.js";
 import { createResultModalRuntime } from "./runtime/resultModalRuntime.js";
 import { createMarketPopupRuntime } from "./runtime/marketPopupRuntime.js";
@@ -4341,6 +4346,35 @@ function applyInventoryOutput(output) {
   }
 }
 
+function normalizeStorageResourceKey(itemId) {
+  return ({
+    metalParts: "metal-parts",
+    techCore: "tech-core",
+    combatModule: "combat-module"
+  })[itemId] || String(itemId || "").trim();
+}
+
+function getInventoryCapacity(itemId) {
+  const canonicalKey = normalizeStorageResourceKey(itemId);
+  const summary = getGameplayStorageSummary();
+  for (const group of summary?.groups || []) {
+    const item = (group.items || []).find((entry) => entry.resourceKey === canonicalKey);
+    if (item) return Math.max(0, Math.floor(Number(item.maxAmount || 0)));
+  }
+  return 0;
+}
+
+function getReceivableInventoryOutputAmount(output, requestedAmount = output?.amount) {
+  if (!output?.itemId) return 0;
+  const capacity = getInventoryCapacity(output.itemId);
+  if (capacity <= 0) return 0;
+  const currentAmount = Math.max(0, Math.floor(Number(getInventoryAmount(output.inventory, output.itemId) || 0)));
+  return Math.max(0, Math.min(
+    Math.max(0, Math.floor(Number(requestedAmount || 0))),
+    capacity - currentAmount
+  ));
+}
+
 function hasEnoughMaterials(inputs = {}) {
   return Object.entries(inputs).every(([itemId, amount]) => getInventoryAmount("materials", itemId) >= amount);
 }
@@ -4361,18 +4395,45 @@ function syncCompletedProductionJobs() {
   let hasChanges = false;
 
   for (const [jobId, job] of Object.entries(productionState)) {
-    if (job?.status === "running" && new Date(job.readyAt).getTime() <= Date.now()) {
-      productionState[jobId] = {
-        ...job,
-        status: "ready"
-      };
+    const result = advanceLocalProductionJob(job, Date.now());
+    if (result.changed && result.job) {
+      productionState[jobId] = result.job;
       hasChanges = true;
     }
   }
 
   if (hasChanges) {
     setStoredProductionState(productionState);
+    document?.dispatchEvent?.(new CustomEvent("empire:production-state-change", {
+      detail: { source: "local-production-jobs" }
+    }));
   }
+}
+
+function advanceLocalProductionJobForE2e(jobId, unitCount = 1) {
+  if (typeof window === "undefined" || window.__EMPIRE_E2E__ !== true) return false;
+  const count = Math.max(1, Math.floor(Number(unitCount || 1)));
+  for (let index = 0; index < count; index += 1) {
+    const job = normalizeLocalProductionJob(getProductionJob(jobId));
+    if (!job?.isProducing || Number(job.queuedAmount || 0) <= 0) break;
+    persistProductionJob(jobId, { ...job, readyAtMs: Date.now() - 1 });
+    syncCompletedProductionJobs();
+  }
+  return true;
+}
+
+function advanceFactoryProductionForE2e(resourceKey, elapsedMs = 20 * 60 * 1000) {
+  if (typeof window === "undefined" || window.__EMPIRE_E2E__ !== true) return false;
+  const factoryState = getStoredFactoryState();
+  const targetSlot = factoryState.slots.find((slot) => slot.resourceKey === resourceKey);
+  if (!targetSlot) return false;
+  targetSlot.lastTick = Date.now() - Math.max(1_000, Math.floor(Number(elapsedMs || 0)));
+  const result = syncFactoryProduction(factoryState, Date.now());
+  setStoredFactoryState(result.state);
+  document.dispatchEvent(new CustomEvent("empire:production-state-change", {
+    detail: { source: "local-factory-e2e-clock" }
+  }));
+  return true;
 }
 
 function scheduleProductionJob(jobId, rerender) {
@@ -4386,27 +4447,31 @@ function scheduleProductionJob(jobId, rerender) {
     productionTimers.delete(jobId);
   }
 
-  const job = getProductionJob(jobId);
+  const job = normalizeLocalProductionJob(getProductionJob(jobId));
 
-  if (!job || job.status !== "running") {
+  if (!job || !job.isProducing || !job.readyAtMs) {
     return;
   }
 
-  const remainingMs = new Date(job.readyAt).getTime() - Date.now();
+  const remainingMs = job.readyAtMs - Date.now();
 
   if (remainingMs <= 0) {
-    persistProductionJob(jobId, { ...job, status: "ready" });
+    const result = advanceLocalProductionJob(job, Date.now());
+    if (result.job) persistProductionJob(jobId, result.job);
     rerender();
+    if (result.job?.isProducing) scheduleProductionJob(jobId, rerender);
     return;
   }
 
   const timerId = window.setTimeout(() => {
     productionTimers.delete(jobId);
-    const currentJob = getProductionJob(jobId);
+    const currentJob = normalizeLocalProductionJob(getProductionJob(jobId));
 
-    if (currentJob?.status === "running") {
-      persistProductionJob(jobId, { ...currentJob, status: "ready" });
+    if (currentJob?.isProducing) {
+      const result = advanceLocalProductionJob(currentJob, Date.now());
+      if (result.job) persistProductionJob(jobId, result.job);
       rerender();
+      if (result.job?.isProducing) scheduleProductionJob(jobId, rerender);
     }
   }, remainingMs);
 
@@ -4420,7 +4485,7 @@ function scheduleStoredProductionJobs(root = getDefaultRuntimeRoot()) {
   const rerender = () => refreshAllUi(hydrateInitialState(root));
 
   for (const [jobId, job] of Object.entries(productionState)) {
-    if (job?.status === "running") {
+    if (normalizeLocalProductionJob(job)?.isProducing) {
       scheduleProductionJob(jobId, rerender);
     }
   }
@@ -4467,31 +4532,45 @@ function getProductionBuildingUpgradeCost(buildingName, nextLevel = 2) {
 
 function getProductionBuildingReadyCount(buildingName, recipes) {
   return Object.keys(recipes || {}).reduce((total, recipeId) => {
-    const job = getProductionJob(`${buildingName}:${recipeId}`);
-    return total + (job?.status === "ready" ? 1 : 0);
+    const job = normalizeLocalProductionJob(getProductionJob(`${buildingName}:${recipeId}`));
+    return total + (Number(job?.producedAmount || 0) > 0 ? 1 : 0);
   }, 0);
 }
 
 function collectReadyProductionForBuilding(buildingName, recipes) {
   let collected = 0;
+  let remaining = 0;
   const items = [];
 
   for (const recipeId of Object.keys(recipes || {})) {
     const jobKey = `${buildingName}:${recipeId}`;
-    const job = getProductionJob(jobKey);
+    const job = normalizeLocalProductionJob(getProductionJob(jobKey));
 
-    if (!job || job.status !== "ready") {
+    if (!job || job.producedAmount <= 0) {
       continue;
     }
 
-    applyInventoryOutput(job.output);
-    clearProductionJob(jobKey);
-    const amount = Math.max(0, Number(job.output?.amount || 0));
-    collected += amount;
-    items.push({ label: getProductionResourceLabel(job.output?.itemId), amount });
+    const receivableAmount = getReceivableInventoryOutputAmount(job.output, job.producedAmount);
+    const result = collectLocalProduction(job, receivableAmount, Date.now());
+    if (result.collectedAmount <= 0) {
+      remaining += result.remainingAmount;
+      continue;
+    }
+    applyInventoryOutput({ ...job.output, amount: result.collectedAmount });
+    if (result.job?.queuedAmount > 0 || result.job?.producedAmount > 0) {
+      persistProductionJob(jobKey, result.job);
+      if (result.job.isProducing) {
+        scheduleProductionJob(jobKey, () => refreshAllUi(hydrateInitialState(getDefaultRuntimeRoot())));
+      }
+    } else {
+      clearProductionJob(jobKey);
+    }
+    collected += result.collectedAmount;
+    remaining += result.remainingAmount;
+    items.push({ label: getProductionResourceLabel(job.output?.itemId), amount: result.collectedAmount });
   }
 
-  return { total: collected, items };
+  return { total: collected, remaining, partial: remaining > 0, items };
 }
 
 const {
@@ -4534,6 +4613,7 @@ const {
   formatCurrency,
   formatDurationLabel,
   getInventoryAmount,
+  getInventoryCapacity,
   getProductionBuildingEffectsLabel,
   getProductionBuildingMultiplier,
   getProductionBuildingReadyCount,
@@ -4590,6 +4670,7 @@ function collectFactoryOutputsToSupplies() {
   const nextState = syncResult.state;
   const nextSupplies = getStoredFactorySupplies();
   let collected = 0;
+  let remaining = 0;
   const items = [];
 
   for (const slot of nextState.slots || []) {
@@ -4599,16 +4680,29 @@ function collectFactoryOutputsToSupplies() {
       continue;
     }
 
-    nextSupplies[slot.resourceKey] = Math.max(0, Math.floor(Number(nextSupplies[slot.resourceKey] || 0) + amount));
-    nextState.resources[slot.resourceKey] = Math.max(0, Math.floor(Number(nextState.resources[slot.resourceKey] || 0) - amount));
-    slot.producedAmount = 0;
-    collected += amount;
-    items.push({ label: FACTORY_SLOT_CONFIG.find((entry) => entry.resourceKey === slot.resourceKey)?.label || getProductionResourceLabel(slot.resourceKey), amount });
+    const acceptedAmount = getReceivableInventoryOutputAmount({
+      inventory: "materials",
+      itemId: slot.resourceKey,
+      amount
+    }, amount);
+    if (acceptedAmount > 0) {
+      nextSupplies[slot.resourceKey] = Math.max(0, Math.floor(Number(nextSupplies[slot.resourceKey] || 0) + acceptedAmount));
+      nextState.resources[slot.resourceKey] = Math.max(0, Math.floor(Number(nextState.resources[slot.resourceKey] || 0) - acceptedAmount));
+      slot.producedAmount = Math.max(0, amount - acceptedAmount);
+      collected += acceptedAmount;
+      items.push({ label: FACTORY_SLOT_CONFIG.find((entry) => entry.resourceKey === slot.resourceKey)?.label || getProductionResourceLabel(slot.resourceKey), amount: acceptedAmount });
+    }
+    remaining += Math.max(0, amount - acceptedAmount);
+    if (slot.queuedAmount > 0 && slot.producedAmount < slot.slotCap) {
+      slot.isProducing = true;
+      slot.lastTick = Date.now();
+      slot.productionRemainder = 0;
+    }
   }
 
   setStoredFactoryState(nextState);
   setStoredFactorySupplies(nextSupplies);
-  return { total: collected, items };
+  return { total: collected, remaining, partial: remaining > 0, items };
 }
 
 function getProductionResourceLabel(itemId) {
@@ -4771,7 +4865,7 @@ function createFactoryCapacityOptions(options = {}) {
 }
 
 function getGameplayStorageSummary() {
-  const serverSummary = getServerStorageSummary();
+  const serverSummary = isLocalDemoGameplayExecutionMode() ? null : getServerStorageSummary();
   if (serverSummary) return serverSummary;
   const ownedWarehouseCount = getOwnedWarehouseCount();
   const network = getWarehouseNetworkMultipliers(ownedWarehouseCount);
@@ -13849,7 +13943,13 @@ function initCompatibilityGlobals(options = {}) {
     showError,
     showWarning,
     showInfo,
-    clearNotifications
+    clearNotifications,
+    ...(typeof window !== "undefined" && window.__EMPIRE_E2E__ === true
+      ? {
+          advanceLocalProductionJobForE2e,
+          advanceFactoryProductionForE2e
+        }
+      : {})
   }, {
     notifications: {
       showToast,

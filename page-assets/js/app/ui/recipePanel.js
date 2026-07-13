@@ -36,10 +36,11 @@ function getRunningJobCountdownMs(job = null, unitDurationMs = 1000, options = {
   }
 
   const unitMs = Math.max(1000, Number(unitDurationMs || job.durationMs || 1000));
-  const totalDurationMs = Math.max(unitMs, Number(job.durationMs || unitMs));
-  const readyAtMs = new Date(job.readyAt || 0).getTime();
+  const readyAtMs = Number.isFinite(Number(job.readyAtMs))
+    ? Number(job.readyAtMs)
+    : new Date(job.readyAt || 0).getTime();
   if (!Number.isFinite(readyAtMs) || readyAtMs <= 0) {
-    return Math.min(unitMs, totalDurationMs);
+    return unitMs;
   }
 
   const remainingTotalMs = Math.max(0, readyAtMs - getCurrentTimeMs(options));
@@ -47,11 +48,16 @@ function getRunningJobCountdownMs(job = null, unitDurationMs = 1000, options = {
     return 0;
   }
 
-  const startedAtMs = readyAtMs - totalDurationMs;
-  const elapsedMs = Math.max(0, getCurrentTimeMs(options) - startedAtMs);
-  const elapsedInUnitMs = elapsedMs % unitMs;
-  const remainingUnitMs = elapsedInUnitMs > 0 ? unitMs - elapsedInUnitMs : unitMs;
-  return Math.min(remainingTotalMs, remainingUnitMs);
+  if (!Number.isFinite(Number(job.readyAtMs)) && !Number.isFinite(Number(job.unitDurationMs))) {
+    const totalDurationMs = Math.max(unitMs, Number(job.durationMs || unitMs));
+    const startedAtMs = readyAtMs - totalDurationMs;
+    const elapsedMs = Math.max(0, getCurrentTimeMs(options) - startedAtMs);
+    const elapsedInUnitMs = elapsedMs % unitMs;
+    const remainingUnitMs = elapsedInUnitMs > 0 ? unitMs - elapsedInUnitMs : unitMs;
+    return Math.min(remainingTotalMs, remainingUnitMs);
+  }
+
+  return Math.min(remainingTotalMs, unitMs);
 }
 
 function formatRecipeSlotTime(job = null, effectiveDurationMs = 1000, selectedBatches = 1, options = {}) {
@@ -63,20 +69,11 @@ function formatRecipeSlotTime(job = null, effectiveDurationMs = 1000, selectedBa
 }
 
 function bindMetricCountdown(metric, getValue, options = {}) {
-  if (!metric || Number.isFinite(Number(options.now))) {
-    return;
-  }
-  const timerApi = typeof window !== "undefined" ? window : null;
-  if (typeof timerApi?.setInterval !== "function" || typeof timerApi?.clearInterval !== "function") {
-    return;
-  }
-  const intervalId = timerApi.setInterval(() => {
-    if (metric.isConnected === false) {
-      timerApi.clearInterval(intervalId);
-      return;
-    }
-    setMetricValue(metric, getValue());
-  }, 1000);
+  bindSharedCountdown(metric, getValue, { ...options, render: (value) => setMetricValue(metric, value) });
+}
+
+export function getRecipeCountdownDiagnostics() {
+  return getSharedCountdownDiagnostics();
 }
 
 function formatMoney(value, options = {}) {
@@ -117,6 +114,11 @@ function getRecipeOutputAmount(recipe = {}) {
 
 function getQueuedOutputAmount(job = null, recipe = {}, options = {}) {
   if (!job) return 0;
+  const queuedAmount = Number(job.queuedAmount);
+  if (Number.isFinite(queuedAmount) && queuedAmount >= 0) {
+    return Math.floor(queuedAmount);
+  }
+  if (job.status === "ready") return 0;
   if (options.useQuantityAsOutput) {
     const quantity = Number(job.quantity);
     if (Number.isFinite(quantity) && quantity > 0) {
@@ -132,25 +134,23 @@ function getQueuedOutputAmount(job = null, recipe = {}, options = {}) {
 
 function formatQueuedOutput(job = null, recipe = {}, options = {}) {
   const queueCap = Math.max(0, Math.floor(Number(options.queueCap || options.outputCap || 0)));
-  if (job?.status === "ready") {
-    return queueCap > 0 ? `0/${queueCap} ks` : "0 ks";
-  }
   const queuedAmount = getQueuedOutputAmount(job, recipe, options);
   return queueCap > 0 ? `${queuedAmount}/${queueCap} ks` : `${queuedAmount} ks`;
 }
 
 function formatReadyOutput(job = null, recipe = {}, options = {}) {
-  return job?.status === "ready"
-    ? `${getQueuedOutputAmount(job, recipe, options)} ks`
-    : "0 ks";
+  const producedAmount = Number(job?.producedAmount);
+  if (Number.isFinite(producedAmount) && producedAmount >= 0) return `${Math.floor(producedAmount)} ks`;
+  return job?.status === "ready" ? `${getQueuedOutputAmount(job, recipe, options)} ks` : "0 ks";
 }
 
 function formatCapacityOutput(job = null, recipe = {}, options = {}) {
   const outputCap = Math.max(0, Math.floor(Number(options.outputCap || 0)));
-  const readyAmount = job?.status === "ready"
-    ? getQueuedOutputAmount(job, recipe, options)
-    : 0;
-  return outputCap > 0 ? `${Math.min(outputCap, readyAmount)}/${outputCap} ks` : `${readyAmount} ks`;
+  const producedAmount = Number(job?.producedAmount);
+  const readyAmount = Number.isFinite(producedAmount) && producedAmount >= 0
+    ? Math.floor(producedAmount)
+    : job?.status === "ready" ? Math.max(0, Math.floor(Number(job?.output?.amount || 0))) : 0;
+  return outputCap > 0 ? `${readyAmount}/${outputCap} ks` : `${readyAmount} ks`;
 }
 
 function createMetricBlock(scopeElement, { label, value, inline = false } = {}) {
@@ -437,6 +437,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
   const slotState = viewModel.slotState || getSlotState(job);
   const effectiveDurationMs = Math.max(1000, Number(viewModel.effectiveDurationMs || recipe.durationMs || 1000));
   const outputInventoryAmount = Math.max(0, Number(viewModel.outputInventoryAmount || 0));
+  const outputInventoryCapacity = Math.max(0, Number(viewModel.outputInventoryCapacity || 0));
   const card = createElement(options.mount, "article");
   const startButton = createElement(options.mount, "button");
   const collectButton = createElement(options.mount, "button");
@@ -518,7 +519,13 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
         value: formatCapacityOutput(job, recipe, { outputCap: viewModel.outputCap })
       }),
       timeMetric,
-      createMetricBlock(options.mount, { label: "Ve skladu", value: `${outputInventoryAmount} ks`, inline: true }),
+      createMetricBlock(options.mount, {
+        label: "Ve skladu",
+        value: outputInventoryCapacity > 0
+          ? `${outputInventoryAmount}/${outputInventoryCapacity} ks`
+          : `${outputInventoryAmount} ks`,
+        inline: true
+      }),
       queueMetric
     ]);
     if (isArmory) {
@@ -576,9 +583,11 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
   collectButton.type = "button";
   if (buildingName === "druglab" || buildingName === "pharmacy" || buildingName === "armory") {
     collectButton.textContent = "Zrušit";
-    const waitingAmount = job?.status === "running"
-      ? Math.max(0, Math.floor(Number(job.quantity || 1)) - 1)
-      : 0;
+    const activeAmount = job?.isProducing || job?.status === "running" ? 1 : 0;
+    const legacyReady = job?.status === "ready" && !Object.prototype.hasOwnProperty.call(job || {}, "queuedAmount");
+    const waitingAmount = legacyReady
+      ? 0
+      : Math.max(0, Math.floor(Number(job?.queuedAmount ?? job?.quantity ?? 0)) - activeAmount);
     collectButton.disabled = waitingAmount <= 0;
     collectButton.title = "Zrušit čekající kusy a vrátit jejich náklady";
     collectButton.setAttribute("aria-label", `Zrušit čekající výrobu ${recipe.name || ""}`);
@@ -626,3 +635,4 @@ if (typeof window !== "undefined") {
 }
 import { renderServerPharmacyRecipeCard } from "./serverPharmacyRecipeCard.js";
 import { renderServerDrugLabRecipeCard } from "./serverDrugLabRecipeCard.js";
+import { bindSharedCountdown, getSharedCountdownDiagnostics } from "./sharedCountdownTicker.js";

@@ -98,6 +98,34 @@ export function createFactoryPopupRuntime(deps = {}) {
       variant: "factory"
     });
     let lastServerFactory = null;
+    let localCompletionTimer = null;
+
+    const clearLocalCompletionTimer = () => {
+      if (localCompletionTimer === null) return;
+      (popup.ownerDocument?.defaultView || globalThis).clearTimeout?.(localCompletionTimer);
+      localCompletionTimer = null;
+    };
+
+    const scheduleLocalCompletionRefresh = (dashboardViewModel = {}) => {
+      clearLocalCompletionTimer();
+      if (!isLegacyLocalProductionEnabled() || popup.hidden) return;
+      const now = Date.now();
+      const waits = (dashboardViewModel.slots || []).map((slotView) => {
+        const slot = slotView.slot || {};
+        if (!slot.isProducing || Number(slot.queuedAmount || 0) <= 0) return null;
+        const durationMs = Math.max(1_000, Number(slotView.durationMs || 0));
+        const elapsedMs = Math.max(0, now - Number(slot.lastTick || now));
+        const progress = Math.max(0, Number(slot.productionRemainder || 0)) + elapsedMs / durationMs;
+        const cycleProgress = progress - Math.floor(progress);
+        return Math.max(20, Math.ceil(durationMs * (cycleProgress > 0 ? 1 - cycleProgress : 1)));
+      }).filter(Number.isFinite);
+      if (waits.length <= 0) return;
+      const timerApi = popup.ownerDocument?.defaultView || globalThis;
+      localCompletionTimer = timerApi.setTimeout?.(() => {
+        localCompletionTimer = null;
+        if (!popup.hidden) renderFactoryDashboard();
+      }, Math.min(...waits)) ?? null;
+    };
 
     const getAuthoritativeFactory = () => {
       if (isLegacyLocalProductionEnabled()) {
@@ -347,6 +375,7 @@ export function createFactoryPopupRuntime(deps = {}) {
         onPauseSlot: (slotView) => cancelFactorySlotProduction(slotView.slot?.id),
         onStartSlot: (slotView, payload) => queueFactorySlotProduction(slotView, payload?.batchCount || 1)
       });
+      scheduleLocalCompletionRefresh(dashboardViewModel);
       if (!isLegacyLocalProductionEnabled() && collectButton) {
         collectButton.disabled = true;
         collectButton.title = productionBridgeMessage;
@@ -374,9 +403,9 @@ export function createFactoryPopupRuntime(deps = {}) {
 
     const openPopup = () => {
       setActiveTab("stats");
-      renderFactoryDashboard();
       openOverlay(popup, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
       popup.hidden = false;
+      renderFactoryDashboard();
       deps.syncBuildingDetailTopbarVisibility?.(root);
       refreshAuthoritativeFactory();
     };
@@ -387,7 +416,14 @@ export function createFactoryPopupRuntime(deps = {}) {
       }
     });
 
+    documentRef?.addEventListener?.("empire:production-state-change", () => {
+      if (isLegacyLocalProductionEnabled() && !popup.hidden) {
+        renderFactoryDashboard();
+      }
+    });
+
     const closePopup = () => {
+      clearLocalCompletionTimer();
       upgradeConfirmation.close?.();
       popup.hidden = true;
       closeOverlay(popup, { restoreFocus: false });
@@ -433,9 +469,23 @@ export function createFactoryPopupRuntime(deps = {}) {
       renderFactoryDashboard();
 
       if (collected.total <= 0) {
-        deps.setBuildingActionFeedback?.(root, "warning", "Továrna", "Není nic hotového k vyzvednutí.");
+        deps.setBuildingActionFeedback?.(
+          root,
+          "warning",
+          "Továrna",
+          collected.remaining > 0 ? "Ve SKLADU není dost místa." : "Není nic hotového k vyzvednutí."
+        );
         return;
       }
+
+      deps.setBuildingActionFeedback?.(
+        root,
+        collected.partial ? "warning" : "success",
+        "Továrna",
+        collected.partial
+          ? "Do SKLADU se vešla pouze část produkce. Zbytek zůstal v Továrně."
+          : "Hotová produkce byla přesunuta do SKLADU."
+      );
 
       deps.appendBuildingActionResultEntry?.(root, "police", deps.createStorageCollectResultPayload?.({
         buildingLabel: "Továrna",

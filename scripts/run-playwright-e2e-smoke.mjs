@@ -10,7 +10,7 @@ const requestedSpecs = cliArgs.filter((arg) => arg !== "--all");
 const HEALTH_TIMEOUT_MS = readPositiveIntegerEnv("PLAYWRIGHT_E2E_HEALTH_TIMEOUT_MS", 240_000);
 const PLAYWRIGHT_TIMEOUT_MS = readPositiveIntegerEnv(
   "PLAYWRIGHT_E2E_TIMEOUT_MS",
-  runAllSpecs ? 900_000 : 420_000
+  runAllSpecs ? 900_000 : 600_000
 );
 const HEALTH_LOG_INTERVAL_MS = 15_000;
 const PROCESS_KILL_GRACE_MS = 10_000;
@@ -19,7 +19,8 @@ const defaultSpecs = [
   "tests/e2e/login-smoke.spec.js",
   "tests/e2e/onboarding-smoke.spec.js",
   "tests/e2e/entry-flow.spec.js",
-  "tests/e2e/game-flow.spec.js"
+  "tests/e2e/game-flow.spec.js",
+  "tests/e2e/local-demo-production-chain.spec.js"
 ];
 const specs = runAllSpecs ? [] : requestedSpecs.length ? requestedSpecs : defaultSpecs;
 
